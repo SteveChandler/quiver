@@ -1,0 +1,906 @@
+{
+  "san-antonio-del-mar-north-tijuana": {
+    "seo_title": "San Antonio del Mar Surf Report: Tijuana Beach Break",
+    "seo_description": "Surf forecast for San Antonio del Mar, the first real beach break south of the border in Tijuana. Swell, wind, tide and rip current notes.",
+    "description": "San Antonio del Mar is the stretch of sand just south of the border on the Tijuana side, below the bluffs of the San Antonio neighborhood. It is an open beach break that takes swell from the west and northwest, and like most of this coast it is at its best in the morning before the sea breeze arrives. Rip currents form between the sandbars, and the water here is affected by the same runoff problems as the rest of the border region.",
+    "wave_tips": "Look for a west to northwest swell and light east or northeast wind. The banks shift, so walk the beach and pick the peak that is actually holding shape instead of the one closest to the stairs.",
+    "access_tips": "Access runs through residential streets off the free road and toll road near the San Antonio exit. Parking and beach access points change, so do not leave anything visible in the car.",
+    "best_conditions_prose": "Best on a clean west or northwest swell with a light offshore morning, especially outside the rainy season."
+  },
+  "baja-malibu": {
+    "seo_title": "Baja Malibu Surf Report: Heavy Beach Break Near Rosarito",
+    "seo_description": "Baja Malibu surf forecast. A powerful beach break off the toll road north of Rosarito. Check swell, wind, tide and water quality before you go.",
+    "description": "Baja Malibu is the beach break most San Diego surfers mean when they say the border beaches get heavy. It sits below the toll road north of Rosarito, and the sandbars here can turn a solid swell into thick, hollow peaks that break boards. It is not a mellow wave on a good day. Water quality is the other story: sewage from the Tijuana area reaches this coast, and surfing here in the days after rain is a bad idea.",
+    "wave_tips": "Winter northwest swell and combination swells with some south in them tend to produce the best shape. Early mornings with east or northeast wind are the window; mid tide is usually the easiest read.",
+    "access_tips": "Take the San Antonio exit on the toll road. The streets down to the beach run through a private community, so access and parking can change. Lock the car and leave nothing in sight.",
+    "best_conditions_prose": "Best on a solid northwest or combination swell with offshore morning wind and several dry days behind it."
+  },
+  "marisol": {
+    "seo_title": "Marisol Surf Report: Rosarito Point Break Forecast",
+    "seo_description": "Surf forecast for Marisol, a point setup at the north end of Rosarito. Live swell, wind and tide, plus notes on the rocky entry.",
+    "description": "Marisol is a rocky point at the north end of Rosarito, just below the San Antonio area. It is a less-visited alternative to the town beach and needs the swell to line up along the rocks to produce a proper wall. The bottom is rock, so entry and exit take some care, especially at lower tides.",
+    "wave_tips": "Watch for a west to northwest swell with light east wind. If the point is only producing short sections, the town beach to the south may be the better call.",
+    "access_tips": "Access is through the Marisol area at the north end of Rosarito. Shoreline access and parking are not guaranteed, so check locally and secure the car.",
+    "best_conditions_prose": "Best when a west or northwest swell wraps along the rocks on a calm morning."
+  },
+  "marisol-north-point": {
+    "seo_title": "Marisol North Point Surf Report: North Rosarito Rocks",
+    "seo_description": "Marisol North Point surf forecast for the rocky point at the north end of Rosarito. Swell, wind and tide, plus rock and rip current notes.",
+    "description": "Marisol North Point is the northern of the two rocky setups at Marisol, at the top end of Rosarito. It is a rock-bottom wave for surfers who are comfortable reading a shallow lineup and timing their entry. Currents can run along the point when the swell is up.",
+    "wave_tips": "Treat this as a spot you check in person. The rocks and the current matter more than the exact tide, so watch a few sets before you paddle out.",
+    "access_tips": "Reach it through the Marisol area at the north end of Rosarito. Access and parking are informal and can change.",
+    "best_conditions_prose": "Best on a clean swell with light wind, surfed by people comfortable over rock."
+  },
+  "rosarito": {
+    "seo_title": "Rosarito Surf Report: Pier and Town Beach Forecast",
+    "seo_description": "Rosarito surf forecast for the town beach and pier. Wave height, swell, wind and tide for Playas de Rosarito, plus water quality notes.",
+    "description": "Rosarito's town beach runs for several kilometers in front of the hotels, and the sandbars around the pier are where most people surf. It is an easy, walk-up beach break that handles small to medium swell well and closes out when it gets big. Beginners can find softer reform waves on the inside. The downside is water quality: the town beach is known for poor water after rain, and petty theft from cars is common.",
+    "wave_tips": "Combination swells and mid-size northwest swell usually give the best banks. Check the peaks on either side of the pier and go early, before the wind turns onshore.",
+    "access_tips": "Easy access from Boulevard Benito Juárez with parking along the beach. Lock the car and do not leave valuables in it.",
+    "best_conditions_prose": "Best on small to mid-size swell with an offshore morning and clean water after a dry spell."
+  },
+  "renes": {
+    "seo_title": "Renes Surf Report: Popotla Beach Break Forecast",
+    "seo_description": "Surf forecast for Renes near Popotla, south of Rosarito. Swell direction, wind, tide and notes on the rocky shoreline.",
+    "description": "Renes is a beach break near Popotla, the fishing village just south of Rosarito. The sand is broken up by rocks along the shore, so the takeoff and paddle-out need a quick look before you go in. It picks up the same swell as the better-known reefs nearby and is often a quieter option when they are crowded.",
+    "wave_tips": "West to southwest swell with an east wind is the usual clean setup. Tide matters less than whether the rocks near the entry are covered.",
+    "access_tips": "Reached from the free road near Popotla. Shoreline access here is informal and can change.",
+    "best_conditions_prose": "Best on a clean south or west swell with a calm or offshore morning."
+  },
+  "alfonsos": {
+    "seo_title": "Alfonsos Surf Report: Popotla Reef Forecast",
+    "seo_description": "Alfonsos surf forecast for the reef near Popotla, south of Rosarito. Live swell, wind and tide, with notes on the rocky lineup.",
+    "description": "Alfonsos is a reef break near Popotla, a few kilometers south of Rosarito, with both lefts and rights depending on swell angle. The lineup is studded with rock, so it suits surfers who can read where the reef sits on the inside and pick a clean channel out. Summer south swells are when it is most reliable.",
+    "wave_tips": "Southwest swell with an east wind is the classic setup. Spend a few minutes spotting the channel and the shallow patches before you paddle out.",
+    "access_tips": "Rosarito is the nearest town for food and supplies. Access to the shoreline near Popotla is informal, so check locally and secure your car.",
+    "best_conditions_prose": "Best on a summer southwest swell with light east wind in the morning."
+  },
+  "popotla": {
+    "seo_title": "Popotla Surf Report: Reef Break South of Rosarito",
+    "seo_description": "Popotla surf forecast for the reef in front of the fishing village south of Rosarito. Swell, wind and tide, plus low-tide rock notes.",
+    "description": "Popotla is a small fishing village just south of Rosarito, known for its fresh seafood stalls on the sand. The reef in front of the village breaks on west swell and gets shallow and chunky at low tide, when the rocks become a bigger factor. It is an advanced reef, not a learn-to-surf beach.",
+    "wave_tips": "West swell with a southeast wind is the cleanest window. Mid to high tide keeps more water over the reef.",
+    "access_tips": "The village sits right off the free road south of Rosarito. Parking is informal; ask before using private lots.",
+    "best_conditions_prose": "Best on a west swell at mid to high tide with light wind."
+  },
+  "calafia": {
+    "seo_title": "Calafia Surf Report: Right-Hand Point Below Rosarito",
+    "seo_description": "Calafia surf forecast. The right-hand point below the Calafia hotel south of Rosarito, best on south swell at mid to high tide.",
+    "description": "Calafia is the right-hand point below the Calafia hotel and restaurant on the cliffs south of Rosarito, and for many surfers it is the first stop on the drive down the free road. A solid south to southwest swell makes it work best, and it can handle the daily northwest wind better than the open beaches. The bottom is rock, the shorebreak can be awkward, and water quality is only fair.",
+    "wave_tips": "Summer south and southwest swells are the main season. Mid to high tide is usually the best window; time your paddle-out between sets to avoid the rocks at the entry.",
+    "access_tips": "Located at the Calafia hotel on the free road south of Rosarito. A paid lot and a cliff path lead down to the water.",
+    "best_conditions_prose": "Best on a south or southwest swell at mid to high tide."
+  },
+  "el-morro-point-k37-5": {
+    "seo_title": "El Morro (K-37.5) Surf Report: Rocky Point Forecast",
+    "seo_description": "El Morro surf forecast for the rocky point at kilometer 37.5, just north of K-38. Swell, wind and rising tide notes.",
+    "description": "El Morro sits at kilometer 37.5, just north of the K-38 reef in the Popotla corridor. It is a rocky point that is easy to see from the road, which also means it fills up quickly when it is breaking. At low tide more rock is exposed and the wave gets less forgiving.",
+    "wave_tips": "South to southwest swell with a north or northeast wind is the best setup. A rising tide toward mid or high gives the point more water over the rock.",
+    "access_tips": "Roadside access off the K-38 corridor. Park where you can see the car and keep valuables out of sight.",
+    "best_conditions_prose": "Best on a south swell and a rising mid tide with light offshore wind."
+  },
+  "k-38": {
+    "seo_title": "K-38 Surf Report: Rosarito Reef Forecast Today",
+    "seo_description": "K-38 surf report and forecast. The most consistent reef in northern Baja, at kilometer 38 south of Rosarito. Live swell, wind and tide.",
+    "description": "K-38 takes its name from the kilometer marker on the road south of Rosarito, and it is one of the most consistent waves in northern Baja. A right breaks over a rocky reef and can link into a long wall on a good day, with a left also working on some swells. It picks up swell from the south through the northwest, so there is usually something to ride. Expect a crowd when it is good, rocks and urchins on the entry, and water quality that drops after rain.",
+    "wave_tips": "It works on most swell directions; northwest and west swells in winter and south swells in summer both produce good days. Mid to low tide tends to sharpen the bowl. East or northeast wind cleans it up.",
+    "access_tips": "The lots near the break are paid or guarded. Petty theft happens here, so take valuables with you. Wear booties if you are unsure about the urchins at the entry.",
+    "best_conditions_prose": "Best on a head-high to overhead swell from the west or south with offshore morning wind."
+  },
+  "k-40": {
+    "seo_title": "K-40 Surf Report: Puerto Nuevo Reef Forecast",
+    "seo_description": "Surf forecast for K-40, the rocky reef near Puerto Nuevo, the lobster village south of Rosarito. Swell, wind and tide conditions.",
+    "description": "K-40 is a rocky reef near kilometer 40, around Puerto Nuevo, the village known for its lobster restaurants. It catches the same swells as K-38 just to the north and is usually worth a look when that spot is crowded. The reef is shallow in places, so it suits experienced surfers.",
+    "wave_tips": "Check it on west to northwest swell with an east wind. Look for where the rock is covered before choosing a takeoff spot.",
+    "access_tips": "Off the free road near Puerto Nuevo. Access points are informal and can change.",
+    "best_conditions_prose": "Best on a clean west swell with light offshore wind."
+  },
+  "rancho-santini": {
+    "seo_title": "Rancho Santini Surf Report: Puerto Nuevo Beach Forecast",
+    "seo_description": "Rancho Santini surf forecast near Puerto Nuevo, south of Rosarito. Swell, wind and tide for this beach break with a rocky shoreline.",
+    "description": "Rancho Santini is a beach break in the Puerto Nuevo area south of Rosarito, backed by a residential development. The sand is mixed with rock along the shore, and the quality depends on how clean the wind is more than on the tide.",
+    "wave_tips": "West swell with an east offshore wind gives the cleanest faces. If the beach is bumpy, the reefs nearby may be more sheltered.",
+    "access_tips": "Access is through a residential area, so public access and parking are not guaranteed. Check locally before you go.",
+    "best_conditions_prose": "Best on a west swell with offshore wind early in the day."
+  },
+  "las-gaviotas": {
+    "seo_title": "Las Gaviotas Surf Report: Gated Reef Near Rosarito",
+    "seo_description": "Las Gaviotas surf forecast. A soft right-hand reef inside a gated community south of Rosarito. Swell, wind, tide and access notes.",
+    "description": "Las Gaviotas is a right-hand reef inside a gated community south of Rosarito. It is gentler than K-38 and suits longboards and improving surfers on smaller days. The catch is access: you generally need to be staying in the community or arrive with someone who is. The reef is flat and rocky, with urchins, and water quality can drop after rain.",
+    "wave_tips": "South and southwest swells in summer and west swells in autumn both work. It handles all tides, so the wind and the crowd usually decide the session.",
+    "access_tips": "Entry is through the community's security gate. There are no public facilities at the break, so bring what you need.",
+    "best_conditions_prose": "Best on a waist to head-high south or west swell with a calm morning."
+  },
+  "primo-tapia": {
+    "seo_title": "Primo Tapia Surf Report: Reef South of Puerto Nuevo",
+    "seo_description": "Primo Tapia surf forecast for the reef break south of Puerto Nuevo. Live swell, wind and tide, plus notes on urchins and access.",
+    "description": "Primo Tapia is a small town on the free road between Puerto Nuevo and La Misión, with reef breaks in front of the residential developments along the coast. The bottom is rock with urchins, and much of the shoreline is behind private property.",
+    "wave_tips": "West swell and a northeast wind are the clean combination. It works through most tides; the urchins are a good reason to wear booties.",
+    "access_tips": "Much of the coast here is fronted by private communities, so confirm access before you park.",
+    "best_conditions_prose": "Best on a west swell with a morning northeast wind."
+  },
+  "rauls": {
+    "seo_title": "Raul's Surf Report: Quiet Reef in Northern Baja",
+    "seo_description": "Raul's surf forecast for a quieter reef in the Rosarito area. Swell, wind and tide, plus notes on the bluff trail and urchins.",
+    "description": "Raul's is a reef in the Rosarito area that sees far fewer surfers than the well-known breaks nearby. You park on the bluff and walk down a dirt path to the water. Expect rocks and urchins on the reef.",
+    "wave_tips": "West swell, northeast wind and mid to high tide are the best combination.",
+    "access_tips": "Park on the bluff and take the dirt path down. Wear booties for the urchins.",
+    "best_conditions_prose": "Best on a west swell at mid to high tide with light offshore wind."
+  },
+  "cantamar-settlement": {
+    "seo_title": "Cantamar Surf Report: Beach Break by the Dunes",
+    "seo_description": "Cantamar surf forecast for the beach break near the Cantamar dunes on the Rosarito–Ensenada free road. Swell, wind, tide and rips.",
+    "description": "Cantamar is a small settlement on the free road south of Puerto Nuevo, known for the big sand dunes nearby. The beach in front picks up southwest swell and can get fast and hollow when the sandbars line up. It is an open beach, so rip currents are the main hazard.",
+    "wave_tips": "Southwest swell with a northeast offshore wind is the clean setup, and mid tide usually gives the best shape.",
+    "access_tips": "Reached from the free road at Cantamar. Parking is informal.",
+    "best_conditions_prose": "Best on a southwest swell at mid tide with offshore morning wind."
+  },
+  "dunes": {
+    "seo_title": "Dunes Surf Report: Open Beach Break, Northern Baja",
+    "seo_description": "Surf forecast for Dunes, an open beach break in the La Misión area of northern Baja. Swell, wind, tide and rip current notes.",
+    "description": "Dunes is an open beach break in the La Misión area, backed by sand dunes. It takes southwest and west swell and can produce punchy peaks when the sandbars are in good shape. With no reef or point to hold the sand in place, the banks move around, and rips are the main hazard.",
+    "wave_tips": "Southwest swell and a northeast wind keep it cleanest. Walk the beach to find where the bank is holding shape and where the rip is running.",
+    "access_tips": "Access is informal and can change. There are no facilities at the beach.",
+    "best_conditions_prose": "Best on a southwest or west swell with offshore morning wind."
+  },
+  "la-fonda": {
+    "seo_title": "La Fonda Surf Report: K-58 Beach and Point Forecast",
+    "seo_description": "La Fonda surf forecast at kilometer 58 near La Misión. A popular beach break with a left point, below the hotel on the cliff.",
+    "description": "La Fonda sits at around kilometer 58 on the toll road near La Misión, below the hotel and restaurant of the same name on the cliff. It is a beach break with a left off the point at the north end, and it is one of the most popular stops for San Diego day-trippers. It picks up a wide range of swell directions and gets heavy when the swell is big. Water quality is usually fair but drops after rain.",
+    "wave_tips": "Southwest and west swells tend to give the best shape. Low to mid tide is the usual window, and east wind cleans it up.",
+    "access_tips": "Take the La Misión exit and follow the signs to the hotel and campground; a day-use fee may apply, and a cliff path leads down to the beach.",
+    "best_conditions_prose": "Best on a chest-high to overhead southwest or west swell at low to mid tide."
+  },
+  "halfway-house": {
+    "seo_title": "Halfway House Surf Report: Tijuana–Ensenada Reef",
+    "seo_description": "Halfway House surf forecast for the mixed reef and beach peaks halfway between Tijuana and Ensenada. Swell, wind and tide.",
+    "description": "Halfway House takes its name from the old roadside stop roughly midway between Tijuana and Ensenada. It is a mix of rocky reef and sand, with lefts and rights across several peaks. It is a good intermediate wave, but the rocks keep it from being a beginner spot.",
+    "wave_tips": "Southwest swell with a northeast wind is the best combination. It works across the tide; look for the peak where the rocks are covered.",
+    "access_tips": "Off the free road between Rosarito and Ensenada. Facilities are limited, so bring water. Rocky entries make booties useful.",
+    "best_conditions_prose": "Best on a southwest swell with a light offshore morning."
+  },
+  "campo-lopez-k-55": {
+    "seo_title": "Campo Lopez (K-55) Surf Report: Reef Forecast",
+    "seo_description": "Campo Lopez surf forecast at kilometer 55 on the Rosarito–Ensenada road. A consistent reef with swell, wind and tide conditions.",
+    "description": "Campo Lopez is a campground and residential area at kilometer 55, with a consistent reef break out front. It is a reliable option on the stretch between Puerto Nuevo and La Misión, and it is often less crowded than the breaks closer to Rosarito.",
+    "wave_tips": "Look for a west to northwest swell with an east-northeast wind. It is usually cleanest through the middle of the tide.",
+    "access_tips": "Access is through the Campo Lopez community. Ask about day access and parking.",
+    "best_conditions_prose": "Best on a west swell at mid tide with offshore wind."
+  },
+  "punta-piedra-rocky-point": {
+    "seo_title": "Punta Piedra Surf Report: Rocky Point, La Misión",
+    "seo_description": "Punta Piedra (Rocky Point) surf forecast near La Misión. A fickle reef that needs a solid northwest swell. Wind and tide notes.",
+    "description": "Punta Piedra, also called Rocky Point, is a reef in the La Misión area that does not break often. It needs a solid northwest swell to come alive, and when it does it is a wave for experienced surfers.",
+    "wave_tips": "Wait for a solid northwest swell and east wind. Check the reef in person before trusting the forecast, since it is fickle.",
+    "access_tips": "Access is informal and can change.",
+    "best_conditions_prose": "Best on a solid northwest swell with offshore wind."
+  },
+  "k-55-1-2": {
+    "seo_title": "K-55½ Surf Report: Point Break Near La Salina",
+    "seo_description": "K-55½ surf forecast for the point near La Salina on the Rosarito–Ensenada road. Swell, wind and tide conditions.",
+    "description": "K-55½ is a point break just past the kilometer 55 marker, near La Salina. It sits close to the Campo Lopez reef and is one of the more consistent waves on this section of coast.",
+    "wave_tips": "West to northwest swell and an east-northeast wind are the cleanest combination. Mid tide usually helps.",
+    "access_tips": "Access is informal and can change.",
+    "best_conditions_prose": "Best on a west swell at mid tide with light offshore wind."
+  },
+  "alisitos": {
+    "seo_title": "Alisitos Surf Report: K-58 Campground Beach",
+    "seo_description": "Alisitos surf forecast near La Salina. A beach break by the K-58 campground, with swell, wind, tide and rocky bottom notes.",
+    "description": "Alisitos is the campground area near kilometer 58, next to La Fonda. The beach break in front has a rocky bottom in places, so entry and exit need care. It is a convenient spot if you are camping on the bluff.",
+    "wave_tips": "Southwest swell with a northeast wind is the clean window.",
+    "access_tips": "Access is through the campground; a day-use fee may apply.",
+    "best_conditions_prose": "Best on a southwest swell with a calm or offshore morning."
+  },
+  "la-mision": {
+    "seo_title": "La Misión Surf Report: Beach and Reef Forecast",
+    "seo_description": "La Misión surf forecast for the beach and reef at the Guadalupe river mouth. Swell, wind, tide and current notes.",
+    "description": "La Misión is the small town where the Guadalupe river meets the coast, just south of La Fonda. The beach and reef here are usually quiet, and it works best on winter northwest swell. Currents near the river mouth can be strong.",
+    "wave_tips": "Northwest swell and a northeast wind are the cleanest combination; tide matters less than the wind.",
+    "access_tips": "Reached from the free road at La Misión. Parking is informal.",
+    "best_conditions_prose": "Best on a winter northwest swell with offshore wind."
+  },
+  "la-salina": {
+    "seo_title": "La Salina Surf Report: Beach Break Near the Marina",
+    "seo_description": "La Salina surf forecast for the beach break near the marina south of La Misión. Swell, wind, tide and rip current notes.",
+    "description": "La Salina is a beach break near the marina and residential developments south of La Misión. It works across the tide and can get crowded when it is good. Rip currents are the main hazard.",
+    "wave_tips": "Southwest swell with an east wind gives the best shape.",
+    "access_tips": "Access is near the La Salina marina and residential area. Parking can be limited.",
+    "best_conditions_prose": "Best on a southwest swell with a light offshore morning."
+  },
+  "el-paso": {
+    "seo_title": "El Paso Surf Report: Reef Break Near Ensenada",
+    "seo_description": "El Paso surf forecast for a rocky reef north of Ensenada. Live swell, wind and tide, plus booties and entry notes.",
+    "description": "El Paso is a rocky reef on the coast north of Ensenada. It suits experienced surfers and works best at medium tide. The rocks are part of the lineup, so booties are a good idea.",
+    "wave_tips": "Southwest swell with an east wind is the best setup. Aim for the middle of the tide.",
+    "access_tips": "Access is informal and can change.",
+    "best_conditions_prose": "Best on a southwest swell at medium tide with offshore wind."
+  },
+  "mirador-viewpoint": {
+    "seo_title": "El Mirador Surf Report: Reef Below the Lookout",
+    "seo_description": "El Mirador surf forecast for the reef below the scenic lookout on the toll road north of Ensenada. Swell, wind and tide.",
+    "description": "El Mirador is the scenic lookout on the toll road north of Ensenada, above the cliffs near Salsipuedes. The reefs below are for experienced surfers, and the rocks are the main hazard.",
+    "wave_tips": "Southwest swell with an east wind is the best combination. A dropping tide can help, but look at how the reef is breaking on the day.",
+    "access_tips": "Getting to the water from the lookout is steep and not a formal route. Check access locally.",
+    "best_conditions_prose": "Best on a southwest swell with light offshore wind."
+  },
+  "salsipuedes": {
+    "seo_title": "Salsipuedes Surf Report: Northern Baja Right Point",
+    "seo_description": "Salsipuedes surf forecast. The heavy right-hand point in the bay north of Ensenada, best on winter northwest swell. Access and tide notes.",
+    "description": "Salsipuedes is the right-hand point tucked into a cliff-lined bay between Rosarito and Ensenada, and one of the best-known waves in northern Baja. It needs a solid winter northwest swell to wrap into the bay, and when it does it can be heavy and hollow over rock. The name means roughly \"leave if you can\", which gives a fair idea of how steep the access and the inside section can be. Land access to the bay has been restricted in recent years, so many surfers now arrive by boat from Ensenada.",
+    "wave_tips": "Wait for a well-sized west-northwest winter swell and a north to northeast morning wind. Lower tides sharpen the point; check how much rock is showing on the inside before you commit.",
+    "access_tips": "Access rules for the bay have changed over time. Confirm the current route, by land or by boat from Ensenada, before you go.",
+    "best_conditions_prose": "Best on a solid winter northwest swell with offshore wind and a lower tide."
+  },
+  "islas-de-todos-santos": {
+    "seo_title": "Todos Santos Island (Killers) Surf Report",
+    "seo_description": "Islas de Todos Santos surf forecast for Killers, the big-wave right off the island outside Ensenada. Northwest swell, wind and tide.",
+    "description": "The Islas de Todos Santos sit off the entrance to Bahía de Todos Santos, outside Ensenada. The famous wave is Killers, a big-wave right off the northwest tip of the northern island, where deep water focuses winter northwest swell into a much bigger wave than the coast is getting. It is an expert-only wave that needs a boat, a partner and a rescue plan. Smaller, more manageable waves break elsewhere around the islands.",
+    "wave_tips": "Killers comes alive on large, long-period northwest swell. Light east wind and lower tides are the classic combination.",
+    "access_tips": "Boat access only, arranged from the harbor in Ensenada. There are no facilities on the islands, so bring water, food and safety gear.",
+    "best_conditions_prose": "Best on a large, long-period winter northwest swell with light east wind."
+  },
+  "san-miguel": {
+    "seo_title": "San Miguel Surf Report: Ensenada Right Point",
+    "seo_description": "San Miguel surf forecast. Northern Baja's classic cobblestone right point, just north of Ensenada. Winter swell, wind, tide and water notes.",
+    "description": "San Miguel is the cobblestone right-hand point at the north end of Ensenada, where the toll road ends at El Sauzal. It is the most consistent point in northern Baja and a standard stop for surfers heading south. West and northwest swells wrap into long walls, while south swell is mostly blocked by Punta Banda and the islands. The creek mouth at the point means the water is often poor after rain.",
+    "wave_tips": "Winter west to northwest swell is the main season. Get there early before the wind shifts, and favor medium to high tide; lower tides expose more rock on the inside.",
+    "access_tips": "Right off the end of the toll road at San Miguel. Parking and camping are on site for a fee, and Ensenada has everything else nearby.",
+    "best_conditions_prose": "Best on a winter northwest swell with a morning northeast wind at medium to high tide."
+  },
+  "3ms": {
+    "seo_title": "3Ms Surf Report: El Sauzal Reef, Ensenada",
+    "seo_description": "3Ms surf forecast for the reef in El Sauzal, Ensenada, next to San Miguel. Swell, wind and tide, plus water quality notes.",
+    "description": "3Ms is a reef break in El Sauzal, just south of San Miguel on the edge of Ensenada, and part of the Bahía de Todos Santos World Surfing Reserve. It offers lefts and rights that are more playful than the point next door, and it works on west and northwest swell through autumn and winter. The nearby industrial waterfront affects water quality, and the entry is over rock.",
+    "wave_tips": "Northwest swell with a northeast to east wind is the cleanest setup. It works across the tide; booties help at the entry.",
+    "access_tips": "Park in front of the break in El Sauzal and paddle straight out.",
+    "best_conditions_prose": "Best on a winter northwest swell with offshore morning wind."
+  },
+  "cannery-stacks": {
+    "seo_title": "Stacks Surf Report: El Sauzal Cannery Reef",
+    "seo_description": "Stacks surf forecast for the reef in front of the cannery in El Sauzal, Ensenada. Swell, wind, tide and water quality notes.",
+    "description": "Stacks, also called Cannery, is the reef in front of the fish cannery's smokestacks in El Sauzal. It sits between San Miguel and Ensenada and picks up the same winter swells. The water here is affected by the cannery and harbor, so it is not a spot to surf after rain.",
+    "wave_tips": "West-northwest swell and an east-northeast wind are the best combination. Mid to high tide keeps it cleaner over the rocks.",
+    "access_tips": "In El Sauzal, next to the cannery. Parking is along the coast road.",
+    "best_conditions_prose": "Best on a west-northwest swell at mid to high tide with offshore wind."
+  },
+  "california-trailer-park": {
+    "seo_title": "California Trailer Park Surf Report: Ensenada Reef",
+    "seo_description": "Surf forecast for California Trailer Park, a rocky reef in El Sauzal on the north edge of Ensenada. Swell, wind and tide.",
+    "description": "California Trailer Park is a reef in the El Sauzal stretch between San Miguel and Ensenada, named for the old trailer park on the bluff. The rocks are a real factor here, so it suits experienced surfers.",
+    "wave_tips": "West-northwest swell with an east-northeast wind is the clean setup. Medium to high tide gives more water over the reef.",
+    "access_tips": "Access is from the coast road in El Sauzal and can change with private property.",
+    "best_conditions_prose": "Best on a winter swell at medium to high tide with offshore wind."
+  },
+  "ensenada-beaches": {
+    "seo_title": "Ensenada Beaches Surf Report: City Beach Break",
+    "seo_description": "Ensenada surf forecast for the city beach breaks on Bahía de Todos Santos. Wave height, swell, wind, tide and water quality.",
+    "description": "Ensenada's beaches line the inside of Bahía de Todos Santos, which shelters them from much of the swell that hits the open coast. The waves are usually smaller and softer than at San Miguel or the outer reefs, which makes them a reasonable place for beginners on the right day. Ensenada has full services, including surf shops and rentals. Check water quality before you paddle out, especially after rain.",
+    "wave_tips": "West to northwest swell in autumn and winter gives the most consistent surf, with an east-northeast wind cleaning it up.",
+    "access_tips": "Easy access from town with public parking near the beaches.",
+    "best_conditions_prose": "Best on a moderate west or northwest swell with a light morning offshore."
+  },
+  "boca-de-santo-tomas": {
+    "seo_title": "Boca de Santo Tomás Surf Report: La Bocana Point",
+    "seo_description": "Boca de Santo Tomás surf forecast. A right point and river mouth at La Bocana, south of Ensenada, reached by dirt road. Swell and wind.",
+    "description": "Boca de Santo Tomás is at La Bocana, where the Santo Tomás valley reaches the coast south of Ensenada. There is a right-hand point, rocky beach peaks and a river mouth, and the headland and kelp can keep it cleaner than the open coast when the wind picks up. It is a camping trip more than a day trip.",
+    "wave_tips": "Autumn and winter west swells with an east-northeast wind give the best sessions; south swells can also wrap in.",
+    "access_tips": "Follow the signs for La Bocana and Punta China off Highway 1 south of Ensenada. The dirt road is rough, so a high-clearance vehicle is recommended. Stock up on food and water in Ensenada.",
+    "best_conditions_prose": "Best on a west swell with light east wind, ideally with a camp setup."
+  },
+  "lighthouse-punta-san-jose": {
+    "seo_title": "Punta San José Surf Report: Lighthouse Break",
+    "seo_description": "Punta San José (Lighthouse) surf forecast south of Ensenada. A remote, powerful break with strong currents. Swell, wind and tide.",
+    "description": "Punta San José is the headland with the lighthouse south of Santo Tomás, down a long dirt road from Highway 1. The break here is powerful and exposed, with a strong current running along the point. Its remoteness keeps the crowd small.",
+    "wave_tips": "West swell with an east-northeast wind is the best combination. Watch the current from shore and plan your exit before you paddle out.",
+    "access_tips": "Dirt road access from the Santo Tomás area. Services are very limited, so bring water and food.",
+    "best_conditions_prose": "Best on a moderate west swell with offshore wind."
+  },
+  "punta-cabras": {
+    "seo_title": "Punta Cabras Surf Report: Beach and Reef, Baja",
+    "seo_description": "Punta Cabras surf forecast north of Eréndira. A remote spread of beach and reef breaks reached by dirt road. Swell, wind and tide.",
+    "description": "Punta Cabras is a stretch of reef and beach north of Eréndira, reached by dirt road from Highway 1. Rather than one defined wave, it has a spread of peaks that work on both northwest and south swell. It still feels remote, though it is busier than it used to be.",
+    "wave_tips": "Southwest and northwest swells both work. Mid tide and an east wind usually give the cleanest shape.",
+    "access_tips": "Turn off Highway 1 toward Eréndira and follow the coast north. The road is dirt; carry a spare and bring everything you need.",
+    "best_conditions_prose": "Best on a moderate swell with light east wind at mid tide."
+  },
+  "k-181": {
+    "seo_title": "K-181 Surf Report: Remote Reef Near Colonet",
+    "seo_description": "K-181 surf forecast for a remote reef near Punta Colonet, off Highway 1. Swell, wind and tide, plus notes on the rough access road.",
+    "description": "K-181 is named for the Highway 1 kilometer marker near Colonet, where a rough road leads to a remote reef. It needs a decent swell to wake up, and the reef produces boils in the lineup. Few people surf it, which is the main appeal.",
+    "wave_tips": "Look for a moderate west or northwest swell with an east wind. Mid to high tide smooths out the reef.",
+    "access_tips": "The road is unpaved and rough, so a high-clearance vehicle is recommended. There are no services, so bring water, food and a first-aid kit.",
+    "best_conditions_prose": "Best on a moderate west swell at mid to high tide."
+  },
+  "san-antonio-del-mar-colonet-area": {
+    "seo_title": "San Antonio del Mar (Colonet) Surf Report",
+    "seo_description": "San Antonio del Mar surf forecast west of Colonet. A quiet beach break with dunes and camping. Swell, wind, tide and water notes.",
+    "description": "This San Antonio del Mar is a long, quiet beach west of Colonet, not the one in Tijuana. It is an open beach break with shifting sandbars, dunes and room to camp. The water can be affected by runoff from the nearby estuary after rain.",
+    "wave_tips": "It picks up most west and northwest swells. An east wind cleans it up, and the banks work at different tides.",
+    "access_tips": "Dirt road access from Colonet. A vehicle with good clearance helps. Bring your own supplies for camping.",
+    "best_conditions_prose": "Best on a moderate west swell with a morning offshore."
+  },
+  "cabo-colonet": {
+    "seo_title": "Cabo Colonet Surf Report: Cliffside Right Point",
+    "seo_description": "Cabo Colonet surf forecast for the long right point below the cliffs of Colonet. Needs a big swell. Wind and tide notes.",
+    "description": "Cabo Colonet is the large, cliff-lined headland west of Colonet. On the right swell a long right wraps along the cliffs, but it needs real size to break and is dormant most of the time. It is a self-supported trip.",
+    "wave_tips": "Wait for a large swell with some south or west in it and an offshore wind.",
+    "access_tips": "Dirt road access from Colonet. There are no services, so bring food, water and fuel.",
+    "best_conditions_prose": "Best on a large swell with offshore wind."
+  },
+  "quatro-casas": {
+    "seo_title": "Quatro Casas Surf Report: Right Reef, Northern Baja",
+    "seo_description": "Quatro Casas surf forecast. A right-hand reef on the bluffs of Baja's Highway 1 corridor, popular with SoCal campers. Swell and wind.",
+    "description": "Quatro Casas is a right-hand reef and semi-point below the bluffs south of Colonet, and a long-time favorite of Southern California surfers who camp on the cliffs. The bluffs and kelp help protect it from the wind. It works on both summer south swell and winter northwest swell.",
+    "wave_tips": "Northeast wind is ideal. Head-high and bigger is when it really works.",
+    "access_tips": "Dirt roads lead to the bluffs above the break. Camping on the bluffs usually costs a small fee. Camp near others and keep valuables secure.",
+    "best_conditions_prose": "Best on a head-high south or northwest swell with a northeast wind."
+  },
+  "roberts-left": {
+    "seo_title": "Robert's Left Surf Report: Camalú Reef Forecast",
+    "seo_description": "Robert's Left surf forecast for the reef near Camalú on Baja's Highway 1 corridor. Winter swell, wind and tide notes.",
+    "description": "Robert's Left is a reef near Camalú, south of Colonet. It is mainly a winter wave, when west swell and a northeast wind line up. The rocks at the takeoff and exit need attention.",
+    "wave_tips": "West swell with a northeast wind gives the cleanest shape; check how the reef is breaking before worrying about the tide.",
+    "access_tips": "Access is informal from the Camalú area and can change.",
+    "best_conditions_prose": "Best on a winter west swell with a northeast wind."
+  },
+  "punta-san-jacinto-shipwrecks-baja-norte": {
+    "seo_title": "Shipwrecks (San Jacinto) Surf Report: Baja Norte",
+    "seo_description": "Punta San Jacinto surf forecast. The right point by the rusting shipwreck south of Camalú. Swell, wind and tide notes.",
+    "description": "Punta San Jacinto, better known as Shipwrecks, is the right point south of Camalú with the rusting hull of a wrecked ship on the beach. It is a well-known camping stop on the Highway 1 route. The wreck is a hazard in the lineup, so know where it is before you paddle out.",
+    "wave_tips": "West swell with a northeast wind is the clean window. Higher tides put more water over the hazards.",
+    "access_tips": "Dirt road access from Highway 1 near San Jacinto. Camping is informal.",
+    "best_conditions_prose": "Best on a west swell with a northeast wind and a higher tide."
+  },
+  "rincon-de-baja": {
+    "seo_title": "Rincón de Baja Surf Report: Sheltered Point, Camalú",
+    "seo_description": "Rincón de Baja surf forecast near Camalú. A sheltered point that rarely breaks but holds up when the wind picks up. Swell and tide.",
+    "description": "Rincón de Baja is a sheltered point near Camalú. It does not break often, but its shape keeps it cleaner than the open beaches when the wind comes up.",
+    "wave_tips": "Look for a west-southwest swell and a northeast wind. High tide is usually the cleanest.",
+    "access_tips": "Access is informal and can change.",
+    "best_conditions_prose": "Best on a west-southwest swell at high tide."
+  },
+  "camalu": {
+    "seo_title": "Camalú Surf Report: Point Break Forecast, Baja",
+    "seo_description": "Camalú surf forecast for the point at the farming town of Camalú on Highway 1. Swell, wind, tide and rocks.",
+    "description": "Camalú is a farming town on Highway 1 in the San Quintín valley, with a rocky point on the coast nearby. It is a quieter stop than the better-known spots to the north.",
+    "wave_tips": "Southwest swell with a northeast wind is the cleanest setup. Mid tide tends to read best.",
+    "access_tips": "Reached from the town of Camalú. Supplies are available in town.",
+    "best_conditions_prose": "Best on a southwest swell at mid tide with offshore wind."
+  },
+  "playa-san-ramon": {
+    "seo_title": "Playa San Ramón Surf Report: San Quintín Valley",
+    "seo_description": "Playa San Ramón surf forecast near Emiliano Zapata in the San Quintín valley. Beach break swell, wind, tide and rips.",
+    "description": "Playa San Ramón is a long sandy beach west of Emiliano Zapata in the San Quintín valley. It is an open beach break where the sandbars and the rips decide the session.",
+    "wave_tips": "West swell with a northeast wind is the clean window. Mid tide keeps the banks lined up best.",
+    "access_tips": "Dirt road access from the valley towns. Services are in the towns along Highway 1.",
+    "best_conditions_prose": "Best on a west swell at mid tide with offshore wind."
+  },
+  "cabo-san-quintin": {
+    "seo_title": "Cabo San Quintín Surf Report: Remote Right Point",
+    "seo_description": "Cabo San Quintín surf forecast for the remote cape below the San Quintín volcanic field. Swell, wind, tide, rocks and sharks.",
+    "description": "Cabo San Quintín is the cape at the south end of the San Quintín peninsula, beyond the bay and the volcanic cones. A right-hand line forms off the cape on west swell. It is remote, with rocks and sharks to consider.",
+    "wave_tips": "West swell and a northeast wind are the key checks; make sure there is enough water over the reef line.",
+    "access_tips": "Access around the bay is by rough dirt road or by boat. Bring everything you need.",
+    "best_conditions_prose": "Best on a west swell with offshore wind."
+  },
+  "playa-santa-maria": {
+    "seo_title": "Playa Santa María Surf Report: San Quintín Beach",
+    "seo_description": "Playa Santa María surf forecast south of San Quintín. An open beach break that works on summer south swell. Wind, tide and rips.",
+    "description": "Playa Santa María is the long beach south of San Quintín. It faces south swell better than most of this coast and works best in summer. Rip currents are the main hazard.",
+    "wave_tips": "South swell with a northeast wind is the clean window. Mid tide usually gives the most organized faces.",
+    "access_tips": "Signed turnoff from Highway 1 south of San Quintín. Services are in town.",
+    "best_conditions_prose": "Best on a summer south swell at mid tide."
+  },
+  "cielito-lindo": {
+    "seo_title": "Cielito Lindo Surf Report: South-Swell Beach Break",
+    "seo_description": "Cielito Lindo surf forecast near El Pabellón, south of San Quintín. A beach break for summer south swell with strong rips.",
+    "description": "Cielito Lindo is an exposed beach south of San Quintín, near El Pabellón. It picks up south swell well and works best in summer, with lefts and rights over sand. Rip currents here are strong.",
+    "wave_tips": "South to south-southwest swell with a northeast wind is the setup. Mid tide balances shape and ease.",
+    "access_tips": "Reached from the Santa María and El Pabellón area. Bring water and sun protection; there are no facilities at the break.",
+    "best_conditions_prose": "Best on a summer south swell with a morning offshore."
+  },
+  "el-socorro": {
+    "seo_title": "El Socorro Surf Report: Point South of San Quintín",
+    "seo_description": "El Socorro surf forecast for the point south of San Quintín. Swell, wind, tide and rock notes for a quiet lineup.",
+    "description": "El Socorro is a small community on Highway 1 south of San Quintín, where the road runs close to the coast. The point here sees few surfers and has rocks in the lineup.",
+    "wave_tips": "Southwest swell and an east-northeast wind give the cleanest shape. Mid to high tide is the safer window.",
+    "access_tips": "Short dirt road from Highway 1. Services are in San Quintín.",
+    "best_conditions_prose": "Best on a southwest swell at mid to high tide."
+  },
+  "casas": {
+    "seo_title": "Casas Surf Report: Reef Near El Rosario",
+    "seo_description": "Casas surf forecast for the reef near El Rosario, Baja California. Swell, wind and tide, plus notes on remote access.",
+    "description": "Casas is a remote reef on the coast near El Rosario, the last town before Highway 1 turns inland. It has lefts and rights, but onshore wind is common, so timing matters. The reef is sharp.",
+    "wave_tips": "Southwest swell and an east-northeast wind are the clean combination; mid tide is a little easier over the reef.",
+    "access_tips": "Remote dirt road access. Bring water and supplies from El Rosario, and consider booties.",
+    "best_conditions_prose": "Best on a summer southwest swell with a rare offshore morning."
+  },
+  "punta-baja": {
+    "seo_title": "Punta Baja Surf Report: Remote Point, El Rosario",
+    "seo_description": "Punta Baja surf forecast for the remote point and fishing camp west of El Rosario. Swell, wind and reef notes.",
+    "description": "Punta Baja is the headland and fishing camp west of El Rosario, down a dirt road from Highway 1. It is a long point that needs the swell to line up, and it is inconsistent the rest of the time. The wind usually picks up in the afternoon.",
+    "wave_tips": "West to northwest swell and an east wind are the key checks. Watch for submerged rock.",
+    "access_tips": "Take the dirt road west from El Rosario toward the fishing camp. Bring supplies from town.",
+    "best_conditions_prose": "Best on a well-aligned west swell with offshore morning wind."
+  },
+  "punta-san-antonio": {
+    "seo_title": "Punta San Antonio Surf Report: Remote Summer Point",
+    "seo_description": "Punta San Antonio surf forecast south of El Rosario. A remote point best on summer southwest swell. Wind, tide and rock notes.",
+    "description": "Punta San Antonio is a remote point on the coast south of El Rosario. It is mainly a summer spot and sees few surfers.",
+    "wave_tips": "Southwest swell with an east wind is the best combination. Check the reef and inside section before paddling out.",
+    "access_tips": "Remote dirt road access. Bring everything you need.",
+    "best_conditions_prose": "Best on a summer southwest swell with offshore wind."
+  },
+  "punta-san-carlos": {
+    "seo_title": "Punta San Carlos Surf Report: Remote Right Point",
+    "seo_description": "Punta San Carlos surf forecast. A long right point on the remote coast south of El Rosario, known for surf and wind sports.",
+    "description": "Punta San Carlos is a long right-hand point on a remote stretch of coast south of El Rosario, reached by a long dirt road. The strong afternoon northwest wind has made it a windsurfing and kiteboarding destination too, so surf sessions usually happen early. It picks up a wide range of swell directions.",
+    "wave_tips": "South and southwest swells produce the longest rides. Mid to low tide and an early start before the wind are the usual plan. Watch for urchins.",
+    "access_tips": "It is a long, rough drive from Highway 1, and routes change after rain, so a 4x4 helps. There are no services; carry water, fuel and food.",
+    "best_conditions_prose": "Best on a south or southwest swell in the early morning before the wind."
+  },
+  "punta-canoas": {
+    "seo_title": "Punta Canoas Surf Report: Pacific Baja Point",
+    "seo_description": "Punta Canoas surf forecast on Baja's remote central Pacific coast. A series of points that pick up southwest swell. Wind and tide.",
+    "description": "Punta Canoas is on the remote Pacific coast of central Baja, at the northern end of the string of points that runs down toward Santa Rosalillita. The area has several setups, and it picks up southwest swell that much of northern Baja does not get. High cliffs help with the wind.",
+    "wave_tips": "Southwest to west swell and a north-northeast wind are the main triggers. Low to mid tide usually gives the better shape.",
+    "access_tips": "Rough dirt road access. There are no services; camping only, with all food, water, fuel and repair gear brought in.",
+    "best_conditions_prose": "Best on a southwest swell with light north-northeast wind."
+  },
+  "punta-blanca-seven-sisters": {
+    "seo_title": "Punta Blanca Surf Report: Seven Sisters, Baja",
+    "seo_description": "Punta Blanca surf forecast, one of Baja's Seven Sisters points north of Santa Rosalillita. Swell, wind, tide and access notes.",
+    "description": "Punta Blanca is one of the Seven Sisters, the chain of right-hand points north of Santa Rosalillita on the central Pacific coast. It is a reef point for experienced surfers, reached by rough 4x4 tracks. Rips and sharks are part of the picture here.",
+    "wave_tips": "West swell with a north-northeast wind is the main setup, and mid tide is the easier read.",
+    "access_tips": "Rough 4x4 access from the Santa Rosalillita area. There are no services, so bring fuel, water and spares.",
+    "best_conditions_prose": "Best on a solid west swell with light north-northeast wind."
+  },
+  "punta-cono": {
+    "seo_title": "Punta Cono Surf Report: Seven Sisters Point",
+    "seo_description": "Punta Cono surf forecast, one of the Seven Sisters points near Santa Rosalillita. Northwest swell, wind, tide and rocks.",
+    "description": "Punta Cono is one of the Seven Sisters points north of Santa Rosalillita. It is a winter northwest swell spot and can get crowded quickly when it switches on, even out here.",
+    "wave_tips": "Northwest swell and a north-northeast wind are the clean combination. Mid to higher tide keeps the reef cleaner.",
+    "access_tips": "Remote dirt road access; self-sufficient camping only.",
+    "best_conditions_prose": "Best on a winter northwest swell at mid to high tide."
+  },
+  "punta-maria": {
+    "seo_title": "Punta María Surf Report: Long Right, Central Baja",
+    "seo_description": "Punta María surf forecast. A long wrapping right point on Baja's central Pacific coast that needs a big west swell. Wind and access.",
+    "description": "Punta María is a long, wrapping right-hand point on the central Pacific coast, near Santa Rosalillita. It needs a proper west swell to wrap around, so it sits quiet during small spells and comes alive in winter.",
+    "wave_tips": "West to northwest swell with a northeast wind is the setup; it works through most of the tide.",
+    "access_tips": "No facilities or formal parking. A capable vehicle and extra water, fuel and food are essential.",
+    "best_conditions_prose": "Best on a large winter west swell with a northeast wind."
+  },
+  "el-cardon": {
+    "seo_title": "El Cardón Surf Report: Central Baja Point",
+    "seo_description": "El Cardón surf forecast for the small headland near Punta María on Baja's central Pacific coast. Swell, wind and tide.",
+    "description": "El Cardón is a smaller headland on the same stretch of coast as Punta María. Despite its size, it can produce longer rides than its neighbors on a good winter swell.",
+    "wave_tips": "West to northwest swell with a northeast wind is the setup, and mid tide is the safer choice.",
+    "access_tips": "Rough dirt road access. Camping only; bring water, food and fuel.",
+    "best_conditions_prose": "Best on a winter west swell with offshore wind."
+  },
+  "punta-ositos": {
+    "seo_title": "Punta Ositos Surf Report: Seven Sisters Point",
+    "seo_description": "Punta Ositos surf forecast for the point near Santa Rosalillita on Baja's central coast. Swell, wind, tide and rip current notes.",
+    "description": "Punta Ositos is one of the points on the coast north of Santa Rosalillita. It sees very few surfers and is a remote, self-supported spot.",
+    "wave_tips": "West to west-northwest swell is the main trigger. Check the reef and entry before you commit.",
+    "access_tips": "Remote dirt road access. Bring everything you need.",
+    "best_conditions_prose": "Best on a west swell with light offshore wind."
+  },
+  "punta-negra": {
+    "seo_title": "Punta Negra Surf Report: Right Point, Central Baja",
+    "seo_description": "Punta Negra surf forecast for the right point on Baja's central Pacific coast. Winter swell, wind and tide notes.",
+    "description": "Punta Negra is a right point on the central Pacific coast of Baja. It works on winter west to northwest swell, and the cleanest conditions usually come early or late in the day.",
+    "wave_tips": "West-northwest swell with a north-northeast wind is the main setup. Inspect the reef and current before paddling out.",
+    "access_tips": "The road is rough, so a high-clearance vehicle is the minimum. There are no facilities or water.",
+    "best_conditions_prose": "Best on a winter west-northwest swell in the early morning."
+  },
+  "puerto-san-andres": {
+    "seo_title": "Puerto San Andrés Surf Report: Hollow Right Point",
+    "seo_description": "Puerto San Andrés surf forecast north of Santa Rosalillita. A hollow right point for west swell. Wind, tide and access.",
+    "description": "Puerto San Andrés is a hollow right-hand point just north of Santa Rosalillita. When a solid west swell lines up with offshore wind it is one of the better waves on this stretch, and it works through the tide.",
+    "wave_tips": "West to northwest swell and light northeast wind are the main checks.",
+    "access_tips": "Rough road access; a high-clearance 4x4 is recommended. Camping is possible on site. Bring all supplies.",
+    "best_conditions_prose": "Best on a solid west swell with light offshore wind."
+  },
+  "punta-santa-rosalillita": {
+    "seo_title": "Santa Rosalillita Surf Report: Central Baja Point",
+    "seo_description": "Punta Santa Rosalillita surf forecast for the point at the fishing village on Baja's central Pacific coast. Swell, wind and tide.",
+    "description": "Santa Rosalillita is a small fishing village on the central Pacific coast, reached by a paved road from Highway 1. The point here is a reference for the area's other breaks, including The Wall just to the south.",
+    "wave_tips": "West swell and a north-northeast wind are the clean window. Check the reef cover and rips.",
+    "access_tips": "Paved road from Highway 1 to the village. Supplies are limited.",
+    "best_conditions_prose": "Best on a west swell with light offshore wind."
+  },
+  "punta-rosarito-the-wall": {
+    "seo_title": "Punta Rosarito (The Wall) Surf Report",
+    "seo_description": "Punta Rosarito surf forecast for The Wall, the consistent reef near Santa Rosalillita in central Baja. Swell, wind and tide.",
+    "description": "Punta Rosarito, better known as The Wall, is a set of west-facing reefs near Santa Rosalillita. It is known for being very consistent, and it is a good intermediate option on this remote coast. Campers build rock walls here as windbreaks.",
+    "wave_tips": "West to northwest swell with a northeast wind is the setup; the tide makes little difference.",
+    "access_tips": "Dirt road access; a capable vehicle helps after rain. Free camping; bring supplies for several days.",
+    "best_conditions_prose": "Best on a moderate west swell with offshore wind."
+  },
+  "millers-landing": {
+    "seo_title": "Miller's Landing Surf Report: El Tomatal Point",
+    "seo_description": "Miller's Landing surf forecast at El Tomatal fish camp on Baja's central coast. A cobblestone right point. Swell, wind and tide.",
+    "description": "Miller's Landing is a cobblestone right-hand point at El Tomatal fish camp on the central Pacific coast. It produces long walls when a west swell arrives, and there is a reef nearby with lefts and rights.",
+    "wave_tips": "West swell with an east-northeast wind is the best combination; it works across the tide.",
+    "access_tips": "Rough dirt road through or near El Tomatal. A high-clearance 4x4 is recommended. Camping is available.",
+    "best_conditions_prose": "Best on a solid west swell with offshore wind."
+  },
+  "playa-elefante-isla-cedros": {
+    "seo_title": "Playa Elefante Surf Report: Isla Cedros",
+    "seo_description": "Playa Elefante surf forecast on Isla Cedros, off Baja's central Pacific coast. Swell, wind, tide and remote access notes.",
+    "description": "Playa Elefante is on Isla Cedros, the large island off Punta Eugenia. It is a mixed sand and rock beach that picks up west and northwest swell, and getting there is a trip in itself.",
+    "wave_tips": "West to northwest swell with a southeast wind is the clean window.",
+    "access_tips": "Isla Cedros is reached by small plane or boat. Plan logistics well ahead.",
+    "best_conditions_prose": "Best on a west swell with light wind."
+  },
+  "open-doors-isla-natividad": {
+    "seo_title": "Open Doors Surf Report: Isla Natividad",
+    "seo_description": "Open Doors surf forecast on Isla Natividad off Punta Eugenia, Baja California Sur. Swell, wind, tide and access notes.",
+    "description": "Open Doors is on Isla Natividad, a small island off Punta Eugenia at the tip of the Vizcaíno peninsula. It is a remote wave, and access to the island is managed by the local fishing cooperative.",
+    "wave_tips": "Southwest swell with a northwest wind is the setup. Plan entry and exit with the rips in mind.",
+    "access_tips": "Arrange access in advance; the island is reached by boat or small plane, and visitor access is controlled locally.",
+    "best_conditions_prose": "Best on a southwest swell with light wind."
+  },
+  "bahia-tortugas-turtle-bay": {
+    "seo_title": "Bahía Tortugas Surf Report: Turtle Bay, Baja Sur",
+    "seo_description": "Bahía Tortugas (Turtle Bay) surf forecast on the Vizcaíno peninsula. Beach break swell, wind, tide and road notes.",
+    "description": "Bahía Tortugas, or Turtle Bay, is a fishing town on the Vizcaíno peninsula and a common stop for boats traveling the coast. The surf nearby is mostly small beach break that needs south swell.",
+    "wave_tips": "South swell with a north wind is the clean window. Mid tide is the broadest read.",
+    "access_tips": "A long road from Highway 1 across the Vizcaíno peninsula. The town has basic services.",
+    "best_conditions_prose": "Best on a summer south swell."
+  },
+  "asuncion-bay": {
+    "seo_title": "Bahía Asunción Surf Report: Pacific Baja Sur Reef",
+    "seo_description": "Bahía Asunción surf forecast on Baja California Sur's Pacific coast. Reef swell, wind and tide, plus rocks and sharks.",
+    "description": "Bahía Asunción is a fishing town on the Pacific coast of Baja California Sur, with reef breaks nearby that work on south and southwest swell.",
+    "wave_tips": "Southwest swell with a north-northeast wind is the clean window. Pay attention to the rips, rocks and sharks.",
+    "access_tips": "Paved road from Highway 1. The town has basic services.",
+    "best_conditions_prose": "Best on a summer southwest swell."
+  },
+  "san-hipolito": {
+    "seo_title": "San Hipólito Surf Report: Pacific Baja Sur Reef",
+    "seo_description": "San Hipólito surf forecast for the reef near the fishing village on Baja California Sur's Pacific coast. Swell, wind and tide.",
+    "description": "San Hipólito is a small fishing village on the Pacific coast of Baja California Sur, south of Bahía Asunción. The reef sections around the bay work on south swell, and low tide exposes sharp rock.",
+    "wave_tips": "South-southwest swell with a north-northeast wind is the clean setup. Avoid the lowest tides over the reef.",
+    "access_tips": "Reached by road from the Highway 1 turnoff toward the Pacific fishing towns. Services are basic.",
+    "best_conditions_prose": "Best on a summer south swell with light wind."
+  },
+  "la-bocana-abreojos-mulege-municipality": {
+    "seo_title": "La Bocana Surf Report: Lagoon Mouth Near Abreojos",
+    "seo_description": "La Bocana surf forecast at the lagoon mouth northwest of Punta Abreojos, Baja Sur. Sandbar and point swell, wind and tide.",
+    "description": "La Bocana is a small village at the mouth of a lagoon northwest of Punta Abreojos. The sandbars at the mouth produce shifting rights, with a left off the point on some swells. It is a quieter alternative to the Abreojos points.",
+    "wave_tips": "South to southwest swell with a northeast wind is the setup. The sandbars move, so look before you paddle out.",
+    "access_tips": "Dirt road access; high clearance helps, especially after rain. No facilities at the break.",
+    "best_conditions_prose": "Best on a summer south swell with light offshore wind."
+  },
+  "campo-renes": {
+    "seo_title": "Campo René Surf Report: Beach and Reef, Baja Sur",
+    "seo_description": "Campo René surf forecast on Baja California Sur's Pacific coast. Beach and reef peaks for south swell. Wind, tide and hazards.",
+    "description": "Campo René is a camp on the Pacific coast of Baja California Sur with a mix of beach and reef peaks in front. The rights and lefts change with the sand and the swell angle. Rips, rocks and urchins are all in play.",
+    "wave_tips": "South and southwest swell with a northerly wind is the setup. Start with the middle of the tide and pick the peak that is holding shape.",
+    "access_tips": "Walk straight out from the beach. Find the channel before paddling, and consider booties for the reef sections.",
+    "best_conditions_prose": "Best on a chest-high to overhead south swell with offshore wind."
+  },
+  "punta-abreojos": {
+    "seo_title": "Punta Abreojos Surf Report: Remote Right Points",
+    "seo_description": "Punta Abreojos surf forecast. A fishing town with a long, multi-section right point on Baja Sur's Pacific coast. Swell and wind.",
+    "description": "Punta Abreojos is a fishing town on the Pacific coast of Baja California Sur, with a long right-hand point that breaks in several sections. South and southwest swells wrap into the bay, and the main point handles the most size. It is a destination for surfers willing to drive a long way for quiet waves.",
+    "wave_tips": "South-southwest swell and a north-northwest wind are the setup. Rocks, rips and sharks are all part of the picture.",
+    "access_tips": "Road from the Highway 1 turnoff; expect some rough sections. Camping is available near the breaks; bring what you need.",
+    "best_conditions_prose": "Best on a summer south-southwest swell with light north wind."
+  },
+  "punta-santo-domingo": {
+    "seo_title": "Punta Santo Domingo Surf Report: Exposed Reef",
+    "seo_description": "Punta Santo Domingo surf forecast on Baja California Sur's Pacific coast. A fickle, windy reef and beach. Swell and wind notes.",
+    "description": "Punta Santo Domingo is an exposed stretch of reef and beach on the Pacific side of Baja California Sur. Onshore wind and strong currents are common, so it is only worth surfing on the rare calm days when the swell lines up.",
+    "wave_tips": "Watch for light or offshore wind first; swell alone rarely makes it good.",
+    "access_tips": "Access is informal. There are no facilities, so bring water and sun protection.",
+    "best_conditions_prose": "Worth a look only on a calm morning with a clean swell."
+  },
+  "la-laguna": {
+    "seo_title": "La Laguna Surf Report: Remote Pacific Beach, Baja Sur",
+    "seo_description": "La Laguna surf forecast for a remote beach break on Baja California Sur's Pacific coast. Swell, wind, tide, rips and sharks.",
+    "description": "La Laguna is a remote beach break on the Pacific coast of Baja California Sur, in Mulegé municipality. It is an isolated spot with rocks, rips and sharks to consider.",
+    "wave_tips": "Southwest swell with a northeast wind is the clean window.",
+    "access_tips": "Remote dirt road access. Bring everything you need.",
+    "best_conditions_prose": "Best on a summer southwest swell with offshore wind."
+  },
+  "scorpion-bay-san-juanico": {
+    "seo_title": "Scorpion Bay Surf Report: San Juanico Right Points",
+    "seo_description": "Scorpion Bay surf forecast for San Juanico's long right points in Baja California Sur. South swell season, wind and tide notes.",
+    "description": "Scorpion Bay is the surfers' name for San Juanico, a small town on the Pacific coast of Baja California Sur with a series of right-hand points inside the bay. On a big south swell the points can connect into very long rides, which is why it is one of Baja's best-known destinations. It needs a proper south swell, so it is mainly a summer and early autumn spot, and flat spells are common outside that window.",
+    "wave_tips": "South to southwest swell is the main trigger, and swell size matters more than tide. A west-northwest wind blows offshore here.",
+    "access_tips": "It is a long drive from the border, with the last stretch off Highway 1 on secondary roads. The town has basic services and camping.",
+    "best_conditions_prose": "Best on a solid summer south swell."
+  },
+  "punta-san-gregorio": {
+    "seo_title": "Punta San Gregorio Surf Report: Comondú Coast",
+    "seo_description": "Punta San Gregorio surf forecast near San Juanico, Baja California Sur. Beach break swell, wind, tide and remote access notes.",
+    "description": "Punta San Gregorio is a remote point south of San Juanico, on the Comondú coast. The waves break over sand and some rock, with urchins near the rocks.",
+    "wave_tips": "West-southwest swell with a northeast wind is the clean window. Check the sandbar shape before paddling out.",
+    "access_tips": "Remote dirt road access from the San Juanico area.",
+    "best_conditions_prose": "Best on a southwest swell with offshore wind."
+  },
+  "las-barrancas": {
+    "seo_title": "Las Barrancas Surf Report: Reef, Baja California Sur",
+    "seo_description": "Las Barrancas surf forecast for the reef near the fishing village on Baja Sur's Pacific coast. Swell, wind, tide and urchins.",
+    "description": "Las Barrancas is a small fishing village on the Pacific coast of Comondú municipality, with a reef nearby that works across the tide. Urchins and rocks are the main hazards.",
+    "wave_tips": "Southwest swell with a northeast wind is the setup.",
+    "access_tips": "Road access to the village; services are very limited.",
+    "best_conditions_prose": "Best on a southwest swell with offshore wind."
+  },
+  "san-jorge": {
+    "seo_title": "San Jorge Surf Report: Open Beach Near Las Barrancas",
+    "seo_description": "San Jorge surf forecast near Las Barrancas, Baja California Sur. Remote beach break swell, wind, tide and rip current notes.",
+    "description": "San Jorge is a remote beach near Las Barrancas. It only works well when the sandbars are organized, and rips are the main hazard.",
+    "wave_tips": "Southwest swell with an east-northeast wind is the clean setup.",
+    "access_tips": "Remote dirt road access. Bring everything you need.",
+    "best_conditions_prose": "Best on a southwest swell with organized sandbars."
+  },
+  "punta-hughes": {
+    "seo_title": "Punta Hughes Surf Report: Remote Point, Comondú",
+    "seo_description": "Punta Hughes surf forecast on the remote Comondú coast of Baja California Sur. Point swell, wind, tide and rocks.",
+    "description": "Punta Hughes is a point on a remote stretch of the Comondú coast. The lineup sits over rocks, and it can be surfed through the tide.",
+    "wave_tips": "Southwest swell and a northeast wind are the clean combination.",
+    "access_tips": "Remote access; bring all supplies.",
+    "best_conditions_prose": "Best on a southwest swell with offshore wind."
+  },
+  "punta-conejo": {
+    "seo_title": "Punta Conejo Surf Report: Pacific Point, La Paz",
+    "seo_description": "Punta Conejo surf forecast on the Pacific coast of La Paz municipality. A long point for south swell. Wind and dirt road notes.",
+    "description": "Punta Conejo is a long point on the Pacific coast of La Paz municipality, north of Todos Santos. On a strong south or southwest swell it produces long rides, and it is also a popular spot for windsurfing. The prevailing north wind is not ideal here, so calm mornings are the target.",
+    "wave_tips": "South-southwest swell with light wind is the setup; choose the section of the point that is holding shape.",
+    "access_tips": "The turnoff is signed from Highway 1, then about an hour on a rough dirt road. There are no facilities; bring water, food and fuel.",
+    "best_conditions_prose": "Best on a strong south swell with a calm morning."
+  },
+  "punta-marquez": {
+    "seo_title": "Punta Márquez Surf Report: Quiet Point, La Paz",
+    "seo_description": "Punta Márquez surf forecast near Punta Conejo on Baja Sur's Pacific coast. Swell, wind, tide and remote access notes.",
+    "description": "Punta Márquez is a reef point near Punta Conejo on the Pacific coast of La Paz municipality. It rarely gets crowded, and it is remote.",
+    "wave_tips": "Southwest swell with a northeast wind is the clean setup; it works through most of the tide.",
+    "access_tips": "Dirt road access. Bring all supplies.",
+    "best_conditions_prose": "Best on a southwest swell with offshore wind."
+  },
+  "beachbreak": {
+    "seo_title": "Beachbreak Surf Report: Remote Sand, La Paz Coast",
+    "seo_description": "Surf forecast for Beachbreak on the Pacific coast of La Paz municipality. Beach peaks that work on mixed swells. Wind and tide.",
+    "description": "This remote beach on the Pacific side of La Paz municipality produces punchy peaks that can work even on smaller days, especially when more than one swell is running. It is a camp-out spot with nothing on site.",
+    "wave_tips": "It picks up swell from the southeast through the west-northwest; a northeast or east wind keeps it clean. It works at all tides.",
+    "access_tips": "4x4 on rough dirt roads. There are no facilities, water or food. Avoid driving on soft sand.",
+    "best_conditions_prose": "Best on combined south and west swells with offshore wind."
+  },
+  "punta-colorado": {
+    "seo_title": "Punta Colorado Surf Report: East Cape, La Ribera",
+    "seo_description": "Punta Colorado surf forecast near La Ribera on Baja Sur's East Cape. A reef for southeast swell. Wind and tide notes.",
+    "description": "Punta Colorado is on the East Cape near La Ribera, on the Sea of Cortez side of Baja California Sur. The reef needs a southeast to south swell, which usually means summer and tropical storm season, and it is inconsistent the rest of the year.",
+    "wave_tips": "South-southeast swell with a southwest wind is the clean setup. The reef needs enough water to shape the face.",
+    "access_tips": "Reached from La Ribera on the East Cape road.",
+    "best_conditions_prose": "Best on a summer southeast swell."
+  },
+  "la-bocana-todos-santos-area": {
+    "seo_title": "La Bocana Surf Report: Todos Santos Beach Break",
+    "seo_description": "La Bocana surf forecast in the Todos Santos area, Baja California Sur. A consistent, powerful beach break. Swell, wind and rips.",
+    "description": "La Bocana is a beach break in the Todos Santos area on the Pacific side of Baja California Sur. It is consistent and can be powerful, with rip currents to watch.",
+    "wave_tips": "Southwest swell with a northeast wind gives the cleanest shape.",
+    "access_tips": "Reached from Todos Santos, which has full services.",
+    "best_conditions_prose": "Best on a southwest swell with offshore morning wind."
+  },
+  "punta-arenas": {
+    "seo_title": "Punta Arenas Surf Report: Sand Point, East Cape",
+    "seo_description": "Punta Arenas surf forecast on Baja Sur's East Cape near Cabo Pulmo. A sand point that needs a big south swell. Wind and tide.",
+    "description": "Punta Arenas is a sand point on the East Cape near Cabo Pulmo. It needs a large south swell to produce waves and is flat much of the time. When it works, it gives short rights over sand.",
+    "wave_tips": "A big south swell with a northwest wind is the setup.",
+    "access_tips": "Free roadside parking and basic camping. Bring water, food and fuel.",
+    "best_conditions_prose": "Best on a large summer south swell."
+  },
+  "la-pastora": {
+    "seo_title": "La Pastora Surf Report: Right Point, Todos Santos",
+    "seo_description": "La Pastora surf forecast for the right point north of Todos Santos. Winter and summer swell, wind, tide and rip current notes.",
+    "description": "La Pastora is a right-hand point just north of Todos Santos, reached by a sandy road along the coast. It takes both winter northwest swell and summer south swell, and it is one of the more consistent waves near town.",
+    "wave_tips": "Mid to low tide in the morning before the wind is usually the best time. A northeast or east wind is cleanest.",
+    "access_tips": "Sandy coast road north of Todos Santos. Town has full services.",
+    "best_conditions_prose": "Best on a morning with a west or south swell and a light offshore."
+  },
+  "playa-san-pedro": {
+    "seo_title": "Playa San Pedro Surf Report: Todos Santos Beach",
+    "seo_description": "Playa San Pedro surf forecast near Todos Santos, Baja California Sur. Winter beach break swell, wind, tide and rip notes.",
+    "description": "Playa San Pedro is a beach break near Todos Santos that works best on winter northwest swell. The sandbars decide the shape, and rips are the main hazard.",
+    "wave_tips": "Northwest swell with a northeast wind is the setup; mid tide keeps the bars lined up best.",
+    "access_tips": "Short drive from Todos Santos.",
+    "best_conditions_prose": "Best on a winter northwest swell at mid tide."
+  },
+  "el-rincon": {
+    "seo_title": "El Rincón Surf Report: East Cape Rocky Point",
+    "seo_description": "El Rincón surf forecast on Baja California Sur's East Cape. A rocky shoreline point near Cabo Pulmo. Swell, wind and tide.",
+    "description": "El Rincón is a rocky shoreline point on the East Cape, near Cabo Pulmo. It works on south swell in summer and suits experienced surfers.",
+    "wave_tips": "Summer south swell with a west-southwest wind is the setup; a higher tide gives more margin over the rocks.",
+    "access_tips": "Reached from the East Cape road. Services are limited.",
+    "best_conditions_prose": "Best on a summer south swell at higher tide."
+  },
+  "san-pedrito-el-pescadero": {
+    "seo_title": "San Pedrito Surf Report: Right Reef Near Pescadero",
+    "seo_description": "San Pedrito surf forecast between Todos Santos and El Pescadero. A powerful right over reef, best on winter swell. Wind and tide.",
+    "description": "San Pedrito is a powerful right-hand reef between Todos Santos and El Pescadero, framed by palm trees. It is at its best on winter northwest swell, when it produces long walls. The reef is sharp and there are urchins.",
+    "wave_tips": "Northwest swell from late autumn to early spring with a northeast wind is the setup.",
+    "access_tips": "Follow the signed turnoff from Highway 19. Parking is right at the beach. Todos Santos is close for food and water. Booties are a good idea.",
+    "best_conditions_prose": "Best on a head-high to overhead winter northwest swell."
+  },
+  "cabo-pulmo": {
+    "seo_title": "Cabo Pulmo Surf Report: East Cape Reef Forecast",
+    "seo_description": "Cabo Pulmo surf forecast on Baja Sur's East Cape. A point inside the marine national park. Swell, wind, coral and rules.",
+    "description": "Cabo Pulmo is the village and national marine park on the East Cape, protecting one of the few living coral reefs in the Gulf of California. The point here needs a south swell and suits experienced surfers. Treat the reef with care and follow park rules, since the coral is both a hazard and a protected resource.",
+    "wave_tips": "South swell with a west-northwest wind is the clean setup. Water level and reef exposure matter more than swell size.",
+    "access_tips": "Reached by the East Cape road. Check park regulations before going in the water.",
+    "best_conditions_prose": "Best on a summer south swell with enough water over the reef."
+  },
+  "playa-las-palmas-palm-beach": {
+    "seo_title": "Playa Las Palmas Surf Report: Palm Beach, Pescadero",
+    "seo_description": "Playa Las Palmas (Palm Beach) surf forecast near El Pescadero, Baja California Sur. Beach break swell, wind, tide and hazards.",
+    "description": "Playa Las Palmas, also called Palm Beach, is a sheltered cove near El Pescadero backed by a palm grove. The surf here is consistent, with urchins, rips and rocks to keep in mind.",
+    "wave_tips": "West-southwest swell with a northeast wind is the setup.",
+    "access_tips": "Reached from Highway 19 near El Pescadero. Walk in from the parking area.",
+    "best_conditions_prose": "Best on a west-southwest swell with offshore wind."
+  },
+  "los-frailes": {
+    "seo_title": "Los Frailes Surf Report: East Cape Reef",
+    "seo_description": "Los Frailes surf forecast at the bay south of Cabo Pulmo on Baja Sur's East Cape. Southeast swell, wind and tide notes.",
+    "description": "Los Frailes is the bay just south of Cabo Pulmo on the East Cape, sheltered by the rocky headland of Cabo Frailes. The reef needs a southeast swell, which is most likely in summer and during tropical storm season.",
+    "wave_tips": "Southeast swell with a west-northwest wind is the setup. Sharks and rocks are part of the read.",
+    "access_tips": "Reached by the East Cape dirt road. Services are very limited.",
+    "best_conditions_prose": "Best on a southeast swell with offshore wind."
+  },
+  "frailes-south": {
+    "seo_title": "Frailes South Surf Report: East Cape Reef",
+    "seo_description": "Frailes South surf forecast south of Los Frailes on Baja Sur's East Cape. Southeast swell, wind and reef notes.",
+    "description": "Frailes South is the reef just south of Los Frailes on the East Cape. Like its neighbor, it needs a southeast swell to break.",
+    "wave_tips": "Southeast swell with a west-northwest wind is the setup. Watch the reef edge.",
+    "access_tips": "East Cape dirt road access.",
+    "best_conditions_prose": "Best on a southeast swell."
+  },
+  "el-pescadero": {
+    "seo_title": "El Pescadero Surf Report: Beach Break, Baja Sur",
+    "seo_description": "El Pescadero surf forecast between Todos Santos and Cerritos. A-frame beach peaks for winter and summer swell. Wind and tide.",
+    "description": "El Pescadero is the town between Todos Santos and Cerritos on the Pacific side of Baja California Sur. The beach in front produces A-frame peaks over sand and shallow reef, and it picks up both summer south swell and winter northwest swell. It can get crowded when it is good.",
+    "wave_tips": "West-southwest swell with a northeast wind is the setup; it works across the tide. Watch for rips and rocks.",
+    "access_tips": "Right off Highway 19. Camping and services are nearby.",
+    "best_conditions_prose": "Best on a west-southwest swell with a morning offshore."
+  },
+  "boca-del-salado": {
+    "seo_title": "Boca del Salado Surf Report: Los Cabos East Side",
+    "seo_description": "Boca del Salado surf forecast northeast of San José del Cabo. Beach and reef peaks for south swell. Wind, tide and hazards.",
+    "description": "Boca del Salado is a mix of beach and reef peaks northeast of San José del Cabo. It is an easy trip from the Los Cabos airport area and works best on summer south swell. Urchins, rips and rocks are the main hazards.",
+    "wave_tips": "South swell with a northwest wind is the setup.",
+    "access_tips": "Reachable by car from San José del Cabo. Bring water and sun protection.",
+    "best_conditions_prose": "Best on a solid summer south swell with offshore wind."
+  },
+  "cerritos-point": {
+    "seo_title": "Cerritos Surf Report: Beginner-Friendly Beach, Baja",
+    "seo_description": "Cerritos surf forecast south of El Pescadero. A friendly beach break with a right off the point, lessons and board rentals.",
+    "description": "Cerritos is the most beginner-friendly beach on this stretch of coast, south of El Pescadero. A right wraps off the headland at the north end on northwest swell, and the beach takes south swell in summer. Board rentals, lessons and food are available on the beach, and the area is developing quickly.",
+    "wave_tips": "Northwest swell for the point and southwest swell for the beach. Mid tide usually gives the best shape. It gets busy on holidays.",
+    "access_tips": "Free parking at the beach, off Highway 19.",
+    "best_conditions_prose": "Best on a small to medium swell in the morning."
+  },
+  "punta-gasparino": {
+    "seo_title": "Punta Gasparino Surf Report: Pacific Point, La Paz",
+    "seo_description": "Punta Gasparino surf forecast on the Pacific side of La Paz municipality. Northwest swell, wind and tide notes.",
+    "description": "Punta Gasparino is a point on the Pacific coast of La Paz municipality. It is easy to reach by Baja standards but does not break often, mainly on winter northwest swell.",
+    "wave_tips": "Northwest swell with an east wind is the setup; it can work at all tides.",
+    "access_tips": "Relatively easy access by Baja standards.",
+    "best_conditions_prose": "Best on a winter northwest swell."
+  },
+  "nine-palms": {
+    "seo_title": "Nine Palms Surf Report: East Cape Right Point",
+    "seo_description": "Nine Palms surf forecast on Baja Sur's East Cape. A long right point that fires on summer south swell. Wind and tide notes.",
+    "description": "Nine Palms is a long right-hand point on the East Cape road, north of San José del Cabo, named for the palm trees above the break. It needs a south or southeast swell and is one of the best waves on the East Cape when it is on, with a northwest wind blowing offshore.",
+    "wave_tips": "South to southeast swell is the trigger, and a mid incoming tide is usually the best call.",
+    "access_tips": "Park above the break on the East Cape road. There are no formal facilities.",
+    "best_conditions_prose": "Best on a head-high to overhead summer south swell."
+  },
+  "migrino": {
+    "seo_title": "Migriño Surf Report: Point and Beach Near Cabo",
+    "seo_description": "Migriño surf forecast between Cerritos and Cabo San Lucas. A consistent point and beach on the Pacific side. Swell, wind and rips.",
+    "description": "Migriño is a consistent point and beach between Cerritos and Cabo San Lucas, near a river mouth. It is a good alternative when Cerritos is crowded.",
+    "wave_tips": "West-southwest swell with an east-northeast wind is the setup; tide is secondary.",
+    "access_tips": "Dirt road off Highway 19. Services are in Cabo San Lucas or Cerritos.",
+    "best_conditions_prose": "Best on a west-southwest swell with offshore wind."
+  },
+  "shipwrecks-east-cape": {
+    "seo_title": "Shipwrecks Surf Report: East Cape, Los Cabos",
+    "seo_description": "Shipwrecks surf forecast on the East Cape north of San José del Cabo. A fast right point for south swell. Wind and tide notes.",
+    "description": "Shipwrecks is a fast right-hand point on the East Cape road north of San José del Cabo, named for the wreck near the break. It is one of the most consistent spots on the East Cape during south swell season, from spring through autumn. The rides are long, and so is the paddle back.",
+    "wave_tips": "South swell with a northwest wind is the setup; tide is secondary.",
+    "access_tips": "Park on the cliff and walk down. There are no facilities, so bring water.",
+    "best_conditions_prose": "Best on a summer south swell."
+  },
+  "san-jose-rivermouth": {
+    "seo_title": "San José Rivermouth Surf Report: Los Cabos",
+    "seo_description": "San José del Cabo rivermouth surf forecast by the estuary. A rare, powerful A-frame for south swell. Water quality notes.",
+    "description": "The San José rivermouth is at the estuary on the east end of San José del Cabo's beach. It only breaks well when storms open the sand berm, and then it can be a powerful A-frame. Water quality near the estuary can be poor.",
+    "wave_tips": "South swell with a north wind is the setup, with mid tide giving the best shape.",
+    "access_tips": "Park near La Playita or on the street by the estuary and walk over.",
+    "best_conditions_prose": "Best on a solid south swell after a storm has opened the river mouth."
+  },
+  "acapulquito-costa-azul": {
+    "seo_title": "Acapulquito (Old Man's) Surf Report: Costa Azul",
+    "seo_description": "Acapulquito surf forecast, the gentle right at Costa Azul in San José del Cabo. A beginner-friendly reef. Swell, wind and tide.",
+    "description": "Acapulquito, also called Old Man's, is the gentle right in front of the Cabo Surf Hotel at Costa Azul. It is the most beginner-friendly wave in the San José del Cabo area, with soft walls that suit longboards and learners. Lessons and rentals are available nearby.",
+    "wave_tips": "South to southwest swell with a north or northwest wind is the setup; it can be surfed from low through high tide.",
+    "access_tips": "Access from the Tourist Corridor at Costa Azul, with parking nearby.",
+    "best_conditions_prose": "Best on a small to medium south swell."
+  },
+  "the-rock-la-roca-costa-azul": {
+    "seo_title": "La Roca Surf Report: The Rock at Costa Azul",
+    "seo_description": "La Roca (The Rock) surf forecast at Costa Azul, near Zippers in San José del Cabo. A punchy, rocky right. Swell, wind and tide.",
+    "description": "La Roca, or The Rock, is a punchy right along the beach from Zippers at Costa Azul. The lineup is full of boulders, so it is an expert wave. Mid to high tide is the safer window.",
+    "wave_tips": "South and southwest swell is the setup; choose your takeoff carefully over the reef.",
+    "access_tips": "Park at Zippers and walk along the beach. You can check the break from the cliff first.",
+    "best_conditions_prose": "Best on a south swell at mid to high tide."
+  },
+  "zippers-costa-azul": {
+    "seo_title": "Zippers Surf Report: Costa Azul, San José del Cabo",
+    "seo_description": "Zippers surf forecast at Costa Azul, San José del Cabo. The best-known wave in Los Cabos, best on summer south swell.",
+    "description": "Zippers is the best-known wave in Los Cabos, a fast right over cobblestone and reef at Costa Azul, just west of San José del Cabo. It comes alive on summer south swell and gets crowded when it does. Rocks, urchins and a strong current are all part of the session.",
+    "wave_tips": "South to southwest swell with a northwest wind is the setup. It works at most tides, though low to mid often gives the best shape.",
+    "access_tips": "Large parking lot at the break on the Tourist Corridor. San José del Cabo has everything else.",
+    "best_conditions_prose": "Best on a head-high to overhead summer south swell."
+  },
+  "la-punta": {
+    "seo_title": "La Punta Surf Report: Cabo San Lucas Reef",
+    "seo_description": "La Punta surf forecast in the Cabo San Lucas area. A reef for summer south swell. Wind, tide and crowd notes.",
+    "description": "La Punta is a reef in the Cabo San Lucas area that works on south swell and can get crowded when it breaks.",
+    "wave_tips": "South swell with a north-northwest wind is the setup.",
+    "access_tips": "Reached from the Cabo San Lucas area.",
+    "best_conditions_prose": "Best on a summer south swell."
+  },
+  "rancho-san-carlos": {
+    "seo_title": "Rancho San Carlos Surf Report: Cabo Reef",
+    "seo_description": "Rancho San Carlos surf forecast in the Cabo San Lucas reef zone. South-southeast swell, wind and tide notes.",
+    "description": "Rancho San Carlos is a reef in the Cabo San Lucas area that picks up south-southeast swell in summer.",
+    "wave_tips": "South-southeast swell with a northwest wind is the setup. The reef cover matters more than the tide.",
+    "access_tips": "Reached from the Cabo San Lucas area.",
+    "best_conditions_prose": "Best on a summer south swell."
+  },
+  "punta-palmilla": {
+    "seo_title": "Punta Palmilla Surf Report: Los Cabos Right Point",
+    "seo_description": "Punta Palmilla surf forecast on the Tourist Corridor near San José del Cabo. A consistent right point for south swell.",
+    "description": "Punta Palmilla is the right-hand point near the Palmilla resort on the Tourist Corridor, west of San José del Cabo. It is one of the more consistent spots in the area during south swell season.",
+    "wave_tips": "South swell with a northwest wind is the setup; check the reef cover and how the shoulder is breaking.",
+    "access_tips": "Access is from the Tourist Corridor. Use public beach access points.",
+    "best_conditions_prose": "Best on a summer south swell."
+  },
+  "monuments": {
+    "seo_title": "Monuments Surf Report: Cabo San Lucas Left",
+    "seo_description": "Monuments surf forecast in Cabo San Lucas. A steep left that picks up west and southwest swell. Wind, tide and access.",
+    "description": "Monuments is the steep left at the east end of Cabo San Lucas bay, where deep water near the headland focuses west and southwest swell. It is one of the few spots near Cabo that picks up winter swell, and it is close to town. The takeoff zone is tight, and afternoon wind often ruins it.",
+    "wave_tips": "West and southwest swells are the main triggers, with a north or northeast wind. Go early.",
+    "access_tips": "Access runs through a gated resort area on the Tourist Corridor; surfers are usually let in. Park above and take the trail down.",
+    "best_conditions_prose": "Best on a west or southwest swell in the early morning."
+  },
+  "bahia-chileno": {
+    "seo_title": "Bahía Chileno Surf Report: Tourist Corridor Bay",
+    "seo_description": "Bahía Chileno surf forecast on the Los Cabos Tourist Corridor. A snorkeling bay that occasionally breaks on south swell.",
+    "description": "Bahía Chileno is a sheltered bay on the Tourist Corridor, better known for swimming and snorkeling. The reef only breaks on a strong south-southeast swell, and it is inconsistent.",
+    "wave_tips": "South-southeast swell with a northwest wind is the setup.",
+    "access_tips": "Signed public access from the Tourist Corridor with parking close to the beach.",
+    "best_conditions_prose": "Worth a look only on a strong south swell."
+  },
+  "backwash": {
+    "seo_title": "Backwash Surf Report: Cabo San Lucas Beach",
+    "seo_description": "Backwash surf forecast in the Cabo San Lucas area. A beach that needs a solid southeast to south swell. Wind and tide.",
+    "description": "Backwash is a beach in the Cabo San Lucas area that needs a solid southeast to south swell to break, so it is inconsistent.",
+    "wave_tips": "South-southeast swell with a northwest wind is the setup. Skip it if the waves look soft.",
+    "access_tips": "Reached from the Cabo San Lucas area.",
+    "best_conditions_prose": "Best on a solid summer south swell."
+  },
+  "teresas": {
+    "seo_title": "Teresa's Surf Report: Rosarito Break Forecast",
+    "seo_description": "Teresa's surf forecast in Rosarito, Baja California, near K-38 and Popotla. Live swell, wind and tide, plus notes on the tide window.",
+    "description": "Teresa's is a lesser-known break in the Rosarito area, on the same stretch of coast as K-38 and Popotla. It gets overlooked because of its better-known neighbors, but it can be a good wave on the right tide. It suits experienced surfers.",
+    "wave_tips": "It tends to be punchier on a lower tide. Onshore wind hurts the shape quickly, so aim for an early session.",
+    "access_tips": "Access is informal and can change. Rosarito has food and supplies.",
+    "best_conditions_prose": "Best on a clean swell at lower tide with a calm or offshore morning."
+  }
+}
