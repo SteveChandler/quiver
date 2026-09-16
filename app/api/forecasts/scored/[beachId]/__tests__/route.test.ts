@@ -111,6 +111,12 @@ describe("scoreForecastSlots", () => {
     expect(slot).toHaveProperty("rideableWavesPerHour");
     expect(slot).toHaveProperty("waveFrequencyConfidence");
     expect(slot).toHaveProperty("forecastDataConfidence");
+    expect(slot).toHaveProperty("boardClass");
+    expect(slot).toHaveProperty("board");
+    expect(slot).toHaveProperty("sizeBand");
+    expect(slot).toHaveProperty("scoreComponents");
+    expect(slot).toHaveProperty("appliedEffects");
+    expect(slot).toHaveProperty("boardLift");
   });
 
   it("compositeScore is between 0 and 100", () => {

@@ -10,7 +10,11 @@ import {
   DAYLIGHT_START_HOUR,
 } from "@/lib/services/magic-hour/constants";
 import { getLocalHour } from "@/lib/utils/timezone-utils";
-import type { RideabilityBand } from '@/lib/domains/rideability';
+import {
+  getRideabilityBand,
+  type BoardClass,
+  type RideabilityBand,
+} from '@/lib/domains/rideability';
 
 interface NativeSkillThresholds {
   waveMinFt: number;
@@ -26,6 +30,17 @@ interface NativeScoreInputs {
   periodSec: number;
   tideHeightFt: number | null;
   tideStatus: string | null;
+}
+
+export interface NativeConditionScoreBreakdown {
+  score: number;
+  components: {
+    waveFit: number;
+    period: number;
+    wind: number;
+    tide: number;
+  };
+  outOfBand: boolean;
 }
 
 export interface NativeScoredForecast {
@@ -95,7 +110,7 @@ function parseSignedNumber(value: string | number | null | undefined): number | 
   return Number.isFinite(n) ? n : null;
 }
 
-function nativeScoreInputsFromForecast(
+export function nativeScoreInputsFromForecast(
   forecast: EnhancedForecastEntity
 ): NativeScoreInputs {
   return {
@@ -112,6 +127,30 @@ export function scoreNativeConditionInputs(
   skillLevel?: SkillLevel | string | null,
   rideabilityBand?: RideabilityBand | null,
 ): number {
+  return scoreNativeConditionBreakdownForBand(
+    inputs,
+    skillLevel,
+    rideabilityBand,
+  ).score;
+}
+
+export function scoreNativeConditionBreakdown(
+  inputs: NativeScoreInputs,
+  skillLevel?: SkillLevel | string | null,
+  boardClass?: BoardClass | null,
+): NativeConditionScoreBreakdown {
+  return scoreNativeConditionBreakdownForBand(
+    inputs,
+    skillLevel,
+    boardClass ? getRideabilityBand(resolveNativeSkillLevel(skillLevel), boardClass) : null,
+  );
+}
+
+function scoreNativeConditionBreakdownForBand(
+  inputs: NativeScoreInputs,
+  skillLevel?: SkillLevel | string | null,
+  rideabilityBand?: RideabilityBand | null,
+): NativeConditionScoreBreakdown {
   const skill = resolveNativeSkillLevel(skillLevel);
   const nativeThresholds = NATIVE_SKILL_THRESHOLDS[skill];
   const thresholds = rideabilityBand
@@ -125,7 +164,13 @@ export function scoreNativeConditionInputs(
     : nativeThresholds;
   const { waveHeightFt, windSpeedMph, periodSec, tideHeightFt } = inputs;
 
-  if (waveHeightFt <= 0) return 0;
+  if (waveHeightFt <= 0) {
+    return {
+      score: 0,
+      components: { waveFit: 0, period: 0, wind: 0, tide: 0 },
+      outOfBand: false,
+    };
+  }
 
   const isBelowBand = waveHeightFt < thresholds.waveMinFt;
   const isAboveBand = waveHeightFt > thresholds.waveMaxFt;
@@ -160,8 +205,15 @@ export function scoreNativeConditionInputs(
   if (tideStatus.includes("high") || tideStatus.includes("low")) tideScore -= 1;
   tideScore = Math.max(0, Math.min(10, tideScore));
 
+  const components = {
+    waveFit: waveScore,
+    period: energyScore,
+    wind: windScore,
+    tide: tideScore,
+  };
+
   if (!isOutOfBand) {
-    return Math.round(waveScore + energyScore + windScore + tideScore);
+    return { score: Math.round(waveScore + energyScore + windScore + tideScore), components, outOfBand: false };
   }
 
   const relativeDistance = isAboveBand
@@ -170,9 +222,11 @@ export function scoreNativeConditionInputs(
   const attenuation = Math.max(0, 1 - relativeDistance / 0.75);
   const nonWaveScore = energyScore + windScore + tideScore;
 
-  return Math.round(
-    Math.min(OUT_OF_BAND_SCORE_CEILING, nonWaveScore * attenuation),
-  );
+  return {
+    score: Math.round(Math.min(OUT_OF_BAND_SCORE_CEILING, nonWaveScore * attenuation)),
+    components,
+    outOfBand: true,
+  };
 }
 
 export function scoreNativeForecastSlot(
