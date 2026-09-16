@@ -15,6 +15,8 @@ export type { SkillLevel };
  * Swells within this directional range reach the beach cleanly.
  */
 export interface SwellWindow {
+  /** False when direction scoring is enabled but no calibrated window exists. */
+  readonly defined?: boolean;
   /** Start of ideal swell window (degrees, 0-360) */
   readonly minDeg: number;
   /** End of ideal swell window (degrees, 0-360) */

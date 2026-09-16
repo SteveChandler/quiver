@@ -64,6 +64,10 @@ export const swellAlignmentScorer: ScorerPlugin = {
     const { snapshot, profile } = input;
     const { swellWindow } = profile;
 
+    if (swellWindow.defined === false) {
+      return createNeutralResult('swellAlignment', SCORER_WEIGHTS.swellAlignment);
+    }
+
     // Get swell direction - prefer primary swell, fall back to overall wave direction
     let swellDirection: number | null = null;
 
