@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase";
+import { isCallFeedbackEnabled } from "@/lib/flags/call-feedback";
 import {
   isValidUuid,
   withAuth,
@@ -20,10 +21,12 @@ type ShownCall = {
   boardName: string | null;
   boardType: string | null;
   isAnyBoard: boolean;
+  isPersonal: true;
   shownAt: string;
 };
 
 function metadataCall(row: { metadata: Record<string, unknown>; beach_id: string | null; created_at: string }): ShownCall | null {
+  if (row.metadata.is_personal !== true) return null;
   const callId = typeof row.metadata.call_id === "string" ? row.metadata.call_id : null;
   const forecastAt = typeof row.metadata.forecast_at === "string"
     ? row.metadata.forecast_at
@@ -41,6 +44,7 @@ function metadataCall(row: { metadata: Record<string, unknown>; beach_id: string
     boardName: null,
     boardType: null,
     isAnyBoard: row.metadata.is_any_board === true,
+    isPersonal: true,
     shownAt: row.created_at,
   };
 }
@@ -49,6 +53,10 @@ async function pendingCallHandler(
   request: NextRequest,
   { user }: AuthenticatedContext,
 ): Promise<NextResponse> {
+  if (!isCallFeedbackEnabled()) {
+    return NextResponse.json({ success: true, data: { call: null } });
+  }
+
   const beachId = request.nextUrl.searchParams.get("beachId");
   if (!beachId || !isValidUuid(beachId)) {
     return NextResponse.json({ success: false, error: "Invalid beachId" }, { status: 400 });

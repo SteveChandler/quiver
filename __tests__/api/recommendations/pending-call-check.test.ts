@@ -8,6 +8,7 @@ const results: Record<string, { data: unknown; error: null }> = {
   sessions: { data: [], error: null },
   boards: { data: null, error: null },
 };
+const originalEnv = process.env;
 
 function queryFor(table: string): Record<string, unknown> {
   const query: Record<string, unknown> = {};
@@ -20,8 +21,10 @@ function queryFor(table: string): Record<string, unknown> {
   return query;
 }
 
+const fromSpy = jest.fn((table: string) => queryFor(table));
+
 jest.mock("@/lib/supabase", () => ({
-  createServiceRoleClient: () => ({ from: (table: string) => queryFor(table) }),
+  createServiceRoleClient: () => ({ from: fromSpy }),
 }));
 
 jest.mock("@/lib/middleware/api-wrappers", () => ({
@@ -48,6 +51,7 @@ function exposure(callId: string, forecastAt: string, createdAt = new Date(now -
       label: "EPIC",
       board_id: "22222222-2222-4222-8222-222222222222",
       is_any_board: false,
+      is_personal: true,
     },
   };
 }
@@ -61,6 +65,12 @@ beforeEach(() => {
   results.forecast_feedback_contexts = { data: [], error: null };
   results.sessions = { data: [], error: null };
   results.boards = { data: { name: "Mid", board_type: "midlength" }, error: null };
+  process.env = { ...originalEnv, CALL_FEEDBACK_ENABLED: "true" };
+  fromSpy.mockClear();
+});
+
+afterAll(() => {
+  process.env = originalEnv;
 });
 
 describe("GET /api/recommendations/pending-call-check", () => {
@@ -75,7 +85,7 @@ describe("GET /api/recommendations/pending-call-check", () => {
     expect(await response.json()).toEqual({
       success: true,
       data: {
-        call: expect.objectContaining({ callId: "newer", boardName: "Mid", boardType: "midlength" }),
+        call: expect.objectContaining({ callId: "newer", boardName: "Mid", boardType: "midlength", isPersonal: true }),
       },
     });
   });
@@ -93,6 +103,25 @@ describe("GET /api/recommendations/pending-call-check", () => {
 
   it("excludes a call whose forecast slot has not ended", async () => {
     results.user_events.data = [exposure("call-1", new Date(now - 2 * 60 * 60 * 1000).toISOString())];
+
+    const response = await GET(request());
+    expect((await response.json()).data.call).toBeNull();
+  });
+
+  it("returns null without database calls when feedback is disabled", async () => {
+    process.env.CALL_FEEDBACK_ENABLED = "false";
+    results.user_events.data = [exposure("call-1", new Date(now - 5 * 60 * 60 * 1000).toISOString())];
+
+    const response = await GET(request());
+    expect(response.status).toBe(200);
+    expect((await response.json()).data.call).toBeNull();
+    expect(fromSpy).not.toHaveBeenCalled();
+  });
+
+  it("skips general calls", async () => {
+    const general = exposure("general-call", new Date(now - 5 * 60 * 60 * 1000).toISOString());
+    general.metadata.is_personal = false;
+    results.user_events.data = [general];
 
     const response = await GET(request());
     expect((await response.json()).data.call).toBeNull();
