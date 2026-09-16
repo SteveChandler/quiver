@@ -17,6 +17,7 @@
  */
 
 import { toBin5, TERRAIN_BINS } from '@/types/terrain';
+import { isDirectionScoringEnabledForBeach } from '@/lib/flags/direction-scoring';
 import type { WaveHeightSourceTag } from './wave-height-source';
 
 export type { WaveHeightSourceTag } from './wave-height-source';
@@ -78,6 +79,7 @@ export const POPULATION_PRIOR_BUCKETS: readonly ShoalingBucket[] = [
  * Beach terrain configuration needed for wave height transformation
  */
 export interface BeachTerrainConfig {
+  slug?: string | null;
   swell_access_factors?: number[] | null;
   terrain_enabled?: boolean;
   /**
@@ -135,6 +137,8 @@ export interface TransformParams {
    * floor. Normal nowcast anchors leave this false and use the generic path.
    */
   allowCalibratedShoaling?: boolean;
+  /** Explicit replay override; omitted callers use the production beach flag. */
+  directionScoringEnabled?: boolean;
 }
 
 // ===================================================
@@ -426,10 +430,11 @@ export function transformToFaceHeight(params: TransformParams): number {
  * falls outside the bucket table, the source fell back to model swell,
  * or the raw height is invalid.
  */
-interface FaceHeightWithMetadata {
+export interface FaceHeightWithMetadata {
   faceHeightFt: number;
   isCalibrated: boolean;
   provenance: WaveHeightTransformProvenance;
+  directionFactor?: number;
   calibrationBucketQuarantined?: boolean;
 }
 
@@ -473,6 +478,7 @@ export function transformToFaceHeightWithMetadata(
     beach,
     source,
     allowCalibratedShoaling,
+    directionScoringEnabled,
   } = params;
 
   // Validate input - return 0 for invalid values (not calibrated: a
@@ -495,11 +501,17 @@ export function transformToFaceHeightWithMetadata(
       if (shouldQuarantineCalibratedShoalingBucket(source, periodS, bucketFactor)) {
         calibrationBucketQuarantined = true;
       } else {
-        const shadow = calibratedShadowFactor(swellDirectionDeg, beach);
+        const directionFactor = getCalibratedDirectionFactor(
+          swellDirectionDeg,
+          periodS,
+          beach,
+          directionScoringEnabled ?? isDirectionScoringEnabledForBeach(beach ?? {}),
+        );
         return {
-          faceHeightFt: Math.round(rawHeightFt * bucketFactor * shadow * 10) / 10,
+          faceHeightFt: Math.round(rawHeightFt * bucketFactor * directionFactor * 10) / 10,
           isCalibrated: true,
           provenance: 'measured',
+          directionFactor,
         };
       }
     }
@@ -724,6 +736,51 @@ export function calibratedShadowFactor(
 
   const clampedAccess = Math.max(0, Math.min(1, rawAccess));
   return DIRECTION_FACTOR_MIN + Math.sqrt(clampedAccess) * DIRECTION_FACTOR_RANGE;
+}
+
+function getCalibratedDirectionFactor(
+  swellDirectionDeg: number | null | undefined,
+  periodS: number | null | undefined,
+  beach: BeachTerrainConfig | null | undefined,
+  enabled: boolean,
+): number {
+  if (!enabled) {
+    return calibratedShadowFactor(swellDirectionDeg, beach);
+  }
+
+  if (swellDirectionDeg == null || !Number.isFinite(swellDirectionDeg)) {
+    return 1.0;
+  }
+
+  const center = beach?.swell_window_center_deg;
+  const halfwidth = beach?.swell_window_halfwidth_deg;
+  if (
+    center == null ||
+    halfwidth == null ||
+    !Number.isFinite(center) ||
+    !Number.isFinite(halfwidth) ||
+    halfwidth <= 0
+  ) {
+    return 1.0;
+  }
+
+  const rawDelta = ((swellDirectionDeg - center) % 360 + 540) % 360 - 180;
+  const distance = Math.abs(rawDelta);
+  const inside = alignmentFactor(swellDirectionDeg, periodS, center, halfwidth);
+  if (distance < halfwidth) {
+    return inside;
+  }
+
+  const shadow = calibratedShadowFactor(swellDirectionDeg, beach);
+  if (shadow === 1.0) {
+    return 1.0;
+  }
+
+  const edge = periodS != null && periodS > SHORT_PERIOD_CUTOFF_S
+    ? ALIGNMENT_FLOOR
+    : 0;
+  const progress = Math.min(1, (distance - halfwidth) / Math.max(180 - halfwidth, 1));
+  return edge + (shadow - edge) * progress;
 }
 
 function hasValidSwellAccessFactors(
