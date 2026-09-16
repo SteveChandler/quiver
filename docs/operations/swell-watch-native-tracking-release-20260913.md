@@ -65,6 +65,12 @@ Steven approved the model-reported partition count rule (`APPROVE: 32957662` mig
 - `swell-watch-study-amend-model-partition-count.sql` executed once at 2026-09-14 19:55:52 UTC: epoch 4 active, rule `model_reported_partition_count.v1`, config hash `6f7efd19f2b9…`, evidence `4db6916ef046…`; exact retry was a no-op. Health: epoch 4 active, 0 evaluated, 0/30 days. Push authorities 0, notification bindings 0, automation control disabled.
 - Verification: `select public.read_swell_watch_study_health();` must show `authorityEpoch` 4 and `qualificationRule = model_reported_partition_count.v1`; the first epoch-4 result will carry `derivation.qualificationRule` and per-scope `partitionCoverage.s2.absent`.
 
+## Epoch 5 — model-reported swell system count
+
+When both swell partitions are provider zero tuples at an hour, the pinned WAVEWATCH III/Open-Meteo contract treats that frame as the model reporting zero swell systems. The application records non-numeric `absent` markers on both slots; no values are synthesized. A fully absent frame closes open episodes at the adjacent native frames and bounds a later onset by the previous native frame. Primary-zero/secondary-valid frames remain `incomplete_partition`.
+
+The retained Cape Hatteras issuances at 2026-09-16 00:00Z and 06:00Z contain the affected fully zero frames (forecast hours 103–105 and 100–103). Epoch 4 suppresses both with `incomplete_partition`; epoch 5 derives both at their recorded evaluation clocks and across the fresh 1–12 hour sweep, with `s1.absent` populated and `s2.absent >= s1.absent`. Epoch-5 study sends remain disabled.
+
 ## First unattended successful evaluation (2026-09-14 20:15 UTC)
 
 - Scheduled acquisition at 20:15:16 UTC (no manual trigger) acquired the provider's 2026-09-14T12:00Z issuance (published 19:20 UTC), automatically accepted it under epoch 4, completed provider batch `a94c98b4-9027-4395-8ed6-2950d378d37d`, and recorded study evaluation 17 as `evaluated` at 20:15:35 UTC with all ten sources `derived`.
