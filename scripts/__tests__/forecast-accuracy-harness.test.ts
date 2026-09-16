@@ -1,3 +1,5 @@
+import { execFileSync } from "node:child_process";
+import path from "node:path";
 import { toFaceHeightFeetDecomposedWithDebug, METERS_TO_FEET, type DecomposedFaceHeightParams } from "../../lib/utils/wave-formatters";
 import {
   applyProposedInput,
@@ -73,6 +75,16 @@ function profile(id: string, overrides: Partial<ProfileRow> = {}): ProfileRow {
 }
 
 describe("forecast-accuracy-harness", () => {
+  it("loads through tsx without duplicate exports", () => {
+    expect(() =>
+      execFileSync(
+        process.execPath,
+        ["--import", "tsx", "-e", 'import "./scripts/forecast-accuracy-harness.ts";'],
+        { cwd: path.resolve(__dirname, "../.."), stdio: "pipe" }
+      )
+    ).not.toThrow();
+  });
+
   it("parses date range and beach filters", () => {
     const options = parseCliArgs([
       "--start",

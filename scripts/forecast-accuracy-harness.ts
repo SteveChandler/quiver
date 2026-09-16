@@ -2162,8 +2162,6 @@ export {
   buildSessionTruthPredictionRows,
   computeProposedGateSlices,
   computeProposedDisplayHeightM,
-  computeDirectionSliceMetrics,
-  classifyDirectionSlice,
   getProposedGateSliceCoverage,
   getProposedGateSliceVerdict,
   getProposedGateVerdictFromDeltas,
