@@ -33,6 +33,8 @@ import {
 } from "@/lib/services/forecast/v5-display-gate";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
+import { entitlementFromRow } from "@/lib/alerts/entitlements";
+import { isBoardPicksFreeEnabled } from "@/lib/flags/board-picks-free";
 
 export const dynamic = "force-dynamic";
 
@@ -440,8 +442,17 @@ export const GET = withNoStore(withAuth(
       context.user?.id
     );
 
+    const { data: entitlementRow } = context.user
+      ? await supabase
+          .from("user_entitlements")
+          .select("is_pro, is_trialing, billing_issue, expires_at")
+          .eq("user_id", context.user.id)
+          .maybeSingle()
+      : { data: null };
+    const isPro = entitlementFromRow(entitlementRow ?? null) === "premium";
+    const boardPicksEnabled = isPro || isBoardPicksFreeEnabled();
     const boardContext = context.user
-      ? await fetchUserBoardContext(supabase, context.user.id, false)
+      ? await fetchUserBoardContext(supabase, context.user.id, boardPicksEnabled)
       : null;
     const timeSlots = scoreForecastSlots(
       forecastList, beach as Beach, userSkillLevel, boardContext?.boardClasses,
@@ -468,6 +479,8 @@ export const GET = withNoStore(withAuth(
       // Top-level (not per-slot) — the live observation is a single "now"
       // reading that doesn't vary across the 8 forecast slots.
       latestObservation,
+      plan: isPro ? "pro" : "free",
+      boardPicksEnabled,
     };
     const slotBindings = buildSlotBindings(validBeachId, timeSlots);
     const goldenBindings = buildGoldenBindings(validBeachId, goldenWindows);

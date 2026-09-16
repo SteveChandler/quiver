@@ -264,6 +264,7 @@ export interface LockedBestSpotTeaser {
 }
 
 export interface SurfDiscoveryBoardPick {
+  boardId?: string;
   boardName?: string;
   boardType?: string;
   reason?: string | null;

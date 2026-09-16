@@ -54,6 +54,7 @@ import {
 } from '@/lib/scoring/native-condition-score';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { rankBeaches } from '@/lib/recommendations/selection';
+import { isBoardPicksFreeEnabled } from '@/lib/flags/board-picks-free';
 
 // Import from other discovery modules
 import {
@@ -1062,7 +1063,7 @@ export async function fetchUserBoardContext(
   return {
     dominantBoardClass: resolveDominantBoardClass(rows),
     boardClasses: resolveBoardClasses(rows),
-    boardsForPicks: isPro
+    boardsForPicks: isPro || isBoardPicksFreeEnabled()
       ? rows
           .map((row) => normalizeBoardForPick(row))
           .filter((board): board is BoardForPick => board !== null)
@@ -1735,7 +1736,7 @@ async function discoverSurfSpotsInner(
       .select('beach_id, status')
       .in('beach_id', candidateBeachIds),
     userPrefsPromise.then((prefs) => fetchPersonalizationContext(userId, candidateBeachIds, prefs)),
-    fetchUserBoardContext(supabase, userId, isPro),
+    fetchUserBoardContext(supabase, userId, isPro || isBoardPicksFreeEnabled()),
     fetchBreakBehaviorSessionRows(supabase, candidateBeachIds, { now }),
     userPrefsPromise,
   ]);
@@ -2049,6 +2050,7 @@ async function discoverSurfSpotsInner(
       waveHeightBadge: detailedScore.waveHeightBadge,
       boardPick: conditionBoardPick
         ? {
+            boardId: conditionBoardPick.boardId,
             boardName: conditionBoardPick.boardName,
             boardType: conditionBoardPick.boardType,
             reason: conditionBoardPick.reason,
@@ -2173,6 +2175,7 @@ async function discoverSurfSpotsInner(
         waveHeightBadge: customDetailedScore.waveHeightBadge,
         boardPick: customBoardPick
           ? {
+              boardId: customBoardPick.boardId,
               boardName: customBoardPick.boardName,
               boardType: customBoardPick.boardType,
               reason: customBoardPick.reason,
