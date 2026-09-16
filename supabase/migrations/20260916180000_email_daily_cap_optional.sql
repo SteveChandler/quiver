@@ -46,7 +46,7 @@ BEGIN
  INSERT INTO public.email_contact_attempts(user_id,email_type,lifecycle_job,episode,state,handoff_at,payload)
  VALUES(p_user_id,'conditions_alert','conditions_alert',p_episode,'handoff_started',now(),p_payload) RETURNING id INTO a;
  RETURN jsonb_build_object('allowed',true,'attempt_id',a);
-END; $function$
+END; $function$;
 REVOKE ALL ON FUNCTION public.claim_requested_email_alert(uuid,text,jsonb) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.claim_requested_email_alert(uuid,text,jsonb) TO service_role;
 
@@ -186,7 +186,7 @@ BEGIN
     'source',jsonb_build_object('audience',audience,'email',lower(trim(p.email)),'name',p.display_name,'home_beach_id',p.home_beach_id,
       'sessions',count_sessions,'last_completion',last_completion,'trial_end',e.trial_ends_at,'offer_id',offer.id,'offer_months',CASE WHEN offer.program_id='five_sessions_month' THEN 1 WHEN offer.program_id='return_three_months' THEN 3 END));
   RETURN result;
-END; $function$
+END; $function$;
 REVOKE ALL ON FUNCTION public.evaluate_email_lifecycle(uuid,uuid) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.evaluate_email_lifecycle(uuid,uuid) TO service_role;
 COMMIT;
