@@ -307,7 +307,7 @@ function buildCanonicalSurfCall(
  * producer Home labels with.
  *
  * Authentication: required (user session)
- * Rate limit: surf-discovery bucket (shared with /api/surf/discover)
+ * Rate limit: surf-call bucket
  * Cache: private no-store; physical forecast computation remains internally cached.
  */
 async function surfCallHandler(
@@ -489,7 +489,7 @@ async function surfCallHandler(
 
 const protectedGET = withRateLimit(
   withAuth(surfCallHandler, { errorMessage: 'Error computing surf call' }),
-  'surf-discovery'
+  'surf-call'
 );
 
 export const GET: typeof protectedGET = async (request, context) => {

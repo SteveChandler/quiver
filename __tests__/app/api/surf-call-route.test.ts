@@ -4,6 +4,7 @@
 
 import { NextRequest } from "next/server";
 import { GET } from "@/app/api/surf/call/route";
+import { withRateLimit } from "@/lib/middleware/api-wrappers";
 
 const mockSupabase = {
   from: jest.fn(),
@@ -11,18 +12,18 @@ const mockSupabase = {
 const mockUser = {
   id: "native-user-123",
 };
-
 jest.mock("@/lib/middleware/api-wrappers", () => {
   const actual = jest.requireActual("@/lib/api-utils");
+  const withRateLimit = jest.fn(
+    (handler: (request: NextRequest) => Promise<Response>, _key: string) =>
+      (request: NextRequest) => handler(request),
+  );
   return {
     withAuth:
       (handler: (request: NextRequest, context: { user: typeof mockUser; supabase: typeof mockSupabase }) => Promise<Response>) =>
       (request: NextRequest) =>
         handler(request, { user: mockUser, supabase: mockSupabase }),
-    withRateLimit:
-      (handler: (request: NextRequest) => Promise<Response>) =>
-      (request: NextRequest) =>
-        handler(request),
+    withRateLimit,
     createSuccessResponse: actual.createSuccessResponse,
     validateOrError: actual.validateOrError,
   };
@@ -55,6 +56,15 @@ const mockDiscoverSurfSpots = jest.fn();
 jest.mock("@/lib/services/surf-discovery-service", () => ({
   discoverSurfSpots: (...args: unknown[]) => mockDiscoverSurfSpots(...args),
 }));
+
+describe("surf-call rate limiting", () => {
+  it("uses the dedicated surf-call bucket", () => {
+    expect(withRateLimit).toHaveBeenCalledWith(
+      expect.any(Function),
+      "surf-call",
+    );
+  });
+});
 
 jest.mock("@/lib/services/discovery/major-event-hold", () => ({
   sanitizeSurfDiscoveryForSerializationMajorEventHold: jest.fn(

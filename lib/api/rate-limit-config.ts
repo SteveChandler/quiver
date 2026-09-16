@@ -189,6 +189,21 @@ export const RATE_LIMITS = {
   }),
 
   /**
+   * Surf Call - MEDIUM
+   *
+   * Endpoint: /api/surf/call
+   * Risk: Authenticated per-slot scrubbing from native beach detail
+   * Cost: One forecast computation per 3-hour slot
+   *
+   * Dedicated limits for one request per 3-hour slot.
+   */
+  "surf-call": relaxForE2E({
+    requestsPerMinute: IS_PRODUCTION ? 60 : 120,
+    requestsPerHour: IS_PRODUCTION ? 600 : 1200,
+    burstLimit: IS_PRODUCTION ? 30 : 60,
+  }),
+
+  /**
    * Surf Insights - MEDIUM
    *
    * Endpoint: /api/surf/insights
@@ -315,6 +330,8 @@ const RATE_LIMIT_MESSAGES = {
     "Too many account recovery attempts. Please wait before trying again.",
   "surf-discovery":
     "Surf discovery rate limit exceeded. Please wait before requesting more recommendations.",
+  "surf-call":
+    "Surf call rate limit exceeded. Please wait before requesting more calls.",
   "surf-insights":
     "Surf insights rate limit exceeded. Please wait before requesting more insights.",
   "webhook-resend":
