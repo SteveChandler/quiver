@@ -7,6 +7,10 @@ import {
 import type { HourlySwellTimeline } from "@/app/api/forecasts/bulk/route";
 import type { MapSpotConditions } from "@/components/map/interactive-map";
 import type { Beach } from "@/types/database";
+import {
+  embedMapChromeTopOffsetPx,
+  embedMapStage,
+} from "@/components/map/embed-map-timeline";
 
 jest.mock("@/hooks/use-custom-spots", () => ({
   useCustomSpots: () => ({ customSpots: [
@@ -44,6 +48,36 @@ function hourlyTimeline(): HourlySwellTimeline {
 }
 
 describe("embed map bridge", () => {
+  it.each([
+    ["dark", "dark"],
+    ["light", "light"],
+    ["rainbow", "light"],
+    [null, "light"],
+  ] as const)("parses stage=%s as %s", (value, expected) => {
+    expect(embedMapStage(value)).toBe(expected);
+  });
+
+  it.each([
+    ["60", 60],
+    ["-5", 0],
+    ["250", 200],
+    ["60.5", 0],
+    ["invalid", 0],
+    [null, 0],
+  ] as const)("parses chromeTop=%s as %s px", (value, expected) => {
+    expect(embedMapChromeTopOffsetPx(value)).toBe(expected);
+  });
+
+  it("passes the dark stage and chrome offset to the map", async () => {
+    mockSearchParams = new URLSearchParams("stage=dark&chromeTop=60");
+    const { EmbedMapClient } = await import("@/app/embed/map/embed-map-client");
+    const view = render(React.createElement(EmbedMapClient));
+
+    expect(mockInteractiveMapProps.swellFieldStage).toBe("dark");
+    expect(mockInteractiveMapProps.mapChromeTopOffsetPx).toBe(60);
+    view.unmount();
+  });
+
   it('supplies public custom markers and sends their native detail selection', async () => {
     const postMessage = jest.fn();
     window.ReactNativeWebView = { postMessage };

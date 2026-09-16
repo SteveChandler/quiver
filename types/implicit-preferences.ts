@@ -198,6 +198,7 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   // Phase 21 native board management events
   board_form_saved: 0,
   session_board_fit_feedback_selected: 0,
+  board_pick_exposed: 0,
   // Phase 22 native forecast/custom-spot funnel events
   custom_spot_save_confirmation_viewed: 0,
   custom_spot_forecast_source_viewed: 0,

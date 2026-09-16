@@ -22,6 +22,8 @@ import {
   embedMapTimelineTimezone,
   forecastAtForEmbedTimelineIndex,
   embedTimelineStart,
+  embedMapStage,
+  embedMapChromeTopOffsetPx,
   LEGACY_EMBED_TIMELINE_STEPS,
   hourlyEmbedTimelineLabels,
   hourlyEmbedTimelineTimestamps,
@@ -150,6 +152,8 @@ function restoredForecastIndex(
 
 export function EmbedMapClient() {
   const searchParams = useSearchParams();
+  const swellFieldStage = embedMapStage(searchParams.get("stage"));
+  const mapChromeTopOffsetPx = embedMapChromeTopOffsetPx(searchParams.get("chromeTop"));
   const isHourlyTimeline = searchParams.get("timeline") === "hourly";
   const timelineTimezone = useMemo(
     () => embedMapTimelineTimezone(searchParams.get("timezone") ?? searchParams.get("timeZone")),
@@ -639,6 +643,8 @@ export function EmbedMapClient() {
         showConditionsOnTap={!isPlacementActive}
         showMapChrome={false}
         showSwellField={isActive && !fieldHidden}
+        swellFieldStage={swellFieldStage}
+        mapChromeTopOffsetPx={mapChromeTopOffsetPx}
         skillLevel={searchParams.get("skill") ?? undefined}
         swellLayerId={layerId as SwellLayerId}
         swellTimelineIndex={timelineIndex}
