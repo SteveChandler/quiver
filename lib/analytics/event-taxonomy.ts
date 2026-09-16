@@ -753,6 +753,10 @@ export const VALID_EVENTS = [
   // Phase 21 native board management events
   'board_form_saved',
   'session_board_fit_feedback_selected',
+  // Native direct insert. Metadata is bounded to: beach_id, forecast_at,
+  // surface, label, board_class, board_id, is_any_board, is_personal, plan,
+  // board_picks_enabled. No free text.
+  'board_pick_exposed',
   // Phase 22 native forecast-visual and custom-spot funnel events.
   // These are written directly to user_events by native clients. The DB
   // CHECK constraint must include these names (see migration
@@ -947,6 +951,7 @@ export const NATIVE_DIRECT_INSERT_EVENTS = [
   'home_recommendation_changed',
   'week_scout_stability',
   'decision_loop_completed',
+  'board_pick_exposed',
 ] as const;
 
 export const ANONYMOUS_ALLOWED_EVENTS: readonly EventType[] = [
