@@ -70,4 +70,9 @@ describe('direction scoring window scorer', () => {
     expect(disabled.components.swellAlignment).toBeUndefined();
     expect(enabled.components.windQuality).not.toBeUndefined();
   });
+
+  it('keeps wind quality neutral when offshore direction is missing', () => {
+    const result = scoreWindowConditionDetails(forecast({ wind_direction: 'N', wind_speed: '8 mph' }), beach({ wind_offshore_deg: null }), 'intermediate', null, []);
+    expect(result.components.windQuality).toBe(result.components.wind);
+  });
 });

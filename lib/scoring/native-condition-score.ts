@@ -37,7 +37,7 @@ interface NativeScoreInputs {
 export interface NativeDirectionScoreInput {
   windDirectionDeg: number | null;
   swellDirectionDeg: number | null;
-  offshoreDeg: number;
+  offshoreDeg: number | null;
   offshoreToleranceDeg: number;
   windowCenterDeg: number | null;
   windowHalfwidthDeg: number | null;
@@ -268,7 +268,7 @@ function scoreNativeConditionBreakdownForBand(
 }
 
 function windQualityMultiplier(direction: NativeDirectionScoreInput): number {
-  if (direction.windDirectionDeg == null) return 1;
+  if (direction.windDirectionDeg == null || direction.offshoreDeg == null) return 1;
   const label = classifyWindQuality(
     direction.windDirectionDeg,
     direction.offshoreDeg,

@@ -6,6 +6,10 @@ function envSlugs(name: string): Set<string> | null {
   return new Set(value.split(',').map((slug) => slug.trim()).filter(Boolean));
 }
 
+export function getDirectionScoringExcludedSlugs(): ReadonlySet<string> {
+  return envSlugs('DIRECTION_SCORING_EXCLUDED_SLUGS') ?? DIRECTION_SCORING_EXCLUDED_SLUGS;
+}
+
 export const DIRECTION_SCORING_EXCLUDED_SLUGS: ReadonlySet<string> = new Set(
   DEFAULT_EXCLUDED_SLUGS,
 );
@@ -19,6 +23,6 @@ export function isDirectionScoringEnabledForBeach(
   const allowed = envSlugs('DIRECTION_SCORING_ALLOWED_SLUGS');
   if (allowed && !allowed.has(beach.slug)) return false;
 
-  const excluded = envSlugs('DIRECTION_SCORING_EXCLUDED_SLUGS') ?? DIRECTION_SCORING_EXCLUDED_SLUGS;
+  const excluded = getDirectionScoringExcludedSlugs();
   return !excluded.has(beach.slug);
 }

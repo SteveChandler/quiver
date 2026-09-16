@@ -216,11 +216,12 @@ function decisionEffectDetails(
   return { ceiling, effects: effects.map((effect) => effect.code) };
 }
 
-function directionInput(
+export function directionInput(
   forecast: EnhancedForecastEntity,
   beach: BeachWithThresholds,
+  directionScoringEnabledOverride?: boolean,
 ): NativeDirectionScoreInput | undefined {
-  if (!isDirectionScoringEnabledForBeach(beach)) return undefined;
+  if (!(directionScoringEnabledOverride ?? isDirectionScoringEnabledForBeach(beach))) return undefined;
   return {
     windDirectionDeg: getDirectionDegrees(
       forecast.wind_direction_deg,
@@ -230,7 +231,7 @@ function directionInput(
       forecast.swell_1_direction ?? forecast.wave_direction,
       null,
     ),
-    offshoreDeg: beach.wind_offshore_deg ?? 0,
+    offshoreDeg: beach.wind_offshore_deg ?? null,
     offshoreToleranceDeg: beach.wind_offshore_tol_deg ?? 45,
     windowCenterDeg: beach.swell_window_center_deg ?? null,
     windowHalfwidthDeg: beach.swell_window_halfwidth_deg ?? null,
