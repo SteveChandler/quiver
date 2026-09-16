@@ -1,5 +1,5 @@
 /** @jest-environment node */
-import { runEmailLifecycle } from "@/lib/email/lifecycle-dispatcher";
+import { lifecycleMaxAcceptedPerRun, runEmailLifecycle } from "@/lib/email/lifecycle-dispatcher";
 const mockRefreshUser = jest.fn();
 jest.mock("@/lib/subscription/offer-automation", () => ({ refreshLifecycleEligibility: async () => ({ checked: 0, failed: 0 }), refreshLifecycleUserEligibility: (...args: unknown[]) => mockRefreshUser(...args) }));
 const mockSync = jest.fn();
@@ -9,6 +9,13 @@ jest.mock("@/lib/email/lifecycle", () => ({ ...jest.requireActual("@/lib/email/l
 jest.mock("@/lib/supabase/server", () => ({ createSupabaseServiceRoleClient: () => mockDb() }));
 jest.mock("@/lib/mailer/client", () => ({ getBaseUrl: () => "https://www.quiversurf.app", sendReservedLifecycleEmail: (...args: unknown[]) => mockSend(...args) }));
 beforeEach(() => { jest.clearAllMocks(); delete process.env.EMAIL_LIFECYCLE_ENABLED; });
+it.each([
+  [undefined, 5], ["", 5], ["0", 5], ["201", 5], ["5.5", 5], ["12", 12], ["1", 1], ["200", 200],
+])("parses lifecycle burst guard %s", (value, expected) => {
+  if (value === undefined) delete process.env.EMAIL_LIFECYCLE_MAX_PER_RUN;
+  else process.env.EMAIL_LIFECYCLE_MAX_PER_RUN = value;
+  expect(lifecycleMaxAcceptedPerRun()).toBe(expected);
+});
 it("disabled mode does not read or write production state", async () => {
   expect(await runEmailLifecycle(false)).toEqual({ status: "disabled", accepted: 0 });
   expect(mockRpc).not.toHaveBeenCalled(); expect(mockDb).not.toHaveBeenCalled(); expect(mockSend).not.toHaveBeenCalled();

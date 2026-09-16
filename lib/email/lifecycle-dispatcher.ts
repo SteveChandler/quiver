@@ -9,6 +9,11 @@ import { getBaseUrl, MAIL_FROM, sendReservedLifecycleEmail } from "@/lib/mailer/
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
 import { generateEmailUnsubscribeToken } from "@/lib/alerts/email-token";
 
+export function lifecycleMaxAcceptedPerRun(): number {
+  const value = Number.parseInt(process.env.EMAIL_LIFECYCLE_MAX_PER_RUN ?? "", 10);
+  return Number.isInteger(value) && value >= 1 && value <= 200 ? value : 5;
+}
+
 async function dispatchLifecycleUser(userId: string): Promise<string> {
   if (!lifecycleEnabled()) return "disabled";
   const replyTo = z.email().parse(process.env.EMAIL_REPLY_MAILBOX);
@@ -67,8 +72,8 @@ export async function runEmailLifecycle(dryRun: boolean): Promise<Record<string,
     const rateLimiter = createResendRateLimiter();
     for (const userId of users) {
       await lifecycleRpc("record_email_lifecycle_decision", { p_user_id: userId });
-      // Burst <=5; retain decisions for every enrolled user even when capacity is used.
-      if ((counts.accepted ?? 0) >= 5) continue;
+      // Retain decisions for every enrolled user even when the burst guard is reached.
+      if ((counts.accepted ?? 0) >= lifecycleMaxAcceptedPerRun()) continue;
       await rateLimiter.throttle();
       const reason = await dispatchLifecycleUser(userId);
       counts[reason] = (counts[reason] ?? 0) + 1;
