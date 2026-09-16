@@ -40,6 +40,9 @@ const coverageMigration = readFileSync(new URL("../supabase/migrations/202609140
 const coverageRollback = readFileSync(new URL("../docs/operations/swell-watch-study-partition-coverage-rollback.sql", import.meta.url), "utf8");
 const modelPartitionCountMigration = readFileSync(new URL("../supabase/migrations/20260914190000_amend_swell_watch_study_model_partition_count.sql", import.meta.url), "utf8");
 const modelPartitionCountRollback = readFileSync(new URL("../docs/operations/swell-watch-study-model-partition-count-rollback.sql", import.meta.url), "utf8");
+const swellSystemCountMigration = readFileSync(new URL("../supabase/migrations/20260916170000_amend_swell_watch_study_swell_system_count.sql", import.meta.url), "utf8");
+const swellSystemCountRollback = readFileSync(new URL("../docs/operations/swell-watch-study-swell-system-count-rollback.sql", import.meta.url), "utf8");
+const swellSystemCountAmendment = readFileSync(new URL("../docs/operations/swell-watch-study-amend-swell-system-count.sql", import.meta.url), "utf8");
 const amendment = readFileSync(new URL("../docs/operations/swell-watch-study-amend-partition-coverage.sql", import.meta.url), "utf8");
 const revokeAmendment = readFileSync(new URL("../docs/operations/swell-watch-study-revoke-partition-coverage.sql", import.meta.url), "utf8");
 const functionHashes = {
@@ -80,6 +83,15 @@ sql(modelPartitionCountRollback);
 assert.equal(studyEvaluationHash(), epochThreeStudyEvaluationHash);
 sql(modelPartitionCountMigration);
 assert.equal(studyEvaluationHash(), modelPartitionCountStudyEvaluationHash);
+sql(swellSystemCountMigration);
+const epoch5StudyEvaluationHash = "d1165986abe16e5c177a4d778dfa0f23ddd9d2b7407ee81c07755e39364c9f03";
+assert.equal(studyEvaluationHash(), epoch5StudyEvaluationHash);
+const epoch5Acl = studyPermissions();
+sql(swellSystemCountRollback);
+assert.equal(studyEvaluationHash(), modelPartitionCountStudyEvaluationHash);
+assert.equal(studyPermissions(), epoch5Acl);
+sql(swellSystemCountMigration);
+assert.equal(studyEvaluationHash(), epoch5StudyEvaluationHash);
 
 const tableRpcs = new Set(["record_swell_watch_provider_run_receipt", "complete_swell_watch_study_run", "record_swell_watch_shadow_demand"]);
 const jsonRpcs = new Set(["read_swell_watch_run_scope", "read_swell_watch_attested_run", "record_swell_watch_study_evaluation", "read_swell_watch_study_pending_runs"]);
@@ -550,6 +562,7 @@ try {
   assert.deepEqual(authorityRows(), amendedAuthority);
   assert.deepEqual(value("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;"), policyRows);
   assert.deepEqual(sendCounts(), nativeSafety);
+  sql("CREATE DATABASE study_swell_system_count TEMPLATE study_partition_coverage;");
   for (const field of ["not_before", "expires_at"]) {
     assert.throws(() => sql(`BEGIN;
       INSERT INTO public.swell_watch_study_authorities(epoch,state,policy_hash,cohort,scope_inputs,config_hash,target_days,
