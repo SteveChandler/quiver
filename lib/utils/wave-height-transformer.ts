@@ -772,7 +772,8 @@ function getCalibratedDirectionFactor(
   }
 
   const shadow = calibratedShadowFactor(swellDirectionDeg, beach);
-  if (shadow === 1.0) {
+  if (!Array.isArray(beach?.swell_access_factors) || beach.swell_access_factors.length !== TERRAIN_BINS ||
+    !Number.isFinite(beach.swell_access_factors[toBin5(swellDirectionDeg)])) {
     return 1.0;
   }
 
