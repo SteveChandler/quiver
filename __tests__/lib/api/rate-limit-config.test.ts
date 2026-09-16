@@ -34,4 +34,18 @@ describe('recommendation rate-limit configuration', () => {
     expect(limiter.canMakeRequest('authenticated-probe')).toBe(false);
     limiter.destroy();
   });
+
+  it('configures a distinct production surf-call bucket', () => {
+    jest.resetModules();
+    setNodeEnv('production');
+
+    const { RATE_LIMITS } = require('@/lib/api/rate-limit-config');
+
+    expect(RATE_LIMITS['surf-call']).toEqual({
+      requestsPerMinute: 60,
+      requestsPerHour: 600,
+      burstLimit: 30,
+    });
+    expect(RATE_LIMITS['surf-call']).not.toBe(RATE_LIMITS['surf-discovery']);
+  });
 });
