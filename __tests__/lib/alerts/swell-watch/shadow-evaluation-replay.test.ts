@@ -87,7 +87,7 @@ it.each([{ allIncomplete: false, sourceCount: 2 }, { allIncomplete: true, source
     peakWindow: { earliestAt: "2026-09-18T18:00:00.000Z", latestAt: "2026-09-18T21:00:00.000Z" },
     closureWindow: { earliestAt: "2026-09-20T00:00:00.000Z", latestAt: "2026-09-20T03:00:00.000Z" }, regionalEventId: null };
   expect(result.derivation?.scopes).toEqual(fixtures.filter((f) => f.sourcePointId !== hatteras.sourcePointId)
-    .map(({ sourcePointId }) => ({ sourcePointId, nativeFrames: 136, interpolatedFrames: 32, partitionCoverage: { s1: { observed: 168, unavailable: 0, absent: 0 }, s2: { observed: 168, unavailable: 0, absent: 0, unavailableNativeFrames: [], absentNativeFrames: [] } }, events: [expectedEvent] })));
+    .map(({ sourcePointId }) => ({ sourcePointId, nativeFrames: 136, interpolatedFrames: 32, partitionCoverage: { s1: { observed: 168, unavailable: 0, absent: 0, absentNativeFrames: [] }, s2: { observed: 168, unavailable: 0, absent: 0, unavailableNativeFrames: [], absentNativeFrames: [] } }, events: [expectedEvent] })));
   expect(result.scopeOutcomes).toHaveLength(sourceCount);
   expect(result.derivation?.scopes.flatMap((scope) => scope.events)).toHaveLength(sourceCount - 1);
   // Pretty JSON overestimates jsonb::text whitespace, leaving ample room below SQL's 131072-byte limit.
