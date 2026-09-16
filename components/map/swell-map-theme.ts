@@ -70,6 +70,16 @@ export const SWELL_FIELD_PARTICLE_COLOR: Record<SwellLayerId, string> = {
   combined: "#8A3B0A",
 };
 
+export const SWELL_FIELD_PARTICLE_COLOR_DARK_STAGE: Record<SwellLayerId, string> = {
+  s1: "#F4EBD8",
+  s2: "#FDB84B",
+  wind: "#00D4AA",
+  combined: "#F4EBD8",
+};
+export const SWELL_FIELD_DARK_STAGE_DIM = { color: "#252D6B", opacity: 0.4 } as const;
+export const SWELL_FIELD_DARK_STAGE_WATER = "#4B78A9";
+export const SWELL_FIELD_DARK_STAGE_DASH_LENGTH_SCALE = 1.9;
+
 // CTA tokens (Tailwind classes). Interactive buttons w/ white text MUST use ocean-blue
 // (#9E5010, AA-safe), NEVER bg-[#f78e42] white-text (2.36:1 AA fail). Decorative orange
 // text-on-navy uses text-ocean-blue-decorative.

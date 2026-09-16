@@ -14,6 +14,7 @@ import {
 } from "react";
 import { ChevronDown, ChevronUp, LoaderCircle } from "lucide-react";
 import mapboxgl from "mapbox-gl";
+import type { PaintSpecification } from "mapbox-gl";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { debounce } from "@/lib/utils/debounce";
 import type { MapBeach } from "@/lib/services/nearby-beach-service";
@@ -71,6 +72,10 @@ import type {
 import {
   degreesToCompass,
   SWELL_FIELD_PARTICLE_COLOR,
+  SWELL_FIELD_PARTICLE_COLOR_DARK_STAGE,
+  SWELL_FIELD_DARK_STAGE_DIM,
+  SWELL_FIELD_DARK_STAGE_WATER,
+  SWELL_FIELD_DARK_STAGE_DASH_LENGTH_SCALE,
   SWELL_MAP_LEGEND_SURFACE,
   SWELL_MAP_SURFACE,
   SWELL_MAP_STICKER_SHADOW,
@@ -95,6 +100,7 @@ import {
   createSwellParticleLayer,
   resolveParticleCount,
 } from "@/components/map/swell-field/swell-particle-layer";
+import { swellFieldLayerIds } from "@/components/map/swell-field/layer-plan";
 import { SwellLayerSelector } from "@/components/map/swell-field/swell-layer-selector";
 import { SwellForecastTimeline } from "@/components/map/swell-field/swell-forecast-timeline";
 import { SwellDayTimeline } from "@/components/map/swell-field/swell-day-timeline";
@@ -421,6 +427,8 @@ interface InteractiveMapProps {
   disableBeachClustering?: boolean; // Render beach points directly instead of clustered count markers.
   clusterClickBehavior?: ClusterClickBehavior; // Whether clusters expand or show grouped spot details
   showSwellField?: boolean;
+  swellFieldStage?: "light" | "dark";
+  mapChromeTopOffsetPx?: number;
   showConditionsOnTap?: boolean; // Embed-only: tap open water shows a nearest-beach conditions callout.
   swellLayerId?: SwellLayerId;
   onSwellLayerChange?: (id: SwellLayerId) => void;
@@ -588,6 +596,8 @@ export function InteractiveMap({
   disableBeachClustering = false,
   clusterClickBehavior = "expand",
   showSwellField = false,
+  swellFieldStage = "light",
+  mapChromeTopOffsetPx = 0,
   showConditionsOnTap = false,
   swellLayerId = "s1",
   onSwellLayerChange,
@@ -730,6 +740,9 @@ export function InteractiveMap({
   const appliedLeashKeyRef = useRef<string | null>(null);
   const pendingLeashCommandRef = useRef<MapCameraCommand | null>(null);
   const swellLayerIdRef = useRef<SwellLayerId>(swellLayerId);
+  const darkStageWaterOriginalColorRef = useRef<{
+    value: PaintSpecification["fill-color"];
+  } | null>(null);
   // The shape of the mounted particle layer(s). Only a shape change forces a
   // teardown+re-add (which re-seeds and looks like a jitter); same-shape switches
   // (Swell <-> Swell 2) keep the layer and retarget it via refs.
@@ -2229,10 +2242,10 @@ export function InteractiveMap({
     // Every swell GL layer id this component can mount: the single-layer id plus the
     // three combined sub-layer ids. Removing the full set before (re)adding the active
     // set guarantees no layer leaks when switching between combined and a single layer.
-    const allLayerIds = [
+    const allLayerIds = swellFieldLayerIds(
       SWELL_FIELD_LAYER_ID,
-      ...COMBINED_SUBLAYERS.map((c) => `${SWELL_FIELD_LAYER_ID}-${c}`),
-    ];
+      COMBINED_SUBLAYERS.map((c) => `${SWELL_FIELD_LAYER_ID}-${c}`),
+    );
     const teardown = (): void => {
       for (const id of allLayerIds) {
         if (map.getLayer(id)) map.removeLayer(id);
@@ -2251,7 +2264,7 @@ export function InteractiveMap({
             : swellLayerId === "wind"
               ? "wind"
               : "swell"
-        }|${reducedMotion ? "rm" : "mo"}`;
+        }|${reducedMotion ? "rm" : "mo"}|${swellFieldStage}`;
     // Skip the teardown only when the shape is unchanged AND the layer is genuinely
     // still mounted (a style reload can wipe layers while the ref says otherwise).
     const mountedProbeId =
@@ -2264,13 +2277,47 @@ export function InteractiveMap({
     if (alreadyCorrect) return;
 
     teardown();
+    if (swellFieldStage !== "dark" && darkStageWaterOriginalColorRef.current) {
+      if (map.getLayer("water")) {
+        map.setPaintProperty(
+          "water",
+          "fill-color",
+          darkStageWaterOriginalColorRef.current.value,
+        );
+      }
+      darkStageWaterOriginalColorRef.current = null;
+    }
     swellLayerKeyRef.current = "none";
     if (!showSwellField) return;
 
     const viewportWidthPx =
       typeof window !== "undefined" ? window.innerWidth : 1024;
     const baseParticleCount = resolveParticleCount(viewportWidthPx);
+    const particlePalette = swellFieldStage === "dark"
+      ? SWELL_FIELD_PARTICLE_COLOR_DARK_STAGE
+      : SWELL_FIELD_PARTICLE_COLOR;
+    const dashStageScale = swellFieldStage === "dark"
+      ? SWELL_FIELD_DARK_STAGE_DASH_LENGTH_SCALE
+      : 1;
 
+    if (swellFieldStage === "dark") {
+      if (map.getLayer("water")) {
+        if (!darkStageWaterOriginalColorRef.current) {
+          darkStageWaterOriginalColorRef.current = {
+            value: map.getPaintProperty("water", "fill-color"),
+          };
+        }
+        map.setPaintProperty("water", "fill-color", SWELL_FIELD_DARK_STAGE_WATER);
+      }
+      map.addLayer({
+        id: `${SWELL_FIELD_LAYER_ID}-stage-dim`,
+        type: "background",
+        paint: {
+          "background-color": SWELL_FIELD_DARK_STAGE_DIM.color,
+          "background-opacity": SWELL_FIELD_DARK_STAGE_DIM.opacity,
+        },
+      });
+    }
     if (swellLayerId === "combined") {
       // Overlay the three components, each its own colored layer + flow field. Cap
       // per-layer particle count so three stacked layers stay in budget.
@@ -2280,7 +2327,7 @@ export function InteractiveMap({
             id: `${SWELL_FIELD_LAYER_ID}-${component}`,
             maskToWater: component !== "wind",
             getField: () => flowFieldsRef.current[component],
-            getColorHex: () => SWELL_FIELD_PARTICLE_COLOR[component],
+            getColorHex: () => particlePalette[component],
             reducedMotion,
             viewportWidthPx,
             count:
@@ -2290,7 +2337,7 @@ export function InteractiveMap({
             markStyle: component === "wind" ? "streak" : "dash",
             motionScale: PARTICLE_MOTION_SCALE[component],
             velocitySmoothing: PARTICLE_VELOCITY_SMOOTHING[component],
-            dashLengthScale: PARTICLE_DASH_LENGTH_SCALE[component],
+            dashLengthScale: PARTICLE_DASH_LENGTH_SCALE[component] * dashStageScale,
           })
         );
       }
@@ -2304,7 +2351,7 @@ export function InteractiveMap({
           maskToWater: () => swellLayerIdRef.current !== "wind",
           getField: () =>
             flowFieldsRef.current[swellLayerIdRef.current as FlowComponentId],
-          getColorHex: () => SWELL_FIELD_PARTICLE_COLOR[swellLayerIdRef.current],
+          getColorHex: () => particlePalette[swellLayerIdRef.current],
           reducedMotion,
           viewportWidthPx,
           count:
@@ -2317,7 +2364,7 @@ export function InteractiveMap({
             return {
               motionScale: PARTICLE_MOTION_SCALE[active],
               velocitySmoothing: PARTICLE_VELOCITY_SMOOTHING[active],
-              dashLengthScale: PARTICLE_DASH_LENGTH_SCALE[active],
+              dashLengthScale: PARTICLE_DASH_LENGTH_SCALE[active] * dashStageScale,
             };
           },
         })
@@ -2327,7 +2374,7 @@ export function InteractiveMap({
     swellLayerKeyRef.current = shapeKey;
     // No cleanup teardown: the layer persists across same-shape switches and is
     // removed on the next shape change (or with the map on unmount).
-  }, [showSwellField, isMapReady, reducedMotion, swellLayerId, mapStyleRevision]);
+  }, [showSwellField, isMapReady, reducedMotion, swellLayerId, swellFieldStage, mapStyleRevision]);
 
   // Auto-dismiss the one-time coastal-leash hint ~4s after it appears. With
   // motion, kick a CSS opacity fade ~500ms before unmount; under reduced motion
@@ -2482,12 +2529,18 @@ export function InteractiveMap({
       center: [initialCenterRef.current[1], initialCenterRef.current[0]], // longitude, latitude
       zoom: initialZoom,
       attributionControl: false,
-      logoPosition: "top-left",
+      logoPosition: swellFieldStage === "dark" ? "top-right" : "top-left",
     });
     map.addControl(
       new mapboxgl.AttributionControl({ compact: true }),
       "top-right"
     );
+    if (mapChromeTopOffsetPx > 0) {
+      map
+        .getContainer()
+        .querySelector<HTMLElement>(".mapboxgl-ctrl-top-right")
+        ?.style.setProperty("top", `${mapChromeTopOffsetPx}px`, "important");
+    }
 
     mapRef.current = map;
 
@@ -2758,7 +2811,7 @@ export function InteractiveMap({
       (handleMoveEndRef.current as any)?.cancel?.();
       cleanupMap();
     };
-  }, [initialZoom, cleanupMap, mapRetryNonce]);
+  }, [initialZoom, cleanupMap, mapRetryNonce, mapChromeTopOffsetPx, swellFieldStage]);
 
   useEffect(() => {
     const container = mapContainerRef.current;
