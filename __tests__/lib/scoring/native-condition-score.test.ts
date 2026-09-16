@@ -2,6 +2,7 @@ import {
   NATIVE_SKILL_THRESHOLDS,
   OUT_OF_BAND_SCORE_CEILING,
   pickBestNativeForecastSlot,
+  scoreNativeConditionBreakdown,
   scoreNativeConditionInputs,
   scoreNativeForecastSlot,
 } from "@/lib/scoring/native-condition-score";
@@ -53,6 +54,21 @@ describe("native-condition-score", () => {
           "intermediate",
         ),
       ).toBe(expected);
+    }
+  });
+
+  it("keeps the numeric score identical when exposing components", () => {
+    const cases = [
+      { waveHeightFt: 1, ...pristineInputs },
+      { waveHeightFt: 3.5, ...pristineInputs },
+      { waveHeightFt: 6, ...pristineInputs },
+      { waveHeightFt: 8, ...pristineInputs, windSpeedMph: 30 },
+    ];
+
+    for (const inputs of cases) {
+      expect(scoreNativeConditionBreakdown(inputs, "intermediate").score).toBe(
+        scoreNativeConditionInputs(inputs, "intermediate"),
+      );
     }
   });
 

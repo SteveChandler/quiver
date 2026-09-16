@@ -52,7 +52,14 @@ jest.mock("@/lib/services/observations/nowcast-anchor", () => ({
 }));
 
 jest.mock("@/lib/services/discovery/window-selector/window-scorer", () => ({
-  scoreWindowConditionScore: jest.fn(() => 75),
+  scoreWindowConditionDetails: jest.fn(() => ({
+    score: 75,
+    boardClass: null,
+    rideabilityBand: null,
+    decisionCeiling: 100,
+    components: { waveFit: 0, period: 0, wind: 0, tide: 0 },
+    appliedEffects: [],
+  })),
 }));
 
 jest.mock("@/lib/domains/wave-frequency/calculator", () => ({
@@ -120,6 +127,7 @@ function scoredSupabase() {
       data: [forecast(SLOT_ONE), forecast(SLOT_TWO)],
       error: null,
     })),
+    maybeSingle: jest.fn(async () => ({ data: null, error: null })),
   };
   return {
     from: jest.fn((table: string) =>
@@ -195,11 +203,11 @@ describe("major-event hold route integration", () => {
       ? { select: () => ({ eq: boardEq }) } : originalFrom(table));
     mockEvaluateMajorEventHoldCandidates.mockResolvedValueOnce([]);
     const { GET } = await import("@/app/api/forecasts/scored/[beachId]/route");
-    const { scoreWindowConditionScore } = await import('@/lib/services/discovery/window-selector/window-scorer');
+    const { scoreWindowConditionDetails } = await import('@/lib/services/discovery/window-selector/window-scorer');
     const response = await GET(new NextRequest(`http://localhost/api/forecasts/scored/${BEACH_ID}?range=14day&userId=someone-else`));
     expect(response.status).toBe(200);
     expect(boardEq).toHaveBeenCalledWith('user_id', 'signed-in-surfer');
-    expect(scoreWindowConditionScore).toHaveBeenCalledWith(
+    expect(scoreWindowConditionDetails).toHaveBeenCalledWith(
       expect.objectContaining({ forecast_at: SLOT_ONE }),
       expect.objectContaining({ id: BEACH_ID }), null, null, ['longboard', 'fish'],
     );

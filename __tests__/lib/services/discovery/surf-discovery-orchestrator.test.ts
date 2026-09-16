@@ -1234,6 +1234,7 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     // while carrying the medium-tier reason string — it contradicted the table it
     // was exercising. Board-aware scoring now returns the surf-correct pick.
     expect(beach1Rec?.boardPick).toEqual({
+      boardId: 'sb-1',
       boardName: "5'10 Lost Driver",
       boardType: 'shortboard',
       reason: "5'10 Lost Driver conditions — enjoy the fun waves",
@@ -1255,6 +1256,7 @@ describe('discoverSurfSpots - Favorites Merging', () => {
 
     const beach1Rec = result.recommendations.find(r => r.beach.id === 'beach-1');
     expect(beach1Rec?.boardPick).toEqual({
+      boardId: 'custom-1',
       boardName: 'Custom Shape',
       boardType: 'custom-shape',
       reason: 'Custom Shape conditions — enjoy the fun waves',
@@ -1287,6 +1289,26 @@ describe('discoverSurfSpots - Favorites Merging', () => {
 
     expect(mockSupabaseFrom).toHaveBeenCalledWith('boards');
     expect(result.recommendations.every(r => r.boardPick == null)).toBe(true);
+  });
+
+  test('names free-user board picks when the rollback flag is enabled', async () => {
+    const previous = process.env.BOARD_PICKS_FREE_ENABLED;
+    process.env.BOARD_PICKS_FREE_ENABLED = 'true';
+    mockState.boards = [
+      { id: 'sb-1', name: "5'10 Lost Driver", board_type: 'shortboard', volume: 28 },
+    ];
+
+    try {
+      const result = await discoverSurfSpots(testUserId, {
+        userLocation: defaultUserLocation,
+        maxResults: 5,
+        isPro: false,
+      });
+      expect(result.recommendations.find(r => r.beach.id === 'beach-1')?.boardPick?.boardId).toBe('sb-1');
+    } finally {
+      if (previous === undefined) delete process.env.BOARD_PICKS_FREE_ENABLED;
+      else process.env.BOARD_PICKS_FREE_ENABLED = previous;
+    }
   });
 
   test("uses one dominant board class to rank Old Man's above Blacks for logs and Blacks above Old Man's for shortboards", async () => {

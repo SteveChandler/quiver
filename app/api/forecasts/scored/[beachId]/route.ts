@@ -15,9 +15,10 @@ import {
 import { evaluateMajorEventHoldCandidates } from "@/lib/recommendations/major-event-hold/service";
 import { calculateRideableWaves } from "@/lib/domains/wave-frequency/calculator";
 import { resolveNativeSkillLevel } from "@/lib/scoring/native-condition-score";
-import { scoreWindowConditionScore } from "@/lib/services/discovery/window-selector/window-scorer";
+import { scoreWindowConditionDetails } from "@/lib/services/discovery/window-selector/window-scorer";
 import { fetchUserBoardContext } from "@/lib/services/discovery/surf-discovery-orchestrator";
 import type { BoardClass } from "@/lib/domains/rideability";
+import { getConditionBoardPick, toForecastForScoring, type BoardForPick } from "@/lib/scoring";
 import type { SkillLevel } from "@/lib/domains/user-preferences/skill-level";
 import { getProfileExperienceLevel } from "@/lib/profile/skill-level";
 import { parseWaveHeight } from "@/lib/utils/forecast-parsing";
@@ -32,6 +33,8 @@ import {
 } from "@/lib/services/forecast/v5-display-gate";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
+import { entitlementFromRow } from "@/lib/alerts/entitlements";
+import { isBoardPicksFreeEnabled } from "@/lib/flags/board-picks-free";
 
 export const dynamic = "force-dynamic";
 
@@ -61,11 +64,28 @@ interface TimeSlot {
   waterTemp: string;
   airTemp: string;
   compositeScore: number;
+  generalScore?: number;
   rideableWavesPerHour: number;
   waveFrequencyConfidence: "high" | "medium" | "low";
   swellTrains: number;
   dominantBeatIntervalS: number | null;
   forecastDataConfidence: number;
+  boardClass?: BoardClass | null;
+  board?: { id: string; name: string; boardType: string } | null;
+  sizeBand?: {
+    idealMinFt: number;
+    idealMaxFt: number;
+    acceptableMinFt: number;
+    acceptableMaxFt: number;
+  } | null;
+  scoreComponents?: {
+    waveFit: number;
+    period: number;
+    wind: number;
+    tide: number;
+  };
+  appliedEffects?: string[];
+  boardLift?: boolean;
 }
 
 interface GoldenWindow {
@@ -165,13 +185,29 @@ export function scoreForecastSlots(
   beach: Beach,
   skillLevel?: SkillLevel | string | null,
   boardClasses: readonly BoardClass[] = [],
+  boardsForPicks: BoardForPick[] = [],
 ): TimeSlot[] {
   return forecasts.map((forecast) => {
-    const compositeScore = scoreWindowConditionScore(
+    const scoreDetails = scoreWindowConditionDetails(
       forecast, beach,
       boardClasses.length > 0 ? skillLevel : resolveNativeSkillLevel(skillLevel),
       null, boardClasses,
     );
+    const generalScore = scoreWindowConditionDetails(
+      forecast,
+      beach,
+      "beginner",
+      null,
+      [],
+    ).score;
+    const boardPick = scoreDetails.boardClass
+      ? getConditionBoardPick(
+          toForecastForScoring(forecast),
+          boardsForPicks,
+          beach,
+          { kind: "scored", boardClass: scoreDetails.boardClass },
+        )
+      : null;
 
     // Wave frequency
     const {
@@ -225,12 +261,32 @@ export function scoreForecastSlots(
       tideStatus,
       waterTemp,
       airTemp,
-      compositeScore,
+      compositeScore: scoreDetails.score,
+      generalScore,
       rideableWavesPerHour,
       waveFrequencyConfidence,
       swellTrains,
       dominantBeatIntervalS,
       forecastDataConfidence,
+      boardClass: scoreDetails.boardClass,
+      board: boardPick
+        ? {
+            id: boardPick.boardId,
+            name: boardPick.boardName,
+            boardType: boardPick.boardType,
+          }
+        : null,
+      sizeBand: scoreDetails.rideabilityBand
+        ? {
+            idealMinFt: scoreDetails.rideabilityBand.ideal.min,
+            idealMaxFt: scoreDetails.rideabilityBand.ideal.max,
+            acceptableMinFt: scoreDetails.rideabilityBand.acceptable.min,
+            acceptableMaxFt: scoreDetails.rideabilityBand.acceptable.max,
+          }
+        : null,
+      scoreComponents: scoreDetails.components,
+      appliedEffects: scoreDetails.appliedEffects,
+      boardLift: scoreDetails.boardClass !== null,
     };
   });
 }
@@ -395,11 +451,21 @@ export const GET = withNoStore(withAuth(
       context.user?.id
     );
 
+    const { data: entitlementRow } = context.user
+      ? await supabase
+          .from("user_entitlements")
+          .select("is_pro, is_trialing, billing_issue, expires_at")
+          .eq("user_id", context.user.id)
+          .maybeSingle()
+      : { data: null };
+    const isPro = entitlementFromRow(entitlementRow ?? null) === "premium";
+    const boardPicksEnabled = isPro || isBoardPicksFreeEnabled();
     const boardContext = context.user
-      ? await fetchUserBoardContext(supabase, context.user.id, false)
+      ? await fetchUserBoardContext(supabase, context.user.id, boardPicksEnabled)
       : null;
     const timeSlots = scoreForecastSlots(
       forecastList, beach as Beach, userSkillLevel, boardContext?.boardClasses,
+      boardContext?.boardsForPicks,
     );
 
     // Identify golden windows
@@ -422,6 +488,9 @@ export const GET = withNoStore(withAuth(
       // Top-level (not per-slot) — the live observation is a single "now"
       // reading that doesn't vary across the 8 forecast slots.
       latestObservation,
+      plan: isPro ? "pro" : "free",
+      boardPicksEnabled,
+      generalProfile: { skill: "beginner", board: null },
     };
     const slotBindings = buildSlotBindings(validBeachId, timeSlots);
     const goldenBindings = buildGoldenBindings(validBeachId, goldenWindows);
