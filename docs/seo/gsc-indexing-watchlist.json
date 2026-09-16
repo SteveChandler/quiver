@@ -19,6 +19,11 @@
       "canonicalPath": "/mexico/baja-california/popotla/el-morro-point-k37-5",
       "label": "El Morro beach page",
       "reason": "Canonical Popotla beach URL; verify its current-forecast indexability and crawl state after the corrected Baja California hub link deploys."
+    },
+    {
+      "canonicalPath": "/surf-report/la-jolla-today",
+      "label": "La Jolla surf-report owner",
+      "reason": "Report-intent owner merged to prod 2026-08-25 still has no GSC performance row as of 2026-09-16; confirm Google has crawled and indexed it before reading its first complete window (ending on or after 2026-09-22)."
     }
   ]
 }
