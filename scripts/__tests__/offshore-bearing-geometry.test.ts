@@ -1,6 +1,7 @@
 import {
   angularDistance,
   confidenceForSources,
+  hasAmbiguousCoastline,
   nearestCoastlineSegments,
   roundBearing,
   segmentBearing,
@@ -31,10 +32,22 @@ describe('offshore bearing geometry', () => {
     expect(result?.distanceM).toBeCloseTo(111.32, 0);
   });
 
-  it('requires agreement for high confidence and swell support for medium', () => {
-    expect(confidenceForSources(270, 280, 275)).toBe('HIGH');
-    expect(confidenceForSources(null, 270, 310)).toBe('MEDIUM');
-    expect(confidenceForSources(270, 320, 270)).toBe('REVIEW');
-    expect(confidenceForSources(270, null, null)).toBe('REVIEW');
+  it('requires nearby coastline geometry for confidence', () => {
+    expect(confidenceForSources(270, 280, 275, 300)).toBe('HIGH');
+    expect(confidenceForSources(null, 270, 310, 700)).toBe('MEDIUM');
+    expect(confidenceForSources(270, 320, 270, 300)).toBe('MEDIUM');
+    expect(confidenceForSources(270, null, null, null)).toBe('REVIEW');
+    expect(confidenceForSources(270, 270, null, 300, true)).toBe('REVIEW');
+    expect(confidenceForSources(270, 270, null, 1100)).toBe('REVIEW');
+  });
+
+  it('flags nearby coastline segments with conflicting orientation', () => {
+    expect(hasAmbiguousCoastline(
+      { lat: 0, lon: 0 },
+      [
+        { wayId: 1, start: { lat: 0, lon: 0 }, end: { lat: 0.001, lon: 0 } },
+        { wayId: 2, start: { lat: 0, lon: 0 }, end: { lat: 0, lon: 0.001 } },
+      ],
+    )).toBe(true);
   });
 });

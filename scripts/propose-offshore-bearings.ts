@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import {
   circularMean,
   confidenceForSources,
+  hasAmbiguousCoastline,
   nearestCoastlineSegments,
   roundBearing,
   segmentBearing,
@@ -26,10 +27,15 @@ type BearingRow = {
 };
 
 const QUERY = `SELECT slug, name, lat, lon, wind_offshore_deg, wind_offshore_tol_deg, aspect_deg, swell_window_center_deg, (shoaling_factors IS NOT NULL AND slug NOT IN ('avalanche', 'imperial-beach-pier')) AS calibrated FROM public.beaches WHERE wind_offshore_deg IS NOT NULL ORDER BY calibrated DESC, slug`;
-const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
+const OVERPASS_URLS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
+];
 const USER_AGENT = 'Quiver offshore-bearing review (https://quiversurf.app; data-quality research)';
 const ENV_FILE = '/Users/stevenchandler/Desktop/dev/quiver/.env.production.local';
 let lastOverpassRequest = 0;
+class NonRetryableOverpassError extends Error {}
 
 function printHelp(): void {
   console.log('Usage: yarn tsx scripts/propose-offshore-bearings.ts --out <dir>');
@@ -65,41 +71,77 @@ function loadBeaches(): Beach[] {
   });
 }
 
-async function fetchCoastline(beach: Beach, outDir: string): Promise<{ nearest: { segments: CoastlineSegment[]; distanceM: number } | null; unavailable: boolean }> {
+async function waitForOverpass(): Promise<void> {
+  const waitMs = Math.max(0, 2000 - (Date.now() - lastOverpassRequest));
+  if (waitMs) await new Promise((resolve) => setTimeout(resolve, waitMs));
+  lastOverpassRequest = Date.now();
+}
+
+function retryAfterMs(response: Response): number | null {
+  const value = response.headers.get('retry-after');
+  if (!value) return null;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
+  const date = Date.parse(value);
+  return Number.isFinite(date) ? Math.max(0, date - Date.now()) : null;
+}
+
+async function fetchCoastline(beach: Beach, outDir: string): Promise<{ nearest: { segments: CoastlineSegment[]; distanceM: number } | null; ambiguous: boolean; unavailable: boolean }> {
   const cachePath = join(outDir, 'coastline-cache', `${beach.slug}.json`);
   try {
     const cached = JSON.parse(await readFile(cachePath, 'utf8')) as { segments: CoastlineSegment[] };
     const nearest = nearestCoastlineSegments({ lat: beach.lat, lon: beach.lon }, cached.segments);
-    return { nearest: nearest && nearest.distanceM <= 1000 ? nearest : null, unavailable: false };
+    return { nearest: nearest && nearest.distanceM <= 1000 ? nearest : null, ambiguous: hasAmbiguousCoastline({ lat: beach.lat, lon: beach.lon }, cached.segments), unavailable: false };
   } catch { /* cache miss */ }
-  const waitMs = Math.max(0, 1000 - (Date.now() - lastOverpassRequest));
-  if (waitMs) await new Promise((resolve) => setTimeout(resolve, waitMs));
-  lastOverpassRequest = Date.now();
-  const query = `[out:json][timeout:20];way["natural"="coastline"](around:1500,${beach.lat},${beach.lon});out geom;`;
-  try {
-    const response = await fetch(OVERPASS_URL, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': USER_AGENT }, body: new URLSearchParams({ data: query }), signal: AbortSignal.timeout(1_500) });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const payload = await response.json() as { elements?: Array<{ id: number; geometry?: Point[] }> };
-    const segments = (payload.elements ?? []).flatMap((element) => (element.geometry ?? []).slice(1).map((end, index) => ({ wayId: element.id, start: element.geometry?.[index] as Point, end })));
-    await mkdir(join(outDir, 'coastline-cache'), { recursive: true });
-    await writeFile(cachePath, JSON.stringify({ query, fetchedAt: new Date().toISOString(), segments }));
-    const nearest = nearestCoastlineSegments({ lat: beach.lat, lon: beach.lon }, segments);
-    return { nearest: nearest && nearest.distanceM <= 1000 ? nearest : null, unavailable: false };
-  } catch (error) {
-    console.warn(`Overpass unavailable for ${beach.slug}: ${error instanceof Error ? error.message : String(error)}`);
-    return { nearest: null, unavailable: true };
+  const query = `[out:json][timeout:60];way["natural"="coastline"](around:1500,${beach.lat},${beach.lon});out geom;`;
+  for (let retry = 0; retry <= 3; retry += 1) {
+    const endpoint = OVERPASS_URLS[retry % OVERPASS_URLS.length];
+    try {
+      await waitForOverpass();
+      const response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': USER_AGENT }, body: new URLSearchParams({ data: query }), signal: AbortSignal.timeout(60_000) });
+      if (!response.ok) {
+        if (retry < 3 && (response.status === 429 || response.status >= 500)) {
+          const delayMs = Math.max(retryAfterMs(response) ?? 0, [5000, 15000, 45000][retry]);
+          console.error(`Overpass ${response.status} for ${beach.slug}; retrying in ${Math.ceil(delayMs / 1000)}s`);
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+          continue;
+        }
+        throw new NonRetryableOverpassError(`HTTP ${response.status}`);
+      }
+      const payload = await response.json() as { elements?: Array<{ id: number; geometry?: Point[] }> };
+      const segments = (payload.elements ?? []).flatMap((element) => (element.geometry ?? []).slice(1).map((end, index) => ({ wayId: element.id, start: element.geometry?.[index] as Point, end })));
+      await mkdir(join(outDir, 'coastline-cache'), { recursive: true });
+      await writeFile(cachePath, JSON.stringify({ query, fetchedAt: new Date().toISOString(), segments }));
+      const point = { lat: beach.lat, lon: beach.lon };
+      const nearest = nearestCoastlineSegments(point, segments);
+      return { nearest: nearest && nearest.distanceM <= 1000 ? nearest : null, ambiguous: hasAmbiguousCoastline(point, segments), unavailable: false };
+    } catch (error) {
+      if (error instanceof NonRetryableOverpassError) {
+        console.error(`Overpass unavailable for ${beach.slug}: ${error.message}`);
+        break;
+      }
+      if (retry < 3) {
+        const delayMs = [5000, 15000, 45000][retry];
+        console.error(`Overpass failed for ${beach.slug} at ${endpoint}; retrying in ${Math.ceil(delayMs / 1000)}s: ${error instanceof Error ? error.message : String(error)}`);
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        continue;
+      }
+      console.error(`Overpass unavailable for ${beach.slug}: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
+  return { nearest: null, ambiguous: false, unavailable: true };
 }
 
-function rowFromBeach(beach: Beach, geometry: { segments: CoastlineSegment[]; distanceM: number } | null, overpassFailed: boolean): BearingRow {
+function rowFromBeach(beach: Beach, geometry: { segments: CoastlineSegment[]; distanceM: number } | null, ambiguous: boolean, overpassFailed: boolean): BearingRow {
   const geometrySeaward = geometry ? circularMean(geometry.segments.map((segment) => roundBearing(segmentBearing(segment.start, segment.end) + 90, 1))) : null;
-  const confidence = confidenceForSources(beach.aspect, geometrySeaward, beach.windowCenter);
-  const seaward = beach.aspect ?? geometrySeaward;
+  const confidence = confidenceForSources(beach.aspect, geometrySeaward, beach.windowCenter, geometry?.distanceM ?? null, ambiguous);
+  const seaward = geometrySeaward;
   const proposed = seaward !== null && confidence !== 'REVIEW' ? roundBearing(seaward + 180) : null;
   const delta = proposed === null ? null : signedAngularDelta(proposed, beach.currentOffshore);
   const notes = [
     beach.aspect === null ? 'no aspect_deg' : 'aspect_deg source',
     geometry ? 'OSM nearest coastline' : 'geometry unavailable',
+    ambiguous ? 'ambiguous nearby coastline orientation' : '',
     overpassFailed ? 'Overpass unavailable' : '',
     confidence === 'REVIEW' ? 'insufficient/agreement review' : '',
   ].filter(Boolean).join('; ');
@@ -117,9 +159,10 @@ async function main(): Promise<void> {
   await mkdir(outDir, { recursive: true });
   const beaches = loadBeaches();
   const rows: BearingRow[] = [];
-  for (const beach of beaches) {
+  for (const [index, beach] of beaches.entries()) {
+    console.error(`[${index + 1}/${beaches.length}] ${beach.slug}`);
     if (!beach.calibrated) {
-      const row = rowFromBeach(beach, null, false);
+      const row = rowFromBeach(beach, null, false, false);
       row.proposed_offshore = null;
       row.delta = null;
       row.confidence = 'REVIEW';
@@ -129,7 +172,7 @@ async function main(): Promise<void> {
       continue;
     }
     const coastline = await fetchCoastline(beach, outDir);
-    rows.push(rowFromBeach(beach, coastline.nearest, coastline.unavailable));
+    rows.push(rowFromBeach(beach, coastline.nearest, coastline.ambiguous, coastline.unavailable));
   }
   const calibrated = rows.filter((row) => beaches.find((beach) => beach.slug === row.slug)?.calibrated);
   const other = rows.filter((row) => !beaches.find((beach) => beach.slug === row.slug)?.calibrated);

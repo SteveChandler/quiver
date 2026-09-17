@@ -57,6 +57,14 @@ export function nearestCoastlineSegments(point: Point, segments: CoastlineSegmen
   };
 }
 
+export function hasAmbiguousCoastline(point: Point, segments: CoastlineSegment[], radiusM = 150): boolean {
+  const nearby = segments
+    .map((segment) => ({ segment, distanceM: pointToSegmentDistance(point, segment.start, segment.end) }))
+    .filter(({ distanceM }) => distanceM <= radiusM)
+    .map(({ segment }) => segmentBearing(segment.start, segment.end));
+  return nearby.some((bearing, index) => nearby.slice(index + 1).some((other) => angularDistance(bearing, other) > 60));
+}
+
 export function circularMean(degrees: number[]): number | null {
   if (degrees.length === 0) return null;
   const vector = degrees.reduce((sum, degree) => {
@@ -66,9 +74,16 @@ export function circularMean(degrees: number[]): number | null {
   return normalizeAngle(Math.atan2(vector.x, vector.y) * 180 / Math.PI);
 }
 
-export function confidenceForSources(aspect: number | null, geometry: number | null, windowCenter: number | null): 'HIGH' | 'MEDIUM' | 'REVIEW' {
-  if (aspect !== null && geometry !== null) return angularDistance(aspect, geometry) <= 25 ? 'HIGH' : 'REVIEW';
-  const onlySource = aspect ?? geometry;
-  if (onlySource !== null && windowCenter !== null && angularDistance(onlySource, windowCenter) <= 45) return 'MEDIUM';
+export function confidenceForSources(
+  aspect: number | null,
+  geometry: number | null,
+  windowCenter: number | null,
+  distanceM: number | null,
+  ambiguous = false,
+): 'HIGH' | 'MEDIUM' | 'REVIEW' {
+  if (geometry === null || distanceM === null || distanceM > 1000 || ambiguous) return 'REVIEW';
+  const weakAgreement = [aspect, windowCenter].some((source) => source !== null && angularDistance(source, geometry) <= 45);
+  if (distanceM <= 400 && weakAgreement) return 'HIGH';
+  if (distanceM <= 1000) return 'MEDIUM';
   return 'REVIEW';
 }
