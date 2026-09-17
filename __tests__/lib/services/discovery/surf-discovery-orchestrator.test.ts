@@ -2531,6 +2531,9 @@ describe('discoverSurfSpots - Personalization Integration', () => {
     expect(result.recommendations[0].reasons).toEqual(
       expect.arrayContaining(['Recent completed sessions back this break'])
     );
+    expect(result.recommendations[0].reasons).not.toContain(
+      'Completed-session history supports this break',
+    );
   });
 
   test('zero personalization bonus does not change scores', async () => {
