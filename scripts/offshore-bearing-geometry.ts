@@ -1,0 +1,74 @@
+export type Point = { lat: number; lon: number };
+export type CoastlineSegment = { wayId: number; start: Point; end: Point };
+
+export function normalizeAngle(degrees: number): number {
+  return ((degrees % 360) + 360) % 360;
+}
+
+export function angularDistance(a: number, b: number): number {
+  const difference = Math.abs(normalizeAngle(a) - normalizeAngle(b));
+  return Math.min(difference, 360 - difference);
+}
+
+export function signedAngularDelta(target: number, current: number): number {
+  const delta = normalizeAngle(target - current);
+  return delta > 180 ? delta - 360 : delta;
+}
+
+export function roundBearing(degrees: number, increment = 5): number {
+  return normalizeAngle(Math.round(normalizeAngle(degrees) / increment) * increment);
+}
+
+export function segmentBearing(start: Point, end: Point): number {
+  const meanLat = ((start.lat + end.lat) / 2) * Math.PI / 180;
+  const x = (end.lon - start.lon) * Math.cos(meanLat);
+  const y = end.lat - start.lat;
+  return normalizeAngle(Math.atan2(x, y) * 180 / Math.PI);
+}
+
+function localProjection(point: Point, origin: Point): { x: number; y: number } {
+  const metersPerDegree = 111_320;
+  return {
+    x: (point.lon - origin.lon) * metersPerDegree * Math.cos(origin.lat * Math.PI / 180),
+    y: (point.lat - origin.lat) * metersPerDegree,
+  };
+}
+
+export function pointToSegmentDistance(point: Point, start: Point, end: Point): number {
+  const p = localProjection(point, point);
+  const a = localProjection(start, point);
+  const b = localProjection(end, point);
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const lengthSquared = dx * dx + dy * dy;
+  const t = lengthSquared === 0 ? 0 : Math.max(0, Math.min(1, (-(a.x * dx + a.y * dy)) / lengthSquared));
+  const x = a.x + t * dx;
+  const y = a.y + t * dy;
+  return Math.hypot(x, y);
+}
+
+export function nearestCoastlineSegments(point: Point, segments: CoastlineSegment[]): { segments: CoastlineSegment[]; distanceM: number } | null {
+  if (segments.length === 0) return null;
+  const distances = segments.map((segment) => ({ segment, distanceM: pointToSegmentDistance(point, segment.start, segment.end) }));
+  const distanceM = Math.min(...distances.map((item) => item.distanceM));
+  return {
+    distanceM,
+    segments: distances.filter((item) => item.distanceM <= distanceM + 5).map((item) => item.segment),
+  };
+}
+
+export function circularMean(degrees: number[]): number | null {
+  if (degrees.length === 0) return null;
+  const vector = degrees.reduce((sum, degree) => {
+    const radians = degree * Math.PI / 180;
+    return { x: sum.x + Math.sin(radians), y: sum.y + Math.cos(radians) };
+  }, { x: 0, y: 0 });
+  return normalizeAngle(Math.atan2(vector.x, vector.y) * 180 / Math.PI);
+}
+
+export function confidenceForSources(aspect: number | null, geometry: number | null, windowCenter: number | null): 'HIGH' | 'MEDIUM' | 'REVIEW' {
+  if (aspect !== null && geometry !== null) return angularDistance(aspect, geometry) <= 25 ? 'HIGH' : 'REVIEW';
+  const onlySource = aspect ?? geometry;
+  if (onlySource !== null && windowCenter !== null && angularDistance(onlySource, windowCenter) <= 45) return 'MEDIUM';
+  return 'REVIEW';
+}
