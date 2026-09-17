@@ -4,15 +4,14 @@
 
 Lifecycle sending performs one bounded, on-demand Gmail metadata check after
 eligibility refresh and before the first dispatch. It runs only when at least
-one lifecycle candidate is due. The exact Gmail query is:
+one lifecycle candidate is due. Configure a Gmail filter for `To:
+support@quiversurf.app`, apply the `quiver-support` label, and tick “Never send
+it to Spam”. Set `EMAIL_GMAIL_REPLY_LABEL` to that user-label name.
 
-```text
-(to:<EMAIL_REPLY_MAILBOX> OR deliveredto:<EMAIL_REPLY_MAILBOX>) -in:sent -in:draft newer_than:3d
-```
-
-The check calls `users/me/messages` with `maxResults=100`, follows at most
-three pages, filters known message IDs through `gmail_reply_known(text[])`,
-fetches metadata only, and records matching replies through
+The check resolves the label case-insensitively, then calls
+`users/me/messages` with that label and `maxResults=100`, follows at most three
+pages, and examines only the newest 300 labelled messages. It filters known
+message IDs through `gmail_reply_known(text[])`, fetches metadata only, and records matching replies through
 `record_gmail_reply_v2`. A message deleted between search and metadata fetch is
 skipped at debug level. No cursor, history ID, lease, gap table, or independent
 minute cron remains.
@@ -44,6 +43,10 @@ Still required for the on-demand check:
 - `EMAIL_GMAIL_CLIENT_ID`
 - `EMAIL_GMAIL_CLIENT_SECRET`
 - `EMAIL_GMAIL_REFRESH_TOKEN`
+- `EMAIL_GMAIL_REPLY_LABEL` (defaults to `quiver-support`)
+
+The OAuth refresh token needs only the `https://www.googleapis.com/auth/gmail.metadata`
+scope.
 
 Now unused and removed: `EMAIL_GMAIL_REPLY_SYNC_ENABLED` and
 `EMAIL_REPLY_INGESTION_VERIFIED`.
