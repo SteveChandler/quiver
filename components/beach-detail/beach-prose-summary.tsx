@@ -100,6 +100,18 @@ export function BeachProseSummary({
     sentences.push(`Forecast data sources: ${forecastSources.join(", ")}.`);
   }
 
+  const normalizedSentences = sentences
+    .map((sentence) => sentence.trim())
+    .filter(Boolean)
+    .map((sentence) => /[.!?]$/.test(sentence) ? sentence : `${sentence}.`);
+  const editorialPublishers = Array.from(
+    new Set(
+      editorialSources
+        .map((source) => source.publisher.trim())
+        .filter(Boolean),
+    ),
+  );
+
   return (
     <section
       className="mx-auto max-w-5xl px-4 pt-6 sm:px-6 lg:px-8"
@@ -113,11 +125,11 @@ export function BeachProseSummary({
           {publicBeach.name} current conditions and local guidance
         </h2>
         <p className="mt-3 text-sm leading-6 text-muted-foreground">
-          {sentences.join(" ")}
+          {normalizedSentences.join(" ")}
         </p>
-        {editorialSources.length > 0 && (
+        {editorialPublishers.length > 0 && (
           <p className="mt-3 text-xs leading-5 text-muted-foreground">
-            Local guidance reviewed against {editorialSources.map((source) => source.publisher).filter(Boolean).join(", ")}.
+            Local guidance reviewed against {editorialPublishers.join(", ")}.
           </p>
         )}
       </div>
