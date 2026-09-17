@@ -68,7 +68,6 @@ describe("POST /api/user/timezone", () => {
   it.each([
     ["invalid JSON", withNextUrl(new NextRequest("http://localhost:3000/api/user/timezone", { method: "POST", body: "{" }))],
     ["unknown zone", withNextUrl(createMockRequest("POST", "http://localhost:3000/api/user/timezone", { body: { timezone: "Mars/Base" } }))],
-    ["alias zone", withNextUrl(createMockRequest("POST", "http://localhost:3000/api/user/timezone", { body: { timezone: "US/Pacific" } }))],
     ["empty zone", withNextUrl(createMockRequest("POST", "http://localhost:3000/api/user/timezone", { body: { timezone: "   " } }))],
   ])("returns 400 for %s", async (_name, request) => {
     mockAuthenticatedUser(mockSupabase);
@@ -77,6 +76,19 @@ describe("POST /api/user/timezone", () => {
 
     expect(response.status).toBe(400);
     expect(mockServiceRole.from).not.toHaveBeenCalled();
+  });
+
+  it("accepts an Intl-valid region alias", async () => {
+    mockAuthenticatedUser(mockSupabase);
+    mockProfileUpdate();
+
+    const response = await POST(
+      withNextUrl(createMockRequest("POST", "http://localhost:3000/api/user/timezone", {
+        body: { timezone: "US/Pacific" },
+      })),
+    );
+
+    expect(response.status).toBe(200);
   });
 
   it("trims and accepts UTC, updating a null timezone", async () => {
