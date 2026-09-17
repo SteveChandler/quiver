@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
+  clusterPointsIntoBboxes,
   circularMean,
   confidenceForSources,
   hasAmbiguousCoastline,
@@ -11,6 +12,7 @@ import {
   roundBearing,
   segmentBearing,
   signedAngularDelta,
+  type BoundingBox,
   type CoastlineSegment,
   type Point,
 } from './offshore-bearing-geometry';
@@ -28,8 +30,8 @@ type BearingRow = {
 
 const QUERY = `SELECT slug, name, lat, lon, wind_offshore_deg, wind_offshore_tol_deg, aspect_deg, swell_window_center_deg, (shoaling_factors IS NOT NULL AND slug NOT IN ('avalanche', 'imperial-beach-pier')) AS calibrated FROM public.beaches WHERE wind_offshore_deg IS NOT NULL ORDER BY calibrated DESC, slug`;
 const OVERPASS_URLS = [
-  'https://overpass-api.de/api/interpreter',
   'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass-api.de/api/interpreter',
   'https://overpass.private.coffee/api/interpreter',
 ];
 const USER_AGENT = 'Quiver offshore-bearing review (https://quiversurf.app; data-quality research)';
@@ -72,7 +74,7 @@ function loadBeaches(): Beach[] {
 }
 
 async function waitForOverpass(): Promise<void> {
-  const waitMs = Math.max(0, 2000 - (Date.now() - lastOverpassRequest));
+  const waitMs = Math.max(0, 5000 - (Date.now() - lastOverpassRequest));
   if (waitMs) await new Promise((resolve) => setTimeout(resolve, waitMs));
   lastOverpassRequest = Date.now();
 }
@@ -86,50 +88,74 @@ function retryAfterMs(response: Response): number | null {
   return Number.isFinite(date) ? Math.max(0, date - Date.now()) : null;
 }
 
-async function fetchCoastline(beach: Beach, outDir: string): Promise<{ nearest: { segments: CoastlineSegment[]; distanceM: number } | null; ambiguous: boolean; unavailable: boolean }> {
-  const cachePath = join(outDir, 'coastline-cache', `${beach.slug}.json`);
+function bboxKey(box: BoundingBox): string {
+  return [box.south, box.west, box.north, box.east].map((value) => value.toFixed(4)).join('_');
+}
+
+function segmentsFromPayload(payload: { elements?: Array<{ id: number; geometry?: Point[] }> }): CoastlineSegment[] {
+  return (payload.elements ?? []).flatMap((element) => (element.geometry ?? []).slice(1).map((end, index) => ({ wayId: element.id, start: element.geometry?.[index] as Point, end })));
+}
+
+async function readBeachCache(beach: Beach, outDir: string): Promise<CoastlineSegment[] | null> {
+  try {
+    const cached = JSON.parse(await readFile(join(outDir, 'coastline-cache', `${beach.slug}.json`), 'utf8')) as { segments: CoastlineSegment[] };
+    return cached.segments;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchCoastlineBox(box: BoundingBox, outDir: string, boxNumber: number, totalBoxes: number): Promise<CoastlineSegment[] | null> {
+  const key = bboxKey(box);
+  const cachePath = join(outDir, 'coastline-cache', `bbox-${key}.json`);
   try {
     const cached = JSON.parse(await readFile(cachePath, 'utf8')) as { segments: CoastlineSegment[] };
-    const nearest = nearestCoastlineSegments({ lat: beach.lat, lon: beach.lon }, cached.segments);
-    return { nearest: nearest && nearest.distanceM <= 1000 ? nearest : null, ambiguous: hasAmbiguousCoastline({ lat: beach.lat, lon: beach.lon }, cached.segments), unavailable: false };
+    console.error(`[box ${boxNumber}/${totalBoxes}] cache ${key}`);
+    return cached.segments;
   } catch { /* cache miss */ }
-  const query = `[out:json][timeout:60];way["natural"="coastline"](around:1500,${beach.lat},${beach.lon});out geom;`;
+  const query = `[out:json][timeout:170];way["natural"="coastline"](${box.south},${box.west},${box.north},${box.east});out geom;`;
+  console.error(`[box ${boxNumber}/${totalBoxes}] fetch ${key}`);
   for (let retry = 0; retry <= 3; retry += 1) {
     const endpoint = OVERPASS_URLS[retry % OVERPASS_URLS.length];
     try {
       await waitForOverpass();
-      const response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': USER_AGENT }, body: new URLSearchParams({ data: query }), signal: AbortSignal.timeout(60_000) });
+      const response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': USER_AGENT }, body: new URLSearchParams({ data: query }), signal: AbortSignal.timeout(180_000) });
       if (!response.ok) {
         if (retry < 3 && (response.status === 429 || response.status >= 500)) {
           const delayMs = Math.max(retryAfterMs(response) ?? 0, [5000, 15000, 45000][retry]);
-          console.error(`Overpass ${response.status} for ${beach.slug}; retrying in ${Math.ceil(delayMs / 1000)}s`);
+          console.error(`Overpass ${response.status} for bbox ${key}; retrying in ${Math.ceil(delayMs / 1000)}s`);
           await new Promise((resolve) => setTimeout(resolve, delayMs));
           continue;
         }
         throw new NonRetryableOverpassError(`HTTP ${response.status}`);
       }
       const payload = await response.json() as { elements?: Array<{ id: number; geometry?: Point[] }> };
-      const segments = (payload.elements ?? []).flatMap((element) => (element.geometry ?? []).slice(1).map((end, index) => ({ wayId: element.id, start: element.geometry?.[index] as Point, end })));
+      const segments = segmentsFromPayload(payload);
       await mkdir(join(outDir, 'coastline-cache'), { recursive: true });
-      await writeFile(cachePath, JSON.stringify({ query, fetchedAt: new Date().toISOString(), segments }));
-      const point = { lat: beach.lat, lon: beach.lon };
-      const nearest = nearestCoastlineSegments(point, segments);
-      return { nearest: nearest && nearest.distanceM <= 1000 ? nearest : null, ambiguous: hasAmbiguousCoastline(point, segments), unavailable: false };
+      await writeFile(cachePath, JSON.stringify({ query, bbox: box, fetchedAt: new Date().toISOString(), segments }));
+      return segments;
     } catch (error) {
       if (error instanceof NonRetryableOverpassError) {
-        console.error(`Overpass unavailable for ${beach.slug}: ${error.message}`);
+        console.error(`Overpass unavailable for bbox ${key}: ${error.message}`);
         break;
       }
       if (retry < 3) {
         const delayMs = [5000, 15000, 45000][retry];
-        console.error(`Overpass failed for ${beach.slug} at ${endpoint}; retrying in ${Math.ceil(delayMs / 1000)}s: ${error instanceof Error ? error.message : String(error)}`);
+        console.error(`Overpass failed for bbox ${key} at ${endpoint}; retrying in ${Math.ceil(delayMs / 1000)}s: ${error instanceof Error ? error.message : String(error)}`);
         await new Promise((resolve) => setTimeout(resolve, delayMs));
         continue;
       }
-      console.error(`Overpass unavailable for ${beach.slug}: ${error instanceof Error ? error.message : String(error)}`);
+      console.error(`Overpass unavailable for bbox ${key}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
-  return { nearest: null, ambiguous: false, unavailable: true };
+  return null;
+}
+
+function coastlineForBeach(beach: Beach, segments: CoastlineSegment[] | null): { nearest: { segments: CoastlineSegment[]; distanceM: number } | null; ambiguous: boolean; unavailable: boolean } {
+  if (!segments) return { nearest: null, ambiguous: false, unavailable: true };
+  const point = { lat: beach.lat, lon: beach.lon };
+  const nearest = nearestCoastlineSegments(point, segments);
+  return { nearest: nearest && nearest.distanceM <= 1000 ? nearest : null, ambiguous: hasAmbiguousCoastline(point, segments), unavailable: false };
 }
 
 function rowFromBeach(beach: Beach, geometry: { segments: CoastlineSegment[]; distanceM: number } | null, ambiguous: boolean, overpassFailed: boolean): BearingRow {
@@ -159,8 +185,27 @@ async function main(): Promise<void> {
   await mkdir(outDir, { recursive: true });
   const beaches = loadBeaches();
   const rows: BearingRow[] = [];
-  for (const [index, beach] of beaches.entries()) {
-    console.error(`[${index + 1}/${beaches.length}] ${beach.slug}`);
+  const calibratedBeaches = beaches.filter(({ calibrated }) => calibrated);
+  const segmentsBySlug = new Map<string, CoastlineSegment[]>();
+  const unavailableSlugs = new Set<string>();
+  const clusters = clusterPointsIntoBboxes(calibratedBeaches.map(({ lat, lon }) => ({ lat, lon })));
+  for (const [index, cluster] of clusters.entries()) {
+    const clusterBeaches = calibratedBeaches.filter((beach) => cluster.points.some((point) => point.lat === beach.lat && point.lon === beach.lon));
+    const missing: Beach[] = [];
+    for (const beach of clusterBeaches) {
+      const cached = await readBeachCache(beach, outDir);
+      if (cached) segmentsBySlug.set(beach.slug, cached);
+      else missing.push(beach);
+    }
+    if (missing.length > 0) {
+      const segments = await fetchCoastlineBox(cluster.box, outDir, index + 1, clusters.length);
+      if (segments) for (const beach of missing) segmentsBySlug.set(beach.slug, segments);
+      else for (const beach of missing) unavailableSlugs.add(beach.slug);
+    } else {
+      console.error(`[box ${index + 1}/${clusters.length}] legacy beach cache (${clusterBeaches.length})`);
+    }
+  }
+  for (const beach of beaches) {
     if (!beach.calibrated) {
       const row = rowFromBeach(beach, null, false, false);
       row.proposed_offshore = null;
@@ -171,7 +216,7 @@ async function main(): Promise<void> {
       rows.push(row);
       continue;
     }
-    const coastline = await fetchCoastline(beach, outDir);
+    const coastline = coastlineForBeach(beach, unavailableSlugs.has(beach.slug) ? null : segmentsBySlug.get(beach.slug) ?? null);
     rows.push(rowFromBeach(beach, coastline.nearest, coastline.ambiguous, coastline.unavailable));
   }
   const calibrated = rows.filter((row) => beaches.find((beach) => beach.slug === row.slug)?.calibrated);

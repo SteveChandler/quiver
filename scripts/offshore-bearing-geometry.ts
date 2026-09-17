@@ -1,5 +1,25 @@
 export type Point = { lat: number; lon: number };
 export type CoastlineSegment = { wayId: number; start: Point; end: Point };
+export type BoundingBox = { south: number; west: number; north: number; east: number };
+
+export function clusterPointsIntoBboxes(
+  points: Point[],
+  maxUnpaddedSpan = 0.28,
+  padding = 0.02,
+): Array<{ box: BoundingBox; points: Point[] }> {
+  const clusters = new Map<string, Point[]>();
+  for (const point of points) {
+    const key = `${Math.floor(point.lat / maxUnpaddedSpan)}:${Math.floor(point.lon / maxUnpaddedSpan)}`;
+    clusters.set(key, [...(clusters.get(key) ?? []), point]);
+  }
+  return [...clusters.values()].map((cluster) => {
+    const south = Math.min(...cluster.map(({ lat }) => lat));
+    const west = Math.min(...cluster.map(({ lon }) => lon));
+    const north = Math.max(...cluster.map(({ lat }) => lat));
+    const east = Math.max(...cluster.map(({ lon }) => lon));
+    return { box: { south: south - padding, west: west - padding, north: north + padding, east: east + padding }, points: cluster };
+  });
+}
 
 export function normalizeAngle(degrees: number): number {
   return ((degrees % 360) + 360) % 360;

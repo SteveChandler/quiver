@@ -1,49 +1,48 @@
 # Offshore-bearing review — 2026-09-17
 
-Status: DRAFT. No database mutation was performed. The requested Overpass rerun was started with the existing cache, but public endpoints timed out across the rotated retry set and the run was stopped after the first uncached beaches. Cached responses were retained; uncached beaches are REVIEW with no proposal.
+Status: DRAFT. No database mutation was performed. The rerun used regional Overpass bbox requests, cached each bbox response, and kept the existing per-beach cache readable. Reported-only beaches skipped geometry.
 
 ## Method
 
-The script reads `public.beaches` through direct `POSTGRES_URL_NON_POOLING` with `PGOPTIONS='-c default_transaction_read_only=on'`. It uses a 60-second Overpass request timeout, 2-second request spacing, three retries with 5/15/45-second exponential backoff, `Retry-After`, endpoint rotation, on-disk caching, and stderr progress logging.
+The script reads `public.beaches` through direct `POSTGRES_URL_NON_POOLING` with `PGOPTIONS='-c default_transaction_read_only=on'`. The 115 calibrated beaches were grouped into 18 lat/lon boxes. The clustering uses a 0.28° grid cell plus 0.02° padding, so every request stays below the requested 0.6° maximum span. Each box uses `[out:json][timeout:170]`, a 180-second request timeout, Kumi first, 5-second request spacing, and the existing 5/15/45-second retry backoff across the three endpoints.
 
-Geometry is required for every proposal. HIGH means coastline distance ≤400 m and aspect or swell-window center agrees with geometry seaward within 45°. MEDIUM means geometry is available within 1000 m but does not meet HIGH. REVIEW means no usable geometry or an ambiguous nearby coastline; no proposal is produced. Two coastline segments within 150 m differing by more than 60° are marked ambiguous.
+Coastline ways were converted to local segment bearings; because coastline ways have land on the left and water on the right, seaward is segment bearing +90°. Geometry is required for every proposal. HIGH means coastline distance ≤400 m and aspect or swell-window center agrees with geometry seaward within 45°. MEDIUM means usable geometry within 1000 m without HIGH agreement. REVIEW means unavailable, distant, or ambiguous geometry. `CHANGE` means the shortest angular delta is at least 20°.
 
-The partial evidence export is at `/private/tmp/claude-501/-Users-stevenchandler-Desktop-dev/b6860db2-3182-4df6-99d2-589286756ffa/scratchpad/offshore/run1/bearings.csv` and `bearings.json`.
+The machine-readable export is at `/private/tmp/claude-501/-Users-stevenchandler-Desktop-dev/b6860db2-3182-4df6-99d2-589286756ffa/scratchpad/offshore/run1/bearings.csv` and `bearings.json`.
 
 ## Counts
 
 | Scope | HIGH | MEDIUM | REVIEW | geometry | changes |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Calibrated | 3 | 1 | 111 | 7 | 2 |
+| Calibrated | 76 | 15 | 24 | 113 | 48 |
 | Other, reported only | 0 | 0 | 350 | 0 | 0 |
-| Total | 3 | 1 | 461 | 7 | 2 |
+| Total | 76 | 15 | 374 | 113 | 48 |
 
 ## HIGH changes
 
-| Beach | Current | Geometry seaward | Proposed offshore | Reason |
-| --- | ---: | ---: | ---: | --- |
-| 52nd Street Newport Beach | 90° | 238.5° | 60° | 117.7 m from coastline; aspect 260° agrees within 45°. |
-| Cardiff Reef | 90° | 243.5° | 65° | 23.2 m from coastline; swell center 280° agrees within 45°. |
+The draft migration contains 38 guarded HIGH updates. MEDIUM changes are commented out; there are 10 of them.
 
-The migration contains only these two guarded HIGH updates. MEDIUM `204s` is commented out.
+`52nd-street-newport-beach-ca`, `54th-street-newport-beach-ca`, `beacons`, `cardiff-reef`, `church`, `corona-del-mar`, `county-line-malibu-ca`, `crystal-pier`, `doheny-state-beach`, `d-street`, `el-porto-manhattan`, `el-segundo-beach-jetty-el-segundo-ca`, `georges`, `grandview`, `hermosa-pier`, `horseshoe`, `imperial-beach`, `jalama-beach-jalama-ca`, `k-40`, `la-jolla-shores`, `lower-trestles`, `manhattan-beach-pier-manhattan-beach-ca`, `middles`, `moonlight-state-beach`, `old-mans-sano`, `pacific-beach`, `pipes`, `river-jetties`, `san-elijo-state-beach`, `scripps`, `shipwrecks-coronado-ca`, `solana-beach`, `sunset-cliffs-garbage`, `tamarack`, `torrey-pines-state-beach`, `tourmaline`, `tourmaline-surf-park`, `upper-trestles`.
 
 ## Spot checks
 
 | Beach | Geometry seaward | Proposed offshore | Confidence | Plain-language sanity check |
 | --- | ---: | ---: | --- | --- |
-| blacks | — | — | REVIEW | West-facing La Jolla coast would generally imply easterly offshore wind, but this run has no geometry. |
-| del-mar | — | — | REVIEW | Del Mar is broadly west-facing and the current 90° is plausible; no geometry-backed proposal. |
-| la-jolla-shores | — | — | REVIEW | The cove can vary toward NW/WNW; aspect-only correction is intentionally withheld. |
-| scripps | — | — | REVIEW | Broadly west-facing coast makes 90° plausible, but geometry is unavailable. |
-| tourmaline | — | — | REVIEW | Pacific Beach is broadly west-facing; swell disagreement and missing geometry prevent a proposal. |
-| oceanside-pier | — | — | REVIEW | The pier area is broadly west-facing but structures make the nearest coast sensitive; no geometry. |
-| lower-trestles | — | — | REVIEW | San Onofre shoreline orientation varies locally; no geometry-backed call. |
-| church | — | — | REVIEW | Cove orientation cannot be inferred safely from the stored weak sources. |
-| hb-cliffs | — | — | REVIEW | The coast is broadly southwest-facing, but no geometry was available. |
-| huntington-beach-pier | — | — | REVIEW | Stored aspect is inconsistent with the known SSW coast; no proposal. |
-| c-street-ventura-ca | — | — | REVIEW | Ventura Point is roughly S/SSW-facing, so the stored 45° remains plausible; the old 80° aspect-only proposal is rejected. |
-| ocean-beach-sloat-san-francisco-ca | — | — | REVIEW | Ocean Beach Sloat is broadly west-facing and current 90° is plausible; geometry is unavailable. |
+| blacks | 256° | 75° | HIGH | The La Jolla coast is broadly west-facing; ENE offshore is sensible. |
+| del-mar | 262° | 80° | HIGH | Del Mar is broadly west-facing; easterly offshore is sensible. |
+| la-jolla-shores | 295° | 115° | HIGH | The cove turns NW/WNW; ESE offshore is consistent with that local turn. |
+| scripps | 286° | 105° | HIGH | Scripps faces WNW locally; ESE offshore is sensible. |
+| tourmaline | 255° | 75° | HIGH | Pacific Beach is broadly WSW-facing; ENE offshore is sensible. |
+| oceanside-pier | 229° | 50° | HIGH | The pier area angles SW; NE offshore is plausible, with structures making it worth monitoring. |
+| lower-trestles | 199.5° | 20° | HIGH | Lower Trestles faces roughly S/SSW; NNE offshore is sensible. |
+| church | 191° | 10° | HIGH | Church faces roughly south; northerly offshore is sensible. |
+| hb-cliffs | 232° | 50° | HIGH | The cliffs are broadly SSW/SW-facing; NE offshore is sensible. |
+| huntington-beach-pier | 221° | 40° | HIGH | Huntington Beach Pier faces roughly SSW; NNE/NE offshore is sensible. |
+| c-street-ventura-ca | 146.3° | 325° | MEDIUM | C Street faces roughly S/SSW, so NW proposed offshore conflicts with the real-coast sanity check; it remains commented out. |
+| ocean-beach-sloat-san-francisco-ca | 268° | 90° | HIGH | Ocean Beach Sloat faces W; easterly offshore is exactly the expected orientation. |
 
-## Cached geometry notes
+## Artifacts
 
-Seven cached beaches had geometry: `204s`, `52nd-street-newport-beach-ca`, `agate-street`, `big-rock-la-jolla-ca`, `birdrock`, `cardiff-reef`, and `carlsbad-state-beach`. `agate-street`, `big-rock-la-jolla-ca`, and `birdrock` were marked REVIEW because nearby coastline segments were ambiguous.
+- Draft migration: `supabase/migrations/20260917120000_correct_offshore_bearings.sql`
+- Export: `/private/tmp/claude-501/-Users-stevenchandler-Desktop-dev/b6860db2-3182-4df6-99d2-589286756ffa/scratchpad/offshore/run1/bearings.csv`
+- Cache: 18 regional bbox responses plus readable legacy per-beach cache files.

@@ -1,5 +1,6 @@
 import {
   angularDistance,
+  clusterPointsIntoBboxes,
   confidenceForSources,
   hasAmbiguousCoastline,
   nearestCoastlineSegments,
@@ -9,6 +10,17 @@ import {
 } from '../offshore-bearing-geometry';
 
 describe('offshore bearing geometry', () => {
+  it('clusters points into padded boxes no wider than 0.6 degrees', () => {
+    const clusters = clusterPointsIntoBboxes([
+      { lat: 32.7, lon: -117.2 },
+      { lat: 32.9, lon: -117.1 },
+      { lat: 34.0, lon: -118.0 },
+    ], 0.56);
+    expect(clusters).toHaveLength(2);
+    expect(clusters[0].box.north - clusters[0].box.south).toBeLessThanOrEqual(0.6);
+    expect(clusters[0].box.east - clusters[0].box.west).toBeLessThanOrEqual(0.6);
+  });
+
   it('handles compass wraparound and rounding', () => {
     expect(angularDistance(355, 5)).toBe(10);
     expect(signedAngularDelta(5, 355)).toBe(10);
