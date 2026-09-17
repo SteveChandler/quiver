@@ -28,6 +28,7 @@ import {
 const DECISION_TTL_MS = 15 * 60 * 1000;
 const GO_UTILITY_THRESHOLD = 70;
 const CONSIDER_UTILITY_THRESHOLD = 40;
+const VERDICT_RANK = { no: 0, maybe: 1, go: 2 } as const;
 const SKILL_ORDER: Record<Exclude<CanonicalDecisionSkill, "unknown">, number> = {
   beginner: 0,
   intermediate: 1,
@@ -117,6 +118,13 @@ function applyVerdictCeiling(
   if (ceiling < 40) return "no";
   if (ceiling < 70 && verdict === "go") return "maybe";
   return verdict;
+}
+
+function capByPhysical(
+  personal: "go" | "maybe" | "no",
+  physical: "go" | "maybe" | "no",
+): "go" | "maybe" | "no" {
+  return VERDICT_RANK[personal] <= VERDICT_RANK[physical] ? personal : physical;
 }
 
 function verdictCeiling(effects: readonly ScoringDecisionEffect[] | undefined): number {
@@ -321,7 +329,10 @@ export function buildCanonicalSessionDecision(
     ? "no"
     : selected
       ? decisionBasis === "personal_match"
-        ? (personalMatchVerdict(selected) ?? "no")
+        ? capByPhysical(
+            personalMatchVerdict(selected) ?? "no",
+            physicalVerdictForCandidate(selected),
+          )
         : physicalVerdictForCandidate(selected)
       : "no";
   const hasSelection = !safetyOverride && selected !== undefined;
