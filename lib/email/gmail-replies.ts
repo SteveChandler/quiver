@@ -2,13 +2,12 @@ import { z } from "zod";
 import { lifecycleRpc } from "@/lib/email/lifecycle";
 
 const listSchema = z.object({ messages: z.array(z.object({ id: z.string().min(1) })).optional(), nextPageToken: z.string().optional() });
+const labelsSchema = z.object({ labels: z.array(z.object({ id: z.string().min(1), name: z.string() })).optional() });
 const messageSchema = z.object({
   id: z.string().min(1), threadId: z.string().min(1), internalDate: z.string().regex(/^\d+$/), labelIds: z.array(z.string()).optional(),
   payload: z.object({ headers: z.array(z.object({ name: z.string(), value: z.string() })) }),
 });
 const metadataHeaders = ["From", "To", "Cc", "Delivered-To", "X-Forwarded-To", "In-Reply-To"];
-const gmailQuery = "(to:<EMAIL_REPLY_MAILBOX> OR deliveredto:<EMAIL_REPLY_MAILBOX>) -in:sent -in:draft newer_than:3d";
-
 function addresses(value: string): string[] {
   return [...value.matchAll(/(?:<([^<>\s]+@[^<>\s]+)>|(?:^|[,;])\s*([^<>\s,;]+@[^<>\s,;]+))/g)]
     .map(match => (match[1] ?? match[2]).toLowerCase()).filter(email => z.email().safeParse(email).success);
@@ -42,11 +41,15 @@ export async function checkGmailRepliesBeforeSend(fetchImpl: typeof fetch = fetc
   const token = await accessToken(fetchImpl, deadline);
   const profile = z.object({ emailAddress: z.email() }).parse(await gmailGet("profile", token, fetchImpl, deadline));
   if (profile.emailAddress.toLowerCase() !== account) throw new Error("gmail_account_mismatch");
+  const labelName = z.string().trim().min(1).parse(process.env.EMAIL_GMAIL_REPLY_LABEL ?? "quiver-support").toLowerCase();
+  const labels = labelsSchema.parse(await gmailGet("labels", token, fetchImpl, deadline)).labels ?? [];
+  const label = labels.find(candidate => candidate.name.toLowerCase() === labelName);
+  if (!label) throw new Error("gmail_label_missing");
 
   const ids: string[] = [];
   let pageToken: string | undefined;
   for (let page = 0; page < 3; page++) {
-    const params = new URLSearchParams({ q: gmailQuery.replaceAll("<EMAIL_REPLY_MAILBOX>", replyTo), maxResults: "100" });
+    const params = new URLSearchParams({ labelIds: label.id, maxResults: "100" });
     if (pageToken) params.set("pageToken", pageToken);
     const result = listSchema.parse(await gmailGet(`messages?${params}`, token, fetchImpl, deadline));
     for (const message of result.messages ?? []) if (!ids.includes(message.id)) ids.push(message.id);
@@ -87,7 +90,7 @@ export async function checkGmailRepliesBeforeSend(fetchImpl: typeof fetch = fetc
 
 export function gmailFailureCode(error: unknown): string {
   const message = error instanceof Error ? error.message : "";
-  if (/^gmail_(?:message_missing|account_mismatch|sender_ambiguous|message_time_invalid|(?:read|oauth)_[0-9]{3})$/.test(message)) return message;
+  if (/^gmail_(?:label_missing|message_missing|account_mismatch|sender_ambiguous|message_time_invalid|(?:read|oauth)_[0-9]{3})$/.test(message)) return message;
   if (error instanceof TypeError || (error instanceof Error && ["AbortError", "TimeoutError"].includes(error.name))) return "gmail_transport_error";
   return "gmail_unexpected_error";
 }
