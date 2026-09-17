@@ -55,15 +55,6 @@ describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () =>
         title: "Conditions lining up",
         body: "Clean window",
       }),
-      NOTIFICATION_REGISTRY.similarity_match.buildPushPayload!({
-        beach_id: "beach-1",
-        beach_slug: "blacks",
-        beach_name: "Black's",
-        alert_date: "2026-07-25",
-        forecast_at: "2026-07-25T16:00:00.000Z",
-        score: 8.7,
-        reason: "Matches your best sessions",
-      }),
       NOTIFICATION_REGISTRY.swell_watch.buildPushPayload!(
         NOTIFICATION_REGISTRY.swell_watch.validatePayload!({
           beach_id: "11111111-1111-4111-8111-111111111111",
@@ -116,16 +107,18 @@ describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () =>
     expect(ordinaryPush).not.toHaveProperty("androidChannelId");
   });
 
-  it("home_morning_call and weekend_window are registered as push-only reminders", () => {
-    const registry = NOTIFICATION_REGISTRY as any;
+  it("retires legacy surf notification types", () => {
+    expect(NOTIFICATION_REGISTRY).not.toHaveProperty("similarity_match");
+    expect(NOTIFICATION_REGISTRY).not.toHaveProperty("home_morning_call");
+  });
 
-    for (const key of ["home_morning_call", "weekend_window"]) {
-      expect(registry[key].channels).toEqual(["push"]);
-      expect(registry[key].prefs.master.push).toBe("notif_push_enabled");
-      expect(registry[key].prefs.perType.push).toBe("notif_reminders");
-      expect(registry[key].quietHours.mode).toBe("defer");
-      expect(registry[key].suppressSelfNotify).toBe(false);
-    }
+  it("weekend_window is registered as a push-only reminder", () => {
+    const def = NOTIFICATION_REGISTRY.weekend_window;
+    expect(def.channels).toEqual(["push"]);
+    expect(def.prefs.master.push).toBe("notif_push_enabled");
+    expect(def.prefs.perType.push).toBe("notif_reminders");
+    expect(def.quietHours.mode).toBe("defer");
+    expect(def.suppressSelfNotify).toBe(false);
   });
 
   it("weekend_window rejects location and full-ranking data", () => {
@@ -556,57 +549,30 @@ describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () =>
     expect(push.data).not.toHaveProperty("beach_id");
   });
 
-  it("preserves exact positive windows for each queued alert without channel leakage", () => {
+  it("preserves the exact positive window without channel leakage", () => {
     const policyContext = {
       kind: "positive_session_recommendation" as const,
       beach_id: "11111111-1111-4111-8111-111111111111",
       starts_at: "2026-07-17T16:00:00.000Z",
       ends_at: "2026-07-17T17:00:00.000Z",
     };
-    const payloads = {
-      forecast_alert: {
-        alert_date: "2026-07-17",
-        title: "Conditions lining up",
-        body: "Clean window",
-        beach_id: policyContext.beach_id,
-        forecast_at: policyContext.starts_at,
-        policy_context: policyContext,
-      },
-      similarity_match: {
-        beach_id: policyContext.beach_id,
-        beach_slug: "blacks",
-        beach_name: "Blacks",
-        alert_date: "2026-07-17",
-        forecast_at: policyContext.starts_at,
-        score: 8.7,
-        reason: "Matches your best sessions",
-        policy_context: policyContext,
-      },
-      home_morning_call: {
-        alert_date: "2026-07-17",
-        verdict: "YES" as const,
-        beach_id: policyContext.beach_id,
-        forecast_at: policyContext.starts_at,
-        title: "Worth it",
-        body: "Clean early window",
-        policy_context: policyContext,
-      },
+    const payload = {
+      alert_date: "2026-07-17",
+      title: "Conditions lining up",
+      body: "Clean window",
+      beach_id: policyContext.beach_id,
+      forecast_at: policyContext.starts_at,
+      policy_context: policyContext,
     };
-
-    for (const type of Object.keys(payloads) as Array<keyof typeof payloads>) {
-      const definition = NOTIFICATION_REGISTRY[type] as any;
-      const parsed = definition.validatePayload(payloads[type]);
-      expect(parsed.policy_context).toEqual(policyContext);
-      const push = definition.buildPushPayload(parsed);
-      expect(push.data).not.toHaveProperty("policy_context");
-      const channelPayloads = {
-        push,
-        inApp: definition.buildInAppPayload?.(parsed) ?? null,
-      };
-      expect(JSON.stringify(channelPayloads)).not.toContain(
-        policyContext.ends_at,
-      );
-    }
+    const definition = NOTIFICATION_REGISTRY.forecast_alert;
+    const parsed = definition.validatePayload(payload);
+    expect(parsed.policy_context).toEqual(policyContext);
+    const push = definition.buildPushPayload(parsed);
+    expect(push.data).not.toHaveProperty("policy_context");
+    expect(JSON.stringify({
+      push,
+      inApp: definition.buildInAppPayload?.(parsed) ?? null,
+    })).not.toContain(policyContext.ends_at);
   });
 
   it("water_quality delivers on push and in_app, gated by the single wq toggle", () => {

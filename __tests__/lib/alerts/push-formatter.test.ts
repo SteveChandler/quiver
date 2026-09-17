@@ -162,25 +162,6 @@ describe("formatPushNotification", () => {
     expect(result.title).not.toContain("Firing");
   });
 
-  it("keeps stamped similarity score copy instead of replacing it with a generic verdict", () => {
-    const result = formatPushNotification(
-      [
-        makeMatch({
-          conditions_snapshot: {
-            alert_type: "similarity_match",
-            score: 8.7,
-            label: "EPIC",
-            forecast_at: "2026-04-01T15:30:00Z",
-          },
-        }),
-      ],
-      "go",
-    );
-
-    expect(result.title).toContain("8.7 EPIC");
-    expect(result.title).not.toContain("Firing");
-  });
-
   it("drops the beginner rationale rather than triggering the truncation fallback", () => {
     const result = formatPushNotification([
       makeMatch({

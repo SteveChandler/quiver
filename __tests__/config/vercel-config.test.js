@@ -112,7 +112,16 @@ describe("vercel.json", () => {
     expect(config.crons).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ path: "/api/monitoring/forecast-health" }),
+        expect.objectContaining({
+          path: "/api/cron/daily-call",
+          schedule: "0 * * * *",
+        }),
+      ]),
+    );
+    expect(config.crons).not.toEqual(
+      expect.arrayContaining([
         expect.objectContaining({ path: "/api/cron/similarity-alerts" }),
+        expect.objectContaining({ path: "/api/cron/home-morning-call" }),
       ]),
     );
   });
