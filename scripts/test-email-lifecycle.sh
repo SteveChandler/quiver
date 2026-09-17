@@ -53,6 +53,8 @@ psql_local -c "DO \$\$ BEGIN ASSERT (SELECT count(*) FROM trial_feedback_submiss
 psql_local -f "$repo_dir/supabase/migrations/20260913230000_trial_feedback_web_recovery.sql"
 psql_local -f "$repo_dir/supabase/migrations/20260914170000_gmail_reply_reconciliation.sql" -f "$repo_dir/__tests__/integration/email-reply-reconciliation.sql"
 psql_local -f "$repo_dir/supabase/migrations/20260915132444_gmail_reply_retry_backoff.sql" -f "$repo_dir/__tests__/integration/email-reply-backoff.sql"
+psql_local -f "$repo_dir/supabase/migrations/20260916180000_email_daily_cap_optional.sql" \
+  -f "$repo_dir/__tests__/integration/email-daily-cap-optional.sql"
 if [[ "${1:-}" == "--feedback-contract" ]]; then
   LIFECYCLE_TEST_SOCKET="$test_dir" LIFECYCLE_TEST_PSQL="$pg_bin/psql" \
     NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 NEXT_PUBLIC_SUPABASE_ANON_KEY=local-fixture \
