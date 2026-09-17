@@ -12,9 +12,6 @@ const createServiceClient = jest.fn();
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: (...args: unknown[]) => createServiceClient(...args),
 }));
-jest.mock("@/lib/alerts/auto-enable-similarity", () => ({
-  ensureSimilarityRuleForUser: jest.fn().mockResolvedValue({ created: false, reason: "test" }),
-}));
 jest.mock("@sentry/nextjs", () => ({ captureException: jest.fn() }));
 
 import { POST } from "@/app/api/webhooks/revenuecat/route";

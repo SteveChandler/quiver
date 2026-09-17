@@ -12,6 +12,11 @@ const enforcementSchema = z.object({
   hold_record_id: z.string().uuid(),
   hold_valid_until: instantSchema,
 }).strict();
+const rankedBeachSchema = z.object({
+  beach_id: z.string().uuid(),
+  beach_name: z.string().min(1),
+  rank: z.number().int().min(1).max(3),
+}).strict();
 
 const baseSchema = z.object({
   schema_version: z.literal(MAJOR_SWELL_NOTIFICATION_SCHEMA_VERSION),
@@ -22,6 +27,10 @@ const baseSchema = z.object({
   would_suppress_cohorts: cohortsSchema,
   title: z.string().min(1),
   body: z.string().min(1),
+  beaches: z.array(rankedBeachSchema).length(3).optional(),
+  rarity: z.string().min(1).optional(),
+  event_key: z.string().min(1).optional(),
+  title_id: z.string().min(1).optional(),
 });
 
 const physicalEventSchema = {

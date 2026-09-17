@@ -55,6 +55,7 @@ function getBeachDefaults(): Omit<
     editorial_reviewed_at: null,
     editorial_sources: [],
     seo_indexable: false,
+    short_name: null,
     skill_level: "", // non-nullable in DB schema; "" is the zero/empty state
     break_type: null,
     crowd_level: null,
