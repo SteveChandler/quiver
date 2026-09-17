@@ -6,6 +6,7 @@ import {
   createSuccessResponse,
   validateOrError,
   type AuthenticatedContext,
+  type OptionalAuthContext,
 } from '@/lib/middleware/api-wrappers';
 import type { SpotSurfReportResult } from '@/lib/services/spot-surf-report-service';
 import type { Beach } from '@/types/database';
@@ -288,13 +289,13 @@ function buildCanonicalSurfCall(
  * Returns a personalized surf-call verdict for a single beach.
  * Consumed by the Quiver Native app so the native surf call matches web exactly.
  *
- * Authentication: required (user session)
- * Rate limit: surf-discovery bucket (shared with /api/surf/discover)
+ * Authentication: optional; anonymous requests receive the general surf call
+ * Rate limit: surf-discovery for authenticated requests, public-default by IP for anonymous requests
  * Cache: private no-store; physical forecast computation remains internally cached.
  */
 async function surfCallHandler(
   request: NextRequest,
-  { user, supabase }: AuthenticatedContext
+  { user, supabase }: OptionalAuthContext
 ): Promise<NextResponse> {
   const { searchParams } = new URL(request.url);
   const validation = validateOrError(QuerySchema, {
@@ -345,17 +346,23 @@ async function surfCallHandler(
   const typedBeach = beach as unknown as RecommendationGateBeach;
 
   let profileExperience: SkillLevel | null = null;
-  try {
-    profileExperience = await getProfileExperienceLevel(supabase, user.id);
-  } catch {
-    profileExperience = null;
+  if (user) {
+    try {
+      profileExperience = await getProfileExperienceLevel(supabase, user.id);
+    } catch {
+      profileExperience = null;
+    }
   }
-  const { data: entitlementRow } = await supabase
-    .from('user_entitlements')
-    .select('is_pro, is_trialing, billing_issue, expires_at')
-    .eq('user_id', user.id)
-    .maybeSingle();
-  const isPro = entitlementFromRow(entitlementRow ?? null) === 'premium';
+  let isPro = false;
+  if (user) {
+    const { data: entitlementRow } = await supabase
+      .from('user_entitlements')
+      .select('is_pro, is_trialing, billing_issue, expires_at')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    isPro = entitlementFromRow(entitlementRow ?? null) === 'premium';
+  }
+  const viewerId = user?.id ?? 'anonymous';
   const anchor = new Date();
   const anchorTime = anchor.toISOString();
   const requestedForecastTime = forecastAt
@@ -379,7 +386,7 @@ async function surfCallHandler(
   let canonicalContext;
   try {
     canonicalContext = await resolveCanonicalSessionDecisionContext({
-      userId: user.id,
+      userId: viewerId,
       profileExperience,
       anchorTime,
       candidateBeachIds: [beachId],
@@ -445,15 +452,29 @@ async function surfCallHandler(
   return createSuccessResponse(result);
 }
 
-const protectedGET = withRateLimit(
-  withAuth(surfCallHandler, { errorMessage: 'Error computing surf call' }),
-  'surf-discovery'
+const authenticatedRateLimitedGET = withRateLimit(
+  (request, context) =>
+    surfCallHandler(request, context as OptionalAuthContext),
+  'surf-discovery',
+);
+const anonymousRateLimitedGET = withRateLimit(
+  (request, context) =>
+    surfCallHandler(request, context as OptionalAuthContext),
+  'public-default',
+);
+const optionalGET = withAuth(
+  async (request, context: OptionalAuthContext): Promise<NextResponse> =>
+    (context.user ? authenticatedRateLimitedGET : anonymousRateLimitedGET)(
+      request,
+      context,
+    ),
+  { optional: true, errorMessage: 'Error computing surf call' },
 );
 
 export const GET = async (
-  ...args: Parameters<typeof protectedGET>
+  ...args: Parameters<typeof optionalGET>
 ): Promise<NextResponse> => {
-  const response = await protectedGET(...args);
+  const response = await optionalGET(...args);
   response.headers.delete('ETag');
   response.headers.set(
     'Cache-Control',

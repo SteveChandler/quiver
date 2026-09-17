@@ -11,18 +11,19 @@ const mockSupabase = {
 const mockUser = {
   id: "native-user-123",
 };
+let mockRequestUser: typeof mockUser | null = mockUser;
 
 jest.mock("@/lib/middleware/api-wrappers", () => {
   const actual = jest.requireActual("@/lib/api-utils");
   return {
     withAuth:
-      (handler: (request: NextRequest, context: { user: typeof mockUser; supabase: typeof mockSupabase }) => Promise<Response>) =>
+      (handler: (request: NextRequest, context: { user: typeof mockUser | null; supabase: typeof mockSupabase }) => Promise<Response>) =>
       (request: NextRequest) =>
-        handler(request, { user: mockUser, supabase: mockSupabase }),
+        handler(request, { user: mockRequestUser, supabase: mockSupabase }),
     withRateLimit:
-      (handler: (request: NextRequest) => Promise<Response>) =>
-      (request: NextRequest) =>
-        handler(request),
+      (handler: (request: NextRequest, context?: unknown) => Promise<Response>) =>
+      (request: NextRequest, context?: unknown) =>
+        handler(request, context),
     createSuccessResponse: actual.createSuccessResponse,
     validateOrError: actual.validateOrError,
   };
@@ -58,7 +59,7 @@ jest.mock("@/lib/profile/skill-level", () => ({
 }));
 
 function mockBeachQuery(
-  beach: Record<string, unknown>,
+  beach: Record<string, unknown> | null,
   forecastRows: Array<{ forecast_at: string }> = [],
 ) {
   const query: {
@@ -119,6 +120,7 @@ let canonicalContext: {
 describe("GET /api/surf/call", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockRequestUser = mockUser;
     mockGetProfileExperienceLevel.mockResolvedValue("intermediate");
     const decision = {
       schemaVersion: "canonical-session-decision.v1",
@@ -197,6 +199,61 @@ describe("GET /api/surf/call", () => {
     mockResolveCanonicalSessionDecisionContext.mockResolvedValue(
       canonicalContext,
     );
+  });
+
+  it("returns the general surf call to anonymous viewers without entitlements", async () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    mockRequestUser = null;
+    mockBeachQuery({
+      id: beachId,
+      name: "Ocean Beach Pier",
+      slug: "ocean-beach-pier",
+      lat: 32.75,
+      lon: -117.25,
+      timezone: "America/Los_Angeles",
+      deleted_at: null,
+    });
+
+    const response = await GET(
+      new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}&boardClass=longboard`),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.data.report.skillSource).toBeNull();
+    expect(body.data.report.userTier).toBeNull();
+    expect(body.data.report.verdict).toBeDefined();
+    expect(mockGetProfileExperienceLevel).not.toHaveBeenCalled();
+    expect(mockSupabase.from).not.toHaveBeenCalledWith("user_entitlements");
+    expect(mockResolveCanonicalSessionDecisionContext).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "anonymous",
+        profileExperience: null,
+        discoveryOptions: expect.objectContaining({ isPro: false }),
+      }),
+    );
+  });
+
+  it("returns 404 for an unknown beach for authenticated and anonymous viewers", async () => {
+    const beachQuery = mockBeachQuery(null);
+
+    for (const user of [mockUser, null]) {
+      mockRequestUser = user;
+      const response = await GET(
+        new NextRequest(
+          "http://localhost:3000/api/surf/call?beachId=11111111-1111-4111-8111-111111111111",
+        ),
+      );
+
+      expect(response.status).toBe(404);
+      expect(await response.json()).toMatchObject({
+        success: false,
+        error: "Beach not found",
+      });
+    }
+
+    expect(beachQuery.single).toHaveBeenCalledTimes(2);
   });
 
   it("uses the canonical decision as the Surf Call verdict authority", async () => {
