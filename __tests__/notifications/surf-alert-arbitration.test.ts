@@ -7,16 +7,19 @@ const base = {
 };
 
 describe("selectSurfAlertWinners", () => {
-  it("keeps one same-beach surf alert and prefers condition, then similarity, then home", () => {
+  it("keeps one surf alert per user and date across different beaches", () => {
     const result = selectSurfAlertWinners([
-      { ...base, id: "home", type: "home_morning_call" },
-      { ...base, id: "similarity", type: "similarity_match" },
-      { ...base, id: "condition", type: "forecast_alert" },
-      { ...base, id: "other-beach", entity_id: "beach-2", payload: { alert_date: "2026-07-13", beach_id: "beach-2" }, type: "home_morning_call" },
+      {
+        ...base,
+        id: "daily",
+        entity_id: "beach-2",
+        payload: { alert_date: "2026-07-13", beach_id: "beach-2" },
+        type: "daily_call",
+      },
+      { ...base, id: "manual", type: "forecast_alert" },
     ]);
 
-    expect(result.winners.map((event) => event.id).sort()).toEqual(["condition", "other-beach"]);
-    expect(result.redundant.map((event) => event.id).sort()).toEqual(["home", "similarity"]);
-    expect(result.redundant.map((event) => event.id)).toEqual(["similarity", "home"]);
+    expect(result.winners.map((event) => event.id)).toEqual(["manual"]);
+    expect(result.redundant.map((event) => event.id)).toEqual(["daily"]);
   });
 });

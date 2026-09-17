@@ -1,5 +1,4 @@
 import {
-  ALERT_MIN_ACTIONABLE_LEAD_MINUTES,
   ALERT_SCORE_MATERIAL_MARGIN,
   ALERT_SCORE_TIE_TOLERANCE,
   selectActionableAlertWindow,
@@ -92,10 +91,9 @@ describe("late-window suppression", () => {
     );
   });
 
-  it("allows a short grace so a just-started session still sends", () => {
-    const graceMs = (ALERT_MIN_ACTIONABLE_LEAD_MINUTES - 1) * 60_000;
-    const now = new Date(Date.parse("2026-08-10T15:00:00.000Z") + graceMs);
-    expect(selectActionableAlertWindow([window()], now)).not.toBeNull();
+  it("rejects a window after its best hour starts", () => {
+    const now = new Date("2026-08-10T15:10:00.000Z");
+    expect(selectActionableAlertWindow([window()], now)).toBeNull();
   });
 
   it("prefers a later actionable window over a stale earlier one", () => {

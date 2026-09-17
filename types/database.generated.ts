@@ -3309,6 +3309,7 @@ export type Database = {
           review_count: number | null
           seo_indexable: boolean
           shoaling_factors: Json | null
+          short_name: string | null
           skill_level: string | null
           slug: string | null
           state: string | null
@@ -3393,6 +3394,7 @@ export type Database = {
           review_count?: number | null
           seo_indexable?: boolean
           shoaling_factors?: Json | null
+          short_name?: string | null
           skill_level?: string | null
           slug?: string | null
           state?: string | null
@@ -3477,6 +3479,7 @@ export type Database = {
           review_count?: number | null
           seo_indexable?: boolean
           shoaling_factors?: Json | null
+          short_name?: string | null
           skill_level?: string | null
           slug?: string | null
           state?: string | null
@@ -8384,6 +8387,7 @@ export type Database = {
           bio: string | null
           created_at: string
           crowd_tolerance: string | null
+          daily_call_time: string
           deleted_at: string | null
           digest_session_invites: boolean
           display_name: string | null
@@ -8412,6 +8416,7 @@ export type Database = {
           notif_reminders: boolean
           notif_session_invites: boolean
           notif_similarity_alerts: boolean
+          notif_swell_alerts: boolean
           notif_water_quality: boolean
           notif_xp_updates: boolean
           onboarding_completed_at: string | null
@@ -8447,6 +8452,7 @@ export type Database = {
           bio?: string | null
           created_at?: string
           crowd_tolerance?: string | null
+          daily_call_time?: string
           deleted_at?: string | null
           digest_session_invites?: boolean
           display_name?: string | null
@@ -8475,6 +8481,7 @@ export type Database = {
           notif_reminders?: boolean
           notif_session_invites?: boolean
           notif_similarity_alerts?: boolean
+          notif_swell_alerts?: boolean
           notif_water_quality?: boolean
           notif_xp_updates?: boolean
           onboarding_completed_at?: string | null
@@ -8510,6 +8517,7 @@ export type Database = {
           bio?: string | null
           created_at?: string
           crowd_tolerance?: string | null
+          daily_call_time?: string
           deleted_at?: string | null
           digest_session_invites?: boolean
           display_name?: string | null
@@ -8538,6 +8546,7 @@ export type Database = {
           notif_reminders?: boolean
           notif_session_invites?: boolean
           notif_similarity_alerts?: boolean
+          notif_swell_alerts?: boolean
           notif_water_quality?: boolean
           notif_xp_updates?: boolean
           onboarding_completed_at?: string | null
@@ -11044,7 +11053,7 @@ export type Database = {
       surf_alert_delivery_slots: {
         Row: {
           alert_date: string
-          beach_id: string
+          beach_id: string | null
           created_at: string
           priority: number
           recipient_user_id: string
@@ -11053,7 +11062,7 @@ export type Database = {
         }
         Insert: {
           alert_date: string
-          beach_id: string
+          beach_id?: string | null
           created_at?: string
           priority: number
           recipient_user_id: string
@@ -11062,7 +11071,7 @@ export type Database = {
         }
         Update: {
           alert_date?: string
-          beach_id?: string
+          beach_id?: string | null
           created_at?: string
           priority?: number
           recipient_user_id?: string
@@ -11352,6 +11361,127 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_tide_forecast_latest"
             referencedColumns: ["beach_id"]
+          },
+        ]
+      }
+      swell_event_alerts: {
+        Row: {
+          created_at: string
+          event_key: string
+          id: string
+          lead_beach_id: string
+          notification_event_id: string | null
+          payload: Json
+          peak_date: string
+          sent_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_key: string
+          id?: string
+          lead_beach_id: string
+          notification_event_id?: string | null
+          payload: Json
+          peak_date: string
+          sent_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_key?: string
+          id?: string
+          lead_beach_id?: string
+          notification_event_id?: string | null
+          payload?: Json
+          peak_date?: string
+          sent_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "swell_event_alerts_lead_beach_id_fkey"
+            columns: ["lead_beach_id"]
+            isOneToOne: false
+            referencedRelation: "beach_location_audit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "swell_event_alerts_lead_beach_id_fkey"
+            columns: ["lead_beach_id"]
+            isOneToOne: false
+            referencedRelation: "beach_ml_performance_baseline"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "swell_event_alerts_lead_beach_id_fkey"
+            columns: ["lead_beach_id"]
+            isOneToOne: false
+            referencedRelation: "beaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "swell_event_alerts_lead_beach_id_fkey"
+            columns: ["lead_beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "swell_event_alerts_lead_beach_id_fkey"
+            columns: ["lead_beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "swell_event_alerts_lead_beach_id_fkey"
+            columns: ["lead_beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "swell_event_alerts_lead_beach_id_fkey"
+            columns: ["lead_beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "swell_event_alerts_notification_event_id_fkey"
+            columns: ["notification_event_id"]
+            isOneToOne: false
+            referencedRelation: "notification_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "swell_event_alerts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "swell_event_alerts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "swell_event_alerts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_with_home_beach"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "swell_event_alerts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "session_activation_report"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -15688,7 +15818,6 @@ apply_android_tester_roster_snapshot: {
       claim_surf_alert_slot: {
         Args: {
           p_alert_date: string
-          p_beach_id: string
           p_event_id: string
           p_priority: number
           p_recipient_user_id: string

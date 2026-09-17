@@ -227,7 +227,12 @@ export function createMockBeachWithMetrics(
  * Creates a mock Profile with required fields
  */
 export function createMockProfile(overrides: Partial<Profile> = {}): Profile {
-  const { notif_forecast_alerts, ...restOverrides } = overrides;
+  const {
+    daily_call_time,
+    notif_forecast_alerts,
+    notif_swell_alerts,
+    ...restOverrides
+  } = overrides;
   return {
     id: `profile-${Date.now()}`,
     full_name: "Test User",
@@ -248,6 +253,7 @@ export function createMockProfile(overrides: Partial<Profile> = {}): Profile {
     max_drive_minutes: null,
     activity_level: null,
     crowd_tolerance: null,
+    daily_call_time: daily_call_time ?? "06:00",
     allow_implicit_tracking: false,
     analytics_exclusion_reason: null,
     analytics_is_real_user: true,
@@ -282,6 +288,7 @@ export function createMockProfile(overrides: Partial<Profile> = {}): Profile {
     notif_xp_updates: true,
     notif_water_quality: true,
     notif_similarity_alerts: true,
+    notif_swell_alerts: notif_swell_alerts ?? true,
     // Session-invite preferences (DB columns still exist; feature retired)
     digest_session_invites: false,
     email_session_invites: true,
