@@ -147,7 +147,8 @@ describe("renderTemplate", () => {
 describe("surf title pool", () => {
   it("loads every researched entry within the template title limit", () => {
     expect(titlePool.version).toBe(1);
-    expect(titlePool.daily).toHaveLength(30);
+    // 30 researched daily titles + 4 swell-day variants added with the swell alert producer.
+    expect(titlePool.daily).toHaveLength(34);
     expect(titlePool.swell).toHaveLength(40);
     expect(titlePool.swell.filter((entry) => entry.film)).toHaveLength(12);
 
