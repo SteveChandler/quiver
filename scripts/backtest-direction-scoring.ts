@@ -7,7 +7,7 @@ import { scoreNativeConditionBreakdown, nativeScoreInputsFromForecast } from '@/
 import { getQualityLabel } from '@/lib/utils/score-color-utils';
 import { classifyWindQuality } from '@/lib/utils/wind-quality';
 import { getDirectionDegrees } from '@/lib/services/discovery/window-selector/direction-utils';
-import { transformToFaceHeightWithMetadata, type BeachTerrainConfig } from '@/lib/utils/wave-height-transformer';
+import type { BeachTerrainConfig } from '@/lib/utils/wave-height-transformer';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 
 export interface BacktestRow {
@@ -19,9 +19,6 @@ export interface BacktestRow {
   newLabel: string;
   onshore: boolean;
   outOfWindow: boolean;
-  oldFaceHeight: number;
-  newFaceHeight: number;
-  observedFaceHeight: number;
 }
 
 export type GateStatus = 'PASS' | 'FAIL' | 'INSUFFICIENT DATA';
@@ -119,13 +116,10 @@ export function evaluateGates(rows: BacktestRow[]): Record<string, GateStatus> {
   const oldCI = bootstrapCorrelation(rows.map((row) => ({ score: row.oldScore, rating: row.rating })));
   const newCI = bootstrapCorrelation(rows.map((row) => ({ score: row.newScore, rating: row.rating })));
   const overlap = Math.max(oldCI[0], newCI[0]) <= Math.min(oldCI[1], newCI[1]);
-  const oldMae = rows.reduce((sum, row) => sum + Math.abs(row.oldFaceHeight - row.observedFaceHeight), 0) / Math.max(rows.length, 1);
-  const newMae = rows.reduce((sum, row) => sum + Math.abs(row.newFaceHeight - row.observedFaceHeight), 0) / Math.max(rows.length, 1);
   return {
     epic_onshore_or_out_of_window: gate(rows.length, newEpicBad < oldEpicBad),
     rating_label_order: gate(rows.length, !oldMonotonic || newMonotonic),
     spearman: gate(rows.length, newRank >= oldRank || overlap),
-    height_mae: gate(rows.length, newMae <= oldMae),
   };
 }
 
@@ -163,10 +157,6 @@ function summarize(rows: BacktestRow[], includeBeachSplit = true): Record<string
     return [label, { count: values.length, mean: values.length ? values.reduce((a, b) => a + b, 0) / values.length : null, ci: bootstrapMean(values) }];
   }));
   const scoreStats = (key: 'oldScore' | 'newScore') => ({ spearman: rankCorrelation(rows.map((row) => ({ score: row[key], rating: row.rating }))), ci: bootstrapCorrelation(rows.map((row) => ({ score: row[key], rating: row.rating }))) });
-  const heights = (key: 'oldFaceHeight' | 'newFaceHeight', subset: BacktestRow[]) => {
-    const errors = subset.map((row) => row[key] - row.observedFaceHeight);
-    return { count: subset.length, mae: bootstrapMean(errors.map(Math.abs)), bias: bootstrapMean(errors) };
-  };
   const badShare = (key: 'oldLabel' | 'newLabel', accepted: string[]) => {
     const selected = rows.filter((row) => accepted.includes(row[key]));
     return { count: selected.length, share: selected.length ? selected.filter((row) => row.onshore || row.outOfWindow).length / selected.length : 0, ci: bootstrapProportion(selected.map((row) => row.onshore || row.outOfWindow)) };
@@ -175,7 +165,7 @@ function summarize(rows: BacktestRow[], includeBeachSplit = true): Record<string
     const beachRows = rows.filter((row) => row.beachSlug === slug);
     return [slug, beachRows.length >= 10 ? summarize(beachRows, false) : { count: beachRows.length, omitted: true }];
   })) : undefined;
-  return { count: rows.length, old: scoreStats('oldScore'), new: scoreStats('newScore'), ratingByLabel: { old: labelStats('oldLabel'), new: labelStats('newLabel') }, onshoreOrOutOfWindow: { epic: { old: badShare('oldLabel', ['EPIC']), new: badShare('newLabel', ['EPIC']) }, epicOrGood: { old: badShare('oldLabel', ['EPIC', 'GOOD']), new: badShare('newLabel', ['EPIC', 'GOOD']) } }, height: { overall: { old: heights('oldFaceHeight', rows), new: heights('newFaceHeight', rows) }, outOfWindow: { old: heights('oldFaceHeight', rows.filter((row) => row.outOfWindow)), new: heights('newFaceHeight', rows.filter((row) => row.outOfWindow)) } }, byBeach, gates: evaluateGates(rows), rows };
+  return { count: rows.length, old: scoreStats('oldScore'), new: scoreStats('newScore'), ratingByLabel: { old: labelStats('oldLabel'), new: labelStats('newLabel') }, onshoreOrOutOfWindow: { epic: { old: badShare('oldLabel', ['EPIC']), new: badShare('newLabel', ['EPIC']) }, epicOrGood: { old: badShare('oldLabel', ['EPIC', 'GOOD']), new: badShare('newLabel', ['EPIC', 'GOOD']) } }, byBeach, gates: evaluateGates(rows), rows };
 }
 
 async function main(): Promise<void> {
@@ -208,17 +198,12 @@ async function main(): Promise<void> {
     const swellDirection = getDirectionDegrees(forecast.swell_1_direction ?? forecast.wave_direction, null);
     const windDirection = getDirectionDegrees(forecast.wind_direction_deg, forecast.wind_direction);
     const windLabel = windDirection != null && beach.wind_offshore_deg != null ? classifyWindQuality(windDirection, beach.wind_offshore_deg, beach.wind_offshore_tol_deg ?? 45).label : null;
-    const period = parseFloat(String(forecast.swell_1_period ?? forecast.wave_period ?? '0')) || null;
-    const rawHeight = parseFloat(String(forecast.wave_height ?? '0')) || 0;
-    const oldFaceHeight = transformToFaceHeightWithMetadata({ rawHeightFt: rawHeight, periodS: period, swellDirectionDeg: swellDirection, source: 'cdip_sig', beach, directionScoringEnabled: false }).faceHeightFt;
-    const newFaceHeight = transformToFaceHeightWithMetadata({ rawHeightFt: rawHeight, periodS: period, swellDirectionDeg: swellDirection, source: 'cdip_sig', beach, directionScoringEnabled: true }).faceHeightFt;
-    rows.push({ beachSlug: String(byId.get(String(session.beach_id))?.slug), oldScore, newScore, rating: Number(session.rating), oldLabel: getQualityLabel(oldScore), newLabel: getQualityLabel(newScore), onshore: windLabel === 'onshore', outOfWindow: !inSwellWindow(swellDirection, beach.swell_window_center_deg ?? null, beach.swell_window_halfwidth_deg ?? null), oldFaceHeight, newFaceHeight, observedFaceHeight: Number(session.wave_height_ft) });
+    rows.push({ beachSlug: String(byId.get(String(session.beach_id))?.slug), oldScore, newScore, rating: Number(session.rating), oldLabel: getQualityLabel(oldScore), newLabel: getQualityLabel(newScore), onshore: windLabel === 'onshore', outOfWindow: !inSwellWindow(swellDirection, beach.swell_window_center_deg ?? null, beach.swell_window_halfwidth_deg ?? null) });
   }
   const summary = { days, calibratedBeaches: eligible.length, realSessions: realSessions.length, matchedSessions: rows.length, noForecastRows: noForecast, ...summarize(rows) };
   console.log(`calibrated beaches=${eligible.length} real-user sessions=${realSessions.length} matched=${rows.length} no forecast row=${noForecast}`);
   console.log(JSON.stringify(summary, null, 2));
   for (const [name, status] of Object.entries(summary.gates)) console.log(`${name}: ${status}`);
-  if (summary.gates.height_mae === 'FAIL') console.log('DROP HEIGHT TERM (double counting)');
   if (out) writeFileSync(out, `${JSON.stringify(summary, null, 2)}\n`);
 }
 

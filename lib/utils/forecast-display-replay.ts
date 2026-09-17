@@ -63,7 +63,6 @@ export function parseForecastDisplayReplayContext(value: unknown): ForecastDispl
 export function replayForecastDisplayHeightM(
   value: unknown,
   overrides: BeachTerrainConfig = {},
-  options: { directionTerm?: boolean } = {},
 ): number | null {
   const ctx = parseForecastDisplayReplayContext(value);
   const patch = beachSchema.safeParse(overrides);
@@ -74,7 +73,6 @@ export function replayForecastDisplayHeightM(
     transformToFaceHeightDecomposed({
       ...input,
       beach: { ...input.beach, ...patch.data },
-      directionScoringEnabled: options.directionTerm,
     }).faceHeightFt,
   ));
   let ft = transform(ctx.base.input);

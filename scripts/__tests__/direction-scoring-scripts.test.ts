@@ -24,7 +24,7 @@ describe('direction scoring scripts', () => {
   });
 
   it('marks gates insufficient before evaluating them', () => {
-    const row: BacktestRow = { beachSlug: 'b', oldScore: 90, newScore: 90, rating: 5, oldLabel: 'EPIC', newLabel: 'EPIC', onshore: true, outOfWindow: true, oldFaceHeight: 2, newFaceHeight: 2, observedFaceHeight: 2 };
+    const row: BacktestRow = { beachSlug: 'b', oldScore: 90, newScore: 90, rating: 5, oldLabel: 'EPIC', newLabel: 'EPIC', onshore: true, outOfWindow: true };
     expect(evaluateGates(Array.from({ length: 19 }, () => row)).epic_onshore_or_out_of_window).toBe('INSUFFICIENT DATA');
     expect(evaluateGates(Array.from({ length: 20 }, () => row)).epic_onshore_or_out_of_window).toBe('FAIL');
   });

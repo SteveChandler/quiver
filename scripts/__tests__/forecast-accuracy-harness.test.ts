@@ -113,7 +113,6 @@ describe("forecast-accuracy-harness", () => {
       failOnUnmeasuredSlices: false,
       minGateSamples: null,
       minSliceSamples: null,
-      directionTerm: false,
     });
   });
 
@@ -161,14 +160,22 @@ describe("forecast-accuracy-harness", () => {
     expect(options.groupBy).toBe("region");
   });
 
-  it("parses the explicit direction-term replay option", () => {
-    expect(parseCliArgs(["--direction-term"]).directionTerm).toBe(true);
-  });
-
   it("classifies direction slices relative to a beach window", () => {
     expect(classifyDirectionSlice(280, 280, 100)).toBe("inside-centre");
     expect(classifyDirectionSlice(331, 280, 100)).toBe("inside-edge");
     expect(classifyDirectionSlice(20, 280, 100)).toBe("outside");
+  });
+
+  it("reports direction-slice bias without a height direction term", () => {
+    const row = {
+      beach_id: "beach-1",
+      observed_m: 1,
+      noaa_swell_1_direction_deg: 280,
+      offset_corrected_display_height_m: 1.2,
+    } as unknown as PredictionRow;
+    const [metric] = computeDirectionSliceMetrics([row], [{ id: "beach-1", swell_window_center_deg: 280, swell_window_halfwidth_deg: 100 } as never], "offset_corrected_display_height_m");
+    expect(metric).toMatchObject({ slice: "inside-centre", sample_count: 1 });
+    expect(metric.bias_m).toBeCloseTo(0.2);
   });
 
   it("parses report JSON output path", () => {

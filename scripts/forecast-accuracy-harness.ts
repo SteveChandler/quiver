@@ -69,7 +69,6 @@ interface CliOptions {
   failOnUnmeasuredSlices: boolean;
   minGateSamples: number | null;
   minSliceSamples: number | null;
-  directionTerm: boolean;
 }
 
 interface BeachScope {
@@ -281,7 +280,6 @@ function parseCliArgs(argv: string[]): CliOptions {
   let failOnUnmeasuredSlices = false;
   let minGateSamples: number | null = null;
   let minSliceSamples: number | null = null;
-  let directionTerm = false;
   const beachIds: string[] = [];
   const beachSlugs: string[] = [];
 
@@ -402,10 +400,6 @@ function parseCliArgs(argv: string[]): CliOptions {
       failOnRegression = true;
       continue;
     }
-    if (arg === "--direction-term") {
-      directionTerm = true;
-      continue;
-    }
     if (arg === "--fail-on-slice-regression") {
       failOnSliceRegression = true;
       continue;
@@ -474,7 +468,6 @@ function parseCliArgs(argv: string[]): CliOptions {
     failOnUnmeasuredSlices,
     minGateSamples,
     minSliceSamples,
-    directionTerm,
   };
 }
 
@@ -1067,7 +1060,6 @@ function applyProposedInput(
   rows: PredictionRow[],
   beaches: BeachRow[],
   proposedInput: ProposedInput | null,
-  directionTerm = false,
 ): ProposedApplicationResult {
   if (!proposedInput) {
     return { rows, proposedCount: 0, missingCount: 0 };
@@ -1098,7 +1090,7 @@ function applyProposedInput(
       continue;
     }
 
-    const proposedM = computeProposedDisplayHeightM(row, override, directionTerm);
+    const proposedM = computeProposedDisplayHeightM(row, override);
     if (proposedM == null) {
       output.push(row);
       missingCount++;
@@ -1262,7 +1254,6 @@ export function computeDirectionSliceMetrics(
 function computeProposedDisplayHeightM(
   row: PredictionRow,
   overrides: BeachTerrainConfig,
-  directionTerm = false,
 ): number | null {
   const context = parseForecastDisplayReplayContext(row.display_replay_context);
   if (!context || Date.parse(context.forecastAt) !== Date.parse(row.predicted_at)) return null;
@@ -1272,7 +1263,7 @@ function computeProposedDisplayHeightM(
     !Number.isFinite(row.raw_display_height_m) || !Number.isFinite(row.offset_corrected_display_height_m) ||
     Math.abs(baseline - row.raw_display_height_m) > 0.001 ||
     Math.abs(baseline - row.offset_corrected_display_height_m) > 0.001) return null;
-  return replayForecastDisplayHeightM(context, overrides, { directionTerm });
+  return replayForecastDisplayHeightM(context, overrides);
 }
 
 function buildProposedBeachMap(
@@ -1941,7 +1932,6 @@ function printUsage(): void {
   yarn tsx scripts/forecast-accuracy-harness.ts --start 2026-06-01 --end 2026-06-18
   yarn tsx scripts/forecast-accuracy-harness.ts --beach-slugs blacks,lower-trestles
   yarn tsx scripts/forecast-accuracy-harness.ts --truth-source session
-  yarn tsx scripts/forecast-accuracy-harness.ts --direction-term
   yarn tsx scripts/forecast-accuracy-harness.ts --proposed-json /tmp/proposed.json
   yarn tsx scripts/forecast-accuracy-harness.ts --proposed-json /tmp/proposed.json --group-by region
   yarn tsx scripts/forecast-accuracy-harness.ts --proposed-json /tmp/proposed.json --fail-on-regression
@@ -1969,7 +1959,7 @@ async function main(): Promise<void> {
       ? await fetchSessionObservationRows(supabase, options, scopedBeachIds)
       : [];
   const observationRows = [...buoyRows, ...sessionRows];
-  const applied = applyProposedInput(observationRows, beaches, proposedInput, options.directionTerm);
+  const applied = applyProposedInput(observationRows, beaches, proposedInput);
   const metrics = computeForecastAccuracyMetrics(applied.rows, {
     includeProposed: proposedInput != null,
   });
@@ -1999,7 +1989,7 @@ async function main(): Promise<void> {
   }
   console.log("");
   printMetricTable(metrics);
-  if (options.directionTerm) printDirectionSlices(applied.rows, beaches);
+  if (proposedInput) printDirectionSlices(applied.rows, beaches);
   printDeltaTable(pairedDeltas);
   printGateDeltaTable(pairedGateDeltas, options.minGateSamples);
 

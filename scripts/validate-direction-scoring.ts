@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { transformToFaceHeightWithMetadata, type BeachTerrainConfig } from '@/lib/utils/wave-height-transformer';
+import type { BeachTerrainConfig } from '@/lib/utils/wave-height-transformer';
 import { scoreNativeConditionBreakdown, nativeScoreInputsFromForecast, type NativeDirectionScoreInput } from '@/lib/scoring/native-condition-score';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import { directionInput } from '@/lib/services/discovery/window-selector/window-scorer';
@@ -42,13 +42,11 @@ async function main(): Promise<void> {
       const rawHeight = parseFloat(String(row.wave_height ?? '0')) || 0;
       const period = parseFloat(String(row.swell_1_period ?? row.wave_period ?? '0')) || null;
       const swellDirectionDeg = getDirectionDegrees(row.swell_1_direction ?? row.wave_direction, null);
-      const oldHeight = transformToFaceHeightWithMetadata({ rawHeightFt: rawHeight, periodS: period, swellDirectionDeg, source: 'cdip_sig', beach: config, directionScoringEnabled: false });
-      const newHeight = transformToFaceHeightWithMetadata({ rawHeightFt: rawHeight, periodS: period, swellDirectionDeg, source: 'cdip_sig', beach: config, directionScoringEnabled: true });
       const input = nativeScoreInputsFromForecast(typed);
       const direction = directionForForecast(row, config);
       const oldScore = scoreNativeConditionBreakdown(input, undefined, undefined);
       const newScore = scoreNativeConditionBreakdown(input, undefined, undefined, direction);
-      console.log(JSON.stringify({ forecast_at: row.forecast_at, raw: { wave_height: rawHeight, period, swell_direction: swellDirectionDeg, wind_speed: row.wind_speed, wind_direction: getDirectionDegrees(row.wind_direction_deg, row.wind_direction) }, old: { score: oldScore.score, components: oldScore.components, face_height_ft: oldHeight.faceHeightFt }, new: { score: newScore.score, components: newScore.components, face_height_ft: newHeight.faceHeightFt, direction_factor: newHeight.directionFactor } }));
+      console.log(JSON.stringify({ forecast_at: row.forecast_at, raw: { wave_height: rawHeight, period, swell_direction: swellDirectionDeg, wind_speed: row.wind_speed, wind_direction: getDirectionDegrees(row.wind_direction_deg, row.wind_direction) }, old: { score: oldScore.score, components: oldScore.components }, new: { score: newScore.score, components: newScore.components } }));
     }
   }
 }
