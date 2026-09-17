@@ -57,6 +57,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import { AppHeader } from "@/components/app-header";
 import { IphoneAppBanner } from "@/components/app-store/iphone-app-banner";
+import { TimezoneCapture } from "@/components/profile/timezone-capture";
 
 /**
  * EmbedBodyOverride - Sets body styles for embed routes and cleans up on unmount.
@@ -186,6 +187,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
             <ClientErrorTracker />
           </Suspense>
           <ProfileProvider>
+            <TimezoneCapture />
             {/* Auth-only overlays (do not mount when logged out) */}
             <AuthOverlays />
 
