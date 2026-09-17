@@ -24,6 +24,11 @@ describe("daily call schema migration", () => {
     expect(sql).toMatch(/DROP FUNCTION IF EXISTS public\.claim_surf_alert_slot\(uuid, uuid, uuid, date, smallint\)/);
     expect(sql).toMatch(/FUNCTION public\.claim_surf_alert_slot\(\s*p_event_id uuid,\s*p_recipient_user_id uuid,\s*p_alert_date date,\s*p_priority smallint\s*\)/);
   });
+  it("dedupes historical user+date slot rows before re-keying and keeps a five-arg compat overload", () => {
+    expect(sql).toMatch(/DELETE FROM public\.surf_alert_delivery_slots AS s/);
+    expect(sql).toMatch(/PARTITION BY recipient_user_id, alert_date/);
+    expect(sql).toMatch(/FUNCTION public\.claim_surf_alert_slot\(\s*p_event_id uuid,\s*p_recipient_user_id uuid,\s*p_beach_id uuid,\s*p_alert_date date,\s*p_priority smallint\s*\)/);
+  });
   it("disables similarity rules without deleting them", () => {
     expect(sql).toMatch(/UPDATE public\.alert_rules SET enabled = false WHERE preset_type = 'similarity_match'/);
     expect(sql).not.toMatch(/DELETE FROM public\.alert_rules/);
