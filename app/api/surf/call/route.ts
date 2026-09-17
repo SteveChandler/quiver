@@ -362,7 +362,7 @@ async function surfCallHandler(
       .maybeSingle();
     isPro = entitlementFromRow(entitlementRow ?? null) === 'premium';
   }
-  const viewerId = user?.id ?? 'anonymous';
+  const viewerId = user?.id ?? null;
   const anchor = new Date();
   const anchorTime = anchor.toISOString();
   const requestedForecastTime = forecastAt

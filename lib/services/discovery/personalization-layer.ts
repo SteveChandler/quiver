@@ -101,10 +101,19 @@ export interface PersonalizationBonusResult {
  * @returns Populated PersonalizationContext for use with calculatePersonalizationBonus
  */
 export async function fetchPersonalizationContext(
-  userId: string,
+  userId: string | null,
   beachIds: string[],
   learnedPrefs?: UserSurfPreferences | null
 ): Promise<PersonalizationContext> {
+  if (!userId) {
+    return {
+      implicitPrefs: null,
+      learnedPrefs: null,
+      affinityMap: new Map(),
+      implicitWeight: 0,
+    };
+  }
+
   const supabase = createSupabaseServiceRoleClient();
 
   // Run independent fetches in parallel to avoid sequential waterfall

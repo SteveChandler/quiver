@@ -641,6 +641,52 @@ describe('discoverSurfSpots - Hotfix Candidate Boundaries', () => {
   });
 });
 
+describe('discoverSurfSpots - Anonymous Viewer', () => {
+  const userLocation = { lat: 32.7157, lon: -117.1611 };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockState.candidatePoolResponse = {
+      candidates: [mockBeach1, mockBeach2] as Beach[],
+      preferredWaveSize: null,
+      userSkillLevel: null,
+      preferredBreakType: null,
+    };
+    mockState.forecastBatchResponse = {
+      successful: [
+        { beach: mockBeach1, forecasts: [mockForecast] },
+        { beach: mockBeach2, forecasts: [{ ...mockForecast, beach_id: 'beach-2' }] },
+      ],
+      failed: [],
+      staleCount: 0,
+    };
+    mockState.favoriteBeaches = [mockBeach1];
+    mockState.boards = [{ id: 'board-1', name: 'Log', board_type: 'longboard' }];
+    mockState.customSpots = [customSpotRow({
+      id: 'custom-1',
+      userId: 'anonymous-user',
+      name: 'Guest spot',
+      visibility: 'private',
+    })];
+  });
+
+  it('skips every user-scoped fetch and uses neutral defaults', async () => {
+    const result = await discoverSurfSpots(null, { userLocation, maxResults: 5 });
+    const { buildCandidatePool } = require('@/lib/services/discovery/candidate-pool-builder');
+    const { fetchPersonalizationContext } = require('@/lib/services/discovery/personalization-layer');
+    const { getUserSurfPreferences } = require('@/lib/services/preference-learning-service');
+    const { getFavoriteBeachesFromDb } = require('@/lib/services/beach-query-service');
+
+    expect(buildCandidatePool).toHaveBeenCalledWith(null, expect.anything());
+    expect(fetchPersonalizationContext).toHaveBeenCalledWith(null, expect.any(Array), null);
+    expect(getUserSurfPreferences).not.toHaveBeenCalled();
+    expect(getFavoriteBeachesFromDb).not.toHaveBeenCalled();
+    expect(mockSupabaseFrom).not.toHaveBeenCalledWith('boards');
+    expect(mockSupabaseFrom).not.toHaveBeenCalledWith('custom_spots');
+    expect(result.recommendations.every((recommendation) => !recommendation.isFavorite)).toBe(true);
+  });
+});
+
 describe('discoverSurfSpots - Favorites Merging', () => {
   const testUserId = 'test-user-123';
   const defaultUserLocation = { lat: 32.7157, lon: -117.1611 };
