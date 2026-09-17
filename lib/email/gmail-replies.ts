@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import { z } from "zod";
 import { lifecycleRpc } from "@/lib/email/lifecycle";
 
@@ -87,7 +88,11 @@ export async function syncGmailReplies(fetchImpl: typeof fetch = fetch): Promise
           return message;
         } catch (error) {
           if (!(error instanceof Error) || error.message !== "gmail_message_missing") throw error;
-          await lifecycleRpc("note_gmail_reply_missing", { p_lease_id: lease.lease_id, p_message_id: id });
+          if (pendingIds.has(id)) {
+            await lifecycleRpc("auto_resolve_gmail_reply_missing", { p_lease_id: lease.lease_id, p_message_id: id });
+          } else {
+            await lifecycleRpc("note_gmail_reply_missing", { p_lease_id: lease.lease_id, p_message_id: id });
+          }
           return null;
         }
       }));
@@ -112,7 +117,12 @@ export async function syncGmailReplies(fetchImpl: typeof fetch = fetch): Promise
     }
     await lifecycleRpc("finish_gmail_reply_sync", { p_lease_id: lease.lease_id, p_history_id: historyId, p_processed: processed });
     checkpointFinished = true;
-    if (await lifecycleRpc("gmail_reply_ingestion_ready") !== true) throw new Error("gmail_message_gaps_unresolved");
+    const autoResolved24h = z.number().int().nonnegative().parse(await lifecycleRpc("gmail_reply_auto_resolved_24h"));
+    if (autoResolved24h > 5) {
+      Sentry.captureMessage("Gmail reply sync is auto-resolving many deleted messages", {
+        level: "warning", fingerprint: ["gmail-reply-gaps-auto-resolved"], extra: { auto_resolved_24h: autoResolved24h },
+      });
+    }
     return { processed };
   } catch (error) {
     if (checkpointFinished) throw error;

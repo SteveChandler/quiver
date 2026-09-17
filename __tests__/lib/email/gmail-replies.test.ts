@@ -2,6 +2,8 @@
 import { ensureGmailRepliesFresh, GmailReplyBackoffError, gmailFailureCode, syncGmailReplies } from "@/lib/email/gmail-replies";
 const mockRpc = jest.fn();
 jest.mock("@/lib/email/lifecycle", () => ({ lifecycleRpc: (...args: unknown[]) => mockRpc(...args) }));
+const mockCaptureMessage = jest.fn();
+jest.mock("@sentry/nextjs", () => ({ captureMessage: (...args: unknown[]) => mockCaptureMessage(...args) }));
 const lease = { lease_id: "11111111-1111-4111-8111-111111111111", history_id: "100" };
 const json = (value: unknown, status = 200): Response => new Response(JSON.stringify(value), { status });
 const message = { id: "m1", threadId: "t1", internalDate: "1700000000000", payload: { headers: [
@@ -10,14 +12,14 @@ const message = { id: "m1", threadId: "t1", internalDate: "1700000000000", paylo
 let fetchMock: jest.Mock;
 beforeEach(() => {
   jest.resetAllMocks(); Object.assign(process.env, { EMAIL_GMAIL_REPLY_SYNC_ENABLED: "true", EMAIL_GMAIL_ACCOUNT: "mail@gmail.com", EMAIL_REPLY_MAILBOX: "steve@quiversurf.app", EMAIL_GMAIL_CLIENT_ID: "fixture", EMAIL_GMAIL_CLIENT_SECRET: "fixture", EMAIL_GMAIL_REFRESH_TOKEN: "fixture" });
-  mockRpc.mockImplementation(async (name: string) => name === "claim_gmail_reply_sync" ? lease : name === "gmail_reply_ingestion_ready" ? true : null);
+  mockRpc.mockImplementation(async (name: string) => name === "claim_gmail_reply_sync" ? lease : name === "gmail_reply_auto_resolved_24h" ? 0 : null);
   fetchMock = jest.fn().mockResolvedValueOnce(json({ access_token: "fixture" })).mockResolvedValueOnce(json({ emailAddress: "mail@gmail.com" }))
     .mockResolvedValueOnce(json({ historyId: "102", history: [{ messagesAdded: [{ message: { id: "m1" } }, { message: { id: "m1" } }] }] })).mockResolvedValueOnce(json(message));
 });
 afterEach(() => { for (const key of ["EMAIL_GMAIL_REPLY_SYNC_ENABLED", "EMAIL_GMAIL_ACCOUNT", "EMAIL_REPLY_MAILBOX", "EMAIL_GMAIL_CLIENT_ID", "EMAIL_GMAIL_CLIENT_SECRET", "EMAIL_GMAIL_REFRESH_TOKEN"]) delete process.env[key]; });
 it("reads metadata only and durably pauses a reply once before advancing history", async () => {
   expect(await syncGmailReplies(fetchMock)).toEqual({ processed: 1 });
-  expect(mockRpc.mock.calls.map(c => c[0])).toEqual(["claim_gmail_reply_sync", "record_gmail_reply", "finish_gmail_reply_sync", "gmail_reply_ingestion_ready"]);
+  expect(mockRpc.mock.calls.map(c => c[0])).toEqual(["claim_gmail_reply_sync", "record_gmail_reply", "finish_gmail_reply_sync", "gmail_reply_auto_resolved_24h"]);
   expect(mockRpc.mock.calls[1][1]).toMatchObject({ p_message_id: "m1", p_thread_id: "t1", p_sender: "surfer@example.com", p_in_reply_to: "<sent-message>" });
   expect(mockRpc.mock.calls[2][1]).toEqual({ p_lease_id: lease.lease_id, p_history_id: "102", p_processed: 1 });
   expect(fetchMock.mock.calls[3][0]).toContain("format=metadata");
@@ -34,7 +36,7 @@ it.each([404, 429, 500])("history HTTP %i stops the cursor and records failure",
     p_error_code: status === 404 ? "gmail_history_expired" : `gmail_read_${status}` });
 });
 it("a pause-write failure never acknowledges the history", async () => {
-  mockRpc.mockImplementation(async name => { if (name === "record_gmail_reply") throw Error("write failed"); return lease; });
+  mockRpc.mockImplementation(async name => { if (name === "record_gmail_reply") throw Error("write failed"); if (name === "gmail_reply_auto_resolved_24h") return 0; return lease; });
   await expect(syncGmailReplies(fetchMock)).rejects.toThrow("write failed");
   expect(mockRpc).not.toHaveBeenCalledWith("finish_gmail_reply_sync", expect.anything());
 });
@@ -46,16 +48,17 @@ it("incomplete bounded pagination fails without skipping messages", async () => 
 it("does not treat sent mail as an incoming reply", async () => {
   fetchMock.mockReset().mockResolvedValueOnce(json({ access_token: "fixture" })).mockResolvedValueOnce(json({ emailAddress: "mail@gmail.com" }))
     .mockResolvedValueOnce(json({ historyId: "102", history: [{ messagesAdded: [{ message: { id: "m1" } }] }] })).mockResolvedValueOnce(json({ ...message, labelIds: ["SENT"] }));
+  mockRpc.mockImplementation(async name => name === "claim_gmail_reply_sync" ? lease : name === "gmail_reply_auto_resolved_24h" ? 0 : null);
   expect(await syncGmailReplies(fetchMock)).toEqual({ processed: 0 }); expect(mockRpc).not.toHaveBeenCalledWith("record_gmail_reply", expect.anything());
 });
 
-it("quarantines a missing message, processes accessible replies and checkpoints without reopening sending", async () => {
-  mockRpc.mockImplementation(async name => name === "claim_gmail_reply_sync" ? lease : name === "gmail_reply_ingestion_ready" ? false : null);
+it("notes a missing message and checkpoints without blocking sending", async () => {
+  mockRpc.mockImplementation(async name => name === "claim_gmail_reply_sync" ? lease : name === "gmail_reply_auto_resolved_24h" ? 0 : null);
   fetchMock.mockReset().mockResolvedValueOnce(json({ access_token: "fixture" })).mockResolvedValueOnce(json({ emailAddress: "mail@gmail.com" }))
     .mockResolvedValueOnce(json({ historyId: "104", history: [{ messagesAdded: [{ message: { id: "gone" } }, { message: { id: "m1" } }] }] }))
     .mockResolvedValueOnce(json({}, 404)).mockResolvedValueOnce(json(message));
-  await expect(syncGmailReplies(fetchMock)).rejects.toThrow("gmail_message_gaps_unresolved");
-  expect(mockRpc.mock.calls.map(c => c[0])).toEqual(["claim_gmail_reply_sync", "note_gmail_reply_missing", "record_gmail_reply", "finish_gmail_reply_sync", "gmail_reply_ingestion_ready"]);
+  await expect(syncGmailReplies(fetchMock)).resolves.toEqual({ processed: 1 });
+  expect(mockRpc.mock.calls.map(c => c[0])).toEqual(["claim_gmail_reply_sync", "note_gmail_reply_missing", "record_gmail_reply", "finish_gmail_reply_sync", "gmail_reply_auto_resolved_24h"]);
   expect(mockRpc).toHaveBeenCalledWith("note_gmail_reply_missing", { p_lease_id: lease.lease_id, p_message_id: "gone" });
   expect(mockRpc).toHaveBeenCalledWith("finish_gmail_reply_sync", { p_lease_id: lease.lease_id, p_history_id: "104", p_processed: 1 });
 });
@@ -67,15 +70,30 @@ it("skips draft history messages without fetching or quarantining them", async (
   expect(mockRpc).not.toHaveBeenCalledWith("note_gmail_reply_missing", expect.anything());
 });
 it("retries missing IDs even when the next history page is empty, resolving only after the reply pause", async () => {
-  mockRpc.mockImplementation(async name => name === "claim_gmail_reply_sync" ? { ...lease, missing_ids: ["m1"] } : name === "gmail_reply_ingestion_ready" ? true : null);
+  mockRpc.mockImplementation(async name => name === "claim_gmail_reply_sync" ? { ...lease, missing_ids: ["m1"] } : name === "gmail_reply_auto_resolved_24h" ? 0 : null);
   fetchMock.mockReset().mockResolvedValueOnce(json({ access_token: "fixture" })).mockResolvedValueOnce(json({ emailAddress: "mail@gmail.com" }))
     .mockResolvedValueOnce(json({ historyId: "108" })).mockResolvedValueOnce(json(message));
   expect(await syncGmailReplies(fetchMock)).toEqual({ processed: 1 });
-  expect(mockRpc.mock.calls.map(c => c[0])).toEqual(["claim_gmail_reply_sync", "record_gmail_reply", "resolve_gmail_reply_missing", "finish_gmail_reply_sync", "gmail_reply_ingestion_ready"]);
+  expect(mockRpc.mock.calls.map(c => c[0])).toEqual(["claim_gmail_reply_sync", "record_gmail_reply", "resolve_gmail_reply_missing", "finish_gmail_reply_sync", "gmail_reply_auto_resolved_24h"]);
   expect(mockRpc).toHaveBeenCalledWith("resolve_gmail_reply_missing", { p_lease_id: lease.lease_id, p_message_id: "m1" });
 });
+it("auto-resolves a missing message after a later 404", async () => {
+  mockRpc.mockImplementation(async name => name === "claim_gmail_reply_sync" ? { ...lease, missing_ids: ["gone"] } : name === "gmail_reply_auto_resolved_24h" ? 1 : null);
+  fetchMock.mockReset().mockResolvedValueOnce(json({ access_token: "fixture" })).mockResolvedValueOnce(json({ emailAddress: "mail@gmail.com" }))
+    .mockResolvedValueOnce(json({ historyId: "104" })).mockResolvedValueOnce(json({}, 404));
+  await expect(syncGmailReplies(fetchMock)).resolves.toEqual({ processed: 0 });
+  expect(mockRpc).toHaveBeenCalledWith("auto_resolve_gmail_reply_missing", { p_lease_id: lease.lease_id, p_message_id: "gone" });
+  expect(mockRpc).not.toHaveBeenCalledWith("note_gmail_reply_missing", expect.anything());
+});
+it.each([5, 6])("warns only when more than five messages were auto-resolved (%i)", async count => {
+  mockRpc.mockImplementation(async name => name === "claim_gmail_reply_sync" ? lease : name === "gmail_reply_auto_resolved_24h" ? count : null);
+  await syncGmailReplies(fetchMock);
+  expect(mockCaptureMessage).toHaveBeenCalledTimes(count > 5 ? 1 : 0);
+  expect(mockCaptureMessage.mock.calls[0]?.[0]).toBe(count > 5 ? "Gmail reply sync is auto-resolving many deleted messages" : undefined);
+  expect(mockCaptureMessage.mock.calls[0]?.[1] ?? {}).toMatchObject(count > 5 ? { level: "warning", fingerprint: ["gmail-reply-gaps-auto-resolved"] } : {});
+});
 it("does not acknowledge a missing message when the quarantine write fails", async () => {
-  mockRpc.mockImplementation(async name => { if (name === "note_gmail_reply_missing") throw Error("Lifecycle storage failed: secret"); return lease; });
+  mockRpc.mockImplementation(async name => { if (name === "note_gmail_reply_missing") throw Error("Lifecycle storage failed: secret"); if (name === "gmail_reply_auto_resolved_24h") return 0; return lease; });
   fetchMock.mockReset().mockResolvedValueOnce(json({ access_token: "fixture" })).mockResolvedValueOnce(json({ emailAddress: "mail@gmail.com" }))
     .mockResolvedValueOnce(json({ historyId: "104", history: [{ messagesAdded: [{ message: { id: "gone" } }] }] })).mockResolvedValueOnce(json({}, 404));
   await expect(syncGmailReplies(fetchMock)).rejects.toThrow("Lifecycle storage failed");
@@ -83,7 +101,7 @@ it("does not acknowledge a missing message when the quarantine write fails", asy
   expect(mockRpc).toHaveBeenLastCalledWith("record_gmail_reply_failure", { p_lease_id: lease.lease_id, p_retryable: true, p_error_code: "gmail_storage_error" });
 });
 it("a failed pause leaves a recovered message unresolved", async () => {
-  mockRpc.mockImplementation(async name => { if (name === "record_gmail_reply") throw Error("Lifecycle storage failed: unavailable"); return { ...lease, missing_ids: ["m1"] }; });
+  mockRpc.mockImplementation(async name => { if (name === "record_gmail_reply") throw Error("Lifecycle storage failed: unavailable"); if (name === "gmail_reply_auto_resolved_24h") return 0; return { ...lease, missing_ids: ["m1"] }; });
   await expect(syncGmailReplies(fetchMock)).rejects.toThrow("Lifecycle storage failed");
   expect(mockRpc).not.toHaveBeenCalledWith("resolve_gmail_reply_missing", expect.anything());
   expect(mockRpc).not.toHaveBeenCalledWith("finish_gmail_reply_sync", expect.anything());
