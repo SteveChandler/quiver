@@ -41,6 +41,20 @@ describe("BeachProseSummary", () => {
     expect(screen.queryByText(/Local guidance reviewed against/)).not.toBeInTheDocument();
   });
 
+  it("tolerates stored sources that have no publisher", () => {
+    const withoutPublisher = { url: "https://example.com/source" } as unknown as EditorialSource;
+
+    render(
+      <BeachProseSummary
+        beach={createMockBeach()}
+        surfCallReport={null}
+        editorialSources={[withoutPublisher]}
+      />,
+    );
+
+    expect(screen.queryByText(/Local guidance reviewed against/)).not.toBeInTheDocument();
+  });
+
   it("shows unique trimmed publishers when at least one is present", () => {
     render(
       <BeachProseSummary
