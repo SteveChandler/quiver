@@ -30,6 +30,9 @@ const optionalDateTimeSchema = z
     message: "Must be a parseable datetime",
   });
 
+const callIdSchema = z.string().trim().min(1).max(128).optional();
+const boardIdSchema = z.string().uuid().optional();
+
 const ObservedFaceHeightFtSchema = z
   .number()
   .finite()
@@ -53,8 +56,12 @@ export const ForecastFeedbackClientPayloadSchema = z
       "surf_call",
       "condition_report",
       "other",
+      "call_check",
     ]),
     feedbackValue: z.string().min(1).max(120),
+    callId: callIdSchema,
+    boardValue: z.enum(["right_board", "other_board"]).optional(),
+    boardId: boardIdSchema,
     feedbackNote: z.string().max(1000).nullable().optional(),
     observedFaceHeightFt: ObservedFaceHeightFtSchema.nullable().optional(),
     displayedContext: contextRecordSchema,
@@ -72,6 +79,29 @@ export const ForecastFeedbackClientPayloadSchema = z
     extraContext: optionalContextRecordSchema,
   })
   .superRefine((input, context) => {
+    if (input.feedbackKind === "call_check") {
+      if (input.callId === undefined) {
+        context.addIssue({
+          code: "custom",
+          path: ["callId"],
+          message: "callId is required for call-check feedback",
+        });
+      }
+      if (!["nailed_it", "better", "worse"].includes(input.feedbackValue)) {
+        context.addIssue({
+          code: "custom",
+          path: ["feedbackValue"],
+          message: "Invalid call-check feedback value",
+        });
+      }
+      if (input.boardValue === undefined && input.boardId !== undefined) {
+        context.addIssue({
+          code: "custom",
+          path: ["boardValue"],
+          message: "boardValue is required when boardId is provided",
+        });
+      }
+    }
     if (input.observedFaceHeightFt == null) return;
 
     const isMismatch =
@@ -103,6 +133,7 @@ interface SeasideForecastFeedbackPayload {
   forecast_horizon_hours: number | null;
   feedback_kind: ForecastFeedbackClientPayload["feedbackKind"];
   feedback_value: string;
+  call_id: string | null;
   feedback_note: string | null;
   displayed_context: Record<string, unknown>;
   source_model_context: Record<string, unknown>;
@@ -147,6 +178,10 @@ export function buildSeasideForecastFeedbackPayload(
   const sourceModelContext = input.sourceModelContext ?? {};
   const calibrationContext = input.calibrationContext ?? {};
   const surfCallContext = input.surfCallContext ?? {};
+  if (input.feedbackKind === "call_check") {
+    if (input.boardValue) surfCallContext.board_value = input.boardValue;
+    if (input.boardId) surfCallContext.board_id = input.boardId;
+  }
   const auditMetadata: Record<string, unknown> = {
     ...(input.auditMetadata ?? {}),
   };
@@ -186,6 +221,7 @@ export function buildSeasideForecastFeedbackPayload(
     forecast_horizon_hours: input.forecastHorizonHours ?? null,
     feedback_kind: input.feedbackKind,
     feedback_value: input.feedbackValue,
+    call_id: optionalString(input.callId),
     feedback_note: optionalString(input.feedbackNote),
     displayed_context: displayedContext,
     source_model_context: sourceModelContext,

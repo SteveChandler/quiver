@@ -74,6 +74,9 @@ async function handler(
   if (raw.photoStoragePath !== undefined && typeof raw.photoStoragePath !== "string") {
     return validationError("photoStoragePath must be a string");
   }
+  if (raw.callId !== undefined && (typeof raw.callId !== "string" || raw.callId.trim().length === 0 || raw.callId.length > 128)) {
+    return validationError("callId must be a non-empty string of 128 characters or fewer");
+  }
 
   const input: SubmitConditionsReportInput = {
     beachId,
@@ -81,6 +84,7 @@ async function handler(
     vibe: vibe as Vibe,
     note: raw.note as string | undefined,
     photoStoragePath: raw.photoStoragePath as string | undefined,
+    callId: raw.callId as string | undefined,
   };
   const result = await submitConditionsReportCore(input, user, supabase);
 

@@ -26,13 +26,19 @@ function measurement(value: string | null | undefined, units: string): string | 
   return `${match[1]}${match[2] ? `–${match[2]}` : ''} ${match[3]}`;
 }
 
-async function loadPhoto(url: string, supabaseUrl: string): Promise<string | null> {
+async function loadPhoto(
+  url: string,
+  supabaseUrl: string,
+  allowSiteRelative: boolean,
+): Promise<string | null> {
   try {
-    const validation = await validateURL(url, [
-      new URL(supabaseUrl).hostname, 'cdn.quiversurf.app',
-      'upload.wikimedia.org', 'thumb.wikimedia.org', 'live.staticflickr.com',
-      'api.openverse.org', 'i0.wp.com', 'i1.wp.com', 'i2.wp.com', 'files.wordpress.com',
-    ]);
+    const validation = allowSiteRelative
+      ? { isValid: true }
+      : await validateURL(url, [
+          new URL(supabaseUrl).hostname, 'cdn.quiversurf.app',
+          'upload.wikimedia.org', 'thumb.wikimedia.org', 'live.staticflickr.com',
+          'api.openverse.org', 'i0.wp.com', 'i1.wp.com', 'i2.wp.com', 'files.wordpress.com',
+        ]);
     if (!validation.isValid) return null;
     const response = await fetch(url, { signal: AbortSignal.timeout(5000), redirect: 'error' });
     if (!response.ok || !response.headers.get('content-type')?.startsWith('image/') || !response.body) return null;
@@ -53,6 +59,24 @@ async function loadPhoto(url: string, supabaseUrl: string): Promise<string | nul
     const image = await sharp(Buffer.concat(chunks), { limitInputPixels: 40000000 })
       .rotate().resize(1200, 630, { fit: 'cover' }).jpeg({ quality: 85 }).toBuffer();
     return `data:image/jpeg;base64,${image.toString('base64')}`;
+  } catch {
+    return null;
+  }
+}
+
+function resolvePhotoUrl(
+  photoUrl: string,
+  requestOrigin: string,
+): { url: string; allowSiteRelative: boolean } | null {
+  if (!photoUrl.startsWith('/images/')) {
+    return { url: photoUrl, allowSiteRelative: false };
+  }
+
+  try {
+    const url = new URL(photoUrl, requestOrigin);
+    return url.pathname.startsWith('/images/')
+      ? { url: url.toString(), allowSiteRelative: true }
+      : null;
   } catch {
     return null;
   }
@@ -133,7 +157,16 @@ export async function GET(request: NextRequest): Promise<ImageResponse> {
     ]);
     const photo = photoResult.status === 'fulfilled' && !photoResult.value.error
       ? photoResult.value.data : null;
-    const background = photo?.image_url ? await loadPhoto(photo.image_url, supabaseUrl) : null;
+    const resolvedPhoto = photo?.image_url
+      ? resolvePhotoUrl(photo.image_url, new URL(request.url).origin)
+      : null;
+    const background = resolvedPhoto
+      ? await loadPhoto(
+          resolvedPhoto.url,
+          supabaseUrl,
+          resolvedPhoto.allowSiteRelative,
+        )
+      : null;
     const cache = forecastResult.status === 'fulfilled' ? forecastResult.value : null;
     const now = Date.now();
     const forecast = getCurrentForecast(!cache || cache.metadata.stale ? [] : cache.forecasts.filter(row => {

@@ -16,6 +16,7 @@ import {
 
 export interface SubmitConditionsReportInput extends ConditionsReportInput {
   photoStoragePath?: string;
+  callId?: string;
 }
 
 interface SubmitConditionsReportData {
@@ -60,6 +61,7 @@ export async function submitConditionsReportCore(
   if (validationError) return { success: false, error: validationError };
 
   const { beachId, waveSizeRange, vibe, note, photoStoragePath } = input;
+  const callId = input.callId?.trim() || null;
   const trimmedNote = note?.trim() || null;
 
   const todayStart = new Date();
@@ -143,6 +145,7 @@ export async function submitConditionsReportCore(
           forecastHorizonHours: null,
           feedbackKind: "condition_report",
           feedbackValue: waveSizeRange,
+          callId: callId ?? undefined,
           feedbackNote: note ?? null,
           observedFaceHeightFt,
           displayedContext: {
@@ -203,8 +206,8 @@ export async function submitConditionsReportCore(
   })();
 
   let sessionId: string | null = null;
-  const { data: session, error: sessionError } = await supabase
-    .from("sessions")
+  const sessionsTable = supabase.from("sessions") as any;
+  const { data: session, error: sessionError } = await sessionsTable
     .insert({
       user_id: user.id,
       beach_id: beachId,
@@ -212,6 +215,7 @@ export async function submitConditionsReportCore(
       arrival_time: new Date().toISOString(),
       status: "completed",
       source: "conditions_report",
+      call_id: callId,
       // Conditions reports are public content; their hidden session must be
       // public so approved report videos satisfy the public media RLS arm.
       is_public: true,

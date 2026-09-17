@@ -75,6 +75,20 @@ function mockForecastAccuracyVotePersistence() {
   mockSupabase.from.mockImplementation((table: string) => {
     if (table === "enhanced_forecasts") return enhancedForecastsTable;
     if (table === "forecast_accuracy_votes") return forecastVotesTable;
+    if (table === "boards") {
+      return {
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              maybeSingle: jest.fn().mockResolvedValue({
+                data: { id: "33333333-3333-4333-8333-333333333333" },
+                error: null,
+              }),
+            }),
+          }),
+        }),
+      };
+    }
     throw new Error(`Unexpected table: ${table}`);
   });
 
@@ -178,6 +192,55 @@ describe("POST /api/forecast-feedback", () => {
       surface: "forecast_tab",
       user_observation: { face_height_ft: 6 },
     });
+  });
+
+  it("accepts call-check feedback and links the owned board", async () => {
+    const response = await POST(requestWithBody(basePayload({
+      feedbackKind: "call_check",
+      feedbackValue: "nailed_it",
+      callId: "beach:call-1",
+      boardValue: "right_board",
+      boardId: "33333333-3333-4333-8333-333333333333",
+    })));
+
+    expect(response.status).toBe(200);
+    expect(mockFeedbackInsert.mock.calls[0][0]).toMatchObject({
+      call_id: "beach:call-1",
+      feedback_kind: "call_check",
+      feedback_value: "nailed_it",
+      surf_call_context: expect.objectContaining({ board_value: "right_board" }),
+    });
+  });
+
+  it.each([
+    [{ feedbackKind: "call_check", feedbackValue: "maybe", callId: "call-1" }, "invalid answer"],
+    [{ feedbackKind: "call_check", feedbackValue: "nailed_it" }, "missing call id"],
+  ])("rejects %s", async (overrides: Record<string, unknown>, _label: string) => {
+    const response = await POST(requestWithBody(basePayload(overrides)));
+    expect(response.status).toBe(400);
+    expect(mockFeedbackInsert).not.toHaveBeenCalled();
+  });
+
+  it("rejects a board that is not owned by the user", async () => {
+    mockSupabase.from.mockReturnValue({
+      select: jest.fn().mockReturnValue({
+        eq: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
+          }),
+        }),
+      }),
+    });
+
+    const response = await POST(requestWithBody(basePayload({
+      feedbackKind: "call_check",
+      feedbackValue: "better",
+      callId: "call-1",
+      boardValue: "right_board",
+      boardId: "33333333-3333-4333-8333-333333333333",
+    })));
+
+    expect(response.status).toBe(400);
   });
 
   it.each([
