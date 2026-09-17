@@ -4,7 +4,7 @@ export NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
 export NEXT_PUBLIC_SUPABASE_ANON_KEY=local-placeholder
 export SUPABASE_SERVICE_ROLE_KEY=local-placeholder
 export NEXT_PUBLIC_SITE_URL=http://localhost:3119
-export EMAIL_LIFECYCLE_ENABLED=false PRO_OFFERS_ENABLED=false EMAIL_GMAIL_REPLY_SYNC_ENABLED=false
+export EMAIL_LIFECYCLE_ENABLED=false PRO_OFFERS_ENABLED=false
 export SENTRY_DSN='' NEXT_PUBLIC_SENTRY_DSN=''
 repo_dir="$(cd "$(dirname "$0")/.." && pwd)"
 task_name="quiver-email-contract-$$"

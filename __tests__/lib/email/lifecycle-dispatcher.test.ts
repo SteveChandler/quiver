@@ -2,8 +2,8 @@
 import { lifecycleMaxAcceptedPerRun, runEmailLifecycle } from "@/lib/email/lifecycle-dispatcher";
 const mockRefreshUser = jest.fn();
 jest.mock("@/lib/subscription/offer-automation", () => ({ refreshLifecycleEligibility: async () => ({ checked: 0, failed: 0 }), refreshLifecycleUserEligibility: (...args: unknown[]) => mockRefreshUser(...args) }));
-const mockSync = jest.fn();
-jest.mock("@/lib/email/gmail-replies", () => ({ ensureGmailRepliesFresh: () => mockSync() }));
+const mockReplyCheck = jest.fn();
+jest.mock("@/lib/email/gmail-replies", () => ({ checkGmailRepliesBeforeSend: () => mockReplyCheck(), gmailFailureCode: () => "gmail_transport_error" }));
 const mockRpc = jest.fn(); const mockDb = jest.fn(); const mockSend = jest.fn();
 jest.mock("@/lib/email/lifecycle", () => ({ ...jest.requireActual("@/lib/email/lifecycle"), lifecycleRpc: (...args: unknown[]) => mockRpc(...args) }));
 jest.mock("@/lib/supabase/server", () => ({ createSupabaseServiceRoleClient: () => mockDb() }));
@@ -33,15 +33,30 @@ it("a missing run ledger blocks all provider work", async () => {
   await expect(runEmailLifecycle(false)).rejects.toThrow("Cannot persist lifecycle run"); expect(mockSend).not.toHaveBeenCalled();
 });
 
-it("inbox scan failure blocks every handoff and finishes the run as failed", async () => {
+it("reply check failure blocks every handoff and returns attention", async () => {
   process.env.EMAIL_LIFECYCLE_ENABLED = "true";
-  mockRpc.mockResolvedValueOnce([]).mockResolvedValueOnce({ unknown_handoffs: 0, expired_reservations: 0 });
-  mockSync.mockRejectedValueOnce(Error("history gap"));
+  const userId = "11111111-1111-4111-8111-111111111111";
+  mockRpc.mockResolvedValueOnce([userId]).mockResolvedValueOnce({ unknown_handoffs: 0, expired_reservations: 0 }).mockResolvedValueOnce({
+    user_id: userId, campaign_id: null, status: "due", reason: "eligible", job: "welcome", source: {
+      email: "surfer@example.com", name: null, home_beach_id: null, sessions: 0, last_completion: null, trial_end: null,
+    },
+  });
+  mockReplyCheck.mockRejectedValueOnce(Error("history gap"));
   const update = jest.fn().mockReturnValue({ eq: async () => ({ error: null }) });
   mockDb.mockResolvedValue({ from: () => ({ insert: () => ({ select: () => ({ single: async () => ({ data: { id: "run" }, error: null }) }) }), update }) });
-  await expect(runEmailLifecycle(false)).rejects.toThrow("history gap");
+  await expect(runEmailLifecycle(false)).resolves.toMatchObject({ status: "attention", accepted: 0, reply_check: { status: "failed" } });
   expect(mockSend).not.toHaveBeenCalled(); expect(mockRpc).not.toHaveBeenCalledWith("claim_email_lifecycle", expect.anything());
-  expect(update).toHaveBeenCalledWith(expect.objectContaining({ status: "error", produced: 0 }));
+  expect(update).toHaveBeenCalledWith(expect.objectContaining({ status: "error", produced: 0, summary: expect.objectContaining({ reply_check: { status: "failed", reason: "gmail_transport_error" } }) }));
+});
+
+it("skips the reply check when no candidate is due", async () => {
+  process.env.EMAIL_LIFECYCLE_ENABLED = "true";
+  const userId = "11111111-1111-4111-8111-111111111111";
+  mockRpc.mockImplementation(async name => name === "email_lifecycle_cohort" ? [userId] : name === "reconcile_email_lifecycle" ? { unknown_handoffs: 0, expired_reservations: 0 } : name === "evaluate_email_lifecycle" ? { user_id: userId, campaign_id: null, status: "held", reason: "quiet" } : name === "email_automation_health" ? { due_unsent: 0, enrollment_pending: 0, approval_unavailable: 0 } : null);
+  const update = jest.fn().mockReturnValue({ eq: async () => ({ error: null }) });
+  mockDb.mockResolvedValue({ from: () => ({ insert: () => ({ select: () => ({ single: async () => ({ data: { id: "run" }, error: null }) }) }), update }) });
+  await expect(runEmailLifecycle(false)).resolves.toMatchObject({ status: "ok", reply_check: { status: "skipped" } });
+  expect(mockReplyCheck).not.toHaveBeenCalled();
 });
 
 it("marks the persisted run as an error when approval has expired, even with no due recipients", async () => {
@@ -56,7 +71,6 @@ it("marks the persisted run as an error when approval has expired, even with no 
 
 it.each([false, true])("refreshes promo eligibility before reservation; provider failure=%s", async providerFails => {
  process.env.EMAIL_LIFECYCLE_ENABLED = "true";
- process.env.EMAIL_REPLY_INGESTION_VERIFIED = "true";
  process.env.EMAIL_REPLY_MAILBOX = "support@example.com";
  const userId = "11111111-1111-4111-8111-111111111111";
  const order: string[] = [];
@@ -67,6 +81,7 @@ it.each([false, true])("refreshes promo eligibility before reservation; provider
   if (name === "evaluate_email_lifecycle") return { user_id:userId,campaign_id:"startup-lifecycle-v1",status:"due",reason:"eligible",job:"offer_ready",source:{audience:"free",email:"surfer@example.com",name:null,home_beach_id:null,sessions:5,last_completion:null,trial_end:null,offer_id:"33333333-3333-4333-8333-333333333333",offer_months:1} };
   if (name === "claim_email_lifecycle") { order.push("reservation"); return { allowed:false,reason:"eligibility_changed" }; }
   if (name === "email_automation_health") return { due_unsent:0,enrollment_pending:0 };
+  if (name === "gmail_reply_known") return [];
   return null;
  });
  const update = jest.fn().mockReturnValue({ eq:async () => ({ error:null }) });
