@@ -30,7 +30,11 @@
     { "id": "d27", "title": "Go before change. {beach} {start}–{end}", "body": "It's clean now; {wind} changes near {end}. {tide}, {size} @ {period} {dir}.", "tags": ["live", "wind-driven"], "film": false },
     { "id": "d28", "title": "Here's the window. {beach} {start}–{end}", "body": "It's already clean: {wind} through ~{end}, with {tide} and {size} @ {period} {dir}.", "tags": ["live", "generic"], "film": false },
     { "id": "d29", "title": "One good window. {beach} {start}–{end}", "body": "{tide} and {wind} align from {start} to {end}; {size} @ {period} {dir}.", "tags": ["generic"], "film": false },
-    { "id": "d30", "title": "Today's yes. {beach} {start}–{end}", "body": "{tide} and {wind} align from {start} to {end}; {size} @ {period} {dir}.", "tags": ["generic"], "film": false }
+    { "id": "d30", "title": "Today's yes. {beach} {start}–{end}", "body": "{tide} and {wind} align from {start} to {end}; {size} @ {period} {dir}.", "tags": ["generic"], "film": false },
+    { "id": "d31", "title": "Swell's here. {beach} {start}–{end}", "body": "{tide} and {wind} align from {start} to {end}; {size} @ {period} {dir}.", "tags": ["swell-day"], "film": false },
+    { "id": "d32", "title": "The one we warned you about. {beach} {start}–{end}", "body": "{tide} and {wind} align from {start} to {end}; {size} @ {period} {dir}.", "tags": ["swell-day"], "film": false },
+    { "id": "d33", "title": "Told you. {beach} {start}–{end}", "body": "{tide} and {wind} align from {start} to {end}; {size} @ {period} {dir}.", "tags": ["swell-day"], "film": false },
+    { "id": "d34", "title": "Swell day. {beach} {start}–{end}", "body": "{tide} and {wind} align from {start} to {end}; {size} @ {period} {dir}.", "tags": ["swell-day"], "film": false }
   ],
   "swell": [
     { "id": "s01", "title": "Flat spell over. {beach1}", "body": "Back on: {dir} {size} @ {period}, peak {peak_day} {peak_part}. {beach1}, {beach2}, {beach3}. {rarity}.", "tags": ["first-after-flat", "manageable"], "film": false },
