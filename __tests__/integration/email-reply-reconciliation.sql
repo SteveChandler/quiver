@@ -2,6 +2,7 @@ BEGIN;
 DO $$
 DECLARE lease jsonb; next_lease jsonb; run uuid;
 BEGIN
+ DELETE FROM email_reply_sync_runs;
  UPDATE email_reply_sync SET status='pending',history_id='200',lease_id=NULL,lease_expires_at=NULL;
  UPDATE email_contact_controls SET lifecycle_enabled=true WHERE singleton;
  lease:=claim_gmail_reply_sync('mail@gmail.com'); run:=(lease->>'lease_id')::uuid;
@@ -44,6 +45,7 @@ BEGIN
  PERFORM record_gmail_reply_failure(run,true,'gmail_read_429');
  ASSERT (SELECT status='pending' AND history_id='206' FROM email_reply_sync);
  ASSERT NOT gmail_reply_ingestion_ready();
+ UPDATE email_reply_sync_runs SET started_at=started_at-interval '2 minutes',finished_at=finished_at-interval '2 minutes';
  lease:=claim_gmail_reply_sync('mail@gmail.com'); run:=(lease->>'lease_id')::uuid;
  PERFORM record_gmail_reply_failure(run,false,'gmail_history_expired');
  ASSERT (SELECT status='failed' AND history_id='206' FROM email_reply_sync);
