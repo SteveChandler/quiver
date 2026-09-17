@@ -29,6 +29,24 @@ CREATE INDEX IF NOT EXISTS swell_event_alerts_user_created_idx ON public.swell_e
 ALTER TABLE public.swell_event_alerts ENABLE ROW LEVEL SECURITY;
 
 -- One surf push per user per local date, regardless of beach.
+-- Historical rows can hold several beaches for one user+date (prod had 7 such
+-- groups on 2026-09-17). Keep the highest-priority, most recent row per
+-- user+date so the new primary key can be added; the delivery ledger lives in
+-- notification_delivery_attempts, so nothing user-facing is lost.
+DELETE FROM public.surf_alert_delivery_slots AS s
+USING (
+  SELECT recipient_user_id, alert_date, winner_notification_event_id,
+         row_number() OVER (
+           PARTITION BY recipient_user_id, alert_date
+           ORDER BY priority DESC, updated_at DESC, winner_notification_event_id
+         ) AS rn
+  FROM public.surf_alert_delivery_slots
+) AS ranked
+WHERE s.recipient_user_id = ranked.recipient_user_id
+  AND s.alert_date = ranked.alert_date
+  AND s.winner_notification_event_id = ranked.winner_notification_event_id
+  AND ranked.rn > 1;
+
 ALTER TABLE public.surf_alert_delivery_slots DROP CONSTRAINT IF EXISTS surf_alert_delivery_slots_pkey;
 ALTER TABLE public.surf_alert_delivery_slots ALTER COLUMN beach_id DROP NOT NULL;
 ALTER TABLE public.surf_alert_delivery_slots ADD PRIMARY KEY (recipient_user_id, alert_date);
@@ -166,6 +184,29 @@ COMMENT ON FUNCTION public.claim_surf_alert_slot(uuid, uuid, date, smallint) IS
 REVOKE ALL ON FUNCTION public.claim_surf_alert_slot(uuid, uuid, date, smallint)
   FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.claim_surf_alert_slot(uuid, uuid, date, smallint)
+  TO service_role;
+
+-- Compatibility overload: the worker deployed before this branch still calls
+-- the five-argument form with a beach id. Delegate so the migration can be
+-- applied ahead of the deploy without breaking live delivery. Remove once
+-- feat/daily-call-and-swell-alert is on prod.
+CREATE OR REPLACE FUNCTION public.claim_surf_alert_slot(
+  p_event_id uuid,
+  p_recipient_user_id uuid,
+  p_beach_id uuid,
+  p_alert_date date,
+  p_priority smallint
+)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT public.claim_surf_alert_slot(p_event_id, p_recipient_user_id, p_alert_date, p_priority);
+$$;
+REVOKE ALL ON FUNCTION public.claim_surf_alert_slot(uuid, uuid, uuid, date, smallint)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.claim_surf_alert_slot(uuid, uuid, uuid, date, smallint)
   TO service_role;
 
 -- Similarity retires. Rows stay for history; Alert Center stops rendering them.
