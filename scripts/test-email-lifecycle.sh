@@ -51,8 +51,9 @@ done
 for pid in "${pids[@]}"; do wait "$pid"; done
 psql_local -c "DO \$\$ BEGIN ASSERT (SELECT count(*) FROM trial_feedback_submissions WHERE user_id='dddd0000-0000-4000-8000-000000000001')=1; END \$\$;"
 psql_local -f "$repo_dir/supabase/migrations/20260913230000_trial_feedback_web_recovery.sql"
-psql_local -f "$repo_dir/supabase/migrations/20260914170000_gmail_reply_reconciliation.sql" -f "$repo_dir/__tests__/integration/email-reply-reconciliation.sql"
+psql_local -f "$repo_dir/supabase/migrations/20260914170000_gmail_reply_reconciliation.sql"
 psql_local -f "$repo_dir/supabase/migrations/20260915132444_gmail_reply_retry_backoff.sql" -f "$repo_dir/__tests__/integration/email-reply-backoff.sql"
+psql_local -f "$repo_dir/supabase/migrations/20260917130000_gmail_reply_gaps_do_not_block.sql" -f "$repo_dir/__tests__/integration/email-reply-reconciliation.sql"
 psql_local -f "$repo_dir/supabase/migrations/20260916180000_email_daily_cap_optional.sql" \
   -f "$repo_dir/__tests__/integration/email-daily-cap-optional.sql"
 if [[ "${1:-}" == "--feedback-contract" ]]; then

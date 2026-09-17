@@ -14,20 +14,15 @@ BEGIN
  EXCEPTION WHEN raise_exception THEN ASSERT SQLERRM='Invalid reply lease'; END;
  PERFORM record_gmail_reply(run,'mail@gmail.com','recovered-reply','thread','surfer@example.com',now(),NULL);
  PERFORM finish_gmail_reply_sync(run,'205',1);
- ASSERT (SELECT history_id='205' AND status='pending' FROM email_reply_sync);
- ASSERT (SELECT error_code='gmail_message_gaps_unresolved' AND end_history_id='205' AND processed=1 FROM email_reply_sync_runs WHERE id=run);
- ASSERT NOT gmail_reply_ingestion_ready();
+ ASSERT (SELECT history_id='205' AND status='healthy' FROM email_reply_sync), 'successful gap sync must be healthy';
+ ASSERT (SELECT status='ok' AND error_code IS NULL AND end_history_id='205' AND processed=1 FROM email_reply_sync_runs WHERE id=run), 'successful gap sync must be ok';
+ ASSERT gmail_reply_ingestion_ready(), 'gaps must not block readiness';
  ASSERT (SELECT lifecycle_enabled FROM email_contact_controls);
  ASSERT EXISTS(SELECT 1 FROM email_contact_state WHERE user_id='11111111-1111-4111-8111-111111111111' AND paused_at IS NOT NULL);
  ASSERT EXISTS(SELECT 1 FROM jsonb_array_elements(email_automation_dashboard()->'attention') a WHERE a->>'reason'='gmail_message_missing');
- -- A mistaken healthy label must not defeat the independent missing-message gate.
- UPDATE email_reply_sync SET status='healthy';
- ASSERT NOT gmail_reply_ingestion_ready();
- BEGIN
-  INSERT INTO email_contact_attempts(user_id,email_type,lifecycle_job,state)
-  VALUES('11111111-1111-4111-8111-111111111111','conditions_alert','conditions_alert','handoff_started');
-  RAISE EXCEPTION 'gap allowed handoff';
- EXCEPTION WHEN raise_exception THEN ASSERT SQLERRM='Reply ingestion is not healthy and fresh'; END;
+ ASSERT (email_automation_dashboard()->'reply_sync'->>'auto_resolved_24h')::integer=0;
+ INSERT INTO email_contact_attempts(user_id,email_type,lifecycle_job,state)
+ VALUES('11111111-1111-4111-8111-111111111111','conditions_alert','conditions_alert','handoff_started');
  next_lease:=claim_gmail_reply_sync('mail@gmail.com');
  ASSERT next_lease->'missing_ids'='["missing"]'::jsonb;
  ASSERT next_lease->>'history_id'='205';
@@ -38,11 +33,12 @@ BEGIN
   PERFORM note_gmail_reply_missing(run,'another'); RAISE EXCEPTION 'stale lease passed';
  EXCEPTION WHEN raise_exception THEN ASSERT SQLERRM='Invalid reply lease'; END;
  run:=(next_lease->>'lease_id')::uuid;
- PERFORM resolve_gmail_reply_missing(run,'missing');
- PERFORM resolve_gmail_reply_missing(run,'missing');
+ PERFORM auto_resolve_gmail_reply_missing(run,'missing');
  PERFORM finish_gmail_reply_sync(run,'206',0);
  ASSERT gmail_reply_ingestion_ready();
- ASSERT (SELECT resolution='metadata_recovered' AND resolved_at IS NOT NULL FROM email_reply_missing_messages WHERE message_id='missing');
+ ASSERT (SELECT resolution='deleted_before_sync' AND resolved_at IS NOT NULL FROM email_reply_missing_messages WHERE message_id='missing');
+ ASSERT (gmail_reply_auto_resolved_24h())=1;
+ ASSERT EXISTS(SELECT 1 FROM jsonb_array_elements(email_automation_dashboard()->'attention') a WHERE a->>'reason'='reply_gap_auto_resolved_24h');
  lease:=claim_gmail_reply_sync('mail@gmail.com'); run:=(lease->>'lease_id')::uuid;
  ASSERT lease->'missing_ids'='[]'::jsonb;
  PERFORM record_gmail_reply_failure(run,true,'gmail_read_429');
