@@ -39,6 +39,10 @@ import {
   parseMajorSwellNotificationPayload,
   type MajorSwellNotificationPayload,
 } from "./types/major-swell";
+import {
+  parseDailyCallPayload,
+  type DailyCallPayload,
+} from "./types/daily-call";
 import { canonicalSessionDecisionSchema } from "@/lib/recommendations/canonical-decision/contract";
 
 // ─── Phase 5e: payload schemas (validatePayload source of truth) ─────────────
@@ -752,6 +756,44 @@ export const NOTIFICATION_REGISTRY = {
     },
   } satisfies NotificationTypeDef<ForecastAlertPayload>,
 
+  daily_call: {
+    type: "daily_call",
+    channels: ["push", "in_app"],
+    prefs: {
+      master: { push: "notif_push_enabled", in_app: "notif_inapp_enabled" },
+      perType: {
+        push: "notif_forecast_alerts",
+        in_app: "notif_forecast_alerts",
+      },
+    },
+    suppressSelfNotify: false,
+    surfAlertPriority: 2,
+    quietHours: DEFAULT_QUIET,
+    validatePayload: parseDailyCallPayload,
+    buildPushPayload: (p) => ({
+      ...SURF_ALERT_PUSH_PRESENTATION,
+      title: p.title,
+      body: p.reason,
+      data: {
+        type: "daily_call",
+        beach_id: p.beach_id,
+        beach_slug: p.beach_slug,
+        alert_date: p.alert_date,
+        forecast_at: p.window_start,
+        window_start: p.window_start,
+        window_end: p.window_end,
+        window_local: p.window_local,
+        drivers: JSON.stringify(p.drivers),
+        reason: p.reason,
+        decision_id: p.decision_id,
+      },
+    }),
+    buildInAppPayload: (p) => ({
+      type: "daily_call",
+      data: p,
+    }),
+  } satisfies NotificationTypeDef<DailyCallPayload>,
+
   similarity_match: {
     type: "similarity_match",
     channels: ["push", "in_app"],
@@ -932,17 +974,16 @@ export const NOTIFICATION_REGISTRY = {
 
   swell_watch: {
     type: "swell_watch",
-    // Contract capability remains available, but major-swell automation and
-    // delivery are intentionally disabled for this rollout slice.
-    channels: [],
+    channels: ["push", "in_app"],
     prefs: {
       master: { push: "notif_push_enabled", in_app: "notif_inapp_enabled" },
       perType: {
-        push: "notif_forecast_alerts",
-        in_app: "notif_forecast_alerts",
+        push: "notif_swell_alerts",
+        in_app: "notif_swell_alerts",
       },
     },
     suppressSelfNotify: false,
+    surfAlertPriority: 1,
     quietHours: DEFAULT_QUIET,
     cooldownMs: 96 * 60 * 60 * 1000,
     validatePayload: parseMajorSwellNotificationPayload,

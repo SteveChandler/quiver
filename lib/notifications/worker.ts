@@ -169,6 +169,7 @@ interface ProfileRow {
   notif_reminders: boolean;
   notif_xp_updates: boolean;
   notif_forecast_alerts: boolean;
+  notif_swell_alerts: boolean;
   notif_water_quality: boolean;
   notif_similarity_alerts: boolean;
 }
@@ -268,7 +269,6 @@ type SurfAlertCandidate = {
 };
 
 interface SurfAlertSlot {
-  beachId: string;
   alertDate: string;
   priority: 1 | 2 | 3;
 }
@@ -283,22 +283,11 @@ function getSurfAlertSlot(
     typeof event.payload.alert_date === "string"
       ? event.payload.alert_date
       : null;
-  const beachId =
-    event.entity_id ??
-    (typeof event.payload.beach_id === "string"
-      ? event.payload.beach_id
-      : null);
-
-  if (
-    !priority ||
-    !alertDate ||
-    !/^\d{4}-\d{2}-\d{2}$/.test(alertDate) ||
-    !beachId
-  ) {
+  if (!priority || !alertDate || !/^\d{4}-\d{2}-\d{2}$/.test(alertDate)) {
     return null;
   }
 
-  return { beachId, alertDate, priority };
+  return { alertDate, priority };
 }
 
 /** Selects the preferred candidate per slot and priority-orders its fallbacks. */
@@ -319,7 +308,7 @@ export function selectSurfAlertWinners<T extends SurfAlertCandidate>(
       continue;
     }
 
-    const key = `${event.recipient_user_id}:${slot.beachId}:${slot.alertDate}`;
+    const key = `${event.recipient_user_id}:${slot.alertDate}`;
     const existing = bySlot.get(key);
     if (!existing) {
       bySlot.set(key, event);
@@ -1719,7 +1708,7 @@ async function loadProfile(
   const { data, error } = await supabase
     .from("profiles")
     .select(
-      "id, display_name, timezone, experience_level, allow_implicit_tracking, notif_push_enabled, notif_email_enabled, notif_inapp_enabled, notif_likes, notif_follows, notif_reminders, notif_xp_updates, notif_forecast_alerts, notif_water_quality, notif_similarity_alerts",
+      "id, display_name, timezone, experience_level, allow_implicit_tracking, notif_push_enabled, notif_email_enabled, notif_inapp_enabled, notif_likes, notif_follows, notif_reminders, notif_xp_updates, notif_forecast_alerts, notif_swell_alerts, notif_water_quality, notif_similarity_alerts",
     )
     .eq("id", userId)
     .maybeSingle();
@@ -1895,7 +1884,6 @@ async function claimSurfAlertSlot(
       args: {
         p_event_id: string;
         p_recipient_user_id: string;
-        p_beach_id: string;
         p_alert_date: string;
         p_priority: number;
       },
@@ -1907,7 +1895,6 @@ async function claimSurfAlertSlot(
   const { data, error } = await rpcClient.rpc("claim_surf_alert_slot", {
     p_event_id: event.id,
     p_recipient_user_id: event.recipient_user_id,
-    p_beach_id: slot.beachId,
     p_alert_date: slot.alertDate,
     p_priority: slot.priority,
   });
