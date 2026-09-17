@@ -9,6 +9,7 @@ import { withRateLimit } from "@/lib/middleware/api-wrappers";
 const mockSupabase = {
   from: jest.fn(),
 };
+const mockEqCalls: Array<[string, unknown]> = [];
 const mockUser = {
   id: "native-user-123",
 };
@@ -103,7 +104,10 @@ function mockBeachQuery(
     single: jest.fn().mockResolvedValue({ data: beach, error: null }),
   };
   query.select.mockReturnValue(query);
-  query.eq.mockReturnValue(query);
+  query.eq.mockImplementation((column: string, value: unknown) => {
+    mockEqCalls.push([column, value]);
+    return query;
+  });
   query.is.mockReturnValue(query);
   mockSupabase.from.mockImplementation((table: string) => {
     if (table === "user_entitlements") {
@@ -150,6 +154,7 @@ describe("GET /api/surf/call", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockRateLimitInvocations.length = 0;
+    mockEqCalls.length = 0;
     mockRequestUser = mockUser;
     mockGetProfileExperienceLevel.mockResolvedValue("intermediate");
     const decision = {
@@ -254,16 +259,22 @@ describe("GET /api/surf/call", () => {
     expect(body.data.report.skillSource).toBeNull();
     expect(body.data.report.userTier).toBeNull();
     expect(body.data.report.verdict).toBeDefined();
+    expect(body.data.report.whySentence).toEqual(expect.any(String));
+    expect(body.data.forecastContext.conditionDrivers).toBeDefined();
     expect(mockGetProfileExperienceLevel).not.toHaveBeenCalled();
     expect(mockSupabase.from).not.toHaveBeenCalledWith("user_entitlements");
     expect(mockResolveCanonicalSessionDecisionContext).toHaveBeenCalledWith(
       expect.objectContaining({
-        userId: "anonymous",
+        userId: null,
         profileExperience: null,
         discoveryOptions: expect.objectContaining({ isPro: false }),
       }),
     );
     expect(mockRateLimitInvocations).toEqual(["public-default"]);
+    expect(mockEqCalls).not.toContainEqual(["user_id", expect.anything()]);
+    expect(mockSupabase.from).not.toHaveBeenCalledWith("boards");
+    expect(mockSupabase.from).not.toHaveBeenCalledWith("favorite_beaches");
+    expect(mockSupabase.from).not.toHaveBeenCalledWith("user_surf_preferences");
   });
 
   it("returns 404 for an unknown beach for authenticated and anonymous viewers", async () => {

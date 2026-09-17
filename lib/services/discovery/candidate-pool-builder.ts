@@ -120,7 +120,7 @@ function getRadiusTiers(outerRadiusMiles: number): number[] {
  */
 async function fetchPoolUserContext(
   supabase: ReturnType<typeof createSupabaseServiceRoleClient>,
-  userId: string
+  userId: string | null
 ): Promise<PoolUserContext> {
   if (!userId) return NEUTRAL_USER_CONTEXT;
 
@@ -266,7 +266,7 @@ async function orderPoolCandidates(
  * @returns Promise with ordered candidates and the user's skill level
  */
 export async function buildCandidatePool(
-  userId: string,
+  userId: string | null,
   options: CandidatePoolOptions
 ): Promise<CandidatePoolResult> {
   const supabase = createSupabaseServiceRoleClient();
