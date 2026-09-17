@@ -1,5 +1,4 @@
 /** @jest-environment node */
-import { GET as replies } from "@/app/api/cron/email-replies/route";
 import { GET as lifecycle } from "@/app/api/cron/email-lifecycle/route";
 import { GET as offers } from "@/app/api/cron/pro-offer-reconcile/route";
 import deployment from "@/vercel.json";
@@ -8,7 +7,6 @@ const mockAuth = jest.fn();
 const mockStart = jest.fn();
 const mockComplete = jest.fn();
 const mockDb = jest.fn();
-const mockReplies = jest.fn();
 const mockLifecycle = jest.fn();
 const mockOffers = jest.fn();
 const mockRpc = jest.fn();
@@ -18,7 +16,6 @@ jest.mock("@/lib/monitoring/sentry-cron", () => ({
   completeCronCheckIn: (...args: unknown[]) => mockComplete(...args),
 }));
 jest.mock("@/lib/supabase/server", () => ({ createSupabaseServiceRoleClient: () => mockDb() }));
-jest.mock("@/lib/email/gmail-replies", () => ({ syncGmailReplies: () => mockReplies() }));
 jest.mock("@/lib/email/lifecycle-dispatcher", () => ({ runEmailLifecycle: (...args: unknown[]) => mockLifecycle(...args) }));
 jest.mock("@/lib/subscription/offer-automation", () => ({ runProOfferAutomation: () => mockOffers() }));
 jest.mock("@/lib/email/lifecycle", () => ({
@@ -27,7 +24,6 @@ jest.mock("@/lib/email/lifecycle", () => ({
 }));
 
 const routes = [
-  { get: replies, slug: "email-replies", flag: "EMAIL_GMAIL_REPLY_SYNC_ENABLED", schedule: "* * * * *", margin: 2, runtime: 1 },
   { get: lifecycle, slug: "email-lifecycle", flag: "EMAIL_LIFECYCLE_ENABLED", schedule: "*/15 * * * *", margin: 15, runtime: 3 },
   { get: offers, slug: "pro-offer-reconcile", flag: "PRO_OFFERS_ENABLED", schedule: "*/15 * * * *", margin: 15, runtime: 3 },
 ];
@@ -44,7 +40,7 @@ afterAll(() => { process.env = originalEnv; });
 it.each(routes)("$slug authenticates before check-ins or database/provider work", async ({ get }) => {
   mockAuth.mockReturnValue(false);
   expect((await get(new Request("http://localhost/cron"))).status).toBe(401);
-  for (const mock of [mockStart, mockComplete, mockDb, mockReplies, mockLifecycle, mockOffers, mockRpc]) expect(mock).not.toHaveBeenCalled();
+  for (const mock of [mockStart, mockComplete, mockDb, mockLifecycle, mockOffers, mockRpc]) expect(mock).not.toHaveBeenCalled();
 });
 
 it.each(routes)("$slug reports disabled reachability without database/provider work", async ({ get, slug, schedule, margin, runtime }) => {
@@ -53,7 +49,7 @@ it.each(routes)("$slug reports disabled reachability without database/provider w
   expect(await response.json()).toEqual({ status: "disabled" });
   expect(mockStart.mock.calls).toEqual([[{ slug, schedule, checkinMarginMinutes: margin, maxRuntimeMinutes: runtime }]]);
   expect(mockComplete.mock.calls).toEqual([["check-in", slug, "ok"]]);
-  for (const mock of [mockDb, mockReplies, mockLifecycle, mockOffers, mockRpc]) expect(mock).not.toHaveBeenCalled();
+  for (const mock of [mockDb, mockLifecycle, mockOffers, mockRpc]) expect(mock).not.toHaveBeenCalled();
   expect(deployment.crons.filter(cron => cron.path === `/api/cron/${slug}`)).toEqual([{ path: `/api/cron/${slug}`, schedule }]);
 });
 
@@ -64,7 +60,7 @@ it.each(routes.filter(route => route.get !== lifecycle))("$slug reports unavaila
   expect(response.status).toBe(503);
   expect(await response.json()).toEqual({ error: "Run ledger unavailable" });
   expect(mockComplete.mock.calls).toEqual([["check-in", slug, "error"]]);
-  expect(mockReplies).not.toHaveBeenCalled(); expect(mockOffers).not.toHaveBeenCalled();
+  expect(mockOffers).not.toHaveBeenCalled();
 });
 
 it("lifecycle reports dispatcher failure to the monitor", async () => {

@@ -10,10 +10,6 @@
   },
   "crons": [
     {
-      "path": "/api/cron/email-replies",
-      "schedule": "* * * * *"
-    },
-    {
       "path": "/api/cron/email-lifecycle",
       "schedule": "*/15 * * * *"
     },

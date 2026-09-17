@@ -49,7 +49,7 @@ Shared fences: confirmed unique real account; explicit consent/reference; review
 
 | Job to install **after approval** | Cadence | Evidence and failure handling |
 | --- | --- | --- |
-| `/api/cron/email-replies` | Every minute | Authenticated; `cron_runs`, Gmail lease/cursor/receipt ledger, Sentry check-in. Transient HTTP/transport failures retry from the same cursor; expired history/auth/ambiguous reply evidence requires review and closes outbound eligibility. |
+| `/api/cron/email-lifecycle` | Every 15 minutes | Authenticated; checks Gmail immediately before a due dispatch. A failed check records `reply_check` attention and sends nothing in that run. |
 | `/api/cron/email-lifecycle` | Every 15 minutes | Persisted enrollment, decisions, reservations and handoff. Reply scan reused only if fresh. Missing provider evidence, backlog and unknown handoffs produce attention/error status. |
 | `/api/cron/pro-offer-reconcile` | Every 15 minutes | Enroll, read-only reconciliation, two due saved claims. Held/pre-handoff failures use persisted exponential retry from 15 minutes up to 24 hours. Unknown handoffs never automatically repeat POST. Old unresolved receipts rotate fairly so they cannot starve other repairs. |
 

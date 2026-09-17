@@ -23,7 +23,6 @@ export default defineConfig({
       ALERT_EMAIL_SECRET: "lifecycle-local-unsubscribe-fixture",
       EMAIL_LIFECYCLE_ENABLED: "false",
       PRO_OFFERS_ENABLED: "false",
-      EMAIL_GMAIL_REPLY_SYNC_ENABLED: "false",
       PLAYWRIGHT_TEST: "true",
       NEXT_PUBLIC_E2E_DISABLE_EMAIL_SENDS: "true",
       RESEND_API_KEY: "",

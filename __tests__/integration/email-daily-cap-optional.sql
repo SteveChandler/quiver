@@ -11,7 +11,6 @@ BEGIN
  DELETE FROM earned_pro_grants WHERE user_id=u;
  DELETE FROM pro_offer_awards WHERE user_id=u;
  UPDATE email_contact_state SET paused_at=NULL,provider_access_active=false WHERE user_id=u;
- UPDATE email_reply_sync SET status='healthy',last_synced_at=now();
  DELETE FROM email_send_log;
  UPDATE auth.users SET created_at=now()-interval '4 days';
  INSERT INTO user_events(user_id,bot_flagged,event_type,created_at) VALUES(u,false,'beach_view',now()-interval '1 day');
@@ -36,7 +35,6 @@ BEGIN
  DELETE FROM earned_pro_grants WHERE user_id=u;
  DELETE FROM pro_offer_awards WHERE user_id=u;
  UPDATE email_contact_state SET paused_at=NULL,provider_access_active=false WHERE user_id=u;
- UPDATE email_reply_sync SET status='healthy',last_synced_at=now();
  DELETE FROM email_send_log;
  UPDATE auth.users SET created_at=now()-interval '4 days';
  INSERT INTO user_events(user_id,bot_flagged,event_type,created_at) VALUES(u,false,'beach_view',now()-interval '1 day');
