@@ -38,6 +38,7 @@ export interface BeachWithThresholds {
   swell_window_halfwidth_deg?: number | null;
   swell_window_min_deg?: number | null;
   swell_window_max_deg?: number | null;
+  shoaling_factors?: unknown;
 }
 
 /**

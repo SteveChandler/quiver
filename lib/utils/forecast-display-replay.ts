@@ -60,14 +60,20 @@ export function parseForecastDisplayReplayContext(value: unknown): ForecastDispl
   return ctx;
 }
 
-export function replayForecastDisplayHeightM(value: unknown, overrides: BeachTerrainConfig = {}): number | null {
+export function replayForecastDisplayHeightM(
+  value: unknown,
+  overrides: BeachTerrainConfig = {},
+): number | null {
   const ctx = parseForecastDisplayReplayContext(value);
   const patch = beachSchema.safeParse(overrides);
   if (!ctx || !patch.success || patch.data.deepwater_decay_factor !== undefined ||
     ctx.unsupportedReason || !ctx.base.supported ||
     (ctx.handoff && (!ctx.handoff.cdip.supported || !ctx.handoff.model.supported))) return null;
   const transform = (input: ForecastReplayInput): number => roundWaveHeight(clampWaveHeight(
-    transformToFaceHeightDecomposed({ ...input, beach: { ...input.beach, ...patch.data } }).faceHeightFt,
+    transformToFaceHeightDecomposed({
+      ...input,
+      beach: { ...input.beach, ...patch.data },
+    }).faceHeightFt,
   ));
   let ft = transform(ctx.base.input);
   if (ctx.handoff) {

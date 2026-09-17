@@ -15,6 +15,8 @@ import {
   type BoardClass,
   type RideabilityBand,
 } from '@/lib/domains/rideability';
+import { classifyWindQuality } from '@/lib/utils/wind-quality';
+import { alignmentFactor } from '@/lib/utils/wave-height-transformer';
 
 interface NativeSkillThresholds {
   waveMinFt: number;
@@ -32,6 +34,15 @@ interface NativeScoreInputs {
   tideStatus: string | null;
 }
 
+export interface NativeDirectionScoreInput {
+  windDirectionDeg: number | null;
+  swellDirectionDeg: number | null;
+  offshoreDeg: number | null;
+  offshoreToleranceDeg: number;
+  windowCenterDeg: number | null;
+  windowHalfwidthDeg: number | null;
+}
+
 export interface NativeConditionScoreBreakdown {
   score: number;
   components: {
@@ -39,6 +50,8 @@ export interface NativeConditionScoreBreakdown {
     period: number;
     wind: number;
     tide: number;
+    windQuality?: number;
+    swellAlignment?: number;
   };
   outOfBand: boolean;
 }
@@ -126,11 +139,13 @@ export function scoreNativeConditionInputs(
   inputs: NativeScoreInputs,
   skillLevel?: SkillLevel | string | null,
   rideabilityBand?: RideabilityBand | null,
+  direction?: NativeDirectionScoreInput,
 ): number {
   return scoreNativeConditionBreakdownForBand(
     inputs,
     skillLevel,
     rideabilityBand,
+    direction,
   ).score;
 }
 
@@ -138,11 +153,13 @@ export function scoreNativeConditionBreakdown(
   inputs: NativeScoreInputs,
   skillLevel?: SkillLevel | string | null,
   boardClass?: BoardClass | null,
+  direction?: NativeDirectionScoreInput,
 ): NativeConditionScoreBreakdown {
   return scoreNativeConditionBreakdownForBand(
     inputs,
     skillLevel,
     boardClass ? getRideabilityBand(resolveNativeSkillLevel(skillLevel), boardClass) : null,
+    direction,
   );
 }
 
@@ -150,6 +167,7 @@ function scoreNativeConditionBreakdownForBand(
   inputs: NativeScoreInputs,
   skillLevel?: SkillLevel | string | null,
   rideabilityBand?: RideabilityBand | null,
+  direction?: NativeDirectionScoreInput,
 ): NativeConditionScoreBreakdown {
   const skill = resolveNativeSkillLevel(skillLevel);
   const nativeThresholds = NATIVE_SKILL_THRESHOLDS[skill];
@@ -205,39 +223,98 @@ function scoreNativeConditionBreakdownForBand(
   if (tideStatus.includes("high") || tideStatus.includes("low")) tideScore -= 1;
   tideScore = Math.max(0, Math.min(10, tideScore));
 
+  const windQuality = direction
+    ? windScore * windQualityMultiplier(direction)
+    : undefined;
+  const swellAlignment = direction
+    ? 15 * swellAlignmentFactor(periodSec, direction)
+    : undefined;
+  const effectiveWindScore = windQuality ?? windScore;
   const components = {
     waveFit: waveScore,
     period: energyScore,
     wind: windScore,
     tide: tideScore,
+    ...(direction ? { windQuality, swellAlignment } : {}),
   };
 
   if (!isOutOfBand) {
-    return { score: Math.round(waveScore + energyScore + windScore + tideScore), components, outOfBand: false };
+    const rawScore = direction
+      ? waveScore + energyScore + effectiveWindScore + tideScore + (swellAlignment ?? 0)
+      : waveScore + energyScore + windScore + tideScore;
+    return {
+      score: direction ? Math.round((rawScore * 100) / 115) : Math.round(rawScore),
+      components,
+      outOfBand: false,
+    };
   }
 
   const relativeDistance = isAboveBand
     ? (waveHeightFt - thresholds.waveMaxFt) / thresholds.waveMaxFt
     : (thresholds.waveMinFt - waveHeightFt) / Math.max(thresholds.waveMinFt, 0.5);
   const attenuation = Math.max(0, 1 - relativeDistance / 0.75);
-  const nonWaveScore = energyScore + windScore + tideScore;
+  const nonWaveScore = direction
+    ? energyScore + effectiveWindScore + tideScore + (swellAlignment ?? 0)
+    : energyScore + windScore + tideScore;
+  const attenuatedScore = direction
+    ? (nonWaveScore * attenuation * 100) / 115
+    : nonWaveScore * attenuation;
 
   return {
-    score: Math.round(Math.min(OUT_OF_BAND_SCORE_CEILING, nonWaveScore * attenuation)),
+    score: Math.round(Math.min(OUT_OF_BAND_SCORE_CEILING, attenuatedScore)),
     components,
     outOfBand: true,
   };
+}
+
+function windQualityMultiplier(direction: NativeDirectionScoreInput): number {
+  if (direction.windDirectionDeg == null || direction.offshoreDeg == null) return 1;
+  const label = classifyWindQuality(
+    direction.windDirectionDeg,
+    direction.offshoreDeg,
+    direction.offshoreToleranceDeg,
+  ).label;
+  return {
+    offshore: 1,
+    'cross-offshore': 0.85,
+    'cross-shore': 0.6,
+    onshore: 0.35,
+  }[label];
+}
+
+function swellAlignmentFactor(
+  periodSec: number,
+  direction: NativeDirectionScoreInput,
+): number {
+  if (
+    direction.swellDirectionDeg == null ||
+    direction.windowCenterDeg == null ||
+    direction.windowHalfwidthDeg == null
+  ) {
+    return 1;
+  }
+  return Math.max(
+    0,
+    alignmentFactor(
+      direction.swellDirectionDeg,
+      periodSec,
+      direction.windowCenterDeg,
+      direction.windowHalfwidthDeg,
+    ),
+  );
 }
 
 export function scoreNativeForecastSlot(
   forecast: EnhancedForecastEntity,
   skillLevel?: SkillLevel | string | null,
   rideabilityBand?: RideabilityBand | null,
+  direction?: NativeDirectionScoreInput,
 ): number {
   return scoreNativeConditionInputs(
     nativeScoreInputsFromForecast(forecast),
     skillLevel,
     rideabilityBand,
+    direction,
   );
 }
 
