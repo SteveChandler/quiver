@@ -97,7 +97,11 @@ describe("condition-alert-deliver: profiles embedded join resolves at runtime", 
     const alertQueueSelectSpy = jest.fn((_columns: string) => ({
       eq: () => ({
         lte: () => ({
-          order: () => Promise.resolve({ data: [], error: null }),
+          // The due-rows query now excludes retired similarity rows with .or()
+          // before ordering (2026-09-17).
+          or: () => ({
+            order: () => Promise.resolve({ data: [], error: null }),
+          }),
         }),
       }),
     }));
