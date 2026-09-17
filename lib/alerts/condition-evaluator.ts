@@ -22,7 +22,7 @@ export function evaluateConditions(
       return false;
   }
   if (conditions.swell_period_min != null) {
-    const period = forecast.swell_1_period ?? forecast.wave_period;
+    const period = forecast.wave_period ?? forecast.swell_1_period;
     if (period == null || period < conditions.swell_period_min) return false;
   }
   if (
