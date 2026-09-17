@@ -23,6 +23,7 @@ export type ProfilePrefColumn = Extract<
   | "notif_reminders"
   | "notif_xp_updates"
   | "notif_forecast_alerts"
+  | "notif_swell_alerts"
   | "notif_water_quality"
   | "notif_similarity_alerts"
 >;
@@ -137,7 +138,7 @@ export interface NotificationTypeDef<P = Record<string, unknown>> {
   /** Skip when actor === recipient. Default true for social types. */
   suppressSelfNotify: boolean;
   /**
-   * Priority within the one-alert-per-user/beach/day surf slot. Surf alerts
+   * Priority within the one-alert-per-user/day surf slot. Surf alerts
    * wait briefly at enqueue time so a higher-priority source can replace a
    * lower-priority event before either is delivered.
    */

@@ -90,6 +90,7 @@ interface MockProfile {
   notif_reminders: boolean;
   notif_xp_updates: boolean;
   notif_forecast_alerts: boolean;
+  notif_swell_alerts: boolean;
   notif_water_quality: boolean;
   notif_similarity_alerts: boolean;
 }
@@ -154,6 +155,7 @@ interface MockState {
     status: string;
   }>;
   surfAlertSlots: Map<string, { eventId: string; priority: number }>;
+  surfAlertSlotClaims: Array<Record<string, unknown>>;
   /** When set, fetch on this table throws to simulate a Supabase error. */
   errorOnSelect?: Set<string>;
   /** When set, profile lookup for this user_id throws. */
@@ -181,6 +183,7 @@ function buildProfile(over: Partial<MockProfile> = {}): MockProfile {
     notif_reminders: true,
     notif_xp_updates: true,
     notif_forecast_alerts: true,
+    notif_swell_alerts: true,
     notif_water_quality: true,
     notif_similarity_alerts: true,
     ...over,
@@ -553,12 +556,9 @@ function buildMockSupabase(state: MockState) {
     from: fromTable,
     rpc: async (name: string, args: Record<string, unknown>) => {
       if (name === "claim_surf_alert_slot") {
+        state.surfAlertSlotClaims.push(args);
         const eventId = args.p_event_id as string;
-        const slotKey = [
-          args.p_recipient_user_id,
-          args.p_beach_id,
-          args.p_alert_date,
-        ].join(":");
+        const slotKey = [args.p_recipient_user_id, args.p_alert_date].join(":");
         const priority = args.p_priority as number;
         const existing = state.surfAlertSlots.get(slotKey);
         if (!existing) {
@@ -704,6 +704,7 @@ function emptyState(): MockState {
     deliveryTargets: [],
     deliveryFinalizations: [],
     surfAlertSlots: new Map(),
+    surfAlertSlotClaims: [],
   };
 }
 
@@ -1223,6 +1224,91 @@ describe("processPendingEvents — happy path", () => {
 });
 
 describe("processPendingEvents — durable surf-alert arbitration", () => {
+  it("claims the per-user date slot without a beach parameter", async () => {
+    const state = emptyState();
+    state.now = NOON_PT.getTime();
+    state.profiles.set("user-recipient", buildProfile());
+    state.devices.set("user-recipient", ["device-token-A"]);
+    state.events.push(
+      buildEvent({
+        id: "evt-forecast-slot",
+        actor_user_id: null,
+        type: "forecast_alert",
+        entity_type: "beach",
+        entity_id: "beach-1",
+        payload: {
+          alert_date: "2026-04-29",
+          beach_id: "beach-1",
+          title: "Clean window at Mavericks",
+          body: "2.7 ft @ 14s",
+        },
+      }),
+    );
+
+    await processPendingEvents(buildMockSupabase(state) as never, {
+      now: NOON_PT,
+      fcm: {
+        sendEach: jest.fn(async () => ({
+          successCount: 1,
+          failureCount: 0,
+          responses: [{ success: true }],
+        })),
+      } as never,
+    });
+
+    expect(state.surfAlertSlotClaims[0]).toEqual({
+      p_event_id: "evt-forecast-slot",
+      p_recipient_user_id: "user-recipient",
+      p_alert_date: "2026-04-29",
+      p_priority: 3,
+    });
+  });
+
+  it("delivers a malformed daily call without an alert_date outside arbitration", async () => {
+    const state = emptyState();
+    state.now = NOON_PT.getTime();
+    state.profiles.set("user-recipient", buildProfile());
+    state.devices.set("user-recipient", ["device-token-A"]);
+    state.events.push(
+      buildEvent({
+        id: "evt-daily-no-date",
+        actor_user_id: null,
+        type: "daily_call",
+        entity_type: "beach",
+        entity_id: "11111111-1111-4111-8111-111111111111",
+        payload: {
+          beach_id: "11111111-1111-4111-8111-111111111111",
+          beach_slug: "blacks",
+          beach_name: "Black's",
+          window_start: "2026-04-29T19:00:00.000Z",
+          window_end: "2026-04-29T21:00:00.000Z",
+          window_local: "12:00–2:00",
+          drivers: [],
+          reason: "Clean through 2:00.",
+          title: "Go Blacks 12:00–2:00",
+          decision_id: "decision-1",
+        },
+      }),
+    );
+    const fakeFcm = {
+      sendEach: jest.fn(async () => ({
+        successCount: 1,
+        failureCount: 0,
+        responses: [{ success: true }],
+      })),
+    };
+
+    const summary = await processPendingEvents(
+      buildMockSupabase(state) as never,
+      { now: NOON_PT, fcm: fakeFcm as never },
+    );
+
+    expect(summary).toMatchObject({ processed: 1, failed: 0 });
+    expect(fakeFcm.sendEach).toHaveBeenCalledTimes(1);
+    expect(state.notificationsInserts).toHaveLength(1);
+    expect(state.surfAlertSlotClaims).toHaveLength(0);
+  });
+
   it("keeps one in-app surf alert when push is disabled", async () => {
     const state = emptyState();
     state.now = NOON_PT.getTime();
@@ -1347,7 +1433,7 @@ describe("processPendingEvents — durable surf-alert arbitration", () => {
       skip_reason: null,
     });
     expect(
-      state.surfAlertSlots.get("user-recipient:beach-1:2026-04-29"),
+      state.surfAlertSlots.get("user-recipient:2026-04-29"),
     ).toEqual({
       eventId: "evt-home-enabled",
       priority: 1,
@@ -1912,7 +1998,7 @@ describe("processPendingEvents — terminal skips", () => {
             return { status: "allowed" as const, candidate };
           }
           sawClaimedSlotAtSuppression =
-            state.surfAlertSlots.get(`user-recipient:${beachId}:2026-04-29`)
+            state.surfAlertSlots.get("user-recipient:2026-04-29")
               ?.eventId === "evt-held-after-claim";
           return {
             status: "suppressed" as const,
@@ -2008,7 +2094,7 @@ describe("processPendingEvents — terminal skips", () => {
       skip_reason: null,
     });
     expect(
-      state.surfAlertSlots.get(`user-recipient:${beachId}:2026-04-29`),
+      state.surfAlertSlots.get("user-recipient:2026-04-29"),
     ).toEqual({
       eventId: "evt-allowed-after-hold",
       priority: 1,
@@ -2133,7 +2219,7 @@ describe("processPendingEvents — terminal skips", () => {
       skip_reason: "skipped_redundant",
     });
     expect(
-      state.surfAlertSlots.get(`user-recipient:${beachId}:2026-04-29`),
+      state.surfAlertSlots.get("user-recipient:2026-04-29"),
     ).toEqual({
       eventId: "evt-partially-delivered",
       priority: 3,

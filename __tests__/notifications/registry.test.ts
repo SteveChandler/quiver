@@ -250,6 +250,65 @@ describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () =>
     });
   });
 
+  it("daily_call validates and builds the push and in-app contracts", () => {
+    const def = NOTIFICATION_REGISTRY.daily_call;
+    const payload = def.validatePayload!({
+      schema_version: "daily-call.v1",
+      beach_id: "11111111-1111-4111-8111-111111111111",
+      beach_slug: "blacks",
+      beach_name: "Black's",
+      alert_date: "2026-09-18",
+      window_start: "2026-09-18T14:15:00.000Z",
+      window_end: "2026-09-18T16:40:00.000Z",
+      window_local: "7:15–~9:40",
+      drivers: [
+        {
+          kind: "wind",
+          edge: "end",
+          at: "2026-09-18T16:40:00.000Z",
+          approximate: true,
+          label: "Offshore through ~9:40",
+        },
+      ],
+      wave_height_ft: 3,
+      wave_period_s: 13,
+      swell_dir: "SW",
+      wind_label: "Light offshore",
+      tide_label: "Rising to a 9:52 high",
+      reason: "Offshore through ~9:40, then it turns.",
+      title: "Wind stays polite. Blacks 7:15–9:40",
+      title_id: "daily-wind-1",
+      comparison: null,
+      swell_event_key: null,
+      decision_id: "decision-1",
+      session_decision: { verdict: "go" },
+    });
+
+    expect(def.channels).toEqual(["push", "in_app"]);
+    expect(def.prefs.perType).toEqual({
+      push: "notif_forecast_alerts",
+      in_app: "notif_forecast_alerts",
+    });
+    expect(def.surfAlertPriority).toBe(2);
+    expect(() =>
+      def.validatePayload!({ ...payload, title: "x".repeat(41) }),
+    ).toThrow();
+    expect(def.buildPushPayload!(payload)).toMatchObject({
+      title: payload.title,
+      body: payload.reason,
+      data: {
+        type: "daily_call",
+        reason: payload.reason,
+        window_start: payload.window_start,
+        drivers: JSON.stringify(payload.drivers),
+      },
+    });
+    expect(def.buildInAppPayload!(payload)).toEqual({
+      type: "daily_call",
+      data: payload,
+    });
+  });
+
   it("forecast_alert in-app payload carries selected-window beach context", () => {
     const out = NOTIFICATION_REGISTRY.forecast_alert.buildInAppPayload!({
       alert_date: "2026-05-10",
@@ -299,7 +358,7 @@ describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () =>
     });
   });
 
-  it("keeps shadow and enforce major-swell contract capability delivery-disabled", () => {
+  it("delivers swell_watch through the swell preference at priority 1", () => {
     const validate = NOTIFICATION_REGISTRY.swell_watch.validatePayload!;
 
     const shadow = validate({
@@ -355,7 +414,15 @@ describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () =>
       hold_record_id: "33333333-3333-4333-8333-333333333333",
       hold_valid_until: "2026-08-03T00:00:00.000Z",
     });
-    expect(NOTIFICATION_REGISTRY.swell_watch.channels).toEqual([]);
+    expect(NOTIFICATION_REGISTRY.swell_watch.channels).toEqual([
+      "push",
+      "in_app",
+    ]);
+    expect(NOTIFICATION_REGISTRY.swell_watch.prefs.perType).toEqual({
+      push: "notif_swell_alerts",
+      in_app: "notif_swell_alerts",
+    });
+    expect(NOTIFICATION_REGISTRY.swell_watch.surfAlertPriority).toBe(1);
   });
 
   it("normalizes legacy forecast-trend payloads at the registry boundary", () => {
