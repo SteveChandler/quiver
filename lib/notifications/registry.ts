@@ -32,10 +32,6 @@ import type {
 } from "./types";
 import { isHighConfidenceNotification } from "./relevance";
 import {
-  similarityMatchSchema,
-  type SimilarityMatchPayload,
-} from "./types/similarity-match";
-import {
   parseMajorSwellNotificationPayload,
   type MajorSwellNotificationPayload,
 } from "./types/major-swell";
@@ -76,11 +72,6 @@ const positiveRecommendationPolicyContextSchema = z
 type PositiveRecommendationPolicyContextPayload = z.infer<
   typeof positiveRecommendationPolicyContextSchema
 >;
-
-const notificationSimilarityMatchSchema = similarityMatchSchema.extend({
-  policy_context: positiveRecommendationPolicyContextSchema.optional(),
-  session_decision: canonicalSessionDecisionSchema.optional(),
-});
 
 const forecastAlertSchema = z.object({
   alert_date: z.string().min(1),
@@ -176,46 +167,6 @@ const forecastFeedbackNudgeSchema = z.object({
   beach_confidence_score: z.number().finite().optional(),
   relevance_score: z.number().finite().optional(),
 });
-
-const homeMorningCallSchema = z
-  .object({
-    alert_date: z.string().min(1),
-    verdict: z.enum(["YES", "MAYBE", "NO"]),
-    beach_id: z.string().min(1),
-    beach_name: z.string().optional(),
-    forecast_at: z.string().nullable().optional(),
-    policy_context: positiveRecommendationPolicyContextSchema.optional(),
-    session_decision: canonicalSessionDecisionSchema.optional(),
-    title: z.string().min(1),
-    body: z.string().min(1),
-  })
-  .superRefine((payload, context) => {
-    if (!payload.session_decision) return;
-    const expected =
-      payload.session_decision.verdict === "go"
-        ? "YES"
-        : payload.session_decision.verdict === "maybe"
-          ? "MAYBE"
-          : "NO";
-    if (payload.verdict !== expected) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["verdict"],
-        message: "verdict must agree with session_decision.verdict",
-      });
-    }
-    if (
-      payload.session_decision.verdict !== "no" &&
-      payload.session_decision.selection &&
-      payload.session_decision.selection.beachId !== payload.beach_id
-    ) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["beach_id"],
-        message: "beach_id must agree with canonical selection",
-      });
-    }
-  });
 
 const weekendLocalDateSchema = z
   .string()
@@ -451,18 +402,6 @@ interface ForecastFeedbackNudgePayload {
   relevance_score?: number;
 }
 
-interface HomeMorningCallPayload {
-  alert_date: string;
-  verdict: "YES" | "MAYBE" | "NO";
-  beach_id: string;
-  beach_name?: string;
-  forecast_at?: string | null;
-  policy_context?: PositiveRecommendationPolicyContextPayload;
-  session_decision?: z.infer<typeof canonicalSessionDecisionSchema>;
-  title: string;
-  body: string;
-}
-
 interface WeekendWindowPayload {
   snapshot_id: string;
   weekend_start: string;
@@ -475,11 +414,6 @@ interface WeekendWindowPayload {
   forecast_at: string;
   policy_context: PositiveRecommendationPolicyContextPayload;
 }
-
-type NotificationSimilarityMatchPayload = SimilarityMatchPayload & {
-  policy_context?: PositiveRecommendationPolicyContextPayload;
-  session_decision?: z.infer<typeof canonicalSessionDecisionSchema>;
-};
 
 interface WeeklyStreakReminderPayload {
   streak: number;
@@ -793,154 +727,6 @@ export const NOTIFICATION_REGISTRY = {
       data: p,
     }),
   } satisfies NotificationTypeDef<DailyCallPayload>,
-
-  similarity_match: {
-    type: "similarity_match",
-    channels: ["push", "in_app"],
-    prefs: {
-      master: { push: "notif_push_enabled", in_app: "notif_inapp_enabled" },
-      // Single UI toggle gates both channels — auto-enabled for Pro users
-      // via `notif_similarity_alerts` (default true). Settings UI presents
-      // it as one switch so we never end up with inbox rows leaking past
-      // a user who thought they'd disabled the entire feature.
-      perType: {
-        push: "notif_similarity_alerts",
-        in_app: "notif_similarity_alerts",
-      },
-    },
-    suppressSelfNotify: false,
-    surfAlertPriority: 2,
-    quietHours: DEFAULT_QUIET,
-    validatePayload: (input) =>
-      notificationSimilarityMatchSchema.parse(
-        input,
-      ) as NotificationSimilarityMatchPayload,
-    buildPushPayload: (p) => {
-      const waveWindow =
-        p.wave_height_ft != null && p.wave_period_s != null && p.window_local
-          ? `${p.wave_height_ft.toFixed(1)}ft @ ${p.wave_period_s.toFixed(0)}s · ${p.window_local}`
-          : null;
-      const contextDetails = [
-        p.wind_direction && p.wind_speed_mph != null
-          ? `${p.wind_direction} wind ${p.wind_speed_mph.toFixed(0)}mph`
-          : null,
-        p.tide_status ? `${p.tide_status} tide` : null,
-        p.board_tip ?? p.setup_tip ?? null,
-        p.reason || null,
-      ].filter((detail): detail is string => Boolean(detail));
-      const body = waveWindow
-        ? [waveWindow, ...contextDetails.slice(0, 2)].join(" · ")
-        : p.reason;
-
-      return {
-        ...SURF_ALERT_PUSH_PRESENTATION,
-        title: p.session_decision
-          ? `${
-              p.session_decision.verdict === "go"
-                ? "Go"
-                : p.session_decision.verdict === "maybe"
-                  ? "Maybe"
-                  : "No"
-            } ${p.beach_name}`
-          : `${p.label ? `${p.label} ` : ""}match at ${p.beach_name}`.trim(),
-        body,
-        data: {
-          type: "similarity_match",
-          beach_id: p.beach_id,
-          beach_slug: p.beach_slug,
-          alert_date: p.alert_date,
-          forecast_at: p.forecast_at,
-          ...(p.session_decision
-            ? {
-                decision_id: p.session_decision.decisionId,
-                decision_verdict: p.session_decision.verdict,
-              }
-            : {}),
-        },
-      };
-    },
-    buildInAppPayload: (p) => ({
-      type: "similarity_match",
-      data: {
-        beach_id: p.beach_id,
-        beach_slug: p.beach_slug,
-        beach_name: p.beach_name,
-        alert_date: p.alert_date,
-        forecast_at: p.forecast_at,
-        label: p.label ?? null,
-        reason: p.reason,
-        window_local: p.window_local,
-        wave_height_ft: p.wave_height_ft,
-        wave_period_s: p.wave_period_s,
-        wind_speed_mph: p.wind_speed_mph,
-        wind_direction: p.wind_direction,
-        tide_height_ft: p.tide_height_ft,
-        tide_status: p.tide_status,
-        condition_summary: p.condition_summary,
-        board_tip: p.board_tip,
-        setup_tip: p.setup_tip,
-        ...(p.session_decision ? { session_decision: p.session_decision } : {}),
-      },
-    }),
-    /**
-     * Mirrors forecast_alert's hook: on terminal push outcomes, fan out into
-     * `alert_delivery_attempts` (one row per queue item) so the cron's
-     * cooldown / weekly-cap reads (status='sent') reflect actual worker
-     * delivery rather than enqueue-time optimism.
-     */
-    onChannelOutcome: async ({ supabase, event, channel, status }) => {
-      if (channel !== "push") return;
-      const queueItems = event.payload.queue_items ?? [];
-      if (queueItems.length === 0) return;
-
-      const mapped = mapWorkerStatusToAlertAttempt(status);
-      if (!mapped) return;
-
-      const rows = queueItems.map((qi) => ({
-        queue_id: qi.queue_id,
-        rule_id: qi.rule_id,
-        user_id: event.recipient_user_id,
-        channel: "push" as const,
-        status: mapped,
-        skip_reason: status,
-        message_instance_id: event.id,
-      }));
-
-      const { error } = await supabase
-        .from("alert_delivery_attempts")
-        .insert(rows);
-      if (error) {
-        console.error(
-          `[notifications/similarity_match.onChannelOutcome] alert_delivery_attempts insert failed for event ${event.id}:`,
-          error,
-        );
-      }
-    },
-  } satisfies NotificationTypeDef<NotificationSimilarityMatchPayload>,
-
-  home_morning_call: {
-    type: "home_morning_call",
-    channels: ["push"],
-    prefs: {
-      master: { push: "notif_push_enabled" },
-      perType: { push: "notif_reminders" },
-    },
-    suppressSelfNotify: false,
-    surfAlertPriority: 1,
-    quietHours: DEFAULT_QUIET,
-    validatePayload: (input) => homeMorningCallSchema.parse(input),
-    buildPushPayload: (p) => ({
-      title: p.title,
-      body: p.body,
-      data: {
-        type: "home_morning_call",
-        beach_id: p.beach_id,
-        alert_date: p.alert_date,
-        verdict: p.verdict,
-        ...(p.forecast_at ? { forecast_at: p.forecast_at } : {}),
-      },
-    }),
-  } satisfies NotificationTypeDef<HomeMorningCallPayload>,
 
   weekend_window: {
     type: "weekend_window",

@@ -134,12 +134,8 @@
       "schedule": "0 9 * * *"
     },
     {
-      "path": "/api/cron/similarity-alerts",
-      "schedule": "0 13 * * *"
-    },
-    {
-      "path": "/api/cron/home-morning-call",
-      "schedule": "0 13 * * *"
+      "path": "/api/cron/daily-call",
+      "schedule": "0 * * * *"
     },
     {
       "path": "/api/cron/weekend-window",
