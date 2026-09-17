@@ -107,7 +107,7 @@ export function BeachProseSummary({
   const editorialPublishers = Array.from(
     new Set(
       editorialSources
-        .map((source) => source.publisher.trim())
+        .map((source) => (typeof source?.publisher === "string" ? source.publisher.trim() : ""))
         .filter(Boolean),
     ),
   );
