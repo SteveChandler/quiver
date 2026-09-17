@@ -8,7 +8,7 @@ The changes below are prepared for `main` and release PR [#787](https://github.c
 
 | Work | Change | Constraint retained |
 | --- | --- | --- |
-| Email retry loop | `claim_gmail_reply_sync` uses the existing durable run ledger to back off consecutive failures for 1, 2, 4, 8, then 15 minutes. Deferred requests do no OAuth/Gmail work, return HTTP 503 with `Retry-After`, and omit duplicate exception alerts. | Missing messages remain unresolved, outbound eligibility stays closed, healthy sync cadence and the 90-second freshness gate are unchanged. |
+| Lifecycle reply check | Gmail is queried only inside `/api/cron/email-lifecycle` when a candidate is due. It searches at most three 100-message pages and records `reply_check` in the lifecycle run summary. | A failed OAuth/Gmail check marks that run `error`, emits `email-reply-check-failed`, and sends no lifecycle email. |
 | City cache churn | City reports use the oldest valid update timestamp among displayed forecast sources. The server renders an absolute UTC time, avoiding changes caused only by the clock advancing. Unknown freshness is not presented as a new update. | Forecast queries, conditions, and all refresh intervals remain unchanged. |
 | Build costs | Retained docs/test-only exclusions and `main`/`prod`/`preview/**` deployment restrictions. Fixed the missing-previous-SHA case to build conservatively. Tests cover missing Git history, configuration changes, and unknown runtime paths. Documented batching in `docs/GIT_WORKFLOW.md`. | Runtime changes earlier in a deployment batch still build, even with a docs-only final commit. |
 
@@ -20,7 +20,6 @@ Production behavior:
 
 - `vercel.json`
 - `lib/email/gmail-replies.ts`
-- `app/api/cron/email-replies/route.ts`
 - `supabase/migrations/20260915132444_gmail_reply_retry_backoff.sql`
 - `actions/city/city-conditions-actions.ts`
 - `components/city/city-conditions-hero.tsx`
@@ -28,7 +27,6 @@ Production behavior:
 Validation and documentation:
 
 - `__tests__/lib/email/gmail-replies.test.ts`
-- `__tests__/app/api/cron/email-replies/route.test.ts`
 - `__tests__/integration/email-reply-backoff.sql`
 - `__tests__/actions/city/city-conditions-actions.test.ts`
 - `__tests__/components/city/city-conditions-hero.test.tsx`
@@ -53,7 +51,7 @@ export SUPABASE_SERVICE_ROLE_KEY=local-fixture
 Passed: 46 tests in six suites:
 
 ```sh
-yarn test:unit --runInBand --runTestsByPath __tests__/lib/email/gmail-replies.test.ts __tests__/app/api/cron/email-replies/route.test.ts __tests__/app/api/cron/email-automation-monitoring.test.ts __tests__/actions/city/city-conditions-actions.test.ts __tests__/components/city/city-conditions-hero.test.tsx __tests__/config/vercel-config.test.js
+yarn test:unit --runInBand --runTestsByPath __tests__/lib/email/gmail-replies.test.ts __tests__/app/api/cron/email-automation-monitoring.test.ts __tests__/actions/city/city-conditions-actions.test.ts __tests__/components/city/city-conditions-hero.test.tsx __tests__/config/vercel-config.test.js
 ```
 
 Passed:
@@ -71,7 +69,7 @@ The first script runs a disposable PostgreSQL database, migration assertions, an
 Scoped ESLint passed:
 
 ```sh
-yarn eslint --max-warnings=0 actions/city/city-conditions-actions.ts app/api/cron/email-replies/route.ts components/city/city-conditions-hero.tsx lib/email/gmail-replies.ts __tests__/actions/city/city-conditions-actions.test.ts __tests__/app/api/cron/email-replies/route.test.ts __tests__/lib/email/gmail-replies.test.ts __tests__/config/vercel-config.test.js __tests__/components/city/city-conditions-hero.test.tsx contracts/email-system/automation.http-contract.ts
+yarn eslint --max-warnings=0 actions/city/city-conditions-actions.ts components/city/city-conditions-hero.tsx lib/email/gmail-replies.ts __tests__/actions/city/city-conditions-actions.test.ts __tests__/lib/email/gmail-replies.test.ts __tests__/config/vercel-config.test.js __tests__/components/city/city-conditions-hero.test.tsx contracts/email-system/automation.http-contract.ts
 ```
 
 Passed:
@@ -149,6 +147,6 @@ Merged-tree local validation passed: `yarn typecheck`; `yarn test:unit --bail=0 
 4. Verify actual scheduled attempts defer while the deadline is active and resume when due; HTTP 503 remains expected while gaps persist. Read the sync ledger and confirm no history was skipped and outbound eligibility remains closed.
 5. Compare full-day Vercel infrastructure spend and ISR write units at similar traffic after deployment. Minute-level function invocations remain scheduled; the savings come from avoiding repeated provider work and unnecessary content changes. Do not assume a dollar saving until measured.
 
-If rollback is required, restore the previous `claim_gmail_reply_sync(text)` definition from `20260914170000_gmail_reply_reconciliation.sql` with the production owner; the added index can remain. Roll back application changes through the normal reviewed release flow. Do not clear reply gaps or change contact controls as part of rollback.
+Rollback the application through the normal reviewed release flow. The retired sync tables and functions are not part of rollback; preserve reply events and contact pauses.
 
 References: [Vercel ISR pricing](https://vercel.com/docs/incremental-static-regeneration/limits-and-pricing), [Vercel spend management](https://vercel.com/docs/spend-management). Unchanged revalidation output does not incur ISR writes; spend management checks can lag usage.
