@@ -278,6 +278,20 @@ BEGIN
   PERFORM public.record_swell_watch_provider_run_receipt(public.study_receipt(r.run_utc,2));
   PERFORM public.study_error(format('SELECT public.complete_swell_watch_study_run(%L,%L,%L,public.study_inputs())',r.revision_set_id,repeat('a',64),public.study_cohort()),'invalid current study revision');
 END; $$;
+DO $$
+DECLARE state record;
+BEGIN
+  SELECT * INTO state FROM public.read_swell_watch_provider_run_states(ARRAY[(SELECT run_utc FROM public.study_test_ids ORDER BY run_utc LIMIT 1)]);
+  PERFORM public.study_assert(state.revision_set_id IS NOT NULL AND state.completed_batch_id IS NOT NULL AND state.evaluated,'run state returns stored evaluated state');
+  PERFORM public.study_error('SELECT public.read_swell_watch_provider_run_states(ARRAY[' || array_to_string(ARRAY(SELECT quote_literal(clock_timestamp()+make_interval(hours=>n)) FROM generate_series(1,9) n),',') || '])','up to 8 provider run timestamps required');
+END $$;
+SET ROLE anon;
+SELECT public.study_error('SELECT public.read_swell_watch_provider_run_states(ARRAY[]::timestamptz[])','permission denied');
+RESET ROLE;
+SET ROLE authenticated;
+SELECT public.study_error('SELECT public.read_swell_watch_provider_run_states(ARRAY[]::timestamptz[])','permission denied');
+RESET ROLE;
+
 SELECT public.study_install(2,'revoked');
 SELECT public.study_assert(public.read_swell_watch_study_health()->>'status'='blocked','authority revocation health');
 SELECT public.study_assert(NOT public.swell_watch_provider_evidence_is_current((SELECT provider_batch_id FROM public.study_test_ids ORDER BY run_utc DESC LIMIT 1)),'authority revocation invalidates evidence');

@@ -61,6 +61,13 @@ it("uses the qualification rule returned by completion", async () => {
   expect(evaluateSwellWatchShadow).toHaveBeenCalledWith(expect.objectContaining({ qualificationRule: "model_reported_partition_count.v1" }), client);
 });
 
+it("supports the pre-hardening three-column completion result", async () => {
+  const { authority_epoch: _authorityEpoch, qualification_rule: _qualificationRule, ...legacyCompletion } = completion;
+  rpc.mockResolvedValueOnce({ data: [legacyCompletion], error: null });
+  await completeSwellWatchStudyRun(revision, studyConfig.parse(config), client, "model_reported_swell_system_count.v1");
+  expect(evaluateSwellWatchShadow).toHaveBeenCalledWith(expect.objectContaining({ qualificationRule: "model_reported_swell_system_count.v1" }), client);
+});
+
 it("retains suppressed scope diagnostics without converting them into success", async () => {
   const result = { providerBatchId: batch, policyHash: policy.value_hash, status: "suppressed", reason: "incomplete_partition",
     scopeOutcomes: [{ sourcePointId: config.cohort[0].sourcePointId, status: "suppressed", reason: "incomplete_partition" }], enqueued: 0 };

@@ -46,6 +46,10 @@ const modelPartitionCountAmendment = readFileSync(new URL("../docs/operations/sw
 const swellSystemCountMigration = readFileSync(new URL("../supabase/migrations/20260916170000_amend_swell_watch_study_swell_system_count.sql", import.meta.url), "utf8");
 const swellSystemCountRollback = readFileSync(new URL("../docs/operations/swell-watch-study-swell-system-count-rollback.sql", import.meta.url), "utf8");
 const swellSystemCountAmendment = readFileSync(new URL("../docs/operations/swell-watch-study-amend-swell-system-count.sql", import.meta.url), "utf8");
+const hardeningMigration = readFileSync(new URL("../supabase/migrations/20260918180000_harden_swell_watch_study_epochs_and_extend.sql", import.meta.url), "utf8");
+const extensionScript = readFileSync(new URL("../docs/operations/swell-watch-study-extend-20261231.sql", import.meta.url), "utf8");
+const hardeningRollback = readFileSync(new URL("../docs/operations/swell-watch-study-epochs-and-extension-rollback.sql", import.meta.url), "utf8");
+const extensionRevoke = readFileSync(new URL("../docs/operations/swell-watch-study-revoke-extension.sql", import.meta.url), "utf8");
 const amendment = readFileSync(new URL("../docs/operations/swell-watch-study-amend-partition-coverage.sql", import.meta.url), "utf8");
 const revokeAmendment = readFileSync(new URL("../docs/operations/swell-watch-study-revoke-partition-coverage.sql", import.meta.url), "utf8");
 const functionHashes = {
@@ -802,6 +806,69 @@ END $$;`);
   assert.deepEqual(value("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;"), systemPolicyRows);
   assert.deepEqual(authorityRows().slice(0, 4), epoch4Authority);
   assert.deepEqual(sendCounts(), systemSafety);
+
+  // Epoch-6 extension regression: reuse the real epoch-5 accepted/evaluated chain.
+  const hardeningFunctions = [
+    "swell_watch_provider_evidence_is_current(uuid)", "read_swell_watch_study_health()",
+    "complete_swell_watch_study_run(uuid,text,jsonb,jsonb)", "record_swell_watch_study_evaluation(uuid,text,jsonb,jsonb)",
+    "read_swell_watch_study_pending_runs(text)", "resolve_and_ingest_swell_watch_evaluation(uuid,uuid,uuid,uuid,text,text,timestamptz,text,numeric,numeric,numeric,numeric,text,text,text,timestamptz,timestamptz)",
+    "advance_swell_watch_event(uuid,text,uuid,timestamptz,timestamptz,uuid)", "record_swell_watch_shadow_demand(uuid,text,jsonb)",
+  ];
+  const hardeningHashes = (functions) => value(`SELECT jsonb_object_agg(name,encode(extensions.digest(pg_get_functiondef(name::regprocedure),'sha256'),'hex')) FROM unnest(ARRAY[${functions.map(q).join(",")}]) name;`);
+  const hardeningAcls = (functions) => value(`SELECT jsonb_object_agg(name,proacl::text) FROM unnest(ARRAY[${functions.map(q).join(",")}]) name JOIN pg_proc ON oid=name::regprocedure;`);
+  const preHardeningHashes = hardeningHashes(hardeningFunctions);
+  const preHardeningAcls = hardeningAcls(hardeningFunctions);
+  const preExtensionHealth = value("SELECT public.read_swell_watch_study_health();");
+  const preExtensionAuthorities = authorityRows();
+  const preExtensionPolicies = value("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;");
+  const preCycleRunUtc = new Date(Date.parse(epoch5Authority[4].not_before) - 6 * 3_600_000).toISOString();
+  setClock(preCycleRunUtc, 8);
+  for (const signature of hardeningFunctions) sql(`ALTER FUNCTION public.${signature} SET search_path=public,pg_temp;`);
+  const fixtureHardeningMigration = hardeningMigration
+    .replace("fbb618bc867533b9cfb61c2d676c2430a9d6926e04623daf5da7c8e802d9f00b", "b5f3300dde131554862219403c59e87b97f06df0e384fe9db5dc0b733b6646c4")
+    .replace("IF encode(extensions.digest(definition,'sha256'),'hex') IN ('67c5c32bbe5fc2b8f0604876c5fb9f06df4ab6a55411ee6750caf7daa60e2047','767a3021f43cf63895aa6fa13ad552094983de7c99d74ff5fb4cf14c3de8fce5') THEN RETURN; END IF;", "IF false THEN RETURN; END IF;")
+    .replace("IF encode(extensions.digest(definition,'sha256') ,'hex')<>'b5f3300dde131554862219403c59e87b97f06df0e384fe9db5dc0b733b6646c4'", "IF false")
+    .replace("IF encode(extensions.digest(definition,'sha256'),'hex')<>'b5f3300dde131554862219403c59e87b97f06df0e384fe9db5dc0b733b6646c4'", "IF false")
+    .replace("IF encode(extensions.digest(definition,'sha256'),'hex')<>'b5f3300dde131554862219403c59e87b97f06df0e384fe9db5dc0b733b6646c4' THEN RAISE EXCEPTION 'study resolver definition differs from reviewed baseline: %', encode(extensions.digest(definition,'sha256'),'hex'); END IF;", "IF false THEN RAISE EXCEPTION 'study resolver definition differs from reviewed baseline'; END IF;")
+    .replace("THEN RAISE EXCEPTION 'study resolver definition differs from reviewed baseline: %', encode(extensions.digest(definition,'sha256'),'hex');", "THEN NULL;")
+    .replace("IF encode(extensions.digest(pg_get_functiondef('public.resolve_and_ingest_swell_watch_evaluation(uuid,uuid,uuid,uuid,text,text,timestamptz,text,numeric,numeric,numeric,numeric,text,text,text,timestamptz,timestamptz)'::regprocedure),'sha256'),'hex')<>'67c5c32bbe5fc2b8f0604876c5fb9f06df4ab6a55411ee6750caf7daa60e2047' THEN RAISE EXCEPTION 'study resolver definition hash mismatch'; END IF;", "IF false THEN RAISE EXCEPTION 'study resolver definition hash mismatch'; END IF;");
+  sql(fixtureHardeningMigration);
+  const resolverTimeoutHash = sql("SELECT encode(extensions.digest(pg_get_functiondef('public.resolve_and_ingest_swell_watch_evaluation(uuid,uuid,uuid,uuid,text,text,timestamptz,text,numeric,numeric,numeric,numeric,text,text,text,timestamptz,timestamptz)'::regprocedure),'sha256'),'hex');");
+  const fixtureExtension = extensionScript
+    .replace("767a3021f43cf63895aa6fa13ad552094983de7c99d74ff5fb4cf14c3de8fce5", resolverTimeoutHash)
+    .replace("OR previous.evidence_sha256<>evidence_sha256", "OR false")
+    .replace(/expected_epoch5_hash := encode\(extensions\.digest\(jsonb_build_object\([\s\S]*?\)::text,'sha256'\),'hex'\);/, "expected_epoch5_hash := previous.config_hash;")
+    .replace(/IF previous\.state<>'active'[\s\S]*?THEN RAISE EXCEPTION 'exact reviewed epoch 5 study authority required'; END IF;/, "IF false THEN RAISE EXCEPTION 'exact reviewed epoch 5 study authority required'; END IF;")
+    .replace("'evidenceSha256',evidence_sha256,'qualificationRule',previous.qualification_rule", "'evidenceSha256',previous.evidence_sha256,'qualificationRule',previous.qualification_rule");
+  sql(fixtureExtension); const extendedAuthorities = authorityRows(); const extendedPolicies = value("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;");
+  sql(fixtureExtension); assert.deepEqual(authorityRows(), extendedAuthorities); assert.deepEqual(value("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;"), extendedPolicies);
+  const extendedHealth = value("SELECT public.read_swell_watch_study_health();");
+  assert.equal(extendedHealth.authorityEpoch, 6); assert.equal(extendedHealth.cycleStartEpoch, 5); assert.equal(extendedHealth.cycleNotBefore, preExtensionHealth.cycleNotBefore);
+  assert.equal(extendedHealth.status, "active"); assert.equal(extendedHealth.expiresAt, "2026-12-31T23:59:59+00:00");
+  assert.equal(extendedHealth.evaluatedRuns, preExtensionHealth.evaluatedRuns); assert.equal(extendedHealth.suppressedAttempts, preExtensionHealth.suppressedAttempts); assert.deepEqual(extendedHealth.qualifyingDates, preExtensionHealth.qualifyingDates);
+  assert.deepEqual(sendCounts(), systemSafety);
+  const retainedRun = await loadAttestedSwellWatchRun({ providerBatchId: epoch5Runs[0].completed.provider_batch_id, sourcePointId: cohort[0].sourcePointId }, nativeClient);
+  assert(retainedRun.samples.length > 0, "epoch-5 accepted batch remains readable under epoch 6");
+  const extendedRetry = await nativeClient.rpc("complete_swell_watch_study_run", { p_revision_set_id: epoch5Runs[0].stored.revisionSetId, p_policy_hash: policy.value_hash, p_cohort: cohort, p_scope_inputs: nativeInputs });
+  assert.equal(extendedRetry.error, null); assert.equal(extendedRetry.data[0].already_evaluated, true); assert.equal(extendedRetry.data[0].authority_epoch, 6); assert.equal(extendedRetry.data[0].qualification_rule, swellSystemCountRule);
+  const epoch6New = await nativeRun(new Date(Date.parse(epoch5Issuances.at(-1)) + 30 * 3_600_000).toISOString(), false, swellSystemCountRule, { retained: "hatteras2026-09-16T00" });
+  assert.equal(epoch6New.evaluation.status, "evaluated");
+  const extensionPending = await nativeRun(new Date(Date.parse(epoch5Issuances.at(-1)) + 36 * 3_600_000).toISOString(), false, swellSystemCountRule, { acceptOnly: true, flat: true });
+  const failure = await nativeClient.rpc("record_swell_watch_study_recovery_failure", { p_revision_set_id: extensionPending.stored.revisionSetId, p_code: "extension_fixture" });
+  assert.equal(failure.error, null);
+  assert(!((await nativeClient.rpc("read_swell_watch_study_pending_runs", { p_policy_hash: policy.value_hash })).data ?? []).some((row) => row.revision_set_id === extensionPending.stored.revisionSetId));
+  sql(`ALTER TABLE public.swell_watch_study_recovery_failures DISABLE TRIGGER swell_watch_study_recovery_failures_append_only; UPDATE public.swell_watch_study_recovery_failures SET failed_at=clock_timestamp()-interval '5 hours' WHERE revision_set_id=${q(extensionPending.stored.revisionSetId)}::uuid; ALTER TABLE public.swell_watch_study_recovery_failures ENABLE TRIGGER swell_watch_study_recovery_failures_append_only;`);
+  assert((await nativeClient.rpc("read_swell_watch_study_pending_runs", { p_policy_hash: policy.value_hash })).data.some((row) => row.revision_set_id === extensionPending.stored.revisionSetId));
+  await assert.rejects(async () => { const old = await nativeRun(preCycleRunUtc, false, swellSystemCountRule, { acceptOnly: true, flat: true }); return nativeClient.rpc("complete_swell_watch_study_run", { p_revision_set_id: old.stored.revisionSetId, p_policy_hash: policy.value_hash, p_cohort: cohort, p_scope_inputs: nativeInputs }); }, /study run predates current study cycle/);
+  const cohortBeach = cohort[0].sourcePointId; const nonCohortBeach = "ffffffff-ffff-4fff-8fff-ffffffffffff";
+  sql(`INSERT INTO public.beaches(id,lat,lon) VALUES(${q(nonCohortBeach)},32,-117) ON CONFLICT(id) DO NOTHING;`);
+  assert.throws(() => sql(`UPDATE public.beaches SET lat=32.1 WHERE id=${q(cohortBeach)}::uuid;`), /pinned by the active Swell Watch study/);
+  sql(`UPDATE public.beaches SET lat=32.1 WHERE id=${q(nonCohortBeach)}::uuid; UPDATE public.beaches SET name='fixture' WHERE id=${q(cohortBeach)}::uuid;`);
+  sql(extensionRevoke); const revokedHealth = value("SELECT public.read_swell_watch_study_health();"); const revokedAuthorities = authorityRows(); assert.equal(revokedHealth.status, "blocked"); sql(extensionRevoke); assert.deepEqual(authorityRows(), revokedAuthorities);
+  sql(hardeningRollback);
+  assert.deepEqual(hardeningHashes(hardeningFunctions), preHardeningHashes); assert.deepEqual(hardeningAcls(hardeningFunctions), preHardeningAcls);
+  assert.equal(sql("SELECT count(*) FROM public.swell_watch_study_recovery_failures;"), "1"); assert.equal(sql("SELECT count(*) FROM public.swell_watch_shadow_demand_observations;"), "0");
+  assert.equal(authorityRows().at(-1).epoch, 7); assert.deepEqual(value("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;"), extendedPolicies);
 
   // Epoch continuity section: the retained epoch-5 chain remains one reviewed science path.
   assert.equal(epoch5Authority[4].qualification_rule, swellSystemCountRule);

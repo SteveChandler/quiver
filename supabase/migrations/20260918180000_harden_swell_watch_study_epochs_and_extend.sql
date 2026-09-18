@@ -222,20 +222,20 @@ BEGIN
 END;
 $amend$;
 
--- resolve_and_ingest_swell_watch_evaluation(...): pre fbb618bc867533b9cfb61c2d676c2430a9d6926e04623daf5da7c8e802d9f00b; post 9ad173f153dec99bb8d8f7bdf4710a54c66ecf732300756b8d6c9ac8f8c324a0.
+-- resolve_and_ingest_swell_watch_evaluation(...): pre fbb618bc867533b9cfb61c2d676c2430a9d6926e04623daf5da7c8e802d9f00b; post 67c5c32bbe5fc2b8f0604876c5fb9f06df4ab6a55411ee6750caf7daa60e2047.
 DO $amend$
 DECLARE definition text;
 BEGIN
   SELECT pg_get_functiondef('public.resolve_and_ingest_swell_watch_evaluation(uuid,uuid,uuid,uuid,text,text,timestamptz,text,numeric,numeric,numeric,numeric,text,text,text,timestamptz,timestamptz)'::regprocedure) INTO definition;
-  IF encode(extensions.digest(definition,'sha256'),'hex') IN ('9ad173f153dec99bb8d8f7bdf4710a54c66ecf732300756b8d6c9ac8f8c324a0','767a3021f43cf63895aa6fa13ad552094983de7c99d74ff5fb4cf14c3de8fce5') THEN RETURN; END IF;
+  IF encode(extensions.digest(definition,'sha256'),'hex') IN ('67c5c32bbe5fc2b8f0604876c5fb9f06df4ab6a55411ee6750caf7daa60e2047','767a3021f43cf63895aa6fa13ad552094983de7c99d74ff5fb4cf14c3de8fce5') THEN RETURN; END IF;
   IF encode(extensions.digest(definition,'sha256'),'hex')<>'fbb618bc867533b9cfb61c2d676c2430a9d6926e04623daf5da7c8e802d9f00b' THEN RAISE EXCEPTION 'study resolver definition differs from reviewed baseline'; END IF;
   definition := replace(definition, '  v_max_hours numeric; v_max_period numeric; v_max_direction numeric;', '  v_max_hours numeric; v_max_period numeric; v_max_direction numeric; v_same_evaluation_beach boolean;');
   definition := replace(definition, '  IF cardinality(v_retry_ids)>1 THEN RAISE EXCEPTION ''ambiguous regional identity''; END IF;\n  IF EXISTS (', '  IF cardinality(v_retry_ids)>1 THEN RAISE EXCEPTION ''ambiguous regional identity''; END IF;\n  SELECT EXISTS(SELECT 1 FROM public.swell_watch_event_impacts association\n    JOIN public.swell_watch_beach_impacts impact ON impact.id=association.beach_impact_id\n    JOIN public.swell_watch_observations observation ON observation.id=impact.observation_id\n    WHERE association.evaluation_id=v_evaluation AND association.beach_id=p_source_point_id\n      AND observation.provider_batch_id=p_provider_batch_id AND observation.id IS DISTINCT FROM p_observation_id) INTO v_same_evaluation_beach;\n  IF EXISTS (');
-  definition := replace(definition, '  ) THEN RAISE EXCEPTION ''compatible regional identity requires current-cycle evidence''; END IF;\n  v_matches := coalesce(v_retry_ids,''{}'');', '  ) THEN v_retry_ids := ''{}''; END IF;\n  v_matches := coalesce(v_retry_ids,''{}'');');
+  definition := replace(definition, '  ) THEN RAISE EXCEPTION ''compatible regional identity requires current-cycle evidence''; END IF;\n  v_matches := coalesce(v_retry_ids,''{}'');', '  ) THEN RAISE EXCEPTION ''compatible regional identity requires current-cycle evidence''; END IF;\n  v_matches := coalesce(v_retry_ids,''{}'');');
   definition := replace(definition, '    IF v_reference.provider=''open_meteo'' AND abs(v_reference.period_s-p_period_s)<=v_max_period', '    IF NOT v_same_evaluation_beach AND v_reference.provider=''open_meteo'' AND abs(v_reference.period_s-p_period_s)<=v_max_period');
   definition := replace(definition, '      -- Never bypass stale/suppressed evidence or permanent dedupe by allocating a fresh ID.\n      IF public.swell_watch_provider_evidence_is_current(v_reference.provider_batch_id) IS DISTINCT FROM true\n        OR v_reference.policy_hash IS DISTINCT FROM p_policy_hash\n        OR (v_reference.run_utc > v_run AND NOT v_reference.regional_event_id=ANY(coalesce(v_retry_ids,''{}'')))\n        OR v_reference.evaluated_at <= v_reference.suppressed_at THEN\n        RAISE EXCEPTION ''compatible regional identity requires current-cycle evidence'';\n      END IF;', '      -- Aliases are an audit trail; metric matching remains the identity authority.\n      IF public.swell_watch_provider_evidence_is_current(v_reference.provider_batch_id) IS DISTINCT FROM true\n        OR v_reference.policy_hash IS DISTINCT FROM p_policy_hash\n        OR (v_reference.run_utc > v_run AND NOT v_reference.regional_event_id=ANY(coalesce(v_retry_ids,''{}'')))\n        OR v_reference.evaluated_at <= v_reference.suppressed_at THEN\n        CONTINUE;\n      END IF;');
   EXECUTE definition;
-  IF encode(extensions.digest(pg_get_functiondef('public.resolve_and_ingest_swell_watch_evaluation(uuid,uuid,uuid,uuid,text,text,timestamptz,text,numeric,numeric,numeric,numeric,text,text,text,timestamptz,timestamptz)'::regprocedure),'sha256'),'hex')<>'9ad173f153dec99bb8d8f7bdf4710a54c66ecf732300756b8d6c9ac8f8c324a0' THEN RAISE EXCEPTION 'study resolver definition hash mismatch'; END IF;
+  IF encode(extensions.digest(pg_get_functiondef('public.resolve_and_ingest_swell_watch_evaluation(uuid,uuid,uuid,uuid,text,text,timestamptz,text,numeric,numeric,numeric,numeric,text,text,text,timestamptz,timestamptz)'::regprocedure),'sha256'),'hex')<>'67c5c32bbe5fc2b8f0604876c5fb9f06df4ab6a55411ee6750caf7daa60e2047' THEN RAISE EXCEPTION 'study resolver definition hash mismatch'; END IF;
 END;
 $amend$;
 
@@ -358,6 +358,36 @@ ALTER FUNCTION public.record_leased_swell_watch_provider_run_receipt(uuid,jsonb)
 ALTER FUNCTION public.record_leased_swell_watch_provider_run_receipt(uuid,jsonb) SET statement_timeout='60s';
 ALTER FUNCTION public.record_swell_watch_study_recovery_failure(uuid,text) SET lock_timeout='10s';
 ALTER FUNCTION public.record_swell_watch_study_recovery_failure(uuid,text) SET statement_timeout='60s';
+
+CREATE OR REPLACE FUNCTION public.read_swell_watch_provider_run_states(p_run_utcs timestamptz[])
+RETURNS TABLE(run_utc timestamptz, revision_set_id uuid, completed_batch_id uuid, evaluated boolean)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=public,pg_temp
+SET lock_timeout='10s' SET statement_timeout='60s' AS $$
+DECLARE current_epoch bigint;
+BEGIN
+  IF p_run_utcs IS NULL OR cardinality(p_run_utcs)>8 THEN RAISE EXCEPTION 'up to 8 provider run timestamps required'; END IF;
+  SELECT max(epoch) INTO current_epoch FROM public.swell_watch_study_authorities;
+  RETURN QUERY
+  WITH requested AS (SELECT DISTINCT value AS run_utc FROM unnest(p_run_utcs) value)
+  SELECT i.run_utc, latest.id, completed.id,
+    EXISTS(
+      SELECT 1 FROM public.swell_watch_study_evaluations evaluation
+      WHERE evaluation.provider_batch_id=completed.id AND evaluation.status='evaluated'
+        AND evaluation.authority_epoch BETWEEN public.swell_watch_study_cycle_start(current_epoch) AND current_epoch
+    )
+  FROM requested
+  JOIN public.swell_watch_provider_run_issuances i ON i.run_utc=requested.run_utc
+    AND i.transport_provider='open_meteo_single_runs' AND i.model='ncep_gfswave016'
+  LEFT JOIN LATERAL (
+    SELECT revision_set.* FROM public.swell_watch_provider_run_revision_sets revision_set
+    JOIN public.swell_watch_provider_run_batches batch ON batch.id=revision_set.batch_id
+    WHERE batch.issuance_id=i.id ORDER BY revision_set.revision_number DESC LIMIT 1
+  ) latest ON true
+  LEFT JOIN public.swell_watch_provider_run_completed_batches completed ON completed.revision_set_id=latest.id;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.read_swell_watch_provider_run_states(timestamptz[]) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.read_swell_watch_provider_run_states(timestamptz[]) TO service_role;
 
 REVOKE ALL ON FUNCTION public.swell_watch_study_cycle_start(bigint),public.guard_swell_watch_study_beach_scope() FROM PUBLIC,anon,authenticated,service_role;
 REVOKE ALL ON FUNCTION public.read_swell_watch_study_health(),public.read_swell_watch_study_pending_runs(text),public.record_swell_watch_study_evaluation(uuid,text,jsonb,jsonb),public.complete_swell_watch_study_run(uuid,text,jsonb,jsonb) FROM PUBLIC,anon,authenticated;

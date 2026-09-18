@@ -1,5 +1,5 @@
 -- Rollback restores the reviewed pre-amendment function definitions byte-for-byte.
--- The append-only cycle, recovery, and shadow-observation tables remain for audit history.
+-- The two new append-only recovery and shadow-observation tables remain for audit history.
 BEGIN;
 SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='60s';
@@ -260,4 +260,5 @@ ALTER FUNCTION public.record_swell_watch_study_evaluation(uuid,text,jsonb,jsonb)
 ALTER FUNCTION public.try_acquire_swell_watch_collection_lease(uuid) RESET lock_timeout; ALTER FUNCTION public.try_acquire_swell_watch_collection_lease(uuid) RESET statement_timeout;
 ALTER FUNCTION public.release_swell_watch_collection_lease(uuid) RESET lock_timeout; ALTER FUNCTION public.release_swell_watch_collection_lease(uuid) RESET statement_timeout;
 ALTER FUNCTION public.record_leased_swell_watch_provider_run_receipt(uuid,jsonb) RESET lock_timeout; ALTER FUNCTION public.record_leased_swell_watch_provider_run_receipt(uuid,jsonb) RESET statement_timeout;
+DROP FUNCTION IF EXISTS public.read_swell_watch_provider_run_states(timestamptz[]);
 COMMIT;

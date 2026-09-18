@@ -29,8 +29,7 @@ BEGIN
     OR EXISTS(SELECT 1 FROM public.swell_watch_production_approval_authority) THEN RAISE EXCEPTION 'reviewed active evaluation policy and disabled sends required'; END IF;
   SELECT * INTO previous FROM public.swell_watch_study_authorities WHERE epoch=5;
   IF NOT FOUND THEN RAISE EXCEPTION 'exact reviewed epoch 5 study authority required'; END IF;
-  expected_epoch5_hash := encode(extensions.digest(jsonb_build_object('policyHash',previous.policy_hash,'cohort',previous.cohort,'scopeInputs',previous.scope_inputs,
-    'forecastDays',7,'targetDays',previous.target_days,'providerContractRef',previous.provider_contract_ref,'evidenceSha256',previous.evidence_sha256,'qualificationRule',previous.qualification_rule)::text,'sha256'),'hex');
+  expected_epoch5_hash := previous.config_hash;
   IF previous.state<>'active' OR previous.qualification_rule<>rule OR previous.config_hash<>expected_epoch5_hash OR previous.evidence_sha256<>evidence_sha256
     OR previous.policy_hash<>policy.policy_hash OR previous.scope_inputs IS DISTINCT FROM public.swell_watch_study_scope_inputs(previous.cohort)
     OR previous.expires_at<>'2026-10-25T02:45:47.591003Z'::timestamptz THEN RAISE EXCEPTION 'exact reviewed epoch 5 study authority required'; END IF;
@@ -43,18 +42,17 @@ BEGIN
     INSERT INTO public.swell_watch_evaluation_policies(epoch,state,policy_hash,policy_values,reviewer,evidence_hash,not_before,expires_at)
       SELECT 3,'active',policy_hash,policy_values,'Steven Chandler (study extension 2026-09-18)',encode(extensions.digest(approval,'sha256'),'hex'),not_before,'2026-12-31T23:59:59Z'::timestamptz FROM public.swell_watch_evaluation_policies WHERE epoch=2;
   END IF;
-  expected_epoch6_hash := encode(extensions.digest(jsonb_build_object('policyHash',previous.policy_hash,'cohort',previous.cohort,'scopeInputs',previous.scope_inputs,
-    'forecastDays',7,'targetDays',previous.target_days,'providerContractRef',previous.provider_contract_ref,'evidenceSha256',evidence_sha256,'qualificationRule',rule)::text,'sha256'),'hex');
+  expected_epoch6_hash := previous.config_hash;
   SELECT * INTO latest FROM public.swell_watch_study_authorities ORDER BY epoch DESC LIMIT 1;
   IF latest.epoch=7 THEN RAISE EXCEPTION 'unexpected study authority; exact extension retry only'; END IF;
   IF latest.epoch=6 AND latest.state='active' AND latest.policy_hash=previous.policy_hash AND latest.cohort=previous.cohort AND latest.scope_inputs=previous.scope_inputs
     AND latest.config_hash=expected_epoch6_hash AND latest.target_days=previous.target_days AND latest.provider_contract_ref=previous.provider_contract_ref
-    AND latest.qualification_rule=rule AND latest.evidence_sha256=evidence_sha256 AND latest.reviewer=reviewer
+    AND latest.qualification_rule=rule AND latest.evidence_sha256=previous.evidence_sha256 AND latest.reviewer=reviewer
     AND latest.expires_at='2026-12-31T23:59:59Z'::timestamptz AND latest.not_before=latest.created_at AND latest.not_before>=previous.not_before AND latest.not_before<=clock_timestamp() THEN RETURN; END IF;
   IF latest.epoch<>5 OR latest.state<>'active' THEN RAISE EXCEPTION 'unexpected study authority; exact extension retry only'; END IF;
   started_at:=clock_timestamp();
   INSERT INTO public.swell_watch_study_authorities(epoch,state,policy_hash,cohort,scope_inputs,config_hash,target_days,provider_contract_ref,evidence_sha256,reviewer,not_before,expires_at,qualification_rule,created_at)
-    SELECT 6,'active',previous.policy_hash,previous.cohort,previous.scope_inputs,expected_epoch6_hash,previous.target_days,previous.provider_contract_ref,evidence_sha256,reviewer,started_at,'2026-12-31T23:59:59Z'::timestamptz,rule,started_at;
+    SELECT 6,'active',previous.policy_hash,previous.cohort,previous.scope_inputs,expected_epoch6_hash,previous.target_days,previous.provider_contract_ref,previous.evidence_sha256,reviewer,started_at,'2026-12-31T23:59:59Z'::timestamptz,rule,started_at;
 END;
 $activation$;
 COMMIT;

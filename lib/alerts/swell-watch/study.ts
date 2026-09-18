@@ -16,8 +16,8 @@ const completionResult = z.array(z.object({
   provider_batch_id: z.uuid(),
   evaluation_id: z.string().regex(/^genuine_completed:[0-9a-f-]{36}$/),
   already_evaluated: z.boolean(),
-  authority_epoch: z.number().int().positive(),
-  qualification_rule: z.enum([COMPLETE_PARTITIONS_RULE, RETAINED_UNAVAILABLE_SECONDARY_RULE, MODEL_REPORTED_PARTITION_COUNT_RULE, MODEL_REPORTED_SWELL_SYSTEM_COUNT_RULE]),
+  authority_epoch: z.number().int().positive().optional(),
+  qualification_rule: z.enum([COMPLETE_PARTITIONS_RULE, RETAINED_UNAVAILABLE_SECONDARY_RULE, MODEL_REPORTED_PARTITION_COUNT_RULE, MODEL_REPORTED_SWELL_SYSTEM_COUNT_RULE]).optional(),
 })).length(1);
 
 export class SwellWatchStudySkip extends Error {
@@ -111,7 +111,7 @@ export async function completeSwellWatchStudyRun(
   if (batch.already_evaluated) return { skipped: true, reason: "already_evaluated", providerBatchId: batch.provider_batch_id, enqueued: 0 };
   onStage?.("study_evaluation");
   const result = await evaluateSwellWatchShadow({ providerBatchId: batch.provider_batch_id,
-    qualificationRule: batch.qualification_rule, forecastDays: 7, now: new Date().toISOString(), policy: config.policy, scopes },
+    qualificationRule: batch.qualification_rule ?? qualificationRule, forecastDays: 7, now: new Date().toISOString(), policy: config.policy, scopes },
   client as unknown as Parameters<typeof evaluateSwellWatchShadow>[1]);
   onStage?.("study_recording");
   const recorded = await writer.rpc("record_swell_watch_study_evaluation", {
