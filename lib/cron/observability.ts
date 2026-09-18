@@ -188,11 +188,27 @@ export function withObservedCron<H extends (request: Request) => Promise<Respons
         try {
           const cloned = response.clone();
           const text = await cloned.text();
-          if (text && text.length <= 8192) summary = JSON.parse(text);
+          if (text && text.length > 8192) {
+            let keys: string[] = [];
+            try {
+              const parsed: unknown = JSON.parse(text);
+              if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) keys = Object.keys(parsed);
+            } catch {
+              keys = [];
+            }
+            summary = { truncated: true, bytes: Buffer.byteLength(text, "utf8"), status: response.status, keys };
+          } else if (text) {
+            summary = JSON.parse(text);
+          }
         } catch {
           summary = null;
         }
       }
+      const requestedMonitorStatus = response.headers.get("x-cron-monitor-status");
+      const monitorStatus = requestedMonitorStatus === "ok" || requestedMonitorStatus === "error"
+        ? requestedMonitorStatus
+        : response.ok ? "ok" : "error";
+      response.headers.delete("x-cron-monitor-status");
       if (authorized && !response.ok) {
         captureCronFailure(
           route,
@@ -205,7 +221,7 @@ export function withObservedCron<H extends (request: Request) => Promise<Respons
         await finishSentryCronCheckIn(
           checkInId,
           monitor.slug,
-          response.ok ? "ok" : "error",
+          monitorStatus,
           Date.now() - start,
         );
       }

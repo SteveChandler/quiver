@@ -11,6 +11,49 @@ export const revalidate = 0;
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
+const CRON_MONITOR_STATUS = "x-cron-monitor-status";
+const STUDY_STALL_MS = 18 * 60 * 60 * 1000;
+const STUDY_EXPIRY_DRAIN_MS = 30 * 60 * 1000;
+
+type OperationalStudyHealth = {
+  policyHash?: string | null;
+  expiresAt?: string | null;
+  lastEvaluatedAt?: string | null;
+  evaluatedRuns: number;
+  suppressedAttempts: number;
+  activationAt?: string | null;
+};
+
+function setMonitorStatus(response: Response, status: "ok" | "error"): Response {
+  response.headers.set(CRON_MONITOR_STATUS, status);
+  return response;
+}
+
+async function readOperationalStudyHealth(
+  client: unknown,
+  fallback: { status: string; qualificationRule: SwellWatchQualificationRule },
+): Promise<OperationalStudyHealth & { status: string; qualificationRule: SwellWatchQualificationRule }> {
+  const reader = client as { rpc?: (name: "read_swell_watch_study_health") => PromiseLike<{ data: unknown; error: unknown }> };
+  if (typeof reader.rpc !== "function") return { ...fallback, evaluatedRuns: 0, suppressedAttempts: 0 };
+  const result = await reader.rpc("read_swell_watch_study_health");
+  if (result.error) throw new Error("Study health unavailable");
+  const health = z.object({
+    policyHash: z.string().nullable().optional(), expiresAt: z.string().datetime({ offset: true }).nullable().optional(),
+    lastEvaluatedAt: z.string().datetime({ offset: true }).nullable().optional(),
+    evaluatedRuns: z.number().int().nonnegative().default(0), suppressedAttempts: z.number().int().nonnegative().default(0),
+    activationAt: z.string().datetime({ offset: true }).nullable().optional(),
+  }).parse(result.data);
+  return { ...fallback, ...health };
+}
+
+function stallReason(health: OperationalStudyHealth): "last_evaluated_at_stale" | "last_evaluated_at_missing" | null {
+  const lastEvaluatedAt = health.lastEvaluatedAt ? Date.parse(health.lastEvaluatedAt) : Number.NaN;
+  if (Number.isFinite(lastEvaluatedAt) && Date.now() - lastEvaluatedAt > STUDY_STALL_MS) return "last_evaluated_at_stale";
+  if (health.lastEvaluatedAt !== null && health.lastEvaluatedAt !== undefined) return null;
+  const activationAt = health.activationAt ? Date.parse(health.activationAt) : Number.NaN;
+  if (Number.isFinite(activationAt) && Date.now() - activationAt <= STUDY_STALL_MS) return null;
+  return health.suppressedAttempts + health.evaluatedRuns > 0 ? "last_evaluated_at_missing" : null;
+}
 
 // Emit only fixed labels: upstream messages can contain payloads, URLs, or credentials.
 function failureCode(error: unknown): string {
@@ -54,6 +97,7 @@ function failureCode(error: unknown): string {
   if (known) return known.toLowerCase().replaceAll(" ", "_");
   if (error.message.startsWith("Acquisition scope read failed:")) return "acquisition_scope_read_failed";
   if (error.message.startsWith("Provider run receipt storage failed:")) return "provider_receipt_storage_failed";
+  if (error.message === "provider budget exceeded") return "provider_budget_exceeded";
   if (error.name === "AbortError" || error.name === "TimeoutError") return "request_aborted_or_timed_out";
   if (error instanceof SyntaxError) return "json_parse_failed";
   if (error instanceof TypeError && error.message === "fetch failed") return "network_fetch_failed";
@@ -86,25 +130,47 @@ async function acquire(request: Request): Promise<Response> {
     const client = createSupabaseServiceRoleClient();
     let qualificationRule: SwellWatchQualificationRule = COMPLETE_PARTITIONS_RULE;
     let recovery = { processed: 0, failed: 0 };
+    let stalled = false;
+    const respond = (response: Response, status: "ok" | "error" = "ok"): Response => setMonitorStatus(response, stalled ? "error" : status);
     if (automated) {
       stage = "health";
       const health = await readSwellWatchStudyStatus(client);
+      const operationalHealth = await readOperationalStudyHealth(client, health);
+      stalled = operationalHealth.status === "active" && stallReason(operationalHealth) !== null;
+      if (stalled) console.error("[swell-watch-acquire] study stalled", { reason: stallReason(operationalHealth) });
       const { status } = health;
       qualificationRule = health.qualificationRule;
       if (status === "complete" || status === "expired") {
-        return createSuccessResponse({ skipped: true, reason: `study_${status}`, enqueued: 0 });
+        return respond(createSuccessResponse({ skipped: true, reason: `study_${status}`, enqueued: 0 }));
       }
       if (status !== "active") return createErrorResponse("Study unavailable", "Study authority is not active", 503);
+      if (operationalHealth.policyHash !== undefined && operationalHealth.policyHash !== studyConfig.parse(config).policy.value_hash) {
+        return respond(createErrorResponse("Study unavailable", { code: "study_config_hash_mismatch", enqueued: 0 }, 503), "error");
+      }
+      const expiresAt = operationalHealth.expiresAt ? Date.parse(operationalHealth.expiresAt) : Number.NaN;
+      if (Number.isFinite(expiresAt) && expiresAt - Date.now() <= STUDY_EXPIRY_DRAIN_MS) {
+        return respond(createSuccessResponse({ skipped: true, reason: "study_expiring", enqueued: 0 }));
+      }
       stage = "recovery";
       recovery = await recoverSwellWatchStudyRuns(studyConfig.parse(config), client, qualificationRule, (studyStage) => { stage = studyStage; });
       if (recovery.processed) {
         stage = "health_after_recovery";
         const afterRecovery = await readSwellWatchStudyStatus(client);
         if (afterRecovery.status === "complete" || afterRecovery.status === "expired") {
-          return createSuccessResponse({ skipped: true, reason: `study_${afterRecovery.status}`, recovery, enqueued: 0 });
+          return respond(createSuccessResponse({ skipped: true, reason: `study_${afterRecovery.status}`, recovery, enqueued: 0 }));
         }
         if (afterRecovery.status !== "active") return createErrorResponse("Study unavailable", "Study authority is not active", 503);
         qualificationRule = afterRecovery.qualificationRule;
+        const afterRecoveryHealth = await readOperationalStudyHealth(client, afterRecovery);
+        const afterRecoveryStall = afterRecoveryHealth.status === "active" && stallReason(afterRecoveryHealth);
+        if (afterRecoveryStall && !stalled) {
+          stalled = true;
+          console.error("[swell-watch-acquire] study stalled", { reason: afterRecoveryStall });
+        }
+        const afterRecoveryExpiry = afterRecoveryHealth.expiresAt ? Date.parse(afterRecoveryHealth.expiresAt) : Number.NaN;
+        if (Number.isFinite(afterRecoveryExpiry) && afterRecoveryExpiry - Date.now() <= STUDY_EXPIRY_DRAIN_MS) {
+          return respond(createSuccessResponse({ skipped: true, reason: "study_expiring", recovery, enqueued: 0 }));
+        }
       }
     }
     stage = "acquisition";
@@ -117,27 +183,27 @@ async function acquire(request: Request): Promise<Response> {
       } catch (error) {
         if (!(error instanceof SwellWatchStudySkip)) throw error;
         if (recovery.failed) return createErrorResponse("Study recovery incomplete", { recovery, enqueued: 0 }, 500);
-        return createSuccessResponse({ skipped: true, reason: error.reason, revisionSetId: stored.revisionSetId,
-          issuanceId: stored.issuanceId, runBatchId: stored.runBatchId, recovery, qualification: "automated_study", enqueued: 0 });
+        return respond(createSuccessResponse({ skipped: true, reason: error.reason, revisionSetId: stored.revisionSetId,
+          issuanceId: stored.issuanceId, runBatchId: stored.runBatchId, recovery, qualification: "automated_study", enqueued: 0 }));
       }
       if (recovery.failed) return createErrorResponse("Study recovery incomplete", { recovery, study, enqueued: 0 }, 500);
       if ("status" in study && study.status === "suppressed") {
         // Recording a suppressed result is not a successful study cycle.
-        return createErrorResponse("Study suppressed", { ...stored, study, recovery, qualification: "automated_study", enqueued: 0 }, 503);
+        return respond(createErrorResponse("Study suppressed", { ...stored, study, recovery, qualification: "automated_study", enqueued: 0 }, 503));
       }
-      return createSuccessResponse({ ...stored, study, recovery, qualification: "automated_study", enqueued: 0 });
+      return respond(createSuccessResponse({ ...stored, study, recovery, qualification: "automated_study", enqueued: 0 }));
     }
     if (recovery.failed) return createErrorResponse("Study recovery incomplete", { recovery, enqueued: 0 }, 500);
-    return createSuccessResponse({ ...stored, qualification: "prototype_unqualified", enqueued: 0 });
+    return respond(createSuccessResponse({ ...stored, qualification: "prototype_unqualified", enqueued: 0 }));
   } catch (error) {
     const tuple = getSingleRunTupleDiagnostic(error);
     const diagnostic = { stage, code: failureCode(error), ...(tuple ? { tuple } : {}) };
     if (automated) {
       console.error("[swell-watch-acquire] automated study failed", diagnostic);
-      return createErrorResponse("Study failed", { stage: diagnostic.stage, code: diagnostic.code, enqueued: 0 }, 500);
+      return setMonitorStatus(createErrorResponse("Study failed", { stage: diagnostic.stage, code: diagnostic.code, enqueued: 0 }, 500), "error");
     }
     console.error("[swell-watch-acquire] acquisition failed", diagnostic);
-    return createErrorResponse("Producer failed", { stage: diagnostic.stage, code: diagnostic.code, enqueued: 0 }, 500);
+    return setMonitorStatus(createErrorResponse("Producer failed", { stage: diagnostic.stage, code: diagnostic.code, enqueued: 0 }, 500), "error");
   }
 }
 
@@ -145,4 +211,4 @@ export const GET = withObservedCron("/api/cron/swell-watch-acquire", async (requ
   const response = await acquire(request);
   response.headers.set("Cache-Control", "private, no-store, no-cache, must-revalidate");
   return response;
-});
+}, { slug: "swell-watch-acquire", schedule: "15 * * * *", maxRuntimeMinutes: 6 });

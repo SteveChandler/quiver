@@ -283,6 +283,97 @@ describe("withObservedCron", () => {
     );
   });
 
+  it("maps a suppression header to an ok Sentry check-in and strips it", async () => {
+    const { createSupabaseServiceRoleClient } = require("@/lib/supabase/server");
+    const client = mockChain();
+    createSupabaseServiceRoleClient.mockResolvedValue(client);
+
+    const handler = withObservedCron(
+      "/api/cron/test",
+      async (_req: Request) => {
+        const response = errorEnvelope("Study suppressed", null, 503);
+        response.headers.set("x-cron-monitor-status", "ok");
+        return response;
+      },
+      sentryMonitor,
+    );
+    const response = await handler(makeAuthorizedRequest());
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("x-cron-monitor-status")).toBeNull();
+    expect(completeCronCheckIn).toHaveBeenCalledWith("check-in-1", "test-monitor", "ok", expect.any(Number));
+  });
+
+  it("maps an explicit skip to an ok Sentry check-in", async () => {
+    const { createSupabaseServiceRoleClient } = require("@/lib/supabase/server");
+    const client = mockChain();
+    createSupabaseServiceRoleClient.mockResolvedValue(client);
+
+    const handler = withObservedCron(
+      "/api/cron/test",
+      async (_req: Request) => {
+        const response = successEnvelope({ skipped: true, reason: "study_expiring" });
+        response.headers.set("x-cron-monitor-status", "ok");
+        return response;
+      },
+      sentryMonitor,
+    );
+    await handler(makeAuthorizedRequest());
+
+    expect(completeCronCheckIn).toHaveBeenCalledWith("check-in-1", "test-monitor", "ok", expect.any(Number));
+  });
+
+  it("honors a stalled-study error even when the HTTP response is successful", async () => {
+    const { createSupabaseServiceRoleClient } = require("@/lib/supabase/server");
+    const client = mockChain();
+    createSupabaseServiceRoleClient.mockResolvedValue(client);
+
+    const handler = withObservedCron(
+      "/api/cron/test",
+      async (_req: Request) => {
+        const response = successEnvelope({ skipped: true, reason: "collection_in_progress" });
+        response.headers.set("x-cron-monitor-status", "error");
+        return response;
+      },
+      sentryMonitor,
+    );
+    const response = await handler(makeAuthorizedRequest());
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-cron-monitor-status")).toBeNull();
+    expect(completeCronCheckIn).toHaveBeenCalledWith("check-in-1", "test-monitor", "error", expect.any(Number));
+  });
+
+  it("keeps the response-based default for routes without an override", async () => {
+    const { createSupabaseServiceRoleClient } = require("@/lib/supabase/server");
+    const client = mockChain();
+    createSupabaseServiceRoleClient.mockResolvedValue(client);
+
+    const handler = withObservedCron(
+      "/api/cron/test",
+      async (_req: Request) => errorEnvelope("failed", null, 500),
+      sentryMonitor,
+    );
+    await handler(makeAuthorizedRequest());
+
+    expect(completeCronCheckIn).toHaveBeenCalledWith("check-in-1", "test-monitor", "error", expect.any(Number));
+  });
+
+  it("stores a bounded summary for oversized response bodies", async () => {
+    const { createSupabaseServiceRoleClient } = require("@/lib/supabase/server");
+    const client = mockChain();
+    createSupabaseServiceRoleClient.mockResolvedValue(client);
+    const handler = withObservedCron("/api/cron/test", async (_req: Request) =>
+      jsonResponse({ data: { payload: "x".repeat(9_000) }, status: "ok" }),
+    );
+
+    await handler(makeAuthorizedRequest());
+
+    expect(findUpdate(client, (row) => row.status === "ok")?.[0]).toMatchObject({
+      summary: { truncated: true, status: 200, keys: ["data", "status"], bytes: expect.any(Number) },
+    });
+  });
+
   it("records Sentry monitor error check-ins before rethrowing handler errors", async () => {
     const { createSupabaseServiceRoleClient } = require("@/lib/supabase/server");
     const client = mockChain();
