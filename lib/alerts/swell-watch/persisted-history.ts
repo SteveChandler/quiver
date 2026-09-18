@@ -27,7 +27,7 @@ interface HistoryClient {
 export async function loadSwellWatchHistory(
   input: { regionKey: string; beachId: string },
   client: HistoryClient,
-): Promise<Array<RegionalSwellEvaluation & { evaluatedAt: string; eventState: "candidate" | "stable" | "suppressed" }>> {
+): Promise<{ history: Array<RegionalSwellEvaluation & { evaluatedAt: string; eventState: "candidate" | "stable" | "suppressed" }>; staleHistoryExcluded: number }> {
   z.object({ regionKey: z.string().min(1).max(100), beachId: z.uuid() }).parse(input);
   // ponytail: fail closed above 1,000 associations; add paginated snapshot reads if regions outgrow this bound.
   const result = await client.from("swell_watch_event_impacts")
@@ -47,7 +47,8 @@ export async function loadSwellWatchHistory(
   if (result.count !== rows.length || new Set(rows.map((row) => `${row.regional_event_id}:${row.evaluation_id}`)).size !== rows.length) {
     throw new Error("Swell Watch history is truncated or duplicated");
   }
-  const history: Awaited<ReturnType<typeof loadSwellWatchHistory>> = [];
+  const history: Array<RegionalSwellEvaluation & { evaluatedAt: string; eventState: "candidate" | "stable" | "suppressed" }> = [];
+  let staleHistoryExcluded = 0;
   for (const row of rows) {
     const event = row.swell_watch_regional_events;
     const impact = row.swell_watch_beach_impacts;
@@ -63,12 +64,19 @@ export async function loadSwellWatchHistory(
     const attested = await client.rpc("read_swell_watch_attested_components", {
       p_provider_batch_id: partition.provider_batch_id, p_source_point_id: partition.source_point_id, p_forecast_at: partition.forecast_at,
     });
-    if (attested.error) throw new Error(`Swell Watch history attestation failed: ${attested.error.message}`);
+    if (attested.error) {
+      const attestationMessage = attested.error.message.replace(/^ERROR:\s+/, "");
+      if (attestationMessage === "current provider attestation is required") {
+        staleHistoryExcluded += 1;
+        continue;
+      }
+      throw new Error(`Swell Watch history attestation failed: ${attested.error.message}`);
+    }
     const components = z.array(z.object({ evaluation_id: identity, source_slot: z.enum(["s1", "s2"]),
-      height_m: z.number().finite().nonnegative(), period_s: z.number().finite().positive(), direction_deg: z.number().finite().min(0).lt(360) })).length(2).parse(attested.data);
-    const matched = components.find((component) => component.source_slot === partition.source_slot);
-    if (new Set(components.map((component) => component.source_slot)).size !== 2
-      || components.some((component) => component.evaluation_id !== row.evaluation_id)
+      height_m: z.number().finite().nonnegative(), period_s: z.number().finite().positive(), direction_deg: z.number().finite().min(0).lt(360) })).max(2).parse(attested.data);
+    const matching = components.filter((component) => component.source_slot === partition.source_slot);
+    const matched = matching[0];
+    if (matching.length !== 1 || components.some((component) => component.evaluation_id !== row.evaluation_id)
       || !matched || matched.height_m !== partition.height_m || matched.period_s !== partition.period_s || matched.direction_deg !== partition.direction_deg) {
       throw new Error("Swell Watch history differs from attested component");
     }
@@ -81,18 +89,19 @@ export async function loadSwellWatchHistory(
           directionDeg: partition.direction_deg, completeness: "complete" } },
     });
   }
-  return history;
+  return { history, staleHistoryExcluded };
 }
 
 /** Matching is advisory; atomic enqueue still checks the latest completed run frontier. */
 export async function loadMatchedSwellWatchHistory(
   input: { regionKey: string; beachId: string; regionalEventId: string; evaluationId: string; policy: SwellWatchPolicy },
   client: HistoryClient,
-): Promise<{ regionalEvent: MatchedRegionalEvent; confidence: number | null }> {
+): Promise<{ regionalEvent: MatchedRegionalEvent; confidence: number | null; staleHistoryExcluded: number }> {
   input = structuredClone(input);
   z.object({ regionalEventId: z.uuid(), evaluationId: identity }).parse(input);
   if (!verifySwellWatchPolicy(input.policy)) throw new Error("Invalid matching policy");
-  const history = (await loadSwellWatchHistory(input, client))
+  const loaded = await loadSwellWatchHistory(input, client);
+  const history = loaded.history
     .filter((item) => item.persistedRegionalEventId === input.regionalEventId);
   const current = history.at(-1);
   if (!current || current.identity.id !== input.evaluationId) throw new Error("Current evaluation is absent or superseded");
@@ -104,9 +113,10 @@ export async function loadMatchedSwellWatchHistory(
   if (regionalEvent.regionalEventId !== input.regionalEventId) throw new Error("Persisted matching identity changed");
   if (current.eventState !== "stable") {
     return { regionalEvent: { ...regionalEvent,
-      status: regionalEvent.status === "suppressed" ? "suppressed" : current.eventState }, confidence: null };
+      status: regionalEvent.status === "suppressed" ? "suppressed" : current.eventState }, confidence: null,
+    staleHistoryExcluded: loaded.staleHistoryExcluded };
   }
   const prior = history.at(-2);
   return { regionalEvent, confidence: regionalEvent.status === "stable" && prior
-    ? calculateSwellWatchConsistency(prior, current, input.policy) : null };
+    ? calculateSwellWatchConsistency(prior, current, input.policy) : null, staleHistoryExcluded: loaded.staleHistoryExcluded };
 }

@@ -8,6 +8,7 @@ import type { SwellWatchPolicy } from "@/lib/alerts/swell-watch/policy";
 import type { SwellPartitionObservation } from "@/lib/alerts/swell-watch/partition-normalizer";
 import hatteras00 from "@/__tests__/fixtures/swell-watch-retained-20260916/hatteras-20260916T00Z.json";
 import hatteras06 from "@/__tests__/fixtures/swell-watch-retained-20260916/hatteras-20260916T06Z.json";
+import hatterasSep17 from "@/__tests__/fixtures/swell-watch-retained-20260917/hatteras-20260917T12Z.json";
 
 const complete = "complete_partitions.v1" as const;
 const partial = "primary_partition_with_retained_unavailable_secondary.v1" as const;
@@ -35,8 +36,10 @@ function derive(series: Part[][], qualificationRule: typeof complete | typeof pa
     beach: { swell_window_center_deg: 170, swell_window_halfwidth_deg: 30 },
     sampling: { profile: resolveNativeSamplingProfile(sourceIdentity), issuedAt } });
 }
-function fixtureRun(fixture: typeof hatteras00 | typeof hatteras06) {
-  return { ...fixture.run, source: { ...fixture.run.source, sourcePointId: fixture.sourcePointId } };
+type HatterasFixture = typeof hatteras00 | typeof hatteras06 | typeof hatterasSep17;
+function fixtureRun(fixture: HatterasFixture) {
+  const sourcePointId = "sourcePointId" in fixture ? fixture.sourcePointId : fixture.run.source.sourcePointId;
+  return { ...fixture.run, source: { ...fixture.run.source, sourcePointId } };
 }
 it("retains unavailable coverage without tracking a gap far from events", () => {
   const series = frames(); gap(series, 5, 14); gap(series, 166, 167);
@@ -124,6 +127,14 @@ it.each([[hatteras00, 3, 52, "2026-09-20T09:00:00.000Z", "2026-09-20T10:00:00.00
   expect(result.derivation.partitionCoverage.s2.absent).toBe(s2Absent);
   expect(result.events).toHaveLength(1);
   expect(result.events[0]).toMatchObject({ arrivalWindow: { earliestAt: arrivalEarliest, latestAt: arrivalLatest }, closureWindow: { earliestAt: closureEarliest, latestAt: closureLatest } });
+});
+it("derives the retained Sep 17 Hatteras persisted event under epoch 5", async () => {
+  const data = fixtureRun(hatterasSep17);
+  const result = await deriveAttestedSwellWatchRun({ providerBatchId: data.source.providerBatchId, sourcePointId: data.source.sourcePointId,
+    qualificationRule: swellSystemCount, now: new Date(Date.parse(hatterasSep17.issuedAt) + 8 * 3_600_000).toISOString(), beach: hatterasSep17.beach, policy }, { rpc: async () => ({ data, error: null }) });
+  expect(result.kind).toBe("derived");
+  if (result.kind !== "derived") throw new Error("Expected retained Sep 17 Hatteras to derive");
+  expect(result.events).toContainEqual(expect.objectContaining({ arrivalWindow: expect.objectContaining({ latestAt: "2026-09-20T15:00:00.000Z" }), peakAt: "2026-09-20T18:00:00.000Z", impact: expect.objectContaining({ partition: expect.objectContaining({ sourceSlot: "s1" }) }) }));
 });
 it.each([hatteras00, hatteras06])("suppresses retained Sep 16 Hatteras under epoch 4 at %s", async (fixture) => {
   const data = fixtureRun(fixture);
