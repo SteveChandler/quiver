@@ -7,7 +7,7 @@
 ## Source Of Truth
 
 - `lib/constants/app-store.ts` owns the shared App Store app id, App Store URL, CTA text, destination status, smart banner argument, and Android beta landing/group/contact constants.
-- Browser install CTAs use `/app-store?ct=...`, whose server route adds `IOS_APP_STORE_PROVIDER_TOKEN` before redirecting to Apple. Client bundles never read that environment variable directly.
+- Browser install CTAs use the shared `https://go.quiversurf.app/app/handoff` URL with a per-click `handoff_id`. `/app-store?ct=...` remains a bookmark-compatible alias that server-mints an ID before redirecting to the handoff route. The handoff route adds `IOS_APP_STORE_PROVIDER_TOKEN` only at the final Apple redirect; client bundles never read that environment variable directly.
 - Apple campaign labels are deliberately limited to `web`, `email`, and `partner_qr`; Quiver source/surface/placement/UTM fields retain their own higher-resolution attribution.
 - Landing, forecast, final CTA, iPhone banner, and iOS CTA analytics read these constants instead of hardcoding destination copy.
 - Android beta remains a separate web landing path. Web pricing and founding access copy must not imply Android closed-beta access is the same as the public iOS install path.
