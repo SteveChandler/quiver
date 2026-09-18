@@ -819,21 +819,19 @@ END $$;`);
   ];
   const hardeningHashes = (functions) => value(`SELECT jsonb_object_agg(name,encode(extensions.digest(pg_get_functiondef(name::regprocedure),'sha256'),'hex')) FROM unnest(ARRAY[${functions.map(q).join(",")}]) name;`);
   const hardeningAcls = (functions) => value(`SELECT jsonb_object_agg(name,proacl::text) FROM unnest(ARRAY[${functions.map(q).join(",")}]) name JOIN pg_proc ON oid=name::regprocedure;`);
-  const preHardeningHashes = hardeningHashes(hardeningFunctions);
-  const preHardeningAcls = hardeningAcls(hardeningFunctions);
   const preExtensionHealth = value("SELECT public.read_swell_watch_study_health();");
   const preExtensionAuthorities = authorityRows();
   const preExtensionPolicies = value("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;");
   const preCycleRunUtc = new Date(Date.parse(epoch5Authority[4].not_before) - 6 * 3_600_000).toISOString();
   setClock(epoch5Issuances.at(-1), 8);
   for (const signature of hardeningFunctions) sql(`ALTER FUNCTION public.${signature} SET search_path=public,pg_temp;`);
-  const resolverFixturePreHash = sql("SELECT encode(extensions.digest(pg_get_functiondef('public.resolve_and_ingest_swell_watch_evaluation(uuid,uuid,uuid,uuid,text,text,timestamptz,text,numeric,numeric,numeric,numeric,text,text,text,timestamptz,timestamptz)'::regprocedure),'sha256'),'hex');");
-  const fixtureHardeningMigration = hardeningMigration
-    .replaceAll("fbb618bc867533b9cfb61c2d676c2430a9d6926e04623daf5da7c8e802d9f00b", resolverFixturePreHash);
-  sql(fixtureHardeningMigration);
+  const preHardeningHashes = hardeningHashes(hardeningFunctions);
+  const preHardeningAcls = hardeningAcls(hardeningFunctions);
+  sql(hardeningMigration);
   const resolverTimeoutHash = sql("SELECT encode(extensions.digest(pg_get_functiondef('public.resolve_and_ingest_swell_watch_evaluation(uuid,uuid,uuid,uuid,text,text,timestamptz,text,numeric,numeric,numeric,numeric,text,text,text,timestamptz,timestamptz)'::regprocedure),'sha256'),'hex');");
   const fixtureExtension = extensionScript
     .replace("767a3021f43cf63895aa6fa13ad552094983de7c99d74ff5fb4cf14c3de8fce5", resolverTimeoutHash);
+  const runFixtureExtension = () => sql(`SET search_path=public,extensions,pg_catalog,pg_temp; ${fixtureExtension}`);
   const assertExtensionRejected = (name, mutation, pattern) => {
     database = "postgres";
     sql(`CREATE DATABASE ${name} TEMPLATE study_swell_system_count;`);
@@ -842,7 +840,7 @@ END $$;`);
       sql(mutation);
       const authorities = sql("SELECT jsonb_agg(to_jsonb(a) ORDER BY epoch) FROM public.swell_watch_study_authorities a;");
       const policies = sql("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;");
-      assert.throws(() => sql(fixtureExtension), pattern);
+      assert.throws(runFixtureExtension, pattern);
       assert.equal(sql("SELECT jsonb_agg(to_jsonb(a) ORDER BY epoch) FROM public.swell_watch_study_authorities a;"), authorities);
       assert.equal(sql("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;"), policies);
     } finally {
@@ -861,8 +859,13 @@ END $$;`);
     INSERT INTO public.swell_watch_evaluation_policies
     (epoch,state,policy_hash,policy_values,reviewer,evidence_hash,not_before,expires_at)
     SELECT 3,'revoked',repeat('c',64),p.policy_values,p.reviewer,repeat('b',64),p.not_before,p.expires_at FROM public.swell_watch_evaluation_policies p WHERE p.epoch=2;`, /unexpected evaluation policy; exact extension retry only/);
-  sql(fixtureExtension); const extendedAuthorities = authorityRows(); const extendedPolicies = value("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;");
-  sql(fixtureExtension); assert.deepEqual(authorityRows(), extendedAuthorities); assert.deepEqual(value("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;"), extendedPolicies);
+  runFixtureExtension(); const extendedAuthorities = authorityRows(); const extendedPolicies = value("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;");
+  runFixtureExtension(); assert.deepEqual(authorityRows(), extendedAuthorities); assert.deepEqual(value("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;"), extendedPolicies);
+  sql(`DO $$ DECLARE f regprocedure; BEGIN
+    FOR f IN SELECT oid::regprocedure FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname<>'clock_timestamp' LOOP
+      EXECUTE format('ALTER FUNCTION %s SET search_path=public,extensions,pg_catalog,pg_temp',f);
+    END LOOP;
+  END $$;`);
   const extendedHealth = value("SELECT public.read_swell_watch_study_health();");
   assert.equal(extendedHealth.authorityEpoch, 6); assert.equal(extendedHealth.cycleStartEpoch, 5); assert.equal(extendedHealth.cycleNotBefore, epoch5Authority[4].not_before);
   assert.equal(extendedHealth.status, "active"); assert.equal(extendedHealth.expiresAt, "2026-12-31T23:59:59+00:00");
@@ -886,6 +889,7 @@ END $$;`);
   assert.throws(() => sql(`UPDATE public.beaches SET lat=32.1 WHERE id=${q(cohortBeach)}::uuid;`), /pinned by the active Swell Watch study/);
   sql(`UPDATE public.beaches SET lat=32.1 WHERE id=${q(nonCohortBeach)}::uuid; UPDATE public.beaches SET name='fixture' WHERE id=${q(cohortBeach)}::uuid;`);
   sql(extensionRevoke); const revokedHealth = value("SELECT public.read_swell_watch_study_health();"); const revokedAuthorities = authorityRows(); assert.equal(revokedHealth.status, "blocked"); sql(extensionRevoke); assert.deepEqual(authorityRows(), revokedAuthorities);
+  for (const signature of hardeningFunctions) sql(`ALTER FUNCTION public.${signature} SET search_path=public,pg_temp;`);
   sql(hardeningRollback);
   assert.deepEqual(hardeningHashes(hardeningFunctions), preHardeningHashes); assert.deepEqual(hardeningAcls(hardeningFunctions), preHardeningAcls);
   assert.equal(sql("SELECT count(*) FROM public.swell_watch_study_recovery_failures;"), "1"); assert.equal(sql("SELECT count(*) FROM public.swell_watch_shadow_demand_observations;"), "0");
