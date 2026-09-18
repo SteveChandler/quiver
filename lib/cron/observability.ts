@@ -204,11 +204,28 @@ export function withObservedCron<H extends (request: Request) => Promise<Respons
           summary = null;
         }
       }
-      const requestedMonitorStatus = response.headers.get("x-cron-monitor-status");
+      let requestedMonitorStatus: string | null = null;
+      let responseHeaders: { get?: unknown; delete?: unknown } | undefined;
+      try {
+        responseHeaders = (response as Response & {
+          headers?: { get?: unknown; delete?: unknown };
+        }).headers;
+        if (responseHeaders && typeof responseHeaders.get === "function") {
+          requestedMonitorStatus = responseHeaders.get("x-cron-monitor-status") as string | null;
+        }
+      } catch {
+        requestedMonitorStatus = null;
+      }
       const monitorStatus = requestedMonitorStatus === "ok" || requestedMonitorStatus === "error"
         ? requestedMonitorStatus
         : response.ok ? "ok" : "error";
-      response.headers.delete("x-cron-monitor-status");
+      try {
+        if (responseHeaders && typeof responseHeaders.delete === "function") {
+          responseHeaders.delete("x-cron-monitor-status");
+        }
+      } catch {
+        // Some Response headers are immutable; stripping telemetry is best effort.
+      }
       if (authorized && !response.ok) {
         captureCronFailure(
           route,

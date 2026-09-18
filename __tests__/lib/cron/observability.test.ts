@@ -216,6 +216,41 @@ describe("withObservedCron", () => {
     return client._updateMock.mock.calls.find((call) => predicate(call[0] as Record<string, unknown>));
   }
 
+  it("handles a response without headers", async () => {
+    const { createSupabaseServiceRoleClient } = require("@/lib/supabase/server");
+    const client = mockChain();
+    createSupabaseServiceRoleClient.mockResolvedValue(client);
+    const response = { ok: true, status: 200 } as unknown as Response;
+
+    await expect(
+      withObservedCron("/api/cron/test", async (_req: Request) => response, sentryMonitor)(makeAuthorizedRequest()),
+    ).resolves.toBe(response);
+
+    expect(completeCronCheckIn).toHaveBeenCalledWith("check-in-1", "test-monitor", "ok", expect.any(Number));
+  });
+
+  it("does not fail when response headers cannot be deleted", async () => {
+    const { createSupabaseServiceRoleClient } = require("@/lib/supabase/server");
+    const client = mockChain();
+    createSupabaseServiceRoleClient.mockResolvedValue(client);
+    const response = {
+      ok: true,
+      status: 200,
+      headers: {
+        get: jest.fn(() => "ok"),
+        delete: jest.fn(() => {
+          throw new TypeError("immutable headers");
+        }),
+      },
+    } as unknown as Response;
+
+    await expect(
+      withObservedCron("/api/cron/test", async (_req: Request) => response, sentryMonitor)(makeAuthorizedRequest()),
+    ).resolves.toBe(response);
+
+    expect(completeCronCheckIn).toHaveBeenCalledWith("check-in-1", "test-monitor", "ok", expect.any(Number));
+  });
+
   it("records ok with null error_message when handler returns 200", async () => {
     const { createSupabaseServiceRoleClient } = require("@/lib/supabase/server");
     const client = mockChain();
