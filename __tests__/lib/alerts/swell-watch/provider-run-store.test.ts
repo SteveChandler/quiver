@@ -93,7 +93,9 @@ describe("provider run receipt store", () => {
       scopes[1].latitude = 0;
       return { status: 200, text: async () => response() };
     });
-    const rpc = jest.fn().mockResolvedValue({ data: [ids], error: null });
+    const rpc = jest.fn().mockImplementation(async (name: string, args: { p_run_utcs?: string[] }) => name === "read_swell_watch_provider_run_states"
+      ? { data: args.p_run_utcs?.map((run_utc) => ({ run_utc, revision_set_id: null, completed_batch_id: null, evaluated: false })), error: null }
+      : { data: [ids], error: null });
     await acquireProviderRunReceipts({ ...input, scopes }, fetcher, { rpc });
     expect(fetcher).toHaveBeenCalledTimes(2);
     expect(new URL(fetcher.mock.calls[1][0]).searchParams.get("latitude")).toBe("32.8");
@@ -109,15 +111,17 @@ describe("provider run receipt store", () => {
       last_run_availability_time: issued + 3700, temporal_resolution_seconds: 3600, update_interval_seconds: 21600 };
     const fetcher = jest.fn().mockResolvedValueOnce({ status: 200, text: async () => JSON.stringify(metadata) })
       .mockResolvedValueOnce({ status: 200, text: async () => responseFor(input.runUtc) });
-    const rpc = jest.fn().mockResolvedValue({ data: [ids], error: null });
+    const rpc = jest.fn().mockImplementation(async (name: string, args: { p_run_utcs?: string[] }) => name === "read_swell_watch_provider_run_states"
+      ? { data: args.p_run_utcs?.map((run_utc) => ({ run_utc, revision_set_id: null, completed_batch_id: null, evaluated: false })), error: null }
+      : { data: [ids], error: null });
     await acquireProviderRunReceipts({ forecastDays: 1, scopes: [source],
       latestAvailableAt: new Date((issued + 4300) * 1000) }, fetcher, { rpc });
     expect(fetcher).toHaveBeenCalledTimes(2);
     expect(fetcher.mock.calls[0]).toEqual(["https://marine-api.open-meteo.com/data/ncep_gfswave016/static/meta.json", { method: "GET", redirect: "error" }]);
     expect(new URL(fetcher.mock.calls[1][0]).searchParams.get("run")).toBe("2026-09-03T06:00");
-    expect(rpc).toHaveBeenCalledTimes(1);
-    expect(rpc.mock.calls[0][0]).toBe("record_swell_watch_provider_run_receipt");
-    expect(rpc.mock.calls[0][1].p_scopes[0].receipt.qualification.status).toBe("prototype_unqualified");
+    expect(rpc).toHaveBeenCalledTimes(2);
+    expect(rpc.mock.calls[1][0]).toBe("record_swell_watch_provider_run_receipt");
+    expect(rpc.mock.calls[1][1].p_scopes[0].receipt.qualification.status).toBe("prototype_unqualified");
     for (const invalid of [metadata, { ...metadata, last_run_initialisation_time: issued + 1 },
       { ...metadata, last_run_modification_time: issued - 1 }, { ...metadata, last_run_availability_time: issued },
       { ...metadata, update_interval_seconds: 1 }, { ...metadata, temporal_resolution_seconds: 0 },
@@ -131,25 +135,21 @@ describe("provider run receipt store", () => {
     }
   });
 
-  it("acquires the two missing earlier fresh issuances, oldest first, and bounds the lookback", async () => {
+  it("acquires the two missing earlier fresh issuances through the RPC, oldest first, and bounds the lookback", async () => {
     const latest = "2026-09-05T12:00Z";
     const metadata = { last_run_initialisation_time: Date.parse(latest) / 1000, last_run_modification_time: Date.parse(latest) / 1000,
       last_run_availability_time: Date.parse(latest) / 1000, temporal_resolution_seconds: 3600, update_interval_seconds: 21600 };
     const fetcher = jest.fn()
       .mockResolvedValueOnce({ status: 200, text: async () => JSON.stringify(metadata) })
       .mockImplementation(async (url: string) => ({ status: 200, text: async () => responseFor(`${new URL(url).searchParams.get("run")}Z`) }));
-    const rpc = jest.fn().mockResolvedValue({ data: [ids], error: null });
-    const from = jest.fn().mockReturnValue({
-      select: jest.fn().mockReturnThis(),
-      in: jest.fn().mockReturnThis(),
-      limit: jest.fn().mockResolvedValue({ data: [], error: null }),
-    });
-
-    await acquireProviderRunReceipts({ forecastDays: 1, scopes: [source], latestAvailableAt: new Date("2026-09-05T17:00Z") }, fetcher, { rpc, from } as never);
+    const rpc = jest.fn().mockImplementation(async (name: string) => name === "read_swell_watch_provider_run_states"
+      ? { data: [], error: null } : { data: [ids], error: null });
+    await acquireProviderRunReceipts({ forecastDays: 1, scopes: [source], latestAvailableAt: new Date("2026-09-05T17:00Z") }, fetcher, { rpc });
 
     expect(fetcher).toHaveBeenCalledTimes(4);
     expect(fetcher.mock.calls.slice(1).map(([url]) => new URL(url).searchParams.get("run")))
       .toEqual(["2026-09-05T00:00", "2026-09-05T06:00", "2026-09-05T12:00"]);
+    expect(rpc).toHaveBeenCalledWith("read_swell_watch_provider_run_states", { p_run_utcs: ["2026-09-05T12:00Z", "2026-09-05T06:00Z", "2026-09-05T00:00Z"] });
   });
 
   it("skips provider fetches when the latest issuance is stale", async () => {
@@ -172,17 +172,37 @@ describe("provider run receipt store", () => {
       last_run_initialisation_time: issued, last_run_modification_time: issued, last_run_availability_time: issued,
       temporal_resolution_seconds: 3600, update_interval_seconds: 21600,
     }) });
-    const from = jest.fn().mockReturnValue({
-      select: jest.fn().mockReturnThis(),
-      in: jest.fn().mockReturnThis(),
-      limit: jest.fn().mockResolvedValue({ data: [{ run_utc: latest,
-      swell_watch_provider_run_batches: [{ id: ids.run_batch_id, swell_watch_provider_run_completed_batches: [{ swell_watch_study_evaluations: [{ status: "evaluated" }] }] }] }], error: null }),
-    });
+    const rpc = jest.fn().mockResolvedValue({ data: [{ run_utc: latest, revision_set_id: ids.revision_set_id,
+      completed_batch_id: ids.run_batch_id, evaluated: true }], error: null });
 
-    const result = await acquireProviderRunReceipts({ forecastDays: 1, scopes: [source], latestAvailableAt: new Date("2026-09-05T13:00Z") }, fetcher, { rpc: jest.fn(), from } as never);
+    const result = await acquireProviderRunReceipts({ forecastDays: 1, scopes: [source], latestAvailableAt: new Date("2026-09-05T13:00Z") }, fetcher, { rpc });
 
     expect(result).toEqual({ skipped: true, reason: "latest_issuance_already_evaluated", enqueued: 0 });
     expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ["RPC error", { data: null, error: { message: "function does not exist" } }],
+    ["malformed rows", { data: [{ run_utc: "2026-09-05T12:00Z", evaluated: "yes" }], error: null }],
+    ["RPC missing", undefined],
+  ])("fails closed on %s and fetches only the latest issuance", async (_label, result) => {
+    const latest = "2026-09-05T12:00Z";
+    const issued = Date.parse(latest) / 1000;
+    const fetcher = jest.fn().mockResolvedValueOnce({ status: 200, text: async () => JSON.stringify({
+      last_run_initialisation_time: issued, last_run_modification_time: issued, last_run_availability_time: issued,
+      temporal_resolution_seconds: 3600, update_interval_seconds: 21600,
+    }) }).mockImplementation(async (url: string) => ({ status: 200, text: async () => responseFor(`${new URL(url).searchParams.get("run")}Z`) }));
+    const rpc = jest.fn().mockImplementation(async (name: string) => name === "read_swell_watch_provider_run_states"
+      ? result : { data: [ids], error: null });
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    await acquireProviderRunReceipts({ forecastDays: 1, scopes: [source], latestAvailableAt: new Date("2026-09-05T17:00Z") }, fetcher, { rpc });
+
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(new URL(fetcher.mock.calls[1][0]).searchParams.get("run")).toBe("2026-09-05T12:00");
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith("[swell-watch-acquire] provider run state unavailable");
+    warn.mockRestore();
   });
 
   it("does not acquire or persist after failed, malformed or oversized availability responses", async () => {

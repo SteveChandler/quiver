@@ -17,7 +17,10 @@ export interface ProviderRunScope {
 }
 
 export interface ProviderRunReceiptRpcClient {
-  rpc: (name: "record_swell_watch_provider_run_receipt", args: { p_scopes: Array<ProviderRunScope & { receipt: PrototypeSingleRunReceipt & { hourlyUnits: Record<string, string> } }> }) => Promise<{ data: unknown; error: { message: string } | null }>;
+  rpc: {
+    (name: "read_swell_watch_provider_run_states", args: { p_run_utcs: readonly string[] }): Promise<{ data: unknown; error: { message: string } | null }>;
+    (name: "record_swell_watch_provider_run_receipt", args: { p_scopes: Array<ProviderRunScope & { receipt: PrototypeSingleRunReceipt & { hourlyUnits: Record<string, string> } }> }): Promise<{ data: unknown; error: { message: string } | null }>;
+  };
 }
 
 export interface StoredProviderRunReceipt {
@@ -28,7 +31,7 @@ export interface StoredProviderRunReceipt {
 
 export type ProviderRunAcquisitionSkipReason = "latest_issuance_stale" | "latest_issuance_already_evaluated";
 export type ProviderRunAcquisitionResult = StoredProviderRunReceipt | { skipped: true; reason: ProviderRunAcquisitionSkipReason; enqueued: 0 };
-type StoredProviderRunState = { evaluated: boolean; stored: StoredProviderRunReceipt | null };
+type StoredProviderRunState = { evaluated: boolean };
 
 interface ProviderRunAcquisitionScope {
   sourcePointId: string;
@@ -121,7 +124,6 @@ export async function acquireProviderRunReceipts(
   if (!Number.isInteger(forecastDays) || forecastDays < 1 || forecastDays > 7) throw new Error("Provider acquisition horizon is invalid");
   let runUtc: string;
   let extraRuns: string[] = [];
-  let existingLatest: StoredProviderRunReceipt | null = null;
   if ("runUtc" in input) runUtc = input.runUtc;
   else {
     const now = input.latestAvailableAt.getTime();
@@ -142,18 +144,18 @@ export async function acquireProviderRunReceipts(
     }
     runUtc = new Date(issued * 1000).toISOString().slice(0, 16) + "Z";
     if (now > issued * 1000 + 12 * 3_600_000) return { skipped: true, reason: "latest_issuance_stale", enqueued: 0 };
-    const canReadStoredRuns = typeof (client as unknown as { from?: unknown }).from === "function";
     const candidatesToRead = [runUtc, ...[1, 2].map((hours) =>
       new Date(issued * 1000 - hours * 6 * 3_600_000).toISOString().slice(0, 16) + "Z")];
-    const states = canReadStoredRuns ? await readStoredProviderRunStates(candidatesToRead, client) : new Map();
-    const latestState = states.get(runUtc);
-    if (latestState?.evaluated) return { skipped: true, reason: "latest_issuance_already_evaluated", enqueued: 0 };
-    existingLatest = latestState?.stored ?? null;
-    const candidates = [1, 2].map((hours) => new Date(issued * 1000 - hours * 6 * 3_600_000).toISOString().slice(0, 16) + "Z")
-      .filter((candidate) => Date.parse(candidate) <= issued * 1000)
-      .filter((candidate) => !states.has(candidate))
-      .sort((left, right) => Date.parse(left) - Date.parse(right));
-    extraRuns = canReadStoredRuns ? candidates.slice(0, 2) : [];
+    const states = await readStoredProviderRunStates(candidatesToRead, client);
+    if (states) {
+      if (states.get(runUtc)?.evaluated) return { skipped: true, reason: "latest_issuance_already_evaluated", enqueued: 0 };
+      extraRuns = [1, 2].map((hours) => new Date(issued * 1000 - hours * 6 * 3_600_000).toISOString().slice(0, 16) + "Z")
+        .filter((candidate) => Date.parse(candidate) <= issued * 1000)
+        .filter((candidate) => !states.has(candidate))
+        .sort((left, right) => Date.parse(left) - Date.parse(right)).slice(0, 2);
+    } else {
+      console.warn("[swell-watch-acquire] provider run state unavailable");
+    }
   }
   const acquireOne = async (requestedRunUtc: string): Promise<StoredProviderRunReceipt> => {
     scopes.forEach(({ latitude, longitude }) => buildOpenMeteoSingleRunRequest({ latitude, longitude, runUtc: requestedRunUtc, forecastDays }));
@@ -164,42 +166,28 @@ export async function acquireProviderRunReceipts(
     return storePrototypeSingleRunReceipts(receipts, client);
   };
   for (const requestedRunUtc of extraRuns) await acquireOne(requestedRunUtc);
-  return existingLatest ?? acquireOne(runUtc);
+  return acquireOne(runUtc);
 }
 
 export async function readStoredProviderRunStates(
   runUtcs: readonly string[],
   client: unknown,
-): Promise<Map<string, StoredProviderRunState>> {
-  const reader = client as { from?: (table: string) => {
-    select: (columns: string) => { in: (column: string, values: readonly string[]) => { limit: (count: number) => PromiseLike<{ data: unknown; error: unknown }> } };
-  } };
-  if (typeof reader.from !== "function" || !runUtcs.length) return new Map();
+): Promise<Map<string, StoredProviderRunState> | null> {
+  const reader = client as { rpc?: (name: "read_swell_watch_provider_run_states", args: { p_run_utcs: readonly string[] }) => PromiseLike<{ data: unknown; error: unknown }> };
+  if (typeof reader.rpc !== "function" || !runUtcs.length) return null;
   try {
-    const result = await reader.from("swell_watch_provider_run_issuances").select(
-      "id,run_utc,swell_watch_provider_run_batches(id,swell_watch_provider_run_revision_sets(id,revision_number),swell_watch_provider_run_completed_batches(id,swell_watch_study_evaluations(status)))",
-    ).in("run_utc", runUtcs).limit(100);
-    if (result.error || !Array.isArray(result.data)) return new Map();
+    const result = await reader.rpc("read_swell_watch_provider_run_states", { p_run_utcs: runUtcs });
+    if (result.error) return null;
+    const rows = z.array(z.object({ run_utc: z.string(), revision_set_id: z.uuid().nullable(), completed_batch_id: z.uuid().nullable(), evaluated: z.boolean() }).strict()).parse(result.data);
+    const expected = new Set(runUtcs);
     const states = new Map<string, StoredProviderRunState>();
-    for (const row of result.data) {
-      if (!row || typeof row !== "object" || typeof (row as { run_utc?: unknown }).run_utc !== "string") continue;
-      const issuance = row as { id?: unknown; run_utc: string; swell_watch_provider_run_batches?: unknown };
-      const batches = Array.isArray(issuance.swell_watch_provider_run_batches) ? issuance.swell_watch_provider_run_batches : [];
-      const batch = batches.find((value) => value && typeof value === "object" && typeof (value as { id?: unknown }).id === "string") as {
-        id: string; swell_watch_provider_run_revision_sets?: unknown; swell_watch_provider_run_completed_batches?: unknown;
-      } | undefined;
-      const revisionSets = Array.isArray(batch?.swell_watch_provider_run_revision_sets) ? batch.swell_watch_provider_run_revision_sets : [];
-      const revisionSet = revisionSets.filter((value) => value && typeof value === "object" && typeof (value as { id?: unknown }).id === "string")
-        .sort((left, right) => Number((right as { revision_number?: unknown }).revision_number) - Number((left as { revision_number?: unknown }).revision_number))[0] as { id: string } | undefined;
-      const completed = Array.isArray(batch?.swell_watch_provider_run_completed_batches) ? batch.swell_watch_provider_run_completed_batches : [];
-      const evaluations = completed.flatMap((value) => value && typeof value === "object" && Array.isArray((value as { swell_watch_study_evaluations?: unknown }).swell_watch_study_evaluations)
-        ? (value as { swell_watch_study_evaluations: unknown[] }).swell_watch_study_evaluations : []);
-      states.set(issuance.run_utc, { evaluated: evaluations.some((value) => value && typeof value === "object" && (value as { status?: unknown }).status === "evaluated"),
-        stored: typeof issuance.id === "string" && batch && revisionSet ? { issuanceId: issuance.id, runBatchId: batch.id, revisionSetId: revisionSet.id } : null });
+    for (const row of rows) {
+      if (!expected.has(row.run_utc) || states.has(row.run_utc)) return null;
+      states.set(row.run_utc, { evaluated: row.evaluated });
     }
     return states;
   } catch {
-    return new Map();
+    return null;
   }
 }
 

@@ -52,7 +52,8 @@ export async function acquireSwellWatchCohort(
     };
     onStage?.("provider_fetch");
     return await acquireProviderRunReceipts({ latestAvailableAt: new Date(), forecastDays: 7, scopes }, fetcher, {
-        rpc: async (_name, args) => {
+        rpc: async (name, args) => {
+          if (name === "read_swell_watch_provider_run_states") return await leaseClient.rpc(name, args);
           onStage?.("receipt_storage");
           return await leaseClient.rpc("record_leased_swell_watch_provider_run_receipt", { ...args, p_owner: owner });
         },
