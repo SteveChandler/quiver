@@ -12,7 +12,7 @@ describe("root App Store metadata", () => {
 
     expect(content).toContain("app-id=6759300320");
     expect(appArgument.origin + appArgument.pathname).toBe(
-      "https://www.quiversurf.app/app",
+      "https://go.quiversurf.app/app",
     );
     expect(appArgument.searchParams.get("source")).toBe("ios_smart_app_banner");
     expect(appArgument.searchParams.get("utm_campaign")).toBe("app_first_v1");

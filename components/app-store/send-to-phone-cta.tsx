@@ -17,6 +17,7 @@ import {
   trackAppHandoffQrRendered,
 } from "@/lib/analytics/app-handoff-tracking";
 import { buildSmartQrHandoffUrl } from "@/lib/constants/app-handoff";
+import { getClientPostHogDistinctId } from "@/lib/posthog-client";
 import { IOS_APP_STORE_WEB_REDIRECT_PATH } from "@/lib/constants/app-store";
 import { cn } from "@/lib/utils";
 
@@ -74,6 +75,7 @@ export function SendToPhoneCta({
       qr_id: qrId ?? `${surface}_${placement}_qr`,
       target: target ?? "download",
       utm_medium: "desktop_handoff",
+      web_distinct_id: getClientPostHogDistinctId(),
     });
   }, [handoffId, placement, qrId, source, surface, target]);
 
@@ -136,6 +138,7 @@ export function SendToPhoneCta({
         body: JSON.stringify({
           email,
           handoff_id: handoffId,
+          web_distinct_id: getClientPostHogDistinctId(),
           source,
           surface,
           placement,

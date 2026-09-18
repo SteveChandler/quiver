@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useRef, type ReactElement, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  type MouseEvent,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 
 import {
   trackIosAppCtaClick,
@@ -8,8 +14,9 @@ import {
 } from "@/lib/analytics/ios-app-cta-tracking";
 import {
   IOS_APP_STORE_CTA,
-  IOS_APP_STORE_WEB_REDIRECT_PATH,
 } from "@/lib/constants/app-store";
+import { createClientAppHandoffLink } from "@/lib/analytics/app-handoff-link";
+import { buildAppHandoffUrl } from "@/lib/constants/app-handoff";
 
 interface IosAppStoreCtaProps {
   source: string;
@@ -19,7 +26,11 @@ interface IosAppStoreCtaProps {
   children?: ReactNode;
 }
 
-const IOS_APP_STORE_CAMPAIGN_URL = IOS_APP_STORE_WEB_REDIRECT_PATH;
+const IOS_APP_HANDOFF_URL = buildAppHandoffUrl({
+  source: "ios_app_cta",
+  surface: "web",
+  placement: "app_store_cta",
+});
 
 export function IosAppStoreCta({
   source,
@@ -42,7 +53,7 @@ export function IosAppStoreCta({
         source,
         surface,
         placement,
-        destination_url: IOS_APP_STORE_CAMPAIGN_URL,
+        destination_url: IOS_APP_HANDOFF_URL,
       });
     };
 
@@ -69,15 +80,22 @@ export function IosAppStoreCta({
   return (
     <a
       ref={linkRef}
-      href={IOS_APP_STORE_CAMPAIGN_URL}
+      href={IOS_APP_HANDOFF_URL}
       className={className}
-      onClick={() => {
+      onClick={(event: MouseEvent<HTMLAnchorElement>) => {
+        const handoff = createClientAppHandoffLink({
+          source,
+          surface,
+          placement,
+        });
+        event.currentTarget.href = handoff.url;
         trackIosAppCtaClick({
           source,
           surface,
           placement,
           cta_text: IOS_APP_STORE_CTA,
-          destination_url: IOS_APP_STORE_CAMPAIGN_URL,
+          destination_url: handoff.url,
+          handoff_id: handoff.handoffId,
         });
       }}
     >

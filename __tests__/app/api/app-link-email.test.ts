@@ -76,6 +76,9 @@ describe("POST /api/app-link-email", () => {
     expect(JSON.stringify(arg.react)).toContain(
       "handoff_id=33333333-3333-4333-8333-333333333333",
     );
+    expect(JSON.stringify(arg.react)).toContain(
+      "https://go.quiversurf.app/app/handoff",
+    );
     expect(JSON.stringify(arg.react)).toContain("utm_campaign=app_first_v1");
   });
 

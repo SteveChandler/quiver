@@ -133,7 +133,8 @@ describe("ContentPageAppHandoffCta", () => {
 
       expect(cta).toHaveAttribute("data-surface", props.surface);
       expect(cta).toHaveAttribute("data-placement", props.placement);
-      expect(link).toHaveAttribute("href", expect.stringContaining("/app/handoff"));
+    expect(link).toHaveAttribute("href", expect.stringContaining("/app/handoff"));
+      expect(link).toHaveAttribute("href", expect.stringContaining("go.quiversurf.app"));
       expect(link).toHaveAttribute("href", expect.stringContaining(`surface=${props.surface}`));
       expect(link).toHaveAttribute("href", expect.stringContaining(`placement=${props.placement}`));
 
@@ -187,6 +188,9 @@ describe("ContentPageAppHandoffCta", () => {
             target: props.target,
             destination_type: "app_handoff",
             cta_family: "app_handoff",
+            handoff_id: expect.stringMatching(
+              /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+            ),
           }),
         }),
       );

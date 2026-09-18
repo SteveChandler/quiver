@@ -43,7 +43,7 @@ describe("app-store constants", () => {
     const smartBannerArgument = new URL(IOS_APP_STORE_SMART_BANNER_ARGUMENT);
 
     expect(smartBannerArgument.origin + smartBannerArgument.pathname).toBe(
-      "https://www.quiversurf.app/app",
+      "https://go.quiversurf.app/app",
     );
     expect(smartBannerArgument.searchParams.get("source")).toBe(
       "ios_smart_app_banner",

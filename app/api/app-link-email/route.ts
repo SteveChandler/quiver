@@ -8,10 +8,9 @@ import {
 } from "@/lib/middleware/api-wrappers";
 import {
   APP_FIRST_CAMPAIGN,
-  buildAppHandoffPath,
+  buildAppHandoffUrl,
 } from "@/lib/constants/app-handoff";
 import {
-  getBaseUrl,
   MAIL_FROM,
   MAIL_REPLY_TO,
   sendEmail,
@@ -77,7 +76,7 @@ export const POST = withBotBlockingAndRateLimit(
       return createErrorResponse("Could not send the link.", undefined, 503);
     }
 
-    const appUrl = `${getBaseUrl()}${buildAppHandoffPath({
+    const appUrl = buildAppHandoffUrl({
       source: source ?? "app_link_email",
       surface: surface ?? "email",
       placement: placement ?? "email",
@@ -85,7 +84,8 @@ export const POST = withBotBlockingAndRateLimit(
       utm_source: "email",
       utm_medium: "app_link",
       utm_campaign: APP_FIRST_CAMPAIGN,
-    })}`;
+      web_distinct_id: parsed.data.web_distinct_id,
+    });
 
     try {
       const { error } = await sendEmail({
