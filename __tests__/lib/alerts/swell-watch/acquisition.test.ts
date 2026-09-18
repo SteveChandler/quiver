@@ -115,4 +115,18 @@ describe("leased Swell Watch acquisition", () => {
       ["collection_lease"], ["acquisition_scope"], ["provider_fetch"], ["lease_release"],
     ]);
   });
+
+  it("fails with a fixed provider budget error before provider work can consume the route budget", async () => {
+    const now = jest.spyOn(Date, "now").mockReturnValueOnce(1_000).mockReturnValue(181_001);
+    jest.mocked(acquireProviderRunReceipts).mockImplementationOnce(async (_input, fetcher) => {
+      await fetcher("https://provider.test", { method: "GET", redirect: "error" });
+      return stored;
+    });
+
+    await expect(acquireSwellWatchCohort(cohort, client)).rejects.toThrow("provider budget exceeded");
+    expect(rpc.mock.calls.map(([name]) => name)).toEqual([
+      "try_acquire_swell_watch_collection_lease", "release_swell_watch_collection_lease",
+    ]);
+    now.mockRestore();
+  });
 });
