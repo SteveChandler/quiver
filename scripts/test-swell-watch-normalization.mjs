@@ -825,7 +825,7 @@ END $$;`);
   const preExtensionAuthorities = authorityRows();
   const preExtensionPolicies = value("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;");
   const preCycleRunUtc = new Date(Date.parse(epoch5Authority[4].not_before) - 6 * 3_600_000).toISOString();
-  setClock(preCycleRunUtc, 8);
+  setClock(epoch5Issuances.at(-1), 8);
   for (const signature of hardeningFunctions) sql(`ALTER FUNCTION public.${signature} SET search_path=public,pg_temp;`);
   const resolverFixturePreHash = sql("SELECT encode(extensions.digest(pg_get_functiondef('public.resolve_and_ingest_swell_watch_evaluation(uuid,uuid,uuid,uuid,text,text,timestamptz,text,numeric,numeric,numeric,numeric,text,text,text,timestamptz,timestamptz)'::regprocedure),'sha256'),'hex');");
   const fixtureHardeningMigration = hardeningMigration
