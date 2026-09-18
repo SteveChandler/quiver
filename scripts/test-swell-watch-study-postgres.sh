@@ -163,6 +163,8 @@ wait "$second_pid"
 query "SELECT public.study_assert((SELECT count(*) FROM public.swell_watch_study_acceptances WHERE revision_set_id=(SELECT revision_set_id FROM public.study_pending))=1,'concurrent acceptance once'); SELECT public.study_assert((SELECT count(*) FROM public.swell_watch_provider_run_completed_batches WHERE revision_set_id=(SELECT revision_set_id FROM public.study_pending))=1,'concurrent completion once');"
 # Synchronize on the held control lock, not elapsed time, before testing revocation.
 query 'SELECT public.study_probe_legacy_ingestion(false)'
+shadow_demand_pairs=$(query "SELECT recorded_pairs_24h FROM public.record_swell_watch_shadow_demand((SELECT provider_batch_id FROM public.study_pending),repeat('a',64),jsonb_build_array(jsonb_build_object('regional_event_id',(SELECT regional_event_id FROM public.swell_watch_event_impacts event_impact JOIN public.swell_watch_beach_impacts impact ON impact.id=event_impact.beach_impact_id JOIN public.swell_watch_observations observation ON observation.id=impact.observation_id WHERE observation.provider_batch_id=(SELECT provider_batch_id FROM public.study_pending) AND impact.policy_hash=repeat('a',64) LIMIT 1),'recipient_id','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')))")
+[ "$shadow_demand_pairs" -ge 1 ] || { echo 'Shadow demand real-pair assertion failed' >&2; exit 1; }
 query "BEGIN; SELECT public.study_install(5,'revoked'); SELECT pg_sleep(2); COMMIT;" &
 revoke_pid=$!
 deadline=$((SECONDS + 10))

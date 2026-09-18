@@ -5,10 +5,10 @@
 -- read_swell_watch_study_health b2789dfdb0637335290be5883ef57f19e2889cfa071d1ecbadd6ad9b72b30c01 -> 6adbb0b212ce88fbe0cd407726d5401fe540264f1be8e0c9baa7634ec72f699f
 -- complete_swell_watch_study_run 58c3a7bb5b32a0bcb3c7ab1d95678bcc93dcde2bd2763feec24ee2cffd44d85c -> c6c5a29b834f23762e6509a2cc09701026726ae3cc79613b0b74ce2d19c96e7b
 -- record_swell_watch_study_evaluation d1165986abe16e5c177a4d778dfa0f23ddd9d2b7407ee81c07755e39364c9f03 -> 783c4973bb51591f7629ae1ec67729390adc33f4405910ffc8c39f1cffa1337d
--- read_swell_watch_study_pending_runs bb6fd6011ad2505b6307468e95d51992993dbb9cc0fa796d10e47c4c5e3e6e39 -> ea0098355c0e042bdd2225970071f33823965a8081b1560606764a9c7dbc9250
+-- read_swell_watch_study_pending_runs bb6fd6011ad2505b6307468e95d51992993dbb9cc0fa796d10e47c4c5e3e6e39 -> 1881fb9299c3fa91f7a0b60c782439f49c026890d4344f8775778141a439e0a2
 -- resolve_and_ingest_swell_watch_evaluation fbb618bc867533b9cfb61c2d676c2430a9d6926e04623daf5da7c8e802d9f00b -> 9ad173f153dec99bb8d8f7bdf4710a54c66ecf732300756b8d6c9ac8f8c324a0
 -- advance_swell_watch_event 30884e1bf78ebd1d35f4c36f30b7b93ef622d76d71d14a25cc9d445f6d5c9d18 -> 78bca1572d81dfb07d7e6112514f698f5079b613c08cc8f715b9f5803db027d4
--- record_swell_watch_shadow_demand 414be8da27827b45d94d090176c3518ca1a8759db52b21630e11290da5c23375 -> ec357fc76e473c3d0508bbfc80acd4d6a6d0e5c4b935b16c01f2e7feae8c52bf (or timeout-adjusted 6cdc9bf3e3605571dfe82040a91aad49ad02124c9bee8fc41908124cfac87f47)
+-- record_swell_watch_shadow_demand 414be8da27827b45d94d090176c3518ca1a8759db52b21630e11290da5c23375 -> a0988e626f8813aaed74e932d5850e35dde846153c9b9ee3306c778657482931 (or timeout-adjusted 343ffc9289a607a6707bf46f4204025a1cb5fe21c8feb5e02a454b86d022c79a)
 BEGIN;
 SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='60s';
@@ -206,19 +206,19 @@ BEGIN
 END;
 $amend$;
 
--- read_swell_watch_study_pending_runs(text): pre bb6fd6011ad2505b6307468e95d51992993dbb9cc0fa796d10e47c4c5e3e6e39; post ea0098355c0e042bdd2225970071f33823965a8081b1560606764a9c7dbc9250.
+-- read_swell_watch_study_pending_runs(text): pre bb6fd6011ad2505b6307468e95d51992993dbb9cc0fa796d10e47c4c5e3e6e39; post 1881fb9299c3fa91f7a0b60c782439f49c026890d4344f8775778141a439e0a2.
 DO $amend$
 DECLARE definition text;
 BEGIN
   SELECT pg_get_functiondef('public.read_swell_watch_study_pending_runs(text)'::regprocedure) INTO definition;
-  IF encode(extensions.digest(definition,'sha256'),'hex') IN ('ea0098355c0e042bdd2225970071f33823965a8081b1560606764a9c7dbc9250','27e2b3446f4d1b95db0ea832631cf8d10ecadc1b9bc9e672da4b8c2103917629') THEN RETURN; END IF;
+  IF encode(extensions.digest(definition,'sha256'),'hex') IN ('1881fb9299c3fa91f7a0b60c782439f49c026890d4344f8775778141a439e0a2','1f19ab40a3e2658739ef6a2eec144e40fcb0d33cb763f12639d6ba303287ce15') THEN RETURN; END IF;
   IF encode(extensions.digest(definition,'sha256'),'hex')<>'bb6fd6011ad2505b6307468e95d51992993dbb9cc0fa796d10e47c4c5e3e6e39' THEN RAISE EXCEPTION 'study pending definition differs from reviewed baseline'; END IF;
   definition := replace(definition, 'DECLARE a public.swell_watch_study_authorities; pending jsonb; max_age interval;', 'DECLARE a public.swell_watch_study_authorities; pending jsonb; max_age interval; cycle_start bigint; cycle_before timestamptz;');
   definition := replace(definition, '  SELECT * INTO a FROM public.swell_watch_current_study_authority(p_policy_hash);\n  IF NOT FOUND THEN RAISE EXCEPTION ''current study config required''; END IF;', '  SELECT * INTO a FROM public.swell_watch_current_study_authority(p_policy_hash);\n  IF NOT FOUND THEN RAISE EXCEPTION ''current study config required''; END IF;\n  cycle_start := public.swell_watch_study_cycle_start(a.epoch);\n  SELECT not_before INTO cycle_before FROM public.swell_watch_study_authorities WHERE epoch=cycle_start;');
   definition := replace(definition, '      AND i.run_utc<=clock_timestamp() AND i.run_utc>=clock_timestamp()-max_age', '      AND i.run_utc<=clock_timestamp() AND i.run_utc>=greatest(clock_timestamp()-max_age,cycle_before)');
-  definition := replace(definition, '      AND NOT EXISTS(SELECT 1 FROM public.swell_watch_study_acceptances s WHERE s.revision_set_id=rs.id AND s.authority_epoch<>a.epoch)', '      AND NOT EXISTS(SELECT 1 FROM public.swell_watch_study_acceptances s WHERE s.revision_set_id=rs.id AND s.authority_epoch NOT BETWEEN cycle_start AND a.epoch)\n      AND NOT EXISTS(SELECT 1 FROM public.swell_watch_study_recovery_failures failure WHERE failure.revision_set_id=rs.id\n        AND failure.failed_at > clock_timestamp()-make_interval(hours=>least(power(2,(SELECT count(*) FROM public.swell_watch_study_recovery_failures count_failure WHERE count_failure.revision_set_id=rs.id)-1),4)))');
+  definition := replace(definition, '      AND NOT EXISTS(SELECT 1 FROM public.swell_watch_study_acceptances s WHERE s.revision_set_id=rs.id AND s.authority_epoch<>a.epoch)', '      AND NOT EXISTS(SELECT 1 FROM public.swell_watch_study_acceptances s WHERE s.revision_set_id=rs.id AND s.authority_epoch NOT BETWEEN cycle_start AND a.epoch)\n      AND NOT EXISTS(SELECT 1 FROM public.swell_watch_study_recovery_failures failure WHERE failure.revision_set_id=rs.id\n        AND failure.failed_at > clock_timestamp()-make_interval(secs=>least(power(2,(SELECT count(*) FROM public.swell_watch_study_recovery_failures count_failure WHERE count_failure.revision_set_id=rs.id)-1),4)*3600))');
   EXECUTE definition;
-  IF encode(extensions.digest(pg_get_functiondef('public.read_swell_watch_study_pending_runs(text)'::regprocedure),'sha256'),'hex')<>'ea0098355c0e042bdd2225970071f33823965a8081b1560606764a9c7dbc9250' THEN RAISE EXCEPTION 'study pending definition hash mismatch'; END IF;
+  IF encode(extensions.digest(pg_get_functiondef('public.read_swell_watch_study_pending_runs(text)'::regprocedure),'sha256'),'hex') NOT IN ('1881fb9299c3fa91f7a0b60c782439f49c026890d4344f8775778141a439e0a2','1f19ab40a3e2658739ef6a2eec144e40fcb0d33cb763f12639d6ba303287ce15') THEN RAISE EXCEPTION 'study pending definition hash mismatch'; END IF;
 END;
 $amend$;
 
@@ -254,12 +254,12 @@ BEGIN
 END;
 $amend$;
 
--- record_swell_watch_shadow_demand(uuid,text,jsonb): pre 414be8da27827b45d94d090176c3518ca1a8759db52b21630e11290da5c23375; post ec357fc76e473c3d0508bbfc80acd4d6a6d0e5c4b935b16c01f2e7feae8c52bf.
+-- record_swell_watch_shadow_demand(uuid,text,jsonb): pre 414be8da27827b45d94d090176c3518ca1a8759db52b21630e11290da5c23375; post a0988e626f8813aaed74e932d5850e35dde846153c9b9ee3306c778657482931.
 DO $amend$
 DECLARE current_hash text;
 BEGIN
   SELECT encode(extensions.digest(pg_get_functiondef('public.record_swell_watch_shadow_demand(uuid,text,jsonb)'::regprocedure),'sha256'),'hex') INTO current_hash;
-  IF current_hash IN ('ec357fc76e473c3d0508bbfc80acd4d6a6d0e5c4b935b16c01f2e7feae8c52bf','6cdc9bf3e3605571dfe82040a91aad49ad02124c9bee8fc41908124cfac87f47') THEN RETURN; END IF;
+  IF current_hash IN ('a0988e626f8813aaed74e932d5850e35dde846153c9b9ee3306c778657482931','343ffc9289a607a6707bf46f4204025a1cb5fe21c8feb5e02a454b86d022c79a') THEN RETURN; END IF;
   IF current_hash<>'414be8da27827b45d94d090176c3518ca1a8759db52b21630e11290da5c23375' THEN RAISE EXCEPTION 'shadow demand definition differs from reviewed baseline'; END IF;
 END;
 $amend$;
@@ -295,7 +295,7 @@ BEGIN
     SELECT (pair->>'regional_event_id')::uuid,(pair->>'recipient_id')::uuid,measured_at FROM jsonb_array_elements(canonical) pair ON CONFLICT(regional_event_id,recipient_id) DO NOTHING;
   INSERT INTO public.swell_watch_shadow_demand_observations(provider_batch_id,policy_hash,regional_event_id,recipient_id,observed_at)
     SELECT p_provider_batch_id,p_policy_hash,(pair->>'regional_event_id')::uuid,(pair->>'recipient_id')::uuid,measured_at FROM jsonb_array_elements(canonical) pair;
-  SELECT count(DISTINCT (regional_event_id,recipient_id)) INTO total FROM public.swell_watch_shadow_demand_observations WHERE observed_at>measured_at-interval '24 hours' AND observed_at<=measured_at;
+  SELECT count(DISTINCT (observation.regional_event_id,observation.recipient_id)) INTO total FROM public.swell_watch_shadow_demand_observations observation WHERE observation.observed_at>measured_at-interval '24 hours' AND observation.observed_at<=measured_at;
   INSERT INTO public.swell_watch_shadow_demand_runs(provider_batch_id,policy_hash,observed_at,recipient_events,recorded_pairs_24h) VALUES(p_provider_batch_id,p_policy_hash,measured_at,canonical,total);
   RETURN QUERY SELECT measured_at,total;
 END;
@@ -303,7 +303,7 @@ $$;
 
 DO $amend$
 BEGIN
-  IF encode(extensions.digest(pg_get_functiondef('public.record_swell_watch_shadow_demand(uuid,text,jsonb)'::regprocedure),'sha256'),'hex') NOT IN ('ec357fc76e473c3d0508bbfc80acd4d6a6d0e5c4b935b16c01f2e7feae8c52bf','6cdc9bf3e3605571dfe82040a91aad49ad02124c9bee8fc41908124cfac87f47') THEN RAISE EXCEPTION 'shadow demand definition hash mismatch'; END IF;
+  IF encode(extensions.digest(pg_get_functiondef('public.record_swell_watch_shadow_demand(uuid,text,jsonb)'::regprocedure),'sha256'),'hex') NOT IN ('a0988e626f8813aaed74e932d5850e35dde846153c9b9ee3306c778657482931','343ffc9289a607a6707bf46f4204025a1cb5fe21c8feb5e02a454b86d022c79a') THEN RAISE EXCEPTION 'shadow demand definition hash mismatch'; END IF;
 END;
 $amend$;
 

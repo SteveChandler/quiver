@@ -108,11 +108,11 @@ DECLARE definition text;
 BEGIN
   SELECT pg_get_functiondef('public.read_swell_watch_study_pending_runs(text)'::regprocedure) INTO definition;
   IF encode(extensions.digest(definition,'sha256'),'hex')='bb6fd6011ad2505b6307468e95d51992993dbb9cc0fa796d10e47c4c5e3e6e39' THEN RETURN; END IF;
-  IF encode(extensions.digest(definition,'sha256'),'hex')<>'27e2b3446f4d1b95db0ea832631cf8d10ecadc1b9bc9e672da4b8c2103917629' THEN RAISE EXCEPTION 'study pending differs from reviewed amendment'; END IF;
+  IF encode(extensions.digest(definition,'sha256'),'hex') NOT IN ('1881fb9299c3fa91f7a0b60c782439f49c026890d4344f8775778141a439e0a2','1f19ab40a3e2658739ef6a2eec144e40fcb0d33cb763f12639d6ba303287ce15') THEN RAISE EXCEPTION 'study pending differs from reviewed amendment'; END IF;
   definition := replace(definition,'; cycle_start bigint; cycle_before timestamptz;',';');
   definition := replace(definition,E'  SELECT * INTO a FROM public.swell_watch_current_study_authority(p_policy_hash);\n  IF NOT FOUND THEN RAISE EXCEPTION ''current study config required''; END IF;\n  cycle_start := public.swell_watch_study_cycle_start(a.epoch);\n  SELECT not_before INTO cycle_before FROM public.swell_watch_study_authorities WHERE epoch=cycle_start;',E'  SELECT * INTO a FROM public.swell_watch_current_study_authority(p_policy_hash);\n  IF NOT FOUND THEN RAISE EXCEPTION ''current study config required''; END IF;');
   definition := replace(definition,'i.run_utc>=greatest(clock_timestamp()-max_age,cycle_before)','i.run_utc>=clock_timestamp()-max_age');
-  definition := replace(definition,E'      AND NOT EXISTS(SELECT 1 FROM public.swell_watch_study_acceptances s WHERE s.revision_set_id=rs.id AND s.authority_epoch NOT BETWEEN cycle_start AND a.epoch)\n      AND NOT EXISTS(SELECT 1 FROM public.swell_watch_study_recovery_failures failure WHERE failure.revision_set_id=rs.id\n        AND failure.failed_at > clock_timestamp()-make_interval(hours=>least(power(2,(SELECT count(*) FROM public.swell_watch_study_recovery_failures count_failure WHERE count_failure.revision_set_id=rs.id)-1),4)))',E'      AND NOT EXISTS(SELECT 1 FROM public.swell_watch_study_acceptances s WHERE s.revision_set_id=rs.id AND s.authority_epoch<>a.epoch)');
+  definition := replace(definition,E'      AND NOT EXISTS(SELECT 1 FROM public.swell_watch_study_acceptances s WHERE s.revision_set_id=rs.id AND s.authority_epoch NOT BETWEEN cycle_start AND a.epoch)\n      AND NOT EXISTS(SELECT 1 FROM public.swell_watch_study_recovery_failures failure WHERE failure.revision_set_id=rs.id\n        AND failure.failed_at > clock_timestamp()-make_interval(secs=>least(power(2,(SELECT count(*) FROM public.swell_watch_study_recovery_failures count_failure WHERE count_failure.revision_set_id=rs.id)-1),4)*3600))',E'      AND NOT EXISTS(SELECT 1 FROM public.swell_watch_study_acceptances s WHERE s.revision_set_id=rs.id AND s.authority_epoch<>a.epoch)');
   definition := replace(definition,E'\n SET lock_timeout TO ''10s''\n SET statement_timeout TO ''60s''','');
   EXECUTE definition;
   IF encode(extensions.digest(pg_get_functiondef('public.read_swell_watch_study_pending_runs(text)'::regprocedure),'sha256'),'hex')<>'bb6fd6011ad2505b6307468e95d51992993dbb9cc0fa796d10e47c4c5e3e6e39' THEN RAISE EXCEPTION 'study pending rollback hash mismatch'; END IF;
@@ -129,7 +129,7 @@ DECLARE definition text;
 BEGIN
   SELECT pg_get_functiondef('public.record_swell_watch_shadow_demand(uuid,text,jsonb)'::regprocedure) INTO definition;
   IF encode(extensions.digest(definition,'sha256'),'hex')='414be8da27827b45d94d090176c3518ca1a8759db52b21630e11290da5c23375' THEN RETURN; END IF;
-  IF encode(extensions.digest(definition,'sha256'),'hex')<>'6cdc9bf3e3605571dfe82040a91aad49ad02124c9bee8fc41908124cfac87f47' THEN RAISE EXCEPTION 'shadow demand differs from reviewed amendment'; END IF;
+  IF encode(extensions.digest(definition,'sha256'),'hex')<>'343ffc9289a607a6707bf46f4204025a1cb5fe21c8feb5e02a454b86d022c79a' THEN RAISE EXCEPTION 'shadow demand differs from reviewed amendment'; END IF;
   definition := $definition$CREATE OR REPLACE FUNCTION public.record_swell_watch_shadow_demand(p_provider_batch_id uuid,p_policy_hash text,p_pairs jsonb)
  RETURNS TABLE(observed_at timestamptz,recorded_pairs_24h bigint)
  LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $function$
