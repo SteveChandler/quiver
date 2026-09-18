@@ -188,10 +188,43 @@ export function withObservedCron<H extends (request: Request) => Promise<Respons
         try {
           const cloned = response.clone();
           const text = await cloned.text();
-          if (text && text.length <= 8192) summary = JSON.parse(text);
+          if (text && text.length > 8192) {
+            let keys: string[] = [];
+            try {
+              const parsed: unknown = JSON.parse(text);
+              if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) keys = Object.keys(parsed);
+            } catch {
+              keys = [];
+            }
+            summary = { truncated: true, bytes: Buffer.byteLength(text, "utf8"), status: response.status, keys };
+          } else if (text) {
+            summary = JSON.parse(text);
+          }
         } catch {
           summary = null;
         }
+      }
+      let requestedMonitorStatus: string | null = null;
+      let responseHeaders: { get?: unknown; delete?: unknown } | undefined;
+      try {
+        responseHeaders = (response as Response & {
+          headers?: { get?: unknown; delete?: unknown };
+        }).headers;
+        if (responseHeaders && typeof responseHeaders.get === "function") {
+          requestedMonitorStatus = responseHeaders.get("x-cron-monitor-status") as string | null;
+        }
+      } catch {
+        requestedMonitorStatus = null;
+      }
+      const monitorStatus = requestedMonitorStatus === "ok" || requestedMonitorStatus === "error"
+        ? requestedMonitorStatus
+        : response.ok ? "ok" : "error";
+      try {
+        if (responseHeaders && typeof responseHeaders.delete === "function") {
+          responseHeaders.delete("x-cron-monitor-status");
+        }
+      } catch {
+        // Some Response headers are immutable; stripping telemetry is best effort.
       }
       if (authorized && !response.ok) {
         captureCronFailure(
@@ -205,7 +238,7 @@ export function withObservedCron<H extends (request: Request) => Promise<Respons
         await finishSentryCronCheckIn(
           checkInId,
           monitor.slug,
-          response.ok ? "ok" : "error",
+          monitorStatus,
           Date.now() - start,
         );
       }
