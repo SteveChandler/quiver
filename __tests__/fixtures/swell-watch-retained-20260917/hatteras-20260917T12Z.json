@@ -1,0 +1,6057 @@
+{
+ "beach": {
+  "deepwater_decay_factor": 1,
+  "shoaling_factors": null,
+  "swell_access_factors": [
+   0.47117,
+   0.575489,
+   0.740404,
+   0.92398,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   0.92398,
+   0.740404,
+   0.632847,
+   0.740404,
+   0.847961,
+   0.847961,
+   0.92398,
+   1,
+   0.92398,
+   0.847961,
+   0.92398,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   0.92398,
+   0.740404,
+   0.575489,
+   0.47117,
+   0.385762,
+   0.315835,
+   0.258584,
+   0.21171,
+   0.173334,
+   0.113155,
+   0.035126,
+   0.035126,
+   0.113155,
+   0.173334,
+   0.21171,
+   0.258584,
+   0.315835,
+   0.385762
+  ],
+  "swell_window_center_deg": 143,
+  "swell_window_halfwidth_deg": 168,
+  "terrain_enabled": true
+ },
+ "issuedAt": "2026-09-17T12:00:00+00:00",
+ "persistedEvent": {
+  "arrivalAt": "2026-09-20T15:00:00+00:00",
+  "directionDeg": 92,
+  "forecastAt": "2026-09-20T18:00:00+00:00",
+  "heightM": 1.3,
+  "peakAt": "2026-09-20T18:00:00+00:00",
+  "periodS": 7.7,
+  "regionalEventId": "f8486c8e-a066-4fe1-a3b4-5cc0fb9e9664",
+  "slot": "s1"
+ },
+ "providerBatchId": "ba2666a9-71ba-4457-bfec-5ed3a8ef90f7",
+ "revisionSetId": "92dfacb7-6c6a-4e8a-a9cf-cb188a315fff",
+ "run": {
+  "forecastDays": 7,
+  "samples": [
+   {
+    "components": [
+     {
+      "directionDeg": 86,
+      "heightM": 0.88,
+      "periodS": 7.15,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 126,
+      "heightM": 0.18,
+      "periodS": 13,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-17T12:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 86,
+      "heightM": 0.84,
+      "periodS": 7.1,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 126,
+      "heightM": 0.18,
+      "periodS": 12.95,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-17T13:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 87,
+      "heightM": 0.82,
+      "periodS": 7,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 126,
+      "heightM": 0.18,
+      "periodS": 12.9,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-17T14:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 87,
+      "heightM": 0.8,
+      "periodS": 6.95,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 127,
+      "heightM": 0.18,
+      "periodS": 12.8,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-17T15:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 88,
+      "heightM": 0.78,
+      "periodS": 6.9,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 127,
+      "heightM": 0.2,
+      "periodS": 12.75,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-17T16:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 88,
+      "heightM": 0.78,
+      "periodS": 6.9,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 127,
+      "heightM": 0.2,
+      "periodS": 12.7,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-17T17:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 89,
+      "heightM": 0.76,
+      "periodS": 6.85,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 127,
+      "heightM": 0.2,
+      "periodS": 12.7,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-17T18:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 89,
+      "heightM": 0.74,
+      "periodS": 6.8,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 127,
+      "heightM": 0.2,
+      "periodS": 12.65,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-17T19:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 89,
+      "heightM": 0.74,
+      "periodS": 6.75,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 127,
+      "heightM": 0.2,
+      "periodS": 12.6,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-17T20:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 90,
+      "heightM": 0.72,
+      "periodS": 6.75,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 127,
+      "heightM": 0.2,
+      "periodS": 12.6,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-17T21:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 90,
+      "heightM": 0.7,
+      "periodS": 6.7,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 128,
+      "heightM": 0.2,
+      "periodS": 12.6,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-17T22:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 90,
+      "heightM": 0.7,
+      "periodS": 6.65,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 128,
+      "heightM": 0.22,
+      "periodS": 12.6,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-17T23:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 90,
+      "heightM": 0.7,
+      "periodS": 6.6,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 128,
+      "heightM": 0.22,
+      "periodS": 12.55,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-18T00:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 91,
+      "heightM": 0.68,
+      "periodS": 6.6,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 128,
+      "heightM": 0.22,
+      "periodS": 12.55,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-18T01:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 92,
+      "heightM": 0.68,
+      "periodS": 6.6,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 128,
+      "heightM": 0.22,
+      "periodS": 12.5,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-18T02:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 92,
+      "heightM": 0.68,
+      "periodS": 6.65,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 128,
+      "heightM": 0.22,
+      "periodS": 12.5,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-18T03:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 94,
+      "heightM": 0.68,
+      "periodS": 6.7,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 128,
+      "heightM": 0.2,
+      "periodS": 12.5,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-18T04:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 95,
+      "heightM": 0.68,
+      "periodS": 6.7,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 128,
+      "heightM": 0.2,
+      "periodS": 12.5,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-18T05:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 89,
+      "heightM": 0.58,
+      "periodS": 6.75,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 103,
+      "heightM": 0.3,
+      "periodS": 8.75,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-18T06:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 90,
+      "heightM": 0.56,
+      "periodS": 6.7,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 97,
+      "heightM": 0.36,
+      "periodS": 8.55,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-18T07:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 92,
+      "heightM": 0.66,
+      "periodS": 8.4,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 128,
+      "heightM": 0.22,
+      "periodS": 12.45,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-18T08:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 92,
+      "heightM": 0.66,
+      "periodS": 8.35,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 128,
+      "heightM": 0.22,
+      "periodS": 12.45,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-18T09:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 89,
+      "heightM": 0.62,
+      "periodS": 8.3,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 128,
+      "heightM": 0.22,
+      "periodS": 12.4,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-18T10:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 89,
+      "heightM": 0.62,
+      "periodS": 8.25,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 128,
+      "heightM": 0.22,
+      "periodS": 12.4,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-18T11:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 88,
+      "heightM": 0.62,
+      "periodS": 8.2,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 128,
+      "heightM": 0.2,
+      "periodS": 12.35,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-18T12:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 86,
+      "heightM": 0.58,
+      "periodS": 8.05,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 144,
+      "heightM": 0.22,
+      "periodS": 5.45,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-18T13:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 85,
+      "heightM": 0.58,
+      "periodS": 8,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 142,
+      "heightM": 0.24,
+      "periodS": 5,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-18T14:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 87,
+      "heightM": 0.58,
+      "periodS": 7.9,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 127,
+      "heightM": 0.22,
+      "periodS": 12.35,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-18T15:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 86,
+      "heightM": 0.58,
+      "periodS": 7.85,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 143,
+      "heightM": 0.22,
+      "periodS": 5.45,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-18T16:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 86,
+      "heightM": 0.58,
+      "periodS": 7.8,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 143,
+      "heightM": 0.22,
+      "periodS": 5.5,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-18T17:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 87,
+      "heightM": 0.56,
+      "periodS": 7.8,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 127,
+      "heightM": 0.22,
+      "periodS": 12.3,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-18T18:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 87,
+      "heightM": 0.56,
+      "periodS": 7.75,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 141,
+      "heightM": 0.24,
+      "periodS": 5.3,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-18T19:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 87,
+      "heightM": 0.54,
+      "periodS": 7.7,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 140,
+      "heightM": 0.24,
+      "periodS": 5.3,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-18T20:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 87,
+      "heightM": 0.54,
+      "periodS": 7.65,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 127,
+      "heightM": 0.22,
+      "periodS": 12.15,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-18T21:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 88,
+      "heightM": 0.54,
+      "periodS": 7.55,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 127,
+      "heightM": 0.22,
+      "periodS": 12.05,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-18T22:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 89,
+      "heightM": 0.52,
+      "periodS": 7.5,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 127,
+      "heightM": 0.22,
+      "periodS": 12,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-18T23:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 89,
+      "heightM": 0.52,
+      "periodS": 7.45,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 128,
+      "heightM": 0.24,
+      "periodS": 11.95,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-19T00:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 94,
+      "heightM": 0.56,
+      "periodS": 7.4,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 128,
+      "heightM": 0.24,
+      "periodS": 11.9,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-19T01:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 94,
+      "heightM": 0.52,
+      "periodS": 7.35,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 129,
+      "heightM": 0.26,
+      "periodS": 11.85,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-19T02:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 91,
+      "heightM": 0.52,
+      "periodS": 7.3,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 130,
+      "heightM": 0.3,
+      "periodS": 11.8,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-19T03:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 91,
+      "heightM": 0.52,
+      "periodS": 7.25,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 130,
+      "heightM": 0.3,
+      "periodS": 11.8,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-19T04:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 92,
+      "heightM": 0.5,
+      "periodS": 7.25,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 127,
+      "heightM": 0.24,
+      "periodS": 11.75,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-19T05:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 91,
+      "heightM": 0.5,
+      "periodS": 7.15,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 130,
+      "heightM": 0.3,
+      "periodS": 11.75,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-19T06:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 90,
+      "heightM": 0.48,
+      "periodS": 7.15,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 127,
+      "heightM": 0.22,
+      "periodS": 11.7,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-19T07:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 90,
+      "heightM": 0.48,
+      "periodS": 7.1,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 212,
+      "heightM": 0.26,
+      "periodS": 3.1,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-19T08:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 91,
+      "heightM": 0.48,
+      "periodS": 7.15,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 210,
+      "heightM": 0.26,
+      "periodS": 3.1,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-19T09:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 90,
+      "heightM": 0.46,
+      "periodS": 7,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 208,
+      "heightM": 0.24,
+      "periodS": 3.1,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-19T10:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 90,
+      "heightM": 0.46,
+      "periodS": 6.95,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 206,
+      "heightM": 0.24,
+      "periodS": 3.1,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-19T11:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 89,
+      "heightM": 0.46,
+      "periodS": 6.9,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 126,
+      "heightM": 0.24,
+      "periodS": 11.65,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-19T12:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 89,
+      "heightM": 0.44,
+      "periodS": 6.9,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 135,
+      "heightM": 0.24,
+      "periodS": 9,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-19T13:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 135,
+      "heightM": 0.24,
+      "periodS": 8.95,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 127,
+      "heightM": 0.22,
+      "periodS": 11.65,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-19T14:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 135,
+      "heightM": 0.24,
+      "periodS": 8.95,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 127,
+      "heightM": 0.22,
+      "periodS": 11.65,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-19T15:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 134,
+      "heightM": 0.26,
+      "periodS": 8.65,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 127,
+      "heightM": 0.22,
+      "periodS": 11.6,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-19T16:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 134,
+      "heightM": 0.26,
+      "periodS": 8.65,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 127,
+      "heightM": 0.22,
+      "periodS": 11.6,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-19T17:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 132,
+      "heightM": 0.28,
+      "periodS": 8.5,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 127,
+      "heightM": 0.22,
+      "periodS": 11.6,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-19T18:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 86,
+      "heightM": 0.34,
+      "periodS": 6.75,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 134,
+      "heightM": 0.26,
+      "periodS": 8.65,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-19T19:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 80,
+      "heightM": 0.32,
+      "periodS": 6.7,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 135,
+      "heightM": 0.28,
+      "periodS": 8.6,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-19T20:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 134,
+      "heightM": 0.28,
+      "periodS": 8.55,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 126,
+      "heightM": 0.24,
+      "periodS": 11.45,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-19T21:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 133,
+      "heightM": 0.28,
+      "periodS": 8.45,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 83,
+      "heightM": 0.28,
+      "periodS": 6.65,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-19T22:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 82,
+      "heightM": 0.3,
+      "periodS": 6.55,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 133,
+      "heightM": 0.28,
+      "periodS": 8.45,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-19T23:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 133,
+      "heightM": 0.3,
+      "periodS": 8.45,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 127,
+      "heightM": 0.22,
+      "periodS": 11.2,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-20T00:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 131,
+      "heightM": 0.3,
+      "periodS": 8.4,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 127,
+      "heightM": 0.22,
+      "periodS": 11.15,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-20T01:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 132,
+      "heightM": 0.3,
+      "periodS": 8.3,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 127,
+      "heightM": 0.24,
+      "periodS": 11.1,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-20T02:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 132,
+      "heightM": 0.3,
+      "periodS": 8.25,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 128,
+      "heightM": 0.24,
+      "periodS": 11.05,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-20T03:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 134,
+      "heightM": 0.3,
+      "periodS": 8.35,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 127,
+      "heightM": 0.24,
+      "periodS": 11.05,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-20T04:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 133,
+      "heightM": 0.28,
+      "periodS": 8.35,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 127,
+      "heightM": 0.24,
+      "periodS": 11,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-20T05:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 143,
+      "heightM": 0.24,
+      "periodS": 8.8,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 128,
+      "heightM": 0.24,
+      "periodS": 11,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-20T06:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 141,
+      "heightM": 0.24,
+      "periodS": 8.8,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 129,
+      "heightM": 0.24,
+      "periodS": 10.95,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-20T07:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 79,
+      "heightM": 0.98,
+      "periodS": 5.95,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 140,
+      "heightM": 0.24,
+      "periodS": 8.45,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-20T08:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 81,
+      "heightM": 0.98,
+      "periodS": 6.15,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 128,
+      "heightM": 0.22,
+      "periodS": 10.9,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-20T09:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 82,
+      "heightM": 1,
+      "periodS": 6.3,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 129,
+      "heightM": 0.22,
+      "periodS": 10.9,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-20T10:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 83,
+      "heightM": 1.04,
+      "periodS": 6.45,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 129,
+      "heightM": 0.22,
+      "periodS": 10.9,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-20T11:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 129,
+      "heightM": 0.18,
+      "periodS": 11.05,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 141,
+      "heightM": 0.1,
+      "periodS": 9.2,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-20T12:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 130,
+      "heightM": 0.18,
+      "periodS": 11.1,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-20T13:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 87,
+      "heightM": 1.16,
+      "periodS": 7.3,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 133,
+      "heightM": 0.16,
+      "periodS": 11.05,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-20T14:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 89,
+      "heightM": 1.2,
+      "periodS": 7.45,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 135,
+      "heightM": 0.1,
+      "periodS": 11.4,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-20T15:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 90,
+      "heightM": 1.24,
+      "periodS": 7.55,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 135,
+      "heightM": 0.08,
+      "periodS": 11.05,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-20T16:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 92,
+      "heightM": 1.28,
+      "periodS": 7.65,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-20T17:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 92,
+      "heightM": 1.3,
+      "periodS": 7.7,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-20T18:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 93,
+      "heightM": 1.3,
+      "periodS": 7.7,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-20T19:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 93,
+      "heightM": 1.3,
+      "periodS": 7.7,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-20T20:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 93,
+      "heightM": 1.3,
+      "periodS": 7.65,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-20T21:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 94,
+      "heightM": 1.28,
+      "periodS": 7.6,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-20T22:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 94,
+      "heightM": 1.26,
+      "periodS": 7.6,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-20T23:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 94,
+      "heightM": 1.26,
+      "periodS": 7.55,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-21T00:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 94,
+      "heightM": 1.24,
+      "periodS": 7.55,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-21T01:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 95,
+      "heightM": 1.22,
+      "periodS": 7.55,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-21T02:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 96,
+      "heightM": 1.2,
+      "periodS": 7.55,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-21T03:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 96,
+      "heightM": 1.2,
+      "periodS": 7.55,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-21T04:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 97,
+      "heightM": 1.16,
+      "periodS": 7.6,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-21T05:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 97,
+      "heightM": 1.16,
+      "periodS": 7.55,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-21T06:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 97,
+      "heightM": 1.14,
+      "periodS": 7.55,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-21T07:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 97,
+      "heightM": 1.12,
+      "periodS": 7.5,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-21T08:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 98,
+      "heightM": 1.1,
+      "periodS": 7.5,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-21T09:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 98,
+      "heightM": 1.08,
+      "periodS": 7.45,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-21T10:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 98,
+      "heightM": 1.04,
+      "periodS": 7.4,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-21T11:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 98,
+      "heightM": 1.04,
+      "periodS": 7.4,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-21T12:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 98,
+      "heightM": 1.02,
+      "periodS": 7.4,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-21T13:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 98,
+      "heightM": 1,
+      "periodS": 7.35,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-21T14:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 99,
+      "heightM": 0.98,
+      "periodS": 7.35,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-21T15:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 99,
+      "heightM": 0.96,
+      "periodS": 7.35,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-21T16:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 99,
+      "heightM": 0.94,
+      "periodS": 7.3,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-21T17:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 100,
+      "heightM": 0.92,
+      "periodS": 7.3,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-21T18:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 100,
+      "heightM": 0.9,
+      "periodS": 7.3,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 139,
+      "heightM": 0.08,
+      "periodS": 10.45,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-21T19:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 99,
+      "heightM": 0.86,
+      "periodS": 7.3,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 139,
+      "heightM": 0.08,
+      "periodS": 10.45,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-21T20:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 102,
+      "heightM": 0.88,
+      "periodS": 7.3,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 139,
+      "heightM": 0.08,
+      "periodS": 10.45,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-21T21:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 103,
+      "heightM": 0.86,
+      "periodS": 7.3,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 135,
+      "heightM": 0.1,
+      "periodS": 10.9,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-21T22:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 103,
+      "heightM": 0.86,
+      "periodS": 7.3,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 135,
+      "heightM": 0.1,
+      "periodS": 10.9,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-21T23:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 103,
+      "heightM": 0.84,
+      "periodS": 7.25,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 135,
+      "heightM": 0.1,
+      "periodS": 10.9,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-22T00:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 103,
+      "heightM": 0.82,
+      "periodS": 7.25,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 139,
+      "heightM": 0.08,
+      "periodS": 10.45,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-22T01:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 102,
+      "heightM": 0.8,
+      "periodS": 7.25,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 135,
+      "heightM": 0.1,
+      "periodS": 10.9,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-22T02:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 103,
+      "heightM": 0.8,
+      "periodS": 7.25,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 139,
+      "heightM": 0.08,
+      "periodS": 10.45,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-22T03:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 103,
+      "heightM": 0.78,
+      "periodS": 7.3,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 135,
+      "heightM": 0.1,
+      "periodS": 10.9,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-22T04:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 104,
+      "heightM": 0.78,
+      "periodS": 7.4,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 139,
+      "heightM": 0.08,
+      "periodS": 10.45,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-22T05:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 105,
+      "heightM": 0.78,
+      "periodS": 7.6,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 139,
+      "heightM": 0.08,
+      "periodS": 10.45,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-22T06:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 106,
+      "heightM": 0.78,
+      "periodS": 7.65,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 139,
+      "heightM": 0.08,
+      "periodS": 10.45,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-22T07:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 107,
+      "heightM": 0.78,
+      "periodS": 7.65,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 139,
+      "heightM": 0.08,
+      "periodS": 10.45,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-22T08:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 107,
+      "heightM": 0.78,
+      "periodS": 7.65,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 139,
+      "heightM": 0.08,
+      "periodS": 10.45,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-22T09:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 100,
+      "heightM": 0.7,
+      "periodS": 7.6,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-22T10:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 99,
+      "heightM": 0.7,
+      "periodS": 7.55,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 144,
+      "heightM": 0.4,
+      "periodS": 3.8,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-22T11:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 97,
+      "heightM": 0.66,
+      "periodS": 7.5,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 139,
+      "heightM": 0.48,
+      "periodS": 4.25,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-22T12:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 110,
+      "heightM": 0.65,
+      "periodS": 6.51,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 124,
+      "heightM": 0.52,
+      "periodS": 4.83,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-22T13:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 123,
+      "heightM": 0.63,
+      "periodS": 5.21,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 109,
+      "heightM": 0.56,
+      "periodS": 6.46,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-22T14:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 136,
+      "heightM": 0.62,
+      "periodS": 4.55,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 94,
+      "heightM": 0.6,
+      "periodS": 7.45,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-22T15:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 119,
+      "heightM": 0.63,
+      "periodS": 5.18,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 113,
+      "heightM": 0.59,
+      "periodS": 6.92,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-22T16:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 102,
+      "heightM": 0.65,
+      "periodS": 6.45,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 131,
+      "heightM": 0.57,
+      "periodS": 5.75,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-22T17:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 85,
+      "heightM": 0.66,
+      "periodS": 7.4,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 150,
+      "heightM": 0.56,
+      "periodS": 4.9,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-22T18:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 85,
+      "heightM": 0.65,
+      "periodS": 7.59,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 151,
+      "heightM": 0.56,
+      "periodS": 4.8,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-22T19:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 85,
+      "heightM": 0.63,
+      "periodS": 7.44,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 151,
+      "heightM": 0.56,
+      "periodS": 5.03,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-22T20:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 85,
+      "heightM": 0.62,
+      "periodS": 7.3,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 152,
+      "heightM": 0.56,
+      "periodS": 5.25,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-22T21:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 86,
+      "heightM": 0.61,
+      "periodS": 7.26,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 153,
+      "heightM": 0.55,
+      "periodS": 5.38,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-22T22:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 88,
+      "heightM": 0.59,
+      "periodS": 7.21,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 155,
+      "heightM": 0.53,
+      "periodS": 5.51,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-22T23:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 89,
+      "heightM": 0.58,
+      "periodS": 7.2,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 156,
+      "heightM": 0.52,
+      "periodS": 5.6,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-23T00:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 89,
+      "heightM": 0.57,
+      "periodS": 7.24,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 157,
+      "heightM": 0.5,
+      "periodS": 5.61,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-23T01:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 89,
+      "heightM": 0.55,
+      "periodS": 7.31,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 158,
+      "heightM": 0.48,
+      "periodS": 5.58,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-23T02:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 89,
+      "heightM": 0.54,
+      "periodS": 7.4,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 159,
+      "heightM": 0.46,
+      "periodS": 5.55,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-23T03:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 94,
+      "heightM": 0.51,
+      "periodS": 7.53,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 160,
+      "heightM": 0.45,
+      "periodS": 5.54,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-23T04:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 99,
+      "heightM": 0.47,
+      "periodS": 7.67,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 160,
+      "heightM": 0.45,
+      "periodS": 5.54,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-23T05:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 104,
+      "heightM": 0.44,
+      "periodS": 7.75,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 161,
+      "heightM": 0.44,
+      "periodS": 5.55,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-23T06:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 93,
+      "heightM": 0.53,
+      "periodS": 7.7,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 161,
+      "heightM": 0.44,
+      "periodS": 5.58,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-23T07:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 83,
+      "heightM": 0.61,
+      "periodS": 7.58,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 160,
+      "heightM": 0.44,
+      "periodS": 5.62,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-23T08:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 72,
+      "heightM": 0.7,
+      "periodS": 7.55,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 160,
+      "heightM": 0.44,
+      "periodS": 5.65,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-23T09:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 72,
+      "heightM": 0.75,
+      "periodS": 7.73,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 160,
+      "heightM": 0.43,
+      "periodS": 5.64,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-23T10:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 72,
+      "heightM": 0.81,
+      "periodS": 7.99,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 159,
+      "heightM": 0.43,
+      "periodS": 5.63,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-23T11:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 72,
+      "heightM": 0.86,
+      "periodS": 8.1,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 159,
+      "heightM": 0.42,
+      "periodS": 5.65,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-23T12:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 92,
+      "heightM": 0.7,
+      "periodS": 7.93,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 162,
+      "heightM": 0.39,
+      "periodS": 5.98,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-23T13:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 113,
+      "heightM": 0.54,
+      "periodS": 7.61,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 165,
+      "heightM": 0.37,
+      "periodS": 6.34,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-23T14:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 133,
+      "heightM": 0.38,
+      "periodS": 7.3,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 168,
+      "heightM": 0.34,
+      "periodS": 6,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-23T15:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 137,
+      "heightM": 0.43,
+      "periodS": 7.03,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 112,
+      "heightM": 0.23,
+      "periodS": 4.25,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-23T16:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 140,
+      "heightM": 0.47,
+      "periodS": 6.77,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 56,
+      "heightM": 0.11,
+      "periodS": 1.79,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     }
+    ],
+    "forecastAt": "2026-09-23T17:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 144,
+      "heightM": 0.52,
+      "periodS": 6.6,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-23T18:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 145,
+      "heightM": 0.5,
+      "periodS": 6.59,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-23T19:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 147,
+      "heightM": 0.48,
+      "periodS": 6.66,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-23T20:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 148,
+      "heightM": 0.46,
+      "periodS": 6.7,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-23T21:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 150,
+      "heightM": 0.42,
+      "periodS": 6.65,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-23T22:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 151,
+      "heightM": 0.38,
+      "periodS": 6.57,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-23T23:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 153,
+      "heightM": 0.34,
+      "periodS": 6.5,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-24T00:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 155,
+      "heightM": 0.3,
+      "periodS": 6.68,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-24T01:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 157,
+      "heightM": 0.26,
+      "periodS": 6.86,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-24T02:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 159,
+      "heightM": 0.22,
+      "periodS": 6.35,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-24T03:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 106,
+      "heightM": 0.15,
+      "periodS": 4.46,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-24T04:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 53,
+      "heightM": 0.07,
+      "periodS": 1.88,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      }
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-24T05:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-24T06:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-24T07:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-24T08:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-24T09:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-24T10:00:00+00:00"
+   },
+   {
+    "components": [
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "swell_wave_direction",
+       "height": "swell_wave_height",
+       "period": "swell_wave_period"
+      },
+      "sourceSlot": "s1",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     },
+     {
+      "directionDeg": 0,
+      "heightM": 0,
+      "periodS": 0,
+      "rawFieldProvenance": {
+       "direction": "secondary_swell_wave_direction",
+       "height": "secondary_swell_wave_height",
+       "period": "secondary_swell_wave_period"
+      },
+      "sourceSlot": "s2",
+      "timeProvenance": {
+       "field": "time",
+       "timezone": "UTC"
+      },
+      "unavailableReason": "provider_zero_tuple"
+     }
+    ],
+    "forecastAt": "2026-09-24T11:00:00+00:00"
+   }
+  ],
+  "selectedGrid": {
+   "distanceFromRequestedKm": 7.004943101734905,
+   "elevationM": 0,
+   "latitude": 35.166668,
+   "longitude": -75.5,
+   "policy": {
+    "maxDistanceKm": 30,
+    "providerGuarantee": false,
+    "status": "prototype_local_mapping_policy"
+   }
+  },
+  "source": {
+   "evaluationId": "genuine_completed:0dfbae26-ffe5-4f6d-89ce-5bf7a286a2db",
+   "issuanceId": "6e6ad5b5-7ba3-4f78-af6d-fa49b9b2fd44",
+   "issuedAt": "2026-09-17T12:00:00+00:00",
+   "model": "ncep_gfswave016",
+   "provider": "open_meteo",
+   "providerBatchId": "ba2666a9-71ba-4457-bfec-5ed3a8ef90f7",
+   "revisionSetId": "92dfacb7-6c6a-4e8a-a9cf-cb188a315fff",
+   "sourcePointId": "d264fbf8-0525-4d31-adb5-9a0742eaeb7e",
+   "transportProvider": "open_meteo_single_runs",
+   "upstreamModelProvider": "ncep"
+  }
+ },
+ "provenance": "read_swell_watch_attested_run export from production 2026-09-18; the first Hatteras candidate run under epoch 5; every acquisition run since 2026-09-17 18:15 UTC aborted in history matching on this beach"
+}
