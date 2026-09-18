@@ -24,6 +24,13 @@ jest.mock("@/lib/alerts/swell-watch/study", () => ({
 const originalEnv = process.env;
 const cohort = [{ sourcePointId: "10000000-0000-4000-8000-000000000001", regionKey: "fixture" }];
 const receipt = { issuanceId: "issuance", runBatchId: "batch", revisionSetId: "revision" };
+const automatedPolicy = { ...fixture, schema_version: "swell-watch-policy.v2", policy_values: {
+  ...fixture.policy_values, volume_caps: { ...fixture.policy_values.volume_caps, projected_send_window_hours: 24 },
+} };
+automatedPolicy.value_hash = calculateSwellWatchPolicyHash(automatedPolicy as never);
+const automatedCohort = Array.from({ length: 10 }, (_, i) => ({
+  sourcePointId: `10000000-0000-4000-8000-${String(i).padStart(12, "0")}`, regionKey: `region-${i}`,
+}));
 
 it("schedules only acquisition hourly, not the completed-batch POST callback", () => {
   expect(deployment.crons.filter((cron) => cron.path === "/api/cron/swell-watch-acquire"))
@@ -93,7 +100,7 @@ describe("automated study", () => {
     expect(await response.json()).toMatchObject({ details: { recovery: { failed: 1 }, study: { status: "evaluated" }, enqueued: 0 } });
   });
 
-  it("stops before new acquisition if recovery reaches the target", async () => {
+it("stops before new acquisition if recovery reaches the target", async () => {
     jest.mocked(recoverSwellWatchStudyRuns).mockResolvedValueOnce({ processed: 1, failed: 0 });
     jest.mocked(readSwellWatchStudyStatus).mockResolvedValueOnce({ status: "active", qualificationRule: "primary_partition_with_retained_unavailable_secondary.v1" }).mockResolvedValueOnce({ status: "complete", qualificationRule: "primary_partition_with_retained_unavailable_secondary.v1" });
     const response = await call();
@@ -238,6 +245,7 @@ describe("automated study", () => {
     [new Error("Provider run is not ready after replication delay"), "provider_run_is_not_ready_after_replication_delay"],
     [new Error("Single Runs tuple is invalid"), "single_runs_tuple_is_invalid"],
     [new Error("Provider run receipt storage failed: secret credentials and payload"), "provider_receipt_storage_failed"],
+    [new Error("provider budget exceeded"), "provider_budget_exceeded"],
     [new Error("Acquisition scope read failed: secret coordinates"), "acquisition_scope_read_failed"],
     [new z.ZodError([{ code: "custom", path: ["secret"], message: "private payload" }]), "schema_validation_failed"],
     [new SyntaxError("private JSON"), "json_parse_failed"],
@@ -256,6 +264,67 @@ describe("automated study", () => {
     expect(JSON.stringify(log.mock.calls)).not.toMatch(/private|secret|credentials|payload/);
     expect(completeSwellWatchStudyRun).not.toHaveBeenCalled();
   });
+});
+
+it("fails closed on a study policy hash mismatch before recovery", async () => {
+  process.env.SWELL_WATCH_STUDY_ENABLED = "true";
+  process.env.SWELL_WATCH_SHADOW_EVALUATION_ENABLED = "true";
+  process.env.SWELL_WATCH_PRODUCER_CONFIG = JSON.stringify({ policy: automatedPolicy, cohort: automatedCohort });
+  jest.mocked(readSwellWatchStudyStatus).mockResolvedValueOnce({ status: "active", qualificationRule: "complete_partitions.v1" });
+  const rpc = jest.fn().mockResolvedValue({ data: {
+    status: "active", qualificationRule: "complete_partitions.v1", policyHash: "f".repeat(64),
+    expiresAt: "2026-10-25T02:45:47Z", evaluatedRuns: 0, suppressedAttempts: 0, lastEvaluatedAt: null,
+  }, error: null });
+  jest.mocked(createSupabaseServiceRoleClient).mockReturnValue({ rpc } as never);
+
+  const response = await call();
+
+  expect(response.status).toBe(503);
+  expect(await response.json()).toMatchObject({ details: { code: "study_config_hash_mismatch" } });
+  expect(recoverSwellWatchStudyRuns).not.toHaveBeenCalled();
+  expect(acquireSwellWatchCohort).not.toHaveBeenCalled();
+});
+
+it("drains new acquisition during the final 30 minutes of study authority", async () => {
+  process.env.SWELL_WATCH_STUDY_ENABLED = "true";
+  process.env.SWELL_WATCH_SHADOW_EVALUATION_ENABLED = "true";
+  process.env.SWELL_WATCH_PRODUCER_CONFIG = JSON.stringify({ policy: automatedPolicy, cohort: automatedCohort });
+  const policyHash = automatedPolicy.value_hash;
+  jest.mocked(readSwellWatchStudyStatus).mockResolvedValueOnce({ status: "active", qualificationRule: "complete_partitions.v1" });
+  const rpc = jest.fn().mockResolvedValue({ data: {
+    status: "active", qualificationRule: "complete_partitions.v1", policyHash,
+    expiresAt: new Date(Date.now() + 29 * 60_000).toISOString(), evaluatedRuns: 1, suppressedAttempts: 0,
+    lastEvaluatedAt: new Date().toISOString(),
+  }, error: null });
+  jest.mocked(createSupabaseServiceRoleClient).mockReturnValue({ rpc } as never);
+
+  const response = await call();
+
+  expect(response.status).toBe(200);
+  expect((await response.json()).data).toMatchObject({ skipped: true, reason: "study_expiring" });
+  expect(recoverSwellWatchStudyRuns).not.toHaveBeenCalled();
+  expect(acquireSwellWatchCohort).not.toHaveBeenCalled();
+});
+
+it("marks a stalled active study as an operational monitor error", async () => {
+  process.env.SWELL_WATCH_STUDY_ENABLED = "true";
+  process.env.SWELL_WATCH_SHADOW_EVALUATION_ENABLED = "true";
+  process.env.SWELL_WATCH_PRODUCER_CONFIG = JSON.stringify({ policy: automatedPolicy, cohort: automatedCohort });
+  const policyHash = automatedPolicy.value_hash;
+  jest.mocked(readSwellWatchStudyStatus).mockResolvedValueOnce({ status: "active", qualificationRule: "complete_partitions.v1" });
+  const log = jest.spyOn(console, "error").mockImplementation(() => {});
+  const rpc = jest.fn().mockResolvedValue({ data: {
+    status: "active", qualificationRule: "complete_partitions.v1", policyHash,
+    expiresAt: "2026-10-25T02:45:47Z", evaluatedRuns: 1, suppressedAttempts: 0,
+    lastEvaluatedAt: new Date(Date.now() - 19 * 60 * 60_000).toISOString(),
+  }, error: null });
+  jest.mocked(createSupabaseServiceRoleClient).mockReturnValue({ rpc } as never);
+  jest.mocked(completeSwellWatchStudyRun).mockRejectedValueOnce(new SwellWatchStudySkip("latest_issuance_stale"));
+
+  const response = await call();
+
+  expect(response.status).toBe(200);
+  expect(log).toHaveBeenCalledWith("[swell-watch-acquire] study stalled", expect.objectContaining({ reason: "last_evaluated_at_stale" }));
 });
 afterEach(() => { process.env = originalEnv; jest.restoreAllMocks(); });
 

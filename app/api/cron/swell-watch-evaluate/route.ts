@@ -1,4 +1,3 @@
-import { COMPLETE_PARTITIONS_RULE } from "@/lib/alerts/swell-watch/native-sampling";
 import { z } from "zod";
 import { withObservedCron } from "@/lib/cron/observability";
 import { createErrorResponse, createSuccessResponse, validateCronRequest } from "@/lib/middleware/api-wrappers";
@@ -7,6 +6,7 @@ import { acquisitionConfig } from "@/lib/alerts/swell-watch/acquisition";
 import { verifySwellWatchPolicy, type SwellWatchPolicy } from "@/lib/alerts/swell-watch/policy";
 import { loadSwellWatchAcquisitionScope } from "@/lib/alerts/swell-watch/provider-run-store";
 import { evaluateSwellWatchShadow } from "@/lib/alerts/swell-watch/shadow-evaluation";
+import { readSwellWatchStudyStatus } from "@/lib/alerts/swell-watch/study";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -40,8 +40,9 @@ async function evaluate(request: Request): Promise<Response> {
   try {
     const client = createSupabaseServiceRoleClient();
     const scopes = await loadSwellWatchAcquisitionScope(config.cohort, client);
+    const health = await readSwellWatchStudyStatus(client);
     const result = await evaluateSwellWatchShadow({ providerBatchId: operation.provider_batch_id,
-      qualificationRule: COMPLETE_PARTITIONS_RULE, forecastDays: 7, now: new Date().toISOString(), policy: config.policy, scopes },
+      qualificationRule: health.qualificationRule, forecastDays: 7, now: new Date().toISOString(), policy: config.policy, scopes },
     client as unknown as Parameters<typeof evaluateSwellWatchShadow>[1]);
     return createSuccessResponse(result);
   } catch {

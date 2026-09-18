@@ -17,14 +17,21 @@ export interface ProviderRunScope {
 }
 
 export interface ProviderRunReceiptRpcClient {
-  rpc: (name: "record_swell_watch_provider_run_receipt", args: { p_scopes: Array<ProviderRunScope & { receipt: PrototypeSingleRunReceipt & { hourlyUnits: Record<string, string> } }> }) => Promise<{ data: unknown; error: { message: string } | null }>;
+  rpc: {
+    (name: "read_swell_watch_provider_run_states", args: { p_run_utcs: readonly string[] }): Promise<{ data: unknown; error: { message: string } | null }>;
+    (name: "record_swell_watch_provider_run_receipt", args: { p_scopes: Array<ProviderRunScope & { receipt: PrototypeSingleRunReceipt & { hourlyUnits: Record<string, string> } }> }): Promise<{ data: unknown; error: { message: string } | null }>;
+  };
 }
 
-interface StoredProviderRunReceipt {
+export interface StoredProviderRunReceipt {
   issuanceId: string;
   runBatchId: string;
   revisionSetId: string;
 }
+
+export type ProviderRunAcquisitionSkipReason = "latest_issuance_stale" | "latest_issuance_already_evaluated";
+export type ProviderRunAcquisitionResult = StoredProviderRunReceipt | { skipped: true; reason: ProviderRunAcquisitionSkipReason; enqueued: 0 };
+type StoredProviderRunState = { evaluated: boolean };
 
 interface ProviderRunAcquisitionScope {
   sourcePointId: string;
@@ -109,13 +116,14 @@ export async function acquireProviderRunReceipts(
     ({ runUtc: string } | { latestAvailableAt: Date }),
   fetcher: Parameters<typeof fetchOpenMeteoSingleRunReceipt>[1],
   client: ProviderRunReceiptRpcClient,
-): Promise<StoredProviderRunReceipt> {
+): Promise<ProviderRunAcquisitionResult> {
   const { forecastDays } = input;
   const scopes = input.scopes.map(({ sourcePointId, latitude, longitude }) => ({ sourcePointId, latitude, longitude }));
   if (!scopes.length || scopes.length > 500 || new Set(scopes.map(({ sourcePointId }) => sourcePointId)).size !== scopes.length || scopes.some(({ sourcePointId }) => !UUID.test(sourcePointId))) throw new Error("Provider acquisition scope is invalid");
   if (scopes.some((scope) => !acquisitionScope.safeParse(scope).success)) throw new Error("Provider acquisition coordinates are invalid");
   if (!Number.isInteger(forecastDays) || forecastDays < 1 || forecastDays > 7) throw new Error("Provider acquisition horizon is invalid");
   let runUtc: string;
+  let extraRuns: string[] = [];
   if ("runUtc" in input) runUtc = input.runUtc;
   else {
     const now = input.latestAvailableAt.getTime();
@@ -134,15 +142,61 @@ export async function acquireProviderRunReceipts(
       || available < metadata.last_run_modification_time || available * 1000 + 600_000 > now) {
       throw new Error("Provider run is not ready after replication delay");
     }
-    // Availability selects a request only; archive response validation and owner attestation remain separate.
     runUtc = new Date(issued * 1000).toISOString().slice(0, 16) + "Z";
+    if (now > issued * 1000 + 12 * 3_600_000) return { skipped: true, reason: "latest_issuance_stale", enqueued: 0 };
+    const candidatesToRead = [runUtc, ...[1, 2].map((hours) =>
+      new Date(issued * 1000 - hours * 6 * 3_600_000).toISOString().slice(0, 16) + "Z")];
+    const states = await readStoredProviderRunStates(candidatesToRead, client);
+    if (states) {
+      if (states.get(runUtc)?.evaluated) return { skipped: true, reason: "latest_issuance_already_evaluated", enqueued: 0 };
+      extraRuns = [1, 2].map((hours) => new Date(issued * 1000 - hours * 6 * 3_600_000).toISOString().slice(0, 16) + "Z")
+        .filter((candidate) => Date.parse(candidate) <= issued * 1000)
+        .filter((candidate) => !states.has(candidate))
+        .sort((left, right) => Date.parse(left) - Date.parse(right)).slice(0, 2);
+    } else {
+      console.warn("[swell-watch-acquire] provider run state unavailable");
+    }
   }
-  scopes.forEach(({ latitude, longitude }) => buildOpenMeteoSingleRunRequest({ latitude, longitude, runUtc, forecastDays }));
-  const receipts: ProviderRunScope[] = [];
-  for (const { sourcePointId, latitude, longitude } of scopes) {
-    receipts.push({ sourcePointId, receipt: await fetchOpenMeteoSingleRunReceipt({ latitude, longitude, runUtc, forecastDays }, fetcher, sourcePointId) });
+  const acquireOne = async (requestedRunUtc: string): Promise<StoredProviderRunReceipt> => {
+    scopes.forEach(({ latitude, longitude }) => buildOpenMeteoSingleRunRequest({ latitude, longitude, runUtc: requestedRunUtc, forecastDays }));
+    const receipts: ProviderRunScope[] = [];
+    for (const { sourcePointId, latitude, longitude } of scopes) {
+      receipts.push({ sourcePointId, receipt: await fetchOpenMeteoSingleRunReceipt({ latitude, longitude, runUtc: requestedRunUtc, forecastDays }, fetcher, sourcePointId) });
+    }
+    return storePrototypeSingleRunReceipts(receipts, client);
+  };
+  for (const requestedRunUtc of extraRuns) await acquireOne(requestedRunUtc);
+  return acquireOne(runUtc);
+}
+
+export async function readStoredProviderRunStates(
+  runUtcs: readonly string[],
+  client: unknown,
+): Promise<Map<string, StoredProviderRunState> | null> {
+  const reader = client as { rpc?: (name: "read_swell_watch_provider_run_states", args: { p_run_utcs: readonly string[] }) => PromiseLike<{ data: unknown; error: unknown }> };
+  if (typeof reader.rpc !== "function" || !runUtcs.length) return null;
+  try {
+    const requestedByEpoch = new Map<number, string>();
+    for (const runUtc of runUtcs) {
+      const epoch = Date.parse(runUtc);
+      if (!Number.isFinite(epoch)) return null;
+      requestedByEpoch.set(epoch, runUtc);
+    }
+    const result = await reader.rpc("read_swell_watch_provider_run_states", { p_run_utcs: runUtcs });
+    if (result.error) return null;
+    const rows = z.array(z.object({ run_utc: z.string(), revision_set_id: z.uuid().nullable(), completed_batch_id: z.uuid().nullable(), evaluated: z.boolean() }).strict()).parse(result.data);
+    const states = new Map<string, StoredProviderRunState>();
+    for (const row of rows) {
+      const epoch = Date.parse(row.run_utc);
+      if (!Number.isFinite(epoch)) return null;
+      const requestedRunUtc = requestedByEpoch.get(epoch);
+      if (requestedRunUtc === undefined || states.has(requestedRunUtc)) return null;
+      states.set(requestedRunUtc, { evaluated: row.evaluated });
+    }
+    return states;
+  } catch {
+    return null;
   }
-  return storePrototypeSingleRunReceipts(receipts, client);
 }
 
 /** The database rechecks current owner attestation; acquisition never calls this itself. */
