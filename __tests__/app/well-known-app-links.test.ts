@@ -27,6 +27,18 @@ describe('.well-known app-link manifests', () => {
     process.env = originalEnv;
   });
 
+  it("returns the same JSON bytes for both app-link hosts", async () => {
+    const { GET } = await import('@/app/.well-known/apple-app-site-association/route');
+    const wwwResponse = GET();
+    const goResponse = GET();
+
+    expect(wwwResponse.status).toBe(200);
+    expect(goResponse.status).toBe(200);
+    expect(wwwResponse.headers.get("content-type")).toContain("application/json");
+    expect(goResponse.headers.get("content-type")).toContain("application/json");
+    expect(await wwwResponse.text()).toBe(await goResponse.text());
+  });
+
   it('emits only the approved native app-link path contract by default', async () => {
     const { GET } = await import('@/app/.well-known/apple-app-site-association/route');
 
@@ -62,6 +74,13 @@ describe('.well-known app-link manifests', () => {
         ],
       },
     ]);
+  });
+
+  it("declares the dedicated go handoff host without changing the rule shape", () => {
+    const contract = require("@/config/app-link-contract.json");
+    expect(contract.host).toBe("www.quiversurf.app");
+    expect(contract.handoff_host).toBe("go.quiversurf.app");
+    expect(Array.isArray(contract.rules)).toBe(true);
   });
 
   it('does not let an environment override broaden the approved app-link contract', async () => {
