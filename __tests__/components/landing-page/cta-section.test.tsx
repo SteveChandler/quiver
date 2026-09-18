@@ -6,10 +6,7 @@ import {
   trackIosAppCtaClick,
   trackIosAppCtaView,
 } from "@/lib/analytics/ios-app-cta-tracking";
-import {
-  IOS_APP_STORE_CTA,
-  IOS_APP_STORE_WEB_REDIRECT_PATH,
-} from "@/lib/constants/app-store";
+import { IOS_APP_STORE_CTA } from "@/lib/constants/app-store";
 import {
   trackSignupCtaClick,
   trackSignupCtaView,
@@ -149,20 +146,30 @@ describe("CTASection", () => {
     });
     link.addEventListener("click", (event) => event.preventDefault());
 
-    expect(link).toHaveAttribute("href", IOS_APP_STORE_WEB_REDIRECT_PATH);
+    expect(link).toHaveAttribute(
+      "href",
+      expect.stringContaining("https://go.quiversurf.app/app/handoff"),
+    );
     expect(
       screen.getByText("Opens the current iPhone App Store listing."),
     ).toBeInTheDocument();
 
     await user.click(link);
 
-    expect(mockTrackIosAppCtaClick).toHaveBeenCalledWith({
-      source: "landing-final-cta",
-      surface: "landing-page",
-      placement: "landing_final_cta",
-      cta_text: IOS_APP_STORE_CTA,
-      destination_url: IOS_APP_STORE_WEB_REDIRECT_PATH,
-    });
+    expect(mockTrackIosAppCtaClick).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: "landing-final-cta",
+        surface: "landing-page",
+        placement: "landing_final_cta",
+        cta_text: IOS_APP_STORE_CTA,
+        destination_url: expect.stringContaining(
+          "https://go.quiversurf.app/app/handoff?",
+        ),
+        handoff_id: expect.stringMatching(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+        ),
+      }),
+    );
     expect(mockTrackSignupCtaClick).not.toHaveBeenCalled();
     expect(screen.queryByTestId("auth-modal")).not.toBeInTheDocument();
   });

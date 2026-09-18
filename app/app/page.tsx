@@ -6,11 +6,11 @@ import { getFirstTouchPlatform } from "@/lib/analytics/web-context";
 import { logAppHandoffLinkOpenedServer } from "@/lib/analytics/app-handoff-server";
 import {
   APP_FIRST_CAMPAIGN,
+  buildAppHandoffUrl,
   iosAppStoreUrlWithCampaign,
 } from "@/lib/constants/app-handoff";
 import {
   type IosAppStoreCampaign,
-  IOS_APP_STORE_WEB_REDIRECT_PATH,
   resolveIosAppStoreCampaign,
 } from "@/lib/constants/app-store";
 import { buildAndroidBetaHandoffPath } from "@/lib/install-attribution";
@@ -168,11 +168,26 @@ export default async function AppHandoffPage({
       />
       <noscript>
         <p>
-          <a href={IOS_APP_STORE_WEB_REDIRECT_PATH}>
+          <a
+            href={buildAppHandoffUrl({
+              source: "app_handoff_route",
+              surface: "app_handoff",
+              placement: "noscript_ios",
+            })}
+          >
             Download Quiver on the App Store
           </a>
           {" · "}
-          <a href={buildAndroidBetaHandoffPath({})}>Get the Android beta</a>
+          <a
+            href={buildAppHandoffUrl({
+              source: "app_handoff_route",
+              surface: "app_handoff",
+              placement: "noscript_android",
+              target: "android_beta",
+            })}
+          >
+            Get the Android beta
+          </a>
         </p>
       </noscript>
     </>

@@ -2,13 +2,21 @@
 
 import Image from "next/image";
 import { X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+} from "react";
 import { usePathname } from "next/navigation";
 import { track } from "@/lib/analytics";
+import { createClientAppHandoffLink } from "@/lib/analytics/app-handoff-link";
+import { buildAppHandoffUrl } from "@/lib/constants/app-handoff";
 import {
   IOS_APP_STORE_CTA,
   IOS_APP_STORE_DESTINATION_STATUS,
-  IOS_APP_STORE_WEB_REDIRECT_PATH,
 } from "@/lib/constants/app-store";
 import {
   getIphoneAppBannerDecision,
@@ -59,6 +67,12 @@ export function IphoneAppBanner() {
   const analyticsProps = useMemo(() => {
     if (!decision) return null;
 
+    const destinationUrl = buildAppHandoffUrl({
+      source: IPHONE_APP_BANNER_SOURCE,
+      surface: "web",
+      placement: "iphone_app_banner",
+    });
+
     return {
       source: IPHONE_APP_BANNER_SOURCE,
       platform: "ios",
@@ -66,7 +80,7 @@ export function IphoneAppBanner() {
       cta_text: IOS_APP_STORE_CTA,
       destination_type: "app_store",
       destination_status: IOS_APP_STORE_DESTINATION_STATUS,
-      destination_url: IOS_APP_STORE_WEB_REDIRECT_PATH,
+      destination_url: destinationUrl,
       browser: decision.browser,
       pathname,
       ...(decision.suppressionReason
@@ -123,8 +137,18 @@ export function IphoneAppBanner() {
     track("iphone_app_banner_dismiss", analyticsProps);
   };
 
-  const handleClick = () => {
-    track("iphone_app_banner_click", analyticsProps);
+  const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    const handoff = createClientAppHandoffLink({
+      source: IPHONE_APP_BANNER_SOURCE,
+      surface: "web",
+      placement: "iphone_app_banner",
+    });
+    event.currentTarget.href = handoff.url;
+    track("iphone_app_banner_click", {
+      ...analyticsProps,
+      destination_url: handoff.url,
+      handoff_id: handoff.handoffId,
+    });
   };
 
   return (
@@ -151,7 +175,7 @@ export function IphoneAppBanner() {
           </p>
         </div>
         <a
-          href={IOS_APP_STORE_WEB_REDIRECT_PATH}
+          href={analyticsProps.destination_url}
           target="_blank"
           rel="noopener noreferrer"
           onClick={handleClick}
