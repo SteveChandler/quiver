@@ -26,12 +26,6 @@ interface IosAppStoreCtaProps {
   children?: ReactNode;
 }
 
-const IOS_APP_HANDOFF_URL = buildAppHandoffUrl({
-  source: "ios_app_cta",
-  surface: "web",
-  placement: "app_store_cta",
-});
-
 export function IosAppStoreCta({
   source,
   surface,
@@ -41,6 +35,11 @@ export function IosAppStoreCta({
 }: IosAppStoreCtaProps): ReactElement {
   const linkRef = useRef<HTMLAnchorElement>(null);
   const hasTrackedView = useRef(false);
+  const iosAppHandoffUrl = buildAppHandoffUrl({
+    source,
+    surface,
+    placement,
+  });
 
   useEffect(() => {
     const link = linkRef.current;
@@ -53,7 +52,7 @@ export function IosAppStoreCta({
         source,
         surface,
         placement,
-        destination_url: IOS_APP_HANDOFF_URL,
+        destination_url: iosAppHandoffUrl,
       });
     };
 
@@ -75,12 +74,12 @@ export function IosAppStoreCta({
     observer.observe(link);
 
     return () => observer.disconnect();
-  }, [placement, source, surface]);
+  }, [iosAppHandoffUrl, placement, source, surface]);
 
   return (
     <a
       ref={linkRef}
-      href={IOS_APP_HANDOFF_URL}
+      href={iosAppHandoffUrl}
       className={className}
       onClick={(event: MouseEvent<HTMLAnchorElement>) => {
         const handoff = createClientAppHandoffLink({

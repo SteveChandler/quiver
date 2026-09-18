@@ -1,15 +1,19 @@
 import { track } from "@/lib/analytics";
+import { buildAppHandoffUrl } from "@/lib/constants/app-handoff";
 import { deriveSeoPageContextFromPath } from "@/lib/analytics/web-context";
 import {
   IOS_APP_STORE_CTA,
   IOS_APP_STORE_DESTINATION_STATUS,
-  IOS_APP_STORE_WEB_REDIRECT_PATH,
 } from "@/lib/constants/app-store";
 import { getVisitorId } from "@/lib/utils/visitor-id";
 
 export const IOS_APP_CTA_VIEW_EVENT = "ios_app_cta_view";
 export const IOS_APP_CTA_CLICK_EVENT = "ios_app_cta_click";
-const IOS_APP_STORE_CAMPAIGN_URL = IOS_APP_STORE_WEB_REDIRECT_PATH;
+const IOS_APP_STORE_CAMPAIGN_URL = buildAppHandoffUrl({
+  source: "ios_app_cta",
+  surface: "web",
+  placement: "app_store_cta",
+});
 
 type InternalCtaEventType = "cta_impression" | "cta_click";
 
