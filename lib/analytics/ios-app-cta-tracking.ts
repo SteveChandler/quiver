@@ -21,6 +21,7 @@ interface IosAppCtaMetadata {
   destination_url?: string;
   destination_status?: string;
   destination_type?: string;
+  handoff_id?: string;
   platform?: "ios";
   video_loaded?: boolean;
   [key: string]: unknown;

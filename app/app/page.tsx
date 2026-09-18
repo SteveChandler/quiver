@@ -14,6 +14,7 @@ import {
   resolveIosAppStoreCampaign,
 } from "@/lib/constants/app-store";
 import { buildAndroidBetaHandoffPath } from "@/lib/install-attribution";
+import { parseUserAgent } from "@/lib/utils/user-agent-parser";
 import { DesktopHandoff } from "./desktop-handoff";
 import { isValidUUID } from "@/lib/utils/validation";
 
@@ -43,6 +44,8 @@ function buildHandoffMetadata(
   searchParams: Awaited<SearchParams>,
   handoffId: string,
   platform: "ios" | "android" | "desktop",
+  host: string,
+  userAgent: string,
   destination: {
     type: string;
     url: string;
@@ -53,6 +56,8 @@ function buildHandoffMetadata(
     source,
     handoff_id: handoffId,
     platform,
+    host,
+    ua_family: parseUserAgent(userAgent).browser,
     destination_type: destination.type,
     destination_url: destination.url,
     handoff_channel:
@@ -69,6 +74,7 @@ function buildHandoffMetadata(
     "utm_campaign",
     "utm_content",
     "utm_term",
+    "web_distinct_id",
   ]) {
     const value = readFirstParam(searchParams, key);
     if (value) metadata[key] = value;
@@ -114,33 +120,41 @@ export default async function AppHandoffPage({
   searchParams: SearchParams;
 }) {
   const sp = await searchParams;
-  const userAgent = (await headers()).get("user-agent") ?? "";
+  const requestHeaders = await headers();
+  const userAgent = requestHeaders.get("user-agent") ?? "";
+  const host = requestHeaders.get("host") ?? "www.quiversurf.app";
   const platform = getFirstTouchPlatform(userAgent);
   const handoffId = resolveHandoffId(sp);
+
+  const logOpen = (destination: { type: string; url: string }): Promise<void> =>
+    logAppHandoffLinkOpenedServer({
+      sessionId: handoffId,
+      metadata: buildHandoffMetadata(
+        sp,
+        handoffId,
+        platform,
+        host,
+        userAgent,
+        destination,
+      ),
+    });
 
   if (platform === "ios") {
     const destinationUrl = iosAppStoreUrlWithCampaign(
       appStoreCampaignFromParams(sp),
       process.env.IOS_APP_STORE_PROVIDER_TOKEN,
     );
-    await logAppHandoffLinkOpenedServer({
-      sessionId: handoffId,
-      metadata: buildHandoffMetadata(sp, handoffId, "ios", {
-        type: "app_store",
-        url: destinationUrl,
-      }),
-    });
+    await logOpen({ type: "app_store", url: destinationUrl });
     redirect(destinationUrl);
   }
 
   if (platform === "android") {
     const destination = androidDestination(sp);
-    await logAppHandoffLinkOpenedServer({
-      sessionId: handoffId,
-      metadata: buildHandoffMetadata(sp, handoffId, "android", destination),
-    });
+    await logOpen(destination);
     redirect(destination.url);
   }
+
+  await logOpen({ type: "desktop_handoff", url: "/app/handoff" });
 
   return (
     <>
