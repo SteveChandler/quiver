@@ -36,11 +36,11 @@ it("does not turn one persisted evaluation into confidence or accept a supersede
 
 it("loads exact attested matching fields without inventing significance metrics", async () => {
   const db = client();
-  const history = await loadSwellWatchHistory({ regionKey: "fixture", beachId: id }, db);
-  expect(history).toEqual([{ regionKey: "fixture", persistedRegionalEventId: id, evaluatedAt: row.evaluated_at,
+  const loaded = await loadSwellWatchHistory({ regionKey: "fixture", beachId: id }, db);
+  expect(loaded).toEqual({ history: [{ regionKey: "fixture", persistedRegionalEventId: id, evaluatedAt: row.evaluated_at,
     eventState: "candidate", identity: { kind: "genuine_completed", id: evaluationId }, peakAt: row.peak_at,
     impact: { kind: "candidate", arrivalAt: row.arrival_at, policyHash: "a".repeat(64), partition: {
-      provider: "open_meteo", evaluationId, forecastAt: row.arrival_at, sourceSlot: "s2", heightM: 1.8, periodS: 13, directionDeg: 170, completeness: "complete" } } }]);
+      provider: "open_meteo", evaluationId, forecastAt: row.arrival_at, sourceSlot: "s2", heightM: 1.8, periodS: 13, directionDeg: 170, completeness: "complete" } } }], staleHistoryExcluded: 0 });
   expect(db.from).toHaveBeenCalledWith("swell_watch_event_impacts");
   expect(db.query.select).toHaveBeenCalledWith(expect.stringContaining("last_suppression:swell_watch_event_state_transitions(state,version,created_at)"), { count: "exact" });
   expect(db.query.eq.mock.calls).toEqual([["beach_id", id], ["swell_watch_regional_events.region_key", "fixture"], ["swell_watch_regional_events.last_suppression.state", "suppressed"]]);
@@ -86,7 +86,7 @@ it("does not restore pre-suppression evidence after a candidate reset", async ()
     latest_state: [{ state: "candidate", version: 3, created_at: "2026-09-05T02:00Z" }],
     last_suppression: [{ state: "suppressed", version: 2, created_at: "2026-09-05T01:00Z" }],
   } }]);
-  expect(await loadSwellWatchHistory({ regionKey: "fixture", beachId: id }, db)).toEqual([]);
+  expect(await loadSwellWatchHistory({ regionKey: "fixture", beachId: id }, db)).toEqual({ history: [], staleHistoryExcluded: 0 });
   expect(db.rpc).not.toHaveBeenCalled();
 });
 
@@ -98,4 +98,48 @@ it.each([
 ])("rejects revoked, mismatched or ambiguous attestation", async (result) => {
   const db = client(); db.rpc.mockResolvedValue(result);
   await expect(loadSwellWatchHistory({ regionKey: "fixture", beachId: id }, db)).rejects.toThrow();
+});
+
+it("excludes stale authority evidence and reports the count", async () => {
+  const priorId = "22222222-2222-4222-8222-222222222222";
+  const priorEvaluationId = `genuine_completed:${priorId}`;
+  const db = client([{ ...row, regional_event_id: priorId, evaluation_id: priorEvaluationId,
+    swell_watch_beach_impacts: { ...row.swell_watch_beach_impacts,
+      swell_watch_observations: { ...row.swell_watch_beach_impacts.swell_watch_observations, evaluation_id: priorEvaluationId } } }, row]);
+  db.rpc.mockResolvedValueOnce({ data: null, error: { message: "current provider attestation is required" } });
+  db.rpc.mockResolvedValueOnce({ data: [{ ...tuple, source_slot: "s1" }, tuple], error: null });
+  await expect(loadSwellWatchHistory({ regionKey: "fixture", beachId: id }, db)).resolves.toMatchObject({
+    history: expect.arrayContaining([expect.objectContaining({ persistedRegionalEventId: id })]), staleHistoryExcluded: 1,
+  });
+});
+
+it("keeps the current evaluation absent when its evidence is stale", async () => {
+  const db = client();
+  db.rpc.mockResolvedValueOnce({ data: null, error: { message: "current provider attestation is required" } });
+  await expect(loadMatchedSwellWatchHistory({ regionKey: "fixture", beachId: id, regionalEventId: id, evaluationId,
+    policy: fixturePolicy as SwellWatchPolicy }, db)).rejects.toThrow("Current evaluation is absent or superseded");
+});
+
+it("keeps non-stale attestation errors fatal", async () => {
+  const db = client();
+  db.rpc.mockResolvedValueOnce({ data: null, error: { message: "database unavailable" } });
+  await expect(loadSwellWatchHistory({ regionKey: "fixture", beachId: id }, db)).rejects.toThrow("database unavailable");
+});
+
+it("accepts a single attested component for the persisted slot", async () => {
+  const db = client();
+  db.rpc.mockResolvedValueOnce({ data: [tuple], error: null });
+  await expect(loadSwellWatchHistory({ regionKey: "fixture", beachId: id }, db)).resolves.toMatchObject({
+    history: [expect.objectContaining({ persistedRegionalEventId: id })], staleHistoryExcluded: 0,
+  });
+});
+
+it.each([
+  { ...tuple, source_slot: "s1" },
+  { ...tuple, evaluation_id: "genuine_completed:22222222-2222-4222-8222-222222222222" },
+  { ...tuple, height_m: 9 },
+])("rejects a missing or mismatched persisted component: %j", async (component) => {
+  const db = client();
+  db.rpc.mockResolvedValueOnce({ data: [component], error: null });
+  await expect(loadSwellWatchHistory({ regionKey: "fixture", beachId: id }, db)).rejects.toThrow("history differs from attested component");
 });

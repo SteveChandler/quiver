@@ -24,6 +24,8 @@ export class SwellWatchStudySkip extends Error {
   }
 }
 
+export type SwellWatchStudyStage = "study_completion" | "study_evaluation" | "study_recording";
+
 export async function readSwellWatchStudyStatus(
   client: Parameters<typeof loadSwellWatchAcquisitionScope>[1],
 ): Promise<{ status: "active" | "complete" | "expired" | "unconfigured" | "blocked"; qualificationRule: SwellWatchQualificationRule }> {
@@ -41,6 +43,7 @@ export async function recoverSwellWatchStudyRuns(
   config: z.infer<typeof studyConfig>,
   client: Parameters<typeof loadSwellWatchAcquisitionScope>[1],
   qualificationRule: SwellWatchQualificationRule,
+  onStage?: (stage: SwellWatchStudyStage) => void,
 ): Promise<{ processed: number; failed: number }> {
   const reader = client as unknown as {
     rpc: (name: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: unknown }>;
@@ -51,7 +54,7 @@ export async function recoverSwellWatchStudyRuns(
   const result = { processed: 0, failed: 0 };
   for (const run of runs) {
     try {
-      await completeSwellWatchStudyRun(run.revision_set_id, config, client, qualificationRule);
+      await completeSwellWatchStudyRun(run.revision_set_id, config, client, qualificationRule, onStage);
       result.processed += 1;
     } catch {
       // Retained failures must not prevent collecting the next issuance.
@@ -66,8 +69,10 @@ export async function completeSwellWatchStudyRun(
   config: z.infer<typeof studyConfig>,
   client: Parameters<typeof loadSwellWatchAcquisitionScope>[1],
   qualificationRule: SwellWatchQualificationRule,
+  onStage?: (stage: SwellWatchStudyStage) => void,
 ): Promise<Awaited<ReturnType<typeof evaluateSwellWatchShadow>>
   | { skipped: true; reason: "already_evaluated"; providerBatchId: string; enqueued: 0 }> {
+  onStage?.("study_completion");
   config = studyConfig.parse(config);
   const scopes = await loadSwellWatchAcquisitionScope(config.cohort, client);
   const scopeInputs = scopes.map(({ sourcePointId, latitude, longitude, beach }) => ({
@@ -99,9 +104,11 @@ export async function completeSwellWatchStudyRun(
   }
   const [batch] = completionResult.parse(completed.data);
   if (batch.already_evaluated) return { skipped: true, reason: "already_evaluated", providerBatchId: batch.provider_batch_id, enqueued: 0 };
+  onStage?.("study_evaluation");
   const result = await evaluateSwellWatchShadow({ providerBatchId: batch.provider_batch_id,
     qualificationRule, forecastDays: 7, now: new Date().toISOString(), policy: config.policy, scopes },
   client as unknown as Parameters<typeof evaluateSwellWatchShadow>[1]);
+  onStage?.("study_recording");
   const recorded = await writer.rpc("record_swell_watch_study_evaluation", {
     p_provider_batch_id: batch.provider_batch_id, p_policy_hash: config.policy.value_hash, p_result: result,
     p_scope_inputs: scopeInputs,

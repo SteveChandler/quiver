@@ -3,7 +3,7 @@ import { withObservedCron } from "@/lib/cron/observability";
 import { createErrorResponse, createSuccessResponse, validateCronRequest } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { acquisitionConfig, acquireSwellWatchCohort, type SwellWatchAcquisitionStage } from "@/lib/alerts/swell-watch/acquisition";
-import { completeSwellWatchStudyRun, readSwellWatchStudyStatus, recoverSwellWatchStudyRuns, studyConfig, SwellWatchStudySkip } from "@/lib/alerts/swell-watch/study";
+import { completeSwellWatchStudyRun, readSwellWatchStudyStatus, recoverSwellWatchStudyRuns, studyConfig, SwellWatchStudySkip, type SwellWatchStudyStage } from "@/lib/alerts/swell-watch/study";
 import { getSingleRunTupleDiagnostic } from "@/lib/alerts/swell-watch/single-run-receipt";
 import { z } from "zod";
 
@@ -16,6 +16,22 @@ export const maxDuration = 300;
 function failureCode(error: unknown): string {
   if (error instanceof z.ZodError) return "schema_validation_failed";
   if (!(error instanceof Error)) return "unknown";
+  if (error.message.startsWith("Swell Watch history attestation failed:")) return "history_attestation_failed";
+  if (error.message.startsWith("Swell Watch history differs from attested component")) return "history_component_mismatch";
+  if (["Swell Watch history scope is inconsistent", "Swell Watch history state is inconsistent",
+    "Swell Watch history is truncated or duplicated"].includes(error.message)) return "history_invalid";
+  const fixed = new Map([
+    ["Current evaluation is absent or superseded", "current_evaluation_absent_or_superseded"],
+    ["Persisted matching identity changed", "persisted_matching_identity_changed"],
+    ["Invalid shadow candidate", "invalid_shadow_candidate"],
+    ["Duplicate shadow candidate", "duplicate_shadow_candidate"],
+    ["Shadow demand recording failed", "shadow_demand_recording_failed"],
+    ["Attested run ingestion identities are missing or inconsistent", "attested_run_ingestion_identities_are_missing_or_inconsistent"],
+    ["Cohort exceeds atomic impact limit", "cohort_exceeds_atomic_impact_limit"],
+  ]);
+  const fixedCode = fixed.get(error.message);
+  if (fixedCode) return fixedCode;
+  if (error.message.startsWith("Attested run ingestion failed:")) return "attested_run_ingestion_failed";
   const messages = [
     "Collection lease unavailable", "Collection lease release unavailable",
     "Acquisition scope differs from configured cohort",
@@ -64,8 +80,8 @@ async function acquire(request: Request): Promise<Response> {
   } catch {
     return createErrorResponse("Producer unavailable", "Valid server-side acquisition configuration is required", 503);
   }
-  let stage: "client" | "health" | "recovery" | "health_after_recovery" | "acquisition" | "completion"
-    | SwellWatchAcquisitionStage = "client";
+  let stage: "client" | "health" | "recovery" | "health_after_recovery" | "acquisition"
+    | SwellWatchAcquisitionStage | SwellWatchStudyStage = "client";
   try {
     const client = createSupabaseServiceRoleClient();
     let qualificationRule: SwellWatchQualificationRule = COMPLETE_PARTITIONS_RULE;
@@ -80,7 +96,7 @@ async function acquire(request: Request): Promise<Response> {
       }
       if (status !== "active") return createErrorResponse("Study unavailable", "Study authority is not active", 503);
       stage = "recovery";
-      recovery = await recoverSwellWatchStudyRuns(studyConfig.parse(config), client, qualificationRule);
+      recovery = await recoverSwellWatchStudyRuns(studyConfig.parse(config), client, qualificationRule, (studyStage) => { stage = studyStage; });
       if (recovery.processed) {
         stage = "health_after_recovery";
         const afterRecovery = await readSwellWatchStudyStatus(client);
@@ -94,10 +110,10 @@ async function acquire(request: Request): Promise<Response> {
     stage = "acquisition";
     const stored = await acquireSwellWatchCohort(config.cohort, client, (acquisitionStage) => { stage = acquisitionStage; });
     if (automated && !("skipped" in stored)) {
-      stage = "completion";
+      stage = "study_completion";
       let study;
       try {
-        study = await completeSwellWatchStudyRun(stored.revisionSetId, studyConfig.parse(config), client, qualificationRule);
+        study = await completeSwellWatchStudyRun(stored.revisionSetId, studyConfig.parse(config), client, qualificationRule, (studyStage) => { stage = studyStage; });
       } catch (error) {
         if (!(error instanceof SwellWatchStudySkip)) throw error;
         if (recovery.failed) return createErrorResponse("Study recovery incomplete", { recovery, enqueued: 0 }, 500);
