@@ -74,11 +74,26 @@ remigrated_hash=$(query "SELECT encode(extensions.digest(pg_get_functiondef('pub
 run_file "$study_root/supabase/migrations/20260918180000_harden_swell_watch_study_epochs_and_extend.sql" >/dev/null
 run_file "$study_root/supabase/migrations/20260918180000_harden_swell_watch_study_epochs_and_extend.sql" >/dev/null
 study_database=postgres
-if [ "$(query "SELECT encode(extensions.digest(pg_get_functiondef('public.complete_swell_watch_study_run(uuid,text,jsonb,jsonb)'::regprocedure),'sha256'),'hex')")" != 7c4b7e0522a7d89157beda0a76b7760a0e62920ad2e7a2b7a45981da79544bfb ]; then
-  echo 'Hardened completion hash mismatch' >&2; exit 1
-fi
-if [ "$(query "SELECT encode(extensions.digest(pg_get_functiondef('public.record_swell_watch_shadow_demand(uuid,text,jsonb)'::regprocedure),'sha256'),'hex')")" != 6cdc9bf3e3605571dfe82040a91aad49ad02124c9bee8fc41908124cfac87f47 ]; then
-  echo 'Hardened shadow hash mismatch' >&2; exit 1
+pinned_post_hash() {
+  awk -v signature="$1" 'index($0,"-- " signature ": pre ")==1 {sub(/^.*; post /,""); print; exit}' \
+    "$study_root/docs/operations/swell-watch-study-extend-20261231.sql"
+}
+for signature in \
+  'swell_watch_provider_evidence_is_current(uuid)' \
+  'read_swell_watch_study_health()' \
+  'complete_swell_watch_study_run(uuid,text,jsonb,jsonb)' \
+  'record_swell_watch_study_evaluation(uuid,text,jsonb,jsonb)' \
+  'read_swell_watch_study_pending_runs(text)' \
+  'resolve_and_ingest_swell_watch_evaluation(uuid,uuid,uuid,uuid,text,text,timestamptz,text,numeric,numeric,numeric,numeric,text,text,text,timestamptz,timestamptz)' \
+  'advance_swell_watch_event(uuid,text,uuid,timestamptz,timestamptz,uuid)' \
+  'record_swell_watch_shadow_demand(uuid,text,jsonb)'; do
+  pinned_hash=$(pinned_post_hash "$signature")
+  [ -n "$pinned_hash" ] || { echo "Missing pinned post hash: $signature" >&2; exit 1; }
+  actual_hash=$(query "SELECT encode(extensions.digest(pg_get_functiondef('public.$signature'::regprocedure),'sha256'),'hex')")
+  [ "$actual_hash" = "$pinned_hash" ] || { echo "Hardened hash mismatch: $signature" >&2; exit 1; }
+done
+if [ "$(query "SELECT COALESCE(string_agg(grantee,',' ORDER BY grantee),'') FROM information_schema.routine_privileges WHERE specific_schema='public' AND routine_name='read_swell_watch_provider_run_states' AND privilege_type='EXECUTE'")" != service_role ]; then
+  echo 'read_swell_watch_provider_run_states grants changed' >&2; exit 1
 fi
 if [ "$(query 'SELECT jsonb_agg(to_jsonb(a) ORDER BY epoch)::text FROM public.swell_watch_study_authorities a WHERE epoch BETWEEN 1 AND 5')" != "$authority_rows_before" ] || \
   [ "$(query 'SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch)::text FROM public.swell_watch_evaluation_policies p WHERE epoch BETWEEN 1 AND 2')" != "$policy_rows_before" ]; then

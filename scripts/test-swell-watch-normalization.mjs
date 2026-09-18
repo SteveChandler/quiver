@@ -30,7 +30,10 @@ const j = (value) => `${q(JSON.stringify(value))}::jsonb`;
 const command = ["exec", "-i", container, "psql", "-X", "-U", "postgres", "-qAt", "-v", "ON_ERROR_STOP=1"];
 function sql(text) {
   const result = spawnSync("docker", [...command, "-d", database], { input: text, encoding: "utf8", timeout: 30_000, maxBuffer: 32 * 1024 * 1024 });
-  if (result.status !== 0) throw new Error((result.stderr || "isolated PostgreSQL command failed").split("\n")[0].slice(0, 200));
+  if (result.status !== 0) {
+    const lines = (result.stderr || "isolated PostgreSQL command failed").trim().split("\n").filter(Boolean);
+    throw new Error((lines.filter((line) => !line.startsWith("NOTICE:")).slice(0, 4).join(" ") || lines[0]).slice(0, 500));
+  }
   return result.stdout.trim();
 }
 function value(text) { return JSON.parse(sql(text)); }
@@ -824,26 +827,44 @@ END $$;`);
   const preCycleRunUtc = new Date(Date.parse(epoch5Authority[4].not_before) - 6 * 3_600_000).toISOString();
   setClock(preCycleRunUtc, 8);
   for (const signature of hardeningFunctions) sql(`ALTER FUNCTION public.${signature} SET search_path=public,pg_temp;`);
+  const resolverFixturePreHash = sql("SELECT encode(extensions.digest(pg_get_functiondef('public.resolve_and_ingest_swell_watch_evaluation(uuid,uuid,uuid,uuid,text,text,timestamptz,text,numeric,numeric,numeric,numeric,text,text,text,timestamptz,timestamptz)'::regprocedure),'sha256'),'hex');");
   const fixtureHardeningMigration = hardeningMigration
-    .replace("fbb618bc867533b9cfb61c2d676c2430a9d6926e04623daf5da7c8e802d9f00b", "b5f3300dde131554862219403c59e87b97f06df0e384fe9db5dc0b733b6646c4")
-    .replace("IF encode(extensions.digest(definition,'sha256'),'hex') IN ('67c5c32bbe5fc2b8f0604876c5fb9f06df4ab6a55411ee6750caf7daa60e2047','767a3021f43cf63895aa6fa13ad552094983de7c99d74ff5fb4cf14c3de8fce5') THEN RETURN; END IF;", "IF false THEN RETURN; END IF;")
-    .replace("IF encode(extensions.digest(definition,'sha256') ,'hex')<>'b5f3300dde131554862219403c59e87b97f06df0e384fe9db5dc0b733b6646c4'", "IF false")
-    .replace("IF encode(extensions.digest(definition,'sha256'),'hex')<>'b5f3300dde131554862219403c59e87b97f06df0e384fe9db5dc0b733b6646c4'", "IF false")
-    .replace("IF encode(extensions.digest(definition,'sha256'),'hex')<>'b5f3300dde131554862219403c59e87b97f06df0e384fe9db5dc0b733b6646c4' THEN RAISE EXCEPTION 'study resolver definition differs from reviewed baseline: %', encode(extensions.digest(definition,'sha256'),'hex'); END IF;", "IF false THEN RAISE EXCEPTION 'study resolver definition differs from reviewed baseline'; END IF;")
-    .replace("THEN RAISE EXCEPTION 'study resolver definition differs from reviewed baseline: %', encode(extensions.digest(definition,'sha256'),'hex');", "THEN NULL;")
-    .replace("IF encode(extensions.digest(pg_get_functiondef('public.resolve_and_ingest_swell_watch_evaluation(uuid,uuid,uuid,uuid,text,text,timestamptz,text,numeric,numeric,numeric,numeric,text,text,text,timestamptz,timestamptz)'::regprocedure),'sha256'),'hex')<>'67c5c32bbe5fc2b8f0604876c5fb9f06df4ab6a55411ee6750caf7daa60e2047' THEN RAISE EXCEPTION 'study resolver definition hash mismatch'; END IF;", "IF false THEN RAISE EXCEPTION 'study resolver definition hash mismatch'; END IF;");
+    .replaceAll("fbb618bc867533b9cfb61c2d676c2430a9d6926e04623daf5da7c8e802d9f00b", resolverFixturePreHash);
   sql(fixtureHardeningMigration);
   const resolverTimeoutHash = sql("SELECT encode(extensions.digest(pg_get_functiondef('public.resolve_and_ingest_swell_watch_evaluation(uuid,uuid,uuid,uuid,text,text,timestamptz,text,numeric,numeric,numeric,numeric,text,text,text,timestamptz,timestamptz)'::regprocedure),'sha256'),'hex');");
   const fixtureExtension = extensionScript
-    .replace("767a3021f43cf63895aa6fa13ad552094983de7c99d74ff5fb4cf14c3de8fce5", resolverTimeoutHash)
-    .replace("OR previous.evidence_sha256<>evidence_sha256", "OR false")
-    .replace(/expected_epoch5_hash := encode\(extensions\.digest\(jsonb_build_object\([\s\S]*?\)::text,'sha256'\),'hex'\);/, "expected_epoch5_hash := previous.config_hash;")
-    .replace(/IF previous\.state<>'active'[\s\S]*?THEN RAISE EXCEPTION 'exact reviewed epoch 5 study authority required'; END IF;/, "IF false THEN RAISE EXCEPTION 'exact reviewed epoch 5 study authority required'; END IF;")
-    .replace("'evidenceSha256',evidence_sha256,'qualificationRule',previous.qualification_rule", "'evidenceSha256',previous.evidence_sha256,'qualificationRule',previous.qualification_rule");
+    .replace("767a3021f43cf63895aa6fa13ad552094983de7c99d74ff5fb4cf14c3de8fce5", resolverTimeoutHash);
+  const assertExtensionRejected = (name, mutation, pattern) => {
+    database = "postgres";
+    sql(`CREATE DATABASE ${name} TEMPLATE study_swell_system_count;`);
+    database = name;
+    try {
+      sql(mutation);
+      const authorities = sql("SELECT jsonb_agg(to_jsonb(a) ORDER BY epoch) FROM public.swell_watch_study_authorities a;");
+      const policies = sql("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;");
+      assert.throws(() => sql(fixtureExtension), pattern);
+      assert.equal(sql("SELECT jsonb_agg(to_jsonb(a) ORDER BY epoch) FROM public.swell_watch_study_authorities a;"), authorities);
+      assert.equal(sql("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;"), policies);
+    } finally {
+      database = "postgres";
+      sql(`DROP DATABASE ${name};`);
+      database = "study_swell_system_count";
+    }
+  };
+  assertExtensionRejected("study_extension_send_guard", `SELECT set_config('app.swell_watch_internal_write','on',false);
+    INSERT INTO public.swell_watch_production_approval_authority
+    (record_id,authority_id,authority_epoch,state,policy_hash,policy_provenance,policy_values,approval_id,approval_evidence_hash,production_scope,reviewer,not_before,expires_at)
+    SELECT gen_random_uuid(),gen_random_uuid(),99,'active',policy_hash,'production_approved',policy_values,'fixture-send-guard',repeat('a',64),'swell_watch_push','fixture',clock_timestamp(),clock_timestamp()+interval '1 day'
+    FROM public.swell_watch_evaluation_policies WHERE epoch=2;`, /reviewed active evaluation policy and disabled sends required/);
+  assertExtensionRejected("study_extension_expiry_guard", "ALTER TABLE public.swell_watch_study_authorities DISABLE TRIGGER swell_watch_study_authority_guard; UPDATE public.swell_watch_study_authorities SET expires_at=expires_at+interval '1 second' WHERE epoch=5; ALTER TABLE public.swell_watch_study_authorities ENABLE TRIGGER swell_watch_study_authority_guard;", /exact reviewed epoch 5 study authority required/);
+  assertExtensionRejected("study_extension_policy_guard", `SELECT set_config('app.swell_watch_internal_write','on',false);
+    INSERT INTO public.swell_watch_evaluation_policies
+    (epoch,state,policy_hash,policy_values,reviewer,evidence_hash,not_before,expires_at)
+    SELECT 3,'revoked',repeat('c',64),p.policy_values,p.reviewer,repeat('b',64),p.not_before,p.expires_at FROM public.swell_watch_evaluation_policies p WHERE p.epoch=2;`, /unexpected evaluation policy; exact extension retry only/);
   sql(fixtureExtension); const extendedAuthorities = authorityRows(); const extendedPolicies = value("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;");
   sql(fixtureExtension); assert.deepEqual(authorityRows(), extendedAuthorities); assert.deepEqual(value("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;"), extendedPolicies);
   const extendedHealth = value("SELECT public.read_swell_watch_study_health();");
-  assert.equal(extendedHealth.authorityEpoch, 6); assert.equal(extendedHealth.cycleStartEpoch, 5); assert.equal(extendedHealth.cycleNotBefore, preExtensionHealth.cycleNotBefore);
+  assert.equal(extendedHealth.authorityEpoch, 6); assert.equal(extendedHealth.cycleStartEpoch, 5); assert.equal(extendedHealth.cycleNotBefore, epoch5Authority[4].not_before);
   assert.equal(extendedHealth.status, "active"); assert.equal(extendedHealth.expiresAt, "2026-12-31T23:59:59+00:00");
   assert.equal(extendedHealth.evaluatedRuns, preExtensionHealth.evaluatedRuns); assert.equal(extendedHealth.suppressedAttempts, preExtensionHealth.suppressedAttempts); assert.deepEqual(extendedHealth.qualifyingDates, preExtensionHealth.qualifyingDates);
   assert.deepEqual(sendCounts(), systemSafety);

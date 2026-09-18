@@ -3,7 +3,7 @@ BEGIN;
 SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='60s';
 DO $activation$
-DECLARE policy public.swell_watch_evaluation_policies; previous public.swell_watch_study_authorities; latest public.swell_watch_study_authorities;
+DECLARE policy public.swell_watch_evaluation_policies; previous public.swell_watch_study_authorities; latest public.swell_watch_study_authorities; latest_policy public.swell_watch_evaluation_policies;
   rule text := 'model_reported_swell_system_count.v1';
   evidence text := 'Steven Chandler approved on 2026-09-16 reading a forecast hour whose primary and secondary swell partitions are both provider zero tuples as the model reporting zero swell systems at that hour (WAVEWATCH III UNDEF for all swell ranks when only wind sea is found; Open-Meteo zero-fills that UNDEF). Extends the 2026-09-14 model-reported-partition-count interpretation; no synthesized values; open episodes close at the adjacent native frame; same cohort, policy hash, 12h freshness, thresholds, four-issuance rule, target 30 days, expiry 2026-10-25T02:45:47.591003Z; sends remain disabled.';
   approval text := 'Steven Chandler approved on 2026-09-18 extending the no-send Swell Watch study and its evaluation policy to 2026-12-31T23:59:59Z with identical policy values, cohort, qualification rule, thresholds, 12h freshness, four-issuance rule and target 30 days; sends remain disabled.';
@@ -29,20 +29,23 @@ BEGIN
     OR EXISTS(SELECT 1 FROM public.swell_watch_production_approval_authority) THEN RAISE EXCEPTION 'reviewed active evaluation policy and disabled sends required'; END IF;
   SELECT * INTO previous FROM public.swell_watch_study_authorities WHERE epoch=5;
   IF NOT FOUND THEN RAISE EXCEPTION 'exact reviewed epoch 5 study authority required'; END IF;
-  expected_epoch5_hash := previous.config_hash;
+  expected_epoch5_hash := encode(extensions.digest(jsonb_build_object('policyHash',previous.policy_hash,'cohort',previous.cohort,'scopeInputs',previous.scope_inputs,
+    'forecastDays',7,'targetDays',previous.target_days,'providerContractRef',previous.provider_contract_ref,'evidenceSha256',previous.evidence_sha256,'qualificationRule',previous.qualification_rule)::text,'sha256'),'hex');
   IF previous.state<>'active' OR previous.qualification_rule<>rule OR previous.config_hash<>expected_epoch5_hash OR previous.evidence_sha256<>evidence_sha256
     OR previous.policy_hash<>policy.policy_hash OR previous.scope_inputs IS DISTINCT FROM public.swell_watch_study_scope_inputs(previous.cohort)
     OR previous.expires_at<>'2026-10-25T02:45:47.591003Z'::timestamptz THEN RAISE EXCEPTION 'exact reviewed epoch 5 study authority required'; END IF;
-  SELECT * INTO latest FROM public.swell_watch_evaluation_policies ORDER BY epoch DESC LIMIT 1;
-  IF latest.epoch=3 AND latest.state='active' AND latest.policy_hash=policy.policy_hash AND latest.policy_values=policy.policy_values
-    AND latest.not_before=policy.not_before AND latest.expires_at='2026-12-31T23:59:59Z'::timestamptz
-    AND latest.reviewer='Steven Chandler (study extension 2026-09-18)' AND latest.evidence_hash=encode(extensions.digest(approval,'sha256'),'hex') THEN NULL;
-  ELSIF latest.epoch<>2 THEN RAISE EXCEPTION 'unexpected evaluation policy; exact extension retry only';
+  SELECT * INTO latest_policy FROM public.swell_watch_evaluation_policies ORDER BY epoch DESC LIMIT 1;
+  IF latest_policy.epoch=3 AND latest_policy.state='active' AND latest_policy.policy_hash=policy.policy_hash AND latest_policy.policy_values=policy.policy_values
+    AND latest_policy.not_before=policy.not_before AND latest_policy.expires_at='2026-12-31T23:59:59Z'::timestamptz
+    AND latest_policy.reviewer='Steven Chandler (study extension 2026-09-18)' AND latest_policy.evidence_hash=encode(extensions.digest(approval,'sha256'),'hex') THEN NULL;
+  ELSIF latest_policy.epoch<>2 THEN RAISE EXCEPTION 'unexpected evaluation policy; exact extension retry only';
   ELSE
     INSERT INTO public.swell_watch_evaluation_policies(epoch,state,policy_hash,policy_values,reviewer,evidence_hash,not_before,expires_at)
       SELECT 3,'active',policy_hash,policy_values,'Steven Chandler (study extension 2026-09-18)',encode(extensions.digest(approval,'sha256'),'hex'),not_before,'2026-12-31T23:59:59Z'::timestamptz FROM public.swell_watch_evaluation_policies WHERE epoch=2;
   END IF;
-  expected_epoch6_hash := previous.config_hash;
+  expected_epoch6_hash := encode(extensions.digest(jsonb_build_object('policyHash',previous.policy_hash,'cohort',previous.cohort,'scopeInputs',previous.scope_inputs,
+    'forecastDays',7,'targetDays',previous.target_days,'providerContractRef',previous.provider_contract_ref,'evidenceSha256',previous.evidence_sha256,'qualificationRule',rule)::text,'sha256'),'hex');
+  IF expected_epoch6_hash<>previous.config_hash THEN RAISE EXCEPTION 'exact reviewed epoch 6 config hash required'; END IF;
   SELECT * INTO latest FROM public.swell_watch_study_authorities ORDER BY epoch DESC LIMIT 1;
   IF latest.epoch=7 THEN RAISE EXCEPTION 'unexpected study authority; exact extension retry only'; END IF;
   IF latest.epoch=6 AND latest.state='active' AND latest.policy_hash=previous.policy_hash AND latest.cohort=previous.cohort AND latest.scope_inputs=previous.scope_inputs
