@@ -276,6 +276,7 @@ database = "study_native_sampling";
   const waikiki = JSON.parse(readFileSync(new URL("../__tests__/fixtures/swell-watch-retained-20260913/waikiki-20260913T1200Z.json", import.meta.url), "utf8"));
   const hatteras = JSON.parse(readFileSync(new URL("../__tests__/fixtures/swell-watch-retained-20260913/hatteras-20260913T1200Z.json", import.meta.url), "utf8"));
   const hatterasSep16 = JSON.parse(readFileSync(new URL("../__tests__/fixtures/swell-watch-retained-20260916/hatteras-20260916T00Z.json", import.meta.url), "utf8"));
+  const hatterasSep17 = JSON.parse(readFileSync(new URL("../__tests__/fixtures/swell-watch-retained-20260917/hatteras-20260917T12Z.json", import.meta.url), "utf8"));
 const waikikiIndex = cohort.findIndex((scope) => scope.sourcePointId === waikiki.sourcePointId);
 const hatterasIndex = cohort.findIndex((scope) => scope.sourcePointId === hatteras.sourcePointId);
 assert(waikikiIndex >= 0 && hatterasIndex >= 0);
@@ -365,7 +366,8 @@ END $$;`);
     const now = setClock(issuance);
     const receipts = await Promise.all(cohort.map(async ({ sourcePointId }, i) => {
       const payload = body(issuance);
-      const retainedFixture = options.retained && i === hatterasIndex ? hatterasSep16
+      const retainedFixture = options.retained === "hatteras2026-09-17T12" && i === hatterasIndex ? hatterasSep17
+        : options.retained && i === hatterasIndex ? hatterasSep16
         : missing && i === hatterasIndex ? hatteras : !options.flat && i === waikikiIndex ? waikiki : null;
       if (retainedFixture) {
         const retained = retainedFields(retainedFixture);
@@ -671,11 +673,6 @@ END $$;`);
   assert.equal(epoch4Run.evaluation.derivation.qualificationRule, modelCountRule);
   assert.deepEqual(value(`SELECT result FROM public.swell_watch_study_evaluations WHERE provider_batch_id=${q(epoch4Run.completed.provider_batch_id)};`), epoch4Run.evaluation);
   assert.deepEqual(sendCounts(), systemSafety);
-  // Epoch-4 provider evidence is stale once epoch 5 becomes current; reset only disposable derived event history.
-  sql(`TRUNCATE TABLE public.swell_watch_shadow_demand_pairs,public.swell_watch_shadow_demand_runs,public.swell_watch_recipient_announcements,
-    public.swell_watch_event_impacts,public.swell_watch_event_evaluations,public.swell_watch_event_state_transitions,public.swell_watch_event_aliases,
-    public.swell_watch_regional_events,public.swell_watch_beach_impacts,public.swell_watch_observations CASCADE;`);
-
   sql("ALTER FUNCTION public.record_swell_watch_study_evaluation(uuid,text,jsonb,jsonb) SET search_path=public,pg_temp;");
   sql(swellSystemCountMigration);
   assert.equal(studyEvaluationHash(), epoch5StudyEvaluationHash);
@@ -704,6 +701,40 @@ END $$;`);
   assert.deepEqual(authorityRows(), epoch5Authority);
   assert.deepEqual(value("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;"), systemPolicyRows);
   assert.deepEqual(sendCounts(), systemSafety);
+
+  const historyDatabase = "study_swell_watch_history_fix";
+  sql(`CREATE DATABASE ${historyDatabase} TEMPLATE ${database};`);
+
+  database = historyDatabase;
+  const currentEvidenceIssuances = [0, 6].map((hours) => new Date(Date.parse(epoch4Issuance) + (240 + hours) * 3_600_000).toISOString());
+  const qualifyingDatesBeforeCurrentEvidence = value("SELECT public.read_swell_watch_study_health();").qualifyingDates;
+  const currentEvidenceRuns = [];
+  for (const issuance of currentEvidenceIssuances) {
+    const result = await nativeRun(issuance, false, swellSystemCountRule, { retained: "hatteras2026-09-17T12" });
+    assert.equal(result.evaluation.status, "evaluated");
+    assert((result.evaluation.suppressionReasons.stale_history_excluded ?? 0) >= 1, "prior-epoch history is excluded");
+    assert(result.evaluation.recordedDemand);
+    assert.equal(sql(`SELECT count(*) FROM public.swell_watch_shadow_demand_runs WHERE provider_batch_id=${q(result.completed.provider_batch_id)};`), "1");
+    currentEvidenceRuns.push(result);
+  }
+  const shiftCurrentEvidence = (at) => new Date(Date.parse(at) + Date.parse(currentEvidenceIssuances[0]) - Date.parse(hatterasSep17.issuedAt)).toISOString();
+  const currentEvidenceScope = currentEvidenceRuns[0].evaluation.derivation.scopes.find((scope) => scope.sourcePointId === cohort[hatterasIndex].sourcePointId);
+  const persistedCurrentEvidence = currentEvidenceScope.events.find((event) => event.sourceSlot === hatterasSep17.persistedEvent.slot
+    && event.peakAt === shiftCurrentEvidence(hatterasSep17.persistedEvent.peakAt));
+  assert(persistedCurrentEvidence);
+  assert.equal(persistedCurrentEvidence.arrivalAt, shiftCurrentEvidence(hatterasSep17.persistedEvent.arrivalAt));
+  assert.equal(persistedCurrentEvidence.peakAt, shiftCurrentEvidence(hatterasSep17.persistedEvent.peakAt));
+  const secondCurrentEvidenceScope = currentEvidenceRuns[1].evaluation.derivation.scopes.find((scope) => scope.sourcePointId === cohort[hatterasIndex].sourcePointId);
+  const secondCurrentEvidence = secondCurrentEvidenceScope.events.find((event) => event.sourceSlot === hatterasSep17.persistedEvent.slot);
+  assert.equal(secondCurrentEvidence.regionalEventId, persistedCurrentEvidence.regionalEventId);
+  const currentEvidenceStates = value(`SELECT jsonb_agg(state ORDER BY version) FROM public.swell_watch_event_state_transitions WHERE regional_event_id=${q(persistedCurrentEvidence.regionalEventId)};`);
+  assert.equal(currentEvidenceStates.at(-1), "stable");
+  assert(currentEvidenceRuns[1].evaluation.stableRegionalEventCount >= 1);
+  assert.deepEqual(value("SELECT public.read_swell_watch_study_health();").qualifyingDates, qualifyingDatesBeforeCurrentEvidence);
+  database = "study_swell_system_count";
+  sql(`TRUNCATE TABLE public.swell_watch_shadow_demand_pairs,public.swell_watch_shadow_demand_runs,public.swell_watch_recipient_announcements,
+    public.swell_watch_event_impacts,public.swell_watch_event_evaluations,public.swell_watch_event_state_transitions,public.swell_watch_event_aliases,
+    public.swell_watch_regional_events,public.swell_watch_beach_impacts,public.swell_watch_observations CASCADE;`);
 
   const epoch5UtcDay = new Date(Date.parse(epoch4Issuance) + 24 * 3_600_000).toISOString().slice(0, 10);
   const epoch5Issuances = [0, 6, 12, 18].map((hour) => `${epoch5UtcDay}T${String(hour).padStart(2, "0")}:00:00.000Z`);
@@ -771,13 +802,16 @@ END $$;`);
   assert.deepEqual(value("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;"), systemPolicyRows);
   assert.deepEqual(authorityRows().slice(0, 4), epoch4Authority);
   assert.deepEqual(sendCounts(), systemSafety);
+
   console.log(JSON.stringify({ mode: "real_chain_disposable_epoch_4_epoch_5", epoch4: { rule: modelCountRule,
     hatterasS1Absent: epoch4Hatteras.partitionCoverage.s1.absent, hatterasS2Absent: epoch4Hatteras.partitionCoverage.s2.absent,
     oneStepArrivalWindow: true }, epoch5: { rule: swellSystemCountRule, authorityEpoch: epoch5Health.authorityEpoch,
     qualifyingDays: epoch5Health.qualifyingDays, qualifyingDates: epoch5Health.qualifyingDates,
     hatterasS1Absent: epoch5Hatteras.partitionCoverage.s1.absent, hatterasS1AbsentNativeFrames: epoch5Hatteras.partitionCoverage.s1.absentNativeFrames,
     hatterasS2Absent: epoch5Hatteras.partitionCoverage.s2.absent, unavailable: { s1: epoch5Hatteras.partitionCoverage.s1.unavailable, s2: epoch5Hatteras.partitionCoverage.s2.unavailable },
-    equivalentRetryAddsDay: false }, sends: systemSafety }, null, 2));
+    equivalentRetryAddsDay: false }, currentEvidence: { issuances: currentEvidenceIssuances,
+      staleHistoryExcluded: currentEvidenceRuns.map((run) => run.evaluation.suppressionReasons.stale_history_excluded), stableOnSecondRun: true,
+      persistedEvent: { arrivalAt: persistedCurrentEvidence.arrivalAt, peakAt: persistedCurrentEvidence.peakAt, sourceSlot: persistedCurrentEvidence.sourceSlot } }, sends: systemSafety }, null, 2));
 } finally {
   database = "study_native_sampling";
   assert.equal(sql("SELECT jsonb_object_agg(oid::regprocedure::text,md5(prosrc)) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname<>'clock_timestamp';"), productionBodies, "Production SQL bodies unchanged by disposable clock injection");

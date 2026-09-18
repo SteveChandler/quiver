@@ -52,6 +52,10 @@ export async function evaluateSwellWatchShadow(
         regionKey: scope.regionKey.trim(), beachId: scope.sourcePointId,
         regionalEventId: event.impact.regionalEventId, evaluationId: run.source.evaluationId, policy: input.policy,
       }, client);
+      if (matched.staleHistoryExcluded) {
+        result.suppressionReasons.stale_history_excluded = (result.suppressionReasons.stale_history_excluded ?? 0)
+          + matched.staleHistoryExcluded;
+      }
       if (matched.regionalEvent.status !== "stable") {
         const reason = matched.regionalEvent.reason ?? "not_stable";
         result.suppressionReasons[reason] = (result.suppressionReasons[reason] ?? 0) + 1;

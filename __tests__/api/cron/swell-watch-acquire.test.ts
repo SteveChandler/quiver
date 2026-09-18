@@ -61,8 +61,8 @@ describe("automated study", () => {
     const response = await call();
     expect(response.status).toBe(200);
     expect((await response.json()).data).toMatchObject({ qualification: "automated_study", study: { status: "evaluated" }, enqueued: 0 });
-    expect(completeSwellWatchStudyRun).toHaveBeenCalledWith(receipt.revisionSetId, expect.anything(), expect.anything(), "primary_partition_with_retained_unavailable_secondary.v1");
-    expect(recoverSwellWatchStudyRuns).toHaveBeenCalledWith(expect.anything(), expect.anything(), "primary_partition_with_retained_unavailable_secondary.v1");
+    expect(completeSwellWatchStudyRun).toHaveBeenCalledWith(receipt.revisionSetId, expect.anything(), expect.anything(), "primary_partition_with_retained_unavailable_secondary.v1", expect.any(Function));
+    expect(recoverSwellWatchStudyRuns).toHaveBeenCalledWith(expect.anything(), expect.anything(), "primary_partition_with_retained_unavailable_secondary.v1", expect.any(Function));
   });
 
   it("uses the refreshed authority rule after recovery", async () => {
@@ -71,8 +71,8 @@ describe("automated study", () => {
       .mockResolvedValueOnce({ status: "active", qualificationRule: "primary_partition_with_retained_unavailable_secondary.v1" });
     jest.mocked(recoverSwellWatchStudyRuns).mockResolvedValueOnce({ processed: 1, failed: 0 });
     expect((await call()).status).toBe(200);
-    expect(recoverSwellWatchStudyRuns).toHaveBeenCalledWith(expect.anything(), expect.anything(), "complete_partitions.v1");
-    expect(completeSwellWatchStudyRun).toHaveBeenCalledWith(receipt.revisionSetId, expect.anything(), expect.anything(), "primary_partition_with_retained_unavailable_secondary.v1");
+    expect(recoverSwellWatchStudyRuns).toHaveBeenCalledWith(expect.anything(), expect.anything(), "complete_partitions.v1", expect.any(Function));
+    expect(completeSwellWatchStudyRun).toHaveBeenCalledWith(receipt.revisionSetId, expect.anything(), expect.anything(), "primary_partition_with_retained_unavailable_secondary.v1", expect.any(Function));
   });
 
   it("processes retained issuance A before acquiring newer issuance B", async () => {
@@ -82,7 +82,7 @@ describe("automated study", () => {
     expect((await response.json()).data.recovery).toEqual({ processed: 1, failed: 0 });
     expect(jest.mocked(recoverSwellWatchStudyRuns).mock.invocationCallOrder[0])
       .toBeLessThan(jest.mocked(acquireSwellWatchCohort).mock.invocationCallOrder[0]);
-    expect(completeSwellWatchStudyRun).toHaveBeenCalledWith(receipt.revisionSetId, expect.anything(), expect.anything(), "primary_partition_with_retained_unavailable_secondary.v1");
+    expect(completeSwellWatchStudyRun).toHaveBeenCalledWith(receipt.revisionSetId, expect.anything(), expect.anything(), "primary_partition_with_retained_unavailable_secondary.v1", expect.any(Function));
   });
 
   it("reports retained failures while still processing the newest issuance", async () => {
@@ -143,11 +143,57 @@ describe("automated study", () => {
 
   it("returns an actual failure if automatic completion or outcome recording fails", async () => {
     const log = jest.spyOn(console, "error").mockImplementation(() => {});
-    jest.mocked(completeSwellWatchStudyRun).mockRejectedValueOnce(new Error("private-database-detail"));
+    jest.mocked(completeSwellWatchStudyRun).mockImplementationOnce(async (...args) => {
+      args[4]?.("study_evaluation");
+      throw new Error("private-database-detail");
+    });
     const response = await call();
     expect(response.status).toBe(500);
     expect(await response.text()).not.toContain("private-database-detail");
-    expect(log).toHaveBeenCalledWith("[swell-watch-acquire] automated study failed", { stage: "completion", code: "unknown" });
+    expect(log).toHaveBeenCalledWith("[swell-watch-acquire] automated study failed", { stage: "study_evaluation", code: "unknown" });
+  });
+
+  it.each([
+    ["study_completion", new Error("Study completion failed"), "study_completion_failed"],
+    ["study_evaluation", new Error("Swell Watch history attestation failed: private detail"), "history_attestation_failed"],
+    ["study_recording", new Error("Study outcome recording failed"), "study_outcome_recording_failed"],
+  ] as const)("reports the fixed %s failure stage and code", async (stage, error, code) => {
+    const log = jest.spyOn(console, "error").mockImplementation(() => {});
+    jest.mocked(completeSwellWatchStudyRun).mockImplementationOnce(async (...args) => {
+      args[4]?.(stage);
+      throw error;
+    });
+    const response = await call();
+    expect(response.status).toBe(500);
+    const body = await response.json();
+    expect(body).toMatchObject({ details: { stage, code, enqueued: 0 } });
+    expect(JSON.stringify(body)).not.toContain(error.message);
+    expect(log).toHaveBeenCalledWith("[swell-watch-acquire] automated study failed", { stage, code });
+  });
+
+  it.each([
+    [new Error("Swell Watch history differs from attested component"), "history_component_mismatch"],
+    [new Error("Swell Watch history scope is inconsistent"), "history_invalid"],
+    [new Error("Swell Watch history state is inconsistent"), "history_invalid"],
+    [new Error("Swell Watch history is truncated or duplicated"), "history_invalid"],
+    [new Error("Current evaluation is absent or superseded"), "current_evaluation_absent_or_superseded"],
+    [new Error("Persisted matching identity changed"), "persisted_matching_identity_changed"],
+    [new Error("Invalid shadow candidate"), "invalid_shadow_candidate"],
+    [new Error("Duplicate shadow candidate"), "duplicate_shadow_candidate"],
+    [new Error("Shadow demand recording failed"), "shadow_demand_recording_failed"],
+    [new Error("Attested run ingestion failed: private detail"), "attested_run_ingestion_failed"],
+    [new Error("Attested run ingestion identities are missing or inconsistent"), "attested_run_ingestion_identities_are_missing_or_inconsistent"],
+    [new Error("Cohort exceeds atomic impact limit"), "cohort_exceeds_atomic_impact_limit"],
+  ] as const)("reports a fixed code without raw error text: %s", async (error, code) => {
+    const log = jest.spyOn(console, "error").mockImplementation(() => {});
+    jest.mocked(completeSwellWatchStudyRun).mockImplementationOnce(async (...args) => {
+      args[4]?.("study_evaluation");
+      throw error;
+    });
+    const response = await call();
+    expect(response.status).toBe(500);
+    expect(await response.json()).toMatchObject({ details: { stage: "study_evaluation", code, enqueued: 0 } });
+    expect(log).toHaveBeenCalledWith("[swell-watch-acquire] automated study failed", { stage: "study_evaluation", code });
   });
 
   it.each(["issuance_accepted_under_previous_epoch", "latest_issuance_stale"] as const)("skips expected completion outcome %s", async (reason) => {
