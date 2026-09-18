@@ -8,6 +8,7 @@ import {
   type AuthenticatedContext,
   type OptionalAuthContext,
 } from '@/lib/middleware/api-wrappers';
+import type { RouteContext } from '@/lib/middleware/api-wrappers/types';
 import type { SpotSurfReportResult } from '@/lib/services/spot-surf-report-service';
 import type { Beach } from '@/types/database';
 import { applyForceVerdict } from '@/lib/utils/dev-force-verdict';
@@ -514,9 +515,10 @@ const optionalGET = withAuth(
 );
 
 export const GET = async (
-  ...args: Parameters<typeof optionalGET>
+  request: NextRequest,
+  context?: RouteContext,
 ): Promise<NextResponse> => {
-  const response = await optionalGET(...args);
+  const response = await optionalGET(request, context);
   response.headers.delete('ETag');
   response.headers.set(
     'Cache-Control',
