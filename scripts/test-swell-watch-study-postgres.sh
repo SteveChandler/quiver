@@ -47,6 +47,31 @@ run_file "$study_root/supabase/migrations/20260914190000_amend_swell_watch_study
 run_file "$study_root/supabase/migrations/20260914190000_amend_swell_watch_study_model_partition_count.sql" >/dev/null
 run_file "$study_root/supabase/migrations/20260916170000_amend_swell_watch_study_swell_system_count.sql" >/dev/null
 run_file "$study_root/supabase/migrations/20260916170000_amend_swell_watch_study_swell_system_count.sql" >/dev/null
+authority_rows_before=$(query 'SELECT jsonb_agg(to_jsonb(a) ORDER BY epoch)::text FROM public.swell_watch_study_authorities a WHERE epoch BETWEEN 1 AND 5')
+policy_rows_before=$(query 'SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch)::text FROM public.swell_watch_evaluation_policies p WHERE epoch BETWEEN 1 AND 2')
+run_file "$study_root/supabase/migrations/20260918180000_harden_swell_watch_study_epochs_and_extend.sql" >/dev/null
+run_file "$study_root/supabase/migrations/20260918180000_harden_swell_watch_study_epochs_and_extend.sql" >/dev/null
+study_database=postgres
+if [ "$(query "SELECT encode(extensions.digest(pg_get_functiondef('public.complete_swell_watch_study_run(uuid,text,jsonb,jsonb)'::regprocedure),'sha256'),'hex')")" != 7c4b7e0522a7d89157beda0a76b7760a0e62920ad2e7a2b7a45981da79544bfb ]; then
+  echo 'Hardened completion hash mismatch' >&2; exit 1
+fi
+if [ "$(query "SELECT encode(extensions.digest(pg_get_functiondef('public.record_swell_watch_shadow_demand(uuid,text,jsonb)'::regprocedure),'sha256'),'hex')")" != 6cdc9bf3e3605571dfe82040a91aad49ad02124c9bee8fc41908124cfac87f47 ]; then
+  echo 'Hardened shadow hash mismatch' >&2; exit 1
+fi
+if [ "$(query 'SELECT jsonb_agg(to_jsonb(a) ORDER BY epoch)::text FROM public.swell_watch_study_authorities a WHERE epoch BETWEEN 1 AND 5')" != "$authority_rows_before" ] || \
+  [ "$(query 'SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch)::text FROM public.swell_watch_evaluation_policies p WHERE epoch BETWEEN 1 AND 2')" != "$policy_rows_before" ]; then
+  echo 'Amendment changed reviewed authority or policy rows' >&2; exit 1
+fi
+completion_grants_before=$(query "SELECT proacl::text FROM pg_proc WHERE oid='public.complete_swell_watch_study_run(uuid,text,jsonb,jsonb)'::regprocedure;")
+run_file "$study_root/docs/operations/swell-watch-study-epochs-and-extension-rollback.sql" >/dev/null
+if [ "$(query "SELECT encode(extensions.digest(pg_get_functiondef('public.complete_swell_watch_study_run(uuid,text,jsonb,jsonb)'::regprocedure),'sha256'),'hex')")" != 58c3a7bb5b32a0bcb3c7ab1d95678bcc93dcde2bd2763feec24ee2cffd44d85c ] || \
+  [ "$(query "SELECT encode(extensions.digest(pg_get_functiondef('public.record_swell_watch_shadow_demand(uuid,text,jsonb)'::regprocedure),'sha256'),'hex')")" != 414be8da27827b45d94d090176c3518ca1a8759db52b21630e11290da5c23375 ]; then
+  echo 'Amendment rollback hash mismatch' >&2; exit 1
+fi
+if [ "$(query "SELECT proacl::text FROM pg_proc WHERE oid='public.complete_swell_watch_study_run(uuid,text,jsonb,jsonb)'::regprocedure;")" != "$completion_grants_before" ]; then
+  echo 'Completion grants changed across rollback' >&2; exit 1
+fi
+run_file "$study_root/supabase/migrations/20260918180000_harden_swell_watch_study_epochs_and_extend.sql" >/dev/null
 epoch5_hash=$(query "SELECT encode(extensions.digest(pg_get_functiondef('public.record_swell_watch_study_evaluation(uuid,text,jsonb,jsonb)'::regprocedure),'sha256'),'hex');")
 [ "$epoch5_hash" = d1165986abe16e5c177a4d778dfa0f23ddd9d2b7407ee81c07755e39364c9f03 ]
 echo "epoch5 record function hash: $epoch5_hash"

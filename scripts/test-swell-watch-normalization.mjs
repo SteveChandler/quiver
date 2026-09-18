@@ -96,7 +96,7 @@ assert.equal(studyPermissions(), epoch5Acl);
 sql(swellSystemCountMigration);
 assert.equal(studyEvaluationHash(), epoch5StudyEvaluationHash);
 
-const tableRpcs = new Set(["record_swell_watch_provider_run_receipt", "complete_swell_watch_study_run", "record_swell_watch_shadow_demand"]);
+const tableRpcs = new Set(["record_swell_watch_provider_run_receipt", "complete_swell_watch_study_run", "record_swell_watch_shadow_demand", "record_swell_watch_study_recovery_failure"]);
 const jsonRpcs = new Set(["read_swell_watch_run_scope", "read_swell_watch_attested_run", "record_swell_watch_study_evaluation", "read_swell_watch_study_pending_runs"]);
 const calls = [];
 const client = {
@@ -332,7 +332,7 @@ END $$;`);
   const nativeClient = { ...client, from(table) {
     const filters = []; let columns; let offset = 0; let limit = 1001;
     const history = table === "swell_watch_event_impacts";
-    assert(history || ["profiles", "favorite_beaches", "alert_rules", "user_devices", "beaches"].includes(table));
+    assert(history || ["profiles", "favorite_beaches", "alert_rules", "user_devices", "beaches", "swell_watch_event_aliases"].includes(table));
     const builder = {
       select(selected) { columns = selected; return builder; },
       eq(key, item) {
@@ -801,6 +801,12 @@ END $$;`);
   await expectRejected({ ...epoch5Runs[0].recordArgs, p_provider_batch_id: forgedRun.completed.provider_batch_id }, handBuiltForgery, /absent primary partition requires absent secondary partition/);
   assert.deepEqual(value("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;"), systemPolicyRows);
   assert.deepEqual(authorityRows().slice(0, 4), epoch4Authority);
+  assert.deepEqual(sendCounts(), systemSafety);
+
+  // Epoch continuity section: the retained epoch-5 chain remains one reviewed science path.
+  assert.equal(epoch5Authority[4].qualification_rule, swellSystemCountRule);
+  assert.deepEqual(authorityRows().slice(0, 4), epoch4Authority);
+  assert.deepEqual(value("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;"), systemPolicyRows);
   assert.deepEqual(sendCounts(), systemSafety);
 
   console.log(JSON.stringify({ mode: "real_chain_disposable_epoch_4_epoch_5", epoch4: { rule: modelCountRule,

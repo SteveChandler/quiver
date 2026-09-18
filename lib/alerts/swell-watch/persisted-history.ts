@@ -24,6 +24,15 @@ interface HistoryClient {
   }>;
 }
 
+async function loadPersistedAliases(client: HistoryClient, regionalEventId: string): Promise<string[]> {
+  const result = await client.from("swell_watch_event_aliases")
+    .select("alias_key")
+    .eq("regional_event_id", regionalEventId);
+  if (result.error) return [];
+  const aliases = z.array(z.object({ alias_key: z.string().min(1) })).safeParse(result.data);
+  return aliases.success ? aliases.data.map(({ alias_key }) => alias_key) : [];
+}
+
 export async function loadSwellWatchHistory(
   input: { regionKey: string; beachId: string },
   client: HistoryClient,
@@ -66,7 +75,7 @@ export async function loadSwellWatchHistory(
     });
     if (attested.error) {
       const attestationMessage = attested.error.message.replace(/^ERROR:\s+/, "");
-      if (attestationMessage === "current provider attestation is required") {
+      if (attestationMessage.startsWith("current provider attestation is required")) {
         staleHistoryExcluded += 1;
         continue;
       }
@@ -101,16 +110,19 @@ export async function loadMatchedSwellWatchHistory(
   z.object({ regionalEventId: z.uuid(), evaluationId: identity }).parse(input);
   if (!verifySwellWatchPolicy(input.policy)) throw new Error("Invalid matching policy");
   const loaded = await loadSwellWatchHistory(input, client);
-  const history = loaded.history
-    .filter((item) => item.persistedRegionalEventId === input.regionalEventId);
+  const aliasesByEvent = new Map<string, string[]>();
+  await Promise.all([...new Set(loaded.history.map((item) => item.persistedRegionalEventId).filter((id): id is string => !!id))]
+    .map(async (regionalEventId) => aliasesByEvent.set(regionalEventId, await loadPersistedAliases(client, regionalEventId))));
+  const history = loaded.history.filter((item) => item.persistedRegionalEventId === input.regionalEventId
+    || aliasesByEvent.get(item.persistedRegionalEventId ?? "")?.includes(input.regionalEventId));
   const current = history.at(-1);
   if (!current || current.identity.id !== input.evaluationId) throw new Error("Current evaluation is absent or superseded");
   const regionalEvent = matchRegionalSwellEvent(history, input.policy, {
-    persistedEvents: history.map((reference) => ({ regionalEventId: input.regionalEventId,
-      regionKey: input.regionKey, aliases: [], reference })),
+    persistedEvents: history.map((reference) => ({ regionalEventId: reference.persistedRegionalEventId!,
+      regionKey: input.regionKey, aliases: aliasesByEvent.get(reference.persistedRegionalEventId!) ?? [], reference })),
     allocateId: () => { throw new Error("Persisted history cannot allocate an identity"); },
   });
-  if (regionalEvent.regionalEventId !== input.regionalEventId) throw new Error("Persisted matching identity changed");
+  if (!regionalEvent.regionalEventId || !history.some((item) => item.persistedRegionalEventId === regionalEvent.regionalEventId)) throw new Error("Persisted matching identity changed");
   if (current.eventState !== "stable") {
     return { regionalEvent: { ...regionalEvent,
       status: regionalEvent.status === "suppressed" ? "suppressed" : current.eventState }, confidence: null,
