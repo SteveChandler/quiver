@@ -176,14 +176,22 @@ export async function readStoredProviderRunStates(
   const reader = client as { rpc?: (name: "read_swell_watch_provider_run_states", args: { p_run_utcs: readonly string[] }) => PromiseLike<{ data: unknown; error: unknown }> };
   if (typeof reader.rpc !== "function" || !runUtcs.length) return null;
   try {
+    const requestedByEpoch = new Map<number, string>();
+    for (const runUtc of runUtcs) {
+      const epoch = Date.parse(runUtc);
+      if (!Number.isFinite(epoch)) return null;
+      requestedByEpoch.set(epoch, runUtc);
+    }
     const result = await reader.rpc("read_swell_watch_provider_run_states", { p_run_utcs: runUtcs });
     if (result.error) return null;
     const rows = z.array(z.object({ run_utc: z.string(), revision_set_id: z.uuid().nullable(), completed_batch_id: z.uuid().nullable(), evaluated: z.boolean() }).strict()).parse(result.data);
-    const expected = new Set(runUtcs);
     const states = new Map<string, StoredProviderRunState>();
     for (const row of rows) {
-      if (!expected.has(row.run_utc) || states.has(row.run_utc)) return null;
-      states.set(row.run_utc, { evaluated: row.evaluated });
+      const epoch = Date.parse(row.run_utc);
+      if (!Number.isFinite(epoch)) return null;
+      const requestedRunUtc = requestedByEpoch.get(epoch);
+      if (requestedRunUtc === undefined || states.has(requestedRunUtc)) return null;
+      states.set(requestedRunUtc, { evaluated: row.evaluated });
     }
     return states;
   } catch {

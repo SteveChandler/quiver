@@ -1,4 +1,4 @@
-import { acquireProviderRunReceipts, completeAttestedProviderRun, loadAttestedProviderRunScope, loadSwellWatchAcquisitionScope, storePrototypeSingleRunReceipts, type ProviderRunReceiptRpcClient } from "@/lib/alerts/swell-watch/provider-run-store";
+import { acquireProviderRunReceipts, completeAttestedProviderRun, loadAttestedProviderRunScope, loadSwellWatchAcquisitionScope, readStoredProviderRunStates, storePrototypeSingleRunReceipts, type ProviderRunReceiptRpcClient } from "@/lib/alerts/swell-watch/provider-run-store";
 import { fetchOpenMeteoSingleRunReceipt } from "@/lib/alerts/swell-watch/single-run-receipt";
 
 const input = { latitude: 32.8, longitude: -117.3, runUtc: "2026-09-03T06:00Z", forecastDays: 1 };
@@ -179,6 +179,29 @@ describe("provider run receipt store", () => {
 
     expect(result).toEqual({ skipped: true, reason: "latest_issuance_already_evaluated", enqueued: 0 });
     expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it("matches stored run states by instant and preserves requested keys", async () => {
+    const requested = ["2026-09-18T12:00Z", "2026-09-18T06:00Z", "2026-09-18T00:00Z"];
+    const row = (run_utc: string, evaluated = false) => ({ run_utc, revision_set_id: null, completed_batch_id: null, evaluated });
+    const rpc = jest.fn().mockResolvedValue({ data: [
+      row("2026-09-18T12:00:00+00:00", true), row("2026-09-18T06:00Z"), row("2026-09-18T00:00:00.000+00:00", true),
+    ], error: null });
+
+    await expect(readStoredProviderRunStates(requested, { rpc })).resolves.toEqual(new Map([
+      ["2026-09-18T12:00Z", { evaluated: true }], ["2026-09-18T06:00Z", { evaluated: false }], ["2026-09-18T00:00Z", { evaluated: true }],
+    ]));
+  });
+
+  it.each([
+    ["unknown timestamp", [{ run_utc: "2026-09-18T18:00Z", revision_set_id: null, completed_batch_id: null, evaluated: false }]],
+    ["duplicate timestamp", [
+      { run_utc: "2026-09-18T12:00:00+00:00", revision_set_id: null, completed_batch_id: null, evaluated: false },
+      { run_utc: "2026-09-18T12:00Z", revision_set_id: null, completed_batch_id: null, evaluated: true },
+    ]],
+  ])("returns null for %s provider run state rows", async (_label, data) => {
+    const rpc = jest.fn().mockResolvedValue({ data, error: null });
+    await expect(readStoredProviderRunStates(["2026-09-18T12:00Z"], { rpc })).resolves.toBeNull();
   });
 
   it.each([
