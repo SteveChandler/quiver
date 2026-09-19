@@ -89,7 +89,7 @@ describe("SEO workflow outreach digest", () => {
     expect(parsed.rows.some((row) => row.target === "queued")).toBe(false);
   });
 
-  it("builds queued candidates for the current rotation category and flags contact research", () => {
+  it("offers only rows with a verified email as candidates", () => {
     const digest = buildOutreachDigest("2026-07-06T12:00:00Z", {
       reportDate: "2026-07-06",
       markdown: TRACKER,
@@ -97,7 +97,7 @@ describe("SEO workflow outreach digest", () => {
 
     expect(digest.rotationWeek).toBe(1);
     expect(digest.rotationCategory).toBe("surf-schools");
-    expect(digest.candidates).toHaveLength(2);
+    expect(digest.candidates).toHaveLength(1);
     expect(digest.candidates[0]?.target).toBe("Surf Diva");
     expect(digest.candidates[0]?.nearestBeach).toBe("La Jolla");
     expect(digest.candidates[0]?.subject).toContain("La Jolla");
@@ -105,16 +105,62 @@ describe("SEO workflow outreach digest", () => {
     expect(digest.candidates[0]?.body).toContain(
       "https://www.quiversurf.app/for-surf-schools",
     );
-    expect(digest.candidates).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        target: "North Shore Surf Girls",
-        requiresContactResearch: true,
-      }),
-      expect.objectContaining({
-        target: "Surf Diva",
-        requiresContactResearch: false,
-      }),
+    expect(digest.candidates[0]?.requiresContactResearch).toBe(false);
+  });
+
+  // The no-email guard parks contactless rows at "queued" forever. Selecting on status
+  // alone re-offered them every week and each run re-derived the same rejection.
+  it("routes queued rows with no email to the research backlog, not to candidates", () => {
+    const digest = buildOutreachDigest("2026-07-06T12:00:00Z", {
+      reportDate: "2026-07-06",
+      markdown: TRACKER,
+    });
+
+    expect(digest.candidates.map((candidate) => candidate.target)).not.toContain(
+      "North Shore Surf Girls",
+    );
+    expect(digest.blockedOnContactResearch).toEqual(expect.arrayContaining([
+      expect.objectContaining({ target: "North Shore Surf Girls" }),
     ]));
+  });
+
+  it("reports the category as undraftable when no queued row has an email", () => {
+    const noEmails = [
+      "## Surf School Targets",
+      "| Target | Website | Beach slug (verified 200) | Contact channel (verified) | Status | Date | Notes |",
+      "| --- | --- | --- | --- | --- | --- | --- |",
+      "| North Shore Surf Girls | northshoresurfgirls.com | `haleiwa` | 808-637-2977 | queued | | |",
+    ].join("\n");
+
+    const digest = buildOutreachDigest("2026-07-06T12:00:00Z", {
+      reportDate: "2026-07-06",
+      markdown: noEmails,
+    });
+
+    expect(digest.candidates).toHaveLength(0);
+    expect(digest.blockedOnContactResearch).toHaveLength(1);
+    expect(digest.missing?.join(" ")).toContain("lack a verified email");
+  });
+
+  // "Contact channel (verified)" does not normalize to a bare "contact", so an
+  // exact-match lookup reported every surf-school row as having no email at all.
+  it("reads the email from the live tracker's 'Contact channel (verified)' header", () => {
+    const liveHeader = [
+      "## Surf School Targets",
+      "| Target | Website | Beach slug (verified 200) | Contact channel (verified) | Status | Date | Notes |",
+      "| --- | --- | --- | --- | --- | --- | --- |",
+      "| Hans Hedemann Surf School | hhsurf.com | `waikiki-beach` | info@hhsurf.com | queued | | |",
+    ].join("\n");
+
+    const digest = buildOutreachDigest("2026-08-31T12:00:00Z", {
+      reportDate: "2026-08-31",
+      markdown: liveHeader,
+    });
+
+    expect(digest.candidates).toHaveLength(1);
+    expect(digest.candidates[0]?.contact).toBe("info@hhsurf.com");
+    expect(digest.candidates[0]?.requiresContactResearch).toBe(false);
+    expect(digest.blockedOnContactResearch).toHaveLength(0);
   });
 
   it("marks rows under a rejection heading as rejected even without a status column", () => {

@@ -143,6 +143,21 @@ The 2026-08-05 La Jolla title test lost 61.5% CTR. Measure the first complete
 28-day post-deployment window and do not scale to Santa Cruz, Cocoa Beach, or
 Pacifica before that read.
 
+**2026-09-16 URL Inspection (read-only):** the owner route is
+`Discovered - currently not indexed` with no last-crawl time, and the only
+discovery source Google reports is the sitemap. The live page returns 200 with
+`index, follow` and a self-canonical, and `/best-time-to-surf/la-jolla` links
+to it with two server-rendered anchors. Google crawled that page on
+2026-09-16 but has not followed the links. GSC has no performance row for the
+owner route for 2026-08-19 to 2026-09-15. The best-time page had 7 clicks on
+32,457 impressions (0.02%, position 7.3) in the same window. Both pages use a
+"La Jolla Surf Report Today" title, so Google may be treating the new route as
+a duplicate of the indexed page and deprioritizing its crawl. That is a
+hypothesis, not a confirmed cause. The owner route is now in
+`gsc-indexing-watchlist.json`. Its measurement window has not started because
+Google has not indexed it. Leave both titles unchanged, and do not scale the
+pattern until the route is indexed and has one complete window.
+
 ### Cam route consolidation
 
 Regional cam pages now use `/surf-cams/*` as the canonical family. `/cams/*`
