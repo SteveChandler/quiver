@@ -41,6 +41,13 @@ function extractBearerToken(request: NextRequest): string | null {
   return match ? match[1] : null;
 }
 
+function hasSupabaseAuthCookie(request: NextRequest): boolean {
+  const cookieHeader = request.headers?.get("cookie");
+  return Boolean(
+    cookieHeader?.match(/(?:^|;\s*)sb-[^=]+-auth-token(?:\.\d+)?=/),
+  );
+}
+
 async function createRequestCookieClient(
   request: NextRequest
 ): Promise<SupabaseClient<Database>> {
@@ -103,6 +110,7 @@ async function resolveAuth(request: NextRequest): Promise<{
   supabase: SupabaseClient<Database>;
   user: User | null;
   error: Error | null;
+  credentialsPresented: boolean;
 }> {
   const bearerToken = extractBearerToken(request);
 
@@ -112,19 +120,30 @@ async function resolveAuth(request: NextRequest): Promise<{
     const supabase = createBearerTokenClient(bearerToken);
     try {
       const { data, error } = await supabase.auth.getUser(bearerToken);
-      return { supabase, user: data.user, error };
+      return { supabase, user: data.user, error, credentialsPresented: true };
     } catch (err) {
-      return { supabase, user: null, error: err as Error };
+      return {
+        supabase,
+        user: null,
+        error: err as Error,
+        credentialsPresented: true,
+      };
     }
   }
 
   // Web client — cookie-based API auth scoped to this concrete request.
   const supabase = await createRequestCookieClient(request);
+  const credentialsPresented = hasSupabaseAuthCookie(request);
   try {
     const { data, error } = await supabase.auth.getUser();
-    return { supabase, user: data.user, error };
+    return { supabase, user: data.user, error, credentialsPresented };
   } catch (err) {
-    return { supabase, user: null, error: err as Error };
+    return {
+      supabase,
+      user: null,
+      error: err as Error,
+      credentialsPresented,
+    };
   }
 }
 
@@ -186,6 +205,7 @@ export function withAuth(
     authErrorMessage = "Authentication required",
     errorMessage,
     optional = false,
+    rejectInvalidCredentials = false,
   } = options;
 
   return async (request: NextRequest, context?: RouteContext) => {
@@ -193,7 +213,12 @@ export function withAuth(
       // Resolve auth from Bearer header (native) or SSR cookies (web).
       // The returned `supabase` client is already scoped to the authenticated
       // user so downstream queries enforce RLS against auth.uid() correctly.
-      const { supabase, user, error: userError } = await resolveAuth(request);
+      const {
+        supabase,
+        user,
+        error: userError,
+        credentialsPresented,
+      } = await resolveAuth(request);
 
       // In Next.js 15+, params is a Promise that must be awaited
       const resolvedParams = context?.params
@@ -218,6 +243,14 @@ export function withAuth(
       }
 
       // Optional auth
+      if (
+        rejectInvalidCredentials &&
+        credentialsPresented &&
+        (userError || !user)
+      ) {
+        return createAuthError(authErrorMessage);
+      }
+
       const optionalContext: OptionalAuthContext = {
         params: resolvedParams,
         user: userError ? null : user,
