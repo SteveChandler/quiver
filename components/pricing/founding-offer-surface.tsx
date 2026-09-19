@@ -15,6 +15,7 @@ import Image from "next/image";
 import type { LucideIcon } from "lucide-react";
 
 import { FoundingAccessCta } from "@/components/pricing/founding-access-cta";
+import { IosAppStoreCta } from "@/components/app-store/ios-app-store-cta";
 import { RevenueCatWebCheckoutCta } from "@/components/pricing/revenuecat-web-checkout-cta";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import {
@@ -24,7 +25,6 @@ import {
 } from "@/components/zine";
 import {
   IOS_APP_STORE_CTA,
-  IOS_APP_STORE_WEB_REDIRECT_PATH,
 } from "@/lib/constants/app-store";
 
 const TRIAL_STEPS = [
@@ -145,13 +145,15 @@ export function FoundingOfferSurface() {
                 Start the iPhone app with 14 days free. Android beta is open
                 through Google Play closed testing.
               </p>
-              <a
-                href={IOS_APP_STORE_WEB_REDIRECT_PATH}
+              <IosAppStoreCta
+                source="plans"
+                surface="plans-page"
+                placement="hero"
                 className="mt-6 inline-flex min-h-12 w-full max-w-2xl items-center justify-center gap-2 rounded-full border-2 border-[#11100D] bg-[#F78E42] px-6 font-semibold text-[#11100D] shadow-[3px_3px_0_rgba(17,16,13,0.35)] motion-safe:transition-transform motion-safe:hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D] sm:hidden"
               >
                 {IOS_APP_STORE_CTA}
                 <ArrowRight className="h-4 w-4" aria-hidden />
-              </a>
+              </IosAppStoreCta>
               <div className="mt-5 flex flex-wrap gap-3 font-mono text-xs uppercase tracking-[0.14em] text-[#11100D]/65 sm:mt-7">
                 <span>14 days free</span>
                 <span aria-hidden>/</span>
@@ -215,13 +217,15 @@ export function FoundingOfferSurface() {
                 })}
               </div>
 
-              <a
-                href={IOS_APP_STORE_WEB_REDIRECT_PATH}
+              <IosAppStoreCta
+                source="plans"
+                surface="plans-page"
+                placement="plans_primary"
                 className="mt-7 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full border-2 border-[#11100D] bg-[#F78E42] px-6 font-semibold text-[#11100D] shadow-[3px_3px_0_rgba(17,16,13,0.35)] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D] sm:max-w-sm"
               >
                 {IOS_APP_STORE_CTA}
                 <ArrowRight className="h-4 w-4" aria-hidden />
-              </a>
+              </IosAppStoreCta>
               <p className="mt-3 text-center text-xs font-medium text-[#11100D]/64 sm:max-w-sm">
                 Cancel anytime in Apple subscriptions.
               </p>

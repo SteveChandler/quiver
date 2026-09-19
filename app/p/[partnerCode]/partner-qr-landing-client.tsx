@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type MouseEvent,
   type ReactElement,
 } from "react";
 import { QRCodeSVG } from "qrcode.react";
@@ -14,8 +15,9 @@ import { AndroidWaitlistCta } from "@/components/pricing/android-waitlist-cta";
 import {
   IOS_APP_STORE_CAMPAIGNS,
   IOS_APP_STORE_CTA,
-  buildIosAppStoreRedirectPath,
 } from "@/lib/constants/app-store";
+import { createClientAppHandoffLink } from "@/lib/analytics/app-handoff-link";
+import { buildAppHandoffUrl } from "@/lib/constants/app-handoff";
 import { trackAppHandoffQrRendered } from "@/lib/analytics/app-handoff-tracking";
 import { getBrowserSessionId } from "@/lib/utils/browser-session-id";
 import { getVisitorId } from "@/lib/utils/visitor-id";
@@ -149,9 +151,29 @@ export function PartnerQrLandingClient({
 
   const isAndroid = platform === "android";
   const partnerLabel = partnerName?.trim() || "A Quiver partner";
-  const appStoreUrl = buildIosAppStoreRedirectPath(
-    IOS_APP_STORE_CAMPAIGNS.PARTNER_QR,
-  );
+  const appStoreUrl = buildAppHandoffUrl({
+    source: "partner_landing",
+    surface: "partner_landing",
+    placement: "primary_ios",
+  });
+  function handleIosAppStoreClick(
+    event: MouseEvent<HTMLAnchorElement>,
+  ): void {
+    const handoff = createClientAppHandoffLink({
+      source: "partner_landing",
+      surface: "partner_landing",
+      placement: "primary_ios",
+      utm_source: "partner_qr",
+      utm_medium: "app_link",
+      utm_campaign: IOS_APP_STORE_CAMPAIGNS.PARTNER_QR,
+    });
+    event.currentTarget.href = handoff.url;
+    trackPartnerEvent("invite_app_store_clicked", "app_store", {
+      attribution_scope: "app_store_click_only",
+      handoff_id: handoff.handoffId,
+      destination_url: handoff.url,
+    });
+  }
   const leadCopy = isAndroid
     ? "Android beta access is open through Google Play closed testing. Get the beta or continue on web to start with Quiver."
     : platform === "desktop"
@@ -197,11 +219,7 @@ export function PartnerQrLandingClient({
                   href={appStoreUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  onClick={() =>
-                    trackPartnerEvent("invite_app_store_clicked", "app_store", {
-                      attribution_scope: "app_store_click_only",
-                    })
-                  }
+                  onClick={handleIosAppStoreClick}
                   className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#F78E42] px-5 py-3 text-center font-semibold text-[#252D6B] transition hover:bg-[#FFAA63]"
                 >
                   <Smartphone className="h-4 w-4" aria-hidden="true" />

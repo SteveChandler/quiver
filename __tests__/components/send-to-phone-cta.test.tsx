@@ -1,7 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import { SendToPhoneCta } from "@/components/app-store/send-to-phone-cta";
-import { IOS_APP_STORE_WEB_REDIRECT_PATH } from "@/lib/constants/app-store";
 import {
   trackAppHandoffEmailSent,
   trackAppHandoffEmailSubmit,
@@ -86,7 +85,10 @@ describe("SendToPhoneCta", () => {
     const fallback = screen.getByRole("link", {
       name: /open app store anyway/i,
     });
-    expect(fallback).toHaveAttribute("href", IOS_APP_STORE_WEB_REDIRECT_PATH);
+    expect(fallback).toHaveAttribute(
+      "href",
+      expect.stringContaining("https://go.quiversurf.app/app/handoff"),
+    );
   });
 
   it("uses an ink-on-paper panel, input, and QR palette", async () => {

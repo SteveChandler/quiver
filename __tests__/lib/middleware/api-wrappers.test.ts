@@ -409,6 +409,55 @@ describe("API Wrappers", () => {
           })
         );
       });
+
+      it("should return 401 for invalid Bearer credentials when opted in", async () => {
+        mockBearerSupabaseClient.auth.getUser.mockResolvedValue({
+          data: { user: null },
+          error: { name: "AuthError", message: "expired JWT" } as any,
+        });
+
+        const handler = jest.fn();
+        const wrappedHandler = withAuth(handler, {
+          optional: true,
+          rejectInvalidCredentials: true,
+        });
+
+        const response = await wrappedHandler(
+          createBearerRequest("stale-jwt") as any,
+        );
+
+        expect(response.status).toBe(401);
+        expect(await response.json()).toMatchObject({
+          success: false,
+          error: "Authentication required",
+        });
+        expect(handler).not.toHaveBeenCalled();
+      });
+
+      it("treats a whitespace-only Bearer value as no credentials", async () => {
+        mockUnauthenticatedUser();
+        const handler = jest.fn().mockResolvedValue(
+          NextResponse.json({ success: true, data: { isLoggedIn: false } }),
+        );
+        const wrappedHandler = withAuth(handler, {
+          optional: true,
+          rejectInvalidCredentials: true,
+        });
+
+        const response = await wrappedHandler(
+          createBearerRequest("  ") as any,
+        );
+
+        expect(response.status).toBe(200);
+        expect(handler).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            user: null,
+            supabase: mockSupabaseClient,
+          }),
+        );
+        expect(mockBearerSupabaseClient.auth.getUser).not.toHaveBeenCalled();
+      });
     });
   });
 

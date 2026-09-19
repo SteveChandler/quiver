@@ -55,7 +55,7 @@ describe("app-handoff constants", () => {
     process.env.NEXT_PUBLIC_SITE_URL = "https://dev.quiversurf.app/";
 
     expect(buildAppHandoffUrl({ source: "landing_hero" })).toBe(
-      "https://dev.quiversurf.app/app/handoff?source=landing_hero",
+      "https://go.quiversurf.app/app/handoff?source=landing_hero",
     );
   });
 
@@ -79,6 +79,22 @@ describe("app-handoff constants", () => {
     expect(parsed.searchParams.get("qr_id")).toBe("map_literacy_field_guide");
     expect(parsed.searchParams.get("handoff_id")).toBe(
       "33333333-3333-4333-8333-333333333333",
+    );
+  });
+
+  it("mints a UUID for server-rendered QR URLs", () => {
+    const url = new URL(
+      buildSmartQrHandoffUrl({
+        source: "share_card",
+        surface: "share_card",
+        placement: "share_qr",
+        qr_id: "share_qr",
+        target: "download",
+      }),
+    );
+
+    expect(url.searchParams.get("handoff_id")).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
     );
   });
 

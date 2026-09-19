@@ -147,8 +147,10 @@ export async function getBeachesBySlugFromDb(slug: string): Promise<ServerAction
  * @param userId - The user ID whose favorites to fetch
  */
 export async function getFavoriteBeachesFromDb(
-  userId: string
+  userId: string | null
 ): Promise<ServerActionResponse<Beach[]>> {
+  if (!userId) return { success: true, data: [] };
+
   try {
     const supabase = createSupabaseServiceRoleClient();
 

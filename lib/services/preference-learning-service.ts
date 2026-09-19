@@ -836,8 +836,10 @@ export async function computeUserPreferences(
  * }
  */
 export async function getUserSurfPreferences(
-  userId: string
+  userId: string | null
 ): Promise<UserSurfPreferences | null> {
+  if (!userId) return null;
+
   const supabase = createSupabaseServiceRoleClient();
 
   try {

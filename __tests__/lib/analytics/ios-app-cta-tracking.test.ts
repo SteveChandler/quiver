@@ -5,10 +5,10 @@ import {
   trackIosAppCtaView,
 } from "@/lib/analytics/ios-app-cta-tracking";
 import { track } from "@/lib/analytics";
+import { buildAppHandoffUrl } from "@/lib/constants/app-handoff";
 import {
   IOS_APP_STORE_CTA,
   IOS_APP_STORE_DESTINATION_STATUS,
-  IOS_APP_STORE_WEB_REDIRECT_PATH,
 } from "@/lib/constants/app-store";
 
 jest.mock("@/lib/analytics", () => ({
@@ -21,7 +21,11 @@ jest.mock("@/lib/utils/visitor-id", () => ({
 
 const mockFetch = jest.fn(() => Promise.resolve({ ok: true } as Response));
 const mockTrack = track as jest.Mock;
-const IOS_APP_STORE_CAMPAIGN_URL = IOS_APP_STORE_WEB_REDIRECT_PATH;
+const IOS_APP_STORE_CAMPAIGN_URL = buildAppHandoffUrl({
+  source: "ios_app_cta",
+  surface: "web",
+  placement: "app_store_cta",
+});
 
 beforeEach(() => {
   jest.clearAllMocks();

@@ -6,15 +6,17 @@ import {
   useMemo,
   useRef,
   useState,
+  type MouseEvent,
   type ReactElement,
 } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { ArrowRight, ExternalLink, Smartphone } from "lucide-react";
 import { AndroidWaitlistCta } from "@/components/pricing/android-waitlist-cta";
+import { buildAppHandoffUrl } from "@/lib/constants/app-handoff";
 import {
   IOS_APP_STORE_CTA,
-  IOS_APP_STORE_WEB_REDIRECT_PATH,
 } from "@/lib/constants/app-store";
+import { createClientAppHandoffLink } from "@/lib/analytics/app-handoff-link";
 import { trackAppHandoffQrRendered } from "@/lib/analytics/app-handoff-tracking";
 import { getBrowserSessionId } from "@/lib/utils/browser-session-id";
 import { getVisitorId } from "@/lib/utils/visitor-id";
@@ -97,6 +99,17 @@ export function InviteLandingClient({
   const trackedQr = useRef(false);
   const browserSessionId = useMemo(() => getBrowserSessionId(), []);
   const appSchemeUrl = `quiver://invite/${token}`;
+  const appStoreUrl = useMemo(
+    () =>
+      buildAppHandoffUrl({
+        source: "invite_landing",
+        surface: "invite_landing",
+        placement: "primary_ios",
+        utm_source: "invite",
+        utm_medium: "app_link",
+      }),
+    [],
+  );
   const trackedInviteDestinationUrl = useMemo(
     () => sanitizedInviteDestinationUrl(inviteUrl),
     [inviteUrl],
@@ -170,6 +183,26 @@ export function InviteLandingClient({
   }, [tokenHash, trackInviteEvent, trackedInviteDestinationUrl]);
 
   const isAndroid = platform === "android";
+
+  function handleIosAppStoreClick(
+    event: MouseEvent<HTMLAnchorElement>,
+  ): void {
+    const handoff = createClientAppHandoffLink({
+      source: "invite_landing",
+      surface: "invite_landing",
+      placement: "primary_ios",
+      utm_source: "invite",
+      utm_medium: "app_link",
+    });
+    event.currentTarget.href = handoff.url;
+    trackInviteEvent("invite_app_store_clicked", "app_store", {
+      attribution_scope: "app_store_click_only",
+      post_install_invite_consumption: false,
+      handoff_id: handoff.handoffId,
+      destination_url: handoff.url,
+    });
+  }
+
   const leadCopy = isAndroid
     ? "Android beta access is open through Google Play closed testing. Get the beta or continue on web to use this invite."
     : platform === "desktop"
@@ -226,15 +259,10 @@ export function InviteLandingClient({
                 </AndroidWaitlistCta>
               ) : (
                 <a
-                  href={IOS_APP_STORE_WEB_REDIRECT_PATH}
+                  href={appStoreUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  onClick={() =>
-                    trackInviteEvent("invite_app_store_clicked", "app_store", {
-                      attribution_scope: "app_store_click_only",
-                      post_install_invite_consumption: false,
-                    })
-                  }
+                  onClick={handleIosAppStoreClick}
                   className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#F78E42] px-5 py-3 text-center font-semibold text-[#252D6B] transition hover:bg-[#FFAA63]"
                 >
                   <Smartphone className="h-4 w-4" aria-hidden="true" />
