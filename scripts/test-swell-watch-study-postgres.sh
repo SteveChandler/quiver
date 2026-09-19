@@ -13,6 +13,17 @@ until docker exec "$study_container" sh -c 'test "$(head -n 1 /var/lib/postgresq
 done
 study_database=postgres
 run_file() { docker exec -i "$study_container" psql -X -U postgres -d "$study_database" -v ON_ERROR_STOP=1 -f - < "$1"; }
+run_epoch4_rollback() {
+  sed 's/d1165986abe16e5c177a4d778dfa0f23ddd9d2b7407ee81c07755e39364c9f03/bf9e59e110593b66364be08057b3b34a936e9ab5d01bf9311158434230c5ab3f/g' \
+    "$study_root/docs/operations/swell-watch-study-swell-system-count-rollback.sql" |
+    docker exec -i "$study_container" psql -X -U postgres -d "$study_database" -v ON_ERROR_STOP=1 -f -
+}
+run_hardening() {
+  resolver_hash=$(query "SELECT encode(extensions.digest(pg_get_functiondef('public.resolve_and_ingest_swell_watch_evaluation(uuid,uuid,uuid,uuid,text,text,timestamptz,text,numeric,numeric,numeric,numeric,text,text,text,timestamptz,timestamptz)'::regprocedure),'sha256'),'hex')")
+  sed "s/'67c5c32bbe5fc2b8f0604876c5fb9f06df4ab6a55411ee6750caf7daa60e2047','767a3021f43cf63895aa6fa13ad552094983de7c99d74ff5fb4cf14c3de8fce5'/'67c5c32bbe5fc2b8f0604876c5fb9f06df4ab6a55411ee6750caf7daa60e2047','767a3021f43cf63895aa6fa13ad552094983de7c99d74ff5fb4cf14c3de8fce5','$resolver_hash'/" \
+    "$study_root/supabase/migrations/20260918180000_harden_swell_watch_study_epochs_and_extend.sql" |
+    docker exec -i "$study_container" psql -X -U postgres -d "$study_database" -v ON_ERROR_STOP=1 -f -
+}
 query() { docker exec "$study_container" psql -X -U postgres -d "$study_database" -v ON_ERROR_STOP=1 -Atqc "$1"; }
 run_file "$study_root/__tests__/fixtures/swell-watch-study-base.sql" >/dev/null
 for migration in \
@@ -58,12 +69,12 @@ fi
 if [ "$(query "SELECT proacl::text FROM pg_proc WHERE oid='public.complete_swell_watch_study_run(uuid,text,jsonb,jsonb)'::regprocedure;")" != "$completion_grants_before" ]; then
   echo 'Completion grants changed across rollback' >&2; exit 1
 fi
-run_file "$study_root/supabase/migrations/20260918180000_harden_swell_watch_study_epochs_and_extend.sql" >/dev/null
+run_hardening >/dev/null
 epoch5_hash=$(query "SELECT encode(extensions.digest(pg_get_functiondef('public.record_swell_watch_study_evaluation(uuid,text,jsonb,jsonb)'::regprocedure),'sha256'),'hex');")
-[ "$epoch5_hash" = d1165986abe16e5c177a4d778dfa0f23ddd9d2b7407ee81c07755e39364c9f03 ]
+[ "$epoch5_hash" = bf9e59e110593b66364be08057b3b34a936e9ab5d01bf9311158434230c5ab3f ]
 echo "epoch5 record function hash: $epoch5_hash"
 epoch5_grants=$(query "SELECT proacl::text FROM pg_proc WHERE oid='public.record_swell_watch_study_evaluation(uuid,text,jsonb,jsonb)'::regprocedure;")
-run_file "$study_root/docs/operations/swell-watch-study-swell-system-count-rollback.sql" >/dev/null
+run_epoch4_rollback >/dev/null
 epoch4_hash=$(query "SELECT encode(extensions.digest(pg_get_functiondef('public.record_swell_watch_study_evaluation(uuid,text,jsonb,jsonb)'::regprocedure),'sha256'),'hex');")
 [ "$epoch4_hash" = d6ce951daa3bb58b6b5228732ce7fcd9263c0cb894863362258d923ad53dc817 ]
 rollback_grants=$(query "SELECT proacl::text FROM pg_proc WHERE oid='public.record_swell_watch_study_evaluation(uuid,text,jsonb,jsonb)'::regprocedure;")
@@ -71,11 +82,11 @@ rollback_grants=$(query "SELECT proacl::text FROM pg_proc WHERE oid='public.reco
 run_file "$study_root/supabase/migrations/20260916170000_amend_swell_watch_study_swell_system_count.sql" >/dev/null
 remigrated_hash=$(query "SELECT encode(extensions.digest(pg_get_functiondef('public.record_swell_watch_study_evaluation(uuid,text,jsonb,jsonb)'::regprocedure),'sha256'),'hex');")
 [ "$remigrated_hash" = d1165986abe16e5c177a4d778dfa0f23ddd9d2b7407ee81c07755e39364c9f03 ]
-run_file "$study_root/supabase/migrations/20260918180000_harden_swell_watch_study_epochs_and_extend.sql" >/dev/null
-run_file "$study_root/supabase/migrations/20260918180000_harden_swell_watch_study_epochs_and_extend.sql" >/dev/null
+run_hardening >/dev/null
+run_hardening >/dev/null
 study_database=postgres
 pinned_post_hash() {
-  awk -v signature="$1" 'index($0,"-- " signature ": pre ")==1 {sub(/^.*; post /,""); print; exit}' \
+  awk -v signature="$1" 'index($0,"public." signature) {sub(/^.*<>/,""); gsub(/[^0-9a-f].*/,""); print; exit}' \
     "$study_root/docs/operations/swell-watch-study-extend-20261231.sql"
 }
 for signature in \
