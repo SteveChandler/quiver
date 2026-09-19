@@ -17,7 +17,6 @@ import {
 } from "@/lib/analytics/ios-app-cta-tracking";
 import {
   IOS_APP_STORE_CTA,
-  IOS_APP_STORE_WEB_REDIRECT_PATH,
 } from "@/lib/constants/app-store";
 import { trackAppHandoffView } from "@/lib/analytics/app-handoff-tracking";
 
@@ -281,7 +280,10 @@ describe("HeroSection", () => {
     fireEvent.ended(video);
 
     const link = await screen.findByRole("link", { name: IOS_APP_STORE_CTA });
-    expect(link).toHaveAttribute("href", IOS_APP_STORE_WEB_REDIRECT_PATH);
+    expect(link).toHaveAttribute(
+      "href",
+      expect.stringContaining("https://go.quiversurf.app/app/handoff"),
+    );
   });
 
   it("tracks the hero video overlay button view after the video ends", async () => {
@@ -299,7 +301,9 @@ describe("HeroSection", () => {
         surface: "landing-page",
         placement: "hero_video_overlay",
         cta_text: IOS_APP_STORE_CTA,
-        destination_url: IOS_APP_STORE_WEB_REDIRECT_PATH,
+        destination_url: expect.stringContaining(
+          "https://go.quiversurf.app/app/handoff",
+        ),
         video_loaded: true,
         video_completed: true,
       });
@@ -319,15 +323,20 @@ describe("HeroSection", () => {
 
     await user.click(link);
 
-    expect(mockTrackIosAppCtaClick).toHaveBeenCalledWith({
+    expect(mockTrackIosAppCtaClick).toHaveBeenCalledWith(expect.objectContaining({
       source: "hero-video-download-button",
       surface: "landing-page",
       placement: "hero_video_overlay",
       cta_text: IOS_APP_STORE_CTA,
-      destination_url: IOS_APP_STORE_WEB_REDIRECT_PATH,
+      destination_url: expect.stringContaining(
+        "https://go.quiversurf.app/app/handoff?",
+      ),
+      handoff_id: expect.stringMatching(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+      ),
       video_loaded: true,
       video_completed: true,
-    });
+    }));
   });
 
   it("renders the download link immediately for reduced-motion users", async () => {
@@ -336,7 +345,10 @@ describe("HeroSection", () => {
     render(<HeroSection />);
 
     const link = await screen.findByRole("link", { name: IOS_APP_STORE_CTA });
-    expect(link).toHaveAttribute("href", IOS_APP_STORE_WEB_REDIRECT_PATH);
+    expect(link).toHaveAttribute(
+      "href",
+      expect.stringContaining("https://go.quiversurf.app/app/handoff"),
+    );
   });
 
   it("does not render the video immediately so the poster can paint first", () => {

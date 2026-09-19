@@ -91,8 +91,11 @@ describe("PartnerQrLandingClient", () => {
       "https://www.quiversurf.app",
     );
 
-    expect(appStoreUrl.pathname).toBe("/app-store");
-    expect(appStoreUrl.searchParams.get("ct")).toBe("partner_qr");
+    expect(appStoreUrl.origin).toBe("https://go.quiversurf.app");
+    expect(appStoreUrl.pathname).toBe("/app/handoff");
+    expect(appStoreUrl.searchParams.get("source")).toBe("partner_landing");
+    expect(appStoreUrl.searchParams.get("surface")).toBe("partner_landing");
+    expect(appStoreUrl.searchParams.get("placement")).toBe("primary_ios");
   });
 
   it("fires app_handoff_qr_rendered and invite_link_opened on mount with partner metadata", async () => {

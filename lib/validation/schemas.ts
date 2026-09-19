@@ -137,6 +137,7 @@ export const AppLinkEmailSchema = z.object({
   source: z.string().max(64).optional(),
   surface: z.string().max(64).optional(),
   placement: z.string().max(64).optional(),
+  web_distinct_id: z.string().max(255).optional(),
 });
 
 type AppLinkEmailInput = z.infer<typeof AppLinkEmailSchema>;

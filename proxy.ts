@@ -32,6 +32,19 @@ const isVerbose = process.env.MIDDLEWARE_VERBOSE === "true";
 
 // Known beach sub-pages with dedicated routes (e.g., /ca/city/beach/tides)
 const BEACH_SUBPATHS = new Set(["tides", "water-temp"]);
+const GO_HOST = "go.quiversurf.app";
+
+export function isGoAppHandoffPath(pathname: string): boolean {
+  return (
+    pathname === "/.well-known/apple-app-site-association" ||
+    pathname === "/.well-known/assetlinks.json" ||
+    pathname === "/app" ||
+    pathname === "/app/handoff" ||
+    pathname === "/beach" ||
+    pathname.startsWith("/beach/") ||
+    pathname.startsWith("/app/spot/")
+  );
+}
 
 export function shouldSetIpLocationCookie(pathname: string): boolean {
   const match = pathname.match(/^\/forecast\/([^/]+)\/?$/);
@@ -115,6 +128,13 @@ function log(message: string, data?: any) {
 export async function proxy(request: NextRequest) {
   // Canonical domain redirect: non-www → www with 301 (permanent) for SEO link equity
   const hostname = request.headers.get("host") || "";
+  if (hostname === GO_HOST && !isGoAppHandoffPath(request.nextUrl.pathname)) {
+    const url = request.nextUrl.clone();
+    url.protocol = "https:";
+    url.host = "www.quiversurf.app";
+    return NextResponse.redirect(url, 308);
+  }
+
   if (hostname === "quiversurf.app") {
     const url = request.nextUrl.clone();
     url.host = "www.quiversurf.app";

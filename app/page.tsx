@@ -14,7 +14,7 @@ import { Suspense, type ReactElement } from "react";
 import type { Metadata } from "next";
 import { AuthAwareLandingWrapper } from "@/components/landing-page/auth-aware-landing-wrapper";
 import { LandingPageSSRSection } from "@/components/landing-page/landing-page-ssr-section";
-import { IOS_APP_STORE_URL } from "@/lib/constants/app-store";
+import { buildAppHandoffUrl } from "@/lib/constants/app-handoff";
 import { isAppFirstLandingEnabled } from "@/lib/flags/app-first-landing";
 
 // ISR: Revalidate every 10 minutes (aligns with featured beaches cache)
@@ -52,7 +52,11 @@ export const metadata: Metadata = {
   },
   appLinks: {
     ios: {
-      url: IOS_APP_STORE_URL,
+      url: buildAppHandoffUrl({
+        source: "app_links",
+        surface: "metadata",
+        placement: "ios_app_link",
+      }),
       app_store_id: "6759300320",
       app_name: "Surf Forecast: Quiver",
     },

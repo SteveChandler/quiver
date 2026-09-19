@@ -1,13 +1,13 @@
 "use client";
 
-import Link from "next/link";
-import { useCallback, useMemo, type ReactElement } from "react";
+import { useCallback, useMemo, type MouseEvent, type ReactElement } from "react";
 
 import { useCtaImpression } from "@/hooks/use-cta-impression";
 import { useTrackEvent } from "@/hooks/use-track-event";
 import { useOptionalAuth } from "@/context/auth-context";
 import { trackAppHandoffView } from "@/lib/analytics/app-handoff-tracking";
-import { buildAppHandoffPath } from "@/lib/constants/app-handoff";
+import { createClientAppHandoffLink } from "@/lib/analytics/app-handoff-link";
+import { buildAppHandoffUrl } from "@/lib/constants/app-handoff";
 import type { CTAClickMetadata } from "@/types/implicit-preferences";
 import { cn } from "@/lib/utils";
 
@@ -41,7 +41,7 @@ export function ContentPageAppHandoffCta({
   const isLoading = auth?.isLoading ?? false;
   const handoffPath = useMemo(
     () =>
-      buildAppHandoffPath({
+      buildAppHandoffUrl({
         source,
         surface,
         placement,
@@ -77,8 +77,15 @@ export function ContentPageAppHandoffCta({
     onImpression: handleImpression,
   });
 
-  const handleClick = useCallback((): void => {
+  const handleClick = useCallback((event: MouseEvent<HTMLAnchorElement>): void => {
     if (user || isLoading) return;
+    const handoff = createClientAppHandoffLink({
+      source,
+      surface,
+      placement,
+      target,
+    });
+    event.currentTarget.href = handoff.url;
     const metadata: CTAClickMetadata & Record<string, unknown> = {
       cta: "other",
       location: placement,
@@ -90,6 +97,8 @@ export function ContentPageAppHandoffCta({
       cta_text: ctaLabel,
       target,
       destination_type: "app_handoff",
+      destination_url: handoff.url,
+      handoff_id: handoff.handoffId,
     };
 
     void track("cta_click", { metadata, debounceMs: 0 });
@@ -125,14 +134,14 @@ export function ContentPageAppHandoffCta({
           </p>
         </div>
 
-        <Link
+        <a
           href={handoffPath}
           onClick={handleClick}
           data-testid={`${ctaId}-link`}
           className="inline-flex min-h-11 w-full shrink-0 items-center justify-center border-2 border-[#11100D] bg-[#F78E42] px-4 py-2.5 text-center font-mono text-xs font-black uppercase tracking-[0.08em] text-[#11100D] shadow-[2px_3px_0_rgba(17,16,13,0.3)] transition-colors hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0B3A75] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4EBD8] motion-reduce:transition-none sm:w-auto sm:px-5"
         >
           {ctaLabel}
-        </Link>
+        </a>
       </div>
     </section>
   );

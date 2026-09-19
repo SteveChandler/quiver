@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type MouseEvent } from "react";
 import { ExternalLink, Smartphone } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { useTrackEvent } from "@/hooks/use-track-event";
 import {
   trackExactCallHandoffLinkOpened,
 } from "@/lib/analytics/app-handoff-tracking";
+import { createClientAppHandoffLink } from "@/lib/analytics/app-handoff-link";
 import type { BfrPageType } from "@/lib/analytics/event-taxonomy";
 import {
   isCanonicalHandoffId,
@@ -18,10 +19,8 @@ import {
   qualifyBeachIntent,
   type LocalBeachIntentEvidence,
 } from "@/lib/beach-follow/intent";
-import {
-  IOS_APP_STORE_CTA,
-  IOS_APP_STORE_WEB_REDIRECT_PATH,
-} from "@/lib/constants/app-store";
+import { IOS_APP_STORE_CTA } from "@/lib/constants/app-store";
+import { buildAppHandoffUrl } from "@/lib/constants/app-handoff";
 import { cn } from "@/lib/utils";
 import type { HandoffContext } from "@/types/exact-handoff";
 import type { SurfWindowLinks } from "@/types/session-intelligence";
@@ -44,9 +43,15 @@ interface AppDeepLinkCTAProps {
   now?: Date;
 }
 
+const APP_STORE_FALLBACK_HANDOFF_URL = buildAppHandoffUrl({
+  source: "session_intelligence",
+  surface: "session_intelligence",
+  placement: "app_store_fallback",
+});
+
 function resolveHref(links: SurfWindowLinks): string {
   return (
-    links.universalLink ?? links.appDeepLink ?? IOS_APP_STORE_WEB_REDIRECT_PATH
+    links.universalLink ?? links.appDeepLink ?? APP_STORE_FALLBACK_HANDOFF_URL
   );
 }
 
@@ -134,7 +139,7 @@ export function AppDeepLinkCTA({
       : "Open this beach in Quiver"
     : label ??
       (variant === "ghost" ? "Take it with you" : "Open this window in Quiver");
-  const isFallback = href === IOS_APP_STORE_WEB_REDIRECT_PATH;
+  const isFallback = href === APP_STORE_FALLBACK_HANDOFF_URL;
   const ctaLabel = isFallback ? IOS_APP_STORE_CTA : resolvedLabel;
   const metadata = buildSurfWindowTrackingMetadata(tracking ?? {}, {
     targetHref: href,
@@ -142,7 +147,7 @@ export function AppDeepLinkCTA({
     fallbackToAppStore: isFallback,
   });
 
-  function handleClick(): void {
+  function handleClick(event: MouseEvent<HTMLAnchorElement>): void {
     if (exactContext && resolvedHandoffId) {
       trackExactCallHandoffLinkOpened({
         handoff_id: resolvedHandoffId,
@@ -153,9 +158,24 @@ export function AppDeepLinkCTA({
       });
       return;
     }
+    const clickHandoff = isFallback
+      ? createClientAppHandoffLink({
+          source: "session_intelligence",
+          surface: tracking?.surface ?? "session_intelligence",
+          placement: "app_store_fallback",
+        })
+      : null;
+    if (clickHandoff) event.currentTarget.href = clickHandoff.url;
+
     const payload = {
       ...(tracking?.beachId ? { beachId: tracking.beachId } : {}),
-      metadata,
+      metadata: clickHandoff
+        ? buildSurfWindowTrackingMetadata(tracking ?? {}, {
+            targetHref: clickHandoff.url,
+            linkType: "app_store",
+            fallbackToAppStore: true,
+          })
+        : metadata,
       debounceMs: 0,
     };
 

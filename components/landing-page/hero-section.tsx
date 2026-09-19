@@ -5,6 +5,7 @@ import {
   useEffect,
   useRef,
   useState,
+  type MouseEvent,
   type ReactElement,
 } from "react";
 import Image from "next/image";
@@ -20,8 +21,9 @@ import {
 } from "@/lib/analytics/ios-app-cta-tracking";
 import {
   IOS_APP_STORE_CTA,
-  IOS_APP_STORE_WEB_REDIRECT_PATH,
 } from "@/lib/constants/app-store";
+import { createClientAppHandoffLink } from "@/lib/analytics/app-handoff-link";
+import { buildAppHandoffUrl } from "@/lib/constants/app-handoff";
 import type { FirstTouchPlatform } from "@/lib/analytics/web-context";
 
 const LANDING_HERO_VIDEO_DESKTOP_SRC = "/videos/quiver-landing-hero-1280.mp4";
@@ -36,6 +38,11 @@ const APP_FIRST_HERO_PLACEMENT = "hero_primary";
 const APP_FIRST_COHORT = "app_first";
 const HERO_PRIMARY_CTA_CLASS =
   "inline-flex min-h-12 items-center justify-center rounded-[14px_6px_16px_6px] bg-ocean-blue-decorative px-6 py-3 font-heading text-base font-bold text-background shadow-[0_4px_0_rgba(0,0,0,0.32)] transition hover:bg-[#D57835] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ocean-blue-decorative focus-visible:ring-offset-2 focus-visible:ring-offset-background active:bg-[#C06A25]";
+const HERO_VIDEO_HANDOFF_URL = buildAppHandoffUrl({
+  source: HERO_DOWNLOAD_BUTTON_SOURCE,
+  surface: "landing-page",
+  placement: "hero_video_overlay",
+});
 
 type HeroVideoVariant = "mobile" | "desktop";
 
@@ -239,13 +246,20 @@ function LegacyHeroSection(): ReactElement {
     [trackVideoEvent],
   );
 
-  const handleIosAppClick = () => {
+  const handleIosAppClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    const handoff = createClientAppHandoffLink({
+      source: HERO_DOWNLOAD_BUTTON_SOURCE,
+      surface: "landing-page",
+      placement: "hero_video_overlay",
+    });
+    event.currentTarget.href = handoff.url;
     trackIosAppCtaClick({
       source: HERO_DOWNLOAD_BUTTON_SOURCE,
       surface: "landing-page",
       placement: "hero_video_overlay",
       cta_text: IOS_APP_STORE_CTA,
-      destination_url: IOS_APP_STORE_WEB_REDIRECT_PATH,
+      destination_url: handoff.url,
+      handoff_id: handoff.handoffId,
       video_loaded: shouldLoadVideo,
       video_completed: hasVideoEnded,
     });
@@ -263,7 +277,7 @@ function LegacyHeroSection(): ReactElement {
       surface: "landing-page",
       placement: "hero_video_overlay",
       cta_text: IOS_APP_STORE_CTA,
-      destination_url: IOS_APP_STORE_WEB_REDIRECT_PATH,
+      destination_url: HERO_VIDEO_HANDOFF_URL,
       video_loaded: shouldLoadVideo,
       video_completed: hasVideoEnded,
     });
@@ -442,7 +456,7 @@ function LegacyHeroSection(): ReactElement {
             ) : null}
             {isAppStoreCtaVisible ? (
               <a
-                href={IOS_APP_STORE_WEB_REDIRECT_PATH}
+                href={HERO_VIDEO_HANDOFF_URL}
                 data-testid="hero-video-app-store-cta"
                 aria-label={IOS_APP_STORE_CTA}
                 onClick={handleIosAppClick}

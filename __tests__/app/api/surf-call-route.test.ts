@@ -9,20 +9,30 @@ import { withRateLimit } from "@/lib/middleware/api-wrappers";
 const mockSupabase = {
   from: jest.fn(),
 };
+const mockEqCalls: Array<[string, unknown]> = [];
 const mockUser = {
   id: "native-user-123",
 };
+let mockRequestUser: typeof mockUser | null = mockUser;
+const mockRateLimitInvocations: string[] = [];
+
 jest.mock("@/lib/middleware/api-wrappers", () => {
   const actual = jest.requireActual("@/lib/api-utils");
   const withRateLimit = jest.fn(
-    (handler: (request: NextRequest) => Promise<Response>, _key: string) =>
-      (request: NextRequest) => handler(request),
+    (
+      handler: (request: NextRequest, context?: unknown) => Promise<Response>,
+      key: string,
+    ) =>
+      (request: NextRequest, context?: unknown) => {
+        mockRateLimitInvocations.push(key);
+        return handler(request, context);
+      },
   );
   return {
     withAuth:
-      (handler: (request: NextRequest, context: { user: typeof mockUser; supabase: typeof mockSupabase }) => Promise<Response>) =>
+      (handler: (request: NextRequest, context: { user: typeof mockUser | null; supabase: typeof mockSupabase }) => Promise<Response>) =>
       (request: NextRequest) =>
-        handler(request, { user: mockUser, supabase: mockSupabase }),
+        handler(request, { user: mockRequestUser, supabase: mockSupabase }),
     withRateLimit,
     createSuccessResponse: actual.createSuccessResponse,
     validateOrError: actual.validateOrError,
@@ -79,7 +89,7 @@ jest.mock("@/lib/profile/skill-level", () => ({
 }));
 
 function mockBeachQuery(
-  beach: Record<string, unknown>,
+  beach: Record<string, unknown> | null,
   forecastRows: Array<{ forecast_at: string }> = [],
 ) {
   const query: {
@@ -94,7 +104,10 @@ function mockBeachQuery(
     single: jest.fn().mockResolvedValue({ data: beach, error: null }),
   };
   query.select.mockReturnValue(query);
-  query.eq.mockReturnValue(query);
+  query.eq.mockImplementation((column: string, value: unknown) => {
+    mockEqCalls.push([column, value]);
+    return query;
+  });
   query.is.mockReturnValue(query);
   mockSupabase.from.mockImplementation((table: string) => {
     if (table === "user_entitlements") {
@@ -140,6 +153,9 @@ let canonicalContext: {
 describe("GET /api/surf/call", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockRateLimitInvocations.length = 0;
+    mockEqCalls.length = 0;
+    mockRequestUser = mockUser;
     mockGetProfileExperienceLevel.mockResolvedValue("intermediate");
     const decision = {
       schemaVersion: "canonical-session-decision.v1",
@@ -220,6 +236,68 @@ describe("GET /api/surf/call", () => {
     );
   });
 
+  it("returns the general surf call to anonymous viewers without entitlements", async () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    mockRequestUser = null;
+    mockBeachQuery({
+      id: beachId,
+      name: "Ocean Beach Pier",
+      slug: "ocean-beach-pier",
+      lat: 32.75,
+      lon: -117.25,
+      timezone: "America/Los_Angeles",
+      deleted_at: null,
+    });
+
+    const response = await GET(
+      new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}&boardClass=longboard`),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.data.report.skillSource).toBeNull();
+    expect(body.data.report.userTier).toBeNull();
+    expect(body.data.report.verdict).toBeDefined();
+    expect(body.data.report.whySentence).toEqual(expect.any(String));
+    expect(body.data.forecastContext.conditionDrivers).toBeDefined();
+    expect(mockGetProfileExperienceLevel).not.toHaveBeenCalled();
+    expect(mockSupabase.from).not.toHaveBeenCalledWith("user_entitlements");
+    expect(mockResolveCanonicalSessionDecisionContext).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: null,
+        profileExperience: null,
+        discoveryOptions: expect.objectContaining({ isPro: false }),
+      }),
+    );
+    expect(mockRateLimitInvocations).toEqual(["public-default"]);
+    expect(mockEqCalls).not.toContainEqual(["user_id", expect.anything()]);
+    expect(mockSupabase.from).not.toHaveBeenCalledWith("boards");
+    expect(mockSupabase.from).not.toHaveBeenCalledWith("favorite_beaches");
+    expect(mockSupabase.from).not.toHaveBeenCalledWith("user_surf_preferences");
+  });
+
+  it("returns 404 for an unknown beach for authenticated and anonymous viewers", async () => {
+    const beachQuery = mockBeachQuery(null);
+
+    for (const user of [mockUser, null]) {
+      mockRequestUser = user;
+      const response = await GET(
+        new NextRequest(
+          "http://localhost:3000/api/surf/call?beachId=11111111-1111-4111-8111-111111111111",
+        ),
+      );
+
+      expect(response.status).toBe(404);
+      expect(await response.json()).toMatchObject({
+        success: false,
+        error: "Beach not found",
+      });
+    }
+
+    expect(beachQuery.single).toHaveBeenCalledTimes(2);
+  });
+
   it("uses the canonical decision as the Surf Call verdict authority", async () => {
     const beachId = "11111111-1111-4111-8111-111111111111";
     const beachQuery = mockBeachQuery({
@@ -259,6 +337,7 @@ describe("GET /api/surf/call", () => {
       selection: { beachId },
     });
     expect(body.data.report.verdict).toBe("MAYBE");
+    expect(mockRateLimitInvocations).toEqual(["surf-call"]);
   });
 
   it("keeps direct forecast visibility but never promotes a recommendation-ineligible beach", async () => {

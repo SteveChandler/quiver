@@ -64,8 +64,12 @@ describe("Middleware Integration Tests", () => {
   let mockAdminChecker: jest.Mocked<AdminChecker>;
 
   // Helper to create mock NextRequest
-  const createMockRequest = (pathname: string, search: string = ""): any => {
-    const url = `http://localhost:3000${pathname}${search}`;
+  const createMockRequest = (
+    pathname: string,
+    search: string = "",
+    host: string = "localhost:3000",
+  ): any => {
+    const url = `http://${host}${pathname}${search}`;
     return {
       nextUrl: {
         pathname,
@@ -75,7 +79,7 @@ describe("Middleware Integration Tests", () => {
       },
       url,
       method: "GET",
-      headers: new Headers(),
+      headers: new Headers([["host", host]]),
       cookies: {
         get: jest.fn(() => undefined),
         getAll: jest.fn(() => []),
@@ -84,6 +88,33 @@ describe("Middleware Integration Tests", () => {
       },
     };
   };
+
+  it.each([
+    "/.well-known/apple-app-site-association",
+    "/.well-known/assetlinks.json",
+    "/app/handoff",
+    "/app",
+    "/beach/ocean-beach",
+    "/app/spot/ocean-beach",
+  ])("serves go host handoff path %s without redirecting", async (path) => {
+    const response = await middleware(
+      createMockRequest(path, "?utm_source=test", "go.quiversurf.app"),
+    );
+
+    expect(response.status).not.toBe(308);
+    expect(response.headers.get("location")).toBeNull();
+  });
+
+  it("308 redirects unsupported go host paths to www and preserves the query", async () => {
+    const response = await middleware(
+      createMockRequest("/map", "?utm_source=test", "go.quiversurf.app"),
+    );
+
+    expect(response.status).toBe(308);
+    expect(response.headers.get("location")).toBe(
+      "https://www.quiversurf.app/map?utm_source=test",
+    );
+  });
 
   beforeEach(() => {
     jest.clearAllMocks();

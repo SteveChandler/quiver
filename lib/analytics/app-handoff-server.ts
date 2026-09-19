@@ -1,5 +1,6 @@
 import "server-only";
 
+import { capturePostHogEvent } from "@/lib/posthog-server";
 import { createServiceRoleClient } from "@/lib/supabase";
 
 interface LogArgs {
@@ -31,4 +32,18 @@ export async function logAppHandoffLinkOpenedServer({
   } catch (error) {
     console.error("app_handoff_link_opened insert threw:", error);
   }
+
+  const webDistinctId =
+    typeof metadata.web_distinct_id === "string"
+      ? metadata.web_distinct_id
+      : undefined;
+  const { web_distinct_id: _webDistinctId, ...properties } = metadata;
+  await capturePostHogEvent({
+    distinctId: webDistinctId ?? sessionId,
+    event: "app_handoff_link_opened",
+    properties: {
+      ...properties,
+      ...(webDistinctId ? {} : { "$process_person_profile": false }),
+    },
+  });
 }

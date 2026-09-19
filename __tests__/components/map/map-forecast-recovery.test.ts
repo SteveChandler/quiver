@@ -35,10 +35,9 @@ describe("map forecast recovery", () => {
     global.fetch = jest.fn().mockResolvedValue(new Response("", { status: 429, headers: { "Retry-After": "60" } }));
     const controller = new AbortController();
     const pending = fetchBulkForecast("/test", controller.signal);
-    const assertion = expect(pending).rejects.toMatchObject({ name: "AbortError" });
     await jest.advanceTimersByTimeAsync(1);
     controller.abort();
-    await assertion;
+    await expect(pending).rejects.toMatchObject({ name: "AbortError" });
     await jest.advanceTimersByTimeAsync(60_000);
     expect(global.fetch).toHaveBeenCalledTimes(1);
   });

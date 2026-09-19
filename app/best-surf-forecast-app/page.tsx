@@ -13,6 +13,7 @@ import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { QuiverSticker, ZineSurface } from "@/components/zine";
 import { SITE_URL } from "@/lib/constants/seo";
+import { IOS_APP_STORE_URL } from "@/lib/constants/app-store";
 import { buildPageMetadata } from "@/lib/seo/meta";
 
 import {
@@ -24,8 +25,7 @@ export const revalidate = 604800;
 
 const PAGE_PATH = "/best-surf-forecast-app";
 const PAGE_URL = `${SITE_URL}${PAGE_PATH}`;
-const APP_STORE_URL =
-  "https://apps.apple.com/us/app/surf-forecast-quiver/id6759300320";
+const APP_STORE_URL = IOS_APP_STORE_URL;
 
 export const metadata: Metadata = buildPageMetadata({
   title: "Best Surf Forecast Apps: Free & Paid Picks for 2026",

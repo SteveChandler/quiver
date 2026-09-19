@@ -14,7 +14,7 @@ import type {
 } from "./types";
 
 interface ResolveCanonicalSessionDecisionInput {
-  userId: string;
+  userId: string | null;
   profileExperience: unknown;
   anchorTime: string;
   scope: CanonicalDecisionScope;
@@ -25,7 +25,7 @@ interface ResolveCanonicalSessionDecisionInput {
 
 interface CanonicalSessionDecisionServiceDependencies {
   discoverSurfSpots?: (
-    userId: string,
+    userId: string | null,
     options: SurfDiscoveryOptions,
   ) => Promise<SurfDiscoveryResponse>;
 }

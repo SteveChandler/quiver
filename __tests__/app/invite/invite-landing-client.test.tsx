@@ -4,7 +4,6 @@
 
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { InviteLandingClient } from "@/app/invite/[token]/invite-landing-client";
-import { IOS_APP_STORE_WEB_REDIRECT_PATH } from "@/lib/constants/app-store";
 
 jest.mock("@/lib/utils/visitor-id", () => ({
   getVisitorId: () => "12345678-1234-1234-1234-123456789012",
@@ -87,7 +86,10 @@ describe("InviteLandingClient", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: /open app store/i }),
-    ).toHaveAttribute("href", IOS_APP_STORE_WEB_REDIRECT_PATH);
+    ).toHaveAttribute(
+      "href",
+      expect.stringContaining("https://go.quiversurf.app/app/handoff"),
+    );
     expect(
       screen.getByRole("link", { name: /already have the app/i }),
     ).toHaveAttribute("href", "quiver://invite/raw-token");
