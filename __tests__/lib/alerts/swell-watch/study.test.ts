@@ -17,7 +17,8 @@ const config = { policy, cohort: Array.from({ length: 10 }, (_, i) => ({
 })) };
 const batch = "20000000-0000-4000-8000-000000000001";
 const revision = "30000000-0000-4000-8000-000000000001";
-const completion = { provider_batch_id: batch, evaluation_id: `genuine_completed:${batch}`, already_evaluated: false };
+const completion = { provider_batch_id: batch, evaluation_id: `genuine_completed:${batch}`, already_evaluated: false,
+  authority_epoch: 6, qualification_rule: "complete_partitions.v1" as const };
 const scopes = config.cohort.map((scope) => ({ ...scope, latitude: 32, longitude: -117,
   beach: { swell_window_center_deg: 270, swell_window_halfwidth_deg: 90 } }));
 const scopeInputs = scopes.map(({ sourcePointId, latitude, longitude, beach }) => ({ sourcePointId, latitude, longitude,
@@ -48,10 +49,23 @@ it("completes before evaluation and requires durable outcome recording", async (
   await expect(completeSwellWatchStudyRun(revision, studyConfig.parse(config), client, "primary_partition_with_retained_unavailable_secondary.v1")).resolves.toMatchObject({ status: "evaluated", enqueued: 0 });
   expect(rpc.mock.calls[0]).toEqual(["complete_swell_watch_study_run", { p_revision_set_id: revision,
     p_policy_hash: policy.value_hash, p_cohort: config.cohort, p_scope_inputs: scopeInputs }]);
-  expect(evaluateSwellWatchShadow).toHaveBeenCalledWith(expect.objectContaining({ providerBatchId: batch, scopes, forecastDays: 7, qualificationRule: "primary_partition_with_retained_unavailable_secondary.v1" }), client);
+  expect(evaluateSwellWatchShadow).toHaveBeenCalledWith(expect.objectContaining({ providerBatchId: batch, scopes, forecastDays: 7, qualificationRule: "complete_partitions.v1" }), client);
   expect(rpc.mock.invocationCallOrder[0]).toBeLessThan(jest.mocked(evaluateSwellWatchShadow).mock.invocationCallOrder[0]);
   expect(rpc.mock.calls[1]).toEqual(["record_swell_watch_study_evaluation", expect.objectContaining({ p_provider_batch_id: batch,
     p_policy_hash: policy.value_hash, p_scope_inputs: scopeInputs, p_result: expect.objectContaining({ status: "evaluated" }) })]);
+});
+
+it("uses the qualification rule returned by completion", async () => {
+  rpc.mockResolvedValueOnce({ data: [{ ...completion, qualification_rule: "model_reported_partition_count.v1" }], error: null });
+  await completeSwellWatchStudyRun(revision, studyConfig.parse(config), client, "complete_partitions.v1");
+  expect(evaluateSwellWatchShadow).toHaveBeenCalledWith(expect.objectContaining({ qualificationRule: "model_reported_partition_count.v1" }), client);
+});
+
+it("supports the pre-hardening three-column completion result", async () => {
+  const { authority_epoch: _authorityEpoch, qualification_rule: _qualificationRule, ...legacyCompletion } = completion;
+  rpc.mockResolvedValueOnce({ data: [legacyCompletion], error: null });
+  await completeSwellWatchStudyRun(revision, studyConfig.parse(config), client, "model_reported_swell_system_count.v1");
+  expect(evaluateSwellWatchShadow).toHaveBeenCalledWith(expect.objectContaining({ qualificationRule: "model_reported_swell_system_count.v1" }), client);
 });
 
 it("retains suppressed scope diagnostics without converting them into success", async () => {
@@ -144,6 +158,8 @@ it("continues through retained runs when an older recovery fails", async () => {
   expect(await recoverSwellWatchStudyRuns(studyConfig.parse(config), client, "primary_partition_with_retained_unavailable_secondary.v1")).toEqual({ processed: 1, failed: 1 });
   expect(rpc.mock.calls.filter(([name]) => name === "complete_swell_watch_study_run").map(([, args]) => args.p_revision_set_id))
     .toEqual([revision, second]);
+  expect(rpc.mock.calls.filter(([name]) => name === "record_swell_watch_study_recovery_failure").map(([, args]) => args))
+    .toEqual([{ p_revision_set_id: revision, p_code: "study_recovery_failed" }]);
 });
 
 it("rejects an unavailable pending queue", async () => {

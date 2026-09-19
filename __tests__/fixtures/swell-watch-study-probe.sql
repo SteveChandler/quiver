@@ -68,6 +68,9 @@ BEGIN
   SELECT revision_id INTO raw_revision FROM public.swell_watch_provider_run_revision_set_members WHERE revision_set_id=r.revision_set_id LIMIT 1;
   PERFORM public.study_error(format('SELECT public.complete_swell_watch_study_run(%L,%L,%L,%L)',r.revision_set_id,repeat('a',64),public.study_cohort(),jsonb_set(public.study_inputs(),'{0,latitude}','34')),'current study config required');
   BEGIN
+    PERFORM public.study_error($q$UPDATE public.beaches SET lat=34 WHERE id='00000000-0000-4000-8000-000000000001'$q$,'pinned by the active Swell Watch study');
+    -- Defense in depth: completion must still reject drifted coordinates if the guard is bypassed.
+    ALTER TABLE public.beaches DISABLE TRIGGER swell_watch_study_beach_scope_guard;
     UPDATE public.beaches SET lat=34 WHERE id='00000000-0000-4000-8000-000000000001';
     PERFORM public.study_error(format('SELECT public.complete_swell_watch_study_run(%L,%L,%L,public.study_inputs())',r.revision_set_id,repeat('a',64),public.study_cohort()),'current study config required');
     PERFORM public.study_assert(NOT EXISTS(SELECT 1 FROM public.swell_watch_study_acceptances WHERE revision_set_id=r.revision_set_id),'changed current coordinates cannot acquire study acceptance');
@@ -96,8 +99,8 @@ BEGIN
   BEGIN
     ALTER TABLE public.swell_watch_study_authorities DISABLE TRIGGER swell_watch_study_authority_guard;
     UPDATE public.swell_watch_study_authorities SET not_before=clock_timestamp() WHERE epoch=1;
-    PERFORM public.complete_swell_watch_study_run(r.revision_set_id,repeat('a',64),public.study_cohort(),public.study_inputs());
-    PERFORM public.study_assert(EXISTS(SELECT 1 FROM public.swell_watch_provider_run_completed_batches WHERE revision_set_id=r.revision_set_id),'fresh preactivation issuance completes');
+    PERFORM public.study_error(format('SELECT public.complete_swell_watch_study_run(%L,%L,%L,public.study_inputs())',r.revision_set_id,repeat('a',64),public.study_cohort()),'study run predates current study cycle');
+    PERFORM public.study_assert(NOT EXISTS(SELECT 1 FROM public.swell_watch_study_acceptances WHERE revision_set_id=r.revision_set_id),'preactivation issuance is not accepted');
     PERFORM public.study_assert(public.read_swell_watch_study_health()->>'qualifyingDays'='0','preactivation issuance does not qualify');
     RAISE no_data_found;
   EXCEPTION WHEN no_data_found THEN NULL; END;
@@ -177,6 +180,8 @@ BEGIN
       frozen:=public.study_inputs();
       PERFORM public.study_error(format('SELECT public.record_swell_watch_study_evaluation(%L,%L,%L,%L)',c.provider_batch_id,repeat('a',64),output,jsonb_set(frozen,'{0,latitude}','34')),'current study authority and evidence required');
       BEGIN
+        PERFORM public.study_error($q$UPDATE public.beaches SET deepwater_decay_factor=0.9 WHERE id='00000000-0000-4000-8000-000000000001'$q$,'pinned by the active Swell Watch study');
+        ALTER TABLE public.beaches DISABLE TRIGGER swell_watch_study_beach_scope_guard;
         UPDATE public.beaches SET deepwater_decay_factor=0.9 WHERE id='00000000-0000-4000-8000-000000000001';
         PERFORM public.study_error(format('SELECT public.record_swell_watch_study_evaluation(%L,%L,%L,%L)',c.provider_batch_id,repeat('a',64),output,frozen),'current study authority and evidence required');
         PERFORM public.study_assert(NOT public.swell_watch_provider_evidence_is_current(c.provider_batch_id),'terrain change invalidates current study');
@@ -278,6 +283,20 @@ BEGIN
   PERFORM public.record_swell_watch_provider_run_receipt(public.study_receipt(r.run_utc,2));
   PERFORM public.study_error(format('SELECT public.complete_swell_watch_study_run(%L,%L,%L,public.study_inputs())',r.revision_set_id,repeat('a',64),public.study_cohort()),'invalid current study revision');
 END; $$;
+DO $$
+DECLARE state record;
+BEGIN
+  SELECT * INTO state FROM public.read_swell_watch_provider_run_states(ARRAY[(SELECT run_utc FROM public.study_test_ids ORDER BY run_utc LIMIT 1)]);
+  PERFORM public.study_assert(state.revision_set_id IS NOT NULL AND state.completed_batch_id IS NOT NULL AND state.evaluated,'run state returns stored evaluated state');
+  PERFORM public.study_error('SELECT public.read_swell_watch_provider_run_states(ARRAY[' || array_to_string(ARRAY(SELECT quote_literal(clock_timestamp()+make_interval(hours=>n)) FROM generate_series(1,9) n),',') || ']::timestamptz[])','up to 8 provider run timestamps required');
+END $$;
+SET ROLE anon;
+SELECT public.study_error('SELECT public.read_swell_watch_provider_run_states(ARRAY[]::timestamptz[])','permission denied');
+RESET ROLE;
+SET ROLE authenticated;
+SELECT public.study_error('SELECT public.read_swell_watch_provider_run_states(ARRAY[]::timestamptz[])','permission denied');
+RESET ROLE;
+
 SELECT public.study_install(2,'revoked');
 SELECT public.study_assert(public.read_swell_watch_study_health()->>'status'='blocked','authority revocation health');
 SELECT public.study_assert(NOT public.swell_watch_provider_evidence_is_current((SELECT provider_batch_id FROM public.study_test_ids ORDER BY run_utc DESC LIMIT 1)),'authority revocation invalidates evidence');

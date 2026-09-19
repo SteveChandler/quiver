@@ -3,7 +3,7 @@
 set -euo pipefail
 study_root="$(cd "$(dirname "$0")/.." && pwd)"
 study_container="swell-watch-study-test-$$"
-cleanup() { docker rm -f "$study_container" >/dev/null 2>&1 || true; }
+cleanup() { docker rm -fv "$study_container" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 docker run --rm -d --name "$study_container" -e POSTGRES_PASSWORD=disposable postgres:15 >/dev/null
 deadline=$((SECONDS + 30))
@@ -13,6 +13,12 @@ until docker exec "$study_container" sh -c 'test "$(head -n 1 /var/lib/postgresq
 done
 study_database=postgres
 run_file() { docker exec -i "$study_container" psql -X -U postgres -d "$study_database" -v ON_ERROR_STOP=1 -f - < "$1"; }
+run_epoch4_rollback() {
+  sed 's/d1165986abe16e5c177a4d778dfa0f23ddd9d2b7407ee81c07755e39364c9f03/bf9e59e110593b66364be08057b3b34a936e9ab5d01bf9311158434230c5ab3f/g' \
+    "$study_root/docs/operations/swell-watch-study-swell-system-count-rollback.sql" |
+    docker exec -i "$study_container" psql -X -U postgres -d "$study_database" -v ON_ERROR_STOP=1 -f -
+}
+run_hardening() { run_file "$study_root/supabase/migrations/20260918180000_harden_swell_watch_study_epochs_and_extend.sql"; }
 query() { docker exec "$study_container" psql -X -U postgres -d "$study_database" -v ON_ERROR_STOP=1 -Atqc "$1"; }
 run_file "$study_root/__tests__/fixtures/swell-watch-study-base.sql" >/dev/null
 for migration in \
@@ -42,16 +48,31 @@ fi
 run_file "${normalization_migrations[0]}" >/dev/null
 run_file "$study_root/supabase/migrations/20260914050000_amend_swell_watch_study_partition_coverage.sql" >/dev/null
 query 'CREATE DATABASE study_normalization TEMPLATE postgres'
+query 'CREATE DATABASE study_clean TEMPLATE postgres'
 node --import tsx "$study_root/scripts/test-swell-watch-normalization.mjs" "$study_container"
+# The normalization run clones and mutates databases; continue on an untouched copy.
+study_database=study_clean
 run_file "$study_root/supabase/migrations/20260914190000_amend_swell_watch_study_model_partition_count.sql" >/dev/null
 run_file "$study_root/supabase/migrations/20260914190000_amend_swell_watch_study_model_partition_count.sql" >/dev/null
 run_file "$study_root/supabase/migrations/20260916170000_amend_swell_watch_study_swell_system_count.sql" >/dev/null
 run_file "$study_root/supabase/migrations/20260916170000_amend_swell_watch_study_swell_system_count.sql" >/dev/null
+authority_rows_before=$(query 'SELECT jsonb_agg(to_jsonb(a) ORDER BY epoch)::text FROM public.swell_watch_study_authorities a WHERE epoch BETWEEN 1 AND 5')
+policy_rows_before=$(query 'SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch)::text FROM public.swell_watch_evaluation_policies p WHERE epoch BETWEEN 1 AND 2')
+completion_grants_before=$(query "SELECT proacl::text FROM pg_proc WHERE oid='public.complete_swell_watch_study_run(uuid,text,jsonb,jsonb)'::regprocedure;")
+run_file "$study_root/docs/operations/swell-watch-study-epochs-and-extension-rollback.sql" >/dev/null
+if [ "$(query "SELECT encode(extensions.digest(pg_get_functiondef('public.complete_swell_watch_study_run(uuid,text,jsonb,jsonb)'::regprocedure),'sha256'),'hex')")" != 58c3a7bb5b32a0bcb3c7ab1d95678bcc93dcde2bd2763feec24ee2cffd44d85c ] || \
+  [ "$(query "SELECT encode(extensions.digest(pg_get_functiondef('public.record_swell_watch_shadow_demand(uuid,text,jsonb)'::regprocedure),'sha256'),'hex')")" != 414be8da27827b45d94d090176c3518ca1a8759db52b21630e11290da5c23375 ]; then
+  echo 'Amendment rollback hash mismatch' >&2; exit 1
+fi
+if [ "$(query "SELECT proacl::text FROM pg_proc WHERE oid='public.complete_swell_watch_study_run(uuid,text,jsonb,jsonb)'::regprocedure;")" != "$completion_grants_before" ]; then
+  echo 'Completion grants changed across rollback' >&2; exit 1
+fi
+run_hardening >/dev/null
 epoch5_hash=$(query "SELECT encode(extensions.digest(pg_get_functiondef('public.record_swell_watch_study_evaluation(uuid,text,jsonb,jsonb)'::regprocedure),'sha256'),'hex');")
-[ "$epoch5_hash" = d1165986abe16e5c177a4d778dfa0f23ddd9d2b7407ee81c07755e39364c9f03 ]
+[ "$epoch5_hash" = bf9e59e110593b66364be08057b3b34a936e9ab5d01bf9311158434230c5ab3f ]
 echo "epoch5 record function hash: $epoch5_hash"
 epoch5_grants=$(query "SELECT proacl::text FROM pg_proc WHERE oid='public.record_swell_watch_study_evaluation(uuid,text,jsonb,jsonb)'::regprocedure;")
-run_file "$study_root/docs/operations/swell-watch-study-swell-system-count-rollback.sql" >/dev/null
+run_epoch4_rollback >/dev/null
 epoch4_hash=$(query "SELECT encode(extensions.digest(pg_get_functiondef('public.record_swell_watch_study_evaluation(uuid,text,jsonb,jsonb)'::regprocedure),'sha256'),'hex');")
 [ "$epoch4_hash" = d6ce951daa3bb58b6b5228732ce7fcd9263c0cb894863362258d923ad53dc817 ]
 rollback_grants=$(query "SELECT proacl::text FROM pg_proc WHERE oid='public.record_swell_watch_study_evaluation(uuid,text,jsonb,jsonb)'::regprocedure;")
@@ -59,7 +80,35 @@ rollback_grants=$(query "SELECT proacl::text FROM pg_proc WHERE oid='public.reco
 run_file "$study_root/supabase/migrations/20260916170000_amend_swell_watch_study_swell_system_count.sql" >/dev/null
 remigrated_hash=$(query "SELECT encode(extensions.digest(pg_get_functiondef('public.record_swell_watch_study_evaluation(uuid,text,jsonb,jsonb)'::regprocedure),'sha256'),'hex');")
 [ "$remigrated_hash" = d1165986abe16e5c177a4d778dfa0f23ddd9d2b7407ee81c07755e39364c9f03 ]
-query 'CREATE DATABASE study_activation TEMPLATE postgres'
+run_hardening >/dev/null
+run_hardening >/dev/null
+study_database=study_clean
+pinned_post_hash() {
+  awk -v signature="$1" 'index($0,"public." signature) {sub(/^.*<>./,""); gsub(/[^0-9a-f].*/,""); print; exit}' \
+    "$study_root/docs/operations/swell-watch-study-extend-20261231.sql"
+}
+for signature in \
+  'swell_watch_provider_evidence_is_current(uuid)' \
+  'read_swell_watch_study_health()' \
+  'complete_swell_watch_study_run(uuid,text,jsonb,jsonb)' \
+  'record_swell_watch_study_evaluation(uuid,text,jsonb,jsonb)' \
+  'read_swell_watch_study_pending_runs(text)' \
+  'resolve_and_ingest_swell_watch_evaluation(uuid,uuid,uuid,uuid,text,text,timestamptz,text,numeric,numeric,numeric,numeric,text,text,text,timestamptz,timestamptz)' \
+  'advance_swell_watch_event(uuid,text,uuid,timestamptz,timestamptz,uuid)' \
+  'record_swell_watch_shadow_demand(uuid,text,jsonb)'; do
+  pinned_hash=$(pinned_post_hash "$signature")
+  [ -n "$pinned_hash" ] || { echo "Missing pinned post hash: $signature" >&2; exit 1; }
+  actual_hash=$(query "SELECT encode(extensions.digest(pg_get_functiondef('public.$signature'::regprocedure),'sha256'),'hex')")
+  [ "$actual_hash" = "$pinned_hash" ] || { echo "Hardened hash mismatch: $signature actual=$actual_hash pinned=$pinned_hash" >&2; exit 1; }
+done
+if [ "$(query "SELECT has_function_privilege('anon','public.read_swell_watch_provider_run_states(timestamptz[])','EXECUTE')::text||has_function_privilege('authenticated','public.read_swell_watch_provider_run_states(timestamptz[])','EXECUTE')::text||has_function_privilege('service_role','public.read_swell_watch_provider_run_states(timestamptz[])','EXECUTE')::text")" != falsefalsetrue ]; then
+  echo 'read_swell_watch_provider_run_states grants changed' >&2; exit 1
+fi
+if [ "$(query 'SELECT jsonb_agg(to_jsonb(a) ORDER BY epoch)::text FROM public.swell_watch_study_authorities a WHERE epoch BETWEEN 1 AND 5')" != "$authority_rows_before" ] || \
+  [ "$(query 'SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch)::text FROM public.swell_watch_evaluation_policies p WHERE epoch BETWEEN 1 AND 2')" != "$policy_rows_before" ]; then
+  echo 'Amendment changed reviewed authority or policy rows' >&2; exit 1
+fi
+query 'CREATE DATABASE study_activation TEMPLATE study_clean'
 study_database=study_activation
 run_file "$study_root/__tests__/fixtures/swell-watch-study-activation.sql" >/dev/null
 run_file "$study_root/docs/operations/swell-watch-study-activate.sql" >/dev/null
@@ -111,7 +160,7 @@ fi
 if [ "$(query 'SELECT count(*) FROM public.swell_watch_study_authorities')" != 3 ]; then
   echo 'Rejected revocation changed authority' >&2; exit 1
 fi
-study_database=postgres
+study_database=study_clean
 run_file "$study_root/__tests__/fixtures/swell-watch-study-receipts.sql" >/dev/null
 run_file "$study_root/__tests__/fixtures/swell-watch-study-probe.sql"
 query 'SET ROLE service_role; SELECT public.study_complete_retry()' &
@@ -123,6 +172,8 @@ wait "$second_pid"
 query "SELECT public.study_assert((SELECT count(*) FROM public.swell_watch_study_acceptances WHERE revision_set_id=(SELECT revision_set_id FROM public.study_pending))=1,'concurrent acceptance once'); SELECT public.study_assert((SELECT count(*) FROM public.swell_watch_provider_run_completed_batches WHERE revision_set_id=(SELECT revision_set_id FROM public.study_pending))=1,'concurrent completion once');"
 # Synchronize on the held control lock, not elapsed time, before testing revocation.
 query 'SELECT public.study_probe_legacy_ingestion(false)'
+shadow_demand_pairs=$(query "SELECT recorded_pairs_24h FROM public.record_swell_watch_shadow_demand((SELECT id FROM public.swell_watch_provider_run_completed_batches WHERE revision_set_id=(SELECT revision_set_id FROM public.study_pending)),repeat('a',64),jsonb_build_array(jsonb_build_object('regional_event_id',(SELECT regional_event_id FROM public.swell_watch_event_impacts event_impact JOIN public.swell_watch_beach_impacts impact ON impact.id=event_impact.beach_impact_id JOIN public.swell_watch_observations observation ON observation.id=impact.observation_id WHERE observation.provider_batch_id=(SELECT id FROM public.swell_watch_provider_run_completed_batches WHERE revision_set_id=(SELECT revision_set_id FROM public.study_pending)) AND impact.policy_hash=repeat('a',64) LIMIT 1),'recipient_id',(SELECT id::text FROM auth.users ORDER BY id LIMIT 1))))")
+[ "$shadow_demand_pairs" -ge 1 ] || { echo 'Shadow demand real-pair assertion failed' >&2; exit 1; }
 query "BEGIN; SELECT public.study_install(5,'revoked'); SELECT pg_sleep(2); COMMIT;" &
 revoke_pid=$!
 deadline=$((SECONDS + 10))
