@@ -1,6 +1,13 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef, KeyboardEvent } from "react";
+import {
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+  KeyboardEvent,
+  type MouseEvent,
+} from "react";
 import Image from "next/image";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { motion, AnimatePresence, useInView } from "framer-motion";
@@ -12,10 +19,9 @@ import {
   trackIosAppCtaClick,
   trackIosAppCtaView,
 } from "@/lib/analytics/ios-app-cta-tracking";
-import {
-  IOS_APP_STORE_CTA,
-  IOS_APP_STORE_WEB_REDIRECT_PATH,
-} from "@/lib/constants/app-store";
+import { IOS_APP_STORE_CTA } from "@/lib/constants/app-store";
+import { createClientAppHandoffLink } from "@/lib/analytics/app-handoff-link";
+import { buildAppHandoffUrl } from "@/lib/constants/app-handoff";
 
 type FeatureId = "forecast" | "journal" | "intel";
 
@@ -58,6 +64,12 @@ const FEATURES: Feature[] = [
   },
 ];
 
+const FORECAST_SECTION_HANDOFF_URL = buildAppHandoffUrl({
+  source: "forecast-section",
+  surface: "landing-page",
+  placement: "forecast_section",
+});
+
 export function ForecastSection() {
   const [activeFeatureId, setActiveFeatureId] = useState<FeatureId>("forecast");
   const sectionRef = useRef<HTMLDivElement>(null);
@@ -78,15 +90,25 @@ export function ForecastSection() {
     });
   }, [user, isInView]);
 
-  const handleIosAppClick = useCallback(() => {
-    trackIosAppCtaClick({
-      source: "forecast-section",
-      surface: "landing-page",
-      placement: "forecast_section",
-      cta_text: IOS_APP_STORE_CTA,
-      destination_url: IOS_APP_STORE_WEB_REDIRECT_PATH,
-    });
-  }, []);
+  const handleIosAppClick = useCallback(
+    (event: MouseEvent<HTMLAnchorElement>) => {
+      const handoff = createClientAppHandoffLink({
+        source: "forecast-section",
+        surface: "landing-page",
+        placement: "forecast_section",
+      });
+      event.currentTarget.href = handoff.url;
+      trackIosAppCtaClick({
+        source: "forecast-section",
+        surface: "landing-page",
+        placement: "forecast_section",
+        cta_text: IOS_APP_STORE_CTA,
+        destination_url: handoff.url,
+        handoff_id: handoff.handoffId,
+      });
+    },
+    [],
+  );
 
   // Navigation handlers
   const handlePrevious = useCallback(() => {
@@ -315,7 +337,7 @@ export function ForecastSection() {
                   data-testid={`forecast-cta-${activeFeatureId}`}
                 >
                   <a
-                    href={IOS_APP_STORE_WEB_REDIRECT_PATH}
+                    href={FORECAST_SECTION_HANDOFF_URL}
                     onClick={handleIosAppClick}
                   >
                     {IOS_APP_STORE_CTA}

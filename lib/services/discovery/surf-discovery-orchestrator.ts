@@ -723,10 +723,12 @@ async function fetchIncludedBeachCandidates(
 }
 
 async function fetchCustomSpotRows(
-  userId: string,
+  userId: string | null,
   userLocation: { lat: number; lon: number },
   radiusMiles: number,
 ): Promise<CustomSpotDiscoveryRow[]> {
+  if (!userId) return [];
+
   try {
     const supabase = createSupabaseServiceRoleClient();
     const selectColumns = [
@@ -809,7 +811,7 @@ async function fetchCustomSpotRows(
 }
 
 async function buildCustomSpotCandidates(
-  userId: string,
+  userId: string | null,
   userLocation: { lat: number; lon: number },
   radiusMiles: number,
 ): Promise<CustomSpotDiscoveryCandidate[]> {
@@ -1033,9 +1035,17 @@ function applyWorthTheDriveReasons(
 
 export async function fetchUserBoardContext(
   supabase: Pick<SupabaseClient, 'from'>,
-  userId: string,
+  userId: string | null,
   isPro: boolean
 ): Promise<UserBoardContext> {
+  if (!userId) {
+    return {
+      dominantBoardClass: null,
+      boardClasses: [],
+      boardsForPicks: [],
+    };
+  }
+
   const { data, error } = await supabase
     .from('boards')
     .select('id, name, board_type, volume, session_count')
@@ -1509,7 +1519,7 @@ function selectImmediateWindow(
  * Extracted for timeout wrapping with Promise.race.
  */
 async function discoverSurfSpotsInner(
-  userId: string,
+  userId: string | null,
   userLocation: { lat: number; lon: number },
   options: SurfDiscoveryOptions,
   startTime: number
@@ -1545,7 +1555,7 @@ async function discoverSurfSpotsInner(
     .slice(0, MAX_INCLUDED_BEACH_IDS);
   const requestedIncludeBeachIdSet = new Set(requestedIncludeBeachIds);
 
-  log.debug(`Discovering surf spots for user ${userId} (maxResults: ${maxResults})`);
+  log.debug(`Discovering surf spots (maxResults: ${maxResults})`);
 
   // 1. Build candidate pool (GPS-based, re-ordered by pre-forecast preference fit)
   const [{ candidates, userSkillLevel }, includedCandidates, customSpotCandidates] = await Promise.all([
@@ -1614,7 +1624,7 @@ async function discoverSurfSpotsInner(
   }
 
   if (finalCandidates.length === 0) {
-    log.warn(`No candidate beaches found for user ${userId}`);
+    log.warn('No candidate beaches found');
     return emptyResponse(maxResults, 'no_candidates');
   }
 
@@ -1668,7 +1678,7 @@ async function discoverSurfSpotsInner(
     }
 
     if (beachForecasts.length === 0) {
-      log.error(`No forecasts retrieved for user ${userId} (even with stale fallback)`);
+      log.error('No forecasts retrieved (even with stale fallback)');
       throw new SurfDiscoveryOperationalError(
         'forecast_unavailable',
         'No forecasts were available for discovery candidates',
@@ -1716,10 +1726,12 @@ async function discoverSurfSpotsInner(
   const candidateBeachIds = Array.from(allBeachIds);
 
   // Only personalization depends on preferences; other reads can start immediately.
-  const userPrefsPromise = getUserSurfPreferences(userId).catch((err) => {
-    log.warn('Failed to fetch user surf preferences, continuing without them', err);
-    return null;
-  });
+  const userPrefsPromise = userId
+    ? getUserSurfPreferences(userId).catch((err) => {
+        log.warn('Failed to fetch user surf preferences, continuing without them', err);
+        return null;
+      })
+    : Promise.resolve(null);
 
   // Batch-fetch sun times, water quality, personalization, behavior, and Pro board context in parallel
   const [
@@ -2217,16 +2229,18 @@ async function discoverSurfSpotsInner(
 
   // 4. Fetch and merge favorites
   let favoriteBeachIds = new Set<string>();
-  try {
-    const favoriteBeachesResponse = await getFavoriteBeachesFromDb(userId);
-    if (favoriteBeachesResponse.success && favoriteBeachesResponse.data) {
-      favoriteBeachIds = new Set(favoriteBeachesResponse.data.map((b: Beach) => b.id));
-      log.debug(`Found ${favoriteBeachIds.size} favorite beaches for user ${userId}`);
-    } else {
-      log.warn(`Failed to fetch favorites: ${favoriteBeachesResponse.error || 'Unknown error'}`);
+  if (userId) {
+    try {
+      const favoriteBeachesResponse = await getFavoriteBeachesFromDb(userId);
+      if (favoriteBeachesResponse.success && favoriteBeachesResponse.data) {
+        favoriteBeachIds = new Set(favoriteBeachesResponse.data.map((b: Beach) => b.id));
+        log.debug(`Found ${favoriteBeachIds.size} favorite beaches for user ${userId}`);
+      } else {
+        log.warn(`Failed to fetch favorites: ${favoriteBeachesResponse.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      log.error('Error fetching favorite beaches, continuing with regular recommendations:', error);
     }
-  } catch (error) {
-    log.error('Error fetching favorite beaches, continuing with regular recommendations:', error);
   }
 
   // Mark favorites with badge flag, but do NOT prioritize in ranking
@@ -2595,7 +2609,7 @@ async function discoverSurfSpotsInner(
  * }
  */
 export async function discoverSurfSpots(
-  userId: string,
+  userId: string | null,
   options: SurfDiscoveryOptions = {}
 ): Promise<SurfDiscoveryResponse> {
   const startTime = Date.now();
@@ -2610,7 +2624,7 @@ export async function discoverSurfSpots(
   try {
     // GPS location is required for discovery
     if (!userLocation) {
-      log.warn(`Discovery called without userLocation for user ${userId}`);
+      log.warn('Discovery called without userLocation');
       return emptyResponse(maxResults, 'no_candidates');
     }
 
@@ -2634,7 +2648,7 @@ export async function discoverSurfSpots(
     }
   } catch (error) {
     const duration = Date.now() - startTime;
-    log.error(`Discovery failed after ${duration}ms for user ${userId}:`, error);
+    log.error(`Discovery failed after ${duration}ms:`, error);
     if (throwOnFailure) {
       if (error instanceof SurfDiscoveryOperationalError) {
         throw error;

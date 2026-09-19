@@ -11,7 +11,6 @@ import AppSpotHandoffPage, {
   generateMetadata,
 } from "@/app/app/spot/[slug]/page";
 import * as handoffModule from "@/app/app/spot/[slug]/page";
-import { IOS_APP_STORE_WEB_REDIRECT_PATH } from "@/lib/constants/app-store";
 import { track } from "@/lib/analytics";
 
 jest.mock("@/lib/analytics", () => ({
@@ -191,7 +190,10 @@ describe("/app/spot/[slug] handoff page", () => {
 
     expect(
       screen.getByRole("link", { name: /open in the app store/i }),
-    ).toHaveAttribute("href", IOS_APP_STORE_WEB_REDIRECT_PATH);
+    ).toHaveAttribute(
+      "href",
+      expect.stringContaining("https://go.quiversurf.app/app/handoff"),
+    );
     expect(
       screen.getByRole("link", { name: /continue on web/i }),
     ).toHaveAttribute("href", "/beach/ocean-beach");

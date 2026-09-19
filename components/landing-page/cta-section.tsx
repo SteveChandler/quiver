@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { motion, useInView, useReducedMotion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
@@ -14,10 +14,9 @@ import {
   trackIosAppCtaClick,
   trackIosAppCtaView,
 } from "@/lib/analytics/ios-app-cta-tracking";
-import {
-  IOS_APP_STORE_CTA,
-  IOS_APP_STORE_WEB_REDIRECT_PATH,
-} from "@/lib/constants/app-store";
+import { IOS_APP_STORE_CTA } from "@/lib/constants/app-store";
+import { createClientAppHandoffLink } from "@/lib/analytics/app-handoff-link";
+import { buildAppHandoffUrl } from "@/lib/constants/app-handoff";
 import {
   trackSignupCtaClick,
   trackSignupCtaView,
@@ -29,6 +28,12 @@ const FADE_UP_VARIANTS = {
   hidden: { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0 },
 };
+
+const LANDING_FINAL_CTA_HANDOFF_URL = buildAppHandoffUrl({
+  source: "final-cta",
+  surface: "landing-page",
+  placement: "landing_final_cta",
+});
 
 interface CTASectionProps {
   source?: string;
@@ -130,14 +135,21 @@ export function CTASection({
               asChild
             >
               <a
-                href={IOS_APP_STORE_WEB_REDIRECT_PATH}
-                onClick={() => {
+                href={LANDING_FINAL_CTA_HANDOFF_URL}
+                onClick={(event: MouseEvent<HTMLAnchorElement>) => {
+                  const handoff = createClientAppHandoffLink({
+                    source,
+                    surface: "landing-page",
+                    placement: "landing_final_cta",
+                  });
+                  event.currentTarget.href = handoff.url;
                   trackIosAppCtaClick({
                     source,
                     surface: "landing-page",
                     placement: "landing_final_cta",
                     cta_text: IOS_APP_STORE_CTA,
-                    destination_url: IOS_APP_STORE_WEB_REDIRECT_PATH,
+                    destination_url: handoff.url,
+                    handoff_id: handoff.handoffId,
                   });
                 }}
               >

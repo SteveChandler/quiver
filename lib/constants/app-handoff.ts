@@ -22,12 +22,13 @@ const SAFE_HANDOFF_PARAM_KEYS = [
   "utm_campaign",
   "utm_content",
   "utm_term",
+  "web_distinct_id",
 ] as const;
 
 export type SafeHandoffParamKey = (typeof SAFE_HANDOFF_PARAM_KEYS)[number];
 export type HandoffParams = Partial<Record<SafeHandoffParamKey, string>>;
 
-const DEFAULT_APP_HANDOFF_ORIGIN = "https://www.quiversurf.app";
+export const APP_HANDOFF_ORIGIN = "https://go.quiversurf.app";
 
 export function buildAppHandoffPath(params: HandoffParams): string {
   const search = new URLSearchParams();
@@ -40,12 +41,7 @@ export function buildAppHandoffPath(params: HandoffParams): string {
 }
 
 export function buildAppHandoffUrl(params: HandoffParams): string {
-  const origin = (
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    process.env.NEXT_PUBLIC_APP_URL ||
-    DEFAULT_APP_HANDOFF_ORIGIN
-  ).replace(/\/$/, "");
-  return `${origin}${buildAppHandoffPath(params)}`;
+  return `${APP_HANDOFF_ORIGIN}${buildAppHandoffPath(params)}`;
 }
 
 export function buildSmartQrHandoffUrl(
@@ -61,5 +57,6 @@ export function buildSmartQrHandoffUrl(
     utm_medium: "smart_qr",
     utm_campaign: APP_FIRST_CAMPAIGN,
     ...params,
+    handoff_id: params.handoff_id ?? crypto.randomUUID(),
   });
 }

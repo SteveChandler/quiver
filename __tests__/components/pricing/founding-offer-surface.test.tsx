@@ -1,7 +1,6 @@
 import { render, screen } from "@testing-library/react";
 
 import { FoundingOfferSurface } from "@/components/pricing/founding-offer-surface";
-import { IOS_APP_STORE_WEB_REDIRECT_PATH } from "@/lib/constants/app-store";
 
 jest.mock("@/components/pricing/founding-access-cta", () => ({
   FoundingAccessCta: () => (
@@ -49,7 +48,10 @@ describe("FoundingOfferSurface", () => {
     const appStoreLinks = screen.getAllByRole("link", { name: /open app store/i });
     expect(appStoreLinks).toHaveLength(2);
     appStoreLinks.forEach((link) => {
-      expect(link).toHaveAttribute("href", IOS_APP_STORE_WEB_REDIRECT_PATH);
+      expect(link).toHaveAttribute(
+        "href",
+        expect.stringContaining("https://go.quiversurf.app/app/handoff"),
+      );
       expect(link).toHaveClass("focus-visible:ring-2");
     });
     expect(screen.getByText("iPhone")).toBeInTheDocument();

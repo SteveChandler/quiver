@@ -51,7 +51,9 @@ describe("/app handoff page", () => {
   });
 
   it("logs and redirects iPhone visitors to the campaign-tagged App Store URL", async () => {
-    mockHeadersGet.mockReturnValue(IPHONE_UA);
+    mockHeadersGet.mockImplementation((key: string) =>
+      key === "host" ? "go.quiversurf.app" : IPHONE_UA,
+    );
 
     await expect(
       AppHandoffPage({
@@ -82,6 +84,8 @@ describe("/app handoff page", () => {
           utm_source: "qr",
           utm_medium: "map_field_guide",
           platform: "ios",
+          host: "go.quiversurf.app",
+          ua_family: "Safari",
           destination_type: "app_store",
           handoff_channel: "qr",
         }),

@@ -42,6 +42,41 @@ function discoveryRecommendation(): Record<string, unknown> {
 }
 
 describe("canonical session decision service", () => {
+  it("passes a null viewer through to discovery for anonymous decisions", async () => {
+    const { resolveCanonicalSessionDecisionContext } = loadService();
+    const discoverSurfSpots = jest.fn().mockResolvedValue({
+      recommendations: [],
+      recommendationAvailability: {
+        state: "available",
+        holdEpoch: "anonymous",
+      },
+    });
+
+    await resolveCanonicalSessionDecisionContext(
+      {
+        userId: null,
+        profileExperience: null,
+        anchorTime: "2026-07-22T18:00:00.000Z",
+        scope: {
+          kind: "plan_next_session",
+          windowStart: "2026-07-22T18:00:00.000Z",
+          windowEnd: "2026-07-23T18:00:00.000Z",
+          timezone: "America/Los_Angeles",
+        },
+        discoveryOptions: {
+          userLocation: { lat: 32.83, lon: -117.27 },
+          horizonHours: 24,
+        },
+      },
+      { discoverSurfSpots },
+    );
+
+    expect(discoverSurfSpots).toHaveBeenCalledWith(
+      null,
+      expect.objectContaining({ maxResults: 60 }),
+    );
+  });
+
   it("resolves one decision from the full server discovery pool", async () => {
     const { resolveCanonicalSessionDecision } = loadService();
     const discoverSurfSpots = jest.fn().mockResolvedValue({
