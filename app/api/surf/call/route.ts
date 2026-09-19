@@ -511,7 +511,11 @@ const optionalGET = withAuth(
       request,
       context,
     ),
-  { optional: true, errorMessage: 'Error computing surf call' },
+  {
+    optional: true,
+    rejectInvalidCredentials: true,
+    errorMessage: 'Error computing surf call',
+  },
 );
 
 export const GET = async (

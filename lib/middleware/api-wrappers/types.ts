@@ -89,6 +89,8 @@ export interface WithAuthOptions {
   errorMessage?: string;
   /** Allow unauthenticated access (user will be null) */
   optional?: boolean;
+  /** Reject presented but invalid credentials instead of falling back to anonymous access */
+  rejectInvalidCredentials?: boolean;
 }
 
 /**
