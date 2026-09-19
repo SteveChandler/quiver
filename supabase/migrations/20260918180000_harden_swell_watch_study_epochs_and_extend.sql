@@ -2,7 +2,7 @@
 -- All function changes are hash-guarded against the reviewed epoch-5 schema.
 -- Reviewed body hashes (pre -> post, before runtime timeout ALTER FUNCTION statements):
 -- swell_watch_provider_evidence_is_current f59409463e431ee5485c336b113944e73fe9497563157adb2fcec75184cbffc9 -> 069ec0bf40d66182ff4ef3c6bc87550ddc2f29706b9129bfc86c720921e20345
--- read_swell_watch_study_health b2789dfdb0637335290be5883ef57f19e2889cfa071d1ecbadd6ad9b72b30c01 -> 6adbb0b212ce88fbe0cd407726d5401fe540264f1be8e0c9baa7634ec72f699f
+-- read_swell_watch_study_health b2789dfdb0637335290be5883ef57f19e2889cfa071d1ecbadd6ad9b72b30c01 -> f21df04b9d6bc609590f0ab9124b849a46710493e58fa4ba71f1f8d8fcd27dc8
 -- complete_swell_watch_study_run 58c3a7bb5b32a0bcb3c7ab1d95678bcc93dcde2bd2763feec24ee2cffd44d85c -> c6c5a29b834f23762e6509a2cc09701026726ae3cc79613b0b74ce2d19c96e7b
 -- record_swell_watch_study_evaluation d1165986abe16e5c177a4d778dfa0f23ddd9d2b7407ee81c07755e39364c9f03 -> 783c4973bb51591f7629ae1ec67729390adc33f4405910ffc8c39f1cffa1337d
 -- read_swell_watch_study_pending_runs bb6fd6011ad2505b6307468e95d51992993dbb9cc0fa796d10e47c4c5e3e6e39 -> 1881fb9299c3fa91f7a0b60c782439f49c026890d4344f8775778141a439e0a2
@@ -115,12 +115,12 @@ $definition$;
 END;
 $amend$;
 
--- read_swell_watch_study_health(): pre b2789dfdb0637335290be5883ef57f19e2889cfa071d1ecbadd6ad9b72b30c01; post 6adbb0b212ce88fbe0cd407726d5401fe540264f1be8e0c9baa7634ec72f699f.
+-- read_swell_watch_study_health(): pre b2789dfdb0637335290be5883ef57f19e2889cfa071d1ecbadd6ad9b72b30c01; post f21df04b9d6bc609590f0ab9124b849a46710493e58fa4ba71f1f8d8fcd27dc8.
 DO $amend$
 DECLARE definition text;
 BEGIN
   SELECT pg_get_functiondef('public.read_swell_watch_study_health()'::regprocedure) INTO definition;
-  IF encode(extensions.digest(definition,'sha256'),'hex') IN ('6adbb0b212ce88fbe0cd407726d5401fe540264f1be8e0c9baa7634ec72f699f','ddbdde3a2d9f12f2972cfdf009ef6cc6b1301fd1dbd3e10270a483189abfc1f1') THEN RETURN; END IF;
+  IF encode(extensions.digest(definition,'sha256'),'hex') IN ('f21df04b9d6bc609590f0ab9124b849a46710493e58fa4ba71f1f8d8fcd27dc8','a58dc043ec7df36533ed6955ae7584fe4aed81ec89fa6acb345bff0031fea563') THEN RETURN; END IF;
   IF encode(extensions.digest(definition,'sha256'),'hex')<>'b2789dfdb0637335290be5883ef57f19e2889cfa071d1ecbadd6ad9b72b30c01' THEN RAISE EXCEPTION 'study health definition differs from reviewed baseline'; END IF;
   definition := $definition$CREATE OR REPLACE FUNCTION public.read_swell_watch_study_health()
  RETURNS jsonb
@@ -145,7 +145,7 @@ BEGIN
     JOIN public.swell_watch_provider_run_batches rb ON rb.id=b.batch_id
     JOIN public.swell_watch_provider_run_issuances i ON i.id=rb.issuance_id
     WHERE e.status='evaluated' AND e.policy_hash=a.policy_hash AND e.authority_epoch BETWEEN start_epoch AND a.epoch
-      AND i.run_utc>=cycle_before AND public.swell_watch_provider_evidence_is_current(e.provider_batch_id)
+      AND i.run_utc>=cycle_before AND public.swell_watch_provider_evidence_is_current_before_study(e.provider_batch_id)
     GROUP BY (i.run_utc AT TIME ZONE 'UTC')::date HAVING count(DISTINCT i.run_utc)=4
   ) qualified;
   SELECT jsonb_build_object('evaluatedRuns',count(*) FILTER(WHERE e.status='evaluated'),
@@ -166,7 +166,7 @@ END;
 $function$
 $definition$;
   EXECUTE definition;
-  IF encode(extensions.digest(pg_get_functiondef('public.read_swell_watch_study_health()'::regprocedure),'sha256'),'hex')<>'6adbb0b212ce88fbe0cd407726d5401fe540264f1be8e0c9baa7634ec72f699f' THEN RAISE EXCEPTION 'study health definition hash mismatch'; END IF;
+  IF encode(extensions.digest(pg_get_functiondef('public.read_swell_watch_study_health()'::regprocedure),'sha256'),'hex')<>'f21df04b9d6bc609590f0ab9124b849a46710493e58fa4ba71f1f8d8fcd27dc8' THEN RAISE EXCEPTION 'study health definition hash mismatch'; END IF;
 END;
 $amend$;
 
@@ -227,7 +227,7 @@ DO $amend$
 DECLARE definition text;
 BEGIN
   SELECT pg_get_functiondef('public.resolve_and_ingest_swell_watch_evaluation(uuid,uuid,uuid,uuid,text,text,timestamptz,text,numeric,numeric,numeric,numeric,text,text,text,timestamptz,timestamptz)'::regprocedure) INTO definition;
-  IF encode(extensions.digest(definition,'sha256'),'hex') IN ('67c5c32bbe5fc2b8f0604876c5fb9f06df4ab6a55411ee6750caf7daa60e2047','767a3021f43cf63895aa6fa13ad552094983de7c99d74ff5fb4cf14c3de8fce5') THEN RETURN; END IF;
+  IF encode(extensions.digest(definition,'sha256'),'hex') IN ('67c5c32bbe5fc2b8f0604876c5fb9f06df4ab6a55411ee6750caf7daa60e2047','b5f3300dde131554862219403c59e87b97f06df0e384fe9db5dc0b733b6646c4') THEN RETURN; END IF;
   IF encode(extensions.digest(definition,'sha256'),'hex')<>'fbb618bc867533b9cfb61c2d676c2430a9d6926e04623daf5da7c8e802d9f00b' THEN RAISE EXCEPTION 'study resolver definition differs from reviewed baseline'; END IF;
   definition := replace(definition, '  v_max_hours numeric; v_max_period numeric; v_max_direction numeric;', '  v_max_hours numeric; v_max_period numeric; v_max_direction numeric; v_same_evaluation_beach boolean;');
   definition := replace(definition, '  IF cardinality(v_retry_ids)>1 THEN RAISE EXCEPTION ''ambiguous regional identity''; END IF;\n  IF EXISTS (', '  IF cardinality(v_retry_ids)>1 THEN RAISE EXCEPTION ''ambiguous regional identity''; END IF;\n  SELECT EXISTS(SELECT 1 FROM public.swell_watch_event_impacts association\n    JOIN public.swell_watch_beach_impacts impact ON impact.id=association.beach_impact_id\n    JOIN public.swell_watch_observations observation ON observation.id=impact.observation_id\n    WHERE association.evaluation_id=v_evaluation AND association.beach_id=p_source_point_id\n      AND observation.provider_batch_id=p_provider_batch_id AND observation.id IS DISTINCT FROM p_observation_id) INTO v_same_evaluation_beach;\n  IF EXISTS (');

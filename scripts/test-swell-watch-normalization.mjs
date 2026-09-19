@@ -829,11 +829,12 @@ END $$;`);
   const preHardeningHashes = hardeningHashes(hardeningFunctions);
   const preHardeningAcls = hardeningAcls(hardeningFunctions);
   sql(hardeningMigration);
+  // The clock-injected fixture resolver hashes differently; the clean chain verifies the real pin.
   const resolverTimeoutHash = sql("SELECT encode(extensions.digest(pg_get_functiondef('public.resolve_and_ingest_swell_watch_evaluation(uuid,uuid,uuid,uuid,text,text,timestamptz,text,numeric,numeric,numeric,numeric,text,text,text,timestamptz,timestamptz)'::regprocedure),'sha256'),'hex');");
   const fixtureExtension = extensionScript
-    .replace("767a3021f43cf63895aa6fa13ad552094983de7c99d74ff5fb4cf14c3de8fce5", resolverTimeoutHash);
+    .replace("b5f3300dde131554862219403c59e87b97f06df0e384fe9db5dc0b733b6646c4", resolverTimeoutHash);
   const fixtureHardeningRollback = hardeningRollback
-    .replaceAll("767a3021f43cf63895aa6fa13ad552094983de7c99d74ff5fb4cf14c3de8fce5", resolverTimeoutHash);
+    .replaceAll("b5f3300dde131554862219403c59e87b97f06df0e384fe9db5dc0b733b6646c4", resolverTimeoutHash);
   const runFixtureExtension = () => sql(`SET search_path=public,extensions,pg_catalog,pg_temp; ${fixtureExtension}`);
   const assertExtensionRejected = (name, mutation, pattern) => {
     database = "postgres";

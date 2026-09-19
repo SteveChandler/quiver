@@ -33,7 +33,7 @@ DECLARE definition text;
 BEGIN
   SELECT pg_get_functiondef('public.read_swell_watch_study_health()'::regprocedure) INTO definition;
   IF encode(extensions.digest(definition,'sha256'),'hex')='b2789dfdb0637335290be5883ef57f19e2889cfa071d1ecbadd6ad9b72b30c01' THEN RETURN; END IF;
-  IF encode(extensions.digest(definition,'sha256'),'hex')<>'ddbdde3a2d9f12f2972cfdf009ef6cc6b1301fd1dbd3e10270a483189abfc1f1' THEN RAISE EXCEPTION 'study health differs from reviewed amendment'; END IF;
+  IF encode(extensions.digest(definition,'sha256'),'hex')<>'a58dc043ec7df36533ed6955ae7584fe4aed81ec89fa6acb345bff0031fea563' THEN RAISE EXCEPTION 'study health differs from reviewed amendment'; END IF;
   definition := $definition$CREATE OR REPLACE FUNCTION public.read_swell_watch_study_health()
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -219,7 +219,7 @@ DECLARE definition text;
 BEGIN
   SELECT pg_get_functiondef('public.resolve_and_ingest_swell_watch_evaluation(uuid,uuid,uuid,uuid,text,text,timestamptz,text,numeric,numeric,numeric,numeric,text,text,text,timestamptz,timestamptz)'::regprocedure) INTO definition;
   IF encode(extensions.digest(definition,'sha256'),'hex')='fbb618bc867533b9cfb61c2d676c2430a9d6926e04623daf5da7c8e802d9f00b' THEN RETURN; END IF;
-  IF encode(extensions.digest(definition,'sha256'),'hex')<>'767a3021f43cf63895aa6fa13ad552094983de7c99d74ff5fb4cf14c3de8fce5' THEN RAISE EXCEPTION 'study resolver differs from reviewed amendment'; END IF;
+  IF encode(extensions.digest(definition,'sha256'),'hex')<>'b5f3300dde131554862219403c59e87b97f06df0e384fe9db5dc0b733b6646c4' THEN RAISE EXCEPTION 'study resolver differs from reviewed amendment'; END IF;
   definition := replace(definition,'; v_same_evaluation_beach boolean;',';');
   definition := replace(definition,'IF NOT v_same_evaluation_beach AND v_reference.provider=','IF v_reference.provider=');
   definition := replace(definition,E'  SELECT EXISTS(SELECT 1 FROM public.swell_watch_event_impacts association\n    JOIN public.swell_watch_beach_impacts impact ON impact.id=association.beach_impact_id\n    JOIN public.swell_watch_observations observation ON observation.id=impact.observation_id\n    WHERE association.evaluation_id=v_evaluation AND association.beach_id=p_source_point_id\n      AND observation.provider_batch_id=p_provider_batch_id AND observation.id IS DISTINCT FROM p_observation_id) INTO v_same_evaluation_beach;\n',E'');

@@ -11,11 +11,11 @@ DECLARE policy public.swell_watch_evaluation_policies; previous public.swell_wat
 BEGIN
   IF current_user<>'postgres' THEN RAISE EXCEPTION 'production owner required'; END IF;
   IF encode(extensions.digest(pg_get_functiondef('public.swell_watch_provider_evidence_is_current(uuid)'::regprocedure),'sha256'),'hex')<>'069ec0bf40d66182ff4ef3c6bc87550ddc2f29706b9129bfc86c720921e20345'
-    OR encode(extensions.digest(pg_get_functiondef('public.read_swell_watch_study_health()'::regprocedure),'sha256'),'hex')<>'ddbdde3a2d9f12f2972cfdf009ef6cc6b1301fd1dbd3e10270a483189abfc1f1'
+    OR encode(extensions.digest(pg_get_functiondef('public.read_swell_watch_study_health()'::regprocedure),'sha256'),'hex')<>'a58dc043ec7df36533ed6955ae7584fe4aed81ec89fa6acb345bff0031fea563'
     OR encode(extensions.digest(pg_get_functiondef('public.complete_swell_watch_study_run(uuid,text,jsonb,jsonb)'::regprocedure),'sha256'),'hex')<>'7c4b7e0522a7d89157beda0a76b7760a0e62920ad2e7a2b7a45981da79544bfb'
     OR encode(extensions.digest(pg_get_functiondef('public.record_swell_watch_study_evaluation(uuid,text,jsonb,jsonb)'::regprocedure),'sha256'),'hex')<>'bf9e59e110593b66364be08057b3b34a936e9ab5d01bf9311158434230c5ab3f'
     OR encode(extensions.digest(pg_get_functiondef('public.read_swell_watch_study_pending_runs(text)'::regprocedure),'sha256'),'hex')<>'1f19ab40a3e2658739ef6a2eec144e40fcb0d33cb763f12639d6ba303287ce15'
-    OR encode(extensions.digest(pg_get_functiondef('public.resolve_and_ingest_swell_watch_evaluation(uuid,uuid,uuid,uuid,text,text,timestamptz,text,numeric,numeric,numeric,numeric,text,text,text,timestamptz,timestamptz)'::regprocedure),'sha256'),'hex')<>'767a3021f43cf63895aa6fa13ad552094983de7c99d74ff5fb4cf14c3de8fce5'
+    OR encode(extensions.digest(pg_get_functiondef('public.resolve_and_ingest_swell_watch_evaluation(uuid,uuid,uuid,uuid,text,text,timestamptz,text,numeric,numeric,numeric,numeric,text,text,text,timestamptz,timestamptz)'::regprocedure),'sha256'),'hex')<>'b5f3300dde131554862219403c59e87b97f06df0e384fe9db5dc0b733b6646c4'
     OR encode(extensions.digest(pg_get_functiondef('public.advance_swell_watch_event(uuid,text,uuid,timestamptz,timestamptz,uuid)'::regprocedure),'sha256'),'hex')<>'78bca1572d81dfb07d7e6112514f698f5079b613c08cc8f715b9f5803db027d4'
     OR encode(extensions.digest(pg_get_functiondef('public.record_swell_watch_shadow_demand(uuid,text,jsonb)'::regprocedure),'sha256'),'hex')<>'343ffc9289a607a6707bf46f4204025a1cb5fe21c8feb5e02a454b86d022c79a' THEN
     RAISE EXCEPTION 'reviewed Swell Watch hardening migration required';
