@@ -15,6 +15,7 @@ export interface RegionalSwellEvaluation {
   >;
   peakAt: string;
   persistedRegionalEventId?: string | null;
+  current?: boolean;
 }
 interface PersistedRegionalSwellEvent {
   regionalEventId: string;
@@ -92,6 +93,7 @@ export function calculateSwellWatchConsistency(
   if (!verifySwellWatchPolicy(policy) || prior.identity.kind !== "genuine_completed"
     || current.identity.kind !== "genuine_completed" || prior.identity.id === current.identity.id
     || prior.impact.kind !== "candidate" || current.impact.kind !== "candidate"
+    || prior.current === false || current.current === false
     || prior.impact.partition.evaluationId !== prior.identity.id
     || current.impact.partition.evaluationId !== current.identity.id) return null;
   const delta = difference(prior, current, policy);
@@ -114,13 +116,14 @@ function resolveRegionalEventId(
   if (match) {
     return {
       regionalEventId: match.regionalEventId,
-      aliases: [match.regionalEventId],
+      aliases: [match.regionalEventId, ...match.aliases],
     };
   }
   const supplied = current.persistedRegionalEventId;
   const suppliedEvent = persistedEvents.find(
-    (event) => event.regionalEventId === supplied,
+    (event) => event.regionalEventId === supplied || event.aliases.includes(supplied ?? ""),
   );
+  if (suppliedEvent) return { regionalEventId: suppliedEvent.regionalEventId, aliases: [suppliedEvent.regionalEventId, ...suppliedEvent.aliases] };
   return {
     regionalEventId:
       supplied !== null && supplied !== undefined && suppliedEvent === undefined

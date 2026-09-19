@@ -30,7 +30,10 @@ const j = (value) => `${q(JSON.stringify(value))}::jsonb`;
 const command = ["exec", "-i", container, "psql", "-X", "-U", "postgres", "-qAt", "-v", "ON_ERROR_STOP=1"];
 function sql(text) {
   const result = spawnSync("docker", [...command, "-d", database], { input: text, encoding: "utf8", timeout: 30_000, maxBuffer: 32 * 1024 * 1024 });
-  if (result.status !== 0) throw new Error((result.stderr || "isolated PostgreSQL command failed").split("\n")[0].slice(0, 200));
+  if (result.status !== 0) {
+    const lines = (result.stderr || "isolated PostgreSQL command failed").trim().split("\n").filter(Boolean);
+    throw new Error((lines.filter((line) => !line.startsWith("NOTICE:")).slice(0, 4).join(" ") || lines[0]).slice(0, 500));
+  }
   return result.stdout.trim();
 }
 function value(text) { return JSON.parse(sql(text)); }
@@ -46,6 +49,10 @@ const modelPartitionCountAmendment = readFileSync(new URL("../docs/operations/sw
 const swellSystemCountMigration = readFileSync(new URL("../supabase/migrations/20260916170000_amend_swell_watch_study_swell_system_count.sql", import.meta.url), "utf8");
 const swellSystemCountRollback = readFileSync(new URL("../docs/operations/swell-watch-study-swell-system-count-rollback.sql", import.meta.url), "utf8");
 const swellSystemCountAmendment = readFileSync(new URL("../docs/operations/swell-watch-study-amend-swell-system-count.sql", import.meta.url), "utf8");
+const hardeningMigration = readFileSync(new URL("../supabase/migrations/20260918180000_harden_swell_watch_study_epochs_and_extend.sql", import.meta.url), "utf8");
+const extensionScript = readFileSync(new URL("../docs/operations/swell-watch-study-extend-20261231.sql", import.meta.url), "utf8");
+const hardeningRollback = readFileSync(new URL("../docs/operations/swell-watch-study-epochs-and-extension-rollback.sql", import.meta.url), "utf8");
+const extensionRevoke = readFileSync(new URL("../docs/operations/swell-watch-study-revoke-extension.sql", import.meta.url), "utf8");
 const amendment = readFileSync(new URL("../docs/operations/swell-watch-study-amend-partition-coverage.sql", import.meta.url), "utf8");
 const revokeAmendment = readFileSync(new URL("../docs/operations/swell-watch-study-revoke-partition-coverage.sql", import.meta.url), "utf8");
 const functionHashes = {
@@ -96,7 +103,7 @@ assert.equal(studyPermissions(), epoch5Acl);
 sql(swellSystemCountMigration);
 assert.equal(studyEvaluationHash(), epoch5StudyEvaluationHash);
 
-const tableRpcs = new Set(["record_swell_watch_provider_run_receipt", "complete_swell_watch_study_run", "record_swell_watch_shadow_demand"]);
+const tableRpcs = new Set(["record_swell_watch_provider_run_receipt", "complete_swell_watch_study_run", "record_swell_watch_shadow_demand", "record_swell_watch_study_recovery_failure"]);
 const jsonRpcs = new Set(["read_swell_watch_run_scope", "read_swell_watch_attested_run", "record_swell_watch_study_evaluation", "read_swell_watch_study_pending_runs"]);
 const calls = [];
 const client = {
@@ -332,7 +339,7 @@ END $$;`);
   const nativeClient = { ...client, from(table) {
     const filters = []; let columns; let offset = 0; let limit = 1001;
     const history = table === "swell_watch_event_impacts";
-    assert(history || ["profiles", "favorite_beaches", "alert_rules", "user_devices", "beaches"].includes(table));
+    assert(history || ["profiles", "favorite_beaches", "alert_rules", "user_devices", "beaches", "swell_watch_event_aliases"].includes(table));
     const builder = {
       select(selected) { columns = selected; return builder; },
       eq(key, item) {
@@ -363,7 +370,7 @@ END $$;`);
     return builder;
   } };
   async function nativeRun(issuance, missing = false, qualificationRule = completeRule, options = {}) {
-    const now = setClock(issuance);
+    const now = options.preserveClock ? sql("SELECT public.clock_timestamp();") : setClock(issuance);
     const receipts = await Promise.all(cohort.map(async ({ sourcePointId }, i) => {
       const payload = body(issuance);
       const retainedFixture = options.retained === "hatteras2026-09-17T12" && i === hatterasIndex ? hatterasSep17
@@ -400,6 +407,7 @@ END $$;`);
       assert.equal(sql("SELECT count(*) FROM public.swell_watch_study_acceptances;"), "0");
       setClock(issuance);
     }
+    if (options.deferComplete) return { receipts, stored };
     const result = await nativeClient.rpc("complete_swell_watch_study_run", { p_revision_set_id: stored.revisionSetId,
       p_policy_hash: policy.value_hash, p_cohort: cohort, p_scope_inputs: nativeInputs });
     assert.equal(result.error, null); assert.equal(result.data.length, 1);
@@ -801,6 +809,101 @@ END $$;`);
   await expectRejected({ ...epoch5Runs[0].recordArgs, p_provider_batch_id: forgedRun.completed.provider_batch_id }, handBuiltForgery, /absent primary partition requires absent secondary partition/);
   assert.deepEqual(value("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;"), systemPolicyRows);
   assert.deepEqual(authorityRows().slice(0, 4), epoch4Authority);
+  assert.deepEqual(sendCounts(), systemSafety);
+
+  // Epoch-6 extension regression: reuse the real epoch-5 accepted/evaluated chain.
+  const hardeningFunctions = [
+    "swell_watch_provider_evidence_is_current(uuid)", "read_swell_watch_study_health()",
+    "complete_swell_watch_study_run(uuid,text,jsonb,jsonb)", "record_swell_watch_study_evaluation(uuid,text,jsonb,jsonb)",
+    "read_swell_watch_study_pending_runs(text)", "resolve_and_ingest_swell_watch_evaluation(uuid,uuid,uuid,uuid,text,text,timestamptz,text,numeric,numeric,numeric,numeric,text,text,text,timestamptz,timestamptz)",
+    "advance_swell_watch_event(uuid,text,uuid,timestamptz,timestamptz,uuid)", "record_swell_watch_shadow_demand(uuid,text,jsonb)",
+  ];
+  const hardeningHashes = (functions) => value(`SELECT jsonb_object_agg(name,encode(extensions.digest(pg_get_functiondef(name::regprocedure),'sha256'),'hex')) FROM unnest(ARRAY[${functions.map(q).join(",")}]) name;`);
+  const hardeningAcls = (functions) => value(`SELECT jsonb_object_agg(name,proacl::text) FROM unnest(ARRAY[${functions.map(q).join(",")}]) name JOIN pg_proc ON oid=name::regprocedure;`);
+  const preExtensionHealth = value("SELECT public.read_swell_watch_study_health();");
+  const preExtensionAuthorities = authorityRows();
+  const preExtensionPolicies = value("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;");
+  const preCycleRunUtc = new Date(Math.floor((Date.parse(epoch5Authority[4].not_before) - 1) / 21_600_000) * 21_600_000 - 21_600_000).toISOString();
+  setClock(epoch5Issuances.at(-1), 8);
+  for (const signature of hardeningFunctions) sql(`ALTER FUNCTION public.${signature} SET search_path=public,pg_temp;`);
+  const preHardeningHashes = hardeningHashes(hardeningFunctions);
+  const preHardeningAcls = hardeningAcls(hardeningFunctions);
+  sql(hardeningMigration);
+  // The clock-injected fixture resolver hashes differently; the clean chain verifies the real pin.
+  const resolverTimeoutHash = sql("SELECT encode(extensions.digest(pg_get_functiondef('public.resolve_and_ingest_swell_watch_evaluation(uuid,uuid,uuid,uuid,text,text,timestamptz,text,numeric,numeric,numeric,numeric,text,text,text,timestamptz,timestamptz)'::regprocedure),'sha256'),'hex');");
+  const fixtureExtension = extensionScript
+    .replace("b5f3300dde131554862219403c59e87b97f06df0e384fe9db5dc0b733b6646c4", resolverTimeoutHash);
+  const fixtureHardeningRollback = hardeningRollback
+    .replaceAll("b5f3300dde131554862219403c59e87b97f06df0e384fe9db5dc0b733b6646c4", resolverTimeoutHash);
+  const runFixtureExtension = () => sql(`SET search_path=public,extensions,pg_catalog,pg_temp; ${fixtureExtension}`);
+  const assertExtensionRejected = (name, mutation, pattern) => {
+    database = "postgres";
+    sql(`CREATE DATABASE ${name} TEMPLATE study_swell_system_count;`);
+    database = name;
+    try {
+      sql(mutation);
+      const authorities = sql("SELECT jsonb_agg(to_jsonb(a) ORDER BY epoch) FROM public.swell_watch_study_authorities a;");
+      const policies = sql("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;");
+      assert.throws(runFixtureExtension, pattern);
+      assert.equal(sql("SELECT jsonb_agg(to_jsonb(a) ORDER BY epoch) FROM public.swell_watch_study_authorities a;"), authorities);
+      assert.equal(sql("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;"), policies);
+    } finally {
+      database = "postgres";
+      sql(`DROP DATABASE ${name};`);
+      database = "study_swell_system_count";
+    }
+  };
+  assertExtensionRejected("study_extension_send_guard", `SELECT set_config('app.swell_watch_internal_write','on',false);
+    INSERT INTO public.swell_watch_production_approval_authority
+    (record_id,authority_id,authority_epoch,state,policy_hash,policy_provenance,policy_values,approval_id,approval_evidence_hash,production_scope,reviewer,not_before,expires_at)
+    SELECT gen_random_uuid(),gen_random_uuid(),99,'active',policy_hash,'production_approved',policy_values,'fixture-send-guard',repeat('a',64),'swell_watch_push','fixture',public.clock_timestamp(),public.clock_timestamp()+interval '1 day'
+    FROM public.swell_watch_evaluation_policies WHERE epoch=2;`, /reviewed active evaluation policy and disabled sends required/);
+  assertExtensionRejected("study_extension_expiry_guard", "ALTER TABLE public.swell_watch_study_authorities DISABLE TRIGGER swell_watch_study_authority_guard; UPDATE public.swell_watch_study_authorities SET expires_at=expires_at+interval '1 second' WHERE epoch=5; ALTER TABLE public.swell_watch_study_authorities ENABLE TRIGGER swell_watch_study_authority_guard;", /exact reviewed epoch 5 study authority required/);
+  assertExtensionRejected("study_extension_policy_guard", `SELECT set_config('app.swell_watch_internal_write','on',false);
+    INSERT INTO public.swell_watch_evaluation_policies
+    (epoch,state,policy_hash,policy_values,reviewer,evidence_hash,not_before,expires_at)
+    SELECT 3,'revoked',repeat('c',64),p.policy_values,p.reviewer,repeat('b',64),p.not_before,p.expires_at FROM public.swell_watch_evaluation_policies p WHERE p.epoch=2;`, /unexpected evaluation policy; exact extension retry only/);
+  runFixtureExtension(); const extendedAuthorities = authorityRows(); const extendedPolicies = value("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;");
+  runFixtureExtension(); assert.deepEqual(authorityRows(), extendedAuthorities); assert.deepEqual(value("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;"), extendedPolicies);
+  sql(`DO $$ DECLARE f regprocedure; BEGIN
+    FOR f IN SELECT oid::regprocedure FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname<>'clock_timestamp' LOOP
+      EXECUTE format('ALTER FUNCTION %s SET search_path=public,extensions,pg_catalog,pg_temp',f);
+    END LOOP;
+  END $$;`);
+  const extendedHealth = value("SELECT public.read_swell_watch_study_health();");
+  assert.equal(extendedHealth.authorityEpoch, 6); assert.equal(extendedHealth.cycleStartEpoch, 5); assert.equal(extendedHealth.cycleNotBefore, epoch5Authority[4].not_before);
+  assert.equal(extendedHealth.status, "active"); assert.equal(extendedHealth.expiresAt, "2026-12-31T23:59:59+00:00");
+  assert.equal(extendedHealth.evaluatedRuns, preExtensionHealth.evaluatedRuns); assert.equal(extendedHealth.suppressedAttempts, preExtensionHealth.suppressedAttempts); assert.deepEqual(extendedHealth.qualifyingDates, preExtensionHealth.qualifyingDates);
+  assert.deepEqual(sendCounts(), systemSafety);
+  const retainedRun = await loadAttestedSwellWatchRun({ providerBatchId: epoch5Runs[0].completed.provider_batch_id, sourcePointId: cohort[0].sourcePointId }, nativeClient);
+  assert(retainedRun.samples.length > 0, "epoch-5 accepted batch remains readable under epoch 6");
+  const extendedRetry = await nativeClient.rpc("complete_swell_watch_study_run", { p_revision_set_id: epoch5Runs[0].stored.revisionSetId, p_policy_hash: policy.value_hash, p_cohort: cohort, p_scope_inputs: nativeInputs });
+  assert.equal(extendedRetry.error, null); assert.equal(extendedRetry.data[0].already_evaluated, true); assert.equal(extendedRetry.data[0].authority_epoch, 6); assert.equal(extendedRetry.data[0].qualification_rule, swellSystemCountRule);
+  const epoch6New = await nativeRun(new Date(Date.parse(epoch5Issuances.at(-1)) + 30 * 3_600_000).toISOString(), false, swellSystemCountRule, { retained: "hatteras2026-09-16T00" });
+  assert.equal(epoch6New.evaluation.status, "evaluated");
+  const extensionPending = await nativeRun(new Date(Date.parse(epoch5Issuances.at(-1)) + 36 * 3_600_000).toISOString(), false, swellSystemCountRule, { acceptOnly: true, flat: true });
+  const failure = await nativeClient.rpc("record_swell_watch_study_recovery_failure", { p_revision_set_id: extensionPending.stored.revisionSetId, p_code: "extension_fixture" });
+  assert.equal(failure.error, null);
+  sql(`ALTER TABLE public.swell_watch_study_recovery_failures DISABLE TRIGGER swell_watch_study_recovery_failures_append_only; UPDATE public.swell_watch_study_recovery_failures SET failed_at=public.clock_timestamp() WHERE revision_set_id=${q(extensionPending.stored.revisionSetId)}::uuid; ALTER TABLE public.swell_watch_study_recovery_failures ENABLE TRIGGER swell_watch_study_recovery_failures_append_only;`);
+  assert(!((await nativeClient.rpc("read_swell_watch_study_pending_runs", { p_policy_hash: policy.value_hash })).data ?? []).some((row) => row.revision_set_id === extensionPending.stored.revisionSetId));
+  sql(`ALTER TABLE public.swell_watch_study_recovery_failures DISABLE TRIGGER swell_watch_study_recovery_failures_append_only; UPDATE public.swell_watch_study_recovery_failures SET failed_at=public.clock_timestamp()-interval '5 hours' WHERE revision_set_id=${q(extensionPending.stored.revisionSetId)}::uuid; ALTER TABLE public.swell_watch_study_recovery_failures ENABLE TRIGGER swell_watch_study_recovery_failures_append_only;`);
+  assert((await nativeClient.rpc("read_swell_watch_study_pending_runs", { p_policy_hash: policy.value_hash })).data.some((row) => row.revision_set_id === extensionPending.stored.revisionSetId));
+  await assert.rejects(async () => { const old = await nativeRun(preCycleRunUtc, false, swellSystemCountRule, { acceptOnly: true, flat: true, deferComplete: true, preserveClock: true }); const result = await nativeClient.rpc("complete_swell_watch_study_run", { p_revision_set_id: old.stored.revisionSetId, p_policy_hash: policy.value_hash, p_cohort: cohort, p_scope_inputs: nativeInputs }); if (result.error) throw new Error(result.error.message); return result; }, /study run predates current study cycle/);
+  const cohortBeach = cohort[0].sourcePointId; const nonCohortBeach = "ffffffff-ffff-4fff-8fff-ffffffffffff";
+  sql(`INSERT INTO public.beaches(id,lat,lon) VALUES(${q(nonCohortBeach)},32,-117) ON CONFLICT(id) DO NOTHING;`);
+  assert.throws(() => sql(`UPDATE public.beaches SET lat=32.1 WHERE id=${q(cohortBeach)}::uuid;`), /pinned by the active Swell Watch study/);
+  sql(`UPDATE public.beaches SET lat=32.1 WHERE id=${q(nonCohortBeach)}::uuid; UPDATE public.beaches SET timezone='fixture' WHERE id=${q(cohortBeach)}::uuid;`);
+  sql(extensionRevoke); const revokedHealth = value("SELECT public.read_swell_watch_study_health();"); const revokedAuthorities = authorityRows(); assert.equal(revokedHealth.status, "blocked"); sql(extensionRevoke); assert.deepEqual(authorityRows(), revokedAuthorities);
+  for (const signature of hardeningFunctions) sql(`ALTER FUNCTION public.${signature} SET search_path=public,pg_temp;`);
+  sql(fixtureHardeningRollback);
+  assert.deepEqual(hardeningHashes(hardeningFunctions), preHardeningHashes); assert.deepEqual(hardeningAcls(hardeningFunctions), preHardeningAcls);
+  assert.equal(sql("SELECT count(*) FROM public.swell_watch_study_recovery_failures;"), "1"); assert.equal(sql("SELECT count(*) FROM public.swell_watch_shadow_demand_observations;"), "0");
+  assert.equal(authorityRows().at(-1).epoch, 7); assert.deepEqual(value("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;"), extendedPolicies);
+
+  // Epoch continuity section: the retained epoch-5 chain remains one reviewed science path.
+  assert.equal(epoch5Authority[4].qualification_rule, swellSystemCountRule);
+  assert.deepEqual(authorityRows().slice(0, 4), epoch4Authority);
+  assert.deepEqual(value("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;"), extendedPolicies);
   assert.deepEqual(sendCounts(), systemSafety);
 
   console.log(JSON.stringify({ mode: "real_chain_disposable_epoch_4_epoch_5", epoch4: { rule: modelCountRule,
