@@ -14,6 +14,7 @@ const mockUser = {
   id: "native-user-123",
 };
 let mockRequestUser: typeof mockUser | null = mockUser;
+let mockInvalidCredentials = false;
 const mockRateLimitInvocations: string[] = [];
 
 jest.mock("@/lib/middleware/api-wrappers", () => {
@@ -30,9 +31,13 @@ jest.mock("@/lib/middleware/api-wrappers", () => {
   );
   return {
     withAuth:
-      (handler: (request: NextRequest, context: { user: typeof mockUser | null; supabase: typeof mockSupabase }) => Promise<Response>) =>
-      (request: NextRequest) =>
-        handler(request, { user: mockRequestUser, supabase: mockSupabase }),
+      (handler: (request: NextRequest, context: { user: typeof mockUser | null; supabase: typeof mockSupabase }) => Promise<Response>, options?: { rejectInvalidCredentials?: boolean }) =>
+      (request: NextRequest) => {
+        if (options?.rejectInvalidCredentials && mockInvalidCredentials) {
+          return actual.createAuthError();
+        }
+        return handler(request, { user: mockRequestUser, supabase: mockSupabase });
+      },
     withRateLimit,
     createSuccessResponse: actual.createSuccessResponse,
     validateOrError: actual.validateOrError,
@@ -156,6 +161,7 @@ describe("GET /api/surf/call", () => {
     mockRateLimitInvocations.length = 0;
     mockEqCalls.length = 0;
     mockRequestUser = mockUser;
+    mockInvalidCredentials = false;
     mockGetProfileExperienceLevel.mockResolvedValue("intermediate");
     const decision = {
       schemaVersion: "canonical-session-decision.v1",
@@ -275,6 +281,23 @@ describe("GET /api/surf/call", () => {
     expect(mockSupabase.from).not.toHaveBeenCalledWith("boards");
     expect(mockSupabase.from).not.toHaveBeenCalledWith("favorite_beaches");
     expect(mockSupabase.from).not.toHaveBeenCalledWith("user_surf_preferences");
+  });
+
+  it("returns 401 for an invalid bearer token", async () => {
+    mockInvalidCredentials = true;
+
+    const response = await GET(
+      new NextRequest(
+        "http://localhost:3000/api/surf/call?beachId=11111111-1111-4111-8111-111111111111",
+        { headers: { Authorization: "Bearer not-a-real-token" } },
+      ),
+    );
+
+    expect(response.status).toBe(401);
+    expect(await response.json()).toMatchObject({
+      success: false,
+      error: "Authentication required",
+    });
   });
 
   it("returns 404 for an unknown beach for authenticated and anonymous viewers", async () => {
