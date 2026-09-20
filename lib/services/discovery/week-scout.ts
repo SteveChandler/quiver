@@ -70,7 +70,9 @@ import {
 } from '@/lib/recommendations/canonical-decision';
 
 const WEEK_SCOUT_SCORER_VERSION = 'week-scout-v2:day-window-authority-v1';
+const DISTANCE_INDEPENDENT_SCORER_VERSION = `${WEEK_SCOUT_SCORER_VERSION}:distance-independent-v1`;
 const WEEK_SCOUT_RESPONSE_RANK_LIMIT = 8;
+type WeekScoutRankingPolicy = 'legacy-distance' | 'distance-independent';
 
 export type WeekScoutBucket = 'morning' | 'midday' | 'evening';
 export type WeekScoutVerdict = 'worth_it' | 'maybe' | 'skip';
@@ -89,6 +91,8 @@ export interface WeekScoutRequest {
   userLocation?: Coordinates;
   /** Complete-radius routes opt into row-level source freshness enforcement. */
   requirePerRowFreshness?: boolean;
+  /** Internal route policy; legacy and alert callers retain distance friction. */
+  rankingPolicy?: WeekScoutRankingPolicy;
 }
 
 export interface WeekScoutDaysRequest extends Omit<WeekScoutRequest, 'dayCount'> {
@@ -642,6 +646,7 @@ function buildDraftWindow(args: {
 function rankDrafts(
   drafts: DraftWindow[],
   deps: WeekScoutServiceDependencies,
+  rankingPolicy: WeekScoutRankingPolicy,
 ): WeekScoutWindowResponse[] {
   if (drafts.length === 0) return [];
 
@@ -658,10 +663,12 @@ function rankDrafts(
       ...draft.response,
       rankingScore: (
         scoreById.get(draft.response.id) ?? draft.recommendation.score
-      ) + calculateDistancePenalty(draft.recommendation.distanceMiles),
+      ) + (rankingPolicy === 'distance-independent'
+        ? 0
+        : calculateDistancePenalty(draft.recommendation.distanceMiles)),
     }))
     .sort((left, right) =>
-      compareWeekScoutWindows(left, right, distanceOf(left.id), distanceOf(right.id)));
+      compareWeekScoutWindows(left, right, distanceOf(left.id), distanceOf(right.id), rankingPolicy));
   const rankedSpots = responses
     .filter((window) => window.safe && window.rideable && window.verdict !== 'skip')
     .map((window, index): WeekScoutRankedSpotResponse => ({
@@ -691,11 +698,18 @@ function rankDrafts(
 }
 
 function compareWeekScoutWindows(
-  left: Pick<WeekScoutWindowResponse, 'conditionScore' | 'rankingScore'>,
-  right: Pick<WeekScoutWindowResponse, 'conditionScore' | 'rankingScore'>,
+  left: Pick<WeekScoutWindowResponse, 'conditionScore' | 'rankingScore' | 'start' | 'id'>,
+  right: Pick<WeekScoutWindowResponse, 'conditionScore' | 'rankingScore' | 'start' | 'id'>,
   leftDistance: number | undefined,
   rightDistance: number | undefined,
+  rankingPolicy: WeekScoutRankingPolicy,
 ): number {
+  if (rankingPolicy === 'distance-independent') {
+    return right.rankingScore - left.rankingScore
+      || Date.parse(left.start) - Date.parse(right.start)
+      || left.id.localeCompare(right.id);
+  }
+
   if (leftDistance === undefined || rightDistance === undefined) {
     return right.rankingScore - left.rankingScore;
   }
@@ -867,16 +881,29 @@ async function generateWeekScoutForecastInternal(
   dependencies?: WeekScoutServiceDependencies,
 ): Promise<GeneratedWeekScoutContext> {
   const deps = dependencies ?? defaultDependencies(new Date());
+  const rankingPolicy = request.rankingPolicy ?? 'legacy-distance';
+  const scorerVersion = rankingPolicy === 'distance-independent'
+    ? DISTANCE_INDEPENDENT_SCORER_VERSION
+    : WEEK_SCOUT_SCORER_VERSION;
   const generatedAt = deps.now.toISOString();
   const localDates = Array.from(
     { length: request.dayCount },
     (_, index) => addLocalDays(request.startLocalDate, index),
   );
   // Canonical order breaks exact ties consistently before shared-setup ranking.
-  const requestedEligibleCount = new Set(request.candidateBeachIds).size;
+  const requestedBeachIds = new Set(request.candidateBeachIds);
+  const requestedEligibleCount = requestedBeachIds.size;
   const beaches = [...await deps.fetchBeaches(request.candidateBeachIds)]
     .sort((left, right) => left.id.localeCompare(right.id));
   const beachIds = beaches.map((candidate) => candidate.id);
+  // Enumeration was checked by the route; this second hydration must preserve it.
+  if (rankingPolicy === 'distance-independent' && (
+    beachIds.length !== requestedEligibleCount
+    || new Set(beachIds).size !== requestedEligibleCount
+    || beachIds.some((beachId) => !requestedBeachIds.has(beachId))
+  )) {
+    throw new Error('Week Scout candidate hydration is incomplete');
+  }
   const forecastRequest = request.requirePerRowFreshness
     ? deps.fetchForecasts(beaches, 24 * (request.dayCount + 1), { requirePerRowFreshness: true })
     : deps.fetchForecasts(beaches, 24 * (request.dayCount + 1));
@@ -964,7 +991,7 @@ async function generateWeekScoutForecastInternal(
         held: null,
       });
 
-      return rankDrafts(drafts, deps);
+      return rankDrafts(drafts, deps, rankingPolicy);
     });
     const best = windows
       .filter((candidate) => (
@@ -979,6 +1006,7 @@ async function generateWeekScoutForecastInternal(
           current,
           distanceByBeachId.get(candidate.beachId),
           distanceByBeachId.get(current.beachId),
+          rankingPolicy,
         ) < 0 ? candidate : current
       ), null);
 
@@ -1012,8 +1040,12 @@ async function generateWeekScoutForecastInternal(
 
   let response: WeekScoutResponse = {
     generatedAt,
-    scorerVersion: WEEK_SCOUT_SCORER_VERSION,
-    candidateFingerprint: hash([...beachIds].sort()),
+    scorerVersion,
+    // Native's existing stability invalidation compares this opaque fingerprint.
+    // Namespace the candidate set so a legacy incumbent cannot survive the policy change.
+    candidateFingerprint: hash(rankingPolicy === 'distance-independent'
+      ? [scorerVersion, ...beachIds]
+      : [...beachIds].sort()),
     days,
   };
   const safeWindows = await rankBeaches(

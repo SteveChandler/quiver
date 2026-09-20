@@ -243,7 +243,6 @@ describe('scoreForecastWindow', () => {
       ...mockBeach,
       break_type: null,
       aspect_deg: null,
-      bottom_type: null,
     } as Beach;
     const details = scoreWindowConditionDetails(forecast, fullBeach);
     const ranking = scoreWindowForSelection(forecast, fullBeach);
@@ -259,7 +258,6 @@ describe('scoreForecastWindow', () => {
       ...mockBeach,
       break_type: null,
       aspect_deg: null,
-      bottom_type: null,
     } as Beach;
 
     scoreWindowForSelection(forecast, fullBeach);
@@ -1206,13 +1204,8 @@ describe('selectBestWindow past window filtering with tolerance', () => {
 
     const result = selectBestWindow(forecasts, mockBeach as Beach, null);
     expect(result).not.toBeNull();
-    // Should NOT pick the 3:30pm window (excluded by tolerance filter).
-    // The 3:30pm window resolves to 23:30 UTC (local-as-UTC convention for LA tz),
-    // while valid windows resolve to 00:xx–02:xx UTC (next calendar day in UTC).
-    // Verify the selected window is not from the excluded past forecast (wave_height '4'
-    // from past-excluded is same as others, so check it comes from 16:30Z+ which scores
-    // higher: wave_height '3.5', period '14s', confidence 90).
-    expect(result!.waveHeight).toBe('3.5');
+    expect(result!.sourceForecast?.id).not.toBe('past-excluded');
+    expect(result!.waveHeight).toBe(result!.sourceForecast?.wave_height);
   });
 });
 
@@ -1226,6 +1219,29 @@ describe('selectBestWindow with tide-driven boundaries', () => {
 
   afterEach(() => {
     jest.useRealTimers();
+  });
+
+  it('rates the forecast at the displayed peak after tides move a morning window into the afternoon', () => {
+    const morning = createForecast({
+      forecast_at: '2024-01-15T16:00:00Z', forecast_time: '08:00', wave_height: '3.2', wind_speed: '5',
+      raw_forecast: { tide_schedule: [
+        { time: Date.parse('2024-01-15T18:00:00Z') / 1000, height: 0, type: 'low' },
+        { time: Date.parse('2024-01-16T00:00:00Z') / 1000, height: 6, type: 'high' },
+      ] },
+    });
+    const afternoon = createForecast({ forecast_at: '2024-01-15T22:00:00Z', forecast_time: '14:00', wave_height: '2.2', wind_speed: '10', wave_period: '7s' });
+    const result = selectBestWindow({
+      forecasts: [morning, afternoon], beach: mockBeach as Beach, userPrefs: null,
+      now: fixedNow, userSkillLevel: 'intermediate', boardClasses: ['mid-length'],
+    });
+    expect(result).not.toBeNull();
+    expect(result!.peakTime!.getTime()).toBeGreaterThan(Date.parse('2024-01-15T20:30:00Z'));
+    expect(result!.peakTime!.getTime()).toBeLessThan(Date.parse('2024-01-15T23:30:00Z'));
+    expect(result!.sourceForecast).toBe(afternoon);
+    expect(result!.waveHeight).toBe('2.2');
+    expect(result!.wind).toBe('10 NE');
+    expect(result!.wavePeriod).toBe('7s');
+    expect(result!.score).toBe(scoreWindowConditionScore(afternoon, mockBeach as Beach, 'intermediate', null, ['mid-length']));
   });
 
   it('should use tide threshold crossings for window boundaries when data available', () => {

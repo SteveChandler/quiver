@@ -101,6 +101,8 @@ jest.mock('@/lib/services/discovery/window-selector', () => {
 
   return {
     selectBestWindow,
+    scoreWindowConditionScore: jest.fn((forecast, _beach, skill) =>
+      require('@/lib/scoring/native-condition-score').scoreNativeForecastSlot(forecast, skill)),
     selectBestWindows: jest.fn(() => {
       const window = selectBestWindow();
       return window ? [window] : [];
@@ -208,6 +210,7 @@ jest.mock('@/lib/domains/scoring', () => ({
 }));
 
 jest.mock('@/lib/scoring/native-condition-score', () => ({
+  ...jest.requireActual('@/lib/scoring/native-condition-score'),
   scoreNativeForecastSlot: jest.fn((forecast: EnhancedForecastEntity) => (
     mockBaseScores[forecast.beach_id] ?? 70
   )),

@@ -237,7 +237,7 @@ async function weekScoutHandler(
     dayCount: parsed.data.dayCount,
     ...(userLocation ? { userLocation } : {}),
     ...(completeRadiusScope?.kind === 'complete-radius'
-      ? { requirePerRowFreshness: true }
+      ? { requirePerRowFreshness: true, rankingPolicy: 'distance-independent' as const }
       : {}),
   });
   const { coverage: forecastCoverage, ...forecastPayload } = forecast;

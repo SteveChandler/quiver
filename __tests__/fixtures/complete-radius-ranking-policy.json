@@ -1,0 +1,909 @@
+{
+  "legacy": {
+    "generatedAt": "2026-09-03T16:00:00.000Z",
+    "scorerVersion": "week-scout-v2:day-window-authority-v1",
+    "candidateFingerprint": "6a50ec13848e538d47d388fc62514cd97f9c332ca1605950a09ae70d9eeff232",
+    "days": [
+      {
+        "localDate": "2026-09-03",
+        "windows": [
+          {
+            "id": "b0d06a21bd4b5efebf9c7d6a",
+            "bucket": "midday",
+            "start": "2026-09-03T18:00:00.000Z",
+            "end": "2026-09-03T20:00:00.000Z",
+            "displayWindowStart": "2026-09-03T18:00:00.000Z",
+            "displayWindowEnd": "2026-09-03T20:00:00.000Z",
+            "peakTime": "2026-09-03T19:00:00.000Z",
+            "beachId": "00000000-0000-4000-8000-000000000000",
+            "isBeachDayBest": true,
+            "conditionScore": 73,
+            "verdict": "worth_it",
+            "rideable": true,
+            "safe": true,
+            "confidence": 85,
+            "forecast": {
+              "waveHeight": "3 ft",
+              "period": "12s",
+              "swellDirection": "SW",
+              "windSpeed": "5 mph",
+              "windDirection": "E",
+              "components": [],
+              "scoringComponent": null,
+              "waterTemp": null,
+              "tideHeightFt": 3,
+              "tidePhase": "Rising",
+              "freshnessAt": "2026-09-03T16:00:00.000Z"
+            },
+            "takeaway": "Clean wind",
+            "rankingScore": 73,
+            "rankedSpots": [
+              {
+                "beachId": "00000000-0000-4000-8000-000000000000",
+                "beachName": "Fixture 0",
+                "conditionScore": 73,
+                "rankingScore": 73,
+                "verdict": "worth_it",
+                "forecast": {
+                  "waveHeight": "3 ft",
+                  "period": "12s",
+                  "swellDirection": "SW",
+                  "windSpeed": "5 mph",
+                  "windDirection": "E",
+                  "components": [],
+                  "scoringComponent": null
+                }
+              },
+              {
+                "beachId": "00000000-0000-4000-8000-000000000001",
+                "beachName": "Fixture 1",
+                "conditionScore": 74,
+                "rankingScore": 69,
+                "verdict": "worth_it",
+                "reason": "Worth the drive — best conditions in range",
+                "forecast": {
+                  "waveHeight": "3 ft",
+                  "period": "12s",
+                  "swellDirection": "SW",
+                  "windSpeed": "5 mph",
+                  "windDirection": "E",
+                  "components": [],
+                  "scoringComponent": null
+                }
+              }
+            ]
+          },
+          {
+            "id": "d707c928c392d9c90bf559c7",
+            "bucket": "midday",
+            "start": "2026-09-03T18:00:00.000Z",
+            "end": "2026-09-03T20:00:00.000Z",
+            "displayWindowStart": "2026-09-03T18:00:00.000Z",
+            "displayWindowEnd": "2026-09-03T20:00:00.000Z",
+            "peakTime": "2026-09-03T19:00:00.000Z",
+            "beachId": "00000000-0000-4000-8000-000000000001",
+            "isBeachDayBest": true,
+            "conditionScore": 74,
+            "verdict": "worth_it",
+            "rideable": true,
+            "safe": true,
+            "confidence": 85,
+            "forecast": {
+              "waveHeight": "3 ft",
+              "period": "12s",
+              "swellDirection": "SW",
+              "windSpeed": "5 mph",
+              "windDirection": "E",
+              "components": [],
+              "scoringComponent": null,
+              "waterTemp": null,
+              "tideHeightFt": 3,
+              "tidePhase": "Rising",
+              "freshnessAt": "2026-09-03T16:00:00.000Z"
+            },
+            "takeaway": "Clean wind",
+            "rankingScore": 69,
+            "rankedSpots": [
+              {
+                "beachId": "00000000-0000-4000-8000-000000000000",
+                "beachName": "Fixture 0",
+                "conditionScore": 73,
+                "rankingScore": 73,
+                "verdict": "worth_it",
+                "forecast": {
+                  "waveHeight": "3 ft",
+                  "period": "12s",
+                  "swellDirection": "SW",
+                  "windSpeed": "5 mph",
+                  "windDirection": "E",
+                  "components": [],
+                  "scoringComponent": null
+                }
+              },
+              {
+                "beachId": "00000000-0000-4000-8000-000000000001",
+                "beachName": "Fixture 1",
+                "conditionScore": 74,
+                "rankingScore": 69,
+                "verdict": "worth_it",
+                "reason": "Worth the drive — best conditions in range",
+                "forecast": {
+                  "waveHeight": "3 ft",
+                  "period": "12s",
+                  "swellDirection": "SW",
+                  "windSpeed": "5 mph",
+                  "windDirection": "E",
+                  "components": [],
+                  "scoringComponent": null
+                }
+              }
+            ]
+          }
+        ],
+        "bestWindowId": "b0d06a21bd4b5efebf9c7d6a",
+        "bestDayWindow": {
+          "id": "b0d06a21bd4b5efebf9c7d6a",
+          "bucket": "midday",
+          "start": "2026-09-03T18:00:00.000Z",
+          "end": "2026-09-03T20:00:00.000Z",
+          "displayWindowStart": "2026-09-03T18:00:00.000Z",
+          "displayWindowEnd": "2026-09-03T20:00:00.000Z",
+          "peakTime": "2026-09-03T19:00:00.000Z",
+          "beachId": "00000000-0000-4000-8000-000000000000",
+          "isBeachDayBest": true,
+          "conditionScore": 73,
+          "verdict": "worth_it",
+          "rideable": true,
+          "safe": true,
+          "confidence": 85,
+          "forecast": {
+            "waveHeight": "3 ft",
+            "period": "12s",
+            "swellDirection": "SW",
+            "windSpeed": "5 mph",
+            "windDirection": "E",
+            "components": [],
+            "scoringComponent": null,
+            "waterTemp": null,
+            "tideHeightFt": 3,
+            "tidePhase": "Rising",
+            "freshnessAt": "2026-09-03T16:00:00.000Z"
+          },
+          "takeaway": "Clean wind",
+          "rankingScore": 73,
+          "rankedSpots": [
+            {
+              "beachId": "00000000-0000-4000-8000-000000000000",
+              "beachName": "Fixture 0",
+              "conditionScore": 73,
+              "rankingScore": 73,
+              "verdict": "worth_it",
+              "forecast": {
+                "waveHeight": "3 ft",
+                "period": "12s",
+                "swellDirection": "SW",
+                "windSpeed": "5 mph",
+                "windDirection": "E",
+                "components": [],
+                "scoringComponent": null
+              }
+            },
+            {
+              "beachId": "00000000-0000-4000-8000-000000000001",
+              "beachName": "Fixture 1",
+              "conditionScore": 74,
+              "rankingScore": 69,
+              "verdict": "worth_it",
+              "reason": "Worth the drive — best conditions in range",
+              "forecast": {
+                "waveHeight": "3 ft",
+                "period": "12s",
+                "swellDirection": "SW",
+                "windSpeed": "5 mph",
+                "windDirection": "E",
+                "components": [],
+                "scoringComponent": null
+              }
+            }
+          ]
+        },
+        "exclusionReasons": []
+      },
+      {
+        "localDate": "2026-09-04",
+        "windows": [],
+        "bestWindowId": null,
+        "bestDayWindow": null,
+        "exclusionReasons": [
+          "no_forecasts"
+        ]
+      },
+      {
+        "localDate": "2026-09-05",
+        "windows": [],
+        "bestWindowId": null,
+        "bestDayWindow": null,
+        "exclusionReasons": [
+          "no_forecasts"
+        ]
+      },
+      {
+        "localDate": "2026-09-06",
+        "windows": [],
+        "bestWindowId": null,
+        "bestDayWindow": null,
+        "exclusionReasons": [
+          "no_forecasts"
+        ]
+      },
+      {
+        "localDate": "2026-09-07",
+        "windows": [],
+        "bestWindowId": null,
+        "bestDayWindow": null,
+        "exclusionReasons": [
+          "no_forecasts"
+        ]
+      },
+      {
+        "localDate": "2026-09-08",
+        "windows": [],
+        "bestWindowId": null,
+        "bestDayWindow": null,
+        "exclusionReasons": [
+          "no_forecasts"
+        ]
+      },
+      {
+        "localDate": "2026-09-09",
+        "windows": [],
+        "bestWindowId": null,
+        "bestDayWindow": null,
+        "exclusionReasons": [
+          "no_forecasts"
+        ]
+      }
+    ],
+    "recommendationAvailability": {
+      "state": "available",
+      "holdEpoch": "988dcb284872d0ce1b0eb438625ba973ad08de5768f59b9ec9180122920d2106",
+      "resolutionAsOf": "2026-09-03T16:00:00.000Z"
+    },
+    "sessionDecision": {
+      "schemaVersion": "canonical-session-decision.v1",
+      "engineVersion": "rules.v1",
+      "decisionId": "898ae2fe71acd8f268ea00472a98ae6c4bd9f35e5660adcd6cdf11e1da7d8672",
+      "createdAt": "2026-09-03T16:00:00.000Z",
+      "expiresAt": "2026-09-03T16:15:00.000Z",
+      "scope": {
+        "kind": "plan_next_session",
+        "windowStart": "2026-09-03T16:00:00.000Z",
+        "windowEnd": "2026-09-10T16:00:00.000Z",
+        "timezone": "America/Los_Angeles"
+      },
+      "verdict": "go",
+      "decisionBasis": "physical_fallback",
+      "decisionBasisV2": "physical_fallback",
+      "reasonCode": "selected_go",
+      "selection": {
+        "candidateId": "b0d06a21bd4b5efebf9c7d6a",
+        "beachId": "00000000-0000-4000-8000-000000000000",
+        "beachName": "Fixture 0",
+        "windowStart": "2026-09-03T18:00:00.000Z",
+        "windowEnd": "2026-09-03T20:00:00.000Z",
+        "timezone": "America/Los_Angeles",
+        "forecastRef": {
+          "forecastId": "00000000-0000-4000-8000-000000000000:forecast",
+          "beachId": "00000000-0000-4000-8000-000000000000",
+          "forecastAt": "2026-09-03T18:00:00Z"
+        },
+        "skillEligibility": {
+          "skill": "intermediate",
+          "state": "eligible",
+          "reasonCodes": []
+        },
+        "evidence": {
+          "conditionScore": 73,
+          "recommendationLabel": "Worth it",
+          "personalMatch": null,
+          "effects": []
+        }
+      },
+      "skillEligibility": {
+        "skill": "intermediate",
+        "state": "eligible",
+        "reasonCodes": []
+      },
+      "holdEpoch": "988dcb284872d0ce1b0eb438625ba973ad08de5768f59b9ec9180122920d2106",
+      "effects": []
+    }
+  },
+  "completeRadius": {
+    "generatedAt": "2026-09-03T16:00:00.000Z",
+    "scorerVersion": "week-scout-v2:day-window-authority-v1:distance-independent-v1",
+    "candidateFingerprint": "bdd090b96a27e87831c0e9361c3f30ec733c462d47cacb644d9f3f81f25cdea4",
+    "days": [
+      {
+        "localDate": "2026-09-03",
+        "windows": [
+          {
+            "id": "d707c928c392d9c90bf559c7",
+            "bucket": "midday",
+            "start": "2026-09-03T18:00:00.000Z",
+            "end": "2026-09-03T20:00:00.000Z",
+            "displayWindowStart": "2026-09-03T18:00:00.000Z",
+            "displayWindowEnd": "2026-09-03T20:00:00.000Z",
+            "peakTime": "2026-09-03T19:00:00.000Z",
+            "beachId": "00000000-0000-4000-8000-000000000001",
+            "isBeachDayBest": true,
+            "conditionScore": 74,
+            "verdict": "worth_it",
+            "rideable": true,
+            "safe": true,
+            "confidence": 85,
+            "forecast": {
+              "waveHeight": "3 ft",
+              "period": "12s",
+              "swellDirection": "SW",
+              "windSpeed": "5 mph",
+              "windDirection": "E",
+              "components": [],
+              "scoringComponent": null,
+              "waterTemp": null,
+              "tideHeightFt": 3,
+              "tidePhase": "Rising",
+              "freshnessAt": "2026-09-03T16:00:00.000Z"
+            },
+            "takeaway": "Clean wind",
+            "rankingScore": 74,
+            "rankedSpots": [
+              {
+                "beachId": "00000000-0000-4000-8000-000000000001",
+                "beachName": "Fixture 1",
+                "conditionScore": 74,
+                "rankingScore": 74,
+                "verdict": "worth_it",
+                "reason": "Worth the drive — best conditions in range",
+                "forecast": {
+                  "waveHeight": "3 ft",
+                  "period": "12s",
+                  "swellDirection": "SW",
+                  "windSpeed": "5 mph",
+                  "windDirection": "E",
+                  "components": [],
+                  "scoringComponent": null
+                }
+              },
+              {
+                "beachId": "00000000-0000-4000-8000-000000000000",
+                "beachName": "Fixture 0",
+                "conditionScore": 73,
+                "rankingScore": 73,
+                "verdict": "worth_it",
+                "forecast": {
+                  "waveHeight": "3 ft",
+                  "period": "12s",
+                  "swellDirection": "SW",
+                  "windSpeed": "5 mph",
+                  "windDirection": "E",
+                  "components": [],
+                  "scoringComponent": null
+                }
+              }
+            ]
+          },
+          {
+            "id": "b0d06a21bd4b5efebf9c7d6a",
+            "bucket": "midday",
+            "start": "2026-09-03T18:00:00.000Z",
+            "end": "2026-09-03T20:00:00.000Z",
+            "displayWindowStart": "2026-09-03T18:00:00.000Z",
+            "displayWindowEnd": "2026-09-03T20:00:00.000Z",
+            "peakTime": "2026-09-03T19:00:00.000Z",
+            "beachId": "00000000-0000-4000-8000-000000000000",
+            "isBeachDayBest": true,
+            "conditionScore": 73,
+            "verdict": "worth_it",
+            "rideable": true,
+            "safe": true,
+            "confidence": 85,
+            "forecast": {
+              "waveHeight": "3 ft",
+              "period": "12s",
+              "swellDirection": "SW",
+              "windSpeed": "5 mph",
+              "windDirection": "E",
+              "components": [],
+              "scoringComponent": null,
+              "waterTemp": null,
+              "tideHeightFt": 3,
+              "tidePhase": "Rising",
+              "freshnessAt": "2026-09-03T16:00:00.000Z"
+            },
+            "takeaway": "Clean wind",
+            "rankingScore": 73,
+            "rankedSpots": [
+              {
+                "beachId": "00000000-0000-4000-8000-000000000001",
+                "beachName": "Fixture 1",
+                "conditionScore": 74,
+                "rankingScore": 74,
+                "verdict": "worth_it",
+                "reason": "Worth the drive — best conditions in range",
+                "forecast": {
+                  "waveHeight": "3 ft",
+                  "period": "12s",
+                  "swellDirection": "SW",
+                  "windSpeed": "5 mph",
+                  "windDirection": "E",
+                  "components": [],
+                  "scoringComponent": null
+                }
+              },
+              {
+                "beachId": "00000000-0000-4000-8000-000000000000",
+                "beachName": "Fixture 0",
+                "conditionScore": 73,
+                "rankingScore": 73,
+                "verdict": "worth_it",
+                "forecast": {
+                  "waveHeight": "3 ft",
+                  "period": "12s",
+                  "swellDirection": "SW",
+                  "windSpeed": "5 mph",
+                  "windDirection": "E",
+                  "components": [],
+                  "scoringComponent": null
+                }
+              }
+            ]
+          }
+        ],
+        "bestWindowId": "d707c928c392d9c90bf559c7",
+        "bestDayWindow": {
+          "id": "d707c928c392d9c90bf559c7",
+          "bucket": "midday",
+          "start": "2026-09-03T18:00:00.000Z",
+          "end": "2026-09-03T20:00:00.000Z",
+          "displayWindowStart": "2026-09-03T18:00:00.000Z",
+          "displayWindowEnd": "2026-09-03T20:00:00.000Z",
+          "peakTime": "2026-09-03T19:00:00.000Z",
+          "beachId": "00000000-0000-4000-8000-000000000001",
+          "isBeachDayBest": true,
+          "conditionScore": 74,
+          "verdict": "worth_it",
+          "rideable": true,
+          "safe": true,
+          "confidence": 85,
+          "forecast": {
+            "waveHeight": "3 ft",
+            "period": "12s",
+            "swellDirection": "SW",
+            "windSpeed": "5 mph",
+            "windDirection": "E",
+            "components": [],
+            "scoringComponent": null,
+            "waterTemp": null,
+            "tideHeightFt": 3,
+            "tidePhase": "Rising",
+            "freshnessAt": "2026-09-03T16:00:00.000Z"
+          },
+          "takeaway": "Clean wind",
+          "rankingScore": 74,
+          "rankedSpots": [
+            {
+              "beachId": "00000000-0000-4000-8000-000000000001",
+              "beachName": "Fixture 1",
+              "conditionScore": 74,
+              "rankingScore": 74,
+              "verdict": "worth_it",
+              "reason": "Worth the drive — best conditions in range",
+              "forecast": {
+                "waveHeight": "3 ft",
+                "period": "12s",
+                "swellDirection": "SW",
+                "windSpeed": "5 mph",
+                "windDirection": "E",
+                "components": [],
+                "scoringComponent": null
+              }
+            },
+            {
+              "beachId": "00000000-0000-4000-8000-000000000000",
+              "beachName": "Fixture 0",
+              "conditionScore": 73,
+              "rankingScore": 73,
+              "verdict": "worth_it",
+              "forecast": {
+                "waveHeight": "3 ft",
+                "period": "12s",
+                "swellDirection": "SW",
+                "windSpeed": "5 mph",
+                "windDirection": "E",
+                "components": [],
+                "scoringComponent": null
+              }
+            }
+          ]
+        },
+        "exclusionReasons": []
+      },
+      {
+        "localDate": "2026-09-04",
+        "windows": [],
+        "bestWindowId": null,
+        "bestDayWindow": null,
+        "exclusionReasons": [
+          "no_forecasts"
+        ]
+      },
+      {
+        "localDate": "2026-09-05",
+        "windows": [],
+        "bestWindowId": null,
+        "bestDayWindow": null,
+        "exclusionReasons": [
+          "no_forecasts"
+        ]
+      },
+      {
+        "localDate": "2026-09-06",
+        "windows": [],
+        "bestWindowId": null,
+        "bestDayWindow": null,
+        "exclusionReasons": [
+          "no_forecasts"
+        ]
+      },
+      {
+        "localDate": "2026-09-07",
+        "windows": [],
+        "bestWindowId": null,
+        "bestDayWindow": null,
+        "exclusionReasons": [
+          "no_forecasts"
+        ]
+      },
+      {
+        "localDate": "2026-09-08",
+        "windows": [],
+        "bestWindowId": null,
+        "bestDayWindow": null,
+        "exclusionReasons": [
+          "no_forecasts"
+        ]
+      },
+      {
+        "localDate": "2026-09-09",
+        "windows": [],
+        "bestWindowId": null,
+        "bestDayWindow": null,
+        "exclusionReasons": [
+          "no_forecasts"
+        ]
+      }
+    ],
+    "recommendationAvailability": {
+      "state": "available",
+      "holdEpoch": "988dcb284872d0ce1b0eb438625ba973ad08de5768f59b9ec9180122920d2106",
+      "resolutionAsOf": "2026-09-03T16:00:00.000Z"
+    },
+    "sessionDecision": {
+      "schemaVersion": "canonical-session-decision.v1",
+      "engineVersion": "rules.v1",
+      "decisionId": "61908d7b3e6f555dd27a63425f70a7e5a7a44f01184467b5ddeb8d3917215a4b",
+      "createdAt": "2026-09-03T16:00:00.000Z",
+      "expiresAt": "2026-09-03T16:15:00.000Z",
+      "scope": {
+        "kind": "plan_next_session",
+        "windowStart": "2026-09-03T16:00:00.000Z",
+        "windowEnd": "2026-09-10T16:00:00.000Z",
+        "timezone": "America/Los_Angeles"
+      },
+      "verdict": "go",
+      "decisionBasis": "physical_fallback",
+      "decisionBasisV2": "physical_fallback",
+      "reasonCode": "selected_go",
+      "selection": {
+        "candidateId": "d707c928c392d9c90bf559c7",
+        "beachId": "00000000-0000-4000-8000-000000000001",
+        "beachName": "Fixture 1",
+        "windowStart": "2026-09-03T18:00:00.000Z",
+        "windowEnd": "2026-09-03T20:00:00.000Z",
+        "timezone": "America/Los_Angeles",
+        "forecastRef": {
+          "forecastId": "00000000-0000-4000-8000-000000000001:forecast",
+          "beachId": "00000000-0000-4000-8000-000000000001",
+          "forecastAt": "2026-09-03T18:00:00Z"
+        },
+        "skillEligibility": {
+          "skill": "intermediate",
+          "state": "eligible",
+          "reasonCodes": []
+        },
+        "evidence": {
+          "conditionScore": 74,
+          "recommendationLabel": "Worth it",
+          "personalMatch": null,
+          "effects": []
+        }
+      },
+      "skillEligibility": {
+        "skill": "intermediate",
+        "state": "eligible",
+        "reasonCodes": []
+      },
+      "holdEpoch": "988dcb284872d0ce1b0eb438625ba973ad08de5768f59b9ec9180122920d2106",
+      "effects": []
+    },
+    "candidateBeaches": [
+      {
+        "beachId": "00000000-0000-4000-8000-000000000000",
+        "beachName": "Fixture 0",
+        "beachSlugOrRef": "fixture-0",
+        "distanceMiles": 3,
+        "timezone": "America/Los_Angeles",
+        "lat": 32.75,
+        "lon": -117.1
+      },
+      {
+        "beachId": "00000000-0000-4000-8000-000000000001",
+        "beachName": "Fixture 1",
+        "beachSlugOrRef": "fixture-1",
+        "distanceMiles": 35,
+        "timezone": "America/Los_Angeles",
+        "lat": 32.75,
+        "lon": -117.09989999999999
+      }
+    ],
+    "coverage": {
+      "scope": {
+        "kind": "complete-radius",
+        "radiusMiles": 60,
+        "mapBounded": false,
+        "candidates": {
+          "enumerated": 2,
+          "hydrated": 2,
+          "filteredOut": 0
+        }
+      },
+      "freshness": {
+        "state": "unknown"
+      },
+      "expiresAt": "2026-09-03T16:01:00.000Z",
+      "days": [
+        {
+          "localDate": "2026-09-03",
+          "eligible": 2,
+          "evaluated": 2,
+          "missing": 0,
+          "excluded": null,
+          "buckets": [
+            {
+              "bucket": "morning",
+              "eligible": 2,
+              "evaluated": 0,
+              "missing": 2,
+              "noWindow": 0,
+              "held": 0
+            },
+            {
+              "bucket": "midday",
+              "eligible": 2,
+              "evaluated": 2,
+              "missing": 0,
+              "noWindow": 0,
+              "held": 0
+            },
+            {
+              "bucket": "evening",
+              "eligible": 2,
+              "evaluated": 0,
+              "missing": 2,
+              "noWindow": 0,
+              "held": 0
+            }
+          ]
+        },
+        {
+          "localDate": "2026-09-04",
+          "eligible": 2,
+          "evaluated": 0,
+          "missing": 2,
+          "excluded": null,
+          "buckets": [
+            {
+              "bucket": "morning",
+              "eligible": 2,
+              "evaluated": 0,
+              "missing": 2,
+              "noWindow": 0,
+              "held": 0
+            },
+            {
+              "bucket": "midday",
+              "eligible": 2,
+              "evaluated": 0,
+              "missing": 2,
+              "noWindow": 0,
+              "held": 0
+            },
+            {
+              "bucket": "evening",
+              "eligible": 2,
+              "evaluated": 0,
+              "missing": 2,
+              "noWindow": 0,
+              "held": 0
+            }
+          ]
+        },
+        {
+          "localDate": "2026-09-05",
+          "eligible": 2,
+          "evaluated": 0,
+          "missing": 2,
+          "excluded": null,
+          "buckets": [
+            {
+              "bucket": "morning",
+              "eligible": 2,
+              "evaluated": 0,
+              "missing": 2,
+              "noWindow": 0,
+              "held": 0
+            },
+            {
+              "bucket": "midday",
+              "eligible": 2,
+              "evaluated": 0,
+              "missing": 2,
+              "noWindow": 0,
+              "held": 0
+            },
+            {
+              "bucket": "evening",
+              "eligible": 2,
+              "evaluated": 0,
+              "missing": 2,
+              "noWindow": 0,
+              "held": 0
+            }
+          ]
+        },
+        {
+          "localDate": "2026-09-06",
+          "eligible": 2,
+          "evaluated": 0,
+          "missing": 2,
+          "excluded": null,
+          "buckets": [
+            {
+              "bucket": "morning",
+              "eligible": 2,
+              "evaluated": 0,
+              "missing": 2,
+              "noWindow": 0,
+              "held": 0
+            },
+            {
+              "bucket": "midday",
+              "eligible": 2,
+              "evaluated": 0,
+              "missing": 2,
+              "noWindow": 0,
+              "held": 0
+            },
+            {
+              "bucket": "evening",
+              "eligible": 2,
+              "evaluated": 0,
+              "missing": 2,
+              "noWindow": 0,
+              "held": 0
+            }
+          ]
+        },
+        {
+          "localDate": "2026-09-07",
+          "eligible": 2,
+          "evaluated": 0,
+          "missing": 2,
+          "excluded": null,
+          "buckets": [
+            {
+              "bucket": "morning",
+              "eligible": 2,
+              "evaluated": 0,
+              "missing": 2,
+              "noWindow": 0,
+              "held": 0
+            },
+            {
+              "bucket": "midday",
+              "eligible": 2,
+              "evaluated": 0,
+              "missing": 2,
+              "noWindow": 0,
+              "held": 0
+            },
+            {
+              "bucket": "evening",
+              "eligible": 2,
+              "evaluated": 0,
+              "missing": 2,
+              "noWindow": 0,
+              "held": 0
+            }
+          ]
+        },
+        {
+          "localDate": "2026-09-08",
+          "eligible": 2,
+          "evaluated": 0,
+          "missing": 2,
+          "excluded": null,
+          "buckets": [
+            {
+              "bucket": "morning",
+              "eligible": 2,
+              "evaluated": 0,
+              "missing": 2,
+              "noWindow": 0,
+              "held": 0
+            },
+            {
+              "bucket": "midday",
+              "eligible": 2,
+              "evaluated": 0,
+              "missing": 2,
+              "noWindow": 0,
+              "held": 0
+            },
+            {
+              "bucket": "evening",
+              "eligible": 2,
+              "evaluated": 0,
+              "missing": 2,
+              "noWindow": 0,
+              "held": 0
+            }
+          ]
+        },
+        {
+          "localDate": "2026-09-09",
+          "eligible": 2,
+          "evaluated": 0,
+          "missing": 2,
+          "excluded": null,
+          "buckets": [
+            {
+              "bucket": "morning",
+              "eligible": 2,
+              "evaluated": 0,
+              "missing": 2,
+              "noWindow": 0,
+              "held": 0
+            },
+            {
+              "bucket": "midday",
+              "eligible": 2,
+              "evaluated": 0,
+              "missing": 2,
+              "noWindow": 0,
+              "held": 0
+            },
+            {
+              "bucket": "evening",
+              "eligible": 2,
+              "evaluated": 0,
+              "missing": 2,
+              "noWindow": 0,
+              "held": 0
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
