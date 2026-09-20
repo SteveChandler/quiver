@@ -422,7 +422,7 @@ END $$;`);
     assert.match(rejected.error?.message ?? "", /invalid study scope outcomes/, "Scope outcomes still reject extra keys");
     const recorded = await nativeClient.rpc("record_swell_watch_study_evaluation", recordArgs);
     assert.equal(recorded.error, null); assert.equal(recorded.data.recorded, true);
-    assert.equal(evaluation.derivation.version, "swell-watch-horizon-derivation.v2");
+    assert.equal(evaluation.derivation.version, "swell-watch-horizon-derivation.v3");
     assert.equal(evaluation.derivation.scopes.length, missing && evaluation.status === "suppressed" ? 9 : 10);
     assert(evaluation.derivation.scopes.every((scope) => scope.nativeFrames === 136 && scope.interpolatedFrames === 32));
     const persisted = value(`SELECT result FROM public.swell_watch_study_evaluations WHERE provider_batch_id=${q(completed.provider_batch_id)};`);
@@ -440,7 +440,7 @@ END $$;`);
     WHERE provider_batch_id=${q(nativeFirst.completed.provider_batch_id)};`);
   const shifted = (at) => new Date(Date.parse(at) + Date.parse(issuances[0]) - Date.parse(waikiki.issuedAt)).toISOString();
   assert.deepEqual(persistedScopes.find((scope) => scope.sourcePointId === cohort[waikikiIndex].sourcePointId), {
-    sourcePointId: cohort[waikikiIndex].sourcePointId, nativeFrames: 136, interpolatedFrames: 32, partitionCoverage: { s1: { observed: 168, unavailable: 0, absent: 0, absentNativeFrames: [] }, s2: { observed: 168, unavailable: 0, absent: 0, unavailableNativeFrames: [], absentNativeFrames: [] } },
+    sourcePointId: cohort[waikikiIndex].sourcePointId, nativeFrames: 136, interpolatedFrames: 32, boundaryDeferrals: [], partitionCoverage: { s1: { observed: 168, unavailable: 0, absent: 0, absentNativeFrames: [] }, s2: { observed: 168, unavailable: 0, absent: 0, unavailableNativeFrames: [], absentNativeFrames: [] } },
     events: [{ sourceSlot: "s1", arrivalAt: shifted("2026-09-18T18:00:00.000Z"),
       arrivalWindow: { earliestAt: shifted("2026-09-18T15:00:00.000Z"), latestAt: shifted("2026-09-18T18:00:00.000Z") },
       peakAt: shifted("2026-09-18T18:00:00.000Z"),
@@ -554,9 +554,15 @@ END $$;`);
   assert.equal(currentQueue.error, null); assert(!currentQueue.data.some((run) => run.revision_set_id === pendingRun.stored.revisionSetId));
   const retainedIssuance = new Date(Date.parse(issuances[0]) + 42 * 3_600_000).toISOString();
   const retainedAmended = await nativeRun(retainedIssuance, true, partialRule);
-  assert.equal(retainedAmended.evaluation.status, "suppressed");
-  assert.equal(retainedAmended.evaluation.reason, "arrival_window_crosses_actionability");
-  assert.deepEqual(retainedAmended.evaluation.scopeOutcomes[hatterasIndex], { sourcePointId: cohort[hatterasIndex].sourcePointId, status: "suppressed", reason: "arrival_window_crosses_actionability" });
+  assert.equal(retainedAmended.evaluation.status, "evaluated");
+  assert.equal(retainedAmended.evaluation.reason, null);
+  assert.deepEqual(retainedAmended.evaluation.scopeOutcomes[hatterasIndex], { sourcePointId: cohort[hatterasIndex].sourcePointId, status: "derived", reason: null });
+  const deferredHatteras = retainedAmended.evaluation.derivation.scopes[hatterasIndex];
+  assert.deepEqual(deferredHatteras.events, []);
+  assert.deepEqual(deferredHatteras.boundaryDeferrals, [{ boundary: "minimum", sourceSlot: "s1", arrivalWindow: {
+    earliestAt: new Date(Date.parse(retainedIssuance) + 47 * 3_600_000).toISOString(),
+    latestAt: new Date(Date.parse(retainedIssuance) + 88 * 3_600_000).toISOString(),
+  } }]);
   assert.equal(retainedAmended.evaluation.derivation.qualificationRule, partialRule);
   assert.equal(sql(`SELECT count(*) FROM public.swell_watch_provider_run_completed_batches b
     JOIN public.swell_watch_provider_run_revision_set_members m ON m.revision_set_id=b.revision_set_id
@@ -592,7 +598,7 @@ END $$;`);
   }
   const partialHealth = value("SELECT public.read_swell_watch_study_health();");
   assert.equal(partialHealth.qualificationRule, partialRule); assert.equal(partialHealth.authorityEpoch, 3);
-  assert.equal(partialHealth.evaluatedRuns, 4); assert.equal(partialHealth.suppressedAttempts, 1);
+  assert.equal(partialHealth.evaluatedRuns, 5); assert.equal(partialHealth.suppressedAttempts, 0);
   assert.deepEqual(partialHealth.qualifyingDates, [qualifiedIssuances[0].slice(0, 10)]);
   assert.deepEqual(authorityRows(), amendedAuthority);
   assert.deepEqual(value("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;"), policyRows);

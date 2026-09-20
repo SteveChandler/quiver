@@ -48,9 +48,9 @@ it.each(["complete_partitions.v1", "primary_partition_with_retained_unavailable_
   expect(result.scopeOutcomes?.filter((outcome) => outcome.status === "derived")).toHaveLength(qualificationRule === "complete_partitions.v1" ? 7 : 9);
   expect(result.scopeOutcomes?.filter((outcome) => outcome.reason === "incomplete_partition")).toHaveLength(qualificationRule === "complete_partitions.v1" ? 2 : 0);
   expect(result.scopeOutcomes?.filter((outcome) => outcome.reason === "unbounded_episode")).toHaveLength(1);
-  expect(result.derivation).toEqual({ qualificationRule, version: "swell-watch-horizon-derivation.v2",
+  expect(result.derivation).toEqual({ qualificationRule, version: "swell-watch-horizon-derivation.v3",
     samplingProfile: "ncep_gfswave016.native-1h-to-120h-3h-to-168h.v1", witness: "provider-linear-interpolation.v1",
-    scopes: result.scopeOutcomes!.filter((s) => s.status === "derived").map((s) => ({ sourcePointId: s.sourcePointId, nativeFrames: 136, interpolatedFrames: 32, partitionCoverage: expect.objectContaining({ s1: expect.objectContaining({ observed: 168, unavailable: 0, absent: 0 }) }), events: expect.any(Array) })) });
+    scopes: result.scopeOutcomes!.filter((s) => s.status === "derived").map((s) => ({ sourcePointId: s.sourcePointId, nativeFrames: 136, interpolatedFrames: 32, boundaryDeferrals: [], partitionCoverage: expect.objectContaining({ s1: expect.objectContaining({ observed: 168, unavailable: 0, absent: 0 }) }), events: expect.any(Array) })) });
   expect(result.scopeOutcomes?.every((s) => Object.keys(s).sort().join(",") === "reason,sourcePointId,status")).toBe(true);
   expect(forbidden).toEqual([]);
 });
@@ -75,7 +75,7 @@ it.each([{ allIncomplete: false, sourceCount: 2 }, { allIncomplete: true, source
   const result = await evaluateSwellWatchShadow({ qualificationRule: "complete_partitions.v1", providerBatchId: first.providerBatchId, forecastDays: 7,
     now: waikiki.replayClockBounds[0], policy: proposed.policy as SwellWatchPolicy, scopes }, client as never);
   expect(result).toMatchObject({ status: "suppressed", reason: "incomplete_partition", candidateCount: null,
-    derivation: allIncomplete ? null : { version: "swell-watch-horizon-derivation.v2" } });
+    derivation: allIncomplete ? null : { version: "swell-watch-horizon-derivation.v3" } });
   expect(result.scopeOutcomes).toEqual(fixtures.map(({ sourcePointId }) => ({ sourcePointId,
     status: allIncomplete || sourcePointId === hatteras.sourcePointId ? "suppressed" : "derived",
     reason: allIncomplete || sourcePointId === hatteras.sourcePointId ? "incomplete_partition" : null })));
@@ -87,9 +87,46 @@ it.each([{ allIncomplete: false, sourceCount: 2 }, { allIncomplete: true, source
     peakWindow: { earliestAt: "2026-09-18T18:00:00.000Z", latestAt: "2026-09-18T21:00:00.000Z" },
     closureWindow: { earliestAt: "2026-09-20T00:00:00.000Z", latestAt: "2026-09-20T03:00:00.000Z" }, regionalEventId: null };
   expect(result.derivation?.scopes).toEqual(fixtures.filter((f) => f.sourcePointId !== hatteras.sourcePointId)
-    .map(({ sourcePointId }) => ({ sourcePointId, nativeFrames: 136, interpolatedFrames: 32, partitionCoverage: { s1: { observed: 168, unavailable: 0, absent: 0, absentNativeFrames: [] }, s2: { observed: 168, unavailable: 0, absent: 0, unavailableNativeFrames: [], absentNativeFrames: [] } }, events: [expectedEvent] })));
+    .map(({ sourcePointId }) => ({ sourcePointId, nativeFrames: 136, interpolatedFrames: 32, boundaryDeferrals: [], partitionCoverage: { s1: { observed: 168, unavailable: 0, absent: 0, absentNativeFrames: [] }, s2: { observed: 168, unavailable: 0, absent: 0, unavailableNativeFrames: [], absentNativeFrames: [] } }, events: [expectedEvent] })));
   expect(result.scopeOutcomes).toHaveLength(sourceCount);
   expect(result.derivation?.scopes.flatMap((scope) => scope.events)).toHaveLength(sourceCount - 1);
   // Pretty JSON overestimates jsonb::text whitespace, leaving ample room below SQL's 131072-byte limit.
   expect(Buffer.byteLength(JSON.stringify(result, null, 2))).toBeLessThan(32_768);
+});
+
+it.each([false, true])("retains episode deferrals through cohort and shadow output (other scope suppressed: %s)", async (suppressOther) => {
+  const fixtures = [waikiki, hatteras];
+  const scopes = fixtures.map((f) => ({ sourcePointId: f.sourcePointId, regionKey: "retained-replay",
+    latitude: f.semanticPayload.latitude, longitude: f.semanticPayload.longitude, beach: f.beach }));
+  const runs = fixtures.map(retainedRun);
+  if (suppressOther) Object.assign(runs[1].samples[5].components[0], { heightM: 0, periodS: 0, directionDeg: 0, unavailableReason: "provider_zero_tuple" });
+  const before = structuredClone(runs);
+  const first = runs[0].source;
+  const rpc = jest.fn(async (name: string, args: Record<string, string>) => {
+    if (name === "read_swell_watch_run_scope") return { error: null, data: { providerBatchId: first.providerBatchId,
+      evaluationId: first.evaluationId, issuedAt: first.issuedAt, scopeHash: "a".repeat(64), expectedComponentCount: 672,
+      scopes: scopes.map((scope) => ({ ...scope, forecastDays: 7 })) } };
+    if (name === "read_swell_watch_attested_run") return { error: null, data: runs.find((r) => r.source.sourcePointId === args.p_source_point_id) };
+    if (name === "record_swell_watch_shadow_demand" && !suppressOther) return { error: null,
+      data: [{ observed_at: "2026-09-13T16:00:00Z", recorded_pairs_24h: 0 }] };
+    throw new Error(`Unexpected replay RPC: ${name}`);
+  });
+  const result = await evaluateSwellWatchShadow({ qualificationRule: "primary_partition_with_retained_unavailable_secondary.v1",
+    providerBatchId: first.providerBatchId, forecastDays: 7, now: "2026-09-13T16:00:00Z",
+    policy: proposed.policy as SwellWatchPolicy, scopes }, { rpc, from: () => { throw new Error("Unexpected table read"); } } as never);
+  expect(result).toMatchObject({ status: suppressOther ? "suppressed" : "evaluated",
+    reason: suppressOther ? "incomplete_partition" : null, candidateCount: suppressOther ? null : 0, enqueued: 0 });
+  expect(result.derivation?.scopes).toEqual([
+    expect.objectContaining({ sourcePointId: waikiki.sourcePointId, events: [], boundaryDeferrals: [
+      { boundary: "maximum", sourceSlot: "s1", arrivalWindow: { earliestAt: "2026-09-18T15:00:00.000Z", latestAt: "2026-09-18T18:00:00.000Z" } },
+    ] }),
+    ...(suppressOther ? [] : [expect.objectContaining({ sourcePointId: hatteras.sourcePointId, events: [], boundaryDeferrals: [
+      { boundary: "minimum", sourceSlot: "s1", arrivalWindow: { earliestAt: "2026-09-15T11:00:00.000Z", latestAt: "2026-09-17T04:00:00.000Z" } },
+    ] })]),
+  ]);
+  expect(result.scopeOutcomes?.[0]).toEqual({ sourcePointId: waikiki.sourcePointId, status: "derived", reason: null });
+  expect(rpc.mock.calls.filter(([name]) => name === "record_swell_watch_shadow_demand")).toEqual(suppressOther ? [] : [
+    ["record_swell_watch_shadow_demand", { p_provider_batch_id: first.providerBatchId, p_policy_hash: proposed.policy.value_hash, p_pairs: [] }],
+  ]);
+  expect(runs).toEqual(before);
 });

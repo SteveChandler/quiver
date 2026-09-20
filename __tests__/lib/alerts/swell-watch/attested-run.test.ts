@@ -69,7 +69,7 @@ describe("attested horizon derivation", () => {
     const rpc = jest.fn().mockResolvedValue({ data, error: null });
     const result = await deriveAttestedSwellWatchRun(request(), { rpc });
     expect(result).toMatchObject({ kind: "derived", source: data.source,
-      derivation: { version: "swell-watch-horizon-derivation.v2", nativeFrames: 136, interpolatedFrames: 32 },
+      derivation: { version: "swell-watch-horizon-derivation.v3", nativeFrames: 136, interpolatedFrames: 32 },
       baseline: { heightFt: 0.8202, energy: 0.8202 ** 2 * 13 },
       events: [{ arrivalAt: at(78), peakAt: at(81), confidence: null,
         impact: { partition: { evaluationId: data.source.evaluationId, sourceSlot: "s2", heightM: 1.5 } } }] });
