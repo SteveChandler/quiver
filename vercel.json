@@ -11,7 +11,7 @@
   "crons": [
     {
       "path": "/api/cron/email-lifecycle",
-      "schedule": "*/15 * * * *"
+      "schedule": "0 * * * *"
     },
     {
       "path": "/api/cron/pro-offer-reconcile",
