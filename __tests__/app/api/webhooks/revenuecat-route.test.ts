@@ -166,7 +166,7 @@ describe("RevenueCat webhook provider ledger", () => {
     expect(entitlementUpsert).toHaveBeenCalled();
   });
 
-  it("always applies a delayed old event; ordering repair belongs to ledger replay", async () => {
+  it("sends provider timestamps to the atomic database guard and completes ignored stale events", async () => {
     const response = await POST(request({
       id: "old-purchase",
       type: "INITIAL_PURCHASE",
@@ -181,6 +181,7 @@ describe("RevenueCat webhook provider ledger", () => {
         user_id: "20000000-0000-4000-8000-000000000003",
         is_pro: true,
         expires_at: "2026-09-28T01:00:00.000Z",
+        rc_raw: expect.objectContaining({ event_timestamp_ms: Date.parse("2026-08-28T01:00:00.000Z") }),
       }),
       { onConflict: "user_id" },
     );

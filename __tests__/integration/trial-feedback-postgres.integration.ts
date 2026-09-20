@@ -88,7 +88,7 @@ function databaseHttp(url: URL, init?: RequestInit): Response {
     ? `DO UPDATE SET ${columns.filter(column => column !== key).map(column => `${column}=EXCLUDED.${column}`).join(',')}`
     : 'DO NOTHING';
   const inserted = sql(`SET ROLE service_role; INSERT INTO ${table} (${names}) SELECT ${names} FROM jsonb_populate_record(NULL::${table},${literal(body)}::jsonb) ON CONFLICT (${key}) ${conflict} RETURNING ${key}`);
-  if (!inserted) return json({ code: '23505', message: 'Duplicate fixture event' }, 409);
+  if (!inserted && table === 'revenuecat_provider_events') return json({ code: '23505', message: 'Duplicate fixture event' }, 409);
   return new Response(null, { status: 201 });
 }
 function providerRequest(event: RCEvent, authorized = true): Request {
@@ -186,7 +186,9 @@ it('connects authenticated feedback, immutable submission, reservation, one hand
     { ...receipt, id: 'contract-wrong-expiry', expiration_at_ms: receipt.expiration_at_ms! - 1000 },
     { ...receipt, id: 'contract-paid', price: 4.99 },
   ];
-  for (const rejectedReceipt of rejectedReceipts) {
+  for (const [index, rejectedReceipt] of rejectedReceipts.entries()) {
+    // Distinct provider chronology: the eventual accepted receipt supersedes these fixtures.
+    rejectedReceipt.event_timestamp_ms = receipt.event_timestamp_ms! - 100 + index;
     expect((await webhook(providerRequest(rejectedReceipt))).status).toBe(200);
     expect(sql(`SELECT processed_at IS NOT NULL FROM revenuecat_provider_events WHERE provider_event_id=${literal(rejectedReceipt.id)}`)).toBe('t');
     expect((await (await redeem(request({ action: 'reconcile' }))).json()).status).toBe('submitted');

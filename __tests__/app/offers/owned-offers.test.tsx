@@ -30,3 +30,12 @@ it('ignores a stale response from the previous account', async () => {
   resolve({ok:true,status:200,json:async () => fixture.owned});
   await waitFor(() => expect(screen.queryByText('One month of Pro for five sessions')).toBeNull());
 });
+it.each(['manual_month','cancellation_month'])('shows %s as a free gift without a session requirement', async program => {
+  const transport=jest.fn().mockResolvedValue({ok:true,status:200,json:async () => ({...fixture.owned,enrollment:null,offers:[{...fixture.owned.offers[0],program_id:program,earned:true}]})});
+  global.fetch=transport;
+  render(<OwnedOffers enabled />);
+  await screen.findByText('One month of Pro on us');
+  expect(screen.queryByText(/completed sessions/)).toBeNull();
+  expect(screen.getByText(/No payment or automatic renewal/)).toBeVisible();
+  expect(transport).toHaveBeenCalledWith('/api/offers?include_cancellation_gifts=true',{cache:'no-store'});
+});

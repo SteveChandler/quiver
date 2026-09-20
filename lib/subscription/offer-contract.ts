@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 const timestamp = z.string().datetime({ offset: true });
-const offerProgramSchema = z.enum(["five_sessions_month", "return_three_months"]);
+const offerProgramSchema = z.enum(["five_sessions_month", "return_three_months", "manual_month", "cancellation_month"]);
 export const offerResultSchema = z.discriminatedUnion("status", [
   z.object({ status: z.literal("preview"), months: z.union([z.literal(1), z.literal(3)]), terms_version: z.string().min(1), state: z.enum(["enrolled", "held", "reserved", "handoff_started", "unknown", "verified"]), completed_sessions: z.number().int().nonnegative() }),
   z.object({ status: z.literal("verified"), expires_at: timestamp, mirror_verified: z.boolean() }),
@@ -14,7 +14,7 @@ export const ownedOffersSchema = z.object({
   offers: z.array(z.object({ award_id: z.uuid(), program_id: offerProgramSchema, months: z.union([z.literal(1), z.literal(3)]), terms_version: z.string().min(1),
     state: z.enum(["enrolled", "held", "reserved", "handoff_started", "unknown", "verified"]),
     earned: z.boolean(), claim_requested: z.boolean(), completed_sessions: z.number().int().nonnegative(), expires_at: timestamp.nullable(), mirror_verified: z.boolean(),
-  }).refine(offer => offer.state !== "verified" || (offer.earned && offer.expires_at !== null), "Verified offers require an earned receipt")).max(2),
+  }).refine(offer => offer.state !== "verified" || (offer.earned && offer.expires_at !== null), "Verified offers require an earned receipt")).max(4),
 });
 export function offerHttpStatus(result: OfferResult): number {
   if (result.status === "verified" || result.status === "preview") return 200;

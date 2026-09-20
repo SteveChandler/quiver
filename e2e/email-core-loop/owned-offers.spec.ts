@@ -16,7 +16,7 @@ test.beforeEach(async ({page,context}) => {
 test.afterEach(async ({page}) => { await assertNoErrors(page,errors); });
 test('account offer progresses from acceptance to confirmed access at mobile and desktop widths',async ({page}) => {
   let accepted=false;
-  await page.route('**/api/offers',route => route.fulfill({status:200,json:{...fixture.owned,offers:[{...fixture.owned.offers[0],completed_sessions:5,earned:true,claim_requested:accepted,state:accepted?'verified':'enrolled',expires_at:accepted?'2027-02-28T12:00:00Z':null,mirror_verified:accepted}]}}));
+  await page.route('**/api/offers?include_cancellation_gifts=true',route => route.fulfill({status:200,json:{...fixture.owned,offers:[{...fixture.owned.offers[0],program_id:'manual_month',completed_sessions:0,earned:true,claim_requested:accepted,state:accepted?'verified':'enrolled',expires_at:accepted?'2027-02-28T12:00:00Z':null,mirror_verified:accepted}]}}));
   await page.route('**/api/offers/claim',async route => {
     expect(route.request().postDataJSON()).toEqual({awardId:fixture.owned.offers[0].award_id,mode:'claim'});accepted=true;
     await route.fulfill({status:200,json:{...fixture.results[1],contract_version:1,mirror_verified:true}});
@@ -24,6 +24,8 @@ test('account offer progresses from acceptance to confirmed access at mobile and
   for(const width of [390,1280]) {
     accepted=false;await page.setViewportSize({width,height:900});
     const response=await page.goto('/offers/claim');expect(response?.status()).toBe(200);
+    await expect(page.getByText('One month of Pro on us',{exact:true})).toBeVisible();
+    await expect(page.getByText(/of five completed sessions/)).toHaveCount(0);
     await expect(page.getByRole('button',{name:'Accept and save my claim'})).toBeVisible();
     await page.getByRole('button',{name:'Accept and save my claim'}).click();
     await expect(page.getByText(/Confirmed through/)).toBeVisible();

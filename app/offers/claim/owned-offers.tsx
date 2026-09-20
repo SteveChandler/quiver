@@ -18,7 +18,7 @@ export function OwnedOffers({ enabled }: { enabled: boolean }): React.ReactEleme
   const [busy, setBusy] = useState(false);
   const [auth, setAuth] = useState(false);
   const load = useCallback(async (): Promise<void> => {
-    const response = await fetch("/api/offers", { cache: "no-store" });
+    const response = await fetch("/api/offers?include_cancellation_gifts=true", { cache: "no-store" });
     if (response.status === 401) { setAuth(true); return; }
     if (!response.ok) throw new Error("Offers unavailable");
     const next = ownedOffersSchema.parse(await response.json());
@@ -64,8 +64,8 @@ export function OwnedOffers({ enabled }: { enabled: boolean }): React.ReactEleme
     {auth || !userId ? <Link className="underline" href="/auth/sign-in?redirectTo=%2Foffers%2Fclaim">Sign in to see your offers</Link> : <>
       {!data && <p>Loading your offers…</p>}
       {data?.offers.map(offer => <div key={offer.award_id} className="space-y-3">
-        <h3 className="font-semibold">{offer.months === 1 ? "One month of Pro for five sessions" : "Three months of Pro on us"}</h3>
-        <p>{offer.months === 1 && `${Math.min(5, offer.completed_sessions)} of five completed sessions. Previous sessions count. `}No payment or automatic renewal. Access begins when your claim is fulfilled; existing paid, trial or promotional access takes priority.</p>
+        <h3 className="font-semibold">{offer.program_id === "five_sessions_month" ? "One month of Pro for five sessions" : offer.months === 1 ? "One month of Pro on us" : "Three months of Pro on us"}</h3>
+        <p>{offer.program_id === "five_sessions_month" && `${Math.min(5, offer.completed_sessions)} of five completed sessions. Previous sessions count. `}No payment or automatic renewal. Access begins when your claim is fulfilled; existing paid, trial or promotional access takes priority.</p>
         {offer.state === "verified" ? <p>Confirmed through {new Date(offer.expires_at!).toLocaleDateString()}.{!offer.mirror_verified && " Your account access is still syncing."} <a className="underline" href="quiver://settings">Open Quiver</a></p>
           : offer.claim_requested ? <p>Your claim is saved. We’ll fulfill it automatically when eligible.</p>
           : <Button className="min-h-11" disabled={busy} onClick={() => void act("/api/offers/claim", { awardId: offer.award_id, mode: "claim" })}>Accept and save my claim</Button>}

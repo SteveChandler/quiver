@@ -175,3 +175,30 @@ Review: no new billing provider or generic checkout; no grant based on client su
 Validation includes synthetic interrupted-response and concurrent-accept API/PostgreSQL flows, provider contract tests, unauthorized/strict-body handling, exact-boundary rejection, entitlement protection and browser review/confirmation at mobile and desktop widths. These are local implementation evidence, not real provider transactions, deployed PostgREST, scheduler invocation, alert delivery or iOS stacking proof.
 
 Rollback: pause `web_enabled` and `TRIAL_FEEDBACK_WEB_ENABLED` for new acceptance, retaining the new schema, API and enabled reconciliation worker for already accepted work. Do not roll back to a worker without the web reconciler while reservations remain unresolved. Uncertain handoffs require provider investigation; never clear their handoff guard to retry blindly.
+
+## Optional cancellation feedback and free gifts — September 15, 2026
+
+Local implementation extends the existing non-renewing gift ledger with `manual_month` and `cancellation_month`. These are separate from the store promotional trial-recovery offer above: neither cancels nor restarts subscription renewal. An accepted gift is held while paid, trial, or promotional access is active, then the existing claim worker can fulfill it after that access ends. One calendar month begins on verified fulfillment. No payment method or automatic renewal is created.
+
+Apply `20260915180000_cancellation_feedback_gifts.sql` after the existing September 12–15 lifecycle migrations in a separately approved release. Both new programs start disabled. Activation requires reviewed program terms, approval reference/date, expiry, and award budget in `pro_offer_programs`; `PRO_OFFERS_ENABLED=true` and the existing reconciliation worker must also be operational. This change does not enable any program, apply production migrations, issue gifts, or send messages. New programs are excluded from automated lifecycle marketing.
+
+### Staff gift issuance
+
+Use the existing admin-authenticated `POST /api/admin/offers`:
+
+```json
+{"userId":"RECIPIENT_UUID","program":"manual_month","reference":"Support thank-you reference","termsVersion":"APPROVED_TERMS_VERSION","mode":"preview"}
+```
+
+Preview reports one month and no session requirement. After program approval, `mode:"issue"` returns `awardId`, `offerToken` (shown only once), and `claimPath:"/offers/claim"`. The code is bound to that recipient account. The recipient signs in and accepts the account offer or enters the code on `/offers/claim`; issuance alone does not grant access. A second issue for the same account/program is rejected. Existing admin controls are the staff surface; batch issuance and revocation tooling remain outside this slice.
+
+### Native contract
+
+- `GET /api/cancellation-feedback` returns `{contract_version:1,user_id,management_store,cancellation_confirmed,feedback_submitted,offer}`. A confirmed cancellation survives later expiration until a new purchase/renewal/uncancellation supersedes it. It does not prove which UI initiated cancellation.
+- `POST` with `{action:"submit",request_id,reason,note?}` saves an optional questionnaire. Reasons: `forecast`, `value`, `time`, `feature`, `price`, `technical`, `other`; every note is optional and limited to 2,000 characters. Retry the same request ID; a new explicit flow uses a new ID.
+- `POST` with `{action:"accept",request_id,terms_version,accept:true}` returns an account-owned `award_id` once an approved offer is available. Survey submission is not required. Use the existing `/api/offers/claim` to save/fulfill the claim. Only receipt-verified fulfillment is success; acceptance is not subscription retention or cancellation.
+- New native/web clients use `/api/offers?include_cancellation_gifts=true` to include new program IDs. GET and enrollment POST retain the two-program response for installed clients that do not opt in.
+- Notes are private service-role support data, retained until account deletion with an account foreign-key cascade, matching existing trial feedback. Context and analytics never expose the note. No client note-reading endpoint exists.
+- Skip/decline opens store management immediately and must work while the API is unavailable. Cancellation initiated outside Quiver remains observable through provider events.
+
+`management_store` is the authoritative latest provider event store (`APP_STORE`, `PLAY_STORE`, `STRIPE`, `RC_BILLING`, or `null`). Native must not infer billing ownership from device OS. New cancellation gifts are limited to App Store/Play Store subscribers. Web billing users can still provide feedback and should use the subscription management link in their billing email or web billing account; unsupported/unknown stores need clear instructions, not an unrelated Apple/Google handoff. Manual gifts remain cross-platform.

@@ -53,6 +53,16 @@ psql_local -c "DO \$\$ BEGIN ASSERT (SELECT count(*) FROM trial_feedback_submiss
 psql_local -f "$repo_dir/supabase/migrations/20260913230000_trial_feedback_web_recovery.sql"
 psql_local -f "$repo_dir/supabase/migrations/20260914170000_gmail_reply_reconciliation.sql" -f "$repo_dir/__tests__/integration/email-reply-reconciliation.sql"
 psql_local -f "$repo_dir/supabase/migrations/20260915132444_gmail_reply_retry_backoff.sql" -f "$repo_dir/__tests__/integration/email-reply-backoff.sql"
+psql_local -f "$repo_dir/supabase/migrations/20260915180000_cancellation_feedback_gifts.sql" \
+  -f "$repo_dir/supabase/migrations/20260915181000_order_revenuecat_entitlement_events.sql" \
+  -f "$repo_dir/__tests__/integration/cancellation-feedback.sql"
+pids=()
+for worker in 1 2; do
+  psql_local -c "SET ROLE service_role; SELECT accept_cancellation_gift('eeee0000-0000-4000-8000-000000000003',gen_random_uuid(),'v1',repeat('$worker',64)); SELECT submit_cancellation_feedback('eeee0000-0000-4000-8000-000000000003','eeee0000-1111-4000-8000-000000000003','other','')" > "$test_dir/cancellation-worker-$worker.log" &
+  pids+=("$!")
+done
+for pid in "${pids[@]}"; do wait "$pid"; done
+psql_local -c "DO \$\$ BEGIN ASSERT (SELECT count(*) FROM pro_offer_awards WHERE program_id='cancellation_month')=2; ASSERT (SELECT count(*) FROM cancellation_feedback_submissions WHERE user_id='eeee0000-0000-4000-8000-000000000003')=1; ASSERT cancellation_feedback_context('eeee0000-0000-4000-8000-000000000004')->'offer'='null'::jsonb; BEGIN PERFORM accept_cancellation_gift('eeee0000-0000-4000-8000-000000000004',gen_random_uuid(),'v1',repeat('5',64)); RAISE EXCEPTION 'budget exceeded'; EXCEPTION WHEN raise_exception THEN ASSERT SQLERRM='gift_unavailable'; END; END \$\$;"
 if [[ "${1:-}" == "--feedback-contract" ]]; then
   LIFECYCLE_TEST_SOCKET="$test_dir" LIFECYCLE_TEST_PSQL="$pg_bin/psql" \
     NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 NEXT_PUBLIC_SUPABASE_ANON_KEY=local-fixture \
