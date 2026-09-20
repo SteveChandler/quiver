@@ -35,6 +35,7 @@ for migration in \
   20260910180000_automate_swell_watch_study; do
   run_file "$study_root/supabase/migrations/$migration.sql" >/dev/null
 done
+source "$study_root/scripts/test-swell-watch-study-refresh.sh"
 query 'CREATE DATABASE study_activation TEMPLATE postgres'
 study_database=study_activation
 run_file "$study_root/__tests__/fixtures/swell-watch-study-activation.sql" >/dev/null

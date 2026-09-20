@@ -6,6 +6,7 @@ import deployment from "@/vercel.json";
 import { completeSwellWatchStudyRun, readSwellWatchStudyStatus, recoverSwellWatchStudyRuns } from "@/lib/alerts/swell-watch/study";
 import { calculateSwellWatchPolicyHash } from "@/lib/alerts/swell-watch/policy";
 import fixture from "@/__tests__/fixtures/swell-watch-provisional-policy.json";
+import { z } from "zod";
 
 jest.mock("@/lib/supabase/server", () => ({ createSupabaseServiceRoleClient: jest.fn() }));
 jest.mock("@/lib/alerts/swell-watch/acquisition", () => ({
@@ -130,11 +131,66 @@ describe("automated study", () => {
   });
 
   it("returns an actual failure if automatic completion or outcome recording fails", async () => {
-    jest.spyOn(console, "error").mockImplementation(() => {});
+    const log = jest.spyOn(console, "error").mockImplementation(() => {});
     jest.mocked(completeSwellWatchStudyRun).mockRejectedValueOnce(new Error("private-database-detail"));
     const response = await call();
     expect(response.status).toBe(500);
     expect(await response.text()).not.toContain("private-database-detail");
+    expect(log).toHaveBeenCalledWith("[swell-watch-acquire] automated study failed", { stage: "completion", code: "unknown" });
+  });
+
+  it.each([
+    ["client", "unknown"], ["health", "study_health_unavailable"],
+    ["recovery", "pending_study_runs_unavailable"], ["health_after_recovery", "study_health_unavailable"],
+  ])("logs the fixed %s failure stage without changing its public error", async (stage, code) => {
+    const log = jest.spyOn(console, "error").mockImplementation(() => {});
+    if (stage === "client") jest.mocked(createSupabaseServiceRoleClient).mockImplementation(() => { throw new Error("secret"); });
+    if (stage === "health") jest.mocked(readSwellWatchStudyStatus).mockRejectedValueOnce(new Error("Study health unavailable"));
+    if (stage === "recovery") jest.mocked(recoverSwellWatchStudyRuns).mockRejectedValueOnce(new Error("Pending study runs unavailable"));
+    if (stage === "health_after_recovery") {
+      jest.mocked(recoverSwellWatchStudyRuns).mockResolvedValueOnce({ processed: 1, failed: 0 });
+      jest.mocked(readSwellWatchStudyStatus).mockResolvedValueOnce("active").mockRejectedValueOnce(new Error("Study health unavailable"));
+    }
+    const response = await call();
+    expect(response.status).toBe(500);
+    expect(await response.json()).toMatchObject({ details: "Automated study cycle failed; retained receipts can be retried" });
+    expect(log).toHaveBeenCalledWith("[swell-watch-acquire] automated study failed", { stage, code });
+    expect(acquireSwellWatchCohort).not.toHaveBeenCalled();
+  });
+
+  it.each(["collection_lease", "acquisition_scope", "provider_fetch", "receipt_storage", "lease_release"] as const)("retains the %s I/O substage", async (stage) => {
+    const log = jest.spyOn(console, "error").mockImplementation(() => {});
+    jest.mocked(acquireSwellWatchCohort).mockImplementationOnce(async (_cohort, _client, onStage) => {
+      onStage?.(stage);
+      throw new TypeError("fetch failed");
+    });
+    const response = await call();
+    expect(response.status).toBe(500);
+    expect(log).toHaveBeenCalledWith("[swell-watch-acquire] automated study failed", { stage, code: "network_fetch_failed" });
+    expect(completeSwellWatchStudyRun).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [new Error("Provider run is not ready after replication delay"), "provider_run_is_not_ready_after_replication_delay"],
+    [new Error("Single Runs tuple is invalid"), "single_runs_tuple_is_invalid"],
+    [new Error("Provider run receipt storage failed: secret credentials and payload"), "provider_receipt_storage_failed"],
+    [new Error("Acquisition scope read failed: secret coordinates"), "acquisition_scope_read_failed"],
+    [new z.ZodError([{ code: "custom", path: ["secret"], message: "private payload" }]), "schema_validation_failed"],
+    [new SyntaxError("private JSON"), "json_parse_failed"],
+    [new TypeError("fetch failed"), "network_fetch_failed"],
+    [Object.assign(new Error("private URL"), { name: "TimeoutError" }), "request_aborted_or_timed_out"],
+    [new Error("Single Runs tuple is invalid: secret suffix"), "unknown"],
+    [{ message: "private message", code: "private code" }, "unknown"],
+    [null, "unknown"],
+  ])("logs only an allowlisted acquisition code (%#)", async (error, code) => {
+    const log = jest.spyOn(console, "error").mockImplementation(() => {});
+    jest.mocked(acquireSwellWatchCohort).mockRejectedValueOnce(error);
+    const response = await call();
+    expect(response.status).toBe(500);
+    expect(await response.json()).toMatchObject({ details: "Automated study cycle failed; retained receipts can be retried" });
+    expect(log).toHaveBeenCalledWith("[swell-watch-acquire] automated study failed", { stage: "acquisition", code });
+    expect(JSON.stringify(log.mock.calls)).not.toMatch(/private|secret|credentials|payload/);
+    expect(completeSwellWatchStudyRun).not.toHaveBeenCalled();
   });
 });
 afterEach(() => { process.env = originalEnv; jest.restoreAllMocks(); });
@@ -175,7 +231,7 @@ it("captures only the server cohort without treating receipts as qualified evalu
   expect(response.status).toBe(200);
   expect(await response.json()).toMatchObject({ data: { ...receipt, qualification: "prototype_unqualified", enqueued: 0 } });
   expect(acquireSwellWatchCohort).toHaveBeenCalledTimes(1);
-  expect(acquireSwellWatchCohort).toHaveBeenCalledWith(cohort, expect.anything());
+  expect(acquireSwellWatchCohort).toHaveBeenCalledWith(cohort, expect.anything(), expect.any(Function));
 });
 
 it("preserves a busy lease outcome without inventing a receipt", async () => {
@@ -191,5 +247,5 @@ it("returns a sanitized real failure when collection fails", async () => {
   const response = await call();
   expect(response.status).toBe(500);
   expect(await response.text()).not.toContain("private-provider-detail");
-  expect(log).toHaveBeenCalledWith("[swell-watch-acquire] acquisition failed");
+  expect(log).toHaveBeenCalledWith("[swell-watch-acquire] acquisition failed", { stage: "acquisition", code: "unknown" });
 });

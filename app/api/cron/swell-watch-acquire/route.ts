@@ -3,11 +3,44 @@ import { createErrorResponse, createSuccessResponse, validateCronRequest } from 
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { acquisitionConfig, acquireSwellWatchCohort } from "@/lib/alerts/swell-watch/acquisition";
 import { completeSwellWatchStudyRun, readSwellWatchStudyStatus, recoverSwellWatchStudyRuns, studyConfig } from "@/lib/alerts/swell-watch/study";
+import { z } from "zod";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
+
+// Emit only fixed labels: upstream messages can contain payloads, URLs, or credentials.
+function failureCode(error: unknown): string {
+  if (error instanceof z.ZodError) return "schema_validation_failed";
+  if (!(error instanceof Error)) return "unknown";
+  const messages = [
+    "Collection lease unavailable", "Collection lease release unavailable",
+    "Acquisition scope differs from configured cohort",
+    "Provider availability read unsuccessful", "Provider availability response exceeds limit",
+    "Provider run is not ready after replication delay",
+    "Single Runs HTTP response was unsuccessful", "Single Runs response JSON is invalid",
+    "Single Runs response exceeds the durable receipt limit",
+    "Single Runs tuple is invalid", "Single Runs hourly response is invalid",
+    "Single Runs hourly response is unexpected", "Single Runs hourly arrays are invalid",
+    "Single Runs hourly slots are invalid", "Single Runs top-level response is unexpected",
+    "Single Runs top-level response is invalid", "Single Runs hourly units are invalid",
+    "Single Runs selected grid is outside the prototype mapping policy",
+    "Provider run receipt provenance is invalid", "Provider run receipt scope is invalid",
+    "Provider run receipt scope is incomplete", "Provider run receipt slots are invalid",
+    "Provider run receipt values are invalid", "Provider run receipt storage returned an invalid result",
+    "Study health unavailable", "Pending study runs unavailable",
+    "Study completion failed", "Study outcome recording failed",
+  ];
+  const known = messages.find((message) => message === error.message);
+  if (known) return known.toLowerCase().replaceAll(" ", "_");
+  if (error.message.startsWith("Acquisition scope read failed:")) return "acquisition_scope_read_failed";
+  if (error.message.startsWith("Provider run receipt storage failed:")) return "provider_receipt_storage_failed";
+  if (error.name === "AbortError" || error.name === "TimeoutError") return "request_aborted_or_timed_out";
+  if (error instanceof SyntaxError) return "json_parse_failed";
+  if (error instanceof TypeError && error.message === "fetch failed") return "network_fetch_failed";
+  return "unknown";
+}
 
 async function acquire(request: Request): Promise<Response> {
   if (!validateCronRequest(request)) return createErrorResponse("Unauthorized", "Invalid cron authentication", 401);
@@ -29,17 +62,22 @@ async function acquire(request: Request): Promise<Response> {
   } catch {
     return createErrorResponse("Producer unavailable", "Valid server-side acquisition configuration is required", 503);
   }
+  let stage: "client" | "health" | "recovery" | "health_after_recovery" | "acquisition" | "completion"
+    | Parameters<NonNullable<Parameters<typeof acquireSwellWatchCohort>[2]>>[0] = "client";
   try {
     const client = createSupabaseServiceRoleClient();
     let recovery = { processed: 0, failed: 0 };
     if (automated) {
+      stage = "health";
       const status = await readSwellWatchStudyStatus(client);
       if (status === "complete" || status === "expired") {
         return createSuccessResponse({ skipped: true, reason: `study_${status}`, enqueued: 0 });
       }
       if (status !== "active") return createErrorResponse("Study unavailable", "Study authority is not active", 503);
+      stage = "recovery";
       recovery = await recoverSwellWatchStudyRuns(studyConfig.parse(config), client);
       if (recovery.processed) {
+        stage = "health_after_recovery";
         const afterRecovery = await readSwellWatchStudyStatus(client);
         if (afterRecovery === "complete" || afterRecovery === "expired") {
           return createSuccessResponse({ skipped: true, reason: `study_${afterRecovery}`, recovery, enqueued: 0 });
@@ -47,20 +85,22 @@ async function acquire(request: Request): Promise<Response> {
         if (afterRecovery !== "active") return createErrorResponse("Study unavailable", "Study authority is not active", 503);
       }
     }
-    const stored = await acquireSwellWatchCohort(config.cohort, client);
+    stage = "acquisition";
+    const stored = await acquireSwellWatchCohort(config.cohort, client, (acquisitionStage) => { stage = acquisitionStage; });
     if (automated && !("skipped" in stored)) {
+      stage = "completion";
       const study = await completeSwellWatchStudyRun(stored.revisionSetId, studyConfig.parse(config), client);
       if (recovery.failed) return createErrorResponse("Study recovery incomplete", { recovery, study, enqueued: 0 }, 500);
       return createSuccessResponse({ ...stored, study, recovery, qualification: "automated_study", enqueued: 0 });
     }
     if (recovery.failed) return createErrorResponse("Study recovery incomplete", { recovery, enqueued: 0 }, 500);
     return createSuccessResponse({ ...stored, qualification: "prototype_unqualified", enqueued: 0 });
-  } catch {
+  } catch (error) {
     if (automated) {
-      console.error("[swell-watch-acquire] automated study failed");
+      console.error("[swell-watch-acquire] automated study failed", { stage, code: failureCode(error) });
       return createErrorResponse("Study failed", "Automated study cycle failed; retained receipts can be retried", 500);
     }
-    console.error("[swell-watch-acquire] acquisition failed");
+    console.error("[swell-watch-acquire] acquisition failed", { stage, code: failureCode(error) });
     return createErrorResponse("Producer failed", "Provider acquisition failed", 500);
   }
 }

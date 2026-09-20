@@ -403,6 +403,15 @@ DECLARE base timestamptz; ids uuid[]:='{}'; r record; c record; pending jsonb; d
 BEGIN
   BEGIN
     base:=to_timestamp(floor(extract(epoch FROM clock_timestamp())/21600)*21600);
+    -- Earlier calendar-day fixtures can otherwise enter the oldest-three window after noon UTC.
+    FOR r IN SELECT rs.id FROM public.swell_watch_provider_run_revision_sets rs
+      JOIN public.swell_watch_provider_run_batches b ON b.id=rs.batch_id
+      WHERE b.expected_component_count=3360
+        AND NOT EXISTS(SELECT 1 FROM public.swell_watch_provider_run_attestations t
+          WHERE t.revision_set_id=rs.id AND t.state='rejected')
+    LOOP
+      PERFORM public.attest_swell_watch_provider_run(gen_random_uuid(),r.id,'rejected','fixture',repeat('b',64),'fixture');
+    END LOOP;
     FOR slot IN 0..4 LOOP
       SELECT * INTO r FROM public.record_swell_watch_provider_run_receipt(public.study_receipt(base-slot*interval '6 hours',3+slot));
       ids:=array_append(ids,r.revision_set_id);
