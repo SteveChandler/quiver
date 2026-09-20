@@ -61,11 +61,25 @@ it("rejects an actionable episode cut by unavailable closure", () => {
   const series = frames(); gap(series, 82, 90);
   expect(() => derive(series)).toThrow("episode_interrupted_by_unavailable_partition");
 });
-it("drops unobserved windows outside actionability and preserves boundary suppression", () => {
+it("drops outside windows and explicitly defers an unobserved boundary onset", () => {
   const early = frames(20, 25); gap(early, 5, 19);
-  expect(derive(early).events).toEqual([]);
+  expect(derive(early)).toMatchObject({ events: [], derivation: { boundaryDeferrals: [] } });
   const boundary = frames(50, 55); gap(boundary, 40, 49);
-  expect(() => derive(boundary)).toThrow("arrival_window_crosses_actionability");
+  expect(derive(boundary)).toMatchObject({ events: [], derivation: { boundaryDeferrals: [
+    { boundary: "minimum", sourceSlot: "s2", arrivalWindow: { earliestAt: at(39), latestAt: at(50) } },
+  ] } });
+});
+it("does not suppress a deferred episode interrupted by an unavailable partition", () => {
+  const series = frames(50, 55); gap(series, 40, 49); gap(series, 53, 55);
+  const before = structuredClone(series);
+  expect(derive(series)).toMatchObject({ events: [], derivation: { boundaryDeferrals: [
+    { boundary: "minimum", sourceSlot: "s2", arrivalWindow: { earliestAt: at(39), latestAt: at(50) } },
+  ] } });
+  expect(series).toEqual(before);
+});
+it("still rejects an unobserved onset spanning both actionability boundaries", () => {
+  const series = frames(123, 167); gap(series, 40, 122);
+  expect(() => derive(series)).toThrow("arrival_window_crosses_actionability");
 });
 it("rank swaps follow the active observation and never reconnect a dormant track", () => {
   const series = frames(78, 90);
@@ -109,7 +123,11 @@ it.each(hatteras.replayClockBounds)("replays retained Hatteras under both rules 
   const client = { rpc: async () => ({ data, error: null }) };
   expect(await deriveAttestedSwellWatchRun({ ...input, qualificationRule: complete }, client)).toEqual({ kind: "suppressed", reason: "incomplete_partition" });
   const result = await deriveAttestedSwellWatchRun({ ...input, qualificationRule: partial }, client);
-  expect(result).toEqual({ kind: "suppressed", reason: "arrival_window_crosses_actionability" });
+  expect(result).toMatchObject({ kind: "derived", events: [], derivation: { boundaryDeferrals: [
+    { boundary: "minimum", sourceSlot: "s1", arrivalWindow: {
+      earliestAt: "2026-09-15T11:00:00.000Z", latestAt: "2026-09-17T04:00:00.000Z",
+    } },
+  ] } });
   const epoch4 = await deriveAttestedSwellWatchRun({ ...input, qualificationRule: modelCount }, client);
   expect(await deriveAttestedSwellWatchRun({ ...input, qualificationRule: swellSystemCount }, client)).toMatchObject({ kind: epoch4.kind,
     baseline: epoch4.kind === "derived" ? epoch4.baseline : undefined, events: epoch4.kind === "derived" ? epoch4.events : undefined });

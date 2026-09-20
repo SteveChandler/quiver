@@ -17,7 +17,7 @@ export function isAbsentPartition(part: SwellWatchFramePart): part is Extract<Sw
   return "kind" in part && part.kind === "absent";
 }
 
-export const SWELL_WATCH_DERIVATION_VERSION = "swell-watch-horizon-derivation.v2" as const;
+export const SWELL_WATCH_DERIVATION_VERSION = "swell-watch-horizon-derivation.v3" as const;
 const profile = {
   id: "ncep_gfswave016.native-1h-to-120h-3h-to-168h.v1",
   transportProvider: "open_meteo_single_runs", model: "ncep_gfswave016",
