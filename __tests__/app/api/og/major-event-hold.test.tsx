@@ -51,6 +51,13 @@ function capturedProps(): Record<string, unknown> {
   return mockCapturedImageElement.props as Record<string, unknown>;
 }
 
+// The QR image is an encoded rendering of qrValue, not card copy, and its SVG
+// path digits match patterns like /99/ at random. qrValue itself stays in.
+function serializedCardProps(): string {
+  const { qrImageSrc: _qrImageSrc, ...props } = capturedProps();
+  return JSON.stringify(props);
+}
+
 function textContent(node: ReactNode): string {
   if (typeof node === "string" || typeof node === "number") {
     return String(node);
@@ -157,9 +164,18 @@ function mockExactWeekendServerData(): void {
 }
 
 describe("major-event hold OG routes", () => {
+  let randomUUIDSpy: jest.SpyInstance;
+
+  afterEach(() => {
+    randomUUIDSpy.mockRestore();
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockCapturedImageElement = null;
+    randomUUIDSpy = jest
+      .spyOn(crypto, "randomUUID")
+      .mockReturnValue("00000000-0000-4000-8000-000000000000");
     global.fetch = jest.fn().mockResolvedValue({
       arrayBuffer: jest.fn().mockResolvedValue(new ArrayBuffer(8)),
     }) as jest.Mock;
@@ -182,7 +198,7 @@ describe("major-event hold OG routes", () => {
       title: "Check current surf conditions",
       subtitle: expect.stringMatching(/wave, wind, and tide/i),
     });
-    expect(JSON.stringify(capturedProps())).not.toMatch(
+    expect(serializedCardProps()).not.toMatch(
       /Fake Beach|99|7-10am|Go now/i,
     );
     expect(getBeachByIdFromDb).not.toHaveBeenCalled();
@@ -226,7 +242,7 @@ describe("major-event hold OG routes", () => {
       title: "Server Beach is lining up",
       subtitle: expect.stringContaining("8.6/10"),
     });
-    expect(JSON.stringify(capturedProps())).not.toMatch(/Fake Beach|9\.9\/10/i);
+    expect(serializedCardProps()).not.toMatch(/Fake Beach|9\.9\/10/i);
   });
 
   it("keeps confidence inert for an exact authorized surf call", async () => {
@@ -258,7 +274,7 @@ describe("major-event hold OG routes", () => {
       title: "Server Beach is lining up",
       subtitle: expect.stringContaining("8.6/10"),
     });
-    expect(JSON.stringify(capturedProps())).not.toMatch(/confidence/i);
+    expect(serializedCardProps()).not.toMatch(/confidence/i);
   });
 
   it("keeps a query-only weekend card neutral and uncached", async () => {
