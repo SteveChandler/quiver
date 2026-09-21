@@ -2,6 +2,7 @@ import {
   MAX_TIMELINE_FIELD_BEACHES,
   selectTimelineFieldBeachIds,
 } from "@/components/map/timeline-beach-sampler";
+import { MAX_TIMELINE_FIELD_BEACHES as MAX_BULK_TIMELINE_BEACHES } from "@/lib/domains/conditions/map-forecast";
 import type { Beach } from "@/types/database";
 
 function beach(id: string, lat: number | null, lon: number | null): Beach {
@@ -9,6 +10,11 @@ function beach(id: string, lat: number | null, lon: number | null): Beach {
 }
 
 describe("selectTimelineFieldBeachIds", () => {
+  it("uses the bulk timeline's 20-beach cap", () => {
+    expect(MAX_TIMELINE_FIELD_BEACHES).toBe(MAX_BULK_TIMELINE_BEACHES);
+    expect(MAX_BULK_TIMELINE_BEACHES).toBe(20);
+  });
+
   it("keeps the field query bounded and spreads samples across the viewed coast", () => {
     const beaches = Array.from({ length: 20 }, (_, index) =>
       beach(`beach-${index}`, 32.7 + index * 0.02, -117.2),

@@ -100,32 +100,4 @@ export function buildLegendRampCss(): string {
   );
 }
 
-const COMPASS_16 = [
-  "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
-  "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW",
-] as const;
-
-/**
- * Convert a heading in degrees to a 16-point compass label.
- * Swell/wind direction fields arrive as degree strings — parse first, then call this.
- */
-export function degreesToCompass(degrees: number): string {
-  if (!Number.isFinite(degrees)) return "—";
-  const normalized = ((degrees % 360) + 360) % 360;
-  const index = Math.round(normalized / 22.5) % 16;
-  return COMPASS_16[index];
-}
-
-/**
- * Convert a 16-point compass label to its heading in degrees.
- * Live `enhanced_forecasts.swell_*_direction` rows store compass TEXT ("SSW",
- * "WNW", "N"), not numeric degrees — the inverse of `degreesToCompass`.
- * Case-insensitive, trims whitespace; returns null for unrecognized labels.
- */
-export function compassToDegrees(label: string): number | null {
-  if (typeof label !== "string") return null;
-  const index = COMPASS_16.indexOf(
-    label.trim().toUpperCase() as (typeof COMPASS_16)[number]
-  );
-  return index === -1 ? null : index * 22.5;
-}
+export { compassToDegrees, degreesToCompass } from "@/lib/domains/conditions/map-forecast";

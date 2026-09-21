@@ -3,7 +3,7 @@ import {
   formatTempLabel,
   type CalloutComponent,
 } from "@/components/map/conditions-callout-data";
-import type { SwellPartition } from "@/app/api/forecasts/bulk/route";
+import type { SwellPartition } from "@/lib/domains/conditions/map-forecast";
 
 const EMPTY: SwellPartition = {
   s1Dir: null, swellDirOm: null, s1PeriodS: null, s1HeightFt: null,

@@ -41,13 +41,15 @@ import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
 import type { Database } from "@/types/database.generated";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { MAX_TIMELINE_FIELD_BEACHES } from "@/components/map/timeline-beach-sampler";
 import {
   conditionSummaryFromScore,
   interpolateSwellPartition,
+  MAX_TIMELINE_FIELD_BEACHES,
   rowToSwellPartition,
+  type ConditionSummary,
+  type HourlySwellTimeline,
   type SwellPartition,
-} from "./swell-partition";
+} from "@/lib/domains/conditions/map-forecast";
 
 import { resolveMajorEventHoldBoundary } from "@/lib/recommendations/major-event-hold/adapters/shared";
 
@@ -64,22 +66,7 @@ const UNAVAILABLE_RECOMMENDATION: RecommendationAvailability = {
   holdEpoch: "hold-state-unavailable",
 };
 
-export type { SwellPartition };
-
-export interface HourlySwellTimeline {
-  timestamps: string[];
-  partitionsByBeach: Record<string, Array<SwellPartition | null>>;
-  hasMore: boolean;
-  nextStart: string | null;
-}
-
-export type ConditionSummary =
-  | "EPIC"
-  | "GOOD"
-  | "FAIR"
-  | "RIDEABLE"
-  | "MEH"
-  | "UNKNOWN";
+export type { SwellPartition, HourlySwellTimeline, ConditionSummary } from "@/lib/domains/conditions/map-forecast";
 
 const emptyBulkForecastResponse = {
   forecasts: {},
@@ -170,7 +157,7 @@ type HourlyTimelineWindowParseResult =
  *   }
  * }
  */
-export { conditionSummaryFromScore } from "./swell-partition";
+export { conditionSummaryFromScore } from "@/lib/domains/conditions/map-forecast";
 
 function buildBulkCandidateBindings(
   response: BulkForecastResponseLike,

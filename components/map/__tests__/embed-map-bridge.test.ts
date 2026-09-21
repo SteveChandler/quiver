@@ -4,7 +4,7 @@ import {
   parseEmbedMapCommand,
   serializeEmbedMapEvent,
 } from "@/components/map/embed-map-bridge";
-import type { HourlySwellTimeline } from "@/app/api/forecasts/bulk/route";
+import type { HourlySwellTimeline } from "@/lib/domains/conditions/map-forecast";
 import type { MapSpotConditions } from "@/components/map/interactive-map";
 import type { Beach } from "@/types/database";
 import {
