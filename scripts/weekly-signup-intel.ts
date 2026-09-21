@@ -60,7 +60,11 @@ type FrictionGate = {
   minCount: number;
   owner: string;
   fix: string;
-  /** Drops benign outcomes that share the event name, e.g. a user cancelling an OAuth sheet. */
+  /**
+   * Drops benign outcomes that share the event name, e.g. a user cancelling an OAuth sheet.
+   * An array value is benign only when every element is listed, so a benign code
+   * alongside a real one still counts.
+   */
   excludeWhen?: { key: string; values: string[] };
   /** Metadata keys summarized so the report names the failing thing, not just the count. */
   reasonKeys?: string[];
@@ -82,6 +86,8 @@ const FRICTION_GATES: FrictionGate[] = [
     minCount: 5,
     owner: "quiver-native/src/features/session-log + components/session-forms/",
     fix: "Read the `field`/`reason` in the failing event metadata and make the blocked field either optional or self-correcting. Logging is the habit the whole product depends on.",
+    // Rating is required by design; skipping it is not friction.
+    excludeWhen: { key: "validation_errors", values: ["rating_required"] },
     reasonKeys: ["validation_errors", "validation_first_field", "entry_point"],
   },
   {
@@ -396,8 +402,13 @@ async function main(): Promise<void> {
     const failRows = events.filter((event) => {
       if (!gate.failEvents.includes(event.event_type)) return false;
       if (!gate.excludeWhen) return true;
-      const value = asRecord(event.metadata)[gate.excludeWhen.key];
-      return !(typeof value === "string" && gate.excludeWhen.values.includes(value));
+      const { key, values } = gate.excludeWhen;
+      const value = asRecord(event.metadata)[key];
+      if (typeof value === "string") return !values.includes(value);
+      if (Array.isArray(value) && value.length > 0) {
+        return !value.every((item) => typeof item === "string" && values.includes(item));
+      }
+      return true;
     });
 
     const distinctUsers = new Set(failRows.map((event) => event.user_id).filter(Boolean)).size;
