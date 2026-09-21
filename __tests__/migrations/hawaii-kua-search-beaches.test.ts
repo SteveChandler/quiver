@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 describe("Hawaii kua-search beach migration", () => {
   const sql = readFileSync(
-    join(__dirname, "../../supabase/migrations/20260903150000_add_hawaii_kua_search_beaches.sql"),
+    join(__dirname, "../../supabase/migrations/20260921170000_add_hawaii_kua_search_beaches.sql"),
     "utf8"
   );
 
