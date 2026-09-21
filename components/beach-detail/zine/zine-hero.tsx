@@ -276,34 +276,6 @@ function TapedMapPhoto({
               className="absolute bottom-2 right-2 z-20 max-w-[70%] truncate bg-[#11100D]/75 px-2 py-1 font-mono text-[10px] text-[#F4EBD8] underline-offset-2 hover:underline"
             />
           ) : null}
-          {/* "Line up here" annotation — only when we have a real photo to
-              point at. The fallback ocean silhouette has no specific feature,
-              so suppressing the arrow there reads as honest "no photo yet". */}
-          {beachPhoto?.image_url && (
-            <div
-              className="absolute z-10 hidden md:block"
-              style={{
-                bottom: 16,
-                left: 18,
-                fontFamily: "var(--font-handwritten), cursive",
-                fontSize: 22,
-                color: "#F4EBD8",
-                fontWeight: 700,
-                transform: "rotate(-4deg)",
-                textShadow: "1px 1px 0 rgba(17,16,13,0.7)",
-              }}
-              aria-hidden
-            >
-              Line up here
-              <HandArrow
-                dir="curve-right"
-                length={80}
-                color="#F4EBD8"
-                strokeWidth={2.8}
-                style={{ position: "absolute", left: 28, top: -28 }}
-              />
-            </div>
-          )}
         </div>
       )}
 

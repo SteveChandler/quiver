@@ -200,6 +200,50 @@ describe("canonical session decision engine", () => {
     expect(decision.selection).not.toBeNull();
   });
 
+  it("does not let a GOOD personal label promote a physical maybe to go", () => {
+    const { buildCanonicalSessionDecision } = loadEngine();
+    const decision = buildCanonicalSessionDecision(
+      input([
+        candidate({
+          candidateId: "pb-point:2026-09-16T18:00:00Z",
+          utilityScore: 65,
+          recommendationLabel: "Maybe",
+          personalMatch: {
+            score: 7.9,
+            label: "GOOD",
+            confidence: "high",
+            sessionCount: 12,
+            reasons: [],
+          },
+        }),
+      ]),
+    ) as { verdict: string; reasonCode: string };
+
+    expect(decision.verdict).toBe("maybe");
+    expect(decision.reasonCode).not.toBe("selected_go");
+  });
+
+  it("keeps go when both physical and personal say go", () => {
+    const { buildCanonicalSessionDecision } = loadEngine();
+    const decision = buildCanonicalSessionDecision(
+      input([
+        candidate({
+          utilityScore: 82,
+          recommendationLabel: "Worth it",
+          personalMatch: {
+            score: 9.1,
+            label: "EPIC",
+            confidence: "high",
+            sessionCount: 12,
+            reasons: [],
+          },
+        }),
+      ]),
+    ) as { verdict: string };
+
+    expect(decision.verdict).toBe("go");
+  });
+
   it("applies a structured caution to both verdict evidence and the decision hash", () => {
     const { buildCanonicalSessionDecision } = loadEngine();
     const effect: ScoringDecisionEffect = {
@@ -265,8 +309,8 @@ describe("canonical session decision engine", () => {
   });
 
   it.each([
-    ["EPIC", "go"],
-    ["GOOD", "go"],
+    ["EPIC", "maybe"],
+    ["GOOD", "maybe"],
     ["FAIR", "maybe"],
     ["RIDEABLE", "maybe"],
     ["MEH", "no"],
@@ -308,7 +352,7 @@ describe("canonical session decision engine", () => {
     },
   );
 
-  it("lets a safe GOOD personal match override rough physical MAYBE context", () => {
+  it("caps a safe GOOD personal match at the physical maybe verdict", () => {
     const { buildCanonicalSessionDecision } = loadEngine();
     const decision = buildCanonicalSessionDecision(
       input([
@@ -329,7 +373,7 @@ describe("canonical session decision engine", () => {
     ) as { verdict: string; decisionBasis: string };
 
     expect(decision).toMatchObject({
-      verdict: "go",
+      verdict: "maybe",
       decisionBasis: "personal_match",
     });
   });

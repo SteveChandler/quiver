@@ -1,20 +1,25 @@
 import { refreshLifecycleEligibility, refreshLifecycleUserEligibility } from "@/lib/subscription/offer-automation";
-import { ensureGmailRepliesFresh } from "@/lib/email/gmail-replies";
+import { checkGmailRepliesBeforeSend, gmailFailureCode } from "@/lib/email/gmail-replies";
 import { z } from "zod";
 import * as Sentry from "@sentry/nextjs";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import { lifecycleDecisionSchema, lifecycleEnabled, lifecycleRpc, LIFECYCLE_CAMPAIGN, LIFECYCLE_VERSION } from "@/lib/email/lifecycle";
+import { lifecycleDecisionSchema, lifecycleEnabled, lifecycleRpc, LIFECYCLE_CAMPAIGN, LIFECYCLE_VERSION, type LifecycleDecision } from "@/lib/email/lifecycle";
 import { LIFECYCLE_CONTENT_HASH, renderLifecycleEmail } from "@/lib/mailer/lifecycle-email";
 import { getBaseUrl, MAIL_FROM, sendReservedLifecycleEmail } from "@/lib/mailer/client";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
 import { generateEmailUnsubscribeToken } from "@/lib/alerts/email-token";
 
-async function dispatchLifecycleUser(userId: string): Promise<string> {
+export function lifecycleMaxAcceptedPerRun(): number {
+  const value = Number.parseInt(process.env.EMAIL_LIFECYCLE_MAX_PER_RUN ?? "", 10);
+  return Number.isInteger(value) && value >= 1 && value <= 200 ? value : 5;
+}
+
+type ReplyCheckSummary = { status: "skipped" | "ok" | "failed"; checked?: number; recorded?: number; reason?: string };
+
+async function dispatchLifecycleUser(userId: string, candidate: LifecycleDecision): Promise<string> {
   if (!lifecycleEnabled()) return "disabled";
-  const replyTo = z.email().parse(process.env.EMAIL_REPLY_MAILBOX);
-  if (process.env.EMAIL_REPLY_INGESTION_VERIFIED !== "true") throw new Error("Reply ingestion is not verified");
-  const candidate = lifecycleDecisionSchema.parse(await lifecycleRpc("evaluate_email_lifecycle", { p_user_id: userId }));
   if (candidate.status !== "due") return candidate.reason;
+  const replyTo = z.email().parse(process.env.EMAIL_REPLY_MAILBOX);
   if (candidate.job === "trial_feedback" && process.env.TRIAL_FEEDBACK_ENABLED !== "true") return "trial_feedback_disabled";
   if (candidate.job === "trial_feedback" || (candidate.source?.audience === "free" && candidate.source.offer_id &&
     (candidate.job === "offer_ready" || candidate.job === "activation" || candidate.job === "progress"))) {
@@ -53,6 +58,7 @@ export async function runEmailLifecycle(dryRun: boolean): Promise<Record<string,
   const { data: run, error } = await db.from("cron_runs").insert({ route: "/api/cron/email-lifecycle", job: "email-lifecycle", status: "started", summary: { campaign: LIFECYCLE_CAMPAIGN, version: LIFECYCLE_VERSION } }).select("id").single();
   if (error || !run) throw new Error("Cannot persist lifecycle run");
   let failed = false;
+  let replyCheck: ReplyCheckSummary = { status: "skipped" };
   try {
     const reconciliation = z.object({ unknown_handoffs: z.number(), expired_reservations: z.number() }).parse(await lifecycleRpc("reconcile_email_lifecycle"));
     if (reconciliation.unknown_handoffs > 0) {
@@ -63,14 +69,29 @@ export async function runEmailLifecycle(dryRun: boolean): Promise<Record<string,
     const eligibility = await refreshLifecycleEligibility();
     if (eligibility.failed > 0) failed = true;
     if (process.env.PRO_OFFERS_ENABLED === "true") await lifecycleRpc("enroll_automatic_pro_offers");
-    await ensureGmailRepliesFresh();
+    const dueCandidates = await Promise.all(users.map(async userId => lifecycleDecisionSchema.parse(
+      await lifecycleRpc("evaluate_email_lifecycle", { p_user_id: userId }),
+    )));
+    if (dueCandidates.some(candidate => candidate.status === "due")) {
+      try {
+        replyCheck = { status: "ok", ...(await checkGmailRepliesBeforeSend()) };
+      } catch (error) {
+        failed = true;
+        const reason = gmailFailureCode(error);
+        replyCheck = { status: "failed", reason };
+        Sentry.captureMessage("Email reply check failed", {
+          level: "warning", tags: { component: "email-lifecycle" }, extra: { reason }, fingerprint: ["email-reply-check-failed"],
+        });
+        return { status: "attention", candidates: users.length, accepted: 0, reasons: counts, reconciliation, reply_check: replyCheck };
+      }
+    }
     const rateLimiter = createResendRateLimiter();
-    for (const userId of users) {
+    for (const [index, userId] of users.entries()) {
       await lifecycleRpc("record_email_lifecycle_decision", { p_user_id: userId });
-      // Burst <=5; retain decisions for every enrolled user even when capacity is used.
-      if ((counts.accepted ?? 0) >= 5) continue;
+      // Retain decisions for every enrolled user even when the burst guard is reached.
+      if ((counts.accepted ?? 0) >= lifecycleMaxAcceptedPerRun()) continue;
       await rateLimiter.throttle();
-      const reason = await dispatchLifecycleUser(userId);
+      const reason = await dispatchLifecycleUser(userId, dueCandidates[index]);
       counts[reason] = (counts[reason] ?? 0) + 1;
       if (reason === "unknown") { failed = true; break; }
     }
@@ -79,13 +100,13 @@ export async function runEmailLifecycle(dryRun: boolean): Promise<Record<string,
       failed = true;
       Sentry.captureMessage("Email automation needs attention", { level: "warning", tags: { component: "email-lifecycle" }, extra: health, fingerprint: ["email-automation-backlog"] });
     }
-    return { status: failed ? "attention" : "ok", candidates: users.length, accepted: counts.accepted ?? 0, reasons: counts, reconciliation };
+    return { status: failed ? "attention" : "ok", candidates: users.length, accepted: counts.accepted ?? 0, reasons: counts, reconciliation, reply_check: replyCheck };
   } catch (error) {
     failed = true;
     Sentry.captureException(error, { tags: { component: "email-lifecycle" } });
     throw error;
   } finally {
-    const { error: finishError } = await db.from("cron_runs").update({ status: failed ? "error" : "ok", finished_at: new Date().toISOString(), produced: counts.accepted ?? 0, summary: { candidates: users.length, reasons: counts } }).eq("id", run.id);
+    const { error: finishError } = await db.from("cron_runs").update({ status: failed ? "error" : "ok", finished_at: new Date().toISOString(), produced: counts.accepted ?? 0, summary: { candidates: users.length, reasons: counts, reply_check: replyCheck } }).eq("id", run.id);
     if (finishError) throw new Error("Cannot finish lifecycle run");
   }
 }

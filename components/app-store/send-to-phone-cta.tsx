@@ -16,8 +16,13 @@ import {
   trackAppHandoffEmailSubmit,
   trackAppHandoffQrRendered,
 } from "@/lib/analytics/app-handoff-tracking";
-import { buildSmartQrHandoffUrl } from "@/lib/constants/app-handoff";
-import { IOS_APP_STORE_WEB_REDIRECT_PATH } from "@/lib/constants/app-store";
+import { trackIosAppCtaClick } from "@/lib/analytics/ios-app-cta-tracking";
+import { createClientAppHandoffLink } from "@/lib/analytics/app-handoff-link";
+import {
+  buildAppHandoffUrl,
+  buildSmartQrHandoffUrl,
+} from "@/lib/constants/app-handoff";
+import { getClientPostHogDistinctId } from "@/lib/posthog-client";
 import { cn } from "@/lib/utils";
 
 interface SendToPhoneCtaProps {
@@ -74,8 +79,14 @@ export function SendToPhoneCta({
       qr_id: qrId ?? `${surface}_${placement}_qr`,
       target: target ?? "download",
       utm_medium: "desktop_handoff",
+      web_distinct_id: getClientPostHogDistinctId(),
     });
   }, [handoffId, placement, qrId, source, surface, target]);
+
+  const appStoreFallbackUrl = useMemo(
+    () => buildAppHandoffUrl({ source, surface, placement }),
+    [placement, source, surface],
+  );
 
   useEffect(() => {
     if (!handoffId || !qrValue || qrTracked.current) return;
@@ -136,6 +147,7 @@ export function SendToPhoneCta({
         body: JSON.stringify({
           email,
           handoff_id: handoffId,
+          web_distinct_id: getClientPostHogDistinctId(),
           source,
           surface,
           placement,
@@ -291,7 +303,22 @@ export function SendToPhoneCta({
           ) : null}
 
           <a
-            href={IOS_APP_STORE_WEB_REDIRECT_PATH}
+            href={appStoreFallbackUrl}
+            onClick={(event) => {
+              const handoff = createClientAppHandoffLink({
+                source,
+                surface,
+                placement,
+              });
+              event.currentTarget.href = handoff.url;
+              trackIosAppCtaClick({
+                source,
+                surface,
+                placement,
+                handoff_id: handoff.handoffId,
+                destination_url: handoff.url,
+              });
+            }}
             className="mt-2 inline-block font-sans text-sm text-current opacity-75 underline underline-offset-2 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 focus-visible:ring-offset-[#EFE5CF]"
           >
             Open App Store anyway

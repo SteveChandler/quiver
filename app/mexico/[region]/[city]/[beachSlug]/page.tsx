@@ -13,6 +13,7 @@ import { notFound } from "next/navigation";
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import { getBeachBySlugOrId } from "@/lib/utils/beach-lookup-utils";
 import { getSpotSurfReportPublic } from "@/lib/services/spot-surf-report-service";
+import { getSpotFeaturedPhoto } from "@/actions/spot/spot-data-actions";
 import { buildBeachUrl, regionToSlug, cityToSlug } from "@/lib/utils/beach-url-utils";
 import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
 import type { Beach } from "@/types/database";
@@ -26,6 +27,7 @@ import {
 } from "@/lib/seo/indexability";
 import { evaluateBeachPageIndexability } from "@/lib/seo/forecast-indexability";
 import { getCachedForecastIndexabilitySnapshots } from "@/lib/seo/forecast-indexability-cache";
+import { sanitizeBeachEditorialContent } from "@/lib/seo/editorial-integrity";
 
 const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
@@ -97,9 +99,22 @@ export default async function MexicoBeachDetailPage(props: PageProps) {
         ? getTimezoneFromCoords(beach.lat, beach.lon)
         : null;
 
-    // Fetch surf report and nearby beaches in parallel
-    const [surfReportResult, nearbyResult] = await Promise.all([
+    // Fetch surf report, featured photo, and nearby beaches in parallel
+    const [surfReportResult, beachPhoto, nearbyResult] = await Promise.all([
       getSpotSurfReportPublic(beach),
+      getSpotFeaturedPhoto(beach.id).then((photo) =>
+        photo
+          ? {
+              image_url: photo.thumbUrl ?? photo.imageUrl,
+              thumb_url: photo.thumbUrl,
+              source: photo.source,
+              creator_name: photo.creatorName,
+              license_code: null,
+              attribution_html: photo.attributionHtml,
+              attribution: photo.attribution,
+            }
+          : null,
+      ),
       beach.lat && beach.lon
         ? getNearbyBeaches(beach.lat, beach.lon, 25)
         : Promise.resolve(null),
@@ -107,6 +122,7 @@ export default async function MexicoBeachDetailPage(props: PageProps) {
 
     const surfCallReport = surfReportResult?.report || null;
     const surfCallIsTomorrow = surfReportResult?.isTomorrow ?? false;
+    const publicBeach = sanitizeBeachEditorialContent(beach);
 
     let nearbyBeachesRaw: Beach[] = [];
     if (nearbyResult?.success && nearbyResult.data) {
@@ -158,7 +174,7 @@ export default async function MexicoBeachDetailPage(props: PageProps) {
         />
 
         {/* FAQ structured data for rich snippets */}
-        <FAQSchema items={generateBeachFAQ(beach)} />
+        <FAQSchema items={generateBeachFAQ(publicBeach)} />
 
         {/* WebPage structured data with dateModified for freshness signal */}
         <WebPageSchema
@@ -167,7 +183,7 @@ export default async function MexicoBeachDetailPage(props: PageProps) {
         />
 
         <BeachProseSummary
-          beach={beach}
+          beach={publicBeach}
           surfCallReport={surfCallReport}
           editorialSources={parseEditorialSources(
             (beach as BeachEditorialDatabaseRecord).editorial_sources,
@@ -176,11 +192,12 @@ export default async function MexicoBeachDetailPage(props: PageProps) {
 
         {/* Client detail component with auth tracking */}
         <BeachDetailClient
-          beach={beach}
+          beach={publicBeach}
           slug={params.beachSlug}
           beachTimezone={beachTimezone}
           surfCallReport={surfCallReport}
           surfCallIsTomorrow={surfCallIsTomorrow}
+          beachPhoto={beachPhoto}
           freeGrowthPhaseEnabled={isFreeGrowthPhaseEnabled()}
         />
 
@@ -215,10 +232,15 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
   if (beach) {
     const locationContext =
       beach.city && beach.state ? ` in ${beach.city}, ${beach.state}` : "";
+    const generatedTitle = buildDynamicBeachMetadata({ beach, forecast: null }).title;
+    const title = beach.seo_title?.trim() || generatedTitle;
+    const description =
+      beach.seo_description?.trim() ||
+      `${beach.name} surf report for ${formatMetaDate()}. Wave height, swell, wind, and tide conditions${locationContext}.`;
 
     const metadata = buildPageMetadata({
-      title: buildDynamicBeachMetadata({ beach, forecast: null }).title,
-      description: `${beach.name} surf report for ${formatMetaDate()}. Wave height, swell, wind, and tide conditions${locationContext}.`,
+      title,
+      description,
       path: `/mexico/${params.region}/${params.city}/${params.beachSlug}`,
       image: `/api/og/beach?slug=${params.beachSlug}`,
       keywords: [

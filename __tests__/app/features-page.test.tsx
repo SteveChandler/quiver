@@ -2,10 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 
 import FeaturesPage, { metadata } from "@/app/features/page";
-import {
-  IOS_APP_STORE_CTA,
-  IOS_APP_STORE_WEB_REDIRECT_PATH,
-} from "@/lib/constants/app-store";
+import { IOS_APP_STORE_CTA } from "@/lib/constants/app-store";
 
 jest.mock("next/image", () => ({
   __esModule: true,
@@ -100,7 +97,10 @@ describe("FeaturesPage", () => {
     });
     expect(appStoreLinks).toHaveLength(2);
     appStoreLinks.forEach((link) => {
-      expect(link).toHaveAttribute("href", IOS_APP_STORE_WEB_REDIRECT_PATH);
+      expect(link).toHaveAttribute(
+        "href",
+        expect.stringContaining("https://go.quiversurf.app/app/handoff"),
+      );
     });
 
     const androidWaitlistButtons = screen.getAllByTestId(

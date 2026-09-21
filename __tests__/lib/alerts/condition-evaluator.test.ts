@@ -92,6 +92,23 @@ describe("evaluateConditions", () => {
     ).toBe(true);
   });
 
+  it("evaluates swell period against the dominant wave train", () => {
+    expect(
+      evaluateConditions(
+        { swell_period_min: 14 },
+        { ...baseForecast, wave_period: 15, swell_1_period: 9 },
+        mockBeach,
+      ),
+    ).toBe(true);
+    expect(
+      evaluateConditions(
+        { swell_period_min: 14 },
+        { ...baseForecast, wave_period: 9, swell_1_period: 15 },
+        mockBeach,
+      ),
+    ).toBe(false);
+  });
+
   it("evaluates wind speed maximum", () => {
     expect(
       evaluateConditions({ wind_speed_max_kt: 3 }, baseForecast, mockBeach),

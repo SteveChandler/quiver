@@ -24,6 +24,12 @@ interface SubmitForecastFeedbackOptions {
   requireForecast?: boolean;
 }
 
+type CallFeedbackRow = {
+  id: string;
+  contract_version: string;
+  correlation_id: string | null;
+};
+
 type SubmitForecastFeedbackResult =
   | {
       success: true;
@@ -38,6 +44,7 @@ type SubmitForecastFeedbackResult =
       reason:
         | "forecast_lookup_failed"
         | "forecast_not_found"
+        | "invalid_board"
         | "vote_storage_failed"
         | "storage_failed";
       correlationId: string;
@@ -154,6 +161,18 @@ export async function submitForecastFeedback(
     }
   }
 
+  if (input.feedbackKind === "call_check" && input.boardId) {
+    const { data: board, error: boardError } = await context.supabase
+      .from("boards")
+      .select("id")
+      .eq("id", input.boardId)
+      .eq("user_id", context.user.id)
+      .maybeSingle();
+    if (boardError || !board) {
+      return { success: false, reason: "invalid_board", correlationId };
+    }
+  }
+
   const existing = await findExistingFeedbackContext(
     context.user.id,
     requestId,
@@ -189,13 +208,13 @@ export async function submitForecastFeedback(
 
   const serviceClient = createServiceRoleClient();
   try {
-    const { data, error } = await serviceClient
+    const { data, error } = await (serviceClient
       .from("forecast_feedback_contexts")
       .insert(
         payload as Database["public"]["Tables"]["forecast_feedback_contexts"]["Insert"],
       )
       .select("id,contract_version,correlation_id")
-      .single();
+      .single() as unknown as Promise<{ data: CallFeedbackRow | null; error: { message: string } | null }>);
     if (error || !data) throw new Error("Forecast feedback storage failed");
     return {
       success: true,

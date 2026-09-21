@@ -51,7 +51,9 @@ test.describe('Guest Smoke: Critical Pages', () => {
     await expect(page.getByRole('heading', { name: /custom alerts/i })).toBeVisible();
     await expect(
       page.getByRole('link', { name: /open app store/i }).first(),
-    ).toHaveAttribute('href', '/app-store?ct=web');
+      // App CTAs go through the tracked handoff on go.quiversurf.app; the
+      // per-tap handoff_id is added at click time, so assert the route.
+    ).toHaveAttribute('href', /^https:\/\/go\.quiversurf\.app\/app\/handoff\?/);
     await expect(
       page.getByRole('link', { name: /get the android beta/i }).first(),
       // The CTA carries waitlist attribution (source/surface/placement), which

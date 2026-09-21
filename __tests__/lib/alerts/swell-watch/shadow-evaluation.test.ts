@@ -29,7 +29,7 @@ beforeEach(() => {
     events: [{ impact: { regionalEventId: "event", projectedFaceHeightFt: 6 } }],
   })), scopeOutcomes: input.scopes.map(({ sourcePointId }) => ({ sourcePointId, status: "derived", reason: null })) } as never);
   jest.mocked(loadMatchedSwellWatchHistory).mockResolvedValue({ confidence: 0.8,
-    regionalEvent: { regionalEventId: "event", regionKey: "region", status: "stable", evaluationIds: [] } });
+    regionalEvent: { regionalEventId: "event", regionKey: "region", status: "stable", evaluationIds: [] }, staleHistoryExcluded: 0 });
   jest.mocked(loadSwellWatchAudience).mockResolvedValue([
     { recipientUserId: "private-user", beachId: "beach-a", reason: "home" },
     { recipientUserId: "private-user", beachId: "beach-b", reason: "favorite" },
@@ -106,7 +106,7 @@ it("keeps a complete zero-event cohort distinct from missing coverage", async ()
 
 it("excludes unstable events and preserves their suppression reason", async () => {
   jest.mocked(loadMatchedSwellWatchHistory).mockResolvedValue({ confidence: null,
-    regionalEvent: { regionalEventId: "event", regionKey: "region", status: "suppressed", reason: "continuity_broken", evaluationIds: [] } });
+    regionalEvent: { regionalEventId: "event", regionKey: "region", status: "suppressed", reason: "continuity_broken", evaluationIds: [] }, staleHistoryExcluded: 0 });
   expect(await evaluateSwellWatchShadow(input, client)).toMatchObject({ candidateCount: 2,
     stableRegionalEventCount: 0, preSafetyRecipientsThisEvaluation: 0, suppressionReasons: { continuity_broken: 2 } });
   expect(loadSwellWatchAudience).toHaveBeenCalledWith(client, []);
@@ -115,14 +115,14 @@ it("excludes unstable events and preserves their suppression reason", async () =
 
 it("rejects a stable event with unknown confidence before reading audience", async () => {
   jest.mocked(loadMatchedSwellWatchHistory).mockResolvedValueOnce({ confidence: null,
-    regionalEvent: { regionalEventId: "event", regionKey: "region", status: "stable", evaluationIds: [] } });
+    regionalEvent: { regionalEventId: "event", regionKey: "region", status: "stable", evaluationIds: [] }, staleHistoryExcluded: 0 });
   await expect(evaluateSwellWatchShadow(input, client)).rejects.toThrow("Invalid shadow candidate");
   expect(loadSwellWatchAudience).not.toHaveBeenCalled();
 });
 
 it("labels mixed stable/discontinuous demand as pre-safety, not eligible sends", async () => {
   jest.mocked(loadMatchedSwellWatchHistory).mockResolvedValueOnce({ confidence: null,
-    regionalEvent: { regionalEventId: "event", regionKey: "region", status: "suppressed", reason: "continuity_broken", evaluationIds: [] } });
+    regionalEvent: { regionalEventId: "event", regionKey: "region", status: "suppressed", reason: "continuity_broken", evaluationIds: [] }, staleHistoryExcluded: 0 });
   expect(await evaluateSwellWatchShadow(input, client)).toMatchObject({ stableRegionalEventCount: 1,
     preSafetyRecipientsThisEvaluation: 1, sendEligibility: "not_evaluated",
     suppressionReasons: { continuity_broken: 1 }, projectedSendsRolling24Hours: null, enqueued: 0,

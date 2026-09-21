@@ -2,6 +2,7 @@ import {
   NATIVE_SKILL_THRESHOLDS,
   OUT_OF_BAND_SCORE_CEILING,
   pickBestNativeForecastSlot,
+  scoreNativeConditionBreakdown,
   scoreNativeConditionInputs,
   scoreNativeForecastSlot,
 } from "@/lib/scoring/native-condition-score";
@@ -30,6 +31,15 @@ function forecast(
 }
 
 describe("native-condition-score", () => {
+  const direction = {
+    windDirectionDeg: 90,
+    swellDirectionDeg: 218,
+    offshoreDeg: 90,
+    offshoreToleranceDeg: 45,
+    windowCenterDeg: 218,
+    windowHalfwidthDeg: 118,
+  };
+
   const pristineInputs = {
     windSpeedMph: 0,
     periodSec: 13,
@@ -53,6 +63,50 @@ describe("native-condition-score", () => {
           "intermediate",
         ),
       ).toBe(expected);
+    }
+  });
+
+  it("uses directional terms only when requested", () => {
+    const inputs = { waveHeightFt: 3.5, ...pristineInputs, windSpeedMph: 8 };
+    const legacy = scoreNativeConditionBreakdown(inputs, "intermediate");
+    const directional = scoreNativeConditionBreakdown(inputs, "intermediate", null, direction);
+    const onshore = scoreNativeConditionBreakdown(inputs, "intermediate", null, {
+      ...direction,
+      windDirectionDeg: 270,
+    });
+
+    expect(legacy.score).toBe(scoreNativeConditionInputs(inputs, "intermediate"));
+    expect(legacy.components.windQuality).toBeUndefined();
+    expect(legacy.components.swellAlignment).toBeUndefined();
+    expect(directional.components.windQuality).toBe(directional.components.wind);
+    expect(directional.components.swellAlignment).toBe(15);
+    expect(directional.score).toBeGreaterThan(onshore.score);
+  });
+
+  it("does not penalize missing direction data", () => {
+    const inputs = { waveHeightFt: 3.5, ...pristineInputs, windSpeedMph: 8 };
+    const score = scoreNativeConditionBreakdown(inputs, "intermediate", null, {
+      ...direction,
+      windDirectionDeg: null,
+      swellDirectionDeg: null,
+    });
+
+    expect(score.components.windQuality).toBe(score.components.wind);
+    expect(score.components.swellAlignment).toBe(15);
+  });
+
+  it("keeps the numeric score identical when exposing components", () => {
+    const cases = [
+      { waveHeightFt: 1, ...pristineInputs },
+      { waveHeightFt: 3.5, ...pristineInputs },
+      { waveHeightFt: 6, ...pristineInputs },
+      { waveHeightFt: 8, ...pristineInputs, windSpeedMph: 30 },
+    ];
+
+    for (const inputs of cases) {
+      expect(scoreNativeConditionBreakdown(inputs, "intermediate").score).toBe(
+        scoreNativeConditionInputs(inputs, "intermediate"),
+      );
     }
   });
 

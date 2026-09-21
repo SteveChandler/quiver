@@ -225,6 +225,12 @@ describe('Spot Profile Domain', () => {
   });
 
   describe('createSpotProfile', () => {
+    const originalEnv = process.env;
+
+    afterEach(() => {
+      process.env = { ...originalEnv };
+    });
+
     it('should create a complete SpotProfile from a Beach', () => {
       const beach = createMockBeach();
       const profile = createSpotProfile(beach);
@@ -246,6 +252,44 @@ describe('Spot Profile Domain', () => {
       expect(profile.swellWindow.maxDeg).toBe(290);
       expect(profile.swellWindow.centerDeg).toBe(270);
       expect(profile.swellWindow.halfWidthDeg).toBe(20);
+    });
+
+    it('uses the calibrated centre and half-width when direction scoring is enabled', () => {
+      process.env.DIRECTION_SCORING_ENABLED = 'true';
+      const profile = createSpotProfile(createMockBeach({
+        slug: 'church',
+        shoaling_factors: {},
+        swell_window_min_deg: 180,
+        swell_window_max_deg: 285,
+        swell_window_center_deg: 218,
+        swell_window_halfwidth_deg: 118,
+      }));
+
+      expect(profile.swellWindow).toEqual({
+        minDeg: 100,
+        maxDeg: 336,
+        centerDeg: 218,
+        halfWidthDeg: 118,
+        defined: true,
+      });
+    });
+
+    it('represents a missing calibrated window as neutral', () => {
+      process.env.DIRECTION_SCORING_ENABLED = 'true';
+      const profile = createSpotProfile(createMockBeach({
+        slug: 'church',
+        shoaling_factors: {},
+        swell_window_center_deg: null,
+        swell_window_halfwidth_deg: null,
+      }));
+
+      expect(profile.swellWindow).toEqual({
+        minDeg: 0,
+        maxDeg: 0,
+        centerDeg: 0,
+        halfWidthDeg: 0,
+        defined: false,
+      });
     });
 
     it('should use defaults when swell window is null', () => {

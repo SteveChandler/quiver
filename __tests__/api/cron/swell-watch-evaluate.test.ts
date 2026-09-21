@@ -5,10 +5,12 @@ import { evaluateSwellWatchShadow } from "@/lib/alerts/swell-watch/shadow-evalua
 import { calculateSwellWatchPolicyHash, type SwellWatchPolicy } from "@/lib/alerts/swell-watch/policy";
 import fixture from "@/__tests__/fixtures/swell-watch-provisional-policy.json";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { readSwellWatchStudyStatus } from "@/lib/alerts/swell-watch/study";
 
 jest.mock("@/lib/supabase/server", () => ({ createSupabaseServiceRoleClient: jest.fn() }));
 jest.mock("@/lib/alerts/swell-watch/provider-run-store", () => ({ loadSwellWatchAcquisitionScope: jest.fn() }));
 jest.mock("@/lib/alerts/swell-watch/shadow-evaluation", () => ({ evaluateSwellWatchShadow: jest.fn() }));
+jest.mock("@/lib/alerts/swell-watch/study", () => ({ readSwellWatchStudyStatus: jest.fn() }));
 jest.mock("@/lib/notifications/enqueue", () => ({ enqueueNotification: () => { throw new Error("Forbidden send path"); } }));
 
 if (typeof Response.json !== "function") {
@@ -30,6 +32,7 @@ beforeEach(() => {
     SWELL_WATCH_ENABLED: "false", SWELL_WATCH_PUSH_ENABLED: "false",
     SWELL_WATCH_PRODUCER_CONFIG: JSON.stringify({ policy, cohort }) };
   jest.mocked(loadSwellWatchAcquisitionScope).mockResolvedValue([]);
+  jest.mocked(readSwellWatchStudyStatus).mockResolvedValue({ status: "active", qualificationRule: "complete_partitions.v1" });
   jest.mocked(evaluateSwellWatchShadow).mockResolvedValue(result as never);
 });
 afterEach(() => { process.env = originalEnv; jest.restoreAllMocks(); });
@@ -90,6 +93,19 @@ it("uses the server policy and cohort with live-send flags off", async () => {
   expect(evaluateSwellWatchShadow).toHaveBeenCalledTimes(1);
   expect(evaluateSwellWatchShadow).toHaveBeenCalledWith({ qualificationRule: "complete_partitions.v1", providerBatchId: batch, forecastDays: 7,
     policy, scopes: [], now: expect.any(String) }, expect.anything());
+});
+
+it("uses the current qualification rule from study health", async () => {
+  jest.mocked(readSwellWatchStudyStatus).mockResolvedValueOnce({
+    status: "active",
+    qualificationRule: "model_reported_swell_system_count.v1",
+  });
+
+  expect((await call()).status).toBe(200);
+  expect(readSwellWatchStudyStatus).toHaveBeenCalledWith(expect.anything());
+  expect(evaluateSwellWatchShadow).toHaveBeenCalledWith(expect.objectContaining({
+    qualificationRule: "model_reported_swell_system_count.v1",
+  }), expect.anything());
 });
 
 it("retains suppressed evaluation identity and unknown counts through the real cron wrapper", async () => {

@@ -107,15 +107,26 @@ type RunClient = ImpactIngestionClient & Parameters<typeof deriveAttestedSwellWa
 };
 type CohortScopeOutcome = { sourcePointId: string; status: "derived" | "suppressed"; reason: string | null };
 type CohortDerivation = (Pick<DerivedRun["derivation"], "version" | "samplingProfile" | "witness" | "qualificationRule"> & {
-  scopes: Array<Pick<DerivedRun["derivation"], "nativeFrames" | "interpolatedFrames" | "partitionCoverage"> & {
+  scopes: Array<Pick<DerivedRun["derivation"], "nativeFrames" | "interpolatedFrames" | "partitionCoverage" | "boundaryDeferrals"> & {
     sourcePointId: string;
     events: Array<Pick<DerivedRun["events"][number], "arrivalAt" | "arrivalWindow" | "peakAt" | "peakWindow" | "closureWindow"> & {
       sourceSlot: "s1" | "s2"; regionalEventId: string | null;
-    }>;
+    }>; eventsTruncated?: number;
   }>;
 }) | null;
 type SuppressedCohort = { kind: "suppressed"; reason: string; sourcePointId: string; scopeOutcomes: CohortScopeOutcome[]; derivation: CohortDerivation };
 type IngestedCohort = { kind: "ingested"; runs: IngestedRun[]; scopeOutcomes: CohortScopeOutcome[]; derivation: CohortDerivation };
+
+export function capSwellWatchDerivationEvents(derivation: Exclude<CohortDerivation, null>): Exclude<CohortDerivation, null> {
+  return {
+    ...derivation,
+    scopes: derivation.scopes.map((scope) => {
+      const events = [...scope.events].sort((left, right) => Date.parse(left.arrivalAt) - Date.parse(right.arrivalAt)).slice(0, 10);
+      const dropped = scope.events.length - events.length;
+      return { ...scope, events, ...(dropped > 0 ? { eventsTruncated: dropped } : {}) };
+    }),
+  };
+}
 
 function prepareImpacts(input: RunInput, derived: DerivedRun): Record<string, string | number>[] {
   return derived.events.map((event) => {
@@ -203,13 +214,14 @@ export async function ingestAttestedSwellWatchCohort(
   const suppressed = scopeOutcomes.find((outcome) => outcome.status === "suppressed");
   const runs = suppressed ? [] : await persistRuns(prepared, client, "ingest_swell_watch_cohort");
   const first = prepared[0]?.derived.derivation;
-  const derivation: CohortDerivation = first ? { qualificationRule: first.qualificationRule, version: first.version, samplingProfile: first.samplingProfile, witness: first.witness,
+  const derivation: CohortDerivation = first ? capSwellWatchDerivationEvents({ qualificationRule: first.qualificationRule, version: first.version, samplingProfile: first.samplingProfile, witness: first.witness,
     scopes: prepared.map(({ input, derived }, runIndex) => ({ sourcePointId: input.sourcePointId,
-      partitionCoverage: derived.derivation.partitionCoverage, nativeFrames: derived.derivation.nativeFrames, interpolatedFrames: derived.derivation.interpolatedFrames,
+      partitionCoverage: derived.derivation.partitionCoverage, boundaryDeferrals: derived.derivation.boundaryDeferrals,
+      nativeFrames: derived.derivation.nativeFrames, interpolatedFrames: derived.derivation.interpolatedFrames,
       events: derived.events.map((event, eventIndex) => ({ sourceSlot: event.impact.partition.sourceSlot,
         arrivalAt: event.arrivalAt, arrivalWindow: event.arrivalWindow, peakAt: event.peakAt,
         peakWindow: event.peakWindow, closureWindow: event.closureWindow,
-        regionalEventId: suppressed ? null : runs[runIndex].events[eventIndex].impact.regionalEventId })) })) } : null;
+        regionalEventId: suppressed ? null : runs[runIndex].events[eventIndex].impact.regionalEventId })) })) }) : null;
   if (suppressed) return { kind: "suppressed", reason: suppressed.reason!, sourcePointId: suppressed.sourcePointId, scopeOutcomes, derivation };
   return { kind: "ingested", runs, scopeOutcomes, derivation };
 }

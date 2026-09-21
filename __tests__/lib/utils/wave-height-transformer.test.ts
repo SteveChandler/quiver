@@ -1316,6 +1316,7 @@ describe('Wave Height Transformer', () => {
 
       expect(result.faceHeightFt).toBeCloseTo(4.8, 1);
     });
+
   });
 
   // ==========================================================================

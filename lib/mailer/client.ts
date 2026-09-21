@@ -116,7 +116,6 @@ export const resend = { emails: { send: async (): Promise<never> => {
 export async function sendReservedLifecycleEmail(attemptId: string, payload: CreateEmailOptions): Promise<string> {
   const { lifecycleEnabled, lifecycleRpc } = await import("@/lib/email/lifecycle");
   if (!lifecycleEnabled() || shouldSuppressE2EEmailSends()) return "disabled";
-  if (process.env.EMAIL_REPLY_INGESTION_VERIFIED !== "true") throw new Error("Reply ingestion is not verified");
   if (payload.cc || payload.bcc || typeof payload.to !== "string") throw new Error("Lifecycle requires one recipient");
   const begun = await lifecycleRpc("begin_email_lifecycle", { p_attempt_id: attemptId, p_payload: payload });
   if (begun !== true) return "cancelled";

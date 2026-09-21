@@ -16,11 +16,17 @@ import type { SkillLevel } from "@/lib/domains/user-preferences/skill-level";
 import { beachToSpotProfile, forecastToSnapshot } from "@/lib/domains/scoring";
 import {
   resolveNativeSkillLevel,
+  scoreNativeConditionBreakdown,
   scoreNativeForecastSlot,
+  nativeScoreInputsFromForecast,
+  type NativeConditionScoreBreakdown,
 } from "@/lib/scoring/native-condition-score";
 import { getRideabilityBand } from "@/lib/domains/rideability";
 import { getDirectionDegrees } from "./direction-utils";
 import { getScoringEngine } from "./scoring-engine-singleton";
+import { isDirectionScoringEnabledForBeach } from "@/lib/flags/direction-scoring";
+import { windChopCeiling } from "@/lib/domains/scoring/wind-chop-ceiling";
+import type { NativeDirectionScoreInput } from "@/lib/scoring/native-condition-score";
 
 const SELECTOR_IDEAL_RIDEABILITY_BONUS = 4;
 const SELECTOR_ACCEPTABLE_RIDEABILITY_BONUS = 1;
@@ -171,23 +177,65 @@ export function scoreForecastWindow(
  * @param beach - Beach metadata
  * @returns Score from 0-100
  */
-interface WindowConditionScoreDetails {
+export interface WindowConditionScoreDetails {
   score: number;
   boardClass: BoardClass | null;
   rideabilityBand: RideabilityBand | null;
   decisionCeiling: number;
+  components: NativeConditionScoreBreakdown["components"];
+  appliedEffects: string[];
 }
 
 /** Resolve the same domain decision ceiling for every native-compatible score path. */
-function decisionEffectCeiling(
+function decisionEffectDetails(
   forecast: EnhancedForecastEntity,
   beach: Beach,
-): number {
+): { ceiling: number; effects: string[] } {
   const composite = scoreWindowWithComposite(forecast, beach);
-  return (composite.effects ?? []).reduce(
+  const effects = composite.effects ?? [];
+  const ceiling = effects.reduce(
     (current, effect) => Math.min(current, effect.verdictCeiling ?? 100),
     100,
   );
+  if (isDirectionScoringEnabledForBeach(beach)) {
+    const chop = windChopCeiling(
+      {
+        profile: beachToSpotProfile(beach),
+        snapshot: forecastToSnapshot(forecast),
+        window: null,
+        preferences: null,
+      },
+      composite.subscores,
+      { ignoreWindQuality: true },
+    );
+    if (chop && chop.ceiling < ceiling) {
+      return { ceiling: chop.ceiling, effects: [...effects.map((effect) => effect.code), 'wind_chop'] };
+    }
+  }
+
+  return { ceiling, effects: effects.map((effect) => effect.code) };
+}
+
+export function directionInput(
+  forecast: EnhancedForecastEntity,
+  beach: BeachWithThresholds,
+  directionScoringEnabledOverride?: boolean,
+): NativeDirectionScoreInput | undefined {
+  if (!(directionScoringEnabledOverride ?? isDirectionScoringEnabledForBeach(beach))) return undefined;
+  return {
+    windDirectionDeg: getDirectionDegrees(
+      forecast.wind_direction_deg,
+      forecast.wind_direction,
+    ),
+    swellDirectionDeg: getDirectionDegrees(
+      forecast.swell_1_direction ?? forecast.wave_direction,
+      null,
+    ),
+    offshoreDeg: beach.wind_offshore_deg ?? null,
+    offshoreToleranceDeg: beach.wind_offshore_tol_deg ?? 45,
+    windowCenterDeg: beach.swell_window_center_deg ?? null,
+    windowHalfwidthDeg: beach.swell_window_halfwidth_deg ?? null,
+  };
 }
 
 function isFullBeach(beach: BeachWithThresholds): beach is Beach {
@@ -213,11 +261,15 @@ export function scoreWindowConditionDetails(
     "intermediate",
   );
   const uniqueBoardClasses = Array.from(new Set(boardClasses ?? []));
-  const ceiling = isFullBeach(beach)
-    ? decisionEffectCeiling(forecast, beach)
-    : 100;
+  const effectDetails = isFullBeach(beach)
+    ? decisionEffectDetails(forecast, beach)
+    : { ceiling: 100, effects: [] };
+  const { ceiling } = effectDetails;
   const applyCeiling = (score: number): number => Math.min(score, ceiling);
-  const baselineScore = scoreNativeForecastSlot(forecast, resolvedSkillLevel);
+  const appliedEffects = (score: number): string[] =>
+    score > ceiling ? effectDetails.effects : [];
+  const direction = directionInput(forecast, beach);
+  const baselineScore = scoreNativeForecastSlot(forecast, resolvedSkillLevel, null, direction);
 
   if (uniqueBoardClasses.length === 0) {
     const score = rideabilityBand
@@ -227,6 +279,7 @@ export function scoreWindowConditionDetails(
             forecast,
             resolvedSkillLevel,
             rideabilityBand,
+            direction,
           ),
         )
       : baselineScore;
@@ -235,6 +288,8 @@ export function scoreWindowConditionDetails(
       boardClass: null,
       rideabilityBand: rideabilityBand ?? null,
       decisionCeiling: ceiling,
+      components: scoreNativeConditionBreakdown(nativeScoreInputsFromForecast(forecast), resolvedSkillLevel, null, direction).components,
+      appliedEffects: appliedEffects(score),
     };
   }
 
@@ -243,18 +298,26 @@ export function scoreWindowConditionDetails(
     boardClass: null,
     rideabilityBand: null,
     decisionCeiling: ceiling,
+    components: scoreNativeConditionBreakdown(nativeScoreInputsFromForecast(forecast), resolvedSkillLevel, null, direction).components,
+    appliedEffects: appliedEffects(baselineScore),
   };
   for (const boardClass of uniqueBoardClasses) {
     const boardBand = getRideabilityBand(resolvedSkillLevel, boardClass);
-    const score = applyCeiling(
-      scoreNativeForecastSlot(forecast, resolvedSkillLevel, boardBand),
-    );
+    const rawScore = scoreNativeForecastSlot(forecast, resolvedSkillLevel, boardBand, direction);
+    const score = applyCeiling(rawScore);
     if (score > best.score) {
       best = {
         score,
         boardClass,
         rideabilityBand: boardBand,
         decisionCeiling: ceiling,
+        components: scoreNativeConditionBreakdown(
+          nativeScoreInputsFromForecast(forecast),
+          resolvedSkillLevel,
+          boardClass,
+          direction,
+        ).components,
+        appliedEffects: appliedEffects(rawScore),
       };
     }
   }

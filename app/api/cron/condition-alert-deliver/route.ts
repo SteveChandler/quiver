@@ -60,7 +60,6 @@ import {
 } from "@/lib/alerts/revalidate-alert-window";
 import type { AlertConditions } from "@/lib/alerts/types";
 import type { MatchingWindow } from "@/lib/alerts/types";
-import { isAlertsDeliveryEnabled } from "@/lib/flags/alerts-delivery";
 import { isForecastAlertDeliveryEnabled } from "@/lib/flags/forecast-alert-delivery";
 import { formatWaveHeightRange } from "@/lib/formatters/surf-data";
 import { parseSkillLevel } from "@/lib/domains/user-preferences/skill-level";
@@ -71,7 +70,6 @@ import {
 import {
   buildCanonicalDecisionFromAlertMatches,
   canonicalAlertCandidateId,
-  parseCanonicalSessionDecision,
   type CanonicalSessionDecision,
 } from "@/lib/recommendations/canonical-decision";
 
@@ -394,7 +392,6 @@ export async function GET(request: Request): Promise<NextResponse> {
 
   // Env-driven gates. Default OFF for safety; staged rollout via allowlist.
   const forecastDeliveryEnabled = isForecastAlertDeliveryEnabled();
-  const similarityDeliveryEnabled = isAlertsDeliveryEnabled();
   const allowlistRaw = process.env.ALERTS_DELIVERY_USER_ALLOWLIST ?? "";
   const allowlist = new Set(
     allowlistRaw
@@ -811,6 +808,9 @@ export async function GET(request: Request): Promise<NextResponse> {
           )
           .eq("sent", false)
           .lte("send_at", new Date().toISOString())
+          .or(
+            "conditions_snapshot->>alert_type.is.null,conditions_snapshot->>alert_type.neq.similarity_match",
+          )
           .order("send_at", { ascending: true });
 
         if (queueError) throw queueError;
@@ -894,18 +894,6 @@ export async function GET(request: Request): Promise<NextResponse> {
           };
         });
 
-        // 2b. Partition: similarity_match rows are stamped by the
-        //     try_insert_similarity_alert RPC with conditions_snapshot.alert_type
-        //     and routed through the centralized notifications pipeline. Legacy
-        //     forecast_alert rows continue through the consolidation +
-        //     email/push branches below. Excluding similarity rows here is
-        //     CRITICAL — otherwise the email path tries to render forecast
-        //     match data and the push title is wrong.
-        const similarityItems = allItems.filter(
-          (i) =>
-            (i.conditions_snapshot as Record<string, unknown>)?.alert_type ===
-            "similarity_match",
-        );
         const watchedItems = allItems.filter(
           (i) =>
             (i.conditions_snapshot as Record<string, unknown>)?.alert_type ===
@@ -913,9 +901,8 @@ export async function GET(request: Request): Promise<NextResponse> {
         );
         const forecastItems = allItems.filter(
           (i) =>
-            !["similarity_match", "watched_call_update"].includes(String(
-              (i.conditions_snapshot as Record<string, unknown>)?.alert_type,
-            )),
+            (i.conditions_snapshot as Record<string, unknown>)?.alert_type !==
+            "watched_call_update",
         );
 
         const items: QueueItemWithMeta[] = [];
@@ -1956,370 +1943,6 @@ export async function GET(request: Request): Promise<NextResponse> {
             await recordAttempt({ queueId: item.id, ruleId: item.rule_id,
               userId: item.user_id, channel: "push", status: "failed_internal",
               skipReason: `enqueue: ${enqueueResult.reason}` });
-            result.errors++;
-          }
-        }
-
-        for (const item of similarityItems) {
-          result.processed++;
-          const profile = profilesByUser.get(item.user_id);
-
-          if (!profile) {
-            console.warn(
-              `${CONTEXT_TAG} No profile found for similarity user ${item.user_id}, skipping`,
-            );
-            await recordAttempt({
-              queueId: item.id,
-              ruleId: item.rule_id,
-              userId: item.user_id,
-              channel: "push",
-              status: "failed_internal",
-              skipReason: "profile missing for queued similarity user",
-            });
-            const marked = await markQueueItemsConsumed(
-              [item],
-              "orphaned_profile",
-            );
-            if (marked) result.errors++;
-            continue;
-          }
-
-          try {
-            // Kill switch — same semantics as the forecast branch: skip the
-            // provider call but mark the queue row sent so the queue can't
-            // grow unbounded during a pause.
-            if (forecastDeliveryEnabled && !similarityDeliveryEnabled) {
-              await recordAttempt({
-                queueId: item.id,
-                ruleId: item.rule_id,
-                userId: item.user_id,
-                channel: "push",
-                status: "skipped_disabled",
-                skipReason: "ALERTS_DELIVERY_ENABLED=false",
-              });
-              await markQueueItemsConsumed([item], "delivery_disabled");
-              continue;
-            }
-
-            if (allowlist.size > 0 && !allowlist.has(item.user_id)) {
-              await recordAttempt({
-                queueId: item.id,
-                ruleId: item.rule_id,
-                userId: item.user_id,
-                channel: "push",
-                status: "skipped_allowlist",
-                skipReason: `user not in ALERTS_DELIVERY_USER_ALLOWLIST`,
-              });
-              await markQueueItemsConsumed([item], "allowlist_excluded");
-              continue;
-            }
-
-            // Build the payload directly from conditions_snapshot. Newer
-            // similarity rows include richer surf context; older rows only
-            // carry the core fields and must still enqueue with fallback copy.
-            const snap = item.conditions_snapshot as Record<string, unknown>;
-            const optionalStringField = (value: unknown): string | undefined =>
-              typeof value === "string" && value.trim().length > 0
-                ? value
-                : undefined;
-            const optionalNumberField = (value: unknown): number | undefined =>
-              typeof value === "number" && Number.isFinite(value)
-                ? value
-                : undefined;
-            const similarityForecastAt = String(
-              snap.forecast_at ?? item.best_hour,
-            );
-            const similarityForecastAtMs = Date.parse(similarityForecastAt);
-            const similarityWindowEnd = Number.isFinite(similarityForecastAtMs)
-              ? new Date(similarityForecastAtMs + 60 * 60 * 1000).toISOString()
-              : "";
-            let storedSimilarityDecision: CanonicalSessionDecision | null =
-              null;
-            try {
-              storedSimilarityDecision = parseCanonicalSessionDecision(
-                snap.session_decision,
-              );
-            } catch {
-              storedSimilarityDecision = null;
-            }
-            const storedSelection = storedSimilarityDecision?.selection;
-            const storedDecisionMatchesWindow =
-              storedSimilarityDecision?.verdict === "go" &&
-              storedSelection?.beachId === item.beach_id &&
-              storedSelection.windowStart === similarityForecastAt &&
-              storedSelection.windowEnd === similarityWindowEnd;
-            const similarityPolicyContext =
-              Number.isFinite(similarityForecastAtMs) &&
-              similarityWindowEnd.length > 0
-                ? {
-                    kind: "positive_session_recommendation" as const,
-                    beach_id: item.beach_id,
-                    starts_at: similarityForecastAt,
-                    ends_at: similarityWindowEnd,
-                  }
-                : null;
-            const similarityPayload = {
-              beach_id: String(snap.beach_id ?? item.beach_id),
-              configured_beach_id:
-                typeof snap.configured_beach_id === "string"
-                  ? snap.configured_beach_id
-                  : undefined,
-              beach_slug: String(snap.beach_slug ?? ""),
-              beach_name: String(snap.beach_name ?? item.beach_name),
-              alert_date: item.alert_date,
-              forecast_at: similarityForecastAt,
-              score: typeof snap.score === "number" ? snap.score : 0,
-              label: snap.label == null ? null : String(snap.label),
-              reason: String(snap.reason ?? ""),
-              ...(optionalStringField(snap.window_local) == null
-                ? {}
-                : { window_local: optionalStringField(snap.window_local) }),
-              ...(optionalNumberField(snap.wave_height_ft) == null
-                ? {}
-                : { wave_height_ft: optionalNumberField(snap.wave_height_ft) }),
-              ...(optionalNumberField(snap.wave_period_s) == null
-                ? {}
-                : { wave_period_s: optionalNumberField(snap.wave_period_s) }),
-              ...(optionalNumberField(snap.wind_speed_mph) == null
-                ? {}
-                : { wind_speed_mph: optionalNumberField(snap.wind_speed_mph) }),
-              ...(optionalStringField(snap.wind_direction) == null
-                ? {}
-                : { wind_direction: optionalStringField(snap.wind_direction) }),
-              ...(optionalNumberField(snap.tide_height_ft) == null
-                ? {}
-                : { tide_height_ft: optionalNumberField(snap.tide_height_ft) }),
-              ...(optionalStringField(snap.tide_status) == null
-                ? {}
-                : { tide_status: optionalStringField(snap.tide_status) }),
-              ...(optionalNumberField(snap.confidence) == null
-                ? {}
-                : { confidence: optionalNumberField(snap.confidence) }),
-              ...(optionalStringField(snap.condition_summary) == null
-                ? {}
-                : {
-                    condition_summary: optionalStringField(
-                      snap.condition_summary,
-                    ),
-                  }),
-              ...(optionalStringField(snap.board_tip) == null
-                ? {}
-                : { board_tip: optionalStringField(snap.board_tip) }),
-              ...(optionalStringField(snap.setup_tip) == null
-                ? {}
-                : { setup_tip: optionalStringField(snap.setup_tip) }),
-              ...(similarityPolicyContext
-                ? { policy_context: similarityPolicyContext }
-                : {}),
-              queue_items: [{ queue_id: item.id, rule_id: item.rule_id }],
-            };
-            const similarityHold = await resolveNotificationMajorEventHold({
-              eventId: `condition-alert-deliver:similarity:${item.id}`,
-              type: "similarity_match",
-              payload: similarityPayload,
-              profileExperience: parseSkillLevel(profile.experience_level),
-            });
-            const similarityScore =
-              typeof snap.score === "number" && Number.isFinite(snap.score)
-                ? snap.score
-                : item.best_score;
-            const normalizedSimilarityScore =
-              similarityScore <= 10 ? similarityScore * 10 : similarityScore;
-            const similarityMatch: MatchingWindow = {
-              rule_id: item.rule_id,
-              rule_name: item.rule_name,
-              beach_id: item.beach_id,
-              beach_name: item.beach_name,
-              beach_slug: item.beach_slug ?? null,
-              beach_skill_level:
-                item.beach_skill_level ?? item.beach_meta?.skill_level ?? null,
-              beach_timezone: item.beach_timezone,
-              window_start: similarityForecastAt,
-              window_end: similarityWindowEnd,
-              best_hour: similarityForecastAt,
-              best_score: normalizedSimilarityScore,
-              conditions_snapshot: {
-                ...snap,
-                wave_height: snap.wave_height_ft,
-              },
-              forecast_id:
-                typeof snap.forecast_id === "string"
-                  ? snap.forecast_id
-                  : undefined,
-              notify_email: false,
-              notify_push: true,
-            };
-            const similarityDecision =
-              similarityHold.status === "allowed"
-                ? buildAlertSessionDecision({
-                    matches: [similarityMatch],
-                    profileExperience: profile.experience_level,
-                  })
-                : null;
-            const selectedSimilarityMatch = similarityDecision
-              ? selectedAlertMatch([similarityMatch], similarityDecision)
-              : null;
-            const notificationDecision =
-              storedDecisionMatchesWindow && storedSimilarityDecision
-                ? storedSimilarityDecision
-                : similarityDecision;
-            if (!forecastDeliveryEnabled) {
-              const reasonCode =
-                similarityHold.status === "suppressed"
-                  ? similarityHold.reasonCode
-                  : (notificationDecision?.reasonCode ?? "no_candidates");
-              shadowOutcomesByQueue.set(item.id, {
-                status: "shadow_withheld",
-                verdict:
-                  similarityHold.status === "suppressed"
-                    ? "no"
-                    : (notificationDecision?.verdict ?? "no"),
-                reason_code: reasonCode,
-                preset_type: item.preset_type ?? null,
-                would_use_channels: [],
-              });
-            }
-            if (
-              similarityHold.status !== "allowed" ||
-              !similarityDecision ||
-              !selectedSimilarityMatch ||
-              notificationDecision?.verdict !== "go"
-            ) {
-              await recordAttempt({
-                queueId: item.id,
-                ruleId: item.rule_id,
-                userId: item.user_id,
-                channel: "push",
-                status: "skipped_disabled",
-                skipReason:
-                  similarityHold.status === "suppressed"
-                    ? `${similarityHold.auditCode}:${similarityHold.reasonCode}`
-                    : `canonical_decision:${similarityDecision?.reasonCode ?? "unavailable"}`,
-              });
-              if (!forecastDeliveryEnabled) {
-                await persistShadowOutcome(item);
-              }
-              const similaritySuppressionReason =
-                similarityHold.status === "suppressed"
-                  ? similarityHold.reasonCode
-                  : null;
-              if (similaritySuppressionReason === "hold_state_unavailable") {
-                const reason = unresolvedHoldDisposition(item);
-                if (reason) await markQueueItemsConsumed([item], reason);
-              } else if (similaritySuppressionReason === "major_event_hold") {
-                await markQueueItemsConsumed([item], "major_event_hold");
-              } else {
-                await markQueueItemsConsumed(
-                  [item],
-                  "canonical_safety_rejected",
-                );
-              }
-              continue;
-            }
-
-            if (!forecastDeliveryEnabled) {
-              addShadowChannel([item], "push");
-              await persistShadowOutcome(item);
-              const outcome = shadowOutcomesByQueue.get(item.id)!;
-              await recordAttempt({
-                queueId: item.id,
-                ruleId: item.rule_id,
-                userId: item.user_id,
-                channel: "push",
-                status: "shadow_withheld",
-                skipReason: JSON.stringify(outcome),
-              });
-              await markQueueItemsConsumed([item], "shadow_withheld");
-              continue;
-            }
-
-            const enqueueResult = await enqueueNotification({
-              type: "similarity_match",
-              recipientUserId: item.user_id,
-              entityType: "beach",
-              entityId: item.beach_id,
-              payload: {
-                ...similarityPayload,
-                session_decision: notificationDecision,
-              },
-              dedupeKey:
-                `similarity_match:${item.user_id}:${item.beach_id}:` +
-                `${similarityForecastAt}:${notificationDecision.decisionId}`,
-            }).catch((err) => {
-              console.error(
-                `${CONTEXT_TAG} similarity enqueue threw for user ${item.user_id}:`,
-                err,
-              );
-              return {
-                enqueued: false as const,
-                reason: "internal_error" as const,
-              };
-            });
-
-            if (enqueueResult.enqueued) {
-              // Defer the per-queue-item alert_delivery_attempts row write to
-              // the registry's onChannelOutcome hook (mirrors forecast_alert)
-              // so the cron's cooldown / cap reads only see actually-delivered
-              // pushes — not enqueued-but-pref-skipped ones.
-              deliveryAcceptedQueueIds.add(item.id);
-              const marked = await markQueueItemsConsumed([item], "delivered");
-              if (marked) {
-                result.pushSent++;
-                console.log(
-                  `${CONTEXT_TAG} Similarity push enqueued for user ${item.user_id} (event ${enqueueResult.eventId})`,
-                );
-              }
-            } else if (enqueueResult.reason === "duplicate") {
-              // Worker-level dedup caught it — a prior tick already enqueued
-              // the same similarity_match for today. Mark queue sent so we
-              // don't loop on it; record the skip.
-              await recordAttempt({
-                queueId: item.id,
-                ruleId: item.rule_id,
-                userId: item.user_id,
-                channel: "push",
-                status: "skipped_dedup_collision",
-                skipReason: "notification_events dedupe_key collision",
-              });
-              await markQueueItemsConsumed([item], "deduplicated");
-            } else if (enqueueResult.reason === "invalid_payload") {
-              // Permanent — don't retry. Mark queue sent + record the failure.
-              console.error(
-                `${CONTEXT_TAG} similarity enqueue rejected invalid payload for user ${item.user_id}:`,
-                enqueueResult,
-              );
-              result.errors++;
-              await recordAttempt({
-                queueId: item.id,
-                ruleId: item.rule_id,
-                userId: item.user_id,
-                channel: "push",
-                status: "failed_internal",
-                skipReason: `enqueue: invalid_payload${enqueueResult.message ? `: ${enqueueResult.message}` : ""}`,
-              });
-              await markQueueItemsConsumed([item], "invalid_payload");
-            } else {
-              // internal_error / unknown_type — leave queue UNSENT so the
-              // next tick can retry. Record the attempt for observability.
-              console.error(
-                `${CONTEXT_TAG} similarity enqueue failed for user ${item.user_id}:`,
-                enqueueResult,
-              );
-              result.errors++;
-              await recordAttempt({
-                queueId: item.id,
-                ruleId: item.rule_id,
-                userId: item.user_id,
-                channel: "push",
-                status: "failed_internal",
-                skipReason: `enqueue: ${enqueueResult.reason}`,
-              });
-            }
-          } catch (similarityErr) {
-            console.error(
-              `${CONTEXT_TAG} Error processing similarity user ${item.user_id}:`,
-              similarityErr,
-            );
             result.errors++;
           }
         }

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import type { ReactElement } from "react";
 import { ExternalLink, Smartphone, Waves } from "lucide-react";
 
-import { IOS_APP_STORE_WEB_REDIRECT_PATH } from "@/lib/constants/app-store";
+import { IosAppStoreCta } from "@/components/app-store/ios-app-store-cta";
 import {
   isCanonicalHandoffId,
   parseHandoffContext,
@@ -192,13 +192,15 @@ export default async function AppSpotHandoffPage({
               Open this exact call in Quiver
             </a>
           ) : null}
-          <a
-            href={IOS_APP_STORE_WEB_REDIRECT_PATH}
+          <IosAppStoreCta
+            source="app_spot_handoff"
+            surface="app_spot"
+            placement="app_store_fallback"
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md border border-white/20 bg-white/10 px-5 py-3 text-base font-black text-white transition hover:border-[#7BDCB5]/60 hover:bg-[#7BDCB5]/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7BDCB5] focus-visible:ring-offset-2 focus-visible:ring-offset-[#101436]"
           >
             <Smartphone className="h-5 w-5" aria-hidden="true" />
             Open in the App Store
-          </a>
+          </IosAppStoreCta>
           <a
             href={webFallbackHref}
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md border border-white/20 bg-white/10 px-5 py-3 text-base font-black text-white transition hover:border-[#7BDCB5]/60 hover:bg-[#7BDCB5]/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7BDCB5] focus-visible:ring-offset-2 focus-visible:ring-offset-[#101436]"

@@ -15,6 +15,7 @@ interface WindChopCeiling {
 export function windChopCeiling(
   input: ScorerInput,
   subscores: ReadonlyMap<string, number>,
+  options: { ignoreWindQuality?: boolean } = {},
 ): WindChopCeiling | null {
   const { snapshot, profile } = input;
   const windQuality = subscores.get('windQuality');
@@ -31,10 +32,12 @@ export function windChopCeiling(
   if (windDirection == null || !Number.isFinite(windDirection)) {
     return null;
   }
-  if (windQuality == null || windQuality >= POOR_WIND_QUALITY_MAX) {
+  if (
+    !options.ignoreWindQuality &&
+    (windQuality == null || windQuality >= POOR_WIND_QUALITY_MAX)
+  ) {
     return null;
   }
-
   const onshoreDeg = normalizeAngle(profile.windThresholds.offshoreDeg + 180);
   const isOnshore =
     angleDifference(windDirection, onshoreDeg) <=

@@ -157,6 +157,16 @@ interface ProposedApplicationResult {
   missingCount: number;
 }
 
+export type DirectionSlice = "inside-centre" | "inside-edge" | "outside";
+
+export interface DirectionSliceMetric {
+  slice: DirectionSlice;
+  beach: string;
+  sample_count: number;
+  mae_m: number;
+  bias_m: number;
+}
+
 interface ProposedGateSlice {
   groupKey: string;
   group: string;
@@ -1049,7 +1059,7 @@ function roundReportedFaceHeightToMeters(reportedWaveHeightFt: number): number {
 function applyProposedInput(
   rows: PredictionRow[],
   beaches: BeachRow[],
-  proposedInput: ProposedInput | null
+  proposedInput: ProposedInput | null,
 ): ProposedApplicationResult {
   if (!proposedInput) {
     return { rows, proposedCount: 0, missingCount: 0 };
@@ -1191,9 +1201,59 @@ function hasDisplayReplayProvenance(row: PredictionRow): boolean {
   return computeProposedDisplayHeightM(row, {}) != null;
 }
 
+export function classifyDirectionSlice(
+  directionDeg: number | null,
+  centerDeg: number | null,
+  halfwidthDeg: number | null,
+): DirectionSlice {
+  if (directionDeg == null || centerDeg == null || halfwidthDeg == null || halfwidthDeg <= 0) {
+    return "outside";
+  }
+  const delta = Math.abs(((directionDeg - centerDeg + 540) % 360) - 180);
+  if (delta <= halfwidthDeg * 0.5) return "inside-centre";
+  if (delta < halfwidthDeg) return "inside-edge";
+  return "outside";
+}
+
+export function computeDirectionSliceMetrics(
+  rows: PredictionRow[],
+  beaches: BeachRow[],
+  baseline: "offset_corrected_display_height_m" | "proposed_display_height_m",
+): DirectionSliceMetric[] {
+  const beachesById = new Map(beaches.map((beach) => [beach.id, beach]));
+  const sums = new Map<string, { absolute: number; signed: number; count: number }>();
+  for (const row of rows) {
+    const beach = beachesById.get(row.beach_id);
+    const predicted = row[baseline];
+    if (!beach || predicted == null || row.observed_m == null) continue;
+    const slice = classifyDirectionSlice(
+      row.noaa_swell_1_direction_deg ?? row.wave_direction_s,
+      beach.swell_window_center_deg ?? null,
+      beach.swell_window_halfwidth_deg ?? null,
+    );
+    const key = `${beach.id}:${slice}`;
+    const current = sums.get(key) ?? { absolute: 0, signed: 0, count: 0 };
+    const error = predicted - row.observed_m;
+    current.absolute += Math.abs(error);
+    current.signed += error;
+    current.count++;
+    sums.set(key, current);
+  }
+  return Array.from(sums, ([key, value]) => {
+    const [beach, slice] = key.split(":");
+    return {
+      slice: slice as DirectionSlice,
+      beach,
+      sample_count: value.count,
+      mae_m: value.absolute / value.count,
+      bias_m: value.signed / value.count,
+    };
+  });
+}
+
 function computeProposedDisplayHeightM(
   row: PredictionRow,
-  overrides: BeachTerrainConfig
+  overrides: BeachTerrainConfig,
 ): number | null {
   const context = parseForecastDisplayReplayContext(row.display_replay_context);
   if (!context || Date.parse(context.forecastAt) !== Date.parse(row.predicted_at)) return null;
@@ -1387,6 +1447,19 @@ function printMetricTable(metrics: ForecastAccuracyMetric[]): void {
     console.log(
       `| ${metric.horizon_bucket} | ${metric.baseline_label} | ${metric.sample_count} | ${fmt(metric.mae_m)} | ${fmt(metric.bias_m)} |`
     );
+  }
+}
+
+function printDirectionSlices(rows: PredictionRow[], beaches: BeachRow[]): void {
+  for (const baseline of ["offset_corrected_display_height_m", "proposed_display_height_m"] as const) {
+    const metrics = computeDirectionSliceMetrics(rows, beaches, baseline);
+    if (metrics.length === 0) continue;
+    console.log(`\n## ${baseline === "proposed_display_height_m" ? "Proposed" : "Current"} by direction slice and beach`);
+    console.log("| Beach | Direction slice | N | MAE (m) | Bias (m) |");
+    console.log("|-------|-----------------|---|---------|----------|");
+    for (const metric of metrics) {
+      console.log(`| ${escapeMarkdownCell(metric.beach)} | ${metric.slice} | ${metric.sample_count} | ${fmt(metric.mae_m)} | ${fmt(metric.bias_m)} |`);
+    }
   }
 }
 
@@ -1916,6 +1989,7 @@ async function main(): Promise<void> {
   }
   console.log("");
   printMetricTable(metrics);
+  if (proposedInput) printDirectionSlices(applied.rows, beaches);
   printDeltaTable(pairedDeltas);
   printGateDeltaTable(pairedGateDeltas, options.minGateSamples);
 

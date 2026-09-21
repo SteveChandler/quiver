@@ -121,6 +121,17 @@ test('decodes an approved photo before embedding it and keeps its credit', async
   expect(global.fetch).toHaveBeenCalledWith('https://cdn.quiversurf.app/beach.webp', expect.objectContaining({ redirect: 'error' }));
 });
 
+test('loads approved site-relative photos from the request origin', async () => {
+  const bytes = await sharp({ create: { width: 4, height: 4, channels: 3, background: '#abc' } }).png().toBuffer();
+  mockQuery.maybeSingle.mockResolvedValue({ data: { image_url: '/images/beaches/baja/k-38.jpg', creator_name: 'Local Photographer' } });
+  global.fetch = jest.fn().mockResolvedValue(new Response(new Uint8Array(bytes), { headers: { 'content-type': 'image/png' } }));
+
+  await GET(request());
+
+  expect(global.fetch).toHaveBeenCalledWith('https://quiversurf.app/images/beaches/baja/k-38.jpg', expect.objectContaining({ redirect: 'error' }));
+  expect(elements(mockElement).some(element => element.type === 'img')).toBe(true);
+});
+
 test.each(['query error', 'unsafe URL', 'network error', 'corrupt image'])('keeps the report and safe gradient for a %s photo', async (scenario) => {
   mockQuery.maybeSingle.mockResolvedValue({ data: { image_url: 'https://cdn.quiversurf.app/beach.webp' }, error: scenario === 'query error' ? { message: 'offline' } : null });
   jest.mocked(validateURL).mockResolvedValue({ isValid: scenario !== 'unsafe URL' });

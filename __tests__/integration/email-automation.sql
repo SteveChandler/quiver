@@ -6,7 +6,7 @@ ALTER TABLE pro_offer_programs DISABLE TRIGGER freeze_pro_offer_program;
 UPDATE pro_offer_programs SET automatic_enrollment=true WHERE id='five_sessions_month';
 ALTER TABLE pro_offer_programs ENABLE TRIGGER freeze_pro_offer_program;
 DO $$
-DECLARE u uuid:='11111111-1111-4111-8111-111111111111'; a uuid; reply_lease jsonb; count_before integer;
+DECLARE u uuid:='11111111-1111-4111-8111-111111111111'; a uuid; count_before integer;
 BEGIN
  UPDATE email_contact_state SET paused_at=NULL,history_reviewed_at=now() WHERE user_id=u;
  UPDATE email_contact_controls SET automation_campaign='startup-lifecycle-v1',history_cutover_at=now(),history_cutover_reference='approved cutover';
@@ -34,12 +34,6 @@ BEGIN
  ASSERT (SELECT count(*) FROM sessions WHERE user_id=u)=count_before;
  ASSERT (SELECT count(*) FROM pro_offer_awards WHERE user_id=u)=1;
  ASSERT (SELECT cardinality(session_ids)=5 FROM pro_offer_awards WHERE id=a);
- UPDATE email_reply_sync SET status='healthy',lease_id=NULL,lease_expires_at=NULL;
- reply_lease:=claim_gmail_reply_sync('mail@gmail.com');
- PERFORM retryable_gmail_reply_failure((reply_lease->>'lease_id')::uuid);
- ASSERT (SELECT status='pending' AND history_id=reply_lease->>'history_id' FROM email_reply_sync);
- reply_lease:=claim_gmail_reply_sync('mail@gmail.com');
- PERFORM finish_gmail_reply_sync((reply_lease->>'lease_id')::uuid,reply_lease->>'history_id',0);
  ASSERT NOT has_function_privilege('authenticated','public.request_pro_offer_claim(uuid,text)','EXECUTE');
  ASSERT NOT has_function_privilege('anon','public.enroll_automatic_pro_offers()','EXECUTE');
 END $$;

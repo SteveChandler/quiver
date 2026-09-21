@@ -86,7 +86,7 @@ it.each(waikiki.replayClockBounds)("closes the retained Waikiki rank-swap episod
     peakWindow: { earliestAt: "2026-09-18T18:00:00.000Z", latestAt: "2026-09-18T21:00:00.000Z" },
     arrivalWindow: { earliestAt: "2026-09-18T15:00:00.000Z", latestAt: "2026-09-18T18:00:00.000Z" },
     closureWindow: { earliestAt: "2026-09-20T00:00:00.000Z", latestAt: "2026-09-20T03:00:00.000Z" } });
-  expect(result.derivation).toMatchObject({ version: "swell-watch-horizon-derivation.v2", nativeFrames: 136, interpolatedFrames: 32 });
+  expect(result.derivation).toMatchObject({ version: "swell-watch-horizon-derivation.v3", nativeFrames: 136, interpolatedFrames: 32, boundaryDeferrals: [] });
   expect(input).toEqual(before);
 });
 it("recognizes the native rank swap that hourly interpolation broke", () => {
@@ -95,8 +95,14 @@ it("recognizes the native rank swap that hourly interpolation broke", () => {
   expect(matchSwellWatchFrame(series[138].map((part) => [part]), series[139], policy)).toEqual([null, null]);
   expect(() => deriveSwellWatchHorizon(nativeInput())).not.toThrow();
 });
-it("suppresses an onset bracket crossing the five-day boundary", () => {
-  expect(() => deriveSwellWatchHorizon({ ...nativeInput(), now: "2026-09-13T16:00:00Z" })).toThrow("arrival_window_crosses_actionability");
+it("defers an onset bracket crossing the five-day boundary", () => {
+  const input = { ...nativeInput(), now: "2026-09-13T16:00:00Z" };
+  const before = structuredClone(input);
+  const result = deriveSwellWatchHorizon(input);
+  expect(result.events).toEqual([]);
+  expect(result.derivation.boundaryDeferrals).toEqual([{ boundary: "maximum", sourceSlot: "s1",
+    arrivalWindow: { earliestAt: "2026-09-18T15:00:00.000Z", latestAt: "2026-09-18T18:00:00.000Z" } }]);
+  expect(input).toEqual(before);
 });
 
 function syntheticEpisode(from: number, to: number): ReturnType<typeof series> {
@@ -114,11 +120,50 @@ it("reports hourly peak neighbours clipped to the episode", () => {
   const single = derive(syntheticEpisode(78, 78), config.policy as SwellWatchPolicy);
   expect(single.events[0].peakWindow).toEqual({ earliestAt: at(78), latestAt: at(78) });
 });
-it("suppresses an hourly onset bracket crossing the two-day boundary", () => {
-  expect(() => deriveSwellWatchHorizon({ ...nativeInput(), series: syntheticEpisode(54, 60),
+it("defers a two-day boundary episode and still emits a later episode on the same track", () => {
+  const value = syntheticEpisode(54, 60);
+  for (let i = 78; i <= 84; i++) value[i][1].heightM = 1.5;
+  const input = { ...nativeInput(), series: value,
     sampling: { profile: resolveNativeSamplingProfile(sourceIdentity), issuedAt: new Date(start).toISOString() },
     beach: { swell_window_center_deg: 170, swell_window_halfwidth_deg: 30 },
-    now: new Date(start + 5.5 * 3_600_000).toISOString() })).toThrow("arrival_window_crosses_actionability");
+    now: new Date(start + 5.5 * 3_600_000).toISOString() };
+  const before = structuredClone(input);
+  const result = deriveSwellWatchHorizon(input);
+  expect(result.events.map((event) => event.arrivalAt)).toEqual([value[78][1].forecastAt]);
+  expect(result.derivation.boundaryDeferrals).toEqual([{ boundary: "minimum", sourceSlot: "s2",
+    arrivalWindow: { earliestAt: value[53][1].forecastAt, latestAt: value[54][1].forecastAt } }]);
+  expect(input).toEqual(before);
+});
+it.each(["unbounded", "unclosed"])("does not suppress a deferred %s episode", (kind) => {
+  const value = syntheticEpisode(54, kind === "unclosed" ? 167 : 60);
+  if (kind === "unbounded") for (let i = 54; i <= 60; i++) value[i][1].periodS = 20;
+  const result = deriveSwellWatchHorizon({ ...nativeInput(), series: value,
+    sampling: { profile: resolveNativeSamplingProfile(sourceIdentity), issuedAt: new Date(start).toISOString() },
+    beach: { swell_window_center_deg: 170, swell_window_halfwidth_deg: 30 },
+    now: new Date(start + 5.5 * 3_600_000).toISOString() });
+  expect(result.events).toEqual([]);
+  expect(result.derivation.boundaryDeferrals).toEqual([{ boundary: "minimum", sourceSlot: "s2",
+    arrivalWindow: { earliestAt: value[53][1].forecastAt, latestAt: value[54][1].forecastAt } }]);
+});
+it("orders deferrals by latest onset then source slot regardless of row order", () => {
+  const value = syntheticEpisode(54, 60);
+  for (let i = 124; i < 168; i++) for (const part of value[i]) part.heightM = Math.min(1.5, 0.3 + (i - 123) * 0.4);
+  const input = { ...nativeInput(), series: value,
+    sampling: { profile: resolveNativeSamplingProfile(sourceIdentity), issuedAt: new Date(start).toISOString() },
+    beach: { swell_window_center_deg: 200, swell_window_halfwidth_deg: 100 },
+    now: new Date(start + 5.5 * 3_600_000).toISOString() };
+  const expected = [
+    { boundary: "minimum", sourceSlot: "s2", arrivalWindow: { earliestAt: value[53][0].forecastAt, latestAt: value[54][0].forecastAt } },
+    ...["s1", "s2"].map((sourceSlot) => ({ boundary: "maximum", sourceSlot,
+      arrivalWindow: { earliestAt: value[123][0].forecastAt, latestAt: value[126][0].forecastAt } })),
+  ];
+  const before = structuredClone(input);
+  for (const series of [value, value.map((frame) => [...frame].reverse())]) {
+    const result = deriveSwellWatchHorizon({ ...input, series });
+    expect(result.events).toEqual([]);
+    expect(result.derivation.boundaryDeferrals).toEqual(expected);
+  }
+  expect(input).toEqual(before);
 });
 it.each([[10, 15], [115, 119]])("drops an arrival window wholly outside actionability (%i..%i)", (from, to) => {
   const now = from === 115 ? new Date(start - 24 * 3_600_000).toISOString() : new Date(start).toISOString();

@@ -8,7 +8,7 @@ const payload = { from: "Quiver <hello@example.com>", to: "surfer@example.com", 
 const original = process.env;
 beforeEach(() => {
   jest.clearAllMocks();
-  process.env = { ...original, EMAIL_LIFECYCLE_ENABLED: "true", EMAIL_REPLY_INGESTION_VERIFIED: "true", RESEND_API_KEY: "fake" };
+  process.env = { ...original, EMAIL_LIFECYCLE_ENABLED: "true", RESEND_API_KEY: "fake" };
   delete process.env.PLAYWRIGHT_TEST;
   delete process.env.NEXT_PUBLIC_E2E_DISABLE_EMAIL_SENDS;
   mockRpc.mockResolvedValue(true);

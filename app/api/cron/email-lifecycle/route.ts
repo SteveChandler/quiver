@@ -15,7 +15,7 @@ export async function GET(request: Request): Promise<Response> {
   if (mode && mode !== "dry-run" && mode !== "live") return NextResponse.json({ error: "Invalid mode" }, { status: 400 });
   const dryRun = mode === "dry-run";
   const slug = "email-lifecycle";
-  const checkIn = dryRun ? "" : startCronCheckIn({ slug, schedule: "*/15 * * * *", checkinMarginMinutes: 15, maxRuntimeMinutes: 3 });
+  const checkIn = dryRun ? "" : startCronCheckIn({ slug, schedule: "0 * * * *", checkinMarginMinutes: 15, maxRuntimeMinutes: 3 });
   let status: "ok" | "error" = "error";
   try {
     const feedback = dryRun ? undefined : await runTrialFeedbackReconciliation();

@@ -1,5 +1,6 @@
 {
   "host": "www.quiversurf.app",
+  "handoff_host": "go.quiversurf.app",
   "rules": [
     { "path": "/invite", "match": "prefix" },
     { "path": "/beach", "match": "prefix" },

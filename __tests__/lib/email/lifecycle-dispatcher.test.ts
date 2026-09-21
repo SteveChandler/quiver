@@ -1,14 +1,21 @@
 /** @jest-environment node */
-import { runEmailLifecycle } from "@/lib/email/lifecycle-dispatcher";
+import { lifecycleMaxAcceptedPerRun, runEmailLifecycle } from "@/lib/email/lifecycle-dispatcher";
 const mockRefreshUser = jest.fn();
 jest.mock("@/lib/subscription/offer-automation", () => ({ refreshLifecycleEligibility: async () => ({ checked: 0, failed: 0 }), refreshLifecycleUserEligibility: (...args: unknown[]) => mockRefreshUser(...args) }));
-const mockSync = jest.fn();
-jest.mock("@/lib/email/gmail-replies", () => ({ ensureGmailRepliesFresh: () => mockSync() }));
+const mockReplyCheck = jest.fn();
+jest.mock("@/lib/email/gmail-replies", () => ({ checkGmailRepliesBeforeSend: () => mockReplyCheck(), gmailFailureCode: () => "gmail_transport_error" }));
 const mockRpc = jest.fn(); const mockDb = jest.fn(); const mockSend = jest.fn();
 jest.mock("@/lib/email/lifecycle", () => ({ ...jest.requireActual("@/lib/email/lifecycle"), lifecycleRpc: (...args: unknown[]) => mockRpc(...args) }));
 jest.mock("@/lib/supabase/server", () => ({ createSupabaseServiceRoleClient: () => mockDb() }));
 jest.mock("@/lib/mailer/client", () => ({ getBaseUrl: () => "https://www.quiversurf.app", sendReservedLifecycleEmail: (...args: unknown[]) => mockSend(...args) }));
 beforeEach(() => { jest.clearAllMocks(); delete process.env.EMAIL_LIFECYCLE_ENABLED; });
+it.each([
+  [undefined, 5], ["", 5], ["0", 5], ["201", 5], ["5.5", 5], ["12", 12], ["1", 1], ["200", 200],
+])("parses lifecycle burst guard %s", (value, expected) => {
+  if (value === undefined) delete process.env.EMAIL_LIFECYCLE_MAX_PER_RUN;
+  else process.env.EMAIL_LIFECYCLE_MAX_PER_RUN = value;
+  expect(lifecycleMaxAcceptedPerRun()).toBe(expected);
+});
 it("disabled mode does not read or write production state", async () => {
   expect(await runEmailLifecycle(false)).toEqual({ status: "disabled", accepted: 0 });
   expect(mockRpc).not.toHaveBeenCalled(); expect(mockDb).not.toHaveBeenCalled(); expect(mockSend).not.toHaveBeenCalled();
@@ -26,15 +33,31 @@ it("a missing run ledger blocks all provider work", async () => {
   await expect(runEmailLifecycle(false)).rejects.toThrow("Cannot persist lifecycle run"); expect(mockSend).not.toHaveBeenCalled();
 });
 
-it("inbox scan failure blocks every handoff and finishes the run as failed", async () => {
+it("reply check failure blocks every handoff and returns attention", async () => {
   process.env.EMAIL_LIFECYCLE_ENABLED = "true";
-  mockRpc.mockResolvedValueOnce([]).mockResolvedValueOnce({ unknown_handoffs: 0, expired_reservations: 0 });
-  mockSync.mockRejectedValueOnce(Error("history gap"));
+  const userId = "11111111-1111-4111-8111-111111111111";
+  mockRpc.mockResolvedValueOnce([userId]).mockResolvedValueOnce({ unknown_handoffs: 0, expired_reservations: 0 }).mockResolvedValueOnce({
+    user_id: userId, campaign_id: null, status: "due", reason: "eligible", job: "welcome", source: {
+      email: "surfer@example.com", name: null, home_beach_id: null, sessions: 0, last_completion: null, trial_end: null,
+    },
+  });
+  mockReplyCheck.mockRejectedValueOnce(Error("history gap"));
   const update = jest.fn().mockReturnValue({ eq: async () => ({ error: null }) });
   mockDb.mockResolvedValue({ from: () => ({ insert: () => ({ select: () => ({ single: async () => ({ data: { id: "run" }, error: null }) }) }), update }) });
-  await expect(runEmailLifecycle(false)).rejects.toThrow("history gap");
+  await expect(runEmailLifecycle(false)).resolves.toMatchObject({ status: "attention", accepted: 0, reply_check: { status: "failed" } });
   expect(mockSend).not.toHaveBeenCalled(); expect(mockRpc).not.toHaveBeenCalledWith("claim_email_lifecycle", expect.anything());
-  expect(update).toHaveBeenCalledWith(expect.objectContaining({ status: "error", produced: 0 }));
+  expect(update).toHaveBeenCalledWith(expect.objectContaining({ status: "error", produced: 0, summary: expect.objectContaining({ reply_check: { status: "failed", reason: "gmail_transport_error" } }) }));
+});
+
+it("skips the reply check when no candidate is due", async () => {
+  process.env.EMAIL_LIFECYCLE_ENABLED = "true";
+  const userId = "11111111-1111-4111-8111-111111111111";
+  mockRpc.mockImplementation(async name => name === "email_lifecycle_cohort" ? [userId] : name === "reconcile_email_lifecycle" ? { unknown_handoffs: 0, expired_reservations: 0 } : name === "evaluate_email_lifecycle" ? { user_id: userId, campaign_id: null, status: "held", reason: "quiet" } : name === "email_automation_health" ? { due_unsent: 0, enrollment_pending: 0, approval_unavailable: 0 } : null);
+  const update = jest.fn().mockReturnValue({ eq: async () => ({ error: null }) });
+  mockDb.mockResolvedValue({ from: () => ({ insert: () => ({ select: () => ({ single: async () => ({ data: { id: "run" }, error: null }) }) }), update }) });
+  await expect(runEmailLifecycle(false)).resolves.toMatchObject({ status: "ok", reply_check: { status: "skipped" } });
+  expect(mockReplyCheck).not.toHaveBeenCalled();
+  expect(mockRpc.mock.calls.filter(([name]) => name === "evaluate_email_lifecycle")).toHaveLength(1);
 });
 
 it("marks the persisted run as an error when approval has expired, even with no due recipients", async () => {
@@ -49,7 +72,6 @@ it("marks the persisted run as an error when approval has expired, even with no 
 
 it.each([false, true])("refreshes promo eligibility before reservation; provider failure=%s", async providerFails => {
  process.env.EMAIL_LIFECYCLE_ENABLED = "true";
- process.env.EMAIL_REPLY_INGESTION_VERIFIED = "true";
  process.env.EMAIL_REPLY_MAILBOX = "support@example.com";
  const userId = "11111111-1111-4111-8111-111111111111";
  const order: string[] = [];
@@ -60,6 +82,7 @@ it.each([false, true])("refreshes promo eligibility before reservation; provider
   if (name === "evaluate_email_lifecycle") return { user_id:userId,campaign_id:"startup-lifecycle-v1",status:"due",reason:"eligible",job:"offer_ready",source:{audience:"free",email:"surfer@example.com",name:null,home_beach_id:null,sessions:5,last_completion:null,trial_end:null,offer_id:"33333333-3333-4333-8333-333333333333",offer_months:1} };
   if (name === "claim_email_lifecycle") { order.push("reservation"); return { allowed:false,reason:"eligibility_changed" }; }
   if (name === "email_automation_health") return { due_unsent:0,enrollment_pending:0 };
+  if (name === "gmail_reply_known") return [];
   return null;
  });
  const update = jest.fn().mockReturnValue({ eq:async () => ({ error:null }) });
@@ -68,6 +91,7 @@ it.each([false, true])("refreshes promo eligibility before reservation; provider
  const outcome = await result.catch(error => ({ error:error.message }));
  expect(outcome).toMatchObject(providerFails ? { error:"provider unavailable" } : { accepted:0 });
  expect(order).toEqual(providerFails ? ["provider_read"] : ["provider_read", "reservation"]);
+ expect(mockRpc.mock.calls.filter(([name]) => name === "evaluate_email_lifecycle")).toHaveLength(1);
  expect(mockRefreshUser).toHaveBeenCalledWith(userId);
  expect(mockSend).not.toHaveBeenCalled();
 });

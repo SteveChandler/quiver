@@ -11,9 +11,14 @@ export type { Database, Json }
 // TABLE ROW TYPES - Direct database table types
 // ===================================================
 
-export type Beach = Database['public']['Tables']['beaches']['Row']
-export type BeachInsert = Database['public']['Tables']['beaches']['Insert']
-export type BeachUpdate = Database['public']['Tables']['beaches']['Update']
+type BeachSeoFields = {
+  seo_title?: string | null
+  seo_description?: string | null
+}
+
+export type Beach = Database['public']['Tables']['beaches']['Row'] & BeachSeoFields
+export type BeachInsert = Database['public']['Tables']['beaches']['Insert'] & BeachSeoFields
+export type BeachUpdate = Database['public']['Tables']['beaches']['Update'] & BeachSeoFields
 
 /** Lightweight beach summary for lists, search results, and cards */
 export type BeachSummary = Pick<Beach, 'id' | 'name' | 'slug' | 'city' | 'state' | 'country' | 'lat' | 'lon'>

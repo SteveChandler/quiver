@@ -18,6 +18,7 @@ import {
   angleDifference as sharedAngleDifference,
 } from '../shared';
 import { parseSkillLevel } from '../user-preferences/skill-level';
+import { isDirectionScoringEnabledForBeach } from '@/lib/flags/direction-scoring';
 
 /**
  * Creates a SpotProfile from a Beach database row.
@@ -71,6 +72,22 @@ function getTimezone(beach: Beach): string {
  * Creates SwellWindow from beach swell direction data.
  */
 function createSwellWindow(beach: Beach): SwellWindow {
+  if (isDirectionScoringEnabledForBeach(beach)) {
+    const centerDeg = beach.swell_window_center_deg;
+    const halfWidthDeg = beach.swell_window_halfwidth_deg;
+    if (centerDeg == null || halfWidthDeg == null) {
+      return { minDeg: 0, maxDeg: 0, centerDeg: 0, halfWidthDeg: 0, defined: false };
+    }
+
+    return {
+      minDeg: normalizeAngle(centerDeg - halfWidthDeg),
+      maxDeg: normalizeAngle(centerDeg + halfWidthDeg),
+      centerDeg: normalizeAngle(centerDeg),
+      halfWidthDeg,
+      defined: true,
+    };
+  }
+
   const minDeg = beach.swell_window_min_deg;
   const maxDeg = beach.swell_window_max_deg;
 

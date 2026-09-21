@@ -2,7 +2,6 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { AppDeepLinkCTA } from "@/components/session-intelligence";
-import { IOS_APP_STORE_WEB_REDIRECT_PATH } from "@/lib/constants/app-store";
 import {
   HandoffRecommendationMode,
   HandoffRecommendationVerdict,
@@ -104,7 +103,10 @@ describe("AppDeepLinkCTA", () => {
 
     expect(
       screen.getByRole("link", { name: "Open App Store" }),
-    ).toHaveAttribute("href", IOS_APP_STORE_WEB_REDIRECT_PATH);
+    ).toHaveAttribute(
+      "href",
+      expect.stringContaining("https://go.quiversurf.app/app/handoff"),
+    );
   });
 
   it("tracks surf-window and app-deeplink clicks with fallback context", async () => {
@@ -174,7 +176,9 @@ describe("AppDeepLinkCTA", () => {
       metadata: expect.objectContaining({
         surface: "dev_preview",
         window_id: "window-1",
-        target_href: IOS_APP_STORE_WEB_REDIRECT_PATH,
+        target_href: expect.stringContaining(
+          "https://go.quiversurf.app/app/handoff?",
+        ),
         link_type: "app_store",
         fallback_to_app_store: true,
       }),

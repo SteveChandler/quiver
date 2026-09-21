@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useRef, type ReactElement, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  type MouseEvent,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 
 import {
   trackIosAppCtaClick,
@@ -8,8 +14,9 @@ import {
 } from "@/lib/analytics/ios-app-cta-tracking";
 import {
   IOS_APP_STORE_CTA,
-  IOS_APP_STORE_WEB_REDIRECT_PATH,
 } from "@/lib/constants/app-store";
+import { createClientAppHandoffLink } from "@/lib/analytics/app-handoff-link";
+import { buildAppHandoffUrl } from "@/lib/constants/app-handoff";
 
 interface IosAppStoreCtaProps {
   source: string;
@@ -18,8 +25,6 @@ interface IosAppStoreCtaProps {
   className?: string;
   children?: ReactNode;
 }
-
-const IOS_APP_STORE_CAMPAIGN_URL = IOS_APP_STORE_WEB_REDIRECT_PATH;
 
 export function IosAppStoreCta({
   source,
@@ -30,6 +35,11 @@ export function IosAppStoreCta({
 }: IosAppStoreCtaProps): ReactElement {
   const linkRef = useRef<HTMLAnchorElement>(null);
   const hasTrackedView = useRef(false);
+  const iosAppHandoffUrl = buildAppHandoffUrl({
+    source,
+    surface,
+    placement,
+  });
 
   useEffect(() => {
     const link = linkRef.current;
@@ -42,7 +52,7 @@ export function IosAppStoreCta({
         source,
         surface,
         placement,
-        destination_url: IOS_APP_STORE_CAMPAIGN_URL,
+        destination_url: iosAppHandoffUrl,
       });
     };
 
@@ -64,20 +74,27 @@ export function IosAppStoreCta({
     observer.observe(link);
 
     return () => observer.disconnect();
-  }, [placement, source, surface]);
+  }, [iosAppHandoffUrl, placement, source, surface]);
 
   return (
     <a
       ref={linkRef}
-      href={IOS_APP_STORE_CAMPAIGN_URL}
+      href={iosAppHandoffUrl}
       className={className}
-      onClick={() => {
+      onClick={(event: MouseEvent<HTMLAnchorElement>) => {
+        const handoff = createClientAppHandoffLink({
+          source,
+          surface,
+          placement,
+        });
+        event.currentTarget.href = handoff.url;
         trackIosAppCtaClick({
           source,
           surface,
           placement,
           cta_text: IOS_APP_STORE_CTA,
-          destination_url: IOS_APP_STORE_CAMPAIGN_URL,
+          destination_url: handoff.url,
+          handoff_id: handoff.handoffId,
         });
       }}
     >

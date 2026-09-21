@@ -30,16 +30,29 @@ const j = (value) => `${q(JSON.stringify(value))}::jsonb`;
 const command = ["exec", "-i", container, "psql", "-X", "-U", "postgres", "-qAt", "-v", "ON_ERROR_STOP=1"];
 function sql(text) {
   const result = spawnSync("docker", [...command, "-d", database], { input: text, encoding: "utf8", timeout: 30_000, maxBuffer: 32 * 1024 * 1024 });
-  if (result.status !== 0) throw new Error((result.stderr || "isolated PostgreSQL command failed").split("\n")[0].slice(0, 200));
+  if (result.status !== 0) {
+    const lines = (result.stderr || "isolated PostgreSQL command failed").trim().split("\n").filter(Boolean);
+    throw new Error((lines.filter((line) => !line.startsWith("NOTICE:")).slice(0, 4).join(" ") || lines[0]).slice(0, 500));
+  }
   return result.stdout.trim();
 }
 function value(text) { return JSON.parse(sql(text)); }
 const completeRule = "complete_partitions.v1";
 const partialRule = "primary_partition_with_retained_unavailable_secondary.v1";
+const modelCountRule = "model_reported_partition_count.v1";
+const swellSystemCountRule = "model_reported_swell_system_count.v1";
 const coverageMigration = readFileSync(new URL("../supabase/migrations/20260914050000_amend_swell_watch_study_partition_coverage.sql", import.meta.url), "utf8");
 const coverageRollback = readFileSync(new URL("../docs/operations/swell-watch-study-partition-coverage-rollback.sql", import.meta.url), "utf8");
 const modelPartitionCountMigration = readFileSync(new URL("../supabase/migrations/20260914190000_amend_swell_watch_study_model_partition_count.sql", import.meta.url), "utf8");
 const modelPartitionCountRollback = readFileSync(new URL("../docs/operations/swell-watch-study-model-partition-count-rollback.sql", import.meta.url), "utf8");
+const modelPartitionCountAmendment = readFileSync(new URL("../docs/operations/swell-watch-study-amend-model-partition-count.sql", import.meta.url), "utf8");
+const swellSystemCountMigration = readFileSync(new URL("../supabase/migrations/20260916170000_amend_swell_watch_study_swell_system_count.sql", import.meta.url), "utf8");
+const swellSystemCountRollback = readFileSync(new URL("../docs/operations/swell-watch-study-swell-system-count-rollback.sql", import.meta.url), "utf8");
+const swellSystemCountAmendment = readFileSync(new URL("../docs/operations/swell-watch-study-amend-swell-system-count.sql", import.meta.url), "utf8");
+const hardeningMigration = readFileSync(new URL("../supabase/migrations/20260918180000_harden_swell_watch_study_epochs_and_extend.sql", import.meta.url), "utf8");
+const extensionScript = readFileSync(new URL("../docs/operations/swell-watch-study-extend-20261231.sql", import.meta.url), "utf8");
+const hardeningRollback = readFileSync(new URL("../docs/operations/swell-watch-study-epochs-and-extension-rollback.sql", import.meta.url), "utf8");
+const extensionRevoke = readFileSync(new URL("../docs/operations/swell-watch-study-revoke-extension.sql", import.meta.url), "utf8");
 const amendment = readFileSync(new URL("../docs/operations/swell-watch-study-amend-partition-coverage.sql", import.meta.url), "utf8");
 const revokeAmendment = readFileSync(new URL("../docs/operations/swell-watch-study-revoke-partition-coverage.sql", import.meta.url), "utf8");
 const functionHashes = {
@@ -80,8 +93,17 @@ sql(modelPartitionCountRollback);
 assert.equal(studyEvaluationHash(), epochThreeStudyEvaluationHash);
 sql(modelPartitionCountMigration);
 assert.equal(studyEvaluationHash(), modelPartitionCountStudyEvaluationHash);
+sql(swellSystemCountMigration);
+const epoch5StudyEvaluationHash = "d1165986abe16e5c177a4d778dfa0f23ddd9d2b7407ee81c07755e39364c9f03";
+assert.equal(studyEvaluationHash(), epoch5StudyEvaluationHash);
+const epoch5Acl = studyPermissions();
+sql(swellSystemCountRollback);
+assert.equal(studyEvaluationHash(), modelPartitionCountStudyEvaluationHash);
+assert.equal(studyPermissions(), epoch5Acl);
+sql(swellSystemCountMigration);
+assert.equal(studyEvaluationHash(), epoch5StudyEvaluationHash);
 
-const tableRpcs = new Set(["record_swell_watch_provider_run_receipt", "complete_swell_watch_study_run", "record_swell_watch_shadow_demand"]);
+const tableRpcs = new Set(["record_swell_watch_provider_run_receipt", "complete_swell_watch_study_run", "record_swell_watch_shadow_demand", "record_swell_watch_study_recovery_failure"]);
 const jsonRpcs = new Set(["read_swell_watch_run_scope", "read_swell_watch_attested_run", "record_swell_watch_study_evaluation", "read_swell_watch_study_pending_runs"]);
 const calls = [];
 const client = {
@@ -258,13 +280,16 @@ if (process.env.SWELL_WATCH_NORMALIZATION_PROVIDER_PROBE === "true") {
 // belongs ONLY to a disposable database: exercise four issuances without relaxing 12h freshness.
 sql("CREATE DATABASE study_native_sampling TEMPLATE postgres;");
 database = "study_native_sampling";
-const waikiki = JSON.parse(readFileSync(new URL("../__tests__/fixtures/swell-watch-retained-20260913/waikiki-20260913T1200Z.json", import.meta.url), "utf8"));
-const hatteras = JSON.parse(readFileSync(new URL("../__tests__/fixtures/swell-watch-retained-20260913/hatteras-20260913T1200Z.json", import.meta.url), "utf8"));
+  const waikiki = JSON.parse(readFileSync(new URL("../__tests__/fixtures/swell-watch-retained-20260913/waikiki-20260913T1200Z.json", import.meta.url), "utf8"));
+  const hatteras = JSON.parse(readFileSync(new URL("../__tests__/fixtures/swell-watch-retained-20260913/hatteras-20260913T1200Z.json", import.meta.url), "utf8"));
+  const hatterasSep16 = JSON.parse(readFileSync(new URL("../__tests__/fixtures/swell-watch-retained-20260916/hatteras-20260916T00Z.json", import.meta.url), "utf8"));
+  const hatterasSep17 = JSON.parse(readFileSync(new URL("../__tests__/fixtures/swell-watch-retained-20260917/hatteras-20260917T12Z.json", import.meta.url), "utf8"));
 const waikikiIndex = cohort.findIndex((scope) => scope.sourcePointId === waikiki.sourcePointId);
 const hatterasIndex = cohort.findIndex((scope) => scope.sourcePointId === hatteras.sourcePointId);
 assert(waikikiIndex >= 0 && hatterasIndex >= 0);
-const nativeInputs = inputs.map((input, i) => ({ ...input, beach: i === waikikiIndex ? waikiki.beach : i === hatterasIndex ? hatteras.beach : input.beach }));
-const nativeScopes = nativeInputs.map((input, index) => ({ ...input, regionKey: cohort[index].regionKey }));
+  const nativeInputs = inputs.map((input, i) => ({ ...input, beach: i === waikikiIndex ? waikiki.beach : i === hatterasIndex ? hatteras.beach : input.beach }));
+  const nativeScopes = nativeInputs.map((input, index) => ({ ...input, regionKey: cohort[index].regionKey }));
+  assert.deepEqual(hatterasSep16.beach, hatteras.beach);
 const utcDay = runUtc.slice(0, 10);
 const issuances = [0, 6, 12, 18].map((hour) => `${utcDay}T${String(hour).padStart(2, "0")}:00:00.000Z`);
 const productionBodies = sql("SELECT jsonb_object_agg(oid::regprocedure::text,md5(prosrc)) FROM pg_proc WHERE pronamespace='public'::regnamespace;");
@@ -277,13 +302,22 @@ DO $$ DECLARE f regprocedure; BEGIN
     EXECUTE format('ALTER FUNCTION %s SET search_path=public,extensions,pg_catalog,pg_temp',f);
   END LOOP;
 END $$;`);
-const setClock = (issuance, hours = 8) => {
+  const setClock = (issuance, hours = 8) => {
   const now = new Date(Date.parse(issuance) + hours * 3_600_000).toISOString();
   sql(`UPDATE public.native_sampling_test_clock SET instant=${q(now)};`);
   assert.equal(sql("SELECT public.clock_timestamp()=instant FROM public.native_sampling_test_clock;"), "t");
-  return now;
-};
-try {
+    return now;
+  };
+  const retainedFields = (fixture) => fixture.semanticPayload?.hourly ?? Object.fromEntries([
+    ["swell_wave_height", "s1", "heightM"], ["swell_wave_period", "s1", "periodS"], ["swell_wave_direction", "s1", "directionDeg"],
+    ["secondary_swell_wave_height", "s2", "heightM"], ["secondary_swell_wave_period", "s2", "periodS"], ["secondary_swell_wave_direction", "s2", "directionDeg"],
+  ].map(([field, sourceSlot, key]) => [field, fixture.run.samples.map((sample) => sample.components.find((component) => component.sourceSlot === sourceSlot)[key])]));
+  const nativeRetainedZeroFrames = (fixture) => {
+    const retained = retainedFields(fixture);
+    return retained.secondary_swell_wave_height.flatMap((height, index) => height === 0 && retained.secondary_swell_wave_period[index] === 0
+      && retained.secondary_swell_wave_direction[index] === 0 && (index <= 120 || (index - 120) % 3 === 0) ? [index] : []);
+  };
+  try {
   sql(`INSERT INTO public.beaches(id,lat,lon,swell_window_center_deg,swell_window_halfwidth_deg,terrain_enabled,deepwater_decay_factor,swell_access_factors,shoaling_factors)
   SELECT (s->>'sourcePointId')::uuid,(s->>'latitude')::float8,(s->>'longitude')::float8,
     (s#>>'{beach,swell_window_center_deg}')::float8,(s#>>'{beach,swell_window_halfwidth_deg}')::float8,
@@ -305,7 +339,7 @@ try {
   const nativeClient = { ...client, from(table) {
     const filters = []; let columns; let offset = 0; let limit = 1001;
     const history = table === "swell_watch_event_impacts";
-    assert(history || ["profiles", "favorite_beaches", "alert_rules", "user_devices", "beaches"].includes(table));
+    assert(history || ["profiles", "favorite_beaches", "alert_rules", "user_devices", "beaches", "swell_watch_event_aliases"].includes(table));
     const builder = {
       select(selected) { columns = selected; return builder; },
       eq(key, item) {
@@ -336,13 +370,25 @@ try {
     return builder;
   } };
   async function nativeRun(issuance, missing = false, qualificationRule = completeRule, options = {}) {
-    const now = setClock(issuance);
+    const now = options.preserveClock ? sql("SELECT public.clock_timestamp();") : setClock(issuance);
     const receipts = await Promise.all(cohort.map(async ({ sourcePointId }, i) => {
       const payload = body(issuance);
-      if ((!options.flat && i === waikikiIndex) || (missing && i === hatterasIndex)) {
-        const retained = missing && i === hatterasIndex ? hatteras : waikiki;
-        for (const field of fields) payload.hourly[field] = [...retained.semanticPayload.hourly[field]];
-        assert.deepEqual(fields.map((field) => payload.hourly[field]), fields.map((field) => retained.semanticPayload.hourly[field]), "Retained values unchanged; timestamps and synthetic location only are shifted");
+      const retainedFixture = options.retained === "hatteras2026-09-17T12" && i === hatterasIndex ? hatterasSep17
+        : options.retained && i === hatterasIndex ? hatterasSep16
+        : missing && i === hatterasIndex ? hatteras : !options.flat && i === waikikiIndex ? waikiki : null;
+      if (retainedFixture) {
+        const retained = retainedFields(retainedFixture);
+        for (const field of fields) payload.hourly[field] = [...retained[field]];
+        assert.deepEqual(fields.map((field) => payload.hourly[field]), fields.map((field) => retained[field]), "Retained values unchanged; timestamps and synthetic location only are shifted");
+      }
+      if (options.mismatchedPrimaryZeros && i === hatterasIndex) {
+        const retained = retainedFields(hatterasSep16);
+        for (const hour of [103, 104, 105]) {
+          for (const field of fields.slice(0, 3)) payload.hourly[field][hour] = 0;
+          payload.hourly.secondary_swell_wave_height[hour] = retained.secondary_swell_wave_height[106];
+          payload.hourly.secondary_swell_wave_period[hour] = retained.secondary_swell_wave_period[106];
+          payload.hourly.secondary_swell_wave_direction[hour] = retained.secondary_swell_wave_direction[106];
+        }
       }
       if (options.syntheticGap && i === hatterasIndex) {
         fields.slice(3).forEach((field) => { for (let hour = 4; hour <= 14; hour++) payload.hourly[field][hour] = 0; });
@@ -361,6 +407,7 @@ try {
       assert.equal(sql("SELECT count(*) FROM public.swell_watch_study_acceptances;"), "0");
       setClock(issuance);
     }
+    if (options.deferComplete) return { receipts, stored };
     const result = await nativeClient.rpc("complete_swell_watch_study_run", { p_revision_set_id: stored.revisionSetId,
       p_policy_hash: policy.value_hash, p_cohort: cohort, p_scope_inputs: nativeInputs });
     assert.equal(result.error, null); assert.equal(result.data.length, 1);
@@ -375,8 +422,8 @@ try {
     assert.match(rejected.error?.message ?? "", /invalid study scope outcomes/, "Scope outcomes still reject extra keys");
     const recorded = await nativeClient.rpc("record_swell_watch_study_evaluation", recordArgs);
     assert.equal(recorded.error, null); assert.equal(recorded.data.recorded, true);
-    assert.equal(evaluation.derivation.version, "swell-watch-horizon-derivation.v2");
-    assert.equal(evaluation.derivation.scopes.length, missing ? 9 : 10);
+    assert.equal(evaluation.derivation.version, "swell-watch-horizon-derivation.v3");
+    assert.equal(evaluation.derivation.scopes.length, missing && evaluation.status === "suppressed" ? 9 : 10);
     assert(evaluation.derivation.scopes.every((scope) => scope.nativeFrames === 136 && scope.interpolatedFrames === 32));
     const persisted = value(`SELECT result FROM public.swell_watch_study_evaluations WHERE provider_batch_id=${q(completed.provider_batch_id)};`);
     assert.deepEqual(persisted, evaluation, "SQL accepts and retains top-level derivation metadata");
@@ -393,7 +440,7 @@ try {
     WHERE provider_batch_id=${q(nativeFirst.completed.provider_batch_id)};`);
   const shifted = (at) => new Date(Date.parse(at) + Date.parse(issuances[0]) - Date.parse(waikiki.issuedAt)).toISOString();
   assert.deepEqual(persistedScopes.find((scope) => scope.sourcePointId === cohort[waikikiIndex].sourcePointId), {
-    sourcePointId: cohort[waikikiIndex].sourcePointId, nativeFrames: 136, interpolatedFrames: 32, partitionCoverage: { s1: { observed: 168, unavailable: 0, absent: 0 }, s2: { observed: 168, unavailable: 0, absent: 0, unavailableNativeFrames: [], absentNativeFrames: [] } },
+    sourcePointId: cohort[waikikiIndex].sourcePointId, nativeFrames: 136, interpolatedFrames: 32, boundaryDeferrals: [], partitionCoverage: { s1: { observed: 168, unavailable: 0, absent: 0, absentNativeFrames: [] }, s2: { observed: 168, unavailable: 0, absent: 0, unavailableNativeFrames: [], absentNativeFrames: [] } },
     events: [{ sourceSlot: "s1", arrivalAt: shifted("2026-09-18T18:00:00.000Z"),
       arrivalWindow: { earliestAt: shifted("2026-09-18T15:00:00.000Z"), latestAt: shifted("2026-09-18T18:00:00.000Z") },
       peakAt: shifted("2026-09-18T18:00:00.000Z"),
@@ -507,9 +554,15 @@ try {
   assert.equal(currentQueue.error, null); assert(!currentQueue.data.some((run) => run.revision_set_id === pendingRun.stored.revisionSetId));
   const retainedIssuance = new Date(Date.parse(issuances[0]) + 42 * 3_600_000).toISOString();
   const retainedAmended = await nativeRun(retainedIssuance, true, partialRule);
-  assert.equal(retainedAmended.evaluation.status, "suppressed");
-  assert.equal(retainedAmended.evaluation.reason, "arrival_window_crosses_actionability");
-  assert.deepEqual(retainedAmended.evaluation.scopeOutcomes[hatterasIndex], { sourcePointId: cohort[hatterasIndex].sourcePointId, status: "suppressed", reason: "arrival_window_crosses_actionability" });
+  assert.equal(retainedAmended.evaluation.status, "evaluated");
+  assert.equal(retainedAmended.evaluation.reason, null);
+  assert.deepEqual(retainedAmended.evaluation.scopeOutcomes[hatterasIndex], { sourcePointId: cohort[hatterasIndex].sourcePointId, status: "derived", reason: null });
+  const deferredHatteras = retainedAmended.evaluation.derivation.scopes[hatterasIndex];
+  assert.deepEqual(deferredHatteras.events, []);
+  assert.deepEqual(deferredHatteras.boundaryDeferrals, [{ boundary: "minimum", sourceSlot: "s1", arrivalWindow: {
+    earliestAt: new Date(Date.parse(retainedIssuance) + 47 * 3_600_000).toISOString(),
+    latestAt: new Date(Date.parse(retainedIssuance) + 88 * 3_600_000).toISOString(),
+  } }]);
   assert.equal(retainedAmended.evaluation.derivation.qualificationRule, partialRule);
   assert.equal(sql(`SELECT count(*) FROM public.swell_watch_provider_run_completed_batches b
     JOIN public.swell_watch_provider_run_revision_set_members m ON m.revision_set_id=b.revision_set_id
@@ -538,18 +591,19 @@ try {
     assert.equal(result.evaluation.status, "evaluated");
     assert.equal(result.evaluation.candidateCount, 1, "Retained Waikiki's completely observed event persists");
     assert.deepEqual(result.evaluation.derivation.scopes[hatterasIndex].partitionCoverage, {
-      s1: { observed: 168, unavailable: 0, absent: 0 }, s2: { observed: 157, unavailable: 11, absent: 0, unavailableNativeFrames: Array.from({ length: 11 }, (_, i) => i + 4), absentNativeFrames: [] },
+      s1: { observed: 168, unavailable: 0, absent: 0, absentNativeFrames: [] }, s2: { observed: 157, unavailable: 11, absent: 0, unavailableNativeFrames: Array.from({ length: 11 }, (_, i) => i + 4), absentNativeFrames: [] },
     });
     assert.equal(result.evaluation.derivation.qualificationRule, partialRule);
     assert.equal(value("SELECT public.read_swell_watch_study_health();").qualifyingDays, index === 3 ? 1 : 0);
   }
   const partialHealth = value("SELECT public.read_swell_watch_study_health();");
   assert.equal(partialHealth.qualificationRule, partialRule); assert.equal(partialHealth.authorityEpoch, 3);
-  assert.equal(partialHealth.evaluatedRuns, 4); assert.equal(partialHealth.suppressedAttempts, 1);
+  assert.equal(partialHealth.evaluatedRuns, 5); assert.equal(partialHealth.suppressedAttempts, 0);
   assert.deepEqual(partialHealth.qualifyingDates, [qualifiedIssuances[0].slice(0, 10)]);
   assert.deepEqual(authorityRows(), amendedAuthority);
   assert.deepEqual(value("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;"), policyRows);
   assert.deepEqual(sendCounts(), nativeSafety);
+  sql("CREATE DATABASE study_swell_system_count TEMPLATE study_partition_coverage;");
   for (const field of ["not_before", "expires_at"]) {
     assert.throws(() => sql(`BEGIN;
       INSERT INTO public.swell_watch_study_authorities(epoch,state,policy_hash,cohort,scope_inputs,config_hash,target_days,
@@ -575,7 +629,300 @@ try {
     retainedUnavailableSecondaryHours: 48, syntheticGapUnavailableSecondaryHours: 11,
     evaluatedRuns: partialHealth.evaluatedRuns, qualifyingDays: partialHealth.qualifyingDays,
     staleEpochRecovery: recovery, healthRule: partialHealth.qualificationRule, sends: nativeSafety }, null, 2));
+  database = "study_swell_system_count";
+  const systemAuthority = authorityRows();
+  const systemPolicyRows = value("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;");
+  const systemSafety = sendCounts();
+  const replacePinned = (script, pin, replacement) => {
+    assert.equal(script.split(pin).length, 2, `Expected one reviewed pin: ${pin}`);
+    return script.replace(pin, replacement);
+  };
+  // The template carries epoch-3 event history; keep evidence and authorities, but avoid re-attesting superseded events.
+  sql(`TRUNCATE TABLE public.swell_watch_shadow_demand_pairs,public.swell_watch_shadow_demand_runs,public.swell_watch_recipient_announcements,
+    public.swell_watch_event_impacts,public.swell_watch_event_evaluations,public.swell_watch_event_state_transitions,public.swell_watch_event_aliases,
+    public.swell_watch_regional_events,public.swell_watch_beach_impacts,public.swell_watch_observations CASCADE;`);
+  sql("ALTER FUNCTION public.record_swell_watch_study_evaluation(uuid,text,jsonb,jsonb) SET search_path=public,pg_temp;");
+  sql(modelPartitionCountMigration);
+  assert.equal(studyEvaluationHash(), modelPartitionCountStudyEvaluationHash);
+  assert.deepEqual(authorityRows().slice(0, 3), systemAuthority);
+  assert.deepEqual(value("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;"), systemPolicyRows);
+  assert.deepEqual(sendCounts(), systemSafety);
+  sql("ALTER FUNCTION public.record_swell_watch_study_evaluation(uuid,text,jsonb,jsonb) SET search_path=public,extensions,pg_catalog,pg_temp;");
+  assert.throws(() => sql(modelPartitionCountAmendment), /exact reviewed epoch 3 study authority required/);
+  let fixtureModelAmendment = replacePinned(modelPartitionCountAmendment,
+    "bf0c71d7689394cabdb72be6fc98220dd249629a74c46356e7e408273740a91b", systemAuthority[2].config_hash);
+  fixtureModelAmendment = replacePinned(fixtureModelAmendment, "fdc98be5924a9671f73791375e4bff7c8b598e08f36b5284a14bac4c74218994", systemAuthority[2].evidence_sha256);
+  fixtureModelAmendment = replacePinned(fixtureModelAmendment,
+    "automated-study.v2 partition-coverage amendment under Steven Chandler authorization 2026-09-14", systemAuthority[2].reviewer);
+  fixtureModelAmendment = replacePinned(fixtureModelAmendment, "2026-09-14T17:06:11.862985Z", systemAuthority[2].not_before.replace("+00:00", "Z"));
+  sql(fixtureModelAmendment);
+  const fixtureEpoch4 = authorityRows()[3];
+  const epoch4Authority = authorityRows();
+  assert.equal(fixtureEpoch4.qualification_rule, modelCountRule);
+  assert.deepEqual(epoch4Authority.slice(0, 3), systemAuthority);
+  assert.equal(sql(`SELECT a.config_hash=encode(extensions.digest(jsonb_build_object('policyHash',a.policy_hash,'cohort',a.cohort,
+    'scopeInputs',a.scope_inputs,'forecastDays',7,'targetDays',a.target_days,'providerContractRef',a.provider_contract_ref,
+    'evidenceSha256',a.evidence_sha256,'qualificationRule',a.qualification_rule)::text,'sha256'),'hex')
+    FROM public.swell_watch_study_authorities a WHERE epoch=4;`), "t");
+  sql(fixtureModelAmendment);
+  assert.deepEqual(authorityRows(), epoch4Authority, "Exact fixture epoch 4 amendment retry is a no-op");
+  assert.deepEqual(value("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;"), systemPolicyRows);
+  assert.deepEqual(sendCounts(), systemSafety);
+
+  const epoch4Issuance = new Date(Date.parse(qualifiedIssuances.at(-1)) + 24 * 3_600_000).toISOString();
+  const epoch4Run = await nativeRun(epoch4Issuance, true, modelCountRule, { beforeRecord: async (evaluation, args) => {
+    const wrongCount = structuredClone(evaluation);
+    const scope = wrongCount.derivation.scopes.find((item) => item.sourcePointId === cohort[hatterasIndex].sourcePointId);
+    Object.assign(scope.partitionCoverage.s2, { observed: 121, absent: 47, absentNativeFrames: [] });
+    await expectRejected(args, wrongCount, /study partition coverage differs from retained components/);
+    const wrongRule = structuredClone(evaluation);
+    wrongRule.derivation.qualificationRule = swellSystemCountRule;
+    await expectRejected(args, wrongRule, /study qualification rule differs from authority/);
+  } });
+  assert.equal(epoch4Run.evaluation.status, "evaluated");
+  const epoch4Hatteras = epoch4Run.evaluation.derivation.scopes.find((scope) => scope.sourcePointId === cohort[hatterasIndex].sourcePointId);
+  assert.deepEqual(epoch4Hatteras.partitionCoverage.s2, { observed: 120, unavailable: 0, absent: 48, unavailableNativeFrames: [], absentNativeFrames: nativeRetainedZeroFrames(hatteras) });
+  assert.deepEqual(epoch4Hatteras.partitionCoverage.s1, { observed: 168, unavailable: 0, absent: 0, absentNativeFrames: [] });
+  assert(epoch4Hatteras.events.some((event) => Date.parse(event.arrivalWindow.latestAt) - Date.parse(event.arrivalWindow.earliestAt) === 3_600_000));
+  assert.equal(epoch4Run.evaluation.derivation.qualificationRule, modelCountRule);
+  assert.deepEqual(value(`SELECT result FROM public.swell_watch_study_evaluations WHERE provider_batch_id=${q(epoch4Run.completed.provider_batch_id)};`), epoch4Run.evaluation);
+  assert.deepEqual(sendCounts(), systemSafety);
+  sql("ALTER FUNCTION public.record_swell_watch_study_evaluation(uuid,text,jsonb,jsonb) SET search_path=public,pg_temp;");
+  sql(swellSystemCountMigration);
+  assert.equal(studyEvaluationHash(), epoch5StudyEvaluationHash);
+  sql("ALTER FUNCTION public.record_swell_watch_study_evaluation(uuid,text,jsonb,jsonb) SET search_path=public,extensions,pg_catalog,pg_temp;");
+  assert.throws(() => sql(swellSystemCountAmendment), /exact reviewed epoch 4 study authority required/);
+  let fixtureSystemAmendment = replacePinned(swellSystemCountAmendment,
+    "6f7efd19f2b9086d3b0c1982e5d8fc3e6e6d4715b8d918863636198f59e399a9", fixtureEpoch4.config_hash);
+  fixtureSystemAmendment = replacePinned(fixtureSystemAmendment, "4db6916ef046df290c778626fde27fc232aa3a1744e61a3bb0c18c49344d5916", fixtureEpoch4.evidence_sha256);
+  fixtureSystemAmendment = replacePinned(fixtureSystemAmendment,
+    "automated-study.v3 model-reported-partition-count amendment under Steven Chandler authorization 2026-09-14", fixtureEpoch4.reviewer);
+  fixtureSystemAmendment = replacePinned(fixtureSystemAmendment, "2026-09-14T19:55:52.959651Z", fixtureEpoch4.not_before.replace("+00:00", "Z"));
+  sql(fixtureSystemAmendment);
+  const epoch5Authority = authorityRows();
+  assert.equal(epoch5Authority[4].qualification_rule, swellSystemCountRule);
+  assert.deepEqual(epoch5Authority.slice(0, 4), epoch4Authority);
+  assert.equal(sql(`SELECT a.config_hash=encode(extensions.digest(jsonb_build_object('policyHash',a.policy_hash,'cohort',a.cohort,
+    'scopeInputs',a.scope_inputs,'forecastDays',7,'targetDays',a.target_days,'providerContractRef',a.provider_contract_ref,
+    'evidenceSha256',a.evidence_sha256,'qualificationRule',a.qualification_rule)::text,'sha256'),'hex')
+    FROM public.swell_watch_study_authorities a WHERE epoch=5;`), "t");
+  sql(fixtureSystemAmendment);
+  assert.deepEqual(authorityRows(), epoch5Authority, "Exact fixture epoch 5 amendment retry is a no-op");
+  assert.throws(() => sql(`INSERT INTO public.swell_watch_study_authorities(epoch,state,policy_hash,cohort,scope_inputs,config_hash,target_days,
+    provider_contract_ref,evidence_sha256,reviewer,not_before,expires_at,qualification_rule)
+    SELECT 6,'active',policy_hash,cohort,scope_inputs,repeat('0',64),target_days,provider_contract_ref,evidence_sha256,reviewer,not_before,expires_at,
+      qualification_rule FROM public.swell_watch_study_authorities WHERE epoch=5;`), /study config hash or cohort ordering mismatch/);
+  assert.deepEqual(authorityRows(), epoch5Authority);
+  assert.deepEqual(value("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;"), systemPolicyRows);
+  assert.deepEqual(sendCounts(), systemSafety);
+
+  const historyDatabase = "study_swell_watch_history_fix";
+  sql(`CREATE DATABASE ${historyDatabase} TEMPLATE ${database};`);
+
+  database = historyDatabase;
+  const currentEvidenceIssuances = [0, 6].map((hours) => new Date(Date.parse(epoch4Issuance) + (240 + hours) * 3_600_000).toISOString());
+  const qualifyingDatesBeforeCurrentEvidence = value("SELECT public.read_swell_watch_study_health();").qualifyingDates;
+  const currentEvidenceRuns = [];
+  for (const issuance of currentEvidenceIssuances) {
+    const result = await nativeRun(issuance, false, swellSystemCountRule, { retained: "hatteras2026-09-17T12" });
+    assert.equal(result.evaluation.status, "evaluated");
+    assert((result.evaluation.suppressionReasons.stale_history_excluded ?? 0) >= 1, "prior-epoch history is excluded");
+    assert(result.evaluation.recordedDemand);
+    assert.equal(sql(`SELECT count(*) FROM public.swell_watch_shadow_demand_runs WHERE provider_batch_id=${q(result.completed.provider_batch_id)};`), "1");
+    currentEvidenceRuns.push(result);
+  }
+  const shiftCurrentEvidence = (at) => new Date(Date.parse(at) + Date.parse(currentEvidenceIssuances[0]) - Date.parse(hatterasSep17.issuedAt)).toISOString();
+  const currentEvidenceScope = currentEvidenceRuns[0].evaluation.derivation.scopes.find((scope) => scope.sourcePointId === cohort[hatterasIndex].sourcePointId);
+  const persistedCurrentEvidence = currentEvidenceScope.events.find((event) => event.sourceSlot === hatterasSep17.persistedEvent.slot
+    && event.peakAt === shiftCurrentEvidence(hatterasSep17.persistedEvent.peakAt));
+  assert(persistedCurrentEvidence);
+  assert.equal(persistedCurrentEvidence.arrivalAt, shiftCurrentEvidence(hatterasSep17.persistedEvent.arrivalAt));
+  assert.equal(persistedCurrentEvidence.peakAt, shiftCurrentEvidence(hatterasSep17.persistedEvent.peakAt));
+  const secondCurrentEvidenceScope = currentEvidenceRuns[1].evaluation.derivation.scopes.find((scope) => scope.sourcePointId === cohort[hatterasIndex].sourcePointId);
+  const secondCurrentEvidence = secondCurrentEvidenceScope.events.find((event) => event.sourceSlot === hatterasSep17.persistedEvent.slot);
+  assert.equal(secondCurrentEvidence.regionalEventId, persistedCurrentEvidence.regionalEventId);
+  const currentEvidenceStates = value(`SELECT jsonb_agg(state ORDER BY version) FROM public.swell_watch_event_state_transitions WHERE regional_event_id=${q(persistedCurrentEvidence.regionalEventId)};`);
+  assert.equal(currentEvidenceStates.at(-1), "stable");
+  assert(currentEvidenceRuns[1].evaluation.stableRegionalEventCount >= 1);
+  assert.deepEqual(value("SELECT public.read_swell_watch_study_health();").qualifyingDates, qualifyingDatesBeforeCurrentEvidence);
+  database = "study_swell_system_count";
+  sql(`TRUNCATE TABLE public.swell_watch_shadow_demand_pairs,public.swell_watch_shadow_demand_runs,public.swell_watch_recipient_announcements,
+    public.swell_watch_event_impacts,public.swell_watch_event_evaluations,public.swell_watch_event_state_transitions,public.swell_watch_event_aliases,
+    public.swell_watch_regional_events,public.swell_watch_beach_impacts,public.swell_watch_observations CASCADE;`);
+
+  const epoch5UtcDay = new Date(Date.parse(epoch4Issuance) + 24 * 3_600_000).toISOString().slice(0, 10);
+  const epoch5Issuances = [0, 6, 12, 18].map((hour) => `${epoch5UtcDay}T${String(hour).padStart(2, "0")}:00:00.000Z`);
+  const epoch5Runs = [];
+  for (const issuance of epoch5Issuances) {
+    const result = await nativeRun(issuance, false, swellSystemCountRule, { retained: "hatteras2026-09-16T00" });
+    assert.equal(result.evaluation.status, "evaluated");
+    epoch5Runs.push(result);
+  }
+  const epoch5Hatteras = epoch5Runs[0].evaluation.derivation.scopes.find((scope) => scope.sourcePointId === cohort[hatterasIndex].sourcePointId);
+  assert.deepEqual(epoch5Hatteras.partitionCoverage.s1, { observed: 165, unavailable: 0, absent: 3, absentNativeFrames: [103, 104, 105] });
+  assert.deepEqual(epoch5Hatteras.partitionCoverage.s2, {
+    observed: 116, unavailable: 0, absent: 52, unavailableNativeFrames: [],
+    absentNativeFrames: nativeRetainedZeroFrames(hatterasSep16),
+  });
+  assert(epoch5Hatteras.events.length > 0);
+  assert.deepEqual(value(`SELECT result FROM public.swell_watch_study_evaluations WHERE provider_batch_id=${q(epoch5Runs[0].completed.provider_batch_id)};`), epoch5Runs[0].evaluation);
+  const epoch5Health = value("SELECT public.read_swell_watch_study_health();");
+  assert.equal(epoch5Health.qualifyingDays, 1);
+  assert.deepEqual(epoch5Health.qualifyingDates, [epoch5UtcDay]);
+  assert.equal(epoch5Health.qualificationRule, swellSystemCountRule);
+  assert.equal(epoch5Health.authorityEpoch, 5);
+  assert.deepEqual(await storePrototypeSingleRunReceipts(epoch5Runs[0].receipts, nativeClient), epoch5Runs[0].stored);
+  const epoch5Retry = await nativeClient.rpc("complete_swell_watch_study_run", { p_revision_set_id: epoch5Runs[0].stored.revisionSetId,
+    p_policy_hash: policy.value_hash, p_cohort: cohort, p_scope_inputs: nativeInputs });
+  assert.equal(epoch5Retry.error, null); assert.equal(epoch5Retry.data[0].already_evaluated, true);
+  const epoch5RetryRecord = await nativeClient.rpc("record_swell_watch_study_evaluation", epoch5Runs[0].recordArgs);
+  assert.equal(epoch5RetryRecord.error, null); assert.equal(epoch5RetryRecord.data.recorded, true);
+  assert.deepEqual(value("SELECT public.read_swell_watch_study_health();"), epoch5Health, "Equivalent retry adds no qualifying day");
+
+  const wrongEpoch5Count = structuredClone(epoch5Runs[0].evaluation);
+  const wrongEpoch5Scope = wrongEpoch5Count.derivation.scopes.find((scope) => scope.sourcePointId === cohort[hatterasIndex].sourcePointId);
+  Object.assign(wrongEpoch5Scope.partitionCoverage.s1, { observed: 166, absent: 2 });
+  await expectRejected(epoch5Runs[0].recordArgs, wrongEpoch5Count, /study partition coverage differs from retained components/);
+  const wrongEpoch5Rule = structuredClone(epoch5Runs[0].evaluation);
+  wrongEpoch5Rule.derivation.qualificationRule = modelCountRule;
+  await expectRejected(epoch5Runs[0].recordArgs, wrongEpoch5Rule, /study qualification rule differs from authority/);
+
+  const forgedIssuance = new Date(Date.parse(epoch5Issuances.at(-1)) + 6 * 3_600_000).toISOString();
+  const forgedRun = await nativeRun(forgedIssuance, false, swellSystemCountRule, { retained: "hatteras2026-09-16T00", mismatchedPrimaryZeros: true, acceptOnly: true });
+  const forgedEvaluation = await evaluateSwellWatchShadow({ qualificationRule: swellSystemCountRule,
+    providerBatchId: forgedRun.completed.provider_batch_id, forecastDays: 7, now: setClock(forgedIssuance), policy, scopes: nativeScopes }, nativeClient);
+  assert.equal(forgedEvaluation.status, "suppressed");
+  assert.equal(forgedEvaluation.reason, "incomplete_partition");
+  assert.deepEqual(forgedEvaluation.scopeOutcomes[hatterasIndex], { sourcePointId: cohort[hatterasIndex].sourcePointId, status: "suppressed", reason: "incomplete_partition" });
+  const forgedDemand = await nativeClient.rpc("record_swell_watch_shadow_demand", {
+    p_provider_batch_id: forgedRun.completed.provider_batch_id, p_policy_hash: policy.value_hash, p_pairs: [],
+  });
+  assert.equal(forgedDemand.error, null);
+  assert.equal(sql(`SELECT count(*) FROM public.swell_watch_provider_run_revision_components c
+    JOIN public.swell_watch_provider_run_revisions r ON r.id=c.revision_id
+    JOIN public.swell_watch_provider_run_revision_set_members m ON m.revision_id=r.id
+    JOIN public.swell_watch_provider_run_completed_batches b ON b.revision_set_id=m.revision_set_id
+    WHERE b.id=${q(forgedRun.completed.provider_batch_id)} AND c.source_slot='s1' AND c.unavailable_reason IS NOT NULL;`), "3");
+  const handBuiltForgery = structuredClone(epoch5Runs[0].evaluation);
+  handBuiltForgery.providerBatchId = forgedRun.completed.provider_batch_id;
+  handBuiltForgery.evaluationIds = [forgedRun.completed.evaluation_id];
+  handBuiltForgery.recordedDemand = { observedAt: forgedDemand.data[0].observed_at, recipientEventPairs24Hours: forgedDemand.data[0].recorded_pairs_24h };
+  const handBuiltScope = handBuiltForgery.derivation.scopes.find((scope) => scope.sourcePointId === cohort[hatterasIndex].sourcePointId);
+  Object.assign(handBuiltScope.partitionCoverage.s1, { observed: 165, absent: 3, absentNativeFrames: [103, 104, 105] });
+  Object.assign(handBuiltScope.partitionCoverage.s2, { observed: 119, absent: 49,
+    absentNativeFrames: nativeRetainedZeroFrames(hatterasSep16).filter((index) => ![103, 104, 105].includes(index)) });
+  handBuiltForgery.derivation.scopes = [...handBuiltForgery.derivation.scopes.filter((scope) => scope !== handBuiltScope), handBuiltScope];
+  await expectRejected({ ...epoch5Runs[0].recordArgs, p_provider_batch_id: forgedRun.completed.provider_batch_id }, handBuiltForgery, /absent primary partition requires absent secondary partition/);
+  assert.deepEqual(value("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;"), systemPolicyRows);
+  assert.deepEqual(authorityRows().slice(0, 4), epoch4Authority);
+  assert.deepEqual(sendCounts(), systemSafety);
+
+  // Epoch-6 extension regression: reuse the real epoch-5 accepted/evaluated chain.
+  const hardeningFunctions = [
+    "swell_watch_provider_evidence_is_current(uuid)", "read_swell_watch_study_health()",
+    "complete_swell_watch_study_run(uuid,text,jsonb,jsonb)", "record_swell_watch_study_evaluation(uuid,text,jsonb,jsonb)",
+    "read_swell_watch_study_pending_runs(text)", "resolve_and_ingest_swell_watch_evaluation(uuid,uuid,uuid,uuid,text,text,timestamptz,text,numeric,numeric,numeric,numeric,text,text,text,timestamptz,timestamptz)",
+    "advance_swell_watch_event(uuid,text,uuid,timestamptz,timestamptz,uuid)", "record_swell_watch_shadow_demand(uuid,text,jsonb)",
+  ];
+  const hardeningHashes = (functions) => value(`SELECT jsonb_object_agg(name,encode(extensions.digest(pg_get_functiondef(name::regprocedure),'sha256'),'hex')) FROM unnest(ARRAY[${functions.map(q).join(",")}]) name;`);
+  const hardeningAcls = (functions) => value(`SELECT jsonb_object_agg(name,proacl::text) FROM unnest(ARRAY[${functions.map(q).join(",")}]) name JOIN pg_proc ON oid=name::regprocedure;`);
+  const preExtensionHealth = value("SELECT public.read_swell_watch_study_health();");
+  const preExtensionAuthorities = authorityRows();
+  const preExtensionPolicies = value("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;");
+  const preCycleRunUtc = new Date(Math.floor((Date.parse(epoch5Authority[4].not_before) - 1) / 21_600_000) * 21_600_000 - 21_600_000).toISOString();
+  setClock(epoch5Issuances.at(-1), 8);
+  for (const signature of hardeningFunctions) sql(`ALTER FUNCTION public.${signature} SET search_path=public,pg_temp;`);
+  const preHardeningHashes = hardeningHashes(hardeningFunctions);
+  const preHardeningAcls = hardeningAcls(hardeningFunctions);
+  sql(hardeningMigration);
+  // The clock-injected fixture resolver hashes differently; the clean chain verifies the real pin.
+  const resolverTimeoutHash = sql("SELECT encode(extensions.digest(pg_get_functiondef('public.resolve_and_ingest_swell_watch_evaluation(uuid,uuid,uuid,uuid,text,text,timestamptz,text,numeric,numeric,numeric,numeric,text,text,text,timestamptz,timestamptz)'::regprocedure),'sha256'),'hex');");
+  const fixtureExtension = extensionScript
+    .replace("b5f3300dde131554862219403c59e87b97f06df0e384fe9db5dc0b733b6646c4", resolverTimeoutHash);
+  const fixtureHardeningRollback = hardeningRollback
+    .replaceAll("b5f3300dde131554862219403c59e87b97f06df0e384fe9db5dc0b733b6646c4", resolverTimeoutHash);
+  const runFixtureExtension = () => sql(`SET search_path=public,extensions,pg_catalog,pg_temp; ${fixtureExtension}`);
+  const assertExtensionRejected = (name, mutation, pattern) => {
+    database = "postgres";
+    sql(`CREATE DATABASE ${name} TEMPLATE study_swell_system_count;`);
+    database = name;
+    try {
+      sql(mutation);
+      const authorities = sql("SELECT jsonb_agg(to_jsonb(a) ORDER BY epoch) FROM public.swell_watch_study_authorities a;");
+      const policies = sql("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;");
+      assert.throws(runFixtureExtension, pattern);
+      assert.equal(sql("SELECT jsonb_agg(to_jsonb(a) ORDER BY epoch) FROM public.swell_watch_study_authorities a;"), authorities);
+      assert.equal(sql("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;"), policies);
+    } finally {
+      database = "postgres";
+      sql(`DROP DATABASE ${name};`);
+      database = "study_swell_system_count";
+    }
+  };
+  assertExtensionRejected("study_extension_send_guard", `SELECT set_config('app.swell_watch_internal_write','on',false);
+    INSERT INTO public.swell_watch_production_approval_authority
+    (record_id,authority_id,authority_epoch,state,policy_hash,policy_provenance,policy_values,approval_id,approval_evidence_hash,production_scope,reviewer,not_before,expires_at)
+    SELECT gen_random_uuid(),gen_random_uuid(),99,'active',policy_hash,'production_approved',policy_values,'fixture-send-guard',repeat('a',64),'swell_watch_push','fixture',public.clock_timestamp(),public.clock_timestamp()+interval '1 day'
+    FROM public.swell_watch_evaluation_policies WHERE epoch=2;`, /reviewed active evaluation policy and disabled sends required/);
+  assertExtensionRejected("study_extension_expiry_guard", "ALTER TABLE public.swell_watch_study_authorities DISABLE TRIGGER swell_watch_study_authority_guard; UPDATE public.swell_watch_study_authorities SET expires_at=expires_at+interval '1 second' WHERE epoch=5; ALTER TABLE public.swell_watch_study_authorities ENABLE TRIGGER swell_watch_study_authority_guard;", /exact reviewed epoch 5 study authority required/);
+  assertExtensionRejected("study_extension_policy_guard", `SELECT set_config('app.swell_watch_internal_write','on',false);
+    INSERT INTO public.swell_watch_evaluation_policies
+    (epoch,state,policy_hash,policy_values,reviewer,evidence_hash,not_before,expires_at)
+    SELECT 3,'revoked',repeat('c',64),p.policy_values,p.reviewer,repeat('b',64),p.not_before,p.expires_at FROM public.swell_watch_evaluation_policies p WHERE p.epoch=2;`, /unexpected evaluation policy; exact extension retry only/);
+  runFixtureExtension(); const extendedAuthorities = authorityRows(); const extendedPolicies = value("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;");
+  runFixtureExtension(); assert.deepEqual(authorityRows(), extendedAuthorities); assert.deepEqual(value("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;"), extendedPolicies);
+  sql(`DO $$ DECLARE f regprocedure; BEGIN
+    FOR f IN SELECT oid::regprocedure FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname<>'clock_timestamp' LOOP
+      EXECUTE format('ALTER FUNCTION %s SET search_path=public,extensions,pg_catalog,pg_temp',f);
+    END LOOP;
+  END $$;`);
+  const extendedHealth = value("SELECT public.read_swell_watch_study_health();");
+  assert.equal(extendedHealth.authorityEpoch, 6); assert.equal(extendedHealth.cycleStartEpoch, 5); assert.equal(extendedHealth.cycleNotBefore, epoch5Authority[4].not_before);
+  assert.equal(extendedHealth.status, "active"); assert.equal(extendedHealth.expiresAt, "2026-12-31T23:59:59+00:00");
+  assert.equal(extendedHealth.evaluatedRuns, preExtensionHealth.evaluatedRuns); assert.equal(extendedHealth.suppressedAttempts, preExtensionHealth.suppressedAttempts); assert.deepEqual(extendedHealth.qualifyingDates, preExtensionHealth.qualifyingDates);
+  assert.deepEqual(sendCounts(), systemSafety);
+  const retainedRun = await loadAttestedSwellWatchRun({ providerBatchId: epoch5Runs[0].completed.provider_batch_id, sourcePointId: cohort[0].sourcePointId }, nativeClient);
+  assert(retainedRun.samples.length > 0, "epoch-5 accepted batch remains readable under epoch 6");
+  const extendedRetry = await nativeClient.rpc("complete_swell_watch_study_run", { p_revision_set_id: epoch5Runs[0].stored.revisionSetId, p_policy_hash: policy.value_hash, p_cohort: cohort, p_scope_inputs: nativeInputs });
+  assert.equal(extendedRetry.error, null); assert.equal(extendedRetry.data[0].already_evaluated, true); assert.equal(extendedRetry.data[0].authority_epoch, 6); assert.equal(extendedRetry.data[0].qualification_rule, swellSystemCountRule);
+  const epoch6New = await nativeRun(new Date(Date.parse(epoch5Issuances.at(-1)) + 30 * 3_600_000).toISOString(), false, swellSystemCountRule, { retained: "hatteras2026-09-16T00" });
+  assert.equal(epoch6New.evaluation.status, "evaluated");
+  const extensionPending = await nativeRun(new Date(Date.parse(epoch5Issuances.at(-1)) + 36 * 3_600_000).toISOString(), false, swellSystemCountRule, { acceptOnly: true, flat: true });
+  const failure = await nativeClient.rpc("record_swell_watch_study_recovery_failure", { p_revision_set_id: extensionPending.stored.revisionSetId, p_code: "extension_fixture" });
+  assert.equal(failure.error, null);
+  sql(`ALTER TABLE public.swell_watch_study_recovery_failures DISABLE TRIGGER swell_watch_study_recovery_failures_append_only; UPDATE public.swell_watch_study_recovery_failures SET failed_at=public.clock_timestamp() WHERE revision_set_id=${q(extensionPending.stored.revisionSetId)}::uuid; ALTER TABLE public.swell_watch_study_recovery_failures ENABLE TRIGGER swell_watch_study_recovery_failures_append_only;`);
+  assert(!((await nativeClient.rpc("read_swell_watch_study_pending_runs", { p_policy_hash: policy.value_hash })).data ?? []).some((row) => row.revision_set_id === extensionPending.stored.revisionSetId));
+  sql(`ALTER TABLE public.swell_watch_study_recovery_failures DISABLE TRIGGER swell_watch_study_recovery_failures_append_only; UPDATE public.swell_watch_study_recovery_failures SET failed_at=public.clock_timestamp()-interval '5 hours' WHERE revision_set_id=${q(extensionPending.stored.revisionSetId)}::uuid; ALTER TABLE public.swell_watch_study_recovery_failures ENABLE TRIGGER swell_watch_study_recovery_failures_append_only;`);
+  assert((await nativeClient.rpc("read_swell_watch_study_pending_runs", { p_policy_hash: policy.value_hash })).data.some((row) => row.revision_set_id === extensionPending.stored.revisionSetId));
+  await assert.rejects(async () => { const old = await nativeRun(preCycleRunUtc, false, swellSystemCountRule, { acceptOnly: true, flat: true, deferComplete: true, preserveClock: true }); const result = await nativeClient.rpc("complete_swell_watch_study_run", { p_revision_set_id: old.stored.revisionSetId, p_policy_hash: policy.value_hash, p_cohort: cohort, p_scope_inputs: nativeInputs }); if (result.error) throw new Error(result.error.message); return result; }, /study run predates current study cycle/);
+  const cohortBeach = cohort[0].sourcePointId; const nonCohortBeach = "ffffffff-ffff-4fff-8fff-ffffffffffff";
+  sql(`INSERT INTO public.beaches(id,lat,lon) VALUES(${q(nonCohortBeach)},32,-117) ON CONFLICT(id) DO NOTHING;`);
+  assert.throws(() => sql(`UPDATE public.beaches SET lat=32.1 WHERE id=${q(cohortBeach)}::uuid;`), /pinned by the active Swell Watch study/);
+  sql(`UPDATE public.beaches SET lat=32.1 WHERE id=${q(nonCohortBeach)}::uuid; UPDATE public.beaches SET timezone='fixture' WHERE id=${q(cohortBeach)}::uuid;`);
+  sql(extensionRevoke); const revokedHealth = value("SELECT public.read_swell_watch_study_health();"); const revokedAuthorities = authorityRows(); assert.equal(revokedHealth.status, "blocked"); sql(extensionRevoke); assert.deepEqual(authorityRows(), revokedAuthorities);
+  for (const signature of hardeningFunctions) sql(`ALTER FUNCTION public.${signature} SET search_path=public,pg_temp;`);
+  sql(fixtureHardeningRollback);
+  assert.deepEqual(hardeningHashes(hardeningFunctions), preHardeningHashes); assert.deepEqual(hardeningAcls(hardeningFunctions), preHardeningAcls);
+  assert.equal(sql("SELECT count(*) FROM public.swell_watch_study_recovery_failures;"), "1"); assert.equal(sql("SELECT count(*) FROM public.swell_watch_shadow_demand_observations;"), "0");
+  assert.equal(authorityRows().at(-1).epoch, 7); assert.deepEqual(value("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;"), extendedPolicies);
+
+  // Epoch continuity section: the retained epoch-5 chain remains one reviewed science path.
+  assert.equal(epoch5Authority[4].qualification_rule, swellSystemCountRule);
+  assert.deepEqual(authorityRows().slice(0, 4), epoch4Authority);
+  assert.deepEqual(value("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;"), extendedPolicies);
+  assert.deepEqual(sendCounts(), systemSafety);
+
+  console.log(JSON.stringify({ mode: "real_chain_disposable_epoch_4_epoch_5", epoch4: { rule: modelCountRule,
+    hatterasS1Absent: epoch4Hatteras.partitionCoverage.s1.absent, hatterasS2Absent: epoch4Hatteras.partitionCoverage.s2.absent,
+    oneStepArrivalWindow: true }, epoch5: { rule: swellSystemCountRule, authorityEpoch: epoch5Health.authorityEpoch,
+    qualifyingDays: epoch5Health.qualifyingDays, qualifyingDates: epoch5Health.qualifyingDates,
+    hatterasS1Absent: epoch5Hatteras.partitionCoverage.s1.absent, hatterasS1AbsentNativeFrames: epoch5Hatteras.partitionCoverage.s1.absentNativeFrames,
+    hatterasS2Absent: epoch5Hatteras.partitionCoverage.s2.absent, unavailable: { s1: epoch5Hatteras.partitionCoverage.s1.unavailable, s2: epoch5Hatteras.partitionCoverage.s2.unavailable },
+    equivalentRetryAddsDay: false }, currentEvidence: { issuances: currentEvidenceIssuances,
+      staleHistoryExcluded: currentEvidenceRuns.map((run) => run.evaluation.suppressionReasons.stale_history_excluded), stableOnSecondRun: true,
+      persistedEvent: { arrivalAt: persistedCurrentEvidence.arrivalAt, peakAt: persistedCurrentEvidence.peakAt, sourceSlot: persistedCurrentEvidence.sourceSlot } }, sends: systemSafety }, null, 2));
 } finally {
+  database = "study_native_sampling";
   assert.equal(sql("SELECT jsonb_object_agg(oid::regprocedure::text,md5(prosrc)) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname<>'clock_timestamp';"), productionBodies, "Production SQL bodies unchanged by disposable clock injection");
   database = "study_normalization";
 }

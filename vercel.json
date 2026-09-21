@@ -10,12 +10,8 @@
   },
   "crons": [
     {
-      "path": "/api/cron/email-replies",
-      "schedule": "* * * * *"
-    },
-    {
       "path": "/api/cron/email-lifecycle",
-      "schedule": "*/15 * * * *"
+      "schedule": "0 * * * *"
     },
     {
       "path": "/api/cron/pro-offer-reconcile",
@@ -138,12 +134,8 @@
       "schedule": "0 9 * * *"
     },
     {
-      "path": "/api/cron/similarity-alerts",
-      "schedule": "0 13 * * *"
-    },
-    {
-      "path": "/api/cron/home-morning-call",
-      "schedule": "0 13 * * *"
+      "path": "/api/cron/daily-call",
+      "schedule": "0 * * * *"
     },
     {
       "path": "/api/cron/weekend-window",
@@ -152,6 +144,10 @@
     {
       "path": "/api/cron/swell-watch",
       "schedule": "0 15 * * *"
+    },
+    {
+      "path": "/api/cron/swell-alert",
+      "schedule": "0 * * * *"
     },
     {
       "path": "/api/cron/swell-watch-acquire",

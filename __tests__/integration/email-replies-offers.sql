@@ -1,28 +1,6 @@
 DO $$
-DECLARE u uuid:='11111111-1111-4111-8111-111111111111'; lease jsonb; a uuid; r jsonb; m jsonb;
+DECLARE u uuid:='11111111-1111-4111-8111-111111111111'; a uuid; r jsonb; m jsonb;
 BEGIN
- -- Freshness is enforced in the database, including direct condition-alert handoff.
- BEGIN
-  INSERT INTO email_contact_attempts(user_id,email_type,lifecycle_job,state) VALUES(u,'conditions_alert','conditions_alert','handoff_started');
-  RAISE EXCEPTION 'missing mailbox allowed handoff';
- EXCEPTION WHEN raise_exception THEN ASSERT SQLERRM='Reply ingestion is not healthy and fresh'; END;
- INSERT INTO email_reply_sync(mailbox,history_id,review_reference) VALUES('mail@gmail.com','100','historical inbox reviewed');
- lease:=claim_gmail_reply_sync('mail@gmail.com');
- PERFORM record_gmail_reply((lease->>'lease_id')::uuid,'mail@gmail.com','m1','t1','surfer@example.com',now(),'<outbound>');
- PERFORM record_gmail_reply((lease->>'lease_id')::uuid,'mail@gmail.com','m1','t1','surfer@example.com',now(),'<outbound>');
- ASSERT (SELECT count(*) FROM email_reply_events WHERE provider_id='gmail:mail@gmail.com:m1')=1;
- ASSERT (SELECT paused_at IS NOT NULL FROM email_contact_state WHERE user_id=u);
- ASSERT NOT EXISTS(SELECT 1 FROM email_contact_attempts WHERE user_id=u AND state='reserved');
- PERFORM finish_gmail_reply_sync((lease->>'lease_id')::uuid,'105',1);
- ASSERT (SELECT history_id='105' AND status='healthy' FROM email_reply_sync);
- lease:=claim_gmail_reply_sync('mail@gmail.com');
- PERFORM fail_gmail_reply_sync((lease->>'lease_id')::uuid);
- ASSERT (SELECT history_id='105' AND status='failed' FROM email_reply_sync);
- ASSERT (SELECT NOT lifecycle_enabled FROM email_contact_controls);
- BEGIN
-  PERFORM claim_gmail_reply_sync('mail@gmail.com'); RAISE EXCEPTION 'failed history advanced';
- EXCEPTION WHEN raise_exception THEN ASSERT SQLERRM='Mailbox needs reviewed bootstrap or recovery'; END;
-
  INSERT INTO user_email_prefs(user_id,email_frequency) VALUES(u,'off');
  -- Historical completed sessions count even without the new timestamp.
  UPDATE user_entitlements SET is_pro=false,is_trialing=false;
@@ -66,7 +44,6 @@ BEGIN
  -- Service functions and code hashes are inaccessible to app clients.
  ASSERT NOT has_function_privilege('authenticated','public.reserve_pro_offer(uuid,text,text)','execute');
  ASSERT NOT has_table_privilege('authenticated','public.pro_offer_awards','select');
- ASSERT NOT has_function_privilege('anon','public.finish_gmail_reply_sync(uuid,text,integer)','execute');
 END $$;
 
 -- Prepare independent concurrent claims, including an already-earned historical award.

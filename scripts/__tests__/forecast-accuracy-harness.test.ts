@@ -1,3 +1,5 @@
+import { execFileSync } from "node:child_process";
+import path from "node:path";
 import { toFaceHeightFeetDecomposedWithDebug, METERS_TO_FEET, type DecomposedFaceHeightParams } from "../../lib/utils/wave-formatters";
 import {
   applyProposedInput,
@@ -14,6 +16,8 @@ import {
   parseCliArgs,
   predictionSelectColumns,
   resolveBeachScope,
+  classifyDirectionSlice,
+  computeDirectionSliceMetrics,
   type ProfileRow,
   type SessionObservationRow,
 } from "../forecast-accuracy-harness";
@@ -71,6 +75,16 @@ function profile(id: string, overrides: Partial<ProfileRow> = {}): ProfileRow {
 }
 
 describe("forecast-accuracy-harness", () => {
+  it("loads through tsx without duplicate exports", () => {
+    expect(() =>
+      execFileSync(
+        process.execPath,
+        ["--import", "tsx", "-e", 'import "./scripts/forecast-accuracy-harness.ts";'],
+        { cwd: path.resolve(__dirname, "../.."), stdio: "pipe" }
+      )
+    ).not.toThrow();
+  });
+
   it("parses date range and beach filters", () => {
     const options = parseCliArgs([
       "--start",
@@ -144,6 +158,24 @@ describe("forecast-accuracy-harness", () => {
     const options = parseCliArgs(["--group-by", "region"]);
 
     expect(options.groupBy).toBe("region");
+  });
+
+  it("classifies direction slices relative to a beach window", () => {
+    expect(classifyDirectionSlice(280, 280, 100)).toBe("inside-centre");
+    expect(classifyDirectionSlice(331, 280, 100)).toBe("inside-edge");
+    expect(classifyDirectionSlice(20, 280, 100)).toBe("outside");
+  });
+
+  it("reports direction-slice bias without a height direction term", () => {
+    const row = {
+      beach_id: "beach-1",
+      observed_m: 1,
+      noaa_swell_1_direction_deg: 280,
+      offset_corrected_display_height_m: 1.2,
+    } as unknown as PredictionRow;
+    const [metric] = computeDirectionSliceMetrics([row], [{ id: "beach-1", swell_window_center_deg: 280, swell_window_halfwidth_deg: 100 } as never], "offset_corrected_display_height_m");
+    expect(metric).toMatchObject({ slice: "inside-centre", sample_count: 1 });
+    expect(metric.bias_m).toBeCloseTo(0.2);
   });
 
   it("parses report JSON output path", () => {

@@ -230,6 +230,17 @@ export function captureClientPostHogEvent(
   }
 }
 
+export function getClientPostHogDistinctId(): string | undefined {
+  if (postHogTrackingState !== "allowed" || !initPostHog()) return undefined;
+
+  try {
+    const distinctId = posthog.get_distinct_id();
+    return distinctId || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function captureClientPostHogEventAfterConsent(
   event: string,
   properties: PostHogProperties = {},

@@ -13,7 +13,6 @@ import type { RCEvent } from '@/app/api/webhooks/revenuecat/entitlement-update';
 import { POST as redeem } from '@/app/api/trial-feedback/redemption/route';
 
 jest.mock('@sentry/nextjs', () => ({ captureException: jest.fn(), captureMessage: jest.fn() }));
-jest.mock('@/lib/alerts/auto-enable-similarity', () => ({ ensureSimilarityRuleForUser: jest.fn(async () => ({ created: false, reason: 'outside_feedback_contract' })) }));
 jest.mock('@supabase/realtime-js', () => ({ RealtimeClient: jest.fn(() => ({ setAuth: jest.fn(), disconnect: jest.fn() })) }));
 jest.mock('@/lib/email/lifecycle', () => ({ lifecycleRpc: (name: string, args: Record<string, unknown>) => mockDatabaseRpc(name, args) }));
 

@@ -44,6 +44,11 @@ async function forecastFeedbackHandler(
       500,
     );
   }
+  if (result.reason === "invalid_board") {
+    return createValidationError("Invalid feedback payload", {
+      boardId: "Board does not belong to the authenticated user",
+    });
+  }
   return createErrorResponse(
     "Feedback storage failed",
     { correlationId: result.correlationId },

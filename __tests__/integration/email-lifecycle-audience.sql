@@ -11,7 +11,6 @@ BEGIN
  INSERT INTO user_entitlements(user_id,is_pro,is_trialing) VALUES(u,false,false);
  INSERT INTO user_events(user_id,bot_flagged,event_type,created_at) VALUES(u,false,'beach_view',now()-interval '1 day');
  UPDATE email_contact_controls SET enabled=true,lifecycle_enabled=true;
- UPDATE email_reply_sync SET status='healthy',last_synced_at=now(),lease_id=NULL,lease_expires_at=NULL;
  PERFORM issue_pro_offer(u,'five_sessions_month',repeat('9',64),'audience fixture','v1');
  d:=evaluate_email_lifecycle(u);
  ASSERT d->>'job'='activation' AND d->>'status'='due',d::text;

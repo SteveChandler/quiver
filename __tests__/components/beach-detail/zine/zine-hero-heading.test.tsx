@@ -155,4 +155,22 @@ describe("ZineHero heading level", () => {
     ).toHaveAttribute("href", "/profile/profile-1");
     expect(document.querySelector("strong")).not.toBeInTheDocument();
   });
+
+  it("does not claim a lineup location on a beach photo", () => {
+    render(
+      <ZineHero
+        beach={createMockBeach()}
+        beachPhoto={{
+          image_url: "/photo.jpg",
+          thumb_url: null,
+          source: "community",
+          creator_name: null,
+          license_code: null,
+          attribution_html: null,
+        }}
+      />,
+    );
+
+    expect(screen.queryByText("Line up here")).not.toBeInTheDocument();
+  });
 });

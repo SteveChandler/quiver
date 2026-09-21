@@ -4,6 +4,10 @@ import {
   SWELL_MAP_STICKER_RADIUS,
   SWELL_LAYER_COLOR,
   SWELL_FIELD_PARTICLE_COLOR,
+  SWELL_FIELD_PARTICLE_COLOR_DARK_STAGE,
+  SWELL_FIELD_DARK_STAGE_DIM,
+  SWELL_FIELD_DARK_STAGE_WATER,
+  SWELL_FIELD_DARK_STAGE_DASH_LENGTH_SCALE,
   SWELL_MAP_CTA_CLASS,
   buildLegendRampCss,
   degreesToCompass,
@@ -60,6 +64,18 @@ describe("swell-map-theme tokens", () => {
     const banned = ["#38bdf8", "#47e0d1", "#67e8f9", "#7dd3fc", "#7c3aed", "#9333ea", "#818cf8"];
     const values = Object.values(SWELL_FIELD_PARTICLE_COLOR).map((c) => c.toLowerCase());
     for (const bad of banned) expect(values).not.toContain(bad);
+  });
+
+  it("defines the dark-stage flow-field palette and basemap treatment", () => {
+    expect(SWELL_FIELD_PARTICLE_COLOR_DARK_STAGE).toEqual({
+      s1: "#F4EBD8",
+      s2: "#FDB84B",
+      wind: "#00D4AA",
+      combined: "#F4EBD8",
+    });
+    expect(SWELL_FIELD_DARK_STAGE_DIM).toEqual({ color: "#252D6B", opacity: 0.4 });
+    expect(SWELL_FIELD_DARK_STAGE_WATER).toBe("#4B78A9");
+    expect(SWELL_FIELD_DARK_STAGE_DASH_LENGTH_SCALE).toBe(1.9);
   });
 
   it("ships an AA-safe interactive CTA class (ocean-blue, not raw orange)", () => {

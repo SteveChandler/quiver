@@ -39,6 +39,7 @@ const validBody = {
   waveSizeMax: 4,
   vibe: "firing",
   note: "Clean lines",
+  callId: "beach:call-1",
 };
 
 function request(body: unknown): NextRequest {
@@ -76,7 +77,7 @@ describe("POST /api/v1/conditions-reports", () => {
     });
     expect(response.headers.get("cache-control")).toContain("no-store");
     expect(coreMock).toHaveBeenCalledWith(
-      expect.objectContaining({ beachId: "beach-1", waveSizeRange: "3-4ft" }),
+      expect.objectContaining({ beachId: "beach-1", waveSizeRange: "3-4ft", callId: "beach:call-1" }),
       { id: "user-1" },
       {},
     );
@@ -125,6 +126,13 @@ describe("POST /api/v1/conditions-reports", () => {
       error: "validation_failed",
       reason,
     });
+    expect(coreMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects an oversized call id", async () => {
+    const response = await POST(request({ ...validBody, callId: "x".repeat(129) }));
+
+    expect(response.status).toBe(422);
     expect(coreMock).not.toHaveBeenCalled();
   });
 });

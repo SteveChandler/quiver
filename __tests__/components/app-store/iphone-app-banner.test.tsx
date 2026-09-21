@@ -2,11 +2,11 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { usePathname } from "next/navigation";
 import { IphoneAppBanner } from "@/components/app-store/iphone-app-banner";
 import { track } from "@/lib/analytics";
+import { buildAppHandoffUrl } from "@/lib/constants/app-handoff";
 import { IPHONE_APP_BANNER_DISMISSAL_STORAGE_KEY } from "@/lib/app-store/iphone-app-banner";
 import {
   IOS_APP_STORE_CTA,
   IOS_APP_STORE_DESTINATION_STATUS,
-  IOS_APP_STORE_WEB_REDIRECT_PATH,
 } from "@/lib/constants/app-store";
 
 jest.mock("next/navigation", () => ({
@@ -65,7 +65,11 @@ describe("IphoneAppBanner", () => {
           cta_text: IOS_APP_STORE_CTA,
           destination_type: "app_store",
           destination_status: IOS_APP_STORE_DESTINATION_STATUS,
-          destination_url: IOS_APP_STORE_WEB_REDIRECT_PATH,
+          destination_url: buildAppHandoffUrl({
+            source: "iphone-app-banner",
+            surface: "web",
+            placement: "iphone_app_banner",
+          }),
           browser: "chrome_ios",
           pathname: "/map",
         }),
@@ -86,7 +90,14 @@ describe("IphoneAppBanner", () => {
     const cta = await screen.findByRole("link", {
       name: IOS_APP_STORE_CTA,
     });
-    expect(cta).toHaveAttribute("href", IOS_APP_STORE_WEB_REDIRECT_PATH);
+    expect(cta).toHaveAttribute(
+      "href",
+      buildAppHandoffUrl({
+        source: "iphone-app-banner",
+        surface: "web",
+        placement: "iphone_app_banner",
+      }),
+    );
 
     fireEvent.click(cta);
 
@@ -97,7 +108,12 @@ describe("IphoneAppBanner", () => {
         pathname: "/map",
         cta_text: IOS_APP_STORE_CTA,
         destination_status: IOS_APP_STORE_DESTINATION_STATUS,
-        destination_url: IOS_APP_STORE_WEB_REDIRECT_PATH,
+        destination_url: expect.stringContaining(
+          "https://go.quiversurf.app/app/handoff?",
+        ),
+        handoff_id: expect.stringMatching(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+        ),
       }),
     );
   });

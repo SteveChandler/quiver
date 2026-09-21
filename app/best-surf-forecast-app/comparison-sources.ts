@@ -1,3 +1,5 @@
+import { IOS_APP_STORE_WEB_REDIRECT_PATH } from "@/lib/constants/app-store";
+
 export interface ComparisonSourceLink {
   label: string;
   href: string;
@@ -14,7 +16,7 @@ export const COMPARISON_SOURCE_REVIEW = {
 export const COMPARISON_SOURCE_LINKS: readonly ComparisonSourceLink[] = [
   {
     label: "Quiver App Store listing",
-    href: "https://apps.apple.com/us/app/surf-forecast-quiver/id6759300320",
+    href: `${IOS_APP_STORE_WEB_REDIRECT_PATH}&source=best_surf_forecast_app&surface=comparison&placement=source_link`,
     note:
       "Quiver iPhone listing with session logging and Pro monthly, annual, and lifetime in-app purchases; Pro features include similarity alerts, board recommendations, and offline mode.",
   },

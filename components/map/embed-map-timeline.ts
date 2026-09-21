@@ -178,3 +178,13 @@ export function embedTimelineStart(value: string | null): string | undefined {
   if (!Number.isFinite(epoch) || epoch % HOUR_MS !== 0) return undefined;
   return new Date(epoch).toISOString();
 }
+
+export function embedMapStage(value: string | null): "light" | "dark" {
+  return value === "dark" ? "dark" : "light";
+}
+
+export function embedMapChromeTopOffsetPx(value: string | null): number {
+  if (value === null || value.trim() === "") return 0;
+  const parsed = Number(value);
+  return Number.isInteger(parsed) ? Math.max(0, Math.min(200, parsed)) : 0;
+}

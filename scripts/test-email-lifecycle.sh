@@ -25,6 +25,24 @@ psql_local -f "$repo_dir/supabase/migrations/20260622090000_create_earned_pro_gr
   -f "$repo_dir/supabase/migrations/20260912020000_gmail_reply_ingestion.sql" \
   -f "$repo_dir/supabase/migrations/20260912030000_pro_offer_fulfillment.sql" \
   -f "$repo_dir/__tests__/integration/email-replies-offers.sql"
+psql_local -f "$repo_dir/supabase/migrations/20260912040000_automated_lifecycle_offers.sql"
+psql_local -f "$repo_dir/__tests__/integration/email-automation.sql"
+psql_local -f "$repo_dir/supabase/migrations/20260912050000_lifecycle_audience_copy.sql"
+psql_local -f "$repo_dir/supabase/migrations/20260912214631_lifecycle_full_audience.sql"
+psql_local -f "$repo_dir/supabase/migrations/20260913150000_trial_cancellation_feedback.sql"
+psql_local -f "$repo_dir/__tests__/integration/trial-feedback.sql"
+pids=()
+for worker in 1 2; do
+  psql_local -c "SET ROLE service_role; SELECT submit_trial_feedback('dddd0000-0000-4000-8000-000000000001',gen_random_uuid(),'time','Concurrent fixture',NULL)" > "$test_dir/feedback-worker-$worker.log" &
+  pids+=("$!")
+done
+for pid in "${pids[@]}"; do wait "$pid"; done
+psql_local -c "DO \$\$ BEGIN ASSERT (SELECT count(*) FROM trial_feedback_submissions WHERE user_id='dddd0000-0000-4000-8000-000000000001')=1; END \$\$;"
+psql_local -f "$repo_dir/supabase/migrations/20260913230000_trial_feedback_web_recovery.sql"
+psql_local -f "$repo_dir/supabase/migrations/20260914170000_gmail_reply_reconciliation.sql"
+psql_local -f "$repo_dir/supabase/migrations/20260915132444_gmail_reply_retry_backoff.sql"
+retire_migration="$repo_dir/supabase/migrations/20260917150000_retire_gmail_reply_""sync.sql"
+psql_local -f "$retire_migration" -f "$repo_dir/__tests__/integration/email-reply-check.sql"
 pids=()
 for worker in 1 2; do
   psql_local -c "SELECT reserve_pro_offer('22222222-2222-4222-8222-222222222222',repeat('d',64),'Quiver Pro')" > "$test_dir/offer-worker-$worker.log" &
@@ -38,21 +56,11 @@ texts = [p.read_text() for p in pathlib.Path(sys.argv[1]).glob('offer-worker-*.l
 assert sum('"status": "reserved"' in s for s in texts)==1, texts
 assert sum('"status": "busy"' in s for s in texts)==1, texts
 PYTEST
-psql_local -f "$repo_dir/supabase/migrations/20260912040000_automated_lifecycle_offers.sql" -f "$repo_dir/__tests__/integration/email-automation.sql"
-psql_local -f "$repo_dir/supabase/migrations/20260912050000_lifecycle_audience_copy.sql" -f "$repo_dir/__tests__/integration/email-lifecycle-audience.sql"
-psql_local -f "$repo_dir/supabase/migrations/20260912214631_lifecycle_full_audience.sql" -f "$repo_dir/__tests__/integration/email-full-audience.sql"
+psql_local -f "$repo_dir/__tests__/integration/email-lifecycle-audience.sql"
+psql_local -f "$repo_dir/__tests__/integration/email-full-audience.sql"
 psql_local -f "$repo_dir/__tests__/integration/email-account-permissions.sql"
-psql_local -f "$repo_dir/supabase/migrations/20260913150000_trial_cancellation_feedback.sql" -f "$repo_dir/__tests__/integration/trial-feedback.sql"
-pids=()
-for worker in 1 2; do
-  psql_local -c "SET ROLE service_role; SELECT submit_trial_feedback('dddd0000-0000-4000-8000-000000000001',gen_random_uuid(),'time','Concurrent fixture',NULL)" > "$test_dir/feedback-worker-$worker.log" &
-  pids+=("$!")
-done
-for pid in "${pids[@]}"; do wait "$pid"; done
-psql_local -c "DO \$\$ BEGIN ASSERT (SELECT count(*) FROM trial_feedback_submissions WHERE user_id='dddd0000-0000-4000-8000-000000000001')=1; END \$\$;"
-psql_local -f "$repo_dir/supabase/migrations/20260913230000_trial_feedback_web_recovery.sql"
-psql_local -f "$repo_dir/supabase/migrations/20260914170000_gmail_reply_reconciliation.sql" -f "$repo_dir/__tests__/integration/email-reply-reconciliation.sql"
-psql_local -f "$repo_dir/supabase/migrations/20260915132444_gmail_reply_retry_backoff.sql" -f "$repo_dir/__tests__/integration/email-reply-backoff.sql"
+psql_local -f "$repo_dir/supabase/migrations/20260916180000_email_daily_cap_optional.sql" \
+  -f "$repo_dir/__tests__/integration/email-daily-cap-optional.sql"
 if [[ "${1:-}" == "--feedback-contract" ]]; then
   LIFECYCLE_TEST_SOCKET="$test_dir" LIFECYCLE_TEST_PSQL="$pg_bin/psql" \
     NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 NEXT_PUBLIC_SUPABASE_ANON_KEY=local-fixture \
