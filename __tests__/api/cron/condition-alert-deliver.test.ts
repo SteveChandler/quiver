@@ -351,7 +351,7 @@ function seedQueueRow(overrides: Partial<any> = {}) {
     alert_date: "2026-04-26",
     send_at: "2026-04-26T05:00:00Z",
     window_start: "2026-04-26T13:00:00Z",
-    window_end: "2026-04-26T15:00:00Z",
+    window_end: "2026-04-26T20:00:00Z",
     best_hour: "2026-04-26T14:00:00Z",
     best_score: 0.8,
     conditions_snapshot: {
@@ -1817,6 +1817,61 @@ describe("condition-alert-deliver — email quiet-hours guard", () => {
     expect(store.queueUpdates).toEqual([]);
   });
 
+  it.each([false, true])("retains contact-gate quiet holds (push enabled: %s), then sends on the next due run", async (notifyPush) => {
+    seedQueueRow({
+      alert_rules: { name: "Test rule", notify_email: true, notify_push: notifyPush },
+    });
+    seedProfile();
+    mockEmailsSend.mockResolvedValueOnce({
+      data: null,
+      error: { message: "Contact held: quiet_hours" },
+      deferred: "quiet_hours",
+    });
+
+    const held = await (await GET(makeRequest())).json();
+    expect(held).toMatchObject({ emailQuietHoursSkipped: 1, emailSent: 0, errors: 0 });
+    expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+    expect(store.queueUpdates).toEqual([]);
+    expect(store.deliveryInserts.filter(row => row.channel === "email")).toEqual([]);
+    expect(store.attemptInserts.filter(row => row.channel === "email")).toEqual([]);
+    expect(mockLogDelivery).not.toHaveBeenCalled();
+
+    jest.setSystemTime(new Date("2026-04-26T18:00:00Z"));
+    const retried = await (await GET(makeRequest())).json();
+    expect(retried).toMatchObject({ emailQuietHoursSkipped: 0, emailSent: 1, errors: 0 });
+    expect(store.attemptInserts.filter(row => row.channel === "email")).toEqual([
+      expect.objectContaining({ queue_id: QUEUE_1, status: "sent" }),
+    ]);
+    expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
+  });
+
+  it("explicitly expires a held window before retrying, even without fresh forecasts", async () => {
+    seedQueueRow({
+      window_end: "2026-04-26T18:00:00Z",
+      alert_rules: { name: "Test rule", notify_email: true, notify_push: false },
+    });
+    seedProfile();
+    mockEmailsSend.mockResolvedValueOnce({
+      data: null,
+      error: { message: "Contact held: quiet_hours" },
+      deferred: "quiet_hours",
+    });
+    await GET(makeRequest());
+    expect(store.queueUpdates).toEqual([]);
+
+    jest.setSystemTime(new Date("2026-04-26T18:00:00Z"));
+    const expired = await (await GET(makeRequest())).json();
+    expect(expired).toMatchObject({ skippedStale: 1, emailSent: 0 });
+    expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+    expect(store.attemptInserts).toEqual([
+      expect.objectContaining({
+        queue_id: QUEUE_1, channel: "email", status: "skipped_stale_forecast",
+        skip_reason: expect.stringContaining("window expired"),
+      }),
+    ]);
+    expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
+  });
+
   it("recipient inside DEFAULT_QUIET (no per-rule override) defers", async () => {
     process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
@@ -2022,7 +2077,7 @@ describe("condition-alert-deliver — push branch enqueues via notifications pip
         kind: "positive_session_recommendation",
         beach_id: BEACH_1,
         starts_at: "2026-04-26T13:00:00Z",
-        ends_at: "2026-04-26T15:00:00Z",
+        ends_at: "2026-04-26T20:00:00Z",
       },
       // Queue-item provenance for the worker's onChannelOutcome hook to fan
       // back into alert_delivery_attempts after actual delivery (review fix

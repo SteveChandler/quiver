@@ -43,3 +43,21 @@ it.each(["timeout", "missing-id", "receipt-failure"])("holds ambiguous %s withou
   expect(mockSend).toHaveBeenCalledTimes(1);
   expect(mockRpc).toHaveBeenLastCalledWith("mark_email_lifecycle_unknown", { p_attempt_id: "a" });
 });
+
+it.each(["quiet_hours", "ineligible_or_suppressed", "contact_cooldown_or_unknown"])(
+  "returns a retry signal only for a quiet-hours contact hold: %s", async reason => {
+    mockRpc.mockResolvedValue({ allowed: false, reason });
+    const result = await sendEmail({
+      ...payload, purpose: "condition_alert",
+      alertContact: { userId: "user-1", episode: "queue-1" },
+      unsubscribeUrl: "https://www.quiversurf.app/unsubscribe",
+    });
+    expect(result.deferred).toBe(reason === "quiet_hours" ? "quiet_hours" : undefined);
+    expect(result.error?.message).toBe(`Contact held: ${reason}`);
+    expect(mockSend).not.toHaveBeenCalled();
+    expect(mockRpc).toHaveBeenCalledTimes(1);
+    expect(mockRpc).toHaveBeenCalledWith("claim_requested_email_alert", expect.objectContaining({
+      p_user_id: "user-1", p_episode: "queue-1",
+    }));
+  },
+);
