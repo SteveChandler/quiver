@@ -546,6 +546,7 @@ describe('generateWeekScoutForecast', () => {
       expect.objectContaining({
         candidates: expect.any(Array),
       }),
+      { resolveWaterQualityHolds: expect.any(Function) },
     );
     const evaluatedCandidates = mockEvaluateMajorEventHoldCandidates.mock.calls.at(-1)?.[0]
       .candidates as unknown[];
@@ -810,7 +811,7 @@ describe('generateWeekScoutForecast', () => {
       ]),
       profileExperience: 'intermediate',
       applyWaterQualityHolds: true,
-    });
+    }, { resolveWaterQualityHolds: expect.any(Function) });
     expect(mockEvaluateMajorEventHoldCandidates.mock.calls[0][0].candidates).toHaveLength(6);
     expect(response.recommendationAvailability).toEqual({
       state: 'available',
