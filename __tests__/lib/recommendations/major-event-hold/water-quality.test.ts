@@ -7,11 +7,17 @@ import {
   resolveWaterQualityHolds,
   type WaterQualityHoldClient,
 } from "@/lib/recommendations/major-event-hold/water-quality";
+import * as currentStatus from "@/lib/services/water-quality/current-status";
 import type { MajorEventHoldCandidate } from "@/lib/recommendations/major-event-hold/types";
 import {
   expectConsoleErrors,
   expectConsoleWarnings,
 } from "@/__tests__/setup/test-utils";
+
+jest.mock("@/lib/services/water-quality/current-status", () => {
+  const actual = jest.requireActual("@/lib/services/water-quality/current-status");
+  return { ...actual, currentWaterQuality: jest.fn(actual.currentWaterQuality) };
+});
 
 const BEACH_A = "11111111-1111-4111-8111-111111111111";
 const BEACH_B = "22222222-2222-4222-8222-222222222222";
@@ -111,6 +117,35 @@ describe("water-quality recommendation holds", () => {
     };
     await check();
     if (failBatch) expectConsoleErrors([/\[water-quality-hold:query-error\]/]);
+  });
+
+  it("starts live county holds while current sample projection is pending", async () => {
+    const now = new Date();
+    const sample = { beach_id: BEACH_A, status: "advisory", total_samples_30d: 1, latest_sample_date: now.toISOString() };
+    let release!: (rows: typeof sample[]) => void;
+    let started!: () => void;
+    const pending = new Promise<typeof sample[]>((resolve) => { release = resolve; });
+    const projectionStarted = new Promise<void>((resolve) => { started = resolve; });
+    jest.mocked(currentStatus.currentWaterQuality).mockImplementationOnce(() => {
+      started();
+      return pending;
+    });
+    const client = clientFor({
+      qualityRows: [sample],
+      liveRows: [{ beach_id: BEACH_B, advisory_type: "closure", source_site_identifier: "county-b" }],
+    });
+    const result = resolveWaterQualityHolds([candidate(BEACH_A), candidate(BEACH_B)], { client, now });
+    try {
+      await projectionStarted;
+      expect(client.from).toHaveBeenCalledWith("county_beach_advisory_runs");
+    } finally {
+      release([sample]);
+    }
+    await expect(result).resolves.toMatchObject({
+      state: "resolved",
+      heldBeachIds: [BEACH_A, BEACH_B],
+      waterQualityStatusByBeachId: { [BEACH_A]: "advisory", [BEACH_B]: "closure" },
+    });
   });
 
   it("ships the five-beach seed manifest, including Silver Strand", () => {

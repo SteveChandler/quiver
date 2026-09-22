@@ -1,4 +1,7 @@
 {
+  "functions": {
+    "app/api/surf/week-scout/route.ts": { "regions": ["sfo1"] }
+  },
   "ignoreCommand": "test -n \"$VERCEL_GIT_PREVIOUS_SHA\" && git diff --quiet \"$VERCEL_GIT_PREVIOUS_SHA\" HEAD -- . ':(exclude)*.md' ':(exclude).github/**' ':(exclude).planning/**' ':(exclude)__tests__/**' ':(exclude)docs/**' ':(exclude)e2e/**' ':(exclude)plans/**'",
   "git": {
     "deploymentEnabled": {
