@@ -464,7 +464,10 @@ export async function resolveWaterQualityHolds(
       rowsByBeachId.set(parsed.data.beach_id, parsed.data);
     }
 
-    const effectiveRows = await currentWaterQuality([...rowsByBeachId.values()], client, now);
+    const [effectiveRows, liveResolution] = await Promise.all([
+      currentWaterQuality([...rowsByBeachId.values()], client, now),
+      resolveCountyLiveHolds(client, requestedBeachIds, now),
+    ]);
     const countyHeld = new Set(effectiveRows
       .filter((row) => row.county_advisory_status === "advisory" || row.county_advisory_status === "closure")
       .map((row) => row.beach_id));
@@ -515,11 +518,6 @@ export async function resolveWaterQualityHolds(
       snapshot.push(`${beachId}:real:${row.status}`);
     }
 
-    const liveResolution = await resolveCountyLiveHolds(
-      client,
-      requestedBeachIds,
-      now,
-    );
     if (liveResolution.state === "resolved") {
       heldBeachIds.push(...liveResolution.heldBeachIds);
       for (const [beachId, status] of Object.entries(
