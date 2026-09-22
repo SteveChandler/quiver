@@ -206,6 +206,28 @@ describe('Week Scout with a water-quality-held beach', () => {
     );
   }
 
+  it('reuses only the resolved water-quality evidence from this request', async () => {
+    const resolution = {
+      state: 'resolved', heldBeachIds: [HELD_BEACH],
+      waterQualityStatusByBeachId: {}, epoch: 'fresh-request',
+    };
+    mockRankBeaches.mockImplementation(async (items, options) => {
+      options.onWaterQualityResolution(resolution);
+      return items.filter((item: { id: string }) => item.id !== HELD_BEACH);
+    });
+    await run();
+    const gate = mockEvaluateMajorEventHoldCandidates.mock.calls.at(-1);
+    expect(gate[0].applyWaterQualityHolds).toBe(true);
+    expect(gate[0].candidates.length).toBeGreaterThan(0);
+    expect(gate[0].candidates.every((item: { beachId: string }) => item.beachId === CLEAN_BEACH)).toBe(true);
+    expect(await gate[1].resolveWaterQualityHolds(gate[0].candidates)).toBe(resolution);
+
+    // A later request without resolved evidence must perform its normal probe.
+    mockRankBeaches.mockImplementation(async (items) => items);
+    await run();
+    expect(mockEvaluateMajorEventHoldCandidates.mock.calls.at(-1)[1]).toBeUndefined();
+  });
+
   it('drops the held beach without voiding the surviving windows', async () => {
     const response = await run();
     const windows = response.days.flatMap((day) => day.windows);

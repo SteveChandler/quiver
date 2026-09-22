@@ -51,6 +51,7 @@ import {
 } from '@/lib/recommendations/major-event-hold/adapters/week-scout';
 import { evaluateMajorEventHoldCandidates } from '@/lib/recommendations/major-event-hold/service';
 import { rankBeaches } from '@/lib/recommendations/selection';
+import type { WaterQualityHoldResolution } from '@/lib/recommendations/major-event-hold/water-quality';
 import type { MajorEventHoldCandidate } from '@/lib/recommendations/major-event-hold/types';
 import {
   calculateDistancePenalty,
@@ -1016,6 +1017,7 @@ async function generateWeekScoutForecastInternal(
     candidateFingerprint: hash([...beachIds].sort()),
     days,
   };
+  let waterQualityResolution: WaterQualityHoldResolution | undefined;
   const safeWindows = await rankBeaches(
     response.days.flatMap((day) => day.windows).map((window) => ({
       id: window.beachId,
@@ -1024,6 +1026,7 @@ async function generateWeekScoutForecastInternal(
     {
       compare: (left, right) =>
         right.window.rankingScore - left.window.rankingScore,
+      onWaterQualityResolution: (resolution) => { waterQualityResolution = resolution; },
     },
   );
   const safeWindowIds = new Set(safeWindows.map(({ window }) => window.id));
@@ -1073,7 +1076,10 @@ async function generateWeekScoutForecastInternal(
     candidates,
     profileExperience: userSkillLevel,
     applyWaterQualityHolds: true,
-  });
+  }, waterQualityResolution ? {
+    // Both gates evaluate the same fresh beach-level evidence within this request.
+    resolveWaterQualityHolds: async () => waterQualityResolution!,
+  } : undefined);
   const heldResponse = sanitizeWeekScoutForMajorEventHold(
     response,
     candidates,
