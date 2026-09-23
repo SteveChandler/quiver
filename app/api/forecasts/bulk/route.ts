@@ -1,4 +1,7 @@
-import { fetchBulkDecisionContext, bulkRecommendationLabel, type BulkDecisionContext } from '@/lib/services/forecast/bulk-decision-context';
+import { recommendBoard, type RecommendedBoard } from "@/lib/scoring/personal-board";
+import { conditionLabelForVerdict, recommendationLabelForVerdict } from "@/lib/recommendations/canonical-decision/engine";
+import { lightMetadata } from "@/lib/services/discovery/daylight-eligibility";
+import { fetchBulkDecisionContext, bulkSessionDecision, bulkRecommendationLabel, type BulkDecisionContext } from '@/lib/services/forecast/bulk-decision-context';
 import { resolveWaterQualityHolds } from '@/lib/recommendations/major-event-hold/water-quality';
 import type { NextRequest, NextResponse } from "next/server";
 import {
@@ -927,6 +930,11 @@ export async function bulkForecastHandler(
         ? HOURLY_SWELL_TIMELINE_HOUR_OFFSETS
         : SWELL_TIMELINE_HOUR_OFFSETS,
     );
+    const recommendedBoards: Record<string, RecommendedBoard | null> = {};
+    const personalAdjustmentReasons: Record<string, string | null> = {};
+    const conditionLabels: Record<string, string> = {};
+    const verdicts: Record<string, "go" | "maybe" | "no"> = {};
+    const lightByBeach: Record<string, ReturnType<typeof lightMetadata>> = {};
     const conditionScoreMap: Record<string, number | undefined> = {};
     const recommendationLabelMap: Record<string, RecommendationLabel | null> =
       Object.fromEntries(limitedBeachIds.map((beachId) => [beachId, null]));
@@ -1035,9 +1043,16 @@ export async function bulkForecastHandler(
         conditionScoreMap[beach.id] = score;
         conditionSummaryMap[beach.id] =
           conditionSummaryFromScore(score);
-        recommendationLabelMap[beach.id] = decisionContext
-          ? bulkRecommendationLabel(decisionContext, beach, forecast, score, fetchWindow.selectedAt ?? now)
+        const decision = decisionContext
+          ? bulkSessionDecision(decisionContext, beach, forecast, score, fetchWindow.selectedAt ?? now)
           : null;
+        recommendationLabelMap[beach.id] = decision ? recommendationLabelForVerdict(decision.verdict) : null;
+        personalAdjustmentReasons[beach.id] = decision?.personalAdjustmentReason ?? null;
+        recommendedBoards[beach.id] = recommendBoard(decisionContext?.boards ?? [], forecast, beach, userSkillLevel);
+        const label = recommendationLabelMap[beach.id];
+        verdicts[beach.id] = label === "Worth it" ? "go" : label === "Maybe" ? "maybe" : "no";
+        conditionLabels[beach.id] = conditionLabelForVerdict(verdicts[beach.id], score);
+        lightByBeach[beach.id] = lightMetadata(fetchWindow.selectedAt ?? now, beach.timezone || 'UTC', sunTimesCache?.get(beach.id));
         selectedScoreForecastAtByBeach.set(beach.id, forecast.forecast_at);
       } catch (error) {
         console.warn("Failed to score bulk forecast condition:", {
@@ -1063,6 +1078,11 @@ export async function bulkForecastHandler(
       todayHeadlines: todayHeadlineMap,
       waterTemps: waterTempMap,
       isCalibrated: isCalibratedMap,
+      recommendedBoards,
+      personalAdjustmentReasons,
+      conditionLabels,
+      verdicts,
+      lightByBeach,
       conditionScores: conditionScoreMap,
       conditionSummaries: conditionSummaryMap,
       displaySwell: displaySwellMap,

@@ -112,7 +112,7 @@ describe('Week Scout network budget (production dependencies)', () => {
     expect(mockRpc).toHaveBeenCalledWith('get_week_scout_personalization', expect.objectContaining({
       p_user_id: 'user-scout', p_beach_ids: ids,
       p_slots: expect.arrayContaining([expect.objectContaining({
-        beach_id: BEACH_ID, forecast_at: FORECAST_AT, wave_height: '2.4 ft',
+        beach_id: BEACH_ID, forecast_at: FORECAST_AT, wave_height: '2.4',
         wave_period: '10', wind_speed: '5 mph', wind_direction: '90', tide_height: '2.3',
       })]),
     }));

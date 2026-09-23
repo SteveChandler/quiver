@@ -15,6 +15,7 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { applyBeachCoordinateCorrection } from "@/lib/beach-coordinate-corrections";
 import type { ServerActionResponse } from "@/lib/server-action-utils";
 import { withServerAction, withPublicDatabaseOperation } from "@/lib/server-action-utils";
+import type { Database } from "@/types/database.generated";
 import type { Beach } from "@/types/database";
 import { isValidUUID } from "@/lib/utils/validation";
 
@@ -148,7 +149,7 @@ export async function getBeachesBySlugFromDb(slug: string): Promise<ServerAction
  */
 export async function getFavoriteBeachesFromDb(
   userId: string | null
-): Promise<ServerActionResponse<Beach[]>> {
+): Promise<ServerActionResponse<Beach[]> & { customSpots?: Database["public"]["Tables"]["custom_spots"]["Row"][] }> {
   if (!userId) return { success: true, data: [] };
 
   try {
@@ -161,7 +162,8 @@ export async function getFavoriteBeachesFromDb(
         id,
         rank,
         beach_id,
-        beaches (*)
+        beaches (*),
+        custom_spots (*)
       `
       )
       .eq("user_id", userId)
@@ -178,7 +180,7 @@ export async function getFavoriteBeachesFromDb(
       .map((item: any) => item.beaches)
       .filter((beach: any) => beach !== null) as Beach[];
 
-    return { success: true, data: beaches };
+    return { success: true, data: beaches, customSpots: (data ?? []).flatMap((item) => item.custom_spots ? [item.custom_spots] : []) };
   } catch (err) {
     console.error("Error in getFavoriteBeachesFromDb:", err);
     return {

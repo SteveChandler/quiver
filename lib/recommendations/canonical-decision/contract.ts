@@ -46,6 +46,7 @@ const personalMatchEvidenceSchema = z.object({
   label: z.enum(["EPIC", "GOOD", "FAIR", "RIDEABLE", "MEH"]),
   confidence: z.enum(["low", "medium", "high"]),
   sessionCount: z.number().int().nonnegative(),
+  similarSessionCount: z.number().int().nonnegative().optional(),
   reasons: z.array(z.string().min(1)),
 }).strict();
 const decisionEffectSchema = z.object({
@@ -100,6 +101,8 @@ export const canonicalSessionDecisionSchema = z.object({
     "data_unavailable",
   ]).optional(),
   reasonCode: reasonCodeSchema,
+  personalAdjustmentReason: z.enum(["personal_adjusted_up", "personal_adjusted_down"]).optional(),
+  conditionLabel: z.enum(["EPIC", "GOOD", "FAIR", "MEH"]).optional(),
   selection: selectionSchema.nullable(),
   skillEligibility: skillEligibilitySchema,
   holdEpoch: z.string().min(1),

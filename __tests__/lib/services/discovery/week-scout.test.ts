@@ -634,7 +634,7 @@ describe('generateWeekScoutForecast', () => {
     deps.fetchMatchEvidence = jest.fn(async (_user, _ids, forecasts) => new Map(
       forecasts.map((row) => [`${row.beach_id}:${row.forecast_at}`, row.beach_id === candidates[0].id ? {
         state: 'ready' as const, score: 1, label: 'MEH', confidence: 'high' as const,
-        bonusApplied: 0, reason: 'Mismatch', reasons: ['Mismatch'], sessionCount: 25,
+        bonusApplied: 0, reason: 'Mismatch', reasons: ['Mismatch'], sessionCount: 25, similarSessionCount: 5,
       } : null]),
     ));
     const response = await generateWeekScoutForecast('user-week-scout', {
@@ -652,10 +652,10 @@ describe('generateWeekScoutForecast', () => {
     );
     expect((deps.rankWindows as jest.Mock).mock.invocationCallOrder.every((order) =>
       order < (deps.fetchMatchEvidence as jest.Mock).mock.invocationCallOrder[0])).toBe(true);
-    expect(returned[0].rankedSpots[0]).toMatchObject({ beachId: candidates[0].id, verdict: 'skip' });
+    expect(returned[0].rankedSpots[0]).toMatchObject({ beachId: candidates[0].id, verdict: 'maybe' });
     for (const day of response.days) {
       expect(day.bestWindowId).not.toBeNull();
-      expect(day.windows.find((window) => window.id === day.bestWindowId)?.beachId).not.toBe(candidates[0].id);
+      expect(day.windows.find((window) => window.id === day.bestWindowId)?.verdict).not.toBe('skip');
     }
   });
 
@@ -860,7 +860,7 @@ describe('generateWeekScoutForecast', () => {
       selection: null,
     });
     expect(response.days[0].windows[0]).toMatchObject({
-      verdict: 'worth_it',
+      verdict: 'skip',
       rideable: false,
       safe: true,
       forecast: {

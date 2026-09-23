@@ -1,3 +1,5 @@
+import { scoreWindowWithComposite } from "@/lib/services/discovery/window-selector/window-scorer";
+import { type PersonalBoard } from "@/lib/scoring/personal-board";
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
@@ -14,7 +16,6 @@ import {
 import { resolveRecommendationLabel } from "@/lib/services/discovery/recommendation-label";
 import {
   forecastRowIntervalEnd,
-  isDaylightInterval,
 } from "@/lib/services/discovery/daylight-eligibility";
 import {
   buildCanonicalSessionDecision,
@@ -31,6 +32,7 @@ import type { RecommendationLabel } from "@/lib/scoring";
 
 export interface BulkDecisionContext {
   beaches: Beach[];
+  boards?: PersonalBoard[];
   skillLevel: ReturnType<typeof parseSkillLevel>;
   boardClasses: BoardClass[];
   sunTimes: Map<string, { sunrises: Date[]; sunsets: Date[] }>;
@@ -134,10 +136,8 @@ export async function fetchBulkDecisionContext(
     entitlementFromRow(data.personalization?.entitlement) === "premium";
   const matches: BulkDecisionContext["matches"] = new Map();
   for (const match of data.personalization?.matches ?? []) {
-    matches.set(
-      `${match.beach_id}:${match.forecast_at}`,
-      premium ? interpretRpcResult(match.result) : null,
-    );
+    const interpreted = premium ? interpretRpcResult(match.result) : null;
+    matches.set(`${match.beach_id}:${Date.parse(match.forecast_at)}`, interpreted);
   }
   const forecastsByBeach = new Map<string, EnhancedForecastEntity[]>();
   const beachById = new Map<string, Beach>(
@@ -170,6 +170,7 @@ export async function fetchBulkDecisionContext(
   }
   return {
     beaches: data.beaches,
+    boards: Array.isArray(data.personalization?.boards) ? data.personalization.boards : [],
     skillLevel: parseSkillLevel(data.profile?.experience_level),
     boardClasses: [
       ...new Set(
@@ -185,13 +186,13 @@ export async function fetchBulkDecisionContext(
   };
 }
 
-export function bulkRecommendationLabel(
+export function bulkSessionDecision(
   context: BulkDecisionContext,
   beach: Beach,
   forecast: EnhancedForecastEntity,
   score: number,
   at: Date,
-): RecommendationLabel {
+): ReturnType<typeof buildCanonicalSessionDecision> {
   const timezone = beach.timezone || getTimezoneFromCoords(beach.lat || 0, beach.lon || 0);
   const rowDuration = context.rowDurationsMs.get(
     `${beach.id}:${forecast.forecast_at}`,
@@ -207,13 +208,7 @@ export function bulkRecommendationLabel(
     },
     profileExperience: context.skillLevel,
     recommendationAvailability: { state: "available", holdEpoch: "bulk" },
-    candidates: isDaylightInterval(
-      at,
-      new Date(end),
-      timezone,
-      context.sunTimes.get(beach.id),
-    )
-      ? [
+    candidates: [
           {
             candidateId: `bulk:${beach.id}:${at.toISOString()}`,
             beachId: beach.id,
@@ -226,6 +221,7 @@ export function bulkRecommendationLabel(
             forecastAt: forecast.forecast_at,
             waveHeight: forecast.wave_height,
             utilityScore: score,
+            effects: [...(scoreWindowWithComposite(forecast, beach).effects ?? [])],
             recommendationLabel: resolveRecommendationLabel({
               beach,
               forecast,
@@ -233,12 +229,17 @@ export function bulkRecommendationLabel(
             }).label,
             personalMatch: toPersonalMatchEvidence({
               similarity:
-                context.matches.get(`${beach.id}:${forecast.forecast_at}`) ??
+                context.matches.get(`${beach.id}:${Date.parse(forecast.forecast_at)}`) ?? context.matches.get(`${beach.id}:${forecast.forecast_at}`) ??
                 null,
             }),
           },
-        ]
-      : [],
+        ],
   });
-  return recommendationLabelForVerdict(decision.verdict);
+  return decision;
+}
+
+export function bulkRecommendationLabel(
+  ...args: Parameters<typeof bulkSessionDecision>
+): RecommendationLabel {
+  return recommendationLabelForVerdict(bulkSessionDecision(...args).verdict);
 }

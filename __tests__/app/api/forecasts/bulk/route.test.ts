@@ -253,6 +253,7 @@ jest.mock("@/lib/services/forecast/today-headline", () => ({
 
 jest.mock("@/lib/services/discovery/window-selector/window-scorer", () => ({
   scoreWindowConditionScore: jest.fn(() => 72),
+  scoreWindowWithComposite: jest.fn(() => ({ effects: [] })),
 }));
 
 jest.mock("@/lib/api-utils", () => {
@@ -1244,6 +1245,7 @@ describe("/api/forecasts/bulk", () => {
     );
 
     expect(data.data).toEqual({
+      recommendedBoards: {}, personalAdjustmentReasons: {}, conditionLabels: {}, verdicts: {}, lightByBeach: {},
       forecasts: {},
       displayForecasts: {},
       todayHeadlines: {},

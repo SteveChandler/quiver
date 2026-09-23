@@ -235,10 +235,10 @@ export async function fetchWeekScoutMatchEvidence(
     matches: Array<{ beach_id: string; forecast_at: string; result: Record<string, unknown> | null }>;
   };
   const isPro = entitlementFromRow(context.entitlement) === 'premium';
-  return new Map(context.matches.map((match) => [
-    `${match.beach_id}:${match.forecast_at}`,
-    isPro ? interpretRpcResult(match.result) : null,
-  ]));
+  return new Map(context.matches.map((match) => {
+    const interpreted = isPro ? interpretRpcResult(match.result) : null;
+    return [`${match.beach_id}:${match.forecast_at}`, interpreted];
+  }));
 }
 
 // ============================================================================

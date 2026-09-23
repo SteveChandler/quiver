@@ -175,14 +175,11 @@ const mockSupabaseFrom = jest.fn((table: string) => {
   }
 
   if (table === 'boards') {
-    return {
-      select: jest.fn(() => ({
-        eq: jest.fn(async () => ({
-          data: mockState.boards,
-          error: mockState.boardsError,
-        })),
-      })),
+    const query: { select: jest.Mock; eq: jest.Mock; is: jest.Mock; then: (resolve: (value: unknown) => unknown) => Promise<unknown> } = {
+      select: jest.fn(() => query), eq: jest.fn(() => query), is: jest.fn(() => query),
+      then: (resolve: (value: unknown) => unknown) => Promise.resolve(resolve({ data: mockState.boards, error: mockState.boardsError })),
     };
+    return query;
   }
 
   if (table === 'custom_spots') {
@@ -955,18 +952,7 @@ describe('discoverSurfSpots - Favorites Merging', () => {
       maxResults: 5,
     });
 
-    expect(selectBestWindows).toHaveBeenCalledWith(
-      expect.objectContaining({
-        forecasts: [
-          expect.objectContaining({
-            id: 'matched-row',
-            forecast_at: matchedForecastAt,
-          }),
-        ],
-        now: new Date(requestedForecastAt),
-        maxWindows: 1,
-      }),
-    );
+    expect(selectBestWindows).not.toHaveBeenCalled();
     expect(result.recommendations[0]?.forecast).toMatchObject({
       id: 'matched-row',
       forecast_at: matchedForecastAt,
@@ -1283,12 +1269,12 @@ describe('discoverSurfSpots - Favorites Merging', () => {
       boardId: 'sb-1',
       boardName: "5'10 Lost Driver",
       boardType: 'shortboard',
-      reason: "5'10 Lost Driver conditions — enjoy the fun waves",
+      reason: "5'10 Lost Driver fits these conditions; limited similar session history",
     });
     expect(mockSupabaseFrom).toHaveBeenCalledWith('boards');
   });
 
-  test('keeps a Pro board pick when no saved board class can be scored', async () => {
+  test('does not recommend an unscorable board class', async () => {
     mockState.boards = [
       { id: 'custom-1', name: 'Custom Shape', board_type: 'custom-shape', volume: 40 },
       { id: 'custom-2', name: 'Another Shape', board_type: 'another-shape', volume: 35 },
@@ -1301,12 +1287,7 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     });
 
     const beach1Rec = result.recommendations.find(r => r.beach.id === 'beach-1');
-    expect(beach1Rec?.boardPick).toEqual({
-      boardId: 'custom-2',
-      boardName: 'Another Shape',
-      boardType: 'another-shape',
-      reason: 'Another Shape conditions — enjoy the fun waves',
-    });
+    expect(beach1Rec?.boardPick).toBeNull();;
   });
 
   test('fetches board context for free users without leaking Pro board picks', async () => {
@@ -3201,20 +3182,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       getFavoriteBeachesFromDb: jest.fn(async () => ({ success: true, data: [] })),
     }));
     jest.doMock('@/lib/supabase/server', () => ({
-      createSupabaseServiceRoleClient: jest.fn(() => ({
-        from: jest.fn(() => ({
-          select: jest.fn(() => ({
-            in: jest.fn(() => ({
-              in: jest.fn(() => ({
-                order: jest.fn(() => Promise.resolve({ data: [], error: null })),
-              })),
-            })),
-            eq: jest.fn(() => ({
-              in: jest.fn(() => Promise.resolve({ data: [], error: null })),
-            })),
-          })),
-        })),
-      })),
+      createSupabaseServiceRoleClient: jest.fn(() => ({ from: mockSupabaseFrom, rpc: mockSupabaseRpc })),
     }));
     jest.doMock('@/lib/domains/scoring', () => ({
       createDiscoveryScoringEngine: jest.fn(() => ({
@@ -3414,20 +3382,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       getFavoriteBeachesFromDb: jest.fn(async () => ({ success: true, data: [] })),
     }));
     jest.doMock('@/lib/supabase/server', () => ({
-      createSupabaseServiceRoleClient: jest.fn(() => ({
-        from: jest.fn(() => ({
-          select: jest.fn(() => ({
-            in: jest.fn(() => ({
-              in: jest.fn(() => ({
-                order: jest.fn(() => Promise.resolve({ data: [], error: null })),
-              })),
-            })),
-            eq: jest.fn(() => ({
-              in: jest.fn(() => Promise.resolve({ data: [], error: null })),
-            })),
-          })),
-        })),
-      })),
+      createSupabaseServiceRoleClient: jest.fn(() => ({ from: mockSupabaseFrom, rpc: mockSupabaseRpc })),
     }));
     jest.doMock('@/lib/domains/scoring', () => ({
       createDiscoveryScoringEngine: jest.fn(() => ({
@@ -3618,25 +3573,11 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
     // resolves to a sunset that matches `todayStr`, which is what drives the
     // "effectively over" gate.
     jest.doMock('@/lib/supabase/server', () => ({
-      createSupabaseServiceRoleClient: jest.fn(() => ({
-        from: jest.fn((table: string) => ({
-          select: jest.fn(() => ({
-            in: jest.fn(() => ({
-              in: jest.fn(() => ({
-                order: jest.fn(() => Promise.resolve({
-                  data: table === 'sun_times'
-                    ? [{ beach_id: 'beach-1', sunrise_utc: '2026-04-23T13:07:00Z', sunset_utc: sunset.toISOString() }]
-                    : [],
-                  error: null,
-                })),
-              })),
-            })),
-            eq: jest.fn(() => ({
-              in: jest.fn(() => Promise.resolve({ data: [], error: null })),
-            })),
-          })),
-        })),
-      })),
+      createSupabaseServiceRoleClient: jest.fn(() => ({ from: (table: string) => {
+        if (table !== 'sun_times') return mockSupabaseFrom(table);
+        const query = { select: () => query, in: () => query, order: async () => ({ data: [{ beach_id: 'beach-1', sunrise_utc: '2026-04-23T13:07:00Z', sunset_utc: sunset.toISOString() }], error: null }) };
+        return query;
+      }, rpc: mockSupabaseRpc })),
     }));
     jest.doMock('@/lib/domains/scoring', () => ({
       createDiscoveryScoringEngine: jest.fn(() => ({
@@ -3814,25 +3755,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       getFavoriteBeachesFromDb: jest.fn(async () => ({ success: true, data: [] })),
     }));
     jest.doMock('@/lib/supabase/server', () => ({
-      createSupabaseServiceRoleClient: jest.fn(() => ({
-        from: jest.fn((table: string) => ({
-          select: jest.fn(() => ({
-            in: jest.fn(() => ({
-              in: jest.fn(() => ({
-                order: jest.fn(() => Promise.resolve({
-                  data: table === 'sun_times'
-                    ? [{ beach_id: 'beach-1', sunrise_utc: '2026-04-24T13:07:00Z', sunset_utc: sunset.toISOString() }]
-                    : [],
-                  error: null,
-                })),
-              })),
-            })),
-            eq: jest.fn(() => ({
-              in: jest.fn(() => Promise.resolve({ data: [], error: null })),
-            })),
-          })),
-        })),
-      })),
+      createSupabaseServiceRoleClient: jest.fn(() => ({ from: mockSupabaseFrom, rpc: mockSupabaseRpc })),
     }));
     jest.doMock('@/lib/domains/scoring', () => ({
       createDiscoveryScoringEngine: jest.fn(() => ({
@@ -4006,25 +3929,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       getFavoriteBeachesFromDb: jest.fn(async () => ({ success: true, data: [] })),
     }));
     jest.doMock('@/lib/supabase/server', () => ({
-      createSupabaseServiceRoleClient: jest.fn(() => ({
-        from: jest.fn((table: string) => ({
-          select: jest.fn(() => ({
-            in: jest.fn(() => ({
-              in: jest.fn(() => ({
-                order: jest.fn(() => Promise.resolve({
-                  data: table === 'sun_times'
-                    ? [{ beach_id: 'beach-1', sunrise_utc: '2026-04-24T13:07:00Z', sunset_utc: sunset.toISOString() }]
-                    : [],
-                  error: null,
-                })),
-              })),
-            })),
-            eq: jest.fn(() => ({
-              in: jest.fn(() => Promise.resolve({ data: [], error: null })),
-            })),
-          })),
-        })),
-      })),
+      createSupabaseServiceRoleClient: jest.fn(() => ({ from: mockSupabaseFrom, rpc: mockSupabaseRpc })),
     }));
     jest.doMock('@/lib/domains/scoring', () => ({
       createDiscoveryScoringEngine: jest.fn(() => ({

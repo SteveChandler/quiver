@@ -180,9 +180,7 @@ it.each(
     const body = (await response.json()).data;
     expect(body.conditionScores[id(1)]).toEqual(expect.any(Number));
     expect(body.recommendationLabels[id(1)]).toBe(
-      signedIn
-        ? "Skip"
-        : resolveRecommendationLabel({
+      resolveRecommendationLabel({
             beach: beach(1),
             forecast: rows[0],
             score: body.conditionScores[id(1)],
@@ -205,11 +203,11 @@ it.each(
 );
 
 it.each(["2026-09-23T10:00:00Z", "2026-09-23T06:00:00Z"])(
-  "returns Skip for the reported 3 AM / 11 PM previews: %s",
+  "scores the reported 3 AM / 11 PM previews without a daylight veto: %s",
   async (at) => {
     mockFrom.mockReturnValue(query([forecast(1, at)]));
     const data = rpcData(1, at);
-    data.personalization = null; // Daylight alone must veto an otherwise positive physical label.
+    data.personalization = null; // Darkness is metadata, not a verdict veto.
     mockRpc.mockResolvedValue({ data, error: null });
     const response = await bulkForecastHandler(
       createMockRequest(
@@ -224,7 +222,7 @@ it.each(["2026-09-23T10:00:00Z", "2026-09-23T06:00:00Z"])(
     );
     expect(response.status).toBe(200);
     expect((await response.json()).data.recommendationLabels[id(1)]).toBe(
-      "Skip",
+      "Worth it",
     );
     expect(mockRpc).toHaveBeenCalledTimes(1);
   },
@@ -323,7 +321,7 @@ it.each([
         90,
         new Date(at),
       ),
-    ).toBe(allowed ? "Worth it" : "Skip");
+    ).toBe("Worth it");
   },
 );
 
@@ -379,7 +377,7 @@ it.each([false, true])(
     const body = (await response.json()).data;
     expect(
       body.hourlySwellTimeline.partitionsByBeach[id(1)][0].recommendationLabel,
-    ).toBe("Skip");
+    ).toBe("Worth it");
     expect(mockFrom).toHaveBeenCalledTimes(only ? 2 : 3);
     expect(mockRpc).toHaveBeenCalledTimes(1);
     expect(
@@ -421,7 +419,7 @@ it("ignores learned matches for expired paid access", async () => {
     NOW,
     NOW,
   );
-  expect(context.matches.get(`${id(1)}:${NOW.toISOString()}`)).toBeNull();
+  expect(context.matches.get(`${id(1)}:${NOW.getTime()}`)).toBeNull();
   expect(context.boardClasses).toEqual(["longboard"]);
   expect(context.skillLevel).toBe("advanced");
   expect(bulkRecommendationLabel(context, beach(1), forecast(1), 90, NOW)).toBe(

@@ -1185,7 +1185,7 @@ describe('fetchWeekScoutMatchEvidence', () => {
     expect(context.get(`${forecast.beach_id}:${forecast.forecast_at}`)).toEqual(
       enabled ? {
         state: 'ready', score: 6.4, label: 'FAIR', confidence: 'high',
-        sessionCount: 25, bonusApplied: 0, reason: match.reason_bullets[0],
+        sessionCount: 25, similarSessionCount: 0, bonusApplied: 0, reason: match.reason_bullets[0],
         reasons: match.reason_bullets,
       } : null,
     );

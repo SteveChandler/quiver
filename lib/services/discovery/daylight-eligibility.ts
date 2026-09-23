@@ -101,3 +101,19 @@ export function nextFirstLight(
 
   return null;
 }
+
+export function lightMetadata(
+  at: Date,
+  timezone: string,
+  sunTimes?: BeachSunTimes,
+): { firstLight: string; lastLight: string; isDark: boolean; nextWindowStart?: string } {
+  const light = usableLightIntervalForDate(getLocalDateStr(at, timezone), timezone, sunTimes);
+  const isDark = at < light.start || at >= light.end;
+  const next = isDark ? nextFirstLight(at, timezone, sunTimes) : null;
+  return {
+    firstLight: light.start.toISOString(),
+    lastLight: light.end.toISOString(),
+    isDark,
+    ...(next ? { nextWindowStart: next.toISOString() } : {}),
+  };
+}

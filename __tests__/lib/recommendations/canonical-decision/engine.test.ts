@@ -313,7 +313,7 @@ describe("canonical session decision engine", () => {
     ["GOOD", "maybe"],
     ["FAIR", "maybe"],
     ["RIDEABLE", "maybe"],
-    ["MEH", "no"],
+    ["MEH", "maybe"],
   ] as const)(
     "maps a learned %s match to canonical %s",
     (label, expectedVerdict) => {

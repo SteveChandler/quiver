@@ -48,6 +48,13 @@ const QuerySchema = z.object({
 type CanonicalSurfCallResponse = SpotSurfReportResult & {
   sessionDecision: CanonicalSessionDecision;
   forecastAlignment?: SurfCallForecastAlignment;
+  recommendedBoard?: SurfDiscoveryRecommendation["recommendedBoard"];
+  boardPick?: SurfDiscoveryRecommendation["boardPick"];
+  conditionLabel?: CanonicalSessionDecision["conditionLabel"];
+  firstLight?: string;
+  lastLight?: string;
+  isDark?: boolean;
+  nextWindowStart?: string;
   daylightAvailability?: SurfDiscoveryResponse['daylightAvailability'];
   /**
    * The beach's now-mode discovery recommendation, present only when the
@@ -294,6 +301,9 @@ function buildCanonicalSurfCall(
 
   return {
     report,
+    recommendedBoard: objectiveRecommendation?.recommendedBoard ?? null,
+    boardPick: objectiveRecommendation?.boardPick ?? null,
+    conditionLabel: decision.conditionLabel,
     isTomorrow,
     forecastContext,
     sessionDecision: decision,
@@ -459,6 +469,10 @@ async function surfCallHandler(
     ? await nowRecommendationPromise
     : null;
   const canonicalResult: CanonicalSurfCallResponse = {
+    firstLight: canonicalContext.discovery.firstLight,
+    lastLight: canonicalContext.discovery.lastLight,
+    isDark: canonicalContext.discovery.isDark,
+    nextWindowStart: canonicalContext.discovery.nextWindowStart,
     ...buildCanonicalSurfCall(
       sessionDecision,
       beachId,

@@ -1,3 +1,5 @@
+import { normalizeBoardClass } from "@/lib/domains/rideability";
+import { recommendBoard, type RecommendedBoard } from "@/lib/scoring/personal-board";
 import type { NextRequest } from "next/server";
 import {
   withAuth,
@@ -18,7 +20,7 @@ import { resolveNativeSkillLevel } from "@/lib/scoring/native-condition-score";
 import { scoreWindowConditionDetails } from "@/lib/services/discovery/window-selector/window-scorer";
 import { fetchUserBoardContext } from "@/lib/services/discovery/surf-discovery-orchestrator";
 import type { BoardClass } from "@/lib/domains/rideability";
-import { getConditionBoardPick, toForecastForScoring, type BoardForPick } from "@/lib/scoring";
+import { type BoardForPick } from "@/lib/scoring";
 import type { SkillLevel } from "@/lib/domains/user-preferences/skill-level";
 import { getProfileExperienceLevel } from "@/lib/profile/skill-level";
 import { parseWaveHeightRangeFt } from "@/lib/alerts/forecast-parsers";
@@ -70,6 +72,7 @@ interface TimeSlot {
   swellTrains: number;
   dominantBeatIntervalS: number | null;
   forecastDataConfidence: number;
+  recommendedBoard?: RecommendedBoard | null;
   boardClass?: BoardClass | null;
   board?: { id: string; name: string; boardType: string } | null;
   sizeBand?: {
@@ -184,14 +187,8 @@ export function scoreForecastSlots(
       null,
       [],
     ).score;
-    const boardPick = scoreDetails.boardClass
-      ? getConditionBoardPick(
-          toForecastForScoring(forecast),
-          boardsForPicks,
-          beach,
-          { kind: "scored", boardClass: scoreDetails.boardClass },
-        )
-      : null;
+    const recommendedBoard = recommendBoard(boardsForPicks, forecast, beach, skillLevel);
+    const boardPick = recommendedBoard ? { boardId: recommendedBoard.id, boardName: recommendedBoard.name, boardType: recommendedBoard.type } : null;
 
     // Wave frequency
     const {
@@ -252,7 +249,8 @@ export function scoreForecastSlots(
       swellTrains,
       dominantBeatIntervalS,
       forecastDataConfidence,
-      boardClass: scoreDetails.boardClass,
+      recommendedBoard,
+      boardClass: recommendedBoard ? normalizeBoardClass(recommendedBoard.type) : scoreDetails.boardClass,
       board: boardPick
         ? {
             id: boardPick.boardId,

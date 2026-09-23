@@ -3,7 +3,7 @@ import 'server-only';
 import { createHash } from 'node:crypto';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { resolveRecommendationLabel } from './recommendation-label';
-import { getCanonicalRecommendationLabel } from '@/lib/recommendations/canonical-decision/discovery-adapter';
+import { toPersonalMatchEvidence, getCanonicalRecommendationLabel } from '@/lib/recommendations/canonical-decision/discovery-adapter';
 import { getProfileExperienceLevel } from '@/lib/profile/skill-level';
 import { batchFetchForecasts } from '@/lib/services/discovery/forecast-batch-fetcher';
 import { getBatchSunTimes } from '@/lib/services/discovery/surf-discovery-orchestrator';
@@ -47,6 +47,7 @@ import type {
   DetailedScore,
   PersonalizedForecastWindow,
   SurfDiscoveryRecommendation,
+  SimilarityRecommendation,
 } from '@/types/personalization';
 import {
   sanitizeWeekScoutForMajorEventHold,
@@ -223,6 +224,7 @@ export type CanonicalWeekScoutResponse = MajorEventHoldWeekScoutResponse & {
 };
 
 interface GeneratedWeekScoutContext {
+  similarity?: Map<string, SimilarityRecommendation>;
   heldResponse: MajorEventHoldWeekScoutResponse;
   beaches: Beach[];
   forecastsByBeach: Map<string, EnhancedForecastEntity[]>;
@@ -735,6 +737,7 @@ function canonicalLabelForVerdict(
 }
 
 function buildWeekScoutCanonicalCandidates(args: {
+  similarity?: Map<string, SimilarityRecommendation>;
   response: MajorEventHoldWeekScoutResponse;
   beaches: readonly Beach[];
   forecastsByBeach: ReadonlyMap<string, EnhancedForecastEntity[]>;
@@ -749,7 +752,7 @@ function buildWeekScoutCanonicalCandidates(args: {
         || window.isBeachDayBest !== true
         || window.rankingScore === null
         || window.verdict === null
-        || window.verdict === 'skip'
+        || (window.verdict === 'skip' && window.safe && window.rideable)
       ) {
         return [];
       }
@@ -769,8 +772,9 @@ function buildWeekScoutCanonicalCandidates(args: {
         forecastId: forecast?.id ?? '',
         forecastAt: forecast?.forecast_at ?? '',
         waveHeight: window.forecast.waveHeight,
-        utilityScore: window.rankingScore,
-        recommendationLabel: canonicalLabelForVerdict(window.verdict),
+        utilityScore: window.conditionScore ?? 0,
+        recommendationLabel: forecast ? resolveRecommendationLabel({ beach, forecast, score: window.conditionScore ?? 0 }).label : canonicalLabelForVerdict(window.verdict),
+        personalMatch: toPersonalMatchEvidence({ similarity: args.similarity?.get(`${forecast?.beach_id}:${forecast?.forecast_at}`) ?? null }),
       }];
     }),
   );
@@ -1166,6 +1170,7 @@ async function generateWeekScoutForecastInternal(
 
   return {
     heldResponse,
+    similarity,
     beaches,
     forecastsByBeach,
     userSkillLevel,
@@ -1188,6 +1193,7 @@ function buildCanonicalWeekScoutResponse(
 ): CanonicalWeekScoutResponse {
   const canonicalCandidates = buildWeekScoutCanonicalCandidates({
     response: context.heldResponse,
+    similarity: context.similarity,
     beaches: context.beaches,
     forecastsByBeach: context.forecastsByBeach,
   });
