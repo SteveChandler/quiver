@@ -36,6 +36,7 @@ import type { UserImplicitPreferences } from '@/types/implicit-preferences';
 import type { UserSurfPreferences } from '@/lib/services/preference-learning-service';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import type { Beach } from '@/types/database';
+import { parseWaveHeightMidpointFt } from '@/lib/alerts/forecast-parsers';
 
 const log = createContextLogger('PersonalizationLayer');
 const MAX_AFFINITY_BONUS = 4;
@@ -307,7 +308,7 @@ export function calculatePersonalizationBonus(
   // Blended with explicit confidence to avoid redundancy.
   if (context.implicitWeight > 0 && context.implicitPrefs !== null) {
     const forecastData = {
-      wave_height_ft: parseFloat(String(forecast.wave_height ?? '0')) || null,
+      wave_height_ft: parseWaveHeightMidpointFt(forecast.wave_height),
       wave_period_s: parseFloat(String(forecast.wave_period ?? '').replace('s', '') || '0'),
       wind_speed_mph: parseFloat(String(forecast.wind_speed ?? '0')),
     };

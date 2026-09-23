@@ -1,5 +1,6 @@
 import { angleDifference } from "@/lib/domains/shared";
 import { cardinalToDegrees } from "@/lib/services/forecast/forecast-transformer";
+import { parseWaveHeightMidpointFt } from '@/lib/alerts/forecast-parsers';
 
 const METERS_TO_FEET = 3.28084;
 
@@ -54,7 +55,9 @@ export function resolveDisplaySwell(
   const namedDirection = cardinalToDegrees(
     row?.swell_1_direction ?? row?.wave_direction,
   );
-  const namedHeight = parseNumber(row?.swell_1_height ?? row?.wave_height);
+  const namedHeight = row?.swell_1_height == null
+    ? parseWaveHeightMidpointFt(row?.wave_height)
+    : parseNumber(row.swell_1_height);
   const waveDirectionOm = cardinalToDegrees(row?.wave_direction_om);
   const offshoreDirection = parseNumber(row?.swell_direction_om);
   const offshorePeriod = parseNumber(row?.swell_period_om);

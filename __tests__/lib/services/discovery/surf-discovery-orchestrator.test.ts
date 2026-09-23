@@ -1302,10 +1302,10 @@ describe('discoverSurfSpots - Favorites Merging', () => {
 
     const beach1Rec = result.recommendations.find(r => r.beach.id === 'beach-1');
     expect(beach1Rec?.boardPick).toEqual({
-      boardId: 'custom-1',
-      boardName: 'Custom Shape',
-      boardType: 'custom-shape',
-      reason: 'Custom Shape conditions — enjoy the fun waves',
+      boardId: 'custom-2',
+      boardName: 'Another Shape',
+      boardType: 'another-shape',
+      reason: 'Another Shape conditions — enjoy the fun waves',
     });
   });
 
@@ -3786,7 +3786,9 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
         const window = mockSelectBestWindow(...args);
         return window ? [window] : [];
       },
-      getLocalDateStr: jest.fn((date: Date, _tz: string) => date.toISOString().split('T')[0]),
+      getLocalDateStr: jest.fn((date: Date, tz: string) => new Intl.DateTimeFormat('en-CA', {
+        year: 'numeric', month: '2-digit', day: '2-digit', timeZone: tz,
+      }).format(date)),
       getLocalHour: jest.fn((date: Date, _tz: string) => date.getUTCHours()),
       MIN_SESSION_HOURS: 1.0,
     }));
@@ -3974,7 +3976,9 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
         const window = mockSelectBestWindow(...args);
         return window ? [window] : [];
       },
-      getLocalDateStr: jest.fn((date: Date, _tz: string) => date.toISOString().split('T')[0]),
+      getLocalDateStr: jest.fn((date: Date, tz: string) => new Intl.DateTimeFormat('en-CA', {
+        year: 'numeric', month: '2-digit', day: '2-digit', timeZone: tz,
+      }).format(date)),
       getLocalHour: jest.fn((date: Date, _tz: string) => date.getUTCHours()),
       MIN_SESSION_HOURS: 1.0,
       FORECAST_WINDOW_DURATION_MINUTES: 30,
@@ -4092,19 +4096,20 @@ describe('discoverSurfSpots - Evening included beach fallback', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    const eveningBeach = { ...mockBeach1, timezone: 'UTC' } as Beach;
     const { getTimezoneFromCoords } = require('@/lib/utils/timezone-utils.server');
     jest.mocked(getTimezoneFromCoords).mockReturnValue('UTC');
     jest.useFakeTimers().setSystemTime(new Date('2026-04-24T20:00:00.000Z'));
     mockState.candidatePoolResponse = {
-      candidates: [mockBeach1] as Beach[],
+      candidates: [eveningBeach],
       preferredWaveSize: null,
       userSkillLevel: null,
       preferredBreakType: null,
     };
-    mockState.includedBeachRows = [mockBeach1];
+    mockState.includedBeachRows = [eveningBeach];
     mockState.forecastBatchResponse = {
       successful: [{
-        beach: mockBeach1,
+        beach: eveningBeach,
         forecasts: [
           {
             ...mockForecast,

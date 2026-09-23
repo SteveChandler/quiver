@@ -418,6 +418,41 @@ describe('selectBestWindow', () => {
     expect(result).toBeNull();
   });
 
+  it('accepts a dawn-patrol row whose interval overlaps first light', () => {
+    const forecast = createForecast({
+      id: 'ponto-dawn-row',
+      forecast_at: '2026-09-23T12:40:00Z',
+      forecast_date: '2026-09-23',
+      forecast_time: '05:40',
+      wave_height: '3-4 ft',
+      wave_period: '15s',
+      wind_speed: '5',
+      wind_direction: 'NE',
+      wind_direction_deg: 45,
+      tide_height: '3.5',
+      confidence_score: 90,
+    });
+
+    const windows = selectBestWindows({
+      forecasts: [forecast],
+      beach: { ...mockBeach, timezone: 'America/Los_Angeles' } as Beach,
+      userPrefs: null,
+      timeSlot: 'dawn-patrol',
+      now: new Date('2026-09-23T13:15:00Z'), // 6:15 AM; the hourly row is still current
+      maxWindows: 1,
+      sunTimesCache: new Map([[
+        'beach-1',
+        {
+          sunrises: [new Date('2026-09-23T13:37:00Z')],
+          sunsets: [new Date('2026-09-24T01:44:00Z')],
+        },
+      ]]),
+    });
+
+    expect(windows).toHaveLength(1);
+    expect(windows[0].end.getTime()).toBeGreaterThan(new Date('2026-09-23T13:07:00Z').getTime());
+  });
+
   it('should respect time slot filter', () => {
     const forecasts = [
       createForecast({
@@ -1405,9 +1440,9 @@ describe('selectBestWindow with tide-driven boundaries', () => {
     });
 
     expect(result).not.toBeNull();
-    // Window end should be at or before sunset (5pm PST = 01:00 UTC)
+    // Usable light extends 20 minutes past sunset (5pm PST = 01:00 UTC).
     expect(result!.end.getTime()).toBeLessThanOrEqual(
-      new Date('2024-01-16T01:00:00Z').getTime()
+      new Date('2024-01-16T01:20:00Z').getTime()
     );
   });
 
@@ -2531,8 +2566,8 @@ describe('sub-hour window refinement integration', () => {
     expect(result!.usedTideBoundaries).toBe(false);
   });
 
-  it('produces sub-hour times when light constraints trim the window', () => {
-    // Test that sunset constraints cause sub-hour end time refinement
+  it('keeps the window within the sunset-plus-20-minute allowance', () => {
+    // Test that sunset constraints keep the selected window within usable light.
 
     // Forecasts spanning 2pm to 5pm PT (local times)
     const forecasts = [
@@ -2602,13 +2637,10 @@ describe('sub-hour window refinement integration', () => {
 
     expect(result).not.toBeNull();
 
-    // The window end should be capped at sunset (4:45pm PST)
-    // This creates sub-hour precision on the end time
-    const endMinutes = result!.end.getMinutes();
-
-    // End time should be at 45 minutes (sunset time) or refined nearby
-    // The key assertion is that we get sub-hour precision from the light constraint
-    expect(endMinutes).not.toBe(0);
+    const sunset = new Date('2024-01-16T00:45:00Z');
+    const lastLight = new Date('2024-01-16T01:05:00Z');
+    expect(result!.end.getTime()).toBeGreaterThanOrEqual(sunset.getTime());
+    expect(result!.end.getTime()).toBeLessThanOrEqual(lastLight.getTime());
   });
 
   it('keeps hourly boundaries when no refinement is needed', () => {

@@ -4,6 +4,7 @@ import {
   createSuccessResponse,
   createErrorResponse,
 } from "@/lib/middleware/api-wrappers";
+import { parseWaveHeightMidpointFt } from '@/lib/alerts/forecast-parsers';
 
 // Mark this route as dynamic to prevent static generation
 export const runtime = "nodejs";
@@ -52,7 +53,7 @@ interface GearSuggestionsResponse {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const waveHeight = parseFloat(searchParams.get("waveHeight") || "0");
+    const waveHeight = parseWaveHeightMidpointFt(searchParams.get("waveHeight")) ?? 0;
     const windSpeed = parseFloat(searchParams.get("windSpeed") || "0");
     const beachId = searchParams.get("beachId");
 

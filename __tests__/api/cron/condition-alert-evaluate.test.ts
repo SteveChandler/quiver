@@ -1085,12 +1085,11 @@ describe("condition-alert-evaluate — surfability gate", () => {
     expect(store.queueUpserts).toHaveLength(1);
   });
 
-  it("range-string wave_height: uses the max of '1-2ft' (2), not parseFloat's first number (1)", async () => {
+  it("range-string wave_height: uses the midpoint of '1-2ft' (1.5)", async () => {
     seedRule();
     seedProfile();
     seedBeach({ break_type: "beach" }); // 1.5ft minimum
-    // Raw DB row stores a range string. parseFloat("1-2ft") = 1, which would
-    // false-suppress this window (1 < 1.5). The gate must extract max = 2.
+    // Raw DB row stores a range string; all condition paths use its midpoint.
     store.forecasts.push({
       forecast_at: "2026-04-26T14:00:00Z",
       wave_height: "1-2ft",

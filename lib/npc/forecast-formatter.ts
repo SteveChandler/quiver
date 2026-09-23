@@ -6,6 +6,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/database';
 import { classifyWindDirection } from '@/lib/utils/wind-classification';
+import { parseWaveHeightMidpointFt } from '@/lib/alerts/forecast-parsers';
 
 export { formatWaveRange } from '@/lib/utils/wave-formatters';
 
@@ -331,7 +332,7 @@ export async function fetchRegionalForecast(
     .slice(0, 3)
     .map((b) => {
       const forecast = beachForecasts.get(b.id);
-      const waveHeight = parseFloat(String(forecast?.wave_height || 0));
+      const waveHeight = parseWaveHeightMidpointFt(forecast?.wave_height) ?? 0;
       const windOffshoreDeg = beachWindMap.get(b.id) ?? null;
       return {
         name: b.name,
@@ -353,7 +354,7 @@ export async function fetchRegionalForecast(
     primaryBeach: {
       id: primaryBeach.id,
       name: primaryBeach.name,
-      waveHeight: parseFloat(String(primaryForecast?.wave_height || 0)) || null,
+      waveHeight: parseWaveHeightMidpointFt(primaryForecast?.wave_height),
       wavePeriod: parseFloat(String(primaryForecast?.wave_period || 0)) || null,
       windSpeed: parseFloat(String(primaryForecast?.wind_speed || 0)) || null,
       windDirection: primaryForecast?.wind_direction || null,

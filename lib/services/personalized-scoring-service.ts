@@ -45,6 +45,7 @@ import {
   isTopEngagedBeach,
 } from './implicit-preferences-service';
 import type { EnhancedForecastEntity } from '@/types/forecast';
+import { parseWaveHeightMidpointFt } from '@/lib/alerts/forecast-parsers';
 
 const MAX_AFFINITY_BONUS = 4;
 const AFFINITY_BONUS_SCALE = 0.05;
@@ -161,7 +162,7 @@ export async function scoreBeachForUser(
 
         const implicitBonus = calculateImplicitBonus(
           {
-            wave_height_ft: parseFloat(forecast.wave_height || '0') || null,
+            wave_height_ft: parseWaveHeightMidpointFt(forecast.wave_height),
             wave_period_s: parseFloat(forecast.wave_period || '0'),
             wind_speed_mph: parseFloat(forecast.wind_speed || '0'),
           },
@@ -250,7 +251,7 @@ export function matchesLearnedWaveRange(
   forecast: EnhancedForecastEntity,
   prefs: { wave_min_ft: number | null; wave_max_ft: number | null }
 ): boolean {
-  const height = parseForecastNumber(forecast.wave_height);
+  const height = parseWaveHeightMidpointFt(forecast.wave_height);
   if (!height || !prefs.wave_min_ft || !prefs.wave_max_ft) return false;
 
   return height >= prefs.wave_min_ft && height <= prefs.wave_max_ft;

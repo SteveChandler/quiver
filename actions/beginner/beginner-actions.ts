@@ -5,9 +5,9 @@ import { rankBeaches } from "@/lib/recommendations/selection";
 import { parseLocationFromSlug } from "@/lib/utils/location-slug";
 import {
   parseFloatSafe,
-  parseWaveHeightRange,
   parseWindSpeed,
 } from "@/lib/utils/number-parsing";
+import { parseWaveHeightMidpointFt } from "@/lib/alerts/forecast-parsers";
 import type {
   BeginnerConditionsBadge,
   BeginnerConditionStatus,
@@ -102,12 +102,8 @@ function getBeginnerFitPriority(beach: BeginnerBeachRankingMeta): number {
   return 3;
 }
 
-function parseWaveHeightMaxOrNull(waveHeight: string | null): number | null {
-  if (!waveHeight) return null;
-  const range = parseWaveHeightRange(waveHeight);
-  if (range) return range.max;
-  const parsed = parseFloatSafe(waveHeight, Number.NaN);
-  return Number.isFinite(parsed) ? parsed : null;
+function parseWaveHeightMidpointOrNull(waveHeight: string | null): number | null {
+  return parseWaveHeightMidpointFt(waveHeight);
 }
 
 function parseWindSpeedOrNull(windSpeed: string | null): number | null {
@@ -157,7 +153,7 @@ function getConditionPriority(
 ): number {
   if (!forecast) return 2;
 
-  const waveHeightFtMax = parseWaveHeightMaxOrNull(forecast.wave_height);
+  const waveHeightFtMax = parseWaveHeightMidpointOrNull(forecast.wave_height);
   const windSpeedMph = parseWindSpeedOrNull(forecast.wind_speed);
   const tideHeightFt = parseTideHeightOrNull(forecast.tide_height);
   const evaluation = evaluateBeginnerWindow({
@@ -279,7 +275,7 @@ async function getLatestForecast(
 }
 
 function parseWaveHeightMax(waveHeight: string | null): number {
-  return parseWaveHeightMaxOrNull(waveHeight) ?? 0;
+  return parseWaveHeightMidpointOrNull(waveHeight) ?? 0;
 }
 
 function formatWaveHeight(waveHeight: string | null): string {
@@ -490,7 +486,7 @@ export async function getBeginnerConditionsData(
 
     // Badge
     const waveHeightMax = parseWaveHeightMax(forecast.wave_height);
-    const beginnerWaveHeightMax = parseWaveHeightMaxOrNull(
+    const beginnerWaveHeightMax = parseWaveHeightMidpointOrNull(
       forecast.wave_height,
     );
     const windSpeedNum = parseWindSpeed(forecast.wind_speed, 0);

@@ -19,6 +19,7 @@ import {
 import { evaluateMajorEventHoldCandidates } from "@/lib/recommendations/major-event-hold/service";
 import type { RecommendationAvailability } from "@/lib/recommendations/major-event-hold/types";
 import { applyV51DisplayOverrideToForecasts } from "@/lib/services/forecast/v5-display-gate";
+import { parseWaveHeightMidpointFt } from "@/lib/alerts/forecast-parsers";
 import { scoreWindowConditionScore } from "@/lib/services/discovery/window-selector/window-scorer";
 import { parseSkillLevel } from "@/lib/domains/user-preferences/skill-level";
 import {
@@ -209,11 +210,8 @@ async function sanitizeBulkResponse<TResponse extends BulkForecastResponseLike>(
 
 
 function parseLegacyWaveHeight(value: string | number | null | undefined): number | null {
-  if (value == null) return null;
-  if (typeof value === "number") return Number.isFinite(value) ? value : null;
-  if (value.trim().toLowerCase() === "flat") return 0;
-  const parsed = Number.parseFloat(value);
-  return Number.isFinite(parsed) ? parsed : null;
+  if (typeof value === "string" && value.trim().toLowerCase() === "flat") return 0;
+  return parseWaveHeightMidpointFt(value);
 }
 
 function resolveForecastFetchWindow(forecastAt: string | null): {
@@ -998,7 +996,10 @@ export async function bulkForecastHandler(
           userSkillLevel,
         });
         if (headline) {
-          const window = withDisplayWindow(headline.window);
+          const window = withDisplayWindow(
+            headline.window,
+            sunTimesCache?.get(beach.id),
+          );
           todayHeadlineMap[beach.id] = {
             label: headline.display.label,
             minFt: headline.display.minFt,

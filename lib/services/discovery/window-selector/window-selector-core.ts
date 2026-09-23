@@ -6,12 +6,9 @@
  * ALGORITHM:
  * 1. Score all forecasts upfront and filter past times
  * 2. For each valid forecast window start:
- *    - Skip if score below MIN_SCORE_THRESHOLD
- *    - Check Local Hour to filter night sessions (9pm-5am)
- *    - Find NEXT sunset > startTime
- *    - Skip if too close to sunset (< MIN_SESSION_HOURS)
- *    - Extend window end until conditions degrade or MAX_WINDOW_HOURS reached
- *    - Cap window end at sunset
+ *    - Skip if score is below MIN_SCORE_THRESHOLD
+ *    - Extend window end until conditions degrade or MAX_WINDOW_HOURS is reached
+ *    - Keep only windows whose interval overlaps usable local light
  * 3. Apply time-decay penalty for ranking
  * 4. Select highest adjusted score
  *
@@ -29,7 +26,12 @@ import type { BoardClass, RideabilityBand } from '@/lib/domains/rideability';
 import type { SkillLevel } from '@/lib/domains/user-preferences/skill-level';
 import { resolveBeachTimezone } from '@/lib/utils/timezone-utils';
 import { createContextLogger } from '@/lib/logger';
-import { resolveForecastTime, localDateTimeToUTC } from '@/lib/utils/forecast-time-resolver';
+import { resolveForecastTime } from '@/lib/utils/forecast-time-resolver';
+import {
+  forecastRowIntervalEnd,
+  isDaylightInterval,
+  usableLightIntervalForDate,
+} from '../daylight-eligibility';
 
 const log = createContextLogger('WindowSelector');
 
@@ -126,7 +128,7 @@ function prepareForecasts(
       };
     })
     .filter(({ forecastTime }) => {
-      // Only show windows that are still in progress or just ended
+      // Only show windows that are still in progress or just ended.
       const windowDurationMs = FORECAST_WINDOW_DURATION_MINUTES * 60 * 1000;
       const toleranceMs = PAST_WINDOW_TOLERANCE_MINUTES * 60 * 1000;
       const windowEndTime = new Date(forecastTime.getTime() + windowDurationMs);
@@ -143,14 +145,26 @@ function filterByTimeSlot(
   forecasts: ScoredForecast[],
   timeSlot: TimeSlot | undefined,
   sunrises: Date[],
+  sunsets: Date[],
   beachTz: string
 ): ScoredForecast[] {
   if (!timeSlot || timeSlot === 'any') {
     return forecasts;
   }
 
-  return forecasts.filter(({ forecastTime }) => {
+  return forecasts.filter(({ forecastTime }, index) => {
     try {
+      if (timeSlot === 'dawn-patrol') {
+        const rowEnd = forecastRowIntervalEnd(forecastTime, forecasts[index + 1]?.forecastTime);
+        const localHour = parseInt(getLocalHourFormatter(beachTz).format(forecastTime), 10);
+        return localHour < 11 && isDaylightInterval(
+          forecastTime,
+          rowEnd,
+          beachTz,
+          { sunrises, sunsets },
+        );
+      }
+
       const localHour = parseInt(
         getLocalHourFormatter(beachTz).format(forecastTime),
         10
@@ -162,89 +176,6 @@ function filterByTimeSlot(
       return false;
     }
   });
-}
-
-interface LightCheckOptions {
-  startTime: Date;
-  sunsets: Date[];
-  sunrises: Date[];
-  beachTz: string;
-  getLocalDateStrForBeach: (d: Date) => string;
-}
-
-/**
- * Check if a forecast start time should be skipped due to night/sunset constraints.
- */
-function shouldSkipDueToLight({
-  startTime,
-  sunsets,
-  sunrises,
-  beachTz,
-  getLocalDateStrForBeach,
-}: LightCheckOptions): boolean {
-  // Night Filter (using Local Hour)
-  try {
-    const localHour = parseInt(
-      getLocalHourFormatter(beachTz).format(startTime),
-      10
-    );
-
-    const nightCutoff = sunsets.length > 0 ? 21 : 18;
-    if (localHour >= nightCutoff || localHour < 6) {
-      return true;
-    }
-  } catch {
-    // If tz conversion fails, proceed to sunset check
-  }
-
-  // Pre-Sunrise Rejection (allow 30 min before sunrise for civil twilight)
-  const forecastDateStr = getLocalDateStrForBeach(startTime);
-  const sameDaySunrise = sunrises.find(s => getLocalDateStrForBeach(s) === forecastDateStr);
-
-  if (sameDaySunrise) {
-    const civilTwilightMs = 30 * 60 * 1000;
-    if (startTime.getTime() < sameDaySunrise.getTime() - civilTwilightMs) {
-      return true;
-    }
-  }
-
-  // Post-Sunset Rejection
-  const sameDaySunset = sunsets.find(s => getLocalDateStrForBeach(s) === forecastDateStr);
-
-  if (sameDaySunset && startTime.getTime() > sameDaySunset.getTime()) {
-    return true;
-  }
-
-  // Defensive fallback when sunset data is stale
-  if (!sameDaySunset && sunsets.length > 0) {
-    try {
-      const localHour = parseInt(
-        getLocalHourFormatter(beachTz).format(startTime),
-        10
-      );
-      if (localHour >= 18) {
-        return true;
-      }
-    } catch {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-/** Shared start eligibility for scoped calls, Now and map previews. */
-export function isDaylightSessionStart(
-  startTime: Date,
-  beachTz: string,
-  sunTimes?: { sunrises: Date[]; sunsets: Date[] },
-): boolean {
-  const sunrises = sunTimes?.sunrises ?? [];
-  const sunsets = sunTimes?.sunsets ?? [];
-  const localDate = (date: Date): string => getLocalDateStr(date, beachTz);
-  if (shouldSkipDueToLight({ startTime, sunsets, sunrises, beachTz, getLocalDateStrForBeach: localDate })) return false;
-  const sunset = sunsets.find((time) => localDate(time) === localDate(startTime));
-  return !sunset || sunset.getTime() - startTime.getTime() >= MIN_SESSION_HOURS * 3_600_000;
 }
 
 /**
@@ -353,54 +284,13 @@ function calculateWindowEnd(
 function applySunsetCap(
   endTime: Date,
   effectiveStartTime: Date,
-  sunsets: Date[],
+  sunTimes: { sunrises: Date[]; sunsets: Date[] } | undefined,
   beachTz: string,
   getLocalDateStrForBeach: (d: Date) => string
 ): Date {
-  const forecastDateStr = getLocalDateStrForBeach(effectiveStartTime);
-  const sameDaySunset = sunsets.find(s => getLocalDateStrForBeach(s) === forecastDateStr);
-
-  if (sameDaySunset && sameDaySunset < endTime) {
-    return sameDaySunset;
-  }
-
-  if (!sameDaySunset && sunsets.length > 0) {
-    // Defensive fallback: cap at conservative 6pm
-    try {
-      const localDateParts = new Intl.DateTimeFormat("en-US", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        timeZone: beachTz,
-      }).formatToParts(effectiveStartTime);
-
-      const year = localDateParts.find(p => p.type === "year")?.value;
-      const month = localDateParts.find(p => p.type === "month")?.value;
-      const day = localDateParts.find(p => p.type === "day")?.value;
-
-      if (year && month && day) {
-        const conservative6pmStr = `${year}-${month}-${day}T18:00:00`;
-        const tempDate = new Date(effectiveStartTime);
-        const utcTime = tempDate.toLocaleString("en-US", { timeZone: "UTC" });
-        const localTime = tempDate.toLocaleString("en-US", { timeZone: beachTz });
-        const utcDate = new Date(utcTime);
-        const localDate = new Date(localTime);
-        const offsetMs = localDate.getTime() - utcDate.getTime();
-        const conservative6pm = new Date(new Date(conservative6pmStr + "Z").getTime() - offsetMs);
-
-        if (conservative6pm < endTime) {
-          return conservative6pm;
-        }
-      }
-    } catch {
-      const maxEnd = new Date(effectiveStartTime.getTime() + MAX_WINDOW_HOURS * 60 * 60 * 1000);
-      if (maxEnd < endTime) {
-        return maxEnd;
-      }
-    }
-  }
-
-  return endTime;
+  const localDate = getLocalDateStrForBeach(effectiveStartTime);
+  const lastLight = usableLightIntervalForDate(localDate, beachTz, sunTimes).end;
+  return lastLight < endTime ? lastLight : endTime;
 }
 
 /**
@@ -621,7 +511,7 @@ function parsePreferredTideDirection(
 
 /**
  * Select best surf window from forecast using composite scoring with time-priority.
- * Sunset-aware: caps windows at sunset and skips windows too close to dark.
+ * Uses shared usable-light intervals to select and cap daylight windows.
  *
  * @param options - Window selection options including forecasts, beach, user prefs
  * @returns Best window or null if none viable
@@ -781,7 +671,13 @@ export function selectBestWindows(
   const sunrises = sunTimes?.sunrises || [];
 
   // Filter by time slot
-  const filteredForecasts = filterByTimeSlot(scoredForecasts, actualTimeSlot, sunrises, beachTz);
+  const filteredForecasts = filterByTimeSlot(
+    scoredForecasts,
+    actualTimeSlot,
+    sunrises,
+    sunsets,
+    beachTz,
+  );
   if (filteredForecasts.length === 0) {
     log.debug(`[selectBestWindows] ${actualBeach.name}: No forecasts after time slot filter (slot=${actualTimeSlot || 'any'})`);
     return [];
@@ -811,11 +707,6 @@ export function selectBestWindows(
       continue;
     }
 
-    if (!isDaylightSessionStart(startTime, beachTz, { sunsets, sunrises })) {
-      log.debug(`[selectBestWindow] ${actualBeach.name}: Forecast ${i} skipped due to light/sunset constraints`);
-      continue;
-    }
-
     // Horizon constraint
     const rawHoursAhead = (startTime.getTime() - actualNow.getTime()) / (1000 * 60 * 60);
     const hoursAhead = Math.max(0, rawHoursAhead);
@@ -836,18 +727,21 @@ export function selectBestWindows(
             getLocalHourFormatter(beachTz).format(tideBoundaries.start),
             10
           );
-          const slotRange = getTimeSlotRange(actualTimeSlot, sunrises, startTime, beachTz);
+          if (actualTimeSlot === 'dawn-patrol') {
+            if (tideStartHour >= 11) useTideBoundaries = false;
+          } else {
+            const slotRange = getTimeSlotRange(actualTimeSlot, sunrises, startTime, beachTz);
+            if (tideStartHour < slotRange.startHour || tideStartHour >= slotRange.endHour) {
+              const forecastStartHour = parseInt(
+                getLocalHourFormatter(beachTz).format(startTime),
+                10
+              );
 
-          if (tideStartHour < slotRange.startHour || tideStartHour >= slotRange.endHour) {
-            const forecastStartHour = parseInt(
-              getLocalHourFormatter(beachTz).format(startTime),
-              10
-            );
-
-            if (forecastStartHour >= slotRange.startHour && forecastStartHour < slotRange.endHour) {
-              useTideBoundaries = false;
-            } else {
-              skipThisForecast = true;
+              if (forecastStartHour >= slotRange.startHour && forecastStartHour < slotRange.endHour) {
+                useTideBoundaries = false;
+              } else {
+                skipThisForecast = true;
+              }
             }
           }
         } catch {
@@ -881,22 +775,21 @@ export function selectBestWindows(
     if (tideBoundaries && useTideBoundaries) {
       effectiveStartTime = tideBoundaries.start;
       endTime = tideBoundaries.end;
-
-      // Re-validate tide-adjusted start time against night filter
-      if (shouldSkipDueToLight({ startTime: effectiveStartTime, sunsets, sunrises, beachTz, getLocalDateStrForBeach })) {
-        log.debug(`[selectBestWindow] ${actualBeach.name}: Tide-adjusted start ${effectiveStartTime.toISOString()} falls in night hours, skipping`);
-        continue;
-      }
     } else {
       endTime = calculateWindowEnd(i, effectiveStartTime, effectiveThreshold, filteredForecasts, getLocalDateStrForBeach);
     }
 
     // Apply sunset cap
-    endTime = applySunsetCap(endTime, effectiveStartTime, sunsets, beachTz, getLocalDateStrForBeach);
+    endTime = applySunsetCap(endTime, effectiveStartTime, sunTimes, beachTz, getLocalDateStrForBeach);
 
     // Cap at time slot end (only for non-tide-driven)
     if (!tideBoundaries || !useTideBoundaries) {
       endTime = capEndTimeToTimeSlot(effectiveStartTime, endTime, actualTimeSlot, beachTz);
+    }
+
+    if (!isDaylightInterval(effectiveStartTime, endTime, beachTz, sunTimes)) {
+      log.debug(`[selectBestWindow] ${actualBeach.name}: Forecast ${i} window does not overlap usable light`);
+      continue;
     }
 
     // Validate minimum session length
@@ -938,8 +831,7 @@ export function selectBestWindows(
   if (candidateWindows.length === 0 && filteredForecasts.length > 0) {
     const fallbackWindow = selectFallbackWindow(
       filteredForecasts,
-      sunsets,
-      sunrises,
+      sunTimes,
       actualTimeSlot,
       actualHorizonHours,
       actualNow,
@@ -983,13 +875,12 @@ export function selectBestWindows(
         end: refinedTimes.end,
       };
     })
-    .filter((candidateWindow) => {
-      if (shouldSkipDueToLight({ startTime: candidateWindow.start, sunsets, sunrises, beachTz, getLocalDateStrForBeach })) {
-        log.debug(`[selectBestWindows] ${actualBeach.name}: Refined start falls in night hours, skipping`);
-        return false;
-      }
-      return true;
-    })
+    .filter((candidateWindow) => isDaylightInterval(
+      candidateWindow.start,
+      candidateWindow.end,
+      beachTz,
+      sunTimes,
+    ))
     .map((candidateWindow) =>
       buildResult(candidateWindow, filteredForecasts, actualBeach, beachTz, actualNow)
     );
@@ -1011,8 +902,7 @@ export function selectBestWindows(
  */
 function selectFallbackWindow(
   filteredForecasts: ScoredForecast[],
-  sunsets: Date[],
-  sunrises: Date[],
+  sunTimes: { sunrises: Date[]; sunsets: Date[] } | undefined,
   timeSlot: TimeSlot | undefined,
   horizonHours: number | undefined,
   now: Date,
@@ -1022,8 +912,7 @@ function selectFallbackWindow(
   beachName?: string // For debug logging
 ): CandidateWindow | null {
   const logPrefix = beachName ? `[selectFallbackWindow] ${beachName}` : '[selectFallbackWindow]';
-  // Filter out night hours and post-sunset times
-  const daylightForecasts = filteredForecasts.filter(({ forecastTime }) => {
+  const daylightForecasts = filteredForecasts.filter(({ forecastTime }, index) => {
     // Time slot filter
     if (timeSlot && timeSlot !== 'any') {
       try {
@@ -1031,35 +920,23 @@ function selectFallbackWindow(
           getLocalHourFormatter(beachTz).format(forecastTime),
           10
         );
-        const slotRange = getTimeSlotRange(timeSlot, sunrises, forecastTime, beachTz);
-        if (localHour < slotRange.startHour || localHour >= slotRange.endHour) {
-          return false;
+        if (timeSlot === 'dawn-patrol') {
+          if (localHour >= 11) return false;
+        } else {
+          const slotRange = getTimeSlotRange(timeSlot, sunTimes?.sunrises ?? [], forecastTime, beachTz);
+          if (localHour < slotRange.startHour || localHour >= slotRange.endHour) return false;
         }
       } catch {
         return false;
       }
     }
 
-    // Post-sunset rejection
-    const forecastDateStr = getLocalDateStrForBeach(forecastTime);
-    const sameDaySunset = sunsets.find(s => getLocalDateStrForBeach(s) === forecastDateStr);
-    if (sameDaySunset && forecastTime.getTime() > sameDaySunset.getTime()) {
-      return false;
-    }
-
-    try {
-      const localHour = parseInt(
-        getLocalHourFormatter(beachTz).format(forecastTime),
-        10
-      );
-
-      const hasValidSunsetForDate = !!sameDaySunset;
-      const nightCutoff = hasValidSunsetForDate ? 21 : 18;
-
-      return localHour >= 6 && localHour < nightCutoff;
-    } catch {
-      return false;
-    }
+    return isDaylightInterval(
+      forecastTime,
+      forecastRowIntervalEnd(forecastTime, filteredForecasts[index + 1]?.forecastTime),
+      beachTz,
+      sunTimes,
+    );
   });
 
   if (daylightForecasts.length === 0) {
@@ -1120,47 +997,13 @@ function selectFallbackWindow(
   );
 
   const effectiveStartTime = best.forecastTime;
-  const fallbackDateStr = getLocalDateStrForBeach(effectiveStartTime);
-  const fallbackSunset = sunsets.find(s => getLocalDateStrForBeach(s) === fallbackDateStr);
-
   let endTime = new Date(effectiveStartTime.getTime() + MAX_WINDOW_HOURS * 60 * 60 * 1000);
-
-  if (fallbackSunset && fallbackSunset < endTime) {
-    endTime = fallbackSunset;
-  } else if (!fallbackSunset && sunsets.length > 0) {
-    try {
-      const localDateParts = new Intl.DateTimeFormat("en-US", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        timeZone: beachTz,
-      }).formatToParts(effectiveStartTime);
-
-      const year = localDateParts.find(p => p.type === "year")?.value;
-      const month = localDateParts.find(p => p.type === "month")?.value;
-      const day = localDateParts.find(p => p.type === "day")?.value;
-
-      if (year && month && day) {
-        const conservative6pmStr = `${year}-${month}-${day}T18:00:00`;
-        const tempDate = new Date(effectiveStartTime);
-        const utcTime = tempDate.toLocaleString("en-US", { timeZone: "UTC" });
-        const localTime = tempDate.toLocaleString("en-US", { timeZone: beachTz });
-        const utcDate = new Date(utcTime);
-        const localDate = new Date(localTime);
-        const offsetMs = localDate.getTime() - utcDate.getTime();
-        const conservative6pm = new Date(new Date(conservative6pmStr + "Z").getTime() - offsetMs);
-
-        if (conservative6pm < endTime) {
-          endTime = conservative6pm;
-        }
-      }
-    } catch {
-      // Keep MAX_WINDOW_HOURS cap
-    }
-  }
+  endTime = applySunsetCap(endTime, effectiveStartTime, sunTimes, beachTz, getLocalDateStrForBeach);
 
   // Cap at time slot end
   endTime = capEndTimeToTimeSlot(effectiveStartTime, endTime, timeSlot, beachTz);
+
+  if (!isDaylightInterval(effectiveStartTime, endTime, beachTz, sunTimes)) return null;
 
   const durationHours = (endTime.getTime() - effectiveStartTime.getTime()) / (1000 * 60 * 60);
   if (durationHours < MIN_SESSION_HOURS) {

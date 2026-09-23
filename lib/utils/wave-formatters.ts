@@ -33,6 +33,7 @@ import {
 } from '@/lib/config/forecast-staleness';
 import type { ForecastReplayInput } from './forecast-display-replay';
 import type { ForecastHandoffBlendMetadata } from './forecast-handoff-blend';
+import { parseWaveHeightMidpointFt } from '@/lib/alerts/forecast-parsers';
 
 // Re-export for backward compatibility (consumers may import from here)
 export { METERS_TO_FEET };
@@ -278,10 +279,7 @@ export function getWaveSizeLabel(size: string): string {
  * @returns Numeric value or null if no match
  */
 export function extractNumericWaveHeight(heightString: string): number | null {
-  const match = heightString.match(WAVE_HEIGHT_NUMBER_PATTERN);
-  if (!match) return null;
-  const parsed = parseFloat(match[1]);
-  return Number.isFinite(parsed) ? parsed : null;
+  return parseWaveHeightMidpointFt(heightString);
 }
 
 /**

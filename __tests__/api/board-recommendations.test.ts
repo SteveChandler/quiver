@@ -212,6 +212,18 @@ describe("GET /api/board-recommendations", () => {
     ]);
   });
 
+  it("uses the midpoint for wave-height range conditions", async () => {
+    setupAuthenticatedClient({ boards: { data: [], error: null } });
+    const response = await GET(
+      new NextRequest(
+        "http://localhost:3000/api/board-recommendations?waveHeight=3-4%20ft&windSpeed=5"
+      )
+    );
+    const body = await response.json();
+
+    expect(body.data.conditions.waveHeight).toBe(3.5);
+  });
+
   it("wraps board query errors", async () => {
     const consoleError = jest
       .spyOn(console, "error")

@@ -17,7 +17,7 @@ import { entitlementFromRow } from '@/lib/alerts/entitlements';
 import { getProfileExperienceLevel } from '@/lib/profile/skill-level';
 import { resolveCanonicalSessionDecisionContext } from '@/lib/recommendations/canonical-decision';
 import type { CanonicalSessionDecision } from '@/lib/recommendations/canonical-decision/types';
-import type { SurfDiscoveryRecommendation } from '@/types/personalization';
+import type { SurfDiscoveryRecommendation, SurfDiscoveryResponse } from '@/types/personalization';
 import { buildForecastRecommendationContext } from '@/lib/services/forecast-recommendation-context';
 import {
   computeSurfCall,
@@ -27,6 +27,7 @@ import { isFutureDayInTimezone } from '@/lib/utils/condition-tier-utils';
 import { checkBoardFit } from '@/lib/domains/scoring/discovery-adapter';
 import type { BoardClass, SkillLevel } from '@/lib/domains/user-preferences';
 import type { RecommendationAvailability } from '@/lib/recommendations/major-event-hold/types';
+import { parseWaveHeightMidpointFt } from '@/lib/alerts/forecast-parsers';
 import { resolveScopedRecommendationAvailability } from '@/lib/services/discovery/discovery-availability';
 import { loadNowRecommendation } from '@/lib/services/discovery/now-recommendation';
 import {
@@ -47,6 +48,7 @@ const QuerySchema = z.object({
 type CanonicalSurfCallResponse = SpotSurfReportResult & {
   sessionDecision: CanonicalSessionDecision;
   forecastAlignment?: SurfCallForecastAlignment;
+  daylightAvailability?: SurfDiscoveryResponse['daylightAvailability'];
   /**
    * The beach's now-mode discovery recommendation, present only when the
    * request asked for it with `includeNow=1`. It is the same object
@@ -253,7 +255,7 @@ function buildCanonicalSurfCall(
   const boardNote =
     exactSelection && window && profileExperience && boardClass
       ? checkBoardFit(
-          Number.parseFloat(window.waveHeight),
+          parseWaveHeightMidpointFt(window.waveHeight) ?? 0,
           profileExperience,
           boardClass,
         ).note
@@ -453,6 +455,9 @@ async function surfCallHandler(
     canonicalContext.discovery,
     sessionDecision.holdEpoch,
   );
+  const nowRecommendationResult = nowRecommendationPromise
+    ? await nowRecommendationPromise
+    : null;
   const canonicalResult: CanonicalSurfCallResponse = {
     ...buildCanonicalSurfCall(
       sessionDecision,
@@ -464,8 +469,14 @@ async function surfCallHandler(
       boardClass,
       recommendationAvailability,
     ),
-    ...(nowRecommendationPromise
-      ? { nowRecommendation: await nowRecommendationPromise }
+    ...(nowRecommendationResult
+      ? { nowRecommendation: nowRecommendationResult.recommendation }
+      : {}),
+    ...(nowRecommendationResult?.daylightAvailability
+      ? { daylightAvailability: nowRecommendationResult.daylightAvailability }
+      : {}),
+    ...(canonicalContext.discovery.daylightAvailability
+      ? { daylightAvailability: canonicalContext.discovery.daylightAvailability }
       : {}),
   };
   const scopedCanonicalResult: CanonicalSurfCallResponse = forecastAt

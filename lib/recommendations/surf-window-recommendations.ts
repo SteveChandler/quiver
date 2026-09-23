@@ -1,5 +1,6 @@
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import { parseWaveHeightMidpointFt } from '@/lib/alerts/forecast-parsers';
 import type { getUserSurfPreferences } from "@/lib/services/preference-learning-service";
 import {
   selectBestWindows,
@@ -237,7 +238,7 @@ function bestForTags(
   options: BuildSurfWindowRecommendationsOptions
 ): SurfWindowBestForTag[] {
   const tags = new Set<SurfWindowBestForTag>();
-  const waveHeight = parseNumber(row.wave_height);
+  const waveHeight = parseWaveHeightMidpointFt(row.wave_height);
   if (waveHeight != null) {
     if (waveHeight <= 3) {
       tags.add("beginner");

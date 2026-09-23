@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
+import { parseWaveHeightMidpointFt } from '@/lib/alerts/forecast-parsers';
 import { SYSTEM_VOICE_LABEL } from "./system-card-config";
 import type { SystemCardClass } from "./system-card-types";
 
@@ -57,7 +58,7 @@ export async function fetchLatestSystemForecast(
   const row = data[0];
   const snapshot: SystemForecastSnapshot = {
     forecastAt: row.forecast_at,
-    waveHeightFt: toFiniteNumber(row.wave_height),
+    waveHeightFt: parseWaveHeightMidpointFt(row.wave_height),
     wavePeriodSeconds: toFiniteNumber(row.wave_period),
     windSpeedKnots: toFiniteNumber(row.wind_speed),
     windDirection: typeof row.wind_direction === "string" ? row.wind_direction : null,

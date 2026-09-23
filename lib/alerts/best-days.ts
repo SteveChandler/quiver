@@ -18,6 +18,7 @@ import {
   DAYLIGHT_START_HOUR,
 } from "@/lib/services/magic-hour/constants";
 import { getLocalHour } from "@/lib/utils/timezone-utils";
+import { parseWaveHeightMidpointFt } from "@/lib/alerts/forecast-parsers";
 
 const DIGEST_SCORE_THRESHOLD = 6;
 const DIGEST_LOOKAHEAD_DAYS = 7;
@@ -107,7 +108,7 @@ export async function computeBestDaysForUser(
         continue;
       }
 
-      const wave = f.wave_height ? parseFloat(f.wave_height) : null;
+      const wave = parseWaveHeightMidpointFt(f.wave_height);
       const period = f.wave_period
         ? parseFloat(String(f.wave_period).replace("s", ""))
         : null;

@@ -9,7 +9,11 @@ import { selectActionableAlertWindow } from "@/lib/alerts/actionable-window-sele
 import { filterToDaylight, getDaylightWindow } from "@/lib/alerts/sunrise";
 import { CAPS, resolveEntitlement } from "@/lib/alerts/entitlements";
 import { getUtcDayBounds } from "@/lib/alerts/timezone-utils";
-import { parseWindSpeedToKt, parseSwellDirectionToDegrees } from "@/lib/alerts/forecast-parsers";
+import {
+  parseWindSpeedToKt,
+  parseSwellDirectionToDegrees,
+  parseWaveHeightMidpointFt,
+} from "@/lib/alerts/forecast-parsers";
 import type { AlertConditions, BeachAlertMeta, ForecastHour } from "@/lib/alerts/types";
 import type { Database } from "@/types/database.generated";
 import { getMinRideable, MINIMUM_VIABLE_WINDOW_MINUTES } from "@/lib/utils/surf-call-logic";
@@ -439,7 +443,7 @@ export async function GET(request: Request) {
               const parsed: ForecastHour[] = forecasts.map((f) => ({
                 forecast_id: typeof f.id === "string" && f.id.length > 0 ? f.id : undefined,
                 forecast_at: f.forecast_at,
-                wave_height: f.wave_height ? parseFloat(f.wave_height) : null,
+                wave_height: parseWaveHeightMidpointFt(f.wave_height),
                 wave_period: f.wave_period ? parseFloat(f.wave_period.replace("s", "")) : null,
                 wave_direction: f.wave_direction ?? null,
                 swell_1_height: f.swell_1_height ? parseFloat(f.swell_1_height) : null,
@@ -454,12 +458,7 @@ export async function GET(request: Request) {
               const daylight = filterToDaylight(parsed, beach.lat, beach.lon);
               if (daylight.length === 0) continue;
 
-              // For the surfability gate we need the MAX numeric from the raw
-              // wave_height string, not parseFloat's first-number result —
-              // enhanced_forecasts.wave_height is sometimes a range like
-              // "1-2ft" (see lib/services/forecast/apply-beach-height-offset.ts).
-              // parsed.wave_height is the lower bound (conservative for matching);
-              // for "is anything in this window rideable?" we want the upper.
+              // Compare the highest per-row midpoint across the window.
               //
               // Built from the unfiltered `forecasts` (not `daylight`) because
               // it's a cheap O(n) lookup table — the gate's reduce iterates
@@ -467,12 +466,8 @@ export async function GET(request: Request) {
               // map once than re-scope it per window.
               const maxWaveByForecastAt = new Map<string, number>();
               for (const f of forecasts) {
-                if (!f.wave_height) continue;
-                const nums = String(f.wave_height).match(/[\d.]+/g);
-                if (!nums) continue;
-                const parsedNums = nums.map(Number).filter((n) => Number.isFinite(n));
-                if (parsedNums.length === 0) continue;
-                maxWaveByForecastAt.set(f.forecast_at, Math.max(...parsedNums));
+                const height = parseWaveHeightMidpointFt(f.wave_height);
+                if (height !== null) maxWaveByForecastAt.set(f.forecast_at, height);
               }
 
               const allWindows = findMatchingWindows(conditions, daylight, beach);

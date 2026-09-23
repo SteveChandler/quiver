@@ -26,6 +26,7 @@ import {
   getConditionTier,
 } from '@/lib/utils/condition-tier-utils';
 import { resolveTodayHeadline } from '@/lib/services/forecast/today-headline';
+import { parseWaveHeightMidpointFt } from '@/lib/alerts/forecast-parsers';
 
 // Re-export for backwards compatibility
 export { type ConditionTier, getConditionTier };
@@ -197,7 +198,7 @@ function getWaveHeightRange(
 
   // Extract wave heights
   const heights = forecastsToUse
-    .map((f) => parseFloat(f.wave_height || '0'))
+    .map((f) => parseWaveHeightMidpointFt(f.wave_height) ?? 0)
     .filter((h) => h > 0 && Number.isFinite(h));
 
   if (heights.length === 0) {

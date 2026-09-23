@@ -19,6 +19,7 @@ import { getWaveSizeDescription } from "@/lib/utils/wave-formatters";
 import { classifyWindDirection } from "@/lib/utils/wind-classification";
 import { scoreNativeForecastDay } from "@/lib/scoring/native-condition-score";
 import { DEFAULT_TIMEZONE } from "@/lib/utils/timezone-constants";
+import { parseWaveHeightMidpointFt } from '@/lib/alerts/forecast-parsers';
 
 /**
  * Weekday for a calendar date. The date is pinned to UTC noon and read back in
@@ -357,7 +358,7 @@ export function detectSwellEvents(
 
     // Calculate average wave height
     const heights = forecasts
-      .map((f) => parseFloat(f.wave_height || "0"))
+      .map((f) => parseWaveHeightMidpointFt(f.wave_height) ?? 0)
       .filter((h) => h > 0);
     const avgHeight = heights.length > 0 ? heights.reduce((a, b) => a + b, 0) / heights.length : 0;
 
@@ -550,7 +551,7 @@ export function aggregateRegionalForecast(
       if (beach) {
         const score = calculateDayScore(forecasts, beach);
         const heights = forecasts
-          .map((f) => parseFloat(f.wave_height || "0"))
+          .map((f) => parseWaveHeightMidpointFt(f.wave_height) ?? 0)
           .filter((h) => h > 0);
         const avgHeight = heights.length > 0 ? heights.reduce((a, b) => a + b, 0) / heights.length : 0;
         beachScores.push({
@@ -564,7 +565,7 @@ export function aggregateRegionalForecast(
 
     // Calculate wave height range
     const allHeights = allForecasts
-      .map((f) => parseFloat(f.wave_height || "0"))
+      .map((f) => parseWaveHeightMidpointFt(f.wave_height) ?? 0)
       .filter((h) => h > 0);
     const waveRange: [number, number] =
       allHeights.length > 0
@@ -702,7 +703,7 @@ export function aggregateRegionalForecast(
     ).slice(0, 3);
     const currentInterval = resolveForecastInterval(currentForecasts);
     const currentScore = calculateDayScore(currentForecasts, beach);
-    const currentWaveHeight = parseFloat(currentForecasts[0]?.wave_height || "0");
+    const currentWaveHeight = parseWaveHeightMidpointFt(currentForecasts[0]?.wave_height) ?? 0;
 
     // Trend over the next 24h, taken from the same now-anchored chronological
     // series as currentScore — comparing it against raw insertion order made

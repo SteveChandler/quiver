@@ -9,6 +9,7 @@
  */
 
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import { parseWaveHeightMidpointFt } from '@/lib/alerts/forecast-parsers';
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { createContextLogger } from "@/lib/logger";
@@ -59,9 +60,10 @@ export function forecastToMatchSlot(
   forecast: EnhancedForecastEntity,
   fallbackForecastAt = "",
 ): Record<string, string> {
+  const waveHeight = parseWaveHeightMidpointFt(forecast.wave_height);
   return {
     forecast_at: forecast.forecast_at ?? fallbackForecastAt,
-    wave_height: forecast.wave_height != null ? String(forecast.wave_height) : "",
+    wave_height: waveHeight == null ? '' : String(waveHeight),
     wave_period: forecast.wave_period != null ? String(forecast.wave_period).replace(/s$/i, "") : "",
     wind_speed: forecast.wind_speed != null ? String(forecast.wind_speed) : "",
     wind_direction: forecast.wind_direction_deg != null ? String(forecast.wind_direction_deg) : "",

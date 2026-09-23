@@ -16,6 +16,7 @@ import type { EnhancedForecastEntity } from '@/types/forecast';
 import type { DetailedScore } from '@/types/personalization';
 import type { ScorerInput, CompositeScore } from './types';
 import { getDirectionDegrees } from '@/lib/utils/number-parsing';
+import { parseWaveHeightMidpointFt } from '@/lib/alerts/forecast-parsers';
 import { trackFallback } from '@/lib/monitoring/fallback-tracker';
 import { resolveConfidence } from '@/lib/monitoring/fallback-helpers';
 import type { SpotProfile } from '../spot-profile/types';
@@ -82,7 +83,9 @@ export function beachToSpotProfile(beach: Beach): SpotProfile {
  * dominant component or the period-relevance gates fire on the wrong train.
  */
 export function forecastToSnapshot(forecast: EnhancedForecastEntity): ConditionsSnapshot {
-  const waveHeight = parseFloat(forecast.wave_height || '0');
+  const waveHeight = forecast.wave_height
+    ? parseWaveHeightMidpointFt(forecast.wave_height) ?? Number.NaN
+    : 0;
   const storedWavePeriod = parseFloat(forecast.wave_period?.replace('s', '') || '0');
 
   const windSpeed = parseFloat(forecast.wind_speed || '0');

@@ -8,7 +8,10 @@ import {
 import { buildCanonicalDecisionFromSurfDiscovery } from "@/lib/recommendations/canonical-decision/discovery-adapter";
 import { recommendationLabelForVerdict } from "@/lib/recommendations/canonical-decision/engine";
 import { resolveRecommendationLabel } from "@/lib/services/discovery/recommendation-label";
-import { isDaylightSessionStart } from "@/lib/services/discovery/window-selector/window-selector-core";
+import {
+  forecastRowIntervalEnd,
+  isDaylightInterval,
+} from "@/lib/services/discovery/daylight-eligibility";
 import { resolveWaterQualityHolds } from "@/lib/recommendations/major-event-hold/water-quality";
 import { createMockRequest } from "@/test-utils/api-test-helpers";
 import { getCachedRateLimiter } from "@/lib/utils/enhanced-rate-limiter";
@@ -251,8 +254,9 @@ it.each(
       boardClasses: ["longboard"],
       sunTimes: new Map(),
       matches: new Map([[`${row.beach_id}:${row.forecast_at}`, similarity]]),
+      rowDurationsMs: new Map([[`${row.beach_id}:${row.forecast_at}`, 60 * 60_000]]),
     } as BulkDecisionContext;
-    const end = new Date(NOW.getTime() + 3 * 3600000);
+    const end = new Date(NOW.getTime() + 60 * 60_000);
     const call = buildCanonicalDecisionFromSurfDiscovery({
       anchorTime: NOW.toISOString(),
       scope: {
@@ -287,14 +291,15 @@ it.each(
 
 it.each([
   ["2026-09-23T10:00:00Z", false],
+  ["2026-09-23T10:15:00Z", false],
   ["2026-09-23T06:00:00Z", false],
-  ["2026-09-23T13:05:00Z", false],
+  ["2026-09-23T13:00:00Z", true],
   ["2026-09-23T13:10:00Z", true],
-  ["2026-09-24T00:45:00Z", true],
-  ["2026-09-24T00:46:00Z", false],
-  ["2026-09-24T02:00:00Z", false],
+  ["2026-09-24T01:45:00Z", true],
+  ["2026-09-24T02:05:00Z", false],
+  ["2026-09-24T02:06:00Z", false],
 ] as const)(
-  "uses the same scoped-call daylight boundary at %s",
+  "uses the shared interval daylight boundary at %s",
   async (at, allowed) => {
     mockRpc.mockResolvedValue({ data: rpcData(1, at), error: null });
     const context = await fetchBulkDecisionContext(
@@ -305,12 +310,10 @@ it.each([
       NOW,
     );
     context.matches.clear();
+    const start = new Date(at);
+    const end = forecastRowIntervalEnd(start);
     expect(
-      isDaylightSessionStart(
-        new Date(at),
-        beach(1).timezone!,
-        context.sunTimes.get(id(1)),
-      ),
+      isDaylightInterval(start, end, beach(1).timezone!, context.sunTimes.get(id(1))),
     ).toBe(allowed);
     expect(
       bulkRecommendationLabel(
@@ -399,6 +402,7 @@ it.each([
       skillLevel: skill,
       sunTimes: new Map(),
       matches: new Map(),
+      rowDurationsMs: new Map(),
     } as BulkDecisionContext;
     expect(bulkRecommendationLabel(context, spot, row, 90, NOW)).toBe("Skip");
   },
@@ -432,6 +436,7 @@ it("reproduces score 64 for Advanced / Southpoint longboard 2+1 as MAYBE", () =>
     boardClasses: ["longboard"],
     sunTimes: new Map(),
     matches: new Map([[`${row.beach_id}:${row.forecast_at}`, learned("FAIR")]]),
+    rowDurationsMs: new Map(),
   } as BulkDecisionContext;
   expect(bulkRecommendationLabel(context, beach(1), row, 64, NOW)).toBe(
     "Maybe",

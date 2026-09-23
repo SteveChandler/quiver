@@ -10,6 +10,7 @@ import {
   type DisplaySwellWindow,
 } from "@/lib/domains/conditions/display-swell";
 import { designateCurrentRow } from "@/lib/services/current-conditions/current-row";
+import { parseWaveHeightMidpointFt } from '@/lib/alerts/forecast-parsers';
 
 export type ForecastRecommendationType =
   | "best_window"
@@ -126,7 +127,7 @@ function formatForecastDisplayWaveHeightRange(value: number | null): string | nu
 
 function isRideable(row: EnhancedForecastEntity | null): boolean {
   if (!row) return false;
-  const waveFt = parseNumber(row.wave_height);
+  const waveFt = parseWaveHeightMidpointFt(row.wave_height);
   const windMph = parseNumber(row.wind_speed);
   if (waveFt == null || windMph == null) return false;
   return (
@@ -329,7 +330,7 @@ function contextFromRow(args: {
 }): ForecastRecommendationContext {
   const rowTime = new Date(args.row.forecast_at);
   const startTime = toIso(rowTime);
-  const waveHeightFt = parseAverageNumber(args.row.wave_height);
+  const waveHeightFt = parseWaveHeightMidpointFt(args.row.wave_height);
   const periodSec = parseAverageNumber(pickSwellPeriod(args.row, null, args.beach));
   const provenance = forecastProvenance(args.row);
   const swell = swellFields(args.row);

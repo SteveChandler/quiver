@@ -19,9 +19,17 @@ export function parseWindSpeedToKt(raw: string | null | undefined): number | nul
 }
 
 export function parseWaveHeightRangeFt(
-  raw: string | null | undefined
+  raw: unknown
 ): { min: number; max: number } | null {
-  if (typeof raw !== "string") return null;
+  if (typeof raw === 'number') {
+    return Number.isFinite(raw) ? { min: raw, max: raw } : null;
+  }
+  if (typeof raw !== 'string') return null;
+  const negativeSingle = raw.match(/^\s*-(\d+(?:\.\d+)?)\s*(?:ft|feet|m|meters?)?\s*$/i);
+  if (negativeSingle) {
+    const value = -Number(negativeSingle[1]);
+    return Number.isFinite(value) ? { min: value, max: value } : null;
+  }
   const matches = raw.match(/[\d.]+/g);
   if (!matches) return null;
 
@@ -32,6 +40,13 @@ export function parseWaveHeightRangeFt(
     min: Math.min(...values),
     max: Math.max(...values),
   };
+}
+
+export function parseWaveHeightMidpointFt(
+  raw: unknown,
+): number | null {
+  const range = parseWaveHeightRangeFt(raw);
+  return range ? (range.min + range.max) / 2 : null;
 }
 
 export function parsePeriodSeconds(raw: string | null | undefined): number | null {

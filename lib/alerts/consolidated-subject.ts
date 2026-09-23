@@ -1,5 +1,6 @@
 import type { MatchingWindow } from "@/lib/alerts/types";
 import { qualityWord } from "@/lib/alerts/push-formatter";
+import { parseWaveHeightMidpointFt } from '@/lib/alerts/forecast-parsers';
 
 const MAX_SUBJECT_LENGTH = 78;
 
@@ -80,7 +81,7 @@ export function buildConsolidatedSubject(
 
   const match = matches[0];
   const snap = match.conditions_snapshot ?? {};
-  const waveHeight = finiteNumber(snap.wave_height);
+  const waveHeight = parseWaveHeightMidpointFt(snap.wave_height);
   const period = finiteNumber(snap.swell_1_period);
   const label = timeOfDayLabel(match.window_start, match.beach_timezone);
 

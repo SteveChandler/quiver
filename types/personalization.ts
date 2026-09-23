@@ -397,6 +397,13 @@ export interface SurfDiscoveryRecommendation {
 export interface SurfDiscoveryResponse {
   /** One server-owned product decision for this request scope. */
   sessionDecision?: CanonicalSessionDecision;
+  /** Present when a scoped/current request has no usable light yet. */
+  daylightAvailability?: {
+    reasonCode: 'after_dark';
+    nextWindowStart: string | null;
+    timezone: string;
+    beachId: string;
+  };
   /** Ranked list of surf spot recommendations (best first) */
   recommendations: SurfDiscoveryRecommendation[];
   /** Shared V2 recommendation contract for native recommendation surfaces */

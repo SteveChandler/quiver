@@ -21,6 +21,7 @@
  */
 
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
+import { parseWaveHeightMidpointFt } from '@/lib/alerts/forecast-parsers';
 
 /**
  * User surf preferences (matches database schema)
@@ -340,17 +341,21 @@ function getSessionNumber(
   actualKeys: readonly string[],
   forecastKeys: readonly string[]
 ): number | null {
-  const actual = parseForecastNumber(firstPresentValue(getActualConditions(snapshot), actualKeys));
+  const isWaveHeight = [...actualKeys, ...forecastKeys].some((key) =>
+    key === 'wave_height' || key === 'wave_height_ft'
+  );
+  const parse = isWaveHeight ? parseWaveHeightMidpointFt : parseForecastNumber;
+  const actual = parse(firstPresentValue(getActualConditions(snapshot), actualKeys));
   if (actual !== null) {
     return actual;
   }
 
-  const session = parseForecastNumber(firstPresentValue(getSessionRelation(snapshot), actualKeys));
+  const session = parse(firstPresentValue(getSessionRelation(snapshot), actualKeys));
   if (session !== null) {
     return session;
   }
 
-  return parseForecastNumber(firstPresentValue(getForecastSnapshot(snapshot), forecastKeys));
+  return parse(firstPresentValue(getForecastSnapshot(snapshot), forecastKeys));
 }
 
 function getSessionWindDirection(snapshot: SessionWithConditions): number | null {
@@ -971,7 +976,7 @@ export function calculateAvoidancePenalty(
 
   const checks: boolean[] = [];
   const waveMatch = isInRangeWithTolerance(
-    parseForecastNumber(forecast.wave_height),
+    parseWaveHeightMidpointFt(forecast.wave_height),
     pattern.wave_min_ft,
     pattern.wave_max_ft,
     0.5

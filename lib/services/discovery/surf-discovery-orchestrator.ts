@@ -16,7 +16,12 @@
  * @module lib/services/discovery/surf-discovery-orchestrator
  */
 
-import { isDaylightSessionStart } from './window-selector/window-selector-core';
+import {
+  forecastRowIntervalEnd,
+  isDaylightInterval,
+  nextFirstLight,
+  usableLightIntervalForDate,
+} from './daylight-eligibility';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { getUserSurfPreferences } from '@/lib/services/preference-learning-service';
 import { createContextLogger } from '@/lib/logger';
@@ -41,9 +46,10 @@ import type { SkillLevel } from '@/lib/domains/user-preferences';
 import { parseSkillLevel, getSkillLevelOrDefault, SKILL_WAVE_RANGES } from '@/lib/domains/user-preferences';
 import { normalizeBoardClass, type BoardClass } from '@/lib/domains/rideability';
 import { formatWaveHeightRangeString } from '@/lib/utils/wave-formatters';
+import { parseWaveHeightMidpointFt } from '@/lib/alerts/forecast-parsers';
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
 import { isFutureDayInTimezone } from '@/lib/utils/condition-tier-utils';
-import { localDateTimeToUTC, resolveForecastTime } from '@/lib/utils/forecast-time-resolver';
+import { resolveForecastTime } from '@/lib/utils/forecast-time-resolver';
 import {
   getConditionBoardPick,
   toForecastForScoring,
@@ -228,8 +234,8 @@ export function formatWaveHeightRange(
 
   if (forecasts && forecasts.length > 0) {
     const heights = forecasts
-      .map((f) => parseFloat(String(f.wave_height ?? '')))
-      .filter((h) => !isNaN(h) && h > 0);
+      .map((f) => parseWaveHeightMidpointFt(f.wave_height))
+      .filter((h): h is number => h !== null && h > 0);
 
     if (heights.length >= 2) {
       const min = Math.min(...heights);
@@ -248,8 +254,8 @@ function formatWindowWaveHeightBadge(
   forecasts: EnhancedForecastEntity[]
 ): string | null {
   const heights = forecasts
-    .map((f) => parseFloat(String(f.wave_height ?? '')))
-    .filter((h) => !isNaN(h) && h > 0);
+    .map((f) => parseWaveHeightMidpointFt(f.wave_height))
+    .filter((h): h is number => h !== null && h > 0);
 
   if (heights.length === 0) return null;
   return formatWaveHeightRangeString(Math.min(...heights), Math.max(...heights));
@@ -461,7 +467,7 @@ export function generatePrimaryReason(
 ): string | null {
   if (!userSkillLevel) return null;
 
-  const waveHeight = parseFloat(String(forecast.wave_height ?? '0'));
+  const waveHeight = parseWaveHeightMidpointFt(forecast.wave_height) ?? 0;
   const beachSkill = parseSkillLevel(beach.skill_level);
   const userSkill = getSkillLevelOrDefault(userSkillLevel);
   const userRanges = SKILL_WAVE_RANGES[userSkill];
@@ -658,8 +664,9 @@ function resolveDominantBoardClass(rows: UserBoardContextRow[]): BoardClass | nu
 
   if (candidates.length === 0) return null;
 
-  // Dominant board = most sessions; ties don't matter for a ±5 signal.
-  candidates.sort((a, b) => b.sessionCount - a.sessionCount);
+  candidates.sort((a, b) =>
+    b.sessionCount - a.sessionCount || a.boardClass.localeCompare(b.boardClass),
+  );
   return candidates[0].boardClass;
 }
 
@@ -884,7 +891,7 @@ function mergeCandidatePools(...pools: Beach[][]): Beach[] {
 export function hasUsableTodayForecastForFallback(args: {
   forecasts: EnhancedForecastEntity[];
   beachTz: string;
-  sunset: Date | null;
+  sunTimes?: { sunrises: Date[]; sunsets: Date[] };
   now: Date;
 }): boolean {
   const pastToleranceMs =
@@ -892,25 +899,12 @@ export function hasUsableTodayForecastForFallback(args: {
   const usableCutoffMs = args.now.getTime() - pastToleranceMs;
 
   return args.forecasts.some((forecast) => {
-    const forecastTime = new Date(forecast.forecast_at).getTime();
-    if (!Number.isFinite(forecastTime) || forecastTime < usableCutoffMs) {
+    const forecastTime = resolveForecastTime(forecast, args.beachTz);
+    if (!Number.isFinite(forecastTime.getTime()) || forecastTime.getTime() < usableCutoffMs) {
       return false;
     }
-    const localHour = getLocalHour(new Date(forecastTime), args.beachTz);
-    if (localHour === null || localHour < 6) return false;
-
-    if (args.sunset) {
-      return (
-        forecastTime <=
-        args.sunset.getTime() - MIN_SESSION_HOURS * 60 * 60 * 1000
-      );
-    }
-
-    // When sun-times data is unavailable, use the selector's own defensive
-    // daylight bounds. This lets an evening request move to tomorrow while
-    // retaining today's pre-dawn/daytime rows as an intentional no-fallback
-    // answer when they are still eligible for selection.
-    return localHour < 18;
+    const rowEnd = getForecastRowEnd(forecast, args.forecasts, args.beachTz);
+    return isDaylightInterval(forecastTime, rowEnd, args.beachTz, args.sunTimes);
   });
 }
 
@@ -1323,7 +1317,7 @@ async function scoreBeachForDiscovery(args: {
   const conditionBadges = generateConditionBadges(forecast, beach, detailedScore.subscores);
 
   // Generate wave height badge from forecast
-  const waveHeight = parseFloat(String(forecast.wave_height ?? '0'));
+  const waveHeight = parseWaveHeightMidpointFt(forecast.wave_height) ?? 0;
   const waveHeightBadge = formatWaveHeightRange(waveHeight);
 
   return {
@@ -1342,7 +1336,42 @@ const IMMEDIATE_FORECAST_BUCKET_MAX_HOURS = 4;
 interface ImmediateForecastBucket {
   forecast: EnhancedForecastEntity;
   start: Date;
+  rowEnd: Date;
   end: Date;
+}
+
+interface ImmediateWindowSelection {
+  window: PersonalizedForecastWindow | null;
+  afterDark: boolean;
+}
+
+type DaylightAvailability = NonNullable<SurfDiscoveryResponse['daylightAvailability']>;
+
+function getForecastRowEnd(
+  row: EnhancedForecastEntity,
+  forecasts: EnhancedForecastEntity[],
+  beachTz: string,
+): Date {
+  const start = resolveForecastTime(row, beachTz);
+  const next = forecasts
+    .map((forecast) => resolveForecastTime(forecast, beachTz))
+    .filter((time) => time > start)
+    .sort((a, b) => a.getTime() - b.getTime())[0];
+  return forecastRowIntervalEnd(start, next);
+}
+
+function afterDarkAvailabilityFor(
+  beach: Beach,
+  beachTz: string,
+  after: Date,
+  sunTimes: { sunrises: Date[]; sunsets: Date[] } | undefined,
+): DaylightAvailability {
+  return {
+    reasonCode: 'after_dark',
+    nextWindowStart: nextFirstLight(after, beachTz, sunTimes)?.toISOString() ?? null,
+    timezone: beachTz,
+    beachId: beach.id,
+  };
 }
 
 function capImmediateEndAtSunset(
@@ -1351,36 +1380,12 @@ function capImmediateEndAtSunset(
   beachTz: string,
   sunTimes: { sunrises: Date[]; sunsets: Date[] } | undefined
 ): Date {
-  const todayStr = getLocalDateStr(now, beachTz);
-  const sameDaySunset = sunTimes?.sunsets.find(
-    (sunset) => getLocalDateStr(sunset, beachTz) === todayStr
-  );
-  if (sameDaySunset && sameDaySunset < end) {
-    return sameDaySunset;
-  }
-  if (!sameDaySunset) {
-    try {
-      const localDateParts = new Intl.DateTimeFormat('en-US', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        timeZone: beachTz,
-      }).formatToParts(now);
-
-      const year = localDateParts.find((part) => part.type === 'year')?.value;
-      const month = localDateParts.find((part) => part.type === 'month')?.value;
-      const day = localDateParts.find((part) => part.type === 'day')?.value;
-      if (!year || !month || !day) return end;
-
-      const conservative6pm = localDateTimeToUTC(`${year}-${month}-${day}`, '18:00:00', beachTz);
-      if (conservative6pm < end) {
-        return conservative6pm;
-      }
-    } catch {
-      return end;
-    }
-  }
-  return end;
+  const lightEnd = usableLightIntervalForDate(
+    getLocalDateStr(now, beachTz),
+    beachTz,
+    sunTimes,
+  ).end;
+  return lightEnd < end ? lightEnd : end;
 }
 
 function findImmediateForecastBucket(
@@ -1420,6 +1425,7 @@ function findImmediateForecastBucket(
       activeBucket = {
         forecast: current.forecast,
         start: current.forecastTime,
+        rowEnd: forecastRowIntervalEnd(current.forecastTime, next?.forecastTime),
         end: bucketEnd,
       };
     }
@@ -1463,15 +1469,18 @@ function selectImmediateWindow(
   now: Date,
   userSkillLevel?: SkillLevel | string | null,
   boardClasses: readonly BoardClass[] = [],
-): PersonalizedForecastWindow | null {
-  if (forecasts.length === 0) return null;
-
+): ImmediateWindowSelection {
   const beachTz =
     (beach as { timezone?: string | null }).timezone ||
     getTimezoneFromCoords(beach.lat || 0, beach.lon || 0);
   const sunTimes = sunTimesCache.get(beach.id);
-
-  if (!isDaylightSessionStart(now, beachTz, sunTimes)) return null;
+  const currentlyDark = !isDaylightInterval(
+    now,
+    new Date(now.getTime() + 1),
+    beachTz,
+    sunTimes,
+  );
+  if (forecasts.length === 0) return { window: null, afterDark: currentlyDark };
 
   const scoreForecast = (forecast: EnhancedForecastEntity): number =>
     scoreWindowConditionScore(
@@ -1482,16 +1491,19 @@ function selectImmediateWindow(
       boardClasses,
     );
   const bucket = findImmediateForecastBucket(forecasts, beachTz, now, scoreForecast);
-  if (!bucket) return null;
+  if (!bucket) return { window: null, afterDark: currentlyDark };
+  if (!isDaylightInterval(bucket.start, bucket.rowEnd, beachTz, sunTimes)) {
+    return { window: null, afterDark: true };
+  }
 
   const end = capImmediateEndAtSunset(bucket.end, now, beachTz, sunTimes);
-  if (end.getTime() <= now.getTime()) return null;
+  if (end.getTime() <= now.getTime()) return { window: null, afterDark: false };
 
   const wind = [bucket.forecast.wind_speed, bucket.forecast.wind_direction]
     .filter((part) => part != null && String(part).trim().length > 0)
     .join(' ');
 
-  return {
+  return { window: {
     start: bucket.start,
     end,
     tide: bucket.forecast.tide_status || 'Unknown',
@@ -1505,7 +1517,7 @@ function selectImmediateWindow(
     score: scoreForecast(bucket.forecast),
     peakTime: now,
     sourceForecast: bucket.forecast,
-  };
+  }, afterDark: false };
 }
 
 // ============================================================================
@@ -1766,14 +1778,37 @@ async function discoverSurfSpotsInner(
   const scored: SurfDiscoveryRecommendation[] = [];
 
   const beachesWithNoWindow: string[] = [];
+  let daylightAvailability: DaylightAvailability | null = null;
+  const considerAfterDark = (candidate: DaylightAvailability): void => {
+    const candidateTime = candidate.nextWindowStart
+      ? new Date(candidate.nextWindowStart).getTime()
+      : Number.POSITIVE_INFINITY;
+    const currentTime = daylightAvailability?.nextWindowStart
+      ? new Date(daylightAvailability.nextWindowStart).getTime()
+      : Number.POSITIVE_INFINITY;
+    if (!daylightAvailability || candidateTime < currentTime) {
+      daylightAvailability = candidate;
+    }
+  };
+
   for (const { beach, forecasts } of beachForecasts) {
     // Today-first: try today's forecasts first, fall back to all (matches beach detail page)
-    const beachTz = getTimezoneFromCoords(beach.lat || 0, beach.lon || 0);
+    const beachTz = beach.timezone || getTimezoneFromCoords(beach.lat || 0, beach.lon || 0);
+    const beachSunTimes = sunTimesCache.get(beach.id);
     const requestedAlignment = forecastAt
       ? resolveForecastAlignment(forecasts, forecastAt)
       : null;
-    const scopedForecasts = requestedAlignment?.forecast
-      ? [requestedAlignment.forecast]
+    const scopedForecast = requestedAlignment?.forecast;
+    const scopedStart = scopedForecast
+      ? resolveForecastTime(scopedForecast, beachTz)
+      : null;
+    const scopedForecasts = scopedForecast && scopedStart && isDaylightInterval(
+      scopedStart,
+      getForecastRowEnd(scopedForecast, forecasts, beachTz),
+      beachTz,
+      beachSunTimes,
+    )
+      ? [scopedForecast]
       : [];
     const selectionNow = forecastAt ? new Date(forecastAt) : new Date();
     const todayStr = getLocalDateStr(selectionNow, beachTz);
@@ -1794,7 +1829,6 @@ async function discoverSurfSpotsInner(
     //      today-only returns null but we aren't technically past sunset
     //      yet (e.g. 19:21 PDT with sunset 19:31).
     const nowForFallback = selectionNow;
-    const beachSunTimes = sunTimesCache.get(beach.id);
     const beachSameDaySunset = beachSunTimes?.sunsets.find(
       (s: Date) => getLocalDateStr(s, beachTz) === todayStr
     );
@@ -1812,7 +1846,7 @@ async function discoverSurfSpotsInner(
     const hasUsableTodayForecast = hasUsableTodayForecastForFallback({
       forecasts: todayForecasts,
       beachTz,
-      sunset: beachSameDaySunset ?? null,
+      sunTimes: beachSunTimes,
       now: nowForFallback,
     });
     const todayIsEffectivelyOver =
@@ -1836,18 +1870,25 @@ async function discoverSurfSpotsInner(
             })
           : []
         : discoveryMode === 'now'
-          ? [
-              selectImmediateWindow(
+          ? (() => {
+              const immediate = selectImmediateWindow(
                 forecasts,
                 beach,
                 sunTimesCache,
                 nowForFallback,
                 userSkillLevel,
                 boardClasses,
-              ),
-            ].filter(
-              (window): window is PersonalizedForecastWindow => window !== null,
-            )
+              );
+              if (immediate.afterDark) {
+                considerAfterDark(afterDarkAvailabilityFor(
+                  beach,
+                  beachTz,
+                  nowForFallback,
+                  beachSunTimes,
+                ));
+              }
+              return immediate.window ? [immediate.window] : [];
+            })()
           : todayForecasts.length > 0
             ? selectBestWindows({
                 forecasts: todayForecasts,
@@ -1889,10 +1930,24 @@ async function discoverSurfSpotsInner(
     }
 
     if (forecastAt || discoveryMode !== 'now') {
-      selectedWindows = selectedWindows.map(withDisplayWindow);
+      selectedWindows = selectedWindows.map((window) =>
+        withDisplayWindow(window, sunTimesCache.get(beach.id)),
+      );
     }
 
     if (selectedWindows.length === 0) {
+      if (forecastAt && requestedAlignment?.forecast) {
+        const rowStart = resolveForecastTime(requestedAlignment.forecast, beachTz);
+        const rowEnd = getForecastRowEnd(requestedAlignment.forecast, forecasts, beachTz);
+        if (!isDaylightInterval(rowStart, rowEnd, beachTz, beachSunTimes)) {
+          considerAfterDark(afterDarkAvailabilityFor(
+            beach,
+            beachTz,
+            rowStart,
+            beachSunTimes,
+          ));
+        }
+      }
       beachesWithNoWindow.push(beach.name);
       log.debug(`[discoverSurfSpots] ${beach.name}: selectBestWindows returned no windows (forecasts=${forecasts.length})`);
       continue;
@@ -2392,8 +2447,8 @@ async function discoverSurfSpotsInner(
       }
 
       const slotHeights = slotHourlyForecasts
-        .map((f) => parseFloat(String(f.wave_height ?? '')))
-        .filter((h) => !isNaN(h) && h > 0);
+        .map((f) => parseWaveHeightMidpointFt(f.wave_height))
+        .filter((h): h is number => h !== null && h > 0);
 
       if (slotHeights.length === 0) {
         continue;
@@ -2572,6 +2627,9 @@ async function discoverSurfSpotsInner(
     },
     regionalCall,
     eveningTransition,
+    ...(scored.length === 0 && daylightAvailability
+      ? { daylightAvailability }
+      : {}),
     // Resolved water-quality closures were filtered out of the pool above.
     // Major-event holds are resolved at the serialization boundary
     // (`sanitizeSurfDiscoveryForSerializationMajorEventHold`), which overwrites

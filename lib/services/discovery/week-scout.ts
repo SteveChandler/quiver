@@ -30,6 +30,7 @@ import {
 } from '@/lib/domains/scoring';
 import { rerankHero, type RerankResult } from '@/lib/services/discovery/hero-ranking';
 import { resolveBeachTimezone } from '@/lib/utils/timezone-utils';
+import { parseWaveHeightMidpointFt } from '@/lib/alerts/forecast-parsers';
 import {
   getSkillLevelOrDefault,
   type SkillLevel,
@@ -417,7 +418,7 @@ function isRideable(
   skillLevel: SkillLevel | null,
   boardClasses: readonly BoardClass[] = [],
 ): boolean {
-  const waveHeight = finiteNumber(forecast.wave_height);
+  const waveHeight = parseWaveHeightMidpointFt(forecast.wave_height);
   if (waveHeight === null) return false;
 
   const resolvedSkillLevel = getSkillLevelOrDefault(skillLevel);
