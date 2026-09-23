@@ -28,7 +28,6 @@ import {
   getRecommendationLabelGated,
 } from '@/lib/services/discovery/response-formatter';
 import type { ScoringEngine, CompositeScore } from '@/lib/domains/scoring';
-import { parseWaveHeightMidpointFt } from '@/lib/alerts/forecast-parsers';
 
 // ============================================================================
 // Types
@@ -234,9 +233,15 @@ export function getMinRideable(beach: Beach): number {
   return Math.max(breakMin, skillMin);
 }
 
-function parseWaveHeight(waveHeight: string | null): number | null {
+/**
+ * Parse wave height string to max numeric value in feet.
+ * Handles formats like "2-3 ft", "3.5", "4-6", "Unknown"
+ */
+function parseMaxWaveHeight(waveHeight: string | null): number | null {
   if (!waveHeight || waveHeight === 'Unknown') return null;
-  return parseWaveHeightMidpointFt(waveHeight);
+  const numbers = waveHeight.match(/[\d.]+/g);
+  if (!numbers || numbers.length === 0) return null;
+  return Math.max(...numbers.map(Number));
 }
 
 interface WindData {
@@ -733,7 +738,7 @@ export function computeSurfCall(
   // This prevents the surf call from contradicting the discovery system's assessment.
   const minRideable = getMinRideable(beach);
   const parsedHeights = forecasts
-    .map((f) => parseWaveHeight(f.wave_height))
+    .map((f) => parseMaxWaveHeight(f.wave_height))
     .filter((h): h is number => h !== null);
   const maxWave = parsedHeights.length > 0 ? Math.max(...parsedHeights) : null;
   // When wave heights are unknown (all null/Unknown), don't trigger the small-wave gate —
@@ -758,7 +763,7 @@ export function computeSurfCall(
   }
 
   // Check window-specific wave height
-  const windowWave = parseWaveHeight(window.waveHeight);
+  const windowWave = parseMaxWaveHeight(window.waveHeight);
   const windowWavesBelowMin = windowWave !== null && windowWave < minRideable;
 
   // Compute window duration
@@ -797,10 +802,10 @@ export function computeSurfCall(
   // hour 0's 1.9ft forecast and score 0 waves/hr under an "EPIC" badge.
   const freqForecast = effectiveForecasts.reduce<EnhancedForecastEntity | null>(
     (best, f) => {
-      const fMax = parseWaveHeight(f.wave_height);
+      const fMax = parseMaxWaveHeight(f.wave_height);
       if (fMax == null) return best;
       if (best == null) return f;
-      const bestMax = parseWaveHeight(best.wave_height) ?? 0;
+      const bestMax = parseMaxWaveHeight(best.wave_height) ?? 0;
       return fMax > bestMax ? f : best;
     },
     null,
@@ -1016,7 +1021,7 @@ export function computeSurfCallTiers(
     bestWindowEnd: baseline.bestWindowEnd,
   };
 
-  const maxWave = parseWaveHeight(baseline.waveHeight);
+  const maxWave = parseMaxWaveHeight(baseline.waveHeight);
   const wind = baseline.windType; // 'glassy' | 'offshore' | 'cross-shore' | 'onshore' | null
   const windSpeedNum = baseline.windSpeed
     ? Number(baseline.windSpeed.replace(/[^\d.]/g, ''))

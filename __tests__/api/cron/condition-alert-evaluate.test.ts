@@ -1006,6 +1006,28 @@ describe("condition-alert-evaluate — surfability gate", () => {
     expect(body.skipped_unsurfable).toBe(1);
   });
 
+  it("gates a range forecast on its upper bound, not its midpoint", async () => {
+    seedRule();
+    seedProfile();
+    seedBeach({ break_type: "reef" });
+    // "1-2.5 ft": midpoint 1.75 is below the 2.0ft reef minimum, but the upper
+    // bound clears it, so the alert must still queue.
+    pushForecast("2026-04-26T14:00:00Z", 1);
+    store.forecasts[store.forecasts.length - 1].wave_height = "1-2.5 ft";
+    seedWindow({
+      startISO: "2026-04-26T14:00:00Z",
+      endISO: "2026-04-26T15:00:00Z",
+      snapshotWaveHeight: 1,
+    });
+
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+
+    const body = await res.json();
+    expect(body.skipped_unsurfable).toBe(0);
+    expect(body.queued).toBe(1);
+  });
+
   it("uses 2.0ft minimum for canonical break_type 'reef' (not the 1.5ft default)", async () => {
     seedRule();
     seedProfile();
@@ -1085,11 +1107,12 @@ describe("condition-alert-evaluate — surfability gate", () => {
     expect(store.queueUpserts).toHaveLength(1);
   });
 
-  it("range-string wave_height: uses the midpoint of '1-2ft' (1.5)", async () => {
+  it("range-string wave_height: uses the max of '1-2ft' (2), not parseFloat's first number (1)", async () => {
     seedRule();
     seedProfile();
     seedBeach({ break_type: "beach" }); // 1.5ft minimum
-    // Raw DB row stores a range string; all condition paths use its midpoint.
+    // Raw DB row stores a range string. parseFloat("1-2ft") = 1, which would
+    // false-suppress this window (1 < 1.5). The gate must extract max = 2.
     store.forecasts.push({
       forecast_at: "2026-04-26T14:00:00Z",
       wave_height: "1-2ft",

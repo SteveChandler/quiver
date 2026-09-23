@@ -11,7 +11,6 @@ import { filterToDaylight } from "@/lib/alerts/sunrise";
 import { resolveWindDirection } from "@/lib/alerts/degree-utils";
 import { getUtcDayBounds } from "@/lib/alerts/timezone-utils";
 import type { AlertConditions, BeachAlertMeta, ForecastHour } from "@/lib/alerts/types";
-import { parseWaveHeightMidpointFt } from "@/lib/alerts/forecast-parsers";
 
 export const GET = withAuth(
   async (_request: NextRequest, { user, supabase, params }: AuthenticatedContext) => {
@@ -55,7 +54,7 @@ export const GET = withAuth(
 
     const parsed: ForecastHour[] = forecasts.map((f) => ({
       forecast_at: f.forecast_at,
-      wave_height: parseWaveHeightMidpointFt(f.wave_height),
+      wave_height: f.wave_height ? parseFloat(f.wave_height) : null,
       wave_period: f.wave_period ? parseFloat(f.wave_period.replace("s", "")) : null,
       wave_direction: f.wave_direction ?? null,
       swell_1_height: f.swell_1_height ? parseFloat(f.swell_1_height) : null,

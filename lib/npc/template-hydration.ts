@@ -5,7 +5,6 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/database';
-import { parseWaveHeightMidpointFt } from '@/lib/alerts/forecast-parsers';
 import { describeTimeOfDay } from './posting-windows';
 import { parseWaterTemp } from './forecast-formatter';
 
@@ -61,7 +60,7 @@ export async function fetchSurfConditions(
   const waterTemp = parseWaterTemp(forecast?.water_temp as string | null) ?? 64;
 
   return {
-    waveHeight: parseWaveHeightMidpointFt(forecast?.wave_height),
+    waveHeight: parseFloat(String(forecast?.wave_height || 0)) || null,
     wavePeriod: parseFloat(String(forecast?.wave_period || 0)) || null,
     windSpeed: parseFloat(String(forecast?.wind_speed || 0)) || null,
     windDirection: forecast?.wind_direction || null,

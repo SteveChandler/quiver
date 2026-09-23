@@ -1157,7 +1157,7 @@ describe('computeSurfCall', () => {
       const forecasts = [makeForecast({ wave_height: 'Unknown' })];
       // Unknown wave heights → maxWave is null → wavesBelowMin is false
       // Falls through to normal verdict logic using window.score
-      const result = computeSurfCall(makeWindow({ waveHeight: '4 ft' }), forecasts, makeBeach());
+      const result = computeSurfCall(makeWindow(), forecasts, makeBeach());
       expect(result.verdict).toBe('YES'); // default window score=75 → YES
       // Without window → "No viable surf window"
       const resultNoWindow = computeSurfCall(null, forecasts, makeBeach());
