@@ -112,10 +112,12 @@ function dependencies(
       sunrises: [new Date(`${DATE}T13:00:00Z`)],
       sunsets: [new Date(`${DATE}T02:00:00Z`), new Date('2026-09-06T02:00:00Z')],
     }]))),
-    fetchPreferences: jest.fn(async () => null),
+    fetchRankingContext: jest.fn(async () => ({
+      implicitPrefs: null, learnedPrefs: null, affinityMap: new Map(), implicitWeight: 0,
+    })),
     fetchSkill: jest.fn(async () => skill),
     fetchBoardClasses: jest.fn(async () => boards),
-    fetchPersonalizationContext: jest.fn(async () => null),
+    fetchMatchEvidence: jest.fn(async () => new Map()),
     calculatePersonalizationBonus,
     selectBestWindows,
     scoreWindowCondition: (forecast, beach, level, inventory) =>

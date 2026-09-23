@@ -1,4 +1,4 @@
-import type { HourlySwellTimeline, SwellPartition } from "@/app/api/forecasts/bulk/route";
+import type { HourlySwellTimeline, SwellPartition } from "@/lib/domains/conditions/map-forecast";
 import {
   calendarDayTimelineHours,
   formatTimelineBubble,

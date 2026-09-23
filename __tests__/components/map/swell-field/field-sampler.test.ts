@@ -17,7 +17,7 @@ import {
   type FlowField,
   type WaterMaskMap,
 } from "@/components/map/swell-field/field-sampler";
-import type { SwellPartition } from "@/app/api/forecasts/bulk/route";
+import type { SwellPartition } from "@/lib/domains/conditions/map-forecast";
 
 describe("degToVector", () => {
   // Swell direction is the bearing the swell COMES FROM; travel vector is +180deg.

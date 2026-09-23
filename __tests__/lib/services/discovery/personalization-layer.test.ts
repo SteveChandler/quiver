@@ -39,7 +39,8 @@ function resetChain(resolveValue: { data: unknown; error: unknown }) {
   mockFrom.mockReturnValue({ select: mockSelect });
 }
 
-const mockSupabase = { from: mockFrom };
+const mockRpc = jest.fn();
+const mockSupabase = { from: mockFrom, rpc: mockRpc };
 
 jest.mock('@/lib/supabase/server', () => ({
   createSupabaseServiceRoleClient: jest.fn(),
@@ -79,6 +80,8 @@ import {
 } from '@/lib/services/personalized-scoring-service';
 import {
   fetchPersonalizationContext,
+  fetchWeekScoutMatchEvidence,
+  fetchWeekScoutRankingContext,
   calculatePersonalizationBonus,
 } from '@/lib/services/discovery/personalization-layer';
 
@@ -1129,5 +1132,88 @@ describe('fetchPersonalizationContext', () => {
       expect(result.affinityMap.get('beach-1')).toBe(55);
       expect(typeof result.implicitWeight).toBe('number');
     });
+  });
+});
+
+
+describe('fetchWeekScoutMatchEvidence', () => {
+  const match = {
+    state: 'learned', score: 6.4, label: 'fair', confidence: 'high',
+    sessions_in_profile: 25, reason_bullets: ['Matches your longboard sessions'],
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockCreateSupabaseServiceRoleClient.mockReturnValue(mockSupabase as never);
+  });
+
+  it.each([
+    ['Pro', { is_pro: true }, true],
+    ['trial', { is_trialing: true }, true],
+    ['free', { is_pro: false, is_trialing: false }, false],
+    ['missing entitlement', null, false],
+    ['expired', { is_pro: true, expires_at: '2000-01-01T00:00:00Z' }, false],
+    ['billing grace', { is_pro: true, billing_issue: true, expires_at: '2000-01-01T00:00:00Z' }, true],
+  ])('shares surf-call entitlement and match interpretation for %s', async (_name, entitlement, enabled) => {
+    const forecast = makeForecast();
+
+    mockRpc.mockResolvedValue({
+      error: null,
+      data: {
+        entitlement,
+        affinity_rows: [{ beach_id: 'beach-1', affinity_score: 40 }],
+        matches: [{ beach_id: forecast.beach_id, forecast_at: forecast.forecast_at, result: match }],
+      },
+    });
+
+    const context = await fetchWeekScoutMatchEvidence(
+      'user-1', ['beach-1'], [forecast, forecast],
+    );
+
+    expect(mockRpc).toHaveBeenCalledTimes(1);
+    expect(mockRpc).toHaveBeenCalledWith('get_week_scout_personalization', {
+      p_user_id: 'user-1', p_beach_ids: ['beach-1'],
+      p_slots: [{
+        beach_id: 'beach-1', forecast_at: forecast.forecast_at,
+        wave_height: '3', wave_period: '12', wind_speed: '8',
+        wind_direction: '270', tide_height: '3.5',
+      }],
+    });
+    expect(mockFrom).not.toHaveBeenCalled();
+    expect(mockGetImplicitPreferences).not.toHaveBeenCalled();
+    expect(mockGetUserSurfPreferences).not.toHaveBeenCalled();
+    expect(context.get(`${forecast.beach_id}:${forecast.forecast_at}`)).toEqual(
+      enabled ? {
+        state: 'ready', score: 6.4, label: 'FAIR', confidence: 'high',
+        sessionCount: 25, bonusApplied: 0, reason: match.reason_bullets[0],
+        reasons: match.reason_bullets,
+      } : null,
+    );
+  });
+
+  it('loads ranking inputs before scoring with one view read', async () => {
+    const learned = makeLearnedPrefs();
+    const implicit = makeImplicitPrefs({ confidence: 0.8 });
+    const maybeSingle = jest.fn().mockResolvedValue({ data: {
+      learned_prefs: learned, implicit_prefs: implicit,
+      affinity_rows: [{ beach_id: 'beach-1', affinity_score: 40 }],
+    }, error: null });
+    mockFrom.mockReturnValue({ select: () => ({ eq: () => ({ maybeSingle }) }) });
+    const result = await fetchWeekScoutRankingContext('user-1');
+    expect(mockFrom).toHaveBeenCalledWith('week_scout_ranking_context');
+    expect(mockFrom).toHaveBeenCalledTimes(1);
+    expect(mockRpc).not.toHaveBeenCalled();
+    expect(result.learnedPrefs).toMatchObject({ ...learned, eligible_session_count: 20 });
+    expect(result.affinityMap.get('beach-1')).toBe(40);
+    expect(result.implicitWeight).toBeCloseTo(0.16);
+  });
+
+  it('reports a failed context read without fallback queries or silently losing personalization', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: { message: 'RPC unavailable' } });
+    await expect(fetchWeekScoutMatchEvidence('user-1', ['beach-1'], [makeForecast()]))
+      .rejects.toThrow('Failed to load Week Scout personalization: RPC unavailable');
+    expect(mockRpc).toHaveBeenCalledTimes(1);
+    expect(mockFrom).not.toHaveBeenCalled();
+    expect(mockGetUserSurfPreferences).not.toHaveBeenCalled();
   });
 });

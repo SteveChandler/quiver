@@ -1,5 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
-import type { HourlySwellTimeline, SwellPartition } from "@/app/api/forecasts/bulk/route";
+import type { HourlySwellTimeline, SwellPartition } from "@/lib/domains/conditions/map-forecast";
 import { useExpandableSwellTimeline } from "@/hooks/use-expandable-swell-timeline";
 
 const HOUR_MS = 60 * 60 * 1000;

@@ -233,6 +233,20 @@ function shouldSkipDueToLight({
   return false;
 }
 
+/** Shared start eligibility for scoped calls, Now and map previews. */
+export function isDaylightSessionStart(
+  startTime: Date,
+  beachTz: string,
+  sunTimes?: { sunrises: Date[]; sunsets: Date[] },
+): boolean {
+  const sunrises = sunTimes?.sunrises ?? [];
+  const sunsets = sunTimes?.sunsets ?? [];
+  const localDate = (date: Date): string => getLocalDateStr(date, beachTz);
+  if (shouldSkipDueToLight({ startTime, sunsets, sunrises, beachTz, getLocalDateStrForBeach: localDate })) return false;
+  const sunset = sunsets.find((time) => localDate(time) === localDate(startTime));
+  return !sunset || sunset.getTime() - startTime.getTime() >= MIN_SESSION_HOURS * 3_600_000;
+}
+
 /**
  * Calculate the adjusted score for ranking windows.
  */
@@ -797,24 +811,9 @@ export function selectBestWindows(
       continue;
     }
 
-    // Light/sunset checks
-    if (shouldSkipDueToLight({ startTime, sunsets, sunrises, beachTz, getLocalDateStrForBeach })) {
+    if (!isDaylightSessionStart(startTime, beachTz, { sunsets, sunrises })) {
       log.debug(`[selectBestWindow] ${actualBeach.name}: Forecast ${i} skipped due to light/sunset constraints`);
       continue;
-    }
-
-    // Sunset proximity check
-    const forecastDateStr = getLocalDateStrForBeach(startTime);
-    const sameDaySunset = sunsets.find(s => getLocalDateStrForBeach(s) === forecastDateStr);
-
-    if (sameDaySunset) {
-      const hoursUntilSunset = (sameDaySunset.getTime() - startTime.getTime()) / (1000 * 60 * 60);
-      if (hoursUntilSunset < MIN_SESSION_HOURS) {
-        log.debug(`[selectBestWindow] ${actualBeach.name}: Forecast ${i} too close to sunset (${hoursUntilSunset.toFixed(1)}h < ${MIN_SESSION_HOURS}h)`);
-        continue;
-      }
-    } else {
-      log.debug(`[selectBestWindow] ${actualBeach.name}: No same-day sunset found for ${forecastDateStr}, sunsets available: ${sunsets.map(s => getLocalDateStrForBeach(s)).join(', ')}`);
     }
 
     // Horizon constraint
