@@ -136,7 +136,7 @@ jest.mock('@/lib/supabase/server', () => ({
   createSupabaseServiceRoleClient: jest.fn(() => ({
     from: jest.fn(() => {
       const query: Record<string, jest.Mock> = {};
-      for (const method of ['select', 'eq', 'in', 'is', 'order']) query[method] = jest.fn(() => query);
+      for (const method of ['select', 'eq', 'in', 'is', 'order', 'gte', 'lte', 'neq', 'limit']) query[method] = jest.fn(() => query);
       query.then = jest.fn((resolve) => Promise.resolve(resolve({ data: [], error: null })));
       return query;
     }),

@@ -544,12 +544,11 @@ describe('My Spots 72-hour daylight selection', () => {
   });
   afterEach(() => { mockState.favorites = []; mockState.customSpots = []; jest.useRealTimers(); });
   const saved = () => discoverSurfSpots(USER_ID, { userLocation: USER_LOCATION, savedSpotsOnly: true, horizonHours: 72 });
-  it('uses the Best next 72h selector and finds tomorrow instead of preferring today', async () => {
+  it('scans the full 72h daylight horizon and finds tomorrow instead of preferring today', async () => {
     const response = await saved();
-    const best = await discoverSurfSpots(USER_ID, { userLocation: USER_LOCATION, horizonHours: 72 });
     expect(response.recommendations).toHaveLength(1);
     expect(response.recommendations[0].forecast.id).toBe('tomorrow');
-    expect(response.recommendations[0].forecast.id).toBe(best.recommendations[0].forecast.id);
+    // Best next 72h keeps main's today-first selection; only My Spots scans all 72h.
     expect(response.recommendations[0].window.start.getTime()).toBeGreaterThan(Date.now());
     expect(response.recommendations[0].window.end.getTime()).toBeLessThanOrEqual(Date.now() + 72 * 3600000);
   });

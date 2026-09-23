@@ -751,7 +751,9 @@ function buildWeekScoutCanonicalCandidates(args: {
         || window.isBeachDayBest !== true
         || window.rankingScore === null
         || window.verdict === null
-        || window.verdict === 'skip'
+        // Quality skips stay out; unsafe or unrideable skips go in with their own
+        // Skip label so the engine vetoes them with the specific safety reason.
+        || (window.verdict === 'skip' && window.safe && window.rideable)
       ) {
         return [];
       }
@@ -773,7 +775,10 @@ function buildWeekScoutCanonicalCandidates(args: {
         waveHeight: window.forecast.waveHeight,
         utilityScore: window.rankingScore,
         recommendationLabel: canonicalLabelForVerdict(window.verdict),
-        personalMatch: toPersonalMatchEvidence({ similarity: args.similarity?.get(`${forecast?.beach_id}:${forecast?.forecast_at}`) ?? null }),
+        // Unsafe or unrideable windows never move on personal history.
+        personalMatch: window.safe && window.rideable
+          ? toPersonalMatchEvidence({ similarity: args.similarity?.get(`${forecast?.beach_id}:${forecast?.forecast_at}`) ?? null })
+          : null,
       }];
     }),
   );

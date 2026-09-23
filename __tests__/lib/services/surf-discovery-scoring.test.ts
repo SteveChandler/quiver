@@ -180,6 +180,15 @@ jest.mock("@/lib/supabase/server", () => {
             };
           }
 
+          // Saved boards (with optional embedded session history): none.
+          if (table === "boards") {
+            const query: Record<string, unknown> = {
+              then: (resolve: (value: unknown) => unknown) => Promise.resolve({ data: [], error: null }).then(resolve),
+            };
+            for (const method of ["eq", "is", "gte", "order", "limit"]) query[method] = () => query;
+            return query;
+          }
+
           // Default: empty
           return {
             eq() {
@@ -973,7 +982,7 @@ describe("discoverSurfSpots sunset filtering", () => {
     expect(rec.window.start.getUTCHours()).not.toBe(21); // NOT 9pm UTC
   });
 
-  it("rejects early morning window before sunrise (via night filter)", async () => {
+  it("trims a dawn window to first light instead of rejecting it", async () => {
     const { getBatchFreshForecastsFromCache } = require("@/lib/utils/forecast-service-utils");
 
     // System time: midnight UTC
@@ -1013,9 +1022,11 @@ describe("discoverSurfSpots sunset filtering", () => {
     assertHasRecommendation(result, consoleErrorSpy.mock.calls);
     const rec = result.recommendations[0];
 
-    // Should select 8am window, not 4am (night filter)
-    expect(rec.window.start.getUTCHours()).toBe(8); // 8am UTC
-    expect(rec.window.start.getUTCHours()).not.toBe(4); // NOT 4am UTC
+    // The better 4am window overlaps first light (sunrise 06:15 - 30 min), so it
+    // is kept for dawn patrol but never presented as starting in the dark.
+    const firstLight = new Date("2025-01-20T05:45:00.000Z").getTime();
+    expect(rec.window.start.getTime()).toBe(firstLight);
+    expect(rec.window.start.getUTCHours()).not.toBe(4);
   });
 
   it("caps window end time at sunset", async () => {
@@ -1069,15 +1080,15 @@ describe("discoverSurfSpots sunset filtering", () => {
     // Window should start at 1pm
     expect(rec.window.start.toISOString()).toBe("2025-01-20T13:00:00.000Z");
 
-    // Window end should NOT exceed sunset (3pm).
-    // Sub-hour peak-centering may tighten the window further, but it must not exceed sunset.
-    const sunsetTime = new Date("2025-01-20T15:00:00.000Z").getTime();
-    expect(rec.window.end.getTime()).toBeLessThanOrEqual(sunsetTime);
+    // Window end should NOT exceed last light (sunset + 20 min, the shared
+    // daylight rule). Peak-centering may tighten it further.
+    const lastLight = new Date("2025-01-20T15:20:00.000Z").getTime();
+    expect(rec.window.end.getTime()).toBeLessThanOrEqual(lastLight);
 
-    // Verify window has reasonable duration (at least 30 min, at most sunset-capped 2 hours)
+    // Verify window has reasonable duration (at least 30 min, at most capped at last light)
     const durationHours = (rec.window.end.getTime() - rec.window.start.getTime()) / (1000 * 60 * 60);
     expect(durationHours).toBeGreaterThanOrEqual(0.5);
-    expect(durationHours).toBeLessThanOrEqual(2);
+    expect(durationHours).toBeLessThanOrEqual(2 + 20 / 60);
   });
 
   it("rejects window with insufficient daylight before sunset", async () => {
