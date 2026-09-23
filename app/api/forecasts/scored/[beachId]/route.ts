@@ -17,10 +17,13 @@ import {
 import { evaluateMajorEventHoldCandidates } from "@/lib/recommendations/major-event-hold/service";
 import { calculateRideableWaves } from "@/lib/domains/wave-frequency/calculator";
 import { resolveNativeSkillLevel } from "@/lib/scoring/native-condition-score";
-import { scoreWindowConditionDetails } from "@/lib/services/discovery/window-selector/window-scorer";
+import {
+  scoreWindowConditionDetails,
+  scoreWindowConditionForBoardClass,
+} from "@/lib/services/discovery/window-selector/window-scorer";
 import { fetchUserBoardContext } from "@/lib/services/discovery/surf-discovery-orchestrator";
 import type { BoardClass } from "@/lib/domains/rideability";
-import { type BoardForPick } from "@/lib/scoring";
+import { getConditionBoardPick, toForecastForScoring, type BoardForPick } from "@/lib/scoring";
 import type { SkillLevel } from "@/lib/domains/user-preferences/skill-level";
 import { getProfileExperienceLevel } from "@/lib/profile/skill-level";
 import { parseWaveHeightRangeFt } from "@/lib/alerts/forecast-parsers";
@@ -175,11 +178,16 @@ export function scoreForecastSlots(
   boardsForPicks: BoardForPick[] = [],
 ): TimeSlot[] {
   return forecasts.map((forecast) => {
-    const scoreDetails = scoreWindowConditionDetails(
-      forecast, beach,
-      boardClasses.length > 0 ? skillLevel : resolveNativeSkillLevel(skillLevel),
-      null, boardClasses,
-    );
+    const recommendedBoard = recommendBoard(boardsForPicks, forecast, beach, skillLevel);
+    const recommendedClass = recommendedBoard ? normalizeBoardClass(recommendedBoard.type) : null;
+    // The shown board, its score, size band and lift must describe one board.
+    const scoreDetails = recommendedClass
+      ? scoreWindowConditionForBoardClass(forecast, beach, skillLevel, recommendedClass)
+      : scoreWindowConditionDetails(
+          forecast, beach,
+          boardClasses.length > 0 ? skillLevel : resolveNativeSkillLevel(skillLevel),
+          null, boardClasses,
+        );
     const generalScore = scoreWindowConditionDetails(
       forecast,
       beach,
@@ -187,8 +195,16 @@ export function scoreForecastSlots(
       null,
       [],
     ).score;
-    const recommendedBoard = recommendBoard(boardsForPicks, forecast, beach, skillLevel);
-    const boardPick = recommendedBoard ? { boardId: recommendedBoard.id, boardName: recommendedBoard.name, boardType: recommendedBoard.type } : null;
+    const boardPick = recommendedClass && recommendedBoard
+      ? { boardId: recommendedBoard.id, boardName: recommendedBoard.name, boardType: recommendedBoard.type }
+      : scoreDetails.boardClass
+        ? getConditionBoardPick(
+            toForecastForScoring(forecast),
+            boardsForPicks,
+            beach,
+            { kind: "scored", boardClass: scoreDetails.boardClass },
+          )
+        : null;
 
     // Wave frequency
     const {
@@ -249,8 +265,8 @@ export function scoreForecastSlots(
       swellTrains,
       dominantBeatIntervalS,
       forecastDataConfidence,
-      recommendedBoard,
-      boardClass: recommendedBoard ? normalizeBoardClass(recommendedBoard.type) : scoreDetails.boardClass,
+      recommendedBoard: recommendedClass ? recommendedBoard : null,
+      boardClass: scoreDetails.boardClass,
       board: boardPick
         ? {
             id: boardPick.boardId,

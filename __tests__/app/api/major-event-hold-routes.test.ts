@@ -60,6 +60,14 @@ jest.mock("@/lib/services/discovery/window-selector/window-scorer", () => ({
     components: { waveFit: 0, period: 0, wind: 0, tide: 0 },
     appliedEffects: [],
   })),
+  scoreWindowConditionForBoardClass: jest.fn((_forecast, _beach, _skill, boardClass) => ({
+    score: 75,
+    boardClass,
+    rideabilityBand: null,
+    decisionCeiling: 100,
+    components: { waveFit: 0, period: 0, wind: 0, tide: 0 },
+    appliedEffects: [],
+  })),
 }));
 
 jest.mock("@/lib/domains/wave-frequency/calculator", () => ({
@@ -195,21 +203,28 @@ describe("major-event hold route integration", () => {
   it('scores with the authenticated surfer saved boards, not caller-supplied identity', async () => {
     mockAuthContext.user = { id: 'signed-in-surfer' };
     const originalFrom = mockAuthContext.supabase.from;
-    const boardEq = jest.fn(async () => ({ data: [
+    const boardEq = jest.fn();
+    const boardResult = { data: [
       { id: 'board-1', name: 'Log', board_type: 'longboard', volume: 65, session_count: 4 },
       { id: 'board-2', name: 'Fish', board_type: 'fish', volume: 32, session_count: 2 },
-    ], error: null }));
+    ], error: null };
+    const boardQuery: Record<string, unknown> = {
+      then: (resolve: (value: typeof boardResult) => unknown) => Promise.resolve(boardResult).then(resolve),
+    };
+    for (const method of ['is', 'gte', 'order', 'limit']) boardQuery[method] = jest.fn(() => boardQuery);
+    boardQuery.eq = jest.fn((...args: unknown[]) => { boardEq(...args); return boardQuery; });
     mockAuthContext.supabase.from = jest.fn(table => table === 'boards'
-      ? { select: () => ({ eq: boardEq }) } : originalFrom(table));
+      ? { select: () => boardQuery } : originalFrom(table));
     mockEvaluateMajorEventHoldCandidates.mockResolvedValueOnce([]);
     const { GET } = await import("@/app/api/forecasts/scored/[beachId]/route");
-    const { scoreWindowConditionDetails } = await import('@/lib/services/discovery/window-selector/window-scorer');
+    const { scoreWindowConditionForBoardClass } = await import('@/lib/services/discovery/window-selector/window-scorer');
     const response = await GET(new NextRequest(`http://localhost/api/forecasts/scored/${BEACH_ID}?range=14day&userId=someone-else`));
     expect(response.status).toBe(200);
     expect(boardEq).toHaveBeenCalledWith('user_id', 'signed-in-surfer');
-    expect(scoreWindowConditionDetails).toHaveBeenCalledWith(
+    // The slot is scored for a board from the signed-in surfer's own quiver.
+    expect(scoreWindowConditionForBoardClass).toHaveBeenCalledWith(
       expect.objectContaining({ forecast_at: SLOT_ONE }),
-      expect.objectContaining({ id: BEACH_ID }), null, null, ['longboard', 'fish'],
+      expect.objectContaining({ id: BEACH_ID }), null, expect.stringMatching(/^(longboard|fish)$/),
     );
   });
 
