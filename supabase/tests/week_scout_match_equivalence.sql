@@ -380,3 +380,5 @@ BEGIN
   END;
   RAISE NOTICE 'PASS: public wrapper authorization, locks, empty batch and invalid array';
 END $$;
+
+\ir bulk_forecast_decision_context.sql

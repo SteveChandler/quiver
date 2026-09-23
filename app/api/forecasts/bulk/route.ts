@@ -1,3 +1,5 @@
+import { fetchBulkDecisionContext, bulkRecommendationLabel, type BulkDecisionContext } from '@/lib/services/forecast/bulk-decision-context';
+import { resolveWaterQualityHolds } from '@/lib/recommendations/major-event-hold/water-quality';
 import type { NextRequest, NextResponse } from "next/server";
 import {
   createValidationError,
@@ -18,17 +20,13 @@ import { evaluateMajorEventHoldCandidates } from "@/lib/recommendations/major-ev
 import type { RecommendationAvailability } from "@/lib/recommendations/major-event-hold/types";
 import { applyV51DisplayOverrideToForecasts } from "@/lib/services/forecast/v5-display-gate";
 import { scoreWindowConditionScore } from "@/lib/services/discovery/window-selector/window-scorer";
-import { getProfileExperienceLevel } from "@/lib/profile/skill-level";
 import { parseSkillLevel } from "@/lib/domains/user-preferences/skill-level";
-import { normalizeBoardClass, type BoardClass } from "@/lib/domains/rideability";
 import {
   resolveSelectedHourDisplay,
   resolveTodayHeadline,
   type ForecastDisplay,
 } from "@/lib/services/forecast/today-headline";
 import { extractForecastDate } from "@/lib/utils/forecast-at-adapter";
-import { getBatchSunTimes } from "@/lib/services/discovery";
-import { resolveRecommendationLabel } from "@/lib/services/discovery/recommendation-label";
 import { withDisplayWindow } from "@/lib/services/discovery/window-authority";
 import {
   resolveDisplaySwell,
@@ -100,9 +98,6 @@ const BULK_FORECAST_SELECT =
 
 const HOURLY_TIMELINE_SELECT =
   "beach_id, forecast_at, swell_height_om, swell_period_om, swell_direction_om, wave_direction_om, swell_1_height, swell_1_period, swell_1_direction, swell_2_height, swell_2_period, swell_2_direction, wind_speed, wind_direction_deg" as const;
-
-const BULK_BEACH_SELECT =
-  "id, name, slug, lat, lon, city, state, country, region, timezone, break_type, skill_level, cdip_station, cdip_eligible, wind_offshore_deg, wind_offshore_tol_deg, wind_cross_shore_ok_kt, wind_onshore_bad_kt, swell_window_center_deg, swell_window_halfwidth_deg, swell_access_factors, wind_exposure_factors, preferred_tide_direction, preferred_tide_ft_min, preferred_tide_ft_max, tide_direction_sensitivity, preference_model, features, hazards, average_rating, review_count, shoaling_factors" as const;
 
 const SWELL_TIMELINE_HOUR_OFFSETS = [0, 3, 6, 9, 12] as const;
 const HOURLY_SWELL_TIMELINE_HOUR_OFFSETS = Array.from(
@@ -207,14 +202,16 @@ function buildBulkCandidateBindings(
 async function sanitizeBulkResponse<TResponse extends BulkForecastResponseLike>(
   response: TResponse,
   selectedForecastAtByBeach: ReadonlyMap<string, string>,
-  profileExperience: unknown
+  profileExperience: unknown,
+  context?: BulkDecisionContext,
 ): Promise<SanitizedBulkForecastResponse<TResponse>> {
   const bindings = buildBulkCandidateBindings(response, selectedForecastAtByBeach);
   const candidates = bindings.map(({ candidate }) => candidate);
   const decisions = await evaluateMajorEventHoldCandidates({
     candidates,
     profileExperience,
-  });
+    ...(context ? { applyWaterQualityHolds: true } : {}),
+  }, context ? { resolveWaterQualityHolds: (rows) => resolveWaterQualityHolds(rows, { client: context.waterQuality }) } : undefined);
   return sanitizeBulkForecastForMajorEventHold(
     response,
     bindings,
@@ -471,17 +468,15 @@ function partitionForTimelineHour(
   rowsByHour: ReadonlyMap<number, EnhancedForecastEntity>,
   hourMs: number,
   scores?: ReadonlyMap<EnhancedForecastEntity, number | null>,
-  beach?: Beach,
+  labelFor?: (row: EnhancedForecastEntity, at: Date) => RecommendationLabel | null,
 ): SwellPartition | null {
-  const partition = (row: EnhancedForecastEntity): SwellPartition => {
+  const partition = (row: EnhancedForecastEntity, includeLabel = true): SwellPartition => {
     const score = scores?.get(row) ?? null;
     return {
       ...rowToSwellPartition(row),
       ...(scores ? {
         conditionScore: score,
-        recommendationLabel: beach && score != null
-          ? resolveRecommendationLabel({ beach, forecast: row, score }).label
-          : null,
+        recommendationLabel: includeLabel ? labelFor?.(row, new Date(hourMs)) ?? null : null,
       } : {}),
     };
   };
@@ -511,11 +506,14 @@ function partitionForTimelineHour(
     return null;
   }
 
-  return interpolateSwellPartition(
-    partition(previous),
-    partition(next),
-    (hourMs - previousMs) / (nextMs - previousMs),
+  const interpolated = interpolateSwellPartition(
+    partition(previous, false), partition(next, false), (hourMs - previousMs) / (nextMs - previousMs),
   );
+  if (scores) {
+    const nearest = hourMs - previousMs < nextMs - hourMs ? previous : next;
+    interpolated.recommendationLabel = labelFor?.(nearest, new Date(hourMs)) ?? null;
+  }
+  return interpolated;
 }
 
 function buildHourlySwellTimeline(
@@ -524,7 +522,7 @@ function buildHourlySwellTimeline(
   window: HourlyTimelineWindow,
   nextStart: string | null,
   scores?: ReadonlyMap<EnhancedForecastEntity, number | null>,
-  beaches?: ReadonlyMap<string, Beach>,
+  labelFor?: (row: EnhancedForecastEntity, at: Date) => RecommendationLabel | null,
 ): HourlySwellTimeline {
   const requestedBeachIds = new Set(beachIds);
   const rowsByBeach = new Map<string, Map<number, EnhancedForecastEntity>>();
@@ -565,7 +563,7 @@ function buildHourlySwellTimeline(
       hourKeys.map((hourMs) => {
         const beachRows = rowsByBeach.get(beachId);
         return beachRows
-          ? partitionForTimelineHour(beachRows, hourMs, scores, beaches?.get(beachId))
+          ? partitionForTimelineHour(beachRows, hourMs, scores, labelFor)
           : null;
       }),
     ]),
@@ -656,56 +654,25 @@ async function fetchNextHourlySwellTimelineStart(
   return { nextStart: end.toISOString(), error: null };
 }
 
-async function fetchHourlySwellTimeline(
-  supabase: SupabaseClient<Database>,
+async function buildScoredHourlySwellTimeline(
+  rows: EnhancedForecastEntity[],
+  displayRows: EnhancedForecastEntity[],
   beachIds: string[],
   window: HourlyTimelineWindow,
-  scoring?: { skillLevel: string | null; boardClasses: BoardClass[] },
-): Promise<{
-  timeline: HourlySwellTimeline | null;
-  error: { message: string } | null;
-}> {
-  const rowsPromise = fetchHourlySwellTimelineRows(
-    supabase,
-    beachIds,
-    window.start,
-    window.end,
-    Boolean(scoring),
-  );
-  const nextStartPromise = fetchNextHourlySwellTimelineStart(
-    supabase,
-    beachIds,
-    window.end,
-  );
-  const [rowsResult, nextStartResult] = await Promise.all([
-    rowsPromise,
-    nextStartPromise,
-  ]);
-  const { data: rows, error: rowsError } = rowsResult;
-  if (rowsError || !rows) {
-    return {
-      timeline: null,
-      error: rowsError ?? { message: "No hourly timeline rows returned" },
-    };
-  }
-
-  const { nextStart, error: nextStartError } = nextStartResult;
-  if (nextStartError) return { timeline: null, error: nextStartError };
-
+  nextStart: string | null,
+  context?: BulkDecisionContext,
+): Promise<HourlySwellTimeline> {
+  const displayByTime = new Map(displayRows.map((row) => [`${row.beach_id}:${row.forecast_at}`, row]));
   let scores: Map<EnhancedForecastEntity, number | null> | undefined;
   let beaches: Map<string, Beach> | undefined;
-  if (scoring) {
-    const result = await supabase.from("beaches").select(BULK_BEACH_SELECT).in("id", beachIds);
-    if (result.error) return { timeline: null, error: { message: result.error.message } };
-    beaches = new Map((result.data as unknown as Beach[]).map((beach) => [beach.id, beach]));
+  if (context) {
+    beaches = new Map(context.beaches.map((beach) => [beach.id, beach]));
     scores = new Map();
-    const displayRows = await applyV51DisplayOverrideToForecasts(rows);
-    const displayByTime = new Map(displayRows.map((row) => [`${row.beach_id}:${row.forecast_at}`, row]));
     for (const row of rows) {
       const displayRow = displayByTime.get(`${row.beach_id}:${row.forecast_at}`) ?? row;
       const beach = beaches.get(row.beach_id);
       const score = beach && displayRow.wave_height != null
-        ? scoreWindowConditionScore(displayRow, beach, scoring.skillLevel, null, scoring.boardClasses)
+        ? scoreWindowConditionScore(displayRow, beach, context.skillLevel, null, context.boardClasses)
         : null;
       scores.set(row, score != null && Number.isFinite(score) ? score : null);
     }
@@ -716,9 +683,14 @@ async function fetchHourlySwellTimeline(
     window,
     nextStart,
     scores,
-    beaches,
+    context ? (row, at) => {
+      const beach = beaches?.get(row.beach_id);
+      const display = displayByTime.get(`${row.beach_id}:${row.forecast_at}`) ?? row;
+      const score = scores?.get(row);
+      return beach && score != null ? bulkRecommendationLabel(context, beach, display, score, at) : null;
+    } : undefined,
   );
-  if (scoring) {
+  if (context) {
     const candidates = Object.entries(timeline.partitionsByBeach).flatMap(([beachId, partitions]) =>
       partitions.flatMap((partition, index) => partition?.conditionScore == null ? [] : [{
         candidateId: `hourly-map:${beachId}:${timeline.timestamps[index]}`,
@@ -727,7 +699,9 @@ async function fetchHourlySwellTimeline(
         endsAt: new Date(Date.parse(timeline.timestamps[index]) + HOUR_MS).toISOString(),
       }]),
     );
-    const decisions = await evaluateMajorEventHoldCandidates({ candidates, profileExperience: scoring.skillLevel });
+    const decisions = await evaluateMajorEventHoldCandidates({ candidates, profileExperience: context.skillLevel, applyWaterQualityHolds: true }, {
+      resolveWaterQualityHolds: (rows) => resolveWaterQualityHolds(rows, { client: context.waterQuality }),
+    });
     const boundary = resolveMajorEventHoldBoundary(candidates, candidates, decisions);
     const unavailable = boundary.recommendationAvailability.reasonCode === "hold_state_unavailable";
     for (const [beachId, partitions] of Object.entries(timeline.partitionsByBeach)) {
@@ -739,7 +713,7 @@ async function fetchHourlySwellTimeline(
       });
     }
   }
-  return { timeline, error: null };
+  return timeline;
 }
 
 async function fetchBulkForecastRowsWithV51Display(
@@ -881,127 +855,56 @@ export async function bulkForecastHandler(
     const includeConditions = searchParams.get("includeConditions") === "true";
     const timelineResponseOnly = (isHourlyTimelineExtension && timelineOnlyParam !== "false") || isHourlyTimelineOnly;
     const loadScoring = includeConditions || !timelineResponseOnly;
-    const [profileSkillLevel, boardClasses] = await Promise.all([
-      loadScoring ? getProfileExperienceLevel(supabase, user?.id) : Promise.resolve(null),
-      user?.id && loadScoring
-        ? supabase
-            .from("boards")
-            .select("board_type")
-            .eq("user_id", user.id)
-            .then(({ data }) => Array.from(new Set(
-              (data ?? [])
-                .map((row) => normalizeBoardClass(row.board_type))
-                .filter((boardClass): boardClass is BoardClass => boardClass !== null)
-            )))
-        : Promise.resolve<BoardClass[]>([]),
-    ]);
-    // Authenticated profiles win; the validated hint covers native WebViews without cookies.
-    const userSkillLevel = profileSkillLevel ?? parseSkillLevel(
-      searchParams.get("skillLevel"),
-    );
-    const scoring = includeConditions ? { skillLevel: userSkillLevel ?? null, boardClasses } : undefined;
-
-
-    if (timelineResponseOnly && hourlyTimelineWindow) {
-      const { timeline, error } = await fetchHourlySwellTimeline(
-        supabase,
-        timelineBeachIds,
-        hourlyTimelineWindow,
-        scoring,
-      );
-      if (error || !timeline) {
-        console.error("Error fetching hourly swell timeline:", error);
-        return handleApiError(
-          new Error(error?.message ?? "No hourly timeline returned"),
-          "Failed to fetch hourly swell timeline",
-        );
-      }
-
-      if (isHourlyTimelineOnly) {
-        return createSuccessResponse({
-          ...emptyBulkForecastResponse,
-          hourlySwellTimeline: timeline,
-          recommendationAvailability: UNAVAILABLE_RECOMMENDATION,
-        });
-      }
-
-      return createSuccessResponse({
-        hourlySwellTimeline: timeline,
-        recommendationAvailability: UNAVAILABLE_RECOMMENDATION,
-      });
-    }
-
+    const now = new Date();
     const fetchWindow = resolveForecastFetchWindow(forecastAtParam);
-    const forecastPromise = fetchBulkForecastRowsWithV51Display(
-      supabase,
-      limitedBeachIds,
-      fetchWindow.start,
-      fetchWindow.end
-    );
-    const hourlyTimelinePromise = hourlyTimelineWindow
-      ? fetchHourlySwellTimeline(supabase, timelineBeachIds, hourlyTimelineWindow, scoring)
-      : Promise.resolve(null);
-    const beachPromise = supabase
-      .from("beaches")
-      .select(BULK_BEACH_SELECT)
-      .in("id", limitedBeachIds);
-    const beachEnrichmentPromise = Promise.resolve(beachPromise).then(
-      async (beachResult) => {
-        if (beachResult.error || fetchWindow.selectedAt !== null) {
-          return { beachResult, sunTimesCache: undefined };
-        }
-        const scoringBeachRows = (beachResult.data || []) as unknown as Beach[];
-        const todayDates = Array.from(
-          new Set(
-            scoringBeachRows.map((beach) => beachTodayDate(beach, new Date()))
-          )
-        );
-        const sunTimesCache = await getBatchSunTimes(limitedBeachIds, todayDates);
-        return { beachResult, sunTimesCache };
-      },
-    );
-
-    const hourlyTimelineSettledPromise = hourlyTimelinePromise.then(
-      (value) => ({ status: "fulfilled" as const, value }),
-      (reason: unknown) => ({ status: "rejected" as const, reason }),
-    );
-    const beachEnrichmentSettledPromise = beachEnrichmentPromise.then(
-      (value) => ({ status: "fulfilled" as const, value }),
-      (reason: unknown) => ({ status: "rejected" as const, reason }),
-    );
-    const forecastResult = await forecastPromise;
-    if (forecastResult.error) {
-      const { error } = forecastResult;
-      console.error("Error fetching bulk forecasts:", error);
-      return handleApiError(new Error(error.message), "Failed to fetch bulk forecasts");
-    }
-    const [hourlyTimelineSettled, beachEnrichmentSettled] = await Promise.all([
-      hourlyTimelineSettledPromise,
-      beachEnrichmentSettledPromise,
+    const [forecastResult, hourlyRowsResult, nextStartResult] = await Promise.all([
+      timelineResponseOnly
+        ? Promise.resolve({ data: [], timelineRows: [], error: null })
+        : fetchBulkForecastRowsWithV51Display(supabase, limitedBeachIds, fetchWindow.start, fetchWindow.end),
+      hourlyTimelineWindow
+        ? fetchHourlySwellTimelineRows(supabase, timelineBeachIds, hourlyTimelineWindow.start, hourlyTimelineWindow.end, includeConditions)
+            .catch((error: Error) => ({ data: [], error: { message: error.message } }))
+        : Promise.resolve({ data: [], error: null }),
+      hourlyTimelineWindow
+        ? fetchNextHourlySwellTimelineStart(supabase, timelineBeachIds, hourlyTimelineWindow.end)
+            .catch((error: Error) => ({ nextStart: null, error: { message: error.message } }))
+        : Promise.resolve({ nextStart: null, error: null }),
     ]);
-    if (hourlyTimelineSettled.status === "rejected") {
-      throw hourlyTimelineSettled.reason;
+    if (forecastResult.error) {
+      console.error("Error fetching bulk forecasts:", forecastResult.error);
+      return handleApiError(new Error(forecastResult.error.message), "Failed to fetch bulk forecasts");
     }
-    if (beachEnrichmentSettled.status === "rejected") {
-      throw beachEnrichmentSettled.reason;
+    const timelineError = hourlyRowsResult.error ?? nextStartResult.error;
+    if (timelineError) {
+      console.error("Error fetching hourly swell timeline:", timelineError);
+      return handleApiError(new Error(timelineError.message), "Failed to fetch hourly swell timeline");
     }
-
-    const hourlyTimelineResult = hourlyTimelineSettled.value;
-    const { beachResult, sunTimesCache } = beachEnrichmentSettled.value;
     const { data, timelineRows } = forecastResult;
-
-    let hourlySwellTimeline: HourlySwellTimeline | undefined;
-    if (hourlyTimelineResult) {
-      const { timeline, error: hourlyTimelineError } = hourlyTimelineResult;
-      if (hourlyTimelineError || !timeline) {
-        console.error("Error fetching hourly swell timeline:", hourlyTimelineError);
-        return handleApiError(
-          new Error(hourlyTimelineError?.message ?? "No hourly timeline returned"),
-          "Failed to fetch hourly swell timeline",
-        );
-      }
-
-      hourlySwellTimeline = timeline;
+    const hourlyRows = hourlyRowsResult.data ?? [];
+    const hourlyDisplayRows = includeConditions ? await applyV51DisplayOverrideToForecasts(hourlyRows) : hourlyRows;
+    const selectedRows = [...groupForecastsByBeach(data).values()].flatMap((rows) => {
+      const row = fetchWindow.selectedAt ? closestForecastRow(rows, fetchWindow.selectedAt)
+        : designateCurrentRow(rows, now, { toleranceMs: CURRENT_CONDITIONS_TOLERANCE_MS })?.row;
+      return row ? [row] : [];
+    });
+    const decisionContext = loadScoring ? await fetchBulkDecisionContext(
+      user?.id ?? null, limitedBeachIds, [...selectedRows, ...(includeConditions ? hourlyDisplayRows : [])],
+      hourlyTimelineWindow && hourlyTimelineWindow.start < fetchWindow.start ? hourlyTimelineWindow.start : fetchWindow.start,
+      hourlyTimelineWindow && hourlyTimelineWindow.end > fetchWindow.end ? hourlyTimelineWindow.end : fetchWindow.end,
+    ) : undefined;
+    const userSkillLevel = decisionContext?.skillLevel ?? parseSkillLevel(searchParams.get("skillLevel"));
+    if (decisionContext) decisionContext.skillLevel = userSkillLevel;
+    const boardClasses = decisionContext?.boardClasses ?? [];
+    const sunTimesCache = decisionContext?.sunTimes;
+    const hourlySwellTimeline = hourlyTimelineWindow ? await buildScoredHourlySwellTimeline(
+      hourlyRows, hourlyDisplayRows, timelineBeachIds, hourlyTimelineWindow, nextStartResult.nextStart,
+      includeConditions ? decisionContext : undefined,
+    ) : undefined;
+    if (timelineResponseOnly) {
+      return createSuccessResponse({
+        ...(isHourlyTimelineOnly ? emptyBulkForecastResponse : {}),
+        hourlySwellTimeline, recommendationAvailability: UNAVAILABLE_RECOMMENDATION,
+      });
     }
 
     const forecastsByBeach = groupForecastsByBeach(data);
@@ -1020,7 +923,6 @@ export async function bulkForecastHandler(
     const timelineByBeach = groupForecastsByBeach(timelineRows);
     const swellPartitionMap: Record<string, SwellPartition> = {};
     const swellPartitionRows = new Map<string, EnhancedForecastEntity>();
-    const now = new Date();
     const nowMs = now.getTime();
     for (const [beachId, rows] of timelineByBeach) {
       const row = fetchWindow.selectedAt
@@ -1049,14 +951,9 @@ export async function bulkForecastHandler(
         limitedBeachIds.map((beachId) => [beachId, "UNKNOWN" as ConditionSummary])
       );
 
-    // Fetch calibration status for each beach. We expose only the boolean —
-    // `shoaling_factors` is ~4KB of JSONB per beach and the client only needs
-    // to know whether the displayed wave height came from the empirically
-    // calibrated pipeline. Beaches missing from this query (errors, soft
-    // deletes) default to `false`.
+    // Expose only the calibration boolean; the context retains factors for scoring.
     const isCalibratedMap: Record<string, boolean> = {};
-    const { data: beachRows, error: beachError } = beachResult;
-    const scoringBeachRows = (beachRows || []) as unknown as Beach[];
+    const scoringBeachRows = decisionContext?.beaches ?? [];
     const beachById = new Map(scoringBeachRows.map((beach) => [beach.id, beach]));
     const displaySwellMap: Record<string, DisplaySwell> = {};
 
@@ -1074,109 +971,91 @@ export async function bulkForecastHandler(
       displaySwellMap[beachId] = resolveDisplaySwell(row, window);
     }
 
-    if (beachError) {
-      console.error("Error fetching beach calibration status:", beachError);
-      // Non-fatal: keep the legacy numeric fallback so map colors still render;
-      // canonical labels require beach metadata and are omitted on this path.
-      for (const [beachId, rows] of forecastsByBeach) {
-        const row =
-          fetchWindow.selectedAt === null
-            ? swellPartitionRows.get(beachId)
-            : closestForecastRow(rows, fetchWindow.selectedAt);
-        const parsed = parseLegacyWaveHeight(row?.wave_height);
-        if (parsed != null) {
-          waveHeightMap[beachId] = parsed;
+    scoringBeachRows.forEach((row) => {
+      isCalibratedMap[row.id] = row.shoaling_factors !== null;
+    });
+
+    for (const beach of scoringBeachRows) {
+      const beachForecasts = forecastsByBeach.get(beach.id) ?? [];
+      const forecastForScore =
+        fetchWindow.selectedAt === null
+          ? null
+          : closestForecastRow(beachForecasts, fetchWindow.selectedAt);
+
+      let display: ForecastDisplay | null = null;
+      let scoreForecast: EnhancedForecastEntity | null = forecastForScore;
+
+      if (fetchWindow.selectedAt) {
+        display = resolveSelectedHourDisplay(forecastForScore);
+      } else {
+        const currentRow = designateCurrentRow(beachForecasts, now, {
+          toleranceMs: CURRENT_CONDITIONS_TOLERANCE_MS,
+        })?.row ?? null;
+        display = resolveSelectedHourDisplay(currentRow);
+        scoreForecast = currentRow;
+
+        const localToday = beachTodayDate(beach, now);
+        const todayForecasts = beachForecasts.filter(
+          (forecast) =>
+            extractForecastDate(
+              forecast.forecast_at,
+              beach.timezone || "America/Los_Angeles"
+            ) === localToday
+        );
+        const headline = resolveTodayHeadline({
+          forecasts: todayForecasts,
+          beach,
+          userPrefs: null,
+          horizonHours: 24,
+          sunTimesCache,
+          userSkillLevel,
+        });
+        if (headline) {
+          const window = withDisplayWindow(headline.window);
+          todayHeadlineMap[beach.id] = {
+            label: headline.display.label,
+            minFt: headline.display.minFt,
+            maxFt: headline.display.maxFt,
+            forecastAt: headline.display.forecastAt,
+            windowStart: window.start.toISOString(),
+            windowEnd: window.end.toISOString(),
+            displayWindowStart: window.displayWindowStart.toISOString(),
+            displayWindowEnd: window.displayWindowEnd.toISOString(),
+          };
         }
       }
-    } else {
-      scoringBeachRows.forEach((row) => {
-        isCalibratedMap[row.id] = row.shoaling_factors !== null;
-      });
 
-      for (const beach of scoringBeachRows) {
-        const beachForecasts = forecastsByBeach.get(beach.id) ?? [];
-        const forecastForScore =
-          fetchWindow.selectedAt === null
-            ? null
-            : closestForecastRow(beachForecasts, fetchWindow.selectedAt);
+      if (display) {
+        displayForecastMap[beach.id] = display;
+        waveHeightMap[beach.id] =
+          parseLegacyWaveHeight(scoreForecast?.wave_height) ?? display.minFt;
+      }
 
-        let display: ForecastDisplay | null = null;
-        let scoreForecast: EnhancedForecastEntity | null = forecastForScore;
+      const forecast = scoreForecast;
+      if (!forecast) continue;
 
-        if (fetchWindow.selectedAt) {
-          display = resolveSelectedHourDisplay(forecastForScore);
-        } else {
-          const currentRow = designateCurrentRow(beachForecasts, now, {
-            toleranceMs: CURRENT_CONDITIONS_TOLERANCE_MS,
-          })?.row ?? null;
-          display = resolveSelectedHourDisplay(currentRow);
-          scoreForecast = currentRow;
+      try {
+        const score = scoreWindowConditionScore(
+          forecast,
+          beach,
+          userSkillLevel,
+          null,
+          boardClasses,
+        );
+        if (!Number.isFinite(score)) continue;
 
-          const localToday = beachTodayDate(beach, new Date());
-          const todayForecasts = beachForecasts.filter(
-            (forecast) =>
-              extractForecastDate(
-                forecast.forecast_at,
-                beach.timezone || "America/Los_Angeles"
-              ) === localToday
-          );
-          const headline = resolveTodayHeadline({
-            forecasts: todayForecasts,
-            beach,
-            userPrefs: null,
-            horizonHours: 24,
-            sunTimesCache,
-            userSkillLevel,
-          });
-          if (headline) {
-            const window = withDisplayWindow(headline.window);
-            todayHeadlineMap[beach.id] = {
-              label: headline.display.label,
-              minFt: headline.display.minFt,
-              maxFt: headline.display.maxFt,
-              forecastAt: headline.display.forecastAt,
-              windowStart: window.start.toISOString(),
-              windowEnd: window.end.toISOString(),
-              displayWindowStart: window.displayWindowStart.toISOString(),
-              displayWindowEnd: window.displayWindowEnd.toISOString(),
-            };
-          }
-        }
-
-        if (display) {
-          displayForecastMap[beach.id] = display;
-          waveHeightMap[beach.id] =
-            parseLegacyWaveHeight(scoreForecast?.wave_height) ?? display.minFt;
-        }
-
-        const forecast = scoreForecast;
-        if (!forecast) continue;
-
-        try {
-          const score = scoreWindowConditionScore(
-            forecast,
-            beach,
-            userSkillLevel,
-            null,
-            boardClasses,
-          );
-          if (!Number.isFinite(score)) continue;
-
-          conditionScoreMap[beach.id] = score;
-          conditionSummaryMap[beach.id] =
-            conditionSummaryFromScore(score);
-          recommendationLabelMap[beach.id] = resolveRecommendationLabel({
-            beach,
-            forecast,
-            score,
-          }).label;
-          selectedScoreForecastAtByBeach.set(beach.id, forecast.forecast_at);
-        } catch (error) {
-          console.warn("Failed to score bulk forecast condition:", {
-            beachId: beach.id,
-            error,
-          });
-        }
+        conditionScoreMap[beach.id] = score;
+        conditionSummaryMap[beach.id] =
+          conditionSummaryFromScore(score);
+        recommendationLabelMap[beach.id] = decisionContext
+          ? bulkRecommendationLabel(decisionContext, beach, forecast, score, fetchWindow.selectedAt ?? now)
+          : null;
+        selectedScoreForecastAtByBeach.set(beach.id, forecast.forecast_at);
+      } catch (error) {
+        console.warn("Failed to score bulk forecast condition:", {
+          beachId: beach.id,
+          error,
+        });
       }
     }
 
@@ -1208,7 +1087,8 @@ export async function bulkForecastHandler(
       await sanitizeBulkResponse(
         response,
         selectedScoreForecastAtByBeach,
-        userSkillLevel
+        userSkillLevel,
+        decisionContext,
       )
     );
   } catch (error) {

@@ -41,8 +41,8 @@ function serializeInstant(value: unknown): string {
     : "";
 }
 
-function toPersonalMatchEvidence(
-  recommendation: SurfDiscoveryRecommendation,
+export function toPersonalMatchEvidence(
+  recommendation: Pick<SurfDiscoveryRecommendation, "similarity">,
 ): CanonicalPersonalMatchEvidence | null {
   const similarity = recommendation.similarity;
   if (similarity?.state !== "ready") return null;
