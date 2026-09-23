@@ -51,6 +51,13 @@ function capturedProps(): Record<string, unknown> {
   return mockCapturedImageElement.props as Record<string, unknown>;
 }
 
+// qrValue carries a random handoff_id UUID and qrImageSrc is its encoded QR,
+// so either can contain short literals like "99" by chance.
+function capturedCopyProps(): Record<string, unknown> {
+  const { qrValue: _qrValue, qrImageSrc: _qrImageSrc, ...copy } = capturedProps();
+  return copy;
+}
+
 function textContent(node: ReactNode): string {
   if (typeof node === "string" || typeof node === "number") {
     return String(node);
@@ -182,7 +189,7 @@ describe("major-event hold OG routes", () => {
       title: "Check current surf conditions",
       subtitle: expect.stringMatching(/wave, wind, and tide/i),
     });
-    expect(JSON.stringify(capturedProps())).not.toMatch(
+    expect(JSON.stringify(capturedCopyProps())).not.toMatch(
       /Fake Beach|99|7-10am|Go now/i,
     );
     expect(getBeachByIdFromDb).not.toHaveBeenCalled();
