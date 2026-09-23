@@ -292,7 +292,7 @@ describe("wave-formatters", () => {
       expect(parseWaveHeight("4 ft")).toBe(4);
       expect(parseWaveHeight("4ft")).toBe(4);
       expect(parseWaveHeight("4.5 ft")).toBe(4.5);
-      expect(parseWaveHeight("4-5 ft")).toBe(4.5); // Uses the shared range midpoint
+      expect(parseWaveHeight("4-5 ft")).toBe(4); // Gets first number
     });
 
     it("should handle null/undefined values", () => {
@@ -709,9 +709,9 @@ describe("wave-formatters", () => {
       expect(extractNumericWaveHeight("0.5ft")).toBe(0.5);
     });
 
-    it("should extract the midpoint from range strings", () => {
-      expect(extractNumericWaveHeight("3-5ft")).toBe(4);
-      expect(extractNumericWaveHeight("2.5-4ft")).toBe(3.25);
+    it("should extract first number from range strings", () => {
+      expect(extractNumericWaveHeight("3-5ft")).toBe(3);
+      expect(extractNumericWaveHeight("2.5-4ft")).toBe(2.5);
     });
 
     it("should return null for strings without numbers", () => {

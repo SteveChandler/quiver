@@ -69,6 +69,7 @@ import { pickDominantSwell } from '@/lib/domains/conditions';
 import type { Coordinates } from '@/lib/types/coordinates';
 import {
   buildCanonicalSessionDecision,
+  candidateHasSafetyVeto,
   type CanonicalDecisionCandidate,
   type CanonicalSessionDecision,
 } from '@/lib/recommendations/canonical-decision';
@@ -736,6 +737,7 @@ function canonicalLabelForVerdict(
 }
 
 function buildWeekScoutCanonicalCandidates(args: {
+  profileExperience: unknown;
   similarity?: Map<string, SimilarityRecommendation>;
   response: MajorEventHoldWeekScoutResponse;
   beaches: readonly Beach[];
@@ -751,9 +753,6 @@ function buildWeekScoutCanonicalCandidates(args: {
         || window.isBeachDayBest !== true
         || window.rankingScore === null
         || window.verdict === null
-        // Quality skips stay out; unsafe or unrideable skips go in with their own
-        // Skip label so the engine vetoes them with the specific safety reason.
-        || (window.verdict === 'skip' && window.safe && window.rideable)
       ) {
         return [];
       }
@@ -762,7 +761,7 @@ function buildWeekScoutCanonicalCandidates(args: {
         window.peakTime,
       );
 
-      return [{
+      const candidate: CanonicalDecisionCandidate = {
         candidateId: window.id,
         beachId: window.beachId,
         beachName: beach.name,
@@ -779,7 +778,13 @@ function buildWeekScoutCanonicalCandidates(args: {
         personalMatch: window.safe && window.rideable
           ? toPersonalMatchEvidence({ similarity: args.similarity?.get(`${forecast?.beach_id}:${forecast?.forecast_at}`) ?? null })
           : null,
-      }];
+      };
+      // Skips stay out, as on main, unless the engine's safety gates will veto
+      // them: those go in so the decision carries the specific safety reason.
+      if (window.verdict === 'skip' && !candidateHasSafetyVeto(candidate, args.profileExperience)) {
+        return [];
+      }
+      return [candidate];
     }),
   );
 }
@@ -1145,9 +1150,13 @@ async function generateWeekScoutForecastInternal(
   const verdicts = new Map<string, WeekScoutVerdict>();
   for (const [id, draft] of returnedDrafts) {
     const forecast = draft.recommendation.forecast;
+    // Personal history may only move safe, rideable windows.
+    const eligibleForPersonal = draft.response.safe && draft.response.rideable;
     const label = getCanonicalRecommendationLabel({
       ...draft.recommendation, score: draft.response.conditionScore,
-      similarity: similarity.get(`${forecast.beach_id}:${forecast.forecast_at}`) ?? null,
+      similarity: eligibleForPersonal
+        ? similarity.get(`${forecast.beach_id}:${forecast.forecast_at}`) ?? null
+        : null,
     }, userSkillLevel);
     verdicts.set(id, label === 'Worth it' ? 'worth_it' : label === 'Maybe' ? 'maybe' : 'skip');
   }
@@ -1196,6 +1205,7 @@ function buildCanonicalWeekScoutResponse(
   request: WeekScoutDaysRequest,
 ): CanonicalWeekScoutResponse {
   const canonicalCandidates = buildWeekScoutCanonicalCandidates({
+    profileExperience: context.userSkillLevel,
     response: context.heldResponse,
     similarity: context.similarity,
     beaches: context.beaches,

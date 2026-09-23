@@ -228,14 +228,9 @@ export function getConditionBoardPick(
 ): BoardPickResult | null {
   if (boards.length === 0) return null;
 
-  const candidateBoards = (isConfirmedSouthOcPowerDay(forecast, beach)
+  const candidateBoards = isConfirmedSouthOcPowerDay(forecast, beach)
     ? boards.filter((board) => !isBlockedPowerDayBoard(board, forecast, beach))
-    : boards).sort((left, right) => {
-      const classOrder = (normalizeBoardClass(left.board_type) ?? '').localeCompare(
-        normalizeBoardClass(right.board_type) ?? '',
-      );
-      return classOrder || left.name.localeCompare(right.name) || left.id.localeCompare(right.id);
-    });
+    : boards;
 
   if (candidateBoards.length === 0) return null;
 

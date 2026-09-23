@@ -678,7 +678,7 @@ async function buildScoredHourlySwellTimeline(
       const beach = beaches?.get(row.beach_id);
       const display = displayByTime.get(`${row.beach_id}:${row.forecast_at}`) ?? row;
       const score = scores?.get(row);
-      return beach && score != null ? bulkRecommendationLabel(context, beach, display, score, at) : null;
+      return beach && score != null ? bulkRecommendationLabel(context, beach, display, score, at, { daylightOnly: true }) : null;
     } : undefined,
   );
   if (context) {

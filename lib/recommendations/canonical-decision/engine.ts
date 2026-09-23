@@ -139,6 +139,14 @@ function personalMatchVerdict(candidate: CanonicalDecisionCandidate): "go" | "ma
   return null;
 }
 
+/** True when the engine's own safety gates will veto this candidate. */
+export function candidateHasSafetyVeto(
+  candidate: CanonicalDecisionCandidate,
+  profileExperience: unknown,
+): boolean {
+  return candidateSafetyReasons(candidate, canonicalSkill(profileExperience)).length > 0;
+}
+
 /** Physical conditions lead; personal evidence moves at most one tier. */
 export function canonicalCandidateVerdict(
   candidate: CanonicalDecisionCandidate,

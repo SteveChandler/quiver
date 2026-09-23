@@ -452,3 +452,34 @@ it.each([false, true])('feature-detects board history with one RPC (present: %s)
   expect(mockRpc).toHaveBeenCalledTimes(1);
   expect(mockFrom).not.toHaveBeenCalled();
 });
+
+describe("bulk timeline daylight gate", () => {
+  // 2026-09-23 San Diego: sunrise 06:39 PT, sunset 18:44 PT.
+  const sun = {
+    sunrises: [new Date("2026-09-23T13:39:00Z")],
+    sunsets: [new Date("2026-09-24T01:44:00Z")],
+  };
+  const contextFor = (row: EnhancedForecastEntity): BulkDecisionContext => ({
+    skillLevel: "advanced",
+    boardClasses: ["longboard"],
+    sunTimes: new Map([[row.beach_id, sun]]),
+    matches: new Map(),
+    rowDurationsMs: new Map([[`${row.beach_id}:${row.forecast_at}`, 60 * 60_000]]),
+  }) as BulkDecisionContext;
+
+  it("gives a dark future timeline hour no call but keeps the current hour ungated", () => {
+    const at = new Date("2026-09-23T09:00:00Z"); // 02:00 PT
+    const row = { ...forecast(1), forecast_at: at.toISOString() };
+    const context = contextFor(row);
+    expect(bulkRecommendationLabel(context, beach(1), row, 94, at, { daylightOnly: true })).toBe("Skip");
+    expect(bulkRecommendationLabel(context, beach(1), row, 94, at)).not.toBe("Skip");
+  });
+
+  it("keeps a dawn timeline hour that overlaps first light", () => {
+    const at = new Date("2026-09-23T13:00:00Z"); // 06:00 PT, first light 06:09
+    const row = { ...forecast(1), forecast_at: at.toISOString() };
+    const context = contextFor(row);
+    expect(bulkRecommendationLabel(context, beach(1), row, 94, at, { daylightOnly: true }))
+      .toBe(bulkRecommendationLabel(context, beach(1), row, 94, at));
+  });
+});

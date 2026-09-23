@@ -872,6 +872,38 @@ describe('generateWeekScoutForecast', () => {
     expect(response.days[0].exclusionReasons).toEqual(['no_rideable_windows']);
   });
 
+  it('never lifts an unsafe window on personal history', async () => {
+    const deps = dependencies();
+    deps.scoreWindowCondition = jest.fn(() => 60);
+    deps.scoreBeach = jest.fn(() => ({
+      total: 82,
+      matchQuality: 'excellent',
+      subscores: {
+        waveHeightFit: 22, periodEnergyScore: 18, windAlignment: 19, tideFit: 14,
+        affinityBonus: 0, personalizationBonus: 0, distancePenalty: 0,
+      },
+      reasons: ['Strong conditions'],
+      warnings: ['Unsafe hazard at this beach'],
+    }));
+    deps.fetchMatchEvidence = jest.fn(async (_user, _ids, forecasts: EnhancedForecastEntity[]) => new Map(
+      forecasts.map((row) => [`${row.beach_id}:${row.forecast_at}`, {
+        state: 'ready', score: 9, label: 'GOOD', confidence: 'high',
+        bonusApplied: 0, reason: 'History', reasons: ['History'],
+        sessionCount: 40, similarSessionCount: 12,
+      } as SurfDiscoveryRecommendation['similarity']]),
+    ));
+
+    const response = await generateWeekScoutForecast('user-week-scout', {
+      candidateBeachIds: [BEACH_A], localTimezone: 'Pacific/Honolulu',
+      startLocalDate: '2026-07-31', dayCount: 7,
+    }, deps);
+
+    const windows = response.days.flatMap((day) => day.windows);
+    expect(windows.length).toBeGreaterThan(0);
+    expect(windows.every((window) => window.verdict !== 'worth_it')).toBe(true);
+    expect(response.sessionDecision?.verdict).not.toBe('go');
+  });
+
   it('explains when every generated window is unsafe', async () => {
     const deps = dependencies();
     deps.scoreBeach = jest.fn(() => ({

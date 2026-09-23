@@ -1,3 +1,4 @@
+import { isDaylightInterval } from "@/lib/services/discovery/daylight-eligibility";
 import { scoreWindowWithComposite } from "@/lib/services/discovery/window-selector/window-scorer";
 import { type PersonalBoard } from "@/lib/scoring/personal-board";
 import "server-only";
@@ -192,12 +193,17 @@ export function bulkSessionDecision(
   forecast: EnhancedForecastEntity,
   score: number,
   at: Date,
+  options: { daylightOnly?: boolean } = {},
 ): ReturnType<typeof buildCanonicalSessionDecision> {
   const timezone = beach.timezone || getTimezoneFromCoords(beach.lat || 0, beach.lon || 0);
   const rowDuration = context.rowDurationsMs.get(
     `${beach.id}:${forecast.forecast_at}`,
   ) ?? 60 * 60_000;
   const end = new Date(at.getTime() + rowDuration).toISOString();
+  // Future timeline hours are "when to go", so they need usable light; the
+  // current hour (NOW) is never gated by the clock.
+  const outsideLight = options.daylightOnly === true
+    && !isDaylightInterval(at, new Date(end), timezone, context.sunTimes.get(beach.id));
   const decision = buildCanonicalSessionDecision({
     anchorTime: at.toISOString(),
     scope: {
@@ -208,7 +214,7 @@ export function bulkSessionDecision(
     },
     profileExperience: context.skillLevel,
     recommendationAvailability: { state: "available", holdEpoch: "bulk" },
-    candidates: [
+    candidates: outsideLight ? [] : [
           {
             candidateId: `bulk:${beach.id}:${at.toISOString()}`,
             beachId: beach.id,

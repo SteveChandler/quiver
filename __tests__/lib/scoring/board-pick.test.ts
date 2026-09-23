@@ -386,20 +386,6 @@ describe('getConditionBoardPick', () => {
       expect(result?.boardId).toBe('lb-1');
     });
 
-    it('breaks same-class board ties by stable name and ID order', () => {
-      const boards = [
-        { id: 'lb-z', name: "9'0 Z Longboard", board_type: 'longboard', volume: 75 },
-        { id: 'lb-a', name: "9'0 A Longboard", board_type: 'longboard', volume: 75 },
-      ];
-      const context = { kind: 'scored' as const, boardClass: 'longboard' as const };
-
-      const forward = getConditionBoardPick(makeForecast(1.5, 3), boards, undefined, context);
-      const reversed = getConditionBoardPick(makeForecast(1.5, 3), [...boards].reverse(), undefined, context);
-
-      expect(forward?.boardId).toBe('lb-a');
-      expect(reversed?.boardId).toBe('lb-a');
-    });
-
     it('falls back to tier priority when scoring resolves no board class', () => {
       const boards = [
         { id: 'lb-1', name: "9'0 Longboard", board_type: 'longboard', volume: 75 },

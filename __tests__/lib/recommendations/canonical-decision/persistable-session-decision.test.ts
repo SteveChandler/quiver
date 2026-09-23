@@ -14,8 +14,21 @@ describe("persistableSessionDecision", () => {
     expect(persistableSessionDecision(value)).toBe(value);
   });
 
-  it("returns a decision without conditionLabel as the same object", () => {
+  it("returns a decision without new keys unchanged", () => {
     const decision = { decisionId: "b".repeat(64) };
-    expect(persistableSessionDecision(decision)).toBe(decision);
+    expect(persistableSessionDecision(decision)).toEqual(decision);
+  });
+
+  it("drops personalAdjustmentReason and the nested similarSessionCount", () => {
+    const decision = {
+      decisionId: "c".repeat(64),
+      personalAdjustmentReason: "personal_adjusted_up",
+      selection: { evidence: { personalMatch: { label: "GOOD", sessionCount: 30, similarSessionCount: 9 } } },
+    };
+    expect(persistableSessionDecision(decision)).toEqual({
+      decisionId: "c".repeat(64),
+      selection: { evidence: { personalMatch: { label: "GOOD", sessionCount: 30 } } },
+    });
+    expect(decision.selection.evidence.personalMatch.similarSessionCount).toBe(9);
   });
 });

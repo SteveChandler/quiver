@@ -183,8 +183,18 @@ export const canonicalSessionDecisionSchema = z.object({
  * so earlier releases (strict schema) can still read them after a rollback.
  */
 export function persistableSessionDecision<T>(decision: T): T {
-  if (typeof decision !== "object" || decision === null || !("conditionLabel" in decision)) return decision;
-  const { conditionLabel: _conditionLabel, ...rest } = decision as Record<string, unknown>;
+  if (typeof decision !== "object" || decision === null) return decision;
+  const {
+    conditionLabel: _conditionLabel,
+    personalAdjustmentReason: _personalAdjustmentReason,
+    ...rest
+  } = decision as Record<string, unknown>;
+  const selection = rest.selection as { evidence?: { personalMatch?: Record<string, unknown> | null } } | null | undefined;
+  const personalMatch = selection?.evidence?.personalMatch;
+  if (personalMatch && "similarSessionCount" in personalMatch) {
+    const { similarSessionCount: _similarSessionCount, ...match } = personalMatch;
+    rest.selection = { ...selection, evidence: { ...selection!.evidence, personalMatch: match } };
+  }
   return rest as T;
 }
 
