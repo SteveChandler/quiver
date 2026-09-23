@@ -27,7 +27,6 @@ import { isFutureDayInTimezone } from '@/lib/utils/condition-tier-utils';
 import { checkBoardFit } from '@/lib/domains/scoring/discovery-adapter';
 import type { BoardClass, SkillLevel } from '@/lib/domains/user-preferences';
 import type { RecommendationAvailability } from '@/lib/recommendations/major-event-hold/types';
-import { parseWaveHeightMidpointFt } from '@/lib/alerts/forecast-parsers';
 import { resolveScopedRecommendationAvailability } from '@/lib/services/discovery/discovery-availability';
 import { loadNowRecommendation } from '@/lib/services/discovery/now-recommendation';
 import {
@@ -262,7 +261,7 @@ function buildCanonicalSurfCall(
   const boardNote =
     exactSelection && window && profileExperience && boardClass
       ? checkBoardFit(
-          parseWaveHeightMidpointFt(window.waveHeight) ?? 0,
+          Number.parseFloat(window.waveHeight),
           profileExperience,
           boardClass,
         ).note

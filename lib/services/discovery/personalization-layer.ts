@@ -36,7 +36,6 @@ import type { UserImplicitPreferences } from '@/types/implicit-preferences';
 import type { UserSurfPreferences } from '@/lib/services/preference-learning-service';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import type { Beach } from '@/types/database';
-import { parseWaveHeightMidpointFt } from '@/lib/alerts/forecast-parsers';
 
 const log = createContextLogger('PersonalizationLayer');
 const MAX_AFFINITY_BONUS = 4;
@@ -235,10 +234,10 @@ export async function fetchWeekScoutMatchEvidence(
     matches: Array<{ beach_id: string; forecast_at: string; result: Record<string, unknown> | null }>;
   };
   const isPro = entitlementFromRow(context.entitlement) === 'premium';
-  return new Map(context.matches.map((match) => {
-    const interpreted = isPro ? interpretRpcResult(match.result) : null;
-    return [`${match.beach_id}:${match.forecast_at}`, interpreted];
-  }));
+  return new Map(context.matches.map((match) => [
+    `${match.beach_id}:${match.forecast_at}`,
+    isPro ? interpretRpcResult(match.result) : null,
+  ]));
 }
 
 // ============================================================================
@@ -308,7 +307,7 @@ export function calculatePersonalizationBonus(
   // Blended with explicit confidence to avoid redundancy.
   if (context.implicitWeight > 0 && context.implicitPrefs !== null) {
     const forecastData = {
-      wave_height_ft: parseWaveHeightMidpointFt(forecast.wave_height),
+      wave_height_ft: parseFloat(String(forecast.wave_height ?? '0')) || null,
       wave_period_s: parseFloat(String(forecast.wave_period ?? '').replace('s', '') || '0'),
       wind_speed_mph: parseFloat(String(forecast.wind_speed ?? '0')),
     };

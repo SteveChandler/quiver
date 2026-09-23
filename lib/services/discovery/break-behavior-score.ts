@@ -2,7 +2,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { Database } from '@/types/database.generated';
 import type { EnhancedForecastEntity } from '@/types/forecast';
-import { parseWaveHeightMidpointFt } from '@/lib/alerts/forecast-parsers';
 
 const BEHAVIOR_SCORE_CAP = 12;
 const MIN_FORECAST_SCORE_FOR_BEHAVIOR_BOOST = 45;
@@ -227,7 +226,7 @@ function forecastCondition(forecast: EnhancedForecastEntity): {
   tideStatus: string | null;
 } {
   return {
-    waveHeight: parseWaveHeightMidpointFt(forecast.wave_height),
+    waveHeight: parseNumeric(forecast.wave_height),
     windSpeed: parseNumeric(forecast.wind_speed),
     windDirection: parseDirectionDegrees(
       forecast.wind_direction_deg ?? forecast.wind_direction

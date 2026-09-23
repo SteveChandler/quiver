@@ -194,7 +194,7 @@ async function surfDiscoveryHandler(
     discovery = await discoverSurfSpots(user.id, {
       userLocation,
       radiusMiles: radius,
-      horizonHours: mode === 'my-spots' ? 72 : horizonHours ?? 72,
+      horizonHours: mode === 'my-spots' ? 72 : horizonHours,
       maxResults,
       // Consider the full pool. `maxResults` alone controls how many spots the
       // user sees; shrinking the pool to match it makes the physically nearest
@@ -311,7 +311,7 @@ async function surfDiscoveryHandler(
 
   const decisionTimezone =
     gatedDiscovery.recommendations[0]?.window?.timezone ?? 'UTC';
-  const decisionHorizonHours = mode === 'my-spots' ? 72 : horizonHours ?? 72;
+  const decisionHorizonHours = mode === 'my-spots' ? 72 : horizonHours ?? 24;
   gatedDiscovery.sessionDecision = buildCanonicalDecisionFromSurfDiscovery({
     anchorTime: anchor.toISOString(),
     scope: {

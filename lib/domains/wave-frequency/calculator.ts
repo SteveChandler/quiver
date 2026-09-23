@@ -2,7 +2,6 @@ import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
 import { parseWavePeriod, parseWindSpeed, getDirectionDegrees } from "@/lib/utils/number-parsing";
 import { parseWaveHeight, FLAT_HEIGHT_METERS } from "@/lib/utils/forecast-parsing";
-import { parseWaveHeightMidpointFt } from '@/lib/alerts/forecast-parsers';
 import {
   BREAK_TYPE_CONFIGS,
   FREQUENCY_CLAMPS,
@@ -24,7 +23,7 @@ const METERS_TO_FEET = 1 / 0.3048;
 // card badge reads "3-4 ft"), so a beach that reads "EPIC" can silently score
 // 0 waves/hr. Returns feet.
 function getGateHeightFt(forecast: EnhancedForecastEntity): number {
-  const meters = parseWaveHeight(forecast.wave_height);
+  const meters = parseWaveHeight(forecast.wave_height, { useLowerBound: true });
   if (meters == null || meters <= FLAT_HEIGHT_METERS) return 0;
   return meters * METERS_TO_FEET;
 }
@@ -138,7 +137,7 @@ export function calculateRideableWaves(
   const T3 = parseWavePeriod(forecast.wind_wave_period);
   const swell1HeightFt = parseFloat(forecast.swell_1_height ?? "0") || 0;
   const swell2HeightFt = parseFloat(forecast.swell_2_height ?? "0") || 0;
-  const swell3HeightFt = parseWaveHeightMidpointFt(forecast.wind_wave_height) ?? 0;
+  const swell3HeightFt = parseFloat(forecast.wind_wave_height ?? "0") || 0;
 
   // Energy gate — only engage multi-swell math if secondary/tertiary swell is meaningful.
   const hasEnergy = (hFt: number) =>

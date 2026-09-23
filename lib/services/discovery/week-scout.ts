@@ -30,7 +30,6 @@ import {
 } from '@/lib/domains/scoring';
 import { rerankHero, type RerankResult } from '@/lib/services/discovery/hero-ranking';
 import { resolveBeachTimezone } from '@/lib/utils/timezone-utils';
-import { parseWaveHeightMidpointFt } from '@/lib/alerts/forecast-parsers';
 import {
   getSkillLevelOrDefault,
   type SkillLevel,
@@ -420,7 +419,7 @@ function isRideable(
   skillLevel: SkillLevel | null,
   boardClasses: readonly BoardClass[] = [],
 ): boolean {
-  const waveHeight = parseWaveHeightMidpointFt(forecast.wave_height);
+  const waveHeight = finiteNumber(forecast.wave_height);
   if (waveHeight === null) return false;
 
   const resolvedSkillLevel = getSkillLevelOrDefault(skillLevel);
@@ -752,7 +751,7 @@ function buildWeekScoutCanonicalCandidates(args: {
         || window.isBeachDayBest !== true
         || window.rankingScore === null
         || window.verdict === null
-        || (window.verdict === 'skip' && window.safe && window.rideable)
+        || window.verdict === 'skip'
       ) {
         return [];
       }
@@ -772,8 +771,8 @@ function buildWeekScoutCanonicalCandidates(args: {
         forecastId: forecast?.id ?? '',
         forecastAt: forecast?.forecast_at ?? '',
         waveHeight: window.forecast.waveHeight,
-        utilityScore: window.conditionScore ?? 0,
-        recommendationLabel: forecast ? resolveRecommendationLabel({ beach, forecast, score: window.conditionScore ?? 0 }).label : canonicalLabelForVerdict(window.verdict),
+        utilityScore: window.rankingScore,
+        recommendationLabel: canonicalLabelForVerdict(window.verdict),
         personalMatch: toPersonalMatchEvidence({ similarity: args.similarity?.get(`${forecast?.beach_id}:${forecast?.forecast_at}`) ?? null }),
       }];
     }),

@@ -6,7 +6,6 @@ import type { EnhancedForecastEntity } from '@/types/forecast';
 import type { SkillLevel } from '@/lib/domains/user-preferences/skill-level';
 import type { BoardClass } from '@/lib/domains/rideability';
 import { resolveForecastTime } from '@/lib/utils/forecast-time-resolver';
-import { parseWaveHeightMidpointFt } from '@/lib/alerts/forecast-parsers';
 
 /**
  * Beach with wind threshold configuration
@@ -213,9 +212,7 @@ export function toForecastForScoring(
 
   return {
     forecastTime,
-    waveHeight: forecast.wave_height
-      ? parseWaveHeightMidpointFt(forecast.wave_height) ?? Number.NaN
-      : 0,
+    waveHeight: parseFloat(forecast.wave_height || '0'),
     wavePeriod: parseFloat(forecast.wave_period?.replace('s', '') || '0'),
     windSpeed: parseFloat(forecast.wind_speed || '0'),
     windDirection: parseWindDirection(forecast.wind_direction_deg, forecast.wind_direction),

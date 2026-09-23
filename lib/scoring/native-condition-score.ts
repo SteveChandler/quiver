@@ -17,7 +17,6 @@ import {
 } from '@/lib/domains/rideability';
 import { classifyWindQuality } from '@/lib/utils/wind-quality';
 import { alignmentFactor } from '@/lib/utils/wave-height-transformer';
-import { parseWaveHeightMidpointFt } from '@/lib/alerts/forecast-parsers';
 
 interface NativeSkillThresholds {
   waveMinFt: number;
@@ -97,6 +96,15 @@ export function resolveNativeSkillLevel(
   return parseSkillLevel(skillLevel) ?? fallback;
 }
 
+export function parseMaxWaveHeightFt(value: string | number | null | undefined): number {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  if (!value) return 0;
+  const matches = value.match(/[\d.]+/g);
+  if (!matches || matches.length === 0) return 0;
+  const nums = matches.map(Number).filter((n) => Number.isFinite(n));
+  return nums.length === 0 ? 0 : Math.max(...nums);
+}
+
 function parseFirstNumber(value: string | number | null | undefined): number {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
   if (!value) return 0;
@@ -119,7 +127,7 @@ export function nativeScoreInputsFromForecast(
   forecast: EnhancedForecastEntity
 ): NativeScoreInputs {
   return {
-    waveHeightFt: parseWaveHeightMidpointFt(forecast.wave_height) ?? 0,
+    waveHeightFt: parseMaxWaveHeightFt(forecast.wave_height),
     windSpeedMph: parseFirstNumber(forecast.wind_speed),
     periodSec: parseFirstNumber(forecast.swell_1_period ?? forecast.wave_period),
     tideHeightFt: parseSignedNumber(forecast.tide_height),

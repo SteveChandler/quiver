@@ -2,8 +2,6 @@
  * Parse NOAA forecast text fields to numeric values.
  */
 
-import { parseWaveHeightMidpointFt } from '@/lib/alerts/forecast-parsers';
-
 /** Returned by parseWaveHeight for flat/null/empty inputs (~6 inches, negligible surf). */
 export const FLAT_HEIGHT_METERS = 0.15;
 
@@ -21,13 +19,33 @@ const KTS_TO_MS = 0.514444;
  */
 export function parseWaveHeight(
   text: string | null | undefined,
+  options?: { useLowerBound?: boolean }
 ): number | null {
   if (!text || text.toLowerCase().includes('flat')) {
     return FLAT_HEIGHT_METERS;
   }
 
-  const feet = parseWaveHeightMidpointFt(text);
-  return feet === null ? null : feet * FEET_TO_METERS;
+  // Clean text: remove non-digits except hyphens and dots
+  const clean = text.replace(/[^\d\-.]/g, ' ').trim();
+
+  // Find all numbers
+  const nums = clean.match(/\d*\.?\d+/g);
+
+  if (!nums || nums.length === 0) {
+    return null;
+  }
+
+  const values = nums.map(Number).filter((n) => !isNaN(n));
+
+  if (values.length === 2) {
+    // Range: take midpoint
+    const value = options?.useLowerBound ? values[0] : (values[0] + values[1]) / 2;
+    return value * FEET_TO_METERS;
+  } else if (values.length === 1) {
+    return values[0] * FEET_TO_METERS;
+  }
+
+  return null;
 }
 
 /**

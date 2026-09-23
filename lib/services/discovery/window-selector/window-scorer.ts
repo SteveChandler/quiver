@@ -27,7 +27,6 @@ import { getScoringEngine } from "./scoring-engine-singleton";
 import { isDirectionScoringEnabledForBeach } from "@/lib/flags/direction-scoring";
 import { windChopCeiling } from "@/lib/domains/scoring/wind-chop-ceiling";
 import type { NativeDirectionScoreInput } from "@/lib/scoring/native-condition-score";
-import { parseWaveHeightMidpointFt } from '@/lib/alerts/forecast-parsers';
 
 const SELECTOR_IDEAL_RIDEABILITY_BONUS = 4;
 const SELECTOR_ACCEPTABLE_RIDEABILITY_BONUS = 1;
@@ -61,7 +60,7 @@ export function scoreForecastWindow(
 ): number {
   let score = 0;
 
-  const waveHeight = parseWaveHeightMidpointFt(forecast.wave_height) ?? 0;
+  const waveHeight = parseFloat(forecast.wave_height || "0");
   const wavePeriod = parseFloat(forecast.wave_period?.replace("s", "") || "0");
   const windSpeed = parseFloat(forecast.wind_speed || "0");
   const windDir = getDirectionDegrees(
@@ -261,7 +260,7 @@ export function scoreWindowConditionDetails(
     skillLevel,
     "intermediate",
   );
-  const uniqueBoardClasses = Array.from(new Set(boardClasses ?? [])).sort();
+  const uniqueBoardClasses = Array.from(new Set(boardClasses ?? []));
   const effectDetails = isFullBeach(beach)
     ? decisionEffectDetails(forecast, beach)
     : { ceiling: 100, effects: [] };
@@ -430,7 +429,7 @@ function getRideabilitySelectionAdjustment(
   forecast: EnhancedForecastEntity,
   rideabilityBand: RideabilityBand,
 ): number {
-  const waveHeight = parseWaveHeightMidpointFt(forecast.wave_height) ?? 0;
+  const waveHeight = parseFloat(forecast.wave_height || "0");
   if (!Number.isFinite(waveHeight) || waveHeight <= 0) {
     return 0;
   }

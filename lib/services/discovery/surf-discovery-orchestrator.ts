@@ -48,7 +48,6 @@ import type { SkillLevel } from '@/lib/domains/user-preferences';
 import { parseSkillLevel, getSkillLevelOrDefault, SKILL_WAVE_RANGES } from '@/lib/domains/user-preferences';
 import { normalizeBoardClass, type BoardClass } from '@/lib/domains/rideability';
 import { formatWaveHeightRangeString } from '@/lib/utils/wave-formatters';
-import { parseWaveHeightMidpointFt } from '@/lib/alerts/forecast-parsers';
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
 import { isFutureDayInTimezone } from '@/lib/utils/condition-tier-utils';
 import { resolveForecastTime } from '@/lib/utils/forecast-time-resolver';
@@ -237,8 +236,8 @@ export function formatWaveHeightRange(
 
   if (forecasts && forecasts.length > 0) {
     const heights = forecasts
-      .map((f) => parseWaveHeightMidpointFt(f.wave_height))
-      .filter((h): h is number => h !== null && h > 0);
+      .map((f) => parseFloat(String(f.wave_height ?? '')))
+      .filter((h) => !isNaN(h) && h > 0);
 
     if (heights.length >= 2) {
       const min = Math.min(...heights);
@@ -257,8 +256,8 @@ function formatWindowWaveHeightBadge(
   forecasts: EnhancedForecastEntity[]
 ): string | null {
   const heights = forecasts
-    .map((f) => parseWaveHeightMidpointFt(f.wave_height))
-    .filter((h): h is number => h !== null && h > 0);
+    .map((f) => parseFloat(String(f.wave_height ?? '')))
+    .filter((h) => !isNaN(h) && h > 0);
 
   if (heights.length === 0) return null;
   return formatWaveHeightRangeString(Math.min(...heights), Math.max(...heights));
@@ -470,7 +469,7 @@ export function generatePrimaryReason(
 ): string | null {
   if (!userSkillLevel) return null;
 
-  const waveHeight = parseWaveHeightMidpointFt(forecast.wave_height) ?? 0;
+  const waveHeight = parseFloat(String(forecast.wave_height ?? '0'));
   const beachSkill = parseSkillLevel(beach.skill_level);
   const userSkill = getSkillLevelOrDefault(userSkillLevel);
   const userRanges = SKILL_WAVE_RANGES[userSkill];
@@ -1329,7 +1328,7 @@ async function scoreBeachForDiscovery(args: {
   const conditionBadges = generateConditionBadges(forecast, beach, detailedScore.subscores);
 
   // Generate wave height badge from forecast
-  const waveHeight = parseWaveHeightMidpointFt(forecast.wave_height) ?? 0;
+  const waveHeight = parseFloat(String(forecast.wave_height ?? '0'));
   const waveHeightBadge = formatWaveHeightRange(waveHeight);
 
   return {
@@ -1876,9 +1875,9 @@ async function discoverSurfSpotsInner(
               }
               return immediate.window ? [immediate.window] : [];
             })()
-          : (horizonHours === 72 || savedSpotsOnly || todayForecasts.length > 0)
+          : (savedSpotsOnly || todayForecasts.length > 0)
             ? selectBestWindows({
-                forecasts: horizonHours === 72 || savedSpotsOnly ? forecasts : todayForecasts,
+                forecasts: savedSpotsOnly ? forecasts : todayForecasts,
                 beach,
                 userPrefs,
                 horizonHours,
@@ -2371,8 +2370,8 @@ async function discoverSurfSpotsInner(
       }
 
       const slotHeights = slotHourlyForecasts
-        .map((f) => parseWaveHeightMidpointFt(f.wave_height))
-        .filter((h): h is number => h !== null && h > 0);
+        .map((f) => parseFloat(String(f.wave_height ?? '')))
+        .filter((h) => !isNaN(h) && h > 0);
 
       if (slotHeights.length === 0) {
         continue;

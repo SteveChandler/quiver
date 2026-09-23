@@ -1,7 +1,6 @@
 import { fromZonedTime } from "date-fns-tz";
 import { applyV51DisplayOverrideToForecasts } from "@/lib/services/forecast/v5-display-gate";
 import { formatWaveHeightRangeString } from "@/lib/utils/wave-formatters";
-import { parseWaveHeightMidpointFt } from "@/lib/alerts/forecast-parsers";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { SupabaseServerClient } from "@/types/supabase";
 
@@ -17,8 +16,9 @@ type WindowInput = {
 
 function parseWaveHeights(value: string | null | undefined): number[] {
   if (!value) return [];
-  const height = parseWaveHeightMidpointFt(value);
-  return height === null ? [] : [height];
+  return (value.match(/[\d.]+/g) ?? [])
+    .map((part) => Number.parseFloat(part))
+    .filter((height) => Number.isFinite(height) && height >= 0);
 }
 
 function labelFromForecasts(forecasts: EnhancedForecastEntity[]): string | null {

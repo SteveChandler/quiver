@@ -27,7 +27,6 @@ import {
   DAYLIGHT_END_HOUR,
 } from "./constants";
 import { findWeightedPeak } from "./scoring";
-import { parseWaveHeightMidpointFt } from '@/lib/alerts/forecast-parsers';
 
 /**
  * Finds the "Magic Hour" - optimal surf window for a beach within forecast period.
@@ -128,7 +127,7 @@ function convertToSlots(forecasts: EnhancedForecastEntity[]): ForecastSlot[] {
         tide_height_ft: parseFloat(f.tide_height ?? "0"),
         wind_speed_mph: parseFloat(f.wind_speed ?? "0"),
         wind_direction_deg: f.wind_direction_deg ?? 0,
-        wave_height_ft: parseWaveHeightMidpointFt(f.wave_height) ?? 0,
+        wave_height_ft: parseFloat(f.wave_height ?? "0"),
         wave_period_s: parseFloat(f.wave_period ?? "0"),
         wave_direction_deg: parseWindDirection(f.wave_direction ?? "N"),
       });

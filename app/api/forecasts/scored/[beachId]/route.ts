@@ -25,7 +25,7 @@ import type { BoardClass } from "@/lib/domains/rideability";
 import { getConditionBoardPick, toForecastForScoring, type BoardForPick } from "@/lib/scoring";
 import type { SkillLevel } from "@/lib/domains/user-preferences/skill-level";
 import { getProfileExperienceLevel } from "@/lib/profile/skill-level";
-import { parseWaveHeightRangeFt } from "@/lib/alerts/forecast-parsers";
+import { parseWaveHeight } from "@/lib/utils/forecast-parsing";
 import {
   parseWindSpeed,
   parseWavePeriod,
@@ -158,7 +158,25 @@ function parseWaveHeightRange(text: string | null | undefined): {
   min: number;
   max: number;
 } {
-  return parseWaveHeightRangeFt(text) ?? { min: 0, max: 0 };
+  if (!text) return { min: 0, max: 0 };
+
+  // Try range parsing via parseWaveHeight on each bound
+  const FEET_PER_METER = 1 / 0.3048;
+
+  const clean = text.replace(/[^\d\-.]/g, " ").trim();
+  const nums = clean.match(/\d*\.?\d+/g);
+
+  if (!nums || nums.length === 0) return { min: 0, max: 0 };
+
+  const values = nums.map(Number).filter((n) => !isNaN(n));
+
+  if (values.length >= 2) {
+    return { min: values[0], max: values[1] };
+  }
+
+  const single = parseWaveHeight(text);
+  const ft = single != null ? single * FEET_PER_METER : 0;
+  return { min: ft, max: ft };
 }
 
 // ---------------------------------------------------------------------------

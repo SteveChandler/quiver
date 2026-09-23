@@ -22,7 +22,6 @@ import {
 import { evaluateMajorEventHoldCandidates } from "@/lib/recommendations/major-event-hold/service";
 import type { RecommendationAvailability } from "@/lib/recommendations/major-event-hold/types";
 import { applyV51DisplayOverrideToForecasts } from "@/lib/services/forecast/v5-display-gate";
-import { parseWaveHeightMidpointFt } from "@/lib/alerts/forecast-parsers";
 import { scoreWindowConditionScore } from "@/lib/services/discovery/window-selector/window-scorer";
 import { parseSkillLevel } from "@/lib/domains/user-preferences/skill-level";
 import {

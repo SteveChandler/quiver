@@ -1,5 +1,3 @@
-import { parseWaveHeightRangeFt } from '@/lib/alerts/forecast-parsers';
-
 /**
  * Safe Number Parsing Utilities
  *
@@ -38,7 +36,23 @@ export function parseCoordinate(value: unknown, type?: 'lat' | 'lon'): number | 
 }
 
 export function parseWaveHeightRange(value: unknown): { min: number; max: number } | null {
-  return parseWaveHeightRangeFt(value);
+  if (!value || typeof value !== 'string') return null;
+  const cleaned = value.replace(/\s*(ft|feet|m|meters?)\s*/gi, '').trim();
+
+  const rangeMatch = cleaned.match(/^(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)$/);
+  if (rangeMatch) {
+    const min = parseFloat(rangeMatch[1]);
+    const max = parseFloat(rangeMatch[2]);
+    if (!Number.isNaN(min) && !Number.isNaN(max)) return { min, max };
+  }
+
+  const singleMatch = cleaned.match(/^(\d+(?:\.\d+)?)$/);
+  if (singleMatch) {
+    const val = parseFloat(singleMatch[1]);
+    if (!Number.isNaN(val)) return { min: val, max: val };
+  }
+
+  return null;
 }
 
 export function parseWindSpeed(value: unknown, fallback: number = 0): number {

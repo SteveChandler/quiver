@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { getBatchFreshForecastsFromCache } from "@/lib/utils/forecast-service-utils";
-import { parseWaveHeightMidpointFt } from "@/lib/alerts/forecast-parsers";
 import {
+  parseMaxWaveHeightFt,
   pickBestNativeForecastSlot,
 } from "@/lib/scoring/native-condition-score";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
@@ -90,7 +90,7 @@ export async function enrichBeachesWithConditions(
         beachTz: beach.timezone ?? undefined,
       });
       score = best && best.score > 0 ? best.score : null;
-      waveHeight = best ? parseWaveHeightMidpointFt(best.forecast.wave_height) || null : null;
+      waveHeight = best ? parseMaxWaveHeightFt(best.forecast.wave_height) || null : null;
     }
 
     return {
