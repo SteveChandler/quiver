@@ -60,14 +60,6 @@ jest.mock("@/lib/services/discovery/window-selector/window-scorer", () => ({
     components: { waveFit: 0, period: 0, wind: 0, tide: 0 },
     appliedEffects: [],
   })),
-  scoreWindowConditionForBoardClass: jest.fn((_forecast, _beach, _skill, boardClass) => ({
-    score: 75,
-    boardClass,
-    rideabilityBand: null,
-    decisionCeiling: 100,
-    components: { waveFit: 0, period: 0, wind: 0, tide: 0 },
-    appliedEffects: [],
-  })),
 }));
 
 jest.mock("@/lib/domains/wave-frequency/calculator", () => ({

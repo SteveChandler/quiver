@@ -1,8 +1,5 @@
 import { scoreForecastSlots } from '@/app/api/forecasts/scored/[beachId]/route';
-import {
-  scoreWindowConditionDetails,
-  scoreWindowConditionForBoardClass,
-} from '@/lib/services/discovery/window-selector/window-scorer';
+import { scoreWindowConditionDetails } from '@/lib/services/discovery/window-selector/window-scorer';
 import type { BoardSession, PersonalBoard } from '@/lib/scoring/personal-board';
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
@@ -26,28 +23,24 @@ const quiver = [
   board('thruster', 'Twin pin', 'thruster', 14, 4.3, 4.07),
   board('log', 'Southpoint', 'longboard-2-plus-1', 1, 2, 4),
 ];
+const classes = ['longboard', 'fish'] as const;
 
-describe('scored forecast board consistency', () => {
-  it('scores, sizes and labels the slot for the recommended board', () => {
-    const [slot] = scoreForecastSlots([forecast], beach, 'advanced', ['longboard', 'fish', 'shortboard'], quiver);
-    const recommended = slot.recommendedBoard;
-    expect(recommended).not.toBeNull();
-    const recommendedClass = recommended!.boardClass;
-    const expected = scoreWindowConditionForBoardClass(forecast, beach, 'advanced', recommendedClass!);
+describe('scored forecast board advice', () => {
+  it('adds the personal board recommendation without changing the slot score', () => {
+    const [slot] = scoreForecastSlots([forecast], beach, 'advanced', classes, quiver);
+    const main = scoreWindowConditionDetails(forecast, beach, 'advanced', null, classes);
 
-    expect(slot.board?.id).toBe(recommended!.id);
-    expect(slot.boardClass).toBe(recommendedClass);
-    expect(slot.compositeScore).toBe(expected.score);
-    expect(slot.sizeBand?.idealMinFt).toBe(expected.rideabilityBand?.ideal.min);
-    expect(slot.boardLift).toBe(true);
+    expect(['Twin pin', 'Machadocado']).toContain(slot.recommendedBoard?.name);
+    expect(slot.compositeScore).toBe(main.score);
+    expect(slot.boardClass).toBe(main.boardClass);
   });
 
-  it('keeps the previous class-maximising behaviour when no board is recommended', () => {
-    const [slot] = scoreForecastSlots([forecast], beach, 'advanced', ['longboard', 'fish'], []);
-    const previous = scoreWindowConditionDetails(forecast, beach, 'advanced', null, ['longboard', 'fish']);
+  it('returns no recommendation and main scoring when the surfer has no boards', () => {
+    const [slot] = scoreForecastSlots([forecast], beach, 'advanced', classes, []);
+    const main = scoreWindowConditionDetails(forecast, beach, 'advanced', null, classes);
 
     expect(slot.recommendedBoard).toBeNull();
-    expect(slot.boardClass).toBe(previous.boardClass);
-    expect(slot.compositeScore).toBe(previous.score);
+    expect(slot.compositeScore).toBe(main.score);
+    expect(slot.boardClass).toBe(main.boardClass);
   });
 });

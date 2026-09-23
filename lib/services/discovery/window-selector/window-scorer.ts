@@ -325,38 +325,6 @@ export function scoreWindowConditionDetails(
   return best;
 }
 
-/**
- * Score a slot for one specific board class, so a displayed board, its score,
- * size band and board lift always describe the same board.
- */
-export function scoreWindowConditionForBoardClass(
-  forecast: EnhancedForecastEntity,
-  beach: BeachWithThresholds,
-  skillLevel: SkillLevel | string | null | undefined,
-  boardClass: BoardClass,
-): WindowConditionScoreDetails {
-  const resolvedSkillLevel = resolveNativeSkillLevel(skillLevel, "intermediate");
-  const effectDetails = isFullBeach(beach)
-    ? decisionEffectDetails(forecast, beach)
-    : { ceiling: 100, effects: [] };
-  const direction = directionInput(forecast, beach);
-  const boardBand = getRideabilityBand(resolvedSkillLevel, boardClass);
-  const rawScore = scoreNativeForecastSlot(forecast, resolvedSkillLevel, boardBand, direction);
-  return {
-    score: Math.min(rawScore, effectDetails.ceiling),
-    boardClass,
-    rideabilityBand: boardBand,
-    decisionCeiling: effectDetails.ceiling,
-    components: scoreNativeConditionBreakdown(
-      nativeScoreInputsFromForecast(forecast),
-      resolvedSkillLevel,
-      boardClass,
-      direction,
-    ).components,
-    appliedEffects: rawScore > effectDetails.ceiling ? effectDetails.effects : [],
-  };
-}
-
 export function scoreWindowConditionScore(
   forecast: EnhancedForecastEntity,
   beach: BeachWithThresholds,
