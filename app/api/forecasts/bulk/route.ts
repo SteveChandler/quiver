@@ -1069,7 +1069,7 @@ export async function bulkForecastHandler(
           console.warn("Failed to recommend bulk board:", { beachId: beach.id, error });
         }
         try {
-          lightByBeach[beach.id] = lightMetadata(fetchWindow.selectedAt ?? now, beach.timezone || 'UTC', sunTimesCache?.get(beach.id));
+          lightByBeach[beach.id] = lightMetadata(fetchWindow.selectedAt ?? now, beach.timezone || "America/Los_Angeles", sunTimesCache?.get(beach.id));
         } catch (error) {
           console.warn("Failed to resolve bulk light metadata:", { beachId: beach.id, error });
         }

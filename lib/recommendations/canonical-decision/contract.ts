@@ -178,6 +178,16 @@ export const canonicalSessionDecisionSchema = z.object({
   }
 });
 
+/**
+ * Strip display-only fields before a decision is persisted in queued payloads,
+ * so earlier releases (strict schema) can still read them after a rollback.
+ */
+export function persistableSessionDecision<T>(decision: T): T {
+  if (typeof decision !== "object" || decision === null || !("conditionLabel" in decision)) return decision;
+  const { conditionLabel: _conditionLabel, ...rest } = decision as Record<string, unknown>;
+  return rest as T;
+}
+
 export function parseCanonicalSessionDecision(
   value: unknown,
 ): CanonicalSessionDecision {

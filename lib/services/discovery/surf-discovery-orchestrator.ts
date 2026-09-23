@@ -170,6 +170,8 @@ const MAX_INCLUDED_BEACH_IDS = 12;
 const MAX_PUBLIC_CUSTOM_SPOTS = 5;
 const BOARD_HISTORY_WINDOW_MS = 365 * 24 * 60 * 60 * 1000;
 const BOARD_HISTORY_SESSION_CAP = 300;
+// Bounds My Spots forecast fetches for users with long saved lists.
+const MY_SPOTS_CANDIDATE_CAP = 25;
 
 type SurfDiscoveryOperationalErrorCode =
   | 'forecast_unavailable'
@@ -1046,17 +1048,24 @@ export async function fetchUserBoardContext(
     };
   }
 
-  const { data, error } = await supabase
-    .from('boards')
-    .select(PERSONAL_BOARD_SELECT)
-    .eq('user_id', userId)
-    .eq('sessions.user_id', userId)
-    .eq('sessions.status', 'completed')
-    .is('sessions.deleted_at', null)
-    // Same 12-month window as the match scorer, capped so heavy loggers keep a bounded payload.
-    .gte('sessions.arrival_time', new Date(Date.now() - BOARD_HISTORY_WINDOW_MS).toISOString())
-    .order('arrival_time', { referencedTable: 'sessions', ascending: false })
-    .limit(BOARD_HISTORY_SESSION_CAP, { referencedTable: 'sessions' });
+  const picksEnabled = isPro || isBoardPicksFreeEnabled();
+  // Session history only feeds board picks; skip the embed when picks are off.
+  const { data, error } = picksEnabled
+    ? await supabase
+      .from('boards')
+      .select(PERSONAL_BOARD_SELECT)
+      .eq('user_id', userId)
+      .eq('sessions.user_id', userId)
+      .eq('sessions.status', 'completed')
+      .is('sessions.deleted_at', null)
+      // Same 12-month window as the match scorer, capped so heavy loggers keep a bounded payload.
+      .gte('sessions.arrival_time', new Date(Date.now() - BOARD_HISTORY_WINDOW_MS).toISOString())
+      .order('arrival_time', { referencedTable: 'sessions', ascending: false })
+      .limit(BOARD_HISTORY_SESSION_CAP, { referencedTable: 'sessions' })
+    : await supabase
+      .from('boards')
+      .select('id, name, board_type, volume, session_count')
+      .eq('user_id', userId);
 
   if (error) {
     log.warn(`Failed to fetch boards for discovery board context: ${error.message}`);
@@ -1080,7 +1089,7 @@ export async function fetchUserBoardContext(
   return {
     dominantBoardClass: resolveDominantBoardClass(rows),
     boardClasses: resolveBoardClasses(rows),
-    boardsForPicks: isPro || isBoardPicksFreeEnabled()
+    boardsForPicks: picksEnabled
       ? rows
           .map((row) => normalizeBoardForPick(row))
           .filter((board): board is BoardForPick => board !== null)
@@ -1573,7 +1582,11 @@ async function discoverSurfSpotsInner(
       userLocation,
       radiusMiles: requestedRadiusMiles,
     }),
-    savedSpotsOnly ? Promise.resolve((favorites.data ?? []).filter((beach) => !beach.is_private || (beach as Beach & { owner_id?: string }).owner_id === userId)) : fetchIncludedBeachCandidates(
+    savedSpotsOnly ? Promise.resolve((favorites.data ?? [])
+      .filter((beach) => !beach.is_private || (beach as Beach & { owner_id?: string }).owner_id === userId)
+      // Same eligibility rule the other include paths apply.
+      .filter((beach) => allowRecommendationIneligibleIncludes
+        || (beach as Beach & { recommendation_eligible?: boolean }).recommendation_eligible !== false)) : fetchIncludedBeachCandidates(
       requestedIncludeBeachIds,
       allowRecommendationIneligibleIncludes,
     ),
@@ -1599,7 +1612,7 @@ async function discoverSurfSpotsInner(
     nearbyCandidates,
     includedCandidates,
     customNearestCandidates,
-  ).slice(0, savedSpotsOnly ? undefined : effectiveCandidatePoolLimit);
+  ).slice(0, savedSpotsOnly ? MY_SPOTS_CANDIDATE_CAP : effectiveCandidatePoolLimit);
   // A custom spot is only "primary" (eligible for the Now/Best feeds) when it's
   // as close as the nearby beaches — the same nearest-within-radius cut curated
   // beaches pass. Without this an own custom spot surfaces in Now/Best from

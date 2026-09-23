@@ -5,8 +5,7 @@ import { forecastToSnapshot, beachToSpotProfile } from '@/lib/domains/scoring/di
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import { normalizeBoardClass, getRideabilityBand, type BoardClass } from '@/lib/domains/rideability';
-import { parseSkillLevel } from '@/lib/domains/user-preferences/skill-level';
-import { scoreNativeForecastSlot } from './native-condition-score';
+import { resolveNativeSkillLevel, scoreNativeForecastSlot } from './native-condition-score';
 import { getDirectionDegrees } from '@/lib/utils/number-parsing';
 import { parseWaveHeightMidpointFt } from '@/lib/alerts/forecast-parsers';
 
@@ -99,7 +98,8 @@ export function recommendBoard(
   beach: Beach,
   experience: unknown,
 ): RecommendedBoard | null {
-  const skill = parseSkillLevel(typeof experience === 'string' ? experience : null) ?? 'beginner';
+  // Same unknown-skill default as the slot scorer, so a pick and its score agree.
+  const skill = resolveNativeSkillLevel(typeof experience === 'string' ? experience : null, 'intermediate');
   const height = parseWaveHeightMidpointFt(forecast.wave_height);
   if (height === null) return null;
   const at = Date.parse(forecast.forecast_at);
