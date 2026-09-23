@@ -874,9 +874,9 @@ export function selectBestWindows(
       );
 
       const lit = clampToUsableLight(refinedTimes.start, refinedTimes.end, beachTz, sunTimes);
-      return lit ? { ...candidateWindow, start: lit.start, end: lit.end } : null;
+      return lit ? [{ ...candidateWindow, start: lit.start, end: lit.end }] : [];
     })
-    .filter((candidateWindow): candidateWindow is CandidateWindow => candidateWindow !== null)
+    .flat()
     .map((candidateWindow) =>
       buildResult(candidateWindow, filteredForecasts, actualBeach, beachTz, actualNow)
     );
