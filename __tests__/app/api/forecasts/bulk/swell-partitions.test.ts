@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-import { interpolateSwellPartition, rowToSwellPartition } from "@/app/api/forecasts/bulk/swell-partition";
+import { interpolateSwellPartition, rowToSwellPartition } from "@/lib/domains/conditions/map-forecast";
 
 describe("rowToSwellPartition", () => {
   it("parses real-shaped live fields (ft + compass + mph) into numbers", () => {
@@ -101,7 +101,7 @@ describe("rowToSwellPartition", () => {
 
 describe("map swell source consistency", () => {
   it("uses a complete offshore tuple for both the field and the selected reading", () => {
-    const { mapSwellPartition } = require("@/app/api/forecasts/bulk/swell-partition");
+    const { mapSwellPartition } = require("@/lib/domains/conditions/map-forecast");
     const { partitionToPoint } = require("@/components/map/swell-field/field-sampler");
     const { resolveCalloutComponents } = require("@/components/map/conditions-callout-data");
     const partition = { s1Dir: 292.5, s1HeightFt: 1.7, s1PeriodS: 18, swellDirOm: 182, swellHeightOmFt: 4, swellPeriodOmS: 12, s2Dir: null, s2HeightFt: null, s2PeriodS: null, windDir: null, windMph: null };

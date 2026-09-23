@@ -57,6 +57,7 @@ it("skips the reply check when no candidate is due", async () => {
   mockDb.mockResolvedValue({ from: () => ({ insert: () => ({ select: () => ({ single: async () => ({ data: { id: "run" }, error: null }) }) }), update }) });
   await expect(runEmailLifecycle(false)).resolves.toMatchObject({ status: "ok", reply_check: { status: "skipped" } });
   expect(mockReplyCheck).not.toHaveBeenCalled();
+  expect(mockRpc.mock.calls.filter(([name]) => name === "evaluate_email_lifecycle")).toHaveLength(1);
 });
 
 it("marks the persisted run as an error when approval has expired, even with no due recipients", async () => {
@@ -90,6 +91,7 @@ it.each([false, true])("refreshes promo eligibility before reservation; provider
  const outcome = await result.catch(error => ({ error:error.message }));
  expect(outcome).toMatchObject(providerFails ? { error:"provider unavailable" } : { accepted:0 });
  expect(order).toEqual(providerFails ? ["provider_read"] : ["provider_read", "reservation"]);
+ expect(mockRpc.mock.calls.filter(([name]) => name === "evaluate_email_lifecycle")).toHaveLength(1);
  expect(mockRefreshUser).toHaveBeenCalledWith(userId);
  expect(mockSend).not.toHaveBeenCalled();
 });

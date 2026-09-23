@@ -2,11 +2,12 @@ import type { Beach } from "@/types/database";
 import type {
   HourlySwellTimeline,
   SwellPartition,
-} from "@/app/api/forecasts/bulk/route";
+} from "@/lib/domains/conditions/map-forecast";
 import { API_BATCH_CONFIG } from "@/lib/constants/ui";
 import { fetchInBatches } from "@/lib/utils/batch-fetch";
 import type { ForecastDisplay } from "@/lib/services/forecast/today-headline";
-import { MAX_TIMELINE_FIELD_BEACHES, selectTimelineFieldBeachIds } from "@/components/map/timeline-beach-sampler";
+import { MAX_TIMELINE_FIELD_BEACHES } from "@/lib/domains/conditions/map-forecast";
+import { selectTimelineFieldBeachIds } from "@/components/map/timeline-beach-sampler";
 import { forecastCache } from "@/lib/utils/request-cache";
 
 export type ForecastLoadStatus = "ready" | "empty" | "unavailable";

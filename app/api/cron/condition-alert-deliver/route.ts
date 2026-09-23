@@ -909,7 +909,7 @@ export async function GET(request: Request): Promise<NextResponse> {
         const staleItems: QueueItemWithMeta[] = [];
         for (const item of forecastItems) {
           const refreshed = await refreshQueueItemFromLatestForecasts(item);
-          if (refreshed) {
+          if (refreshed && Date.parse(refreshed.window_end) > Date.now()) {
             const persisted = await persistRefreshedQueueItem(refreshed);
             if (!persisted) {
               for (const channel of enabledChannels(item)) {
@@ -941,7 +941,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                 channel,
                 status: "skipped_stale_forecast",
                 skipReason:
-                  "fresh forecast no longer matches the queued alert rule",
+                  "alert window expired or fresh forecast no longer matches the queued alert rule",
               });
             }
           }
@@ -1432,6 +1432,13 @@ export async function GET(request: Request): Promise<NextResponse> {
 
                     if (!forecastDeliveryEnabled) {
                       addShadowChannel(emailSurvivors, "email");
+                    } else if ("deferred" in sendResult && sendResult.deferred === "quiet_hours") {
+                      // The contact gate has its own quiet window. It has not
+                      // handed off to the provider, so retain these rows for retry.
+                      for (const item of emailSurvivors) {
+                        quietDeferredEmailQueueIds.add(item.id);
+                      }
+                      result.emailQuietHoursSkipped += emailSurvivors.length;
                     } else if (sendError) {
                       console.error(
                         `${CONTEXT_TAG} Email send failed for user ${payload.user_id}:`,

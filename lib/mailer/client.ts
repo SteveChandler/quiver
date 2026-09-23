@@ -52,9 +52,11 @@ type SendEmailOptions = CreateEmailOptions & {
   unsubscribeUrl?: string;
 };
 
+type SendEmailResponse = CreateEmailResponse & { deferred?: "quiet_hours" };
+
 export async function sendEmail(
   options: SendEmailOptions
-): Promise<CreateEmailResponse> {
+): Promise<SendEmailResponse> {
   const { unsubscribeUrl, headers, purpose, alertContact, ...resendOptions } = options;
   if (purpose === "condition_alert") return sendRequestedAlert(options, alertContact);
   if (!purpose) throw new Error("Unclassified email blocked; use the lifecycle dispatcher");
@@ -131,7 +133,7 @@ export async function sendReservedLifecycleEmail(attemptId: string, payload: Cre
   }
 }
 
-async function sendRequestedAlert(options: SendEmailOptions, contact: SendEmailOptions["alertContact"]): Promise<CreateEmailResponse> {
+async function sendRequestedAlert(options: SendEmailOptions, contact: SendEmailOptions["alertContact"]): Promise<SendEmailResponse> {
   const { lifecycleEnabled, lifecycleRpc } = await import("@/lib/email/lifecycle");
   if (!lifecycleEnabled() || shouldSuppressE2EEmailSends()) throw new Error("Managed alert sending is disabled");
   if (!contact || typeof options.to !== "string" || options.cc || options.bcc) throw new Error("Invalid alert contact");
@@ -141,7 +143,12 @@ async function sendRequestedAlert(options: SendEmailOptions, contact: SendEmailO
   if (!unsubscribeUrl || !html) throw new Error("Missing alert content or unsubscribe");
   const payload = { ...rest, html, text: options.text ?? await render(react!, { plainText: true }), headers: { ...options.headers, "List-Unsubscribe": `<${unsubscribeUrl}>` } };
   const claim = await lifecycleRpc("claim_requested_email_alert", { p_user_id: contact.userId, p_episode: contact.episode, p_payload: payload }) as { allowed: boolean; attempt_id?: string; reason?: string };
-  if (!claim.allowed || !claim.attempt_id) return { headers: null, data: null, error: { name: "validation_error", statusCode: 409, message: `Contact held: ${claim.reason ?? "unknown"}` } };
+  if (!claim.allowed || !claim.attempt_id) return {
+    headers: null,
+    data: null,
+    error: { name: "validation_error", statusCode: 409, message: `Contact held: ${claim.reason ?? "unknown"}` },
+    ...(claim.reason === "quiet_hours" ? { deferred: "quiet_hours" as const } : {}),
+  };
   try {
     const response: CreateEmailResponse = await provider.emails.send(payload, { idempotencyKey: claim.attempt_id });
     if (response.error || !response.data?.id) throw new Error("Alert acceptance unknown");

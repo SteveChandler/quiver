@@ -126,6 +126,13 @@ type BeachRow = {
   swell_window_halfwidth_deg: number | null;
 };
 
+let mockContextBeaches: unknown[] = [];
+let mockContextError: { message: string } | null = null;
+let mockProfileSkill: string | null = null;
+const mockContextRpc = jest.fn(async () => ({
+  data: { beaches: mockContextBeaches, profile: { experience_level: mockProfileSkill }, boards: [], sun_times: [], personalization: null, water_quality: {} },
+  error: mockContextError,
+}));
 const mockSupabaseClient = createMockSupabaseClient();
 const STABLE_TEST_NOW = new Date("2026-07-07T18:00:00.000Z");
 const AVAILABLE_HOLD_EPOCH = "available-hold-epoch";
@@ -133,6 +140,10 @@ const BEACH_ONE_ID = "11111111-1111-4111-8111-111111111111";
 const BEACH_TWO_ID = "22222222-2222-4222-8222-222222222222";
 const BEACH_THREE_ID = "33333333-3333-4333-8333-333333333333";
 const mockEvaluateMajorEventHoldCandidates = jest.fn();
+
+jest.mock("@/lib/supabase/server", () => ({
+  createSupabaseServiceRoleClient: jest.fn(() => ({ rpc: mockContextRpc })),
+}));
 
 jest.mock("@/lib/middleware/api-wrappers", () => ({
   withNoStore: jest.requireActual("@/lib/middleware/api-wrappers/cache-wrappers")
@@ -319,7 +330,7 @@ function beachRow(id: string, overrides: Partial<BeachRow> = {}): BeachRow {
     preferred_tide_ft_max: null,
     preferred_tide_direction: null,
     tide_direction_sensitivity: null,
-    skill_level: null,
+    skill_level: "beginner",
     break_type: null,
     swell_window_center_deg: null,
     swell_window_halfwidth_deg: null,
@@ -365,6 +376,7 @@ function mockBulkQueries(options: {
     data: forecastRows,
     error: options.forecastError ?? null,
   });
+  mockContextBeaches = beachRows ?? [];
   const beachChain = queryChain({
     data: beachRows,
     error: null,
@@ -386,6 +398,9 @@ describe("GET /api/forecasts/bulk", () => {
     cleanup = testEnv.cleanup;
     jest.useFakeTimers({ now: STABLE_TEST_NOW });
     jest.clearAllMocks();
+    mockContextBeaches = [];
+    mockContextError = null;
+    mockProfileSkill = null;
     mockEvaluateMajorEventHoldCandidates.mockImplementation(
       async ({ candidates }: { candidates: HoldCandidate[] }) =>
         candidates.map((candidate) => ({
@@ -455,7 +470,7 @@ describe("GET /api/forecasts/bulk", () => {
     expect(result.data.recommendationLabels).toEqual(Object.fromEntries(
       forecastRows.map((forecast, index) => [
         forecast.beach_id,
-        resolveRecommendationLabel({
+        Number.parseFloat(forecast.wave_height ?? "0") > 4 ? "Skip" : resolveRecommendationLabel({
           beach: beachRows[index] as never,
           forecast: forecast as never,
           score: 72,

@@ -3,7 +3,7 @@ import { checkGmailRepliesBeforeSend, gmailFailureCode } from "@/lib/email/gmail
 import { z } from "zod";
 import * as Sentry from "@sentry/nextjs";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import { lifecycleDecisionSchema, lifecycleEnabled, lifecycleRpc, LIFECYCLE_CAMPAIGN, LIFECYCLE_VERSION } from "@/lib/email/lifecycle";
+import { lifecycleDecisionSchema, lifecycleEnabled, lifecycleRpc, LIFECYCLE_CAMPAIGN, LIFECYCLE_VERSION, type LifecycleDecision } from "@/lib/email/lifecycle";
 import { LIFECYCLE_CONTENT_HASH, renderLifecycleEmail } from "@/lib/mailer/lifecycle-email";
 import { getBaseUrl, MAIL_FROM, sendReservedLifecycleEmail } from "@/lib/mailer/client";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
@@ -16,9 +16,8 @@ export function lifecycleMaxAcceptedPerRun(): number {
 
 type ReplyCheckSummary = { status: "skipped" | "ok" | "failed"; checked?: number; recorded?: number; reason?: string };
 
-async function dispatchLifecycleUser(userId: string): Promise<string> {
+async function dispatchLifecycleUser(userId: string, candidate: LifecycleDecision): Promise<string> {
   if (!lifecycleEnabled()) return "disabled";
-  const candidate = lifecycleDecisionSchema.parse(await lifecycleRpc("evaluate_email_lifecycle", { p_user_id: userId }));
   if (candidate.status !== "due") return candidate.reason;
   const replyTo = z.email().parse(process.env.EMAIL_REPLY_MAILBOX);
   if (candidate.job === "trial_feedback" && process.env.TRIAL_FEEDBACK_ENABLED !== "true") return "trial_feedback_disabled";
@@ -87,12 +86,12 @@ export async function runEmailLifecycle(dryRun: boolean): Promise<Record<string,
       }
     }
     const rateLimiter = createResendRateLimiter();
-    for (const userId of users) {
+    for (const [index, userId] of users.entries()) {
       await lifecycleRpc("record_email_lifecycle_decision", { p_user_id: userId });
       // Retain decisions for every enrolled user even when the burst guard is reached.
       if ((counts.accepted ?? 0) >= lifecycleMaxAcceptedPerRun()) continue;
       await rateLimiter.throttle();
-      const reason = await dispatchLifecycleUser(userId);
+      const reason = await dispatchLifecycleUser(userId, dueCandidates[index]);
       counts[reason] = (counts[reason] ?? 0) + 1;
       if (reason === "unknown") { failed = true; break; }
     }

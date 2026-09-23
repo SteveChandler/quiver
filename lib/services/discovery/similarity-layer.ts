@@ -8,6 +8,7 @@
  * @module lib/services/discovery/similarity-layer
  */
 
+import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { createContextLogger } from "@/lib/logger";
@@ -54,45 +55,25 @@ interface ApplySimilarityLayerResult {
  * numerics here. Mirrors the existing single-slot caller pattern in
  * lib/alerts/best-days.ts and app/api/cron/similarity-alerts/route.ts.
  */
-function recToSlotPayload(
-  rec: SurfDiscoveryRecommendation,
-): Array<Record<string, string>> {
-  const f = rec.forecast;
-
-  const wave = f.wave_height != null ? String(f.wave_height) : "";
-  const period =
-    f.wave_period != null
-      ? String(f.wave_period).replace(/s$/i, "")
-      : "";
-  const wind = f.wind_speed != null ? String(f.wind_speed) : "";
-  const windDir =
-    f.wind_direction_deg != null ? String(f.wind_direction_deg) : "";
-  const tide = f.tide_height != null ? String(f.tide_height) : "";
-
-  // forecast_at — fall back to the window start if the forecast row is missing it.
-  const forecastAt =
-    f.forecast_at ??
-    (rec.window?.start instanceof Date
-      ? rec.window.start.toISOString()
-      : String(rec.window?.start ?? ""));
-
-  return [
-    {
-      forecast_at: forecastAt,
-      wave_height: wave,
-      wave_period: period,
-      wind_speed: wind,
-      wind_direction: windDir,
-      tide_height: tide,
-    },
-  ];
+export function forecastToMatchSlot(
+  forecast: EnhancedForecastEntity,
+  fallbackForecastAt = "",
+): Record<string, string> {
+  return {
+    forecast_at: forecast.forecast_at ?? fallbackForecastAt,
+    wave_height: forecast.wave_height != null ? String(forecast.wave_height) : "",
+    wave_period: forecast.wave_period != null ? String(forecast.wave_period).replace(/s$/i, "") : "",
+    wind_speed: forecast.wind_speed != null ? String(forecast.wind_speed) : "",
+    wind_direction: forecast.wind_direction_deg != null ? String(forecast.wind_direction_deg) : "",
+    tide_height: forecast.tide_height != null ? String(forecast.tide_height) : "",
+  };
 }
 
 /**
  * Translate a single slot's RPC `result` jsonb into a SimilarityRecommendation.
  * Tolerant to the three documented shapes plus a missing/malformed result.
  */
-function interpretRpcResult(
+export function interpretRpcResult(
   result: Record<string, unknown> | null,
 ): SimilarityRecommendation {
   if (!result || typeof result !== "object") {
@@ -200,8 +181,13 @@ export async function applySimilarityLayer(
             {
               p_user_id: userId,
               p_beach_id: beachId,
-              p_slots: indexes.flatMap((index) =>
-                recToSlotPayload(recommendations[index]),
+              p_slots: indexes.map((index) =>
+                forecastToMatchSlot(
+                  recommendations[index].forecast,
+                  recommendations[index].window?.start instanceof Date
+                    ? recommendations[index].window.start.toISOString()
+                    : String(recommendations[index].window?.start ?? ""),
+                ),
               ),
             },
           );

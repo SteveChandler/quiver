@@ -1,6 +1,6 @@
 import type { Beach } from "@/types/database";
 import type { RecommendationLabel } from "@/components/map/map-beach-loader";
-import type { SwellPartition } from "@/app/api/forecasts/bulk/swell-partition";
+import type { SwellPartition } from "@/lib/domains/conditions/map-forecast";
 import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 import { getConditionMarkerCall } from "@/components/map/map-marker-builder";
 import { degreesToCompass } from "@/components/map/swell-map-theme";

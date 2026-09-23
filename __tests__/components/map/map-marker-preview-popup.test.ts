@@ -4,7 +4,7 @@ import {
   type MarkerBuilderDeps,
 } from "@/components/map/map-marker-builder";
 import { createBeachPreviewPopupContent } from "@/components/map/map-beach-preview-popup";
-import type { SwellPartition } from "@/app/api/forecasts/bulk/swell-partition";
+import type { SwellPartition } from "@/lib/domains/conditions/map-forecast";
 
 jest.mock("@/lib/analytics", () => ({
   track: jest.fn(),

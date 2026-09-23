@@ -60,7 +60,11 @@ type FrictionGate = {
   minCount: number;
   owner: string;
   fix: string;
-  /** Drops benign outcomes that share the event name, e.g. a user cancelling an OAuth sheet. */
+  /**
+   * Drops benign outcomes that share the event name, e.g. a user cancelling an OAuth sheet.
+   * An array value is benign only when every element is listed, so a benign code
+   * alongside a real one still counts.
+   */
   excludeWhen?: { key: string; values: string[] };
   /** Metadata keys summarized so the report names the failing thing, not just the count. */
   reasonKeys?: string[];
@@ -82,6 +86,8 @@ const FRICTION_GATES: FrictionGate[] = [
     minCount: 5,
     owner: "quiver-native/src/features/session-log + components/session-forms/",
     fix: "Read the `field`/`reason` in the failing event metadata and make the blocked field either optional or self-correcting. Logging is the habit the whole product depends on.",
+    // Rating is required by design; skipping it is not friction.
+    excludeWhen: { key: "validation_errors", values: ["rating_required"] },
     reasonKeys: ["validation_errors", "validation_first_field", "entry_point"],
   },
   {
@@ -202,6 +208,18 @@ type CohortMember = {
   emailVersion: "A" | "B" | "C" | "D";
   isRelay: boolean;
 };
+
+function isGateFailure(gate: FrictionGate, event: EventRow): boolean {
+  if (!gate.failEvents.includes(event.event_type)) return false;
+  if (!gate.excludeWhen) return true;
+  const { key, values } = gate.excludeWhen;
+  const value = asRecord(event.metadata)[key];
+  if (typeof value === "string") return !values.includes(value);
+  if (Array.isArray(value) && value.length > 0) {
+    return !value.every((item) => typeof item === "string" && values.includes(item));
+  }
+  return true;
+}
 
 function asRecord(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
@@ -382,7 +400,7 @@ async function main(): Promise<void> {
       lastEventAt: last,
       spanMinutes,
       topEvents: [...perType].sort((a, b) => b[1] - a[1]).slice(0, 4),
-      frictionHits: FRICTION_GATES.filter((gate) => perType.has(gate.failEvent)).map((gate) => gate.id),
+      frictionHits: FRICTION_GATES.filter((gate) => userEvents.some((event) => isGateFailure(gate, event))).map((gate) => gate.id),
       verdict,
       emailVersion: pickEmailVersion(userEvents, hasBeachSignal, verdict),
       isRelay: row.email.toLowerCase().endsWith(APPLE_RELAY_DOMAIN),
@@ -393,12 +411,7 @@ async function main(): Promise<void> {
     types.reduce((total, type) => total + (eventCounts.get(type) ?? 0), 0);
 
   const firedGates = FRICTION_GATES.map((gate) => {
-    const failRows = events.filter((event) => {
-      if (!gate.failEvents.includes(event.event_type)) return false;
-      if (!gate.excludeWhen) return true;
-      const value = asRecord(event.metadata)[gate.excludeWhen.key];
-      return !(typeof value === "string" && gate.excludeWhen.values.includes(value));
-    });
+    const failRows = events.filter((event) => isGateFailure(gate, event));
 
     const distinctUsers = new Set(failRows.map((event) => event.user_id).filter(Boolean)).size;
     const flows = new Map<string, number>();

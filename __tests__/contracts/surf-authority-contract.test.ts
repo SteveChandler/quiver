@@ -127,7 +127,21 @@ function queryFor(table: string) {
 
 const mockSupabase = {
   from: jest.fn((table: string) => queryFor(table)),
-  rpc: jest.fn(async () => ({ data: [], error: null })),
+  rpc: jest.fn(async (name: string) => ({
+    data: name === "get_bulk_forecast_decision_context" ? {
+      beaches: [beach],
+      profile: null,
+      boards: [],
+      sun_times: [{
+        beach_id: BEACH_ID,
+        sunrise_utc: "2026-09-10T13:30:00.000Z",
+        sunset_utc: "2026-09-11T02:05:00.000Z",
+      }],
+      personalization: null,
+      water_quality: {},
+    } : [],
+    error: null,
+  })),
 };
 const mockBatchFetchForecasts = jest.fn(async () => ({
   successful: [{ beach, forecasts: rows }],
@@ -205,6 +219,7 @@ jest.mock("@/lib/services/discovery/personalization-layer", () => ({
   })),
 }));
 jest.mock("@/lib/services/discovery/similarity-layer", () => ({
+  ...jest.requireActual("@/lib/services/discovery/similarity-layer"),
   applySimilarityLayer: jest.fn(async ({ recommendations }: { recommendations: unknown[] }) => ({
     recommendations,
     diagnostics: [],
@@ -253,9 +268,11 @@ function weekScoutDependencies(now: Date): WeekScoutServiceDependencies {
     fetchBeaches: jest.fn(async () => [beach]),
     fetchForecasts: jest.fn(async () => new Map([[BEACH_ID, rows]])),
     fetchSunTimes: jest.fn(async () => sunTimes),
-    fetchPreferences: jest.fn(async () => null),
+    fetchRankingContext: jest.fn(async () => ({
+      implicitPrefs: null, learnedPrefs: null, affinityMap: new Map(), implicitWeight: 0,
+    })),
     fetchSkill: jest.fn(async () => "intermediate"),
-    fetchPersonalizationContext: jest.fn(async () => null),
+    fetchMatchEvidence: jest.fn(async () => new Map()),
     calculatePersonalizationBonus: jest.fn(() => ({ affinityBonus: 0, personalizationBonus: 0, reasons: [] })),
     selectBestWindows,
     scoreWindowCondition: (row, candidate, skill, boardClasses) =>
@@ -275,6 +292,8 @@ async function runProducers(now: Date) {
     new NextRequest(`http://localhost/api/forecasts/bulk?beachIds=${BEACH_ID}`),
     { supabase: mockSupabase as never, user: null, params: {} },
   );
+  expect(currentResponse.status).toBe(200);
+  expect(bulkResponse.status).toBe(200);
   const [currentBody, bulkBody, nowDiscovery, bestDiscovery] = await Promise.all([
     currentResponse.json(),
     bulkResponse.json(),
@@ -324,6 +343,8 @@ async function runCurrentProducers(now: Date) {
       discoveryMode: "now", includeBeachIds: [BEACH_ID], userLocation: beach, throwOnFailure: true,
     }),
   ]);
+  expect(currentResponse.status).toBe(200);
+  expect(bulkResponse.status).toBe(200);
   return {
     current: (await currentResponse.json()).data.current as EnhancedForecastEntity,
     bulk: (await bulkResponse.json()).data,

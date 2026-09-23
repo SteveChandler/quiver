@@ -15,8 +15,6 @@ import {
   fetchHourlySwellTimelineRows,
   GET,
 } from "@/app/api/forecasts/bulk/route";
-import { getProfileExperienceLevel } from "@/lib/profile/skill-level";
-import { getBatchSunTimes } from "@/lib/services/discovery";
 import { applyV51DisplayOverrideToForecasts } from "@/lib/services/forecast/v5-display-gate";
 import { scoreWindowConditionScore } from "@/lib/services/discovery/window-selector/window-scorer";
 import { resolveTodayHeadline } from "@/lib/services/forecast/today-headline";
@@ -152,6 +150,13 @@ type BeachRow = {
   review_count: number | null;
 };
 
+let mockContextBeaches: unknown[] = [];
+let mockContextError: { message: string } | null = null;
+let mockProfileSkill: string | null = null;
+const mockContextRpc = jest.fn(async () => ({
+  data: { beaches: mockContextBeaches, profile: { experience_level: mockProfileSkill }, boards: [], sun_times: [], personalization: null, water_quality: {} },
+  error: mockContextError,
+}));
 const mockSupabaseClient = createMockSupabaseClient();
 const STABLE_TEST_NOW = new Date("2026-07-07T18:00:00.000Z");
 const BOUND_BEACH_ID = "11111111-1111-4111-8111-111111111111";
@@ -167,6 +172,7 @@ jest.mock("@/lib/supabase/api-server-client", () => ({
 
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: jest.fn(() => mockSupabaseClient),
+  createSupabaseServiceRoleClient: jest.fn(() => ({ rpc: mockContextRpc })),
 }));
 
 jest.mock("@/lib/services/forecast/v5-display-gate", () => ({
@@ -175,17 +181,9 @@ jest.mock("@/lib/services/forecast/v5-display-gate", () => ({
   ),
 }));
 
-jest.mock("@/lib/profile/skill-level", () => ({
-  getProfileExperienceLevel: jest.fn(async () => null),
-}));
-
 jest.mock("@/lib/recommendations/major-event-hold/service", () => ({
   evaluateMajorEventHoldCandidates: (input: unknown) =>
     mockEvaluateMajorEventHoldCandidates(input),
-}));
-
-jest.mock("@/lib/services/discovery", () => ({
-  getBatchSunTimes: jest.fn(async () => new Map()),
 }));
 
 function mockDisplayForForecast(
@@ -432,7 +430,7 @@ function beachRow(id: string, overrides: Partial<BeachRow> = {}): BeachRow {
     preferred_tide_ft_max: null,
     preferred_tide_direction: null,
     tide_direction_sensitivity: null,
-    skill_level: null,
+    skill_level: "beginner",
     break_type: null,
     cdip_station: null,
     cdip_eligible: null,
@@ -539,6 +537,8 @@ function mockBulkQueries(
           new Set((options.forecastRows ?? []).map((row) => row.beach_id)),
         ).map((id) => beachRow(id))
       : options.beachRows;
+  mockContextBeaches = derivedBeachRows ?? [];
+  mockContextError = options.beachError ?? null;
   const beachChain = queryChain({
     data: derivedBeachRows ?? [],
     error: options.beachError ?? null,
@@ -578,11 +578,13 @@ describe("/api/forecasts/bulk", () => {
     cleanup = testEnv.cleanup;
     jest.useFakeTimers({ now: STABLE_TEST_NOW });
     jest.clearAllMocks();
+    mockContextBeaches = [];
+    mockContextError = null;
+    mockProfileSkill = null;
     mockSupabaseClient.auth.getUser.mockResolvedValue({
       data: { user: null },
       error: null,
     });
-    (getProfileExperienceLevel as jest.Mock).mockResolvedValue(null);
     (scoreWindowConditionScore as jest.Mock).mockReturnValue(72);
     (resolveTodayHeadline as jest.Mock).mockClear();
     mockEvaluateMajorEventHoldCandidates.mockImplementation(
@@ -606,7 +608,7 @@ describe("/api/forecasts/bulk", () => {
     const body = (await response.json()).data;
     expect(body.forecasts["beach-1"]).toBe(2);
     expect(body.hourlySwellTimeline.timestamps).toEqual(["2026-07-07T18:00:00.000Z"]);
-    expect(getProfileExperienceLevel).toHaveBeenCalled();
+    expect(mockContextRpc).toHaveBeenCalled();
   });
 
   it.each(["allow", "blocked", "unavailable"] as const)("returns time-aligned condition scores with %s safety decisions", async (state) => {
@@ -742,7 +744,7 @@ describe("/api/forecasts/bulk", () => {
   });
 
   it("prefers the authenticated profile skill over the explicit hint", async () => {
-    (getProfileExperienceLevel as jest.Mock).mockResolvedValue("advanced");
+    mockProfileSkill = "advanced";
     (scoreWindowConditionScore as jest.Mock).mockImplementation(
       (_forecast, _beach, skillLevel) => skillLevel === "advanced" ? 73 : 0,
     );
@@ -764,10 +766,7 @@ describe("/api/forecasts/bulk", () => {
     );
     const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
 
-    expect(getProfileExperienceLevel).toHaveBeenCalledWith(
-      mockSupabaseClient,
-      "user-1",
-    );
+    expect(mockContextRpc).toHaveBeenCalledWith("get_bulk_forecast_decision_context", expect.objectContaining({ p_user_id: "user-1" }));
     expect(scoreWindowConditionScore).toHaveBeenCalledWith(
       expect.any(Object),
       expect.any(Object),
@@ -841,10 +840,9 @@ describe("/api/forecasts/bulk", () => {
     expect(data.data.forecasts["beach-1"]).toBe(1.2);
   });
 
-  it("starts hourly timeline and beach metadata reads before the main forecast resolves", async () => {
+  it("starts hourly timeline reads before the main forecast resolves", async () => {
     const forecastRead = deferred<QueryResult<ForecastRow[]>>();
     let timelineReadStarted = false;
-    let beachReadStarted = false;
     const forecastChain = queryChain<ForecastRow[]>({
       data: null,
       error: null,
@@ -869,7 +867,6 @@ describe("/api/forecasts/bulk", () => {
     });
     beachChain.then.mockImplementation(
       (onResolve: (value: QueryResult<BeachRow[]>) => unknown) => {
-        beachReadStarted = true;
         return Promise.resolve(onResolve({ data: [beachRow("beach-1")], error: null }));
       },
     );
@@ -890,7 +887,7 @@ describe("/api/forecasts/bulk", () => {
     );
     let readsStartedBeforeForecastResolved = false;
     for (let attempt = 0; attempt < 10; attempt += 1) {
-      if (timelineReadStarted && beachReadStarted) {
+      if (timelineReadStarted) {
         readsStartedBeforeForecastResolved = true;
         break;
       }
@@ -1673,10 +1670,9 @@ describe("/api/forecasts/bulk", () => {
     );
     expect(hourlyTimelineChain.select).toHaveBeenCalledTimes(1);
     expect(nextHourlyTimelineChain.select).toHaveBeenCalledWith("forecast_at");
-    expect(getProfileExperienceLevel).not.toHaveBeenCalled();
+    expect(mockContextRpc).not.toHaveBeenCalled();
     expect(applyV51DisplayOverrideToForecasts).not.toHaveBeenCalled();
     expect(resolveTodayHeadline).not.toHaveBeenCalled();
-    expect(getBatchSunTimes).not.toHaveBeenCalled();
     expect(scoreWindowConditionScore).not.toHaveBeenCalled();
     expect(beachChain.select).not.toHaveBeenCalled();
   });
@@ -1720,7 +1716,7 @@ describe("/api/forecasts/bulk", () => {
     expect(hourlyTimelineChain.select).toHaveBeenCalledTimes(1);
     expect(nextHourlyTimelineChain.select).toHaveBeenCalledWith("forecast_at");
     expect(mockSupabaseClient.from).toHaveBeenCalledTimes(2);
-    expect(getProfileExperienceLevel).not.toHaveBeenCalled();
+    expect(mockContextRpc).not.toHaveBeenCalled();
     expect(mockEvaluateMajorEventHoldCandidates).not.toHaveBeenCalled();
     expect(beachChain.select).not.toHaveBeenCalled();
   });
@@ -2247,6 +2243,7 @@ describe("/api/forecasts/bulk", () => {
         },
       ],
       profileExperience: null,
+      applyWaterQualityHolds: true,
     });
     expect(body.data.forecasts).toEqual({ [BOUND_BEACH_ID]: 1.9 });
     expect(body.data.displayForecasts[BOUND_BEACH_ID]).toMatchObject({
@@ -2368,7 +2365,7 @@ describe("/api/forecasts/bulk", () => {
     });
   });
 
-  it("keeps forecast data when the calibration query fails", async () => {
+  it("returns an HTTP error when the decision context cannot be loaded", async () => {
     mockBulkQueries({
       forecastRows: [forecastRow("beach-1", "2.5")],
       beachRows: null,
@@ -2386,18 +2383,7 @@ describe("/api/forecasts/bulk", () => {
           "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1",
         ),
       );
-      const data = await expectSuccessResponse<BulkForecastResponse>(
-        response,
-        200,
-      );
-
-      expect(data.data.forecasts).toEqual({ "beach-1": 2.5 });
-      expect(data.data.isCalibrated).toEqual({});
-      expect(data.data.conditionSummaries).toEqual({ "beach-1": "UNKNOWN" });
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        "Error fetching beach calibration status:",
-        { message: "rls denied" },
-      );
+      expect(response.status).toBe(500);
     } finally {
       consoleErrorSpy.mockRestore();
     }
