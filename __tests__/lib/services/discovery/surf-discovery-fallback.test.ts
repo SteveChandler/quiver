@@ -6,17 +6,20 @@ function forecastAt(value: string): EnhancedForecastEntity {
 }
 
 describe("surf discovery today fallback eligibility", () => {
-  const sunset = new Date("2026-08-31T19:00:00.000Z");
+  const sunTimes = {
+    sunrises: [new Date("2026-08-31T06:00:00.000Z")],
+    sunsets: [new Date("2026-08-31T19:00:00.000Z")],
+  };
 
   it.each([
-    ["pre-dawn", "2026-08-31T05:00:00.000Z", "2026-08-31T04:30:00.000Z"],
-    ["too close to sunset", "2026-08-31T18:30:00.000Z", "2026-08-31T18:00:00.000Z"],
+    ["pre-dawn", "2026-08-31T04:00:00.000Z", "2026-08-31T03:30:00.000Z"],
+    ["after last light", "2026-08-31T19:30:00.000Z", "2026-08-31T19:00:00.000Z"],
   ])("rejects a %s slot the selector cannot use", (_label, slot, now) => {
     expect(
       hasUsableTodayForecastForFallback({
         forecasts: [forecastAt(slot)],
         beachTz: "UTC",
-        sunset,
+        sunTimes,
         now: new Date(now),
       }),
     ).toBe(false);
@@ -27,7 +30,7 @@ describe("surf discovery today fallback eligibility", () => {
       hasUsableTodayForecastForFallback({
         forecasts: [forecastAt("2026-08-31T17:30:00.000Z")],
         beachTz: "UTC",
-        sunset,
+        sunTimes,
         now: new Date("2026-08-31T17:00:00.000Z"),
       }),
     ).toBe(true);

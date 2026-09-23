@@ -13,6 +13,7 @@ import { interpolateTideHeight } from '@/lib/utils/tide-interpolation';
 import { extractTideSchedule } from './tide-boundary-calculator';
 import { MIN_SCORE_THRESHOLD } from './constants';
 import type { CandidateWindow } from './types';
+import { isDaylightInterval } from '../daylight-eligibility';
 
 /**
  * Apply sub-hour refinement to a window that used hourly boundaries.
@@ -43,15 +44,6 @@ export function applySubHourRefinement(
 
   const windowStart = window.start;
   const windowEnd = window.end;
-
-  // Helper to get local date string for beach timezone
-  const getLocalDateStrForBeach = (d: Date): string => {
-    try {
-      return d.toLocaleDateString('en-CA', { timeZone: beachTz });
-    } catch {
-      return d.toISOString().slice(0, 10);
-    }
-  };
 
   // Floor to hour boundaries for index lookup (window times may be non-hourly)
   const startHourBoundary = new Date(windowStart);
@@ -88,15 +80,12 @@ export function applySubHourRefinement(
         height: t.height,
       })) ?? [];
 
-    // Create light checker for sunrise/sunset constraints
-    const isLightOk = (t: Date): boolean => {
-      const tDateStr = getLocalDateStrForBeach(t);
-      const tSunset = sunsets.find((s) => getLocalDateStrForBeach(s) === tDateStr);
-      const tSunrise = sunrises.find((s) => getLocalDateStrForBeach(s) === tDateStr);
-      if (tSunrise && t < tSunrise) return false;
-      if (tSunset && t > tSunset) return false;
-      return true;
-    };
+    const isLightOk = (time: Date): boolean => isDaylightInterval(
+      time,
+      new Date(time.getTime() + 1),
+      beachTz,
+      { sunrises, sunsets },
+    );
 
     // Apply refinement
     const refined = refineWindowBounds({

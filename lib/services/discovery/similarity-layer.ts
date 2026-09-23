@@ -22,18 +22,6 @@ import {
 } from "@/lib/personalization/match-state-compat";
 
 const log = createContextLogger("SimilarityLayer");
-const MATCH_RPC_CONCURRENCY = 10;
-
-/**
- * Shape of a single row from compute_user_match_score_batch.
- * Mirrors the SQL `RETURNS TABLE (slot_idx int, forecast_at timestamptz, result jsonb)`.
- */
-interface BatchRpcRow {
-  slot_idx: number;
-  forecast_at: string;
-  result: Record<string, unknown> | null;
-}
-
 interface ApplySimilarityLayerArgs {
   recommendations: SurfDiscoveryRecommendation[];
   userId: string | null;
@@ -126,6 +114,9 @@ export function interpretRpcResult(
       reason,
       reasons,
       sessionCount,
+      similarSessionCount: typeof result.similar_session_count === "number"
+        ? result.similar_session_count : typeof result.fit_signal_sample_count === "number"
+          ? result.fit_signal_sample_count : 0,
     };
   }
 
@@ -137,8 +128,7 @@ export function interpretRpcResult(
  * Attach Pro similarity scoring to discovery window candidates.
  *
  * - Free users (or null userId): every rec gets `similarity: null`, no RPC.
- * - Pro users: one bulk RPC call per beach with every candidate window passed
- *   as a slot.
+ * - Pro users: one set-based RPC call with every beach and candidate slot.
  * - Recommendations missing `beach.id` are filtered before the bulk call but
  *   still receive `similarity: null` in the output (preserves array length).
  */
@@ -157,66 +147,28 @@ export async function applySimilarityLayer(
     };
   }
 
-  const indexesByBeach = new Map<string, number[]>();
-  recommendations.forEach((rec, index) => {
-    const beachId = rec.beach?.id;
-    if (!beachId) return;
-    const indexes = indexesByBeach.get(beachId) ?? [];
-    indexes.push(index);
-    indexesByBeach.set(beachId, indexes);
-  });
-
-  const similarityByIndex: SimilarityRecommendation[] =
-    recommendations.map(() => null);
-
-  const beaches = indexesByBeach.entries();
-  // Bound the database burst without letting one slow beach stall the queue.
-  await Promise.all(Array.from(
-    { length: Math.min(MATCH_RPC_CONCURRENCY, indexesByBeach.size) },
-    async () => {
-      for (const [beachId, indexes] of beaches) {
-        try {
-          const { data, error } = await supabase.rpc(
-            "compute_user_match_score_batch",
-            {
-              p_user_id: userId,
-              p_beach_id: beachId,
-              p_slots: indexes.map((index) =>
-                forecastToMatchSlot(
-                  recommendations[index].forecast,
-                  recommendations[index].window?.start instanceof Date
-                    ? recommendations[index].window.start.toISOString()
-                    : String(recommendations[index].window?.start ?? ""),
-                ),
-              ),
-            },
-          );
-
-          if (error) {
-            log.warn(
-              `Bulk match-score RPC error for beach=${beachId}: ${error.message}`,
-            );
-            continue;
-          }
-
-          const rowsBySlot = new Map(
-            ((data ?? []) as BatchRpcRow[]).map((row) => [row.slot_idx, row]),
-          );
-          indexes.forEach((recommendationIndex, slotIndex) => {
-            similarityByIndex[recommendationIndex] = interpretRpcResult(
-              rowsBySlot.get(slotIndex)?.result ?? null,
-            );
-          });
-        } catch (err) {
-          log.warn(
-            `Bulk match-score RPC threw for beach=${beachId}: ${
-              err instanceof Error ? err.message : String(err)
-            }`,
-          );
-        }
-      }
-    },
-  ));
+  const valid = recommendations.filter((rec) => rec.beach?.id && Number.isFinite(Date.parse(rec.forecast?.forecast_at)));
+  if (!valid.length) return { recommendations: recommendations.map((rec) => ({ ...rec, similarity: null })) };
+  const similarityByIndex: SimilarityRecommendation[] = recommendations.map(() => null);
+  try {
+    const { data, error } = await supabase.rpc("get_week_scout_personalization", {
+      p_user_id: userId,
+      p_beach_ids: [...new Set(valid.map((rec) => rec.beach.id))],
+      p_slots: valid.map((rec) => ({ beach_id: rec.beach.id, ...forecastToMatchSlot(rec.forecast) })),
+    });
+    if (error) throw new Error(error.message);
+    const matches = new Map<string, Record<string, unknown> | null>(
+      (data?.matches ?? []).map((row: { beach_id: string; forecast_at: string; result: Record<string, unknown> | null }) =>
+        [`${row.beach_id}:${Date.parse(row.forecast_at)}`, row.result]),
+    );
+    recommendations.forEach((rec, index) => {
+      if (!rec.beach?.id || !rec.forecast) return;
+      const match = interpretRpcResult(matches.get(`${rec.beach.id}:${Date.parse(rec.forecast.forecast_at)}`) ?? null);
+      similarityByIndex[index] = match;
+    });
+  } catch (error) {
+    log.warn("Set-based match scoring unavailable", error);
+  }
 
   return {
     recommendations: recommendations.map((rec, index) => ({

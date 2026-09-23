@@ -1006,6 +1006,28 @@ describe("condition-alert-evaluate — surfability gate", () => {
     expect(body.skipped_unsurfable).toBe(1);
   });
 
+  it("gates a range forecast on its upper bound, not its midpoint", async () => {
+    seedRule();
+    seedProfile();
+    seedBeach({ break_type: "reef" });
+    // "1-2.5 ft": midpoint 1.75 is below the 2.0ft reef minimum, but the upper
+    // bound clears it, so the alert must still queue.
+    pushForecast("2026-04-26T14:00:00Z", 1);
+    store.forecasts[store.forecasts.length - 1].wave_height = "1-2.5 ft";
+    seedWindow({
+      startISO: "2026-04-26T14:00:00Z",
+      endISO: "2026-04-26T15:00:00Z",
+      snapshotWaveHeight: 1,
+    });
+
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+
+    const body = await res.json();
+    expect(body.skipped_unsurfable).toBe(0);
+    expect(body.queued).toBe(1);
+  });
+
   it("uses 2.0ft minimum for canonical break_type 'reef' (not the 1.5ft default)", async () => {
     seedRule();
     seedProfile();

@@ -16,6 +16,7 @@
 // Forecast shadow mode runs hold, canonical, and channel checks, records the
 // outcome, and consumes queue rows without calling an outbound provider.
 
+import { persistableSessionDecision } from "@/lib/recommendations/canonical-decision/contract";
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { validateCronRequest } from "@/lib/middleware/api-wrappers";
@@ -1652,7 +1653,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                       ...(topPolicyContext
                         ? { policy_context: topPolicyContext }
                         : {}),
-                      session_decision: pushDecision,
+                      session_decision: persistableSessionDecision(pushDecision),
                       queue_items: pushSurvivors.map((s) => ({
                         queue_id: s.id,
                         rule_id: s.rule_id,

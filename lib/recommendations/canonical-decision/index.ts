@@ -1,4 +1,4 @@
-export { buildCanonicalSessionDecision } from "./engine";
+export { buildCanonicalSessionDecision, candidateHasSafetyVeto } from "./engine";
 export {
 
   parseCanonicalSessionDecision,

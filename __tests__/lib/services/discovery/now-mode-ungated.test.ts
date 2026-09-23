@@ -1,4 +1,13 @@
-/** Regression: Now and scoped calls share the daylight session gate. */
+/** @jest-environment node */
+jest.mock('@/lib/middleware/api-wrappers', () => {
+  const actual = jest.requireActual('@/lib/middleware/api-wrappers');
+  return { ...actual, withAuth: (handler: (request: Request, context: unknown) => unknown) => (request: Request) => handler(request, {
+    user: { id: 'test-user' }, params: {}, supabase: require('@/lib/supabase/server').createSupabaseServiceRoleClient(),
+  }), withRateLimit: (handler: unknown) => handler };
+});
+jest.mock('@/lib/services/forecast/v5-display-gate', () => ({ applyV51DisplayOverrideToForecasts: async (rows: unknown[]) => rows }));
+jest.mock('@/lib/recommendations/major-event-hold/config', () => ({ MAJOR_EVENT_HOLD_MODE: 'off' }));
+/** NOW and scoped current-row calls score independently of usable light. */
 
 import * as windowScorer from '@/lib/services/discovery/window-selector/window-scorer';
 import pontoSnapshot from '@/__tests__/fixtures/ponto-now-window-20260911.json';
@@ -35,6 +44,9 @@ const mockBeach: Partial<Beach> = {
 
 const mockState = {
   forecasts: [] as Partial<EnhancedForecastEntity>[],
+  matchEnabled: false,
+  favorites: [] as Beach[],
+  customSpots: [] as Array<Record<string, unknown>>,
   userSkillLevel: 'intermediate' as 'intermediate' | null,
   sunTimeRows: SUN_TIME_ROWS as Array<Record<string, unknown>>,
 };
@@ -45,14 +57,16 @@ const mockState = {
  * are enough — the assertions here are about window selection, not queries.
  */
 function makeQuery(rows: unknown[]): unknown {
+  let single = false;
   const chain: unknown = new Proxy(
     {},
     {
       get(_target, prop) {
         if (typeof prop === 'symbol') return undefined;
+        if (prop === 'single' || prop === 'maybeSingle') return () => { single = true; return chain; };
         if (prop === 'then') {
           return (resolve: (value: { data: unknown[]; error: null }) => unknown) =>
-            Promise.resolve(resolve({ data: rows, error: null }));
+            Promise.resolve(resolve({ data: (single ? rows[0] ?? null : rows) as unknown[], error: null }));
         }
         return () => chain;
       },
@@ -69,6 +83,10 @@ jest.mock('@/lib/services/discovery/window-selector/window-scorer', () => {
 jest.mock('@/lib/supabase/server', () => ({
   createSupabaseServiceRoleClient: jest.fn(() => ({
     from: jest.fn((table: string) => {
+      if (table === 'beaches') return makeQuery([mockBeach]);
+      if (table === 'profiles') return makeQuery([{ experience_level: 'intermediate' }]);
+      if (table === 'user_entitlements') return makeQuery([{ is_pro: true }]);
+      if (table === 'enhanced_forecasts') return makeQuery(mockState.forecasts);
       if (table === 'sun_times') return makeQuery(mockState.sunTimeRows);
       if (table === 'county_beach_advisory_runs') {
         return makeQuery([
@@ -82,7 +100,14 @@ jest.mock('@/lib/supabase/server', () => ({
       }
       return makeQuery([]);
     }),
-    rpc: jest.fn(async () => ({ data: [], error: null })),
+    rpc: jest.fn(async (name: string, args: { p_slots?: Array<{ beach_id: string; forecast_at: string }> }) => {
+      const personalization = { entitlement: { is_pro: true }, matches: (args.p_slots ?? []).map((slot) => ({
+        ...slot, result: { state: 'ready', score: 6.4, label: 'FAIR', confidence: 'high', sessions_in_profile: 39, reason_bullets: ['Similar conditions'] },
+      })) };
+      if (name === 'get_week_scout_personalization') return { data: mockState.matchEnabled ? personalization : { matches: [] }, error: null };
+      if (name === 'get_bulk_forecast_decision_context') return { data: { beaches: [mockBeach], profile: { experience_level: 'intermediate' }, boards: [], sun_times: mockState.sunTimeRows, personalization, water_quality: { county_beach_advisory_runs: [{ id: 'run', fetched_at: new Date().toISOString(), status: 'completed', source_identifier: 'county-san-diego-dehq-sdbeachinfo' }] } }, error: null };
+      return { data: [], error: null };
+    }),
   })),
 }));
 
@@ -98,8 +123,8 @@ jest.mock('@/lib/services/discovery/candidate-pool-builder', () => ({
 }));
 
 jest.mock('@/lib/services/discovery/forecast-batch-fetcher', () => ({
-  batchFetchForecasts: jest.fn(async () => ({
-    successful: [{ beach: mockBeach, forecasts: mockState.forecasts }],
+  batchFetchForecasts: jest.fn(async (beaches: Beach[]) => ({
+    successful: beaches.map((beach) => ({ beach, forecasts: mockState.forecasts.map((row) => ({ ...row, beach_id: beach.id })) })),
     failed: [],
     staleCount: 0,
   })),
@@ -108,8 +133,8 @@ jest.mock('@/lib/services/discovery/forecast-batch-fetcher', () => ({
 jest.mock('@/lib/services/discovery/response-formatter', () => ({
   enrichWithPhotos: jest.fn(async (recs: unknown[]) => recs),
   generateDiscoverySummary: jest.fn(() => 'Good conditions'),
-  getRecommendationLabel: jest.fn(() => 'Worth it'),
-  getRecommendationLabelGated: jest.fn(() => 'Worth it'),
+  getRecommendationLabel: jest.fn((score: number) => score >= 70 ? 'Worth it' : score >= 40 ? 'Maybe' : 'Skip'),
+  getRecommendationLabelGated: jest.fn((score: number) => score >= 70 ? 'Worth it' : score >= 40 ? 'Maybe' : 'Skip'),
   buildDiscoveryMessage: jest.fn(() => 'Worth it — Good conditions'),
 }));
 
@@ -134,7 +159,7 @@ jest.mock('@/lib/services/preference-learning-service', () => ({
 }));
 
 jest.mock('@/lib/services/beach-query-service', () => ({
-  getFavoriteBeachesFromDb: jest.fn(async () => ({ success: true, data: [] })),
+  getFavoriteBeachesFromDb: jest.fn(async () => ({ success: true, data: mockState.favorites, customSpots: mockState.customSpots })),
 }));
 
 jest.mock('@/lib/utils/timezone-utils.server', () => ({
@@ -225,6 +250,19 @@ function forecastAt(id: string, iso: string): Partial<EnhancedForecastEntity> {
   } as Partial<EnhancedForecastEntity>;
 }
 
+function forecastAtLocal(
+  id: string,
+  forecastAtUtc: string,
+  forecastDate: string,
+  forecastTime: string,
+): Partial<EnhancedForecastEntity> {
+  return {
+    ...forecastAt(id, forecastAtUtc),
+    forecast_date: forecastDate,
+    forecast_time: `${forecastTime}:00`,
+  };
+}
+
 async function discoverNow() {
   return discoverSurfSpots(USER_ID, {
     userLocation: USER_LOCATION,
@@ -233,7 +271,15 @@ async function discoverNow() {
   });
 }
 
-describe('discoverSurfSpots - now mode uses scoped-call daylight rules', () => {
+async function discoverScoped(forecastAt: string) {
+  return discoverSurfSpots(USER_ID, {
+    userLocation: USER_LOCATION,
+    forecastAt,
+    maxResults: 5,
+  });
+}
+
+describe('discoverSurfSpots - now mode attaches light without gating scores', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
@@ -244,28 +290,91 @@ describe('discoverSurfSpots - now mode uses scoped-call daylight rules', () => {
   afterEach(() => {
     jest.useRealTimers();
   });
-  it('returns no window before the scoped-call 6am floor', async () => {
-    // 05:55 PDT on 2026-04-15, ~26 min before sunrise.
+  it('accepts a pre-sunrise bucket when its interval overlaps first light', async () => {
+    // 05:55 PDT on 2026-04-15; the bucket runs 05:00–08:00 and first light is 05:51.
     jest.setSystemTime(new Date('2026-04-15T12:55:00.000Z'));
     mockState.forecasts = [
-      forecastAt('dawn-bucket', '2026-04-15T12:00:00.000Z'), // 05:00 PDT
-      forecastAt('morning-bucket', '2026-04-15T15:00:00.000Z'), // 08:00 PDT
+      forecastAtLocal('dawn-bucket', '2026-04-15T12:00:00.000Z', '2026-04-15', '05:00'),
+      forecastAtLocal('morning-bucket', '2026-04-15T15:00:00.000Z', '2026-04-15', '08:00'),
     ];
 
     const result = await discoverNow();
 
-    expect(result.recommendations).toEqual([]);
+    expect(result.recommendations[0]?.forecast.id).toBe('dawn-bucket');
   });
-  it.each(['2026-04-16T05:00:00Z', '2026-04-16T01:45:00Z'])('returns no window after dark or with less than one hour of light: %s', async (now) => {
-    jest.setSystemTime(new Date(now));
+  it('returns an after-dark reason and next first light for a dark active bucket', async () => {
+    jest.setSystemTime(new Date('2026-04-16T05:00:00Z')); // 22:00 PDT
     mockState.forecasts = [
-      forecastAt('evening', '2026-04-16T01:00:00Z'),
-      forecastAt('night', '2026-04-16T03:00:00Z'),
-      forecastAt('late', '2026-04-16T06:00:00Z'),
+      forecastAtLocal('evening', '2026-04-16T04:00:00Z', '2026-04-15', '21:00'),
+      forecastAtLocal('night', '2026-04-16T06:00:00Z', '2026-04-15', '23:00'),
     ];
-    expect((await discoverNow()).recommendations).toEqual([]);
+    const result = await discoverNow();
+    expect(result.recommendations).toHaveLength(1);
+    expect(result.isDark).toBe(true);
+    expect(result.daylightAvailability).toMatchObject({ reasonCode: 'after_dark' });
+    expect(result.daylightAvailability?.nextWindowStart).toBe('2026-04-16T13:00:00.000Z');
   });
-  it('still trims the window end at sunset while sunset is ahead', async () => {
+  it('scores the dark current row when later good rows extend through dawn', async () => {
+    jest.setSystemTime(new Date('2026-04-16T09:00:00Z')); // 02:00 PDT
+    mockState.forecasts = ['02:00', '03:00', '04:00', '05:00', '06:00'].map((time) =>
+      forecastAtLocal(
+        time,
+        `2026-04-16T${String(Number(time.slice(0, 2)) + 7).padStart(2, '0')}:00:00Z`,
+        '2026-04-16',
+        time,
+      ),
+    );
+
+    const result = await discoverNow();
+
+    expect(result.recommendations).toHaveLength(1);
+    expect(result.isDark).toBe(true);
+    expect(result.daylightAvailability).toMatchObject({ reasonCode: 'after_dark' });
+  });
+  it('returns after-dark when no forecast bucket covers the dark current time', async () => {
+    jest.setSystemTime(new Date('2026-04-16T05:00:00Z')); // 22:00 PDT
+    mockState.forecasts = [];
+
+    const result = await discoverNow();
+
+    expect(result.recommendations).toEqual([]);
+    expect(result.daylightAvailability).toMatchObject({
+      reasonCode: 'after_dark',
+      nextWindowStart: '2026-04-16T13:00:00.000Z',
+    });
+  });
+  it('returns after-dark guidance for a scoped call at a dark forecast hour', async () => {
+    const forecastAt = '2026-04-16T09:00:00.000Z'; // 02:00 PDT
+    jest.setSystemTime(new Date(forecastAt));
+    mockState.forecasts = ['02:00', '03:00', '04:00', '05:00', '06:00'].map((time) =>
+      forecastAtLocal(
+        `scoped-${time}`,
+        `2026-04-16T${String(Number(time.slice(0, 2)) + 7).padStart(2, '0')}:00:00Z`,
+        '2026-04-16',
+        time,
+      ),
+    );
+
+    const result = await discoverScoped(forecastAt);
+
+    expect(result.recommendations).toHaveLength(1);
+    expect(result.isDark).toBe(true);
+    expect(result.daylightAvailability).toMatchObject({
+      reasonCode: 'after_dark',
+      nextWindowStart: '2026-04-16T13:00:00.000Z',
+    });
+  });
+  it('keeps a sunset-edge active bucket through the last-light allowance', async () => {
+    jest.setSystemTime(new Date('2026-04-16T01:45:00Z')); // 18:45 PDT
+    mockState.forecasts = [
+      forecastAtLocal('evening', '2026-04-16T01:00:00Z', '2026-04-15', '18:00'),
+      forecastAtLocal('night', '2026-04-16T04:00:00Z', '2026-04-15', '21:00'),
+    ];
+    const result = await discoverNow();
+    expect(result.recommendations[0]?.forecast.id).toBe('evening');
+    expect(result.recommendations[0]?.window.end).toEqual(new Date('2026-04-16T04:00:00Z'));
+  });
+  it('preserves current forecast context beyond sunset', async () => {
     // 18:30 PDT on 2026-04-15, one hour before the 19:31 sunset.
     jest.setSystemTime(new Date('2026-04-16T01:30:00.000Z'));
     mockState.forecasts = [
@@ -277,7 +386,7 @@ describe('discoverSurfSpots - now mode uses scoped-call daylight rules', () => {
 
     expect(result.recommendations).toHaveLength(1);
     expect(result.recommendations[0].forecast.id).toBe('evening-bucket');
-    expect(result.recommendations[0].window.end).toEqual(new Date('2026-04-16T02:31:00.000Z'));
+    expect(result.recommendations[0].window.end).toEqual(new Date('2026-04-16T04:00:00.000Z'));
   });
   it('keeps equally suitable forecasts open beyond the next data timestamp', async () => {
     jest.setSystemTime(new Date('2026-04-15T16:57:00Z'));
@@ -323,19 +432,20 @@ describe('discoverSurfSpots - now mode uses scoped-call daylight rules', () => {
     expect(result.recommendations[0].forecast.id).toBe('hour-15');
     expect(result.recommendations[0].window.end).toEqual(new Date('2026-04-15T18:00:00Z'));
   });
-  it('caps an extended run at sunset instead of the next forecast boundary', async () => {
+  it('preserves an extended run beyond last light', async () => {
     jest.setSystemTime(new Date('2026-04-16T00:30:00Z'));
     mockState.forecasts = [0, 1, 2, 3, 4].map((hour) =>
       forecastAt(`hour-${hour}`, new Date(Date.UTC(2026, 3, 16, hour)).toISOString()));
     const result = await discoverNow();
-    expect(result.recommendations[0].window.end).toEqual(new Date('2026-04-16T02:31:00Z'));
+    expect(result.recommendations[0].window.end).toEqual(new Date('2026-04-16T04:00:00Z'));
   });
   it('does not extend a night reading into the next beach-local day', async () => {
     jest.setSystemTime(new Date('2026-04-16T04:30:00Z'));
     mockState.forecasts = [3, 6, 9, 12].map((hour) =>
       forecastAt(`hour-${hour}`, new Date(Date.UTC(2026, 3, 16, hour)).toISOString()));
     const result = await discoverNow();
-    expect(result.recommendations).toEqual([]);
+    expect(result.recommendations[0].window.end).toEqual(new Date('2026-04-16T06:00:00Z'));
+    expect(result.isDark).toBe(true);
   });
   it.each([15, 16])('lets matching consecutive-day forecasts repeat a supported end on April %s', async (day) => {
     jest.setSystemTime(new Date(Date.UTC(2026, 3, day, 16, 57)));
@@ -386,4 +496,120 @@ describe('discoverSurfSpots - now mode uses scoped-call daylight rules', () => {
     }
   });
 
+});
+
+describe('September 23 Ponto NOW regression', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    mockState.sunTimeRows = [{ beach_id: 'beach-1', sunrise_utc: '2026-09-23T13:39:00Z', sunset_utc: '2026-09-24T01:45:00Z' }];
+    mockState.forecasts = require('@/__tests__/fixtures/ponto-now-20260923.json');
+    jest.mocked(windowScorer.scoreWindowConditionScore).mockReturnValue(94);
+  });
+  afterEach(() => {
+    jest.mocked(windowScorer.scoreWindowConditionScore).mockImplementation(jest.requireActual('@/lib/services/discovery/window-selector/window-scorer').scoreWindowConditionScore);
+    jest.useRealTimers();
+  });
+  it.each([
+    ['06:00', '13:00', '12:00', true], ['06:30', '13:30', '12:00', false],
+    ['09:00', '16:00', '15:00', false], ['02:00', '09:00', '09:00', true],
+  ])('scores NOW at %s PT with context covering the supporting row', async (_local, utc, support, dark) => {
+    jest.setSystemTime(new Date(`2026-09-23T${utc}:00Z`));
+    const supportAt = `2026-09-23T${support}:00.000Z`;
+    for (const response of [await discoverNow(), await discoverScoped(supportAt)]) {
+      const rec = response.recommendations[0];
+      expect(response.recommendations).toHaveLength(1);
+      expect(rec.score).toBe(94);
+      expect(rec.verdict).toBe('go');
+      expect(rec.conditionLabel).toBe('EPIC');
+      expect(rec.window.start.getTime()).toBeLessThanOrEqual(Date.parse(supportAt));
+      expect(rec.window.end.getTime()).toBeGreaterThan(Date.now());
+      expect(response).toMatchObject({ firstLight: '2026-09-23T13:09:00.000Z', lastLight: '2026-09-24T02:05:00.000Z', isDark: dark });
+      expect(response.nextWindowStart).toBe(dark ? '2026-09-23T13:09:00.000Z' : undefined);
+    }
+  });
+});
+
+
+describe('My Spots 72-hour daylight selection', () => {
+  beforeEach(() => {
+    jest.useFakeTimers({ now: new Date('2026-04-15T16:00:00Z') });
+    mockState.sunTimeRows = SUN_TIME_ROWS;
+    mockState.favorites = [mockBeach as Beach];
+    mockState.customSpots = [];
+    mockState.forecasts = [
+      { ...forecastAt('today', '2026-04-15T18:00:00Z'), wave_height: '0.5 ft', wave_period: '5s' },
+      { ...forecastAt('tomorrow', '2026-04-16T16:00:00Z'), wave_height: '3 ft', wave_period: '15s', wind_speed: '3 mph' },
+      { ...forecastAt('too-late', '2026-04-19T16:00:00Z'), wave_height: '3 ft', wave_period: '18s', wind_speed: '0 mph' },
+    ];
+  });
+  afterEach(() => { mockState.favorites = []; mockState.customSpots = []; jest.useRealTimers(); });
+  const saved = () => discoverSurfSpots(USER_ID, { userLocation: USER_LOCATION, savedSpotsOnly: true, horizonHours: 72 });
+  it('scans the full 72h daylight horizon and finds tomorrow instead of preferring today', async () => {
+    const response = await saved();
+    expect(response.recommendations).toHaveLength(1);
+    expect(response.recommendations[0].forecast.id).toBe('tomorrow');
+    // Best next 72h keeps main's today-first selection; only My Spots scans all 72h.
+    expect(response.recommendations[0].window.start.getTime()).toBeGreaterThan(Date.now());
+    expect(response.recommendations[0].window.end.getTime()).toBeLessThanOrEqual(Date.now() + 72 * 3600000);
+  });
+  it('returns an explicit empty reason when no saved spots are worth recommending', async () => {
+    mockState.forecasts = [{ ...forecastAt('flat', '2026-04-15T18:00:00Z'), wave_height: '0.1 ft', wave_period: '3s', wind_speed: '35 mph' }];
+    const response = await saved();
+    expect(response.recommendations).toEqual([]);
+    expect(response.emptyReason).toBe('no_recommendable_saved_window_72h');
+  });
+  it('excludes unsaved nearby spots', async () => {
+    mockState.favorites = [];
+    const response = await saved();
+    expect(response.recommendations).toEqual([]);
+    expect(response.emptyReason).toBe('no_recommendable_saved_window_72h');
+  });
+  it('includes saved custom spots beyond the nearby radius', async () => {
+    mockState.favorites = [];
+    mockState.customSpots = [{ id: 'custom-saved', name: 'Saved custom', user_id: USER_ID, visibility: 'private',
+      lat: 34, lon: -118, nearest_beach_id: 'beach-1', nearest_beach_distance_mi: 1, deleted_at: null,
+      break_type: 'beach', facing_direction_deg: 270, swell_window_min_deg: 180, swell_window_max_deg: 300,
+      offshore_direction_deg: 90, exposure_level: 'open',
+    }];
+    const response = await saved();
+    expect(response.recommendations).toHaveLength(1);
+    expect(response.recommendations[0]).toMatchObject({ kind: 'custom_spot', customSpotId: 'custom-saved' });
+  });
+});
+
+
+describe('Ponto public response parity', () => {
+  const id = '00000000-0000-4000-8000-000000000001';
+  beforeEach(() => {
+    jest.useFakeTimers({ now: new Date('2026-09-23T16:00:00Z') });
+    mockBeach.id = id;
+    mockState.matchEnabled = true;
+    mockState.forecasts = require('@/__tests__/fixtures/ponto-now-20260923.json').map((row: EnhancedForecastEntity) => ({ ...row, beach_id: id }));
+    mockState.sunTimeRows = [{ beach_id: id, sunrise_utc: '2026-09-23T13:39:00Z', sunset_utc: '2026-09-24T01:45:00Z' }];
+    jest.mocked(windowScorer.scoreWindowConditionScore).mockReturnValue(94);
+  });
+  afterEach(() => {
+    mockBeach.id = 'beach-1'; mockState.matchEnabled = false;
+    jest.mocked(windowScorer.scoreWindowConditionScore).mockImplementation(jest.requireActual('@/lib/services/discovery/window-selector/window-scorer').scoreWindowConditionScore);
+    jest.useRealTimers();
+  });
+  it('returns go / EPIC / 94 with the same FAIR match on surf/call, bulk and discover now', async () => {
+    const { GET: call } = require('@/app/api/surf/call/route');
+    const { GET: discover } = require('@/app/api/surf/discover/route');
+    const { GET: bulk } = require('@/app/api/forecasts/bulk/route');
+    const { NextRequest } = require('next/server');
+    const callResponse = await call(new Request(`http://localhost/api/surf/call?beachId=${id}&forecastAt=2026-09-23T15:00:00Z`));
+    const discoverResponse = await discover(new Request('http://localhost/api/surf/discover?lat=32.7&lon=-117.1&mode=now'));
+    const bulkResponse = await bulk(new NextRequest(`http://localhost/api/forecasts/bulk?beachIds=${id}&forecastAt=2026-09-23T15:00:00Z`));
+    expect([callResponse.status, discoverResponse.status, bulkResponse.status]).toEqual([200, 200, 200]);
+    const c = (await callResponse.json()).data;
+    const d = (await discoverResponse.json()).data;
+    const b = (await bulkResponse.json()).data;
+    expect(c.sessionDecision.selection.evidence.personalMatch).toMatchObject({ label: 'FAIR', score: 6.4, sessionCount: 39 });
+    expect(d.recommendations[0].similarity).toMatchObject({ label: 'FAIR', score: 6.4, sessionCount: 39 });
+    expect([c.sessionDecision.verdict, d.recommendations[0].verdict, b.verdicts[id]]).toEqual(['go', 'go', 'go']);
+    expect([c.conditionLabel, d.recommendations[0].conditionLabel, b.conditionLabels[id]]).toEqual(['EPIC', 'EPIC', 'EPIC']);
+    expect([c.report.score, d.recommendations[0].score, b.conditionScores[id]]).toEqual([94, 94, 94]);
+    expect(Date.parse(c.forecastContext.selectedWindowStart)).toBeLessThanOrEqual(Date.parse('2026-09-23T15:00:00Z'));
+  });
 });
