@@ -1,6 +1,6 @@
 "use client";
 
-import { mapSwellPartition } from "@/app/api/forecasts/bulk/swell-partition";
+import { mapSwellPartition } from "@/lib/domains/conditions/map-forecast";
 
 import {
   Children,
@@ -68,7 +68,7 @@ import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 import type {
   HourlySwellTimeline,
   SwellPartition,
-} from "@/app/api/forecasts/bulk/route";
+} from "@/lib/domains/conditions/map-forecast";
 import {
   degreesToCompass,
   SWELL_FIELD_PARTICLE_COLOR,

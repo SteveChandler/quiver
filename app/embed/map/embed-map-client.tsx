@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type mapboxgl from "mapbox-gl";
 import type { Beach } from "@/types/database";
-import type { HourlySwellTimeline } from "@/app/api/forecasts/bulk/route";
+import type { HourlySwellTimeline } from "@/lib/domains/conditions/map-forecast";
 import type { SwellLayerId } from "@/components/map/swell-map-theme";
 import type { MapSpotConditions } from "@/components/map/interactive-map";
 import {

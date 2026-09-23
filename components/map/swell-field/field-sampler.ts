@@ -1,9 +1,9 @@
-import { mapSwellPartition } from "@/app/api/forecasts/bulk/swell-partition";
+import { mapSwellPartition } from "@/lib/domains/conditions/map-forecast";
 import type { SwellLayerId } from "@/components/map/swell-map-theme";
 import {
   interpolateSwellPartition,
   type SwellPartition,
-} from "@/app/api/forecasts/bulk/swell-partition";
+} from "@/lib/domains/conditions/map-forecast";
 
 export { interpolateSwellPartition };
 

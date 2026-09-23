@@ -130,11 +130,30 @@ export function buildOutreachDigest(
     (row) => row.category === category && row.status === "queued",
   );
 
+  // The no-email guard holds contactless rows at "queued" indefinitely, so selecting on
+  // status alone re-offers targets that cannot lawfully be drafted — every run then spends
+  // itself re-deriving the same rejection. Split them out: `candidates` is what a drafter
+  // may actually act on, `blockedOnContactResearch` is the research backlog.
+  const draftable = queued.filter((row) => hasDirectEmail(row));
+  const blockedOnContactResearch = queued
+    .filter((row) => !hasDirectEmail(row))
+    .map((row) => ({
+      target: row.target,
+      website: row.website,
+      contact: row.contact,
+      notes: row.notes,
+    }));
+
   if (markdown.trim() && queued.length === 0) {
     missing.push(`No queued outreach targets for rotation category "${category}"`);
+  } else if (markdown.trim() && draftable.length === 0) {
+    missing.push(
+      `No draftable outreach targets for rotation category "${category}": all ` +
+        `${blockedOnContactResearch.length} queued row(s) lack a verified email address`,
+    );
   }
 
-  const candidates = queued
+  const candidates = draftable
     .slice(0, maxCandidates)
     .map((row) => buildDraftCandidate(row, category));
 
@@ -146,6 +165,7 @@ export function buildOutreachDigest(
     statusCounts,
     totalRows,
     candidates,
+    blockedOnContactResearch,
     missing,
   };
 }
@@ -287,10 +307,11 @@ function buildRow(
     return undefined;
   };
 
-  // Header cells in the live tracker are "Beach slug (verified 200)" and
-  // "Nearest Beach (verified 200)". Neither normalizes to "nearestbeach", so the
-  // exact-match lookup always returned undefined and every draft fell back to the
-  // "your local breaks" placeholder. Match on prefix instead.
+  // Header cells in the live tracker are "Beach slug (verified 200)",
+  // "Nearest Beach (verified 200)" and "Contact channel (verified)". None of them
+  // normalizes to a bare "nearestbeach"/"contact", so the exact-match lookup always
+  // returned undefined: every draft fell back to the "your local breaks" placeholder,
+  // and every surf-school row looked as though it had no email address. Match on prefix.
   const getPrefix = (prefixes: string[]): string | undefined => {
     for (const prefix of prefixes) {
       const index = header.findIndex((name) => name.startsWith(prefix));
@@ -313,7 +334,7 @@ function buildRow(
     category,
     target,
     website: get(["website", "websitechannel", "url", "directory"]),
-    contact: get(["contact"]),
+    contact: getPrefix(["contact"]),
     nearestBeach: getPrefix(["nearestbeach", "beachslug"]),
     angle: get(["angle"]),
     notes: get(["notes", "reason"]),

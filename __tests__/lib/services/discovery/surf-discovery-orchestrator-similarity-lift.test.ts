@@ -120,7 +120,7 @@ jest.mock('@/lib/services/discovery/response-formatter', () => ({
   generateDiscoverySummary: jest.fn(() => 'Good conditions'),
   getRecommendationLabel: jest.fn(() => 'Worth it'),
   getRecommendationLabelGated: jest.fn(() => 'Worth it'),
-  buildDiscoveryMessage: jest.fn(() => 'Worth it — Good conditions'),
+  buildDiscoveryMessage: jest.requireActual('@/lib/services/discovery/response-formatter').buildDiscoveryMessage,
 }));
 
 jest.mock('@/lib/services/preference-learning-service', () => ({
@@ -247,6 +247,7 @@ jest.mock('@/lib/services/discovery/similarity-layer', () => ({
 }));
 
 // Import after mocks
+import { buildCandidatePool } from '@/lib/services/discovery/candidate-pool-builder';
 import { discoverSurfSpots } from '@/lib/services/discovery/surf-discovery-orchestrator';
 import { calculatePersonalizationBonus } from '@/lib/services/discovery/personalization-layer';
 
@@ -350,6 +351,33 @@ describe('discoverSurfSpots — personal match evidence stays separate from phys
     const beach1 = result.recommendations.find((r) => r.beach.id === 'beach-1');
     expect(beach1?.score).toBe(75);
     expect(beach1?.similarity).toBeNull();
+  });
+
+  it('uses the canonical personal verdict on ranked and explicitly included recommendations without reordering', async () => {
+    jest.mocked(buildCandidatePool).mockResolvedValueOnce({
+      candidates: candidateBeaches as Beach[], userSkillLevel: 'advanced',
+    });
+    applySimilarityLayerMock.mockImplementation(async ({ recommendations }: { recommendations: SurfDiscoveryRecommendation[] }) => ({
+      recommendations: recommendations.map((rec) => ({
+        ...rec,
+        similarity: {
+          state: 'ready', score: 6, label: 'FAIR', bonusApplied: 0,
+          confidence: 'high', reason: 'History', reasons: ['History'], sessionCount: 20,
+        },
+      })),
+    }));
+    const result = await discoverSurfSpots('user-pro', {
+      userLocation, maxResults: 5, isPro: true, includeBeachIds: ['beach-6'],
+    });
+    expect(result.recommendations.map((rec) => rec.beach.id)).toEqual([
+      'beach-1', 'beach-2', 'beach-3', 'beach-4', 'beach-5',
+    ]);
+    expect(result.includedRecommendations).toHaveLength(1);
+    for (const rec of [...result.recommendations, ...result.includedRecommendations!]) {
+      expect(rec.recommendationLabel).toBe('Maybe');
+      expect(rec.message).toMatch(/^Maybe - /);
+      expect(rec.score).toBe(mockBaseScores[rec.beach.id]);
+    }
   });
 
   it('free user (isPro:false) keeps physical fallback ranking', async () => {

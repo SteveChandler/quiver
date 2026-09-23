@@ -10,8 +10,9 @@ jest.mock('@/lib/email/lifecycle', () => ({ lifecycleRpc: (...args: unknown[]) =
 const user = '11111111-1111-4111-8111-111111111111';
 const other = '22222222-2222-4222-8222-222222222222';
 const originalFetch = global.fetch;
+const tokenExpiresAt = Math.floor(Date.now() / 1000) + 3600;
 function token(id: string): string {
-  return [Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url'), Buffer.from(JSON.stringify({ sub: id, exp: Math.floor(Date.now()/1000)+3600 })).toString('base64url'), 'fixture'].join('.');
+  return [Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url'), Buffer.from(JSON.stringify({ sub: id, exp: tokenExpiresAt })).toString('base64url'), 'fixture'].join('.');
 }
 let ip = 0;
 function request(headers: Record<string,string>, address?: string): NextRequest {
@@ -29,6 +30,16 @@ beforeEach(() => {
   }) as typeof fetch;
 });
 afterEach(() => { global.fetch = originalFetch; });
+it('keeps the fixture JWT stable across a clock boundary', () => {
+  const expected = token(user);
+  const now = Date.now();
+  const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(now + 2000);
+  try {
+    expect(token(user)).toBe(expected);
+  } finally {
+    nowSpy.mockRestore();
+  }
+});
 it('validates Bearer identity and isolates the owned response', async () => {
   const response = await GET(request({ Authorization: `Bearer ${token(user)}` }));
   expect(response.status).toBe(200); expect(await response.json()).toEqual(fixtures.owned);

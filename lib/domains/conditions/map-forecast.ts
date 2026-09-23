@@ -1,6 +1,42 @@
 import type { EnhancedForecastEntity } from "@/types/forecast";
-import { compassToDegrees } from "@/components/map/swell-map-theme";
 import type { RecommendationLabel } from "@/lib/scoring";
+
+export const MAX_TIMELINE_FIELD_BEACHES = 20;
+
+export type ConditionSummary =
+  | "EPIC"
+  | "GOOD"
+  | "FAIR"
+  | "RIDEABLE"
+  | "MEH"
+  | "UNKNOWN";
+
+export interface HourlySwellTimeline {
+  timestamps: string[];
+  partitionsByBeach: Record<string, Array<SwellPartition | null>>;
+  hasMore: boolean;
+  nextStart: string | null;
+}
+
+const COMPASS_16 = [
+  "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
+  "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW",
+] as const;
+
+export function degreesToCompass(degrees: number): string {
+  if (!Number.isFinite(degrees)) return "—";
+  const normalized = ((degrees % 360) + 360) % 360;
+  const index = Math.round(normalized / 22.5) % 16;
+  return COMPASS_16[index];
+}
+
+export function compassToDegrees(label: string): number | null {
+  if (typeof label !== "string") return null;
+  const index = COMPASS_16.indexOf(
+    label.trim().toUpperCase() as (typeof COMPASS_16)[number]
+  );
+  return index === -1 ? null : index * 22.5;
+}
 
 /**
  * Parsed primary/secondary swell + wind partition for one beach's current
@@ -169,7 +205,7 @@ export function mapSwellPartition(partition: SwellPartition): SwellPartition {
   return { ...partition, s1Dir: partition.swellDirOm, s1HeightFt: partition.swellHeightOmFt, s1PeriodS: partition.swellPeriodOmS, s1Source: "offshore" };
 }
 
-export function conditionSummaryFromScore(score: number): import("./route").ConditionSummary {
+export function conditionSummaryFromScore(score: number): ConditionSummary {
   if (!Number.isFinite(score)) return "UNKNOWN";
   if (score >= 80) return "EPIC";
   if (score >= 70) return "GOOD";

@@ -1,5 +1,5 @@
-import { mapSwellPartition } from "@/app/api/forecasts/bulk/swell-partition";
-import type { SwellPartition } from "@/app/api/forecasts/bulk/route";
+import { mapSwellPartition } from "@/lib/domains/conditions/map-forecast";
+import type { SwellPartition } from "@/lib/domains/conditions/map-forecast";
 import type { Beach } from "@/types/database";
 
 const CONDITIONS_CALLOUT_COLORS = {

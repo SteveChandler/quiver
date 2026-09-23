@@ -1,6 +1,7 @@
 import type { Beach } from "@/types/database";
+import { MAX_TIMELINE_FIELD_BEACHES } from "@/lib/domains/conditions/map-forecast";
 
-export const MAX_TIMELINE_FIELD_BEACHES = 20;
+export { MAX_TIMELINE_FIELD_BEACHES } from "@/lib/domains/conditions/map-forecast";
 
 interface TimelineBeachCandidate {
   beach: Beach;

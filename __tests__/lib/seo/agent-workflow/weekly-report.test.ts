@@ -492,6 +492,7 @@ describe("SEO workflow weekly report", () => {
         rotationWeek: 1,
         rotationCategory: "surf-schools",
         statusCounts: { queued: 4, sent: 1 },
+        blockedOnContactResearch: [],
         totalRows: 5,
         candidates: [{
           target: "Surf Diva",
@@ -523,6 +524,7 @@ describe("SEO workflow weekly report", () => {
         rotationWeek: 1,
         rotationCategory: "surf-schools",
         statusCounts: { queued: 2 },
+        blockedOnContactResearch: [],
         totalRows: 2,
         candidates: [{
           target: "North Shore Surf Girls",
