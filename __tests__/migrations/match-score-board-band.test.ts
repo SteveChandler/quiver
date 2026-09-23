@@ -42,9 +42,6 @@ const BOARD_SHAPE: Record<BoardClass, { lo: number; hi: number }> = {
   bodyboard: { lo: 1, hi: 1 },
 };
 
-const PRODUCTION_WRAPPER_MIGRATION =
-  "20260609201625_session_fit_match_score.sql";
-
 function round1(value: number): number {
   return Math.round(value * 10) / 10;
 }
@@ -112,7 +109,7 @@ describe("match score board band migration", () => {
     }
   }
 
-  it("replaces only compute_user_match_score_core and preserves the wrapper", () => {
+  it("routes the core through shared scoring and preserves wrapper authorization", () => {
     const sql = readMigration();
     const normalizedSql = sql.replace(/\s+/g, " ").toLowerCase();
 
@@ -120,9 +117,8 @@ describe("match score board band migration", () => {
     expect(normalizedSql).toContain(
       "create or replace function public.compute_user_match_score_core",
     );
-    expect(normalizedSql).not.toContain(
-      "create or replace function public.compute_user_match_score(",
-    );
+    expect(normalizedSql).toContain("select result from public.compute_user_match_scores(p_user_id, array[p_beach_id]");
+    expect(normalizedSql).toContain("select coalesce(public.user_match_access_result(p_user_id), public.compute_user_match_score_core(");
     expect(normalizedSql).toContain("grant execute on function public.compute_user_match_score_core");
     expect(normalizedSql).toContain("notify pgrst, 'reload schema'");
   });
@@ -131,10 +127,10 @@ describe("match score board band migration", () => {
     const sql = readMigration();
     const normalizedSql = sql.replace(/\s+/g, " ").toLowerCase();
 
-    expect(normalizedSql).toContain("left join public.boards b on b.id = s.board_id");
-    expect(normalizedSql).toContain("coalesce(s.board_snapshot->>'board_type', b.board_type)");
-    expect(normalizedSql).toContain("coalesce(s.board_snapshot->>'name', b.name)");
-    expect(normalizedSql).toContain("s.rating >= 4");
+    expect(normalizedSql).toContain("left join public.boards boards on boards.id = s.board_id");
+    expect(normalizedSql).toContain("coalesce(s.board_snapshot->>'board_type', boards.board_type)");
+    expect(normalizedSql).toContain("coalesce(s.board_snapshot->>'name', boards.name)");
+    expect(normalizedSql).toContain("from history where eligible and rating >= 4");
     expect(normalizedSql).toContain("s.arrival_time > now() - interval '12 months'");
     expect(normalizedSql).toContain("s.deleted_at is null");
     expect(normalizedSql).toContain("sfs.forecast_snapshot is not null");
@@ -154,15 +150,13 @@ describe("match score board band migration", () => {
   });
 
   it("guards the current core and every SQL board map it defines", () => {
-    const wrapper = readMigration(PRODUCTION_WRAPPER_MIGRATION).toLowerCase();
     const currentCore = readMigration().toLowerCase();
     const currentBoardMaps = boardAliasMaps(currentCore);
 
-    expect(wrapper).toContain("return public.compute_user_match_score_core");
     expect(currentCore).toContain(
       "create or replace function public.compute_user_match_score_core",
     );
-    expect(currentBoardMaps).toHaveLength(2);
+    expect(currentBoardMaps).toHaveLength(1);
 
     for (const boardMap of currentBoardMaps) {
       expectBoardAliasParity(boardMap);
@@ -180,21 +174,21 @@ describe("match score board band migration", () => {
     expect(normalizedSql).toContain("when 'longboard' then 0.5");
     expect(normalizedSql).toContain("when 'shortboard' then 1.15");
     expect(normalizedSql).toContain("when 'foil' then 0.2");
-    expect(normalizedSql).toContain("v_board_band_adjustment := 0.5");
-    expect(normalizedSql).toContain("v_base_score - v_aversion_penalty + v_session_fit_adjustment + v_board_band_adjustment");
+    expect(normalizedSql).toContain("when d.f_wave between board_ideal_min and board_ideal_max then 0.5");
+    expect(normalizedSql).toContain("base_score-aversion_penalty+fit_adjustment+board_adjustment");
   });
 
   it("adds board metadata without removing existing score facts", () => {
     const sql = readMigration();
     const normalizedSql = sql.replace(/\s+/g, " ").toLowerCase();
 
-    expect(normalizedSql).toContain("'board_class', v_board_class");
+    expect(normalizedSql).toContain("'board_class',board_class");
     expect(normalizedSql).toContain("'board_band_adjustment'");
     expect(normalizedSql).toContain("'board_ideal_wave_min_ft'");
     expect(normalizedSql).toContain("'board_ideal_wave_max_ft'");
     expect(normalizedSql).toContain("'fit_signal_adjustment'");
     expect(normalizedSql).toContain("'fit_signal_negative_count'");
-    expect(normalizedSql).toContain("'board_tip', v_board_tip");
+    expect(normalizedSql).toContain("'board_tip',board_tip");
   });
 
   it("scores a small clean forecast higher for a longboard than a shortboard", () => {
