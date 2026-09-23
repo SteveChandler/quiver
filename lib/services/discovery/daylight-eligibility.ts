@@ -6,7 +6,7 @@ export interface BeachSunTimes {
   sunsets: Date[];
 }
 
-export interface UsableLightInterval {
+interface UsableLightInterval {
   start: Date;
   end: Date;
 }

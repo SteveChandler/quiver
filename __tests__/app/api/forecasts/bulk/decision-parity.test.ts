@@ -440,3 +440,15 @@ it("reproduces score 64 for Advanced / Southpoint longboard 2+1 as MAYBE", () =>
     "Maybe",
   );
 });
+
+
+it.each([false, true])('feature-detects board history with one RPC (present: %s)', async (hasHistory) => {
+  const data = rpcData(1, NOW.toISOString());
+  const board = { id: id(500), name: 'Twin pin', board_type: 'thruster', sessions: [] };
+  if (hasHistory) (data.personalization as Record<string, unknown>).boards = [board];
+  mockRpc.mockResolvedValue({ data, error: null });
+  const context = await fetchBulkDecisionContext(id(800), [id(1)], [forecast(1)], NOW, NOW);
+  expect(context.boards).toEqual(hasHistory ? [board] : []);
+  expect(mockRpc).toHaveBeenCalledTimes(1);
+  expect(mockFrom).not.toHaveBeenCalled();
+});

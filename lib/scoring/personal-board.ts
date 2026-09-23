@@ -1,4 +1,4 @@
-import { getConditionBoardPick, type BoardForPick } from './board-pick';
+import { getConditionBoardPick, type BoardForPick } from '@/lib/scoring';
 import { toForecastForScoring } from './types';
 import { swellInterferenceScorer } from '@/lib/domains/scoring/scorers/swell-interference-scorer';
 import { forecastToSnapshot, beachToSpotProfile } from '@/lib/domains/scoring/discovery-adapter';
