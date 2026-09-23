@@ -48,6 +48,7 @@ export interface CanonicalPersonalMatchEvidence {
   label: "EPIC" | "GOOD" | "FAIR" | "RIDEABLE" | "MEH";
   confidence: CanonicalMatchConfidence;
   sessionCount: number;
+  similarSessionCount?: number;
   reasons: string[];
 }
 
@@ -113,6 +114,8 @@ export interface CanonicalSessionDecision {
   /** Additive basis for clients that distinguish missing data from safety overrides. */
   decisionBasisV2?: CanonicalDecisionBasisV2;
   reasonCode: CanonicalDecisionReasonCode;
+  personalAdjustmentReason?: "personal_adjusted_up" | "personal_adjusted_down";
+  conditionLabel?: "EPIC" | "GOOD" | "FAIR" | "MEH";
   selection: CanonicalDecisionSelection | null;
   skillEligibility: {
     skill: CanonicalDecisionSkill;

@@ -1,3 +1,4 @@
+import { recommendBoard, type RecommendedBoard } from "@/lib/scoring/personal-board";
 import type { NextRequest } from "next/server";
 import {
   withAuth,
@@ -70,6 +71,7 @@ interface TimeSlot {
   swellTrains: number;
   dominantBeatIntervalS: number | null;
   forecastDataConfidence: number;
+  recommendedBoard?: RecommendedBoard | null;
   boardClass?: BoardClass | null;
   board?: { id: string; name: string; boardType: string } | null;
   sizeBand?: {
@@ -195,6 +197,9 @@ export function scoreForecastSlots(
       boardClasses.length > 0 ? skillLevel : resolveNativeSkillLevel(skillLevel),
       null, boardClasses,
     );
+    // Additive board advice; scores and boardClass keep main's best-class meaning
+    // so every surface reports the same score for the same hour.
+    const recommendedBoard = recommendBoard(boardsForPicks, forecast, beach, skillLevel);
     const generalScore = scoreWindowConditionDetails(
       forecast,
       beach,
@@ -270,6 +275,7 @@ export function scoreForecastSlots(
       swellTrains,
       dominantBeatIntervalS,
       forecastDataConfidence,
+      recommendedBoard,
       boardClass: scoreDetails.boardClass,
       board: boardPick
         ? {

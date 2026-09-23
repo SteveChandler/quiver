@@ -9,6 +9,7 @@ import { getBatchFreshForecastsFromCache } from "@/lib/utils/forecast-service-ut
 import { DEFAULT_TIMEZONE } from "@/lib/utils/timezone-utils";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import { parseWaveHeightMidpointFt } from "@/lib/alerts/forecast-parsers";
 import type { MajorEventHoldCandidate } from "@/lib/recommendations/major-event-hold/types";
 import { selectBeach } from "@/lib/recommendations/selection";
 
@@ -155,8 +156,8 @@ function verdictForScore(score: number): Verdict {
 
 function objectiveSummary(forecasts: EnhancedForecastEntity[]): string {
   const waveHeights = forecasts
-    .map((forecast) => Number(forecast.wave_height))
-    .filter(Number.isFinite);
+    .map((forecast) => parseWaveHeightMidpointFt(forecast.wave_height))
+    .filter((height): height is number => height !== null);
   const averageWaveHeight =
     waveHeights.length > 0
       ? waveHeights.reduce((sum, height) => sum + height, 0) /

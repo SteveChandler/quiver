@@ -1,5 +1,6 @@
 import "server-only";
 
+import { SCORE_THRESHOLDS } from "@/lib/utils/score-color-utils";
 import { createHash } from "node:crypto";
 
 import {
@@ -120,13 +121,6 @@ function applyVerdictCeiling(
   return verdict;
 }
 
-function capByPhysical(
-  personal: "go" | "maybe" | "no",
-  physical: "go" | "maybe" | "no",
-): "go" | "maybe" | "no" {
-  return VERDICT_RANK[personal] <= VERDICT_RANK[physical] ? personal : physical;
-}
-
 function verdictCeiling(effects: readonly ScoringDecisionEffect[] | undefined): number {
   return (effects ?? []).reduce(
     (current, effect) => Math.min(current, effect.verdictCeiling ?? 100),
@@ -134,33 +128,44 @@ function verdictCeiling(effects: readonly ScoringDecisionEffect[] | undefined): 
   );
 }
 
-function personalMatchVerdict(
-  candidate: CanonicalDecisionCandidate,
-): "go" | "maybe" | "no" | null {
-  const verdict = personalMatchVerdictWithoutCeiling(candidate);
-  return verdict === null ? null : applyVerdictCeiling(verdict, verdictCeiling(candidate.effects));
-}
-
-function personalMatchVerdictWithoutCeiling(
-  candidate: CanonicalDecisionCandidate,
-): "go" | "maybe" | "no" | null {
-  const label = candidate.personalMatch?.label;
-  if (label === "EPIC" || label === "GOOD") return "go";
-  if (label === "FAIR" || label === "RIDEABLE") return "maybe";
-  if (label === "MEH") return "no";
+function personalMatchVerdict(candidate: CanonicalDecisionCandidate): "go" | "maybe" | "no" | null {
+  const match = candidate.personalMatch;
+  // Five comparable sessions with fit feedback uses the existing learning minimum.
+  // High confidence additionally requires 25 profile sessions; absent evidence is neutral.
+  if (!match || match.confidence !== "high" || match.sessionCount < 25 ||
+      (match.similarSessionCount ?? 0) < 5) return null;
+  if (match.label === "GOOD" || match.label === "EPIC") return "go";
+  if (match.label === "MEH") return "no";
   return null;
 }
 
-/** Verdict for an eligible candidate; pool-level safety/hold gates remain in the engine. */
+/** True when the engine's own safety gates will veto this candidate. */
+export function candidateHasSafetyVeto(
+  candidate: CanonicalDecisionCandidate,
+  profileExperience: unknown,
+): boolean {
+  return candidateSafetyReasons(candidate, canonicalSkill(profileExperience)).length > 0;
+}
+
+/** Physical conditions lead; personal evidence moves at most one tier. */
 export function canonicalCandidateVerdict(
   candidate: CanonicalDecisionCandidate,
   profileExperience: unknown,
 ): "go" | "maybe" | "no" {
+  const skill = canonicalSkill(profileExperience);
+  if (candidateSafetyReasons(candidate, skill).length > 0) return "no";
   const physical = physicalVerdictForCandidate(candidate);
-  const personal = canonicalSkill(profileExperience) === "unknown"
-    ? null
-    : personalMatchVerdict(candidate);
-  return personal === null ? physical : capByPhysical(personal, physical);
+  const personal = skill === "unknown" ? null : personalMatchVerdict(candidate);
+  if (personal === null) return physical;
+  const delta = Math.sign(VERDICT_RANK[personal] - VERDICT_RANK[physical]);
+  const adjusted = (["no", "maybe", "go"] as const)[VERDICT_RANK[physical] + delta];
+  return applyVerdictCeiling(adjusted, verdictCeiling(candidate.effects));
+}
+
+export function conditionLabelForVerdict(verdict: "go" | "maybe" | "no", score: number): "EPIC" | "GOOD" | "FAIR" | "MEH" {
+  if (verdict === "no") return "MEH";
+  if (verdict === "maybe") return "FAIR";
+  return score >= SCORE_THRESHOLDS.EPIC ? "EPIC" : "GOOD";
 }
 
 export function recommendationLabelForVerdict(
@@ -281,7 +286,7 @@ export function buildCanonicalSessionDecision(
     .filter(({ reasons }) => reasons.length === 0)
     .map(({ candidate }) => candidate);
   const learnedCandidates = safeCandidates.filter(
-    (candidate) => !isUnknownSkill && personalMatchVerdict(candidate) !== null,
+    (candidate) => !isUnknownSkill && candidate.personalMatch != null,
   );
   const physicallyRecommendableCandidates = safeCandidates.filter(
     (candidate) => physicalVerdictForCandidate(candidate) !== "no",
@@ -401,6 +406,10 @@ export function buildCanonicalSessionDecision(
     decisionBasis,
     decisionBasisV2,
     reasonCode,
+    ...(selected && !safetyOverride && verdict !== physicalVerdictForCandidate(selected)
+      ? { personalAdjustmentReason: VERDICT_RANK[verdict] > VERDICT_RANK[physicalVerdictForCandidate(selected)]
+        ? "personal_adjusted_up" as const : "personal_adjusted_down" as const } : {}),
+    conditionLabel: conditionLabelForVerdict(verdict, selected?.utilityScore ?? 0),
     selection: hasSelection
       ? selectionFor(selected, skill, verdict)
       : null,

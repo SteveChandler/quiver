@@ -17,7 +17,7 @@ import { entitlementFromRow } from '@/lib/alerts/entitlements';
 import { getProfileExperienceLevel } from '@/lib/profile/skill-level';
 import { resolveCanonicalSessionDecisionContext } from '@/lib/recommendations/canonical-decision';
 import type { CanonicalSessionDecision } from '@/lib/recommendations/canonical-decision/types';
-import type { SurfDiscoveryRecommendation } from '@/types/personalization';
+import type { SurfDiscoveryRecommendation, SurfDiscoveryResponse } from '@/types/personalization';
 import { buildForecastRecommendationContext } from '@/lib/services/forecast-recommendation-context';
 import {
   computeSurfCall,
@@ -47,6 +47,14 @@ const QuerySchema = z.object({
 type CanonicalSurfCallResponse = SpotSurfReportResult & {
   sessionDecision: CanonicalSessionDecision;
   forecastAlignment?: SurfCallForecastAlignment;
+  recommendedBoard?: SurfDiscoveryRecommendation["recommendedBoard"];
+  boardPick?: SurfDiscoveryRecommendation["boardPick"];
+  conditionLabel?: CanonicalSessionDecision["conditionLabel"];
+  firstLight?: string;
+  lastLight?: string;
+  isDark?: boolean;
+  nextWindowStart?: string;
+  daylightAvailability?: SurfDiscoveryResponse['daylightAvailability'];
   /**
    * The beach's now-mode discovery recommendation, present only when the
    * request asked for it with `includeNow=1`. It is the same object
@@ -292,6 +300,9 @@ function buildCanonicalSurfCall(
 
   return {
     report,
+    recommendedBoard: objectiveRecommendation?.recommendedBoard ?? null,
+    boardPick: objectiveRecommendation?.boardPick ?? null,
+    conditionLabel: decision.conditionLabel,
     isTomorrow,
     forecastContext,
     sessionDecision: decision,
@@ -453,7 +464,14 @@ async function surfCallHandler(
     canonicalContext.discovery,
     sessionDecision.holdEpoch,
   );
+  const nowRecommendationResult = nowRecommendationPromise
+    ? await nowRecommendationPromise
+    : null;
   const canonicalResult: CanonicalSurfCallResponse = {
+    firstLight: canonicalContext.discovery.firstLight,
+    lastLight: canonicalContext.discovery.lastLight,
+    isDark: canonicalContext.discovery.isDark,
+    nextWindowStart: canonicalContext.discovery.nextWindowStart,
     ...buildCanonicalSurfCall(
       sessionDecision,
       beachId,
@@ -464,8 +482,14 @@ async function surfCallHandler(
       boardClass,
       recommendationAvailability,
     ),
-    ...(nowRecommendationPromise
-      ? { nowRecommendation: await nowRecommendationPromise }
+    ...(nowRecommendationResult
+      ? { nowRecommendation: nowRecommendationResult.recommendation }
+      : {}),
+    ...(nowRecommendationResult?.daylightAvailability
+      ? { daylightAvailability: nowRecommendationResult.daylightAvailability }
+      : {}),
+    ...(canonicalContext.discovery.daylightAvailability
+      ? { daylightAvailability: canonicalContext.discovery.daylightAvailability }
       : {}),
   };
   const scopedCanonicalResult: CanonicalSurfCallResponse = forecastAt

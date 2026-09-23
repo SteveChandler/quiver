@@ -62,7 +62,10 @@ export async function loadNowRecommendation(args: {
   isPro: boolean;
   profileExperience: SkillLevel | null;
   now: Date;
-}): Promise<SurfDiscoveryRecommendation | null> {
+}): Promise<{
+  recommendation: SurfDiscoveryRecommendation | null;
+  daylightAvailability?: SurfDiscoveryResponse['daylightAvailability'];
+}> {
   const { userId, beach, isPro, profileExperience, now } = args;
   try {
     const discovery = await discoverSurfSpots(userId, {
@@ -88,12 +91,18 @@ export async function loadNowRecommendation(args: {
       hasPaidAccess: isPro,
       canSeeBestSpot: isPro,
     };
-    return selectNowRecommendation(
-      gateSurfDiscoveryResponse(sanitized, entitlement),
-      beach.id,
-      now.getTime(),
-    );
+    const gated = gateSurfDiscoveryResponse(sanitized, entitlement);
+    return {
+      recommendation: selectNowRecommendation(
+        gated,
+        beach.id,
+        now.getTime(),
+      ),
+      ...(gated.daylightAvailability
+        ? { daylightAvailability: gated.daylightAvailability }
+        : {}),
+    };
   } catch {
-    return null;
+    return { recommendation: null };
   }
 }
