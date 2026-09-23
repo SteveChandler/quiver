@@ -938,6 +938,41 @@ describe('generateWeekScoutForecast', () => {
     expect(response.days[0].exclusionReasons).toEqual(['no_safe_windows']);
   });
 
+  it('moves a safe window at most one tier on personal history, end to end', async () => {
+    const deps = dependencies();
+    deps.scoreWindowCondition = jest.fn(() => 30);
+    deps.fetchSkill = jest.fn(async (): Promise<SkillLevel | null> => 'advanced');
+    deps.fetchMatchEvidence = jest.fn(async (_user, _ids, forecasts: EnhancedForecastEntity[]) => new Map(
+      forecasts.map((row) => [`${row.beach_id}:${row.forecast_at}`, {
+        state: 'ready', score: 9, label: 'GOOD', confidence: 'high',
+        bonusApplied: 0, reason: 'History', reasons: ['History'],
+        sessionCount: 40, similarSessionCount: 12,
+      } as SurfDiscoveryRecommendation['similarity']]),
+    ));
+
+    const response = await generateWeekScoutForecast('user-week-scout', {
+      candidateBeachIds: [BEACH_A], localTimezone: 'Pacific/Honolulu',
+      startLocalDate: '2026-07-31', dayCount: 7,
+    }, deps);
+
+    // Physical Skip + strong history is one tier up (Maybe), never go.
+    const verdicts = response.days.flatMap((day) => day.windows.map((window) => window.verdict));
+    expect(verdicts).not.toContain('worth_it');
+    expect(response.sessionDecision?.verdict).not.toBe('go');
+  });
+
+  it('keeps main no-selection result when every window is a quality skip', async () => {
+    const deps = dependencies();
+    deps.scoreWindowCondition = jest.fn(() => 30);
+
+    const response = await generateWeekScoutForecast('user-week-scout', {
+      candidateBeachIds: [BEACH_A], localTimezone: 'Pacific/Honolulu',
+      startLocalDate: '2026-07-31', dayCount: 7,
+    }, deps);
+
+    expect(response.sessionDecision).toMatchObject({ verdict: 'no', reasonCode: 'no_candidates', selection: null });
+  });
+
   it('explains when safe rideable windows all have skip verdicts', async () => {
     const deps = dependencies();
     deps.scoreWindowCondition = jest.fn(() => 30);

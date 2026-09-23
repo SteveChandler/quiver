@@ -1051,7 +1051,11 @@ export async function bulkForecastHandler(
         // Additive decision fields must never cost a beach its condition score.
         try {
           const decision = decisionContext
-            ? bulkSessionDecision(decisionContext, beach, forecast, score, fetchWindow.selectedAt ?? now)
+            ? bulkSessionDecision(decisionContext, beach, forecast, score, fetchWindow.selectedAt ?? now, {
+              // A scrubbed map hour is "when to go"; only the current hour is ungated (NOW).
+              daylightOnly: fetchWindow.selectedAt != null
+                && Math.abs(fetchWindow.selectedAt.getTime() - now.getTime()) >= 60 * 60_000,
+            })
             : null;
           recommendationLabelMap[beach.id] = decision ? recommendationLabelForVerdict(decision.verdict) : null;
           personalAdjustmentReasons[beach.id] = decision?.personalAdjustmentReason ?? null;

@@ -3,7 +3,7 @@ import 'server-only';
 import { createHash } from 'node:crypto';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { resolveRecommendationLabel } from './recommendation-label';
-import { toPersonalMatchEvidence, getCanonicalRecommendationLabel } from '@/lib/recommendations/canonical-decision/discovery-adapter';
+import { getCanonicalRecommendationLabel } from '@/lib/recommendations/canonical-decision/discovery-adapter';
 import { getProfileExperienceLevel } from '@/lib/profile/skill-level';
 import { batchFetchForecasts } from '@/lib/services/discovery/forecast-batch-fetcher';
 import { getBatchSunTimes } from '@/lib/services/discovery/surf-discovery-orchestrator';
@@ -46,7 +46,6 @@ import type {
   DetailedScore,
   PersonalizedForecastWindow,
   SurfDiscoveryRecommendation,
-  SimilarityRecommendation,
 } from '@/types/personalization';
 import {
   sanitizeWeekScoutForMajorEventHold,
@@ -224,7 +223,6 @@ export type CanonicalWeekScoutResponse = MajorEventHoldWeekScoutResponse & {
 };
 
 interface GeneratedWeekScoutContext {
-  similarity?: Map<string, SimilarityRecommendation>;
   heldResponse: MajorEventHoldWeekScoutResponse;
   beaches: Beach[];
   forecastsByBeach: Map<string, EnhancedForecastEntity[]>;
@@ -738,7 +736,6 @@ function canonicalLabelForVerdict(
 
 function buildWeekScoutCanonicalCandidates(args: {
   profileExperience: unknown;
-  similarity?: Map<string, SimilarityRecommendation>;
   response: MajorEventHoldWeekScoutResponse;
   beaches: readonly Beach[];
   forecastsByBeach: ReadonlyMap<string, EnhancedForecastEntity[]>;
@@ -773,15 +770,16 @@ function buildWeekScoutCanonicalCandidates(args: {
         forecastAt: forecast?.forecast_at ?? '',
         waveHeight: window.forecast.waveHeight,
         utilityScore: window.rankingScore,
+        // window.verdict already carries personal history (applied once in the
+        // verdict pass), so the pool gets no second personal-match input.
         recommendationLabel: canonicalLabelForVerdict(window.verdict),
-        // Unsafe or unrideable windows never move on personal history.
-        personalMatch: window.safe && window.rideable
-          ? toPersonalMatchEvidence({ similarity: args.similarity?.get(`${forecast?.beach_id}:${forecast?.forecast_at}`) ?? null })
-          : null,
       };
-      // Skips stay out, as on main, unless the engine's safety gates will veto
-      // them: those go in so the decision carries the specific safety reason.
-      if (window.verdict === 'skip' && !candidateHasSafetyVeto(candidate, args.profileExperience)) {
+      // Skips stay out, as on main, except unsafe or unrideable ones the engine
+      // will veto: those go in so the decision carries the specific safety reason.
+      if (
+        window.verdict === 'skip'
+        && !((!window.safe || !window.rideable) && candidateHasSafetyVeto(candidate, args.profileExperience))
+      ) {
         return [];
       }
       return [candidate];
@@ -1183,7 +1181,6 @@ async function generateWeekScoutForecastInternal(
 
   return {
     heldResponse,
-    similarity,
     beaches,
     forecastsByBeach,
     userSkillLevel,
@@ -1207,7 +1204,6 @@ function buildCanonicalWeekScoutResponse(
   const canonicalCandidates = buildWeekScoutCanonicalCandidates({
     profileExperience: context.userSkillLevel,
     response: context.heldResponse,
-    similarity: context.similarity,
     beaches: context.beaches,
     forecastsByBeach: context.forecastsByBeach,
   });
