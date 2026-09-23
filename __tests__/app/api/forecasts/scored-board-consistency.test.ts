@@ -1,5 +1,4 @@
 import { scoreForecastSlots } from '@/app/api/forecasts/scored/[beachId]/route';
-import { normalizeBoardClass } from '@/lib/domains/rideability';
 import {
   scoreWindowConditionDetails,
   scoreWindowConditionForBoardClass,
@@ -33,7 +32,7 @@ describe('scored forecast board consistency', () => {
     const [slot] = scoreForecastSlots([forecast], beach, 'advanced', ['longboard', 'fish', 'shortboard'], quiver);
     const recommended = slot.recommendedBoard;
     expect(recommended).not.toBeNull();
-    const recommendedClass = normalizeBoardClass(recommended!.type);
+    const recommendedClass = recommended!.boardClass;
     const expected = scoreWindowConditionForBoardClass(forecast, beach, 'advanced', recommendedClass!);
 
     expect(slot.board?.id).toBe(recommended!.id);

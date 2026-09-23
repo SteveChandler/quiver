@@ -217,14 +217,15 @@ describe("major-event hold route integration", () => {
       ? { select: () => boardQuery } : originalFrom(table));
     mockEvaluateMajorEventHoldCandidates.mockResolvedValueOnce([]);
     const { GET } = await import("@/app/api/forecasts/scored/[beachId]/route");
-    const { scoreWindowConditionForBoardClass } = await import('@/lib/services/discovery/window-selector/window-scorer');
+    const { scoreWindowConditionDetails } = await import('@/lib/services/discovery/window-selector/window-scorer');
     const response = await GET(new NextRequest(`http://localhost/api/forecasts/scored/${BEACH_ID}?range=14day&userId=someone-else`));
     expect(response.status).toBe(200);
     expect(boardEq).toHaveBeenCalledWith('user_id', 'signed-in-surfer');
-    // The slot is scored for a board from the signed-in surfer's own quiver.
-    expect(scoreWindowConditionForBoardClass).toHaveBeenCalledWith(
+    // No board history here, so no personal recommendation: the slot is scored
+    // across the signed-in surfer's saved board classes, as before.
+    expect(scoreWindowConditionDetails).toHaveBeenCalledWith(
       expect.objectContaining({ forecast_at: SLOT_ONE }),
-      expect.objectContaining({ id: BEACH_ID }), null, expect.stringMatching(/^(longboard|fish)$/),
+      expect.objectContaining({ id: BEACH_ID }), null, null, ['longboard', 'fish'],
     );
   });
 

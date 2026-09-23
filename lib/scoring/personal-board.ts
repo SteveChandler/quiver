@@ -4,7 +4,7 @@ import { swellInterferenceScorer } from '@/lib/domains/scoring/scorers/swell-int
 import { forecastToSnapshot, beachToSpotProfile } from '@/lib/domains/scoring/discovery-adapter';
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
-import { normalizeBoardClass, getRideabilityBand } from '@/lib/domains/rideability';
+import { normalizeBoardClass, getRideabilityBand, type BoardClass } from '@/lib/domains/rideability';
 import { parseSkillLevel } from '@/lib/domains/user-preferences/skill-level';
 import { scoreNativeForecastSlot } from './native-condition-score';
 import { getDirectionDegrees } from '@/lib/utils/number-parsing';
@@ -28,6 +28,8 @@ export interface RecommendedBoard {
   id: string;
   name: string;
   type: string;
+  /** Class the rule scored this board as (type first, then name, as SQL does). */
+  boardClass: BoardClass;
   reason: string;
   alternates: Omit<RecommendedBoard, 'alternates'>[];
 }
@@ -154,7 +156,7 @@ export function recommendBoard(
     const reason = matched.length >= 3
       ? `You ride ${board.name} on ${Math.floor(Math.min(...heights))}-${Math.ceil(Math.max(...heights))} ft days like this (${matched.length} sessions)`
       : `${board.name} fits these conditions; limited similar session history`;
-    return [{ id: board.id, name: board.name, type: board.board_type, reason, score, matchedCount: matched.length }];
+    return [{ id: board.id, name: board.name, type: board.board_type, boardClass: type, reason, score, matchedCount: matched.length }];
   }).sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
   if (!ranked.length) return null;
   const alternates = ranked.slice(1).sort((a, b) => Number(b.matchedCount >= 3) - Number(a.matchedCount >= 3) || b.score - a.score || a.id.localeCompare(b.id));

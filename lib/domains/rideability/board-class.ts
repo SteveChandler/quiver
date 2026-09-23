@@ -58,7 +58,6 @@ export const BOARD_TYPE_TO_BOARD_CLASS: Readonly<Record<string, BoardClass>> = {
   'twin-pin': 'fish',
   groveler: 'fish',
 
-  thruster: 'shortboard',
   shortboard: 'shortboard',
   'short-board': 'shortboard',
 

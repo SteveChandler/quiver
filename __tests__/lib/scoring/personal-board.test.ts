@@ -19,8 +19,10 @@ const boards = [
   board('chip', 'Potato chip', 'fish', 2, 2, 3),
   board('log', 'Southpoint', 'longboard-2-plus-1', 1, 2, 4),
 ];
-it('uses the declared thruster type before the Twin pin name', () => {
-  expect(normalizeBoardClass('thruster')).toBe('shortboard');
+it('classifies a thruster named Twin pin by its name, matching the SQL match scorer', () => {
+  // The shared map has no thruster alias (SQL parity), so the name decides.
+  expect(normalizeBoardClass('thruster')).toBeNull();
+  expect(normalizeBoardClass('Twin pin')).toBe('fish');
 });
 it('chooses an experienced board for the diagnosed fixture and includes the other', () => {
   const pick = recommendBoard(boards, forecast, beach, 'advanced');

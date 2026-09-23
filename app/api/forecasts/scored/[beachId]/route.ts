@@ -1,4 +1,3 @@
-import { normalizeBoardClass } from "@/lib/domains/rideability";
 import { recommendBoard, type RecommendedBoard } from "@/lib/scoring/personal-board";
 import type { NextRequest } from "next/server";
 import {
@@ -179,7 +178,7 @@ export function scoreForecastSlots(
 ): TimeSlot[] {
   return forecasts.map((forecast) => {
     const recommendedBoard = recommendBoard(boardsForPicks, forecast, beach, skillLevel);
-    const recommendedClass = recommendedBoard ? normalizeBoardClass(recommendedBoard.type) : null;
+    const recommendedClass = recommendedBoard?.boardClass ?? null;
     // The shown board, its score, size band and lift must describe one board.
     const scoreDetails = recommendedClass
       ? scoreWindowConditionForBoardClass(forecast, beach, skillLevel, recommendedClass)
