@@ -175,8 +175,9 @@ const mockSupabaseFrom = jest.fn((table: string) => {
   }
 
   if (table === 'boards') {
-    const query: { select: jest.Mock; eq: jest.Mock; is: jest.Mock; then: (resolve: (value: unknown) => unknown) => Promise<unknown> } = {
+    const query: { select: jest.Mock; eq: jest.Mock; is: jest.Mock; gte: jest.Mock; order: jest.Mock; limit: jest.Mock; then: (resolve: (value: unknown) => unknown) => Promise<unknown> } = {
       select: jest.fn(() => query), eq: jest.fn(() => query), is: jest.fn(() => query),
+      gte: jest.fn(() => query), order: jest.fn(() => query), limit: jest.fn(() => query),
       then: (resolve: (value: unknown) => unknown) => Promise.resolve(resolve({ data: mockState.boards, error: mockState.boardsError })),
     };
     return query;
@@ -445,7 +446,7 @@ jest.mock('@/lib/services/discovery/personalization-layer', () => ({
 }));
 
 // Import after mocks
-import { discoverSurfSpots } from '@/lib/services/discovery/surf-discovery-orchestrator';
+import { discoverSurfSpots, fetchUserBoardContext } from '@/lib/services/discovery/surf-discovery-orchestrator';
 import { selectBestWindows } from '@/lib/services/discovery/window-selector';
 import { WORTH_THE_DRIVE_REASON } from '@/lib/services/discovery/distance-friction';
 import { expectConsoleErrors } from '@/__tests__/setup/test-utils';
@@ -1246,6 +1247,20 @@ describe('discoverSurfSpots - Favorites Merging', () => {
         score: expect.any(Number),
       });
     }
+  });
+
+  test('bounds the embedded board history to 12 months and 300 recent sessions', async () => {
+    mockState.boards = [{ id: 'board-1', name: 'Log', board_type: 'longboard' }];
+    mockSupabaseFrom.mockClear();
+    await fetchUserBoardContext({ from: mockSupabaseFrom } as never, 'user-1', true);
+    const query = mockSupabaseFrom.mock.results.find((_, i) => mockSupabaseFrom.mock.calls[i][0] === 'boards')!.value;
+    const [[column, since]] = query.gte.mock.calls;
+    expect(column).toBe('sessions.arrival_time');
+    const ageDays = (Date.now() - Date.parse(since)) / 86_400_000;
+    expect(ageDays).toBeGreaterThan(364);
+    expect(ageDays).toBeLessThan(366);
+    expect(query.order).toHaveBeenCalledWith('arrival_time', { referencedTable: 'sessions', ascending: false });
+    expect(query.limit).toHaveBeenCalledWith(300, { referencedTable: 'sessions' });
   });
 
   test('attaches condition-based board picks for Pro users with saved boards', async () => {

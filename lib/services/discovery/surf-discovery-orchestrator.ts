@@ -169,6 +169,8 @@ const DEFAULT_TIMEOUT_MS = 5000; // Per-beach timeout
 const DEFAULT_OVERALL_TIMEOUT_MS = 12000; // Increased from 8s for more beaches
 const MAX_INCLUDED_BEACH_IDS = 12;
 const MAX_PUBLIC_CUSTOM_SPOTS = 5;
+const BOARD_HISTORY_WINDOW_MS = 365 * 24 * 60 * 60 * 1000;
+const BOARD_HISTORY_SESSION_CAP = 300;
 
 type SurfDiscoveryOperationalErrorCode =
   | 'forecast_unavailable'
@@ -1051,7 +1053,11 @@ export async function fetchUserBoardContext(
     .eq('user_id', userId)
     .eq('sessions.user_id', userId)
     .eq('sessions.status', 'completed')
-    .is('sessions.deleted_at', null);
+    .is('sessions.deleted_at', null)
+    // Same 12-month window as the match scorer, capped so heavy loggers keep a bounded payload.
+    .gte('sessions.arrival_time', new Date(Date.now() - BOARD_HISTORY_WINDOW_MS).toISOString())
+    .order('arrival_time', { referencedTable: 'sessions', ascending: false })
+    .limit(BOARD_HISTORY_SESSION_CAP, { referencedTable: 'sessions' });
 
   if (error) {
     log.warn(`Failed to fetch boards for discovery board context: ${error.message}`);
