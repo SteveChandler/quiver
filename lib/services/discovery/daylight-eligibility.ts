@@ -85,6 +85,38 @@ export function isDaylightInterval(
   return false;
 }
 
+/**
+ * Trim a window to the usable light of the first local day it overlaps, so a
+ * daylight-only window never presents a start before first light or an end
+ * after last light. Returns null when the window has no usable light.
+ */
+export function clampToUsableLight(
+  start: Date,
+  end: Date,
+  timezone: string,
+  sunTimes?: BeachSunTimes,
+): UsableLightInterval | null {
+  if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || end <= start) {
+    return null;
+  }
+
+  const lastDate = getLocalDateStr(new Date(end.getTime() - 1), timezone);
+  let date = getLocalDateStr(start, timezone);
+
+  while (date <= lastDate) {
+    const light = usableLightIntervalForDate(date, timezone, sunTimes);
+    if (start < light.end && end > light.start) {
+      return {
+        start: start < light.start ? light.start : start,
+        end: end > light.end ? light.end : end,
+      };
+    }
+    date = addLocalDays(date, 1);
+  }
+
+  return null;
+}
+
 export function nextFirstLight(
   after: Date,
   timezone: string,

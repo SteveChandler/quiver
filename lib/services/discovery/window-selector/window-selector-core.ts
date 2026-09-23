@@ -28,6 +28,7 @@ import { resolveBeachTimezone } from '@/lib/utils/timezone-utils';
 import { createContextLogger } from '@/lib/logger';
 import { resolveForecastTime } from '@/lib/utils/forecast-time-resolver';
 import {
+  clampToUsableLight,
   forecastRowIntervalEnd,
   isDaylightInterval,
   usableLightIntervalForDate,
@@ -787,10 +788,13 @@ export function selectBestWindows(
       endTime = capEndTimeToTimeSlot(effectiveStartTime, endTime, actualTimeSlot, beachTz);
     }
 
-    if (!isDaylightInterval(effectiveStartTime, endTime, beachTz, sunTimes)) {
+    const lit = clampToUsableLight(effectiveStartTime, endTime, beachTz, sunTimes);
+    if (!lit) {
       log.debug(`[selectBestWindow] ${actualBeach.name}: Forecast ${i} window does not overlap usable light`);
       continue;
     }
+    effectiveStartTime = lit.start;
+    endTime = lit.end;
 
     // Validate minimum session length
     const durationHours = (endTime.getTime() - effectiveStartTime.getTime()) / (1000 * 60 * 60);
@@ -869,18 +873,10 @@ export function selectBestWindows(
         beachTz
       );
 
-      return {
-        ...candidateWindow,
-        start: refinedTimes.start,
-        end: refinedTimes.end,
-      };
+      const lit = clampToUsableLight(refinedTimes.start, refinedTimes.end, beachTz, sunTimes);
+      return lit ? { ...candidateWindow, start: lit.start, end: lit.end } : null;
     })
-    .filter((candidateWindow) => isDaylightInterval(
-      candidateWindow.start,
-      candidateWindow.end,
-      beachTz,
-      sunTimes,
-    ))
+    .filter((candidateWindow): candidateWindow is CandidateWindow => candidateWindow !== null)
     .map((candidateWindow) =>
       buildResult(candidateWindow, filteredForecasts, actualBeach, beachTz, actualNow)
     );
@@ -996,14 +992,17 @@ function selectFallbackWindow(
     getAdjustedScore(curr) > getAdjustedScore(prev) ? curr : prev
   );
 
-  const effectiveStartTime = best.forecastTime;
+  let effectiveStartTime = best.forecastTime;
   let endTime = new Date(effectiveStartTime.getTime() + MAX_WINDOW_HOURS * 60 * 60 * 1000);
   endTime = applySunsetCap(endTime, effectiveStartTime, sunTimes, beachTz, getLocalDateStrForBeach);
 
   // Cap at time slot end
   endTime = capEndTimeToTimeSlot(effectiveStartTime, endTime, timeSlot, beachTz);
 
-  if (!isDaylightInterval(effectiveStartTime, endTime, beachTz, sunTimes)) return null;
+  const lit = clampToUsableLight(effectiveStartTime, endTime, beachTz, sunTimes);
+  if (!lit) return null;
+  effectiveStartTime = lit.start;
+  endTime = lit.end;
 
   const durationHours = (endTime.getTime() - effectiveStartTime.getTime()) / (1000 * 60 * 60);
   if (durationHours < MIN_SESSION_HOURS) {

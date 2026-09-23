@@ -1,4 +1,5 @@
 import {
+  clampToUsableLight,
   isDaylightInterval,
   nextFirstLight,
   type BeachSunTimes,
@@ -44,6 +45,39 @@ describe('interval daylight eligibility', () => {
     const afterLastLight = localTime('2026-09-23', '19:05');
     expect(isDaylightInterval(beforeLastLight, new Date(beforeLastLight.getTime() + 30 * 60_000), TIMEZONE, SEP23_SUN)).toBe(true);
     expect(isDaylightInterval(afterLastLight, new Date(afterLastLight.getTime() + 30 * 60_000), TIMEZONE, SEP23_SUN)).toBe(false);
+  });
+
+  it('trims a window that straddles first light so it never starts in the dark', () => {
+    const lit = clampToUsableLight(
+      localTime('2026-09-23', '05:40'),
+      localTime('2026-09-23', '07:10'),
+      TIMEZONE,
+      SEP23_SUN,
+    );
+    expect(lit).toEqual({
+      start: new Date('2026-09-23T13:07:00Z'),
+      end: localTime('2026-09-23', '07:10'),
+    });
+  });
+
+  it('trims a window that runs past last light and leaves a fully lit window unchanged', () => {
+    const lateStart = localTime('2026-09-23', '18:00');
+    expect(clampToUsableLight(lateStart, localTime('2026-09-23', '20:00'), TIMEZONE, SEP23_SUN)).toEqual({
+      start: lateStart,
+      end: new Date('2026-09-24T02:04:00Z'),
+    });
+    const noonStart = localTime('2026-09-23', '12:00');
+    const noonEnd = localTime('2026-09-23', '14:00');
+    expect(clampToUsableLight(noonStart, noonEnd, TIMEZONE, SEP23_SUN)).toEqual({ start: noonStart, end: noonEnd });
+  });
+
+  it('returns null for a window entirely in the dark', () => {
+    expect(clampToUsableLight(
+      localTime('2026-09-23', '02:00'),
+      localTime('2026-09-23', '04:00'),
+      TIMEZONE,
+      SEP23_SUN,
+    )).toBeNull();
   });
 
   it('uses conservative local 6 AM to 6 PM bounds only when sun times are missing', () => {
