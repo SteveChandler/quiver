@@ -117,9 +117,11 @@ function dependencies(): WeekScoutServiceDependencies {
     fetchBeaches: jest.fn(async () => beaches),
     fetchForecasts: jest.fn(async () => rows),
     fetchSunTimes: jest.fn(async () => new Map()),
-    fetchPreferences: jest.fn(async () => null),
+    fetchRankingContext: jest.fn(async () => ({
+      implicitPrefs: null, learnedPrefs: null, affinityMap: new Map(), implicitWeight: 0,
+    })),
     fetchSkill: jest.fn(async () => 'intermediate'),
-    fetchPersonalizationContext: jest.fn(async () => null),
+    fetchMatchEvidence: jest.fn(async () => new Map()),
     calculatePersonalizationBonus: jest.fn(() => ({
       affinityBonus: 0,
       personalizationBonus: 0,

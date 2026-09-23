@@ -1,7 +1,11 @@
 import "server-only";
 
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
-import { buildCanonicalSessionDecision } from "./engine";
+import {
+  buildCanonicalSessionDecision,
+  canonicalCandidateVerdict,
+  recommendationLabelForVerdict,
+} from "./engine";
 import type {
   BuildCanonicalSessionDecisionInput,
   CanonicalDecisionCandidate,
@@ -114,4 +118,14 @@ export function buildCanonicalDecisionFromSurfDiscovery(
     recommendationAvailability: input.recommendationAvailability,
     candidates: input.recommendations.map(toCanonicalCandidate),
   });
+}
+
+/** Use the surf-call decision rule without changing candidate scores or ordering. */
+export function getCanonicalRecommendationLabel(
+  recommendation: SurfDiscoveryRecommendation,
+  profileExperience: unknown,
+): "Worth it" | "Maybe" | "Skip" {
+  return recommendationLabelForVerdict(
+    canonicalCandidateVerdict(toCanonicalCandidate(recommendation), profileExperience),
+  );
 }

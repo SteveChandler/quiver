@@ -90,6 +90,7 @@ import {
   resolveRecommendationLabel,
 } from './recommendation-label';
 import { fetchPersonalizationContext, calculatePersonalizationBonus } from './personalization-layer';
+import { getCanonicalRecommendationLabel } from '@/lib/recommendations/canonical-decision/discovery-adapter';
 import { applySimilarityLayer } from './similarity-layer';
 import { computeWindowDistinctionReason } from './window-distinction';
 import {
@@ -2531,6 +2532,11 @@ async function discoverSurfSpotsInner(
         tomorrowRegionalCall: regionalCall,
       };
     }
+  }
+
+  for (const rec of [...enrichedRanked, ...enrichedIncluded]) {
+    rec.recommendationLabel = getCanonicalRecommendationLabel(rec, userSkillLevel);
+    rec.message = buildDiscoveryMessage(rec.score, rec.reasons, rec.warnings, rec.recommendationLabel);
   }
 
   const recommendationV2Candidates = [
