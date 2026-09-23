@@ -1,16 +1,4 @@
-/**
- * Regression tests for the "NOW" discovery mode daylight gate.
- *
- * NOW means now: a surfer checking at 5:55 AM or at 10 PM still needs the
- * current reading. Two gates used to suppress it outside a 6am-9pm band:
- *   1. an explicit local-hour/daylight check in selectImmediateWindow
- *   2. an unconditional sunset trim that collapsed the window to <= now
- *      after dark, which the caller reads as "no window"
- *
- * Unlike the main orchestrator suite, this file uses the REAL window-selector
- * time helpers so "05:55 local" means 05:55 in the beach timezone rather than
- * in UTC.
- */
+/** Regression: Now and scoped calls share the daylight session gate. */
 
 import * as windowScorer from '@/lib/services/discovery/window-selector/window-scorer';
 import pontoSnapshot from '@/__tests__/fixtures/ponto-now-window-20260911.json';
@@ -245,7 +233,7 @@ async function discoverNow() {
   });
 }
 
-describe('discoverSurfSpots - now mode is not daylight-gated', () => {
+describe('discoverSurfSpots - now mode uses scoped-call daylight rules', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
@@ -256,7 +244,7 @@ describe('discoverSurfSpots - now mode is not daylight-gated', () => {
   afterEach(() => {
     jest.useRealTimers();
   });
-  it('returns the current bucket before 6am local (dawn patrol)', async () => {
+  it('returns no window before the scoped-call 6am floor', async () => {
     // 05:55 PDT on 2026-04-15, ~26 min before sunrise.
     jest.setSystemTime(new Date('2026-04-15T12:55:00.000Z'));
     mockState.forecasts = [
@@ -266,26 +254,16 @@ describe('discoverSurfSpots - now mode is not daylight-gated', () => {
 
     const result = await discoverNow();
 
-    expect(result.recommendations).toHaveLength(1);
-    expect(result.recommendations[0].forecast.id).toBe('dawn-bucket');
-    expect(result.recommendations[0].window.start).toEqual(new Date('2026-04-15T12:00:00.000Z'));
-    expect(result.recommendations[0].window.end).toEqual(new Date('2026-04-15T15:00:00.000Z'));
+    expect(result.recommendations).toEqual([]);
   });
-  it('returns the current bucket after sunset (10pm local)', async () => {
-    // 22:00 PDT on 2026-04-15, ~2.5h after the 19:31 sunset.
-    jest.setSystemTime(new Date('2026-04-16T05:00:00.000Z'));
+  it.each(['2026-04-16T05:00:00Z', '2026-04-16T01:45:00Z'])('returns no window after dark or with less than one hour of light: %s', async (now) => {
+    jest.setSystemTime(new Date(now));
     mockState.forecasts = [
-      forecastAt('night-bucket', '2026-04-16T03:00:00.000Z'), // 20:00 PDT
-      forecastAt('late-bucket', '2026-04-16T06:00:00.000Z'), // 23:00 PDT
+      forecastAt('evening', '2026-04-16T01:00:00Z'),
+      forecastAt('night', '2026-04-16T03:00:00Z'),
+      forecastAt('late', '2026-04-16T06:00:00Z'),
     ];
-
-    const result = await discoverNow();
-
-    expect(result.recommendations).toHaveLength(1);
-    expect(result.recommendations[0].forecast.id).toBe('night-bucket');
-    // The sunset trim must not fire once sunset is in the past; trimming here
-    // would push end (06:00Z) back to 02:31Z, i.e. before now.
-    expect(result.recommendations[0].window.end).toEqual(new Date('2026-04-16T06:00:00.000Z'));
+    expect((await discoverNow()).recommendations).toEqual([]);
   });
   it('still trims the window end at sunset while sunset is ahead', async () => {
     // 18:30 PDT on 2026-04-15, one hour before the 19:31 sunset.
@@ -357,7 +335,7 @@ describe('discoverSurfSpots - now mode is not daylight-gated', () => {
     mockState.forecasts = [3, 6, 9, 12].map((hour) =>
       forecastAt(`hour-${hour}`, new Date(Date.UTC(2026, 3, 16, hour)).toISOString()));
     const result = await discoverNow();
-    expect(result.recommendations[0].window.end).toEqual(new Date('2026-04-16T06:00:00Z'));
+    expect(result.recommendations).toEqual([]);
   });
   it.each([15, 16])('lets matching consecutive-day forecasts repeat a supported end on April %s', async (day) => {
     jest.setSystemTime(new Date(Date.UTC(2026, 3, day, 16, 57)));

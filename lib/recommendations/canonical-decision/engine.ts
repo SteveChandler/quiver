@@ -151,6 +151,24 @@ function personalMatchVerdictWithoutCeiling(
   return null;
 }
 
+/** Verdict for an eligible candidate; pool-level safety/hold gates remain in the engine. */
+export function canonicalCandidateVerdict(
+  candidate: CanonicalDecisionCandidate,
+  profileExperience: unknown,
+): "go" | "maybe" | "no" {
+  const physical = physicalVerdictForCandidate(candidate);
+  const personal = canonicalSkill(profileExperience) === "unknown"
+    ? null
+    : personalMatchVerdict(candidate);
+  return personal === null ? physical : capByPhysical(personal, physical);
+}
+
+export function recommendationLabelForVerdict(
+  verdict: "go" | "maybe" | "no",
+): "Worth it" | "Maybe" | "Skip" {
+  return verdict === "go" ? "Worth it" : verdict === "maybe" ? "Maybe" : "Skip";
+}
+
 function confidenceRank(
   candidate: CanonicalDecisionCandidate,
 ): number {
@@ -237,7 +255,7 @@ function selectionFor(
     evidence: {
       conditionScore: Math.min(candidate.utilityScore, verdictCeiling(candidate.effects)),
       recommendationLabel:
-        verdict === "go" ? "Worth it" : verdict === "maybe" ? "Maybe" : "Skip",
+        recommendationLabelForVerdict(verdict),
       personalMatch: skill === "unknown" ? null : candidate.personalMatch ?? null,
       effects: candidate.effects ?? [],
     },
@@ -328,12 +346,7 @@ export function buildCanonicalSessionDecision(
   const verdict = safetyOverride
     ? "no"
     : selected
-      ? decisionBasis === "personal_match"
-        ? capByPhysical(
-            personalMatchVerdict(selected) ?? "no",
-            physicalVerdictForCandidate(selected),
-          )
-        : physicalVerdictForCandidate(selected)
+      ? canonicalCandidateVerdict(selected, input.profileExperience)
       : "no";
   const hasSelection = !safetyOverride && selected !== undefined;
 

@@ -16,6 +16,7 @@
  * @module lib/services/discovery/surf-discovery-orchestrator
  */
 
+import { isDaylightSessionStart } from './window-selector/window-selector-core';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { getUserSurfPreferences } from '@/lib/services/preference-learning-service';
 import { createContextLogger } from '@/lib/logger';
@@ -90,6 +91,7 @@ import {
   resolveRecommendationLabel,
 } from './recommendation-label';
 import { fetchPersonalizationContext, calculatePersonalizationBonus } from './personalization-layer';
+import { getCanonicalRecommendationLabel } from '@/lib/recommendations/canonical-decision/discovery-adapter';
 import { applySimilarityLayer } from './similarity-layer';
 import { computeWindowDistinctionReason } from './window-distinction';
 import {
@@ -1353,10 +1355,7 @@ function capImmediateEndAtSunset(
   const sameDaySunset = sunTimes?.sunsets.find(
     (sunset) => getLocalDateStr(sunset, beachTz) === todayStr
   );
-  // Only trim once we know sunset is still ahead. Past sunset the trim pulled
-  // end back before now, and the caller reads end <= now as "no window" — that
-  // emptied the Now feed for the whole evening.
-  if (sameDaySunset && sameDaySunset < end && sameDaySunset > now) {
+  if (sameDaySunset && sameDaySunset < end) {
     return sameDaySunset;
   }
   if (!sameDaySunset) {
@@ -1472,9 +1471,8 @@ function selectImmediateWindow(
     getTimezoneFromCoords(beach.lat || 0, beach.lon || 0);
   const sunTimes = sunTimesCache.get(beach.id);
 
-  // "Now" means now: no daylight gate. A surfer checking at 4am or after dark
-  // still needs the current reading, and gating on local hour left the Now feed
-  // empty every evening and every pre-dawn check.
+  if (!isDaylightSessionStart(now, beachTz, sunTimes)) return null;
+
   const scoreForecast = (forecast: EnhancedForecastEntity): number =>
     scoreWindowConditionScore(
       forecast,
@@ -2531,6 +2529,11 @@ async function discoverSurfSpotsInner(
         tomorrowRegionalCall: regionalCall,
       };
     }
+  }
+
+  for (const rec of [...enrichedRanked, ...enrichedIncluded]) {
+    rec.recommendationLabel = getCanonicalRecommendationLabel(rec, userSkillLevel);
+    rec.message = buildDiscoveryMessage(rec.score, rec.reasons, rec.warnings, rec.recommendationLabel);
   }
 
   const recommendationV2Candidates = [

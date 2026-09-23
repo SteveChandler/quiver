@@ -14,12 +14,17 @@
  * @module lib/services/discovery/personalization-layer
  */
 
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SimilarityRecommendation } from '@/types/personalization';
+import { entitlementFromRow } from '@/lib/alerts/entitlements';
+import { forecastToMatchSlot, interpretRpcResult } from './similarity-layer';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { getImplicitPreferences, calculateImplicitBonus, isTopEngagedBeach } from '@/lib/services/implicit-preferences-service';
 import {
   calculateAvoidancePenalty,
   getAvoidancePatternForBeach,
   getUserSurfPreferences,
+  normalizeAvoidanceByBeach,
 } from '@/lib/services/preference-learning-service';
 import {
   matchesLearnedWaveRange,
@@ -149,6 +154,15 @@ export async function fetchPersonalizationContext(
         }),
   ]);
 
+  return buildPersonalizationContext(userId, implicitPrefs, affinityRows, resolvedLearnedPrefs);
+}
+
+function buildPersonalizationContext(
+  userId: string,
+  implicitPrefs: UserImplicitPreferences | null,
+  affinityRows: Array<{ beach_id: string; affinity_score: number }>,
+  resolvedLearnedPrefs: UserSurfPreferences | null,
+): PersonalizationContext {
   // Build affinity lookup map
   const affinityMap = new Map<string, number>();
   for (const row of affinityRows) {
@@ -177,6 +191,53 @@ export async function fetchPersonalizationContext(
     affinityMap,
     implicitWeight,
   };
+}
+
+/** Replaces the preference read with all inputs needed before ranking. */
+export async function fetchWeekScoutRankingContext(userId: string): Promise<PersonalizationContext> {
+  const supabase = createSupabaseServiceRoleClient() as SupabaseClient;
+  const { data, error } = await supabase.from('week_scout_ranking_context')
+    .select('learned_prefs, implicit_prefs, affinity_rows').eq('user_id', userId).maybeSingle();
+  if (error) throw new Error(`Failed to load Week Scout ranking context: ${error.message}`);
+  const learned = data?.learned_prefs as UserSurfPreferences | null;
+  return buildPersonalizationContext(userId, data?.implicit_prefs ?? null, data?.affinity_rows ?? [],
+    learned ? {
+      ...learned,
+      eligible_session_count: learned.eligible_session_count ?? learned.sample_size,
+      avoidance_by_beach: normalizeAvoidanceByBeach(learned.avoidance_by_beach),
+    } : null,
+  );
+}
+
+/** One match RPC, after ranking, holds and response truncation. */
+export async function fetchWeekScoutMatchEvidence(
+  userId: string,
+  beachIds: string[],
+  forecasts: EnhancedForecastEntity[],
+): Promise<Map<string, SimilarityRecommendation>> {
+  const slots = [...new Map(forecasts.map((forecast) => [
+    `${forecast.beach_id}:${forecast.forecast_at}`,
+    { beach_id: forecast.beach_id, ...forecastToMatchSlot(forecast) },
+  ])).values()];
+  const supabase = createSupabaseServiceRoleClient();
+  // Generated types cannot include this unapplied RPC yet.
+  const { data, error } = await (supabase as SupabaseClient).rpc('get_week_scout_personalization', {
+    p_user_id: userId,
+    p_beach_ids: beachIds,
+    p_slots: slots,
+  });
+  if (error || !data) {
+    throw new Error(`Failed to load Week Scout personalization: ${error?.message ?? 'missing context'}`);
+  }
+  const context = data as {
+    entitlement: Parameters<typeof entitlementFromRow>[0];
+    matches: Array<{ beach_id: string; forecast_at: string; result: Record<string, unknown> | null }>;
+  };
+  const isPro = entitlementFromRow(context.entitlement) === 'premium';
+  return new Map(context.matches.map((match) => [
+    `${match.beach_id}:${match.forecast_at}`,
+    isPro ? interpretRpcResult(match.result) : null,
+  ]));
 }
 
 // ============================================================================

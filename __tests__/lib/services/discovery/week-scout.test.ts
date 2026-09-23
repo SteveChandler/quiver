@@ -23,6 +23,12 @@ import {
   generateWeekScoutRankingForDays,
   type WeekScoutServiceDependencies,
 } from '@/lib/services/discovery/week-scout';
+import { buildCanonicalDecisionFromSurfDiscovery } from '@/lib/recommendations/canonical-decision/discovery-adapter';
+import { resolveRecommendationLabel } from '@/lib/services/discovery/recommendation-label';
+import { getQualityLabel } from '@/lib/utils/score-color-utils';
+import { verdictFromRecommendationLabel } from '@/lib/utils/surf-call-logic';
+import type { SkillLevel } from '@/lib/domains/user-preferences';
+import type { SurfDiscoveryRecommendation } from '@/types/personalization';
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import {
@@ -104,9 +110,11 @@ function dependencies(): WeekScoutServiceDependencies {
     fetchBeaches: jest.fn(async () => beaches),
     fetchForecasts: jest.fn(async () => rows),
     fetchSunTimes: jest.fn(async () => new Map()),
-    fetchPreferences: jest.fn(async () => null),
+    fetchRankingContext: jest.fn(async () => ({
+      implicitPrefs: null, learnedPrefs: null, affinityMap: new Map(), implicitWeight: 0,
+    })),
     fetchSkill: jest.fn(async () => 'intermediate'),
-    fetchPersonalizationContext: jest.fn(async () => null),
+    fetchMatchEvidence: jest.fn(async () => new Map()),
     calculatePersonalizationBonus: jest.fn(() => ({
       affinityBonus: 0,
       personalizationBonus: 0,
@@ -201,6 +209,105 @@ describe('generateWeekScoutForecast', () => {
           },
         })),
     );
+  });
+
+  it('keeps Avalanche at 64 MAYBE/FAIR despite an advanced longboard personalization boost', async () => {
+    const deps = dependencies();
+    const avalanche = { ...beach(BEACH_A, 'Avalanche'), skill_level: 'advanced', timezone: 'America/Los_Angeles' };
+    deps.now = new Date('2026-09-22T19:30:00.000Z');
+    const row = { ...forecast(BEACH_A, '2026-09-23T18:00:00.000Z'), wave_height: '2.4 ft' };
+    deps.fetchBeaches = jest.fn(async () => [avalanche]);
+    deps.fetchForecasts = jest.fn(async () => new Map([[BEACH_A, [row]]]));
+    deps.fetchSkill = jest.fn(async () => 'advanced');
+    // Southpoint longboard 2+1 is a board name; scoring consumes its longboard class.
+    deps.fetchBoardClasses = jest.fn(async () => ['longboard' as const]);
+    deps.fetchRankingContext = jest.fn(async () => ({} as never));
+    deps.calculatePersonalizationBonus = jest.fn(() => ({
+      affinityBonus: 8, personalizationBonus: 6, reasons: ['Wind matches your usual sessions'],
+    }));
+    deps.scoreWindowCondition = jest.fn(() => 64);
+    const response = await generateWeekScoutRankingForDays('user-avalanche', {
+      candidateBeachIds: [BEACH_A], localTimezone: 'America/Los_Angeles',
+      startLocalDate: '2026-09-23', dayCount: 1,
+    }, deps);
+    const windows = response.days[0].windows;
+    expect(windows).toHaveLength(1);
+    expect(windows[0]).toMatchObject({ conditionScore: 64, verdict: 'maybe', rankingScore: 82 });
+    expect(windows[0].rankedSpots).toEqual([
+      expect.objectContaining({ conditionScore: 64, verdict: 'maybe', rankingScore: 82 }),
+    ]);
+    const recommendation = (deps.rankWindows as jest.Mock).mock.calls
+      .flatMap(([recs]: [SurfDiscoveryRecommendation[]]) => recs)[0];
+    const call = buildCanonicalDecisionFromSurfDiscovery({
+      anchorTime: deps.now.toISOString(),
+      scope: {
+        kind: 'plan_next_session', windowStart: deps.now.toISOString(),
+        windowEnd: '2026-09-24T00:00:00.000Z', timezone: 'America/Los_Angeles',
+      },
+      profileExperience: 'Advanced',
+      recommendationAvailability: { state: 'available', holdEpoch: 'regression' },
+      recommendations: [{ ...recommendation, score: 64 }],
+    });
+    expect(call.verdict).toBe('maybe');
+    expect(call.selection!.evidence).toMatchObject({ conditionScore: 64, recommendationLabel: 'Maybe' });
+    expect(verdictFromRecommendationLabel(call.selection!.evidence.recommendationLabel!)).toBe('MAYBE');
+    expect(getQualityLabel(windows[0].conditionScore!)).toBe('FAIR');
+    expect(getQualityLabel(call.selection!.evidence.conditionScore)).toBe('FAIR');
+    expect(deps.scoreWindowCondition).toHaveBeenCalledWith(row, avalanche, 'advanced', ['longboard']);
+    expect(deps.rankWindows).toHaveBeenCalledWith([
+      expect.objectContaining({ score: 78 }),
+    ]);
+  });
+
+  it.each(
+    ([null, 'beginner', 'intermediate', 'advanced', 'expert'] as const).flatMap((skill) =>
+      [0, 39, 40, 54, 55, 64, 69, 70, 79, 80, 100].flatMap((score) =>
+        ([null, 'GOOD', 'FAIR', 'MEH'] as const).map((matchLabel) => ({ skill, score, matchLabel })),
+      ),
+    ),
+  )('matches surf-call for score=$score skill=$skill learned=$matchLabel', async ({ skill, score, matchLabel }) => {
+    const deps = dependencies();
+    const candidateBeach = { ...beach(BEACH_A, 'Safe beach'), skill_level: 'beginner' };
+    const row = { ...forecast(BEACH_A, '2026-07-31T20:00:00.000Z'), wave_height: '2.4 ft' };
+    const similarity: SurfDiscoveryRecommendation['similarity'] = matchLabel === null ? null : {
+      state: 'ready', score: 7, label: matchLabel, confidence: 'high',
+      bonusApplied: 0, reason: 'History', reasons: ['History'], sessionCount: 20,
+    };
+    deps.fetchBeaches = jest.fn(async () => [candidateBeach]);
+    deps.fetchForecasts = jest.fn(async () => new Map([[BEACH_A, [row]]]));
+    deps.fetchSkill = jest.fn(async (): Promise<SkillLevel | null> => skill);
+    deps.fetchBoardClasses = jest.fn(async () => ['longboard' as const]);
+    deps.scoreWindowCondition = jest.fn(() => score);
+    deps.fetchMatchEvidence = jest.fn(async () => new Map([[`${row.beach_id}:${row.forecast_at}`, similarity]]));
+    const ranked = await generateWeekScoutRankingForDays('user-parity', {
+      candidateBeachIds: [BEACH_A], localTimezone: 'Pacific/Honolulu',
+      startLocalDate: '2026-07-31', dayCount: 1,
+    }, deps);
+    const window = ranked.days[0].windows[0];
+    expect(window).toMatchObject({ beachId: BEACH_A, conditionScore: score });
+    const call = buildCanonicalDecisionFromSurfDiscovery({
+      anchorTime: deps.now.toISOString(),
+      scope: {
+        kind: 'plan_next_session', windowStart: deps.now.toISOString(),
+        windowEnd: '2026-08-01T14:00:00.000Z', timezone: 'Pacific/Honolulu',
+      },
+      profileExperience: skill,
+      recommendationAvailability: { state: 'available', holdEpoch: 'parity' },
+      recommendations: [{
+        recommendationId: window.id, beach: candidateBeach, forecast: row,
+        window: { start: new Date(window.start), end: new Date(window.end), timezone: 'Pacific/Honolulu' },
+        score, similarity,
+        recommendationLabel: resolveRecommendationLabel({ beach: candidateBeach, forecast: row, score }).label,
+      } as SurfDiscoveryRecommendation],
+    });
+    expect(call.selection).not.toBeNull();
+    const verdicts = { worth_it: 'go', maybe: 'maybe', skip: 'no' } as const;
+    expect(verdicts[window.verdict!]).toBe(call.verdict);
+    const labels = { worth_it: 'Worth it', maybe: 'Maybe', skip: 'Skip' } as const;
+    expect(labels[window.verdict!]).toBe(call.selection!.evidence.recommendationLabel);
+    expect(window.conditionScore).toBe(score);
+    expect(window.rankingScore).toBe(82);
+    expect(deps.fetchMatchEvidence).toHaveBeenCalledTimes(1);
   });
 
   it('reuses canonical scoring for a two-day weekend request', async () => {
@@ -513,6 +620,45 @@ describe('generateWeekScoutForecast', () => {
     expect(response.sessionDecision.selection?.timezone).toBe('America/Los_Angeles');
   });
 
+  it('scores only 252 returned slots out of 420 drafts for 20 beaches over seven days', async () => {
+    const candidates = Array.from({ length: 20 }, (_, index) => beach(
+      `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`, `Beach ${index}`,
+    ));
+    const deps = dependencies();
+    deps.fetchBeaches = jest.fn(async () => candidates);
+    const rows = candidates.map((candidate) => [candidate.id, Array.from({ length: 7 }, (_, day) =>
+      [16, 20, 24].map((hour) => forecast(candidate.id,
+        new Date(Date.UTC(2026, 6, 31 + day, hour)).toISOString())),
+    ).flat()] as const);
+    deps.fetchForecasts = jest.fn(async () => new Map(rows));
+    deps.fetchMatchEvidence = jest.fn(async (_user, _ids, forecasts) => new Map(
+      forecasts.map((row) => [`${row.beach_id}:${row.forecast_at}`, row.beach_id === candidates[0].id ? {
+        state: 'ready' as const, score: 1, label: 'MEH', confidence: 'high' as const,
+        bonusApplied: 0, reason: 'Mismatch', reasons: ['Mismatch'], sessionCount: 25,
+      } : null]),
+    ));
+    const response = await generateWeekScoutForecast('user-week-scout', {
+      candidateBeachIds: candidates.map((candidate) => candidate.id),
+      localTimezone: 'Pacific/Honolulu', startLocalDate: '2026-07-31', dayCount: 7,
+    }, deps);
+    const returned = response.days.flatMap((day) => day.windows);
+    expect(rows.flatMap(([, forecasts]) => forecasts)).toHaveLength(420);
+    expect(returned).toHaveLength(252); // 20 day-bests + 8 midday + 8 evening per day.
+    expect(deps.fetchMatchEvidence).toHaveBeenCalledTimes(1);
+    const scored = (deps.fetchMatchEvidence as jest.Mock).mock.calls[0][2] as EnhancedForecastEntity[];
+    expect(scored).toHaveLength(252);
+    expect(new Set(scored.map((row) => `${row.beach_id}:${row.forecast_at}`))).toEqual(
+      new Set(returned.map((window) => `${window.beachId}:${window.start}`)),
+    );
+    expect((deps.rankWindows as jest.Mock).mock.invocationCallOrder.every((order) =>
+      order < (deps.fetchMatchEvidence as jest.Mock).mock.invocationCallOrder[0])).toBe(true);
+    expect(returned[0].rankedSpots[0]).toMatchObject({ beachId: candidates[0].id, verdict: 'skip' });
+    for (const day of response.days) {
+      expect(day.bestWindowId).not.toBeNull();
+      expect(day.windows.find((window) => window.id === day.bestWindowId)?.beachId).not.toBe(candidates[0].id);
+    }
+  });
+
   it('caps previews at eight per bucket without compacting away beach day bests', async () => {
     const candidates = Array.from({ length: 10 }, (_, index) => beach(
       `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
@@ -546,6 +692,7 @@ describe('generateWeekScoutForecast', () => {
       expect.objectContaining({
         candidates: expect.any(Array),
       }),
+      { resolveWaterQualityHolds: expect.any(Function) },
     );
     const evaluatedCandidates = mockEvaluateMajorEventHoldCandidates.mock.calls.at(-1)?.[0]
       .candidates as unknown[];
@@ -810,7 +957,7 @@ describe('generateWeekScoutForecast', () => {
       ]),
       profileExperience: 'intermediate',
       applyWaterQualityHolds: true,
-    });
+    }, { resolveWaterQualityHolds: expect.any(Function) });
     expect(mockEvaluateMajorEventHoldCandidates.mock.calls[0][0].candidates).toHaveLength(6);
     expect(response.recommendationAvailability).toEqual({
       state: 'available',

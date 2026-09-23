@@ -253,9 +253,11 @@ function weekScoutDependencies(now: Date): WeekScoutServiceDependencies {
     fetchBeaches: jest.fn(async () => [beach]),
     fetchForecasts: jest.fn(async () => new Map([[BEACH_ID, rows]])),
     fetchSunTimes: jest.fn(async () => sunTimes),
-    fetchPreferences: jest.fn(async () => null),
+    fetchRankingContext: jest.fn(async () => ({
+      implicitPrefs: null, learnedPrefs: null, affinityMap: new Map(), implicitWeight: 0,
+    })),
     fetchSkill: jest.fn(async () => "intermediate"),
-    fetchPersonalizationContext: jest.fn(async () => null),
+    fetchMatchEvidence: jest.fn(async () => new Map()),
     calculatePersonalizationBonus: jest.fn(() => ({ affinityBonus: 0, personalizationBonus: 0, reasons: [] })),
     selectBestWindows,
     scoreWindowCondition: (row, candidate, skill, boardClasses) =>
