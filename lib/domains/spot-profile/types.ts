@@ -56,6 +56,8 @@ export interface TidePreferences {
   readonly preferredDirection: 'rising' | 'falling' | 'either' | 'slack';
   /** How sensitive this spot is to wrong tide direction */
   readonly directionSensitivity: 'low' | 'medium' | 'high';
+  /** True when the beach row carries a curated tide band rather than the default. */
+  readonly explicitRange?: boolean;
 }
 
 /**
