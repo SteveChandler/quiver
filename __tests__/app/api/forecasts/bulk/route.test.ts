@@ -1310,7 +1310,7 @@ describe("/api/forecasts/bulk", () => {
       200,
     );
 
-    expect(data.data.forecasts).toEqual({ "beach-1": 3.5 });
+    expect(data.data.forecasts).toEqual({ "beach-1": 3 });
     expect(data.data.displayForecasts["beach-1"]).toMatchObject({
       label: "3-4ft",
       context: "selected_hour",

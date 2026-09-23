@@ -212,9 +212,13 @@ async function sanitizeBulkResponse<TResponse extends BulkForecastResponseLike>(
 }
 
 
+// Legacy `forecasts` field: keeps main's lower-bound reading so existing clients see no change.
 function parseLegacyWaveHeight(value: string | number | null | undefined): number | null {
-  if (typeof value === "string" && value.trim().toLowerCase() === "flat") return 0;
-  return parseWaveHeightMidpointFt(value);
+  if (value == null) return null;
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (value.trim().toLowerCase() === "flat") return 0;
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function resolveForecastFetchWindow(forecastAt: string | null): {
@@ -1043,17 +1047,33 @@ export async function bulkForecastHandler(
         conditionScoreMap[beach.id] = score;
         conditionSummaryMap[beach.id] =
           conditionSummaryFromScore(score);
-        const decision = decisionContext
-          ? bulkSessionDecision(decisionContext, beach, forecast, score, fetchWindow.selectedAt ?? now)
-          : null;
-        recommendationLabelMap[beach.id] = decision ? recommendationLabelForVerdict(decision.verdict) : null;
-        personalAdjustmentReasons[beach.id] = decision?.personalAdjustmentReason ?? null;
-        recommendedBoards[beach.id] = recommendBoard(decisionContext?.boards ?? [], forecast, beach, userSkillLevel);
-        const label = recommendationLabelMap[beach.id];
-        verdicts[beach.id] = label === "Worth it" ? "go" : label === "Maybe" ? "maybe" : "no";
-        conditionLabels[beach.id] = conditionLabelForVerdict(verdicts[beach.id], score);
-        lightByBeach[beach.id] = lightMetadata(fetchWindow.selectedAt ?? now, beach.timezone || 'UTC', sunTimesCache?.get(beach.id));
         selectedScoreForecastAtByBeach.set(beach.id, forecast.forecast_at);
+
+        // Additive decision fields must never cost a beach its condition score.
+        try {
+          const decision = decisionContext
+            ? bulkSessionDecision(decisionContext, beach, forecast, score, fetchWindow.selectedAt ?? now)
+            : null;
+          recommendationLabelMap[beach.id] = decision ? recommendationLabelForVerdict(decision.verdict) : null;
+          personalAdjustmentReasons[beach.id] = decision?.personalAdjustmentReason ?? null;
+          const label = recommendationLabelMap[beach.id];
+          verdicts[beach.id] = label === "Worth it" ? "go" : label === "Maybe" ? "maybe" : "no";
+          conditionLabels[beach.id] = conditionLabelForVerdict(verdicts[beach.id], score);
+        } catch (error) {
+          recommendationLabelMap[beach.id] = null;
+          console.warn("Failed to resolve bulk forecast decision:", { beachId: beach.id, error });
+        }
+        try {
+          recommendedBoards[beach.id] = recommendBoard(decisionContext?.boards ?? [], forecast, beach, userSkillLevel);
+        } catch (error) {
+          recommendedBoards[beach.id] = null;
+          console.warn("Failed to recommend bulk board:", { beachId: beach.id, error });
+        }
+        try {
+          lightByBeach[beach.id] = lightMetadata(fetchWindow.selectedAt ?? now, beach.timezone || 'UTC', sunTimesCache?.get(beach.id));
+        } catch (error) {
+          console.warn("Failed to resolve bulk light metadata:", { beachId: beach.id, error });
+        }
       } catch (error) {
         console.warn("Failed to score bulk forecast condition:", {
           beachId: beach.id,
