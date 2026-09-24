@@ -6,6 +6,7 @@ import {
   createQrCodeDataUri,
   SHARE_CARD_COLORS,
 } from "@/app/api/og/_components/install-share-card";
+import { buildSessionShareDetails } from "@/lib/share/session-share-card-details";
 
 export const runtime = "nodejs";
 
@@ -142,6 +143,21 @@ function buildSessionSubtitle(params: {
   );
 }
 
+// Drawn as a path: the OG renderer's default font has no star glyph and shows empty boxes.
+function ShareStar({ filled }: { filled: boolean }) {
+  return (
+    <svg width="56" height="56" viewBox="0 0 24 24">
+      <path
+        d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z"
+        fill={filled ? SHARE_CARD_COLORS.orange : "none"}
+        stroke={SHARE_CARD_COLORS.orange}
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 function SessionShareCard({
   beach,
   rating,
@@ -156,14 +172,7 @@ function SessionShareCard({
   bg,
   qrImageSrc,
 }: SessionShareCardProps) {
-  const detailCards = [
-    { label: "Waves", value: size || "Logged" },
-    { label: "Board", value: board || "Quiver" },
-    {
-      label: "Wind",
-      value: [windSpeed, windLabel].filter(Boolean).join(" ") || "Session notes",
-    },
-  ];
+  const detailCards = buildSessionShareDetails({ size, board, windSpeed, windLabel });
   const clampedStars = Math.max(0, Math.min(5, Math.round(stars)));
   const subtitle = buildSessionSubtitle({
     beach,
@@ -301,11 +310,12 @@ function SessionShareCard({
               display: "flex",
               fontSize: 58,
               color: SHARE_CARD_COLORS.orange,
-              letterSpacing: 2,
+              gap: 6,
             }}
           >
-            {"★".repeat(clampedStars)}
-            {"☆".repeat(5 - clampedStars)}
+            {Array.from({ length: 5 }, (_, index) => (
+              <ShareStar key={index} filled={index < clampedStars} />
+            ))}
           </div>
           <div
             style={{
