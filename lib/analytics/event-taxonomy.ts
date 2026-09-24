@@ -956,6 +956,9 @@ export const NATIVE_DIRECT_INSERT_EVENTS = [
   'home_recommendation_changed',
   'week_scout_stability',
   'decision_loop_completed',
+  // Native direct insert; metadata is bounded to home_mode, from_index,
+  // to_index, beach_id, method and band.
+  'home_hero_swiped',
   'board_pick_exposed',
   'call_check_prompted',
   'call_check_answered',

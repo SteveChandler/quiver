@@ -16,7 +16,7 @@ export interface RCEvent {
   app_user_id?: string;
   original_app_user_id?: string;
   product_id?: string;
-  period_type?: "NORMAL" | "TRIAL" | "INTRO";
+  period_type?: "NORMAL" | "TRIAL" | "INTRO" | "PROMOTIONAL" | "PREPAID";
   purchased_at_ms?: number;
   expiration_at_ms?: number;
   event_timestamp_ms?: number;
