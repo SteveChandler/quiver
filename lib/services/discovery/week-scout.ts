@@ -16,6 +16,7 @@ import {
 import {
   selectBestWindows,
   scoreWindowConditionScore,
+  scoreWindowWithComposite,
   getLocalDateStr,
 } from '@/lib/services/discovery/window-selector';
 import {
@@ -770,6 +771,9 @@ function buildWeekScoutCanonicalCandidates(args: {
         forecastAt: forecast?.forecast_at ?? '',
         waveHeight: window.forecast.waveHeight,
         utilityScore: window.rankingScore,
+        // Same decision effects as surf/call and bulk, so a tide or swell
+        // ceiling also caps the ranking-score label here.
+        effects: forecast ? [...(scoreWindowWithComposite(forecast, beach).effects ?? [])] : [],
         // window.verdict already carries personal history (applied once in the
         // verdict pass), so the pool gets no second personal-match input.
         recommendationLabel: canonicalLabelForVerdict(window.verdict),

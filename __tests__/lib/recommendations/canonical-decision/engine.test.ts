@@ -244,6 +244,31 @@ describe("canonical session decision engine", () => {
     expect(decision.verdict).toBe("go");
   });
 
+  it("labels a go capped below EPIC from the capped score, matching its evidence", () => {
+    const { buildCanonicalSessionDecision } = loadEngine();
+    const decision = buildCanonicalSessionDecision(
+      input([
+        candidate({
+          utilityScore: 94,
+          effects: [{
+            code: "tide_outside_band",
+            severity: "material",
+            verdictCeiling: 79,
+            message: "Tide a bit high",
+          }],
+        }),
+      ]),
+    ) as {
+      verdict: string;
+      conditionLabel: string;
+      selection: { evidence: { conditionScore: number } } | null;
+    };
+
+    expect(decision.verdict).toBe("go");
+    expect(decision.conditionLabel).toBe("GOOD");
+    expect(decision.selection?.evidence.conditionScore).toBe(79);
+  });
+
   it("applies a structured caution to both verdict evidence and the decision hash", () => {
     const { buildCanonicalSessionDecision } = loadEngine();
     const effect: ScoringDecisionEffect = {

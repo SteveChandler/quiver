@@ -136,6 +136,13 @@ describe('Discovery Adapter', () => {
       expect(forecastToSnapshot(highForecast).tide.direction).toBe('slack');
     });
 
+    it('flags a missing tide height instead of presenting it as a real 0 ft reading', () => {
+      const missing = forecastToSnapshot(createForecast({ tide_height: null }));
+      expect(missing.tide.heightFt).toBe(0);
+      expect(missing.tide.heightKnown).toBe(false);
+      expect(forecastToSnapshot(createForecast({ tide_height: '0.0 ft' })).tide.heightKnown).toBe(true);
+    });
+
     describe('cardinal swell direction parsing', () => {
       it('should parse cardinal string swell_1_direction (WNW)', () => {
         const forecast = createForecast({
