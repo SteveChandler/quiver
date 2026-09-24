@@ -20,7 +20,12 @@ import {
   forecastRowIntervalEnd,
   isDaylightInterval,
   nextFirstLight,
-  lightMetadata,
+  currentHourRowStart,
+  lightFieldsOf,
+  lightMetadataForInterval,
+  pointInterval,
+  scopedLightInterval,
+  type LightInterval,
 } from './daylight-eligibility';
 import { recommendBoard, PERSONAL_BOARD_SELECT, type PersonalBoard } from '@/lib/scoring/personal-board';
 import { conditionLabelForVerdict } from '@/lib/recommendations/canonical-decision/engine';
@@ -171,6 +176,23 @@ const MAX_PUBLIC_CUSTOM_SPOTS = 5;
 const BOARD_HISTORY_WINDOW_MS = 365 * 24 * 60 * 60 * 1000;
 const BOARD_HISTORY_SESSION_CAP = 300;
 // Bounds My Spots forecast fetches for users with long saved lists.
+// batchFetchForecasts reads 48 hours by default. Returns a wider window only
+// when the selection horizon or a scoped hour needs one; forecasts run ~16 days.
+const DEFAULT_FETCH_WINDOW_HOURS = 48;
+const MAX_FETCH_WINDOW_HOURS = 16 * 24;
+function forecastFetchWindowHours(
+  horizonHours: number | undefined,
+  forecastAt: string | undefined,
+  nowMs: number = Date.now(),
+): number | undefined {
+  const scopedMs = forecastAt ? Date.parse(forecastAt) : NaN;
+  const scopedHours = Number.isFinite(scopedMs)
+    ? Math.ceil((scopedMs - nowMs) / 3_600_000) + 24
+    : 0;
+  const needed = Math.max(horizonHours ?? 0, scopedHours);
+  return needed > DEFAULT_FETCH_WINDOW_HOURS ? Math.min(needed, MAX_FETCH_WINDOW_HOURS) : undefined;
+}
+
 const MY_SPOTS_CANDIDATE_CAP = 25;
 
 type SurfDiscoveryOperationalErrorCode =
@@ -1356,7 +1378,6 @@ const IMMEDIATE_FORECAST_BUCKET_MAX_HOURS = 4;
 interface ImmediateForecastBucket {
   forecast: EnhancedForecastEntity;
   start: Date;
-  rowEnd: Date;
   end: Date;
 }
 
@@ -1431,7 +1452,6 @@ function findImmediateForecastBucket(
       activeBucket = {
         forecast: current.forecast,
         start: current.forecastTime,
-        rowEnd: forecastRowIntervalEnd(current.forecastTime, next?.forecastTime),
         end: bucketEnd,
       };
     }
@@ -1657,11 +1677,16 @@ async function discoverSurfSpotsInner(
     `${customSpotCandidates.length} custom spots)`
   );
 
-  // 2. Fetch forecasts for all candidates
+  // 2. Fetch forecasts for all candidates. The cache read stops about two
+  // days out by default; widen it to cover the selection horizon and any
+  // scoped hour (Beach Detail scrubs up to 13 days ahead).
+  const fetchWindowHours = forecastFetchWindowHours(horizonHours, forecastAt);
+  const windowOption = fetchWindowHours ? { forecastWindowHours: fetchWindowHours } : {};
   let { successful: beachForecasts, failed: failedForecasts, staleCount } = await batchFetchForecasts(finalCandidates, {
     maxConcurrent,
     timeout,
     overallTimeout,
+    ...windowOption,
   });
 
   let usingStaleData = false;
@@ -1693,6 +1718,7 @@ async function discoverSurfSpotsInner(
         timeout,
         overallTimeout,
         allowStale: true,
+        ...windowOption,
       });
       beachForecasts = staleFallback.successful;
       failedForecasts = staleFallback.failed;
@@ -1791,6 +1817,7 @@ async function discoverSurfSpotsInner(
   const scored: SurfDiscoveryRecommendation[] = [];
 
   const beachesWithNoWindow: string[] = [];
+  const lightIntervalByBeach = new Map<string, LightInterval>();
   let daylightAvailability: DaylightAvailability | null = null;
   const considerAfterDark = (candidate: DaylightAvailability): void => {
     const candidateTime = candidate.nextWindowStart
@@ -1816,6 +1843,17 @@ async function discoverSurfSpotsInner(
       ? resolveForecastTime(scopedForecast, beachTz)
       : null;
     const scopedForecasts = scopedForecast ? [scopedForecast] : [];
+    const lightInterval = scopedLightInterval(
+      forecastAt,
+      scopedForecast && scopedStart
+        ? { start: scopedStart, end: getForecastRowEnd(scopedForecast, forecasts, beachTz) }
+        : null,
+      now,
+      forecastAt
+        ? currentHourRowStart(forecasts.map((forecast) => resolveForecastTime(forecast, beachTz)), now)
+        : null,
+    );
+    lightIntervalByBeach.set(beach.id, lightInterval);
     const selectionNow = forecastAt ? new Date(forecastAt) : new Date();
     const todayStr = getLocalDateStr(selectionNow, beachTz);
     const todayForecasts = forecasts.filter(f =>
@@ -1934,23 +1972,11 @@ async function discoverSurfSpotsInner(
       );
     }
 
-    if (forecastAt && !isDaylightInterval(now, new Date(now.getTime() + 1), beachTz, beachSunTimes)) {
-      considerAfterDark(afterDarkAvailabilityFor(beach, beachTz, now, beachSunTimes));
+    if (forecastAt && lightMetadataForInterval(lightInterval, beachTz, beachSunTimes).isDark) {
+      considerAfterDark(afterDarkAvailabilityFor(beach, beachTz, lightInterval.start, beachSunTimes));
     }
 
     if (selectedWindows.length === 0) {
-      if (forecastAt && requestedAlignment?.forecast) {
-        const rowStart = resolveForecastTime(requestedAlignment.forecast, beachTz);
-        const rowEnd = getForecastRowEnd(requestedAlignment.forecast, forecasts, beachTz);
-        if (!isDaylightInterval(rowStart, rowEnd, beachTz, beachSunTimes)) {
-          considerAfterDark(afterDarkAvailabilityFor(
-            beach,
-            beachTz,
-            rowStart,
-            beachSunTimes,
-          ));
-        }
-      }
       beachesWithNoWindow.push(beach.name);
       log.debug(`[discoverSurfSpots] ${beach.name}: selectBestWindows returned no windows (forecasts=${forecasts.length})`);
       continue;
@@ -2523,7 +2549,11 @@ async function discoverSurfSpotsInner(
   }
 
   for (const rec of [...enrichedRanked, ...enrichedIncluded]) {
-    Object.assign(rec, lightMetadata(now, rec.window.timezone, sunTimesCache.get(rec.forecast.beach_id)));
+    Object.assign(rec, lightMetadataForInterval(
+      lightIntervalByBeach.get(rec.forecast.beach_id) ?? pointInterval(now),
+      rec.window.timezone,
+      sunTimesCache.get(rec.forecast.beach_id),
+    ));
     rec.physicalRecommendationLabel ??= rec.recommendationLabel;
     rec.recommendationLabel = getCanonicalRecommendationLabel(rec, userSkillLevel);
     rec.verdict = rec.recommendationLabel === "Worth it" ? "go" : rec.recommendationLabel === "Maybe" ? "maybe" : "no";
@@ -2568,10 +2598,8 @@ async function discoverSurfSpotsInner(
     },
     regionalCall,
     eveningTransition,
-    ...(enrichedRanked[0] || enrichedIncluded[0] ? lightMetadata(
-      now, (enrichedRanked[0] ?? enrichedIncluded[0]).window.timezone,
-      sunTimesCache.get((enrichedRanked[0] ?? enrichedIncluded[0]).beach.id),
-    ) : {}),
+    // The response-level light is the lead recommendation's, not a second computation.
+    ...lightFieldsOf(enrichedRanked[0] ?? enrichedIncluded[0]),
     ...(daylightAvailability
       ? { daylightAvailability }
       : {}),

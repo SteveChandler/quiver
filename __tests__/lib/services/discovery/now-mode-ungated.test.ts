@@ -530,6 +530,107 @@ describe('September 23 Ponto NOW regression', () => {
 });
 
 
+describe('scoped light describes the scoped hour, not the request time', () => {
+  // Wed 2026-09-23 first light 06:09 PDT, last light 19:05 PDT; Thu 06:10 / 19:03.
+  const SEPTEMBER_SUN = [
+    { beach_id: 'beach-1', sunrise_utc: '2026-09-23T13:39:00Z', sunset_utc: '2026-09-24T01:45:00Z' },
+    { beach_id: 'beach-1', sunrise_utc: '2026-09-24T13:40:00Z', sunset_utc: '2026-09-25T01:43:00Z' },
+  ];
+  beforeEach(() => {
+    jest.useFakeTimers();
+    mockState.sunTimeRows = SEPTEMBER_SUN;
+    mockState.userSkillLevel = 'intermediate';
+  });
+  afterEach(() => {
+    mockState.sunTimeRows = SUN_TIME_ROWS;
+    jest.useRealTimers();
+  });
+
+  it('reports a future daylight hour as light when asked after dark', async () => {
+    jest.setSystemTime(new Date('2026-09-24T03:40:00Z')); // Wed 20:40 PDT
+    mockState.forecasts = [
+      forecastAtLocal('thu-09', '2026-09-24T16:00:00Z', '2026-09-24', '09:00'),
+      forecastAtLocal('thu-12', '2026-09-24T19:00:00Z', '2026-09-24', '12:00'),
+      forecastAtLocal('thu-15', '2026-09-24T22:00:00Z', '2026-09-24', '15:00'),
+    ];
+
+    const result = await discoverScoped('2026-09-24T19:00:00.000Z'); // Thu 12:00 PDT
+
+    const light = { isDark: false, firstLight: '2026-09-24T13:10:00.000Z', lastLight: '2026-09-25T02:03:00.000Z' };
+    expect(result).toMatchObject(light);
+    expect(result.recommendations[0]).toMatchObject(light);
+    expect(result.nextWindowStart).toBeUndefined();
+    expect(result.daylightAvailability).toBeUndefined();
+  });
+
+  it('reports a future night hour as dark when asked in daylight', async () => {
+    jest.setSystemTime(new Date('2026-09-23T19:00:00Z')); // Wed 12:00 PDT
+    mockState.forecasts = [
+      forecastAtLocal('wed-17', '2026-09-24T00:00:00Z', '2026-09-23', '17:00'),
+      forecastAtLocal('wed-20', '2026-09-24T03:00:00Z', '2026-09-23', '20:00'),
+      forecastAtLocal('wed-23', '2026-09-24T06:00:00Z', '2026-09-23', '23:00'),
+    ];
+
+    const result = await discoverScoped('2026-09-24T03:00:00.000Z'); // Wed 20:00 PDT
+
+    const light = {
+      isDark: true,
+      firstLight: '2026-09-23T13:09:00.000Z',
+      lastLight: '2026-09-24T02:05:00.000Z',
+      nextWindowStart: '2026-09-24T13:10:00.000Z',
+    };
+    expect(result).toMatchObject(light);
+    expect(result.recommendations[0]).toMatchObject(light);
+    expect(result.daylightAvailability).toEqual({
+      reasonCode: 'after_dark',
+      nextWindowStart: '2026-09-24T13:10:00.000Z',
+      timezone: BEACH_TZ,
+      beachId: 'beach-1',
+    });
+  });
+
+  it('describes a future dawn row by its interval, not its dark start instant', async () => {
+    jest.setSystemTime(new Date('2026-09-24T03:40:00Z')); // Wed 20:40 PDT
+    mockState.forecasts = [
+      forecastAtLocal('thu-02', '2026-09-24T09:00:00Z', '2026-09-24', '02:00'),
+      forecastAtLocal('thu-05', '2026-09-24T12:00:00Z', '2026-09-24', '05:00'),
+      forecastAtLocal('thu-08', '2026-09-24T15:00:00Z', '2026-09-24', '08:00'),
+    ];
+
+    const result = await discoverScoped('2026-09-24T12:00:00.000Z'); // 05:00–08:00 overlaps 06:10 first light
+
+    expect(result).toMatchObject({ isDark: false, firstLight: '2026-09-24T13:10:00.000Z' });
+    expect(result.nextWindowStart).toBeUndefined();
+    expect(result.daylightAvailability).toBeUndefined();
+  });
+
+  // Home NOW asks with the row its current hour interpolates from, which is the
+  // next row in the last hour of a 3-hour step; its light must stay request-time.
+  it.each([
+    ['dusk, still light at 19:02 with the 20:00 row', '2026-09-24T02:02:00Z', [
+      forecastAtLocal('wed-17', '2026-09-24T00:00:00Z', '2026-09-23', '17:00'),
+      forecastAtLocal('wed-20', '2026-09-24T03:00:00Z', '2026-09-23', '20:00'),
+      forecastAtLocal('wed-23', '2026-09-24T06:00:00Z', '2026-09-23', '23:00'),
+    ], '2026-09-24T03:00:00.000Z', false, undefined],
+    ['dawn, still dark at 04:30 with the 05:00 row', '2026-09-24T11:30:00Z', [
+      forecastAtLocal('thu-02', '2026-09-24T09:00:00Z', '2026-09-24', '02:00'),
+      forecastAtLocal('thu-05', '2026-09-24T12:00:00Z', '2026-09-24', '05:00'),
+      forecastAtLocal('thu-08', '2026-09-24T15:00:00Z', '2026-09-24', '08:00'),
+    ], '2026-09-24T12:00:00.000Z', true, '2026-09-24T13:10:00.000Z'],
+  ] as const)('keeps Home NOW on request-time light: %s', async (_label, now, rows, forecastAt, dark, nextWindowStart) => {
+    jest.setSystemTime(new Date(now));
+    mockState.forecasts = [...rows];
+
+    const result = await discoverScoped(forecastAt);
+
+    expect(result.isDark).toBe(dark);
+    expect(result.nextWindowStart).toBe(nextWindowStart);
+    expect(result.daylightAvailability?.reasonCode).toBe(dark ? 'after_dark' : undefined);
+    expect(result.daylightAvailability?.nextWindowStart).toBe(nextWindowStart);
+  });
+});
+
+
 describe('My Spots 72-hour daylight selection', () => {
   beforeEach(() => {
     jest.useFakeTimers({ now: new Date('2026-04-15T16:00:00Z') });

@@ -1066,6 +1066,32 @@ describe("GET /api/surf/call includeNow", () => {
     });
   });
 
+  it("keeps a scoped call's availability on its own hour, not now-mode's after dark", async () => {
+    mockEligibleBeach();
+    mockDiscoverSurfSpots.mockResolvedValueOnce(
+      nowDiscovery({
+        empty: true,
+        daylightAvailability: {
+          reasonCode: "after_dark",
+          nextWindowStart: "2026-09-24T13:10:00.000Z",
+          timezone: "America/Los_Angeles",
+          beachId,
+        },
+      }),
+    );
+
+    const response = await GET(
+      new NextRequest(
+        `http://localhost:3000/api/surf/call?beachId=${beachId}&forecastAt=2026-09-24T19:00:00.000Z&includeNow=1`,
+      ),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data.nowRecommendation).toBeNull();
+    expect(body.data).not.toHaveProperty("daylightAvailability");
+  });
+
   it("never fails the surf call because the now-mode discovery failed", async () => {
     mockEligibleBeach();
     mockDiscoverSurfSpots.mockRejectedValue(

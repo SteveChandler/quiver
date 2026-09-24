@@ -77,7 +77,6 @@ Pure functions for wave direction parsing:
 Timezone-aware time calculations:
 - `getLocalDateStr()` - Format date in beach timezone
 - `getTimeSlotRange()` - Calculate time slot boundaries
-- `getDawnPatrolRange()` - Early morning slot handling
 - `capEndTimeToTimeSlot()` - Enforce time slot limits
 - `getLocalHour()` - Get hour in beach timezone
 - `isWithinTimeSlot()` - Check if time is in slot
