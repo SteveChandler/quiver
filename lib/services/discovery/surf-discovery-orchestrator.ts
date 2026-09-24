@@ -176,6 +176,23 @@ const MAX_PUBLIC_CUSTOM_SPOTS = 5;
 const BOARD_HISTORY_WINDOW_MS = 365 * 24 * 60 * 60 * 1000;
 const BOARD_HISTORY_SESSION_CAP = 300;
 // Bounds My Spots forecast fetches for users with long saved lists.
+// batchFetchForecasts reads 48 hours by default. Returns a wider window only
+// when the selection horizon or a scoped hour needs one; forecasts run ~16 days.
+const DEFAULT_FETCH_WINDOW_HOURS = 48;
+const MAX_FETCH_WINDOW_HOURS = 16 * 24;
+function forecastFetchWindowHours(
+  horizonHours: number | undefined,
+  forecastAt: string | undefined,
+  nowMs: number = Date.now(),
+): number | undefined {
+  const scopedMs = forecastAt ? Date.parse(forecastAt) : NaN;
+  const scopedHours = Number.isFinite(scopedMs)
+    ? Math.ceil((scopedMs - nowMs) / 3_600_000) + 24
+    : 0;
+  const needed = Math.max(horizonHours ?? 0, scopedHours);
+  return needed > DEFAULT_FETCH_WINDOW_HOURS ? Math.min(needed, MAX_FETCH_WINDOW_HOURS) : undefined;
+}
+
 const MY_SPOTS_CANDIDATE_CAP = 25;
 
 type SurfDiscoveryOperationalErrorCode =
@@ -1660,11 +1677,16 @@ async function discoverSurfSpotsInner(
     `${customSpotCandidates.length} custom spots)`
   );
 
-  // 2. Fetch forecasts for all candidates
+  // 2. Fetch forecasts for all candidates. The cache read stops about two
+  // days out by default; widen it to cover the selection horizon and any
+  // scoped hour (Beach Detail scrubs up to 13 days ahead).
+  const fetchWindowHours = forecastFetchWindowHours(horizonHours, forecastAt);
+  const windowOption = fetchWindowHours ? { forecastWindowHours: fetchWindowHours } : {};
   let { successful: beachForecasts, failed: failedForecasts, staleCount } = await batchFetchForecasts(finalCandidates, {
     maxConcurrent,
     timeout,
     overallTimeout,
+    ...windowOption,
   });
 
   let usingStaleData = false;
@@ -1696,6 +1718,7 @@ async function discoverSurfSpotsInner(
         timeout,
         overallTimeout,
         allowStale: true,
+        ...windowOption,
       });
       beachForecasts = staleFallback.successful;
       failedForecasts = staleFallback.failed;
