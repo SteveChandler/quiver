@@ -36,6 +36,14 @@ import {
 import type { Beach, Database } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import { DAILY_CALL_SCHEMA_VERSION } from "@/lib/notifications/types/daily-call";
+import {
+  comparisonLine,
+  formatWindowLabel,
+  limitSentence,
+  notificationBeachName,
+  swellPhrase,
+  windPhrase,
+} from "@/lib/notifications/copy/daily-call-copy";
 
 const WINDOW_CLOSE_BUFFER_MS = 30 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
@@ -159,16 +167,22 @@ export function rankCandidates(
     || left.pool.beach.id.localeCompare(right.pool.beach.id));
 }
 
+/**
+ * Why the winner beat the surfer's home beach, from both forecasts. Home is only
+ * compared when it produced its own go window; otherwise nothing is claimed.
+ */
 export function buildComparisonLine(
   winner: DailyCallCandidate,
   home: DailyCallCandidate | null,
 ): string | null {
   if (!home || winner.pool.beach.id === home.pool.beach.id) return null;
-  const homeName = home.pool.beach.short_name ?? home.pool.beach.name;
-  const driver = winner.window.drivers.find((value) => value.edge === "end")?.kind;
-  if (driver === "wind") return `Cleaner than ${homeName} today`;
-  if (driver === "tide") return `Better tide than ${homeName} today`;
-  return `Bigger than ${homeName} today`;
+  const winnerForecast = candidateDetails(winner)?.sourceForecast;
+  const homeForecast = candidateDetails(home)?.sourceForecast;
+  if (!winnerForecast || !homeForecast) return null;
+  return comparisonLine(
+    { forecast: winnerForecast, minutes: winner.window.minutes },
+    { forecast: homeForecast, minutes: home.window.minutes, name: notificationBeachName(home.pool.beach) },
+  );
 }
 
 function numberValue(value: unknown): number {
@@ -176,24 +190,13 @@ function numberValue(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function formatLocalTime(iso: string, timezone: string): string {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: timezone,
-    hour: "numeric",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(new Date(iso));
-  const hour = Number(parts.find((part) => part.type === "hour")?.value ?? 0);
-  const minute = parts.find((part) => part.type === "minute")?.value ?? "00";
-  return `${hour}:${minute}`;
-}
-
 function windowLabel(candidate: DailyCallCandidate, timezone: string): string {
   const startDriver = candidate.window.drivers.find((driver) => driver.edge === "start");
   const endDriver = candidate.window.drivers.find((driver) => driver.edge === "end");
-  const start = `${startDriver?.approximate ? "~" : ""}${formatLocalTime(candidate.window.start, timezone)}`;
-  const end = `${endDriver?.approximate ? "~" : ""}${formatLocalTime(candidate.window.end, timezone)}`;
-  return `${start}–${end}`;
+  return formatWindowLabel(candidate.window.start, candidate.window.end, timezone, {
+    approximateStart: startDriver?.approximate ?? false,
+    approximateEnd: endDriver?.approximate ?? false,
+  });
 }
 
 function candidateDetails(candidate: DailyCallCandidate): EvaluatedCandidate | null {
@@ -215,47 +218,35 @@ function titleTags(
   const startHour = getLocalHour(new Date(candidate.window.start), timezone);
   if (startHour < 7) tags.add("early");
   if (startHour >= 12) tags.add("afternoon");
-  tags.add(candidate.pool.beach.id === homeBeachId ? "home-beach" : "not-home");
+  // Without a home beach there is no "home" to be at or away from.
+  if (homeBeachId) tags.add(candidate.pool.beach.id === homeBeachId ? "home-beach" : "not-home");
   if (Date.parse(candidate.window.start) <= now.getTime()) tags.add("live");
   if (swellEventKey) tags.add("swell-day");
   return [...tags];
-}
-
-function fallbackReason(
-  forecast: EnhancedForecastEntity,
-  candidate: DailyCallCandidate,
-): string {
-  const driverLabels = candidate.window.drivers.map((driver) => driver.label);
-  const conditions = `${numberValue(forecast.wave_height)}ft @ ${numberValue(forecast.wave_period)}s ${forecast.wave_direction ?? ""}`.trim();
-  return [...driverLabels, conditions].filter(Boolean).join(". ");
 }
 
 function titleVars(
   candidate: DailyCallCandidate,
   profile: DailyCallProfile,
   timezone: string,
+  comparison: string | null,
 ): Record<string, string> {
-  const details = candidateDetails(candidate);
-  const forecast = details?.sourceForecast;
-  const beach = candidate.pool.beach.short_name ?? candidate.pool.beach.name;
-  const homeBeach = profile.homeBeach?.short_name ?? profile.homeBeach?.name ?? beach;
-  const start = formatLocalTime(candidate.window.start, timezone);
-  const end = formatLocalTime(candidate.window.end, timezone);
-  const tideDriver = candidate.window.drivers.find((driver) => driver.kind === "tide");
-  const windDriver = candidate.window.drivers.find((driver) => driver.kind === "wind");
+  const forecast = candidateDetails(candidate)?.sourceForecast ?? {};
+  const beach = notificationBeachName(candidate.pool.beach);
   return {
     beach,
-    home_beach: homeBeach,
-    start,
-    end,
-    tide: tideDriver?.label ?? forecast?.tide_status ?? "favorable tide",
-    wind: windDriver?.label ?? `${numberValue(forecast?.wind_speed)}mph ${forecast?.wind_direction ?? "wind"}`,
-    high_time: tideDriver ? formatLocalTime(tideDriver.at, timezone) : end,
-    turn_time: windDriver ? formatLocalTime(windDriver.at, timezone) : end,
-    size: `${numberValue(forecast?.wave_height)}ft`,
-    period: `${numberValue(forecast?.wave_period)}s`,
-    dir: forecast?.wave_direction ?? forecast?.swell_1_direction ?? "",
+    home_beach: profile.homeBeach ? notificationBeachName(profile.homeBeach) : beach,
+    window: formatWindowLabel(candidate.window.start, candidate.window.end, timezone),
+    lead: comparison ? `${comparison}: ` : "",
+    swell: swellPhrase(forecast),
+    wind: windPhrase(forecast),
+    limit: limitSentence(candidate.window.drivers, candidate.window.end, timezone),
   };
+}
+
+/** The same sentence the title pool renders, for a call that fell back to no template. */
+function fallbackReason(vars: Record<string, string>): string {
+  return `${vars.lead}${vars.swell} with ${vars.wind}. ${vars.limit}`;
 }
 
 function buildPayload(args: {
@@ -264,6 +255,7 @@ function buildPayload(args: {
   timezone: string;
   alertDate: string;
   title: SelectedTitle;
+  vars: Record<string, string>;
   comparison: string | null;
   swellEventKey: string | null;
 }): Record<string, unknown> {
@@ -286,7 +278,7 @@ function buildPayload(args: {
       ? `${numberValue(forecast.wind_speed)}mph ${forecast.wind_direction}`
       : `${numberValue(forecast?.wind_speed)}mph`,
     tide_label: forecast?.tide_status ?? "Unknown tide",
-    reason: args.title.body || (forecast ? fallbackReason(forecast, args.candidate) : "Good window today"),
+    reason: args.title.body || fallbackReason(args.vars),
     title: args.title.title,
     title_id: args.title.id,
     comparison: args.comparison,
@@ -691,7 +683,8 @@ export async function runDailyCallCron(args: {
         profile.id,
         new Date(args.now.getTime() - 30 * 24 * HOUR_MS),
       );
-      const vars = titleVars(winner, profile, timezone);
+      const comparison = buildComparisonLine(winner, home);
+      const vars = titleVars(winner, profile, timezone, comparison);
       const title = deps.selectTitle({
         pool: "daily",
         tags: titleTags(winner, profile.homeBeachId, timezone, args.now, swellEventKey),
@@ -711,7 +704,8 @@ export async function runDailyCallCron(args: {
           timezone,
           alertDate,
           title,
-          comparison: buildComparisonLine(winner, home),
+          vars,
+          comparison,
           swellEventKey,
         }),
       }, supabase);
