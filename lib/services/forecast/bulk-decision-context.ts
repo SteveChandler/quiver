@@ -13,6 +13,7 @@ import { parseSkillLevel } from "@/lib/domains/user-preferences/skill-level";
 import {
   forecastToMatchSlot,
   interpretRpcResult,
+  matchSlotKey,
 } from "@/lib/services/discovery/similarity-layer";
 import { resolveRecommendationLabel } from "@/lib/services/discovery/recommendation-label";
 import {
@@ -138,7 +139,7 @@ export async function fetchBulkDecisionContext(
   const matches: BulkDecisionContext["matches"] = new Map();
   for (const match of data.personalization?.matches ?? []) {
     const interpreted = premium ? interpretRpcResult(match.result) : null;
-    matches.set(`${match.beach_id}:${Date.parse(match.forecast_at)}`, interpreted);
+    matches.set(matchSlotKey(match.beach_id, match.forecast_at), interpreted);
   }
   const forecastsByBeach = new Map<string, EnhancedForecastEntity[]>();
   const beachById = new Map<string, Beach>(
@@ -235,8 +236,7 @@ export function bulkSessionDecision(
             }).label,
             personalMatch: toPersonalMatchEvidence({
               similarity:
-                context.matches.get(`${beach.id}:${Date.parse(forecast.forecast_at)}`) ?? context.matches.get(`${beach.id}:${forecast.forecast_at}`) ??
-                null,
+                context.matches.get(matchSlotKey(beach.id, forecast.forecast_at)) ?? null,
             }),
           },
         ],
