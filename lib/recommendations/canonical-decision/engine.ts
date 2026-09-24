@@ -409,7 +409,10 @@ export function buildCanonicalSessionDecision(
     ...(selected && !safetyOverride && verdict !== physicalVerdictForCandidate(selected)
       ? { personalAdjustmentReason: VERDICT_RANK[verdict] > VERDICT_RANK[physicalVerdictForCandidate(selected)]
         ? "personal_adjusted_up" as const : "personal_adjusted_down" as const } : {}),
-    conditionLabel: conditionLabelForVerdict(verdict, selected?.utilityScore ?? 0),
+    conditionLabel: conditionLabelForVerdict(
+      verdict,
+      selected ? Math.min(selected.utilityScore, verdictCeiling(selected.effects)) : 0,
+    ),
     selection: hasSelection
       ? selectionFor(selected, skill, verdict)
       : null,

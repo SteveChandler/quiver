@@ -54,6 +54,8 @@ export interface TideState {
   readonly status: TideStatus;
   /** General tide direction */
   readonly direction: TideDirection;
+  /** False when the forecast had no tide height and heightFt is a placeholder. */
+  readonly heightKnown?: boolean;
 }
 
 /**

@@ -1,6 +1,7 @@
 import {
   scoreWindowConditionDetails,
 } from '@/lib/services/discovery/window-selector/window-scorer';
+import type { BoardClass } from '@/lib/domains/rideability/board-class';
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 
@@ -74,5 +75,40 @@ describe('direction scoring window scorer', () => {
   it('keeps wind quality neutral when offshore direction is missing', () => {
     const result = scoreWindowConditionDetails(forecast({ wind_direction: 'N', wind_speed: '8 mph' }), beach({ wind_offshore_deg: null }), 'intermediate', null, []);
     expect(result.components.windQuality).toBe(result.components.wind);
+  });
+});
+
+describe('curated tide band ceiling', () => {
+  // Ponto's beach row and its 2026-09-23 15:00Z forecast (the 8 AM PT row).
+  const ponto = (overrides: Partial<Beach> = {}): Beach => beach({
+    name: 'Ponto', slug: 'ponto', preferred_tide_ft_min: 2, preferred_tide_ft_max: 4,
+    preferred_tide_direction: 'falling', wind_offshore_deg: 45, wind_offshore_tol_deg: 30,
+    swell_window_center_deg: 265, swell_window_halfwidth_deg: 105, ...overrides,
+  });
+  const epicDay = (tide_height: string): EnhancedForecastEntity => forecast({
+    wave_height: '3.7 ft', wave_period: '15s', wave_direction: 'WSW',
+    swell_1_height: '2.2 ft', swell_1_period: '17s', swell_1_direction: 'WSW',
+    swell_2_height: '1.7 ft', swell_2_period: '4s', swell_2_direction: 'W',
+    wind_wave_height: '0.6 ft', wind_wave_period: '9s', wind_wave_direction: 'WSW',
+    wind_speed: '3 mph', wind_direction: 'SSE', wind_direction_deg: 153,
+    confidence_score: 100, data_source: 'CDIP', tide_height, tide_status: 'Falling',
+  });
+  const boards: BoardClass[] = ['shortboard', 'fish', 'longboard'];
+
+  it('keeps an in-band tide uncapped and caps a high tide below EPIC', () => {
+    const inBand = scoreWindowConditionDetails(epicDay('3.7 ft'), ponto(), 'advanced', null, boards);
+    const high = scoreWindowConditionDetails(epicDay('4.4 ft'), ponto(), 'advanced', null, boards);
+
+    expect(inBand.score).toBeGreaterThanOrEqual(80);
+    expect(inBand.appliedEffects).not.toContain('tide_outside_band');
+    expect(high.score).toBe(79);
+    expect(high.appliedEffects).toContain('tide_outside_band');
+  });
+
+  it('leaves a beach without a curated band unchanged', () => {
+    const uncurated = ponto({ preferred_tide_ft_min: null, preferred_tide_ft_max: null });
+    const result = scoreWindowConditionDetails(epicDay('4.4 ft'), uncurated, 'advanced', null, boards);
+    expect(result.score).toBeGreaterThanOrEqual(80);
+    expect(result.appliedEffects).not.toContain('tide_outside_band');
   });
 });
