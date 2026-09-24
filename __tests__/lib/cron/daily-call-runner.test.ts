@@ -12,6 +12,7 @@ import {
   type DailyCallDeps,
   type DailyCallProfile,
 } from "@/lib/cron/daily-call-runner";
+import { selectTitle as realSelectTitle } from "@/lib/notifications/copy/select-title";
 import type { Database } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
@@ -170,8 +171,8 @@ describe("runDailyCallCron", () => {
         payload: expect.objectContaining({
           beach_id: ospreyId,
           title: "Wind stays polite. Osprey 8:00–9:40",
-          comparison: "Cleaner than Blacks today",
-          window_local: "8:00–~9:40",
+          comparison: "Rated higher than Blacks today",
+          window_local: "8–~9:40 AM",
         }),
       }),
       supabase,
@@ -295,10 +296,109 @@ describe("rankCandidates", () => {
 });
 
 describe("buildComparisonLine", () => {
-  it("describes the winning wind difference", () => {
+  it("names a wind difference only when home's forecast is windier", () => {
+    const windyHome = { ...candidate({ pool: home, physicalScore: 55 }), sourceForecast: sourceForecast(blacksId, { wind_speed: "12" }) };
+    expect(buildComparisonLine(candidate({ pool: favorite, endDriver: "wind" }), windyHome))
+      .toBe("Less wind than Blacks today");
+  });
+
+  it("does not invent a reason when the forecasts match", () => {
     expect(buildComparisonLine(
-      candidate({ pool: favorite, endDriver: "wind" }),
+      candidate({ pool: favorite, endDriver: "tide" }),
       candidate({ pool: home, physicalScore: 55 }),
-    )).toBe("Cleaner than Blacks today");
+    )).toBe("Rated higher than Blacks today");
+  });
+});
+
+describe("daily call copy on the real title pool", () => {
+  // 2026-09-24: OB Pier was home; Torrey Pines won on swell size with a window
+  // that ends as the tide drops. The old copy said OB Pier "misses the tide".
+  const obPierId = "20000000-0000-4000-8000-000000000003";
+  const torreyId = "20000000-0000-4000-8000-000000000004";
+  const obPier: PoolBeach = {
+    beach: { id: obPierId, name: "Ocean Beach Pier", short_name: null, slug: "ocean-beach-pier",
+      timezone: "America/Los_Angeles" } as PoolBeach["beach"],
+    relation: "home",
+    distanceMiles: null,
+  };
+  const torrey: PoolBeach = {
+    beach: { id: torreyId, name: "Torrey Pines State Beach", short_name: null, slug: "torrey-pines-state-beach",
+      timezone: "America/Los_Angeles" } as PoolBeach["beach"],
+    relation: "favorite",
+    distanceMiles: null,
+  };
+  const sept24 = new Date("2026-09-24T13:00:00.000Z"); // 06:00 PDT send hour
+  const obProfile: DailyCallProfile = { ...profile, homeBeachId: obPierId, homeBeach: obPier.beach };
+
+  function go(pool: PoolBeach, forecast: Partial<EnhancedForecastEntity>, physicalScore: number) {
+    const start = "2026-09-24T15:00:00.000Z";
+    const end = "2026-09-24T18:00:00.000Z";
+    return {
+      pool,
+      window: {
+        start,
+        end,
+        minutes: 180,
+        drivers: [{ kind: "tide" as const, edge: "end" as const, at: end, approximate: false, label: "falling to a 1.4ft low" }],
+      },
+      physicalScore,
+      personalFit: 0,
+      verdict: "go" as const,
+      decisionId: `decision-${pool.beach.id}`,
+      sessionDecision: { verdict: "go" },
+      sourceForecast: sourceForecast(pool.beach.id, { forecast_at: start, ...forecast }),
+      timezone: "America/Los_Angeles",
+    };
+  }
+
+  const torreyForecast = { wave_height: "4.1 ft", wave_period: "15s", wave_direction: "WSW", wind_speed: "3 mph", wind_direction: "W" };
+
+  async function send(candidates: DailyCallCandidate[], sendProfile = obProfile) {
+    const mocked = deps({
+      loadProfiles: jest.fn(async () => [sendProfile]),
+      loadPool: jest.fn(async () => [obPier, torrey]),
+      buildCandidates: jest.fn(async () => ({ candidates, hadForecasts: true })),
+      selectTitle: realSelectTitle,
+    });
+    await runDailyCallCron({ now: sept24, supabase, deps: mocked });
+    return (mocked.enqueue as jest.Mock).mock.calls[0][0].payload;
+  }
+
+  it("keeps the title's hook, reads 12-hour time, and never claims home missed the tide", async () => {
+    const payload = await send([go(torrey, torreyForecast, 82)]);
+
+    expect(payload.title).toMatch(/^\S.*\. Torrey Pines 8–11 AM$/);
+    expect([...payload.title].length).toBeLessThanOrEqual(40);
+    expect(payload.reason).toBe("4–5 ft at 15s WSW with light wind. Best before the tide drops around 11 AM.");
+    expect(payload.reason).not.toMatch(/Ocean Beach Pier|misses/);
+    expect(payload.comparison).toBeNull();
+    expect(payload.window_local).toBe("8–11 AM");
+  });
+
+  it("leads with a comparison only when home was evaluated, and names the real difference", async () => {
+    const payload = await send([
+      go(obPier, { wave_height: "2.6 ft", wave_period: "10s", wave_direction: "SSW", wind_speed: "0 mph" }, 60),
+      go(torrey, torreyForecast, 82),
+    ]);
+
+    expect(payload.comparison).toBe("Bigger than Ocean Beach Pier today");
+    expect(payload.reason).toBe(
+      "Bigger than Ocean Beach Pier today: 4–5 ft at 15s WSW with light wind. Best before the tide drops around 11 AM.",
+    );
+  });
+
+  it("does not treat a surfer without a home beach as away from home", async () => {
+    const selectTitle = jest.fn(realSelectTitle);
+    const mocked = deps({
+      loadProfiles: jest.fn(async () => [{ ...obProfile, homeBeachId: null, homeBeach: null }]),
+      loadPool: jest.fn(async () => [torrey]),
+      buildCandidates: jest.fn(async () => ({ candidates: [go(torrey, torreyForecast, 82)], hadForecasts: true })),
+      selectTitle,
+    });
+    await runDailyCallCron({ now: sept24, supabase, deps: mocked });
+
+    const tags = selectTitle.mock.calls[0][0].tags;
+    expect(tags).not.toContain("not-home");
+    expect(tags).not.toContain("home-beach");
   });
 });
