@@ -43,6 +43,11 @@ interface ApplySimilarityLayerResult {
  * numerics here. Mirrors the existing single-slot caller pattern in
  * lib/alerts/best-days.ts and app/api/cron/similarity-alerts/route.ts.
  */
+/** The key a match RPC row is stored under: the same instant matches however it is spelled. */
+export function matchSlotKey(beachId: string, forecastAt: string): string {
+  return `${beachId}:${Date.parse(forecastAt)}`;
+}
+
 export function forecastToMatchSlot(
   forecast: EnhancedForecastEntity,
   fallbackForecastAt = "",
@@ -159,11 +164,11 @@ export async function applySimilarityLayer(
     if (error) throw new Error(error.message);
     const matches = new Map<string, Record<string, unknown> | null>(
       (data?.matches ?? []).map((row: { beach_id: string; forecast_at: string; result: Record<string, unknown> | null }) =>
-        [`${row.beach_id}:${Date.parse(row.forecast_at)}`, row.result]),
+        [matchSlotKey(row.beach_id, row.forecast_at), row.result]),
     );
     recommendations.forEach((rec, index) => {
       if (!rec.beach?.id || !rec.forecast) return;
-      const match = interpretRpcResult(matches.get(`${rec.beach.id}:${Date.parse(rec.forecast.forecast_at)}`) ?? null);
+      const match = interpretRpcResult(matches.get(matchSlotKey(rec.beach.id, rec.forecast.forecast_at)) ?? null);
       similarityByIndex[index] = match;
     });
   } catch (error) {

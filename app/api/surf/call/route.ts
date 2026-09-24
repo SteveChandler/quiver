@@ -485,7 +485,8 @@ async function surfCallHandler(
     ...(nowRecommendationResult
       ? { nowRecommendation: nowRecommendationResult.recommendation }
       : {}),
-    ...(nowRecommendationResult?.daylightAvailability
+    // A scoped call's availability describes its hour, like its isDark; now-mode's describes now.
+    ...(!forecastAt && nowRecommendationResult?.daylightAvailability
       ? { daylightAvailability: nowRecommendationResult.daylightAvailability }
       : {}),
     ...(canonicalContext.discovery.daylightAvailability

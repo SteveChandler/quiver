@@ -30,6 +30,10 @@ const TIDE_BAND_CEILINGS = [
   { maxExcessFt: Infinity, ceiling: 55 },
 ] as const;
 
+function tideWarning(diffFt: number, side: 'high' | 'low'): string {
+  return diffFt > 1.5 ? `Tide is ${side}` : `Tide a bit ${side}`;
+}
+
 function tideBandEffect(
   excessFt: number,
   side: 'high' | 'low',
@@ -40,8 +44,8 @@ function tideBandEffect(
     code: 'tide_outside_band',
     severity: 'material',
     verdictCeiling: tier.ceiling,
-    // Matches the scorer warning text so the engine does not surface both.
-    message: excessFt > 1.5 ? `Tide is ${side}` : `Tide a bit ${side}`,
+    // Same text as the scorer warning: the engine drops effect messages it already shows.
+    message: tideWarning(excessFt, side),
   };
 }
 
@@ -92,11 +96,7 @@ export const tideFitScorer: ScorerPlugin = {
       // Linear degradation: lose 25 points per foot below
       score = Math.max(20, Math.round(100 - diff * 25));
 
-      if (diff > 1.5) {
-        warnings.push('Tide is low');
-      } else if (diff > 0.5) {
-        warnings.push('Tide a bit low');
-      }
+      if (diff > 0.5) warnings.push(tideWarning(diff, 'low'));
     }
     // Above preferred range
     else {
@@ -105,11 +105,7 @@ export const tideFitScorer: ScorerPlugin = {
       // Linear degradation: lose 25 points per foot above
       score = Math.max(20, Math.round(100 - diff * 25));
 
-      if (diff > 1.5) {
-        warnings.push('Tide is high');
-      } else if (diff > 0.5) {
-        warnings.push('Tide a bit high');
-      }
+      if (diff > 0.5) warnings.push(tideWarning(diff, 'high'));
     }
 
     // Only a curated band and a real tide reading can cap the verdict.
