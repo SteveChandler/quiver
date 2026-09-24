@@ -80,7 +80,7 @@ function hashIndex(value: string, length: number): number {
 
 function fallbackTitle(pool: Pool, vars: TitleVars): string {
   return renderTemplate(
-    pool === "daily" ? "{beach} {start}–{end}" : "Swell peaks {peak_day}",
+    pool === "daily" ? "{beach} {window}" : "Swell peaks {peak_day}",
     vars,
   );
 }
