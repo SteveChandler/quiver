@@ -17,9 +17,10 @@
 
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
-import type {
-  PersonalizedForecastWindow,
-  TimeSlot,
+import {
+  TIME_SLOT_RANGES,
+  type PersonalizedForecastWindow,
+  type TimeSlot,
 } from '@/types/personalization';
 import type { getUserSurfPreferences } from '@/lib/services/preference-learning-service';
 import type { BoardClass, RideabilityBand } from '@/lib/domains/rideability';
@@ -67,6 +68,9 @@ import { calculateTideDrivenBoundaries } from './tide-boundary-calculator';
 import { findPeakWithinWindow } from './peak-finder';
 import { applySubHourRefinement } from './window-refiner';
 import { scoreWindowConditionScore, scoreWindowForSelection } from './window-scorer';
+
+/** Dawn patrol starts at first light (isDaylightInterval) and ends here, local time. */
+const DAWN_PATROL_END_HOUR = TIME_SLOT_RANGES['dawn-patrol'].endHour;
 
 // ============================================================================
 // Helper Functions
@@ -158,7 +162,7 @@ function filterByTimeSlot(
       if (timeSlot === 'dawn-patrol') {
         const rowEnd = forecastRowIntervalEnd(forecastTime, forecasts[index + 1]?.forecastTime);
         const localHour = parseInt(getLocalHourFormatter(beachTz).format(forecastTime), 10);
-        return localHour < 11 && isDaylightInterval(
+        return localHour < DAWN_PATROL_END_HOUR && isDaylightInterval(
           forecastTime,
           rowEnd,
           beachTz,
@@ -729,7 +733,7 @@ export function selectBestWindows(
             10
           );
           if (actualTimeSlot === 'dawn-patrol') {
-            if (tideStartHour >= 11) useTideBoundaries = false;
+            if (tideStartHour >= DAWN_PATROL_END_HOUR) useTideBoundaries = false;
           } else {
             const slotRange = getTimeSlotRange(actualTimeSlot, sunrises, startTime, beachTz);
             if (tideStartHour < slotRange.startHour || tideStartHour >= slotRange.endHour) {
@@ -917,7 +921,7 @@ function selectFallbackWindow(
           10
         );
         if (timeSlot === 'dawn-patrol') {
-          if (localHour >= 11) return false;
+          if (localHour >= DAWN_PATROL_END_HOUR) return false;
         } else {
           const slotRange = getTimeSlotRange(timeSlot, sunTimes?.sunrises ?? [], forecastTime, beachTz);
           if (localHour < slotRange.startHour || localHour >= slotRange.endHour) return false;

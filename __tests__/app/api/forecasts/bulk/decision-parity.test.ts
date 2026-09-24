@@ -8,6 +8,7 @@ import {
 import { buildCanonicalDecisionFromSurfDiscovery } from "@/lib/recommendations/canonical-decision/discovery-adapter";
 import { recommendationLabelForVerdict } from "@/lib/recommendations/canonical-decision/engine";
 import { resolveRecommendationLabel } from "@/lib/services/discovery/recommendation-label";
+import { matchSlotKey } from "@/lib/services/discovery/similarity-layer";
 import {
   forecastRowIntervalEnd,
   isDaylightInterval,
@@ -251,7 +252,7 @@ it.each(
       skillLevel: skill,
       boardClasses: ["longboard"],
       sunTimes: new Map(),
-      matches: new Map([[`${row.beach_id}:${row.forecast_at}`, similarity]]),
+      matches: new Map([[matchSlotKey(row.beach_id, row.forecast_at), similarity]]),
       rowDurationsMs: new Map([[`${row.beach_id}:${row.forecast_at}`, 60 * 60_000]]),
     } as BulkDecisionContext;
     const end = new Date(NOW.getTime() + 60 * 60_000);
@@ -433,7 +434,7 @@ it("reproduces score 64 for Advanced / Southpoint longboard 2+1 as MAYBE", () =>
     skillLevel: "advanced",
     boardClasses: ["longboard"],
     sunTimes: new Map(),
-    matches: new Map([[`${row.beach_id}:${row.forecast_at}`, learned("FAIR")]]),
+    matches: new Map([[matchSlotKey(row.beach_id, row.forecast_at), learned("FAIR")]]),
     rowDurationsMs: new Map(),
   } as BulkDecisionContext;
   expect(bulkRecommendationLabel(context, beach(1), row, 64, NOW)).toBe(

@@ -92,11 +92,11 @@ export function getLocalDateStr(time: Date, beachTz: string): string {
 }
 
 /**
- * Get the hour range for a time slot.
- * Dawn patrol uses dynamic start based on sunrise; others use static ranges.
+ * Get the hour range for a time slot. Dawn patrol's start is enforced by
+ * first light (isDaylightInterval) at the call sites, not by startHour.
  *
  * @param timeSlot - The time slot filter
- * @param sunrises - Array of sunrise times (needed for dawn-patrol)
+ * @param sunrises - Unused; kept so callers need not change
  * @param forecastDate - The forecast date
  * @param beachTz - IANA timezone string
  * @returns Time range with startHour and endHour
@@ -107,48 +107,7 @@ export function getTimeSlotRange(
   forecastDate: Date,
   beachTz: string
 ): { startHour: number; endHour: number } {
-  if (timeSlot === 'dawn-patrol') {
-    return getDawnPatrolRange(sunrises, forecastDate, beachTz);
-  }
   return TIME_SLOT_RANGES[timeSlot];
-}
-
-/**
- * Get dawn patrol time range based on sunrise.
- * Start is civil twilight (~30 min before sunrise), end is 11am.
- *
- * @param sunrises - Array of sunrise times for the area
- * @param forecastDate - The forecast date to find sunrise for
- * @param beachTz - IANA timezone string for the beach
- * @returns Time range with startHour and endHour in local time
- */
-export function getDawnPatrolRange(
-  sunrises: Date[],
-  forecastDate: Date,
-  beachTz: string
-): { startHour: number; endHour: number } {
-  // Find sunrise for the same local date
-  const forecastDateStr = getLocalDateStr(forecastDate, beachTz);
-  const sameDaySunrise = sunrises.find(s => getLocalDateStr(s, beachTz) === forecastDateStr);
-
-  if (!sameDaySunrise) {
-    // Fallback to conservative 6am if no sunrise data
-    return { startHour: 6, endHour: 11 };
-  }
-
-  // Civil twilight ~30 minutes before sunrise
-  const civilTwilight = new Date(sameDaySunrise.getTime() - 30 * 60 * 1000);
-
-  // Get local hour of civil twilight
-  try {
-    const twilightHour = parseInt(
-      getLocalHourFormatter(beachTz).format(civilTwilight),
-      10
-    );
-    return { startHour: twilightHour, endHour: 11 };
-  } catch {
-    return { startHour: 6, endHour: 11 };
-  }
 }
 
 /**
