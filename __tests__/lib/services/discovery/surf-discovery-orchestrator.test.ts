@@ -960,6 +960,30 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     });
   });
 
+  test('fetches far enough ahead to reach a scoped hour beyond the default window', async () => {
+    const requestedForecastAt = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString();
+    mockState.candidatePoolResponse = {
+      candidates: [mockBeach1] as Beach[],
+      preferredWaveSize: null,
+      userSkillLevel: null,
+      preferredBreakType: null,
+    };
+    mockState.forecastBatchResponse = { successful: [], failed: [], staleCount: 0 };
+    const { batchFetchForecasts } = require('@/lib/services/discovery/forecast-batch-fetcher');
+
+    await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      forecastAt: requestedForecastAt,
+      maxResults: 5,
+    });
+    const scopedOptions = batchFetchForecasts.mock.calls.at(-1)[1];
+    expect(scopedOptions.forecastWindowHours).toBeGreaterThanOrEqual(5 * 24 + 24);
+
+    batchFetchForecasts.mockClear();
+    await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation, maxResults: 5 });
+    expect(batchFetchForecasts.mock.calls.at(-1)[1].forecastWindowHours).toBeUndefined();
+  });
+
   test('does not fall through to another row when forecastAt has no nearby match', async () => {
     const requestedForecastAt = '2024-01-15T18:00:00.000Z';
     mockState.candidatePoolResponse = {
