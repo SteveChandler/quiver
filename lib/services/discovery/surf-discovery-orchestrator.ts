@@ -20,7 +20,12 @@ import {
   forecastRowIntervalEnd,
   isDaylightInterval,
   nextFirstLight,
-  lightMetadata,
+  currentHourRowStart,
+  lightFieldsOf,
+  lightMetadataForInterval,
+  pointInterval,
+  scopedLightInterval,
+  type LightInterval,
 } from './daylight-eligibility';
 import { recommendBoard, PERSONAL_BOARD_SELECT, type PersonalBoard } from '@/lib/scoring/personal-board';
 import { conditionLabelForVerdict } from '@/lib/recommendations/canonical-decision/engine';
@@ -1791,6 +1796,7 @@ async function discoverSurfSpotsInner(
   const scored: SurfDiscoveryRecommendation[] = [];
 
   const beachesWithNoWindow: string[] = [];
+  const lightIntervalByBeach = new Map<string, LightInterval>();
   let daylightAvailability: DaylightAvailability | null = null;
   const considerAfterDark = (candidate: DaylightAvailability): void => {
     const candidateTime = candidate.nextWindowStart
@@ -1816,6 +1822,17 @@ async function discoverSurfSpotsInner(
       ? resolveForecastTime(scopedForecast, beachTz)
       : null;
     const scopedForecasts = scopedForecast ? [scopedForecast] : [];
+    const lightInterval = scopedLightInterval(
+      forecastAt,
+      scopedForecast && scopedStart
+        ? { start: scopedStart, end: getForecastRowEnd(scopedForecast, forecasts, beachTz) }
+        : null,
+      now,
+      forecastAt
+        ? currentHourRowStart(forecasts.map((forecast) => resolveForecastTime(forecast, beachTz)), now)
+        : null,
+    );
+    lightIntervalByBeach.set(beach.id, lightInterval);
     const selectionNow = forecastAt ? new Date(forecastAt) : new Date();
     const todayStr = getLocalDateStr(selectionNow, beachTz);
     const todayForecasts = forecasts.filter(f =>
@@ -1934,23 +1951,11 @@ async function discoverSurfSpotsInner(
       );
     }
 
-    if (forecastAt && !isDaylightInterval(now, new Date(now.getTime() + 1), beachTz, beachSunTimes)) {
-      considerAfterDark(afterDarkAvailabilityFor(beach, beachTz, now, beachSunTimes));
+    if (forecastAt && lightMetadataForInterval(lightInterval, beachTz, beachSunTimes).isDark) {
+      considerAfterDark(afterDarkAvailabilityFor(beach, beachTz, lightInterval.start, beachSunTimes));
     }
 
     if (selectedWindows.length === 0) {
-      if (forecastAt && requestedAlignment?.forecast) {
-        const rowStart = resolveForecastTime(requestedAlignment.forecast, beachTz);
-        const rowEnd = getForecastRowEnd(requestedAlignment.forecast, forecasts, beachTz);
-        if (!isDaylightInterval(rowStart, rowEnd, beachTz, beachSunTimes)) {
-          considerAfterDark(afterDarkAvailabilityFor(
-            beach,
-            beachTz,
-            rowStart,
-            beachSunTimes,
-          ));
-        }
-      }
       beachesWithNoWindow.push(beach.name);
       log.debug(`[discoverSurfSpots] ${beach.name}: selectBestWindows returned no windows (forecasts=${forecasts.length})`);
       continue;
@@ -2523,7 +2528,11 @@ async function discoverSurfSpotsInner(
   }
 
   for (const rec of [...enrichedRanked, ...enrichedIncluded]) {
-    Object.assign(rec, lightMetadata(now, rec.window.timezone, sunTimesCache.get(rec.forecast.beach_id)));
+    Object.assign(rec, lightMetadataForInterval(
+      lightIntervalByBeach.get(rec.forecast.beach_id) ?? pointInterval(now),
+      rec.window.timezone,
+      sunTimesCache.get(rec.forecast.beach_id),
+    ));
     rec.physicalRecommendationLabel ??= rec.recommendationLabel;
     rec.recommendationLabel = getCanonicalRecommendationLabel(rec, userSkillLevel);
     rec.verdict = rec.recommendationLabel === "Worth it" ? "go" : rec.recommendationLabel === "Maybe" ? "maybe" : "no";
@@ -2568,10 +2577,8 @@ async function discoverSurfSpotsInner(
     },
     regionalCall,
     eveningTransition,
-    ...(enrichedRanked[0] || enrichedIncluded[0] ? lightMetadata(
-      now, (enrichedRanked[0] ?? enrichedIncluded[0]).window.timezone,
-      sunTimesCache.get((enrichedRanked[0] ?? enrichedIncluded[0]).beach.id),
-    ) : {}),
+    // The response-level light is the lead recommendation's, not a second computation.
+    ...lightFieldsOf(enrichedRanked[0] ?? enrichedIncluded[0]),
     ...(daylightAvailability
       ? { daylightAvailability }
       : {}),
