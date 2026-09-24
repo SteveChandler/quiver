@@ -1361,7 +1361,6 @@ const IMMEDIATE_FORECAST_BUCKET_MAX_HOURS = 4;
 interface ImmediateForecastBucket {
   forecast: EnhancedForecastEntity;
   start: Date;
-  rowEnd: Date;
   end: Date;
 }
 
@@ -1436,7 +1435,6 @@ function findImmediateForecastBucket(
       activeBucket = {
         forecast: current.forecast,
         start: current.forecastTime,
-        rowEnd: forecastRowIntervalEnd(current.forecastTime, next?.forecastTime),
         end: bucketEnd,
       };
     }
