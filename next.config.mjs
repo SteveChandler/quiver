@@ -62,6 +62,13 @@ const nextConfig = {
   // External packages for server components (moved from experimental)
   serverExternalPackages: ["@supabase/supabase-js", "geo-tz", "firebase-admin"],
 
+  // @vercel/og only uses sharp when it is installed and otherwise renders with
+  // resvg. With geo-tz already traced, sharp's libvips pushed this function past
+  // Vercel's 250 MB limit after Next 16.3.3 / sharp 0.35.4 (deploy Error).
+  outputFileTracingExcludes: {
+    "/api/og/surf-call": ["node_modules/sharp/**", "node_modules/@img/**"],
+  },
+
   // Power pack optimizations
   poweredByHeader: false, // Remove X-Powered-By header
   reactStrictMode: true, // Better development experience
