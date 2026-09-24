@@ -7,6 +7,7 @@ import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import { QuiverSticker, ZineSurface } from "@/components/zine";
+import { SITE_URL } from "@/lib/constants/seo";
 import { learnArticles } from "@/lib/data/learn-articles";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import type { QuiverStickerKey } from "@/lib/ui/quiver-sticker-assets";
@@ -127,8 +128,8 @@ const CATEGORIES: {
 
 export default function LearnHubPage() {
   const breadcrumbs = [
-    { name: "Home", url: "/" },
-    { name: "Learn", url: "/learn" },
+    { name: "Home", url: SITE_URL },
+    { name: "Learn", url: `${SITE_URL}/learn` },
   ];
 
   const featuredArticle =
@@ -150,7 +151,7 @@ export default function LearnHubPage() {
       <WebPageSchema
         name="Learn to Surf Smarter"
         description="Surf forecasting guides, wave science, and beginner tips from Quiver."
-        url="/learn"
+        url={`${SITE_URL}/learn`}
       />
 
       <ZineSurface
