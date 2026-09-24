@@ -29,6 +29,10 @@ const vars: TitleVars = {
   high_time: "8:15",
   turn_time: "9:00",
   home_beach: "OB",
+  window: "6–8 AM",
+  lead: "",
+  swell: "4–5 ft at 14s SW",
+  limit: "Best before the wind picks up around 8 AM.",
 };
 
 const allSwellTags = [
@@ -131,7 +135,7 @@ describe("selectTitle", () => {
       },
     });
 
-    expect(selected.title).toBe("A Very Long Approved Beach Name 6:00–8:00");
+    expect(selected.title).toBe("A Very Long Approved Beach Name 6–8 AM");
     expect(selected.fallback).toBe(true);
   });
 });
