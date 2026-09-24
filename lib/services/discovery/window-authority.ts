@@ -1,6 +1,6 @@
-import { localDateTimeToUTC } from '@/lib/utils/forecast-time-resolver';
 import { getLocalDateString, resolveBeachTimezone } from '@/lib/utils/timezone-utils';
 import type { PersonalizedForecastWindow } from '@/types/personalization';
+import { usableLightIntervalForDate, type BeachSunTimes } from './daylight-eligibility';
 
 import { selectBestWindows } from './window-selector';
 import { getLocalDateStr, getLocalHour } from './window-selector/time-slot-utils';
@@ -28,21 +28,24 @@ export function containsTime(start: Date, end: Date, time: Date): boolean {
   return start.getTime() <= time.getTime() && time.getTime() <= end.getTime();
 }
 
-function displayWindowAroundPeak(peak: Date, timezone: string): { start: Date; end: Date } {
+function displayWindowAroundPeak(
+  peak: Date,
+  timezone: string,
+  sunTimes?: BeachSunTimes,
+): { start: Date; end: Date } {
   let start = new Date(peak.getTime() - DISPLAY_WINDOW_HALF_MINUTES * 60 * 1000);
   let end = new Date(peak.getTime() + DISPLAY_WINDOW_HALF_MINUTES * 60 * 1000);
 
   const localDate = getLocalDateString(peak, timezone);
-  const daylightStart = localDateTimeToUTC(localDate, '06:00:00', timezone);
-  const daylightEnd = localDateTimeToUTC(localDate, '19:00:00', timezone);
+  const light = usableLightIntervalForDate(localDate, timezone, sunTimes);
 
-  if (containsTime(daylightStart, daylightEnd, peak)) {
-    if (start < daylightStart) {
-      start = daylightStart;
+  if (containsTime(light.start, light.end, peak)) {
+    if (start < light.start) {
+      start = light.start;
       end = new Date(start.getTime() + DISPLAY_WINDOW_MINUTES * 60 * 1000);
     }
-    if (end > daylightEnd) {
-      end = daylightEnd;
+    if (end > light.end) {
+      end = light.end;
       start = new Date(end.getTime() - DISPLAY_WINDOW_MINUTES * 60 * 1000);
     }
   }
@@ -62,11 +65,13 @@ export function deriveDisplayWindow({
   rawEnd,
   peak,
   timezone,
+  sunTimes,
 }: {
   rawStart: Date;
   rawEnd: Date;
   peak: Date;
   timezone: string;
+  sunTimes?: BeachSunTimes;
 }): { start: Date; end: Date } {
   const rawDurationMinutes = (rawEnd.getTime() - rawStart.getTime()) / (60 * 1000);
   const rawContainsPeak = rawDurationMinutes > 0 && containsTime(rawStart, rawEnd, peak);
@@ -75,7 +80,7 @@ export function deriveDisplayWindow({
     return { start: rawStart, end: rawEnd };
   }
 
-  let display = displayWindowAroundPeak(peak, timezone);
+  let display = displayWindowAroundPeak(peak, timezone, sunTimes);
 
   if (rawContainsPeak) {
     if (display.start < rawStart) {
@@ -96,7 +101,7 @@ export function deriveDisplayWindow({
   }
 
   if (!containsTime(display.start, display.end, peak)) {
-    return displayWindowAroundPeak(peak, timezone);
+    return displayWindowAroundPeak(peak, timezone, sunTimes);
   }
 
   return display;
@@ -104,6 +109,7 @@ export function deriveDisplayWindow({
 
 export function withDisplayWindow(
   window: PersonalizedForecastWindow,
+  sunTimes?: BeachSunTimes,
 ): AuthoritativeWindow {
   const resolvedTimezone = resolveBeachTimezone(window.timezone);
   const peakTime = window.peakTime && containsTime(window.start, window.end, window.peakTime)
@@ -114,6 +120,7 @@ export function withDisplayWindow(
     rawEnd: window.end,
     peak: peakTime,
     timezone: resolvedTimezone,
+    sunTimes,
   });
 
   return {
@@ -168,7 +175,10 @@ export function selectBeachDayWindows(
     ...selectorOptions,
     forecasts: dayRows,
     maxWindows: WINDOW_AUTHORITY_MAX_WINDOWS,
-  }).map(withDisplayWindow);
+  }).map((window) => withDisplayWindow(
+    window,
+    options.sunTimesCache?.get(options.beach.id),
+  ));
 
   for (const window of rankedWindows) {
     const daypart = daypartForTime(window.peakTime, timezone);

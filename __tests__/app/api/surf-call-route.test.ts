@@ -152,6 +152,7 @@ let canonicalContext: {
     recommendations: Array<Record<string, unknown>>;
     includedRecommendations: Array<Record<string, unknown>>;
     recommendationAvailability: Record<string, unknown>;
+    daylightAvailability?: Record<string, unknown>;
   };
 };
 
@@ -264,9 +265,9 @@ describe("GET /api/surf/call", () => {
     expect(body.success).toBe(true);
     expect(body.data.report.skillSource).toBeNull();
     expect(body.data.report.userTier).toBeNull();
-    expect(body.data.report.verdict).toBeDefined();
+    expect(body.data.report.verdict).toMatch(/^(YES|MAYBE|NO)$/);
     expect(body.data.report.whySentence).toEqual(expect.any(String));
-    expect(body.data.forecastContext.conditionDrivers).toBeDefined();
+    expect(body.data.forecastContext.conditionDrivers).toEqual(expect.any(Object));
     expect(mockGetProfileExperienceLevel).not.toHaveBeenCalled();
     expect(mockSupabase.from).not.toHaveBeenCalledWith("user_entitlements");
     expect(mockResolveCanonicalSessionDecisionContext).toHaveBeenCalledWith(
@@ -855,6 +856,37 @@ describe("GET /api/surf/call", () => {
       });
     });
 
+    it("preserves after-dark guidance on an empty scoped surf call", async () => {
+      canonicalContext.discovery = {
+        recommendations: [],
+        includedRecommendations: [],
+        recommendationAvailability: {
+          state: "available",
+          holdEpoch: "no-candidates",
+        },
+        daylightAvailability: {
+          reasonCode: "after_dark",
+          nextWindowStart: "2026-09-23T13:07:00.000Z",
+          timezone: "America/Los_Angeles",
+          beachId,
+        },
+      };
+      mockScopedBeach();
+
+      const response = await GET(
+        new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}`),
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body.data.daylightAvailability).toEqual({
+        reasonCode: "after_dark",
+        nextWindowStart: "2026-09-23T13:07:00.000Z",
+        timezone: "America/Los_Angeles",
+        beachId,
+      });
+    });
+
     it("preserves an explicit major-event hold as a successful response", async () => {
       canonicalContext.discovery = {
         recommendations: [],
@@ -887,12 +919,18 @@ describe("GET /api/surf/call", () => {
 describe("GET /api/surf/call includeNow", () => {
   const beachId = "11111111-1111-4111-8111-111111111111";
 
-  function nowDiscovery(overrides: { start?: Date; end?: Date; availabilityState?: "available" | "none" } = {}) {
+  function nowDiscovery(overrides: {
+    start?: Date;
+    end?: Date;
+    availabilityState?: "available" | "none";
+    daylightAvailability?: Record<string, unknown>;
+    empty?: boolean;
+  } = {}) {
     const now = Date.now();
     const start = overrides.start ?? new Date(now - 30 * 60 * 1000);
     const end = overrides.end ?? new Date(now + 2 * 60 * 60 * 1000);
     return {
-      recommendations: [
+      recommendations: overrides.empty ? [] : [
         {
           recommendationId: `beach:${beachId}:now`,
           beach: { id: beachId, name: "Ocean Beach Pier", lat: 32.75, lon: -117.25 },
@@ -924,6 +962,9 @@ describe("GET /api/surf/call includeNow", () => {
       },
       searchCriteria: { maxResults: 1 },
       metadata: { outcome: "success", generated_at: new Date().toISOString() },
+      ...(overrides.daylightAvailability
+        ? { daylightAvailability: overrides.daylightAvailability }
+        : {}),
     };
   }
 
@@ -996,6 +1037,33 @@ describe("GET /api/surf/call includeNow", () => {
       new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}&includeNow=1`),
     );
     expect((await response.json()).data.nowRecommendation).toBeNull();
+  });
+
+  it("returns after-dark guidance with an empty now recommendation", async () => {
+    mockEligibleBeach();
+    mockDiscoverSurfSpots.mockResolvedValueOnce(
+      nowDiscovery({
+        empty: true,
+        daylightAvailability: {
+          reasonCode: "after_dark",
+          nextWindowStart: "2026-09-23T13:07:00.000Z",
+          timezone: "America/Los_Angeles",
+          beachId,
+        },
+      }),
+    );
+
+    const response = await GET(
+      new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}&includeNow=1`),
+    );
+    const body = await response.json();
+
+    expect(body.data.nowRecommendation).toBeNull();
+    expect(body.data.daylightAvailability).toMatchObject({
+      reasonCode: "after_dark",
+      nextWindowStart: "2026-09-23T13:07:00.000Z",
+      beachId,
+    });
   });
 
   it("never fails the surf call because the now-mode discovery failed", async () => {

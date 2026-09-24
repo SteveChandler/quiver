@@ -343,6 +343,15 @@ describe('Spot Profile Domain', () => {
       expect(profile.tidePreferences.minHeightFt).toBe(2);
       expect(profile.tidePreferences.maxHeightFt).toBe(5);
       expect(profile.tidePreferences.preferredDirection).toBe('rising');
+      expect(profile.tidePreferences.explicitRange).toBe(true);
+    });
+
+    it('marks a partial or missing tide band as not curated', () => {
+      const partial = createSpotProfile(createMockBeach({ preferred_tide_ft_min: 2, preferred_tide_ft_max: null }));
+      const missing = createSpotProfile(createMockBeach({ preferred_tide_ft_min: null, preferred_tide_ft_max: null }));
+
+      expect(partial.tidePreferences.explicitRange).toBe(false);
+      expect(missing.tidePreferences.explicitRange).toBe(false);
     });
 
     it('should handle "any" tide direction as "either"', () => {

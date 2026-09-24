@@ -43,7 +43,7 @@ const QuerySchema = z.object({
   // Result limits
   maxResults: z.coerce.number().int().min(1).max(10).optional(),
   // Discovery mode
-  mode: z.enum(['best-window', 'now']).optional(),
+  mode: z.enum(['best-window', 'now', 'my-spots']).optional(),
   // Explicit curated beaches to score in the same batch as nearby discovery.
   includeBeachIds: z.string().optional().transform((value, ctx) => {
     if (!value) return [];
@@ -194,7 +194,7 @@ async function surfDiscoveryHandler(
     discovery = await discoverSurfSpots(user.id, {
       userLocation,
       radiusMiles: radius,
-      horizonHours,
+      horizonHours: mode === 'my-spots' ? 72 : horizonHours,
       maxResults,
       // Consider the full pool. `maxResults` alone controls how many spots the
       // user sees; shrinking the pool to match it makes the physically nearest
@@ -204,7 +204,8 @@ async function surfDiscoveryHandler(
       // this route ever needs bounding again, bound `maxConcurrent` or the
       // radius, not the ranking universe.
       candidatePoolLimit: CANDIDATE_POOL_LIMIT,
-      discoveryMode: mode ?? 'best-window',
+      discoveryMode: mode === 'my-spots' ? 'best-window' : mode ?? 'best-window',
+      savedSpotsOnly: mode === 'my-spots',
       timeSlot,
       isPro,
       includeBeachIds,
@@ -310,7 +311,7 @@ async function surfDiscoveryHandler(
 
   const decisionTimezone =
     gatedDiscovery.recommendations[0]?.window?.timezone ?? 'UTC';
-  const decisionHorizonHours = horizonHours ?? 24;
+  const decisionHorizonHours = mode === 'my-spots' ? 72 : horizonHours ?? 24;
   gatedDiscovery.sessionDecision = buildCanonicalDecisionFromSurfDiscovery({
     anchorTime: anchor.toISOString(),
     scope: {

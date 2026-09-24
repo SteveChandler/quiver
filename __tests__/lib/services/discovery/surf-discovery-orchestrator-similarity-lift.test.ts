@@ -44,6 +44,7 @@ const simByBeach: Record<string, SimConfig> = {
 };
 
 const mockForecast: Partial<EnhancedForecastEntity> = {
+  id: 'forecast-similarity',
   beach_id: 'beach-1',
   forecast_at: '2026-07-08T15:00:00Z',
   forecast_date: '2026-07-08',
@@ -133,18 +134,12 @@ jest.mock('@/lib/services/beach-query-service', () => ({
 
 jest.mock('@/lib/supabase/server', () => ({
   createSupabaseServiceRoleClient: jest.fn(() => ({
-    from: jest.fn(() => ({
-      select: jest.fn(() => ({
-        eq: jest.fn(() => ({
-          in: jest.fn(() => Promise.resolve({ data: [], error: null })),
-        })),
-        in: jest.fn(() => ({
-          in: jest.fn(() => ({
-            order: jest.fn(() => Promise.resolve({ data: [], error: null })),
-          })),
-        })),
-      })),
-    })),
+    from: jest.fn(() => {
+      const query: Record<string, jest.Mock> = {};
+      for (const method of ['select', 'eq', 'in', 'is', 'order', 'gte', 'lte', 'neq', 'limit']) query[method] = jest.fn(() => query);
+      query.then = jest.fn((resolve) => Promise.resolve(resolve({ data: [], error: null })));
+      return query;
+    }),
     rpc: jest.fn(),
   })),
 }));
@@ -374,8 +369,8 @@ describe('discoverSurfSpots — personal match evidence stays separate from phys
     ]);
     expect(result.includedRecommendations).toHaveLength(1);
     for (const rec of [...result.recommendations, ...result.includedRecommendations!]) {
-      expect(rec.recommendationLabel).toBe('Maybe');
-      expect(rec.message).toMatch(/^Maybe - /);
+      expect(rec.recommendationLabel).toBe('Worth it');
+      expect(rec.message).toMatch(/^Worth it - /);
       expect(rec.score).toBe(mockBaseScores[rec.beach.id]);
     }
   });

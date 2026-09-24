@@ -1,3 +1,6 @@
+import { isDaylightInterval } from "@/lib/services/discovery/daylight-eligibility";
+import { scoreWindowWithComposite } from "@/lib/services/discovery/window-selector/window-scorer";
+import { type PersonalBoard } from "@/lib/scoring/personal-board";
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
@@ -12,7 +15,9 @@ import {
   interpretRpcResult,
 } from "@/lib/services/discovery/similarity-layer";
 import { resolveRecommendationLabel } from "@/lib/services/discovery/recommendation-label";
-import { isDaylightSessionStart } from "@/lib/services/discovery/window-selector/window-selector-core";
+import {
+  forecastRowIntervalEnd,
+} from "@/lib/services/discovery/daylight-eligibility";
 import {
   buildCanonicalSessionDecision,
   recommendationLabelForVerdict,
@@ -22,15 +27,18 @@ import type { WaterQualityHoldClient } from "@/lib/recommendations/major-event-h
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { SimilarityRecommendation } from "@/types/personalization";
-import { resolveBeachTimezone } from "@/lib/utils/timezone-utils";
+import { resolveForecastTime } from "@/lib/utils/forecast-time-resolver";
+import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import type { RecommendationLabel } from "@/lib/scoring";
 
 export interface BulkDecisionContext {
   beaches: Beach[];
+  boards?: PersonalBoard[];
   skillLevel: ReturnType<typeof parseSkillLevel>;
   boardClasses: BoardClass[];
   sunTimes: Map<string, { sunrises: Date[]; sunsets: Date[] }>;
   matches: Map<string, SimilarityRecommendation>;
+  rowDurationsMs: Map<string, number>;
   waterQuality: WaterQualityHoldClient;
 }
 
@@ -129,13 +137,41 @@ export async function fetchBulkDecisionContext(
     entitlementFromRow(data.personalization?.entitlement) === "premium";
   const matches: BulkDecisionContext["matches"] = new Map();
   for (const match of data.personalization?.matches ?? []) {
-    matches.set(
-      `${match.beach_id}:${match.forecast_at}`,
-      premium ? interpretRpcResult(match.result) : null,
-    );
+    const interpreted = premium ? interpretRpcResult(match.result) : null;
+    matches.set(`${match.beach_id}:${Date.parse(match.forecast_at)}`, interpreted);
+  }
+  const forecastsByBeach = new Map<string, EnhancedForecastEntity[]>();
+  const beachById = new Map<string, Beach>(
+    (data.beaches as Beach[]).map((beach): [string, Beach] => [beach.id, beach]),
+  );
+  for (const forecast of forecasts) {
+    const beachRows = forecastsByBeach.get(forecast.beach_id) ?? [];
+    beachRows.push(forecast);
+    forecastsByBeach.set(forecast.beach_id, beachRows);
+  }
+  const rowDurationsMs: BulkDecisionContext["rowDurationsMs"] = new Map();
+  for (const beachRows of forecastsByBeach.values()) {
+    const sortedRows = beachRows
+      .map((forecast) => {
+        const beach = beachById.get(forecast.beach_id);
+        const timezone = beach?.timezone || getTimezoneFromCoords(beach?.lat || 0, beach?.lon || 0);
+        return { forecast, start: resolveForecastTime(forecast, timezone) };
+      })
+      .filter(({ start }) => Number.isFinite(start.getTime()))
+      .sort((a, b) => a.start.getTime() - b.start.getTime());
+    for (let index = 0; index < sortedRows.length; index++) {
+      const current = sortedRows[index];
+      const next = sortedRows[index + 1];
+      const end = forecastRowIntervalEnd(current.start, next?.start);
+      rowDurationsMs.set(
+        `${current.forecast.beach_id}:${current.forecast.forecast_at}`,
+        end.getTime() - current.start.getTime(),
+      );
+    }
   }
   return {
     beaches: data.beaches,
+    boards: Array.isArray(data.personalization?.boards) ? data.personalization.boards : [],
     skillLevel: parseSkillLevel(data.profile?.experience_level),
     boardClasses: [
       ...new Set(
@@ -146,19 +182,28 @@ export async function fetchBulkDecisionContext(
     ],
     sunTimes,
     matches,
+    rowDurationsMs,
     waterQuality: waterQualitySnapshot(data.water_quality),
   };
 }
 
-export function bulkRecommendationLabel(
+export function bulkSessionDecision(
   context: BulkDecisionContext,
   beach: Beach,
   forecast: EnhancedForecastEntity,
   score: number,
   at: Date,
-): RecommendationLabel {
-  const timezone = resolveBeachTimezone(beach.timezone);
-  const end = new Date(at.getTime() + 3 * 3_600_000).toISOString();
+  options: { daylightOnly?: boolean } = {},
+): ReturnType<typeof buildCanonicalSessionDecision> {
+  const timezone = beach.timezone || getTimezoneFromCoords(beach.lat || 0, beach.lon || 0);
+  const rowDuration = context.rowDurationsMs.get(
+    `${beach.id}:${forecast.forecast_at}`,
+  ) ?? 60 * 60_000;
+  const end = new Date(at.getTime() + rowDuration).toISOString();
+  // Future timeline hours are "when to go", so they need usable light; the
+  // current hour (NOW) is never gated by the clock.
+  const outsideLight = options.daylightOnly === true
+    && !isDaylightInterval(at, new Date(end), timezone, context.sunTimes.get(beach.id));
   const decision = buildCanonicalSessionDecision({
     anchorTime: at.toISOString(),
     scope: {
@@ -169,12 +214,7 @@ export function bulkRecommendationLabel(
     },
     profileExperience: context.skillLevel,
     recommendationAvailability: { state: "available", holdEpoch: "bulk" },
-    candidates: isDaylightSessionStart(
-      at,
-      timezone,
-      context.sunTimes.get(beach.id),
-    )
-      ? [
+    candidates: outsideLight ? [] : [
           {
             candidateId: `bulk:${beach.id}:${at.toISOString()}`,
             beachId: beach.id,
@@ -187,6 +227,7 @@ export function bulkRecommendationLabel(
             forecastAt: forecast.forecast_at,
             waveHeight: forecast.wave_height,
             utilityScore: score,
+            effects: [...(scoreWindowWithComposite(forecast, beach).effects ?? [])],
             recommendationLabel: resolveRecommendationLabel({
               beach,
               forecast,
@@ -194,12 +235,17 @@ export function bulkRecommendationLabel(
             }).label,
             personalMatch: toPersonalMatchEvidence({
               similarity:
-                context.matches.get(`${beach.id}:${forecast.forecast_at}`) ??
+                context.matches.get(`${beach.id}:${Date.parse(forecast.forecast_at)}`) ?? context.matches.get(`${beach.id}:${forecast.forecast_at}`) ??
                 null,
             }),
           },
-        ]
-      : [],
+        ],
   });
-  return recommendationLabelForVerdict(decision.verdict);
+  return decision;
+}
+
+export function bulkRecommendationLabel(
+  ...args: Parameters<typeof bulkSessionDecision>
+): RecommendationLabel {
+  return recommendationLabelForVerdict(bulkSessionDecision(...args).verdict);
 }

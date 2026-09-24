@@ -634,7 +634,7 @@ describe('generateWeekScoutForecast', () => {
     deps.fetchMatchEvidence = jest.fn(async (_user, _ids, forecasts) => new Map(
       forecasts.map((row) => [`${row.beach_id}:${row.forecast_at}`, row.beach_id === candidates[0].id ? {
         state: 'ready' as const, score: 1, label: 'MEH', confidence: 'high' as const,
-        bonusApplied: 0, reason: 'Mismatch', reasons: ['Mismatch'], sessionCount: 25,
+        bonusApplied: 0, reason: 'Mismatch', reasons: ['Mismatch'], sessionCount: 25, similarSessionCount: 5,
       } : null]),
     ));
     const response = await generateWeekScoutForecast('user-week-scout', {
@@ -652,10 +652,10 @@ describe('generateWeekScoutForecast', () => {
     );
     expect((deps.rankWindows as jest.Mock).mock.invocationCallOrder.every((order) =>
       order < (deps.fetchMatchEvidence as jest.Mock).mock.invocationCallOrder[0])).toBe(true);
-    expect(returned[0].rankedSpots[0]).toMatchObject({ beachId: candidates[0].id, verdict: 'skip' });
+    expect(returned[0].rankedSpots[0]).toMatchObject({ beachId: candidates[0].id, verdict: 'maybe' });
     for (const day of response.days) {
       expect(day.bestWindowId).not.toBeNull();
-      expect(day.windows.find((window) => window.id === day.bestWindowId)?.beachId).not.toBe(candidates[0].id);
+      expect(day.windows.find((window) => window.id === day.bestWindowId)?.verdict).not.toBe('skip');
     }
   });
 
@@ -860,7 +860,7 @@ describe('generateWeekScoutForecast', () => {
       selection: null,
     });
     expect(response.days[0].windows[0]).toMatchObject({
-      verdict: 'worth_it',
+      verdict: 'skip',
       rideable: false,
       safe: true,
       forecast: {
@@ -870,6 +870,38 @@ describe('generateWeekScoutForecast', () => {
     expect(response.days[0].bestWindowId).toBeNull();
     expect(response.days[0].bestDayWindow).toBeNull();
     expect(response.days[0].exclusionReasons).toEqual(['no_rideable_windows']);
+  });
+
+  it('never lifts an unsafe window on personal history', async () => {
+    const deps = dependencies();
+    deps.scoreWindowCondition = jest.fn(() => 60);
+    deps.scoreBeach = jest.fn(() => ({
+      total: 82,
+      matchQuality: 'excellent',
+      subscores: {
+        waveHeightFit: 22, periodEnergyScore: 18, windAlignment: 19, tideFit: 14,
+        affinityBonus: 0, personalizationBonus: 0, distancePenalty: 0,
+      },
+      reasons: ['Strong conditions'],
+      warnings: ['Unsafe hazard at this beach'],
+    }));
+    deps.fetchMatchEvidence = jest.fn(async (_user, _ids, forecasts: EnhancedForecastEntity[]) => new Map(
+      forecasts.map((row) => [`${row.beach_id}:${row.forecast_at}`, {
+        state: 'ready', score: 9, label: 'GOOD', confidence: 'high',
+        bonusApplied: 0, reason: 'History', reasons: ['History'],
+        sessionCount: 40, similarSessionCount: 12,
+      } as SurfDiscoveryRecommendation['similarity']]),
+    ));
+
+    const response = await generateWeekScoutForecast('user-week-scout', {
+      candidateBeachIds: [BEACH_A], localTimezone: 'Pacific/Honolulu',
+      startLocalDate: '2026-07-31', dayCount: 7,
+    }, deps);
+
+    const windows = response.days.flatMap((day) => day.windows);
+    expect(windows.length).toBeGreaterThan(0);
+    expect(windows.every((window) => window.verdict !== 'worth_it')).toBe(true);
+    expect(response.sessionDecision?.verdict).not.toBe('go');
   });
 
   it('explains when every generated window is unsafe', async () => {
@@ -904,6 +936,41 @@ describe('generateWeekScoutForecast', () => {
     expect(response.days[0].bestWindowId).toBeNull();
     expect(response.days[0].bestDayWindow).toBeNull();
     expect(response.days[0].exclusionReasons).toEqual(['no_safe_windows']);
+  });
+
+  it('moves a safe window at most one tier on personal history, end to end', async () => {
+    const deps = dependencies();
+    deps.scoreWindowCondition = jest.fn(() => 30);
+    deps.fetchSkill = jest.fn(async (): Promise<SkillLevel | null> => 'advanced');
+    deps.fetchMatchEvidence = jest.fn(async (_user, _ids, forecasts: EnhancedForecastEntity[]) => new Map(
+      forecasts.map((row) => [`${row.beach_id}:${row.forecast_at}`, {
+        state: 'ready', score: 9, label: 'GOOD', confidence: 'high',
+        bonusApplied: 0, reason: 'History', reasons: ['History'],
+        sessionCount: 40, similarSessionCount: 12,
+      } as SurfDiscoveryRecommendation['similarity']]),
+    ));
+
+    const response = await generateWeekScoutForecast('user-week-scout', {
+      candidateBeachIds: [BEACH_A], localTimezone: 'Pacific/Honolulu',
+      startLocalDate: '2026-07-31', dayCount: 7,
+    }, deps);
+
+    // Physical Skip + strong history is one tier up (Maybe), never go.
+    const verdicts = response.days.flatMap((day) => day.windows.map((window) => window.verdict));
+    expect(verdicts).not.toContain('worth_it');
+    expect(response.sessionDecision?.verdict).not.toBe('go');
+  });
+
+  it('keeps main no-selection result when every window is a quality skip', async () => {
+    const deps = dependencies();
+    deps.scoreWindowCondition = jest.fn(() => 30);
+
+    const response = await generateWeekScoutForecast('user-week-scout', {
+      candidateBeachIds: [BEACH_A], localTimezone: 'Pacific/Honolulu',
+      startLocalDate: '2026-07-31', dayCount: 7,
+    }, deps);
+
+    expect(response.sessionDecision).toMatchObject({ verdict: 'no', reasonCode: 'no_candidates', selection: null });
   });
 
   it('explains when safe rideable windows all have skip verdicts', async () => {

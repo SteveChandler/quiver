@@ -229,8 +229,8 @@ describe("buildForecastRecommendationContext", () => {
 
     expectContext(context, "best_window");
     expect(context?.selectedRowTime).toBe("2026-05-09T00:00:00.000Z");
-    expect(context?.displayWindowStart).toBe("2026-05-08T22:45:00.000Z");
-    expect(context?.displayWindowEnd).toBe("2026-05-09T01:15:00.000Z");
+    expect(context?.displayWindowStart).toBe("2026-05-08T22:30:00.000Z");
+    expect(context?.displayWindowEnd).toBe("2026-05-09T01:00:00.000Z");
     expect(context?.waveHeight).toBe("3.2 ft");
     expect(context?.waveHeightRangeLabel).toBe("3-4 ft");
     expect(context?.swellPeriod).toBe("15s");

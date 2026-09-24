@@ -1,3 +1,4 @@
+import type { RecommendedBoard } from "@/lib/scoring/personal-board";
 /**
  * Personalization Types
  * 
@@ -245,6 +246,7 @@ export type SimilarityRecommendation =
       reason: string;         // 1-2 sentence user-facing copy derived from reason_bullets[0]
       reasons: string[];
       sessionCount: number;
+      similarSessionCount?: number;
     };
 
 export interface SurfDiscoveryEntitlement {
@@ -277,6 +279,14 @@ export interface SurfDiscoveryBoardPick {
  * match quality indicators, and distance information for GPS phase.
  */
 export interface SurfDiscoveryRecommendation {
+  physicalRecommendationLabel?: "Worth it" | "Maybe" | "Skip";
+  recommendedBoard?: RecommendedBoard | null;
+  verdict?: "go" | "maybe" | "no";
+  conditionLabel?: "EPIC" | "GOOD" | "FAIR" | "MEH";
+  firstLight?: string;
+  lastLight?: string;
+  isDark?: boolean;
+  nextWindowStart?: string;
   /** Deterministic recommendation id shared by web attribution and Recommendations V2. */
   recommendationId?: string;
   /** Recommendation source discriminator. Missing values should be treated as "beach" by older clients. */
@@ -395,8 +405,20 @@ export interface SurfDiscoveryRecommendation {
  * Surf discovery response with multiple ranked recommendations
  */
 export interface SurfDiscoveryResponse {
+  emptyReason?: "no_recommendable_saved_window_72h";
+  firstLight?: string;
+  lastLight?: string;
+  isDark?: boolean;
+  nextWindowStart?: string;
   /** One server-owned product decision for this request scope. */
   sessionDecision?: CanonicalSessionDecision;
+  /** Present when a scoped/current request has no usable light yet. */
+  daylightAvailability?: {
+    reasonCode: 'after_dark';
+    nextWindowStart: string | null;
+    timezone: string;
+    beachId: string;
+  };
   /** Ranked list of surf spot recommendations (best first) */
   recommendations: SurfDiscoveryRecommendation[];
   /** Shared V2 recommendation contract for native recommendation surfaces */
@@ -450,6 +472,7 @@ export interface SurfDiscoveryResponse {
  * Options for surf discovery queries
  */
 export interface SurfDiscoveryOptions {
+  savedSpotsOnly?: boolean;
   /** User's GPS location (required for GPS-based discovery) */
   userLocation?: { lat: number; lon: number };
   /** Search radius in miles; omitted lets discovery expand from 25 to 100 as needed */

@@ -34,6 +34,18 @@ export function parseWaveHeightRangeFt(
   };
 }
 
+/**
+ * Midpoint of a wave-height range in feet (numbers pass through). Used only by
+ * the personal board rule and share images; alerts keep their own bounds.
+ */
+export function parseWaveHeightMidpointFt(
+  raw: unknown,
+): number | null {
+  if (typeof raw === "number") return Number.isFinite(raw) ? raw : null;
+  const range = parseWaveHeightRangeFt(typeof raw === "string" ? raw : null);
+  return range ? (range.min + range.max) / 2 : null;
+}
+
 export function parsePeriodSeconds(raw: string | null | undefined): number | null {
   if (typeof raw !== "string") return null;
   const parsed = parseFloat(raw.trim().replace(/s$/i, ""));

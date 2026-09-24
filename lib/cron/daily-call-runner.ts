@@ -1,3 +1,4 @@
+import { persistableSessionDecision } from "@/lib/recommendations/canonical-decision/contract";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isDailyCallEnabled, isDailyCallUserAllowed } from "@/lib/flags/daily-call";
 import { loadUserPool, type PoolBeach } from "@/lib/alerts/user-pool";
@@ -291,7 +292,7 @@ function buildPayload(args: {
     comparison: args.comparison,
     swell_event_key: args.swellEventKey,
     decision_id: args.candidate.decisionId,
-    session_decision: args.candidate.sessionDecision,
+    session_decision: persistableSessionDecision(args.candidate.sessionDecision),
   };
 }
 

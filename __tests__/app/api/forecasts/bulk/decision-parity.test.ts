@@ -8,7 +8,10 @@ import {
 import { buildCanonicalDecisionFromSurfDiscovery } from "@/lib/recommendations/canonical-decision/discovery-adapter";
 import { recommendationLabelForVerdict } from "@/lib/recommendations/canonical-decision/engine";
 import { resolveRecommendationLabel } from "@/lib/services/discovery/recommendation-label";
-import { isDaylightSessionStart } from "@/lib/services/discovery/window-selector/window-selector-core";
+import {
+  forecastRowIntervalEnd,
+  isDaylightInterval,
+} from "@/lib/services/discovery/daylight-eligibility";
 import { resolveWaterQualityHolds } from "@/lib/recommendations/major-event-hold/water-quality";
 import { createMockRequest } from "@/test-utils/api-test-helpers";
 import { getCachedRateLimiter } from "@/lib/utils/enhanced-rate-limiter";
@@ -177,9 +180,7 @@ it.each(
     const body = (await response.json()).data;
     expect(body.conditionScores[id(1)]).toEqual(expect.any(Number));
     expect(body.recommendationLabels[id(1)]).toBe(
-      signedIn
-        ? "Skip"
-        : resolveRecommendationLabel({
+      resolveRecommendationLabel({
             beach: beach(1),
             forecast: rows[0],
             score: body.conditionScores[id(1)],
@@ -202,11 +203,11 @@ it.each(
 );
 
 it.each(["2026-09-23T10:00:00Z", "2026-09-23T06:00:00Z"])(
-  "returns Skip for the reported 3 AM / 11 PM previews: %s",
+  "scores the reported 3 AM / 11 PM previews without a daylight veto: %s",
   async (at) => {
     mockFrom.mockReturnValue(query([forecast(1, at)]));
     const data = rpcData(1, at);
-    data.personalization = null; // Daylight alone must veto an otherwise positive physical label.
+    data.personalization = null; // Darkness is metadata, not a verdict veto.
     mockRpc.mockResolvedValue({ data, error: null });
     const response = await bulkForecastHandler(
       createMockRequest(
@@ -221,7 +222,7 @@ it.each(["2026-09-23T10:00:00Z", "2026-09-23T06:00:00Z"])(
     );
     expect(response.status).toBe(200);
     expect((await response.json()).data.recommendationLabels[id(1)]).toBe(
-      "Skip",
+      "Worth it",
     );
     expect(mockRpc).toHaveBeenCalledTimes(1);
   },
@@ -251,8 +252,9 @@ it.each(
       boardClasses: ["longboard"],
       sunTimes: new Map(),
       matches: new Map([[`${row.beach_id}:${row.forecast_at}`, similarity]]),
+      rowDurationsMs: new Map([[`${row.beach_id}:${row.forecast_at}`, 60 * 60_000]]),
     } as BulkDecisionContext;
-    const end = new Date(NOW.getTime() + 3 * 3600000);
+    const end = new Date(NOW.getTime() + 60 * 60_000);
     const call = buildCanonicalDecisionFromSurfDiscovery({
       anchorTime: NOW.toISOString(),
       scope: {
@@ -287,14 +289,15 @@ it.each(
 
 it.each([
   ["2026-09-23T10:00:00Z", false],
+  ["2026-09-23T10:15:00Z", false],
   ["2026-09-23T06:00:00Z", false],
-  ["2026-09-23T13:05:00Z", false],
+  ["2026-09-23T13:00:00Z", true],
   ["2026-09-23T13:10:00Z", true],
-  ["2026-09-24T00:45:00Z", true],
-  ["2026-09-24T00:46:00Z", false],
-  ["2026-09-24T02:00:00Z", false],
+  ["2026-09-24T01:45:00Z", true],
+  ["2026-09-24T02:05:00Z", false],
+  ["2026-09-24T02:06:00Z", false],
 ] as const)(
-  "uses the same scoped-call daylight boundary at %s",
+  "uses the shared interval daylight boundary at %s",
   async (at, allowed) => {
     mockRpc.mockResolvedValue({ data: rpcData(1, at), error: null });
     const context = await fetchBulkDecisionContext(
@@ -305,12 +308,10 @@ it.each([
       NOW,
     );
     context.matches.clear();
+    const start = new Date(at);
+    const end = forecastRowIntervalEnd(start);
     expect(
-      isDaylightSessionStart(
-        new Date(at),
-        beach(1).timezone!,
-        context.sunTimes.get(id(1)),
-      ),
+      isDaylightInterval(start, end, beach(1).timezone!, context.sunTimes.get(id(1))),
     ).toBe(allowed);
     expect(
       bulkRecommendationLabel(
@@ -320,7 +321,7 @@ it.each([
         90,
         new Date(at),
       ),
-    ).toBe(allowed ? "Worth it" : "Skip");
+    ).toBe("Worth it");
   },
 );
 
@@ -376,7 +377,7 @@ it.each([false, true])(
     const body = (await response.json()).data;
     expect(
       body.hourlySwellTimeline.partitionsByBeach[id(1)][0].recommendationLabel,
-    ).toBe("Skip");
+    ).toBe("Worth it");
     expect(mockFrom).toHaveBeenCalledTimes(only ? 2 : 3);
     expect(mockRpc).toHaveBeenCalledTimes(1);
     expect(
@@ -399,6 +400,7 @@ it.each([
       skillLevel: skill,
       sunTimes: new Map(),
       matches: new Map(),
+      rowDurationsMs: new Map(),
     } as BulkDecisionContext;
     expect(bulkRecommendationLabel(context, spot, row, 90, NOW)).toBe("Skip");
   },
@@ -417,7 +419,7 @@ it("ignores learned matches for expired paid access", async () => {
     NOW,
     NOW,
   );
-  expect(context.matches.get(`${id(1)}:${NOW.toISOString()}`)).toBeNull();
+  expect(context.matches.get(`${id(1)}:${NOW.getTime()}`)).toBeNull();
   expect(context.boardClasses).toEqual(["longboard"]);
   expect(context.skillLevel).toBe("advanced");
   expect(bulkRecommendationLabel(context, beach(1), forecast(1), 90, NOW)).toBe(
@@ -432,8 +434,52 @@ it("reproduces score 64 for Advanced / Southpoint longboard 2+1 as MAYBE", () =>
     boardClasses: ["longboard"],
     sunTimes: new Map(),
     matches: new Map([[`${row.beach_id}:${row.forecast_at}`, learned("FAIR")]]),
+    rowDurationsMs: new Map(),
   } as BulkDecisionContext;
   expect(bulkRecommendationLabel(context, beach(1), row, 64, NOW)).toBe(
     "Maybe",
   );
+});
+
+
+it.each([false, true])('feature-detects board history with one RPC (present: %s)', async (hasHistory) => {
+  const data = rpcData(1, NOW.toISOString());
+  const board = { id: id(500), name: 'Twin pin', board_type: 'thruster', sessions: [] };
+  if (hasHistory) (data.personalization as Record<string, unknown>).boards = [board];
+  mockRpc.mockResolvedValue({ data, error: null });
+  const context = await fetchBulkDecisionContext(id(800), [id(1)], [forecast(1)], NOW, NOW);
+  expect(context.boards).toEqual(hasHistory ? [board] : []);
+  expect(mockRpc).toHaveBeenCalledTimes(1);
+  expect(mockFrom).not.toHaveBeenCalled();
+});
+
+describe("bulk timeline daylight gate", () => {
+  // 2026-09-23 San Diego: sunrise 06:39 PT, sunset 18:44 PT.
+  const sun = {
+    sunrises: [new Date("2026-09-23T13:39:00Z")],
+    sunsets: [new Date("2026-09-24T01:44:00Z")],
+  };
+  const contextFor = (row: EnhancedForecastEntity): BulkDecisionContext => ({
+    skillLevel: "advanced",
+    boardClasses: ["longboard"],
+    sunTimes: new Map([[row.beach_id, sun]]),
+    matches: new Map(),
+    rowDurationsMs: new Map([[`${row.beach_id}:${row.forecast_at}`, 60 * 60_000]]),
+  }) as BulkDecisionContext;
+
+  it("gives a dark future timeline hour no call but keeps the current hour ungated", () => {
+    const at = new Date("2026-09-23T09:00:00Z"); // 02:00 PT
+    const row = { ...forecast(1), forecast_at: at.toISOString() };
+    const context = contextFor(row);
+    expect(bulkRecommendationLabel(context, beach(1), row, 94, at, { daylightOnly: true })).toBe("Skip");
+    expect(bulkRecommendationLabel(context, beach(1), row, 94, at)).not.toBe("Skip");
+  });
+
+  it("keeps a dawn timeline hour that overlaps first light", () => {
+    const at = new Date("2026-09-23T13:00:00Z"); // 06:00 PT, first light 06:09
+    const row = { ...forecast(1), forecast_at: at.toISOString() };
+    const context = contextFor(row);
+    expect(bulkRecommendationLabel(context, beach(1), row, 94, at, { daylightOnly: true }))
+      .toBe(bulkRecommendationLabel(context, beach(1), row, 94, at));
+  });
 });

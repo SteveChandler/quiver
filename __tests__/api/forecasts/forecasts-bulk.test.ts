@@ -252,6 +252,7 @@ jest.mock("@/lib/services/forecast/today-headline", () => ({
 }));
 
 jest.mock("@/lib/services/discovery/window-selector/window-scorer", () => ({
+  ...jest.requireActual("@/lib/services/discovery/window-selector/window-scorer"),
   scoreWindowConditionScore: jest.fn(() => 72),
 }));
 

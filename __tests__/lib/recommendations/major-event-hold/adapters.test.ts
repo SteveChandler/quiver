@@ -538,6 +538,10 @@ function bulkForecastFixture() {
       [PRIMARY_BEACH_ID]: "GOOD",
       [INCLUDED_BEACH_ID]: "FAIR",
     },
+    verdicts: { [PRIMARY_BEACH_ID]: "go" as const, [INCLUDED_BEACH_ID]: "maybe" as const },
+    conditionLabels: { [PRIMARY_BEACH_ID]: "EPIC", [INCLUDED_BEACH_ID]: "FAIR" },
+    recommendedBoards: { [PRIMARY_BEACH_ID]: { name: "Twin pin" }, [INCLUDED_BEACH_ID]: { name: "Machadocado" } },
+    personalAdjustmentReasons: { [PRIMARY_BEACH_ID]: "personal_adjusted_up", [INCLUDED_BEACH_ID]: null },
     recommendationLabels: {
       [PRIMARY_BEACH_ID]: "Worth it" as const,
       [INCLUDED_BEACH_ID]: "Maybe" as const,
@@ -2345,6 +2349,10 @@ describe("major-event hold adapters", () => {
       holdEpoch: EPOCH,
     });
     expect(result.conditionScores).toEqual({});
+    expect(result.verdicts?.[PRIMARY_BEACH_ID]).toBeNull();
+    expect(result.conditionLabels?.[PRIMARY_BEACH_ID]).toBeNull();
+    expect(result.recommendedBoards?.[PRIMARY_BEACH_ID]).toBeNull();
+    expect(result.personalAdjustmentReasons?.[PRIMARY_BEACH_ID]).toBeNull();
     expect(result.conditionSummaries).toEqual({
       [PRIMARY_BEACH_ID]: "UNKNOWN",
       [INCLUDED_BEACH_ID]: "UNKNOWN",

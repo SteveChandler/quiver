@@ -16,7 +16,14 @@
  * @module lib/services/discovery/surf-discovery-orchestrator
  */
 
-import { isDaylightSessionStart } from './window-selector/window-selector-core';
+import {
+  forecastRowIntervalEnd,
+  isDaylightInterval,
+  nextFirstLight,
+  lightMetadata,
+} from './daylight-eligibility';
+import { recommendBoard, PERSONAL_BOARD_SELECT, type PersonalBoard } from '@/lib/scoring/personal-board';
+import { conditionLabelForVerdict } from '@/lib/recommendations/canonical-decision/engine';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { getUserSurfPreferences } from '@/lib/services/preference-learning-service';
 import { createContextLogger } from '@/lib/logger';
@@ -43,10 +50,8 @@ import { normalizeBoardClass, type BoardClass } from '@/lib/domains/rideability'
 import { formatWaveHeightRangeString } from '@/lib/utils/wave-formatters';
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
 import { isFutureDayInTimezone } from '@/lib/utils/condition-tier-utils';
-import { localDateTimeToUTC, resolveForecastTime } from '@/lib/utils/forecast-time-resolver';
+import { resolveForecastTime } from '@/lib/utils/forecast-time-resolver';
 import {
-  getConditionBoardPick,
-  toForecastForScoring,
   type BoardForPick,
 } from '@/lib/scoring';
 import {
@@ -134,6 +139,7 @@ type BoardPickRow = {
   name: unknown;
   board_type: unknown;
   volume?: unknown;
+  sessions?: PersonalBoard["sessions"];
 };
 
 type UserBoardContextRow = BoardPickRow & {
@@ -162,6 +168,10 @@ const DEFAULT_TIMEOUT_MS = 5000; // Per-beach timeout
 const DEFAULT_OVERALL_TIMEOUT_MS = 12000; // Increased from 8s for more beaches
 const MAX_INCLUDED_BEACH_IDS = 12;
 const MAX_PUBLIC_CUSTOM_SPOTS = 5;
+const BOARD_HISTORY_WINDOW_MS = 365 * 24 * 60 * 60 * 1000;
+const BOARD_HISTORY_SESSION_CAP = 300;
+// Bounds My Spots forecast fetches for users with long saved lists.
+const MY_SPOTS_CANDIDATE_CAP = 25;
 
 type SurfDiscoveryOperationalErrorCode =
   | 'forecast_unavailable'
@@ -617,7 +627,7 @@ function toRecommendationV2Candidate(
 // Scoring Engine
 // ============================================================================
 
-function normalizeBoardForPick(row: BoardPickRow): BoardForPick | null {
+function normalizeBoardForPick(row: BoardPickRow): PersonalBoard | null {
   if (
     typeof row.id !== 'string' ||
     typeof row.name !== 'string' ||
@@ -636,6 +646,7 @@ function normalizeBoardForPick(row: BoardPickRow): BoardForPick | null {
     name: row.name,
     board_type: row.board_type,
     volume,
+    sessions: row.sessions,
   };
 }
 
@@ -658,8 +669,9 @@ function resolveDominantBoardClass(rows: UserBoardContextRow[]): BoardClass | nu
 
   if (candidates.length === 0) return null;
 
-  // Dominant board = most sessions; ties don't matter for a ±5 signal.
-  candidates.sort((a, b) => b.sessionCount - a.sessionCount);
+  candidates.sort((a, b) =>
+    b.sessionCount - a.sessionCount || a.boardClass.localeCompare(b.boardClass),
+  );
   return candidates[0].boardClass;
 }
 
@@ -816,8 +828,9 @@ async function buildCustomSpotCandidates(
   userId: string | null,
   userLocation: { lat: number; lon: number },
   radiusMiles: number,
+  savedSpots?: CustomSpotDiscoveryRow[],
 ): Promise<CustomSpotDiscoveryCandidate[]> {
-  const spots = await fetchCustomSpotRows(userId, userLocation, radiusMiles);
+  const spots = savedSpots ?? await fetchCustomSpotRows(userId, userLocation, radiusMiles);
   const nearestBeachIds = Array.from(
     new Set(spots.map((spot) => spot.nearest_beach_id).filter((id): id is string => Boolean(id)))
   );
@@ -884,7 +897,7 @@ function mergeCandidatePools(...pools: Beach[][]): Beach[] {
 export function hasUsableTodayForecastForFallback(args: {
   forecasts: EnhancedForecastEntity[];
   beachTz: string;
-  sunset: Date | null;
+  sunTimes?: { sunrises: Date[]; sunsets: Date[] };
   now: Date;
 }): boolean {
   const pastToleranceMs =
@@ -892,25 +905,12 @@ export function hasUsableTodayForecastForFallback(args: {
   const usableCutoffMs = args.now.getTime() - pastToleranceMs;
 
   return args.forecasts.some((forecast) => {
-    const forecastTime = new Date(forecast.forecast_at).getTime();
-    if (!Number.isFinite(forecastTime) || forecastTime < usableCutoffMs) {
+    const forecastTime = resolveForecastTime(forecast, args.beachTz);
+    if (!Number.isFinite(forecastTime.getTime()) || forecastTime.getTime() < usableCutoffMs) {
       return false;
     }
-    const localHour = getLocalHour(new Date(forecastTime), args.beachTz);
-    if (localHour === null || localHour < 6) return false;
-
-    if (args.sunset) {
-      return (
-        forecastTime <=
-        args.sunset.getTime() - MIN_SESSION_HOURS * 60 * 60 * 1000
-      );
-    }
-
-    // When sun-times data is unavailable, use the selector's own defensive
-    // daylight bounds. This lets an evening request move to tomorrow while
-    // retaining today's pre-dawn/daytime rows as an intentional no-fallback
-    // answer when they are still eligible for selection.
-    return localHour < 18;
+    const rowEnd = getForecastRowEnd(forecast, args.forecasts, args.beachTz);
+    return isDaylightInterval(forecastTime, rowEnd, args.beachTz, args.sunTimes);
   });
 }
 
@@ -1048,10 +1048,24 @@ export async function fetchUserBoardContext(
     };
   }
 
-  const { data, error } = await supabase
-    .from('boards')
-    .select('id, name, board_type, volume, session_count')
-    .eq('user_id', userId);
+  const picksEnabled = isPro || isBoardPicksFreeEnabled();
+  // Session history only feeds board picks; skip the embed when picks are off.
+  const { data, error } = picksEnabled
+    ? await supabase
+      .from('boards')
+      .select(PERSONAL_BOARD_SELECT)
+      .eq('user_id', userId)
+      .eq('sessions.user_id', userId)
+      .eq('sessions.status', 'completed')
+      .is('sessions.deleted_at', null)
+      // Same 12-month window as the match scorer, capped so heavy loggers keep a bounded payload.
+      .gte('sessions.arrival_time', new Date(Date.now() - BOARD_HISTORY_WINDOW_MS).toISOString())
+      .order('arrival_time', { referencedTable: 'sessions', ascending: false })
+      .limit(BOARD_HISTORY_SESSION_CAP, { referencedTable: 'sessions' })
+    : await supabase
+      .from('boards')
+      .select('id, name, board_type, volume, session_count')
+      .eq('user_id', userId);
 
   if (error) {
     log.warn(`Failed to fetch boards for discovery board context: ${error.message}`);
@@ -1070,12 +1084,12 @@ export async function fetchUserBoardContext(
     };
   }
 
-  const rows = data as UserBoardContextRow[];
+  const rows = data as unknown as UserBoardContextRow[];
 
   return {
     dominantBoardClass: resolveDominantBoardClass(rows),
     boardClasses: resolveBoardClasses(rows),
-    boardsForPicks: isPro || isBoardPicksFreeEnabled()
+    boardsForPicks: picksEnabled
       ? rows
           .map((row) => normalizeBoardForPick(row))
           .filter((board): board is BoardForPick => board !== null)
@@ -1342,45 +1356,42 @@ const IMMEDIATE_FORECAST_BUCKET_MAX_HOURS = 4;
 interface ImmediateForecastBucket {
   forecast: EnhancedForecastEntity;
   start: Date;
+  rowEnd: Date;
   end: Date;
 }
 
-function capImmediateEndAtSunset(
-  end: Date,
-  now: Date,
+interface ImmediateWindowSelection {
+  window: PersonalizedForecastWindow | null;
+  afterDark: boolean;
+}
+
+type DaylightAvailability = NonNullable<SurfDiscoveryResponse['daylightAvailability']>;
+
+function getForecastRowEnd(
+  row: EnhancedForecastEntity,
+  forecasts: EnhancedForecastEntity[],
   beachTz: string,
-  sunTimes: { sunrises: Date[]; sunsets: Date[] } | undefined
 ): Date {
-  const todayStr = getLocalDateStr(now, beachTz);
-  const sameDaySunset = sunTimes?.sunsets.find(
-    (sunset) => getLocalDateStr(sunset, beachTz) === todayStr
-  );
-  if (sameDaySunset && sameDaySunset < end) {
-    return sameDaySunset;
-  }
-  if (!sameDaySunset) {
-    try {
-      const localDateParts = new Intl.DateTimeFormat('en-US', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        timeZone: beachTz,
-      }).formatToParts(now);
+  const start = resolveForecastTime(row, beachTz);
+  const next = forecasts
+    .map((forecast) => resolveForecastTime(forecast, beachTz))
+    .filter((time) => time > start)
+    .sort((a, b) => a.getTime() - b.getTime())[0];
+  return forecastRowIntervalEnd(start, next);
+}
 
-      const year = localDateParts.find((part) => part.type === 'year')?.value;
-      const month = localDateParts.find((part) => part.type === 'month')?.value;
-      const day = localDateParts.find((part) => part.type === 'day')?.value;
-      if (!year || !month || !day) return end;
-
-      const conservative6pm = localDateTimeToUTC(`${year}-${month}-${day}`, '18:00:00', beachTz);
-      if (conservative6pm < end) {
-        return conservative6pm;
-      }
-    } catch {
-      return end;
-    }
-  }
-  return end;
+function afterDarkAvailabilityFor(
+  beach: Beach,
+  beachTz: string,
+  after: Date,
+  sunTimes: { sunrises: Date[]; sunsets: Date[] } | undefined,
+): DaylightAvailability {
+  return {
+    reasonCode: 'after_dark',
+    nextWindowStart: nextFirstLight(after, beachTz, sunTimes)?.toISOString() ?? null,
+    timezone: beachTz,
+    beachId: beach.id,
+  };
 }
 
 function findImmediateForecastBucket(
@@ -1420,6 +1431,7 @@ function findImmediateForecastBucket(
       activeBucket = {
         forecast: current.forecast,
         start: current.forecastTime,
+        rowEnd: forecastRowIntervalEnd(current.forecastTime, next?.forecastTime),
         end: bucketEnd,
       };
     }
@@ -1463,15 +1475,18 @@ function selectImmediateWindow(
   now: Date,
   userSkillLevel?: SkillLevel | string | null,
   boardClasses: readonly BoardClass[] = [],
-): PersonalizedForecastWindow | null {
-  if (forecasts.length === 0) return null;
-
+): ImmediateWindowSelection {
   const beachTz =
     (beach as { timezone?: string | null }).timezone ||
     getTimezoneFromCoords(beach.lat || 0, beach.lon || 0);
   const sunTimes = sunTimesCache.get(beach.id);
-
-  if (!isDaylightSessionStart(now, beachTz, sunTimes)) return null;
+  const currentlyDark = !isDaylightInterval(
+    now,
+    new Date(now.getTime() + 1),
+    beachTz,
+    sunTimes,
+  );
+  if (forecasts.length === 0) return { window: null, afterDark: currentlyDark };
 
   const scoreForecast = (forecast: EnhancedForecastEntity): number =>
     scoreWindowConditionScore(
@@ -1482,16 +1497,15 @@ function selectImmediateWindow(
       boardClasses,
     );
   const bucket = findImmediateForecastBucket(forecasts, beachTz, now, scoreForecast);
-  if (!bucket) return null;
-
-  const end = capImmediateEndAtSunset(bucket.end, now, beachTz, sunTimes);
-  if (end.getTime() <= now.getTime()) return null;
+  if (!bucket) return { window: null, afterDark: currentlyDark };
+  const end = bucket.end;
+  if (end.getTime() <= now.getTime()) return { window: null, afterDark: false };
 
   const wind = [bucket.forecast.wind_speed, bucket.forecast.wind_direction]
     .filter((part) => part != null && String(part).trim().length > 0)
     .join(' ');
 
-  return {
+  return { window: {
     start: bucket.start,
     end,
     tide: bucket.forecast.tide_status || 'Unknown',
@@ -1505,7 +1519,7 @@ function selectImmediateWindow(
     score: scoreForecast(bucket.forecast),
     peakTime: now,
     sourceForecast: bucket.forecast,
-  };
+  }, afterDark: currentlyDark };
 }
 
 // ============================================================================
@@ -1525,6 +1539,7 @@ async function discoverSurfSpotsInner(
   const {
     radiusMiles: requestedRadiusMiles,
     horizonHours,
+    savedSpotsOnly = false,
     forecastAt,
     maxResults = DEFAULT_MAX_RESULTS,
     candidatePoolLimit = CANDIDATE_POOL_LIMIT,
@@ -1555,17 +1570,27 @@ async function discoverSurfSpotsInner(
 
   log.debug(`Discovering surf spots (maxResults: ${maxResults})`);
 
+  // Reuse the existing favorites read before constructing the forecast pool.
+  const favorites = userId ? await getFavoriteBeachesFromDb(userId) : { success: true, data: [] };
+  if (savedSpotsOnly && !favorites.success) throw new SurfDiscoveryOperationalError('internal_error', 'Saved spots unavailable');
+  const favoriteBeachIds = new Set((favorites.data ?? []).map((beach) => beach.id));
+  const savedCustomSpots = ('customSpots' in favorites ? favorites.customSpots ?? [] : [])
+    .filter((spot) => !spot.deleted_at && (spot.user_id === userId || spot.visibility === 'public'));
   // 1. Build candidate pool (GPS-based, re-ordered by pre-forecast preference fit)
   const [{ candidates, userSkillLevel }, includedCandidates, customSpotCandidates] = await Promise.all([
     buildCandidatePool(userId, {
       userLocation,
       radiusMiles: requestedRadiusMiles,
     }),
-    fetchIncludedBeachCandidates(
+    savedSpotsOnly ? Promise.resolve((favorites.data ?? [])
+      .filter((beach) => !beach.is_private || (beach as Beach & { owner_id?: string }).owner_id === userId)
+      // Same eligibility rule the other include paths apply.
+      .filter((beach) => allowRecommendationIneligibleIncludes
+        || (beach as Beach & { recommendation_eligible?: boolean }).recommendation_eligible !== false)) : fetchIncludedBeachCandidates(
       requestedIncludeBeachIds,
       allowRecommendationIneligibleIncludes,
     ),
-    buildCustomSpotCandidates(userId, userLocation, radiusMiles),
+    buildCustomSpotCandidates(userId, userLocation, radiusMiles, savedSpotsOnly ? savedCustomSpots : undefined),
   ]);
 
   // Explicit include targets and custom-spot host beaches reserve their slots
@@ -1582,12 +1607,12 @@ async function discoverSurfSpotsInner(
   );
   // `candidates` arrives pool-ordered (pinned spots, then effective distance),
   // so taking a prefix keeps home/saved spots even when the cap bites.
-  const nearbyCandidates = candidates.slice(0, nearbyCandidateSlots);
+  const nearbyCandidates = savedSpotsOnly ? [] : candidates.slice(0, nearbyCandidateSlots);
   const finalCandidates = mergeCandidatePools(
     nearbyCandidates,
     includedCandidates,
     customNearestCandidates,
-  ).slice(0, effectiveCandidatePoolLimit);
+  ).slice(0, savedSpotsOnly ? MY_SPOTS_CANDIDATE_CAP : effectiveCandidatePoolLimit);
   // A custom spot is only "primary" (eligible for the Now/Best feeds) when it's
   // as close as the nearby beaches — the same nearest-within-radius cut curated
   // beaches pass. Without this an own custom spot surfaces in Now/Best from
@@ -1605,9 +1630,9 @@ async function discoverSurfSpotsInner(
         )
       : radiusMiles;
   const primaryEligibleKeys = new Set<string>([
-    ...nearbyCandidates.map((beach) => `beach:${beach.id}`),
+    ...(savedSpotsOnly ? includedCandidates : nearbyCandidates).map((beach) => `beach:${beach.id}`),
     ...customSpotCandidates
-      .filter((candidate) => candidate.distanceMiles <= nearbyMaxMiles)
+      .filter((candidate) => savedSpotsOnly || candidate.distanceMiles <= nearbyMaxMiles)
       .map((candidate) => `custom:${candidate.spot.id}`),
   ]);
   const discoverableBeachIds = new Set(
@@ -1623,7 +1648,7 @@ async function discoverSurfSpotsInner(
 
   if (finalCandidates.length === 0) {
     log.warn('No candidate beaches found');
-    return emptyResponse(maxResults, 'no_candidates');
+    return { ...emptyResponse(maxResults, 'no_candidates'), ...(savedSpotsOnly ? { emptyReason: 'no_recommendable_saved_window_72h' as const } : {}) };
   }
 
   log.debug(
@@ -1766,15 +1791,31 @@ async function discoverSurfSpotsInner(
   const scored: SurfDiscoveryRecommendation[] = [];
 
   const beachesWithNoWindow: string[] = [];
+  let daylightAvailability: DaylightAvailability | null = null;
+  const considerAfterDark = (candidate: DaylightAvailability): void => {
+    const candidateTime = candidate.nextWindowStart
+      ? new Date(candidate.nextWindowStart).getTime()
+      : Number.POSITIVE_INFINITY;
+    const currentTime = daylightAvailability?.nextWindowStart
+      ? new Date(daylightAvailability.nextWindowStart).getTime()
+      : Number.POSITIVE_INFINITY;
+    if (!daylightAvailability || candidateTime < currentTime) {
+      daylightAvailability = candidate;
+    }
+  };
+
   for (const { beach, forecasts } of beachForecasts) {
     // Today-first: try today's forecasts first, fall back to all (matches beach detail page)
-    const beachTz = getTimezoneFromCoords(beach.lat || 0, beach.lon || 0);
+    const beachTz = beach.timezone || getTimezoneFromCoords(beach.lat || 0, beach.lon || 0);
+    const beachSunTimes = sunTimesCache.get(beach.id);
     const requestedAlignment = forecastAt
       ? resolveForecastAlignment(forecasts, forecastAt)
       : null;
-    const scopedForecasts = requestedAlignment?.forecast
-      ? [requestedAlignment.forecast]
-      : [];
+    const scopedForecast = requestedAlignment?.forecast;
+    const scopedStart = scopedForecast
+      ? resolveForecastTime(scopedForecast, beachTz)
+      : null;
+    const scopedForecasts = scopedForecast ? [scopedForecast] : [];
     const selectionNow = forecastAt ? new Date(forecastAt) : new Date();
     const todayStr = getLocalDateStr(selectionNow, beachTz);
     const todayForecasts = forecasts.filter(f =>
@@ -1794,7 +1835,6 @@ async function discoverSurfSpotsInner(
     //      today-only returns null but we aren't technically past sunset
     //      yet (e.g. 19:21 PDT with sunset 19:31).
     const nowForFallback = selectionNow;
-    const beachSunTimes = sunTimesCache.get(beach.id);
     const beachSameDaySunset = beachSunTimes?.sunsets.find(
       (s: Date) => getLocalDateStr(s, beachTz) === todayStr
     );
@@ -1812,7 +1852,7 @@ async function discoverSurfSpotsInner(
     const hasUsableTodayForecast = hasUsableTodayForecastForFallback({
       forecasts: todayForecasts,
       beachTz,
-      sunset: beachSameDaySunset ?? null,
+      sunTimes: beachSunTimes,
       now: nowForFallback,
     });
     const todayIsEffectivelyOver =
@@ -1821,36 +1861,36 @@ async function discoverSurfSpotsInner(
 
     let selectedWindows =
       forecastAt
-        ? scopedForecasts.length > 0
-          ? selectBestWindows({
-              forecasts: scopedForecasts,
-              beach,
-              userPrefs,
-              horizonHours,
-              sunTimesCache,
-              timeSlot,
-              now: selectionNow,
-              maxWindows: 1,
-              userSkillLevel,
-              boardClasses,
-            })
-          : []
+        ? (() => {
+            const immediate = selectImmediateWindow(
+              forecasts, beach, sunTimesCache, scopedStart ?? selectionNow,
+              userSkillLevel, boardClasses,
+            );
+            return scopedForecast && immediate.window ? [immediate.window] : [];
+          })()
         : discoveryMode === 'now'
-          ? [
-              selectImmediateWindow(
+          ? (() => {
+              const immediate = selectImmediateWindow(
                 forecasts,
                 beach,
                 sunTimesCache,
                 nowForFallback,
                 userSkillLevel,
                 boardClasses,
-              ),
-            ].filter(
-              (window): window is PersonalizedForecastWindow => window !== null,
-            )
-          : todayForecasts.length > 0
+              );
+              if (immediate.afterDark) {
+                considerAfterDark(afterDarkAvailabilityFor(
+                  beach,
+                  beachTz,
+                  nowForFallback,
+                  beachSunTimes,
+                ));
+              }
+              return immediate.window ? [immediate.window] : [];
+            })()
+          : (savedSpotsOnly || todayForecasts.length > 0)
             ? selectBestWindows({
-                forecasts: todayForecasts,
+                forecasts: savedSpotsOnly ? forecasts : todayForecasts,
                 beach,
                 userPrefs,
                 horizonHours,
@@ -1888,11 +1928,29 @@ async function discoverSurfSpotsInner(
       }
     }
 
-    if (forecastAt || discoveryMode !== 'now') {
-      selectedWindows = selectedWindows.map(withDisplayWindow);
+    if (!forecastAt && discoveryMode !== 'now') {
+      selectedWindows = selectedWindows.map((window) =>
+        withDisplayWindow(window, sunTimesCache.get(beach.id)),
+      );
+    }
+
+    if (forecastAt && !isDaylightInterval(now, new Date(now.getTime() + 1), beachTz, beachSunTimes)) {
+      considerAfterDark(afterDarkAvailabilityFor(beach, beachTz, now, beachSunTimes));
     }
 
     if (selectedWindows.length === 0) {
+      if (forecastAt && requestedAlignment?.forecast) {
+        const rowStart = resolveForecastTime(requestedAlignment.forecast, beachTz);
+        const rowEnd = getForecastRowEnd(requestedAlignment.forecast, forecasts, beachTz);
+        if (!isDaylightInterval(rowStart, rowEnd, beachTz, beachSunTimes)) {
+          considerAfterDark(afterDarkAvailabilityFor(
+            beach,
+            beachTz,
+            rowStart,
+            beachSunTimes,
+          ));
+        }
+      }
       beachesWithNoWindow.push(beach.name);
       log.debug(`[discoverSurfSpots] ${beach.name}: selectBestWindows returned no windows (forecasts=${forecasts.length})`);
       continue;
@@ -2010,25 +2068,6 @@ async function discoverSurfSpotsInner(
       forecast: bestWindowForecast,
       score: detailedScore.total,
     });
-    const conditionBoardPick =
-      userBoardsForPicks.length > 0
-        ? getConditionBoardPick(
-            toForecastForScoring(bestWindowForecast, beachTz),
-            userBoardsForPicks,
-            beach,
-            {
-              kind: 'scored',
-              boardClass: scoreWindowConditionDetails(
-                bestWindowForecast,
-                beach,
-                userSkillLevel,
-                null,
-                boardClasses,
-              ).boardClass,
-            },
-          )
-        : null;
-
     const baseRecommendation: SurfDiscoveryRecommendation = {
       kind: 'beach',
       customSpotId: null,
@@ -2058,14 +2097,7 @@ async function discoverSurfSpotsInner(
       effects: detailedScore.effects,
       conditionBadges: detailedScore.conditionBadges,
       waveHeightBadge: detailedScore.waveHeightBadge,
-      boardPick: conditionBoardPick
-        ? {
-            boardId: conditionBoardPick.boardId,
-            boardName: conditionBoardPick.boardName,
-            boardType: conditionBoardPick.boardType,
-            reason: conditionBoardPick.reason,
-          }
-        : null,
+      boardPick: null,
       distanceMiles,
       drivingTimeMinutes: distanceMiles ? Math.round(distanceMiles * 1.5) : undefined,
       // Similarity is stamped later by applySimilarityLayer (Pro path) or
@@ -2138,25 +2170,6 @@ async function discoverSurfSpotsInner(
         forecast: bestWindowForecast,
         score: customDetailedScore.total,
       });
-      const customBoardPick =
-        userBoardsForPicks.length > 0
-          ? getConditionBoardPick(
-              toForecastForScoring(bestWindowForecast, beachTz),
-              userBoardsForPicks,
-              customBeach,
-              {
-                kind: 'scored',
-                boardClass: scoreWindowConditionDetails(
-                  bestWindowForecast,
-                  customBeach,
-                  userSkillLevel,
-                  null,
-                  boardClasses,
-                ).boardClass,
-              },
-            )
-          : null;
-
       const customRecommendation: SurfDiscoveryRecommendation = {
         kind: 'custom_spot',
         customSpotId: customCandidate.spot.id,
@@ -2183,14 +2196,7 @@ async function discoverSurfSpotsInner(
         warnings: customDetailedScore.warnings,
         conditionBadges: customDetailedScore.conditionBadges,
         waveHeightBadge: customDetailedScore.waveHeightBadge,
-        boardPick: customBoardPick
-          ? {
-              boardId: customBoardPick.boardId,
-              boardName: customBoardPick.boardName,
-              boardType: customBoardPick.boardType,
-              reason: customBoardPick.reason,
-            }
-          : null,
+        boardPick: null,
         distanceMiles: customCandidate.distanceMiles,
         drivingTimeMinutes: customCandidate.distanceMiles
           ? Math.round(customCandidate.distanceMiles * 1.5)
@@ -2225,22 +2231,6 @@ async function discoverSurfSpotsInner(
     log.debug(`  ${idx + 1}. ${rec.beach.name}: score=${rec.score} (wave=${waveHeightFit}, period=${periodEnergyScore}, wind=${windAlignment}, tide=${tideFit}, dist=${distancePenalty}, pers=${personalizationBonus}, affinity=${affinityBonus}, behavior=${behaviorBonus ?? 0})`);
   });
 
-  // 4. Fetch and merge favorites
-  let favoriteBeachIds = new Set<string>();
-  if (userId) {
-    try {
-      const favoriteBeachesResponse = await getFavoriteBeachesFromDb(userId);
-      if (favoriteBeachesResponse.success && favoriteBeachesResponse.data) {
-        favoriteBeachIds = new Set(favoriteBeachesResponse.data.map((b: Beach) => b.id));
-        log.debug(`Found ${favoriteBeachIds.size} favorite beaches for user ${userId}`);
-      } else {
-        log.warn(`Failed to fetch favorites: ${favoriteBeachesResponse.error || 'Unknown error'}`);
-      }
-    } catch (error) {
-      log.error('Error fetching favorite beaches, continuing with regular recommendations:', error);
-    }
-  }
-
   // Mark favorites with badge flag, but do NOT prioritize in ranking
   // All beaches are ranked purely by score - favorites just get a heart badge
   const allRecs: SurfDiscoveryRecommendation[] = [];
@@ -2254,8 +2244,14 @@ async function discoverSurfSpotsInner(
 
     allRecs.push({
       ...rec,
-      isFavorite: (rec.kind ?? 'beach') === 'beach' && favoriteBeachIds.has(rec.beach.id),
+      isFavorite: savedSpotsOnly || ((rec.kind ?? 'beach') === 'beach' && favoriteBeachIds.has(rec.beach.id)),
     });
+  }
+
+  for (const rec of allRecs) {
+    const board = recommendBoard(userBoardsForPicks, rec.forecast, rec.beach, userSkillLevel);
+    rec.recommendedBoard = board;
+    rec.boardPick = board ? { boardId: board.id, boardName: board.name, boardType: board.type, reason: board.reason } : null;
   }
 
   // Sort ALL recommendations by score descending (pure score ranking)
@@ -2265,12 +2261,7 @@ async function discoverSurfSpotsInner(
   // candidates collapse and the beach pool is truncated.
   //
   // - Free users: no RPC call; every rec keeps similarity:null.
-  // - Pro users: one bulk RPC per beach scores up to three windows.
-  //   Learned evidence selects the window within that beach; physical score
-  //   remains unchanged and continues to rank beaches against one another.
-  //
-  // Candidate pools are typically 5-20 beaches, so one call per beach is
-  // bounded while preserving the existing RPC contract.
+  // - Pro users: one shared set-based RPC scores every beach/window.
   const similarityResult = await applySimilarityLayer({
     recommendations: allRecs,
     userId,
@@ -2298,7 +2289,7 @@ async function discoverSurfSpotsInner(
   // closure. An unreachable probe drops nothing, so the pool stays intact.
   const safeRecsScored = rankedRecommendations.map(
     ({ recommendation }) => recommendation,
-  );
+  ).filter((rec) => !savedSpotsOnly || getCanonicalRecommendationLabel(rec, userSkillLevel) === "Worth it");
 
   // Water-quality filtering happens across the full sorted pool before this
   // top-N is consumed, so an allowed rank below a blocked result can fill the
@@ -2532,7 +2523,11 @@ async function discoverSurfSpotsInner(
   }
 
   for (const rec of [...enrichedRanked, ...enrichedIncluded]) {
+    Object.assign(rec, lightMetadata(now, rec.window.timezone, sunTimesCache.get(rec.forecast.beach_id)));
+    rec.physicalRecommendationLabel ??= rec.recommendationLabel;
     rec.recommendationLabel = getCanonicalRecommendationLabel(rec, userSkillLevel);
+    rec.verdict = rec.recommendationLabel === "Worth it" ? "go" : rec.recommendationLabel === "Maybe" ? "maybe" : "no";
+    rec.conditionLabel = conditionLabelForVerdict(rec.verdict, rec.score);
     rec.message = buildDiscoveryMessage(rec.score, rec.reasons, rec.warnings, rec.recommendationLabel);
   }
 
@@ -2553,7 +2548,8 @@ async function discoverSurfSpotsInner(
   );
 
   return {
-    recommendations: enrichedRanked,
+    recommendations: savedSpotsOnly ? enrichedRanked.slice(0, 1) : enrichedRanked,
+    ...(savedSpotsOnly && enrichedRanked.length === 0 ? { emptyReason: "no_recommendable_saved_window_72h" as const } : {}),
     recommendationsV2,
     includedRecommendations: enrichedIncluded,
     searchCriteria: {
@@ -2572,6 +2568,13 @@ async function discoverSurfSpotsInner(
     },
     regionalCall,
     eveningTransition,
+    ...(enrichedRanked[0] || enrichedIncluded[0] ? lightMetadata(
+      now, (enrichedRanked[0] ?? enrichedIncluded[0]).window.timezone,
+      sunTimesCache.get((enrichedRanked[0] ?? enrichedIncluded[0]).beach.id),
+    ) : {}),
+    ...(daylightAvailability
+      ? { daylightAvailability }
+      : {}),
     // Resolved water-quality closures were filtered out of the pool above.
     // Major-event holds are resolved at the serialization boundary
     // (`sanitizeSurfDiscoveryForSerializationMajorEventHold`), which overwrites

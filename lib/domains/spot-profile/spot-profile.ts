@@ -163,6 +163,8 @@ function createTidePreferences(beach: Beach): TidePreferences {
       (beach as Beach & { tide_direction_sensitivity?: string | null }).tide_direction_sensitivity ?? null,
       beach.break_type
     ),
+    explicitRange:
+      beach.preferred_tide_ft_min != null && beach.preferred_tide_ft_max != null,
   };
 }
 

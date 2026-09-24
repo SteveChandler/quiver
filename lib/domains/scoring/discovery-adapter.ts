@@ -91,7 +91,8 @@ export function forecastToSnapshot(forecast: EnhancedForecastEntity): Conditions
     forecast.wind_direction
   );
 
-  const tideHeight = parseFloat(forecast.tide_height || '0') || 0;
+  const parsedTideHeight = parseFloat(forecast.tide_height || '');
+  const tideHeight = Number.isFinite(parsedTideHeight) ? parsedTideHeight : 0;
   const tideStatus = parseTideStatus(forecast.tide_status);
   const tideDirection = parseTideDirection(forecast.tide_status);
 
@@ -143,6 +144,7 @@ export function forecastToSnapshot(forecast: EnhancedForecastEntity): Conditions
       heightFt: tideHeight,
       status: tideStatus,
       direction: tideDirection,
+      heightKnown: Number.isFinite(parsedTideHeight),
     },
     confidence: resolveConfidence(forecast.confidence_score, 'discovery'),
     dataSource: forecast.data_source || 'unknown',

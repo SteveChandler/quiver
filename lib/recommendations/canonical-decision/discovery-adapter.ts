@@ -63,6 +63,7 @@ export function toPersonalMatchEvidence(
     label,
     confidence: similarity.confidence,
     sessionCount: similarity.sessionCount,
+    ...(similarity.similarSessionCount !== undefined ? { similarSessionCount: similarity.similarSessionCount } : {}),
     reasons:
       similarity.reasons.length > 0
         ? similarity.reasons
@@ -99,7 +100,7 @@ function toCanonicalCandidate(
     forecastAt: serializeInstant(recommendation.forecast?.forecast_at),
     waveHeight: recommendation.forecast?.wave_height,
     utilityScore: recommendation.score,
-    recommendationLabel: recommendation.recommendationLabel,
+    recommendationLabel: recommendation.physicalRecommendationLabel ?? recommendation.recommendationLabel,
     personalMatch: toPersonalMatchEvidence(recommendation),
     safetyOverrideReasons: Array.from(
       new Set([...markedReasons, ...safetyOverrideReasons]),

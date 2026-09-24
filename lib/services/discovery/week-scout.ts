@@ -16,6 +16,7 @@ import {
 import {
   selectBestWindows,
   scoreWindowConditionScore,
+  scoreWindowWithComposite,
   getLocalDateStr,
 } from '@/lib/services/discovery/window-selector';
 import {
@@ -68,6 +69,7 @@ import { pickDominantSwell } from '@/lib/domains/conditions';
 import type { Coordinates } from '@/lib/types/coordinates';
 import {
   buildCanonicalSessionDecision,
+  candidateHasSafetyVeto,
   type CanonicalDecisionCandidate,
   type CanonicalSessionDecision,
 } from '@/lib/recommendations/canonical-decision';
@@ -734,6 +736,7 @@ function canonicalLabelForVerdict(
 }
 
 function buildWeekScoutCanonicalCandidates(args: {
+  profileExperience: unknown;
   response: MajorEventHoldWeekScoutResponse;
   beaches: readonly Beach[];
   forecastsByBeach: ReadonlyMap<string, EnhancedForecastEntity[]>;
@@ -748,7 +751,6 @@ function buildWeekScoutCanonicalCandidates(args: {
         || window.isBeachDayBest !== true
         || window.rankingScore === null
         || window.verdict === null
-        || window.verdict === 'skip'
       ) {
         return [];
       }
@@ -757,7 +759,7 @@ function buildWeekScoutCanonicalCandidates(args: {
         window.peakTime,
       );
 
-      return [{
+      const candidate: CanonicalDecisionCandidate = {
         candidateId: window.id,
         beachId: window.beachId,
         beachName: beach.name,
@@ -769,8 +771,22 @@ function buildWeekScoutCanonicalCandidates(args: {
         forecastAt: forecast?.forecast_at ?? '',
         waveHeight: window.forecast.waveHeight,
         utilityScore: window.rankingScore,
+        // Same decision effects as surf/call and bulk, so a tide or swell
+        // ceiling also caps the ranking-score label here.
+        effects: forecast ? [...(scoreWindowWithComposite(forecast, beach).effects ?? [])] : [],
+        // window.verdict already carries personal history (applied once in the
+        // verdict pass), so the pool gets no second personal-match input.
         recommendationLabel: canonicalLabelForVerdict(window.verdict),
-      }];
+      };
+      // Skips stay out, as on main, except unsafe or unrideable ones the engine
+      // will veto: those go in so the decision carries the specific safety reason.
+      if (
+        window.verdict === 'skip'
+        && !((!window.safe || !window.rideable) && candidateHasSafetyVeto(candidate, args.profileExperience))
+      ) {
+        return [];
+      }
+      return [candidate];
     }),
   );
 }
@@ -1136,9 +1152,13 @@ async function generateWeekScoutForecastInternal(
   const verdicts = new Map<string, WeekScoutVerdict>();
   for (const [id, draft] of returnedDrafts) {
     const forecast = draft.recommendation.forecast;
+    // Personal history may only move safe, rideable windows.
+    const eligibleForPersonal = draft.response.safe && draft.response.rideable;
     const label = getCanonicalRecommendationLabel({
       ...draft.recommendation, score: draft.response.conditionScore,
-      similarity: similarity.get(`${forecast.beach_id}:${forecast.forecast_at}`) ?? null,
+      similarity: eligibleForPersonal
+        ? similarity.get(`${forecast.beach_id}:${forecast.forecast_at}`) ?? null
+        : null,
     }, userSkillLevel);
     verdicts.set(id, label === 'Worth it' ? 'worth_it' : label === 'Maybe' ? 'maybe' : 'skip');
   }
@@ -1186,6 +1206,7 @@ function buildCanonicalWeekScoutResponse(
   request: WeekScoutDaysRequest,
 ): CanonicalWeekScoutResponse {
   const canonicalCandidates = buildWeekScoutCanonicalCandidates({
+    profileExperience: context.userSkillLevel,
     response: context.heldResponse,
     beaches: context.beaches,
     forecastsByBeach: context.forecastsByBeach,
