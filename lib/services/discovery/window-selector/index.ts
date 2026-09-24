@@ -39,7 +39,6 @@ export {
 
 
   getTimeSlotRange,
-  getDawnPatrolRange,
   capEndTimeToTimeSlot,
   getLocalHour,
 } from './time-slot-utils';
