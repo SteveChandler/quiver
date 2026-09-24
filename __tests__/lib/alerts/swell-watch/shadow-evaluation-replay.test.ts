@@ -4,8 +4,15 @@ import proposed from "@/docs/operations/swell-watch-no-send-producer-config-v2-p
 import { evaluateSwellWatchShadow } from "@/lib/alerts/swell-watch/shadow-evaluation";
 import type { SwellWatchPolicy } from "@/lib/alerts/swell-watch/policy";
 
+jest.mock("@/lib/alerts/swell-watch/persisted-history", () => ({
+  loadMatchedSwellWatchHistory: jest.fn(async (input: { regionKey: string; regionalEventId: string }) => ({
+    regionalEvent: { regionalEventId: input.regionalEventId, regionKey: input.regionKey, status: "candidate", aliases: [] },
+    confidence: null, staleHistoryExcluded: 0,
+  })),
+}));
+
 it.each(["complete_partitions.v1", "primary_partition_with_retained_unavailable_secondary.v1"] as const)(
-  "replays the real captured cohort without writes under %s", async (qualificationRule) => {
+  "replays valid captured feeds through no-send evaluation under %s", async (qualificationRule) => {
   const replay = structuredClone(historical);
   expect(replay).toHaveLength(10);
   replay.reverse();
@@ -37,12 +44,15 @@ it.each(["complete_partitions.v1", "primary_partition_with_retained_unavailable_
       issuedAt: first.issuedAt, scopeHash: "a".repeat(64), expectedComponentCount: 3360,
       scopes: scopes.map((scope) => ({ ...scope, forecastDays: 7 })) }, error: null };
     if (name === "read_swell_watch_attested_run") return { data: bySource.get(args.p_source_point_id)!.run, error: null };
+    if (name === "ingest_swell_watch_cohort") return { data: (args as unknown as { p_impacts: unknown[] }).p_impacts.map((_, ordinal) => ({
+      ordinal, regional_event_id: first.providerBatchId, event_state: "candidate" })), error: null };
+    if (name === "record_swell_watch_shadow_demand") return { data: [{ observed_at: "2026-09-10T00:00:00Z", recorded_pairs_24h: 0 }], error: null };
     forbidden.push(name); throw new Error(`Forbidden replay write: ${name}`);
   } };
   const result = await evaluateSwellWatchShadow({ qualificationRule, providerBatchId: first.providerBatchId, forecastDays: 7, now: "2026-09-10T00:00:00Z",
     policy: proposed.policy as SwellWatchPolicy, scopes: scopes as never }, client as never);
-  expect(result).toMatchObject({ status: "suppressed", reason: "unbounded_episode", candidateCount: null,
-    stableRegionalEventCount: null, preSafetyRecipientsThisEvaluation: null, enqueued: 0 });
+  expect(result).toMatchObject({ status: "evaluated", reason: null,
+    stableRegionalEventCount: 0, preSafetyRecipientsThisEvaluation: 0, enqueued: 0 });
   expect(result.scopeOutcomes).toHaveLength(10);
   expect(result.scopeOutcomes?.map((outcome) => outcome.sourcePointId)).toEqual(proposed.cohort.map((scope) => scope.sourcePointId));
   expect(result.scopeOutcomes?.filter((outcome) => outcome.status === "derived")).toHaveLength(qualificationRule === "complete_partitions.v1" ? 7 : 9);
@@ -56,7 +66,7 @@ it.each(["complete_partitions.v1", "primary_partition_with_retained_unavailable_
 });
 
 it.each([{ allIncomplete: false, sourceCount: 2 }, { allIncomplete: true, sourceCount: 2 }, { allIncomplete: false, sourceCount: 10 }])(
-  "preflights retained Waikiki and Hatteras without any write (all incomplete: $allIncomplete, sources: $sourceCount)", async ({ allIncomplete, sourceCount }) => {
+  "evaluates valid retained feeds independently (all incomplete: $allIncomplete, sources: $sourceCount)", async ({ allIncomplete, sourceCount }) => {
   const fixtures = [waikiki, hatteras, ...Array.from({ length: sourceCount - 2 }, (_, index) => ({ ...waikiki,
     sourcePointId: `10000000-0000-4000-8000-${String(index).padStart(12, "0")}` }))];
   const scopes = fixtures.map((f) => ({ sourcePointId: f.sourcePointId, regionKey: "retained-replay",
@@ -70,11 +80,14 @@ it.each([{ allIncomplete: false, sourceCount: 2 }, { allIncomplete: true, source
       evaluationId: first.evaluationId, issuedAt: first.issuedAt, scopeHash: "a".repeat(64), expectedComponentCount: sourceCount * 336,
       scopes: scopes.map((scope) => ({ ...scope, forecastDays: 7 })) } };
     if (name === "read_swell_watch_attested_run") return { error: null, data: runs.find((r) => r.source.sourcePointId === args.p_source_point_id) };
+    if (name === "ingest_swell_watch_cohort") return { error: null, data: (args as unknown as { p_impacts: unknown[] }).p_impacts.map((_, ordinal) => ({ ordinal,
+      regional_event_id: first.providerBatchId, event_state: "candidate" })) };
+    if (name === "record_swell_watch_shadow_demand") return { error: null, data: [{ observed_at: "2026-09-13T16:00:00Z", recorded_pairs_24h: 0 }] };
     forbidden(name); throw new Error(`Forbidden replay write: ${name}`);
   } };
   const result = await evaluateSwellWatchShadow({ qualificationRule: "complete_partitions.v1", providerBatchId: first.providerBatchId, forecastDays: 7,
     now: waikiki.replayClockBounds[0], policy: proposed.policy as SwellWatchPolicy, scopes }, client as never);
-  expect(result).toMatchObject({ status: "suppressed", reason: "incomplete_partition", candidateCount: null,
+  expect(result).toMatchObject({ status: allIncomplete ? "suppressed" : "evaluated", reason: allIncomplete ? "incomplete_partition" : null,
     derivation: allIncomplete ? null : { version: "swell-watch-horizon-derivation.v3" } });
   expect(result.scopeOutcomes).toEqual(fixtures.map(({ sourcePointId }) => ({ sourcePointId,
     status: allIncomplete || sourcePointId === hatteras.sourcePointId ? "suppressed" : "derived",
@@ -85,7 +98,7 @@ it.each([{ allIncomplete: false, sourceCount: 2 }, { allIncomplete: true, source
     arrivalWindow: { earliestAt: "2026-09-18T15:00:00.000Z", latestAt: "2026-09-18T18:00:00.000Z" },
     peakAt: "2026-09-18T18:00:00.000Z",
     peakWindow: { earliestAt: "2026-09-18T18:00:00.000Z", latestAt: "2026-09-18T21:00:00.000Z" },
-    closureWindow: { earliestAt: "2026-09-20T00:00:00.000Z", latestAt: "2026-09-20T03:00:00.000Z" }, regionalEventId: null };
+    closureWindow: { earliestAt: "2026-09-20T00:00:00.000Z", latestAt: "2026-09-20T03:00:00.000Z" }, regionalEventId: first.providerBatchId };
   expect(result.derivation?.scopes).toEqual(fixtures.filter((f) => f.sourcePointId !== hatteras.sourcePointId)
     .map(({ sourcePointId }) => ({ sourcePointId, nativeFrames: 136, interpolatedFrames: 32, boundaryDeferrals: [], partitionCoverage: { s1: { observed: 168, unavailable: 0, absent: 0, absentNativeFrames: [] }, s2: { observed: 168, unavailable: 0, absent: 0, unavailableNativeFrames: [], absentNativeFrames: [] } }, events: [expectedEvent] })));
   expect(result.scopeOutcomes).toHaveLength(sourceCount);
@@ -107,25 +120,23 @@ it.each([false, true])("retains episode deferrals through cohort and shadow outp
       evaluationId: first.evaluationId, issuedAt: first.issuedAt, scopeHash: "a".repeat(64), expectedComponentCount: 672,
       scopes: scopes.map((scope) => ({ ...scope, forecastDays: 7 })) } };
     if (name === "read_swell_watch_attested_run") return { error: null, data: runs.find((r) => r.source.sourcePointId === args.p_source_point_id) };
-    if (name === "record_swell_watch_shadow_demand" && !suppressOther) return { error: null,
+    if (name === "record_swell_watch_shadow_demand") return { error: null,
       data: [{ observed_at: "2026-09-13T16:00:00Z", recorded_pairs_24h: 0 }] };
     throw new Error(`Unexpected replay RPC: ${name}`);
   });
   const result = await evaluateSwellWatchShadow({ qualificationRule: "primary_partition_with_retained_unavailable_secondary.v1",
     providerBatchId: first.providerBatchId, forecastDays: 7, now: "2026-09-13T16:00:00Z",
     policy: proposed.policy as SwellWatchPolicy, scopes }, { rpc, from: () => { throw new Error("Unexpected table read"); } } as never);
-  expect(result).toMatchObject({ status: suppressOther ? "suppressed" : "evaluated",
-    reason: suppressOther ? "incomplete_partition" : null, candidateCount: suppressOther ? null : 0, enqueued: 0 });
-  expect(result.derivation?.scopes).toEqual([
-    expect.objectContaining({ sourcePointId: waikiki.sourcePointId, events: [], boundaryDeferrals: [
+  expect(result).toMatchObject({ status: "evaluated", reason: null, candidateCount: 0, enqueued: 0 });
+  const waikikiScope = expect.objectContaining({ sourcePointId: waikiki.sourcePointId, events: [], boundaryDeferrals: [
       { boundary: "maximum", sourceSlot: "s1", arrivalWindow: { earliestAt: "2026-09-18T15:00:00.000Z", latestAt: "2026-09-18T18:00:00.000Z" } },
-    ] }),
-    ...(suppressOther ? [] : [expect.objectContaining({ sourcePointId: hatteras.sourcePointId, events: [], boundaryDeferrals: [
+    ] });
+  const hatterasScope = expect.objectContaining({ sourcePointId: hatteras.sourcePointId, events: [], boundaryDeferrals: [
       { boundary: "minimum", sourceSlot: "s1", arrivalWindow: { earliestAt: "2026-09-15T11:00:00.000Z", latestAt: "2026-09-17T04:00:00.000Z" } },
-    ] })]),
-  ]);
+    ] });
+  expect(result.derivation?.scopes).toEqual(suppressOther ? [waikikiScope] : [waikikiScope, hatterasScope]);
   expect(result.scopeOutcomes?.[0]).toEqual({ sourcePointId: waikiki.sourcePointId, status: "derived", reason: null });
-  expect(rpc.mock.calls.filter(([name]) => name === "record_swell_watch_shadow_demand")).toEqual(suppressOther ? [] : [
+  expect(rpc.mock.calls.filter(([name]) => name === "record_swell_watch_shadow_demand")).toEqual([
     ["record_swell_watch_shadow_demand", { p_provider_batch_id: first.providerBatchId, p_policy_hash: proposed.policy.value_hash, p_pairs: [] }],
   ]);
   expect(runs).toEqual(before);

@@ -24,8 +24,8 @@ beforeEach(() => {
     return { data: [{ observed_at: "2026-09-06T00:00:00Z", recorded_pairs_24h: 1 }], error: null };
   }) as never);
   delete process.env.SWELL_WATCH_PUSH_ENABLED;
-  jest.mocked(ingestAttestedSwellWatchCohort).mockResolvedValue({ kind: "ingested", runs: input.scopes.map(() => ({
-    source: { evaluationId: "genuine_completed:fixture" },
+  jest.mocked(ingestAttestedSwellWatchCohort).mockResolvedValue({ kind: "ingested", runs: input.scopes.map(({ sourcePointId }) => ({
+    source: { evaluationId: "genuine_completed:fixture", sourcePointId },
     events: [{ impact: { regionalEventId: "event", projectedFaceHeightFt: 6 } }],
   })), scopeOutcomes: input.scopes.map(({ sourcePointId }) => ({ sourcePointId, status: "derived", reason: null })) } as never);
   jest.mocked(loadMatchedSwellWatchHistory).mockResolvedValue({ confidence: 0.8,
@@ -57,11 +57,23 @@ it("projects one multi-beach recipient with sending disabled and retains no pers
   expect(result.recordedDemand).toEqual({ observedAt: "2026-09-06T00:00:00Z", recipientEventPairs24Hours: 1 });
 });
 
+it("matches a retained feed by source identity after an earlier feed is suppressed", async () => {
+  jest.mocked(ingestAttestedSwellWatchCohort).mockResolvedValueOnce({ kind: "ingested",
+    runs: [{ source: { evaluationId: "genuine_completed:fixture", sourcePointId: "beach-b" },
+      events: [{ impact: { regionalEventId: "event", projectedFaceHeightFt: 6 } }] }],
+    scopeOutcomes: [{ sourcePointId: "beach-a", status: "suppressed", reason: "incomplete_partition" },
+      { sourcePointId: "beach-b", status: "derived", reason: null }] } as never);
+  const result = await evaluateSwellWatchShadow(input, client);
+  expect(result).toMatchObject({ status: "evaluated", candidateCount: 1, enqueued: 0 });
+  expect(loadMatchedSwellWatchHistory).toHaveBeenCalledWith(expect.objectContaining({ beachId: "beach-b" }), client);
+  expect(loadSwellWatchAudience).toHaveBeenCalledWith(client, ["beach-b"]);
+});
+
 it("does not label missing coverage as zero demand, and retains every scope diagnostic", async () => {
   jest.mocked(ingestAttestedSwellWatchCohort).mockResolvedValueOnce({ kind: "suppressed", reason: "incomplete_partition", sourcePointId: "beach-a",
     scopeOutcomes: [
       { sourcePointId: "beach-a", status: "suppressed", reason: "incomplete_partition" },
-      { sourcePointId: "beach-b", status: "derived", reason: null },
+      { sourcePointId: "beach-b", status: "suppressed", reason: "incomplete_partition" },
     ] } as never);
   const result = await evaluateSwellWatchShadow(input, client);
   expect(result).toMatchObject({ status: "suppressed", reason: "incomplete_partition",
@@ -74,7 +86,7 @@ it("does not label missing coverage as zero demand, and retains every scope diag
   expect(rpc).not.toHaveBeenCalled();
 });
 
-it("replays the captured cohort suppression without any shadow write", async () => {
+it("keeps all-suppressed cohort diagnostics without any shadow write", async () => {
   const scopes = [
     ["01330afc-00d3-461b-88f3-b173774766f4", null], ["4b0cf129-c706-4e24-8210-2219defc5ea7", null],
     ["72726bcb-bed0-4b76-8336-f90d7fb57159", null], ["025cfc18-8357-49d6-994e-e0abf0a16f6d", null],
@@ -83,7 +95,7 @@ it("replays the captured cohort suppression without any shadow write", async () 
     ["d264fbf8-0525-4d31-adb5-9a0742eaeb7e", "incomplete_partition"], ["f11ccd59-b778-4ea1-a8ff-88bffb447cd8", "incomplete_partition"],
   ] as const;
   jest.mocked(ingestAttestedSwellWatchCohort).mockResolvedValueOnce({ kind: "suppressed", reason: "unbounded_episode", sourcePointId: scopes[5][0],
-    scopeOutcomes: scopes.map(([sourcePointId, reason]) => ({ sourcePointId, status: reason ? "suppressed" : "derived", reason })) } as never);
+    scopeOutcomes: scopes.map(([sourcePointId, reason]) => ({ sourcePointId, status: "suppressed", reason: reason ?? "incomplete_partition" })) } as never);
   const result = await evaluateSwellWatchShadow(input, client);
   expect(result).toMatchObject({ status: "suppressed", reason: "unbounded_episode", candidateCount: null,
     stableRegionalEventCount: null, preSafetyRecipientsThisEvaluation: null, enqueued: 0 });
@@ -93,8 +105,8 @@ it("replays the captured cohort suppression without any shadow write", async () 
 });
 
 it("keeps a complete zero-event cohort distinct from missing coverage", async () => {
-  jest.mocked(ingestAttestedSwellWatchCohort).mockResolvedValueOnce({ kind: "ingested", runs: input.scopes.map(() => ({
-    source: { evaluationId: "genuine_completed:fixture" }, events: [],
+  jest.mocked(ingestAttestedSwellWatchCohort).mockResolvedValueOnce({ kind: "ingested", runs: input.scopes.map(({ sourcePointId }) => ({
+    source: { evaluationId: "genuine_completed:fixture", sourcePointId }, events: [],
   })), scopeOutcomes: input.scopes.map(({ sourcePointId }) => ({ sourcePointId, status: "derived", reason: null })) } as never);
   const result = await evaluateSwellWatchShadow(input, client);
   expect(result).toMatchObject({ status: "evaluated", candidateCount: 0, stableRegionalEventCount: 0,

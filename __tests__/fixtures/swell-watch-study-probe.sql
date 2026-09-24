@@ -119,7 +119,7 @@ BEGIN
   EXCEPTION WHEN no_data_found THEN NULL; END;
 END; $$;
 DO $$
-DECLARE r record; c record; run_at timestamptz; output jsonb; demand record; first_set uuid; old_manifest jsonb; field text; bad jsonb; frozen jsonb;
+DECLARE r record; c record; run_at timestamptz; output jsonb; partial jsonb; demand record; first_set uuid; old_manifest jsonb; field text; bad jsonb; frozen jsonb;
 BEGIN
   -- Four distinct issuances on yesterday's UTC day; current policy allows their recording age.
   FOR slot IN 0..3 LOOP
@@ -161,6 +161,18 @@ BEGIN
     SELECT * INTO demand FROM public.record_swell_watch_shadow_demand(c.provider_batch_id,repeat('a',64),'[]');
     RESET ROLE;
     output:=output||jsonb_build_object('recordedDemand',jsonb_build_object('observedAt',demand.observed_at,'recipientEventPairs24Hours',demand.recorded_pairs_24h));
+    IF slot=0 AND public.read_swell_watch_study_health() ? 'qualifyingDaysByFeed' THEN
+      partial:=jsonb_set(jsonb_set(output,'{scopeOutcomes,0,status}','"suppressed"'::jsonb),
+        '{scopeOutcomes,0,reason}','"fixture_feed_failure"'::jsonb);
+      partial:=jsonb_set(partial,'{derivation,scopes}',
+        (SELECT jsonb_agg(scope) FROM jsonb_array_elements(partial #> '{derivation,scopes}') scope
+          WHERE scope->>'sourcePointId'<>(public.study_cohort()->0->>'sourcePointId')));
+      BEGIN
+        PERFORM public.study_assert(public.record_swell_watch_study_evaluation(c.provider_batch_id,repeat('a',64),partial,public.study_inputs())='{"recorded":true}'::jsonb,
+          'valid feed survives another feed suppression');
+        RAISE no_data_found;
+      EXCEPTION WHEN no_data_found THEN NULL; END;
+    END IF;
     IF slot=0 THEN
       FOREACH field IN ARRAY ARRAY['evaluationIds','candidateCount','stableRegionalEventCount','preSafetyRecipientsThisEvaluation','suppressionReasons','safety','projectedSendsRolling24Hours','deliveryHealth'] LOOP
         PERFORM public.study_error(format('SELECT public.record_swell_watch_study_evaluation(%L,%L,%L,public.study_inputs())',c.provider_batch_id,repeat('a',64),output-field),'complete successful study result required');
@@ -225,6 +237,27 @@ SELECT public.study_assert((SELECT count(*) FROM public.swell_watch_production_a
 SELECT public.study_assert(public.read_swell_watch_study_health()->>'status'='complete','target reached');
 SELECT public.study_assert(public.read_swell_watch_study_health()->>'evaluatedRuns'='4','health successful count');
 SELECT public.study_assert(public.read_swell_watch_study_health()->>'suppressedAttempts'='4','health suppressed count');
+DO $$
+DECLARE health jsonb; first_feed text; second_feed text;
+BEGIN
+  health:=public.read_swell_watch_study_health();
+  IF NOT health ? 'qualifyingDaysByFeed' THEN RETURN; END IF;
+  first_feed:=public.study_cohort()->0->>'sourcePointId';
+  second_feed:=public.study_cohort()->1->>'sourcePointId';
+  PERFORM public.study_assert(health #>> ARRAY['qualifyingDaysByFeed',first_feed,'qualifyingDays']='1','each feed has one completed day');
+  BEGIN
+    ALTER TABLE public.swell_watch_study_evaluations DISABLE TRIGGER swell_watch_study_evaluations_guard;
+    UPDATE public.swell_watch_study_evaluations SET result=jsonb_set(jsonb_set(result,'{scopeOutcomes,0,status}','"suppressed"'::jsonb),
+      '{scopeOutcomes,0,reason}','"fixture_feed_failure"'::jsonb)
+      WHERE id=(SELECT id FROM public.swell_watch_study_evaluations WHERE status='evaluated' ORDER BY id LIMIT 1);
+    health:=public.read_swell_watch_study_health();
+    PERFORM public.study_assert(health->>'qualifyingDays'='0','failed feed limits study progress');
+    PERFORM public.study_assert(health #>> ARRAY['qualifyingDaysByFeed',first_feed,'qualifyingDays']='0','failed feed loses its own day');
+    PERFORM public.study_assert(health #>> ARRAY['qualifyingDaysByFeed',second_feed,'qualifyingDays']='1','other feed retains its day');
+    RAISE no_data_found;
+  EXCEPTION WHEN no_data_found THEN NULL; END;
+  PERFORM public.study_assert(public.read_swell_watch_study_health()->>'qualifyingDays'='1','isolation probe rolls back');
+END; $$;
 DO $$
 DECLARE r public.study_test_ids; c record;
 BEGIN
