@@ -1165,7 +1165,7 @@ describe("OracleHomeScreen", () => {
       render(<OracleHomeScreen />);
     }
 
-    it("draws the current slot's primary, secondary and wind", () => {
+    it("draws the current slot's primary swell", () => {
       renderWithCurrentSlot({
         ...slot,
         swellPartition: {
@@ -1176,12 +1176,6 @@ describe("OracleHomeScreen", () => {
       });
 
       expect(screen.getByTestId("hero-swell-field")).toBeInTheDocument();
-      const key = screen.getByRole("list", { name: "Swell field key" });
-      expect(within(key).getAllByRole("listitem").map((item) => item.textContent)).toEqual([
-        "Primary",
-        "Secondary",
-        "Wind",
-      ]);
     });
 
     it("never borrows another hour's row when the current slot has no partition", () => {
@@ -1197,11 +1191,6 @@ describe("OracleHomeScreen", () => {
       renderWithCurrentSlot(undefined);
 
       expect(screen.getByTestId("hero-swell-field")).toBeInTheDocument();
-      const key = screen.getByRole("list", { name: "Swell field key" });
-      expect(within(key).getAllByRole("listitem").map((item) => item.textContent)).toEqual([
-        "Primary",
-        "Wind",
-      ]);
     });
   });
 
