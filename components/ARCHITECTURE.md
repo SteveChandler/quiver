@@ -647,20 +647,6 @@ For detailed documentation, see [`/components/home-screen/ARCHITECTURE.md`](/com
 
 ### **`/recommendations`** - Personalized Recommendation System
 
-#### Components
-
-- **`match-score-education.tsx`** - One-time educational popover explaining match scores
-  - Wraps `PersonalizedBadge` component
-  - Auto-dismisses after 8 seconds
-  - Uses `safe-storage` for one-time display tracking
-  - Shows tooltip explaining how match scores work
-
-#### Features
-
-- **Progressive Disclosure**: Educates users about personalization features
-- **One-time Display**: Never shown again after initial view
-- **Non-intrusive**: Auto-dismisses, doesn't block interaction
-
 ---
 
 ### **`/session-forms`** - Session Management

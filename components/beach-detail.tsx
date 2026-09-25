@@ -49,7 +49,6 @@ import type { ZineHeroHeadingLevel } from "@/components/beach-detail/zine/zine-h
 
 // New AllTrails-style components
 import { BeachBreadcrumb } from "@/components/beach-detail/beach-breadcrumb";
-import { BeachHeroCompact } from "@/components/beach-detail/beach-hero-compact";
 import { BeachAttributionCluster } from "@/components/beach-detail/beach-attribution-cluster";
 import { BeachPhotoGallery } from "@/components/beach-detail/beach-photo-gallery";
 import { BeachStatsGrid } from "@/components/beach-detail/beach-stats-grid";
