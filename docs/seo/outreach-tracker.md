@@ -983,11 +983,26 @@ routine does not touch them.
 
 ## Weekly Rotation Schedule
 
+**Changed 2026-09-25 (Steven): every run looks for new places to reach out to.** Runs had been
+looping on the same exhausted targets, and those people aren't interested. The rotation below still
+picks which existing rows get attention, but it no longer limits research. Every run must also find
+outlets that have **never** been contacted (no row here, no Gmail history), whatever the week, and
+record every candidate it checks, usable or rejected, in this file.
+
+Start with the kinds that have actually replied: local coastal news, per-state Sea Grant programs,
+Surfrider chapters, and coastal `.edu`/`.org` resource pages. National surf and outdoor magazines
+have produced no replies.
+
+**Week of 2026-09-28 only:** new-target research and first emails to never-contacted outlets,
+nothing else. No follow-ups that week, including the overdue Washington Sea Grant, Puerto Rico Sea
+Grant and Surfrider national ones. Remove this paragraph after that run.
+
 The SEO Outreach Drafter agent follows this rotation:
 - **Week 1** (of each month): Surf schools
 - **Week 2**: Surf bloggers and micro-influencers
 - **Week 3**: Coastal businesses (hotels, tourism boards, shops)
-- **Week 4**: Guest post / data story pitches to publications
+- **Week 4**: Publications, now meaning new outlets only: local coastal news, Sea Grant, Surfrider
+  chapters. Every publication on the original list is exhausted (see the 2026-09-25 run log).
 - **Week 5+**: Cycle back with new targets found via web search
 
 ---
