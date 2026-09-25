@@ -26,13 +26,18 @@ import {
   toCityEditorialInput,
 } from "@/lib/seo/indexability";
 
+// Matches not-found.tsx so an unknown city emits one robots directive,
+// not the inherited "index, follow" alongside the not-found "noindex".
+const NOT_FOUND_METADATA = {
+  title: "Location Not Found",
+  robots: { index: false, follow: true },
+};
+
 export async function generateMetadata(props: LocationPageProps) {
   const params = await props.params;
   // Validate country parameter - return not found metadata for invalid countries
   if (!isValidCountrySlug(params.country)) {
-    return {
-      title: "Location Not Found",
-    };
+    return NOT_FOUND_METADATA;
   }
 
   try {
@@ -45,9 +50,7 @@ export async function generateMetadata(props: LocationPageProps) {
     );
 
     if (!response.success || !response.data) {
-      return {
-        title: "Location Not Found",
-      };
+      return NOT_FOUND_METADATA;
     }
 
     const { location, stats } = response.data;
