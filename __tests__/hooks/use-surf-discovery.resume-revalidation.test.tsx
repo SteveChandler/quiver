@@ -8,8 +8,8 @@
  * doubled load on `/api/surf/discover` — an uncacheable route with a 30s
  * budget — and doubled the time the home screen spent with no payload.
  *
- * A later real return still requires its own check; repeated focus signals
- * without leaving the page must not erase the current call.
+ * A later real return still requires its own check; focus signals while the
+ * page stayed on screen (window blur/focus included) must not erase the call.
  */
 
 import { renderHook, act, waitFor } from "@testing-library/react";
@@ -25,6 +25,23 @@ jest.mock("@/context/auth-context", () => ({
 jest.mock("@/lib/posthog-client", () => ({
   captureClientPostHogEventAfterConsent: jest.fn(),
 }));
+
+/** A real departure takes the page off screen; blur alone does not. */
+function hidePage(): void {
+  Object.defineProperty(document, "visibilityState", {
+    configurable: true,
+    value: "hidden",
+  });
+  window.dispatchEvent(new Event("blur"));
+  document.dispatchEvent(new Event("visibilitychange"));
+}
+
+function showPage(): void {
+  Object.defineProperty(document, "visibilityState", {
+    configurable: true,
+    value: "visible",
+  });
+}
 
 const response = {
   sessionDecision: null,
@@ -71,7 +88,8 @@ describe("useSurfDiscovery resume revalidation", () => {
     expect(global.fetch).toHaveBeenCalledTimes(1);
 
     act(() => {
-      window.dispatchEvent(new Event("blur"));
+      hidePage();
+      showPage();
       window.dispatchEvent(new Event("focus"));
       document.dispatchEvent(new Event("visibilitychange"));
     });
@@ -102,6 +120,23 @@ describe("useSurfDiscovery resume revalidation", () => {
     }
   });
 
+  it("keeps the call when the window blurs and refocuses while the page stays visible", async () => {
+    // Clicking the address bar, an extension, DevTools, or a window beside the
+    // browser blurs the window without taking the page off screen.
+    const { result } = renderHook(() => useSurfDiscovery({ immediate: true }));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const previous = result.current.discovery;
+
+    await act(async () => {
+      window.dispatchEvent(new Event("blur"));
+      window.dispatchEvent(new Event("focus"));
+    });
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(result.current.discovery).toBe(previous);
+    expect(result.current.loading).toBe(false);
+  });
+
   it("does not revalidate when focus arrives during the initial Home request", async () => {
     let releaseInitial: (() => void) | undefined;
     global.fetch = jest
@@ -127,7 +162,8 @@ describe("useSurfDiscovery resume revalidation", () => {
     expect(captureClientPostHogEventAfterConsent).toHaveBeenCalledTimes(1);
 
     act(() => {
-      window.dispatchEvent(new Event("blur"));
+      hidePage();
+      showPage();
       window.dispatchEvent(new Event("focus"));
       document.dispatchEvent(new Event("visibilitychange"));
       releaseInitial?.();
@@ -174,7 +210,8 @@ describe("useSurfDiscovery resume revalidation", () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     act(() => {
-      window.dispatchEvent(new Event("blur"));
+      hidePage();
+      showPage();
       window.dispatchEvent(new Event("focus"));
     });
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
@@ -205,20 +242,88 @@ describe("useSurfDiscovery resume revalidation", () => {
     nowSpy.mockRestore();
   });
 
+  it("drains a queued resume when a superseding refresh lands before the stale recheck settles", async () => {
+    // An options refresh (B) supersedes the in-flight resume recheck (A) and
+    // resolves first, so the drain effect still sees A and skips. When A later
+    // settles, the queued recheck must still run; otherwise the hook stays
+    // pending with no request in flight and Home sits on "Rechecking" forever.
+    const releases: Array<() => void> = [];
+    const deferredResponse = () =>
+      new Promise((resolve) => {
+        releases.push(() =>
+          resolve({ ok: true, json: async () => ({ data: response }) }),
+        );
+      });
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: response }) })
+      .mockImplementationOnce(deferredResponse) // A: first resume recheck
+      .mockImplementationOnce(deferredResponse) // B: options refresh
+      .mockImplementationOnce(deferredResponse); // C: queued resume recheck
+    const [releaseA, releaseB, releaseC] = [0, 1, 2].map(
+      (index) => () => releases[index]?.(),
+    );
+
+    const nowSpy = jest.spyOn(Date, "now");
+    const base = 1_000_000;
+    nowSpy.mockReturnValue(base);
+
+    const { result, rerender } = renderHook(
+      ({ timeSlot }: { timeSlot: "any" | "afternoon" }) =>
+        useSurfDiscovery({ immediate: true, timeSlot }),
+      { initialProps: { timeSlot: "any" } },
+    );
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      hidePage();
+      showPage();
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
+
+    // A separate return well past the pairing window queues behind A.
+    nowSpy.mockReturnValue(base + 5_000);
+    act(() => {
+      hidePage();
+      showPage();
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+
+    rerender({ timeSlot: "afternoon" });
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(3));
+
+    await act(async () => { releaseB(); });
+    await act(async () => { releaseA(); });
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(4));
+    expect(result.current.discovery).toBeNull();
+    expect(result.current.loading).toBe(true);
+
+    await act(async () => { releaseC(); });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.discovery).not.toBeNull();
+
+    nowSpy.mockRestore();
+  });
+
   it("still revalidates on a later, separate resume", async () => {
     const { result } = renderHook(() => useSurfDiscovery({ immediate: true }));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     act(() => {
-      window.dispatchEvent(new Event("blur"));
+      hidePage();
+      showPage();
       window.dispatchEvent(new Event("focus"));
     });
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(global.fetch).toHaveBeenCalledTimes(2);
 
     act(() => {
-      window.dispatchEvent(new Event("blur"));
+      hidePage();
+      showPage();
       window.dispatchEvent(new Event("focus"));
     });
     await waitFor(() => expect(result.current.loading).toBe(false));
