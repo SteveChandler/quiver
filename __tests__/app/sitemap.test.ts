@@ -600,6 +600,32 @@ describe("Sitemap Generation", () => {
       );
     });
 
+    it("lists a state hub whose cities have valid beaches but no editorial-approved city page", async () => {
+      (getReviewedCityEditorialContent as jest.Mock).mockResolvedValue([]);
+      (getBeaches as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [{
+          id: "jax-beach",
+          slug: "jacksonville-beach-pier",
+          city: "Jacksonville",
+          state: "FL",
+          country: "USA",
+          description: "Substantive local beach content.",
+          wave_tips: "Use the forecast before choosing the peak.",
+        }],
+      });
+      (getAllBeachLocations as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [{ city: "Jacksonville", state: "FL", country: "USA", beachCount: 3 }],
+      });
+
+      const result = await sitemap();
+      const urls = new Set(result.map((route) => route.url));
+
+      expect(urls.has(`${baseUrl}/fl/jacksonville`)).toBe(false);
+      expect(urls.has(`${baseUrl}/beaches/usa/fl`)).toBe(true);
+    });
+
     it("includes protected, data-rich city route families without editorial approval", async () => {
       (getReviewedCityEditorialContent as jest.Mock).mockResolvedValue([]);
       (getBeaches as jest.Mock).mockResolvedValue({
