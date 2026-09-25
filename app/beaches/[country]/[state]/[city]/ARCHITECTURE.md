@@ -18,7 +18,6 @@ Displays all ranked surf beaches for a given city, with two rendering paths:
 ├── standard-layout.tsx       # Standard render path component
 ├── location-map-client.tsx   # Client wrapper for Mapbox LocationMap (dynamic import, no SSR)
 ├── error.tsx                 # Error boundary
-├── loading.tsx               # Loading skeleton
 ├── not-found.tsx             # 404 page
 └── ARCHITECTURE.md           # This file
 ```
