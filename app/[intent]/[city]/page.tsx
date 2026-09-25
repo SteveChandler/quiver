@@ -91,6 +91,7 @@ import {
   toCityEditorialInput,
 } from "@/lib/seo/indexability";
 import { ReviewedCityEditorialSection } from "@/components/seo/reviewed-city-editorial-section";
+import { toMapBeach, toCityMapSpot } from "@/lib/utils/map-client-props";
 
 // Hold transitions explicitly revalidate every affected intent path.
 export const dynamic = "force-static";
@@ -501,7 +502,7 @@ export default async function IntentPage(props: IntentPageParams) {
             <>
               <section className="mb-8">
                 <StateMapView
-                  beaches={beaches}
+                  beaches={beaches.map(toMapBeach)}
                   ariaLabel={`${intentDefinition.label} spots in ${stateName}`}
                 />
               </section>
@@ -1253,7 +1254,7 @@ export default async function IntentPage(props: IntentPageParams) {
           {/* Map & List Section */}
           <section>
             <CityMapView
-              spots={spots}
+              spots={spots.map(toCityMapSpot)}
               cityName={cityMetadata.cityName}
               citySlug={params.city}
               stateSlug={cityMetadata.state.toLowerCase()}

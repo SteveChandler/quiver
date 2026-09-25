@@ -266,6 +266,7 @@ leash assertions, and the known-flaky map e2e).
   - Debounced viewport change detection
   - Cached API requests for performance
   - Favorite beach highlighting
+- **Provided `beaches`**: SEO intent pages send `StateMapView` and `CityMapView` only the columns and spot fields listed in `lib/utils/map-client-props.ts`; the views fill the rest with `createBeachWithDefaults`. When map code starts reading another beach column, add it to `MAP_BEACH_FIELDS`, or those pages will pass `null`.
 
 **Beach Marker System:**
 
