@@ -4,6 +4,7 @@ import {
   PROFILE_NOTIFICATION_FIELDS,
   PROFILE_FULL_SELECT,
   PROFILE_ONBOARDING_SELECT,
+  PROFILE_PUBLIC_FIELDS,
 } from '@/lib/profile/constants';
 
 describe('profile constants', () => {
@@ -64,5 +65,14 @@ describe('profile constants', () => {
       expect(typeof PROFILE_ONBOARDING_SELECT).toBe('string');
       expect(PROFILE_ONBOARDING_SELECT.length).toBeGreaterThan(0);
     });
+  });
+
+  describe('PROFILE_PUBLIC_FIELDS', () => {
+    it.each(['preferred_wave_size', 'crowd_tolerance', 'tide_comfort', 'wind_comfort'])(
+      'does not select the dropped %s column',
+      (column) => {
+        expect(PROFILE_PUBLIC_FIELDS).not.toContain(column);
+      },
+    );
   });
 });

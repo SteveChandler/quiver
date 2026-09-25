@@ -23,13 +23,13 @@ import type {
   MajorEventHoldWeekScoutWindow,
 } from '@/lib/recommendations/major-event-hold/adapters/week-scout';
 import { resolveBeachTimezone } from '@/lib/utils/timezone-utils';
+import { driveRadiusMiles } from '@/lib/profile/drive-range';
 
 export const LOCATION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const LOCATION_MAX_FUTURE_SKEW_MS = 5 * 60 * 1000;
 const DEFAULT_MAX_DRIVE_MINUTES = 200;
 const MIN_CONFIGURED_DRIVE_MINUTES = 15;
 const MAX_CONFIGURED_DRIVE_MINUTES = 90;
-const MILES_PER_DRIVE_MINUTE = 0.5;
 
 export interface WeekendScoutLocation {
   lat: number;
@@ -258,7 +258,7 @@ export async function buildWeekendScoutRanking(
   const maxDriveMinutes = resolveMaxDriveMinutes(context.maxDriveMinutes);
   const pool = await deps.buildCandidatePool(userId, {
     userLocation: { lat: location.lat, lon: location.lon },
-    radiusMiles: maxDriveMinutes * MILES_PER_DRIVE_MINUTE,
+    radiusMiles: driveRadiusMiles(maxDriveMinutes),
   });
   if (pool.wasTruncated) return { status: 'candidate_limit_reached' };
   if (pool.candidates.length === 0) return { status: 'no_candidates' };

@@ -299,14 +299,19 @@ export function useSurfDiscovery(
   }, [currentUserId, enabled, immediate, refreshDiscovery]);
 
   const resumeRevalidationRef = useRef<Promise<unknown> | null>(null);
+  // Only a hidden page counts as away. Window blur also fires for the address
+  // bar, extensions, DevTools, or an app beside the browser, all while the call
+  // stays on screen — treating those as returns blanked Home on every click back.
   const resumeNeededRef = useRef(
-    typeof document !== "undefined" &&
-      (document.visibilityState !== "visible" || !document.hasFocus()),
+    typeof document !== "undefined" && document.visibilityState !== "visible",
   );
   const resumeRevalidationQueuedRef = useRef(false);
   const resumeStartedAtRef = useRef(0);
   const [resumeRevalidationPending, setResumeRevalidationPending] =
     useState(false);
+  // A superseded recheck can settle after `loading` already went false, so
+  // nothing else would re-run the drain effect for a resume queued behind it.
+  const [resumeDrainTick, setResumeDrainTick] = useState(0);
 
   const startResumeRevalidation = useCallback(() => {
     if (
@@ -327,9 +332,11 @@ export function useSurfDiscovery(
     const settle = () => {
       if (resumeRevalidationRef.current !== pending) return;
       resumeRevalidationRef.current = null;
-      if (!resumeRevalidationQueuedRef.current) {
-        setResumeRevalidationPending(false);
+      if (resumeRevalidationQueuedRef.current) {
+        setResumeDrainTick((tick) => tick + 1);
+        return;
       }
+      setResumeRevalidationPending(false);
     };
     void pending.then(settle, settle);
   }, [enabled, immediate, loading, refreshDiscovery, user]);
@@ -390,7 +397,7 @@ export function useSurfDiscovery(
     ) {
       startResumeRevalidation();
     }
-  }, [enabled, immediate, loading, startResumeRevalidation, user]);
+  }, [enabled, immediate, loading, resumeDrainTick, startResumeRevalidation, user]);
 
   useEffect(() => {
     if (!enabled || !immediate || !user) return;
@@ -399,9 +406,6 @@ export function useSurfDiscovery(
       if (!resumeNeededRef.current || document.visibilityState !== "visible") return;
       resumeNeededRef.current = false;
       revalidateOnResume();
-    };
-    const handleBlur = (event: FocusEvent) => {
-      if (event.target === window) resumeNeededRef.current = true;
     };
     const handleFocus = (event: FocusEvent) => {
       // Embedded browsers can repeat focus without the user leaving the page.
@@ -415,11 +419,9 @@ export function useSurfDiscovery(
       resumeIfNeeded();
     };
 
-    window.addEventListener("blur", handleBlur);
     window.addEventListener("focus", handleFocus);
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => {
-      window.removeEventListener("blur", handleBlur);
       window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
@@ -469,10 +471,16 @@ export function useSurfDiscovery(
     }
 
     const expireAndRevalidate = () => {
-      if (enabled && immediate && user) {
+      // A hidden tab can't show the expired call, and returning to it always
+      // rechecks, so drop the call now and let that return fetch it. Refetching
+      // here kept every background tab calling discovery every 15 minutes.
+      const hidden =
+        typeof document !== "undefined" && document.visibilityState !== "visible";
+      if (enabled && immediate && user && !hidden) {
         void refreshDiscovery();
         return;
       }
+      if (hidden) resumeNeededRef.current = true;
       reset();
     };
     // A client clock behind the server would stretch `expiresAt - now` far past

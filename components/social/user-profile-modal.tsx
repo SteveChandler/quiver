@@ -15,9 +15,9 @@ import { UserStats } from "@/components/user-stats";
 import { SessionCardWrapper } from "@/components/session-card-wrapper";
 import { CenteredLoadingSpinner } from "@/components/ui/loading-spinner";
 import { data as gateway } from "@/lib/data/client";
+import { InstagramHandleLink } from "@/components/profile/instagram-handle-link";
 import {
   MapPin,
-  Instagram,
   WavesIcon,
   Calendar,
   AlertCircle,
@@ -164,12 +164,10 @@ export function UserProfileModal({
                         </div>
                       )}
 
-                      {profile.instagram && (
-                        <div className="flex items-center">
-                          <Instagram className="h-4 w-4 mr-1" />
-                          <span>{profile.instagram}</span>
-                        </div>
-                      )}
+                      <InstagramHandleLink
+                        handle={profile.instagram}
+                        iconClassName="h-4 w-4"
+                      />
                     </div>
 
                     {/* Home Break - prefer DTO name, fallback to joined relation */}

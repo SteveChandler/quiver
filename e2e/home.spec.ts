@@ -9,6 +9,7 @@ import {
 } from './utils/error-detection';
 import {
   createDiscoveryFixture,
+  createFixtureSessionDecision,
   removeSurfDiscoveryCacheInitScript,
 } from './fixtures/discovery-fixture';
 import { isVisibleSafe } from './utils/strict-helpers';
@@ -148,7 +149,8 @@ test.describe('Home Page - Layout', () => {
       if (heroVisible) {
         const decisionBadge = hero.locator('[data-testid="hero-decision-badge"]');
         await expect(decisionBadge).toBeVisible({ timeout: TIMEOUTS.long });
-        await expect(decisionBadge.locator('h1')).toHaveText(/^(Go|Maybe|No)$/);
+        // Same rating vocabulary as native: the tier, then its call.
+        await expect(decisionBadge.locator('h1')).toHaveText(/^(Epic|Good|Fair|Rideable|Meh)$/);
       }
     });
 
@@ -220,13 +222,12 @@ test.describe('Home Page - Layout', () => {
 
       // ContextualCTA renders buttons based on user state.
       // Common buttons: "Set your home beach", "Paddle out — log a session",
-      // "Invite a friend", "Tell your crew", "Share your session",
-      // "Set alarm", "Set your home beach"
+      // "Log a session", "Invite a friend", "Share your session", "Set alarm"
       const possibleButtons = [
         page.getByRole('button', { name: /set your home beach/i }),
         page.getByRole('button', { name: /paddle out/i }),
+        page.getByRole('button', { name: /log a session/i }),
         page.getByRole('button', { name: /invite a friend/i }),
-        page.getByRole('button', { name: /tell your crew/i }),
         page.getByRole('button', { name: /share your session/i }),
         page.getByRole('button', { name: /set alarm/i }),
       ];
@@ -738,6 +739,7 @@ test.describe('Home Page - Activation', () => {
       data: {
         recommendations: [
           {
+            recommendationId: "activation-candidate-1",
             beach: {
               id: "00000000-0000-4000-a000-000000000001",
               name: "Test Beach",
@@ -790,6 +792,16 @@ test.describe('Home Page - Activation', () => {
             generated_at: new Date().toISOString(),
           },
         ],
+        // Without a matching canonical decision the home shows "No call".
+        sessionDecision: createFixtureSessionDecision(
+          {
+            recommendationId: "activation-candidate-1",
+            beach: { id: "00000000-0000-4000-a000-000000000001", name: "Test Beach" },
+            window: { start: start.toISOString(), end: end.toISOString() },
+            forecast: { id: "test-forecast-001" },
+          },
+          "go",
+        ),
         searchCriteria: {
           maxResults: 5,
           horizonHours: 24,
@@ -965,7 +977,7 @@ test.describe('Home Page - Activation', () => {
     }
   });
 
-  test("should display session intelligence without replacing existing home modules", async ({ page }) => {
+  test("should show the hero media card and today's windows without repeating the call", async ({ page }) => {
     await page.addInitScript(removeSurfDiscoveryCacheInitScript);
 
     await ensureAuthenticated(page);
@@ -974,29 +986,16 @@ test.describe('Home Page - Activation', () => {
 
     await expect(await waitForAuthenticatedHome(page)).toBe(true);
 
-    await expect(page.getByRole("heading", { name: "Nearby Spots" })).toBeVisible({
-      timeout: TIMEOUTS.long,
-    });
+    const hero = page.locator('section[role="banner"]').first();
+    await expect(hero.getByTestId("home-hero-media")).toBeVisible({ timeout: TIMEOUTS.long });
     await expect(
       page.getByRole("heading", { name: /^(Today|Tomorrow)'s Windows$/ })
     ).toBeVisible({ timeout: TIMEOUTS.long });
 
-    const sessionModule = page.getByTestId("home-session-intelligence-module");
-    await expect(sessionModule).toBeVisible({ timeout: TIMEOUTS.long });
-    await expect(
-      sessionModule.getByRole("heading", { name: "Find your next best surf window" })
-    ).toBeVisible();
-    await expect(
-      sessionModule.getByRole("link", { name: /browse best surf windows/i })
-    ).toHaveAttribute("href", "/forecast");
-
-    const firstCard = sessionModule.getByTestId("surf-window-card").first();
-    await expect(firstCard).toBeVisible({ timeout: TIMEOUTS.long });
-    await expect(sessionModule.getByTestId("app-deep-link-cta").first()).toHaveAttribute(
-      "href",
-      /window=/
-    );
-
+    // The hero is the one place the call lives; the old ranked module that
+    // restated it below the fold is gone.
+    await expect(page.getByTestId("home-session-intelligence-module")).toHaveCount(0);
+    await expect(page.getByTestId("hero-decision-badge")).toHaveCount(1);
   });
 
   test("Plan/Log standalone buttons should not appear above the fold in wrong context", async ({ page }) => {
@@ -1219,14 +1218,14 @@ test.describe('Home Page - Navigation', () => {
       await expect(dialog).toBeVisible({ timeout: TIMEOUTS.long });
       await expect(page).toHaveURL(/\/(\?.*)?$/);
     } else {
-      // User may have a home beach set — look for other CTA buttons
-      const paddleOutBtn = page.getByRole('button', { name: /paddle out/i });
-      const inviteBtn = page.getByRole('button', { name: /invite a friend/i });
+      // User may have a home beach set — the ask then follows native's rules:
+      // paddle out on a go call, otherwise log a session (invite only for
+      // 5+ sessions with nobody followed).
+      const askBtn = page.getByRole('button', {
+        name: /paddle out|log a session|invite a friend/i,
+      });
 
-      const hasPaddleOut = await isVisibleSafe(paddleOutBtn, { timeout: 10_000 });
-      const hasInvite = await isVisibleSafe(inviteBtn, { timeout: 5_000 });
-
-      expect(hasSetHome || hasPaddleOut || hasInvite).toBe(true);
+      await expect(askBtn.first()).toBeVisible({ timeout: 10_000 });
     }
   });
 

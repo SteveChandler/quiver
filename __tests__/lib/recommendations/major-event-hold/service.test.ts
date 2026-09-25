@@ -114,6 +114,48 @@ describe("major-event hold service", () => {
     expect(resolveWaterQualityHolds).toHaveBeenCalledTimes(1);
   });
 
+  it("resolves water-quality and major-event holds concurrently and keeps both", async () => {
+    let releaseWaterQuality!: (resolution: WaterQualityHoldResolution) => void;
+    const resolveWaterQualityHolds = jest.fn(
+      () =>
+        new Promise<WaterQualityHoldResolution>((resolve) => {
+          releaseWaterQuality = resolve;
+        }),
+    );
+    const resolveHolds = jest.fn().mockResolvedValue(resolved([holdA]));
+
+    const pending = evaluateRecommendationHoldCandidates(
+      {
+        candidates,
+        profileExperience: "intermediate",
+        mode: "enforce",
+        asOf: new Date("2026-07-19T12:00:00.000Z"),
+      },
+      { resolveWaterQualityHolds, resolveHolds, audit: discardAudit },
+    );
+
+    // The major-event read must not wait behind the water-quality read.
+    await Promise.resolve();
+    expect(resolveHolds).toHaveBeenCalledTimes(1);
+
+    releaseWaterQuality({
+      state: "resolved",
+      heldBeachIds: [BEACH_B],
+      waterQualityStatusByBeachId: { [BEACH_B]: "closure" },
+      epoch: "water-quality-epoch",
+    });
+    const decisions = await pending;
+
+    expect(decisions[0].recommendationAvailability).toMatchObject({
+      state: "none",
+      reasonCode: "major_event_hold",
+    });
+    expect(decisions[1].recommendationAvailability).toMatchObject({
+      state: "none",
+      reasonCode: "water_quality_hold",
+    });
+  });
+
   it("keeps a known chronic hold effective while an outside live signal is unavailable", async () => {
     const resolveWaterQualityHolds = jest.fn().mockResolvedValue({
       state: "unresolved",

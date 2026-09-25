@@ -14,7 +14,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Trusted external-forecaster adjustment wired into the forecast builder, locally only** (`lib/services/forecast/trusted-forecast-{coverage,repository,persistence}.ts`, `forecast-builder.ts`). Approved coverage maps a source's `(scope_type, region_key, exposure)` to a beach; a bounded local-day decision is compared after base face transform, handoff blend and beach offset; and the adjusted height is served only once one RPC has durably recorded the decisions, applications, alerts, first-write snapshots and a matching build receipt. A definite database rejection serves byte-identical baseline; unresolved ambiguity fails retriably instead. Private forecaster ranges, hashes, evidence and internal ids stay server-side and never enter a public DTO, log or analytics event. Not deployed, not enabled in any environment.
 - In-content, device-aware install CTA (`InstallAppCtaSection`) on beach detail pages (after-tabs) and a mobile-only install link on `/welcome`, both via `NativeAppFunnelCta` with full source/surface/placement attribution (Plan 063 T1).
 
+### Fixed
+- **The home hero's swell lines now match /map** (`components/oracle/zine/hero-swell-field.tsx`, `home-hero-media.tsx`, `components/map/swell-field/particle-style.ts`). They were streaks drawn along the direction of travel, so they pointed the wrong way for wave crests, and they looked nothing like /map or native.
+  - **Now:** the hero draws /map's primary-swell field over /map's streets basemap. Crest dashes run across the direction of travel, in /map's colour, spacing, size and speed, clipped to the water.
+  - **Shared constants:** /map's particle constants moved into `particle-style.ts`, so the two can't drift. /map's behaviour is unchanged.
+
 ### Changed
+- **A decided no-surf call reads "Doesn't look like a good time to surf."** (`components/oracle/oracle-home-screen.tsx`), native's wording, instead of "We couldn't find any surf spots near you", which implied an empty area. Empty areas, missing data and holds keep their own messages. Home E2E discovery fixtures now carry the canonical session decision the page requires; without it they could only render "No call today", so the hero assertions were not running.
+- **Faster, measurable surf call on the signed-in home** (`vercel.json`, `app/api/surf/discover/route.ts`, `lib/services/discovery/surf-discovery-orchestrator.ts`, `lib/recommendations/major-event-hold/service.ts`, `hooks/use-surf-discovery.ts`, `hooks/use-home-discovery-request-metrics.ts`, `components/oracle/zine/*`). See `docs/performance/SIGNED_IN_HOME_20260924.md`.
+  - **Server:**
+    - `/api/surf/discover` is pinned to `sfo1` beside the Northern California database, like Week Scout.
+    - Independent reads now overlap: profile, water-quality with major-event holds, and photos.
+    - The redundant calibration query is gone.
+    - Every stage is reported in `Server-Timing`.
+  - **Home:**
+    - Cold load shows the home beach while the call loads.
+    - Hero maps are sized per breakpoint (phone Sat 1.03 MB → 291 KB).
+    - A hidden tab no longer refetches discovery every 15 minutes.
+    - `home_call_rendered` restores the time-to-call metric.
+  - **Compatibility:** the response body is unchanged for native.
+- **Signed-in home rebuilt around a hero media card, matching native** (`components/oracle/zine/home-hero-media.tsx`, `home-call-plate.tsx`, `home-zine-states.tsx`, `oracle-home-screen.tsx`, `contextual-cta.tsx`, `components/forecast/score-band-call.ts`, `hooks/use-oracle-data.ts`, `actions/oracle-actions.ts`).
+  - **Hero:** the beach is now on screen, as Swell (map plus animated swell lines), Sat, Photo or Cam, with native's order and labels and a remembered choice. The call sits over it in native's vocabulary (e.g. "FAIR · Worth a look"), replacing the stamped "GO / MAYBE / NO". The best window is stated once.
+  - **Layout:** desktop is two panes, the call on the left and a sticky aside with Today's Windows on the right. The ranked "Find your next best surf window" module is removed; it only ever restated the hero.
+  - **Ask card:** it follows native's rules (first-session nudge; invite only at 5+ sessions with no follows) using real counts, instead of defaulting to "Invite a friend".
+  - **Recheck and photos:** the recheck state keeps the beach on screen with native's "Updating surf call" chip. The hero photo is always of the beach the hero names; the stock ocean fallback is gone. An empty Nearby Spots rail no longer renders a heading.
 - Hoisted the duplicated `withNoStore`/`NO_STORE` cache wrapper (5 personalized API routes) and `getVerifiedProfileExperience` (3 call sites) into `lib/middleware/api-wrappers/cache-wrappers.ts` and `lib/profile/skill-level.ts`; behavior unchanged, shared helper unit-tested.
 
 ### Security

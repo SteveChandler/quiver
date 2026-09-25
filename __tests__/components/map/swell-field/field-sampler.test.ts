@@ -3,6 +3,7 @@ import {
   buildFlowField,
   buildFlowFieldGrid,
   computeCoastalBounds,
+  flowForPoint,
   detectWaterLayerIds,
   interpolateSwellPartition,
   maskFieldToWater,
@@ -18,6 +19,20 @@ import {
   type WaterMaskMap,
 } from "@/components/map/swell-field/field-sampler";
 import type { SwellPartition } from "@/lib/domains/conditions/map-forecast";
+
+describe("flowForPoint", () => {
+  it("reads what the field reads right beside a lone beach", () => {
+    const point = { lon: -117.25, lat: 32.75, dir: 270, periodS: 13, heightFt: 4 };
+    const [cell] = buildFlowField([point], { west: -117.26, south: 32.74, east: -117.24, north: 32.76 }, 2).cells;
+    const flow = flowForPoint(point);
+
+    // From the west means travelling east.
+    expect(flow.vx).toBeCloseTo(1);
+    expect(flow.vy).toBeCloseTo(0);
+    expect(flow.speed).toBeCloseTo(cell.speed);
+    expect(flow.alpha).toBeCloseTo(cell.alpha);
+  });
+});
 
 describe("degToVector", () => {
   // Swell direction is the bearing the swell COMES FROM; travel vector is +180deg.

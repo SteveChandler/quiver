@@ -34,7 +34,8 @@ export interface OracleData {
   profileLoading: boolean;
   homeBeach: Beach | null;
   refreshProfile: () => void;
-  heroPhotoUrl: string;
+  /** Real photo of the beach the hero shows; null when none exists. */
+  heroPhotoUrl: string | null;
   heroPhotoLoading: boolean;
   discovery: SurfDiscoveryResponse | null;
   discoveryLoading: boolean;
@@ -49,6 +50,8 @@ export interface OracleData {
   geoSource: string;
   requestLocation: () => void;
   geoLoading: boolean;
+  /** Report that a surf call became visible (time-to-call metric). */
+  recordCallRendered: (details: { recheck: boolean }) => void;
   /** Parsed user skill level from profile (for frontend skill comparisons) */
   userSkillLevel: string | null;
 }
@@ -58,9 +61,6 @@ export interface OracleData {
 // ============================================================================
 
 const DEFAULT_LOCATION = { lat: 32.715, lon: -117.161 }; // San Diego
-
-/** Abstract aerial ocean — used when no beach-specific photo is available. */
-const FALLBACK_HERO_IMAGE = "/images/hero/hero-5-aerial-ocean.webp";
 
 const LAST_ORACLE_REVEAL_KEY = "lastOracleReveal";
 
@@ -101,7 +101,8 @@ function getFallbackImageForBeach(beach: Beach | null): string | null {
  * - useReducedMotion — respects prefers-reduced-motion
  */
 export function useOracleData(): OracleData {
-  const recordHomeDiscoveryRequest = useHomeDiscoveryRequestMetrics();
+  const { recordRequest: recordHomeDiscoveryRequest, recordCallRendered } =
+    useHomeDiscoveryRequestMetrics();
 
   // ------------------------------------------------------------------
   // Profile
@@ -257,18 +258,18 @@ export function useOracleData(): OracleData {
     }
   );
 
-  // Final resolved hero photo URL
-  // When no home beach is set, prefer the top recommendation's photo so the
-  // hero image matches the beach name shown in the overlay.
-  // Falls back to a generic abstract aerial ocean image.
-  const heroPhotoUrl = useMemo((): string => {
-    if (fallbackByName) return fallbackByName;
-    if (fetchedPhotoUrl) return fetchedPhotoUrl;
-    if (topRecommendation?.beach?.photo_url) return topRecommendation.beach.photo_url;
-    const topBeachFallback = getFallbackImageForBeach(topRecommendation?.beach as Beach | null);
-    if (topBeachFallback) return topBeachFallback;
-    return FALLBACK_HERO_IMAGE;
-  }, [fallbackByName, fetchedPhotoUrl, topRecommendation]);
+  // The photo must be of the beach the hero names. Home-beach photos only
+  // apply while the hero IS the home beach (or before discovery picks one);
+  // a regional best elsewhere uses its own photo. No stock fallback: the hero
+  // shows the map instead of an ocean that isn't this beach.
+  const heroPhotoUrl = useMemo((): string | null => {
+    const topBeach = topRecommendation?.beach;
+    const heroIsHome = !topBeach || !homeBeach || topBeach.id === homeBeach.id;
+    if (heroIsHome && fallbackByName) return fallbackByName;
+    if (heroIsHome && fetchedPhotoUrl) return fetchedPhotoUrl;
+    if (topBeach?.photo_url) return topBeach.photo_url;
+    return getFallbackImageForBeach((topBeach as Beach | undefined) ?? null);
+  }, [fallbackByName, fetchedPhotoUrl, homeBeach, topRecommendation]);
 
   const heroPhotoLoading = photoFetchLoading && fallbackByName === null;
 
@@ -332,5 +333,6 @@ export function useOracleData(): OracleData {
     requestLocation,
     geoLoading,
     userSkillLevel,
+    recordCallRendered,
   };
 }

@@ -24,7 +24,6 @@ const profileUpdateSchema = z.object({
     z.string().length(0), // Allow empty strings
     z.null()
   ]).optional(),
-  website_url: z.string().url("Invalid website URL").optional(),
   instagram: z.string().max(30, "Instagram username too long").optional(),
   location: z.string().max(255, "Location too long").optional(),
   board_types: z.array(z.string()).optional(),

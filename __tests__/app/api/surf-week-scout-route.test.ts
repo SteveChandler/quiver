@@ -181,6 +181,31 @@ describe('POST /api/surf/week-scout', () => {
     );
   });
 
+  it.each([
+    [null, 100],
+    [60, 30],
+  ])('uses the profile drive range (%p min) as the complete-radius scope without a map', async (maxDriveMinutes, expectedMiles) => {
+    const from = jest.fn((table: string) => {
+      if (table === 'user_location_snapshots') {
+        return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { lat: 32, lon: -118, captured_at: new Date().toISOString() }, error: null }) }) }) };
+      }
+      return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { max_drive_minutes: maxDriveMinutes }, error: null }) }) }) };
+    });
+    mockBuildWeekendScoutCandidatePool.mockResolvedValueOnce({
+      candidates: [], enumeratedCount: 0, hydratedCount: 0, filteredOutCount: 0, incomplete: false,
+    });
+
+    const response = await callRoute({
+      candidateScope: { kind: 'complete-radius' },
+      localTimezone: 'America/Los_Angeles', startLocalDate: '2026-07-15', dayCount: 7,
+    }, { from });
+
+    expect(response.status).toBe(200);
+    expect(mockBuildWeekendScoutCandidatePool).toHaveBeenCalledWith('user-week-scout', expect.objectContaining({
+      radiusMiles: expectedMiles,
+    }));
+  });
+
   it('uses map center for enumeration while reporting actual user distance', async () => {
     const from = jest.fn((table: string) => {
       if (table === 'user_location_snapshots') {

@@ -791,6 +791,36 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     expectConsoleErrors([/\[water-quality-hold:query-error\]/]);
   });
 
+  test('reports each pipeline stage duration without changing the result', async () => {
+    const stages: string[] = [];
+    const timed = await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      maxResults: 5,
+      onStageTiming: (stage, durationMs) => {
+        expect(durationMs).toBeGreaterThanOrEqual(0);
+        stages.push(stage);
+      },
+    });
+    const untimed = await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      maxResults: 5,
+    });
+
+    expect(stages).toEqual([
+      'candidates',
+      'forecasts',
+      'context',
+      'scoring',
+      'similarity',
+      'ranking',
+      'photos',
+      'finalize',
+    ]);
+    expect(timed.recommendations.map((rec) => rec.beach.id)).toEqual(
+      untimed.recommendations.map((rec) => rec.beach.id),
+    );
+  });
+
   test('marks favorite beaches with isFavorite flag but ranks by score', async () => {
     // Setup: beach-2 is a favorite
     mockState.favoriteBeaches = [mockBeach2];
@@ -1603,6 +1633,45 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     ]);
     expect(result.recommendations.map((rec) => rec.beach.id)).toEqual(['beach-1']);
     expect(result.includedRecommendations?.map((rec) => rec.beach.id)).toEqual(['beach-4']);
+  });
+
+  test('keeps an explicitly included beach that lies outside the drive-range radius', async () => {
+    mockState.candidatePoolResponse = {
+      candidates: [mockBeach1] as Beach[],
+      preferredWaveSize: null,
+      userSkillLevel: null,
+      preferredBreakType: null,
+    };
+    mockState.includedBeachRows = [mockBeach4];
+    mockState.forecastBatchResponse = {
+      successful: [
+        { beach: mockBeach1, forecasts: [mockForecast] },
+        { beach: mockBeach4, forecasts: [{ ...mockForecast, beach_id: 'beach-4' }] },
+      ],
+      failed: [],
+      staleCount: 0,
+    };
+
+    // beach-4 is ~6 miles out; a 2-mile drive range must not drop an explicit include.
+    const result = await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      radiusMiles: 2,
+      maxResults: 1,
+      includeBeachIds: ['beach-4'],
+    });
+
+    const { buildCandidatePool } = require('@/lib/services/discovery/candidate-pool-builder');
+    expect(buildCandidatePool).toHaveBeenCalledWith(
+      testUserId,
+      expect.objectContaining({ radiusMiles: 2 }),
+    );
+    const { batchFetchForecasts } = require('@/lib/services/discovery/forecast-batch-fetcher');
+    expect(batchFetchForecasts.mock.calls[0][0].map((beach: Beach) => beach.id)).toContain('beach-4');
+    const surfacedIds = [
+      ...result.recommendations,
+      ...(result.includedRecommendations ?? []),
+    ].map((rec) => rec.beach.id);
+    expect(surfacedIds).toContain('beach-4');
   });
 
   test('excludes recommendation-ineligible includeBeachIds unless the request is a direct lookup', async () => {

@@ -109,7 +109,7 @@ test.describe('@perf signed-in home', () => {
     expect(heroMs).toBeGreaterThan(-1);
   });
 
-  test('keeps the call during clicks and repeated focus, then rechecks a blur/focus return', async ({ page }) => {
+  test('keeps the call during clicks and window blur/focus, then rechecks a hidden-page return', async ({ page }) => {
     await ensureAuthenticated(page);
     let discoveryRequests = 0;
     let navigations = 0;
@@ -129,6 +129,8 @@ test.describe('@perf signed-in home', () => {
     await call.getByRole('heading', { level: 1 }).click();
     await page.getByRole('searchbox', { name: 'Search Quiver' }).click();
     await page.evaluate(async () => {
+      // Address bar, extension, or side-by-side app: the window blurs but the page stays on screen.
+      window.dispatchEvent(new Event('blur'));
       window.dispatchEvent(new Event('focus'));
       document.dispatchEvent(new Event('visibilitychange'));
       // Let React commit the effects caused by these browser lifecycle signals.
@@ -149,11 +151,13 @@ test.describe('@perf signed-in home', () => {
     );
     try {
       await page.evaluate(() => {
-        window.dispatchEvent(new Event('blur'));
-        window.dispatchEvent(new Event('focus'));
+        Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+        document.dispatchEvent(new Event('visibilitychange'));
+        Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+        document.dispatchEvent(new Event('visibilitychange'));
       });
       await resumedRequest;
-      await expect(page.getByRole('heading', { name: 'Rechecking the call' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Updating surf call' })).toBeVisible();
       await expect(call).not.toBeVisible();
     } finally {
       releaseResume();

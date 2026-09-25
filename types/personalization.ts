@@ -506,6 +506,11 @@ export interface SurfDiscoveryOptions {
   includeBeachIds?: string[];
   /** Allow a direct spot lookup to score a beach withheld from positive recommendation surfaces. */
   allowRecommendationIneligibleIncludes?: boolean;
+  /**
+   * Receives each discovery stage's wall-clock duration as it completes, for
+   * Server-Timing and profiling. Never affects results.
+   */
+  onStageTiming?: (stage: string, durationMs: number) => void;
   /** Maximum concurrent forecast fetches (default: 5) */
   maxConcurrent?: number;
   /** Timeout per beach forecast in ms (default: 5000) */

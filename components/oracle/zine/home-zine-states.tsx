@@ -2,6 +2,7 @@
 
 import { BottomNav } from "@/components/home-screen/bottom-nav";
 import { HomeZineShell } from "./home-zine-shell";
+import { HomeHeroMedia } from "./home-hero-media";
 
 const INK = "#11100D";
 const STAMP_BLUE = "#0B3A75";
@@ -56,11 +57,156 @@ function PaperBar({
   );
 }
 
+const CREAM = "#F4EBD8";
+const GOLD = "#FDB84B";
+
+interface PendingBeach {
+  beachName?: string | null;
+  lat?: number | null;
+  lon?: number | null;
+  photoUrl?: string | null;
+}
+
 /**
- * Cold load — nothing has resolved yet, so there is genuinely nothing to show.
- * Still renders the full paper page so the first paint is the real surface.
+ * The home beach's media card with the call withheld. The place is known from
+ * the profile before discovery answers, so the page shows it immediately
+ * instead of a grey block. Nothing here states a verdict or its numbers.
  */
-export function HomeZineLoading() {
+function PendingCallPlate({
+  beachName,
+  lat = null,
+  lon = null,
+  photoUrl = null,
+  chip,
+  note,
+}: PendingBeach & { chip: string; note?: string }) {
+  const name = beachName ?? "Your surf";
+  return (
+    <HomeHeroMedia
+      beachName={name}
+      lat={lat}
+      lon={lon}
+      photoUrl={photoUrl}
+      swell={null}
+      showViewpoints={false}
+    >
+      <div className="px-4 pb-4 sm:px-6 sm:pb-5">
+        <p
+          className="m-0 text-[30px] sm:text-[40px]"
+          style={{
+            fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+            lineHeight: 0.95,
+            letterSpacing: "-0.01em",
+            textTransform: "uppercase",
+            color: CREAM,
+          }}
+        >
+          {name}
+        </p>
+        <div className="mt-3 border-t pt-3" style={{ borderColor: "rgba(244,235,216,0.22)" }}>
+          {/* Global CSS forces the heading face onto every h1, so the chip's
+              mono type lives on the inner span. */}
+          <h1 className="m-0">
+            <span
+              className="inline-flex items-center gap-2 px-3 py-1.5"
+              style={{
+                fontFamily: "var(--font-mono), monospace",
+                fontSize: 12,
+                letterSpacing: "0.14em",
+                textTransform: "uppercase",
+                fontWeight: 700,
+                color: GOLD,
+                border: `1.5px solid ${GOLD}`,
+                background: "rgba(13,16,32,0.6)",
+              }}
+            >
+              <span
+                aria-hidden
+                className="inline-block h-2 w-2 animate-pulse motion-reduce:animate-none"
+                style={{ background: GOLD, borderRadius: 999 }}
+              />
+              {chip}
+            </span>
+          </h1>
+          {note && (
+            <p
+              className="m-0 mt-2"
+              style={{
+                fontFamily: "var(--font-sans), 'DM Sans', system-ui, sans-serif",
+                fontSize: 14,
+                lineHeight: 1.45,
+                color: CREAM,
+                opacity: 0.85,
+                maxWidth: 460,
+              }}
+            >
+              {note}
+            </p>
+          )}
+        </div>
+      </div>
+    </HomeHeroMedia>
+  );
+}
+
+/** Same two-pane frame as the resolved page, so the call lands without a jump. */
+function PendingCallPage({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <HomeZineShell>
+      <div
+        role="status"
+        aria-busy="true"
+        aria-label={label}
+        className="lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-10"
+      >
+        <div className="min-w-0">
+          {children}
+          <div className="condition-strip mt-7" aria-hidden>
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} style={{ padding: "0 8px" }}>
+                <PaperBar width="60%" height={10} />
+                <div className="mt-2">
+                  <PaperBar width="85%" height={26} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="mt-10 flex flex-col gap-2.5 lg:mt-0" aria-hidden>
+          {[0, 1, 2, 3, 4].map((i) => (
+            <PaperBar key={i} width={`${92 - i * 9}%`} height={22} />
+          ))}
+        </div>
+        <span className="sr-only">{label}…</span>
+      </div>
+
+      <div className="pb-20 lg:pb-0" />
+      <BottomNav />
+    </HomeZineShell>
+  );
+}
+
+/**
+ * Cold load. Before the profile resolves there is genuinely nothing to show,
+ * so the paper page carries skeleton bars. Once the home beach is known, the
+ * page shows that beach at once and waits only for the call, with native's
+ * loading line ("Checking the buoy").
+ */
+export function HomeZineLoading(beach: PendingBeach = {}) {
+  if (beach.lat != null && beach.lon != null) {
+    return (
+      <PendingCallPage label="Loading your surf call">
+        <PendingCallPlate {...beach} chip="Checking the buoy" />
+      </PendingCallPage>
+    );
+  }
+
   return (
     <HomeZineShell>
       <div role="status" aria-busy="true" aria-label="Loading your surf call">
@@ -105,67 +251,24 @@ export function HomeZineLoading() {
 /**
  * Recheck state.
  *
- * The discovery hook drops its payload on every tab resume, on purpose: a
- * safety hold activated while you were away has to beat the positive call
- * still sitting on your screen (see `hooks/use-surf-discovery.ts` and the
- * major-event-hold suite). What was wrong was the *rendering* of that window —
- * the whole page collapsed to a navy skeleton, which read as a crash rather
- * than a recheck.
+ * The discovery hook drops its payload whenever the surfer returns to a
+ * hidden tab, on purpose: a safety hold activated while they were away has to
+ * beat the positive call still sitting on the screen (see
+ * `hooks/use-surf-discovery.ts` and the major-event-hold suite).
  *
- * So this keeps the page, keeps the things that are not the verdict (where you
- * are, the masthead, the chrome), and is explicit that the call itself is
- * being re-read. Nothing here restates the prior verdict.
+ * Like native's hero ("Updating surf call"), the place stays on screen and
+ * only the call is withheld. The media is the home beach's, which is known
+ * without discovery; nothing here restates the prior verdict or its numbers.
  */
-export function HomeZineRechecking({
-  beachName,
-}: {
-  beachName?: string | null;
-}) {
+export function HomeZineRechecking(beach: PendingBeach) {
   return (
-    <HomeZineShell>
-      <div role="status" aria-busy="true">
-        <div className="typewriter" style={{ opacity: 0.65 }}>
-          {beachName ?? "Your surf"}
-        </div>
-
-        <div className="mt-3">
-          <StencilHeading>Rechecking the call</StencilHeading>
-        </div>
-
-        <p
-          className="mt-3"
-          style={{
-            fontFamily: "var(--font-sans), 'DM Sans', system-ui, sans-serif",
-            fontSize: 15,
-            lineHeight: 1.5,
-            color: INK,
-            opacity: 0.72,
-            maxWidth: 460,
-          }}
-        >
-          Conditions and safety holds can change while you&apos;re away, so
-          we re-read them before showing you a call.
-        </p>
-
-        <hr
-          className="mt-6"
-          style={{
-            border: 0,
-            borderTop: "1.5px dashed rgba(17,16,13,0.4)",
-          }}
-        />
-
-        <div className="mt-6 flex flex-col gap-3" aria-hidden>
-          <PaperBar width="min(360px, 72%)" height={30} />
-          <PaperBar width="min(240px, 52%)" height={14} />
-        </div>
-
-        <span className="sr-only">Rechecking current conditions…</span>
-      </div>
-
-      <div className="pb-20 lg:pb-0" />
-      <BottomNav />
-    </HomeZineShell>
+    <PendingCallPage label="Rechecking current conditions">
+      <PendingCallPlate
+        {...beach}
+        chip="Updating surf call"
+        note="Conditions and safety holds can change while you're away, so we re-read them before showing you a call."
+      />
+    </PendingCallPage>
   );
 }
 

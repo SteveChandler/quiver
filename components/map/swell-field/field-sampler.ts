@@ -461,6 +461,19 @@ export function updateFlowFieldValues(
   return grid;
 }
 
+/** The flow a field cell reads right beside one beach, from that beach's sample alone. */
+export function flowForPoint(
+  point: Pick<BeachPartitionPoint, "dir" | "periodS" | "heightFt">
+): Omit<FlowCell, "lon" | "lat"> {
+  const vec = degToVector(point.dir);
+  return {
+    vx: vec.x,
+    vy: vec.y,
+    speed: speedFromPeriod(point.periodS),
+    alpha: Math.min(1, alphaFromHeight(point.heightFt) * FLOW_FIELD_ALPHA_GAIN),
+  };
+}
+
 /** Build a coarse IDW-interpolated field over `bounds`. Pure: no DOM, no GL. */
 export function buildFlowField(
   points: BeachPartitionPoint[],

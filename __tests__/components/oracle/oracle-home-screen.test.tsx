@@ -80,6 +80,9 @@ jest.mock("framer-motion", () => {
 // ---------------------------------------------------------------------------
 jest.mock("@/actions/oracle-actions", () => ({
   getLocalActivity: jest.fn().mockResolvedValue({ data: [] }),
+  getHomeAskCounts: jest.fn().mockResolvedValue({
+    data: { totalSessions: 3, followingCount: 1 },
+  }),
   updatePreferredSessionTime: jest.fn().mockResolvedValue({ data: { success: true } }),
 }));
 
@@ -284,6 +287,7 @@ const MOCK_ORACLE_DATA_BASE = {
   refreshProfile: jest.fn(),
   heroPhotoUrl: "/images/hero/hero-1-la-jolla.webp",
   heroPhotoLoading: false,
+  recordCallRendered: jest.fn(),
   discovery: {
     sessionDecision: {
       schemaVersion: "canonical-session-decision.v1",
@@ -415,6 +419,11 @@ beforeEach(() => {
 // Tests
 // ===========================================================================
 
+// jsdom has no canvas 2d context — stub it so the hero's swell lines no-op.
+beforeAll(() => {
+  HTMLCanvasElement.prototype.getContext = () => null;
+});
+
 describe("OracleHomeScreen", () => {
   it("exports an OracleHomeScreen component", () => {
     expect(typeof OracleHomeScreen).toEqual("function");
@@ -480,14 +489,16 @@ describe("OracleHomeScreen", () => {
     render(<OracleHomeScreen />);
     // Quiver's position is that it makes the call rather than handing over a
     // forecast, so the verdict is the h1.
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Maybe");
+    // A maybe call scored 85 sits at the top of its band: FAIR, not a raw verdict.
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Fair");
+    expect(screen.getByTestId("hero-decision-badge")).toHaveTextContent("Worth a look");
   });
 
   it("uses the embedded canonical decision without calling the legacy surf-call endpoint", () => {
     render(<OracleHomeScreen />);
 
     expect(screen.getByTestId("hero-decision-badge")).toHaveTextContent(
-      "Maybe",
+      "Fair",
     );
     expect(
       mockFetch.mock.calls.some(([url]) =>
@@ -499,14 +510,15 @@ describe("OracleHomeScreen", () => {
   it("renders the canonical verdict instead of a client score", () => {
     render(<OracleHomeScreen />);
     expect(screen.getByTestId("hero-decision-badge")).toHaveTextContent(
-      "Maybe",
+      "Fair",
     );
     expect(screen.queryByText(/\/10$/)).not.toBeInTheDocument();
   });
 
   it("uses a neutral CTA for a consider decision", () => {
     render(<OracleHomeScreen />);
-    expect(screen.getByRole("button", { name: /invite a friend/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /log a session/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /invite a friend/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /paddle out/i })).not.toBeInTheDocument();
   });
 
@@ -548,9 +560,9 @@ describe("OracleHomeScreen", () => {
     expect(layout).toHaveClass("lg:grid");
   });
 
-  it("renders Nearby Spots section", () => {
+  it("does not render an empty Nearby Spots heading when discovery has only the selection", () => {
     render(<OracleHomeScreen />);
-    expect(screen.getByText("Nearby Spots")).toBeInTheDocument();
+    expect(screen.queryByText("Nearby Spots")).not.toBeInTheDocument();
   });
 
   it("does not render alternate recommendations beside the canonical selection", () => {
@@ -578,7 +590,7 @@ describe("OracleHomeScreen", () => {
     render(<OracleHomeScreen />);
 
     expect(screen.queryByText("Community Reef")).not.toBeInTheDocument();
-    expect(screen.getByTestId("hero-decision-badge")).toHaveTextContent("Maybe");
+    expect(screen.getByTestId("hero-decision-badge")).toHaveTextContent("Fair");
   });
 
   it("hides Activity section when no activity items exist", () => {
@@ -647,7 +659,45 @@ describe("OracleHomeScreen", () => {
     expect(screen.queryByRole("banner")).not.toBeInTheDocument();
     // But the page is still a page: cream paper, and honest about why.
     expect(document.querySelector(".zine-paper")).toBeInTheDocument();
-    expect(screen.getByText(/Rechecking the call/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Updating surf call/i })).toBeInTheDocument();
+  });
+
+  it("reports each visible call once, and the call after a recheck as a recheck", () => {
+    const recordCallRendered = jest.fn();
+    mockOracleData = { ...mockOracleData, recordCallRendered } as unknown as OracleData;
+    const loaded = mockOracleData;
+    const { rerender } = render(<OracleHomeScreen />);
+    rerender(<OracleHomeScreen />);
+
+    expect(recordCallRendered).toHaveBeenCalledTimes(1);
+    expect(recordCallRendered).toHaveBeenLastCalledWith({ recheck: false });
+
+    mockOracleData = {
+      ...loaded,
+      discoveryLoading: true,
+      topRecommendation: null,
+      discovery: null,
+    } as unknown as OracleData;
+    rerender(<OracleHomeScreen />);
+    mockOracleData = loaded;
+    rerender(<OracleHomeScreen />);
+
+    expect(recordCallRendered).toHaveBeenCalledTimes(2);
+    expect(recordCallRendered).toHaveBeenLastCalledWith({ recheck: true });
+  });
+
+  it("shows the home beach while the first call loads", () => {
+    mockOracleData = {
+      ...mockOracleData,
+      discoveryLoading: true,
+      topRecommendation: null,
+      discovery: null,
+    } as unknown as OracleData;
+    render(<OracleHomeScreen />);
+
+    expect(screen.queryByRole("banner")).not.toBeInTheDocument();
+    expect(screen.getByTestId("home-hero-media")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Checking the buoy/i })).toBeInTheDocument();
   });
 
   it("renders even when discovery is loading but topRecommendation exists (data from cache)", () => {
@@ -743,6 +793,53 @@ describe("OracleHomeScreen", () => {
       topRecommendation: null,
     } as unknown as OracleData;
     render(<OracleHomeScreen />);
+    expect(screen.getByText(/We couldn't find any surf spots/i)).toBeInTheDocument();
+  });
+
+  it("says a decided no-surf call in native's words, not as missing spots", () => {
+    mockOracleData = {
+      ...mockOracleData,
+      profileLoading: false,
+      discoveryLoading: false,
+      topRecommendation: null,
+      discovery: {
+        ...mockOracleData.discovery!,
+        recommendations: [],
+        sessionDecision: {
+          ...mockOracleData.discovery!.sessionDecision!,
+          verdict: "no",
+          reasonCode: "below_minimum_utility",
+          selection: null,
+        },
+      },
+      discoveryError: null,
+    } as unknown as OracleData;
+    render(<OracleHomeScreen />);
+
+    expect(screen.getByText("Doesn't look like a good time to surf.")).toBeInTheDocument();
+    expect(screen.queryByText(/We couldn't find any surf spots/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps the no-spots message when the area simply has no candidates", () => {
+    mockOracleData = {
+      ...mockOracleData,
+      profileLoading: false,
+      discoveryLoading: false,
+      topRecommendation: null,
+      discovery: {
+        ...mockOracleData.discovery!,
+        recommendations: [],
+        sessionDecision: {
+          ...mockOracleData.discovery!.sessionDecision!,
+          verdict: "no",
+          reasonCode: "no_candidates",
+          selection: null,
+        },
+      },
+      discoveryError: null,
+    } as unknown as OracleData;
+    render(<OracleHomeScreen />);
+
     expect(screen.getByText(/We couldn't find any surf spots/i)).toBeInTheDocument();
   });
 
@@ -1070,7 +1167,7 @@ describe("OracleHomeScreen", () => {
     render(<OracleHomeScreen />);
 
     expect(screen.getByTestId("hero-decision-badge")).toHaveTextContent(
-      "Maybe",
+      "Fair",
     );
     expect(screen.queryByText("Today's a no-go")).not.toBeInTheDocument();
     expect(screen.queryByText(/Onshore wind all day/i)).not.toBeInTheDocument();
@@ -1100,7 +1197,7 @@ describe("OracleHomeScreen", () => {
     it("keeps the supporting context separate from the canonical verdict", () => {
       render(<OracleHomeScreen />);
       expect(screen.getByText("Clean WNW swell")).toBeInTheDocument();
-      expect(screen.getByTestId("hero-decision-badge")).toHaveTextContent("Maybe");
+      expect(screen.getByTestId("hero-decision-badge")).toHaveTextContent("Fair");
     });
 
     it("omits the whySentence node when /api/surf/call returns no whySentence", async () => {
@@ -1301,7 +1398,7 @@ describe("OracleHomeScreen", () => {
     it("renders the decision immediately without a score-loading state", () => {
       mockFetch.mockImplementation(() => new Promise(() => {}));
       render(<OracleHomeScreen />);
-      expect(screen.getByTestId("hero-decision-badge")).toHaveTextContent("Maybe");
+      expect(screen.getByTestId("hero-decision-badge")).toHaveTextContent("Fair");
       expect(screen.queryByTestId("hero-score-badge")).not.toBeInTheDocument();
     });
 

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Beach, Database } from "@/types/database";
+import { driveRadiusMiles } from "@/lib/profile/drive-range";
 
 export type PoolRelation = "home" | "favorite" | "custom" | "nearby";
 
@@ -32,19 +33,8 @@ interface CustomSpotRow {
   nearest_beach_id: string | null;
 }
 
-const DEFAULT_RADIUS_MILES = 30;
-const MAX_RADIUS_MILES = 100;
-const MILES_PER_DRIVE_MINUTE = 0.5;
 const METERS_PER_MILE = 1609.344;
 const FORECAST_MAX_AGE_MS = 24 * 60 * 60 * 1000;
-
-export function poolRadiusMiles(maxDriveMinutes: number | null): number {
-  if (maxDriveMinutes === null) return DEFAULT_RADIUS_MILES;
-  return Math.min(
-    MAX_RADIUS_MILES,
-    Math.max(0, maxDriveMinutes * MILES_PER_DRIVE_MINUTE),
-  );
-}
 
 export async function loadUserPool({
   supabase,
@@ -53,7 +43,7 @@ export async function loadUserPool({
   location,
   maxDriveMinutes,
 }: LoadUserPoolArgs): Promise<PoolBeach[]> {
-  const radiusMiles = poolRadiusMiles(maxDriveMinutes);
+  const radiusMiles = driveRadiusMiles(maxDriveMinutes);
   const favoritesRequest = supabase
     .from("favorite_beaches")
     .select("beach_id, custom_spot_id")

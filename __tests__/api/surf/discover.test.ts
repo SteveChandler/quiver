@@ -58,11 +58,23 @@ import { CANDIDATE_POOL_LIMIT } from "@/lib/services/discovery/candidate-pool-bu
 
 // Build a fake supabase client that returns a configurable user_entitlements
 // row from .from("user_entitlements").select(...).eq(...).maybeSingle().
-function makeSupabaseStub(entitlementRow: Record<string, unknown> | null) {
+function makeSupabaseStub(
+  entitlementRow: Record<string, unknown> | null,
+  profileResult?: { data: Record<string, unknown> | null; error: { message: string } | null },
+) {
   // beaches.in() is consulted by the calibration-stamp block. Stub it to
   // succeed with empty rows so the handler reaches the response stage.
   return {
     from: jest.fn((table: string) => {
+      if (table === "profiles" && profileResult) {
+        return {
+          select: jest.fn(() => ({
+            eq: jest.fn(() => ({
+              maybeSingle: jest.fn(async () => profileResult),
+            })),
+          })),
+        };
+      }
       if (table === "user_entitlements") {
         return {
           select: jest.fn(() => ({
@@ -604,6 +616,53 @@ describe("/api/surf/discover entitlement resolution", () => {
     });
   });
 
+  it.each([
+    [{ max_drive_minutes: 60 }, 30],
+    [{ max_drive_minutes: null }, 100],
+  ])("uses the profile drive range %p as the discovery radius", async (profileRow, expectedMiles) => {
+    const supabase = makeSupabaseStub(null, { data: profileRow, error: null });
+    const { GET } = await import("@/app/api/surf/discover/route");
+
+    await GET(makeRequest(), {
+      user: { id: "user-drive-range" } as any,
+      supabase: supabase as any,
+      params: {},
+    } as any);
+
+    expect(supabase.from).toHaveBeenCalledWith("profiles");
+    expect(mockDiscoverSurfSpots.mock.calls[0][1]).toMatchObject({ radiusMiles: expectedMiles });
+  });
+
+  it("lets an explicit request radius win over the profile drive range", async () => {
+    const supabase = makeSupabaseStub(null, { data: { max_drive_minutes: 30 }, error: null });
+    const { GET } = await import("@/app/api/surf/discover/route");
+
+    await GET(makeRequest("lat=32.7157&lon=-117.1611&radius=50"), {
+      user: { id: "user-explicit-radius" } as any,
+      supabase: supabase as any,
+      params: {},
+    } as any);
+
+    expect(supabase.from).not.toHaveBeenCalledWith("profiles");
+    expect(mockDiscoverSurfSpots.mock.calls[0][1]).toMatchObject({ radiusMiles: 50 });
+  });
+
+  it("keeps the default radius when the profile drive range cannot be read", async () => {
+    const supabase = makeSupabaseStub(null, { data: null, error: { message: "boom" } });
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { GET } = await import("@/app/api/surf/discover/route");
+
+    const response = await GET(makeRequest(), {
+      user: { id: "user-profile-error" } as any,
+      supabase: supabase as any,
+      params: {},
+    } as any);
+
+    expect(response.status).toBe(200);
+    expect(mockDiscoverSurfSpots.mock.calls[0][1].radiusMiles).toBeUndefined();
+    warn.mockRestore();
+  });
+
   it("passes now discovery mode through to the discovery orchestrator", async () => {
     const supabase = makeSupabaseStub(null);
     const { GET } = await import("@/app/api/surf/discover/route");
@@ -961,6 +1020,65 @@ describe("/api/surf/discover entitlement resolution", () => {
       reasonCode: "major_event_hold",
       holdEpoch: "held-route-epoch",
     });
+  });
+
+  it("reports per-stage Server-Timing without changing the body", async () => {
+    mockDiscoverSurfSpots.mockImplementation(async (_userId, options) => {
+      options.onStageTiming?.("candidates", 12);
+      options.onStageTiming?.("forecasts", 34);
+      return makeDiscoveryResponse();
+    });
+    const response = await callDiscoverRoute(null);
+    const serverTiming = response.headers.get("Server-Timing") ?? "";
+
+    expect(response.status).toBe(200);
+    for (const stage of [
+      "entitlement;dur=",
+      "discover-candidates;dur=12",
+      "discover-forecasts;dur=34",
+      "discover;dur=",
+      "holds;dur=",
+      "total;dur=",
+    ]) {
+      expect(serverTiming).toContain(stage);
+    }
+    const body = await response.json();
+    expect(body.data).not.toHaveProperty("timings");
+  });
+
+  it("reads calibration from the beach row discovery already loaded", async () => {
+    const discovery = makeDiscoveryResponse();
+    (discovery.recommendations[0].beach as Record<string, unknown>).shoaling_factors = {
+      version: 1,
+    };
+    (discovery.includedRecommendations[0].beach as Record<string, unknown>).shoaling_factors =
+      null;
+    mockDiscoverSurfSpots.mockResolvedValue(discovery);
+    const supabase = makeSupabaseStub(null);
+    const { GET } = await import("@/app/api/surf/discover/route");
+    const response = await GET(makeRequest(), {
+      user: { id: "user-contract" } as any,
+      supabase: supabase as any,
+      params: {},
+    } as any);
+
+    expect(response.status).toBe(200);
+    expect(supabase.from).not.toHaveBeenCalledWith("beaches");
+    expect(mockSanitizeSerializationBoundary).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recommendations: [
+          expect.objectContaining({
+            forecast: expect.objectContaining({ isCalibrated: true }),
+          }),
+        ],
+        includedRecommendations: [
+          expect.objectContaining({
+            forecast: expect.objectContaining({ isCalibrated: false }),
+          }),
+        ],
+      }),
+      expect.anything(),
+    );
   });
 
   it("never returns 304 or ETag and sends the exact private no-store policy", async () => {

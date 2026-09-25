@@ -106,3 +106,34 @@ async function updatePreferredSessionTime(time: string) {
     return { success: true };
   });
 }
+
+interface HomeAskCounts {
+  totalSessions: number;
+  followingCount: number;
+}
+
+/**
+ * Inputs for the home ask card, counted the way native counts them
+ * (`get_profile_stats` totals and the user's `user_follows` rows) so both
+ * apps pick the same ask for the same surfer.
+ */
+export async function getHomeAskCounts() {
+  return withAuthenticatedAction<HomeAskCounts>(async (user, supabase) => {
+    const [stats, follows] = await Promise.all([
+      supabase.rpc("get_profile_stats", { p_user_id: user.id }),
+      supabase
+        .from("user_follows")
+        .select("id", { count: "exact", head: true })
+        .eq("follower_id", user.id),
+    ]);
+
+    if (stats.error) throw new Error(stats.error.message);
+    if (follows.error) throw new Error(follows.error.message);
+
+    const totalSessions = (stats.data as { totalSessions?: unknown } | null)?.totalSessions;
+    return {
+      totalSessions: typeof totalSessions === "number" ? totalSessions : 0,
+      followingCount: follows.count ?? 0,
+    };
+  });
+}
