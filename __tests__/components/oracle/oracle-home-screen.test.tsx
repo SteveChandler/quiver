@@ -1126,6 +1126,85 @@ describe("OracleHomeScreen", () => {
     expect(screen.getByRole("banner")).toBeInTheDocument();
   });
 
+  describe("hero swell field", () => {
+    const savedToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
+    const slot = {
+      waveHeight: "3.5 ft",
+      waveHeightBadge: "3-5ft",
+      windSpeed: "8",
+      windDirection: "W",
+      tideHeight: "1.5",
+      tideStatus: "Falling",
+      swellPeriod: "13s",
+      swellDirection: "WSW",
+    };
+
+    beforeEach(() => {
+      // A map provider, so the hero offers its swell view.
+      process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN = "test-token";
+    });
+    afterEach(() => {
+      if (savedToken === undefined) delete process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
+      else process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN = savedToken;
+    });
+
+    // A forecast row the field could draw, so a fallback to it would show.
+    const drawableForecast = { ...MOCK_FORECAST, swell_1_height: "4", wind_direction_deg: 300 };
+
+    function renderWithCurrentSlot(currentSlot: Record<string, unknown> | undefined) {
+      const topRec = {
+        ...MOCK_TOP_REC,
+        forecast: drawableForecast,
+        slotForecasts: currentSlot ? { 8: currentSlot } : undefined,
+      };
+      mockOracleData = {
+        ...mockOracleData,
+        topRecommendation: topRec,
+        discovery: { ...mockOracleData.discovery!, recommendations: [topRec] },
+      } as unknown as OracleData;
+      render(<OracleHomeScreen />);
+    }
+
+    it("draws the current slot's primary, secondary and wind", () => {
+      renderWithCurrentSlot({
+        ...slot,
+        swellPartition: {
+          s1Dir: 250, s1PeriodS: 13, s1HeightFt: 4,
+          s2Dir: 190, s2PeriodS: 9, s2HeightFt: 2,
+          windDir: 270, windMph: 8,
+        },
+      });
+
+      expect(screen.getByTestId("hero-swell-field")).toBeInTheDocument();
+      const key = screen.getByRole("list", { name: "Swell field key" });
+      expect(within(key).getAllByRole("listitem").map((item) => item.textContent)).toEqual([
+        "Primary",
+        "Secondary",
+        "Wind",
+      ]);
+    });
+
+    it("never borrows another hour's row when the current slot has no partition", () => {
+      // The strip reads this slot, so the field must not fall back to the
+      // recommendation's forecast row from a different hour.
+      renderWithCurrentSlot(slot);
+
+      expect(screen.getByTestId("home-hero-media")).toHaveAttribute("data-viewpoint", "swell");
+      expect(screen.queryByTestId("hero-swell-field")).not.toBeInTheDocument();
+    });
+
+    it("draws the recommendation's own row when there is no current slot, as the strip does", () => {
+      renderWithCurrentSlot(undefined);
+
+      expect(screen.getByTestId("hero-swell-field")).toBeInTheDocument();
+      const key = screen.getByRole("list", { name: "Swell field key" });
+      expect(within(key).getAllByRole("listitem").map((item) => item.textContent)).toEqual([
+        "Primary",
+        "Wind",
+      ]);
+    });
+  });
+
   it("ignores the retired surf-call verdict when it disagrees with the canonical decision", () => {
     mockFetch.mockResolvedValue({
       ok: true,

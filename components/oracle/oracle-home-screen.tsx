@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useOracleData } from "@/hooks/use-oracle-data";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { getHomeAskCounts, getLocalActivity } from "@/actions/oracle-actions";
+import { rowToSwellPartition, type SwellPartition } from "@/lib/domains/conditions/map-forecast";
 import { HomeCallPlate } from "@/components/oracle/zine/home-call-plate";
 import { HomeZineShell } from "@/components/oracle/zine/home-zine-shell";
 import {
@@ -709,15 +710,14 @@ export function OracleHomeScreen() {
     forecast?.swell_1_period ??
     forecast?.wave_period
   );
-  // The hero's swell field takes its height from the row its direction came
-  // from, so the field never pairs one reading's direction with another's size.
-  const swellHeightFt = parseNumeric(
-    currentSlot?.swellDirection != null
-      ? currentSlot.waveHeight
-      : forecast?.swell_1_direction != null
-        ? forecast.swell_1_height
-        : forecast?.wave_height
-  );
+  // The hero's swell field reads primary, secondary and wind from the row the
+  // strip reads (the current slot, or the recommendation's own forecast), so
+  // the field never mixes hours.
+  const heroSwellPartition: SwellPartition | null = currentSlot
+    ? currentSlot.swellPartition ?? null
+    : forecast
+      ? rowToSwellPartition(forecast)
+      : null;
 
   const tideH = parseNumeric(currentSlot?.tideHeight ?? forecast?.tide_height);
   const tideDir: "rising" | "falling" =
@@ -899,7 +899,7 @@ export function OracleHomeScreen() {
             waveHeight={waveHeight}
             swellDirection={swellDir}
             swellPeriod={swellPeriod}
-            swellHeightFt={swellHeightFt}
+            swellPartition={heroSwellPartition}
             tideHeight={tideH}
             tideDirection={tideDir}
             waterTemp={waterTemp}

@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Shared constants:** /map's particle constants moved into `particle-style.ts`, so the two can't drift. /map's behaviour is unchanged.
 
 ### Changed
+- **The home hero's swell view shows the combined field** (`components/oracle/zine/hero-swell-field.tsx`, `home-hero-media.tsx`, `lib/services/discovery/surf-discovery-orchestrator.ts`, `types/personalization.ts`). It now draws primary and secondary swell as cream and gold crests and wind as teal streaks, the combined view native draws on its Explore map. The map underneath is dimmed like native's swell hero, and a key names the layers.
+  - **Data:** each Today's Windows slot from `/api/surf/discover` now carries `swellPartition`: primary, secondary and wind from that slot's row, built as /map builds them. The hero reads the slot the condition strip reads. The response change is additive; native ignores the new field.
+  - **Parity:** native's home hero still shows primary swell only.
 - **A decided no-surf call reads "Doesn't look like a good time to surf."** (`components/oracle/oracle-home-screen.tsx`), native's wording, instead of "We couldn't find any surf spots near you", which implied an empty area. Empty areas, missing data and holds keep their own messages. Home E2E discovery fixtures now carry the canonical session decision the page requires; without it they could only render "No call today", so the hero assertions were not running.
 - **Faster, measurable surf call on the signed-in home** (`vercel.json`, `app/api/surf/discover/route.ts`, `lib/services/discovery/surf-discovery-orchestrator.ts`, `lib/recommendations/major-event-hold/service.ts`, `hooks/use-surf-discovery.ts`, `hooks/use-home-discovery-request-metrics.ts`, `components/oracle/zine/*`). See `docs/performance/SIGNED_IN_HOME_20260924.md`.
   - **Server:**
