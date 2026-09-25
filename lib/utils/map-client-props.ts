@@ -9,8 +9,7 @@ import type { SurfSpot } from "@/lib/data/surf-spots";
 
 /**
  * Beach columns read by InteractiveMap's module graph from beaches it is given:
- * markers, cluster and preview popups, and beach URLs. `country` is always
- * present because buildBeachUrl branches on the key existing.
+ * markers, cluster and preview popups, and beach URLs.
  */
 export const MAP_BEACH_FIELDS = [
   "id",
@@ -34,10 +33,17 @@ export const MAP_BEACH_FIELDS = [
 
 export type MapBeach = Pick<Beach, (typeof MAP_BEACH_FIELDS)[number]>;
 
+/**
+ * Copies only the keys a row has. Location RPC rows omit columns such as
+ * `timezone`, and key presence matters: buildBeachUrl branches on `country`
+ * existing, and the map trusts any timezone it is given.
+ */
 export function toMapBeach(beach: MapBeach): MapBeach {
   const projected: Partial<Record<keyof MapBeach, unknown>> = {};
   for (const field of MAP_BEACH_FIELDS) {
-    projected[field] = beach[field] ?? null;
+    if (Object.prototype.hasOwnProperty.call(beach, field)) {
+      projected[field] = beach[field];
+    }
   }
   return projected as MapBeach;
 }

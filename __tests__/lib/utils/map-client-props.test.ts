@@ -66,6 +66,16 @@ describe("toMapBeach", () => {
     expect(buildBeachUrl(asMapReceivesIt(beach))).toBe(buildBeachUrl(beach));
   });
 
+  it("copies only keys the row has, so partial RPC rows keep their URLs and invent no timezone", () => {
+    const rpcRow = { id: "b1", name: "Point", slug: "point", city: "Pacifica", state: "CA", lat: 37.6, lon: -122.5 };
+    const projected = toMapBeach(rpcRow as unknown as Beach);
+
+    expect(projected).toEqual(rpcRow);
+    expect(projected).not.toHaveProperty("country");
+    expect(projected).not.toHaveProperty("timezone");
+    expect(buildBeachUrl(projected)).toBe(buildBeachUrl(rpcRow as unknown as Beach));
+  });
+
   it("renders the same cluster popup as the full row", () => {
     const full = [
       fullBeach({}),
