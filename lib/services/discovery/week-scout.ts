@@ -74,6 +74,8 @@ import {
   type CanonicalSessionDecision,
 } from '@/lib/recommendations/canonical-decision';
 
+import { overlapsSessionTime, type SessionTime } from '@/lib/scoring/session-time-preference';
+
 const WEEK_SCOUT_SCORER_VERSION = 'week-scout-v2:day-window-authority-v1';
 const WEEK_SCOUT_RESPONSE_RANK_LIMIT = 8;
 
@@ -94,6 +96,8 @@ export interface WeekScoutRequest {
   userLocation?: Coordinates;
   /** Complete-radius routes opt into row-level source freshness enforcement. */
   requirePerRowFreshness?: boolean;
+  /** profiles.preferred_session_time; the session pick stays inside it when any window does. */
+  sessionTime?: SessionTime | null;
 }
 
 export interface WeekScoutDaysRequest extends Omit<WeekScoutRequest, 'dayCount'> {
@@ -221,6 +225,8 @@ export interface WeekScoutCoverage {
 export type CanonicalWeekScoutResponse = MajorEventHoldWeekScoutResponse & {
   sessionDecision: CanonicalSessionDecision;
   coverage?: WeekScoutCoverage;
+  /** The preferred session time the session pick was limited to; null when it came from all windows. */
+  sessionTimePreference?: SessionTime | null;
 };
 
 interface GeneratedWeekScoutContext {
@@ -740,15 +746,20 @@ function buildWeekScoutCanonicalCandidates(args: {
   response: MajorEventHoldWeekScoutResponse;
   beaches: readonly Beach[];
   forecastsByBeach: ReadonlyMap<string, EnhancedForecastEntity[]>;
+  /** Each beach's best window per day inside the preferred session time; replaces the day best. */
+  eligibleWindowIds?: ReadonlySet<string>;
 }): CanonicalDecisionCandidate[] {
   const beachById = new Map(args.beaches.map((candidate) => [candidate.id, candidate]));
 
   return args.response.days.flatMap((day) =>
     day.windows.flatMap((window) => {
       const beach = beachById.get(window.beachId);
+      const eligible = args.eligibleWindowIds
+        ? args.eligibleWindowIds.has(window.id)
+        : window.isBeachDayBest === true;
       if (
         !beach
-        || window.isBeachDayBest !== true
+        || !eligible
         || window.rankingScore === null
         || window.verdict === null
       ) {
@@ -1201,16 +1212,48 @@ function validateDayCount(dayCount: number): void {
   }
 }
 
+/** Window ids of each beach's highest-ranked window per day that overlaps the preferred hours. */
+function preferredSessionWindowIds(
+  response: MajorEventHoldWeekScoutResponse,
+  beaches: readonly Beach[],
+  sessionTime: SessionTime | null | undefined,
+): Set<string> | null {
+  if (!sessionTime || sessionTime === 'any') return null;
+  const timezoneByBeach = new Map(beaches.map((beach) => [beach.id, resolveBeachTimezone(beach.timezone)]));
+  const best = new Map<string, { id: string; score: number }>();
+  for (const day of response.days) {
+    for (const window of day.windows) {
+      const timezone = timezoneByBeach.get(window.beachId);
+      if (!timezone || window.rankingScore === null || window.verdict === null) continue;
+      if (!overlapsSessionTime(new Date(window.start), new Date(window.end), timezone, sessionTime)) continue;
+      const key = `${day.localDate}:${window.beachId}`;
+      const current = best.get(key);
+      if (!current || window.rankingScore > current.score) best.set(key, { id: window.id, score: window.rankingScore });
+    }
+  }
+  return best.size > 0 ? new Set([...best.values()].map((entry) => entry.id)) : null;
+}
+
 function buildCanonicalWeekScoutResponse(
   context: GeneratedWeekScoutContext,
   request: WeekScoutDaysRequest,
 ): CanonicalWeekScoutResponse {
-  const canonicalCandidates = buildWeekScoutCanonicalCandidates({
+  const candidateArgs = {
     profileExperience: context.userSkillLevel,
     response: context.heldResponse,
     beaches: context.beaches,
     forecastsByBeach: context.forecastsByBeach,
-  });
+  };
+  // A preferred session time limits the pick to each beach's best window inside
+  // those hours; with none available, fall back to every day-best window.
+  const preferredIds = preferredSessionWindowIds(context.heldResponse, context.beaches, request.sessionTime);
+  const preferredCandidates = preferredIds
+    ? buildWeekScoutCanonicalCandidates({ ...candidateArgs, eligibleWindowIds: preferredIds })
+    : [];
+  const sessionTimePreference = preferredCandidates.length > 0 ? request.sessionTime ?? null : null;
+  const canonicalCandidates = preferredCandidates.length > 0
+    ? preferredCandidates
+    : buildWeekScoutCanonicalCandidates(candidateArgs);
   const sessionDecision = buildCanonicalSessionDecision({
     anchorTime: context.generatedAt,
     scope: {
@@ -1233,7 +1276,7 @@ function buildCanonicalWeekScoutResponse(
     },
     sessionDecision.selection?.candidateId,
   );
-  return attachBestDayWindows(compacted);
+  return { ...attachBestDayWindows(compacted), sessionTimePreference };
 }
 
 export async function generateWeekScoutForecastForDays(

@@ -8,6 +8,7 @@ import {
   type AuthenticatedContext,
 } from '@/lib/middleware/api-wrappers';
 import { generateWeekScoutForecast } from '@/lib/services/discovery/week-scout';
+import { parseSessionTime } from '@/lib/scoring/session-time-preference';
 import { buildWeekendScoutCandidatePool } from '@/lib/services/discovery/weekend-scout-candidate-pool';
 import { calculateDistanceInMiles } from '@/lib/utils/distance-utils';
 
@@ -230,8 +231,21 @@ async function weekScoutHandler(
       lon: candidate.beach.lon,
     }));
   }
+  // The preference only narrows the pick; if it can't be read, rank every window.
+  let sessionTime: ReturnType<typeof parseSessionTime> = null;
+  try {
+    const sessionTimeRow = await supabase
+      .from('profiles')
+      .select('preferred_session_time')
+      .eq('id', user.id)
+      .maybeSingle();
+    sessionTime = sessionTimeRow.error ? null : parseSessionTime(sessionTimeRow.data?.preferred_session_time);
+  } catch {
+    sessionTime = null;
+  }
   const forecast = await generateWeekScoutForecast(user.id, {
     candidateBeachIds,
+    ...(sessionTime ? { sessionTime } : {}),
     localTimezone: parsed.data.localTimezone,
     startLocalDate: parsed.data.startLocalDate,
     dayCount: parsed.data.dayCount,
