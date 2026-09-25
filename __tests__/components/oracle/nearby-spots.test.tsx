@@ -147,12 +147,31 @@ describe("NearbySpots", () => {
   });
 
   describe("Empty spots", () => {
-    it("renders the section header even when spots array is empty", () => {
-      render(<NearbySpots spots={[]} onViewSpot={jest.fn()} />);
+    it("renders no heading over an empty rail", () => {
+      const { container } = render(<NearbySpots spots={[]} onViewSpot={jest.fn()} />);
 
       expect(
-        screen.getByRole("heading", { name: "Nearby Spots" })
-      ).toBeInTheDocument();
+        screen.queryByRole("heading", { name: "Nearby Spots" })
+      ).not.toBeInTheDocument();
+      expect(container).toBeEmptyDOMElement();
+    });
+
+    it("keeps only the location action when there are no spots", () => {
+      render(
+        <NearbySpots spots={[]} onViewSpot={jest.fn()} onUseMyLocation={jest.fn()} />
+      );
+
+      expect(screen.getByRole("button", { name: "Use my location" })).toBeInTheDocument();
+      expect(
+        screen.queryByRole("heading", { name: "Nearby Spots" })
+      ).not.toBeInTheDocument();
+    });
+
+    it("still shows the header and skeletons while loading", () => {
+      render(<NearbySpots spots={[]} onViewSpot={jest.fn()} loading />);
+
+      expect(screen.getByRole("heading", { name: "Nearby Spots" })).toBeInTheDocument();
+      expect(screen.getAllByTestId("nearby-spot-skeleton").length).toBeGreaterThan(0);
     });
   });
 

@@ -201,6 +201,35 @@ export function NearbySpots({
     return () => el.removeEventListener('wheel', handleWheel);
   }, []);
 
+  const locationButton = onUseMyLocation ? (
+    <button
+      type="button"
+      onClick={onUseMyLocation}
+      disabled={locationLoading}
+      className="mb-4 inline-flex min-h-11 w-full items-center justify-center gap-2 px-4 disabled:cursor-wait disabled:opacity-60 sm:w-auto focus-ring"
+      style={{
+        fontFamily: "var(--font-mono), monospace",
+        fontSize: 12,
+        letterSpacing: "0.14em",
+        textTransform: "uppercase",
+        fontWeight: 700,
+        color: INK,
+        background: "#F0E5CC",
+        border: `1.5px dashed ${INK}`,
+      }}
+    >
+      <LocateFixed className="h-4 w-4" aria-hidden="true" />
+      {locationLoading ? "Detecting…" : "Use my location"}
+    </button>
+  ) : null;
+
+  // Discovery only surfaces spots it has a canonical call for, so this is
+  // often empty. A heading over an empty rail reads as broken; keep only the
+  // location action, which is still how a surfer moves the call to where they are.
+  if (!loading && spots.length === 0) {
+    return locationButton;
+  }
+
   return (
     <section>
       <div className="mb-4 flex items-center justify-between gap-3">
@@ -221,27 +250,7 @@ export function NearbySpots({
         </Link>
       </div>
 
-      {onUseMyLocation && (
-        <button
-          type="button"
-          onClick={onUseMyLocation}
-          disabled={locationLoading}
-          className="mb-4 inline-flex min-h-11 w-full items-center justify-center gap-2 px-4 disabled:cursor-wait disabled:opacity-60 sm:w-auto focus-ring"
-          style={{
-            fontFamily: "var(--font-mono), monospace",
-            fontSize: 12,
-            letterSpacing: "0.14em",
-            textTransform: "uppercase",
-            fontWeight: 700,
-            color: INK,
-            background: "#F0E5CC",
-            border: `1.5px dashed ${INK}`,
-          }}
-        >
-          <LocateFixed className="h-4 w-4" aria-hidden="true" />
-          {locationLoading ? "Detecting…" : "Use my location"}
-        </button>
-      )}
+      {locationButton}
 
       <div className="relative">
         <div

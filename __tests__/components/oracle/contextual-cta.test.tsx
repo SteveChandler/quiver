@@ -6,7 +6,8 @@ import { ContextualCTA, ContextualCTAProps } from "@/components/oracle/contextua
 const baseProps: ContextualCTAProps = {
   hasHomeBeach: true,
   hasSessionToday: false,
-  hasFollows: false,
+  totalSessions: 3,
+  followingCount: 1,
   conditionsGood: false,
   preferredTime: null,
   onSetHomeBeach: jest.fn(),
@@ -63,36 +64,48 @@ describe("ContextualCTA", () => {
       ).toBeInTheDocument();
     });
 
-    it("shows 'Tell your crew' when user has follows but conditions are not good", () => {
-      render(
-        <ContextualCTA
-          {...makeProps({
-            hasHomeBeach: true,
-            hasSessionToday: false,
-            conditionsGood: false,
-            hasFollows: true,
-          })}
-        />
-      );
+    it("leads with 'Log a session' on an ordinary day instead of an invite", () => {
+      render(<ContextualCTA {...makeProps()} />);
+      const buttons = screen.getAllByRole("button");
+      expect(buttons[0]).toHaveTextContent(/log a session/i);
       expect(
-        screen.getByRole("button", { name: /tell your crew/i })
-      ).toBeInTheDocument();
+        screen.queryByRole("button", { name: /invite a friend/i })
+      ).not.toBeInTheDocument();
     });
 
-    it("shows 'Invite a friend' as default when no other conditions match", () => {
-      render(
-        <ContextualCTA
-          {...makeProps({
-            hasHomeBeach: true,
-            hasSessionToday: false,
-            conditionsGood: false,
-            hasFollows: false,
-          })}
-        />
+    it("asks a surfer with no sessions to log their first", () => {
+      render(<ContextualCTA {...makeProps({ totalSessions: 0 })} />);
+      expect(
+        screen.getByText("Log a session. We'll sharpen the forecast.")
+      ).toBeInTheDocument();
+      expect(screen.getAllByRole("button")[0]).toHaveTextContent(/log a session/i);
+    });
+
+    it("invites only after 5+ sessions with nobody followed (native parity)", () => {
+      const { rerender } = render(
+        <ContextualCTA {...makeProps({ totalSessions: 5, followingCount: 0 })} />
       );
-      // The primary button should say "Invite a friend"
-      const buttons = screen.getAllByRole("button", { name: /invite a friend/i });
-      expect(buttons.length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByRole("button")[0]).toHaveTextContent(/invite a friend/i);
+
+      rerender(<ContextualCTA {...makeProps({ totalSessions: 4, followingCount: 0 })} />);
+      expect(
+        screen.queryByRole("button", { name: /invite a friend/i })
+      ).not.toBeInTheDocument();
+
+      rerender(<ContextualCTA {...makeProps({ totalSessions: 12, followingCount: 2 })} />);
+      expect(
+        screen.queryByRole("button", { name: /invite a friend/i })
+      ).not.toBeInTheDocument();
+    });
+
+    it("does not fire count-gated asks while counts are unknown", () => {
+      render(
+        <ContextualCTA {...makeProps({ totalSessions: null, followingCount: null })} />
+      );
+      expect(screen.getAllByRole("button")[0]).toHaveTextContent(/log a session/i);
+      expect(
+        screen.queryByText("Log a session. We'll sharpen the forecast.")
+      ).not.toBeInTheDocument();
     });
 
     it("fallback secondary row offers 'Log a session', not 'Share your session'", () => {
@@ -102,7 +115,6 @@ describe("ContextualCTA", () => {
             hasHomeBeach: true,
             hasSessionToday: false,
             conditionsGood: false,
-            hasFollows: false,
           })}
         />
       );
@@ -114,7 +126,7 @@ describe("ContextualCTA", () => {
       ).not.toBeInTheDocument();
     });
 
-    it("calls onLogSession when fallback 'Log a session' secondary button is clicked", async () => {
+    it("calls onLogSession when the fallback 'Log a session' button is clicked", async () => {
       const user = userEvent.setup();
       const onLogSession = jest.fn();
       render(
@@ -123,7 +135,6 @@ describe("ContextualCTA", () => {
             hasHomeBeach: true,
             hasSessionToday: false,
             conditionsGood: false,
-            hasFollows: false,
             onLogSession,
           })}
         />

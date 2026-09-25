@@ -115,7 +115,7 @@ describe("useSurfDiscovery resume revalidation", () => {
       );
 
     const { result } = renderHook(() => {
-      const recordHomeDiscoveryRequest = useHomeDiscoveryRequestMetrics();
+      const { recordRequest: recordHomeDiscoveryRequest } = useHomeDiscoveryRequestMetrics();
       return useSurfDiscovery({
         immediate: true,
         suppressInitialResume: true,

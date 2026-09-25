@@ -378,65 +378,17 @@ For detailed component specifications, data flow, and integration patterns, see 
 
 ---
 
-### **`/home-screen`** - Dashboard Interface
+### **`/oracle`** - Signed-in Home
 
-#### Components
+The authenticated `/` route: a hero media card (Swell / Sat / Photo / Cam) carrying the canonical surf call in native's vocabulary, the condition strip, one ask card, and Today's Windows, laid out as two panes on desktop. The native counterpart is `quiver-native/src/screens/home.tsx`.
 
-- **`index.tsx`** - Main dashboard orchestrator with single vertical feed layout
-- **`bottom-nav.tsx`** - Fixed mobile bottom navigation (md:hidden)
-- **`greeting-section.tsx`** - Time-aware personalized greeting
-- **`hero-recommendation.tsx`** - Top surf recommendation card with orange accents
-- **`primary-actions.tsx`** - "I'm at the beach" / "Plan Weekend" CTA buttons
-- **`top-spots-carousel.tsx`** - Horizontal carousel of additional spots
-- **`compact-spot-card.tsx`** - Card component for carousel spots
-- **`use-home-data.ts`** - Centralized data management hook
+For details, see [`/components/oracle/ARCHITECTURE.md`](/components/oracle/ARCHITECTURE.md).
 
-#### Personalization Components
+### **`/home-screen`** - Home helpers
 
-- **`first-session-cta.tsx`** - Activation card for zero-session users
-  - Shows "I Just Surfed" CTA button
-  - Routes to `/sessions/new?mode=log&quick=true`
-  - Replaces personalization progress card for new users
-- **`personalization-progress.tsx`** - Gradient progress card showing personalization journey
-  - Three stages: Getting Started (0 sessions) → Learning (1-4) → Personalized (5+)
-  - Auto-hides when `activeLayers >= 3` and `confidence > 0.8`
-  - Dismissible with 7-day cooldown via `safe-storage`
-  - Props: `status: PersonalizationStatus | null`
-
-#### Layout Architecture
-
-Single vertical feed with dark gradient header section:
-
-```
-HomeScreen (Container)
-+-- Dark Gradient Header (from-[#0f172a] to-[#1e293b])
-|   +-- GreetingSection (white/translucent text)
-|   +-- HeroRecommendation (orange score badge #f97316)
-|   +-- PrimaryActions (translucent buttons)
-+-- Content Section (default background)
-|   +-- TopSpotsCarousel
-|   +-- CoastPulse (dark bg #1e1e1e, vertical timeline)
-|   +-- ProfileStrength
-+-- BottomNav (mobile-only, fixed, orange active state)
-```
-
-#### Design Tokens
-
-- Header gradient: `bg-gradient-to-b from-[#0f172a] to-[#1e293b]`
-- Primary accent: `#f97316` (orange)
-- Coast Pulse background: `#1e1e1e`
-- Translucent elements: `bg-white/10`, `border-white/20`
-- Muted text: `text-white/80`
-
-#### Features
-
-- **Single Vertical Feed**: No tabs, continuous scroll experience
-- **Dark Theme Header**: High-contrast visual impact
-- **Discovery-Based Personalization**: User location and preference driven
-- **Mobile Bottom Navigation**: Safe area handling, 44px touch targets
-- **Real-time Updates**: Live coast conditions via CoastPulse
-
-For detailed documentation, see [`/components/home-screen/ARCHITECTURE.md`](/components/home-screen/ARCHITECTURE.md).
+- **`bottom-nav.tsx`** - Fixed mobile bottom navigation (md:hidden), used by the signed-in home
+- **`first-session-cta.tsx`** - `buildQuickLogUrl` for the quick-log session flow
+- **`nearby-beach-chips.tsx`** - Nearby beach chip row (not currently imported by any route)
 
 ---
 

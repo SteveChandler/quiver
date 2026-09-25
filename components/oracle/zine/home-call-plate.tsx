@@ -1,40 +1,46 @@
 "use client";
 
-import { HalftonePhoto, DoodleWave, DoodleWind, DoodleTide } from "@/components/beach-detail/zine/atoms";
+import { DoodleWave, DoodleWind, DoodleTide } from "@/components/beach-detail/zine/atoms";
+import { getCanonicalVerdictCall } from "@/components/forecast/score-band-call";
 import { compassPointToWord, type CompassPoint } from "@/lib/utils/distance-utils";
+import { cardinalToDegrees } from "@/lib/services/forecast/forecast-transformer";
 import type { CanonicalDecisionVerdict } from "@/lib/recommendations/canonical-decision/types";
+import type { BeachSources } from "@/hooks/use-beach-detail-data";
+import { HomeHeroMedia } from "./home-hero-media";
 
 const INK = "#11100D";
+const CREAM = "#F4EBD8";
 const STAMP_BLUE = "#0B3A75";
 
 /**
- * Verdict words keep the home screen's existing copy — changing what the call
- * is *called* is a product decision, not a restyle. They render uppercase via
- * CSS rather than in JS so the accessible name and the DOM text stay sentence
- * case ("Maybe"), which is what assistive tech and the decision-badge tests
- * read.
- *
- * Colours are shared with the beach-detail surf call
- * (`components/beach-detail/zine/today-surf-call.tsx`) so one verdict looks
- * like one verdict across surfaces.
+ * Tier colours over the dark media band, matching the native verdict band:
+ * teal for the positive tiers, gold for the qualified ones, plain for MEH.
  */
-const VERDICT_WORD: Record<CanonicalDecisionVerdict, string> = {
-  go: "Go",
-  maybe: "Maybe",
-  no: "No",
-};
+const TIER_COLOR = {
+  EPIC: "#00D4AA",
+  GOOD: "#00D4AA",
+  FAIR: "#FDB84B",
+  RIDEABLE: "#FDB84B",
+  MEH: CREAM,
+} as const;
 
-const VERDICT_COLOR: Record<CanonicalDecisionVerdict, string> = {
-  // Dark teal clears 3.95:1 on the tan plate — the obvious green does not.
-  go: "#006B5F",
-  maybe: "#B47A0F",
-  no: "#5C5A57",
-};
+/** DOM keeps sentence case so the accessible name reads "Fair", not "F-A-I-R". */
+function sentenceCase(label: string): string {
+  return label.charAt(0) + label.slice(1).toLowerCase();
+}
 
 interface HomeCallPlateProps {
   beachName: string;
-  heroPhotoUrl: string;
+  lat: number | null;
+  lon: number | null;
+  /** A real photo of the beach, or null when only stock imagery exists. */
+  photoUrl: string | null;
+  sources?: BeachSources | null;
   verdict: CanonicalDecisionVerdict | null;
+  /** Recommendation score; picks the tier inside the verdict's band. */
+  score: number | null;
+  /** The selected window opens later than now, so positive calls say "plan" not "go". */
+  isUpcoming?: boolean;
   waveHeight: string;
   swellDirection: string;
   swellPeriod: number;
@@ -43,15 +49,12 @@ interface HomeCallPlateProps {
   tideHeight: number;
   tideDirection: "rising" | "falling";
   waterTemp: number;
-  bestWindowTitle: string;
-  bestWindowSubtitle: string;
   bestWindowTime: string;
   isTomorrow?: boolean;
+  /** Why the window works, drawn from the recommendation's own reasons. */
+  reason?: string | null;
   /** Editorial one-liner — regional call or generated greeting. */
   greeting?: string;
-  userName?: string | null;
-  levelTitle?: string | null;
-  xpTotal?: number | null;
   driveContext?: {
     distanceMiles: number;
     bearing: CompassPoint;
@@ -61,8 +64,13 @@ interface HomeCallPlateProps {
 
 export function HomeCallPlate({
   beachName,
-  heroPhotoUrl,
+  lat,
+  lon,
+  photoUrl,
+  sources,
   verdict,
+  score,
+  isUpcoming = false,
   waveHeight,
   swellDirection,
   swellPeriod,
@@ -71,207 +79,150 @@ export function HomeCallPlate({
   tideHeight,
   tideDirection,
   waterTemp,
-  bestWindowTitle,
-  bestWindowSubtitle,
   bestWindowTime,
   isTomorrow,
+  reason,
   greeting,
-  userName,
-  levelTitle,
-  xpTotal,
   driveContext,
 }: HomeCallPlateProps) {
-  const color = verdict ? VERDICT_COLOR[verdict] : STAMP_BLUE;
-  const word = verdict ? VERDICT_WORD[verdict] : "—";
-  const trail =
+  const call = verdict
+    ? getCanonicalVerdictCall(verdict, score, isUpcoming ? "upcoming" : "now")
+    : null;
+  const labelWord = call ? sentenceCase(call.label) : "—";
+  // The one place the page states when to go.
+  const when =
     verdict === "no"
       ? "Wait for swell"
       : bestWindowTime && bestWindowTime !== "—"
-        ? // Cased by CSS, not here — the DOM keeps "5:45am" so time strings
-          // stay readable to assistive tech and assertable in tests.
-          `${isTomorrow ? "Tomorrow" : "Best"} at ${bestWindowTime}`
+        ? `${isTomorrow ? "Tomorrow" : "Best"} at ${bestWindowTime}`
         : "Check the windows";
 
   return (
     <section role="banner" aria-label={`${beachName} surf conditions`}>
-      {/* Eyebrow: who and where. The drive line is the whole reason the hero
-          may not be your home beach, so it sits with the place, not buried.
-          Casing is CSS-only — the DOM keeps the real beach name. */}
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <div className="typewriter" style={{ opacity: 0.7 }}>
-          <span>{beachName}</span>
+      <HomeHeroMedia
+        beachName={beachName}
+        lat={lat}
+        lon={lon}
+        photoUrl={photoUrl}
+        sources={sources}
+        swellDirectionDeg={cardinalToDegrees(swellDirection)}
+        swellPeriod={swellPeriod}
+      >
+        <div className="px-4 pb-4 sm:px-6 sm:pb-5">
+          <p
+            className="m-0 text-[30px] sm:text-[40px]"
+            style={{
+              fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+              lineHeight: 0.95,
+              letterSpacing: "-0.01em",
+              textTransform: "uppercase",
+              color: CREAM,
+            }}
+          >
+            {beachName}
+          </p>
           {driveContext && (
-            <span style={{ opacity: 0.8 }} data-testid="hero-drive-subtitle">
-              {" · "}
+            <p
+              className="m-0 mt-1.5"
+              data-testid="hero-drive-subtitle"
+              style={{
+                fontFamily: "var(--font-mono), monospace",
+                fontSize: 11,
+                letterSpacing: "0.14em",
+                textTransform: "uppercase",
+                color: CREAM,
+                opacity: 0.8,
+              }}
+            >
               {Math.round(driveContext.distanceMiles)} mi{" "}
               {compassPointToWord(driveContext.bearing)} of{" "}
               {driveContext.homeBeachName}
-            </span>
-          )}
-        </div>
-
-        {(levelTitle || xpTotal != null) && (
-          <div
-            className="flex items-center gap-2"
-            style={{
-              fontFamily: "var(--font-mono), monospace",
-              fontSize: 10,
-              letterSpacing: "0.16em",
-              textTransform: "uppercase",
-              color: INK,
-              opacity: 0.62,
-            }}
-          >
-            {levelTitle && <span>{levelTitle}</span>}
-            {xpTotal != null && <span>{xpTotal.toLocaleString()} XP</span>}
-          </div>
-        )}
-      </div>
-
-      <div className="mt-5 grid gap-6 md:grid-cols-[minmax(0,1fr)_320px] md:items-start">
-        {/* Left: the call itself */}
-        <div className="min-w-0">
-          {/* The call is the page's headline. Quiver's whole position is that
-              it makes the call rather than handing you a forecast to
-              interpret, so the verdict — not the wave height — is the h1. */}
-          <div className="relative">
-            {/* Width hugs the word — a stamp is pressed onto the page, it
-                doesn't stretch to fill the column. */}
-            <div
-              className="flex flex-col items-center justify-center"
-              data-testid="hero-decision-badge"
-              aria-label={`Session decision: ${word}`}
-              style={{
-                width: "fit-content",
-                maxWidth: "100%",
-                border: `5px double ${color}`,
-                padding: "14px 32px 10px",
-                transform: "rotate(-1.5deg)",
-                filter: "url(#zine-rough-edge)",
-                background: `linear-gradient(180deg, rgba(244,235,216,0.6) 0%, ${color}1A 100%)`,
-                boxShadow: `5px 6px 0 ${color}55, 12px 14px 0 ${color}22`,
-              }}
-            >
-              <h1
-                className="zine-display text-[76px] sm:text-[104px] md:text-[124px]"
-                style={{
-                  fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
-                  fontWeight: 900,
-                  lineHeight: 0.88,
-                  letterSpacing: "-0.025em",
-                  color,
-                  textTransform: "uppercase",
-                  textAlign: "center",
-                  textShadow: `2px 2px 0 ${color}33, -1px -1px 0 ${color}22`,
-                  margin: 0,
-                }}
-              >
-                {word}
-              </h1>
-              <div
-                className="mt-2"
-                style={{
-                  fontFamily: "var(--font-mono), monospace",
-                  fontSize: 11,
-                  letterSpacing: "0.28em",
-                  textTransform: "uppercase",
-                  fontWeight: 700,
-                  color: INK,
-                  textAlign: "center",
-                  opacity: 0.78,
-                }}
-              >
-                {trail}
-              </div>
-            </div>
-          </div>
-
-          {/* Editorial line — the local's read, in the marker hand. */}
-          {greeting && (
-            <p
-              className="mt-6 max-w-[560px]"
-              style={{
-                fontFamily: "var(--font-handwritten), cursive",
-                fontSize: 24,
-                lineHeight: 1.2,
-                color: INK,
-                fontWeight: 700,
-                margin: "24px 0 0",
-              }}
-            >
-              <span aria-hidden style={{ color: STAMP_BLUE, marginRight: 5 }}>
-                &ldquo;
-              </span>
-              {greeting}
-              <span aria-hidden style={{ color: STAMP_BLUE, marginLeft: 3 }}>
-                &rdquo;
-              </span>
             </p>
           )}
 
-          {/* Best window, as a taped note rather than another card. */}
           <div
-            className="mt-6 inline-block rot-1"
-            style={{
-              background: "#F0E5CC",
-              padding: "12px 18px",
-              boxShadow: "2px 4px 0 rgba(0,0,0,0.18)",
-              maxWidth: "100%",
-            }}
+            className="mt-3 border-t pt-3"
+            style={{ borderColor: "rgba(244,235,216,0.22)" }}
           >
+            {/* The call is the page's headline: Quiver makes the call rather
+                than handing over a forecast to interpret. */}
             <div
+              className="flex flex-wrap items-baseline gap-x-3 gap-y-1"
+              data-testid="hero-decision-badge"
+              aria-label={`Session decision: ${labelWord}`}
+            >
+              <h1
+                className="zine-display m-0 text-[44px] sm:text-[56px]"
+                style={{
+                  fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+                  lineHeight: 0.9,
+                  letterSpacing: "-0.02em",
+                  textTransform: "uppercase",
+                  color: call ? TIER_COLOR[call.label] : CREAM,
+                }}
+              >
+                {labelWord}
+              </h1>
+              {call && (
+                <span
+                  className="text-[18px] sm:text-[22px]"
+                  style={{
+                    fontFamily: "var(--font-sans), 'DM Sans', system-ui, sans-serif",
+                    fontWeight: 700,
+                    color: CREAM,
+                  }}
+                >
+                  {call.action}
+                </span>
+              )}
+            </div>
+            <p
+              className="m-0 mt-2"
               style={{
-                fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
-                fontSize: 17,
-                lineHeight: 1.15,
-                color: INK,
+                fontFamily: "var(--font-mono), monospace",
+                fontSize: 12,
+                letterSpacing: "0.1em",
                 textTransform: "uppercase",
+                fontWeight: 700,
+                color: CREAM,
+                opacity: 0.88,
               }}
             >
-              {bestWindowTitle}
-            </div>
-            <div
-              className="mt-1"
-              style={{
-                fontFamily: "var(--font-sans), 'DM Sans', system-ui, sans-serif",
-                fontSize: 13,
-                color: INK,
-                opacity: 0.72,
-              }}
-            >
-              {bestWindowSubtitle}
-            </div>
+              <span>{when}</span>
+              {reason ? (
+                <>
+                  <span aria-hidden>{" · "}</span>
+                  <span style={{ textTransform: "none", letterSpacing: "0.02em", fontWeight: 400 }}>
+                    {reason}
+                  </span>
+                </>
+              ) : null}
+            </p>
           </div>
         </div>
+      </HomeHeroMedia>
 
-        {/* Right: the photo, as a taped plate. Halftone keeps it a printed
-            picture rather than a glossy hero image. */}
-        <figure className="relative m-0 hidden md:block">
-          <span className="tape tl" aria-hidden />
-          <span className="tape br" aria-hidden />
-          {/* No `label` here — the beach name already reads once in the
-              eyebrow above, and the design system forbids repeating the same
-              badge on one surface. */}
-          <HalftonePhoto
-            src={heroPhotoUrl}
-            alt={`${beachName} conditions`}
-            height={230}
-          />
-          <figcaption
-            className="mt-2"
-            style={{
-              fontFamily: "var(--font-mono), monospace",
-              fontSize: 10,
-              letterSpacing: "0.14em",
-              textTransform: "uppercase",
-              color: INK,
-              opacity: 0.55,
-            }}
-          >
-            {userName ? `Filed for ${userName}` : "Filed today"}
-          </figcaption>
-        </figure>
-      </div>
+      {/* The local's read, as a margin note rather than a second headline. */}
+      {greeting && (
+        <p
+          className="m-0 mt-4 max-w-[560px]"
+          style={{
+            fontFamily: "var(--font-handwritten), cursive",
+            fontSize: 19,
+            lineHeight: 1.25,
+            color: INK,
+            opacity: 0.82,
+          }}
+        >
+          <span aria-hidden style={{ color: STAMP_BLUE, marginRight: 4 }}>
+            &ldquo;
+          </span>
+          {greeting}
+          <span aria-hidden style={{ color: STAMP_BLUE, marginLeft: 2 }}>
+            &rdquo;
+          </span>
+        </p>
+      )}
 
       <ConditionStrip
         waveHeight={waveHeight}
