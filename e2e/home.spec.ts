@@ -9,6 +9,7 @@ import {
 } from './utils/error-detection';
 import {
   createDiscoveryFixture,
+  createFixtureSessionDecision,
   removeSurfDiscoveryCacheInitScript,
 } from './fixtures/discovery-fixture';
 import { isVisibleSafe } from './utils/strict-helpers';
@@ -738,6 +739,7 @@ test.describe('Home Page - Activation', () => {
       data: {
         recommendations: [
           {
+            recommendationId: "activation-candidate-1",
             beach: {
               id: "00000000-0000-4000-a000-000000000001",
               name: "Test Beach",
@@ -790,6 +792,16 @@ test.describe('Home Page - Activation', () => {
             generated_at: new Date().toISOString(),
           },
         ],
+        // Without a matching canonical decision the home shows "No call".
+        sessionDecision: createFixtureSessionDecision(
+          {
+            recommendationId: "activation-candidate-1",
+            beach: { id: "00000000-0000-4000-a000-000000000001", name: "Test Beach" },
+            window: { start: start.toISOString(), end: end.toISOString() },
+            forecast: { id: "test-forecast-001" },
+          },
+          "go",
+        ),
         searchCriteria: {
           maxResults: 5,
           horizonHours: 24,
@@ -1206,14 +1218,14 @@ test.describe('Home Page - Navigation', () => {
       await expect(dialog).toBeVisible({ timeout: TIMEOUTS.long });
       await expect(page).toHaveURL(/\/(\?.*)?$/);
     } else {
-      // User may have a home beach set — look for other CTA buttons
-      const paddleOutBtn = page.getByRole('button', { name: /paddle out/i });
-      const inviteBtn = page.getByRole('button', { name: /invite a friend/i });
+      // User may have a home beach set — the ask then follows native's rules:
+      // paddle out on a go call, otherwise log a session (invite only for
+      // 5+ sessions with nobody followed).
+      const askBtn = page.getByRole('button', {
+        name: /paddle out|log a session|invite a friend/i,
+      });
 
-      const hasPaddleOut = await isVisibleSafe(paddleOutBtn, { timeout: 10_000 });
-      const hasInvite = await isVisibleSafe(inviteBtn, { timeout: 5_000 });
-
-      expect(hasSetHome || hasPaddleOut || hasInvite).toBe(true);
+      await expect(askBtn.first()).toBeVisible({ timeout: 10_000 });
     }
   });
 

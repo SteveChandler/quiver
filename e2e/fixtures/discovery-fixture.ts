@@ -24,6 +24,72 @@ export interface DiscoveryFixtureOptions {
   recommendationCount?: number;
   /** Return empty recommendations */
   empty?: boolean;
+  /** Canonical verdict for the top recommendation (default: "go") */
+  verdict?: "go" | "maybe" | "no";
+}
+
+interface FixtureDecisionCandidate {
+  recommendationId: string;
+  beach: { id: string; name: string };
+  window: { start: string; end: string; timezone?: string };
+  forecast: { id: string };
+}
+
+/**
+ * The canonical session decision the web home requires before it shows a
+ * call: without a selection matching the top recommendation, the client
+ * projects the response to "no call". Fixtures that omit it can only ever
+ * render the empty state.
+ */
+export function createFixtureSessionDecision(
+  candidate: FixtureDecisionCandidate | null,
+  verdict: "go" | "maybe" | "no" = "go",
+) {
+  const now = Date.now();
+  const selected = candidate && verdict !== "no";
+  return {
+    schemaVersion: "canonical-session-decision.v1",
+    engineVersion: "rules.v1",
+    decisionId: "e".repeat(64),
+    createdAt: new Date(now).toISOString(),
+    expiresAt: new Date(now + 15 * 60 * 1000).toISOString(),
+    scope: {
+      kind: "plan_next_session",
+      windowStart: new Date(now).toISOString(),
+      windowEnd: new Date(now + 24 * 60 * 60 * 1000).toISOString(),
+      timezone: candidate?.window.timezone ?? "America/Los_Angeles",
+    },
+    verdict,
+    decisionBasis: selected ? "physical_fallback" : "safety_override",
+    reasonCode: selected ? `selected_${verdict}` : "no_candidates",
+    selection: selected
+      ? {
+          candidateId: candidate.recommendationId,
+          beachId: candidate.beach.id,
+          beachName: candidate.beach.name,
+          windowStart: candidate.window.start,
+          windowEnd: candidate.window.end,
+          timezone: candidate.window.timezone ?? "America/Los_Angeles",
+          forecastRef: {
+            forecastId: candidate.forecast.id,
+            beachId: candidate.beach.id,
+            forecastAt: candidate.window.start,
+          },
+          skillEligibility: { skill: "intermediate", state: "eligible", reasonCodes: [] },
+          evidence: {
+            conditionScore: verdict === "go" ? 86 : 60,
+            recommendationLabel: verdict === "go" ? "Worth it" : "Maybe",
+            personalMatch: null,
+          },
+        }
+      : null,
+    skillEligibility: {
+      skill: "intermediate",
+      state: selected ? "eligible" : "ineligible",
+      reasonCodes: selected ? [] : ["no_candidates"],
+    },
+    holdEpoch: "no-hold",
+  };
 }
 
 /**
@@ -54,6 +120,7 @@ export function createDiscoveryFixture(options: DiscoveryFixtureOptions = {}) {
       timestamp: new Date().toISOString(),
       data: {
         recommendations: [],
+        sessionDecision: createFixtureSessionDecision(null, "no"),
         searchCriteria: { maxResults: 6 },
         metadata: {
           totalBeachesConsidered: 0,
@@ -80,6 +147,7 @@ export function createDiscoveryFixture(options: DiscoveryFixtureOptions = {}) {
   };
 
   const defaultRecommendation = {
+    recommendationId: "fixture-candidate-1",
     beach: defaultBeach,
     window: {
       start: start.toISOString(),
@@ -134,6 +202,7 @@ export function createDiscoveryFixture(options: DiscoveryFixtureOptions = {}) {
       // Generate additional recommendations with unique IDs
       recommendations.push({
         ...defaultRecommendation,
+        recommendationId: `fixture-candidate-${i + 1}`,
         beach: {
           ...defaultBeach,
           id: `${i + 1}${i + 1}${i + 1}${i + 1}${i + 1}${i + 1}${i + 1}${i + 1}-${i + 1}${i + 1}${i + 1}${i + 1}-4${i + 1}${i + 1}${i + 1}-8${i + 1}${i + 1}${i + 1}-${i + 1}${i + 1}${i + 1}${i + 1}${i + 1}${i + 1}${i + 1}${i + 1}${i + 1}${i + 1}${i + 1}${i + 1}`,
@@ -150,6 +219,10 @@ export function createDiscoveryFixture(options: DiscoveryFixtureOptions = {}) {
     timestamp: new Date().toISOString(),
     data: {
       recommendations,
+      sessionDecision: createFixtureSessionDecision(
+        defaultRecommendation,
+        options.verdict ?? "go",
+      ),
       searchCriteria: { maxResults: 6 },
       metadata: {
         totalBeachesConsidered: 50,
