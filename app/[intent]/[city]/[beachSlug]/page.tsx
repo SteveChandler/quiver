@@ -59,7 +59,9 @@ import { getCachedForecastIndexabilitySnapshots } from "@/lib/seo/forecast-index
 import { getTideMetaData } from "@/lib/seo/tide-meta-data";
 import { getWaterTempMetaData } from "@/lib/seo/water-temp-meta-data";
 
-// Forecast revisions and selected windows must reflect this request.
+// Rendered per request: hold and water-quality state and the user-agent install
+// ask are live. The forecast itself is shared for at most
+// SPOT_SURF_REPORT_FRESHNESS_SECONDS (lib/services/spot-surf-report-service.ts).
 export const dynamic = "force-dynamic";
 
 const getCachedBeachCandidates = cache(async (slug: string) => {

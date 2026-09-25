@@ -1,6 +1,7 @@
 import "server-only";
 
 import { cache } from 'react';
+import { unstable_cache } from 'next/cache';
 import { connection } from 'next/server';
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
@@ -187,7 +188,7 @@ interface BuildReportOptions {
 
 /**
  * Wrap `computeSurfCall` to also attach the per-skill tier verdict ladder.
- * The wrapper exists so the return sites in `getRequestSurfReport` stay terse.
+ * The wrapper exists so the return sites in `getSharedSurfReport` stay terse.
  */
 function buildReport(
   window: PersonalizedForecastWindow | null,
@@ -212,7 +213,11 @@ function clampScore(score: number | null): number | null {
   return score == null ? null : Math.max(0, Math.min(100, score));
 }
 
-/** Cookie-free, request-scoped report; personalization happens after hydration. */
+/**
+ * Cookie-free anonymous report; personalization happens after hydration.
+ * The forecast computation is shared for at most SPOT_SURF_REPORT_FRESHNESS_SECONDS;
+ * the major-event hold boundary is evaluated on every call.
+ */
 export async function getSpotSurfReportPublic(beach: Beach): Promise<SpotSurfReportResult | null> {
   if (!beach.id) return null;
 
@@ -295,19 +300,66 @@ function toPublicForecastHour(forecast: EnhancedForecastEntity): PublicForecastH
   ) as PublicForecastHour;
 }
 
-// A forecast revision or clock change must be visible on the next request.
+/**
+ * Hard upper bound on how old a served anonymous report can be.
+ *
+ * Forecast rows change at most every 30 minutes (`enhanced-forecast-sync-dispatch`
+ * runs at :00/:30; CDIP and marine refresh hourly), so a 15-minute bound shows a
+ * new revision within half an ingestion interval. The bound is enforced by the
+ * cache key, not by `revalidate`: Next serves expired `unstable_cache` entries
+ * stale-while-revalidate with no maximum age, so `revalidate` alone cannot bound
+ * what the first visitor after a quiet spell sees.
+ */
+export const SPOT_SURF_REPORT_FRESHNESS_SECONDS = 900;
+const SPOT_SURF_REPORT_CACHE_TAG = 'spot-surf-report';
+
+class ForecastSourceError extends Error {}
+
+function emptySurfReport(beach: Beach): CachedSpotSurfReportResult {
+  return {
+    report: buildReport(null, [], beach, {}),
+    isTomorrow: false,
+    forecastContext: null,
+    hourlyForecasts: [],
+    hourlyForecastDay: 'today',
+  };
+}
+
+// React memoization keeps metadata and body on one report within a render.
 const getRequestSurfReport = cache(
   async (beachKey: string): Promise<CachedSpotSurfReportResult | null> => {
     const beach = JSON.parse(beachKey) as Beach;
-    const beachId = beach.id;
-    // 1. Determine beach timezone
     const beachTz = beach.lat != null && beach.lon != null
       ? getTimezoneFromCoords(beach.lat, beach.lon)
       : DEFAULT_TIMEZONE;
+    const now = Date.now();
+    // Both the beach-local date and the freshness bucket are key parts, so a new
+    // day or bucket is always a miss rather than a stale hit.
+    const todayStr = formatDateInTimezone(new Date(now), beachTz);
+    const bucket = Math.floor(now / (SPOT_SURF_REPORT_FRESHNESS_SECONDS * 1000));
+    try {
+      return await getSharedSurfReport(beachKey, beachTz, todayStr, bucket);
+    } catch (error) {
+      if (!(error instanceof ForecastSourceError)) throw error;
+      // Source failures are thrown through the data cache so they are never stored.
+      return emptySurfReport(beach);
+    }
+  },
+);
 
-    // 2. Determine "today" and "tomorrow" in beach timezone
-    const now = new Date();
-    const todayStr = formatDateInTimezone(now, beachTz);
+/**
+ * Anonymous forecast computation shared across requests for one freshness bucket.
+ * Major-event holds are applied per request by the caller, never cached here.
+ */
+const getSharedSurfReport = unstable_cache(
+  async (
+    beachKey: string,
+    beachTz: string,
+    todayStr: string,
+    _bucket: number,
+  ): Promise<CachedSpotSurfReportResult | null> => {
+    const beach = JSON.parse(beachKey) as Beach;
+    const beachId = beach.id;
     // Advance the calendar date; elapsed 24-hour periods skip/repeat dates at DST.
     const tomorrow = new Date(`${todayStr}T00:00:00Z`);
     tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
@@ -329,29 +381,15 @@ const getRequestSurfReport = cache(
       .limit(48);
 
     if (error) {
-      console.error('[getRequestSurfReport] Database error:', {
+      console.error('[getSharedSurfReport] Database error:', {
         beachId,
         message: error.message,
         code: error.code,
       });
-      return {
-        report: buildReport(null, [], beach, {}),
-        isTomorrow: false,
-        forecastContext: null,
-        hourlyForecasts: [],
-        hourlyForecastDay: 'today',
-      };
+      throw new ForecastSourceError(error.message);
     }
 
-    if (!data || data.length === 0) {
-      return {
-        report: buildReport(null, [], beach, {}),
-        isTomorrow: false,
-        forecastContext: null,
-        hourlyForecasts: [],
-        hourlyForecastDay: 'today',
-      };
-    }
+    if (!data || data.length === 0) return emptySurfReport(beach);
 
     const forecasts = await applyV51DisplayOverrideToForecasts(
       data as EnhancedForecastEntity[],
@@ -453,12 +491,8 @@ const getRequestSurfReport = cache(
     }
 
     // No forecast data for either day
-    return {
-      report: buildReport(null, [], beach, {}),
-      isTomorrow: false,
-      forecastContext: null,
-      hourlyForecasts: [],
-      hourlyForecastDay: 'today',
-    };
+    return emptySurfReport(beach);
   },
+  ['spot-surf-report-v2'],
+  { revalidate: SPOT_SURF_REPORT_FRESHNESS_SECONDS, tags: [SPOT_SURF_REPORT_CACHE_TAG] },
 );

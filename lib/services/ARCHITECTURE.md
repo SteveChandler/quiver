@@ -94,10 +94,24 @@ DataFlow
 
 `spot-surf-report-service.ts` is the canonical server-only entry point for
 cookie-free public spot surf reports. `getSpotSurfReportPublic(beach)` owns the
-request-scoped forecast read, timezone-aware today/tomorrow selection, surf
+bounded-freshness forecast read, timezone-aware today/tomorrow selection, surf
 call computation, hourly forecast projection, and major-event hold boundary.
 
-The service requires a live request before reading the clock or database, bypassing page ISR. React memoization deduplicates metadata and body reads within that request only.
+The service requires a live request before reading the clock or database, so
+beach detail pages stay dynamic and never serve a page-level ISR copy. The
+anonymous forecast computation is shared through the Next data cache
+(`unstable_cache`, tag `spot-surf-report`) keyed by canonical beach, beach-local
+date, and a `SPOT_SURF_REPORT_FRESHNESS_SECONDS` (15-minute) clock bucket:
+
+- A served forecast is at most 15 minutes old. The bound comes from the bucket
+  key, not `revalidate`, because Next serves expired entries stale-while-revalidate
+  with no maximum age. Forecast ingestion lands at most every 30 minutes.
+- A new beach-local day is always a miss, so the today/tomorrow window rolls over
+  at local midnight.
+- Forecast source errors are thrown through the cache and never stored.
+- Major-event holds are evaluated on every call, outside the cache.
+
+React memoization deduplicates metadata and body reads within one request.
 
 The service canonicalizes every beach projection before entering the cache.
 The canonical field set must stay aligned with every beach field read by the

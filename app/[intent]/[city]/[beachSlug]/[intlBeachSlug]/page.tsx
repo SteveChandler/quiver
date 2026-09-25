@@ -29,7 +29,8 @@ import {
   selectPublicForecastReportFacts,
 } from "@/lib/utils/public-forecast-facts";
 
-// Forecast revisions and selected windows must reflect this request.
+// Rendered per request so hold state is live. The forecast itself is shared for
+// at most SPOT_SURF_REPORT_FRESHNESS_SECONDS (lib/services/spot-surf-report-service.ts).
 export const dynamic = "force-dynamic";
 
 const baseUrl =

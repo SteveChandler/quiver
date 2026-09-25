@@ -30,6 +30,24 @@ jest.mock("react", () => ({
     return mockRequestCache.get(key);
   },
 }));
+// Simulates the cross-request data cache: entries persist until the test clears
+// them, and a rejected computation is never stored (matching unstable_cache).
+let mockDataCache = new Map<string, unknown>();
+const mockDataCacheKeys: unknown[][] = [];
+let mockDataCacheConfig: unknown[] | null = null;
+jest.mock("next/cache", () => ({
+  unstable_cache: (fn: (...args: unknown[]) => Promise<unknown>, ...config: unknown[]) => {
+    mockDataCacheConfig = config;
+    return async (...args: unknown[]) => {
+      mockDataCacheKeys.push(args);
+      const key = JSON.stringify([config[0], args]);
+      if (mockDataCache.has(key)) return mockDataCache.get(key);
+      const value = await fn(...args);
+      mockDataCache.set(key, JSON.parse(JSON.stringify(value)));
+      return value;
+    };
+  },
+}));
 const mockConnection = jest.fn().mockResolvedValue(undefined);
 jest.mock("next/server", () => ({ connection: () => mockConnection() }));
 
@@ -108,6 +126,8 @@ describe("spot surf report service", () => {
     jest.clearAllMocks();
     mockCacheInputs.length = 0;
     mockRequestCache = new Map();
+    mockDataCache = new Map();
+    mockDataCacheKeys.length = 0;
     jest.useFakeTimers();
     jest.setSystemTime(new Date("2024-01-15T18:00:00Z"));
     const { getBatchSunTimes } = require("@/lib/services/discovery");
@@ -140,9 +160,10 @@ describe("spot surf report service", () => {
 
   afterEach(() => jest.useRealTimers());
 
-  it("deduplicates one render but reads the next revision and clock on the next request", async () => {
+  it("shares one report within a 15-minute bucket and reads the next revision in the next bucket", async () => {
     setupDatabase([{ ...forecast, forecast_at: "2024-01-15T23:00:00Z", updated_at: "2024-01-15T17:00:00Z" }]);
-    const { getSpotSurfReportPublic } = await import("@/lib/services/spot-surf-report-service");
+    const { getSpotSurfReportPublic, SPOT_SURF_REPORT_FRESHNESS_SECONDS } = await import("@/lib/services/spot-surf-report-service");
+    expect(SPOT_SURF_REPORT_FRESHNESS_SECONDS).toBe(900);
     const first = await getSpotSurfReportPublic(beach);
     setupDatabase([{ ...forecast, forecast_at: "2024-01-15T23:00:00Z", updated_at: "2024-01-15T18:01:00Z" }]);
     jest.setSystemTime(new Date("2024-01-15T18:02:00Z"));
@@ -151,19 +172,46 @@ describe("spot surf report service", () => {
     expect(mockApplyV51DisplayOverrideToForecasts).toHaveBeenCalledTimes(1);
 
     mockRequestCache = new Map(); // React discards its memoization between requests.
-    const nextRequest = await getSpotSurfReportPublic(beach);
-    expect(nextRequest?.forecastContext?.sourceDataUpdatedAt).toBe("2024-01-15T18:01:00Z");
-    expect(first?.forecastContext?.sourceDataUpdatedAt).toBe("2024-01-15T17:00:00Z");
-    expect(nextRequest?.report.updatedAt).toBe("2024-01-15T18:02:00.000Z");
-    expect(first?.report.updatedAt).toBe("2024-01-15T18:00:00.000Z");
+    jest.setSystemTime(new Date("2024-01-15T18:14:59Z"));
+    const sameBucket = await getSpotSurfReportPublic(beach);
+    expect(sameBucket?.forecastContext?.sourceDataUpdatedAt).toBe("2024-01-15T17:00:00Z");
+    expect(sameBucket?.report.updatedAt).toBe("2024-01-15T18:00:00.000Z");
+    expect(mockApplyV51DisplayOverrideToForecasts).toHaveBeenCalledTimes(1);
+
+    mockRequestCache = new Map();
+    jest.setSystemTime(new Date("2024-01-15T18:15:00Z"));
+    const nextBucket = await getSpotSurfReportPublic(beach);
+    expect(nextBucket?.forecastContext?.sourceDataUpdatedAt).toBe("2024-01-15T18:01:00Z");
+    expect(nextBucket?.report.updatedAt).toBe("2024-01-15T18:15:00.000Z");
     expect(mockApplyV51DisplayOverrideToForecasts).toHaveBeenCalledTimes(2);
   });
 
-  it("does not retain a successful report through source failure or cache that failure after recovery", async () => {
+  it("evaluates the major-event hold on every request, even on a data-cache hit", async () => {
+    setupDatabase();
+    const { getSpotSurfReportPublic } = await import("@/lib/services/spot-surf-report-service");
+    expect((await getSpotSurfReportPublic(beach))?.report.recommendationAvailability.state).toBe("available");
+    mockRequestCache = new Map();
+    mockEvaluateMajorEventHoldCandidates.mockImplementationOnce(
+      async ({ candidates }: { candidates: Array<{ candidateId: string }> }) =>
+        candidates.map(({ candidateId }) => ({
+          candidateId,
+          evaluation: { outcome: "explicit_none", reasonCode: "major_event_hold", holdIds: ["hold-1"], expiresAt: "2024-01-16T01:00:00.000Z", holdEpoch: "held" },
+          recommendationAvailability: { state: "none", reasonCode: "major_event_hold", expiresAt: "2024-01-16T01:00:00.000Z", holdEpoch: "held" },
+        })),
+    );
+    const held = await getSpotSurfReportPublic(beach);
+    expect(mockApplyV51DisplayOverrideToForecasts).toHaveBeenCalledTimes(1);
+    expect(mockEvaluateMajorEventHoldCandidates).toHaveBeenCalledTimes(2);
+    expect(held?.report).toMatchObject({ verdict: "NO", bestWindowStart: null, recommendationAvailability: { state: "none" } });
+    expect(held?.forecastContext).toBeNull();
+  });
+
+  it("does not retain a successful report into the next bucket through source failure or cache that failure", async () => {
     const { getSpotSurfReportPublic } = await import("@/lib/services/spot-surf-report-service");
     setupDatabase();
     expect((await getSpotSurfReportPublic(beach))?.forecastContext).toEqual(expect.objectContaining({ beachId }));
     mockRequestCache = new Map();
+    jest.setSystemTime(new Date("2024-01-15T18:15:00Z"));
     setupDatabase([], { message: "Source unavailable", code: "503" });
     const failed = await getSpotSurfReportPublic(beach);
     expect(failed?.forecastContext).toBeNull();
@@ -190,6 +238,7 @@ describe("spot surf report service", () => {
     const nextDay = await getSpotSurfReportPublic(beach);
     expect(getBatchSunTimes).toHaveBeenLastCalledWith([beachId], ["2024-01-16", "2024-01-17"]);
     expect(nextDay?.hourlyForecasts).toEqual([expect.objectContaining({ forecast_at: "2024-01-16T10:00:00Z" })]);
+    expect(mockDataCacheKeys.map((args) => args[2])).toEqual(["2024-01-15", "2024-01-16"]);
   });
 
   it.each([
@@ -213,6 +262,7 @@ describe("spot surf report service", () => {
     mockConnection.mockRejectedValueOnce(interruption);
     await expect(getSpotSurfReportPublic(beach)).rejects.toBe(interruption);
     expect(mockCacheInputs).toEqual([]);
+    expect(mockDataCacheKeys).toEqual([]);
   });
 
   it("returns null without a beach id", async () => {
@@ -223,7 +273,7 @@ describe("spot surf report service", () => {
     await expect(getSpotSurfReportPublic({ ...beach, id: undefined } as unknown as Beach)).resolves.toBeNull();
   });
 
-  it("builds the public report during the request", async () => {
+  it("builds the public report through the bounded data cache", async () => {
     setupDatabase();
     const { getSpotSurfReportPublic } = await import(
       "@/lib/services/spot-surf-report-service"
@@ -236,6 +286,16 @@ describe("spot surf report service", () => {
     expect(result?.report.skillSource).toBeNull();
     expect(result?.report.isCalibrated).toBe(true);
     expect(mockConnection).toHaveBeenCalledTimes(1);
+    expect(mockDataCacheConfig).toEqual([
+      ["spot-surf-report-v2"],
+      { revalidate: 900, tags: ["spot-surf-report"] },
+    ]);
+    expect(mockDataCacheKeys[0]).toEqual([
+      expect.any(String),
+      "America/Los_Angeles",
+      "2024-01-15",
+      Math.floor(Date.parse("2024-01-15T18:00:00Z") / 900_000),
+    ]);
     expect(result?.hourlyForecasts).toEqual([
       expect.objectContaining({ forecast_at: forecast.forecast_at }),
     ]);
@@ -272,6 +332,7 @@ describe("spot surf report service", () => {
         shoaling_factors: { "0": 0.8, "90": 1.1 },
       }));
     expect(JSON.parse(mockCacheInputs[0][0] as string)).not.toHaveProperty("description");
+    expect(mockDataCacheKeys[0]?.[0]).toBe(mockCacheInputs[0][0]);
   });
 
   it("applies the V5 display projection before selecting a window", async () => {
