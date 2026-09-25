@@ -5,7 +5,10 @@ import { Button } from "@/components/ui/button";
 export interface ContextualCTAProps {
   hasHomeBeach: boolean;
   hasSessionToday: boolean;
-  hasFollows: boolean;
+  /** All logged sessions; null while unknown so no count-gated ask fires early. */
+  totalSessions: number | null;
+  /** Surfers this user follows; null while unknown. */
+  followingCount: number | null;
   /**
    * Whether the hero score crossed the "good conditions" threshold. Pass
    * `undefined` while the canonical surf-call is still loading so the
@@ -47,7 +50,8 @@ function resolveCTAs(props: ContextualCTAProps): {
     hasHomeBeach,
     hasSessionToday,
     conditionsGood,
-    hasFollows,
+    totalSessions,
+    followingCount,
     surfVerdict,
     onSetHomeBeach,
     onLogSession,
@@ -69,11 +73,6 @@ function resolveCTAs(props: ContextualCTAProps): {
   const paddleOut: CTAAction = {
     label: "Paddle out — log a session",
     handler: onLogSession,
-    variant: "default",
-  };
-  const tellCrew: CTAAction = {
-    label: "Tell your crew",
-    handler: onInviteFriend,
     variant: "default",
   };
   const inviteFriend: CTAAction = {
@@ -134,18 +133,30 @@ function resolveCTAs(props: ContextualCTAProps): {
     };
   }
 
-  if (hasFollows) {
+  // The remaining asks follow native's `selectHomeAsk`: a first-session nudge
+  // for surfers with nothing logged, and an invite only once someone surfs
+  // regularly (5+ sessions) but follows nobody. Otherwise the page asks about
+  // the water, not the referral programme.
+  if (totalSessions === 0) {
     return {
-      primary: tellCrew,
-      secondary: [setAlarm, inviteFriend],
-      contextLine: "Rally the crew for a session.",
+      primary: { ...logSession, variant: "default" },
+      secondary: [setAlarm],
+      contextLine: "Log a session. We'll sharpen the forecast.",
+    };
+  }
+
+  if (totalSessions !== null && totalSessions >= 5 && followingCount === 0) {
+    return {
+      primary: inviteFriend,
+      secondary: [setAlarm, logSession],
+      contextLine: "Surfing's better with friends.",
     };
   }
 
   return {
-    primary: inviteFriend,
-    secondary: [setAlarm, logSession],
-    contextLine: "Surfing's better with friends.",
+    primary: { ...logSession, variant: "default" },
+    secondary: [setAlarm],
+    contextLine: "Surfed today? Log it and your calls get sharper.",
   };
 }
 

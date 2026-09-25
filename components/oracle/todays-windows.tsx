@@ -221,17 +221,6 @@ export function TodaysWindows({ windows, preferredTime, forecastUrl, isTomorrow,
                     >
                       {window.label}
                     </span>
-                    {/* Conditions — inline right-aligned, hidden on very small screens */}
-                    {conditionSegments.length > 0 && (
-                      <span
-                        className="relative z-10 ml-auto hidden gap-2 whitespace-nowrap px-2 text-[10px] leading-tight sm:flex"
-                        style={{ color: INK, opacity: 0.5 }}
-                      >
-                        {conditionSegments.map((seg, i) => (
-                          <span key={i}>{seg}</span>
-                        ))}
-                      </span>
-                    )}
                   </div>
 
                   {/* Wave height — 64px fixed width, nowrap so decimal
@@ -254,6 +243,19 @@ export function TodaysWindows({ windows, preferredTime, forecastUrl, isTomorrow,
                     />
                   )}
                 </div>
+                {/* Conditions on their own line, aligned under the bar, so
+                    they stay readable in a narrow column instead of being
+                    clipped inline. Hidden on very small screens. */}
+                {conditionSegments.length > 0 && (
+                  <div
+                    className="mt-1 hidden flex-wrap gap-x-3 gap-y-0.5 pl-[60px] text-[11px] leading-tight sm:flex"
+                    style={{ color: INK, opacity: 0.62 }}
+                  >
+                    {conditionSegments.map((seg, i) => (
+                      <span key={i}>{seg}</span>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}

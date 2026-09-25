@@ -221,6 +221,19 @@ Props: `icon` (Lucide), `title`, `description`, `action?`, `secondaryAction?`, `
 
 ---
 
+### Surf calls
+
+A rating never appears without its call, in the same words as native. Build it with `getCanonicalVerdictCall()` (`components/forecast/score-band-call.ts`); never render the internal `go` / `maybe` / `no` verdicts as copy.
+
+| Tier | Call | Over media (dark band) | On paper |
+|---|---|---|---|
+| EPIC / GOOD | "Go now!" / "Go surf!" ("Don't miss it" / "Worth planning" when the window is later) | teal `#00D4AA` | teal ink |
+| FAIR / RIDEABLE | "Worth a look" / "Slim pickings" | gold `#FDB84B` | gold ink |
+| MEH | "Skip it" | cream `#F4EBD8` | muted ink |
+
+- State the best window once per surface. The call's band owns it; other modules show the timeline, not a restatement.
+- Zine display headings (tier words, stencil headings) need the `zine-display` class, because `globals.css` forces the heading font onto h1–h3 with `!important`.
+
 ## 10. Brand Colors
 
 **Direction:** Quiver is zine-first — cream paper content on a twilight stage. See `app/styles/zine.css` (canonical tokens) and the Design Context in `CLAUDE.md`. The dark card surfaces below are legacy stage-layer values.

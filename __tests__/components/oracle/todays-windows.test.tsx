@@ -92,7 +92,7 @@ describe("TodaysWindows", () => {
     expect(screen.getByText("Today's Windows")).toBeInTheDocument();
   });
 
-  it("renders conditions inline inside the quality bar (no separate condition sub-line)", () => {
+  it("renders conditions on their own line under the quality bar so a narrow column cannot clip them", () => {
     const windowsWithConditions: TimeWindow[] = [
       {
         time: "8am",
@@ -112,14 +112,11 @@ describe("TodaysWindows", () => {
       <TodaysWindows windows={windowsWithConditions} preferredTime={null} />
     );
 
-    // Conditions span should be a sibling of the label span inside the bar container
     const barContainer = container.querySelector(".relative.flex.min-w-0.flex-1");
     expect(barContainer).toBeInTheDocument();
-    // Conditions should render inside the bar container, not outside it
-    const conditionSpan = barContainer?.querySelector("span.ml-auto");
-    expect(conditionSpan).toBeInTheDocument();
-    // The condition text should be present
-    expect(screen.getByText(/14s/)).toBeInTheDocument();
+    const conditionText = screen.getByText(/14s/);
+    expect(barContainer).not.toContainElement(conditionText);
+    expect(conditionText.parentElement).toHaveClass("pl-[60px]");
   });
 
   it("normalizes broad raw ranges and keeps wave, wind, swell, and tide scannable", () => {

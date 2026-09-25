@@ -274,16 +274,18 @@ function getGoogleMapsStaticImageUrl(
   }
 
   const center = `${latitude},${longitude}`;
+  // Callers share Mapbox's bare-hex colours; Google wants them 0x-prefixed.
+  const color = /^[0-9a-f]{6}$/i.test(markerColor) ? `0x${markerColor}` : markerColor;
 
   // Google Maps supports custom labels on markers
   let marker;
   if (markerText) {
     // Create a custom marker with text label
-    marker = `color:${markerColor}|label:${encodeURIComponent(
+    marker = `color:${color}|label:${encodeURIComponent(
       markerText
     )}|${latitude},${longitude}`;
   } else {
-    marker = `color:${markerColor}|${latitude},${longitude}`;
+    marker = `color:${color}|${latitude},${longitude}`;
   }
 
   return `https://maps.googleapis.com/maps/api/staticmap?center=${center}&zoom=${zoom}&size=${width}x${height}&maptype=${mapType}&markers=${marker}&key=${apiKey}&scale=2`;
@@ -366,6 +368,8 @@ export function getStaticMapImageUrl(
     zoom?: number;
     markerText?: string;
     style?: string;
+    /** Mapbox pin colour as hex without "#". */
+    markerColor?: string;
   } = {}
 ): string {
   // If no coordinates, return enhanced placeholder with helpful message
@@ -394,7 +398,7 @@ export function getStaticMapImageUrl(
 
   // Check cache first to prevent duplicate generation
   // Style is part of the key so satellite and outdoors URLs for the same coords don't collide
-  const cacheKey = `${latitude},${longitude},${options.width || 300},${options.height || 120},${options.zoom || 14},${options.markerText || ''},${options.style || ''}`;
+  const cacheKey = `${latitude},${longitude},${options.width || 300},${options.height || 120},${options.zoom || 14},${options.markerText || ''},${options.style || ''},${options.markerColor || ''}`;
   const cachedUrl = getCachedMapUrl(cacheKey);
   if (cachedUrl) {
     return cachedUrl;

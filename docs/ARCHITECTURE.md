@@ -422,6 +422,7 @@ For detailed algorithm documentation, see `lib/services/ARCHITECTURE.md`.
 | **Guides** | [Adding States](guides/ADDING_NEW_STATES.md) | Regional expansion guide |
 | **Components** | [Intent Components](../components/intent/ARCHITECTURE.md) | Tide intent page components |
 | **Components** | [Beginner Components](../components/beginner/ARCHITECTURE.md) | Beginner page components |
+| **Components** | [Signed-in Home](../components/oracle/ARCHITECTURE.md) | Hero media card, call vocabulary, ask rules, native parity |
 | **Features** | [Forecast Hub Utils](../lib/utils/REGIONAL_FORECAST_UTILS_README.md) | Regional forecast aggregation |
 | **Features** | [City Editorial](features/CITY_EDITORIAL_CONTENT.md) | City content hub design |
 | **Reference** | [Coverage Areas](COVERAGE_AREAS.md) | Geographic coverage details |

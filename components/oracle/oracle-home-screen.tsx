@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOracleData } from "@/hooks/use-oracle-data";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
-import { getLocalActivity } from "@/actions/oracle-actions";
+import { getHomeAskCounts, getLocalActivity } from "@/actions/oracle-actions";
 import { HomeCallPlate } from "@/components/oracle/zine/home-call-plate";
 import { HomeZineShell } from "@/components/oracle/zine/home-zine-shell";
 import {
@@ -17,7 +17,6 @@ import { TodaysWindows } from "@/components/oracle/todays-windows";
 import { NearbySpots } from "@/components/oracle/nearby-spots";
 import { ActivityFeed } from "@/components/oracle/activity-feed";
 import { HomeBeachCard } from "@/components/oracle/home-beach-card";
-import { SessionIntelligenceModule } from "@/components/home-screen/session-intelligence-module";
 import {
   bearingFromTo,
   calculateDistanceInMiles,
@@ -37,6 +36,7 @@ import type { SurfDiscoveryRecommendation } from "@/types/personalization";
 import { buildRecommendationLogUrl } from "@/lib/recommendations/attribution";
 import type { LocalActivityItem } from "@/actions/oracle-actions";
 import type { CanonicalDecisionVerdict } from "@/lib/recommendations/canonical-decision/types";
+import type { BeachSources } from "@/hooks/use-beach-detail-data";
 import { isFutureDayInTimezone } from "@/lib/utils/condition-tier-utils";
 import { getHourInTimezone, getMinuteInTimezone } from "@/lib/utils/date-time";
 import { track } from "@/lib/analytics";
@@ -50,8 +50,6 @@ const EMPTY_RECOMMENDATIONS: SurfDiscoveryRecommendation[] = [];
 /** Extended profile fields not yet in generated Supabase types. */
 interface ProfileWithOracle {
   preferred_session_time: string | null;
-  level_title: string | null;
-  xp_total: number | null;
 }
 
 // ============================================================================
@@ -97,50 +95,6 @@ function formatTimeAgo(dateStr: string): string {
 
   const diffDays = Math.floor(diffHours / 24);
   return `${diffDays}d ago`;
-}
-
-/**
- * Generate a personalized best window title based on preferred session time.
- */
-function getBestWindowTitle(
-  window: SurfDiscoveryRecommendation["window"] | undefined,
-  isTomorrow: boolean
-): string {
-  if (!window) return "Surf's looking good";
-
-  const hour = getHourInTimezone(window.start, window.timezone || "America/Los_Angeles");
-
-  if (isTomorrow) {
-    if (hour < 8) return "Tomorrow's dawn patrol";
-    if (hour < 12) return "Tomorrow morning looks glassy";
-    if (hour < 14) return "Tomorrow's lunchtime waves";
-    if (hour < 17) return "Tomorrow afternoon lined up";
-    return "Tomorrow evening lined up";
-  }
-
-  if (hour < 8) return "Dawn patrol is your move";
-  if (hour < 12) return "Morning is looking glassy";
-  if (hour < 14) return "Lunchtime waves are on";
-  if (hour < 17) return "Afternoon session lined up";
-  return "Evening session incoming";
-}
-
-function getCanonicalDecisionTitle(
-  verdict: CanonicalDecisionVerdict | null,
-  isTomorrow: boolean,
-  fallbackWindow: SurfDiscoveryRecommendation["window"] | undefined
-): string {
-  if (!verdict) return getBestWindowTitle(fallbackWindow, isTomorrow);
-
-  if (verdict === "go") {
-    return isTomorrow ? "Tomorrow looks worth it" : "Worth paddling out";
-  }
-
-  if (verdict === "maybe") {
-    return isTomorrow ? "Tomorrow has a narrow window" : "Small window if you time it";
-  }
-
-  return isTomorrow ? "Tomorrow looks poor" : "Today's a no-go";
 }
 
 function getCanonicalDecisionTime(
@@ -500,6 +454,25 @@ export function OracleHomeScreen() {
   const hasShownCall =
     hasShownCallRef.current && latchedProfileIdRef.current === currentProfileId;
 
+  // Time-to-call metric: once per call that becomes visible, including the
+  // call that lands after a recheck dropped the previous one.
+  const { recordCallRendered } = oracle;
+  const renderedCallKeyRef = useRef<string | null>(null);
+  const renderedCallCountRef = useRef(0);
+  const renderedCallKey = heroRec
+    ? `${sessionDecision?.decisionId ?? ""}:${heroRec.recommendationId ?? heroRec.beach.id}`
+    : null;
+  useEffect(() => {
+    if (!renderedCallKey) {
+      renderedCallKeyRef.current = null;
+      return;
+    }
+    if (renderedCallKeyRef.current === renderedCallKey) return;
+    renderedCallKeyRef.current = renderedCallKey;
+    recordCallRendered({ recheck: renderedCallCountRef.current > 0 });
+    renderedCallCountRef.current += 1;
+  }, [recordCallRendered, renderedCallKey]);
+
   const homeIsTopRec =
     !!homeBeach?.id &&
     !isCustomSpotRecommendation(topRec) &&
@@ -521,6 +494,29 @@ export function OracleHomeScreen() {
 
   const { data: activityRaw } = useDataFetcher(fetchActivity, {
     skip: !activityBeachId,
+  });
+
+  // Cam availability for the hero media card. Custom spots have no sources.
+  const heroSourcesBeachId =
+    heroRec && !isCustomSpotRecommendation(heroRec) ? heroRec.beach.id : null;
+  const fetchHeroSources = useCallback(async (): Promise<BeachSources | null> => {
+    if (!heroSourcesBeachId) return null;
+    const res = await fetch(`/api/beaches/${heroSourcesBeachId}/sources`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    return json?.data?.sources ?? json?.sources ?? null;
+  }, [heroSourcesBeachId]);
+  const { data: heroSources } = useDataFetcher(fetchHeroSources, {
+    skip: !heroSourcesBeachId,
+  });
+
+  // Session and follow counts pick the ask card the same way native does.
+  const fetchAskCounts = useCallback(async () => {
+    const result = await getHomeAskCounts();
+    return result?.data ?? null;
+  }, []);
+  const { data: askCounts } = useDataFetcher(fetchAskCounts, {
+    skip: !profile,
   });
 
   // Session time handler removed with the inline SessionTimeSelector
@@ -729,17 +725,13 @@ export function OracleHomeScreen() {
     heroTz,
     window,
   );
-  const bestWindowTitle = getCanonicalDecisionTitle(
-    canonicalVerdict,
-    isTomorrow,
-    window,
-  );
-  // Supporting line *inside* the best-window card. Must NOT be sourced from
-  // `heroSurfCall?.whySentence` — that sentence renders as its own distinct
-  // prose line under the card (passed separately as `whySentence` below).
-  // Sourcing both from the same signal would render the same sentence twice.
-  const bestWindowSubtitle =
-    heroRec?.reasons?.[0] ?? "Check the forecast for details";
+  // Why the selected window works, from the recommendation's own reasons.
+  const heroReason = heroRec?.reasons?.[0] ?? null;
+  // Positive calls switch to planning copy when the window hasn't opened yet.
+  const selectedWindowStartMs = Date.parse(selectedCandidate?.windowStart ?? "");
+  const heroCallIsUpcoming =
+    isTomorrow ||
+    (Number.isFinite(selectedWindowStartMs) && selectedWindowStartMs > Date.now());
 
   // Transformed sub-component data (memoised to avoid child re-renders)
   const timeWindows = useMemo(
@@ -809,9 +801,19 @@ export function OracleHomeScreen() {
   // like the page had crashed and reloaded itself.
   if (!heroRec && isBootstrapping) {
     return hasShownCall ? (
-      <HomeZineRechecking beachName={homeBeach?.name ?? null} />
+      <HomeZineRechecking
+        beachName={homeBeach?.name ?? null}
+        lat={homeBeach?.lat ?? null}
+        lon={homeBeach?.lon ?? null}
+        photoUrl={oracle.heroPhotoUrl}
+      />
     ) : (
-      <HomeZineLoading />
+      <HomeZineLoading
+        beachName={homeBeach?.name ?? null}
+        lat={homeBeach?.lat ?? null}
+        lon={homeBeach?.lon ?? null}
+        photoUrl={oracle.heroPhotoUrl}
+      />
     );
   }
 
@@ -847,66 +849,52 @@ export function OracleHomeScreen() {
   // ------------------------------------------------------------------
   return (
     <HomeZineShell>
-      <HomeCallPlate
-        beachName={beachName}
-        heroPhotoUrl={oracle.heroPhotoUrl}
-        verdict={canonicalVerdict}
-        waveHeight={waveHeight}
-        swellDirection={swellDir}
-        swellPeriod={swellPeriod}
-        tideHeight={tideH}
-        tideDirection={tideDir}
-        waterTemp={waterTemp}
-        windSpeed={windSpd}
-        windDirection={windDir}
-        bestWindowTitle={bestWindowTitle}
-        bestWindowSubtitle={bestWindowSubtitle}
-        bestWindowTime={bestWindowTime}
-        isTomorrow={isTomorrow}
-        greeting={oracle.discovery?.regionalCall || undefined}
-        userName={profile?.display_name ?? profile?.full_name}
-        levelTitle={oracleProfile?.level_title ?? null}
-        xpTotal={oracleProfile?.xp_total ?? null}
-        driveContext={driveContext}
-      />
-
-      {/* Labeled "Your home" card surfaced when the regional best is a
-          different beach than the user's home. Click navigates to beach
-          detail via the same handler NearbySpots uses. */}
-      {showHomeCard && homeBeachRec && (
-        <div className="pt-6">
-          <HomeBeachCard rec={homeBeachRec} onClick={handleViewSpot} />
-        </div>
-      )}
-
-      {/* Inline SessionTimeSelector prompt removed in plan E2. Asking
-          users "When do you usually paddle out?" on the home screen
-          was the same zero-value capture as the onboarding step we
-          dropped — it wrote to `profiles.preferred_session_time` but
-          the question itself was friction without an obvious payoff
-          for a user just trying to see their forecast. Downstream
-          logic (TodaysWindows, ContextualCTA) already handles
-          `preferredTime === null` gracefully; windows just aren't
-          pre-filtered by the user's usual paddle time. If/when we
-          want this as a preference again it should live in a quieter
-          settings surface, not as a full-width prompt above the
-          primary CTA. Plan: abstract-exploring-phoenix (E2). */}
-
-      {/* 2-column at lg+: left = CTA + Windows, right = Nearby + Activity.
-          On mobile this falls back to a single stacked column automatically. */}
-      {/* TODO: Wire hasSessionToday (check sessions table for today) and
-           hasFollows (check follows count) to enable "Share your session"
-           and "Tell your crew" CTA branches. */}
+      {/* Desktop is two panes, the way Surfline and AllTrails split place from
+          plan: the beach and its call on the left, the day's windows and
+          what's around pinned beside it. Below lg it stacks in reading order. */}
       <div
-        className="mt-8 lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-8"
+        className="lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-10"
         data-testid="oracle-home-content-grid"
       >
-        {/* Left column: CTA + Today's Windows */}
         <div className="min-w-0 space-y-8">
+          <HomeCallPlate
+            beachName={beachName}
+            lat={heroBeach?.lat ?? null}
+            lon={heroBeach?.lon ?? null}
+            photoUrl={oracle.heroPhotoUrl}
+            sources={heroSources}
+            verdict={canonicalVerdict}
+            score={heroRec?.score ?? null}
+            isUpcoming={heroCallIsUpcoming}
+            waveHeight={waveHeight}
+            swellDirection={swellDir}
+            swellPeriod={swellPeriod}
+            tideHeight={tideH}
+            tideDirection={tideDir}
+            waterTemp={waterTemp}
+            windSpeed={windSpd}
+            windDirection={windDir}
+            bestWindowTime={bestWindowTime}
+            isTomorrow={isTomorrow}
+            reason={heroReason}
+            greeting={oracle.discovery?.regionalCall || undefined}
+            driveContext={driveContext}
+          />
+
+          {/* Labeled "Your home" card surfaced when the regional best is a
+              different beach than the user's home. Click navigates to beach
+              detail via the same handler NearbySpots uses. */}
+          {showHomeCard && homeBeachRec && (
+            <HomeBeachCard rec={homeBeachRec} onClick={handleViewSpot} />
+          )}
+
+          {/* TODO: Wire hasSessionToday (check sessions table for today) to
+               enable the "Share your session" branch. */}
           <ContextualCTA
             hasHomeBeach={!!homeBeach}
             hasSessionToday={false}
-            hasFollows={false}
+            totalSessions={askCounts?.totalSessions ?? null}
+            followingCount={askCounts?.followingCount ?? null}
             conditionsGood={canonicalVerdict === "go"}
             surfVerdict={toLegacySurfVerdict(canonicalVerdict)}
             preferredTime={preferredTime}
@@ -916,7 +904,9 @@ export function OracleHomeScreen() {
             onSetAlarm={handleSetAlarm}
             onShareSession={handleShareSession}
           />
+        </div>
 
+        <aside className="mt-10 min-w-0 space-y-8 lg:sticky lg:top-24 lg:mt-0">
           <TodaysWindows
             windows={timeWindows}
             preferredTime={preferredTime}
@@ -924,10 +914,7 @@ export function OracleHomeScreen() {
             isTomorrow={isTomorrow}
             eveningTransition={oracle.discovery?.eveningTransition}
           />
-        </div>
 
-        {/* Right column: Nearby Spots + Activity Feed */}
-        <div className="mt-8 min-w-0 space-y-8 lg:mt-0">
           <NearbySpots
             spots={nearbySpots}
             onViewSpot={handleViewSpot}
@@ -943,21 +930,8 @@ export function OracleHomeScreen() {
           {activityItems.length > 0 && (
             <ActivityFeed items={activityItems} />
           )}
-        </div>
+        </aside>
       </div>
-
-      {/* Keyed off having recommendations rather than the loading flag, so a
-          background refresh doesn't unmount the module and pop the layout. */}
-      {effectiveRecommendations.length > 0 && (
-        <div className="mt-8">
-          <SessionIntelligenceModule
-            recommendations={effectiveRecommendations}
-            recommendationAvailability={
-              oracle.discovery?.recommendationAvailability
-            }
-          />
-        </div>
-      )}
 
       <div className="pb-20 lg:pb-0" />
       <BottomNav />

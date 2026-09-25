@@ -74,26 +74,26 @@ exports[`TodaysWindows captures the normal clean-day compact summary hierarchy 1
               >
                 Clean early
               </span>
-              <span
-                class="relative z-10 ml-auto hidden gap-2 whitespace-nowrap px-2 text-[10px] leading-tight sm:flex"
-                style="color: rgb(17, 16, 13); opacity: 0.5;"
-              >
-                <span>
-                  Wind E 4 mph
-                </span>
-                <span>
-                  Swell W @ 12s
-                </span>
-                <span>
-                  Tide 2.8 ft Incoming
-                </span>
-              </span>
             </div>
             <span
               class="w-16 shrink-0 whitespace-nowrap text-right text-sm font-semibold text-[#0B3A75] flex items-center"
               data-testid="primary-wave-height"
             >
               3-4 ft
+            </span>
+          </div>
+          <div
+            class="mt-1 hidden flex-wrap gap-x-3 gap-y-0.5 pl-[60px] text-[11px] leading-tight sm:flex"
+            style="color: rgb(17, 16, 13); opacity: 0.62;"
+          >
+            <span>
+              Wind E 4 mph
+            </span>
+            <span>
+              Swell W @ 12s
+            </span>
+            <span>
+              Tide 2.8 ft Incoming
             </span>
           </div>
         </div>
@@ -177,26 +177,26 @@ exports[`TodaysWindows captures tide-sensitive windows with tide visible in the 
               >
                 Low tide window
               </span>
-              <span
-                class="relative z-10 ml-auto hidden gap-2 whitespace-nowrap px-2 text-[10px] leading-tight sm:flex"
-                style="color: rgb(17, 16, 13); opacity: 0.5;"
-              >
-                <span>
-                  Wind NE 6 mph
-                </span>
-                <span>
-                  Swell SSW @ 15s
-                </span>
-                <span>
-                  Tide 0.7 ft Filling in
-                </span>
-              </span>
             </div>
             <span
               class="w-16 shrink-0 whitespace-nowrap text-right text-sm font-semibold text-[#0B3A75] flex items-center"
               data-testid="primary-wave-height"
             >
               2-3 ft
+            </span>
+          </div>
+          <div
+            class="mt-1 hidden flex-wrap gap-x-3 gap-y-0.5 pl-[60px] text-[11px] leading-tight sm:flex"
+            style="color: rgb(17, 16, 13); opacity: 0.62;"
+          >
+            <span>
+              Wind NE 6 mph
+            </span>
+            <span>
+              Swell SSW @ 15s
+            </span>
+            <span>
+              Tide 0.7 ft Filling in
             </span>
           </div>
         </div>
@@ -280,26 +280,26 @@ exports[`TodaysWindows normalizes broad raw ranges and keeps wave, wind, swell, 
               >
                 Morning glass
               </span>
-              <span
-                class="relative z-10 ml-auto hidden gap-2 whitespace-nowrap px-2 text-[10px] leading-tight sm:flex"
-                style="color: rgb(17, 16, 13); opacity: 0.5;"
-              >
-                <span>
-                  Wind NW 8 mph
-                </span>
-                <span>
-                  Swell WNW @ 14s
-                </span>
-                <span>
-                  Tide 3.2 ft Rising
-                </span>
-              </span>
             </div>
             <span
               class="w-16 shrink-0 whitespace-nowrap text-right text-sm font-semibold text-[#0B3A75] flex items-center"
               data-testid="primary-wave-height"
             >
               3ft
+            </span>
+          </div>
+          <div
+            class="mt-1 hidden flex-wrap gap-x-3 gap-y-0.5 pl-[60px] text-[11px] leading-tight sm:flex"
+            style="color: rgb(17, 16, 13); opacity: 0.62;"
+          >
+            <span>
+              Wind NW 8 mph
+            </span>
+            <span>
+              Swell WNW @ 14s
+            </span>
+            <span>
+              Tide 3.2 ft Rising
             </span>
           </div>
         </div>
