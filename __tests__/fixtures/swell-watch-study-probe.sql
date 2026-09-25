@@ -251,7 +251,7 @@ BEGIN
       '{scopeOutcomes,0,reason}','"fixture_feed_failure"'::jsonb)
       WHERE id=(SELECT id FROM public.swell_watch_study_evaluations WHERE status='evaluated' ORDER BY id LIMIT 1);
     health:=public.read_swell_watch_study_health();
-    PERFORM public.study_assert(health->>'qualifyingDays'='0','failed feed limits study progress');
+    PERFORM public.study_assert(health->>'qualifyingDays'='1','failed feed does not block study progress');
     PERFORM public.study_assert(health #>> ARRAY['qualifyingDaysByFeed',first_feed,'qualifyingDays']='0','failed feed loses its own day');
     PERFORM public.study_assert(health #>> ARRAY['qualifyingDaysByFeed',second_feed,'qualifyingDays']='1','other feed retains its day');
     RAISE no_data_found;

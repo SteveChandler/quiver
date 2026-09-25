@@ -1,4 +1,5 @@
--- Count complete no-send samples per feed. Historical derivation-only suppressions remain diagnostic.
+-- Count complete no-send samples per feed; study progress follows the best-proven feed, so a feed
+-- without a clean swell episode never blocks the others. Historical derivation-only suppressions remain diagnostic.
 -- Rollback: restore read_swell_watch_study_health and record_swell_watch_study_evaluation
 -- from 20260918180000_harden_swell_watch_study_epochs_and_extend.sql.
 BEGIN;
@@ -37,13 +38,13 @@ $amend$;
 CREATE OR REPLACE FUNCTION public.read_swell_watch_study_health()
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
 DECLARE a public.swell_watch_study_authorities; start_epoch bigint; cycle_before timestamptz;
-  feed_days jsonb; days jsonb; minimum_days integer; policy_expiry timestamptz;
+  feed_days jsonb; days jsonb; best_days integer; policy_expiry timestamptz;
   health_status text; reason text; outcomes jsonb;
 BEGIN
   PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-control',0));
   SELECT * INTO a FROM public.swell_watch_study_authorities ORDER BY epoch DESC LIMIT 1;
   IF NOT FOUND THEN RETURN jsonb_build_object('status','unconfigured','qualifyingDays',0,'targetDays',30,
-    'qualifyingDates','[]'::jsonb,'qualifyingDaysByFeed','{}'::jsonb,'qualificationBasis','minimum_completed_feed',
+    'qualifyingDates','[]'::jsonb,'qualifyingDaysByFeed','{}'::jsonb,'qualificationBasis','best_completed_feed',
     'authorityEpoch',NULL,'policyHash',NULL,'qualificationRule',NULL,'cycleStartEpoch',NULL,'cycleNotBefore',NULL,
     'reason','study_authority_missing','evaluatedRuns',0,'suppressedAttempts',0,
     'lastEvaluatedAt',NULL,'lastSuppressedAt',NULL); END IF;
@@ -69,9 +70,9 @@ BEGIN
     FROM jsonb_array_elements(a.cohort) scope
   ) feeds;
   SELECT (value->>'qualifyingDays')::integer, value->'qualifyingDates'
-    INTO minimum_days, days FROM jsonb_each(feed_days)
-    ORDER BY (value->>'qualifyingDays')::integer, key LIMIT 1;
-  minimum_days := coalesce(minimum_days,0);
+    INTO best_days, days FROM jsonb_each(feed_days)
+    ORDER BY (value->>'qualifyingDays')::integer DESC, key LIMIT 1;
+  best_days := coalesce(best_days,0);
   days := coalesce(days,'[]'::jsonb);
   SELECT jsonb_build_object('evaluatedRuns',count(*) FILTER(WHERE e.status='evaluated'),
     'suppressedAttempts',count(*) FILTER(WHERE e.status='suppressed'),
@@ -80,13 +81,13 @@ BEGIN
     FROM public.swell_watch_study_evaluations e WHERE e.authority_epoch BETWEEN start_epoch AND a.epoch AND e.policy_hash=a.policy_hash;
   IF a.state='revoked' THEN health_status:='blocked'; reason:='study_authority_revoked';
   ELSIF NOT EXISTS(SELECT 1 FROM public.swell_watch_evaluation_policies p WHERE p.epoch=(SELECT max(epoch) FROM public.swell_watch_evaluation_policies) AND p.state='active' AND p.policy_hash=a.policy_hash) THEN health_status:='blocked'; reason:='study_policy_changed';
-  ELSIF minimum_days>=a.target_days THEN health_status:='complete'; reason:='target_reached';
+  ELSIF best_days>=a.target_days THEN health_status:='complete'; reason:='target_reached';
   ELSIF clock_timestamp()>=a.expires_at OR clock_timestamp()>=policy_expiry THEN health_status:='expired'; reason:='study_or_policy_expired';
   ELSIF NOT EXISTS(SELECT 1 FROM public.swell_watch_current_study_authority(a.policy_hash)) THEN health_status:='blocked'; reason:='study_policy_or_control_unavailable';
   ELSE health_status:='active'; reason:=NULL; END IF;
   RETURN jsonb_build_object('status',health_status,'authorityEpoch',a.epoch,'policyHash',a.policy_hash,'qualificationRule',a.qualification_rule,
-    'cycleStartEpoch',start_epoch,'cycleNotBefore',cycle_before,'qualifyingDays',minimum_days,
-    'qualifyingDates',days,'qualifyingDaysByFeed',feed_days,'qualificationBasis','minimum_completed_feed',
+    'cycleStartEpoch',start_epoch,'cycleNotBefore',cycle_before,'qualifyingDays',best_days,
+    'qualifyingDates',days,'qualifyingDaysByFeed',feed_days,'qualificationBasis','best_completed_feed',
     'targetDays',a.target_days,'reason',reason,'expiresAt',least(a.expires_at,policy_expiry)) || outcomes;
 END;
 $$;
