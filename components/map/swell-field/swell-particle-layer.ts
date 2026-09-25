@@ -16,6 +16,7 @@ import {
   MIN_LIFE_FRAMES,
   STEP_FRACTION,
   STRENGTH_DENSITY_CULL,
+  WIND_STREAK_FRACTION,
   gridDimensions,
   resolveParticleCount,
   type MercatorBox,
@@ -512,7 +513,6 @@ export function createSwellParticleLayer(
   let slowFrameMs = 0;
   let fastFrameMs = 0;
   // Wind worm geometry: a short sinuous line that undulates as it drifts.
-  const WIND_STREAK_FRACTION = 0.034; // worm length as a fraction of the viewport span
   const WIND_WIGGLE_AMP = 0.0035; // gentle sideways wiggle (fraction of span)
   const WIND_WIGGLE_WAVES = 1; // one smooth undulation along the body
   const WIND_WIGGLE_SPEED = 0.05; // slow phase advance per frame (calm wriggle)

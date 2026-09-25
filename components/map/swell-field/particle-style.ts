@@ -65,6 +65,22 @@ export const DASH_WIDTH_PX_GAIN = 4.4;
 // How aggressively weak cells thin out their particles (higher = sparser weak).
 export const STRENGTH_DENSITY_CULL = 0.8;
 
+// Wind worm length as a fraction of the viewport span.
+export const WIND_STREAK_FRACTION = 0.034;
+
+// Per-layer particle count for the combined view so three stacked layers keep the
+// sparse Windy-style spacing in budget (3 × 260 = 780 total).
+export const COMBINED_PARTICLE_COUNT = 340;
+// Wind reads cleaner with a sparser field than swell - scale its particle count
+// down, but keep enough strokes visible on the light-blue basemap.
+export const WIND_PARTICLE_SCALE = 0.4; // keep wind sparser than swell even at the higher base count
+
+export const PARTICLE_MOTION_SCALE = {
+  s1: 1,
+  s2: 1,
+  wind: 0.25, // calm, slow wind drift (-75% movement)
+} as const;
+
 /** Primary swell crests draw shorter than secondary swell and wind marks. */
 export const PARTICLE_DASH_LENGTH_SCALE = {
   s1: 0.75,
