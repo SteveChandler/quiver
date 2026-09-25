@@ -26,6 +26,7 @@ import {
 } from "@/actions/forecast/intent-forecast-actions";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { buildBeachUrl, cityToSlug } from "@/lib/utils/beach-url-utils";
+import { generateLocationSlug } from "@/lib/utils/location-slug";
 import { getStateSurfProfile } from "@/lib/data/monthly-surf-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { FAQSchema } from "@/components/seo/faq-schema";
@@ -204,25 +205,40 @@ type BestTimeHandoffBeach = Pick<
   "name" | "slug" | "city" | "state" | "country"
 >;
 
+// US states are stored as 2-letter codes; Mexico states as display names
+// ("Baja California"), which have no /{state}/{city} hub or city intent pages.
+function isUsStateCode(state: string): boolean {
+  return /^[A-Z]{2}$/.test(state);
+}
+
+export function buildBestTimeCityHubHref(state: string, citySlug: string): string {
+  return isUsStateCode(state)
+    ? `/${state.toLowerCase()}/${citySlug}`
+    : `/beaches/mexico/${generateLocationSlug(state)}`;
+}
+
 export function buildBestTimeLiveHandoffSteps({
   cityName,
   citySlug,
+  cityHubHref,
   path,
   stateSlug,
   topBeaches,
 }: {
   cityName: string;
   citySlug: string;
+  cityHubHref?: string;
   path?: string;
   stateSlug: string;
   topBeaches: BestTimeHandoffBeach[];
 }): SeoFunnelNextStep[] {
+  const hubHref = cityHubHref ?? `/${stateSlug}/${citySlug}`;
   const primarySpot = topBeaches.find(
     (beach) => beach.slug && beach.city && beach.state,
   );
   const primarySpotHref = primarySpot
     ? buildBeachUrl(primarySpot)
-    : `/${stateSlug}/${citySlug}`;
+    : hubHref;
   const primarySpotName = primarySpot?.name ?? cityName;
   const ctrOverride = getBestTimeCtrOverride(citySlug);
 
@@ -236,7 +252,7 @@ export function buildBestTimeLiveHandoffSteps({
       },
       {
         label: `Check today's ${cityName} surf hub`,
-        href: `/${stateSlug}/${citySlug}`,
+        href: hubHref,
         description:
           "Compare live spots in this city before picking the window that fits your plan.",
       },
@@ -265,7 +281,7 @@ export function buildBestTimeLiveHandoffSteps({
     },
     {
       label: `Find the best current ${cityName} window`,
-      href: `/${stateSlug}/${citySlug}`,
+      href: hubHref,
       description:
         "Compare the city's current forecast and spot list against the seasonal pattern.",
     },
@@ -396,7 +412,7 @@ export async function generateMetadata(props: PageParams): Promise<Metadata> {
     getCityEditorialContent(
       cityToSlug(cityName),
       cityResult.data.state.toLowerCase(),
-      "usa",
+      isUsStateCode(cityResult.data.state) ? "usa" : "mexico",
       "best-time",
     ),
     getBestTimeToSurfData(cityName, cityResult.data.state),
@@ -428,6 +444,8 @@ export default async function BestTimeToSurfPage(props: PageParams) {
 
   const { cityName, state, stateName } = cityResult.data;
   const stateSlug = state.toLowerCase();
+  const isUsCity = isUsStateCode(state);
+  const cityHubHref = buildBestTimeCityHubHref(state, citySlug);
   const heroScene = getBestTimeSeoScene(citySlug);
   const sessionScene = getBestTimeSessionSeoScene(citySlug);
   const metadataCopy = buildBestTimeMetadataCopy(cityName);
@@ -436,7 +454,12 @@ export default async function BestTimeToSurfPage(props: PageParams) {
     getBestTimeToSurfData(cityName, state),
     getCityExcludeIntents(cityName, state),
     getBeachesByIntentAndCity("best-time", citySlug, stateSlug),
-    getCityEditorialContent(cityToSlug(cityName), stateSlug, "usa", "best-time"),
+    getCityEditorialContent(
+      cityToSlug(cityName),
+      stateSlug,
+      isUsCity ? "usa" : "mexico",
+      "best-time",
+    ),
   ]);
   if (!dataResult.success || !dataResult.data) {
     return notFound();
@@ -467,6 +490,7 @@ export default async function BestTimeToSurfPage(props: PageParams) {
   const liveHandoffSteps = buildBestTimeLiveHandoffSteps({
     cityName,
     citySlug,
+    cityHubHref,
     path: `/best-time-to-surf/${citySlug}`,
     stateSlug,
     topBeaches: data.topBeaches,
@@ -571,10 +595,10 @@ export default async function BestTimeToSurfPage(props: PageParams) {
           </Link>
           <span className="text-gray-400 mx-1">&rsaquo;</span>
           <Link
-            href={`/${stateSlug}/${citySlug}`}
+            href={cityHubHref}
             className="inline-flex items-center gap-1 text-ocean-blue hover:underline"
           >
-            {cityName}
+            {isUsCity ? cityName : stateName}
           </Link>
           <span className="text-gray-400 mx-1">&rsaquo;</span>
           <span className="text-gray-800 font-medium">Surf Calendar</span>
@@ -856,13 +880,15 @@ export default async function BestTimeToSurfPage(props: PageParams) {
           <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2 text-sm text-sky-700">
             <li>
               <Link
-                href={`/${stateSlug}/${citySlug}`}
+                href={cityHubHref}
                 className="underline-offset-2 hover:underline"
               >
-                Back to the {cityName} surf hub
+                {isUsCity
+                  ? `Back to the ${cityName} surf hub`
+                  : `Surf spots in ${stateName}`}
               </Link>
             </li>
-            {INTENT_DEFINITIONS.filter(
+            {isUsCity && INTENT_DEFINITIONS.filter(
               (intent) => !excludeIntents.includes(intent.key as IntentKey)
             ).map((intent) => (
               <li key={intent.key}>
@@ -885,14 +911,16 @@ export default async function BestTimeToSurfPage(props: PageParams) {
           </ul>
         </aside>
 
-        {/* Cross-linking: Intent Guides Grid */}
-        <IntentGuidesGrid
-          locationSlug={citySlug}
-          locationName={cityName}
-          locationType="city"
-          stateAbbrev={state}
-          excludeIntents={excludeIntents.length > 0 ? excludeIntents : undefined}
-        />
+        {/* Cross-linking: Intent Guides Grid (US cities only; no Mexico city intent pages) */}
+        {isUsCity && (
+          <IntentGuidesGrid
+            locationSlug={citySlug}
+            locationName={cityName}
+            locationType="city"
+            stateAbbrev={state}
+            excludeIntents={excludeIntents.length > 0 ? excludeIntents : undefined}
+          />
+        )}
       </div>
       <StickySignupBar
         source={`best-time-${citySlug}`}

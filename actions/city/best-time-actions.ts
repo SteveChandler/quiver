@@ -6,6 +6,7 @@ import { getRegionalData } from "@/lib/seo/regional-surf-data";
 import { buildMonthlyScores } from "@/lib/utils/surf-score-utils";
 import { getStateSurfProfile } from "@/lib/data/monthly-surf-data";
 import { rankBeaches } from "@/lib/recommendations/selection";
+import { normalizeState } from "@/lib/utils/location-slug";
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -98,7 +99,7 @@ export async function getBestTimeToSurfData(
 ): Promise<ServerActionResponse<BestTimeToSurfData | null>> {
   return withServerAction(async () => {
     const supabase = createPublicReadClient();
-    const normalizedState = state.toUpperCase();
+    const normalizedState = normalizeState(state);
 
     const { data: beaches, error } = await supabase
       .from("beaches")
@@ -112,19 +113,23 @@ export async function getBestTimeToSurfData(
       throw new Error(error.message || "Failed to fetch city beaches");
     }
 
-    const visibleBeaches = (await rankBeaches(
-      (beaches ?? []).map((beach, index) => ({ id: beach.id, beach, index })),
-      { compare: (left, right) => left.index - right.index },
-    )).map(({ beach }) => beach);
-    if (visibleBeaches.length === 0) {
+    const allBeaches = beaches ?? [];
+    if (allBeaches.length === 0) {
       return null;
     }
+    // Held beaches still count toward the seasonal calendar (it's climatology,
+    // not a recommendation) but are never listed or linked. A city whose every
+    // beach is held keeps its page instead of 404ing while the hub links it.
+    const visibleBeaches = (await rankBeaches(
+      allBeaches.map((beach, index) => ({ id: beach.id, beach, index })),
+      { compare: (left, right) => left.index - right.index },
+    )).map(({ beach }) => beach);
 
     // Aggregate best_months counts across all beaches
     const monthCounts: number[] = new Array(12).fill(0);
     let beachesWithMonths = 0;
 
-    for (const beach of visibleBeaches) {
+    for (const beach of allBeaches) {
       const bestMonths = normalizeBestMonths(beach.best_months);
       if (bestMonths.length > 0) {
         beachesWithMonths++;
@@ -151,7 +156,7 @@ export async function getBestTimeToSurfData(
             month,
             monthName: MONTH_NAMES[i],
               bestMonthCount: stateProfile.peakMonths.includes(month)
-              ? visibleBeaches.length
+              ? allBeaches.length
               : 0,
             score: monthData.overallScore,
           };
@@ -167,7 +172,7 @@ export async function getBestTimeToSurfData(
         state: normalizedState,
         stateName,
         stateSlug,
-        totalBeaches: visibleBeaches.length,
+        totalBeaches: allBeaches.length,
         peakMonth: peakIndex + 1,
         peakMonthName: MONTH_NAMES[peakIndex],
         peakScore,
@@ -216,7 +221,7 @@ export async function getBestTimeToSurfData(
       state: normalizedState,
       stateName,
       stateSlug,
-      totalBeaches: visibleBeaches.length,
+      totalBeaches: allBeaches.length,
       peakMonth,
       peakMonthName: MONTH_NAMES[peakIndex],
       peakScore,
@@ -253,7 +258,7 @@ export async function getCitiesWithBestMonthsData(): Promise<
     // Find all cities with at least one beach that has best_months data
     const { data, error } = await supabase
       .from("beaches")
-      .select("city, state")
+      .select("city, state, best_months")
       .not("best_months", "is", null)
       .or("is_private.is.null,is_private.eq.false")
       .not("city", "is", null)
@@ -267,9 +272,20 @@ export async function getCitiesWithBestMonthsData(): Promise<
       return [];
     }
 
+    // Keep only rows the [city] route can render: real months or a state
+    // profile to fall back on (an empty best_months array is not data), and
+    // no parenthesized names, which find_cities_by_pattern can't match from a
+    // slug ("Venustiano Carranza (Santa María)").
+    const routableRows = data.filter(
+      (row) =>
+        !row.city?.includes("(") &&
+        (normalizeBestMonths(row.best_months).length > 0 ||
+          (row.state !== null && getStateSurfProfile(row.state.toLowerCase()) !== null)),
+    );
+
     // Group by city+state and count beaches
     const cityMap = new Map<string, { city: string; state: string; beachCount: number }>();
-    for (const row of data) {
+    for (const row of routableRows) {
       if (!row.city || !row.state) continue;
       const key = `${row.city}|${row.state}`;
       const existing = cityMap.get(key);

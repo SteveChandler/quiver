@@ -5,6 +5,7 @@ import { withServerAction, ServerActionResponse } from "@/lib/server-action-util
 import type { IntentKey } from "@/lib/constants/intent-definitions";
 import { resolveCityFromSlug } from "@/lib/seo/city-slug-utils";
 import { rankBeaches } from "@/lib/recommendations/selection";
+import { normalizeState } from "@/lib/utils/location-slug";
 
 // CityMetadata and BeachEditorialItem are defined in @/types/location; re-export for backward compatibility
 import type { CityMetadata, BeachEditorialItem } from "@/types/location";
@@ -72,7 +73,7 @@ export async function getCityMetadata(
 ): Promise<ServerActionResponse<CityMetadata | null>> {
   return withServerAction(async () => {
     const supabase = createPublicReadClient();
-    const normalizedState = state.toUpperCase();
+    const normalizedState = normalizeState(state);
 
     const { data: beaches, error } = await supabase
       .from("beaches")
@@ -264,7 +265,7 @@ export async function getCityBeachEditorialData(
 ): Promise<BeachEditorialItem[]> {
   try {
     const supabase = createPublicReadClient();
-    const normalizedState = state.toUpperCase();
+    const normalizedState = normalizeState(state);
 
     // The generated database.ts types do not yet include all editorial columns,
     // so we cast through unknown to avoid GenericStringError inference.

@@ -10,6 +10,7 @@ import {
   getBeachesBySlugFromDb,
 } from "@/lib/services/beach-query-service";
 import { rankBeaches } from "@/lib/recommendations/selection";
+import { normalizeState } from "@/lib/utils/location-slug";
 import type { Beach } from "@/types/database";
 
 // Full beach detail fields for single beach queries
@@ -122,8 +123,8 @@ async function _getBeachesByIntentAndCityInternal(
   const escapedCityPattern = escapeLikePattern(cityPattern);
   query = query.or(`city.ilike.%${escapedCity}%,city.ilike.%${escapedCityPattern}%`);
 
-  // Match state
-  query = query.eq("state", stateSlug.toUpperCase());
+  // Match state (US codes are stored uppercase, Mexico states as display names)
+  query = query.eq("state", normalizeState(stateSlug));
 
   // Apply intent filters
   query = applyIntentFilters(query, intent);
