@@ -263,6 +263,36 @@ describe("useSurfDiscovery major-event hold precedence", () => {
     expect(result.current.hasRecommendations).toBe(false);
   });
 
+  it("drops an expired call in a hidden tab without refetching, then rechecks on return", async () => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-07-19T12:00:00.000Z"));
+    const allowed = discoveryResponse({ state: "available", holdEpoch: "clear" }, 1);
+    allowed.sessionDecision!.expiresAt = "2026-07-19T12:00:01.000Z";
+    const refreshed = discoveryResponse({ state: "available", holdEpoch: "clear" }, 1);
+    (global.fetch as jest.Mock)
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: serialized(allowed) }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: serialized(refreshed) }) });
+
+    const { result } = renderHook(() => useSurfDiscovery({ immediate: true }));
+    await waitFor(() => expect(result.current.hasRecommendations).toBe(true));
+
+    act(() => {
+      Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });
+      document.dispatchEvent(new Event("visibilitychange"));
+      jest.advanceTimersByTime(1_001);
+    });
+
+    // Fail closed without spending a request on a tab nobody can see.
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(result.current.discovery).toBeNull();
+
+    act(() => {
+      Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
+  });
+
   it("waits out authority that outlasts the max timer delay, then revalidates", async () => {
     const maxTimerDelayMs = 2_147_483_647;
     jest.useFakeTimers().setSystemTime(new Date("2026-07-19T12:00:00.000Z"));
@@ -497,7 +527,7 @@ describe("useSurfDiscovery major-event hold precedence", () => {
     );
   });
 
-  it("revalidates an open session when the window regains focus", async () => {
+  it("revalidates when focus returns to a page that was hidden", async () => {
     const allowed = discoveryResponse(
       { state: "available", holdEpoch: "before-hold" },
       1,
@@ -524,7 +554,11 @@ describe("useSurfDiscovery major-event hold precedence", () => {
 
     await waitFor(() => expect(result.current.hasRecommendations).toBe(true));
     act(() => {
+      Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });
       window.dispatchEvent(new Event("blur"));
+      document.dispatchEvent(new Event("visibilitychange"));
+      // Only focus reports the return here; visibilitychange is not re-sent.
+      Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
       window.dispatchEvent(new Event("focus"));
     });
 
@@ -604,8 +638,10 @@ describe("useSurfDiscovery major-event hold precedence", () => {
 
     expect(result.current.loading).toBe(true);
     act(() => {
-      window.dispatchEvent(new Event("blur"));
-      window.dispatchEvent(new Event("focus"));
+      Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });
+      document.dispatchEvent(new Event("visibilitychange"));
+      Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
+      document.dispatchEvent(new Event("visibilitychange"));
     });
 
     initialResponse.resolve({
