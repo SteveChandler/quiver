@@ -11,7 +11,6 @@ import {
   Plus,
   Loader2,
   MapPin,
-  Instagram,
   Edit,
   AlertCircle,
   RefreshCw,
@@ -46,6 +45,7 @@ import { ANIMATION_VARIANTS } from "@/lib/constants/animations";
 import { track } from "@/lib/analytics";
 import { buildSessionShareSheetData } from "@/lib/share/session-share";
 import { QuiverSticker, ZineSurface } from "@/components/zine";
+import { InstagramHandleLink } from "@/components/profile/instagram-handle-link";
 import { cn } from "@/lib/utils";
 
 import { FeedHighlight } from "@/components/profile/FeedHighlight";
@@ -391,12 +391,11 @@ function ProfileViewContent() {
                             </div>
                           )}
 
-                          {profile?.instagram && (
-                            <div className="flex items-center rounded-full border border-[#11100D]/35 bg-[#F4EBD8] px-2 py-0.5">
-                              <Instagram className="h-3 w-3 mr-1 text-[#11100D]" />
-                              <span>{profile.instagram}</span>
-                            </div>
-                          )}
+                          <InstagramHandleLink
+                            handle={profile?.instagram}
+                            className="rounded-full border border-[#11100D]/35 bg-[#F4EBD8] px-2 py-0.5"
+                            iconClassName="h-3 w-3 text-[#11100D]"
+                          />
                         </div>
 
                         {/* Home Break */}
