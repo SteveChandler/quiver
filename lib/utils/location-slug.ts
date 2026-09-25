@@ -167,6 +167,7 @@ export function normalizeCountry(country: string | null | undefined): string {
  */
 const INTERNATIONAL_STATE_DISPLAY_NAMES: Record<string, string> = {
   "baja california": "Baja California",
+  "baja california sur": "Baja California Sur",
 };
 
 /**

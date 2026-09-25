@@ -3,6 +3,7 @@
  */
 
 import {
+  buildBestTimeCityHubHref,
   buildBestTimeLiveHandoffSteps,
   buildBestTimeMetadataCopy,
   generateMetadata,
@@ -200,6 +201,24 @@ describe("best-time city SEO page", () => {
     expect(copy.h1).toBe(
       "Best La Jolla surf window today: tide and conditions",
     );
+  });
+
+  it("links a Mexico city to its state beach hub, which exists, instead of /{state}/{city}", () => {
+    expect(buildBestTimeCityHubHref("CA", "san-diego")).toBe("/ca/san-diego");
+    expect(buildBestTimeCityHubHref("Baja California Sur", "todos-santos")).toBe(
+      "/beaches/mexico/baja-california-sur",
+    );
+
+    const steps = buildBestTimeLiveHandoffSteps({
+      cityName: "Todos Santos",
+      citySlug: "todos-santos",
+      cityHubHref: "/beaches/mexico/baja-california-sur",
+      stateSlug: "baja california sur",
+      topBeaches: [],
+    });
+
+    expect(steps.map((step) => step.href)).toContain("/beaches/mexico/baja-california-sur");
+    expect(steps.some((step) => step.href.startsWith("/baja california sur/"))).toBe(false);
   });
 
   it("builds live surf report handoff steps from the city's top spots", () => {
