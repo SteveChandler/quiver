@@ -270,6 +270,8 @@ function normalizeManualBacklinkRecord(record: Record<string, unknown>): {
     "domain",
     "root domain",
     "from domain",
+    // Search Console's "Top linking sites" export names the column "Site".
+    "site",
   ]);
 
   return {
