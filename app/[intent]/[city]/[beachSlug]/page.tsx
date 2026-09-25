@@ -9,10 +9,7 @@ import { AuthenticatedForecastDecisionProvider } from "@/components/beach-detail
 import { ZineNearbySpots } from "@/components/beach-detail/zine/zine-nearby-spots";
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
-import { InstallAppCtaSection } from "@/components/app-store/install-app-cta-section";
-import { iphoneBannerOwnsInstallAsk } from "@/lib/app-store/beach-subpage-install-cta";
-import { getFirstTouchPlatform } from "@/lib/analytics/web-context";
-import { headers } from "next/headers";
+import { BeachDetailInstallCta } from "@/components/app-store/beach-detail-install-cta";
 import { ContentPageAppHandoffCta } from "@/components/app-store/content-page-app-handoff-cta";
 import { isFreeGrowthPhaseEnabled } from "@/lib/flags/free-growth-phase";
 
@@ -59,7 +56,9 @@ import { getCachedForecastIndexabilitySnapshots } from "@/lib/seo/forecast-index
 import { getTideMetaData } from "@/lib/seo/tide-meta-data";
 import { getWaterTempMetaData } from "@/lib/seo/water-temp-meta-data";
 
-// Forecast revisions and selected windows must reflect this request.
+// Rendered per request so forecast revisions and windows are current; the HTML
+// is then shared at the CDN for at most 15 minutes (lib/seo/beach-detail-cdn-cache.ts),
+// so it must not depend on the request (cookies, user agent).
 export const dynamic = "force-dynamic";
 
 const getCachedBeachCandidates = cache(async (slug: string) => {
@@ -105,16 +104,6 @@ function isNextRouterSignal(error: unknown) {
 export default async function GenericBeachDetailPage(props: PageProps) {
   const params = await props.params;
   const { intent: stateParam, city, beachSlug } = params;
-
-  // The after-tabs install section and IphoneAppBanner are both install asks.
-  // Non-Safari iPhone gets the banner, so suppress the section there rather than
-  // showing the same ask twice. Every other visitor is unaffected.
-  const installCtaUserAgent = (await headers()).get("user-agent") ?? "";
-  const bannerOwnsInstallAsk = iphoneBannerOwnsInstallAsk({
-    userAgent: installCtaUserAgent,
-    pathname: `/${stateParam}/${city}/${beachSlug}`,
-  });
-  const installCtaPlatform = getFirstTouchPlatform(installCtaUserAgent);
 
   // Only handle requests where the first param is a valid state slug
   // This excludes intent slugs like "surf-forecast", "beginner", etc.
@@ -359,27 +348,21 @@ export default async function GenericBeachDetailPage(props: PageProps) {
                     underneath is the same ask the sticky bar already carries, so
                     it read as the page repeating itself. The install section takes
                     a real already-fetched figure instead — proof beats adjectives. */}
-                {!bannerOwnsInstallAsk && (
-                  <div className="mt-10">
-                    <InstallAppCtaSection
-                      platform={installCtaPlatform}
-                      source={`beach-detail-${beachSlug}`}
-                      surface="beach-detail"
-                      placement="after-tabs"
-                      beachName={beach.name}
-                      proof={
-                        forecastContext?.waveHeightRangeLabel ??
-                        forecastContext?.waveHeight
-                          ? {
-                              value: (forecastContext.waveHeightRangeLabel ??
-                                forecastContext.waveHeight) as string,
-                              label: "Surf right now",
-                            }
-                          : undefined
-                      }
-                    />
-                  </div>
-                )}
+                <BeachDetailInstallCta
+                  pathname={`/${stateParam}/${city}/${beachSlug}`}
+                  source={`beach-detail-${beachSlug}`}
+                  beachName={beach.name}
+                  proof={
+                    forecastContext?.waveHeightRangeLabel ??
+                    forecastContext?.waveHeight
+                      ? {
+                          value: (forecastContext.waveHeightRangeLabel ??
+                            forecastContext.waveHeight) as string,
+                          label: "Surf right now",
+                        }
+                      : undefined
+                  }
+                />
                 <Suspense fallback={null}>
                   <DeferredZineNearbySpots
                     beach={beach}
