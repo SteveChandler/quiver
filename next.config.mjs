@@ -75,6 +75,35 @@ const nextConfig = {
 
   async headers() {
     return [
+      // Beach detail pages render per request, which Next marks private/no-store
+      // for browsers. Vercel's CDN honors its own targeted header instead, so each
+      // document response is shared for at most 15 minutes: no stale serving past
+      // that bound. RSC and prefetch requests vary by router state and stay
+      // uncached. Values mirror lib/seo/beach-detail-cdn-cache.ts; the state list
+      // mirrors getValidStateSlugs(). Major-event holds purge the held pages' tags.
+      ...[
+        {
+          source:
+            "/:state(ca|de|fl|ga|hi|ma|md|me|nc|nh|nj|ny|or|pr|ri|sc|tx|va|wa)/:city/:beachSlug",
+          tag: "beach-detail/:state/:city/:beachSlug",
+        },
+        {
+          source: "/mexico/:region/:city/:beachSlug",
+          tag: "beach-detail/mexico/:region/:city/:beachSlug",
+        },
+      ].map(({ source, tag }) => ({
+        source,
+        missing: [
+          { type: "header", key: "rsc" },
+          { type: "header", key: "next-router-prefetch" },
+        ],
+        headers: [
+          { key: "Vercel-CDN-Cache-Control", value: "public, max-age=900" },
+          // Params interpolate, so each page is tagged with its own path and a
+          // purge drops that beach only.
+          { key: "Vercel-Cache-Tag", value: tag },
+        ],
+      })),
       {
         source: "/(.*)",
         headers: [

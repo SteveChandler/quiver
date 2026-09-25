@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { revalidateTag } from "next/cache";
 
 import {
   createSupabaseMajorEventHoldCacheInvalidationStore,
@@ -6,6 +7,11 @@ import {
   type MajorEventHoldCacheInvalidationStore,
   type MajorEventHoldCacheScope,
 } from "@/lib/recommendations/major-event-hold/cache-invalidation";
+
+jest.mock("next/cache", () => ({
+  revalidatePath: jest.fn(),
+  revalidateTag: jest.fn(),
+}));
 
 const BEACH_ID = "00000000-0000-4000-8000-000000000001";
 const SECOND_BEACH_ID = "00000000-0000-4000-8000-000000000002";
@@ -410,6 +416,40 @@ describe("major-event hold cache invalidation", () => {
       "utf8",
     );
 
-    expect(source).not.toContain("revalidateTag");
+    expect(source).not.toMatch(/Tag\(\s*["'`]beaches["'`]/);
+  });
+
+  it("expires the CDN copy of each held beach's detail page, and only those", async () => {
+    const expireCacheTag = jest.fn();
+
+    await invalidateMajorEventHoldTransitions(
+      [transition({ scopeBeachIds: [BEACH_ID, SECOND_BEACH_ID] })],
+      {
+        store: store({
+          loadBeachMetadata: jest
+            .fn()
+            .mockResolvedValue([beachMetadata(BEACH_ID), beachMetadata(SECOND_BEACH_ID)]),
+        }),
+        revalidatePath: jest.fn(),
+        expireCacheTag,
+      },
+    );
+
+    expect(expireCacheTag.mock.calls.map(([tag]) => tag)).toEqual([
+      "beach-detail/ca/san-diego/ocean-beach",
+      "beach-detail/ca/santa-cruz/steamer-lane",
+    ]);
+  });
+
+  it("expires held beach pages immediately by default, not stale-while-revalidate", async () => {
+    await invalidateMajorEventHoldTransitions([transition()], {
+      store: store(),
+      revalidatePath: jest.fn(),
+    });
+
+    expect(revalidateTag).toHaveBeenCalledWith(
+      "beach-detail/ca/san-diego/ocean-beach",
+      { expire: 0 },
+    );
   });
 });

@@ -32,7 +32,9 @@ import { sanitizeBeachEditorialContent } from "@/lib/seo/editorial-integrity";
 const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
 
-// Forecast revisions and selected windows must reflect this request.
+// Rendered per request so forecast revisions and windows are current; the HTML
+// is then shared at the CDN for at most 15 minutes (lib/seo/beach-detail-cdn-cache.ts),
+// so it must not depend on the request (cookies, user agent).
 export const dynamic = "force-dynamic";
 
 interface PageProps {
