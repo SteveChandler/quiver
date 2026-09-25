@@ -182,7 +182,7 @@ export async function ingestAttestedSwellWatchRun(
   return (await persistRuns([{ input, derived }], client, "ingest_swell_watch_run"))[0];
 }
 
-/** Complete cohort preflight precedes one transaction across all beaches and regions. */
+/** Complete cohort preflight precedes one transaction across the valid feeds. */
 export async function ingestAttestedSwellWatchCohort(
   input: Omit<Parameters<typeof loadAttestedProviderRunScope>[0], "scopes"> & Pick<RunInput, "now" | "policy" | "qualificationRule"> & {
     scopes: Array<Parameters<typeof loadAttestedProviderRunScope>[0]["scopes"][number] & Pick<RunInput, "regionKey" | "beach">>;
@@ -212,7 +212,7 @@ export async function ingestAttestedSwellWatchCohort(
     prepared.push({ input: runInput, derived });
   }
   const suppressed = scopeOutcomes.find((outcome) => outcome.status === "suppressed");
-  const runs = suppressed ? [] : await persistRuns(prepared, client, "ingest_swell_watch_cohort");
+  const runs = prepared.length ? await persistRuns(prepared, client, "ingest_swell_watch_cohort") : [];
   const first = prepared[0]?.derived.derivation;
   const derivation: CohortDerivation = first ? capSwellWatchDerivationEvents({ qualificationRule: first.qualificationRule, version: first.version, samplingProfile: first.samplingProfile, witness: first.witness,
     scopes: prepared.map(({ input, derived }, runIndex) => ({ sourcePointId: input.sourcePointId,
@@ -221,7 +221,10 @@ export async function ingestAttestedSwellWatchCohort(
       events: derived.events.map((event, eventIndex) => ({ sourceSlot: event.impact.partition.sourceSlot,
         arrivalAt: event.arrivalAt, arrivalWindow: event.arrivalWindow, peakAt: event.peakAt,
         peakWindow: event.peakWindow, closureWindow: event.closureWindow,
-        regionalEventId: suppressed ? null : runs[runIndex].events[eventIndex].impact.regionalEventId })) })) }) : null;
-  if (suppressed) return { kind: "suppressed", reason: suppressed.reason!, sourcePointId: suppressed.sourcePointId, scopeOutcomes, derivation };
+        regionalEventId: runs[runIndex].events[eventIndex].impact.regionalEventId })) })) }) : null;
+  if (!prepared.length) {
+    if (!suppressed) throw new Error("Cohort contains no feeds");
+    return { kind: "suppressed", reason: suppressed.reason!, sourcePointId: suppressed.sourcePointId, scopeOutcomes, derivation };
+  }
   return { kind: "ingested", runs, scopeOutcomes, derivation };
 }

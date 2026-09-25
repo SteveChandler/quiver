@@ -30,7 +30,7 @@ beforeEach(() => {
 });
 
 describe("attested component impact ingestion", () => {
-  it("replays all ten captured horizons through cohort derivation without an ingest write", async () => {
+  it("persists valid feeds when other captured feeds fail derivation", async () => {
     const text = gunzipSync(Buffer.from(swellWatchAttestedReplayGzipBase64, "base64")).toString();
     const replay = JSON.parse(text).rows[0].value as Array<{ sourcePointId: string; latitude: number; longitude: number; beach: Record<string, unknown>; run: { source: { evaluationId: string; issuedAt: string; providerBatchId: string } } }>;
     const bySource = new Map(replay.map((item) => [item.sourcePointId, item]));
@@ -49,16 +49,19 @@ describe("attested component impact ingestion", () => {
         issuedAt: first.issuedAt, scopeHash: "a".repeat(64), expectedComponentCount: 3360,
         scopes: scopes.map((scope) => ({ ...scope, forecastDays: 7 })) }, error: null };
       if (name === "read_swell_watch_attested_run") return { data: bySource.get(args.p_source_point_id)!.run, error: null };
+      if (name === "ingest_swell_watch_cohort") return { data: (args as unknown as { p_impacts: unknown[] }).p_impacts.map((_, ordinal) => ({ ordinal,
+        regional_event_id: first.providerBatchId, event_state: "candidate" })), error: null };
       throw new Error(`Forbidden replay write: ${name}`);
     });
     const result = await ingestAttestedSwellWatchCohort({ qualificationRule: "complete_partitions.v1", providerBatchId: first.providerBatchId, forecastDays: 7, now: "2026-09-10T00:00:00Z",
       policy: proposed.policy as SwellWatchPolicy, scopes: scopes as never }, { rpc, ...identityReader } as never);
-    expect(result).toMatchObject({ kind: "suppressed", reason: "unbounded_episode", sourcePointId: "e8a921b7-c2b5-4259-9e5c-bd06765f7ae4" });
+    expect(result).toMatchObject({ kind: "ingested", runs: Array(7).fill(expect.objectContaining({ kind: "ingested" })) });
     expect(result.scopeOutcomes).toHaveLength(10);
     expect(result.scopeOutcomes.filter((outcome) => outcome.status === "derived")).toHaveLength(7);
     expect(result.scopeOutcomes.filter((outcome) => outcome.reason === "incomplete_partition")).toHaveLength(2);
     expect(result.scopeOutcomes.filter((outcome) => outcome.reason === "unbounded_episode")).toHaveLength(1);
-    expect(rpc.mock.calls.map(([name]) => name)).not.toContain("ingest_swell_watch_cohort");
+    expect(rpc.mock.calls.map(([name]) => name)).toContain("ingest_swell_watch_cohort");
+    expect(result.derivation?.scopes.flatMap((scope) => scope.events).every((event) => event.regionalEventId === first.providerBatchId)).toBe(true);
   });
   it("does not persist incomplete cohort coverage, and reports every scope", async () => {
     const value = { qualificationRule: "complete_partitions.v1" as const, providerBatchId: id, sourcePointId: id, regionKey: "fixture-region",
@@ -110,7 +113,8 @@ describe("attested component impact ingestion", () => {
     });
     expect(await ingestAttestedSwellWatchCohort({ qualificationRule: "complete_partitions.v1", providerBatchId: id, forecastDays: 7,
       now: value.now, policy: value.policy, scopes }, { rpc, ...identityReader }))
-      .toEqual({ kind: "suppressed", reason: "incomplete_partition", sourcePointId: other,
+      .toEqual({ kind: "ingested", runs: [expect.objectContaining({ source: expect.objectContaining({ sourcePointId: id }) }),
+        expect.objectContaining({ source: expect.objectContaining({ sourcePointId: third }) })],
         derivation: { qualificationRule: "complete_partitions.v1", version: "swell-watch-horizon-derivation.v3", samplingProfile: "ncep_gfswave016.native-1h-to-120h-3h-to-168h.v1",
           witness: "provider-linear-interpolation.v1", scopes: [id, third].map((sourcePointId) => ({ sourcePointId, nativeFrames: 136, interpolatedFrames: 32, boundaryDeferrals: [], partitionCoverage: { s1: { observed: 168, unavailable: 0, absent: 0, absentNativeFrames: [] }, s2: { observed: 168, unavailable: 0, absent: 0, unavailableNativeFrames: [], absentNativeFrames: [] } }, events: [] })) },
         scopeOutcomes: [

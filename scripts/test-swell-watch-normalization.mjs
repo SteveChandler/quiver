@@ -375,7 +375,7 @@ END $$;`);
       const payload = body(issuance);
       const retainedFixture = options.retained === "hatteras2026-09-17T12" && i === hatterasIndex ? hatterasSep17
         : options.retained && i === hatterasIndex ? hatterasSep16
-        : missing && i === hatterasIndex ? hatteras : !options.flat && i === waikikiIndex ? waikiki : null;
+        : missing && (options.missingAll || i === hatterasIndex) ? hatteras : !options.flat && i === waikikiIndex ? waikiki : null;
       if (retainedFixture) {
         const retained = retainedFields(retainedFixture);
         for (const field of fields) payload.hourly[field] = [...retained[field]];
@@ -422,9 +422,12 @@ END $$;`);
     assert.match(rejected.error?.message ?? "", /invalid study scope outcomes/, "Scope outcomes still reject extra keys");
     const recorded = await nativeClient.rpc("record_swell_watch_study_evaluation", recordArgs);
     assert.equal(recorded.error, null); assert.equal(recorded.data.recorded, true);
-    assert.equal(evaluation.derivation.version, "swell-watch-horizon-derivation.v3");
-    assert.equal(evaluation.derivation.scopes.length, missing && evaluation.status === "suppressed" ? 9 : 10);
-    assert(evaluation.derivation.scopes.every((scope) => scope.nativeFrames === 136 && scope.interpolatedFrames === 32));
+    if (options.missingAll) assert.equal(evaluation.derivation, null);
+    else {
+      assert.equal(evaluation.derivation.version, "swell-watch-horizon-derivation.v3");
+      assert.equal(evaluation.derivation.scopes.length, 10);
+      assert(evaluation.derivation.scopes.every((scope) => scope.nativeFrames === 136 && scope.interpolatedFrames === 32));
+    }
     const persisted = value(`SELECT result FROM public.swell_watch_study_evaluations WHERE provider_batch_id=${q(completed.provider_batch_id)};`);
     assert.deepEqual(persisted, evaluation, "SQL accepts and retains top-level derivation metadata");
     assert(evaluation.scopeOutcomes.every((scope) => Object.keys(scope).sort().join(",") === "reason,sourcePointId,status"));
@@ -463,7 +466,8 @@ END $$;`);
   const retryRecord = await nativeClient.rpc("record_swell_watch_study_evaluation", nativeFirst.recordArgs);
   assert.equal(retryRecord.error, null); assert.equal(retryRecord.data.recorded, true);
   assert.deepEqual(value("SELECT public.read_swell_watch_study_health();"), qualified);
-  const fifth = await nativeRun(new Date(Date.parse(issuances[0]) + 24 * 3_600_000).toISOString(), true);
+  // This pre-isolation migration fixture still checks an entirely suppressed issuance.
+  const fifth = await nativeRun(new Date(Date.parse(issuances[0]) + 24 * 3_600_000).toISOString(), true, completeRule, { missingAll: true });
   assert.equal(fifth.evaluation.status, "suppressed"); assert.equal(fifth.evaluation.reason, "incomplete_partition");
   const afterSuppressed = value("SELECT public.read_swell_watch_study_health();");
   assert.equal(afterSuppressed.evaluatedRuns, 4); assert.equal(afterSuppressed.qualifyingDays, 1); assert.deepEqual(afterSuppressed.qualifyingDates, [utcDay]);
@@ -791,8 +795,8 @@ END $$;`);
   const forgedRun = await nativeRun(forgedIssuance, false, swellSystemCountRule, { retained: "hatteras2026-09-16T00", mismatchedPrimaryZeros: true, acceptOnly: true });
   const forgedEvaluation = await evaluateSwellWatchShadow({ qualificationRule: swellSystemCountRule,
     providerBatchId: forgedRun.completed.provider_batch_id, forecastDays: 7, now: setClock(forgedIssuance), policy, scopes: nativeScopes }, nativeClient);
-  assert.equal(forgedEvaluation.status, "suppressed");
-  assert.equal(forgedEvaluation.reason, "incomplete_partition");
+  assert.equal(forgedEvaluation.status, "evaluated");
+  assert.equal(forgedEvaluation.reason, null);
   assert.deepEqual(forgedEvaluation.scopeOutcomes[hatterasIndex], { sourcePointId: cohort[hatterasIndex].sourcePointId, status: "suppressed", reason: "incomplete_partition" });
   const forgedDemand = await nativeClient.rpc("record_swell_watch_shadow_demand", {
     p_provider_batch_id: forgedRun.completed.provider_batch_id, p_policy_hash: policy.value_hash, p_pairs: [],
