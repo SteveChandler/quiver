@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { loadUserPool, poolRadiusMiles } from "@/lib/alerts/user-pool";
+import { loadUserPool } from "@/lib/alerts/user-pool";
 import type { Beach, Database } from "@/types/database";
 
 interface Store {
@@ -121,10 +121,38 @@ describe("user pool", () => {
     expect(supabase.rpc).not.toHaveBeenCalled();
   });
 
-  it("resolves the configured drive radius", () => {
-    expect(poolRadiusMiles(null)).toBe(30);
-    expect(poolRadiusMiles(60)).toBe(30);
-    expect(poolRadiusMiles(400)).toBe(100);
+  it("queries nearby beaches within 100 miles when drive range is unset", async () => {
+    const supabase = makeSupabase({ favorites: [], beaches: [], nearby: [] });
+
+    await loadUserPool({
+      supabase,
+      userId: "user-1",
+      homeBeachId: null,
+      location: { lat: 33, lon: -118 },
+      maxDriveMinutes: null,
+    });
+
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      "get_weekend_scout_candidates",
+      expect.objectContaining({ max_distance_meters: Math.round(100 * 1609.344) }),
+    );
+  });
+
+  it("queries nearby beaches within the configured drive range", async () => {
+    const supabase = makeSupabase({ favorites: [], beaches: [], nearby: [] });
+
+    await loadUserPool({
+      supabase,
+      userId: "user-1",
+      homeBeachId: null,
+      location: { lat: 33, lon: -118 },
+      maxDriveMinutes: 60,
+    });
+
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      "get_weekend_scout_candidates",
+      expect.objectContaining({ max_distance_meters: Math.round(30 * 1609.344) }),
+    );
   });
 
   it("drops beaches with an empty slug", async () => {

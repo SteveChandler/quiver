@@ -11,6 +11,7 @@ import { generateWeekScoutForecast } from '@/lib/services/discovery/week-scout';
 import { parseSessionTime } from '@/lib/scoring/session-time-preference';
 import { buildWeekendScoutCandidatePool } from '@/lib/services/discovery/weekend-scout-candidate-pool';
 import { calculateDistanceInMiles } from '@/lib/utils/distance-utils';
+import { driveRadiusMiles, MAX_DRIVE_RADIUS_MILES } from '@/lib/profile/drive-range';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,9 +33,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
 const MAX_LEGACY_CANDIDATE_BEACHES = 30;
-const DEFAULT_RADIUS_MILES = 30;
-const MILES_PER_DRIVE_MINUTE = 0.5;
-const MAX_RADIUS_MILES = 100;
+const MAX_RADIUS_MILES = MAX_DRIVE_RADIUS_MILES;
 const MAP_PREFILTER_MARGIN_RATIO = 0.006;
 const MAP_PREFILTER_MARGIN_MIN_MILES = 0.01;
 const INTERACTIVE_LOCATION_MAX_AGE_MS = 15 * 60 * 1000;
@@ -185,9 +184,7 @@ async function weekScoutHandler(
         calculateDistanceInMiles(candidateOrigin, { lat: mapBounds.maxLat, lon: mapBounds.minLon }),
         calculateDistanceInMiles(candidateOrigin, { lat: mapBounds.maxLat, lon: mapBounds.maxLon }),
       )
-      : typeof configuredMinutes === 'number' && Number.isFinite(configuredMinutes)
-      ? Math.max(0.5, configuredMinutes * MILES_PER_DRIVE_MINUTE)
-      : DEFAULT_RADIUS_MILES;
+      : Math.max(0.5, driveRadiusMiles(configuredMinutes));
     const mapPrefilterMargin = mapBounds
       ? radiusMiles * MAP_PREFILTER_MARGIN_RATIO + MAP_PREFILTER_MARGIN_MIN_MILES
       : 0;
