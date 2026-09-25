@@ -1212,7 +1212,11 @@ function validateDayCount(dayCount: number): void {
   }
 }
 
-/** Window ids of each beach's highest-ranked window per day that overlaps the preferred hours. */
+/**
+ * Window ids of each beach's highest-ranked window per day whose displayed
+ * window overlaps the preferred hours. Raw windows can span most of a day, so
+ * the check uses the range people actually see.
+ */
 function preferredSessionWindowIds(
   response: MajorEventHoldWeekScoutResponse,
   beaches: readonly Beach[],
@@ -1225,7 +1229,7 @@ function preferredSessionWindowIds(
     for (const window of day.windows) {
       const timezone = timezoneByBeach.get(window.beachId);
       if (!timezone || window.rankingScore === null || window.verdict === null) continue;
-      if (!overlapsSessionTime(new Date(window.start), new Date(window.end), timezone, sessionTime)) continue;
+      if (!overlapsSessionTime(new Date(window.displayWindowStart), new Date(window.displayWindowEnd), timezone, sessionTime)) continue;
       const key = `${day.localDate}:${window.beachId}`;
       const current = best.get(key);
       if (!current || window.rankingScore > current.score) best.set(key, { id: window.id, score: window.rankingScore });
