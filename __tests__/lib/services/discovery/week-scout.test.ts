@@ -427,6 +427,54 @@ describe('generateWeekScoutForecast', () => {
     expect(anyTime.sessionDecision.selection?.candidateId).toBe(unsetSelection.candidateId);
   });
 
+  it('checks the preferred session time against the displayed window, not the raw window', async () => {
+    const base = dependencies();
+    // One long window per beach: raw 9 AM–4 PM HST, peak 3 PM. The raw span
+    // touches the morning, but the window people see is mid-afternoon.
+    const selectBestWindows = jest.fn((options: WindowSelectorOptions) => (
+      options.forecasts
+        .filter((sourceForecast) => sourceForecast.forecast_at === '2026-08-01T00:00:00.000Z')
+        .map((sourceForecast) => {
+          const at = new Date(sourceForecast.forecast_at).getTime();
+          return {
+            start: new Date(at - 5 * 60 * 60 * 1000),
+            end: new Date(at + 2 * 60 * 60 * 1000),
+            peakTime: new Date(at + 60 * 60 * 1000),
+            tide: sourceForecast.tide_status ?? 'Unknown',
+            wind: `${sourceForecast.wind_speed} ${sourceForecast.wind_direction}`,
+            waveHeight: sourceForecast.wave_height ?? 'Unknown',
+            wavePeriod: sourceForecast.wave_period ?? 'Unknown',
+            dataSource: sourceForecast.data_source ?? 'unknown',
+            confidence: sourceForecast.confidence_score ?? 0,
+            timezone: 'Pacific/Honolulu',
+            sourceForecast,
+          };
+        })
+    ));
+    const deps = {
+      ...base,
+      selectBestWindows: selectBestWindows as unknown as WeekScoutServiceDependencies['selectBestWindows'],
+    };
+    const request = {
+      candidateBeachIds: [BEACH_A, BEACH_B],
+      localTimezone: 'Pacific/Honolulu',
+      startLocalDate: '2026-07-31',
+      dayCount: 7 as const,
+    };
+
+    const morning = await generateWeekScoutForecast('user-week-scout', { ...request, sessionTime: 'morning' }, deps);
+    const selectedId = morning.sessionDecision.selection?.candidateId;
+    const selected = morning.days.flatMap((day) => day.windows).find((window) => window.id === selectedId);
+    expect(selected).toBeDefined();
+    expect(getLocalHour(new Date(selected!.start), 'Pacific/Honolulu')).toBeLessThan(10);
+    expect(getLocalHour(new Date(selected!.displayWindowStart), 'Pacific/Honolulu')).toBeGreaterThanOrEqual(13);
+    // Falls back to the unfiltered pick and does not call it a morning pick.
+    expect(morning.sessionTimePreference).toBeNull();
+
+    const afternoon = await generateWeekScoutForecast('user-week-scout', { ...request, sessionTime: 'afternoon' }, deps);
+    expect(afternoon.sessionTimePreference).toBe('afternoon');
+  });
+
   it('retains every daily ranking while adding one supplemental canonical weekly session', async () => {
     const deps = dependencies();
     const response = await generateWeekScoutForecast(
