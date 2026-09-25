@@ -3,7 +3,7 @@
 import { DoodleWave, DoodleWind, DoodleTide } from "@/components/beach-detail/zine/atoms";
 import { getCanonicalVerdictCall } from "@/components/forecast/score-band-call";
 import { compassPointToWord, type CompassPoint } from "@/lib/utils/distance-utils";
-import { cardinalToDegrees } from "@/lib/services/forecast/forecast-transformer";
+import type { SwellPartition } from "@/lib/domains/conditions/map-forecast";
 import type { CanonicalDecisionVerdict } from "@/lib/recommendations/canonical-decision/types";
 import type { BeachSources } from "@/hooks/use-beach-detail-data";
 import { HomeHeroMedia } from "./home-hero-media";
@@ -44,8 +44,8 @@ interface HomeCallPlateProps {
   waveHeight: string;
   swellDirection: string;
   swellPeriod: number;
-  /** Height read with the swell direction; sets the field's strength, as on /map. */
-  swellHeightFt: number;
+  /** Primary, secondary and wind from one forecast row, for the swell field. */
+  swellPartition: SwellPartition | null;
   windSpeed: number;
   windDirection: string | number;
   tideHeight: number;
@@ -76,7 +76,7 @@ export function HomeCallPlate({
   waveHeight,
   swellDirection,
   swellPeriod,
-  swellHeightFt,
+  swellPartition,
   windSpeed,
   windDirection,
   tideHeight,
@@ -92,12 +92,6 @@ export function HomeCallPlate({
     ? getCanonicalVerdictCall(verdict, score, isUpcoming ? "upcoming" : "now")
     : null;
   const labelWord = call ? sentenceCase(call.label) : "—";
-  const swellDirectionDeg = cardinalToDegrees(swellDirection);
-  // Same rule as /map: no field without a direction, a period, and a height.
-  const swell =
-    swellDirectionDeg != null && swellPeriod > 0 && swellHeightFt > 0
-      ? { directionDeg: swellDirectionDeg, periodS: swellPeriod, heightFt: swellHeightFt }
-      : null;
   // The one place the page states when to go.
   const when =
     verdict === "no"
@@ -114,7 +108,7 @@ export function HomeCallPlate({
         lon={lon}
         photoUrl={photoUrl}
         sources={sources}
-        swell={swell}
+        swellPartition={swellPartition}
       >
         <div className="px-4 pb-4 sm:px-6 sm:pb-5">
           <p

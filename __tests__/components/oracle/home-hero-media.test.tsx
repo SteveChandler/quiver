@@ -2,6 +2,27 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { HomeHeroMedia } from "@/components/oracle/zine/home-hero-media";
+import { heroFieldLayers } from "@/components/oracle/zine/hero-swell-field";
+import type { SwellPartition } from "@/lib/domains/conditions/map-forecast";
+
+const PARTITION: SwellPartition = {
+  s1Dir: 250,
+  s1PeriodS: 13,
+  s1HeightFt: 4,
+  s2Dir: 190,
+  s2PeriodS: 9,
+  s2HeightFt: 2,
+  windDir: 280,
+  windMph: 8,
+};
+const PRIMARY_ONLY: SwellPartition = {
+  ...PARTITION,
+  s2Dir: null,
+  s2PeriodS: null,
+  s2HeightFt: null,
+  windDir: null,
+  windMph: null,
+};
 
 const mockGetStaticMapImageUrl = jest.fn();
 jest.mock("@/lib/map-utils", () => ({
@@ -34,7 +55,7 @@ function renderMedia(overrides: Partial<Parameters<typeof HomeHeroMedia>[0]> = {
       lat={32.7497}
       lon={-117.2556}
       photoUrl="/images/ob.jpg"
-      swell={{ directionDeg: 250, periodS: 13, heightFt: 4 }}
+      swellPartition={PARTITION}
       {...overrides}
     >
       <p>Overlay</p>
@@ -57,7 +78,7 @@ describe("HomeHeroMedia", () => {
     expect(screen.getByText("Overlay")).toBeInTheDocument();
   });
 
-  it("draws /map's swell field over its streets basemap, with a readable image", () => {
+  it("draws the combined swell field over /map's streets basemap, with a readable image", () => {
     renderMedia();
 
     const map = screen.getByAltText("Map of Ocean Beach Pier");
@@ -65,13 +86,35 @@ describe("HomeHeroMedia", () => {
     // The field reads the map's pixels to find the water.
     expect(map).toHaveAttribute("crossorigin", "anonymous");
     expect(screen.getByTestId("hero-swell-field")).toBeInTheDocument();
+    const key = screen.getByRole("list", { name: "Swell field key" });
+    expect(Array.from(key.querySelectorAll("li")).map((item) => item.textContent)).toEqual([
+      "Primary",
+      "Secondary",
+      "Wind",
+    ]);
+  });
+
+  it("keeps the key off a field with one layer", () => {
+    renderMedia({ swellPartition: PRIMARY_ONLY });
+
+    expect(screen.getByTestId("hero-swell-field")).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Swell field key" })).not.toBeInTheDocument();
   });
 
   it("shows the map alone when there is no swell to draw", () => {
-    renderMedia({ swell: null });
+    renderMedia({ swellPartition: null });
 
     expect(screen.getByAltText("Map of Ocean Beach Pier")).toBeInTheDocument();
     expect(screen.queryByTestId("hero-swell-field")).not.toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Swell field key" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the key to the swell view", async () => {
+    const user = userEvent.setup();
+    renderMedia();
+
+    await user.click(screen.getByRole("tab", { name: "Sat" }));
+    expect(screen.queryByRole("list", { name: "Swell field key" })).not.toBeInTheDocument();
   });
 
   it("switches viewpoints and remembers the choice", async () => {
@@ -113,5 +156,22 @@ describe("HomeHeroMedia", () => {
   it("hides the switcher for the recheck state", () => {
     renderMedia({ showViewpoints: false });
     expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+  });
+});
+
+describe("heroFieldLayers", () => {
+  it("draws each layer the reading has, in /map's order", () => {
+    expect(heroFieldLayers(PARTITION)).toEqual(["s1", "s2", "wind"]);
+    expect(heroFieldLayers(PRIMARY_ONLY)).toEqual(["s1"]);
+  });
+
+  it("leaves out calm wind and swell without a period", () => {
+    expect(heroFieldLayers({ ...PARTITION, windMph: 0 })).toEqual(["s1", "s2"]);
+    expect(heroFieldLayers({ ...PARTITION, s1PeriodS: 0 })).toEqual(["s2", "wind"]);
+  });
+
+  it("prefers the complete offshore tuple for primary swell, as /map does", () => {
+    const offshoreOnly = { ...PRIMARY_ONLY, s1Dir: null, swellDirOm: 260, swellHeightOmFt: 5, swellPeriodOmS: 14 };
+    expect(heroFieldLayers(offshoreOnly)).toEqual(["s1"]);
   });
 });

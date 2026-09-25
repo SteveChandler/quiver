@@ -6,7 +6,14 @@ import dynamic from "next/dynamic";
 import { getStaticMapImageUrl } from "@/lib/map-utils";
 import { getOptimizedImageUrl } from "@/lib/image-proxy";
 import type { BeachSources } from "@/hooks/use-beach-detail-data";
-import { HeroSwellField, type HeroSwell, type LoadedMapImage } from "./hero-swell-field";
+import type { SwellPartition } from "@/lib/domains/conditions/map-forecast";
+import {
+  HERO_FIELD_LAYER_LABELS,
+  HeroSwellField,
+  heroFieldLayers,
+  type LoadedMapImage,
+} from "./hero-swell-field";
+import { SWELL_FIELD_PARTICLE_COLOR_DARK_STAGE } from "@/components/map/swell-map-theme";
 
 const CamsSection = dynamic(
   () => import("@/components/beach-detail/cams-section").then((m) => m.CamsSection),
@@ -93,8 +100,8 @@ interface HomeHeroMediaProps {
   /** A real photo of this beach. Omit generic stock so the hero never pretends. */
   photoUrl: string | null;
   sources?: BeachSources | null;
-  /** Drives the swell field. Null draws the map alone. */
-  swell: HeroSwell | null;
+  /** One forecast row's primary, secondary and wind. Null draws the map alone. */
+  swellPartition: SwellPartition | null;
   /** The recheck state keeps the place on screen but has nothing to switch. */
   showViewpoints?: boolean;
   /** Overlays pinned to the bottom of the media: the name plate and the call. */
@@ -107,7 +114,7 @@ export function HomeHeroMedia({
   lon,
   photoUrl,
   sources,
-  swell,
+  swellPartition,
   showViewpoints = true,
   children,
 }: HomeHeroMediaProps) {
@@ -152,6 +159,12 @@ export function HomeHeroMedia({
     );
   }, []);
 
+  const fieldLayers = useMemo(
+    () => (swellPartition ? heroFieldLayers(swellPartition) : []),
+    [swellPartition],
+  );
+  const showSwitcher = showViewpoints && available.length > 1;
+
   const selectViewpoint = (viewpoint: HeroViewpoint) => {
     setPreferred(viewpoint);
     storeViewpoint(viewpoint);
@@ -176,7 +189,15 @@ export function HomeHeroMedia({
             readable
             onLoaded={handleStreetsImage}
           />
-          {swell && <HeroSwellField image={streetsImage} swell={swell} />}
+          {/* Native's swell hero dims the map so the field reads on it. */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0"
+            style={{ background: "rgba(37,45,107,0.35)" }}
+          />
+          {swellPartition && fieldLayers.length > 0 && (
+            <HeroSwellField image={streetsImage} partition={swellPartition} />
+          )}
         </>
       )}
       {active === "satellite" && satelliteMap && (
@@ -201,7 +222,7 @@ export function HomeHeroMedia({
         }}
       />
 
-      {showViewpoints && available.length > 1 && (
+      {showSwitcher && (
         <div
           role="tablist"
           aria-label="Hero view"
@@ -233,6 +254,41 @@ export function HomeHeroMedia({
             );
           })}
         </div>
+      )}
+
+      {active === "swell" && fieldLayers.length > 1 && (
+        <ul
+          aria-label="Swell field key"
+          className={`absolute left-3 m-0 flex list-none gap-3 px-2 py-1 sm:left-4 ${
+            showSwitcher ? "top-14 sm:top-[60px]" : "top-3 sm:top-4"
+          }`}
+          style={{ background: "rgba(13,16,32,0.72)" }}
+        >
+          {fieldLayers.map((layer) => (
+            <li
+              key={layer}
+              className="flex items-center gap-1.5"
+              style={{
+                fontFamily: "var(--font-mono), monospace",
+                fontSize: 10,
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+                fontWeight: 700,
+                color: "#F4EBD8",
+              }}
+            >
+              <span
+                aria-hidden
+                style={{
+                  width: 14,
+                  height: layer === "wind" ? 1.5 : 3,
+                  background: SWELL_FIELD_PARTICLE_COLOR_DARK_STAGE[layer],
+                }}
+              />
+              {HERO_FIELD_LAYER_LABELS[layer]}
+            </li>
+          ))}
+        </ul>
       )}
 
       {/* Mapbox's own wordmark sits under the call; keep attribution visible. */}
