@@ -58,11 +58,23 @@ import { CANDIDATE_POOL_LIMIT } from "@/lib/services/discovery/candidate-pool-bu
 
 // Build a fake supabase client that returns a configurable user_entitlements
 // row from .from("user_entitlements").select(...).eq(...).maybeSingle().
-function makeSupabaseStub(entitlementRow: Record<string, unknown> | null) {
+function makeSupabaseStub(
+  entitlementRow: Record<string, unknown> | null,
+  profileResult?: { data: Record<string, unknown> | null; error: { message: string } | null },
+) {
   // beaches.in() is consulted by the calibration-stamp block. Stub it to
   // succeed with empty rows so the handler reaches the response stage.
   return {
     from: jest.fn((table: string) => {
+      if (table === "profiles" && profileResult) {
+        return {
+          select: jest.fn(() => ({
+            eq: jest.fn(() => ({
+              maybeSingle: jest.fn(async () => profileResult),
+            })),
+          })),
+        };
+      }
       if (table === "user_entitlements") {
         return {
           select: jest.fn(() => ({
@@ -602,6 +614,53 @@ describe("/api/surf/discover entitlement resolution", () => {
     expect(mockDiscoverSurfSpots.mock.calls[0][1]).toMatchObject({
       includeBeachIds: [INCLUDED_BEACH_ID_A, INCLUDED_BEACH_ID_B],
     });
+  });
+
+  it.each([
+    [{ max_drive_minutes: 60 }, 30],
+    [{ max_drive_minutes: null }, 100],
+  ])("uses the profile drive range %p as the discovery radius", async (profileRow, expectedMiles) => {
+    const supabase = makeSupabaseStub(null, { data: profileRow, error: null });
+    const { GET } = await import("@/app/api/surf/discover/route");
+
+    await GET(makeRequest(), {
+      user: { id: "user-drive-range" } as any,
+      supabase: supabase as any,
+      params: {},
+    } as any);
+
+    expect(supabase.from).toHaveBeenCalledWith("profiles");
+    expect(mockDiscoverSurfSpots.mock.calls[0][1]).toMatchObject({ radiusMiles: expectedMiles });
+  });
+
+  it("lets an explicit request radius win over the profile drive range", async () => {
+    const supabase = makeSupabaseStub(null, { data: { max_drive_minutes: 30 }, error: null });
+    const { GET } = await import("@/app/api/surf/discover/route");
+
+    await GET(makeRequest("lat=32.7157&lon=-117.1611&radius=50"), {
+      user: { id: "user-explicit-radius" } as any,
+      supabase: supabase as any,
+      params: {},
+    } as any);
+
+    expect(supabase.from).not.toHaveBeenCalledWith("profiles");
+    expect(mockDiscoverSurfSpots.mock.calls[0][1]).toMatchObject({ radiusMiles: 50 });
+  });
+
+  it("keeps the default radius when the profile drive range cannot be read", async () => {
+    const supabase = makeSupabaseStub(null, { data: null, error: { message: "boom" } });
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { GET } = await import("@/app/api/surf/discover/route");
+
+    const response = await GET(makeRequest(), {
+      user: { id: "user-profile-error" } as any,
+      supabase: supabase as any,
+      params: {},
+    } as any);
+
+    expect(response.status).toBe(200);
+    expect(mockDiscoverSurfSpots.mock.calls[0][1].radiusMiles).toBeUndefined();
+    warn.mockRestore();
   });
 
   it("passes now discovery mode through to the discovery orchestrator", async () => {

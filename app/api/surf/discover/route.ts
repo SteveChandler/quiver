@@ -19,6 +19,7 @@ import { gateSurfDiscoveryResponse } from '@/lib/services/discovery/surf-discove
 import { sanitizeSurfDiscoveryForSerializationMajorEventHold } from '@/lib/services/discovery/major-event-hold';
 import { getProfileExperienceLevel } from '@/lib/profile/skill-level';
 import { buildCanonicalDecisionFromSurfDiscovery } from '@/lib/recommendations/canonical-decision';
+import { driveRadiusMiles } from '@/lib/profile/drive-range';
 import type {
   SurfDiscoveryEntitlement,
   SurfDiscoveryResponse,
@@ -98,6 +99,31 @@ function retryableDiscoveryResponse(error: unknown): NextResponse {
 }
 
 /**
+ * Radius from the user's saved drive range. The profile read is best-effort:
+ * on failure we return undefined so discovery keeps its 100-mile default.
+ */
+async function resolveProfileRadiusMiles(
+  supabase: AuthenticatedContext['supabase'],
+  userId: string,
+): Promise<number | undefined> {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('max_drive_minutes')
+      .eq('id', userId)
+      .maybeSingle();
+    if (error) {
+      console.warn('[surf/discover] Failed to load drive range:', error.message);
+      return undefined;
+    }
+    return driveRadiusMiles(data?.max_drive_minutes);
+  } catch (err) {
+    console.warn('[surf/discover] Error loading drive range:', err);
+    return undefined;
+  }
+}
+
+/**
  * GET /api/surf/discover
  *
  * Returns ranked surf spot recommendations based on user's GPS location.
@@ -111,7 +137,8 @@ function retryableDiscoveryResponse(error: unknown): NextResponse {
  * Query Parameters:
  * - lat (required): User's latitude for GPS discovery
  * - lon (required): User's longitude for GPS discovery
- * - radius (optional): Search radius in miles (starts at 25, expands to 100 as needed)
+ * - radius (optional): Search radius in miles. When omitted, the user's
+ *   profile drive range (max_drive_minutes) sets it; "No limit" = 100.
  * - maxResults (optional): Maximum recommendations (default: 5, max: 10)
  * - mode (optional): Discovery mode ('best-window' default, 'now' for immediate current-condition ranking)
  * - timeSlot (optional): Time slot preference ('any', 'lunch-session', 'afternoon', 'dawn-patrol', default: 'any')
@@ -176,11 +203,17 @@ async function surfDiscoveryHandler(
   //    Pro/trial (with billing-issue grace-period carve-out) and "free"
   //    otherwise. Missing row, RLS error, or query failure all fall back
   //    to free — safer than over-granting Pro on a transient DB blip.
-  const { data: entitlementRow } = await supabase
-    .from('user_entitlements')
-    .select('is_pro, is_trialing, billing_issue, expires_at')
-    .eq('user_id', user.id)
-    .maybeSingle();
+  // An explicit request radius wins over the saved drive range.
+  const [{ data: entitlementRow }, radiusMiles] = await Promise.all([
+    supabase
+      .from('user_entitlements')
+      .select('is_pro, is_trialing, billing_issue, expires_at')
+      .eq('user_id', user.id)
+      .maybeSingle(),
+    radius !== undefined
+      ? Promise.resolve(radius)
+      : resolveProfileRadiusMiles(supabase, user.id),
+  ]);
   const isPro = entitlementFromRow(entitlementRow ?? null) === 'premium';
   const entitlement: SurfDiscoveryEntitlement = {
     tier: isPro ? 'premium' : 'free',
@@ -193,7 +226,7 @@ async function surfDiscoveryHandler(
   try {
     discovery = await discoverSurfSpots(user.id, {
       userLocation,
-      radiusMiles: radius,
+      radiusMiles,
       horizonHours: mode === 'my-spots' ? 72 : horizonHours,
       maxResults,
       // Consider the full pool. `maxResults` alone controls how many spots the
