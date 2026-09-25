@@ -5,17 +5,17 @@ import { useAuth } from "@/context/auth-context";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { toForecastForScoring } from "@/lib/scoring";
 import { calculateMultipleWindows } from "@/lib/scoring/window-calculator";
-import { getConditionBoardPick } from "@/lib/scoring/board-pick";
+import { recommendBoard, type PersonalBoard } from "@/lib/scoring/personal-board";
 import { calculateRelativeContext } from "@/lib/scoring/relative-context";
 import { scoreWindowConditionDetails } from "@/lib/services/discovery/window-selector/window-scorer";
-import { normalizeBoardClass, type BoardClass } from "@/lib/domains/rideability";
+import type { BoardClass } from "@/lib/domains/rideability";
 import type { SkillLevel } from "@/lib/domains/user-preferences/skill-level";
-import { getUserBoards } from "@/actions/board-actions";
+import { getBoardPickContext } from "@/actions/board-pick-actions";
 import { extractForecastDate } from "@/lib/utils/forecast-at-adapter";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
 import type { BeachWithThresholds, ConditionCharacter, MultiWindowResult, RelativeContext } from "@/lib/scoring/types";
-import type { BoardPickResult, BoardForPick } from "@/lib/scoring/board-pick";
+import type { BoardPickResult } from "@/lib/scoring/board-pick";
 
 interface ConditionIntelligenceResult {
   windows: MultiWindowResult["windows"];
@@ -33,8 +33,9 @@ interface ConditionIntelligenceResult {
  * Given a list of forecasts and beach config, this hook:
  * 1. Converts forecasts to ForecastForScoring via toForecastForScoring()
  * 2. Calls calculateMultipleWindows() to find ranked surf windows
- * 3. Fetches user's boards (when authenticated) and calls getConditionBoardPick()
- *    against the best window's peak forecast
+ * 3. Fetches the user's board pick context (when authenticated) and calls
+ *    recommendBoard() against the best window's peak forecast — the same rule
+ *    native and discovery use, so every surface names the same board
  * 4. Groups forecasts by date, computes max score per day, then calls
  *    calculateRelativeContext() for best-of-week / trend / swell data
  * 5. Returns the best window's character + score as todayCharacter / todayScore
@@ -50,10 +51,10 @@ export function useConditionIntelligence(
 ): ConditionIntelligenceResult {
   const { user } = useAuth();
 
-  // Fetch user boards when authenticated
+  // Fetch board pick context when authenticated
   const fetchBoards = useCallback(async () => {
     if (!user) return null;
-    const result = await getUserBoards(user.id);
+    const result = await getBoardPickContext();
     if (result.success && result.data) {
       return result.data;
     }
@@ -64,26 +65,14 @@ export function useConditionIntelligence(
     skip: !user,
   });
 
-  // Convert raw boards to the BoardForPick shape expected by getConditionBoardPick
-  const boards: BoardForPick[] = useMemo(() => {
-    if (!boardsData) return [];
-    return boardsData.map((b) => ({
-      id: b.id,
-      name: b.name,
-      board_type: b.board_type,
-      volume: b.volume ?? null,
-    }));
-  }, [boardsData]);
+  const boards: PersonalBoard[] = useMemo(
+    () => boardsData?.boardsForPicks ?? [],
+    [boardsData],
+  );
 
   const boardClasses: BoardClass[] = useMemo(
-    () => Array.from(
-      new Set(
-        boards
-          .map((board) => normalizeBoardClass(board.board_type))
-          .filter((boardClass): boardClass is BoardClass => boardClass !== null),
-      ),
-    ),
-    [boards],
+    () => boardsData?.boardClasses ?? [],
+    [boardsData],
   );
 
   // Core scoring computation — includes the same board context used by the pick.
@@ -161,8 +150,8 @@ export function useConditionIntelligence(
     };
   }, [forecasts, beach, beachTimezone, skillLevel, boardClasses]);
 
-  // Board pick computation — uses the winning class from the scored peak.
-  const boardPick = useMemo(() => {
+  // Board pick computation — personal pick at the best window's peak.
+  const boardPick = useMemo((): BoardPickResult | null => {
     if (!scoringResult || boards.length === 0 || !beach) return null;
 
     const { bestWindow } = scoringResult.multiWindowResult;
@@ -174,10 +163,6 @@ export function useConditionIntelligence(
 
     // Use the same timezone-resolved timestamps as the window calculator.
     let closestForecast = forecasts[0];
-    let closestScoringForecast = toForecastForScoring(
-      closestForecast,
-      beachTimezone ?? undefined,
-    );
     let minDiff = Infinity;
     for (const f of forecasts) {
       const scoringForecast = toForecastForScoring(f, beachTimezone ?? undefined);
@@ -187,22 +172,18 @@ export function useConditionIntelligence(
       if (diff < minDiff) {
         minDiff = diff;
         closestForecast = f;
-        closestScoringForecast = scoringForecast;
       }
     }
 
-    const winningBoardClass = scoreWindowConditionDetails(
-      closestForecast,
-      beach,
-      skillLevel,
-      null,
-      boardClasses,
-    ).boardClass;
-    return getConditionBoardPick(closestScoringForecast, boards, beach, {
-      kind: 'scored',
-      boardClass: winningBoardClass,
-    });
-  }, [scoringResult, boards, beach, forecasts, beachTimezone, skillLevel, boardClasses]);
+    const recommended = recommendBoard(boards, closestForecast, beach as unknown as Beach, skillLevel);
+    if (!recommended) return null;
+    return {
+      boardId: recommended.id,
+      boardName: recommended.name,
+      boardType: recommended.type,
+      reason: recommended.reason,
+    };
+  }, [scoringResult, boards, beach, forecasts, beachTimezone, skillLevel]);
 
   const loading = !!user && boardsLoading;
 

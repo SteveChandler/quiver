@@ -2,9 +2,9 @@
  * Tests for useConditionIntelligence hook.
  *
  * The hook orchestrates the scoring pipeline for the beach detail page:
- *   - Fetches user boards (when authenticated)
+ *   - Fetches the board pick context (when authenticated)
  *   - Calls calculateMultipleWindows() with forecast data
- *   - Calls getConditionBoardPick() with best window + user boards
+ *   - Calls recommendBoard() with the best window peak forecast + user boards
  *   - Calls calculateRelativeContext() from daily scores
  *   - Returns { windows, boardPick, relativeContext, todayScore, character, loading }
  */
@@ -12,13 +12,13 @@
 import { renderHook, waitFor } from "@testing-library/react";
 import { useConditionIntelligence } from "@/hooks/use-condition-intelligence";
 import { useAuth } from "@/context/auth-context";
-import { getUserBoards } from "@/actions/board-actions";
 import { calculateMultipleWindows } from "@/lib/scoring/window-calculator";
-import { getConditionBoardPick } from "@/lib/scoring/board-pick";
+import { recommendBoard, type RecommendedBoard } from "@/lib/scoring/personal-board";
 import { calculateRelativeContext } from "@/lib/scoring/relative-context";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import type { BeachWithThresholds, ForecastForScoring, MultiWindowResult, RelativeContext, ConditionCharacter } from "@/lib/scoring/types";
 import type { BoardForPick, BoardPickResult } from "@/lib/scoring/board-pick";
+import type { BoardClass } from "@/lib/domains/rideability";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
 // ---------------------------------------------------------------------------
@@ -29,16 +29,16 @@ jest.mock("@/context/auth-context", () => ({
   useAuth: jest.fn(),
 }));
 
-jest.mock("@/actions/board-actions", () => ({
-  getUserBoards: jest.fn(),
+jest.mock("@/actions/board-pick-actions", () => ({
+  getBoardPickContext: jest.fn(),
 }));
 
 jest.mock("@/lib/scoring/window-calculator", () => ({
   calculateMultipleWindows: jest.fn(),
 }));
 
-jest.mock("@/lib/scoring/board-pick", () => ({
-  getConditionBoardPick: jest.fn(),
+jest.mock("@/lib/scoring/personal-board", () => ({
+  recommendBoard: jest.fn(),
 }));
 
 jest.mock("@/lib/scoring/relative-context", () => ({
@@ -54,9 +54,8 @@ jest.mock("@/hooks/use-data-fetcher", () => ({
 // ---------------------------------------------------------------------------
 
 const mockUseAuth = useAuth as jest.Mock;
-const mockGetUserBoards = getUserBoards as jest.Mock;
 const mockCalculateMultipleWindows = calculateMultipleWindows as jest.Mock;
-const mockGetConditionBoardPick = getConditionBoardPick as jest.Mock;
+const mockRecommendBoard = recommendBoard as jest.Mock;
 const mockCalculateRelativeContext = calculateRelativeContext as jest.Mock;
 const mockUseDataFetcher = useDataFetcher as jest.Mock;
 
@@ -139,11 +138,20 @@ const mockWindowResult: MultiWindowResult = {
   },
 };
 
+const mockRecommendedBoard: RecommendedBoard = {
+  id: "board-2",
+  name: "My Fish",
+  type: "fish",
+  boardClass: "fish",
+  reason: "You ride My Fish on 3-4 ft days like this (4 sessions)",
+  alternates: [],
+};
+
 const mockBoardPick: BoardPickResult = {
-  boardId: "board-1",
-  boardName: "My Shortboard",
-  boardType: "shortboard",
-  reason: "My Shortboard conditions — enjoy the fun waves",
+  boardId: "board-2",
+  boardName: "My Fish",
+  boardType: "fish",
+  reason: "You ride My Fish on 3-4 ft days like this (4 sessions)",
 };
 
 const mockRelativeContext: RelativeContext = {
@@ -168,7 +176,10 @@ function mockDataFetcherWithBoards(
   error: string | null = null
 ) {
   mockUseDataFetcher.mockReturnValue({
-    data: boards,
+    data: {
+      boardClasses: boards.map((board) => board.board_type as BoardClass),
+      boardsForPicks: boards,
+    },
     loading,
     error,
     refetch: jest.fn(),
@@ -202,8 +213,8 @@ describe("useConditionIntelligence", () => {
     // Default: window calculator returns mock windows
     mockCalculateMultipleWindows.mockReturnValue(mockWindowResult);
 
-    // Default: board pick returns a result
-    mockGetConditionBoardPick.mockReturnValue(mockBoardPick);
+    // Default: the personal board rule returns a pick
+    mockRecommendBoard.mockReturnValue(mockRecommendedBoard);
 
     // Default: relative context computation
     mockCalculateRelativeContext.mockReturnValue(mockRelativeContext);
@@ -268,16 +279,13 @@ describe("useConditionIntelligence", () => {
       useConditionIntelligence(mockForecasts, mockBeach, mockBeachTimezone)
     );
 
-    expect(mockGetConditionBoardPick).toHaveBeenCalledTimes(1);
-    const [boardForecast] = mockGetConditionBoardPick.mock.calls[0];
-    expect(boardForecast.forecastTime).toEqual(
-      new Date("2026-03-25T15:00:00Z"),
-    );
-    expect(mockGetConditionBoardPick).toHaveBeenCalledWith(
-      expect.anything(),
+    // The 08:00 local row (15:00Z) is the best window peak.
+    expect(mockRecommendBoard).toHaveBeenCalledTimes(1);
+    expect(mockRecommendBoard).toHaveBeenCalledWith(
       mockBoards,
+      mockForecasts[1],
       mockBeach,
-      { kind: "scored", boardClass: null },
+      undefined,
     );
     expect(result.current.todayScore).toBe(88);
     expect(result.current.bestWindow?.character).toEqual({
@@ -307,7 +315,7 @@ describe("useConditionIntelligence", () => {
       useConditionIntelligence(mockForecasts, mockBeach, mockBeachTimezone)
     );
 
-    expect(mockGetConditionBoardPick).not.toHaveBeenCalled();
+    expect(mockRecommendBoard).not.toHaveBeenCalled();
     expect(result.current.boardPick).toBeNull();
   });
 
@@ -317,7 +325,16 @@ describe("useConditionIntelligence", () => {
 
   it("returns null boardPick when user has no boards", () => {
     mockDataFetcherWithBoards([]);
-    mockGetConditionBoardPick.mockReturnValue(null);
+
+    const { result } = renderHook(() =>
+      useConditionIntelligence(mockForecasts, mockBeach, mockBeachTimezone)
+    );
+
+    expect(result.current.boardPick).toBeNull();
+  });
+
+  it("returns null boardPick when no board fits the peak conditions", () => {
+    mockRecommendBoard.mockReturnValue(null);
 
     const { result } = renderHook(() =>
       useConditionIntelligence(mockForecasts, mockBeach, mockBeachTimezone)
