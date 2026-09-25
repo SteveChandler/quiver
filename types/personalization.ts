@@ -16,6 +16,7 @@ import type { RecommendationsV2Response } from "@/lib/services/discovery/recomme
 import type { RecommendationAvailability } from "@/lib/recommendations/major-event-hold/types";
 import type { CanonicalSessionDecision } from "@/lib/recommendations/canonical-decision/types";
 import type { ScoringDecisionEffect } from "@/lib/domains/scoring/types";
+import type { SwellPartition } from "@/lib/domains/conditions/map-forecast";
 
 // ============================================================================
 // Time Slot Filter Types
@@ -370,6 +371,8 @@ export interface SurfDiscoveryRecommendation {
     tideStatus?: string | null;
     swellPeriod?: string | null;
     swellDirection?: string | null;
+    /** Primary, secondary and wind from the same row, as /map reads them. Drives the home hero's swell field. */
+    swellPartition?: SwellPartition | null;
   }>;
   /** Distance in miles (GPS phase) */
   distanceMiles?: number;

@@ -130,6 +130,7 @@ import { boardStyleFit } from './board-style-fit';
 import { resolveForecastAlignment } from './forecast-alignment';
 import { withDisplayWindow } from './window-authority';
 import { getQualityConfig } from '@/lib/utils/score-color-utils';
+import { rowToSwellPartition } from '@/lib/domains/conditions/map-forecast';
 
 const log = createContextLogger('SurfDiscoveryOrchestrator');
 
@@ -2469,6 +2470,7 @@ async function discoverSurfSpotsInner(
         // legacy fallback for rows that predate the dominant-write path.
         swellPeriod: midForecast.wave_period ?? midForecast.swell_1_period ?? null,
         swellDirection: midForecast.wave_direction ?? midForecast.swell_1_direction ?? null,
+        swellPartition: rowToSwellPartition(midForecast),
       };
     }
 

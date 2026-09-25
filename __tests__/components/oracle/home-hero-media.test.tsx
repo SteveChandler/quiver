@@ -2,6 +2,20 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { HomeHeroMedia } from "@/components/oracle/zine/home-hero-media";
+import { heroPrimarySwellFlow } from "@/components/oracle/zine/hero-swell-field";
+import type { SwellPartition } from "@/lib/domains/conditions/map-forecast";
+
+const PARTITION: SwellPartition = {
+  s1Dir: 250,
+  s1PeriodS: 13,
+  s1HeightFt: 4,
+  s2Dir: 190,
+  s2PeriodS: 9,
+  s2HeightFt: 2,
+  windDir: 280,
+  windMph: 8,
+};
+const NO_PRIMARY: SwellPartition = { ...PARTITION, s1Dir: null, s1PeriodS: null, s1HeightFt: null };
 
 const mockGetStaticMapImageUrl = jest.fn();
 jest.mock("@/lib/map-utils", () => ({
@@ -34,7 +48,7 @@ function renderMedia(overrides: Partial<Parameters<typeof HomeHeroMedia>[0]> = {
       lat={32.7497}
       lon={-117.2556}
       photoUrl="/images/ob.jpg"
-      swell={{ directionDeg: 250, periodS: 13, heightFt: 4 }}
+      swellPartition={PARTITION}
       {...overrides}
     >
       <p>Overlay</p>
@@ -57,7 +71,7 @@ describe("HomeHeroMedia", () => {
     expect(screen.getByText("Overlay")).toBeInTheDocument();
   });
 
-  it("draws /map's swell field over its streets basemap, with a readable image", () => {
+  it("draws the primary swell field over /map's streets basemap, with a readable image", () => {
     renderMedia();
 
     const map = screen.getByAltText("Map of Ocean Beach Pier");
@@ -67,8 +81,15 @@ describe("HomeHeroMedia", () => {
     expect(screen.getByTestId("hero-swell-field")).toBeInTheDocument();
   });
 
+  it("draws nothing from secondary swell or wind when there is no primary swell", () => {
+    renderMedia({ swellPartition: NO_PRIMARY });
+
+    expect(screen.getByAltText("Map of Ocean Beach Pier")).toBeInTheDocument();
+    expect(screen.queryByTestId("hero-swell-field")).not.toBeInTheDocument();
+  });
+
   it("shows the map alone when there is no swell to draw", () => {
-    renderMedia({ swell: null });
+    renderMedia({ swellPartition: null });
 
     expect(screen.getByAltText("Map of Ocean Beach Pier")).toBeInTheDocument();
     expect(screen.queryByTestId("hero-swell-field")).not.toBeInTheDocument();
@@ -113,5 +134,26 @@ describe("HomeHeroMedia", () => {
   it("hides the switcher for the recheck state", () => {
     renderMedia({ showViewpoints: false });
     expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+  });
+});
+
+describe("heroPrimarySwellFlow", () => {
+  it("reads the primary swell: travelling away from where it comes from", () => {
+    // From the west-southwest (250°), so heading east-northeast.
+    const flow = heroPrimarySwellFlow(PARTITION);
+    expect(flow?.vx).toBeGreaterThan(0.9);
+    expect(flow?.vy).toBeLessThan(0);
+    expect(flow?.speed).toBeGreaterThan(0);
+  });
+
+  it("is null without a complete primary swell", () => {
+    expect(heroPrimarySwellFlow(NO_PRIMARY)).toBeNull();
+    expect(heroPrimarySwellFlow({ ...PARTITION, s1PeriodS: 0 })).toBeNull();
+  });
+
+  it("prefers the complete offshore tuple, as /map does", () => {
+    const offshore = { ...NO_PRIMARY, swellDirOm: 180, swellHeightOmFt: 5, swellPeriodOmS: 14 };
+    // From the south, so heading north (screen up).
+    expect(heroPrimarySwellFlow(offshore)?.vy).toBeCloseTo(-1);
   });
 });

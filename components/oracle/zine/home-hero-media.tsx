@@ -6,7 +6,8 @@ import dynamic from "next/dynamic";
 import { getStaticMapImageUrl } from "@/lib/map-utils";
 import { getOptimizedImageUrl } from "@/lib/image-proxy";
 import type { BeachSources } from "@/hooks/use-beach-detail-data";
-import { HeroSwellField, type HeroSwell, type LoadedMapImage } from "./hero-swell-field";
+import type { SwellPartition } from "@/lib/domains/conditions/map-forecast";
+import { HeroSwellField, heroPrimarySwellFlow, type LoadedMapImage } from "./hero-swell-field";
 
 const CamsSection = dynamic(
   () => import("@/components/beach-detail/cams-section").then((m) => m.CamsSection),
@@ -93,8 +94,8 @@ interface HomeHeroMediaProps {
   /** A real photo of this beach. Omit generic stock so the hero never pretends. */
   photoUrl: string | null;
   sources?: BeachSources | null;
-  /** Drives the swell field. Null draws the map alone. */
-  swell: HeroSwell | null;
+  /** One forecast row's swell reading; the field draws its primary swell. Null draws the map alone. */
+  swellPartition: SwellPartition | null;
   /** The recheck state keeps the place on screen but has nothing to switch. */
   showViewpoints?: boolean;
   /** Overlays pinned to the bottom of the media: the name plate and the call. */
@@ -107,7 +108,7 @@ export function HomeHeroMedia({
   lon,
   photoUrl,
   sources,
-  swell,
+  swellPartition,
   showViewpoints = true,
   children,
 }: HomeHeroMediaProps) {
@@ -152,6 +153,8 @@ export function HomeHeroMedia({
     );
   }, []);
 
+  const drawsSwell = swellPartition != null && heroPrimarySwellFlow(swellPartition) != null;
+
   const selectViewpoint = (viewpoint: HeroViewpoint) => {
     setPreferred(viewpoint);
     storeViewpoint(viewpoint);
@@ -176,7 +179,15 @@ export function HomeHeroMedia({
             readable
             onLoaded={handleStreetsImage}
           />
-          {swell && <HeroSwellField image={streetsImage} swell={swell} />}
+          {/* Native's swell hero dims the map so the field reads on it. */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0"
+            style={{ background: "rgba(37,45,107,0.35)" }}
+          />
+          {swellPartition && drawsSwell && (
+            <HeroSwellField image={streetsImage} partition={swellPartition} />
+          )}
         </>
       )}
       {active === "satellite" && satelliteMap && (

@@ -31,9 +31,13 @@ Everything renders inside `HomeZineShell`: cream paper on the Deep Twilight stag
 `zine/home-call-plate.tsx` wraps `zine/home-hero-media.tsx`.
 
 - **Viewpoints:** Swell, Sat, Photo and Cam, in native's order, with native's labels and native's default (swell); see `quiver-native/src/lib/hero-viewpoints.ts`.
-  - **Swell:** /map's swell field over /map's basemap (Mapbox streets-v11), as native's hero does. `zine/hero-swell-field.tsx` draws the primary swell as crest dashes across the direction of travel, with /map's colour, spacing, size, speed and fades (`components/map/swell-field/particle-style.ts`). It clips them to the water it reads from the map image's pixels.
-    - **Inputs:** direction and period are the condition strip's. Height comes from the same row as the direction and sets the strength.
-    - **No field:** without all three values, the map shows alone.
+  - **Swell:** native's home hero field: the primary swell over /map's basemap (Mapbox streets-v11), dimmed 35% with Deep Twilight. `zine/hero-swell-field.tsx` draws it as cream crest dashes across the direction of travel, clipped to the water it reads from the map image's pixels.
+    - **Look:** spacing, size, speed and fades are /map's (`components/map/swell-field/particle-style.ts`); the colour and longer crests are its dark stage, as native draws them.
+    - **Primary only:** secondary swell and wind are not drawn, matching native's home hero (`allowedDataLayerIds: ['s1']` in quiver-native `src/screens/home.tsx`).
+    - **Inputs:** one forecast row, read exactly as /map reads it (`rowToSwellPartition`, then `partitionToPoint` for `s1`, which prefers the complete offshore swell over swell 1).
+      - With a current slot, that's the slot's `swellPartition` from `/api/surf/discover`, the same slot the condition strip reads. The field never falls back to another hour's row.
+      - With no slot, it's the recommendation's own forecast, which is also the strip's fallback.
+    - **No field:** without a primary direction, period and height, the map shows alone.
     - **Reduced motion:** one still frame.
     - **Off screen:** the animation pauses.
   - **Sat:** a Mapbox satellite-streets tile.

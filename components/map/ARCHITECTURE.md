@@ -54,10 +54,10 @@ Hovering a beach dot on desktop, or tapping it on touch devices, opens `componen
 
 The WebGL swell field lives under `components/map/swell-field/`. `swell-particle-layer.ts` draws swell components as perpendicular crest dash lines over the water. The wind layer uses sparse, thin directional lines with fading alpha so it reads Windy-style without a dot head.
 
-The signed-in home hero draws the same primary-swell field on a 2D canvas (`components/oracle/zine/hero-swell-field.tsx`). It shares:
+The signed-in home hero draws the primary-swell field in the dark-stage palette on a 2D canvas (`components/oracle/zine/hero-swell-field.tsx`), as native's home hero does. It shares:
 
-- **The look:** `particle-style.ts` (counts, spacing, dash size, speed, fades) and `SWELL_FIELD_PARTICLE_COLOR`.
-- **The flow:** `flowForPoint` in `field-sampler.ts`, what a field cell reads beside one beach.
+- **The look:** `particle-style.ts` (counts, spacing, dash size, speed, fades), plus `SWELL_FIELD_PARTICLE_COLOR_DARK_STAGE` and `SWELL_FIELD_DARK_STAGE_DASH_LENGTH_SCALE`.
+- **The flow:** `rowToSwellPartition` and `partitionToPoint`, then `flowForPoint` in `field-sampler.ts`, what a field cell reads beside one beach.
 
 It finds water from the static streets-v11 image's pixels (`waterMaskFromPixels` in `water-mask.ts`, a port of native's), since it has no vector water polygons. Change the look in `particle-style.ts` so both surfaces move together.
 

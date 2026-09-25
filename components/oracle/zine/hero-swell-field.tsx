@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
-import { flowForPoint } from "@/components/map/swell-field/field-sampler";
+import { flowForPoint, partitionToPoint } from "@/components/map/swell-field/field-sampler";
 import {
   BIRTH_FADE_PORTION,
   DASH_FRACTION,
@@ -20,14 +20,11 @@ import {
   resolveParticleCount,
 } from "@/components/map/swell-field/particle-style";
 import { waterMaskFromPixels } from "@/components/map/swell-field/water-mask";
-import { SWELL_FIELD_PARTICLE_COLOR } from "@/components/map/swell-map-theme";
-
-export interface HeroSwell {
-  /** Where the swell arrives from, in degrees. */
-  directionDeg: number;
-  periodS: number;
-  heightFt: number;
-}
+import {
+  SWELL_FIELD_DARK_STAGE_DASH_LENGTH_SCALE,
+  SWELL_FIELD_PARTICLE_COLOR_DARK_STAGE,
+} from "@/components/map/swell-map-theme";
+import type { SwellPartition } from "@/lib/domains/conditions/map-forecast";
 
 /** A loaded map image. `src` changes when `<picture>` swaps sources at a breakpoint. */
 export interface LoadedMapImage {
@@ -40,22 +37,42 @@ const MASK_CELL_PX = 4;
 const GOLDEN_RATIO_FRACTION = 0.6180339887498949;
 
 /**
- * /map's primary swell layer (components/map/swell-field/swell-particle-layer.ts)
- * on a 2D canvas over the hero's streets map: crest dashes across the travel
- * direction, spaced on a jittered grid, clipped to the water in the map image.
- * The hero shows one beach, so the field carries that beach's reading, which is
- * what /map shows right beside it.
+ * The primary swell this reading draws, as /map picks it (the complete
+ * offshore tuple, else swell 1), or null when it has nothing to draw.
  */
-export function HeroSwellField({ image, swell }: { image: LoadedMapImage | null; swell: HeroSwell }) {
+export function heroPrimarySwellFlow(partition: SwellPartition): ReturnType<typeof flowForPoint> | null {
+  const point = partitionToPoint(0, 0, partition, "s1");
+  if (!point) return null;
+  const flow = flowForPoint(point);
+  return flow.speed > 0 ? flow : null;
+}
+
+/**
+ * Native's home hero field on a 2D canvas over the hero's streets map: the
+ * primary swell as crest dashes across its direction of travel, clipped to
+ * the water in the map image. Spacing, size, speed and fades are /map's
+ * (components/map/swell-field/particle-style.ts); the colour and longer
+ * crests are its dark stage, as native draws them. The hero shows one beach,
+ * so the field carries that beach's reading everywhere, which is what /map
+ * shows right beside it.
+ */
+export function HeroSwellField({
+  image,
+  partition,
+}: {
+  image: LoadedMapImage | null;
+  partition: SwellPartition;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { directionDeg, periodS, heightFt } = swell;
+  // A fresh object with the same reading must not reseed the field.
+  const partitionKey = JSON.stringify(partition);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     const context = canvas?.getContext("2d");
     if (!canvas || !context || !image) return;
-    const flow = flowForPoint({ dir: directionDeg, periodS, heightFt });
-    if (flow.speed <= 0) return;
+    const flow = heroPrimarySwellFlow(JSON.parse(partitionKey) as SwellPartition);
+    if (!flow) return;
 
     const pixels = readPixels(image.element);
     // Without the map's pixels there's no coastline, and crests over land read wrong.
@@ -63,6 +80,7 @@ export function HeroSwellField({ image, swell }: { image: LoadedMapImage | null;
 
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const strength = Math.min(1, Math.max(0, flow.alpha));
+    const baseAlpha = Math.min(1, 0.3 + strength * 0.7) * (reduceMotion ? 0.95 : 1);
     const count = resolveParticleCount(window.innerWidth);
     const px = new Float64Array(count);
     const py = new Float64Array(count);
@@ -123,15 +141,14 @@ export function HeroSwellField({ image, swell }: { image: LoadedMapImage | null;
       const cellWidth = width / cols;
       const cellHeight = height / rows;
       const step = width * STEP_FRACTION * flow.speed * deltaFrames;
-      const halfLength =
-        width * DASH_FRACTION * PARTICLE_DASH_LENGTH_SCALE.s1 * (0.45 + strength) * 0.5;
+      const halfLength = width * DASH_FRACTION * PARTICLE_DASH_LENGTH_SCALE.s1
+        * SWELL_FIELD_DARK_STAGE_DASH_LENGTH_SCALE * (0.45 + strength) * 0.5;
       // The crest runs across the direction of travel.
       const crestX = -flow.vy * halfLength;
       const crestY = flow.vx * halfLength;
-      const baseAlpha = Math.min(1, 0.3 + strength * 0.7) * (reduceMotion ? 0.95 : 1);
       const densityFloor = 0.55 + strength * 0.45;
 
-      context.strokeStyle = SWELL_FIELD_PARTICLE_COLOR.s1;
+      context.strokeStyle = SWELL_FIELD_PARTICLE_COLOR_DARK_STAGE.s1;
       context.lineCap = "butt";
       // /map sets crest weight in device pixels.
       context.lineWidth = (DASH_WIDTH_PX_BASE + strength * DASH_WIDTH_PX_GAIN) / ratio;
@@ -206,7 +223,7 @@ export function HeroSwellField({ image, swell }: { image: LoadedMapImage | null;
       resizeObserver.disconnect();
       intersectionObserver.disconnect();
     };
-  }, [image, directionDeg, periodS, heightFt]);
+  }, [image, partitionKey]);
 
   return (
     <canvas
