@@ -721,6 +721,9 @@ async function getLocationRoutes(
           filteredCount++;
           continue;
         }
+        // The state hub is indexable whenever the state has a city with
+        // valid beaches, even if no city page there passes the editorial gate.
+        usaStates.add(stateSlug);
         const canonicalPath = `/${stateSlug}/${citySlug}`;
         if (
           !isCityRouteIndexable(
@@ -736,7 +739,6 @@ async function getLocationRoutes(
         const locationUrl = `${baseUrl}${canonicalPath}`;
         if (emittedUrls.has(locationUrl)) continue;
         emittedUrls.add(locationUrl);
-        usaStates.add(stateSlug);
         locationRoutes.push({
           url: locationUrl,
           lastModified: latestSitemapDate(
