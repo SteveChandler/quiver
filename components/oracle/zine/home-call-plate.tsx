@@ -44,6 +44,8 @@ interface HomeCallPlateProps {
   waveHeight: string;
   swellDirection: string;
   swellPeriod: number;
+  /** Height read with the swell direction; sets the field's strength, as on /map. */
+  swellHeightFt: number;
   windSpeed: number;
   windDirection: string | number;
   tideHeight: number;
@@ -74,6 +76,7 @@ export function HomeCallPlate({
   waveHeight,
   swellDirection,
   swellPeriod,
+  swellHeightFt,
   windSpeed,
   windDirection,
   tideHeight,
@@ -89,6 +92,12 @@ export function HomeCallPlate({
     ? getCanonicalVerdictCall(verdict, score, isUpcoming ? "upcoming" : "now")
     : null;
   const labelWord = call ? sentenceCase(call.label) : "—";
+  const swellDirectionDeg = cardinalToDegrees(swellDirection);
+  // Same rule as /map: no field without a direction, a period, and a height.
+  const swell =
+    swellDirectionDeg != null && swellPeriod > 0 && swellHeightFt > 0
+      ? { directionDeg: swellDirectionDeg, periodS: swellPeriod, heightFt: swellHeightFt }
+      : null;
   // The one place the page states when to go.
   const when =
     verdict === "no"
@@ -105,8 +114,7 @@ export function HomeCallPlate({
         lon={lon}
         photoUrl={photoUrl}
         sources={sources}
-        swellDirectionDeg={cardinalToDegrees(swellDirection)}
-        swellPeriod={swellPeriod}
+        swell={swell}
       >
         <div className="px-4 pb-4 sm:px-6 sm:pb-5">
           <p

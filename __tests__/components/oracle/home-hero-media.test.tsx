@@ -14,7 +14,7 @@ jest.mock("@/components/beach-detail/cams-section", () => ({
   ),
 }));
 
-// jsdom has no canvas 2d context — stub it so the swell lines no-op.
+// jsdom has no canvas 2d context — stub it so the swell field no-ops.
 beforeAll(() => {
   HTMLCanvasElement.prototype.getContext = () => null;
 });
@@ -34,8 +34,7 @@ function renderMedia(overrides: Partial<Parameters<typeof HomeHeroMedia>[0]> = {
       lat={32.7497}
       lon={-117.2556}
       photoUrl="/images/ob.jpg"
-      swellDirectionDeg={250}
-      swellPeriod={13}
+      swell={{ directionDeg: 250, periodS: 13, heightFt: 4 }}
       {...overrides}
     >
       <p>Overlay</p>
@@ -56,6 +55,23 @@ describe("HomeHeroMedia", () => {
     expect(screen.getByRole("tab", { name: "Swell" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByAltText("Map of Ocean Beach Pier")).toBeInTheDocument();
     expect(screen.getByText("Overlay")).toBeInTheDocument();
+  });
+
+  it("draws /map's swell field over its streets basemap, with a readable image", () => {
+    renderMedia();
+
+    const map = screen.getByAltText("Map of Ocean Beach Pier");
+    expect(map).toHaveAttribute("src", expect.stringContaining("mapbox/streets-v11"));
+    // The field reads the map's pixels to find the water.
+    expect(map).toHaveAttribute("crossorigin", "anonymous");
+    expect(screen.getByTestId("hero-swell-field")).toBeInTheDocument();
+  });
+
+  it("shows the map alone when there is no swell to draw", () => {
+    renderMedia({ swell: null });
+
+    expect(screen.getByAltText("Map of Ocean Beach Pier")).toBeInTheDocument();
+    expect(screen.queryByTestId("hero-swell-field")).not.toBeInTheDocument();
   });
 
   it("switches viewpoints and remembers the choice", async () => {
