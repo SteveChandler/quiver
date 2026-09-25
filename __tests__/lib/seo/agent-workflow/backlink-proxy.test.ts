@@ -133,6 +133,28 @@ describe("SEO workflow backlink proxy", () => {
     ]);
   });
 
+  it("reads the linking domain from a raw Search Console Top linking sites export", () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), "quiver-backlinks-"));
+    const csvPath = path.join(directory, "GSC-LINKS-2026-09-24.csv");
+    fs.writeFileSync(csvPath, [
+      "Site,Linking pages,Target pages",
+      "reddit.com,136,1",
+      "swimy.org,2,1",
+    ].join("\n"));
+
+    const [imported] = discoverManualBacklinkExports(
+      discoverManualBacklinkExportFiles([directory]),
+    );
+
+    expect(imported).toMatchObject({
+      source: "google-search-console-links",
+      capturedAt: "2026-09-24",
+      rows: 2,
+      uniqueReferringDomains: 2,
+      sampleReferringDomains: ["reddit.com", "swimy.org"],
+    });
+  });
+
   it("ignores audit-tool output that merely mentions a backlink vendor", () => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), "quiver-backlinks-"));
     const exportPath = path.join(directory, "AHREFS-WEBMASTER-TOOLS.csv");
