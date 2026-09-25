@@ -45,8 +45,9 @@ export async function evaluateSwellWatchShadow(
   const candidates: Array<Awaited<ReturnType<typeof loadMatchedSwellWatchHistory>> & {
     beachId: string; projectedImpact: number;
   }> = [];
-  for (const [index, run] of cohort.runs.entries()) {
-    const scope = input.scopes[index];
+  for (const run of cohort.runs) {
+    const scope = input.scopes.find((item) => item.sourcePointId === run.source.sourcePointId);
+    if (!scope) throw new Error("Ingested feed is absent from the study cohort");
     for (const event of run.events) {
       const matched = await loadMatchedSwellWatchHistory({
         regionKey: scope.regionKey.trim(), beachId: scope.sourcePointId,
