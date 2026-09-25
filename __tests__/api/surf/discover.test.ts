@@ -1022,6 +1022,65 @@ describe("/api/surf/discover entitlement resolution", () => {
     });
   });
 
+  it("reports per-stage Server-Timing without changing the body", async () => {
+    mockDiscoverSurfSpots.mockImplementation(async (_userId, options) => {
+      options.onStageTiming?.("candidates", 12);
+      options.onStageTiming?.("forecasts", 34);
+      return makeDiscoveryResponse();
+    });
+    const response = await callDiscoverRoute(null);
+    const serverTiming = response.headers.get("Server-Timing") ?? "";
+
+    expect(response.status).toBe(200);
+    for (const stage of [
+      "entitlement;dur=",
+      "discover-candidates;dur=12",
+      "discover-forecasts;dur=34",
+      "discover;dur=",
+      "holds;dur=",
+      "total;dur=",
+    ]) {
+      expect(serverTiming).toContain(stage);
+    }
+    const body = await response.json();
+    expect(body.data).not.toHaveProperty("timings");
+  });
+
+  it("reads calibration from the beach row discovery already loaded", async () => {
+    const discovery = makeDiscoveryResponse();
+    (discovery.recommendations[0].beach as Record<string, unknown>).shoaling_factors = {
+      version: 1,
+    };
+    (discovery.includedRecommendations[0].beach as Record<string, unknown>).shoaling_factors =
+      null;
+    mockDiscoverSurfSpots.mockResolvedValue(discovery);
+    const supabase = makeSupabaseStub(null);
+    const { GET } = await import("@/app/api/surf/discover/route");
+    const response = await GET(makeRequest(), {
+      user: { id: "user-contract" } as any,
+      supabase: supabase as any,
+      params: {},
+    } as any);
+
+    expect(response.status).toBe(200);
+    expect(supabase.from).not.toHaveBeenCalledWith("beaches");
+    expect(mockSanitizeSerializationBoundary).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recommendations: [
+          expect.objectContaining({
+            forecast: expect.objectContaining({ isCalibrated: true }),
+          }),
+        ],
+        includedRecommendations: [
+          expect.objectContaining({
+            forecast: expect.objectContaining({ isCalibrated: false }),
+          }),
+        ],
+      }),
+      expect.anything(),
+    );
+  });
+
   it("never returns 304 or ETag and sends the exact private no-store policy", async () => {
     mockDiscoverSurfSpots.mockResolvedValue(makeDiscoveryResponse());
     const supabase = makeSupabaseStub(null);

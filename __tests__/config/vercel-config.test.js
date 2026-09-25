@@ -126,6 +126,19 @@ describe("vercel.json", () => {
     );
   });
 
+  it("colocates the discovery routes with the Northern California database", () => {
+    // Each makes a chain of sequential database reads; from the default
+    // East Coast region every one of them pays a cross-country round trip.
+    const configPath = path.join(process.cwd(), "vercel.json");
+    const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+    for (const route of [
+      "app/api/surf/discover/route.ts",
+      "app/api/surf/week-scout/route.ts",
+    ]) {
+      expect(config.functions[route]?.regions).toEqual(["sfo1"]);
+    }
+  });
+
   it("refreshes tide predictions twice weekly to stay inside warning freshness", () => {
     const configPath = path.join(process.cwd(), "vercel.json");
     const config = JSON.parse(fs.readFileSync(configPath, "utf8"));

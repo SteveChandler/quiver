@@ -4,6 +4,12 @@ This directory contains performance analysis, optimization documentation, and pe
 
 ## Documents
 
+### Signed-in home (2026-09-09, 2026-09-24)
+
+- **`SIGNED_IN_HOME_20260909.md`** - Duplicate discovery request and unbounded similarity RPCs
+- **`HOME_LOADING_FOLLOWUP_20260909.md`** - Focus rechecks and profile loading
+- **`SIGNED_IN_HOME_20260924.md`** - Field baseline, per-stage server profile, `sfo1` colocation, `Server-Timing`, `home_call_rendered`, hidden-tab expiry, native parity notes
+
 ### React Rendering Performance Analysis (2025-11-14)
 
 Comprehensive analysis of React component rendering performance identifying critical optimization opportunities and one UI bug.

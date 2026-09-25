@@ -791,6 +791,36 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     expectConsoleErrors([/\[water-quality-hold:query-error\]/]);
   });
 
+  test('reports each pipeline stage duration without changing the result', async () => {
+    const stages: string[] = [];
+    const timed = await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      maxResults: 5,
+      onStageTiming: (stage, durationMs) => {
+        expect(durationMs).toBeGreaterThanOrEqual(0);
+        stages.push(stage);
+      },
+    });
+    const untimed = await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      maxResults: 5,
+    });
+
+    expect(stages).toEqual([
+      'candidates',
+      'forecasts',
+      'context',
+      'scoring',
+      'similarity',
+      'ranking',
+      'photos',
+      'finalize',
+    ]);
+    expect(timed.recommendations.map((rec) => rec.beach.id)).toEqual(
+      untimed.recommendations.map((rec) => rec.beach.id),
+    );
+  });
+
   test('marks favorite beaches with isFavorite flag but ranks by score', async () => {
     // Setup: beach-2 is a favorite
     mockState.favoriteBeaches = [mockBeach2];
