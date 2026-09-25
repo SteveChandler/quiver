@@ -191,6 +191,8 @@ function k40Dependencies(rawScores: Record<string, number>): WeekScoutServiceDep
   return deps;
 }
 
+import { getLocalHour } from '@/lib/utils/timezone-utils.shared';
+
 describe('generateWeekScoutForecast', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -391,6 +393,38 @@ describe('generateWeekScoutForecast', () => {
         dependencies(),
       ),
     ).rejects.toThrow(/dayCount/i);
+  });
+
+  it('keeps the session pick inside the preferred session time and reports it', async () => {
+    const request = {
+      candidateBeachIds: [BEACH_A, BEACH_B],
+      localTimezone: 'Pacific/Honolulu',
+      startLocalDate: '2026-07-31',
+      dayCount: 7 as const,
+    };
+    const unset = await generateWeekScoutForecast('user-week-scout', request, dependencies());
+    const unsetSelection = unset.sessionDecision.selection!;
+    // Without a preference this fixture's best session is a morning one.
+    expect(getLocalHour(new Date(unsetSelection.windowStart), unsetSelection.timezone)).toBeLessThan(10);
+    expect(unset.sessionTimePreference).toBeNull();
+
+    const afternoon = await generateWeekScoutForecast('user-week-scout', { ...request, sessionTime: 'afternoon' }, dependencies());
+    const selection = afternoon.sessionDecision.selection;
+    expect(selection).not.toBeNull();
+    // The pick overlaps 1–5 PM instead of the higher-ranked 6 AM window.
+    expect(getLocalHour(new Date(selection!.windowStart), selection!.timezone)).toBeLessThan(17);
+    expect(getLocalHour(new Date(selection!.windowEnd), selection!.timezone)).toBeGreaterThan(13);
+    expect(selection!.candidateId).not.toBe(unsetSelection.candidateId);
+    expect(afternoon.sessionTimePreference).toBe('afternoon');
+
+    // No window overlaps the evening in this fixture, so it falls back to every window.
+    const evening = await generateWeekScoutForecast('user-week-scout', { ...request, sessionTime: 'evening' }, dependencies());
+    expect(evening.sessionTimePreference).toBeNull();
+    expect(evening.sessionDecision.selection?.candidateId).toBe(unsetSelection.candidateId);
+
+    const anyTime = await generateWeekScoutForecast('user-week-scout', { ...request, sessionTime: 'any' }, dependencies());
+    expect(anyTime.sessionTimePreference).toBeNull();
+    expect(anyTime.sessionDecision.selection?.candidateId).toBe(unsetSelection.candidateId);
   });
 
   it('retains every daily ranking while adding one supplemental canonical weekly session', async () => {
