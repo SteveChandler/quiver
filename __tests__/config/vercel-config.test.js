@@ -75,6 +75,38 @@ describe("vercel.json", () => {
       git("commit", "-m", "test update");
       expect(runIgnoreCommand()).toBe(0);
 
+      // .vercelignore keeps root scripts/ and supabase/ out of the upload, so
+      // a commit touching only them cannot change the build.
+      expect(vercelIgnore).toMatch(/^scripts\/$/m);
+      expect(vercelIgnore).toMatch(/^\/supabase\/$/m);
+      fs.mkdirSync(path.join(repoPath, "scripts"));
+      fs.writeFileSync(path.join(repoPath, "scripts", "collector.py"), "print(1)\n");
+      git("add", "scripts/collector.py");
+      git("commit", "-m", "collector script update");
+      expect(runIgnoreCommand()).toBe(0);
+
+      fs.mkdirSync(path.join(repoPath, "supabase", "migrations"), { recursive: true });
+      fs.writeFileSync(
+        path.join(repoPath, "supabase", "migrations", "20260925000000_example.sql"),
+        "select 1;\n",
+      );
+      git("add", "supabase");
+      git("commit", "-m", "migration only");
+      expect(runIgnoreCommand()).toBe(0);
+
+      // Same folder names under runtime code still build.
+      fs.mkdirSync(path.join(repoPath, "lib", "supabase"), { recursive: true });
+      fs.writeFileSync(path.join(repoPath, "lib", "supabase", "server.ts"), "export {};\n");
+      git("add", "lib/supabase/server.ts");
+      git("commit", "-m", "runtime supabase client");
+      expect(runIgnoreCommand()).toBe(1);
+
+      fs.mkdirSync(path.join(repoPath, "lib", "scripts"), { recursive: true });
+      fs.writeFileSync(path.join(repoPath, "lib", "scripts", "entry.ts"), "export {};\n");
+      git("add", "lib/scripts/entry.ts");
+      git("commit", "-m", "runtime scripts module");
+      expect(runIgnoreCommand()).toBe(1);
+
       fs.writeFileSync(
         path.join(repoPath, "components", "example.tsx"),
         "runtime update\n",
