@@ -51,7 +51,6 @@ export const PROFILE_PUBLIC_FIELDS = [
   'avatar_url',
   'bio',
   'created_at',
-  'crowd_tolerance',
   'deleted_at',
   'digest_session_invites',
   'display_name',
@@ -89,17 +88,14 @@ export const PROFILE_PUBLIC_FIELDS = [
   'posting_window',
   'preferences_v2_shown_at',
   'preferred_session_time',
-  'preferred_wave_size',
   'referral_code',
   'signup_context',
   'signup_location',
   'sound_effects_enabled',
   'surf_styles',
-  'tide_comfort',
   'timezone',
   'trust_score',
   'updated_at',
-  'wind_comfort',
 ] as const;
 
 export const PROFILE_PUBLIC_SELECT = PROFILE_PUBLIC_FIELDS.join(',');

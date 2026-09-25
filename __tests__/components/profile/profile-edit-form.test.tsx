@@ -58,7 +58,6 @@ describe("ProfileEditForm", () => {
     instagram: "@testuser",
     home_beach_id: null,
     surf_styles: null,
-    preferred_wave_size: null,
     preferred_break_type: null,
     crowd_preference: null,
     wave_min_ft: null,
