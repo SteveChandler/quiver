@@ -796,6 +796,53 @@ describe("OracleHomeScreen", () => {
     expect(screen.getByText(/We couldn't find any surf spots/i)).toBeInTheDocument();
   });
 
+  it("says a decided no-surf call in native's words, not as missing spots", () => {
+    mockOracleData = {
+      ...mockOracleData,
+      profileLoading: false,
+      discoveryLoading: false,
+      topRecommendation: null,
+      discovery: {
+        ...mockOracleData.discovery!,
+        recommendations: [],
+        sessionDecision: {
+          ...mockOracleData.discovery!.sessionDecision!,
+          verdict: "no",
+          reasonCode: "below_minimum_utility",
+          selection: null,
+        },
+      },
+      discoveryError: null,
+    } as unknown as OracleData;
+    render(<OracleHomeScreen />);
+
+    expect(screen.getByText("Doesn't look like a good time to surf.")).toBeInTheDocument();
+    expect(screen.queryByText(/We couldn't find any surf spots/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps the no-spots message when the area simply has no candidates", () => {
+    mockOracleData = {
+      ...mockOracleData,
+      profileLoading: false,
+      discoveryLoading: false,
+      topRecommendation: null,
+      discovery: {
+        ...mockOracleData.discovery!,
+        recommendations: [],
+        sessionDecision: {
+          ...mockOracleData.discovery!.sessionDecision!,
+          verdict: "no",
+          reasonCode: "no_candidates",
+          selection: null,
+        },
+      },
+      discoveryError: null,
+    } as unknown as OracleData;
+    render(<OracleHomeScreen />);
+
+    expect(screen.getByText(/We couldn't find any surf spots/i)).toBeInTheDocument();
+  });
+
   it("lets explicit none override stale hero, window, nearby, share, and action data", () => {
     const { getLocalActivity } = jest.requireMock(
       "@/actions/oracle-actions",

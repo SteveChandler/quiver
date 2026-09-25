@@ -266,6 +266,25 @@ function toLegacySurfVerdict(
   return undefined;
 }
 
+/**
+ * A decided "no" on the water (conditions or size), as opposed to an empty
+ * area or missing data. Says so in native's words instead of implying there
+ * are no spots nearby.
+ */
+const NO_SURF_REASON_CODES: ReadonlySet<string> = new Set([
+  "selected_no",
+  "below_minimum_utility",
+  "beach_skill_exceeds_user",
+  "wave_height_exceeds_skill",
+]);
+
+function isNoSurfDecision(
+  verdict: CanonicalDecisionVerdict | undefined,
+  reasonCode: string | undefined,
+): boolean {
+  return verdict === "no" && reasonCode !== undefined && NO_SURF_REASON_CODES.has(reasonCode);
+}
+
 function isCustomSpotRecommendation(rec: SurfDiscoveryRecommendation | null | undefined): boolean {
   return rec?.kind === "custom_spot" && !!rec.customSpotId;
 }
@@ -825,7 +844,9 @@ export function OracleHomeScreen() {
       ? "Session picks aren't available right now."
       : oracle.discoveryError
         ? "We couldn't load conditions for your area."
-        : "We couldn't find any surf spots near you right now.";
+        : isNoSurfDecision(sessionDecision?.verdict, sessionDecision?.reasonCode)
+          ? "Doesn't look like a good time to surf."
+          : "We couldn't find any surf spots near you right now.";
     return (
       <HomeZineEmpty
         beachName={homeBeach?.name ?? "Your Surf"}

@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - In-content, device-aware install CTA (`InstallAppCtaSection`) on beach detail pages (after-tabs) and a mobile-only install link on `/welcome`, both via `NativeAppFunnelCta` with full source/surface/placement attribution (Plan 063 T1).
 
 ### Changed
+- **A decided no-surf call reads "Doesn't look like a good time to surf."** (`components/oracle/oracle-home-screen.tsx`), native's wording, instead of "We couldn't find any surf spots near you", which implied an empty area. Empty areas, missing data and holds keep their own messages. Home E2E discovery fixtures now carry the canonical session decision the page requires; without it they could only render "No call today", so the hero assertions were not running.
 - **Faster, measurable surf call on the signed-in home** (`vercel.json`, `app/api/surf/discover/route.ts`, `lib/services/discovery/surf-discovery-orchestrator.ts`, `lib/recommendations/major-event-hold/service.ts`, `hooks/use-surf-discovery.ts`, `hooks/use-home-discovery-request-metrics.ts`, `components/oracle/zine/*`). See `docs/performance/SIGNED_IN_HOME_20260924.md`.
   - **Server:**
     - `/api/surf/discover` is pinned to `sfo1` beside the Northern California database, like Week Scout.

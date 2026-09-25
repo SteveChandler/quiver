@@ -434,7 +434,7 @@ export async function waitForAuthenticatedHome(page: Page): Promise<boolean> {
         state: 'visible',
         timeout,
       }),
-      page.getByText(/couldn't find any surf spots near you right now/i).waitFor({
+      page.getByText(/couldn't find any surf spots near you right now|doesn't look like a good time to surf/i).waitFor({
         state: 'visible',
         timeout,
       }),
