@@ -1,6 +1,9 @@
 import "server-only";
 
-import { revalidatePath as nextRevalidatePath } from "next/cache";
+import {
+  revalidatePath as nextRevalidatePath,
+  revalidateTag as nextExpireTag,
+} from "next/cache";
 import { z } from "zod";
 
 import { SURF_INTENTS } from "@/lib/constants/surf-intents";
@@ -9,6 +12,7 @@ import { getDbStateCandidatesForStateSlug } from "@/lib/geo/state-routing";
 import { COLLISION_CITY_MAP } from "@/lib/seo/city-collision-list";
 import { buildCitySlug } from "@/lib/seo/city-slug-utils";
 import { buildBeachUrl, stateToSlug } from "@/lib/utils/beach-url-utils";
+import { beachDetailCdnCacheTag } from "@/lib/seo/beach-detail-cdn-cache";
 
 import { MAJOR_EVENT_HOLD_TRANSITIONS } from "./types";
 import type { MajorEventHoldTransition } from "./types";
@@ -85,6 +89,8 @@ export interface MajorEventHoldCacheInvalidationStore {
 interface MajorEventHoldCacheInvalidationOptions {
   store: MajorEventHoldCacheInvalidationStore;
   revalidatePath?: (path: string) => void | Promise<void>;
+  /** Expires a CDN cache tag immediately; injectable for tests. */
+  expireCacheTag?: (tag: string) => void | Promise<void>;
 }
 
 class MajorEventHoldCacheInvalidationError extends Error {
@@ -189,8 +195,8 @@ async function collectScope(
 async function buildInvalidationPaths(
   records: readonly MajorEventHoldCacheScope[],
   store: MajorEventHoldCacheInvalidationStore,
-): Promise<string[]> {
-  if (records.length === 0) return [];
+): Promise<{ paths: string[]; beachDetailPaths: string[] }> {
+  if (records.length === 0) return { paths: [], beachDetailPaths: [] };
 
   const scope = await collectScope(records, store);
   const beaches = parseCompleteBeachMetadata(
@@ -198,6 +204,7 @@ async function buildInvalidationPaths(
     scope.beachIds,
   );
   const paths = new Set<string>();
+  const beachDetailPaths = new Set<string>();
   const intentSlugs = Object.keys(SURF_INTENTS).sort();
 
   for (const beach of beaches) {
@@ -205,7 +212,9 @@ async function buildInvalidationPaths(
     const citySlug = buildCitySlug(beach.city, stateSlug, COLLISION_CITY_MAP);
     if (!citySlug || !stateSlug) throw cacheInvalidationError();
 
-    paths.add(buildBeachUrl(beach));
+    const beachDetailPath = buildBeachUrl(beach);
+    paths.add(beachDetailPath);
+    beachDetailPaths.add(beachDetailPath);
     paths.add(`/beach/${beach.slug}`);
     paths.add(`/best-time-to-surf/${citySlug}`);
     for (const intent of intentSlugs) {
@@ -221,7 +230,10 @@ async function buildInvalidationPaths(
   for (const regionKey of scope.regionKeys) {
     paths.add(`/forecast/${regionKey}`);
   }
-  return [...paths].sort();
+  return {
+    paths: [...paths].sort(),
+    beachDetailPaths: [...beachDetailPaths].sort(),
+  };
 }
 
 export async function invalidateMajorEventHoldTransitions(
@@ -229,10 +241,22 @@ export async function invalidateMajorEventHoldTransitions(
   options: MajorEventHoldCacheInvalidationOptions,
 ): Promise<string[]> {
   try {
-    const paths = await buildInvalidationPaths(records, options.store);
+    const { paths, beachDetailPaths } = await buildInvalidationPaths(
+      records,
+      options.store,
+    );
     const revalidatePath = options.revalidatePath ?? nextRevalidatePath;
     for (const path of paths) {
       await revalidatePath(path);
+    }
+    // Beach detail HTML is shared at the CDN under a per-page tag, not an ISR
+    // path, so revalidatePath alone would leave a held beach's page cached for
+    // up to 15 minutes. Expire exactly the held beaches' tags.
+    const expireCacheTag =
+      options.expireCacheTag ??
+      ((tag: string) => nextExpireTag(tag, { expire: 0 }));
+    for (const beachDetailPath of beachDetailPaths) {
+      await expireCacheTag(beachDetailCdnCacheTag(beachDetailPath));
     }
     return paths;
   } catch {
