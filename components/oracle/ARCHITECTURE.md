@@ -31,7 +31,11 @@ Everything renders inside `HomeZineShell`: cream paper on the Deep Twilight stag
 `zine/home-call-plate.tsx` wraps `zine/home-hero-media.tsx`.
 
 - **Viewpoints:** Swell, Sat, Photo and Cam, in native's order, with native's labels and native's default (swell); see `quiver-native/src/lib/hero-viewpoints.ts`.
-  - **Swell:** a Mapbox outdoors tile plus canvas streaks travelling with the swell. Lines move faster at longer periods and fade out toward the beach so they read as water. With reduced motion they draw once, still.
+  - **Swell:** /map's swell field over /map's basemap (Mapbox streets-v11), as native's hero does. `zine/hero-swell-field.tsx` draws the primary swell as crest dashes across the direction of travel, with /map's colour, spacing, size, speed and fades (`components/map/swell-field/particle-style.ts`). It clips them to the water it reads from the map image's pixels.
+    - **Inputs:** direction and period are the condition strip's. Height comes from the same row as the direction and sets the strength.
+    - **No field:** without all three values, the map shows alone.
+    - **Reduced motion:** one still frame.
+    - **Off screen:** the animation pauses.
   - **Sat:** a Mapbox satellite-streets tile.
   - **Photo:** only a real photo of the hero beach. No stock ocean.
   - **Cam:** only when `/sources` returns a `camera_url`. Renders `CamsSection variant="hero"`.
@@ -97,4 +101,4 @@ Both waiting states render the home beach's media card with the call withheld, i
 - `__tests__/hooks/use-surf-discovery*.test.tsx`: resume and hold behavior.
 - E2E (opt-in, live backend): `e2e/home.spec.ts` and `e2e/home-perf-probe.spec.ts`.
 
-jsdom has no canvas, so suites that render the hero stub `HTMLCanvasElement.prototype.getContext`.
+jsdom has no canvas, so suites that render the hero stub `HTMLCanvasElement.prototype.getContext`. The field's helpers are tested under `__tests__/components/map/swell-field/` (`waterMaskFromPixels`, `flowForPoint`).

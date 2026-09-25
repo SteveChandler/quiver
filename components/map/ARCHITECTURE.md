@@ -32,6 +32,7 @@ The `interactive-map.tsx` component (originally 854 LOC) was split into pure, te
 | `map-beach-preview-popup.ts` | Marker preview popup DOM creation | ~150 |
 | `map-favorites-loader.ts` | Favorite beach ID fetching | ~40 |
 | `swell-field/swell-particle-layer.ts` | WebGL custom layer for swell crest dashes and wind lines | ~460 |
+| `swell-field/particle-style.ts` | Particle counts, grid spacing, dash size, speed and fades, shared with the home hero | ~70 |
 
 **Design pattern**: Each extracted module receives all dependencies via explicit parameter interfaces
 (e.g., `MarkerBuilderDeps`, `BeachLoaderDeps`) rather than closing over
@@ -52,6 +53,13 @@ Hovering a beach dot on desktop, or tapping it on touch devices, opens `componen
 ### **Swell Field Layer**
 
 The WebGL swell field lives under `components/map/swell-field/`. `swell-particle-layer.ts` draws swell components as perpendicular crest dash lines over the water. The wind layer uses sparse, thin directional lines with fading alpha so it reads Windy-style without a dot head.
+
+The signed-in home hero draws the same primary-swell field on a 2D canvas (`components/oracle/zine/hero-swell-field.tsx`). It shares:
+
+- **The look:** `particle-style.ts` (counts, spacing, dash size, speed, fades) and `SWELL_FIELD_PARTICLE_COLOR`.
+- **The flow:** `flowForPoint` in `field-sampler.ts`, what a field cell reads beside one beach.
+
+It finds water from the static streets-v11 image's pixels (`waterMaskFromPixels` in `water-mask.ts`, a port of native's), since it has no vector water polygons. Change the look in `particle-style.ts` so both surfaces move together.
 
 ## **PHASE 2 MOTION ENHANCEMENTS**
 

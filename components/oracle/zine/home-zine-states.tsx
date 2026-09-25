@@ -87,8 +87,7 @@ function PendingCallPlate({
       lat={lat}
       lon={lon}
       photoUrl={photoUrl}
-      swellDirectionDeg={null}
-      swellPeriod={0}
+      swell={null}
       showViewpoints={false}
     >
       <div className="px-4 pb-4 sm:px-6 sm:pb-5">

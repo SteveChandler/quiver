@@ -709,6 +709,15 @@ export function OracleHomeScreen() {
     forecast?.swell_1_period ??
     forecast?.wave_period
   );
+  // The hero's swell field takes its height from the row its direction came
+  // from, so the field never pairs one reading's direction with another's size.
+  const swellHeightFt = parseNumeric(
+    currentSlot?.swellDirection != null
+      ? currentSlot.waveHeight
+      : forecast?.swell_1_direction != null
+        ? forecast.swell_1_height
+        : forecast?.wave_height
+  );
 
   const tideH = parseNumeric(currentSlot?.tideHeight ?? forecast?.tide_height);
   const tideDir: "rising" | "falling" =
@@ -890,6 +899,7 @@ export function OracleHomeScreen() {
             waveHeight={waveHeight}
             swellDirection={swellDir}
             swellPeriod={swellPeriod}
+            swellHeightFt={swellHeightFt}
             tideHeight={tideH}
             tideDirection={tideDir}
             waterTemp={waterTemp}

@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 
 import { getStaticMapImageUrl } from "@/lib/map-utils";
 import { getOptimizedImageUrl } from "@/lib/image-proxy";
 import type { BeachSources } from "@/hooks/use-beach-detail-data";
+import { HeroSwellField, type HeroSwell, type LoadedMapImage } from "./hero-swell-field";
 
 const CamsSection = dynamic(
   () => import("@/components/beach-detail/cams-section").then((m) => m.CamsSection),
@@ -92,9 +93,8 @@ interface HomeHeroMediaProps {
   /** A real photo of this beach. Omit generic stock so the hero never pretends. */
   photoUrl: string | null;
   sources?: BeachSources | null;
-  /** Direction the swell arrives from, in degrees. */
-  swellDirectionDeg: number | null;
-  swellPeriod: number;
+  /** Drives the swell field. Null draws the map alone. */
+  swell: HeroSwell | null;
   /** The recheck state keeps the place on screen but has nothing to switch. */
   showViewpoints?: boolean;
   /** Overlays pinned to the bottom of the media: the name plate and the call. */
@@ -107,13 +107,13 @@ export function HomeHeroMedia({
   lon,
   photoUrl,
   sources,
-  swellDirectionDeg,
-  swellPeriod,
+  swell,
   showViewpoints = true,
   children,
 }: HomeHeroMediaProps) {
+  // /map's basemap, so the swell field reads the same water colour it does there.
   const streetsMap = useMemo(
-    () => mapSourcesOrNull(lat, lon, "mapbox/outdoors-v12", 13),
+    () => mapSourcesOrNull(lat, lon, "mapbox/streets-v11", 13),
     [lat, lon],
   );
   const satelliteMap = useMemo(
@@ -143,6 +143,15 @@ export function HomeHeroMedia({
     ? preferred
     : available[0] ?? null;
 
+  const [streetsImage, setStreetsImage] = useState<LoadedMapImage | null>(null);
+  const handleStreetsImage = useCallback((element: HTMLImageElement) => {
+    setStreetsImage((current) =>
+      current?.element === element && current.src === element.currentSrc
+        ? current
+        : { element, src: element.currentSrc },
+    );
+  }, []);
+
   const selectViewpoint = (viewpoint: HeroViewpoint) => {
     setPreferred(viewpoint);
     storeViewpoint(viewpoint);
@@ -161,8 +170,13 @@ export function HomeHeroMedia({
     >
       {active === "swell" && streetsMap && (
         <>
-          <MapPicture sources={streetsMap} alt={`Map of ${beachName}`} />
-          <SwellLines directionDeg={swellDirectionDeg} period={swellPeriod} />
+          <MapPicture
+            sources={streetsMap}
+            alt={`Map of ${beachName}`}
+            readable
+            onLoaded={handleStreetsImage}
+          />
+          {swell && <HeroSwellField image={streetsImage} swell={swell} />}
         </>
       )}
       {active === "satellite" && satelliteMap && (
@@ -241,131 +255,49 @@ export function HomeHeroMedia({
   );
 }
 
+interface MapPictureProps {
+  sources: MapSources;
+  alt: string;
+  /** Load with CORS so a canvas can read the pixels (the swell field's water mask). */
+  readable?: boolean;
+  onLoaded?: (element: HTMLImageElement) => void;
+}
+
 /** Only the source matching the viewport downloads. `sm` is where the hero turns 16:10. */
-function MapPicture({ sources, alt }: { sources: MapSources; alt: string }) {
+function MapPicture({ sources, alt, readable, onLoaded }: MapPictureProps) {
   return (
     <picture>
       <source media="(min-width: 640px)" srcSet={sources.wide} />
-      <MediaImage src={sources.phone} alt={alt} />
+      <MediaImage src={sources.phone} alt={alt} readable={readable} onLoaded={onLoaded} />
     </picture>
   );
 }
 
-function MediaImage({ src, alt }: { src: string; alt: string }) {
+function MediaImage({
+  src,
+  alt,
+  readable,
+  onLoaded,
+}: {
+  src: string;
+  alt: string;
+  readable?: boolean;
+  onLoaded?: (element: HTMLImageElement) => void;
+}) {
   return (
     // eslint-disable-next-line @next/next/no-img-element -- remote map/photo URLs fill an aspect box; next/image adds nothing here
     <img
+      crossOrigin={readable ? "anonymous" : undefined}
       src={src}
       alt={alt}
       className="absolute inset-0 h-full w-full object-cover"
       loading="eager"
       decoding="async"
-    />
-  );
-}
-
-/**
- * Short streaks travelling with the swell, faded out toward the beach so they
- * read as open water rather than covering the land. Longer periods move
- * faster, the way groundswell does. Reduced motion draws a single still frame.
- */
-function SwellLines({
-  directionDeg,
-  period,
-}: {
-  directionDeg: number | null;
-  period: number;
-}) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || directionDeg == null) return;
-    const context = canvas.getContext("2d");
-    if (!context) return;
-
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    // Swell is reported by where it comes FROM; the lines travel the other way.
-    const travel = ((directionDeg + 180) * Math.PI) / 180;
-    const dx = Math.sin(travel);
-    const dy = -Math.cos(travel);
-    const speed = 18 + Math.max(0, Math.min(period, 20)) * 3;
-
-    let width = 0;
-    let height = 0;
-    let frame = 0;
-    let last = 0;
-    const streaks = Array.from({ length: 90 }, () => ({
-      x: Math.random(),
-      y: Math.random(),
-      length: 10 + Math.random() * 14,
-      phase: Math.random(),
-    }));
-
-    const resize = () => {
-      const ratio = window.devicePixelRatio || 1;
-      width = canvas.clientWidth;
-      height = canvas.clientHeight;
-      canvas.width = Math.round(width * ratio);
-      canvas.height = Math.round(height * ratio);
-      context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    };
-
-    // 1 on the side the swell arrives from, 0 past the beach at the centre.
-    const waterWeight = (x: number, y: number) => {
-      const along = (x - width / 2) * -dx + (y - height / 2) * -dy;
-      const reach = Math.max(width, height) / 2;
-      return Math.max(0, Math.min(1, along / (reach * 0.55) + 0.1));
-    };
-
-    const draw = (elapsedSeconds: number) => {
-      context.clearRect(0, 0, width, height);
-      context.lineCap = "round";
-      context.lineWidth = 1.6;
-      for (const streak of streaks) {
-        const travelled = elapsedSeconds * speed;
-        const x = (((streak.x * width + dx * travelled) % width) + width) % width;
-        const y = (((streak.y * height + dy * travelled) % height) + height) % height;
-        const alpha = waterWeight(x, y) * (0.35 + 0.35 * Math.sin((elapsedSeconds + streak.phase * 6) * 1.3) ** 2);
-        if (alpha <= 0.02) continue;
-        context.strokeStyle = `rgba(255,255,255,${alpha.toFixed(3)})`;
-        context.beginPath();
-        context.moveTo(x - dx * streak.length, y - dy * streak.length);
-        context.lineTo(x, y);
-        context.stroke();
-      }
-    };
-
-    resize();
-    const observer = new ResizeObserver(() => {
-      resize();
-      if (reduceMotion) draw(0);
-    });
-    observer.observe(canvas);
-
-    if (reduceMotion) {
-      draw(0);
-      return () => observer.disconnect();
-    }
-
-    const tick = (now: number) => {
-      if (!last) last = now;
-      draw((now - last) / 1000);
-      frame = window.requestAnimationFrame(tick);
-    };
-    frame = window.requestAnimationFrame(tick);
-
-    return () => {
-      observer.disconnect();
-      window.cancelAnimationFrame(frame);
-    };
-  }, [directionDeg, period]);
-
-  return (
-    <canvas
-      ref={canvasRef}
-      aria-hidden
-      className="pointer-events-none absolute inset-0 h-full w-full"
+      onLoad={onLoaded ? (event) => onLoaded(event.currentTarget) : undefined}
+      // An image already decoded before hydration never fires load.
+      ref={(element) => {
+        if (element?.complete && element.naturalWidth > 0) onLoaded?.(element);
+      }}
     />
   );
 }
