@@ -5,6 +5,19 @@ import { OracleHomeScreen } from "@/components/oracle/oracle-home-screen";
 import type { OracleData } from "@/hooks/use-oracle-data";
 import { apiCache } from "@/lib/utils/request-cache";
 
+// A map provider for the whole file, not per test: lib/map-utils caches static
+// map URLs by coordinates, so a test that ran without a token would cache the
+// provider-less placeholder and the hero swell field tests would then get it.
+// CI has no token in the environment; a local .env hid this.
+const savedMapboxToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
+beforeAll(() => {
+  process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN = "test-token";
+});
+afterAll(() => {
+  if (savedMapboxToken === undefined) delete process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
+  else process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN = savedMapboxToken;
+});
+
 // ---------------------------------------------------------------------------
 // Fix Date so greeting always says "Good morning"
 // ---------------------------------------------------------------------------
@@ -1127,7 +1140,6 @@ describe("OracleHomeScreen", () => {
   });
 
   describe("hero swell field", () => {
-    const savedToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
     const slot = {
       waveHeight: "3.5 ft",
       waveHeightBadge: "3-5ft",
@@ -1138,15 +1150,6 @@ describe("OracleHomeScreen", () => {
       swellPeriod: "13s",
       swellDirection: "WSW",
     };
-
-    beforeEach(() => {
-      // A map provider, so the hero offers its swell view.
-      process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN = "test-token";
-    });
-    afterEach(() => {
-      if (savedToken === undefined) delete process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
-      else process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN = savedToken;
-    });
 
     // A forecast row the field could draw, so a fallback to it would show.
     const drawableForecast = { ...MOCK_FORECAST, swell_1_height: "4", wind_direction_deg: 300 };
