@@ -100,7 +100,12 @@ import {
   createSwellParticleLayer,
   resolveParticleCount,
 } from "@/components/map/swell-field/swell-particle-layer";
-import { PARTICLE_DASH_LENGTH_SCALE } from "@/components/map/swell-field/particle-style";
+import {
+  COMBINED_PARTICLE_COUNT,
+  PARTICLE_DASH_LENGTH_SCALE,
+  PARTICLE_MOTION_SCALE,
+  WIND_PARTICLE_SCALE,
+} from "@/components/map/swell-field/particle-style";
 import { swellFieldLayerIds } from "@/components/map/swell-field/layer-plan";
 import { SwellLayerSelector } from "@/components/map/swell-field/swell-layer-selector";
 import { SwellForecastTimeline } from "@/components/map/swell-field/swell-forecast-timeline";
@@ -138,17 +143,6 @@ const COMBINED_SUBLAYERS: ReadonlyArray<FlowComponentId> = [
   "s2",
   "wind",
 ];
-// Per-layer particle count for the combined view so three stacked layers keep the
-// sparse Windy-style spacing in budget (3 × 260 = 780 total).
-const COMBINED_PARTICLE_COUNT = 340;
-// Wind reads cleaner with a sparser field than swell - scale its particle count
-// down, but keep enough strokes visible on the light-blue basemap.
-const WIND_PARTICLE_SCALE = 0.4; // keep wind sparser than swell even at the higher base count
-const PARTICLE_MOTION_SCALE: Record<FlowComponentId, number> = {
-  s1: 1,
-  s2: 1,
-  wind: 0.25, // calm, slow wind drift (-75% movement)
-};
 const PARTICLE_VELOCITY_SMOOTHING: Record<FlowComponentId, number> = {
   s1: 0.04,
   s2: 0.16,
