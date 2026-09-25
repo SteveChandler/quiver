@@ -4,33 +4,35 @@ import type {
   FlowCell,
   FlowField,
 } from "@/components/map/swell-field/field-sampler";
+import {
+  BIRTH_FADE_PORTION,
+  DASH_FRACTION,
+  DASH_WIDTH_PX_BASE,
+  DASH_WIDTH_PX_GAIN,
+  DEATH_FADE_PORTION,
+  FRAME_MS,
+  LIFE_JITTER_FRAMES,
+  MAX_FRAME_STEP,
+  MIN_LIFE_FRAMES,
+  STEP_FRACTION,
+  STRENGTH_DENSITY_CULL,
+  gridDimensions,
+  resolveParticleCount,
+  type MercatorBox,
+} from "./particle-style";
 
-export interface MercatorBox {
-  minX: number;
-  minY: number;
-  maxX: number;
-  maxY: number;
-}
+export {
+  PARTICLE_COUNT_DESKTOP,
+  PARTICLE_COUNT_MOBILE,
+  gridDimensions,
+  resolveParticleCount,
+  type MercatorBox,
+} from "./particle-style";
 
 interface ParticleSeed {
   x: number;
   y: number;
   age: number;
-}
-
-// Windy-like spacing: sparse + evenly distributed (jittered grid) so water shows
-// between dashes. Lower than the earlier dense random blanket (4000/1400).
-export const PARTICLE_COUNT_DESKTOP = 650;
-// Leave room between crests on compact native map cards.
-export const PARTICLE_COUNT_MOBILE = 280;
-
-/** Below this CSS width we treat the device as small and cut particle count. */
-const SMALL_SCREEN_PX = 640;
-
-export function resolveParticleCount(viewportWidthPx: number): number {
-  return viewportWidthPx < SMALL_SCREEN_PX
-    ? PARTICLE_COUNT_MOBILE
-    : PARTICLE_COUNT_DESKTOP;
 }
 
 /** Uniform names referenced by the shaders (asserted in unit tests). */
@@ -82,23 +84,6 @@ export function reseedParticle(rng: () => number, box: MercatorBox): ParticleSee
     y: box.minY + (box.maxY - box.minY) * rng(),
     age: 0,
   };
-}
-
-/**
- * Derive an even grid (cols × rows) covering `count` cells across the box, sized to
- * the box aspect ratio so cells stay roughly square. `rows` is ceil'd so cols × rows
- * always ≥ count (the trailing partial row holds the remainder of the particles).
- */
-export function gridDimensions(
-  count: number,
-  box: MercatorBox
-): { cols: number; rows: number } {
-  const width = Math.max(box.maxX - box.minX, 1e-9);
-  const height = Math.max(box.maxY - box.minY, 1e-9);
-  const aspect = width / height;
-  const cols = Math.max(1, Math.round(Math.sqrt(count * aspect)));
-  const rows = Math.max(1, Math.ceil(count / cols));
-  return { cols, rows };
 }
 
 /**
@@ -515,13 +500,6 @@ export function createSwellParticleLayer(
 
   const rng = Math.random;
   let lastFrameMs: number | null = null;
-  // Fraction of the current viewport a speed=1 particle advances per 60Hz frame,
-  // scaled to the live Mercator span so motion reads the same at any zoom. This is
-  // intentionally time-based: reference wind maps keep particles alive and advect
-  // them through the field instead of respawning whole cohorts that appear to blink.
-  const STEP_FRACTION = 0.00055;
-  const FRAME_MS = 1000 / 60;
-  const MAX_FRAME_STEP = 1.6;
   const activeCounts = [
     count,
     Math.max(1, Math.round(count * 0.75)),
@@ -533,25 +511,11 @@ export function createSwellParticleLayer(
   let smoothedFrameMs = FRAME_MS;
   let slowFrameMs = 0;
   let fastFrameMs = 0;
-  const MIN_LIFE_FRAMES = 300;
-  const LIFE_JITTER_FRAMES = 360;
-  const BIRTH_FADE_PORTION = 0.08;
-  const DEATH_FADE_PORTION = 0.16;
-  // Fixed dash LENGTH as a fraction of the viewport span, DECOUPLED from drift speed
-  // so dashes stay visible no matter how slow they move. Tying length to the
-  // per-frame step made slow dashes sub-pixel and invisible.
-  const DASH_FRACTION = 0.032;
-  // Dash thickness in device pixels (a quad, so width is real — gl.lineWidth is not).
-  // Weak swell ~2.6px, strong swell ~2.6+4.4 ≈ 7px, so strength reads as weight.
-  const DASH_WIDTH_PX_BASE = 2.6;
-  const DASH_WIDTH_PX_GAIN = 4.4;
   // Wind worm geometry: a short sinuous line that undulates as it drifts.
   const WIND_STREAK_FRACTION = 0.034; // worm length as a fraction of the viewport span
   const WIND_WIGGLE_AMP = 0.0035; // gentle sideways wiggle (fraction of span)
   const WIND_WIGGLE_WAVES = 1; // one smooth undulation along the body
   const WIND_WIGGLE_SPEED = 0.05; // slow phase advance per frame (calm wriggle)
-  // How aggressively weak cells thin out their particles (higher = sparser weak).
-  const STRENGTH_DENSITY_CULL = 0.8;
 
   function randomLifeFrames(): number {
     return MIN_LIFE_FRAMES + rng() * LIFE_JITTER_FRAMES;

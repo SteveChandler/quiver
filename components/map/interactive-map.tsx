@@ -100,6 +100,7 @@ import {
   createSwellParticleLayer,
   resolveParticleCount,
 } from "@/components/map/swell-field/swell-particle-layer";
+import { PARTICLE_DASH_LENGTH_SCALE } from "@/components/map/swell-field/particle-style";
 import { swellFieldLayerIds } from "@/components/map/swell-field/layer-plan";
 import { SwellLayerSelector } from "@/components/map/swell-field/swell-layer-selector";
 import { SwellForecastTimeline } from "@/components/map/swell-field/swell-forecast-timeline";
@@ -152,11 +153,6 @@ const PARTICLE_VELOCITY_SMOOTHING: Record<FlowComponentId, number> = {
   s1: 0.04,
   s2: 0.16,
   wind: 0.06, // heavier easing -> smoother wind direction changes
-};
-const PARTICLE_DASH_LENGTH_SCALE: Record<FlowComponentId, number> = {
-  s1: 0.75,
-  s2: 1,
-  wind: 1,
 };
 const HOUR_MS = 60 * 60 * 1000;
 
