@@ -73,6 +73,7 @@ test.describe('Usage Critical: authenticated surfaces', () => {
       { locator: page.getByText(/surf conditions/i), name: 'surf conditions copy' },
       { locator: page.getByText(/best time|today's windows/i), name: 'surf-call timing' },
       { locator: page.getByText(/we couldn't find any surf spots near you/i), name: 'signed-in local fallback' },
+      { locator: page.getByText(/doesn't look like a good time to surf/i), name: 'signed-in no-surf call' },
       { locator: page.getByRole('heading', { name: /popular surf spots/i }), name: 'popular spots fallback' },
     ], TIMEOUTS.long);
     expect(surfCallSurface).toEqual(expect.any(String));
