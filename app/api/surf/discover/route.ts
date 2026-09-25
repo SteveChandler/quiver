@@ -198,22 +198,42 @@ async function surfDiscoveryHandler(
     );
   }
 
+  // Server-Timing (ms) per stage, so production latency can be read per request.
+  const timings: Array<[string, number]> = [];
+  const time = async <T,>(stage: string, work: Promise<T>): Promise<T> => {
+    const startedAt = Date.now();
+    try {
+      return await work;
+    } finally {
+      timings.push([stage, Date.now() - startedAt]);
+    }
+  };
+
+  // Skill level is only needed after discovery; read it alongside everything
+  // else instead of adding a serial round trip at the end.
+  const profileExperiencePromise = getProfileExperienceLevel(supabase, user.id).catch(
+    () => null,
+  );
+
   // 3. Resolve user entitlement so the orchestrator can gate the Pro
   //    similarity layer. entitlementFromRow returns "premium" for active
   //    Pro/trial (with billing-issue grace-period carve-out) and "free"
   //    otherwise. Missing row, RLS error, or query failure all fall back
   //    to free — safer than over-granting Pro on a transient DB blip.
   // An explicit request radius wins over the saved drive range.
-  const [{ data: entitlementRow }, radiusMiles] = await Promise.all([
-    supabase
-      .from('user_entitlements')
-      .select('is_pro, is_trialing, billing_issue, expires_at')
-      .eq('user_id', user.id)
-      .maybeSingle(),
-    radius !== undefined
-      ? Promise.resolve(radius)
-      : resolveProfileRadiusMiles(supabase, user.id),
-  ]);
+  const [{ data: entitlementRow }, radiusMiles] = await time(
+    'entitlement',
+    Promise.all([
+      supabase
+        .from('user_entitlements')
+        .select('is_pro, is_trialing, billing_issue, expires_at')
+        .eq('user_id', user.id)
+        .maybeSingle(),
+      radius !== undefined
+        ? Promise.resolve(radius)
+        : resolveProfileRadiusMiles(supabase, user.id),
+    ]),
+  );
   const isPro = entitlementFromRow(entitlementRow ?? null) === 'premium';
   const entitlement: SurfDiscoveryEntitlement = {
     tier: isPro ? 'premium' : 'free',
@@ -224,7 +244,7 @@ async function surfDiscoveryHandler(
   // 4. Call service to get ranked recommendations
   let discovery;
   try {
-    discovery = await discoverSurfSpots(user.id, {
+    discovery = await time('discover', discoverSurfSpots(user.id, {
       userLocation,
       radiusMiles,
       horizonHours: mode === 'my-spots' ? 72 : horizonHours,
@@ -243,31 +263,48 @@ async function surfDiscoveryHandler(
       isPro,
       includeBeachIds,
       throwOnFailure: true,
-    });
+      onStageTiming: (stage, durationMs) => {
+        timings.push([`discover-${stage}`, durationMs]);
+      },
+    }));
   } catch (error) {
     return retryableDiscoveryResponse(error);
   }
 
   // 3a. Stamp empirical shoaling calibration status onto each recommendation's
   // forecast so the honesty-layer UI can distinguish calibrated face heights
-  // from forecast-only sig-wave heights. Only the boolean is exposed; the raw
-  // ~4KB shoaling_factors JSONB stays server-side. One batch query keyed on
-  // the recommended beach IDs. Errors default every entry to `false` (safer
+  // from forecast-only sig-wave heights. Clients read `forecast.isCalibrated`;
+  // they should not interpret `beach.shoaling_factors`, which rides along on
+  // the full beach row. Errors default every entry to `false` (safer
   // conservative render).
   const recsForCalibration = [
     ...discovery.recommendations,
     ...(discovery.includedRecommendations ?? []),
   ];
   if (recsForCalibration.length > 0) {
-    const beachIds = Array.from(
-      new Set(recsForCalibration.map((r) => r.beach.id))
-    );
     const calibratedMap = new Map<string, boolean>();
+    // Discovery loads full beach rows, so calibration is usually already in
+    // hand; only rows that arrived without the column cost a round trip.
+    for (const rec of recsForCalibration) {
+      const beach = rec.beach as { id: string; shoaling_factors?: unknown };
+      if ('shoaling_factors' in beach) {
+        calibratedMap.set(beach.id, beach.shoaling_factors != null);
+      }
+    }
+    const beachIds = Array.from(
+      new Set(
+        recsForCalibration
+          .map((r) => r.beach.id)
+          .filter((id) => !calibratedMap.has(id)),
+      )
+    );
     try {
-      const { data: beachRows, error: beachError } = await supabase
-        .from('beaches')
-        .select('id, shoaling_factors')
-        .in('id', beachIds);
+      const { data: beachRows, error: beachError } = beachIds.length === 0
+        ? { data: [], error: null }
+        : await supabase
+          .from('beaches')
+          .select('id, shoaling_factors')
+          .in('id', beachIds);
       if (beachError) {
         console.warn(
           '[surf/discover] Failed to fetch calibration status:',
@@ -297,12 +334,7 @@ async function surfDiscoveryHandler(
     }));
   }
 
-  let profileExperience = null;
-  try {
-    profileExperience = await getProfileExperienceLevel(supabase, user.id);
-  } catch {
-    profileExperience = null;
-  }
+  const profileExperience = await profileExperiencePromise;
   const hasIncomingMajorEventHold = hasExplicitMajorEventHold(discovery);
   const isSuccessfulNoCandidateResult =
     hasNoDiscoveryCandidates(discovery) &&
@@ -322,9 +354,12 @@ async function surfDiscoveryHandler(
             holdEpoch: 'no-candidates',
           },
         }
-      : await sanitizeSurfDiscoveryForSerializationMajorEventHold(
-          discovery,
-          profileExperience,
+      : await time(
+          'holds',
+          sanitizeSurfDiscoveryForSerializationMajorEventHold(
+            discovery,
+            profileExperience,
+          ),
         );
   if (
     sanitizedDiscovery.recommendationAvailability?.state === 'none' &&
@@ -368,7 +403,13 @@ async function surfDiscoveryHandler(
   // `rankingScore` is an internal ordering value. Ranking has already happened
   // by this point, so strip it here rather than shipping a second, larger
   // number next to `score` that a client could mistake for the real one.
-  return createSuccessResponse(stripInternalRankingScore(gatedDiscovery));
+  const response = createSuccessResponse(stripInternalRankingScore(gatedDiscovery));
+  timings.push(['total', Date.now() - anchor.getTime()]);
+  response.headers.set(
+    'Server-Timing',
+    timings.map(([stage, ms]) => `${stage};dur=${ms}`).join(', '),
+  );
+  return response;
 }
 
 /**

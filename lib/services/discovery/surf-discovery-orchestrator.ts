@@ -1571,7 +1571,14 @@ async function discoverSurfSpotsInner(
     isPro = false,
     includeBeachIds,
     allowRecommendationIneligibleIncludes = false,
+    onStageTiming,
   } = options;
+  let stageStartedAt = Date.now();
+  const endStage = (stage: string): void => {
+    const now = Date.now();
+    onStageTiming?.(stage, now - stageStartedAt);
+    stageStartedAt = now;
+  };
   // `candidatePoolLimit` (how many beaches get forecasts fetched and scored) is
   // NOT `maxResults` (how many are shown). Shrinking the pool to the size of the
   // result list narrows the ranking universe to the physically nearest handful
@@ -1677,6 +1684,8 @@ async function discoverSurfSpotsInner(
     `${customSpotCandidates.length} custom spots)`
   );
 
+  endStage('candidates');
+
   // 2. Fetch forecasts for all candidates. The cache read stops about two
   // days out by default; widen it to cover the selection horizon and any
   // scoped hour (Beach Detail scrubs up to 13 days ahead).
@@ -1734,6 +1743,8 @@ async function discoverSurfSpotsInner(
       );
     }
   }
+
+  endStage('forecasts');
 
   // Build a lookup map of all hourly forecasts keyed by beach ID.
   // Used later to compute per-slot wave heights and accurate waveHeightBadge for the top rec.
@@ -1807,6 +1818,7 @@ async function discoverSurfSpotsInner(
     boardsForPicks: userBoardsForPicks,
   } = userBoardContext;
   const breakBehaviorRowsByBeach = groupBreakBehaviorRowsByBeach(breakBehaviorRows);
+  endStage('context');
 
   const wqMap = new Map<string, string>();
   for (const row of await currentWaterQuality(wqResult.data ?? [])) {
@@ -2257,6 +2269,8 @@ async function discoverSurfSpotsInner(
     log.debug(`  ${idx + 1}. ${rec.beach.name}: score=${rec.score} (wave=${waveHeightFit}, period=${periodEnergyScore}, wind=${windAlignment}, tide=${tideFit}, dist=${distancePenalty}, pers=${personalizationBonus}, affinity=${affinityBonus}, behavior=${behaviorBonus ?? 0})`);
   });
 
+  endStage('scoring');
+
   // Mark favorites with badge flag, but do NOT prioritize in ranking
   // All beaches are ranked purely by score - favorites just get a heart badge
   const allRecs: SurfDiscoveryRecommendation[] = [];
@@ -2294,6 +2308,7 @@ async function discoverSurfSpotsInner(
     isPro,
     supabase,
   });
+  endStage('similarity');
   const allRecsScored = collapseWindowCandidates(
     similarityResult.recommendations,
   );
@@ -2311,6 +2326,7 @@ async function discoverSurfSpotsInner(
         ) || left.index - right.index,
     },
   );
+  endStage('ranking');
   // `rankBeaches` has already dropped any beach with a resolved water-quality
   // closure. An unreachable probe drops nothing, so the pool stays intact.
   const safeRecsScored = rankedRecommendations.map(
@@ -2370,15 +2386,21 @@ async function discoverSurfSpotsInner(
     `Merged recommendations: ${favoriteCount} favorites in top ${finalSlice.length} (pure score ranking)`
   );
 
-  // 5. Enrich with photos
+  // 5. Enrich with photos (independent reads, fetched together)
+  const [finalWithPhotos, includedWithPhotos] = await Promise.all([
+    enrichWithPhotos(finalSlice),
+    enrichWithPhotos(includedSlice),
+  ]);
   let enrichedRanked = applyWindowWaveHeightBadgesForRecommendations(
-    await enrichWithPhotos(finalSlice),
+    finalWithPhotos,
     forecastsByBeachId
   );
   const enrichedIncluded = applyWindowWaveHeightBadgesForRecommendations(
-    await enrichWithPhotos(includedSlice),
+    includedWithPhotos,
     forecastsByBeachId
   );
+
+  endStage('photos');
 
   // 6. Attach slotForecasts for Today's Windows to the top recommendation.
   // Wave-height badges for all recommendations were corrected above from
@@ -2572,6 +2594,7 @@ async function discoverSurfSpotsInner(
     now,
   });
 
+  endStage('finalize');
   const duration = Date.now() - startTime;
   log.debug(
     `Discovery complete in ${duration}ms: ${enrichedRanked.length} recommendations from ${finalCandidates.length} candidates`

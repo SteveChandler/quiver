@@ -272,41 +272,46 @@ export async function evaluateMajorEventHoldCandidates(
       .map((beachId) => beachId.toLowerCase()),
   );
 
-  let waterQualityResolution: WaterQualityHoldResolution = {
-    state: "resolved",
-    heldBeachIds: [],
-    waterQualityStatusByBeachId: {},
-    epoch: waterQualityHoldId("empty"),
-  };
-  if (applyWaterQualityHolds) {
+  // Water-quality and major-event resolution read independent tables, so they
+  // run concurrently. Each keeps its own fail-closed fallback; neither result
+  // influences how the other is resolved.
+  const waterQualityResolutionPromise = (async (): Promise<WaterQualityHoldResolution> => {
+    if (!applyWaterQualityHolds) {
+      return {
+        state: "resolved",
+        heldBeachIds: [],
+        waterQualityStatusByBeachId: {},
+        epoch: waterQualityHoldId("empty"),
+      };
+    }
     if (validCandidates.length !== parsedCandidates.length) {
-      waterQualityResolution = {
+      return {
         state: "unresolved",
         heldBeachIds: [],
         waterQualityStatusByBeachId: {},
         epoch: waterQualityHoldId("unresolved"),
       };
-    } else {
-      try {
-        const resolveWaterQuality =
-          dependencies.resolveWaterQualityHolds ?? resolveWaterQualityHolds;
-        waterQualityResolution = await resolveWaterQuality(validCandidates);
-      } catch (error) {
-        console.error("[water-quality-hold:resolution-failed]", {
-          candidateCount: validCandidates.length,
-          error: error instanceof Error ? error.message : String(error),
-        });
-        waterQualityResolution = {
-          state: "unresolved",
-          heldBeachIds: [],
-          waterQualityStatusByBeachId: {},
-          epoch: waterQualityHoldId("unresolved"),
-        };
-      }
     }
-  }
+    try {
+      const resolveWaterQuality =
+        dependencies.resolveWaterQualityHolds ?? resolveWaterQualityHolds;
+      return await resolveWaterQuality(validCandidates);
+    } catch (error) {
+      console.error("[water-quality-hold:resolution-failed]", {
+        candidateCount: validCandidates.length,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return {
+        state: "unresolved",
+        heldBeachIds: [],
+        waterQualityStatusByBeachId: {},
+        epoch: waterQualityHoldId("unresolved"),
+      };
+    }
+  })();
 
   if (mode === "off") {
+    const waterQualityResolution = await waterQualityResolutionPromise;
     const majorEventEpoch = createHoldEpoch(mode, "off");
     const holdEpoch = applyWaterQualityHolds
       ? createCombinedHoldEpoch(majorEventEpoch, waterQualityResolution.epoch)
@@ -342,13 +347,12 @@ export async function evaluateMajorEventHoldCandidates(
 
   const resolveHolds = dependencies.resolveHolds ?? resolveMajorEventHolds;
   const audit = dependencies.audit ?? defaultMajorEventHoldAuditSink;
-  let resolution: MajorEventHoldResolution = { state: "unresolved", holds: [] };
-  if (
-    validCandidates.length > 0 &&
-    validInputAsOf
-  ) {
+  const majorEventResolutionPromise = (async (): Promise<MajorEventHoldResolution> => {
+    if (validCandidates.length === 0 || !validInputAsOf) {
+      return { state: "unresolved", holds: [] };
+    }
     try {
-      resolution = await resolveHolds(validCandidates, {
+      return await resolveHolds(validCandidates, {
         asOf: resolutionAsOfDate,
       });
     } catch (error) {
@@ -362,9 +366,13 @@ export async function evaluateMajorEventHoldCandidates(
         asOf: resolutionAsOf,
         error: error instanceof Error ? error.message : String(error),
       });
-      resolution = { state: "unresolved", holds: [] };
+      return { state: "unresolved", holds: [] };
     }
-  }
+  })();
+  const [waterQualityResolution, resolution] = await Promise.all([
+    waterQualityResolutionPromise,
+    majorEventResolutionPromise,
+  ]);
 
   const majorEventEpoch = createHoldEpoch(mode, resolution);
   const unresolvedEpoch = createHoldEpoch(mode, {
