@@ -214,6 +214,26 @@ describe("ProfileView - Surf Style Card", () => {
     });
   });
 
+  it("links the Instagram handle to the surfer's Instagram profile", async () => {
+    (useUserPreferences as jest.Mock).mockReturnValue({
+      data: null,
+      loading: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+    (gateway.users.profile.get as jest.Mock).mockResolvedValue({
+      ...mockProfile,
+      instagram: "https://www.instagram.com/dawn.patrol_/",
+    });
+
+    render(<ProfileView />);
+
+    const link = await screen.findByRole("link", { name: /@dawn\.patrol_ on Instagram/ });
+    expect(link).toHaveAttribute("href", "https://instagram.com/dawn.patrol_");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  });
+
   describe("Low Confidence Progress Bar", () => {
     it("should show progress bar when confidence <= 0.5", async () => {
       (useUserPreferences as jest.Mock).mockReturnValue({

@@ -12,6 +12,7 @@ import { FollowButton } from "@/components/social/follow-button";
 import { UserSocialStats } from "@/components/social/user-social-stats";
 import { useAuth } from "@/context/auth-context";
 import { useRouter } from "next/navigation";
+import { InstagramHandleLink } from "@/components/profile/instagram-handle-link";
 
 export default function UserProfileClient() {
   const params = useParams();
@@ -131,6 +132,12 @@ export default function UserProfileClient() {
             <div className="text-sm text-muted-foreground mb-4">
               Member since {new Date(profile.created_at).toLocaleDateString()}
             </div>
+
+            <InstagramHandleLink
+              handle={profile.instagram}
+              className="text-sm text-muted-foreground mb-4"
+              iconClassName="h-4 w-4"
+            />
 
             <div className="flex items-center gap-4">
               {!isOwnProfile && (
