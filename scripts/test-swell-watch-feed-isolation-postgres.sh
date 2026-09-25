@@ -5,7 +5,7 @@ study_container="swell-watch-feed-test-$$"
 trap 'docker rm -fv "$study_container" >/dev/null 2>&1 || true' EXIT
 docker run --rm -d --name "$study_container" -e POSTGRES_PASSWORD=disposable postgres:15 >/dev/null
 deadline=$((SECONDS + 30))
-until docker exec "$study_container" pg_isready -U postgres -d postgres >/dev/null 2>&1; do
+until docker exec "$study_container" sh -c 'test "$(head -n 1 /var/lib/postgresql/data/postmaster.pid 2>/dev/null)" = 1 && pg_isready -U postgres -d postgres' >/dev/null 2>&1; do
   if [ "$SECONDS" -ge "$deadline" ]; then echo 'Disposable PostgreSQL startup failed' >&2; exit 1; fi
   sleep 0.1
 done
