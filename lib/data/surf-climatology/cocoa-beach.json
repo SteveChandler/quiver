@@ -118,6 +118,16 @@
           "W": 0.01,
           "NW": 0.01
         },
+        "threeFootDaysBySector": {
+          "N": 0,
+          "NE": 0,
+          "E": 0.14,
+          "SE": 0.06,
+          "S": 0,
+          "SW": 0,
+          "W": 0,
+          "NW": 0
+        },
         "yearlyMedianFt": [
           {
             "year": 2007,
@@ -259,6 +269,16 @@
           "W": 0.01,
           "NW": 0
         },
+        "threeFootDaysBySector": {
+          "N": 0,
+          "NE": 0,
+          "E": 0.13,
+          "SE": 0.05,
+          "S": 0,
+          "SW": 0,
+          "W": 0,
+          "NW": 0
+        },
         "yearlyMedianFt": [
           {
             "year": 2007,
@@ -394,6 +414,16 @@
           "S": 0.01,
           "SW": 0,
           "W": 0.01,
+          "NW": 0
+        },
+        "threeFootDaysBySector": {
+          "N": 0,
+          "NE": 0,
+          "E": 0.16,
+          "SE": 0.06,
+          "S": 0,
+          "SW": 0,
+          "W": 0,
           "NW": 0
         },
         "yearlyMedianFt": [
@@ -537,6 +567,16 @@
           "W": 0.01,
           "NW": 0
         },
+        "threeFootDaysBySector": {
+          "N": 0,
+          "NE": 0,
+          "E": 0.14,
+          "SE": 0.07,
+          "S": 0,
+          "SW": 0,
+          "W": 0,
+          "NW": 0
+        },
         "yearlyMedianFt": [
           {
             "year": 2007,
@@ -678,6 +718,16 @@
           "W": 0,
           "NW": 0
         },
+        "threeFootDaysBySector": {
+          "N": 0,
+          "NE": 0,
+          "E": 0.1,
+          "SE": 0.04,
+          "S": 0,
+          "SW": 0,
+          "W": 0,
+          "NW": 0
+        },
         "yearlyMedianFt": [
           {
             "year": 2007,
@@ -807,6 +857,16 @@
           "E": 0.71,
           "SE": 0.24,
           "S": 0.03,
+          "SW": 0,
+          "W": 0,
+          "NW": 0
+        },
+        "threeFootDaysBySector": {
+          "N": 0,
+          "NE": 0,
+          "E": 0.03,
+          "SE": 0.02,
+          "S": 0,
           "SW": 0,
           "W": 0,
           "NW": 0
@@ -948,6 +1008,16 @@
           "W": 0,
           "NW": 0
         },
+        "threeFootDaysBySector": {
+          "N": 0,
+          "NE": 0,
+          "E": 0.01,
+          "SE": 0.01,
+          "S": 0,
+          "SW": 0,
+          "W": 0,
+          "NW": 0
+        },
         "yearlyMedianFt": [
           {
             "year": 2007,
@@ -1081,6 +1151,16 @@
           "E": 0.77,
           "SE": 0.2,
           "S": 0.02,
+          "SW": 0,
+          "W": 0,
+          "NW": 0
+        },
+        "threeFootDaysBySector": {
+          "N": 0,
+          "NE": 0,
+          "E": 0.04,
+          "SE": 0.03,
+          "S": 0,
           "SW": 0,
           "W": 0,
           "NW": 0
@@ -1225,6 +1305,16 @@
           "NE": 0.02,
           "E": 0.87,
           "SE": 0.11,
+          "S": 0,
+          "SW": 0,
+          "W": 0,
+          "NW": 0
+        },
+        "threeFootDaysBySector": {
+          "N": 0,
+          "NE": 0,
+          "E": 0.15,
+          "SE": 0.03,
           "S": 0,
           "SW": 0,
           "W": 0,
@@ -1375,6 +1465,16 @@
           "W": 0,
           "NW": 0
         },
+        "threeFootDaysBySector": {
+          "N": 0,
+          "NE": 0,
+          "E": 0.27,
+          "SE": 0.03,
+          "S": 0,
+          "SW": 0,
+          "W": 0,
+          "NW": 0
+        },
         "yearlyMedianFt": [
           {
             "year": 2007,
@@ -1516,6 +1616,16 @@
           "W": 0,
           "NW": 0
         },
+        "threeFootDaysBySector": {
+          "N": 0,
+          "NE": 0.01,
+          "E": 0.39,
+          "SE": 0.02,
+          "S": 0,
+          "SW": 0,
+          "W": 0,
+          "NW": 0
+        },
         "yearlyMedianFt": [
           {
             "year": 2007,
@@ -1644,6 +1754,16 @@
           "NE": 0.04,
           "E": 0.83,
           "SE": 0.12,
+          "S": 0,
+          "SW": 0,
+          "W": 0,
+          "NW": 0
+        },
+        "threeFootDaysBySector": {
+          "N": 0,
+          "NE": 0,
+          "E": 0.25,
+          "SE": 0.05,
           "S": 0,
           "SW": 0,
           "W": 0,

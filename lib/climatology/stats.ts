@@ -20,6 +20,7 @@ export const WIND_BLOCKS = {
 } as const;
 
 const SMALL_DAY_FT = 2;
+const THREE_FOOT_DAY_FT = 3;
 const BIG_DAY_FT = 6;
 const BIG_DAY_MIN_HOURS = 3;
 const DAYTIME_FIRST_HOUR = 6;
@@ -84,6 +85,22 @@ function groupByDay(hours: LocalHourObservation[]): LocalHourObservation[][] {
 const heightFt = (o: LocalHourObservation): number | null =>
   o.waveHeightM === null ? null : o.waveHeightM * M_TO_FT;
 
+// The day's most common daytime swell direction; ties go to the earlier sector.
+function dominantSector(hours: LocalHourObservation[]): Sector | null {
+  const counts = new Map<Sector, number>();
+  for (const o of hours) {
+    if (o.meanWaveDirDeg === null) continue;
+    const sector = sectorOf(o.meanWaveDirDeg);
+    counts.set(sector, (counts.get(sector) ?? 0) + 1);
+  }
+  let best: Sector | null = null;
+  for (const sector of SECTORS) {
+    const count = counts.get(sector) ?? 0;
+    if (count > 0 && (best === null || count > (counts.get(best) ?? 0))) best = sector;
+  }
+  return best;
+}
+
 export function waveMonthStats(stationMonths: LocalHourObservation[][]): WaveMonthStats | null {
   if (stationMonths.length < MIN_STATION_MONTHS) return null;
   const hours = stationMonths.flat();
@@ -93,15 +110,19 @@ export function waveMonthStats(stationMonths: LocalHourObservation[][]): WaveMon
   let observedDays = 0;
   let smallDays = 0;
   let bigDays = 0;
+  const threeFootDays = Object.fromEntries(SECTORS.map((sector) => [sector, 0])) as Record<Sector, number>;
   for (const month of stationMonths) {
     for (const day of groupByDay(month)) {
-      const daytime = values(
-        day.filter((o) => o.hour >= DAYTIME_FIRST_HOUR && o.hour <= DAYTIME_LAST_HOUR),
-        heightFt,
-      );
+      const daytimeHours = day.filter((o) => o.hour >= DAYTIME_FIRST_HOUR && o.hour <= DAYTIME_LAST_HOUR);
+      const daytime = values(daytimeHours, heightFt);
       if (daytime.length < MIN_DAYTIME_HOURS) continue;
       observedDays += 1;
-      if (percentile(daytime, 50) < SMALL_DAY_FT) smallDays += 1;
+      const dayMedianFt = percentile(daytime, 50);
+      if (dayMedianFt < SMALL_DAY_FT) smallDays += 1;
+      if (dayMedianFt >= THREE_FOOT_DAY_FT) {
+        const sector = dominantSector(daytimeHours);
+        if (sector) threeFootDays[sector] += 1;
+      }
       if (values(day, heightFt).filter((ft) => ft >= BIG_DAY_FT).length >= BIG_DAY_MIN_HOURS) bigDays += 1;
     }
   }
@@ -127,6 +148,9 @@ export function waveMonthStats(stationMonths: LocalHourObservation[][]): WaveMon
       atLeast10: share(periods.filter((p) => p >= 10).length, periods.length),
     },
     directionMix,
+    threeFootDaysBySector: Object.fromEntries(
+      SECTORS.map((sector) => [sector, share(threeFootDays[sector], observedDays)]),
+    ) as Record<Sector, number>,
     yearlyMedianFt: stationMonths.map((month) => ({
       year: month[0].year,
       medianFt: round1(percentile(values(month, heightFt), 50)),

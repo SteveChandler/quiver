@@ -75,6 +75,7 @@ describe("buildSurfClimatologyDataset", () => {
     expect(dataset.months.every((m) => m.comparisonWaves === null)).toBe(true);
     expect(dataset.months[0].water?.medianF).toBe(75);
     expect(dataset.months[0].wind?.cleanMorningShare).toBe(1);
+    expect(dataset.months[0].waves?.threeFootDaysBySector.E).toBe(1);
     // 100 x (0.45 x 1 + 0.25 x 0.32 + 0.20 x 1 + 0.10 x 0.93) = 82.3
     expect(dataset.months[0].score).toBe(82);
   });
@@ -109,6 +110,7 @@ describe("datasetToCsv", () => {
     expect(comments.join("\n")).toContain("not surf height at the beach");
     expect(comments.join("\n")).toContain("gate failed");
     expect(rows[0].split(",")[0]).toBe("month");
+    expect(rows[0]).toContain("days_3ft_s_share");
     expect(rows).toHaveLength(13);
     expect(rows[1].startsWith("1,W1,waves,3.3,")).toBe(true);
     expect(rows[1].endsWith(",75,75,75,1,82")).toBe(true);

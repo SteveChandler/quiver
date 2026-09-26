@@ -32,6 +32,8 @@ export interface WaveMonthStats {
   bigDayShare: number;
   periodMix: { under8: number; from8to10: number; atLeast10: number };
   directionMix: Record<Sector, number>;
+  /** Share of observed days with a 3 ft+ daytime median, by the day's most common swell direction. */
+  threeFootDaysBySector: Record<Sector, number>;
   yearlyMedianFt: Array<{ year: number; medianFt: number }>;
   observedDays: number;
   validHours: number;

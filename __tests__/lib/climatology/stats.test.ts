@@ -79,6 +79,7 @@ describe("waveMonthStats", () => {
       bigDayShare: 0.1,
       periodMix: { under8: 0.65, from8to10: 0, atLeast10: 0.35 },
       directionMix: { N: 0, NE: 0, E: 0, SE: 0, S: 0, SW: 0, W: 1, NW: 0 },
+      threeFootDaysBySector: { N: 0, NE: 0, E: 0, SE: 0, S: 0, SW: 0, W: 0.68, NW: 0 },
       yearlyMedianFt: YEARS.map((year) => ({ year, medianFt: 3.3 })),
       observedDays: 155,
       validHours: 3720,
@@ -97,6 +98,22 @@ describe("waveMonthStats", () => {
       })),
     );
     expect(waveMonthStats(withGap)?.observedDays).toBe(150);
+  });
+
+  it("groups 3 ft+ days by the day's most common swell direction", () => {
+    // Days 1-10: 1.2 m (3.9 ft) from the south all day.
+    // Days 11-20: 1.2 m; daytime hours 6-13 from the west (8 h), 14-18 from the south (5 h).
+    // Days 21-31: 0.5 m (1.6 ft), below 3 ft.
+    const months = YEARS.map((year) =>
+      localMonth(year, 1, (day, hour) => ({
+        waveHeightM: day <= 20 ? 1.2 : 0.5,
+        meanWaveDirDeg: day > 10 && day <= 20 && hour >= 6 && hour <= 13 ? 270 : 180,
+      })),
+    );
+
+    expect(waveMonthStats(months)?.threeFootDaysBySector).toEqual({
+      N: 0, NE: 0, E: 0, SE: 0, S: 0.32, SW: 0, W: 0.32, NW: 0,
+    });
   });
 });
 
