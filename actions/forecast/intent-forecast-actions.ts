@@ -183,7 +183,13 @@ export interface CitySunTimesData {
  * Summary of forecast conditions for the "Today's Plan" module on intent pages.
  */
 export interface IntentForecastSummary {
-  bestWindow: { start: string; end: string; reason: string } | null;
+  bestWindow: {
+    start: string;
+    end: string;
+    reason: string;
+    /** Conditions at the forecast hour nearest the window's peak. */
+    conditions?: { tide: string; wind: string; swell: string };
+  } | null;
   topPicks: Array<{
     beachId: string;
     name: string;
@@ -1121,12 +1127,41 @@ export async function getCitySunTimesData(
  */
 function buildWindowReason(result: MagicHourResult): string {
   const parts: string[] = [];
-  if (result.tideInRange) parts.push("incoming tide");
+  if (result.tideInRange) parts.push("tide in range");
   if (result.windQuality === "perfect") parts.push("offshore winds");
   else if (result.windQuality === "acceptable") parts.push("light winds");
   else if (result.windQuality === "cross") parts.push("cross-shore winds");
   if (result.swellMatch) parts.push("good swell angle");
   return parts.length > 0 ? parts.join(", ") : "favorable conditions";
+}
+
+/**
+ * Find the forecast row whose forecast_at is closest to a target instant.
+ */
+function nearestForecast(
+  forecasts: EnhancedForecastEntity[],
+  targetMs: number,
+): EnhancedForecastEntity | undefined {
+  let nearest: EnhancedForecastEntity | undefined;
+  let nearestDelta = Number.POSITIVE_INFINITY;
+  for (const forecast of forecasts) {
+    const at = Date.parse(forecast.forecast_at);
+    if (!Number.isFinite(at)) continue;
+    const delta = Math.abs(at - targetMs);
+    if (delta < nearestDelta) {
+      nearest = forecast;
+      nearestDelta = delta;
+    }
+  }
+  return nearest;
+}
+
+function toConditions(forecast: EnhancedForecastEntity | undefined): IntentForecastSummary["conditions"] {
+  return {
+    tide: forecast?.tide_status ?? "Unknown",
+    wind: forecast?.wind_speed ?? "Unknown",
+    swell: forecast?.wave_height ?? "Unknown",
+  };
 }
 
 /**
@@ -1330,25 +1365,24 @@ export async function getIntentForecastSummary(
         (result) => result.beach.id === safeRankedItems[0].id,
       );
       if (!best) return null;
+      const peakMs = best.result.peakTime?.getTime() ?? Number.NaN;
       bestWindow = {
         start: best.result.windowStart ?? "",
         end: best.result.windowEnd ?? "",
         reason: buildWindowReason(best.result),
+        ...(Number.isFinite(peakMs)
+          ? { conditions: toConditions(nearestForecast(best.forecasts, peakMs)) }
+          : {}),
       };
     }
 
-    // Extract conditions from the best beach's forecast data
+    // Extract conditions from the best beach's forecast data, using the hour nearest now
     const bestForecasts: EnhancedForecastEntity[] =
       safeRankedItems.length > 0
         ? forecastsByBeach.get(safeRankedItems[0].id) ?? []
         : (forecasts as EnhancedForecastEntity[]);
-    const conditionForecast = bestForecasts[0];
 
-    const conditions: IntentForecastSummary["conditions"] = {
-      tide: conditionForecast?.tide_status ?? "Unknown",
-      wind: conditionForecast?.wind_speed ?? "Unknown",
-      swell: conditionForecast?.wave_height ?? "Unknown",
-    };
+    const conditions = toConditions(nearestForecast(bestForecasts, now.getTime()));
 
     const safeItems = safeRankedItems.map(({ item }) => item);
     const candidates = safeItems.map(({ candidate }) => candidate);
