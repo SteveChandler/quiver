@@ -29,6 +29,7 @@ import {
 import { learnArticles } from "@/lib/data/learn-articles";
 import { INDEXABLE_SEO_FUNNEL_PAGES } from "@/lib/seo/funnel-pages";
 import { getReviewedCityEditorialContent } from "@/actions/city/city-editorial-actions";
+import { getSurfClimatology } from "@/lib/climatology/get-surf-climatology";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { unstable_cache } from "next/cache";
 import { parseWaterTempF } from "@/lib/utils/wetsuit-utils";
@@ -1108,6 +1109,7 @@ async function getBestTimeToSurfRoutes(
           lastModified: latestSitemapDate(
             SITEMAP_CONTENT_VERSIONS.bestTimeTemplate,
             editorial?.lastModified,
+            getSurfClimatology(citySlug)?.generatedAt,
           ),
         };
       })

@@ -58,6 +58,13 @@ import {
   toCityEditorialInput,
 } from "@/lib/seo/indexability";
 import { ReviewedCityEditorialSection } from "@/components/seo/reviewed-city-editorial-section";
+import { BuoyRecordSections } from "@/components/best-time-to-surf/buoy-record/buoy-record-sections";
+import { SeasonPhotoFigure } from "@/components/best-time-to-surf/buoy-record/season-photo";
+import { DatasetSchema } from "@/components/seo/dataset-schema";
+import { getSurfClimatology } from "@/lib/climatology/get-surf-climatology";
+import { getSeasonPhotos } from "@/lib/climatology/season-photos";
+import { buildDataBackedSeasonView } from "@/lib/climatology/season-view";
+import { getSeasonCopy } from "@/lib/data/surf-climatology/copy";
 
 export const revalidate = 86400;
 
@@ -509,6 +516,15 @@ export default async function BestTimeToSurfPage(props: PageParams) {
   const stateProfile = getStateSurfProfile(stateSlug);
   const currentMonthData = data.monthly[currentMonthIndex];
   const currentStateMonth = stateProfile?.monthly[currentMonthIndex];
+
+  // Buoy-backed cities take every seasonal field from one dataset.
+  const climatology = getSurfClimatology(citySlug);
+  const seasonView = climatology ? buildDataBackedSeasonView(climatology, currentMonthIndex + 1) : null;
+  const seasonCopy = climatology ? getSeasonCopy(citySlug) : null;
+  const seasonPhotos = climatology ? getSeasonPhotos(citySlug) : [];
+  const heroPhoto = seasonPhotos.find((photo) => photo.slot === "hero") ?? null;
+  const seasonCsvPath = seasonCopy ? `/data/surf-climatology/${citySlug}.csv` : null;
+
   const liveAnswerCopy = buildBestTimeTodayAnswerCopy({
     citySlug,
     cityName,
@@ -517,9 +533,10 @@ export default async function BestTimeToSurfPage(props: PageParams) {
     currentBestMonthCount: currentMonthData.bestMonthCount,
     totalBeaches: data.totalBeaches,
     peakMonthName: data.peakMonthName,
-    waveHeightRange: currentStateMonth?.waveHeightRange,
-    waterTempF: currentStateMonth?.waterTemp,
+    waveHeightRange: seasonView ? null : currentStateMonth?.waveHeightRange,
+    waterTempF: seasonView ? seasonView.current.waterMedianF : currentStateMonth?.waterTemp,
     forecastSummary,
+    weekAnswerOverride: seasonView?.weekAnswer,
   });
 
   // Parse water temperature range once (Issue 3: bounds checking)
@@ -540,11 +557,14 @@ export default async function BestTimeToSurfPage(props: PageParams) {
   const faqItems = [
     {
       question: `What is the best month to surf in ${cityName}?`,
-      answer: `${data.peakMonthName} is the peak surf month in ${cityName}, when the most beaches hit their optimal conditions. ${data.topBeaches.length > 0 ? `Top spots like ${data.topBeaches.slice(0, 3).map((b) => b.name).join(", ")} peak during this window.` : ""}`,
+      answer:
+        seasonView && climatology
+          ? (seasonCopy?.bestMonthFaq?.({ dataset: climatology, view: seasonView }) ?? seasonView.bestMonthFaq)
+          : `${data.peakMonthName} is the peak surf month in ${cityName}, when the most beaches hit their optimal conditions. ${data.topBeaches.length > 0 ? `Top spots like ${data.topBeaches.slice(0, 3).map((b) => b.name).join(", ")} peak during this window.` : ""}`,
     },
     {
       question: `What water temperature should I expect when surfing in ${cityName}?`,
-      answer: stateProfile
+      answer: seasonView ? seasonView.waterFaq : stateProfile
         ? `Water temperatures in ${cityName} range from ${Math.min(...stateProfile.monthly.map((m) => m.waterTemp))}°F to ${Math.max(...stateProfile.monthly.map((m) => m.waterTemp))}°F throughout the year. ${stateProfile.monthly[6].wetsuit !== "boardshorts" ? `In summer, a ${stateProfile.monthly[6].wetsuit} is recommended.` : "Summer sessions are comfortable in boardshorts."} ${stateProfile.monthly[0].wetsuit !== "boardshorts" ? `In winter, bring a ${stateProfile.monthly[0].wetsuit}.` : ""}`
         : data.waterTempRange
           ? `Water temperatures in ${cityName} range from ${data.waterTempRange}°F throughout the year. ${data.summerWetsuit ? `In summer, a ${data.summerWetsuit} is recommended.` : ""} ${data.winterWetsuit ? `In winter, bring a ${data.winterWetsuit}.` : ""}`
@@ -552,11 +572,13 @@ export default async function BestTimeToSurfPage(props: PageParams) {
     },
     {
       question: `Is ${cityName} good for surfing year-round?`,
-      answer: generateYearRoundAnswer(
-        cityName,
-        data.monthly.filter((m) => m.score >= 50).length,
-        data.peakMonthName
-      ),
+      answer: seasonView
+        ? seasonView.yearRoundFaq
+        : generateYearRoundAnswer(
+            cityName,
+            data.monthly.filter((m) => m.score >= 50).length,
+            data.peakMonthName
+          ),
     },
   ];
 
@@ -585,6 +607,7 @@ export default async function BestTimeToSurfPage(props: PageParams) {
         ]}
       />
       <FAQSchema items={faqItems} />
+      {climatology && seasonCsvPath && <DatasetSchema dataset={climatology} csvPath={seasonCsvPath} />}
       <ItemListSchema
         items={itemListItems}
         name={`Best Surf Spots in ${cityName}`}
@@ -673,44 +696,57 @@ export default async function BestTimeToSurfPage(props: PageParams) {
                     sizes="112px"
                   />
                   {/* Seasonal average, not a live call — no "Go now!" (#569) */}
-                  <AnimatedScoreGauge
-                    score={currentMonthData.score}
-                    size="xl"
-                    showLabel
-                    showAction={false}
-                  />
+                  {seasonView ? (
+                    seasonView.current.score !== null ? (
+                      <AnimatedScoreGauge score={seasonView.current.score} size="xl" showLabel showAction={false} />
+                    ) : (
+                      <div className="flex h-32 w-32 shrink-0 items-center justify-center rounded-full border-8 border-gray-200 text-center text-sm font-semibold text-[#655C4C]">
+                        No buoy data
+                      </div>
+                    )
+                  ) : (
+                    <AnimatedScoreGauge score={currentMonthData.score} size="xl" showLabel showAction={false} />
+                  )}
                   <div className="text-center md:text-left">
                     <p className="mb-1 text-sm font-medium uppercase tracking-wide text-[#655C4C]">
-                      Seasonal pattern in {currentMonthData.monthName}
+                      {seasonView ? `Buoy record for ${currentMonthData.monthName}` : `Seasonal pattern in ${currentMonthData.monthName}`}
                     </p>
                     <p className="mb-2 text-3xl font-bold text-[#11100D] md:text-4xl">
                       {currentMonthData.monthName}
                     </p>
                     <p className="max-w-md text-[#655C4C]">
-                      {currentMonthData.bestMonthCount > 0
-                        ? `${currentMonthData.bestMonthCount} of ${data.totalBeaches} beaches are in peak season right now.`
-                        : `${cityName} is between peak seasons right now.`}
-                      {currentStateMonth
-                        ? ` Expect ${currentStateMonth.waveHeightRange} waves and ${currentStateMonth.waterTemp}°F water.`
-                        : data.waterTempRange
-                          ? ` Water temperatures range ${data.waterTempRange}°F year-round.`
-                          : ""}
-                      {data.peakMonth !== currentMonthIndex + 1
-                        ? ` Peak month: ${data.peakMonthName}.`
-                        : ""}
+                      {seasonView ? seasonView.heroDetail : (
+                        <>
+                          {currentMonthData.bestMonthCount > 0
+                            ? `${currentMonthData.bestMonthCount} of ${data.totalBeaches} beaches are in peak season right now.`
+                            : `${cityName} is between peak seasons right now.`}
+                          {currentStateMonth
+                            ? ` Expect ${currentStateMonth.waveHeightRange} waves and ${currentStateMonth.waterTemp}°F water.`
+                            : data.waterTempRange
+                              ? ` Water temperatures range ${data.waterTempRange}°F year-round.`
+                              : ""}
+                          {data.peakMonth !== currentMonthIndex + 1
+                            ? ` Peak month: ${data.peakMonthName}.`
+                            : ""}
+                        </>
+                      )}
                     </p>
                   </div>
                 </div>
               </div>
-              {heroScene && (
-                /* 4:3 rather than stretched to the column height: a 16:9 photo
-                   forced that tall only shows ~37% of its width. */
-                <SeoScenePanel
-                  scene={heroScene}
-                  priority
-                  className="lg:self-start"
-                  mediaClassName="aspect-[4/3] min-h-[240px]"
-                />
+              {heroPhoto ? (
+                <SeasonPhotoFigure photo={heroPhoto} priority className="lg:self-start" />
+              ) : (
+                heroScene && (
+                  /* 4:3 rather than stretched to the column height: a 16:9 photo
+                     forced that tall only shows ~37% of its width. */
+                  <SeoScenePanel
+                    scene={heroScene}
+                    priority
+                    className="lg:self-start"
+                    mediaClassName="aspect-[4/3] min-h-[240px]"
+                  />
+                )
               )}
             </div>
           </header>
@@ -726,85 +762,97 @@ export default async function BestTimeToSurfPage(props: PageParams) {
           className="mb-12"
         />
 
-        {/* Month-by-Month Chart */}
-        <ScrollReveal>
-          <section className="mb-12">
-            <h2 className="text-2xl font-semibold text-gray-900 mb-4">
-              Surf Score by Month
-            </h2>
-            <p className="text-sm text-gray-600 mb-4">
-              Score reflects overall surf quality each month — combining peak
-              season activity, water temperature, and crowd levels.
-            </p>
-            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-              <MonthlySurfChart monthly={data.monthly} />
-            </div>
-          </section>
-        </ScrollReveal>
-
-        {/* Monthly Breakdown Grid / Heatmap */}
-        <section className="mb-12">
-          <h2 className="text-2xl font-semibold text-gray-900 mb-4">
-            Monthly Breakdown
-          </h2>
-          <MonthlyViewToggle
-            monthly={data.monthly}
-            waterTempRange={data.waterTempRange}
-            summerWetsuit={data.summerWetsuit}
-            winterWetsuit={data.winterWetsuit}
-            stateMonthly={stateProfile?.monthly}
-            peakMonths={stateProfile?.peakMonths}
-            stateName={stateName}
+        {seasonView && climatology ? (
+          <BuoyRecordSections
+            dataset={climatology}
+            view={seasonView}
+            copy={seasonCopy}
+            photos={seasonPhotos}
+            csvHref={seasonCsvPath}
           />
-        </section>
+        ) : (
+          <>
+            {/* Month-by-Month Chart */}
+            <ScrollReveal>
+              <section className="mb-12">
+                <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+                  Surf Score by Month
+                </h2>
+                <p className="text-sm text-gray-600 mb-4">
+                  Score reflects overall surf quality each month — combining peak
+                  season activity, water temperature, and crowd levels.
+                </p>
+                <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                  <MonthlySurfChart monthly={data.monthly} />
+                </div>
+              </section>
+            </ScrollReveal>
 
-        {/* Dawn Patrol vs Afternoon */}
-        <ScrollReveal>
-          <section className="mb-12">
-            <h2 className="text-2xl font-semibold text-gray-900 mb-4">
-              Dawn Patrol vs Afternoon Sessions
-            </h2>
-            {sessionScene && (
-              <SeoScenePanel
-                scene={sessionScene}
-                className="mb-4"
-                mediaClassName="aspect-auto h-[240px] sm:h-[280px] lg:h-[320px]"
+            {/* Monthly Breakdown Grid / Heatmap */}
+            <section className="mb-12">
+              <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+                Monthly Breakdown
+              </h2>
+              <MonthlyViewToggle
+                monthly={data.monthly}
+                waterTempRange={data.waterTempRange}
+                summerWetsuit={data.summerWetsuit}
+                winterWetsuit={data.winterWetsuit}
+                stateMonthly={stateProfile?.monthly}
+                peakMonths={stateProfile?.peakMonths}
+                stateName={stateName}
               />
-            )}
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="rounded-xl border border-gray-200 bg-white p-5 hover:-translate-y-1 hover:shadow-xl transition-[transform,box-shadow] duration-200">
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  Dawn Patrol
-                </h3>
-                <ul className="space-y-2 text-sm text-gray-700">
-                  <li>Typically glassier conditions before onshore winds build</li>
-                  <li>Smaller crowds, especially on weekdays</li>
-                  <li>
-                    {dawnWinterTemp
-                      ? `Water temps at their coolest — plan your wetsuit for the low end (${dawnWinterTemp} in winter)`
-                      : "Water is coolest in the early morning — bring a thicker wetsuit"}
-                  </li>
-                  <li>Best for beach breaks and exposed reef setups in {cityName}</li>
-                </ul>
-              </div>
-              <div className="rounded-xl border border-gray-200 bg-white p-5 hover:-translate-y-1 hover:shadow-xl transition-[transform,box-shadow] duration-200">
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  Afternoon Sessions
-                </h3>
-                <ul className="space-y-2 text-sm text-gray-700">
-                  <li>Onshore winds can create chop, but swell is often more consistent</li>
-                  <li>Higher crowds on popular beaches, especially weekends</li>
-                  <li>
-                    {afternoonSummerTemp
-                      ? `Water warms through the day — upper end (${afternoonSummerTemp} in summer)`
-                      : "Water temperature is warmer by afternoon"}
-                  </li>
-                  <li>Sunset sessions can be magic when winds die down</li>
-                </ul>
-              </div>
-            </div>
-          </section>
-        </ScrollReveal>
+            </section>
+
+            {/* Dawn Patrol vs Afternoon */}
+            <ScrollReveal>
+              <section className="mb-12">
+                <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+                  Dawn Patrol vs Afternoon Sessions
+                </h2>
+                {sessionScene && (
+                  <SeoScenePanel
+                    scene={sessionScene}
+                    className="mb-4"
+                    mediaClassName="aspect-auto h-[240px] sm:h-[280px] lg:h-[320px]"
+                  />
+                )}
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="rounded-xl border border-gray-200 bg-white p-5 hover:-translate-y-1 hover:shadow-xl transition-[transform,box-shadow] duration-200">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      Dawn Patrol
+                    </h3>
+                    <ul className="space-y-2 text-sm text-gray-700">
+                      <li>Typically glassier conditions before onshore winds build</li>
+                      <li>Smaller crowds, especially on weekdays</li>
+                      <li>
+                        {dawnWinterTemp
+                          ? `Water temps at their coolest — plan your wetsuit for the low end (${dawnWinterTemp} in winter)`
+                          : "Water is coolest in the early morning — bring a thicker wetsuit"}
+                      </li>
+                      <li>Best for beach breaks and exposed reef setups in {cityName}</li>
+                    </ul>
+                  </div>
+                  <div className="rounded-xl border border-gray-200 bg-white p-5 hover:-translate-y-1 hover:shadow-xl transition-[transform,box-shadow] duration-200">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      Afternoon Sessions
+                    </h3>
+                    <ul className="space-y-2 text-sm text-gray-700">
+                      <li>Onshore winds can create chop, but swell is often more consistent</li>
+                      <li>Higher crowds on popular beaches, especially weekends</li>
+                      <li>
+                        {afternoonSummerTemp
+                          ? `Water warms through the day — upper end (${afternoonSummerTemp} in summer)`
+                          : "Water temperature is warmer by afternoon"}
+                      </li>
+                      <li>Sunset sessions can be magic when winds die down</li>
+                    </ul>
+                  </div>
+                </div>
+              </section>
+            </ScrollReveal>
+          </>
+        )}
 
         {/* Top Beaches for This City */}
         {data.topBeaches.length > 0 && (
@@ -854,7 +902,7 @@ export default async function BestTimeToSurfPage(props: PageParams) {
                                 </span>
                               )}
                             </div>
-                            {beach.bestMonths.length > 0 && (
+                            {!seasonView && beach.bestMonths.length > 0 && (
                               <p className="mt-2 text-xs text-gray-500">
                                 Peak: {beach.bestMonths
                                   .map((m) => MONTH_ABBREVS[m - 1])

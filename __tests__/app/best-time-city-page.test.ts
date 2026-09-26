@@ -440,7 +440,25 @@ describe("best-time city SEO page", () => {
 
     const gauges = source.match(/<AnimatedScoreGauge[\s\S]*?\/>/g) ?? [];
 
-    expect(gauges).toHaveLength(1);
-    expect(gauges[0]).toContain("showAction={false}");
+    // One gauge for buoy-backed cities, one for every other city.
+    expect(gauges).toHaveLength(2);
+    for (const gauge of gauges) {
+      expect(gauge).toContain("showAction={false}");
+    }
+  });
+
+  it("switches buoy-backed cities to the dataset for every seasonal field", () => {
+    const source = readFileSync(join(process.cwd(), "app/best-time-to-surf/[city]/page.tsx"), "utf8");
+
+    expect(source).toContain("getSurfClimatology(citySlug)");
+    expect(source).toContain("<BuoyRecordSections");
+    expect(source).toContain("weekAnswerOverride: seasonView?.weekAnswer");
+    expect(source).toContain("seasonView ? seasonView.heroDetail");
+    expect(source).toContain("seasonView ? seasonView.waterFaq");
+    expect(source).toContain("bestMonthFaq?.(");
+    expect(source).toMatch(/!seasonView && beach\.bestMonths\.length > 0/);
+    // The legacy sections stay for every other city.
+    expect(source).toContain("Surf Score by Month");
+    expect(source).toContain("Dawn Patrol vs Afternoon Sessions");
   });
 });
