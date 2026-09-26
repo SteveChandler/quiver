@@ -416,11 +416,24 @@ describe('generateWeekScoutForecast', () => {
     expect(getLocalHour(new Date(selection!.windowEnd), selection!.timezone)).toBeGreaterThan(13);
     expect(selection!.candidateId).not.toBe(unsetSelection.candidateId);
     expect(afternoon.sessionTimePreference).toBe('afternoon');
+    // The day cards follow the preference too, so they agree with the pick.
+    const unsetDayBest = unset.days.map((day) => day.bestWindowId);
+    afternoon.days.forEach((day, index) => {
+      if (unsetDayBest[index] === null) {
+        expect(day.bestWindowId).toBeNull();
+        return;
+      }
+      const dayBest = day.bestDayWindow!;
+      expect(getLocalHour(new Date(dayBest.displayWindowStart), 'Pacific/Honolulu')).toBeLessThan(17);
+      expect(getLocalHour(new Date(dayBest.displayWindowEnd), 'Pacific/Honolulu')).toBeGreaterThanOrEqual(13);
+    });
+    expect(afternoon.days.some((day) => day.bestWindowId === selection!.candidateId)).toBe(true);
 
     // No window overlaps the evening in this fixture, so it falls back to every window.
     const evening = await generateWeekScoutForecast('user-week-scout', { ...request, sessionTime: 'evening' }, dependencies());
     expect(evening.sessionTimePreference).toBeNull();
     expect(evening.sessionDecision.selection?.candidateId).toBe(unsetSelection.candidateId);
+    expect(evening.days.map((day) => day.bestWindowId)).toEqual(unsetDayBest);
 
     const anyTime = await generateWeekScoutForecast('user-week-scout', { ...request, sessionTime: 'any' }, dependencies());
     expect(anyTime.sessionTimePreference).toBeNull();

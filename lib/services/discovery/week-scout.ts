@@ -1238,6 +1238,54 @@ function preferredSessionWindowIds(
   return best.size > 0 ? new Set([...best.values()].map((entry) => entry.id)) : null;
 }
 
+/**
+ * Each day's best window drawn from the preferred-time windows, so the day
+ * cards agree with the session pick. A day with no preferred window keeps its
+ * unfiltered best, and a day with no best (held, all skips) stays empty.
+ */
+function applyPreferredDayBest(
+  response: MajorEventHoldWeekScoutResponse,
+  preferredIds: ReadonlySet<string> | null,
+  beaches: readonly Beach[],
+  userLocation: Coordinates | undefined,
+): MajorEventHoldWeekScoutResponse {
+  if (!preferredIds) return response;
+  const distanceByBeachId = new Map(beaches.map((beach) => {
+    if (!userLocation) return [beach.id, undefined] as const;
+    const miles = calculateDistanceInMiles(userLocation, { lat: beach.lat, lon: beach.lon });
+    return [beach.id, Number.isFinite(miles) ? miles : undefined] as const;
+  }));
+  return {
+    ...response,
+    days: response.days.map((day) => {
+      if (day.bestWindowId === null) return day;
+      const best = day.windows
+        .filter((window) => (
+          preferredIds.has(window.id)
+          && window.safe
+          && window.rideable
+          && window.verdict !== null
+          && window.verdict !== 'skip'
+          && window.rankingScore !== null
+        ))
+        .reduce<(typeof day.windows)[number] | null>((current, candidate) => (
+          !current || compareWeekScoutWindows(
+            { conditionScore: candidate.conditionScore ?? 0, rankingScore: candidate.rankingScore ?? 0 },
+            { conditionScore: current.conditionScore ?? 0, rankingScore: current.rankingScore ?? 0 },
+            distanceByBeachId.get(candidate.beachId),
+            distanceByBeachId.get(current.beachId),
+          ) < 0 ? candidate : current
+        ), null);
+      if (!best) return day;
+      return {
+        ...day,
+        bestWindowId: best.id,
+        exclusionReasons: exclusionReasonsForDay(day.windows, best.id),
+      };
+    }),
+  };
+}
+
 function buildCanonicalWeekScoutResponse(
   context: GeneratedWeekScoutContext,
   request: WeekScoutDaysRequest,
@@ -1273,9 +1321,12 @@ function buildCanonicalWeekScoutResponse(
     candidates: canonicalCandidates,
   });
 
+  const dayBestResponse = sessionTimePreference
+    ? applyPreferredDayBest(context.heldResponse, preferredIds, context.beaches, request.userLocation)
+    : context.heldResponse;
   const compacted = compactHeldResponse(
     {
-      ...applyCanonicalDecisionToWeekScout(context.heldResponse, sessionDecision),
+      ...applyCanonicalDecisionToWeekScout(dayBestResponse, sessionDecision),
       coverage: context.coverage,
     },
     sessionDecision.selection?.candidateId,
