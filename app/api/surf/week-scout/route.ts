@@ -12,6 +12,10 @@ import { parseSessionTime } from '@/lib/scoring/session-time-preference';
 import { buildWeekendScoutCandidatePool } from '@/lib/services/discovery/weekend-scout-candidate-pool';
 import { calculateDistanceInMiles } from '@/lib/utils/distance-utils';
 import { driveRadiusMiles, MAX_DRIVE_RADIUS_MILES } from '@/lib/profile/drive-range';
+import {
+  isWeekScoutSwellsEnabled,
+  isWeekScoutSwellsUserAllowed,
+} from '@/lib/flags/week-scout-swells';
 
 export const dynamic = 'force-dynamic';
 
@@ -240,6 +244,7 @@ async function weekScoutHandler(
   } catch {
     sessionTime = null;
   }
+  const swellsEnabled = isWeekScoutSwellsEnabled() && isWeekScoutSwellsUserAllowed(user.id);
   const forecast = await generateWeekScoutForecast(user.id, {
     candidateBeachIds,
     ...(sessionTime ? { sessionTime } : {}),
@@ -250,8 +255,9 @@ async function weekScoutHandler(
     ...(completeRadiusScope?.kind === 'complete-radius'
       ? { requirePerRowFreshness: true }
       : {}),
+    ...(swellsEnabled ? { includeSwells: true } : {}),
   });
-  const { coverage: forecastCoverage, ...forecastPayload } = forecast;
+  const { coverage: forecastCoverage, swells, ...forecastPayload } = forecast;
   const coverage = completeRadiusScope?.kind === 'complete-radius'
     ? {
         scope: {
@@ -269,6 +275,7 @@ async function weekScoutHandler(
     ...forecastPayload,
     ...(candidateBeaches ? { candidateBeaches } : {}),
     ...(coverage ? { coverage } : {}),
+    ...(swellsEnabled && swells ? { swells } : {}),
   });
 }
 

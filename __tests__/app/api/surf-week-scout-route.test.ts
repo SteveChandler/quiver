@@ -59,6 +59,8 @@ describe('POST /api/surf/week-scout', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.WEEK_SCOUT_ENDPOINT_ENABLED = 'true';
+    delete process.env.WEEK_SCOUT_SWELLS_ENABLED;
+    delete process.env.WEEK_SCOUT_SWELLS_USER_ALLOWLIST;
     mockGenerateWeekScoutForecast.mockResolvedValue(WEEK_SCOUT_CONTRACT_FIXTURE);
     mockBuildWeekendScoutCandidatePool.mockResolvedValue({ candidates: [], incomplete: false });
   });
@@ -380,6 +382,57 @@ describe('POST /api/surf/week-scout', () => {
         }),
       })],
     });
+  });
+
+  it('keeps swells out of the response and the request while the flag is off', async () => {
+    const response = await callRoute({
+      candidateBeachIds: [BEACH_A], localTimezone: 'Pacific/Honolulu', startLocalDate: '2026-07-15', dayCount: 7,
+    });
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(mockGenerateWeekScoutForecast.mock.calls[0][1]).not.toHaveProperty('includeSwells');
+    // Even a service result carrying swells is not passed through.
+    expect(payload.data).not.toHaveProperty('swells');
+  });
+
+  it('requests and returns the additive swells contract for an allowlisted user', async () => {
+    process.env.WEEK_SCOUT_SWELLS_ENABLED = 'true';
+    process.env.WEEK_SCOUT_SWELLS_USER_ALLOWLIST = 'someone-else, user-week-scout';
+    const response = await callRoute({
+      candidateBeachIds: [BEACH_A], localTimezone: 'Pacific/Honolulu', startLocalDate: '2026-07-15', dayCount: 7,
+    });
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(mockGenerateWeekScoutForecast).toHaveBeenCalledWith(
+      'user-week-scout',
+      expect.objectContaining({ includeSwells: true }),
+    );
+    expect(payload.data.swells).toEqual(WEEK_SCOUT_CONTRACT_FIXTURE.swells);
+    const [swell] = payload.data.swells;
+    expect(Object.keys(swell).sort()).toEqual([
+      'arrivalAt', 'beaches', 'change', 'confidence', 'crossing', 'directionDeg', 'directionLabel', 'eventKey',
+      'fadeAt', 'narrative', 'peakAt', 'peakLocalDate', 'peakOffshoreHeightFt', 'periodS', 'timezone', 'windAtPeak',
+    ]);
+    const windows = payload.data.days.flatMap(
+      (day: { windows: Array<{ id: string; forecast: { waveHeight: string | null } }> }) => day.windows,
+    );
+    const named = windows.find(({ id }: { id: string }) => id === swell.beaches[0].bestWindow.windowId);
+    // The row's height is the day strip's height for that same window.
+    expect(swell.beaches[0].bestWindow.waveHeight).toBe(named.forecast.waveHeight);
+    // Existing fields are untouched.
+    expect(payload.data.days[0].bestWindowId).toBe('window-a');
+  });
+
+  it('keeps swells off for users outside a non-empty allowlist', async () => {
+    process.env.WEEK_SCOUT_SWELLS_ENABLED = 'true';
+    process.env.WEEK_SCOUT_SWELLS_USER_ALLOWLIST = 'someone-else';
+    const response = await callRoute({
+      candidateBeachIds: [BEACH_A], localTimezone: 'Pacific/Honolulu', startLocalDate: '2026-07-15', dayCount: 7,
+    });
+    expect(mockGenerateWeekScoutForecast.mock.calls[0][1]).not.toHaveProperty('includeSwells');
+    expect((await response.json()).data).not.toHaveProperty('swells');
   });
 
   it('returns 404 without running discovery when the emergency kill switch is enabled', async () => {
