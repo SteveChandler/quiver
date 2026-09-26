@@ -324,3 +324,27 @@ Checks: `yarn typecheck`, scoped ESLint on changed files, `yarn deadcode`, `VERC
 - Remove state-profile text and the "Dawn Patrol vs Afternoon" block from cities without climatology data.
 - Confirm or rule out the North Charleston traffic as Google Cloud us-east1 bots in PostHog.
 - Decide whether to build a standalone Orange County comparison page after the +8 week reading.
+
+## Amendment 1 (2026-09-25): reading Newport's season
+
+Decided after the first build, when Newport's buoy score came out flat.
+
+### What the build showed
+
+- Buoy score v1 by month: Cocoa 59 57 61 56 52 42 37 44 61 61 66 61; Newport 84 81 81 84 86 88 91 88 87 88 84 83; Honolulu 60 61 69 78 87 87 82 85 84 81 68 64.
+- Surfline's guides agree with the buoy peak band for Cocoa Beach Pier (best season fall to spring) and Waikīkī/Queen's (summer, about April to October).
+- Newport's score stays within 10 points all year, so the Peak rule marks every month. San Pedro South sits outside the winter shadow: 77% of January hours carry west swell, which Surfline's Orange County guide says the county's south-facing breaks largely miss from November to April.
+- At San Pedro South, days with a 3 ft+ daytime median mostly from the south or southwest: 18–26% of days May–October, 3–5% December–February. Mostly from the west or northwest: 38–46% December–February, 4–8% July–September.
+- Score v2 (3 ft surf days) and a swell-window filter using Quiver's seeded beach windows were both tried and rejected: v2 moved Newport's peak to January, and the seeded 54th Street window (200–310°) excludes the south swell that makes up 78% of the buoy's July hours.
+
+### Decisions
+
+1. Keep buoy score v1 for all three cities.
+2. **No clear season rule:** when every scored month sits within 10 points of the top month, show no Peak badges, name the top month as "highest" rather than "peak", and say plainly that the buoy doesn't single out a season. Applies to any city; today only Newport.
+3. **New figure, all cities:** for each month, the share of observed days with a daytime median of 3 ft or more, grouped by the day's most common swell direction (8 sectors). Stored in the dataset and the CSV.
+4. **Newport season note:** after showing what the buoy says, a section titled "Why Newport's best days still come in summer" with a chart of 3 ft+ south/southwest days against 3 ft+ west/northwest days by month, and copy built from those figures. It cites Surfline's Orange County guide for the winter shadow and Wikipedia's article on the Wedge for the south-swell mechanism. Newport's best-month FAQ answer says summer into fall and gives the numbers.
+5. Cocoa and Honolulu keep their buoy peak bands; both match Surfline.
+
+### Follow-up
+
+- Quiver's seeded swell windows for Newport (54th Street 200–310°) exclude south swell. The live forecast's "good swell angle" check reads these windows. Check the production values separately.
