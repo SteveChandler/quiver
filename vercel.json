@@ -154,6 +154,14 @@
       "schedule": "0 * * * *"
     },
     {
+      "path": "/api/cron/swell-event-snapshots",
+      "schedule": "30 14 * * *"
+    },
+    {
+      "path": "/api/cron/swell-event-verify",
+      "schedule": "0 16 * * *"
+    },
+    {
       "path": "/api/cron/swell-watch-acquire",
       "schedule": "15 * * * *"
     },

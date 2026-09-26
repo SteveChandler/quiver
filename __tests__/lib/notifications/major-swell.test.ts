@@ -213,6 +213,38 @@ describe("major swell notification contract", () => {
     })).toThrow();
   });
 
+  it.each([1, 2, 3])("accepts %i ranked beaches", (count) => {
+    const beaches = Array.from({ length: count }, (_, index) => ({
+      beach_id: `${index + 1}1111111-1111-4111-8111-111111111111`,
+      beach_name: `Beach ${index + 1}`,
+      rank: index + 1,
+    }));
+
+    expect(parseMajorSwellNotificationPayload({
+      ...base,
+      ...physicalEvent,
+      awareness_signal: "forecast_trend",
+      official_evidence_refs: [],
+      enforcement: null,
+      beaches,
+    }).beaches).toEqual(beaches);
+  });
+
+  it.each([0, 4])("rejects %i ranked beaches", (count) => {
+    expect(() => parseMajorSwellNotificationPayload({
+      ...base,
+      ...physicalEvent,
+      awareness_signal: "forecast_trend",
+      official_evidence_refs: [],
+      enforcement: null,
+      beaches: Array.from({ length: count }, (_, index) => ({
+        beach_id: `${index + 1}1111111-1111-4111-8111-111111111111`,
+        beach_name: `Beach ${index + 1}`,
+        rank: Math.min(index + 1, 3),
+      })),
+    })).toThrow();
+  });
+
   it("rejects a versioned payload instead of adapting it as legacy", () => {
     expect(() => parseMajorSwellNotificationPayload({
       ...base,

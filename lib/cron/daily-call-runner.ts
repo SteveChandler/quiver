@@ -3,6 +3,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { isDailyCallEnabled, isDailyCallUserAllowed } from "@/lib/flags/daily-call";
 import { loadUserPool, type PoolBeach } from "@/lib/alerts/user-pool";
 import {
+  evaluateForecastVerdict,
+  type ForecastVerdict,
+} from "@/lib/alerts/canonical-forecast-verdict";
+import {
   refineWindow,
   type RefinedWindow,
 } from "@/lib/alerts/window-refiner";
@@ -19,12 +23,7 @@ import {
 } from "@/lib/notifications/copy/select-title";
 import type { EnqueueArgs, EnqueueResult } from "@/lib/notifications/types";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import { buildCanonicalSessionDecision } from "@/lib/recommendations/canonical-decision";
-import { getRecommendationLabel } from "@/lib/services/discovery/response-formatter";
-import {
-  scoreWindowConditionScore,
-  selectBestWindows,
-} from "@/lib/services/discovery/window-selector";
+import { selectBestWindows } from "@/lib/services/discovery/window-selector";
 import { TideCache } from "@/lib/services/noaa-coops/tide-cache";
 import type { COOPSForecast } from "@/lib/services/noaa-coops/types";
 import { localDateTimeToUTC } from "@/lib/utils/forecast-time-resolver";
@@ -120,13 +119,6 @@ export interface DailyCallDeps {
 interface EvaluatedCandidate extends DailyCallCandidate {
   sourceForecast: EnhancedForecastEntity;
   timezone: string;
-}
-
-interface ForecastEvaluation {
-  forecast: EnhancedForecastEntity;
-  score: number;
-  verdict: "go" | "maybe" | "no";
-  decision: ReturnType<typeof buildCanonicalSessionDecision>;
 }
 
 function skippedCounts(): Record<string, number> {
@@ -288,8 +280,8 @@ function buildPayload(args: {
   };
 }
 
-function groupGoForecasts(evaluations: ForecastEvaluation[]): ForecastEvaluation[][] {
-  const groups: ForecastEvaluation[][] = [];
+function groupGoForecasts(evaluations: ForecastVerdict[]): ForecastVerdict[][] {
+  const groups: ForecastVerdict[][] = [];
   for (const evaluation of evaluations) {
     if (evaluation.verdict !== "go") continue;
     const current = groups.at(-1);
@@ -314,44 +306,15 @@ function evaluateForecast(
   forecast: EnhancedForecastEntity,
   timezone: string,
   now: Date,
-): ForecastEvaluation {
-  const score = scoreWindowConditionScore(
+): ForecastVerdict {
+  return evaluateForecastVerdict({
     forecast,
-    pool.beach,
-    profile.experienceLevel,
-  );
-  const start = new Date(forecast.forecast_at);
-  const end = new Date(start.getTime() + HOUR_MS);
-  const decision = buildCanonicalSessionDecision({
-    anchorTime: now.toISOString(),
-    scope: {
-      kind: "plan_next_session",
-      windowStart: start.toISOString(),
-      windowEnd: end.toISOString(),
-      timezone,
-    },
-    profileExperience: profile.experienceLevel,
-    recommendationAvailability: {
-      state: "available",
-      holdEpoch: "daily-call",
-      resolutionAsOf: now.toISOString(),
-    },
-    candidates: [{
-      candidateId: `daily-call:${pool.beach.id}:${forecast.forecast_at}`,
-      beachId: pool.beach.id,
-      beachName: pool.beach.name,
-      beachSkillLevel: pool.beach.skill_level,
-      windowStart: start.toISOString(),
-      windowEnd: end.toISOString(),
-      timezone,
-      forecastId: forecast.id,
-      forecastAt: forecast.forecast_at,
-      waveHeight: forecast.wave_height,
-      utilityScore: score,
-      recommendationLabel: getRecommendationLabel(score),
-    }],
+    beach: pool.beach,
+    experienceLevel: profile.experienceLevel,
+    timezone,
+    now,
+    candidateIdPrefix: "daily-call",
   });
-  return { forecast, score, verdict: decision.verdict, decision };
 }
 
 function cachedTideSamples(
