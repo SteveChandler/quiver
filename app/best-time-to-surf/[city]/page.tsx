@@ -698,7 +698,16 @@ export default async function BestTimeToSurfPage(props: PageParams) {
                   {/* Seasonal average, not a live call — no "Go now!" (#569) */}
                   {seasonView ? (
                     seasonView.current.score !== null ? (
-                      <AnimatedScoreGauge score={seasonView.current.score} size="xl" showLabel showAction={false} />
+                      <div className="flex shrink-0 flex-col items-center gap-1">
+                        <AnimatedScoreGauge
+                          score={seasonView.current.score}
+                          size="xl"
+                          showLabel={false}
+                          showAction={false}
+                          enableGlow={false}
+                        />
+                        <p className="text-xs text-[#655C4C]">Buoy score v1</p>
+                      </div>
                     ) : (
                       <div className="flex h-32 w-32 shrink-0 items-center justify-center rounded-full border-8 border-gray-200 text-center text-sm font-semibold text-[#655C4C]">
                         No buoy data

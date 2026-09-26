@@ -20,6 +20,7 @@ interface ScoreByMonthChartProps {
 export function ScoreByMonthChart({ months, stationName, chartId }: ScoreByMonthChartProps) {
   const titleId = `${chartId}-title`;
   const summary = months.map((month) => `${month.abbrev} ${month.score ?? "n/a"}`).join(", ");
+  const hasPeak = months.some((month) => month.isPeak);
 
   return (
     <figure>
@@ -81,8 +82,14 @@ export function ScoreByMonthChart({ months, stationName, chartId }: ScoreByMonth
         })}
       </svg>
       <figcaption className="mt-2 flex items-center gap-2 text-xs text-[#655C4C]">
-        <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: CHART_PEAK }} aria-hidden="true" />
-        Peak band: within 10 points of the top month
+        {hasPeak ? (
+          <>
+            <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: CHART_PEAK }} aria-hidden="true" />
+            Peak band: within 10 points of the top month
+          </>
+        ) : (
+          "No month stands out: every month scores within 10 points of the top."
+        )}
       </figcaption>
     </figure>
   );
