@@ -210,7 +210,7 @@ describe('buildWeekScoutSwells', () => {
     const shores = swell.beaches.find((item) => item.beachId === IDS.shores);
     expect(shores?.exposureLabel).toBe('shadowed');
     expect(swell.narrative).toBe(
-      'W swell, 4.2 ft at 16 s, builds early Monday morning and peaks Monday afternoon. '
+      'W swell, 4.2 ft at 16 s, builds early Monday morning and peaks Monday midday. '
       + 'Blacks and Scripps face it most directly; '
       + 'La Jolla Shores is mostly blocked from this direction, so expect little of it there.',
     );
@@ -335,7 +335,7 @@ describe('Week Scout swell change', () => {
     expect(changeWith([snapshot({ peakAt: localIso(3, 3) })])).toMatchObject({
       kind: 'later',
       previousPeakAt: localIso(3, 3),
-      summary: 'Peak moved to Monday afternoon',
+      summary: 'Peak moved to Monday midday',
     });
     expect(changeWith([snapshot({ peakAt: localIso(3, 21) })])).toMatchObject({ kind: 'earlier' });
     expect(changeWith([snapshot({ peakAt: localIso(3, 9) })])).toMatchObject({
@@ -481,7 +481,7 @@ describe('Week Scout swells already arriving', () => {
     const input = arriving([BACKGROUND, BACKGROUND], [PEAK, PEAK, BACKGROUND, BACKGROUND, BACKGROUND, BACKGROUND, BACKGROUND], 1);
     const [swell] = buildWeekScoutSwells(input);
     expect(swell).toMatchObject({ arrivalAt: localIso(0, 0), peakAt: localIso(1, 12), fadeAt: localIso(2, 0) });
-    expect(swell.narrative).toMatch(/^W swell, 4\.2 ft at 16 s, is building now and peaks Saturday afternoon\./);
+    expect(swell.narrative).toMatch(/^W swell, 4\.2 ft at 16 s, is building now and peaks tomorrow midday\./);
 
     // Without the past rows the swell has no lull to rise from and drops out.
     expect(buildWeekScoutSwells({ ...input, swellHistoryByBeach: undefined })).toEqual([]);
@@ -598,7 +598,7 @@ describe('Week Scout swells review fixes', () => {
 
   it('says a swell past its peak is easing', () => {
     const [swell] = buildWeekScoutSwells(scenario({ now: new Date(localIso(3, 15)) }));
-    expect(swell.narrative).toMatch(/^W swell, 4\.2 ft at 16 s, peaked Monday afternoon and is easing\./);
+    expect(swell.narrative).toMatch(/^W swell, 4\.2 ft at 16 s, peaked midday today and is easing\./);
   });
 
   it('names only windows that overlap the swell in time, not its whole local dates', () => {
