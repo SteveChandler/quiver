@@ -36,7 +36,6 @@ import {
   type SkillLevel,
 } from '@/lib/domains/user-preferences';
 import {
-  getRideabilityBand,
   normalizeBoardClass,
   type BoardClass,
 } from '@/lib/domains/rideability';
@@ -75,9 +74,33 @@ import {
 } from '@/lib/recommendations/canonical-decision';
 
 import { overlapsSessionTime, type SessionTime } from '@/lib/scoring/session-time-preference';
+import {
+  SWELL_EVENT_BASELINE_LOOKBACK_HOURS,
+  SWELL_EVENT_KEY_REUSE_DAYS,
+  loadRecentSwellSnapshots,
+  loadSwellCrossingHistory,
+  loadSwellForecastRows,
+  type SwellCrossingHistory,
+  type SwellEventForecastRow,
+  type SwellEventSnapshot,
+} from '@/lib/alerts/swell-events';
+import { createContextLogger } from '@/lib/logger';
+import {
+  buildWeekScoutSwells,
+  weekScoutRideableBands,
+  weekScoutWaveHeightFt,
+  type WeekScoutSwell,
+} from '@/lib/services/discovery/week-scout-swells';
 
 const WEEK_SCOUT_SCORER_VERSION = 'week-scout-v2:day-window-authority-v1';
 const WEEK_SCOUT_RESPONSE_RANK_LIMIT = 8;
+// The swell reads start with the forecast fetch, so this bounds the extra
+// wait after the main result is ready; a slower snapshot read omits `swells`.
+const WEEK_SCOUT_SWELLS_SNAPSHOT_TIMEOUT_MS = 1500;
+// Crossing rarity looks back over the last 30 days of snapshot runs.
+const SWELL_CROSSING_HISTORY_DAYS = 30;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const log = createContextLogger('WeekScout');
 
 export type WeekScoutBucket = 'morning' | 'midday' | 'evening';
 export type WeekScoutVerdict = 'worth_it' | 'maybe' | 'skip';
@@ -98,6 +121,8 @@ export interface WeekScoutRequest {
   requirePerRowFreshness?: boolean;
   /** profiles.preferred_session_time; the session pick stays inside it when any window does. */
   sessionTime?: SessionTime | null;
+  /** Adds the flagged `swells` planning field; any failure omits it. */
+  includeSwells?: boolean;
 }
 
 export interface WeekScoutDaysRequest extends Omit<WeekScoutRequest, 'dayCount'> {
@@ -227,6 +252,8 @@ export type CanonicalWeekScoutResponse = MajorEventHoldWeekScoutResponse & {
   coverage?: WeekScoutCoverage;
   /** The preferred session time the session pick was limited to; null when it came from all windows. */
   sessionTimePreference?: SessionTime | null;
+  /** Flagged, additive: detected swells joined to this response's windows. */
+  swells?: WeekScoutSwell[];
 };
 
 interface GeneratedWeekScoutContext {
@@ -287,6 +314,10 @@ export interface WeekScoutServiceDependencies {
   ) => DetailedScore;
   beachToSpotProfile: (beach: Beach) => SpotProfile;
   rankWindows: (recommendations: SurfDiscoveryRecommendation[]) => RerankResult;
+  loadSwellSnapshots?: (beachIds: string[], since: Date) => Promise<SwellEventSnapshot[]>;
+  loadSwellCrossingHistory?: (beachIds: string[], since: Date) => Promise<SwellCrossingHistory>;
+  /** Narrow past swell rows for the detector baseline; never feeds window selection. */
+  loadSwellHistory?: (beachIds: string[], from: Date, to: Date) => Promise<Map<string, SwellEventForecastRow[]>>;
 }
 
 interface DraftWindow {
@@ -425,19 +456,11 @@ function isRideable(
   skillLevel: SkillLevel | null,
   boardClasses: readonly BoardClass[] = [],
 ): boolean {
-  const waveHeight = finiteNumber(forecast.wave_height);
+  const waveHeight = weekScoutWaveHeightFt(forecast.wave_height);
   if (waveHeight === null) return false;
 
-  const resolvedSkillLevel = getSkillLevelOrDefault(skillLevel);
-  if (boardClasses.length === 0) {
-    const band = getRideabilityBand(resolvedSkillLevel, null).acceptable;
-    return waveHeight >= band.min && waveHeight <= band.max;
-  }
-
-  return boardClasses.some((boardClass) => {
-    const band = getRideabilityBand(resolvedSkillLevel, boardClass).acceptable;
-    return waveHeight >= band.min && waveHeight <= band.max;
-  });
+  return weekScoutRideableBands(skillLevel, boardClasses)
+    .some((band) => waveHeight >= band.min && waveHeight <= band.max);
 }
 
 function clampScore(score: number): number {
@@ -502,6 +525,15 @@ function defaultDependencies(now: Date): WeekScoutServiceDependencies {
     ),
     beachToSpotProfile,
     rankWindows: rerankHero,
+    loadSwellSnapshots: (beachIds, since) => (
+      loadRecentSwellSnapshots(createSupabaseServiceRoleClient(), beachIds, since)
+    ),
+    loadSwellCrossingHistory: (beachIds, since) => (
+      loadSwellCrossingHistory(createSupabaseServiceRoleClient(), beachIds, since)
+    ),
+    loadSwellHistory: (beachIds, from, to) => (
+      loadSwellForecastRows(createSupabaseServiceRoleClient(), beachIds, from, to)
+    ),
   };
 }
 
@@ -1379,11 +1411,112 @@ export async function generateWeekScoutRankingForDays(
   return attachBestDayWindows(context.heldResponse);
 }
 
+/** Never rejects: null means the load failed or ran past the swells budget. */
+function withinSwellsBudget<T>(label: string, consequence: string, load: () => Promise<T>): Promise<T | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<null>((resolve) => {
+    timer = setTimeout(() => {
+      log.warn(`Week Scout ${label} timed out; ${consequence}`);
+      resolve(null);
+    }, WEEK_SCOUT_SWELLS_SNAPSHOT_TIMEOUT_MS);
+    timer.unref?.();
+  });
+  const loaded = Promise.resolve()
+    .then(load)
+    .catch((error: unknown) => {
+      log.warn(`Week Scout ${label} failed; ${consequence}`, {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    });
+  return Promise.race([loaded, timeout]).finally(() => clearTimeout(timer));
+}
+
+interface PendingSwellInputs {
+  snapshots: Promise<SwellEventSnapshot[] | null>;
+  crossingHistory: Promise<SwellCrossingHistory | null>;
+  swellHistory: Promise<Map<string, SwellEventForecastRow[]> | null>;
+}
+
+function startSwellInputs(
+  deps: WeekScoutServiceDependencies,
+  beachIds: string[],
+): PendingSwellInputs {
+  const { loadSwellSnapshots, loadSwellCrossingHistory, loadSwellHistory } = deps;
+  return {
+    // Missing snapshots omit `swells`: keys and confidence depend on them.
+    snapshots: loadSwellSnapshots
+      ? withinSwellsBudget('swell snapshots', 'omitting swells', () => loadSwellSnapshots(
+        beachIds,
+        new Date(deps.now.getTime() - SWELL_EVENT_KEY_REUSE_DAYS * DAY_MS),
+      ))
+      : Promise.resolve(null),
+    // Missing history only drops the rarity line.
+    crossingHistory: loadSwellCrossingHistory
+      ? withinSwellsBudget('swell crossing history', 'omitting crossing rarity', () => loadSwellCrossingHistory(
+        beachIds,
+        new Date(deps.now.getTime() - SWELL_CROSSING_HISTORY_DAYS * DAY_MS),
+      ))
+      : Promise.resolve(null),
+    // Missing past rows only shorten the baseline to the forecast's own rows.
+    swellHistory: loadSwellHistory
+      ? withinSwellsBudget('past swell rows', 'baseline limited to forecast rows', () => loadSwellHistory(
+        beachIds,
+        new Date(deps.now.getTime() - SWELL_EVENT_BASELINE_LOOKBACK_HOURS * 60 * 60 * 1000),
+        deps.now,
+      ))
+      : Promise.resolve(null),
+  };
+}
+
+function buildSwellsSafely(
+  context: GeneratedWeekScoutContext,
+  response: CanonicalWeekScoutResponse,
+  request: WeekScoutRequest,
+  snapshots: SwellEventSnapshot[],
+  crossingHistory: SwellCrossingHistory | null,
+  swellHistory: Map<string, SwellEventForecastRow[]> | null,
+): WeekScoutSwell[] | null {
+  try {
+    return buildWeekScoutSwells({
+      days: response.days,
+      beaches: context.beaches,
+      forecastsByBeach: context.forecastsByBeach,
+      ...(swellHistory ? { swellHistoryByBeach: swellHistory } : {}),
+      snapshots,
+      crossingHistory,
+      userSkillLevel: context.userSkillLevel,
+      boardClasses: context.boardClasses,
+      now: context.now,
+      timezone: request.localTimezone,
+    });
+  } catch (error) {
+    log.warn('Week Scout swells failed; omitting swells', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
+}
+
 export async function generateWeekScoutForecast(
   userId: string,
   request: WeekScoutRequest,
   dependencies?: WeekScoutServiceDependencies,
 ): Promise<CanonicalWeekScoutResponse> {
-  const context = await generateWeekScoutForecastInternal(userId, request, dependencies);
-  return buildCanonicalWeekScoutResponse(context, request);
+  const deps = dependencies ?? defaultDependencies(new Date());
+  // Started alongside the forecast fetch so the swell reads add no latency.
+  const pending = request.includeSwells ? startSwellInputs(deps, request.candidateBeachIds) : null;
+  const context = await generateWeekScoutForecastInternal(userId, request, deps);
+  const response = buildCanonicalWeekScoutResponse(context, request);
+  if (!pending) return response;
+
+  const [snapshots, crossingHistory, swellHistory] = await Promise.all([
+    pending.snapshots,
+    pending.crossingHistory,
+    pending.swellHistory,
+  ]);
+  const swells = snapshots
+    ? buildSwellsSafely(context, response, request, snapshots, crossingHistory, swellHistory)
+    : null;
+  return swells ? { ...response, swells } : response;
 }
