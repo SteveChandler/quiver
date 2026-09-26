@@ -42,13 +42,16 @@ describe("SeasonPhotoFigure", () => {
   const [cocoaHero, , cocoaTypical] = getSeasonPhotos("cocoa-beach");
 
   it("credits a public-domain photo without a licence label", () => {
-    render(<SeasonPhotoFigure photo={cocoaHero} />);
+    const publicDomain = { ...cocoaHero, creator: "U.S. Air Force", licenseCode: "Public domain" };
+    render(<SeasonPhotoFigure photo={publicDomain} />);
 
-    expect(screen.getByRole("link", { name: "Photo: U.S. Air Force photo by Airman 1st Class Dalton Williams" })).toHaveAttribute(
-      "href",
-      "https://commons.wikimedia.org/wiki/File:190221-F-DJ189-1003.jpg",
-    );
+    expect(screen.getByRole("link", { name: "Photo: U.S. Air Force" })).toHaveAttribute("href", cocoaHero.sourceUrl);
     expect(screen.queryByText(/cropped/)).not.toBeInTheDocument();
+  });
+
+  it("uses a surf photo for the Cocoa Beach hero", () => {
+    expect(cocoaHero.slot).toBe("hero");
+    expect(cocoaHero.src).toBe("/images/seasons/cocoa-beach/surfer-after-sandy.webp");
   });
 
   it("names and links the licence of a Creative Commons photo and says it was cropped", () => {

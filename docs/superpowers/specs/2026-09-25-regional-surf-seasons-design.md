@@ -252,7 +252,7 @@ Every photo shows a visible credit under it: "Photo: `<creator>`, `<license>`" l
 
 | Page | Slot | File (Wikimedia Commons) | Creator | License | Notes |
 |---|---|---|---|---|---|
-| cocoa-beach | hero | `File:190221-F-DJ189-1003.jpg` | U.S. Air Force photo by Airman 1st Class Dalton Williams | Public domain | Falcon 9 night launch over Cocoa Beach Pier, 2019-02-21 |
+| cocoa-beach | hero | `File:Surf_heaven_today_at_cocoa_beach_fl_-_Flickr_-_Rusty_Clark.jpg` | Rusty Clark | CC BY 2.0 | Surfer at Cocoa Beach after Hurricane Sandy, 2012-10-29 (replaced the Falcon 9 launch photo on 2026-09-26: the hero should show surf) |
 | cocoa-beach | big swell | `File:Pier at Cocoa Beach (3879447583).jpg` | Mangrove Mike | CC BY 2.0 | Hurricane Bill surf, 2009-08-21 |
 | cocoa-beach | typical day | `File:Surfing at the Cocoa Beach Pier (Cocoa Beach, Florida) 005.jpg` | Leonard J. DeFrancisci | CC BY-SA 3.0 | Looking south from the pier, 2014-01-18 |
 | cocoa-beach | buoy limits | `File:Satellite Beach from the air (35539816191).jpg` | Michael Seeley | CC BY 2.0 | Sandbar and trough from above, 2017-07-02; crop signature |
