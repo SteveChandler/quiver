@@ -19,6 +19,7 @@ import { TideFullChart } from "./tide-full-chart";
 import { SevenDayTideTable } from "./seven-day-tide-table";
 import { BeachTideCards } from "./beach-tide-cards";
 import { UtilitySessionHandoff } from "./utility-session-handoff";
+import { toCityMapSpot } from "@/lib/utils/map-client-props";
 
 interface TidePageContentProps {
   cityName: string;
@@ -172,7 +173,7 @@ export function TidePageContent({
                   backup in case the main peak gets stacked.
                 </p>
                 <CityMapView
-                  spots={spots}
+                  spots={spots.map(toCityMapSpot)}
                   cityName={cityName}
                   citySlug={citySlug}
                   stateSlug={stateSlug}

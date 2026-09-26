@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import type { Beach } from "@/types/database";
+import type { MapBeach } from "@/lib/utils/map-client-props";
 
 // Dynamically import LocationMap with no SSR since it uses Mapbox (client-only)
 const LocationMap = dynamic(
@@ -21,7 +22,7 @@ const LocationMap = dynamic(
 );
 
 interface LocationMapClientProps {
-  beaches: Beach[];
+  beaches: MapBeach[];
   city: string;
   state: string;
 }
@@ -31,5 +32,7 @@ export function LocationMapClient({
   city,
   state,
 }: LocationMapClientProps) {
-  return <LocationMap beaches={beaches} city={city} state={state} />;
+  // Location RPC rows never carried every Beach column. Don't fill defaults:
+  // the map trusts any timezone it is given (see beach-state-actions).
+  return <LocationMap beaches={beaches as Beach[]} city={city} state={state} />;
 }

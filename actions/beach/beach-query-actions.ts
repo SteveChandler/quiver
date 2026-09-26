@@ -135,38 +135,54 @@ async function _getBeachesByIntentAndCityInternal(
   return rankBeaches((data ?? []) as Beach[], { compare: () => 0 });
 }
 
+const DEFAULT_INTENT_CITY_BEACHES_REVALIDATE_SECONDS = 900;
+
 /**
- * Cached version of beaches by intent and city - revalidates every 15 minutes.
- * Used by intent pages to reduce database queries for repeated lookups.
+ * Cached beaches by intent and city.
+ *
+ * Next.js lowers an ISR page's revalidate to this window when the page reads
+ * it, so callers choose the window their page needs; the rows themselves are
+ * beach metadata. The key is shared across windows because the rows are too.
  */
-const getCachedBeachesByIntentAndCity = unstable_cache(
-  _getBeachesByIntentAndCityInternal,
-  ["beaches-by-intent-city"],
-  {
-    revalidate: 900, // 15 minutes
-    tags: ["beaches"],
-  }
-);
+function getCachedBeachesByIntentAndCity(revalidate: number) {
+  return unstable_cache(
+    _getBeachesByIntentAndCityInternal,
+    ["beaches-by-intent-city"],
+    {
+      revalidate,
+      tags: ["beaches"],
+    }
+  );
+}
 
 /**
  * Fetch beaches matching an intent for a specific city.
  * Used for database-driven intent pages.
  *
- * Uses cross-request caching (15 minutes) for better performance on intent pages.
+ * Uses cross-request caching (15 minutes unless `revalidateSeconds` is given).
  *
  * @param intent - The surf intent (beginner, least-crowded, tide, water-temp)
  * @param citySlug - City slug (e.g., "san-diego")
  * @param stateSlug - State slug (e.g., "ca")
+ * @param options.revalidateSeconds - Cache window, which also caps the calling ISR page's window
  */
 export async function getBeachesByIntentAndCity(
   intent: string,
   citySlug: string,
-  stateSlug: string
+  stateSlug: string,
+  options: { revalidateSeconds?: number } = {}
 ) {
+  const { revalidateSeconds } = options;
+  const revalidate =
+    typeof revalidateSeconds === "number" &&
+    Number.isInteger(revalidateSeconds) &&
+    revalidateSeconds > 0
+      ? revalidateSeconds
+      : DEFAULT_INTENT_CITY_BEACHES_REVALIDATE_SECONDS;
   return withDatabaseOperation<Beach[]>(async () => {
     try {
       // Use cached version for cross-request performance
-      const beaches = await getCachedBeachesByIntentAndCity(intent, citySlug, stateSlug);
+      const beaches = await getCachedBeachesByIntentAndCity(revalidate)(intent, citySlug, stateSlug);
       return {
         data: beaches,
         error: null,
@@ -273,14 +289,15 @@ async function _getBeachesByIntentAndStateInternal(
 }
 
 /**
- * Cached version of beaches by intent and state - revalidates every 15 minutes.
- * Used by state-level intent pages to reduce database queries.
+ * Cached version of beaches by intent and state - revalidates every hour.
+ * Used by state-level intent pages, which show no live recommendation. Next.js
+ * lowers an ISR page's revalidate to this window, so it matches the page's.
  */
 const getCachedBeachesByIntentAndState = unstable_cache(
   _getBeachesByIntentAndStateInternal,
   ["beaches-by-intent-state"],
   {
-    revalidate: 900, // 15 minutes
+    revalidate: 3600, // 1 hour - matches app/[intent]/[city] revalidate
     tags: ["beaches"],
   }
 );
@@ -289,7 +306,7 @@ const getCachedBeachesByIntentAndState = unstable_cache(
  * Fetch beaches matching an intent for an entire state.
  * Used for state-level SEO pages like /beginner/ca.
  *
- * Uses cross-request caching (15 minutes) for better performance on intent pages.
+ * Uses cross-request caching (1 hour) for better performance on intent pages.
  *
  * @param intent - The surf intent
  * @param stateSlug - State slug (e.g., "ca")

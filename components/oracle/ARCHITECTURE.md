@@ -32,7 +32,7 @@ Everything renders inside `HomeZineShell`: cream paper on the Deep Twilight stag
 
 - **Viewpoints:** Swell, Sat, Photo and Cam, in native's order, with native's labels and native's default (swell); see `quiver-native/src/lib/hero-viewpoints.ts`.
   - **Swell:** native's home hero field: the primary swell over /map's basemap (Mapbox streets-v11), dimmed 35% with Deep Twilight. `zine/hero-swell-field.tsx` draws it as cream crest dashes across the direction of travel, clipped to the water it reads from the map image's pixels.
-    - **Look:** spacing, size, speed and fades are /map's (`components/map/swell-field/particle-style.ts`); the colour and longer crests are its dark stage, as native draws them.
+    - **Look:** size, speed and fades are /map's (`components/map/swell-field/particle-style.ts`); the colour and longer crests are its dark stage, as native draws them. The compact web hero uses 25% of the map's particle budget (163 desktop, 70 mobile) to leave more open water.
     - **Primary only:** secondary swell and wind are not drawn, matching native's home hero (`allowedDataLayerIds: ['s1']` in quiver-native `src/screens/home.tsx`).
     - **Inputs:** one forecast row, read exactly as /map reads it (`rowToSwellPartition`, then `partitionToPoint` for `s1`, which prefers the complete offshore swell over swell 1).
       - With a current slot, that's the slot's `swellPartition` from `/api/surf/discover`, the same slot the condition strip reads. The field never falls back to another hour's row.

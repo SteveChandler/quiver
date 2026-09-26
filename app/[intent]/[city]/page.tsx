@@ -91,10 +91,18 @@ import {
   toCityEditorialInput,
 } from "@/lib/seo/indexability";
 import { ReviewedCityEditorialSection } from "@/components/seo/reviewed-city-editorial-section";
+import { toMapBeach, toCityMapSpot } from "@/lib/utils/map-client-props";
 
 // Hold transitions explicitly revalidate every affected intent path.
 export const dynamic = "force-static";
 export const revalidate = 3600;
+
+// Next.js lowers this page's revalidate to the shortest unstable_cache window a
+// render reads, so the beach-list window is the page window. Tide, water-temp,
+// and sun-time renders show no live recommendation and keep the declared hour.
+// Live recommendations apply water-quality holds at render and keep 15 minutes.
+const BEACH_METADATA_WINDOW_SECONDS = 3600;
+const LIVE_RECOMMENDATION_WINDOW_SECONDS = 900;
 
 /**
  * Try to resolve a city slug with automatic state suffix detection.
@@ -501,7 +509,7 @@ export default async function IntentPage(props: IntentPageParams) {
             <>
               <section className="mb-8">
                 <StateMapView
-                  beaches={beaches}
+                  beaches={beaches.map(toMapBeach)}
                   ariaLabel={`${intentDefinition.label} spots in ${stateName}`}
                 />
               </section>
@@ -575,12 +583,18 @@ export default async function IntentPage(props: IntentPageParams) {
     );
   }
 
+  // Unknown first segments (bot probes, stale links) never render a city page;
+  // return 404 before the city lookups.
+  if (!definition) {
+    return notFound();
+  }
+
   // Database-driven city resolution with automatic state suffix detection (parallel lookup)
   // This handles cases where sitemap has "/beginner/nags-head-nc" but user accesses "/beginner/nags-head"
   // NOTE: We serve content directly instead of redirecting to avoid redirect chains that Google flags
   const { cityMetadata } = await resolveCityWithStateSuffix(params.city);
 
-  if (!cityMetadata || !definition) {
+  if (!cityMetadata) {
     return notFound();
   }
 
@@ -665,7 +679,9 @@ export default async function IntentPage(props: IntentPageParams) {
 
     const [expandedTideData, tideBeachesResult, bestTimeToSurfUrl, excludeIntents] = await Promise.all([
       getCityTideDataExpanded(cityMetadata.cityName, cityMetadata.state),
-      getBeachesByIntentAndCity("tide", cityMetadata.cityName, stateSlugLower),
+      getBeachesByIntentAndCity("tide", cityMetadata.cityName, stateSlugLower, {
+        revalidateSeconds: BEACH_METADATA_WINDOW_SECONDS,
+      }),
       getBestTimeToSurfUrl(params.city, cityMetadata.cityName, cityMetadata.state),
       getCityExcludeIntents(cityMetadata.cityName, cityMetadata.state),
     ]);
@@ -754,7 +770,9 @@ export default async function IntentPage(props: IntentPageParams) {
 
     const [expandedWaterTempData, waterTempBeachesResult, bestTimeToSurfUrl, editorialBeaches, excludeIntents] = await Promise.all([
       getCityWaterTempExpanded(cityMetadata.cityName, cityMetadata.state),
-      getBeachesByIntentAndCity("water-temp", cityMetadata.cityName, stateSlugLower),
+      getBeachesByIntentAndCity("water-temp", cityMetadata.cityName, stateSlugLower, {
+        revalidateSeconds: BEACH_METADATA_WINDOW_SECONDS,
+      }),
       getBestTimeToSurfUrl(params.city, cityMetadata.cityName, cityMetadata.state),
       getCityBeachEditorialData(cityMetadata.cityName, cityMetadata.state),
       getCityExcludeIntents(cityMetadata.cityName, cityMetadata.state),
@@ -853,7 +871,9 @@ export default async function IntentPage(props: IntentPageParams) {
 
     const [sunTimesData, dawnPatrolBeachesResult, bestTimeToSurfUrl, editorialBeaches, excludeIntents] = await Promise.all([
       getCitySunTimesData(cityMetadata.cityName, cityMetadata.state),
-      getBeachesByIntentAndCity("dawn-patrol", cityMetadata.cityName, stateSlugLower),
+      getBeachesByIntentAndCity("dawn-patrol", cityMetadata.cityName, stateSlugLower, {
+        revalidateSeconds: BEACH_METADATA_WINDOW_SECONDS,
+      }),
       getBestTimeToSurfUrl(params.city, cityMetadata.cityName, cityMetadata.state),
       getCityBeachEditorialData(cityMetadata.cityName, cityMetadata.state),
       getCityExcludeIntents(cityMetadata.cityName, cityMetadata.state),
@@ -939,7 +959,9 @@ export default async function IntentPage(props: IntentPageParams) {
 
     const [sunTimesData, sunsetBeachesResult, bestTimeToSurfUrl, editorialBeaches, excludeIntents] = await Promise.all([
       getCitySunTimesData(cityMetadata.cityName, cityMetadata.state),
-      getBeachesByIntentAndCity("sunset", cityMetadata.cityName, stateSlugLower),
+      getBeachesByIntentAndCity("sunset", cityMetadata.cityName, stateSlugLower, {
+        revalidateSeconds: BEACH_METADATA_WINDOW_SECONDS,
+      }),
       getBestTimeToSurfUrl(params.city, cityMetadata.cityName, cityMetadata.state),
       getCityBeachEditorialData(cityMetadata.cityName, cityMetadata.state),
       getCityExcludeIntents(cityMetadata.cityName, cityMetadata.state),
@@ -1025,7 +1047,8 @@ export default async function IntentPage(props: IntentPageParams) {
     getBeachesByIntentAndCity(
       params.intent,
       cityMetadata.cityName,
-      cityMetadata.state.toLowerCase()
+      cityMetadata.state.toLowerCase(),
+      { revalidateSeconds: LIVE_RECOMMENDATION_WINDOW_SECONDS },
     ),
     params.intent === "tide"
       ? getCityTideData(cityMetadata.cityName, cityMetadata.state)
@@ -1253,7 +1276,7 @@ export default async function IntentPage(props: IntentPageParams) {
           {/* Map & List Section */}
           <section>
             <CityMapView
-              spots={spots}
+              spots={spots.map(toCityMapSpot)}
               cityName={cityMetadata.cityName}
               citySlug={params.city}
               stateSlug={cityMetadata.state.toLowerCase()}

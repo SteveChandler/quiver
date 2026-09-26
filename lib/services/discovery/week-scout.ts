@@ -802,12 +802,37 @@ function buildWeekScoutCanonicalCandidates(args: {
   );
 }
 
+/**
+ * The day that holds the session pick names that pick as its best, so the day
+ * cards and the Best card cannot name different beaches for the same day.
+ * Distance friction still orders each day's list and picks every other day.
+ */
+export function alignDayBestWithSessionPick<T extends MajorEventHoldWeekScoutResponse>(
+  response: T,
+  sessionDecision: CanonicalSessionDecision,
+): T {
+  const selectedId = sessionDecision.verdict === 'no' ? null : sessionDecision.selection?.candidateId ?? null;
+  if (!selectedId) return response;
+  return {
+    ...response,
+    days: response.days.map((day) => {
+      if (day.bestWindowId === null || day.bestWindowId === selectedId) return day;
+      if (!day.windows.some((window) => window.id === selectedId)) return day;
+      return {
+        ...day,
+        bestWindowId: selectedId,
+        exclusionReasons: exclusionReasonsForDay(day.windows, selectedId),
+      };
+    }),
+  };
+}
+
 function applyCanonicalDecisionToWeekScout(
   response: MajorEventHoldWeekScoutResponse,
   sessionDecision: CanonicalSessionDecision,
 ): CanonicalWeekScoutResponse {
   return {
-    ...response,
+    ...alignDayBestWithSessionPick(response, sessionDecision),
     sessionDecision,
   };
 }
@@ -1238,6 +1263,54 @@ function preferredSessionWindowIds(
   return best.size > 0 ? new Set([...best.values()].map((entry) => entry.id)) : null;
 }
 
+/**
+ * Each day's best window drawn from the preferred-time windows, so the day
+ * cards agree with the session pick. A day with no preferred window keeps its
+ * unfiltered best, and a day with no best (held, all skips) stays empty.
+ */
+function applyPreferredDayBest(
+  response: MajorEventHoldWeekScoutResponse,
+  preferredIds: ReadonlySet<string> | null,
+  beaches: readonly Beach[],
+  userLocation: Coordinates | undefined,
+): MajorEventHoldWeekScoutResponse {
+  if (!preferredIds) return response;
+  const distanceByBeachId = new Map(beaches.map((beach) => {
+    if (!userLocation) return [beach.id, undefined] as const;
+    const miles = calculateDistanceInMiles(userLocation, { lat: beach.lat, lon: beach.lon });
+    return [beach.id, Number.isFinite(miles) ? miles : undefined] as const;
+  }));
+  return {
+    ...response,
+    days: response.days.map((day) => {
+      if (day.bestWindowId === null) return day;
+      const best = day.windows
+        .filter((window) => (
+          preferredIds.has(window.id)
+          && window.safe
+          && window.rideable
+          && window.verdict !== null
+          && window.verdict !== 'skip'
+          && window.rankingScore !== null
+        ))
+        .reduce<(typeof day.windows)[number] | null>((current, candidate) => (
+          !current || compareWeekScoutWindows(
+            { conditionScore: candidate.conditionScore ?? 0, rankingScore: candidate.rankingScore ?? 0 },
+            { conditionScore: current.conditionScore ?? 0, rankingScore: current.rankingScore ?? 0 },
+            distanceByBeachId.get(candidate.beachId),
+            distanceByBeachId.get(current.beachId),
+          ) < 0 ? candidate : current
+        ), null);
+      if (!best) return day;
+      return {
+        ...day,
+        bestWindowId: best.id,
+        exclusionReasons: exclusionReasonsForDay(day.windows, best.id),
+      };
+    }),
+  };
+}
+
 function buildCanonicalWeekScoutResponse(
   context: GeneratedWeekScoutContext,
   request: WeekScoutDaysRequest,
@@ -1273,9 +1346,12 @@ function buildCanonicalWeekScoutResponse(
     candidates: canonicalCandidates,
   });
 
+  const dayBestResponse = sessionTimePreference
+    ? applyPreferredDayBest(context.heldResponse, preferredIds, context.beaches, request.userLocation)
+    : context.heldResponse;
   const compacted = compactHeldResponse(
     {
-      ...applyCanonicalDecisionToWeekScout(context.heldResponse, sessionDecision),
+      ...applyCanonicalDecisionToWeekScout(dayBestResponse, sessionDecision),
       coverage: context.coverage,
     },
     sessionDecision.selection?.candidateId,
