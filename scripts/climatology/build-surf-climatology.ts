@@ -5,6 +5,7 @@
  *   yarn tsx scripts/climatology/build-surf-climatology.ts [--city=cocoa-beach]
  *
  * Downloads are cached in .cache/climatology/. No database access, no credentials.
+ * Rerun once a year, after NDBC publishes the previous year's archive.
  */
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";

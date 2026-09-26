@@ -88,6 +88,25 @@ export function seasonalDirectionMix(
   ) as Record<Sector, number>;
 }
 
+/** Share of hours in `months` with swell of `LONG_PERIOD_S` seconds or longer, weighted by each month's valid hours. */
+export function seasonalLongPeriodShare(
+  dataset: SurfClimatologyDataset,
+  role: "waves" | "comparison-waves",
+  months: readonly number[],
+): number | null {
+  const stats = dataset.months
+    .filter((month) => months.includes(month.month))
+    .map((month) => (role === "waves" ? month.waves : month.comparisonWaves))
+    .filter((entry): entry is WaveMonthStats => entry !== null);
+  const totalHours = stats.reduce((sum, entry) => sum + entry.validHours, 0);
+  if (totalHours === 0) return null;
+  return (
+    Math.round(
+      (stats.reduce((sum, entry) => sum + entry.periodMix.atLeast10 * entry.validHours, 0) / totalHours) * 100,
+    ) / 100
+  );
+}
+
 /** Share of observed days in `months` with a 3 ft+ buoy median mostly from `sectors`, weighted by observed days. */
 export function threeFootDaysShare(
   dataset: SurfClimatologyDataset,

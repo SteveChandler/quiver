@@ -7,6 +7,8 @@ import { getStaticMapImageUrlWithPins } from "@/lib/map-utils";
 const PLACE_COLOR = "B04E1B";
 const STATION_COLOR = "1F5F7A";
 
+// Mapbox's static API pin label only accepts a-z, so the pin stays lowercase;
+// the legend uppercases it for display.
 const placeLetter = (index: number): string => String.fromCharCode(97 + index);
 const stationCode = (station: ClimatologyStation): string =>
   station.kind === "ndbc" ? `NDBC ${station.id}` : station.id;
@@ -53,7 +55,7 @@ export function StationMap({ places, stations }: StationMapProps) {
         <ul className="space-y-1">
           {places.map((place, index) => (
             <li key={place.label}>
-              <span className="font-mono text-[#B04E1B]">{placeLetter(index)}</span>
+              <span className="font-mono text-[#B04E1B]">{placeLetter(index).toUpperCase()}</span>
               {` · ${place.label}`}
             </li>
           ))}

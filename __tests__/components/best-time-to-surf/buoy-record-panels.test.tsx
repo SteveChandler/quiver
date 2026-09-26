@@ -96,8 +96,11 @@ describe("StationMap", () => {
 
     const image = screen.getByRole("img");
     expect(image.getAttribute("src")).toContain("api.mapbox.com");
+    // Mapbox's static pin label only accepts lowercase letters.
     expect(image.getAttribute("src")).toContain("pin-s-a+B04E1B");
     expect(image.getAttribute("src")).toContain("pin-s-1+1F5F7A");
+    // The legend uppercases the letter for display.
+    expect(screen.getByText("A")).toBeInTheDocument();
     expect(screen.getByText("Map © Mapbox © OpenStreetMap")).toBeInTheDocument();
   });
 });

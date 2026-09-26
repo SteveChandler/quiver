@@ -3,6 +3,7 @@ import {
   buildDataBackedSeasonView,
   joinNames,
   seasonalDirectionMix,
+  seasonalLongPeriodShare,
   threeFootDaysShare,
 } from "@/lib/climatology/season-view";
 import { makeDataset, station, waveStats } from "./__fixtures__/dataset";
@@ -122,6 +123,19 @@ describe("seasonalDirectionMix", () => {
       N: 0, NE: 0, E: 0, SE: 0, S: 0.25, SW: 0.75, W: 0, NW: 0,
     });
     expect(seasonalDirectionMix(dataset, "comparison-waves", [6, 7, 8])).toBeNull();
+  });
+});
+
+describe("seasonalLongPeriodShare", () => {
+  it("weights each month by its valid hours", () => {
+    const dataset = makeDataset(SCORES);
+    dataset.months[5].waves = waveStats({ validHours: 1000, periodMix: { under8: 0.5, from8to10: 0.3, atLeast10: 0.2 } });
+    dataset.months[6].waves = waveStats({ validHours: 3000, periodMix: { under8: 0.4, from8to10: 0.2, atLeast10: 0.4 } });
+    dataset.months[7].waves = null;
+
+    // (0.2 x 1000 + 0.4 x 3000) / 4000 = 0.35
+    expect(seasonalLongPeriodShare(dataset, "waves", [6, 7, 8])).toBe(0.35);
+    expect(seasonalLongPeriodShare(dataset, "comparison-waves", [6, 7, 8])).toBeNull();
   });
 });
 
