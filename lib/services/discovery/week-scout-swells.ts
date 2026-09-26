@@ -191,15 +191,35 @@ function weekdayName(date: Date, timezone: string): string {
   return formatter.format(date);
 }
 
-function whenPhrase(iso: string, timezone: string): string {
+type PartOfDay = 'early' | 'morning' | 'midday' | 'afternoon' | 'evening' | 'night';
+
+// Same boundaries and wording as native's formatSwellPeakWhen, so the card
+// title and this text never name different parts of the day for one peak.
+function partOfDay(hour: number): PartOfDay {
+  if (hour < 5) return 'early';
+  if (hour < 11) return 'morning';
+  if (hour < 14) return 'midday';
+  if (hour < 18) return 'afternoon';
+  if (hour < 21) return 'evening';
+  return 'night';
+}
+
+function whenPhrase(iso: string, timezone: string, now: Date): string {
   const date = new Date(iso);
-  const weekday = weekdayName(date, timezone);
-  const hour = (getLocalHour(date, timezone) ?? 12) % 24;
-  if (hour < 5) return `early ${weekday} morning`;
-  if (hour < 12) return `${weekday} morning`;
-  if (hour < 17) return `${weekday} afternoon`;
-  if (hour < 21) return `${weekday} evening`;
-  return `${weekday} night`;
+  const part = partOfDay((getLocalHour(date, timezone) ?? 12) % 24);
+  const days = Math.round(
+    (Date.parse(`${getLocalDateStr(date, timezone)}T12:00:00Z`)
+      - Date.parse(`${getLocalDateStr(now, timezone)}T12:00:00Z`)) / (24 * HOUR_MS),
+  );
+  if (days === 0) {
+    if (part === 'early') return 'early this morning';
+    if (part === 'night') return 'tonight';
+    return part === 'midday' ? 'midday today' : `this ${part}`;
+  }
+  const day = days === 1 ? 'tomorrow' : days === -1 ? 'yesterday' : weekdayName(date, timezone);
+  if (part === 'early') return `early ${day} morning`;
+  if (part === 'night' && days === -1) return 'last night';
+  return `${day} ${part}`;
 }
 
 function formatNumber(value: number): string {
@@ -528,7 +548,7 @@ function changeFor(
     return {
       ...base,
       kind: peakShiftHours < 0 ? 'earlier' : 'later',
-      summary: `Peak moved to ${whenPhrase(lead.peakAt, timezone)}`,
+      summary: `Peak moved to ${whenPhrase(lead.peakAt, timezone, now)}`,
     };
   }
   return { ...base, kind: 'steady', summary: `Holding steady since ${since}` };
@@ -540,8 +560,8 @@ function narrativeFor(
   now: Date,
   timezone: string,
 ): string {
-  const peakWhen = whenPhrase(swell.peakAt, timezone);
-  const arrivalWhen = whenPhrase(swell.arrivalAt, timezone);
+  const peakWhen = whenPhrase(swell.peakAt, timezone, now);
+  const arrivalWhen = whenPhrase(swell.arrivalAt, timezone, now);
   const timing = Date.parse(swell.peakAt) <= now.getTime()
     ? `peaked ${peakWhen} and is easing`
     : Date.parse(swell.arrivalAt) <= now.getTime()
