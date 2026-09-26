@@ -107,8 +107,16 @@ describe("season copy", () => {
     const copy = getSeasonCopy("newport-beach");
     if (!dataset || !copy?.seasonNote) throw new Error("missing Newport season note");
     const paragraphs = copy.seasonNote.paragraphs({ dataset, view: buildDataBackedSeasonView(dataset, 7) });
-    expect(paragraphs).toHaveLength(4);
+    expect(paragraphs).toHaveLength(3);
     expect(paragraphs[0]).toMatch(/From December to February, \d+% of days/);
+  });
+
+  // Quiver's pages rest on Quiver's own analysis, not a competitor's guide.
+  it.each(["cocoa-beach", "newport-beach"])("%s cites no competitor", (slug) => {
+    const copy = getSeasonCopy(slug);
+    if (!copy) throw new Error(`missing ${slug}`);
+    for (const source of copy.sources) expect(source.url).not.toMatch(/surfline\.com/i);
+    for (const text of renderedText(slug)) expect(text).not.toMatch(/surfline/i);
   });
 
   it.each(COMPONENT_FILES)("%s contains no banned phrase", (file) => {

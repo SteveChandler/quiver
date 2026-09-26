@@ -342,7 +342,7 @@ Decided after the first build, when Newport's buoy score came out flat.
 1. Keep buoy score v1 for all three cities.
 2. **No clear season rule:** when every scored month sits within 10 points of the top month, show no Peak badges, name the top month as "highest" rather than "peak", and say plainly that the buoy doesn't single out a season. Applies to any city; today only Newport.
 3. **New figure, all cities:** for each month, the share of observed days with a daytime median of 3 ft or more, grouped by the day's most common swell direction (8 sectors). Stored in the dataset and the CSV.
-4. **Newport season note:** after showing what the buoy says, a section titled "Why Newport's best days still come in summer" with a chart of 3 ft+ south/southwest days against 3 ft+ west/northwest days by month, and copy built from those figures. It cites Surfline's Orange County guide for the winter shadow and Wikipedia's article on the Wedge for the south-swell mechanism. Newport's best-month FAQ answer says summer into fall and gives the numbers.
+4. **Newport season note:** after showing what the buoy says, a section titled "Why Newport's best days still come in summer" with a chart of 3 ft+ south/southwest days against 3 ft+ west/northwest days by month, and copy built from those figures. The page cites no competitor: the argument rests on Quiver's own buoy figures and the beaches' southwest facing, with Wikipedia's article on the Wedge for the south-swell mechanism (Surfline's research above informed the decision but is not a published source, per Steven, 2026-09-26). Newport's best-month FAQ answer says summer into fall and gives the numbers.
 5. Cocoa and Honolulu keep their buoy peak bands; both match Surfline.
 
 ### Follow-up
