@@ -312,6 +312,8 @@ interface BestTimeTodayAnswerCopyArgs {
   waveHeightRange?: string | null;
   waterTempF?: number | null;
   forecastSummary?: IntentForecastSummary | null;
+  /** Replaces the state-profile "this week" sentence for buoy-backed cities. */
+  weekAnswerOverride?: string;
 }
 
 export function buildBestTimeTodayAnswerCopy({
@@ -325,6 +327,7 @@ export function buildBestTimeTodayAnswerCopy({
   waveHeightRange,
   waterTempF,
   forecastSummary,
+  weekAnswerOverride,
 }: BestTimeTodayAnswerCopyArgs): {
   eyebrow: string;
   heading: string;
@@ -346,22 +349,28 @@ export function buildBestTimeTodayAnswerCopy({
     : "";
   const forecastDay = forecastSummary?.isTomorrow ? "tomorrow" : "today";
   const topPick = forecastSummary?.topPicks[0];
+  const windowConditions = forecastSummary?.bestWindow?.conditions;
+  const windowConditionText = windowConditions
+    ? `, with ${windowConditions.tide.toLowerCase()} tide, ${windowConditions.wind} wind, and ${windowConditions.swell} swell`
+    : "";
   const liveTodayAnswer =
     forecastSummary?.bestWindow
-      ? `${cityName}'s best surf window ${forecastDay} is ${forecastSummary.bestWindow.start}-${forecastSummary.bestWindow.end}, with ${forecastSummary.conditions.tide.toLowerCase()} tide, ${forecastSummary.conditions.wind} wind, and ${forecastSummary.conditions.swell} swell; ${forecastSummary.bestWindow.reason}. ${
+      ? `${cityName}'s best surf window ${forecastDay} is ${forecastSummary.bestWindow.start}-${forecastSummary.bestWindow.end}${windowConditionText}; ${forecastSummary.bestWindow.reason}. ${
           topPick
             ? `${topPick.name} is the top pick at ${topPick.waveHeight}.`
             : "Check the live report before you drive."
         }`
       : null;
   const liveSurfReportCue = forecastSummary
-    ? `${forecastSummary.conditions.tide} tide, ${forecastSummary.conditions.wind} wind, and ${forecastSummary.conditions.swell} swell are the live surf report cues to confirm first.`
+    ? `Now: ${forecastSummary.conditions.tide.toLowerCase()} tide, ${forecastSummary.conditions.wind} wind, and ${forecastSummary.conditions.swell} swell. Confirm them in the live surf report first.`
     : null;
   const ctrOverride = citySlug ? getBestTimeCtrOverride(citySlug) : null;
   const baseTodayAnswer =
     liveTodayAnswer ??
     `${cityName}'s best surf window today starts with the live report: check tide, wind, and swell before you drive.${seasonalContext}`;
-  const baseThisWeekAnswer = `${currentMonthName} rates ${currentMonthScore}/100 for ${cityName}. ${seasonStrength}; ${peakMonthName} is the historical peak if this week's surf report looks marginal.`;
+  const baseThisWeekAnswer =
+    weekAnswerOverride ??
+    `${currentMonthName} rates ${currentMonthScore}/100 for ${cityName}. ${seasonStrength}; ${peakMonthName} is the historical peak if this week's surf report looks marginal.`;
 
   return {
     eyebrow: "Live surf planning",

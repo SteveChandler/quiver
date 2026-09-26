@@ -203,6 +203,72 @@ describe("getCityTideData", () => {
         /internal-hold-id|holdIds|evaluation/
       );
     });
+
+    it("describes the window with the forecast hour nearest its peak, and now with the hour nearest now", async () => {
+      const beachId = beachIds[0];
+      const row = (forecastAt: string, tide: string, wind: string, swell: string) => ({
+        id: `forecast-${forecastAt}`,
+        beach_id: beachId,
+        forecast_at: forecastAt,
+        forecast_date: forecastAt.slice(0, 10),
+        forecast_time: forecastAt.slice(11, 19),
+        wave_height: swell,
+        wave_period: "12",
+        wave_direction: "W",
+        wind_direction_deg: 90,
+        wind_speed: wind,
+        tide_height: "2.5",
+        tide_status: tide,
+        created_at: "2026-07-19T00:00:00.000Z",
+        updated_at: "2026-07-19T00:00:00.000Z",
+      });
+      const forecasts = [
+        row("2026-07-19T00:00:00.000Z", "Falling", "3 mph", "1-2 ft"),
+        row("2026-07-19T12:00:00.000Z", "Rising", "8 mph", "2-3 ft"),
+        row("2026-07-19T20:00:00.000Z", "Falling", "12 mph", "3-4 ft"),
+      ];
+      const query: any = {
+        select: jest.fn(() => query),
+        in: jest.fn(() => query),
+        gte: jest.fn(() => query),
+        lt: jest.fn(() => query),
+        order: jest.fn(async () => ({ data: forecasts, error: null })),
+      };
+      (createSupabaseServiceRoleClient as jest.Mock).mockResolvedValue({ from: jest.fn(() => query) });
+      (findMagicHour as jest.Mock).mockReturnValue({
+        found: true,
+        peakTime: new Date("2026-07-19T20:00:00.000Z"),
+        windowStart: "1:00 PM",
+        windowEnd: "2:00 PM",
+        confidence: 0.9,
+        swellMatch: true,
+        windQuality: "perfect",
+        tideInRange: true,
+      });
+      mockEvaluateMajorEventHoldCandidates.mockImplementationOnce(
+        ({ candidates }: { candidates: Array<{ candidateId: string }> }) =>
+          Promise.resolve(
+            candidates.map(({ candidateId }) => ({
+              candidateId,
+              evaluation: { outcome: "allow", holdIds: [], holdEpoch: "intent-epoch" },
+              recommendationAvailability: { state: "available", holdEpoch: "intent-epoch" },
+            })),
+          ),
+      );
+
+      const result = await getIntentForecastSummary(
+        [{ id: beachId, name: "Beach 1", slug: "beach-1", city: "San Diego", state: "CA" }],
+        "best-time",
+      );
+
+      expect(result?.bestWindow).toEqual({
+        start: "1:00 PM",
+        end: "2:00 PM",
+        reason: "tide in range, offshore winds, good swell angle",
+        conditions: { tide: "Falling", wind: "12 mph", swell: "3-4 ft" },
+      });
+      expect(result?.conditions).toEqual({ tide: "Rising", wind: "8 mph", swell: "2-3 ft" });
+    });
   });
 
   it("returns null when no beaches found in city", async () => {

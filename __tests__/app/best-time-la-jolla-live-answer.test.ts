@@ -71,13 +71,48 @@ describe("best-time La Jolla live answer copy", () => {
     });
 
     expect(copy.todayAnswer).toMatch(
-      /^La Jolla's best surf window today is 6:00 AM-9:00 AM, with rising tide, light W wind, and 2-3 ft swell;/,
+      /^La Jolla's best surf window today is 6:00 AM-9:00 AM; incoming tide, light winds\./,
     );
-    expect(copy.todayAnswer).toContain("incoming tide, light winds");
+    expect(copy.todayAnswer).not.toContain("rising tide");
     expect(copy.todayAnswer).toContain("La Jolla Shores");
     expect(copy.todayAnswer).toContain("2-3 ft");
     expect(copy.surfReportCue).toBe(
       "Open the La Jolla surf report first for the city-level call, then compare Scripps Pier or Tourmaline as secondary spot reads before using this seasonal guide.",
+    );
+  });
+
+  it("describes the window with the window's conditions and labels current conditions as now", () => {
+    const copy = buildBestTimeTodayAnswerCopy({
+      citySlug: "cocoa-beach",
+      cityName: "Cocoa Beach",
+      currentMonthName: "September",
+      currentMonthScore: 55,
+      currentBestMonthCount: 1,
+      totalBeaches: 1,
+      peakMonthName: "October",
+      weekAnswerOverride: "September scores 55/100 on the Cape Canaveral Nearshore buoy record.",
+      forecastSummary: {
+        bestWindow: {
+          start: "2:30 PM",
+          end: "3:30 PM",
+          reason: "tide in range, good swell angle",
+          conditions: { tide: "Rising", wind: "12 mph", swell: "1.4 ft" },
+        },
+        topPicks: [],
+        conditions: { tide: "Falling", wind: "20 mph", swell: "1.2 ft" },
+        isTomorrow: false,
+        recommendationAvailability: { state: "available", holdEpoch: "test-epoch" },
+      },
+    });
+
+    expect(copy.todayAnswer).toBe(
+      "Cocoa Beach's best surf window today is 2:30 PM-3:30 PM, with rising tide, 12 mph wind, and 1.4 ft swell; tide in range, good swell angle. Check the live report before you drive.",
+    );
+    expect(copy.surfReportCue).toBe(
+      "Now: falling tide, 20 mph wind, and 1.2 ft swell. Confirm them in the live surf report first.",
+    );
+    expect(copy.thisWeekAnswer).toBe(
+      "September scores 55/100 on the Cape Canaveral Nearshore buoy record.",
     );
   });
 });
