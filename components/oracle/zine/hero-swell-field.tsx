@@ -50,7 +50,7 @@ export function heroPrimarySwellFlow(partition: SwellPartition): ReturnType<type
 /**
  * Native's home hero field on a 2D canvas over the hero's streets map: the
  * primary swell as crest dashes across its direction of travel, clipped to
- * the water in the map image. Spacing, size, speed and fades are /map's
+ * the water in the map image. Size, speed and fades are /map's
  * (components/map/swell-field/particle-style.ts); the colour and longer
  * crests are its dark stage, as native draws them. The hero shows one beach,
  * so the field carries that beach's reading everywhere, which is what /map
@@ -81,7 +81,8 @@ export function HeroSwellField({
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const strength = Math.min(1, Math.max(0, flow.alpha));
     const baseAlpha = Math.min(1, 0.3 + strength * 0.7) * (reduceMotion ? 0.95 : 1);
-    const count = resolveParticleCount(window.innerWidth);
+    // The compact hero needs more open water than the full map.
+    const count = Math.round(resolveParticleCount(window.innerWidth) * 0.25);
     const px = new Float64Array(count);
     const py = new Float64Array(count);
     const page = new Float32Array(count);
