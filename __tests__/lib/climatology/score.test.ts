@@ -24,6 +24,7 @@ describe("scoreMonth", () => {
     bigDayShare: 0.05,
     periodMix: { under8: 0.5, from8to10: 0.26, atLeast10: 0.24 },
     directionMix: { N: 0, NE: 0, E: 1, SE: 0, S: 0, SW: 0, W: 0, NW: 0 },
+    threeFootDaysBySector: { N: 0, NE: 0, E: 0, SE: 0, S: 0, SW: 0, W: 0, NW: 0 },
     yearlyMedianFt: [],
     observedDays: 150,
     validHours: 3600,

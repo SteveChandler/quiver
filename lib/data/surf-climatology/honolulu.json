@@ -73,6 +73,16 @@
           "W": 0,
           "NW": 0
         },
+        "threeFootDaysBySector": {
+          "N": 0,
+          "NE": 0,
+          "E": 0,
+          "SE": 0.17,
+          "S": 0.08,
+          "SW": 0.02,
+          "W": 0,
+          "NW": 0
+        },
         "yearlyMedianFt": [
           {
             "year": 2018,
@@ -147,6 +157,16 @@
           "W": 0,
           "NW": 0
         },
+        "threeFootDaysBySector": {
+          "N": 0,
+          "NE": 0,
+          "E": 0,
+          "SE": 0.31,
+          "S": 0.03,
+          "SW": 0,
+          "W": 0,
+          "NW": 0
+        },
         "yearlyMedianFt": [
           {
             "year": 2018,
@@ -217,6 +237,16 @@
           "E": 0,
           "SE": 0.57,
           "S": 0.41,
+          "SW": 0.01,
+          "W": 0,
+          "NW": 0
+        },
+        "threeFootDaysBySector": {
+          "N": 0,
+          "NE": 0,
+          "E": 0,
+          "SE": 0.34,
+          "S": 0.07,
           "SW": 0.01,
           "W": 0,
           "NW": 0
@@ -295,6 +325,16 @@
           "W": 0,
           "NW": 0
         },
+        "threeFootDaysBySector": {
+          "N": 0,
+          "NE": 0,
+          "E": 0,
+          "SE": 0.28,
+          "S": 0.1,
+          "SW": 0,
+          "W": 0,
+          "NW": 0
+        },
         "yearlyMedianFt": [
           {
             "year": 2018,
@@ -369,6 +409,16 @@
           "W": 0,
           "NW": 0
         },
+        "threeFootDaysBySector": {
+          "N": 0,
+          "NE": 0,
+          "E": 0,
+          "SE": 0.17,
+          "S": 0.24,
+          "SW": 0,
+          "W": 0,
+          "NW": 0
+        },
         "yearlyMedianFt": [
           {
             "year": 2018,
@@ -439,6 +489,16 @@
           "E": 0,
           "SE": 0.42,
           "S": 0.58,
+          "SW": 0,
+          "W": 0,
+          "NW": 0
+        },
+        "threeFootDaysBySector": {
+          "N": 0,
+          "NE": 0,
+          "E": 0,
+          "SE": 0.21,
+          "S": 0.33,
           "SW": 0,
           "W": 0,
           "NW": 0
@@ -521,6 +581,16 @@
           "W": 0,
           "NW": 0
         },
+        "threeFootDaysBySector": {
+          "N": 0,
+          "NE": 0,
+          "E": 0,
+          "SE": 0.36,
+          "S": 0.2,
+          "SW": 0,
+          "W": 0,
+          "NW": 0
+        },
         "yearlyMedianFt": [
           {
             "year": 2017,
@@ -595,6 +665,16 @@
           "E": 0,
           "SE": 0.46,
           "S": 0.54,
+          "SW": 0,
+          "W": 0,
+          "NW": 0
+        },
+        "threeFootDaysBySector": {
+          "N": 0,
+          "NE": 0,
+          "E": 0,
+          "SE": 0.24,
+          "S": 0.25,
           "SW": 0,
           "W": 0,
           "NW": 0
@@ -677,6 +757,16 @@
           "W": 0,
           "NW": 0
         },
+        "threeFootDaysBySector": {
+          "N": 0,
+          "NE": 0,
+          "E": 0,
+          "SE": 0.24,
+          "S": 0.23,
+          "SW": 0,
+          "W": 0,
+          "NW": 0
+        },
         "yearlyMedianFt": [
           {
             "year": 2017,
@@ -751,6 +841,16 @@
           "E": 0,
           "SE": 0.33,
           "S": 0.67,
+          "SW": 0,
+          "W": 0,
+          "NW": 0
+        },
+        "threeFootDaysBySector": {
+          "N": 0,
+          "NE": 0,
+          "E": 0,
+          "SE": 0.14,
+          "S": 0.15,
           "SW": 0,
           "W": 0,
           "NW": 0
@@ -833,6 +933,16 @@
           "W": 0,
           "NW": 0
         },
+        "threeFootDaysBySector": {
+          "N": 0,
+          "NE": 0,
+          "E": 0,
+          "SE": 0.28,
+          "S": 0.04,
+          "SW": 0,
+          "W": 0,
+          "NW": 0
+        },
         "yearlyMedianFt": [
           {
             "year": 2017,
@@ -908,6 +1018,16 @@
           "SE": 0.59,
           "S": 0.4,
           "SW": 0.01,
+          "W": 0,
+          "NW": 0
+        },
+        "threeFootDaysBySector": {
+          "N": 0,
+          "NE": 0,
+          "E": 0,
+          "SE": 0.25,
+          "S": 0.06,
+          "SW": 0,
           "W": 0,
           "NW": 0
         },
