@@ -10,7 +10,7 @@ export const BUOY_SCORE_WEIGHTS = {
 } as const;
 export const PEAK_BAND_POINTS = 10;
 
-export interface BuoyScoreInput {
+interface BuoyScoreInput {
   surfDayShare: number;
   groundswellShare: number;
   cleanMorningShare: number | null;

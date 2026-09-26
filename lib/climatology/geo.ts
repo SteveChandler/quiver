@@ -16,7 +16,7 @@ export function haversineKm(a: Point, b: Point): number {
   return 2 * EARTH_RADIUS_KM * Math.asin(Math.sqrt(h));
 }
 
-export function bearingDeg(from: Point, to: Point): number {
+function bearingDeg(from: Point, to: Point): number {
   const lat1 = toRadians(from.lat);
   const lat2 = toRadians(to.lat);
   const dLon = toRadians(to.lon - from.lon);
