@@ -1,7 +1,7 @@
 import { buildSurfClimatologyDataset } from "@/lib/climatology/build-dataset";
 import { datasetToCsv } from "@/lib/climatology/csv";
 import type { CityClimatologyConfig, ClimatologySourceConfig } from "@/lib/climatology/sources";
-import { utcHours } from "./fixtures/observations";
+import { utcHours } from "./__fixtures__/observations";
 
 const YEARS = [2020, 2024] as const;
 const source = (id: string, role: ClimatologySourceConfig["role"]): ClimatologySourceConfig => ({
