@@ -34,3 +34,16 @@ export function localMonth(
   }
   return hours;
 }
+
+/** Every UTC hour from 1 January of the first year to 31 December of the last. */
+export function utcHours(
+  years: readonly [number, number],
+  fields: (date: Date) => Fields,
+): HourlyObservation[] {
+  const hours: HourlyObservation[] = [];
+  const end = Date.UTC(years[1] + 1, 0, 1);
+  for (let t = Date.UTC(years[0], 0, 1); t < end; t += 3_600_000) {
+    hours.push({ hourUtcMs: t, ...EMPTY_FIELDS, ...fields(new Date(t)) });
+  }
+  return hours;
+}
