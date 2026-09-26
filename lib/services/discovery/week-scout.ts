@@ -802,12 +802,37 @@ function buildWeekScoutCanonicalCandidates(args: {
   );
 }
 
+/**
+ * The day that holds the session pick names that pick as its best, so the day
+ * cards and the Best card cannot name different beaches for the same day.
+ * Distance friction still orders each day's list and picks every other day.
+ */
+export function alignDayBestWithSessionPick<T extends MajorEventHoldWeekScoutResponse>(
+  response: T,
+  sessionDecision: CanonicalSessionDecision,
+): T {
+  const selectedId = sessionDecision.verdict === 'no' ? null : sessionDecision.selection?.candidateId ?? null;
+  if (!selectedId) return response;
+  return {
+    ...response,
+    days: response.days.map((day) => {
+      if (day.bestWindowId === null || day.bestWindowId === selectedId) return day;
+      if (!day.windows.some((window) => window.id === selectedId)) return day;
+      return {
+        ...day,
+        bestWindowId: selectedId,
+        exclusionReasons: exclusionReasonsForDay(day.windows, selectedId),
+      };
+    }),
+  };
+}
+
 function applyCanonicalDecisionToWeekScout(
   response: MajorEventHoldWeekScoutResponse,
   sessionDecision: CanonicalSessionDecision,
 ): CanonicalWeekScoutResponse {
   return {
-    ...response,
+    ...alignDayBestWithSessionPick(response, sessionDecision),
     sessionDecision,
   };
 }
