@@ -1,6 +1,6 @@
 import type { LocalHourObservation } from "./types";
 
-export const STATION_MONTH_COVERAGE = 0.7;
+const STATION_MONTH_COVERAGE = 0.7;
 export const MIN_STATION_MONTHS = 5;
 export const GATE_COVERAGE = 0.9;
 

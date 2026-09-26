@@ -19,7 +19,7 @@ import type {
   SurfClimatologyDataset,
 } from "./types";
 
-export const SEA_BREEZE_MIN_LIFT = 0.2;
+const SEA_BREEZE_MIN_LIFT = 0.2;
 
 export interface SourceSeries {
   source: ClimatologySourceConfig;
@@ -48,7 +48,7 @@ function onshoreShare(obs: LocalHourObservation[], hours: readonly number[], sho
 }
 
 /** Summer afternoon onshore share minus summer dawn onshore share. */
-export function seaBreezeLift(obs: LocalHourObservation[], shoreNormalDeg: number): number {
+function seaBreezeLift(obs: LocalHourObservation[], shoreNormalDeg: number): number {
   const summer = obs.filter((o) => o.month >= 6 && o.month <= 8);
   return (
     onshoreShare(summer, WIND_BLOCKS.afternoon, shoreNormalDeg) -

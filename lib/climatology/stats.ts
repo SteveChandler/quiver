@@ -10,9 +10,9 @@ import {
   type WindMonthStats,
 } from "./types";
 
-export const M_TO_FT = 3.28084;
+const M_TO_FT = 3.28084;
 export const LIGHT_WIND_KT = 6;
-export const ONSHORE_HALF_WIDTH_DEG = 67.5;
+const ONSHORE_HALF_WIDTH_DEG = 67.5;
 export const WIND_BLOCKS = {
   dawn: [6, 7, 8],
   midday: [11, 12, 13],
