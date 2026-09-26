@@ -95,31 +95,35 @@ export function BuoyRecordSections({ dataset, view, copy, photos, csvHref }: Buo
       <section className={SECTION}>
         <h2 className={HEADING}>Month by month at the buoy</h2>
         <BuoyMonthTable months={view.months} station={view.primary} />
+        <SourceLine station={view.primary} scoreVersion={dataset.scoreVersion} />
       </section>
 
       {copy?.seasonNote && (
         <section className={SECTION}>
           <h2 className={HEADING}>{copy.seasonNote.heading}</h2>
           {copy.seasonNote.chart && (
-            <div className={CARD}>
-              <SwellDaysChart
-                abbrevs={MONTH_ABBREVS}
-                primary={{
-                  label: copy.seasonNote.chart.primaryLabel,
-                  values: view.months.map((month) =>
-                    month.waves ? sumSectors(month.waves.threeFootDaysBySector, copy.seasonNote?.chart?.primarySectors ?? []) : null,
-                  ),
-                }}
-                secondary={{
-                  label: copy.seasonNote.chart.secondaryLabel,
-                  values: view.months.map((month) =>
-                    month.waves ? sumSectors(month.waves.threeFootDaysBySector, copy.seasonNote?.chart?.secondarySectors ?? []) : null,
-                  ),
-                }}
-                stationName={view.primary.name}
-                chartId="buoy-swell-days"
-              />
-            </div>
+            <>
+              <div className={CARD}>
+                <SwellDaysChart
+                  abbrevs={MONTH_ABBREVS}
+                  primary={{
+                    label: copy.seasonNote.chart.primaryLabel,
+                    values: view.months.map((month) =>
+                      month.waves ? sumSectors(month.waves.threeFootDaysBySector, copy.seasonNote?.chart?.primarySectors ?? []) : null,
+                    ),
+                  }}
+                  secondary={{
+                    label: copy.seasonNote.chart.secondaryLabel,
+                    values: view.months.map((month) =>
+                      month.waves ? sumSectors(month.waves.threeFootDaysBySector, copy.seasonNote?.chart?.secondarySectors ?? []) : null,
+                    ),
+                  }}
+                  stationName={view.primary.name}
+                  chartId="buoy-swell-days"
+                />
+              </div>
+              <SourceLine station={view.primary} scoreVersion={dataset.scoreVersion} />
+            </>
           )}
           <div className={`${PROSE} mt-4`}>
             {copy.seasonNote.paragraphs(context).map((paragraph) => (
@@ -137,6 +141,7 @@ export function BuoyRecordSections({ dataset, view, copy, photos, csvHref }: Buo
         <div className={CARD}>
           <WaveRangeChart months={view.months} stationName={view.primary.name} chartId="buoy-waves" />
         </div>
+        <SourceLine station={view.primary} scoreVersion={dataset.scoreVersion} />
         {midPhotos.length > 0 && (
           <div className="mt-6 grid gap-6 md:grid-cols-2">
             {midPhotos.map((photo) => (
@@ -151,6 +156,8 @@ export function BuoyRecordSections({ dataset, view, copy, photos, csvHref }: Buo
         <div className={CARD}>
           <DirectionMixChart rows={directionRows} chartId="buoy-direction" />
         </div>
+        <SourceLine station={view.primary} scoreVersion={dataset.scoreVersion} />
+        {view.comparison && <SourceLine station={view.comparison} scoreVersion={dataset.scoreVersion} />}
       </section>
 
       {view.wind && (
@@ -192,7 +199,6 @@ export function BuoyRecordSections({ dataset, view, copy, photos, csvHref }: Buo
       <section className={SECTION}>
         <h2 className={HEADING}>Where these numbers come from</h2>
         <StationMap places={dataset.places} stations={mapStations} />
-        {view.comparison && <SourceLine station={view.comparison} scoreVersion={dataset.scoreVersion} />}
         {view.failedStations.map((station) => (
           <p key={station.id} className="mt-2 text-xs leading-5 text-[#655C4C]">
             {describeFailedStation(station)}
