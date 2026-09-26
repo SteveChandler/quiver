@@ -1,4 +1,5 @@
 import { BUOY_SCORE_WEIGHTS } from "@/lib/climatology/score";
+import { LIGHT_WIND_KT, LONG_PERIOD_S, SMALL_DAY_FT } from "@/lib/climatology/stats";
 
 interface ScoreExplainerProps {
   hasWind: boolean;
@@ -13,10 +14,10 @@ export function ScoreExplainer({ hasWind, csvHref, scoreVersion }: ScoreExplaine
     <div className="mt-4 rounded-lg border border-[#11100D]/15 bg-[#FBF6E8] p-4 text-sm leading-6 text-[#11100D]">
       <h3 className="text-base font-semibold">How the buoy score works</h3>
       <ul className="mt-2 list-disc space-y-1 pl-5">
-        <li>{`${percent(BUOY_SCORE_WEIGHTS.surfDays)}: share of days when the buoy's daytime median reached 2 ft`}</li>
-        <li>{`${percent(BUOY_SCORE_WEIGHTS.groundswell)}: share of hours with swell of 10 seconds or longer`}</li>
+        <li>{`${percent(BUOY_SCORE_WEIGHTS.surfDays)}: share of days when the buoy's daytime median reached ${SMALL_DAY_FT} ft`}</li>
+        <li>{`${percent(BUOY_SCORE_WEIGHTS.groundswell)}: share of hours with swell of ${LONG_PERIOD_S} seconds or longer`}</li>
         {hasWind && (
-          <li>{`${percent(BUOY_SCORE_WEIGHTS.cleanMornings)}: share of mornings (6–9 am) with offshore wind or wind under 6 knots`}</li>
+          <li>{`${percent(BUOY_SCORE_WEIGHTS.cleanMornings)}: share of mornings (6–9 am) with offshore wind or wind under ${LIGHT_WIND_KT} knots`}</li>
         )}
         <li>{`${percent(BUOY_SCORE_WEIGHTS.waterComfort)}: how comfortable the median water temperature is`}</li>
       </ul>
