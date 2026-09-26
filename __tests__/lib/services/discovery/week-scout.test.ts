@@ -21,6 +21,7 @@ import {
   generateWeekScoutForecast,
   generateWeekScoutForecastForDays,
   generateWeekScoutRankingForDays,
+  alignDayBestWithSessionPick,
   type WeekScoutServiceDependencies,
 } from '@/lib/services/discovery/week-scout';
 import { buildCanonicalDecisionFromSurfDiscovery } from '@/lib/recommendations/canonical-decision/discovery-adapter';
@@ -438,6 +439,43 @@ describe('generateWeekScoutForecast', () => {
     const anyTime = await generateWeekScoutForecast('user-week-scout', { ...request, sessionTime: 'any' }, dependencies());
     expect(anyTime.sessionTimePreference).toBeNull();
     expect(anyTime.sessionDecision.selection?.candidateId).toBe(unsetSelection.candidateId);
+  });
+
+  it('names the session pick as the best window of its day and leaves other days alone', () => {
+    const window = (id: string) => ({ id, safe: true, rideable: true, verdict: 'maybe', isBeachDayBest: true });
+    const response = {
+      days: [
+        { localDate: '2026-09-26', windows: [window('scripps'), window('la-jolla-shores')], bestWindowId: 'scripps', exclusionReasons: [] },
+        { localDate: '2026-09-27', windows: [window('scripps-sun'), window('ljs-sun')], bestWindowId: 'ljs-sun', exclusionReasons: [] },
+        { localDate: '2026-09-28', windows: [window('held')], bestWindowId: null, exclusionReasons: ['no_safe_windows'] },
+      ],
+    } as never;
+    const pick = { verdict: 'go', selection: { candidateId: 'la-jolla-shores' } } as never;
+
+    const aligned = alignDayBestWithSessionPick(response, pick) as unknown as { days: { bestWindowId: string | null }[] };
+    expect(aligned.days.map((day) => day.bestWindowId)).toEqual(['la-jolla-shores', 'ljs-sun', null]);
+
+    // A vetoed decision leaves the day cards alone.
+    const vetoed = alignDayBestWithSessionPick(
+      response,
+      { verdict: 'no', selection: { candidateId: 'la-jolla-shores' } } as never,
+    ) as unknown as { days: { bestWindowId: string | null }[] };
+    expect(vetoed.days[0].bestWindowId).toBe('scripps');
+  });
+
+  it('keeps the day holding the session pick in agreement with it end to end', async () => {
+    const request = {
+      candidateBeachIds: [BEACH_A, BEACH_B],
+      localTimezone: 'Pacific/Honolulu',
+      startLocalDate: '2026-07-31',
+      dayCount: 7 as const,
+    };
+    for (const sessionTime of [undefined, 'afternoon'] as const) {
+      const response = await generateWeekScoutForecast('user-week-scout', { ...request, sessionTime }, dependencies());
+      const selectedId = response.sessionDecision.selection?.candidateId;
+      const day = response.days.find((candidate) => candidate.windows.some((window) => window.id === selectedId));
+      expect(day?.bestWindowId).toBe(selectedId);
+    }
   });
 
   it('checks the preferred session time against the displayed window, not the raw window', async () => {
@@ -1306,8 +1344,10 @@ describe('generateWeekScoutForecast', () => {
       lon: -117.252,
     });
 
+    // Distance friction still orders the day's list; the day's headline is the
+    // session pick so it matches the Best card (other days keep distance picks).
     expect(morning[0].beachId).toBe(BEACH_A);
-    expect(winner?.beachId).toBe(BEACH_A);
+    expect(winner?.id).toBe(response.sessionDecision.selection?.candidateId);
     expect(morning.find(({ beachId }) => beachId === BEACH_B)?.rankingScore).toBe(
       rawScores[BEACH_B] + calculateDistancePenalty(farDistance),
     );
