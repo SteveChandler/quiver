@@ -27,7 +27,7 @@ const baseSchema = z.object({
   would_suppress_cohorts: cohortsSchema,
   title: z.string().min(1),
   body: z.string().min(1),
-  beaches: z.array(rankedBeachSchema).length(3).optional(),
+  beaches: z.array(rankedBeachSchema).min(1).max(3).optional(),
   rarity: z.string().min(1).optional(),
   event_key: z.string().min(1).optional(),
   title_id: z.string().min(1).optional(),
