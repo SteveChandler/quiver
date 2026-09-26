@@ -2,7 +2,19 @@ import type {
   ClimatologyStation,
   SurfClimatologyDataset,
   WaveMonthStats,
+  WindMonthStats,
 } from "@/lib/climatology/types";
+
+export function windStats(overrides: Partial<WindMonthStats> = {}): WindMonthStats {
+  return {
+    dawn: { offshore: 0.5, cross: 0.1, onshore: 0.1, light: 0.3, medianKt: 7, hours: 465 },
+    midday: { offshore: 0.1, cross: 0.3, onshore: 0.5, light: 0.1, medianKt: 10, hours: 465 },
+    afternoon: { offshore: 0, cross: 0.2, onshore: 0.8, light: 0, medianKt: 13, hours: 465 },
+    cleanMorningShare: 0.6,
+    observedMornings: 150,
+    ...overrides,
+  };
+}
 
 export function waveStats(overrides: Partial<WaveMonthStats> = {}): WaveMonthStats {
   return {
