@@ -18,11 +18,12 @@ const ACTIONS = new Set([
   "watch_call",
   "log_session",
   "open_weekend_pick",
+  "open_swell_pick",
 ] as const);
 
 type DeliveryChannel = "push" | "email";
 type AttributionStage = keyof typeof ALERT_ATTRIBUTION_EVENT_TYPES;
-type DecisionAction = "watch_call" | "log_session" | "open_weekend_pick";
+type DecisionAction = "watch_call" | "log_session" | "open_weekend_pick" | "open_swell_pick";
 
 interface AttributionBody {
   message_instance_id?: unknown;

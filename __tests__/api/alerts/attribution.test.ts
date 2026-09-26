@@ -150,6 +150,19 @@ describe("POST /api/alerts/attribution", () => {
     });
   });
 
+  it("accepts opening a swell pick from Week Scout as a decision action", async () => {
+    const response = await POST(request(attributionBody({
+      stage: "decision_action",
+      action: "open_swell_pick",
+    })));
+
+    expect(response.status).toBe(200);
+    expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({
+      event_type: "alert_decision_action",
+      metadata: expect.objectContaining({ action: "open_swell_pick" }),
+    }));
+  });
+
   it("attributes an owned delivered email", async () => {
     await POST(request(attributionBody({
       message_instance_id: EMAIL_ID,
