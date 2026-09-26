@@ -1,8 +1,22 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { assessRarity, buildEventKey, type DayScore } from "@/lib/alerts/swell-rarity";
+import { evaluateForecastVerdict, type ForecastVerdict } from "@/lib/alerts/canonical-forecast-verdict";
+import {
+  SWELL_EVENT_DETECTOR_VERSION,
+  SWELL_EVENT_KEY_REUSE_DAYS,
+  detectBeachSwellEvents,
+  loadRecentSwellSnapshots,
+  resolveEventKeys,
+  toSwellEventBeach,
+  type BeachSwellEvent,
+  type SwellEventSnapshot,
+} from "@/lib/alerts/swell-events";
+import { assessRarity, type DayScore } from "@/lib/alerts/swell-rarity";
+import {
+  recordSwellEventForecast,
+  type SwellEventForecastRecord,
+} from "@/lib/alerts/swell-verification/record";
 import { loadUserPool } from "@/lib/alerts/user-pool";
-import type { SwellWatchEvent } from "@/lib/alerts/swell-watch-detector";
 import { isSwellAlertEnabled, isSwellAlertUserAllowed } from "@/lib/flags/swell-alert";
 import { enqueueNotification } from "@/lib/notifications/enqueue";
 import { selectTitle } from "@/lib/notifications/copy/select-title";
@@ -17,10 +31,9 @@ import {
   loadNwsSwellAdvisories,
   loadOfficialSwellAdvisories,
 } from "@/lib/recommendations/major-swell-awareness/official-advisory-adapter";
-import { evaluateMajorSwellAwarenessShadow } from "@/lib/recommendations/major-swell-awareness/shadow-evaluator";
-import { scoreNativeForecastSlot } from "@/lib/scoring/native-condition-score";
+import type { OfficialSwellAdvisoryEvidence } from "@/lib/recommendations/major-swell-awareness/shadow-evaluator";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import { getLocalDateString, getLocalHour } from "@/lib/utils/timezone-utils";
+import { getLocalDateString, getLocalHour, resolveBeachTimezone } from "@/lib/utils/timezone-utils";
 import type { Beach, Database } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
@@ -30,8 +43,11 @@ const HISTORY_DAYS = 30;
 const TITLE_HISTORY_DAYS = 120;
 const COOLDOWN_MS = 72 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
-const GO_SCORE = 70;
 const POSTGRES_UNIQUE_VIOLATION = "23505";
+const FORECAST_PAGE_SIZE = 1000;
+const PEAK_ROW_MAX_MS = 3 * 60 * 60 * 1000;
+const OFFICIAL_ADVISORY_HORIZON_MS = 10 * DAY_MS;
+const OFFICIAL_ADVISORY_KINDS = new Set(["high_surf", "tropical_cyclone", "high_rip_current"]);
 
 type ServiceClient = SupabaseClient<Database>;
 
@@ -54,9 +70,13 @@ export interface SwellAlertCandidate {
     slug: string | null;
     state: string | null;
   };
-  event: SwellWatchEvent;
+  /** Detected swell event with its resolved (cross-run) key. */
+  event: BeachSwellEvent;
+  /** Arrival and peak local dates in the user's timezone. */
+  arrivalDate: string;
+  peakDate: string;
   peakScore: number;
-  direction: string | null;
+  peakVerdict: ForecastVerdict["verdict"];
   serious: boolean;
   awarenessSignal: "forecast_trend" | "corroborated";
   officialEvidenceRefs: string[];
@@ -96,6 +116,7 @@ export interface SwellAlertDeps {
   }) => Promise<{ id: string } | null>;
   enqueue: (args: EnqueueArgs) => Promise<EnqueueResult>;
   markAlertEnqueued: (alertId: string, eventId: string) => Promise<void>;
+  recordForecast: (record: SwellEventForecastRecord) => Promise<{ inserted: boolean }>;
 }
 
 export interface SwellAlertRunSummary {
@@ -107,6 +128,7 @@ export interface SwellAlertRunSummary {
   duplicates: number;
   skippedCounts: Record<string, number>;
   errors: number;
+  verificationRecordFailures: number;
   durationMs: number;
 }
 
@@ -140,49 +162,20 @@ function peakPart(forecastAt: string, timezone: string): string {
   return "evening";
 }
 
-function cardinalDirection(degrees: number | null): string | null {
-  if (degrees == null || !Number.isFinite(degrees)) return null;
-  const labels = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
-  return labels[Math.round(((degrees % 360) + 360) % 360 / 45) % labels.length];
-}
-
-function directionFor(row: EnhancedForecastEntity): string | null {
-  return row.wave_direction
-    ?? row.swell_1_direction
-    ?? cardinalDirection(row.wave_direction_om ?? row.swell_direction_om ?? null);
-}
-
-function scoreForecast(
-  row: EnhancedForecastEntity,
-  beach: Beach,
-  experienceLevel: string | null,
-): number {
-  return scoreNativeForecastSlot(row, experienceLevel, null, {
-    windDirectionDeg: row.wind_direction_deg ?? null,
-    swellDirectionDeg: row.wave_direction_om ?? row.swell_direction_om ?? null,
-    offshoreDeg: beach.wind_offshore_deg,
-    offshoreToleranceDeg: beach.wind_offshore_tol_deg ?? 35,
-    windowCenterDeg:
-      beach.swell_window_center_deg_v2 ?? beach.swell_window_center_deg,
-    windowHalfwidthDeg:
-      beach.swell_window_halfwidth_deg_v2 ?? beach.swell_window_halfwidth_deg,
-  });
-}
-
 function buildTags(
   candidate: SwellAlertCandidate,
   rarityKind: "best-in-30" | "first-after-flat",
 ): string[] {
   const tags = new Set<string>([
     rarityKind === "best-in-30" ? "biggest-in-weeks" : "first-after-flat",
-    [0, 6].includes(new Date(`${candidate.event.peakDate}T12:00:00.000Z`).getUTCDay())
+    [0, 6].includes(new Date(`${candidate.peakDate}T12:00:00.000Z`).getUTCDay())
       ? "weekend"
       : "weekday",
     candidate.serious ? "serious" : "manageable",
     "generic",
   ]);
-  const normalizedDirection = candidate.direction?.toUpperCase() ?? "";
-  if (candidate.event.peakPeriodS >= 16) tags.add("long-period");
+  const normalizedDirection = candidate.event.directionLabel.toUpperCase();
+  if (candidate.event.periodS >= 16) tags.add("long-period");
   if (/\b(?:S|SE|SW|SOUTH|SOUTHEAST|SOUTHWEST)\b/.test(normalizedDirection)) {
     tags.add("south");
   }
@@ -200,6 +193,7 @@ function createSummary(): SwellAlertRunSummary {
     duplicates: 0,
     skippedCounts: {},
     errors: 0,
+    verificationRecordFailures: 0,
     durationMs: 0,
   };
 }
@@ -247,6 +241,82 @@ async function loadProfiles(client: ServiceClient): Promise<SwellAlertProfile[]>
   });
 }
 
+/**
+ * PostgREST caps every response (Supabase default 1,000 rows), and 40 days of
+ * hourly rows for a few beaches exceeds that. Page until an empty page so a cap
+ * of any size can never silently drop the future rows the detector needs.
+ */
+async function loadForecasts(
+  client: ServiceClient,
+  beachIds: string[],
+  start: Date,
+  end: Date,
+): Promise<EnhancedForecastEntity[]> {
+  const rows: EnhancedForecastEntity[] = [];
+  while (true) {
+    const { data, error } = await client
+      .from("enhanced_forecasts")
+      .select("*")
+      .in("beach_id", beachIds)
+      .gte("forecast_at", start.toISOString())
+      .lt("forecast_at", end.toISOString())
+      .order("forecast_at", { ascending: true })
+      .order("beach_id", { ascending: true })
+      .range(rows.length, rows.length + FORECAST_PAGE_SIZE - 1);
+    if (error) throw new Error(`Failed to load swell alert forecasts: ${error.message}`);
+    const page = (data ?? []) as EnhancedForecastEntity[];
+    if (page.length === 0) return rows;
+    rows.push(...page);
+  }
+}
+
+/** Earlier runs' keys, so the push names the same swell Week Scout shows. A failed read never blocks: the detector's own keys stand. */
+async function loadKeySnapshots(
+  client: ServiceClient,
+  beachIds: string[],
+  now: Date,
+): Promise<SwellEventSnapshot[]> {
+  try {
+    return await loadRecentSwellSnapshots(client, beachIds, new Date(now.getTime() - SWELL_EVENT_KEY_REUSE_DAYS * DAY_MS));
+  } catch (error) {
+    console.warn("[swell-alert] Snapshot read failed; using detector keys:", error);
+    return [];
+  }
+}
+
+function rowNearest(rows: readonly EnhancedForecastEntity[], at: string): EnhancedForecastEntity | null {
+  const target = Date.parse(at);
+  let nearest: EnhancedForecastEntity | null = null;
+  for (const row of rows) {
+    const diff = Math.abs(Date.parse(row.forecast_at) - target);
+    if (diff <= PEAK_ROW_MAX_MS && (!nearest || diff < Math.abs(Date.parse(nearest.forecast_at) - target))) {
+      nearest = row;
+    }
+  }
+  return nearest;
+}
+
+/** The evidence rules the shadow evaluator applied, kept for corroboration. */
+function validOfficialEvidenceRefs(
+  advisories: readonly OfficialSwellAdvisoryEvidence[],
+  beachId: string,
+  now: Date,
+): string[] {
+  const refs = advisories.filter((evidence) => {
+    const startsAt = Date.parse(evidence.startsAt);
+    const endsAt = Date.parse(evidence.endsAt);
+    return evidence.evidenceRef.trim().length > 0
+      && OFFICIAL_ADVISORY_KINDS.has(evidence.kind)
+      && Number.isFinite(startsAt)
+      && Number.isFinite(endsAt)
+      && startsAt < endsAt
+      && endsAt > now.getTime()
+      && startsAt <= now.getTime() + OFFICIAL_ADVISORY_HORIZON_MS
+      && evidence.beachIds.includes(beachId);
+  }).map(({ evidenceRef }) => evidenceRef);
+  return [...new Set(refs)].sort((left, right) => left.localeCompare(right));
+}
+
 async function evaluatePool(
   client: ServiceClient,
   profile: SwellAlertProfile,
@@ -261,18 +331,12 @@ async function evaluatePool(
   });
   if (pool.length === 0) return { history: [], candidates: [] };
 
-  const historyStart = new Date(now.getTime() - HISTORY_DAYS * DAY_MS);
-  const horizon = new Date(now.getTime() + LOOKAHEAD_DAYS * DAY_MS);
-  const { data, error } = await client
-    .from("enhanced_forecasts")
-    .select("*")
-    .in("beach_id", pool.map(({ beach }) => beach.id))
-    .gte("forecast_at", historyStart.toISOString())
-    .lt("forecast_at", horizon.toISOString())
-    .order("forecast_at", { ascending: true });
-  if (error) throw new Error(`Failed to load swell alert forecasts: ${error.message}`);
-
-  const forecasts = (data ?? []) as EnhancedForecastEntity[];
+  const forecasts = await loadForecasts(
+    client,
+    pool.map(({ beach }) => beach.id),
+    new Date(now.getTime() - HISTORY_DAYS * DAY_MS),
+    new Date(now.getTime() + LOOKAHEAD_DAYS * DAY_MS),
+  );
   const forecastsByBeach = new Map<string, EnhancedForecastEntity[]>();
   for (const forecast of forecasts) {
     const rows = forecastsByBeach.get(forecast.beach_id) ?? [];
@@ -281,29 +345,61 @@ async function evaluatePool(
   }
 
   const today = getLocalDateString(now, profile.timezone);
-  const historyByDate = new Map<string, number>();
+  const verdictFor = (
+    forecast: EnhancedForecastEntity,
+    beach: Beach,
+  ): ForecastVerdict => evaluateForecastVerdict({
+    forecast,
+    beach,
+    experienceLevel: profile.experienceLevel,
+    timezone: profile.timezone,
+    now,
+    candidateIdPrefix: "swell-alert",
+  });
+  const historyByDate = new Map<string, DayScore>();
   for (const { beach } of pool) {
     for (const forecast of forecastsByBeach.get(beach.id) ?? []) {
       const localDate = getLocalDateString(new Date(forecast.forecast_at), profile.timezone);
       const localHour = getLocalHour(new Date(forecast.forecast_at), profile.timezone);
-      if (localDate >= today || localHour < 6 || localHour >= 19) continue;
-      const score = scoreForecast(forecast, beach, profile.experienceLevel);
-      historyByDate.set(localDate, Math.max(historyByDate.get(localDate) ?? 0, score));
+      // Today counts: its forecast is known, and "first after flat" needs the
+      // day before a peak that is tomorrow at the earliest.
+      if (localDate > today || localHour < 6 || localHour >= 19) continue;
+      const { score, verdict } = verdictFor(forecast, beach);
+      const day = historyByDate.get(localDate);
+      historyByDate.set(localDate, {
+        localDate,
+        bestScore: Math.max(day?.bestScore ?? 0, score),
+        go: (day?.go ?? false) || verdict === "go",
+      });
     }
   }
-  const history = [...historyByDate.entries()]
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([localDate, bestScore]) => ({
-      localDate,
-      bestScore,
-      go: bestScore >= GO_SCORE,
-    }));
+  const history = [...historyByDate.values()]
+    .sort((left, right) => left.localDate.localeCompare(right.localDate));
 
-  // The detector needs the two days before event start as its rise baseline.
-  const detectorAnchor = new Date(now.getTime() - DAY_MS);
   const tomorrow = addCivilDays(today, 1);
+  const snapshots = await loadKeySnapshots(client, pool.map(({ beach }) => beach.id), now);
   const candidates = await Promise.all(pool.map(async ({ beach }) => {
     const beachForecasts = forecastsByBeach.get(beach.id) ?? [];
+    const events = resolveEventKeys(
+      detectBeachSwellEvents({
+        beach: toSwellEventBeach(beach),
+        forecasts: beachForecasts,
+        now,
+        timezone: resolveBeachTimezone(beach.timezone),
+      }),
+      snapshots.filter((snapshot) => snapshot.beachId === beach.id),
+    ).flatMap((event) => {
+      const arrivalDate = getLocalDateString(new Date(event.arrivalAt), profile.timezone);
+      const peakDate = getLocalDateString(new Date(event.peakAt), profile.timezone);
+      if (arrivalDate !== tomorrow && peakDate !== tomorrow) return [];
+      const peakForecast = rowNearest(beachForecasts, event.peakAt);
+      if (!peakForecast) return [];
+      const peak = verdictFor(peakForecast, beach);
+      return [{ event, arrivalDate, peakDate, peakScore: peak.score, peakVerdict: peak.verdict }];
+    });
+    const best = events.sort((left, right) => right.peakScore - left.peakScore)[0];
+    if (!best) return null;
+
     const ledgerAdvisories = await loadOfficialSwellAdvisories({
       supabase: client,
       beachId: beach.id,
@@ -321,21 +417,8 @@ async function evaluatePool(
       console.warn(`[swell-alert] NWS advisory fetch failed for ${beach.id}:`, error);
     }
     const officialAdvisories = [...ledgerAdvisories, ...nwsAdvisories];
-    const awareness = evaluateMajorSwellAwarenessShadow({
-      beachId: beach.id,
-      forecasts: beachForecasts,
-      timezone: profile.timezone,
-      now: detectorAnchor,
-      officialAdvisories,
-    });
-    const event = awareness.event;
-    if (!event || event.eventStartDate !== tomorrow) return null;
-
-    const peakForecast = beachForecasts.find(
-      (forecast) => forecast.forecast_at === event.peakForecastAt,
-    );
-    if (!peakForecast) return null;
-    return {
+    const officialEvidenceRefs = validOfficialEvidenceRefs(officialAdvisories, beach.id, now);
+    const candidate: SwellAlertCandidate = {
       beach: {
         id: beach.id,
         name: beach.name,
@@ -343,17 +426,14 @@ async function evaluatePool(
         slug: beach.slug,
         state: beach.state,
       },
-      event,
-      peakScore: scoreForecast(peakForecast, beach, profile.experienceLevel),
-      direction: directionFor(peakForecast),
-      serious: event.peakHeightFt >= 8 || officialAdvisories.some(
+      ...best,
+      serious: best.event.peakFaceHeightFt >= 8 || officialAdvisories.some(
         ({ kind }) => kind === "high_surf" || kind === "tropical_cyclone",
       ),
-      awarenessSignal: awareness.signal === "corroborated"
-        ? "corroborated" as const
-        : "forecast_trend" as const,
-      officialEvidenceRefs: awareness.officialEvidenceRefs,
+      awarenessSignal: officialEvidenceRefs.length > 0 ? "corroborated" : "forecast_trend",
+      officialEvidenceRefs,
     };
+    return candidate;
   }));
 
   return {
@@ -432,6 +512,8 @@ function defaultDependencies(args: {
     }),
     enqueue: args.deps?.enqueue
       ?? ((input) => enqueueNotification(input, getClient())),
+    recordForecast: args.deps?.recordForecast
+      ?? ((record) => recordSwellEventForecast(getClient(), record)),
     markAlertEnqueued: args.deps?.markAlertEnqueued ?? (async (alertId, eventId) => {
       const { error } = await getClient()
         .from("swell_event_alerts")
@@ -443,6 +525,20 @@ function defaultDependencies(args: {
       if (error) throw new Error(`Failed to mark swell alert sent: ${error.message}`);
     }),
   };
+}
+
+/** Verification is bookkeeping: a failed write is counted, never allowed to stop the push. */
+async function recordAlertForecast(
+  deps: SwellAlertDeps,
+  summary: SwellAlertRunSummary,
+  record: SwellEventForecastRecord,
+): Promise<void> {
+  try {
+    await deps.recordForecast(record);
+  } catch (error) {
+    console.error(`[swell-alert] Failed to record verification forecast ${record.eventKey}:`, error);
+    summary.verificationRecordFailures += 1;
+  }
 }
 
 export async function runSwellAlertCron(args: {
@@ -480,7 +576,7 @@ export async function runSwellAlertCron(args: {
       const evaluation = await deps.evaluatePool(profile, args.now);
       const tomorrow = addCivilDays(getLocalDateString(args.now, profile.timezone), 1);
       const candidates = evaluation.candidates
-        .filter(({ event }) => event.eventStartDate === tomorrow)
+        .filter(({ arrivalDate, peakDate }) => arrivalDate === tomorrow || peakDate === tomorrow)
         .sort((left, right) =>
           right.peakScore - left.peakScore
           || left.beach.id.localeCompare(right.beach.id));
@@ -492,20 +588,18 @@ export async function runSwellAlertCron(args: {
       }
 
       const rarity = assessRarity({
-        peakDate: lead.event.peakDate,
+        peakDate: lead.peakDate,
         history: evaluation.history,
         peakScore: lead.peakScore,
-        peakGo: lead.peakScore >= GO_SCORE,
+        peakGo: lead.peakVerdict === "go",
       });
       if (!rarity.rare || !rarity.kind || !rarity.rarityLine) {
         increment(summary, "not_rare");
         continue;
       }
 
-      const eventKey = buildEventKey({
-        peakDate: lead.event.peakDate,
-        leadBeachId: lead.beach.id,
-      });
+      // The detector's resolved key, so Week Scout can focus this exact swell.
+      const eventKey = lead.event.eventKey;
       const state = await deps.loadAlertState(profile.id, eventKey, args.now);
       if (state.eventExists) {
         increment(summary, "event_exists");
@@ -523,7 +617,7 @@ export async function runSwellAlertCron(args: {
         rank: index + 1,
       }));
       const beachNames = rankedBeaches.map(({ beach_name }) => beach_name);
-      const direction = lead.direction ?? "Unknown direction";
+      const direction = lead.event.directionLabel;
       const selected = selectTitle({
         pool: "swell",
         tags: buildTags(lead, rarity.kind),
@@ -536,10 +630,10 @@ export async function runSwellAlertCron(args: {
           beach2: beachNames[1] ?? beachNames[0],
           beach3: beachNames[2] ?? beachNames[1] ?? beachNames[0],
           dir: direction,
-          size: `${formatNumber(lead.event.peakHeightFt)}ft`,
-          period: `${formatNumber(lead.event.peakPeriodS)}s`,
-          peak_day: weekday(lead.event.peakDate),
-          peak_part: peakPart(lead.event.peakForecastAt, profile.timezone),
+          size: `${formatNumber(lead.event.peakFaceHeightFt)}ft`,
+          period: `${formatNumber(lead.event.periodS)}s`,
+          peak_day: weekday(lead.peakDate),
+          peak_part: peakPart(lead.event.peakAt, profile.timezone),
           rarity: rarity.rarityLine,
         },
       });
@@ -548,11 +642,12 @@ export async function runSwellAlertCron(args: {
         beach_id: lead.beach.id,
         ...(lead.beach.slug ? { beach_slug: lead.beach.slug } : {}),
         beach_name: lead.beach.name,
-        event_start_date: lead.event.eventStartDate,
-        peak_date: lead.event.peakDate,
-        peak_height_ft: lead.event.peakHeightFt,
-        peak_period_s: lead.event.peakPeriodS,
-        forecast_at: lead.event.peakForecastAt,
+        event_start_date: lead.arrivalDate,
+        peak_date: lead.peakDate,
+        // Surf face height, as the push copy states it; offshore height goes to verification.
+        peak_height_ft: lead.event.peakFaceHeightFt,
+        peak_period_s: lead.event.periodS,
+        forecast_at: lead.event.peakAt,
         awareness_mode: "shadow",
         automation_enabled: false,
         awareness_signal: lead.awarenessSignal,
@@ -570,7 +665,7 @@ export async function runSwellAlertCron(args: {
       const alert = await deps.insertAlert({
         userId: profile.id,
         eventKey,
-        peakDate: lead.event.peakDate,
+        peakDate: lead.peakDate,
         leadBeachId: lead.beach.id,
         payload,
       });
@@ -578,6 +673,20 @@ export async function runSwellAlertCron(args: {
         increment(summary, "event_exists");
         continue;
       }
+      await recordAlertForecast(deps, summary, {
+        eventKey,
+        beachId: lead.beach.id,
+        source: "alert",
+        detectorVersion: SWELL_EVENT_DETECTOR_VERSION,
+        issuedAt: args.now.toISOString(),
+        arrivalAt: lead.event.arrivalAt,
+        peakAt: lead.event.peakAt,
+        fadeAt: lead.event.fadeAt,
+        peakOffshoreHeightFt: lead.event.peakOffshoreHeightFt,
+        peakFaceHeightFt: lead.event.peakFaceHeightFt,
+        peakPeriodS: lead.event.periodS,
+        directionDeg: lead.event.directionDeg,
+      });
 
       const enqueued = await deps.enqueue({
         type: "swell_watch",

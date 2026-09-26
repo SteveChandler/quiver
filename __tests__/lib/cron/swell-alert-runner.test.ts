@@ -9,6 +9,7 @@ import {
   type SwellAlertPoolEvaluation,
   type SwellAlertProfile,
 } from "@/lib/cron/swell-alert-runner";
+import { beachSwellEvent } from "@/__tests__/helpers/swell-events";
 
 const NOW = new Date("2026-09-18T00:00:00.000Z");
 const USER_ID = "73040cff-afe9-4fa0-a874-2016203fc015";
@@ -50,16 +51,18 @@ function evaluation(peakHeightFt = 6): SwellAlertPoolEvaluation {
         slug: ["blacks", "scripps", "osprey"][index],
         state: "CA",
       },
-      event: {
-        eventStartDate: "2026-09-18",
-        peakDate: "2026-09-20",
-        peakHeightFt: index === 0 ? peakHeightFt : peakHeightFt - index,
-        peakPeriodS: 17 - index,
-        peakForecastAt: `2026-09-20T${String(15 + index).padStart(2, "0")}:00:00.000Z`,
-        baselineHeightFt: 2,
-      },
+      event: beachSwellEvent({
+        beachId: id,
+        eventKey: `${id}:NW:2026-09-20`,
+        peakFaceHeightFt: index === 0 ? peakHeightFt : peakHeightFt - index,
+        periodS: 17 - index,
+        peakOffshoreHeightFt: 4.5 - index,
+        peakAt: `2026-09-20T${String(15 + index).padStart(2, "0")}:00:00.000Z`,
+      }),
+      arrivalDate: "2026-09-18",
+      peakDate: "2026-09-20",
       peakScore: 82 - index,
-      direction: "NW",
+      peakVerdict: "go" as const,
       serious: index === 0 && peakHeightFt >= 8,
       awarenessSignal: "forecast_trend" as const,
       officialEvidenceRefs: [],
@@ -84,6 +87,7 @@ function dependencies(
     insertAlert: jest.fn(async () => ({ id: "alert-1" })),
     enqueue: jest.fn(async () => ({ enqueued: true as const, eventId: "event-1" })),
     markAlertEnqueued: jest.fn(async () => undefined),
+    recordForecast: jest.fn(async () => ({ inserted: true })),
     ...overrides,
   };
 }
@@ -159,5 +163,134 @@ describe("runSwellAlertCron", () => {
 
     expect(result.skippedCounts.not_send_hour).toBe(1);
     expect(deps.evaluatePool).not.toHaveBeenCalled();
+  });
+});
+
+describe("runSwellAlertCron go rule and verification record", () => {
+  function enqueuedPayload(deps: SwellAlertDeps): {
+    beaches: Array<{ beach_id: string; beach_name: string; rank: number }>;
+    event_key: string;
+    rarity: string;
+  } {
+    return jest.mocked(deps.enqueue).mock.calls[0][0].payload as {
+      beaches: Array<{ beach_id: string; beach_name: string; rank: number }>;
+      event_key: string;
+      rarity: string;
+    };
+  }
+
+  it("holds a peak scoring above the old 70 threshold when the canonical verdict is not go", async () => {
+    const pool = evaluation();
+    const deps = dependencies({
+      evaluatePool: jest.fn(async () => ({
+        ...pool,
+        candidates: pool.candidates.map((candidate) => ({
+          ...candidate,
+          peakVerdict: "maybe" as const,
+        })),
+      })),
+    });
+
+    const result = await runSwellAlertCron({ now: NOW, deps });
+
+    expect(pool.candidates[0].peakScore).toBeGreaterThanOrEqual(70);
+    expect(result.skippedCounts.not_rare).toBe(1);
+    expect(deps.insertAlert).not.toHaveBeenCalled();
+    expect(deps.recordForecast).not.toHaveBeenCalled();
+  });
+
+  it("sends a peak scoring below the old 70 threshold when the canonical verdict is go", async () => {
+    const pool = evaluation();
+    const deps = dependencies({
+      evaluatePool: jest.fn(async () => ({
+        ...pool,
+        candidates: pool.candidates.map((candidate, index) => ({
+          ...candidate,
+          peakScore: 65 - index,
+        })),
+      })),
+    });
+
+    const result = await runSwellAlertCron({ now: NOW, deps });
+
+    expect(result.sent).toBe(1);
+    expect(enqueuedPayload(deps).rarity).toBe("Best in 30 days");
+  });
+
+  it("sends when only one beach qualifies", async () => {
+    const pool = evaluation();
+    const deps = dependencies({
+      evaluatePool: jest.fn(async () => ({
+        ...pool,
+        candidates: pool.candidates.slice(0, 1),
+      })),
+    });
+
+    const result = await runSwellAlertCron({ now: NOW, deps });
+
+    expect(result.errors).toBe(0);
+    expect(result.sent).toBe(1);
+    expect(enqueuedPayload(deps).beaches).toEqual([{
+      beach_id: "11111111-1111-4111-8111-111111111111",
+      beach_name: "Blacks",
+      rank: 1,
+    }]);
+  });
+
+  it("records the lead beach forecast once, after the alert row and before the push", async () => {
+    const deps = dependencies();
+
+    const result = await runSwellAlertCron({ now: NOW, deps });
+
+    expect(result.sent).toBe(1);
+    expect(result.verificationRecordFailures).toBe(0);
+    expect(deps.recordForecast).toHaveBeenCalledTimes(1);
+    expect(enqueuedPayload(deps).event_key).toBe("11111111-1111-4111-8111-111111111111:NW:2026-09-20");
+    expect(deps.recordForecast).toHaveBeenCalledWith({
+      eventKey: "11111111-1111-4111-8111-111111111111:NW:2026-09-20",
+      beachId: "11111111-1111-4111-8111-111111111111",
+      source: "alert",
+      detectorVersion: "swell-events.v1",
+      issuedAt: "2026-09-18T00:00:00.000Z",
+      arrivalAt: "2026-09-18T15:00:00.000Z",
+      peakAt: "2026-09-20T15:00:00.000Z",
+      fadeAt: "2026-09-21T07:00:00.000Z",
+      peakOffshoreHeightFt: 4.5,
+      peakFaceHeightFt: 6,
+      peakPeriodS: 17,
+      directionDeg: 315,
+    });
+    const [insertOrder] = jest.mocked(deps.insertAlert).mock.invocationCallOrder;
+    const [recordOrder] = jest.mocked(deps.recordForecast).mock.invocationCallOrder;
+    const [enqueueOrder] = jest.mocked(deps.enqueue).mock.invocationCallOrder;
+    expect(insertOrder).toBeLessThan(recordOrder);
+    expect(recordOrder).toBeLessThan(enqueueOrder);
+  });
+
+  it("still sends when the verification record fails", async () => {
+    const error = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    const deps = dependencies({
+      recordForecast: jest.fn(async () => {
+        throw new Error("relation swell_event_verifications does not exist");
+      }),
+    });
+
+    const result = await runSwellAlertCron({ now: NOW, deps });
+
+    expect(result.sent).toBe(1);
+    expect(result.errors).toBe(0);
+    expect(result.verificationRecordFailures).toBe(1);
+    expect(deps.markAlertEnqueued).toHaveBeenCalledWith("alert-1", "event-1");
+    error.mockRestore();
+  });
+
+  it("does not record a forecast when the alert row already exists", async () => {
+    const deps = dependencies({ insertAlert: jest.fn(async () => null) });
+
+    const result = await runSwellAlertCron({ now: NOW, deps });
+
+    expect(result.skippedCounts.event_exists).toBe(1);
+    expect(deps.recordForecast).not.toHaveBeenCalled();
+    expect(deps.enqueue).not.toHaveBeenCalled();
   });
 });

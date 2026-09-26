@@ -29,6 +29,7 @@ import {
   type SwellAlertDeps,
   type SwellAlertProfile,
 } from "@/lib/cron/swell-alert-runner";
+import { beachSwellEvent } from "@/__tests__/helpers/swell-events";
 import { processPendingEvents } from "@/lib/notifications/worker";
 import type { EnqueueArgs, EnqueueResult } from "@/lib/notifications/types";
 import type { Database } from "@/types/database";
@@ -449,16 +450,22 @@ describe("surf push budget integration", () => {
             slug: pool.beach.slug,
             state: "CA",
           },
-          event: {
-            eventStartDate: "2026-09-18",
-            peakDate: "2026-09-19",
-            peakHeightFt: 6 - index,
-            peakPeriodS: 16 - index,
-            peakForecastAt: `2026-09-19T${15 + index}:00:00.000Z`,
-            baselineHeightFt: 2,
-          },
+          event: beachSwellEvent({
+            beachId: pool.beach.id,
+            eventKey: `${pool.beach.id}:SW:2026-09-19`,
+            directionDeg: 225,
+            directionBand: "SW",
+            directionLabel: "SW",
+            peakFaceHeightFt: 6 - index,
+            periodS: 16 - index,
+            arrivalAt: "2026-09-18T15:00:00.000Z",
+            peakAt: `2026-09-19T${15 + index}:00:00.000Z`,
+            peakLocalDate: "2026-09-19",
+          }),
+          arrivalDate: "2026-09-18",
+          peakDate: "2026-09-19",
           peakScore: 85 - index,
-          direction: "SW",
+          peakVerdict: "go" as const,
           serious: false,
           awarenessSignal: "forecast_trend" as const,
           officialEvidenceRefs: [],
@@ -473,6 +480,7 @@ describe("surf push budget integration", () => {
       insertAlert: async () => ({ id: "swell-alert-1" }),
       enqueue,
       markAlertEnqueued: async () => undefined,
+      recordForecast: async () => ({ inserted: true }),
     };
 
     const swellSummary = await runSwellAlertCron({
