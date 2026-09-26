@@ -145,26 +145,83 @@ on `origin/main` `d2ed1cc93`.
 
 ## Production measurement plan
 
-Compare three complete Pacific days before the production deploy with three complete days
-starting the day after it. Exclude the deploy day, and use the same project and production scope.
+This plan covers both cost PRs:
 
-- Collect city-route requests and cache status with
-  `workspace-notes/Reports/vercel-cost/tools/city-route-logs.sh <start> <end> <dir>` for each day.
-  Summarize with `city-route-summary.js`. Record any saturated slices.
-- Normalize by city-route requests and unique paths. Report regenerations per 1,000 requests per
-  lane.
-- Record production and `main` deployment counts per day with `vercel list`. Report `MISS`
-  separately, since each deployment starts on-demand pages with an empty cache.
-- Pull the Observability ISR writes and reads for `/[intent]/[city]`, plus that route's
-  invocations and active CPU, for the same days. Take daily ISR Writes, Fluid Active CPU, and
-  Provisioned Memory from `vercel usage --breakdown daily --format json`. Use the September
-  25–October 25 billing cycle, and keep plan fee, included credit, and on-demand spend separate.
-- Freshness guardrails that must hold:
-  - The live-recommendation lane still shows `STALE` gaps near 15 minutes.
-  - The tide/water-temp/sun and state lanes show no `STALE` within 60 minutes of a regeneration.
-  - Major-event hold cron runs still report invalidated paths.
-- Hypothesis, not a promise: 8–10% fewer regenerations per 1,000 requests on this route, driven
-  by the two changed lanes. Anything beyond that needs the next levers below.
+- **#862:** this branch, the city-page refresh window and the build skip.
+- **#863:** the map payload trim on intent, state hub, and city pages.
+
+They change different terms of the same bill, so shipping them in one release batch still keeps their effects separable:
+
+- ISR write units per day ≈ regenerations × write units per regeneration.
+- #862 lowers the **regenerations** term on the tide, water-temp, sun, and state lanes.
+- #863 lowers the **write units per regeneration** term on state, hub, and city pages.
+
+### Timeline
+
+- **Deploy day D:** the first production deploy containing either PR. Exclude D from both periods.
+- **Baseline:** days D−3, D−2, and D−1. **After:** days D+1, D+2, and D+3.
+- **Days are Pacific calendar days,** 07:00–07:00 UTC while PDT lasts. PDT ends November 1, 2026; use 08:00–08:00 UTC after that.
+- **If the PRs reach production on different days,** measure each against its own D. Don't let one PR's after period overlap the other's deploy day.
+- **Before D,** record the deployment IDs and commit SHAs that will count as "before".
+
+### Collect once, around the deploy
+
+| What | How | When |
+|---|---|---|
+| HTML and RSC bytes for a fixed set of 12 pages | `curl -s <url> \| wc -c`, then again with header `RSC: 1` | Once on D−1 and once on D+1 |
+| Cache window on a busy tide page | Request `/tide/huntington-beach` twice about 20 minutes apart. A `HIT` with `age` above 900 means the hourly window is live. | Once on D+1 |
+| Map render on `/beaches/usa/ca`, `/ca/san-diego`, and `/beginner/ca` | Open in a browser: markers render, a hover preview opens, no console errors | Once on D+1 |
+
+The 12 pages:
+
+- `/beginner/ca`, `/longboard/ca`, `/tide/wa`
+- `/dawn-patrol/san-diego`, `/water-temp/san-diego`, `/tide/huntington-beach`, `/longboard/san-diego`
+- `/beaches/usa/ca`, `/beaches/usa/hi`
+- `/ca/san-diego`, `/ca/newport-beach`, `/mexico/baja-california/ensenada`
+
+That is 24 requests per snapshot. Save the outputs under `workspace-notes/Reports/vercel-cost/<date>/`. Don't repeat the crawl daily: page size does not change with traffic.
+
+### Collect for each of the six days
+
+| Metric | Source | Command or place |
+|---|---|---|
+| City-route requests, cache status, and regenerations by lane | Production request logs | `workspace-notes/Reports/vercel-cost/tools/city-route-logs.sh <start> <end> <dir>`, then `node city-route-summary.js <dir>`. Record any `saturated.txt` entries. |
+| Route ISR writes and reads, invocations, active CPU | Vercel Observability (dashboard) | Routes: `/[intent]/[city]`, `/beaches/usa/[state]`, `/beaches/[country]/[state]/[city]`, `/[intent]/[city]/[beachSlug]/tides`, `/[intent]/[city]/[beachSlug]/water-temp` |
+| Project daily usage | Vercel CLI | `vercel usage --breakdown daily --format json`: ISR Writes, ISR Reads, Fluid Active CPU, Fluid Provisioned Memory, Function Invocations, Build CPU Minutes, Fast Origin Transfer |
+| Deployments | Vercel CLI | `vercel list --prod --format json` and `vercel list --format json -m githubCommitRef=main`. Count Ready, Error, and Canceled, and note any build skipped by `ignoreCommand`. |
+
+The log export is read-only API access, not a crawl. The CLI repeats its first page when paging with `--until`, so the tool queries 15-minute slices. A slice that returns exactly 50 rows is saturated and undercounts.
+
+### Normalize
+
+- **Regenerations per 1,000 requests, per lane:** `STALE` plus `MISS` responses, divided by requests, times 1,000. Lanes are tide/water-temp/sun city, state, live-recommendation city, and beginner city.
+- **Write units per regeneration, per route family:** the route's daily ISR write units divided by its function invocations, from Observability.
+- **Report deployments per day next to each day.** Each deploy starts on-demand pages with an empty cache. A high-deploy day inflates `MISS` counts, so flag it rather than drop it.
+- **Costs:**
+  - Report effective and billed cost per service per day, per 1,000 city-route requests.
+  - Align to the billing cycle (September 25–October 25).
+  - Keep the plan fee, included credit, and on-demand spend separate.
+
+### Guardrails
+
+These must hold; revert the responsible PR if one fails.
+
+- **Live-recommendation lane:** still shows `STALE` gaps near 15 minutes. Forecast freshness for live recommendations is unchanged.
+- **Tide/water-temp/sun and state lanes:** show no `STALE` within 60 minutes of a regeneration. That is #862's expected behavior, not a failure.
+- **Major-event hold transitions:** if one occurs, the `major-event-hold-evaluate` cron logs still list the invalidated paths.
+- **Maps:** hub and city page maps render markers and previews with no new console errors (#863).
+- **SEO:** coverage for these URL families is stable in the next weekly SEO report's GSC export. Read that dated artifact; don't run an extra export.
+
+### Decide and report
+
+- **Hypotheses, not promises:**
+  - #862: 10–15% fewer regenerations per 1,000 requests on the two changed lanes. The route-wide replay estimate is −8%.
+  - #863: write units per regeneration fall roughly in line with the byte reductions.
+  - #863 byte reductions: about −65% HTML on state intent pages, −36% to −49% on hubs, −1% to −12% on city pages.
+  - Combined: an estimated 4,000–24,000 fewer ISR write units per day. The range depends on whether Vercel meters raw or compressed bytes, which is unknown.
+- **Claim a reduction only if all three after-days fall below the lowest baseline day** on the normalized metric. Otherwise report "no measurable change at three-day resolution" with the numbers.
+- **Separate measured from estimated.** No dollar figure is a budget guarantee.
+- **Write the result** to `workspace-notes/Reports/vercel-cost/<D+4 date>.md`. Include the raw daily table, the deploy list, and the guardrail results.
 
 ## Remaining risks and next levers
 
