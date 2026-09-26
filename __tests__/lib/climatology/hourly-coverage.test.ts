@@ -7,7 +7,7 @@ import {
 } from "@/lib/climatology/coverage";
 import { hourlyFromAsos, hourlyFromNdbc, localize } from "@/lib/climatology/hourly";
 import type { NdbcRecord } from "@/lib/climatology/parse-ndbc";
-import { localMonth } from "./fixtures/observations";
+import { localMonth } from "./__fixtures__/observations";
 
 const ndbc = (minute: number, fields: Partial<NdbcRecord>): NdbcRecord => ({
   timeUtcMs: Date.UTC(2024, 0, 1, 0, minute),

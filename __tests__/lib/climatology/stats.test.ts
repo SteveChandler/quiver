@@ -7,7 +7,7 @@ import {
   waveMonthStats,
   windMonthStats,
 } from "@/lib/climatology/stats";
-import { localMonth } from "./fixtures/observations";
+import { localMonth } from "./__fixtures__/observations";
 
 const YEARS = [2020, 2021, 2022, 2023, 2024];
 
