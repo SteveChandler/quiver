@@ -4,7 +4,8 @@
  * Animated Score Gauge Component
  *
  * Radial progress gauge for displaying surf condition scores.
- * Features animated arc fill, count-up number, and glow effects.
+ * Server-renders the finished score and arc; a CSS keyframe animates the
+ * arc filling in when motion is allowed. Glow effects for EPIC scores.
  *
  * Score colors and labels come from the canonical score-color utility so this
  * shared component cannot drift from the rest of the forecast surfaces.
@@ -12,8 +13,7 @@
  * @module components/forecast/animated-score-gauge
  */
 
-import { useEffect, useState, useRef, useCallback } from "react";
-import { useReducedMotion } from "@/hooks/use-reduced-motion";
+import type { CSSProperties } from "react";
 import { cn } from "@/lib/utils";
 import { getScoreColorClasses } from "@/lib/utils/score-color-utils";
 import type { ConditionCharacter } from "@/lib/scoring/types";
@@ -85,13 +85,6 @@ const SIZE_CONFIG = {
 } as const;
 
 /**
- * Easing function for smooth animation
- */
-function easeOutCubic(t: number): number {
-  return 1 - Math.pow(1 - t, 3);
-}
-
-/**
  * AnimatedScoreGauge Component
  *
  * Displays a score as an animated radial gauge with color-coded
@@ -132,13 +125,6 @@ export function AnimatedScoreGauge({
   variant = "default",
   className,
 }: AnimatedScoreGaugeProps) {
-  const [displayScore, setDisplayScore] = useState(0);
-  const [arcOffset, setArcOffset] = useState(100);
-  const [hasAnimated, setHasAnimated] = useState(false);
-  const elementRef = useRef<HTMLDivElement>(null);
-  const animationRef = useRef<number | undefined>(undefined);
-  const reducedMotion = useReducedMotion();
-
   const isHero = variant === "hero";
   const config = SIZE_CONFIG[size];
   const radius = (config.size - config.strokeWidth) / 2;
@@ -150,85 +136,20 @@ export function AnimatedScoreGauge({
   // Calculate target offset (0 = full, circumference = empty)
   const targetOffset = circumference * (1 - score / 100);
 
-  // Animation function
-  const animate = useCallback(() => {
-    if (reducedMotion) {
-      setDisplayScore(score);
-      setArcOffset(targetOffset);
-      setHasAnimated(true);
-      return;
-    }
-
-    const startTime = performance.now();
-
-    const updateAnimation = (currentTime: number) => {
-      const elapsed = currentTime - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      const easedProgress = easeOutCubic(progress);
-
-      // Animate score number
-      setDisplayScore(Math.round(score * easedProgress));
-
-      // Animate arc offset (from full empty to target)
-      const currentOffset =
-        circumference - (circumference - targetOffset) * easedProgress;
-      setArcOffset(currentOffset);
-
-      if (progress < 1) {
-        animationRef.current = requestAnimationFrame(updateAnimation);
-      } else {
-        setDisplayScore(score);
-        setArcOffset(targetOffset);
-        setHasAnimated(true);
-      }
-    };
-
-    animationRef.current = requestAnimationFrame(updateAnimation);
-  }, [score, duration, targetOffset, circumference, reducedMotion]);
-
-  // Intersection observer for scroll-triggered animation
-  useEffect(() => {
-    const element = elementRef.current;
-    if (!element) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting && !hasAnimated) {
-            animate();
-          }
-        });
-      },
-      { threshold: 0.5 }
-    );
-
-    observer.observe(element);
-
-    return () => {
-      observer.disconnect();
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-    };
-  }, [animate, hasAnimated]);
-
   // Keep the accent sparse while still deriving the band from the canonical utility.
-  const showGlow = enableGlow && scoreCall.label === "EPIC" && hasAnimated;
+  const showGlow = enableGlow && scoreCall.label === "EPIC";
 
   // Whether to show character — only on detail-page-sized gauges
   const shouldShowCharacter =
     showLabel && character && config.showCharacter && !isHero;
 
   return (
-    <div
-      ref={elementRef}
-      className={cn("flex flex-col items-center gap-2", className)}
-    >
+    <div className={cn("flex flex-col items-center gap-2", className)}>
       {/* Gauge SVG */}
       <div
         className={cn(
           "relative",
-          showGlow && !reducedMotion && "animate-pulse-glow"
+          showGlow && "motion-safe:animate-pulse-glow"
         )}
         style={{
           width: config.size,
@@ -266,9 +187,12 @@ export function AnimatedScoreGauge({
             strokeWidth={config.strokeWidth}
             strokeLinecap="round"
             strokeDasharray={circumference}
-            strokeDashoffset={arcOffset}
+            strokeDashoffset={targetOffset}
+            // The arc renders finished on the server; the keyframe only
+            // animates it in from empty when motion is allowed.
+            style={{ "--gauge-empty": circumference, animationDuration: `${duration}ms` } as CSSProperties}
             className={cn(
-              "transition-colors duration-300",
+              "transition-colors duration-300 motion-safe:animate-gauge-fill",
               isHero ? "text-white" : scoreColors.text
             )}
           />
@@ -288,7 +212,7 @@ export function AnimatedScoreGauge({
                 : `Score: ${score}, ${scoreCall.label}`
             }
           >
-            {displayScore}
+            {score}
           </span>
         </div>
       </div>
@@ -297,25 +221,13 @@ export function AnimatedScoreGauge({
       {showLabel && (
         <div className="flex flex-col items-center gap-0.5">
           <span
-            className={cn(
-              "font-medium",
-              config.labelSize,
-              labelTextClass,
-              !hasAnimated && !reducedMotion && "opacity-0",
-              hasAnimated && "motion-safe:animate-fade-in"
-            )}
+            className={cn("font-medium", config.labelSize, labelTextClass)}
           >
             {scoreCall.label}
           </span>
           {showAction && (
             <span
-              className={cn(
-                "font-medium",
-                config.labelSize,
-                labelTextClass,
-                !hasAnimated && !reducedMotion && "opacity-0",
-                hasAnimated && "motion-safe:animate-fade-in"
-              )}
+              className={cn("font-medium", config.labelSize, labelTextClass)}
             >
               {scoreCall.action}
             </span>
@@ -324,7 +236,6 @@ export function AnimatedScoreGauge({
           {/*
            * Condition character label — lg/xl sizes only, non-hero variant.
            * Uses font-mono for that surf-shop-window sticker look.
-           * Fades in after the quality label so it doesn't compete.
            */}
           {shouldShowCharacter && (
             <span
@@ -332,9 +243,7 @@ export function AnimatedScoreGauge({
                 "font-mono text-center leading-snug tracking-tight",
                 size === "xl" ? "text-sm" : "text-xs",
                 labelTextClass,
-                "opacity-80", // slightly recede behind the quality label
-                !hasAnimated && !reducedMotion && "opacity-0",
-                hasAnimated && "motion-safe:animate-fade-in"
+                "opacity-80" // slightly recede behind the quality label
               )}
             >
               {character!.label}
