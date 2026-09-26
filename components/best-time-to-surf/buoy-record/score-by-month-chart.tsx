@@ -47,7 +47,7 @@ export function ScoreByMonthChart({ months, stationName, chartId }: ScoreByMonth
           if (month.score === null) {
             return (
               <g key={month.month} data-testid="score-bar-missing">
-                <text x={center} y={BASELINE - 6} textAnchor="middle" fontSize={10} fill={CHART_MUTED}>
+                <text x={center} y={BASELINE - 6} textAnchor="middle" fontSize={11} fill={CHART_MUTED}>
                   n/a
                 </text>
                 {monthLabel}

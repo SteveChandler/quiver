@@ -49,7 +49,7 @@ export function WaveRangeChart({ months, stationName, chartId }: WaveRangeChartP
           if (!month.waves) {
             return (
               <g key={month.month}>
-                <text x={center} y={y(0) - 6} textAnchor="middle" fontSize={10} fill={CHART_MUTED}>
+                <text x={center} y={y(0) - 6} textAnchor="middle" fontSize={11} fill={CHART_MUTED}>
                   n/a
                 </text>
                 {monthLabel}

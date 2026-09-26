@@ -73,7 +73,7 @@ export function WindByTimeChart({ months, stationName, chartId }: WindByTimeChar
                   );
                 })
               ) : (
-                <text x={center} y={BASELINE - 6} textAnchor="middle" fontSize={10} fill={CHART_MUTED}>
+                <text x={center} y={BASELINE - 6} textAnchor="middle" fontSize={11} fill={CHART_MUTED}>
                   n/a
                 </text>
               )}
