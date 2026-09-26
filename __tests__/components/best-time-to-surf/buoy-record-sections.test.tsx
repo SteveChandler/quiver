@@ -35,6 +35,8 @@ describe("BuoyRecordSections", () => {
     }
     expect(screen.queryByRole("heading", { name: "Wind by time of day" })).not.toBeInTheDocument();
     expect(screen.queryByText("Download the monthly numbers (CSV)")).not.toBeInTheDocument();
+    // Score chart, table, wave range and direction each get their own source line.
+    expect(screen.getAllByText(/Analysis by Quiver/)).toHaveLength(4);
   });
 
   it("adds copy, wind, photos and the CSV link for Cocoa", () => {
@@ -62,6 +64,8 @@ describe("BuoyRecordSections", () => {
     expect(screen.getByAltText(/Satellite Beach seen from directly above/)).toBeInTheDocument();
     expect(screen.queryByAltText(/rocket launch/)).not.toBeInTheDocument(); // hero renders in the page header
     expect(screen.getByRole("link", { name: "NOAA NDBC: how wave height is measured" })).toBeInTheDocument();
+    // The base 4 source lines plus one for the wind chart.
+    expect(screen.getAllByText(/Analysis by Quiver/)).toHaveLength(5);
   });
 
   it("says when a station failed its coverage check", () => {
