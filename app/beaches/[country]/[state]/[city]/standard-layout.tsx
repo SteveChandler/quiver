@@ -29,6 +29,7 @@ import { LocationMapClient } from "./location-map-client";
 import type { LocationPageParams } from "./city-page-utils";
 import { SITE_ORIGIN, buildCanonicalCityPath } from "./city-page-utils";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
+import { toMapBeach } from "@/lib/utils/map-client-props";
 
 interface BeachHighlight {
   beachName: string;
@@ -328,7 +329,7 @@ export function StandardLayout({
           <div className="lg:col-span-1">
             <div className="lg:sticky lg:top-4">
               <LocationMapClient
-                beaches={beaches}
+                beaches={beaches.map(toMapBeach)}
                 city={location.city}
                 state={location.state}
               />
