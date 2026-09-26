@@ -301,7 +301,9 @@ describe('Week Scout route → real ranking profile contracts', () => {
     const initial = await generateWeekScoutForecastForDays('anonymous-contract-account', request, mockDependencies);
     expect(initial.days[0].windows).toHaveLength(9);
     expect(initial.days[0].windows.some((window) => window.beachId === lateWinner.id)).toBe(true);
-    expect(best(initial)?.beachId).toBe(near[0].id);
+    // The day holding the session pick names it as the day's best, so the day
+    // card and the Best card agree.
+    expect(best(initial)?.beachId).toBe(lateWinner.id);
     expect(initial.sessionDecision.selection?.beachId).toBe(lateWinner.id);
 
     mockResolveWaterQuality.mockResolvedValueOnce({
