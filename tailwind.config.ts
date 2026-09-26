@@ -181,6 +181,9 @@ const config: Config = {
           "0%, 100%": { boxShadow: "0 0 0 0 rgba(34, 197, 94, 0.4)" },
           "50%": { boxShadow: "0 0 20px 10px rgba(34, 197, 94, 0)" },
         },
+        gaugeFill: {
+          from: { strokeDashoffset: "var(--gauge-empty)" },
+        },
         pulseGlowBlue: {
           "0%, 100%": { boxShadow: "0 0 0 0 rgba(59, 130, 246, 0.4)" },
           "50%": { boxShadow: "0 0 15px 8px rgba(59, 130, 246, 0)" },
@@ -267,6 +270,7 @@ const config: Config = {
         "ocean-swell": "oceanSwell 2s ease-in-out infinite",
         heartbeat: "heartbeat 1.2s ease-in-out infinite",
         "pulse-glow": "pulseGlow 2s ease-in-out infinite",
+        "gauge-fill": "gaugeFill 1.2s cubic-bezier(0.33, 1, 0.68, 1)",
         "pulse-glow-blue": "pulseGlowBlue 2s ease-in-out infinite",
         "wave-flow": "waveFlow 8s linear infinite",
         "ticker-scroll": "waveFlow 30s linear infinite",
