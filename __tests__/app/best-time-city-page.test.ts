@@ -447,6 +447,22 @@ describe("best-time city SEO page", () => {
     }
   });
 
+  it("keeps live-forecast band words and glow off the buoy-mode hero gauge", () => {
+    const source = readFileSync(
+      join(process.cwd(), "app/best-time-to-surf/[city]/page.tsx"),
+      "utf8"
+    );
+
+    const gauges = source.match(/<AnimatedScoreGauge[\s\S]*?\/>/g) ?? [];
+    expect(gauges).toHaveLength(2);
+
+    const [buoyGauge, legacyGauge] = gauges;
+    expect(buoyGauge).toContain("showLabel={false}");
+    expect(buoyGauge).toContain("enableGlow={false}");
+    expect(legacyGauge).toContain("showLabel");
+    expect(legacyGauge).not.toContain("showLabel={false}");
+  });
+
   it("switches buoy-backed cities to the dataset for every seasonal field", () => {
     const source = readFileSync(join(process.cwd(), "app/best-time-to-surf/[city]/page.tsx"), "utf8");
 

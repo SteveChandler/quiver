@@ -24,6 +24,19 @@ describe("ScoreByMonthChart", () => {
     );
     expect(screen.getByText("Peak band: within 10 points of the top month")).toBeInTheDocument();
   });
+
+  it("drops the peak swatch and names no season when no month stands out", () => {
+    const flatView = buildDataBackedSeasonView(
+      makeDataset([84, 81, 81, 84, 86, 88, 91, 88, 87, 88, 84, 83]),
+      1,
+    );
+    render(<ScoreByMonthChart months={flatView.months} stationName="Cape Canaveral Nearshore" chartId="score-flat" />);
+
+    expect(
+      screen.getByText("No month stands out: every month scores within 10 points of the top."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Peak band/)).not.toBeInTheDocument();
+  });
 });
 
 describe("WaveRangeChart", () => {
