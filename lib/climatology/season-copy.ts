@@ -1,5 +1,6 @@
 import { PEAK_BAND_POINTS } from "./score";
 import { formatShare, joinNames, type DataBackedSeasonView } from "./season-view";
+import { BIG_DAY_FT, BIG_DAY_MIN_HOURS, LONG_PERIOD_S, SMALL_DAY_FT } from "./stats";
 import type { Sector, SurfClimatologyDataset } from "./types";
 
 export interface SeasonCopyContext {
@@ -67,12 +68,12 @@ export function describePeakAndQuiet(view: DataBackedSeasonView): string[] {
         ? ` ${joinNames(others)} ${others.length === 1 ? "is" : "are"} within ${PEAK_BAND_POINTS} points of it.`
         : ""),
     `In ${peakMonth.name} the buoy's median reading is ${peakMonth.waves.hsFt.median} ft. ` +
-      `${formatShare(peakMonth.waves.bigDayShare)} of its days held 6 ft or more for at least three hours, ` +
-      `and ${formatShare(peakMonth.waves.periodMix.atLeast10)} of its hours had swell of 10 seconds or longer.`,
+      `${formatShare(peakMonth.waves.bigDayShare)} of its days held ${BIG_DAY_FT} ft or more for at least ${BIG_DAY_MIN_HOURS} hours, ` +
+      `and ${formatShare(peakMonth.waves.periodMix.atLeast10)} of its hours had swell of ${LONG_PERIOD_S} seconds or longer.`,
   ];
   if (quietMonth?.waves && quietMonth.month !== peakMonth.month) {
     paragraphs.push(
-      `${quietMonth.name} is the quietest month: on ${formatShare(quietMonth.waves.smallDayShare)} of its days the daytime median stayed under 2 ft.`,
+      `${quietMonth.name} is the quietest month: on ${formatShare(quietMonth.waves.smallDayShare)} of its days the daytime median stayed under ${SMALL_DAY_FT} ft.`,
     );
   }
   return paragraphs;

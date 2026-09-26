@@ -19,10 +19,11 @@ export const WIND_BLOCKS = {
   afternoon: [15, 16, 17],
 } as const;
 
-const SMALL_DAY_FT = 2;
-const THREE_FOOT_DAY_FT = 3;
-const BIG_DAY_FT = 6;
-const BIG_DAY_MIN_HOURS = 3;
+export const SMALL_DAY_FT = 2;
+export const THREE_FOOT_DAY_FT = 3;
+export const BIG_DAY_FT = 6;
+export const BIG_DAY_MIN_HOURS = 3;
+export const LONG_PERIOD_S = 10;
 const DAYTIME_FIRST_HOUR = 6;
 const DAYTIME_LAST_HOUR = 18;
 const MIN_DAYTIME_HOURS = 10; // 70% of the 13 daytime hours
@@ -144,8 +145,8 @@ export function waveMonthStats(stationMonths: LocalHourObservation[][]): WaveMon
     bigDayShare: share(bigDays, observedDays),
     periodMix: {
       under8: share(periods.filter((p) => p < 8).length, periods.length),
-      from8to10: share(periods.filter((p) => p >= 8 && p < 10).length, periods.length),
-      atLeast10: share(periods.filter((p) => p >= 10).length, periods.length),
+      from8to10: share(periods.filter((p) => p >= 8 && p < LONG_PERIOD_S).length, periods.length),
+      atLeast10: share(periods.filter((p) => p >= LONG_PERIOD_S).length, periods.length),
     },
     directionMix,
     threeFootDaysBySector: Object.fromEntries(
