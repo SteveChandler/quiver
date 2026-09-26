@@ -10,16 +10,17 @@ import {
 
 const INTENT_WINDOW_HALF_WIDTH_MS = 30 * 60 * 1000;
 
-export interface IntentForecastBestWindow {
-  start: string;
-  end: string;
-  reason: string;
-}
-
 export interface IntentForecastConditions {
   tide: string;
   wind: string;
   swell: string;
+}
+
+export interface IntentForecastBestWindow {
+  start: string;
+  end: string;
+  reason: string;
+  conditions?: IntentForecastConditions;
 }
 
 export interface IntentForecastTopPickIdentity {

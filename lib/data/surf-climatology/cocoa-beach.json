@@ -1,0 +1,1880 @@
+{
+  "schemaVersion": 1,
+  "scoreVersion": "buoy-v1",
+  "citySlug": "cocoa-beach",
+  "cityName": "Cocoa Beach",
+  "generatedAt": "2026-09-26",
+  "timezone": "America/New_York",
+  "shoreNormalDeg": 87,
+  "reference": {
+    "label": "Cocoa Beach Pier",
+    "lat": 28.367648,
+    "lon": -80.602777
+  },
+  "places": [
+    {
+      "label": "Cocoa Beach Pier",
+      "lat": 28.367648,
+      "lon": -80.602777
+    },
+    {
+      "label": "Satellite Beach",
+      "lat": 28.1707,
+      "lon": -80.5913
+    }
+  ],
+  "stations": [
+    {
+      "id": "41113",
+      "alias": "CDIP 143",
+      "name": "Cape Canaveral Nearshore",
+      "role": "waves",
+      "kind": "ndbc",
+      "lat": 28.4,
+      "lon": -80.533,
+      "distanceKm": 7.7,
+      "referenceLabel": "Cocoa Beach Pier",
+      "yearsUsed": [
+        2007,
+        2025
+      ],
+      "pageUrl": "https://www.ndbc.noaa.gov/station_page.php?station=41113",
+      "gate": "passed",
+      "gateCoverage": 0.927,
+      "validHours": 154365,
+      "excludedStationMonths": [
+        "2008-02",
+        "2009-12",
+        "2010-04",
+        "2010-05",
+        "2010-06",
+        "2010-11",
+        "2010-12",
+        "2011-01",
+        "2011-02",
+        "2011-03",
+        "2014-05",
+        "2015-06",
+        "2016-12",
+        "2017-11",
+        "2018-07",
+        "2022-05",
+        "2022-07",
+        "2025-10",
+        "2025-11"
+      ]
+    },
+    {
+      "id": "TRDF1",
+      "alias": "CO-OPS 8721604",
+      "name": "Trident Pier",
+      "role": "wind",
+      "kind": "ndbc",
+      "lat": 28.416,
+      "lon": -80.593,
+      "distanceKm": 5.5,
+      "referenceLabel": "Cocoa Beach Pier",
+      "yearsUsed": [
+        2007,
+        2025
+      ],
+      "pageUrl": "https://www.ndbc.noaa.gov/station_page.php?station=trdf1",
+      "gate": "passed",
+      "gateCoverage": 0.969,
+      "validHours": 161326,
+      "excludedStationMonths": [
+        "2007-02",
+        "2007-06",
+        "2007-07",
+        "2007-08",
+        "2017-01"
+      ]
+    }
+  ],
+  "months": [
+    {
+      "month": 1,
+      "waves": {
+        "hsFt": {
+          "median": 2.3,
+          "p25": 1.6,
+          "p75": 3,
+          "p90": 3.8
+        },
+        "smallDayShare": 0.4,
+        "bigDayShare": 0.02,
+        "periodMix": {
+          "under8": 0.4,
+          "from8to10": 0.28,
+          "atLeast10": 0.32
+        },
+        "directionMix": {
+          "N": 0,
+          "NE": 0.07,
+          "E": 0.75,
+          "SE": 0.15,
+          "S": 0,
+          "SW": 0,
+          "W": 0.01,
+          "NW": 0.01
+        },
+        "threeFootDaysBySector": {
+          "N": 0,
+          "NE": 0,
+          "E": 0.14,
+          "SE": 0.06,
+          "S": 0,
+          "SW": 0,
+          "W": 0,
+          "NW": 0
+        },
+        "yearlyMedianFt": [
+          {
+            "year": 2007,
+            "medianFt": 2.3
+          },
+          {
+            "year": 2008,
+            "medianFt": 2.6
+          },
+          {
+            "year": 2009,
+            "medianFt": 1.8
+          },
+          {
+            "year": 2010,
+            "medianFt": 1.8
+          },
+          {
+            "year": 2012,
+            "medianFt": 1.7
+          },
+          {
+            "year": 2013,
+            "medianFt": 2.4
+          },
+          {
+            "year": 2014,
+            "medianFt": 2.2
+          },
+          {
+            "year": 2015,
+            "medianFt": 2.5
+          },
+          {
+            "year": 2016,
+            "medianFt": 2.4
+          },
+          {
+            "year": 2017,
+            "medianFt": 2.2
+          },
+          {
+            "year": 2018,
+            "medianFt": 3.1
+          },
+          {
+            "year": 2019,
+            "medianFt": 2.3
+          },
+          {
+            "year": 2020,
+            "medianFt": 2.9
+          },
+          {
+            "year": 2021,
+            "medianFt": 1.7
+          },
+          {
+            "year": 2022,
+            "medianFt": 2.2
+          },
+          {
+            "year": 2023,
+            "medianFt": 1.7
+          },
+          {
+            "year": 2024,
+            "medianFt": 2.4
+          },
+          {
+            "year": 2025,
+            "medianFt": 2
+          }
+        ],
+        "observedDays": 541,
+        "validHours": 12978,
+        "stationMonths": 18
+      },
+      "comparisonWaves": null,
+      "water": {
+        "medianF": 67,
+        "p10F": 61,
+        "p90F": 71,
+        "validHours": 12981
+      },
+      "wind": {
+        "dawn": {
+          "offshore": 0.3,
+          "cross": 0.14,
+          "onshore": 0.07,
+          "light": 0.49,
+          "medianKt": 6,
+          "hours": 1627
+        },
+        "midday": {
+          "offshore": 0.26,
+          "cross": 0.25,
+          "onshore": 0.16,
+          "light": 0.33,
+          "medianKt": 8,
+          "hours": 1626
+        },
+        "afternoon": {
+          "offshore": 0.18,
+          "cross": 0.25,
+          "onshore": 0.2,
+          "light": 0.36,
+          "medianKt": 7,
+          "hours": 1624
+        },
+        "cleanMorningShare": 0.8,
+        "observedMornings": 546
+      },
+      "score": 59
+    },
+    {
+      "month": 2,
+      "waves": {
+        "hsFt": {
+          "median": 2.2,
+          "p25": 1.6,
+          "p75": 2.9,
+          "p90": 3.5
+        },
+        "smallDayShare": 0.42,
+        "bigDayShare": 0,
+        "periodMix": {
+          "under8": 0.4,
+          "from8to10": 0.31,
+          "atLeast10": 0.29
+        },
+        "directionMix": {
+          "N": 0,
+          "NE": 0.05,
+          "E": 0.79,
+          "SE": 0.15,
+          "S": 0,
+          "SW": 0,
+          "W": 0.01,
+          "NW": 0
+        },
+        "threeFootDaysBySector": {
+          "N": 0,
+          "NE": 0,
+          "E": 0.13,
+          "SE": 0.05,
+          "S": 0,
+          "SW": 0,
+          "W": 0,
+          "NW": 0
+        },
+        "yearlyMedianFt": [
+          {
+            "year": 2007,
+            "medianFt": 1.6
+          },
+          {
+            "year": 2009,
+            "medianFt": 2.2
+          },
+          {
+            "year": 2010,
+            "medianFt": 2
+          },
+          {
+            "year": 2012,
+            "medianFt": 2.3
+          },
+          {
+            "year": 2013,
+            "medianFt": 1.9
+          },
+          {
+            "year": 2014,
+            "medianFt": 1.9
+          },
+          {
+            "year": 2015,
+            "medianFt": 2.6
+          },
+          {
+            "year": 2016,
+            "medianFt": 2.4
+          },
+          {
+            "year": 2017,
+            "medianFt": 1.9
+          },
+          {
+            "year": 2018,
+            "medianFt": 2.7
+          },
+          {
+            "year": 2019,
+            "medianFt": 2.2
+          },
+          {
+            "year": 2020,
+            "medianFt": 2.3
+          },
+          {
+            "year": 2021,
+            "medianFt": 2.1
+          },
+          {
+            "year": 2022,
+            "medianFt": 2.4
+          },
+          {
+            "year": 2023,
+            "medianFt": 2.3
+          },
+          {
+            "year": 2024,
+            "medianFt": 2.6
+          },
+          {
+            "year": 2025,
+            "medianFt": 1.9
+          }
+        ],
+        "observedDays": 473,
+        "validHours": 11351,
+        "stationMonths": 17
+      },
+      "comparisonWaves": null,
+      "water": {
+        "medianF": 66,
+        "p10F": 62,
+        "p90F": 71,
+        "validHours": 11351
+      },
+      "wind": {
+        "dawn": {
+          "offshore": 0.21,
+          "cross": 0.14,
+          "onshore": 0.06,
+          "light": 0.59,
+          "medianKt": 5,
+          "hours": 1459
+        },
+        "midday": {
+          "offshore": 0.18,
+          "cross": 0.24,
+          "onshore": 0.23,
+          "light": 0.34,
+          "medianKt": 7,
+          "hours": 1464
+        },
+        "afternoon": {
+          "offshore": 0.15,
+          "cross": 0.22,
+          "onshore": 0.33,
+          "light": 0.3,
+          "medianKt": 7,
+          "hours": 1461
+        },
+        "cleanMorningShare": 0.81,
+        "observedMornings": 488
+      },
+      "score": 57
+    },
+    {
+      "month": 3,
+      "waves": {
+        "hsFt": {
+          "median": 2.4,
+          "p25": 1.8,
+          "p75": 3.1,
+          "p90": 4
+        },
+        "smallDayShare": 0.35,
+        "bigDayShare": 0.01,
+        "periodMix": {
+          "under8": 0.37,
+          "from8to10": 0.28,
+          "atLeast10": 0.34
+        },
+        "directionMix": {
+          "N": 0,
+          "NE": 0.04,
+          "E": 0.75,
+          "SE": 0.19,
+          "S": 0.01,
+          "SW": 0,
+          "W": 0.01,
+          "NW": 0
+        },
+        "threeFootDaysBySector": {
+          "N": 0,
+          "NE": 0,
+          "E": 0.16,
+          "SE": 0.06,
+          "S": 0,
+          "SW": 0,
+          "W": 0,
+          "NW": 0
+        },
+        "yearlyMedianFt": [
+          {
+            "year": 2007,
+            "medianFt": 3
+          },
+          {
+            "year": 2008,
+            "medianFt": 2.3
+          },
+          {
+            "year": 2009,
+            "medianFt": 2.6
+          },
+          {
+            "year": 2010,
+            "medianFt": 1.9
+          },
+          {
+            "year": 2012,
+            "medianFt": 2.6
+          },
+          {
+            "year": 2013,
+            "medianFt": 2
+          },
+          {
+            "year": 2014,
+            "medianFt": 2.4
+          },
+          {
+            "year": 2015,
+            "medianFt": 2.3
+          },
+          {
+            "year": 2016,
+            "medianFt": 2.3
+          },
+          {
+            "year": 2017,
+            "medianFt": 2.4
+          },
+          {
+            "year": 2018,
+            "medianFt": 2.5
+          },
+          {
+            "year": 2019,
+            "medianFt": 2.2
+          },
+          {
+            "year": 2020,
+            "medianFt": 2.4
+          },
+          {
+            "year": 2021,
+            "medianFt": 2.4
+          },
+          {
+            "year": 2022,
+            "medianFt": 2.6
+          },
+          {
+            "year": 2023,
+            "medianFt": 2.5
+          },
+          {
+            "year": 2024,
+            "medianFt": 2.4
+          },
+          {
+            "year": 2025,
+            "medianFt": 2
+          }
+        ],
+        "observedDays": 541,
+        "validHours": 13032,
+        "stationMonths": 18
+      },
+      "comparisonWaves": null,
+      "water": {
+        "medianF": 70,
+        "p10F": 66,
+        "p90F": 74,
+        "validHours": 13032
+      },
+      "wind": {
+        "dawn": {
+          "offshore": 0.24,
+          "cross": 0.13,
+          "onshore": 0.11,
+          "light": 0.53,
+          "medianKt": 6,
+          "hours": 1704
+        },
+        "midday": {
+          "offshore": 0.21,
+          "cross": 0.2,
+          "onshore": 0.31,
+          "light": 0.28,
+          "medianKt": 8,
+          "hours": 1716
+        },
+        "afternoon": {
+          "offshore": 0.16,
+          "cross": 0.18,
+          "onshore": 0.51,
+          "light": 0.15,
+          "medianKt": 9,
+          "hours": 1699
+        },
+        "cleanMorningShare": 0.76,
+        "observedMornings": 569
+      },
+      "score": 61
+    },
+    {
+      "month": 4,
+      "waves": {
+        "hsFt": {
+          "median": 2.3,
+          "p25": 1.7,
+          "p75": 3,
+          "p90": 3.7
+        },
+        "smallDayShare": 0.39,
+        "bigDayShare": 0.01,
+        "periodMix": {
+          "under8": 0.49,
+          "from8to10": 0.29,
+          "atLeast10": 0.23
+        },
+        "directionMix": {
+          "N": 0,
+          "NE": 0.03,
+          "E": 0.73,
+          "SE": 0.21,
+          "S": 0.01,
+          "SW": 0,
+          "W": 0.01,
+          "NW": 0
+        },
+        "threeFootDaysBySector": {
+          "N": 0,
+          "NE": 0,
+          "E": 0.14,
+          "SE": 0.07,
+          "S": 0,
+          "SW": 0,
+          "W": 0,
+          "NW": 0
+        },
+        "yearlyMedianFt": [
+          {
+            "year": 2007,
+            "medianFt": 2
+          },
+          {
+            "year": 2008,
+            "medianFt": 2.7
+          },
+          {
+            "year": 2009,
+            "medianFt": 2.5
+          },
+          {
+            "year": 2011,
+            "medianFt": 2.1
+          },
+          {
+            "year": 2012,
+            "medianFt": 2.5
+          },
+          {
+            "year": 2013,
+            "medianFt": 2.6
+          },
+          {
+            "year": 2014,
+            "medianFt": 2.3
+          },
+          {
+            "year": 2015,
+            "medianFt": 1.9
+          },
+          {
+            "year": 2016,
+            "medianFt": 2.3
+          },
+          {
+            "year": 2017,
+            "medianFt": 2.7
+          },
+          {
+            "year": 2018,
+            "medianFt": 2.1
+          },
+          {
+            "year": 2019,
+            "medianFt": 2.1
+          },
+          {
+            "year": 2020,
+            "medianFt": 2.4
+          },
+          {
+            "year": 2021,
+            "medianFt": 2
+          },
+          {
+            "year": 2022,
+            "medianFt": 2.3
+          },
+          {
+            "year": 2023,
+            "medianFt": 2.5
+          },
+          {
+            "year": 2024,
+            "medianFt": 2.1
+          },
+          {
+            "year": 2025,
+            "medianFt": 2.4
+          }
+        ],
+        "observedDays": 530,
+        "validHours": 12695,
+        "stationMonths": 18
+      },
+      "comparisonWaves": null,
+      "water": {
+        "medianF": 74,
+        "p10F": 71,
+        "p90F": 77,
+        "validHours": 12695
+      },
+      "wind": {
+        "dawn": {
+          "offshore": 0.2,
+          "cross": 0.12,
+          "onshore": 0.18,
+          "light": 0.5,
+          "medianKt": 6,
+          "hours": 1677
+        },
+        "midday": {
+          "offshore": 0.16,
+          "cross": 0.17,
+          "onshore": 0.43,
+          "light": 0.24,
+          "medianKt": 8,
+          "hours": 1681
+        },
+        "afternoon": {
+          "offshore": 0.12,
+          "cross": 0.12,
+          "onshore": 0.65,
+          "light": 0.11,
+          "medianKt": 9,
+          "hours": 1680
+        },
+        "cleanMorningShare": 0.69,
+        "observedMornings": 559
+      },
+      "score": 56
+    },
+    {
+      "month": 5,
+      "waves": {
+        "hsFt": {
+          "median": 2.1,
+          "p25": 1.6,
+          "p75": 2.8,
+          "p90": 3.6
+        },
+        "smallDayShare": 0.49,
+        "bigDayShare": 0.01,
+        "periodMix": {
+          "under8": 0.53,
+          "from8to10": 0.29,
+          "atLeast10": 0.18
+        },
+        "directionMix": {
+          "N": 0,
+          "NE": 0.02,
+          "E": 0.75,
+          "SE": 0.21,
+          "S": 0.01,
+          "SW": 0,
+          "W": 0,
+          "NW": 0
+        },
+        "threeFootDaysBySector": {
+          "N": 0,
+          "NE": 0,
+          "E": 0.1,
+          "SE": 0.04,
+          "S": 0,
+          "SW": 0,
+          "W": 0,
+          "NW": 0
+        },
+        "yearlyMedianFt": [
+          {
+            "year": 2007,
+            "medianFt": 3
+          },
+          {
+            "year": 2008,
+            "medianFt": 2
+          },
+          {
+            "year": 2009,
+            "medianFt": 2.3
+          },
+          {
+            "year": 2011,
+            "medianFt": 1.9
+          },
+          {
+            "year": 2012,
+            "medianFt": 2.1
+          },
+          {
+            "year": 2013,
+            "medianFt": 2.3
+          },
+          {
+            "year": 2015,
+            "medianFt": 2.5
+          },
+          {
+            "year": 2016,
+            "medianFt": 1.8
+          },
+          {
+            "year": 2017,
+            "medianFt": 1.7
+          },
+          {
+            "year": 2018,
+            "medianFt": 2.8
+          },
+          {
+            "year": 2019,
+            "medianFt": 2.1
+          },
+          {
+            "year": 2020,
+            "medianFt": 2.4
+          },
+          {
+            "year": 2021,
+            "medianFt": 2.3
+          },
+          {
+            "year": 2023,
+            "medianFt": 1.8
+          },
+          {
+            "year": 2024,
+            "medianFt": 1.8
+          },
+          {
+            "year": 2025,
+            "medianFt": 1.7
+          }
+        ],
+        "observedDays": 484,
+        "validHours": 11702,
+        "stationMonths": 16
+      },
+      "comparisonWaves": null,
+      "water": {
+        "medianF": 77,
+        "p10F": 74,
+        "p90F": 80,
+        "validHours": 12225
+      },
+      "wind": {
+        "dawn": {
+          "offshore": 0.16,
+          "cross": 0.09,
+          "onshore": 0.18,
+          "light": 0.57,
+          "medianKt": 5,
+          "hours": 1764
+        },
+        "midday": {
+          "offshore": 0.13,
+          "cross": 0.11,
+          "onshore": 0.48,
+          "light": 0.28,
+          "medianKt": 7,
+          "hours": 1763
+        },
+        "afternoon": {
+          "offshore": 0.08,
+          "cross": 0.1,
+          "onshore": 0.73,
+          "light": 0.1,
+          "medianKt": 9,
+          "hours": 1760
+        },
+        "cleanMorningShare": 0.73,
+        "observedMornings": 588
+      },
+      "score": 52
+    },
+    {
+      "month": 6,
+      "waves": {
+        "hsFt": {
+          "median": 1.6,
+          "p25": 1.3,
+          "p75": 2.2,
+          "p90": 2.8
+        },
+        "smallDayShare": 0.75,
+        "bigDayShare": 0.01,
+        "periodMix": {
+          "under8": 0.52,
+          "from8to10": 0.33,
+          "atLeast10": 0.15
+        },
+        "directionMix": {
+          "N": 0,
+          "NE": 0.02,
+          "E": 0.71,
+          "SE": 0.24,
+          "S": 0.03,
+          "SW": 0,
+          "W": 0,
+          "NW": 0
+        },
+        "threeFootDaysBySector": {
+          "N": 0,
+          "NE": 0,
+          "E": 0.03,
+          "SE": 0.02,
+          "S": 0,
+          "SW": 0,
+          "W": 0,
+          "NW": 0
+        },
+        "yearlyMedianFt": [
+          {
+            "year": 2007,
+            "medianFt": 1.6
+          },
+          {
+            "year": 2008,
+            "medianFt": 1.6
+          },
+          {
+            "year": 2009,
+            "medianFt": 1.3
+          },
+          {
+            "year": 2011,
+            "medianFt": 1.7
+          },
+          {
+            "year": 2012,
+            "medianFt": 2.1
+          },
+          {
+            "year": 2013,
+            "medianFt": 2
+          },
+          {
+            "year": 2014,
+            "medianFt": 1.4
+          },
+          {
+            "year": 2016,
+            "medianFt": 1.8
+          },
+          {
+            "year": 2017,
+            "medianFt": 1.6
+          },
+          {
+            "year": 2018,
+            "medianFt": 1.2
+          },
+          {
+            "year": 2019,
+            "medianFt": 1.3
+          },
+          {
+            "year": 2020,
+            "medianFt": 1.8
+          },
+          {
+            "year": 2021,
+            "medianFt": 2.2
+          },
+          {
+            "year": 2022,
+            "medianFt": 1.8
+          },
+          {
+            "year": 2023,
+            "medianFt": 1.7
+          },
+          {
+            "year": 2024,
+            "medianFt": 2
+          },
+          {
+            "year": 2025,
+            "medianFt": 1.7
+          }
+        ],
+        "observedDays": 502,
+        "validHours": 12055,
+        "stationMonths": 17
+      },
+      "comparisonWaves": null,
+      "water": {
+        "medianF": 80,
+        "p10F": 77,
+        "p90F": 83,
+        "validHours": 12056
+      },
+      "wind": {
+        "dawn": {
+          "offshore": 0.18,
+          "cross": 0.06,
+          "onshore": 0.06,
+          "light": 0.69,
+          "medianKt": 4,
+          "hours": 1612
+        },
+        "midday": {
+          "offshore": 0.13,
+          "cross": 0.08,
+          "onshore": 0.4,
+          "light": 0.39,
+          "medianKt": 7,
+          "hours": 1611
+        },
+        "afternoon": {
+          "offshore": 0.08,
+          "cross": 0.09,
+          "onshore": 0.62,
+          "light": 0.21,
+          "medianKt": 8,
+          "hours": 1608
+        },
+        "cleanMorningShare": 0.88,
+        "observedMornings": 537
+      },
+      "score": 42
+    },
+    {
+      "month": 7,
+      "waves": {
+        "hsFt": {
+          "median": 1.5,
+          "p25": 1.2,
+          "p75": 1.9,
+          "p90": 2.4
+        },
+        "smallDayShare": 0.84,
+        "bigDayShare": 0,
+        "periodMix": {
+          "under8": 0.39,
+          "from8to10": 0.5,
+          "atLeast10": 0.11
+        },
+        "directionMix": {
+          "N": 0,
+          "NE": 0,
+          "E": 0.78,
+          "SE": 0.19,
+          "S": 0.02,
+          "SW": 0,
+          "W": 0,
+          "NW": 0
+        },
+        "threeFootDaysBySector": {
+          "N": 0,
+          "NE": 0,
+          "E": 0.01,
+          "SE": 0.01,
+          "S": 0,
+          "SW": 0,
+          "W": 0,
+          "NW": 0
+        },
+        "yearlyMedianFt": [
+          {
+            "year": 2007,
+            "medianFt": 1.6
+          },
+          {
+            "year": 2008,
+            "medianFt": 1.5
+          },
+          {
+            "year": 2009,
+            "medianFt": 1.4
+          },
+          {
+            "year": 2010,
+            "medianFt": 1.8
+          },
+          {
+            "year": 2011,
+            "medianFt": 1.7
+          },
+          {
+            "year": 2012,
+            "medianFt": 1.6
+          },
+          {
+            "year": 2013,
+            "medianFt": 1.7
+          },
+          {
+            "year": 2014,
+            "medianFt": 1.7
+          },
+          {
+            "year": 2015,
+            "medianFt": 1.4
+          },
+          {
+            "year": 2016,
+            "medianFt": 1.8
+          },
+          {
+            "year": 2017,
+            "medianFt": 1.6
+          },
+          {
+            "year": 2019,
+            "medianFt": 1.3
+          },
+          {
+            "year": 2020,
+            "medianFt": 1.5
+          },
+          {
+            "year": 2021,
+            "medianFt": 1.7
+          },
+          {
+            "year": 2023,
+            "medianFt": 1.3
+          },
+          {
+            "year": 2024,
+            "medianFt": 1.7
+          },
+          {
+            "year": 2025,
+            "medianFt": 1.4
+          }
+        ],
+        "observedDays": 522,
+        "validHours": 12551,
+        "stationMonths": 17
+      },
+      "comparisonWaves": null,
+      "water": {
+        "medianF": 82,
+        "p10F": 77,
+        "p90F": 85,
+        "validHours": 12551
+      },
+      "wind": {
+        "dawn": {
+          "offshore": 0.19,
+          "cross": 0.06,
+          "onshore": 0.02,
+          "light": 0.73,
+          "medianKt": 4,
+          "hours": 1612
+        },
+        "midday": {
+          "offshore": 0.14,
+          "cross": 0.08,
+          "onshore": 0.31,
+          "light": 0.47,
+          "medianKt": 6,
+          "hours": 1637
+        },
+        "afternoon": {
+          "offshore": 0.1,
+          "cross": 0.09,
+          "onshore": 0.58,
+          "light": 0.24,
+          "medianKt": 7,
+          "hours": 1624
+        },
+        "cleanMorningShare": 0.92,
+        "observedMornings": 535
+      },
+      "score": 37
+    },
+    {
+      "month": 8,
+      "waves": {
+        "hsFt": {
+          "median": 1.6,
+          "p25": 1.3,
+          "p75": 2.2,
+          "p90": 2.9
+        },
+        "smallDayShare": 0.72,
+        "bigDayShare": 0.01,
+        "periodMix": {
+          "under8": 0.41,
+          "from8to10": 0.4,
+          "atLeast10": 0.19
+        },
+        "directionMix": {
+          "N": 0,
+          "NE": 0.01,
+          "E": 0.77,
+          "SE": 0.2,
+          "S": 0.02,
+          "SW": 0,
+          "W": 0,
+          "NW": 0
+        },
+        "threeFootDaysBySector": {
+          "N": 0,
+          "NE": 0,
+          "E": 0.04,
+          "SE": 0.03,
+          "S": 0,
+          "SW": 0,
+          "W": 0,
+          "NW": 0
+        },
+        "yearlyMedianFt": [
+          {
+            "year": 2007,
+            "medianFt": 1.6
+          },
+          {
+            "year": 2008,
+            "medianFt": 1.5
+          },
+          {
+            "year": 2009,
+            "medianFt": 1.9
+          },
+          {
+            "year": 2010,
+            "medianFt": 1.5
+          },
+          {
+            "year": 2011,
+            "medianFt": 1.7
+          },
+          {
+            "year": 2012,
+            "medianFt": 1.6
+          },
+          {
+            "year": 2013,
+            "medianFt": 1.8
+          },
+          {
+            "year": 2014,
+            "medianFt": 1.5
+          },
+          {
+            "year": 2015,
+            "medianFt": 1.4
+          },
+          {
+            "year": 2016,
+            "medianFt": 1.8
+          },
+          {
+            "year": 2017,
+            "medianFt": 1.9
+          },
+          {
+            "year": 2018,
+            "medianFt": 1.6
+          },
+          {
+            "year": 2019,
+            "medianFt": 1.6
+          },
+          {
+            "year": 2020,
+            "medianFt": 1.7
+          },
+          {
+            "year": 2021,
+            "medianFt": 1.7
+          },
+          {
+            "year": 2022,
+            "medianFt": 1.5
+          },
+          {
+            "year": 2023,
+            "medianFt": 1.8
+          },
+          {
+            "year": 2024,
+            "medianFt": 1.8
+          },
+          {
+            "year": 2025,
+            "medianFt": 1.7
+          }
+        ],
+        "observedDays": 568,
+        "validHours": 13664,
+        "stationMonths": 19
+      },
+      "comparisonWaves": null,
+      "water": {
+        "medianF": 83,
+        "p10F": 79,
+        "p90F": 85,
+        "validHours": 13666
+      },
+      "wind": {
+        "dawn": {
+          "offshore": 0.15,
+          "cross": 0.07,
+          "onshore": 0.06,
+          "light": 0.72,
+          "medianKt": 4,
+          "hours": 1650
+        },
+        "midday": {
+          "offshore": 0.12,
+          "cross": 0.07,
+          "onshore": 0.34,
+          "light": 0.47,
+          "medianKt": 6,
+          "hours": 1654
+        },
+        "afternoon": {
+          "offshore": 0.09,
+          "cross": 0.08,
+          "onshore": 0.56,
+          "light": 0.27,
+          "medianKt": 7,
+          "hours": 1651
+        },
+        "cleanMorningShare": 0.88,
+        "observedMornings": 549
+      },
+      "score": 44
+    },
+    {
+      "month": 9,
+      "waves": {
+        "hsFt": {
+          "median": 2.2,
+          "p25": 1.7,
+          "p75": 2.8,
+          "p90": 3.8
+        },
+        "smallDayShare": 0.45,
+        "bigDayShare": 0.03,
+        "periodMix": {
+          "under8": 0.28,
+          "from8to10": 0.28,
+          "atLeast10": 0.43
+        },
+        "directionMix": {
+          "N": 0,
+          "NE": 0.02,
+          "E": 0.87,
+          "SE": 0.11,
+          "S": 0,
+          "SW": 0,
+          "W": 0,
+          "NW": 0
+        },
+        "threeFootDaysBySector": {
+          "N": 0,
+          "NE": 0,
+          "E": 0.15,
+          "SE": 0.03,
+          "S": 0,
+          "SW": 0,
+          "W": 0,
+          "NW": 0
+        },
+        "yearlyMedianFt": [
+          {
+            "year": 2007,
+            "medianFt": 2.3
+          },
+          {
+            "year": 2008,
+            "medianFt": 2.9
+          },
+          {
+            "year": 2009,
+            "medianFt": 2
+          },
+          {
+            "year": 2010,
+            "medianFt": 2.9
+          },
+          {
+            "year": 2011,
+            "medianFt": 2.2
+          },
+          {
+            "year": 2012,
+            "medianFt": 2.2
+          },
+          {
+            "year": 2013,
+            "medianFt": 1.9
+          },
+          {
+            "year": 2014,
+            "medianFt": 1.9
+          },
+          {
+            "year": 2015,
+            "medianFt": 1.8
+          },
+          {
+            "year": 2016,
+            "medianFt": 1.9
+          },
+          {
+            "year": 2017,
+            "medianFt": 2.8
+          },
+          {
+            "year": 2018,
+            "medianFt": 2.3
+          },
+          {
+            "year": 2019,
+            "medianFt": 3.4
+          },
+          {
+            "year": 2020,
+            "medianFt": 2.1
+          },
+          {
+            "year": 2021,
+            "medianFt": 1.7
+          },
+          {
+            "year": 2022,
+            "medianFt": 1.9
+          },
+          {
+            "year": 2023,
+            "medianFt": 2.4
+          },
+          {
+            "year": 2024,
+            "medianFt": 2.3
+          },
+          {
+            "year": 2025,
+            "medianFt": 2.2
+          }
+        ],
+        "observedDays": 559,
+        "validHours": 13470,
+        "stationMonths": 19
+      },
+      "comparisonWaves": null,
+      "water": {
+        "medianF": 84,
+        "p10F": 82,
+        "p90F": 86,
+        "validHours": 13471
+      },
+      "wind": {
+        "dawn": {
+          "offshore": 0.08,
+          "cross": 0.05,
+          "onshore": 0.13,
+          "light": 0.73,
+          "medianKt": 4,
+          "hours": 1667
+        },
+        "midday": {
+          "offshore": 0.09,
+          "cross": 0.1,
+          "onshore": 0.37,
+          "light": 0.44,
+          "medianKt": 6,
+          "hours": 1662
+        },
+        "afternoon": {
+          "offshore": 0.06,
+          "cross": 0.12,
+          "onshore": 0.63,
+          "light": 0.19,
+          "medianKt": 8,
+          "hours": 1667
+        },
+        "cleanMorningShare": 0.83,
+        "observedMornings": 556
+      },
+      "score": 61
+    },
+    {
+      "month": 10,
+      "waves": {
+        "hsFt": {
+          "median": 2.5,
+          "p25": 1.8,
+          "p75": 3.5,
+          "p90": 4.4
+        },
+        "smallDayShare": 0.32,
+        "bigDayShare": 0.04,
+        "periodMix": {
+          "under8": 0.38,
+          "from8to10": 0.3,
+          "atLeast10": 0.31
+        },
+        "directionMix": {
+          "N": 0,
+          "NE": 0.04,
+          "E": 0.88,
+          "SE": 0.08,
+          "S": 0,
+          "SW": 0,
+          "W": 0,
+          "NW": 0
+        },
+        "threeFootDaysBySector": {
+          "N": 0,
+          "NE": 0,
+          "E": 0.27,
+          "SE": 0.03,
+          "S": 0,
+          "SW": 0,
+          "W": 0,
+          "NW": 0
+        },
+        "yearlyMedianFt": [
+          {
+            "year": 2007,
+            "medianFt": 3.3
+          },
+          {
+            "year": 2008,
+            "medianFt": 2.9
+          },
+          {
+            "year": 2009,
+            "medianFt": 2
+          },
+          {
+            "year": 2010,
+            "medianFt": 2
+          },
+          {
+            "year": 2011,
+            "medianFt": 2.5
+          },
+          {
+            "year": 2012,
+            "medianFt": 2.6
+          },
+          {
+            "year": 2013,
+            "medianFt": 1.8
+          },
+          {
+            "year": 2014,
+            "medianFt": 1.9
+          },
+          {
+            "year": 2015,
+            "medianFt": 3.1
+          },
+          {
+            "year": 2016,
+            "medianFt": 3.5
+          },
+          {
+            "year": 2017,
+            "medianFt": 3.3
+          },
+          {
+            "year": 2018,
+            "medianFt": 2.5
+          },
+          {
+            "year": 2019,
+            "medianFt": 2.8
+          },
+          {
+            "year": 2020,
+            "medianFt": 2.5
+          },
+          {
+            "year": 2021,
+            "medianFt": 2
+          },
+          {
+            "year": 2022,
+            "medianFt": 2.1
+          },
+          {
+            "year": 2023,
+            "medianFt": 2.6
+          },
+          {
+            "year": 2024,
+            "medianFt": 3.4
+          }
+        ],
+        "observedDays": 542,
+        "validHours": 13133,
+        "stationMonths": 18
+      },
+      "comparisonWaves": null,
+      "water": {
+        "medianF": 80,
+        "p10F": 76,
+        "p90F": 83,
+        "validHours": 13133
+      },
+      "wind": {
+        "dawn": {
+          "offshore": 0.13,
+          "cross": 0.07,
+          "onshore": 0.23,
+          "light": 0.57,
+          "medianKt": 5,
+          "hours": 1743
+        },
+        "midday": {
+          "offshore": 0.13,
+          "cross": 0.15,
+          "onshore": 0.44,
+          "light": 0.28,
+          "medianKt": 8,
+          "hours": 1751
+        },
+        "afternoon": {
+          "offshore": 0.07,
+          "cross": 0.17,
+          "onshore": 0.56,
+          "light": 0.2,
+          "medianKt": 8,
+          "hours": 1749
+        },
+        "cleanMorningShare": 0.7,
+        "observedMornings": 582
+      },
+      "score": 61
+    },
+    {
+      "month": 11,
+      "waves": {
+        "hsFt": {
+          "median": 2.8,
+          "p25": 2,
+          "p75": 3.7,
+          "p90": 4.6
+        },
+        "smallDayShare": 0.23,
+        "bigDayShare": 0.04,
+        "periodMix": {
+          "under8": 0.3,
+          "from8to10": 0.4,
+          "atLeast10": 0.3
+        },
+        "directionMix": {
+          "N": 0,
+          "NE": 0.05,
+          "E": 0.89,
+          "SE": 0.06,
+          "S": 0,
+          "SW": 0,
+          "W": 0,
+          "NW": 0
+        },
+        "threeFootDaysBySector": {
+          "N": 0,
+          "NE": 0.01,
+          "E": 0.39,
+          "SE": 0.02,
+          "S": 0,
+          "SW": 0,
+          "W": 0,
+          "NW": 0
+        },
+        "yearlyMedianFt": [
+          {
+            "year": 2007,
+            "medianFt": 2.6
+          },
+          {
+            "year": 2008,
+            "medianFt": 2.6
+          },
+          {
+            "year": 2009,
+            "medianFt": 2.7
+          },
+          {
+            "year": 2011,
+            "medianFt": 3.5
+          },
+          {
+            "year": 2012,
+            "medianFt": 3.1
+          },
+          {
+            "year": 2013,
+            "medianFt": 3.5
+          },
+          {
+            "year": 2014,
+            "medianFt": 2.5
+          },
+          {
+            "year": 2015,
+            "medianFt": 3
+          },
+          {
+            "year": 2016,
+            "medianFt": 2.6
+          },
+          {
+            "year": 2018,
+            "medianFt": 2.3
+          },
+          {
+            "year": 2019,
+            "medianFt": 2.5
+          },
+          {
+            "year": 2020,
+            "medianFt": 3.7
+          },
+          {
+            "year": 2021,
+            "medianFt": 2.5
+          },
+          {
+            "year": 2022,
+            "medianFt": 2.6
+          },
+          {
+            "year": 2023,
+            "medianFt": 2.7
+          },
+          {
+            "year": 2024,
+            "medianFt": 2.9
+          }
+        ],
+        "observedDays": 457,
+        "validHours": 11044,
+        "stationMonths": 16
+      },
+      "comparisonWaves": null,
+      "water": {
+        "medianF": 73,
+        "p10F": 69,
+        "p90F": 78,
+        "validHours": 11044
+      },
+      "wind": {
+        "dawn": {
+          "offshore": 0.2,
+          "cross": 0.1,
+          "onshore": 0.18,
+          "light": 0.53,
+          "medianKt": 6,
+          "hours": 1688
+        },
+        "midday": {
+          "offshore": 0.15,
+          "cross": 0.26,
+          "onshore": 0.3,
+          "light": 0.29,
+          "medianKt": 8,
+          "hours": 1686
+        },
+        "afternoon": {
+          "offshore": 0.1,
+          "cross": 0.28,
+          "onshore": 0.29,
+          "light": 0.34,
+          "medianKt": 7,
+          "hours": 1696
+        },
+        "cleanMorningShare": 0.73,
+        "observedMornings": 564
+      },
+      "score": 66
+    },
+    {
+      "month": 12,
+      "waves": {
+        "hsFt": {
+          "median": 2.4,
+          "p25": 1.7,
+          "p75": 3.3,
+          "p90": 4.2
+        },
+        "smallDayShare": 0.35,
+        "bigDayShare": 0.02,
+        "periodMix": {
+          "under8": 0.32,
+          "from8to10": 0.37,
+          "atLeast10": 0.31
+        },
+        "directionMix": {
+          "N": 0,
+          "NE": 0.04,
+          "E": 0.83,
+          "SE": 0.12,
+          "S": 0,
+          "SW": 0,
+          "W": 0,
+          "NW": 0
+        },
+        "threeFootDaysBySector": {
+          "N": 0,
+          "NE": 0,
+          "E": 0.25,
+          "SE": 0.05,
+          "S": 0,
+          "SW": 0,
+          "W": 0,
+          "NW": 0
+        },
+        "yearlyMedianFt": [
+          {
+            "year": 2007,
+            "medianFt": 2.3
+          },
+          {
+            "year": 2008,
+            "medianFt": 2.5
+          },
+          {
+            "year": 2011,
+            "medianFt": 3
+          },
+          {
+            "year": 2012,
+            "medianFt": 2.5
+          },
+          {
+            "year": 2013,
+            "medianFt": 2.8
+          },
+          {
+            "year": 2014,
+            "medianFt": 2.2
+          },
+          {
+            "year": 2015,
+            "medianFt": 3.1
+          },
+          {
+            "year": 2017,
+            "medianFt": 1.8
+          },
+          {
+            "year": 2018,
+            "medianFt": 2.1
+          },
+          {
+            "year": 2019,
+            "medianFt": 2.9
+          },
+          {
+            "year": 2020,
+            "medianFt": 2
+          },
+          {
+            "year": 2021,
+            "medianFt": 1.6
+          },
+          {
+            "year": 2022,
+            "medianFt": 2.4
+          },
+          {
+            "year": 2023,
+            "medianFt": 3.1
+          },
+          {
+            "year": 2024,
+            "medianFt": 2.7
+          },
+          {
+            "year": 2025,
+            "medianFt": 2.1
+          }
+        ],
+        "observedDays": 478,
+        "validHours": 11535,
+        "stationMonths": 16
+      },
+      "comparisonWaves": null,
+      "water": {
+        "medianF": 70,
+        "p10F": 66,
+        "p90F": 73,
+        "validHours": 11535
+      },
+      "wind": {
+        "dawn": {
+          "offshore": 0.22,
+          "cross": 0.11,
+          "onshore": 0.1,
+          "light": 0.57,
+          "medianKt": 5,
+          "hours": 1744
+        },
+        "midday": {
+          "offshore": 0.2,
+          "cross": 0.21,
+          "onshore": 0.22,
+          "light": 0.36,
+          "medianKt": 7,
+          "hours": 1748
+        },
+        "afternoon": {
+          "offshore": 0.14,
+          "cross": 0.22,
+          "onshore": 0.21,
+          "light": 0.43,
+          "medianKt": 6,
+          "hours": 1755
+        },
+        "cleanMorningShare": 0.8,
+        "observedMornings": 581
+      },
+      "score": 61
+    }
+  ]
+}
