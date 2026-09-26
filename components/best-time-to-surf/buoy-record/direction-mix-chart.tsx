@@ -3,7 +3,9 @@ import { SECTORS, type Sector } from "@/lib/climatology/types";
 import { CHART_MUTED, CHART_SERIES } from "./chart-theme";
 
 const LABEL_WIDTH = 72;
-const COLUMN_WIDTH = 40;
+// 44, not 40: the in-bar share labels read at fontSize 11 now (were 9), and
+// the wider column keeps a 3-digit "100%" clear of the next bar.
+const COLUMN_WIDTH = 44;
 const ROW_HEIGHT = 58;
 const BAR_MAX = 36;
 const TOP = 12;
@@ -83,7 +85,7 @@ export function DirectionMixChart({ rows, chartId }: DirectionMixChartProps) {
                                   x={x + (COLUMN_WIDTH - 8) / 2}
                                   y={rowTop + BAR_MAX - barHeight - 3}
                                   textAnchor="middle"
-                                  fontSize={9}
+                                  fontSize={11}
                                   fill={CHART_MUTED}
                                 >
                                   {formatShare(share)}
@@ -106,7 +108,7 @@ export function DirectionMixChart({ rows, chartId }: DirectionMixChartProps) {
                     x={LABEL_WIDTH + sectorIndex * COLUMN_WIDTH + (COLUMN_WIDTH - 8) / 2}
                     y={height - 4}
                     textAnchor="middle"
-                    fontSize={10}
+                    fontSize={11}
                     fill={CHART_MUTED}
                   >
                     {sector}
