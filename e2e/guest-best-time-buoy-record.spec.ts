@@ -23,7 +23,7 @@ const PAGES = [
   {
     path: "/best-time-to-surf/cocoa-beach",
     station: "NOAA NDBC station 41113",
-    credit: /U\.S\. Air Force photo/,
+    credit: /Rusty Clark/,
     extraChecks: noExtraChecks,
   },
   {
