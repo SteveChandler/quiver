@@ -99,8 +99,7 @@ export const NEWPORT_BEACH_SEASON_COPY: SeasonCopy = {
       const { summerSouth, winterSouth } = southShares;
       return [
         `The buoy's bigger winter days mostly come from the west. From December to February, ${formatShare(winterWest)} of days had a daytime median of ${THREE_FOOT_DAY_FT} ft or more with swell mainly from the west or northwest. In July it was ${formatShare(julyWest)}.`,
-        `Newport's beaches face southwest (${dataset.shoreNormalDeg}°). Surfline's Orange County guide says the county's southerly orientation holds many of its breaks back from November to April, when Ventura and San Diego can run twice the size.`,
-        `South swell runs the other way. From May to October, ${formatShare(summerSouth)} of days had ${THREE_FOOT_DAY_FT} ft or more of swell mainly from the south or southwest, against ${formatShare(winterSouth)} from December to February. That is the swell the Wedge needs: it forms when south swell reflects off the harbor jetty.`,
+        `South swell runs the other way. From May to October, ${formatShare(summerSouth)} of days had ${THREE_FOOT_DAY_FT} ft or more of swell mainly from the south or southwest, against ${formatShare(winterSouth)} from December to February. Newport's beaches face southwest (${dataset.shoreNormalDeg}°), and the Wedge needs that south swell: it forms when south swell reflects off the harbor jetty.`,
         "So the buoy scores winter almost as high as summer, but the summer south-swell days are the ones Newport is built for.",
       ];
     },
@@ -114,9 +113,5 @@ export const NEWPORT_BEACH_SEASON_COPY: SeasonCopy = {
   sources: [
     NOAA_WAVE_HEIGHT_SOURCE,
     { label: "Wikipedia: The Wedge", url: "https://en.wikipedia.org/wiki/The_Wedge_(surfing)" },
-    {
-      label: "Surfline: Orange County surf guide",
-      url: "https://www.surfline.com/travel/united-states/california/orange-county-surfing-and-beaches/5379524",
-    },
   ],
 };
