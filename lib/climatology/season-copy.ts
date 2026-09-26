@@ -68,7 +68,7 @@ export function describePeakAndQuiet(view: DataBackedSeasonView): string[] {
         ? ` ${joinNames(others)} ${others.length === 1 ? "is" : "are"} within ${PEAK_BAND_POINTS} points of it.`
         : ""),
     `In ${peakMonth.name} the buoy's median reading is ${peakMonth.waves.hsFt.median} ft. ` +
-      `${formatShare(peakMonth.waves.bigDayShare)} of its days held ${BIG_DAY_FT} ft or more for at least ${BIG_DAY_MIN_HOURS} hours, ` +
+      `${formatShare(peakMonth.waves.bigDayShare)} of its days reached ${BIG_DAY_FT} ft or more in at least ${BIG_DAY_MIN_HOURS} hours, ` +
       `and ${formatShare(peakMonth.waves.periodMix.atLeast10)} of its hours had swell of ${LONG_PERIOD_S} seconds or longer.`,
   ];
   if (quietMonth?.waves && quietMonth.month !== peakMonth.month) {

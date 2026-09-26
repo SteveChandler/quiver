@@ -1,4 +1,5 @@
 import { formatShare, type SeasonMonthView } from "@/lib/climatology/season-view";
+import { BIG_DAY_FT, LONG_PERIOD_S, SMALL_DAY_FT } from "@/lib/climatology/stats";
 import type { ClimatologyStation } from "@/lib/climatology/types";
 
 const DASH = "—";
@@ -6,9 +7,9 @@ const HEADERS = [
   "Month",
   "Buoy score",
   "Buoy median (typical)",
-  "Days 6 ft+",
-  "Days under 2 ft",
-  "Swell 10 s+",
+  `Days ${BIG_DAY_FT} ft+`,
+  `Days under ${SMALL_DAY_FT} ft`,
+  `Swell ${LONG_PERIOD_S} s+`,
   "Water",
   "Wetsuit",
 ] as const;

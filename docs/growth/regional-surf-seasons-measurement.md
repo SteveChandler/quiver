@@ -50,6 +50,8 @@ JOIN landed ON e.person_id = landed.person_id
 WHERE e.timestamp >= landed.landed_at AND e.timestamp < landed.landed_at + INTERVAL 14 DAY
 ```
 
+"Forecast opened" counts `beach_view` events, not people, within 14 days of landing — not only ones opened from the page.
+
 ## Baseline
 
 | Window | Page | Referred visitors | Forecast opened | Alert steps | Returned ≤14 d |

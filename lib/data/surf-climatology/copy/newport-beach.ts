@@ -6,8 +6,8 @@ import {
   SIGNIFICANT_HEIGHT_SENTENCE,
   type SeasonCopy,
 } from "@/lib/climatology/season-copy";
-import { formatShare, seasonalDirectionMix, threeFootDaysShare } from "@/lib/climatology/season-view";
-import { THREE_FOOT_DAY_FT } from "@/lib/climatology/stats";
+import { formatShare, seasonalDirectionMix, seasonalLongPeriodShare, threeFootDaysShare } from "@/lib/climatology/season-view";
+import { LONG_PERIOD_S, THREE_FOOT_DAY_FT } from "@/lib/climatology/stats";
 import type { Sector, SurfClimatologyDataset } from "@/lib/climatology/types";
 
 const southShare = (mix: Record<Sector, number>): string => formatShare(mix.S + mix.SW);
@@ -56,13 +56,22 @@ export const NEWPORT_BEACH_SEASON_COPY: SeasonCopy = {
     const winterAway = seasonalDirectionMix(dataset, "comparison-waves", [12, 1, 2]);
     if (!summerHome || !summerAway || !winterHome || !winterAway) return [intro, SHARED_BUOY_NOTE];
 
-    return [
-      intro,
+    const directionParagraph =
       `From June to August, ${southShare(summerHome)} of hours at San Pedro South had swell from the south or southwest, ` +
-        `against ${southShare(summerAway)} at Oceanside Offshore. From December to February, swell from the west or ` +
-        `northwest made up ${westShare(winterHome)} of hours at San Pedro South and ${westShare(winterAway)} at Oceanside Offshore.`,
-      SHARED_BUOY_NOTE,
-    ];
+      `against ${southShare(summerAway)} at Oceanside Offshore. From December to February, swell from the west or ` +
+      `northwest made up ${westShare(winterHome)} of hours at San Pedro South and ${westShare(winterAway)} at Oceanside Offshore.`;
+
+    const summerLongPeriodHome = seasonalLongPeriodShare(dataset, "waves", [6, 7, 8]);
+    const summerLongPeriodAway = seasonalLongPeriodShare(dataset, "comparison-waves", [6, 7, 8]);
+    const periodParagraph =
+      summerLongPeriodHome !== null && summerLongPeriodAway !== null
+        ? [
+            `From June to August, ${formatShare(summerLongPeriodHome)} of hours at San Pedro South carried swell of ${LONG_PERIOD_S} seconds ` +
+              `or longer, against ${formatShare(summerLongPeriodAway)} at Oceanside Offshore.`,
+          ]
+        : [];
+
+    return [intro, directionParagraph, ...periodParagraph, SHARED_BUOY_NOTE];
   },
   limitsHeading: "Where the buoy and the beach part ways",
   limits: ({ view }) => [

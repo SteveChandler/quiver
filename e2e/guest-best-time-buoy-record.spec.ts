@@ -53,7 +53,8 @@ test.describe("best-time buoy record", () => {
       expect(html).toContain(target.station);
       expect(html).toContain("How the buoy score works");
       expect(html).not.toContain("Dawn Patrol vs Afternoon Sessions");
-      expect(html).not.toMatch(/>0<\/span>/);
+      expect(html).toMatch(/aria-label="Score: \d+[^"]*"/);
+      expect(html).not.toMatch(/aria-label="Score: \d+[^"]*"[^>]*>0<\/span>/);
 
       await page.goto(target.path);
       await expect(page.getByRole("heading", { name: "Month by month at the buoy" })).toBeVisible();
