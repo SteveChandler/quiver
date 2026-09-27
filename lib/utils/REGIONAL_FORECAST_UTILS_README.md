@@ -218,8 +218,8 @@ console.log(`Top beach: ${summary.days[0].topBeaches[0].name}`);
 | 2-3ft       | waist-high  |
 | 3-5ft       | chest-high  |
 | 5-7ft       | head-high   |
-| 7-10ft      | overhead    |
-| > 10ft      | double-overhead |
+| 7-12ft      | overhead    |
+| ≥ 12ft      | double-overhead |
 
 ## Usage in API Routes
 
