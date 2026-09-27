@@ -220,7 +220,7 @@ describe("wave-formatters", () => {
       expect(getWaveSizeLabel("chest-high")).toBe("Medium Swell");
       expect(getWaveSizeLabel("head-high")).toBe("Solid Swell");
       expect(getWaveSizeLabel("overhead")).toBe("Big Swell");
-      expect(getWaveSizeLabel("double-overhead")).toBe("Epic Swell");
+      expect(getWaveSizeLabel("double-overhead")).toBe("Double Overhead");
     });
 
     it("returns fallback for unknown sizes", () => {
@@ -240,7 +240,7 @@ describe("wave-formatters", () => {
       expect(WAVE_SIZE_LABELS["chest-high"]).toBe("Medium Swell");
       expect(WAVE_SIZE_LABELS["head-high"]).toBe("Solid Swell");
       expect(WAVE_SIZE_LABELS["overhead"]).toBe("Big Swell");
-      expect(WAVE_SIZE_LABELS["double-overhead"]).toBe("Epic Swell");
+      expect(WAVE_SIZE_LABELS["double-overhead"]).toBe("Double Overhead");
     });
 
     it("contains all wave size descriptions", () => {
@@ -271,7 +271,7 @@ describe("wave-formatters", () => {
         const label = getWaveSizeLabel(sizeDescription);
 
         expect(label).not.toBe("Swell Incoming");
-        expect(["Small Swell", "Medium Swell", "Solid Swell", "Big Swell", "Epic Swell"]).toContain(label);
+        expect(["Small Swell", "Medium Swell", "Solid Swell", "Big Swell", "Double Overhead"]).toContain(label);
       }
     });
   });

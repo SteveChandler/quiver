@@ -12,7 +12,7 @@ const PRESET_CONFIG: Record<
   big_day: { label: "Size", accentClass: "bg-[#FFD9D0] text-[#5B1D12]" },
   clean_groundswell: { label: "Period", accentClass: "bg-[#E7DFFF] text-[#2D205F]" },
   tide_window: { label: "Tide", accentClass: "bg-[#DDF6F3] text-[#16423E]" },
-  epic_conditions: { label: "Epic", accentClass: "bg-[#F78E42] text-[#11100D]" },
+  epic_conditions: { label: "Best", accentClass: "bg-[#F78E42] text-[#11100D]" },
   daily_check_in: { label: "Daily", accentClass: "bg-[#E6E0D1] text-[#2D2A24]" },
   weekend_warrior: { label: "Weekend", accentClass: "bg-[#FFF3C4] text-[#4A3B08]" },
   after_work: { label: "Evening", accentClass: "bg-[#FFE0F0] text-[#4A1030]" },

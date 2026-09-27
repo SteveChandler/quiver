@@ -106,7 +106,7 @@ export const WAVE_SIZE_LABELS: Record<string, string> = {
   "chest-high": "Medium Swell",
   "head-high": "Solid Swell",
   overhead: "Big Swell",
-  "double-overhead": "Epic Swell",
+  "double-overhead": "Double Overhead",
 };
 
 // ============================================================================
@@ -261,7 +261,7 @@ export function getWaveSizeDescription(heightFt: number): string {
  * @example
  * ```typescript
  * getWaveSizeLabel("overhead")        // "Big Swell"
- * getWaveSizeLabel("double-overhead") // "Epic Swell"
+ * getWaveSizeLabel("double-overhead") // "Double Overhead"
  * ```
  */
 export function getWaveSizeLabel(size: string): string {

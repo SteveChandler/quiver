@@ -4,14 +4,14 @@ import { useState, useRef, useEffect } from "react";
 import { Pause, Play, Trash2 } from "lucide-react";
 import type { PresetType } from "@/lib/alerts/types";
 
-const PRESET_ICONS: Record<PresetType, string> = {
+// Best conditions has no icon: the old flame read as hype.
+const PRESET_ICONS: Partial<Record<PresetType, string>> = {
   glass_off: "\u{1F90C}",
   mellow_session: "\u{1F3C4}",
   dawn_patrol: "\u{1F305}",
   big_day: "\u{1F30A}",
   clean_groundswell: "\u{1F4A0}",
   tide_window: "\u{23F1}\u{FE0F}",
-  epic_conditions: "\u{1F525}",
   daily_check_in: "\u{2705}",
   weekend_warrior: "\u{1F4C5}",
   after_work: "\u{1F306}",

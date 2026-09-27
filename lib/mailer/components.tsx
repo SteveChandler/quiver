@@ -249,7 +249,7 @@ export function Footer({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Rotated zine stamp (the "4 SESH" / "NOW FIRING" / "DAY 1" badge). Dynamic
+ * Rotated zine stamp (the "4 SESH" / "GO CALL" / "DAY 1" badge). Dynamic
  * text on a solid chip with the asymmetric radius + hard offset shadow. The
  * rotation flattens to upright in Outlook; everywhere else it tilts.
  */
