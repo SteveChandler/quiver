@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#252D6B">
+<title>Quiver</title>
+<!--
+  Landing page for email confirmations started in the Quiver app. The link
+  arrives with the new session's tokens in the URL fragment, so this page is a
+  static file on purpose: no analytics, no error reporting and no third-party
+  scripts can read them. The tokens leave the address bar before anything else
+  runs, and only go to the app (quiver://auth/callback) on a phone.
+-->
+<style>
+  :root {
+    --navy: #252D6B;
+    --paper: #F4EBD8;
+    --ink: #11100D;
+    --ink-muted: #4A463C;
+    --orange: #F78E42;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    background: var(--navy);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 24px 16px;
+  }
+  main {
+    background: var(--paper);
+    border-radius: 20px;
+    max-width: 420px;
+    width: 100%;
+    padding: 36px 28px 32px;
+    text-align: center;
+  }
+  img { width: 64px; height: 64px; border-radius: 14px; }
+  h1 { font-size: 26px; line-height: 1.2; margin: 20px 0 10px; }
+  p { color: var(--ink-muted); font-size: 16px; line-height: 1.5; margin: 0; }
+  a.button {
+    display: none;
+    margin-top: 24px;
+    background: var(--orange);
+    color: var(--ink);
+    border-radius: 12px;
+    padding: 15px 20px;
+    font-size: 17px;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  a.button.visible { display: block; }
+</style>
+</head>
+<body>
+<main>
+  <img src="/apple-touch-icon-180x180.png" alt="Quiver">
+  <h1 id="title">Go back to Quiver</h1>
+  <p id="body">Open Quiver on your phone to keep going.</p>
+  <a id="open" class="button" href="quiver://auth/callback">Open Quiver</a>
+</main>
+<script>
+  (function () {
+    var fragment = window.location.hash.replace(/^#/, '');
+    if (fragment) {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+    var params = new URLSearchParams(fragment);
+    var ua = navigator.userAgent || '';
+    var iPadOS = /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
+    var onPhone = /iPhone|iPad|iPod|Android/i.test(ua) || iPadOS;
+    var hasSession = Boolean(params.get('access_token') && params.get('refresh_token'));
+    var failed = Boolean(params.get('error') || params.get('error_code'));
+    var title = document.getElementById('title');
+    var body = document.getElementById('body');
+    var open = document.getElementById('open');
+
+    if (failed) {
+      title.textContent = 'This link has expired';
+      body.textContent = "Already confirmed? Go back to Quiver and you'll be signed in. If not, tap Resend email in the app.";
+    } else if (hasSession) {
+      title.textContent = "You're confirmed";
+      body.textContent = onPhone
+        ? 'Opening Quiver…'
+        : "Go back to Quiver on your phone. It'll sign you in.";
+    }
+    if (!onPhone) return;
+
+    open.href = 'quiver://auth/callback' + (hasSession ? '#' + fragment : '');
+    open.className = 'button visible';
+    if (hasSession) {
+      window.setTimeout(function () { window.location.href = open.href; }, 250);
+    }
+  })();
+</script>
+</body>
+</html>
