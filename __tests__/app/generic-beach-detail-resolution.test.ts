@@ -21,7 +21,12 @@ import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import { DEFAULT_TIMEZONE } from "@/lib/utils/timezone-constants";
 import { getTideMetaData } from "@/lib/seo/tide-meta-data";
+import { createPublicReadClient } from "@/lib/supabase/server";
 import { rowToSwellPartition } from "@/lib/domains/conditions/map-forecast";
+
+jest.mock("@/lib/services/water-quality/current-status", () => ({
+  currentWaterQuality: jest.fn(async (rows: unknown[]) => rows),
+}));
 
 // Mock React's cache function for server components
 jest.mock("react", () => ({
@@ -381,6 +386,22 @@ describe("GenericBeachDetailPage slug resolution", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (getForecastIndexabilityForBeaches as jest.Mock).mockResolvedValue(new Map());
+  });
+
+  it.each([
+    ["closure", "Beach closed (water quality)", "Water-quality advisory"],
+    ["advisory", "Water-quality advisory", "Beach closed (water quality)"],
+  ])("preserves the hero water notice severity: %s", async (status, expected, absent) => {
+    (getBeachesBySlug as jest.Mock).mockResolvedValue({ success: true, data: [makeBeach({})] });
+    (createPublicReadClient as jest.Mock).mockReturnValueOnce({
+      from: () => ({ select() { return this; }, eq() { return this; }, maybeSingle: async () => ({ data: { status } }) }),
+    });
+    const html = renderToStaticMarkup(await GenericBeachDetailPage({
+      params: Promise.resolve({ intent: "ca", city: "dana-point", beachSlug: "lower-trestles" }),
+    }));
+    const hero = html.split('data-testid="beach-visual-hero"')[1].split("</section>")[0];
+    expect(hero).toContain(expected);
+    expect(hero).not.toContain(absent);
   });
 
   it.each([true, false])("server-renders editorial tips only when present: %s", async (present) => {

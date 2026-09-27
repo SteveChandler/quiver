@@ -313,7 +313,8 @@ export default async function GenericBeachDetailPage(props: PageProps) {
             water: waterTemp.tempF != null ? [`${waterTemp.tempF}°F`, waterTemp.wetsuitRec].filter(Boolean).join(" · ") : null,
             nextLow: tideMeta.nextInteriorLowAt && getLocalDateString(new Date(tideMeta.nextInteriorLowAt), beachTimezone) === localDate
               ? `Low ${tideMeta.nextInteriorLowTime}` : null,
-            advisory: waterQualityResult?.status === "advisory" || waterQualityResult?.status === "closure" ? "Water-quality advisory" : null,
+            advisory: waterQualityResult?.status === "closure" ? "Beach closed (water quality)"
+              : waterQualityResult?.status === "advisory" ? "Water-quality advisory" : null,
           }}
         />
         <BeachActions
