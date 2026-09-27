@@ -127,9 +127,12 @@ describe("BeachVisualHero", () => {
     mockParams.delete("window");
   });
 
-  it("passes the selected day to the rip-current warning", () => {
-    mockParams.set("date", "2026-09-29");
-    render(<BeachVisualHero {...PROPS} />);
-    expect(screen.getByTestId("rip")).toHaveAttribute("data-local-date", "2026-09-29");
+  it.each([
+    ["date", "2026-09-29"],
+    ["window", "2026-09-29T15:00:00Z"],
+  ])("keeps today's beach-local rip warning despite %s and tomorrow's call", (param, value) => {
+    mockParams.set(param, value);
+    render(<BeachVisualHero {...PROPS} forecastLocalDate="2026-09-28" isTomorrow />);
+    expect(screen.getByTestId("rip")).toHaveAttribute("data-local-date", "2026-09-27");
   });
 });
