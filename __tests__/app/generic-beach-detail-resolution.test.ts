@@ -22,6 +22,10 @@ import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import { DEFAULT_TIMEZONE } from "@/lib/utils/timezone-constants";
 import { getTideMetaData } from "@/lib/seo/tide-meta-data";
 import { createPublicReadClient } from "@/lib/supabase/server";
+import { BeachVisualHero } from "@/components/beach-detail/visual/beach-visual-hero";
+import { resolveDisplaySwell } from "@/lib/domains/conditions/display-swell";
+import { pickDominantSwell } from "@/lib/domains/conditions/dominant-swell";
+import { partitionToPoint } from "@/components/map/swell-field/field-sampler";
 import { rowToSwellPartition } from "@/lib/domains/conditions/map-forecast";
 
 jest.mock("@/lib/services/water-quality/current-status", () => ({
@@ -183,6 +187,11 @@ jest.mock("@/components/beach-detail/rip-current-warning", () => ({
     return React.createElement("div", { "data-testid": "rip-current-warning" });
   },
 }));
+
+jest.mock("@/components/beach-detail/visual/beach-visual-hero", () => {
+  const actual = jest.requireActual("@/components/beach-detail/visual/beach-visual-hero");
+  return { BeachVisualHero: jest.fn(actual.BeachVisualHero) };
+});
 
 // Spy (real implementation) so a test can check which hour the hero's swell field draws.
 jest.mock("@/lib/domains/conditions/map-forecast", () => {
@@ -709,6 +718,37 @@ describe("GenericBeachDetailPage slug resolution", () => {
     expect(rowToSwellPartition).toHaveBeenCalledWith(
       expect.objectContaining({ forecast_at: forecastResult.forecastContext.selectedRowTime }),
     );
+  });
+
+  it.each([false, true])("matches the fact resolver when swell 1 differs from dominant swell (offshore: %s)", async (offshore) => {
+    const beach = makeBeach({ swell_window_center_deg: 200, swell_window_halfwidth_deg: 20 });
+    (getBeachesBySlug as jest.Mock).mockResolvedValue({ success: true, data: [beach] });
+    const result = freshForecastResult();
+    const row = {
+      ...result.hourlyForecasts[1],
+      swell_1_height: "1 ft", swell_1_period: "8s", swell_1_direction: "NW",
+      swell_2_height: "4 ft", swell_2_period: "14s", swell_2_direction: "SW",
+      swell_direction_om: offshore ? 202.5 : null,
+      swell_height_om: offshore ? 1 : null,
+      swell_period_om: offshore ? 10 : null,
+    };
+    const dominant = pickDominantSwell({
+      swell_1: { height: 1, period: 8, direction: 315 },
+      swell_2: { height: 4, period: 14, direction: 225 }, wind_wave: null,
+    });
+    expect(dominant?.source).toBe("swell_2");
+    const display = resolveDisplaySwell(row, { centerDeg: 200, halfwidthDeg: 20 });
+    (getSpotSurfReportPublic as jest.Mock).mockResolvedValueOnce({
+      ...result, hourlyForecasts: [result.hourlyForecasts[0], row],
+      forecastContext: { ...result.forecastContext, swellPeriod: `${display.periodSeconds}s`, swellDirection: offshore ? "SSW" : "NW" },
+    });
+    const html = renderToStaticMarkup(await GenericBeachDetailPage({
+      params: Promise.resolve({ intent: "ca", city: "dana-point", beachSlug: "lower-trestles" }),
+    }));
+    const partition = (BeachVisualHero as jest.Mock).mock.calls.at(-1)[0].swellPartition;
+    expect(partition).toMatchObject({ s1Dir: display.directionDeg, s1PeriodS: display.periodSeconds, s1HeightFt: display.heightFt });
+    expect(partitionToPoint(0, 0, partition, "s1")).toMatchObject({ dir: display.directionDeg, periodS: display.periodSeconds, heightFt: display.heightFt });
+    expect(html).toContain(offshore ? "10s SSW" : "8s NW");
   });
 
   it("draws no hero swell field when the hero's hour is not in the hourly table", async () => {

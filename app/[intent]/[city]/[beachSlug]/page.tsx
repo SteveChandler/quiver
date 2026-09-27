@@ -20,6 +20,7 @@ import { isFreeGrowthPhaseEnabled } from "@/lib/flags/free-growth-phase";
 import { getPublicSurfCall } from "@/lib/utils/public-surf-call";
 import { selectBeachWatchWindow } from "@/lib/alerts/beach-watch";
 import { buildHourlyChart } from "@/lib/utils/beach-hourly-chart";
+import { resolveDisplaySwell } from "@/lib/domains/conditions/display-swell";
 import { rowToSwellPartition } from "@/lib/domains/conditions/map-forecast";
 import { getLocalDateString, resolveBeachTimezone } from "@/lib/utils/timezone-utils";
 import { formatTimeRangeInTimezone } from "@/lib/utils/date-time";
@@ -291,6 +292,20 @@ export default async function GenericBeachDetailPage(props: PageProps) {
       ? hourlyForecasts.find((hour) => Date.parse(hour.forecast_at) === selectedRowAt) ?? null
       : hourlyForecasts[0] ?? null;
 
+    const displaySwell = resolveDisplaySwell(heroSwellRow,
+      Number.isFinite(beach.swell_window_center_deg) && Number.isFinite(beach.swell_window_halfwidth_deg)
+        ? { centerDeg: beach.swell_window_center_deg!, halfwidthDeg: beach.swell_window_halfwidth_deg! }
+        : null,
+    );
+    const heroSwellPartition = heroSwellRow ? {
+      ...rowToSwellPartition(heroSwellRow),
+      s1Dir: displaySwell.directionDeg,
+      s1PeriodS: displaySwell.periodSeconds,
+      s1HeightFt: displaySwell.heightFt,
+      // Prevent the map renderer from replacing the already-resolved display tuple.
+      swellDirOm: null,
+    } : null;
+
     const visualTop = (
       <>
         <BeachVisualHero
@@ -300,7 +315,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
           forecastLocalDate={forecastContext?.localDate ?? null}
           photoUrl={heroPhotoUrl}
           sources={cameraUrl ? { camera_url: cameraUrl } : null}
-          swellPartition={heroSwellRow ? rowToSwellPartition(heroSwellRow) : null}
+          swellPartition={heroSwellPartition}
           call={publicCall}
           isTomorrow={surfCallIsTomorrow}
           surf={{
