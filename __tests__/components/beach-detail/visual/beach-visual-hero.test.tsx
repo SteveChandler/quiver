@@ -1,16 +1,34 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 
 const mockParams = new URLSearchParams();
 jest.mock("next/navigation", () => ({ useSearchParams: () => mockParams }));
 jest.mock("@/components/oracle/zine/home-hero-media", () => ({
-  HomeHeroMedia: ({ children, viewpointPriority }: { children: React.ReactNode; viewpointPriority: string[] }) => (
-    <figure data-testid="hero-media" data-priority={viewpointPriority.join(",")}>{children}</figure>
+  HomeHeroMedia: ({
+    children,
+    viewpointPriority,
+    storageKey,
+    onViewpointChange,
+  }: {
+    children: React.ReactNode;
+    viewpointPriority: string[];
+    storageKey: string;
+    onViewpointChange?: (viewpoint: string) => void;
+  }) => (
+    <figure data-testid="hero-media" data-priority={viewpointPriority.join(",")} data-storage-key={storageKey}>
+      <button type="button" data-testid="hero-media-switch-satellite" onClick={() => onViewpointChange?.("satellite")}>
+        Switch to satellite
+      </button>
+      {children}
+    </figure>
   ),
 }));
 jest.mock("@/components/beach-detail/rip-current-warning", () => ({ RipCurrentWarning: () => <div data-testid="rip" /> }));
 jest.mock("@/lib/posthog-client", () => ({ captureClientPostHogEventAfterConsent: jest.fn() }));
 
+import { captureClientPostHogEventAfterConsent } from "@/lib/posthog-client";
 import { BeachVisualHero } from "@/components/beach-detail/visual/beach-visual-hero";
+
+const mockCapture = captureClientPostHogEventAfterConsent as jest.Mock;
 
 const PROPS = {
   beach: { id: "b1", name: "Tourmaline", lat: 32.8, lon: -117.26, city: "San Diego" },
@@ -26,6 +44,10 @@ const PROPS = {
 };
 
 describe("BeachVisualHero", () => {
+  beforeEach(() => {
+    mockCapture.mockClear();
+  });
+
   it("keeps the H1's words with the beach name large", () => {
     render(<BeachVisualHero {...PROPS} />);
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Tourmaline Surf Forecast for Sunday, September 27, 2026");
@@ -50,6 +72,24 @@ describe("BeachVisualHero", () => {
     expect(call).toHaveTextContent("No call today");
     expect(call).toHaveTextContent("water-quality advisory");
     expect(call).not.toHaveTextContent(/worth|good|fair/i);
+  });
+
+  it("says the call is unavailable when unknown, without a tier word", () => {
+    render(<BeachVisualHero {...PROPS} call={{ kind: "unknown" }} />);
+    const call = screen.getByTestId("beach-public-call");
+    expect(call).toHaveTextContent("Surf call unavailable");
+    expect(call).not.toHaveTextContent(/worth|good|fair|rideable|meh/i);
+  });
+
+  it("pins the hero's own storage key", () => {
+    render(<BeachVisualHero {...PROPS} />);
+    expect(screen.getByTestId("hero-media")).toHaveAttribute("data-storage-key", "quiver:beach-hero-viewpoint");
+  });
+
+  it("reports a viewpoint change with the beach id", () => {
+    render(<BeachVisualHero {...PROPS} />);
+    fireEvent.click(screen.getByTestId("hero-media-switch-satellite"));
+    expect(mockCapture).toHaveBeenCalledWith("beach_hero_viewpoint_changed", { beach_id: "b1", viewpoint: "satellite" });
   });
 
   it("omits facts it doesn't have", () => {

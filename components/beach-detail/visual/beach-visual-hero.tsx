@@ -83,7 +83,9 @@ export function BeachVisualHero(props: BeachVisualHeroProps) {
                   <p className="zine-display mt-1 text-3xl text-[#F5EEDC]">No call today</p>
                   <p className="mt-1 text-sm text-[#F5EEDC]/85">{call.reason}</p>
                 </>
-              ) : null}
+              ) : (
+                <p className="zine-display mt-1 text-2xl text-[#F5EEDC]">Surf call unavailable</p>
+              )}
               <Facts items={[surf.size, surf.swell, surf.wind, surf.bestWindow ? `best ${surf.bestWindow}` : null]} />
             </div>
             {hasBeachDay ? (
