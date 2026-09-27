@@ -147,7 +147,7 @@ describe("runSwellAlertCron", () => {
     expect(entry?.tags).toContain("serious");
     expect(payload.title).not.toContain("NOW FIRING");
     expect(payload.beaches).toHaveLength(3);
-    expect(payload.rarity).toBe("Best in 30 days");
+    expect(payload.rarity).toBe("Best in 6 days");
     expect(enqueueArg.dedupeKey).toBe(
       `swell_watch:${USER_ID}:${payload.event_key}`,
     );
@@ -214,7 +214,7 @@ describe("runSwellAlertCron go rule and verification record", () => {
     const result = await runSwellAlertCron({ now: NOW, deps });
 
     expect(result.sent).toBe(1);
-    expect(enqueuedPayload(deps).rarity).toBe("Best in 30 days");
+    expect(enqueuedPayload(deps).rarity).toBe("Best in 6 days");
   });
 
   it("sends when only one beach qualifies", async () => {
