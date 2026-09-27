@@ -40,3 +40,47 @@ bash scripts/backtest-match-score.sh "$scratch/backtest/data.json" "$scratch/bac
 ```
 
 The corrected replay, Python self-check, shell syntax check, and `bash scripts/test-match-score-board-model-postgres.sh` passed. Conditional implementation checks, the Week Scout regression, performance gate, Jest, typecheck, batch equivalence, and production shadow comparison were not run because C was not adopted and no scorer changed. No production write or migration was attempted.
+
+
+## Attribution
+
+This follow-up reuses the frozen export (same SHA-256 and cutoff above), the existing disposable PostgreSQL harness, and the unchanged forward-chaining protocol and metrics. All 9 users and 88 heldouts remain included; 7 users have comparable differently rated, numeric-scored pairs. No scoring code or protocol file was changed.
+
+The scratch-only variants are:
+
+- **B1:** A with only the two exact-break predicates in `peaks` and `fit_pairs` replaced by `break_types_match`; deployed board resolution retained.
+- **B2:** A with only the branch's `chosen_board` CTE and its four supporting history fields, including row-first precedence and the thruster alias; exact-break predicates retained.
+- **B3:** B with only the two scoring predicates restored to A's exact-break matching; family matching remains in `similar_good`.
+
+| Candidate | Numeric / 88 | Mean within-user concordance | Pooled Spearman | Mean user Spearman | Good-day recall | False-good rate |
+|---|---:|---:|---:|---:|---:|---:|
+| A | 72 | 81.64% | 0.148 | 0.609 | 43.48% (10/23) | 26.92% (7/26) |
+| B | 79 | 75.69% | 0.118 | 0.505 | 20.00% (5/25) | 20.69% (6/29) |
+| B1 | 79 | 75.32% | 0.096 | 0.496 | 20.00% (5/25) | 20.69% (6/29) |
+| B2 | 72 | 81.87% | 0.172 | 0.614 | 47.83% (11/23) | 26.92% (7/26) |
+| B3 | 72 | 81.87% | 0.172 | 0.614 | 47.83% (11/23) | 26.92% (7/26) |
+
+Per-user concordance and contributing pair counts follow. Pairs require different ratings and two numeric predictions; counts therefore vary by candidate. Each contributing user has equal weight in the primary metric, regardless of pair count. A dash means no comparable pairs, not zero concordance.
+
+| Pseudonymous user | A concordance | A pairs | B concordance | B pairs | B3 concordance | B3 pairs |
+|---|---:|---:|---:|---:|---:|---:|
+| `1908fcac-5f23-7319-fb95-6a3b8ba658a4` | — | 0 | — | 0 | — | 0 |
+| `3379ec73-0133-b15a-9e02-71a6902995b7` | 67.19% | 64 | 64.06% | 64 | 67.19% | 64 |
+| `75597ad2-6e45-a166-b309-5fc820de7bec` | 75.00% | 8 | 75.00% | 8 | 75.00% | 8 |
+| `8bec372f-94e7-fa4d-53f6-cd6808fd11e2` | 90.91% | 11 | 90.91% | 11 | 90.91% | 11 |
+| `bac71d83-98a0-6ef5-49ca-d147db6ed1a5` | 100.00% | 6 | 65.62% | 16 | 100.00% | 6 |
+| `bc17a4e6-cbeb-7c5b-fa6f-945ebc671a28` | — | 0 | — | 0 | — | 0 |
+| `c22b4a86-d2c2-a93e-e0ba-1903bb58cbff` **Steven** | 49.51% | 407 | 41.36% | 492 | 51.11% | 407 |
+| `df50d1b6-f798-f4af-485b-1dd9adaac864` | 88.89% | 9 | 92.86% | 14 | 88.89% | 9 |
+| `fa1f696e-5b14-7335-4946-c745f93cce8f` | 100.00% | 3 | 100.00% | 3 | 100.00% | 3 |
+
+Bootstrap: 2,000 paired draws of 9 user IDs with replacement from the complete cohort, Python `random.Random(20260927).choices` over sorted pseudonyms. The same sampled IDs and multiplicities are used for both sides of each difference. Users without comparable pairs remain in sampling but are omitted from each mean, as in the primary metric. All 2,000 draws had a defined mean. The 90% percentile interval uses linearly interpolated 5th and 95th percentiles; these are user-resampling intervals, not pair-resampling intervals.
+
+| Difference | Estimate (percentage points) | Bootstrap 90% interval (percentage points) |
+|---|---:|---:|
+| B − A | -5.95 | [-14.93, +0.17] |
+| B3 − A | +0.23 | [+0.00, +0.64] |
+
+The observed regression is attributable to family matching in scoring: B1 alone loses 6.32 percentage points versus A, whereas B2 gains 0.23 points. B3 reproduces B2's scores and missingness on all 88 holdouts, recovering the regression while retaining the branch's board resolution and family-based reason count. However, B−A's interval includes zero, and B3−A's interval touches zero; this small cohort does not establish a reliable population improvement. B3's entire concordance gain over A comes from Steven (49.51% to 51.11%). Much of B's aggregate loss comes from the user `bac71d83-98a0-6ef5-49ca-d147db6ed1a5`, whose comparable pairs expand from 6 to 16 while concordance falls from 100% to 65.62%. B3 also returns to A's lower numeric coverage (72 versus B's 79) and higher false-good rate (26.92% versus 20.69%). These results support B3 as the candidate to investigate, with that coverage tradeoff; they do not authorize a scoring change.
+
+Validation passed: A and B's full prediction rows exactly reproduce the prior replay; the export and protocol hashes are unchanged; reviewed generated SQL diffs contain only the specified attribution changes; per-user means reproduce the primary metrics. The scratch artifacts are `scratchpad/backtest/attribute.py`, `scratchpad/backtest/attribution/run.sh`, `summarize.py`, generated variant SQL, `predictions.tsv`, and `summary.json`. The original repository harness is unchanged. No new production query was needed.
