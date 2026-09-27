@@ -60,6 +60,16 @@ describe("buildBeachWatchRule", () => {
     expect(watched.sourceSurface).toBe("beach_detail");
     expect(watched.mode).toBe("beach-detail");
   });
+
+  it("keys identity off forecastAt, not the window start, matching the app's watch (quiver-native beach-detail-best-window.ts:222,289)", () => {
+    const fallbackWindow = { ...window, forecastAt: "2026-09-27T19:00:00.000Z" };
+    const body = buildBeachWatchRule({ beachId: "3fa85f64-5717-4562-b3fc-2c963f66afa6", beachName: "Tourmaline", window: fallbackWindow, score: null });
+    const watched = body.conditions.watched_call;
+    expect(watched.recommendationId).toBe("beach-detail:3fa85f64-5717-4562-b3fc-2c963f66afa6:2026-09-27T19:00:00.000Z");
+    expect(watched.dedupeKey).toBe(
+      "watched-call.v1:3fa85f64-5717-4562-b3fc-2c963f66afa6:beach-detail%3A3fa85f64-5717-4562-b3fc-2c963f66afa6%3A2026-09-27T19%3A00%3A00.000Z:2026-09-27T18%3A00%3A00.000Z:2026-09-27T20%3A30%3A00.000Z",
+    );
+  });
 });
 
 describe("buildBeachWatchAppLink", () => {

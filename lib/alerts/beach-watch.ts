@@ -67,7 +67,7 @@ export function buildBeachWatchRule(input: {
   score: number | null;
 }): BeachWatchRuleBody {
   const { beachId, window } = input;
-  const recommendationId = `beach-detail:${beachId}:${window.start}`;
+  const recommendationId = `beach-detail:${beachId}:${window.forecastAt}`;
   const score = Math.max(0, Math.min(100, Math.round(input.score ?? 0)));
   const dedupeKey = ["watched-call.v1", beachId, recommendationId, window.start, window.end]
     .map(encodeURIComponent)
