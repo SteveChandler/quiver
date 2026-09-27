@@ -17,14 +17,14 @@ interface PushContent {
 type PushDecisionVerdict = "go" | "maybe" | "no";
 
 /**
- * Map a normalized window quality (best_score, 0..1) to a punchy, honest,
- * brand-consistent word. NOT the 0-100 composite — do not route through
- * getConditionLabel. Never implies ML correction.
+ * Map a normalized window quality (best_score, 0..1) to a short, factual,
+ * brand-consistent phrase — no hype words. NOT the 0-100 composite — do not
+ * route through getConditionLabel. Never implies ML correction.
  */
 export function qualityWord(score: number): string {
   if (!Number.isFinite(score)) return "Looking good";
-  if (score >= 0.85) return "Pumping";
-  if (score >= 0.7) return "Firing";
+  if (score >= 0.85) return "Lined up";
+  if (score >= 0.7) return "Worth a surf";
   if (score >= 0.45) return "Looking good";
   if (score >= 0.3) return "Fun";
   return "Rideable";
@@ -64,11 +64,11 @@ export function formatPushNotification(
       snap.beginner_window_reason.trim().length > 0;
     // A beginner-window rule is intentionally about approachable surf, not
     // a universal quality claim. Keep the actual wave range in the body and
-    // avoid calling a 1–2 ft window "Firing" on the lock screen.
+    // avoid overselling a 1–2 ft window on the lock screen.
     const titleLabel = isBeginnerWindow
       ? "Beginner-friendly"
       : decision === "go"
-        ? "Firing"
+        ? "Worth a surf"
         : decision === "no"
           ? "Not ideal"
           : decision === "maybe"

@@ -150,11 +150,12 @@ export const PRESETS: PresetDefinition[] = [
     }),
   },
   {
+    // The stored type stays epic_conditions; only the copy changed.
     type: "epic_conditions",
-    name: "Epic Conditions",
+    name: "Best Conditions",
     description:
-      "Everything lines up for the rare days worth dropping everything.",
-    conditionsSummary: "Ideal wind, ideal swell, ideal tide",
+      "Offshore wind, clean swell, and this spot's preferred tide, all at once.",
+    conditionsSummary: "Offshore under 10 kt wind, 3 ft plus swell at 10 s plus, preferred tide",
     group: "specific",
     buildConditions: (beach: BeachAlertMeta): AlertConditions => ({
       wind_direction: "offshore",

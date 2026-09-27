@@ -59,13 +59,13 @@ describe('Base Conditions Scorer', () => {
       expect(result.reasons).toContain('Larger swell (6.5ft)');
     });
 
-    it('should score very large waves (8ft+) as epic conditions', () => {
+    it('should score very large waves (8ft+) as a big swell', () => {
       const input = createInput({ waveHeight: 10 });
       const result = baseConditionsScorer.score(input);
 
-      // Epic = 85, period(12s) = 78 → combined = round(85*0.6 + 78*0.4) = 82
+      // Big swell = 85, period(12s) = 78 → combined = round(85*0.6 + 78*0.4) = 82
       expect(result.score).toBeGreaterThanOrEqual(75);
-      expect(result.reasons).toContain('Epic swell (10.0ft)');
+      expect(result.reasons).toContain('Big swell (10.0ft)');
     });
   });
 

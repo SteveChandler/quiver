@@ -19,14 +19,15 @@ const VERDICT_CONFIG: Record<
   CitySurfReportSummary["overallVerdict"],
   { label: string; bgClass: string; textClass: string; dotClass: string }
 > = {
+  // Keys are the stored verdicts; only the words changed (no "Firing").
   firing: {
-    label: "Firing",
+    label: "Good Conditions",
     bgClass: "bg-green-100",
     textClass: "text-green-800",
     dotClass: "bg-green-500",
   },
   good: {
-    label: "Good Conditions",
+    label: "Decent Conditions",
     bgClass: "bg-emerald-100",
     textClass: "text-emerald-800",
     dotClass: "bg-emerald-500",
