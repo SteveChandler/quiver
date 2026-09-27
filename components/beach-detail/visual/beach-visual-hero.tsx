@@ -68,12 +68,12 @@ export function BeachVisualHero(props: BeachVisualHeroProps) {
         swellPartition={props.swellPartition}
         viewpointPriority={BEACH_PRIORITY}
         storageKey="quiver:beach-hero-viewpoint"
-        aspectClassName="aspect-[4/5] sm:aspect-[16/9] lg:aspect-[21/9]"
+        aspectClassName="max-lg:flex max-lg:min-h-[75vw] max-lg:items-end max-lg:[&>div:last-child]:relative lg:aspect-[21/9]"
         onViewpointChange={(viewpoint) =>
           captureClientPostHogEventAfterConsent("beach_hero_viewpoint_changed", { beach_id: beach.id, viewpoint })
         }
       >
-        <div className="p-4 sm:p-7">
+        <div className="w-full p-4 pt-16 sm:p-7 sm:pt-20 lg:pt-7">
           <h1 id="beach-hero-heading" className="zine-display m-0 text-[#F5EEDC]">
             <span className="block text-5xl leading-none sm:text-7xl">{beach.name}</span>{" "}
             <span className="mt-2 block font-mono text-xs uppercase tracking-[0.2em] text-[#F5EEDC]/85 sm:text-sm">{suffix}</span>
