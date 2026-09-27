@@ -19,13 +19,14 @@ interface BeachActionsProps {
   hasCamStill: boolean;
   waterTempF: number | null;
   call: PublicSurfCall;
+  isTomorrow?: boolean;
 }
 
 type WatchState = "idle" | "saving" | "watching";
 
 const BUTTON = "flex min-h-14 items-center gap-3 rounded-2xl border-2 border-[#11100D] px-4 py-3 text-left text-[#11100D]";
 
-export function BeachActions({ beach, watchWindow, score, shareUrl, hasCamStill, waterTempF, call }: BeachActionsProps) {
+export function BeachActions({ beach, watchWindow, score, shareUrl, hasCamStill, waterTempF, call, isTomorrow = false }: BeachActionsProps) {
   const { user } = useAuth();
   const [watchState, setWatchState] = useState<WatchState>("idle");
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -85,7 +86,9 @@ export function BeachActions({ beach, watchWindow, score, shareUrl, hasCamStill,
     captureClientPostHogEventAfterConsent("beach_share_opened", { beach_id: beach.id, beach_slug: beach.slug });
     if (typeof navigator.share === "function") {
       try {
-        await navigator.share({ title: `${beach.name} today`, url: shareUrl });
+        const day = isTomorrow ? "tomorrow" : "today";
+        const callText = call.kind === "call" ? `${call.label} · ${call.action}` : call.kind === "no_call" ? call.reason : "Surf call unavailable";
+        await navigator.share({ title: `${beach.name} ${day}`, text: `${beach.name} ${day}: ${callText}`, url: shareUrl });
       } catch (error) {
         // Closing the share sheet rejects with AbortError; anything else is a real failure.
         if (!(error instanceof DOMException && error.name === "AbortError")) toast.error("Couldn't open sharing");
@@ -129,7 +132,7 @@ export function BeachActions({ beach, watchWindow, score, shareUrl, hasCamStill,
       <button type="button" data-testid="beach-share-button" onClick={handleShare} className={`${BUTTON} bg-[#F4EBD8] ${watchWindow ? "" : "md:col-span-2"}`}>
         <Share2 aria-hidden className="h-5 w-5 shrink-0" />
         <span>
-          <span className="block text-base font-bold">Share {beach.name} today</span>
+          <span className="block text-base font-bold">Share {beach.name}</span>
           <span className="block text-sm text-[#3d3326]">{shareDetails.length ? `The ${shareList}.` : "The beach page."}</span>
         </span>
       </button>

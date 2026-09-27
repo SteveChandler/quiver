@@ -116,6 +116,17 @@ describe("BeachActions", () => {
     expect(screen.getByTestId("beach-share-button")).toHaveTextContent(subtitle);
   });
 
+  it.each([false, true])("shares the call's correct day (tomorrow: %s)", async (isTomorrow) => {
+    const share = jest.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "share", { configurable: true, value: share });
+    render(<BeachActions {...SHARE} beach={BEACH} watchWindow={null} score={61} shareUrl="https://example.com/beach" isTomorrow={isTomorrow} call={{ kind: "call", label: "FAIR", action: "Worth a look" }} />);
+    expect(screen.getByTestId("beach-share-button")).toHaveTextContent("Share Tourmaline");
+    expect(screen.getByTestId("beach-share-button")).not.toHaveTextContent("today");
+    await userEvent.click(screen.getByTestId("beach-share-button"));
+    const day = isTomorrow ? "tomorrow" : "today";
+    expect(share).toHaveBeenCalledWith({ title: `Tourmaline ${day}`, text: `Tourmaline ${day}: FAIR · Worth a look`, url: "https://example.com/beach" });
+  });
+
   it("copies the link when the browser can't share", async () => {
     const writeText = jest.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "share", { configurable: true, value: undefined });

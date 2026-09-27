@@ -334,6 +334,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
         />
         <BeachActions
           beach={{ id: publicBeach.id, slug: beachSlug, name: publicBeach.name }}
+          isTomorrow={surfCallIsTomorrow}
           watchWindow={watchWindow}
           score={surfCallReport?.score ?? null}
           shareUrl={`${baseUrl}${buildBeachUrl(publicBeach)}`}

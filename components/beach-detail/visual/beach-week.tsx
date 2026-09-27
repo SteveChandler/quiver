@@ -1,3 +1,4 @@
+import { degreesToCompass } from "@/lib/domains/conditions/map-forecast";
 import { SwellGlyph } from "@/components/beach-detail/visual/swell-glyph";
 import type { BeachWeekDay } from "@/lib/utils/beach-week";
 import { formatTimeCasual } from "@/lib/utils/date-time";
@@ -22,7 +23,7 @@ export function BeachWeek({ days, timezone, weekCall }: { days: BeachWeekDay[]; 
           return (
             <li
               key={day.fullDate}
-              className="overflow-hidden rounded-2xl border border-[#F5EEDC]/15 bg-[#F5EEDC]/5"
+              className="relative overflow-hidden rounded-2xl border border-[#F5EEDC]/15 bg-[#F5EEDC]/5"
               style={{ opacity: day.early ? 0.62 : 1 }}
             >
               <div className="px-3 pt-3">
@@ -30,7 +31,10 @@ export function BeachWeek({ days, timezone, weekCall }: { days: BeachWeekDay[]; 
                   <span>{day.isToday ? "Today" : day.dayName}</span>
                   {day.early ? <span className="rounded border border-dashed border-[#F5EEDC]/60 px-1 text-[10px]">Early</span> : null}
                 </div>
-                {day.swell ? <SwellGlyph swell={day.swell} color={color} /> : <div className="h-11" />}
+                {day.swell ? <>
+                  <SwellGlyph swell={day.swell} color={color} />
+                  <span className="sr-only">Swell {Number(day.swell.heightFt.toFixed(1))} ft, {day.swell.periodS} s, from {degreesToCompass(day.swell.directionDeg)}</span>
+                </> : <div className="h-11" />}
                 <span className="zine-display inline-block -rotate-3 rounded-md border-[2.5px] px-1.5 text-base" style={{ color: badgeColor, borderColor: badgeColor }}>
                   {badge}
                 </span>

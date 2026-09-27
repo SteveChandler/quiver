@@ -40,6 +40,14 @@ The public call comes from `getPublicSurfCall`, is labeled "for most surfers," a
 
 For a signed-out visitor, `NATIVE_SELECTED_WINDOW_WATCH` determines whether a selected window is labeled "Watch" or "Open in the app." The button is absent without a watch window; Share remains visible. The visual page has no sticky or inline signup CTA or content-page app handoff CTA.
 
+The visual About section server-renders the complete wave, crowd, parking, and access tips through `LocalKnowledgeNotebook` when any are present. Missing tips add no placeholder. Zine's Overview remains unchanged.
+
+`BeachVisualHero` always requests rip risk for today in the beach timezone, independent of `?date`, `?window`, and tomorrow's surf call. Its water notice distinguishes closures from advisories. The swell field uses the selected row and the same `resolveDisplaySwell` policy as the facts, including offshore and CDIP corrections.
+
+`BeachActions` opens a focusable app disclosure for guests and refused web watches. It contains a universal link for the selected window and a QR code visible from `md` upward. Refusals are announced in a live region; Close and Escape dismiss the panel and return focus to its trigger. App watch promises depend on `NATIVE_SELECTED_WINDOW_WATCH`; until enabled, the link only promises to open the beach. Successful authenticated watches keep their existing web flow.
+
+The page passes `layout="visual"` to forecast details and the hourly table. Guests see the matching public call or neutral unavailable copy, without sign-in links or personalized data. Their hourly table omits the Quiver call column. Authenticated decisions and the default zine/sub-page behavior remain unchanged. Chart captions identify the local date and surf quantities; wind arrows point where the wind blows, with the full server-rendered hourly table below.
+
 ## 📊 **COMPONENT RESPONSIBILITIES**
 
 ### **AmenitiesBadges**

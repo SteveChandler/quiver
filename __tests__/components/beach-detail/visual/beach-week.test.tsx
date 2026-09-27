@@ -73,6 +73,7 @@ describe("BeachWeek", () => {
     expect(card).toHaveTextContent("FAIR");
     expect(card).toHaveTextContent("ft");
     expect(card).toHaveTextContent("Low 3:10pm");
+    expect(within(card).getByText("Swell 1.8 ft, 11 s, from SW")).toHaveClass("sr-only");
   });
 
   it("marks early reads and omits what a day doesn't have", () => {
