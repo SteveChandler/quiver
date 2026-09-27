@@ -29,7 +29,10 @@ interface BeachTabsProps {
   actions?: ReactNode;
   publicMode?: boolean;
   beachId?: string;
+  visibleTabs?: readonly BeachTabValue[];
 }
+
+const ALL_TABS: readonly BeachTabValue[] = ["overview", "forecast", "reviews", "intel", "sessions"];
 
 /**
  * Beach Tabs Component
@@ -56,6 +59,7 @@ export function BeachTabs({
   actions,
   publicMode = false,
   beachId,
+  visibleTabs = ALL_TABS,
 }: BeachTabsProps) {
   // Determine if component is controlled or uncontrolled
   const isControlled = activeTab !== undefined && onTabChange !== undefined;
@@ -133,41 +137,51 @@ export function BeachTabs({
       >
         <div className="flex w-full items-center gap-2 px-0 py-2 sm:py-0">
           <TabsList className="flex min-w-max flex-1 items-center justify-start gap-1 overflow-hidden bg-transparent p-0 h-auto text-muted-foreground md:min-w-0">
-            <TabsTrigger
-              value="overview"
-              className={tabTriggerClasses}
-              onMouseEnter={() => handleTabHover("overview")}
-            >
-              Overview
-            </TabsTrigger>
-            <TabsTrigger
-              value="forecast"
-              className={tabTriggerClasses}
-              onMouseEnter={() => handleTabHover("forecast")}
-            >
-              Forecast
-            </TabsTrigger>
-            <TabsTrigger
-              value="reviews"
-              className={tabTriggerClasses}
-              onMouseEnter={() => handleTabHover("reviews")}
-            >
-              Reviews
-            </TabsTrigger>
-            <TabsTrigger
-              value="intel"
-              className={tabTriggerClasses}
-              onMouseEnter={() => handleTabHover("intel")}
-            >
-              Local Intel
-            </TabsTrigger>
-            <TabsTrigger
-              value="sessions"
-              className={tabTriggerClasses}
-              onMouseEnter={() => handleTabHover("sessions")}
-            >
-              Sessions
-            </TabsTrigger>
+            {visibleTabs.includes("overview") ? (
+              <TabsTrigger
+                value="overview"
+                className={tabTriggerClasses}
+                onMouseEnter={() => handleTabHover("overview")}
+              >
+                Overview
+              </TabsTrigger>
+            ) : null}
+            {visibleTabs.includes("forecast") ? (
+              <TabsTrigger
+                value="forecast"
+                className={tabTriggerClasses}
+                onMouseEnter={() => handleTabHover("forecast")}
+              >
+                Forecast
+              </TabsTrigger>
+            ) : null}
+            {visibleTabs.includes("reviews") ? (
+              <TabsTrigger
+                value="reviews"
+                className={tabTriggerClasses}
+                onMouseEnter={() => handleTabHover("reviews")}
+              >
+                Reviews
+              </TabsTrigger>
+            ) : null}
+            {visibleTabs.includes("intel") ? (
+              <TabsTrigger
+                value="intel"
+                className={tabTriggerClasses}
+                onMouseEnter={() => handleTabHover("intel")}
+              >
+                Local Intel
+              </TabsTrigger>
+            ) : null}
+            {visibleTabs.includes("sessions") ? (
+              <TabsTrigger
+                value="sessions"
+                className={tabTriggerClasses}
+                onMouseEnter={() => handleTabHover("sessions")}
+              >
+                Sessions
+              </TabsTrigger>
+            ) : null}
           </TabsList>
           {actions ? (
             <div data-tier="nav-actions" className="hidden shrink-0 items-center gap-2 lg:flex">
