@@ -110,10 +110,11 @@ BEGIN
       fixture_id(user_n),ARRAY[fixture_id(101)],
       jsonb_build_array(jsonb_build_object('beach_id',fixture_id(101),'forecast_at','2026-09-28T15:00:00Z',
         'wave_height','3 ft','wave_period','12s','wind_speed','4 mph','wind_direction','90','tide_height','3 ft'))) m;
-    IF result->>'state' <> 'learned' OR (result->>'sessions_in_profile')::integer <> 5 THEN
+    IF result->>'state' IS DISTINCT FROM 'learned' OR (result->>'sessions_in_profile')::integer IS DISTINCT FROM 5 THEN
       RAISE EXCEPTION 'User % should be learned from five sessions: %',user_n,result;
     END IF;
-    IF result ? 'board_tip' THEN RAISE EXCEPTION 'SQL board tip remains: %',result; END IF;
+    IF (result ? 'board_tip' AND result->'board_tip' = 'null'::jsonb) IS NOT TRUE THEN
+      RAISE EXCEPTION 'RPC board_tip must exist and be JSON null: %',result; END IF;
     IF result->'reason_bullets'->>0 !~ '^\d+ of your \d+ good sessions were in conditions like this\.$'
       OR (result->'reason_bullets')::text LIKE '%profile peak%'
     THEN RAISE EXCEPTION 'Bad reason for user %: %',user_n,result->'reason_bullets'; END IF;
@@ -127,6 +128,75 @@ BEGIN
       RAISE EXCEPTION 'Zero-similar copy wrong: %',result; END IF;
     IF user_n=1 AND result->>'board_class' <> 'shortboard' THEN RAISE EXCEPTION 'Thruster class: %',result; END IF;
     IF user_n=2 AND result->>'board_class' <> 'fish' THEN RAISE EXCEPTION 'Twin-pin class: %',result; END IF;
+  END LOOP;
+END $$;
+-- Both avoidance branches retain the installed-client key.
+DO $$
+DECLARE result jsonb; session_rating integer;
+BEGIN
+  FOREACH session_rating IN ARRAY ARRAY[3,1] LOOP
+    UPDATE public.sessions SET rating=session_rating WHERE user_id=fixture_id(3);
+    SELECT public.compute_user_match_score_core(fixture_id(3),fixture_id(101),'3','12','4','90','3') INTO result;
+    IF result->>'state' IS DISTINCT FROM 'avoidance_learned'
+      OR NOT (result ? 'board_tip' AND result->'board_tip' = 'null'::jsonb) THEN
+      RAISE EXCEPTION 'Avoidance RPC contract for rating %: %',session_rating,result;
+    END IF;
+  END LOOP;
+END $$;
+
+DO $$
+DECLARE row record; actual numeric;
+BEGIN
+  FOR row IN SELECT * FROM (VALUES
+    ('3.2 ft',3.2::numeric),('3-4 ft',3.5),('1-5 ft',3),('~2 ft',2),
+    ('',NULL::numeric),(NULL::text,NULL::numeric),('unknown',NULL::numeric),('..',NULL::numeric),
+    ('1.2.3 4 ft',4),('-2 ft',2),('1 5 9 ft',5),('.5-1.5 ft',1),('2.',2),
+    (repeat('9',400),NULL::numeric),('0.'||repeat('0',400)||'1',0),('1'||repeat('0',308),'Infinity'::numeric),
+    ('0-0.'||repeat('0',323)||'5',0)
+  ) AS fixture(raw,expected) LOOP
+    actual := public.parse_wave_height_midpoint_ft(row.raw);
+    IF actual IS DISTINCT FROM row.expected THEN
+      RAISE EXCEPTION 'Midpoint for %: got %, expected %',row.raw,actual,row.expected;
+    END IF;
+  END LOOP;
+  actual := public.session_condition_similarity(public.parse_wave_height_midpoint_ft('1-5 ft'),
+    12,4,90,0,'incoming','beach',3,12,4,90,0,'incoming','beach');
+  IF round(actual,4) IS DISTINCT FROM 1::numeric THEN RAISE EXCEPTION 'Range similarity: %',actual; END IF;
+END $$;
+
+-- A range's first number still controls scoring, while its midpoint controls similarity.
+UPDATE public.session_forecast_snapshots SET forecast_snapshot=jsonb_set(forecast_snapshot,'{wave_height}','"1-5 ft"')
+WHERE session_id IN (SELECT id FROM public.sessions WHERE user_id=fixture_id(2));
+DO $$
+DECLARE actual jsonb[];
+BEGIN
+  SELECT array_agg(m.result ORDER BY m.slot_idx) INTO actual
+  FROM public.compute_user_match_scores(fixture_id(2),ARRAY[fixture_id(101)],
+    (SELECT jsonb_agg(jsonb_build_object('beach_id',fixture_id(101),'wave_height',wave,
+      'wave_period','12','wind_speed','4','wind_direction','90','tide_height','3') ORDER BY ord)
+     FROM (VALUES (1,'6 ft'),(2,'1-5 ft'),(3,'1-15 ft'),(4,'')) slots(ord,wave))) m;
+  IF cardinality(actual) IS DISTINCT FROM 4
+    OR actual[1]->>'similar_good_session_count' IS DISTINCT FROM '5'
+    OR actual[2]->>'similar_good_session_count' IS DISTINCT FROM '5'
+    OR actual[3]->>'similar_good_session_count' IS DISTINCT FROM '0'
+    OR actual[4]->>'similar_good_session_count' IS DISTINCT FROM '0' THEN
+    RAISE EXCEPTION 'History/slot midpoint or scenario identity mismatch: %',actual;
+  END IF;
+  IF actual[2]->>'base_score' IS DISTINCT FROM '10.00'
+    OR actual[2]->'score' IS DISTINCT FROM actual[3]->'score' THEN
+    RAISE EXCEPTION 'Range parsing changed existing numeric scoring: %',actual;
+  END IF;
+END $$;
+
+DO $$
+DECLARE helper text; config text[];
+BEGIN
+  FOREACH helper IN ARRAY ARRAY['break_type_families','break_types_match','session_condition_similarity','parse_wave_height_midpoint_ft'] LOOP
+    SELECT p.proconfig INTO config FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+    WHERE n.nspname='public' AND p.proname=helper AND p.provolatile='i';
+    IF NOT COALESCE(config @> ARRAY['search_path=""'],false) THEN
+      RAISE EXCEPTION 'Helper % must be immutable with empty search_path: %',helper,config;
+    END IF;
   END LOOP;
 END $$;
 \echo PASS: board model fixture

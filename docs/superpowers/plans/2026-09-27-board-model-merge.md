@@ -175,10 +175,10 @@ Relative tide is `tide_height - (preferred_tide_ft_min + preferred_tide_ft_max) 
 
    Add `'thruster'` → `'shortboard'` to the `CASE`. Keep ranking by `use_count DESC, last_used_at DESC`, then priority. With this change, Steven's "Twin pin" (row type `shortboard`) resolves to `shortboard` in both SQL and TypeScript. A row edited to `twin-pin` resolves to `fish` in both.
 3. **`peaks` and `fit_pairs`.** Replace `(t.break_type IS NULL OR h.break_type = t.break_type OR h.break_type IS NULL)` with `public.break_types_match(t.break_type, h.break_type)`.
-4. **Delete the `tips` CTE** and its join. Remove `'board_tip'` from every result object. The API now owns the board pick (Task 3).
+4. **Delete the `tips` CTE** and its join. Keep `'board_tip', NULL` in the learned and both avoidance result objects for installed native binaries that call the RPC directly. The API now owns the board pick (Task 3).
 5. **Learned branch reason bullets.** Replace the three `format('… profile peak …')` bullets with one bullet: `format('%s of your %s good sessions were in conditions like this.', similar_good, good_total)`.
    - `good_total` = eligible sessions with `rating >= 4` (all break types).
-   - `similar_good` = eligible sessions with `rating >= 4` and `session_condition_similarity(...) >= 0.35` against the slot. The current side uses the slot's `f_*` values, the requested beach's relative tide and break type, and a null tide direction because slots carry no tide status.
+   - `similar_good` = eligible sessions with `rating >= 4` and `session_condition_similarity(...) >= 0.35` against the slot. Both history and slot wave heights use `parse_wave_height_midpoint_ft`, matching TypeScript range parsing; existing scoring keeps `parse_numeric_from_text`. Other current inputs use the slot's `f_*` values, the requested beach's relative tide and break type, and a null tide direction because slots carry no tide status.
    - Keep the fit-feedback and board-band bullets after it.
    - Add result keys `'good_session_count', good_total` and `'similar_good_session_count', similar_good`.
    - Compute these once per scenario, not per history row per bullet.
@@ -189,7 +189,7 @@ Relative tide is `tide_height - (preferred_tide_ft_min + preferred_tide_ft_max) 
 - `break_type_families` equals the Task 1 fixture table, row by row, and `break_types_match` equals the Task 1 match cases.
 - A fixture user with at least 5 eligible sessions, including a 5★ session at a `beach/reef break` beach, has that session counted in `peaks` for a `beach` target. Assert `sessions_in_profile` and that the result state is `learned`.
 - The learned result's `reason_bullets` contain no `profile peak`. The first bullet matches `^\d+ of your \d+ good sessions were in conditions like this\.$`, and `good_session_count` / `similar_good_session_count` equal hand-computed values.
-- The result has no `board_tip` key.
+- Learned and both avoidance results have a `board_tip` key whose value is JSON null.
 - `board_class` is `shortboard` for a most-used board whose row type is `thruster`, and `fish` for one whose row type is `twin-pin`.
 - A learned fixture whose good sessions are all far from the slot yields "0 of your N good sessions …".
 

@@ -1,6 +1,31 @@
 BEGIN;
+CREATE OR REPLACE FUNCTION public.parse_wave_height_midpoint_ft(p_raw text)
+RETURNS numeric LANGUAGE plpgsql IMMUTABLE SET search_path = '' AS $midpoint$
+DECLARE token text[]; height double precision; lo double precision; hi double precision;
+BEGIN
+  FOR token IN SELECT regexp_matches(p_raw, '[0-9.]+', 'g') LOOP
+    -- Number() discards malformed decimal tokens and non-finite values.
+    IF token[1] !~ '^([0-9]+([.][0-9]*)?|[.][0-9]+)$' THEN CONTINUE; END IF;
+    BEGIN
+      height := token[1]::double precision;
+    EXCEPTION WHEN numeric_value_out_of_range THEN
+      -- JavaScript underflows tiny positive numbers to zero; PostgreSQL throws.
+      IF token[1] ~ '^0*[.]' THEN height := 0; ELSE CONTINUE; END IF;
+    END;
+    lo := least(lo,height);
+    hi := greatest(hi,height);
+  END LOOP;
+  BEGIN
+    RETURN ((lo+hi)/2)::numeric;
+  EXCEPTION WHEN numeric_value_out_of_range THEN
+    IF hi < 1 THEN RETURN 0; END IF;
+    RETURN 'Infinity'::numeric;
+  END;
+END;
+$midpoint$;
+
 CREATE OR REPLACE FUNCTION public.break_type_families(p_break_type text)
-RETURNS text[] LANGUAGE sql IMMUTABLE AS $families$
+RETURNS text[] LANGUAGE sql IMMUTABLE SET search_path = '' AS $families$
   SELECT array_agg(family ORDER BY first_seen)
   FROM (
     SELECT family, min(ord) AS first_seen
@@ -18,7 +43,7 @@ RETURNS text[] LANGUAGE sql IMMUTABLE AS $families$
 $families$;
 
 CREATE OR REPLACE FUNCTION public.break_types_match(p_a text, p_b text)
-RETURNS boolean LANGUAGE sql IMMUTABLE AS $match$
+RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path = '' AS $match$
   SELECT a IS NULL OR b IS NULL OR a && b
   FROM (SELECT public.break_type_families(p_a) AS a, public.break_type_families(p_b) AS b) families;
 $match$;
@@ -29,7 +54,7 @@ CREATE OR REPLACE FUNCTION public.session_condition_similarity(
   p_cur_wave numeric, p_cur_period numeric, p_cur_wind numeric, p_cur_wind_dir numeric,
   p_cur_rel_tide numeric, p_cur_tide_dir text, p_cur_break_type text
 )
-RETURNS numeric LANGUAGE sql IMMUTABLE AS $similarity$
+RETURNS numeric LANGUAGE sql IMMUTABLE SET search_path = '' AS $similarity$
   SELECT CASE WHEN p_past_wave IS NULL OR p_cur_wave IS NULL THEN 0
     ELSE exp(-(
       COALESCE(0.4 * power((p_past_wave-p_cur_wave)/1.5,2),0)
@@ -73,8 +98,7 @@ WITH history AS MATERIALIZED (
     public.parse_numeric_from_text(sfs.forecast_snapshot->>'wind_direction_deg') AS wind_dir,
     public.parse_numeric_from_text(sfs.forecast_snapshot->>'tide_height') AS tide,
     sfs.forecast_snapshot->>'tide_status' AS tide_status,
-    CASE WHEN sfs.forecast_snapshot->>'wave_height' IS NOT NULL
-      THEN public.parse_numeric_from_text(sfs.forecast_snapshot->>'wave_height') END AS similarity_wave,
+    public.parse_wave_height_midpoint_ft(sfs.forecast_snapshot->>'wave_height') AS similarity_wave,
     CASE WHEN sfs.forecast_snapshot->>'wave_period' IS NOT NULL
       THEN public.parse_numeric_from_text(sfs.forecast_snapshot->>'wave_period') END AS similarity_period,
     CASE WHEN sfs.forecast_snapshot->>'wind_speed' IS NOT NULL
@@ -203,18 +227,19 @@ WITH board_usage AS (
   -- Parse shared condition strings once, even across beaches and timestamps.
   SELECT conditions,
     public.parse_numeric_from_text(conditions->>0) AS f_wave,
+    public.parse_wave_height_midpoint_ft(conditions->>0) AS similarity_wave,
     public.parse_numeric_from_text(conditions->>1) AS f_period,
     public.parse_numeric_from_text(conditions->>2) AS f_wind,
     public.parse_numeric_from_text(conditions->>3) AS f_wind_dir,
     public.parse_numeric_from_text(conditions->>4) AS f_tide
   FROM (SELECT DISTINCT conditions FROM raw_slots) c
 ), slots AS MATERIALIZED (
-  SELECT s.slot_idx,s.beach_id,s.forecast_at,c.f_wave,c.f_period,c.f_wind,c.f_wind_dir,c.f_tide
+  SELECT s.slot_idx,s.beach_id,s.forecast_at,c.f_wave,c.f_period,c.f_wind,c.f_wind_dir,c.f_tide,c.similarity_wave
   FROM raw_slots s JOIN conditions c USING (conditions)
 ), scenarios AS MATERIALIZED (
   -- Repeated conditions share a result; timestamps and duplicate slots survive.
-  SELECT min(slot_idx) AS scenario_id, beach_id, f_wave, f_period, f_wind, f_wind_dir, f_tide
-  FROM slots GROUP BY beach_id, f_wave, f_period, f_wind, f_wind_dir, f_tide
+  SELECT min(slot_idx) AS scenario_id, beach_id, f_wave, f_period, f_wind, f_wind_dir, f_tide, similarity_wave
+  FROM slots GROUP BY beach_id, f_wave, f_period, f_wind, f_wind_dir, f_tide, similarity_wave
 ), requested_beaches AS MATERIALIZED (
   SELECT ids.id, b.break_type, b.wind_offshore_deg,
     (b.preferred_tide_ft_min + b.preferred_tide_ft_max) / 2.0 AS spot_tide
@@ -262,7 +287,7 @@ WITH board_usage AS (
       CASE WHEN h.preferred_tide_ft_min IS NOT NULL AND h.preferred_tide_ft_max IS NOT NULL
         THEN h.similarity_tide-(h.preferred_tide_ft_min+h.preferred_tide_ft_max)/2 END,
       h.tide_status, h.break_type,
-      s.f_wave, s.f_period, s.f_wind, s.f_wind_dir,
+      s.similarity_wave, s.f_period, s.f_wind, s.f_wind_dir,
       CASE WHEN b.spot_tide IS NOT NULL THEN s.f_tide-b.spot_tide END,
       NULL, b.break_type
     ) >= 0.35)::integer AS similar_good
@@ -379,16 +404,16 @@ WITH board_usage AS (
         || CASE WHEN has_tide THEN '["spot_tide"]'::jsonb ELSE '[]'::jsonb END,
       'skill_used',skill_used,'skill_source',skill_source,'board_class',board_class)
     WHEN p_count = 0 AND a_count = 0 THEN jsonb_build_object(
-      'state','avoidance_learned','score',NULL,'fit_label','Need a few more ratings',
+      'state','avoidance_learned','score',NULL,'board_tip',NULL,'fit_label','Need a few more ratings',
       'reason_bullets',jsonb_build_array('We know what you tend to avoid. Rate a few good sessions to sharpen your match.'),
       'sessions_in_profile',session_count,'profile_kind','neutral','quality_band','mixed_signal')
     WHEN p_count = 0 THEN jsonb_build_object(
-      'state','avoidance_learned','session_count',session_count,'sessions_needed',0,
+      'state','avoidance_learned','board_tip',NULL,'session_count',session_count,'sessions_needed',0,
       'fit_label','Need a few more ratings',
       'reason_bullets',jsonb_build_array('We know what you tend to avoid. Rate a few good sessions to sharpen your match.'),
       'score',NULL,'quality_band','mixed_signal','reason','no_positive_sessions')
     ELSE jsonb_build_object(
-      'state','learned','score',round(score,1),
+      'state','learned','board_tip',NULL,'score',round(score,1),
       'label',CASE WHEN score >= 8.5 THEN 'EPIC' WHEN score >= 7 THEN 'GOOD' WHEN score >= 5.5 THEN 'FAIR' WHEN score >= 3.5 THEN 'RIDEABLE' ELSE 'MEH' END,
       'reason_bullets',jsonb_build_array(
         format('%s of your %s good sessions were in conditions like this.',similar_good,good_total))
@@ -412,6 +437,7 @@ WITH board_usage AS (
 )
 SELECT s.slot_idx, s.beach_id, s.forecast_at, r.result
 FROM slots s JOIN scenarios c ON c.beach_id IS NOT DISTINCT FROM s.beach_id
+  AND c.similarity_wave IS NOT DISTINCT FROM s.similarity_wave
   AND (c.f_wave,c.f_period,c.f_wind,c.f_wind_dir,c.f_tide) = (s.f_wave,s.f_period,s.f_wind,s.f_wind_dir,s.f_tide)
 JOIN results r USING (scenario_id)
 ORDER BY s.slot_idx;
