@@ -19,6 +19,9 @@ export interface TideMetaData {
   nextHighHeight: number | null;
   /** Next low tide height in feet */
   nextLowHeight: number | null;
+  /** Interior turning points for the beach page, excluding incomplete endpoints. */
+  nextInteriorHighTime: string | null;
+  nextInteriorLowTime: string | null;
 }
 
 /**
@@ -98,6 +101,24 @@ export function findNextTideExtremes(
   return { nextHigh, nextLow };
 }
 
+/** Only complete three-point turns count as tide events on the beach page. */
+export function findNextInteriorTideExtremes(rows: readonly TideHeightRow[]): NextTideExtremes {
+  let nextHigh: NextTideExtremes["nextHigh"] = null;
+  let nextLow: NextTideExtremes["nextLow"] = null;
+
+  for (let i = 1; i < rows.length - 1; i++) {
+    const prev = rows[i - 1].tide_height_m;
+    const curr = rows[i].tide_height_m;
+    const next = rows[i + 1].tide_height_m;
+    if (prev === null || curr === null || next === null) continue;
+    if (curr > prev && curr > next && !nextHigh) nextHigh = { ts: rows[i].ts, heightFt: curr * METERS_TO_FEET };
+    if (curr < prev && curr < next && !nextLow) nextLow = { ts: rows[i].ts, heightFt: curr * METERS_TO_FEET };
+    if (nextHigh && nextLow) break;
+  }
+
+  return { nextHigh, nextLow };
+}
+
 /**
  * Get tide metadata for SEO purposes.
  *
@@ -114,6 +135,8 @@ export const getTideMetaData = cache(
       nextLowTime: null,
       nextHighHeight: null,
       nextLowHeight: null,
+      nextInteriorHighTime: null,
+      nextInteriorLowTime: null,
     };
 
     if (!beachId) return nullResult;
@@ -155,12 +178,15 @@ export const getTideMetaData = cache(
       }
 
       const { nextHigh, nextLow } = findNextTideExtremes(rows);
+      const { nextHigh: interiorHigh, nextLow: interiorLow } = findNextInteriorTideExtremes(rows);
 
       return {
         nextHighTime: nextHigh ? formatTideTime(nextHigh.ts, timezone) : null,
         nextLowTime: nextLow ? formatTideTime(nextLow.ts, timezone) : null,
         nextHighHeight: nextHigh ? Math.round(nextHigh.heightFt * 10) / 10 : null,
         nextLowHeight: nextLow ? Math.round(nextLow.heightFt * 10) / 10 : null,
+        nextInteriorHighTime: interiorHigh ? formatTideTime(interiorHigh.ts, timezone) : null,
+        nextInteriorLowTime: interiorLow ? formatTideTime(interiorLow.ts, timezone) : null,
       };
     } catch (error) {
       console.error("[getTideMetaData] Error fetching tide data:", {

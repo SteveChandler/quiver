@@ -10,7 +10,7 @@ const BASE = {
   timezone: "America/Los_Angeles",
   localDate: "2026-09-27",
   waterTemp: { tempF: 73, wetsuitRec: "Boardshorts" },
-  tide: { nextLowTime: "3:10 PM", nextLowHeight: 1.1, nextHighTime: "9:52 PM", nextHighHeight: 5.1 },
+  tide: { nextLowTime: "4:00 PM", nextLowHeight: 1.1, nextHighTime: "3:00 PM", nextHighHeight: 5.1, nextInteriorLowTime: "3:10 PM", nextInteriorHighTime: "9:52 PM" },
   waterQuality: null,
   links: { waterTemp: "/ca/san-diego/tourmaline/water-temp", tides: "/ca/san-diego/tourmaline/tides" },
 };
@@ -57,7 +57,7 @@ describe("BeachDayColumn", () => {
     render(
       <BeachDayColumn
         {...BASE}
-        tide={{ nextLowTime: null, nextLowHeight: null, nextHighTime: "9:52 PM", nextHighHeight: 5.1 }}
+        tide={{ nextLowTime: null, nextLowHeight: null, nextHighTime: "3:00 PM", nextHighHeight: 5.1, nextInteriorLowTime: null, nextInteriorHighTime: "9:52 PM" }}
       />
     );
     expect(screen.getByTestId("beach-day-column")).toHaveTextContent("Next high tide");

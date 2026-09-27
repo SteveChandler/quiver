@@ -302,7 +302,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
           }}
           beachDay={{
             water: waterTemp.tempF != null ? [`${waterTemp.tempF}°F`, waterTemp.wetsuitRec].filter(Boolean).join(" · ") : null,
-            nextLow: tideMeta.nextLowTime ? `Low ${tideMeta.nextLowTime}` : null,
+            nextLow: tideMeta.nextInteriorLowTime ? `Low ${tideMeta.nextInteriorLowTime}` : null,
             advisory: waterQualityResult?.status === "advisory" || waterQualityResult?.status === "closure" ? "Water-quality advisory" : null,
           }}
         />
@@ -328,7 +328,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
             waterQuality={waterQualityResult}
             links={{
               waterTemp: waterTemp.tempF != null ? `${buildBeachUrl(publicBeach)}/water-temp` : null,
-              tides: tideMeta.nextLowTime ? `${buildBeachUrl(publicBeach)}/tides` : null,
+              tides: tideMeta.nextInteriorLowTime || tideMeta.nextInteriorHighTime ? `${buildBeachUrl(publicBeach)}/tides` : null,
             }}
           />
         </div>
