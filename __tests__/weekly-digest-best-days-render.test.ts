@@ -6,7 +6,7 @@
  *   - empty bestDays → section omitted (no "Best days this week" header)
  *   - populated bestDays → section present with exactly 3 rows in the
  *     order provided (expected to be score-desc per cron contract)
- *   - labels are design-system values (EPIC / GOOD / FAIR), not
+ *   - labels are design-system values (GOOD / FAIR; EPIC is off), not
  *     Perfect/Great/Good
  */
 
@@ -40,7 +40,7 @@ const sortedSlots: BestDaySlot[] = [
   {
     beach_name: "Torrey Pines",
     score: 8.4,
-    label: "EPIC",
+    label: "GOOD",
     weekday: "Friday",
     time: "7am",
   },
@@ -106,33 +106,36 @@ describe("WeeklyRecapEmail: best-days-this-week render coverage", () => {
     expect(section).toContain("6.8");
   });
 
-  it("uses design-system labels (EPIC / GOOD / FAIR), not Perfect/Great", () => {
+  it("uses design-system labels (GOOD / FAIR), not Perfect/Great", () => {
     const html = render({ ...baseProps, bestDays: sortedSlots });
-    expect(html).toContain("EPIC");
+    expect(html).not.toContain("EPIC");
     expect(html).toContain("GOOD");
     expect(html).toContain("FAIR");
     expect(html).not.toContain("Perfect");
     expect(html).not.toContain("Great");
   });
 
-  // Phase 2 design-system amendment: Paradise Gold is reserved for EPIC.
-  // Lower bands (GOOD / FAIR) use Pacific Teal, RIDEABLE uses muted slate.
+  // Phase 2 design-system amendment: Paradise Gold is reserved for EPIC,
+  // which is off until rare days exist. GOOD / FAIR use Pacific Teal,
+  // RIDEABLE uses muted slate.
   // Thresholds mirror the native MatchScoreBadge.colorForScore helper.
   describe("score-band label colors", () => {
-    it("renders EPIC (>= 8.5) with Paradise Gold", () => {
+    it("keeps a >= 8.5 row in Pacific Teal while EPIC is off", () => {
       const html = render({
         ...baseProps,
         bestDays: [
           {
             beach_name: "Torrey Pines",
             score: 9.0,
-            label: "EPIC",
+            label: "GOOD",
             weekday: "Friday",
             time: "7am",
           },
         ],
       });
-      expect(labelHtml(html, "EPIC")).toContain("color:#FDB84B");
+      const label = labelHtml(html, "GOOD");
+      expect(label).toContain("color:#00D4AA");
+      expect(label).not.toContain("color:#FDB84B");
     });
 
     it("renders GOOD (>= 7.0) with Pacific Teal", () => {
@@ -193,14 +196,13 @@ describe("WeeklyRecapEmail: best-days-this-week render coverage", () => {
       const html = render({
         ...baseProps,
         bestDays: [
-          { beach_name: "A", score: 9.0, label: "EPIC", weekday: "Fri", time: "7am" },
+          { beach_name: "A", score: 9.0, label: "GOOD", weekday: "Fri", time: "7am" },
           { beach_name: "B", score: 7.9, label: "GOOD", weekday: "Sat", time: "8am" },
           { beach_name: "C", score: 6.8, label: "FAIR", weekday: "Sun", time: "7am" },
           { beach_name: "D", score: 4.5, label: "RIDEABLE", weekday: "Mon", time: "7am" },
         ],
       });
-      // All three band colors appear — not all Paradise Gold like the bug.
-      expect(html).toContain("#FDB84B");
+      // Both live band colors appear — not all one color like the bug.
       expect(html).toContain("#00D4AA");
       expect(html).toContain("#6B7280");
     });

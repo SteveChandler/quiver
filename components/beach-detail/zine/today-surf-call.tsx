@@ -472,7 +472,7 @@ function normalizeTrailOverride(
 ): string | null {
   if (!trail) return null;
   if (verdict === "YES" && trail.trim().toUpperCase() === "PADDLE OUT") {
-    return "GO SURF!";
+    return "WORTH A SURF";
   }
   return trail;
 }
@@ -489,7 +489,7 @@ function buildDisplayTrail(
   }
 
   const formattedWindow = formatWindow(windowStart, timezone);
-  if (verdict === "YES") return formattedWindow ? `BEST AT ${formattedWindow}` : "GO SURF!";
+  if (verdict === "YES") return formattedWindow ? `BEST AT ${formattedWindow}` : "WORTH A SURF";
   if (verdict === "MAYBE") return formattedWindow ? `TRY AT ${formattedWindow}` : "KEEP WATCHING";
   return "WAIT FOR SWELL";
 }

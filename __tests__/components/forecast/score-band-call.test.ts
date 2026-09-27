@@ -1,9 +1,9 @@
-import { getCanonicalVerdictCall } from "@/components/forecast/score-band-call";
+import { getCanonicalVerdictCall, getScoreCall } from "@/components/forecast/score-band-call";
 
 describe("getCanonicalVerdictCall", () => {
   it("keeps the tier inside the verdict's band so the label never contradicts the call", () => {
-    expect(getCanonicalVerdictCall("go", 91)).toEqual({ label: "EPIC", action: "Go now!" });
-    expect(getCanonicalVerdictCall("go", 52)).toEqual({ label: "GOOD", action: "Go surf!" });
+    expect(getCanonicalVerdictCall("go", 91)).toEqual({ label: "GOOD", action: "Worth a surf" });
+    expect(getCanonicalVerdictCall("go", 52)).toEqual({ label: "GOOD", action: "Worth a surf" });
     expect(getCanonicalVerdictCall("maybe", 88)).toEqual({ label: "FAIR", action: "Worth a look" });
     expect(getCanonicalVerdictCall("maybe", 44)).toEqual({ label: "RIDEABLE", action: "Slim pickings" });
     expect(getCanonicalVerdictCall("maybe", 12)).toEqual({ label: "RIDEABLE", action: "Slim pickings" });
@@ -17,9 +17,21 @@ describe("getCanonicalVerdictCall", () => {
   });
 
   it("only puts the positive tiers in the future tense", () => {
-    expect(getCanonicalVerdictCall("go", 85, "upcoming").action).toBe("Don't miss it");
+    expect(getCanonicalVerdictCall("go", 85, "upcoming").action).toBe("Worth planning");
     expect(getCanonicalVerdictCall("go", 72, "upcoming").action).toBe("Worth planning");
     expect(getCanonicalVerdictCall("maybe", 60, "upcoming").action).toBe("Worth a look");
     expect(getCanonicalVerdictCall("no", 10, "upcoming").action).toBe("Skip it");
+  });
+
+  it("never calls EPIC and never shouts while EPIC is off", () => {
+    for (let score = 0; score <= 100; score += 1) {
+      for (const tense of ["now", "upcoming"] as const) {
+        const call = getCanonicalVerdictCall("go", score, tense);
+        expect(call.label).not.toBe("EPIC");
+        expect(call.action).not.toMatch(/!/);
+      }
+      expect(getScoreCall(score).label).not.toBe("EPIC");
+      expect(getScoreCall(score).action).not.toMatch(/!/);
+    }
   });
 });

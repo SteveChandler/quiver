@@ -246,6 +246,8 @@ describe("computeBestDaysForUser", () => {
       expect.objectContaining({
         beach_name: "Held Beach",
         score: 9.5,
+        // The RPC still bands 9.5 as EPIC; the digest shows GOOD while EPIC is off.
+        label: "GOOD",
       }),
     ]);
     expect(rpc).toHaveBeenCalledTimes(1);

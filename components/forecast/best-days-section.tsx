@@ -9,7 +9,7 @@ import {
   trackBestConditionsClick,
 } from "@/lib/analytics/engagement-tracking";
 import type { DaySummary } from "@/lib/utils/regional-forecast-utils";
-import { getScoreColorClasses, SCORE_THRESHOLDS } from "@/lib/utils/score-color-utils";
+import { getScoreColorClasses, scoreLabel } from "@/lib/utils/score-color-utils";
 import { formatWaveRange } from "@/lib/utils/wave-formatters";
 
 import { ScoreBadge } from "./score-badge";
@@ -206,7 +206,7 @@ function BestDayCard({
   const scoreColors = getScoreColorClasses(day.score);
   const windInfo = getWindInfo(day.windConditions);
   const timeSlotInfo = getTimeSlotInfo(day.bestTimeSlot);
-  const isEpic = day.score >= SCORE_THRESHOLDS.EPIC;
+  const isEpic = scoreLabel(day.score) === "EPIC";
   const isZine = variant === "zine";
 
   if (isHero && isZine) {

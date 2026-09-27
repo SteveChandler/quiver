@@ -129,7 +129,7 @@ import { resolveWavePunchiness } from '@/lib/domains/spot-profile/wave-punchines
 import { boardStyleFit } from './board-style-fit';
 import { resolveForecastAlignment } from './forecast-alignment';
 import { withDisplayWindow } from './window-authority';
-import { getQualityConfig } from '@/lib/utils/score-color-utils';
+import { SCORE_THRESHOLDS } from '@/lib/utils/score-color-utils';
 import { rowToSwellPartition } from '@/lib/domains/conditions/map-forecast';
 
 const log = createContextLogger('SurfDiscoveryOrchestrator');
@@ -1467,7 +1467,13 @@ function findImmediateForecastBucket(
   if (!hasConditions(activeBucket.forecast)) return activeBucket;
   const currentScore = scoreForecast(activeBucket.forecast);
   if (!Number.isFinite(currentScore)) return activeBucket;
-  const threshold = getQualityConfig(currentScore).minScore;
+  // Raw score bands, not the display label: turning EPIC off must not stretch a window.
+  const threshold = [
+    SCORE_THRESHOLDS.EPIC,
+    SCORE_THRESHOLDS.GOOD,
+    SCORE_THRESHOLDS.FAIR,
+    SCORE_THRESHOLDS.RIDEABLE,
+  ].find((floor) => currentScore >= floor) ?? 0;
   if (threshold === 0) return activeBucket;
 
   // The next timestamp bounds a data bucket, not necessarily the surf window.

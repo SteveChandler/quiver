@@ -147,7 +147,7 @@ describe("BeachConditionsGrid", () => {
     }
     expect(screen.queryByText("83")).not.toBeInTheDocument();
     expect(screen.queryByText("91")).not.toBeInTheDocument();
-    expect(screen.queryByText("EPIC")).not.toBeInTheDocument();
+    expect(screen.queryByText("GOOD")).not.toBeInTheDocument();
   });
 
   it("shows authenticated users scores without action-phrase subtext", () => {
@@ -161,8 +161,8 @@ describe("BeachConditionsGrid", () => {
     );
 
     expect(screen.getAllByText("83")).toHaveLength(2);
-    expect(screen.getAllByText("EPIC")).toHaveLength(2);
-    expect(screen.queryByText("Go now!")).not.toBeInTheDocument();
+    expect(screen.getAllByText("GOOD")).toHaveLength(2);
+    expect(screen.queryByText("Worth a surf")).not.toBeInTheDocument();
     expect(
       screen.queryByRole("link", { name: "Log in to see scores" })
     ).not.toBeInTheDocument();

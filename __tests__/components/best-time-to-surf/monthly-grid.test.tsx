@@ -20,9 +20,9 @@ describe("MonthlyGrid seasonal gauges", () => {
       />
     );
 
-    expect(screen.getByLabelText("Score: 83, EPIC")).toBeInTheDocument();
+    expect(screen.getByLabelText("Score: 83, GOOD")).toBeInTheDocument();
     expect(screen.getByLabelText("Score: 73, GOOD")).toBeInTheDocument();
-    expect(screen.queryByText("Go now!")).not.toBeInTheDocument();
-    expect(screen.queryByText("Go surf!")).not.toBeInTheDocument();
+    expect(screen.queryByText("Worth a surf")).not.toBeInTheDocument();
+    expect(screen.queryByText("Worth planning")).not.toBeInTheDocument();
   });
 });

@@ -3,6 +3,8 @@
  * Used by both email templates and email cron handlers.
  */
 
+import { scoreLabel, type ScoreLabel } from "@/lib/utils/score-color-utils";
+
 interface ConditionLabelData {
   label: string;
   color: string;
@@ -13,25 +15,22 @@ interface FormattedBestWindow {
   end: string;
 }
 
+const CONDITION_LABEL_COLORS: Record<ScoreLabel, string> = {
+  EPIC: "#00D4AA",
+  GOOD: "#1D9E75",
+  FAIR: "#FDB84B",
+  RIDEABLE: "#888780",
+  MEH: "#5F5E5A",
+};
+
 /**
  * Get the condition label with styling data for the email template.
  * Score is on 0-100 scale from beach_daily_intel.
- * Labels follow the brand vocabulary (EPIC / GOOD / FAIR / RIDEABLE / MEH) — no emoji.
+ * Labels follow the brand vocabulary (scoreLabel: GOOD / FAIR / RIDEABLE / MEH while EPIC is off) — no emoji.
  */
 export function getConditionLabel(score: number): ConditionLabelData {
-  if (score >= 80) {
-    return { label: "EPIC", color: "#00D4AA" };
-  }
-  if (score >= 70) {
-    return { label: "GOOD", color: "#1D9E75" };
-  }
-  if (score >= 55) {
-    return { label: "FAIR", color: "#FDB84B" };
-  }
-  if (score >= 40) {
-    return { label: "RIDEABLE", color: "#888780" };
-  }
-  return { label: "MEH", color: "#5F5E5A" };
+  const label = scoreLabel(score);
+  return { label, color: CONDITION_LABEL_COLORS[label] };
 }
 
 /**

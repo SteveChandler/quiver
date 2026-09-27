@@ -30,7 +30,7 @@ const VERDICT_COPY: Record<
 > = {
   ideal: {
     label: "YES",
-    headline: "Go surf!",
+    headline: "Worth a surf",
     nextStep: "Recheck the beach when you arrive and stay inside your limits.",
     tone: "border-emerald-300 bg-emerald-50 text-emerald-800",
   },

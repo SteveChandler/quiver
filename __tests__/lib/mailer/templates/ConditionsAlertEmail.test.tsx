@@ -125,7 +125,8 @@ describe("ConditionsAlertEmail", () => {
       const { container } = render(
         <ConditionsAlertEmail {...makeProps({ decisionVerdict: "go" })} />
       );
-      expect(container.textContent).toContain("Go surf!");
+      expect(container.textContent).toContain("Worth a surf");
+      expect(container.textContent).not.toContain("!");
       const chip = Array.from(container.querySelectorAll("td")).find(
         (td) => td.style.backgroundColor === "rgb(0, 212, 170)"
       );

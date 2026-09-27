@@ -100,7 +100,7 @@ function getVerdict(verdict: "go" | "maybe"): Verdict {
     return {
       chipColor: TEAL,
       inkColor: INK,
-      phrase: "Go surf!",
+      phrase: "Worth a surf",
       label: "GO",
     };
   }

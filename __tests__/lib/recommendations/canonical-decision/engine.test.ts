@@ -269,6 +269,27 @@ describe("canonical session decision engine", () => {
     expect(decision.selection?.evidence.conditionScore).toBe(79);
   });
 
+  it("never emits conditionLabel EPIC while EPIC is off", () => {
+    const { buildCanonicalSessionDecision } = loadEngine();
+    for (const utilityScore of [80, 85, 94, 100]) {
+      const decision = buildCanonicalSessionDecision(
+        input([candidate({ utilityScore })]),
+      ) as { verdict: string; conditionLabel: string };
+
+      expect(decision.verdict).toBe("go");
+      expect(decision.conditionLabel).toBe("GOOD");
+    }
+
+    const { conditionLabelForVerdict } = require("@/lib/recommendations/canonical-decision/engine") as {
+      conditionLabelForVerdict: (verdict: "go" | "maybe" | "no", score: number) => string;
+    };
+    for (let score = 0; score <= 100; score += 1) {
+      for (const verdict of ["go", "maybe", "no"] as const) {
+        expect(conditionLabelForVerdict(verdict, score)).not.toBe("EPIC");
+      }
+    }
+  });
+
   it("applies a structured caution to both verdict evidence and the decision hash", () => {
     const { buildCanonicalSessionDecision } = loadEngine();
     const effect: ScoringDecisionEffect = {

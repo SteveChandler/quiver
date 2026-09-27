@@ -18,6 +18,7 @@ import {
   DAYLIGHT_START_HOUR,
 } from "@/lib/services/magic-hour/constants";
 import { getLocalHour } from "@/lib/utils/timezone-utils";
+import { gateScoreLabel } from "@/lib/utils/score-color-utils";
 
 const DIGEST_SCORE_THRESHOLD = 6;
 const DIGEST_LOOKAHEAD_DAYS = 7;
@@ -147,7 +148,8 @@ export async function computeBestDaysForUser(
       slots.push({
         beach_name: beach.name,
         score: result.score,
-        label: result.label ?? "",
+        // The RPC still bands >= 8.5 as EPIC; Quiver does not show EPIC yet.
+        label: gateScoreLabel(result.label ?? ""),
         weekday,
         time,
       });

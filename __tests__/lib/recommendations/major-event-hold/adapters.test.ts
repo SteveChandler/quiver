@@ -329,13 +329,13 @@ const surfCallFixture: SurfCallResult = {
     },
     intermediate: {
       verdict: "YES",
-      trail: "GO SURF!",
+      trail: "WORTH A SURF",
       bestWindowStart: "2026-07-19T18:00:00.000Z",
       bestWindowEnd: "2026-07-19T20:00:00.000Z",
     },
     advanced: {
       verdict: "YES",
-      trail: "GO SURF!",
+      trail: "WORTH A SURF",
       bestWindowStart: "2026-07-19T18:00:00.000Z",
       bestWindowEnd: "2026-07-19T20:00:00.000Z",
     },
@@ -539,7 +539,7 @@ function bulkForecastFixture() {
       [INCLUDED_BEACH_ID]: "FAIR",
     },
     verdicts: { [PRIMARY_BEACH_ID]: "go" as const, [INCLUDED_BEACH_ID]: "maybe" as const },
-    conditionLabels: { [PRIMARY_BEACH_ID]: "EPIC", [INCLUDED_BEACH_ID]: "FAIR" },
+    conditionLabels: { [PRIMARY_BEACH_ID]: "GOOD", [INCLUDED_BEACH_ID]: "FAIR" },
     recommendedBoards: { [PRIMARY_BEACH_ID]: { name: "Twin pin" }, [INCLUDED_BEACH_ID]: { name: "Machadocado" } },
     personalAdjustmentReasons: { [PRIMARY_BEACH_ID]: "personal_adjusted_up", [INCLUDED_BEACH_ID]: null },
     recommendationLabels: {
@@ -1891,7 +1891,7 @@ describe("major-event hold adapters", () => {
     if (!input.tiers) throw new Error("expected tier fixture");
     input.tiers.beginner = {
       verdict: "YES",
-      trail: "GO SURF!",
+      trail: "WORTH A SURF",
       bestWindowStart: PRIMARY_START,
       bestWindowEnd: PRIMARY_END,
     };

@@ -63,10 +63,10 @@ import type { Beach } from '@/types/database';
 
 describe('horizon-strip-utils', () => {
   describe('getConditionTier', () => {
-    it('returns "epic" for scores >= 80', () => {
-      expect(getConditionTier(80)).toBe('epic');
-      expect(getConditionTier(90)).toBe('epic');
-      expect(getConditionTier(100)).toBe('epic');
+    it('returns "good" for scores >= 80 while EPIC is off', () => {
+      expect(getConditionTier(80)).toBe('good');
+      expect(getConditionTier(90)).toBe('good');
+      expect(getConditionTier(100)).toBe('good');
     });
 
     it('returns "good" for scores 70-79', () => {
@@ -94,7 +94,7 @@ describe('horizon-strip-utils', () => {
 
     it('handles edge cases', () => {
       expect(getConditionTier(-10)).toBe('meh');
-      expect(getConditionTier(150)).toBe('epic');
+      expect(getConditionTier(150)).toBe('good');
     });
   });
 

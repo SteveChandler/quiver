@@ -11,10 +11,13 @@ import {
 
 describe("condition-tier-utils", () => {
   describe("getConditionTier", () => {
-    it("returns 'epic' for scores >= 80", () => {
-      expect(getConditionTier(80)).toBe("epic");
-      expect(getConditionTier(85)).toBe("epic");
-      expect(getConditionTier(100)).toBe("epic");
+    it("returns 'good' for scores >= 80 while EPIC is off, never 'epic'", () => {
+      expect(getConditionTier(80)).toBe("good");
+      expect(getConditionTier(85)).toBe("good");
+      expect(getConditionTier(100)).toBe("good");
+      for (let score = 0; score <= 100; score += 0.5) {
+        expect(getConditionTier(score)).not.toBe("epic");
+      }
     });
 
     it("returns 'good' for scores 70-79", () => {
@@ -42,7 +45,7 @@ describe("condition-tier-utils", () => {
 
     it("handles boundary conditions correctly", () => {
       expect(getConditionTier(79.9)).toBe("good");
-      expect(getConditionTier(80)).toBe("epic");
+      expect(getConditionTier(80)).toBe("good");
       expect(getConditionTier(59.9)).toBe("fair");
       expect(getConditionTier(70)).toBe("good");
       expect(getConditionTier(39.9)).toBe("meh");

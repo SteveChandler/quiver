@@ -1,12 +1,49 @@
 import {
+  EPIC_LABEL_ENABLED,
+  gateScoreLabel,
   getScoreColorClasses,
   getQualityLabel,
   getQualityConfig,
+  scoreLabel,
   SCORE_THRESHOLDS,
   QUALITY_CONFIG,
 } from "@/lib/utils/score-color-utils";
 
 describe("score-color-utils", () => {
+  describe("EPIC is off until rare days exist", () => {
+    const everyScore = [
+      ...Array.from({ length: 201 }, (_, index) => index / 2),
+      100.5,
+      150,
+      Number.POSITIVE_INFINITY,
+    ];
+
+    it("keeps the flag off", () => {
+      expect(EPIC_LABEL_ENABLED).toBe(false);
+    });
+
+    it("never labels any score EPIC on any score surface", () => {
+      for (const score of everyScore) {
+        expect(scoreLabel(score)).not.toBe("EPIC");
+        expect(getQualityLabel(score)).not.toBe("EPIC");
+        expect(getQualityConfig(score).label).not.toBe("EPIC");
+      }
+    });
+
+    it("reads every score that used to be EPIC as GOOD", () => {
+      for (const score of everyScore.filter((value) => value >= 80)) {
+        expect(scoreLabel(score)).toBe("GOOD");
+      }
+    });
+
+    it("brings a label computed elsewhere in line", () => {
+      expect(gateScoreLabel("EPIC")).toBe("GOOD");
+      expect(gateScoreLabel("GOOD")).toBe("GOOD");
+      expect(gateScoreLabel("FAIR")).toBe("FAIR");
+      expect(gateScoreLabel("")).toBe("");
+    });
+  });
+
   describe("SCORE_THRESHOLDS", () => {
     it("matches the native score vocabulary thresholds while preserving POOR", () => {
       expect(SCORE_THRESHOLDS.EPIC).toBe(80);
@@ -20,8 +57,8 @@ describe("score-color-utils", () => {
 
   describe("getScoreColorClasses", () => {
     it.each([
-      [80, "EPIC"],
-      [100, "EPIC"],
+      [80, "GOOD"],
+      [100, "GOOD"],
       [70, "GOOD"],
       [79.9, "GOOD"],
       [55, "FAIR"],
@@ -41,9 +78,13 @@ describe("score-color-utils", () => {
         .map(([, value]) => value)
         .join(" ");
 
-      expect(classes).toContain("teal");
+      expect(classes).toContain("ocean-blue");
       expect(classes).not.toContain("green");
       expect(classes).not.toContain("#");
+    });
+
+    it("styles an 85 exactly like a GOOD 75 while EPIC is off", () => {
+      expect(getScoreColorClasses(85)).toEqual(getScoreColorClasses(75));
     });
 
     it("returns all required properties with dark-mode text variants", () => {
@@ -70,7 +111,7 @@ describe("score-color-utils", () => {
 
   describe("getQualityLabel", () => {
     it("returns native uppercase labels for each tier", () => {
-      expect(getQualityLabel(85)).toBe("EPIC");
+      expect(getQualityLabel(85)).toBe("GOOD");
       expect(getQualityLabel(70)).toBe("GOOD");
       expect(getQualityLabel(50)).toBe("RIDEABLE");
       expect(getQualityLabel(40)).toBe("RIDEABLE");
@@ -86,7 +127,7 @@ describe("score-color-utils", () => {
 
   describe("getQualityConfig", () => {
     it.each([
-      [85, "EPIC", 80],
+      [85, "GOOD", 70],
       [70, "GOOD", 70],
       [50, "RIDEABLE", 40],
       [35, "MEH", 0],
