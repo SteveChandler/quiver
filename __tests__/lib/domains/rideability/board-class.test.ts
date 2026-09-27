@@ -41,7 +41,7 @@ describe('rideability board class domain', () => {
     expect(normalizeBoardClass('softboard')).toBe('foamie');
     expect(normalizeBoardClass('soft board')).toBe('foamie');
     expect(normalizeBoardClass('soft-top')).toBe('foamie');
-    expect(normalizeBoardClass('thruster')).toBeNull();
+    expect(normalizeBoardClass('thruster')).toBe('shortboard');
     expect(normalizeBoardClass('twin-pin')).toBe('fish');
     expect(normalizeBoardClass('standuppaddle')).toBe('sup');
     expect(normalizeBoardClass('standuppaddleboard')).toBe('sup');
@@ -55,7 +55,7 @@ describe('rideability board class domain', () => {
       Shortboard: 'shortboard',
       fish: 'fish',
       longboard: 'longboard',
-      thruster: null,
+      thruster: 'shortboard',
       midlength: 'mid-length',
       'longboard-single-fin': 'longboard',
       'longboard-2-plus-1': 'longboard',
