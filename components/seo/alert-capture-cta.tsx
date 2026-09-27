@@ -28,7 +28,7 @@ const PRESET_BADGE_CONFIG: Record<string, { label: string }> = {
   big_day: { label: "Big Day" },
   clean_groundswell: { label: "Clean Groundswell" },
   tide_window: { label: "Tide Window" },
-  epic_conditions: { label: "Epic Conditions" },
+  epic_conditions: { label: "Best Conditions" },
 };
 
 interface AlertCaptureCtaProps {

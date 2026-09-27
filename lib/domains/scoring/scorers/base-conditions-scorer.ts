@@ -226,12 +226,12 @@ function scoreWaveHeight(
     };
   }
 
-  // Very large swell (>= absoluteMax) - epic conditions!
+  // Very large swell (>= absoluteMax).
   // Let skill-based adjustment in discovery-adapter handle appropriateness
   // Advanced/expert surfers should see high scores for big waves
   return {
     score: WAVE_HEIGHT_SCORING.epicSwellScore,
-    reason: `Epic swell (${height.toFixed(1)}ft)`,
+    reason: `Big swell (${height.toFixed(1)}ft)`,
   };
 }
 
