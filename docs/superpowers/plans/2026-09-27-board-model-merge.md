@@ -174,7 +174,7 @@ Relative tide is `tide_height - (preferred_tide_ft_min + preferred_tide_ft_max) 
    - snapshot `name` (3)
 
    Add `'thruster'` → `'shortboard'` to the `CASE`. Keep ranking by `use_count DESC, last_used_at DESC`, then priority. With this change, Steven's "Twin pin" (row type `shortboard`) resolves to `shortboard` in both SQL and TypeScript. A row edited to `twin-pin` resolves to `fish` in both.
-3. **`peaks` and `fit_pairs`.** Replace `(t.break_type IS NULL OR h.break_type = t.break_type OR h.break_type IS NULL)` with `public.break_types_match(t.break_type, h.break_type)`.
+3. **`peaks` and `fit_pairs`.** Precompute `break_type_families` in `history` and `requested_beaches`, then use `(a IS NULL OR b IS NULL OR a && b)` inline. This preserves `break_types_match` semantics without reparsing both families for every pair.
 4. **Delete the `tips` CTE** and its join. Keep `'board_tip', NULL` in the learned and both avoidance result objects for installed native binaries that call the RPC directly. The API now owns the board pick (Task 3). The degraded direct-RPC fallback intentionally shows no board line rather than maintaining a second board algorithm.
 5. **Learned branch reason bullets.** Replace the three `format('… profile peak …')` bullets with one bullet: `format('%s of your %s good sessions were in conditions like this.', similar_good, good_total)`.
    - `good_total` = eligible sessions with `rating >= 4` (all break types).
@@ -183,6 +183,8 @@ Relative tide is `tide_height - (preferred_tide_ft_min + preferred_tide_ft_max) 
    - Add result keys `'good_session_count', good_total` and `'similar_good_session_count', similar_good`.
    - Compute these once per scenario, not per history row per bullet.
 6. **Leave unchanged:** the `base_score` and `p_*` means (only their row set changes, through item 3), and every other branch.
+
+**Performance review gate:** At 252 and 5,040 benchmark slots, the new median of five runs must be at most 2× the current set-based scorer. Freeze branch `024de7997` results before optimization; require identical JSON for every fixture user/beach/slot and batch == single-slot. Reuse the verifier's `scratchpad/verify3` harness in the worktree-local `test-results/board-model-perf` copy: run `bash test-results/board-model-perf/verify.sh > test-results/board-model-perf/benchmark.log 2>&1`, then `python3 test-results/board-model-perf/check-performance.py` (checks both sizes). That copy also records `EXPLAIN (ANALYZE, BUFFERS)` plans and checks 69,160 frozen results. Keep the existing Week Scout harness files unchanged. The batch path shares identical similarity targets, precomputes eligible good-session inputs, and inlines similarity with a conservative height-gap prefilter; public helpers and their pinned search paths remain available because per-pair calls were removed.
 
 **Disposable-Postgres test** (`supabase/tests/match_score_board_model.sql`) must assert:
 

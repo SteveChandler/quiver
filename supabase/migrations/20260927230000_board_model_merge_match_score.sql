@@ -87,7 +87,8 @@ WITH history AS MATERIALIZED (
   SELECT s.rating, s.arrival_time, s.session_skill_fit, s.session_board_fit,
     s.arrival_time > now() - interval '12 months'
       AND s.deleted_at IS NULL AND sfs.forecast_snapshot IS NOT NULL AS eligible,
-    b.break_type, b.preferred_tide_ft_min, b.preferred_tide_ft_max,
+    b.break_type, public.break_type_families(b.break_type) AS break_families,
+    b.preferred_tide_ft_min, b.preferred_tide_ft_max,
     COALESCE(s.board_id::text, s.board_snapshot->>'name', s.board_snapshot->>'board_type') AS board_key,
     boards.board_type AS row_board_type, boards.name AS row_board_name,
     s.board_snapshot->>'board_type' AS snapshot_board_type,
@@ -241,7 +242,7 @@ WITH board_usage AS (
   SELECT min(slot_idx) AS scenario_id, beach_id, f_wave, f_period, f_wind, f_wind_dir, f_tide, similarity_wave
   FROM slots GROUP BY beach_id, f_wave, f_period, f_wind, f_wind_dir, f_tide, similarity_wave
 ), requested_beaches AS MATERIALIZED (
-  SELECT ids.id, b.break_type, b.wind_offshore_deg,
+  SELECT ids.id, b.break_type, public.break_type_families(b.break_type) AS break_families, b.wind_offshore_deg,
     (b.preferred_tide_ft_min + b.preferred_tide_ft_max) / 2.0 AS spot_tide
   FROM (SELECT DISTINCT unnest(p_beach_ids) AS id) ids
   LEFT JOIN public.beaches b ON b.id = ids.id
@@ -269,36 +270,54 @@ WITH board_usage AS (
     sum(h.tide * (3 - h.rating)) FILTER (WHERE h.rating <= 2) /
       NULLIF(sum(3 - h.rating) FILTER (WHERE h.rating <= 2), 0) AS a_tide,
     count(*) FILTER (WHERE h.rating <= 2)::integer AS a_count
-  FROM (SELECT DISTINCT break_type FROM requested_beaches) t
-  LEFT JOIN history h ON h.eligible AND public.break_types_match(t.break_type, h.break_type)
+  FROM (SELECT DISTINCT break_type, break_families FROM requested_beaches) t
+  LEFT JOIN history h ON h.eligible AND (t.break_families IS NULL OR h.break_families IS NULL OR t.break_families && h.break_families)
   GROUP BY t.break_type
 ), inputs AS MATERIALIZED (
-  SELECT s.*, b.break_type, b.wind_offshore_deg, b.spot_tide, g.*, p.p_wave, p.p_period,
+  SELECT s.*, b.break_type, b.break_families, b.wind_offshore_deg, b.spot_tide, g.*, p.p_wave, p.p_period,
     p.p_wind, p.p_wind_dir, p.p_tide, p.p_count, p.a_wave, p.a_period, p.a_wind,
     p.a_wind_dir, p.a_tide, p.a_count
   FROM scenarios s
   JOIN requested_beaches b ON b.id IS NOT DISTINCT FROM s.beach_id
   JOIN peaks p ON p.break_type IS NOT DISTINCT FROM b.break_type
   CROSS JOIN skill g
+), good_history AS MATERIALIZED (
+  SELECT h.*,
+    similarity_tide-(preferred_tide_ft_min+preferred_tide_ft_max)/2 AS relative_tide,
+    similarity_wave / NULLIF(power(similarity_period,2),0) AS steepness
+  FROM history h WHERE eligible AND rating >= 4
+), similarity_targets AS MATERIALIZED (
+  SELECT row_number() OVER () AS target_id, t.*,
+    similarity_wave / NULLIF(power(f_period,2),0) AS steepness
+  FROM (
+    SELECT DISTINCT b.break_families, s.similarity_wave, s.f_period, s.f_wind, s.f_wind_dir,
+      s.f_tide-b.spot_tide AS relative_tide
+    FROM scenarios s JOIN requested_beaches b ON b.id IS NOT DISTINCT FROM s.beach_id
+  ) t
 ), similar_good AS MATERIALIZED (
-  SELECT s.scenario_id,
-    count(*) FILTER (WHERE public.session_condition_similarity(
-      h.similarity_wave, h.similarity_period, h.similarity_wind, h.similarity_wind_dir,
-      CASE WHEN h.preferred_tide_ft_min IS NOT NULL AND h.preferred_tide_ft_max IS NOT NULL
-        THEN h.similarity_tide-(h.preferred_tide_ft_min+h.preferred_tide_ft_max)/2 END,
-      h.tide_status, h.break_type,
-      s.similarity_wave, s.f_period, s.f_wind, s.f_wind_dir,
-      CASE WHEN b.spot_tide IS NOT NULL THEN s.f_tide-b.spot_tide END,
-      NULL, b.break_type
-    -- Twin of LIKE_THIS_SIMILARITY in lib/scoring/personal-board.ts for user-facing reasons.
-    ) >= 0.7)::integer AS similar_good
-  FROM scenarios s
-  JOIN requested_beaches b ON b.id IS NOT DISTINCT FROM s.beach_id
-  LEFT JOIN history h ON h.eligible AND h.rating >= 4
-  GROUP BY s.scenario_id
+  -- Inline the similarity math and reuse parsed families; SQL helper calls per pair dominate batch time.
+  SELECT t.target_id,
+    count(*) FILTER (WHERE h.similarity_wave IS NOT NULL AND t.similarity_wave IS NOT NULL
+      AND exp(-(
+        0.4 * power((h.similarity_wave-t.similarity_wave)/1.5,2)
+        + COALESCE(0.25 * power((h.similarity_period-t.f_period)/4,2),0)
+        + COALESCE(0.2 * power((h.similarity_wind-t.f_wind)/8,2),0)
+        + COALESCE(0.15 * power((h.relative_tide-t.relative_tide)/2,2),0)
+        + COALESCE(0.1 * power(least(mod(abs(h.similarity_wind_dir-t.f_wind_dir),360),
+          360-mod(abs(h.similarity_wind_dir-t.f_wind_dir),360))/90,2),0)
+        + CASE WHEN h.break_families IS NULL OR t.break_families IS NULL
+            OR h.break_families && t.break_families THEN 0 ELSE 0.5 END
+        + COALESCE(0.15 * power((h.steepness-t.steepness)/0.04,2),0)
+        -- Slots have no tide direction, so its mismatch term is always zero.
+      -- Twin of LIKE_THIS_SIMILARITY in lib/scoring/personal-board.ts for user-facing reasons.
+      )/2) >= 0.7)::integer AS similar_good
+  FROM similarity_targets t
+  -- At 0.7, the height term alone requires a gap below 2.01 ft (sqrt(-2*ln(0.7)/0.4)*1.5).
+  LEFT JOIN good_history h ON h.similarity_wave BETWEEN t.similarity_wave-2.01 AND t.similarity_wave+2.01
+  GROUP BY t.target_id
 ), fit_targets AS MATERIALIZED (
   SELECT row_number() OVER () AS target_id, t.* FROM (
-    SELECT DISTINCT break_type, f_wave, f_period, f_wind, f_wind_dir, f_tide
+    SELECT DISTINCT break_type, break_families, f_wave, f_period, f_wind, f_wind_dir, f_tide
     FROM inputs WHERE session_count >= 5 AND p_count > 0
   ) t
 ), fit_pairs AS MATERIALIZED (
@@ -311,7 +330,7 @@ WITH board_usage AS (
         360 - ABS(h.wind_dir - t.f_wind_dir)) / 180, 1), 1.0) AS proximity
   FROM fit_targets t JOIN history h ON h.eligible AND h.fit_value <> 0
     AND (h.session_skill_fit IS NOT NULL OR h.session_board_fit IS NOT NULL)
-    AND public.break_types_match(t.break_type, h.break_type)
+    AND (t.break_families IS NULL OR h.break_families IS NULL OR t.break_families && h.break_families)
   WHERE h.wave IS NOT NULL AND h.period IS NOT NULL AND h.wind IS NOT NULL
     AND h.wind_dir IS NOT NULL AND h.tide IS NOT NULL
 ), fit AS MATERIALIZED (
@@ -389,7 +408,9 @@ WITH board_usage AS (
   LEFT JOIN fit_targets t ON t.break_type IS NOT DISTINCT FROM d.break_type
     AND (t.f_wave,t.f_period,t.f_wind,t.f_wind_dir,t.f_tide) = (d.f_wave,d.f_period,d.f_wind,d.f_wind_dir,d.f_tide)
   LEFT JOIN fit f USING (target_id)
-  JOIN similar_good sg ON sg.scenario_id = d.scenario_id
+  JOIN similarity_targets st ON (st.break_families,st.similarity_wave,st.f_period,st.f_wind,st.f_wind_dir,st.relative_tide)
+    IS NOT DISTINCT FROM (d.break_families,d.similarity_wave,d.f_period,d.f_wind,d.f_wind_dir,d.f_tide-d.spot_tide)
+  JOIN similar_good sg ON sg.target_id = st.target_id
 ), scored AS MATERIALIZED (
   SELECT a.*, greatest(0, least(10, base_score-aversion_penalty+fit_adjustment+board_adjustment)) AS score
   FROM adjustments a
