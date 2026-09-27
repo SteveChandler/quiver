@@ -36,7 +36,9 @@ describe("formatPushNotification", () => {
 
   it("single-match title carries a quality word from best_score", () => {
     const result = formatPushNotification([makeMatch({ best_score: 0.92 })]);
-    expect(result.title).toContain("Pumping");
+    expect(result.title).toContain("Lined up");
+    const good = formatPushNotification([makeMatch({ best_score: 0.75 })]);
+    expect(good.title).toContain("Worth a surf");
   });
 
   it("canonical MAYBE/NO intent overrides quality words", () => {
@@ -47,9 +49,9 @@ describe("formatPushNotification", () => {
     const no = formatPushNotification([makeMatch({ best_score: 0.92 })], "no");
 
     expect(maybe.title).toContain("Worth a look");
-    expect(maybe.title).not.toMatch(/Pumping|Firing/);
+    expect(maybe.title).not.toMatch(/Lined up|Worth a surf/);
     expect(no.title).toContain("Not ideal");
-    expect(no.title).not.toMatch(/Pumping|Firing/);
+    expect(no.title).not.toMatch(/Lined up|Worth a surf/);
   });
 
   it("canonical GO intent controls the title even when the snapshot score is low", () => {
@@ -58,7 +60,7 @@ describe("formatPushNotification", () => {
       "go",
     );
 
-    expect(result.title).toContain("Firing");
+    expect(result.title).toContain("Worth a surf");
     expect(result.title).not.toContain("Rideable");
   });
 
@@ -125,7 +127,7 @@ describe("formatPushNotification", () => {
     expect(result.body.length).toBeLessThanOrEqual(150);
   });
 
-  it("labels a beginner window honestly instead of calling small surf firing", () => {
+  it("labels a beginner window honestly instead of overselling small surf", () => {
     const result = formatPushNotification([
       makeMatch({
         best_score: 0.8,
@@ -140,7 +142,7 @@ describe("formatPushNotification", () => {
     ]);
 
     expect(result.title).toBe("Beginner-friendly — Mission Beach, 7–10 AM");
-    expect(result.title).not.toContain("Firing");
+    expect(result.title).not.toContain("Worth a surf");
     expect(result.body).toContain("1-2ft @ 14s");
   });
 
@@ -159,7 +161,7 @@ describe("formatPushNotification", () => {
     );
 
     expect(result.title).toContain("Beginner-friendly");
-    expect(result.title).not.toContain("Firing");
+    expect(result.title).not.toContain("Worth a surf");
   });
 
   it("drops the beginner rationale rather than triggering the truncation fallback", () => {

@@ -149,8 +149,8 @@ test.describe('Home Page - Layout', () => {
       if (heroVisible) {
         const decisionBadge = hero.locator('[data-testid="hero-decision-badge"]');
         await expect(decisionBadge).toBeVisible({ timeout: TIMEOUTS.long });
-        // Same rating vocabulary as native: the tier, then its call.
-        await expect(decisionBadge.locator('h1')).toHaveText(/^(Epic|Good|Fair|Rideable|Meh)$/);
+        // Same rating vocabulary as native: the tier, then its call. EPIC is off until rare days exist.
+        await expect(decisionBadge.locator('h1')).toHaveText(/^(Good|Fair|Rideable|Meh)$/);
       }
     });
 

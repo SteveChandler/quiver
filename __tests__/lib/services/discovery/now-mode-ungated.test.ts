@@ -520,7 +520,7 @@ describe('September 23 Ponto NOW regression', () => {
       expect(response.recommendations).toHaveLength(1);
       expect(rec.score).toBe(94);
       expect(rec.verdict).toBe('go');
-      expect(rec.conditionLabel).toBe('EPIC');
+      expect(rec.conditionLabel).toBe('GOOD');
       expect(rec.window.start.getTime()).toBeLessThanOrEqual(Date.parse(supportAt));
       expect(rec.window.end.getTime()).toBeGreaterThan(Date.now());
       expect(response).toMatchObject({ firstLight: '2026-09-23T13:09:00.000Z', lastLight: '2026-09-24T02:05:00.000Z', isDark: dark });
@@ -694,7 +694,7 @@ describe('Ponto public response parity', () => {
     jest.mocked(windowScorer.scoreWindowConditionScore).mockImplementation(jest.requireActual('@/lib/services/discovery/window-selector/window-scorer').scoreWindowConditionScore);
     jest.useRealTimers();
   });
-  it('returns go / EPIC / 94 with the same FAIR match on surf/call, bulk and discover now', async () => {
+  it('returns go / GOOD / 94 (EPIC off) with the same FAIR match on surf/call, bulk and discover now', async () => {
     const { GET: call } = require('@/app/api/surf/call/route');
     const { GET: discover } = require('@/app/api/surf/discover/route');
     const { GET: bulk } = require('@/app/api/forecasts/bulk/route');
@@ -709,7 +709,7 @@ describe('Ponto public response parity', () => {
     expect(c.sessionDecision.selection.evidence.personalMatch).toMatchObject({ label: 'FAIR', score: 6.4, sessionCount: 39 });
     expect(d.recommendations[0].similarity).toMatchObject({ label: 'FAIR', score: 6.4, sessionCount: 39 });
     expect([c.sessionDecision.verdict, d.recommendations[0].verdict, b.verdicts[id]]).toEqual(['go', 'go', 'go']);
-    expect([c.conditionLabel, d.recommendations[0].conditionLabel, b.conditionLabels[id]]).toEqual(['EPIC', 'EPIC', 'EPIC']);
+    expect([c.conditionLabel, d.recommendations[0].conditionLabel, b.conditionLabels[id]]).toEqual(['GOOD', 'GOOD', 'GOOD']);
     expect([c.report.score, d.recommendations[0].score, b.conditionScores[id]]).toEqual([94, 94, 94]);
     expect(Date.parse(c.forecastContext.selectedWindowStart)).toBeLessThanOrEqual(Date.parse('2026-09-23T15:00:00Z'));
   });

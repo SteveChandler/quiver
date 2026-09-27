@@ -105,18 +105,19 @@ describe("ConditionsAlertEmail", () => {
       expect(container.textContent).not.toContain("undefined");
     });
 
-    it("shows the NOW FIRING sticker only for a go decision", () => {
+    it("shows the GO CALL stamp only for a go decision", () => {
       const high = render(
         <ConditionsAlertEmail {...makeProps({ decisionVerdict: "go" })} />
       );
-      expect(high.container.textContent).toContain("NOW FIRING");
+      expect(high.container.textContent).toContain("GO CALL");
+      expect(high.container.textContent).not.toContain("FIRING");
 
       const low = render(
         <ConditionsAlertEmail
           {...makeProps({ decisionVerdict: "maybe" })}
         />
       );
-      expect(low.container.textContent).not.toContain("NOW FIRING");
+      expect(low.container.textContent).not.toContain("GO CALL");
     });
   });
 
@@ -125,7 +126,8 @@ describe("ConditionsAlertEmail", () => {
       const { container } = render(
         <ConditionsAlertEmail {...makeProps({ decisionVerdict: "go" })} />
       );
-      expect(container.textContent).toContain("Go surf!");
+      expect(container.textContent).toContain("Worth a surf");
+      expect(container.textContent).not.toContain("!");
       const chip = Array.from(container.querySelectorAll("td")).find(
         (td) => td.style.backgroundColor === "rgb(0, 212, 170)"
       );

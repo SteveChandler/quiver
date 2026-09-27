@@ -74,7 +74,7 @@ export function buildConsolidatedSubject(
   if (matches.length > 1) {
     const sorted = [...matches].sort((a, b) => b.best_score - a.best_score);
     const top = sorted[0];
-    const suffix = ` + ${sorted.length - 1} more spots firing ${alertWeekday(alertDate)}`;
+    const suffix = ` + ${sorted.length - 1} more spots worth a surf ${alertWeekday(alertDate)}`;
     return withTruncatedBeach(top.beach_name, suffix);
   }
 

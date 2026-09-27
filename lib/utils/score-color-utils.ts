@@ -29,7 +29,7 @@ const PAPER_SCORE_BADGE_CLASSES = "bg-[#11100D] text-[#F4EBD8]";
 /**
  * Score thresholds for quality categories
  *
- * 80-100: EPIC conditions
+ * 80-100: EPIC conditions (off: see EPIC_LABEL_ENABLED)
  * 70-79: GOOD conditions
  * 55-69: FAIR conditions
  * 40-54: RIDEABLE conditions
@@ -46,6 +46,34 @@ export const SCORE_THRESHOLDS = {
 } as const;
 
 /**
+ * EPIC is off until the server can mark a day rare for its beach (score >= 85
+ * and a top-10% swell day for that beach over the last ~6-8 weeks). Measured
+ * 2026-09-26: the plain >= 80 rule read EPIC on 15-23% of beginner and
+ * intermediate beach-days, mostly ordinary 2-3 ft days. While this is false,
+ * every score label reads GOOD at 80+ and nothing emits EPIC.
+ */
+export const EPIC_LABEL_ENABLED = false as boolean;
+
+export type ScoreLabel = "EPIC" | "GOOD" | "FAIR" | "RIDEABLE" | "MEH";
+
+/** The single score-to-label rule; every web surface routes through here. */
+export function scoreLabel(score: number): ScoreLabel {
+  if (EPIC_LABEL_ENABLED && score >= SCORE_THRESHOLDS.EPIC) return "EPIC";
+  if (score >= SCORE_THRESHOLDS.GOOD) return "GOOD";
+  if (score >= SCORE_THRESHOLDS.FAIR) return "FAIR";
+  if (score >= SCORE_THRESHOLDS.RIDEABLE) return "RIDEABLE";
+  return "MEH";
+}
+
+/**
+ * A label computed elsewhere (a database match band, a stored snapshot),
+ * brought in line with what Quiver shows today.
+ */
+export function gateScoreLabel<T extends string>(label: T): T | "GOOD" {
+  return !EPIC_LABEL_ENABLED && label === "EPIC" ? "GOOD" : label;
+}
+
+/**
  * Get color classes based on score range
  *
  * @param score - Score value from 0-100
@@ -54,11 +82,12 @@ export const SCORE_THRESHOLDS = {
  * @example
  * ```typescript
  * const colors = getScoreColorClasses(85);
- * // Returns: { bg: "bg-teal-500", text: "text-teal-700 dark:text-teal-300", border: "border-teal-500/30", label: "EPIC" }
+ * // Returns GOOD styling while EPIC_LABEL_ENABLED is false.
  * ```
  */
 export function getScoreColorClasses(score: number): ScoreColorConfig {
-  if (score >= SCORE_THRESHOLDS.EPIC) {
+  const label = scoreLabel(score);
+  if (label === "EPIC") {
     return {
       bg: "bg-teal-500",
       text: "text-teal-700 dark:text-teal-300",
@@ -67,7 +96,7 @@ export function getScoreColorClasses(score: number): ScoreColorConfig {
       label: "EPIC",
     };
   }
-  if (score >= SCORE_THRESHOLDS.GOOD) {
+  if (label === "GOOD") {
     return {
       bg: "bg-ocean-blue-decorative",
       text: "text-ocean-blue dark:text-ocean-blue-decorative",
@@ -76,7 +105,7 @@ export function getScoreColorClasses(score: number): ScoreColorConfig {
       label: "GOOD",
     };
   }
-  if (score >= SCORE_THRESHOLDS.FAIR) {
+  if (label === "FAIR") {
     return {
       bg: "bg-accent-orange",
       text: "text-amber-800 dark:text-accent-orange",
@@ -85,7 +114,7 @@ export function getScoreColorClasses(score: number): ScoreColorConfig {
       label: "FAIR",
     };
   }
-  if (score >= SCORE_THRESHOLDS.RIDEABLE) {
+  if (label === "RIDEABLE") {
     return {
       bg: "bg-slate-500",
       text: "text-slate-600 dark:text-slate-300",
@@ -112,7 +141,7 @@ export function getScoreColorClasses(score: number): ScoreColorConfig {
  * @example
  * ```typescript
  * getQualityLabel(75) // "GOOD"
- * getQualityLabel(90) // "EPIC"
+ * getQualityLabel(90) // "GOOD" while EPIC_LABEL_ENABLED is false
  * ```
  */
 export function getQualityLabel(score: number): string {
@@ -171,9 +200,10 @@ export const QUALITY_CONFIG = {
  * ```
  */
 export function getQualityConfig(score: number) {
-  if (score >= QUALITY_CONFIG.epic.minScore) return QUALITY_CONFIG.epic;
-  if (score >= QUALITY_CONFIG.good.minScore) return QUALITY_CONFIG.good;
-  if (score >= QUALITY_CONFIG.fair.minScore) return QUALITY_CONFIG.fair;
-  if (score >= QUALITY_CONFIG.rideable.minScore) return QUALITY_CONFIG.rideable;
+  const label = scoreLabel(score);
+  if (label === "EPIC") return QUALITY_CONFIG.epic;
+  if (label === "GOOD") return QUALITY_CONFIG.good;
+  if (label === "FAIR") return QUALITY_CONFIG.fair;
+  if (label === "RIDEABLE") return QUALITY_CONFIG.rideable;
   return QUALITY_CONFIG.poor;
 }

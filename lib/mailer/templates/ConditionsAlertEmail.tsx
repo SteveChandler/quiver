@@ -100,7 +100,7 @@ function getVerdict(verdict: "go" | "maybe"): Verdict {
     return {
       chipColor: TEAL,
       inkColor: INK,
-      phrase: "Go surf!",
+      phrase: "Worth a surf",
       label: "GO",
     };
   }
@@ -230,7 +230,7 @@ export function ConditionsAlertEmail({
     (decisionVerdict === "go"
       ? "Your best session window is lining up"
       : "A session window is worth watching");
-  const showFiringSticker = decisionVerdict === "go";
+  const showGoStamp = decisionVerdict === "go";
 
   const rideableCopy = formatRideableCopy(
     signals.rideableWavesPerHour,
@@ -260,7 +260,7 @@ export function ConditionsAlertEmail({
     <EmailShell>
       <Wordmark dateline={dateline} />
 
-      {/* Hero — kicker + condition-character headline + NOW FIRING stamp */}
+      {/* Hero — kicker + condition-character headline + GO CALL stamp */}
       <tr>
         <td {...cellBg(CANVAS, { padding: "26px 24px 22px 24px" })}>
           <Eyebrow color={GOLD}>{`TODAY'S SURF CALL · ${beachName}`}</Eyebrow>
@@ -288,7 +288,7 @@ export function ConditionsAlertEmail({
                     {headline}
                   </div>
                 </td>
-                {showFiringSticker && (
+                {showGoStamp && (
                   <td
                     valign="top"
                     width="120"
@@ -301,7 +301,7 @@ export function ConditionsAlertEmail({
                       fontSize={11}
                       padding="7px 10px"
                     >
-                      NOW FIRING
+                      GO CALL
                     </Stamp>
                   </td>
                 )}

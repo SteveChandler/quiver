@@ -1,43 +1,37 @@
-import { getScoreColorClasses } from "@/lib/utils/score-color-utils";
+import { scoreLabel, type ScoreLabel } from "@/lib/utils/score-color-utils";
 import type { CanonicalDecisionVerdict } from "@/lib/recommendations/canonical-decision/types";
 
-const SCORE_ACTION_PHRASES = {
-  EPIC: "Go now!",
-  GOOD: "Go surf!",
+/** Plain calls, no exclamation marks. EPIC only shows once rare days exist (EPIC_LABEL_ENABLED). */
+const SCORE_ACTION_PHRASES: Record<ScoreLabel, string> = {
+  EPIC: "Rare one, go",
+  GOOD: "Worth a surf",
   FAIR: "Worth a look",
   RIDEABLE: "Slim pickings",
   MEH: "Skip it",
-} as const;
+};
 
 /**
- * Only the positive tiers carry tense: "Go now!" over a window that opens
+ * Only the positive tiers carry tense: "Worth a surf" over a window that opens
  * tomorrow tells the surfer to do something they cannot do. Mirrors native
  * `getSurfActionPhrase` (quiver-native src/lib/score-labels.ts).
  */
-const UPCOMING_ACTION_PHRASES = {
+const UPCOMING_ACTION_PHRASES: Record<ScoreLabel, string> = {
   ...SCORE_ACTION_PHRASES,
-  EPIC: "Don't miss it",
+  EPIC: "Rare one, plan for it",
   GOOD: "Worth planning",
-} as const;
-
-type ScoreBand = keyof typeof SCORE_ACTION_PHRASES;
+};
 
 type SurfCallTense = "now" | "upcoming";
 
 interface ScoreCall {
-  label: ScoreBand;
+  label: ScoreLabel;
   action: string;
 }
 
 /** Build the user-facing score call from the canonical score-band utility. */
 export function getScoreCall(score: number): ScoreCall {
-  const { label } = getScoreColorClasses(score);
-  const band = label as ScoreBand;
-
-  return {
-    label: band,
-    action: SCORE_ACTION_PHRASES[band],
-  };
+  const label = scoreLabel(score);
+  return { label, action: SCORE_ACTION_PHRASES[label] };
 }
 
 /** Score range each canonical verdict may occupy, so a label never contradicts its call. */
@@ -47,7 +41,7 @@ const VERDICT_SCORE_BOUNDS: Record<CanonicalDecisionVerdict, [number, number]> =
   no: [0, 39],
 };
 
-const VERDICT_FALLBACK_BAND: Record<CanonicalDecisionVerdict, ScoreBand> = {
+const VERDICT_FALLBACK_BAND: Record<CanonicalDecisionVerdict, ScoreLabel> = {
   go: "GOOD",
   maybe: "RIDEABLE",
   no: "MEH",
@@ -65,12 +59,12 @@ export function getCanonicalVerdictCall(
 ): ScoreCall {
   const label =
     typeof score === "number" && Number.isFinite(score)
-      ? (getScoreColorClasses(
+      ? scoreLabel(
           Math.min(
             VERDICT_SCORE_BOUNDS[verdict][1],
             Math.max(VERDICT_SCORE_BOUNDS[verdict][0], score),
           ),
-        ).label as ScoreBand)
+        )
       : VERDICT_FALLBACK_BAND[verdict];
   const phrases = tense === "upcoming" ? UPCOMING_ACTION_PHRASES : SCORE_ACTION_PHRASES;
 

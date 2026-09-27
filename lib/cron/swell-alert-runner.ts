@@ -11,7 +11,7 @@ import {
   type BeachSwellEvent,
   type SwellEventSnapshot,
 } from "@/lib/alerts/swell-events";
-import { assessRarity, type DayScore } from "@/lib/alerts/swell-rarity";
+import { assessRarity, MIN_HISTORY_DAYS_FOR_WEEKS, type DayScore } from "@/lib/alerts/swell-rarity";
 import {
   recordSwellEventForecast,
   type SwellEventForecastRecord,
@@ -165,15 +165,18 @@ function peakPart(forecastAt: string, timezone: string): string {
 function buildTags(
   candidate: SwellAlertCandidate,
   rarityKind: "best-in-30" | "first-after-flat",
+  historyDays: number,
 ): string[] {
   const tags = new Set<string>([
-    rarityKind === "best-in-30" ? "biggest-in-weeks" : "first-after-flat",
     [0, 6].includes(new Date(`${candidate.peakDate}T12:00:00.000Z`).getUTCDay())
       ? "weekend"
       : "weekday",
     candidate.serious ? "serious" : "manageable",
     "generic",
   ]);
+  if (rarityKind === "first-after-flat") tags.add("first-after-flat");
+  // "Biggest in weeks" titles only when the history really spans weeks.
+  else if (historyDays >= MIN_HISTORY_DAYS_FOR_WEEKS) tags.add("biggest-in-weeks");
   const normalizedDirection = candidate.event.directionLabel.toUpperCase();
   if (candidate.event.periodS >= 16) tags.add("long-period");
   if (/\b(?:S|SE|SW|SOUTH|SOUTHEAST|SOUTHWEST)\b/.test(normalizedDirection)) {
@@ -620,7 +623,7 @@ export async function runSwellAlertCron(args: {
       const direction = lead.event.directionLabel;
       const selected = selectTitle({
         pool: "swell",
-        tags: buildTags(lead, rarity.kind),
+        tags: buildTags(lead, rarity.kind, rarity.historyDays),
         userId: profile.id,
         eventKey,
         recentTitleIds: state.recentTitleIds,

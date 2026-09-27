@@ -1,6 +1,6 @@
 import "server-only";
 
-import { SCORE_THRESHOLDS } from "@/lib/utils/score-color-utils";
+import { scoreLabel } from "@/lib/utils/score-color-utils";
 import { createHash } from "node:crypto";
 
 import {
@@ -165,7 +165,8 @@ export function canonicalCandidateVerdict(
 export function conditionLabelForVerdict(verdict: "go" | "maybe" | "no", score: number): "EPIC" | "GOOD" | "FAIR" | "MEH" {
   if (verdict === "no") return "MEH";
   if (verdict === "maybe") return "FAIR";
-  return score >= SCORE_THRESHOLDS.EPIC ? "EPIC" : "GOOD";
+  // EPIC only when the single score rule allows it (off until rare days exist).
+  return scoreLabel(score) === "EPIC" ? "EPIC" : "GOOD";
 }
 
 export function recommendationLabelForVerdict(

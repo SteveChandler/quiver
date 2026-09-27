@@ -260,7 +260,8 @@ const { GET, conditionSummaryFromScore } = require("@/app/api/forecasts/bulk/rou
 
 describe("conditionSummaryFromScore", () => {
   it.each([
-    [80, "EPIC"],
+    [80, "GOOD"],
+    [100, "GOOD"],
     [79.9, "GOOD"],
     [70, "GOOD"],
     [69.9, "FAIR"],

@@ -26,7 +26,7 @@ function match(overrides: Partial<MatchingWindow> = {}): MatchingWindow {
 describe("buildConsolidatedSubject", () => {
   it("leads with payload details for a single match", () => {
     expect(buildConsolidatedSubject([match()], "Saturday, April 4")).toBe(
-      "Lower Trestles firing: 5 ft @ 15s this morning"
+      "Lower Trestles worth a surf: 5 ft @ 15s this morning"
     );
   });
 
@@ -49,7 +49,7 @@ describe("buildConsolidatedSubject", () => {
         ],
         "Saturday, April 4"
       )
-    ).toBe("Blacks + 2 more spots firing Saturday");
+    ).toBe("Blacks + 2 more spots worth a surf Saturday");
   });
 
   it("keeps surf numbers while truncating long beach names", () => {

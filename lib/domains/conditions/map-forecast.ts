@@ -1,5 +1,6 @@
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { RecommendationLabel } from "@/lib/scoring";
+import { scoreLabel } from "@/lib/utils/score-color-utils";
 
 export const MAX_TIMELINE_FIELD_BEACHES = 20;
 
@@ -207,9 +208,5 @@ export function mapSwellPartition(partition: SwellPartition): SwellPartition {
 
 export function conditionSummaryFromScore(score: number): ConditionSummary {
   if (!Number.isFinite(score)) return "UNKNOWN";
-  if (score >= 80) return "EPIC";
-  if (score >= 70) return "GOOD";
-  if (score >= 55) return "FAIR";
-  if (score >= 40) return "RIDEABLE";
-  return "MEH";
+  return scoreLabel(score);
 }

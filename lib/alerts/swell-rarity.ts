@@ -8,11 +8,15 @@ export interface RarityVerdict {
   rare: boolean;
   kind: "best-in-30" | "first-after-flat" | null;
   rarityLine: string | null;
+  /** Days of score history the verdict was judged against (at most 30). */
+  historyDays: number;
 }
 
 const FLAT_SCORE_CEILING = 39;
 const MIN_FLAT_DAYS = 3;
 const HISTORY_DAYS = 30;
+/** "In weeks" copy needs at least this much history behind it. */
+export const MIN_HISTORY_DAYS_FOR_WEEKS = 14;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function formatDate(localDate: string): string {
@@ -36,13 +40,20 @@ export function assessRarity(args: {
   peakGo: boolean;
 }): RarityVerdict {
   if (!args.peakGo) {
-    return { rare: false, kind: null, rarityLine: null };
+    return { rare: false, kind: null, rarityLine: null, historyDays: 0 };
   }
 
   const history = args.history
     .filter((day) => day.localDate < args.peakDate)
     .sort((left, right) => left.localDate.localeCompare(right.localDate))
     .slice(-HISTORY_DAYS);
+  // Production keeps about a week of past forecasts, so never claim a longer
+  // look-back than the history actually covers.
+  const historyDays = history.length === 0
+    ? 0
+    : Math.round(
+      (Date.parse(`${args.peakDate}T12:00:00Z`) - Date.parse(`${history[0].localDate}T12:00:00Z`)) / DAY_MS,
+    );
   let flatDays = 0;
   let expectedDate = shiftDate(args.peakDate, -1);
   for (let index = history.length - 1; index >= 0; index -= 1) {
@@ -61,6 +72,7 @@ export function assessRarity(args: {
       rare: true,
       kind: "first-after-flat",
       rarityLine: `First real swell in ${flatDays + 1} days`,
+      historyDays,
     };
   }
 
@@ -69,7 +81,7 @@ export function assessRarity(args: {
     Number.NEGATIVE_INFINITY,
   );
   if (history.length === 0 || args.peakScore <= previousBest) {
-    return { rare: false, kind: null, rarityLine: null };
+    return { rare: false, kind: null, rarityLine: null, historyDays };
   }
 
   const previousGo = [...history].reverse().find((day) => day.go);
@@ -78,7 +90,8 @@ export function assessRarity(args: {
     kind: "best-in-30",
     rarityLine: previousGo
       ? `Best since ${formatDate(previousGo.localDate)}`
-      : "Best in 30 days",
+      : `Best in ${Math.min(historyDays, HISTORY_DAYS)} days`,
+    historyDays,
   };
 }
 

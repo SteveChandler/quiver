@@ -93,7 +93,7 @@ jest.mock("@/lib/utils/score-color-utils", () => ({
     border: "border-blue-500",
     paperBadge: "bg-[#11100D] text-[#F4EBD8]",
   }),
-  SCORE_THRESHOLDS: { EPIC: 90 },
+  scoreLabel: () => "GOOD",
 }));
 
 jest.mock("lucide-react", () => ({
@@ -210,7 +210,7 @@ describe("BestDaysSection — analytics wiring", () => {
     );
 
     expect(screen.getByTestId("zine-best-day-card")).toBeInTheDocument();
-    expect(screen.queryByText("Go now!")).not.toBeInTheDocument();
+    expect(screen.queryByText("Worth a surf")).not.toBeInTheDocument();
   });
 
   // -------------------------------------------------------------------------

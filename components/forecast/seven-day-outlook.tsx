@@ -13,7 +13,7 @@
 
 import type { RegionalForecastSummary } from "@/lib/utils/regional-forecast-utils";
 import { formatWaveHeightRange } from "@/lib/formatters/surf-data";
-import { getScoreColorClasses } from "@/lib/utils/score-color-utils";
+import { getScoreColorClasses, scoreLabel } from "@/lib/utils/score-color-utils";
 import { SwellArc, type SwellArcPoint } from "./swell-arc";
 
 interface SevenDayOutlookProps {
@@ -26,7 +26,7 @@ function daySubtitle(
   windConditions: "offshore" | "light" | "onshore",
   score: number,
 ): string {
-  if (score >= 80)
+  if (scoreLabel(score) === "EPIC")
     return windConditions === "offshore" ? "Glassy, all timing." : "Firing.";
   if (score >= 60)
     return windConditions === "offshore"

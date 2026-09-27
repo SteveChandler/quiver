@@ -12,10 +12,11 @@
  */
 
 import type { TimeSlot } from "@/types/personalization";
+import { scoreLabel } from "@/lib/utils/score-color-utils";
 
 /**
  * Condition tier based on score thresholds
- * - epic: Score >= 80
+ * - epic: Score >= 80, only while EPIC_LABEL_ENABLED (score-color-utils)
  * - good: Score 70-79
  * - fair: Score 55-69
  * - rideable: Score 40-54
@@ -37,14 +38,10 @@ export const CONDITION_TIER_THRESHOLDS = {
 /**
  * Get condition tier based on score thresholds
  * @param score Score value (0-100)
- * @returns ConditionTier - 'epic' (80+), 'good' (70-79), 'fair' (55-69), 'rideable' (40-54), 'meh' (<40)
+ * @returns ConditionTier - the lowercase scoreLabel: 'good' (70+ while EPIC is off), 'fair' (55-69), 'rideable' (40-54), 'meh' (<40)
  */
 export function getConditionTier(score: number): ConditionTier {
-  if (score >= CONDITION_TIER_THRESHOLDS.epic) return "epic";
-  if (score >= CONDITION_TIER_THRESHOLDS.good) return "good";
-  if (score >= CONDITION_TIER_THRESHOLDS.fair) return "fair";
-  if (score >= CONDITION_TIER_THRESHOLDS.rideable) return "rideable";
-  return "meh";
+  return scoreLabel(score).toLowerCase() as ConditionTier;
 }
 
 /**
