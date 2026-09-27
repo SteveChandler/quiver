@@ -19,8 +19,8 @@ describe("AnimatedScoreGauge score vocabulary", () => {
   });
 
   it.each([
-    [73, "GOOD", "Go surf!"],
-    [83, "EPIC", "Go now!"],
+    [73, "GOOD", "Worth a surf"],
+    [83, "GOOD", "Worth a surf"],
   ])("renders %s as %s with an action phrase", (score, label, action) => {
     render(<AnimatedScoreGauge score={score} showLabel />);
 
@@ -31,8 +31,8 @@ describe("AnimatedScoreGauge score vocabulary", () => {
   });
 
   it.each([
-    [73, "GOOD", "Go surf!"],
-    [83, "EPIC", "Go now!"],
+    [73, "GOOD", "Worth a surf"],
+    [83, "GOOD", "Worth a surf"],
   ])(
     "keeps the %s band label but drops the action phrase when showAction is false",
     (score, label, action) => {

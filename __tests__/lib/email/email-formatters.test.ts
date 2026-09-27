@@ -13,23 +13,29 @@ import {
 
 describe("email-formatters", () => {
   describe("getConditionLabel", () => {
-    describe("EPIC tier (score >= 80)", () => {
-      it("returns EPIC label for score 100", () => {
+    describe("former EPIC scores (>= 80) while EPIC is off", () => {
+      it("returns GOOD for score 100", () => {
         const result = getConditionLabel(100);
 
-        expect(result.label).toBe("EPIC");
-        expect(result.color).toBe("#00D4AA");
+        expect(result.label).toBe("GOOD");
+        expect(result.color).toBe("#1D9E75");
       });
 
-      it("returns EPIC label at the 80 boundary", () => {
-        expect(getConditionLabel(80).label).toBe("EPIC");
+      it("returns GOOD at the 80 boundary", () => {
+        expect(getConditionLabel(80).label).toBe("GOOD");
       });
 
-      it("treats scores above 100 as EPIC", () => {
+      it("treats scores above 100 as GOOD", () => {
         const result = getConditionLabel(110);
 
-        expect(result.label).toBe("EPIC");
-        expect(result.color).toBe("#00D4AA");
+        expect(result.label).toBe("GOOD");
+        expect(result.color).toBe("#1D9E75");
+      });
+
+      it("never emails an EPIC label", () => {
+        for (let score = 0; score <= 110; score += 0.5) {
+          expect(getConditionLabelText(score)).not.toBe("EPIC");
+        }
       });
     });
 
@@ -103,7 +109,7 @@ describe("email-formatters", () => {
           (score) => getConditionLabel(score).label
         );
 
-        expect(labels).toEqual(["EPIC", "GOOD", "FAIR", "RIDEABLE", "MEH"]);
+        expect(labels).toEqual(["GOOD", "GOOD", "FAIR", "RIDEABLE", "MEH"]);
         for (const label of labels) {
           expect(label).toMatch(/^[A-Z]+$/);
         }
@@ -111,16 +117,16 @@ describe("email-formatters", () => {
     });
 
     describe("Fractional scores", () => {
-      it("handles fractional scores at the EPIC boundary", () => {
+      it("handles fractional scores at the former EPIC boundary", () => {
         expect(getConditionLabel(79.9).label).toBe("GOOD");
-        expect(getConditionLabel(80.1).label).toBe("EPIC");
+        expect(getConditionLabel(80.1).label).toBe("GOOD");
       });
     });
   });
 
   describe("getConditionLabelText", () => {
     it("returns just the label string for score 100", () => {
-      expect(getConditionLabelText(100)).toBe("EPIC");
+      expect(getConditionLabelText(100)).toBe("GOOD");
     });
 
     it("returns just the label string for score 75", () => {
@@ -138,7 +144,7 @@ describe("email-formatters", () => {
     it("does not return color or emoji characters", () => {
       const result = getConditionLabelText(90);
 
-      expect(result).toBe("EPIC");
+      expect(result).toBe("GOOD");
       expect(result).not.toContain("#");
     });
   });

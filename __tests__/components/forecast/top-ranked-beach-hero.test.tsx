@@ -124,8 +124,8 @@ describe("TopRankedBeachHero", () => {
     expect(screen.getByRole("heading", { name: "Imperial Beach" })).toBeInTheDocument();
     expect(screen.getByText("Ranked first in San Diego")).toBeInTheDocument();
     expect(screen.queryByText("Ranked first in Imperial Beach")).not.toBeInTheDocument();
-    expect(screen.getByText("EPIC")).toBeInTheDocument();
-    expect(screen.getByText("Go now!")).toBeInTheDocument();
+    expect(screen.getByText("GOOD")).toBeInTheDocument();
+    expect(screen.getByText("Worth a surf")).toBeInTheDocument();
     expect(screen.getByText("7:00 AM-9:00 AM")).toBeInTheDocument();
     expect(screen.getByText("Peak 8:00 AM · High confidence")).toBeInTheDocument();
     expect(screen.getByText("Good wave size")).toBeInTheDocument();
@@ -175,8 +175,8 @@ describe("TopRankedBeachHero", () => {
     expect(screen.getByText("Ranked first in San Diego")).toBeInTheDocument();
     expect(screen.getByText("7:00 AM-9:00 AM")).toBeInTheDocument();
     expect(screen.queryByText("83")).not.toBeInTheDocument();
-    expect(screen.queryByText("EPIC")).not.toBeInTheDocument();
-    expect(screen.queryByText("Go now!")).not.toBeInTheDocument();
+    expect(screen.queryByText("GOOD")).not.toBeInTheDocument();
+    expect(screen.queryByText("Worth a surf")).not.toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Log in to see scores" })
     ).toHaveAttribute(
@@ -218,7 +218,7 @@ describe("TopRankedBeachHero", () => {
 
     expect(screen.getByText("Worth it · Thu, Aug 13")).toBeInTheDocument();
     expect(screen.getByText("7:00 AM-9:00 AM")).toBeInTheDocument();
-    expect(screen.queryByText("Go now!")).not.toBeInTheDocument();
+    expect(screen.queryByText("Worth a surf")).not.toBeInTheDocument();
 
     // Height belongs to the upcoming window, not the region's current reading.
     expect(screen.getByText("Wave height then")).toBeInTheDocument();
@@ -261,7 +261,7 @@ describe("TopRankedBeachHero", () => {
     expect(
       screen.getByText("Nothing qualifying in the forecast horizon")
     ).toBeInTheDocument();
-    expect(screen.queryByText("Go now!")).not.toBeInTheDocument();
+    expect(screen.queryByText("Worth a surf")).not.toBeInTheDocument();
     expect(screen.queryByText("Best window")).not.toBeInTheDocument();
     expect(screen.getByText("No approved image on file")).toBeInTheDocument();
     expect(screen.queryByRole("img")).not.toBeInTheDocument();

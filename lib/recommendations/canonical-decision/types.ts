@@ -115,6 +115,7 @@ export interface CanonicalSessionDecision {
   decisionBasisV2?: CanonicalDecisionBasisV2;
   reasonCode: CanonicalDecisionReasonCode;
   personalAdjustmentReason?: "personal_adjusted_up" | "personal_adjusted_down";
+  /** EPIC stays for installed clients; it is not emitted while EPIC_LABEL_ENABLED is false. */
   conditionLabel?: "EPIC" | "GOOD" | "FAIR" | "MEH";
   selection: CanonicalDecisionSelection | null;
   skillEligibility: {

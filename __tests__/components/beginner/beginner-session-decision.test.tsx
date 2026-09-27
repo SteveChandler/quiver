@@ -54,7 +54,7 @@ describe("BeginnerSessionDecision", () => {
       }),
     ).toBeVisible();
     expect(within(region).getByText("YES")).toBeVisible();
-    expect(within(region).getByText("Go surf!")).toBeVisible();
+    expect(within(region).getByText("Worth a surf")).toBeVisible();
     expect(within(region).getByText(/ideal 1-2 ft learner surf/i)).toBeVisible();
     expect(within(region).queryByText(/sign in/i)).not.toBeInTheDocument();
     expect(within(region).getByRole("link", { name: /open live huntington beach spots/i })).toHaveAttribute("href", "/ca/huntington-beach");
