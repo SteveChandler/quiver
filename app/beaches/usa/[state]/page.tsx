@@ -43,7 +43,7 @@ const CITY_INTENT_PILLS = [
 
 /**
  * Beach-count threshold for concrete signup-CTA copy. States at or above this
- * render "Which of {State}'s {N} breaks is firing right now?" — below, they
+ * render "Which of {State}'s {N} breaks look good right now?" — below, they
  * fall back to generic copy so "Rhode Island's 3 breaks" doesn't read awkwardly.
  */
 const CONCRETE_COPY_BREAK_THRESHOLD = 20;
@@ -200,7 +200,7 @@ export default async function UsaStatePage(
     ? `When any of ${stateName}'s ${beachCount} breaks fire`
     : "Know when conditions fire at your spots";
   const inlineTitle = useConcreteCopy
-    ? `Which of ${stateName}'s ${beachCount} breaks are firing right now?`
+    ? `Which of ${stateName}'s ${beachCount} breaks look good right now?`
     : `Your next ${stateName} session, delivered`;
   const inlineDescription = useConcreteCopy
     ? "Track any of them. We ping you when yours lights up. Free."

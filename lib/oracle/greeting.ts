@@ -2,8 +2,8 @@
  * Oracle greeting logic — conditions-reactive, tone-matched to surf culture.
  *
  * Priority order (first match wins):
- * 1. High score + early morning → dawn patrol callout
- * 2. High score → fire alert
+ * 1. High score + early morning → first-light callout
+ * 2. High score → good-surf callout
  * 3. Long-period swell → period callout
  * 4. Flat conditions → rest day
  * 5. Onshore wind → blown out
@@ -25,16 +25,14 @@ export interface GreetingContext {
 export function getOracleGreeting(ctx: GreetingContext): string {
   const { score, hour, swellPeriod, windCondition, userName, beachName, daysAbsent } = ctx;
 
-  // 1. Firing + dawn patrol window
+  // 1. Good surf + dawn patrol window
   if (score !== null && score > 7 && hour < 7) {
-    return `It's going off. Dawn patrol, ${userName}.`;
+    return `Good surf at first light, ${userName}.`;
   }
 
-  // 2. Firing (any hour)
+  // 2. Good surf (any hour)
   if (score !== null && score > 7) {
-    return beachName
-      ? `It's firing at ${beachName}. Don't sleep on this.`
-      : "It's firing out there. Don't sleep on this.";
+    return beachName ? `Good surf at ${beachName}.` : "Good surf out there.";
   }
 
   // 3. Long-period swell
