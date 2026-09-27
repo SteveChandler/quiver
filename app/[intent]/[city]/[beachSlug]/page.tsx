@@ -276,6 +276,9 @@ export default async function GenericBeachDetailPage(props: PageProps) {
     });
     const hourlyChart = buildHourlyChart(hourlyForecasts, { start: windowStart, end: windowEnd });
     const localDate = getLocalDateString(new Date(), beachTz);
+    const callLocalDate = surfCallIsTomorrow
+      ? new Date(Date.parse(`${localDate}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10)
+      : localDate;
     // The swell field draws the same hour as the hero's swell and wind facts
     // (the context's selected row). With no such row in the table, it draws none.
     const selectedRowAt = forecastContext?.selectedRowTime ? Date.parse(forecastContext.selectedRowTime) : null;
@@ -407,6 +410,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
             heroHeadingLevel="h2"
             layout="visual"
             visualTop={visualTop}
+            weekCall={{ localDate: callLocalDate, call: publicCall }}
             freeGrowthPhaseEnabled={isFreeGrowthPhaseEnabled()}
             beforeTabsContent={
               <Suspense fallback={null}>

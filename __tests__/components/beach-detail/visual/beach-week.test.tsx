@@ -39,6 +39,33 @@ describe("swellGlyphGeometry", () => {
 });
 
 describe("BeachWeek", () => {
+  const twoDays = [day({ fullDate: "2026-09-27", isToday: true, tier: "good" }), day({ fullDate: "2026-09-28", dayName: "Mon", tier: "fair" })];
+
+  it("uses the public call's label on its date, leaving other aggregate tiers alone", () => {
+    render(<BeachWeek days={twoDays} timezone={TZ} weekCall={{ localDate: "2026-09-27", call: { kind: "call", label: "FAIR", action: "Check it" } }} />);
+    const cards = within(screen.getByTestId("beach-week")).getAllByRole("listitem");
+    expect(cards[0]).toHaveTextContent("FAIR");
+    expect(cards[0]).not.toHaveTextContent("GOOD");
+    expect(cards[1]).toHaveTextContent("FAIR");
+  });
+
+  it.each([{ kind: "no_call" as const, reason: "Held" }, { kind: "unknown" as const }])("shows a neutral No call badge for $kind", (call) => {
+    render(<BeachWeek days={twoDays} timezone={TZ} weekCall={{ localDate: "2026-09-27", call }} />);
+    const cards = within(screen.getByTestId("beach-week")).getAllByRole("listitem");
+    expect(cards[0]).toHaveTextContent("No call");
+    expect(cards[0]).not.toHaveTextContent("GOOD");
+    expect(cards[0].querySelector(".zine-display.inline-block")).toHaveStyle({ color: "#BFC0C6" });
+    expect(cards[1]).toHaveTextContent("FAIR");
+  });
+
+  it("moves the override to tomorrow's local date", () => {
+    render(<BeachWeek days={twoDays} timezone={TZ} weekCall={{ localDate: "2026-09-28", call: { kind: "call", label: "GOOD", action: "Go" } }} />);
+    const cards = within(screen.getByTestId("beach-week")).getAllByRole("listitem");
+    expect(cards[0]).toHaveTextContent("GOOD");
+    expect(cards[1]).toHaveTextContent("GOOD");
+    expect(cards[1]).not.toHaveTextContent("FAIR");
+  });
+
   it("labels each day with its tier word, size and low tide", () => {
     render(<BeachWeek days={[day({ isToday: true, dayName: "Sat" })]} timezone={TZ} />);
     const card = within(screen.getByTestId("beach-week")).getAllByRole("listitem")[0];

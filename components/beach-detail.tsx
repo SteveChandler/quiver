@@ -66,6 +66,7 @@ import {
   VISUAL_PAPER_CLASS,
 } from "@/components/beach-detail/visual/beach-visual-shell";
 import { BeachWeek } from "@/components/beach-detail/visual/beach-week";
+import type { PublicSurfCall } from "@/lib/utils/public-surf-call";
 import { buildBeachWeek } from "@/lib/utils/beach-week";
 import { DEFAULT_TIMEZONE } from "@/lib/utils/timezone-constants";
 import { TabLoadingSkeleton } from "@/components/beach-detail/tab-loading-skeleton";
@@ -253,6 +254,7 @@ interface BeachDetailProps {
   afterTabsContent?: ReactNode;
   layout?: "zine" | "visual";
   visualTop?: ReactNode;
+  weekCall?: { localDate: string; call: PublicSurfCall };
   freeGrowthPhaseEnabled?: boolean;
   personalizationData?: {
     score:
@@ -288,6 +290,7 @@ function BeachDetailContent({
   afterTabsContent,
   layout = "zine",
   visualTop,
+  weekCall,
   freeGrowthPhaseEnabled = false,
   personalizationData,
   onPersonalizationRequest,
@@ -1147,7 +1150,7 @@ function BeachDetailContent({
         <BeachVisualShell>
           <BeachBreadcrumb beach={beach as Beach} className={VISUAL_BREADCRUMB_CLASS} />
           {visualTop}
-          <BeachWeek days={week} timezone={beachTimezone || beach.timezone || DEFAULT_TIMEZONE} />
+          <BeachWeek days={week} timezone={beachTimezone || beach.timezone || DEFAULT_TIMEZONE} weekCall={weekCall} />
           {pageBody}
         </BeachVisualShell>
       ) : (
