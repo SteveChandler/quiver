@@ -564,7 +564,7 @@ describe("First-Session-Nudge Push Cron", () => {
       expect(call.payload.beach_id).toBeNull();
     });
 
-    it("free_home_firing → '✨ {beach} is looking good' when confidence>=70", async () => {
+    it("free_home_firing → 'Good window at your home break' when confidence>=70", async () => {
       jest.useFakeTimers().setSystemTime(new Date("2026-07-17T17:00:00.000Z"));
       setupBase("u-fhf", {
         home_beach_id: "11111111-1111-4111-8111-111111111111",

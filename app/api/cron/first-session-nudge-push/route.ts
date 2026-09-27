@@ -15,7 +15,7 @@
  * Cohort branching (5-way):
  *   - Trialing + home beach             → "Unlock your Quiver"
  *   - Trialing + no home beach          → "Set your home break"
- *   - Free + home + conditions>=70      → "✨ {beach} is looking good"
+ *   - Free + home + conditions>=70      → "Good window at your home break"
  *   - Free + home                       → "How was this week?"
  *   - Free + no home                    → "Been out this week?"
  *

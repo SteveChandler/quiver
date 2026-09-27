@@ -133,10 +133,10 @@ export function AnonAlertCaptureForm({
       onSubmit={handleSubmit}
       className="rounded-lg border border-[#404C92] bg-[#1E2660] p-5 space-y-3"
       data-testid="anon-alert-capture-form"
-      aria-label={`Email me when ${beachName} is firing`}
+      aria-label={`Email me when ${beachName} is worth a surf`}
     >
       <p className="text-base font-bold text-white">
-        Email me when {beachName} is firing
+        Email me when {beachName} is worth a surf
       </p>
       {/* Honeypot — hidden from users + screen readers. */}
       <input

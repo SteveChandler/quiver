@@ -20,7 +20,7 @@ import {
 } from "@/actions/tools/swell-analyzer-actions";
 import { ratePeriod } from "@/lib/utils/swell-period-rating";
 import { degreesToCardinal } from "@/lib/utils/geo-utils";
-import { analyzeSwellMatch } from "@/lib/analyzers/swell-analyzer";
+import { analyzeSwellMatch, swellMatchShareText } from "@/lib/analyzers/swell-analyzer";
 import { BeachSearchAutocomplete } from "@/components/beach/beach-search-autocomplete";
 import type { Beach } from "@/types/database";
 import { ToolHero } from "@/components/tools/tool-hero";
@@ -306,7 +306,7 @@ export function SwellAnalyzerClient({
                   beachName={beachData.beach.name}
                   shareText={
                     beachSwellMatch
-                      ? `Swell is ${{ optimal: "firing", acceptable: "workable", poor: "poor" }[beachSwellMatch.status] ?? beachSwellMatch.status} at ${beachData.beach.name} right now`
+                      ? swellMatchShareText(beachSwellMatch.status, beachData.beach.name)
                       : undefined
                   }
                 />
