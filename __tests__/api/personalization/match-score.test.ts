@@ -8,7 +8,20 @@ import { GET } from "@/app/api/personalization/match-score/route";
 const mockUser = { id: "user-1" };
 const rpc = jest.fn();
 const mockServiceRpc = jest.fn();
+const mockFetchUserBoardContext = jest.fn();
+const mockGetProfileExperienceLevel = jest.fn();
+const mockRecommendBoard = jest.fn();
 let entitlementRow: Record<string, unknown> | null = { is_pro: true };
+
+jest.mock("@/lib/services/discovery/surf-discovery-orchestrator", () => ({
+  fetchUserBoardContext: (...args: unknown[]) => mockFetchUserBoardContext(...args),
+}));
+jest.mock("@/lib/profile/skill-level", () => ({
+  getProfileExperienceLevel: (...args: unknown[]) => mockGetProfileExperienceLevel(...args),
+}));
+jest.mock("@/lib/scoring/personal-board", () => ({
+  recommendBoard: (...args: unknown[]) => mockRecommendBoard(...args),
+}));
 
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: () => ({ rpc: mockServiceRpc }),
@@ -25,10 +38,12 @@ jest.mock("@/lib/middleware/api-wrappers", () => {
           user: mockUser,
           supabase: {
             rpc,
-            from: () => ({
+            from: (table: string) => ({
               select: () => ({
                 eq: () => ({
-                  maybeSingle: async () => ({ data: entitlementRow, error: null }),
+                  maybeSingle: async () => ({ data: table === "beaches"
+                    ? { id: "beach-1", break_type: "beach", preferred_tide_ft_min: 1, preferred_tide_ft_max: 5 }
+                    : entitlementRow, error: null }),
                 }),
               }),
             }),
@@ -51,6 +66,9 @@ describe("GET /api/personalization/match-score", () => {
     jest.clearAllMocks();
     process.env.PERSONALIZATION_BETA_USER_IDS = originalBetaUserIds;
     entitlementRow = { is_pro: true };
+    mockFetchUserBoardContext.mockResolvedValue({ boardsForPicks: [{ id: "board-1", name: "Twin pin", board_type: "shortboard" }] });
+    mockGetProfileExperienceLevel.mockResolvedValue("advanced");
+    mockRecommendBoard.mockReturnValue(null);
     rpc.mockResolvedValue({
       data: {
         state: "ready",
@@ -99,6 +117,53 @@ describe("GET /api/personalization/match-score", () => {
     });
     expect(json.data.latency_ms).toEqual(expect.any(Number));
     expect(json.data.reason_bullets.join(" ")).not.toMatch(/profile peak/i);
+    expect(json.data).toMatchObject({ board_pick: null, board_tip: null });
+  });
+
+  it("attaches the picker board and its reason, ignoring a legacy RPC tip", async () => {
+    const pick = { id: "board-1", name: "Twin pin", type: "shortboard", boardClass: "shortboard",
+      reason: "Twin pin fits these conditions; limited similar session history", alternates: [] };
+    mockRecommendBoard.mockReturnValue(pick);
+    rpc.mockResolvedValue({ data: { state: "learned", score: 8.4, sessions_in_profile: 15,
+      board_tip: "Legacy board", reason_bullets: ["Wave height 3 ft — profile peak 3 ft"] }, error: null });
+
+    const response = await GET(makeRequest("&forecast_at=2026-09-28T15%3A00%3A00Z&tide_status=rising"));
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.data.board_pick).toEqual({ id: pick.id, name: pick.name, type: pick.type,
+      board_class: pick.boardClass, reason: pick.reason });
+    expect(json.data.board_tip).toBe("Twin pin");
+    expect(json.data.reason_facts).toContainEqual({ kind: "board_fit", value: "Twin pin" });
+    expect(json.data.reason_bullets).toContain(pick.reason);
+    expect(mockFetchUserBoardContext).toHaveBeenCalledWith(expect.anything(), "user-1", true);
+    expect(mockRecommendBoard).toHaveBeenCalledWith(expect.any(Array),
+      expect.objectContaining({ forecast_at: "2026-09-28T15:00:00.000Z", wind_direction_deg: 210, tide_status: "rising" }),
+      expect.objectContaining({ id: "beach-1" }), "advanced");
+  });
+
+  it("keeps a learned response successful when board loading rejects", async () => {
+    mockFetchUserBoardContext.mockRejectedValue(new Error("board read failed"));
+    rpc.mockResolvedValue({ data: { state: "learned", score: 8.4, sessions_in_profile: 15,
+      board_tip: "Legacy board", reason_bullets: [] }, error: null });
+
+    const response = await GET(makeRequest());
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.data).toMatchObject({ state: "learned", board_pick: null, board_tip: null });
+    expect(json.data.reason_facts).not.toContainEqual({ kind: "board_fit", value: "Legacy board" });
+  });
+
+  it("attaches a pick for avoidance learned state", async () => {
+    mockRecommendBoard.mockReturnValue({ id: "board-1", name: "Twin pin", type: "shortboard",
+      boardClass: "shortboard", reason: "Fits these conditions", alternates: [] });
+    rpc.mockResolvedValue({ data: { state: "avoidance_learned", score: null,
+      sessions_in_profile: 5, profile_kind: "neutral" }, error: null });
+
+    const json = await (await GET(makeRequest())).json();
+    expect(json.data).toMatchObject({ state: "avoidance_learned", board_tip: "Twin pin",
+      board_pick: { name: "Twin pin" } });
   });
 
   it("returns starter prior scores through the authenticated route", async () => {
@@ -139,6 +204,8 @@ describe("GET /api/personalization/match-score", () => {
       ]),
     });
     expect(json.data.reason_bullets[0]).toBe(body);
+    expect(json.data).toMatchObject({ board_pick: null, board_tip: null });
+    expect(mockFetchUserBoardContext).not.toHaveBeenCalled();
   });
 
   it("returns locked for free users even if raw scoring facts exist", async () => {
@@ -155,6 +222,7 @@ describe("GET /api/personalization/match-score", () => {
     });
     expect(rpc).not.toHaveBeenCalled();
     expect(mockServiceRpc).not.toHaveBeenCalled();
+    expect(mockFetchUserBoardContext).not.toHaveBeenCalled();
   });
 
   it("returns learned through the server core scorer for TestFlight bypass users", async () => {
@@ -205,5 +273,11 @@ describe("GET /api/personalization/match-score", () => {
 
     expect(response.status).toBe(400);
     expect(json.error).toMatch(/beach_id is required/i);
+  });
+
+  it("rejects an invalid forecast timestamp", async () => {
+    const response = await GET(makeRequest("&forecast_at=not-a-date"));
+    expect(response.status).toBe(400);
+    expect(mockFetchUserBoardContext).not.toHaveBeenCalled();
   });
 });
