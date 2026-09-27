@@ -1,4 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { createContextLogger } from "@/lib/logger";
+import type { RecommendedBoard } from "@/lib/scoring/personal-board";
 import {
   BETA_ACCESS_NOT_ENABLED,
   BILLING_ISSUE_LOCKED,
@@ -21,6 +23,8 @@ const AVOIDANCE_BODY =
 
 const DEGRADED_BODY =
   "Forecasts are still available. Retry personal match when you are ready.";
+
+const log = createContextLogger("PersonalizationMatchScore");
 
 type MatchState =
   | "locked"
@@ -83,6 +87,7 @@ interface MatchScoreResponse {
   latency_ms: number;
   body?: string;
   board_tip?: string | null;
+  board_pick?: { id: string; name: string; type: string; board_class: string; reason: string } | null;
   profile_kind?: string | null;
   lock_reason?: "free" | "billing_issue" | "disabled";
 }
@@ -112,6 +117,7 @@ interface ResolveMatchScoreStateInput {
   eligibilitySource: PersonalizationEligibilityResult["source"];
   forecast: MatchScoreForecastInput;
   rpcResult: RawMatchScoreResult;
+  boardPick?: RecommendedBoard | null;
 }
 
 type MatchScoreRpcClient = Pick<SupabaseClient, "rpc">;
@@ -174,6 +180,7 @@ function reasonFactsFor(
   sessionCount: number,
   sessionsNeeded: number,
   rpcResult: RawMatchScoreResult = {},
+  boardPick?: RecommendedBoard | null,
 ): MatchReasonFact[] {
   const facts: MatchReasonFact[] = [
     { kind: "session_count", value: sessionCount },
@@ -183,8 +190,8 @@ function reasonFactsFor(
     ...forecastFacts(forecast),
   ];
 
-  if (rpcResult.board_tip) {
-    facts.push({ kind: "board_fit", value: rpcResult.board_tip });
+  if (boardPick) {
+    facts.push({ kind: "board_fit", value: boardPick.name });
   }
   if (rpcResult.profile_kind) {
     facts.push({ kind: "profile_kind", value: rpcResult.profile_kind });
@@ -230,14 +237,15 @@ function learnedReasons(
   rpcResult: RawMatchScoreResult,
   forecast: MatchScoreForecastInput,
   sessionCount: number,
+  boardPick?: RecommendedBoard | null,
 ): string[] {
   const clean = (rpcResult.reason_bullets ?? []).filter(
     (reason) => reason && !hasDebugCopy(reason),
   );
   const generated = [
     `This window sits around ${forecast.waveHeight} ft at ${forecast.wavePeriod}s with ${forecast.windSpeed} mph wind.`,
-    rpcResult.board_tip
-      ? `${rpcResult.board_tip} has worked for your better sessions in similar surf.`
+    boardPick
+      ? boardPick.reason
       : `Tide near ${forecast.tideHeight} ft keeps this tied to the current window, not a generic beach score.`,
     "Keep rating sessions to sharpen the call.",
   ];
@@ -393,6 +401,7 @@ export function resolveMatchScoreState({
   eligibilitySource,
   forecast,
   rpcResult,
+  boardPick,
 }: ResolveMatchScoreStateInput): MatchScoreResponse {
   const sessionCount = coerceCount(
     rpcResult.session_count ?? rpcResult.sessions_in_profile,
@@ -419,9 +428,11 @@ export function resolveMatchScoreState({
       quality_band: "mixed_signal",
       score: null,
       reason_type: "avoidance_learning",
-      reason_facts: reasonFactsFor(forecast, sessionCount, 0, rpcResult),
+      reason_facts: reasonFactsFor(forecast, sessionCount, 0, rpcResult, boardPick),
       latency_ms: 0,
-      board_tip: rpcResult.board_tip ?? null,
+      board_tip: boardPick?.name ?? null,
+      board_pick: boardPick ? { id: boardPick.id, name: boardPick.name, type: boardPick.type,
+        board_class: boardPick.boardClass, reason: boardPick.reason } : null,
       profile_kind: rpcResult.profile_kind ?? null,
     };
   }
@@ -457,16 +468,18 @@ export function resolveMatchScoreState({
   return {
     state: "learned",
     fit_label: rpcResult.fit_label ?? rpcResult.label ?? "FAIR",
-    reason_bullets: learnedReasons(rpcResult, forecast, sessionCount),
+    reason_bullets: learnedReasons(rpcResult, forecast, sessionCount, boardPick),
     session_count: sessionCount,
     sessions_needed: 0,
     source: sourceForEligible(eligibilitySource, true),
     quality_band: qualityBandFor(sessionCount, rpcResult),
     score: coerceScore(rpcResult.score),
     reason_type: "session_history",
-    reason_facts: reasonFactsFor(forecast, sessionCount, 0, rpcResult),
+    reason_facts: reasonFactsFor(forecast, sessionCount, 0, rpcResult, boardPick),
     latency_ms: 0,
-    board_tip: rpcResult.board_tip ?? null,
+    board_tip: boardPick?.name ?? null,
+    board_pick: boardPick ? { id: boardPick.id, name: boardPick.name, type: boardPick.type,
+      board_class: boardPick.boardClass, reason: boardPick.reason } : null,
     profile_kind: rpcResult.profile_kind ?? null,
   };
 }
@@ -479,6 +492,7 @@ export async function getPersonalizationMatchScore(
     betaAccessRequired?: boolean;
     personalizationDisabled?: boolean;
     createScoringClient?: () => Promise<MatchScoreRpcClient> | MatchScoreRpcClient;
+    loadBoardPick?: () => Promise<RecommendedBoard | null>;
     now?: () => number;
   } = {},
 ): Promise<MatchScoreResponse> {
@@ -486,6 +500,8 @@ export async function getPersonalizationMatchScore(
   const startedAt = now();
   const withLatency = (response: MatchScoreResponse): MatchScoreResponse => ({
     ...response,
+    board_pick: response.board_pick ?? null,
+    board_tip: response.board_tip ?? null,
     latency_ms: Math.max(0, Math.round(now() - startedAt)),
   });
 
@@ -520,11 +536,19 @@ export async function getPersonalizationMatchScore(
 
   if (error) return withLatency(degradedMatchScoreResponse());
 
-  return withLatency(
-    resolveMatchScoreState({
-      eligibilitySource: eligibility.source,
-      forecast,
-      rpcResult: (data ?? {}) as RawMatchScoreResult,
-    }),
-  );
+  const input: ResolveMatchScoreStateInput = {
+    eligibilitySource: eligibility.source,
+    forecast,
+    rpcResult: (data ?? {}) as RawMatchScoreResult,
+  };
+  let response = resolveMatchScoreState(input);
+  if ((response.state === "learned" || response.state === "avoidance_learned") && options.loadBoardPick) {
+    try {
+      const boardPick = await options.loadBoardPick();
+      if (boardPick) response = resolveMatchScoreState({ ...input, boardPick });
+    } catch (error) {
+      log.warn("Failed to load board pick for match score", error);
+    }
+  }
+  return withLatency(response);
 }
