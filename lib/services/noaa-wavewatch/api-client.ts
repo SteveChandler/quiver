@@ -14,7 +14,7 @@ import type { NOAAWavePoint, NOAAGridData, OpenMeteoMarineResponse } from "./typ
 const log = createContextLogger("NOAAWaveWatch:APIClient");
 
 /**
- * In-memory cache of resolved NOAA grid points, keyed by original beach
+ * In-memory cache of resolved NOAA grid points, keyed by sampled ocean
  * coordinate. NOAA grids are stable over 24h+, and a single beach may
  * fetch forecasts many times a day across the web + cron pipelines — caching
  * the resolved `NOAAWavePoint` avoids repeated `/points/{lat},{lon}` calls.
@@ -57,7 +57,7 @@ function cacheKey(lat: number, lon: number): string {
  * return zeroed `primarySwellHeight` / `secondarySwellHeight` / `wavePeriod2`
  * partitions even when the offshore neighbor grid carries real values.
  *
- * Results are cached per original beach coordinate for 24h.
+ * A reviewed point bypasses the regional shift. Cache keys use the sampled point.
  *
  * @param latitude - Latitude in decimal degrees (beach coordinate)
  * @param longitude - Longitude in decimal degrees (beach coordinate)
@@ -65,19 +65,21 @@ function cacheKey(lat: number, lon: number): string {
  */
 export async function fetchNOAAPointData(
   latitude: number,
-  longitude: number
+  longitude: number,
+  reviewedPoint?: readonly [number, number],
 ): Promise<NOAAWavePoint | null> {
-  const key = cacheKey(latitude, longitude);
+  const oceanPoint = reviewedPoint
+    ? { lat: reviewedPoint[0], lon: reviewedPoint[1] }
+    : getOceanGridPoint(latitude, longitude);
+  if (!Number.isFinite(oceanPoint.lat) || !Number.isFinite(oceanPoint.lon) || Math.abs(oceanPoint.lat) > 90 || Math.abs(oceanPoint.lon) > 180) return null;
+  const key = cacheKey(oceanPoint.lat, oceanPoint.lon);
   const cached = pointCache.get(key);
   if (cached && cached.expiresAt > Date.now()) {
     return cached.value;
   }
 
   try {
-    const { lat: oceanLat, lon: oceanLon } = getOceanGridPoint(
-      latitude,
-      longitude
-    );
+    const { lat: oceanLat, lon: oceanLon } = oceanPoint;
     const pointsUrl = `${API_ENDPOINTS.NWS_POINTS_BASE}/${oceanLat},${oceanLon}`;
     log.debug(`Fetching NOAA NWS grid point data from: ${pointsUrl}`);
 

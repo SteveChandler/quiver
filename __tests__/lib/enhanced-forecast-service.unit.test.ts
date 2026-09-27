@@ -131,6 +131,22 @@ describe("EnhancedForecastService (unit)", () => {
     jest.clearAllMocks();
   });
 
+  it("passes a coordinate-matched reviewed NOAA anchor into the wave service", async () => {
+    const service = new EnhancedForecastService();
+    const waveService = service["dataSourceManager"].getWaveWatchService();
+    await service["fetchWaveDataWithRetry"]({
+      ...beach,
+      lat: 35.22,
+      lon: -75.63,
+      preference_model: { forecast_anchors: {
+        nws_point_reviewed: true,
+        nws_original_coordinate: [35.22, -75.63],
+        nws_used_coordinate: [35.17, -75.61],
+      } },
+    });
+    expect(waveService.fetchWaveWatchForecast).toHaveBeenCalledWith(35.22, -75.63, expect.any(Number), [35.17, -75.61]);
+  });
+
   it("generates forecasts using CDIP when available (happy path)", async () => {
     // Mock at the highest level - mock the entire generateComprehensiveForecast result
     // This avoids complex nested service mocking issues after refactoring

@@ -39,6 +39,11 @@ describe('NOAACOOPSService', () => {
     jest.clearAllMocks();
   });
 
+  it('keeps the Oregon Rockaway Beach fallback separate from New York Rockaway', () => {
+    expect(service.getStationForLocation('Rockaway Beach', 45.61469, -123.94836)).toBe('9437540');
+    expect(service.getStationForLocation('Rockaway', 40.58, -73.82)).toBe('8531680');
+  });
+
   describe('fetchCachedTides', () => {
     const beachId = 'test-beach-uuid-123';
 
