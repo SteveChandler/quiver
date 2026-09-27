@@ -33,7 +33,7 @@ export function BeachHourlyChart({ chart, timezone }: { chart: HourlyChart; time
   return (
     <figure data-testid="beach-hourly-chart" className="m-0 min-w-0 rounded-2xl border border-[#F5EEDC]/15 bg-[#F5EEDC]/5 p-4">
       <div className="overflow-x-auto">
-        <div style={{ minWidth: points.length * 50 }}>
+        <div style={{ minWidth: points.length * 32 }}>
           <svg role="img" aria-label="Surf height by hour, with the tide and wind" viewBox={`0 0 ${W} ${H}`} className="block h-auto w-full">
             {points.map((p, i) => {
               const x = slot * i + (slot - barWidth) / 2;
@@ -61,7 +61,7 @@ export function BeachHourlyChart({ chart, timezone }: { chart: HourlyChart; time
             {tidePath ? <path data-tide-line d={tidePath} fill="none" stroke="#7FA7B8" strokeWidth={3} /> : null}
           </svg>
           <div data-testid="beach-hourly-time-labels" className="grid font-mono text-xs text-[#F5EEDC]/60" style={{ gridTemplateColumns: `repeat(${points.length}, minmax(0, 1fr))` }}>
-            {points.map((point, i) => <span key={point.at} className="text-center">{i % 2 === 0 ? formatTimeCasual(point.at, timezone) : null}</span>)}
+            {points.map((point, i) => <span key={point.at} className="text-center first:text-left last:text-right">{i % 2 === 0 ? formatTimeCasual(point.at, timezone) : null}</span>)}
           </div>
         </div>
       </div>

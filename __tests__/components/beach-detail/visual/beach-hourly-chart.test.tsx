@@ -34,6 +34,17 @@ describe("BeachHourlyChart", () => {
     expect(screen.getByRole("img")).not.toHaveTextContent("10am");
   });
 
+  it("fits eight forecast slots on mobile and anchors the edge labels inward", () => {
+    const chart = { ...CHART, points: Array.from({ length: 8 }, (_, i) => ({
+      ...CHART.points[0], at: new Date(Date.UTC(2026, 8, 27, i * 3)).toISOString(),
+    })) };
+    render(<BeachHourlyChart chart={chart} timezone="America/Los_Angeles" />);
+    const labels = screen.getByTestId("beach-hourly-time-labels");
+    expect(labels.parentElement).toHaveStyle({ minWidth: "256px" });
+    expect(labels.firstElementChild).toHaveClass("first:text-left");
+    expect(labels.lastElementChild).toHaveClass("last:text-right");
+  });
+
   it("renders nothing without points", () => {
     const { container } = render(<BeachHourlyChart chart={{ points: [], maxHeightFt: 0, tideRange: null }} timezone="UTC" />);
     expect(container).toBeEmptyDOMElement();

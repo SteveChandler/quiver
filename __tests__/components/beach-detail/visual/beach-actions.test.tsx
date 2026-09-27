@@ -92,7 +92,15 @@ describe("BeachActions", () => {
     rerender(<BeachActions {...SHARE} beach={BEACH} watchWindow={null} score={null} shareUrl="x" />);
     expect(screen.getByTestId("beach-share-button")).toHaveTextContent("The beach page.");
     rerender(<BeachActions {...SHARE} beach={BEACH} watchWindow={null} score={null} shareUrl="x" hasCamStill call={{ kind: "call", label: "FAIR", action: "Check it" }} />);
-    expect(screen.getByTestId("beach-share-button")).toHaveTextContent("The cam still, surf call.");
+    expect(screen.getByTestId("beach-share-button")).toHaveTextContent("The cam still and the surf call.");
+  });
+
+  it.each([
+    [true, "The cam still, the water temp and the surf call."],
+    [false, "The water temp and the surf call."],
+  ] as const)("joins shared facts naturally (cam: %s)", (hasCamStill, subtitle) => {
+    render(<BeachActions {...SHARE} beach={BEACH} watchWindow={null} score={61} shareUrl="x" hasCamStill={hasCamStill} waterTempF={68} call={{ kind: "call", label: "FAIR", action: "Check it" }} />);
+    expect(screen.getByTestId("beach-share-button")).toHaveTextContent(subtitle);
   });
 
   it("copies the link when the browser can't share", async () => {

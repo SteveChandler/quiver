@@ -97,7 +97,9 @@ export function BeachActions({ beach, watchWindow, score, shareUrl, hasCamStill,
 
   const watchText =
     watchState === "watching" ? "Watching" : canWatchHere && watchWindow ? `Watch ${watchWindow.label}` : "Open in the app";
-  const shareDetails = [hasCamStill ? "cam still" : null, waterTempF != null ? "water temp" : null, call.kind === "call" ? "surf call" : null].filter(Boolean);
+  const shareDetails = [hasCamStill ? "cam still" : null, waterTempF != null ? "water temp" : null, call.kind === "call" ? "surf call" : null].filter((detail): detail is string => detail !== null);
+  const shareList = new Intl.ListFormat("en-GB", { style: "long", type: "conjunction" })
+    .format(shareDetails.map((detail, i) => i === 0 ? detail : `the ${detail}`));
 
   return (
     <div className="mt-4 grid gap-3 md:grid-cols-[1.25fr_1fr]">
@@ -120,7 +122,7 @@ export function BeachActions({ beach, watchWindow, score, shareUrl, hasCamStill,
         <Share2 aria-hidden className="h-5 w-5 shrink-0" />
         <span>
           <span className="block text-base font-bold">Share {beach.name} today</span>
-          <span className="block text-sm text-[#3d3326]">{shareDetails.length ? `The ${shareDetails.join(", ")}.` : "The beach page."}</span>
+          <span className="block text-sm text-[#3d3326]">{shareDetails.length ? `The ${shareList}.` : "The beach page."}</span>
         </span>
       </button>
       {sheetOpen && appLink && watchWindow ? (
