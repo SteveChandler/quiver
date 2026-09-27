@@ -7,6 +7,7 @@
 
 import { cache } from "react";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { getLocalDateString } from "@/lib/utils/timezone-utils";
 import { DEFAULT_TIMEZONE } from "@/lib/utils/timezone-constants";
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 
@@ -22,6 +23,7 @@ export interface TideMetaData {
   /** Interior turning points for the beach page, excluding incomplete endpoints. */
   nextInteriorHighTime: string | null;
   nextInteriorLowTime: string | null;
+  nextInteriorLowAt: string | null;
 }
 
 /**
@@ -36,6 +38,19 @@ function formatTideTime(ts: string | Date, timezone: string = DEFAULT_TIMEZONE):
     hour12: true,
     timeZone: timezone,
   });
+}
+
+function formatInteriorTideTime(ts: string, now: Date, timezone: string): string {
+  const localDate = getLocalDateString(new Date(ts), timezone);
+  const today = getLocalDateString(now, timezone);
+  const time = formatTideTime(ts, timezone);
+  if (localDate === today) return time;
+  const tomorrow = new Date(`${today}T00:00:00Z`);
+  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+  const day = localDate === tomorrow.toISOString().slice(0, 10)
+    ? "Tomorrow"
+    : new Date(ts).toLocaleDateString("en-US", { weekday: "long", timeZone: timezone });
+  return `${day} ${time}`;
 }
 
 const METERS_TO_FEET = 3.28084;
@@ -102,11 +117,12 @@ export function findNextTideExtremes(
 }
 
 /** Only complete three-point turns count as tide events on the beach page. */
-export function findNextInteriorTideExtremes(rows: readonly TideHeightRow[]): NextTideExtremes {
+export function findNextInteriorTideExtremes(rows: readonly TideHeightRow[], now: Date): NextTideExtremes {
   let nextHigh: NextTideExtremes["nextHigh"] = null;
   let nextLow: NextTideExtremes["nextLow"] = null;
 
   for (let i = 1; i < rows.length - 1; i++) {
+    if (Date.parse(rows[i].ts) < now.getTime()) continue;
     const prev = rows[i - 1].tide_height_m;
     const curr = rows[i].tide_height_m;
     const next = rows[i + 1].tide_height_m;
@@ -137,6 +153,7 @@ export const getTideMetaData = cache(
       nextLowHeight: null,
       nextInteriorHighTime: null,
       nextInteriorLowTime: null,
+      nextInteriorLowAt: null,
     };
 
     if (!beachId) return nullResult;
@@ -169,7 +186,7 @@ export const getTideMetaData = cache(
         .from("tide_forecasts")
         .select("ts, tide_height_m, tide_phase")
         .eq("beach_id", beachId)
-        .gte("ts", now.toISOString())
+        .gte("ts", new Date(now.getTime() - 60 * 60 * 1000).toISOString())
         .lte("ts", endTime.toISOString())
         .order("ts", { ascending: true });
 
@@ -177,16 +194,17 @@ export const getTideMetaData = cache(
         return nullResult;
       }
 
-      const { nextHigh, nextLow } = findNextTideExtremes(rows);
-      const { nextHigh: interiorHigh, nextLow: interiorLow } = findNextInteriorTideExtremes(rows);
+      const { nextHigh, nextLow } = findNextTideExtremes(rows.filter((row) => Date.parse(row.ts) >= now.getTime()));
+      const { nextHigh: interiorHigh, nextLow: interiorLow } = findNextInteriorTideExtremes(rows, now);
 
       return {
         nextHighTime: nextHigh ? formatTideTime(nextHigh.ts, timezone) : null,
         nextLowTime: nextLow ? formatTideTime(nextLow.ts, timezone) : null,
         nextHighHeight: nextHigh ? Math.round(nextHigh.heightFt * 10) / 10 : null,
         nextLowHeight: nextLow ? Math.round(nextLow.heightFt * 10) / 10 : null,
-        nextInteriorHighTime: interiorHigh ? formatTideTime(interiorHigh.ts, timezone) : null,
-        nextInteriorLowTime: interiorLow ? formatTideTime(interiorLow.ts, timezone) : null,
+        nextInteriorHighTime: interiorHigh ? formatInteriorTideTime(interiorHigh.ts, now, timezone) : null,
+        nextInteriorLowTime: interiorLow ? formatInteriorTideTime(interiorLow.ts, now, timezone) : null,
+        nextInteriorLowAt: interiorLow?.ts ?? null,
       };
     } catch (error) {
       console.error("[getTideMetaData] Error fetching tide data:", {

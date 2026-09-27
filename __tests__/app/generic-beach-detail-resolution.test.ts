@@ -17,6 +17,7 @@ import type { Beach } from "@/types/database";
 import { notFound, redirect } from "next/navigation";
 import { renderToStaticMarkup } from "react-dom/server";
 import { CHRONICALLY_IMPACTED_WATER_QUALITY_BEACH_IDS } from "@/lib/recommendations/major-event-hold/water-quality";
+import { getTideMetaData } from "@/lib/seo/tide-meta-data";
 import { rowToSwellPartition } from "@/lib/domains/conditions/map-forecast";
 
 // Mock React's cache function for server components
@@ -377,6 +378,27 @@ describe("GenericBeachDetailPage slug resolution", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (getForecastIndexabilityForBeaches as jest.Mock).mockResolvedValue(new Map());
+  });
+
+  it.each([
+    ["2026-09-28T03:00:00Z", "8:00 PM", true],
+    ["2026-09-28T11:00:00Z", "Tomorrow 4:00 AM", false],
+  ])("limits the hero's low fact to today: %s", async (nextInteriorLowAt, nextInteriorLowTime, isToday) => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-09-28T02:05:00Z"));
+    try {
+      (getBeachesBySlug as jest.Mock).mockResolvedValue({ success: true, data: [makeBeach({})] });
+      (getTideMetaData as jest.Mock).mockResolvedValueOnce({ nextInteriorLowAt, nextInteriorLowTime });
+      const html = renderToStaticMarkup(await GenericBeachDetailPage({
+        params: Promise.resolve({ intent: "ca", city: "dana-point", beachSlug: "lower-trestles" }),
+      }));
+      const hero = html.split('data-testid="beach-visual-hero"')[1].split("</section>")[0];
+      expect(hero).toContain("Beach day today");
+      expect(hero.includes(`Low ${nextInteriorLowTime}`)).toBe(isToday);
+      expect(hero.includes("Low ")).toBe(isToday);
+      expect(html).toContain(nextInteriorLowTime);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it("returns a true 404 (NEXT_NOT_FOUND) when no beaches match the slug", async () => {

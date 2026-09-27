@@ -10,7 +10,7 @@ const BASE = {
   timezone: "America/Los_Angeles",
   localDate: "2026-09-27",
   waterTemp: { tempF: 73, wetsuitRec: "Boardshorts" },
-  tide: { nextLowTime: "4:00 PM", nextLowHeight: 1.1, nextHighTime: "3:00 PM", nextHighHeight: 5.1, nextInteriorLowTime: "3:10 PM", nextInteriorHighTime: "9:52 PM" },
+  tide: { nextLowTime: "4:00 PM", nextLowHeight: 1.1, nextHighTime: "3:00 PM", nextHighHeight: 5.1, nextInteriorLowTime: "3:10 PM", nextInteriorLowAt: "2026-09-27T22:10:00Z", nextInteriorHighTime: "9:52 PM" },
   waterQuality: null,
   links: { waterTemp: "/ca/san-diego/tourmaline/water-temp", tides: "/ca/san-diego/tourmaline/tides" },
 };
@@ -31,6 +31,12 @@ describe("BeachDayColumn", () => {
     expect(col).toHaveTextContent("6:42 PM");
     expect(screen.getByRole("link", { name: /water temp/i })).toHaveAttribute("href", BASE.links.waterTemp);
     expect(screen.getByRole("link", { name: /tide chart/i })).toHaveAttribute("href", BASE.links.tides);
+  });
+
+  it("shows qualified times for tomorrow's turns", () => {
+    render(<BeachDayColumn {...BASE} tide={{ ...BASE.tide, nextInteriorLowTime: "Tomorrow 4:00 AM", nextInteriorHighTime: "Tomorrow 10:00 AM" }} />);
+    expect(screen.getByTestId("beach-day-column")).toHaveTextContent("Tomorrow 4:00 AM");
+    expect(screen.getByTestId("beach-day-column")).toHaveTextContent("High Tomorrow 10:00 AM");
   });
 
   it("never says the water is clean, even for a stored 'good' sample", () => {
@@ -57,7 +63,7 @@ describe("BeachDayColumn", () => {
     render(
       <BeachDayColumn
         {...BASE}
-        tide={{ nextLowTime: null, nextLowHeight: null, nextHighTime: "3:00 PM", nextHighHeight: 5.1, nextInteriorLowTime: null, nextInteriorHighTime: "9:52 PM" }}
+        tide={{ nextLowTime: null, nextLowHeight: null, nextHighTime: "3:00 PM", nextHighHeight: 5.1, nextInteriorLowTime: null, nextInteriorLowAt: null, nextInteriorHighTime: "9:52 PM" }}
       />
     );
     expect(screen.getByTestId("beach-day-column")).toHaveTextContent("Next high tide");

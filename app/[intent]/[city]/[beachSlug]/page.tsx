@@ -306,7 +306,8 @@ export default async function GenericBeachDetailPage(props: PageProps) {
           }}
           beachDay={{
             water: waterTemp.tempF != null ? [`${waterTemp.tempF}°F`, waterTemp.wetsuitRec].filter(Boolean).join(" · ") : null,
-            nextLow: tideMeta.nextInteriorLowTime ? `Low ${tideMeta.nextInteriorLowTime}` : null,
+            nextLow: tideMeta.nextInteriorLowAt && getLocalDateString(new Date(tideMeta.nextInteriorLowAt), beachTz) === localDate
+              ? `Low ${tideMeta.nextInteriorLowTime}` : null,
             advisory: waterQualityResult?.status === "advisory" || waterQualityResult?.status === "closure" ? "Water-quality advisory" : null,
           }}
         />
