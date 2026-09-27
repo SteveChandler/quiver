@@ -30,6 +30,12 @@ describe("swellGlyphGeometry", () => {
     expect(swellGlyphGeometry({ directionDeg: 270, periodS: 11, heightFt: 2 }).rotationDeg).toBe(0);
     expect(swellGlyphGeometry({ directionDeg: 225, periodS: 11, heightFt: 2 }).rotationDeg).toBe(-45);
   });
+
+  it("wraps direction around 0° so nearby angles tilt the same way", () => {
+    expect(swellGlyphGeometry({ directionDeg: 350, periodS: 11, heightFt: 2 }).rotationDeg).toBe(80);
+    expect(swellGlyphGeometry({ directionDeg: 10, periodS: 11, heightFt: 2 }).rotationDeg).toBe(80);
+    expect(swellGlyphGeometry({ directionDeg: 180, periodS: 11, heightFt: 2 }).rotationDeg).toBe(-80);
+  });
 });
 
 describe("BeachWeek", () => {

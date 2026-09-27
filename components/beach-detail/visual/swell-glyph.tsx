@@ -10,7 +10,8 @@ export interface SwellGlyphGeometry {
 export function swellGlyphGeometry(swell: BeachWeekSwell): SwellGlyphGeometry {
   const lines = swell.periodS >= 14 ? 2 : swell.periodS >= 10 ? 3 : 4;
   const strokeWidth = Math.min(4, Math.max(1.4, Math.round((1 + swell.heightFt * 0.5) * 10) / 10));
-  const rotationDeg = Math.max(-80, Math.min(80, swell.directionDeg - 270));
+  const delta = ((swell.directionDeg - 270 + 540) % 360) - 180;
+  const rotationDeg = Math.max(-80, Math.min(80, delta));
   return { lines, strokeWidth, rotationDeg };
 }
 
