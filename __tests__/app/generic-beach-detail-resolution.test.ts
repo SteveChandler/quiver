@@ -14,7 +14,7 @@ import {
 import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
 import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 import type { Beach } from "@/types/database";
-import { notFound, redirect } from "next/navigation";
+import { notFound, redirect, useSearchParams } from "next/navigation";
 import { renderToStaticMarkup } from "react-dom/server";
 import { CHRONICALLY_IMPACTED_WATER_QUALITY_BEACH_IDS } from "@/lib/recommendations/major-event-hold/water-quality";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
@@ -47,7 +47,7 @@ jest.mock("next/headers", () => ({
 }));
 
 jest.mock("next/navigation", () => ({
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: jest.fn(() => new URLSearchParams()),
   notFound: jest.fn(() => {
     const err = new Error("NEXT_NOT_FOUND");
     (err as any).digest = "NEXT_NOT_FOUND";
@@ -385,7 +385,20 @@ function getHeadingTexts(html: string, level: 1 | 2): string[] {
 describe("GenericBeachDetailPage slug resolution", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (useSearchParams as jest.Mock).mockReturnValue(new URLSearchParams());
     (getForecastIndexabilityForBeaches as jest.Mock).mockResolvedValue(new Map());
+  });
+
+  it.each(["", "date=2026-09-29"])("keeps visual forecast HTML free of sign-in asks (%s)", async (query) => {
+    (useSearchParams as jest.Mock).mockReturnValue(new URLSearchParams(query));
+    (getBeachesBySlug as jest.Mock).mockResolvedValue({ success: true, data: [makeBeach({})] });
+    (getSpotSurfReportPublic as jest.Mock).mockResolvedValueOnce(freshForecastResult());
+    const html = renderToStaticMarkup(await GenericBeachDetailPage({
+      params: Promise.resolve({ intent: "ca", city: "dana-point", beachSlug: "lower-trestles" }),
+    }));
+    expect(html).not.toMatch(/sign in|Quiver call/i);
+    expect(html.includes("Selected day:")).toBe(Boolean(query));
+    expect(html).toContain('data-testid="public-forecast-hour"');
   });
 
   it.each([

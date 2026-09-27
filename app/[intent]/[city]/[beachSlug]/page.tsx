@@ -442,6 +442,8 @@ export default async function GenericBeachDetailPage(props: PageProps) {
                   <div className="mt-4"><AmenitiesBadges amenities={amenitiesResult} /></div>
                   <div className="mt-6">
                     <PublicForecastAnswer
+                      layout="visual"
+                      publicCall={publicCall}
                       beach={publicBeach}
                       waterQuality={waterQualityResult}
                       report={publicForecastReport}
@@ -460,6 +462,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
                     <details className="mt-6">
                       <summary className="cursor-pointer text-base font-bold">Full hourly table</summary>
                       <PublicForecastHourly
+                        layout="visual"
                         beachName={publicBeach.name}
                         forecastHours={hourlyForecasts}
                         context={publicForecastContext}

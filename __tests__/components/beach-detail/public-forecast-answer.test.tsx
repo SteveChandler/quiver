@@ -164,6 +164,31 @@ describe("PublicForecastAnswer", () => {
     global.fetch = jest.fn();
   });
 
+  it.each(["", "date=2026-08-10"])("has no visual guest sign-in ask (%s), even without a public window", (query) => {
+    mockSearch = new URLSearchParams(query);
+    renderAnswer({ publicWindow: { start: null, end: null }, props: { layout: "visual" } });
+    const answer = screen.getByTestId("public-forecast-answer");
+    expect(answer).not.toHaveTextContent(/sign in/i);
+    expect(answer).toHaveTextContent("No web surf call for this day. Dated conditions are below.");
+    expect(answer).not.toHaveTextContent("YES");
+    expect(answer).not.toHaveTextContent(report.whySentence!);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it.each(["", "date=2026-08-09"])("shows the matching public call to visual guests (%s)", (query) => {
+    mockSearch = new URLSearchParams(query);
+    renderAnswer({ props: { layout: "visual", publicCall: { kind: "call", label: "FAIR", action: "Worth a look" } } });
+    expect(screen.getByTestId("public-forecast-answer")).toHaveTextContent("FAIR · Worth a look");
+    expect(screen.getByTestId("public-forecast-answer")).not.toHaveTextContent(/sign in|No web surf call|YES/);
+  });
+
+  it("does not assign the latest public call to a different selected date", () => {
+    mockSearch = new URLSearchParams("date=2026-08-10");
+    renderAnswer({ props: { layout: "visual", publicCall: { kind: "call", label: "FAIR", action: "Worth a look" } } });
+    expect(screen.getByTestId("public-forecast-answer")).toHaveTextContent("No web surf call for this day");
+    expect(screen.getByTestId("public-forecast-answer")).not.toHaveTextContent("Worth a look");
+  });
+
   it("keeps the selected guest window and hazard date visible without presenting the latest call as its verdict", () => {
     mockSearch = new URLSearchParams({ window: "2026-09-10T15:00:00Z", windowEnd: "2026-09-10T19:00:00Z" });
     renderAnswer();
@@ -366,7 +391,7 @@ describe("PublicForecastAnswer", () => {
     expect(screen.queryByText("0/100")).not.toBeInTheDocument();
   });
 
-  it("fetches and renders the verdict and best window for an authenticated user", async () => {
+  it.each(["zine", "visual"] as const)("fetches and renders the authenticated verdict on %s", async (layout) => {
     mockUseAuth.mockReturnValue({
       user: { id: "user-1" },
       isLoading: false,
@@ -381,7 +406,7 @@ describe("PublicForecastAnswer", () => {
       ),
     );
 
-    renderAnswer();
+    renderAnswer({ props: { layout } });
 
     await waitFor(() => expect(screen.getByText("YES")).toBeInTheDocument());
     expect(screen.getByText("11:00 AM–1:00 PM")).toBeInTheDocument();

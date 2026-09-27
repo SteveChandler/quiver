@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { normalizeForecastDateParam, normalizeForecastWindowParam } from "@/lib/utils/forecast-window-param";
+import type { PublicSurfCall } from "@/lib/utils/public-surf-call";
 import type { Beach } from "@/types/database";
 import { formatBeachDateTime, formatDateInTimezone, formatTimeRangeInTimezone } from "@/lib/utils/date-time";
 import { WaterQualityBadge, type WaterQuality } from "@/components/beach-detail/water-quality-badge";
@@ -33,6 +34,8 @@ const STRIP_LABEL =
 
 interface PublicForecastAnswerProps {
   beach: Beach;
+  layout?: "zine" | "visual";
+  publicCall?: PublicSurfCall;
   waterQuality?: WaterQuality | null;
   report: PublicForecastReportFacts | null;
   context: PublicForecastContextFacts | null;
@@ -84,6 +87,8 @@ function sourceLabel(source: string): string {
 
 export function PublicForecastAnswer({
   beach,
+  layout = "zine",
+  publicCall,
   waterQuality,
   report: publicReport,
   context: publicContext,
@@ -103,6 +108,12 @@ export function PublicForecastAnswer({
 
   const hasSelection = Boolean(selectedWindow || selectedDate);
   const authenticatedDecision = useAuthenticatedForecastDecision();
+  const visualGuest = layout === "visual" && !authenticatedDecision.isAuthenticated;
+  const publicCallMatches = !hasSelection || (selectedDate
+    ? selectedDate === publicContext?.localDate
+    : selectedWindow === publicContext?.selectedRowTime);
+  const displayedPublicCall = visualGuest && publicCallMatches ? publicCall : null;
+  const hasPublicCall = displayedPublicCall && displayedPublicCall.kind !== "unknown";
   const decisionReport = !selectedDate && authenticatedDecision.isAuthenticated && !authenticatedDecision.isLoading
     ? authenticatedDecision.report
     : null;
@@ -172,7 +183,7 @@ export function PublicForecastAnswer({
     ? `${returnTo}?${new URLSearchParams({ ...Object.fromEntries(searchParams?.entries() ?? []), tab: "forecast" })}#operational-forecast`
     : exploreForecastHref;
   const hasForecastDetails = Boolean(
-    decisionReport?.verdict ||
+    hasPublicCall || decisionReport?.verdict ||
     (context?.selectedRowTime && waveHeight) ||
       (hasDisplayedWindow && (waveHeight || bestWindow || wind || tide)),
   );
@@ -213,10 +224,11 @@ export function PublicForecastAnswer({
       {(waterQuality?.status === "advisory" || waterQuality?.status === "closure") && (
         <div className="mt-3"><p className="text-sm font-bold">Current water notice · check again before your session</p><WaterQualityBadge waterQuality={waterQuality} beachState={beach.state} /></div>
       )}
-      {hasSelection && !hasResolvedAuthenticatedDecision && (
+      {hasSelection && !hasResolvedAuthenticatedDecision && !hasPublicCall && (
         <p className="mt-3 text-base">
           {authenticatedDecision.isAuthenticated
             ? authenticatedDecision.isLoading ? "Loading the selected call…" : "Selected call unavailable. Check the dated conditions below."
+            : visualGuest ? "No web surf call for this day. Dated conditions are below."
             : <><ForecastDecisionLoginLink returnTo={`${returnTo}?${searchParams?.toString() ?? ""}`} /> for the surf verdict. Dated conditions are below.</>}
         </p>
       )}
@@ -238,6 +250,16 @@ export function PublicForecastAnswer({
                 <dd className={DECK_VALUE}>{waveHeight}</dd>
               </div>
             )}
+            {hasPublicCall ? (
+              <div>
+                <dt className={DECK_LABEL}>Surf call · for most surfers</dt>
+                <dd className="mt-1 text-lg font-bold">
+                  {displayedPublicCall.kind === "call"
+                    ? `${displayedPublicCall.label} · ${displayedPublicCall.action}`
+                    : displayedPublicCall.reason}
+                </dd>
+              </div>
+            ) : null}
             {decisionReport?.verdict && (
               <div>
                 <dt className={DECK_LABEL}>Verdict</dt>
@@ -254,7 +276,7 @@ export function PublicForecastAnswer({
                 </dd>
               </div>
             )}
-            {!decisionReport?.verdict && !bestWindow && !hasDisplayedWindow && (
+            {!hasPublicCall && !decisionReport?.verdict && !bestWindow && !hasDisplayedWindow && (
               <div>
                 <dt className={DECK_LABEL}>Verdict &amp; best window</dt>
                 <dd className="mt-1.5">
@@ -264,6 +286,8 @@ export function PublicForecastAnswer({
                         ? "Loading your call…"
                         : "Call unavailable"}
                     </span>
+                  ) : visualGuest ? (
+                    <span>No web surf call for this day. Dated conditions are below.</span>
                   ) : (
                     <ForecastDecisionLoginLink returnTo={returnTo} />
                   )}
