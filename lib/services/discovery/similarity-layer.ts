@@ -12,6 +12,7 @@ import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { createContextLogger } from "@/lib/logger";
+import { gateScoreLabel } from "@/lib/utils/score-color-utils";
 import type {
   SimilarityRecommendation,
   SurfDiscoveryRecommendation,
@@ -88,10 +89,12 @@ export function interpretRpcResult(
       return null;
     }
     const score = result.score;
-    const label =
+    // The RPC still bands >= 8.5 as EPIC; Quiver does not show EPIC yet.
+    const label = gateScoreLabel(
       typeof result.label === "string"
         ? result.label.trim().toUpperCase()
-        : "";
+        : "",
+    );
     const sessionCount =
       typeof result.sessions_in_profile === "number"
         ? result.sessions_in_profile

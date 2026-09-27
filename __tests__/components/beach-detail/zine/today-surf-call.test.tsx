@@ -36,7 +36,7 @@ describe("TodaySurfCall", () => {
     expect(screen.getByText("Tomorrow's Surf Call")).toBeInTheDocument();
   });
 
-  it("uses the Go surf family for YES when no window exists", () => {
+  it("uses the plain worth-a-surf call for YES when no window exists", () => {
     render(
       <TodaySurfCall
         beach={createMockBeach({ name: "Seaside Reef" })}
@@ -56,7 +56,7 @@ describe("TodaySurfCall", () => {
       />,
     );
 
-    expect(screen.getByText("GO SURF!")).toBeInTheDocument();
+    expect(screen.getByText("WORTH A SURF")).toBeInTheDocument();
     expect(screen.queryByText("PADDLE OUT")).not.toBeInTheDocument();
   });
 
