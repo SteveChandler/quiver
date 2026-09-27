@@ -47,6 +47,10 @@ interface PublicForecastAnswerProps {
   headingLevel: "h1" | "h2";
   returnTo: string;
   title?: string;
+  /** False when the page's hero already shows the rip-current banner. */
+  showRipCurrentWarning?: boolean;
+  /** Where "Explore forecast" goes. Omitted: the Forecast tab. Null: no link. */
+  exploreForecastHref?: string | null;
 }
 
 function joinParts(parts: Array<string | null | undefined>): string | null {
@@ -89,6 +93,8 @@ export function PublicForecastAnswer({
   headingLevel,
   returnTo,
   title,
+  showRipCurrentWarning = true,
+  exploreForecastHref,
 }: PublicForecastAnswerProps) {
   const searchParams = useSearchParams();
   const selectedDate = normalizeForecastDateParam(searchParams?.get("date"));
@@ -162,6 +168,9 @@ export function PublicForecastAnswer({
     ? formatBeachDateTime(report.updatedAt, timezone, "EEE h:mm a")
     : null;
   const HeadingTag = headingLevel;
+  const exploreHref = exploreForecastHref === undefined
+    ? `${returnTo}?${new URLSearchParams({ ...Object.fromEntries(searchParams?.entries() ?? []), tab: "forecast" })}#operational-forecast`
+    : exploreForecastHref;
   const hasForecastDetails = Boolean(
     decisionReport?.verdict ||
     (context?.selectedRowTime && waveHeight) ||
@@ -194,11 +203,13 @@ export function PublicForecastAnswer({
           {" · "}{timezone}
         </p>
       ) : isTomorrow ? <p className="mt-2 text-sm font-bold">Tomorrow</p> : null}
-      <RipCurrentWarning
-        beachId={beach.id}
-        localDate={selectedDate ?? (selectedWindow ? formatDateInTimezone(new Date(selectedWindow), timezone) : context?.localDate ?? formatDateInTimezone(new Date(), timezone))}
-        timezone={timezone}
-      />
+      {showRipCurrentWarning ? (
+        <RipCurrentWarning
+          beachId={beach.id}
+          localDate={selectedDate ?? (selectedWindow ? formatDateInTimezone(new Date(selectedWindow), timezone) : context?.localDate ?? formatDateInTimezone(new Date(), timezone))}
+          timezone={timezone}
+        />
+      ) : null}
       {(waterQuality?.status === "advisory" || waterQuality?.status === "closure") && (
         <div className="mt-3"><p className="text-sm font-bold">Current water notice · check again before your session</p><WaterQualityBadge waterQuality={waterQuality} beachState={beach.state} /></div>
       )}
@@ -210,7 +221,9 @@ export function PublicForecastAnswer({
         </p>
       )}
       {isStale && <p role="status" className="mt-3 border-l-4 border-[#B47A0F] bg-[#F7E7BE] p-3 text-base">Source data is stale; conditions may have changed.</p>}
-      <Link href={`${returnTo}?${new URLSearchParams({ ...Object.fromEntries(searchParams?.entries() ?? []), tab: "forecast" })}#operational-forecast`} className="mt-4 inline-flex min-h-11 items-center border-2 border-[#11100D] bg-[#F78E42] px-4 text-base font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4">Explore forecast</Link>
+      {exploreHref ? (
+        <Link href={exploreHref} className="mt-4 inline-flex min-h-11 items-center border-2 border-[#11100D] bg-[#F78E42] px-4 text-base font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4">Explore forecast</Link>
+      ) : null}
       <details open={!hasSelection || hasResolvedAuthenticatedDecision} className="mt-4">
         <summary className="cursor-pointer text-sm font-semibold focus-visible:outline focus-visible:outline-2">
           {hasResolvedAuthenticatedDecision && selectedWindow ? "Selected call" : "Latest forecast"}{forecastDate ? ` for ${forecastDate}` : ""}

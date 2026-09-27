@@ -380,6 +380,18 @@ describe("BeachDetail visual layout", () => {
     expect(screen.queryByTestId("forecast-tab")).toBeNull();
   });
 
+  // Zine ink is dark: on the twilight stage the tabs sit on cream paper and
+  // the breadcrumb switches to light text.
+  it("keeps the tabs on paper and the breadcrumb light on the twilight stage", async () => {
+    mockBeachDetailData(beach, false, null);
+
+    render(<BeachDetail id="beach-1" layout="visual" visualTop={null} />);
+    await screen.findByTestId("reviews-tab");
+
+    expect(screen.getByRole("tablist").closest('[class~="bg-[#F4EBD8]"]')).not.toBeNull();
+    expect(screen.getByRole("navigation", { name: "Breadcrumb" }).className).toContain("[&_a]:text-[#F5EEDC]");
+  });
+
   it("ignores a ?tab link to a tab the visual layout hides", async () => {
     mockBeachDetailData(beach, false, null);
     const navigation = jest.requireMock("next/navigation");

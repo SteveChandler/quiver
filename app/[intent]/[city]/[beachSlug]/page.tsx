@@ -12,6 +12,7 @@ import { BeachVisualHero } from "@/components/beach-detail/visual/beach-visual-h
 import { BeachActions } from "@/components/beach-detail/visual/beach-actions";
 import { BeachHourlyChart } from "@/components/beach-detail/visual/beach-hourly-chart";
 import { BeachDayColumn } from "@/components/beach-detail/visual/beach-day-column";
+import { VISUAL_PAPER_CLASS } from "@/components/beach-detail/visual/beach-visual-shell";
 import { ZineAboutSpot } from "@/components/beach-detail/zine/zine-about-spot";
 import { AmenitiesBadges } from "@/components/beach-detail/amenities-badges";
 import { isFreeGrowthPhaseEnabled } from "@/lib/flags/free-growth-phase";
@@ -313,7 +314,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
         />
         <div className="mt-10 grid gap-6 lg:grid-cols-[1.35fr_1fr]">
           {hourlyChart.points.length > 0 ? (
-            <section aria-labelledby="beach-hourly-heading">
+            <section id="beach-hourly" aria-labelledby="beach-hourly-heading" className="scroll-mt-20">
               <h2 id="beach-hourly-heading" className="zine-display text-xl uppercase">Surf, hour by hour</h2>
               <div className="mt-3"><BeachHourlyChart chart={hourlyChart} timezone={beachTz} /></div>
             </section>
@@ -417,7 +418,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
             }
             afterTabsContent={
               <div className="space-y-10 text-[#11100D]">
-                <section aria-labelledby="about-heading" className="rounded-2xl bg-[#F4EBD8] p-5 sm:p-7">
+                <section aria-labelledby="about-heading" className={VISUAL_PAPER_CLASS}>
                   <h2 id="about-heading" className="zine-display text-2xl uppercase">About {publicBeach.name}</h2>
                   <ZineAboutSpot beach={publicBeach} open />
                   <div className="mt-4"><AmenitiesBadges amenities={amenitiesResult} /></div>
@@ -433,18 +434,22 @@ export default async function GenericBeachDetailPage(props: PageProps) {
                       headingLevel="h2"
                       title="Forecast details"
                       returnTo={returnTo}
+                      showRipCurrentWarning={false}
+                      exploreForecastHref={hourlyChart.points.length > 0 ? "#beach-hourly" : null}
                     />
                   </div>
-                  <details className="mt-6">
-                    <summary className="cursor-pointer text-base font-bold">Full hourly table</summary>
-                    <PublicForecastHourly
-                      beachName={publicBeach.name}
-                      forecastHours={hourlyForecasts}
-                      context={publicForecastContext}
-                      forecastDay={hourlyForecastDay}
-                      returnTo={returnTo}
-                    />
-                  </details>
+                  {hourlyForecasts.length > 0 ? (
+                    <details className="mt-6">
+                      <summary className="cursor-pointer text-base font-bold">Full hourly table</summary>
+                      <PublicForecastHourly
+                        beachName={publicBeach.name}
+                        forecastHours={hourlyForecasts}
+                        context={publicForecastContext}
+                        forecastDay={hourlyForecastDay}
+                        returnTo={returnTo}
+                      />
+                    </details>
+                  ) : null}
                   <section aria-labelledby="faq-heading" className="mt-6">
                     <h2 id="faq-heading" className="zine-display text-xl uppercase">Frequently asked</h2>
                     {generateBeachFAQ(publicBeach).map((item) => (
@@ -454,10 +459,10 @@ export default async function GenericBeachDetailPage(props: PageProps) {
                       </details>
                     ))}
                   </section>
+                  <Suspense fallback={null}>
+                    <DeferredRelatedGuidesSection beach={publicBeach} />
+                  </Suspense>
                 </section>
-                <Suspense fallback={null}>
-                  <DeferredRelatedGuidesSection beach={publicBeach} />
-                </Suspense>
               </div>
             }
           />
@@ -518,14 +523,18 @@ async function DeferredZineNearbySpots({
   nearbyBeachesRaw: Beach[];
 }) {
   const nearbyBeaches = await enrichBeachesWithConditions(nearbyBeachesRaw);
+  if (nearbyBeaches.length === 0) return null;
 
+  // Zine ink on the twilight stage needs its own paper.
   return (
-    <ZineNearbySpots
-      beaches={nearbyBeaches}
-      sourceBeachName={beach.name}
-      sourceBeachLat={beach.lat}
-      sourceBeachLon={beach.lon}
-    />
+    <div className={VISUAL_PAPER_CLASS}>
+      <ZineNearbySpots
+        beaches={nearbyBeaches}
+        sourceBeachName={beach.name}
+        sourceBeachLat={beach.lat}
+        sourceBeachLon={beach.lon}
+      />
+    </div>
   );
 }
 

@@ -61,7 +61,10 @@ import {
   type BeachTabValue,
 } from "@/components/beach-detail/beach-tabs";
 import { ZinePageShell } from "@/components/beach-detail/zine/zine-page-shell";
-import { BeachVisualShell } from "@/components/beach-detail/visual/beach-visual-shell";
+import {
+  BeachVisualShell,
+  VISUAL_PAPER_CLASS,
+} from "@/components/beach-detail/visual/beach-visual-shell";
 import { BeachWeek } from "@/components/beach-detail/visual/beach-week";
 import { buildBeachWeek } from "@/lib/utils/beach-week";
 import { DEFAULT_TIMEZONE } from "@/lib/utils/timezone-constants";
@@ -204,6 +207,9 @@ const SessionsTab = lazy(() =>
 // Constants to prevent unnecessary re-renders
 const EMPTY_FORECASTS: EnhancedForecastEntity[] = [];
 const VISUAL_TABS: readonly BeachTabValue[] = ["reviews", "intel", "sessions"];
+// The breadcrumb's zine colours are dark; on the twilight stage its text goes light.
+const VISUAL_BREADCRUMB_CLASS =
+  "mb-3 [&_a]:text-[#F5EEDC] [&_span]:text-[#F5EEDC]/70 [&>span:last-child]:text-[#F5EEDC]";
 
 function getClosestForecastToNow(
   forecasts: EnhancedForecastEntity[],
@@ -1001,6 +1007,7 @@ function BeachDetailContent({
         actions={tabActions}
         publicMode={publicMode}
         visibleTabs={layout === "visual" ? VISUAL_TABS : undefined}
+        className={layout === "visual" ? VISUAL_PAPER_CLASS : undefined}
       >
         {layout !== "visual" ? (
           <>
@@ -1138,7 +1145,7 @@ function BeachDetailContent({
           (US beach page) skips the zine: its H1 is in the page's visualTop. */}
       {layout === "visual" ? (
         <BeachVisualShell>
-          <BeachBreadcrumb beach={beach as Beach} className="mb-3" />
+          <BeachBreadcrumb beach={beach as Beach} className={VISUAL_BREADCRUMB_CLASS} />
           {visualTop}
           <BeachWeek days={week} timezone={beachTimezone || beach.timezone || DEFAULT_TIMEZONE} />
           {pageBody}

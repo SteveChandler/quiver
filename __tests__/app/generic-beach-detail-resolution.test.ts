@@ -167,6 +167,14 @@ jest.mock("@/lib/seo/water-temp-meta-data", () => ({
   getWaterTempMetaData: jest.fn().mockResolvedValue({ tempF: 65, wetsuitRec: "3/2mm fullsuit" }),
 }));
 
+// Marker stub so a test can count rip-current banners (the hero owns the only one).
+jest.mock("@/components/beach-detail/rip-current-warning", () => ({
+  RipCurrentWarning: () => {
+    const React = jest.requireActual("react");
+    return React.createElement("div", { "data-testid": "rip-current-warning" });
+  },
+}));
+
 // Spy (real implementation) so a test can check which hour the hero's swell field draws.
 jest.mock("@/lib/domains/conditions/map-forecast", () => {
   const actual = jest.requireActual("@/lib/domains/conditions/map-forecast");
@@ -513,6 +521,11 @@ describe("GenericBeachDetailPage slug resolution", () => {
     expect(getHeadingTexts(html, 2)).toContain("Del Mar Hourly Surf Forecast");
     expect(getHeadingTexts(html, 2)).toContain("Surf, hour by hour");
     expect(html).toContain('data-testid="beach-hourly-chart"');
+    // The visual page has no Forecast tab: "Explore forecast" goes to the chart.
+    expect(html).toContain('id="beach-hourly"');
+    expect(html).toMatch(/href="#beach-hourly"[^>]*>Explore forecast</);
+    expect(html).not.toContain("tab=forecast");
+    expect((html.match(/data-testid="rip-current-warning"/g) ?? [])).toHaveLength(1);
     expect(html).toContain('data-testid="public-forecast-hourly"');
     expect((html.match(/data-testid="public-forecast-hour"/g) ?? [])).toHaveLength(3);
     expect(html).not.toContain("84/100");
@@ -556,8 +569,11 @@ describe("GenericBeachDetailPage slug resolution", () => {
     // origin/main asserted this positively; a beach with no forecast must still
     // explain itself rather than render an empty section.
     expect(html).toContain("Current forecast details are temporarily unavailable");
-    // No hourly rows: no chart, and no chart heading left over it.
+    // No hourly rows: no chart, no chart heading, and no link to it.
     expect(getHeadingTexts(html, 2)).not.toContain("Surf, hour by hour");
+    expect(html).not.toContain("Explore forecast");
+    expect(html).not.toContain("tab=forecast");
+    expect(html).not.toContain("Full hourly table");
     expect(html).not.toContain("Best window");
     expect(html).not.toContain("Nearby spots");
   });

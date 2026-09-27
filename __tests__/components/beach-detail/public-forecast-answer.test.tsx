@@ -2,6 +2,7 @@
  * @jest-environment jsdom
  */
 
+import type { ComponentProps } from "react";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { PublicForecastAnswer } from "@/components/beach-detail/public-forecast-answer";
@@ -122,6 +123,7 @@ function renderAnswer({
   tomorrow = true,
   backups = nearbyBeaches,
   publicWindow,
+  props,
 }: {
   answerBeach?: Beach;
   answerReport?: SurfCallResult | null;
@@ -129,6 +131,7 @@ function renderAnswer({
   tomorrow?: boolean;
   backups?: Beach[];
   publicWindow?: { start: string | null; end: string | null };
+  props?: Partial<ComponentProps<typeof PublicForecastAnswer>>;
 } = {}) {
   return render(
     <AuthenticatedForecastDecisionProvider beachId={beach.id}>
@@ -144,6 +147,7 @@ function renderAnswer({
         nearbyBeaches={backups}
         headingLevel="h1"
         returnTo="/ca/san-diego/ocean-beach"
+        {...props}
       />
     </AuthenticatedForecastDecisionProvider>,
   );
@@ -167,6 +171,33 @@ describe("PublicForecastAnswer", () => {
     expect(screen.getByTestId("risk-date")).toHaveTextContent("2026-09-10");
     expect(screen.getByText(/Latest forecast/).closest("details")).not.toHaveAttribute("open");
     expect(screen.queryByText("YES")).not.toBeInTheDocument();
+  });
+
+  it("renders the rip-current banner by default and omits it when the page's hero owns it", () => {
+    const { unmount } = renderAnswer();
+    expect(screen.getByTestId("risk-date")).toBeInTheDocument();
+    unmount();
+
+    renderAnswer({ props: { showRipCurrentWarning: false } });
+    expect(screen.getByTestId("public-forecast-answer")).toBeInTheDocument();
+    expect(screen.queryByTestId("risk-date")).not.toBeInTheDocument();
+  });
+
+  it("links Explore forecast to the Forecast tab by default, to a given anchor, or not at all", () => {
+    const { unmount } = renderAnswer();
+    expect(screen.getByRole("link", { name: "Explore forecast" })).toHaveAttribute(
+      "href",
+      "/ca/san-diego/ocean-beach?tab=forecast#operational-forecast",
+    );
+    unmount();
+
+    const anchored = renderAnswer({ props: { exploreForecastHref: "#beach-hourly" } });
+    expect(screen.getByRole("link", { name: "Explore forecast" })).toHaveAttribute("href", "#beach-hourly");
+    anchored.unmount();
+
+    renderAnswer({ props: { exploreForecastHref: null } });
+    expect(screen.getByTestId("public-forecast-answer")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Explore forecast" })).not.toBeInTheDocument();
   });
 
   it("uses a valid selected date consistently when a URL also contains an older window", () => {
