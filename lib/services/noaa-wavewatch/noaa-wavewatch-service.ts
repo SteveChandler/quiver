@@ -48,13 +48,14 @@ export class NOAAWaveWatchService {
   async fetchWaveWatchForecast(
     latitude: number,
     longitude: number,
-    days: number = 10
+    days: number = 10,
+    reviewedNwsPoint?: readonly [number, number],
   ): Promise<WaveWatchForecast | null> {
     try {
       log.debug(`Fetching NOAA wave forecast for ${latitude}, ${longitude}`);
 
       // First, try to get real NOAA data
-      const noaaData = await this.fetchRealNOAAData(latitude, longitude, days);
+      const noaaData = await this.fetchRealNOAAData(latitude, longitude, days, reviewedNwsPoint);
       if (noaaData) {
         // OM starts at midnight; past slots must not consume the forward-horizon budget.
         const intervalMs = FORECAST_CONFIG.FORECAST_INTERVAL_HOURS * 3600000;
@@ -140,7 +141,8 @@ export class NOAAWaveWatchService {
   private async fetchRealNOAAData(
     latitude: number,
     longitude: number,
-    days: number
+    days: number,
+    reviewedNwsPoint?: readonly [number, number],
   ): Promise<WaveWatchForecast | null> {
     try {
       log.debug(
@@ -149,7 +151,7 @@ export class NOAAWaveWatchService {
 
       // Fetch both sources in parallel
       const [noaaResult, openMeteoResult] = await Promise.allSettled([
-        this.fetchNOAANWSData(latitude, longitude, days),
+        this.fetchNOAANWSData(latitude, longitude, days, reviewedNwsPoint),
         this.fetchOpenMeteoDataWrapper(latitude, longitude, Math.min(days, FORECAST_CONFIG.OPEN_METEO_MAX_DAYS)),
       ]);
 
@@ -226,11 +228,12 @@ export class NOAAWaveWatchService {
   private async fetchNOAANWSData(
     latitude: number,
     longitude: number,
-    days: number
+    days: number,
+    reviewedNwsPoint?: readonly [number, number],
   ): Promise<WaveWatchForecast | null> {
     try {
       // Step 1: Get the grid point for the location
-      const pointData = await fetchNOAAPointData(latitude, longitude);
+      const pointData = await fetchNOAAPointData(latitude, longitude, reviewedNwsPoint);
       if (!pointData) {
         return null;
       }
