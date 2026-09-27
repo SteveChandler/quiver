@@ -16,6 +16,8 @@
 
 **Spec / evidence:** `/Users/stevenchandler/Desktop/dev/quiver-native/.planning/2026-09-27-why-quiver-picked/report.md` (§3, §4, §6B).
 
+**Match-score follow-up:** [Pre-registered forward backtest](2026-09-27-match-score-backtest.md). The specified similarity-weighted replacement failed its adoption gate, so this branch retains the mean-based score.
+
 **Worktrees:**
 - Web: `/Users/stevenchandler/Desktop/dev/quiver/.worktrees/board-model-merge-20260927`, branch `feat/board-model-merge-20260927`, from `origin/main` f762b1f89.
 - Native: `/Users/stevenchandler/Desktop/dev/quiver-native/.worktrees/board-model-merge-20260927`, branch `feat/board-model-merge-20260927`, from `origin/main` ffc2de07.
