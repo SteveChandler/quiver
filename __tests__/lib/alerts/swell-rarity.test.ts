@@ -31,6 +31,7 @@ describe("assessRarity", () => {
       rare: true,
       kind: "best-in-30",
       rarityLine: "Best in 30 days",
+      historyDays: 31,
     });
   });
 
@@ -49,6 +50,7 @@ describe("assessRarity", () => {
       rare: true,
       kind: "first-after-flat",
       rarityLine: "First real swell in 4 days",
+      historyDays: 4,
     });
   });
 
@@ -64,7 +66,29 @@ describe("assessRarity", () => {
       ],
       peakScore: 70,
       peakGo: true,
-    })).toEqual({ rare: false, kind: null, rarityLine: null });
+    })).toEqual({ rare: false, kind: null, rarityLine: null, historyDays: 5 });
+  });
+
+  it("never claims a longer look-back than the history covers", () => {
+    // Production keeps about a week of past forecasts.
+    expect(assessRarity({
+      peakDate: "2026-09-27",
+      history: [
+        day("2026-09-21", 60, false),
+        day("2026-09-22", 64, false),
+        day("2026-09-23", 58, false),
+        day("2026-09-24", 66, false),
+        day("2026-09-25", 61, false),
+        day("2026-09-26", 63, false),
+      ],
+      peakScore: 80,
+      peakGo: true,
+    })).toEqual({
+      rare: true,
+      kind: "best-in-30",
+      rarityLine: "Best in 6 days",
+      historyDays: 6,
+    });
   });
 });
 
