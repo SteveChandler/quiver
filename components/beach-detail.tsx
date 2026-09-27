@@ -61,6 +61,10 @@ import {
   type BeachTabValue,
 } from "@/components/beach-detail/beach-tabs";
 import { ZinePageShell } from "@/components/beach-detail/zine/zine-page-shell";
+import { BeachVisualShell } from "@/components/beach-detail/visual/beach-visual-shell";
+import { BeachWeek } from "@/components/beach-detail/visual/beach-week";
+import { buildBeachWeek } from "@/lib/utils/beach-week";
+import { DEFAULT_TIMEZONE } from "@/lib/utils/timezone-constants";
 import { TabLoadingSkeleton } from "@/components/beach-detail/tab-loading-skeleton";
 // InlineSignupCta stays removed — Phase 1A CTA reduction.
 // MatchScoreTeaser was removed in Phase 1A but reinstated 2026-04-28 based
@@ -199,6 +203,7 @@ const SessionsTab = lazy(() =>
 
 // Constants to prevent unnecessary re-renders
 const EMPTY_FORECASTS: EnhancedForecastEntity[] = [];
+const VISUAL_TABS: readonly BeachTabValue[] = ["reviews", "intel", "sessions"];
 
 function getClosestForecastToNow(
   forecasts: EnhancedForecastEntity[],
@@ -240,6 +245,8 @@ interface BeachDetailProps {
   heroForecastSlot?: ReactNode;
   beforeTabsContent?: ReactNode;
   afterTabsContent?: ReactNode;
+  layout?: "zine" | "visual";
+  visualTop?: ReactNode;
   freeGrowthPhaseEnabled?: boolean;
   personalizationData?: {
     score:
@@ -273,6 +280,8 @@ function BeachDetailContent({
   heroForecastSlot,
   beforeTabsContent,
   afterTabsContent,
+  layout = "zine",
+  visualTop,
   freeGrowthPhaseEnabled = false,
   personalizationData,
   onPersonalizationRequest,
@@ -301,7 +310,9 @@ function BeachDetailContent({
   const [alertRulesRefreshKey, setAlertRulesRefreshKey] = useState(0);
   const [secondaryDataReady, setSecondaryDataReady] = useState(false);
   const [activeTab, setActiveTab] = useState<BeachTabValue>(
-    defaultTab || "forecast",
+    layout === "visual"
+      ? defaultTab && VISUAL_TABS.includes(defaultTab) ? defaultTab : "reviews"
+      : defaultTab || "forecast",
   );
   const { track: trackEvent } = useTrackEvent();
 
@@ -361,7 +372,11 @@ function BeachDetailContent({
       tabQueryParam &&
       ["overview", "forecast", "reviews", "intel", "sessions"].includes(
         tabQueryParam,
-      )
+      ) &&
+      // The visual layout hides Overview and Forecast; a ?tab=forecast link
+      // must not select a tab with no trigger or content.
+      (layout !== "visual" ||
+        VISUAL_TABS.includes(tabQueryParam as BeachTabValue))
     ) {
       setActiveTab(tabQueryParam as BeachTabValue);
       setTabSynced(true);
@@ -404,7 +419,7 @@ function BeachDetailContent({
     } else {
       setTabSynced(true);
     }
-  }, [searchParams, tabSynced, pathname, router]);
+  }, [searchParams, tabSynced, pathname, router, layout]);
 
   // Above-fold essentials only: beach, forecasts, and hero sources.
   // Secondary tab metrics/calibration load after first paint and active-tab intent.
@@ -862,6 +877,11 @@ function BeachDetailContent({
     return maxHeight > 0 ? maxHeight : null;
   }, [publicMode, horizonDaySummaries]);
 
+  const week = useMemo(
+    () => (layout === "visual" && beach ? buildBeachWeek(forecasts || [], beach as Beach, beachTimezone || beach.timezone || DEFAULT_TIMEZONE) : []),
+    [layout, beach, forecasts, beachTimezone],
+  );
+
   // Calculate destination coordinates and directions handler BEFORE early returns
   // (must be before early returns to maintain consistent hook count)
   const destinationCoordinates =
@@ -955,6 +975,147 @@ function BeachDetailContent({
       </Button>
     </>
   );
+
+  const pageBody = (
+    <>
+      <div id="operational-forecast" tabIndex={-1} className="scroll-mt-20" ref={signupCtaRef} />
+      {beforeTabsContent ? (
+        <div className="mx-auto mb-6 max-w-5xl">{beforeTabsContent}</div>
+      ) : null}
+      {/* Alert discoverability nudge — only for authenticated favorited beaches with no alerts */}
+      {!publicMode && beach ? (
+        <AlertNudge
+          beachId={beach.id}
+          beachName={beach.name}
+          onSetupAlerts={handleOpenAlerts}
+        />
+      ) : null}
+      <BeachTabs
+        activeTab={activeTab}
+        onTabChange={(tab) => {
+          setActiveTab(tab);
+          const params = new URLSearchParams(searchParams?.toString());
+          params.set("tab", tab);
+          window.history.pushState(null, "", `${pathname}?${params}`);
+        }}
+        actions={tabActions}
+        publicMode={publicMode}
+        visibleTabs={layout === "visual" ? VISUAL_TABS : undefined}
+      >
+        {layout !== "visual" ? (
+          <>
+            {/* Overview Tab */}
+            <BeachTabContent value="overview">
+              <Suspense fallback={<TabLoadingSkeleton />}>
+                <OverviewTab
+                  beach={beach as any}
+                  amenities={amenities}
+                  waterQuality={waterQuality}
+                  beachPhoto={beachPhoto}
+                  surfCallReport={surfCallReport}
+                  surfCallIsTomorrow={surfCallIsTomorrow}
+                  beachTimezone={beachTimezone}
+                  onWriteReview={() =>
+                    handleWriteReview(REVIEW_TRACKING_SOURCES.OVERVIEW_CTA)
+                  }
+                />
+              </Suspense>
+              {/* Top-level CTA already visible for anonymous users — no duplicate needed here */}
+            </BeachTabContent>
+
+            {/* Forecast Tab */}
+            <BeachTabContent value="forecast">
+              {tabDataLoading ? (
+                <TabLoadingSkeleton />
+              ) : (
+                <Suspense fallback={<TabLoadingSkeleton />}>
+                  <ForecastTab
+                    beach={beach}
+                    beachTimezone={beachTimezone}
+                    forecasts={forecasts || []}
+                    currentForecast={currentForecast}
+                    forecastMetadata={forecastMetadata}
+                    surfCall={surfCallReport}
+                    surfCallIsTomorrow={surfCallIsTomorrow}
+                    defaultSubTab={defaultSubTab}
+                    yesterdayAccuracy={yesterdayAccuracy}
+                  />
+                </Suspense>
+              )}
+            </BeachTabContent>
+          </>
+        ) : null}
+
+        {/* Reviews Tab */}
+        <BeachTabContent value="reviews">
+          {tabDataLoading ? (
+            <TabLoadingSkeleton />
+          ) : (
+            <div ref={reviewCtaRef}>
+              <Suspense fallback={<TabLoadingSkeleton />}>
+                <ReviewsTab
+                  beach={beach}
+                  onWriteReview={() =>
+                    handleWriteReview(REVIEW_TRACKING_SOURCES.REVIEWS_TAB)
+                  }
+                  reviewRefreshTrigger={reviewRefreshTrigger}
+                  publicMode={publicMode}
+                  previewCount={3}
+                />
+              </Suspense>
+            </div>
+          )}
+        </BeachTabContent>
+
+        {/* Local Intel Tab */}
+        <BeachTabContent value="intel">
+          {tabDataLoading ? (
+            <TabLoadingSkeleton />
+          ) : (
+            <div ref={intelCtaRef}>
+              <Suspense fallback={<TabLoadingSkeleton />}>
+                <IntelTab
+                  beach={beach}
+                  initialShowAll={searchParams?.get("show") === "all"}
+                  publicMode={publicMode}
+                  previewCount={1}
+                />
+              </Suspense>
+            </div>
+          )}
+        </BeachTabContent>
+
+        {/* Sessions Tab */}
+        <BeachTabContent value="sessions">
+          <div ref={sessionCtaRef}>
+            <Suspense fallback={<TabLoadingSkeleton />}>
+              <SessionsTab
+                beach={beach}
+                sessionSnapshots={sessionSnapshots}
+                publicMode={publicMode}
+                previewCount={2}
+              />
+            </Suspense>
+          </div>
+        </BeachTabContent>
+      </BeachTabs>
+
+      {!publicMode ? (
+        <div className="mx-auto mt-10 max-w-5xl">
+          <CommunityPhotoUpload
+            targetType="beach"
+            targetId={beach.id}
+            onUploaded={() => router.refresh()}
+          />
+        </div>
+      ) : null}
+
+      {afterTabsContent ? (
+        <div className="mt-10">{afterTabsContent}</div>
+      ) : null}
+    </>
+  );
+
   return (
     <div className="min-h-screen" style={{ background: "#0D1020" }}>
       {/* Forecast Error Warning Banner */}
@@ -973,147 +1134,28 @@ function BeachDetailContent({
       {/* Cream zine page — replaces the dark twilight chrome (immersive hero,
           breadcrumb/H1 overlay, BeachStatsGrid, ConditionsTicker, BeachActions,
           MatchScoreTeaser, TrustStrip). The zine carries its own H1, hero photo,
-          and footer; the tabs sit inside the cream paper. */}
-      <ZinePageShell
-        beach={beach as Beach}
-        beachPhoto={beachPhoto}
-        sources={sources}
-        heroHeadingLevel={heroHeadingLevel}
-        heroHeadingSuffix={heroHeadingSuffix}
-        heroSummarySlot={heroSummarySlot}
-        heroForecastSlot={heroForecastSlot}
-      >
-        <div id="operational-forecast" tabIndex={-1} className="scroll-mt-20" ref={signupCtaRef} />
-        {beforeTabsContent ? (
-          <div className="mx-auto mb-6 max-w-5xl">{beforeTabsContent}</div>
-        ) : null}
-        {/* Alert discoverability nudge — only for authenticated favorited beaches with no alerts */}
-        {!publicMode && beach ? (
-          <AlertNudge
-            beachId={beach.id}
-            beachName={beach.name}
-            onSetupAlerts={handleOpenAlerts}
-          />
-        ) : null}
-        <BeachTabs
-          activeTab={activeTab}
-          onTabChange={(tab) => {
-            setActiveTab(tab);
-            const params = new URLSearchParams(searchParams?.toString());
-            params.set("tab", tab);
-            window.history.pushState(null, "", `${pathname}?${params}`);
-          }}
-          actions={tabActions}
-          publicMode={publicMode}
+          and footer; the tabs sit inside the cream paper. The visual layout
+          (US beach page) skips the zine: its H1 is in the page's visualTop. */}
+      {layout === "visual" ? (
+        <BeachVisualShell>
+          <BeachBreadcrumb beach={beach as Beach} className="mb-3" />
+          {visualTop}
+          <BeachWeek days={week} timezone={beachTimezone || beach.timezone || DEFAULT_TIMEZONE} />
+          {pageBody}
+        </BeachVisualShell>
+      ) : (
+        <ZinePageShell
+          beach={beach as Beach}
+          beachPhoto={beachPhoto}
+          sources={sources}
+          heroHeadingLevel={heroHeadingLevel}
+          heroHeadingSuffix={heroHeadingSuffix}
+          heroSummarySlot={heroSummarySlot}
+          heroForecastSlot={heroForecastSlot}
         >
-          {/* Overview Tab */}
-          <BeachTabContent value="overview">
-            <Suspense fallback={<TabLoadingSkeleton />}>
-              <OverviewTab
-                beach={beach as any}
-                amenities={amenities}
-                waterQuality={waterQuality}
-                beachPhoto={beachPhoto}
-                surfCallReport={surfCallReport}
-                surfCallIsTomorrow={surfCallIsTomorrow}
-                beachTimezone={beachTimezone}
-                onWriteReview={() =>
-                  handleWriteReview(REVIEW_TRACKING_SOURCES.OVERVIEW_CTA)
-                }
-              />
-            </Suspense>
-            {/* Top-level CTA already visible for anonymous users — no duplicate needed here */}
-          </BeachTabContent>
-
-          {/* Forecast Tab */}
-          <BeachTabContent value="forecast">
-            {tabDataLoading ? (
-              <TabLoadingSkeleton />
-            ) : (
-              <Suspense fallback={<TabLoadingSkeleton />}>
-                <ForecastTab
-                  beach={beach}
-                  beachTimezone={beachTimezone}
-                  forecasts={forecasts || []}
-                  currentForecast={currentForecast}
-                  forecastMetadata={forecastMetadata}
-                  surfCall={surfCallReport}
-                  surfCallIsTomorrow={surfCallIsTomorrow}
-                  defaultSubTab={defaultSubTab}
-                  yesterdayAccuracy={yesterdayAccuracy}
-                />
-              </Suspense>
-            )}
-          </BeachTabContent>
-
-          {/* Reviews Tab */}
-          <BeachTabContent value="reviews">
-            {tabDataLoading ? (
-              <TabLoadingSkeleton />
-            ) : (
-              <div ref={reviewCtaRef}>
-                <Suspense fallback={<TabLoadingSkeleton />}>
-                  <ReviewsTab
-                    beach={beach}
-                    onWriteReview={() =>
-                      handleWriteReview(REVIEW_TRACKING_SOURCES.REVIEWS_TAB)
-                    }
-                    reviewRefreshTrigger={reviewRefreshTrigger}
-                    publicMode={publicMode}
-                    previewCount={3}
-                  />
-                </Suspense>
-              </div>
-            )}
-          </BeachTabContent>
-
-          {/* Local Intel Tab */}
-          <BeachTabContent value="intel">
-            {tabDataLoading ? (
-              <TabLoadingSkeleton />
-            ) : (
-              <div ref={intelCtaRef}>
-                <Suspense fallback={<TabLoadingSkeleton />}>
-                  <IntelTab
-                    beach={beach}
-                    initialShowAll={searchParams?.get("show") === "all"}
-                    publicMode={publicMode}
-                    previewCount={1}
-                  />
-                </Suspense>
-              </div>
-            )}
-          </BeachTabContent>
-
-          {/* Sessions Tab */}
-          <BeachTabContent value="sessions">
-            <div ref={sessionCtaRef}>
-              <Suspense fallback={<TabLoadingSkeleton />}>
-                <SessionsTab
-                  beach={beach}
-                  sessionSnapshots={sessionSnapshots}
-                  publicMode={publicMode}
-                  previewCount={2}
-                />
-              </Suspense>
-            </div>
-          </BeachTabContent>
-        </BeachTabs>
-
-        {!publicMode ? (
-          <div className="mx-auto mt-10 max-w-5xl">
-            <CommunityPhotoUpload
-              targetType="beach"
-              targetId={beach.id}
-              onUploaded={() => router.refresh()}
-            />
-          </div>
-        ) : null}
-
-        {afterTabsContent ? (
-          <div className="mt-10">{afterTabsContent}</div>
-        ) : null}
-      </ZinePageShell>
+          {pageBody}
+        </ZinePageShell>
+      )}
 
       {/* MatchScoreTeaser cut from the beach-detail layout — the zine masthead
           is the canonical anonymous CTA surface now. Phase 1A invariant
