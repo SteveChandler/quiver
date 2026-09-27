@@ -230,8 +230,9 @@ export function formatWaveRange(
  * - 2-3ft: waist-high
  * - 3-5ft: chest-high
  * - 5-7ft: head-high
- * - 7-10ft: overhead
- * - 10ft+: double-overhead
+ * - 7-12ft: overhead
+ * - 12ft+: double-overhead (faces about twice a surfer's height; 10 ft is only
+ *   well overhead, so it stays "overhead")
  *
  * @param heightFt - Wave height in feet
  * @returns Size description string (e.g., "chest-high", "overhead")
@@ -241,6 +242,7 @@ export function formatWaveRange(
  * getWaveSizeDescription(4)   // "chest-high"
  * getWaveSizeDescription(8)   // "overhead"
  * getWaveSizeDescription(12)  // "double-overhead"
+ * getWaveSizeDescription(10)  // "overhead"
  * ```
  */
 export function getWaveSizeDescription(heightFt: number): string {
@@ -248,7 +250,7 @@ export function getWaveSizeDescription(heightFt: number): string {
   if (heightFt < 3) return "waist-high";
   if (heightFt < 5) return "chest-high";
   if (heightFt < 7) return "head-high";
-  if (heightFt < 10) return "overhead";
+  if (heightFt < 12) return "overhead";
   return "double-overhead";
 }
 
