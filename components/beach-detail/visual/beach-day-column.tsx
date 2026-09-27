@@ -63,6 +63,12 @@ export function BeachDayColumn({ beachId, timezone, localDate, waterTemp, tide, 
             detail={tide.nextHighTime ? `High ${tide.nextHighTime}` : null}
             link={links.tides ? <TileLink href={links.tides}>Tide chart →</TileLink> : null}
           />
+        ) : tide?.nextHighTime ? (
+          <Tile
+            label="Next high tide"
+            value={tide.nextHighTime}
+            link={links.tides ? <TileLink href={links.tides}>Tide chart →</TileLink> : null}
+          />
         ) : null}
         {sunrise && sunset ? (
           <Tile

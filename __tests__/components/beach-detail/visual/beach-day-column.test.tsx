@@ -52,4 +52,22 @@ describe("BeachDayColumn", () => {
     expect(col.textContent).not.toMatch(/null|NaN|undefined|°F/);
     expect(screen.queryByRole("link")).toBeNull();
   });
+
+  it("shows a known high tide when there is no low tide", () => {
+    render(
+      <BeachDayColumn
+        {...BASE}
+        tide={{ nextLowTime: null, nextLowHeight: null, nextHighTime: "9:52 PM", nextHighHeight: 5.1 }}
+      />
+    );
+    expect(screen.getByTestId("beach-day-column")).toHaveTextContent("Next high tide");
+    expect(screen.getByTestId("beach-day-column")).toHaveTextContent("9:52 PM");
+    expect(screen.getByRole("link", { name: /tide chart/i })).toHaveAttribute("href", BASE.links.tides);
+  });
+
+  it("shows water-quality closure as 'Closed', distinct from advisory", () => {
+    render(<BeachDayColumn {...BASE} waterQuality={{ status: "closure" } as WaterQuality} />);
+    expect(screen.getByTestId("beach-day-column")).toHaveTextContent("Closed");
+    expect(screen.getByTestId("beach-day-column")).not.toHaveTextContent(/advisory/i);
+  });
 });
