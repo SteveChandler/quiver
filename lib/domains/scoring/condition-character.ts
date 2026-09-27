@@ -243,7 +243,7 @@ export function getConditionCharacter(
     const windIsGood = windQuality >= WIND_QUALITY_GOOD_THRESHOLD;
     const tideIsGood = tideFit >= TIDE_FIT_GOOD_THRESHOLD;
     if (windIsGood && tideIsGood && wavePeriod >= 10) {
-      return { category: 'medium-clean', label: "Dialed — everything's lining up" };
+      return { category: 'medium-clean', label: 'Lined up — clean wind, good tide' };
     }
     if (windQuality < WIND_QUALITY_ROUGH_THRESHOLD) {
       return {
@@ -257,7 +257,7 @@ export function getConditionCharacter(
   // 5. Large waves (5ft+)
   const windIsClean = windQuality >= WIND_QUALITY_CLEAN_THRESHOLD;
   if (windIsClean && wavePeriod >= 10) {
-    return { category: 'large-clean', label: 'Firing — overhead and clean' };
+    return { category: 'large-clean', label: 'Big and clean — groundswell, light wind' };
   }
   return { category: 'large-rough', label: 'Big and rough — experts only' };
 }

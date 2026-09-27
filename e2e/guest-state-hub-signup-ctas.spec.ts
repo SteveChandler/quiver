@@ -26,7 +26,7 @@ test.describe("State hub signup CTAs", () => {
     await page.waitForLoadState("load");
 
     const inlineCta = page.locator("[data-testid='inline-signup-cta']");
-    await expect(inlineCta).toContainText(/California's \d+ breaks are firing right now/);
+    await expect(inlineCta).toContainText(/California's \d+ breaks look good right now/);
   });
 
   test("/ca sticky bar renders on mobile scroll with ≥48px tap target", async ({ page }) => {

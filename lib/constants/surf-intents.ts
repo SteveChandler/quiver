@@ -191,7 +191,7 @@ export const SURF_INTENTS: Record<SurfIntentSlug, SurfIntentDefinition> = {
     heading: ({ cityName }) =>
       `Best sunset surf spots in ${cityName}`,
     metaDescription: ({ cityName, topSpots }) =>
-      `End your day with epic sunset surf sessions in ${cityName}. West-facing beaches with golden hour waves at ${topSpots.slice(0, 3).join(", ")}.`,
+      `End your day with a sunset surf session in ${cityName}. West-facing beaches with golden hour waves at ${topSpots.slice(0, 3).join(", ")}.`,
     intro: ({ cityName }) =>
       `There's nothing like surfing into the sunset. These ${cityName} spots offer stunning golden hour sessions with west-facing views and often improving afternoon conditions.`,
     focusPoints: [

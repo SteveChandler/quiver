@@ -107,6 +107,20 @@ export function primarySecondarySwell(
   return { primary, secondary };
 }
 
+const SWELL_MATCH_SHARE_WORDS: Record<ConditionEvaluation["status"], string> = {
+  optimal: "in the window",
+  acceptable: "workable",
+  poor: "poor",
+};
+
+/** Share text for the analyzer: says where the swell sits, no hype. */
+export function swellMatchShareText(
+  status: ConditionEvaluation["status"],
+  beachName: string,
+): string {
+  return `Swell is ${SWELL_MATCH_SHARE_WORDS[status]} at ${beachName} right now`;
+}
+
 /**
  * Analyze swell direction match with beach preferences
  */

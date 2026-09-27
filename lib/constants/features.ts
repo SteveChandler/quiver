@@ -258,7 +258,7 @@ export const SURF_ACTIVITIES = [
     icon: Wind,
     title: "Offshore Winds",
     description:
-      "Find spots with optimal offshore conditions. Perfect grooming for that epic session.",
+      "Find spots with offshore wind. Clean, groomed faces for your next session.",
     imageSrc: "/offShore.jpeg",
     imageAlt: "Sunset over the ocean",
     link: "/map",
@@ -276,9 +276,9 @@ export const CONTENT = {
     cta: "Get my surf call",
     secondaryCta: "Find your spots",
     benefits: [
-      "🏄‍♀️ Connect with local surfers",
-      "📊 Track epic sessions",
-      "🌊 Community forecasts",
+      "Connect with local surfers",
+      "Log every session",
+      "Community forecasts",
     ],
   },
   sections: {
@@ -295,7 +295,7 @@ export const CONTENT = {
     social: {
       title: "Join the surf community that's growing every day",
       subtitle:
-        "See what surfers are sharing — epic sessions, hidden spots, and the stoke that keeps us coming back",
+        "See what surfers are sharing — recent sessions, local spots, and how the water was",
     },
     forecast: {
       title: "One call before you paddle out",
@@ -311,7 +311,7 @@ export const CONTENT = {
     features: {
       title: "Everything you need to surf with friends",
       subtitle:
-        "From finding surf buddies to sharing epic sessions, your complete surf community platform",
+        "From finding surf buddies to sharing your best sessions, all in one place",
     },
     cta: {
       title: "Check it, surf it, log it",

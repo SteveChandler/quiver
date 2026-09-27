@@ -1,21 +1,38 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Pause, Play, Trash2 } from "lucide-react";
+import {
+  Activity,
+  CalendarCheck,
+  CalendarDays,
+  Eye,
+  Pause,
+  Play,
+  Ruler,
+  Sunrise,
+  Sunset,
+  Target,
+  Timer,
+  Trash2,
+  Waves,
+  Wind,
+  type LucideIcon,
+} from "lucide-react";
 import type { PresetType } from "@/lib/alerts/types";
 
-// Best conditions has no icon: the old flame read as hype.
-const PRESET_ICONS: Partial<Record<PresetType, string>> = {
-  glass_off: "\u{1F90C}",
-  mellow_session: "\u{1F3C4}",
-  dawn_patrol: "\u{1F305}",
-  big_day: "\u{1F30A}",
-  clean_groundswell: "\u{1F4A0}",
-  tide_window: "\u{23F1}\u{FE0F}",
-  daily_check_in: "\u{2705}",
-  weekend_warrior: "\u{1F4C5}",
-  after_work: "\u{1F306}",
-  watched_call: "\u{1F441}\u{FE0F}",
+// Line icons, not emoji, to match the rest of the alert UI.
+const PRESET_ICONS: Record<PresetType, LucideIcon> = {
+  glass_off: Wind,
+  mellow_session: Waves,
+  dawn_patrol: Sunrise,
+  big_day: Ruler,
+  clean_groundswell: Activity,
+  tide_window: Timer,
+  epic_conditions: Target,
+  daily_check_in: CalendarCheck,
+  weekend_warrior: CalendarDays,
+  after_work: Sunset,
+  watched_call: Eye,
 };
 
 interface AlertRuleCardProps {
@@ -48,7 +65,7 @@ export function AlertRuleCard({ rule, onToggle, onDelete }: AlertRuleCardProps) 
     : null;
   const isStale = staleDays === null || staleDays > 14;
 
-  const presetIcon = rule.preset_type
+  const PresetIcon = rule.preset_type
     ? PRESET_ICONS[rule.preset_type as PresetType] ?? null
     : null;
 
@@ -95,10 +112,8 @@ export function AlertRuleCard({ rule, onToggle, onDelete }: AlertRuleCardProps) 
       }`}
     >
       <div className="flex items-center gap-2 flex-1 min-w-0">
-        {presetIcon && (
-          <span className="text-sm shrink-0" role="img" aria-hidden="true">
-            {presetIcon}
-          </span>
+        {PresetIcon && (
+          <PresetIcon className="w-3.5 h-3.5 shrink-0 text-gray-300" aria-hidden="true" />
         )}
         <div className="min-w-0">
           <div className="text-sm text-white font-medium truncate">{rule.name}</div>

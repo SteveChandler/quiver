@@ -14,39 +14,39 @@ describe("getOracleGreeting", () => {
   // Branch 1: score > 7 + hour < 7 → dawn patrol
   it("returns dawn patrol message when score > 7 and hour < 7", () => {
     const result = getOracleGreeting({ ...BASE, score: 8, hour: 5 });
-    expect(result).toBe("It's going off. Dawn patrol, Alex.");
+    expect(result).toBe("Good surf at first light, Alex.");
   });
 
   it("dawn patrol triggers at score exactly 7.1", () => {
     const result = getOracleGreeting({ ...BASE, score: 7.1, hour: 4 });
-    expect(result).toBe("It's going off. Dawn patrol, Alex.");
+    expect(result).toBe("Good surf at first light, Alex.");
   });
 
   it("dawn patrol triggers at hour 6 (< 7)", () => {
     const result = getOracleGreeting({ ...BASE, score: 9, hour: 6 });
-    expect(result).toBe("It's going off. Dawn patrol, Alex.");
+    expect(result).toBe("Good surf at first light, Alex.");
   });
 
   it("dawn patrol does NOT trigger at hour 7", () => {
     const result = getOracleGreeting({ ...BASE, score: 9, hour: 7 });
-    expect(result).toContain("firing at");
+    expect(result).toBe("Good surf at Blacks Beach.");
   });
 
-  // Branch 2: score > 7 (any hour) → firing
-  it("returns firing message when score > 7 and hour >= 7", () => {
+  // Branch 2: score > 7 (any hour) → good surf
+  it("returns the good-surf message when score > 7 and hour >= 7", () => {
     const result = getOracleGreeting({ ...BASE, score: 8.5, hour: 10 });
-    expect(result).toBe("It's firing at Blacks Beach. Don't sleep on this.");
+    expect(result).toBe("Good surf at Blacks Beach.");
   });
 
   it("uses 'out there' when beachName is null", () => {
     const result = getOracleGreeting({ ...BASE, score: 9, hour: 10, beachName: null });
-    expect(result).toBe("It's firing out there. Don't sleep on this.");
+    expect(result).toBe("Good surf out there.");
   });
 
-  it("score exactly 7 does NOT trigger firing message", () => {
+  it("score exactly 7 does NOT trigger the good-surf message", () => {
     const result = getOracleGreeting({ ...BASE, score: 7, hour: 10 });
     // should fall through to a later branch
-    expect(result).not.toContain("firing");
+    expect(result).not.toContain("Good surf");
   });
 
   // Branch 3: swellPeriod > 12 → long period swell
@@ -295,17 +295,17 @@ describe("getOracleGreeting", () => {
       hour: 5,
       swellPeriod: 18,
     });
-    expect(result).toBe("It's going off. Dawn patrol, Alex.");
+    expect(result).toBe("Good surf at first light, Alex.");
   });
 
-  it("firing beats long-period swell (priority 2 over 3)", () => {
+  it("good surf beats long-period swell (priority 2 over 3)", () => {
     const result = getOracleGreeting({
       ...BASE,
       score: 9,
       hour: 10,
       swellPeriod: 18,
     });
-    expect(result).toContain("firing at");
+    expect(result).toBe("Good surf at Blacks Beach.");
   });
 
   it("long-period swell beats flat score (priority 3 over 4)", () => {
