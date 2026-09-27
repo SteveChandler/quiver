@@ -8,6 +8,7 @@
 
 import { NOAAWaveWatchService } from "@/lib/services/noaa-wavewatch/noaa-wavewatch-service";
 import type { WaveWatchData } from "@/lib/services/noaa-wavewatch/types";
+import { fetchNOAAPointData, fetchOpenMeteoData } from "@/lib/services/noaa-wavewatch/api-client";
 
 // Mock API + fallback internals so we can feed synthetic NOAA / OM forecasts.
 jest.mock("@/lib/services/noaa-wavewatch/api-client", () => ({
@@ -59,6 +60,11 @@ import {
 } from "@/lib/services/noaa-wavewatch/data-processors";
 
 describe("NOAAWaveWatchService.mergeForecasts: OM co-location", () => {
+  it("forwards the reviewed point only to NOAA, preserving Open-Meteo beach coordinates", async () => {
+    await new NOAAWaveWatchService().fetchWaveWatchForecast(35.22, -75.63, 3, [35.17, -75.61]);
+    expect(fetchNOAAPointData).toHaveBeenLastCalledWith(35.22, -75.63, [35.17, -75.61]);
+    expect(fetchOpenMeteoData).toHaveBeenLastCalledWith(35.22, -75.63, 3);
+  });
   const snapSlot = (d: Date): Date => {
     const ms = Math.round(d.getTime() / (3 * 3600000)) * (3 * 3600000);
     return new Date(ms);

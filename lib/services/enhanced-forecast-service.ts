@@ -1,5 +1,6 @@
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { fetchWaterTemperature } from "@/lib/services/noaa-coops/api-client";
+import { getReviewedNwsPoint } from "@/lib/services/noaa-wavewatch/grid-utils";
 import { ForecastDataSourceManager, NOAAWeatherDataSource } from "./forecast/data-source-manager";
 import { ForecastStorageService } from "./forecast/storage-service";
 import {
@@ -274,7 +275,8 @@ export class EnhancedForecastService {
       const result = await this.dataSourceManager.getWaveWatchService().fetchWaveWatchForecast(
         beach.lat ?? 0,
         beach.lon ?? 0,
-        FORECAST_CONSTANTS.DAYS
+        FORECAST_CONSTANTS.DAYS,
+        getReviewedNwsPoint(beach.preference_model, beach.lat ?? 0, beach.lon ?? 0),
       );
       if (!result) {
         throw new DataSourceError(
