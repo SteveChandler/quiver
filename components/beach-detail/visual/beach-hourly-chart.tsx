@@ -16,10 +16,19 @@ export function BeachHourlyChart({ chart, timezone }: { chart: HourlyChart; time
     tideRange && tideRange[1] > tideRange[0]
       ? 150 - ((ft - tideRange[0]) / (tideRange[1] - tideRange[0])) * 100
       : 100;
-  const tidePath = points
-    .map((p, i) => (p.tideFt == null ? null : `${i === 0 ? "M" : "L"}${slot * i + slot / 2} ${tideY(p.tideFt)}`))
-    .filter(Boolean)
-    .join(" ");
+  let tidePath = "";
+  let inRun = false;
+  for (let i = 0; i < points.length; i++) {
+    const p = points[i];
+    if (p.tideFt != null) {
+      const cmd = inRun ? "L" : "M";
+      tidePath += `${cmd}${slot * i + slot / 2} ${tideY(p.tideFt)} `;
+      inRun = true;
+    } else {
+      inRun = false;
+    }
+  }
+  tidePath = tidePath.trim();
 
   return (
     <figure data-testid="beach-hourly-chart" className="m-0 rounded-2xl border border-[#F5EEDC]/15 bg-[#F5EEDC]/5 p-4">
@@ -40,7 +49,7 @@ export function BeachHourlyChart({ chart, timezone }: { chart: HourlyChart; time
               />
               {p.windFromDeg != null ? (
                 <text x={x + barWidth / 2} y={BASE - 6} textAnchor="middle" fontSize="16" fill="#F5EEDC"
-                  transform={`rotate(${p.windFromDeg + 180} ${x + barWidth / 2} ${BASE - 11})`}>
+                  transform={`rotate(${(p.windFromDeg + 180) % 360} ${x + barWidth / 2} ${BASE - 11})`}>
                   ↑
                 </text>
               ) : null}
