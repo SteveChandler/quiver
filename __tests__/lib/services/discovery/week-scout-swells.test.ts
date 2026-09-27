@@ -86,6 +86,29 @@ function window(id: string, beachId: string, day: number, overrides: Partial<Win
   };
 }
 
+/** Overrides named windows; `waveHeight` lands in the window's forecast. */
+function withWindows(
+  input: BuildWeekScoutSwellsInput,
+  overrides: Record<string, Partial<Window> & { waveHeight?: string }>,
+): BuildWeekScoutSwellsInput {
+  return {
+    ...input,
+    days: input.days.map((day) => ({
+      ...day,
+      windows: day.windows.map((item) => {
+        const override = overrides[item.id];
+        if (!override) return item;
+        const { waveHeight, ...rest } = override;
+        return {
+          ...item,
+          ...rest,
+          forecast: waveHeight === undefined ? item.forecast : { ...item.forecast, waveHeight },
+        };
+      }),
+    })),
+  };
+}
+
 function days(windows: Window[]): BuildWeekScoutSwellsInput['days'] {
   return Array.from({ length: 7 }, (_, day) => ({
     localDate: localDate(day),
@@ -205,16 +228,16 @@ describe('buildWeekScoutSwells', () => {
     expect(swell.beaches.some((item) => item.beachId === IDS.cove)).toBe(false);
   });
 
-  it('names blocked beaches honestly in the narrative', () => {
-    const [swell] = buildWeekScoutSwells(scenario());
+  it('names sheltered beaches in terms of this swell only', () => {
+    const [swell] = buildWeekScoutSwells(withWindows(scenario(), { 'shores-mon': { waveHeight: '1-2 ft' } }));
     const shores = swell.beaches.find((item) => item.beachId === IDS.shores);
     expect(shores?.exposureLabel).toBe('shadowed');
     expect(swell.narrative).toBe(
       'W swell, 4.2 ft at 16 s, builds early Monday morning and peaks Monday midday. '
-      + 'Blacks and Scripps face it most directly; '
-      + 'La Jolla Shores is mostly blocked from this direction, so expect little of it there.',
+      + 'Blacks and Scripps face it most directly. '
+      + 'La Jolla Shores is sheltered from this swell, so expect smaller surf there.',
     );
-    expect(swell.narrative).not.toMatch(/Oceanside/);
+    expect(swell.narrative).not.toMatch(/Oceanside|blocked/);
   });
 
   it('adds a size line naming the best in-range beach when the top beach is above range', () => {
@@ -278,6 +301,93 @@ describe('buildWeekScoutSwells', () => {
     }));
     expect(swell.beaches).toHaveLength(8);
     expect(swell.beaches[0].bestWindow?.conditionScore).toBe(59);
+  });
+});
+
+describe('Week Scout swell exposure ranking and sheltered beaches', () => {
+  // Today's Mission Beach case: a beach shadowed from this swell holds the best
+  // window, on surf from another swell. Oceanside, a windowless maybe, drops off the list.
+  const shelteredEpic = () => withWindows(scenario(), {
+    'blacks-mon': { verdict: 'maybe', conditionScore: 55, waveHeight: '2-3 ft' },
+    'scripps-mon': { verdict: 'maybe', conditionScore: 65, waveHeight: '2-3 ft' },
+    'oceanside-mon': { verdict: 'maybe', conditionScore: 50 },
+    'shores-mon': { verdict: 'worth_it', conditionScore: 95, waveHeight: '3-4 ft' },
+  });
+
+  it('ranks a shadowed epic beach after open fair ones', () => {
+    const [swell] = buildWeekScoutSwells(shelteredEpic());
+    expect(swell.beaches.map((item) => [item.beachName, item.exposureLabel, item.bestWindow?.verdict])).toEqual([
+      ['Scripps', 'open', 'maybe'],
+      ['Blacks', 'open', 'maybe'],
+      ['La Jolla Shores', 'shadowed', 'worth_it'],
+    ]);
+  });
+
+  it('credits a sheltered beach as big as the lead to other swell, never calling it smaller', () => {
+    const [swell] = buildWeekScoutSwells(shelteredEpic());
+    expect(swell.narrative).toBe(
+      'W swell, 4.2 ft at 16 s, builds early Monday morning and peaks Monday midday. '
+      + 'Scripps and Blacks face it most directly. '
+      + 'La Jolla Shores is sheltered from this swell; its surf there comes from other swell.',
+    );
+    expect(swell.narrative).not.toMatch(/smaller|little|blocked/);
+
+    // Equal to the lead's max height still is not smaller.
+    const [even] = buildWeekScoutSwells(withWindows(shelteredEpic(), { 'shores-mon': { waveHeight: '2-3 ft' } }));
+    expect(even.narrative).toMatch(/La Jolla Shores is sheltered from this swell; its surf there comes from other swell\.$/);
+  });
+
+  it('only makes the sheltered claim when either window height is unknown', () => {
+    const [swell] = buildWeekScoutSwells(withWindows(shelteredEpic(), { 'shores-mon': { waveHeight: 'Flat' } }));
+    expect(swell.narrative).toMatch(/Scripps and Blacks face it most directly\. La Jolla Shores is sheltered from this swell\.$/);
+  });
+
+  it('leads with the first open beach, not the best-scoring sheltered one', () => {
+    // Shores reads above a beginner's range; the open lead reads in range, so no size line.
+    const [swell] = buildWeekScoutSwells({
+      ...withWindows(shelteredEpic(), { 'shores-mon': { waveHeight: '5-6 ft' } }),
+      userSkillLevel: 'beginner',
+    });
+    expect(swell.beaches.find((item) => item.beachId === IDS.shores)?.sizeFit).toBe('above_range');
+    expect(swell.beaches[0]).toMatchObject({ beachName: 'Scripps', sizeFit: 'in_range' });
+    expect(swell.narrative).not.toMatch(/above your usual range/);
+  });
+
+  it('leads with the first partial beach when none is open', () => {
+    const partial = beach('dddddddd-0000-4000-8000-000000000001', 'Point Partial', { center: 230, half: 30 });
+    const shores = beach(IDS.shores, 'La Jolla Shores', { center: 225, half: 30 });
+    const BIG: PartitionSpec = { heightFt: 8, periodS: 16, direction: 270 };
+    const input = scenario({
+      beaches: [partial, shores],
+      forecastsByBeach: new Map([
+        [partial.id, forecastRows(partial.id, WEEK(BIG), 3)],
+        [shores.id, forecastRows(shores.id, WEEK(BIG), 3)],
+      ]),
+      days: days([
+        window('partial-mon', partial.id, 3, { verdict: 'maybe', conditionScore: 55 }),
+        window('shores-mon', shores.id, 3, { verdict: 'worth_it', conditionScore: 90 }),
+      ]),
+    });
+
+    const [smaller] = buildWeekScoutSwells(withWindows(input, {
+      'partial-mon': { waveHeight: '4-5 ft' },
+      'shores-mon': { waveHeight: '3-4 ft' },
+    }));
+    expect(smaller.beaches.map((item) => [item.beachName, item.exposureLabel])).toEqual([
+      ['Point Partial', 'partial'],
+      ['La Jolla Shores', 'shadowed'],
+    ]);
+    expect(smaller.narrative).toMatch(
+      /Point Partial is partly sheltered from this swell\. La Jolla Shores is sheltered from this swell, so expect smaller surf there\.$/,
+    );
+
+    const [bigger] = buildWeekScoutSwells(withWindows(input, {
+      'partial-mon': { waveHeight: '4-5 ft' },
+      'shores-mon': { waveHeight: '5-6 ft' },
+    }));
+    expect(bigger.narrative).toMatch(
+      /Point Partial is partly sheltered from this swell\. La Jolla Shores is sheltered from this swell; its surf there comes from other swell\.$/,
+    );
   });
 });
 
