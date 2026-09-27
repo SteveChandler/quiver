@@ -22,7 +22,9 @@ jest.mock("@/components/oracle/zine/home-hero-media", () => ({
     </figure>
   ),
 }));
-jest.mock("@/components/beach-detail/rip-current-warning", () => ({ RipCurrentWarning: () => <div data-testid="rip" /> }));
+jest.mock("@/components/beach-detail/rip-current-warning", () => ({
+  RipCurrentWarning: ({ localDate }: { localDate: string }) => <div data-testid="rip" data-local-date={localDate} />,
+}));
 jest.mock("@/lib/posthog-client", () => ({ captureClientPostHogEventAfterConsent: jest.fn() }));
 
 import { captureClientPostHogEventAfterConsent } from "@/lib/posthog-client";
@@ -46,6 +48,8 @@ const PROPS = {
 describe("BeachVisualHero", () => {
   beforeEach(() => {
     mockCapture.mockClear();
+    mockParams.delete("date");
+    mockParams.delete("window");
   });
 
   it("keeps the H1's words with the beach name large", () => {
@@ -104,5 +108,11 @@ describe("BeachVisualHero", () => {
     render(<BeachVisualHero {...PROPS} />);
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/^Tourmaline\s*Surf Forecast$/);
     mockParams.delete("window");
+  });
+
+  it("passes the selected day to the rip-current warning", () => {
+    mockParams.set("date", "2026-09-29");
+    render(<BeachVisualHero {...PROPS} />);
+    expect(screen.getByTestId("rip")).toHaveAttribute("data-local-date", "2026-09-29");
   });
 });

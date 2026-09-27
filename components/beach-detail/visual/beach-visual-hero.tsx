@@ -9,6 +9,7 @@ import { captureClientPostHogEventAfterConsent } from "@/lib/posthog-client";
 import { beachForecastHeadingSuffix, formatForecastHeadingDate } from "@/lib/utils/beach-forecast-heading";
 import { normalizeForecastDateParam, normalizeForecastWindowParam } from "@/lib/utils/forecast-window-param";
 import type { PublicSurfCall } from "@/lib/utils/public-surf-call";
+import { ripCurrentDateFor } from "@/lib/utils/rip-current-date";
 
 export interface BeachHeroSurfFacts { size: string | null; swell: string | null; wind: string | null; bestWindow: string | null }
 export interface BeachHeroDayFacts { water: string | null; nextLow: string | null; advisory: string | null }
@@ -45,12 +46,19 @@ export function BeachVisualHero(props: BeachVisualHeroProps) {
   const hasSelection = Boolean(
     normalizeForecastDateParam(searchParams?.get("date")) || normalizeForecastWindowParam(searchParams?.get("window")),
   );
+  const ripCurrentDate = ripCurrentDateFor({
+    dateParam: searchParams?.get("date") ?? null,
+    windowParam: searchParams?.get("window") ?? null,
+    forecastLocalDate: props.forecastLocalDate,
+    todayLocalDate: localDate,
+    timezone,
+  });
   const suffix = beachForecastHeadingSuffix(formatForecastHeadingDate(props.forecastLocalDate, timezone), hasSelection);
   const hasBeachDay = Boolean(beachDay.water || beachDay.nextLow || beachDay.advisory);
 
   return (
     <section data-testid="beach-visual-hero" aria-labelledby="beach-hero-heading">
-      <RipCurrentWarning beachId={beach.id} localDate={localDate} timezone={timezone} />
+      <RipCurrentWarning beachId={beach.id} localDate={ripCurrentDate} timezone={timezone} />
       <HomeHeroMedia
         beachName={beach.name}
         lat={beach.lat}
