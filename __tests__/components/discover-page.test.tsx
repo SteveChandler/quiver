@@ -604,7 +604,7 @@ describe("DiscoverPage", () => {
       ).toBeInTheDocument();
       expect(
         screen.getByText(
-          /Get notifications when people you follow plan epic sessions/
+          /Get notifications when people you follow plan a session/
         )
       ).toBeInTheDocument();
       expect(

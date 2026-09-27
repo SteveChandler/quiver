@@ -1,11 +1,15 @@
 /**
  * @jest-environment node
  *
- * Brand voice guard for alert and push copy: chill, reliable, smart. No hype
- * words, no exclamation marks, no emoji. Stored ids, keys and enum values
- * (e.g. the epic_conditions preset type) are not copy and are not checked.
+ * Brand voice guard for alert, push and condition copy: chill, reliable,
+ * smart. No hype words, no exclamation marks, no emoji. Stored ids, keys and
+ * enum values (e.g. the epic_conditions preset type) are not copy and are not
+ * checked. A surfer's own words (session ratings, report vibes) are theirs.
  */
 
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import titlePool from "@/lib/notifications/copy/surf-titles.v1.json";
@@ -19,8 +23,15 @@ import { formatPushNotification, qualityWord } from "@/lib/alerts/push-formatter
 import { buildConsolidatedSubject } from "@/lib/alerts/consolidated-subject";
 import { ConditionsAlertEmail } from "@/lib/mailer/templates/ConditionsAlertEmail";
 import type { MatchingWindow } from "@/lib/alerts/types";
+import { getOracleGreeting } from "@/lib/oracle/greeting";
+import { swellMatchShareText } from "@/lib/analyzers/swell-analyzer";
+import { AnonAlertCaptureForm } from "@/components/alerts/anon-alert-capture-form";
 
-const HYPE = /\b(?:epic|firing|pumping|sick|perfect|insane|stoked)\b|don['’]t miss|main-character/i;
+jest.mock("@/context/auth-context", () => ({
+  useAuth: () => ({ user: null, isLoading: false }),
+}));
+
+const HYPE = /\b(?:epic|firing|pumping|sick|perfect|insane|stoked|dialed)\b|going off|don['’]t (?:miss|sleep on)|main-character/i;
 const EMOJI = /\p{Extended_Pictographic}/u;
 
 /** Every piece of copy that breaks the voice rule, so a failure names it. */
@@ -136,5 +147,56 @@ describe("alert copy voice", () => {
       .replace(/<[^>]+>/g, " ");
 
     expect(loud([text])).toEqual([]);
+  });
+});
+
+describe("condition and greeting copy voice", () => {
+  it("keeps every condition-character label calm", () => {
+    const source = readFileSync(
+      path.join(process.cwd(), "lib/domains/scoring/condition-character.ts"),
+      "utf8",
+    );
+    const labels = [...source.matchAll(/label:\s*(['"])(.*?)\1/g)].map((found) => found[2]);
+
+    expect(labels.length).toBeGreaterThanOrEqual(10);
+    expect(loud(labels)).toEqual([]);
+  });
+
+  it("keeps every Oracle greeting branch calm", () => {
+    const greetings: string[] = [];
+    for (const score of [null, 1, 5, 8]) {
+      for (const hour of [4, 6, 9, 14, 20]) {
+        for (const swellPeriod of [null, 10, 14]) {
+          for (const windCondition of [null, "onshore", "offshore"]) {
+            for (const beachName of [null, "Blacks"]) {
+              for (const daysAbsent of [0, 5]) {
+                greetings.push(getOracleGreeting({
+                  score, hour, swellPeriod, windCondition, userName: "Alex", beachName, daysAbsent,
+                }));
+              }
+            }
+          }
+        }
+      }
+    }
+
+    expect(loud([...new Set(greetings)])).toEqual([]);
+  });
+
+  it("keeps the swell analyzer share text calm", () => {
+    expect(loud((["optimal", "acceptable", "poor"] as const).map((status) => (
+      swellMatchShareText(status, "Blacks")
+    )))).toEqual([]);
+  });
+
+  it("keeps the alert signup form calm", () => {
+    const html = renderToStaticMarkup(createElement(AnonAlertCaptureForm, {
+      beachId: "b1",
+      beachName: "Ocean Beach",
+      returnPath: "/beaches/ocean-beach",
+    }));
+
+    expect(html).toContain("Email me when Ocean Beach is worth a surf");
+    expect(loud([html.replace(/<[^>]+>/g, " ")])).toEqual([]);
   });
 });

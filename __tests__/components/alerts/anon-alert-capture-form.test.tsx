@@ -56,7 +56,7 @@ describe("AnonAlertCaptureForm", () => {
       screen.getByTestId("anon-alert-capture-form"),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/email me when ocean beach is firing/i),
+      screen.getByText(/email me when ocean beach is worth a surf/i),
     ).toBeInTheDocument();
     expect(screen.getByTestId("anon-alert-capture-email")).toBeInTheDocument();
     expect(screen.getByTestId("anon-alert-capture-submit")).toBeInTheDocument();

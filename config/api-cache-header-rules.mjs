@@ -12,6 +12,10 @@ export const apiCacheHeaderRules = [
     ],
   },
   {
+    source: "/api/cancellation-feedback",
+    headers: [{ key: "Cache-Control", value: EXPERIMENT_API_CACHE_CONTROL }],
+  },
+  {
     source: "/api/v1/experiments/:path*",
     headers: [
       {

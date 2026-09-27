@@ -291,7 +291,7 @@ function SwellIndicator({
     "chest-high": { height: 4, period: 12, color: "text-blue-500" },
     "head-high": { height: 5, period: 13, color: "text-blue-600" },
     "overhead": { height: 7, period: 14, color: "text-emerald-500" },
-    "double-overhead": { height: 10, period: 16, color: "text-purple-500" },
+    "double-overhead": { height: 12, period: 16, color: "text-purple-500" },
   };
 
   const config = sizeConfig[size] || sizeConfig["chest-high"];

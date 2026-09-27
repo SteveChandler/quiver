@@ -131,7 +131,7 @@ export const QUIVER_FAQ_ITEMS: FAQItem[] = [
   {
     question: "Can I share my surf sessions on social media?",
     answer:
-      "Absolutely! Quiver makes it easy to share your epic sessions on Instagram, TikTok, and other platforms. Each session can be shared with beautiful summary cards showing your beach, conditions, and photos. Perfect for building your surf portfolio.",
+      "Yes. Quiver lets you share your sessions on Instagram, TikTok, and other platforms. Each session can be shared as a summary card showing your beach, conditions, and photos, so you build a record of your surfing over time.",
   },
   {
     question: "What areas does Quiver cover?",

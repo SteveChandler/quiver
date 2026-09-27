@@ -180,14 +180,15 @@ describe("wave-formatters", () => {
       expect(getWaveSizeDescription(6.9)).toBe("head-high");
     });
 
-    it("returns overhead for heights 7-10ft", () => {
+    it("returns overhead for heights 7-12ft", () => {
       expect(getWaveSizeDescription(7)).toBe("overhead");
       expect(getWaveSizeDescription(8)).toBe("overhead");
-      expect(getWaveSizeDescription(9.9)).toBe("overhead");
+      // 10-12 ft faces are well overhead, not yet twice a surfer's height.
+      expect(getWaveSizeDescription(10)).toBe("overhead");
+      expect(getWaveSizeDescription(11.9)).toBe("overhead");
     });
 
-    it("returns double-overhead for heights >= 10ft", () => {
-      expect(getWaveSizeDescription(10)).toBe("double-overhead");
+    it("returns double-overhead only from 12ft faces", () => {
       expect(getWaveSizeDescription(12)).toBe("double-overhead");
       expect(getWaveSizeDescription(20)).toBe("double-overhead");
     });
@@ -201,8 +202,8 @@ describe("wave-formatters", () => {
       expect(getWaveSizeDescription(5)).toBe("head-high");
       expect(getWaveSizeDescription(6.99)).toBe("head-high");
       expect(getWaveSizeDescription(7)).toBe("overhead");
-      expect(getWaveSizeDescription(9.99)).toBe("overhead");
-      expect(getWaveSizeDescription(10)).toBe("double-overhead");
+      expect(getWaveSizeDescription(11.99)).toBe("overhead");
+      expect(getWaveSizeDescription(12)).toBe("double-overhead");
     });
 
     it("handles negative heights gracefully", () => {

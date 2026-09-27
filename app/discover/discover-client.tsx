@@ -512,7 +512,7 @@ export default function DiscoverPageClient(): ReactElement {
                 <li>Follow other surfers to see their session activities</li>
                 <li>Invite followers to join your planned surf sessions</li>
                 <li>
-                  Get notifications when people you follow plan epic sessions
+                  Get notifications when people you follow plan a session
                 </li>
                 <li>
                   Build your local surf community and coordinate better

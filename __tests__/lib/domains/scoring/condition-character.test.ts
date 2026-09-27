@@ -229,7 +229,7 @@ describe('getConditionCharacter (domain engine port)', () => {
   });
 
   describe('medium wave conditions (2-5ft)', () => {
-    it('classifies 3ft + 12s + offshore + good tide as medium-clean with "Dialed" label', () => {
+    it('classifies 3ft + 12s + offshore + good tide as medium-clean with a "Lined up" label', () => {
       const snap = createSnapshot({
         ...baseSnapshot,
         waveHeight: 3.5,
@@ -240,7 +240,7 @@ describe('getConditionCharacter (domain engine port)', () => {
       const composite = makeComposite({ windQuality: 90, tideFit: 87 });
       const result = getConditionCharacter(snap, profile, composite);
       expect(result.category).toBe('medium-clean');
-      expect(result.label).toMatch(/dialed/i);
+      expect(result.label).toBe('Lined up — clean wind, good tide');
     });
 
     it('classifies 3ft + mixed wind as medium-mixed', () => {
@@ -274,7 +274,7 @@ describe('getConditionCharacter (domain engine port)', () => {
   });
 
   describe('large wave conditions (5ft+)', () => {
-    it('classifies 6ft + offshore + 12s as large-clean with "Firing" label', () => {
+    it('classifies 6ft + offshore + 12s as large-clean with a plain "Big and clean" label', () => {
       const snap = createSnapshot({
         ...baseSnapshot,
         waveHeight: 6.0,
@@ -285,7 +285,7 @@ describe('getConditionCharacter (domain engine port)', () => {
       const composite = makeComposite({ windQuality: 90, tideFit: 80 });
       const result = getConditionCharacter(snap, profile, composite);
       expect(result.category).toBe('large-clean');
-      expect(result.label).toMatch(/firing/i);
+      expect(result.label).toBe('Big and clean — groundswell, light wind');
     });
 
     it('classifies 6ft + strong wind as large-rough', () => {
