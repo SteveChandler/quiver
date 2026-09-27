@@ -75,3 +75,30 @@ it('accepts the production one-to-one PostgREST snapshot shape', () => {
   })) }));
   expect(recommendBoard(quiver, forecast, beach, 'advanced')).toEqual(recommendBoard(boards, forecast, beach, 'advanced'));
 });
+
+it('counts and bounds only close sessions in the like-this reason', () => {
+  const a = board('a', 'A', 'fish', 1, 3, 4);
+  a.sessions!.push(...[3.7, 4.2, 1, 6].flatMap((height, i) =>
+    board(`extra-${i}`, 'A', 'fish', 1, height, 4).sessions!));
+  expect(recommendBoard([a], forecast, beach, 'advanced')?.reason)
+    .toBe('You ride A on 3-5 ft days like this (3 sessions)');
+});
+
+it('uses limited-history copy when only two sessions are close', () => {
+  const a = board('a', 'A', 'fish', 2, 3.7, 4);
+  a.sessions!.push(...board('far', 'A', 'fish', 3, 6, 4).sessions!);
+  expect(recommendBoard([a], forecast, beach, 'advanced')?.reason)
+    .toBe('A fits these conditions; limited similar session history');
+});
+
+it('still ranks boards using feedback between the evidence and like-this cutoffs', () => {
+  const a = board('a', 'A', 'fish', 3, 6, 3, 'too_small');
+  const b = board('b', 'B', 'fish', 3, 6, 3, 'right');
+  const snapshot = { wave_height: '6', wave_period: '15s', wind_speed: '3 mph', tide_height: '3 ft', tide_status: 'incoming' };
+  const similarity = conditionSimilarity(snapshot, forecast, beach, beach);
+  expect(similarity).toBeGreaterThanOrEqual(0.35);
+  expect(similarity).toBeLessThan(0.7);
+  const pick = recommendBoard([a, b], forecast, beach, 'advanced');
+  expect(pick?.id).toBe('b');
+  expect(pick?.reason).toBe('B fits these conditions; limited similar session history');
+});

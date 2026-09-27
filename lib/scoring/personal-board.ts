@@ -62,6 +62,9 @@ function relativeTide(height: unknown, beach: BoardSession['beaches']): number |
   return lo != null && hi != null ? h - (lo + hi) / 2 : null;
 }
 
+// User-facing "like this" claims need closer conditions than the evidence-weighting cutoff.
+export const LIKE_THIS_SIMILARITY = 0.7;
+
 // ponytail: fixed condition bandwidths; calibrate on held-out board-fit feedback when enough labels accumulate.
 export function conditionSimilarity(snapshot: Record<string, unknown>, forecast: EnhancedForecastEntity, historicalBeach: BoardSession['beaches'], beach: Beach): number {
   const height = parseWaveHeightMidpointFt(String(snapshot.wave_height ?? ''));
@@ -156,9 +159,10 @@ export function recommendBoard(
       + boardBlend * ((ratingWeight ? 12 * ratingSum / ratingWeight : 0) + (weight ? 25 * feedback / weight : 0))
       + 3 * Math.min(1, sessions.length / 20) + 2 * recency;
     const score = physical * (1 - historyBlend) + personal * historyBlend;
-    const heights = matched.map(({ snapshot }) => parseWaveHeightMidpointFt(String(snapshot.wave_height ?? ''))!).filter(Number.isFinite);
-    const reason = matched.length >= 3
-      ? `You ride ${board.name} on ${Math.floor(Math.min(...heights))}-${Math.ceil(Math.max(...heights))} ft days like this (${matched.length} sessions)`
+    const likeThis = sessions.filter((entry) => entry.weight >= LIKE_THIS_SIMILARITY);
+    const heights = likeThis.map(({ snapshot }) => parseWaveHeightMidpointFt(String(snapshot.wave_height ?? ''))!).filter(Number.isFinite);
+    const reason = likeThis.length >= 3
+      ? `You ride ${board.name} on ${Math.floor(Math.min(...heights))}-${Math.ceil(Math.max(...heights))} ft days like this (${likeThis.length} sessions)`
       : `${board.name} fits these conditions; limited similar session history`;
     return [{ id: board.id, name: board.name, type: board.board_type, boardClass: type, reason, score, matchedCount: matched.length }];
   }).sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
