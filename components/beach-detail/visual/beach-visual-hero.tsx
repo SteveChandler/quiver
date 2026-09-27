@@ -23,6 +23,7 @@ interface BeachVisualHeroProps {
   sources: BeachSources | null;
   swellPartition: SwellPartition | null;
   call: PublicSurfCall;
+  isTomorrow: boolean;
   surf: BeachHeroSurfFacts;
   beachDay: BeachHeroDayFacts;
 }
@@ -42,6 +43,7 @@ function Facts({ items }: { items: Array<string | null> }) {
 
 export function BeachVisualHero(props: BeachVisualHeroProps) {
   const { beach, timezone, localDate, call, surf, beachDay } = props;
+  const callDay = props.isTomorrow ? "tomorrow" : "today";
   const searchParams = useSearchParams();
   const hasSelection = Boolean(
     normalizeForecastDateParam(searchParams?.get("date")) || normalizeForecastWindowParam(searchParams?.get("window")),
@@ -80,7 +82,7 @@ export function BeachVisualHero(props: BeachVisualHeroProps) {
           </h1>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             <div data-testid="beach-public-call" className="rounded-2xl border border-[#F5EEDC]/15 bg-[#0D1020]/60 p-4 backdrop-blur">
-              <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#F2C94C]">Surfing today · for most surfers</p>
+              <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#F2C94C]">Surfing {callDay} · for most surfers</p>
               {call.kind === "call" ? (
                 <p className="mt-1 flex items-baseline gap-3">
                   <span className="zine-display text-4xl uppercase" style={{ color: TIER_HEX[call.label] }}>{sentenceCase(call.label)}</span>
@@ -88,7 +90,7 @@ export function BeachVisualHero(props: BeachVisualHeroProps) {
                 </p>
               ) : call.kind === "no_call" ? (
                 <>
-                  <p className="zine-display mt-1 text-3xl text-[#F5EEDC]">No call today</p>
+                  <p className="zine-display mt-1 text-3xl text-[#F5EEDC]">No call {callDay}</p>
                   <p className="mt-1 text-sm text-[#F5EEDC]/85">{call.reason}</p>
                 </>
               ) : (

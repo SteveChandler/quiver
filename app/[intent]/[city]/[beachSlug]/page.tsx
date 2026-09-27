@@ -298,6 +298,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
           sources={cameraUrl ? { camera_url: cameraUrl } : null}
           swellPartition={heroSwellRow ? rowToSwellPartition(heroSwellRow) : null}
           call={publicCall}
+          isTomorrow={surfCallIsTomorrow}
           surf={{
             size: forecastContext?.waveHeightRangeLabel ?? forecastContext?.waveHeight ?? surfCallReport?.waveHeight ?? null,
             swell: forecastContext?.swellPeriod ? [forecastContext.swellPeriod, forecastContext.swellDirection].filter(Boolean).join(" ") : null,

@@ -39,6 +39,7 @@ const PROPS = {
   forecastLocalDate: "2026-09-27",
   photoUrl: "https://example.com/t.jpg",
   sources: null,
+  isTomorrow: false,
   swellPartition: null,
   call: { kind: "call" as const, label: "FAIR" as const, action: "Worth a look" },
   surf: { size: "2–3 ft", swell: "11s SW", wind: "9 mph cross-shore", bestWindow: "11am–1:30pm" },
@@ -55,6 +56,22 @@ describe("BeachVisualHero", () => {
   it("keeps the H1's words with the beach name large", () => {
     render(<BeachVisualHero {...PROPS} />);
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Tourmaline Surf Forecast for Sunday, September 27, 2026");
+  });
+
+  it.each([
+    [false, "today", "call"],
+    [true, "tomorrow", "call"],
+    [false, "today", "no_call"],
+    [true, "tomorrow", "no_call"],
+  ] as const)("uses the call day for isTomorrow=%s and %s %s", (isTomorrow, day, kind) => {
+    const call = kind === "call" ? PROPS.call : { kind, reason: "Water-quality advisory" };
+    render(<BeachVisualHero {...PROPS} isTomorrow={isTomorrow} call={call} />);
+    const card = screen.getByTestId("beach-public-call");
+    expect(card).toHaveTextContent(`Surfing ${day} · for most surfers`);
+    expect(card).toHaveTextContent(kind === "call" ? "FairWorth a look" : `No call ${day}`);
+    expect(card).not.toHaveTextContent(isTomorrow ? "today" : "tomorrow");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Tourmaline Surf Forecast for Sunday, September 27, 2026");
+    expect(screen.getByText("Beach day today")).toBeInTheDocument();
   });
 
   it("leads with the cam, then the photo", () => {
