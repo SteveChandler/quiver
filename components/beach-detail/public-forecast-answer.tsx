@@ -11,6 +11,7 @@ import { isDataStale } from "@/lib/utils/forecast-client-utils";
 import { useAuthenticatedForecastDecision } from "@/components/beach-detail/authenticated-forecast-decision";
 import { ForecastDecisionLoginLink } from "@/components/beach-detail/forecast-decision-login-link";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
+import { beachForecastHeadingSuffix, formatForecastHeadingDate } from "@/lib/utils/beach-forecast-heading";
 import type {
   PublicForecastContextFacts,
   PublicForecastReportFacts,
@@ -45,22 +46,7 @@ interface PublicForecastAnswerProps {
   >;
   headingLevel: "h1" | "h2";
   returnTo: string;
-}
-
-function formatForecastDate(
-  localDate: string | null | undefined,
-  timezone: string,
-): string | null {
-  if (!localDate) return null;
-  const date = new Date(`${localDate}T12:00:00Z`);
-  if (Number.isNaN(date.getTime())) return null;
-  return new Intl.DateTimeFormat("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-    timeZone: timezone,
-  }).format(date);
+  title?: string;
 }
 
 function joinParts(parts: Array<string | null | undefined>): string | null {
@@ -102,6 +88,7 @@ export function PublicForecastAnswer({
   nearbyBeaches = [],
   headingLevel,
   returnTo,
+  title,
 }: PublicForecastAnswerProps) {
   const searchParams = useSearchParams();
   const selectedDate = normalizeForecastDateParam(searchParams?.get("date"));
@@ -124,7 +111,7 @@ export function PublicForecastAnswer({
     beach.timezone ??
     context?.timezone ??
     "UTC";
-  const forecastDate = formatForecastDate(context?.localDate, timezone);
+  const forecastDate = formatForecastHeadingDate(context?.localDate, timezone);
   const waveHeight = context?.waveHeightRangeLabel ?? context?.waveHeight ?? report?.waveHeight;
   // Once the authenticated decision resolves, its selection owns the answer
   // deck. Before then, keep the crawlable public window as context only.
@@ -165,7 +152,6 @@ export function PublicForecastAnswer({
   const isStale = sourceDataUpdatedAt
     ? isDataStale(sourceDataUpdatedAt, primaryDataSource)
     : false;
-  const titleDate = forecastDate ? ` for ${forecastDate}` : "";
   const validAt = context?.selectedRowTime
     ? formatBeachDateTime(context.selectedRowTime, timezone, "EEE h:mm a")
     : null;
@@ -197,7 +183,7 @@ export function PublicForecastAnswer({
       className="border-t-2 border-dashed border-[#0B3A75]/30 pt-5"
     >
       <HeadingTag id="public-forecast-answer-heading" className="font-mono text-sm font-bold uppercase text-[#0B3A75]">
-        {beach.name} Surf Forecast{hasSelection ? "" : titleDate}
+        {title ?? `${beach.name} ${beachForecastHeadingSuffix(forecastDate, hasSelection)}`}
       </HeadingTag>
       {hasSelection ? (
         <p className="mt-3 text-base font-semibold" role="status">
@@ -227,7 +213,7 @@ export function PublicForecastAnswer({
       <Link href={`${returnTo}?${new URLSearchParams({ ...Object.fromEntries(searchParams?.entries() ?? []), tab: "forecast" })}#operational-forecast`} className="mt-4 inline-flex min-h-11 items-center border-2 border-[#11100D] bg-[#F78E42] px-4 text-base font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4">Explore forecast</Link>
       <details open={!hasSelection || hasResolvedAuthenticatedDecision} className="mt-4">
         <summary className="cursor-pointer text-sm font-semibold focus-visible:outline focus-visible:outline-2">
-          {hasResolvedAuthenticatedDecision && selectedWindow ? "Selected call" : "Latest forecast"}{titleDate}
+          {hasResolvedAuthenticatedDecision && selectedWindow ? "Selected call" : "Latest forecast"}{forecastDate ? ` for ${forecastDate}` : ""}
         </summary>
       {hasForecastDetails ? (
         <div className="mt-4">
