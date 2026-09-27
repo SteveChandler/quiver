@@ -25,6 +25,15 @@ describe("BeachHourlyChart", () => {
     expect(screen.getByRole("img", { name: /surf height by hour/i })).toBeInTheDocument();
   });
 
+  it("renders time labels outside the scaling SVG at a readable CSS size", () => {
+    render(<BeachHourlyChart chart={CHART} timezone="America/Los_Angeles" />);
+    const labels = screen.getByTestId("beach-hourly-time-labels");
+    expect(labels).toHaveClass("text-xs");
+    expect(labels).toHaveTextContent("10am");
+    expect(screen.getByRole("img").querySelector("text")).toHaveTextContent("↑");
+    expect(screen.getByRole("img")).not.toHaveTextContent("10am");
+  });
+
   it("renders nothing without points", () => {
     const { container } = render(<BeachHourlyChart chart={{ points: [], maxHeightFt: 0, tideRange: null }} timezone="UTC" />);
     expect(container).toBeEmptyDOMElement();

@@ -9,19 +9,23 @@ import { buildBeachWatchAppLink, buildBeachWatchRule, type BeachWatchWindow } fr
 import { trackAppHandoffLinkOpened, trackAppHandoffView } from "@/lib/analytics/app-handoff-tracking";
 import { NATIVE_SELECTED_WINDOW_WATCH } from "@/lib/constants/app-capabilities";
 import { captureClientPostHogEventAfterConsent } from "@/lib/posthog-client";
+import type { PublicSurfCall } from "@/lib/utils/public-surf-call";
 
 interface BeachActionsProps {
   beach: { id: string; slug: string; name: string };
   watchWindow: BeachWatchWindow | null;
   score: number | null;
   shareUrl: string;
+  hasCamStill: boolean;
+  waterTempF: number | null;
+  call: PublicSurfCall;
 }
 
 type WatchState = "idle" | "saving" | "watching";
 
 const BUTTON = "flex min-h-14 items-center gap-3 rounded-2xl border-2 border-[#11100D] px-4 py-3 text-left text-[#11100D]";
 
-export function BeachActions({ beach, watchWindow, score, shareUrl }: BeachActionsProps) {
+export function BeachActions({ beach, watchWindow, score, shareUrl, hasCamStill, waterTempF, call }: BeachActionsProps) {
   const { user } = useAuth();
   const [watchState, setWatchState] = useState<WatchState>("idle");
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -93,6 +97,7 @@ export function BeachActions({ beach, watchWindow, score, shareUrl }: BeachActio
 
   const watchText =
     watchState === "watching" ? "Watching" : canWatchHere && watchWindow ? `Watch ${watchWindow.label}` : "Open in the app";
+  const shareDetails = [hasCamStill ? "cam still" : null, waterTempF != null ? "water temp" : null, call.kind === "call" ? "surf call" : null].filter(Boolean);
 
   return (
     <div className="mt-4 grid gap-3 md:grid-cols-[1.25fr_1fr]">
@@ -111,11 +116,11 @@ export function BeachActions({ beach, watchWindow, score, shareUrl }: BeachActio
           </span>
         </button>
       ) : null}
-      <button type="button" data-testid="beach-share-button" onClick={handleShare} className={`${BUTTON} bg-[#F4EBD8]`}>
+      <button type="button" data-testid="beach-share-button" onClick={handleShare} className={`${BUTTON} bg-[#F4EBD8] ${watchWindow ? "" : "md:col-span-2"}`}>
         <Share2 aria-hidden className="h-5 w-5 shrink-0" />
         <span>
           <span className="block text-base font-bold">Share {beach.name} today</span>
-          <span className="block text-sm text-[#3d3326]">The cam still, the water temp and the surf call.</span>
+          <span className="block text-sm text-[#3d3326]">{shareDetails.length ? `The ${shareDetails.join(", ")}.` : "The beach page."}</span>
         </span>
       </button>
       {sheetOpen && appLink && watchWindow ? (

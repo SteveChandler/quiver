@@ -65,6 +65,7 @@ import {
 import { getCachedForecastIndexabilitySnapshots } from "@/lib/seo/forecast-indexability-cache";
 import { getTideMetaData } from "@/lib/seo/tide-meta-data";
 import { getWaterTempMetaData } from "@/lib/seo/water-temp-meta-data";
+import { getCamThumbnailUrl } from "@/lib/media/cam-thumbnail";
 
 // Rendered per request so forecast revisions and windows are current; the HTML
 // is then shared at the CDN for at most 15 minutes (lib/seo/beach-detail-cdn-cache.ts),
@@ -314,10 +315,13 @@ export default async function GenericBeachDetailPage(props: PageProps) {
           watchWindow={watchWindow}
           score={surfCallReport?.score ?? null}
           shareUrl={`${baseUrl}${buildBeachUrl(publicBeach)}`}
+          hasCamStill={Boolean(getCamThumbnailUrl(cameraUrl))}
+          waterTempF={waterTemp.tempF}
+          call={publicCall}
         />
         <div className="mt-10 grid gap-6 lg:grid-cols-[1.35fr_1fr]">
           {hourlyChart.points.length > 0 ? (
-            <section id="beach-hourly" aria-labelledby="beach-hourly-heading" className="scroll-mt-20">
+            <section id="beach-hourly" aria-labelledby="beach-hourly-heading" className="min-w-0 scroll-mt-20">
               <h2 id="beach-hourly-heading" className="zine-display text-xl uppercase">Surf, hour by hour</h2>
               <div className="mt-3"><BeachHourlyChart chart={hourlyChart} timezone={beachTz} /></div>
             </section>
