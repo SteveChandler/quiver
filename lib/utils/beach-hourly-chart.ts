@@ -13,6 +13,7 @@ export interface HourlyChart {
   points: HourlyChartPoint[];
   maxHeightFt: number;
   tideRange: [number, number] | null;
+  bestWindow?: { start: string; end: string } | null;
 }
 
 /** "2-3 ft" charts as 3: a bar shows how big it gets. */
@@ -55,6 +56,8 @@ export function buildHourlyChart(
   const tides = points.map((p) => p.tideFt).filter((t): t is number => t != null);
   return {
     points,
+    bestWindow: points.some((point) => point.inBestWindow) && best.start && best.end
+      ? { start: best.start, end: best.end } : null,
     maxHeightFt: heights.length > 0 ? Math.max(...heights) : 0,
     tideRange: tides.length > 0 ? [Math.min(...tides), Math.max(...tides)] : null,
   };

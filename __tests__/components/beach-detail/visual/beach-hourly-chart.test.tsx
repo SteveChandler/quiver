@@ -30,7 +30,8 @@ describe("BeachHourlyChart", () => {
     const labels = screen.getByTestId("beach-hourly-time-labels");
     expect(labels).toHaveClass("text-xs");
     expect(labels).toHaveTextContent("10am");
-    expect(screen.getByRole("img").querySelector("text")).toHaveTextContent("↑");
+    expect(document.querySelector("[data-wind-arrow]")).toHaveTextContent("↑");
+    expect(document.querySelector("[data-wind-arrow]")).toHaveClass("text-base");
     expect(screen.getByRole("img")).not.toHaveTextContent("10am");
   });
 
@@ -43,6 +44,14 @@ describe("BeachHourlyChart", () => {
     expect(labels.parentElement).toHaveStyle({ minWidth: "256px" });
     expect(labels.firstElementChild).toHaveClass("first:text-left");
     expect(labels.lastElementChild).toHaveClass("last:text-right");
+  });
+
+  it("names the local date, quantities, best window and following table", () => {
+    render(<BeachHourlyChart chart={{ ...CHART, bestWindow: { start: "2026-09-27T18:00:00Z", end: "2026-09-27T20:30:00Z" } }} timezone="America/Los_Angeles" />);
+    expect(screen.getByText("Sun Sep 27 · Surf bars 2–3 ft")).toBeVisible();
+    expect(screen.getByText("3 ft")).toBeVisible();
+    expect(screen.getByRole("img")).toHaveAccessibleName("Surf height by hour for Sun Sep 27: surf bars 2–3 ft. Best window 11am–1:30pm. The full hourly table follows below.");
+    expect(screen.getByText("↑ Arrow points where the wind blows")).toBeVisible();
   });
 
   it("renders nothing without points", () => {
@@ -85,14 +94,8 @@ describe("BeachHourlyChart", () => {
 
   it("normalizes wind arrow rotation to 0-360 range", () => {
     render(<BeachHourlyChart chart={CHART} timezone="America/Los_Angeles" />);
-    const arrows = document.querySelectorAll("text[fill='#F5EEDC']");
-    let found = false;
-    arrows.forEach((arrow) => {
-      const transform = arrow.getAttribute("transform");
-      if (transform && transform.includes("rotate(110 ")) {
-        found = true;
-      }
-    });
-    expect(found).toBe(true);
+    const arrows = document.querySelectorAll("[data-wind-arrow]");
+    expect(arrows).toHaveLength(2);
+    arrows.forEach((arrow) => expect(arrow).toHaveStyle({ transform: "rotate(110deg)" }));
   });
 });

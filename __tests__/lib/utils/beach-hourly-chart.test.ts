@@ -24,6 +24,7 @@ describe("buildHourlyChart", () => {
       { start: "2026-09-27T18:00:00.000Z", end: "2026-09-27T20:30:00.000Z" },
     );
     expect(chart.points.map((p) => p.inBestWindow)).toEqual([false, true, false]);
+    expect(chart.bestWindow).toEqual({ start: "2026-09-27T18:00:00.000Z", end: "2026-09-27T20:30:00.000Z" });
   });
 
   it("parses compass and numeric wind directions", () => {
