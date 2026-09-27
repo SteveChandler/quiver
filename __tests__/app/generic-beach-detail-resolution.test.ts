@@ -17,6 +17,9 @@ import type { Beach } from "@/types/database";
 import { notFound, redirect } from "next/navigation";
 import { renderToStaticMarkup } from "react-dom/server";
 import { CHRONICALLY_IMPACTED_WATER_QUALITY_BEACH_IDS } from "@/lib/recommendations/major-event-hold/water-quality";
+import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
+import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
+import { DEFAULT_TIMEZONE } from "@/lib/utils/timezone-constants";
 import { getTideMetaData } from "@/lib/seo/tide-meta-data";
 import { rowToSwellPartition } from "@/lib/domains/conditions/map-forecast";
 
@@ -75,7 +78,7 @@ jest.mock("@/lib/utils/timezone-utils.server", () => ({
 // silently vanished from the initial HTML — the exact thing it guards.
 // Like BeachDetail, the visual layout renders visualTop in place of the zine hero.
 jest.mock("@/app/beach/[slug]/beach-detail-client", () => ({
-  BeachDetailClient: ({
+  BeachDetailClient: jest.fn(({
     beach,
     heroHeadingLevel = "h1",
     layout = "zine",
@@ -107,7 +110,7 @@ jest.mock("@/app/beach/[slug]/beach-detail-client", () => ({
       beforeTabsContent ?? null,
       afterTabsContent ?? null,
     );
-  },
+  }),
 }));
 
 // Client CTAs inside afterTabsContent; they call useRouter/useState.
@@ -396,6 +399,44 @@ describe("GenericBeachDetailPage slug resolution", () => {
       expect(hero.includes(`Low ${nextInteriorLowTime}`)).toBe(isToday);
       expect(hero.includes("Low ")).toBe(isToday);
       expect(html).toContain(nextInteriorLowTime);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it.each([false, true])("shares the default timezone with the week (coordinates: %s)", async (hasCoords) => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-09-28T02:05:00Z"));
+    try {
+      (getBeachesBySlug as jest.Mock).mockResolvedValue({ success: true, data: [{
+        ...makeBeach({ lat: hasCoords ? 33 : null, lon: hasCoords ? -117 : null }), timezone: null,
+      }] });
+      (getTimezoneFromCoords as jest.Mock).mockReturnValueOnce(null);
+      (getSpotSurfReportPublic as jest.Mock).mockResolvedValueOnce({ report: null, isTomorrow: false });
+      const html = renderToStaticMarkup(await GenericBeachDetailPage({
+        params: Promise.resolve({ intent: "ca", city: "dana-point", beachSlug: "lower-trestles" }),
+      }));
+      expect(html).toContain("Surfing today");
+      expect((BeachDetailClient as jest.Mock).mock.calls.at(-1)[0]).toMatchObject({
+        beachTimezone: DEFAULT_TIMEZONE, weekCall: { localDate: "2026-09-27" },
+      });
+    } finally {
+      (getTimezoneFromCoords as jest.Mock).mockReset().mockReturnValue("America/Los_Angeles");
+      jest.useRealTimers();
+    }
+  });
+
+  it.each([
+    { report: { bestWindowStart: "2026-09-28T15:00:00Z" }, forecastContext: null },
+    { report: null, forecastContext: { localDate: "2026-09-28" } },
+  ])("anchors the call date to its report across local midnight: %p", async (reportFields) => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-09-28T07:01:00Z"));
+    try {
+      (getBeachesBySlug as jest.Mock).mockResolvedValue({ success: true, data: [makeBeach({})] });
+      (getSpotSurfReportPublic as jest.Mock).mockResolvedValueOnce({ ...reportFields, isTomorrow: true });
+      renderToStaticMarkup(await GenericBeachDetailPage({
+        params: Promise.resolve({ intent: "ca", city: "dana-point", beachSlug: "lower-trestles" }),
+      }));
+      expect((BeachDetailClient as jest.Mock).mock.calls.at(-1)[0].weekCall.localDate).toBe("2026-09-28");
     } finally {
       jest.useRealTimers();
     }

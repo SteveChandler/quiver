@@ -20,7 +20,7 @@ import { getPublicSurfCall } from "@/lib/utils/public-surf-call";
 import { selectBeachWatchWindow } from "@/lib/alerts/beach-watch";
 import { buildHourlyChart } from "@/lib/utils/beach-hourly-chart";
 import { rowToSwellPartition } from "@/lib/domains/conditions/map-forecast";
-import { getLocalDateString } from "@/lib/utils/timezone-utils";
+import { getLocalDateString, resolveBeachTimezone } from "@/lib/utils/timezone-utils";
 import { formatTimeRangeInTimezone } from "@/lib/utils/date-time";
 
 import type { Metadata } from "next";
@@ -163,11 +163,12 @@ export default async function GenericBeachDetailPage(props: PageProps) {
       redirect(buildBeachUrl(beach));
     }
 
-    const beachTimezone =
-      beach.timezone ??
+    const beachTimezone = resolveBeachTimezone(
+      beach.timezone ||
       (beach.lat != null && beach.lon != null
         ? getTimezoneFromCoords(beach.lat, beach.lon)
-        : null);
+        : null),
+    );
 
     // Fetch above-fold and structured-data essentials in parallel. Nearby spot
     // enrichment streams below the tabs so it does not block the page shell.
@@ -258,7 +259,6 @@ export default async function GenericBeachDetailPage(props: PageProps) {
           .slice(0, 4)
       : [];
 
-    const beachTz = beachTimezone ?? "UTC";
     const publicCall = getPublicSurfCall({
       verdict: surfCallReport?.verdict,
       score: surfCallReport?.score,
@@ -272,14 +272,17 @@ export default async function GenericBeachDetailPage(props: PageProps) {
       start: windowStart,
       end: windowEnd,
       forecastAt: forecastContext?.selectedRowTime ?? null,
-      timezone: beachTz,
+      timezone: beachTimezone,
       isTomorrow: surfCallIsTomorrow,
     });
     const hourlyChart = buildHourlyChart(hourlyForecasts, { start: windowStart, end: windowEnd });
-    const localDate = getLocalDateString(new Date(), beachTz);
-    const callLocalDate = surfCallIsTomorrow
-      ? new Date(Date.parse(`${localDate}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10)
-      : localDate;
+    const localDate = getLocalDateString(new Date(), beachTimezone);
+    const callWindowStart = surfCallReport?.bestWindowStart ?? forecastContext?.displayWindowStart;
+    const callLocalDate = callWindowStart
+      ? getLocalDateString(new Date(callWindowStart), beachTimezone)
+      : forecastContext?.localDate ?? (surfCallIsTomorrow
+        ? new Date(Date.parse(`${localDate}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10)
+        : localDate);
     // The swell field draws the same hour as the hero's swell and wind facts
     // (the context's selected row). With no such row in the table, it draws none.
     const selectedRowAt = forecastContext?.selectedRowTime ? Date.parse(forecastContext.selectedRowTime) : null;
@@ -291,7 +294,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
       <>
         <BeachVisualHero
           beach={{ id: publicBeach.id, name: publicBeach.name, lat: publicBeach.lat ?? null, lon: publicBeach.lon ?? null, city: publicBeach.city ?? null }}
-          timezone={beachTz}
+          timezone={beachTimezone}
           localDate={localDate}
           forecastLocalDate={forecastContext?.localDate ?? null}
           photoUrl={heroPhotoUrl}
@@ -303,11 +306,11 @@ export default async function GenericBeachDetailPage(props: PageProps) {
             size: forecastContext?.waveHeightRangeLabel ?? forecastContext?.waveHeight ?? surfCallReport?.waveHeight ?? null,
             swell: forecastContext?.swellPeriod ? [forecastContext.swellPeriod, forecastContext.swellDirection].filter(Boolean).join(" ") : null,
             wind: forecastContext?.windSpeed ? [forecastContext.windSpeed, surfCallReport?.windType].filter(Boolean).join(" ") : null,
-            bestWindow: formatTimeRangeInTimezone(windowStart, windowEnd, beachTz),
+            bestWindow: formatTimeRangeInTimezone(windowStart, windowEnd, beachTimezone),
           }}
           beachDay={{
             water: waterTemp.tempF != null ? [`${waterTemp.tempF}°F`, waterTemp.wetsuitRec].filter(Boolean).join(" · ") : null,
-            nextLow: tideMeta.nextInteriorLowAt && getLocalDateString(new Date(tideMeta.nextInteriorLowAt), beachTz) === localDate
+            nextLow: tideMeta.nextInteriorLowAt && getLocalDateString(new Date(tideMeta.nextInteriorLowAt), beachTimezone) === localDate
               ? `Low ${tideMeta.nextInteriorLowTime}` : null,
             advisory: waterQualityResult?.status === "advisory" || waterQualityResult?.status === "closure" ? "Water-quality advisory" : null,
           }}
@@ -325,12 +328,12 @@ export default async function GenericBeachDetailPage(props: PageProps) {
           {hourlyChart.points.length > 0 ? (
             <section id="beach-hourly" aria-labelledby="beach-hourly-heading" className="min-w-0 scroll-mt-20">
               <h2 id="beach-hourly-heading" className="zine-display text-xl uppercase">Surf, hour by hour</h2>
-              <div className="mt-3"><BeachHourlyChart chart={hourlyChart} timezone={beachTz} /></div>
+              <div className="mt-3"><BeachHourlyChart chart={hourlyChart} timezone={beachTimezone} /></div>
             </section>
           ) : null}
           <BeachDayColumn
             beachId={publicBeach.id}
-            timezone={beachTz}
+            timezone={beachTimezone}
             localDate={localDate}
             waterTemp={waterTemp}
             tide={tideMeta}
