@@ -13,6 +13,7 @@ import { BeachActions } from "@/components/beach-detail/visual/beach-actions";
 import { BeachHourlyChart } from "@/components/beach-detail/visual/beach-hourly-chart";
 import { BeachDayColumn } from "@/components/beach-detail/visual/beach-day-column";
 import { VISUAL_PAPER_CLASS } from "@/components/beach-detail/visual/beach-visual-shell";
+import { LocalKnowledgeNotebook } from "@/components/beach-detail/zine/zine-main-grid";
 import { ZineAboutSpot } from "@/components/beach-detail/zine/zine-about-spot";
 import { AmenitiesBadges } from "@/components/beach-detail/amenities-badges";
 import { isFreeGrowthPhaseEnabled } from "@/lib/flags/free-growth-phase";
@@ -434,6 +435,9 @@ export default async function GenericBeachDetailPage(props: PageProps) {
                 <section aria-labelledby="about-heading" className={VISUAL_PAPER_CLASS}>
                   <h2 id="about-heading" className="zine-display text-2xl uppercase">About {publicBeach.name}</h2>
                   <ZineAboutSpot beach={publicBeach} open />
+                  {[publicBeach.wave_tips, publicBeach.crowd_tips, publicBeach.parking_tips, publicBeach.access_tips].some(Boolean) ? (
+                    <div className="mt-6"><LocalKnowledgeNotebook beach={publicBeach} /></div>
+                  ) : null}
                   <div className="mt-4"><AmenitiesBadges amenities={amenitiesResult} /></div>
                   <div className="mt-6">
                     <PublicForecastAnswer

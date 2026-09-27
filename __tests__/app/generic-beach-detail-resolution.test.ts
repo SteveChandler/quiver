@@ -383,6 +383,22 @@ describe("GenericBeachDetailPage slug resolution", () => {
     (getForecastIndexabilityForBeaches as jest.Mock).mockResolvedValue(new Map());
   });
 
+  it.each([true, false])("server-renders editorial tips only when present: %s", async (present) => {
+    const tips = {
+      wave_tips: "Watch the northern peak before paddling out.",
+      crowd_tips: "Give the inside learners extra room.",
+      parking_tips: "Use the signed public lot.",
+      access_tips: "Follow the marked path to the sand.",
+    };
+    (getBeachesBySlug as jest.Mock).mockResolvedValue({ success: true, data: [makeBeach(present ? tips : {})] });
+    const html = renderToStaticMarkup(await GenericBeachDetailPage({
+      params: Promise.resolve({ intent: "ca", city: "dana-point", beachSlug: "lower-trestles" }),
+    }));
+    for (const tip of Object.values(tips)) expect(html.includes(tip)).toBe(present);
+    expect(html.includes("LOCAL KNOWLEDGE")).toBe(present);
+    expect(html).not.toContain("No local notes yet");
+  });
+
   it.each([
     ["2026-09-28T03:00:00Z", "8:00 PM", true],
     ["2026-09-28T11:00:00Z", "Tomorrow 4:00 AM", false],
