@@ -16,7 +16,11 @@ import {
   type SwellEventForecastRow,
   type SwellEventSnapshot,
 } from '@/lib/alerts/swell-events';
-import { parseSwellDirectionToDegrees, parseWindSpeedToKt } from '@/lib/alerts/forecast-parsers';
+import {
+  parseSwellDirectionToDegrees,
+  parseWaveHeightRangeFt,
+  parseWindSpeedToKt,
+} from '@/lib/alerts/forecast-parsers';
 import { angleDifference, normalizeAngle } from '@/lib/domains/shared/angle-utils';
 import { getRideabilityBand, type BoardClass } from '@/lib/domains/rideability';
 import { getSkillLevelOrDefault, type SkillLevel } from '@/lib/domains/user-preferences';
@@ -47,7 +51,7 @@ export interface WeekScoutSwell {
   confidence: 'on_the_radar' | 'likely' | 'locked';
   change: WeekScoutSwellChange | null;
   narrative: string;
-  /** Ranked best first, max 8. */
+  /** Open, then partial, then shadowed to this swell; best first within each. Max 8. */
   beaches: WeekScoutSwellBeach[];
   /** A second swell crossing this one at the lead beach. */
   crossing: WeekScoutSwellCrossing | null;
@@ -142,6 +146,7 @@ const RULES = {
   rarityMinHistoryDays: 14,
 } as const;
 const VERDICT_RANK: Record<NonNullable<Window['verdict']>, number> = { worth_it: 3, maybe: 2, skip: 1 };
+const EXPOSURE_RANK: Record<WeekScoutSwellBeach['exposureLabel'], number> = { open: 0, partial: 1, shadowed: 2 };
 
 /** The rideable bands Week Scout's `rideable` flag uses: any board's band counts. */
 export function weekScoutRideableBands(
@@ -372,7 +377,10 @@ function nearestFaceHeightFt(
 }
 
 function compareBeaches(left: WeekScoutSwellBeach, right: WeekScoutSwellBeach): number {
-  return verdictRank(right.bestWindow?.verdict ?? null) - verdictRank(left.bestWindow?.verdict ?? null)
+  // A beach sheltered from this swell can still hold a great window on other
+  // swell; it belongs on this swell's list, but never ahead of one it reaches.
+  return EXPOSURE_RANK[left.exposureLabel] - EXPOSURE_RANK[right.exposureLabel]
+    || verdictRank(right.bestWindow?.verdict ?? null) - verdictRank(left.bestWindow?.verdict ?? null)
     || (right.bestWindow?.conditionScore ?? -1) - (left.bestWindow?.conditionScore ?? -1)
     || right.exposure * (right.peakFaceHeightFt ?? 0) - left.exposure * (left.peakFaceHeightFt ?? 0);
 }
@@ -554,6 +562,65 @@ function changeFor(
   return { ...base, kind: 'steady', summary: `Holding steady since ${since}` };
 }
 
+/** The beach this swell's story is told from: the first open beach, else the first partial one. */
+function narrativeLead(beaches: readonly WeekScoutSwellBeach[]): WeekScoutSwellBeach | null {
+  return beaches.find((beach) => beach.exposureLabel === 'open')
+    ?? beaches.find((beach) => beach.exposureLabel === 'partial')
+    ?? null;
+}
+
+function windowMaxFt(beach: WeekScoutSwellBeach): number | null {
+  return parseWaveHeightRangeFt(beach.bestWindow?.waveHeight ?? null)?.max ?? null;
+}
+
+type ShelteredForm = 'smaller' | 'other_swell' | 'plain';
+
+function shelteredForm(
+  beach: WeekScoutSwellBeach,
+  lead: WeekScoutSwellBeach | null,
+  leadFt: number | null,
+): ShelteredForm {
+  const ft = beach === lead ? null : windowMaxFt(beach);
+  if (ft === null || leadFt === null) return 'plain';
+  if (ft < leadFt) return 'smaller';
+  // A partial beach still gets some of this swell; only a shadowed one's surf is credited elsewhere.
+  return beach.exposureLabel === 'shadowed' ? 'other_swell' : 'plain';
+}
+
+/**
+ * Exposure describes this swell only. A beach sheltered from it can still
+ * show a big window on other swell, so "smaller" is claimed only when its own
+ * window reads smaller than the lead's.
+ */
+function exposureSentences(
+  beaches: readonly WeekScoutSwellBeach[],
+  lead: WeekScoutSwellBeach | null,
+): string[] {
+  // Exposure is only claimed for beaches with a measured swell window.
+  const measured = beaches.filter((beach) => beach.swellWindow !== null);
+  const leadFt = lead ? windowMaxFt(lead) : null;
+  const sentences: string[] = [];
+
+  const open = measured.filter((beach) => beach.exposureLabel === 'open').slice(0, 2).map((beach) => beach.beachName);
+  if (open.length > 0) sentences.push(`${listNames(open)} ${open.length === 1 ? 'faces' : 'face'} it most directly.`);
+
+  for (const label of ['partial', 'shadowed'] as const) {
+    const byForm = new Map<ShelteredForm, string[]>();
+    for (const beach of measured.filter((row) => row.exposureLabel === label).slice(0, 2)) {
+      const form = shelteredForm(beach, lead, leadFt);
+      byForm.set(form, [...(byForm.get(form) ?? []), beach.beachName]);
+    }
+    for (const [form, names] of byForm) {
+      const one = names.length === 1;
+      const subject = `${listNames(names)} ${one ? 'is' : 'are'} ${label === 'partial' ? 'partly ' : ''}sheltered from this swell`;
+      if (form === 'smaller') sentences.push(`${subject}, so expect smaller surf there.`);
+      else if (form === 'other_swell') sentences.push(`${subject}; ${one ? 'its' : 'their'} surf there comes from other swell.`);
+      else sentences.push(`${subject}.`);
+    }
+  }
+  return sentences;
+}
+
 function narrativeFor(
   swell: Pick<WeekScoutSwell, 'directionLabel' | 'periodS' | 'peakOffshoreHeightFt' | 'arrivalAt' | 'peakAt' | 'crossing'>,
   beaches: readonly WeekScoutSwellBeach[],
@@ -580,26 +647,10 @@ function narrativeFor(
     );
   }
 
-  // Exposure is only claimed for beaches with a measured swell window.
-  const measured = beaches.filter((beach) => beach.swellWindow !== null);
-  const names = (label: WeekScoutSwellBeach['exposureLabel']): string[] =>
-    measured.filter((beach) => beach.exposureLabel === label).slice(0, 2).map((beach) => beach.beachName);
-  const verb = (count: number, one: string, many: string): string => (count === 1 ? one : many);
-  const open = names('open');
-  const partial = names('partial');
-  const shadowed = names('shadowed');
-  const clauses = [
-    open.length > 0 ? `${listNames(open)} ${verb(open.length, 'faces', 'face')} it most directly` : null,
-    partial.length > 0
-      ? `${listNames(partial)} ${verb(partial.length, 'is', 'are')} partly blocked, so expect smaller surf there`
-      : null,
-    shadowed.length > 0
-      ? `${listNames(shadowed)} ${verb(shadowed.length, 'is', 'are')} mostly blocked from this direction, so expect little of it there`
-      : null,
-  ].filter((clause): clause is string => clause !== null);
-  if (clauses.length > 0) sentences.push(`${clauses.slice(0, 2).join('; ')}.`);
+  const lead = narrativeLead(beaches);
+  sentences.push(...exposureSentences(beaches, lead).slice(0, 2));
 
-  const top = beaches[0];
+  const top = lead ?? beaches[0];
   if (top?.sizeFit === 'above_range') {
     // Only suggest a beach this response actually recommends a window at.
     const fit = beaches.find((beach) => (
