@@ -47,14 +47,25 @@ describe("BeachActions", () => {
     expect(screen.getByTestId("watch-qr").getAttribute("data-value")).toMatch(/\/app\/spot\/tourmaline\?window=/);
   });
 
-  it("opens the app directly on a phone", async () => {
+  it.each([false, true])("offers an accessible app panel on a phone (native watch: %s)", async (ready) => {
+    mockNative.ready = ready;
     setPointer(true);
-    const assign = jest.fn();
-    // eslint-disable-next-line no-restricted-properties -- test needs to mock window.location.assign
-    Object.defineProperty(window, "location", { configurable: true, value: { ...window.location, assign } });
     render(<BeachActions {...SHARE} beach={BEACH} watchWindow={WINDOW} score={61} shareUrl="x" />);
-    await userEvent.click(screen.getByTestId("beach-watch-button"));
-    expect(assign).toHaveBeenCalledWith(expect.stringMatching(/\/app\/spot\/tourmaline\?window=/));
+    const button = screen.getByTestId("beach-watch-button");
+    await userEvent.click(button);
+    const panel = screen.getByRole("region", { name: "Open in the Quiver app" });
+    expect(panel).toHaveFocus();
+    const link = screen.getByRole("link", { name: ready ? "Watch Tourmaline today 11am–1:30pm in the Quiver app" : "Open Tourmaline in the Quiver app" });
+    expect(link).toHaveAttribute("href", expect.stringMatching(/\/app\/spot\/tourmaline\?window=/));
+    expect(screen.getByTestId("watch-qr").parentElement).toHaveClass("hidden", "md:block");
+    expect(panel.textContent?.includes("Watch")).toBe(ready);
+    await userEvent.keyboard("{Escape}");
+    expect(screen.queryByRole("region")).toBeNull();
+    expect(button).toHaveFocus();
+    await userEvent.click(button);
+    await userEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("region")).toBeNull();
+    expect(button).toHaveFocus();
   });
 
   it("creates the watch for signed-in users", async () => {
@@ -75,7 +86,9 @@ describe("BeachActions", () => {
     });
     render(<BeachActions {...SHARE} beach={BEACH} watchWindow={WINDOW} score={61} shareUrl="x" />);
     await userEvent.click(screen.getByTestId("beach-watch-button"));
-    expect(await screen.findByText("Watching other beaches is part of Pro")).toBeInTheDocument();
+    expect(await screen.findByRole("status")).toHaveTextContent("Watching other beaches is part of Pro");
+    expect(screen.getByRole("link", { name: "Open Tourmaline in the Quiver app" })).toHaveAttribute("href", expect.stringMatching(/window=/));
+    expect(screen.getByRole("region")).not.toHaveTextContent("Scan to watch");
     expect(screen.getByTestId("watch-qr")).toBeInTheDocument();
   });
 

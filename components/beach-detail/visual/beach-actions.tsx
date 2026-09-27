@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Eye, Share2 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
@@ -31,6 +31,17 @@ export function BeachActions({ beach, watchWindow, score, shareUrl, hasCamStill,
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetNote, setSheetNote] = useState<string | null>(null);
 
+  const watchButtonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (sheetOpen) panelRef.current?.focus();
+  }, [sheetOpen]);
+
+  function closeAppSheet(): void {
+    setSheetOpen(false);
+    watchButtonRef.current?.focus();
+  }
+
   const appLink = watchWindow ? buildBeachWatchAppLink(beach.slug, watchWindow.forecastAt) : null;
   const handoff = { source: `beach-detail-${beach.slug}`, surface: "beach_detail", placement: "beach_watch" } as const;
   const canWatchHere = Boolean(user) || NATIVE_SELECTED_WINDOW_WATCH;
@@ -39,7 +50,7 @@ export function BeachActions({ beach, watchWindow, score, shareUrl, hasCamStill,
     if (!appLink) return;
     setSheetNote(note);
     setSheetOpen(true);
-    trackAppHandoffView({ ...handoff, platform: "desktop", handoff_channel: "qr", destination_url: appLink });
+    trackAppHandoffView({ ...handoff, destination_url: appLink });
   }
 
   async function handleWatch() {
@@ -59,18 +70,12 @@ export function BeachActions({ beach, watchWindow, score, shareUrl, hasCamStill,
         }
         const json = (await res.json().catch(() => ({}))) as { error?: unknown };
         setWatchState("idle");
-        openAppSheet(typeof json.error === "string" ? json.error : "Couldn't save the watch here. You can watch it in the app.");
+        openAppSheet(typeof json.error === "string" ? json.error : "Couldn't save the watch here.");
       } catch (error) {
         console.error("[BeachActions] watch failed", error instanceof Error ? error.message : error);
         setWatchState("idle");
-        openAppSheet("Couldn't reach Quiver. You can watch it in the app.");
+        openAppSheet("Couldn't reach Quiver to save the watch.");
       }
-      return;
-    }
-    if (window.matchMedia("(pointer: coarse)").matches) {
-      trackAppHandoffLinkOpened({ ...handoff, destination_url: appLink });
-      // eslint-disable-next-line no-restricted-properties -- universal link handoff to the native app, not an SPA route
-      window.location.assign(appLink);
       return;
     }
     openAppSheet(null);
@@ -107,6 +112,9 @@ export function BeachActions({ beach, watchWindow, score, shareUrl, hasCamStill,
         <button
           type="button"
           data-testid="beach-watch-button"
+          ref={watchButtonRef}
+          aria-expanded={sheetOpen}
+          aria-controls="beach-app-panel"
           onClick={handleWatch}
           disabled={watchState === "saving"}
           className={`${BUTTON} bg-[#F78E42] shadow-[4px_4px_0_#000]`}
@@ -114,7 +122,7 @@ export function BeachActions({ beach, watchWindow, score, shareUrl, hasCamStill,
           <Eye aria-hidden className="h-5 w-5 shrink-0" />
           <span>
             <span className="block text-base font-bold">{watchText}</span>
-            <span className="block text-sm text-[#3a1f08]">For surfers: a heads-up on your phone if it changes. Opens in the Quiver app.</span>
+            <span className="block text-sm text-[#3a1f08]">{canWatchHere ? "For surfers: a heads-up on your phone if it changes." : `Open ${beach.name} in the Quiver app.`}</span>
           </span>
         </button>
       ) : null}
@@ -125,14 +133,35 @@ export function BeachActions({ beach, watchWindow, score, shareUrl, hasCamStill,
           <span className="block text-sm text-[#3d3326]">{shareDetails.length ? `The ${shareList}.` : "The beach page."}</span>
         </span>
       </button>
+      <p role="status" aria-live="polite" className="sr-only">{sheetNote}</p>
       {sheetOpen && appLink && watchWindow ? (
-        <div role="dialog" aria-label="Watch in the Quiver app" className="flex items-center gap-4 rounded-2xl border border-dashed border-[#F5EEDC]/35 bg-[#F5EEDC]/5 p-4 md:col-span-2">
-          <div className="rounded-lg bg-white p-2">
+        <div
+          id="beach-app-panel"
+          ref={panelRef}
+          role="region"
+          aria-label="Open in the Quiver app"
+          tabIndex={-1}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.preventDefault();
+              closeAppSheet();
+            }
+          }} className="flex items-center gap-4 rounded-2xl border border-dashed border-[#F5EEDC]/35 bg-[#F5EEDC]/5 p-4 md:col-span-2">
+          <div className="hidden rounded-lg bg-white p-2 md:block">
             <QRCodeSVG value={appLink} size={96} />
           </div>
           <div className="text-sm text-[#F5EEDC]">
             {sheetNote ? <p className="mb-1 font-bold">{sheetNote}</p> : null}
-            <p>Scan to watch {beach.name} {watchWindow.label} in the Quiver app.</p>
+            <a
+              href={appLink}
+              className="inline-flex min-h-11 items-center font-bold underline"
+              onClick={() => trackAppHandoffLinkOpened({ ...handoff, destination_url: appLink })}
+            >
+              {NATIVE_SELECTED_WINDOW_WATCH
+                ? `Watch ${beach.name} ${watchWindow.label} in the Quiver app`
+                : `Open ${beach.name} in the Quiver app`}
+            </a>
+            <button type="button" onClick={closeAppSheet} className="ml-4 min-h-11 underline">Close</button>
           </div>
         </div>
       ) : null}
