@@ -29,19 +29,16 @@ Beach Page → Individual Components → Actions/Navigation
    Props      Local State         Server Actions
 ```
 
-### **Component Hierarchy**
+### **Beach page layouts**
 
-```
-BeachDetailPage
-├── BeachHeader (navigation)
-├── BeachHero (visual header)
-├── CamsSection (live camera feed)
-│   └── HLSVideoPlayer (dynamic import, SSR disabled)
-├── AmenitiesBadges (CCC amenity data)
-├── WaterQualityBadge (EPA water quality status)
-├── TodaysForecast (forecast data)
-├── RecentSessionsSection (social content)
-```
+- `zine` remains on water temperature and tides subpages and the Mexico and international beach routes.
+- `visual` serves `/[state]/[city]/[beach]` through `BeachDetailClient` and `BeachDetail`.
+
+The visual layout renders, in order: breadcrumb; `BeachVisualHero` with the H1, public call, and beach-day facts; `BeachActions` with Watch or app handoff when a window exists, plus Share; the hourly chart when forecast points exist beside `BeachDayColumn`; `BeachWeek` after client hydration when week data exists; nearby spots; Reviews, Intel, and Sessions tabs; then About, amenities, forecast details, the optional full hourly table, FAQ, and related guides. The existing indexable blocks and structured data remain on the page.
+
+The public call comes from `getPublicSurfCall`, is labeled "for most surfers," and can show a call, "No call today/tomorrow," or "Surf call unavailable." The week tile for the call's local day uses that public call's word (or "No call") in place of its forecast tier. The H1 still contains the beach name and "Surf Forecast" wording. The week has no per-day water temperature; water temperature belongs to beach-day facts and the water-temp subpage. Water quality only reports advisories or closures, never "Clean" for missing or non-advisory data. Beach-page tide facts use only interior three-point turning points from `getTideMetaData`; incomplete first or last samples cannot create a displayed high or low.
+
+For a signed-out visitor, `NATIVE_SELECTED_WINDOW_WATCH` determines whether a selected window is labeled "Watch" or "Open in the app." The button is absent without a watch window; Share remains visible. The visual page has no sticky or inline signup CTA or content-page app handoff CTA.
 
 ## 📊 **COMPONENT RESPONSIBILITIES**
 
@@ -64,15 +61,11 @@ BeachDetailPage
   - Sticky positioning (z-index: 10)
   - Mobile-first responsive design
 
-### **BeachHero**
+### **BeachVisualHero**
 
-- **Purpose**: Visual hero section with beach information
-- **Props**: `beach: Beach, mapImageUrl: string`
-- **Features**:
-  - Map image background with gradient overlay
-  - Beach name, location, and star ratings
-  - Hardcoded review count (128 reviews)
-  - Responsive image handling
+- **Purpose**: Visual layout hero with beach media, the H1, public surf call, surf facts, and optional beach-day facts.
+- **Inputs**: Beach and media data, selected forecast context, public call, water temperature, interior tide low for today, and advisory status.
+- **Media**: `HomeHeroMedia` selects cam, photo, swell, then satellite when available.
 
 ### **CamsSection**
 
@@ -306,6 +299,10 @@ const colorSchemes = {
 - Navigation flow testing
 - Session creation workflows
 - Forecast calibration integration
+- `e2e/guest-anonymous-cta-reduction.spec.ts` covers the signed-out public call, Share/Watch, absent signup asks, and visual sections.
+- `e2e/usage-critical.spec.ts` checks the guest beach Share surface.
+- `e2e/prod-readonly/guest-ui.spec.ts` accepts the visual public call as stable guest content.
+- `__tests__/components/beach-detail/visual/` covers the visual hero, week, hourly chart, and beach-day column; `__tests__/lib/utils/public-surf-call.test.ts` and `__tests__/lib/seo/tide-interior-extremes.test.ts` cover their source rules.
 
 ## 🔮 **FUTURE ENHANCEMENTS**
 
