@@ -175,10 +175,10 @@ Relative tide is `tide_height - (preferred_tide_ft_min + preferred_tide_ft_max) 
 
    Add `'thruster'` → `'shortboard'` to the `CASE`. Keep ranking by `use_count DESC, last_used_at DESC`, then priority. With this change, Steven's "Twin pin" (row type `shortboard`) resolves to `shortboard` in both SQL and TypeScript. A row edited to `twin-pin` resolves to `fish` in both.
 3. **`peaks` and `fit_pairs`.** Replace `(t.break_type IS NULL OR h.break_type = t.break_type OR h.break_type IS NULL)` with `public.break_types_match(t.break_type, h.break_type)`.
-4. **Delete the `tips` CTE** and its join. Keep `'board_tip', NULL` in the learned and both avoidance result objects for installed native binaries that call the RPC directly. The API now owns the board pick (Task 3).
+4. **Delete the `tips` CTE** and its join. Keep `'board_tip', NULL` in the learned and both avoidance result objects for installed native binaries that call the RPC directly. The API now owns the board pick (Task 3). The degraded direct-RPC fallback intentionally shows no board line rather than maintaining a second board algorithm.
 5. **Learned branch reason bullets.** Replace the three `format('… profile peak …')` bullets with one bullet: `format('%s of your %s good sessions were in conditions like this.', similar_good, good_total)`.
    - `good_total` = eligible sessions with `rating >= 4` (all break types).
-   - `similar_good` = eligible sessions with `rating >= 4` and `session_condition_similarity(...) >= 0.35` against the slot. Both history and slot wave heights use `parse_wave_height_midpoint_ft`, matching TypeScript range parsing; existing scoring keeps `parse_numeric_from_text`. Other current inputs use the slot's `f_*` values, the requested beach's relative tide and break type, and a null tide direction because slots carry no tide status.
+   - `similar_good` = eligible sessions with `rating >= 4` and `session_condition_similarity(...) >= 0.7` against the slot, mirroring `LIKE_THIS_SIMILARITY` in `lib/scoring/personal-board.ts`. This same bar controls board reason counts and height ranges; the picker retains 0.35 for evidence weighting. Both history and slot wave heights use `parse_wave_height_midpoint_ft`, matching TypeScript range parsing; existing scoring keeps `parse_numeric_from_text`. Other current inputs use the slot's `f_*` values, the requested beach's relative tide and break type, and a null tide direction because slots carry no tide status.
    - Keep the fit-feedback and board-band bullets after it.
    - Add result keys `'good_session_count', good_total` and `'similar_good_session_count', similar_good`.
    - Compute these once per scenario, not per history row per bullet.
@@ -246,16 +246,18 @@ Relative tide is `tide_height - (preferred_tide_ft_min + preferred_tide_ft_max) 
 
 **Behaviour:**
 - **Board line** when the decision has no board line of its own:
+  - Withhold matchScore-derived board lines on skip or unknown verdicts.
   - If `matchScore.board_pick` exists, `` `Bring your ${formatBoardNameWithType(board_pick.name, board_pick.type)}` ``. `formatBoardNameWithType` comes from `src/lib/board-display.ts`; this is the same phrasing Explore uses through `bringBoardLine`.
-  - Otherwise, if `board_tip` exists, `` `Bring your ${board_tip}` ``.
+  - Otherwise, if `board_tip` exists, `` `Your best-rated board at this size: ${board_tip}` ``.
   - Never emit "You usually ride".
 - `hasBoardPick` also treats `board_pick` as a pick.
-- Keep old-server compatibility: a response with only `board_tip` still renders.
+- Keep old-server compatibility: a response with only `board_tip` still renders the best-rated-at-this-size line when the verdict permits it.
 
 **Tests:**
 - `board_pick {name:'Twin pin', type:'shortboard'}` renders "Bring your Twin pin shortboard".
 - `{name:'Twin pin', type:'twin-pin'}` renders "Bring your Twin pin" (the name already ends with the type label).
-- Only `board_tip: "Twin pin 6'4"` renders "Bring your Twin pin 6'4".
+- Only `board_tip: "Twin pin 6'4"` renders "Your best-rated board at this size: Twin pin 6'4".
+- Skip and unknown verdicts render no matchScore-derived board line, with either `board_pick` or legacy `board_tip`.
 - No test expects "You usually ride".
 
 - [ ] Write failing tests → implement → `npm test -- surf-decision surf-call-card-home personal-surf-call match-score-client` → `npm run typecheck`.

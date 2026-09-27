@@ -119,6 +119,8 @@ BEGIN
       OR (result->'reason_bullets')::text LIKE '%profile peak%'
     THEN RAISE EXCEPTION 'Bad reason for user %: %',user_n,result->'reason_bullets'; END IF;
     IF (result->>'good_session_count')::integer <> 5 THEN RAISE EXCEPTION 'Wrong good total: %',result; END IF;
+    -- One mixed-break session scores 0.9129; four reef sessions score exp(-0.5/2)=0.7788.
+    -- All five still clear 0.7. The far-condition user's five sessions still clear neither bar.
     IF user_n=1 AND (result->>'similar_good_session_count')::integer <> 5 THEN
       RAISE EXCEPTION 'Mixed beach history not similar: %',result; END IF;
     IF user_n=1 AND (result->>'base_score')::numeric <> 9.13 THEN
@@ -165,6 +167,9 @@ BEGIN
 END $$;
 
 -- A range's first number still controls scoring, while its midpoint controls similarity.
+-- At period 12, height deltas 1, 3 and 5 give distances 0.1823, 1.6407 and 4.5575:
+-- exp(-distance/2) is 0.9129, 0.4403 and 0.1024. Only delta 1 clears 0.7.
+-- Identical midpoints score 1; missing heights score 0. Counts below are 5,0,5,0,0.
 UPDATE public.session_forecast_snapshots SET forecast_snapshot=jsonb_set(forecast_snapshot,'{wave_height}','"1-5 ft"')
 WHERE session_id IN (SELECT id FROM public.sessions WHERE user_id=fixture_id(2));
 DO $$
@@ -174,16 +179,17 @@ BEGIN
   FROM public.compute_user_match_scores(fixture_id(2),ARRAY[fixture_id(101)],
     (SELECT jsonb_agg(jsonb_build_object('beach_id',fixture_id(101),'wave_height',wave,
       'wave_period','12','wind_speed','4','wind_direction','90','tide_height','3') ORDER BY ord)
-     FROM (VALUES (1,'6 ft'),(2,'1-5 ft'),(3,'1-15 ft'),(4,'')) slots(ord,wave))) m;
-  IF cardinality(actual) IS DISTINCT FROM 4
+     FROM (VALUES (1,'4 ft'),(2,'6 ft'),(3,'1-5 ft'),(4,'1-15 ft'),(5,'')) slots(ord,wave))) m;
+  IF cardinality(actual) IS DISTINCT FROM 5
     OR actual[1]->>'similar_good_session_count' IS DISTINCT FROM '5'
-    OR actual[2]->>'similar_good_session_count' IS DISTINCT FROM '5'
-    OR actual[3]->>'similar_good_session_count' IS DISTINCT FROM '0'
-    OR actual[4]->>'similar_good_session_count' IS DISTINCT FROM '0' THEN
+    OR actual[2]->>'similar_good_session_count' IS DISTINCT FROM '0'
+    OR actual[3]->>'similar_good_session_count' IS DISTINCT FROM '5'
+    OR actual[4]->>'similar_good_session_count' IS DISTINCT FROM '0'
+    OR actual[5]->>'similar_good_session_count' IS DISTINCT FROM '0' THEN
     RAISE EXCEPTION 'History/slot midpoint or scenario identity mismatch: %',actual;
   END IF;
-  IF actual[2]->>'base_score' IS DISTINCT FROM '10.00'
-    OR actual[2]->'score' IS DISTINCT FROM actual[3]->'score' THEN
+  IF actual[3]->>'base_score' IS DISTINCT FROM '10.00'
+    OR actual[3]->'score' IS DISTINCT FROM actual[4]->'score' THEN
     RAISE EXCEPTION 'Range parsing changed existing numeric scoring: %',actual;
   END IF;
 END $$;

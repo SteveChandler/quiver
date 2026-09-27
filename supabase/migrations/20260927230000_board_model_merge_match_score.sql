@@ -290,7 +290,8 @@ WITH board_usage AS (
       s.similarity_wave, s.f_period, s.f_wind, s.f_wind_dir,
       CASE WHEN b.spot_tide IS NOT NULL THEN s.f_tide-b.spot_tide END,
       NULL, b.break_type
-    ) >= 0.35)::integer AS similar_good
+    -- Twin of LIKE_THIS_SIMILARITY in lib/scoring/personal-board.ts for user-facing reasons.
+    ) >= 0.7)::integer AS similar_good
   FROM scenarios s
   JOIN requested_beaches b ON b.id IS NOT DISTINCT FROM s.beach_id
   LEFT JOIN history h ON h.eligible AND h.rating >= 4

@@ -1,4 +1,4 @@
-import { conditionSimilarity } from '@/lib/scoring/personal-board';
+import { conditionSimilarity, LIKE_THIS_SIMILARITY } from '@/lib/scoring/personal-board';
 import { parseWaveHeightMidpointFt } from '@/lib/alerts/forecast-parsers';
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
@@ -24,6 +24,7 @@ it.each([
 });
 
 it('matches the fixed SQL similarity cases to four decimals', () => {
+  expect(LIKE_THIS_SIMILARITY).toBe(0.7);
   expect(conditionSimilarity(snapshot, forecast, beach, beach)).toBeCloseTo(1, 4);
   expect(conditionSimilarity({ ...snapshot, wave_height: '1-5 ft' }, forecast, beach, beach)).toBeCloseTo(1, 4);
   expect(conditionSimilarity({ ...snapshot, wave_height: '4 ft' }, forecast, beach, beach)).toBeCloseTo(0.9129, 4);
