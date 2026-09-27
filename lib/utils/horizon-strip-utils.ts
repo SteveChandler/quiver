@@ -60,6 +60,8 @@ export interface DaySummary {
   headlineLabel?: string;
   /** Forecast row timestamp behind the canonical headline */
   headlineForecastAt?: string;
+  /** The forecast row this day's summary scored best; lets callers read its swell. */
+  bestForecastAt?: string | null;
 }
 
 /**
@@ -331,6 +333,7 @@ export function aggregateDayForecasts(
       isPersonalized: !!userPreferences?.preferredWaveSize,
       headlineLabel: todayHeadline?.display.label,
       headlineForecastAt: todayHeadline?.display.forecastAt,
+      bestForecastAt: headlineForecast?.forecast_at ?? bestForecast.forecast_at ?? null,
     });
   }
 

@@ -91,6 +91,13 @@ const mockBeach = {
 } as unknown as Beach;
 
 describe('horizon-strip: trailing null-wave trimming', () => {
+  it('records which row each day\'s summary came from', () => {
+    const today = new Date().toISOString().split('T')[0];
+    const forecasts = makeForecasts(today, 8);
+    const [day] = aggregateDayForecasts(forecasts, mockBeach, { maxDays: 1 });
+    expect(forecasts.map((f) => f.forecast_at)).toContain(day.bestForecastAt);
+  });
+
   it('trims trailing days with ALL null wave_height', () => {
     const today = new Date().toISOString().split('T')[0];
     const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
