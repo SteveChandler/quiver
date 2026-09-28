@@ -80,6 +80,7 @@ export const COOPS_STATIONS: Record<string, string> = {
   // ==================== PACIFIC NORTHWEST ====================
 
   // Oregon
+  "rockaway-beach": "9437540", // Garibaldi; avoid the New York "rockaway" partial match.
   astoria: "9439040", // Astoria station
   "cannon-beach": "9439040",
   seaside: "9439040",

@@ -14,9 +14,23 @@ import {
 import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
 import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 import type { Beach } from "@/types/database";
-import { notFound, redirect } from "next/navigation";
+import { notFound, redirect, useSearchParams } from "next/navigation";
 import { renderToStaticMarkup } from "react-dom/server";
 import { CHRONICALLY_IMPACTED_WATER_QUALITY_BEACH_IDS } from "@/lib/recommendations/major-event-hold/water-quality";
+import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
+import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
+import { DEFAULT_TIMEZONE } from "@/lib/utils/timezone-constants";
+import { getTideMetaData } from "@/lib/seo/tide-meta-data";
+import { createPublicReadClient } from "@/lib/supabase/server";
+import { BeachVisualHero } from "@/components/beach-detail/visual/beach-visual-hero";
+import { resolveDisplaySwell } from "@/lib/domains/conditions/display-swell";
+import { pickDominantSwell } from "@/lib/domains/conditions/dominant-swell";
+import { partitionToPoint } from "@/components/map/swell-field/field-sampler";
+import { rowToSwellPartition } from "@/lib/domains/conditions/map-forecast";
+
+jest.mock("@/lib/services/water-quality/current-status", () => ({
+  currentWaterQuality: jest.fn(async (rows: unknown[]) => rows),
+}));
 
 // Mock React's cache function for server components
 jest.mock("react", () => ({
@@ -37,7 +51,7 @@ jest.mock("next/headers", () => ({
 }));
 
 jest.mock("next/navigation", () => ({
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: jest.fn(() => new URLSearchParams()),
   notFound: jest.fn(() => {
     const err = new Error("NEXT_NOT_FOUND");
     (err as any).digest = "NEXT_NOT_FOUND";
@@ -68,33 +82,44 @@ jest.mock("@/lib/utils/timezone-utils.server", () => ({
 
 // Mock the child components to avoid rendering issues in node environment
 // The real client component server-renders whatever the page passes into its
-// zine shell, so the stub must render beforeTabsContent/afterTabsContent too.
+// shell, so the stub must render visualTop/beforeTabsContent/afterTabsContent too.
 // Dropping them would let this suite pass while the crawlable answer block
 // silently vanished from the initial HTML — the exact thing it guards.
+// Like BeachDetail, the visual layout renders visualTop in place of the zine hero.
 jest.mock("@/app/beach/[slug]/beach-detail-client", () => ({
-  BeachDetailClient: ({
+  BeachDetailClient: jest.fn(({
     beach,
     heroHeadingLevel = "h1",
+    layout = "zine",
+    visualTop,
     beforeTabsContent,
     afterTabsContent,
     heroForecastSlot,
   }: {
     beach: Beach;
     heroHeadingLevel?: "h1" | "h2";
+    layout?: "zine" | "visual";
+    visualTop?: React.ReactNode;
     beforeTabsContent?: React.ReactNode;
     afterTabsContent?: React.ReactNode;
     heroForecastSlot?: React.ReactNode;
   }) => {
     const React = jest.requireActual("react");
+    const top =
+      layout === "visual"
+        ? [visualTop ?? null]
+        : [
+            React.createElement(heroHeadingLevel, { key: "hero" }, beach.name),
+            heroForecastSlot ?? null,
+          ];
     return React.createElement(
       "div",
       null,
-      React.createElement(heroHeadingLevel, { key: "hero" }, beach.name),
-      heroForecastSlot ?? null,
+      ...top,
       beforeTabsContent ?? null,
       afterTabsContent ?? null,
     );
-  },
+  }),
 }));
 
 // Client CTAs inside afterTabsContent; they call useRouter/useState.
@@ -153,6 +178,29 @@ jest.mock("next/cache", () => ({
 
 jest.mock("@/lib/seo/water-temp-meta-data", () => ({
   getWaterTempMetaData: jest.fn().mockResolvedValue({ tempF: 65, wetsuitRec: "3/2mm fullsuit" }),
+}));
+
+// Marker stub so a test can count rip-current banners (the hero owns the only one).
+jest.mock("@/components/beach-detail/rip-current-warning", () => ({
+  RipCurrentWarning: () => {
+    const React = jest.requireActual("react");
+    return React.createElement("div", { "data-testid": "rip-current-warning" });
+  },
+}));
+
+jest.mock("@/components/beach-detail/visual/beach-visual-hero", () => {
+  const actual = jest.requireActual("@/components/beach-detail/visual/beach-visual-hero");
+  return { BeachVisualHero: jest.fn(actual.BeachVisualHero) };
+});
+
+// Spy (real implementation) so a test can check which hour the hero's swell field draws.
+jest.mock("@/lib/domains/conditions/map-forecast", () => {
+  const actual = jest.requireActual("@/lib/domains/conditions/map-forecast");
+  return { ...actual, rowToSwellPartition: jest.fn(actual.rowToSwellPartition) };
+});
+
+jest.mock("@/lib/seo/tide-meta-data", () => ({
+  getTideMetaData: jest.fn().mockResolvedValue({ nextHighTime: null, nextLowTime: null }),
 }));
 
 jest.mock("@/components/ui/sticky-signup-bar", () => ({
@@ -346,7 +394,111 @@ function getHeadingTexts(html: string, level: 1 | 2): string[] {
 describe("GenericBeachDetailPage slug resolution", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (useSearchParams as jest.Mock).mockReturnValue(new URLSearchParams());
     (getForecastIndexabilityForBeaches as jest.Mock).mockResolvedValue(new Map());
+  });
+
+  it.each(["", "date=2026-09-29"])("keeps visual forecast HTML free of sign-in asks (%s)", async (query) => {
+    (useSearchParams as jest.Mock).mockReturnValue(new URLSearchParams(query));
+    (getBeachesBySlug as jest.Mock).mockResolvedValue({ success: true, data: [makeBeach({})] });
+    (getSpotSurfReportPublic as jest.Mock).mockResolvedValueOnce(freshForecastResult());
+    const html = renderToStaticMarkup(await GenericBeachDetailPage({
+      params: Promise.resolve({ intent: "ca", city: "dana-point", beachSlug: "lower-trestles" }),
+    }));
+    expect(html).not.toMatch(/sign in|Quiver call/i);
+    expect(html.includes("Selected day:")).toBe(Boolean(query));
+    expect(html).toContain('data-testid="public-forecast-hour"');
+  });
+
+  it.each([
+    ["closure", "Beach closed (water quality)", "Water-quality advisory"],
+    ["advisory", "Water-quality advisory", "Beach closed (water quality)"],
+  ])("preserves the hero water notice severity: %s", async (status, expected, absent) => {
+    (getBeachesBySlug as jest.Mock).mockResolvedValue({ success: true, data: [makeBeach({})] });
+    (createPublicReadClient as jest.Mock).mockReturnValueOnce({
+      from: () => ({ select() { return this; }, eq() { return this; }, maybeSingle: async () => ({ data: { status } }) }),
+    });
+    const html = renderToStaticMarkup(await GenericBeachDetailPage({
+      params: Promise.resolve({ intent: "ca", city: "dana-point", beachSlug: "lower-trestles" }),
+    }));
+    const hero = html.split('data-testid="beach-visual-hero"')[1].split("</section>")[0];
+    expect(hero).toContain(expected);
+    expect(hero).not.toContain(absent);
+  });
+
+  it.each([true, false])("server-renders editorial tips only when present: %s", async (present) => {
+    const tips = {
+      wave_tips: "Watch the northern peak before paddling out.",
+      crowd_tips: "Give the inside learners extra room.",
+      parking_tips: "Use the signed public lot.",
+      access_tips: "Follow the marked path to the sand.",
+    };
+    (getBeachesBySlug as jest.Mock).mockResolvedValue({ success: true, data: [makeBeach(present ? tips : {})] });
+    const html = renderToStaticMarkup(await GenericBeachDetailPage({
+      params: Promise.resolve({ intent: "ca", city: "dana-point", beachSlug: "lower-trestles" }),
+    }));
+    for (const tip of Object.values(tips)) expect(html.includes(tip)).toBe(present);
+    expect(html.includes("LOCAL KNOWLEDGE")).toBe(present);
+    expect(html).not.toContain("No local notes yet");
+  });
+
+  it.each([
+    ["2026-09-28T03:00:00Z", "8:00 PM", true],
+    ["2026-09-28T11:00:00Z", "Tomorrow 4:00 AM", false],
+  ])("limits the hero's low fact to today: %s", async (nextInteriorLowAt, nextInteriorLowTime, isToday) => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-09-28T02:05:00Z"));
+    try {
+      (getBeachesBySlug as jest.Mock).mockResolvedValue({ success: true, data: [makeBeach({})] });
+      (getTideMetaData as jest.Mock).mockResolvedValueOnce({ nextInteriorLowAt, nextInteriorLowTime });
+      const html = renderToStaticMarkup(await GenericBeachDetailPage({
+        params: Promise.resolve({ intent: "ca", city: "dana-point", beachSlug: "lower-trestles" }),
+      }));
+      const hero = html.split('data-testid="beach-visual-hero"')[1].split("</section>")[0];
+      expect(hero).toContain("Beach day today");
+      expect(hero.includes(`Low ${nextInteriorLowTime}`)).toBe(isToday);
+      expect(hero.includes("Low ")).toBe(isToday);
+      expect(html).toContain(nextInteriorLowTime);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it.each([false, true])("shares the default timezone with the week (coordinates: %s)", async (hasCoords) => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-09-28T02:05:00Z"));
+    try {
+      (getBeachesBySlug as jest.Mock).mockResolvedValue({ success: true, data: [{
+        ...makeBeach({ lat: hasCoords ? 33 : null, lon: hasCoords ? -117 : null }), timezone: null,
+      }] });
+      (getTimezoneFromCoords as jest.Mock).mockReturnValueOnce(null);
+      (getSpotSurfReportPublic as jest.Mock).mockResolvedValueOnce({ report: null, isTomorrow: false });
+      const html = renderToStaticMarkup(await GenericBeachDetailPage({
+        params: Promise.resolve({ intent: "ca", city: "dana-point", beachSlug: "lower-trestles" }),
+      }));
+      expect(html).toContain("Surfing today");
+      expect((BeachDetailClient as jest.Mock).mock.calls.at(-1)[0]).toMatchObject({
+        beachTimezone: DEFAULT_TIMEZONE, weekCall: { localDate: "2026-09-27" },
+      });
+    } finally {
+      (getTimezoneFromCoords as jest.Mock).mockReset().mockReturnValue("America/Los_Angeles");
+      jest.useRealTimers();
+    }
+  });
+
+  it.each([
+    { report: { bestWindowStart: "2026-09-28T15:00:00Z" }, forecastContext: null },
+    { report: null, forecastContext: { localDate: "2026-09-28" } },
+  ])("anchors the call date to its report across local midnight: %p", async (reportFields) => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-09-28T07:01:00Z"));
+    try {
+      (getBeachesBySlug as jest.Mock).mockResolvedValue({ success: true, data: [makeBeach({})] });
+      (getSpotSurfReportPublic as jest.Mock).mockResolvedValueOnce({ ...reportFields, isTomorrow: true });
+      renderToStaticMarkup(await GenericBeachDetailPage({
+        params: Promise.resolve({ intent: "ca", city: "dana-point", beachSlug: "lower-trestles" }),
+      }));
+      expect((BeachDetailClient as jest.Mock).mock.calls.at(-1)[0].weekCall.localDate).toBe("2026-09-28");
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it("returns a true 404 (NEXT_NOT_FOUND) when no beaches match the slug", async () => {
@@ -486,8 +638,16 @@ describe("GenericBeachDetailPage slug resolution", () => {
     const html = renderToStaticMarkup(page);
 
     expect(getHeadingTexts(html, 1)).toEqual(["Del Mar Surf Forecast"]);
-    expect(getHeadingTexts(html, 2)).toContain("Del Mar");
+    expect(getHeadingTexts(html, 2)).toContain("About Del Mar");
+    expect(getHeadingTexts(html, 2)).toContain("Forecast details");
     expect(getHeadingTexts(html, 2)).toContain("Del Mar Hourly Surf Forecast");
+    expect(getHeadingTexts(html, 2)).toContain("Surf, hour by hour");
+    expect(html).toContain('data-testid="beach-hourly-chart"');
+    // The visual page has no Forecast tab: "Explore forecast" goes to the chart.
+    expect(html).toContain('id="beach-hourly"');
+    expect(html).toMatch(/href="#beach-hourly"[^>]*>Explore forecast</);
+    expect(html).not.toContain("tab=forecast");
+    expect((html.match(/data-testid="rip-current-warning"/g) ?? [])).toHaveLength(1);
     expect(html).toContain('data-testid="public-forecast-hourly"');
     expect((html.match(/data-testid="public-forecast-hour"/g) ?? [])).toHaveLength(3);
     expect(html).not.toContain("84/100");
@@ -526,12 +686,87 @@ describe("GenericBeachDetailPage slug resolution", () => {
     const html = renderToStaticMarkup(page);
 
     expect(getHeadingTexts(html, 1)).toEqual(["Del Mar Surf Forecast"]);
-    expect(getHeadingTexts(html, 2)).toContain("Del Mar");
+    expect(getHeadingTexts(html, 2)).toContain("About Del Mar");
+    expect(getHeadingTexts(html, 2)).toContain("Forecast details");
     // origin/main asserted this positively; a beach with no forecast must still
     // explain itself rather than render an empty section.
     expect(html).toContain("Current forecast details are temporarily unavailable");
+    // No hourly rows: no chart, no chart heading, and no link to it.
+    expect(getHeadingTexts(html, 2)).not.toContain("Surf, hour by hour");
+    expect(html).not.toContain("Explore forecast");
+    expect(html).not.toContain("tab=forecast");
+    expect(html).not.toContain("Full hourly table");
     expect(html).not.toContain("Best window");
     expect(html).not.toContain("Nearby spots");
+  });
+
+  // The hero's swell and wind facts come from the forecast context's selected
+  // row, so the swell field under them must draw that same hour.
+  it("draws the hero swell field from the hour the hero's swell facts describe", async () => {
+    (getBeachesBySlug as jest.Mock).mockResolvedValue({
+      success: true,
+      data: [makeBeach({ name: "Del Mar", slug: "del-mar", city: "Del Mar" })],
+    });
+    const forecastResult = freshForecastResult();
+    (getSpotSurfReportPublic as jest.Mock).mockResolvedValueOnce(forecastResult);
+
+    await GenericBeachDetailPage({
+      params: Promise.resolve({ intent: "ca", city: "del-mar", beachSlug: "del-mar" }),
+    });
+
+    expect(rowToSwellPartition).toHaveBeenCalledTimes(1);
+    expect(rowToSwellPartition).toHaveBeenCalledWith(
+      expect.objectContaining({ forecast_at: forecastResult.forecastContext.selectedRowTime }),
+    );
+  });
+
+  it.each([false, true])("matches the fact resolver when swell 1 differs from dominant swell (offshore: %s)", async (offshore) => {
+    const beach = makeBeach({ swell_window_center_deg: 200, swell_window_halfwidth_deg: 20 });
+    (getBeachesBySlug as jest.Mock).mockResolvedValue({ success: true, data: [beach] });
+    const result = freshForecastResult();
+    const row = {
+      ...result.hourlyForecasts[1],
+      swell_1_height: "1 ft", swell_1_period: "8s", swell_1_direction: "NW",
+      swell_2_height: "4 ft", swell_2_period: "14s", swell_2_direction: "SW",
+      swell_direction_om: offshore ? 202.5 : null,
+      swell_height_om: offshore ? 1 : null,
+      swell_period_om: offshore ? 10 : null,
+    };
+    const dominant = pickDominantSwell({
+      swell_1: { height: 1, period: 8, direction: 315 },
+      swell_2: { height: 4, period: 14, direction: 225 }, wind_wave: null,
+    });
+    expect(dominant?.source).toBe("swell_2");
+    const display = resolveDisplaySwell(row, { centerDeg: 200, halfwidthDeg: 20 });
+    (getSpotSurfReportPublic as jest.Mock).mockResolvedValueOnce({
+      ...result, hourlyForecasts: [result.hourlyForecasts[0], row],
+      forecastContext: { ...result.forecastContext, swellPeriod: `${display.periodSeconds}s`, swellDirection: offshore ? "SSW" : "NW" },
+    });
+    const html = renderToStaticMarkup(await GenericBeachDetailPage({
+      params: Promise.resolve({ intent: "ca", city: "dana-point", beachSlug: "lower-trestles" }),
+    }));
+    const partition = (BeachVisualHero as jest.Mock).mock.calls.at(-1)[0].swellPartition;
+    expect(partition).toMatchObject({ s1Dir: display.directionDeg, s1PeriodS: display.periodSeconds, s1HeightFt: display.heightFt });
+    expect(partitionToPoint(0, 0, partition, "s1")).toMatchObject({ dir: display.directionDeg, periodS: display.periodSeconds, heightFt: display.heightFt });
+    expect(html).toContain(offshore ? "10s SSW" : "8s NW");
+  });
+
+  it("draws no hero swell field when the hero's hour is not in the hourly table", async () => {
+    (getBeachesBySlug as jest.Mock).mockResolvedValue({
+      success: true,
+      data: [makeBeach({ name: "Del Mar", slug: "del-mar", city: "Del Mar" })],
+    });
+    // Tomorrow's call while the hourly table still shows today's rows.
+    const forecastResult = freshForecastResult();
+    forecastResult.isTomorrow = true;
+    forecastResult.forecastContext.selectedRowTime = new Date(Date.now() + 26 * 60 * 60 * 1000).toISOString();
+    (getSpotSurfReportPublic as jest.Mock).mockResolvedValueOnce(forecastResult);
+
+    await GenericBeachDetailPage({
+      params: Promise.resolve({ intent: "ca", city: "del-mar", beachSlug: "del-mar" }),
+    });
+
+    expect(rowToSwellPartition).not.toHaveBeenCalled();
   });
 
   it("omits nearby backups without coordinates and skips the nearby lookup", async () => {

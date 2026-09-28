@@ -17,6 +17,7 @@ test.describe('Prod Read-Only Guest UI', () => {
   // prod read-only command (PLAYWRIGHT_PROD_READONLY=true). Skip it in standard
   // local/dev guest runs, where the app-first landing differs (e.g. no web
   // signup modal) and these prod-shaped assertions don't apply.
+  // eslint-disable-next-line playwright/no-skipped-test -- this production-only suite must not run against local or dev
   test.skip(
     process.env.PLAYWRIGHT_PROD_READONLY !== 'true',
     'Prod read-only suite runs only against the deployed prod app (PLAYWRIGHT_PROD_READONLY=true).',
@@ -121,12 +122,14 @@ test.describe('Prod Read-Only Guest UI', () => {
     const beachActions = page.locator('[data-testid="beach-actions"]');
     const signupCta = page.locator('[data-testid="inline-signup-cta"]');
     const surfCall = page.locator('section[aria-label="Today\'s surf call"]');
+    const publicCall = page.getByTestId('beach-public-call');
 
     const hasStableSection =
       (await isVisibleSafe(statsGrid, { timeout: 15000 })) ||
       (await isVisibleSafe(beachActions, { timeout: 15000 })) ||
       (await isVisibleSafe(signupCta, { timeout: 15000 })) ||
-      (await isVisibleSafe(surfCall, { timeout: 10000 }));
+      (await isVisibleSafe(surfCall, { timeout: 10000 })) ||
+      (await isVisibleSafe(publicCall, { timeout: 10000 }));
 
     expect(hasStableSection).toBe(true);
   });

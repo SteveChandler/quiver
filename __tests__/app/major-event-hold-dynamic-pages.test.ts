@@ -46,16 +46,34 @@ describe("major-event hold-sensitive pages", () => {
     expect(source).not.toContain("getSpotSurfReport(beach)");
   });
 
-  it.each(CANONICAL_BEACH_DETAIL_PAGES)(
-    "keeps one stable surf-forecast H1 and a secondary visual hero in %s",
-    (page) => {
-      const source = readFileSync(page, "utf8");
+  it("keeps one stable surf-forecast H1 and a secondary visual hero in app/[intent]/[city]/[beachSlug]/[intlBeachSlug]/page.tsx", () => {
+    const source = readFileSync(
+      "app/[intent]/[city]/[beachSlug]/[intlBeachSlug]/page.tsx",
+      "utf8",
+    );
 
-      expect(source).toContain('<PublicForecastAnswer');
-      expect(source).toContain('headingLevel="h1"');
-      expect(source).toContain('heroHeadingLevel="h2"');
-      expect(source).toContain('<PublicForecastHourly');
-      expect(source).toContain('forecastDay={hourlyForecastDay}');
-    },
-  );
+    expect(source).toContain('<PublicForecastAnswer');
+    expect(source).toContain('headingLevel="h1"');
+    expect(source).toContain('heroHeadingLevel="h2"');
+    expect(source).toContain('<PublicForecastHourly');
+    expect(source).toContain('forecastDay={hourlyForecastDay}');
+  });
+
+  // The US beach page uses the visual layout: its H1 is the visual hero's, so
+  // the server-rendered forecast answer and hourly table sit below as H2s.
+  it("keeps one H1 in the visual hero and the forecast answer below it in app/[intent]/[city]/[beachSlug]/page.tsx", () => {
+    const source = readFileSync("app/[intent]/[city]/[beachSlug]/page.tsx", "utf8");
+
+    expect(source).toContain('layout="visual"');
+    expect(source).toContain("<BeachVisualHero");
+    expect(source).toContain('<PublicForecastAnswer');
+    expect(source).toContain('title="Forecast details"');
+    expect(source).not.toContain('headingLevel="h1"');
+    expect(source).toContain('heroHeadingLevel="h2"');
+    expect(source).toContain('<PublicForecastHourly');
+    expect(source).toContain('forecastDay={hourlyForecastDay}');
+    expect(source).not.toContain("<StickySignupBar");
+    expect(source).not.toContain("<ContentPageAppHandoffCta");
+    expect(source).not.toContain("<BeachDetailInstallCta");
+  });
 });

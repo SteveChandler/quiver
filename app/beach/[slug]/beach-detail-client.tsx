@@ -7,6 +7,7 @@ import { trackPublicPageView } from "@/lib/analytics";
 import { useTrackEvent } from "@/hooks/use-track-event";
 import { inferHomeBreakFromView } from "@/actions/onboarding-actions";
 import type { Beach } from "@/types/database";
+import type { PublicSurfCall } from "@/lib/utils/public-surf-call";
 
 import type { PersonalizedScore } from "@/lib/services/personalized-scoring-service";
 import type { EnhancedForecastEntity } from "@/types/forecast";
@@ -34,6 +35,9 @@ interface BeachDetailClientProps {
   heroForecastSlot?: ReactNode;
   beforeTabsContent?: ReactNode;
   afterTabsContent?: ReactNode;
+  layout?: "zine" | "visual";
+  visualTop?: ReactNode;
+  weekCall?: { localDate: string; call: PublicSurfCall };
   freeGrowthPhaseEnabled?: boolean;
 }
 
@@ -54,6 +58,9 @@ export function BeachDetailClient({
   heroForecastSlot,
   beforeTabsContent,
   afterTabsContent,
+  layout,
+  visualTop,
+  weekCall,
   freeGrowthPhaseEnabled,
 }: BeachDetailClientProps) {
   const { user } = useAuth();
@@ -231,6 +238,9 @@ export function BeachDetailClient({
         heroForecastSlot={heroForecastSlot}
         beforeTabsContent={beforeTabsContent}
         afterTabsContent={afterTabsContent}
+        layout={layout}
+        visualTop={visualTop}
+        weekCall={weekCall}
         freeGrowthPhaseEnabled={freeGrowthPhaseEnabled}
         personalizationData={personalizationData}
         onPersonalizationRequest={(forecast, baseScore) => {

@@ -1,4 +1,23 @@
-import { getOceanGridPoint } from '@/lib/services/noaa-wavewatch/grid-utils';
+import { getOceanGridPoint, getReviewedNwsPoint } from '@/lib/services/noaa-wavewatch/grid-utils';
+
+it('accepts only reviewed anchors tied to the current beach coordinate', () => {
+  const anchors = {
+    nws_point_reviewed: true,
+    nws_original_coordinate: [35.22, -75.63],
+    nws_used_coordinate: [35.17, -75.61],
+  };
+  const read = (value: unknown) => getReviewedNwsPoint(value, 35.22, -75.63);
+  expect(read({ forecast_anchors: anchors })).toEqual([35.17, -75.61]);
+  for (const value of [null, [], 'bad', { forecast_anchors: null }]) expect(read(value)).toBeUndefined();
+  for (const change of [
+    { nws_point_reviewed: false },
+    { nws_original_coordinate: [35.23, -75.63] },
+    { nws_used_coordinate: [NaN, -75.61] },
+    { nws_used_coordinate: ['35.17', -75.61] },
+    { nws_used_coordinate: [35.17, -76.61] },
+    { nws_used_coordinate: [35.17] },
+  ]) expect(read({ forecast_anchors: { ...anchors, ...change } })).toBeUndefined();
+});
 
 describe('getOceanGridPoint', () => {
   describe('Pacific coast', () => {

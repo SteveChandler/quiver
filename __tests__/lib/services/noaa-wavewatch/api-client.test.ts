@@ -1,4 +1,4 @@
-import { fetchOpenMeteoData } from "@/lib/services/noaa-wavewatch/api-client";
+import { fetchOpenMeteoData, fetchNOAAPointData } from "@/lib/services/noaa-wavewatch/api-client";
 
 describe("fetchOpenMeteoData", () => {
   const originalFetch = global.fetch;
@@ -21,6 +21,21 @@ describe("fetchOpenMeteoData", () => {
     expect(typeof url).toBe("string");
     return new URL(url as string).searchParams;
   }
+
+  it("uses the reviewed NOAA point without shifting again and caches by sampled point", async () => {
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ properties: { gridId: "MHX" } }) });
+    await fetchNOAAPointData(35.22, -75.63, [35.17, -75.61]);
+    expect(fetchMock.mock.calls[0][0]).toBe("https://api.weather.gov/points/35.17,-75.61");
+    await fetchNOAAPointData(35.22, -75.63, [35.17, -75.61]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await fetchNOAAPointData(35.22, -75.63, [35.16, -75.61]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1][0]).toBe("https://api.weather.gov/points/35.16,-75.61");
+    await fetchNOAAPointData(35.22, -75.63);
+    expect(fetchMock.mock.calls[2][0]).toBe("https://api.weather.gov/points/35.22,-75.58");
+    expect(await fetchNOAAPointData(35.22, -75.63, [NaN, -75.61])).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
 
   it("defaults display Open-Meteo fetches to UTC timestamps", async () => {
     await fetchOpenMeteoData(32.7, -117.3, 8);

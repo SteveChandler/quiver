@@ -81,6 +81,9 @@ describe("renderBeachSubPage static rendering", () => {
         nextHighHeight: null,
         nextLowTime: null,
         nextLowHeight: null,
+        nextInteriorHighTime: null,
+        nextInteriorLowTime: null,
+        nextInteriorLowAt: null,
       });
     (getWaterTempMetaData as jest.MockedFunction<typeof getWaterTempMetaData>)
       .mockResolvedValue({ tempF: null, wetsuitRec: null });
