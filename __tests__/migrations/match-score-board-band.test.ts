@@ -78,23 +78,26 @@ function boardBandAdjustment({
 describe("match score board band migration", () => {
   const migrationsDir = join(process.cwd(), "supabase", "migrations");
 
-  function currentCoreMigration(): string {
+  function currentMigration(
+    functionName: "compute_user_match_score_core" | "compute_user_match_scores",
+  ): string {
     const migration = readdirSync(migrationsDir)
       .filter((name) => name.endsWith(".sql"))
       .sort()
       .reverse()
       .find((name) => {
         const sql = readFileSync(join(migrationsDir, name), "utf8");
-        return /create\s+or\s+replace\s+function\s+public\.compute_user_match_score_core\b/i.test(
-          sql,
-        );
+        return new RegExp(
+          `create\\s+or\\s+replace\\s+function\\s+public\\.${functionName}\\b`,
+          "i",
+        ).test(sql);
       });
 
     expect(migration).toEqual(expect.any(String));
     return migration!;
   }
 
-  function readMigration(name = currentCoreMigration()): string {
+  function readMigration(name = currentMigration("compute_user_match_scores")): string {
     return readFileSync(join(migrationsDir, name), "utf8");
   }
 
@@ -110,7 +113,7 @@ describe("match score board band migration", () => {
   }
 
   it("routes the core through shared scoring and preserves wrapper authorization", () => {
-    const sql = readMigration();
+    const sql = readMigration(currentMigration("compute_user_match_score_core"));
     const normalizedSql = sql.replace(/\s+/g, " ").toLowerCase();
 
     expect(hasTransactionOrBackfilledMetadata(sql)).toBe(true);
@@ -128,8 +131,13 @@ describe("match score board band migration", () => {
     const normalizedSql = sql.replace(/\s+/g, " ").toLowerCase();
 
     expect(normalizedSql).toContain("left join public.boards boards on boards.id = s.board_id");
-    expect(normalizedSql).toContain("coalesce(s.board_snapshot->>'board_type', boards.board_type)");
-    expect(normalizedSql).toContain("coalesce(s.board_snapshot->>'name', boards.name)");
+    expect(normalizedSql).toContain("boards.board_type as row_board_type");
+    expect(normalizedSql).toContain("boards.name as row_board_name");
+    expect(normalizedSql).toContain("s.board_snapshot->>'board_type' as snapshot_board_type");
+    expect(normalizedSql).toContain("s.board_snapshot->>'name' as snapshot_board_name");
+    expect(normalizedSql).toContain(
+      "(row_board_type,0),(row_board_name,1),(snapshot_board_type,2),(snapshot_board_name,3)",
+    );
     expect(normalizedSql).toContain("from history where eligible and rating >= 4");
     expect(normalizedSql).toContain("s.arrival_time > now() - interval '12 months'");
     expect(normalizedSql).toContain("s.deleted_at is null");
@@ -140,7 +148,7 @@ describe("match score board band migration", () => {
     expect(normalizedSql).toContain("standuppaddleboard");
     expect(normalizedSql).toContain("then 'mid-length'");
     expect(normalizedSql).toContain("then 'step-up'");
-    expect(normalizedSql).toContain("order by use_count desc, last_used_at desc");
+    expect(normalizedSql).toContain("order by use_count desc, last_used_at desc nulls last, source_priority asc, board_key");
   });
 
   it("keeps SQL board aliases in parity with the TypeScript board-class map", () => {
@@ -149,18 +157,21 @@ describe("match score board band migration", () => {
     expectBoardAliasParity(sql);
   });
 
-  it("guards the current core and every SQL board map it defines", () => {
-    const currentCore = readMigration().toLowerCase();
-    const currentBoardMaps = boardAliasMaps(currentCore);
+  it("guards the current set-based scorer and every SQL board map it defines", () => {
+    const currentScorer = readMigration().toLowerCase();
+    const currentBoardMaps = boardAliasMaps(currentScorer);
 
-    expect(currentCore).toContain(
-      "create or replace function public.compute_user_match_score_core",
+    expect(hasTransactionOrBackfilledMetadata(currentScorer)).toBe(true);
+    expect(currentScorer).toContain(
+      "create or replace function public.compute_user_match_scores",
     );
     expect(currentBoardMaps).toHaveLength(1);
 
     for (const boardMap of currentBoardMaps) {
       expectBoardAliasParity(boardMap);
-      expect(boardMap).not.toContain("'thruster'");
+      const thrusterCase = [...boardMap.matchAll(/when\s+([\s\S]*?)\s+then\s+'([^']+)'/g)]
+        .find(([, condition]) => condition.includes("'thruster'"));
+      expect(thrusterCase?.[2]).toBe("shortboard");
     }
   });
 
@@ -188,7 +199,7 @@ describe("match score board band migration", () => {
     expect(normalizedSql).toContain("'board_ideal_wave_max_ft'");
     expect(normalizedSql).toContain("'fit_signal_adjustment'");
     expect(normalizedSql).toContain("'fit_signal_negative_count'");
-    expect(normalizedSql).toContain("'board_tip',board_tip");
+    expect(normalizedSql.match(/'board_tip',null/g)).toHaveLength(3);
   });
 
   it("scores a small clean forecast higher for a longboard than a shortboard", () => {

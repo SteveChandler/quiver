@@ -8,6 +8,9 @@ import { normalizeBoardClass, getRideabilityBand, type BoardClass } from '@/lib/
 import { resolveNativeSkillLevel, scoreNativeForecastSlot } from './native-condition-score';
 import { getDirectionDegrees } from '@/lib/utils/number-parsing';
 import { parseWaveHeightMidpointFt } from '@/lib/alerts/forecast-parsers';
+import { breakTypesMatch } from './break-family';
+
+const BOARD_FIT_WEIGHT: Readonly<Record<string, number>> = { right: 1, too_small: -1, too_much_board: -1, wrong_type: -2 };
 
 export interface BoardSession {
   id: string;
@@ -59,8 +62,11 @@ function relativeTide(height: unknown, beach: BoardSession['beaches']): number |
   return lo != null && hi != null ? h - (lo + hi) / 2 : null;
 }
 
+// User-facing "like this" claims need closer conditions than the evidence-weighting cutoff.
+export const LIKE_THIS_SIMILARITY = 0.7;
+
 // ponytail: fixed condition bandwidths; calibrate on held-out board-fit feedback when enough labels accumulate.
-function similarity(snapshot: Record<string, unknown>, forecast: EnhancedForecastEntity, historicalBeach: BoardSession['beaches'], beach: Beach): number {
+export function conditionSimilarity(snapshot: Record<string, unknown>, forecast: EnhancedForecastEntity, historicalBeach: BoardSession['beaches'], beach: Beach): number {
   const height = parseWaveHeightMidpointFt(String(snapshot.wave_height ?? ''));
   const currentHeight = parseWaveHeightMidpointFt(forecast.wave_height);
   if (height === null || currentHeight === null) return 0;
@@ -83,7 +89,7 @@ function similarity(snapshot: Record<string, unknown>, forecast: EnhancedForecas
   const pastDirection = tideDirection(snapshot.tide_status);
   const direction = tideDirection(forecast.tide_status);
   if (pastDirection && direction && pastDirection !== direction) distance += 0.25;
-  if (historicalBeach?.break_type && beach.break_type && historicalBeach.break_type !== beach.break_type) distance += 0.5;
+  if (!breakTypesMatch(historicalBeach?.break_type, beach.break_type)) distance += 0.5;
   // Height / period² is the available wave-steepness proxy.
   const period = numeric(snapshot.wave_period);
   const currentPeriod = numeric(forecast.wave_period);
@@ -112,7 +118,7 @@ export function recommendBoard(
     sessions: (board.sessions ?? []).filter((s) => s.status === 'completed' && !s.deleted_at)
       .flatMap((session) => {
         const snapshot = sessionSnapshot(session);
-        return snapshot ? [{ session, snapshot, weight: similarity(snapshot, forecast, session.beaches, beach) }] : [];
+        return snapshot ? [{ session, snapshot, weight: conditionSimilarity(snapshot, forecast, session.beaches, beach) }] : [];
       }),
   }));
   const totalWeight = evidence.flatMap((entry) => entry.sessions).filter((entry) => entry.weight >= 0.35).reduce((sum, entry) => sum + entry.weight, 0);
@@ -138,10 +144,11 @@ export function recommendBoard(
     for (const entry of matched) {
       if (entry.session.rating !== null) {
         ratingWeight += entry.weight;
-        ratingSum += entry.weight * (entry.session.rating - baseline);
+        const delta = entry.session.rating - baseline;
+        ratingSum += entry.weight * (['wrong_type', 'too_small', 'too_much_board'].includes(entry.session.session_board_fit ?? '') ? Math.min(delta, 0) : delta);
       }
       const fit = entry.session.session_board_fit;
-      feedback += entry.weight * (fit === 'right' ? 1 : ['too_small', 'too_much_board', 'wrong_type'].includes(fit ?? '') ? -1 : 0);
+      feedback += entry.weight * (BOARD_FIT_WEIGHT[fit ?? ''] ?? 0);
     }
     const recency = sessions.reduce((best, entry) => {
       const age = (at - Date.parse(entry.session.arrival_time ?? '')) / 86_400_000;
@@ -152,9 +159,10 @@ export function recommendBoard(
       + boardBlend * ((ratingWeight ? 12 * ratingSum / ratingWeight : 0) + (weight ? 25 * feedback / weight : 0))
       + 3 * Math.min(1, sessions.length / 20) + 2 * recency;
     const score = physical * (1 - historyBlend) + personal * historyBlend;
-    const heights = matched.map(({ snapshot }) => parseWaveHeightMidpointFt(String(snapshot.wave_height ?? ''))!).filter(Number.isFinite);
-    const reason = matched.length >= 3
-      ? `You ride ${board.name} on ${Math.floor(Math.min(...heights))}-${Math.ceil(Math.max(...heights))} ft days like this (${matched.length} sessions)`
+    const likeThis = sessions.filter((entry) => entry.weight >= LIKE_THIS_SIMILARITY);
+    const heights = likeThis.map(({ snapshot }) => parseWaveHeightMidpointFt(String(snapshot.wave_height ?? ''))!).filter(Number.isFinite);
+    const reason = likeThis.length >= 3
+      ? `You ride ${board.name} on ${Math.floor(Math.min(...heights))}-${Math.ceil(Math.max(...heights))} ft days like this (${likeThis.length} sessions)`
       : `${board.name} fits these conditions; limited similar session history`;
     return [{ id: board.id, name: board.name, type: board.board_type, boardClass: type, reason, score, matchedCount: matched.length }];
   }).sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
