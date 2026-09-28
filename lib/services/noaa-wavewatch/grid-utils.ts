@@ -21,6 +21,23 @@
  */
 const OCEAN_SHIFT_DEG = 0.05;
 
+export function getReviewedNwsPoint(
+  preferenceModel: unknown,
+  lat: number,
+  lon: number,
+): [number, number] | undefined {
+  if (!preferenceModel || typeof preferenceModel !== "object" || !("forecast_anchors" in preferenceModel)) return;
+  const anchors = preferenceModel.forecast_anchors;
+  if (!anchors || typeof anchors !== "object" || !("nws_point_reviewed" in anchors) || anchors.nws_point_reviewed !== true) return;
+  if (!("nws_original_coordinate" in anchors) || !("nws_used_coordinate" in anchors)) return;
+  const original = anchors.nws_original_coordinate;
+  const point = anchors.nws_used_coordinate;
+  if (!Array.isArray(original) || original.length !== 2 || original[0] !== lat || original[1] !== lon) return;
+  if (!Array.isArray(point) || point.length !== 2 || !point.every((v) => typeof v === "number" && Number.isFinite(v))) return;
+  if (Math.abs(point[0]) > 90 || Math.abs(point[1]) > 180 || Math.abs(point[0] - lat) > 0.2 || Math.abs(point[1] - lon) > 0.2) return;
+  return [point[0], point[1]];
+}
+
 /**
  * Shift a beach coordinate toward deeper water for NOAA grid resolution.
  *
