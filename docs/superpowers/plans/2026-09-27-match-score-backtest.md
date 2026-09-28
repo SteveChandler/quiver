@@ -84,3 +84,54 @@ Bootstrap: 2,000 paired draws of 9 user IDs with replacement from the complete c
 The observed regression is attributable to family matching in scoring: B1 alone loses 6.32 percentage points versus A, whereas B2 gains 0.23 points. B3 reproduces B2's scores and missingness on all 88 holdouts, recovering the regression while retaining the branch's board resolution and family-based reason count. However, B−A's interval includes zero, and B3−A's interval touches zero; this small cohort does not establish a reliable population improvement. B3's entire concordance gain over A comes from Steven (49.51% to 51.11%). Much of B's aggregate loss comes from the user `bac71d83-98a0-6ef5-49ca-d147db6ed1a5`, whose comparable pairs expand from 6 to 16 while concordance falls from 100% to 65.62%. B3 also returns to A's lower numeric coverage (72 versus B's 79) and higher false-good rate (26.92% versus 20.69%). These results support B3 as the candidate to investigate, with that coverage tradeoff; they do not authorize a scoring change.
 
 Validation passed: A and B's full prediction rows exactly reproduce the prior replay; the export and protocol hashes are unchanged; reviewed generated SQL diffs contain only the specified attribution changes; per-user means reproduce the primary metrics. The scratch artifacts are `scratchpad/backtest/attribute.py`, `scratchpad/backtest/attribution/run.sh`, `summarize.py`, generated variant SQL, `predictions.tsv`, and `summary.json`. The original repository harness is unchanged. No new production query was needed.
+
+
+## Decision: B3 adopted
+
+The owner approved B3 on 2026-09-27. The branch migration now restores the deployed exact break-type predicate in `peaks` and `fit_pairs`; break families still support the similar-good count and the unchanged TypeScript picker. Board-row precedence, the thruster alias, null RPC board tips, the similar-session bullet, public helpers, and batch performance work remain.
+
+The unchanged committed backtest harness, using the same frozen export and protocol, reproduced all 88 B3 per-holdout scores including 16 missing scores. Final B3 metrics: **81.87%** mean within-user concordance (7 contributing users), **0.172** pooled Spearman, **0.614** mean user Spearman, **47.83% (11/23)** good-day recall, and **26.92% (7/26)** false-good rate. There are 9 cohort users, 88 heldouts, and 72 numeric predictions. The original C rejection remains valid for its original comparison; this section records the later owner decision.
+
+The SQL fixture was changed first and failed against the family-scored profile (base 9.50, fit -1.00, score 9.0). It now passes the hand calculation: the sole exact-beach positive has `(wave,period,wind,direction,tide)=(3,12,4,90,3)`, matching the slot, hence base 10, fit 0, aversion 0, and score 10 after a +0.5 board adjustment and clipping. The mixed-break positive still contributes to the five similar good sessions. A second assertion changes it to rating 1 and proves it remains excluded from aversion and fit, while similar-good drops to four.
+
+Performance uses the Week Scout fixtures, one warmup and the median of five runs per size, with `EXPLAIN (ANALYZE, BUFFERS)` retained under `scratchpad/backtest/b3-perf`. The 252- and 5,040-slot gates pass; the single-slot ratio is reported but has no specified 2× gate.
+
+| Slots | Deployed median ms | B3 median ms | Ratio | Gate |
+|---:|---:|---:|---:|---|
+| 1 | 4.778 | 12.142 | 2.5412× | Informational |
+| 252 | 37.942 | 73.745 | 1.9436× | PASS ≤2× |
+| 5,040 | 154.701 | 186.854 | 1.2078× | PASS ≤2× |
+
+**Batch equivalence:** all 69,160 fixture outputs equal single-slot outputs (13 users × 5,320 slots, including the full benchmark slots); zero mismatches. The scratch harness omitted the old frozen-B JSON comparison because B3 intentionally changes scores, while retaining the full batch-versus-single check. Repository harness files were not modified.
+
+Production shadow used SELECT-only `q.sh`, the same seven learned-user inputs as the earlier shadow and Steven's specified Scripps slot. New family and midpoint helpers were inlined. A guard confirmed no long numeric tokens requiring the midpoint helper's exceptional overflow path. All eight states remain learned. Pseudonyms below follow the export's md5 scheme.
+
+| User | Deployed score / label | B3 score / label | First bullet | Similar / good |
+|---|---|---|---|---:|
+| `c22b4a86-d2c2-a93e-e0ba-1903bb58cbff` **Steven** | 7.3 GOOD | 6.8 FAIR | 8 of your 19 good sessions were in conditions like this. | 8/19 |
+| `bac71d83-98a0-6ef5-49ca-d147db6ed1a5` | 5.3 RIDEABLE | 5.3 RIDEABLE | 2 of your 3 good sessions were in conditions like this. | 2/3 |
+| `df50d1b6-f798-f4af-485b-1dd9adaac864` | 7.0 FAIR | 7.0 FAIR | 2 of your 4 good sessions were in conditions like this. | 2/4 |
+| `fa1f696e-5b14-7335-4946-c745f93cce8f` | 10.0 EPIC | 10.0 EPIC | 1 of your 2 good sessions were in conditions like this. | 1/2 |
+| `3379ec73-0133-b15a-9e02-71a6902995b7` | 4.9 RIDEABLE | 4.9 RIDEABLE | 5 of your 8 good sessions were in conditions like this. | 5/8 |
+| `0b9caa08-b34f-2759-fdd9-2dccb49f98b6` | 9.5 EPIC | 9.5 EPIC | 2 of your 3 good sessions were in conditions like this. | 2/3 |
+| `75597ad2-6e45-a166-b309-5fc820de7bec` | 6.9 FAIR | 6.9 FAIR | 2 of your 2 good sessions were in conditions like this. | 2/2 |
+| `1908fcac-5f23-7319-fb95-6a3b8ba658a4` | 10.0 EPIC | 10.0 EPIC | 2 of your 2 good sessions were in conditions like this. | 2/2 |
+
+Steven remains 6.8 FAIR in this shadow. His old and new base score, aversion, and fit adjustment match; board resolution changes `fish` to `shortboard`, removing a +0.5 board-band bonus at 3.2 ft. Thus B3 repairs the cohort regression without recovering that particular 0.5-point difference. The displayed 7.0/FAIR row is unchanged: labels use the unrounded internal score.
+
+Commands (run from the worktree; `scratch` is the scratchpad path in the reproduction section above):
+
+| Command | Result |
+|---|---|
+| `bash scripts/test-match-score-board-model-postgres.sh` before migration change | Expected FAIL: mixed-break profile/fit assertion |
+| `bash scripts/test-match-score-board-model-postgres.sh` after migration change | PASS |
+| `bash scripts/test-week-scout-match-postgres.sh` | PASS |
+| `bash scripts/backtest-match-score.sh "$scratch/backtest/data.json" "$scratch/backtest/b3-adopted"` | PASS; all 88 outputs equal frozen B3 |
+| `bash "$scratch/backtest/b3-perf/verify.sh" > "$scratch/backtest/b3-perf/benchmark.log" 2>&1` | PASS; benchmark and 69,160 batch comparisons |
+| `python3 "$scratch/backtest/b3-perf/check-performance.py"` | PASS at both gated sizes |
+| `source ~/.nvm/nvm.sh && nvm use 22 && yarn jest __tests__/lib/scoring lib/personalization/__tests__/match-score.test.ts __tests__/api/personalization/match-score.test.ts --runInBand` | PASS: 14 suites, 243 tests |
+| `source ~/.nvm/nvm.sh && nvm use 22 && yarn typecheck` | PASS: Node 22.22.0 |
+| `python3 "$scratch/backtest/build-b3-shadow.py"` then `"$scratch/q.sh" -At -f "$scratch/backtest/b3-shadow.sql"` | PASS: eight SELECT-only shadow rows |
+| `git diff --check` | PASS |
+
+No production mutation, deployment, or push was performed.
