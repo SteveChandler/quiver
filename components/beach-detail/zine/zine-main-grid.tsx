@@ -110,7 +110,7 @@ function AboutSpotArticle({ beach, beachPhoto }: { beach: Beach; beachPhoto?: Zi
   );
 }
 
-function LocalKnowledgeNotebook({ beach }: { beach: Beach }) {
+export function LocalKnowledgeNotebook({ beach }: { beach: Beach }) {
   const notes: string[] = [];
   if (beach.wave_tips) notes.push(beach.wave_tips);
   if (beach.crowd_tips) notes.push(beach.crowd_tips);
