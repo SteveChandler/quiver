@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { RecommendedBoard } from "@/lib/scoring/personal-board";
 import {
   STARTER_MATCH_BODY,
   getPersonalizationMatchScore,
@@ -12,6 +13,10 @@ const forecast = {
   windSpeed: "4",
   windDirection: "210",
   tideHeight: "3",
+};
+const boardPick: RecommendedBoard = {
+  id: "board-1", name: "CI Mid 7'0\"", type: "mid-length", boardClass: "mid-length",
+  reason: "CI Mid fits these conditions; limited similar session history", alternates: [],
 };
 
 function makeSupabaseStub(
@@ -298,6 +303,7 @@ describe("resolveMatchScoreState", () => {
     const result = resolveMatchScoreState({
       eligibilitySource: "entitlement",
       forecast,
+      boardPick,
       rpcResult: {
         state: "learned",
         score: 7.4,
@@ -308,16 +314,18 @@ describe("resolveMatchScoreState", () => {
         ],
         sessions_in_profile: 12,
         profile_kind: "preference_only",
-        board_tip: "CI Mid 7'0\"",
+        board_tip: "Legacy board",
       },
     });
 
     expect(result.reason_bullets).toEqual(
       expect.arrayContaining([
         "This window sits around 3 ft at 12s with 4 mph wind.",
-        "CI Mid 7'0\" has worked for your better sessions in similar surf.",
+        boardPick.reason,
       ]),
     );
+    expect(result.board_pick).toMatchObject({ id: boardPick.id, board_class: boardPick.boardClass });
+    expect(result.board_tip).toBe(boardPick.name);
     expect(result.reason_bullets.join(" ")).not.toMatch(
       /profile peak|raw score|confidence low/i,
     );
@@ -394,6 +402,20 @@ describe("getPersonalizationMatchScore", () => {
       state: "learned",
       latency_ms: 37,
     });
+  });
+
+  it("loads an injected pick only for a learned result and ignores the RPC tip", async () => {
+    const { supabase } = makeSupabaseStub({ is_pro: true }, { data: {
+      state: "learned", score: 8, sessions_in_profile: 12, board_tip: "Legacy board", reason_bullets: [],
+    }, error: null });
+    const loadBoardPick = jest.fn(async () => boardPick);
+
+    const result = await getPersonalizationMatchScore("user-pro", supabase, forecast, { loadBoardPick });
+
+    expect(loadBoardPick).toHaveBeenCalledTimes(1);
+    expect(result.board_tip).toBe(boardPick.name);
+    expect(result.board_pick).toMatchObject({ name: boardPick.name, board_class: boardPick.boardClass });
+    expect(result.reason_facts).toContainEqual({ kind: "board_fit", value: boardPick.name });
   });
 
   it("returns locked for billing_issue users even if raw scoring facts exist", async () => {
