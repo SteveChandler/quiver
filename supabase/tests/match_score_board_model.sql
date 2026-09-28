@@ -43,10 +43,11 @@ INSERT INTO public.boards VALUES
 INSERT INTO public.sessions
 SELECT fixture_id(1000+u*10+n), fixture_id(u),
   CASE WHEN u=1 AND n=1 THEN fixture_id(102)
-    WHEN u=1 THEN fixture_id(103) ELSE fixture_id(101) END,
+    WHEN u=1 AND n<>2 THEN fixture_id(103) ELSE fixture_id(101) END,
   fixture_id(200+u), CASE WHEN u=1 THEN '{"board_type":"twin-pin","name":"Twin pin"}'::jsonb
     WHEN u=2 THEN '{"board_type":"thruster","name":"Other pin"}'::jsonb END,
-  5, 'completed', now()-n*interval '1 day', NULL, NULL
+  5, 'completed', now()-n*interval '1 day', NULL,
+  CASE WHEN u=1 AND n=1 THEN '{"version":1,"skill_fit":"over_my_head","board_fit":"wrong_type"}'::jsonb END
 FROM generate_series(1,3) u CROSS JOIN generate_series(1,5) n;
 INSERT INTO public.session_forecast_snapshots
 SELECT id, CASE WHEN user_id=fixture_id(3) THEN
@@ -119,12 +120,20 @@ BEGIN
       OR (result->'reason_bullets')::text LIKE '%profile peak%'
     THEN RAISE EXCEPTION 'Bad reason for user %: %',user_n,result->'reason_bullets'; END IF;
     IF (result->>'good_session_count')::integer <> 5 THEN RAISE EXCEPTION 'Wrong good total: %',result; END IF;
-    -- One mixed-break session scores 0.9129; four reef sessions score exp(-0.5/2)=0.7788.
+    -- One mixed-break session scores 0.9129; one exact-beach session scores 1.
+    -- Three reef sessions score exp(-0.5/2)=0.7788.
     -- All five still clear 0.7. The far-condition user's five sessions still clear neither bar.
-    IF user_n=1 AND (result->>'similar_good_session_count')::integer <> 5 THEN
+    IF user_n=1 AND (result->>'similar_good_session_count')::integer IS DISTINCT FROM 5 THEN
       RAISE EXCEPTION 'Mixed beach history not similar: %',result; END IF;
-    IF user_n=1 AND (result->>'base_score')::numeric <> 9.13 THEN
-      RAISE EXCEPTION 'Mixed beach session missing from profile mean: %',result; END IF;
+    -- Exact beach history is (3,12,4,90,3), identical to the slot: base=10.
+    -- The mixed-break 4ft session and its -1.5 fit signal must not enter scoring.
+    -- No bad sessions: aversion=0; board=+0.5; clipped final score=10.
+    IF user_n=1 AND ((result->>'base_score')::numeric IS DISTINCT FROM 10
+      OR (result->>'score')::numeric IS DISTINCT FROM 10
+      OR (result->>'fit_signal_adjustment')::numeric IS DISTINCT FROM 0
+      OR (result->>'fit_signal_sample_count')::integer IS DISTINCT FROM 0
+      OR (result->>'aversion_penalty')::numeric IS DISTINCT FROM 0) THEN
+      RAISE EXCEPTION 'Mixed-break history changed the exact profile: %',result; END IF;
     IF user_n=3 AND ((result->>'similar_good_session_count')::integer <> 0
       OR result->'reason_bullets'->>0 <> '0 of your 5 good sessions were in conditions like this.') THEN
       RAISE EXCEPTION 'Zero-similar copy wrong: %',result; END IF;
@@ -132,6 +141,23 @@ BEGIN
     IF user_n=2 AND result->>'board_class' <> 'fish' THEN RAISE EXCEPTION 'Twin-pin class: %',result; END IF;
   END LOOP;
 END $$;
+-- A mixed-break bad session must not enter the aversion mean either.
+DO $$
+DECLARE result jsonb;
+BEGIN
+  UPDATE public.sessions SET rating=1 WHERE id=fixture_id(1011);
+  SELECT public.compute_user_match_score_core(fixture_id(1),fixture_id(101),'3','12','4','90','3') INTO result;
+  IF (result->>'base_score')::numeric IS DISTINCT FROM 10
+    OR (result->>'aversion_penalty')::numeric IS DISTINCT FROM 0
+    OR (result->>'aversion_sample_count')::integer IS DISTINCT FROM 0
+    OR (result->>'fit_signal_adjustment')::numeric IS DISTINCT FROM 0
+    OR (result->>'score')::numeric IS DISTINCT FROM 10
+    OR (result->>'similar_good_session_count')::integer IS DISTINCT FROM 4 THEN
+    RAISE EXCEPTION 'Mixed-break bad session entered scoring: %',result;
+  END IF;
+  UPDATE public.sessions SET rating=5 WHERE id=fixture_id(1011);
+END $$;
+
 -- Both avoidance branches retain the installed-client key.
 DO $$
 DECLARE result jsonb; session_rating integer;

@@ -2,11 +2,11 @@
 
 > **For agentic workers:** executed as Codex packets (`codex exec`), reviewed by Claude and `codex exec review`. Steps use checkbox (`- [ ]`) syntax.
 
-**Goal:** One board-choice rule, one break-type rule and one "sessions like this" rule shared by the match score and the board picker, plus a picker that learns from "wrong type" feedback.
+**Goal:** One board-choice rule and one "sessions like this" rule shared by the match score and the board picker, with exact break types retained for the scored profile, plus a picker that learns from "wrong type" feedback.
 
 **Architecture:**
 - The TypeScript `recommendBoard` (`lib/scoring/personal-board.ts`) becomes the only "which board" rule. The match-score API attaches its pick, and the SQL `tips` CTE is deleted.
-- Break types resolve to families in one table, mirrored in TypeScript and SQL.
+- Similarity break types resolve to families in one table, mirrored in TypeScript and SQL. Scored profiles and fit evidence retain exact break-type matching (B3).
 - The match score's user-facing "profile peak" bullets are replaced by a count of good sessions in similar conditions. The count uses a SQL port of the same similarity kernel the picker uses.
 - Native shows the pick with the same "Bring your …" phrasing Explore uses.
 
@@ -16,7 +16,7 @@
 
 **Spec / evidence:** `/Users/stevenchandler/Desktop/dev/quiver-native/.planning/2026-09-27-why-quiver-picked/report.md` (§3, §4, §6B).
 
-**Match-score follow-up:** [Pre-registered forward backtest](2026-09-27-match-score-backtest.md). The specified similarity-weighted replacement failed its adoption gate, so this branch retains the mean-based score.
+**Match-score follow-up:** [Pre-registered forward backtest](2026-09-27-match-score-backtest.md). C failed its adoption gate. The owner adopted B3: mean-based scoring with exact break types, branch board resolution, and families only for similarity counts.
 
 **Worktrees:**
 - Web: `/Users/stevenchandler/Desktop/dev/quiver/.worktrees/board-model-merge-20260927`, branch `feat/board-model-merge-20260927`, from `origin/main` f762b1f89.
@@ -35,7 +35,7 @@
 
 ## Review Focus
 
-1. **A `beach/reef break` session scoring a `beach` target.** It must now count toward the target's profile and similarity, where today it is excluded. Test in SQL and TypeScript.
+1. **A `beach/reef break` session scoring a `beach` target.** Exclude it from the scored preference/aversion means and fit adjustment, but include it in the similar-good count when its similarity clears 0.7. Keep the TypeScript picker's family matching unchanged.
 2. **A board whose `board_type` is `thruster` or unknown.** Today TypeScript drops it from the picker. `thruster` must now map to `shortboard`; an unknown type must fall back to the name.
 3. **A learned user with zero similar good sessions.** The bullet must read "0 of your N good sessions were in conditions like this." — not crash, not empty.
 4. **Board loading failing in the match-score API.** The response must still succeed with `board_pick: null` and `board_tip: null`, never a 500.
@@ -176,7 +176,7 @@ Relative tide is `tide_height - (preferred_tide_ft_min + preferred_tide_ft_max) 
    - snapshot `name` (3)
 
    Add `'thruster'` → `'shortboard'` to the `CASE`. Keep ranking by `use_count DESC, last_used_at DESC`, then priority. With this change, Steven's "Twin pin" (row type `shortboard`) resolves to `shortboard` in both SQL and TypeScript. A row edited to `twin-pin` resolves to `fish` in both.
-3. **`peaks` and `fit_pairs`.** Precompute `break_type_families` in `history` and `requested_beaches`, then use `(a IS NULL OR b IS NULL OR a && b)` inline. This preserves `break_types_match` semantics without reparsing both families for every pair.
+3. **`peaks` and `fit_pairs` (B3 decision).** Retain the deployed exact predicate `(t.break_type IS NULL OR h.break_type = t.break_type OR h.break_type IS NULL)` for scored means and fit adjustment. Precompute families only for `similar_good` and its shared targets; keep the optimized similarity path. See the backtest Attribution and Decision: B3 adopted sections: family matching inside the averaged profile cost about 6 percentage points of concordance in this cohort.
 4. **Delete the `tips` CTE** and its join. Keep `'board_tip', NULL` in the learned and both avoidance result objects for installed native binaries that call the RPC directly. The API now owns the board pick (Task 3). The degraded direct-RPC fallback intentionally shows no board line rather than maintaining a second board algorithm.
 5. **Learned branch reason bullets.** Replace the three `format('… profile peak …')` bullets with one bullet: `format('%s of your %s good sessions were in conditions like this.', similar_good, good_total)`.
    - `good_total` = eligible sessions with `rating >= 4` (all break types).
@@ -184,14 +184,16 @@ Relative tide is `tide_height - (preferred_tide_ft_min + preferred_tide_ft_max) 
    - Keep the fit-feedback and board-band bullets after it.
    - Add result keys `'good_session_count', good_total` and `'similar_good_session_count', similar_good`.
    - Compute these once per scenario, not per history row per bullet.
-6. **Leave unchanged:** the `base_score` and `p_*` means (only their row set changes, through item 3), and every other branch.
+6. **Leave unchanged:** the deployed `base_score` and `p_*`/`a_*` means, including their exact-break row selection, and every other branch.
 
 **Performance review gate:** At 252 and 5,040 benchmark slots, the new median of five runs must be at most 2× the current set-based scorer. Freeze branch `024de7997` results before optimization; require identical JSON for every fixture user/beach/slot and batch == single-slot. Reuse the verifier's `scratchpad/verify3` harness in the worktree-local `test-results/board-model-perf` copy: run `bash test-results/board-model-perf/verify.sh > test-results/board-model-perf/benchmark.log 2>&1`, then `python3 test-results/board-model-perf/check-performance.py` (checks both sizes). That copy also records `EXPLAIN (ANALYZE, BUFFERS)` plans and checks 69,160 frozen results. Keep the existing Week Scout harness files unchanged. The batch path shares identical similarity targets, precomputes eligible good-session inputs, and inlines similarity with a conservative height-gap prefilter; public helpers and their pinned search paths remain available because per-pair calls were removed.
+
+**B3 verification update:** The original frozen-B equality check above applied to performance-only optimization. B3 intentionally changes scoring: verify against the frozen B3 backtest predictions instead, retain all 69,160 batch-versus-single comparisons, and keep the same performance thresholds. Results and scratch commands are in the backtest report.
 
 **Disposable-Postgres test** (`supabase/tests/match_score_board_model.sql`) must assert:
 
 - `break_type_families` equals the Task 1 fixture table, row by row, and `break_types_match` equals the Task 1 match cases.
-- A fixture user with at least 5 eligible sessions, including a 5★ session at a `beach/reef break` beach, has that session counted in `peaks` for a `beach` target. Assert `sessions_in_profile` and that the result state is `learned`.
+- A fixture user with at least 5 eligible sessions, including a 5★ session at a `beach/reef break` beach, has that session excluded from `peaks` and fit evidence for a `beach` target, while counted in `similar_good`. Include an exact-beach positive session and assert the hand-computed base, aversion, fit adjustment, final score, and learned state. `sessions_in_profile` remains the total eligible history count.
 - The learned result's `reason_bullets` contain no `profile peak`. The first bullet matches `^\d+ of your \d+ good sessions were in conditions like this\.$`, and `good_session_count` / `similar_good_session_count` equal hand-computed values.
 - Learned and both avoidance results have a `board_tip` key whose value is JSON null.
 - `board_class` is `shortboard` for a most-used board whose row type is `thruster`, and `fish` for one whose row type is `twin-pin`.

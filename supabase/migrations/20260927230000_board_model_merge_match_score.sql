@@ -271,7 +271,9 @@ WITH board_usage AS (
       NULLIF(sum(3 - h.rating) FILTER (WHERE h.rating <= 2), 0) AS a_tide,
     count(*) FILTER (WHERE h.rating <= 2)::integer AS a_count
   FROM (SELECT DISTINCT break_type, break_families FROM requested_beaches) t
-  LEFT JOIN history h ON h.eligible AND (t.break_families IS NULL OR h.break_families IS NULL OR t.break_families && h.break_families)
+  -- Families inside the averaged profile cost ~6 pp concordance; use exact breaks.
+  -- Evidence: docs/superpowers/plans/2026-09-27-match-score-backtest.md (B3).
+  LEFT JOIN history h ON h.eligible AND (t.break_type IS NULL OR h.break_type = t.break_type OR h.break_type IS NULL)
   GROUP BY t.break_type
 ), inputs AS MATERIALIZED (
   SELECT s.*, b.break_type, b.break_families, b.wind_offshore_deg, b.spot_tide, g.*, p.p_wave, p.p_period,
@@ -330,7 +332,8 @@ WITH board_usage AS (
         360 - ABS(h.wind_dir - t.f_wind_dir)) / 180, 1), 1.0) AS proximity
   FROM fit_targets t JOIN history h ON h.eligible AND h.fit_value <> 0
     AND (h.session_skill_fit IS NOT NULL OR h.session_board_fit IS NOT NULL)
-    AND (t.break_families IS NULL OR h.break_families IS NULL OR t.break_families && h.break_families)
+    -- Keep fit evidence on the same exact-break population as the scored profile (B3).
+    AND (t.break_type IS NULL OR h.break_type = t.break_type OR h.break_type IS NULL)
   WHERE h.wave IS NOT NULL AND h.period IS NOT NULL AND h.wind IS NOT NULL
     AND h.wind_dir IS NOT NULL AND h.tide IS NOT NULL
 ), fit AS MATERIALIZED (
