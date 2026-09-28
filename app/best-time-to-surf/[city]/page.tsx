@@ -25,7 +25,8 @@ import {
   type IntentForecastSummary,
 } from "@/actions/forecast/intent-forecast-actions";
 import { buildPageMetadata } from "@/lib/seo/meta";
-import { buildBeachUrl, cityToSlug } from "@/lib/utils/beach-url-utils";
+import { buildBeachUrl, buildCityUrl, cityToSlug } from "@/lib/utils/beach-url-utils";
+import { resolveCityFromSlug } from "@/lib/seo/city-slug-utils";
 import { generateLocationSlug } from "@/lib/utils/location-slug";
 import { getStateSurfProfile } from "@/lib/data/monthly-surf-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
@@ -220,7 +221,7 @@ function isUsStateCode(state: string): boolean {
 
 export function buildBestTimeCityHubHref(state: string, citySlug: string): string {
   return isUsStateCode(state)
-    ? `/${state.toLowerCase()}/${citySlug}`
+    ? buildCityUrl(state, resolveCityFromSlug(citySlug).cityPattern)
     : `/beaches/mexico/${generateLocationSlug(state)}`;
 }
 
