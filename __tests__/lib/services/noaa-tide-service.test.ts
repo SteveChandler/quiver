@@ -10,6 +10,7 @@ import {
   fetchCachedHourlyTidePredictions,
   fetchHighLowTidePredictions,
   fetchHourlyTidePredictions,
+  getTideStation,
   hasSufficientCachedTideCoverage,
   type TidePrediction,
 } from "@/lib/services/noaa-tide-service";
@@ -37,6 +38,26 @@ function createTideForecastClient(rows: unknown[], error: unknown = null): any {
 describe("noaa-tide-service", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it("looks up a station's coordinates in NOAA's tidepredictions list", async () => {
+    mockFetchWithTimeout.mockResolvedValue(
+      jsonResponse({
+        stations: [
+          { id: "9755371", name: "SAN JUAN", lat: 18.4589, lng: -66.1164 },
+          { id: "9410230", name: "La Jolla", lat: 32.8669, lng: -117.2571 },
+        ],
+      })
+    );
+
+    await expect(getTideStation("9755371")).resolves.toEqual({
+      id: "9755371",
+      name: "SAN JUAN",
+      lat: 18.4589,
+      lon: -66.1164,
+    });
+    await expect(getTideStation("0000000")).resolves.toBeNull();
+    expect(String(mockFetchWithTimeout.mock.calls[0][0])).toContain("type=tidepredictions");
   });
 
   it("fetches and normalizes exact high/low tide predictions from NOAA", async () => {

@@ -94,6 +94,12 @@ jest.mock("@/lib/utils/distance-utils", () => ({
   calculateDistance: jest.fn(() => 5.2),
 }));
 
+// CO-OPS water temp looks up its station in NOAA's list; keep that off the fetch mock
+jest.mock("@/lib/services/noaa-tide-service", () => ({
+  ...jest.requireActual("@/lib/services/noaa-tide-service"),
+  getTideStation: jest.fn(() => Promise.resolve(null)),
+}));
+
 // Mock fetch for NOAA weather
 global.fetch = jest.fn();
 

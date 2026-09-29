@@ -129,6 +129,13 @@ async function getTideStations(): Promise<StationMeta[]> {
   return list;
 }
 
+export async function getTideStation(
+  stationId: string
+): Promise<StationMeta | null> {
+  const stations = await getTideStations();
+  return stations.find((s) => s.id === stationId) ?? null;
+}
+
 export async function getNearestTideStation(
   lat: number,
   lon: number,
