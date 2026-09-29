@@ -36,6 +36,7 @@ import { parseWaterTempF } from "@/lib/utils/wetsuit-utils";
 import type { Beach } from "@/types/database";
 import {
   findNextTideExtremes,
+  tideExtremesWindow,
   type TideHeightRow,
 } from "@/lib/seo/tide-meta-data";
 import {
@@ -140,9 +141,9 @@ interface WaterTempCoverageRow {
 }
 
 // PostgREST caps a response at 1000 rows regardless of .limit(). Coverage now
-// reads every row per beach (24 hourly tide points, ~8 water-temp points), so
+// reads every row per beach (25 hourly tide points, ~8 water-temp points), so
 // the batch must stay small enough that a full batch cannot reach that cap:
-// 10 beaches x 24h stays well under it even if tide granularity went 4x finer.
+// 10 beaches x 25h stays well under it even if tide granularity went 4x finer.
 const BEACH_COVERAGE_BATCH_SIZE = 10;
 const POSTGREST_MAX_ROWS = 1000;
 
@@ -257,7 +258,7 @@ async function fetchBeachSubPageCoverage(
   }
 
   const now = new Date();
-  const tideEnd = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  const tideWindow = tideExtremesWindow(now);
   const today = now.toISOString().split("T")[0];
   const tomorrow = new Date(`${today}T00:00:00.000Z`);
   tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
@@ -270,8 +271,8 @@ async function fetchBeachSubPageCoverage(
             .from("tide_forecasts")
             .select("beach_id, ts, tide_height_m")
             .in("beach_id", batch)
-            .gte("ts", now.toISOString())
-            .lte("ts", tideEnd.toISOString())
+            .gte("ts", tideWindow.from)
+            .lte("ts", tideWindow.to)
             .limit(POSTGREST_MAX_ROWS),
           supabase
             .from("enhanced_forecasts")

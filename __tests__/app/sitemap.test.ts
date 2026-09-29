@@ -42,6 +42,7 @@ import {
   type ForecastIndexabilitySnapshot,
 } from "@/lib/seo/forecast-indexability";
 import { isGscPerformanceProtected } from "@/lib/seo/gsc-performance-protection";
+import { tideExtremesWindow } from "@/lib/seo/tide-meta-data";
 import { unstable_cache } from "next/cache";
 
 const BEACH_WITH_FRESH_FORECAST = {
@@ -109,7 +110,7 @@ jest.mock("@/lib/supabase/server", () => ({
 // temperature), so these fixtures have to carry real values, not bare ids.
 function coverageRowsFor(table: string, beachIds: string[]): unknown[] {
   if (table === "tide_forecasts") {
-    // Falls then rises: yields both a high (first point) and a low (index 1).
+    // Falls then rises: a low at index 1. The first point is only a neighbour.
     const heights = [1.0, 0.5, 1.2];
     return beachIds.flatMap((beach_id) =>
       heights.map((tide_height_m, hour) => ({
@@ -1193,6 +1194,44 @@ describe("Sitemap Generation", () => {
             route.url === `${baseUrl}/ca/encinitas/swamis/water-temp`,
         ),
       ).not.toBeUndefined();
+    });
+
+    it("reads tide coverage over the same window the tides sub-page reads", async () => {
+      const now = new Date("2026-09-27T22:20:00.000Z");
+      jest.useFakeTimers({ now });
+      try {
+        const tideQueries: Array<ReturnType<typeof createCoverageQueryMock>> = [];
+        (createSupabaseServiceRoleClient as jest.Mock).mockResolvedValue({
+          from: jest.fn((table: string) => {
+            const query = createCoverageQueryMock(table);
+            if (table === "tide_forecasts") tideQueries.push(query);
+            return query;
+          }),
+        });
+        (getBeaches as jest.Mock).mockResolvedValue({
+          success: true,
+          data: [{
+            id: "swamis",
+            slug: "swamis",
+            city: "Encinitas",
+            state: "CA",
+            country: "USA",
+            description: "A substantive local reef-break description.",
+            wave_tips: "Use the channel and respect the established peak.",
+          }],
+        });
+
+        await sitemap();
+
+        const { from, to } = tideExtremesWindow(now);
+        expect(tideQueries.length).toBeGreaterThan(0);
+        for (const query of tideQueries) {
+          expect(query.gte).toHaveBeenCalledWith("ts", from);
+          expect(query.lte).toHaveBeenCalledWith("ts", to);
+        }
+      } finally {
+        jest.useRealTimers();
+      }
     });
 
     it("does not let editorial rejection veto a current forecast page", async () => {

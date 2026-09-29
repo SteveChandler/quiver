@@ -163,3 +163,79 @@ pattern until the route is indexed and has one complete window.
 Regional cam pages now use `/surf-cams/*` as the canonical family. `/cams/*`
 is a permanent legacy redirect to the matching `/surf-cams/*` route; `/cams`
 remains the hub. This is route consolidation only and adds no regional content.
+
+## 2026-09-27 Tide Sub-page Next High/Low Fix
+
+Not a CTR test. This is a data-correctness fix on the `/{state}/{city}/{beach}/tides`
+family and the legacy `/beach/{slug}/tides` pages. Log it here so the next
+tide-page change respects the stability window.
+
+**Bug.** `findNextTideExtremes` (`lib/seo/tide-meta-data.ts`) took the first
+row of the next-24h series as the next high if the tide was falling, or the
+next low if it was rising. It then stopped looking for a real turn of that
+kind. On 2026-09-27 Tourmaline showed "next high 3:00 PM, next low 4:00 PM"
+and Seaside Park NJ showed high 6 PM, low 7 PM.
+
+**Fix.**
+
+- Only interior turning points count: a reading strictly higher or lower than
+  the readings on both sides.
+- Equal consecutive readings at slack count as one turn, timed at the first of
+  them. Production heights are rounded to the millimetre, so a turn often
+  reads the same two hours running.
+- The window starts one reading before now. That reading is only a neighbour,
+  so a turn in the first hour ahead can still be found.
+- The window still ends 24 hours ahead, because the times are shown without a
+  date. The sitemap and the sub-page read this window from one helper,
+  `tideExtremesWindow`.
+
+**What changes on the page:**
+
+- `TideDatasetSchema` JSON-LD (`variableMeasured` values and "Next high/low
+  tide at …" descriptions).
+- The visible tide summary hero.
+- The install-CTA proof chip.
+
+**What does not change:**
+
+- Titles and meta descriptions: `buildDynamicTideMetadata` does not read tide
+  times.
+- URLs and canonicals.
+- The coverage rule (a beach is covered when a high or low is found). Sitemap
+  membership and `index` still use that one rule.
+
+**Measured against production (read-only, 2026-09-27).** 447 beaches, hourly
+rows, replayed from every hour of the next 7 days (75,096 beach-hours).
+
+| | Old rule | New rule |
+| --- | ---: | ---: |
+| Beach-hours with no high or low (not covered) | 8 (2 beaches) | 0 |
+| High and low reported within 1 hour of each other | 11,457 | 462 |
+| Beach-hours whose next high or low changes | — | 84.8% |
+| Reported extremes more than 24h ahead | 0 | 0 |
+
+A strictly literal neighbour test without plateau handling would have dropped
+110 beach-hours (19 beaches) of coverage at 24h. Widening the window would have
+hidden that by reporting the following turn instead of the real one. At 26h,
+507 reported times would fall more than 24h ahead with no date shown. So the
+window stays at 24h.
+
+**Remaining upstream issues (not fixed here):**
+
+- 88 of the 462 remaining 1-hour pairs are Shipwrecks, Coronado CA. After
+  its coordinates changed, its nearest station changed from
+  `noaa_hilo_interpolated` TWC0405 to `noaa` 9410170. Rows from both
+  sources now overlap at the same timestamps until the old ones expire, and
+  neither query filters by source.
+- The other 374 are real 2–14 mm wiggles where piecewise-linear
+  `noaa_hilo_interpolated` segments meet.
+
+**Deploy and hold.**
+
+- Ships as one production deploy, and no other SEO change rides along.
+  Deploy date and prod SHA: pending, so record them here when it ships.
+- Do not change tide sub-page metadata, schema or coverage rules for four weeks
+  after that deploy.
+- Measurement is monitor-only: the count of indexed `/tides` pages in GSC and
+  any structured-data warnings on the Dataset schema. There is no CTR
+  expectation.
