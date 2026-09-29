@@ -32,6 +32,12 @@ jest.mock("@/lib/services/noaa-wavewatch", () => ({
   })),
 }));
 
+const mockGetNearestTideStation = jest.fn();
+jest.mock("@/lib/services/noaa-tide-service", () => ({
+  ...jest.requireActual("@/lib/services/noaa-tide-service"),
+  getNearestTideStation: (...args: unknown[]) => mockGetNearestTideStation(...args),
+}));
+
 jest.mock("@/lib/services/noaa-coops", () => ({
   NOAACOOPSService: jest.fn().mockImplementation(() => ({
     fetchCOOPSData: jest.fn(),
@@ -207,20 +213,32 @@ describe("ForecastDataSourceManager", () => {
   // ─── fetchTideData delegation ───────────────────────────────────────────────
 
   describe("fetchTideData", () => {
-    it("delegates to TidalDataSource.fetchTideData and returns tide result", async () => {
+    it("fetches tides for the nearest NOAA station within range", async () => {
       const mockTideResult = { tides: [{ time: "12:00", height: 4.5, type: "HIGH" }], currents: [] };
+      mockGetNearestTideStation.mockResolvedValue({ id: "9410170", name: "San Diego", lat: 32.7156, lon: -117.1767 });
       jest
         .spyOn(manager.getCOOPSService(), "fetchCOOPSData")
         .mockResolvedValue(mockTideResult as any);
 
       const result = await manager.fetchTideData(loc(32.7, -117.2), 3);
 
-      expect(result).toBeDefined();
-      expect(manager.getCOOPSService().getStationForLocation).toHaveBeenCalled();
-      expect(manager.getCOOPSService().fetchCOOPSData).toHaveBeenCalled();
+      expect(result).toBe(mockTideResult);
+      expect(mockGetNearestTideStation).toHaveBeenCalledWith(32.7, -117.2);
+      expect(manager.getCOOPSService().fetchCOOPSData).toHaveBeenCalledWith("9410170", 3);
+      expect(manager.getCOOPSService().getStationForLocation).not.toHaveBeenCalled();
+    });
+
+    it("returns empty tides when no NOAA station is in range", async () => {
+      mockGetNearestTideStation.mockResolvedValue(null);
+
+      const result = await manager.fetchTideData(loc(26.24, -112.48), 3);
+
+      expect(result).toEqual({ tides: [], currents: [] });
+      expect(manager.getCOOPSService().fetchCOOPSData).not.toHaveBeenCalled();
     });
 
     it("returns fallback when CO-OPS returns null", async () => {
+      mockGetNearestTideStation.mockResolvedValue({ id: "9410170", name: "San Diego", lat: 32.7156, lon: -117.1767 });
       jest
         .spyOn(manager.getCOOPSService(), "fetchCOOPSData")
         .mockResolvedValue(null as any);

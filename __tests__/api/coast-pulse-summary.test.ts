@@ -10,7 +10,7 @@ const mockCreateSupabaseServerClient = jest.fn();
 const mockFetchLatestNDBCObservation = jest.fn();
 const mockGetNearestNDBCStation = jest.fn();
 const mockFetchCOOPSData = jest.fn();
-const mockGetStationForLocation = jest.fn();
+const mockGetNearestTideStation = jest.fn();
 const mockFetchBuoyData = jest.fn();
 const mockRankBeaches = jest.fn(async (beaches: Array<{ id: string }>) => beaches);
 
@@ -37,9 +37,13 @@ jest.mock("@/lib/constants/cdip-stations", () => ({
 
 jest.mock("@/lib/services/noaa-coops", () => ({
   NOAACOOPSService: jest.fn().mockImplementation(() => ({
-    getStationForLocation: (...args: unknown[]) => mockGetStationForLocation(...args),
     fetchCOOPSData: (...args: unknown[]) => mockFetchCOOPSData(...args),
   })),
+}));
+
+jest.mock("@/lib/services/noaa-tide-service", () => ({
+  ...jest.requireActual("@/lib/services/noaa-tide-service"),
+  getNearestTideStation: (...args: unknown[]) => mockGetNearestTideStation(...args),
 }));
 
 jest.mock("@/lib/middleware/api-wrappers", () => {
@@ -56,16 +60,31 @@ jest.mock("@/lib/recommendations/selection", () => ({
 
 import { GET } from "@/app/api/coast-pulse/summary/route";
 
+function mockNoBeaches() {
+  const limit = jest.fn().mockResolvedValue({ data: [], error: null });
+  mockCreateSupabaseServerClient.mockResolvedValue({
+    from: jest.fn(() => ({
+      select: jest.fn(() => ({ not: jest.fn(() => ({ not: jest.fn(() => ({ limit })) })) })),
+    })),
+    rpc: jest.fn().mockResolvedValue({ data: [], error: null }),
+  });
+}
+
 describe("GET /api/coast-pulse/summary", () => {
   beforeEach(() => {
     mockCreateSupabaseServerClient.mockReset();
     mockFetchLatestNDBCObservation.mockReset();
     mockGetNearestNDBCStation.mockReset();
     mockFetchCOOPSData.mockReset();
-    mockGetStationForLocation.mockReset();
+    mockGetNearestTideStation.mockReset();
     mockFetchBuoyData.mockReset();
     mockGetNearestNDBCStation.mockResolvedValue(null);
-    mockGetStationForLocation.mockReturnValue("9410230");
+    mockGetNearestTideStation.mockResolvedValue({
+      id: "8531680",
+      name: "Sandy Hook",
+      lat: 40.4669,
+      lon: -74.0094,
+    });
     mockFetchCOOPSData.mockResolvedValue({ tides: [] });
   });
 
@@ -77,6 +96,34 @@ describe("GET /api/coast-pulse/summary", () => {
 
     expect(source).not.toMatch(/from\s+["']@\/lib\/api-utils["']/);
     expect(source).toMatch(/from\s+["']@\/lib\/middleware\/api-wrappers["']/);
+  });
+
+  it("reads tides from the nearest NOAA station within range", async () => {
+    mockNoBeaches();
+
+    const response = await GET(
+      new NextRequest(
+        "http://localhost:3000/api/coast-pulse/summary?lat=40.5834&lon=-73.6664"
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockGetNearestTideStation).toHaveBeenCalledWith(40.5834, -73.6664);
+    expect(mockFetchCOOPSData).toHaveBeenCalledWith("8531680", 2);
+  });
+
+  it("skips tides when no NOAA station is in range", async () => {
+    mockNoBeaches();
+    mockGetNearestTideStation.mockResolvedValue(null);
+
+    const response = await GET(
+      new NextRequest(
+        "http://localhost:3000/api/coast-pulse/summary?lat=26.2424&lon=-112.475"
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockFetchCOOPSData).not.toHaveBeenCalled();
   });
 
   it("returns validation error when coordinates are missing", async () => {

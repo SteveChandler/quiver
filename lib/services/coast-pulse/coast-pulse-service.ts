@@ -23,6 +23,7 @@ import {
 import { CDIPService } from "@/lib/services/cdip";
 import { CDIP_STATIONS } from "@/lib/constants/cdip-stations";
 import { NOAACOOPSService } from "@/lib/services/noaa-coops";
+import { getNearestTideStation } from "@/lib/services/noaa-tide-service";
 import {
   CDIP_NDBC_OVERLAPS,
   isNDBCDuplicateOfCDIP,
@@ -1064,8 +1065,10 @@ async function fetchTideData(
   lon: number
 ): Promise<CoastPulseItem | null> {
   try {
-    // Find nearest tide station using coordinates
-    const stationId = coopsService.getStationForLocation("", lat, lon);
+    // Nearest NOAA station within range, the rule the tide cron uses
+    const station = await getNearestTideStation(lat, lon);
+    if (!station) return null;
+    const stationId = station.id;
 
     // Fetch tide data (uses 30-min internal cache)
     const tideData = await coopsService.fetchCOOPSData(stationId, 2);

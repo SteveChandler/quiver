@@ -16,6 +16,7 @@ import {
 import { CDIPService } from "@/lib/services/cdip";
 import { CDIP_STATIONS } from "@/lib/constants/cdip-stations";
 import { NOAACOOPSService } from "@/lib/services/noaa-coops";
+import { getNearestTideStation } from "@/lib/services/noaa-tide-service";
 import { isNDBCDuplicateOfCDIP } from "@/lib/constants/buoy-mappings";
 import {
   formatBuoyMessage,
@@ -223,8 +224,9 @@ async function summaryHandler(request: NextRequest) {
       })(),
       // Tide
       (async () => {
-        const stationId = coopsService.getStationForLocation("", lat, lon);
-        const tideData = await coopsService.fetchCOOPSData(stationId, 2);
+        const station = await getNearestTideStation(lat, lon);
+        if (!station) return null;
+        const tideData = await coopsService.fetchCOOPSData(station.id, 2);
         if (!tideData?.tides?.length) return null;
         const now = new Date();
         const currentHeight = coopsService.getCurrentTideHeight(tideData.tides);

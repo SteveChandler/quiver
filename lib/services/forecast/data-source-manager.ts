@@ -10,6 +10,7 @@
 
 import { NOAAWaveWatchService } from "../noaa-wavewatch";
 import { NOAACOOPSService } from "../noaa-coops";
+import { getNearestTideStation } from "../noaa-tide-service";
 import { CDIPService } from "../cdip";
 import { IOOSService, ParsedObservation } from "../ioos";
 import { rankStations, StationCandidate } from "../ioos-station-scorer";
@@ -134,21 +135,14 @@ class TidalDataSource implements TideDataSource {
       (timeRange.end.getTime() - timeRange.start.getTime()) /
         (1000 * 60 * 60 * 24)
     );
-    const stationId = this.service.getStationForLocation(
-      "",
-      location.latitude,
-      location.longitude
-    );
-    return this.service.fetchCOOPSData(stationId, days);
+    const station = await getNearestTideStation(location.latitude, location.longitude);
+    if (!station) return null;
+    return this.service.fetchCOOPSData(station.id, days);
   }
 
   async fetchTideData(location: Location, days: number): Promise<any> {
-    const stationId = this.service.getStationForLocation(
-      "",
-      location.latitude,
-      location.longitude
-    );
-    const result = await this.service.fetchCOOPSData(stationId, days);
+    const station = await getNearestTideStation(location.latitude, location.longitude);
+    const result = station ? await this.service.fetchCOOPSData(station.id, days) : null;
     return result || { tides: [], currents: [] };
   }
 
