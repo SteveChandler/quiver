@@ -1338,7 +1338,7 @@ describe('discoverSurfSpots - Favorites Merging', () => {
       boardId: 'sb-1',
       boardName: "5'10 Lost Driver",
       boardType: 'shortboard',
-      reason: "5'10 Lost Driver fits these conditions; limited similar session history",
+      reason: "5'10 Lost Driver: a shortboard for 3-4 ft",
     });
     expect(mockSupabaseFrom).toHaveBeenCalledWith('boards');
   });
