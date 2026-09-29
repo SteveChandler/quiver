@@ -66,3 +66,7 @@ describe('forecastToMatchSlot source keys', () => {
     expect(forecastToMatchSlot({ ...base, data_source: 'NOAA_NWS' } as never)).not.toHaveProperty('wave_period_om');
   });
 });
+it('carries no session-count sentence to consumers: an empty bullet list gives an empty reason, not the label', () => {
+  const result = interpretRpcResult({ ...match, reason_bullets: [], similar_good_session_count: 0, good_session_count: 19 });
+  expect(result).toMatchObject({ state: 'ready', label: 'FAIR', reason: '', reasons: [] });
+});

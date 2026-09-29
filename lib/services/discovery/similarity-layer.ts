@@ -104,14 +104,16 @@ export function interpretRpcResult(
         ? result.sessions_in_profile
         : 0;
 
-    // Pull first reason bullet for user-facing copy. Fall back to label when absent.
+    // Pull first reason bullet for user-facing copy.
     const reasons = Array.isArray(result.reason_bullets)
       ? result.reason_bullets.filter(
           (reason): reason is string =>
             typeof reason === "string" && reason.length > 0,
         )
       : [];
-    const reason = reasons[0] ?? label;
+    // No bullet is normal: the RPC no longer sends session counts as copy. Consumers join `reason` into
+    // user-facing sentences, so an empty string drops out where a bare label would read as one.
+    const reason = reasons[0] ?? "";
     const confidence =
       result.confidence === "high" || result.confidence === "medium"
         ? result.confidence
