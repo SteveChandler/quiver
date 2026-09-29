@@ -80,6 +80,21 @@ function relativeTide(height: unknown, beach: BoardSession['beaches']): number |
 // User-facing "like this" claims need closer conditions than the evidence-weighting cutoff.
 export const LIKE_THIS_SIMILARITY = 0.7;
 
+/**
+ * Period used to compare a forecast row or a session snapshot. Open-Meteo rows store the tallest
+ * partition's period in wave_period beside the whole-sea height, while CDIP/NWS rows and most history
+ * store the whole-sea period; wave_period_om is the Open-Meteo whole-sea mean, the like-for-like value.
+ * Similarity only: displays, physical fit, alerts and stored rows keep wave_period.
+ * Twin of similarity_period in compute_user_match_scores (20260929120000_match_score_om_similarity_period.sql).
+ */
+export function similarityPeriod(row: { data_source?: unknown; wave_period?: unknown; wave_period_om?: unknown }): number | null {
+  if (String(row.data_source ?? '').toUpperCase() === 'OPEN_METEO') {
+    const meanPeriod = numeric(row.wave_period_om);
+    if (meanPeriod !== null && meanPeriod > 0) return meanPeriod;
+  }
+  return numeric(row.wave_period);
+}
+
 // ponytail: fixed condition bandwidths; calibrate on held-out board-fit feedback when enough labels accumulate.
 export function conditionSimilarity(snapshot: Record<string, unknown>, forecast: EnhancedForecastEntity, historicalBeach: BoardSession['beaches'], beach: Beach): number {
   const height = parseWaveHeightMidpointFt(String(snapshot.wave_height ?? ''));
@@ -87,7 +102,7 @@ export function conditionSimilarity(snapshot: Record<string, unknown>, forecast:
   if (height === null || currentHeight === null) return 0;
   const pairs: Array<[number | null, number | null, number, number]> = [
     [height, currentHeight, 1.5, 0.4],
-    [numeric(snapshot.wave_period), numeric(forecast.wave_period), 4, 0.25],
+    [similarityPeriod(snapshot), similarityPeriod(forecast), 4, 0.25],
     [numeric(snapshot.wind_speed), numeric(forecast.wind_speed), 8, 0.2],
     [relativeTide(snapshot.tide_height, historicalBeach), relativeTide(forecast.tide_height, beach), 2, 0.15],
   ];
@@ -106,8 +121,8 @@ export function conditionSimilarity(snapshot: Record<string, unknown>, forecast:
   if (pastDirection && direction && pastDirection !== direction) distance += 0.25;
   if (!breakTypesMatch(historicalBeach?.break_type, beach.break_type)) distance += 0.5;
   // Height / period² is the available wave-steepness proxy.
-  const period = numeric(snapshot.wave_period);
-  const currentPeriod = numeric(forecast.wave_period);
+  const period = similarityPeriod(snapshot);
+  const currentPeriod = similarityPeriod(forecast);
   if (period && currentPeriod) distance += 0.15 * ((height / period ** 2 - currentHeight / currentPeriod ** 2) / 0.04) ** 2;
   return Math.exp(-distance / 2);
 }
