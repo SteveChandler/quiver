@@ -5,9 +5,9 @@ import type { EnhancedForecastEntity } from '@/types/forecast';
 
 const beach = { id: 'ponto', name: 'Ponto', break_type: 'beach', skill_level: 'intermediate', preferred_tide_ft_min: 1, preferred_tide_ft_max: 4, lat: 33, lon: -117, wind_offshore_deg: 90 } as Beach;
 const forecast = { confidence_score: 90, forecast_at: '2026-09-23T12:00:00Z', wave_height: '3.7 ft', wave_period: '15s', wind_speed: '3 mph', wind_direction_deg: 150, tide_height: '3 ft', tide_status: 'Rising' } as EnhancedForecastEntity;
-function board(id: string, name: string, type: string, count: number, height: number, rating: number, fit: string | null = null): PersonalBoard {
+function board(id: string, name: string, type: string, count: number, height: number, rating: number, fit: string | null = null, legacyFit: string | null = null): PersonalBoard {
   return { id, name, board_type: type, sessions: Array.from({ length: count }, (_, i): BoardSession => ({
-    id: `${id}-${i}`, status: 'completed', deleted_at: null, rating, session_board_fit: fit,
+    id: `${id}-${i}`, status: 'completed', deleted_at: null, rating, session_board_fit: fit, board_fit: legacyFit,
     arrival_time: '2026-09-10T12:00:00Z', beaches: beach,
     session_forecast_snapshots: [{ forecast_snapshot: { wave_height: String(height), wave_period: '15s', wind_speed: '3 mph', tide_height: '3 ft', tide_status: 'incoming' } }],
   })) };
@@ -101,4 +101,91 @@ it('still ranks boards using feedback between the evidence and like-this cutoffs
   const pick = recommendBoard([a, b], forecast, beach, 'advanced');
   expect(pick?.id).toBe('b');
   expect(pick?.reason).toBe('B fits these conditions; limited similar session history');
+});
+
+describe('physical-fit guard on the top pick', () => {
+  const lowForecast = { ...forecast, wave_height: '3 ft' };
+
+  it('does not let habit lift a board far below the best-fitting board the surfer rides', () => {
+    const pick = recommendBoard([board('sb', 'Twin pin', 'shortboard', 14, 3, 4), board('lb', 'Southpoint', 'longboard', 3, 3, 4)], lowForecast, beach, 'advanced');
+    expect(pick?.name).toBe('Southpoint');
+    expect(pick?.alternates.map((b) => b.name)).toEqual(['Twin pin']);
+    expect(pick).not.toHaveProperty('physical');
+  });
+
+  it('keeps the habit pick when the physical gap is within 12 points', () => {
+    const pick = recommendBoard([board('sb', 'Twin pin', 'shortboard', 14, 3.7, 4), board('mid', 'Ghombra', 'midlength', 3, 3.7, 4)], forecast, beach, 'advanced');
+    expect(pick?.name).toBe('Twin pin');
+    expect(pick?.alternates.map((b) => b.name)).toEqual(['Ghombra']);
+  });
+
+  it('does not measure the gap against a board without an established history', () => {
+    const pick = recommendBoard([board('sb', 'Twin pin', 'shortboard', 14, 3, 4), board('lb', 'Southpoint', 'longboard', 2, 3, 4)], lowForecast, beach, 'advanced');
+    expect(pick?.name).toBe('Twin pin');
+  });
+
+  it('leaves the score order alone when nobody has an established history', () => {
+    const pick = recommendBoard([board('a', 'A', 'fish', 2, 3.7, 5), board('m', 'M', 'midlength', 0, 3.7, 3)], forecast, beach, 'advanced');
+    expect(pick?.name).toBe('A');
+    expect(pick?.alternates.map((b) => b.name)).toEqual(['M']);
+  });
+
+  it('returns the only eligible board even when its physical fit is weak', () => {
+    const pick = recommendBoard([board('sb', 'Twin pin', 'shortboard', 14, 3, 4)], lowForecast, beach, 'advanced');
+    expect(pick?.name).toBe('Twin pin');
+    expect(pick?.alternates).toEqual([]);
+  });
+});
+
+describe('board fit feedback', () => {
+  const pair = (a: PersonalBoard, b: PersonalBoard) => recommendBoard([a, b], forecast, beach, 'advanced')?.id;
+  const twins = () => [board('a', 'A', 'fish', 5, 3.7, 4), board('b', 'B', 'fish', 5, 3.7, 4)] as const;
+
+  it('reads the legacy not_right fit when session_board_fit is null', () => {
+    const [a, b] = twins();
+    a.sessions!.push({ ...a.sessions![0], id: 'a-extra', board_fit: 'not_right' });
+    b.sessions!.push({ ...b.sessions![0], id: 'b-extra' });
+    expect(pair(a, b)).toBe('b');
+  });
+
+  it('reads the legacy good and perfect fits as right', () => {
+    for (const legacy of ['good', 'perfect']) {
+      const [a, b] = twins();
+      a.sessions!.push({ ...a.sessions![0], id: 'a-extra' });
+      b.sessions!.push({ ...b.sessions![0], id: 'b-extra', board_fit: legacy });
+      expect(pair(a, b)).toBe('b');
+    }
+  });
+
+  it('weights legacy not_right as a generic negative, not as wrong_type', () => {
+    const [a, b] = twins();
+    a.sessions!.push({ ...a.sessions![0], id: 'a-extra', session_board_fit: 'wrong_type' });
+    b.sessions!.push({ ...b.sessions![0], id: 'b-extra', board_fit: 'not_right' });
+    expect(pair(a, b)).toBe('b');
+  });
+
+  it('lets session_board_fit win over the legacy fit in both directions', () => {
+    const [a, b] = twins();
+    a.sessions!.push({ ...a.sessions![0], id: 'a-extra' });
+    b.sessions!.push({ ...b.sessions![0], id: 'b-extra', session_board_fit: 'right', board_fit: 'not_right' });
+    expect(pair(a, b)).toBe('b');
+
+    const [c, d] = twins();
+    c.sessions!.push({ ...c.sessions![0], id: 'a-extra', session_board_fit: 'too_small', board_fit: 'perfect' });
+    d.sessions!.push({ ...d.sessions![0], id: 'b-extra' });
+    expect(pair(c, d)).toBe('b');
+  });
+
+  it('does not let two-star sessions build habit for a board', () => {
+    expect(pair(board('a', 'A', 'fish', 10, 3.7, 2), board('b', 'B', 'fish', 0, 3.7, 3))).toBe('b');
+  });
+
+  it('still lets three-star sessions build habit', () => {
+    expect(pair(board('a', 'A', 'fish', 10, 3.7, 3), board('b', 'B', 'fish', 0, 3.7, 3))).toBe('a');
+  });
+
+  it('does not let negative-fit sessions build habit, however well they were rated', () => {
+    expect(pair(board('a', 'A', 'fish', 10, 3.7, 4, 'too_small'), board('b', 'B', 'fish', 0, 3.7, 3))).toBe('b');
+    expect(pair(board('a', 'A', 'fish', 10, 3.7, 4, null, 'not_right'), board('b', 'B', 'fish', 0, 3.7, 3))).toBe('b');
+  });
 });
