@@ -10,7 +10,16 @@ import { getDirectionDegrees } from '@/lib/utils/number-parsing';
 import { parseWaveHeightMidpointFt } from '@/lib/alerts/forecast-parsers';
 import { breakTypesMatch } from './break-family';
 
-const BOARD_FIT_WEIGHT: Readonly<Record<string, number>> = { right: 1, too_small: -1, too_much_board: -1, wrong_type: -2 };
+// not_right is the legacy sessions.board_fit negative; it carries a generic negative's weight, not wrong_type's.
+const BOARD_FIT_WEIGHT: Readonly<Record<string, number>> = { right: 1, too_small: -1, too_much_board: -1, wrong_type: -2, not_right: -1 };
+const NEGATIVE_BOARD_FIT: ReadonlySet<string> = new Set(['too_small', 'too_much_board', 'wrong_type', 'not_right']);
+const LEGACY_BOARD_FIT: Readonly<Record<string, string>> = { not_right: 'not_right', good: 'right', perfect: 'right' };
+const LOW_RATING = 2;
+
+// Habit may lift a board only so far: a board whose physical fit trails the best-fitting board the user
+// actually rides (>= ESTABLISHED_MATCHES similar sessions) by more than MAX_PHYSICAL_GAP cannot be the top pick.
+const MAX_PHYSICAL_GAP = 12;
+const ESTABLISHED_MATCHES = 3;
 
 export interface BoardSession {
   id: string;
@@ -20,6 +29,8 @@ export interface BoardSession {
   rating: number | null;
   arrival_time: string | null;
   session_board_fit: string | null;
+  /** Legacy fit written by some clients while session_board_fit stays null; session_board_fit wins when present. */
+  board_fit?: string | null;
   beaches?: Pick<Beach, 'break_type' | 'preferred_tide_ft_min' | 'preferred_tide_ft_max'> | null;
   session_forecast_snapshots?: { forecast_snapshot: Record<string, unknown> } | { forecast_snapshot: Record<string, unknown> }[] | null;
 }
@@ -37,11 +48,15 @@ export interface RecommendedBoard {
 }
 
 // Included in the existing board read; filters on the embedded sessions preserve ownership.
-export const PERSONAL_BOARD_SELECT = 'id,name,board_type,volume,session_count,sessions(id,user_id,status,deleted_at,rating,arrival_time,session_board_fit,beaches!sessions_beach_id_fkey(break_type,preferred_tide_ft_min,preferred_tide_ft_max),session_forecast_snapshots(forecast_snapshot))';
+export const PERSONAL_BOARD_SELECT = 'id,name,board_type,volume,session_count,sessions(id,user_id,status,deleted_at,rating,arrival_time,session_board_fit,board_fit,beaches!sessions_beach_id_fkey(break_type,preferred_tide_ft_min,preferred_tide_ft_max),session_forecast_snapshots(forecast_snapshot))';
 
 function sessionSnapshot(session: BoardSession): Record<string, unknown> | undefined {
   const snapshots = session.session_forecast_snapshots;
   return (Array.isArray(snapshots) ? snapshots[0] : snapshots)?.forecast_snapshot;
+}
+
+function sessionBoardFit(session: BoardSession): string | null {
+  return session.session_board_fit ?? LEGACY_BOARD_FIT[session.board_fit ?? ''] ?? null;
 }
 
 function numeric(value: unknown): number | null {
@@ -141,21 +156,27 @@ export function recommendBoard(
     let ratingWeight = 0;
     let ratingSum = 0;
     let feedback = 0;
+    let habitWeight = 0;
     for (const entry of matched) {
-      if (entry.session.rating !== null) {
+      const fit = sessionBoardFit(entry.session);
+      const negative = fit !== null && NEGATIVE_BOARD_FIT.has(fit);
+      const rating = entry.session.rating;
+      if (rating !== null) {
         ratingWeight += entry.weight;
-        const delta = entry.session.rating - baseline;
-        ratingSum += entry.weight * (['wrong_type', 'too_small', 'too_much_board'].includes(entry.session.session_board_fit ?? '') ? Math.min(delta, 0) : delta);
+        const delta = rating - baseline;
+        ratingSum += entry.weight * (negative ? Math.min(delta, 0) : delta);
       }
-      const fit = entry.session.session_board_fit;
       feedback += entry.weight * (BOARD_FIT_WEIGHT[fit ?? ''] ?? 0);
+      // A session that went badly shows the board was ridden, not preferred; it must not build habit.
+      if (!negative && !(rating !== null && rating <= LOW_RATING)) habitWeight += entry.weight;
     }
     const recency = sessions.reduce((best, entry) => {
       const age = (at - Date.parse(entry.session.arrival_time ?? '')) / 86_400_000;
       return Number.isFinite(age) && age >= 0 ? Math.max(best, Math.exp(-age / 90)) : best;
     }, 0);
     const boardBlend = weight / (weight + 5);
-    const personal = physical * 0.5 + 50 * boardBlend
+    const habitBlend = habitWeight / (habitWeight + 5);
+    const personal = physical * 0.5 + 50 * habitBlend
       + boardBlend * ((ratingWeight ? 12 * ratingSum / ratingWeight : 0) + (weight ? 25 * feedback / weight : 0))
       + 3 * Math.min(1, sessions.length / 20) + 2 * recency;
     const score = physical * (1 - historyBlend) + personal * historyBlend;
@@ -164,10 +185,14 @@ export function recommendBoard(
     const reason = likeThis.length >= 3
       ? `You ride ${board.name} on ${Math.floor(Math.min(...heights))}-${Math.ceil(Math.max(...heights))} ft days like this (${likeThis.length} sessions)`
       : `${board.name} fits these conditions; limited similar session history`;
-    return [{ id: board.id, name: board.name, type: board.board_type, boardClass: type, reason, score, matchedCount: matched.length }];
+    return [{ id: board.id, name: board.name, type: board.board_type, boardClass: type, reason, score, matchedCount: matched.length, physical }];
   }).sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
   if (!ranked.length) return null;
-  const alternates = ranked.slice(1).sort((a, b) => Number(b.matchedCount >= 3) - Number(a.matchedCount >= 3) || b.score - a.score || a.id.localeCompare(b.id));
-  const picks = [ranked[0], ...alternates.slice(0, 2)].map(({ score: _score, matchedCount: _count, ...board }) => board);
+  const established = ranked.filter((candidate) => candidate.matchedCount >= ESTABLISHED_MATCHES);
+  const reference = Math.max(...(established.length ? established : ranked).map((candidate) => candidate.physical));
+  const fits = (candidate: (typeof ranked)[number]) => candidate.physical >= reference - MAX_PHYSICAL_GAP;
+  const ordered = [...ranked.filter(fits), ...ranked.filter((candidate) => !fits(candidate))];
+  const alternates = ordered.slice(1).sort((a, b) => Number(b.matchedCount >= ESTABLISHED_MATCHES) - Number(a.matchedCount >= ESTABLISHED_MATCHES) || b.score - a.score || a.id.localeCompare(b.id));
+  const picks = [ordered[0], ...alternates.slice(0, 2)].map(({ score: _score, matchedCount: _count, physical: _physical, ...board }) => board);
   return { ...picks[0], alternates: picks.slice(1) };
 }
