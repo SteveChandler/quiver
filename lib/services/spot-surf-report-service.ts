@@ -63,15 +63,10 @@ const PUBLIC_FORECAST_HOUR_FIELDS = [
   'confidence_score',
 ] as const;
 
-const PUBLIC_DISPLAY_SWELL_FIELDS = [
-  'data_source', 'wave_period', 'wave_direction', 'wave_direction_om',
-  'swell_height_om', 'swell_period_om', 'swell_direction_om',
-] as const;
-
 export type PublicForecastHour = Pick<
   EnhancedForecastEntity,
   (typeof PUBLIC_FORECAST_HOUR_FIELDS)[number]
-> & Partial<Pick<EnhancedForecastEntity, (typeof PUBLIC_DISPLAY_SWELL_FIELDS)[number]>>;
+>;
 
 const NO_POSITIVE_SURF_CALL_HOLD_EPOCH = 'no-positive-surf-call';
 
@@ -296,7 +291,7 @@ function canonicalizeBeachForSurfCall(beach: Beach): Beach {
 
 function toPublicForecastHour(forecast: EnhancedForecastEntity): PublicForecastHour {
   return Object.fromEntries(
-    [...PUBLIC_FORECAST_HOUR_FIELDS, ...PUBLIC_DISPLAY_SWELL_FIELDS].map(field => [field, forecast[field] ?? null]),
+    PUBLIC_FORECAST_HOUR_FIELDS.map(field => [field, forecast[field] ?? null]),
   ) as PublicForecastHour;
 }
 

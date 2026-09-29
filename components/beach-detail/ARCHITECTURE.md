@@ -9,12 +9,12 @@ The beach detail components create a comprehensive beach profile page with forec
 ```
 components/beach-detail/
 ├── amenities-badges.tsx         # Data-driven CCC amenity badges (grouped by category)
-├── beach-breadcrumb.tsx        # Beach location breadcrumb navigation
+├── beach-header.tsx          # Sticky navigation header with back button
+├── beach-hero.tsx            # Hero section with map image and beach info
 ├── cams-section.tsx          # Live camera feed (iframe, HLS, or video)
 ├── hls-video-player.tsx      # HLS video playback via hls.js / native
+├── (deleted: todays-forecast.tsx — superseded by ConditionsTicker)
 ├── recent-sessions-section.tsx # Community sessions display
-├── visual/beach-visual-hero.tsx # Beach media, public call, and beach-day facts
-├── visual/beach-week.tsx        # Week forecast tiles
 ├── water-quality-badge.tsx      # EPA water quality status badge (expandable)
 └── ...                       # Additional components for tabs and features
 ```
@@ -29,24 +29,19 @@ Beach Page → Individual Components → Actions/Navigation
    Props      Local State         Server Actions
 ```
 
-### **Beach page layouts**
+### **Component Hierarchy**
 
-- `zine` remains on water temperature and tides subpages and the Mexico and international beach routes.
-- `visual` serves `/[state]/[city]/[beach]` through `BeachDetailClient` and `BeachDetail`.
-
-The visual layout renders, in order: breadcrumb; `BeachVisualHero` with the H1, public call, and beach-day facts; `BeachActions` with Watch or app handoff when a window exists, plus Share; the hourly chart when forecast points exist beside `BeachDayColumn`; `BeachWeek` after client hydration when week data exists; nearby spots; Reviews, Intel, and Sessions tabs; then About, amenities, forecast details, the optional full hourly table, FAQ, and related guides. The existing indexable blocks and structured data remain on the page.
-
-The public call comes from `getPublicSurfCall`, is labeled "for most surfers," and can show a call, "No call today/tomorrow," or "Surf call unavailable." The week tile for the call's local day uses that public call's word (or "No call") in place of its forecast tier. The H1 still contains the beach name and "Surf Forecast" wording. The week has no per-day water temperature; water temperature belongs to beach-day facts and the water-temp subpage. Water quality only reports advisories or closures, never "Clean" for missing or non-advisory data. The hero's beach-day low and the Beach Day column use only interior three-point turning points from `getTideMetaData`, excluding incomplete first and last samples. The week's lows come separately from `extractMergedTideSchedule(forecasts)` in `lib/utils/beach-week.ts`, which selects the first low matching each tile's local date.
-
-For a signed-out visitor, `NATIVE_SELECTED_WINDOW_WATCH` determines whether a selected window is labeled "Watch" or "Open in the app." The button is absent without a watch window; Share remains visible. The visual page has no sticky or inline signup CTA or content-page app handoff CTA.
-
-The visual About section server-renders the complete wave, crowd, parking, and access tips through `LocalKnowledgeNotebook` when any are present. Missing tips add no placeholder. Zine's Overview remains unchanged.
-
-`BeachVisualHero` always requests rip risk for today in the beach timezone, independent of `?date`, `?window`, and tomorrow's surf call. Its water notice distinguishes closures from advisories. The swell field uses the selected row and the same `resolveDisplaySwell` policy as the facts, including offshore and CDIP corrections.
-
-`BeachActions` opens a focusable app disclosure for guests and refused web watches. It contains a universal link for the selected window and a QR code visible from `md` upward. Refusals are announced in a live region; Close and Escape dismiss the panel and return focus to its trigger. App watch promises depend on `NATIVE_SELECTED_WINDOW_WATCH`; until enabled, the link only promises to open the beach. Successful authenticated watches keep their existing web flow.
-
-The page passes `layout="visual"` to forecast details and the hourly table. Guests see the matching public call or neutral unavailable copy, without sign-in links or personalized data. Their hourly table omits the Quiver call column. Authenticated decisions and the default zine/sub-page behavior remain unchanged. Chart captions identify the local date and surf quantities; wind arrows point where the wind blows, with the full server-rendered hourly table below.
+```
+BeachDetailPage
+├── BeachHeader (navigation)
+├── BeachHero (visual header)
+├── CamsSection (live camera feed)
+│   └── HLSVideoPlayer (dynamic import, SSR disabled)
+├── AmenitiesBadges (CCC amenity data)
+├── WaterQualityBadge (EPA water quality status)
+├── TodaysForecast (forecast data)
+├── RecentSessionsSection (social content)
+```
 
 ## 📊 **COMPONENT RESPONSIBILITIES**
 
@@ -60,11 +55,24 @@ The page passes `layout="visual"` to forecast details and the hourly table. Gues
   - Falls back to keyword-derived data for non-CA beaches
 - **Data Source**: `mv_beach_amenities` materialized view (SSR)
 
-### **BeachVisualHero**
+### **BeachHeader**
 
-- **Purpose**: Visual layout hero with beach media, the H1, public surf call, surf facts, and optional beach-day facts.
-- **Inputs**: Beach and media data, selected forecast context, public call, water temperature, interior tide low for today, and advisory status.
-- **Media**: After mount, `HomeHeroMedia` restores the available viewpoint remembered under its `storageKey`. When nothing is remembered or that viewpoint is unavailable, the beach default priority is cam → photo → swell → satellite, subject to availability.
+- **Purpose**: Sticky navigation with beach name
+- **Props**: `beachName: string`
+- **Features**:
+  - Back navigation to map
+  - Sticky positioning (z-index: 10)
+  - Mobile-first responsive design
+
+### **BeachHero**
+
+- **Purpose**: Visual hero section with beach information
+- **Props**: `beach: Beach, mapImageUrl: string`
+- **Features**:
+  - Map image background with gradient overlay
+  - Beach name, location, and star ratings
+  - Hardcoded review count (128 reviews)
+  - Responsive image handling
 
 ### **CamsSection**
 
@@ -97,6 +105,17 @@ The page passes `layout="visual"` to forecast details and the hourly table. Gues
 - **Cleanup**: Destroys hls.js instance and detaches video element on unmount or `src` change
 - **CORS**: Surfline HLS streams are CORS-blocked in Chrome/Firefox, so the `src` prop receives a proxy URL (`/api/hls-proxy/...`) rather than the direct CDN URL. Safari can play either. The proxy rewrite happens in `buildCamEmbed()`, not in this component.
 
+### **TodaysForecast**
+
+- **Purpose**: Forecast display with community calibration
+- **Props**: `forecast: Forecast | undefined`
+- **Features**:
+  - Modern forecast card layout
+  - Community-adjusted forecast display
+  - Forecast calibration integration
+  - Wave height, wind, water temp display
+  - Fallback for missing data
+
 ### **WaterQualityBadge**
 
 - **Purpose**: Displays EPA water quality status with expandable details
@@ -126,6 +145,22 @@ camera_url (from beaches.sources)
 **Why a proxy?** Surfline's HLS CDN (`hls.cdn-surfline.com`) blocks cross-origin requests. Chrome and Firefox require hls.js which makes XHR/fetch calls subject to CORS. The server-side proxy at `/api/hls-proxy/[...path]` fetches upstream with the required `Referer` header and returns the response with `Access-Control-Allow-Origin: *`.
 
 **Path-based proxy design**: The proxy URL encodes the upstream hostname and path (`/api/hls-proxy/<hostname>/<path>`). This means relative segment URLs inside `.m3u8` manifests (e.g., `segment_001.ts`) resolve through the proxy automatically without rewriting manifest content.
+
+### **Forecast Integration**
+
+```typescript
+// Community-adjusted forecasts
+const { beachAccuracy } = useForecastCalibration({
+  beachId: forecast?.beach_id,
+});
+
+// Displays both raw and adjusted forecasts
+<AdjustedForecastDisplay
+  rawForecast={forecast}
+  beachAccuracy={beachAccuracy}
+  compact={true}
+/>;
+```
 
 ### **Coach Pick (temporary replacement for Best Times)**
 
@@ -227,6 +262,7 @@ const colorSchemes = {
 
 - `@/components/ui/*` - Shadcn UI components
 - `@/components/session-card-wrapper` - Session display
+- `@/components/forecast/adjusted-forecast-display` - Community forecasts
 - `@/hooks/use-forecast-calibration` - Forecast accuracy data
 - `@/lib/media/cam-embed` - Camera URL classification and proxy rewriting
 - `hls.js` - HLS stream parsing for Chrome/Firefox (dynamic import)
@@ -270,10 +306,6 @@ const colorSchemes = {
 - Navigation flow testing
 - Session creation workflows
 - Forecast calibration integration
-- `e2e/guest-anonymous-cta-reduction.spec.ts` covers the signed-out public call, Share/Watch, absent signup asks, and visual sections.
-- `e2e/usage-critical.spec.ts` checks the guest beach Share surface.
-- `e2e/prod-readonly/guest-ui.spec.ts` accepts the visual public call as stable guest content.
-- `__tests__/components/beach-detail/visual/` covers the visual hero, week, hourly chart, and beach-day column; `__tests__/lib/utils/public-surf-call.test.ts` and `__tests__/lib/seo/tide-interior-extremes.test.ts` cover their source rules.
 
 ## 🔮 **FUTURE ENHANCEMENTS**
 

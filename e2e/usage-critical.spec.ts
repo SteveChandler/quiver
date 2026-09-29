@@ -209,7 +209,7 @@ test.describe('Usage Critical: guest beach conversion surface', () => {
     errorCapture = setupErrorDetection(page);
   });
 
-  test('guest beach page exposes Share without authenticated assumptions @usage', async ({
+  test('guest beach page exposes signup/auth CTA without authenticated assumptions @usage', async ({
     page,
   }) => {
     await page.goto(buildBeachUrl(TEST_BEACHES.blacks), {
@@ -217,11 +217,19 @@ test.describe('Usage Critical: guest beach conversion surface', () => {
       waitUntil: 'domcontentloaded',
     });
     await page.waitForLoadState('load', { timeout: TIMEOUTS.long });
+    await page.evaluate(() => window.scrollTo(0, 500));
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- sticky CTA appears after scroll-triggered transition
+    await page.waitForTimeout(400);
+
     await expect(page.getByRole('heading', { name: /blacks/i }).first()).toBeVisible({
       timeout: TIMEOUTS.long,
     });
 
-    await expect(page.getByTestId('beach-share-button')).toBeVisible();
+    await expectAnyVisible([
+      { locator: page.getByTestId('sticky-signup-cta'), name: 'sticky signup CTA' },
+      { locator: page.getByTestId('inline-signup-cta'), name: 'inline signup CTA' },
+      { locator: page.getByRole('button', { name: /sign up|save .*home break|get forecast/i }), name: 'auth CTA' },
+    ], TIMEOUTS.long);
 
     await assertNoErrors(page, errorCapture, {
       context: 'Guest beach usage conversion surface',

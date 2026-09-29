@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { normalizeForecastDateParam, normalizeForecastWindowParam } from "@/lib/utils/forecast-window-param";
-import type { PublicSurfCall } from "@/lib/utils/public-surf-call";
 import type { Beach } from "@/types/database";
 import { formatBeachDateTime, formatDateInTimezone, formatTimeRangeInTimezone } from "@/lib/utils/date-time";
 import { WaterQualityBadge, type WaterQuality } from "@/components/beach-detail/water-quality-badge";
@@ -12,7 +11,6 @@ import { isDataStale } from "@/lib/utils/forecast-client-utils";
 import { useAuthenticatedForecastDecision } from "@/components/beach-detail/authenticated-forecast-decision";
 import { ForecastDecisionLoginLink } from "@/components/beach-detail/forecast-decision-login-link";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
-import { beachForecastHeadingSuffix, formatForecastHeadingDate } from "@/lib/utils/beach-forecast-heading";
 import type {
   PublicForecastContextFacts,
   PublicForecastReportFacts,
@@ -34,8 +32,6 @@ const STRIP_LABEL =
 
 interface PublicForecastAnswerProps {
   beach: Beach;
-  layout?: "zine" | "visual";
-  publicCall?: PublicSurfCall;
   waterQuality?: WaterQuality | null;
   report: PublicForecastReportFacts | null;
   context: PublicForecastContextFacts | null;
@@ -49,11 +45,22 @@ interface PublicForecastAnswerProps {
   >;
   headingLevel: "h1" | "h2";
   returnTo: string;
-  title?: string;
-  /** False when the page's hero already shows the rip-current banner. */
-  showRipCurrentWarning?: boolean;
-  /** Where "Explore forecast" goes. Omitted: the Forecast tab. Null: no link. */
-  exploreForecastHref?: string | null;
+}
+
+function formatForecastDate(
+  localDate: string | null | undefined,
+  timezone: string,
+): string | null {
+  if (!localDate) return null;
+  const date = new Date(`${localDate}T12:00:00Z`);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    timeZone: timezone,
+  }).format(date);
 }
 
 function joinParts(parts: Array<string | null | undefined>): string | null {
@@ -87,8 +94,6 @@ function sourceLabel(source: string): string {
 
 export function PublicForecastAnswer({
   beach,
-  layout = "zine",
-  publicCall,
   waterQuality,
   report: publicReport,
   context: publicContext,
@@ -97,9 +102,6 @@ export function PublicForecastAnswer({
   nearbyBeaches = [],
   headingLevel,
   returnTo,
-  title,
-  showRipCurrentWarning = true,
-  exploreForecastHref,
 }: PublicForecastAnswerProps) {
   const searchParams = useSearchParams();
   const selectedDate = normalizeForecastDateParam(searchParams?.get("date"));
@@ -108,12 +110,6 @@ export function PublicForecastAnswer({
 
   const hasSelection = Boolean(selectedWindow || selectedDate);
   const authenticatedDecision = useAuthenticatedForecastDecision();
-  const visualGuest = layout === "visual" && !authenticatedDecision.isAuthenticated;
-  const publicCallMatches = !hasSelection || (selectedDate
-    ? selectedDate === publicContext?.localDate
-    : selectedWindow === publicContext?.selectedRowTime);
-  const displayedPublicCall = visualGuest && publicCallMatches ? publicCall : null;
-  const hasPublicCall = displayedPublicCall && displayedPublicCall.kind !== "unknown";
   const decisionReport = !selectedDate && authenticatedDecision.isAuthenticated && !authenticatedDecision.isLoading
     ? authenticatedDecision.report
     : null;
@@ -128,7 +124,7 @@ export function PublicForecastAnswer({
     beach.timezone ??
     context?.timezone ??
     "UTC";
-  const forecastDate = formatForecastHeadingDate(context?.localDate, timezone);
+  const forecastDate = formatForecastDate(context?.localDate, timezone);
   const waveHeight = context?.waveHeightRangeLabel ?? context?.waveHeight ?? report?.waveHeight;
   // Once the authenticated decision resolves, its selection owns the answer
   // deck. Before then, keep the crawlable public window as context only.
@@ -169,6 +165,7 @@ export function PublicForecastAnswer({
   const isStale = sourceDataUpdatedAt
     ? isDataStale(sourceDataUpdatedAt, primaryDataSource)
     : false;
+  const titleDate = forecastDate ? ` for ${forecastDate}` : "";
   const validAt = context?.selectedRowTime
     ? formatBeachDateTime(context.selectedRowTime, timezone, "EEE h:mm a")
     : null;
@@ -179,11 +176,8 @@ export function PublicForecastAnswer({
     ? formatBeachDateTime(report.updatedAt, timezone, "EEE h:mm a")
     : null;
   const HeadingTag = headingLevel;
-  const exploreHref = exploreForecastHref === undefined
-    ? `${returnTo}?${new URLSearchParams({ ...Object.fromEntries(searchParams?.entries() ?? []), tab: "forecast" })}#operational-forecast`
-    : exploreForecastHref;
   const hasForecastDetails = Boolean(
-    hasPublicCall || decisionReport?.verdict ||
+    decisionReport?.verdict ||
     (context?.selectedRowTime && waveHeight) ||
       (hasDisplayedWindow && (waveHeight || bestWindow || wind || tide)),
   );
@@ -203,7 +197,7 @@ export function PublicForecastAnswer({
       className="border-t-2 border-dashed border-[#0B3A75]/30 pt-5"
     >
       <HeadingTag id="public-forecast-answer-heading" className="font-mono text-sm font-bold uppercase text-[#0B3A75]">
-        {title ?? `${beach.name} ${beachForecastHeadingSuffix(forecastDate, hasSelection)}`}
+        {beach.name} Surf Forecast{hasSelection ? "" : titleDate}
       </HeadingTag>
       {hasSelection ? (
         <p className="mt-3 text-base font-semibold" role="status">
@@ -214,31 +208,26 @@ export function PublicForecastAnswer({
           {" · "}{timezone}
         </p>
       ) : isTomorrow ? <p className="mt-2 text-sm font-bold">Tomorrow</p> : null}
-      {showRipCurrentWarning ? (
-        <RipCurrentWarning
-          beachId={beach.id}
-          localDate={selectedDate ?? (selectedWindow ? formatDateInTimezone(new Date(selectedWindow), timezone) : context?.localDate ?? formatDateInTimezone(new Date(), timezone))}
-          timezone={timezone}
-        />
-      ) : null}
+      <RipCurrentWarning
+        beachId={beach.id}
+        localDate={selectedDate ?? (selectedWindow ? formatDateInTimezone(new Date(selectedWindow), timezone) : context?.localDate ?? formatDateInTimezone(new Date(), timezone))}
+        timezone={timezone}
+      />
       {(waterQuality?.status === "advisory" || waterQuality?.status === "closure") && (
         <div className="mt-3"><p className="text-sm font-bold">Current water notice · check again before your session</p><WaterQualityBadge waterQuality={waterQuality} beachState={beach.state} /></div>
       )}
-      {hasSelection && !hasResolvedAuthenticatedDecision && !hasPublicCall && (
+      {hasSelection && !hasResolvedAuthenticatedDecision && (
         <p className="mt-3 text-base">
           {authenticatedDecision.isAuthenticated
             ? authenticatedDecision.isLoading ? "Loading the selected call…" : "Selected call unavailable. Check the dated conditions below."
-            : visualGuest ? "No web surf call for this day. Dated conditions are below."
             : <><ForecastDecisionLoginLink returnTo={`${returnTo}?${searchParams?.toString() ?? ""}`} /> for the surf verdict. Dated conditions are below.</>}
         </p>
       )}
       {isStale && <p role="status" className="mt-3 border-l-4 border-[#B47A0F] bg-[#F7E7BE] p-3 text-base">Source data is stale; conditions may have changed.</p>}
-      {exploreHref ? (
-        <Link href={exploreHref} className="mt-4 inline-flex min-h-11 items-center border-2 border-[#11100D] bg-[#F78E42] px-4 text-base font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4">Explore forecast</Link>
-      ) : null}
+      <Link href={`${returnTo}?${new URLSearchParams({ ...Object.fromEntries(searchParams?.entries() ?? []), tab: "forecast" })}#operational-forecast`} className="mt-4 inline-flex min-h-11 items-center border-2 border-[#11100D] bg-[#F78E42] px-4 text-base font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4">Explore forecast</Link>
       <details open={!hasSelection || hasResolvedAuthenticatedDecision} className="mt-4">
         <summary className="cursor-pointer text-sm font-semibold focus-visible:outline focus-visible:outline-2">
-          {hasResolvedAuthenticatedDecision && selectedWindow ? "Selected call" : "Latest forecast"}{forecastDate ? ` for ${forecastDate}` : ""}
+          {hasResolvedAuthenticatedDecision && selectedWindow ? "Selected call" : "Latest forecast"}{titleDate}
         </summary>
       {hasForecastDetails ? (
         <div className="mt-4">
@@ -250,16 +239,6 @@ export function PublicForecastAnswer({
                 <dd className={DECK_VALUE}>{waveHeight}</dd>
               </div>
             )}
-            {hasPublicCall ? (
-              <div>
-                <dt className={DECK_LABEL}>Surf call · for most surfers</dt>
-                <dd className="mt-1 text-lg font-bold">
-                  {displayedPublicCall.kind === "call"
-                    ? `${displayedPublicCall.label} · ${displayedPublicCall.action}`
-                    : displayedPublicCall.reason}
-                </dd>
-              </div>
-            ) : null}
             {decisionReport?.verdict && (
               <div>
                 <dt className={DECK_LABEL}>Verdict</dt>
@@ -276,7 +255,7 @@ export function PublicForecastAnswer({
                 </dd>
               </div>
             )}
-            {!hasPublicCall && !decisionReport?.verdict && !bestWindow && !hasDisplayedWindow && (
+            {!decisionReport?.verdict && !bestWindow && !hasDisplayedWindow && (
               <div>
                 <dt className={DECK_LABEL}>Verdict &amp; best window</dt>
                 <dd className="mt-1.5">
@@ -286,8 +265,6 @@ export function PublicForecastAnswer({
                         ? "Loading your call…"
                         : "Call unavailable"}
                     </span>
-                  ) : visualGuest ? (
-                    <span>No web surf call for this day. Dated conditions are below.</span>
                   ) : (
                     <ForecastDecisionLoginLink returnTo={returnTo} />
                   )}

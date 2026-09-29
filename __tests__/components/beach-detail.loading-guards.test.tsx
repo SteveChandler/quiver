@@ -49,15 +49,6 @@ jest.mock("@/components/beach-detail/tabs/forecast-tab", () => {
   };
 });
 
-jest.mock("@/components/beach-detail/tabs/reviews-tab", () => {
-  const React = require("react");
-
-  return {
-    ReviewsTab: () =>
-      React.createElement("div", { "data-testid": "reviews-tab" }),
-  };
-});
-
 import React from "react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -332,81 +323,5 @@ describe("BeachDetail loading and error guards", () => {
     await screen.findByTestId("forecast-tab");
 
     expect(screen.getAllByText("Alerts for Test Beach").length).toBeGreaterThan(0);
-  });
-});
-
-// The US beach page renders BeachDetail with layout="visual": the page's own
-// hero replaces the zine, and Overview and Forecast give way to the sections above.
-describe("BeachDetail visual layout", () => {
-  const beach = {
-    id: "beach-1",
-    name: "Test Beach",
-    slug: "test-beach",
-    lat: 0,
-    lon: 0,
-    city: "Test City",
-    state: "CA",
-    country: "USA",
-    break_type: "Beach Break",
-    created_at: "2024-01-01",
-    updated_at: "2024-01-01",
-  };
-
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
-
-  it("renders the page's hero instead of the zine hero and keeps only the community tabs", async () => {
-    mockBeachDetailData(beach, false, null);
-
-    render(
-      <BeachDetail
-        id="beach-1"
-        layout="visual"
-        visualTop={<h1>Test Beach Surf Forecast</h1>}
-      />,
-    );
-    await screen.findByTestId("reviews-tab");
-
-    expect(
-      screen.getAllByRole("heading", { level: 1 }).map((heading) => heading.textContent),
-    ).toEqual(["Test Beach Surf Forecast"]);
-    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
-      "Reviews",
-      "Local Intel",
-      "Sessions",
-    ]);
-    expect(screen.getByRole("tab", { name: "Reviews" })).toHaveAttribute("data-state", "active");
-    expect(screen.queryByTestId("forecast-tab")).toBeNull();
-  });
-
-  // Zine ink is dark: on the twilight stage the tabs sit on cream paper and
-  // the breadcrumb switches to light text.
-  it("keeps the tabs on paper and the breadcrumb light on the twilight stage", async () => {
-    mockBeachDetailData(beach, false, null);
-
-    render(<BeachDetail id="beach-1" layout="visual" visualTop={null} />);
-    await screen.findByTestId("reviews-tab");
-
-    expect(screen.getByRole("tablist").closest('[class~="bg-[#F4EBD8]"]')).not.toBeNull();
-    expect(screen.getByRole("navigation", { name: "Breadcrumb" }).className).toContain("[&_a]:text-[#F5EEDC]");
-  });
-
-  it("ignores a ?tab link to a tab the visual layout hides", async () => {
-    mockBeachDetailData(beach, false, null);
-    const navigation = jest.requireMock("next/navigation");
-    const searchParamsSpy = jest
-      .spyOn(navigation, "useSearchParams")
-      .mockReturnValue(new URLSearchParams("tab=forecast"));
-
-    try {
-      render(<BeachDetail id="beach-1" layout="visual" visualTop={null} />);
-      await screen.findByTestId("reviews-tab");
-
-      expect(screen.getByRole("tab", { name: "Reviews" })).toHaveAttribute("data-state", "active");
-      expect(screen.queryByTestId("forecast-tab")).toBeNull();
-    } finally {
-      searchParamsSpy.mockRestore();
-    }
   });
 });

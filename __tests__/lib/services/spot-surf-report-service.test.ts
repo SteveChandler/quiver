@@ -223,13 +223,6 @@ describe("spot surf report service", () => {
     await expect(getSpotSurfReportPublic({ ...beach, id: undefined } as unknown as Beach)).resolves.toBeNull();
   });
 
-  it("preserves the display-swell inputs in public hourly rows", async () => {
-    const swell = { data_source: "CDIP", wave_period: "10s", wave_direction: "SSW", wave_direction_om: 202.5, swell_height_om: 1, swell_period_om: 10, swell_direction_om: 202.5 };
-    setupDatabase([{ ...forecast, ...swell }]);
-    const { getSpotSurfReportPublic } = await import("@/lib/services/spot-surf-report-service");
-    expect((await getSpotSurfReportPublic(beach))?.hourlyForecasts).toEqual([expect.objectContaining(swell)]);
-  });
-
   it("builds the public report during the request", async () => {
     setupDatabase();
     const { getSpotSurfReportPublic } = await import(

@@ -73,11 +73,10 @@ describe("PublicForecastHourly", () => {
     global.fetch = jest.fn();
   });
 
-  function renderHourly(layout: "zine" | "visual" = "zine") {
+  function renderHourly() {
     return render(
       <AuthenticatedForecastDecisionProvider beachId="beach-1">
         <PublicForecastHourly
-          layout={layout}
           beachName="Del Mar"
           forecastHours={forecastHours}
           context={context}
@@ -87,15 +86,6 @@ describe("PublicForecastHourly", () => {
       </AuthenticatedForecastDecisionProvider>,
     );
   }
-
-  it("hides the entire call column for visual guests while keeping hourly facts", () => {
-    renderHourly("visual");
-    expect(screen.getByTestId("public-forecast-hourly")).not.toHaveTextContent(/sign in|Quiver call/i);
-    expect(screen.getAllByRole("columnheader")).toHaveLength(6);
-    expect(within(screen.getAllByTestId("public-forecast-hour")[0]).getAllByRole("cell")).toHaveLength(5);
-    expect(screen.getByText("2 ft")).toBeInTheDocument();
-    expect(global.fetch).not.toHaveBeenCalled();
-  });
 
   it("keeps hourly facts public but omits the marker and highlight for guests", () => {
     renderHourly();
@@ -110,7 +100,7 @@ describe("PublicForecastHourly", () => {
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
-  it.each(["zine", "visual"] as const)("marks authenticated rows on %s", async (layout) => {
+  it("marks matching rows after fetching the authenticated decision", async () => {
     mockUseAuth.mockReturnValue({
       user: { id: "user-1" },
       isLoading: false,
@@ -125,7 +115,7 @@ describe("PublicForecastHourly", () => {
       ),
     );
 
-    renderHourly(layout);
+    renderHourly();
 
     await waitFor(() => expect(screen.getByText("Best window")).toBeInTheDocument());
     expect(document.body).not.toHaveTextContent("84/100");

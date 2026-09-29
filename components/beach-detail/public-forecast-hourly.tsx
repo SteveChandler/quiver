@@ -11,7 +11,6 @@ import type { PublicForecastContextFacts } from "@/lib/utils/public-forecast-fac
 
 interface PublicForecastHourlyProps {
   beachName: string;
-  layout?: "zine" | "visual";
   forecastHours: PublicForecastHour[];
   context: PublicForecastContextFacts | null;
   forecastDay: PublicForecastDay;
@@ -52,7 +51,6 @@ function isWithinCallWindow(
 
 export function PublicForecastHourly({
   beachName,
-  layout = "zine",
   forecastHours,
   context,
   forecastDay,
@@ -61,7 +59,6 @@ export function PublicForecastHourly({
   const authenticatedDecision = useAuthenticatedForecastDecision();
   if (forecastHours.length === 0) return null;
 
-  const showCallColumn = layout !== "visual" || authenticatedDecision.isAuthenticated;
   const timezone = context?.timezone ?? "UTC";
   const dayLabel = forecastDay === "tomorrow" ? "Tomorrow" : "Today";
 
@@ -88,11 +85,11 @@ export function PublicForecastHourly({
         <table className="w-full min-w-[720px] border-collapse text-left font-mono text-sm text-[#11100D]">
           <caption className="sr-only">
             {beachName} {dayLabel.toLowerCase()} hourly surf forecast with surf
-            height, {showCallColumn ? "the Quiver call, " : ""}swell, wind, tide, and confidence.
+            height, the Quiver call, swell, wind, tide, and confidence.
           </caption>
           <thead>
             <tr className="border-b-2 border-[#11100D]">
-              {["Time", "Surf", ...(showCallColumn ? ["Quiver call"] : []), "Swell", "Wind", "Tide", "Confidence"].map((label) => (
+              {["Time", "Surf", "Quiver call", "Swell", "Wind", "Tide", "Confidence"].map((label) => (
                 <th
                   key={label}
                   scope="col"
@@ -140,7 +137,7 @@ export function PublicForecastHourly({
                   <td className="px-3 py-2.5 font-[var(--font-zine-display)] text-base leading-none">
                     {hour.wave_height || "—"}
                   </td>
-                  {showCallColumn ? <td className="px-3 py-2.5">
+                  <td className="px-3 py-2.5">
                     {inCallWindow ? (
                       <span className="inline-block -rotate-1 border-2 border-[#11100D] bg-[#F78E42] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#11100D]">
                         Best window
@@ -148,7 +145,7 @@ export function PublicForecastHourly({
                     ) : (
                       <span className="text-[#11100D]/30">—</span>
                     )}
-                  </td> : null}
+                  </td>
                   <td className="px-3 py-2.5">{swellLabel(hour)}</td>
                   <td className="px-3 py-2.5">{join([hour.wind_speed, hour.wind_direction])}</td>
                   <td className="px-3 py-2.5">{join([hour.tide_height, hour.tide_status], " · ")}</td>

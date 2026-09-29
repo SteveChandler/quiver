@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { HomeHeroMedia } from "@/components/oracle/zine/home-hero-media";
@@ -134,44 +134,6 @@ describe("HomeHeroMedia", () => {
   it("hides the switcher for the recheck state", () => {
     renderMedia({ showViewpoints: false });
     expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
-  });
-
-  it("opens on the first available viewpoint in the given priority", () => {
-    renderMedia({
-      sources: { camera_url: "https://example.com/cam.m3u8" },
-      viewpointPriority: ["cam", "photo", "swell", "satellite"],
-      storageKey: "quiver:beach-hero-viewpoint",
-    });
-    expect(screen.getByTestId("home-hero-media")).toHaveAttribute("data-viewpoint", "cam");
-  });
-
-  it("skips a missing cam and lands on the photo", () => {
-    renderMedia({ viewpointPriority: ["cam", "photo", "swell", "satellite"] });
-    expect(screen.getByTestId("home-hero-media")).toHaveAttribute("data-viewpoint", "photo");
-  });
-
-  it("remembers the choice under its own key and reports it", async () => {
-    const user = userEvent.setup();
-    const onViewpointChange = jest.fn();
-    renderMedia({ storageKey: "quiver:beach-hero-viewpoint", onViewpointChange });
-    await user.click(screen.getByRole("tab", { name: "Sat" }));
-    expect(window.localStorage.getItem("quiver:beach-hero-viewpoint")).toBe("satellite");
-    expect(window.localStorage.getItem("quiver:home-hero-viewpoint")).toBeNull();
-    expect(onViewpointChange).toHaveBeenCalledWith("satellite");
-  });
-
-  it("drops a photo that fails to load and falls through", () => {
-    renderMedia({ viewpointPriority: ["photo", "swell", "satellite", "cam"] });
-    const media = screen.getByTestId("home-hero-media");
-    expect(media).toHaveAttribute("data-viewpoint", "photo");
-    fireEvent.error(screen.getByAltText("Photo of Ocean Beach Pier"));
-    expect(media).toHaveAttribute("data-viewpoint", "swell");
-    expect(screen.queryByRole("tab", { name: "Photo" })).not.toBeInTheDocument();
-  });
-
-  it("takes an aspect override", () => {
-    renderMedia({ aspectClassName: "aspect-[21/9]" });
-    expect(screen.getByTestId("home-hero-media").className).toContain("aspect-[21/9]");
   });
 });
 

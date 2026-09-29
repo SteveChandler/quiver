@@ -8,22 +8,10 @@ import { RelatedGuidesSection } from "@/components/beach-detail/related-guides-s
 import { AuthenticatedForecastDecisionProvider } from "@/components/beach-detail/authenticated-forecast-decision";
 import { ZineNearbySpots } from "@/components/beach-detail/zine/zine-nearby-spots";
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
-import { BeachVisualHero } from "@/components/beach-detail/visual/beach-visual-hero";
-import { BeachActions } from "@/components/beach-detail/visual/beach-actions";
-import { BeachHourlyChart } from "@/components/beach-detail/visual/beach-hourly-chart";
-import { BeachDayColumn } from "@/components/beach-detail/visual/beach-day-column";
-import { VISUAL_PAPER_CLASS } from "@/components/beach-detail/visual/beach-visual-shell";
-import { LocalKnowledgeNotebook } from "@/components/beach-detail/zine/zine-main-grid";
-import { ZineAboutSpot } from "@/components/beach-detail/zine/zine-about-spot";
-import { AmenitiesBadges } from "@/components/beach-detail/amenities-badges";
+import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
+import { BeachDetailInstallCta } from "@/components/app-store/beach-detail-install-cta";
+import { ContentPageAppHandoffCta } from "@/components/app-store/content-page-app-handoff-cta";
 import { isFreeGrowthPhaseEnabled } from "@/lib/flags/free-growth-phase";
-import { getPublicSurfCall } from "@/lib/utils/public-surf-call";
-import { selectBeachWatchWindow } from "@/lib/alerts/beach-watch";
-import { buildHourlyChart } from "@/lib/utils/beach-hourly-chart";
-import { resolveDisplaySwell } from "@/lib/domains/conditions/display-swell";
-import { rowToSwellPartition } from "@/lib/domains/conditions/map-forecast";
-import { getLocalDateString, resolveBeachTimezone } from "@/lib/utils/timezone-utils";
-import { formatTimeRangeInTimezone } from "@/lib/utils/date-time";
 
 import type { Metadata } from "next";
 import { buildPageMetadata, buildDynamicBeachMetadata } from "@/lib/seo/meta";
@@ -67,7 +55,6 @@ import {
 import { getCachedForecastIndexabilitySnapshots } from "@/lib/seo/forecast-indexability-cache";
 import { getTideMetaData } from "@/lib/seo/tide-meta-data";
 import { getWaterTempMetaData } from "@/lib/seo/water-temp-meta-data";
-import { getCamThumbnailUrl } from "@/lib/media/cam-thumbnail";
 
 // Rendered per request so forecast revisions and windows are current; the HTML
 // is then shared at the CDN for at most 15 minutes (lib/seo/beach-detail-cdn-cache.ts),
@@ -165,12 +152,11 @@ export default async function GenericBeachDetailPage(props: PageProps) {
       redirect(buildBeachUrl(beach));
     }
 
-    const beachTimezone = resolveBeachTimezone(
-      beach.timezone ||
+    const beachTimezone =
+      beach.timezone ??
       (beach.lat != null && beach.lon != null
         ? getTimezoneFromCoords(beach.lat, beach.lon)
-        : null),
-    );
+        : null);
 
     // Fetch above-fold and structured-data essentials in parallel. Nearby spot
     // enrichment streams below the tabs so it does not block the page shell.
@@ -179,10 +165,8 @@ export default async function GenericBeachDetailPage(props: PageProps) {
       amenitiesResult,
       waterQualityResult,
       cameraUrl,
-      photoResult,
+      beachPhoto,
       nearbyResult,
-      waterTemp,
-      tideMeta,
     ] = await Promise.all([
       getSpotSurfReportPublic(beach),
       (async () => {
@@ -217,29 +201,20 @@ export default async function GenericBeachDetailPage(props: PageProps) {
       getSpotFeaturedPhoto(beach.id).then((photo) =>
         photo
           ? {
-              zine: {
-                image_url: photo.thumbUrl ?? photo.imageUrl,
-                thumb_url: photo.thumbUrl,
-                source: photo.source,
-                creator_name: photo.creatorName,
-                license_code: null,
-                attribution_html: photo.attributionHtml,
-                attribution: photo.attribution,
-              },
-              // The hero is full-bleed, so it takes the full-size image first.
-              heroUrl: photo.imageUrl ?? photo.thumbUrl,
+              image_url: photo.thumbUrl ?? photo.imageUrl,
+              thumb_url: photo.thumbUrl,
+              source: photo.source,
+              creator_name: photo.creatorName,
+              license_code: null,
+              attribution_html: photo.attributionHtml,
+              attribution: photo.attribution,
             }
-          : { zine: null, heroUrl: null },
+          : null,
       ),
       beach.lat != null && beach.lon != null
         ? getNearbyBeaches(beach.lat, beach.lon, 25)
         : null,
-      getWaterTempMetaData(beach.id),
-      getTideMetaData(beach.id),
     ]);
-
-    const beachPhoto = photoResult.zine;
-    const heroPhotoUrl = photoResult.heroUrl;
 
     const surfCallReport = surfReportResult?.report || null;
     const surfCallIsTomorrow = surfReportResult?.isTomorrow ?? false;
@@ -260,110 +235,6 @@ export default async function GenericBeachDetailPage(props: PageProps) {
           )
           .slice(0, 4)
       : [];
-
-    const publicCall = getPublicSurfCall({
-      verdict: surfCallReport?.verdict,
-      score: surfCallReport?.score,
-      availability: surfCallReport?.recommendationAvailability,
-      isTomorrow: surfCallIsTomorrow,
-    });
-    const windowStart = forecastContext?.displayWindowStart ?? surfCallReport?.bestWindowStart ?? null;
-    const windowEnd = forecastContext?.displayWindowEnd ?? surfCallReport?.bestWindowEnd ?? null;
-    const watchWindow = selectBeachWatchWindow({
-      call: publicCall,
-      start: windowStart,
-      end: windowEnd,
-      forecastAt: forecastContext?.selectedRowTime ?? null,
-      timezone: beachTimezone,
-      isTomorrow: surfCallIsTomorrow,
-    });
-    const hourlyChart = buildHourlyChart(hourlyForecasts, { start: windowStart, end: windowEnd });
-    const localDate = getLocalDateString(new Date(), beachTimezone);
-    const callWindowStart = surfCallReport?.bestWindowStart ?? forecastContext?.displayWindowStart;
-    const callLocalDate = callWindowStart
-      ? getLocalDateString(new Date(callWindowStart), beachTimezone)
-      : forecastContext?.localDate ?? (surfCallIsTomorrow
-        ? new Date(Date.parse(`${localDate}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10)
-        : localDate);
-    // The swell field draws the same hour as the hero's swell and wind facts
-    // (the context's selected row). With no such row in the table, it draws none.
-    const selectedRowAt = forecastContext?.selectedRowTime ? Date.parse(forecastContext.selectedRowTime) : null;
-    const heroSwellRow = forecastContext
-      ? hourlyForecasts.find((hour) => Date.parse(hour.forecast_at) === selectedRowAt) ?? null
-      : hourlyForecasts[0] ?? null;
-
-    const displaySwell = resolveDisplaySwell(heroSwellRow,
-      Number.isFinite(beach.swell_window_center_deg) && Number.isFinite(beach.swell_window_halfwidth_deg)
-        ? { centerDeg: beach.swell_window_center_deg!, halfwidthDeg: beach.swell_window_halfwidth_deg! }
-        : null,
-    );
-    const heroSwellPartition = heroSwellRow ? {
-      ...rowToSwellPartition(heroSwellRow),
-      s1Dir: displaySwell.directionDeg,
-      s1PeriodS: displaySwell.periodSeconds,
-      s1HeightFt: displaySwell.heightFt,
-      // Prevent the map renderer from replacing the already-resolved display tuple.
-      swellDirOm: null,
-    } : null;
-
-    const visualTop = (
-      <>
-        <BeachVisualHero
-          beach={{ id: publicBeach.id, name: publicBeach.name, lat: publicBeach.lat ?? null, lon: publicBeach.lon ?? null, city: publicBeach.city ?? null }}
-          timezone={beachTimezone}
-          localDate={localDate}
-          forecastLocalDate={forecastContext?.localDate ?? null}
-          photoUrl={heroPhotoUrl}
-          sources={cameraUrl ? { camera_url: cameraUrl } : null}
-          swellPartition={heroSwellPartition}
-          call={publicCall}
-          isTomorrow={surfCallIsTomorrow}
-          surf={{
-            size: forecastContext?.waveHeightRangeLabel ?? forecastContext?.waveHeight ?? surfCallReport?.waveHeight ?? null,
-            swell: forecastContext?.swellPeriod ? [forecastContext.swellPeriod, forecastContext.swellDirection].filter(Boolean).join(" ") : null,
-            wind: forecastContext?.windSpeed ? [forecastContext.windSpeed, surfCallReport?.windType].filter(Boolean).join(" ") : null,
-            bestWindow: formatTimeRangeInTimezone(windowStart, windowEnd, beachTimezone),
-          }}
-          beachDay={{
-            water: waterTemp.tempF != null ? [`${waterTemp.tempF}°F`, waterTemp.wetsuitRec].filter(Boolean).join(" · ") : null,
-            nextLow: tideMeta.nextInteriorLowAt && getLocalDateString(new Date(tideMeta.nextInteriorLowAt), beachTimezone) === localDate
-              ? `Low ${tideMeta.nextInteriorLowTime}` : null,
-            advisory: waterQualityResult?.status === "closure" ? "Beach closed (water quality)"
-              : waterQualityResult?.status === "advisory" ? "Water-quality advisory" : null,
-          }}
-        />
-        <BeachActions
-          beach={{ id: publicBeach.id, slug: beachSlug, name: publicBeach.name }}
-          isTomorrow={surfCallIsTomorrow}
-          watchWindow={watchWindow}
-          score={surfCallReport?.score ?? null}
-          shareUrl={`${baseUrl}${buildBeachUrl(publicBeach)}`}
-          hasCamStill={Boolean(getCamThumbnailUrl(cameraUrl))}
-          waterTempF={waterTemp.tempF}
-          call={publicCall}
-        />
-        <div className="mt-10 grid gap-6 lg:grid-cols-[1.35fr_1fr]">
-          {hourlyChart.points.length > 0 ? (
-            <section id="beach-hourly" aria-labelledby="beach-hourly-heading" className="min-w-0 scroll-mt-20">
-              <h2 id="beach-hourly-heading" className="zine-display text-xl uppercase">Surf, hour by hour</h2>
-              <div className="mt-3"><BeachHourlyChart chart={hourlyChart} timezone={beachTimezone} /></div>
-            </section>
-          ) : null}
-          <BeachDayColumn
-            beachId={publicBeach.id}
-            timezone={beachTimezone}
-            localDate={localDate}
-            waterTemp={waterTemp}
-            tide={tideMeta}
-            waterQuality={waterQualityResult}
-            links={{
-              waterTemp: waterTemp.tempF != null ? `${buildBeachUrl(publicBeach)}/water-temp` : null,
-              tides: tideMeta.nextInteriorLowTime || tideMeta.nextInteriorHighTime ? `${buildBeachUrl(publicBeach)}/tides` : null,
-            }}
-          />
-        </div>
-      </>
-    );
 
     return (
       <div className="min-h-screen">
@@ -435,75 +306,88 @@ export default async function GenericBeachDetailPage(props: PageProps) {
             waterQuality={waterQualityResult}
             beachPhoto={beachPhoto}
             heroHeadingLevel="h2"
-            layout="visual"
-            visualTop={visualTop}
-            weekCall={{ localDate: callLocalDate, call: publicCall }}
-            freeGrowthPhaseEnabled={isFreeGrowthPhaseEnabled()}
-            beforeTabsContent={
-              <Suspense fallback={null}>
-                <DeferredZineNearbySpots
-                  beach={beach}
-                  nearbyBeachesRaw={nearbyBeachesRaw}
-                />
-              </Suspense>
+            heroForecastSlot={
+              <PublicForecastAnswer
+                beach={publicBeach}
+                waterQuality={waterQualityResult}
+                report={publicForecastReport}
+                context={publicForecastContext}
+                isTomorrow={surfCallIsTomorrow}
+                publicDecisionWindow={{
+                  start: forecastContext?.displayWindowStart ?? surfCallReport?.bestWindowStart ?? null,
+                  end: forecastContext?.displayWindowEnd ?? surfCallReport?.bestWindowEnd ?? null,
+                }}
+                nearbyBeaches={nearbyBeachesRaw}
+                headingLevel="h1"
+                returnTo={returnTo}
+              />
             }
+            freeGrowthPhaseEnabled={isFreeGrowthPhaseEnabled()}
             afterTabsContent={
-              <div className="space-y-10 text-[#11100D]">
-                <section aria-labelledby="about-heading" className={VISUAL_PAPER_CLASS}>
-                  <h2 id="about-heading" className="zine-display text-2xl uppercase">About {publicBeach.name}</h2>
-                  <ZineAboutSpot beach={publicBeach} open />
-                  {[publicBeach.wave_tips, publicBeach.crowd_tips, publicBeach.parking_tips, publicBeach.access_tips].some(Boolean) ? (
-                    <div className="mt-6"><LocalKnowledgeNotebook beach={publicBeach} /></div>
-                  ) : null}
-                  <div className="mt-4"><AmenitiesBadges amenities={amenitiesResult} /></div>
-                  <div className="mt-6">
-                    <PublicForecastAnswer
-                      layout="visual"
-                      publicCall={publicCall}
-                      beach={publicBeach}
-                      waterQuality={waterQualityResult}
-                      report={publicForecastReport}
-                      context={publicForecastContext}
-                      isTomorrow={surfCallIsTomorrow}
-                      publicDecisionWindow={{ start: windowStart, end: windowEnd }}
-                      nearbyBeaches={nearbyBeachesRaw}
-                      headingLevel="h2"
-                      title="Forecast details"
-                      returnTo={returnTo}
-                      showRipCurrentWarning={false}
-                      exploreForecastHref={hourlyChart.points.length > 0 ? "#beach-hourly" : null}
-                    />
-                  </div>
-                  {hourlyForecasts.length > 0 ? (
-                    <details className="mt-6">
-                      <summary className="cursor-pointer text-base font-bold">Full hourly table</summary>
-                      <PublicForecastHourly
-                        layout="visual"
-                        beachName={publicBeach.name}
-                        forecastHours={hourlyForecasts}
-                        context={publicForecastContext}
-                        forecastDay={hourlyForecastDay}
-                        returnTo={returnTo}
-                      />
-                    </details>
-                  ) : null}
-                  <section aria-labelledby="faq-heading" className="mt-6">
-                    <h2 id="faq-heading" className="zine-display text-xl uppercase">Frequently asked</h2>
-                    {generateBeachFAQ(publicBeach).map((item) => (
-                      <details key={item.question} className="border-t border-[#11100D]/20 py-3">
-                        <summary className="cursor-pointer font-semibold">{item.question}</summary>
-                        <p className="mt-2 text-sm">{item.answer}</p>
-                      </details>
-                    ))}
-                  </section>
-                  <Suspense fallback={null}>
-                    <DeferredRelatedGuidesSection beach={publicBeach} />
-                  </Suspense>
-                </section>
+              <div className="pt-2">
+                <PublicForecastHourly
+                  beachName={publicBeach.name}
+                  forecastHours={hourlyForecasts}
+                  context={publicForecastContext}
+                  forecastDay={hourlyForecastDay}
+                  returnTo={returnTo}
+                />
+                {forecastContext?.selectedRowTime && forecastContext.waveHeight ? (
+                <ContentPageAppHandoffCta
+                  source={`content-beach-detail-${beachSlug}`}
+                  surface="beach_detail"
+                  placement="after_public_hourly_forecast"
+                  target={`beach:${beachSlug}`}
+                  eyebrow={`Next call · ${beach.name}`}
+                  title={`Watch the next good window at ${beach.name}.`}
+                  description="Today's call is here. Quiver keeps this break on your phone so the next surfable window is easier to catch."
+                  ctaLabel="Watch the next window in the app"
+                />
+              ) : null}
+                {/* One ask here, not two. The home-break signup this used to stack
+                    underneath is the same ask the sticky bar already carries, so
+                    it read as the page repeating itself. The install section takes
+                    a real already-fetched figure instead — proof beats adjectives. */}
+                <BeachDetailInstallCta
+                  pathname={`/${stateParam}/${city}/${beachSlug}`}
+                  source={`beach-detail-${beachSlug}`}
+                  beachName={beach.name}
+                  proof={
+                    forecastContext?.waveHeightRangeLabel ??
+                    forecastContext?.waveHeight
+                      ? {
+                          value: (forecastContext.waveHeightRangeLabel ??
+                            forecastContext.waveHeight) as string,
+                          label: "Surf right now",
+                        }
+                      : undefined
+                  }
+                />
+                <Suspense fallback={null}>
+                  <DeferredZineNearbySpots
+                    beach={beach}
+                    nearbyBeachesRaw={nearbyBeachesRaw}
+                  />
+                </Suspense>
+                <Suspense fallback={null}>
+                  <DeferredRelatedGuidesSection beach={publicBeach} />
+                </Suspense>
               </div>
             }
           />
         </AuthenticatedForecastDecisionProvider>
+
+        <StickySignupBar
+          source={`beach-detail-${beachSlug}`}
+          ctaText={`Save ${beach.name} as your home break`}
+          supportingText={`Alerts when ${beach.name} is firing — free`}
+          contextMessage={{
+            title: `Save ${beach.name} as your home break`,
+            description:
+              "Condition alerts, 12-day outlook, and your personal match score",
+          }}
+          ctaCopyVariant="beach_home_break_v1"
+        />
       </div>
     );
   } catch (error) {
@@ -560,18 +444,14 @@ async function DeferredZineNearbySpots({
   nearbyBeachesRaw: Beach[];
 }) {
   const nearbyBeaches = await enrichBeachesWithConditions(nearbyBeachesRaw);
-  if (nearbyBeaches.length === 0) return null;
 
-  // Zine ink on the twilight stage needs its own paper.
   return (
-    <div className={VISUAL_PAPER_CLASS}>
-      <ZineNearbySpots
-        beaches={nearbyBeaches}
-        sourceBeachName={beach.name}
-        sourceBeachLat={beach.lat}
-        sourceBeachLon={beach.lon}
-      />
-    </div>
+    <ZineNearbySpots
+      beaches={nearbyBeaches}
+      sourceBeachName={beach.name}
+      sourceBeachLat={beach.lat}
+      sourceBeachLon={beach.lon}
+    />
   );
 }
 

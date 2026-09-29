@@ -19,7 +19,7 @@ const CamsSection = dynamic(
  * (quiver-native src/lib/hero-viewpoints.ts) so one beach looks the same on
  * both surfaces.
  */
-export type HeroViewpoint = "swell" | "satellite" | "photo" | "cam";
+type HeroViewpoint = "swell" | "satellite" | "photo" | "cam";
 
 const VIEWPOINT_ORDER: readonly HeroViewpoint[] = ["swell", "satellite", "photo", "cam"];
 
@@ -30,21 +30,21 @@ const VIEWPOINT_LABELS: Record<HeroViewpoint, string> = {
   cam: "Cam",
 };
 
-const DEFAULT_STORAGE_KEY = "quiver:home-hero-viewpoint";
+const VIEWPOINT_STORAGE_KEY = "quiver:home-hero-viewpoint";
 const ORANGE = "F78E42";
 
-function readStoredViewpoint(storageKey: string): HeroViewpoint | null {
+function readStoredViewpoint(): HeroViewpoint | null {
   try {
-    const stored = window.localStorage.getItem(storageKey);
+    const stored = window.localStorage.getItem(VIEWPOINT_STORAGE_KEY);
     return VIEWPOINT_ORDER.includes(stored as HeroViewpoint) ? (stored as HeroViewpoint) : null;
   } catch {
     return null;
   }
 }
 
-function storeViewpoint(storageKey: string, viewpoint: HeroViewpoint): void {
+function storeViewpoint(viewpoint: HeroViewpoint): void {
   try {
-    window.localStorage.setItem(storageKey, viewpoint);
+    window.localStorage.setItem(VIEWPOINT_STORAGE_KEY, viewpoint);
   } catch {
     // A remembered viewpoint is a convenience; the hero works without it.
   }
@@ -98,13 +98,6 @@ interface HomeHeroMediaProps {
   swellPartition: SwellPartition | null;
   /** The recheck state keeps the place on screen but has nothing to switch. */
   showViewpoints?: boolean;
-  /** Order to try when nothing is remembered. Home keeps native's (swell first); beach pages lead with the cam. */
-  viewpointPriority?: readonly HeroViewpoint[];
-  /** Each surface remembers its own choice. */
-  storageKey?: string;
-  onViewpointChange?: (viewpoint: HeroViewpoint) => void;
-  /** Home's 4:5 / 16:10 card is too tall at full page width. */
-  aspectClassName?: string;
   /** Overlays pinned to the bottom of the media: the name plate and the call. */
   children: ReactNode;
 }
@@ -117,10 +110,6 @@ export function HomeHeroMedia({
   sources,
   swellPartition,
   showViewpoints = true,
-  viewpointPriority = VIEWPOINT_ORDER,
-  storageKey = DEFAULT_STORAGE_KEY,
-  onViewpointChange,
-  aspectClassName = "aspect-[4/5] sm:aspect-[16/10]",
   children,
 }: HomeHeroMediaProps) {
   // /map's basemap, so the swell field reads the same water colour it does there.
@@ -134,31 +123,26 @@ export function HomeHeroMedia({
   );
   const cameraUrl = sources?.camera_url ?? null;
 
-  const [photoFailed, setPhotoFailed] = useState(false);
-  useEffect(() => {
-    setPhotoFailed(false);
-  }, [photoUrl]);
-
   const available = useMemo(() => {
     const kinds: HeroViewpoint[] = [];
     if (streetsMap) kinds.push("swell");
     if (satelliteMap) kinds.push("satellite");
-    if (photoUrl && !photoFailed) kinds.push("photo");
+    if (photoUrl) kinds.push("photo");
     if (cameraUrl) kinds.push("cam");
     return kinds;
-  }, [streetsMap, satelliteMap, photoUrl, photoFailed, cameraUrl]);
+  }, [streetsMap, satelliteMap, photoUrl, cameraUrl]);
 
   // Stored preference is read after mount so server and client render the
   // same first frame.
-  const [remembered, setRemembered] = useState<HeroViewpoint | null>(null);
+  const [preferred, setPreferred] = useState<HeroViewpoint>("swell");
   useEffect(() => {
-    setRemembered(readStoredViewpoint(storageKey));
-  }, [storageKey]);
+    const stored = readStoredViewpoint();
+    if (stored) setPreferred(stored);
+  }, []);
 
-  const active: HeroViewpoint | null =
-    [remembered, ...viewpointPriority].find(
-      (viewpoint): viewpoint is HeroViewpoint => viewpoint != null && available.includes(viewpoint),
-    ) ?? available[0] ?? null;
+  const active: HeroViewpoint | null = available.includes(preferred)
+    ? preferred
+    : available[0] ?? null;
 
   const [streetsImage, setStreetsImage] = useState<LoadedMapImage | null>(null);
   const handleStreetsImage = useCallback((element: HTMLImageElement) => {
@@ -172,14 +156,13 @@ export function HomeHeroMedia({
   const drawsSwell = swellPartition != null && heroPrimarySwellFlow(swellPartition) != null;
 
   const selectViewpoint = (viewpoint: HeroViewpoint) => {
-    setRemembered(viewpoint);
-    storeViewpoint(storageKey, viewpoint);
-    onViewpointChange?.(viewpoint);
+    setPreferred(viewpoint);
+    storeViewpoint(viewpoint);
   };
 
   return (
     <figure
-      className={`relative m-0 w-full overflow-hidden ${aspectClassName}`}
+      className="relative m-0 aspect-[4/5] w-full overflow-hidden sm:aspect-[16/10]"
       data-testid="home-hero-media"
       data-viewpoint={active ?? "none"}
       style={{
@@ -211,11 +194,7 @@ export function HomeHeroMedia({
         <MapPicture sources={satelliteMap} alt={`Satellite view of ${beachName}`} />
       )}
       {active === "photo" && photoUrl && (
-        <MediaImage
-          src={getOptimizedImageUrl(photoUrl)}
-          alt={`Photo of ${beachName}`}
-          onFailed={() => setPhotoFailed(true)}
-        />
+        <MediaImage src={getOptimizedImageUrl(photoUrl)} alt={`Photo of ${beachName}`} />
       )}
       {active === "cam" && cameraUrl && (
         <div className="absolute inset-0 [&>div]:!aspect-auto [&>div]:h-full">
@@ -310,13 +289,11 @@ function MediaImage({
   alt,
   readable,
   onLoaded,
-  onFailed,
 }: {
   src: string;
   alt: string;
   readable?: boolean;
   onLoaded?: (element: HTMLImageElement) => void;
-  onFailed?: () => void;
 }) {
   return (
     // eslint-disable-next-line @next/next/no-img-element -- remote map/photo URLs fill an aspect box; next/image adds nothing here
@@ -328,7 +305,6 @@ function MediaImage({
       loading="eager"
       decoding="async"
       onLoad={onLoaded ? (event) => onLoaded(event.currentTarget) : undefined}
-      onError={onFailed}
       // An image already decoded before hydration never fires load.
       ref={(element) => {
         if (element?.complete && element.naturalWidth > 0) onLoaded?.(element);

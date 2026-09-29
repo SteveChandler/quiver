@@ -2,7 +2,6 @@
  * @jest-environment jsdom
  */
 
-import type { ComponentProps } from "react";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { PublicForecastAnswer } from "@/components/beach-detail/public-forecast-answer";
@@ -123,7 +122,6 @@ function renderAnswer({
   tomorrow = true,
   backups = nearbyBeaches,
   publicWindow,
-  props,
 }: {
   answerBeach?: Beach;
   answerReport?: SurfCallResult | null;
@@ -131,7 +129,6 @@ function renderAnswer({
   tomorrow?: boolean;
   backups?: Beach[];
   publicWindow?: { start: string | null; end: string | null };
-  props?: Partial<ComponentProps<typeof PublicForecastAnswer>>;
 } = {}) {
   return render(
     <AuthenticatedForecastDecisionProvider beachId={beach.id}>
@@ -147,7 +144,6 @@ function renderAnswer({
         nearbyBeaches={backups}
         headingLevel="h1"
         returnTo="/ca/san-diego/ocean-beach"
-        {...props}
       />
     </AuthenticatedForecastDecisionProvider>,
   );
@@ -164,31 +160,6 @@ describe("PublicForecastAnswer", () => {
     global.fetch = jest.fn();
   });
 
-  it.each(["", "date=2026-08-10"])("has no visual guest sign-in ask (%s), even without a public window", (query) => {
-    mockSearch = new URLSearchParams(query);
-    renderAnswer({ publicWindow: { start: null, end: null }, props: { layout: "visual" } });
-    const answer = screen.getByTestId("public-forecast-answer");
-    expect(answer).not.toHaveTextContent(/sign in/i);
-    expect(answer).toHaveTextContent("No web surf call for this day. Dated conditions are below.");
-    expect(answer).not.toHaveTextContent("YES");
-    expect(answer).not.toHaveTextContent(report.whySentence!);
-    expect(global.fetch).not.toHaveBeenCalled();
-  });
-
-  it.each(["", "date=2026-08-09"])("shows the matching public call to visual guests (%s)", (query) => {
-    mockSearch = new URLSearchParams(query);
-    renderAnswer({ props: { layout: "visual", publicCall: { kind: "call", label: "FAIR", action: "Worth a look" } } });
-    expect(screen.getByTestId("public-forecast-answer")).toHaveTextContent("FAIR · Worth a look");
-    expect(screen.getByTestId("public-forecast-answer")).not.toHaveTextContent(/sign in|No web surf call|YES/);
-  });
-
-  it("does not assign the latest public call to a different selected date", () => {
-    mockSearch = new URLSearchParams("date=2026-08-10");
-    renderAnswer({ props: { layout: "visual", publicCall: { kind: "call", label: "FAIR", action: "Worth a look" } } });
-    expect(screen.getByTestId("public-forecast-answer")).toHaveTextContent("No web surf call for this day");
-    expect(screen.getByTestId("public-forecast-answer")).not.toHaveTextContent("Worth a look");
-  });
-
   it("keeps the selected guest window and hazard date visible without presenting the latest call as its verdict", () => {
     mockSearch = new URLSearchParams({ window: "2026-09-10T15:00:00Z", windowEnd: "2026-09-10T19:00:00Z" });
     renderAnswer();
@@ -196,33 +167,6 @@ describe("PublicForecastAnswer", () => {
     expect(screen.getByTestId("risk-date")).toHaveTextContent("2026-09-10");
     expect(screen.getByText(/Latest forecast/).closest("details")).not.toHaveAttribute("open");
     expect(screen.queryByText("YES")).not.toBeInTheDocument();
-  });
-
-  it("renders the rip-current banner by default and omits it when the page's hero owns it", () => {
-    const { unmount } = renderAnswer();
-    expect(screen.getByTestId("risk-date")).toBeInTheDocument();
-    unmount();
-
-    renderAnswer({ props: { showRipCurrentWarning: false } });
-    expect(screen.getByTestId("public-forecast-answer")).toBeInTheDocument();
-    expect(screen.queryByTestId("risk-date")).not.toBeInTheDocument();
-  });
-
-  it("links Explore forecast to the Forecast tab by default, to a given anchor, or not at all", () => {
-    const { unmount } = renderAnswer();
-    expect(screen.getByRole("link", { name: "Explore forecast" })).toHaveAttribute(
-      "href",
-      "/ca/san-diego/ocean-beach?tab=forecast#operational-forecast",
-    );
-    unmount();
-
-    const anchored = renderAnswer({ props: { exploreForecastHref: "#beach-hourly" } });
-    expect(screen.getByRole("link", { name: "Explore forecast" })).toHaveAttribute("href", "#beach-hourly");
-    anchored.unmount();
-
-    renderAnswer({ props: { exploreForecastHref: null } });
-    expect(screen.getByTestId("public-forecast-answer")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Explore forecast" })).not.toBeInTheDocument();
   });
 
   it("uses a valid selected date consistently when a URL also contains an older window", () => {
@@ -391,7 +335,7 @@ describe("PublicForecastAnswer", () => {
     expect(screen.queryByText("0/100")).not.toBeInTheDocument();
   });
 
-  it.each(["zine", "visual"] as const)("fetches and renders the authenticated verdict on %s", async (layout) => {
+  it("fetches and renders the verdict and best window for an authenticated user", async () => {
     mockUseAuth.mockReturnValue({
       user: { id: "user-1" },
       isLoading: false,
@@ -406,7 +350,7 @@ describe("PublicForecastAnswer", () => {
       ),
     );
 
-    renderAnswer({ props: { layout } });
+    renderAnswer();
 
     await waitFor(() => expect(screen.getByText("YES")).toBeInTheDocument());
     expect(screen.getByText("11:00 AM–1:00 PM")).toBeInTheDocument();
