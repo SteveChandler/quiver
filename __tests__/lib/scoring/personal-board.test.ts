@@ -1,4 +1,4 @@
-import { conditionSimilarity, recommendBoard, similarityPeriod, LIKE_THIS_SIMILARITY, type PersonalBoard, type BoardSession } from '@/lib/scoring/personal-board';
+import { boardHistoryNudge, conditionSimilarity, recommendBoard, similarityPeriod, LIKE_THIS_SIMILARITY, type PersonalBoard, type BoardSession } from '@/lib/scoring/personal-board';
 import { normalizeBoardClass } from '@/lib/domains/rideability';
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
@@ -24,11 +24,11 @@ it('classifies a thruster by its board type', () => {
   expect(normalizeBoardClass('Twin pin')).toBe('fish');
   expect(recommendBoard([board('unknown', 'Twin pin', 'unknown', 5, 3.7, 4)], forecast, beach, 'advanced')?.boardClass).toBe('fish');
 });
-it('chooses an experienced board for the diagnosed fixture and includes the other', () => {
+it('chooses the history-backed all-rounder for the diagnosed fixture and includes the other', () => {
   const pick = recommendBoard(boards, forecast, beach, 'advanced');
-  expect(['Twin pin', 'Machadocado']).toContain(pick?.name);
-  expect([pick?.name, ...pick!.alternates.map((b) => b.name)]).toEqual(expect.arrayContaining(['Twin pin', 'Machadocado']));
-  expect(pick?.reason).toMatch(/days like this \(1[45] sessions\)/);
+  expect(pick?.name).toBe('Twin pin');
+  expect(pick?.alternates.map((b) => b.name)).toContain('Machadocado');
+  expect(pick?.reason).toBe('Twin pin: an all-rounder for 3-4 ft (glassy faces; long-period power)');
 });
 it('enforces the physical floor despite repeated positive feedback', () => {
   const pick = recommendBoard([board('log', 'Southpoint', 'longboard', 100, 15, 5, 'right'), board('gun', 'Gun', 'gun', 0, 15, 3)], { ...forecast, wave_height: '10 ft' }, beach, 'advanced');
@@ -76,19 +76,11 @@ it('accepts the production one-to-one PostgREST snapshot shape', () => {
   expect(recommendBoard(quiver, forecast, beach, 'advanced')).toEqual(recommendBoard(boards, forecast, beach, 'advanced'));
 });
 
-it('counts and bounds only close sessions in the like-this reason', () => {
-  const a = board('a', 'A', 'fish', 1, 3, 4);
-  a.sessions!.push(...[3.7, 4.2, 1, 6].flatMap((height, i) =>
-    board(`extra-${i}`, 'A', 'fish', 1, height, 4).sessions!));
-  expect(recommendBoard([a], forecast, beach, 'advanced')?.reason)
-    .toBe('You ride A on 3-5 ft days like this (3 sessions)');
-});
-
-it('uses limited-history copy when only two sessions are close', () => {
-  const a = board('a', 'A', 'fish', 2, 3.7, 4);
-  a.sessions!.push(...board('far', 'A', 'fish', 3, 6, 4).sessions!);
-  expect(recommendBoard([a], forecast, beach, 'advanced')?.reason)
-    .toBe('A fits these conditions; limited similar session history');
+it('never puts a session count in the reason, however much history backs the pick', () => {
+  const a = board('a', 'A', 'fish', 12, 3.7, 5, 'right');
+  const reason = recommendBoard([a], forecast, beach, 'advanced')?.reason;
+  expect(reason).toBe('A: an all-rounder for 3-4 ft (glassy faces; long-period power)');
+  expect(reason).not.toMatch(/session/i);
 });
 
 it('still ranks boards using feedback between the evidence and like-this cutoffs', () => {
@@ -100,40 +92,45 @@ it('still ranks boards using feedback between the evidence and like-this cutoffs
   expect(similarity).toBeLessThan(0.7);
   const pick = recommendBoard([a, b], forecast, beach, 'advanced');
   expect(pick?.id).toBe('b');
-  expect(pick?.reason).toBe('B fits these conditions; limited similar session history');
+  expect(pick?.reason).not.toMatch(/session/i);
 });
 
-describe('physical-fit guard on the top pick', () => {
-  const lowForecast = { ...forecast, wave_height: '3 ft' };
+describe('conditions-first pick', () => {
+  // Del Mar 2026-09-29 08:00 on Surfline-like inputs: 3.5 ft, 8 s, light offshore, tide filling.
+  const allRounderDay = { ...forecast, wave_height: '3.5 ft', wave_period: '8s', wind_speed: '8 mph', wind_direction_deg: 90, tide_height: '4.1 ft' } as EnhancedForecastEntity;
+  const smallCleanDay = { ...forecast, wave_height: '2 ft', wave_period: '12s', wind_speed: '2 mph', tide_height: '2.5 ft' } as EnhancedForecastEntity;
 
-  it('does not let habit lift a board far below the best-fitting board the surfer rides', () => {
-    const pick = recommendBoard([board('sb', 'Twin pin', 'shortboard', 14, 3, 4), board('lb', 'Southpoint', 'longboard', 3, 3, 4)], lowForecast, beach, 'advanced');
+  it('picks an all-rounder over a heavily ridden longboard at 3.5 ft for an advanced surfer', () => {
+    const pick = recommendBoard([board('lb', 'Southpoint', 'longboard', 30, 3.5, 5, 'right'), board('mid', 'Ghombra', 'midlength', 0, 3.5, 3)], allRounderDay, beach, 'advanced');
+    expect(pick?.name).toBe('Ghombra');
+    expect(pick?.alternates.map((b) => b.name)).toEqual(['Southpoint']);
+    expect(pick?.reason).toMatch(/^Ghombra: an all-rounder for 3-4 ft/);
+  });
+
+  it('picks the longboard on a small, clean day', () => {
+    const pick = recommendBoard([board('lb', 'Southpoint', 'longboard', 0, 2, 3), board('mid', 'Ghombra', 'midlength', 0, 2, 3)], smallCleanDay, beach, 'advanced');
     expect(pick?.name).toBe('Southpoint');
-    expect(pick?.alternates.map((b) => b.name)).toEqual(['Twin pin']);
-    expect(pick).not.toHaveProperty('physical');
+    expect(pick?.reason).toMatch(/^Southpoint: a longboard for 2-3 ft/);
   });
 
-  it('keeps the habit pick when the physical gap is within 12 points', () => {
-    const pick = recommendBoard([board('sb', 'Twin pin', 'shortboard', 14, 3.7, 4), board('mid', 'Ghombra', 'midlength', 3, 3.7, 4)], forecast, beach, 'advanced');
-    expect(pick?.name).toBe('Twin pin');
-    expect(pick?.alternates.map((b) => b.name)).toEqual(['Ghombra']);
+  it('counts a twin pin typed as a shortboard as an all-rounder', () => {
+    expect(recommendBoard([board('tp', 'Twin pin', 'shortboard', 0, 3.5, 3)], allRounderDay, beach, 'advanced')?.boardClass).toBe('fish');
   });
 
-  it('does not measure the gap against a board without an established history', () => {
-    const pick = recommendBoard([board('sb', 'Twin pin', 'shortboard', 14, 3, 4), board('lb', 'Southpoint', 'longboard', 2, 3, 4)], lowForecast, beach, 'advanced');
-    expect(pick?.name).toBe('Twin pin');
+  it('caps history so a board that fits the conditions beats a heavily liked board that does not', () => {
+    const solid = { ...forecast, wave_height: '5 ft', wave_period: '14s' } as EnhancedForecastEntity;
+    const pick = recommendBoard([board('lb', 'Log', 'longboard', 50, 5, 5, 'right'), board('sb', 'Thruster', 'shortboard', 0, 5, 3)], solid, beach, 'advanced');
+    expect(pick?.name).toBe('Thruster');
   });
 
-  it('leaves the score order alone when nobody has an established history', () => {
-    const pick = recommendBoard([board('a', 'A', 'fish', 2, 3.7, 5), board('m', 'M', 'midlength', 0, 3.7, 3)], forecast, beach, 'advanced');
-    expect(pick?.name).toBe('A');
-    expect(pick?.alternates.map((b) => b.name)).toEqual(['M']);
+  it('names the closest owned board with class advice when nothing in the quiver fits well', () => {
+    const bigger = { ...forecast, wave_height: '6 ft', wave_period: '10s' } as EnhancedForecastEntity;
+    const pick = recommendBoard([board('f', 'Fish', 'fish', 0, 6, 3)], bigger, beach, 'advanced');
+    expect(pick?.reason).toMatch(/^Ride a shortboard or step-up in \d+-\d+ ft waves\. Closest board you own: Fish/);
   });
 
-  it('returns the only eligible board even when its physical fit is weak', () => {
-    const pick = recommendBoard([board('sb', 'Twin pin', 'shortboard', 14, 3, 4)], lowForecast, beach, 'advanced');
-    expect(pick?.name).toBe('Twin pin');
-    expect(pick?.alternates).toEqual([]);
+  it('returns no pick when no board reaches the fit floor', () => {
+    expect(recommendBoard([board('lb', 'Log', 'longboard', 0, 12, 3)], { ...forecast, wave_height: '12 ft' } as EnhancedForecastEntity, beach, 'advanced')).toBeNull();
   });
 });
 
@@ -232,16 +229,16 @@ describe('source-aware similarity period', () => {
     expect(conditionSimilarity(omSnapshot, cdipRow, beach, beach)).toBeGreaterThanOrEqual(LIKE_THIS_SIMILARITY);
   });
 
-  it('counts CDIP history as like-this evidence for an Open-Meteo row in the board pick', () => {
-    const withHistory = (snapshot: Record<string, unknown>): PersonalBoard[] => [{
+  it('lets CDIP history nudge the pick for an Open-Meteo row that its tallest-partition period would miss', () => {
+    const withHistory: PersonalBoard = {
       id: 'a', name: 'Machadocado', board_type: 'fish', sessions: Array.from({ length: 5 }, (_, i): BoardSession => ({
         id: `a-${i}`, status: 'completed', deleted_at: null, rating: 5, session_board_fit: 'right', arrival_time: '2026-09-10T12:00:00Z',
-        beaches: beach, session_forecast_snapshots: [{ forecast_snapshot: snapshot }],
+        beaches: beach, session_forecast_snapshots: [{ forecast_snapshot: cdipSnapshot }],
       })),
-    }];
-    const om = recommendBoard(withHistory(cdipSnapshot), omRow, beach, 'advanced');
-    const cdip = recommendBoard(withHistory(cdipSnapshot), { ...omRow, data_source: 'CDIP' } as EnhancedForecastEntity, beach, 'advanced');
-    expect(om?.reason).toMatch(/days like this \(5 sessions\)/);
-    expect(cdip?.reason).toMatch(/limited similar session history/);
+    };
+    const om = boardHistoryNudge(withHistory, omRow, beach);
+    const legacy = boardHistoryNudge(withHistory, { ...omRow, data_source: 'CDIP' } as EnhancedForecastEntity, beach);
+    expect(om).toBe(5);
+    expect(legacy).toBeLessThan(om);
   });
 });
