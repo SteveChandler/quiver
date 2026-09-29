@@ -60,6 +60,10 @@ export function forecastToMatchSlot(
     wind_speed: forecast.wind_speed != null ? String(forecast.wind_speed) : "",
     wind_direction: forecast.wind_direction_deg != null ? String(forecast.wind_direction_deg) : "",
     tide_height: forecast.tide_height != null ? String(forecast.tide_height) : "",
+    // Keys are omitted, never blank, so slots without them score exactly as before. The RPC compares
+    // Open-Meteo rows by wave_period_om (whole-sea mean); wave_period there is the tallest partition's.
+    ...(forecast.data_source ? { data_source: String(forecast.data_source) } : {}),
+    ...(Number.isFinite(forecast.wave_period_om) ? { wave_period_om: String(forecast.wave_period_om) } : {}),
   };
 }
 
@@ -100,14 +104,16 @@ export function interpretRpcResult(
         ? result.sessions_in_profile
         : 0;
 
-    // Pull first reason bullet for user-facing copy. Fall back to label when absent.
+    // Pull first reason bullet for user-facing copy.
     const reasons = Array.isArray(result.reason_bullets)
       ? result.reason_bullets.filter(
           (reason): reason is string =>
             typeof reason === "string" && reason.length > 0,
         )
       : [];
-    const reason = reasons[0] ?? label;
+    // No bullet is normal: the RPC no longer sends session counts as copy. Consumers join `reason` into
+    // user-facing sentences, so an empty string drops out where a bare label would read as one.
+    const reason = reasons[0] ?? "";
     const confidence =
       result.confidence === "high" || result.confidence === "medium"
         ? result.confidence

@@ -1,4 +1,4 @@
-import { conditionSimilarity, recommendBoard, type PersonalBoard, type BoardSession } from '@/lib/scoring/personal-board';
+import { conditionSimilarity, recommendBoard, similarityPeriod, LIKE_THIS_SIMILARITY, type PersonalBoard, type BoardSession } from '@/lib/scoring/personal-board';
 import { normalizeBoardClass } from '@/lib/domains/rideability';
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
@@ -187,5 +187,61 @@ describe('board fit feedback', () => {
   it('does not let negative-fit sessions build habit, however well they were rated', () => {
     expect(pair(board('a', 'A', 'fish', 10, 3.7, 4, 'too_small'), board('b', 'B', 'fish', 0, 3.7, 3))).toBe('b');
     expect(pair(board('a', 'A', 'fish', 10, 3.7, 4, null, 'not_right'), board('b', 'B', 'fish', 0, 3.7, 3))).toBe('b');
+  });
+});
+
+describe('source-aware similarity period', () => {
+  // Open-Meteo rows carry the tallest partition's period in wave_period (5 s) beside the whole-sea height;
+  // the whole-sea mean period is wave_period_om. CDIP history stores the whole-sea peak period.
+  const omRow = { ...forecast, wave_height: '3.6 ft', wave_period: '5s', wave_period_om: 9.9, data_source: 'OPEN_METEO' } as EnhancedForecastEntity;
+  const cdipSnapshot = { wave_height: '3.4 ft', wave_period: '11s', wind_speed: '3 mph', tide_height: '3 ft', tide_status: 'incoming', data_source: 'CDIP' };
+
+  it.each([
+    [{ data_source: 'OPEN_METEO', wave_period: '5s', wave_period_om: 9.9 }, 9.9],
+    [{ data_source: 'open_meteo', wave_period: '5s', wave_period_om: '9.9' }, 9.9],
+    [{ data_source: 'OPEN_METEO', wave_period: '5s', wave_period_om: 0 }, 5],
+    [{ data_source: 'OPEN_METEO', wave_period: '5s', wave_period_om: null }, 5],
+    [{ data_source: 'OPEN_METEO', wave_period: '5s' }, 5],
+    [{ data_source: 'OPEN_METEO', wave_period: '5s', wave_period_om: 'NaN' }, 5],
+    [{ data_source: 'CDIP', wave_period: '13s', wave_period_om: 9.6 }, 13],
+    [{ data_source: 'NOAA_NWS', wave_period: '9', wave_period_om: 9.6 }, 9],
+    [{ wave_period: '12s', wave_period_om: 9.6 }, 12],
+    [{ data_source: 'OPEN_METEO', wave_period: null, wave_period_om: 9.9 }, 9.9],
+    [{ data_source: 'CDIP' }, null],
+    [{}, null],
+  ])('reads %j as %s', (row, expected) => {
+    expect(similarityPeriod(row)).toBe(expected);
+  });
+
+  it('matches an Open-Meteo row to a 10-12 s CDIP session that its tallest-partition period misses', () => {
+    const aware = conditionSimilarity(cdipSnapshot, omRow, beach, beach);
+    const legacy = conditionSimilarity(cdipSnapshot, { ...omRow, data_source: 'CDIP' } as EnhancedForecastEntity, beach, beach);
+    expect(aware).toBeGreaterThanOrEqual(LIKE_THIS_SIMILARITY);
+    expect(legacy).toBeLessThan(0.5);
+  });
+
+  it('leaves a CDIP row unchanged whatever wave_period_om says', () => {
+    const cdipRow = { ...forecast, wave_height: '3.6 ft', wave_period: '11s', wave_period_om: 5, data_source: 'CDIP' } as EnhancedForecastEntity;
+    expect(conditionSimilarity(cdipSnapshot, cdipRow, beach, beach))
+      .toBe(conditionSimilarity(cdipSnapshot, { ...cdipRow, wave_period_om: null } as EnhancedForecastEntity, beach, beach));
+  });
+
+  it('reads an Open-Meteo session snapshot by its mean period on the history side', () => {
+    const omSnapshot = { ...cdipSnapshot, wave_period: '5s', wave_period_om: 11, data_source: 'OPEN_METEO' };
+    const cdipRow = { ...forecast, wave_height: '3.6 ft', wave_period: '11s', data_source: 'CDIP' } as EnhancedForecastEntity;
+    expect(conditionSimilarity(omSnapshot, cdipRow, beach, beach)).toBeGreaterThanOrEqual(LIKE_THIS_SIMILARITY);
+  });
+
+  it('counts CDIP history as like-this evidence for an Open-Meteo row in the board pick', () => {
+    const withHistory = (snapshot: Record<string, unknown>): PersonalBoard[] => [{
+      id: 'a', name: 'Machadocado', board_type: 'fish', sessions: Array.from({ length: 5 }, (_, i): BoardSession => ({
+        id: `a-${i}`, status: 'completed', deleted_at: null, rating: 5, session_board_fit: 'right', arrival_time: '2026-09-10T12:00:00Z',
+        beaches: beach, session_forecast_snapshots: [{ forecast_snapshot: snapshot }],
+      })),
+    }];
+    const om = recommendBoard(withHistory(cdipSnapshot), omRow, beach, 'advanced');
+    const cdip = recommendBoard(withHistory(cdipSnapshot), { ...omRow, data_source: 'CDIP' } as EnhancedForecastEntity, beach, 'advanced');
+    expect(om?.reason).toMatch(/days like this \(5 sessions\)/);
+    expect(cdip?.reason).toMatch(/limited similar session history/);
   });
 });
