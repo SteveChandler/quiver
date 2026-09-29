@@ -528,10 +528,16 @@ export class ForecastBuilder {
     // Track processed dates to store tide_schedule only once per day
     const processedDates = new Set<string>();
 
+    // Rows are stored at forecast_at, the 3-hour grid mark at or before the
+    // slot, so every input is resolved at that mark. Resolving at build time
+    // + i*3h filed values from up to 3h later under an earlier label (a 2h
+    // tide phase error on an 11:00Z build).
+    const firstSlotMs = Date.parse(getNormalizedForecastAt(now));
+
     // Generate forecasts for each time point
     for (let i = 0; i < TOTAL_FORECASTS; i++) {
       const forecastTime = new Date(
-        now.getTime() + i * FORECAST_CONSTANTS.INTERVAL_HOURS * 60 * 60 * 1000
+        firstSlotMs + i * FORECAST_CONSTANTS.INTERVAL_HOURS * 60 * 60 * 1000
       );
       gfsWaveForecastTimes.push(forecastTime);
 
@@ -1060,8 +1066,12 @@ export class ForecastBuilder {
     // Compute the forecast horizon in hours from issue time (now) to the
     // forecast slot. Used for the CDIP nowcast coverage log, the offset gate
     // (only 24h+ horizons in initial rollout), and the snapshot row.
-    const forecastHorizonHours =
-      (forecastTime.getTime() - now.getTime()) / (60 * 60 * 1000);
+    // The first slot sits on the grid mark at or before now; it keeps the
+    // horizon 0 it always had, so no horizon gate drops the current slot.
+    const forecastHorizonHours = Math.max(
+      0,
+      (forecastTime.getTime() - now.getTime()) / (60 * 60 * 1000),
+    );
     const forecastAt = getNormalizedForecastAt(forecastTime);
 
     const handoffStep = processForecastHandoffBlendSlot({
