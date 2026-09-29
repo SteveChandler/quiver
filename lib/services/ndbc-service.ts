@@ -1,5 +1,4 @@
 import { calculateDistance } from "@/lib/utils/distance-utils";
-import { fetchWithTimeout } from "@/lib/utils/fetch-utils";
 
 type NDBCStation = {
   id: string;
@@ -36,6 +35,7 @@ const observationCache: Map<
   { at: number; obs: NDBCObservation | null }
 > = new Map();
 const OBS_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+const MAX_WAVE_AGE_MS = 12 * 60 * 60 * 1000;
 
 export async function getActiveNDBCStations(): Promise<NDBCStation[]> {
   const now = Date.now();
@@ -46,7 +46,7 @@ export async function getActiveNDBCStations(): Promise<NDBCStation[]> {
     return stationCache.stations;
   }
   const url = "https://www.ndbc.noaa.gov/ndbcmapstations.json";
-  const res = await fetchWithTimeout(url, { timeoutMs: 20000 });
+  const res = await fetch(url, { signal: AbortSignal.timeout(20_000) });
   if (!res.ok) throw new Error(`NDBC stations failed: ${res.status}`);
   const json = await res.json();
   const stations: NDBCStation[] = (json?.station || [])
@@ -72,21 +72,31 @@ export async function getNearestNDBCStation(
   lon: number,
   maxKm = 80
 ): Promise<NDBCStation | null> {
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
   const stations = await getActiveNDBCStations();
-  let best: NDBCStation | null = null;
-  let bestKm = Infinity;
-  for (const s of stations) {
-    const d = calculateDistance(
-      { lat, lon },
-      { lat: s.lat, lon: s.lon },
-      "km"
-    );
-    if (d < bestKm && d <= maxKm) {
-      best = s;
-      bestKm = d;
+  const candidates = stations
+    .map(station => ({ station, km: calculateDistance({ lat, lon }, station, "km") }))
+    .filter(candidate => candidate.km <= maxKm)
+    .sort((a, b) => a.km - b.km)
+    .slice(0, 5);
+  // ponytail: five candidates/15s; expand only if measured gaps justify more provider work.
+  const deadline = Date.now() + 15_000;
+  for (const { station } of candidates) {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) break;
+    try {
+      const observation = await fetchLatestNDBCObservation(station.id, Math.min(5_000, remaining));
+      if (!observation) continue;
+      const age = Date.now() - Date.parse(observation.ts);
+      if (age >= 0 && age < MAX_WAVE_AGE_MS
+        && observation.wave_height_m !== null && observation.wave_height_m >= 0
+        && observation.wave_period_s !== null && observation.wave_period_s > 0
+        && observation.wave_period_s !== 99) return station;
+    } catch (error) {
+      console.warn(`[NDBC] Station ${station.id} unavailable`, error);
     }
   }
-  return best;
+  return null;
 }
 
 /**
@@ -172,7 +182,7 @@ export async function fetchRecentNDBCObservations(
   maxRows: number = 48
 ): Promise<NDBCObservation[]> {
   const url = `https://www.ndbc.noaa.gov/data/realtime2/${stationId}.txt`;
-  const res = await fetchWithTimeout(url, { timeoutMs: 15000 });
+  const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
   if (!res.ok) return [];
 
   const text = await res.text();
@@ -185,7 +195,8 @@ export async function fetchRecentNDBCObservations(
  * Delegates to parseRealtime2Text for consistent parsing logic.
  */
 export async function fetchLatestNDBCObservation(
-  stationId: string
+  stationId: string,
+  timeoutMs: number = 15_000
 ): Promise<NDBCObservation | null> {
   // Check cache first
   const cached = observationCache.get(stationId);
@@ -194,7 +205,7 @@ export async function fetchLatestNDBCObservation(
   }
 
   const url = `https://www.ndbc.noaa.gov/data/realtime2/${stationId}.txt`;
-  const res = await fetchWithTimeout(url, { timeoutMs: 15000 });
+  const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
   if (!res.ok) {
     observationCache.set(stationId, { at: Date.now(), obs: null });
     return null;
