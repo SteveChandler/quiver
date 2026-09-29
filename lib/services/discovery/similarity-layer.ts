@@ -60,6 +60,10 @@ export function forecastToMatchSlot(
     wind_speed: forecast.wind_speed != null ? String(forecast.wind_speed) : "",
     wind_direction: forecast.wind_direction_deg != null ? String(forecast.wind_direction_deg) : "",
     tide_height: forecast.tide_height != null ? String(forecast.tide_height) : "",
+    // Keys are omitted, never blank, so slots without them score exactly as before. The RPC compares
+    // Open-Meteo rows by wave_period_om (whole-sea mean); wave_period there is the tallest partition's.
+    ...(forecast.data_source ? { data_source: String(forecast.data_source) } : {}),
+    ...(Number.isFinite(forecast.wave_period_om) ? { wave_period_om: String(forecast.wave_period_om) } : {}),
   };
 }
 

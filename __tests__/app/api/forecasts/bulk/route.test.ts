@@ -1048,6 +1048,23 @@ describe("/api/forecasts/bulk", () => {
     );
   });
 
+  it("reads wave_period_om so Open-Meteo rows compare by their whole-sea period", async () => {
+    const { forecastChain } = mockBulkQueries({
+      forecastRows: [forecastRow("beach-1", "3.7", 2)],
+      beachRows: [beachRow("beach-1")],
+    });
+
+    await GET(
+      createMockRequest(
+        "GET",
+        "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1",
+        { headers: { "x-forwarded-for": "203.0.113.247" } },
+      ),
+    );
+
+    const selects = forecastChain.select.mock.calls.map(([columns]: [string]) => columns);
+    expect(selects.some((columns: string) => /\bwave_period_om\b/.test(columns) && /\bdata_source\b/.test(columns))).toBe(true);
+  });
   it("keeps explicit forecastAt selection on the selected hour", async () => {
     const currentRow = forecastRow("beach-1", "1.9", -1);
     const selectedRow = forecastRow("beach-1", "3.7", 2);

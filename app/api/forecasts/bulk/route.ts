@@ -84,7 +84,7 @@ const emptyBulkForecastResponse = {
 };
 
 const BULK_FORECAST_SELECT =
-  "beach_id, forecast_date, forecast_time, forecast_at, wave_height, wave_period, wave_direction, wave_height_om, wave_direction_om, swell_height_om, swell_period_om, swell_direction_om, swell_1_height, swell_1_period, swell_1_direction, swell_2_height, swell_2_period, swell_2_direction, wind_wave_height, wind_wave_period, wind_wave_direction, wind_speed, wind_direction, wind_direction_deg, water_temp, tide_height, tide_status, confidence_score, data_source" as const;
+  "beach_id, forecast_date, forecast_time, forecast_at, wave_height, wave_period, wave_period_om, wave_direction, wave_height_om, wave_direction_om, swell_height_om, swell_period_om, swell_direction_om, swell_1_height, swell_1_period, swell_1_direction, swell_2_height, swell_2_period, swell_2_direction, wind_wave_height, wind_wave_period, wind_wave_direction, wind_speed, wind_direction, wind_direction_deg, water_temp, tide_height, tide_status, confidence_score, data_source" as const;
 
 const HOURLY_TIMELINE_SELECT =
   "beach_id, forecast_at, swell_height_om, swell_period_om, swell_direction_om, wave_direction_om, swell_1_height, swell_1_period, swell_1_direction, swell_2_height, swell_2_period, swell_2_direction, wind_speed, wind_direction_deg" as const;
