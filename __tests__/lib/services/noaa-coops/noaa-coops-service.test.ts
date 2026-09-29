@@ -89,6 +89,7 @@ describe('NOAACOOPSService', () => {
         expect(result).not.toBeNull();
         expect(result?.station_id).toBe(`cached_${beachId}`);
         expect(result?.station_name).toBe('Cached Tide Data');
+        expect(result?.source).toBe('noaa');
         expect(result?.tides.length).toBeGreaterThan(0);
 
         // Should detect the high at index 2 (1.5m) and low at index 5 (0.3m)
@@ -253,6 +254,25 @@ describe('NOAACOOPSService', () => {
     });
 
     describe('Duplicate row deduplication', () => {
+      it('returns the source of the selected model series', async () => {
+        const now = new Date();
+        const rows = [0.5, 1.5, 0.5].map((tide_height_m, i) => ({
+          ts: new Date(now.getTime() + i * 3600000).toISOString(),
+          tide_height_m,
+          tide_phase: null,
+          source: 'fes2022',
+          station_id: 'FES2022',
+          created_at: '2026-09-29T00:00:00.000Z',
+        }));
+        const staleNoaa = rows.map((row) => ({ ...row, source: 'noaa', station_id: '9410170', created_at: '2026-09-01T00:00:00.000Z' }));
+        mockSupabase.mockResolvedValue({ from: jest.fn().mockReturnValue(createMockQueryBuilder([...staleNoaa, ...rows])) });
+
+        const result = await service.fetchCachedTides(beachId);
+
+        expect(result?.source).toBe('fes2022');
+        expect(result?.tides.length).toBeGreaterThan(0);
+      });
+
       it('reads one station when an older station series overlaps the current one', async () => {
         const hourStart = new Date();
         hourStart.setMinutes(0, 0, 0);
