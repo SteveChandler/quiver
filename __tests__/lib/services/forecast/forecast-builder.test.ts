@@ -212,6 +212,22 @@ describe("ForecastBuilder", () => {
     expect(forecasts[0].beach_id).toBe("beach-1");
   });
 
+  it("labels model tides in forecast data sources", async () => {
+    const forecasts = await builder.buildForecasts({
+      beach: mockBeach,
+      waveData: mockWaveData,
+      tideData: { ...mockTideData, source: "fes2022" },
+      weatherData: [],
+      buoyData: null,
+      cdipData: null,
+      ioosWaterTempC: null,
+      coopsWaterTempC: null,
+    });
+
+    expect(forecasts[0].raw_forecast?.data_sources).toContain("FES2022");
+    expect(forecasts[0].raw_forecast?.data_sources).not.toContain("NOAA_COOPS");
+  });
+
   it('persists source disagreement and the same reduced confidence in row and metadata', async () => {
     const selection = { reason: 'reported_inputs' as const, disagreement: true, noaa_height_m: 0.91, open_meteo_height_m: 1.58 };
     const forecasts = await builder.buildForecasts({

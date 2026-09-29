@@ -76,6 +76,18 @@ describe("ForecastDataSourceIndicator", () => {
   });
 
   describe("Multiple Data Sources", () => {
+    it("labels FES2022 as a tide model", () => {
+      render(
+        <ForecastDataSourceIndicator
+          dataSource="CDIP"
+          confidenceScore={78}
+          dataSources={["CDIP", "FES2022"]}
+        />
+      );
+
+      expect(screen.getByText("+ Tide model (FES2022)")).toBeInTheDocument();
+    });
+
     it("should display combined data sources", () => {
       render(
         <ForecastDataSourceIndicator
