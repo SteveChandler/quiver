@@ -162,6 +162,8 @@ async function _GET(request: Request): Promise<Response> {
       stationsAttempted: 0,
       retriedStations: 0,
       recoveredStations: 0,
+      supersededRows: 0,
+      supersedeErrors: 0,
       failedStations: [] as Array<{ stationId: string; beaches: number; reason: TideGroupFailure }>,
       beachesWithoutStation: 0,
       beachesBelowMinCoverage: 0,
@@ -790,6 +792,7 @@ async function _GET(request: Request): Promise<Response> {
             createdAt: refreshedAt,
             stationId,
           });
+          if (!rows.length) return "no_predictions";
 
           let upsertFailed = false;
           for (const chunk of chunkArray(rows, 1000)) {
@@ -812,6 +815,37 @@ async function _GET(request: Request): Promise<Response> {
           }
           if (upsertFailed) return "upsert_failed";
           for (const beachId of beachIds) writtenBeachIds.add(beachId);
+          if (!shouldStop()) {
+            let firstTs: string = rows[0].ts;
+            let lastTs: string = firstTs;
+            for (const row of rows) {
+              if (row.ts < firstTs) firstTs = row.ts;
+              if (row.ts > lastTs) lastTs = row.ts;
+            }
+            try {
+              // Keep same-station noaa rows when a hilo fallback writes the same hours.
+              // .neq leaves pre-2026-07-23 NULL station IDs (all past rows) untouched.
+              const { error, count } = await supabase.from("tide_forecasts")
+                .delete({ count: "exact" })
+                .in("beach_id", beachIds)
+                .neq("station_id", stationId)
+                .gte("ts", firstTs)
+                .lte("ts", lastTs);
+              if (error) {
+                tideIngest.supersedeErrors++;
+                console.warn("[Forecast Refresh] Tide supersede failed", stationId, error.message);
+              } else {
+                tideIngest.supersededRows += count ?? 0;
+                if (count && count > 0) {
+                  console.log("[Forecast Refresh] Tide rows superseded", { stationId, beaches: beachIds.length, count });
+                }
+              }
+            } catch (error) {
+              tideIngest.supersedeErrors++;
+              console.warn("[Forecast Refresh] Tide supersede failed", stationId,
+                error instanceof Error ? error.message : String(error));
+            }
+          }
           return null;
         } catch (stationErr) {
           console.warn("Station tide ingest failed", {

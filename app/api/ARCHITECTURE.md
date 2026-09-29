@@ -880,6 +880,7 @@ import {
      - Primary: NOAA Tides & Currents hourly predictions (start → +30 days) into `tide_forecasts`; refreshed twice weekly and read from cache by public tide tools
      - Fallback: If hourly empty, fetch CO-OPS hilo extremes and interpolate to hourly heights; source `noaa_hilo_interpolated`
      - Coverage, not freshness, is the contract: a station group that fails (no predictions, upsert error) is retried once in the same run, failures land in `tideIngest` in the run summary, and the run is marked failed (alerting) when a beach with a NOAA station in range would keep under 7 days of tides.
+     - After a group writes, rows for its beaches from other stations over the written span are deleted, so a station change replaces the old series instead of leaving both until the old rows age out.
   4. Sun:
      - Compute sunrise/sunset for the next 5 days using `SunCalc` and upsert into `sun_times` with `source='computed'`
 - **Upsert Keys**: `onConflict` by `(beach_id, ts, source)` for marine/tide; `(beach_id, date, source)` for sun
