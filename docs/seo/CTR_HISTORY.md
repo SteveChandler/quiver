@@ -319,12 +319,44 @@ and the estimate is further off than that.
 
 **Remaining upstream issues (not fixed here):**
 
-- The resolver's name matching is not gated by distance, so Newport Beach CA,
-  Seaside Reef (Solana Beach) and Long Beach NY never get the real nearby
-  sensor. Fixing it at the source would replace their estimates with readings.
+- The resolver's name matching was not gated by distance. Fixed in the same
+  deploy; see "Resolver name-match gate" below.
 - The latitude estimate peaks in June rather than Aug–Sep and uses coarse
   latitude bands. It is 8–11°F off (median) against buoys in late September
   and is shown as "Water temp now".
+
+### Resolver name-match gate (same deploy)
+
+`getStationForLocation` now accepts a name match only when its station is
+within 200 km of the beach, and otherwise tries the next match and then the
+geographic lookup. A blank name skips name matching; it used to return La Jolla
+for any coordinates. Station coordinates come from a static table of the 64
+stations the resolver can return.
+
+26 beaches resolve to a different station. The reading changes on 11 pages
+(same prod read, 2026-09-29):
+
+| Page | Before → after | Buoy |
+| --- | --- | ---: |
+| Long Beach NY (Sandy Hook, 32 km); city page `/water-temp/long-beach-ny` | 54 → 62–63°F | 65°F |
+| Seabrook WA (Westport, 34 km), GSC-protected | 54 → 57°F | 58°F |
+| 1st Street Jetty, Ocean City NJ (Atlantic City, 15 km), GSC-protected; city page `/water-temp/ocean-city` | 62 → 65°F | — |
+| Westport WA | 54 → 57°F | 58°F |
+| Seaside Reef, Solana Beach (San Diego Broadway) | 62 → 76°F | 72°F |
+| Baja Malibu (San Diego Broadway) | 62 → 76°F | 73°F |
+| Dunes, La Misión (San Diego Broadway) | 62 → 76°F | — |
+| Pohaku Park, Maui (Honolulu, 128 km) | 75 → 82–83°F | 80°F |
+| Sandy Beach, Rincón PR (Mayagüez, 20 km) | 80 → 84–85°F | — |
+| Rockaway Beach NY, 90th and 98th St (Sandy Hook, 21 km); 98th St GSC-protected | 54 → 62–63°F | 65°F |
+
+All eight with a nearby buoy get closer to it. Long Beach NY ends above its
+pre-fix 60°F, so the "less accurate" note above no longer holds. Rockaway Beach
+NY is net unchanged from prod: the new `rockaway-beach` key (Garibaldi, OR)
+would have moved it 4,040 km away and onto the estimate, and the gate keeps it
+on Sandy Hook. Newport Beach CA and T-Street move to Newport Bay Entrance,
+which has no temperature sensor, so they stay on the estimate. Ocean Beach SF
+and Sunset Bay OR move to Golden Gate and Charleston, which had no reading in
+the last 24 hours, so they stay on the estimate for now.
 
 **Deploy and hold.**
 
