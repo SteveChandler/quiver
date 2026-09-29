@@ -1,5 +1,6 @@
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { fetchWaterTemperature } from "@/lib/services/noaa-coops/api-client";
+import { getNearestTideStation } from "@/lib/services/noaa-tide-service";
 import { getReviewedNwsPoint } from "@/lib/services/noaa-wavewatch/grid-utils";
 import { ForecastDataSourceManager, NOAAWeatherDataSource } from "./forecast/data-source-manager";
 import { ForecastStorageService } from "./forecast/storage-service";
@@ -424,18 +425,19 @@ export class EnhancedForecastService {
           return cachedTides;
         }
 
-        // Fallback to live API if no cached data (should be rare after initial population)
+        // Fallback to live API if no cached data (should be rare after initial population).
+        // Resolve the station the way the tide cron does, nearest NOAA station within
+        // range, so these rows never carry a far or name-matched station's tides:
+        // "Scorpion Bay (San Juanico)" name-matched San Juan, Puerto Rico. No station
+        // in range means no tides, as in tide_forecasts.
         log.warn(`No cached tides for beach ${beach.name}, falling back to live CO-OPS API`);
-        const stationId = this.dataSourceManager.getCOOPSService().getStationForLocation(
-          beach.name,
-          beach.lat ?? undefined,
-          beach.lon ?? undefined
-        );
-        const result = await this.dataSourceManager.getCOOPSService().fetchCOOPSData(
-          stationId,
+        if (beach.lat == null || beach.lon == null) return null;
+        const station = await getNearestTideStation(beach.lat, beach.lon);
+        if (!station) return null;
+        return this.dataSourceManager.getCOOPSService().fetchCOOPSData(
+          station.id,
           FORECAST_CONSTANTS.DAYS
         );
-        return result;
       } catch (error) {
         throw new DataSourceError("CO-OPS", error as Error, {
           beachId: beach.id,
