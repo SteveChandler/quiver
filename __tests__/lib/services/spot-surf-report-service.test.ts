@@ -4,6 +4,8 @@
 
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import { evaluateMajorEventHold } from "@/lib/recommendations/major-event-hold/evaluator";
+import type { MajorEventHoldCandidate } from "@/lib/recommendations/major-event-hold/types";
 
 jest.mock("server-only", () => ({}));
 
@@ -48,7 +50,7 @@ const mockApplyV51DisplayOverrideToForecasts = jest.fn(
   async (
     forecasts: EnhancedForecastEntity[],
     _options: { enabled?: boolean },
-  ) =>
+  ): Promise<EnhancedForecastEntity[]> =>
     forecasts.map((item) => ({ ...item, wave_height: "6 ft" })),
 );
 jest.mock("@/lib/services/forecast/v5-display-gate", () => ({
@@ -330,19 +332,31 @@ describe("spot surf report service", () => {
     });
   });
 
-  it("sanitizes a blocked hold through the real service adapter", async () => {
+  it("blocks a matching event hold through the real evaluator and service adapter", async () => {
     setupDatabase();
     mockEvaluateMajorEventHoldCandidates.mockImplementationOnce(
-      async ({ candidates }: { candidates: Array<{ candidateId: string }> }) =>
-        candidates.map(({ candidateId }) => ({
-          candidateId,
-          evaluation: {
-            outcome: "explicit_none",
-            reasonCode: "major_event_hold",
-            holdIds: ["hold-1"],
-            expiresAt: "2024-01-16T01:00:00.000Z",
+      async ({ candidates }: { candidates: MajorEventHoldCandidate[] }) =>
+        candidates.map((candidate) => ({
+          candidateId: candidate.candidateId,
+          evaluation: evaluateMajorEventHold({
+            mode: "enforce",
+            resolutionState: "resolved",
+            cohort: "unknown",
+            candidate,
             holdEpoch: "blocked-surf-call-test-epoch",
-          },
+            holds: [{
+              recordId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+              holdId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+              version: 1,
+              status: "active",
+              scopeBeachIds: [beachId],
+              validFrom: "2024-01-15T20:00:00.000Z",
+              validUntil: "2024-01-16T01:00:00.000Z",
+              affectedCohorts: ["unknown"],
+              action: "suppress_positive",
+              expiresAt: "2024-01-16T01:00:00.000Z",
+            }],
+          }),
           recommendationAvailability: {
             state: "none",
             reasonCode: "major_event_hold",
@@ -425,6 +439,50 @@ describe("spot surf report service", () => {
       state: "available",
       holdEpoch: "no-positive-surf-call",
     });
+  });
+
+  it("keeps tomorrow's marginal forecast available at 6 PM PDT", async () => {
+    jest.setSystemTime(new Date("2026-09-29T01:00:00Z"));
+    const tomorrowForecast = {
+      ...forecast,
+      forecast_at: "2026-09-29T15:00:00Z",
+      wave_height: "1.3 ft",
+      wind_speed: "5",
+      wind_direction: "N",
+      wind_direction_deg: 0,
+      confidence_score: 88,
+    };
+    setupDatabase([
+      { ...forecast, forecast_at: "2026-09-28T15:00:00Z" },
+      tomorrowForecast,
+    ]);
+    mockApplyV51DisplayOverrideToForecasts.mockImplementationOnce(async (rows) => rows);
+    mockSelectBestWindow.mockReturnValueOnce(null).mockReturnValueOnce({
+      start: new Date("2026-09-29T15:00:00Z"),
+      end: new Date("2026-09-29T18:00:00Z"),
+      score: 37,
+      waveHeight: "1.3 ft",
+      confidence: 88,
+      sourceForecast: tomorrowForecast,
+    });
+    const { getSpotSurfReportPublic } = await import("@/lib/services/spot-surf-report-service");
+    const result = await getSpotSurfReportPublic({ ...beach, wind_offshore_deg: 0 });
+
+    expect(result?.isTomorrow).toBe(true);
+    expect(result?.report).toMatchObject({
+      verdict: "NO",
+      bestWindowStart: null,
+      bestWindowEnd: null,
+      waveHeight: "1.3 ft",
+      windDescription: "N 5 mph (offshore)",
+      forecastConfidence: 88,
+      score: 37,
+      whySentence: "Conditions not favorable for surfing.",
+      recommendationAvailability: { state: "available", holdEpoch: "no-positive-surf-call" },
+    });
+    expect(result?.report.recommendationAvailability.reasonCode).toBeUndefined();
+    expect(result?.forecastContext).toMatchObject({ beachId, waveHeight: "1.3 ft" });
+    expect(mockEvaluateMajorEventHoldCandidates).not.toHaveBeenCalled();
   });
 
   it("fails closed when the major-event hold decision is unavailable", async () => {

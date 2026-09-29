@@ -996,8 +996,8 @@ function buildTrail(verdict: SurfCallVerdict, windowStart: string | null, overri
  * keyed off the wave-height range from `SKILL_WAVE_RANGES`:
  *
  * - Beginner: capped to NO when waves exceed `acceptable.max` (4 ft); promoted
- *   toward YES when waves sit in the `ideal` band (1–3 ft) AND wind is light
- *   (≤10 mph) or offshore/glassy.
+ *   from MAYBE to YES when waves sit in the `ideal` band (1–3 ft) AND wind
+ *   is light (≤10 mph) or offshore/glassy. A baseline NO stays NO.
  * - Advanced: downgraded to NO when waves fall below `acceptable.min` (2 ft);
  *   promoted to YES when waves exceed 8 ft AND the baseline verdict is at
  *   least MAYBE.
@@ -1049,9 +1049,8 @@ export function computeSurfCallTiers(
     maxWave <= beginnerRange.ideal.max &&
     lightWind
   ) {
-    // Conditions are in the beginner sweet spot — upgrade unless baseline already says NO for a different reason
+    // A baseline NO has no viable bounds; size/wind alone cannot restore a window.
     if (baseline.verdict === 'MAYBE') beginnerVerdict = 'YES';
-    else if (baseline.verdict === 'NO' && wind !== 'onshore') beginnerVerdict = 'MAYBE';
   }
 
   const beginner: TierVerdict = {
