@@ -9,6 +9,7 @@ import { cache } from "react";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { DEFAULT_TIMEZONE } from "@/lib/utils/timezone-constants";
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
+import { selectTideSeries } from "@/lib/services/tide-forecast-selection";
 
 export interface TideMetaData {
   /** Next high tide time formatted for display (e.g., "2:30 PM") */
@@ -144,7 +145,7 @@ export const getTideMetaData = cache(
       // Query tide_forecasts table for this beach
       const { data: rows, error } = await supabase
         .from("tide_forecasts")
-        .select("ts, tide_height_m, tide_phase")
+        .select("ts, tide_height_m, tide_phase, source, station_id, created_at")
         .eq("beach_id", beachId)
         .gte("ts", now.toISOString())
         .lte("ts", endTime.toISOString())
@@ -154,7 +155,7 @@ export const getTideMetaData = cache(
         return nullResult;
       }
 
-      const { nextHigh, nextLow } = findNextTideExtremes(rows);
+      const { nextHigh, nextLow } = findNextTideExtremes(selectTideSeries(rows));
 
       return {
         nextHighTime: nextHigh ? formatTideTime(nextHigh.ts, timezone) : null,

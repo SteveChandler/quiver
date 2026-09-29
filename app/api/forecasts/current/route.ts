@@ -11,6 +11,7 @@ import {
 import { updateBeachForecast } from "@/lib/utils/forecast-server-utils";
 import { readLatestForecastMetadata } from "@/lib/utils/forecast-service-utils";
 import { applyV51DisplayOverrideToForecasts } from "@/lib/services/forecast/v5-display-gate";
+import { selectTideSeries } from "@/lib/services/tide-forecast-selection";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
 export const dynamic = "force-dynamic";
@@ -80,18 +81,19 @@ async function readLatestHourlyTide(
   now: Date,
 ): Promise<string | null> {
   const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+  // Every row in the window, not just the newest, so a second station's row
+  // at the same hour cannot stand in for the station the chart shows.
   const { data, error } = await supabase
     .from("tide_forecasts")
-    .select("tide_ft")
+    .select("ts, tide_ft, tide_height_m, source, station_id, created_at")
     .eq("beach_id", beachId)
     .lte("ts", now.toISOString())
     .gte("ts", twoHoursAgo.toISOString())
-    .order("ts", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .order("ts", { ascending: true });
 
   if (error) throw new Error(error.message);
-  return formatTideHeight(data?.tide_ft);
+  const series = selectTideSeries(data ?? []);
+  return formatTideHeight(series[series.length - 1]?.tide_ft);
 }
 
 async function readCurrentRow(

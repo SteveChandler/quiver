@@ -111,6 +111,7 @@ function blockedDecision(candidateId: string) {
 function setupCompleteRecommendationQuery(
   beachIds: readonly string[] = [BEACH_ID],
   recommendationIneligibleIds: readonly string[] = [],
+  tideRows?: readonly Record<string, unknown>[],
 ): void {
   mockSupabaseClient.rpc.mockResolvedValueOnce({
     data: beachIds.map((id, index) => ({
@@ -174,7 +175,7 @@ function setupCompleteRecommendationQuery(
     .fn()
     .mockReturnValueOnce(tideChain)
     .mockResolvedValueOnce({
-      data: beachIds.map((beachId) => ({
+      data: tideRows ?? beachIds.map((beachId) => ({
         beach_id: beachId,
         ts: QUERY_TIME,
         created_at: QUERY_TIME,
@@ -549,6 +550,26 @@ describe("GET /api/v1/recommendations", () => {
           reasonCode: "hold_state_unavailable",
         },
       });
+    });
+  });
+
+  describe("tide series", () => {
+    it("scores the tide from the beach's current station when an older station overlaps it", async () => {
+      // Shipwrecks, Coronado: Point Loma hilo rows from before a coordinate
+      // edit and San Diego direct rows share the query hour.
+      setupCompleteRecommendationQuery([BEACH_ID], [], [
+        { beach_id: BEACH_ID, ts: QUERY_TIME, created_at: "2026-07-02T04:00:02.682Z", source: "noaa_hilo_interpolated", station_id: "TWC0405", tide_height_m: 0.5, tide_phase: null },
+        { beach_id: BEACH_ID, ts: QUERY_TIME, created_at: "2026-07-16T04:00:02.481Z", source: "noaa", station_id: "9410170", tide_height_m: 1, tide_phase: null },
+      ]);
+
+      const response = await GET(
+        createMockRequest("GET", "http://localhost:3000/api/v1/recommendations", {
+          searchParams: { lat: "32.79", lon: "-117.23", time: QUERY_TIME },
+        }),
+      );
+      const body = await expectSuccessResponse<any>(response, 200);
+
+      expect(body.data.recommendations[0].tide.height_ft).toBe(3.3);
     });
   });
 

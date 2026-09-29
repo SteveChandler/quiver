@@ -16,6 +16,7 @@ import {
 import { evaluateMajorEventHoldCandidates } from "@/lib/recommendations/major-event-hold/service";
 import type { MajorEventHoldCandidate } from "@/lib/recommendations/major-event-hold/types";
 import { scoreRecommendation } from "@/lib/utils/recommendation-scorer";
+import { selectTideSeries } from "@/lib/services/tide-forecast-selection";
 import type { Beach } from "@/types/database";
 import type {
   BeachWithDistance,
@@ -308,7 +309,7 @@ async function recommendationsHandler(
         .order("ts", { ascending: true }),
       supabase
         .from("tide_forecasts")
-        .select("beach_id,ts,created_at,source,tide_height_m,tide_phase")
+        .select("beach_id,ts,created_at,source,station_id,tide_height_m,tide_phase")
         .in("beach_id", beachIds)
         .gte("ts", windowStart)
         .lte("ts", windowEnd)
@@ -354,7 +355,7 @@ async function recommendationsHandler(
     const processingStart = Date.now();
     const scored: ScoredRecommendation[] = beaches.map((beach) => {
       const mrows = marineByBeach[beach.id] || [];
-      const trows = tideByBeach[beach.id] || [];
+      const trows = selectTideSeries(tideByBeach[beach.id] || []);
 
       let bestMarine: MarineForecastPoint | null = null;
       let bestMarineDiff = Infinity;

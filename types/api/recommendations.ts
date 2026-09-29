@@ -31,6 +31,7 @@ export type TideForecastPoint = Pick<
   | "ts"
   | "created_at"
   | "source"
+  | "station_id"
   | "tide_height_m"
   | "tide_phase"
 >;
