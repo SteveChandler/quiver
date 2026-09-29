@@ -2,7 +2,6 @@ import { EnhancedForecastService } from "@/lib/services/enhanced-forecast-servic
 
 const mockGetStationForLocation = jest.fn();
 const mockFetchWaterTemperature = jest.fn();
-const mockGetTideStation = jest.fn();
 
 jest.mock("@/lib/services/noaa-coops", () => ({
   NOAACOOPSService: jest.fn().mockImplementation(() => ({
@@ -12,11 +11,6 @@ jest.mock("@/lib/services/noaa-coops", () => ({
 
 jest.mock("@/lib/services/noaa-coops/api-client", () => ({
   fetchWaterTemperature: (...args: unknown[]) => mockFetchWaterTemperature(...args),
-}));
-
-jest.mock("@/lib/services/noaa-tide-service", () => ({
-  ...jest.requireActual("@/lib/services/noaa-tide-service"),
-  getTideStation: (...args: unknown[]) => mockGetTideStation(...args),
 }));
 
 jest.mock("@/lib/services/cdip", () => ({
@@ -35,14 +29,6 @@ type CoopsWaterTempService = {
   fetchCOOPSWaterTemp: (beach: unknown) => Promise<number | null>;
 };
 
-// Coordinates from NOAA's tidepredictions station list.
-const STATIONS: Record<string, { id: string; name: string; lat: number; lon: number }> = {
-  "9755371": { id: "9755371", name: "SAN JUAN", lat: 18.4589, lon: -66.1164 },
-  "9410170": { id: "9410170", name: "SAN DIEGO (Broadway)", lat: 32.7156, lon: -117.1767 },
-  "9410230": { id: "9410230", name: "La Jolla (Scripps Institution Wharf)", lat: 32.8669, lon: -117.2571 },
-  "8779770": { id: "8779770", name: "Port Isabel", lat: 26.0612, lon: -97.2155 },
-};
-
 function fetchWaterTemp(beach: { id: string; name: string; lat: number | null; lon: number | null }) {
   const service = new EnhancedForecastService() as unknown as CoopsWaterTempService;
   return service.fetchCOOPSWaterTemp(beach);
@@ -51,12 +37,11 @@ function fetchWaterTemp(beach: { id: string; name: string; lat: number | null; l
 describe("EnhancedForecastService CO-OPS water temperature", () => {
   beforeEach(() => {
     mockGetStationForLocation.mockReset();
-    mockGetTideStation.mockReset().mockImplementation(async (id: string) => STATIONS[id] ?? null);
     mockFetchWaterTemperature.mockReset().mockResolvedValue({ tempC: 20, observedAt: new Date().toISOString() });
   });
 
-  it("rejects a name-matched station on another ocean", async () => {
-    // "scorpion-bay-san-juanico" partial-matches "san-juan": San Juan, Puerto Rico, 4,800 km away.
+  it("rejects a station on another ocean", async () => {
+    // San Juan, Puerto Rico is 4,800 km from Scorpion Bay (San Juanico), Baja.
     mockGetStationForLocation.mockReturnValue("9755371");
 
     const temp = await fetchWaterTemp({ id: "scorpion-bay", name: "Scorpion Bay (San Juanico)", lat: 26.2424, lon: -112.475 });
@@ -66,7 +51,7 @@ describe("EnhancedForecastService CO-OPS water temperature", () => {
   });
 
   it("rejects a station beyond the cap on the same coast", async () => {
-    // Ocean Beach SF name-matches "ocean-beach" (San Diego), 740 km south.
+    // San Diego (Broadway) is 740 km south of Ocean Beach SF.
     mockGetStationForLocation.mockReturnValue("9410170");
 
     const temp = await fetchWaterTemp({ id: "ob-sf", name: "Ocean Beach SF – Middle", lat: 37.7601, lon: -122.5123 });
@@ -95,23 +80,12 @@ describe("EnhancedForecastService CO-OPS water temperature", () => {
     expect(mockFetchWaterTemperature).toHaveBeenCalledWith("8779770");
   });
 
-  it("rejects a station missing from NOAA's station list", async () => {
+  it("rejects a station without known coordinates", async () => {
     mockGetStationForLocation.mockReturnValue("0000000");
 
     const temp = await fetchWaterTemp({ id: "windansea", name: "Windansea", lat: 32.8299, lon: -117.2823 });
 
     expect(temp).toBeNull();
-    expect(mockFetchWaterTemperature).not.toHaveBeenCalled();
-  });
-
-  it("rejects, without fetching a reading, when NOAA's station list is unavailable", async () => {
-    mockGetStationForLocation.mockReturnValue("9410230");
-    mockGetTideStation.mockRejectedValue(new Error("NOAA stations failed: 503"));
-
-    await expect(
-      fetchWaterTemp({ id: "windansea", name: "Windansea", lat: 32.8299, lon: -117.2823 })
-    ).rejects.toThrow("NOAA stations failed: 503");
-    expect(mockGetTideStation).toHaveBeenCalledTimes(1);
     expect(mockFetchWaterTemperature).not.toHaveBeenCalled();
   });
 

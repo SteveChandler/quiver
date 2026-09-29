@@ -1,8 +1,8 @@
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { fetchWaterTemperature } from "@/lib/services/noaa-coops/api-client";
-import { getNearestTideStation, getTideStation } from "@/lib/services/noaa-tide-service";
+import { getStationDistanceKm } from "@/lib/services/noaa-coops/station-resolver";
+import { getNearestTideStation } from "@/lib/services/noaa-tide-service";
 import { getReviewedNwsPoint } from "@/lib/services/noaa-wavewatch/grid-utils";
-import { calculateDistance } from "@/lib/utils/distance-utils";
 import { ForecastDataSourceManager, NOAAWeatherDataSource } from "./forecast/data-source-manager";
 import { ForecastStorageService } from "./forecast/storage-service";
 import {
@@ -641,17 +641,13 @@ export class EnhancedForecastService {
       .getCOOPSService()
       .getStationForLocation(beach.name, lat, lon);
 
-    // The resolver name-matches before it looks at coordinates and otherwise
-    // falls back to the nearest region at any range: "Scorpion Bay (San
-    // Juanico)" resolves to San Juan, Puerto Rico. A station too far away to
-    // share this beach's water is no reading at all. Outside withRetry so a
-    // station-list outage costs one attempt per beach, not three.
-    const station = await getTideStation(stationId);
-    if (!station) return null;
-    const stationKm = calculateDistance({ lat, lon }, { lat: station.lat, lon: station.lon }, "km");
-    if (stationKm > EnhancedForecastService.COOPS_WATER_TEMP_MAX_KM) {
+    // Past its name matches the resolver falls back to the nearest region at
+    // any range: Scorpion Bay (San Juanico) resolves to San Diego, 850 km
+    // north. A station too far away to share this beach's water is no reading.
+    const stationKm = getStationDistanceKm(stationId, lat, lon);
+    if (stationKm === null || stationKm > EnhancedForecastService.COOPS_WATER_TEMP_MAX_KM) {
       log.debug(
-        `CO-OPS station ${stationId} is ${Math.round(stationKm)} km from ${beach.name}, skipping water temp`
+        `CO-OPS station ${stationId} is ${stationKm === null ? "unlocated" : `${Math.round(stationKm)} km`} from ${beach.name}, skipping water temp`
       );
       return null;
     }
