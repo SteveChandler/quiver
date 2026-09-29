@@ -12,6 +12,11 @@ import { breakTypesMatch } from './break-family';
 
 const BOARD_FIT_WEIGHT: Readonly<Record<string, number>> = { right: 1, too_small: -1, too_much_board: -1, wrong_type: -2 };
 
+// Habit may lift a board only so far: a board whose physical fit trails the best-fitting board the user
+// actually rides (>= ESTABLISHED_MATCHES similar sessions) by more than MAX_PHYSICAL_GAP cannot be the top pick.
+const MAX_PHYSICAL_GAP = 12;
+const ESTABLISHED_MATCHES = 3;
+
 export interface BoardSession {
   id: string;
   user_id?: string;
@@ -164,10 +169,14 @@ export function recommendBoard(
     const reason = likeThis.length >= 3
       ? `You ride ${board.name} on ${Math.floor(Math.min(...heights))}-${Math.ceil(Math.max(...heights))} ft days like this (${likeThis.length} sessions)`
       : `${board.name} fits these conditions; limited similar session history`;
-    return [{ id: board.id, name: board.name, type: board.board_type, boardClass: type, reason, score, matchedCount: matched.length }];
+    return [{ id: board.id, name: board.name, type: board.board_type, boardClass: type, reason, score, matchedCount: matched.length, physical }];
   }).sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
   if (!ranked.length) return null;
-  const alternates = ranked.slice(1).sort((a, b) => Number(b.matchedCount >= 3) - Number(a.matchedCount >= 3) || b.score - a.score || a.id.localeCompare(b.id));
-  const picks = [ranked[0], ...alternates.slice(0, 2)].map(({ score: _score, matchedCount: _count, ...board }) => board);
+  const established = ranked.filter((candidate) => candidate.matchedCount >= ESTABLISHED_MATCHES);
+  const reference = Math.max(...(established.length ? established : ranked).map((candidate) => candidate.physical));
+  const fits = (candidate: (typeof ranked)[number]) => candidate.physical >= reference - MAX_PHYSICAL_GAP;
+  const ordered = [...ranked.filter(fits), ...ranked.filter((candidate) => !fits(candidate))];
+  const alternates = ordered.slice(1).sort((a, b) => Number(b.matchedCount >= ESTABLISHED_MATCHES) - Number(a.matchedCount >= ESTABLISHED_MATCHES) || b.score - a.score || a.id.localeCompare(b.id));
+  const picks = [ordered[0], ...alternates.slice(0, 2)].map(({ score: _score, matchedCount: _count, physical: _physical, ...board }) => board);
   return { ...picks[0], alternates: picks.slice(1) };
 }

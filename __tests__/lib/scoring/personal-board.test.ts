@@ -102,3 +102,37 @@ it('still ranks boards using feedback between the evidence and like-this cutoffs
   expect(pick?.id).toBe('b');
   expect(pick?.reason).toBe('B fits these conditions; limited similar session history');
 });
+
+describe('physical-fit guard on the top pick', () => {
+  const lowForecast = { ...forecast, wave_height: '3 ft' };
+
+  it('does not let habit lift a board far below the best-fitting board the surfer rides', () => {
+    const pick = recommendBoard([board('sb', 'Twin pin', 'shortboard', 14, 3, 4), board('lb', 'Southpoint', 'longboard', 3, 3, 4)], lowForecast, beach, 'advanced');
+    expect(pick?.name).toBe('Southpoint');
+    expect(pick?.alternates.map((b) => b.name)).toEqual(['Twin pin']);
+    expect(pick).not.toHaveProperty('physical');
+  });
+
+  it('keeps the habit pick when the physical gap is within 12 points', () => {
+    const pick = recommendBoard([board('sb', 'Twin pin', 'shortboard', 14, 3.7, 4), board('mid', 'Ghombra', 'midlength', 3, 3.7, 4)], forecast, beach, 'advanced');
+    expect(pick?.name).toBe('Twin pin');
+    expect(pick?.alternates.map((b) => b.name)).toEqual(['Ghombra']);
+  });
+
+  it('does not measure the gap against a board without an established history', () => {
+    const pick = recommendBoard([board('sb', 'Twin pin', 'shortboard', 14, 3, 4), board('lb', 'Southpoint', 'longboard', 2, 3, 4)], lowForecast, beach, 'advanced');
+    expect(pick?.name).toBe('Twin pin');
+  });
+
+  it('leaves the score order alone when nobody has an established history', () => {
+    const pick = recommendBoard([board('a', 'A', 'fish', 2, 3.7, 5), board('m', 'M', 'midlength', 0, 3.7, 3)], forecast, beach, 'advanced');
+    expect(pick?.name).toBe('A');
+    expect(pick?.alternates.map((b) => b.name)).toEqual(['M']);
+  });
+
+  it('returns the only eligible board even when its physical fit is weak', () => {
+    const pick = recommendBoard([board('sb', 'Twin pin', 'shortboard', 14, 3, 4)], lowForecast, beach, 'advanced');
+    expect(pick?.name).toBe('Twin pin');
+    expect(pick?.alternates).toEqual([]);
+  });
+});
