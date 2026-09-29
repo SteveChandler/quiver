@@ -253,3 +253,86 @@ window stays at 24h.
 - Measurement is monitor-only: the count of indexed `/tides` pages in GSC and
   any structured-data warnings on the Dataset schema. There is no CTR
   expectation.
+
+## 2026-09-29 Water-temp CO-OPS Station Distance Cap
+
+Not a CTR test. This is a data-correctness fix to the reading shown on the
+`/{state}/{city}/{beach}/water-temp`, Mexico and legacy `/beach/{slug}/water-temp`
+pages, and on the `/water-temp/{city}` pages. Log it here so a CTR read on
+these pages is not attributed to a title change.
+
+**Bug.** `EnhancedForecastService.fetchCOOPSWaterTemp` took its station from
+`getStationForLocation`, which tries partial name matches before coordinates
+and otherwise falls back to the nearest region at any range. CO-OPS water temp
+is used whenever IOOS has no fresh reading, so name collisions reached the
+page. "Scorpion Bay (San Juanico)" showed San Juan, Puerto Rico (87°F).
+Ocean Beach SF showed San Diego Bay (76°F against a 58°F buoy). Seabrook WA
+showed La Jolla, and Sunset Bay OR showed Honolulu.
+
+**Fix.** A resolved station more than 200 km from the beach gives no reading.
+The page then falls back to IOOS if fresh, otherwise the latitude estimate
+(the NDBC step is dead code). The cap is wider than the tide rule's 120 km
+because, against the nearest buoy, stations 120–200 km away read within 1.3°F
+(median, n=19) and all 19 beat the estimate. Past 400 km they were 16.9°F off.
+A 120 km cap would have moved 34 more beaches (Maui/Kauai, Florida east
+coast, Texas Coastal Bend, Pensacola, the Carolinas) from a 1.3°F to a 6.1°F
+median error.
+
+**What changes on the page:** only the temperature value and what is derived
+from it:
+
+- The `{temp}°F` in the title and meta description (`buildDynamicWaterTempMetadata`,
+  and the city page's meta description).
+- The "Water temp now" hero, the wetsuit advice and the `WaterTempDatasetSchema`
+  values.
+
+**What does not change:**
+
+- Templates, title and description wording, URLs and canonicals.
+- Coverage. The sitemap and the sub-page count a beach as covered when its
+  newest row has a readable `water_temp`, and the city rule
+  (`has_water_temp_data`) wants any non-empty `water_temp` in 7 days. The
+  latitude estimate always produces one, so sitemap membership and `index`
+  decisions are unchanged.
+
+**Measured against production (read-only, 2026-09-29).** 558 beaches. Today's
+sources were IOOS 25, CO-OPS 408 and estimate 125.
+
+| | Beaches |
+| --- | ---: |
+| CO-OPS → latitude estimate | 90 (18 outside Mexico, 72 Mexico) |
+| With a buoy within 50 km | 11: median error 16.9°F → 10.7°F, 8 improve |
+| Baja below 30°N (San Diego 76°F → estimate 75°F) | 57, effectively unchanged |
+
+GSC-protected pages whose number changes (snapshot
+`gsc-performance-protection.v1.json`):
+
+| Page | Before → after | Buoy | Clicks / impressions |
+| --- | --- | ---: | ---: |
+| `/ca/san-francisco/ocean-beach-middle-san-francisco-ca/water-temp` | 76 → 62°F | 58°F | 0 / 120 |
+| `/wa/pacific-beach/seabrook-pacific-beach-area/water-temp` | 71 → 54°F | 58°F | 1 / 86 |
+| `/water-temp/kailua-kona` | 83 → 80°F | — | 16 / 1,776 |
+| `/water-temp/long-beach-ny` | 60 → 54°F | 65°F | 30 / 2,205 |
+
+Long Beach NY gets less accurate. Its old reading came from Toke Point, WA,
+and the estimate is further off than that.
+
+**Remaining upstream issues (not fixed here):**
+
+- The resolver's name matching is not gated by distance, so Newport Beach CA,
+  Seaside Reef (Solana Beach) and Long Beach NY never get the real nearby
+  sensor. Fixing it at the source would replace their estimates with readings.
+- The latitude estimate peaks in June rather than Aug–Sep and uses coarse
+  latitude bands. It is 8–11°F off (median) against buoys in late September
+  and is shown as "Water temp now".
+
+**Deploy and hold.**
+
+- Ship it apart from the 2026-09-27 tide sub-page fix, which ships with no
+  other SEO change riding along. Record the deploy date and prod SHA here when
+  it ships.
+- No four-week hold. No template, schema or coverage rule changes, and the
+  value already changes on every refresh.
+- Monitor only: position and CTR on the four pages above in the first full
+  28-day window after deploy. Don't read a change on Long Beach NY or
+  Kailua-Kona as a title effect.
