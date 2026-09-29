@@ -4,22 +4,15 @@ import { swellInterferenceScorer } from '@/lib/domains/scoring/scorers/swell-int
 import { forecastToSnapshot, beachToSpotProfile } from '@/lib/domains/scoring/discovery-adapter';
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
-import { normalizeBoardClass, getRideabilityBand, type BoardClass } from '@/lib/domains/rideability';
-import { resolveNativeSkillLevel, scoreNativeForecastSlot } from './native-condition-score';
+import type { BoardClass } from '@/lib/domains/rideability';
+import { resolveNativeSkillLevel } from './native-condition-score';
+import { boardLengthIn, classFitScore, fitConditions, pickReasonText, resolvePickClass } from './conditions-board-fit';
 import { getDirectionDegrees } from '@/lib/utils/number-parsing';
 import { parseWaveHeightMidpointFt } from '@/lib/alerts/forecast-parsers';
 import { breakTypesMatch } from './break-family';
 
-// not_right is the legacy sessions.board_fit negative; it carries a generic negative's weight, not wrong_type's.
-const BOARD_FIT_WEIGHT: Readonly<Record<string, number>> = { right: 1, too_small: -1, too_much_board: -1, wrong_type: -2, not_right: -1 };
-const NEGATIVE_BOARD_FIT: ReadonlySet<string> = new Set(['too_small', 'too_much_board', 'wrong_type', 'not_right']);
 const LEGACY_BOARD_FIT: Readonly<Record<string, string>> = { not_right: 'not_right', good: 'right', perfect: 'right' };
 const LOW_RATING = 2;
-
-// Habit may lift a board only so far: a board whose physical fit trails the best-fitting board the user
-// actually rides (>= ESTABLISHED_MATCHES similar sessions) by more than MAX_PHYSICAL_GAP cannot be the top pick.
-const MAX_PHYSICAL_GAP = 12;
-const ESTABLISHED_MATCHES = 3;
 
 export interface BoardSession {
   id: string;
@@ -35,20 +28,22 @@ export interface BoardSession {
   session_forecast_snapshots?: { forecast_snapshot: Record<string, unknown> } | { forecast_snapshot: Record<string, unknown> }[] | null;
 }
 export interface PersonalBoard extends BoardForPick {
+  /** e.g. 6'4 x 20 x 2.5; length sizes up long fish and twins. */
+  dimensions?: string | null;
   sessions?: BoardSession[];
 }
 export interface RecommendedBoard {
   id: string;
   name: string;
   type: string;
-  /** Class the rule scored this board as (type first, then name, as SQL does). */
+  /** Class the rule scored this board as (a specific name such as "twin pin" beats a generic shortboard type). */
   boardClass: BoardClass;
   reason: string;
   alternates: Omit<RecommendedBoard, 'alternates'>[];
 }
 
 // Included in the existing board read; filters on the embedded sessions preserve ownership.
-export const PERSONAL_BOARD_SELECT = 'id,name,board_type,volume,session_count,sessions(id,user_id,status,deleted_at,rating,arrival_time,session_board_fit,board_fit,beaches!sessions_beach_id_fkey(break_type,preferred_tide_ft_min,preferred_tide_ft_max),session_forecast_snapshots(forecast_snapshot))';
+export const PERSONAL_BOARD_SELECT = 'id,name,board_type,volume,dimensions,session_count,sessions(id,user_id,status,deleted_at,rating,arrival_time,session_board_fit,board_fit,beaches!sessions_beach_id_fkey(break_type,preferred_tide_ft_min,preferred_tide_ft_max),session_forecast_snapshots(forecast_snapshot))';
 
 function sessionSnapshot(session: BoardSession): Record<string, unknown> | undefined {
   const snapshots = session.session_forecast_snapshots;
@@ -127,7 +122,40 @@ export function conditionSimilarity(snapshot: Record<string, unknown>, forecast:
   return Math.exp(-distance / 2);
 }
 
-/** One deterministic board rule. All evidence is supplied by the caller. */
+
+// History only nudges a conditions-first pick: it breaks ties between boards that already fit.
+const HISTORY_NUDGE_POINTS = 5;
+const EVIDENCE_SIMILARITY = 0.35;
+const FIT_SENTIMENT: Readonly<Record<string, number>> = { right: 1, wrong_type: -1, too_small: -0.75, too_much_board: -0.75, not_right: -0.75 };
+const PICK_FLOOR = 40;
+const GOOD_FIT = 60;
+
+function sessionSentiment(session: BoardSession): number {
+  const fit = FIT_SENTIMENT[sessionBoardFit(session) ?? ''];
+  const rating = session.rating;
+  const positive = fit !== undefined && fit > 0 ? fit : rating !== null && rating >= 4 ? 0.4 : 0;
+  const negative = fit !== undefined && fit < 0 ? -fit : rating !== null && rating <= LOW_RATING ? 0.6 : 0;
+  return Math.max(-1, Math.min(1, positive - negative));
+}
+
+/** Bounded (±5 points) nudge from how this board went in similar past conditions. */
+export function boardHistoryNudge(board: PersonalBoard, forecast: EnhancedForecastEntity, beach: Beach): number {
+  let weight = 0;
+  let sentiment = 0;
+  for (const session of board.sessions ?? []) {
+    if (session.status !== 'completed' || session.deleted_at) continue;
+    const snapshot = sessionSnapshot(session);
+    if (!snapshot) continue;
+    const similarity = conditionSimilarity(snapshot, forecast, session.beaches, beach);
+    if (similarity < EVIDENCE_SIMILARITY) continue;
+    weight += similarity;
+    sentiment += similarity * sessionSentiment(session);
+  }
+  const net = weight > 0 ? sentiment / (weight + 1.5) : 0;
+  return HISTORY_NUDGE_POINTS * Math.max(-1, Math.min(1, net / 0.6));
+}
+
+/** One deterministic, conditions-first board rule. All evidence is supplied by the caller. */
 export function recommendBoard(
   boards: readonly PersonalBoard[],
   forecast: EnhancedForecastEntity,
@@ -136,78 +164,26 @@ export function recommendBoard(
 ): RecommendedBoard | null {
   // Same unknown-skill default as the slot scorer, so a pick and its score agree.
   const skill = resolveNativeSkillLevel(typeof experience === 'string' ? experience : null, 'intermediate');
-  const height = parseWaveHeightMidpointFt(forecast.wave_height);
-  if (height === null) return null;
-  const at = Date.parse(forecast.forecast_at);
-  if (boards.length === 0) return null;
+  if (boards.length === 0 || parseWaveHeightMidpointFt(forecast.wave_height) === null) return null;
   const interference = swellInterferenceScorer.score({
     snapshot: forecastToSnapshot(forecast), profile: beachToSpotProfile(beach), window: null, preferences: null,
   }).score;
-  const evidence = boards.map((board) => ({
-    board,
-    sessions: (board.sessions ?? []).filter((s) => s.status === 'completed' && !s.deleted_at)
-      .flatMap((session) => {
-        const snapshot = sessionSnapshot(session);
-        return snapshot ? [{ session, snapshot, weight: conditionSimilarity(snapshot, forecast, session.beaches, beach) }] : [];
-      }),
-  }));
-  const totalWeight = evidence.flatMap((entry) => entry.sessions).filter((entry) => entry.weight >= 0.35).reduce((sum, entry) => sum + entry.weight, 0);
-  const historyBlend = totalWeight / (totalWeight + 5);
-  const ranked = evidence.flatMap(({ board, sessions }) => {
-    const type = normalizeBoardClass(board.board_type) ?? normalizeBoardClass(board.name);
-    if (!type) return [];
-    const band = getRideabilityBand(skill, type);
-    // Habit cannot compensate for being outside the board's physical range.
-    if (height < band.acceptable.min || height > band.acceptable.max) return [];
-    if (!getConditionBoardPick(toForecastForScoring(forecast), [board], beach, { kind: "scored", boardClass: type })) return [];
-    const physical = scoreNativeForecastSlot(forecast, skill, band) - (band.prefersClean ? (100 - interference) * 0.1 : 0);
-    if (physical < 40) return [];
-    const matched = sessions.filter((entry) => entry.weight >= 0.35);
-    const weight = matched.reduce((sum, entry) => sum + entry.weight, 0);
-    const others = evidence.filter((entry) => entry.board.id !== board.id)
-      .flatMap((entry) => entry.sessions).filter((entry) => entry.weight >= 0.35 && entry.session.rating !== null);
-    const otherWeight = others.reduce((sum, entry) => sum + entry.weight, 0);
-    const baseline = otherWeight > 0 ? others.reduce((sum, entry) => sum + entry.weight * entry.session.rating!, 0) / otherWeight : 3;
-    let ratingWeight = 0;
-    let ratingSum = 0;
-    let feedback = 0;
-    let habitWeight = 0;
-    for (const entry of matched) {
-      const fit = sessionBoardFit(entry.session);
-      const negative = fit !== null && NEGATIVE_BOARD_FIT.has(fit);
-      const rating = entry.session.rating;
-      if (rating !== null) {
-        ratingWeight += entry.weight;
-        const delta = rating - baseline;
-        ratingSum += entry.weight * (negative ? Math.min(delta, 0) : delta);
-      }
-      feedback += entry.weight * (BOARD_FIT_WEIGHT[fit ?? ''] ?? 0);
-      // A session that went badly shows the board was ridden, not preferred; it must not build habit.
-      if (!negative && !(rating !== null && rating <= LOW_RATING)) habitWeight += entry.weight;
-    }
-    const recency = sessions.reduce((best, entry) => {
-      const age = (at - Date.parse(entry.session.arrival_time ?? '')) / 86_400_000;
-      return Number.isFinite(age) && age >= 0 ? Math.max(best, Math.exp(-age / 90)) : best;
-    }, 0);
-    const boardBlend = weight / (weight + 5);
-    const habitBlend = habitWeight / (habitWeight + 5);
-    const personal = physical * 0.5 + 50 * habitBlend
-      + boardBlend * ((ratingWeight ? 12 * ratingSum / ratingWeight : 0) + (weight ? 25 * feedback / weight : 0))
-      + 3 * Math.min(1, sessions.length / 20) + 2 * recency;
-    const score = physical * (1 - historyBlend) + personal * historyBlend;
-    const likeThis = sessions.filter((entry) => entry.weight >= LIKE_THIS_SIMILARITY);
-    const heights = likeThis.map(({ snapshot }) => parseWaveHeightMidpointFt(String(snapshot.wave_height ?? ''))!).filter(Number.isFinite);
-    const reason = likeThis.length >= 3
-      ? `You ride ${board.name} on ${Math.floor(Math.min(...heights))}-${Math.ceil(Math.max(...heights))} ft days like this (${likeThis.length} sessions)`
-      : `${board.name} fits these conditions; limited similar session history`;
-    return [{ id: board.id, name: board.name, type: board.board_type, boardClass: type, reason, score, matchedCount: matched.length, physical }];
-  }).sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
-  if (!ranked.length) return null;
-  const established = ranked.filter((candidate) => candidate.matchedCount >= ESTABLISHED_MATCHES);
-  const reference = Math.max(...(established.length ? established : ranked).map((candidate) => candidate.physical));
-  const fits = (candidate: (typeof ranked)[number]) => candidate.physical >= reference - MAX_PHYSICAL_GAP;
-  const ordered = [...ranked.filter(fits), ...ranked.filter((candidate) => !fits(candidate))];
-  const alternates = ordered.slice(1).sort((a, b) => Number(b.matchedCount >= ESTABLISHED_MATCHES) - Number(a.matchedCount >= ESTABLISHED_MATCHES) || b.score - a.score || a.id.localeCompare(b.id));
-  const picks = [ordered[0], ...alternates.slice(0, 2)].map(({ score: _score, matchedCount: _count, physical: _physical, ...board }) => board);
-  return { ...picks[0], alternates: picks.slice(1) };
+  const conditions = fitConditions(forecast, beach, interference);
+  if (!conditions) return null;
+  const ranked = boards.flatMap((board) => {
+    const boardClass = resolvePickClass(board);
+    if (!boardClass) return [];
+    const fit = classFitScore(conditions, skill, boardClass, boardLengthIn(board.dimensions));
+    if (fit === null) return [];
+    // Power-day safety still vetoes a board whatever its fit.
+    if (!getConditionBoardPick(toForecastForScoring(forecast), [board], beach, { kind: 'scored', boardClass })) return [];
+    return [{ board, boardClass, score: fit + boardHistoryNudge(board, forecast, beach) }];
+  }).sort((a, b) => b.score - a.score || a.board.id.localeCompare(b.board.id));
+  const [pick, ...rest] = ranked;
+  if (!pick || pick.score < PICK_FLOOR) return null;
+  const toBoard = ({ board, boardClass, score }: (typeof ranked)[number]) => ({
+    id: board.id, name: board.name, type: board.board_type, boardClass,
+    reason: pickReasonText(conditions, skill, board.name, boardClass, score < GOOD_FIT),
+  });
+  return { ...toBoard(pick), alternates: rest.filter((entry) => entry.score >= PICK_FLOOR).slice(0, 2).map(toBoard) };
 }
