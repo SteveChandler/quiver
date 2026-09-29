@@ -5,6 +5,7 @@ jest.mock("@/lib/cron/outcome", () => ({
 }));
 
 import { readFileSync } from "fs";
+import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 
 // NextResponse.json relies on the static Response.json() helper (available in newer runtimes).
 // Jest's jsdom environment may not provide it, so we polyfill it for route handler tests.
@@ -36,7 +37,48 @@ jest.mock("@/lib/services/noaa-tide-service", () => ({
     mockFetchHourlyTidePredictions(...args),
 }));
 
+const mockFetchCOOPSData = jest.fn();
+
+jest.mock("@/lib/services/noaa-coops", () => ({
+  NOAACOOPSService: jest.fn().mockImplementation(() => ({
+    fetchCOOPSData: (...args: any[]) => mockFetchCOOPSData(...args),
+  })),
+}));
+
 const mockSupabaseFrom = jest.fn();
+
+function thenable(result: unknown) {
+  const builder: any = {
+    then: (resolve: any, reject: any) => Promise.resolve(result).then(resolve, reject),
+  };
+  for (const method of ["select", "not", "eq", "order", "limit", "in", "gte", "lte"]) {
+    builder[method] = () => builder;
+  }
+  return builder;
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function hourlyPoints(count: number) {
+  return Array.from({ length: count }, (_, i) => ({
+    ts: new Date(Date.now() + (i + 1) * 60 * 60 * 1000).toISOString(),
+    tide_height_m: 1 + Math.sin(i / 2),
+    tide_phase: null,
+  }));
+}
+
+async function runTideRefresh(query: string) {
+  const { GET } = require("@/app/api/cron/forecasts/refresh/route");
+  const { withCronOutcome } = require("@/lib/cron/outcome");
+  const res = await GET(
+    new Request(`http://localhost:3000/api/cron/forecasts/refresh?${query}`, {
+      headers: { authorization: "Bearer test-cron-secret" },
+    })
+  );
+  const json = JSON.parse(await res.text());
+  const [options] = (withCronOutcome as jest.Mock).mock.calls.at(-1);
+  return { json, failureReason: options.failureReason(json.data) as string | null };
+}
 
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: () => ({ from: (...args: any[]) => mockSupabaseFrom(...args) }),
@@ -176,8 +218,107 @@ describe("/api/cron/forecasts/refresh (tides)", () => {
     // 2 beaches * 2 tide points
     expect(json.data.totals.tides).toBe(4);
   });
-});
 
+  describe("coverage", () => {
+    beforeEach(() => {
+      jest.resetModules();
+      mockGetNearestTideStation.mockReset();
+      mockFetchHourlyTidePredictions.mockReset();
+      mockFetchCOOPSData.mockReset().mockResolvedValue(null);
+      mockSupabaseFrom.mockReset();
+    });
+
+    it("retries a station whose NOAA fetch failed and writes it on the second try", async () => {
+      // 2026-09-27: every upsert returned 201, but a quarter of the stations
+      // came back with no points and their beaches kept aging.
+      mockGetNearestTideStation.mockResolvedValue({ id: "9410840", name: "Santa Monica", lat: 34.008, lon: -118.5 });
+      mockFetchHourlyTidePredictions
+        .mockRejectedValueOnce(new Error("NOAA tide failed: 503"))
+        .mockResolvedValueOnce(hourlyPoints(3));
+      const upsertTides = jest.fn(async () => ({ error: null }));
+      mockSupabaseFrom.mockImplementation((table: string) => {
+        if (table === "beaches") return thenable({ data: [{ id: "beach-a", name: "A", lat: 34.03, lon: -118.67, tide_forecasts: [] }], error: null });
+        if (table === "tide_forecasts") return { upsert: upsertTides };
+        return { upsert: jest.fn(async () => ({ error: null })) };
+      });
+
+      const { json, failureReason } = await runTideRefresh("tidesBackfillMissing=1");
+
+      expectConsoleWarnings([/NOAA hourly tide fetch failed/, /NOAA tides empty for station/]);
+      expect(mockFetchHourlyTidePredictions).toHaveBeenCalledTimes(2);
+      expect(upsertTides).toHaveBeenCalledTimes(1);
+      expect(json.data.totals.tides).toBe(3);
+      expect(json.data.tideIngest).toEqual(expect.objectContaining({
+        retriedStations: 1,
+        recoveredStations: 1,
+        failedStations: [],
+        beachesBelowMinCoverage: 0,
+      }));
+      expect(failureReason).toBeNull();
+    });
+
+    it("fails the run when a beach with a station would keep under 7 days of tides", async () => {
+      const now = Date.now();
+      const beaches = [
+        { id: "lapsing", name: "Lapsing", lat: 32.67, lon: -117.17 },
+        { id: "fresh", name: "Fresh", lat: 32.68, lon: -117.18 },
+        { id: "no-station", name: "Cabo Pulmo", lat: 23.44, lon: -109.42 },
+      ];
+      mockGetNearestTideStation.mockImplementation(async (lat: number) =>
+        lat < 30 ? null : { id: "9410170", name: "San Diego", lat: 32.7156, lon: -117.1767 });
+      mockFetchHourlyTidePredictions.mockRejectedValue(new Error("NOAA tide failed: 503"));
+      mockSupabaseFrom.mockImplementation((table: string) => {
+        if (table === "beaches") return thenable({ data: beaches, error: null });
+        if (table === "v_tide_forecast_latest") {
+          return thenable({
+            data: [
+              // Written 25 days ago: 30 days of rows leave 5 days of coverage.
+              { beach_id: "lapsing", created_at: new Date(now - 25 * DAY_MS).toISOString() },
+              { beach_id: "fresh", created_at: new Date(now - 2 * DAY_MS).toISOString() },
+            ],
+            error: null,
+          });
+        }
+        if (table === "tide_forecasts") return { upsert: jest.fn(async () => ({ error: null })) };
+        return { upsert: jest.fn(async () => ({ error: null })) };
+      });
+
+      const { json, failureReason } = await runTideRefresh("source=tide");
+
+      expectConsoleWarnings([/NOAA hourly tide fetch failed/, /NOAA tides empty for station/]);
+      // Both San Diego beaches are past the 24h refresh window, so they share the failed group.
+      expect(json.data.tideIngest).toEqual(expect.objectContaining({
+        failedStations: [{ stationId: "9410170", beaches: 2, reason: "no_predictions" }],
+        beachesWithoutStation: 1,
+        beachesBelowMinCoverage: 1,
+        beachIdsBelowMinCoverage: ["lapsing"],
+      }));
+      expect(failureReason).toBe("tide coverage under 7 days for 1 beach");
+    });
+
+    it("records a failed upsert instead of dropping it", async () => {
+      mockGetNearestTideStation.mockResolvedValue({ id: "9410230", name: "La Jolla", lat: 32.867, lon: -117.257 });
+      mockFetchHourlyTidePredictions.mockResolvedValue(hourlyPoints(2));
+      const upsertTides = jest.fn(async () => ({ error: { message: "canceling statement due to statement timeout" } }));
+      mockSupabaseFrom.mockImplementation((table: string) => {
+        if (table === "beaches") return thenable({ data: [{ id: "beach-a", name: "A", lat: 32.86, lon: -117.26, tide_forecasts: [] }], error: null });
+        if (table === "tide_forecasts") return { upsert: upsertTides };
+        return { upsert: jest.fn(async () => ({ error: null })) };
+      });
+
+      const { json, failureReason } = await runTideRefresh("tidesBackfillMissing=1");
+
+      expectConsoleWarnings([/Tide upsert failed/]);
+      expect(upsertTides).toHaveBeenCalledTimes(2);
+      expect(json.data.tideIngest.failedStations).toEqual([
+        { stationId: "9410230", beaches: 1, reason: "upsert_failed" },
+      ]);
+      // A beach that has never had tides and still has none is under the floor.
+      expect(failureReason).toBe("tide coverage under 7 days for 1 beach");
+    });
+
+  });
+});
 
 
 
