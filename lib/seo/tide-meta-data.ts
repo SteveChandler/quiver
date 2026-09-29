@@ -19,6 +19,13 @@ export interface TideMetaData {
   nextHighHeight: number | null;
   /** Next low tide height in feet */
   nextLowHeight: number | null;
+  /**
+   * ISO timestamp of the next high tide. The display times carry no date, so
+   * ordering the two events (e.g. a high tonight, a low after midnight) needs this.
+   */
+  nextHighAt: string | null;
+  /** ISO timestamp of the next low tide. */
+  nextLowAt: string | null;
 }
 
 /**
@@ -126,6 +133,8 @@ export const getTideMetaData = cache(
       nextLowTime: null,
       nextHighHeight: null,
       nextLowHeight: null,
+      nextHighAt: null,
+      nextLowAt: null,
     };
 
     if (!beachId) return nullResult;
@@ -172,6 +181,8 @@ export const getTideMetaData = cache(
         nextLowTime: nextLow ? formatTideTime(nextLow.ts, timezone) : null,
         nextHighHeight: nextHigh ? Math.round(nextHigh.heightFt * 10) / 10 : null,
         nextLowHeight: nextLow ? Math.round(nextLow.heightFt * 10) / 10 : null,
+        nextHighAt: nextHigh?.ts ?? null,
+        nextLowAt: nextLow?.ts ?? null,
       };
     } catch (error) {
       console.error("[getTideMetaData] Error fetching tide data:", {

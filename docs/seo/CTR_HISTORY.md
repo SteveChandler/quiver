@@ -195,6 +195,11 @@ and Seaside Park NJ showed high 6 PM, low 7 PM.
   tide at …" descriptions).
 - The visible tide summary hero.
 - The install-CTA proof chip.
+- The hero's Rising/Falling badge. Correct pairs often straddle midnight
+  (high 11 PM, low 5 AM), and the badge compared clock times, so it read
+  "Falling" on a rising tide. It now compares the dated `nextHighAt` /
+  `nextLowAt` fields added to `TideMetaData`. Visible text only; ship it in the
+  same deploy as this fix.
 
 **What does not change:**
 

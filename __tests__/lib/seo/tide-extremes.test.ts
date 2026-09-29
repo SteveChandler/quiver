@@ -163,6 +163,19 @@ describe("getTideMetaData", () => {
     expect(meta.nextHighTime).toBe("10:00 PM");
     expect(meta.nextLowHeight).toBe(0.7);
     expect(meta.nextHighHeight).toBe(3.6);
+    // Dated timestamps alongside the display times, so a high at 10 PM can be
+    // ordered against a low after midnight.
+    expect(meta.nextLowAt).toBe("2026-09-28T01:00:00.000Z");
+    expect(meta.nextHighAt).toBe("2026-09-28T05:00:00.000Z");
+  });
+
+  it("returns null timestamps when there is no tide data", async () => {
+    tideQuery.order.mockResolvedValue({ data: [], error: null });
+
+    const meta = await getTideMetaData("beach-no-tides");
+
+    expect(meta.nextHighAt).toBeNull();
+    expect(meta.nextLowAt).toBeNull();
   });
 });
 
