@@ -169,6 +169,28 @@ describe("getTideMetaData", () => {
     expect(meta.nextHighAt).toBe("2026-09-28T05:00:00.000Z");
   });
 
+  it("reads one station when an older station's rows overlap the current one", async () => {
+    // Shipwrecks, Coronado on 2026-09-27: San Diego direct rows and older
+    // Point Loma hilo rows at the same hours. Interleaved, every hour was a turn.
+    const heights = [1.2, 1.0, 0.7, 0.4, 0.2, 0.3, 0.6, 0.9, 1.1, 1.0];
+    const ts = (i: number): string => new Date(Date.UTC(2026, 8, 27, 21 + i)).toISOString();
+    tideQuery.order.mockResolvedValue({
+      data: heights.flatMap((tide_height_m, i) => [
+        { ts: ts(i), tide_height_m: tide_height_m - 0.3, source: "noaa_hilo_interpolated", station_id: "TWC0405", created_at: "2026-09-02T04:00:02.682Z" },
+        { ts: ts(i), tide_height_m, source: "noaa", station_id: "9410170", created_at: "2026-09-16T04:00:02.481Z" },
+      ]),
+      error: null,
+    });
+
+    const meta = await getTideMetaData("beach-shipwrecks");
+
+    expect(tideQuery.select).toHaveBeenCalledWith(expect.stringContaining("station_id"));
+    expect(meta.nextLowAt).toBe("2026-09-28T01:00:00.000Z");
+    expect(meta.nextHighAt).toBe("2026-09-28T05:00:00.000Z");
+    expect(meta.nextLowHeight).toBe(0.7);
+    expect(meta.nextHighHeight).toBe(3.6);
+  });
+
   it("returns null timestamps when there is no tide data", async () => {
     tideQuery.order.mockResolvedValue({ data: [], error: null });
 

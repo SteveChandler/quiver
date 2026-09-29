@@ -40,6 +40,10 @@ import {
   type TideHeightRow,
 } from "@/lib/seo/tide-meta-data";
 import {
+  selectTideSeries,
+  type TideForecastSelectionRow,
+} from "@/lib/services/tide-forecast-selection";
+import {
   cityEditorialKey,
   evaluateBeachIndexability,
   evaluateCityDataIntentIndexability,
@@ -132,6 +136,9 @@ interface TideCoverageRow {
   beach_id: string | null;
   ts: string | null;
   tide_height_m: number | null;
+  source: string | null;
+  station_id: string | null;
+  created_at: string | null;
 }
 
 interface WaterTempCoverageRow {
@@ -141,7 +148,8 @@ interface WaterTempCoverageRow {
 }
 
 // PostgREST caps a response at 1000 rows regardless of .limit(). Coverage now
-// reads every row per beach (25 hourly tide points, ~8 water-temp points), so
+// reads every row per beach (25 hourly tide points, twice that while a beach
+// still holds an old station's series, and ~8 water-temp points), so
 // the batch must stay small enough that a full batch cannot reach that cap:
 // 10 beaches x 25h stays well under it even if tide granularity went 4x finer.
 const BEACH_COVERAGE_BATCH_SIZE = 10;
@@ -269,7 +277,7 @@ async function fetchBeachSubPageCoverage(
         const [tideResponse, waterTempResponse] = await Promise.all([
           supabase
             .from("tide_forecasts")
-            .select("beach_id, ts, tide_height_m")
+            .select("beach_id, ts, tide_height_m, source, station_id, created_at")
             .in("beach_id", batch)
             .gte("ts", tideWindow.from)
             .lte("ts", tideWindow.to)
@@ -296,20 +304,25 @@ async function fetchBeachSubPageCoverage(
       } else {
         const rows = (tideResponse.data ?? []) as TideCoverageRow[];
         warnIfTruncated(rows.length, "tide");
-        const byBeach = new Map<string, TideHeightRow[]>();
+        const byBeach = new Map<string, Array<TideHeightRow & TideForecastSelectionRow>>();
         for (const row of rows) {
           if (!row.beach_id || !row.ts) continue;
-          const series = byBeach.get(row.beach_id) ?? [];
-          series.push({ ts: row.ts, tide_height_m: row.tide_height_m });
-          byBeach.set(row.beach_id, series);
+          const beachRows = byBeach.get(row.beach_id) ?? [];
+          beachRows.push({
+            ts: row.ts,
+            tide_height_m: row.tide_height_m,
+            source: row.source,
+            station_id: row.station_id,
+            created_at: row.created_at,
+          });
+          byBeach.set(row.beach_id, beachRows);
         }
-        // Same predicate the sub-page runs: rows alone are not coverage, a
-        // detectable high or low is. Ordering is done here rather than in the
-        // query so coverage does not depend on the database returning sorted
-        // rows.
-        for (const [beachId, series] of byBeach) {
-          series.sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts));
-          const { nextHigh, nextLow } = findNextTideExtremes(series);
+        // Same predicate the sub-page runs, on the same single series: rows
+        // alone are not coverage, a detectable high or low is. selectTideSeries
+        // also orders the rows, so coverage does not depend on the database
+        // returning them sorted.
+        for (const [beachId, beachRows] of byBeach) {
+          const { nextHigh, nextLow } = findNextTideExtremes(selectTideSeries(beachRows));
           if (nextHigh || nextLow) tideCoverage.add(beachId);
         }
       }

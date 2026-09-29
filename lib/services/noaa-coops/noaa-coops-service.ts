@@ -38,8 +38,7 @@ import {
 import { TideExtremaDetector, TideSample } from "./tide-extrema-detector";
 import { TideCacheMonitor } from "./tide-cache-monitor";
 import {
-  getUtcHourKey,
-  isPreferredTideForecastRow,
+  selectTideSeries,
   type TideForecastSelectionRow,
 } from "../tide-forecast-selection";
 
@@ -212,7 +211,7 @@ export class NOAACOOPSService {
       // Query tide_forecasts table for this beach
       const { data: rows, error } = await supabase
         .from("tide_forecasts")
-        .select("ts, tide_height_m, tide_phase, source, created_at")
+        .select("ts, tide_height_m, tide_phase, source, station_id, created_at")
         .eq("beach_id", beachId)
         .gte("ts", startTime.toISOString())
         .lte("ts", endTime.toISOString())
@@ -231,9 +230,8 @@ export class NOAACOOPSService {
         return null;
       }
 
-      // Deduplicate rows that share the same hour (multiple cron runs
-      // can insert rows at :17, :22, :50 seconds within the same hour).
-      // Duplicates cause plateaus that break extrema detection.
+      // One station, one row per hour: duplicates cause plateaus and a second
+      // station's series causes fake turns, both of which break extrema detection.
       const dedupedRows = this.deduplicateByHour(rows);
 
       if (this.isVerbose() && dedupedRows.length < rows.length) {
@@ -441,23 +439,14 @@ export class NOAACOOPSService {
   }
 
   /**
-   * Deduplicate tide forecast rows by hour.
-   * Multiple cron runs can insert rows at different seconds within the same
-   * hour (e.g., :17, :22, :50). Keeping only the first row per hour prevents
-   * plateaus that confuse the TideExtremaDetector.
+   * Reduce cached rows with a usable height to one series (see selectTideSeries).
    */
   private deduplicateByHour(
     rows: TideForecastSelectionRow[]
   ): typeof rows {
-    const seen = new Map<string, (typeof rows)[number]>();
-    for (const row of rows) {
-      if (typeof row.tide_height_m !== "number" || !Number.isFinite(row.tide_height_m)) continue;
-      const hourKey = getUtcHourKey(row.ts);
-      if (!hourKey) continue;
-      const existing = seen.get(hourKey);
-      if (!existing || isPreferredTideForecastRow(row, existing)) seen.set(hourKey, row);
-    }
-    return Array.from(seen.values());
+    return selectTideSeries(
+      rows.filter((row) => typeof row.tide_height_m === "number" && Number.isFinite(row.tide_height_m))
+    );
   }
 
   /**

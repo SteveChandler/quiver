@@ -2,7 +2,7 @@ import { fetchWithTimeout } from "@/lib/utils/fetch-utils";
 import { calculateDistance } from "@/lib/utils/distance-utils";
 import { parseCOOPSTimestampToUnixSecondsUTC } from "@/lib/services/noaa-coops/tide-analysis";
 import {
-  isPreferredTideForecastRow,
+  selectTideSeries,
   type TideForecastSelectionRow,
 } from "@/lib/services/tide-forecast-selection";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -260,20 +260,10 @@ export async function fetchHighLowTidePredictions(
 }
 
 function dedupeCachedRows(rows: TideForecastRow[]): TideForecastRow[] {
-  const byTimestamp = new Map<string, TideForecastRow>();
-  for (const row of rows) {
-    if (!row.ts || typeof row.tide_height_m !== "number" || !Number.isFinite(row.tide_height_m)) {
-      continue;
-    }
-
-    const existing = byTimestamp.get(row.ts);
-    if (!existing || isPreferredTideForecastRow(row, existing)) {
-      byTimestamp.set(row.ts, row);
-    }
-  }
-
-  return [...byTimestamp.values()].sort(
-    (a, b) => Date.parse(a.ts) - Date.parse(b.ts)
+  return selectTideSeries(
+    rows.filter(
+      (row) => row.ts && typeof row.tide_height_m === "number" && Number.isFinite(row.tide_height_m)
+    )
   );
 }
 
@@ -285,7 +275,7 @@ export async function fetchCachedHourlyTidePredictions(
 ): Promise<CachedTidePredictionsResult> {
   const { data, error } = await supabase
     .from("tide_forecasts")
-    .select("ts, tide_height_m, tide_phase, created_at, source")
+    .select("ts, tide_height_m, tide_phase, created_at, source, station_id")
     .eq("beach_id", beachId)
     .gte("ts", startIso)
     .lte("ts", endIso)

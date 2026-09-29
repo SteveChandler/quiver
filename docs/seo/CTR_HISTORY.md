@@ -225,15 +225,24 @@ hidden that by reporting the following turn instead of the real one. At 26h,
 507 reported times would fall more than 24h ahead with no date shown. So the
 window stays at 24h.
 
-**Remaining upstream issues (not fixed here):**
+**Mixed sources, fixed in the same deploy.**
 
-- 88 of the 462 remaining 1-hour pairs are Shipwrecks, Coronado CA. After
+- 88 of the 462 remaining 1-hour pairs were Shipwrecks, Coronado CA. After
   its coordinates changed, its nearest station changed from
   `noaa_hilo_interpolated` TWC0405 to `noaa` 9410170. Rows from both
-  sources now overlap at the same timestamps until the old ones expire, and
-  neither query filters by source.
-- The other 374 are real 2–14 mm wiggles where piecewise-linear
-  `noaa_hilo_interpolated` segments meet.
+  sources overlap at the same timestamps until the old ones expire.
+- Both readers (`getTideMetaData` and the sitemap coverage check) now pass
+  each beach's rows through `selectTideSeries`. It keeps the latest-ingested
+  station and one row per hour, applied the same way in both places.
+- Replayed on 2026-09-29, the new rule plus source selection leaves 0
+  uncovered beach-hours (the old rule left 8). High and low within an hour
+  drop to 358 (from 11,247 under the old rule). Shipwrecks has none, and no
+  extreme is in the past or more than 24h ahead.
+- Cleaning the overlapping rows in the database is a separate, approval-gated
+  production write (`docs/operations/tide-station-supersede-20260929.*`).
+
+**Remaining upstream issue (not fixed here):** the other 358 pairs are real
+2–14 mm wiggles where piecewise-linear `noaa_hilo_interpolated` segments meet.
 
 **Deploy and hold.**
 

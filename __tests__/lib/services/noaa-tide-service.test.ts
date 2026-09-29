@@ -225,6 +225,28 @@ describe("noaa-tide-service", () => {
     ]);
   });
 
+  it("reads one station when the beach's station changed between refreshes", async () => {
+    // Older Point Loma hilo rows and newer San Diego direct rows at the same
+    // hours: the reader must not alternate between them.
+    const client = createTideForecastClient([
+      { ts: "2026-09-28T16:00:00.000Z", tide_height_m: 0.9, tide_phase: null, created_at: "2026-09-02T04:00:02.682Z", source: "noaa_hilo_interpolated", station_id: "TWC0405" },
+      { ts: "2026-09-28T16:00:00.000Z", tide_height_m: 1.2, tide_phase: null, created_at: "2026-09-16T04:00:02.481Z", source: "noaa", station_id: "9410170" },
+      { ts: "2026-09-28T17:00:00.000Z", tide_height_m: 1.0, tide_phase: null, created_at: "2026-09-02T04:00:02.682Z", source: "noaa_hilo_interpolated", station_id: "TWC0405" },
+      { ts: "2026-09-28T17:00:00.000Z", tide_height_m: 1.3, tide_phase: null, created_at: "2026-09-16T04:00:02.481Z", source: "noaa", station_id: "9410170" },
+    ]);
+
+    const result = await fetchCachedHourlyTidePredictions(
+      client,
+      "shipwrecks",
+      "2026-09-28T15:30:00.000Z",
+      "2026-09-28T18:00:00.000Z"
+    );
+
+    expect(client.chain.select).toHaveBeenCalledWith(expect.stringContaining("station_id"));
+    expect(result.predictions.map((prediction) => prediction.tide_height_m)).toEqual([1.2, 1.3]);
+    expect(result.latestCreatedAt).toBe("2026-09-16T04:00:02.481Z");
+  });
+
   it("detects sufficient hourly cache coverage for a requested window", () => {
     const startIso = "2026-06-30T10:30:00.000Z";
     const endIso = "2026-07-01T11:30:00.000Z";

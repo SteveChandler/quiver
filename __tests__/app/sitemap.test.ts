@@ -1234,6 +1234,44 @@ describe("Sitemap Generation", () => {
       }
     });
 
+    it("judges tide coverage on one station when an older station's rows overlap it", async () => {
+      // The current station's 26 hours only rise: no turn, so no tides page.
+      // The older station's rows, 0.3 m higher at the same hours, used to be
+      // interleaved with them and made every hour look like a turn.
+      const rising = Array.from({ length: 26 }, (_, i) => 0.1 + i * 0.01);
+      const ts = (i: number): string => new Date(Date.UTC(2026, 8, 27, 21 + i)).toISOString();
+      const tideRows = rising.flatMap((tide_height_m, i) => [
+        { beach_id: "swamis", ts: ts(i), tide_height_m: tide_height_m + 0.3, source: "noaa_hilo_interpolated", station_id: "TWC0405", created_at: "2026-09-02T04:00:02.682Z" },
+        { beach_id: "swamis", ts: ts(i), tide_height_m, source: "noaa", station_id: "9410170", created_at: "2026-09-16T04:00:02.481Z" },
+      ]);
+      (createSupabaseServiceRoleClient as jest.Mock).mockResolvedValue({
+        from: jest.fn((table: string) => {
+          const query = createCoverageQueryMock(table);
+          if (table === "tide_forecasts") {
+            query.limit.mockImplementation(async () => ({ data: tideRows, error: null }));
+          }
+          return query;
+        }),
+      });
+      (getBeaches as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [{
+          id: "swamis",
+          slug: "swamis",
+          city: "Encinitas",
+          state: "CA",
+          country: "USA",
+          description: "A substantive local reef-break description.",
+          wave_tips: "Use the channel and respect the established peak.",
+        }],
+      });
+
+      const result = await sitemap();
+
+      expect(result.find((route) => route.url === `${baseUrl}/ca/encinitas/swamis`)).not.toBeUndefined();
+      expect(result.find((route) => route.url === `${baseUrl}/ca/encinitas/swamis/tides`)).toBeUndefined();
+    });
+
     it("does not let editorial rejection veto a current forecast page", async () => {
       (getBeaches as jest.Mock).mockResolvedValue({
         success: true,

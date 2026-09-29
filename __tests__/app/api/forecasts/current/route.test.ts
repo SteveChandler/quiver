@@ -66,6 +66,16 @@ type ForecastRow = {
 
 const BEACH_ID = "11111111-1111-4111-8111-111111111111";
 const NOW = new Date("2026-05-21T19:00:00.000Z");
+const TIDE_TS = "2026-05-21T19:00:00.000Z";
+
+type TideRow = {
+  ts: string;
+  tide_ft: number | null;
+  tide_height_m?: number | null;
+  source?: string;
+  station_id?: string | null;
+  created_at?: string;
+};
 
 function currentRow(overrides: Partial<ForecastRow> = {}): ForecastRow {
   return {
@@ -108,12 +118,18 @@ function setupQueries(options: {
   beach?: QueryResult<{ id: string }>;
   latest: Array<QueryResult<{ updated_at: string; data_source: string | null }>>;
   current: Array<QueryResult<ForecastRow>>;
-  tide?: Array<QueryResult<{ tide_ft: number | null }>>;
+  tide?: Array<QueryResult<TideRow[]>>;
 }) {
   const beach = chain(options.beach ?? { data: { id: BEACH_ID }, error: null });
   const latestQueries = [...options.latest].map(chain);
   const currentQueries = [...options.current].map(chain);
-  const tideQueries = [...(options.tide ?? [])].map(chain);
+  // The tide read awaits the builder itself rather than maybeSingle().
+  const tideQueries = [...(options.tide ?? [])].map((result) =>
+    Object.assign(chain(result), {
+      then: (resolve: (value: QueryResult<TideRow[]>) => unknown, reject: (reason: unknown) => unknown) =>
+        Promise.resolve(result).then(resolve, reject),
+    }),
+  );
   const latest = [...latestQueries];
   const current = [...currentQueries];
   const tide = [...tideQueries];
@@ -169,7 +185,7 @@ describe("GET /api/forecasts/current", () => {
           error: null,
         },
       ],
-      tide: [{ data: { tide_ft: 2.7 }, error: null }],
+      tide: [{ data: [{ ts: TIDE_TS, tide_ft: 2.7 }], error: null }],
     });
 
     const response = await callRoute(
@@ -365,8 +381,8 @@ describe("GET /api/forecasts/current", () => {
         },
       ],
       tide: [
-        { data: { tide_ft: 2.1 }, error: null },
-        { data: { tide_ft: 2.4 }, error: null },
+        { data: [{ ts: TIDE_TS, tide_ft: 2.1 }], error: null },
+        { data: [{ ts: TIDE_TS, tide_ft: 2.4 }], error: null },
       ],
     });
 
@@ -380,6 +396,42 @@ describe("GET /api/forecasts/current", () => {
     expect(body.data.current.tide_height).toBe("2.4 ft");
     expect(body.data.metadata.refreshed).toBe(true);
     expect(body.data.metadata.stale).toBe(false);
+  });
+
+  it("reports the current tide from the beach's current station, not a stale second series", async () => {
+    // Shipwrecks, Coronado: an older Point Loma series and the current San
+    // Diego series both have a row at the latest hour.
+    setupQueries({
+      current: [{ data: currentRow(), error: null }],
+      latest: [
+        {
+          data: {
+            updated_at: new Date(NOW.getTime() - 60 * 60 * 1000).toISOString(),
+            data_source: "OPEN_METEO",
+          },
+          error: null,
+        },
+      ],
+      tide: [
+        {
+          data: [
+            { ts: "2026-05-21T18:00:00.000Z", tide_ft: 3.1, source: "noaa", station_id: "9410170", created_at: "2026-05-16T04:00:02.481Z" },
+            { ts: "2026-05-21T18:00:00.000Z", tide_ft: 2.2, source: "noaa_hilo_interpolated", station_id: "TWC0405", created_at: "2026-05-02T04:00:02.682Z" },
+            { ts: TIDE_TS, tide_ft: 3.3, source: "noaa", station_id: "9410170", created_at: "2026-05-16T04:00:02.481Z" },
+            { ts: TIDE_TS, tide_ft: 2.4, source: "noaa_hilo_interpolated", station_id: "TWC0405", created_at: "2026-05-02T04:00:02.682Z" },
+          ],
+          error: null,
+        },
+      ],
+    });
+
+    const response = await callRoute(
+      `http://localhost:3000/api/forecasts/current?beachId=${BEACH_ID}`,
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data.current.tide_height).toBe("3.3 ft");
   });
 
   it("keeps the stale response byte-identical when includeStale is omitted", async () => {
@@ -397,7 +449,7 @@ describe("GET /api/forecasts/current", () => {
           error: null,
         },
       ],
-      tide: [{ data: { tide_ft: 2.7 }, error: null }],
+      tide: [{ data: [{ ts: TIDE_TS, tide_ft: 2.7 }], error: null }],
     });
 
     const response = await callRoute(
@@ -441,7 +493,7 @@ describe("GET /api/forecasts/current", () => {
           error: null,
         },
       ],
-      tide: [{ data: { tide_ft: 2.7 }, error: null }],
+      tide: [{ data: [{ ts: TIDE_TS, tide_ft: 2.7 }], error: null }],
     });
 
     const response = await callRoute(
@@ -497,7 +549,7 @@ describe("GET /api/forecasts/current", () => {
           error: null,
         },
       ],
-      tide: [{ data: { tide_ft: 2.7 }, error: null }],
+      tide: [{ data: [{ ts: TIDE_TS, tide_ft: 2.7 }], error: null }],
     });
 
     const response = await callRoute(

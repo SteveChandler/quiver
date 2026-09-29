@@ -248,6 +248,34 @@ describe('NOAACOOPSService', () => {
     });
 
     describe('Duplicate row deduplication', () => {
+      it('reads one station when an older station series overlaps the current one', async () => {
+        const hourStart = new Date();
+        hourStart.setMinutes(0, 0, 0);
+        const at = (hours: number): string => new Date(hourStart.getTime() + hours * 3600000).toISOString();
+        const current = [0.5, 1.0, 1.5, 1.0, 0.5].map((tide_height_m, i) => ({
+          ts: at(i), tide_height_m, tide_phase: null, source: 'noaa', station_id: '9410170', created_at: '2026-09-16T04:00:02.481Z',
+        }));
+        // The old station sits 0.4 m lower every hour: interleaved, it would add a turn at every hour.
+        const stale = current.map((row) => ({
+          ...row, tide_height_m: row.tide_height_m - 0.4, source: 'noaa_hilo_interpolated', station_id: 'TWC0405', created_at: '2026-09-02T04:00:02.682Z',
+        }));
+
+        const mockBuilder = createMockQueryBuilder([...current, ...stale].sort((a, b) => a.ts.localeCompare(b.ts)));
+        mockSupabase.mockResolvedValue({
+          from: jest.fn().mockReturnValue(mockBuilder),
+        });
+
+        const result = await service.fetchCachedTides(beachId);
+
+        expect(mockBuilder.select).toHaveBeenCalledWith(expect.stringContaining('station_id'));
+        // Boundary lows plus the one real high, all from the current station.
+        expect(result?.tides.map((tide) => [tide.type, tide.height])).toEqual([
+          ['low', expect.closeTo(0.5 * 3.28084, 0.05)],
+          ['high', expect.closeTo(1.5 * 3.28084, 0.05)],
+          ['low', expect.closeTo(0.5 * 3.28084, 0.05)],
+        ]);
+      });
+
       it('prefers a direct NOAA row over a newer fallback in the same UTC hour', async () => {
         const hourStart = new Date();
         hourStart.setMinutes(0, 0, 0);
