@@ -45,3 +45,28 @@ it('ignores unrecognized and locked states', () => {
   expect(interpretRpcResult(null)).toBeNull();
   expect(interpretRpcResult({ state: 'locked' })).toBeNull();
 });
+
+describe('forecastToMatchSlot source keys', () => {
+  const base = { beach_id: 'a', forecast_at: '2026-09-29T15:00:00Z', wave_height: '3.6 ft', wave_period: '5s', wind_speed: '3 mph', wind_direction_deg: 104, tide_height: '5.4 ft' };
+  it('sends data_source and wave_period_om as text when the row has them', () => {
+    expect(forecastToMatchSlot({ ...base, data_source: 'OPEN_METEO', wave_period_om: 9.9 } as never)).toEqual({
+      forecast_at: '2026-09-29T15:00:00Z', wave_height: '3.6 ft', wave_period: '5', wind_speed: '3 mph',
+      wind_direction: '104', tide_height: '5.4 ft', data_source: 'OPEN_METEO', wave_period_om: '9.9',
+    });
+  });
+  it('omits both keys, never blanks them, when unavailable so the slot scores as before', () => {
+    for (const extra of [{}, { data_source: null, wave_period_om: null }, { data_source: '', wave_period_om: Number.NaN }]) {
+      const slot = forecastToMatchSlot({ ...base, ...extra } as never);
+      expect(slot).not.toHaveProperty('data_source');
+      expect(slot).not.toHaveProperty('wave_period_om');
+    }
+  });
+  it('keeps a lone key: CDIP rows may carry the co-located Open-Meteo mean', () => {
+    expect(forecastToMatchSlot({ ...base, data_source: 'CDIP', wave_period_om: 9.6 } as never)).toMatchObject({ data_source: 'CDIP', wave_period_om: '9.6' });
+    expect(forecastToMatchSlot({ ...base, data_source: 'NOAA_NWS' } as never)).not.toHaveProperty('wave_period_om');
+  });
+});
+it('carries no session-count sentence to consumers: an empty bullet list gives an empty reason, not the label', () => {
+  const result = interpretRpcResult({ ...match, reason_bullets: [], similar_good_session_count: 0, good_session_count: 19 });
+  expect(result).toMatchObject({ state: 'ready', label: 'FAIR', reason: '', reasons: [] });
+});

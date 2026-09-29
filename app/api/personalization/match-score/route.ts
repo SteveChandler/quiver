@@ -29,6 +29,9 @@ export const GET = withAuth(
     const wavePeriod = searchParams.get("wave_period") ?? "0";
     const windSpeed = searchParams.get("wind_speed") ?? "0";
     const tideHeight = searchParams.get("tide_height") ?? "0";
+    // Optional and additive: installed clients omit them and the board pick compares wave_period as before.
+    const dataSource = searchParams.get("data_source");
+    const wavePeriodOm = Number.parseFloat(searchParams.get("wave_period_om") ?? "");
 
     const result = await getPersonalizationMatchScore(
       user.id,
@@ -65,6 +68,8 @@ export const GET = withAuth(
             wind_direction_deg: getDirectionDegrees(windDirection),
             tide_height: tideHeight,
             tide_status: searchParams.get("tide_status"),
+            ...(dataSource ? { data_source: dataSource } : {}),
+            ...(Number.isFinite(wavePeriodOm) ? { wave_period_om: wavePeriodOm } : {}),
           } as EnhancedForecastEntity;
           return recommendBoard(boardsForPicks, boardForecast, beach as Beach, experience);
         },

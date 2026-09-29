@@ -288,6 +288,16 @@ it.each(
   },
 );
 
+it("sends each bulk slot's data_source and wave_period_om, omitting them when the row has none", async () => {
+  mockRpc.mockResolvedValue({ data: rpcData(1, NOW.toISOString()), error: null });
+  const openMeteo = { ...forecast(1), data_source: "OPEN_METEO", wave_period: "5s", wave_period_om: 9.9 } as EnhancedForecastEntity;
+  await fetchBulkDecisionContext(id(800), [id(1), id(2)], [openMeteo, forecast(2)], NOW, NOW);
+  const slots = mockRpc.mock.calls[mockRpc.mock.calls.length - 1][1].p_slots;
+  expect(slots[0]).toMatchObject({ beach_id: id(1), wave_period: "5", data_source: "OPEN_METEO", wave_period_om: "9.9" });
+  expect(slots[1]).not.toHaveProperty("data_source");
+  expect(slots[1]).not.toHaveProperty("wave_period_om");
+});
+
 it.each([
   ["2026-09-23T10:00:00Z", false],
   ["2026-09-23T10:15:00Z", false],

@@ -142,6 +142,23 @@ describe("GET /api/personalization/match-score", () => {
       expect.objectContaining({ id: "beach-1" }), "advanced");
   });
 
+  it("passes the optional source keys to the board pick and sends nothing extra without them", async () => {
+    rpc.mockResolvedValue({ data: { state: "learned", score: 8.4, sessions_in_profile: 15, reason_bullets: [] }, error: null });
+
+    await GET(makeRequest("&data_source=OPEN_METEO&wave_period_om=9.9"));
+    expect(mockRecommendBoard.mock.calls[0][1]).toMatchObject({ wave_period: "12", data_source: "OPEN_METEO", wave_period_om: 9.9 });
+
+    mockRecommendBoard.mockClear();
+    await GET(makeRequest("&wave_period_om=abc"));
+    expect(mockRecommendBoard.mock.calls[0][1]).not.toHaveProperty("data_source");
+    expect(mockRecommendBoard.mock.calls[0][1]).not.toHaveProperty("wave_period_om");
+    // The single-slot RPC has a fixed argument list; installed clients keep calling it unchanged.
+    expect(rpc).toHaveBeenLastCalledWith("compute_user_match_score", {
+      p_user_id: "user-1", p_beach_id: "beach-1", p_wave_height: "3", p_wave_period: "12",
+      p_wind_speed: "4", p_wind_direction: "210", p_tide_height: "3",
+    });
+  });
+
   it("keeps a learned response successful when board loading rejects", async () => {
     mockFetchUserBoardContext.mockRejectedValue(new Error("board read failed"));
     rpc.mockResolvedValue({ data: { state: "learned", score: 8.4, sessions_in_profile: 15,

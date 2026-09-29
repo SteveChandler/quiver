@@ -1147,6 +1147,18 @@ describe('fetchWeekScoutMatchEvidence', () => {
     mockCreateSupabaseServiceRoleClient.mockReturnValue(mockSupabase as never);
   });
 
+  it('sends the source keys so Open-Meteo rows compare by their whole-sea period', async () => {
+    mockRpc.mockResolvedValue({ error: null, data: { entitlement: { is_pro: true }, matches: [] } });
+
+    await fetchWeekScoutMatchEvidence('user-1', ['beach-1'], [
+      makeForecast({ data_source: 'OPEN_METEO', wave_period: '5s', wave_period_om: 9.9 } as never),
+    ]);
+
+    expect(mockRpc.mock.calls[0][1].p_slots).toEqual([expect.objectContaining({
+      beach_id: 'beach-1', wave_period: '5', data_source: 'OPEN_METEO', wave_period_om: '9.9',
+    })]);
+  });
+
   it.each([
     ['Pro', { is_pro: true }, true],
     ['trial', { is_trialing: true }, true],

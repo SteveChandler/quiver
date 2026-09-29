@@ -81,8 +81,8 @@ export function buildRecommendationEvidence(
     return {
       reasonType: 'session_history',
       proofSummary:
-        input.personalExplanation ??
-        input.similarity.reason ??
+        input.personalExplanation ||
+        input.similarity.reason ||
         'Similar to your better-rated sessions.',
       evidenceFacts: [
         ...baseFacts(input.sourceState),

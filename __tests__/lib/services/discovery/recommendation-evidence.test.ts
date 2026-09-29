@@ -34,6 +34,17 @@ describe('buildRecommendationEvidence', () => {
     );
   });
 
+  it('falls back to the default proof when the match has no reason text', () => {
+    const evidence = buildRecommendationEvidence(input({
+      similarity: {
+        state: 'ready', score: 8.2, label: 'GOOD', bonusApplied: 0, confidence: 'medium',
+        reason: '', reasons: [], sessionCount: 6,
+      },
+    }));
+
+    expect(evidence.proofSummary).toBe('Similar to your better-rated sessions.');
+  });
+
   it('does not emit condition-pattern proof below 3 positive sessions', () => {
     const evidence = buildRecommendationEvidence(input({
       conditionPositiveSessionCount: 2,
