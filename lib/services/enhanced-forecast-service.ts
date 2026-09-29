@@ -1,5 +1,6 @@
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { fetchWaterTemperature } from "@/lib/services/noaa-coops/api-client";
+import { getStationDistanceKm } from "@/lib/services/noaa-coops/station-resolver";
 import { getNearestTideStation } from "@/lib/services/noaa-tide-service";
 import { getReviewedNwsPoint } from "@/lib/services/noaa-wavewatch/grid-utils";
 import { ForecastDataSourceManager, NOAAWeatherDataSource } from "./forecast/data-source-manager";
@@ -620,16 +621,38 @@ export class EnhancedForecastService {
   private static readonly COOPS_STALENESS_HOURS = 48;
 
   /**
+   * Farthest a CO-OPS water-temperature station may be from the beach.
+   * Wider than the tide rule's 120 km: against the nearest buoy, stations
+   * 120-200 km away read within ~1.3°F (median, n=19) and all beat the
+   * latitude estimate that replaces them; past 400 km they were ~17°F off.
+   */
+  private static readonly COOPS_WATER_TEMP_MAX_KM = 200;
+
+  /**
    * Fetch the latest CO-OPS water temperature for a beach.
    * Uses the CO-OPS station resolver to find the mapped station,
    * then fetches the latest water_temperature reading.
    */
   private async fetchCOOPSWaterTemp(beach: Beach): Promise<number | null> {
-    return withRetry(async () => {
-      const stationId = this.dataSourceManager
-        .getCOOPSService()
-        .getStationForLocation(beach.name, beach.lat ?? undefined, beach.lon ?? undefined);
+    const { lat, lon } = beach;
+    if (lat == null || lon == null) return null;
 
+    const stationId = this.dataSourceManager
+      .getCOOPSService()
+      .getStationForLocation(beach.name, lat, lon);
+
+    // Past its name matches the resolver falls back to the nearest region at
+    // any range: Scorpion Bay (San Juanico) resolves to San Diego, 850 km
+    // north. A station too far away to share this beach's water is no reading.
+    const stationKm = getStationDistanceKm(stationId, lat, lon);
+    if (stationKm === null || stationKm > EnhancedForecastService.COOPS_WATER_TEMP_MAX_KM) {
+      log.debug(
+        `CO-OPS station ${stationId} is ${stationKm === null ? "unlocated" : `${Math.round(stationKm)} km`} from ${beach.name}, skipping water temp`
+      );
+      return null;
+    }
+
+    return withRetry(async () => {
       const result = await fetchWaterTemperature(stationId);
 
       if (!result) {

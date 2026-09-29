@@ -95,7 +95,6 @@ jest.mock("@/lib/services/cdip", () => ({
 
 // Mock NOAA CO-OPS service
 const coopsMocks = {
-  getStationForLocation: jest.fn().mockReturnValue("9410230"),
   fetchCOOPSData: jest.fn(),
   getCurrentTideHeight: jest.fn().mockReturnValue(3.2),
   getTideStatusAtTime: jest.fn().mockReturnValue("Rising"),
@@ -103,8 +102,6 @@ const coopsMocks = {
 };
 jest.mock("@/lib/services/noaa-coops", () => ({
   NOAACOOPSService: jest.fn().mockImplementation(() => ({
-    getStationForLocation: (...args: any[]) =>
-      coopsMocks.getStationForLocation(...args),
     fetchCOOPSData: (...args: any[]) => coopsMocks.fetchCOOPSData(...args),
     getCurrentTideHeight: (...args: any[]) =>
       coopsMocks.getCurrentTideHeight(...args),
@@ -112,6 +109,12 @@ jest.mock("@/lib/services/noaa-coops", () => ({
       coopsMocks.getTideStatusAtTime(...args),
     getNextTide: (...args: any[]) => coopsMocks.getNextTide(...args),
   })),
+}));
+
+const mockGetNearestTideStation = jest.fn();
+jest.mock("@/lib/services/noaa-tide-service", () => ({
+  ...jest.requireActual("@/lib/services/noaa-tide-service"),
+  getNearestTideStation: (...args: any[]) => mockGetNearestTideStation(...args),
 }));
 
 // Mock CDIP stations (empty - will configure per test)
@@ -232,7 +235,13 @@ function setupDefaultMocks() {
   // Default: no CDIP data
   cdipMocks.fetchBuoyData.mockResolvedValue(null);
 
-  // Default: no tide data
+  // Default: San Diego is the nearest tide station, with no tide data
+  mockGetNearestTideStation.mockReset().mockResolvedValue({
+    id: "9410170",
+    name: "SAN DIEGO (Broadway)",
+    lat: 32.7156,
+    lon: -117.1767,
+  });
   coopsMocks.fetchCOOPSData.mockResolvedValue(null);
   coopsMocks.getNextTide.mockReturnValue(null);
 
@@ -1108,7 +1117,7 @@ describe("Coast Pulse Service", () => {
   describe("Tide Data Fetching", () => {
     test("includes tide item when data available", async () => {
       coopsMocks.fetchCOOPSData.mockResolvedValueOnce({
-        station_name: "La Jolla Tide",
+        station_name: "San Diego Tide",
         tides: [{ time: Date.now() / 1000, height: 3.2, name: "High" }],
       });
       coopsMocks.getNextTide.mockReturnValueOnce({
@@ -1124,12 +1133,28 @@ describe("Coast Pulse Service", () => {
       });
 
       const tideItem = result.items.find(
-        (i) => i.id === "tide-9410230"
+        (i) => i.id === "tide-9410170"
       );
       if (tideItem) {
         expect(tideItem.source.type).toBe("tide");
         expect(tideItem.source.credibility).toBe(95); // CREDIBILITY.TIDE
       }
+    });
+
+    test("fetches tides for the nearest NOAA station within range", async () => {
+      await generateCoastPulse({ lat: 32.72, lon: -117.16, limit: 8 });
+
+      expect(mockGetNearestTideStation).toHaveBeenCalledWith(32.72, -117.16);
+      expect(coopsMocks.fetchCOOPSData).toHaveBeenCalledWith("9410170", 2);
+    });
+
+    test("omits the tide item when no NOAA station is in range", async () => {
+      mockGetNearestTideStation.mockResolvedValueOnce(null);
+
+      const result = await generateCoastPulse({ lat: 32.72, lon: -117.16, limit: 8 });
+
+      expect(coopsMocks.fetchCOOPSData).not.toHaveBeenCalled();
+      expect(result.items.filter((i) => i.id.startsWith("tide-"))).toHaveLength(0);
     });
 
     test("excludes tide when next tide is null", async () => {

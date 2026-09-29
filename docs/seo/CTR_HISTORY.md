@@ -253,3 +253,118 @@ window stays at 24h.
 - Measurement is monitor-only: the count of indexed `/tides` pages in GSC and
   any structured-data warnings on the Dataset schema. There is no CTR
   expectation.
+
+## 2026-09-29 Water-temp CO-OPS Station Distance Cap
+
+Not a CTR test. This is a data-correctness fix to the reading shown on the
+`/{state}/{city}/{beach}/water-temp`, Mexico and legacy `/beach/{slug}/water-temp`
+pages, and on the `/water-temp/{city}` pages. Log it here so a CTR read on
+these pages is not attributed to a title change.
+
+**Bug.** `EnhancedForecastService.fetchCOOPSWaterTemp` took its station from
+`getStationForLocation`, which tries partial name matches before coordinates
+and otherwise falls back to the nearest region at any range. CO-OPS water temp
+is used whenever IOOS has no fresh reading, so name collisions reached the
+page. "Scorpion Bay (San Juanico)" showed San Juan, Puerto Rico (87°F).
+Ocean Beach SF showed San Diego Bay (76°F against a 58°F buoy). Seabrook WA
+showed La Jolla, and Sunset Bay OR showed Honolulu.
+
+**Fix.** A resolved station more than 200 km from the beach gives no reading.
+The page then falls back to IOOS if fresh, otherwise the latitude estimate
+(the NDBC step is dead code). The cap is wider than the tide rule's 120 km
+because, against the nearest buoy, stations 120–200 km away read within 1.3°F
+(median, n=19) and all 19 beat the estimate. Past 400 km they were 16.9°F off.
+A 120 km cap would have moved 34 more beaches (Maui/Kauai, Florida east
+coast, Texas Coastal Bend, Pensacola, the Carolinas) from a 1.3°F to a 6.1°F
+median error.
+
+**What changes on the page:** only the temperature value and what is derived
+from it:
+
+- The `{temp}°F` in the title and meta description (`buildDynamicWaterTempMetadata`,
+  and the city page's meta description).
+- The "Water temp now" hero, the wetsuit advice and the `WaterTempDatasetSchema`
+  values.
+
+**What does not change:**
+
+- Templates, title and description wording, URLs and canonicals.
+- Coverage. The sitemap and the sub-page count a beach as covered when its
+  newest row has a readable `water_temp`, and the city rule
+  (`has_water_temp_data`) wants any non-empty `water_temp` in 7 days. The
+  latitude estimate always produces one, so sitemap membership and `index`
+  decisions are unchanged.
+
+**Measured against production (read-only, 2026-09-29).** 558 beaches. Today's
+sources were IOOS 25, CO-OPS 408 and estimate 125.
+
+| | Beaches |
+| --- | ---: |
+| CO-OPS → latitude estimate | 90 (18 outside Mexico, 72 Mexico) |
+| With a buoy within 50 km | 11: median error 16.9°F → 10.7°F, 8 improve |
+| Baja below 30°N (San Diego 76°F → estimate 75°F) | 57, effectively unchanged |
+
+GSC-protected pages whose number changes (snapshot
+`gsc-performance-protection.v1.json`):
+
+| Page | Before → after | Buoy | Clicks / impressions |
+| --- | --- | ---: | ---: |
+| `/ca/san-francisco/ocean-beach-middle-san-francisco-ca/water-temp` | 76 → 62°F | 58°F | 0 / 120 |
+| `/wa/pacific-beach/seabrook-pacific-beach-area/water-temp` | 71 → 54°F | 58°F | 1 / 86 |
+| `/water-temp/kailua-kona` | 83 → 80°F | — | 16 / 1,776 |
+| `/water-temp/long-beach-ny` | 60 → 54°F | 65°F | 30 / 2,205 |
+
+Long Beach NY gets less accurate. Its old reading came from Toke Point, WA,
+and the estimate is further off than that.
+
+**Remaining upstream issues (not fixed here):**
+
+- The resolver's name matching was not gated by distance. Fixed in the same
+  deploy; see "Resolver name-match gate" below.
+- The latitude estimate peaks in June rather than Aug–Sep and uses coarse
+  latitude bands. It is 8–11°F off (median) against buoys in late September
+  and is shown as "Water temp now".
+
+### Resolver name-match gate (same deploy)
+
+`getStationForLocation` now accepts a name match only when its station is
+within 200 km of the beach, and otherwise tries the next match and then the
+geographic lookup. A blank name skips name matching; it used to return La Jolla
+for any coordinates. Station coordinates come from a static table of the 64
+stations the resolver can return.
+
+26 beaches resolve to a different station. The reading changes on 11 pages
+(same prod read, 2026-09-29):
+
+| Page | Before → after | Buoy |
+| --- | --- | ---: |
+| Long Beach NY (Sandy Hook, 32 km); city page `/water-temp/long-beach-ny` | 54 → 62–63°F | 65°F |
+| Seabrook WA (Westport, 34 km), GSC-protected | 54 → 57°F | 58°F |
+| 1st Street Jetty, Ocean City NJ (Atlantic City, 15 km), GSC-protected; city page `/water-temp/ocean-city` | 62 → 65°F | — |
+| Westport WA | 54 → 57°F | 58°F |
+| Seaside Reef, Solana Beach (San Diego Broadway) | 62 → 76°F | 72°F |
+| Baja Malibu (San Diego Broadway) | 62 → 76°F | 73°F |
+| Dunes, La Misión (San Diego Broadway) | 62 → 76°F | — |
+| Pohaku Park, Maui (Honolulu, 128 km) | 75 → 82–83°F | 80°F |
+| Sandy Beach, Rincón PR (Mayagüez, 20 km) | 80 → 84–85°F | — |
+| Rockaway Beach NY, 90th and 98th St (Sandy Hook, 21 km); 98th St GSC-protected | 54 → 62–63°F | 65°F |
+
+All eight with a nearby buoy get closer to it. Long Beach NY ends above its
+pre-fix 60°F, so the "less accurate" note above no longer holds. Rockaway Beach
+NY is net unchanged from prod: the new `rockaway-beach` key (Garibaldi, OR)
+would have moved it 4,040 km away and onto the estimate, and the gate keeps it
+on Sandy Hook. Newport Beach CA and T-Street move to Newport Bay Entrance,
+which has no temperature sensor, so they stay on the estimate. Ocean Beach SF
+and Sunset Bay OR move to Golden Gate and Charleston, which had no reading in
+the last 24 hours, so they stay on the estimate for now.
+
+**Deploy and hold.**
+
+- Ship it apart from the 2026-09-27 tide sub-page fix, which ships with no
+  other SEO change riding along. Record the deploy date and prod SHA here when
+  it ships.
+- No four-week hold. No template, schema or coverage rule changes, and the
+  value already changes on every refresh.
+- Monitor only: position and CTR on the four pages above in the first full
+  28-day window after deploy. Don't read a change on Long Beach NY or
+  Kailua-Kona as a title effect.
