@@ -35,6 +35,7 @@ import {
   getNextTideFromTime as analyzeNextTideFromTime,
   getCurrentTideHeight as analyzeCurrentHeight,
 } from "./tide-analysis";
+import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
 import { TideExtremaDetector, TideSample } from "./tide-extrema-detector";
 import { TideCacheMonitor } from "./tide-cache-monitor";
 import {
@@ -279,6 +280,10 @@ export class NOAACOOPSService {
         station_name: "Cached Tide Data",
         tides,
         water_level: null,
+        hourly: samples.map((sample) => ({
+          time: Math.floor(Date.parse(sample.ts) / 1000),
+          height: sample.tide_height_m * METERS_TO_FEET,
+        })),
       };
     } catch (error) {
       log.error(`Error in fetchCachedTides for beach ${beachId}:`, error);
