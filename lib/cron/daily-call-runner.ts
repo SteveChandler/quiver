@@ -25,6 +25,7 @@ import type { EnqueueArgs, EnqueueResult } from "@/lib/notifications/types";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { selectBestWindows } from "@/lib/services/discovery/window-selector";
 import { TideCache } from "@/lib/services/noaa-coops/tide-cache";
+import { selectTideSeries } from "@/lib/services/tide-forecast-selection";
 import type { COOPSForecast } from "@/lib/services/noaa-coops/types";
 import { localDateTimeToUTC } from "@/lib/utils/forecast-time-resolver";
 import {
@@ -340,13 +341,13 @@ async function loadTideSamples(
   if (cached) return cached;
   const { data, error } = await supabase
     .from("tide_forecasts")
-    .select("ts, tide_ft, tide_height_m")
+    .select("ts, tide_ft, tide_height_m, source, station_id, created_at")
     .eq("beach_id", beachId)
     .gte("ts", start)
     .lt("ts", end)
     .order("ts", { ascending: true });
   if (error) throw new Error(`Failed to load tide forecasts for ${beachId}: ${error.message}`);
-  const samples = (data ?? []).flatMap((row) => {
+  const samples = selectTideSeries(data ?? []).flatMap((row) => {
     const heightFt = row.tide_ft ?? (row.tide_height_m == null ? null : row.tide_height_m * 3.28084);
     return heightFt == null ? [] : [{ at: row.ts, heightFt }];
   });

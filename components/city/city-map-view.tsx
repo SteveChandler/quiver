@@ -13,7 +13,7 @@ import Link from "next/link";
 import { ChevronRight, MapPin, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Beach } from "@/types/database";
-import type { SurfSpot } from "@/lib/data/surf-spots";
+import type { CityMapSpot } from "@/lib/utils/map-client-props";
 import { createBeachWithDefaults } from "@/lib/utils/beach-defaults";
 import type { IntentForecastSummary } from "@/actions/forecast/intent-forecast-actions";
 
@@ -75,7 +75,7 @@ const InteractiveMap = dynamic(
 import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
 
 interface CityMapViewProps {
-  spots: SurfSpot[];
+  spots: CityMapSpot[];
   cityName: string;
   citySlug: string;
   stateSlug?: string;
@@ -86,12 +86,12 @@ interface CityMapViewProps {
 }
 
 /**
- * Transform SurfSpot to Beach-compatible format for the map.
+ * Transform a spot to Beach-compatible format for the map.
  *
  * Uses createBeachWithDefaults to ensure all required Beach fields are present.
- * Only maps the fields that exist in SurfSpot data.
+ * Maps the spot fields the map reads (see CITY_MAP_SPOT_FIELDS).
  */
-function transformSpotToBeach(spot: SurfSpot): Beach {
+function transformSpotToBeach(spot: CityMapSpot): Beach {
   return createBeachWithDefaults({
     id: spot.id || spot.slug, // Use UUID for forecast lookups, fallback to slug
     name: spot.name,
@@ -107,11 +107,7 @@ function transformSpotToBeach(spot: SurfSpot): Beach {
     // Use fixed date to prevent hydration mismatch
     created_at: "2023-01-01T00:00:00.000Z",
     // Map SurfSpot-specific fields
-    access_tips: spot.parking,
     best_conditions_prose: spot.conditions,
-    features: spot.amenities,
-    hazards: spot.hazards,
-    parking_tips: spot.parking,
     region: spot.region,
     wave_tips: spot.swellAdvice,
   });
@@ -126,12 +122,12 @@ function BeachListItem({
   onHover,
   onSelect,
 }: {
-  spot: SurfSpot;
+  spot: CityMapSpot;
   href: string;
   isSelected: boolean;
   isHovered: boolean;
-  onHover: (spot: SurfSpot | null) => void;
-  onSelect: (spot: SurfSpot) => void;
+  onHover: (spot: CityMapSpot | null) => void;
+  onSelect: (spot: CityMapSpot) => void;
 }) {
   // Ink-on-tint pairs that clear 4.5:1 on the paper page (the pastel-100 sets did not).
   const skillLevelStyles = {
@@ -185,8 +181,8 @@ export function CityMapView({
   displayMode,
   forecastTopPicks = [],
 }: CityMapViewProps) {
-  const [selectedSpot, setSelectedSpot] = useState<SurfSpot | null>(null);
-  const [hoveredSpot, setHoveredSpot] = useState<SurfSpot | null>(null);
+  const [selectedSpot, setSelectedSpot] = useState<CityMapSpot | null>(null);
+  const [hoveredSpot, setHoveredSpot] = useState<CityMapSpot | null>(null);
 
   // Transform spots to Beach format for the map
   const beaches = useMemo(
@@ -252,12 +248,12 @@ export function CityMapView({
   );
 
   // Handle spot selection (for map highlighting, Link handles navigation)
-  const handleSpotSelect = useCallback((spot: SurfSpot) => {
+  const handleSpotSelect = useCallback((spot: CityMapSpot) => {
     setSelectedSpot(spot);
   }, []);
 
   // Handle hover from list
-  const handleListHover = useCallback((spot: SurfSpot | null) => {
+  const handleListHover = useCallback((spot: CityMapSpot | null) => {
     setHoveredSpot(spot);
   }, []);
 

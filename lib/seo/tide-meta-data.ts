@@ -9,6 +9,7 @@ import { cache } from "react";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { DEFAULT_TIMEZONE } from "@/lib/utils/timezone-constants";
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
+import { selectTideSeries } from "@/lib/services/tide-forecast-selection";
 
 export interface TideMetaData {
   /** Next high tide time formatted for display (e.g., "2:30 PM") */
@@ -19,6 +20,13 @@ export interface TideMetaData {
   nextHighHeight: number | null;
   /** Next low tide height in feet */
   nextLowHeight: number | null;
+  /**
+   * ISO timestamp of the next high tide. The display times carry no date, so
+   * ordering the two events (e.g. a high tonight, a low after midnight) needs this.
+   */
+  nextHighAt: string | null;
+  /** ISO timestamp of the next low tide. */
+  nextLowAt: string | null;
 }
 
 /**
@@ -36,6 +44,21 @@ function formatTideTime(ts: string | Date, timezone: string = DEFAULT_TIMEZONE):
 }
 
 const METERS_TO_FEET = 3.28084;
+const HOUR_MS = 60 * 60 * 1000;
+
+/**
+ * The tide rows the next-extreme search reads. It starts an hour before now
+ * so the first reading ahead has a neighbour on both sides; that earlier
+ * reading is never reported itself. It ends 24 hours ahead because the times
+ * are shown without a date. The sitemap must read this same span, or its
+ * coverage stops matching the sub-page's.
+ */
+export function tideExtremesWindow(now: Date): { from: string; to: string } {
+  return {
+    from: new Date(now.getTime() - HOUR_MS).toISOString(),
+    to: new Date(now.getTime() + 24 * HOUR_MS).toISOString(),
+  };
+}
 
 export interface TideHeightRow {
   ts: string;
@@ -48,7 +71,16 @@ interface NextTideExtremes {
 }
 
 /**
- * Find the next high and low tide from an ascending series of hourly heights.
+ * Find the next high and low tide from an ascending series of hourly heights,
+ * read over tideExtremesWindow.
+ *
+ * Only interior turning points count: a reading strictly higher, or lower,
+ * than the readings on both sides. The first and last rows are never
+ * extremes, because the reading beyond them is unknown; taking the first row
+ * as a high whenever the tide fell from it put the "next high" and "next low"
+ * an hour apart. Equal consecutive readings at a slack are one turn, timed at
+ * the first of them: heights are rounded to the millimetre, so a turn often
+ * reads the same two hours running.
  *
  * Shared deliberately: the sitemap and the sub-page's generateMetadata must
  * decide "does this beach have tide data" from the same computation, or a URL
@@ -61,38 +93,26 @@ export function findNextTideExtremes(
   let nextHigh: NextTideExtremes["nextHigh"] = null;
   let nextLow: NextTideExtremes["nextLow"] = null;
 
-  // Check first data point as potential extreme (edge case)
-  if (rows.length >= 2) {
-    const first = rows[0].tide_height_m;
-    const second = rows[1].tide_height_m;
-    if (first !== null && second !== null) {
-      // First point is high if it's higher than second
-      if (first > second) {
-        nextHigh = { ts: rows[0].ts, heightFt: first * METERS_TO_FEET };
-      }
-      // First point is low if it's lower than second
-      if (first < second) {
-        nextLow = { ts: rows[0].ts, heightFt: first * METERS_TO_FEET };
-      }
-    }
-  }
-
-  // Simple peak detection: look for direction changes
-  for (let i = 1; i < rows.length - 1; i++) {
+  let i = 1;
+  while (i < rows.length - 1) {
     const prev = rows[i - 1].tide_height_m;
     const curr = rows[i].tide_height_m;
-    const next = rows[i + 1].tide_height_m;
+    let end = i;
+    while (end + 1 < rows.length && rows[end + 1].tide_height_m === curr) end++;
+    const next = end + 1 < rows.length ? rows[end + 1].tide_height_m : null;
 
-    if (prev !== null && curr !== null && next !== null) {
+    // prev === curr only when the run began at the first row, so it is not interior.
+    if (prev !== null && curr !== null && next !== null && prev !== curr) {
       if (curr > prev && curr > next && !nextHigh) {
         nextHigh = { ts: rows[i].ts, heightFt: curr * METERS_TO_FEET };
       }
       if (curr < prev && curr < next && !nextLow) {
         nextLow = { ts: rows[i].ts, heightFt: curr * METERS_TO_FEET };
       }
+      if (nextHigh && nextLow) break;
     }
 
-    if (nextHigh && nextLow) break;
+    i = end + 1;
   }
 
   return { nextHigh, nextLow };
@@ -114,6 +134,8 @@ export const getTideMetaData = cache(
       nextLowTime: null,
       nextHighHeight: null,
       nextLowHeight: null,
+      nextHighAt: null,
+      nextLowAt: null,
     };
 
     if (!beachId) return nullResult;
@@ -138,29 +160,30 @@ export const getTideMetaData = cache(
         }
       }
 
-      const now = new Date();
-      const endTime = new Date(now.getTime() + 24 * 60 * 60 * 1000); // Next 24 hours
+      const tideWindow = tideExtremesWindow(new Date());
 
       // Query tide_forecasts table for this beach
       const { data: rows, error } = await supabase
         .from("tide_forecasts")
-        .select("ts, tide_height_m, tide_phase")
+        .select("ts, tide_height_m, tide_phase, source, station_id, created_at")
         .eq("beach_id", beachId)
-        .gte("ts", now.toISOString())
-        .lte("ts", endTime.toISOString())
+        .gte("ts", tideWindow.from)
+        .lte("ts", tideWindow.to)
         .order("ts", { ascending: true });
 
       if (error || !rows || rows.length === 0) {
         return nullResult;
       }
 
-      const { nextHigh, nextLow } = findNextTideExtremes(rows);
+      const { nextHigh, nextLow } = findNextTideExtremes(selectTideSeries(rows));
 
       return {
         nextHighTime: nextHigh ? formatTideTime(nextHigh.ts, timezone) : null,
         nextLowTime: nextLow ? formatTideTime(nextLow.ts, timezone) : null,
         nextHighHeight: nextHigh ? Math.round(nextHigh.heightFt * 10) / 10 : null,
         nextLowHeight: nextLow ? Math.round(nextLow.heightFt * 10) / 10 : null,
+        nextHighAt: nextHigh?.ts ?? null,
+        nextLowAt: nextLow?.ts ?? null,
       };
     } catch (error) {
       console.error("[getTideMetaData] Error fetching tide data:", {

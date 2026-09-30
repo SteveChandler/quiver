@@ -5,21 +5,24 @@ import { SURF_INTENTS, type SurfIntentSlug } from "@/lib/data/surf-spots";
 import type { BeachWithMetrics } from "@/types/location";
 import { getIntentSlug } from "@/lib/utils/slug-helpers";
 
+/** The fields this grid reads; pages send only these. */
+type IntentGuideBeach = Pick<BeachWithMetrics, "slug" | "name" | "skill_level" | "crowd_level">;
+
 interface GuidesByIntentGridProps {
   cityName: string;
   citySlug: string;
   stateSlug?: string;
   featuredIntents: string[];
-  beaches: BeachWithMetrics[];
+  beaches: IntentGuideBeach[];
 }
 
 /**
  * Filter beaches by intent tag (derived from skill level and crowd level)
  */
 function getBeachesForIntent(
-  beaches: BeachWithMetrics[],
+  beaches: IntentGuideBeach[],
   intent: SurfIntentSlug
-): BeachWithMetrics[] {
+): IntentGuideBeach[] {
   return beaches.filter((beach) => {
     const skillLevel = (beach.skill_level ?? "").toLowerCase();
     const crowdLevel = (beach.crowd_level ?? "").toLowerCase();

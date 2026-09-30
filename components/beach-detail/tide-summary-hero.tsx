@@ -68,36 +68,23 @@ function TideBadge({ label, time, height, variant }: TideBadgeProps) {
 }
 
 /**
- * Determine a simple tide status label from the next high/low times.
+ * Determine a simple tide status label from the next high/low timestamps.
  * Returns null when there is not enough data to make a call.
  */
 function getTideStatusLabel(
-  nextHighTime: string | null,
-  nextLowTime: string | null
+  nextHighAt: string | null,
+  nextLowAt: string | null
 ): { label: string; isRising: boolean } | null {
-  // Both times are pre-formatted strings (e.g., "2:34 PM"), so we can only do
-  // a rough comparison. If high comes before low in the window, tide is rising.
-  if (!nextHighTime || !nextLowTime) return null;
+  // Compare full timestamps, not the display times: a high at 11 PM and a low
+  // at 5 AM tomorrow would sort the wrong way by clock time alone.
+  if (!nextHighAt || !nextLowAt) return null;
 
-  // Convert 12-hour formatted time to a sortable number for comparison.
-  const toMinutes = (t: string): number => {
-    const match = t.match(/(\d+):(\d+)\s*(AM|PM)/i);
-    if (!match) return 0;
-    let h = parseInt(match[1], 10);
-    const m = parseInt(match[2], 10);
-    const period = match[3].toUpperCase();
-    if (period === "PM" && h !== 12) h += 12;
-    if (period === "AM" && h === 12) h = 0;
-    return h * 60 + m;
-  };
-
-  const highMinutes = toMinutes(nextHighTime);
-  const lowMinutes = toMinutes(nextLowTime);
-
-  if (highMinutes === lowMinutes) return null;
+  const highMs = Date.parse(nextHighAt);
+  const lowMs = Date.parse(nextLowAt);
+  if (Number.isNaN(highMs) || Number.isNaN(lowMs) || highMs === lowMs) return null;
 
   // If high tide comes next (before low), we are currently rising toward it.
-  const isRising = highMinutes < lowMinutes;
+  const isRising = highMs < lowMs;
   return { label: isRising ? "Rising" : "Falling", isRising };
 }
 
@@ -107,7 +94,7 @@ export function TideSummaryHero({ beachName, tideData }: TideSummaryHeroProps) {
   // Don't render the hero if we have no tide data at all.
   if (!nextHighTime && !nextLowTime) return null;
 
-  const tideStatus = getTideStatusLabel(nextHighTime, nextLowTime);
+  const tideStatus = getTideStatusLabel(tideData.nextHighAt, tideData.nextLowAt);
 
   return (
     <section

@@ -45,7 +45,7 @@ function generateTideSamples(
 function createMockSupabase(options: {
   baseTideData: Record<string, unknown>;
   repBeach: { id: string; name: string; timezone: string | null };
-  tideSamples: Array<{ ts: string; tide_height_m: number; tide_ft: number }>;
+  tideSamples: Array<{ ts: string; tide_height_m: number; tide_ft: number; [key: string]: unknown }>;
   cityBeaches: Array<Record<string, unknown>>;
 }) {
   const { baseTideData, repBeach, tideSamples, cityBeaches } = options;
@@ -210,6 +210,60 @@ describe("getCityTideDataExpanded", () => {
     if (data.sevenDayExtrema.length > 0) {
       expect(data.sevenDayExtrema[0].isToday).toBe(true);
     }
+  });
+
+  it("charts one station when an older station's rows overlap the current one", async () => {
+    const fakeNow = new Date("2026-09-28T12:00:00-07:00");
+    mockDateNow(fakeNow);
+
+    // Shipwrecks, Coronado: San Diego direct rows since the coordinate edit,
+    // plus Point Loma hilo rows written earlier for the same hours.
+    const current = generateTideSamples(
+      new Date("2026-09-28T00:00:00-07:00"),
+      new Date("2026-10-05T00:00:00-07:00"),
+    ).map((sample) => ({ ...sample, source: "noaa", station_id: "9410170", created_at: "2026-09-16T04:00:02.481Z" }));
+    const stale = current.map((sample) => ({
+      ...sample,
+      tide_height_m: sample.tide_height_m - 0.3,
+      tide_ft: Math.round((sample.tide_height_m - 0.3) * 3.28084 * 100) / 100,
+      source: "noaa_hilo_interpolated",
+      station_id: "TWC0405",
+      created_at: "2026-09-02T04:00:02.682Z",
+    }));
+    const tideSamples = current.flatMap((sample, i) => [stale[i], sample]);
+
+    const mockSupa = createMockSupabase({
+      baseTideData: {
+        beach_id: "beach-1",
+        tide_status: "Rising",
+        tide_height: "3.0 ft",
+        next_tide_time: "3:00 PM",
+        next_tide_type: "High",
+        next_tide_height: "5.0 ft",
+        raw_forecast: {
+          tide_schedule: [{ time: Math.floor(fakeNow.getTime() / 1000), height: 5.0, type: "high" }],
+          tide_station: { id: "9410170", name: "San Diego, CA" },
+        },
+        beaches: { id: "beach-1", name: "Shipwrecks", city: "Coronado", state: "CA" },
+      },
+      repBeach: { id: "beach-1", name: "Shipwrecks", timezone: "America/Los_Angeles" },
+      tideSamples,
+      cityBeaches: [],
+    });
+    (createSupabaseServiceRoleClient as jest.Mock).mockResolvedValue(mockSupa);
+
+    const result = await getCityTideDataExpanded("Coronado", "CA");
+    const data = result as CityTideDataExpanded;
+
+    const currentFtByTime = new Map(current.map((sample) => [sample.ts, sample.tide_ft]));
+    expect(data.hourlyPoints.length).toBeGreaterThan(0);
+    expect(new Set(data.hourlyPoints.map((point) => point.time)).size).toBe(data.hourlyPoints.length);
+    for (const point of data.hourlyPoints) {
+      expect(point.height).toBe(currentFtByTime.get(point.time));
+    }
+    // A semidiurnal week has about four turns a day, not one per hour.
+    const turns = data.sevenDayExtrema.reduce((count, day) => count + day.events.length, 0);
+    expect(turns).toBeLessThanOrEqual(4 * 8);
   });
 
   it("sorts days correctly across year boundary (Dec 31 → Jan 1)", async () => {

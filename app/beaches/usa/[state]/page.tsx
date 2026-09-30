@@ -28,6 +28,7 @@ import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
 import { SeoFunnelNextSteps } from "@/components/seo/seo-funnel-next-steps";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import { SITE_URL } from "@/lib/constants/seo";
+import { toMapBeach } from "@/lib/utils/map-client-props";
 
 /** Intent quick-links shown per city for crawler discovery */
 const CITY_INTENT_PILLS = [
@@ -325,7 +326,7 @@ export default async function UsaStatePage(
 
         <section aria-label="Map preview" className="order-1 lg:order-2">
           <StateMapView
-            beaches={beaches}
+            beaches={beaches.map(toMapBeach)}
             ariaLabel={`Map of beaches in ${stateName}`}
           />
           <p className="mt-3 text-xs text-slate-500">

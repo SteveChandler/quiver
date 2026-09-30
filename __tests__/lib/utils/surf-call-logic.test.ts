@@ -1623,6 +1623,50 @@ describe('computeSurfCall', () => {
 });
 
 describe('computeSurfCallTiers', () => {
+  it.each([
+    ['low score', { score: 37 }],
+    ['too short', { end: new Date('2026-09-29T15:20:00Z') }],
+  ])('does not promote a baseline NO with suppressed bounds (%s)', (_reason, overrides) => {
+    const window = makeWindow({
+      start: new Date('2026-09-29T15:00:00Z'),
+      end: new Date('2026-09-29T18:00:00Z'),
+      waveHeight: '1.3 ft',
+      confidence: 88,
+      ...overrides,
+    });
+    const forecasts = [makeForecast({
+      forecast_at: '2026-09-29T15:00:00Z',
+      wave_height: '1.3 ft',
+      wind_speed: '5',
+      wind_direction: 'N',
+      wind_direction_deg: 0,
+      confidence_score: 88,
+    })];
+    const beach = makeBeach({ wind_offshore_deg: 0 });
+    const options = { isTomorrow: true };
+    const baseline = computeSurfCall(window, forecasts, beach, options);
+    expect(baseline).toMatchObject({
+      verdict: 'NO', bestWindowStart: null, bestWindowEnd: null,
+      waveHeight: '1.3 ft', windType: 'offshore', forecastConfidence: 88,
+    });
+    const tiers = computeSurfCallTiers(window, forecasts, beach, options);
+    for (const tier of Object.values(tiers)) {
+      expect(tier).toMatchObject({ verdict: 'NO', bestWindowStart: null, bestWindowEnd: null });
+    }
+  });
+
+  it('keeps the beginner MAYBE-to-YES upgrade bound to the scored window', () => {
+    const window = makeWindow({ score: 55, waveHeight: '1.3 ft' });
+    const forecasts = [makeForecast({ wave_height: '1.3 ft' })];
+    const baseline = computeSurfCall(window, forecasts, makeBeach());
+    expect(baseline.verdict).toBe('MAYBE');
+    expect(computeSurfCallTiers(window, forecasts, makeBeach()).beginner).toMatchObject({
+      verdict: 'YES',
+      bestWindowStart: window.start.toISOString(),
+      bestWindowEnd: window.end.toISOString(),
+    });
+  });
+
   it('returns the same intermediate verdict the baseline computeSurfCall produces', () => {
     const window = makeWindow({ score: 75, waveHeight: '3-4 ft' });
     const forecasts = [makeForecast({ wave_height: '3-4 ft' })];

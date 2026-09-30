@@ -275,9 +275,9 @@ The intent pages system serves programmatic SEO landing pages at `/[intent]/[cit
 - **Unified Route** (`app/[intent]/[city]/page.tsx`): Single dynamic route handles all 7 intents plus legacy redirects
 - **City Resolution**: Batched DB queries via `findCityBySlug()` with state abbreviation fallback
 - **Dedicated Intent Pages**: Beginner (`BeginnerPageContent`) and Tide (`TidePageContent`) have fully custom layouts; other intents use a generic template
-- **Dynamic Rendering**: Pages use `force-dynamic` and render on-demand (no build-time static generation)
+- **Rendering**: `force-static` ISR rendered on demand (no build-time static generation); major-event hold transitions `revalidatePath` every affected intent path
 - **Design Language**: Frosted glass (`bg-white/60 backdrop-blur-md`), ocean-tinted borders (`border-blue-100/50`), `rounded-2xl` cards
-- **ISR**: 30-minute revalidation (`revalidate: 1800`)
+- **ISR**: hourly (`revalidate = 3600`). Next.js lowers a render's window to the shortest `unstable_cache` window it reads, so the generic template reads its beach list with a 15-minute window: it shows live recommendations with render-time water-quality holds. Tide, water-temp, dawn-patrol, sunset, beginner, and state pages keep the hour.
 
 **Data Flow:**
 ```

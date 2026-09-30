@@ -266,6 +266,7 @@ leash assertions, and the known-flaky map e2e).
   - Debounced viewport change detection
   - Cached API requests for performance
   - Favorite beach highlighting
+- **Provided `beaches`**: SEO intent, state hub, and city pages send `StateMapView`, `CityMapView`, and `LocationMapClient` only the columns and spot fields listed in `lib/utils/map-client-props.ts`. `StateMapView` and `CityMapView` fill the rest with `createBeachWithDefaults`; `LocationMapClient` passes location RPC rows as they are, because a filled-in default timezone would be trusted. When map code starts reading another beach column, add it to `MAP_BEACH_FIELDS`, or those pages will pass `null` or omit it.
 
 **Beach Marker System:**
 

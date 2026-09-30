@@ -42,6 +42,7 @@ import {
   type ForecastIndexabilitySnapshot,
 } from "@/lib/seo/forecast-indexability";
 import { isGscPerformanceProtected } from "@/lib/seo/gsc-performance-protection";
+import { tideExtremesWindow } from "@/lib/seo/tide-meta-data";
 import { unstable_cache } from "next/cache";
 
 const BEACH_WITH_FRESH_FORECAST = {
@@ -109,7 +110,7 @@ jest.mock("@/lib/supabase/server", () => ({
 // temperature), so these fixtures have to carry real values, not bare ids.
 function coverageRowsFor(table: string, beachIds: string[]): unknown[] {
   if (table === "tide_forecasts") {
-    // Falls then rises: yields both a high (first point) and a low (index 1).
+    // Falls then rises: a low at index 1. The first point is only a neighbour.
     const heights = [1.0, 0.5, 1.2];
     return beachIds.flatMap((beach_id) =>
       heights.map((tide_height_m, hour) => ({
@@ -1193,6 +1194,82 @@ describe("Sitemap Generation", () => {
             route.url === `${baseUrl}/ca/encinitas/swamis/water-temp`,
         ),
       ).not.toBeUndefined();
+    });
+
+    it("reads tide coverage over the same window the tides sub-page reads", async () => {
+      const now = new Date("2026-09-27T22:20:00.000Z");
+      jest.useFakeTimers({ now });
+      try {
+        const tideQueries: Array<ReturnType<typeof createCoverageQueryMock>> = [];
+        (createSupabaseServiceRoleClient as jest.Mock).mockResolvedValue({
+          from: jest.fn((table: string) => {
+            const query = createCoverageQueryMock(table);
+            if (table === "tide_forecasts") tideQueries.push(query);
+            return query;
+          }),
+        });
+        (getBeaches as jest.Mock).mockResolvedValue({
+          success: true,
+          data: [{
+            id: "swamis",
+            slug: "swamis",
+            city: "Encinitas",
+            state: "CA",
+            country: "USA",
+            description: "A substantive local reef-break description.",
+            wave_tips: "Use the channel and respect the established peak.",
+          }],
+        });
+
+        await sitemap();
+
+        const { from, to } = tideExtremesWindow(now);
+        expect(tideQueries.length).toBeGreaterThan(0);
+        for (const query of tideQueries) {
+          expect(query.gte).toHaveBeenCalledWith("ts", from);
+          expect(query.lte).toHaveBeenCalledWith("ts", to);
+        }
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it("judges tide coverage on one station when an older station's rows overlap it", async () => {
+      // The current station's 26 hours only rise: no turn, so no tides page.
+      // The older station's rows, 0.3 m higher at the same hours, used to be
+      // interleaved with them and made every hour look like a turn.
+      const rising = Array.from({ length: 26 }, (_, i) => 0.1 + i * 0.01);
+      const ts = (i: number): string => new Date(Date.UTC(2026, 8, 27, 21 + i)).toISOString();
+      const tideRows = rising.flatMap((tide_height_m, i) => [
+        { beach_id: "swamis", ts: ts(i), tide_height_m: tide_height_m + 0.3, source: "noaa_hilo_interpolated", station_id: "TWC0405", created_at: "2026-09-02T04:00:02.682Z" },
+        { beach_id: "swamis", ts: ts(i), tide_height_m, source: "noaa", station_id: "9410170", created_at: "2026-09-16T04:00:02.481Z" },
+      ]);
+      (createSupabaseServiceRoleClient as jest.Mock).mockResolvedValue({
+        from: jest.fn((table: string) => {
+          const query = createCoverageQueryMock(table);
+          if (table === "tide_forecasts") {
+            query.limit.mockImplementation(async () => ({ data: tideRows, error: null }));
+          }
+          return query;
+        }),
+      });
+      (getBeaches as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [{
+          id: "swamis",
+          slug: "swamis",
+          city: "Encinitas",
+          state: "CA",
+          country: "USA",
+          description: "A substantive local reef-break description.",
+          wave_tips: "Use the channel and respect the established peak.",
+        }],
+      });
+
+      const result = await sitemap();
+
+      expect(result.find((route) => route.url === `${baseUrl}/ca/encinitas/swamis`)).not.toBeUndefined();
+      expect(result.find((route) => route.url === `${baseUrl}/ca/encinitas/swamis/tides`)).toBeUndefined();
     });
 
     it("does not let editorial rejection veto a current forecast page", async () => {

@@ -5,6 +5,7 @@ import type { TidePoint } from "@/components/forecast/tide-chart-recharts";
 import type { TideScheduleEntry } from "@/types/forecast";
 import { parseWaterTempF, getWetsuitRecommendation } from "@/lib/utils/wetsuit-utils";
 import { TideExtremaDetector } from "@/lib/services/noaa-coops/tide-extrema-detector";
+import { selectTideSeries } from "@/lib/services/tide-forecast-selection";
 import { getTideHeightAtTime, getTideStatusAtTime, getNextTideFromTime } from "@/lib/services/noaa-coops/tide-analysis";
 import type { TideData } from "@/lib/services/noaa-coops/types";
 import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
@@ -635,7 +636,7 @@ async function fetchExpandedTideData(
   const [tideResult, beachesResult] = await Promise.all([
     supabase
       .from("tide_forecasts")
-      .select("ts, tide_height_m, tide_ft")
+      .select("ts, tide_height_m, tide_ft, source, station_id, created_at")
       .eq("beach_id", beachId)
       .gte("ts", startDate.toISOString())
       .lte("ts", endDate.toISOString())
@@ -653,7 +654,7 @@ async function fetchExpandedTideData(
   const samplesForDetector: Array<{ ts: string; tide_height_m: number }> = [];
 
   if (tideResult.data) {
-    for (const row of tideResult.data) {
+    for (const row of selectTideSeries(tideResult.data)) {
       const heightFt = row.tide_ft ?? (row.tide_height_m != null ? row.tide_height_m * METERS_TO_FEET : null);
       const heightM = row.tide_height_m ?? (row.tide_ft != null ? row.tide_ft / METERS_TO_FEET : null);
 

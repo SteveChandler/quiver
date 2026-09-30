@@ -19,6 +19,7 @@ import { SunTimesHeroSection } from "./sun-times-hero-section";
 import { SevenDaySunTimesTable } from "./seven-day-sun-times-table";
 import { BeachEditorialSection } from "./beach-editorial-section";
 import { UtilitySessionHandoff } from "./utility-session-handoff";
+import { toCityMapSpot } from "@/lib/utils/map-client-props";
 
 interface DawnPatrolPageContentProps {
   cityName: string;
@@ -142,7 +143,7 @@ export function DawnPatrolPageContent({
                 Best dawn patrol spots in {cityName}
               </h2>
               <CityMapView
-                spots={spots}
+                spots={spots.map(toCityMapSpot)}
                 cityName={cityName}
                 citySlug={citySlug}
                 stateSlug={stateSlug}

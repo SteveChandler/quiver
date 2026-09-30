@@ -21,6 +21,7 @@ import { BeachTempComparison } from "./beach-temp-comparison";
 import { BeachEditorialSection } from "./beach-editorial-section";
 import { UtilitySessionHandoff } from "./utility-session-handoff";
 import { ContentPageAppHandoffCta } from "@/components/app-store/content-page-app-handoff-cta";
+import { toCityMapSpot } from "@/lib/utils/map-client-props";
 
 interface WaterTempPageContentProps {
   cityName: string;
@@ -162,7 +163,7 @@ export function WaterTempPageContent({
                 Surf spots in {cityName}
               </h2>
               <CityMapView
-                spots={spots}
+                spots={spots.map(toCityMapSpot)}
                 cityName={cityName}
                 citySlug={citySlug}
                 stateSlug={stateSlug}

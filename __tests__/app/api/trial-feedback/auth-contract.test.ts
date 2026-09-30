@@ -12,8 +12,11 @@ jest.mock('@/lib/email/lifecycle', () => ({ lifecycleRpc: (...args: unknown[]) =
 const user = '11111111-1111-4111-8111-111111111111';
 const other = '22222222-2222-4222-8222-222222222222';
 const originalFetch = global.fetch;
+// Fixed once: the Auth mock rebuilds token() to compare, so a per-call exp that
+// crossed a second boundary between the two builds turned a valid user into a 401.
+const TOKEN_EXP = Math.floor(Date.now()/1000)+3600;
 function token(id: string): string {
-  return [Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url'), Buffer.from(JSON.stringify({ sub: id, exp: Math.floor(Date.now()/1000)+3600 })).toString('base64url'), 'fixture'].join('.');
+  return [Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url'), Buffer.from(JSON.stringify({ sub: id, exp: TOKEN_EXP })).toString('base64url'), 'fixture'].join('.');
 }
 let ip = 0;
 function request(headers: Record<string,string>, address?: string): NextRequest {

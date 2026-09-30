@@ -32,6 +32,7 @@ import { SITE_ORIGIN } from "./city-page-utils";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { ReviewedCityEditorialSection } from "@/components/seo/reviewed-city-editorial-section";
 import type { CityEditorialPhoto } from "@/lib/data/server/city-editorial-photo";
+import { toCityMapSpot } from "@/lib/utils/map-client-props";
 
 interface EditorialLayoutProps {
   params: LocationPageParams;
@@ -223,7 +224,7 @@ export function EditorialLayout({
 
         {/* Full-width Interactive Map with Beach List */}
         <CityMapView
-          spots={surfSpots}
+          spots={surfSpots.map(toCityMapSpot)}
           cityName={editorial.city_name}
           citySlug={params.city}
           stateSlug={params.state}
@@ -252,7 +253,12 @@ export function EditorialLayout({
           citySlug={params.city}
           stateSlug={params.state}
           featuredIntents={editorial.featured_intents}
-          beaches={beaches}
+          beaches={beaches.map(({ slug, name, skill_level, crowd_level }) => ({
+            slug,
+            name,
+            skill_level,
+            crowd_level,
+          }))}
         />
 
         {/* Best Time to Surf cross-link for SEO indexation */}

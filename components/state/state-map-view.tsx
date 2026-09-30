@@ -3,6 +3,8 @@
 import { useMemo, Suspense } from "react";
 import dynamic from "next/dynamic";
 import type { Beach } from "@/types/database";
+import { createBeachWithDefaults } from "@/lib/utils/beach-defaults";
+import type { MapBeach } from "@/lib/utils/map-client-props";
 
 const InteractiveMap = dynamic(
   () =>
@@ -22,7 +24,7 @@ const InteractiveMap = dynamic(
   }
 );
 
-function computeCenterZoom(beaches: Beach[]): {
+function computeCenterZoom(beaches: MapBeach[]): {
   center: [number, number];
   zoom: number;
 } {
@@ -64,11 +66,16 @@ export function StateMapView({
   ariaLabel,
   className = "h-[520px] w-full rounded-xl overflow-hidden border border-slate-200",
 }: {
-  beaches: Beach[];
+  beaches: MapBeach[];
   ariaLabel: string;
   className?: string;
 }) {
   const { center, zoom } = useMemo(() => computeCenterZoom(beaches), [beaches]);
+  // Pages send only the columns the map reads; fill the rest here, not in the payload.
+  const mapBeaches = useMemo<Beach[]>(
+    () => beaches.map((beach) => createBeachWithDefaults(beach)),
+    [beaches]
+  );
 
   if (!beaches.length) {
     return (
@@ -95,7 +102,7 @@ export function StateMapView({
         <InteractiveMap
           initialCenter={center}
           initialZoom={zoom}
-          beaches={beaches}
+          beaches={mapBeaches}
           className="h-full w-full"
         />
       </Suspense>
