@@ -13,7 +13,7 @@ trap cleanup EXIT
 docker network create "$task_name" >/dev/null
 docker run -d --name "$task_name-db" --network "$task_name" --network-alias db -e POSTGRES_HOST_AUTH_METHOD=trust postgres:15 >/dev/null
 for attempt in {1..30}; do
- if docker exec "$task_name-db" pg_isready -U postgres >/dev/null 2>&1; then break; fi
+ if docker exec "$task_name-db" pg_isready -h 127.0.0.1 -U postgres >/dev/null 2>&1; then break; fi
  sleep 1
 done
 for migration in __tests__/fixtures/email-lifecycle.sql supabase/migrations/20260903180000_email_contact_policy.sql supabase/migrations/20260912010000_startup_email_lifecycle.sql supabase/migrations/20260622090000_create_earned_pro_grants.sql supabase/migrations/20260912020000_gmail_reply_ingestion.sql supabase/migrations/20260912030000_pro_offer_fulfillment.sql supabase/migrations/20260912040000_automated_lifecycle_offers.sql supabase/migrations/20260912050000_lifecycle_audience_copy.sql supabase/migrations/20260912214631_lifecycle_full_audience.sql supabase/migrations/20260912234500_lifecycle_account_read_permissions.sql supabase/migrations/20260913150000_trial_cancellation_feedback.sql supabase/migrations/20260913230000_trial_feedback_web_recovery.sql supabase/migrations/20260914170000_gmail_reply_reconciliation.sql supabase/migrations/20260915132444_gmail_reply_retry_backoff.sql contracts/email-system/setup.sql; do
