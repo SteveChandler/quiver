@@ -6,6 +6,7 @@ import {
   createSuccessResponse,
   createNotFoundError,
   createValidationError,
+  handleApiError,
   withNoStore,
 } from "@/lib/middleware/api-wrappers";
 import {
@@ -422,7 +423,10 @@ export const GET = withNoStore(withAuth(
       .eq("id", validBeachId)
       .single();
 
-    if (beachError || !beach) {
+    if (beachError && beachError.code !== "PGRST116") {
+      return handleApiError(beachError, "Failed to fetch scored forecast");
+    }
+    if (!beach) {
       return createNotFoundError("Beach");
     }
 
@@ -520,5 +524,5 @@ export const GET = withNoStore(withAuth(
       )
     );
   },
-  { optional: true, errorMessage: "Failed to fetch scored forecast" }
+  { optional: true, rejectInvalidCredentials: true, errorMessage: "Failed to fetch scored forecast" }
 ));

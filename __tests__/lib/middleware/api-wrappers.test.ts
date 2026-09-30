@@ -458,6 +458,17 @@ describe("API Wrappers", () => {
         );
         expect(mockBearerSupabaseClient.auth.getUser).not.toHaveBeenCalled();
       });
+
+      it("returns 401 from scored forecasts before querying with expired credentials", async () => {
+        mockBearerSupabaseClient.auth.getUser.mockResolvedValue({
+          data: { user: null },
+          error: { name: 'AuthError', message: 'expired JWT' } as any,
+        });
+        const { GET } = await import('@/app/api/forecasts/scored/[beachId]/route');
+        const response = await GET(createBearerRequest('expired-jwt') as any);
+        expect(response.status).toBe(401);
+        expect(mockBearerSupabaseClient.from).not.toHaveBeenCalled();
+      });
     });
   });
 
