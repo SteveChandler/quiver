@@ -68,6 +68,8 @@
           "conditionScore": 84,
           "rankingScore": 88,
           "verdict": "worth_it",
+          "personalVerdict": "go",
+          "personalLabel": "GOOD",
           "rideable": true,
           "safe": true,
           "confidence": 82,
@@ -89,7 +91,9 @@
               "beachName": "Ala Moana",
               "conditionScore": 84,
               "rankingScore": 88,
-              "verdict": "worth_it"
+              "verdict": "worth_it",
+              "personalVerdict": "go",
+              "personalLabel": "GOOD"
             }
           ]
         }
@@ -108,6 +112,8 @@
         "conditionScore": 84,
         "rankingScore": 88,
         "verdict": "worth_it",
+        "personalVerdict": "go",
+        "personalLabel": "GOOD",
         "rideable": true,
         "safe": true,
         "confidence": 82,
@@ -129,7 +135,9 @@
             "beachName": "Ala Moana",
             "conditionScore": 84,
             "rankingScore": 88,
-            "verdict": "worth_it"
+            "verdict": "worth_it",
+            "personalVerdict": "go",
+            "personalLabel": "GOOD"
           }
         ]
       },
