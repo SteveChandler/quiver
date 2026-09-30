@@ -65,11 +65,20 @@ function setCachedPredictions<T>(
   key: string,
   data: T[]
 ): void {
+  // An empty set is a failed lookup, not an answer: caching it made the cron's
+  // same-invocation retry read the miss back instead of asking NOAA again.
+  if (data.length === 0) return;
   if (cache.size >= predictionCacheMaxEntries && !cache.has(key)) {
     const oldestKey = cache.keys().next().value;
     if (oldestKey) cache.delete(oldestKey);
   }
   cache.set(key, { at: Date.now(), data: [...data] });
+}
+
+/** NOAA answers 200 with `{ error: { message } }` when it has no predictions. */
+function noaaErrorMessage(json: unknown): string | null {
+  const message = (json as { error?: { message?: unknown } } | null)?.error?.message;
+  return typeof message === "string" && message.trim() ? message.trim().slice(0, 300) : null;
 }
 
 function toYmd(value: string): string {
@@ -199,6 +208,14 @@ export async function fetchHourlyTidePredictions(
     })
     .filter((p: TidePrediction | null): p is TidePrediction => Boolean(p));
 
+  if (preds.length === 0) {
+    console.warn("NOAA tide request returned no predictions", {
+      stationId,
+      begin_date,
+      end_date,
+      noaaError: noaaErrorMessage(json),
+    });
+  }
   setCachedPredictions(hourlyPredictionsCache, cacheKey, preds);
   return filterPredictionsToWindow(preds, startIso, endIso);
 }
@@ -255,6 +272,14 @@ export async function fetchHighLowTidePredictions(
         Boolean(prediction)
     );
 
+  if (predictions.length === 0) {
+    console.warn("NOAA high/low tide request returned no predictions", {
+      stationId,
+      begin_date,
+      end_date,
+      noaaError: noaaErrorMessage(json),
+    });
+  }
   setCachedPredictions(highLowPredictionsCache, cacheKey, predictions);
   return filterPredictionsToWindow(predictions, startIso, endIso);
 }

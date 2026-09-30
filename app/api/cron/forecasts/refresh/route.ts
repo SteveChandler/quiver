@@ -875,7 +875,9 @@ async function _GET(request: Request): Promise<Response> {
       // while every upsert succeeded, and the stations behind the beaches left
       // unwritten answered normally when probed later. Give each failed group
       // one more try after the first pass, while budget remains, rather than
-      // leaving its beaches to wait for the next run.
+      // leaving its beaches to wait for the next run. The retry must reach NOAA:
+      // on 2026-09-30 it recovered 0 of 76 because noaa-tide-service cached the
+      // empty answer, which it no longer does.
       for (const { stationId, group, failure: firstFailure } of firstPassFailures) {
         let failure: TideGroupFailure | null = firstFailure;
         if (!shouldStop()) {
