@@ -1985,11 +1985,12 @@ async function discoverSurfSpotsInner(
       }
     }
 
-    if (!forecastAt && discoveryMode !== 'now') {
-      selectedWindows = selectedWindows.map((window) =>
-        withDisplayWindow(window, sunTimesCache.get(beach.id)),
-      );
-    }
+    // Immediate (now and scoped) windows carry raw bucket bounds that ignore
+    // light, so their display bounds are what keeps an end from running past
+    // last light. Raw start/end stay untouched for the NOW open-window checks.
+    selectedWindows = selectedWindows.map((window) =>
+      withDisplayWindow(window, sunTimesCache.get(beach.id)),
+    );
 
     if (forecastAt && lightMetadataForInterval(lightInterval, beachTz, beachSunTimes).isDark) {
       considerAfterDark(afterDarkAvailabilityFor(beach, beachTz, lightInterval.start, beachSunTimes));

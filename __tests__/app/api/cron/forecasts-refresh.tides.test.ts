@@ -323,6 +323,51 @@ describe("/api/cron/forecasts/refresh (tides)", () => {
       expect(failureReason).toBeNull();
     });
 
+    it("recovers a station on retry when NOAA's first answer was a 200 with an error body", async () => {
+      // 2026-09-30: 76 of 111 stations came back empty and the retry recovered none,
+      // because the service cached the empty answer and handed it straight back.
+      // This runs the real service and fakes only its HTTP boundary.
+      const noPredictions = { error: { message: "No Predictions data was found." } };
+      const predictions = hourlyPoints(3).map((point) => ({
+        t: point.ts.slice(0, 16).replace("T", " "),
+        v: String(point.tide_height_m),
+      }));
+      const mockFetch = jest.fn()
+        .mockImplementationOnce(async () => new Response(JSON.stringify(noPredictions)))
+        .mockImplementationOnce(async () => new Response(JSON.stringify({ predictions })));
+      jest.doMock("@/lib/utils/fetch-utils", () => ({
+        fetchWithTimeout: (...args: any[]) => mockFetch(...args),
+      }));
+      try {
+        const realService = jest.requireActual("@/lib/services/noaa-tide-service");
+        mockFetchHourlyTidePredictions.mockImplementation(
+          (...args: any[]) => realService.fetchHourlyTidePredictions(...args),
+        );
+        mockGetNearestTideStation.mockResolvedValue({ id: "9410841", name: "Retry Cache", lat: 34.008, lon: -118.5 });
+        const upsertTides = jest.fn(async () => ({ error: null }));
+        const tideForecasts = tideForecastsMock(upsertTides);
+        mockSupabaseFrom.mockImplementation((table: string) => {
+          if (table === "beaches") return thenable({ data: [{ id: "beach-a", name: "A", lat: 34.03, lon: -118.67, tide_forecasts: [] }], error: null });
+          if (table === "tide_forecasts") return tideForecasts;
+          return { upsert: jest.fn(async () => ({ error: null })) };
+        });
+
+        const { json } = await runTideRefresh("tidesBackfillMissing=1");
+
+        expectConsoleWarnings([/NOAA tide request returned no predictions/, /NOAA tides empty for station/]);
+        expect(mockFetch).toHaveBeenCalledTimes(2);
+        expect(upsertTides).toHaveBeenCalledTimes(1);
+        expect(json.data.totals.tides).toBe(3);
+        expect(json.data.tideIngest).toEqual(expect.objectContaining({
+          retriedStations: 1,
+          recoveredStations: 1,
+          failedStations: [],
+        }));
+      } finally {
+        jest.dontMock("@/lib/utils/fetch-utils");
+      }
+    });
+
     it("fails the run when a beach with a station would keep under 7 days of tides", async () => {
       const now = Date.now();
       const beaches = [

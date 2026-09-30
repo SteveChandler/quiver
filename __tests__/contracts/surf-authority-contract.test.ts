@@ -429,6 +429,20 @@ describe("surf authority producer contract", () => {
     });
   });
 
+  describe("now window", () => {
+    it("shares display bounds between the now recommendation and the surf call context, ending by last light", () => {
+      const window = result.nowRecommendation.window;
+      expect(window.displayWindowStart).toBeInstanceOf(Date);
+      expect(window.displayWindowEnd).toBeInstanceOf(Date);
+      expect(result.nowContext.displayWindowStart).toBe(window.displayWindowStart!.toISOString());
+      expect(result.nowContext.displayWindowEnd).toBe(window.displayWindowEnd!.toISOString());
+      // Sunset 19:05 PDT plus the 20-minute last-light allowance.
+      expect(window.displayWindowEnd!.getTime()).toBeLessThanOrEqual(Date.parse("2026-09-11T02:25:00.000Z"));
+      // The raw end still drives the NOW open-window checks.
+      expect(window.end.getTime()).toBeGreaterThan(NOW.getTime());
+    });
+  });
+
   describe("best window", () => {
     it("shares display bounds across discovery, surf call, authority, and Week Scout", () => {
       const discoveryStart = result.bestRecommendation.window.displayWindowStart!.toISOString();

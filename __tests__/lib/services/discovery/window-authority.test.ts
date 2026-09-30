@@ -1,6 +1,7 @@
 import {
   DISPLAY_WINDOW_MINUTES,
   WINDOW_AUTHORITY_MAX_WINDOWS,
+  deriveDisplayWindow,
   selectBeachDayWindows,
   withDisplayWindow,
 } from '@/lib/services/discovery/window-authority';
@@ -82,6 +83,87 @@ describe('withDisplayWindow', () => {
     expect(result.peakTime.toISOString()).toBe('2026-09-09T16:30:00.000Z');
     expect(result.displayWindowStart.getTime()).toBeGreaterThanOrEqual(rawWindow.start.getTime());
     expect(result.displayWindowEnd.getTime()).toBeLessThanOrEqual(rawWindow.end.getTime());
+  });
+});
+
+describe('display window last light', () => {
+  // Sep 30 in San Diego: sunrise 06:36 PDT, sunset 18:38 PDT, so last light is 18:58 PDT.
+  const sunTimes = {
+    sunrises: [new Date('2026-09-30T13:36:00.000Z')],
+    sunsets: [new Date('2026-10-01T01:38:00.000Z')],
+  };
+  const LAST_LIGHT = '2026-10-01T01:58:00.000Z';
+
+  it('re-clamps the end to last light after the band is shifted forward to the raw start', () => {
+    const rawWindow = window(
+      '2026-10-01T00:00:00.000Z', // 17:00 PDT
+      '2026-10-01T03:00:00.000Z', // 20:00 PDT
+      '2026-10-01T00:00:00.000Z',
+    );
+
+    const withoutSun = withDisplayWindow(rawWindow);
+    const withSun = withDisplayWindow(rawWindow, sunTimes);
+
+    // Without sun times the 18:00 fallback band shifts to 17:00-19:30.
+    expect(withoutSun.displayWindowEnd.toISOString()).toBe('2026-10-01T02:30:00.000Z');
+    expect(withSun.displayWindowStart.toISOString()).toBe('2026-10-01T00:00:00.000Z');
+    expect(withSun.displayWindowEnd.toISOString()).toBe(LAST_LIGHT);
+    expect(withSun.end).toBe(rawWindow.end);
+  });
+
+  it('clamps a short raw window that runs past last light', () => {
+    const result = deriveDisplayWindow({
+      rawStart: new Date('2026-10-01T00:30:00.000Z'), // 17:30 PDT
+      rawEnd: new Date('2026-10-01T02:30:00.000Z'), // 19:30 PDT
+      peak: new Date('2026-10-01T01:00:00.000Z'), // 18:00 PDT
+      timezone,
+      sunTimes,
+    });
+
+    expect(result.start.toISOString()).toBe('2026-10-01T00:30:00.000Z');
+    expect(result.end.toISOString()).toBe(LAST_LIGHT);
+  });
+
+  it('keeps a dark peak unclamped so Now is never gated by the clock', () => {
+    const rawWindow = window(
+      '2026-10-01T03:00:00.000Z', // 20:00 PDT
+      '2026-10-01T06:00:00.000Z', // 23:00 PDT
+      '2026-10-01T03:00:00.000Z',
+    );
+
+    const result = withDisplayWindow(rawWindow, sunTimes);
+
+    expect(result.displayWindowStart.toISOString()).toBe('2026-10-01T03:00:00.000Z');
+    expect(result.displayWindowEnd.toISOString()).toBe('2026-10-01T05:30:00.000Z');
+  });
+
+  it('does not clamp on the 18:00 fallback when no sunset is known for the peak day', () => {
+    const otherDay = {
+      sunrises: [new Date('2026-10-01T13:37:00.000Z')],
+      sunsets: [new Date('2026-10-02T01:36:00.000Z')],
+    };
+    const rawWindow = window(
+      '2026-10-01T00:00:00.000Z',
+      '2026-10-01T03:00:00.000Z',
+      '2026-10-01T00:00:00.000Z',
+    );
+
+    const result = withDisplayWindow(rawWindow, otherDay);
+
+    expect(result.displayWindowEnd.toISOString()).toBe('2026-10-01T02:30:00.000Z');
+  });
+
+  it('leaves a window that already ends before last light untouched', () => {
+    const rawWindow = window(
+      '2026-10-01T00:00:00.000Z', // 17:00 PDT
+      '2026-10-01T01:30:00.000Z', // 18:30 PDT
+      '2026-10-01T00:30:00.000Z',
+    );
+
+    const result = withDisplayWindow(rawWindow, sunTimes);
+
+    expect(result.displayWindowStart).toBe(rawWindow.start);
+    expect(result.displayWindowEnd).toBe(rawWindow.end);
   });
 });
 

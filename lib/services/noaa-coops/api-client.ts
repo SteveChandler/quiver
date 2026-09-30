@@ -159,7 +159,10 @@ async function fetchTidePredictions(
     }
 
     if (!data.predictions) {
-      options?.logger?.warn("No tide predictions data returned");
+      // NOAA explains an empty answer in `error.message`; keep it so a run says why.
+      const noaaMessage = typeof data?.error?.message === "string" ? data.error.message.trim() : "";
+      const detail = noaaMessage ? `: ${noaaMessage.slice(0, 300)}` : "";
+      options?.logger?.warn(`No tide predictions data returned for station ${stationId}${detail}`);
       return [];
     }
 

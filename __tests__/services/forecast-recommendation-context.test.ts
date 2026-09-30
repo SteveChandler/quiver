@@ -5,6 +5,7 @@ import {
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { PersonalizedForecastWindow } from "@/types/personalization";
+import { withDisplayWindow } from "@/lib/services/discovery/window-authority";
 
 function beach(overrides: Partial<Beach> = {}): Beach {
   return {
@@ -143,6 +144,40 @@ describe("buildForecastRecommendationContext", () => {
     expect(context?.displayWindowStart).toBe("2026-05-08T23:10:00.000Z");
     expect(context?.displayWindowEnd).toBe("2026-05-09T00:20:00.000Z");
     expect(context?.displayTimeLabel).toBe("Best window: 4:10-5:20 PM");
+  });
+
+  it("ends a scoped 5 PM window at last light instead of the shifted 150-minute band", () => {
+    // Sep 30 sunset 18:38 PDT, so last light is 18:58 PDT.
+    const sunTimes = {
+      sunrises: [new Date("2026-09-30T13:36:00.000Z")],
+      sunsets: [new Date("2026-10-01T01:38:00.000Z")],
+    };
+    const sourceForecast = row({ forecast_at: "2026-10-01T00:00:00.000Z" });
+    const immediate: PersonalizedForecastWindow = {
+      start: new Date("2026-10-01T00:00:00.000Z"),
+      end: new Date("2026-10-01T03:00:00.000Z"),
+      tide: "Rising",
+      wind: "4 mph S",
+      waveHeight: "2.1 ft",
+      wavePeriod: "7s",
+      dataSource: "CDIP",
+      confidence: 75,
+      timezone: "America/Los_Angeles",
+      peakTime: new Date("2026-10-01T00:00:00.000Z"),
+      sourceForecast,
+    };
+
+    const context = buildForecastRecommendationContext({
+      beach: beach(),
+      forecasts: [sourceForecast],
+      window: withDisplayWindow(immediate, sunTimes),
+      now: new Date("2026-10-01T00:01:00.000Z"),
+    });
+
+    expect(context?.displayWindowStart).toBe("2026-10-01T00:00:00.000Z");
+    expect(context?.displayWindowEnd).toBe("2026-10-01T01:58:00.000Z");
+    expect(context?.displayTimeLabel).toBe("Best window: 5:00-6:58 PM");
+    expect(context?.endTime).toBe("2026-10-01T03:00:00.000Z");
   });
 
   it("uses OM south swell context when a named north component is outside the beach swell window", () => {
