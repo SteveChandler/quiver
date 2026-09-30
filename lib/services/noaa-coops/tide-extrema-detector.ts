@@ -8,6 +8,10 @@
 
 import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
 
+function toUnixSeconds(ts: string): number {
+  return Math.floor(new Date(ts).getTime() / 1000);
+}
+
 /**
  * A single tide height sample from the tide_forecasts table
  */
@@ -48,8 +52,8 @@ interface TideExtremaDetectorConfig {
  *    maximum (higher than both neighbors) or minimum (lower than both).
  * 2. Boundary extrema: First point is an extreme if different from second;
  *    last point is an extreme if different from second-to-last.
- * 3. Plateau handling: Equal heights are NOT detected as extrema, preventing
- *    false positives during slack tide periods.
+ * 3. Plateau handling: a run of equal heights at a turn is one extreme at
+ *    the run's middle; a flat step inside a rise or fall is none.
  */
 export class TideExtremaDetector {
   private readonly precision: number;
@@ -69,9 +73,13 @@ export class TideExtremaDetector {
   /**
    * Create a TideExtreme from a sample
    */
-  private createExtreme(sample: TideSample, type: "high" | "low"): TideExtreme {
+  private createExtreme(
+    sample: TideSample,
+    type: "high" | "low",
+    time: number = toUnixSeconds(sample.ts),
+  ): TideExtreme {
     return {
-      time: Math.floor(new Date(sample.ts).getTime() / 1000),
+      time,
       height: this.toFeetRounded(sample.tide_height_m),
       type,
       name: type === "high" ? "High" : "Low",
@@ -80,25 +88,40 @@ export class TideExtremaDetector {
 
   /**
    * Detect interior extrema (points 1 to n-2)
-   * A point is an extreme if it's strictly greater/less than both neighbors
+   *
+   * A run of equal heights (one sample or more) is an extreme when both
+   * neighbours are lower (high) or both are higher (low). A tie at the turn
+   * is slack water: NOAA's hourly predictions put 1.851 m at both 18Z and
+   * 19Z for 9410196 on 2026-09-30, and requiring a strictly higher single
+   * sample dropped that high. The extreme is timed at the run's middle.
+   * A flat step inside a rise or fall has neighbours on both sides of it
+   * and is not an extreme.
    */
   private detectInteriorExtrema(samples: TideSample[]): TideExtreme[] {
     const extrema: TideExtreme[] = [];
 
-    for (let i = 1; i < samples.length - 1; i++) {
-      const prev = samples[i - 1].tide_height_m;
-      const curr = samples[i].tide_height_m;
-      const next = samples[i + 1].tide_height_m;
+    let runStart = 1;
+    while (runStart < samples.length - 1) {
+      const curr = samples[runStart].tide_height_m;
+      let runEnd = runStart;
+      while (runEnd + 1 < samples.length && samples[runEnd + 1].tide_height_m === curr) {
+        runEnd++;
+      }
+      if (runEnd === samples.length - 1) break; // flat to the end: no turn inside the window
 
-      // Local maximum (high tide)
+      const prev = samples[runStart - 1].tide_height_m;
+      const next = samples[runEnd + 1].tide_height_m;
+      const time = Math.floor(
+        (toUnixSeconds(samples[runStart].ts) + toUnixSeconds(samples[runEnd].ts)) / 2
+      );
+
       if (curr > prev && curr > next) {
-        extrema.push(this.createExtreme(samples[i], "high"));
+        extrema.push(this.createExtreme(samples[runStart], "high", time));
+      } else if (curr < prev && curr < next) {
+        extrema.push(this.createExtreme(samples[runStart], "low", time));
       }
-      // Local minimum (low tide)
-      else if (curr < prev && curr < next) {
-        extrema.push(this.createExtreme(samples[i], "low"));
-      }
-      // Equal heights are NOT extrema (plateau handling)
+
+      runStart = runEnd + 1;
     }
 
     return extrema;

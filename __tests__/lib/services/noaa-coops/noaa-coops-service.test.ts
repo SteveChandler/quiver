@@ -5,7 +5,7 @@
  * - Happy path conversion from cached rows to TideData
  * - Empty cache handling
  * - Boundary extrema detection
- * - Plateau handling (no false positives)
+ * - Plateau handling (a flat turn is one extreme)
  * - Fallback path behavior
  */
 
@@ -456,10 +456,12 @@ describe('NOAACOOPSService', () => {
 
         const result = await service.fetchCachedTides(beachId);
 
-        expect(result).not.toBeNull();
-        // Should detect the low at start (boundary) and low at end (boundary)
-        // but not false highs in the plateau
-        expect(result?.tides.length).toBeGreaterThan(0);
+        // Boundary lows, and one high at the middle of the flat top.
+        expect(result?.tides.map((tide) => [tide.type, tide.height, tide.time])).toEqual([
+          ['low', 3.3, Math.floor(now.getTime() / 1000)],
+          ['high', 4.9, Math.floor((now.getTime() + 1.5 * 3600000) / 1000)],
+          ['low', 3.3, Math.floor((now.getTime() + 3 * 3600000) / 1000)],
+        ]);
       });
     });
   });
