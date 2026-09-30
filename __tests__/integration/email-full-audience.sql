@@ -29,6 +29,14 @@ BEGIN
  END LOOP;
  second_batch:=email_lifecycle_cohort(); ASSERT jsonb_array_length(second_batch)=50;
  ASSERT NOT EXISTS(SELECT 1 FROM jsonb_array_elements_text(first_batch) a JOIN jsonb_array_elements_text(second_batch) b ON a.value=b.value),'evaluation must rotate';
+ UPDATE email_lifecycle_recipients SET status='held',evaluated_at=now()-interval '2 hours'
+ WHERE user_id IN (SELECT value::uuid FROM jsonb_array_elements_text(first_batch) LIMIT 30);
+ INSERT INTO email_lifecycle_recipients(user_id,campaign_id,job,episode,status,reason,due_at,first_due_at,evaluated_at)
+ VALUES ('aaaa0000-0000-4000-8000-000000000125','startup-lifecycle-v1','welcome','onboarding','due','eligible',now()-interval '1 hour',now()-interval '1 hour',now()-interval '1 hour');
+ ALTER TABLE email_lifecycle_recipients DISABLE TRIGGER track_email_due_age;
+ UPDATE email_lifecycle_recipients SET first_due_at=now()-interval '1 hour' WHERE user_id='aaaa0000-0000-4000-8000-000000000125';
+ ALTER TABLE email_lifecycle_recipients ENABLE TRIGGER track_email_due_age;
+ ASSERT email_lifecycle_cohort() ? 'aaaa0000-0000-4000-8000-000000000125','overdue unsent recipient must enter bounded cohort';
  ASSERT enroll_automatic_pro_offers()=50;
  ASSERT enroll_automatic_pro_offers()=50;
  ASSERT enroll_automatic_pro_offers()=23;
