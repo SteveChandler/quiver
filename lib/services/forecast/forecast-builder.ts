@@ -166,6 +166,7 @@ function parseWindSpeedMs(windSpeed: string | null | undefined): number | null {
 }
 
 import type { TideStatus } from "@/lib/services/noaa-coops/types";
+import { getHourlyTideHeightAtTime } from "@/lib/services/noaa-coops/tide-analysis";
 import type {
   WaveWatchForecast,
   WaveWatchData,
@@ -1675,8 +1676,14 @@ export class ForecastBuilder {
 
     if (!tideData?.tides) return defaultTideInfo;
 
+    // Height comes from the hourly series the extremes were detected from, so
+    // the row shows what tide_forecasts shows. A straight line between a high
+    // and a low runs ~0.7 ft off at mid-tide; it remains only for the live
+    // hilo fallback, which has no hourly series.
     const status = this.services.getTideStatusAtTime(tideData.tides, targetTime);
-    const currentHeight = this.services.getTideHeightAtTime(tideData.tides, targetTime);
+    const currentHeight =
+      (tideData.hourly ? getHourlyTideHeightAtTime(tideData.hourly, targetTime) : null) ??
+      this.services.getTideHeightAtTime(tideData.tides, targetTime);
     const nextTide = this.services.getNextTideFromTime(tideData.tides, targetTime);
 
     return {

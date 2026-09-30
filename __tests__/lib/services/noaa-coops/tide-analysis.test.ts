@@ -6,9 +6,11 @@ import {
   getTideStatusAtTime,
   getTideHeightAtTime,
   getNextTideFromTime,
+  getHourlyTideHeightAtTime,
   parseCOOPSTimestampToUnixSecondsUTC,
 } from '@/lib/services/noaa-coops/tide-analysis';
-import type { TideData } from '@/lib/services/noaa-coops/types';
+import type { TideData, TideHeightSample } from '@/lib/services/noaa-coops/types';
+import { LA_JOLLA_9410230_ROWS } from '@/__tests__/fixtures/noaa-tide-series-20260930';
 
 describe('tide-analysis', () => {
   describe('parseCOOPSTimestampToUnixSecondsUTC', () => {
@@ -272,6 +274,34 @@ describe('tide-analysis', () => {
       const noonPst = new Date(1738512000 * 1000);
       const height = getTideHeightAtTime(obPierTides, noonPst);
       expect(height).toBeCloseTo(3.3, 0); // Around 3.3 ft
+    });
+  });
+
+  describe('getHourlyTideHeightAtTime', () => {
+    const hourly: TideHeightSample[] = LA_JOLLA_9410230_ROWS.map((row) => ({
+      time: Date.parse(row.ts) / 1000,
+      height: row.tide_height_m * 3.28084,
+    }));
+    const at = (iso: string) => new Date(iso);
+
+    it("reads NOAA's hourly value at a slot between La Jolla's high and low", () => {
+      // Linear high-to-low interpolation gave 3.8 ft at 21Z and 1.6 ft at 00Z.
+      expect(getHourlyTideHeightAtTime(hourly, at('2026-09-30T21:00:00Z'))).toBe(4.5);
+      expect(getHourlyTideHeightAtTime(hourly, at('2026-10-01T00:00:00Z'))).toBe(1.1);
+      expect(getHourlyTideHeightAtTime(hourly, at('2026-09-30T18:00:00Z'))).toBe(5.9);
+    });
+
+    it('interpolates only across one hour between samples', () => {
+      // 20Z 1.649 m, 21Z 1.364 m -> 20:30Z 1.5065 m = 4.94 ft
+      expect(getHourlyTideHeightAtTime(hourly, at('2026-09-30T20:30:00Z'))).toBe(4.9);
+    });
+
+    it('returns null across a missing hour or outside the series', () => {
+      const gapped = hourly.filter((s) => s.time !== Date.parse('2026-09-30T21:00:00Z') / 1000);
+      expect(getHourlyTideHeightAtTime(gapped, at('2026-09-30T21:00:00Z'))).toBeNull();
+      expect(getHourlyTideHeightAtTime(hourly, at('2026-09-30T13:00:00Z'))).toBeNull();
+      expect(getHourlyTideHeightAtTime(hourly, at('2026-10-01T05:00:00Z'))).toBeNull();
+      expect(getHourlyTideHeightAtTime([], at('2026-09-30T21:00:00Z'))).toBeNull();
     });
   });
 });
