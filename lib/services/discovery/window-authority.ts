@@ -69,25 +69,36 @@ interface DisplayWindowArgs {
 }
 
 /**
+ * Last light for the peak's day, only while the peak is inside usable light
+ * and a sunset is known for that day, so the 18:00 fallback never trims a real
+ * evening window. A dark peak has none: Now is never gated by the clock.
+ */
+function lastLightWhileLit(
+  peak: Date,
+  timezone: string,
+  sunTimes?: BeachSunTimes,
+): Date | null {
+  if (!sunTimes) return null;
+  const localDate = getLocalDateString(peak, timezone);
+  if (!sunTimes.sunsets.some((sunset) => getLocalDateStr(sunset, timezone) === localDate)) {
+    return null;
+  }
+  const light = usableLightIntervalForDate(localDate, timezone, sunTimes);
+  return containsTime(light.start, light.end, peak) ? light.end : null;
+}
+
+/**
  * Shifting the band forward to the raw start (or an immediate bucket that
  * outlives the light) can push the end past last light again. A peak inside
- * usable light never presents an end after it; a dark peak keeps its window
- * (Now is never gated by the clock). Only a known sunset for the peak's day
- * counts, so the 18:00 fallback never trims a real evening window.
+ * usable light never presents an end after it; a dark peak keeps its window.
  */
 function clampEndToLastLight(
   display: { start: Date; end: Date },
   { peak, timezone, sunTimes }: Pick<DisplayWindowArgs, 'peak' | 'timezone' | 'sunTimes'>,
 ): { start: Date; end: Date } {
-  if (!sunTimes) return display;
-  const localDate = getLocalDateString(peak, timezone);
-  if (!sunTimes.sunsets.some((sunset) => getLocalDateStr(sunset, timezone) === localDate)) {
-    return display;
-  }
-  const light = usableLightIntervalForDate(localDate, timezone, sunTimes);
-  if (!containsTime(light.start, light.end, peak) || display.end <= light.end) return display;
-  if (light.end <= display.start) return display;
-  return { start: display.start, end: light.end };
+  const lastLight = lastLightWhileLit(peak, timezone, sunTimes);
+  if (!lastLight || display.end <= lastLight || lastLight <= display.start) return display;
+  return { start: display.start, end: lastLight };
 }
 
 export function deriveDisplayWindow(args: DisplayWindowArgs): { start: Date; end: Date } {
@@ -135,21 +146,43 @@ function bandDisplayWindow({
   return display;
 }
 
+function windowPeak(window: PersonalizedForecastWindow): Date {
+  return window.peakTime && containsTime(window.start, window.end, window.peakTime)
+    ? window.peakTime
+    : new Date((window.start.getTime() + window.end.getTime()) / 2);
+}
+
+/**
+ * `displaySource` lends its raw bounds and peak to the display band while
+ * `window` keeps its own raw bounds and peak. A NOW window peaks at the
+ * request instant, so a band centred on it slides with the clock; the caller
+ * passes the window of the row the scoped call anchors on, whose band holds.
+ * The window's own light still bounds it: while its peak is in usable light
+ * the band never ends after last light, even when the anchor row starts after it.
+ */
 export function withDisplayWindow(
   window: PersonalizedForecastWindow,
   sunTimes?: BeachSunTimes,
+  displaySource: PersonalizedForecastWindow = window,
 ): AuthoritativeWindow {
   const resolvedTimezone = resolveBeachTimezone(window.timezone);
-  const peakTime = window.peakTime && containsTime(window.start, window.end, window.peakTime)
-    ? window.peakTime
-    : new Date((window.start.getTime() + window.end.getTime()) / 2);
-  const displayWindow = deriveDisplayWindow({
-    rawStart: window.start,
-    rawEnd: window.end,
-    peak: peakTime,
+  const peakTime = windowPeak(window);
+  const bandArgs = (source: PersonalizedForecastWindow): DisplayWindowArgs => ({
+    rawStart: source.start,
+    rawEnd: source.end,
+    peak: windowPeak(source),
     timezone: resolvedTimezone,
     sunTimes,
   });
+  let displayWindow = deriveDisplayWindow(bandArgs(displaySource));
+  const ownLastLight = displaySource === window
+    ? null
+    : lastLightWhileLit(peakTime, resolvedTimezone, sunTimes);
+  if (ownLastLight && displayWindow.end > ownLastLight) {
+    displayWindow = ownLastLight > displayWindow.start
+      ? { start: displayWindow.start, end: ownLastLight }
+      : deriveDisplayWindow(bandArgs(window));
+  }
 
   return {
     ...window,
