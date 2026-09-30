@@ -60,19 +60,47 @@ function displayWindowAroundPeak(
   return { start, end };
 }
 
-export function deriveDisplayWindow({
-  rawStart,
-  rawEnd,
-  peak,
-  timezone,
-  sunTimes,
-}: {
+interface DisplayWindowArgs {
   rawStart: Date;
   rawEnd: Date;
   peak: Date;
   timezone: string;
   sunTimes?: BeachSunTimes;
-}): { start: Date; end: Date } {
+}
+
+/**
+ * Shifting the band forward to the raw start (or an immediate bucket that
+ * outlives the light) can push the end past last light again. A peak inside
+ * usable light never presents an end after it; a dark peak keeps its window
+ * (Now is never gated by the clock). Only a known sunset for the peak's day
+ * counts, so the 18:00 fallback never trims a real evening window.
+ */
+function clampEndToLastLight(
+  display: { start: Date; end: Date },
+  { peak, timezone, sunTimes }: Pick<DisplayWindowArgs, 'peak' | 'timezone' | 'sunTimes'>,
+): { start: Date; end: Date } {
+  if (!sunTimes) return display;
+  const localDate = getLocalDateString(peak, timezone);
+  if (!sunTimes.sunsets.some((sunset) => getLocalDateStr(sunset, timezone) === localDate)) {
+    return display;
+  }
+  const light = usableLightIntervalForDate(localDate, timezone, sunTimes);
+  if (!containsTime(light.start, light.end, peak) || display.end <= light.end) return display;
+  if (light.end <= display.start) return display;
+  return { start: display.start, end: light.end };
+}
+
+export function deriveDisplayWindow(args: DisplayWindowArgs): { start: Date; end: Date } {
+  return clampEndToLastLight(bandDisplayWindow(args), args);
+}
+
+function bandDisplayWindow({
+  rawStart,
+  rawEnd,
+  peak,
+  timezone,
+  sunTimes,
+}: DisplayWindowArgs): { start: Date; end: Date } {
   const rawDurationMinutes = (rawEnd.getTime() - rawStart.getTime()) / (60 * 1000);
   const rawContainsPeak = rawDurationMinutes > 0 && containsTime(rawStart, rawEnd, peak);
 

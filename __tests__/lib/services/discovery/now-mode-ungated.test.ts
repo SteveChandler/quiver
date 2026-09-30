@@ -631,6 +631,69 @@ describe('scoped light describes the scoped hour, not the request time', () => {
 });
 
 
+describe('immediate windows never present an end past last light', () => {
+  // Wed 2026-09-23 last light 19:05 PDT (02:05Z); the 20:00 row starts in the dark.
+  const rows = [
+    forecastAtLocal('wed-17', '2026-09-24T00:00:00Z', '2026-09-23', '17:00'),
+    forecastAtLocal('wed-20', '2026-09-24T03:00:00Z', '2026-09-23', '20:00'),
+    forecastAtLocal('wed-23', '2026-09-24T06:00:00Z', '2026-09-23', '23:00'),
+  ];
+  const LAST_LIGHT = '2026-09-24T02:05:00.000Z';
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    mockState.sunTimeRows = [
+      { beach_id: 'beach-1', sunrise_utc: '2026-09-23T13:39:00Z', sunset_utc: '2026-09-24T01:45:00Z' },
+    ];
+    mockState.userSkillLevel = 'intermediate';
+    mockState.forecasts = rows;
+  });
+  afterEach(() => {
+    mockState.sunTimeRows = SUN_TIME_ROWS;
+    jest.useRealTimers();
+  });
+
+  it('ends a scoped 17:00 row at last light in display bounds while the raw end stays open', async () => {
+    jest.setSystemTime(new Date('2026-09-24T00:01:00Z')); // 17:01 PDT
+
+    const result = await discoverScoped('2026-09-24T00:00:00.000Z');
+    const { window } = result.recommendations[0];
+
+    expect(result.isDark).toBe(false);
+    expect(result.lastLight).toBe(LAST_LIGHT);
+    expect(window.displayWindowStart?.toISOString()).toBe('2026-09-24T00:00:00.000Z');
+    expect(window.displayWindowEnd?.toISOString()).toBe(LAST_LIGHT);
+    // NOW lists and the open-window check read the raw end, which must not be trimmed.
+    expect(window.end.getTime()).toBeGreaterThan(Date.parse(LAST_LIGHT));
+  });
+
+  it('ends the NOW window at last light in display bounds too', async () => {
+    jest.setSystemTime(new Date('2026-09-24T00:01:00Z'));
+
+    const result = await discoverNow();
+    const { window } = result.recommendations[0];
+
+    expect(window.displayWindowEnd?.toISOString()).toBe(LAST_LIGHT);
+    expect(window.end.getTime()).toBeGreaterThan(Date.parse(LAST_LIGHT));
+  });
+
+  it('keeps the rating and the untrimmed display window for a scoped row that starts in the dark', async () => {
+    jest.setSystemTime(new Date('2026-09-24T00:01:00Z')); // 17:01 PDT
+    const lightRow = (await discoverScoped('2026-09-24T00:00:00.000Z')).recommendations[0];
+    jest.setSystemTime(new Date('2026-09-24T03:01:00Z')); // 20:01 PDT
+
+    const result = await discoverScoped('2026-09-24T03:00:00.000Z');
+    const rec = result.recommendations[0];
+
+    expect(result.isDark).toBe(true);
+    expect(result.recommendations).toHaveLength(1);
+    expect(rec.score).toBe(lightRow.score);
+    expect(rec.verdict).toBe(lightRow.verdict);
+    expect(rec.window.displayWindowStart?.toISOString()).toBe('2026-09-24T03:00:00.000Z');
+    expect(rec.window.displayWindowEnd?.getTime()).toBeGreaterThan(Date.parse(LAST_LIGHT));
+  });
+});
+
 describe('My Spots 72-hour daylight selection', () => {
   beforeEach(() => {
     jest.useFakeTimers({ now: new Date('2026-04-15T16:00:00Z') });
