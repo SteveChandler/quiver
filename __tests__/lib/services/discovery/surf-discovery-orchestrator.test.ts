@@ -2843,9 +2843,12 @@ describe('discoverSurfSpots - Now Discovery Mode', () => {
       'beach-2-now',
       'beach-1-now',
     ]);
+    // Now windows carry display bounds like every other window, inside their raw bounds.
     expect(result.recommendations.every(
-      (rec) => rec.window.displayWindowStart === undefined
-        && rec.window.displayWindowEnd === undefined,
+      ({ window }) => window.displayWindowStart !== undefined
+        && window.displayWindowEnd !== undefined
+        && window.displayWindowStart.getTime() >= window.start.getTime()
+        && window.displayWindowEnd.getTime() <= window.end.getTime(),
     )).toBe(true);
   });
 

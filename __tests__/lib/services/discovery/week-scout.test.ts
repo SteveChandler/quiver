@@ -359,6 +359,69 @@ describe('generateWeekScoutForecast', () => {
     expect(window?.forecast.scoringComponent).toBe('swell_2');
   });
 
+  it('serialises the display swell period and direction, not the raw peak columns', async () => {
+    const deps = dependencies();
+    const rows = new Map<string, EnhancedForecastEntity[]>([
+      [BEACH_A, [{
+        ...forecast(BEACH_A, '2026-07-31T16:00:00.000Z'),
+        wave_period: '17s', wave_direction: 'NW',
+        swell_1_height: '3 ft', swell_1_period: '10s', swell_1_direction: 'SW',
+      }]],
+      [BEACH_B, [forecast(BEACH_B, '2026-07-31T16:00:00.000Z')]],
+    ]);
+    deps.fetchForecasts = jest.fn(async () => rows);
+
+    const response = await generateWeekScoutForecastForDays('user-week-scout', {
+      candidateBeachIds: [BEACH_A, BEACH_B],
+      localTimezone: 'Pacific/Honolulu', startLocalDate: '2026-07-31', dayCount: 1,
+    }, deps);
+    const beachA = response.days[0].windows.find((item) => item.beachId === BEACH_A);
+    const beachB = response.days[0].windows.find((item) => item.beachId === BEACH_B);
+
+    expect(beachA?.forecast).toMatchObject({ period: '10s', swellDirection: 'SW' });
+    // A row without partitions still reads its raw columns.
+    expect(beachB?.forecast).toMatchObject({ period: '12s', swellDirection: 'NW' });
+  });
+
+  it('serialises the offshore swell when the beach swell window excludes the named swell', async () => {
+    const deps = dependencies();
+    const exposedBeach = {
+      ...beach(BEACH_A, 'Ala Moana'),
+      swell_window_center_deg: 200,
+      swell_window_halfwidth_deg: 65,
+    } as Beach;
+    deps.fetchBeaches = jest.fn(async () => [exposedBeach]);
+    deps.fetchForecasts = jest.fn(async () => new Map([[BEACH_A, [{
+      ...forecast(BEACH_A, '2026-07-31T16:00:00.000Z'),
+      wave_period: '11s', wave_direction: 'N',
+      swell_1_period: '11s', swell_1_direction: 'N',
+      swell_period_om: 12, swell_direction_om: 188,
+    } as EnhancedForecastEntity]]]));
+
+    const response = await generateWeekScoutForecastForDays('user-week-scout', {
+      candidateBeachIds: [BEACH_A],
+      localTimezone: 'Pacific/Honolulu', startLocalDate: '2026-07-31', dayCount: 1,
+    }, deps);
+
+    expect(response.days[0].windows[0].forecast).toMatchObject({ period: '12s', swellDirection: 'S' });
+  });
+
+  it('falls back to the raw pair when the row has no period to resolve', async () => {
+    const deps = dependencies();
+    deps.fetchForecasts = jest.fn(async () => new Map([[BEACH_A, [{
+      ...forecast(BEACH_A, '2026-07-31T16:00:00.000Z'),
+      wave_period: null, wave_direction: 'W', swell_1_period: null,
+    } as unknown as EnhancedForecastEntity]]]));
+    deps.fetchBeaches = jest.fn(async () => [beach(BEACH_A, 'Ala Moana')]);
+
+    const response = await generateWeekScoutForecastForDays('user-week-scout', {
+      candidateBeachIds: [BEACH_A],
+      localTimezone: 'Pacific/Honolulu', startLocalDate: '2026-07-31', dayCount: 1,
+    }, deps);
+
+    expect(response.days[0].windows[0].forecast).toMatchObject({ period: null, swellDirection: 'W' });
+  });
+
   it('preserves every allowed two-day window for Weekend Scout ranking', async () => {
     const response = await generateWeekScoutRankingForDays(
       'user-week-scout',

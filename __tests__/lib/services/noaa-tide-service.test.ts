@@ -119,6 +119,91 @@ describe("noaa-tide-service", () => {
     ]);
   });
 
+  describe("empty NOAA answers", () => {
+    const NO_PREDICTIONS = {
+      error: { message: "No Predictions data was found. Please make sure the Datum input is valid." },
+    };
+    const range = ["2026-09-30T00:00:00.000Z", "2026-10-30T00:00:00.000Z"] as const;
+    let warn: jest.SpyInstance;
+
+    beforeEach(() => {
+      warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    });
+
+    it("does not cache an empty hourly answer, so a retry reaches NOAA again", async () => {
+      mockFetchWithTimeout
+        .mockResolvedValueOnce(jsonResponse(NO_PREDICTIONS))
+        .mockResolvedValueOnce(jsonResponse({ predictions: [{ t: "2026-09-30 01:00", v: "0.4" }] }));
+
+      const first = await fetchHourlyTidePredictions("hourly-empty-retry", ...range);
+      const retry = await fetchHourlyTidePredictions("hourly-empty-retry", ...range);
+
+      expect(first).toEqual([]);
+      expect(retry).toEqual([{ ts: "2026-09-30T01:00:00.000Z", tide_height_m: 0.4, tide_phase: null }]);
+      expect(mockFetchWithTimeout).toHaveBeenCalledTimes(2);
+    });
+
+    it("still caches a non-empty hourly answer after an empty one", async () => {
+      mockFetchWithTimeout
+        .mockResolvedValueOnce(jsonResponse({}))
+        .mockResolvedValueOnce(jsonResponse({ predictions: [{ t: "2026-09-30 01:00", v: "0.4" }] }));
+
+      await fetchHourlyTidePredictions("hourly-empty-then-cached", ...range);
+      await fetchHourlyTidePredictions("hourly-empty-then-cached", ...range);
+      const cached = await fetchHourlyTidePredictions("hourly-empty-then-cached", ...range);
+
+      expect(cached).toHaveLength(1);
+      expect(mockFetchWithTimeout).toHaveBeenCalledTimes(2);
+    });
+
+    it("does not cache an empty high/low answer, so a retry reaches NOAA again", async () => {
+      mockFetchWithTimeout
+        .mockResolvedValueOnce(jsonResponse(NO_PREDICTIONS))
+        .mockResolvedValueOnce(jsonResponse({ predictions: [{ t: "2026-09-30 01:12", v: "1.2", type: "H" }] }))
+        .mockImplementation(async () => jsonResponse({ predictions: [] }));
+
+      const first = await fetchHighLowTidePredictions("hilo-empty-retry", ...range);
+      const retry = await fetchHighLowTidePredictions("hilo-empty-retry", ...range);
+      const cached = await fetchHighLowTidePredictions("hilo-empty-retry", ...range);
+
+      expect(first).toEqual([]);
+      expect(retry).toEqual([{ ts: "2026-09-30T01:12:00.000Z", tide_height_m: 1.2, type: "high" }]);
+      expect(cached).toEqual(retry);
+      expect(mockFetchWithTimeout).toHaveBeenCalledTimes(2);
+    });
+
+    it("logs the NOAA error message when it returns no predictions", async () => {
+      mockFetchWithTimeout.mockImplementation(async () => jsonResponse(NO_PREDICTIONS));
+
+      await fetchHourlyTidePredictions("hourly-empty-log", ...range);
+      await fetchHighLowTidePredictions("hilo-empty-log", ...range);
+
+      expect(warn).toHaveBeenCalledWith("NOAA tide request returned no predictions", {
+        stationId: "hourly-empty-log",
+        begin_date: "20260930",
+        end_date: "20261030",
+        noaaError: NO_PREDICTIONS.error.message,
+      });
+      expect(warn).toHaveBeenCalledWith("NOAA high/low tide request returned no predictions", {
+        stationId: "hilo-empty-log",
+        begin_date: "20260930",
+        end_date: "20261030",
+        noaaError: NO_PREDICTIONS.error.message,
+      });
+    });
+
+    it("logs a null NOAA error when the body carries no error message", async () => {
+      mockFetchWithTimeout.mockResolvedValue(jsonResponse({ predictions: [] }));
+
+      await fetchHourlyTidePredictions("hourly-empty-no-message", ...range);
+
+      expect(warn).toHaveBeenCalledWith(
+        "NOAA tide request returned no predictions",
+        expect.objectContaining({ stationId: "hourly-empty-no-message", noaaError: null }),
+      );
+    });
+  });
+
   it("prefers direct NOAA rows before same-source freshness", async () => {
     const client = createTideForecastClient([
       {

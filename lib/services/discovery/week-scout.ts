@@ -65,6 +65,12 @@ import { calculateDistanceInMiles } from '@/lib/utils/distance-utils';
 import { getStalenessDetails } from '@/lib/utils/forecast-service-utils';
 import { getDirectionDegrees } from '@/lib/utils/number-parsing';
 import { pickDominantSwell } from '@/lib/domains/conditions';
+import {
+  formatDisplaySwellPeriod,
+  resolveDisplaySwell,
+  type DisplaySwellWindow,
+} from '@/lib/domains/conditions/display-swell';
+import { degreeToCardinal } from '@/lib/utils/geo-utils';
 import type { Coordinates } from '@/lib/types/coordinates';
 import {
   buildCanonicalSessionDecision,
@@ -393,6 +399,36 @@ function forecastComponents(forecast: EnhancedForecastEntity): WeekScoutForecast
     .map((partition) => ({ ...partition, heightUnit: 'ft', periodUnit: 's', directionUnit: null, validAt, source }));
 }
 
+function beachDisplaySwellWindow(beach: Beach): DisplaySwellWindow | null {
+  const centerDeg = beach.swell_window_center_deg;
+  const halfwidthDeg = beach.swell_window_halfwidth_deg;
+  return typeof centerDeg === 'number' && Number.isFinite(centerDeg)
+    && typeof halfwidthDeg === 'number' && Number.isFinite(halfwidthDeg)
+    ? { centerDeg, halfwidthDeg }
+    : null;
+}
+
+/**
+ * The swell Beach Detail's NOW shows for this row (`/api/surf/call` resolves it
+ * the same way), not the raw peak columns, so one beach never reads 17s in
+ * Week Scout and 10s in NOW. Period and direction come from one resolution;
+ * when it has no period the raw pair is returned together instead.
+ */
+function displaySwellFields(
+  forecast: EnhancedForecastEntity,
+  beach: Beach,
+): { period: string | null; swellDirection: string | null } {
+  const display = resolveDisplaySwell(forecast, beachDisplaySwellWindow(beach));
+  const period = formatDisplaySwellPeriod(display.periodSeconds);
+  if (period === null) {
+    return { period: forecast.wave_period ?? null, swellDirection: forecast.wave_direction ?? null };
+  }
+  return {
+    period,
+    swellDirection: display.directionDeg === null ? null : degreeToCardinal(display.directionDeg),
+  };
+}
+
 function scoringComponentForForecast(
   forecast: EnhancedForecastEntity,
 ): WeekScoutForecastComponent['kind'] | null {
@@ -640,8 +676,7 @@ function buildDraftWindow(args: {
       confidence: finiteNumber(forecast.confidence_score),
       forecast: {
         waveHeight: forecast.wave_height ?? null,
-        period: forecast.wave_period ?? null,
-        swellDirection: forecast.wave_direction ?? null,
+        ...displaySwellFields(forecast, args.beach),
         windSpeed: forecast.wind_speed ?? null,
         windDirection: forecast.wind_direction ?? null,
         components: forecastComponents(forecast),
