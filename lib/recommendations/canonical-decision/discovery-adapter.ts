@@ -1,10 +1,13 @@
 import "server-only";
 
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
+import type { ScoreLabel } from "@/lib/utils/score-color-utils";
 import {
   buildCanonicalSessionDecision,
+  canonicalCandidateScore,
   canonicalCandidateVerdict,
   recommendationLabelForVerdict,
+  verdictScoreLabel,
 } from "./engine";
 import type {
   BuildCanonicalSessionDecisionInput,
@@ -129,4 +132,18 @@ export function getCanonicalRecommendationLabel(
   return recommendationLabelForVerdict(
     canonicalCandidateVerdict(toCanonicalCandidate(recommendation), profileExperience),
   );
+}
+
+/**
+ * The call Beach Detail makes for this recommendation: the same verdict the
+ * label above maps from, with the label a client prints for it. Computed from
+ * one candidate build, so it adds no pass over the recommendation.
+ */
+export function getCanonicalPersonalCall(
+  recommendation: SurfDiscoveryRecommendation,
+  profileExperience: unknown,
+): { verdict: "go" | "maybe" | "no"; label: ScoreLabel } {
+  const candidate = toCanonicalCandidate(recommendation);
+  const verdict = canonicalCandidateVerdict(candidate, profileExperience);
+  return { verdict, label: verdictScoreLabel(verdict, canonicalCandidateScore(candidate)) };
 }

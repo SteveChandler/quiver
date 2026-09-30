@@ -1549,6 +1549,41 @@ function selectImmediateWindow(
   }, afterDark: currentlyDark };
 }
 
+/**
+ * The window a NOW display band is drawn from. A NOW window peaks at the
+ * request instant, so a band centred on it ends 75 minutes after "now" and the
+ * countdown never runs. The scoped call anchors on the row the client's current
+ * hour maps to; reading that same row makes the two surfaces present the same
+ * band, whose end holds still for as long as the row stays current.
+ */
+function immediateDisplaySource(
+  immediate: PersonalizedForecastWindow,
+  forecasts: EnhancedForecastEntity[],
+  beach: Beach,
+  beachTz: string,
+  sunTimesCache: Map<string, { sunrises: Date[]; sunsets: Date[] }>,
+  now: Date,
+  userSkillLevel?: SkillLevel | string | null,
+  boardClasses: readonly BoardClass[] = [],
+): PersonalizedForecastWindow {
+  const anchorStart = currentHourRowStart(
+    forecasts.map((forecast) => resolveForecastTime(forecast, beachTz)),
+    now,
+  );
+  if (!anchorStart) return immediate;
+  if (anchorStart.getTime() === immediate.start.getTime()) {
+    return { ...immediate, peakTime: anchorStart };
+  }
+  return selectImmediateWindow(
+    forecasts,
+    beach,
+    sunTimesCache,
+    anchorStart,
+    userSkillLevel,
+    boardClasses,
+  ).window ?? immediate;
+}
+
 // ============================================================================
 // Main Entry Point
 // ============================================================================
@@ -1916,6 +1951,7 @@ async function discoverSurfSpotsInner(
       (hoursUntilSunset !== null && hoursUntilSunset < MIN_SESSION_HOURS) ||
       (todayForecasts.length > 0 && !hasUsableTodayForecast);
 
+    const displaySources = new Map<PersonalizedForecastWindow, PersonalizedForecastWindow>();
     let selectedWindows =
       forecastAt
         ? (() => {
@@ -1941,6 +1977,18 @@ async function discoverSurfSpotsInner(
                   beachTz,
                   nowForFallback,
                   beachSunTimes,
+                ));
+              }
+              if (immediate.window) {
+                displaySources.set(immediate.window, immediateDisplaySource(
+                  immediate.window,
+                  forecasts,
+                  beach,
+                  beachTz,
+                  sunTimesCache,
+                  nowForFallback,
+                  userSkillLevel,
+                  boardClasses,
                 ));
               }
               return immediate.window ? [immediate.window] : [];
@@ -1989,7 +2037,7 @@ async function discoverSurfSpotsInner(
     // light, so their display bounds are what keeps an end from running past
     // last light. Raw start/end stay untouched for the NOW open-window checks.
     selectedWindows = selectedWindows.map((window) =>
-      withDisplayWindow(window, sunTimesCache.get(beach.id)),
+      withDisplayWindow(window, sunTimesCache.get(beach.id), displaySources.get(window)),
     );
 
     if (forecastAt && lightMetadataForInterval(lightInterval, beachTz, beachSunTimes).isDark) {

@@ -22,9 +22,11 @@ import {
   generateWeekScoutForecastForDays,
   generateWeekScoutRankingForDays,
   alignDayBestWithSessionPick,
+  type WeekScoutRequest,
   type WeekScoutServiceDependencies,
 } from '@/lib/services/discovery/week-scout';
 import { buildCanonicalDecisionFromSurfDiscovery } from '@/lib/recommendations/canonical-decision/discovery-adapter';
+import { verdictScoreLabel } from '@/lib/recommendations/canonical-decision/engine';
 import { resolveRecommendationLabel } from '@/lib/services/discovery/recommendation-label';
 import { getQualityLabel } from '@/lib/utils/score-color-utils';
 import { verdictFromRecommendationLabel } from '@/lib/utils/surf-call-logic';
@@ -32,6 +34,8 @@ import type { SkillLevel } from '@/lib/domains/user-preferences';
 import type { SurfDiscoveryRecommendation } from '@/types/personalization';
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
+import { weekScoutPersonalCallViolations } from '@/__tests__/fixtures/week-scout-contract';
+import { scoreLabel } from '@/lib/utils/score-color-utils';
 import {
   calculateDistancePenalty,
   WORTH_THE_DRIVE_REASON,
@@ -308,6 +312,15 @@ describe('generateWeekScoutForecast', () => {
     expect(verdicts[window.verdict!]).toBe(call.verdict);
     const labels = { worth_it: 'Worth it', maybe: 'Maybe', skip: 'Skip' } as const;
     expect(labels[window.verdict!]).toBe(call.selection!.evidence.recommendationLabel);
+    // The personal call is the decision Detail makes, and its label is the one
+    // Detail prints; only a maybe below FAIR keeps RIDEABLE where conditionLabel says FAIR.
+    expect(window.personalVerdict).toBe(call.verdict);
+    expect(window.personalLabel).toBe(
+      call.verdict === 'maybe' && call.selection!.evidence.conditionScore < 55
+        ? 'RIDEABLE'
+        : call.conditionLabel,
+    );
+    expect(window.personalLabel).toBe(verdictScoreLabel(call.verdict, call.selection!.evidence.conditionScore));
     expect(window.conditionScore).toBe(score);
     expect(window.rankingScore).toBe(82);
     expect(deps.fetchMatchEvidence).toHaveBeenCalledTimes(1);
@@ -1098,6 +1111,126 @@ describe('generateWeekScoutForecast', () => {
     expect(windows.length).toBeGreaterThan(0);
     expect(windows.every((window) => window.verdict !== 'worth_it')).toBe(true);
     expect(response.sessionDecision?.verdict).not.toBe('go');
+  });
+
+  describe('personal call', () => {
+    const strongHistory = (label: 'GOOD' | 'MEH'): NonNullable<SurfDiscoveryRecommendation['similarity']> => ({
+      state: 'ready', score: label === 'GOOD' ? 9 : 1, label, confidence: 'high',
+      bonusApplied: 0, reason: 'History', reasons: ['History'], sessionCount: 40, similarSessionCount: 12,
+    });
+
+    function personalDependencies(score: number, history: 'GOOD' | 'MEH' | null): WeekScoutServiceDependencies {
+      const deps = dependencies();
+      deps.scoreWindowCondition = jest.fn(() => score);
+      deps.fetchMatchEvidence = jest.fn(async (_user, _ids, forecasts: EnhancedForecastEntity[]) => new Map(
+        forecasts.map((row) => [`${row.beach_id}:${row.forecast_at}`, history ? strongHistory(history) : null]),
+      ));
+      return deps;
+    }
+
+    const request: WeekScoutRequest = {
+      candidateBeachIds: [BEACH_A, BEACH_B], localTimezone: 'Pacific/Honolulu',
+      startLocalDate: '2026-07-31', dayCount: 7,
+    };
+
+    it('reads FAIR for a window whose general score is GOOD once personal history makes it a maybe', async () => {
+      const response = await generateWeekScoutForecast('user-week-scout', request, personalDependencies(72, 'MEH'));
+      const windows = response.days.flatMap((day) => day.windows);
+      const spots = windows.flatMap((window) => window.rankedSpots);
+
+      expect(scoreLabel(72)).toBe('GOOD');
+      expect(windows.length).toBeGreaterThan(0);
+      expect(spots.length).toBeGreaterThan(0);
+      for (const holder of [...windows, ...spots]) {
+        expect(holder).toMatchObject({
+          conditionScore: 72, verdict: 'maybe', personalVerdict: 'maybe', personalLabel: 'FAIR',
+        });
+      }
+      expect(weekScoutPersonalCallViolations(response)).toEqual([]);
+      expect(response.days[0].bestDayWindow).toMatchObject({ personalVerdict: 'maybe', personalLabel: 'FAIR' });
+    });
+
+    it('keeps GOOD when nothing moves the call', async () => {
+      const response = await generateWeekScoutForecast('user-week-scout', request, personalDependencies(78, null));
+      const windows = response.days.flatMap((day) => day.windows);
+
+      expect(windows.every((window) => window.verdict === 'worth_it'
+        && window.personalVerdict === 'go' && window.personalLabel === 'GOOD')).toBe(true);
+      expect(weekScoutPersonalCallViolations(response)).toEqual([]);
+    });
+
+    it('holds a maybe inside its band, so a 48 stays RIDEABLE and never reads GOOD', async () => {
+      const response = await generateWeekScoutForecast('user-week-scout', request, personalDependencies(48, null));
+      const windows = response.days.flatMap((day) => day.windows);
+
+      expect(windows.length).toBeGreaterThan(0);
+      expect(windows.every((window) => window.personalVerdict === 'maybe'
+        && window.personalLabel === 'RIDEABLE')).toBe(true);
+    });
+
+    it('labels a window GOOD when history lifts a general 60 a tier', async () => {
+      const response = await generateWeekScoutForecast('user-week-scout', request, personalDependencies(60, 'GOOD'));
+      const windows = response.days.flatMap((day) => day.windows);
+
+      expect(windows.length).toBeGreaterThan(0);
+      expect(windows.every((window) => window.verdict === 'worth_it'
+        && window.personalVerdict === 'go' && window.personalLabel === 'GOOD')).toBe(true);
+    });
+
+    it('reads MEH for a quality skip', async () => {
+      const response = await generateWeekScoutForecast('user-week-scout', request, personalDependencies(30, null));
+      const windows = response.days.flatMap((day) => day.windows);
+
+      expect(windows.length).toBeGreaterThan(0);
+      expect(windows.every((window) => window.verdict === 'skip'
+        && window.personalVerdict === 'no' && window.personalLabel === 'MEH')).toBe(true);
+    });
+
+    it('adds no personal call without a signed-in user and changes nothing else', async () => {
+      const signedIn = await generateWeekScoutForecast('user-week-scout', request, personalDependencies(72, 'MEH'));
+      const anonymous = await generateWeekScoutForecast('', request, personalDependencies(72, 'MEH'));
+      const withoutPersonal = (value: unknown): unknown => JSON.parse(JSON.stringify(value), (key, entry) =>
+        key === 'personalVerdict' || key === 'personalLabel' ? undefined : entry);
+
+      expect(JSON.stringify(anonymous)).not.toMatch(/personalVerdict|personalLabel/);
+      expect(withoutPersonal(anonymous)).toEqual(withoutPersonal(signedIn));
+    });
+
+    it('leaves held windows without a call, as without a verdict', async () => {
+      mockEvaluateMajorEventHoldCandidates.mockImplementationOnce(
+        async ({ candidates }: { candidates: Array<{ candidateId: string }> }) =>
+          candidates.map(({ candidateId }) => ({
+            candidateId,
+            evaluation: {
+              outcome: 'explicit_none', reasonCode: 'major_event_hold', holdIds: ['hold-1'],
+              expiresAt: '2026-08-02T00:00:00.000Z', holdEpoch: 'held-epoch',
+            },
+            recommendationAvailability: {
+              state: 'none', reasonCode: 'major_event_hold',
+              expiresAt: '2026-08-02T00:00:00.000Z', holdEpoch: 'held-epoch',
+            },
+          })),
+      );
+
+      const response = await generateWeekScoutForecast('user-week-scout', request, personalDependencies(72, 'MEH'));
+      const windows = response.days.flatMap((day) => day.windows);
+
+      expect(windows.length).toBeGreaterThan(0);
+      expect(windows.every((window) => window.verdict === null && !('personalVerdict' in window))).toBe(true);
+      expect(weekScoutPersonalCallViolations(response)).toEqual([]);
+    });
+
+    it('computes the call in the verdict pass, without another match read or scoring pass', async () => {
+      const deps = personalDependencies(72, 'MEH');
+
+      await generateWeekScoutForecast('user-week-scout', request, deps);
+
+      expect(deps.fetchMatchEvidence).toHaveBeenCalledTimes(1);
+      const evaluations = (deps.scoreWindowCondition as jest.Mock).mock.calls.length;
+      const withoutPersonal = personalDependencies(72, 'MEH');
+      await generateWeekScoutForecast('', request, withoutPersonal);
+      expect((withoutPersonal.scoreWindowCondition as jest.Mock).mock.calls.length).toBe(evaluations);
+    });
   });
 
   it('explains when every generated window is unsafe', async () => {
