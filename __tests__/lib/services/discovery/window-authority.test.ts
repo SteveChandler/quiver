@@ -167,6 +167,109 @@ describe('display window last light', () => {
   });
 });
 
+describe('withDisplayWindow with a display source', () => {
+  // Sep 30 in San Diego: last light is 18:58 PDT (01:58Z).
+  const sunTimes = {
+    sunrises: [new Date('2026-09-30T13:36:00.000Z')],
+    sunsets: [new Date('2026-10-01T01:38:00.000Z')],
+  };
+  const LAST_LIGHT = '2026-10-01T01:58:00.000Z';
+  // A NOW window: the 08:00 bucket that contains the request instant, peaking at it.
+  const now = window(
+    '2026-09-30T15:00:00.000Z', // 08:00 PDT
+    '2026-09-30T21:00:00.000Z', // 14:00 PDT, extended through supported rows
+    '2026-09-30T17:27:00.000Z', // 10:27 PDT
+  );
+  // The 11:00 row the scoped call anchors on.
+  const anchor = window(
+    '2026-09-30T18:00:00.000Z',
+    '2026-09-30T21:00:00.000Z',
+    '2026-09-30T18:00:00.000Z',
+  );
+
+  it('keeps the band end fixed as the request instant moves inside the bucket', () => {
+    const ends = ['17:27', '17:56', '18:40'].map((time) => {
+      const moved = { ...now, peakTime: new Date(`2026-09-30T${time}:00.000Z`) };
+      return withDisplayWindow(moved, sunTimes, anchor).displayWindowEnd.toISOString();
+    });
+
+    expect(new Set(ends)).toEqual(new Set(['2026-09-30T20:30:00.000Z']));
+    // The same instants on their own peak slide with the clock.
+    expect(withDisplayWindow(now, sunTimes).displayWindowEnd.toISOString())
+      .toBe('2026-09-30T18:42:00.000Z');
+  });
+
+  it('equals the band the anchor row presents on its own', () => {
+    const anchored = withDisplayWindow(now, sunTimes, anchor);
+    const scoped = withDisplayWindow(anchor, sunTimes);
+
+    expect(anchored.displayWindowStart).toEqual(scoped.displayWindowStart);
+    expect(anchored.displayWindowEnd).toEqual(scoped.displayWindowEnd);
+  });
+
+  it('keeps the window raw bounds and peak', () => {
+    const result = withDisplayWindow(now, sunTimes, anchor);
+
+    expect(result.start).toBe(now.start);
+    expect(result.end).toBe(now.end);
+    expect(result.peakTime).toBe(now.peakTime);
+  });
+
+  it('ends at last light when the anchored band would run past it', () => {
+    const eveningNow = window(
+      '2026-09-30T21:00:00.000Z', // 14:00 PDT
+      '2026-10-01T03:00:00.000Z', // 20:00 PDT
+      '2026-10-01T00:20:00.000Z', // 17:20 PDT
+    );
+    const eveningAnchor = window(
+      '2026-10-01T00:00:00.000Z', // 17:00 PDT
+      '2026-10-01T03:00:00.000Z',
+      '2026-10-01T00:00:00.000Z',
+    );
+
+    const result = withDisplayWindow(eveningNow, sunTimes, eveningAnchor);
+
+    expect(result.displayWindowStart.toISOString()).toBe('2026-10-01T00:00:00.000Z');
+    expect(result.displayWindowEnd.toISOString()).toBe(LAST_LIGHT);
+  });
+
+  it('falls back to the light-clamped band on the window when the anchor row starts after last light', () => {
+    const duskNow = window(
+      '2026-10-01T00:00:00.000Z', // 17:00 PDT
+      '2026-10-01T03:00:00.000Z', // 20:00 PDT
+      '2026-10-01T01:40:00.000Z', // 18:40 PDT, before last light
+    );
+    const darkAnchor = window(
+      '2026-10-01T03:00:00.000Z', // 20:00 PDT
+      '2026-10-01T06:00:00.000Z',
+      '2026-10-01T03:00:00.000Z',
+    );
+
+    const result = withDisplayWindow(duskNow, sunTimes, darkAnchor);
+
+    expect(result.displayWindowEnd.toISOString()).toBe(LAST_LIGHT);
+    expect(result.displayWindowEnd.getTime()).toBeGreaterThan(result.displayWindowStart.getTime());
+  });
+
+  it('keeps a dark anchor band unclamped when the window is itself dark', () => {
+    const nightNow = window(
+      '2026-10-01T03:00:00.000Z', // 20:00 PDT
+      '2026-10-01T06:00:00.000Z',
+      '2026-10-01T03:20:00.000Z', // 20:20 PDT, after last light
+    );
+    const nightAnchor = window(
+      '2026-10-01T03:00:00.000Z',
+      '2026-10-01T06:00:00.000Z',
+      '2026-10-01T03:00:00.000Z',
+    );
+
+    const result = withDisplayWindow(nightNow, sunTimes, nightAnchor);
+
+    expect(result.displayWindowStart.toISOString()).toBe('2026-10-01T03:00:00.000Z');
+    expect(result.displayWindowEnd.toISOString()).toBe('2026-10-01T05:30:00.000Z');
+  });
+});
+
 describe('selectBeachDayWindows', () => {
   const requestedDayRows = [
     forecast('morning', '2026-09-09T15:00:00.000Z'),
