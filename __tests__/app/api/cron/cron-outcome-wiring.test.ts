@@ -55,6 +55,12 @@ const CASES: OutcomeWiringCase[] = [
   },
   { name: "NOAA buoy reference sync", route: "sync-buoys", unit: "buoys_synced" },
   {
+    name: "session conditions enrich",
+    route: "session-conditions-enrich",
+    unit: "sessions_enriched",
+    legitimatelyZero: true,
+  },
+  {
     name: "implicit preferences",
     route: "update-implicit-preferences",
     unit: "preferences_recomputed",
