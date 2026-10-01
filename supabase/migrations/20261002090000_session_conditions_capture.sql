@@ -3,6 +3,7 @@
 -- 2. A tide chip keeps the user's status and still gets the computed height (it used to drop it).
 -- 3. compute_session_tide_snapshot reads one tide series, as selectTideSeries does.
 -- 4. Backfill: sessions logged with only a chip get their height.
+-- 5. Moving a session (arrival or beach) clears what the enrich job filled and queues it again.
 BEGIN;
 
 ALTER TABLE public.sessions
@@ -17,6 +18,11 @@ ALTER TABLE public.sessions
   ADD COLUMN wind_direction_deg smallint,
   ADD COLUMN conditions_forecast_at timestamptz,
   ADD COLUMN conditions_source text,
+  -- When the enrich cron should (re)fill this row: insert time, or the last arrival/beach edit. Existing rows
+  -- get the migration time, so the cron backfills them in its normal hourly batches.
+  ADD COLUMN conditions_queued_at timestamptz NOT NULL DEFAULT now(),
+  -- True while wind_* hold the enrich job's forecast values; any other wind change makes them the user's.
+  ADD COLUMN conditions_wind_filled boolean NOT NULL DEFAULT false,
   ADD COLUMN tide_status_user_set boolean NOT NULL DEFAULT false,
   ADD COLUMN nearshore_point_id text,
   ADD COLUMN nearshore_observed_at timestamptz,
@@ -39,9 +45,12 @@ ALTER TABLE public.sessions
   ADD CONSTRAINT sessions_conditions_source_check CHECK (conditions_source IS NULL OR conditions_source IN ('client', 'forecast_row', 'snapshot_backfill', 'none')),
   ADD CONSTRAINT sessions_nearshore_source_check CHECK (nearshore_source IS NULL OR nearshore_source IN ('cdip_mop_nowcast', 'cdip_mop_backfill', 'unavailable', 'unmapped'));
 
--- The enrich cron selects sessions still missing conditions; keep that scan cheap.
+-- The enrich cron selects sessions still missing conditions by arrival and by queue time; keep both scans cheap.
 CREATE INDEX sessions_conditions_pending_idx
   ON public.sessions (arrival_time)
+  WHERE deleted_at IS NULL AND (conditions_source IS NULL OR nearshore_source IS NULL);
+CREATE INDEX sessions_conditions_queued_idx
+  ON public.sessions (conditions_queued_at)
   WHERE deleted_at IS NULL AND (conditions_source IS NULL OR nearshore_source IS NULL);
 
 ALTER TABLE public.beaches
@@ -167,6 +176,18 @@ BEGIN
     AND COALESCE(NEW.tide_data_source, '') <> 'user';
 
   IF should_recompute_tide THEN
+    -- A height typed in the same save as the move is the user's measurement; keep it.
+    IF NEW.tide_height_ft IS NOT NULL AND NEW.tide_height_ft IS DISTINCT FROM OLD.tide_height_ft THEN
+      NEW.tide_data_source := 'user';
+      IF NEW.tide_rate_ft_per_hr IS NULL AND has_snapshot THEN
+        NEW.tide_rate_ft_per_hr := snapshot.tide_rate_ft_per_hr;
+      END IF;
+      RETURN NEW;
+    END IF;
+    -- A chip tapped in the same save is the user's status.
+    IF NEW.tide_status IS NOT NULL AND NEW.tide_status IS DISTINCT FROM OLD.tide_status THEN
+      NEW.tide_status_user_set := true;
+    END IF;
     IF has_snapshot THEN
       NEW.tide_height_ft := snapshot.tide_height_ft;
       IF NOT NEW.tide_status_user_set THEN
@@ -257,11 +278,71 @@ $function$;
 
 -- Backfill: chip-only sessions were stored as tide_data_source='user' with no height. Flag the status as
 -- the user's and clear the false 'user' source; the trigger above then fills height, rate and source.
+-- Sessions whose user has no auth row (mock profiles) are skipped: update_beach_affinity_trigger's FK to
+-- auth.users would fail the UPDATE and roll back this whole migration.
 UPDATE public.sessions
 SET tide_status_user_set = true,
     tide_data_source = NULL
 WHERE tide_data_source = 'user'
   AND tide_height_ft IS NULL
-  AND tide_status IS NOT NULL;
+  AND tide_status IS NOT NULL
+  AND EXISTS (SELECT 1 FROM auth.users u WHERE u.id = sessions.user_id);
+
+-- Moving a session changes the conditions it was surfed in. Clear what the enrich job wrote (never what a
+-- client or the user supplied) and queue the row so the cron refills it for the new hour and beach.
+CREATE OR REPLACE FUNCTION public.requeue_session_conditions()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  wind_changed BOOLEAN;
+BEGIN
+  wind_changed :=
+    NEW.wind_speed_mph IS DISTINCT FROM OLD.wind_speed_mph
+    OR NEW.wind_direction IS DISTINCT FROM OLD.wind_direction
+    OR NEW.wind_direction_deg IS DISTINCT FROM OLD.wind_direction_deg;
+  -- The job fills wind and raises the marker in one write; any other wind change is the user's.
+  IF wind_changed AND NOT (NEW.conditions_wind_filled AND NOT OLD.conditions_wind_filled) THEN
+    NEW.conditions_wind_filled := false;
+  END IF;
+
+  IF NEW.beach_id IS NOT DISTINCT FROM OLD.beach_id AND NEW.arrival_time IS NOT DISTINCT FROM OLD.arrival_time THEN
+    RETURN NEW;
+  END IF;
+
+  IF NEW.conditions_source IS DISTINCT FROM 'client' THEN
+    NEW.swell_period_s := NULL;
+    NEW.swell_direction_deg := NULL;
+    NEW.swell_height_ft := NULL;
+    NEW.offshore_swell_period_s := NULL;
+    NEW.offshore_swell_direction_deg := NULL;
+    NEW.offshore_swell_height_ft := NULL;
+    NEW.conditions_forecast_at := NULL;
+    NEW.conditions_source := NULL;
+  END IF;
+  IF NEW.conditions_wind_filled THEN
+    NEW.wind_speed_mph := NULL;
+    NEW.wind_direction := NULL;
+    NEW.wind_direction_deg := NULL;
+    NEW.conditions_wind_filled := false;
+  END IF;
+  NEW.nearshore_point_id := NULL;
+  NEW.nearshore_observed_at := NULL;
+  NEW.nearshore_hs_m := NULL;
+  NEW.nearshore_tp_s := NULL;
+  NEW.nearshore_dp_deg := NULL;
+  NEW.nearshore_dm_deg := NULL;
+  NEW.nearshore_swellband_tm_s := NULL;
+  NEW.nearshore_focus_ratio := NULL;
+  NEW.nearshore_source := NULL;
+  NEW.conditions_queued_at := now();
+  RETURN NEW;
+END;
+$function$;
+
+CREATE TRIGGER trigger_requeue_session_conditions
+  BEFORE UPDATE OF beach_id, arrival_time, wind_speed_mph, wind_direction, wind_direction_deg
+  ON public.sessions FOR EACH ROW EXECUTE FUNCTION public.requeue_session_conditions();
 
 COMMIT;

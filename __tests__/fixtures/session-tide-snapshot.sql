@@ -1,6 +1,12 @@
 -- Minimal schema for the session conditions SQL tests: the columns the tide trigger and the
 -- 20261002090000 migration touch, plus the production tide functions as of 2026-10-01
 -- (copied from pg_get_functiondef on prod, unchanged).
+-- auth.users stands in for Supabase's table: update_beach_affinity_trigger's FK makes any UPDATE of a
+-- session whose user has no auth row fail, so the migration's backfill must skip those.
+CREATE SCHEMA auth;
+CREATE TABLE auth.users (id uuid PRIMARY KEY);
+INSERT INTO auth.users (id) VALUES ('cccccccc-0000-4000-8000-000000000001');
+
 CREATE TABLE public.beaches (
   id uuid PRIMARY KEY,
   name text NOT NULL
@@ -197,8 +203,10 @@ INSERT INTO public.tide_forecasts (beach_id, ts, tide_ft, source, station_id, cr
 
 -- A session logged before the migration with only a tide chip: the old trigger marks it 'user'
 -- and drops the height. The migration's backfill must give it one.
-INSERT INTO public.sessions (id, beach_id, arrival_time, tide_status)
-VALUES ('bbbbbbbb-0000-4000-8000-000000000099', 'aaaaaaaa-0000-4000-8000-000000000001', '2026-09-30T15:30:00Z', 'high');
+INSERT INTO public.sessions (id, user_id, beach_id, arrival_time, tide_status) VALUES
+  ('bbbbbbbb-0000-4000-8000-000000000099', 'cccccccc-0000-4000-8000-000000000001', 'aaaaaaaa-0000-4000-8000-000000000001', '2026-09-30T15:30:00Z', 'high'),
+  -- Same shape, but its user has no auth row (a mock profile): the backfill must leave it alone.
+  ('bbbbbbbb-0000-4000-8000-000000000098', 'cccccccc-0000-4000-8000-000000000002', 'aaaaaaaa-0000-4000-8000-000000000001', '2026-09-30T15:30:00Z', 'high');
 DO $$ BEGIN
   ASSERT (SELECT tide_data_source = 'user' AND tide_height_ft IS NULL FROM public.sessions
           WHERE id = 'bbbbbbbb-0000-4000-8000-000000000099'), 'fixture: old trigger should drop the height';

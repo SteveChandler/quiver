@@ -69,4 +69,93 @@ DO $$ DECLARE r record; BEGIN
     format('(h) no snapshot: %s', row_to_json(r));
 END $$;
 
+-- (q) The backfill skips a chip session whose user has no auth row (its UPDATE would fail the migration).
+DO $$ DECLARE r record; BEGIN
+  SELECT * INTO r FROM public.sessions WHERE id = 'bbbbbbbb-0000-4000-8000-000000000098';
+  ASSERT r.tide_height_ft IS NULL AND r.tide_data_source = 'user' AND NOT r.tide_status_user_set, format('(q) orphan backfilled: %s', row_to_json(r));
+END $$;
+
+-- (i) Moving arrival and picking a chip in one save keeps the chip and recomputes the height.
+DO $$ DECLARE r record; BEGIN
+  INSERT INTO public.sessions (id, beach_id, arrival_time)
+  VALUES ('bbbbbbbb-0000-4000-8000-000000000005', 'aaaaaaaa-0000-4000-8000-000000000001', '2026-09-30T15:30:00Z');
+  UPDATE public.sessions SET arrival_time = '2026-09-30T17:00:00Z', tide_status = 'high' WHERE id = 'bbbbbbbb-0000-4000-8000-000000000005';
+  SELECT * INTO r FROM public.sessions WHERE id = 'bbbbbbbb-0000-4000-8000-000000000005';
+  ASSERT r.tide_status = 'high' AND r.tide_status_user_set, format('(i) chip lost on arrival edit: %s', row_to_json(r));
+  ASSERT abs(r.tide_height_ft - 4.83) < 0.02 AND r.tide_data_source = 'noaa', format('(i) height not recomputed: %s', row_to_json(r));
+END $$;
+
+-- (j) Moving arrival and typing a height in one save keeps the typed height.
+DO $$ DECLARE r record; BEGIN
+  INSERT INTO public.sessions (id, beach_id, arrival_time)
+  VALUES ('bbbbbbbb-0000-4000-8000-000000000006', 'aaaaaaaa-0000-4000-8000-000000000001', '2026-09-30T15:30:00Z');
+  UPDATE public.sessions SET arrival_time = '2026-09-30T17:00:00Z', tide_height_ft = 6.1 WHERE id = 'bbbbbbbb-0000-4000-8000-000000000006';
+  SELECT * INTO r FROM public.sessions WHERE id = 'bbbbbbbb-0000-4000-8000-000000000006';
+  ASSERT r.tide_height_ft = 6.1 AND r.tide_data_source = 'user', format('(j) typed height lost: %s', row_to_json(r));
+END $$;
+
+-- (p) Every existing session is queued for conditions by the migration.
+DO $$ BEGIN
+  ASSERT (SELECT bool_and(conditions_queued_at IS NOT NULL) FROM public.sessions), '(p) existing sessions not queued';
+END $$;
+
+-- (o) The job's own write (wind null → value, marker false → true) keeps the marker.
+DO $$ DECLARE r record; BEGIN
+  INSERT INTO public.sessions (id, beach_id, arrival_time)
+  VALUES ('bbbbbbbb-0000-4000-8000-000000000007', 'aaaaaaaa-0000-4000-8000-000000000001', '2026-09-30T15:30:00Z');
+  UPDATE public.sessions
+  SET swell_period_s = 13, swell_direction_deg = 270, conditions_source = 'forecast_row', conditions_forecast_at = '2026-09-30T15:00:00Z',
+      wind_speed_mph = 5, wind_direction = 'NW', wind_direction_deg = 315, conditions_wind_filled = true,
+      nearshore_point_id = 'D0505', nearshore_hs_m = 1.2, nearshore_source = 'cdip_mop_nowcast'
+  WHERE id = 'bbbbbbbb-0000-4000-8000-000000000007';
+  SELECT * INTO r FROM public.sessions WHERE id = 'bbbbbbbb-0000-4000-8000-000000000007';
+  ASSERT r.conditions_wind_filled AND r.wind_speed_mph = 5, format('(o) job write lost the marker: %s', row_to_json(r));
+END $$;
+
+-- (k) Moving a job-filled session clears what the job wrote and queues it again.
+DO $$ DECLARE r record; BEGIN
+  UPDATE public.sessions SET conditions_queued_at = '2026-01-01T00:00:00Z' WHERE id = 'bbbbbbbb-0000-4000-8000-000000000007';
+  UPDATE public.sessions SET arrival_time = '2026-09-30T17:00:00Z' WHERE id = 'bbbbbbbb-0000-4000-8000-000000000007';
+  SELECT * INTO r FROM public.sessions WHERE id = 'bbbbbbbb-0000-4000-8000-000000000007';
+  ASSERT r.swell_period_s IS NULL AND r.swell_direction_deg IS NULL AND r.conditions_source IS NULL AND r.conditions_forecast_at IS NULL,
+    format('(k) swell not cleared: %s', row_to_json(r));
+  ASSERT r.wind_speed_mph IS NULL AND r.wind_direction IS NULL AND r.wind_direction_deg IS NULL AND NOT r.conditions_wind_filled,
+    format('(k) job wind not cleared: %s', row_to_json(r));
+  ASSERT r.nearshore_point_id IS NULL AND r.nearshore_hs_m IS NULL AND r.nearshore_source IS NULL, format('(k) nearshore not cleared: %s', row_to_json(r));
+  ASSERT r.conditions_queued_at > '2026-01-01T00:00:00Z', '(k) not requeued';
+END $$;
+
+-- (l) A user's wind survives an arrival edit; the job's swell doesn't.
+DO $$ DECLARE r record; BEGIN
+  INSERT INTO public.sessions (id, beach_id, arrival_time, wind_speed_mph, wind_direction)
+  VALUES ('bbbbbbbb-0000-4000-8000-000000000008', 'aaaaaaaa-0000-4000-8000-000000000001', '2026-09-30T15:30:00Z', 12, 'W');
+  UPDATE public.sessions SET swell_period_s = 13, conditions_source = 'forecast_row' WHERE id = 'bbbbbbbb-0000-4000-8000-000000000008';
+  UPDATE public.sessions SET beach_id = 'aaaaaaaa-0000-4000-8000-000000000001', arrival_time = '2026-09-30T16:00:00Z' WHERE id = 'bbbbbbbb-0000-4000-8000-000000000008';
+  SELECT * INTO r FROM public.sessions WHERE id = 'bbbbbbbb-0000-4000-8000-000000000008';
+  ASSERT r.wind_speed_mph = 12 AND r.wind_direction = 'W' AND r.swell_period_s IS NULL AND r.conditions_source IS NULL,
+    format('(l) user wind or job swell wrong: %s', row_to_json(r));
+END $$;
+
+-- (n) Editing job-filled wind makes it the user's: a later arrival edit keeps it.
+DO $$ DECLARE r record; BEGIN
+  INSERT INTO public.sessions (id, beach_id, arrival_time)
+  VALUES ('bbbbbbbb-0000-4000-8000-000000000009', 'aaaaaaaa-0000-4000-8000-000000000001', '2026-09-30T15:30:00Z');
+  UPDATE public.sessions SET wind_speed_mph = 5, wind_direction = 'NW', conditions_wind_filled = true, conditions_source = 'forecast_row'
+  WHERE id = 'bbbbbbbb-0000-4000-8000-000000000009';
+  UPDATE public.sessions SET wind_speed_mph = 15 WHERE id = 'bbbbbbbb-0000-4000-8000-000000000009';
+  UPDATE public.sessions SET arrival_time = '2026-09-30T17:00:00Z' WHERE id = 'bbbbbbbb-0000-4000-8000-000000000009';
+  SELECT * INTO r FROM public.sessions WHERE id = 'bbbbbbbb-0000-4000-8000-000000000009';
+  ASSERT r.wind_speed_mph = 15 AND r.wind_direction = 'NW' AND NOT r.conditions_wind_filled, format('(n) user-edited wind cleared: %s', row_to_json(r));
+END $$;
+
+-- (m) Conditions a client supplied stay through an arrival edit; nearshore (always the job's) is redone.
+DO $$ DECLARE r record; BEGIN
+  INSERT INTO public.sessions (id, beach_id, arrival_time, swell_period_s, conditions_source, nearshore_source, nearshore_point_id)
+  VALUES ('bbbbbbbb-0000-4000-8000-000000000010', 'aaaaaaaa-0000-4000-8000-000000000001', '2026-09-30T15:30:00Z', 11, 'client', 'cdip_mop_nowcast', 'D0505');
+  UPDATE public.sessions SET arrival_time = '2026-09-30T17:00:00Z' WHERE id = 'bbbbbbbb-0000-4000-8000-000000000010';
+  SELECT * INTO r FROM public.sessions WHERE id = 'bbbbbbbb-0000-4000-8000-000000000010';
+  ASSERT r.swell_period_s = 11 AND r.conditions_source = 'client' AND r.nearshore_source IS NULL AND r.nearshore_point_id IS NULL,
+    format('(m) client conditions or nearshore wrong: %s', row_to_json(r));
+END $$;
+
 SELECT 'session-tide-snapshot: all assertions passed' AS result;
