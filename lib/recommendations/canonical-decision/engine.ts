@@ -1,6 +1,6 @@
 import "server-only";
 
-import { scoreLabel } from "@/lib/utils/score-color-utils";
+import { SCORE_THRESHOLDS, scoreLabel, type ScoreLabel } from "@/lib/utils/score-color-utils";
 import { createHash } from "node:crypto";
 
 import {
@@ -169,6 +169,28 @@ export function conditionLabelForVerdict(verdict: "go" | "maybe" | "no", score: 
   return scoreLabel(score) === "EPIC" ? "EPIC" : "GOOD";
 }
 
+/**
+ * The score a client shows for a candidate: its utility score under the
+ * ceiling of its decision effects, as `selection.evidence.conditionScore`.
+ */
+export function canonicalCandidateScore(candidate: CanonicalDecisionCandidate): number {
+  return Math.min(candidate.utilityScore, verdictCeiling(candidate.effects));
+}
+
+/**
+ * The label a client prints beside a verdict and its score: the score's band
+ * held inside the verdict's tier, the rule native Home and Beach Detail apply.
+ * A `maybe` never reads above FAIR and keeps RIDEABLE below it, which
+ * `conditionLabelForVerdict` folds into FAIR; a `go` never reads below GOOD.
+ */
+export function verdictScoreLabel(verdict: "go" | "maybe" | "no", score: number): ScoreLabel {
+  if (verdict === "no") return "MEH";
+  if (verdict === "maybe") {
+    return scoreLabel(Math.min(SCORE_THRESHOLDS.GOOD - 1, Math.max(SCORE_THRESHOLDS.RIDEABLE, score)));
+  }
+  return scoreLabel(Math.max(SCORE_THRESHOLDS.GOOD, score));
+}
+
 export function recommendationLabelForVerdict(
   verdict: "go" | "maybe" | "no",
 ): "Worth it" | "Maybe" | "Skip" {
@@ -259,7 +281,7 @@ function selectionFor(
       reasonCodes: [],
     },
     evidence: {
-      conditionScore: Math.min(candidate.utilityScore, verdictCeiling(candidate.effects)),
+      conditionScore: canonicalCandidateScore(candidate),
       recommendationLabel:
         recommendationLabelForVerdict(verdict),
       personalMatch: skill === "unknown" ? null : candidate.personalMatch ?? null,
@@ -412,7 +434,7 @@ export function buildCanonicalSessionDecision(
         ? "personal_adjusted_up" as const : "personal_adjusted_down" as const } : {}),
     conditionLabel: conditionLabelForVerdict(
       verdict,
-      selected ? Math.min(selected.utilityScore, verdictCeiling(selected.effects)) : 0,
+      selected ? canonicalCandidateScore(selected) : 0,
     ),
     selection: hasSelection
       ? selectionFor(selected, skill, verdict)
