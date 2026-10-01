@@ -136,7 +136,8 @@ function isViableWindow(
 
   const maxWave = daylight.reduce<number | null>((max, hour) => {
     const hourMs = new Date(hour.forecast_at).getTime();
-    if (hourMs < startMs || hourMs > endMs) return max;
+    // window_end is exclusive: on hourly rows the hour at window_end is a real, non-matching hour.
+    if (hourMs < startMs || hourMs >= endMs) return max;
     const candidate =
       maxWaveByForecastAt.get(hour.forecast_at) ??
       (typeof hour.wave_height === "number" && Number.isFinite(hour.wave_height)

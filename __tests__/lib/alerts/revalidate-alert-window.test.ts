@@ -161,3 +161,25 @@ describe("hourly alert windows (Blacks 2026-10-01)", () => {
     expect(w!.forecast_id).toMatch(/^r0[58]$/);
   });
 });
+
+describe("hourly alert windows: final review fixes", () => {
+  it("still delivers the dawn window at the first deliver tick after sunrise (Blacks 07:00)", () => {
+    const w = selectFreshAlertWindow({
+      conditions: watchBlacks, forecastRows: blacksRows, beach: blacksBeach,
+      now: new Date("2026-10-01T14:00:05Z"), hourly: true, tideSamples: blacksNoaa,
+    });
+    expect(w).not.toBeNull();
+    expect(new Date(w!.window_start).toISOString()).toBe("2026-10-01T14:00:00.000Z");
+  });
+
+  it("judges a window's size by its own hours, not the hour after it", () => {
+    const rows = [
+      { id: "a", forecast_at: "2026-06-20T14:00:00+00:00", wave_height: "1 ft", wave_period: "10s", wind_speed: "0 mph" },
+      { id: "b", forecast_at: "2026-06-20T15:00:00+00:00", wave_height: "1 ft", wave_period: "10s", wind_speed: "0 mph" },
+      { id: "c", forecast_at: "2026-06-20T16:00:00+00:00", wave_height: "3 ft", wave_period: "10s", wind_speed: "20 mph" },
+    ];
+    const conditions: AlertConditions = { swell_height_min: 0.5, wind_speed_max_kt: 8 };
+    // 14–16Z matches on 1 ft (Mission Beach needs 1.5 ft); the 3 ft hour at 16Z fails on wind.
+    expect(selectFreshAlertWindow({ conditions, forecastRows: rows, beach: missionBeach, now: new Date("2026-06-20T12:00:00Z"), hourly: true })).toBeNull();
+  });
+});
