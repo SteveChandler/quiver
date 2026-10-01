@@ -27,6 +27,14 @@ export interface TideData {
 }
 
 /**
+ * One hourly predicted tide height
+ */
+export interface TideHeightSample {
+  time: number; // Unix timestamp (seconds)
+  height: number; // Height in feet, unrounded
+}
+
+/**
  * CO-OPS forecast result containing tide predictions
  */
 export interface COOPSForecast {
@@ -34,6 +42,12 @@ export interface COOPSForecast {
   station_name: string;
   tides: TideData[];
   water_level: number | null; // Current water level in feet
+  /**
+   * The hourly series `tides` was detected from, when the forecast came from
+   * the tide_forecasts cache. Heights between a high and a low are read from
+   * here; the live hilo API path has only the extremes.
+   */
+  hourly?: TideHeightSample[];
 }
 
 /**

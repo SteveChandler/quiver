@@ -4,7 +4,7 @@
  * Covers:
  * - Interior extrema detection (highs and lows within data)
  * - Boundary extrema detection (first/last points)
- * - Plateau handling (no false positives)
+ * - Plateau handling (a flat turn is one extreme; a flat step is none)
  * - Edge cases (empty, single point, two points)
  * - Unit conversion verification
  */
@@ -14,6 +14,11 @@ import {
   TideSample,
   TideExtreme,
 } from "@/lib/services/noaa-coops/tide-extrema-detector";
+import {
+  LA_JOLLA_9410230_ROWS,
+  TOURMALINE_9410196_ROWS,
+  rowsVisibleAt,
+} from "@/__tests__/fixtures/noaa-tide-series-20260930";
 
 describe("TideExtremaDetector", () => {
   let detector: TideExtremaDetector;
@@ -149,21 +154,52 @@ describe("TideExtremaDetector", () => {
         expect(extrema.length).toBe(0);
       });
 
-      it("should not detect false extrema in plateau regions", () => {
-        // Pattern: rising -> plateau -> falling
-        const samples = createSamples([1.0, 1.5, 1.5, 1.5, 1.0]);
+      it("detects one high at the middle of a flat top between lower neighbours", () => {
+        // Rising -> flat top -> falling is slack water at high tide, not a
+        // non-event: exactly one high, timed at the middle of the flat run.
+        const start = new Date("2026-09-30T00:00:00.000Z");
+        const samples = createSamples([1.0, 1.5, 1.5, 1.5, 1.0], start);
         const extrema = detector.detectExtrema(samples);
 
-        // Should only detect boundary extrema, not multiple highs in the plateau
-        // First point (1.0) is lower than second (1.5) -> low boundary
-        // Last point (1.0) is lower than second-to-last (1.5) -> low boundary
         const highs = extrema.filter((e) => e.type === "high");
         const lows = extrema.filter((e) => e.type === "low");
 
-        // No interior highs (plateau is flat)
-        // Lows at boundaries
-        expect(highs.length).toBe(0);
+        expect(highs).toEqual([
+          {
+            time: Math.floor(Date.parse("2026-09-30T02:00:00.000Z") / 1000),
+            height: 4.9,
+            type: "high",
+            name: "High",
+          },
+        ]);
         expect(lows.length).toBe(2);
+      });
+
+      it("detects one low at the middle of a flat bottom between higher neighbours", () => {
+        const start = new Date("2026-09-30T00:00:00.000Z");
+        const samples = createSamples([1.0, 0.4, 0.4, 1.0], start);
+        const extrema = detector.detectExtrema(samples);
+
+        expect(extrema.filter((e) => e.type === "low")).toEqual([
+          {
+            time: Math.floor(Date.parse("2026-09-30T01:30:00.000Z") / 1000),
+            height: 1.3,
+            type: "low",
+            name: "Low",
+          },
+        ]);
+      });
+
+      it("does not call a flat step inside a rise a turning point", () => {
+        // Boundary low, the 1.5 m high, boundary low; the 1.0 m step is neither.
+        const samples = createSamples([0.5, 1.0, 1.0, 1.5, 1.0]);
+        const extrema = detector.detectExtrema(samples);
+
+        expect(extrema.map((e) => [e.type, e.height])).toEqual([
+          ["low", 1.6],
+          ["high", 4.9],
+          ["low", 3.3],
+        ]);
       });
 
       it("should handle plateau followed by clear extrema", () => {
@@ -220,7 +256,7 @@ describe("TideExtremaDetector", () => {
         const extrema = detector.detectExtrema(samples);
 
         const high = extrema.find((e) => e.type === "high");
-        expect(high).toBeDefined();
+        expect(high).toMatchObject({ type: "high", name: "High" });
         // 1.0m * 3.28084 = 3.28084 ft, rounded to 3.3
         expect(high!.height).toBeCloseTo(3.3, 1);
       });
@@ -231,9 +267,41 @@ describe("TideExtremaDetector", () => {
         const extrema = preciseDetector.detectExtrema(samples);
 
         const high = extrema.find((e) => e.type === "high");
-        expect(high).toBeDefined();
+        expect(high).toMatchObject({ type: "high", name: "High" });
         // 1.0m * 3.28084 = 3.28 ft (2 decimal places)
         expect(high!.height).toBe(3.28);
+      });
+    });
+
+    describe("NOAA hourly series", () => {
+      const toSamples = (rows: readonly { ts: string; tide_height_m: number }[]) =>
+        rows.map(({ ts, tide_height_m }) => ({ ts, tide_height_m }));
+      const at = (iso: string) => Math.floor(Date.parse(iso) / 1000);
+
+      it("finds Tourmaline's 9410196 high when two hours tie at the peak", () => {
+        // The 20:01Z build read from 14:01Z; the tie at 18Z/19Z dropped this
+        // high and the row interpolated low-to-low instead (2.8 ft at 18Z).
+        const samples = toSamples(
+          rowsVisibleAt(TOURMALINE_9410196_ROWS, "2026-09-30T20:01:27.368Z"),
+        );
+
+        expect(detector.detectExtrema(samples)).toEqual([
+          { time: at("2026-09-30T15:00:00Z"), height: 3.8, type: "low", name: "Low" },
+          { time: at("2026-09-30T18:30:00Z"), height: 6.1, type: "high", name: "High" },
+          { time: at("2026-10-01T02:00:00Z"), height: 0.2, type: "low", name: "Low" },
+          { time: at("2026-10-01T04:00:00Z"), height: 1.1, type: "high", name: "High" },
+        ]);
+      });
+
+      it("keeps La Jolla's 9410230 single-point high where NOAA puts it", () => {
+        const extrema = detector.detectExtrema(toSamples(LA_JOLLA_9410230_ROWS));
+
+        expect(extrema.filter((e) => e.type === "high")[0]).toEqual({
+          time: at("2026-09-30T18:00:00Z"),
+          height: 5.9,
+          type: "high",
+          name: "High",
+        });
       });
     });
 
@@ -255,7 +323,7 @@ describe("TideExtremaDetector", () => {
         const extrema = detector.detectExtrema(samples);
 
         const high = extrema.find((e) => e.type === "high");
-        expect(high).toBeDefined();
+        expect(high).toMatchObject({ type: "high", name: "High" });
 
         // The high is at index 1, which is 1 hour after start
         const expectedTime = Math.floor((now.getTime() + 3600000) / 1000);
