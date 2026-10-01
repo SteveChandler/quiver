@@ -1,6 +1,7 @@
 import {
   createSupabaseSessionConditionsStore,
   enrichSessionConditions,
+  SessionConditionsStoreError,
   type EnrichBeach,
   type PendingSession,
   type SessionConditionsStore,
@@ -236,6 +237,19 @@ describe("enrichSessionConditions", () => {
     expect(summary.errors).toBe(1);
   });
 
+  it("skips a session the database won't let anyone write, without logging an error", async () => {
+    // One test account's sessions have no auth.users row; update_beach_affinity_trigger's FK rejects every write.
+    const { store } = fakeStore({ rows: [forecastRow("2026-10-02T05:00:00Z")] });
+    (store.updateSession as jest.Mock).mockRejectedValue(
+      new SessionConditionsStoreError("session update: violates foreign key constraint", "23503"),
+    );
+    const errorSpy = jest.spyOn(console, "error");
+    const summary = await enrichSessionConditions(store, { mode: "live", now: NOW, mop: mop() });
+    expect(summary).toMatchObject({ unwritable: 1, errors: 0, updated: 0 });
+    expect(errorSpy).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
   it("only touches the half that is still missing", async () => {
     const { store, updates } = fakeStore({ sessions: [session({ conditions_source: "forecast_row" })] });
     await enrichSessionConditions(store, { mode: "live", now: NOW, mop: mop() });
@@ -346,6 +360,13 @@ describe("createSupabaseSessionConditionsStore", () => {
     await expect(store.loadSnapshot("s1")).resolves.toEqual({ forecast_at: "2026-10-02T08:00:00Z" });
     expect(log[0].calls).toEqual(expect.arrayContaining([["eq", "beach_id", "b1"], ["gte", "forecast_at", "from"], ["lte", "forecast_at", "to"]]));
     expect(log[1].calls).toEqual(expect.arrayContaining([["eq", "session_id", "s1"]]));
+  });
+
+  it("carries the Postgres error code on a failed update", async () => {
+    const store = createSupabaseSessionConditionsStore(
+      recordingClient(() => ({ data: null, error: { message: "violates foreign key constraint", code: "23503" } })).client as never,
+    );
+    await expect(store.updateSession("s1", { swell_period_s: 12 })).rejects.toMatchObject({ code: "23503" });
   });
 
   it("throws on a database error so the run counts it", async () => {

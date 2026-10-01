@@ -21,6 +21,8 @@ const LIVE_LOOKBACK_MS = 72 * HOUR_MS;
 const MOP_GIVE_UP_MS = 24 * HOUR_MS;
 /** nearshore_focus_ratio is numeric(4,2). */
 const MAX_FOCUS_RATIO = 99.99;
+/** Postgres foreign_key_violation. */
+const FOREIGN_KEY_VIOLATION = "23503";
 /** MOP's nowcast lands about an hour behind; wait until the arrival hour has been published. */
 const MOP_PUBLISH_LAG_MS = 2 * HOUR_MS;
 const FORECAST_LOOKBACK_MS = 3 * HOUR_MS;
@@ -67,6 +69,14 @@ export interface EnrichBeach {
 
 export type SessionPatch = Record<string, string | number | boolean | null>;
 
+/** A failed store call, with the Postgres error code when PostgREST returned one. */
+export class SessionConditionsStoreError extends Error {
+  constructor(message: string, readonly code: string | null = null) {
+    super(message);
+    this.name = "SessionConditionsStoreError";
+  }
+}
+
 export type PendingSessionsQuery =
   | { kind: "live"; recentSinceIso: string; arrivalToIso: string; limit: number }
   | { kind: "backfill"; arrivalFromIso: string; arrivalToIso: string; limit: number };
@@ -89,6 +99,11 @@ export interface EnrichSummary {
   unmapped: number;
   /** MOP hasn't published the hour yet; retried next run. */
   pending: number;
+  /**
+   * The database rejects every write to these sessions. Today: one test account with no auth.users row, whose
+   * updates fail update_beach_affinity_trigger's FK. Expected, so counted rather than logged.
+   */
+  unwritable: number;
   errors: number;
   /** Backfill: pass as `since` for the next batch; null once a batch comes back short. */
   nextSince: string | null;
@@ -223,6 +238,7 @@ export async function enrichSessionConditions(
     unavailable: 0,
     unmapped: 0,
     pending: 0,
+    unwritable: 0,
     errors: 0,
     nextSince: null,
   };
@@ -284,6 +300,10 @@ export async function enrichSessionConditions(
 
       if (Object.keys(patch).length > 0 && (await store.updateSession(session.id, patch))) summary.updated += 1;
     } catch (error) {
+      if (error instanceof SessionConditionsStoreError && error.code === FOREIGN_KEY_VIOLATION) {
+        summary.unwritable += 1;
+        return;
+      }
       summary.errors += 1;
       console.error(`[session-conditions] session ${session.id} failed:`, error);
     }
@@ -319,8 +339,10 @@ const FORECAST_ROW_COLUMNS = [
   "wind_direction_deg",
 ].join(", ");
 
-function unwrap<T>(result: { data: T | null; error: { message?: string } | null }, what: string): T | null {
-  if (result.error) throw new Error(`${what}: ${result.error.message ?? "unknown error"}`);
+function unwrap<T>(result: { data: T | null; error: { message?: string; code?: string } | null }, what: string): T | null {
+  if (result.error) {
+    throw new SessionConditionsStoreError(`${what}: ${result.error.message ?? "unknown error"}`, result.error.code ?? null);
+  }
   return result.data;
 }
 
