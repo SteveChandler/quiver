@@ -124,3 +124,40 @@ describe("parseEnhancedForecastHour", () => {
     expect(parsed.wind_speed).toBeCloseTo(4.34488, 4);
   });
 });
+
+const blacksBeach: AlertRevalidationBeachMeta = {
+  ...missionBeach, id: "blacks-id", name: "Blacks Beach", slug: "blacks-beach", lat: 32.8894, lon: -117.2538,
+};
+const watchBlacks: AlertConditions = {
+  swell_height_min: 3, swell_height_max: 6, swell_period_min: 7, wind_speed_max_kt: 9,
+  tide_height_min_ft: 0, tide_height_max_ft: 4, tide_direction: "rising",
+};
+// enhanced_forecasts rows in their stored string format (checked on prod 2026-10-01; bare/mph
+// wind is read as mph by parseWindSpeedToKt). Blacks 2026-10-01 05:00 / 08:00 / 11:00 PDT.
+const blacksRows = [
+  { id: "r05", forecast_at: "2026-10-01T12:00:00+00:00", wave_height: "4-5 ft", wave_period: "12s", swell_1_period: "12s", wind_speed: "0 mph", tide_height: "2.5 ft", tide_status: "Rising" },
+  { id: "r08", forecast_at: "2026-10-01T15:00:00+00:00", wave_height: "4-5 ft", wave_period: "12s", swell_1_period: "12s", wind_speed: "4 mph", tide_height: "3.9 ft", tide_status: "Rising" },
+  { id: "r11", forecast_at: "2026-10-01T18:00:00+00:00", wave_height: "4-5 ft", wave_period: "12s", swell_1_period: "12s", wind_speed: "8 mph", tide_height: "5.2 ft", tide_status: "Rising" },
+];
+const blacksNoaa = [
+  ["2026-10-01T12:00:00Z", 2.53], ["2026-10-01T13:00:00Z", 2.56], ["2026-10-01T14:00:00Z", 2.84],
+  ["2026-10-01T15:00:00Z", 3.38], ["2026-10-01T16:00:00Z", 4.09], ["2026-10-01T17:00:00Z", 4.83], ["2026-10-01T18:00:00Z", 5.3],
+].map(([time, heightFt]) => ({ time: time as string, heightFt: heightFt as number }));
+const before = new Date("2026-10-01T12:30:00Z"); // 05:30 PDT, when the push would go out
+
+describe("hourly alert windows (Blacks 2026-10-01)", () => {
+  it("keeps today's one-hour window with the flag off", () => {
+    const w = selectFreshAlertWindow({ conditions: watchBlacks, forecastRows: blacksRows, beach: blacksBeach, now: before });
+    expect([w?.window_start, w?.window_end]).toEqual(["2026-10-01T15:00:00+00:00", "2026-10-01T16:00:00.000Z"]);
+  });
+
+  it("finds the real 7–9 AM stretch on hourly rows with NOAA tide", () => {
+    const w = selectFreshAlertWindow({
+      conditions: watchBlacks, forecastRows: blacksRows, beach: blacksBeach, now: before,
+      hourly: true, tideSamples: blacksNoaa,
+    });
+    expect(new Date(w!.window_start).toISOString()).toBe("2026-10-01T14:00:00.000Z");
+    expect(new Date(w!.window_end).toISOString()).toBe("2026-10-01T16:00:00.000Z");
+    expect(w!.forecast_id).toMatch(/^r0[58]$/);
+  });
+});

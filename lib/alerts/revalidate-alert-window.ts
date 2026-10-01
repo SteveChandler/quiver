@@ -9,6 +9,7 @@ import type { AlertConditions, ForecastHour } from "@/lib/alerts/types";
 import type { AlertRevalidationBeachMeta } from "@/lib/alerts/payload-builder";
 import { getMinRideable, MINIMUM_VIABLE_WINDOW_MINUTES } from "@/lib/utils/surf-call-logic";
 import type { Beach } from "@/types/database";
+import { expandForecastHoursToHourly, type AlertTideSample } from "@/lib/alerts/hourly-forecast-hours";
 
 export type EnhancedForecastAlertRow = Record<string, unknown> & {
   id?: string;
@@ -30,6 +31,23 @@ interface SelectFreshAlertWindowInput {
   forecastRows: EnhancedForecastAlertRow[];
   beach: AlertRevalidationBeachMeta;
   now?: Date;
+  /** Match on hourly rows (ALERT_HOURLY_WINDOWS); the caller resolves the flag for the rule's owner. */
+  hourly?: boolean;
+  tideSamples?: AlertTideSample[] | null;
+}
+
+/** The one preparation both alert crons use: parse, optionally expand to hourly, keep daylight. */
+export function prepareAlertForecastHours(
+  forecastRows: EnhancedForecastAlertRow[],
+  beach: { lat: number; lon: number },
+  options: { hourly: boolean; tideSamples?: AlertTideSample[] | null },
+): { daylight: ForecastHour[]; maxWaveByForecastAt: Map<string, number> } {
+  const parsed = forecastRows.map(parseEnhancedForecastHour);
+  const rowMaxWave = buildMaxWaveByForecastAt(forecastRows);
+  const { hours, maxWaveByForecastAt } = options.hourly
+    ? expandForecastHoursToHourly({ hours: parsed, maxWaveByForecastAt: rowMaxWave, tideSamples: options.tideSamples })
+    : { hours: parsed, maxWaveByForecastAt: rowMaxWave };
+  return { daylight: filterToDaylight(hours, beach.lat, beach.lon), maxWaveByForecastAt };
 }
 
 export function selectFreshAlertWindow({
@@ -37,17 +55,17 @@ export function selectFreshAlertWindow({
   forecastRows,
   beach,
   now = new Date(),
+  hourly = false,
+  tideSamples = null,
 }: SelectFreshAlertWindowInput): FoundWindow | null {
   if (forecastRows.length === 0) return null;
 
-  const parsed = forecastRows.map(parseEnhancedForecastHour);
-  const daylight = filterToDaylight(parsed, beach.lat, beach.lon);
+  const { daylight, maxWaveByForecastAt } = prepareAlertForecastHours(forecastRows, beach, { hourly, tideSamples });
   if (daylight.length === 0) return null;
 
   const allWindows = findMatchingWindows(conditions, daylight, beach);
   if (allWindows.length === 0) return null;
 
-  const maxWaveByForecastAt = buildMaxWaveByForecastAt(forecastRows);
   const minRideable = getMinRideable(beach as unknown as Beach);
   const windows = allWindows.filter((window) =>
     isViableWindow(window, daylight, maxWaveByForecastAt, minRideable)
