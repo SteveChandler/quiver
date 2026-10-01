@@ -5,7 +5,7 @@
  * and detecting tide phases.
  */
 
-import type { TideData, TideStatus } from "./types";
+import type { TideData, TideHeightSample, TideStatus } from "./types";
 
 /**
  * CO-OPS returns timestamps like "YYYY-MM-DD HH:mm" (no timezone suffix).
@@ -124,6 +124,39 @@ export function getTideHeightAtTime(
   const currentHeight = prevTide.height + heightDiff * progress;
 
   return Math.round(currentHeight * 10) / 10;
+}
+
+const MAX_HOURLY_GAP_SECONDS = 60 * 60;
+
+/**
+ * Read the tide height at a time from an hourly prediction series
+ *
+ * Returns the sample at that time, or a straight line between the two samples
+ * around it when they are at most an hour apart. The tide curve is close to
+ * straight over an hour; between a high and a low six hours apart it is not.
+ *
+ * @param samples - Hourly heights in feet, sorted by time
+ * @param targetTime - Time to get height for
+ * @returns Height in feet rounded to 0.1, or null when no hourly sample covers the time
+ */
+export function getHourlyTideHeightAtTime(
+  samples: TideHeightSample[],
+  targetTime: Date
+): number | null {
+  const targetTimestamp = targetTime.getTime() / 1000;
+
+  const nextIndex = samples.findIndex((sample) => sample.time >= targetTimestamp);
+  if (nextIndex === -1) return null;
+
+  const next = samples[nextIndex];
+  if (next.time === targetTimestamp) return Math.round(next.height * 10) / 10;
+
+  const prev = samples[nextIndex - 1];
+  if (!prev || next.time - prev.time > MAX_HOURLY_GAP_SECONDS) return null;
+
+  const progress = (targetTimestamp - prev.time) / (next.time - prev.time);
+  const height = prev.height + (next.height - prev.height) * progress;
+  return Math.round(height * 10) / 10;
 }
 
 /**
