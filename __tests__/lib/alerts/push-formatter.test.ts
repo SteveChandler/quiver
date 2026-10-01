@@ -288,4 +288,17 @@ describe("formatPushNotification", () => {
     const result = formatPushNotification(matches);
     expect(result.body.length).toBeLessThanOrEqual(150);
   });
+  it("says 'around' for a one-hour window instead of a fake range (Blacks 2026-10-01)", () => {
+    const match = makeMatch({ window_start: "2026-10-01T15:00:00Z", window_end: "2026-10-01T16:00:00Z", best_hour: "2026-10-01T15:00:00Z" });
+    const { title, body } = formatPushNotification([match]);
+    expect(title).toMatch(/, around 8 AM$/);
+    expect(body).toMatch(/^Blacks Beach around 8 AM — /);
+  });
+
+  it("keeps a range for windows longer than an hour", () => {
+    const match = makeMatch({ window_start: "2026-10-01T14:00:00Z", window_end: "2026-10-01T16:00:00Z", best_hour: "2026-10-01T15:00:00Z" });
+    const { title, body } = formatPushNotification([match]);
+    expect(title).toMatch(/, 7–9 AM$/);
+    expect(body).toMatch(/^Blacks Beach 7 AM-9 AM — /);
+  });
 });
