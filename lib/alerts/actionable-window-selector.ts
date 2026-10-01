@@ -3,6 +3,13 @@ import type { FoundWindow } from "@/lib/alerts/window-finder";
 export const ALERT_SCORE_TIE_TOLERANCE = 0.04;
 export const ALERT_SCORE_MATERIAL_MARGIN = 0.08;
 
+/**
+ * Deliver runs at :00. A dawn window's best hour can start on the very tick that picks up
+ * its sunrise-clamped send, so a best hour that began within this grace is "now", not past.
+ * Short on purpose: a best hour that started 10 minutes ago stays stale (2026-08-10).
+ */
+const DELIVERY_TICK_GRACE_MS = 5 * 60 * 1000;
+
 export function selectActionableAlertWindow(
   windows: FoundWindow[],
   now: Date = new Date()
@@ -12,7 +19,7 @@ export function selectActionableAlertWindow(
     const bestHourMs = new Date(window.best_hour).getTime();
     const endMs = new Date(window.window_end).getTime();
     if (!Number.isFinite(bestHourMs) || !Number.isFinite(endMs)) return false;
-    return endMs > nowMs && bestHourMs > nowMs;
+    return endMs > nowMs && bestHourMs > nowMs - DELIVERY_TICK_GRACE_MS;
   });
 
   if (futureWindows.length === 0) return null;

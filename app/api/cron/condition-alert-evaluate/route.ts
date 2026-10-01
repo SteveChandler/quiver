@@ -486,7 +486,8 @@ export async function GET(request: Request) {
 
                 const maxWave = daylight.reduce<number | null>((max, hour) => {
                   const t = new Date(hour.forecast_at).getTime();
-                  if (t < startMs || t > endMs) return max;
+                  // window_end is exclusive: on hourly rows the hour at window_end is a real, non-matching hour.
+                  if (t < startMs || t >= endMs) return max;
                   // Prefer the upper bound from the raw range string when
                   // available; fall back to the parsed lower bound.
                   const candidate =

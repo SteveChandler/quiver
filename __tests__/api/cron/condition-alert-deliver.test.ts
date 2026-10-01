@@ -1514,6 +1514,19 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
       });
       store.forecastRows.push(
         {
+          forecast_at: "2026-04-26T12:00:00Z",
+          wave_height: "2.1 ft",
+          wave_period: "8s",
+          wave_direction: "W",
+          swell_1_height: "2.1 ft",
+          swell_1_period: "8s",
+          swell_1_direction: "270",
+          wind_speed: "0 mph",
+          wind_direction_deg: 225,
+          tide_height: "2.8",
+          tide_status: "Falling",
+        },
+        {
           forecast_at: "2026-04-26T15:00:00Z",
           wave_height: "2.1 ft",
           wave_period: "8s",
@@ -1548,9 +1561,10 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
       expect(store.queueRefreshUpdates[0]).toMatchObject({
         id: QUEUE_1,
         values: {
-          window_start: "2026-04-26T15:00:00Z",
+          // 12Z and the interpolated 13Z are before sunrise (~13:10Z); the window now starts at 14Z.
+          window_start: "2026-04-26T14:00:00.000Z",
           window_end: "2026-04-26T19:00:00.000Z",
-          best_hour: "2026-04-26T15:00:00Z",
+          best_hour: "2026-04-26T14:00:00.000Z",
           conditions_snapshot: expect.objectContaining({ wave_height: 2.1 }),
         },
       });
@@ -1565,8 +1579,8 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
           expect.objectContaining({
             rule_id: RULE_1,
             beach_id: BEACH_1,
-            window_start: "2026-04-26T15:00:00Z",
-            best_hour: "2026-04-26T15:00:00Z",
+            window_start: "2026-04-26T14:00:00.000Z",
+            best_hour: "2026-04-26T14:00:00.000Z",
             wave_label: "2-3ft",
             snapshot_summary: "wave summary",
           }),
