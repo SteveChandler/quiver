@@ -46,6 +46,20 @@ describe("matchMopTransect", () => {
     expect(matchMopTransect(beach(), [north(90)])).toBeNull();
   });
 
+  it("breaks a cross-track tie by distance", () => {
+    const near: MopPointMeta = { pointId: "X0004", lat: 32.8915, lon: -117.252, shoreNormalDeg: 0 }; // 500 m N, on the line
+    const far: MopPointMeta = { pointId: "X0005", lat: 32.9005, lon: -117.252, shoreNormalDeg: 0 }; // 1.5 km N, on the line
+    expect(matchMopTransect(beach(), [far, near])?.point.pointId).toBe("X0004");
+  });
+
+  it("rejects a transect from a point facing away from the nearest coast (across a headland)", () => {
+    // Nearest point: 350 m west, facing north — its own transect misses the beach.
+    const nearestNorthFacing: MopPointMeta = { pointId: "X0006", lat: 32.887, lon: -117.25575, shoreNormalDeg: 0 };
+    // 800 m south, facing south: its ray runs north through the headland to the beach.
+    const farSide: MopPointMeta = { pointId: "X0007", lat: 32.8798, lon: -117.252, shoreNormalDeg: 180 };
+    expect(matchMopTransect(beach(), [nearestNorthFacing, farSide])).toBeNull();
+  });
+
   it(`rejects a beach more than ${MAX_LANDWARD_M} m inland of the contour`, () => {
     const far: MopPointMeta = { pointId: "X0002", lat: 32.887 + 0.0225, lon: -117.252, shoreNormalDeg: 0 };
     expect(matchMopTransect(beach(), [far])).toBeNull();
@@ -55,44 +69,47 @@ describe("matchMopTransect", () => {
 describe("buildMopMappingSql", () => {
   const blacks = beach();
   const bay = beach({ id: "aaaaaaaa-0000-4000-8000-000000000002", name: "Bay\nBeach", lat: 37.8, lon: -122.3, aspect_deg: null });
-  const northBeach = beach({ id: "aaaaaaaa-0000-4000-8000-000000000003", name: "North", aspect_deg: 5 });
+  const facing = beach({ id: "aaaaaaaa-0000-4000-8000-000000000003", name: "Facing", aspect_deg: 220 });
+  const inland = beach({ id: "aaaaaaaa-0000-4000-8000-000000000004", name: "Inland", aspect_deg: null });
+  const slight = beach({ id: "aaaaaaaa-0000-4000-8000-000000000005", name: "Slight", aspect_deg: 240 });
   const sql = buildMopMappingSql(
     [
       { beach: blacks, match: matchMopTransect(blacks, [D0536, D0537, D0538]) },
       { beach: bay, match: null },
-      { beach: { ...northBeach, aspect_deg: 220 }, match: { point: { ...north(359.6), pointId: "X0003" }, distanceM: 500, crossTrackM: 0, landwardM: 500 } },
+      { beach: facing, match: { point: { ...north(359.6), pointId: "X0003" }, distanceM: 500, crossTrackM: 0, landwardM: 500 } },
+      { beach: inland, match: { point: D0537, distanceM: 1500, crossTrackM: 12, landwardM: 1499.6 } },
+      { beach: slight, match: { point: D0537, distanceM: 600, crossTrackM: 5, landwardM: 600 } },
     ],
     "2026-10-02T09:00:00Z",
   );
 
-  it("summarises mapped, unmapped and the furthest beach kept", () => {
-    expect(sql).toContain("-- mapped: 2, unmapped: 1, furthest beach kept: 738 m inland of its point");
+  it("summarises applied, held and unmapped beaches", () => {
+    expect(sql).toMatch(/^-- applied: 2, held for review: 2, unmapped: 1, furthest applied beach: 7\d\d m inland of its point$/m);
     expect(sql).toContain("-- unmapped: aaaaaaaa-0000-4000-8000-000000000002 Bay Beach");
   });
 
-  it("writes one UPDATE per mapped beach inside a transaction", () => {
+  it("applies confident matches inside one transaction", () => {
     expect(sql).toMatch(/^BEGIN;$/m);
     expect(sql).toMatch(/^COMMIT;$/m);
     expect(sql).toMatch(
       /^UPDATE public\.beaches SET mop_point_id = 'D0537', mop_shore_normal_deg = 270, mop_point_distance_m = 7\d\d WHERE id = 'aaaaaaaa-0000-4000-8000-000000000001';$/m,
     );
-    expect(sql).toContain("mop_shore_normal_deg = 0, mop_point_distance_m = 500 WHERE id = 'aaaaaaaa-0000-4000-8000-000000000003';");
     expect(sql.match(/^UPDATE /gm)).toHaveLength(2);
   });
 
-  it("lists shore normals more than 20° from aspect_deg for review, wrapping at north", () => {
-    expect(sql).toContain("-- review: North aspect_deg 220 vs MOP X0003 normal 0 (140°)");
-    expect(sql).not.toContain("-- review: Blacks Beach");
+  it("holds a facing more than 45° off aspect_deg, or a beach more than 1200 m inland, as commented UPDATEs", () => {
+    expect(sql).toContain(
+      "-- UPDATE public.beaches SET mop_point_id = 'X0003', mop_shore_normal_deg = 0, mop_point_distance_m = 500 WHERE id = 'aaaaaaaa-0000-4000-8000-000000000003'; -- Facing: aspect_deg 220 vs MOP normal 0 (140°)",
+    );
+    expect(sql).toContain("WHERE id = 'aaaaaaaa-0000-4000-8000-000000000004'; -- Inland: 1500 m inland of MOP D0537 (normal 270, 12 m off-transect)");
+    const commit = sql.indexOf("COMMIT;");
+    expect(sql.indexOf("-- UPDATE")).toBeGreaterThan(sql.indexOf("BEGIN;"));
+    expect(sql.indexOf("-- UPDATE")).toBeLessThan(commit);
   });
 
-  it("lists beaches more than 1200 m inland of their point for a closer look", () => {
-    const far = beach({ id: "aaaaaaaa-0000-4000-8000-000000000004", name: "Far" });
-    const farSql = buildMopMappingSql(
-      [{ beach: far, match: { point: D0537, distanceM: 1500, crossTrackM: 12, landwardM: 1499.6 } }],
-      "2026-10-02T09:00:00Z",
-    );
-    expect(farSql).toContain("-- check: Far is 1500 m inland of MOP D0537 (normal 270, 12 m off-transect)");
-    expect(sql).not.toContain("-- check:");
+  it("notes a smaller disagreement but still applies it", () => {
+    expect(sql).toContain("-- review: Slight aspect_deg 240 vs MOP D0537 normal 270 (30°)");
+    expect(sql).toMatch(/^UPDATE .* WHERE id = 'aaaaaaaa-0000-4000-8000-000000000005';$/m);
   });
 
   it("refuses an id that is not a uuid", () => {
