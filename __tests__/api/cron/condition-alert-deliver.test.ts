@@ -1467,6 +1467,129 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
       jest.useRealTimers();
     }
   });
+
+  it("rewrites a one-hour queue row to the hourly window on the same row, with one send (ALERT_HOURLY_WINDOWS)", async () => {
+    process.env.ALERTS_DELIVERY_ENABLED = "true";
+    process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
+    process.env.ALERT_HOURLY_WINDOWS_ENABLED = "true";
+    process.env.ALERT_HOURLY_WINDOWS_USER_ALLOWLIST = "";
+    jest.useFakeTimers().setSystemTime(new Date("2026-04-26T12:00:00Z"));
+
+    try {
+      seedQueueRow({
+        alert_date: "2026-04-26",
+        alert_rules: {
+          name: "Mellow session at your home break",
+          notify_email: true,
+          notify_push: false,
+          conditions: {
+            swell_height_min: 1.5,
+            swell_height_max: 4,
+            wind_speed_max_kt: 8,
+          },
+        },
+        beaches: {
+          id: BEACH_1,
+          name: "Mission Beach",
+          slug: "mission-beach",
+          timezone: "America/Los_Angeles",
+          lat: 32.7701,
+          lon: -117.2525,
+          wind_offshore_deg: 90,
+          wind_offshore_tol_deg: 45,
+          aspect_deg: 270,
+          preferred_tide_ft_min: 2,
+          preferred_tide_ft_max: 6,
+          preferred_tide_direction: "rising",
+          swell_window_center_deg: 300,
+          swell_window_halfwidth_deg: 45,
+          break_type: "beach",
+          skill_level: "intermediate",
+        },
+      });
+      seedProfile({
+        notif_email_enabled: true,
+        notif_push_enabled: false,
+        experience_level: "intermediate",
+      });
+      store.forecastRows.push(
+        {
+          forecast_at: "2026-04-26T15:00:00Z",
+          wave_height: "2.1 ft",
+          wave_period: "8s",
+          wave_direction: "W",
+          swell_1_height: "2.1 ft",
+          swell_1_period: "8s",
+          swell_1_direction: "270",
+          wind_speed: "0 mph",
+          wind_direction_deg: 225,
+          tide_height: "2.8",
+          tide_status: "Falling",
+        },
+        {
+          forecast_at: "2026-04-26T18:00:00Z",
+          wave_height: "2.1 ft",
+          wave_period: "8s",
+          wave_direction: "W",
+          swell_1_height: "2.1 ft",
+          swell_1_period: "8s",
+          swell_1_direction: "270",
+          wind_speed: "0 mph",
+          wind_direction_deg: 225,
+          tide_height: "2.8",
+          tide_status: "Falling",
+        },
+      );
+
+      const res = await GET(makeRequest());
+      expect(res.status).toBe(200);
+
+      expect(store.queueRefreshUpdates).toHaveLength(1);
+      expect(store.queueRefreshUpdates[0]).toMatchObject({
+        id: QUEUE_1,
+        values: {
+          window_start: "2026-04-26T15:00:00Z",
+          window_end: "2026-04-26T19:00:00.000Z",
+          best_hour: "2026-04-26T15:00:00Z",
+          conditions_snapshot: expect.objectContaining({ wave_height: 2.1 }),
+        },
+      });
+      expect(store.queueRefreshUpdates[0].values.best_score).toEqual(
+        expect.any(Number),
+      );
+      expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
+      expect(store.deliveryInserts[0].payload).toMatchObject({
+        match_count: 1,
+        beaches: ["Mission Beach"],
+        matches: [
+          expect.objectContaining({
+            rule_id: RULE_1,
+            beach_id: BEACH_1,
+            window_start: "2026-04-26T15:00:00Z",
+            best_hour: "2026-04-26T15:00:00Z",
+            wave_label: "2-3ft",
+            snapshot_summary: "wave summary",
+          }),
+        ],
+      });
+      expect(mockLogDelivery).toHaveBeenCalledWith(
+        expect.objectContaining({
+          meta: expect.objectContaining({
+            matches: [
+              expect.objectContaining({
+                wave_label: "2-3ft",
+                snapshot_summary: "wave summary",
+              }),
+            ],
+          }),
+        }),
+      );
+    } finally {
+      jest.useRealTimers();
+      delete process.env.ALERT_HOURLY_WINDOWS_ENABLED;
+      delete process.env.ALERT_HOURLY_WINDOWS_USER_ALLOWLIST;
+    }
+  });
 });
 
 describe("condition-alert-deliver — watched-call queue", () => {

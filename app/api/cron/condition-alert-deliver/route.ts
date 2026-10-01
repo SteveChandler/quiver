@@ -59,6 +59,8 @@ import {
   selectFreshAlertWindow,
   type EnhancedForecastAlertRow,
 } from "@/lib/alerts/revalidate-alert-window";
+import { loadAlertTideSamples, type AlertTideClient } from "@/lib/alerts/alert-tide-samples";
+import { isAlertHourlyWindowsEnabledFor } from "@/lib/flags/alert-hourly-windows";
 import type { AlertConditions } from "@/lib/alerts/types";
 import type { MatchingWindow } from "@/lib/alerts/types";
 import { isForecastAlertDeliveryEnabled } from "@/lib/flags/forecast-alert-delivery";
@@ -496,10 +498,16 @@ export async function GET(request: Request): Promise<NextResponse> {
 
     if (!forecastRows || forecastRows.length === 0) return item;
 
+    const hourly = isAlertHourlyWindowsEnabledFor(item.user_id);
+    const tideSamples = hourly
+      ? await loadAlertTideSamples(supabase as unknown as AlertTideClient, item.beach_id, start, end)
+      : null;
     const freshWindow = selectFreshAlertWindow({
       conditions: item.conditions,
       forecastRows: forecastRows as EnhancedForecastAlertRow[],
       beach: item.beach_meta,
+      hourly,
+      tideSamples,
     });
     if (!freshWindow) return null;
 
