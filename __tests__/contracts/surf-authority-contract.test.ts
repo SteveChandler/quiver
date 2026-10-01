@@ -441,6 +441,30 @@ describe("surf authority producer contract", () => {
       // The raw end still drives the NOW open-window checks.
       expect(window.end.getTime()).toBeGreaterThan(NOW.getTime());
     });
+
+    it("anchors the display band on the scoped call's row, so its end holds as the clock runs", async () => {
+      const scopedDiscovery = (at: string) => discoverSurfSpots("contract-user", {
+        forecastAt: at, includeBeachIds: [BEACH_ID], userLocation: beach, throwOnFailure: true,
+      });
+      const scoped = (await scopedDiscovery(NEXT_AT)).recommendations[0].window;
+      const ends = [result.nowRecommendation.window.displayWindowEnd!.toISOString()];
+      try {
+        // 13:52 PDT still maps to the 14:00 row; the peak moves, the band does not.
+        jest.setSystemTime(new Date(NOW.getTime() + 12 * 60 * 1000));
+        const later = await discoverSurfSpots("contract-user", {
+          discoveryMode: "now", includeBeachIds: [BEACH_ID], userLocation: beach, throwOnFailure: true,
+        });
+        ends.push(later.recommendations[0].window.displayWindowEnd!.toISOString());
+        expect(later.recommendations[0].window.peakTime!.getTime()).toBe(NOW.getTime() + 12 * 60 * 1000);
+      } finally {
+        jest.setSystemTime(NOW);
+      }
+
+      expect(ends).toEqual([scoped.displayWindowEnd!.toISOString(), scoped.displayWindowEnd!.toISOString()]);
+      expect(result.nowRecommendation.window.displayWindowStart!.toISOString()).toBe(NEXT_AT);
+      // The 14:00 row starts 150 minutes before 16:30 PDT; both are before last light.
+      expect(ends[0]).toBe("2026-09-10T23:30:00.000Z");
+    });
   });
 
   describe("best window", () => {

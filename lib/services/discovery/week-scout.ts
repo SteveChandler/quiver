@@ -3,7 +3,10 @@ import 'server-only';
 import { createHash } from 'node:crypto';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { resolveRecommendationLabel } from './recommendation-label';
-import { getCanonicalRecommendationLabel } from '@/lib/recommendations/canonical-decision/discovery-adapter';
+import {
+  getCanonicalPersonalCall,
+  getCanonicalRecommendationLabel,
+} from '@/lib/recommendations/canonical-decision/discovery-adapter';
 import { getProfileExperienceLevel } from '@/lib/profile/skill-level';
 import { batchFetchForecasts } from '@/lib/services/discovery/forecast-batch-fetcher';
 import { getBatchSunTimes } from '@/lib/services/discovery/surf-discovery-orchestrator';
@@ -135,7 +138,25 @@ export interface WeekScoutDaysRequest extends Omit<WeekScoutRequest, 'dayCount'>
   dayCount: number;
 }
 
-export interface WeekScoutRankedSpotResponse {
+/** `/api/surf/call`'s `sessionDecision.verdict` vocabulary. */
+type WeekScoutPersonalVerdict = 'go' | 'maybe' | 'no';
+/** The labels a client prints for a call; EPIC stays off until the server can mark a day rare. */
+type WeekScoutPersonalLabel = 'EPIC' | 'GOOD' | 'FAIR' | 'RIDEABLE' | 'MEH';
+
+/**
+ * The call Beach Detail makes for this window, additive and present only for a
+ * signed-in user on a window that carries a verdict. It is computed by the same
+ * canonical decision as `/api/surf/call` (skill, personal match, decision
+ * effects), so a card can print the label Detail prints: a `maybe` never reads
+ * above FAIR, however high `conditionScore` is. `verdict` maps onto it:
+ * worth_it = go, maybe = maybe, skip = no.
+ */
+interface WeekScoutPersonalCall {
+  personalVerdict?: WeekScoutPersonalVerdict;
+  personalLabel?: WeekScoutPersonalLabel;
+}
+
+export interface WeekScoutRankedSpotResponse extends WeekScoutPersonalCall {
   beachId: string;
   beachName: string;
   conditionScore: number;
@@ -179,7 +200,7 @@ export interface WeekScoutForecastComponent {
   source: string | null;
 }
 
-export interface WeekScoutWindowResponse {
+export interface WeekScoutWindowResponse extends WeekScoutPersonalCall {
   id: string;
   bucket: WeekScoutBucket;
   start: string;
@@ -1253,25 +1274,38 @@ async function generateWeekScoutForecastInternal(
   const similarity = await deps.fetchMatchEvidence(userId, beachIds,
     [...returnedDrafts.values()].map((draft) => draft.recommendation.forecast));
   const verdicts = new Map<string, WeekScoutVerdict>();
+  const personalCalls = new Map<string, ReturnType<typeof getCanonicalPersonalCall>>();
   for (const [id, draft] of returnedDrafts) {
     const forecast = draft.recommendation.forecast;
     // Personal history may only move safe, rideable windows.
     const eligibleForPersonal = draft.response.safe && draft.response.rideable;
-    const label = getCanonicalRecommendationLabel({
+    // One decision yields the verdict and the label Detail prints for it, so the
+    // personal call costs no pass beyond the verdict this loop already computes.
+    const call = getCanonicalPersonalCall({
       ...draft.recommendation, score: draft.response.conditionScore,
       similarity: eligibleForPersonal
         ? similarity.get(`${forecast.beach_id}:${forecast.forecast_at}`) ?? null
         : null,
     }, userSkillLevel);
-    verdicts.set(id, label === 'Worth it' ? 'worth_it' : label === 'Maybe' ? 'maybe' : 'skip');
+    personalCalls.set(id, call);
+    verdicts.set(id, call.verdict === 'go' ? 'worth_it' : call.verdict === 'maybe' ? 'maybe' : 'skip');
   }
+  const attachPersonalCall = (target: WeekScoutPersonalCall, id: string): void => {
+    const call = userId ? personalCalls.get(id) : undefined;
+    if (!call) return;
+    target.personalVerdict = call.verdict;
+    target.personalLabel = call.label;
+  };
   for (const day of heldResponse.days) {
     for (const window of day.windows) {
       if (window.verdict === null) continue;
       window.verdict = verdicts.get(window.id) ?? window.verdict;
+      attachPersonalCall(window, window.id);
       for (const spot of window.rankedSpots) {
         const draft = draftsBySlot.get(`${day.localDate}:${window.bucket}:${spot.beachId}`);
-        if (draft) spot.verdict = verdicts.get(draft.response.id) ?? spot.verdict;
+        if (!draft) continue;
+        spot.verdict = verdicts.get(draft.response.id) ?? spot.verdict;
+        attachPersonalCall(spot, draft.response.id);
       }
     }
     // Preserve hold fallback selection; only replace a day best rejected by its new personal verdict.

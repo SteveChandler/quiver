@@ -33,6 +33,7 @@ import {
   WEEK_SCOUT_CONTRACT_BEACH_ID,
   WEEK_SCOUT_CONTRACT_FIXTURE,
   WEEK_SCOUT_CONTRACT_GENERATED_AT,
+  weekScoutPersonalCallViolations,
 } from '@/__tests__/fixtures/week-scout-contract';
 import { calculateDistanceInMiles } from '@/lib/utils/distance-utils';
 
@@ -86,6 +87,30 @@ describe('POST /api/surf/week-scout', () => {
         dayCount: 7,
       },
     );
+  });
+
+  it('passes the personal call through on windows, the day best and ranked spots', async () => {
+    const response = await callRoute({
+      candidateBeachIds: [BEACH_A], localTimezone: 'Pacific/Honolulu', startLocalDate: '2026-07-15', dayCount: 7,
+    });
+    const { data } = await response.json();
+    const [day] = data.days;
+
+    expect(weekScoutPersonalCallViolations(data)).toEqual([]);
+    expect(day.windows[0]).toMatchObject({ verdict: 'worth_it', personalVerdict: 'go', personalLabel: 'GOOD' });
+    expect(day.windows[0].rankedSpots[0]).toMatchObject({ personalVerdict: 'go', personalLabel: 'GOOD' });
+    expect(day.bestDayWindow).toMatchObject({ personalVerdict: 'go', personalLabel: 'GOOD' });
+  });
+
+  it('flags a personal label that contradicts its verdict', () => {
+    const [window] = WEEK_SCOUT_CONTRACT_FIXTURE.days[0].windows;
+    const contradiction = {
+      days: [{ windows: [{ ...window, verdict: 'maybe' as const, rankedSpots: [] }] }],
+    };
+
+    expect(weekScoutPersonalCallViolations(contradiction as never)).toEqual([
+      `window ${window.id}: personalVerdict go is not maybe`,
+    ]);
   });
 
   it('evaluates all 30 unique candidates before the service limits ranked results', async () => {
