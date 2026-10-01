@@ -91,6 +91,13 @@ describe("late-window suppression", () => {
     );
   });
 
+  // Final review 2026-10-01: deliver runs at :00, and a dawn window's best hour can start on the
+  // very tick that picks up its sunrise-clamped send. That hour is now, not past.
+  it("keeps a window whose best hour starts at this delivery tick", () => {
+    const now = new Date("2026-08-10T15:00:05.000Z");
+    expect(selectActionableAlertWindow([window()], now)?.best_hour).toBe("2026-08-10T15:00:00.000Z");
+  });
+
   it("rejects a window after its best hour starts", () => {
     const now = new Date("2026-08-10T15:10:00.000Z");
     expect(selectActionableAlertWindow([window()], now)).toBeNull();

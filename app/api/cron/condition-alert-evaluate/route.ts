@@ -6,11 +6,13 @@ import { withCronOutcome } from "@/lib/cron/outcome";
 import { findMatchingWindows } from "@/lib/alerts/window-finder";
 import { evaluateWatchedCall } from "@/lib/alerts/watched-call-evaluator";
 import { selectActionableAlertWindow } from "@/lib/alerts/actionable-window-selector";
-import { filterToDaylight, getDaylightWindow } from "@/lib/alerts/sunrise";
+import { getDaylightWindow } from "@/lib/alerts/sunrise";
+import { prepareAlertForecastHours, type EnhancedForecastAlertRow } from "@/lib/alerts/revalidate-alert-window";
+import { createAlertTideCache, type AlertTideClient } from "@/lib/alerts/alert-tide-samples";
+import { isAlertHourlyWindowsEnabledFor } from "@/lib/flags/alert-hourly-windows";
 import { CAPS, resolveEntitlement } from "@/lib/alerts/entitlements";
 import { getUtcDayBounds } from "@/lib/alerts/timezone-utils";
-import { parseWindSpeedToKt, parseSwellDirectionToDegrees } from "@/lib/alerts/forecast-parsers";
-import type { AlertConditions, BeachAlertMeta, ForecastHour } from "@/lib/alerts/types";
+import type { AlertConditions, BeachAlertMeta } from "@/lib/alerts/types";
 import type { Database } from "@/types/database.generated";
 import { getMinRideable, MINIMUM_VIABLE_WINDOW_MINUTES } from "@/lib/utils/surf-call-logic";
 import type { Beach } from "@/types/database";
@@ -118,6 +120,7 @@ export async function GET(request: Request) {
   }
 
   const supabase = await createSupabaseServiceRoleClient();
+  const tideFor = createAlertTideCache(supabase as unknown as AlertTideClient);
 
   try {
     const summary = await withCronOutcome(
@@ -436,44 +439,20 @@ export async function GET(request: Request) {
 
               if (!forecasts || forecasts.length === 0) continue;
 
-              const parsed: ForecastHour[] = forecasts.map((f) => ({
-                forecast_id: typeof f.id === "string" && f.id.length > 0 ? f.id : undefined,
-                forecast_at: f.forecast_at,
-                wave_height: f.wave_height ? parseFloat(f.wave_height) : null,
-                wave_period: f.wave_period ? parseFloat(f.wave_period.replace("s", "")) : null,
-                wave_direction: f.wave_direction ?? null,
-                swell_1_height: f.swell_1_height ? parseFloat(f.swell_1_height) : null,
-                swell_1_period: f.swell_1_period ? parseFloat(f.swell_1_period.replace("s", "")) : null,
-                swell_1_direction: parseSwellDirectionToDegrees(f.swell_1_direction),
-                wind_speed: parseWindSpeedToKt(f.wind_speed),
-                wind_direction_deg: f.wind_direction_deg,
-                tide_height: f.tide_height ? parseFloat(f.tide_height) : null,
-                tide_status: f.tide_status,
-              }));
-
-              const daylight = filterToDaylight(parsed, beach.lat, beach.lon);
+              // For the surfability gate the preparation also returns the MAX numeric from
+              // each raw wave_height string, not parseFloat's first-number result:
+              // enhanced_forecasts.wave_height is sometimes a range like "1-2ft" (see
+              // lib/services/forecast/apply-beach-height-offset.ts). The parsed lower bound
+              // is conservative for matching; "is anything in this window rideable?" wants
+              // the upper. Hourly matching (ALERT_HOURLY_WINDOWS) interpolates both.
+              const hourly = isAlertHourlyWindowsEnabledFor(userId);
+              const tideSamples = hourly ? await tideFor(rule.beach_id, todayStart, todayEnd) : null;
+              const { daylight, maxWaveByForecastAt } = prepareAlertForecastHours(
+                forecasts as EnhancedForecastAlertRow[],
+                beach,
+                { hourly, tideSamples },
+              );
               if (daylight.length === 0) continue;
-
-              // For the surfability gate we need the MAX numeric from the raw
-              // wave_height string, not parseFloat's first-number result —
-              // enhanced_forecasts.wave_height is sometimes a range like
-              // "1-2ft" (see lib/services/forecast/apply-beach-height-offset.ts).
-              // parsed.wave_height is the lower bound (conservative for matching);
-              // for "is anything in this window rideable?" we want the upper.
-              //
-              // Built from the unfiltered `forecasts` (not `daylight`) because
-              // it's a cheap O(n) lookup table — the gate's reduce iterates
-              // `daylight` for time-window scoping, but we'd rather build the
-              // map once than re-scope it per window.
-              const maxWaveByForecastAt = new Map<string, number>();
-              for (const f of forecasts) {
-                if (!f.wave_height) continue;
-                const nums = String(f.wave_height).match(/[\d.]+/g);
-                if (!nums) continue;
-                const parsedNums = nums.map(Number).filter((n) => Number.isFinite(n));
-                if (parsedNums.length === 0) continue;
-                maxWaveByForecastAt.set(f.forecast_at, Math.max(...parsedNums));
-              }
 
               const allWindows = findMatchingWindows(conditions, daylight, beach);
               if (allWindows.length === 0) continue;
@@ -507,7 +486,8 @@ export async function GET(request: Request) {
 
                 const maxWave = daylight.reduce<number | null>((max, hour) => {
                   const t = new Date(hour.forecast_at).getTime();
-                  if (t < startMs || t > endMs) return max;
+                  // window_end is exclusive: on hourly rows the hour at window_end is a real, non-matching hour.
+                  if (t < startMs || t >= endMs) return max;
                   // Prefer the upper bound from the raw range string when
                   // available; fall back to the parsed lower bound.
                   const candidate =

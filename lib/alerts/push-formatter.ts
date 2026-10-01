@@ -159,6 +159,19 @@ export function formatPushNotification(
   };
 }
 
+/** A window this short is one forecast slot; a range would claim precision the forecast lacks. */
+const SINGLE_SLOT_WINDOW_MS = 60 * 60 * 1000;
+
+function isSingleSlotWindow(start: string, end: string): boolean {
+  const ms = new Date(end).getTime() - new Date(start).getTime();
+  return Number.isFinite(ms) && ms <= SINGLE_SLOT_WINDOW_MS;
+}
+
+function formatAround(start: string, timezone: string): string {
+  const hour = new Date(start).toLocaleTimeString("en-US", { hour: "numeric", hour12: true, timeZone: timezone });
+  return `around ${hour}`;
+}
+
 /**
  * Title window: en-dash, meridiem collapsed when shared ("7–9 AM"), so the
  * lock-screen line reads tight. Body uses formatTimeRange (hyphen, full).
@@ -168,6 +181,7 @@ function formatTitleWindow(
   end: string,
   timezone: string,
 ): string {
+  if (isSingleSlotWindow(start, end)) return formatAround(start, timezone);
   const opts: Intl.DateTimeFormatOptions = {
     hour: "numeric",
     hour12: true,
@@ -192,6 +206,7 @@ function formatTitleWindow(
 }
 
 function formatTimeRange(start: string, end: string, timezone: string): string {
+  if (isSingleSlotWindow(start, end)) return formatAround(start, timezone);
   const opts: Intl.DateTimeFormatOptions = {
     hour: "numeric",
     timeZone: timezone,
