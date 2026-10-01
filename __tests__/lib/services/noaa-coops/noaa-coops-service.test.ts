@@ -5,13 +5,18 @@
  * - Happy path conversion from cached rows to TideData
  * - Empty cache handling
  * - Boundary extrema detection
- * - Plateau handling (no false positives)
+ * - Plateau handling (a flat turn is one extreme)
+ * - Hourly series returned beside the extremes
  * - Fallback path behavior
  */
 
 import { NOAACOOPSService } from '@/lib/services/noaa-coops/noaa-coops-service';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import * as Sentry from '@sentry/nextjs';
+import {
+  TOURMALINE_9410196_ROWS,
+  rowsVisibleAt,
+} from '@/__tests__/fixtures/noaa-tide-series-20260930';
 
 // Mock Supabase client
 jest.mock('@/lib/supabase/server', () => ({
@@ -456,10 +461,48 @@ describe('NOAACOOPSService', () => {
 
         const result = await service.fetchCachedTides(beachId);
 
-        expect(result).not.toBeNull();
-        // Should detect the low at start (boundary) and low at end (boundary)
-        // but not false highs in the plateau
-        expect(result?.tides.length).toBeGreaterThan(0);
+        // Boundary lows, and one high at the middle of the flat top.
+        expect(result?.tides.map((tide) => [tide.type, tide.height, tide.time])).toEqual([
+          ['low', 3.3, Math.floor(now.getTime() / 1000)],
+          ['high', 4.9, Math.floor((now.getTime() + 1.5 * 3600000) / 1000)],
+          ['low', 3.3, Math.floor((now.getTime() + 3 * 3600000) / 1000)],
+        ]);
+      });
+    });
+
+    describe('Hourly series', () => {
+      it("returns the selected station's hourly heights in feet beside the extremes", async () => {
+        const buildAt = '2026-09-30T20:01:27.368Z';
+        const current = rowsVisibleAt(TOURMALINE_9410196_ROWS, buildAt);
+        // A superseded station's rows for the same hours must not leak into the series.
+        const stale = current.map((row) => ({
+          ...row,
+          tide_height_m: row.tide_height_m - 0.4,
+          station_id: 'TWC0405',
+          created_at: '2026-09-02T04:00:02.682Z',
+        }));
+        const mockBuilder = createMockQueryBuilder(
+          [...current, ...stale].sort((a, b) => a.ts.localeCompare(b.ts)),
+        );
+        mockSupabase.mockResolvedValue({
+          from: jest.fn().mockReturnValue(mockBuilder),
+        });
+
+        const result = await service.fetchCachedTides(beachId);
+
+        expect(result?.hourly).toHaveLength(current.length);
+        expect(result?.hourly?.[0]).toEqual({
+          time: Math.floor(Date.parse('2026-09-30T15:00:00Z') / 1000),
+          height: expect.closeTo(1.149 * 3.28084, 6),
+        });
+        expect(result?.hourly?.find((s) => s.time === Date.parse('2026-09-30T18:00:00Z') / 1000)?.height)
+          .toBeCloseTo(6.07, 2);
+        expect(result?.tides).toContainEqual({
+          time: Math.floor(Date.parse('2026-09-30T18:30:00Z') / 1000),
+          height: 6.1,
+          type: 'high',
+          name: 'High',
+        });
       });
     });
   });
