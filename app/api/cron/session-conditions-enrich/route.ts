@@ -26,7 +26,9 @@ const DEFAULT_BACKFILL_SINCE = "2024-01-01T00:00:00Z";
  *
  * Hourly at :20 (CDIP MOP's nowcast lands about an hour behind): gives logged sessions the swell and wind
  * of the forecast row at or before paddle-out, and the MOP nearshore hour for mapped California beaches.
- * Fills nulls only. `?mode=backfill&since=YYYY-MM-DD` walks older sessions in batches.
+ * Fills nulls only. Live runs take sessions logged, moved or surfed in the last 72 h (the migration queues
+ * every existing session, so those are filled in the first runs). `?mode=backfill&since=YYYY-MM-DD` walks
+ * older leftovers; pass the response's `result.nextSince` as the next `since` until it comes back null.
  *
  * Auth: Authorization: Bearer <CRON_SECRET>. Gated by SESSION_CONDITIONS_ENRICH_ENABLED=true.
  */

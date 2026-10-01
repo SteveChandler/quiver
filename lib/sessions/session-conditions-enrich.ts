@@ -3,6 +3,7 @@ import type { DisplaySwellWindow } from "@/lib/domains/conditions/display-swell"
 import {
   fetchMopFocusRatio,
   fetchMopHour,
+  MopHourPendingError,
   type MopHour,
 } from "@/lib/services/cdip-mop/mop-client";
 import {
@@ -14,7 +15,12 @@ import {
 } from "./session-conditions";
 
 const HOUR_MS = 60 * 60 * 1000;
+/** Live runs take sessions queued (logged, or moved) or surfed in this window; older leftovers are backfill's. */
 const LIVE_LOOKBACK_MS = 72 * HOUR_MS;
+/** An hour MOP still hasn't published a day later isn't coming. */
+const MOP_GIVE_UP_MS = 24 * HOUR_MS;
+/** nearshore_focus_ratio is numeric(4,2). */
+const MAX_FOCUS_RATIO = 99.99;
 /** MOP's nowcast lands about an hour behind; wait until the arrival hour has been published. */
 const MOP_PUBLISH_LAG_MS = 2 * HOUR_MS;
 const FORECAST_LOOKBACK_MS = 3 * HOUR_MS;
@@ -59,10 +65,14 @@ export interface EnrichBeach {
   swell_window_halfwidth_deg: number | null;
 }
 
-export type SessionPatch = Record<string, string | number | null>;
+export type SessionPatch = Record<string, string | number | boolean | null>;
+
+export type PendingSessionsQuery =
+  | { kind: "live"; recentSinceIso: string; arrivalToIso: string; limit: number }
+  | { kind: "backfill"; arrivalFromIso: string; arrivalToIso: string; limit: number };
 
 export interface SessionConditionsStore {
-  listPendingSessions(query: { fromIso: string; toIso: string; limit: number }): Promise<PendingSession[]>;
+  listPendingSessions(query: PendingSessionsQuery): Promise<PendingSession[]>;
   loadBeaches(ids: string[]): Promise<Map<string, EnrichBeach>>;
   loadForecastRows(beachId: string, fromIso: string, toIso: string): Promise<SessionConditionsRow[]>;
   loadSnapshot(sessionId: string): Promise<SessionConditionsRow | null>;
@@ -77,7 +87,11 @@ export interface EnrichSummary {
   nearshoreFilled: number;
   unavailable: number;
   unmapped: number;
+  /** MOP hasn't published the hour yet; retried next run. */
+  pending: number;
   errors: number;
+  /** Backfill: pass as `since` for the next batch; null once a batch comes back short. */
+  nextSince: string | null;
 }
 
 export interface EnrichOptions {
@@ -132,6 +146,9 @@ function conditionsPatch(session: PendingSession, resolved: SessionConditions): 
       if (value !== null) patch[column] = value;
     }
   }
+  if (["wind_speed_mph", "wind_direction", "wind_direction_deg"].some((column) => column in patch)) {
+    patch.conditions_wind_filled = true;
+  }
   if (resolved.conditions_forecast_at !== null) patch.conditions_forecast_at = resolved.conditions_forecast_at;
   patch.conditions_source = resolved.conditions_source;
   return patch;
@@ -169,7 +186,7 @@ function nearshoreFields(hour: MopHour, focusRatio: number | null, source: strin
     nearshore_dp_deg: wholeDegrees(hour.dpDeg),
     nearshore_dm_deg: hour.dmDeg === null ? null : wholeDegrees(hour.dmDeg),
     nearshore_swellband_tm_s: hour.swellbandTmS === null ? null : round(hour.swellbandTmS, 1),
-    nearshore_focus_ratio: focusRatio,
+    nearshore_focus_ratio: focusRatio !== null && focusRatio <= MAX_FOCUS_RATIO ? focusRatio : null,
     nearshore_source: source,
   };
 }
@@ -196,8 +213,8 @@ export async function enrichSessionConditions(
 ): Promise<EnrichSummary> {
   const mop = options.mop ?? { fetchMopHour, fetchMopFocusRatio };
   const nowMs = options.now.getTime();
-  const fromMs = options.mode === "backfill" && options.since ? options.since.getTime() : nowMs - LIVE_LOOKBACK_MS;
-  const nearshoreSource = options.mode === "backfill" ? "cdip_mop_backfill" : "cdip_mop_nowcast";
+  const limit = options.batchSize ?? DEFAULT_BATCH_SIZE;
+  const arrivalToIso = new Date(nowMs - MOP_PUBLISH_LAG_MS).toISOString();
   const summary: EnrichSummary = {
     selected: 0,
     updated: 0,
@@ -205,15 +222,19 @@ export async function enrichSessionConditions(
     nearshoreFilled: 0,
     unavailable: 0,
     unmapped: 0,
+    pending: 0,
     errors: 0,
+    nextSince: null,
   };
 
-  const sessions = await store.listPendingSessions({
-    fromIso: new Date(fromMs).toISOString(),
-    toIso: new Date(nowMs - MOP_PUBLISH_LAG_MS).toISOString(),
-    limit: options.batchSize ?? DEFAULT_BATCH_SIZE,
-  });
+  const sessions = await store.listPendingSessions(
+    options.mode === "backfill"
+      ? { kind: "backfill", arrivalFromIso: (options.since ?? new Date(0)).toISOString(), arrivalToIso, limit }
+      : { kind: "live", recentSinceIso: new Date(nowMs - LIVE_LOOKBACK_MS).toISOString(), arrivalToIso, limit },
+  );
   summary.selected = sessions.length;
+  // A cursor, so rows that keep failing can't hold a backfill on the same batch forever.
+  if (options.mode === "backfill" && sessions.length === limit) summary.nextSince = sessions[sessions.length - 1].arrival_time;
   if (sessions.length === 0) return summary;
   const beaches = await store.loadBeaches([...new Set(sessions.map((s) => s.beach_id))]);
 
@@ -233,20 +254,30 @@ export async function enrichSessionConditions(
           patch.nearshore_source = "unmapped";
           summary.unmapped += 1;
         } else {
+          const at = new Date(session.arrival_time);
+          const ageMs = nowMs - at.getTime();
+          const markUnavailable = () => {
+            Object.assign(patch, { nearshore_point_id: pointId, nearshore_source: "unavailable" });
+            summary.unavailable += 1;
+          };
           try {
-            const at = new Date(session.arrival_time);
             const hour = await mop.fetchMopHour(pointId, at);
             if (hour) {
               const focusRatio = await mop.fetchMopFocusRatio(pointId, at).catch(() => null);
-              Object.assign(patch, nearshoreFields(hour, focusRatio, nearshoreSource));
+              const source = ageMs > LIVE_LOOKBACK_MS ? "cdip_mop_backfill" : "cdip_mop_nowcast";
+              Object.assign(patch, nearshoreFields(hour, focusRatio, source));
               summary.nearshoreFilled += 1;
             } else {
-              Object.assign(patch, { nearshore_point_id: pointId, nearshore_source: "unavailable" });
-              summary.unavailable += 1;
+              markUnavailable();
             }
           } catch (error) {
-            summary.errors += 1;
-            console.warn(`[session-conditions] MOP ${pointId} failed for session ${session.id}; retrying next run:`, error);
+            if (error instanceof MopHourPendingError) {
+              if (ageMs > MOP_GIVE_UP_MS) markUnavailable();
+              else summary.pending += 1;
+            } else {
+              summary.errors += 1;
+              console.warn(`[session-conditions] MOP ${pointId} failed for session ${session.id}; retrying next run:`, error);
+            }
           }
         }
       }
@@ -296,18 +327,45 @@ function unwrap<T>(result: { data: T | null; error: { message?: string } | null 
 /** PostgREST access for the enrich job; the cron passes the service-role client. */
 export function createSupabaseSessionConditionsStore(supabase: SupabaseClient): SessionConditionsStore {
   return {
-    async listPendingSessions({ fromIso, toIso, limit }) {
-      const result = await supabase
-        .from("sessions")
-        .select(PENDING_SESSION_COLUMNS)
-        .is("deleted_at", null)
-        .or("conditions_source.is.null,nearshore_source.is.null")
-        .not("beach_id", "is", null)
-        .gte("arrival_time", fromIso)
-        .lte("arrival_time", toIso)
-        .order("arrival_time", { ascending: true })
-        .limit(limit);
-      return (unwrap(result, "pending sessions") ?? []) as unknown as PendingSession[];
+    async listPendingSessions(query) {
+      const pending = () =>
+        supabase
+          .from("sessions")
+          .select(PENDING_SESSION_COLUMNS)
+          .is("deleted_at", null)
+          .or("conditions_source.is.null,nearshore_source.is.null")
+          .not("beach_id", "is", null);
+      if (query.kind === "backfill") {
+        const result = await pending()
+          .gte("arrival_time", query.arrivalFromIso)
+          .lte("arrival_time", query.arrivalToIso)
+          .order("arrival_time", { ascending: true })
+          .limit(query.limit);
+        return (unwrap(result, "pending sessions") ?? []) as unknown as PendingSession[];
+      }
+      // Queued recently (logged late, or moved) or surfed recently; two reads rather than nested OR filters.
+      const [queued, surfed] = await Promise.all([
+        pending()
+          .gte("conditions_queued_at", query.recentSinceIso)
+          .lte("arrival_time", query.arrivalToIso)
+          .order("arrival_time", { ascending: false })
+          .limit(query.limit),
+        pending()
+          .gte("arrival_time", query.recentSinceIso)
+          .lte("arrival_time", query.arrivalToIso)
+          .order("arrival_time", { ascending: false })
+          .limit(query.limit),
+      ]);
+      const byId = new Map<string, PendingSession>();
+      for (const row of [
+        ...((unwrap(queued, "queued sessions") ?? []) as unknown as PendingSession[]),
+        ...((unwrap(surfed, "recent sessions") ?? []) as unknown as PendingSession[]),
+      ]) {
+        byId.set(row.id, row);
+      }
+      return [...byId.values()]
+        .sort((a, b) => Date.parse(b.arrival_time) - Date.parse(a.arrival_time))
+        .slice(0, query.limit);
     },
     async loadBeaches(ids) {
       const result = await supabase
@@ -337,7 +395,10 @@ export function createSupabaseSessionConditionsStore(supabase: SupabaseClient): 
     },
     async updateSession(id, patch) {
       let query = supabase.from("sessions").update(patch).eq("id", id);
-      for (const column of Object.keys(patch)) query = query.is(column, null);
+      for (const column of Object.keys(patch)) {
+        // The marker is NOT NULL; the job only raises it on wind it fills, so guard on false.
+        query = column === "conditions_wind_filled" ? query.eq(column, false) : query.is(column, null);
+      }
       const result = await query.select("id");
       const rows = unwrap(result, "session update") as Array<{ id: string }> | null;
       return (rows?.length ?? 0) > 0;
