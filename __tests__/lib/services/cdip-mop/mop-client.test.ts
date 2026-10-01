@@ -7,6 +7,7 @@ import {
   fetchMopFocusRatio,
   fetchMopHour,
   fetchMopPointMeta,
+  MopHourPendingError,
 } from "@/lib/services/cdip-mop/mop-client";
 
 // Recorded from thredds.cdip.ucsd.edu on 2026-10-01. The time axis is trimmed to its last 48 hours;
@@ -82,7 +83,7 @@ describe("CDIP MOP client", () => {
   it("reads the time axis once per point", async () => {
     const mock = mopFetch();
     await fetchMopHour("D0505", AT_15Z, asFetch(mock));
-    await fetchMopHour("D0505", new Date("2026-09-30T16:00:00Z"), asFetch(mock));
+    await fetchMopHour("D0505", new Date("2026-09-30T15:10:00Z"), asFetch(mock));
     expect(mock.mock.calls.filter(([url]) => String(url).endsWith(".ascii?waveTime"))).toHaveLength(1);
   });
 
@@ -96,11 +97,26 @@ describe("CDIP MOP client", () => {
     expect(await fetchMopHour("D0505", AT_15Z, asFetch(mopFetch({ D0505: flagged })))).toBeNull();
   });
 
-  it("returns null without fetching the hour when the nearest hour is more than 1 h away", async () => {
+  it("returns null without fetching the hour when the archive has no hour within 1 h", async () => {
     const mock = mopFetch();
     expect(await fetchMopHour("D0505", new Date("2026-09-29T16:30:00Z"), asFetch(mock))).toBeNull();
-    expect(await fetchMopHour("D0505", new Date("2026-10-02T12:00:00Z"), asFetch(mock))).toBeNull();
     expect(mock).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports an hour MOP hasn't published yet as pending, so the job retries", async () => {
+    const mock = mopFetch();
+    // The trimmed axis ends 2026-10-01T17:00Z; 17:40 could still get a nearer 18:00 hour.
+    await expect(fetchMopHour("D0505", new Date("2026-10-01T17:40:00Z"), asFetch(mock))).rejects.toBeInstanceOf(MopHourPendingError);
+    await expect(fetchMopHour("D0505", new Date("2026-10-02T12:00:00Z"), asFetch(mock))).rejects.toBeInstanceOf(MopHourPendingError);
+    // Within 30 min after the last hour, that hour is the nearest whatever comes next: read it.
+    const settled = await fetchMopHour("D0505", new Date("2026-10-01T17:20:00Z"), asFetch(mock)).catch((error: unknown) => error);
+    expect(settled).not.toBeInstanceOf(MopHourPendingError);
+    expect(decodeURIComponent(String(mock.mock.calls.at(-1)?.[0]))).toContain("waveHs[47:1:47]");
+  });
+
+  it("treats a response for a different hour than asked as transient", async () => {
+    const shifted = hourFixture.replace(/^waveTime\[1\]\n[^\n]+/m, "waveTime[1]\n1790784000");
+    await expect(fetchMopHour("D0505", AT_15Z, asFetch(mopFetch({ D0505: shifted })))).rejects.toThrow("returned");
   });
 
   it("rejects when THREDDS errors, so the cron retries later", async () => {

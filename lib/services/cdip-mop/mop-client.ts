@@ -9,6 +9,8 @@ const REQUEST_TIMEOUT_MS = 15_000;
 /** The axis gains an hour every hour; a warm instance must not keep serving an old one. */
 const TIME_AXIS_TTL_MS = 10 * 60 * 1000;
 const MAX_HOUR_OFFSET_S = 60 * 60;
+/** Past the last published hour by more than this, a nearer hour may still be published. */
+const PUBLISHED_EDGE_S = 30 * 60;
 const SWELL_BAND_HZ = { min: 0.04, max: 0.1 } as const;
 /** waveFlagPrimary: 1 good, 2 not evaluated; 3 questionable, 4 bad, 9 missing are dropped. */
 const USABLE_FLAGS = new Set([1, 2]);
@@ -21,6 +23,14 @@ export interface MopHour {
   dpDeg: number;
   dmDeg: number | null;
   swellbandTmS: number | null;
+}
+
+/** The hour isn't published yet (MOP's nowcast lands about an hour behind). Retry later; it isn't missing. */
+export class MopHourPendingError extends Error {
+  constructor(pointId: string, at: Date) {
+    super(`CDIP MOP ${pointId} has not published ${at.toISOString()} yet`);
+    this.name = "MopHourPendingError";
+  }
 }
 
 export interface MopPointMeta {
@@ -124,11 +134,16 @@ function swellBandMeanPeriod(frequencies: number[], bandwidths: number[], energy
   return m0 > 0 && m1 > 0 ? m0 / m1 : null;
 }
 
-/** The nowcast hour nearest `at`, or null when MOP has no valid value within ±1 h (fill -999.99, outage, older than the archive). */
+/**
+ * The nowcast hour nearest `at`, or null when MOP has no valid value within ±1 h (fill -999.99, a gap, older than
+ * the archive). Throws MopHourPendingError when the hour may not be published yet, and an Error on HTTP or other
+ * transient failures, so callers retry instead of recording the hour as missing.
+ */
 export async function fetchMopHour(pointId: string, at: Date, fetchImpl: FetchImpl = fetch): Promise<MopHour | null> {
   const times = await timeAxis(pointId, fetchImpl);
   if (times.length === 0) return null;
   const targetSeconds = at.getTime() / 1000;
+  if (targetSeconds > times[times.length - 1] + PUBLISHED_EDGE_S) throw new MopHourPendingError(pointId, at);
   const index = nearestIndex(times, targetSeconds);
   if (Math.abs(times[index] - targetSeconds) > MAX_HOUR_OFFSET_S) return null;
 
@@ -145,7 +160,10 @@ export async function fetchMopHour(pointId: string, at: Date, fetchImpl: FetchIm
   const dpDeg = hour.waveDp?.[0];
   const dmDeg = hour.waveDm?.[0];
   const flag = hour.waveFlagPrimary?.[0];
-  if (observedSeconds !== times[index] || !valid(hsM) || !valid(tpS) || !valid(dpDeg)) return null;
+  if (observedSeconds !== times[index]) {
+    throw new Error(`CDIP MOP ${pointId} returned ${observedSeconds} for index ${index} (expected ${times[index]})`);
+  }
+  if (!valid(hsM) || !valid(tpS) || !valid(dpDeg)) return null;
   if (flag === undefined || !USABLE_FLAGS.has(flag)) return null;
 
   return {
