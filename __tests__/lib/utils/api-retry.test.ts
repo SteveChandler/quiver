@@ -64,6 +64,31 @@ describe("api-retry", () => {
     });
   });
 
+  // 2026-10-02: Baja beaches outside NWS coverage tripped the shared NOAA
+  // breaker, which then failed the wind fetch for US beaches in the same run.
+  it("does not open the NOAA breaker for /points/ 404s outside NWS coverage", async () => {
+    const notFound = {
+      ok: false,
+      status: 404,
+      statusText: "Not Found",
+      clone: () => ({ text: () => Promise.resolve('{"type": "https://api.weather.gov/problems/InvalidPoint"}') }),
+    } as unknown as Response;
+    global.fetch = jest.fn(() => Promise.resolve(notFound)) as unknown as typeof fetch;
+    const { RetryableAPIClient } = await import("@/lib/utils/api-retry");
+    const client = new RetryableAPIClient();
+
+    for (let i = 0; i < 6; i += 1) {
+      await expect(
+        client.fetchNOAAData("https://api.weather.gov/points/28.88,-114.44", {}, { maxRetries: 0 }),
+      ).rejects.toMatchObject({ name: "ApiError" });
+    }
+
+    expect(global.fetch).toHaveBeenCalledTimes(6);
+    expect(client.getServiceStatus().NOAA).toMatchObject({ state: "CLOSED", failureCount: 0 });
+    expectConsoleWarnings([/No coverage for point/, /No coverage for point/, /No coverage for point/,
+      /No coverage for point/, /No coverage for point/, /No coverage for point/]);
+  });
+
   describe("CDIP circuit breaker behavior", () => {
     function response(status: number): Response {
       return {
