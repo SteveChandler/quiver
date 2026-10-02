@@ -62,7 +62,11 @@ and SHA-256 hash are stored for each normalized row.
   duplicate invocations.
 - Consecutive transient failure threshold: 3.
 - Backoff: 30 minutes after failure 1, then 60 minutes after failure 2. Failure 3 opens the circuit.
-- Shape changes and version mismatches open the circuit immediately; they do not use retries.
+- Shape changes open the circuit immediately; they do not use retries.
+- A module version change (2026-10-02 amendment) is validated in the same run: the new version is
+  accepted only if all three event types parse and return at least one notice. Otherwise the run
+  fails as a shape change, the old version stays accepted, and the circuit opens. An accepted change
+  emits a Sentry warning naming both versions.
 - An open circuit makes scheduled invocations read only our state table and return a `circuit_open`
   skipped result; it makes no County request. The transition that opened the circuit emits the Sentry
   alert and persists the error state, while later ticks do not repeat the alert.
@@ -137,7 +141,8 @@ At or beyond two hours, the County signal is unavailable:
    and one response fixture for each event type, staying within the agreed request rate.
 3. Update the parser/client and fixtures, add or update a regression test for the new shape, and run
    the full local gate.
-4. If the module version changed, reset the accepted version only after the new parser is deployed.
+4. If the module version changed and the circuit opened, the new version failed validation: reset the
+   accepted version only after the new parser is deployed.
    If only a transient outage occurred, reset the circuit without changing the accepted version.
 5. The reset is an owner-operated database action, for example:
 
