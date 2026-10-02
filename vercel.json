@@ -1,4 +1,5 @@
 {
+  "regions": ["sfo1"],
   "functions": {
     "app/api/surf/discover/route.ts": { "regions": ["sfo1"] },
     "app/api/surf/week-scout/route.ts": { "regions": ["sfo1"] }
