@@ -3,7 +3,7 @@ import { cardinalToDegrees } from "@/lib/services/forecast/forecast-transformer"
 
 const METERS_TO_FEET = 3.28084;
 
-type DisplaySwellRow = {
+export type DisplaySwellRow = {
   data_source?: string | null;
   wave_height?: string | null;
   wave_period?: string | null;
