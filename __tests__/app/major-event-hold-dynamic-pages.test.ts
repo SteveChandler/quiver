@@ -26,6 +26,16 @@ describe("major-event hold-sensitive pages", () => {
     },
   );
 
+  // Supabase's public client fetches with no-store, so without force-static the
+  // declared revalidate is ignored and every crawl renders on demand.
+  it("keeps best-time city pages on a live-window ISR", () => {
+    const source = readFileSync("app/best-time-to-surf/[city]/page.tsx", "utf8");
+
+    expect(source).toContain('export const dynamic = "force-static"');
+    expect(source).toContain("export const revalidate = 900");
+    expect(source).not.toContain('export const dynamic = "force-dynamic"');
+  });
+
   it.each([
     ...CANONICAL_BEACH_DETAIL_PAGES,
     "app/mexico/[region]/[city]/[beachSlug]/page.tsx",

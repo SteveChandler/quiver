@@ -67,7 +67,11 @@ import { getSeasonPhotos } from "@/lib/climatology/season-photos";
 import { buildDataBackedSeasonView } from "@/lib/climatology/season-view";
 import { getSeasonCopy } from "@/lib/data/surf-climatology/copy";
 
-export const revalidate = 86400;
+// The public Supabase client fetches with no-store, which keeps a page dynamic
+// unless it opts into static rendering. The live "today" window and its
+// water-quality holds use the same 15-minute window as /[intent]/[city].
+export const dynamic = "force-static";
+export const revalidate = 900;
 
 // Constants
 const currentMonthIndex = new Date().getMonth(); // 0-based
