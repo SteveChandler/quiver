@@ -46,6 +46,10 @@ jest.mock("@/lib/supabase/server", () => ({
 
         // Simulate realistic city lookups
         const cityDatabase: Record<string, { city: string; state: string; beach_count: number }[]> = {
+          "atlantic beach": [
+            { city: "Atlantic Beach", state: "FL", beach_count: 2 },
+            { city: "Atlantic Beach", state: "NC", beach_count: 1 },
+          ],
           "nags head": [
             { city: "Nags Head", state: "NC", beach_count: 5 },
           ],
@@ -85,6 +89,15 @@ describe("Sitemap City Slug Resolution", () => {
       expect(buildCitySlug("Ocean City", "MD", COLLISION_CITY_MAP)).toBe(
         "ocean-city-md",
       );
+    });
+
+    it.each(["FL", "NC"])("resolves Atlantic Beach in %s through the shared collision map", async (state) => {
+      const slug = buildCitySlug("Atlantic Beach", state, COLLISION_CITY_MAP);
+      expect(slug).toBe(`atlantic-beach-${state.toLowerCase()}`);
+      const result = await findCityBySlug(slug);
+      expect(result.success).toBe(true);
+      expect(result.data?.cityName).toBe("Atlantic Beach");
+      expect(result.data?.state).toBe(state);
     });
 
     it("resolves unique city slugs without state suffix", async () => {

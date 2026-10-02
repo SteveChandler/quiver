@@ -18,6 +18,7 @@
  * canonical URLs without a runtime database query.
  */
 export const COLLISION_CITY_MAP = new Map<string, number>([
+  ["atlantic-beach", 2], // FL, NC
   ["koloa", 2],       // HI - substring collision (matches waikoloa)
   ["long-beach", 3],  // CA, NY, WA
   ["newport", 2],     // OR - substring of newport-beach, newport-coast
