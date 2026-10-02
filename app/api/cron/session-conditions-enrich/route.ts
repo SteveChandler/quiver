@@ -58,8 +58,17 @@ async function _GET(request: Request): Promise<Response> {
         unit: "sessions_enriched",
         expectedMin: 1,
         getProduced: (value) => value.updated,
-        legitimatelyZero: (value) =>
-          value.selected === 0 ? { reason: "No logged sessions are waiting for conditions" } : undefined,
+        legitimatelyZero: (value) => {
+          if (value.selected === 0) return { reason: "No logged sessions are waiting for conditions" };
+          // Orphaned sessions are re-selected until they age out of the live window, and a pending MOP hour
+          // retries next run; neither is a failure.
+          if (value.errors === 0 && value.selected <= value.unwritable + value.pending) {
+            return {
+              reason: `Only sessions that cannot be filled yet: ${value.unwritable} unwritable, ${value.pending} awaiting the MOP hour`,
+            };
+          }
+          return undefined;
+        },
       },
       () => enrichSessionConditions(store, { mode, since, now: new Date() }),
     );
