@@ -551,9 +551,11 @@ export async function resolveNotificationMajorEventHold(
     const blockedDecision = decisions.find(
       (decision) => decision.candidateId === blockedCandidate?.candidateId,
     );
+    // An unknown hold state is withheld per candidate but stays retryable.
+    const blockedReason = blockedDecision?.evaluation.reasonCode;
     return suppressed(
-      blockedDecision?.evaluation.reasonCode === "water_quality_hold"
-        ? "water_quality_hold"
+      blockedReason === "water_quality_hold" || blockedReason === "hold_state_unavailable"
+        ? blockedReason
         : "major_event_hold",
       blockedCandidate ?? candidate,
     );

@@ -415,6 +415,47 @@ describe("notification major-event hold adapter", () => {
     });
   });
 
+  // An unknown hold state is retried by the delivery cron; a major-event hold is
+  // not. Withholding an unknown candidate per beach must not relabel it.
+  it("suppresses a multi-beach alert with an unknown-hold beach as retryable", async () => {
+    const OTHER_BEACH_ID = "33333333-3333-4333-8333-333333333333";
+    const evaluateCandidates = jest.fn(async (input) =>
+      (input.candidates as MajorEventHoldCandidate[]).map((candidate, index) => {
+        const decision = decisionFor(candidate, index === 0 ? "unavailable" : "allowed");
+        return {
+          ...decision,
+          evaluation: { ...decision.evaluation, holdEpoch: "epoch-shared" },
+          recommendationAvailability: { ...decision.recommendationAvailability, holdEpoch: "epoch-shared" },
+        };
+      }),
+    );
+
+    const result = await resolveNotificationMajorEventHold(
+      {
+        eventId: "event-forecast-alert-unknown-hold",
+        type: "forecast_alert",
+        payload: {
+          beach_id: BEACH_ID,
+          forecast_at: STARTS_AT,
+          matches: [
+            { beach_id: BEACH_ID, window_start: STARTS_AT, window_end: ENDS_AT },
+            { beach_id: OTHER_BEACH_ID, window_start: STARTS_AT, window_end: ENDS_AT },
+          ],
+        },
+        profileExperience: "beginner",
+        mode: "enforce",
+      },
+      { evaluateCandidates },
+    );
+
+    expect(evaluateCandidates).toHaveBeenCalled();
+    expect(result).toMatchObject({
+      status: "suppressed",
+      reasonCode: "hold_state_unavailable",
+      candidate: { beachId: BEACH_ID },
+    });
+  });
+
   it("suppresses a Quiver-initiated recommendation that names a held beach", async () => {
     const evaluateCandidates = jest.fn(async (input) => {
       expect(input.applyWaterQualityHolds).toBe(true);

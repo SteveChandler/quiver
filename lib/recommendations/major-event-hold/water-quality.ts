@@ -8,6 +8,7 @@ import { currentWaterQuality } from "@/lib/services/water-quality/current-status
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import {
   COUNTY_ADVISORY_TYPES,
+  COUNTY_FEED_COVERAGE_BOUNDS,
   COUNTY_MAX_FUTURE_SKEW_MS,
   COUNTY_FEED_SOURCE_IDENTIFIER,
   COUNTY_MAX_STALENESS_MS,
@@ -116,7 +117,8 @@ export interface WaterQualityHoldClient {
       | "beach_water_quality"
       | "water_quality_held_beaches"
       | "county_beach_advisory_runs"
-      | "county_beach_advisories",
+      | "county_beach_advisories"
+      | "beaches",
   ): {
     select(columns: string): WaterQualityQuery;
   };
@@ -132,6 +134,11 @@ export interface WaterQualityHoldResolution {
   state: "resolved" | "unresolved";
   heldBeachIds: string[];
   waterQualityStatusByBeachId: Record<string, WaterQualityHoldStatus>;
+  /**
+   * Beaches whose water quality cannot be confirmed right now (the County feed
+   * that covers them is stale). They are withheld per candidate, never labeled.
+   */
+  unverifiedBeachIds?: string[];
   epoch: string;
 }
 
@@ -340,6 +347,51 @@ async function readQualityRows(
   return { data: rows, error: null };
 }
 
+const beachCoordinatesSchema = z.object({
+  id: z.string().transform((value) => value.toLowerCase()),
+  lat: z.number().nullable(),
+  lon: z.number().nullable(),
+});
+
+/**
+ * Beaches the County feed covers, among those requested. A beach without
+ * coordinates counts as covered so it fails closed. Null when the read fails.
+ */
+async function countyCoveredBeachIds(
+  client: WaterQualityHoldClient,
+  beachIds: readonly string[],
+): Promise<string[] | null> {
+  const located = new Map<string, { lat: number | null; lon: number | null }>();
+  for (let offset = 0; offset < beachIds.length; offset += 100) {
+    const result = await client.from("beaches").select("id, lat, lon")
+      .in("id", beachIds.slice(offset, offset + 100));
+    if ((result.error !== null && result.error !== undefined) || !Array.isArray(result.data)) {
+      console.error("[water-quality-hold:county-coverage-error]", {
+        beachCount: beachIds.length,
+        error:
+          typeof result.error === "object" &&
+          result.error !== null &&
+          "message" in result.error &&
+          typeof result.error.message === "string"
+            ? result.error.message
+            : String(result.error ?? "invalid response shape"),
+      });
+      return null;
+    }
+    for (const row of result.data) {
+      const parsed = beachCoordinatesSchema.safeParse(row);
+      if (parsed.success) located.set(parsed.data.id, parsed.data);
+    }
+  }
+  const bounds = COUNTY_FEED_COVERAGE_BOUNDS;
+  return beachIds.filter((beachId) => {
+    const point = located.get(beachId);
+    if (!point || point.lat === null || point.lon === null) return true;
+    return point.lat >= bounds.minLat && point.lat <= bounds.maxLat &&
+      point.lon >= bounds.minLon && point.lon <= bounds.maxLon;
+  });
+}
+
 /**
  * Resolves owner-directed holds and current sampled advisory/closure status.
  * This is called only by recommendation/discovery surfaces.
@@ -480,6 +532,7 @@ export async function resolveWaterQualityHolds(
       WaterQualityHoldStatus
     > = {};
     const snapshot: string[] = [];
+    const unverifiedBeachIds: string[] = [];
     for (const beachId of requestedBeachIds) {
       const row = rowsByBeachId.get(beachId);
       if (ownerHeldBeachIds.has(beachId)) {
@@ -534,8 +587,17 @@ export async function resolveWaterQualityHolds(
       }
       snapshot.push(...liveResolution.snapshot);
     } else {
-      unresolved = true;
       snapshot.push(...liveResolution.snapshot);
+      // A stale County feed says nothing about beaches it does not sample, so
+      // only its own beaches lose their status instead of every candidate.
+      const covered = await countyCoveredBeachIds(client, requestedBeachIds);
+      if (covered === null) {
+        unresolved = true;
+      } else {
+        const held = new Set(heldBeachIds);
+        unverifiedBeachIds.push(...covered.filter((beachId) => !held.has(beachId)));
+        snapshot.push(`county-live:unverified:${[...unverifiedBeachIds].sort().join(",")}`);
+      }
     }
 
     const resolution = unresolved
@@ -549,7 +611,11 @@ export async function resolveWaterQualityHolds(
           [...resolutionSnapshot, ...snapshot],
           waterQualityStatusByBeachId,
         );
-    return { ...resolution, waterQualityEvidenceByBeachId: evidence };
+    return {
+      ...resolution,
+      ...(unverifiedBeachIds.length > 0 ? { unverifiedBeachIds: [...new Set(unverifiedBeachIds)].sort() } : {}),
+      waterQualityEvidenceByBeachId: evidence,
+    };
   } catch (error) {
     console.error("[water-quality-hold:resolution-threw]", {
       beachCount: requestedBeachIds.length,

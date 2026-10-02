@@ -179,6 +179,27 @@ describe("major-event hold service", () => {
     });
   });
 
+  it("withholds only the beach whose water quality is unverified", async () => {
+    const resolveWaterQualityHolds = jest.fn().mockResolvedValue({
+      state: "resolved",
+      heldBeachIds: [],
+      unverifiedBeachIds: [BEACH_A],
+      waterQualityStatusByBeachId: {},
+      epoch: "water-quality-county-stale",
+    } satisfies WaterQualityHoldResolution);
+
+    const decisions = await evaluateRecommendationHoldCandidates(
+      { candidates, profileExperience: "intermediate", mode: "off" },
+      { resolveWaterQualityHolds, audit: discardAudit },
+    );
+
+    expect(decisions[0].recommendationAvailability).toMatchObject({
+      state: "none",
+      reasonCode: "hold_state_unavailable",
+    });
+    expect(decisions[1].recommendationAvailability).toMatchObject({ state: "available" });
+  });
+
   it("short-circuits off mode without an RPC and preserves order", async () => {
     const resolveHolds = jest.fn();
     const decisions = await evaluateMajorEventHoldCandidates(
