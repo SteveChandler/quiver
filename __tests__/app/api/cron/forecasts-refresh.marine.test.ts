@@ -18,9 +18,11 @@ jest.mock('@/lib/services/cdip', () => ({ CDIPService: jest.fn(() => ({
   getNearestStation: (...args: unknown[]) => mockCdipNearest(...args),
   fetchBuoyDataWithDiagnostics: (...args: unknown[]) => mockCdipFetch(...args),
 })) }));
-jest.mock('@/lib/services/nws-wind-service', () => ({ NwsWindService: jest.fn(() => ({ fetchHourlyWindPoints: async () => [] })) }));
+jest.mock('@/lib/services/nws-wind-service', () => ({ NwsWindService: jest.fn(() => ({ fetchHourlyWindPoints: (...args: unknown[]) => mockWind(...args) })) }));
 
 const mockCdipNearest = jest.fn();
+const mockWind = jest.fn();
+let beachCountry: string | null;
 const mockCdipFetch = jest.fn();
 const mockFrom = jest.fn();
 const mockNearest = jest.fn();
@@ -54,8 +56,10 @@ beforeEach(() => {
   mockCdipNearest.mockReset().mockResolvedValue(null);
   mockCdipFetch.mockReset();
   mockObservation.mockReset().mockResolvedValue(null);
+  mockWind.mockReset().mockResolvedValue([]);
+  beachCountry = 'USA';
   mockFrom.mockImplementation((table: string) => {
-    if (table === 'beaches') return query(['a', 'b', 'c'].map((id, i) => ({ id, name: id, lat: 32 + i, lon: -117 })));
+    if (table === 'beaches') return query(['a', 'b', 'c'].map((id, i) => ({ id, name: id, lat: 32 + i, lon: -117, country: beachCountry })));
     if (table === 'v_marine_forecast_latest') return query(latest);
     if (table === 'cron_runs') return {
       ...query(ledger.length ? [ledger[ledger.length - 1]] : [{ summary: { result: { marineCoverage: { lastAttemptedBeachId: previous } } } }]),
@@ -83,8 +87,12 @@ it('advances past a beach with no data on the next bounded run', async () => {
   const request = () => new Request('http://localhost/api/cron/forecasts/refresh?source=marine&maxBeaches=1');
   const first = await GET(request());
   const body = await first.json();
-  expect(first.status).toBe(503);
-  expect(body.data.marineCoverage.rejectionCounts.missing_wave_observation).toBe(1);
+  // No buoy in range is a coverage gap, not a failed run (2026-10-02: every
+  // hourly run had failed for a month on Baja and Hawaii beaches).
+  expect(first.status).toBe(200);
+  expect(body.data.marineCoverage.coverageGaps.no_wave_station_in_range).toBe(1);
+  expect(body.data.marineCoverage.rejectionCounts).toEqual({});
+  expect(ledger[0]).toMatchObject({ status: 'ok', legitimately_zero_reason: expect.stringContaining('coverage gaps') });
   expect(ledger[0].summary.result.marineCoverage.lastAttemptedBeachId).toBe('a');
   await GET(request());
   expect(mockNearest.mock.calls.map(args => args[0])).toEqual([32, 33]);
@@ -95,8 +103,27 @@ it('does not refresh an old observation or project it into fresh-looking data', 
   observed = { ts: '2026-09-06T12:00:00Z', wave_height_m: 1.6, wave_period_s: 10, source: 'ndbc' };
   mockObservation.mockResolvedValue(observed);
   const response = await GET(new Request('http://localhost/api/cron/forecasts/refresh?source=marine&maxBeaches=1'));
-  expect(response.status).toBe(503);
+  expect(response.status).toBe(200);
+  expect((await response.json()).data.marineCoverage.coverageGaps.no_recent_wave_observation).toBe(1);
   expect(written).toEqual([]);
+});
+
+it('does not ask NWS for wind outside the US and counts it as a coverage gap', async () => {
+  beachCountry = 'Mexico';
+  const response = await GET(new Request('http://localhost/api/cron/forecasts/refresh?source=marine&maxBeaches=1'));
+  const body = await response.json();
+  expect(mockWind).not.toHaveBeenCalled();
+  expect(response.status).toBe(200);
+  expect(body.data.marineCoverage.coverageGaps.outside_nws_coverage).toBe(1);
+});
+
+it('still fails the run when NWS wind fails for a US beach', async () => {
+  mockWind.mockRejectedValue(new Error('private NWS outage'));
+  const response = await GET(new Request('http://localhost/api/cron/forecasts/refresh?source=marine&maxBeaches=1'));
+  const body = await response.json();
+  expect(response.status).toBe(503);
+  expect(body.data.marineCoverage.rejectionCounts).toEqual({ wind_fetch_failed: 1 });
+  expect(JSON.stringify(body)).not.toContain('private');
 });
 
 it('reports failed writes without exposing database errors', async () => {
@@ -146,7 +173,9 @@ it.each([NaN, -1, null])('rejects malformed wave height %s without writes', asyn
   observed = { ts: '2026-09-09T11:00:00Z', wave_height_m: height, wave_period_s: 10, source: 'ndbc' };
   mockObservation.mockResolvedValue(observed);
   const response = await GET(new Request('http://localhost/api/cron/forecasts/refresh?source=marine&maxBeaches=1'));
-  expect(response.status).toBe(503);
+  // Unusable buoy data is a coverage gap; nothing is written from it.
+  expect(response.status).toBe(200);
+  expect((await response.json()).data.marineCoverage.coverageGaps.no_recent_wave_observation).toBe(1);
   expect(written).toEqual([]);
 });
 
@@ -197,9 +226,10 @@ it.each([
   latest = ['a', 'b', 'c'].map(beach_id => ({ beach_id, created_at: now.toISOString(),
     ts: '2026-09-09T11:00:00Z', wave_height_m: 1, wave_period_s: 10, ...overrides }));
   const response = await GET(new Request('http://localhost/api/cron/forecasts/refresh?source=marine&maxBeaches=1'));
-  expect(response.status).toBe(503);
   expect(mockNearest).toHaveBeenCalledTimes(1);
-  expect(ledger[0]).toMatchObject({ status: 'failed', legitimately_zero_reason: null });
+  // Re-attempted, not treated as a no-op refresh; with no buoy in range that is a coverage gap.
+  expect(response.status).toBe(200);
+  expect(ledger[0].legitimately_zero_reason).toContain('no_wave_station_in_range');
 });
 
 it('records a legitimate no-op only for fresh usable wave coverage', async () => {
@@ -267,9 +297,9 @@ it('bounds empty CDIP fallback to two stations and persists degraded coverage', 
   mockCdipNearest.mockResolvedValueOnce('first').mockResolvedValueOnce('second').mockResolvedValue('third');
   mockCdipFetch.mockResolvedValue({ skipReason: 'success', data: { data: [] } });
   const response = await GET(new Request('http://localhost/api/cron/forecasts/refresh?source=marine&maxBeaches=1'));
-  expect(response.status).toBe(503);
+  expect(response.status).toBe(200);
   expect(mockCdipFetch).toHaveBeenCalledTimes(2);
-  expect(ledger[0]).toMatchObject({ status: 'failed', produced: 0 });
+  expect(ledger[0]).toMatchObject({ status: 'ok', produced: 0, legitimately_zero_reason: expect.stringContaining('no_recent_wave_observation') });
   expect(written).toEqual([]);
 });
 
