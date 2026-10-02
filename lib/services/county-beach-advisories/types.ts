@@ -147,6 +147,8 @@ export interface CountyAdvisoryRepository {
   ): Promise<void>;
   failRun(runId: string, errorKind: string, errorMessage: string): Promise<void>;
   listBeaches(): Promise<CountyBeachCandidate[]>;
+  /** Per-type notice counts of the latest completed run; null before the first. */
+  lastCompletedRunCounts(): Promise<Record<CountyAdvisoryType, number> | null>;
 }
 
 export type CountyIngestResult =

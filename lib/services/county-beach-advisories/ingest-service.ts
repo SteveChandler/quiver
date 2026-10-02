@@ -6,6 +6,7 @@ import { alertCountyFeedOperator, warnCountyFeedOperator } from "./alerts";
 import { CountyFeedError } from "./county-client";
 import { normalizeCountyNotifications } from "./normalizer";
 import {
+  COUNTY_ADVISORY_TYPES,
   COUNTY_BASE_BACKOFF_MS,
   COUNTY_FEED_SOURCE_IDENTIFIER,
   COUNTY_MAX_CONSECUTIVE_FAILURES,
@@ -141,8 +142,9 @@ export async function runCountyAdvisoryIngest(options: {
   };
   // A County redeploy bumps the module version without changing the payload
   // contract (2026-10-02: 6304 -> 6389, identical results). The new version is
-  // validated by this run and accepted only if every event type parses and
-  // returns notices; otherwise the failure below opens the circuit.
+  // validated by this run and accepted only if every event type parses and no
+  // notice type the last accepted run had comes back empty; otherwise the
+  // failure below opens the circuit and the old version stays accepted.
   const versionChange =
     state.accepted_version_token !== null &&
     (state.accepted_version_token !== manifest.versionToken ||
@@ -181,14 +183,23 @@ export async function runCountyAdvisoryIngest(options: {
 
     const beaches = await options.repository.listBeaches();
     const summary = normalizeCountyNotifications(responses, beaches, requestStartedAt);
-    // The County always lists some active notices; an empty first payload from
-    // a new version is how a silent contract change would look, so it is not
-    // trusted until an operator confirms it.
-    if (versionChange && summary.totalSites === 0) {
-      throw new CountyFeedError(
-        "shape_change",
-        "the new version returned no notices for any event type",
-      );
+    // An empty type that had notices on the old version is how a silent
+    // contract change would look (closures gone while advisories still list),
+    // so it is not trusted until an operator confirms it.
+    if (versionChange) {
+      const previous = await options.repository.lastCompletedRunCounts();
+      const vanished = previous
+        ? COUNTY_ADVISORY_TYPES.filter((type) => previous[type] > 0 && summary.countsByType[type] === 0)
+        : [];
+      if (summary.totalSites === 0) {
+        throw new CountyFeedError("shape_change", "the new version returned no notices for any event type");
+      }
+      if (vanished.length > 0) {
+        throw new CountyFeedError(
+          "shape_change",
+          `the new version returned no ${vanished.join(", ")} notices where the last accepted run had some`,
+        );
+      }
     }
     await options.repository.insertAdvisories(summary.records, runId);
     await options.repository.completeRun(runId, {

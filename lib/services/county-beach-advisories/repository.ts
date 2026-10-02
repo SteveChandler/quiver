@@ -5,6 +5,7 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import {
   COUNTY_FEED_SOURCE_IDENTIFIER,
   type CountyAdvisoryRecord,
+  type CountyAdvisoryType,
   type CountyAdvisoryRepository,
   type CountyBeachCandidate,
   type CountyIngestRun,
@@ -156,6 +157,27 @@ export function createCountyAdvisoryRepository(
         .update({ status: "failed", error_kind: errorKind, error_message: errorMessage })
         .eq("id", runId);
       assertNoError(error, "county run failure update failed");
+    },
+
+    async lastCompletedRunCounts(): Promise<Record<CountyAdvisoryType, number> | null> {
+      const { data, error } = await db
+        .from("county_beach_advisory_runs")
+        .select("advisory_count, closure_count, warning_count")
+        .eq("source_identifier", COUNTY_FEED_SOURCE_IDENTIFIER)
+        .eq("status", "completed")
+        .order("fetched_at", { ascending: false })
+        .limit(1);
+      assertNoError(error, "county last completed run read failed");
+      const row = (Array.isArray(data) ? data[0] : data) as
+        | { advisory_count?: unknown; closure_count?: unknown; warning_count?: unknown }
+        | undefined;
+      if (!row) return null;
+      const count = (value: unknown): number => (typeof value === "number" ? value : 0);
+      return {
+        advisory: count(row.advisory_count),
+        closure: count(row.closure_count),
+        warning: count(row.warning_count),
+      };
     },
 
     async listBeaches(): Promise<CountyBeachCandidate[]> {
