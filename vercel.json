@@ -166,6 +166,10 @@
       "schedule": "15 * * * *"
     },
     {
+      "path": "/api/cron/session-conditions-enrich",
+      "schedule": "20 * * * *"
+    },
+    {
       "path": "/api/cron/condition-alert-deliver",
       "schedule": "0 * * * *"
     },
