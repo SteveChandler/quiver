@@ -171,6 +171,14 @@ describe("vercel.json", () => {
     }
   });
 
+  // 2026-10-02: /api/surf/call and every other route ran in iad1 (x-vercel-id sfo1::iad1) against
+  // the us-west-1 database; Beach Detail's call took 3-9 s and even trivial authed routes 1.4 s.
+  it("runs every function next to the Northern California database", () => {
+    const configPath = path.join(process.cwd(), "vercel.json");
+    const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+    expect(config.regions).toEqual(["sfo1"]);
+  });
+
   it("refreshes tide predictions twice weekly to stay inside warning freshness", () => {
     const configPath = path.join(process.cwd(), "vercel.json");
     const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
