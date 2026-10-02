@@ -393,6 +393,25 @@ export async function getCachedRegionalForecastPageData(
 }
 
 /**
+ * The /forecast hub's summary for its active region. The cached regional payload throws when beaches can't
+ * load or a region has none; the hub renders an empty summary instead, as it did before it read the cache.
+ * The catch stays outside unstable_cache so a transient failure isn't cached for the whole window.
+ */
+export async function getHubRegionalSummary(
+  region: ForecastRegion,
+): Promise<RegionalForecastSummary> {
+  try {
+    return (await getCachedRegionalForecastPageData(region)).summary;
+  } catch (error) {
+    console.warn(
+      `[forecast hub] regional summary unavailable for ${region.slug}; rendering it empty:`,
+      error instanceof Error ? error.message : error,
+    );
+    return createEmptyRegionalSummary(region);
+  }
+}
+
+/**
  * Attach representative approved photos to each region summary (mutates in place).
  *
  * Picks the top TWO scoring beaches per region so the hero backdrop

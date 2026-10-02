@@ -6,7 +6,9 @@
  */
 
 import {
+  createEmptyRegionalSummary,
   getCachedRegionalForecastPageData,
+  getHubRegionalSummary,
   getRegionalSummaries,
   getRegionalSummary,
   getBestRegionToday,
@@ -19,6 +21,7 @@ import type { RegionalForecastSummary } from "@/lib/utils/regional-forecast-util
 import type { ForecastRegion } from "@/lib/data/forecast-regions";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 
 // Mock dependencies
 jest.mock("next/cache", () => ({
@@ -325,6 +328,39 @@ describe("forecast-hub-utils", () => {
       expect(result.summary.sourceDataUpdatedAt).toBe(
         "2026-08-27T21:00:00.000Z",
       );
+    });
+  });
+
+  describe("getHubRegionalSummary", () => {
+    it("serves the cached regional summary", async () => {
+      (getBeachesFromDb as jest.Mock).mockResolvedValue({
+        success: true,
+        data: mockBeaches,
+      });
+      (getBeachesForRegion as jest.Mock).mockReturnValue([mockBeaches[0]]);
+      (getBatchFreshForecastsFromCache as jest.Mock).mockResolvedValue(
+        new Map(),
+      );
+      (aggregateRegionalForecast as jest.Mock).mockReturnValue(
+        createMockRegionalSummary(mockRegion1, 75),
+      );
+
+      const result = await getHubRegionalSummary(mockRegion1);
+
+      expect(result.region.slug).toBe("test-region-1");
+      expect(result.generatedAt).toBeInstanceOf(Date);
+    });
+
+    it("renders an empty summary instead of failing /forecast when beaches can't load", async () => {
+      (getBeachesFromDb as jest.Mock).mockResolvedValue({
+        success: false,
+        error: "database unavailable",
+      });
+
+      const result = await getHubRegionalSummary(mockRegion1);
+      expectConsoleWarnings([/forecast hub/]);
+
+      expect(result).toEqual(createEmptyRegionalSummary(mockRegion1));
     });
   });
 
