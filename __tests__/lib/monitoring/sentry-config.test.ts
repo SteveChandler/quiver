@@ -26,6 +26,36 @@ describe("sentry-config", () => {
       ).toBe("preview");
     });
 
+    // Vercel invokes crons at the production deployment's *.vercel.app URL, so
+    // classifying by hostname alone dropped every production cron error as
+    // "preview" (2026-10-02: the County feed circuit-open alert never arrived).
+    it("keeps production-runtime events on a *.vercel.app host as vercel-production", () => {
+      const environment = detectSentryEnvironmentFromUrl(
+        "https://v0-prd-design-concept-f91uiyo7s-stcha0004-9905s-projects.vercel.app/api/cron/county-beach-advisories",
+        { NODE_ENV: "production", VERCEL_ENV: "production" },
+      );
+      expect(environment).toBe("vercel-production");
+      expect(shouldDropSentryEnvironment(environment)).toBe(false);
+    });
+
+    it("keeps the custom production domain on the production environment", () => {
+      expect(
+        detectSentryEnvironmentFromUrl("https://www.quiversurf.app/api/surf/call", {
+          NODE_ENV: "production",
+          VERCEL_ENV: "production",
+        }),
+      ).toBe("production");
+    });
+
+    it("still treats a *.vercel.app host on a preview runtime as preview", () => {
+      expect(
+        detectSentryEnvironmentFromUrl("https://v0-prd-design-concept-git-main.vercel.app/api/x", {
+          NODE_ENV: "production",
+          VERCEL_ENV: "preview",
+        }),
+      ).toBe("preview");
+    });
+
     it("uses VERCEL_ENV preview as the fallback when server events lack a URL", () => {
       expect(
         detectSentryEnvironmentFromUrl(undefined, {
