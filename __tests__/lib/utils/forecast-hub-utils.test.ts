@@ -360,7 +360,13 @@ describe("forecast-hub-utils", () => {
       const result = await getHubRegionalSummary(mockRegion1);
       expectConsoleWarnings([/forecast hub/]);
 
-      expect(result).toEqual(createEmptyRegionalSummary(mockRegion1));
+      // Both summaries stamp `new Date()`; compare everything but the instant.
+      const expected = createEmptyRegionalSummary(mockRegion1);
+      expect(result).toEqual({
+        ...expected,
+        generatedAt: expect.any(Date),
+        bestDay: { ...expected.bestDay, date: expect.any(Date) },
+      });
     });
   });
 
