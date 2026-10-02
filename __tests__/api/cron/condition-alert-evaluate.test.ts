@@ -119,6 +119,7 @@ interface Store {
   deliveriesError: Error | null;
   forecasts: any[]; // enhanced_forecasts
   forecastsError: Error | null;
+  tides: any[]; // tide_forecasts
   sessions: any[];
   queueUpserts: any[];
   ruleUpdates: Array<{ id: string; [key: string]: unknown }>;
@@ -133,6 +134,7 @@ const store: Store = {
   deliveriesError: null,
   forecasts: [],
   forecastsError: null,
+  tides: [],
   sessions: [],
   queueUpserts: [],
   ruleUpdates: [],
@@ -239,6 +241,8 @@ function mockFrom(table: string) {
         return chain;
       }
       return makeChain(() => store.forecasts);
+    case "tide_forecasts":
+      return makeChain(() => store.tides);
     case "sessions":
       return makeChain(() => store.sessions);
     case "alert_queue":
@@ -370,6 +374,7 @@ beforeEach(() => {
   store.deliveriesError = null;
   store.forecasts = [];
   store.forecastsError = null;
+  store.tides = [];
   store.sessions = [];
   store.queueUpserts = [];
   store.ruleUpdates = [];
@@ -1094,9 +1099,10 @@ describe("condition-alert-evaluate — surfability gate", () => {
     // the prior best-hour-only gate). 15:00 = 2.4ft (rideable).
     pushForecast("2026-04-26T14:00:00Z", 1.2);
     pushForecast("2026-04-26T15:00:00Z", 2.4);
+    // The finder ends a window one hour after its last hour, so hours 14 and 15 make 14–16.
     seedWindow({
       startISO: "2026-04-26T14:00:00Z",
-      endISO: "2026-04-26T15:00:00Z",
+      endISO: "2026-04-26T16:00:00Z",
       snapshotWaveHeight: 1.2, // best-scoring hour from window-finder
     });
 
@@ -1189,5 +1195,43 @@ describe("condition-alert-evaluate — surfability gate", () => {
     const body = await res.json();
     expect(body.queued).toBeGreaterThanOrEqual(1);
     expect(body.skipped_unsurfable).toBe(0);
+  });
+});
+
+describe("condition-alert-evaluate — hourly windows (ALERT_HOURLY_WINDOWS)", () => {
+  afterEach(() => {
+    delete process.env.ALERT_HOURLY_WINDOWS_ENABLED;
+    delete process.env.ALERT_HOURLY_WINDOWS_USER_ALLOWLIST;
+  });
+
+  function seedThreeHourlyPair(): void {
+    seedForecast(); // 14Z, row tide 2.1
+    store.forecasts.push({ ...store.forecasts[0], forecast_at: "2026-04-26T17:00:00Z", tide_height: "3.0" });
+  }
+
+  it("expands an allowlisted owner's forecast to hourly and reads NOAA tide", async () => {
+    process.env.ALERT_HOURLY_WINDOWS_ENABLED = "true";
+    process.env.ALERT_HOURLY_WINDOWS_USER_ALLOWLIST = USER_A;
+    seedRule(); seedProfile(); seedBeach(); seedThreeHourlyPair();
+    store.tides.push({ ts: "2026-04-26T15:00:00Z", tide_ft: 2.5, tide_height_m: 0.762, source: "noaa", station_id: "S", created_at: "2026-04-25T04:00:00Z" });
+
+    await GET(makeRequest());
+
+    const hours = mockFilterToDaylight.mock.calls[0][0];
+    expect(hours.map((h: any) => new Date(h.forecast_at).toISOString())).toEqual([
+      "2026-04-26T14:00:00.000Z", "2026-04-26T15:00:00.000Z", "2026-04-26T16:00:00.000Z", "2026-04-26T17:00:00.000Z",
+    ]);
+    // Row interpolation would give 2.4; the NOAA sample wins.
+    expect(hours[1].tide_height).toBeCloseTo(2.5, 5);
+  });
+
+  it("keeps the 3-hourly rows for an owner outside the allowlist", async () => {
+    process.env.ALERT_HOURLY_WINDOWS_ENABLED = "true";
+    process.env.ALERT_HOURLY_WINDOWS_USER_ALLOWLIST = "someone-else";
+    seedRule(); seedProfile(); seedBeach(); seedThreeHourlyPair();
+
+    await GET(makeRequest());
+
+    expect(mockFilterToDaylight.mock.calls[0][0]).toHaveLength(2);
   });
 });

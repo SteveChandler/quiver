@@ -228,6 +228,17 @@ describe("major-event hold route integration", () => {
     expect(mockAuthContext.supabase.from).not.toHaveBeenCalled();
   });
 
+  it.each([
+    [{ message: 'permission denied', code: '42501' }, 500],
+    [{ message: 'JSON object requested, multiple (or no) rows returned', code: 'PGRST116' }, 404],
+  ])('distinguishes a failed beach query from a missing beach: %s', async (error, status) => {
+    mockAuthContext.supabase.from('beaches').single.mockResolvedValueOnce({ data: null, error });
+    const { GET } = await import('@/app/api/forecasts/scored/[beachId]/route');
+    const response = await GET(new NextRequest(`http://localhost/api/forecasts/scored/${BEACH_ID}`));
+    expect(response.status).toBe(status);
+    expect(mockAuthContext.supabase.from).not.toHaveBeenCalledWith('enhanced_forecasts');
+  });
+
   it("binds scored slots and golden windows exactly and supports anonymous unknown", async () => {
     mockEvaluateMajorEventHoldCandidates.mockImplementationOnce(
       ({ candidates }: { candidates: Array<{ candidateId: string }> }) =>

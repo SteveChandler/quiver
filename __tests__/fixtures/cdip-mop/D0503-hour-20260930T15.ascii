@@ -1,0 +1,52 @@
+Dataset {
+    Int32 waveTime[waveTime = 1];
+    Byte waveFlagPrimary[waveTime = 1];
+    Float32 waveHs[waveTime = 1];
+    Float32 waveTp[waveTime = 1];
+    Float32 waveDp[waveTime = 1];
+    Float32 waveDm[waveTime = 1];
+    Float32 waveFrequency[waveFrequency = 20];
+    Float32 waveBandwidth[waveFrequency = 20];
+    Grid {
+     ARRAY:
+        Float32 waveEnergyDensity[waveTime = 1][waveFrequency = 20];
+     MAPS:
+        Int32 waveTime[waveTime = 1];
+        Float32 waveFrequency[waveFrequency = 20];
+    } waveEnergyDensity;
+} cdip/model/MOP_alongshore/D0503_nowcast.nc;
+---------------------------------------------
+waveTime[1]
+1790780400
+
+waveFlagPrimary[1]
+1
+
+waveHs[1]
+1.0394584
+
+waveTp[1]
+9.090909
+
+waveDp[1]
+271.65323
+
+waveDm[1]
+277.95547
+
+waveFrequency[20]
+0.04, 0.045, 0.05, 0.055, 0.06, 0.065, 0.07, 0.075, 0.0813, 0.09, 0.1, 0.11, 0.1225, 0.14, 0.16, 0.18, 0.2075, 0.25, 0.3125, 0.4
+
+waveBandwidth[20]
+0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.0075, 0.01, 0.01, 0.01, 0.015, 0.02, 0.02, 0.02, 0.0325, 0.05, 0.075, 0.1
+
+waveEnergyDensity.waveEnergyDensity[1][20]
+[0], 6.299893E-4, 0.0018053282, 0.0056287143, 0.03767842, 0.3035566, 0.26306385, 0.067815326, 0.08459591, 0.03854652, 0.31705862, 0.69747865, 0.8297822, 0.705007, 0.6305795, 0.42068508, 0.22449216, 0.12514934, 0.057857454, 0.019065699, 0.0049304212
+
+waveEnergyDensity.waveTime[1]
+1790780400
+
+waveEnergyDensity.waveFrequency[20]
+0.04, 0.045, 0.05, 0.055, 0.06, 0.065, 0.07, 0.075, 0.0813, 0.09, 0.1, 0.11, 0.1225, 0.14, 0.16, 0.18, 0.2075, 0.25, 0.3125, 0.4
+
+

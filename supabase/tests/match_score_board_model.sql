@@ -27,6 +27,7 @@ CREATE TABLE public.session_forecast_snapshots (session_id uuid PRIMARY KEY, for
 \ir ../migrations/20260923040000_share_match_score_inputs.sql
 \ir ../migrations/20260927230000_board_model_merge_match_score.sql
 \ir ../migrations/20260927230000_board_model_merge_match_score.sql
+\ir ../migrations/20260929120000_match_score_om_similarity_period.sql
 
 CREATE FUNCTION fixture_id(n integer) RETURNS uuid LANGUAGE sql IMMUTABLE AS $$
   SELECT ('00000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid
@@ -116,8 +117,11 @@ BEGIN
     END IF;
     IF (result ? 'board_tip' AND result->'board_tip' = 'null'::jsonb) IS NOT TRUE THEN
       RAISE EXCEPTION 'RPC board_tip must exist and be JSON null: %',result; END IF;
-    IF result->'reason_bullets'->>0 !~ '^\d+ of your \d+ good sessions were in conditions like this\.$'
+    -- The counts are data (asserted below); the sentence is not user-facing copy for any N.
+    IF (result->'reason_bullets')::text LIKE '%conditions like this%'
+      OR (result->'reason_bullets')::text LIKE '%good sessions were%'
       OR (result->'reason_bullets')::text LIKE '%profile peak%'
+      OR jsonb_typeof(result->'reason_bullets') IS DISTINCT FROM 'array'
     THEN RAISE EXCEPTION 'Bad reason for user %: %',user_n,result->'reason_bullets'; END IF;
     IF (result->>'good_session_count')::integer <> 5 THEN RAISE EXCEPTION 'Wrong good total: %',result; END IF;
     -- One mixed-break session scores 0.9129; one exact-beach session scores 1.
@@ -135,8 +139,9 @@ BEGIN
       OR (result->>'aversion_penalty')::numeric IS DISTINCT FROM 0) THEN
       RAISE EXCEPTION 'Mixed-break history changed the exact profile: %',result; END IF;
     IF user_n=3 AND ((result->>'similar_good_session_count')::integer <> 0
-      OR result->'reason_bullets'->>0 <> '0 of your 5 good sessions were in conditions like this.') THEN
-      RAISE EXCEPTION 'Zero-similar copy wrong: %',result; END IF;
+      OR (result->>'good_session_count')::integer <> 5
+      OR (result->'reason_bullets')::text LIKE '%0 of your%') THEN
+      RAISE EXCEPTION 'Zero-similar count or copy wrong: %',result; END IF;
     IF user_n=1 AND result->>'board_class' <> 'shortboard' THEN RAISE EXCEPTION 'Thruster class: %',result; END IF;
     IF user_n=2 AND result->>'board_class' <> 'fish' THEN RAISE EXCEPTION 'Twin-pin class: %',result; END IF;
   END LOOP;
@@ -218,6 +223,64 @@ BEGIN
     OR actual[3]->'score' IS DISTINCT FROM actual[4]->'score' THEN
     RAISE EXCEPTION 'Range parsing changed existing numeric scoring: %',actual;
   END IF;
+END $$;
+
+-- Open-Meteo rows store the tallest partition's period in wave_period; wave_period_om is the whole-sea mean
+-- that CDIP/NWS periods measure. Similarity (only) compares OPEN_METEO rows by wave_period_om on both sides.
+INSERT INTO public.profiles VALUES (fixture_id(4),'advanced'),(fixture_id(5),'advanced');
+INSERT INTO public.sessions
+SELECT fixture_id(1000+u*10+n), fixture_id(u), fixture_id(101), NULL, NULL,
+  5, 'completed', now()-n*interval '1 day', NULL, NULL
+FROM generate_series(4,5) u CROSS JOIN generate_series(1,5) n;
+INSERT INTO public.session_forecast_snapshots
+SELECT id, CASE WHEN user_id=fixture_id(4) THEN
+  '{"wave_height":"3 ft","wave_period":"11s","wind_speed":"4 mph","wind_direction_deg":"90","tide_height":"3 ft","tide_status":"incoming","data_source":"CDIP"}'::jsonb
+  ELSE '{"wave_height":"3 ft","wave_period":"5s","wave_period_om":9.9,"wind_speed":"4 mph","wind_direction_deg":"90","tide_height":"3 ft","tide_status":"incoming","data_source":"OPEN_METEO"}'::jsonb END
+FROM public.sessions WHERE user_id IN (fixture_id(4),fixture_id(5));
+UPDATE public.session_forecast_snapshots SET forecast_snapshot=jsonb_set(forecast_snapshot,'{wave_period_om}','"11"')
+WHERE session_id IN (SELECT id FROM public.sessions WHERE user_id=fixture_id(5));
+DO $$
+DECLARE cdip_history jsonb[]; om_history jsonb[]; batch jsonb[]; single jsonb; slot_base jsonb; slots jsonb;
+BEGIN
+  slot_base := jsonb_build_object('beach_id',fixture_id(101),'wave_height','3 ft','wind_speed','4 mph',
+    'wind_direction','90','tide_height','3 ft');
+  -- Slots: 1 legacy (no keys); 2 OPEN_METEO; 3 lower-case open_meteo; 4 CDIP with a wave_period_om that must be
+  -- ignored; 5 OPEN_METEO without a usable wave_period_om; 6 blank data_source (legacy).
+  slots := jsonb_build_array(
+    slot_base || '{"wave_period":"5"}',
+    slot_base || '{"wave_period":"5","data_source":"OPEN_METEO","wave_period_om":"11"}',
+    slot_base || '{"wave_period":"5","data_source":"open_meteo","wave_period_om":"11"}',
+    slot_base || '{"wave_period":"5","data_source":"CDIP","wave_period_om":"11"}',
+    slot_base || '{"wave_period":"5","data_source":"OPEN_METEO","wave_period_om":"0"}',
+    slot_base || '{"wave_period":"5","data_source":"","wave_period_om":"11"}');
+  SELECT array_agg(m.result ORDER BY m.slot_idx) INTO cdip_history
+  FROM public.compute_user_match_scores(fixture_id(4),ARRAY[fixture_id(101)],slots) m;
+  IF (SELECT array_agg(r->>'similar_good_session_count') FROM unnest(cdip_history) r)
+    IS DISTINCT FROM ARRAY['0','5','5','0','0','0'] THEN
+    RAISE EXCEPTION 'OPEN_METEO forecast vs CDIP history: %',cdip_history; END IF;
+  -- Only similar_good_session_count may differ between a keyed and an unkeyed slot.
+  IF (cdip_history[2] - 'similar_good_session_count') IS DISTINCT FROM (cdip_history[1] - 'similar_good_session_count')
+    THEN RAISE EXCEPTION 'Score changed with slot keys: %',cdip_history; END IF;
+
+  -- History side: OPEN_METEO snapshots (wave_period 5, wave_period_om 11) match an 11 s CDIP slot only when the slot
+  -- carries data_source; a legacy slot keeps comparing wave_period.
+  SELECT array_agg(m.result ORDER BY m.slot_idx) INTO om_history
+  FROM public.compute_user_match_scores(fixture_id(5),ARRAY[fixture_id(101)],jsonb_build_array(
+    slot_base || '{"wave_period":"11"}',
+    slot_base || '{"wave_period":"11","data_source":"CDIP"}',
+    slot_base || '{"wave_period":"5","data_source":"OPEN_METEO","wave_period_om":"11"}',
+    slot_base || '{"wave_period":"5"}')) m;
+  IF (SELECT array_agg(r->>'similar_good_session_count') FROM unnest(om_history) r)
+    IS DISTINCT FROM ARRAY['0','5','5','5'] THEN
+    RAISE EXCEPTION 'OPEN_METEO history snapshots: %',om_history; END IF;
+
+  -- The wrapper forwards the optional keys and leaves the legacy shape alone.
+  SELECT array_agg(m.result ORDER BY m.slot_idx) INTO batch
+  FROM public.compute_user_match_score_batch(fixture_id(4),fixture_id(101),slots) m;
+  IF batch IS DISTINCT FROM cdip_history THEN RAISE EXCEPTION 'Batch dropped the keys: % vs %',batch,cdip_history; END IF;
+  -- The single-slot RPC has a fixed argument list and cannot carry them.
+  single := public.compute_user_match_score_core(fixture_id(4),fixture_id(101),'3 ft','5','4 mph','90','3 ft');
+  IF single->>'similar_good_session_count' IS DISTINCT FROM '0' THEN RAISE EXCEPTION 'Single-slot changed: %',single; END IF;
 END $$;
 
 DO $$

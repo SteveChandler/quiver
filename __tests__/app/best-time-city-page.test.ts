@@ -203,6 +203,12 @@ describe("best-time city SEO page", () => {
     );
   });
 
+  it.each(["FL", "NC"])("links a state-qualified Atlantic Beach guide to its city hub in %s", (state) => {
+    expect(buildBestTimeCityHubHref(state, `atlantic-beach-${state.toLowerCase()}`)).toBe(
+      `/${state.toLowerCase()}/atlantic-beach`,
+    );
+  });
+
   it("links a Mexico city to its state beach hub, which exists, instead of /{state}/{city}", () => {
     expect(buildBestTimeCityHubHref("CA", "san-diego")).toBe("/ca/san-diego");
     expect(buildBestTimeCityHubHref("Baja California Sur", "todos-santos")).toBe(

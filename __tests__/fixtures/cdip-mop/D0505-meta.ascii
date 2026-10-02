@@ -1,0 +1,9 @@
+Dataset {
+    Float32 metaLatitude;
+    Float32 metaLongitude;
+    Float32 metaShoreNormal;
+} cdip/model/MOP_alongshore/D0505_nowcast.nc;
+---------------------------------------------
+metaLatitude, 32.86093
+metaLongitude, -117.26124
+metaShoreNormal, 288.0

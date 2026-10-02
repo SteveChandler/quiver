@@ -68,6 +68,27 @@ test.describe("best-time buoy record", () => {
     });
   }
 
+  test("the hub links each Atlantic Beach to its own state guide", async ({ page }, testInfo) => {
+    const response = await page.goto("/best-time-to-surf");
+    expect(response?.status()).toBe(200);
+    const links = page.getByRole("link", { name: "Atlantic Beach", exact: true });
+    await expect(links).toHaveCount(2);
+    const paths = await links.evaluateAll((anchors) => anchors.map((anchor) => anchor.getAttribute("href")).sort());
+    expect(paths).toEqual([
+      "/best-time-to-surf/atlantic-beach-fl",
+      "/best-time-to-surf/atlantic-beach-nc",
+    ]);
+    await page.screenshot({ path: testInfo.outputPath("atlantic-beach-hub.png"), fullPage: true });
+    for (const path of paths) {
+      const guide = await page.goto(path!);
+      expect(guide?.status()).toBe(200);
+      const canonical = await page.locator('link[rel="canonical"]').getAttribute("href");
+      expect(new URL(canonical!).pathname).toBe(path);
+      const state = path!.split("-").at(-1);
+      await expect(page.getByRole("navigation", { name: "breadcrumb" }).getByRole("link", { name: "Atlantic Beach", exact: true })).toHaveAttribute("href", `/${state}/atlantic-beach`);
+    }
+  });
+
   test("the CSV downloads with its source header", async ({ request }) => {
     const response = await request.get("/data/surf-climatology/cocoa-beach.csv");
     expect(response.status()).toBe(200);
