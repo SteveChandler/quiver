@@ -137,7 +137,7 @@ approaches are:
 | Job | Path | Schedule | Function |
 | --- | --- | --- | --- |
 | Forecast sync | /api/cron/enhanced-forecast-sync | Every 2 hours (0 */2 * * *) | Updates forecasts for all beaches |
-| Health check | /api/monitoring/forecast-health | Every 30 minutes (*/30 * * * *) | Monitors freshness and logs issues |
+| Health check | /api/monitoring/forecast-health | Every 30 minutes, at :12 and :42 (12,42 * * * *) | Monitors freshness and logs issues |
 
 ## Architecture
 
@@ -493,12 +493,13 @@ only the first index entry.
 ### Marine cron throughput
 
 The documented change is hourly with maxBeaches=130, previously every 3h with
-maxBeaches=60:
+maxBeaches=60. It runs at :05, off the minute the hourly sends and enhanced
+dispatch run (2026-10-02: jobs sharing minute 0 saturated the database):
 
 ~~~json
 {
   "path": "/api/cron/forecasts/refresh?source=marine&maxBeaches=130",
-  "schedule": "0 * * * *"
+  "schedule": "5 * * * *"
 }
 ~~~
 
@@ -650,7 +651,7 @@ Diagnosis:
    ~~~json
    {
      "path": "/api/cron/forecasts/refresh?source=marine&maxBeaches=130",
-     "schedule": "0 * * * *"
+     "schedule": "5 * * * *"
    }
    ~~~
 3. Check for execution timeouts in logs.
@@ -868,7 +869,7 @@ Disable health-check cron by removing this from vercel.json:
 ~~~json
 {
   "path": "/api/monitoring/forecast-health",
-  "schedule": "*/30 * * * *"
+  "schedule": "12,42 * * * *"
 }
 ~~~
 
