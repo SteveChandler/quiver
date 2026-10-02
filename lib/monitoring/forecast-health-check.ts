@@ -121,6 +121,23 @@ function statusFromCounts(critical: number, warning: number, stale: number, thre
   return 'healthy';
 }
 
+function isStatementTimeout(error: { message?: string; code?: string } | null | undefined): boolean {
+  return Boolean(error && (error.code === '57014' || /statement timeout/i.test(error.message ?? '')));
+}
+
+/**
+ * The latest-per-beach views take about 1.3 s but can hit PostgREST's 8 s limit when crons
+ * contend for the database; 32 of 672 runs in the two weeks to 2026-10-02 went critical only
+ * because the monitor could not measure. One retry clears the transient case; a timeout that
+ * persists still reports the source unavailable.
+ */
+async function retryOnceAfterStatementTimeout<T extends { error: { message?: string; code?: string } | null }>(
+  run: () => PromiseLike<T>,
+): Promise<T> {
+  const first = await run();
+  return isStatementTimeout(first.error) ? run() : first;
+}
+
 export async function checkForecastHealth(): Promise<ForecastHealthMetrics> {
   const supabase = createSupabaseServiceRoleClient();
   
@@ -156,10 +173,10 @@ export async function checkForecastHealth(): Promise<ForecastHealthMetrics> {
       latestSunResult,
       ioosStationsResult,
     ] = await Promise.all([
-      supabase.from('v_enhanced_forecast_latest').select('beach_id, updated_at, data_source'),
-      supabase.from('v_marine_forecast_latest').select('beach_id, created_at, ts, source, is_observed'),
-      supabase.from('v_tide_forecast_latest').select('beach_id, created_at, ts, source'),
-      supabase.from('v_sun_times_latest').select('beach_id, created_at, date, source'),
+      retryOnceAfterStatementTimeout(() => supabase.from('v_enhanced_forecast_latest').select('beach_id, updated_at, data_source')),
+      retryOnceAfterStatementTimeout(() => supabase.from('v_marine_forecast_latest').select('beach_id, created_at, ts, source, is_observed')),
+      retryOnceAfterStatementTimeout(() => supabase.from('v_tide_forecast_latest').select('beach_id, created_at, ts, source')),
+      retryOnceAfterStatementTimeout(() => supabase.from('v_sun_times_latest').select('beach_id, created_at, date, source')),
       supabase.from('ioos_stations').select('station_id, source_network, last_seen_at, active, nearest_beach_id').eq('active', true),
     ]);
 

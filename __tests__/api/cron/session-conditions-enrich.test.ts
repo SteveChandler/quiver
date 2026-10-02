@@ -69,6 +69,19 @@ describe("session conditions enrich cron", () => {
     expect(options.legitimatelyZero(SUMMARY)).toBeUndefined();
   });
 
+  // 2026-10-02: once the queue drained, the 20 orphaned sessions (no auth row)
+  // were re-selected every hour, nothing was writable, and each run was logged
+  // as a failed cron outcome.
+  it("treats a run with only unwritable or MOP-pending sessions as a legitimate zero", async () => {
+    await GET(request());
+    const [options] = (withCronOutcome as jest.Mock).mock.calls[0];
+    const idle = { ...SUMMARY, selected: 21, updated: 0, conditionsFilled: 0, nearshoreFilled: 0, unwritable: 20, pending: 1 };
+
+    expect(options.legitimatelyZero(idle)).toEqual({ reason: expect.stringContaining("20 unwritable") });
+    expect(options.legitimatelyZero({ ...idle, errors: 1 })).toBeUndefined();
+    expect(options.legitimatelyZero({ ...idle, selected: 22 })).toBeUndefined();
+  });
+
   it("runs backfill from the requested date", async () => {
     await GET(request("?mode=backfill&since=2025-04-01"));
     expect(enrichSessionConditions).toHaveBeenCalledWith(

@@ -150,6 +150,13 @@ export class RetryableAPIClient {
     return false;
   }
 
+  private isNoaaPointOutsideCoverage(error: unknown): boolean {
+    const candidate = error as { status?: number; url?: string; context?: { apiUrl?: string; statusCode?: number } };
+    const status = candidate.status ?? candidate.context?.statusCode;
+    const url = candidate.context?.apiUrl ?? candidate.url ?? "";
+    return status === 404 && url.includes("api.weather.gov/points/");
+  }
+
   private shouldTripCDIPCircuit(error: unknown): boolean {
     if (isCircuitBreakerOpenError(error)) {
       return false;
@@ -328,6 +335,11 @@ export class RetryableAPIClient {
       maxRetries: 3,
       baseDelay: 2000, // NOAA can be slower
       maxDelay: 15000,
+      // A /points/ 404 means the location is outside NWS coverage (e.g. Baja), a
+      // definite answer rather than an outage. Counting it tripped the shared
+      // breaker and failed US wind fetches in the same run (2026-10-02).
+      shouldTripCircuit: (error) =>
+        !isCircuitBreakerOpenError(error) && !this.isNoaaPointOutsideCoverage(error),
       ...retryOptions,
     };
 
