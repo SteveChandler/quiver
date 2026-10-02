@@ -287,10 +287,41 @@ describe('Forecast Health Check', () => {
     }
   });
 
+  // The latest-per-beach views take about 1.3 s but hit PostgREST's 8 s limit
+  // under load: 32 of 672 runs over two weeks to 2026-10-02 reported critical
+  // only because the monitor could not measure. One retry clears a transient
+  // timeout; a timeout that persists still reports the view unavailable.
+  it('retries a latest view once after a statement timeout', async () => {
+    const nowIso = new Date('2025-12-12T12:00:00Z').toISOString();
+    const rows = (extra: Record<string, unknown>) => ({
+      data: ['beach-1', 'beach-2', 'beach-3'].map((beach_id) => ({ beach_id, created_at: nowIso, ts: nowIso, ...extra })),
+      error: null,
+    });
+    enhancedLatestMock
+      .mockResolvedValueOnce({ data: null, error: { message: 'canceling statement due to statement timeout' } })
+      .mockResolvedValueOnce({
+        data: ['beach-1', 'beach-2', 'beach-3'].map((beach_id) => ({ beach_id, updated_at: nowIso, data_source: 'open_meteo' })),
+        error: null,
+      });
+    marineLatestMock.mockResolvedValueOnce(rows({ source: 'ndbc', is_observed: true }));
+    tideLatestMock.mockResolvedValueOnce(rows({ source: 'noaa' }));
+    sunLatestMock.mockResolvedValueOnce({
+      data: ['beach-1', 'beach-2', 'beach-3'].map((beach_id) => ({ beach_id, created_at: nowIso, date: '2025-12-12', source: 'computed' })),
+      error: null,
+    });
+    ioosStationsMock.mockResolvedValueOnce({ data: [], error: null });
+
+    const metrics = await checkForecastHealth();
+
+    expect(enhancedLatestMock).toHaveBeenCalledTimes(2);
+    expect(metrics.enhancedAvailable).toBe(true);
+    expect(metrics.issues.join(' ')).not.toContain('statement timeout');
+  });
+
   it('preserves beach count and reports enhanced as unavailable when latest enhanced view query fails', async () => {
     const nowIso = new Date('2025-12-12T12:00:00Z').toISOString();
 
-    enhancedLatestMock.mockResolvedValueOnce({
+    enhancedLatestMock.mockResolvedValue({
       data: null,
       error: { message: 'canceling statement due to statement timeout' },
     });
