@@ -308,8 +308,7 @@ export function resolveMajorEventHoldBoundary(
     validDecisions.some((decision) => decision.holdEpoch !== holdEpoch) ||
     validDecisions.some(
       (decision) => decision.resolutionAsOf !== resolutionAsOf,
-    ) ||
-    validDecisions.some((decision) => decision.state === "unavailable")
+    )
   ) {
     return unavailableBoundary(decisions);
   }
@@ -320,8 +319,13 @@ export function resolveMajorEventHoldBoundary(
       .map(({ candidateId }) => candidateId),
   );
   const blocked = validDecisions.filter(({ state }) => state === "blocked");
+  // A candidate whose hold state is unknown (e.g. its County feed is stale) is
+  // withheld like a blocked one, so every adapter that clears blocked
+  // candidates clears it too. It used to void every candidate in the response:
+  // on 2026-10-02 one stale County feed withheld every pick statewide.
+  const unavailable = validDecisions.filter(({ state }) => state === "unavailable");
   const blockedCandidateIds = new Set(
-    blocked.map(({ candidateId }) => candidateId),
+    [...blocked, ...unavailable].map(({ candidateId }) => candidateId),
   );
   if (allowedCandidateIds.size > 0) {
     return {
@@ -333,6 +337,10 @@ export function resolveMajorEventHoldBoundary(
       allowedCandidateIds,
       blockedCandidateIds,
     };
+  }
+
+  if (unavailable.length > 0) {
+    return unavailableBoundary(decisions);
   }
 
   const latestExpiry = blocked.reduce<ParsedDecision | null>(

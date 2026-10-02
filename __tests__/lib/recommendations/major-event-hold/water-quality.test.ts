@@ -37,6 +37,8 @@ function clientFor(args: {
   qualityRows?: unknown;
   liveRunRows?: unknown;
   liveRows?: unknown;
+  beachRows?: unknown;
+  beachError?: unknown;
   ownerError?: unknown;
   qualityError?: unknown;
   liveError?: unknown;
@@ -61,7 +63,9 @@ function clientFor(args: {
                     ],
                   error: args.liveError ?? null,
                 }
-              : { data: args.liveRows ?? [], error: args.liveError ?? null };
+              : table === "beaches"
+                ? { data: args.beachRows ?? [], error: args.beachError ?? null }
+                : { data: args.liveRows ?? [], error: args.liveError ?? null };
       type MockQuery = {
         in: () => PromiseLike<typeof result>;
         eq: () => MockQuery;
@@ -383,26 +387,73 @@ describe("water-quality recommendation holds", () => {
     });
   });
 
-  it("treats a County snapshot older than two hours as unavailable", async () => {
-    const now = new Date("2026-08-14T01:30:00.000Z");
-    const resolution = await resolveWaterQualityHolds([candidate(BEACH_A), candidate(BEACH_B)], {
+  const STALE_NOW = new Date("2026-08-14T01:30:00.000Z");
+  const STALE_RUN = [
+    {
+      id: "44444444-4444-4444-8444-444444444444",
+      fetched_at: "2026-08-13T22:00:00.000Z",
+      status: "completed",
+      source_identifier: "county-san-diego-dehq-sdbeachinfo",
+    },
+  ];
+  // Ocean Beach Pier and Pacific Beach sit in San Diego County; Huntington Beach Pier does not.
+  const SAN_DIEGO_A = { id: BEACH_A, lat: 32.747, lon: -117.254 };
+  const SAN_DIEGO_B = { id: BEACH_B, lat: 32.797, lon: -117.258 };
+  const ORANGE_C = { id: BEACH_C, lat: 33.655, lon: -118.004 };
+
+  // 2026-10-02: one stale San Diego County feed withheld every pick statewide.
+  it("makes only County-covered beaches unknown when the County snapshot is older than two hours", async () => {
+    const client = clientFor({
+      ownerRows: [{ beach_id: BEACH_A }],
+      qualityRows: [],
+      liveRunRows: STALE_RUN,
+      beachRows: [SAN_DIEGO_A, SAN_DIEGO_B, ORANGE_C],
+    });
+    const resolution = await resolveWaterQualityHolds(
+      [candidate(BEACH_A), candidate(BEACH_B), candidate(BEACH_C)],
+      { client, now: STALE_NOW },
+    );
+
+    expect(resolution.state).toBe("resolved");
+    expect(resolution.heldBeachIds).toEqual([BEACH_A]);
+    expect(resolution.unverifiedBeachIds).toEqual([BEACH_B]);
+    // Unknown is not a closure: nothing labels the unverified beach.
+    expect(resolution.waterQualityStatusByBeachId).not.toHaveProperty(BEACH_B);
+    expect(resolution.waterQualityEvidenceByBeachId ?? {}).not.toHaveProperty(BEACH_B);
+  });
+
+  it("fails closed for a beach whose coordinates are missing while the County snapshot is stale", async () => {
+    const resolution = await resolveWaterQualityHolds([candidate(BEACH_B), candidate(BEACH_C)], {
+      client: clientFor({ liveRunRows: STALE_RUN, beachRows: [ORANGE_C] }),
+      now: STALE_NOW,
+    });
+
+    expect(resolution.state).toBe("resolved");
+    expect(resolution.unverifiedBeachIds).toEqual([BEACH_B]);
+  });
+
+  it("keeps the whole resolution unresolved when County coverage cannot be read", async () => {
+    const resolution = await resolveWaterQualityHolds([candidate(BEACH_A), candidate(BEACH_C)], {
       client: clientFor({
         ownerRows: [{ beach_id: BEACH_A }],
-        qualityRows: [],
-        liveRunRows: [
-          {
-            id: "44444444-4444-4444-8444-444444444444",
-            fetched_at: "2026-08-13T22:00:00.000Z",
-            status: "completed",
-            source_identifier: "county-san-diego-dehq-sdbeachinfo",
-          },
-        ],
+        liveRunRows: STALE_RUN,
+        beachError: { message: "beaches unavailable" },
       }),
-      now,
+      now: STALE_NOW,
     });
 
     expect(resolution.state).toBe("unresolved");
     expect(resolution.heldBeachIds).toEqual([BEACH_A]);
+    expectConsoleErrors([/\[water-quality-hold:county-coverage-error\]/]);
+  });
+
+  it("does not read beach coordinates while the County snapshot is fresh", async () => {
+    const client = clientFor({ beachRows: [SAN_DIEGO_A] });
+    const resolution = await resolveWaterQualityHolds([candidate(BEACH_A)], { client });
+
+    expect(resolution.state).toBe("resolved");
+    expect(resolution.unverifiedBeachIds ?? []).toEqual([]);
+    expect((client.from as jest.Mock).mock.calls.map(([table]) => table)).not.toContain("beaches");
   });
 });
 

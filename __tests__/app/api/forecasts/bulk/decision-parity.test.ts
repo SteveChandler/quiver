@@ -365,6 +365,41 @@ it("applies loaded water-quality holds with no network reads", async () => {
   expect(mockRpc).toHaveBeenCalledTimes(1);
 });
 
+// The bulk snapshot answers the resolver's beach-coordinate read from the RPC's
+// own beaches, so a stale County feed withholds only the beaches it covers.
+it("withholds only County-covered beaches from the bulk snapshot when the County run is stale", async () => {
+  const data = rpcData(2, NOW.toISOString());
+  const [sanDiego, orangeCounty] = data.beaches as Array<Record<string, unknown>>;
+  Object.assign(sanDiego, { lat: 32.747, lon: -117.254 });
+  Object.assign(orangeCounty, { lat: 33.655, lon: -118.004 });
+  (data.water_quality as Record<string, Array<Record<string, unknown>>>).county_beach_advisory_runs[0].fetched_at =
+    new Date(NOW.getTime() - 3 * 3600000).toISOString();
+  mockRpc.mockResolvedValue({ data, error: null });
+  const context = await fetchBulkDecisionContext(
+    id(800),
+    [id(1), id(2)],
+    [forecast(1), forecast(2)],
+    NOW,
+    NOW,
+  );
+  const window = {
+    startsAt: NOW.toISOString(),
+    endsAt: new Date(NOW.getTime() + 3600000).toISOString(),
+  };
+
+  const result = await resolveWaterQualityHolds(
+    [
+      { candidateId: "sd", beachId: id(1), ...window },
+      { candidateId: "oc", beachId: id(2), ...window },
+    ],
+    { client: context.waterQuality, now: NOW },
+  );
+
+  expect(result.state).toBe("resolved");
+  expect(result.unverifiedBeachIds).toEqual([id(1)]);
+  expect(mockFrom).not.toHaveBeenCalled();
+});
+
 it.each([false, true])(
   "shares one context RPC across current and hourly conditions (timeline only: %s)",
   async (only) => {

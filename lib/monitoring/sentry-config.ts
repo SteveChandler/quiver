@@ -134,12 +134,17 @@ export function detectSentryEnvironmentFromHostname(
     return "development";
   }
 
+  if (normalizedHostname === "dev.quiversurf.app") return "preview";
+
   if (
-    normalizedHostname === "dev.quiversurf.app" ||
-    (normalizedHostname.includes(".vercel.app") &&
-      !normalizedHostname.startsWith("quiver."))
+    normalizedHostname.includes(".vercel.app") &&
+    !normalizedHostname.startsWith("quiver.")
   ) {
-    return "preview";
+    // Vercel invokes crons at the production deployment's *.vercel.app URL, so
+    // the runtime, not the hostname, decides whether this is production code.
+    return getSentryRuntimeEnvironment(fallbackEnv) === "vercel-production"
+      ? "vercel-production"
+      : "preview";
   }
 
   return "production";

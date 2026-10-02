@@ -129,7 +129,10 @@ function evaluateWaterQualityHold(
     };
   }
 
-  if (resolution.state === "unresolved") {
+  const isUnverified = resolution.unverifiedBeachIds?.some(
+    (beachId) => beachId.toLowerCase() === normalizedBeachId,
+  ) ?? false;
+  if (resolution.state === "unresolved" || isUnverified) {
     return {
       outcome: "explicit_none",
       reasonCode: "hold_state_unavailable",

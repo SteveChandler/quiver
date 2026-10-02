@@ -184,7 +184,9 @@ export async function fetchBulkDecisionContext(
     sunTimes,
     matches,
     rowDurationsMs,
-    waterQuality: waterQualitySnapshot(data.water_quality),
+    // The resolver reads beach coordinates to scope a stale County feed to the
+    // beaches it covers; the RPC already returns them.
+    waterQuality: waterQualitySnapshot({ ...data.water_quality, beaches: data.beaches }),
   };
 }
 

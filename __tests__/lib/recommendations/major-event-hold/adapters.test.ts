@@ -1288,13 +1288,14 @@ describe("major-event hold adapters", () => {
     expect(input).toEqual(discoveryFixture());
   });
 
-  it("discovery keeps only explicitly allowed candidates for mixed decisions", () => {
+  // An unknown hold state withholds only its own candidate (2026-10-02).
+  it.each(["blocked", "unavailable"] as const)("discovery keeps only explicitly allowed candidates beside a %s decision", (state) => {
     const input = deepFreeze(structuredClone(discoveryFixture()));
 
     const result = sanitizeSurfDiscoveryForMajorEventHold(
       input,
       discoveryCandidates(),
-      [decision("primary", "blocked"), decision("included", "allow")],
+      [decision("primary", state), decision("included", "allow")],
     );
 
     expect(result.recommendationAvailability).toEqual({
@@ -1661,10 +1662,6 @@ describe("major-event hold adapters", () => {
     [
       "inconsistent epochs",
       [decision("primary", "allow"), decision("included", "allow", "epoch-2")],
-    ],
-    [
-      "an unavailable decision",
-      [decision("primary", "allow"), decision("included", "unavailable")],
     ],
     [
       "a malformed decision",
@@ -2188,6 +2185,51 @@ describe("major-event hold adapters", () => {
     });
   });
 
+  // 2026-10-02: one beach with unknown hold state (a stale County feed) voided
+  // every window for every beach. Unknown now withholds only that candidate.
+  it("week scout withholds only the candidate whose hold state is unknown", () => {
+    const input = deepFreeze(structuredClone(weekScoutFixture));
+    const result = sanitizeWeekScoutForMajorEventHold(
+      input,
+      weekScoutCandidates(),
+      [
+        decision("window-primary", "unavailable"),
+        decision("window-included", "allow"),
+      ],
+    );
+
+    expect(result.recommendationAvailability).toEqual({
+      state: "available",
+      holdEpoch: EPOCH,
+    });
+    expect(result.days[0].bestWindowId).toBe("window-included");
+    expect(result.days[0].windows[0]).toMatchObject({
+      id: "window-primary",
+      conditionScore: null,
+      verdict: null,
+      rankedSpots: [],
+    });
+    expect(result.days[0].windows[1].rankedSpots).toEqual([
+      input.days[0].windows[1].rankedSpots[1],
+    ]);
+  });
+
+  it("week scout stays unavailable when every candidate's hold state is unknown", () => {
+    const result = sanitizeWeekScoutForMajorEventHold(
+      structuredClone(weekScoutFixture),
+      weekScoutCandidates(),
+      [
+        decision("window-primary", "unavailable"),
+        decision("window-included", "unavailable"),
+      ],
+    );
+
+    expect(result.recommendationAvailability).toMatchObject({
+      state: "none",
+      reasonCode: "hold_state_unavailable",
+    });
+  });
+
   it("does not promote an allowed preview when the selected day best is held", () => {
     const input = structuredClone(weekScoutFixture);
     input.days[0].windows[1].isBeachDayBest = false;
@@ -2367,14 +2409,14 @@ describe("major-event hold adapters", () => {
     expect(input).toEqual(original);
   });
 
-  it("bulk forecast keeps only explicitly allowed condition semantics for a mixed batch", () => {
+  it.each(["blocked", "unavailable"] as const)("bulk forecast keeps only explicitly allowed condition semantics beside a %s decision", (state) => {
     const input = deepFreeze(structuredClone(bulkForecastFixture()));
 
     const result = sanitizeBulkForecastForMajorEventHold(
       input,
       bulkBindings(),
       bulkCandidates(),
-      [decision("bulk-primary", "blocked"), decision("bulk-included", "allow")],
+      [decision("bulk-primary", state), decision("bulk-included", "allow")],
     );
 
     expect(result.recommendationAvailability).toEqual({
@@ -2623,12 +2665,6 @@ describe("major-event hold adapters", () => {
       "an inconsistent epoch",
       (args: BulkAdapterArgs) => {
         args.decisions[1] = decision("bulk-included", "allow", "epoch-2");
-      },
-    ],
-    [
-      "an unavailable decision",
-      (args: BulkAdapterArgs) => {
-        args.decisions[1] = decision("bulk-included", "unavailable");
       },
     ],
     [
@@ -3760,11 +3796,11 @@ describe("major-event hold adapters", () => {
     },
   );
 
-  it("Intent Forecast removes a blocked rank one before truncating and keeps rank four", () => {
+  it.each(["blocked", "unavailable"] as const)("Intent Forecast removes a %s rank one before truncating and keeps rank four", (state) => {
     const input = deepFreeze(structuredClone(intentForecastFixture()));
     const candidates = deepFreeze(structuredClone(intentCandidates()));
     const decisions = deepFreeze(
-      structuredClone(intentDecisions({ "intent-1": "blocked" })),
+      structuredClone(intentDecisions({ "intent-1": state })),
     );
 
     const result = sanitizeIntentForecastForMajorEventHold(
@@ -3787,7 +3823,7 @@ describe("major-event hold adapters", () => {
     });
     expect(input).toEqual(intentForecastFixture());
     expect(candidates).toEqual(intentCandidates());
-    expect(decisions).toEqual(intentDecisions({ "intent-1": "blocked" }));
+    expect(decisions).toEqual(intentDecisions({ "intent-1": state }));
   });
 
   it("Intent Forecast removes a blocked rank two before truncating without rebuilding bestWindow", () => {
@@ -3839,12 +3875,6 @@ describe("major-event hold adapters", () => {
   });
 
   it.each([
-    [
-      "an unresolved hold decision",
-      (args: IntentAdapterArgs) => {
-        args.decisions[0] = decision("intent-1", "unavailable");
-      },
-    ],
     [
       "a malformed allow decision",
       (args: IntentAdapterArgs) => {
