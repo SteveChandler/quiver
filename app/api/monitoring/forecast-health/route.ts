@@ -7,12 +7,17 @@
 
 import { NextResponse } from 'next/server';
 import { checkForecastHealth } from '@/lib/monitoring/forecast-health-check';
+import { checkRecommendationInputsHealth } from '@/lib/monitoring/recommendation-inputs-health';
+import type { HealthStatus } from '@/lib/monitoring/forecast-monitoring-config';
+
 import { forecastLogger } from '@/lib/monitoring/forecast-logger';
 import { withObservedCron } from '@/lib/cron/observability';
 import {
   createErrorResponse,
   validateCronRequest,
 } from '@/lib/middleware/api-wrappers';
+
+const HEALTH_RANK: Record<HealthStatus, number> = { healthy: 0, degraded: 1, critical: 2 };
 
 export const runtime = "nodejs";
 export const dynamic = 'force-dynamic';
@@ -50,8 +55,20 @@ async function _GET(request: Request): Promise<Response> {
   const startTime = Date.now();
   
   try {
-    // Run health check
-    const metrics = await checkForecastHealth();
+    // Run health check. Forecast freshness alone missed the 2026-10-02 County outage (fresh forecasts,
+    // every pick withheld), so the inputs picks depend on are judged here too.
+    const [forecastMetrics, recommendationInputs] = await Promise.all([
+      checkForecastHealth(),
+      checkRecommendationInputsHealth(),
+    ]);
+    const metrics = {
+      ...forecastMetrics,
+      healthStatus: HEALTH_RANK[recommendationInputs.status] > HEALTH_RANK[forecastMetrics.healthStatus]
+        ? recommendationInputs.status
+        : forecastMetrics.healthStatus,
+      issues: [...forecastMetrics.issues, ...recommendationInputs.issues],
+      recommendationInputs,
+    };
     
     // Log the health check results
     const sources = metrics.sources;

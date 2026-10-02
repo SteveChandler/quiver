@@ -57,7 +57,7 @@ function getCronDeadlineMs(): { deadlineMs: number; timeBudgetMs: number; safety
   return { deadlineMs: Date.now() + timeBudgetMs, timeBudgetMs, safetyMarginMs };
 }
 
-type BeachRow = { id: string; name: string; lat: number; lon: number };
+type BeachRow = { id: string; name: string; lat: number; lon: number; country?: string | null };
 type TideStationMeta = { id: string; name: string; lat: number; lon: number };
 type TidePoint = {
   ts: string;
@@ -135,8 +135,8 @@ async function _GET(request: Request): Promise<Response> {
       tidesBackfillMissing
         ? // Backfill mode: fetch a single nested tide row so we can detect "no tide rows" without N+1 queries.
           // Note: we only need any tide row, not the full set.
-          "id, name, lat, lon, tide_forecasts(ts)"
-        : "id, name, lat, lon"
+          "id, name, lat, lon, country, tide_forecasts(ts)"
+        : "id, name, lat, lon, country"
     );
 
     query = query.not("lat", "is", null).not("lon", "is", null);
@@ -179,6 +179,7 @@ async function _GET(request: Request): Promise<Response> {
       name: b.name,
       lat: b.lat,
       lon: b.lon,
+      country: b.country ?? null,
     }));
 
     const targetBeachesForTides: BeachRow[] = tidesBackfillMissing
@@ -305,10 +306,16 @@ async function _GET(request: Request): Promise<Response> {
         failures: [] as { beachIds: string[]; attemptedAt: string; attempts: number; code: string }[] },
       lastAttemptedBeachId: null as string | null,
       rejectionCounts: {} as Record<string, number>,
+      // Expected holes, not failures: no wave buoy in range, a buoy with no usable recent reading, or a
+      // beach outside NWS wind coverage. Data freshness is judged by forecast-health, not this run.
+      coverageGaps: {} as Record<string, number>,
       providerOutcomes: {} as Record<string, number>,
     };
     const rejectMarine = (reason: string): void => {
       marineCoverage.rejectionCounts[reason] = (marineCoverage.rejectionCounts[reason] ?? 0) + 1;
+    };
+    const noteMarineGap = (reason: string): void => {
+      marineCoverage.coverageGaps[reason] = (marineCoverage.coverageGaps[reason] ?? 0) + 1;
     };
     // Resume after the last attempted beach, including runs with zero usable output.
     // Missing providers must not monopolize every bounded hourly invocation.
@@ -417,8 +424,10 @@ async function _GET(request: Request): Promise<Response> {
               // Marine from NDBC/CDIP
               try {
                 const marineRows: any[] = [];
+                let waveStationFound = false;
                 const ndbc = await getNearestNDBCStation(b.lat, b.lon);
                 if (ndbc) {
+                  waveStationFound = true;
                   const obs = await fetchLatestNDBCObservation(ndbc.id);
                   // Only use observations with valid wave height data
                   if (obs && usableWaveObservation(obs, nowMs)) {
@@ -441,6 +450,7 @@ async function _GET(request: Request): Promise<Response> {
                   for (let attempt = 0; attempt < 2 && !marineRows.length; attempt++) {
                     const station = await cdip.getNearestStation(b.lat, b.lon, 80, excluded);
                     if (!station) break;
+                    waveStationFound = true;
                     excluded.push(station);
                     const diagnostic = await cdip.fetchBuoyDataWithDiagnostics(station);
                     const outcome = diagnostic.skipReason;
@@ -475,7 +485,7 @@ async function _GET(request: Request): Promise<Response> {
                 }
                 const usableRows = marineRows.filter(row => usableWaveObservation(row, nowMs));
                 if (usableRows.length) waveWritten = await writeMarine(usableRows);
-                else rejectMarine("missing_wave_observation");
+                else noteMarineGap(waveStationFound ? "no_recent_wave_observation" : "no_wave_station_in_range");
 
                 // Short-horizon persistence projection (no Open-Meteo). Carry forward latest observed
                 try {
@@ -523,8 +533,10 @@ async function _GET(request: Request): Promise<Response> {
                 rejectMarine("wave_fetch_failed");
               }
 
-              // Wind-only hourly rows from NOAA/NWS (fill missing wind for scoring; do not overwrite wave rows)
-              try {
+              // Wind-only hourly rows from NOAA/NWS (fill missing wind for scoring; do not overwrite wave rows).
+              // NWS covers US territory only; asking for Baja points returns 404s or nothing.
+              if (b.country && b.country !== "USA") noteMarineGap("outside_nws_coverage");
+              else try {
                 const windowStart = new Date(Date.now() - 6 * 60 * 60 * 1000);
                 const windowEnd = new Date(Date.now() + 36 * 60 * 60 * 1000);
                 const windPoints = await nwsWind.fetchHourlyWindPoints({
@@ -924,8 +936,12 @@ async function _GET(request: Request): Promise<Response> {
           : source === "sun"
             ? "sun_events_written"
             : "forecast_rows_written";
-    const marineIncomplete = (): boolean => runMarine && (marineCoverage.actualCoverage < marineCoverage.expectedCoverage
+    // Fail only when the run broke (a fetch or write error, or beaches left unattempted); coverage gaps
+    // are reported, not failed.
+    const marineIncomplete = (): boolean => runMarine && (marineCoverage.attemptedCoverage < marineCoverage.expectedCoverage
       || Object.keys(marineCoverage.rejectionCounts).length > 0);
+    const marineGapSummary = (): string =>
+      Object.entries(marineCoverage.coverageGaps).map(([reason, count]) => `${reason} ${count}`).join(", ");
     const result = await withCronOutcome(
       {
         job: `/api/cron/forecasts/refresh?source=${source}`,
@@ -939,18 +955,26 @@ async function _GET(request: Request): Promise<Response> {
         },
         onPersistenceFailure: runMarine ? () => rejectMarine("cursor_write_failed") : undefined,
         failureReason: () => {
-          if (marineIncomplete()) return "marine coverage incomplete";
+          if (marineIncomplete()) {
+            const reasons = Object.keys(marineCoverage.rejectionCounts);
+            return `marine refresh failed: ${reasons.length ? reasons.join(", ") : "beaches left unattempted"}`;
+          }
           const lapsing = tideIngest.beachesBelowMinCoverage;
           if (runTide && lapsing > 0) {
             return `tide coverage under ${TIDE_MIN_COVERAGE_DAYS} days for ${lapsing} beach${lapsing === 1 ? "" : "es"}`;
           }
           return null;
         },
-        legitimatelyZero: (value) =>
-          (runMarine && marineCoverage.expectedCoverage === 0) || value.totals.beaches === 0
-            ? { reason: runMarine && marineCoverage.expectedCoverage === 0
-                ? "No marine caches require refresh" : "No beaches with coordinates were targeted by this refresh" }
-            : undefined,
+        legitimatelyZero: (value) => {
+          if ((runMarine && marineCoverage.expectedCoverage === 0) || value.totals.beaches === 0) {
+            return { reason: runMarine && marineCoverage.expectedCoverage === 0
+              ? "No marine caches require refresh" : "No beaches with coordinates were targeted by this refresh" };
+          }
+          if (source === "marine" && !marineIncomplete() && Object.keys(marineCoverage.coverageGaps).length > 0) {
+            return { reason: `Only coverage gaps in this batch: ${marineGapSummary()}` };
+          }
+          return undefined;
+        },
       },
       async () => ({
         totals,
@@ -959,7 +983,7 @@ async function _GET(request: Request): Promise<Response> {
       }),
     );
     if (marineIncomplete()) {
-      return Response.json({ success: false, error: "Marine coverage incomplete", data: result }, { status: 503 });
+      return Response.json({ success: false, error: "Marine refresh failed", data: result }, { status: 503 });
     }
     return createSuccessResponse(result);
   } catch (error) {
