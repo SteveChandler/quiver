@@ -342,12 +342,12 @@ const unsubscribe = subscriptionManager.subscribe(
 | Endpoint | Method | Purpose | Schedule |
 |----------|--------|---------|----------|
 | `/api/cron/enhanced-forecast-sync` | POST/GET | NOAA data sync | Every 90 min |
-| `/api/cron/enhanced-forecast-sync-cdip` | POST/GET | CDIP data sync | Every 2 hours |
+| `/api/cron/enhanced-forecast-sync-cdip` | POST/GET | CDIP data sync | Hourly at :50 |
 | `/api/cron/sync-buoys` | GET | Buoy station sync | Daily |
 | `/api/cron/update-buoy-conditions` | GET | Buoy conditions | Hourly |
 | `/api/cron/daily-intel` | GET | Intel generation | Daily |
 | `/api/cron/ml/correct-forecasts` | GET | ML bias correction | Every 6 hours |
-| `/api/cron/ioos-sync` | GET | IOOS data sync | Every 2 hours |
+| `/api/cron/ioos-sync` | GET | IOOS data sync | Observations every 2 hours at :35 |
 
 ### Community Intel (`/api/intel/*`)
 

@@ -179,6 +179,31 @@ describe("vercel.json", () => {
     expect(config.regions).toEqual(["sfo1"]);
   });
 
+  // 2026-10-02: with every function next to the database, the jobs that fired together at
+  // minute 0 saturated it. Statement timeouts went from 0-10 an hour to 53 and 26 in the first
+  // minute, enhanced syncs and the health check failed, and a surf call returned 504 after 13 s.
+  it("keeps the heavy forecast jobs off the minute the hourly sends run", () => {
+    const configPath = path.join(process.cwd(), "vercel.json");
+    const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+    const scheduleOf = (route) => config.crons.find((cron) => cron.path === route)?.schedule;
+
+    expect(scheduleOf("/api/cron/forecasts/refresh?source=marine&maxBeaches=130")).toBe("5 * * * *");
+    expect(scheduleOf("/api/cron/enhanced-forecast-sync-cdip")).toBe("50 * * * *");
+    expect(scheduleOf("/api/monitoring/forecast-health")).toBe("12,42 * * * *");
+    expect(scheduleOf("/api/cron/ioos-sync?phase=observations")).toBe("35 */2 * * *");
+
+    const firesAtMinuteZero = (schedule) => schedule.split(" ")[0].split(",").some(
+      (minute) => minute === "0" || minute === "*" || minute.startsWith("*/"),
+    );
+    const heavy = [
+      "/api/cron/forecasts/refresh?source=marine&maxBeaches=130",
+      "/api/cron/enhanced-forecast-sync-cdip",
+      "/api/monitoring/forecast-health",
+      "/api/cron/ioos-sync?phase=observations",
+    ];
+    expect(config.crons.filter((cron) => heavy.includes(cron.path) && firesAtMinuteZero(cron.schedule))).toEqual([]);
+  });
+
   it("refreshes tide predictions twice weekly to stay inside warning freshness", () => {
     const configPath = path.join(process.cwd(), "vercel.json");
     const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
