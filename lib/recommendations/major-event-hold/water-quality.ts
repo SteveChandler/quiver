@@ -68,7 +68,7 @@ const waterQualityHeldRowSchema = z.object({
 
 interface WaterQualityQuery {
   in(
-    column: "beach_id",
+    column: "beach_id" | "id",
     values: readonly string[],
   ): PromiseLike<{ data: unknown; error: unknown }>;
   eq: (column: string, value: string) => WaterQualityQuery;

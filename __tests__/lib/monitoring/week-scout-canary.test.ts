@@ -7,7 +7,7 @@ import {
   runWeekScoutCanary,
 } from "@/lib/monitoring/week-scout-canary";
 
-type Generate = Parameters<typeof runWeekScoutCanary>[0]["generate"];
+type Generate = NonNullable<Parameters<typeof runWeekScoutCanary>[0]>["generate"];
 
 function response(
   availability: { state: "available" | "none"; reasonCode?: string },

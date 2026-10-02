@@ -1,4 +1,4 @@
-import { generateWeekScoutForecast } from "@/lib/services/discovery/week-scout";
+import { generateWeekScoutForecastForDays } from "@/lib/services/discovery/week-scout";
 
 /**
  * Fixed San Diego and Orange County beaches. Week Scout fails closed across a
@@ -26,7 +26,7 @@ export type WeekScoutCanaryResult =
   | { healthy: false; reason: "hold_state_unavailable" | "no_windows" | "threw"; detail: string };
 
 interface WeekScoutCanaryDependencies {
-  generate: typeof generateWeekScoutForecast;
+  generate: typeof generateWeekScoutForecastForDays;
   now: () => Date;
 }
 
@@ -41,11 +41,11 @@ function localDate(now: Date, timeZone: string): string {
 
 export async function runWeekScoutCanary(
   dependencies: WeekScoutCanaryDependencies = {
-    generate: generateWeekScoutForecast,
+    generate: generateWeekScoutForecastForDays,
     now: () => new Date(),
   },
 ): Promise<WeekScoutCanaryResult> {
-  let forecast: Awaited<ReturnType<typeof generateWeekScoutForecast>>;
+  let forecast: Awaited<ReturnType<typeof generateWeekScoutForecastForDays>>;
   try {
     forecast = await dependencies.generate(CANARY_USER_ID, {
       candidateBeachIds: [...WEEK_SCOUT_CANARY_BEACH_IDS],
