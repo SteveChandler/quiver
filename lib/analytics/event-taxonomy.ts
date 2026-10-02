@@ -755,7 +755,7 @@ export const VALID_EVENTS = [
   'session_board_fit_feedback_selected',
   // Native direct insert. Metadata is bounded to: beach_id, forecast_at,
   // surface, label, board_class, board_id, is_any_board, is_personal, plan,
-  // board_picks_enabled, call_id. No free text.
+  // board_picks_enabled, call_id, served_conditions. No free text.
   'board_pick_exposed',
   // Native direct inserts; metadata is bounded to call_id, surface, channel,
   // call_value, board_value, has_session, and session_entry_point.
