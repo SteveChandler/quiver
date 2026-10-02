@@ -9,7 +9,7 @@ import {
 } from "@/lib/data/forecast-regions";
 import {
   createEmptyRegionalSummary,
-  getRegionalSummary,
+  getHubRegionalSummary,
 } from "@/lib/utils/forecast-hub-utils";
 import { resolveActiveRegion } from "@/lib/utils/resolve-active-region";
 import { getCurrentUser } from "@/lib/auth/admin";
@@ -27,9 +27,9 @@ import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 
 // Reading cookies via `resolveActiveRegion` opts this route out of static ISR.
-// The heavy data work (`getRegionalSummaries`) is identical across every
-// region variant and gets memoized by the request-time fetch cache, so
-// per-region rendering stays cheap.
+// The regional summary is viewer-independent, so it comes from the same data
+// cache as /forecast/[region]; computing it per request took 5-13s. It falls
+// back to an empty summary rather than failing the page.
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = buildPageMetadata({
@@ -138,9 +138,7 @@ export default async function ForecastHubPage({
   const baseUrl =
     process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
 
-  const activeSummary = await getRegionalSummary(region, undefined, {
-    baseUrl,
-  });
+  const activeSummary = await getHubRegionalSummary(region);
   const summaries = Object.fromEntries(
     allRegions.map((forecastRegion) => [
       forecastRegion.slug,
