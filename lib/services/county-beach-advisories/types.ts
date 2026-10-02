@@ -27,6 +27,18 @@ export const COUNTY_MIN_POLL_INTERVAL_MS = 30 * 60 * 1000;
 export const COUNTY_MAX_CONSECUTIVE_FAILURES = 3;
 export const COUNTY_BASE_BACKOFF_MS = 30 * 60 * 1000;
 export const COUNTY_MAX_MATCH_DISTANCE_METERS = 500;
+/**
+ * The coast the County DEHQ feed samples, Tijuana Sloughs to Trestles. When the
+ * feed is stale only beaches inside it lose their water-quality status. Checked
+ * 2026-10-02: all 18 beaches the feed has ever matched fall inside; San Clemente
+ * and Baja beaches fall outside.
+ */
+export const COUNTY_FEED_COVERAGE_BOUNDS = {
+  minLat: 32.53,
+  maxLat: 33.4,
+  minLon: -117.7,
+  maxLon: -117.05,
+} as const;
 
 export interface CountyFeedManifest {
   versionToken: string;
@@ -135,6 +147,8 @@ export interface CountyAdvisoryRepository {
   ): Promise<void>;
   failRun(runId: string, errorKind: string, errorMessage: string): Promise<void>;
   listBeaches(): Promise<CountyBeachCandidate[]>;
+  /** Per-type notice counts of the latest completed run; null before the first. */
+  lastCompletedRunCounts(): Promise<Record<CountyAdvisoryType, number> | null>;
 }
 
 export type CountyIngestResult =

@@ -45,6 +45,7 @@ function response(
 function repositoryFor(options: {
   state?: CountyIngestState | null;
   beaches?: CountyBeachCandidate[];
+  lastCompletedCounts?: Record<"advisory" | "closure" | "warning", number> | null;
 }) {
   let state = options.state ?? null;
   const runs: unknown[] = [];
@@ -63,6 +64,7 @@ function repositoryFor(options: {
     completeRun: jest.fn(async () => {}),
     failRun: jest.fn(async () => {}),
     listBeaches: jest.fn(async () => options.beaches ?? []),
+    lastCompletedRunCounts: jest.fn(async () => options.lastCompletedCounts ?? null),
   };
   return { repository, getState: () => state, runs, inserted };
 }
@@ -154,40 +156,127 @@ describe("County advisory ingest safety controls", () => {
     expect(getState()).toMatchObject({ circuit_open: true, consecutive_failures: 3 });
   });
 
-  it("opens permanently on a version mismatch without requesting event types", async () => {
-    const { repository } = repositoryFor({
-      state: {
-        source_identifier: "county-san-diego-dehq-sdbeachinfo",
-        accepted_version_token: "old-token",
-        accepted_version_sequence: 6303,
-        observed_version_token: "old-token",
-        observed_version_sequence: 6303,
-        consecutive_failures: 0,
-        circuit_open: false,
-        next_attempt_at: null,
-        last_request_at: null,
-        last_success_at: null,
-        last_failure_at: null,
-        last_error: null,
-        updated_at: null,
-      },
+  function stateAcceptingOldVersion(): CountyIngestState {
+    return {
+      source_identifier: "county-san-diego-dehq-sdbeachinfo",
+      accepted_version_token: "old-token",
+      accepted_version_sequence: 6303,
+      observed_version_token: "old-token",
+      observed_version_sequence: 6303,
+      consecutive_failures: 0,
+      circuit_open: false,
+      next_attempt_at: null,
+      last_request_at: null,
+      last_success_at: null,
+      last_failure_at: null,
+      last_error: null,
+      updated_at: null,
+    };
+  }
+
+  function responsesWithSites(): CountyNotificationResponse[] {
+    const responses = [
+      response(1, "advisory", fixture("advisory")),
+      response(2, "closure", fixture("closure")),
+      response(3, "warning", fixture("warning")),
+    ];
+    responses[1].sites = [
+      { latitude: 32.5345, longitude: -117.1236, sourceSiteIdentifier: "32.534500,-117.123600" },
+    ];
+    return responses;
+  }
+
+  // 2026-10-02: the County redeployed (6304 -> 6389) with an identical payload
+  // contract; the old guard opened the circuit and every pick was withheld.
+  it("accepts a new County module version once every event type parses", async () => {
+    const { repository, getState } = repositoryFor({
+      state: stateAcceptingOldVersion(),
+      lastCompletedCounts: { advisory: 0, closure: 4, warning: 0 },
     });
+    const responses = responsesWithSites();
     const fetcher: CountyFeedFetcher = {
       fetchManifest: jest.fn().mockResolvedValue(MANIFEST),
-      fetchNotifications: jest.fn(),
+      fetchNotifications: jest.fn(async (id: 1 | 2 | 3) => responses[id - 1]),
     };
 
     const result = await runCountyAdvisoryIngest({ fetcher, repository, now: NOW });
-    const retry = await runCountyAdvisoryIngest({
-      fetcher,
-      repository,
-      now: new Date(NOW.getTime() + 60 * 60_000),
-    });
 
-    expect(result).toMatchObject({ status: "error", errorKind: "version_mismatch", circuitOpen: true });
-    expect(retry).toMatchObject({ status: "skipped", reason: "circuit_open" });
-    expect(fetcher.fetchManifest).toHaveBeenCalledTimes(1);
-    expect(fetcher.fetchNotifications).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ status: "ok", versionSequence: 6304 });
+    expect(fetcher.fetchNotifications).toHaveBeenCalledWith(1, MANIFEST);
+    expect(getState()).toMatchObject({
+      accepted_version_token: MANIFEST.versionToken,
+      accepted_version_sequence: MANIFEST.versionSequence,
+      circuit_open: false,
+      consecutive_failures: 0,
+    });
+  });
+
+  it("keeps the old version and opens the circuit when the new version no longer parses", async () => {
+    const { repository, getState } = repositoryFor({ state: stateAcceptingOldVersion() });
+    const fetcher: CountyFeedFetcher = {
+      fetchManifest: jest.fn().mockResolvedValue(MANIFEST),
+      fetchNotifications: jest.fn().mockRejectedValue(new CountyFeedError("shape_change", "missing data.Out1")),
+    };
+
+    const result = await runCountyAdvisoryIngest({ fetcher, repository, now: NOW });
+
+    expect(result).toMatchObject({ status: "error", errorKind: "shape_change", circuitOpen: true });
+    expect(result.status === "error" && result.error).toContain("County API version changed from 6303/old-token to 6304/");
+    expect(getState()).toMatchObject({
+      accepted_version_token: "old-token",
+      accepted_version_sequence: 6303,
+      observed_version_sequence: 6304,
+      circuit_open: true,
+    });
+    expect(repository.insertAdvisories).not.toHaveBeenCalled();
+  });
+
+  // A redeploy that silently drops closures while advisories still list would
+  // otherwise read as clear water at closed beaches.
+  it("does not accept a new version that drops a notice type the last run had", async () => {
+    const { repository, getState } = repositoryFor({
+      state: stateAcceptingOldVersion(),
+      lastCompletedCounts: { advisory: 5, closure: 8, warning: 0 },
+    });
+    const responses = [
+      response(1, "advisory", fixture("advisory")),
+      response(2, "closure", fixture("closure")),
+      response(3, "warning", fixture("warning")),
+    ];
+    responses[0].sites = [
+      { latitude: 32.8475, longitude: -117.2782, sourceSiteIdentifier: "32.847500,-117.278200" },
+    ];
+    const fetcher: CountyFeedFetcher = {
+      fetchManifest: jest.fn().mockResolvedValue(MANIFEST),
+      fetchNotifications: jest.fn(async (id: 1 | 2 | 3) => responses[id - 1]),
+    };
+
+    const result = await runCountyAdvisoryIngest({ fetcher, repository, now: NOW });
+
+    expect(result).toMatchObject({ status: "error", errorKind: "shape_change", circuitOpen: true });
+    expect(result.status === "error" && result.error).toContain("no closure notices");
+    expect(getState()).toMatchObject({ accepted_version_token: "old-token", circuit_open: true });
+    expect(repository.insertAdvisories).not.toHaveBeenCalled();
+  });
+
+  it("does not accept a new version that returns no notices at all", async () => {
+    const { repository, getState } = repositoryFor({ state: stateAcceptingOldVersion() });
+    const empty = [
+      response(1, "advisory", fixture("advisory")),
+      response(2, "closure", fixture("closure")),
+      response(3, "warning", fixture("warning")),
+    ];
+    const fetcher: CountyFeedFetcher = {
+      fetchManifest: jest.fn().mockResolvedValue(MANIFEST),
+      fetchNotifications: jest.fn(async (id: 1 | 2 | 3) => empty[id - 1]),
+    };
+
+    const result = await runCountyAdvisoryIngest({ fetcher, repository, now: NOW });
+
+    expect(result).toMatchObject({ status: "error", errorKind: "shape_change", circuitOpen: true });
+    expect(getState()).toMatchObject({ accepted_version_token: "old-token", circuit_open: true });
+    expect(repository.insertAdvisories).not.toHaveBeenCalled();
+    expect(repository.failRun).toHaveBeenCalled();
   });
 
   it("stores unmatched County sites and exposes the match rate", async () => {

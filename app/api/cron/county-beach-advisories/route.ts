@@ -36,8 +36,10 @@ async function _GET(request: Request): Promise<Response> {
         expectedMin: 1,
         getProduced: (value) =>
           value.status === "ok" ? value.summary.records.length : 0,
+        // An open circuit is an outage, not a quiet tick: holds go stale and
+        // every recommendation is withheld until an operator resets it.
         legitimatelyZero: (value) =>
-          value.status === "skipped"
+          value.status === "skipped" && value.reason !== "circuit_open"
             ? { reason: `County feed skipped: ${value.reason}` }
             : undefined,
       },
@@ -49,6 +51,17 @@ async function _GET(request: Request): Promise<Response> {
           ),
         }),
     );
+
+    if (result.status === "skipped" && result.reason === "circuit_open") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "County advisory feed circuit is open; water-quality holds are stale until an operator resets it",
+          details: result,
+        },
+        { status: 503 },
+      );
+    }
 
     if (result.status === "error") {
       return NextResponse.json(

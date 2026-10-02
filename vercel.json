@@ -118,6 +118,10 @@
       "schedule": "*/30 * * * *"
     },
     {
+      "path": "/api/cron/week-scout-canary",
+      "schedule": "10,40 * * * *"
+    },
+    {
       "path": "/api/cron/water-quality-alerts",
       "schedule": "0 13 * * 2,5"
     },

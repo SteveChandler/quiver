@@ -6,6 +6,7 @@ import { alertCountyFeedOperator, warnCountyFeedOperator } from "./alerts";
 import { CountyFeedError } from "./county-client";
 import { normalizeCountyNotifications } from "./normalizer";
 import {
+  COUNTY_ADVISORY_TYPES,
   COUNTY_BASE_BACKOFF_MS,
   COUNTY_FEED_SOURCE_IDENTIFIER,
   COUNTY_MAX_CONSECUTIVE_FAILURES,
@@ -139,26 +140,17 @@ export async function runCountyAdvisoryIngest(options: {
     token: manifest.versionToken,
     sequence: manifest.versionSequence,
   };
-  if (
+  // A County redeploy bumps the module version without changing the payload
+  // contract (2026-10-02: 6304 -> 6389, identical results). The new version is
+  // validated by this run and accepted only if every event type parses and no
+  // notice type the last accepted run had comes back empty; otherwise the
+  // failure below opens the circuit and the old version stays accepted.
+  const versionChange =
     state.accepted_version_token !== null &&
     (state.accepted_version_token !== manifest.versionToken ||
       state.accepted_version_sequence !== manifest.versionSequence)
-  ) {
-    return saveFailure(
-      options.repository,
-      {
-        ...stateBeforeRequest,
-        observed_version_token: manifest.versionToken,
-        observed_version_sequence: manifest.versionSequence,
-      },
-      now,
-      new CountyFeedError(
-        "version_mismatch",
-        `County API version changed from ${state.accepted_version_sequence}/${state.accepted_version_token} to ${manifest.versionSequence}/${manifest.versionToken}`,
-      ),
-      observedVersion,
-    );
-  }
+      ? `County API version changed from ${state.accepted_version_sequence}/${state.accepted_version_token} to ${manifest.versionSequence}/${manifest.versionToken}`
+      : null;
 
   const acceptedState: CountyIngestState = {
     ...stateBeforeRequest,
@@ -191,6 +183,24 @@ export async function runCountyAdvisoryIngest(options: {
 
     const beaches = await options.repository.listBeaches();
     const summary = normalizeCountyNotifications(responses, beaches, requestStartedAt);
+    // An empty type that had notices on the old version is how a silent
+    // contract change would look (closures gone while advisories still list),
+    // so it is not trusted until an operator confirms it.
+    if (versionChange) {
+      const previous = await options.repository.lastCompletedRunCounts();
+      const vanished = previous
+        ? COUNTY_ADVISORY_TYPES.filter((type) => previous[type] > 0 && summary.countsByType[type] === 0)
+        : [];
+      if (summary.totalSites === 0) {
+        throw new CountyFeedError("shape_change", "the new version returned no notices for any event type");
+      }
+      if (vanished.length > 0) {
+        throw new CountyFeedError(
+          "shape_change",
+          `the new version returned no ${vanished.join(", ")} notices where the last accepted run had some`,
+        );
+      }
+    }
     await options.repository.insertAdvisories(summary.records, runId);
     await options.repository.completeRun(runId, {
       countsByType: summary.countsByType,
@@ -201,6 +211,8 @@ export async function runCountyAdvisoryIngest(options: {
     });
     await options.repository.saveState({
       ...acceptedState,
+      accepted_version_token: manifest.versionToken,
+      accepted_version_sequence: manifest.versionSequence,
       consecutive_failures: 0,
       circuit_open: false,
       next_attempt_at: null,
@@ -209,6 +221,11 @@ export async function runCountyAdvisoryIngest(options: {
       updated_at: requestStartedAt,
     });
 
+    if (versionChange) {
+      warnCountyFeedOperator(
+        `${versionChange}; all ${COUNTY_EVENT_TYPE_IDENTIFIERS.length} event types parsed with ${summary.totalSites} sites, so the new version was accepted`,
+      );
+    }
     if (summary.unmatchedSites > 0) {
       warnCountyFeedOperator(
         `County feed matched ${summary.matchedSites}/${summary.totalSites} unique sites; ${summary.unmatchedSites} remain unmatched`,
@@ -229,6 +246,9 @@ export async function runCountyAdvisoryIngest(options: {
     } catch {
       // Keep the original feed failure as the surfaced error.
     }
-    return saveFailure(options.repository, acceptedState, now, error, observedVersion);
+    const failure = versionChange
+      ? new CountyFeedError(errorKindFor(error), `${versionChange}; ${errorMessageFor(error)}`)
+      : error;
+    return saveFailure(options.repository, acceptedState, now, failure, observedVersion);
   }
 }
