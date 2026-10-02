@@ -105,7 +105,7 @@ export async function runEnhancedForecastSyncCdip(
 
     // Sentry cron monitoring — only authenticated production cron traffic
     // should affect monitor status.
-    checkInId = startCronCheckIn({ slug: monitorSlug, schedule: "0 * * * *" });
+    checkInId = startCronCheckIn({ slug: monitorSlug, schedule: "50 * * * *" });
 
     const { deadlineMs, timeBudgetMs, safetyMarginMs } = getCronDeadlineMs();
     const result = await withCronOutcome(
