@@ -3,9 +3,11 @@
  */
 
 import {
+  WEEK_SCOUT_CANARY_BEACHES,
   WEEK_SCOUT_CANARY_BEACH_IDS,
   runWeekScoutCanary,
 } from "@/lib/monitoring/week-scout-canary";
+import { COUNTY_FEED_COVERAGE_BOUNDS } from "@/lib/services/county-beach-advisories/types";
 
 type Generate = NonNullable<Parameters<typeof runWeekScoutCanary>[0]>["generate"];
 
@@ -27,6 +29,16 @@ function response(
 const NOW = new Date("2026-10-02T03:10:00.000Z");
 
 describe("runWeekScoutCanary", () => {
+  // A beach outside County coverage keeps ranking when the County feed is stale,
+  // which would hide that outage from the canary.
+  it("only checks beaches the County feed covers", () => {
+    const bounds = COUNTY_FEED_COVERAGE_BOUNDS;
+    for (const beach of WEEK_SCOUT_CANARY_BEACHES) {
+      expect([beach.name, beach.lat >= bounds.minLat && beach.lat <= bounds.maxLat]).toEqual([beach.name, true]);
+      expect([beach.name, beach.lon >= bounds.minLon && beach.lon <= bounds.maxLon]).toEqual([beach.name, true]);
+    }
+  });
+
   it("asks Week Scout for the fixed beaches over the Best horizon in local time", async () => {
     const generate = jest.fn(async () => response({ state: "available" }, [2]));
 
@@ -86,7 +98,7 @@ describe("runWeekScoutCanary", () => {
     expect(result).toEqual({
       healthy: false,
       reason: "no_windows",
-      detail: "Week Scout ranked no window for 8 beaches over 3 days",
+      detail: "Week Scout ranked no window for 6 beaches over 3 days",
     });
   });
 

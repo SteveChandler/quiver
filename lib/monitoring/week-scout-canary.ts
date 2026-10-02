@@ -1,19 +1,21 @@
 import { generateWeekScoutForecastForDays } from "@/lib/services/discovery/week-scout";
 
 /**
- * Fixed San Diego and Orange County beaches. Week Scout fails closed across a
- * whole request, so a canary over a few beaches sees the same outage users do.
+ * Fixed San Diego County beaches, all inside the County feed's coverage. A stale
+ * County feed withholds only covered beaches, so one beach outside it would keep
+ * the canary healthy through the 2026-10-02 outage; with every beach covered the
+ * whole request goes unavailable, as it does for a surfer near San Diego.
  */
-export const WEEK_SCOUT_CANARY_BEACH_IDS = [
-  "65d177de-e75a-4ad8-aa0d-48a67c0851b0", // Ocean Beach Pier
-  "65809772-20bc-4009-b9b2-89c8ef3c4127", // Pacific Beach
-  "d291411d-d331-4bf1-ad1a-302da3c69de0", // La Jolla Shores
-  "5e72b79d-a12d-4cd3-8da4-b7b92069efbf", // Del Mar
-  "cceecad1-7668-4ad8-88ff-ade893c605cd", // Oceanside Pier
-  "193a3f9a-66d0-4362-bf55-d25bb831dae4", // Lower Trestles
-  "a4575b12-2bc3-44d4-ba53-4415707f3851", // Doheny State Beach
-  "071db1df-b5ee-4af6-a022-ea8a09667cbe", // Huntington Beach Pier
+export const WEEK_SCOUT_CANARY_BEACHES = [
+  { id: "65d177de-e75a-4ad8-aa0d-48a67c0851b0", name: "Ocean Beach Pier", lat: 32.747, lon: -117.254 },
+  { id: "65809772-20bc-4009-b9b2-89c8ef3c4127", name: "Pacific Beach", lat: 32.797, lon: -117.258 },
+  { id: "d291411d-d331-4bf1-ad1a-302da3c69de0", name: "La Jolla Shores", lat: 32.857, lon: -117.258 },
+  { id: "5e72b79d-a12d-4cd3-8da4-b7b92069efbf", name: "Del Mar", lat: 32.959, lon: -117.268 },
+  { id: "cceecad1-7668-4ad8-88ff-ade893c605cd", name: "Oceanside Pier", lat: 33.192, lon: -117.382 },
+  { id: "193a3f9a-66d0-4362-bf55-d25bb831dae4", name: "Lower Trestles", lat: 33.384, lon: -117.593 },
 ] as const;
+
+export const WEEK_SCOUT_CANARY_BEACH_IDS = WEEK_SCOUT_CANARY_BEACHES.map(({ id }) => id);
 
 /** No profile: the canary checks availability, not personalization. */
 const CANARY_USER_ID = "00000000-0000-0000-0000-000000000000";
