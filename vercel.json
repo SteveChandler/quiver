@@ -24,7 +24,7 @@
     },
     {
       "path": "/api/cron/enhanced-forecast-sync-cdip",
-      "schedule": "0 * * * *"
+      "schedule": "50 * * * *"
     },
     {
       "path": "/api/cron/enhanced-forecast-sync-dispatch",
@@ -32,7 +32,7 @@
     },
     {
       "path": "/api/cron/forecasts/refresh?source=marine&maxBeaches=130",
-      "schedule": "0 * * * *"
+      "schedule": "5 * * * *"
     },
     {
       "path": "/api/cron/forecasts/refresh?source=tide&maxBeaches=261",
@@ -56,7 +56,7 @@
     },
     {
       "path": "/api/monitoring/forecast-health",
-      "schedule": "*/30 * * * *"
+      "schedule": "12,42 * * * *"
     },
     {
       "path": "/api/cron/update-buoy-conditions",
@@ -80,7 +80,7 @@
     },
     {
       "path": "/api/cron/ioos-sync?phase=observations",
-      "schedule": "0 */2 * * *"
+      "schedule": "35 */2 * * *"
     },
     {
       "path": "/api/cron/ioos-sync?phase=stations",
