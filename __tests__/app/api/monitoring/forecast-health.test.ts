@@ -24,6 +24,11 @@ jest.mock("@/lib/monitoring/forecast-health-check", () => ({
   checkForecastHealth: () => mockHealthCheck(),
 }));
 
+const mockInputsHealth = jest.fn() as jest.MockedFunction<() => Promise<any>>;
+jest.mock("@/lib/monitoring/recommendation-inputs-health", () => ({
+  checkRecommendationInputsHealth: () => mockInputsHealth(),
+}));
+
 jest.mock("@/lib/monitoring/forecast-logger", () => ({
   forecastLogger: {
     healthCheck: (...args: any[]) => mockLogHealthCheck(...args),
@@ -39,6 +44,50 @@ describe("GET /api/monitoring/forecast-health", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.CRON_SECRET = "test-cron-secret";
+    mockInputsHealth.mockResolvedValue({ status: "healthy", issues: [] });
+  });
+
+  function sourceMetrics(source: string) {
+    return {
+      source, available: true, beachesWithData: 1, coveragePercentage: 1,
+      beachesWithStaleData: 0, beachesWithCriticalStaleData: 0, beachesWithWarningStaleData: 0,
+      oldestAgeHours: 1, averageAgeHours: 0.5, thresholds: { warningHours: 2, criticalHours: 6 },
+    };
+  }
+
+  function healthyForecastMetrics() {
+    return {
+      totalBeaches: 1, enhancedAvailable: true, beachesWithForecasts: 1, beachesWithStaleData: 0,
+      beachesWithCriticalStaleData: 0, beachesWithWarningStaleData: 0, coveragePercentage: 1,
+      oldestForecastAge: 1, averageForecastAge: 0.5, dataSourceBreakdown: {},
+      sources: Object.fromEntries(["enhanced", "marine", "tide", "sun", "ioos"].map((s) => [s, sourceMetrics(s)])),
+      healthStatus: "healthy", issues: [], staleBeaches: [],
+    };
+  }
+
+  // 2026-10-02: forecasts were fresh while every pick was withheld; the health
+  // check now also judges the inputs picks depend on.
+  it("goes critical when recommendation inputs are critical even if forecasts are fresh", async () => {
+    mockHealthCheck.mockResolvedValueOnce(healthyForecastMetrics());
+    mockInputsHealth.mockResolvedValueOnce({
+      status: "critical",
+      issues: ["County water-quality data is 125 min old; San Diego County picks are withheld past 120 min"],
+    });
+
+    const { GET } = await import("@/app/api/monitoring/forecast-health/route");
+    const res = await GET(
+      new Request("http://localhost:3000/api/monitoring/forecast-health", {
+        headers: { authorization: "Bearer test-cron-secret" },
+      }),
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(503);
+    expect(body.metrics.healthStatus).toBe("critical");
+    expect(body.metrics.issues).toContain(
+      "County water-quality data is 125 min old; San Diego County picks are withheld past 120 min",
+    );
+    expect(body.metrics.recommendationInputs).toMatchObject({ status: "critical" });
   });
 
   afterEach(() => {
