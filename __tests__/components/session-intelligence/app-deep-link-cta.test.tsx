@@ -11,6 +11,11 @@ import {
 import type { SurfWindowLinks } from "@/types/session-intelligence";
 
 const mockTrack = jest.fn();
+const mockTrackIosAppCtaClick = jest.fn();
+
+jest.mock("@/lib/analytics/ios-app-cta-tracking", () => ({
+  trackIosAppCtaClick: (arg: unknown) => mockTrackIosAppCtaClick(arg),
+}));
 
 jest.mock("@/hooks/use-track-event", () => ({
   useTrackEvent: () => ({ track: mockTrack }),
@@ -64,6 +69,7 @@ describe("AppDeepLinkCTA", () => {
 
   beforeEach(() => {
     mockTrack.mockClear();
+    mockTrackIosAppCtaClick.mockClear();
     restoreAnchorNavigation = preventAnchorNavigation();
   });
 
@@ -181,9 +187,22 @@ describe("AppDeepLinkCTA", () => {
         ),
         link_type: "app_store",
         fallback_to_app_store: true,
+        handoff_id: expect.stringMatching(/^[0-9a-f-]{36}$/i),
       }),
       debounceMs: 0,
     });
+    const metadata = mockTrack.mock.calls.find(
+      ([name]) => name === "app_deeplink_clicked",
+    )?.[1].metadata;
+    expect(mockTrackIosAppCtaClick).toHaveBeenCalledTimes(1);
+    expect(mockTrackIosAppCtaClick).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: "session_intelligence",
+        surface: "dev_preview",
+        placement: "app_store_fallback",
+        handoff_id: metadata.handoff_id,
+      }),
+    );
   });
 
   it.each([
@@ -288,5 +307,6 @@ describe("AppDeepLinkCTA", () => {
       "app_deeplink_clicked",
       expect.anything(),
     );
+    expect(mockTrackIosAppCtaClick).not.toHaveBeenCalled();
   });
 });
