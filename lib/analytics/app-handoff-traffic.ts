@@ -1,13 +1,13 @@
 import { detectBot } from "@/lib/security/bot-detection";
 
-export type HandoffTrafficClass =
+type HandoffTrafficClass =
   | "known_bot"
   | "preview_fetcher"
   | "prefetch"
   | "human_candidate"
   | "unverified";
 
-export type HandoffUaClass =
+type HandoffUaClass =
   | "ios_safari"
   | "ios_other"
   | "android_chrome"
@@ -19,7 +19,7 @@ export type HandoffUaClass =
   | "desktop_other"
   | "non_browser";
 
-export interface HandoffHeaderReader {
+interface HandoffHeaderReader {
   get(name: string): string | null;
 }
 
