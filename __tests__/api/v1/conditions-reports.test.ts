@@ -83,6 +83,22 @@ describe("POST /api/v1/conditions-reports", () => {
     );
   });
 
+  it("maps the overlapping 3:5 bounds to the 3-5ft bucket", async () => {
+    coreMock.mockResolvedValue({
+      success: true,
+      data: { intelPostId: "intel-1", sessionId: "session-1", expiresAt: "2026-08-11T00:00:00.000Z" },
+    });
+
+    const response = await POST(request({ ...validBody, waveSizeMin: 3, waveSizeMax: 5 }));
+
+    expect(response.status).toBe(201);
+    expect(coreMock).toHaveBeenCalledWith(
+      expect.objectContaining({ waveSizeRange: "3-5ft" }),
+      { id: "user-1" },
+      {},
+    );
+  });
+
   it("preserves the core result when its non-fatal feedback forward is handled there", async () => {
     coreMock.mockResolvedValue({
       success: true,
