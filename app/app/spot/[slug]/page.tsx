@@ -1,14 +1,22 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import type { ReactElement } from "react";
 import { ExternalLink, Smartphone, Waves } from "lucide-react";
 
-import { IosAppStoreCta } from "@/components/app-store/ios-app-store-cta";
 import {
   isCanonicalHandoffId,
   parseHandoffContext,
 } from "@/lib/beach-follow/handoff";
 import { BFR_PAGE_TYPES } from "@/lib/analytics/event-taxonomy";
-import { loadForecastWindowShareMetadata } from "@/lib/share/forecast-window-share";
+import { getFirstTouchPlatform } from "@/lib/analytics/web-context";
+import {
+  buildOpenInQuiverUrl,
+  isGoHost,
+  loadShareLandingMetadata,
+  parseShareId,
+} from "@/lib/share/share-landing";
+import { ShareLandingOpenAppLink } from "./share-landing-open-app-link";
+import { ShareLandingStoreCta } from "./share-landing-store-cta";
 import { ShareLinkOpenTracker } from "./share-link-open-tracker";
 
 export const dynamic = "force-dynamic";
@@ -49,7 +57,7 @@ export async function generateMetadata({
   const { slug } = await params;
   const resolvedSearchParams = (await searchParams) ?? {};
   const windowId = firstSearchValue(resolvedSearchParams.window);
-  const shareMetadata = await loadForecastWindowShareMetadata({
+  const shareMetadata = await loadShareLandingMetadata({
     slug,
     window: windowId,
   });
@@ -146,12 +154,26 @@ export default async function AppSpotHandoffPage({
   const { slug } = await params;
   const resolvedSearchParams = (await searchParams) ?? {};
   const windowId = firstSearchValue(resolvedSearchParams.window);
-  const shareMetadata = await loadForecastWindowShareMetadata({
+  const shareMetadata = await loadShareLandingMetadata({
     slug,
     window: windowId,
   });
   const webFallbackHref = buildBeachFallbackPath(slug);
   const exactRetryHref = buildExactRetryPath(slug, resolvedSearchParams);
+  const requestHeaders = await headers();
+  const shareId = parseShareId(firstSearchValue(resolvedSearchParams.sid));
+  const alreadyTriedApp =
+    isGoHost(requestHeaders.get("host")) ||
+    firstSearchValue(resolvedSearchParams.o) === "1";
+  const canOfferOpenInQuiver =
+    !exactRetryHref &&
+    !alreadyTriedApp &&
+    getFirstTouchPlatform(requestHeaders.get("user-agent") ?? "") === "ios";
+  const openInQuiverHref = buildOpenInQuiverUrl({
+    slug: safeDecodeSlug(slug),
+    windowValue: windowId,
+    shareId,
+  });
   const hasPositiveWindow = !shareMetadata.isFallback;
   const displayWindowLabel = hasPositiveWindow
     ? shareMetadata.windowLabel
@@ -162,6 +184,9 @@ export default async function AppSpotHandoffPage({
       <ShareLinkOpenTracker
         slug={safeDecodeSlug(slug)}
         windowValue={windowId ?? null}
+        shareId={shareId}
+        host={requestHeaders.get("host")}
+        isSecondHop={firstSearchValue(resolvedSearchParams.o) === "1"}
       />
       <section className="mx-auto flex min-h-[calc(100vh-6rem)] max-w-3xl flex-col justify-center">
         <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-md bg-[#F78E42] text-[#11100D] shadow-lg shadow-black/25">
@@ -191,16 +216,24 @@ export default async function AppSpotHandoffPage({
               <Smartphone className="h-5 w-5" aria-hidden="true" />
               Open this exact call in Quiver
             </a>
+          ) : canOfferOpenInQuiver ? (
+            <ShareLandingOpenAppLink
+              href={openInQuiverHref}
+              shareId={shareId}
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-[#F78E42] px-5 py-3 text-base font-black text-[#11100D] transition hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#101436]"
+            >
+              <Smartphone className="h-5 w-5" aria-hidden="true" />
+              Open in Quiver
+            </ShareLandingOpenAppLink>
           ) : null}
-          <IosAppStoreCta
-            source="app_spot_handoff"
-            surface="app_spot"
-            placement="app_store_fallback"
+          <ShareLandingStoreCta
+            shareId={shareId}
+            isShareLink={!exactRetryHref}
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md border border-white/20 bg-white/10 px-5 py-3 text-base font-black text-white transition hover:border-[#7BDCB5]/60 hover:bg-[#7BDCB5]/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7BDCB5] focus-visible:ring-offset-2 focus-visible:ring-offset-[#101436]"
           >
             <Smartphone className="h-5 w-5" aria-hidden="true" />
             Open in the App Store
-          </IosAppStoreCta>
+          </ShareLandingStoreCta>
           <a
             href={webFallbackHref}
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md border border-white/20 bg-white/10 px-5 py-3 text-base font-black text-white transition hover:border-[#7BDCB5]/60 hover:bg-[#7BDCB5]/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7BDCB5] focus-visible:ring-offset-2 focus-visible:ring-offset-[#101436]"
@@ -214,6 +247,14 @@ export default async function AppSpotHandoffPage({
           Open Quiver from the App Store, or keep reading this spot forecast on
           the web.
         </p>
+        {!exactRetryHref ? (
+          <p className="mt-2 max-w-xl text-sm font-semibold leading-6 text-[#91A0C8]">
+            {alreadyTriedApp
+              ? "Already installed? Open Quiver and search for this beach. "
+              : ""}
+            After it installs, tap the message again to open this beach.
+          </p>
+        ) : null}
       </section>
     </main>
   );

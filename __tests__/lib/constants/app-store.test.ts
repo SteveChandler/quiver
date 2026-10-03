@@ -96,6 +96,16 @@ describe("app-store constants", () => {
     expect(parsed.searchParams.get("mt")).toBe("8");
   });
 
+  it("tags share links with the share campaign and keeps the provider token", () => {
+    const url = new URL(
+      iosAppStoreUrlWithCampaign(IOS_APP_STORE_CAMPAIGNS.SHARE, "128222562"),
+    );
+
+    expect(url.searchParams.get("pt")).toBe("128222562");
+    expect(url.searchParams.get("ct")).toBe("share");
+    expect(url.searchParams.get("mt")).toBe("8");
+  });
+
   it("omits malformed provider tokens", () => {
     const url = new URL(
       iosAppStoreUrlWithCampaign(IOS_APP_STORE_CAMPAIGNS.WEB, "not-a-token"),
@@ -121,8 +131,9 @@ describe("app-store constants", () => {
     );
   });
 
-  it("normalizes Apple attribution to three low-volume campaigns", () => {
+  it("normalizes Apple attribution to four low-volume campaigns", () => {
     expect(resolveIosAppStoreCampaign({ campaign: "email" })).toBe("email");
+    expect(resolveIosAppStoreCampaign({ campaign: "share" })).toBe("share");
     expect(
       resolveIosAppStoreCampaign({
         campaign: "partner_sandys",

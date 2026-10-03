@@ -103,6 +103,17 @@ describe("/app handoff page", () => {
       { surface: "partner_landing", utm_campaign: "partner_SURF12" },
       "ct=partner_qr",
     ],
+    [
+      "share landing",
+      {
+        source: "share_landing",
+        utm_source: "share",
+        utm_medium: "link",
+        utm_campaign: "share",
+        utm_content: "7c1d7f4e-2b6a-4a57-9a5e-3d8f0b2f6a11",
+      },
+      "ct=share",
+    ],
   ])(
     "normalizes %s App Store attribution",
     async (_label, params, expected) => {
