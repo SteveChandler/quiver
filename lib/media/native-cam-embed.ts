@@ -51,6 +51,27 @@ function isWellFormedYouTubeEmbed(url: URL): boolean {
   return url.hostname === "www.youtube.com" && /^\/embed\/[^/]+$/.test(url.pathname);
 }
 
+function isKnownPlayerEndpoint(url: URL, provider: string): boolean {
+  switch (provider) {
+    case "youtube":
+      return isWellFormedYouTubeEmbed(url);
+    case "vimeo":
+      return url.hostname === "player.vimeo.com" && url.pathname.startsWith("/video/");
+    case "ozolio": {
+      const cmd = url.searchParams.get("cmd");
+      return cmd === "embed" || cmd === "iframe";
+    }
+    case "ipcamlive":
+      return url.pathname.startsWith("/player/");
+    case "angelcam":
+      return url.pathname.startsWith("/iframe");
+    case "brownrice":
+      return url.pathname.startsWith("/embed/");
+    default:
+      return false;
+  }
+}
+
 export function toNativeCamEmbed(intent: CamEmbedIntent): NativeCamEmbed | null {
   if (intent.kind === "external") {
     const page = parseHttps(intent.pageUrl);
@@ -65,6 +86,12 @@ export function toNativeCamEmbed(intent: CamEmbedIntent): NativeCamEmbed | null 
 
   const provider = providerFromHost(src.hostname);
   if (provider === "youtube" && !isWellFormedYouTubeEmbed(src)) return null;
+
+  // buildCamEmbed's fallback iframes any unrecognised page. The web can frame a
+  // whole site; the app hero cannot, so only known player endpoints embed.
+  if (!isKnownPlayerEndpoint(src, provider)) {
+    return { kind: "external", pageUrl: src.href, provider };
+  }
 
   return {
     kind: "iframe",
