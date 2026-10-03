@@ -2,14 +2,19 @@
 -- parse_numeric_from_text coalesces anything without a number to 0, so a forecast or session with
 -- no wind scored as 0 mph (glassy), no direction as 0 degrees (due north) and no tide ("-- ft") as
 -- 0 ft (dead low). On 2026-10-02 that moved learned scores by a median -0.8 for a missing wind and
--- -0.5 for a missing tide across the 9 profiles with 5+ sessions (range -2.1 to +0.9).
+-- -0.5 for a missing tide, and a San Diego beach missing wind and direction dropped about one place
+-- among eight nearby beaches.
 -- Now those three inputs parse to NULL when absent, on the slot and the session-snapshot side:
 --   * preference/aversion averages use only the sessions that have the factor;
---   * base score, aversion and session-fit proximity drop a missing factor and renormalize the
---     present weights (the convention prior_score and the similarity count already use);
+--   * in the base score, aversion and session-fit proximity a missing factor counts as half a miss
+--     of its own weight (the middle of its range), the rule the TypeScript scorers use for unknown
+--     wind. Dropping the factor and renormalizing instead was measured and rejected: it moved
+--     wind-less beaches up in 43 of 102 cases and down in 17. Half a miss moved them up 23, down 33,
+--     an average of -0.08 places;
 --   * the two tuple joins use IS NOT DISTINCT FROM so a slot with a NULL factor still returns.
--- With all five factors present the divisor is 1.0, so complete slots score exactly as before.
--- Wave height and period, the shared parser, the batch wrapper and every signature are unchanged.
+-- Complete slots are untouched, so they score exactly as before.
+-- Wave height and period, the shared parser, prior_score (starter profiles keep their own
+-- skip-and-renormalize rule), the batch wrapper and every signature are unchanged.
 -- Rollback: re-run compute_user_match_scores from 20260929120000_match_score_om_similarity_period.sql.
 BEGIN;
 
@@ -284,13 +289,11 @@ WITH board_usage AS (
   SELECT t.target_id, h.fit_value, 1.0 - LEAST((
       0.35 * LEAST(ABS(h.wave - t.f_wave) / GREATEST(h.wave, 1), 1) +
       0.25 * LEAST(ABS(h.period - t.f_period) / GREATEST(h.period, 1), 1) +
-      CASE WHEN t.f_wind IS NOT NULL THEN 0.20 * LEAST(ABS(h.wind - t.f_wind) / GREATEST(h.wind, 5), 1) ELSE 0 END +
-      CASE WHEN t.f_tide IS NOT NULL THEN 0.10 * LEAST(ABS(h.tide - t.f_tide) / 3, 1) ELSE 0 END +
+      CASE WHEN t.f_wind IS NOT NULL THEN 0.20 * LEAST(ABS(h.wind - t.f_wind) / GREATEST(h.wind, 5), 1) ELSE 0.20 * 0.5 END +
+      CASE WHEN t.f_tide IS NOT NULL THEN 0.10 * LEAST(ABS(h.tide - t.f_tide) / 3, 1) ELSE 0.10 * 0.5 END +
       CASE WHEN t.f_wind_dir IS NOT NULL THEN 0.10 * LEAST(LEAST(ABS(h.wind_dir - t.f_wind_dir),
-        360 - ABS(h.wind_dir - t.f_wind_dir)) / 180, 1) ELSE 0 END
-      ) / (0.60 + CASE WHEN t.f_wind IS NOT NULL THEN 0.20 ELSE 0 END
-        + CASE WHEN t.f_tide IS NOT NULL THEN 0.10 ELSE 0 END
-        + CASE WHEN t.f_wind_dir IS NOT NULL THEN 0.10 ELSE 0 END), 1.0) AS proximity
+        360 - ABS(h.wind_dir - t.f_wind_dir)) / 180, 1) ELSE 0.10 * 0.5 END
+      ), 1.0) AS proximity
   FROM fit_targets t JOIN history h ON h.eligible AND h.fit_value <> 0
     AND (h.session_skill_fit IS NOT NULL OR h.session_board_fit IS NOT NULL)
     -- Keep fit evidence on the same exact-break population as the scored profile (B3).
@@ -339,30 +342,24 @@ WITH board_usage AS (
       0.35 * LEAST(ABS(p_wave - f_wave) / GREATEST(p_wave, 1), 1) +
       0.25 * LEAST(ABS(p_period - f_period) / GREATEST(p_period, 1), 1) +
       CASE WHEN p_wind IS NOT NULL AND f_wind IS NOT NULL THEN
-        0.20 * LEAST(ABS(p_wind - f_wind) / GREATEST(p_wind, 5), 1) ELSE 0 END +
+        0.20 * LEAST(ABS(p_wind - f_wind) / GREATEST(p_wind, 5), 1) ELSE 0.20 * 0.5 END +
       CASE WHEN p_tide IS NOT NULL AND f_tide IS NOT NULL THEN
-        0.10 * LEAST(ABS(p_tide - f_tide) / 3, 1) ELSE 0 END +
+        0.10 * LEAST(ABS(p_tide - f_tide) / 3, 1) ELSE 0.10 * 0.5 END +
       CASE WHEN p_wind_dir IS NOT NULL AND f_wind_dir IS NOT NULL THEN
         0.10 * LEAST(LEAST(ABS(p_wind_dir - f_wind_dir),
-          360 - ABS(p_wind_dir - f_wind_dir)) / 180, 1) ELSE 0 END
-      ) / (0.60
-        + CASE WHEN p_wind IS NOT NULL AND f_wind IS NOT NULL THEN 0.20 ELSE 0 END
-        + CASE WHEN p_tide IS NOT NULL AND f_tide IS NOT NULL THEN 0.10 ELSE 0 END
-        + CASE WHEN p_wind_dir IS NOT NULL AND f_wind_dir IS NOT NULL THEN 0.10 ELSE 0 END), 1.0)) * 10.0 AS base_score,
+          360 - ABS(p_wind_dir - f_wind_dir)) / 180, 1) ELSE 0.10 * 0.5 END
+      ), 1.0)) * 10.0 AS base_score,
     CASE WHEN a_count > 0 THEN (1.0 - LEAST((
       0.35 * LEAST(ABS(a_wave - f_wave) / GREATEST(a_wave, 1), 1) +
       0.25 * LEAST(ABS(a_period - f_period) / GREATEST(a_period, 1), 1) +
       CASE WHEN a_wind IS NOT NULL AND f_wind IS NOT NULL THEN
-        0.20 * LEAST(ABS(a_wind - f_wind) / GREATEST(a_wind, 5), 1) ELSE 0 END +
+        0.20 * LEAST(ABS(a_wind - f_wind) / GREATEST(a_wind, 5), 1) ELSE 0.20 * 0.5 END +
       CASE WHEN a_tide IS NOT NULL AND f_tide IS NOT NULL THEN
-        0.10 * LEAST(ABS(a_tide - f_tide) / 3, 1) ELSE 0 END +
+        0.10 * LEAST(ABS(a_tide - f_tide) / 3, 1) ELSE 0.10 * 0.5 END +
       CASE WHEN a_wind_dir IS NOT NULL AND f_wind_dir IS NOT NULL THEN
         0.10 * LEAST(LEAST(ABS(a_wind_dir - f_wind_dir),
-          360 - ABS(a_wind_dir - f_wind_dir)) / 180, 1) ELSE 0 END
-      ) / (0.60
-        + CASE WHEN a_wind IS NOT NULL AND f_wind IS NOT NULL THEN 0.20 ELSE 0 END
-        + CASE WHEN a_tide IS NOT NULL AND f_tide IS NOT NULL THEN 0.10 ELSE 0 END
-        + CASE WHEN a_wind_dir IS NOT NULL AND f_wind_dir IS NOT NULL THEN 0.10 ELSE 0 END), 1.0)) * 3.0 ELSE 0 END AS aversion_penalty,
+          360 - ABS(a_wind_dir - f_wind_dir)) / 180, 1) ELSE 0.10 * 0.5 END
+      ), 1.0)) * 3.0 ELSE 0 END AS aversion_penalty,
     greatest(0, least(10, (1.0 - least((
       0.35 * least(abs(prior_wave - coalesce(f_wave, prior_wave)) / greatest(prior_wave, 1), 1)
       + CASE WHEN prior_wind IS NOT NULL AND f_wind_dir IS NOT NULL THEN

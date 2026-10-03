@@ -64,13 +64,16 @@ describe("match score missing-inputs-neutral migration", () => {
     }
   });
 
-  it("drops a missing factor and renormalizes, so complete slots keep a divisor of 1.0", () => {
+  it("counts a missing factor as half a miss of its own weight, with no renormalization", () => {
     const sql = flat(migration);
     for (const side of ["p", "a"]) {
-      expect(sql).toContain(`CASE WHEN ${side}_wind IS NOT NULL AND f_wind IS NOT NULL THEN 0.20 * LEAST(ABS(${side}_wind - f_wind)`);
-      expect(sql).toContain(`) / (0.60 + CASE WHEN ${side}_wind IS NOT NULL AND f_wind IS NOT NULL THEN 0.20 ELSE 0 END + CASE WHEN ${side}_tide IS NOT NULL AND f_tide IS NOT NULL THEN 0.10 ELSE 0 END + CASE WHEN ${side}_wind_dir IS NOT NULL AND f_wind_dir IS NOT NULL THEN 0.10 ELSE 0 END), 1.0))`);
+      expect(sql).toContain(`CASE WHEN ${side}_wind IS NOT NULL AND f_wind IS NOT NULL THEN 0.20 * LEAST(ABS(${side}_wind - f_wind) / GREATEST(${side}_wind, 5), 1) ELSE 0.20 * 0.5 END`);
+      expect(sql).toContain(`CASE WHEN ${side}_tide IS NOT NULL AND f_tide IS NOT NULL THEN 0.10 * LEAST(ABS(${side}_tide - f_tide) / 3, 1) ELSE 0.10 * 0.5 END`);
+      expect(sql).toContain(`360 - ABS(${side}_wind_dir - f_wind_dir)) / 180, 1) ELSE 0.10 * 0.5 END`);
     }
-    expect(sql).toContain(") / (0.60 + CASE WHEN t.f_wind IS NOT NULL THEN 0.20 ELSE 0 END + CASE WHEN t.f_tide IS NOT NULL THEN 0.10 ELSE 0 END + CASE WHEN t.f_wind_dir IS NOT NULL THEN 0.10 ELSE 0 END), 1.0) AS proximity");
+    expect(sql).toContain("CASE WHEN t.f_wind IS NOT NULL THEN 0.20 * LEAST(ABS(h.wind - t.f_wind) / GREATEST(h.wind, 5), 1) ELSE 0.20 * 0.5 END");
+    // Dropping a factor and renormalizing tilted wind-less beaches up; it must not come back.
+    expect(sql).not.toContain("/ (0.60");
   });
 
   it("matches slots with a NULL factor in both tuple joins", () => {

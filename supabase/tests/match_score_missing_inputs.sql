@@ -84,9 +84,9 @@ BEGIN
     slot('null text','null','null','-- ft'), slot('all missing',NULL,NULL,NULL))) WHERE result->>'state' = 'learned';
   IF n <> 3 THEN RAISE EXCEPTION 'Slots with missing factors must still return a learned result, got % of 3', n; END IF;
 
-  -- 3. Missing wind is neutral: the other factors match exactly, so nothing is lost.
+  -- 3. Missing wind is neutral: half a miss of its 0.20 weight, whatever the profile prefers.
   v := base_score(1, slot('no wind',NULL,'270','3 ft'));
-  IF v IS DISTINCT FROM 10.00 THEN RAISE EXCEPTION 'Missing wind should be neutral (base 10), got %', v; END IF;
+  IF v IS DISTINCT FROM 9.00 THEN RAISE EXCEPTION 'Missing wind should cost half its weight (base 9), got %', v; END IF;
   IF base_score(1, slot('empty wind','','270','3 ft')) IS DISTINCT FROM v
     OR base_score(1, slot('null wind','null','270','3 ft')) IS DISTINCT FROM v THEN
     RAISE EXCEPTION 'Absent, empty and "null" wind must all be missing';
@@ -96,21 +96,25 @@ BEGIN
   v := base_score(1, slot('calm','0 mph','270','3 ft'));
   IF v IS DISTINCT FROM 8.00 THEN RAISE EXCEPTION 'Real 0 mph should score as calm (base 8), got %', v; END IF;
 
-  -- 5. Missing tide ("-- ft" or absent) is neutral; a real 0 ft is not.
-  IF base_score(1, slot('dash tide','10 mph','270','-- ft')) IS DISTINCT FROM 10.00
-    OR base_score(1, slot('no tide','10 mph','270',NULL)) IS DISTINCT FROM 10.00 THEN
-    RAISE EXCEPTION 'Missing tide should be neutral';
+  -- 5. Missing tide ("-- ft" or absent) is half a miss; a real 0 ft is a full one (3 ft preferred).
+  IF base_score(1, slot('dash tide','10 mph','270','-- ft')) IS DISTINCT FROM 9.50
+    OR base_score(1, slot('no tide','10 mph','270',NULL)) IS DISTINCT FROM 9.50 THEN
+    RAISE EXCEPTION 'Missing tide should cost half its weight (base 9.5)';
   END IF;
-  IF base_score(1, slot('zero tide','10 mph','270','0 ft')) IS NOT DISTINCT FROM 10.00 THEN
-    RAISE EXCEPTION 'A real 0 ft tide must still count';
+  IF base_score(1, slot('zero tide','10 mph','270','0 ft')) IS DISTINCT FROM 9.00 THEN
+    RAISE EXCEPTION 'A real 0 ft tide must still count as a full miss (base 9)';
   END IF;
 
-  -- 6. Missing direction is neutral; a real due north is 90 degrees off the preferred 270.
-  IF base_score(1, slot('no dir','10 mph','null','3 ft')) IS DISTINCT FROM 10.00 THEN
-    RAISE EXCEPTION 'Missing direction should be neutral';
+  -- 6. Missing direction is half a miss; a real 90 degrees is opposite the preferred 270, a full one.
+  IF base_score(1, slot('no dir','10 mph','null','3 ft')) IS DISTINCT FROM 9.50 THEN
+    RAISE EXCEPTION 'Missing direction should cost half its weight (base 9.5)';
   END IF;
-  v := base_score(1, slot('north','10 mph','0','3 ft'));
-  IF v IS DISTINCT FROM 9.50 THEN RAISE EXCEPTION 'Due north should cost 0.05 (base 9.5), got %', v; END IF;
+  v := base_score(1, slot('opposite','10 mph','90','3 ft'));
+  IF v IS DISTINCT FROM 9.00 THEN RAISE EXCEPTION 'An opposite wind should cost the full 0.10 (base 9), got %', v; END IF;
+
+  -- 6b. All three missing: half of 0.40, whatever the profile prefers.
+  v := base_score(1, slot('all missing',NULL,NULL,NULL));
+  IF v IS DISTINCT FROM 8.00 THEN RAISE EXCEPTION 'All three missing should cost half their 0.40 (base 8), got %', v; END IF;
 
   -- 7. A session with no wind does not drag the preferred wind toward 0 mph.
   v := base_score(2, slot('match','10 mph','270','3 ft'));
