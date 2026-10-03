@@ -338,9 +338,9 @@ export default async function GenericBeachDetailPage(props: PageProps) {
                   surface="beach_detail"
                   placement="after_public_hourly_forecast"
                   target={`beach:${beachSlug}`}
-                  eyebrow={`Next call · ${beach.name}`}
+                  eyebrow={`Next window · ${beach.name}`}
                   title={`Watch the next good window at ${beach.name}.`}
-                  description="Today's call is here. Quiver keeps this break on your phone so the next surfable window is easier to catch."
+                  description="The forecast is here. Quiver keeps this break on your phone so the next surfable window is easier to catch."
                   ctaLabel="Watch the next window in the app"
                 />
               ) : null}

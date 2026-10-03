@@ -71,7 +71,7 @@ export default async function PartnerFlyerPage({
           <header className="flex items-start justify-between gap-5">
             <div>
               <p className="font-mono text-xs font-bold uppercase tracking-[0.18em]">
-                Quiver x local surf call
+                Quiver x local surf forecast
               </p>
               <p className="mt-2 inline-block -rotate-1 bg-[#11100D] px-3 py-1 font-heading text-sm font-black uppercase tracking-[0.1em] text-[#F4EBD8]">
                 {partnerLabel}
@@ -91,10 +91,10 @@ export default async function PartnerFlyerPage({
               <h1 className="font-heading text-[clamp(3.25rem,9vw,6.35rem)] font-black uppercase leading-[0.86] tracking-normal">
                 Scan for
                 <br />
-                the surf call
+                the surf forecast
               </h1>
               <p className="mt-6 max-w-[5.8in] text-[clamp(1.2rem,2.4vw,1.65rem)] font-bold leading-tight">
-                Check the tide, wind, swell, and local call before you load the
+                Check the tide, wind, swell, and local conditions before you load the
                 board.
               </p>
               <div className="mt-7 grid max-w-[5.4in] gap-3 border-y-2 border-[#11100D] py-4 font-mono text-sm font-bold uppercase tracking-[0.08em] sm:grid-cols-3">
@@ -117,7 +117,7 @@ export default async function PartnerFlyerPage({
                 />
               </div>
               <p className="mt-4 max-w-[2.25in] text-center font-heading text-sm font-black uppercase leading-tight tracking-[0.08em]">
-                Open camera, scan, make the call
+                Open camera, scan, check the forecast
               </p>
             </div>
           </div>

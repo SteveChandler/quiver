@@ -124,7 +124,7 @@ export function WaterTempPageContent({
             target={`water-temp:${citySlug}`}
             eyebrow={`${cityName} water temp · next check`}
             title="Water temp sorted. Is it worth paddling out?"
-            description={`Your ${roundedCurrentTemp}°F answer is set. Take the surf call for ${cityName} with you and check the conditions when you're ready to go.`}
+            description={`Your ${roundedCurrentTemp}°F answer is set. Take the ${cityName} surf forecast with you and check the conditions when you're ready to go.`}
             ctaLabel="Check the surf in the app"
           />
 
