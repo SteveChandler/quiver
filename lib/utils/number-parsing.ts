@@ -63,6 +63,16 @@ export function parseWindSpeed(value: unknown, fallback: number = 0): number {
   return Number.isNaN(parsed) ? fallback : parsed;
 }
 
+/**
+ * Wind speed as stored (mph), or null when the source gave none. A missing
+ * wind is unknown, not calm; only a real "0 mph" is 0.
+ */
+export function parseWindSpeedOrNull(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  const parsed = parseWindSpeed(value, Number.NaN);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 export function parseWavePeriod(value: unknown, fallback: number = 0): number {
   if (!value) return fallback;
   const str = String(value);

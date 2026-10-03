@@ -12,6 +12,7 @@
  */
 
 import { getLocalHour } from "@/lib/utils/timezone-utils";
+import { parseWindSpeedOrNull } from "@/lib/utils/number-parsing";
 import type {
   ForecastSlot,
   BeachMetadata,
@@ -125,8 +126,8 @@ function convertToSlots(forecasts: EnhancedForecastEntity[]): ForecastSlot[] {
         // forecast_at is already a UTC ISO 8601 timestamp — parse directly.
         local_time: new Date(f.forecast_at),
         tide_height_ft: parseFloat(f.tide_height ?? "0"),
-        wind_speed_mph: parseFloat(f.wind_speed ?? "0"),
-        wind_direction_deg: f.wind_direction_deg ?? 0,
+        wind_speed_mph: parseWindSpeedOrNull(f.wind_speed),
+        wind_direction_deg: f.wind_direction_deg ?? null,
         wave_height_ft: parseFloat(f.wave_height ?? "0"),
         wave_period_s: parseFloat(f.wave_period ?? "0"),
         wave_direction_deg: parseWindDirection(f.wave_direction ?? "N"),

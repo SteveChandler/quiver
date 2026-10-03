@@ -110,15 +110,12 @@ function buildWindowResult(
 
   const peakTide =
     slotA.tide_height_ft + ratio * (slotB.tide_height_ft - slotA.tide_height_ft);
-  const peakWindSpeed =
-    slotA.wind_speed_mph + ratio * (slotB.wind_speed_mph - slotA.wind_speed_mph);
 
-  // Use circular interpolation for directions
-  const peakWindDir = interpolateAngle(
-    slotA.wind_direction_deg,
-    slotB.wind_direction_deg,
-    ratio
-  );
+  // Use circular interpolation for directions; an unknown end stays unknown.
+  const peakWindDir =
+    slotA.wind_direction_deg === null || slotB.wind_direction_deg === null
+      ? null
+      : interpolateAngle(slotA.wind_direction_deg, slotB.wind_direction_deg, ratio);
 
   const peakSwellDir = interpolateAngle(
     slotA.wave_direction_deg,
@@ -137,10 +134,12 @@ function buildWindowResult(
       : true; // No swell preference = always match
 
   const windQuality =
-    beach.wind_offshore_deg !== null && beach.wind_offshore_tol_deg !== null
-      ? checkWindOffshore(peakWindDir, beach.wind_offshore_deg, beach.wind_offshore_tol_deg)
-          .quality
-      : "acceptable"; // No wind preference = acceptable
+    peakWindDir === null
+      ? null
+      : beach.wind_offshore_deg !== null && beach.wind_offshore_tol_deg !== null
+        ? checkWindOffshore(peakWindDir, beach.wind_offshore_deg, beach.wind_offshore_tol_deg)
+            .quality
+        : "acceptable"; // No wind preference = acceptable
 
   const tideInRange = isTideInRange(
     peakTide,

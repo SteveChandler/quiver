@@ -26,7 +26,8 @@ export function windChopCeiling(
   if (!Number.isFinite(snapshot.wavePeriod) || snapshot.wavePeriod >= SHORT_PERIOD_MAX_S) {
     return null;
   }
-  if (!Number.isFinite(snapshot.wind.speedMph) || snapshot.wind.speedMph < ONSHORE_WIND_MIN_MPH) {
+  const windSpeed = snapshot.wind.speedMph;
+  if (windSpeed == null || !Number.isFinite(windSpeed) || windSpeed < ONSHORE_WIND_MIN_MPH) {
     return null;
   }
   if (windDirection == null || !Number.isFinite(windDirection)) {

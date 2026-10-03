@@ -23,6 +23,7 @@ import {
 } from "@/lib/scoring/native-condition-score";
 import { getRideabilityBand } from "@/lib/domains/rideability";
 import { getDirectionDegrees } from "./direction-utils";
+import { parseWindSpeedOrNull } from "@/lib/utils/number-parsing";
 import { getScoringEngine } from "./scoring-engine-singleton";
 import { isDirectionScoringEnabledForBeach } from "@/lib/flags/direction-scoring";
 import { windChopCeiling } from "@/lib/domains/scoring/wind-chop-ceiling";
@@ -62,7 +63,7 @@ export function scoreForecastWindow(
 
   const waveHeight = parseFloat(forecast.wave_height || "0");
   const wavePeriod = parseFloat(forecast.wave_period?.replace("s", "") || "0");
-  const windSpeed = parseFloat(forecast.wind_speed || "0");
+  const windSpeed = parseWindSpeedOrNull(forecast.wind_speed);
   const windDir = getDirectionDegrees(
     forecast.wind_direction_deg,
     forecast.wind_direction,
@@ -111,8 +112,10 @@ export function scoreForecastWindow(
     }
   }
 
-  // 3. Wind Alignment (0-20 points)
-  if (
+  // 3. Wind Alignment (0-20 points). Unknown speed scores the 10-point midpoint.
+  if (windSpeed === null) {
+    score += 10;
+  } else if (
     beach.wind_offshore_deg !== null &&
     beach.wind_offshore_tol_deg !== null
   ) {

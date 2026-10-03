@@ -363,7 +363,11 @@ describe("Enhanced Forecast Service - 12 Day Forecast", () => {
       expect(forecasts.length).toBe(TOTAL_FORECASTS);
       // All forecasts should have fallback values
       expect(forecasts[0].weather_condition).toBe("Partly Cloudy");
-      expect(forecasts[0].wind_speed).toBe("10 mph");
+      // Wind is never invented: no NWS data means no wind.
+      expect(forecasts[0].wind_speed).toBeNull();
+      expect(forecasts[0].wind_direction).toBeNull();
+      expect(forecasts[0].wind_direction_deg).toBeNull();
+      expect(forecasts[0].wind_source).toBeNull();
     }, 10000);
 
     it("should handle invalid beach data", async () => {

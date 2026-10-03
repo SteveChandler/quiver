@@ -134,8 +134,12 @@ export function fitConditions(row: FitForecast, beach: FitBeach, interference: n
 
 type WindLabel = 'glassy' | keyof typeof WIND_BASE;
 
+// Unknown wind sits halfway across the 0.05-1 cleanliness range: no glassy, clean or choppy call.
+const UNKNOWN_WIND_CLEAN = (0.05 + 1) / 2;
+
 function windCleanliness(c: FitConditions): { clean: number; label: WindLabel } {
-  const mph = c.windMph ?? 0;
+  if (c.windMph === null) return { clean: UNKNOWN_WIND_CLEAN, label: 'unknown' };
+  const mph = c.windMph;
   if (mph <= 3) return { clean: 0.95, label: 'glassy' };
   let label: keyof typeof WIND_BASE = 'unknown';
   if (c.windDirDeg !== null && c.offshoreDeg !== null) {

@@ -17,8 +17,10 @@ export interface ForecastSlot {
   forecast_time: string;
   local_time: Date;
   tide_height_ft: number;
-  wind_speed_mph: number;
-  wind_direction_deg: number;
+  /** Null when the forecast has no wind (unknown, not calm). */
+  wind_speed_mph: number | null;
+  /** Null when the source gave no direction; never a default. */
+  wind_direction_deg: number | null;
   wave_height_ft: number;
   wave_period_s: number;
   wave_direction_deg: number;
@@ -108,7 +110,7 @@ export interface OptimalWindow {
   windowEnd: string;
   confidence: number;
   swellMatch: boolean;
-  windQuality: "perfect" | "acceptable" | "cross" | "onshore";
+  windQuality: "perfect" | "acceptable" | "cross" | "onshore" | null;
   tideInRange: boolean;
 }
 
