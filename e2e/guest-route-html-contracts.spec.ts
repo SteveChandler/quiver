@@ -169,11 +169,12 @@ test.describe('Route HTML Contracts', () => {
       const ogTitle = getMetaContent(html, { property: 'og:title' });
       const ogDescription = getMetaContent(html, { property: 'og:description' });
 
-      expect(ogTitle).toBe('Open Quiver Surf Window');
-      expect(ogDescription).toBe('Open this surf window in Quiver.');
-      expect(ogImage).toContain('/api/og/forecast-window');
+      // The window is long past, so the landing falls back to the non-temporal
+      // beach card (or the generic card when the beach is unknown).
+      expect(ogTitle).not.toMatch(/lining up|3:30|18s|rising|current|live/i);
+      expect(ogDescription).not.toMatch(/lining up|3:30|18s|rising/i);
+      expect(ogImage).toMatch(/\/api\/og\/(forecast-window|beach)/);
       expect(ogImage).toContain('slug=204s');
-      expect(ogImage).toContain('window=2026-06-04T22%3A30%3A00.000Z');
       expect(ogImage).not.toMatch(/label=|conditions=|utm_/);
     });
 

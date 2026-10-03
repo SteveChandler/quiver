@@ -7,6 +7,7 @@ export const IOS_APP_STORE_CAMPAIGNS = {
   WEB: "web",
   EMAIL: "email",
   PARTNER_QR: "partner_qr",
+  SHARE: "share",
 } as const;
 
 export type IosAppStoreCampaign =
@@ -38,6 +39,9 @@ export function resolveIosAppStoreCampaign({
   }
   if (campaign === IOS_APP_STORE_CAMPAIGNS.PARTNER_QR) {
     return IOS_APP_STORE_CAMPAIGNS.PARTNER_QR;
+  }
+  if (campaign === IOS_APP_STORE_CAMPAIGNS.SHARE) {
+    return IOS_APP_STORE_CAMPAIGNS.SHARE;
   }
   if (campaign === IOS_APP_STORE_CAMPAIGNS.WEB) {
     return IOS_APP_STORE_CAMPAIGNS.WEB;

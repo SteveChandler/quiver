@@ -1,6 +1,16 @@
 import { render, screen } from "@testing-library/react";
 
 const mockLoadForecastWindowShareMetadata = jest.fn();
+const mockGetBeachBySlugOrId = jest.fn();
+const mockHeadersGet = jest.fn();
+
+jest.mock("next/headers", () => ({
+  headers: jest.fn(async () => ({ get: mockHeadersGet })),
+}));
+
+jest.mock("@/lib/utils/beach-lookup-utils", () => ({
+  getBeachBySlugOrId: (...args: unknown[]) => mockGetBeachBySlugOrId(...args),
+}));
 
 jest.mock("@/lib/share/forecast-window-share", () => ({
   loadForecastWindowShareMetadata: (...args: unknown[]) =>
@@ -64,10 +74,26 @@ function firstOpenGraphImageUrl(
   return image?.url?.toString() ?? "";
 }
 
+const IPHONE_UA =
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1";
+const ANDROID_UA =
+  "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36";
+const DESKTOP_UA =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15";
+const SHARE_ID = "7c1d7f4e-2b6a-4a57-9a5e-3d8f0b2f6a11";
+
+function requestAs(userAgent: string, host = "www.quiversurf.app"): void {
+  mockHeadersGet.mockImplementation((key: string) =>
+    key === "host" ? host : key === "user-agent" ? userAgent : null,
+  );
+}
+
 describe("/app/spot/[slug] handoff page", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockLoadForecastWindowShareMetadata.mockResolvedValue(neutralMetadata());
+    mockGetBeachBySlugOrId.mockResolvedValue(null);
+    requestAs(DESKTOP_UA);
   });
 
   it("is noindexed, dynamic, and no-store", async () => {
@@ -269,5 +295,135 @@ describe("/app/spot/[slug] handoff page", () => {
       }),
       { includeAttribution: false },
     );
+  });
+  describe("share landing", () => {
+    it("uses a non-temporal beach card when the link carries no resolvable window", async () => {
+      mockGetBeachBySlugOrId.mockResolvedValue({
+        name: "Blacks",
+        slug: "blacks",
+      });
+
+      const metadata = await generateMetadata({
+        params: Promise.resolve({ slug: "blacks" }),
+        searchParams: Promise.resolve({ sid: SHARE_ID }),
+      });
+
+      expect(metadata.title).toBe("Blacks surf forecast on Quiver");
+      expect(String(metadata.title)).not.toMatch(
+        /current|now|today|live|call/i,
+      );
+      expect(firstOpenGraphImageUrl(metadata)).toMatch(
+        /\/api\/og\/beach\?slug=blacks$/,
+      );
+    });
+
+    it("keeps the generic card for an unknown beach", async () => {
+      const metadata = await generateMetadata({
+        params: Promise.resolve({ slug: "nowhere" }),
+        searchParams: Promise.resolve({}),
+      });
+
+      expect(metadata.title).toBe("Open Quiver Surf Window");
+      expect(firstOpenGraphImageUrl(metadata)).toContain(
+        "/api/og/forecast-window",
+      );
+    });
+
+    it("does not replace a resolved window card with the beach card", async () => {
+      mockLoadForecastWindowShareMetadata.mockResolvedValue(positiveMetadata());
+      mockGetBeachBySlugOrId.mockResolvedValue({
+        name: "Server Beach",
+        slug: "server-beach",
+      });
+
+      const metadata = await generateMetadata({
+        params: Promise.resolve({ slug: "server-beach" }),
+        searchParams: Promise.resolve({ window: "2026-06-03T14:30:00.000Z" }),
+      });
+
+      expect(metadata.title).toBe("Server Beach 7:30 AM is lining up");
+      expect(mockGetBeachBySlugOrId).not.toHaveBeenCalled();
+    });
+
+    it("offers an Open in Quiver link to the go host on an iPhone at www", async () => {
+      requestAs(IPHONE_UA);
+
+      const page = await AppSpotHandoffPage({
+        params: Promise.resolve({ slug: "blacks" }),
+        searchParams: Promise.resolve({
+          window: "2026-06-03T14:30:00.000Z",
+          sid: SHARE_ID,
+        }),
+      });
+      render(page);
+
+      const link = screen.getByRole("link", { name: /^open in quiver$/i });
+      const href = new URL(link.getAttribute("href")!);
+      expect(href.origin).toBe("https://go.quiversurf.app");
+      expect(href.pathname).toBe("/app/spot/blacks");
+      expect(href.searchParams.get("window")).toBe("2026-06-03T14:30:00.000Z");
+      expect(href.searchParams.get("sid")).toBe(SHARE_ID);
+      expect(href.searchParams.get("o")).toBe("1");
+      expect(
+        screen.getByText(/after it installs, tap the message again/i),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/already installed/i)).not.toBeInTheDocument();
+    });
+
+    it("drops a malformed share id from the Open in Quiver link", async () => {
+      requestAs(IPHONE_UA);
+
+      const page = await AppSpotHandoffPage({
+        params: Promise.resolve({ slug: "blacks" }),
+        searchParams: Promise.resolve({ sid: "not-a-uuid" }),
+      });
+      render(page);
+
+      const href = new URL(
+        screen
+          .getByRole("link", { name: /^open in quiver$/i })
+          .getAttribute("href")!,
+      );
+      expect(href.searchParams.has("sid")).toBe(false);
+    });
+
+    it.each([
+      ["the go host", IPHONE_UA, "go.quiversurf.app", {}],
+      ["o=1 at www", IPHONE_UA, "www.quiversurf.app", { o: "1" }],
+      ["an Android phone", ANDROID_UA, "www.quiversurf.app", {}],
+      ["a desktop browser", DESKTOP_UA, "www.quiversurf.app", {}],
+    ])(
+      "hides Open in Quiver on %s",
+      async (_label, userAgent, host, extraParams) => {
+        requestAs(userAgent, host);
+
+        const page = await AppSpotHandoffPage({
+          params: Promise.resolve({ slug: "blacks" }),
+          searchParams: Promise.resolve({ sid: SHARE_ID, ...extraParams }),
+        });
+        render(page);
+
+        expect(
+          screen.queryByRole("link", { name: /^open in quiver$/i }),
+        ).not.toBeInTheDocument();
+        expect(
+          screen.getByRole("link", { name: /open in the app store/i }),
+        ).toBeInTheDocument();
+      },
+    );
+
+    it("tells a recipient on the go host to open the installed app themselves", async () => {
+      requestAs(IPHONE_UA, "go.quiversurf.app");
+
+      const page = await AppSpotHandoffPage({
+        params: Promise.resolve({ slug: "blacks" }),
+        searchParams: Promise.resolve({ sid: SHARE_ID, o: "1" }),
+      });
+      render(page);
+
+      expect(
+        screen.getByText(/already installed\? open quiver and search/i),
+      ).toBeInTheDocument();
+    });
   });
 });
