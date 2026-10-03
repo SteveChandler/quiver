@@ -34,9 +34,9 @@ const CASES = [
     placement: "above_fold_after_public_answer",
     source: "content-beach-detail-blacks",
     target: "beach:blacks",
-    eyebrow: "Next call · Blacks",
+    eyebrow: "Next window · Blacks",
     title: "Watch the next good window at Blacks.",
-    description: "Today's call is here.",
+    description: "The forecast is here.",
     ctaLabel: "Watch the next window in the app",
   },
   {

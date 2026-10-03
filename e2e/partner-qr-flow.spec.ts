@@ -101,7 +101,7 @@ test.describe('Partner QR landing flow', () => {
 
     expect(response?.status()).toBe(200);
     await expect(
-      page.getByRole('heading', { name: /scan for\s+the surf call/i }),
+      page.getByRole('heading', { name: /scan for\s+the surf forecast/i }),
     ).toBeVisible({ timeout: 10_000 });
     await expect(page.getByTestId('partner-flyer-qr')).toBeVisible();
     await expect(page.getByText(PARTNER_CODE, { exact: true })).toBeVisible();

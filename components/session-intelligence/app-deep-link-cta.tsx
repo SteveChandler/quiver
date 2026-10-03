@@ -9,6 +9,7 @@ import {
   trackExactCallHandoffLinkOpened,
 } from "@/lib/analytics/app-handoff-tracking";
 import { createClientAppHandoffLink } from "@/lib/analytics/app-handoff-link";
+import { trackIosAppCtaClick } from "@/lib/analytics/ios-app-cta-tracking";
 import type { BfrPageType } from "@/lib/analytics/event-taxonomy";
 import {
   isCanonicalHandoffId,
@@ -170,14 +171,28 @@ export function AppDeepLinkCTA({
     const payload = {
       ...(tracking?.beachId ? { beachId: tracking.beachId } : {}),
       metadata: clickHandoff
-        ? buildSurfWindowTrackingMetadata(tracking ?? {}, {
-            targetHref: clickHandoff.url,
-            linkType: "app_store",
-            fallbackToAppStore: true,
-          })
+        ? {
+            ...buildSurfWindowTrackingMetadata(tracking ?? {}, {
+              targetHref: clickHandoff.url,
+              linkType: "app_store",
+              fallbackToAppStore: true,
+            }),
+            handoff_id: clickHandoff.handoffId,
+          }
         : metadata,
       debounceMs: 0,
     };
+
+    if (clickHandoff) {
+      trackIosAppCtaClick({
+        source: "session_intelligence",
+        surface: tracking?.surface ?? "session_intelligence",
+        placement: "app_store_fallback",
+        cta_text: IOS_APP_STORE_CTA,
+        destination_url: clickHandoff.url,
+        handoff_id: clickHandoff.handoffId,
+      });
+    }
 
     void track("surf_window_click", payload);
     void track("app_deeplink_clicked", payload);
