@@ -435,7 +435,7 @@ const issuances = [0, 6, 12, 18].map((hour) => `${utcDay}T${String(hour).padStar
     assert.equal(recorded.error, null); assert.equal(recorded.data.recorded, true);
     if (options.missingAll) assert.equal(evaluation.derivation, null);
     else {
-      assert.equal(evaluation.derivation.version, "swell-watch-horizon-derivation.v3");
+      assert.equal(evaluation.derivation.version, "swell-watch-horizon-derivation.v4");
       assert.equal(evaluation.derivation.scopes.length, 10);
       assert(evaluation.derivation.scopes.every((scope) => scope.nativeFrames === 136 && scope.interpolatedFrames === 32));
     }
