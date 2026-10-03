@@ -13,6 +13,7 @@ import {
 import { usePathname } from "next/navigation";
 import { track } from "@/lib/analytics";
 import { createClientAppHandoffLink } from "@/lib/analytics/app-handoff-link";
+import { trackIosAppCtaClick } from "@/lib/analytics/ios-app-cta-tracking";
 import { buildAppHandoffUrl } from "@/lib/constants/app-handoff";
 import {
   IOS_APP_STORE_CTA,
@@ -146,6 +147,15 @@ export function IphoneAppBanner() {
     event.currentTarget.href = handoff.url;
     track("iphone_app_banner_click", {
       ...analyticsProps,
+      destination_url: handoff.url,
+      handoff_id: handoff.handoffId,
+    });
+    // The banner event above is PostHog-only; this writes the canonical tap row.
+    trackIosAppCtaClick({
+      source: IPHONE_APP_BANNER_SOURCE,
+      surface: "web",
+      placement: "iphone_app_banner",
+      cta_text: IOS_APP_STORE_CTA,
       destination_url: handoff.url,
       handoff_id: handoff.handoffId,
     });

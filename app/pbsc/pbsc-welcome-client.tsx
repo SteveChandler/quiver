@@ -18,10 +18,13 @@ import {
   useMemo,
   useRef,
   useState,
+  type MouseEvent,
   type ReactElement,
 } from "react";
 
 import { ZineSurface } from "@/components/zine";
+import { createClientAppHandoffLink } from "@/lib/analytics/app-handoff-link";
+import { trackIosAppCtaClick } from "@/lib/analytics/ios-app-cta-tracking";
 import { buildAppHandoffPath } from "@/lib/constants/app-handoff";
 import { cn } from "@/lib/utils";
 
@@ -74,15 +77,16 @@ const VIDEO_POSTER = `data:image/svg+xml;utf8,${encodeURIComponent(`
 </svg>
 `)}`;
 
+const PBSC_HANDOFF_PARAMS = {
+  source: "pbsc-flyer",
+  surface: "pbsc-page",
+  utm_source: "pbsc_qr",
+  utm_medium: "flyer",
+  utm_campaign: "pbsc_2026",
+} as const;
+
 function buildPbscHandoffHref(placement: PbscPlacement): string {
-  return buildAppHandoffPath({
-    source: "pbsc-flyer",
-    surface: "pbsc-page",
-    placement,
-    utm_source: "pbsc_qr",
-    utm_medium: "flyer",
-    utm_campaign: "pbsc_2026",
-  });
+  return buildAppHandoffPath({ ...PBSC_HANDOFF_PARAMS, placement });
 }
 
 function getWordTransition(
@@ -109,9 +113,31 @@ function GetAppCta({
   const label = CTA_LABELS[platform];
   const href = useMemo(() => buildPbscHandoffHref(placement), [placement]);
 
+  const handleClick = (event: MouseEvent<HTMLAnchorElement>): void => {
+    // Only iPhone taps are install-intent clicks; Android and desktop visitors
+    // are routed by /app/handoff and have no App Store tap to count.
+    if (platform !== "ios") return;
+    const handoff = createClientAppHandoffLink({
+      ...PBSC_HANDOFF_PARAMS,
+      placement,
+    });
+    const url = new URL(handoff.url);
+    // Keep the href relative so it stays on the current host.
+    event.currentTarget.href = url.pathname + url.search;
+    trackIosAppCtaClick({
+      source: PBSC_HANDOFF_PARAMS.source,
+      surface: PBSC_HANDOFF_PARAMS.surface,
+      placement,
+      cta_text: label,
+      destination_url: handoff.url,
+      handoff_id: handoff.handoffId,
+    });
+  };
+
   return (
     <motion.a
       href={href}
+      onClick={handleClick}
       className={cn(
         "inline-flex min-h-12 items-center justify-center gap-3 rounded-[14px_4px_16px_6px] border-2 border-[#11100D] bg-[#F78E42] px-5 py-3 font-heading text-base font-black uppercase leading-none text-[#11100D] shadow-[5px_5px_0_rgba(17,16,13,0.32)] transition-colors hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#252D6B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4EBD8]",
         className,
