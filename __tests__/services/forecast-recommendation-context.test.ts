@@ -56,6 +56,25 @@ function expectContext(
 }
 
 describe("buildForecastRecommendationContext", () => {
+  it.each([
+    { dataSources: ["FES2022"], expected: ["FES2022", "CDIP"] },
+    { dataSources: ["NOAA_COOPS"], expected: ["NOAA_COOPS", "CDIP", "NOAA_CO-OPS"] },
+    { dataSources: undefined, expected: ["CDIP", "NOAA_CO-OPS"] },
+  ])("uses tide provenance from $dataSources with a cached station ID", ({ dataSources, expected }) => {
+    const context = buildForecastRecommendationContext({
+      beach: beach(),
+      forecasts: [row({
+        forecast_at: "2026-05-08T13:00:00.000Z",
+        coops_station_id: "cached_obp",
+        raw_forecast: dataSources ? { data_sources: dataSources } : undefined,
+      })],
+      window: null,
+      now: new Date("2026-05-08T13:30:00.000Z"),
+    });
+
+    expect(context?.contributingSources).toEqual(expected);
+  });
+
   it("uses the selected best window over earlier matching rows", () => {
     const sourceForecast = row({
       forecast_at: "2026-05-08T23:00:00.000Z",
