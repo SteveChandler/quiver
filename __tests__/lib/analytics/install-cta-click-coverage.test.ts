@@ -17,7 +17,7 @@ const HANDOFF_BUILDERS =
 // Canonical tap = user_events cta_click (trackIosAppCtaClick or a direct
 // cta_click track) or the invite/partner click event.
 const CLICK_SIGNALS =
-  /trackIosAppCtaClick|trackPartnerEvent|trackInviteEvent|trackExactCallHandoffLinkOpened|["']cta_click["']|["']invite_app_store_clicked["']/;
+  /trackIosAppCtaClick|trackInstallBarClick|trackPartnerEvent|trackInviteEvent|trackExactCallHandoffLinkOpened|["']cta_click["']|["']invite_app_store_clicked["']/;
 
 const EXEMPT: Readonly<Record<string, string>> = {
   "app/api/app-link-email/route.ts": "email link, not an anchor click",
