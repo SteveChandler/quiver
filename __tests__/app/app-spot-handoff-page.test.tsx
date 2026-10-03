@@ -231,7 +231,7 @@ describe("/app/spot/[slug] handoff page", () => {
 
     render(page);
 
-    const retry = screen.getByRole("link", { name: /open this exact call/i });
+    const retry = screen.getByRole("link", { name: /open this window in quiver/i });
     const retryUrl = new URL(
       retry.getAttribute("href")!,
       "https://www.quiversurf.app",

@@ -18,7 +18,7 @@ interface DesktopHandoffProps {
 const HANDOFF_STEPS = [
   "Scan the code or email yourself the link",
   "Open it on your phone",
-  "Save your home break and check the call",
+  "Save your home break and check the forecast",
 ];
 
 export function DesktopHandoff({
@@ -61,7 +61,7 @@ export function DesktopHandoff({
             Get Quiver on your phone
           </h1>
           <p className="mt-6 max-w-xl font-sans text-lg leading-relaxed text-[#11100D]/75 sm:text-xl">
-            Quiver lives on your phone, where you check the call before dawn and
+            Quiver lives on your phone, where you check the forecast before dawn and
             log the session after you paddle in. Scan the code to take it down to
             the beach.
           </p>
