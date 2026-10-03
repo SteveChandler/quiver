@@ -879,6 +879,8 @@ export const EXTERNAL_ANALYTICS_ONLY_EVENTS = [
   'auth_wall_dismissed',
   'auth_wall_shown',
   'forecast_alerts_enabled',
+  'install_bar_dismiss',
+  'install_bar_view',
   'install_pwa',
   'invite_friend_clicked',
   'ios_app_cta_click',

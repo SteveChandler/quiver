@@ -8,7 +8,8 @@ import { RelatedGuidesSection } from "@/components/beach-detail/related-guides-s
 import { AuthenticatedForecastDecisionProvider } from "@/components/beach-detail/authenticated-forecast-decision";
 import { ZineNearbySpots } from "@/components/beach-detail/zine/zine-nearby-spots";
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
-import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
+import { StickyInstallAsk } from "@/components/app-store/sticky-install-ask";
+import { HideWhenInstallBarOwns } from "@/components/app-store/install-bar-owned-slot";
 import { BeachDetailInstallCta } from "@/components/app-store/beach-detail-install-cta";
 import { ContentPageAppHandoffCta } from "@/components/app-store/content-page-app-handoff-cta";
 import { isFreeGrowthPhaseEnabled } from "@/lib/flags/free-growth-phase";
@@ -333,6 +334,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
                   returnTo={returnTo}
                 />
                 {forecastContext?.selectedRowTime && forecastContext.waveHeight ? (
+                <HideWhenInstallBarOwns>
                 <ContentPageAppHandoffCta
                   source={`content-beach-detail-${beachSlug}`}
                   surface="beach_detail"
@@ -343,6 +345,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
                   description="The forecast is here. Quiver keeps this break on your phone so the next surfable window is easier to catch."
                   ctaLabel="Watch the next window in the app"
                 />
+                </HideWhenInstallBarOwns>
               ) : null}
                 {/* One ask here, not two. The home-break signup this used to stack
                     underneath is the same ask the sticky bar already carries, so
@@ -377,16 +380,29 @@ export default async function GenericBeachDetailPage(props: PageProps) {
           />
         </AuthenticatedForecastDecisionProvider>
 
-        <StickySignupBar
-          source={`beach-detail-${beachSlug}`}
-          ctaText={`Save ${beach.name} as your home break`}
-          supportingText={`Alerts when ${beach.name} is firing — free`}
-          contextMessage={{
-            title: `Save ${beach.name} as your home break`,
-            description:
-              "Condition alerts, 12-day outlook, and your personal match score",
+        {/* Same props for every visitor, so the CDN-shared HTML stays shareable;
+            the install bar decides in the browser after mount. */}
+        <StickyInstallAsk
+          stickySignup={{
+            source: `beach-detail-${beachSlug}`,
+            ctaText: `Save ${beach.name} as your home break`,
+            supportingText: `Alerts when ${beach.name} is firing — free`,
+            contextMessage: {
+              title: `Save ${beach.name} as your home break`,
+              description:
+                "Condition alerts, 12-day outlook, and your personal match score",
+            },
+            ctaCopyVariant: "beach_home_break_v1",
           }}
-          ctaCopyVariant="beach_home_break_v1"
+          bar={{
+            placeName: beach.name,
+            valueLabel:
+              forecastContext?.waveHeightRangeLabel ??
+              forecastContext?.waveHeight ??
+              null,
+            isTomorrow: surfCallIsTomorrow,
+            source: `beach-detail-${beachSlug}`,
+          }}
         />
       </div>
     );

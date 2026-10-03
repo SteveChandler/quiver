@@ -56,7 +56,7 @@ const ClientErrorTracker = dynamic(
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import { AppHeader } from "@/components/app-header";
-import { IphoneAppBanner } from "@/components/app-store/iphone-app-banner";
+import { IphoneAppBannerGate } from "@/components/app-store/iphone-app-banner-gate";
 import { TimezoneCapture } from "@/components/profile/timezone-capture";
 
 /**
@@ -229,7 +229,7 @@ function AuthenticatedAppContent({
       <Suspense fallback={null}>
         <AppHeader />
       </Suspense>
-      <IphoneAppBanner />
+      <IphoneAppBannerGate />
       <main id="main-content" role="main">
         {children}
       </main>
@@ -261,7 +261,7 @@ function LandingPageContent({
       <Suspense fallback={null}>
         <AppHeader />
       </Suspense>
-      <IphoneAppBanner />
+      <IphoneAppBannerGate />
       {/* PWA SW registration/unregistration (runtime-controlled; never on localhost) */}
       <Suspense fallback={null}>
         <PWAAndPushListeners />

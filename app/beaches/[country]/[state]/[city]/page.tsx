@@ -35,6 +35,7 @@ import {
   buildItemListItems,
 } from "./city-page-utils";
 import type { LocationPageProps } from "./city-page-utils";
+import { StickyInstallAsk } from "@/components/app-store/sticky-install-ask";
 import { EditorialLayout } from "./editorial-layout";
 import { StandardLayout } from "./standard-layout";
 
@@ -98,38 +99,54 @@ export default async function LocationPage(props: LocationPageProps) {
 
   const itemListItems = buildItemListItems(beaches);
 
+  const installAsk = (
+    <StickyInstallAsk
+      bar={{
+        placeName: displayCityName,
+        valueLabel: null,
+        source: `city-hub-${params.city}-${params.state}`,
+      }}
+    />
+  );
+
   if (editorial) {
     return (
-      <EditorialLayout
-        editorialPhoto={editorialPhoto}
+      <>
+        <EditorialLayout
+          editorialPhoto={editorialPhoto}
+          params={params}
+          displayCityName={displayCityName}
+          stats={stats}
+          beaches={beaches}
+          editorial={editorial}
+          jsonLd={jsonLd}
+          itemListItems={itemListItems}
+          bestTimeToSurfUrl={bestTimeToSurfUrl}
+          siblingCities={siblingCities}
+          surfReport={surfReport}
+        />
+        {installAsk}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <StandardLayout
         params={params}
         displayCityName={displayCityName}
         stats={stats}
+        location={location}
         beaches={beaches}
-        editorial={editorial}
+        metroConfig={metroConfig}
         jsonLd={jsonLd}
         itemListItems={itemListItems}
         bestTimeToSurfUrl={bestTimeToSurfUrl}
         siblingCities={siblingCities}
         surfReport={surfReport}
       />
-    );
-  }
-
-  return (
-    <StandardLayout
-      params={params}
-      displayCityName={displayCityName}
-      stats={stats}
-      location={location}
-      beaches={beaches}
-      metroConfig={metroConfig}
-      jsonLd={jsonLd}
-      itemListItems={itemListItems}
-      bestTimeToSurfUrl={bestTimeToSurfUrl}
-      siblingCities={siblingCities}
-      surfReport={surfReport}
-    />
+      {installAsk}
+    </>
   );
 }
 
