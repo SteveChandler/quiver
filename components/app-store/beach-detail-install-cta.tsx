@@ -3,7 +3,10 @@
 import { useEffect, useState, type ReactElement } from "react";
 
 import { InstallAppCtaSection } from "@/components/app-store/install-app-cta-section";
-import { iphoneBannerOwnsInstallAsk } from "@/lib/app-store/beach-subpage-install-cta";
+import {
+  iphoneInstallAskOwnedElsewhere,
+  isStandaloneDisplay,
+} from "@/lib/app-store/install-bar";
 
 interface BeachDetailInstallCtaProps {
   pathname: string;
@@ -16,8 +19,9 @@ interface BeachDetailInstallCtaProps {
  * Beach detail's after-tabs install section, decided in the browser.
  *
  * The page HTML is shared through the CDN, so it cannot depend on the request's
- * user agent. Non-Safari iPhone gets IphoneAppBanner instead, so the section is
- * suppressed there to keep one install ask; everyone else gets it after mount.
+ * user agent. Non-Safari iPhone gets IphoneAppBanner instead, and every iPhone
+ * gets the install bar when it is on, so the section is suppressed there to keep
+ * one install ask; everyone else gets it after mount.
  */
 export function BeachDetailInstallCta({
   pathname,
@@ -30,7 +34,11 @@ export function BeachDetailInstallCta({
 
   useEffect(() => {
     setBannerOwnsInstallAsk(
-      iphoneBannerOwnsInstallAsk({ userAgent: navigator.userAgent, pathname }),
+      iphoneInstallAskOwnedElsewhere({
+        userAgent: navigator.userAgent,
+        pathname,
+        isStandalone: isStandaloneDisplay(),
+      }),
     );
   }, [pathname]);
 
