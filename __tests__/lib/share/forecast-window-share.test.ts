@@ -7,6 +7,7 @@ import {
 
 const BEACH_ID = "11111111-1111-4111-8111-111111111111";
 const FORECAST_AT = "2026-06-03T16:15:00.000Z";
+const NOW = new Date("2026-06-03T12:00:00.000Z");
 
 const beach = {
   id: BEACH_ID,
@@ -65,6 +66,7 @@ function shareDependencies(options?: {
       ? options.forecast
       : forecast;
   return {
+    now: () => NOW,
     loadBeach: jest.fn().mockResolvedValue(resolvedBeach),
     loadForecast: jest.fn().mockResolvedValue(resolvedForecast),
     evaluateHoldCandidates: jest
@@ -158,6 +160,48 @@ describe("forecast-window-share", () => {
       ],
       profileExperience: null,
     });
+  });
+
+  it("dates the window label once it is not today at the beach", async () => {
+    const dependencies = shareDependencies();
+    const dayBeforeDependencies = {
+      ...shareDependencies(),
+      now: () => new Date("2026-06-02T12:00:00.000Z"),
+    };
+
+    const sameDay = await loadWith(dependencies);
+    const dayBefore = await loadWith(dayBeforeDependencies);
+
+    expect(sameDay.windowLabel).toBe("9:15 AM");
+    expect(dayBefore.windowLabel).toBe("Wed 9:15 AM");
+    expect(dayBefore.title).toBe("Server Beach Wed 9:15 AM is lining up");
+  });
+
+  it("falls back without touching the database once a shared window has passed", async () => {
+    const dependencies = {
+      ...shareDependencies(),
+      now: () => new Date("2026-06-03T17:16:00.000Z"),
+    };
+
+    const metadata = await loadWith(dependencies);
+
+    expect(metadata.isFallback).toBe(true);
+    expect(metadata.forecastAt).toBeNull();
+    expect(metadata.title).toBe("Open Quiver Surf Window");
+    expect(dependencies.loadBeach).not.toHaveBeenCalled();
+    expect(dependencies.loadForecast).not.toHaveBeenCalled();
+  });
+
+  it("still resolves a window that began within the last hour", async () => {
+    const dependencies = {
+      ...shareDependencies(),
+      now: () => new Date("2026-06-03T17:10:00.000Z"),
+    };
+
+    const metadata = await loadWith(dependencies);
+
+    expect(metadata.isFallback).toBe(false);
+    expect(metadata.windowLabel).toBe("9:15 AM");
   });
 
   it("keeps an exact server row neutral when its local display timezone is unavailable", async () => {
