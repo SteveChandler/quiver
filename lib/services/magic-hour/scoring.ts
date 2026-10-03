@@ -99,14 +99,17 @@ export function findWeightedPeak(
         )
       : true;
 
+  // An unknown direction gets no wind-quality label.
   const windQuality =
-    beach.wind_offshore_deg !== null && beach.wind_offshore_tol_deg !== null
-      ? checkWindOffshore(
-          bestSlot.wind_direction_deg,
-          beach.wind_offshore_deg,
-          beach.wind_offshore_tol_deg
-        ).quality
-      : "acceptable";
+    bestSlot.wind_direction_deg === null
+      ? null
+      : beach.wind_offshore_deg !== null && beach.wind_offshore_tol_deg !== null
+        ? checkWindOffshore(
+            bestSlot.wind_direction_deg,
+            beach.wind_offshore_deg,
+            beach.wind_offshore_tol_deg
+          ).quality
+        : "acceptable";
 
   const tideInRange = isTideInRange(
     bestSlot.tide_height_ft,
@@ -147,16 +150,20 @@ export function calculateTideScore(
   return Math.max(0, 1 - diff / range);
 }
 
+// Unknown direction sits halfway between onshore (0.1) and offshore (1).
+const UNKNOWN_WIND_SCORE = 0.55;
+
 /**
  * Calculates wind score (0-1) based on offshore quality.
  * @internal Exported for testing
  */
 export function calculateWindScore(
-  windDir: number,
+  windDir: number | null,
   offshoreDeg: number | null,
   toleranceDeg: number | null
 ): number {
   if (offshoreDeg === null || toleranceDeg === null) return 0.7; // No preference = acceptable
+  if (windDir === null) return UNKNOWN_WIND_SCORE;
 
   const diff = circularAngleDiff(windDir, offshoreDeg);
 

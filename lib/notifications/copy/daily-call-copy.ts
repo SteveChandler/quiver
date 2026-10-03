@@ -90,7 +90,9 @@ export function swellPhrase(forecast: ForecastNumbers): string {
 
 export function windPhrase(forecast: ForecastNumbers): string {
   const speed = numberOf(forecast.wind_speed);
-  if (speed === null || speed < LIGHT_WIND_MPH) return "light wind";
+  // A missing wind is unknown, not light.
+  if (speed === null) return "wind unknown";
+  if (speed < LIGHT_WIND_MPH) return "light wind";
   return [`${Math.round(speed)} mph`, forecast.wind_direction?.trim() || null, "wind"].filter(Boolean).join(" ");
 }
 
@@ -126,7 +128,10 @@ interface ComparedBeach {
 export function comparisonLine(winner: ComparedBeach, home: ComparedBeach & { name: string }): string {
   const height = (numberOf(winner.forecast.wave_height) ?? 0) - (numberOf(home.forecast.wave_height) ?? 0);
   const period = (numberOf(winner.forecast.wave_period) ?? 0) - (numberOf(home.forecast.wave_period) ?? 0);
-  const wind = (numberOf(home.forecast.wind_speed) ?? 0) - (numberOf(winner.forecast.wind_speed) ?? 0);
+  const homeWind = numberOf(home.forecast.wind_speed);
+  const winnerWind = numberOf(winner.forecast.wind_speed);
+  // Only compare wind when both forecasts have it.
+  const wind = homeWind !== null && winnerWind !== null ? homeWind - winnerWind : 0;
   if (height >= BIGGER_BY_FT) return `Bigger than ${home.name} today`;
   if (period >= LONGER_PERIOD_BY_S) return `Longer-period swell than ${home.name} today`;
   if (wind >= LESS_WIND_BY_MPH) return `Less wind than ${home.name} today`;

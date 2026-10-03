@@ -22,6 +22,8 @@ const OFFSHORE_STRONG_SCORE = 40;
 const OFFSHORE_MODERATE_SCORE = 30;
 const LIGHT_WIND_SCORE = 20;
 const MODERATE_WIND_SCORE = 10;
+// Unknown wind sits halfway between no wind points (0) and the best (offshore + light).
+const UNKNOWN_WIND_SCORE = OFFSHORE_STRONG_SCORE / 2;
 
 const PERIOD_EXCELLENT_SCORE = 30;
 const PERIOD_GOOD_SCORE = 20;
@@ -64,6 +66,11 @@ interface ForecastData {
   wave_period: number | null;
   swell_1_period: number | null;
   tide_height: number | null;
+}
+
+/** Missing or unparseable wind is unknown, never 0. */
+function knownOrNull(value: number | null): number | null {
+  return value !== null && Number.isFinite(value) ? value : null;
 }
 
 function padTimePart(value: number): string {
@@ -152,12 +159,14 @@ function scoreForecast(
 ): number {
   let score = 0;
   
-  // Wind scoring (most important factor)
-  const windSpeed = forecast.wind_speed || 999;
-  const windDir = forecast.wind_direction || 0;
-  const isOffshore = calculateOnOffshore(windDir, beachAspect);
-  
-  if (isOffshore && windSpeed < 5) score += OFFSHORE_STRONG_SCORE;
+  // Wind scoring (most important factor). Unknown speed is neutral; a real
+  // 0 mph is calm. Without a direction, wind is scored on speed alone.
+  const windSpeed = knownOrNull(forecast.wind_speed);
+  const windDir = knownOrNull(forecast.wind_direction);
+  const isOffshore = windDir !== null && calculateOnOffshore(windDir, beachAspect);
+
+  if (windSpeed === null) score += UNKNOWN_WIND_SCORE;
+  else if (isOffshore && windSpeed < 5) score += OFFSHORE_STRONG_SCORE;
   else if (isOffshore && windSpeed < 10) score += OFFSHORE_MODERATE_SCORE;
   else if (windSpeed < 5) score += LIGHT_WIND_SCORE;
   else if (windSpeed < 10) score += MODERATE_WIND_SCORE;
@@ -280,14 +289,16 @@ function buildWindowDescription(
   score: number,
   beachAspect: number
 ): { description: string; conditions: string } {
-  const wind = forecast.wind_speed || 0;
-  const windDir = forecast.wind_direction || 0;
-  const isOffshore = calculateOnOffshore(windDir, beachAspect);
+  const wind = knownOrNull(forecast.wind_speed);
+  const windDir = knownOrNull(forecast.wind_direction);
+  const isOffshore = windDir !== null && calculateOnOffshore(windDir, beachAspect);
   const period = forecast.wave_period || forecast.swell_1_period || 0;
 
-  // Build conditions text
+  // Build conditions text; unknown wind makes no wind claim.
   let conditions = "";
-  if (isOffshore && wind < 8) {
+  if (wind === null) {
+    conditions = "Moderate conditions";
+  } else if (isOffshore && wind < 8) {
     conditions = "Clean offshore winds";
   } else if (wind < 5) {
     conditions = "Light winds";
