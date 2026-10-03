@@ -3,7 +3,6 @@ import { headers } from "next/headers";
 import type { ReactElement } from "react";
 import { ExternalLink, Smartphone, Waves } from "lucide-react";
 
-import { IosAppStoreCta } from "@/components/app-store/ios-app-store-cta";
 import {
   isCanonicalHandoffId,
   parseHandoffContext,
@@ -16,6 +15,8 @@ import {
   loadShareLandingMetadata,
   parseShareId,
 } from "@/lib/share/share-landing";
+import { ShareLandingOpenAppLink } from "./share-landing-open-app-link";
+import { ShareLandingStoreCta } from "./share-landing-store-cta";
 import { ShareLinkOpenTracker } from "./share-link-open-tracker";
 
 export const dynamic = "force-dynamic";
@@ -183,6 +184,9 @@ export default async function AppSpotHandoffPage({
       <ShareLinkOpenTracker
         slug={safeDecodeSlug(slug)}
         windowValue={windowId ?? null}
+        shareId={shareId}
+        host={requestHeaders.get("host")}
+        isSecondHop={firstSearchValue(resolvedSearchParams.o) === "1"}
       />
       <section className="mx-auto flex min-h-[calc(100vh-6rem)] max-w-3xl flex-col justify-center">
         <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-md bg-[#F78E42] text-[#11100D] shadow-lg shadow-black/25">
@@ -213,23 +217,23 @@ export default async function AppSpotHandoffPage({
               Open this exact call in Quiver
             </a>
           ) : canOfferOpenInQuiver ? (
-            <a
+            <ShareLandingOpenAppLink
               href={openInQuiverHref}
+              shareId={shareId}
               className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-[#F78E42] px-5 py-3 text-base font-black text-[#11100D] transition hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#101436]"
             >
               <Smartphone className="h-5 w-5" aria-hidden="true" />
               Open in Quiver
-            </a>
+            </ShareLandingOpenAppLink>
           ) : null}
-          <IosAppStoreCta
-            source="app_spot_handoff"
-            surface="app_spot"
-            placement="app_store_fallback"
+          <ShareLandingStoreCta
+            shareId={shareId}
+            isShareLink={!exactRetryHref}
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md border border-white/20 bg-white/10 px-5 py-3 text-base font-black text-white transition hover:border-[#7BDCB5]/60 hover:bg-[#7BDCB5]/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7BDCB5] focus-visible:ring-offset-2 focus-visible:ring-offset-[#101436]"
           >
             <Smartphone className="h-5 w-5" aria-hidden="true" />
             Open in the App Store
-          </IosAppStoreCta>
+          </ShareLandingStoreCta>
           <a
             href={webFallbackHref}
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md border border-white/20 bg-white/10 px-5 py-3 text-base font-black text-white transition hover:border-[#7BDCB5]/60 hover:bg-[#7BDCB5]/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7BDCB5] focus-visible:ring-offset-2 focus-visible:ring-offset-[#101436]"
