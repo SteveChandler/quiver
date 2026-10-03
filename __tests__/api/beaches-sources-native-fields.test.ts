@@ -159,6 +159,51 @@ describe("GET /api/beaches/[id]/sources", () => {
     });
   });
 
+  it.each([
+    [
+      "https://www.youtube.com/watch?v=abc123",
+      { kind: "iframe", src: "https://www.youtube.com/embed/abc123?rel=0&autoplay=1&mute=1", provider: "youtube", title: "Live Cam" },
+    ],
+    [
+      "https://flaglersurf.com/webcam/",
+      { kind: "external", pageUrl: "https://flaglersurf.com/webcam/", provider: "Flagler Surf" },
+    ],
+    ["https://cdn.example.com/cam.mp4", null],
+    ["http://cams.example.com/blacks", null],
+  ])("returns cam_embed for %s", async (cameraUrl, expected) => {
+    const sourceChain = makeChain({
+      data: { beach_id: VALID_BEACH_UUID, forecast_source_id: null, camera_url: cameraUrl, thumbnail_url: null },
+      error: null,
+    });
+    const dioramaChain = makeChain({ data: null, error: null });
+    mockCreateSupabaseServerClient.mockResolvedValue({
+      from: jest.fn((table: string) => (table === "beach_sources" ? sourceChain : dioramaChain)),
+    });
+    jest.spyOn(globalThis, "fetch").mockRejectedValue(new Error("offline"));
+
+    const response = await GET(
+      { nextUrl: new URL(`https://www.quiversurf.app/api/beaches/${VALID_BEACH_UUID}/sources`) } as any,
+      { params: Promise.resolve({ id: VALID_BEACH_UUID }) },
+    );
+    const body = await response.json();
+
+    expect(body.data.sources.cam_embed).toEqual(expected);
+  });
+
+  it("returns cam_embed null when the beach has no camera", async () => {
+    const sourceChain = makeChain({ data: null, error: null });
+    const dioramaChain = makeChain({ data: null, error: null });
+    mockCreateSupabaseServerClient.mockResolvedValue({
+      from: jest.fn((table: string) => (table === "beach_sources" ? sourceChain : dioramaChain)),
+    });
+    const response = await GET(
+      { nextUrl: new URL(`https://www.quiversurf.app/api/beaches/${VALID_BEACH_UUID}/sources`) } as any,
+      { params: Promise.resolve({ id: VALID_BEACH_UUID }) },
+    );
+    const body = await response.json();
+    expect(body.data.sources.cam_embed).toBeNull();
+  });
+
   it("exposes Surfline HLS cams when the playlist health check returns 200", async () => {
     jest.spyOn(globalThis, "fetch").mockResolvedValue({
       status: 200,
