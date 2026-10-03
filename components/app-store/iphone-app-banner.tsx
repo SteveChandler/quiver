@@ -181,7 +181,7 @@ export function IphoneAppBanner() {
             Quiver for iPhone
           </p>
           <p className="truncate text-xs leading-5 text-white/70">
-            Surf calls, alerts, and session logs in the app.
+            Surf forecasts, alerts, and session logs in the app.
           </p>
         </div>
         <a
