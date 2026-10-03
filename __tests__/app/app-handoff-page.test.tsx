@@ -20,6 +20,18 @@ jest.mock("@/lib/analytics/app-handoff-server", () => ({
   logAppHandoffLinkOpenedServer: (arg: unknown) => mockLogOpen(arg),
 }));
 
+let mockClassifyOverride: (() => never) | null = null;
+jest.mock("@/lib/analytics/app-handoff-traffic", () => {
+  const actual = jest.requireActual("@/lib/analytics/app-handoff-traffic");
+  return {
+    ...actual,
+    classifyHandoffRequest: (arg: unknown) =>
+      mockClassifyOverride
+        ? mockClassifyOverride()
+        : actual.classifyHandoffRequest(arg),
+  };
+});
+
 jest.mock("@/lib/analytics/app-handoff-tracking", () => ({
   trackAppHandoffView: jest.fn(),
   trackAppHandoffQrRendered: jest.fn(),
@@ -35,11 +47,24 @@ const IPHONE_UA =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1";
 const ANDROID_UA =
   "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36";
+const DESKTOP_UA =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36";
 const HANDOFF_ID = "33333333-3333-4333-8333-333333333333";
+
+function setRequestHeaders(headers: Record<string, string>): void {
+  const lower: Record<string, string> = {
+    "accept-language": "en-US,en;q=0.9",
+    ...headers,
+  };
+  mockHeadersGet.mockImplementation(
+    (key: string) => lower[key.toLowerCase()] ?? null,
+  );
+}
 
 describe("/app handoff page", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockClassifyOverride = null;
   });
 
   it("is noindex", () => {
@@ -51,9 +76,11 @@ describe("/app handoff page", () => {
   });
 
   it("logs and redirects iPhone visitors to the campaign-tagged App Store URL", async () => {
-    mockHeadersGet.mockImplementation((key: string) =>
-      key === "host" ? "go.quiversurf.app" : IPHONE_UA,
-    );
+    setRequestHeaders({
+      host: "go.quiversurf.app",
+      "user-agent": IPHONE_UA,
+      "sec-fetch-mode": "navigate",
+    });
 
     await expect(
       AppHandoffPage({
@@ -88,7 +115,11 @@ describe("/app handoff page", () => {
           ua_family: "Safari",
           destination_type: "app_store",
           handoff_channel: "qr",
+          hit_kind: "route_hit",
+          traffic_class: "human_candidate",
+          handoff_id_source: "url",
         }),
+        botFlagged: false,
       }),
     );
     expect(mockRedirect).toHaveBeenCalledWith(
@@ -106,7 +137,7 @@ describe("/app handoff page", () => {
   ])(
     "normalizes %s App Store attribution",
     async (_label, params, expected) => {
-      mockHeadersGet.mockReturnValue(IPHONE_UA);
+      setRequestHeaders({ "user-agent": IPHONE_UA });
 
       await expect(
         AppHandoffPage({
@@ -124,7 +155,7 @@ describe("/app handoff page", () => {
   );
 
   it("logs and redirects Android visitors to the guided Android beta page", async () => {
-    mockHeadersGet.mockReturnValue(ANDROID_UA);
+    setRequestHeaders({ "user-agent": ANDROID_UA });
 
     await expect(
       AppHandoffPage({
@@ -164,7 +195,7 @@ describe("/app handoff page", () => {
   });
 
   it("replaces an invalid handoff ID at the server boundary", async () => {
-    mockHeadersGet.mockReturnValue(IPHONE_UA);
+    setRequestHeaders({ "user-agent": IPHONE_UA });
 
     await expect(
       AppHandoffPage({
@@ -187,9 +218,7 @@ describe("/app handoff page", () => {
   });
 
   it("renders the desktop handoff module for desktop visitors", async () => {
-    mockHeadersGet.mockReturnValue(
-      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
-    );
+    setRequestHeaders({ "user-agent": DESKTOP_UA });
 
     render(
       await AppHandoffPage({
@@ -197,6 +226,90 @@ describe("/app handoff page", () => {
       }),
     );
 
+    expect(
+      screen.getByRole("heading", { name: /get quiver on your phone/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("still redirects a link-preview bot to the same App Store URL, flagged as non-human", async () => {
+    setRequestHeaders({
+      "user-agent": `facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php) ${IPHONE_UA}`,
+    });
+
+    await expect(
+      AppHandoffPage({
+        searchParams: Promise.resolve({ handoff_id: HANDOFF_ID }),
+      }),
+    ).rejects.toThrow("NEXT_REDIRECT");
+
+    expect(mockRedirect).toHaveBeenCalledWith(
+      expect.stringContaining("apps.apple.com"),
+    );
+    expect(mockLogOpen).toHaveBeenCalledWith(
+      expect.objectContaining({
+        botFlagged: true,
+        metadata: expect.objectContaining({
+          traffic_class: "preview_fetcher",
+          destination_type: "app_store",
+        }),
+      }),
+    );
+  });
+
+  it("records handoff_id_source minted when the URL carries no valid id", async () => {
+    setRequestHeaders({ "user-agent": IPHONE_UA });
+
+    await expect(
+      AppHandoffPage({ searchParams: Promise.resolve({}) }),
+    ).rejects.toThrow("NEXT_REDIRECT");
+
+    expect(mockLogOpen).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({ handoff_id_source: "minted" }),
+      }),
+    );
+  });
+
+  it("logs the row unflagged and signal-free when classification fails, and still redirects", async () => {
+    setRequestHeaders({ "user-agent": IPHONE_UA });
+    mockClassifyOverride = () => {
+      throw new Error("boom");
+    };
+
+    await expect(
+      AppHandoffPage({
+        searchParams: Promise.resolve({ handoff_id: HANDOFF_ID }),
+      }),
+    ).rejects.toThrow("NEXT_REDIRECT");
+    expect(mockRedirect).toHaveBeenCalledWith(
+      expect.stringContaining("apps.apple.com"),
+    );
+    expect(mockLogOpen).toHaveBeenCalledWith(
+      expect.objectContaining({
+        botFlagged: undefined,
+        metadata: expect.not.objectContaining({ traffic_class: expect.anything() }),
+      }),
+    );
+  });
+
+  it("flags a desktop scraper but still renders the desktop page", async () => {
+    setRequestHeaders({ "user-agent": "python-requests/2.31.0" });
+
+    render(
+      await AppHandoffPage({
+        searchParams: Promise.resolve({}),
+      }),
+    );
+
+    expect(mockLogOpen).toHaveBeenCalledWith(
+      expect.objectContaining({
+        botFlagged: true,
+        metadata: expect.objectContaining({
+          platform: "desktop",
+          destination_type: "desktop_handoff",
+        }),
+      }),
+    );
     expect(
       screen.getByRole("heading", { name: /get quiver on your phone/i }),
     ).toBeInTheDocument();
