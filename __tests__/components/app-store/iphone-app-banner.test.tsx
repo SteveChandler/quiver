@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { usePathname } from "next/navigation";
 import { IphoneAppBanner } from "@/components/app-store/iphone-app-banner";
 import { track } from "@/lib/analytics";
+import { trackIosAppCtaClick } from "@/lib/analytics/ios-app-cta-tracking";
 import { buildAppHandoffUrl } from "@/lib/constants/app-handoff";
 import { IPHONE_APP_BANNER_DISMISSAL_STORAGE_KEY } from "@/lib/app-store/iphone-app-banner";
 import {
@@ -15,6 +16,10 @@ jest.mock("next/navigation", () => ({
 
 jest.mock("@/lib/analytics", () => ({
   track: jest.fn(),
+}));
+
+jest.mock("@/lib/analytics/ios-app-cta-tracking", () => ({
+  trackIosAppCtaClick: jest.fn(),
 }));
 
 const IPHONE_CHROME_UA =
@@ -43,6 +48,7 @@ describe("IphoneAppBanner", () => {
   beforeEach(() => {
     mockedUsePathname.mockReturnValue("/map");
     mockedTrack.mockClear();
+    (trackIosAppCtaClick as jest.Mock).mockClear();
     window.localStorage.clear();
     setUserAgent(IPHONE_CHROME_UA);
     setStandalone(false);
@@ -114,6 +120,26 @@ describe("IphoneAppBanner", () => {
         handoff_id: expect.stringMatching(
           /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
         ),
+      }),
+    );
+  });
+
+  it("writes the canonical cta_click tap with the same handoff_id as the rewritten link", async () => {
+    render(<IphoneAppBanner />);
+
+    const cta = await screen.findByRole("link", { name: IOS_APP_STORE_CTA });
+    fireEvent.click(cta);
+
+    const href = new URL(cta.getAttribute("href") ?? "");
+    const handoffId = href.searchParams.get("handoff_id");
+    expect(handoffId).toBeTruthy();
+    expect(trackIosAppCtaClick).toHaveBeenCalledTimes(1);
+    expect(trackIosAppCtaClick).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: "iphone-app-banner",
+        surface: "web",
+        placement: "iphone_app_banner",
+        handoff_id: handoffId,
       }),
     );
   });

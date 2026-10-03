@@ -12,6 +12,31 @@
 - Landing, forecast, final CTA, iPhone banner, and iOS CTA analytics read these constants instead of hardcoding destination copy.
 - Android beta remains a separate web landing path. Web pricing and founding access copy must not imply Android closed-beta access is the same as the public iOS install path.
 
+## Install Tap Event Contract
+
+Route hits are not taps. A request to `/app` or `/app/handoff` is logged for measurement, but only a click event counts as a visitor choosing to install.
+
+| Layer | Event | Written by | Means |
+|---|---|---|---|
+| `user_events` | `cta_click` (`cta_family` `ios_app` or `app_handoff`) | every install anchor `onClick`, via `trackIosAppCtaClick` | A tap on a web install CTA. This is the canonical tap |
+| `user_events` | `invite_app_store_clicked` | invite and partner QR landing pages | Same, different surface |
+| `user_events` | `app_handoff_link_opened` with `source = 'exact_call'` | `trackExactCallHandoffLinkOpened` | Exact-call tap. Unchanged |
+| `user_events` | `app_handoff_link_opened` with `metadata.hit_kind = 'route_hit'` | `/app` server route | A request reached the route. Not a tap. `bot_flagged = true` for known bots, link-preview fetchers and prefetch |
+| PostHog | `app_handoff_link_opened` (server) | `/app` server route | Same route hit, now carrying `traffic_class`, `hit_kind` and `bot_flagged`. The name is unchanged on purpose so existing insights keep receiving it; filter on `traffic_class` |
+| `user_events` | `app_handoff_native_open` | native app | Joined to the tap by `handoff_id` |
+
+Rules:
+
+- The stored `user_events` event name `app_handoff_link_opened` is kept. No migration, CHECK-constraint change or view change is needed: `growth_app_handoff_v1` already excludes `bot_flagged` rows.
+- Route-hit `traffic_class` is `known_bot`, `preview_fetcher`, `prefetch`, `human_candidate` or `unverified`. Only the first three set `bot_flagged`. `unverified` is stored but not flagged until a few days of data show whether it matches the daily crawler burst.
+- Verified-tap rule: an iOS route hit is a confirmed store redirect only when its `handoff_id` equals the `handoff_id` of a click row. Click handlers mint the id in the browser at click time, so crawlers fetching the server-rendered href cannot match.
+- Clicks include people who already have the app (universal links open it directly), so a tap is install intent or app open intent, not a confirmed install.
+- Apple comparison is one-sided: our click-confirmed taps should be at or below App Store Connect Web Referrer product page views. Smart App Banner taps on Safari are visible to Apple but not to us, so the gap is expected and is reported, not alarmed on.
+- New install anchors must write a click event. `__tests__/lib/analytics/install-cta-click-coverage.test.ts` fails when a file builds a handoff link without one.
+- Known gaps (server-rendered anchors, no click row yet): the comparison page `/best-surf-forecast-app`, `/vs/surfline/free`, and the redeem install fallback.
+
+Weekly queries: `docs/analytics/app-handoff-weekly-funnel.sql`.
+
 ## Current Status Check
 
 Last checked: 2026-06-29 UTC from the 2026-06-28 SEO weekly report and live App Store URL spot-check.

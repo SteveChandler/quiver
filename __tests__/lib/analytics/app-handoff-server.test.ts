@@ -35,6 +35,7 @@ describe("logAppHandoffLinkOpenedServer", () => {
         user_id: null,
       }),
     );
+    expect(insert.mock.calls[0][0]).not.toHaveProperty("bot_flagged");
     expect(mockCapturePostHogEvent).toHaveBeenCalledWith({
       distinctId: "abc",
       event: "app_handoff_link_opened",
@@ -65,6 +66,41 @@ describe("logAppHandoffLinkOpenedServer", () => {
         source: "web",
       },
     });
+  });
+
+  it("stores bot_flagged on the row and keeps the PostHog event name", async () => {
+    await logAppHandoffLinkOpenedServer({
+      sessionId: "abc",
+      botFlagged: true,
+      metadata: { source: "content-city-hub", hit_kind: "route_hit", traffic_class: "known_bot" },
+    });
+
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event_type: "app_handoff_link_opened",
+        bot_flagged: true,
+      }),
+    );
+    expect(mockCapturePostHogEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "app_handoff_link_opened",
+        properties: expect.objectContaining({
+          bot_flagged: true,
+          traffic_class: "known_bot",
+        }),
+      }),
+    );
+  });
+
+  it("stores bot_flagged false for human candidates", async () => {
+    await logAppHandoffLinkOpenedServer({
+      sessionId: "abc",
+      botFlagged: false,
+      metadata: { source: "qr" },
+    });
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({ bot_flagged: false }),
+    );
   });
 
   it("swallows insert errors because logging must never block a redirect", async () => {
