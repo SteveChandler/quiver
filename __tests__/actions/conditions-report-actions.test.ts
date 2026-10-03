@@ -280,6 +280,31 @@ describe("submitConditionsReport", () => {
       );
     });
 
+    test("stores the 3-5ft bucket at its 4ft midpoint", async () => {
+      const supabase = createSupabaseMock();
+      supabase.auth.getUser.mockResolvedValue({ data: { user: mockUser }, error: null } as any);
+      mockSupabaseClient(supabase);
+
+      supabase.limit.mockResolvedValueOnce(noExistingReports);
+      supabase.single
+        .mockResolvedValueOnce({ data: mockBeach, error: null })
+        .mockResolvedValueOnce({ data: mockIntelPost, error: null })
+        .mockResolvedValueOnce({ data: mockSession, error: null });
+
+      const result = await submitConditionsReport({
+        beachId: "beach-1",
+        waveSizeRange: "3-5ft",
+        vibe: "fun",
+      });
+
+      const inner = result?.data ?? result;
+      expect(inner.success).toBe(true);
+      const sessionInsert = supabase.insert.mock.calls.find(
+        ([payload]) => payload?.source === "conditions_report",
+      );
+      expect(sessionInsert?.[0]).toEqual(expect.objectContaining({ wave_height_ft: 4 }));
+    });
+
     test("emits intel_post_created and session_created, not session_log_submit", async () => {
       const supabase = createSupabaseMock();
       supabase.auth.getUser.mockResolvedValue({ data: { user: mockUser }, error: null } as any);
