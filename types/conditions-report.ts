@@ -7,7 +7,7 @@
  * sessions record for ML training.
  */
 
-export type WaveSizeRange = '1-2ft' | '2-3ft' | '3-4ft' | '4-5ft' | '5+ft';
+export type WaveSizeRange = '1-2ft' | '2-3ft' | '3-4ft' | '3-5ft' | '4-5ft' | '5+ft';
 
 export type Vibe = 'firing' | 'fun' | 'meh' | 'rough';
 
@@ -55,6 +55,7 @@ export const WAVE_SIZE_OPTIONS: WaveSizeOption[] = [
   { value: '1-2ft', label: '1-2ft' },
   { value: '2-3ft', label: '2-3ft' },
   { value: '3-4ft', label: '3-4ft' },
+  { value: '3-5ft', label: '3-5ft' },
   { value: '4-5ft', label: '4-5ft' },
   { value: '5+ft', label: '5+ft' },
 ];
