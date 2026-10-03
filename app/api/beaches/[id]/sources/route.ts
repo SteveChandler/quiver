@@ -5,6 +5,7 @@ import {
   handleApiError,
 } from "@/lib/middleware/api-wrappers";
 import { buildCamEmbed, getViewableUrl, toProxiedHlsUrl } from "@/lib/media/cam-embed";
+import { toNativeCamEmbed } from "@/lib/media/native-cam-embed";
 
 interface BeachLookupRow {
   id: string;
@@ -221,6 +222,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
       cam_open_url: cameraUrl ? getViewableUrl(cameraUrl) : null,
       cam_thumbnail_url: cameraThumbnailUrl,
       cam_kind: camIntent.kind,
+      cam_embed: toNativeCamEmbed(camIntent),
     };
 
     // PERFORMANCE OPTIMIZATION: Cache sources for 30 minutes (1800s)
