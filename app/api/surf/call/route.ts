@@ -34,6 +34,7 @@ import {
   resolveForecastAlignment,
   type SurfCallForecastAlignment,
 } from '@/lib/services/discovery/forecast-alignment';
+import { retryAfterSeconds } from '@/lib/utils/retry-after';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 15;
@@ -149,7 +150,10 @@ function retryableDiscoveryResponse(error: unknown): NextResponse {
       code,
       retryable: true,
     },
-    { status: code === 'timeout' ? 504 : 503 },
+    {
+      status: code === 'timeout' ? 504 : 503,
+      headers: { 'Retry-After': String(retryAfterSeconds()) },
+    },
   );
 }
 
