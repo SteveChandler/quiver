@@ -32,10 +32,22 @@ describe("vercel.json", () => {
     const repoPath = fs.mkdtempSync(path.join(os.tmpdir(), "vercel-ignore-"));
     const git = (...args) =>
       execFileSync("git", args, { cwd: repoPath, stdio: "ignore" });
+    const headSha = () =>
+      execFileSync("git", ["rev-parse", "HEAD"], {
+        cwd: repoPath,
+        encoding: "utf8",
+      }).trim();
+    // Vercel sets VERCEL_GIT_COMMIT_SHA to the deployed commit; a normal push has a
+    // different PREVIOUS_SHA, a redeploy of the last successful commit has the same one.
     const runIgnoreCommand = (env = {}) =>
       spawnSync(config.ignoreCommand, {
         cwd: repoPath,
-        env: { ...process.env, VERCEL_GIT_PREVIOUS_SHA: "HEAD^", ...env },
+        env: {
+          ...process.env,
+          VERCEL_GIT_PREVIOUS_SHA: "HEAD^",
+          VERCEL_GIT_COMMIT_SHA: headSha(),
+          ...env,
+        },
         shell: true,
       }).status;
 
@@ -122,6 +134,9 @@ describe("vercel.json", () => {
       expect(
         runIgnoreCommand({ VERCEL_GIT_PREVIOUS_SHA: baselineSha }),
       ).toBe(1);
+      // A redeploy of the last successful commit has no source diff, but an
+      // environment-variable change still needs a build.
+      expect(runIgnoreCommand({ VERCEL_GIT_PREVIOUS_SHA: headSha() })).toBe(1);
       // Missing history must build, never silently skip an unverified change.
       expect(runIgnoreCommand({ VERCEL_GIT_PREVIOUS_SHA: "" })).toBe(1);
       expect(runIgnoreCommand({ VERCEL_GIT_PREVIOUS_SHA: "f".repeat(40) })).not.toBe(0);
