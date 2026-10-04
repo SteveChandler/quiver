@@ -16,7 +16,8 @@ One place in Quiver that lists every swell heading to the user's beaches and tra
 4. Maps are the app's real map (the `/embed/map` WebView), not a new renderer.
 5. The current forecast feed stays primary. NOAA GFS-Wave extends the range, requested through the same Open-Meteo API.
 6. No wind-swell event type. The detector's 11 s minimum stays.
-7. Built on the user-facing swell-alert path (`lib/alerts/swell-events/`), not the no-send study (`lib/alerts/swell-watch/`). Study PRs #938, #943, #944 stay parked.
+7. The outlook LIST picks up swells the way a human forecaster's report does: one entry per swell train on the way, including modest ones, not only swells that stand out from what is already in the water. Pushes keep the stricter "notable swell" rule.
+8. Built on the user-facing swell-alert path (`lib/alerts/swell-events/`), not the no-send study (`lib/alerts/swell-watch/`). Study PRs #938, #943, #944 stay parked.
 
 ## Verified facts this design rests on (measured 2026-10-04)
 
@@ -28,7 +29,9 @@ One place in Quiver that lists every swell heading to the user's beaches and tra
 | GFS-Wave carries south swell as often as the current feed but reads its height ~0.67× (0.52 Malibu – 0.85 Pipeline) and its period ~1.8 s longer. At days 9–10 the ratio is ~0.79. | 92 days, 8 CA/HI points, ~8–10 independent swells. |
 | The stored swell period is Open-Meteo's mean `swell_wave_period` (the peak-period variable is null for every model with partitions), rounded to whole seconds. | `data-processors.ts:310`; live request. |
 | Lowering the minimum period to 10 s adds 3 distinct swells in 92 days at 8 points, loses 3 buoy-confirmed ones, and the added ones are confirmed no more often than a random summer day. | Real detector replay. |
-| A beach rarely has many swells: CA median 0, max 3 concurrent; ~62% of CA beach-days have none. A region typically has 1–2 distinct swells. | `swell_event_forecast_snapshots`, 8 runs. |
+| Against a human forecaster's SoCal report for 10/4–10/12 (6 named swells), today's detector lists 1. The misses are: overlapping swell trains merged into one event (the rise-over-baseline rule), the 3 ft / 11 s floor (a tropical south swell at 9–10 s model period failed at 104 of 106 exposed beaches), and the 9-day horizon (he first mentions a swell a median ~11 days out). | Archived reports 7/2–10/1 (38), prod snapshots, real detector with mutated parameters. |
+| A "pulse" rule (below) on the same data lists 8 regional swells and recovers 6 of 6, with 2 extras (both the fading current swell). Over 27 past 9-day windows it lists a mean of 2.8 swells (p90 4, max 5) against 1.5 for today's rule. | Same replay; one season, thin sample. |
+| With today's notable-swell rule a beach rarely has many swells: CA median 0, max 3 concurrent; ~62% of CA beach-days have none. A region typically has 1–2 distinct swells. | `swell_event_forecast_snapshots`, 8 runs. |
 | Model swell height does not drift low with lead (CA median within ~0.1 ft at 4–7 days; vs buoys 0.98–0.99 at 6–7 days). Face-height bias by lead is unmeasured. | Swell Watch provider archive, `ml_predictions_log`, Open-Meteo previous runs. |
 | Events first seen 5–7 days out vanished 56% of the time (10 of 18, ~6–8 independent swells); in all 10 a same-direction swell remained just under the 3 ft / 11 s bar. | Real detector on the provider archive. |
 | Daily snapshots exist since 2026-09-27 with no gaps; `/api/swell/<key>` returns per-run history; an event key survives peak shifts of several days. Most events still have only 1–2 runs. | Prod. |
@@ -76,11 +79,32 @@ interface OutlookSwell {
   directionLabel: string;       // 'S', 'SSW', 'NW' …
   beach: { id: string; name: string };   // the user's beach it is sized for
   beachCount: number;           // how many of the user's beaches see it
+  notable: boolean;             // true when it matches a notable-swell event (push-eligible)
+  source: 'southern_hemisphere' | 'tropical' | 'north_pacific' | 'local' | 'unknown';
+  stormName: string | null;     // active named tropical system, when one matches
+  sizeByOrientation: {          // face height range, ft; null when no pool beach faces that way
+    southFacing: { min: number; max: number } | null;
+    westFacing: { min: number; max: number } | null;
+  };
   history: Array<{ runDate: string; peakAt: string; faceHeightFt: number; periodS: number | null }>;
 }
 ```
 
+**Source label.** Derived from direction, period and season: 180–230° at ≥ 14 s is `southern_hemisphere`; 150–190° during the East Pacific hurricane season with an active system is `tropical`; 280–320° at ≥ 13 s is `north_pacific`; under 11 s is `local`; anything else `unknown`. `stormName` comes from the National Hurricane Center's public active-storms feed (`CurrentStorms.json`) when a system lies on the swell's bearing; West Pacific names are out of scope until a source is verified.
+
+**Size by orientation.** Computed from the pool beaches' own swell windows (`swell_window_center_deg` / `halfwidth_deg`), split into south-facing and west-facing groups.
+
 **Whose beaches.** The same pool the alert runner uses (`lib/alerts/user-pool.ts`: home, favourites, custom spots, nearby within drive range). Sizes are quoted for the home beach when it sees the swell, otherwise for the pool beach with the largest face height.
+
+**Listing rule (pulses).** The outlook list does not use the notable-swell detector's events. It uses a second, more inclusive rule over the same forecast rows:
+- Track each swell component through time by direction and period (the detector's existing tracking, `buildTracks` / `componentDays`, exported for reuse).
+- A pulse is a local maximum in a tracked component's daily energy whose prominence is at least 25% of its peak energy. Two swell trains that overlap without the surf going flat are two pulses.
+- Skip pulses whose peak is today or already past.
+- Floor: face ≥ 1.5 ft and model period ≥ 9 s at the beach, and at least 3 beaches in the region agreeing.
+- The rule lives in its own module (`lib/alerts/swell-events/outlook.ts`) with its own thresholds object and its own snapshot `detector_version`. It never touches `SWELL_EVENT_THRESHOLDS`, event keys, rarity or the push callers.
+- Expected volume: about 3 swells per 9 days in Southern California (max 5 in the replay).
+
+Pushes, follow-ups, Week Scout and the share page keep using the existing notable-swell events. An outlook entry links to a notable event when one matches it (direction within 45°, peak within 36 h); otherwise its detail page is built from the pulse's own snapshots.
 
 **Grouping.** One physical swell seen at many beaches is one entry. Reuse Week Scout's grouping (`groupEvents`: peaks within 36 h, period within 3 s, direction within 45°), without the `maxSwells: 3` cap. `id` is derived from the earliest event key in the group so it is stable across runs.
 
@@ -118,6 +142,7 @@ This applies to the outlook list only; detection thresholds, snapshots and event
 ### Honest labels
 
 - Tier names stay as shipped (`locked`, `likely`, `on the radar`). "On the radar" carries a plain line that swells this far out often change or fade. A number is added only once F2/F4 produce one for the production feed.
+- Hedging follows lead, as a forecaster's wording does: firm inside 3 days, "so far" from about 5 days, "needs watching" beyond 7.
 - Sizes are ranges. Beyond 5 days the peak is shown as a window (`peakWindow`), not a point.
 - No copy claims AI or machine-learning forecasting.
 
@@ -131,11 +156,11 @@ This applies to the outlook list only; detection thresholds, snapshots and event
 
 ## Phase 2 — long range (days 9–15)
 
-**Data.** A second Open-Meteo marine request per beach with `models=ncep_gfswave016`, `forecast_days=16`, primary and secondary swell height/period/direction. Stored in a new table (`long_range_swell_forecasts`: beach, valid time, issue time, the six swell fields, model). `enhanced_forecasts` and every forecast page are untouched; the two models are never merged into one row series.
+**Data.** A second Open-Meteo marine request per beach with `models=ncep_gfswave016`, `forecast_days=16`, primary, secondary and tertiary swell height/period/direction (the third partition carries long-period forerunners the production feed never shows). Stored in a new table (`long_range_swell_forecasts`: beach, valid time, issue time, the six swell fields, model). `enhanced_forecasts` and every forecast page are untouched; the two models are never merged into one row series.
 
-**Detection.** The existing detector logic runs on the GFS-Wave series for lead 9–15 days with model-specific parameters:
+**Detection.** The pulse rule runs on the GFS-Wave series for lead 9–15 days with model-specific parameters (in a 4-point trial it recovered 4 of a forecaster's 7 swells at 15 days with no extras; northwest swells are the weak spot):
 - height multiplied by a per-region factor before thresholds (start at 1.3; calibrate from the 92-day comparison; stored as config, not hard-coded per beach);
-- period minimum 13 s (GFS reads ~1.8 s longer than the production feed, so 13 s ≈ production 11 s);
+- period minimum 11 s (GFS reads ~1.8 s longer than the production feed, so 11 s ≈ the list rule's 9 s);
 - its own snapshot rows, marked by a distinct detector version so the two histories never mix.
 
 **Presentation.** A fourth tier, `early_signal`: a 2–3 day `peakWindow`, a wide size range (scaled height ± 1 ft, minimum width 2 ft), direction label only, `periodS: null`. Copy states that it is an early signal and likely to change. No pushes from this tier.
@@ -173,7 +198,8 @@ Production promotion, migrations, OTA publishes and flag changes each need Steve
 
 ## Out of scope
 
-- Wind-swell / short-period events, the 10 s threshold, and East Coast short-period surf (the face-height transform drops periods ≤ 8 s).
+- Storm-derived attributes that need fetch and distance data (waves per set, lulls, forerunner timing).
+- Wind-swell / short-period events as a separate type, any change to the notable-swell detector's thresholds, and East Coast short-period surf (the face-height transform drops periods ≤ 8 s).
 - A written regional report.
 - Ensemble-based confidence (GEFS-Wave).
 - The gridded offshore field.
@@ -185,4 +211,6 @@ Production promotion, migrations, OTA publishes and flag changes each need Steve
 - **Early signals fade.** Mitigated by sticky tracking, window-and-range presentation, and no pushes from the far tier.
 - **GFS scaling is calibrated on ~8–10 swells in one season.** Revisit the factor after a winter month; keep it in config.
 - **Mean period.** The production period under-reads buoy peak period by ~4 s; period shown to users is the model's, and the detail page should not present it as a buoy-equivalent value.
+- **List floor vs noise.** The 1.5 ft / 9 s floor was tuned on one week and checked on 27 past windows in one season; northwest swells only qualify at that floor. Re-check in winter.
+- **Under-read of tropical swell.** The model reads hurricane swell well below a forecaster's sizes; the list will show these smaller than they arrive until face-height bias (F3) is measured.
 - **Malibu.** GFS-Wave produced no detectable south swell there in 92 days against two on the production feed; early signals will under-serve it.
