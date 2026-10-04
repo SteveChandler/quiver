@@ -219,6 +219,31 @@ describe('batchFetchForecasts', () => {
       expect(result.staleCount).toBe(0);
     });
 
+    it('should carry readFailed through so callers can tell a failed read from missing data', async () => {
+      mockBatchResults.set('beach-1', {
+        beachId: 'beach-1',
+        forecasts: [],
+        metadata: {
+          cached: false,
+          stale: false,
+          missing: true,
+          readFailed: true,
+          reason: 'Database error: statement timeout',
+        } as never,
+      });
+      mockBatchResults.set('beach-2', {
+        beachId: 'beach-2',
+        forecasts: [],
+        metadata: { cached: false, stale: false, missing: true, reason: 'No forecast data in cache' },
+      });
+
+      const result = await batchFetchForecasts([mockBeach1 as Beach, mockBeach2 as Beach]);
+
+      expect(result.failed.find((f) => f.beach.id === 'beach-1')?.readFailed).toBe(true);
+      expect(result.failed.find((f) => f.beach.id === 'beach-2')).not.toHaveProperty('readFailed');
+      expect(result.staleCount).toBe(0);
+    });
+
     it('should handle beaches with no result from batch fetch', async () => {
       // Don't add beach-1 to mockBatchResults
       const result = await batchFetchForecasts([mockBeach1 as Beach]);

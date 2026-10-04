@@ -42,8 +42,12 @@ interface ForecastBatchOptions {
 interface ForecastBatchResult {
   /** Beaches with successful fresh forecasts */
   successful: Array<{ beach: Beach; forecasts: EnhancedForecastEntity[] }>;
-  /** Beaches that failed to get forecasts (with reason and stale flag) */
-  failed: Array<{ beach: Beach; reason: string; stale: boolean }>;
+  /**
+   * Beaches that failed to get forecasts. `stale` means rows exist but are too old;
+   * `readFailed` means the database read itself failed, so nothing is known about the
+   * rows and a second read (the stale fallback) would hit the same failing database.
+   */
+  failed: Array<{ beach: Beach; reason: string; stale: boolean; readFailed?: boolean }>;
   /** Count of stale forecasts (subset of failed) */
   staleCount: number;
 }
@@ -108,7 +112,7 @@ export async function batchFetchForecasts(
     );
 
   const successful: Array<{ beach: Beach; forecasts: EnhancedForecastEntity[] }> = [];
-  const failed: Array<{ beach: Beach; reason: string; stale: boolean }> = [];
+  const failed: ForecastBatchResult['failed'] = [];
   let staleCount = 0;
 
   for (const beach of beaches) {
@@ -128,6 +132,7 @@ export async function batchFetchForecasts(
         beach,
         reason: result.metadata.reason || 'Missing data',
         stale: false,
+        ...(result.metadata.readFailed ? { readFailed: true } : {}),
       });
       continue;
     }

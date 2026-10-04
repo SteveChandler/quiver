@@ -207,6 +207,11 @@ interface ForecastCacheMetadata {
   displayStale?: boolean;
   /** At least one contributing row has no usable source write timestamp. */
   freshnessUnknown?: boolean;
+  /**
+   * The read itself failed (database error or timeout), so nothing is known about
+   * freshness. Distinct from `missing`, which means the read succeeded and found no rows.
+   */
+  readFailed?: boolean;
 }
 
 interface ForecastCacheOptions {
@@ -379,6 +384,7 @@ export async function getFreshForecastFromCache(
         cached: false,
         stale: false,
         missing: true,
+        readFailed: true,
         reason: `Database error: ${error instanceof Error ? error.message : 'Unknown error'}`,
       },
     };
@@ -452,6 +458,7 @@ export async function getBatchFreshForecastsFromCache(
             cached: false,
             stale: false,
             missing: true,
+            readFailed: true,
             reason: `Database error: ${latestError.message}`,
           },
         });
@@ -594,6 +601,7 @@ export async function getBatchFreshForecastsFromCache(
             cached: false,
             stale: false,
             missing: true,
+            readFailed: true,
             reason: `Database error: ${forecastError.message}`,
           },
         });
@@ -713,6 +721,7 @@ export async function getBatchFreshForecastsFromCache(
           cached: false,
           stale: false,
           missing: true,
+          readFailed: true,
           reason: `Unexpected error: ${error instanceof Error ? error.message : "Unknown error"}`,
         },
       });

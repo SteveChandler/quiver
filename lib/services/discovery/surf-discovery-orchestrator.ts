@@ -1759,7 +1759,15 @@ async function discoverSurfSpotsInner(
   // Stale-data fallback: when ALL beaches fail freshness check, retry with allowStale
   if (beachForecasts.length === 0) {
     const staleBeachCount = failedForecasts.filter(f => f.stale).length;
-    if (staleBeachCount > 0) {
+    const readFailedCount = failedForecasts.filter(f => f.readFailed).length;
+    // allowStale re-reads enhanced_forecasts, so it cannot rescue a failed read: it would
+    // double the load on a database that is already failing. Fail fast with a retryable 503.
+    if (readFailedCount > 0) {
+      log.error(
+        `[FORECAST_READ_FAILED] Forecast read failed for ${readFailedCount}/${finalCandidates.length} beaches; ` +
+        `skipping stale fallback because it needs the same database.`
+      );
+    } else if (staleBeachCount > 0) {
       log.error(
         `[STALE_FALLBACK] No fresh forecasts available — falling back to stale data for ${staleBeachCount}/${finalCandidates.length} beaches. ` +
         `Forecast pipeline may be down. Check cron jobs: enhanced-forecast-sync-cdip, enhanced-forecast-sync.`
@@ -1781,7 +1789,9 @@ async function discoverSurfSpotsInner(
       log.error('No forecasts retrieved (even with stale fallback)');
       throw new SurfDiscoveryOperationalError(
         'forecast_unavailable',
-        'No forecasts were available for discovery candidates',
+        readFailedCount > 0
+          ? 'Forecast read failed for discovery candidates'
+          : 'No forecasts were available for discovery candidates',
       );
     }
   }

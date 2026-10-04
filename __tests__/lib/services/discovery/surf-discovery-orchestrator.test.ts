@@ -2356,6 +2356,41 @@ describe('discoverSurfSpots - Stale Data Fallback', () => {
   });
 });
 
+describe('discoverSurfSpots - failed forecast read', () => {
+  const defaultUserLocation = { lat: 32.7157, lon: -117.1611 };
+
+  // 2026-10-04: a saturated database made every forecast read error. The fallback re-reads the same
+  // table, so retrying with allowStale only doubles the load; the request must fail fast and retryably.
+  test('does not retry with allowStale when the read itself failed, and reports forecast_unavailable', async () => {
+    const { batchFetchForecasts: mockBatchFetch } = require('@/lib/services/discovery/forecast-batch-fetcher');
+    jest.clearAllMocks();
+    mockBatchFetch.mockResolvedValueOnce({
+      successful: [],
+      failed: [mockBeach1, mockBeach2, mockBeach3, mockBeach4].map((beach) => ({
+        beach,
+        stale: false,
+        readFailed: true,
+        reason: 'Database error: canceling statement due to statement timeout',
+      })),
+      staleCount: 0,
+    });
+
+    await expect(
+      discoverSurfSpots('test-user-123', {
+        userLocation: defaultUserLocation,
+        maxResults: 5,
+        throwOnFailure: true,
+      }),
+    ).rejects.toMatchObject({
+      code: 'forecast_unavailable',
+      retryable: true,
+      message: 'Forecast read failed for discovery candidates',
+    });
+    expect(mockBatchFetch).toHaveBeenCalledTimes(1);
+    expect(mockBatchFetch.mock.calls[0][1]).not.toHaveProperty('allowStale');
+  });
+});
+
 describe('discoverSurfSpots - Personalization Integration', () => {
   const testUserId = 'test-user-123';
   const defaultUserLocation = { lat: 32.7157, lon: -117.1611 };
