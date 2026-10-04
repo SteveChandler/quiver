@@ -1,6 +1,7 @@
 import React from "react";
 import { render } from "@testing-library/react";
 import { TideDatasetSchema } from "@/components/seo/tide-dataset-schema";
+import { FES2022_CITATION, MODEL_TIDE_SOURCE } from "@/lib/services/tides/model-tides";
 
 function getJsonLdScripts(container: HTMLElement) {
   const scripts = container.querySelectorAll(
@@ -10,6 +11,64 @@ function getJsonLdScripts(container: HTMLElement) {
 }
 
 describe("TideDatasetSchema", () => {
+  it("credits the FES2022 model and marks its predictions as unsuitable for navigation", () => {
+    const { container } = render(
+      <TideDatasetSchema
+        cityOrBeachName="Cabo Pulmo"
+        url="https://www.quiversurf.app/mexico/baja-california-sur/cabo-pulmo/tides"
+        source={MODEL_TIDE_SOURCE}
+        nextHighTime="2:30 PM"
+        nextHighHeight={4.2}
+      />
+    );
+
+    const schema = getJsonLdScripts(container)[0];
+    expect(schema.creditText).toBe(FES2022_CITATION);
+    expect(schema.measurementTechnique).toBe(
+      "Harmonic tide prediction from the FES2022 global ocean tide model"
+    );
+    expect(schema.isBasedOn).toEqual({
+      "@type": "Dataset",
+      name: "FES2022 Tide",
+      url: "https://www.aviso.altimetry.fr/en/data/products/auxiliary-products/global-tide-fes.html",
+    });
+    expect(schema.description).toContain("Modelled from the FES2022 global tide model.");
+    expect(schema.description).toContain("Not for navigation.");
+  });
+
+  it("preserves the exact existing JSON for NOAA, null, and omitted sources", () => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-01-15T12:00:00.000Z"));
+    try {
+      const props = {
+        cityOrBeachName: "Santa Cruz",
+        state: "CA",
+        url: "https://www.quiversurf.app/tide/santa-cruz",
+        latitude: 36.97,
+        longitude: -122.03,
+        nextHighTime: "2:30 PM",
+        nextHighHeight: 4.2,
+        nextLowTime: "8:45 AM",
+        nextLowHeight: 0.8,
+      };
+      const { container, rerender } = render(<TideDatasetSchema {...props} />);
+      const originalJson = container.querySelector('script[type="application/ld+json"]')?.textContent;
+
+      rerender(<TideDatasetSchema {...props} source={null} />);
+      const nullSourceJson = container.querySelector('script[type="application/ld+json"]')?.textContent;
+      rerender(<TideDatasetSchema {...props} source="noaa" />);
+      const noaaJson = container.querySelector('script[type="application/ld+json"]')?.textContent;
+
+      expect(noaaJson).toBe(originalJson);
+      expect(nullSourceJson).toBe(originalJson);
+      expect(noaaJson).toMatchSnapshot();
+      expect(JSON.parse(noaaJson || "{}")).not.toHaveProperty("creditText");
+      expect(JSON.parse(noaaJson || "{}")).not.toHaveProperty("measurementTechnique");
+      expect(JSON.parse(noaaJson || "{}")).not.toHaveProperty("isBasedOn");
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it("renders valid JSON-LD Dataset with complete tide data", () => {
     const { container } = render(
       <TideDatasetSchema
@@ -61,7 +120,7 @@ describe("TideDatasetSchema", () => {
     const highEntry = schema.variableMeasured.find(
       (e: { name: string }) => e.name === "High Tide"
     );
-    expect(highEntry).toBeDefined();
+    expect(highEntry).toMatchObject({ name: "High Tide" });
     expect(highEntry.value).toBe("5.1");
     expect(highEntry.unitText).toBe("ft");
     expect(highEntry.description).toContain("3:15 PM");
@@ -69,7 +128,7 @@ describe("TideDatasetSchema", () => {
     const lowEntry = schema.variableMeasured.find(
       (e: { name: string }) => e.name === "Low Tide"
     );
-    expect(lowEntry).toBeDefined();
+    expect(lowEntry).toMatchObject({ name: "Low Tide" });
     expect(lowEntry.value).toBe("1.2");
     expect(lowEntry.unitText).toBe("ft");
     expect(lowEntry.description).toContain("9:00 AM");
