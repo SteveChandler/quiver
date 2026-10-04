@@ -24,6 +24,36 @@ const runSchema = z.object({
 
 type AttestedSwellWatchRun = z.infer<typeof runSchema>;
 
+const trailingComponent = z.object({
+  sourceSlot: z.enum(["s1", "s2"]), heightM: z.number().finite().nonnegative(),
+  periodS: z.number().finite().nonnegative(), directionDeg: z.number().finite().min(0).lt(360),
+  unavailableReason: z.literal("provider_zero_tuple").optional(),
+}).refine((value) => value.unavailableReason
+  ? value.heightM === 0 && value.periodS === 0 && value.directionDeg === 0
+  : value.periodS > 0);
+const trailingSchema = z.array(z.object({ forecastAt: instant, runUtc: instant, components: z.array(trailingComponent).length(2) })).max(72);
+
+/** Frames from earlier persisted issuances that precede this issuance; coverage is judged by the derivation. */
+async function loadSwellWatchTrailingBaseline(
+  input: { providerBatchId: string; sourcePointId: string; trailingHours: number; maximumLeadHours: number },
+  client: { rpc: (name: "read_swell_watch_trailing_baseline", args: Record<string, string | number>) => PromiseLike<{
+    data: unknown; error: { message: string } | null;
+  }> },
+): Promise<z.infer<typeof trailingSchema>> {
+  const result = await client.rpc("read_swell_watch_trailing_baseline", {
+    p_provider_batch_id: input.providerBatchId, p_source_point_id: input.sourcePointId,
+    p_trailing_hours: input.trailingHours, p_maximum_lead_hours: input.maximumLeadHours,
+  });
+  if (result.error) throw new Error(`Trailing baseline read failed: ${result.error.message}`);
+  const frames = trailingSchema.parse(result.data);
+  const times = frames.map((frame) => Date.parse(frame.forecastAt));
+  if (times.some((time, index) => index > 0 && time <= times[index - 1])
+    || frames.some((frame) => frame.components[0].sourceSlot !== "s1" || frame.components[1].sourceSlot !== "s2")) {
+    throw new Error("Trailing baseline is inconsistent");
+  }
+  return frames;
+}
+
 /** Owner attestation is checked under the provider lock in the read transaction. */
 export async function loadAttestedSwellWatchRun(
   input: { providerBatchId: string; sourcePointId: string },
@@ -56,7 +86,7 @@ export async function deriveAttestedSwellWatchRun(
     beach: Parameters<typeof deriveSwellWatchHorizon>[0]["beach"];
     policy: Parameters<typeof deriveSwellWatchHorizon>[0]["policy"];
   },
-  client: Parameters<typeof loadAttestedSwellWatchRun>[1],
+  client: Parameters<typeof loadAttestedSwellWatchRun>[1] & Parameters<typeof loadSwellWatchTrailingBaseline>[1],
 ): Promise<
   | { kind: "suppressed"; reason: string }
   | ({ kind: "derived"; source: AttestedSwellWatchRun["source"]; thresholdPolicyHash: string }
@@ -81,8 +111,18 @@ export async function deriveAttestedSwellWatchRun(
   )))) {
     return { kind: "suppressed", reason: "incomplete_partition" };
   }
+  const baselineRule = input.policy.policy_values.detection?.baseline;
+  const trailingFrames = baselineRule ? await loadSwellWatchTrailingBaseline({ providerBatchId: input.providerBatchId,
+    sourcePointId: input.sourcePointId, trailingHours: baselineRule.trailing_hours, maximumLeadHours: baselineRule.maximum_lead_hours }, client) : undefined;
   try {
     const profile = resolveNativeSamplingProfile({ ...run.source, forecastDays: run.forecastDays });
+    const trailing = trailingFrames?.map((frame) => {
+      const normalized = normalizeSwellPartitions(frame.components.filter((part) => !part.unavailableReason).map((part) => ({
+        ...part, provider: run.source.provider, evaluationId: run.source.evaluationId, forecastAt: new Date(frame.forecastAt).toISOString(),
+      })));
+      if (normalized.kind !== "observations") throw new Error("Invalid trailing partition");
+      return { forecastAt: new Date(frame.forecastAt).toISOString(), parts: normalized.observations };
+    });
     const series = run.samples.map((sample): SwellWatchFramePart[] => {
       const normalized = normalizeSwellPartitions(sample.components.filter((part) => !part.unavailableReason).map((part) => ({
         ...part, provider: run.source.provider, evaluationId: run.source.evaluationId,
@@ -105,7 +145,7 @@ export async function deriveAttestedSwellWatchRun(
       })];
     });
     return { kind: "derived", source: run.source, thresholdPolicyHash: input.policy.value_hash,
-      ...deriveSwellWatchHorizon({ qualificationRule: input.qualificationRule, series, sampling: { profile, issuedAt: run.source.issuedAt }, now: input.now, beach: input.beach, policy: input.policy }) };
+      ...deriveSwellWatchHorizon({ qualificationRule: input.qualificationRule, series, sampling: { profile, issuedAt: run.source.issuedAt }, now: input.now, beach: input.beach, policy: input.policy, trailing }) };
   } catch (error) {
     return { kind: "suppressed", reason: error instanceof Error ? error.message : "invalid_horizon" };
   }

@@ -125,6 +125,36 @@ function validatePhysicalInput(input: PhysicalInput): Extract<SwellWatchImpactRe
   return null;
 }
 
+/** Gate-free physical measurement; callers decide which gates apply. */
+export function measureSwellWatchImpact(input: {
+  partition: SwellPartitionObservation;
+  baselineHeightFt: number;
+  baselineEnergy: number;
+  beach: BeachTerrainConfig;
+}): { projectedFaceHeightFt: number; heightRiseFt: number; energyRatio: number } | null {
+  const heightFt = metersToFeet(input.partition.heightM, 4);
+  if (heightFt === null) return null;
+  const projected = transformToFaceHeightDecomposed({
+    components: [
+      {
+        heightFt,
+        periodS: input.partition.periodS,
+        directionDeg: input.partition.directionDeg,
+        partition: "swell",
+      },
+    ],
+    beach: input.beach,
+    source: "model_swell",
+    rawHeightFt: heightFt,
+    periodS: input.partition.periodS,
+    swellDirectionDeg: input.partition.directionDeg,
+  });
+  const heightRiseFt = heightFt - input.baselineHeightFt;
+  const energyRatio = energy(heightFt, input.partition.periodS) / input.baselineEnergy;
+  if (!Number.isFinite(projected.faceHeightFt) || !Number.isFinite(heightRiseFt) || !Number.isFinite(energyRatio)) return null;
+  return { projectedFaceHeightFt: projected.faceHeightFt, heightRiseFt, energyRatio };
+}
+
 function calculatePhysicalImpact(input: PhysicalInput): PhysicalResult {
   if (input.partition === null || input.baselineHeightFt === null || input.baselineEnergy === null) {
     return { kind: "suppressed", reason: "incomplete_partition" };
@@ -150,44 +180,23 @@ function calculatePhysicalImpact(input: PhysicalInput): PhysicalResult {
   ) {
     return { kind: "suppressed", reason: "non_impactful" };
   }
-  const projected = transformToFaceHeightDecomposed({
-    components: [
-      {
-        heightFt,
-        periodS: input.partition.periodS,
-        directionDeg: input.partition.directionDeg,
-        partition: "swell",
-      },
-    ],
-    beach: input.beach,
-    source: "model_swell",
-    rawHeightFt: heightFt,
-    periodS: input.partition.periodS,
-    swellDirectionDeg: input.partition.directionDeg,
-  });
-  const heightRiseFt = heightFt - input.baselineHeightFt;
-  const energyRatio =
-    energy(heightFt, input.partition.periodS) / input.baselineEnergy;
-  if (
-    !Number.isFinite(projected.faceHeightFt) ||
-    !Number.isFinite(heightRiseFt) ||
-    !Number.isFinite(energyRatio)
-  ) {
-    return { kind: "suppressed", reason: "incomplete_partition" };
-  }
+  const measured = measureSwellWatchImpact({ partition: input.partition,
+    baselineHeightFt: input.baselineHeightFt, baselineEnergy: input.baselineEnergy, beach: input.beach });
+  if (measured === null) return { kind: "suppressed", reason: "incomplete_partition" };
+  const { projectedFaceHeightFt, heightRiseFt, energyRatio } = measured;
   if (
     heightRiseFt < significance.minimum_height_rise_ft ||
     energyRatio < significance.minimum_energy_ratio
   ) {
     return { kind: "suppressed", reason: "low_significance" };
   }
-  if (projected.faceHeightFt < impact.minimum_impact_score) {
+  if (projectedFaceHeightFt < impact.minimum_impact_score) {
     return { kind: "suppressed", reason: "non_impactful" };
   }
   return {
     kind: "candidate",
     partition: input.partition,
-    projectedFaceHeightFt: projected.faceHeightFt,
+    projectedFaceHeightFt,
     heightRiseFt,
     energyRatio,
     policyId: input.policy.profile_id,

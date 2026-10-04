@@ -7,6 +7,8 @@ on:
       - "supabase/migrations/*swell_watch*"
       - "scripts/*swell-watch*"
       - "__tests__/lib/alerts/swell-watch/**"
+      - "__tests__/fixtures/swell-watch-*"
+      - "docs/operations/swell-watch-study-*"
       - ".github/workflows/swell-watch-normalization.yml"
 permissions:
   contents: read
@@ -46,6 +48,7 @@ jobs:
           set -o pipefail
           bash scripts/test-swell-watch-study-postgres.sh 2>&1 | tee /tmp/swell-normalization-artifact/integration.log
           bash scripts/test-swell-watch-feed-isolation-postgres.sh 2>&1 | tee /tmp/swell-normalization-artifact/feed-isolation.log
+          bash scripts/test-swell-watch-epoch-7-postgres.sh 2>&1 | tee /tmp/swell-normalization-artifact/epoch-7.log
       - uses: actions/upload-artifact@v4
         if: always()
         with:

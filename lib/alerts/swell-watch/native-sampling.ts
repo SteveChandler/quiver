@@ -18,6 +18,8 @@ export function isAbsentPartition(part: SwellWatchFramePart): part is Extract<Sw
 }
 
 export const SWELL_WATCH_DERIVATION_VERSION = "swell-watch-horizon-derivation.v3" as const;
+/** Reported when the policy selects trailing baselines or partition-ramp timing. */
+export const SWELL_WATCH_RAMP_DERIVATION_VERSION = "swell-watch-horizon-derivation.v4" as const;
 const profile = {
   id: "ncep_gfswave016.native-1h-to-120h-3h-to-168h.v1",
   transportProvider: "open_meteo_single_runs", model: "ncep_gfswave016",
