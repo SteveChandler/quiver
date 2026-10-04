@@ -1,5 +1,6 @@
 /** @jest-environment node */
 import {
+  buildSwellCard,
   buildSwellAppUrl,
   buildSwellCardView,
   buildSwellImagePath,
@@ -259,5 +260,95 @@ describe("swell card view and history line", () => {
 
     const dropped = await load({ snapshots: [swellSnapshot()] }, new Date("2026-10-12T00:00:00.000Z"));
     expect(describeSwellHistory(dropped!)).toBe("This one fell off the forecast. The last read was 6 ft.");
+  });
+});
+
+describe("buildSwellCard", () => {
+  const KINDS = ["coming", "bigger", "smaller", "moved", "dropped", "arrived"] as const;
+
+  it.each([
+    ["ordinary", 5.6],
+    ["serious", 9.1],
+  ])("matches the card view for every kind and title id on a %s swell", async (_name, faceHeight) => {
+    const event = await load({ snapshots: [swellSnapshot({ peak_face_height_ft: faceHeight })] });
+    const rawTitleIds = [undefined, "not-in-pool", "fallback", "s33", "s42", "mv06", "b01", "s35"];
+    for (const kind of KINDS) {
+      for (const titleId of rawTitleIds) {
+        const view = buildSwellCardView({ event, kind, titleId });
+        const card = buildSwellCard({ event: event!, kind, titleId });
+        expect(card).toEqual({
+          kind,
+          titleId: view.titleId,
+          headline: view.headline,
+          sizeFt: Math.round(faceHeight),
+          periodS: 14,
+          whenDayLabel: "Thu",
+          whenDateLabel: "Oct 8",
+          serious: view.serious,
+        });
+        // The drawn stats are the card's numbers, nothing else.
+        expect(view.stats.map((stat) => stat.value)).toEqual([String(card.sizeFt), String(card.periodS), card.whenDayLabel]);
+      }
+    }
+  });
+
+  it("is the fix for 3.7 ft: the card rounds to whole feet and so does card.sizeFt", async () => {
+    const event = await load({ snapshots: [swellSnapshot({ peak_face_height_ft: 3.7 })] });
+    expect(event?.payload.faceHeightFt).toBe(3.7);
+    expect(buildSwellCard({ event: event!, kind: "moved", titleId: "mv06" })).toMatchObject({
+      sizeFt: 4,
+      headline: "Move the fake dentist to Thursday.",
+      titleId: "mv06",
+    });
+  });
+
+  it("never puts the beach name in a first-alert headline without a title id", async () => {
+    const event = await load({ snapshots: [swellSnapshot()] });
+    for (let day = 1; day <= 28; day += 1) {
+      const eventKey = `${SWELL_BEACH_ID}:NW:2026-10-${String(day).padStart(2, "0")}`;
+      const card = buildSwellCard({
+        event: { ...event!, payload: { ...event!.payload, eventKey } },
+        kind: "coming",
+      });
+      expect(card.headline).not.toContain("Trinidad");
+      expect(card.headline).not.toMatch(/[{}]/);
+    }
+  });
+
+  it("uses null for values the stored snapshot lacks", async () => {
+    const event = await load({ snapshots: [swellSnapshot()] });
+    const bare = { ...event!, payload: { ...event!.payload, faceHeightFt: null, periodS: null, peakLocalDate: null } };
+    expect(buildSwellCard({ event: bare, kind: "arrived" })).toMatchObject({
+      sizeFt: null,
+      periodS: null,
+      whenDayLabel: null,
+      whenDateLabel: null,
+      serious: false,
+    });
+    expect(buildSwellCardView({ event: bare, kind: "arrived" }).stats.map((stat) => stat.value)).toEqual(["?", "?", "?"]);
+  });
+});
+
+describe("describeSwellHistory size wording", () => {
+  const run = (first: number, last: number) =>
+    load({
+      snapshots: [
+        swellSnapshot({ run_date: "2026-10-02", detected_at: "2026-10-02T14:30:00.000Z", peak_face_height_ft: first }),
+        swellSnapshot({ peak_face_height_ft: last }),
+      ],
+    });
+
+  it.each([
+    [3.3, 3.7, "Holding steady at 4 ft since Friday, peak still Thursday."],
+    [3.7, 3.3, "Holding steady at 3 ft since Friday, peak still Thursday."],
+    [4, 4, "Holding steady at 4 ft since Friday, peak still Thursday."],
+    [3.3, 3.8, "Up from 3.3 ft to 3.8 ft since Friday, peak still Thursday."],
+    [4.6, 4.2, "Holding steady at 4 ft since Friday, peak still Thursday."],
+    [5, 4.4, "Down from 5 ft to 4.4 ft since Friday, peak still Thursday."],
+    [3.4, 4.3, "Up from 3.4 ft to 4.3 ft since Friday, peak still Thursday."],
+    [4, 6, "Up from 4 ft to 6 ft since Friday, peak still Thursday."],
+    [7.4, 5.2, "Down from 7 ft to 5 ft since Friday, peak still Thursday."],
+  ])("%s ft to %s ft", async (first, last, sentence) => {
+    expect(describeSwellHistory((await run(first, last))!)).toBe(sentence);
   });
 });

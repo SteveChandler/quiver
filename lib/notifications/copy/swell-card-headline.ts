@@ -27,6 +27,15 @@ const PUSH_TITLE_MAX_CHARS = 40;
 // Tags that state no fact about the swell; only these are safe without the push's own context.
 const COMING_NEUTRAL_TAGS = new Set(["generic", "manageable", "serious"]);
 const MOVE_DIRECTION_TAGS: readonly string[] = ["later", "earlier"];
+// The card judges a first-alert title by its text, not the push's context tags: a
+// beach-free title states no rarity, so these two tags are safe there. Direction,
+// period and region tags stay out because those titles may name what the card lacks.
+const CARD_COMING_TAGS = new Set([...COMING_NEUTRAL_TAGS, "biggest-in-weeks", "first-after-flat"]);
+const BEACH_PLACEHOLDER = /\{beach\d*\}/;
+const WEEKEND_DAYS = new Set(["Saturday", "Sunday"]);
+const WEEKDAY_DAYS = new Set(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]);
+/** First-alert entries written with the follow-ups work; the card prefers them. */
+const CARD_PREFERRED_COMING_IDS = new Set(["s41", "s42", "s43", "s44", "s45", "s46", "s47", "s48"]);
 
 interface HeadlineEntry {
   id: string;
@@ -84,6 +93,17 @@ function isPickable(kind: SwellKind, entry: HeadlineEntry, moveDirection?: Swell
   return entry.tags.every((tag) => !MOVE_DIRECTION_TAGS.includes(tag) || tag === moveDirection);
 }
 
+/** First-alert titles safe on a card that already shows the beach and has no push context. */
+function isCardComingPickable(entry: HeadlineEntry, peakDayLabel?: string): boolean {
+  if (BEACH_PLACEHOLDER.test(entry.title)) return false;
+  return entry.tags.every((tag) => {
+    if (CARD_COMING_TAGS.has(tag)) return true;
+    if (tag === "weekend") return peakDayLabel !== undefined && WEEKEND_DAYS.has(peakDayLabel);
+    if (tag === "weekday") return peakDayLabel !== undefined && WEEKDAY_DAYS.has(peakDayLabel);
+    return false;
+  });
+}
+
 function headlineVars(args: { beachName: string; peakDayLabel?: string }): Record<string, string | undefined> {
   return {
     beach: args.beachName,
@@ -101,8 +121,11 @@ function pickHeadline(args: {
   peakDayLabel?: string;
   serious?: boolean;
   moveDirection?: SwellMoveDirection;
+  cardSuitable?: boolean;
 }): { titleId: string; headline: string } {
   const entries = entriesFor(args.kind);
+  // Card-only: a first alert on a card already shows the beach in its own tag.
+  const cardComing = args.cardSuitable === true && args.kind === "coming" && args.serious !== true;
   const vars = headlineVars(args);
   const serious = args.serious === true;
 
@@ -120,22 +143,42 @@ function pickHeadline(args: {
   }
 
   const rendered = entries
-    .filter((entry) => isSeriousEntry(entry) === serious && isPickable(args.kind, entry, args.moveDirection))
+    .filter((entry) =>
+      isSeriousEntry(entry) === serious &&
+      (cardComing
+        ? isCardComingPickable(entry, args.peakDayLabel)
+        : isPickable(args.kind, entry, args.moveDirection)),
+    )
     .flatMap((entry) => {
       const headline = render(entry.title, vars);
       return headline ? [{ titleId: entry.id, headline }] : [];
     });
-  const fitting = rendered.filter(({ headline }) => [...headline].length <= PUSH_TITLE_MAX_CHARS);
-  const candidates = fitting.length > 0 ? fitting : rendered;
+  const preferred = cardComing
+    ? rendered.filter(({ titleId }) => CARD_PREFERRED_COMING_IDS.has(titleId))
+    : [];
+  const pool = preferred.length > 0 ? preferred : rendered;
+  const fitting = pool.filter(({ headline }) => [...headline].length <= PUSH_TITLE_MAX_CHARS);
+  const candidates = fitting.length > 0 ? fitting : pool;
   if (candidates.length > 0) return candidates[hashIndex(args.eventKey, candidates.length)];
 
+  if (cardComing) {
+    const headline = render("Swell peaks {day}", vars);
+    return headline
+      ? { titleId: COMING_FALLBACK_TITLE_ID, headline }
+      : { titleId: "plain", headline: "Swell on the way" };
+  }
   return {
     titleId: "plain",
     headline: render(PLAIN_HEADLINES[args.kind], vars) ?? "Swell update",
   };
 }
 
-export function getSwellCardHeadline(args: { titleId?: string; kind: SwellKind; eventKey: string; beachName: string; peakDayLabel?: string; serious?: boolean }): { titleId: string; headline: string } {
+/**
+ * `cardSuitable` is for the share card only (page, JSON and images): a first
+ * alert without a valid title id then skips titles that repeat the beach name.
+ * Pushes never pass it, so their selection is untouched.
+ */
+export function getSwellCardHeadline(args: { titleId?: string; kind: SwellKind; eventKey: string; beachName: string; peakDayLabel?: string; serious?: boolean; cardSuitable?: boolean }): { titleId: string; headline: string } {
   return pickHeadline(args);
 }
 

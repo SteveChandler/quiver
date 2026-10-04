@@ -26,9 +26,9 @@ jest.mock("@/lib/middleware/api-wrappers", () => {
 
 import { GET } from "@/app/api/swell/[eventKey]/route";
 
-function call(eventKey: string): Promise<Response> {
+function call(eventKey: string, query = ""): Promise<Response> {
   return GET(
-    new NextRequest(`https://www.quiversurf.app/api/swell/${encodeURIComponent(eventKey)}`),
+    new NextRequest(`https://www.quiversurf.app/api/swell/${encodeURIComponent(eventKey)}${query}`),
     { params: Promise.resolve({ eventKey: encodeURIComponent(eventKey) }) },
   );
 }
@@ -50,10 +50,64 @@ describe("GET /api/swell/[eventKey]", () => {
     expect(response.headers.get("Cache-Control")).toBe("public, s-maxage=300, stale-while-revalidate=600");
     const body = await response.json();
     expect(Object.keys(body).sort()).toEqual(
-      ["beach", "directionLabel", "eventKey", "faceHeightFt", "history", "peakAt", "peakLocalDate", "periodS", "status"],
+      ["beach", "card", "directionLabel", "eventKey", "faceHeightFt", "history", "peakAt", "peakLocalDate", "periodS", "status"],
     );
     expect(body.eventKey).toBe(SWELL_EVENT_KEY);
     expect(body.history).toHaveLength(1);
+    // Existing fields stay raw: the card carries the rounded, displayed values.
+    expect(body.faceHeightFt).toBe(5.6);
+    expect(Object.keys(body.card)).toEqual(
+      ["kind", "titleId", "headline", "sizeFt", "periodS", "whenDayLabel", "whenDateLabel", "serious"],
+    );
+    expect(body.card).toMatchObject({
+      kind: "coming",
+      sizeFt: 6,
+      periodS: 14,
+      whenDayLabel: "Thu",
+      whenDateLabel: "Oct 8",
+      serious: false,
+    });
+    expect(body.card.headline).not.toContain("Trinidad");
+  });
+
+  it("builds the card from k and t, validated like the image route", async () => {
+    const moved = await (await call(SWELL_EVENT_KEY, "?k=moved&t=mv06")).json();
+    expect(moved.card).toMatchObject({
+      kind: "moved",
+      titleId: "mv06",
+      headline: "Move the fake dentist to Thursday.",
+    });
+
+    const unknown = await (await call(SWELL_EVENT_KEY, "?k=<script>&t=not%20an%20id")).json();
+    const plain = await (await call(SWELL_EVENT_KEY)).json();
+    expect(unknown.card).toEqual(plain.card);
+    expect(unknown.card.kind).toBe("coming");
+
+    const invalidTitle = await (await call(SWELL_EVENT_KEY, "?k=bigger&t=zzz")).json();
+    expect(invalidTitle.card.kind).toBe("bigger");
+    expect(invalidTitle.card.titleId).not.toBe("zzz");
+  });
+
+  it("agrees with the page and image view for the same event, kind and title", async () => {
+    const { buildSwellCardView, loadSwellShareEvent } = jest.requireActual("@/lib/share/swell-share");
+    const { fakeSwellSupabase } = jest.requireActual("@/__tests__/helpers/swell-share-fixtures");
+    const event = await loadSwellShareEvent(fakeSwellSupabase(mockDb), SWELL_EVENT_KEY);
+    for (const [query, kind, titleId] of [
+      ["", "coming", undefined],
+      ["?k=arrived&t=ar01", "arrived", "ar01"],
+      ["?k=dropped&t=bogus!", "dropped", undefined],
+    ] as const) {
+      const { card } = await (await call(SWELL_EVENT_KEY, query)).json();
+      const view = buildSwellCardView({ event, kind, titleId });
+      expect([card.kind, card.titleId, card.headline]).toEqual([view.kind, view.titleId, view.headline]);
+    }
+  });
+
+  it("answers a serious swell with serious copy and the serious flag", async () => {
+    mockDb = { snapshots: [swellSnapshot({ peak_face_height_ft: 9.1 })] };
+    const { card } = await (await call(SWELL_EVENT_KEY, "?k=bigger&t=b01")).json();
+    expect(card.serious).toBe(true);
+    expect(card.titleId).not.toBe("b01");
   });
 
   it("resolves an uppercase uuid and answers with the stored lowercase key", async () => {
