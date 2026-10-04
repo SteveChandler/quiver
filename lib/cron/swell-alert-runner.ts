@@ -11,6 +11,21 @@ import {
   type BeachSwellEvent,
   type SwellEventSnapshot,
 } from "@/lib/alerts/swell-events";
+import { tracksSwellComponent } from "@/lib/alerts/swell-events/detector";
+import {
+  detectSwellFollowupKind,
+  isSwellFollowupExpired,
+  isSwellFollowupWindowOpen,
+  swellMoveDirection,
+} from "@/lib/alerts/swell-followup/change-detection";
+import {
+  claimSwellFollowup,
+  closeSwellFollowupState,
+  loadActiveSwellFollowupStates,
+  saveSwellFirstTold,
+  type SwellFollowupState,
+  type SwellToldUpdate,
+} from "@/lib/alerts/swell-followup/state";
 import { assessRarity, MIN_HISTORY_DAYS_FOR_WEEKS, type DayScore } from "@/lib/alerts/swell-rarity";
 import {
   recordSwellEventForecast,
@@ -18,8 +33,17 @@ import {
 } from "@/lib/alerts/swell-verification/record";
 import { loadUserPool } from "@/lib/alerts/user-pool";
 import { isSwellAlertEnabled, isSwellAlertUserAllowed } from "@/lib/flags/swell-alert";
+import { isSwellFollowupEnabled, isSwellFollowupUserAllowed } from "@/lib/flags/swell-followup";
 import { enqueueNotification } from "@/lib/notifications/enqueue";
 import { selectTitle } from "@/lib/notifications/copy/select-title";
+import {
+  buildSwellShareUrl,
+  getSwellCardHeadline,
+  pickSwellFollowupHeadline,
+  renderSwellFollowupBody,
+  type SwellFollowupKind,
+  type SwellKind,
+} from "@/lib/notifications/copy/swell-card-headline";
 import titlePool from "@/lib/notifications/copy/surf-titles.v1.json";
 import {
   MAJOR_SWELL_NOTIFICATION_SCHEMA_VERSION,
@@ -48,6 +72,11 @@ const FORECAST_PAGE_SIZE = 1000;
 const PEAK_ROW_MAX_MS = 3 * 60 * 60 * 1000;
 const OFFICIAL_ADVISORY_HORIZON_MS = 10 * DAY_MS;
 const OFFICIAL_ADVISORY_KINDS = new Set(["high_surf", "tropical_cyclone", "high_rip_current"]);
+const SERIOUS_FACE_HEIGHT_FT = 8;
+// Forecast rows a pinned re-evaluation loads before now; detection itself reads 48 h back.
+const PINNED_LOOKBACK_MS = 3 * DAY_MS;
+// A swell that lost its key but still tracks the told one within this shift is the same swell, moved.
+const PINNED_MAX_PEAK_SHIFT_MS = 72 * 60 * 60 * 1000;
 
 type ServiceClient = SupabaseClient<Database>;
 
@@ -87,6 +116,14 @@ export interface SwellAlertPoolEvaluation {
   candidates: SwellAlertCandidate[];
 }
 
+/** The pinned beach and, when still detected there, the pinned event. */
+export interface PinnedSwellEvaluation {
+  beach: SwellAlertCandidate["beach"] | null;
+  /** False when no future forecast rows loaded: a data gap is never reported as a dropped swell. */
+  forecastAvailable: boolean;
+  event: BeachSwellEvent | null;
+}
+
 export interface SwellAlertState {
   eventExists: boolean;
   lastAlertAt: string | null;
@@ -119,6 +156,27 @@ export interface SwellAlertDeps {
   recordForecast: (record: SwellEventForecastRecord) => Promise<{ inserted: boolean }>;
 }
 
+export interface SwellFollowupDeps {
+  isFollowupEnabled: () => boolean;
+  isFollowupUserAllowed: (userId: string) => boolean;
+  loadFollowupStates: () => Promise<SwellFollowupState[]>;
+  evaluatePinned: (
+    profile: SwellAlertProfile,
+    state: SwellFollowupState,
+    now: Date,
+  ) => Promise<PinnedSwellEvaluation>;
+  saveFirstTold: (args: {
+    userId: string;
+    eventKey: string;
+    beachId: string;
+    told: SwellToldUpdate;
+  }) => Promise<void>;
+  claimFollowup: (state: SwellFollowupState, told: SwellToldUpdate) => Promise<boolean>;
+  closeFollowupState: (state: SwellFollowupState, status: "passed", now: Date) => Promise<void>;
+}
+
+type RunnerDeps = SwellAlertDeps & SwellFollowupDeps;
+
 export interface SwellAlertRunSummary {
   skipped: boolean;
   reason?: string;
@@ -129,6 +187,10 @@ export interface SwellAlertRunSummary {
   skippedCounts: Record<string, number>;
   errors: number;
   verificationRecordFailures: number;
+  /** Enqueued pushes by kind: 'coming' is a first alert, the rest are follow-ups. */
+  sentByKind: Partial<Record<SwellKind, number>>;
+  followupsEvaluated: number;
+  followupStateFailures: number;
   durationMs: number;
 }
 
@@ -197,8 +259,16 @@ function createSummary(): SwellAlertRunSummary {
     skippedCounts: {},
     errors: 0,
     verificationRecordFailures: 0,
+    sentByKind: {},
+    followupsEvaluated: 0,
+    followupStateFailures: 0,
     durationMs: 0,
   };
+}
+
+function countSent(summary: SwellAlertRunSummary, kind: SwellKind): void {
+  summary.sent += 1;
+  summary.sentByKind[kind] = (summary.sentByKind[kind] ?? 0) + 1;
 }
 
 function increment(summary: SwellAlertRunSummary, reason: string): void {
@@ -447,6 +517,82 @@ async function evaluatePool(
   };
 }
 
+/**
+ * Re-evaluates one pinned (event, beach) for a follow-up. Never re-runs the
+ * lead-beach pick: the user is told about the beach the first alert named.
+ */
+async function evaluatePinned(
+  client: ServiceClient,
+  state: SwellFollowupState,
+  now: Date,
+): Promise<PinnedSwellEvaluation> {
+  const { data: beach, error } = await client
+    .from("beaches")
+    .select("*")
+    .eq("id", state.beachId)
+    .maybeSingle();
+  if (error) throw new Error(`Failed to load pinned swell beach: ${error.message}`);
+  if (!beach) return { beach: null, forecastAvailable: false, event: null };
+
+  const forecasts = await loadForecasts(
+    client,
+    [beach.id],
+    new Date(now.getTime() - PINNED_LOOKBACK_MS),
+    new Date(now.getTime() + LOOKAHEAD_DAYS * DAY_MS),
+  );
+  // What the user was last told anchors the key too, in case no daily snapshot carries it.
+  const toldSnapshot: SwellEventSnapshot = {
+    beachId: state.beachId,
+    eventKey: state.eventKey,
+    detectorVersion: SWELL_EVENT_DETECTOR_VERSION,
+    runDate: state.lastToldAt.slice(0, 10),
+    detectedAt: new Date(state.lastToldAt).toISOString(),
+    directionDeg: state.lastDirectionDeg,
+    directionBand: "",
+    periodS: state.lastPeriodS,
+    peakOffshoreHeightFt: 0,
+    peakFaceHeightFt: state.lastFaceHeightFt,
+    exposure: 1,
+    energyRatio: 1,
+    arrivalAt: state.lastArrivalAt,
+    peakAt: state.lastPeakAt,
+    fadeAt: null,
+    crossingDirectionDeg: null,
+    crossingPeriodS: null,
+    crossingOffshoreHeightFt: null,
+  };
+  const events = resolveEventKeys(
+    detectBeachSwellEvents({
+      beach: toSwellEventBeach(beach),
+      forecasts,
+      now,
+      timezone: resolveBeachTimezone(beach.timezone),
+    }),
+    [...await loadKeySnapshots(client, [beach.id], now), toldSnapshot],
+  );
+  const toldPeakAt = Date.parse(state.lastPeakAt);
+  const told = { directionDeg: state.lastDirectionDeg, periodS: state.lastPeriodS };
+  const event = events.find(({ eventKey }) => eventKey === state.eventKey)
+    ?? events
+      .filter((candidate) => tracksSwellComponent(told, candidate)
+        && Math.abs(Date.parse(candidate.peakAt) - toldPeakAt) <= PINNED_MAX_PEAK_SHIFT_MS)
+      .sort((left, right) =>
+        Math.abs(Date.parse(left.peakAt) - toldPeakAt) - Math.abs(Date.parse(right.peakAt) - toldPeakAt))[0]
+    ?? null;
+
+  return {
+    beach: {
+      id: beach.id,
+      name: beach.name,
+      shortName: beach.short_name,
+      slug: beach.slug,
+      state: beach.state,
+    },
+    forecastAvailable: forecasts.some((row) => Date.parse(row.forecast_at) > now.getTime()),
+    event,
+  };
+}
+
 async function loadAlertState(
   client: ServiceClient,
   userId: string,
@@ -481,8 +627,8 @@ async function loadAlertState(
 
 function defaultDependencies(args: {
   supabase?: ServiceClient;
-  deps?: Partial<SwellAlertDeps>;
-}): SwellAlertDeps {
+  deps?: Partial<RunnerDeps>;
+}): RunnerDeps {
   let client = args.supabase;
   const getClient = (): ServiceClient => {
     client ??= createSupabaseServiceRoleClient();
@@ -517,6 +663,18 @@ function defaultDependencies(args: {
       ?? ((input) => enqueueNotification(input, getClient())),
     recordForecast: args.deps?.recordForecast
       ?? ((record) => recordSwellEventForecast(getClient(), record)),
+    isFollowupEnabled: args.deps?.isFollowupEnabled ?? isSwellFollowupEnabled,
+    isFollowupUserAllowed: args.deps?.isFollowupUserAllowed ?? isSwellFollowupUserAllowed,
+    loadFollowupStates: args.deps?.loadFollowupStates
+      ?? (() => loadActiveSwellFollowupStates(getClient())),
+    evaluatePinned: args.deps?.evaluatePinned
+      ?? ((_profile, state, now) => evaluatePinned(getClient(), state, now)),
+    saveFirstTold: args.deps?.saveFirstTold
+      ?? ((input) => saveSwellFirstTold(getClient(), input)),
+    claimFollowup: args.deps?.claimFollowup
+      ?? ((state, told) => claimSwellFollowup(getClient(), state, told)),
+    closeFollowupState: args.deps?.closeFollowupState
+      ?? ((state, status, now) => closeSwellFollowupState(getClient(), state, status, now)),
     markAlertEnqueued: args.deps?.markAlertEnqueued ?? (async (alertId, eventId) => {
       const { error } = await getClient()
         .from("swell_event_alerts")
@@ -544,10 +702,188 @@ async function recordAlertForecast(
   }
 }
 
+const FOLLOWUP_STATUS_AFTER: Record<SwellFollowupKind, SwellToldUpdate["status"]> = {
+  bigger: "active",
+  smaller: "active",
+  moved: "active",
+  dropped: "dropped",
+  arrived: "arrived",
+};
+
+/**
+ * Follow-ups for the swells this user was already alerted to. Skips the first
+ * alert's gates on purpose (event_exists, the 72 h cooldown, tomorrow-only,
+ * the 17:00 send hour): those would block every update about a known swell.
+ */
+async function sendFollowups(
+  deps: RunnerDeps,
+  summary: SwellAlertRunSummary,
+  profile: SwellAlertProfile,
+  states: readonly SwellFollowupState[],
+  now: Date,
+): Promise<void> {
+  for (const state of states) {
+    summary.followupsEvaluated += 1;
+    try {
+      const told = {
+        peakAt: state.lastPeakAt,
+        faceHeightFt: state.lastFaceHeightFt,
+        toldKinds: state.toldKinds,
+        lastFollowupAt: state.lastFollowupAt,
+        status: state.status,
+      };
+      if (isSwellFollowupExpired(told, now)) {
+        await deps.closeFollowupState(state, "passed", now);
+        increment(summary, "followup_expired");
+        continue;
+      }
+      if (!isSwellFollowupWindowOpen(told, now, profile.timezone)) {
+        increment(summary, "followup_window_closed");
+        continue;
+      }
+
+      const pinned = await deps.evaluatePinned(profile, state, now);
+      if (!pinned.beach || !pinned.forecastAvailable) {
+        increment(summary, "followup_no_forecast");
+        continue;
+      }
+      const event = pinned.event;
+      const kind = detectSwellFollowupKind({
+        told,
+        current: event
+          ? { peakAt: event.peakAt, faceHeightFt: event.peakFaceHeightFt, exposure: event.exposure }
+          : null,
+        now,
+        timezone: profile.timezone,
+      });
+      if (!kind) {
+        increment(summary, "followup_no_change");
+        continue;
+      }
+
+      // A dropped swell has no current numbers, so the push restates what was last told.
+      const shown = kind !== "dropped" && event
+        ? {
+            arrivalAt: event.arrivalAt,
+            peakAt: event.peakAt,
+            faceHeightFt: event.peakFaceHeightFt,
+            periodS: event.periodS,
+            directionDeg: event.directionDeg,
+          }
+        : {
+            arrivalAt: state.lastArrivalAt,
+            peakAt: state.lastPeakAt,
+            faceHeightFt: state.lastFaceHeightFt,
+            periodS: state.lastPeriodS,
+            directionDeg: state.lastDirectionDeg,
+          };
+      const serious = state.serious || shown.faceHeightFt >= SERIOUS_FACE_HEIGHT_FT;
+      const peakDate = getLocalDateString(new Date(shown.peakAt), profile.timezone);
+      const previousPeakDate = getLocalDateString(new Date(state.lastPeakAt), profile.timezone);
+      const beachName = pinned.beach.shortName ?? pinned.beach.name;
+      const peakDayLabel = weekday(peakDate);
+      const picked = pickSwellFollowupHeadline({
+        kind,
+        eventKey: state.eventKey,
+        beachName,
+        peakDayLabel,
+        serious,
+        ...(kind === "moved" ? { moveDirection: swellMoveDirection(state.lastPeakAt, shown.peakAt) } : {}),
+      });
+      // The card renders its headline from the same function and title id as this push.
+      const headline = getSwellCardHeadline({
+        titleId: picked.titleId,
+        kind,
+        eventKey: state.eventKey,
+        beachName,
+        peakDayLabel,
+        serious,
+      });
+      const body = renderSwellFollowupBody({
+        kind,
+        titleId: headline.titleId,
+        vars: {
+          beach: beachName,
+          size: `${formatNumber(shown.faceHeightFt)}ft`,
+          period: `${formatNumber(shown.periodS)}s`,
+          day: peakDayLabel,
+          part: peakPart(shown.peakAt, profile.timezone),
+          prev_size: `${formatNumber(state.lastFaceHeightFt)}ft`,
+          prev_day: weekday(previousPeakDate),
+        },
+      });
+      if (!body) {
+        increment(summary, "followup_no_copy");
+        continue;
+      }
+
+      const payload = parseMajorSwellNotificationPayload({
+        schema_version: MAJOR_SWELL_NOTIFICATION_SCHEMA_VERSION,
+        beach_id: pinned.beach.id,
+        ...(pinned.beach.slug ? { beach_slug: pinned.beach.slug } : {}),
+        beach_name: pinned.beach.name,
+        event_start_date: getLocalDateString(new Date(shown.arrivalAt), profile.timezone),
+        peak_date: peakDate,
+        peak_height_ft: shown.faceHeightFt,
+        peak_period_s: shown.periodS,
+        forecast_at: shown.peakAt,
+        awareness_mode: "shadow",
+        automation_enabled: false,
+        awareness_signal: "forecast_trend",
+        awareness_severity: serious ? "major" : "significant",
+        official_evidence_refs: [],
+        would_suppress_cohorts: ["beginner", "intermediate", "unknown"],
+        enforcement: null,
+        title: headline.headline,
+        body,
+        beaches: [{ beach_id: pinned.beach.id, beach_name: beachName, rank: 1 }],
+        event_key: state.eventKey,
+        title_id: headline.titleId,
+        kind,
+        share_url: buildSwellShareUrl(state.eventKey, kind, headline.titleId),
+        previous_peak_height_ft: state.lastFaceHeightFt,
+        previous_peak_date: previousPeakDate,
+      });
+
+      const claimed = await deps.claimFollowup(state, {
+        ...shown,
+        serious,
+        kind,
+        toldAt: now.toISOString(),
+        status: FOLLOWUP_STATUS_AFTER[kind],
+      });
+      if (!claimed) {
+        increment(summary, "followup_claim_lost");
+        continue;
+      }
+
+      const enqueued = await deps.enqueue({
+        type: "swell_watch",
+        recipientUserId: profile.id,
+        dedupeKey: `swell_watch:${profile.id}:${state.eventKey}:${kind}`,
+        payload,
+      });
+      if (!enqueued.enqueued) {
+        if (enqueued.reason === "duplicate") {
+          summary.duplicates += 1;
+        } else {
+          increment(summary, "enqueue_failed");
+          summary.errors += 1;
+        }
+        continue;
+      }
+      countSent(summary, kind);
+    } catch (error) {
+      console.error(`[swell-alert] Error on follow-up ${state.eventKey} for ${profile.id}:`, error);
+      summary.errors += 1;
+    }
+  }
+}
+
 export async function runSwellAlertCron(args: {
   now: Date;
   supabase?: ServiceClient;
-  deps?: Partial<SwellAlertDeps>;
+  deps?: Partial<RunnerDeps>;
 }): Promise<SwellAlertRunSummary> {
   const startedAt = Date.now();
   const deps = defaultDependencies(args);
@@ -557,6 +893,20 @@ export async function runSwellAlertCron(args: {
     summary.reason = "disabled";
     summary.durationMs = Date.now() - startedAt;
     return summary;
+  }
+
+  const followupEnabled = deps.isFollowupEnabled();
+  const followupStates = new Map<string, SwellFollowupState[]>();
+  if (followupEnabled) {
+    try {
+      for (const state of await deps.loadFollowupStates()) {
+        followupStates.set(state.userId, [...(followupStates.get(state.userId) ?? []), state]);
+      }
+    } catch (error) {
+      // First alerts must still go out when the follow-up table is unreadable.
+      console.error("[swell-alert] Failed to load follow-up state:", error);
+      summary.followupStateFailures += 1;
+    }
   }
 
   const profiles = await deps.loadProfiles();
@@ -569,6 +919,10 @@ export async function runSwellAlertCron(args: {
     if (!deps.isUserAllowed(profile.id)) {
       increment(summary, "not_allowed");
       continue;
+    }
+    const pinnedStates = followupStates.get(profile.id);
+    if (pinnedStates && deps.isFollowupUserAllowed(profile.id)) {
+      await sendFollowups(deps, summary, profile, pinnedStates, args.now);
     }
     if (getLocalHour(args.now, profile.timezone) !== SEND_HOUR) {
       increment(summary, "not_send_hour");
@@ -640,6 +994,17 @@ export async function runSwellAlertCron(args: {
           rarity: rarity.rarityLine,
         },
       });
+      // selectTitle still picks (tags, rotation, length); the push shows that
+      // id as the card function renders it, so push and card stay one text.
+      const headline = getSwellCardHeadline({
+        titleId: selected.id,
+        kind: "coming",
+        eventKey,
+        beachName: beachNames[0],
+        peakDayLabel: weekday(lead.peakDate),
+        serious: lead.serious,
+      });
+      const title = headline.titleId === selected.id ? headline.headline : selected.title;
       const payload = parseMajorSwellNotificationPayload({
         schema_version: MAJOR_SWELL_NOTIFICATION_SCHEMA_VERSION,
         beach_id: lead.beach.id,
@@ -658,12 +1023,15 @@ export async function runSwellAlertCron(args: {
         official_evidence_refs: lead.officialEvidenceRefs,
         would_suppress_cohorts: ["beginner", "intermediate", "unknown"],
         enforcement: null,
-        title: selected.title,
+        title,
         body: selected.body,
         beaches: rankedBeaches,
         rarity: rarity.rarityLine,
         event_key: eventKey,
         title_id: selected.id,
+        ...(followupEnabled
+          ? { kind: "coming", share_url: buildSwellShareUrl(eventKey, "coming", selected.id) }
+          : {}),
       });
       const alert = await deps.insertAlert({
         userId: profile.id,
@@ -708,7 +1076,31 @@ export async function runSwellAlertCron(args: {
       }
 
       await deps.markAlertEnqueued(alert.id, enqueued.eventId);
-      summary.sent += 1;
+      countSent(summary, "coming");
+      if (followupEnabled) {
+        try {
+          await deps.saveFirstTold({
+            userId: profile.id,
+            eventKey,
+            beachId: lead.beach.id,
+            told: {
+              arrivalAt: lead.event.arrivalAt,
+              peakAt: lead.event.peakAt,
+              faceHeightFt: lead.event.peakFaceHeightFt,
+              periodS: lead.event.periodS,
+              directionDeg: lead.event.directionDeg,
+              serious: lead.serious,
+              kind: "coming",
+              toldAt: args.now.toISOString(),
+              status: "active",
+            },
+          });
+        } catch (error) {
+          // The push is already out; a missing pin only means no follow-ups for this swell.
+          console.error(`[swell-alert] Failed to pin ${eventKey} for follow-ups:`, error);
+          summary.followupStateFailures += 1;
+        }
+      }
     } catch (error) {
       console.error(`[swell-alert] Error processing ${profile.id}:`, error);
       summary.errors += 1;

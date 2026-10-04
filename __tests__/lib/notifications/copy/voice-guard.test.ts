@@ -13,6 +13,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import titlePool from "@/lib/notifications/copy/surf-titles.v1.json";
+import followupPool from "@/lib/notifications/copy/swell-followup-titles.v1.json";
 import {
   renderTemplate,
   SWELL_TAG_PRIORITY,
@@ -55,6 +56,10 @@ const VARS = {
   peak_day: "Wed",
   peak_part: "AM",
   rarity: "Best in 30 days",
+  day: "Wed",
+  part: "AM",
+  prev_size: "3ft",
+  prev_day: "Tue",
 };
 
 function match(overrides: Partial<MatchingWindow> = {}): MatchingWindow {
@@ -76,7 +81,15 @@ function match(overrides: Partial<MatchingWindow> = {}): MatchingWindow {
 }
 
 describe("push title pool voice", () => {
-  const entries = [...titlePool.daily, ...titlePool.swell];
+  const entries = [
+    ...titlePool.daily,
+    ...titlePool.swell,
+    ...followupPool.bigger,
+    ...followupPool.smaller,
+    ...followupPool.moved,
+    ...followupPool.dropped,
+    ...followupPool.arrived,
+  ];
 
   it("has no hype, exclamation marks or emoji in any title or body", () => {
     expect(loud(entries.flatMap((entry) => [entry.title, entry.body]))).toEqual([]);

@@ -772,6 +772,12 @@ export const NOTIFICATION_REGISTRY = {
     surfAlertPriority: 1,
     quietHours: DEFAULT_QUIET,
     cooldownMs: 96 * 60 * 60 * 1000,
+    // First alerts keep one shared 96 h window. A follow-up is scoped to its own
+    // event and kind, so it is never blocked by the first alert it follows; the
+    // runner owns the 24 h spacing between follow-ups.
+    cooldownKey: (p) => (
+      p.kind && p.kind !== "coming" && p.event_key ? `${p.event_key}:${p.kind}` : "coming"
+    ),
     validatePayload: parseMajorSwellNotificationPayload,
     buildPushPayload: (p) => ({
       ...SURF_ALERT_PUSH_PRESENTATION,
@@ -786,6 +792,13 @@ export const NOTIFICATION_REGISTRY = {
         ...(p.beaches ? { beaches: JSON.stringify(p.beaches) } : {}),
         ...(p.event_key ? { event_key: p.event_key } : {}),
         ...(p.rarity ? { rarity: p.rarity } : {}),
+        ...(p.peak_height_ft ? { peak_height_ft: p.peak_height_ft } : {}),
+        ...(p.peak_period_s ? { peak_period_s: p.peak_period_s } : {}),
+        ...(p.kind ? { kind: p.kind } : {}),
+        ...(p.title_id ? { title_id: p.title_id } : {}),
+        ...(p.share_url ? { share_url: p.share_url } : {}),
+        ...(p.previous_peak_height_ft ? { previous_peak_height_ft: p.previous_peak_height_ft } : {}),
+        ...(p.previous_peak_date ? { previous_peak_date: p.previous_peak_date } : {}),
         awareness_signal: p.awareness_signal,
         awareness_severity: p.awareness_severity,
       },
@@ -805,6 +818,12 @@ export const NOTIFICATION_REGISTRY = {
         awareness_severity: p.awareness_severity,
         title: p.title,
         body: p.body,
+        ...(p.event_key ? { event_key: p.event_key } : {}),
+        ...(p.kind ? { kind: p.kind } : {}),
+        ...(p.title_id ? { title_id: p.title_id } : {}),
+        ...(p.share_url ? { share_url: p.share_url } : {}),
+        ...(p.previous_peak_height_ft ? { previous_peak_height_ft: p.previous_peak_height_ft } : {}),
+        ...(p.previous_peak_date ? { previous_peak_date: p.previous_peak_date } : {}),
       },
     }),
   } satisfies NotificationTypeDef<MajorSwellNotificationPayload>,
