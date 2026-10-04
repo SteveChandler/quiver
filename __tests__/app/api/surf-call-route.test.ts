@@ -438,6 +438,10 @@ describe("GET /api/surf/call", () => {
       retryable: true,
       code: "forecast_unavailable",
     });
+    const retryAfter = Number(response.headers.get("Retry-After"));
+    expect(Number.isInteger(retryAfter)).toBe(true);
+    expect(retryAfter).toBeGreaterThanOrEqual(3);
+    expect(retryAfter).toBeLessThanOrEqual(6);
   });
 
   it("scores a validated forecastAt through the canonical discovery path", async () => {

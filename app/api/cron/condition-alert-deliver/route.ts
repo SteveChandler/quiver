@@ -1,6 +1,6 @@
 // app/api/cron/condition-alert-deliver/route.ts
 //
-// Delivery cron — runs hourly (`0 * * * *`).
+// Delivery cron — runs hourly at :02 (`2 * * * *`), off the minute-0 pile-up.
 // Reads due items from alert_queue, consolidates per user, sends email + push.
 // Cadence relaxed from `*/15 * * * *` on 2026-05-02 — initial-rollout latency budget is
 // 60 min from evaluator → delivery, acceptable for surf condition alerts.

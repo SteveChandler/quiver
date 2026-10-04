@@ -51,6 +51,11 @@ interface CandidatePoolOptions {
   userLocation: { lat: number; lon: number };
   /** Optional hard outer radius in miles for nearby beach search (max: 100) */
   radiusMiles?: number;
+  /**
+   * The caller discards the nearby beaches and only needs the user's skill level
+   * (saved-spots-only discovery). Skips the PostGIS tier queries and the beach read.
+   */
+  skipNearby?: boolean;
 }
 
 /**
@@ -284,6 +289,10 @@ export async function buildCandidatePool(
         return NEUTRAL_USER_CONTEXT;
       }
     );
+
+    if (options.skipNearby) {
+      return { candidates: [], userSkillLevel: (await userContextPromise).skillLevel };
+    }
 
     const seen = new Set<string>();
     for (const radiusMiles of radiusTiers) {
