@@ -2392,6 +2392,33 @@ describe('discoverSurfSpots - failed forecast read', () => {
     expect(seenSignal?.aborted).toBe(true);
   });
 
+  test('saved-spots-only skips the nearby search; normal discovery does not', async () => {
+    const { batchFetchForecasts: mockBatchFetch } = require('@/lib/services/discovery/forecast-batch-fetcher');
+    const { buildCandidatePool } = require('@/lib/services/discovery/candidate-pool-builder');
+    jest.clearAllMocks();
+    mockState.favoriteBeaches = [mockBeach1];
+    const forecastResponse = {
+      successful: [{ beach: mockBeach1, forecasts: [mockForecast] }],
+      failed: [],
+      staleCount: 0,
+    };
+    mockBatchFetch.mockResolvedValueOnce(forecastResponse).mockResolvedValueOnce(forecastResponse);
+
+    await discoverSurfSpots('test-user-123', {
+      userLocation: defaultUserLocation,
+      savedSpotsOnly: true,
+      throwOnFailure: true,
+    });
+    expect(buildCandidatePool).toHaveBeenLastCalledWith(
+      'test-user-123',
+      expect.objectContaining({ skipNearby: true }),
+    );
+
+    await discoverSurfSpots('test-user-123', { userLocation: defaultUserLocation, throwOnFailure: true });
+    expect(buildCandidatePool.mock.calls.at(-1)?.[1]).not.toHaveProperty('skipNearby');
+    mockState.favoriteBeaches = [];
+  });
+
   test('hands the forecast reads a live signal when the request completes in time', async () => {
     const { batchFetchForecasts: mockBatchFetch } = require('@/lib/services/discovery/forecast-batch-fetcher');
     jest.clearAllMocks();

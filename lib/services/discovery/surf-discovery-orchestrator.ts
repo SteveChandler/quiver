@@ -1646,11 +1646,14 @@ async function discoverSurfSpotsInner(
   const favoriteBeachIds = new Set((favorites.data ?? []).map((beach) => beach.id));
   const savedCustomSpots = ('customSpots' in favorites ? favorites.customSpots ?? [] : [])
     .filter((spot) => !spot.deleted_at && (spot.user_id === userId || spot.visibility === 'public'));
-  // 1. Build candidate pool (GPS-based, re-ordered by pre-forecast preference fit)
+  // 1. Build candidate pool (GPS-based, re-ordered by pre-forecast preference fit).
+  // Saved-spots-only never reads the nearby beaches (nearbyCandidates is forced empty and
+  // nearbyMaxMiles is bypassed below), so only the skill-level read is needed from the pool.
   const [{ candidates, userSkillLevel }, includedCandidates, customSpotCandidates] = await Promise.all([
     buildCandidatePool(userId, {
       userLocation,
       radiusMiles: requestedRadiusMiles,
+      ...(savedSpotsOnly ? { skipNearby: true } : {}),
     }),
     savedSpotsOnly ? Promise.resolve((favorites.data ?? [])
       .filter((beach) => !beach.is_private || (beach as Beach & { owner_id?: string }).owner_id === userId)
