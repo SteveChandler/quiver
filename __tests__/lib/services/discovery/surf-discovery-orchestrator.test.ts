@@ -2359,6 +2359,62 @@ describe('discoverSurfSpots - Stale Data Fallback', () => {
 describe('discoverSurfSpots - failed forecast read', () => {
   const defaultUserLocation = { lat: 32.7157, lon: -117.1611 };
 
+  beforeEach(() => {
+    mockState.candidatePoolResponse = {
+      candidates: [mockBeach1, mockBeach2, mockBeach3, mockBeach4] as Beach[],
+      preferredWaveSize: null,
+      userSkillLevel: null,
+      preferredBreakType: null,
+    };
+    mockState.favoriteBeaches = [];
+    mockState.favoritesError = null;
+  });
+
+  // The Promise.race only abandons the response; the signal is what releases the database.
+  test('aborts the forecast reads when the overall timeout fires', async () => {
+    const { batchFetchForecasts: mockBatchFetch } = require('@/lib/services/discovery/forecast-batch-fetcher');
+    jest.clearAllMocks();
+    let seenSignal: AbortSignal | undefined;
+    mockBatchFetch.mockImplementationOnce((_beaches: unknown, options: { signal?: AbortSignal }) => {
+      seenSignal = options.signal;
+      return new Promise(() => {});
+    });
+
+    await expect(
+      discoverSurfSpots('test-user-123', {
+        userLocation: defaultUserLocation,
+        overallTimeout: 5,
+        throwOnFailure: true,
+      }),
+    ).rejects.toMatchObject({ code: 'timeout', retryable: true });
+
+    expect(seenSignal).toBeDefined();
+    expect(seenSignal?.aborted).toBe(true);
+  });
+
+  test('hands the forecast reads a live signal when the request completes in time', async () => {
+    const { batchFetchForecasts: mockBatchFetch } = require('@/lib/services/discovery/forecast-batch-fetcher');
+    jest.clearAllMocks();
+    let seenSignal: AbortSignal | undefined;
+    mockBatchFetch.mockImplementationOnce(async (_beaches: unknown, options: { signal?: AbortSignal }) => {
+      seenSignal = options.signal;
+      return {
+        successful: [{ beach: mockBeach1, forecasts: [mockForecast] }],
+        failed: [],
+        staleCount: 0,
+      };
+    });
+
+    const result = await discoverSurfSpots('test-user-123', {
+      userLocation: defaultUserLocation,
+      maxResults: 5,
+      throwOnFailure: true,
+    });
+
+    expect(result.recommendations.length).toBeGreaterThan(0);
+    expect(seenSignal?.aborted).toBe(false);
+  });
+
   // 2026-10-04: a saturated database made every forecast read error. The fallback re-reads the same
   // table, so retrying with allowStale only doubles the load; the request must fail fast and retryably.
   test('does not retry with allowStale when the read itself failed, and reports forecast_unavailable', async () => {

@@ -34,6 +34,8 @@ interface ForecastBatchOptions {
   allowStale?: boolean;
   /** Enforce source-aware freshness for every returned forecast row. */
   requirePerRowFreshness?: boolean;
+  /** Cancels the database reads once the caller has abandoned the request. */
+  signal?: AbortSignal;
 }
 
 /**
@@ -98,7 +100,15 @@ export async function batchFetchForecasts(
   }
 
   // Fetch all forecasts in 2 queries instead of 2N queries
-  const batchResults = options?.requirePerRowFreshness
+  const batchResults = options?.signal
+    ? await getBatchFreshForecastsFromCache(
+      beaches.map((b) => b.id),
+      forecastWindowHours,
+      options.allowStale ?? false,
+      options.requirePerRowFreshness ?? false,
+      options.signal,
+    )
+    : options?.requirePerRowFreshness
     ? await getBatchFreshForecastsFromCache(
       beaches.map((b) => b.id),
       forecastWindowHours,

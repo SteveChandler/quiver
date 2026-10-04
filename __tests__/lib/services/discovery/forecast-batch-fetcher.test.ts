@@ -101,6 +101,19 @@ describe('batchFetchForecasts', () => {
     mockBatchResults = new Map();
   });
 
+  describe('abort signal', () => {
+    it('forwards the signal as the fifth argument and keeps the existing call shape without one', async () => {
+      const controller = new AbortController();
+      await batchFetchForecasts([mockBeach1 as Beach], { allowStale: true, signal: controller.signal });
+      expect(getBatchFreshForecastsFromCache).toHaveBeenLastCalledWith(
+        ['beach-1'], 48, true, false, controller.signal,
+      );
+
+      await batchFetchForecasts([mockBeach1 as Beach]);
+      expect(getBatchFreshForecastsFromCache).toHaveBeenLastCalledWith(['beach-1'], 48, false);
+    });
+  });
+
   describe('successful forecast fetching', () => {
     it('should return successful forecasts for beaches with fresh data', async () => {
       mockBatchResults.set('beach-1', {

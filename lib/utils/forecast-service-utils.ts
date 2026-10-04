@@ -414,6 +414,8 @@ interface BatchForecastCacheResult {
  * @param beachIds - Array of beach IDs to fetch forecasts for
  * @param windowHours - Forecast window in hours (default 48)
  * @param allowStale - When true, return forecast rows for stale beaches (default false)
+ * @param signal - Cancels in-flight and not-yet-issued reads when the caller has abandoned the
+ *   request, so a timed-out request stops loading the database. Omitted: no behavior change.
  * @returns Map of beach ID to forecast result with metadata
  */
 export async function getBatchFreshForecastsFromCache(
@@ -421,6 +423,7 @@ export async function getBatchFreshForecastsFromCache(
   windowHours: number = 48,
   allowStale: boolean = false,
   requirePerRowFreshness: boolean = false,
+  signal?: AbortSignal,
 ): Promise<Map<string, BatchForecastCacheResult>> {
   const startTime = Date.now();
   const results = new Map<string, BatchForecastCacheResult>();
@@ -432,14 +435,21 @@ export async function getBatchFreshForecastsFromCache(
   try {
     const supabase = await createSupabaseServiceRoleClient();
 
+    const abortedError = { message: "Forecast read aborted by caller" };
+
     // Query 1: Get staleness metadata for all beaches in one query
     const latestRows: Array<{ beach_id: string; updated_at: string; data_source: string | null }> = [];
     let latestError: { message: string } | null = null;
     for (const ids of chunkArray(beachIds, 500)) {
-      const { data, error } = await supabase
+      if (signal?.aborted) {
+        latestError = abortedError;
+        break;
+      }
+      const latestQuery = supabase
         .from("v_enhanced_forecast_latest")
         .select("beach_id, updated_at, data_source")
         .in("beach_id", ids);
+      const { data, error } = await (signal ? latestQuery.abortSignal(signal) : latestQuery);
       if (error) {
         latestError = error;
         break;
@@ -555,7 +565,8 @@ export async function getBatchFreshForecastsFromCache(
     }> => {
       const chunkForecasts: EnhancedForecastEntity[] = [];
       for (let offset = 0; ; offset += FORECAST_QUERY_PAGE_SIZE) {
-        const result = await supabase
+        if (signal?.aborted) return { forecasts: chunkForecasts, error: abortedError };
+        const pageQuery = supabase
           .from("enhanced_forecasts")
           .select("*")
           .in("beach_id", chunk)
@@ -564,6 +575,7 @@ export async function getBatchFreshForecastsFromCache(
           .order("beach_id")
           .order("forecast_at", { ascending: true })
           .range(offset, offset + FORECAST_QUERY_PAGE_SIZE - 1);
+        const result = await (signal ? pageQuery.abortSignal(signal) : pageQuery);
         if (result.error) return { forecasts: chunkForecasts, error: result.error };
         const page = (result.data ?? []) as EnhancedForecastEntity[];
         chunkForecasts.push(...page);
