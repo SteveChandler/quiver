@@ -166,6 +166,12 @@ This applies to the outlook list only; detection thresholds, snapshots and event
 ### Pushes
 
 - **First sighting.** One push per user per swell the first time it is listed with `fit.status === 'in_range'` (Steven, 2026-10-04: any in-range swell pushes; no extra notability test). A waist-high swell therefore pushes a beginner or a longboarder and does not push an advanced shortboarder. A swell that enters the user's range on a later run pushes then. Expected volume at about 3 listed swells per 9 days is up to roughly 10 a month for a user whose range covers most of them; this is above the earlier "a few per month" guardrail and is a number to watch in the trial. Sent at any lead inside the horizon, within the existing local send hours.
+- **Back off when ignored (Steven, 2026-10-04).** Push volume is capped by whether the user is using it, not by a fixed monthly number.
+  - A swell push is *answered* when the user opens the app within 48 h of it. The signal is server-side: an authenticated `GET /api/swell/outlook` (Home loads it) or `GET /api/swell/[eventKey]` after the send time. No client push-open tracking exists today and none is required.
+  - After 3 consecutive unanswered swell pushes (first-sighting and follow-ups both count), swell pushes pause for that user. Swells keep listing; skipped sends are recorded with a distinct attempt status (`skipped_unengaged`, alongside the existing statuses in `lib/alerts/throttle.ts`).
+  - The pause ends the next time the user opens the app. The counter resets to zero; nothing skipped during the pause is sent late.
+  - While paused, one exception: after 14 days, a single push is allowed for a swell that passes the existing rarity rule (best in 30 days). If that is also unanswered the pause continues with no further exceptions for another 14 days.
+  - State lives per user (consecutive unanswered count, paused since, last answered at) next to `swell_event_user_state`.
 - **Follow-ups.** The existing follow-up kinds (moved, bigger, smaller, dropped, arrived) and their limits (`lib/alerts/swell-followup/`), unchanged.
 - **Limits.** At most one first-sighting push per user per 72 h; free users for the home beach only, as today.
 - **Destination.** Pushes open the swell detail; its back action goes to the outlook.
@@ -199,7 +205,7 @@ A field that shows a swell crossing open ocean needs gridded NOAA GFS-Wave files
 ## Measurement
 
 - **Founder test:** he no longer opens the external report.
-- **Product:** outlook opens per weekly active user; first-sighting push open rate; follow-up push open rate; downgrade/drop rate after a first-sighting push.
+- **Product:** share of swell pushes answered within 48 h; share of users in the paused state; outlook opens per weekly active user; first-sighting push open rate; follow-up push open rate; downgrade/drop rate after a first-sighting push.
 - **Accuracy:** hit / mistimed / miss by lead from F2; vanish rate by first-seen lead from F4; face-height bias by lead from F3.
 - Outcomes stay `shipped_unvalidated` until these move at their measurement points.
 
