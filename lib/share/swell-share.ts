@@ -45,10 +45,31 @@ export interface SwellCardStat {
   unit: string;
 }
 
+/** The `card` object of GET /api/swell/[eventKey]: the same values the page and images draw. */
+export interface SwellCard {
+  kind: SwellKind;
+  titleId: string;
+  headline: string;
+  /** Whole feet, as the card shows it. */
+  sizeFt: number | null;
+  /** Whole seconds, as the card shows it. */
+  periodS: number | null;
+  /** Short weekday, e.g. "Thu". */
+  whenDayLabel: string | null;
+  /** Short month and day, e.g. "Oct 8". */
+  whenDateLabel: string | null;
+  serious: boolean;
+}
+
 export interface SwellCardView {
+  kind: SwellKind;
   titleId: string | null;
   headline: string;
   beachName: string;
+  sizeFt: number | null;
+  periodS: number | null;
+  whenDayLabel: string | null;
+  whenDateLabel: string | null;
   stats: SwellCardStat[];
   serious: boolean;
   /** True when the event could not be resolved and the card carries no forecast. */
@@ -276,11 +297,15 @@ function weekday(localDate: string | null, style: "long" | "short"): string | nu
   return new Intl.DateTimeFormat("en-US", { weekday: style, timeZone: "UTC" }).format(parsed);
 }
 
-function monthDay(localDate: string | null): string {
-  if (!localDate) return "";
+function monthDay(localDate: string | null): string | null {
+  if (!localDate) return null;
   const parsed = Date.parse(`${localDate}T12:00:00Z`);
-  if (!Number.isFinite(parsed)) return "";
+  if (!Number.isFinite(parsed)) return null;
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" }).format(parsed);
+}
+
+function wholeNumber(value: number | null): number | null {
+  return value === null ? null : Math.round(value);
 }
 
 function wholeFeet(value: number | null): string {
@@ -298,9 +323,14 @@ export function buildSwellCardView(args: {
 }): SwellCardView {
   if (!args.event) {
     return {
+      kind: args.kind,
       titleId: null,
       headline: GENERIC_HEADLINE,
       beachName: GENERIC_BEACH_NAME,
+      sizeFt: null,
+      periodS: null,
+      whenDayLabel: null,
+      whenDateLabel: null,
       stats: [],
       serious: false,
       generic: true,
@@ -315,28 +345,66 @@ export function buildSwellCardView(args: {
     beachName: payload.beach.name,
     peakDayLabel: weekday(payload.peakLocalDate, "long") ?? undefined,
     serious,
+    cardSuitable: true,
   });
   const gone = args.kind === "dropped" || payload.status === "dropped";
+  // The stats are drawn from these same rounded values, so JSON and images agree.
+  const sizeFt = wholeNumber(payload.faceHeightFt);
+  const periodS = wholeNumber(payload.periodS);
+  const whenDayLabel = weekday(payload.peakLocalDate, "short");
+  const whenDateLabel = monthDay(payload.peakLocalDate);
   return {
+    kind: args.kind,
     titleId,
     headline,
     beachName: payload.beach.name,
+    sizeFt,
+    periodS,
+    whenDayLabel,
+    whenDateLabel,
     stats: [
-      { label: gone ? "Was" : "Size", value: wholeFeet(payload.faceHeightFt), unit: "ft" },
-      {
-        label: "Period",
-        value: payload.periodS === null ? "?" : String(Math.round(payload.periodS)),
-        unit: "s",
-      },
-      {
-        label: gone ? "Was due" : "When",
-        value: weekday(payload.peakLocalDate, "short") ?? "?",
-        unit: monthDay(payload.peakLocalDate),
-      },
+      { label: gone ? "Was" : "Size", value: sizeFt === null ? "?" : String(sizeFt), unit: "ft" },
+      { label: "Period", value: periodS === null ? "?" : String(periodS), unit: "s" },
+      { label: gone ? "Was due" : "When", value: whenDayLabel ?? "?", unit: whenDateLabel ?? "" },
     ],
     serious,
     generic: false,
   };
+}
+
+/** The JSON `card`: the page and both images draw from the same view. */
+export function buildSwellCard(args: {
+  event: SwellShareEvent;
+  kind: SwellKind;
+  titleId?: string;
+}): SwellCard {
+  const view = buildSwellCardView(args);
+  return {
+    kind: view.kind,
+    titleId: view.titleId ?? "plain",
+    headline: view.headline,
+    sizeFt: view.sizeFt,
+    periodS: view.periodS,
+    whenDayLabel: view.whenDayLabel,
+    whenDateLabel: view.whenDateLabel,
+    serious: view.serious,
+  };
+}
+
+const STEADY_BELOW_FT = 0.5;
+
+function oneDecimal(value: number): string {
+  return String(Math.round(value * 10) / 10);
+}
+
+/** Whole feet for a change of 1 ft or more, one decimal below that; under 0.5 ft is steady. */
+function describeSizeChange(from: number | null, to: number | null): string {
+  if (from === null || to === null) return `Holding steady at ${wholeFeet(to)} ft`;
+  const change = Math.round((to - from) * 10) / 10;
+  if (Math.abs(change) < STEADY_BELOW_FT) return `Holding steady at ${wholeFeet(to)} ft`;
+  const direction = change > 0 ? "Up" : "Down";
+  if (Math.abs(change) >= 1) return `${direction} from ${wholeFeet(from)} ft to ${wholeFeet(to)} ft`;
+  return `${direction} from ${oneDecimal(from)} ft to ${oneDecimal(to)} ft`;
 }
 
 /** One factual line on how the forecast has moved between daily runs. */
@@ -363,13 +431,7 @@ export function describeSwellHistory(event: SwellShareEvent): string {
       : "New on the forecast. No revisions yet.";
   }
 
-  const delta = Math.round(last.faceHeightFt ?? 0) - Math.round(first.faceHeightFt ?? 0);
-  const size =
-    delta >= 1
-      ? `Up from ${wholeFeet(first.faceHeightFt)} ft to ${lastFeet} ft`
-      : delta <= -1
-        ? `Down from ${wholeFeet(first.faceHeightFt)} ft to ${lastFeet} ft`
-        : `Holding at ${lastFeet} ft`;
+  const size = describeSizeChange(first.faceHeightFt, last.faceHeightFt);
   const firstPeakDate = first.peakAt ? getLocalDateStr(new Date(first.peakAt), timezone) : null;
   const firstPeakDay = weekday(firstPeakDate, "long");
   const day =

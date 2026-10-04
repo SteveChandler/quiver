@@ -2,6 +2,8 @@
  * @jest-environment node
  */
 
+import { createHash } from "node:crypto";
+
 import followupPool from "@/lib/notifications/copy/swell-followup-titles.v1.json";
 import titlePool from "@/lib/notifications/copy/surf-titles.v1.json";
 import { TITLE_MAX_CHARS } from "@/lib/notifications/copy/select-title";
@@ -229,5 +231,108 @@ describe("swell share url", () => {
     expect(isSwellKind("moved")).toBe(true);
     expect(isSwellKind("gone")).toBe(false);
     expect(isSwellKind(undefined)).toBe(false);
+  });
+});
+
+describe("card-suitable first-alert headlines", () => {
+  const BEACH = "Pine Trees (Kohanaiki)";
+  const poolEntry = (id: string) => titlePool.swell.find((entry) => entry.id === id)!;
+  const pick = (index: number, peakDayLabel: string | null = "Friday", extra: object = {}) =>
+    getSwellCardHeadline({
+      kind: "coming",
+      eventKey: `beach-${index}:NW:2026-10-08`,
+      beachName: BEACH,
+      peakDayLabel: peakDayLabel ?? undefined,
+      cardSuitable: true,
+      ...extra,
+    });
+
+  it("never repeats the beach name, is deterministic, and prefers the newer entries", () => {
+    const ids = new Set<string>();
+    for (let index = 0; index < 60; index += 1) {
+      const picked = pick(index);
+      expect(picked.headline).not.toContain("Pine Trees");
+      expect(poolEntry(picked.titleId).title).not.toMatch(/\{beach\d*\}/);
+      expect(Number(picked.titleId.slice(1))).toBeGreaterThanOrEqual(41);
+      expect(pick(index)).toEqual(picked);
+      ids.add(picked.titleId);
+    }
+    expect(ids.size).toBeGreaterThan(1);
+  });
+
+  it("keeps surviving titles free of rarity and size claims", () => {
+    for (let index = 0; index < 60; index += 1) {
+      expect(pick(index).headline).not.toMatch(/best|weeks|biggest|first|flat|ft\b|big/i);
+    }
+  });
+
+  it("only uses weekend or weekday titles on a matching peak day", () => {
+    for (let index = 0; index < 60; index += 1) {
+      const weekday = poolEntry(pick(index, "Tuesday").titleId).tags;
+      const weekend = poolEntry(pick(index, "Saturday").titleId).tags;
+      expect(weekday).not.toContain("weekend");
+      expect(weekend).not.toContain("weekday");
+    }
+  });
+
+  it("falls back to a beach-free plain line when no title fits", () => {
+    for (let index = 0; index < 10; index += 1) {
+      // Without a peak day every {peak_day} title is dropped, and the rest name the beach.
+      const picked = pick(index, null);
+      expect(picked).toEqual({ titleId: "plain", headline: "Swell on the way" });
+    }
+  });
+
+  it("still honours a valid title id, even one that names the beach", () => {
+    expect(pick(1, "Friday", { titleId: "s33" })).toEqual({
+      titleId: "s33",
+      headline: `Mavericks mood, sane size: ${BEACH}`,
+    });
+  });
+
+  it("treats an unknown title id like no title id", () => {
+    expect(pick(3, "Friday", { titleId: "nope" })).toEqual(pick(3));
+  });
+
+  it("keeps serious first alerts on serious-tagged copy", () => {
+    const seriousIds = titlePool.swell.filter((entry) => entry.tags.includes("serious")).map(({ id }) => id);
+    for (let index = 0; index < 20; index += 1) {
+      expect(seriousIds).toContain(pick(index, "Friday", { serious: true }).titleId);
+    }
+  });
+
+  it("does not change any other kind", () => {
+    for (const kind of FOLLOWUP_KINDS) {
+      const base = { kind, eventKey: EVENT_KEY, beachName: "Blacks", peakDayLabel: "Friday" };
+      expect(getSwellCardHeadline({ ...base, cardSuitable: true })).toEqual(getSwellCardHeadline(base));
+    }
+  });
+});
+
+describe("push title selection is unchanged", () => {
+  // Hash of every default pick (cards without the option and the push producer's
+  // follow-up picks) over kinds x event keys x severity x peak day x move direction,
+  // recorded from the code before cardSuitable existed. A deliberate pool edit updates it.
+  it("matches the recorded picks", () => {
+    const rows: unknown[] = [];
+    for (let index = 0; index < 40; index += 1) {
+      const eventKey = `beach-${index}:NW:2026-10-${String((index % 28) + 1).padStart(2, "0")}`;
+      for (const serious of [false, true]) {
+        for (const peakDayLabel of [undefined, "Monday", "Saturday"]) {
+          for (const kind of SWELL_KINDS) {
+            const base = { kind, eventKey, beachName: "Blacks", peakDayLabel, serious };
+            rows.push(getSwellCardHeadline(base));
+            if (kind === "coming") continue;
+            for (const moveDirection of [undefined, "later", "earlier"] as const) {
+              rows.push(pickSwellFollowupHeadline({ ...base, kind, moveDirection }));
+            }
+          }
+        }
+      }
+    }
+    expect(rows).toHaveLength(5040);
+    expect(createHash("sha256").update(JSON.stringify(rows)).digest("hex")).toBe(
+      "66ec8770cdc52f0bb4d5ddd17499952aaa988467c9e5f961bc919435b15423a4",
+    );
   });
 });
