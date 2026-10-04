@@ -45,6 +45,7 @@ branch. Otherwise, rely on local verification and the `main` preview after merge
 - Use `preview/**` only when a deployed preview is needed; normal feature branches run local checks and CI.
 - Promote the reviewed batch to `prod` once. Avoid repeated staging/production pushes for small follow-up edits.
 - Keep `VERCEL_GIT_PREVIOUS_SHA` available to the ignored-build check so a docs-only head cannot hide runtime changes earlier in the batch. Missing history builds conservatively.
+- A redeploy of the last successful commit has no source diff, so the ignored-build check also builds when `VERCEL_GIT_PREVIOUS_SHA` equals `VERCEL_GIT_COMMIT_SHA`. An environment-variable-only change is therefore deployed with `vercel redeploy https://www.quiversurf.app --target production`.
 - Check `yarn test:unit --runInBand --runTestsByPath __tests__/config/vercel-config.test.js` when changing deployment filters.
 
 ## Promoting to Production
