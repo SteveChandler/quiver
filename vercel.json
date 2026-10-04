@@ -4,7 +4,7 @@
     "app/api/surf/discover/route.ts": { "regions": ["sfo1"] },
     "app/api/surf/week-scout/route.ts": { "regions": ["sfo1"] }
   },
-  "ignoreCommand": "test -n \"$VERCEL_GIT_PREVIOUS_SHA\" && git diff --quiet \"$VERCEL_GIT_PREVIOUS_SHA\" HEAD -- . ':!:*.md' ':!:.github/**' ':!:.planning/**' ':!:__tests__/**' ':!:docs/**' ':!:e2e/**' ':!:plans/**' ':!:scripts/**' ':!:supabase/**'",
+  "ignoreCommand": "test -n \"$VERCEL_GIT_PREVIOUS_SHA\" && test \"$VERCEL_GIT_PREVIOUS_SHA\" != \"$VERCEL_GIT_COMMIT_SHA\" && git diff --quiet $VERCEL_GIT_PREVIOUS_SHA HEAD -- . ':!*.md' ':!.github' ':!.planning' ':!:__tests__' ':!docs' ':!e2e' ':!plans' ':!scripts' ':!supabase'",
   "git": {
     "deploymentEnabled": {
       "**": false,
