@@ -1,8 +1,8 @@
 -- One would-be notification per recipient per physical swell. Rolling forecasts re-mint regional_event_id
 -- whenever arrival/peak drifts past the pinned 6 h matching delta, so one swell fanned out into several
 -- (event, recipient) pairs. Identity, thresholds, and the study/policy hashes are left untouched: demand is
--- deduped at record time. Events in one coast domain whose arrival windows are <= 24 h apart (transitively)
--- are one swell; the first pair for a recipient in that swell wins. Skipped duplicates stay on the append-only
+-- deduped at record time. Events in one coast domain whose arrival windows are <= 24 h apart (transitively,
+-- capped at 72 h from the swell's first window start) are one swell; the first pair for a recipient in that swell wins. Skipped duplicates stay on the append-only
 -- observation ledger (duplicate_of_regional_event_id) and are excluded from recorded_pairs_24h.
 -- Coast domains live in swell_watch_coast_domain() below, NOT in the study cohort or policy values, so the
 -- authority config_hash and policy_hash are unchanged. A new region_key needs only a redefinition here.
@@ -22,29 +22,42 @@ REVOKE ALL ON FUNCTION public.swell_watch_coast_domain(text) FROM PUBLIC,anon,au
 GRANT EXECUTE ON FUNCTION public.swell_watch_coast_domain(text) TO service_role;
 
 -- Pairs from p_pairs that repeat a swell the recipient already holds (or holds earlier in the same input).
+-- Swells are built per domain by one ordered pass over event windows (start_at, id): an event joins the open swell
+-- when it starts <= 24 h after the latest arrival so far (chain) AND <= 72 h after the swell's first start (cap);
+-- otherwise it opens a new swell. Only events within 5 days of the requested windows are scanned.
 CREATE OR REPLACE FUNCTION public.swell_watch_shadow_demand_duplicates(p_pairs jsonb)
 RETURNS TABLE(regional_event_id uuid, recipient_id uuid, duplicate_of uuid)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public,pg_temp AS $$
   WITH RECURSIVE input AS (
     SELECT (pair->>'regional_event_id')::uuid AS ev,(pair->>'recipient_id')::uuid AS rec FROM jsonb_array_elements(p_pairs) pair
-  ), domains AS (
-    SELECT DISTINCT public.swell_watch_coast_domain(event.region_key) AS domain
-    FROM input JOIN public.swell_watch_regional_events event ON event.id=input.ev
-  ), win AS (
-    SELECT event.id,public.swell_watch_coast_domain(event.region_key) AS domain,
+  ), bounds AS (
+    SELECT public.swell_watch_coast_domain(event.region_key) AS domain,
       min(impact.arrival_at) AS start_at,max(impact.arrival_at) AS end_at
-    FROM public.swell_watch_regional_events event
+    FROM (SELECT DISTINCT ev FROM input) requested
+    JOIN public.swell_watch_regional_events event ON event.id=requested.ev
     JOIN public.swell_watch_event_impacts impact ON impact.regional_event_id=event.id
-    WHERE public.swell_watch_coast_domain(event.region_key) IN (SELECT domain FROM domains)
-    GROUP BY event.id,event.region_key
-  ), link AS (
-    SELECT a.id AS a,b.id AS b FROM win a JOIN win b ON a.domain=b.domain AND a.id<>b.id
-      AND a.start_at<=b.end_at+interval '24 hours' AND b.start_at<=a.end_at+interval '24 hours'
-  ), reach(id,root) AS (
-    SELECT id,id::text FROM win
-    UNION SELECT link.b,reach.root FROM reach JOIN link ON link.a=reach.id
+    GROUP BY 1
+  ), win AS (
+    SELECT event.id,bounds.domain,min(impact.arrival_at) AS start_at,max(impact.arrival_at) AS end_at
+    FROM bounds
+    JOIN public.swell_watch_regional_events event ON public.swell_watch_coast_domain(event.region_key)=bounds.domain
+    JOIN public.swell_watch_event_impacts impact ON impact.regional_event_id=event.id
+    GROUP BY event.id,bounds.domain,bounds.start_at,bounds.end_at
+    HAVING max(impact.arrival_at)>=bounds.start_at-interval '5 days' AND min(impact.arrival_at)<=bounds.end_at+interval '5 days'
+  ), ordered AS (
+    SELECT id,domain,start_at,end_at,row_number() OVER (PARTITION BY domain ORDER BY start_at,id::text) AS rn FROM win
+  ), walk(id,domain,rn,swell_start,latest_end,root) AS (
+    SELECT id,domain,rn,start_at,end_at,id::text FROM ordered WHERE rn=1
+    UNION ALL
+    SELECT o.id,o.domain,o.rn,
+      CASE WHEN s.same THEN walk.swell_start ELSE o.start_at END,
+      CASE WHEN s.same THEN greatest(walk.latest_end,o.end_at) ELSE o.end_at END,
+      CASE WHEN s.same THEN walk.root ELSE o.id::text END
+    FROM walk JOIN ordered o ON o.domain=walk.domain AND o.rn=walk.rn+1
+    CROSS JOIN LATERAL (SELECT o.start_at<=walk.latest_end+interval '24 hours'
+      AND o.start_at<=walk.swell_start+interval '72 hours' AS same) s
   ), swell AS (
-    SELECT id,min(root) AS root FROM reach GROUP BY id
+    SELECT id,root FROM walk
   ), requested AS (
     SELECT input.ev,input.rec,swell.root,win.start_at FROM input
     JOIN swell ON swell.id=input.ev JOIN win ON win.id=input.ev

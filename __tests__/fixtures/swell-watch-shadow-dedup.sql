@@ -70,3 +70,34 @@ BEGIN
   PERFORM public.study_assert(duplicate_of=(SELECT id::text FROM public.dedup_events WHERE label='A'),'duplicate points at the event holding the pair');
   PERFORM public.study_assert((SELECT count(*) FROM public.swell_watch_shadow_demand_pairs)=pairs_before+2,'only kept pairs persisted');
 END; $$;
+
+-- 72 h cap, ordered pass, and bounded lookback, exercised on the grouping helper directly.
+CREATE FUNCTION public.dedup_dupes(p_pairs jsonb) RETURNS text LANGUAGE sql AS $$
+  SELECT coalesce(string_agg(e.label,',' ORDER BY e.label),'') FROM public.swell_watch_shadow_demand_duplicates(p_pairs) d
+  JOIN public.dedup_events e ON e.id=d.regional_event_id;
+$$;
+DO $$
+DECLARE b2 uuid; t timestamptz:=date_trunc('hour',now())+interval '30 days'; held_before bigint; k int;
+BEGIN
+  SELECT provider_batch_id INTO STRICT b2 FROM public.study_manual_batch;
+  -- (a) Events 20 h apart for 6 days: every link is within 24 h, but the 72 h cap splits the chain at S4.
+  FOR k IN 0..6 LOOP PERFORM public.dedup_event('S'||k,'santa-cruz',t+k*interval '20 hours',b2); END LOOP;
+  PERFORM public.study_assert(public.dedup_dupes(public.dedup_pairs('S0:u1','S1:u1','S2:u1','S3:u1','S4:u1','S5:u1','S6:u1'))='S1,S2,S3,S5,S6',
+    'chain past 72 h keeps a second pair for the same recipient');
+  -- Cross-run: S0 already held; S4 starts a new swell and is kept, S5 repeats it.
+  SET LOCAL session_replication_role=replica;
+  INSERT INTO public.swell_watch_shadow_demand_pairs(regional_event_id,recipient_id,first_observed_at)
+    SELECT id,'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',now()-interval '1 day' FROM public.dedup_events WHERE label='S0';
+  SET LOCAL session_replication_role=origin;
+  PERFORM public.study_assert(public.dedup_dupes(public.dedup_pairs('S3:u1','S4:u1','S5:u1'))='S3,S5','held pair covers its own swell only');
+  -- Input order does not matter.
+  PERFORM public.study_assert(public.dedup_dupes(public.dedup_pairs('S6:u1','S5:u1','S4:u1','S3:u1'))='S3,S5,S6','deterministic regardless of request order');
+  -- (c) An old held event far outside the 5 day lookback never groups with a current event.
+  PERFORM public.dedup_event('OLD','santa-cruz',t-interval '40 days',b2);
+  PERFORM public.dedup_event('NEW','santa-cruz',t+interval '9 days',b2);
+  SET LOCAL session_replication_role=replica;
+  INSERT INTO public.swell_watch_shadow_demand_pairs(regional_event_id,recipient_id,first_observed_at)
+    SELECT id,'cccccccc-cccc-4ccc-8ccc-cccccccccccc',now()-interval '2 days' FROM public.dedup_events WHERE label='OLD';
+  SET LOCAL session_replication_role=origin;
+  PERFORM public.study_assert(public.dedup_dupes(public.dedup_pairs('NEW:u3'))='','old event outside lookback does not suppress');
+END; $$;
