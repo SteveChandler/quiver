@@ -82,8 +82,8 @@ interface OutlookSwell {
   beachCount: number;           // how many of the user's beaches see it
   notable: boolean;             // true when it matches a notable-swell event
   fit: {
-    status: 'in_range' | 'below_range' | 'above_range' | 'unknown';
-    boards: BoardClass[];       // the user's board classes whose band contains this size; empty unless in_range
+    status: 'in_range' | 'rideable' | 'below_range' | 'above_range' | 'unknown';
+    boards: BoardClass[];       // the user's board classes whose IDEAL band contains this size; empty unless in_range
   };
   source: 'southern_hemisphere' | 'tropical' | 'north_pacific' | 'local' | 'unknown';
   stormName: string | null;     // active named tropical system, when one matches
@@ -100,9 +100,13 @@ interface OutlookSwell {
 **Size by orientation.** Computed from the pool beaches' own swell windows (`swell_window_center_deg` / `halfwidth_deg`), split into south-facing and west-facing groups.
 
 **Fit for the user.** Reuse the existing rideability bands: `getRideabilityBand(skill, boardClass)` and `weekScoutRideableBands` / `sizeFitFor` in `week-scout-swells.ts`. For each swell, the face height at the user's beach is compared with the band for the user's skill level and each board class they own.
-- `in_range` with the boards it suits: the row reads as a swell for them, and names the board when not every board fits ("longboard size").
-- `below_range`: shown, dimmed, labelled small for them.
-- `above_range`: shown, labelled above their range. Never hidden; it is safety-relevant.
+- Each band has an `ideal` and a wider `acceptable` range. Week Scout's `rideable` flag uses `acceptable`; that is too loose here (an advanced surfer's acceptable shortboard band starts at 2.3 ft, so waist-high would count). The outlook uses both:
+  - `in_range`: inside the IDEAL band of at least one of the user's boards. The row reads as a swell for them and names the board when not every board fits ("longboard size").
+  - `rideable`: outside every ideal band but inside an acceptable one. Shown normally, no label, no push.
+  - `below_range`: under every acceptable band. Shown, dimmed (Steven, 2026-10-04: dimmed, not hidden), labelled small for them.
+  - `above_range`: over every acceptable band. Shown, labelled above their range. Never dimmed or hidden; it is safety-relevant.
+- Worked example, advanced surfer, 2.5 ft swell: shortboard ideal is 3.5–8.4 ft, longboard ideal 1.5–5.6 ft. With only a shortboard it is `rideable`; with a longboard it is `in_range` on the longboard.
+- Worked example, Steven's profile (intermediate; shortboard, fish, longboard): ideal bands 2.3–5.3, 1.7–4.8 and 1.0–3.5 ft, so `in_range` is 1.0–5.3 ft, with 1.0–1.7 ft longboard only.
 - No boards recorded: the skill level's default band. No skill level: `unknown`, sizes shown without a fit label.
 - All three overlapping swells in a run always appear as separate entries; fit changes emphasis and wording, never whether a swell is listed.
 - List order stays chronological. The Home graphic draws out-of-range swells at lower contrast.
@@ -161,7 +165,7 @@ This applies to the outlook list only; detection thresholds, snapshots and event
 
 ### Pushes
 
-- **First sighting.** One push per user per swell the first time it is listed, fits them (`fit.status === 'in_range'`), and is notable for them: the existing rarity rule (best in 30 days, or first swell after a flat spell), or at least the upper half of their rideable band. A waist-high swell can therefore push a beginner or a longboarder and will not push an advanced shortboarder. Sent at any lead inside the horizon, within the existing local send hours.
+- **First sighting.** One push per user per swell the first time it is listed with `fit.status === 'in_range'` (Steven, 2026-10-04: any in-range swell pushes; no extra notability test). A waist-high swell therefore pushes a beginner or a longboarder and does not push an advanced shortboarder. A swell that enters the user's range on a later run pushes then. Expected volume at about 3 listed swells per 9 days is up to roughly 10 a month for a user whose range covers most of them; this is above the earlier "a few per month" guardrail and is a number to watch in the trial. Sent at any lead inside the horizon, within the existing local send hours.
 - **Follow-ups.** The existing follow-up kinds (moved, bigger, smaller, dropped, arrived) and their limits (`lib/alerts/swell-followup/`), unchanged.
 - **Limits.** At most one first-sighting push per user per 72 h; free users for the home beach only, as today.
 - **Destination.** Pushes open the swell detail; its back action goes to the outlook.
