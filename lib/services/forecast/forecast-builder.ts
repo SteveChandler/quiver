@@ -167,6 +167,7 @@ function parseWindSpeedMs(windSpeed: string | null | undefined): number | null {
 
 import type { TideStatus } from "@/lib/services/noaa-coops/types";
 import { getHourlyTideHeightAtTime } from "@/lib/services/noaa-coops/tide-analysis";
+import { MODEL_TIDE_SOURCE } from "@/lib/services/tides/model-tides";
 import type {
   WaveWatchForecast,
   WaveWatchData,
@@ -522,7 +523,7 @@ export class ForecastBuilder {
     const dataSources: string[] = [];
     if (cdipData) dataSources.push("CDIP");
     if (waveData) dataSources.push("NOAA_NWS");
-    if (tideData) dataSources.push("NOAA_COOPS");
+    if (tideData) dataSources.push(tideData.source === MODEL_TIDE_SOURCE ? "FES2022" : "NOAA_COOPS");
     if (buoyData) dataSources.push("NOAA_BUOY");
     if (dataSources.length === 0) dataSources.push("FALLBACK");
 

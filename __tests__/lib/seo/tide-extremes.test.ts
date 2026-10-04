@@ -167,6 +167,7 @@ describe("getTideMetaData", () => {
     // ordered against a low after midnight.
     expect(meta.nextLowAt).toBe("2026-09-28T01:00:00.000Z");
     expect(meta.nextHighAt).toBe("2026-09-28T05:00:00.000Z");
+    expect(meta.source).toBeNull();
   });
 
   it("reads one station when an older station's rows overlap the current one", async () => {
@@ -189,6 +190,22 @@ describe("getTideMetaData", () => {
     expect(meta.nextHighAt).toBe("2026-09-28T05:00:00.000Z");
     expect(meta.nextLowHeight).toBe(0.7);
     expect(meta.nextHighHeight).toBe(3.6);
+    expect(meta.source).toBe("noaa");
+  });
+
+  it("returns the selected model series source", async () => {
+    tideQuery.order.mockResolvedValue({
+      data: [0.5, 1.5, 0.5].map((tide_height_m, i) => ({
+        ts: new Date(Date.UTC(2026, 8, 27, 21 + i)).toISOString(),
+        tide_height_m,
+        source: "fes2022",
+        station_id: "FES2022",
+        created_at: "2026-09-27T22:00:00.000Z",
+      })),
+      error: null,
+    });
+
+    expect((await getTideMetaData("beach-model")).source).toBe("fes2022");
   });
 
   it("returns null timestamps when there is no tide data", async () => {
@@ -198,6 +215,7 @@ describe("getTideMetaData", () => {
 
     expect(meta.nextHighAt).toBeNull();
     expect(meta.nextLowAt).toBeNull();
+    expect(meta.source).toBeNull();
   });
 });
 
