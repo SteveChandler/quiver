@@ -25,6 +25,22 @@ jest.mock("@/lib/posthog-client", () => ({
 }));
 
 import SwellSharePage, { generateMetadata } from "@/app/app/swell/[eventKey]/page";
+import followupPool from "@/lib/notifications/copy/swell-followup-titles.v1.json";
+
+interface HeadlineEntry {
+  id: string;
+  title: string;
+  tags: string[];
+}
+
+const ARRIVED_POOL = followupPool.arrived as HeadlineEntry[];
+/** A real arrived-pool entry the card can render from stored data alone. */
+const ARRIVED_ENTRY = ARRIVED_POOL.find(
+  (entry) => !entry.tags.includes("serious") && !/\{(?!beach\}|day\})/.test(entry.title),
+)!;
+const ARRIVED_HEADLINE = ARRIVED_ENTRY.title
+  .replace("{beach}", "Trinidad State Beach")
+  .replace("{day}", "Thursday");
 
 const IPHONE_UA =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1";
@@ -38,7 +54,7 @@ function requestAs(userAgent: string): void {
   mockHeadersGet.mockImplementation((key: string) => (key === "user-agent" ? userAgent : null));
 }
 
-function props(eventKey = ENCODED_KEY, query: Record<string, string> = { k: "arrived", t: "arrived-1" }) {
+function props(eventKey = ENCODED_KEY, query: Record<string, string> = { k: "arrived", t: ARRIVED_ENTRY.id }) {
   return {
     params: Promise.resolve({ eventKey }),
     searchParams: Promise.resolve(query),
@@ -71,11 +87,21 @@ describe("/app/swell/[eventKey]", () => {
     const images = metadata.openGraph?.images as Array<{ url: string; width: number; height: number }>;
 
     expect(metadata.robots).toMatchObject({ index: false, follow: false });
-    expect(metadata.title).toBe("It showed up. Did you?");
+    expect(metadata.title).toBe(ARRIVED_HEADLINE);
     expect(images[0]).toMatchObject({ width: 1200, height: 630 });
-    expect(images[0].url).toContain(`/api/og/swell?event_key=${ENCODED_KEY}&k=arrived&t=arrived-1&format=og`);
+    expect(images[0].url).toContain(`/api/og/swell?event_key=${ENCODED_KEY}&k=arrived&t=${ARRIVED_ENTRY.id}&format=og`);
     expect((metadata.twitter as { card?: string; images?: string[] }).card).toBe("summary_large_image");
     expect((metadata.twitter as { images?: string[] }).images?.[0]).toBe(images[0].url);
+  });
+
+  it("does not let a joke title id headline a serious swell", async () => {
+    mockDb = { snapshots: [swellSnapshot({ peak_face_height_ft: 10 })] };
+    await renderPage();
+    const heading = screen.getByRole("heading", { level: 1 });
+    expect(heading).not.toHaveTextContent(ARRIVED_HEADLINE);
+    expect(heading.textContent).not.toMatch(/[{}]/);
+    const metadata = await generateMetadata(props());
+    expect(metadata.title).toBe(heading.textContent);
   });
 
   it("keeps URL text out of metadata", async () => {
@@ -86,7 +112,7 @@ describe("/app/swell/[eventKey]", () => {
   it("shows the card, the history line and a teaser, not the full forecast", async () => {
     await renderPage();
 
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("It showed up. Did you?");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(ARRIVED_HEADLINE);
     expect(screen.getByText("Trinidad State Beach")).toBeInTheDocument();
     expect(screen.getByText("New on the forecast as of Saturday. No revisions yet.")).toBeInTheDocument();
     expect(screen.getByText(/hour-by-hour for Trinidad State Beach.*is in the app/)).toBeInTheDocument();
@@ -100,7 +126,7 @@ describe("/app/swell/[eventKey]", () => {
     await renderPage();
 
     const open = screen.getByRole("link", { name: "Open in Quiver" });
-    expect(open).toHaveAttribute("href", `quiver://swell/${ENCODED_KEY}?k=arrived&t=arrived-1`);
+    expect(open).toHaveAttribute("href", `quiver://swell/${ENCODED_KEY}?k=arrived&t=${ARRIVED_ENTRY.id}`);
     const store = screen.getByRole("link", { name: storeLabel });
     expect(store.getAttribute("href")).toMatch(
       /^https:\/\/go\.quiversurf\.app\/app\/handoff\?source=swell_share&surface=swell_share&placement=store_fallback&utm_source=share&utm_medium=link&utm_campaign=share/,

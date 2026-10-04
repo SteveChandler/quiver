@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
   getSwellCardHeadline,
+  isSwellKind,
   type SwellKind,
 } from "@/lib/notifications/copy/swell-card-headline";
 import { getLocalDateStr } from "@/lib/services/discovery/window-selector/time-slot-utils";
@@ -9,15 +10,6 @@ import { degreeToCardinal } from "@/lib/utils/geo-utils";
 import { DEFAULT_TIMEZONE } from "@/lib/utils/timezone-utils";
 
 export type { SwellKind };
-
-const SWELL_KINDS: readonly SwellKind[] = [
-  "coming",
-  "bigger",
-  "smaller",
-  "moved",
-  "dropped",
-  "arrived",
-];
 
 type SwellShareStatus = "forecast" | "arrived" | "passed" | "dropped";
 export type SwellShareImageFormat = "og" | "card";
@@ -92,11 +84,13 @@ export function parseSwellEventKey(
   }
   const match = EVENT_KEY_PATTERN.exec(decoded.trim());
   if (!match) return null;
-  return { eventKey: decoded.trim(), beachId: match[1].toLowerCase() };
+  // Stored keys carry a lowercase uuid; the direction band stays uppercase.
+  const beachId = match[1].toLowerCase();
+  return { eventKey: `${beachId}${decoded.trim().slice(beachId.length)}`, beachId };
 }
 
 export function parseSwellKind(value: string | null | undefined): SwellKind {
-  return SWELL_KINDS.includes(value as SwellKind) ? (value as SwellKind) : "coming";
+  return isSwellKind(value) ? value : "coming";
 }
 
 export function parseSwellTitleId(

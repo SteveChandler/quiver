@@ -25,6 +25,22 @@ jest.mock("@/lib/supabase/server", () => ({
 }));
 
 import { GET } from "@/app/api/og/swell/route";
+import followupPool from "@/lib/notifications/copy/swell-followup-titles.v1.json";
+
+interface HeadlineEntry {
+  id: string;
+  title: string;
+  tags: string[];
+}
+
+const ARRIVED_POOL = followupPool.arrived as HeadlineEntry[];
+/** A real arrived-pool entry the card can render from stored data alone. */
+const ARRIVED_ENTRY = ARRIVED_POOL.find(
+  (entry) => !entry.tags.includes("serious") && !/\{(?!beach\}|day\})/.test(entry.title),
+)!;
+const ARRIVED_HEADLINE = ARRIVED_ENTRY.title
+  .replace("{beach}", "Trinidad State Beach")
+  .replace("{day}", "Thursday");
 
 function text(node: React.ReactNode): string {
   if (Array.isArray(node)) return node.map(text).join(" ");
@@ -56,14 +72,31 @@ describe("GET /api/og/swell", () => {
   });
 
   it("renders the 1200x630 link preview with the card content", async () => {
-    const response = await render({ event_key: SWELL_EVENT_KEY, k: "arrived", t: "arrived-1", format: "og" });
+    const response = await render({ event_key: SWELL_EVENT_KEY, k: "arrived", t: ARRIVED_ENTRY.id, format: "og" });
     const output = text(mockElement);
 
     expect(mockOptions).toMatchObject({ width: 1200, height: 630 });
-    for (const value of ["Trinidad State Beach", "It showed up. Did you?", "6", "ft", "14", "Thu", "Oct 8", "QUIVER"]) {
+    for (const value of ["Trinidad State Beach", ARRIVED_HEADLINE, "6", "ft", "14", "Thu", "Oct 8", "QUIVER"]) {
       expect(output).toContain(value);
     }
     expect(response.headers.get("Cache-Control")).toBe("public, s-maxage=300, stale-while-revalidate=600");
+  });
+
+  it("resolves an uppercase event key", async () => {
+    await render({ event_key: SWELL_EVENT_KEY.toUpperCase(), k: "arrived", t: ARRIVED_ENTRY.id });
+    expect(text(mockElement)).toContain("Trinidad State Beach");
+  });
+
+  it("draws a serious-tagged headline for a serious swell even when t names a joke", async () => {
+    mockDb = { snapshots: [swellSnapshot({ peak_face_height_ft: 10 })] };
+    await render({ event_key: SWELL_EVENT_KEY, k: "arrived", t: ARRIVED_ENTRY.id });
+    const output = text(mockElement);
+    expect(output).not.toContain(ARRIVED_HEADLINE);
+    expect(output).not.toMatch(/[{}]/);
+    const seriousHeadlines = ARRIVED_POOL.filter((entry) => entry.tags.includes("serious")).map((entry) =>
+      entry.title.replace("{beach}", "Trinidad State Beach").replace("{day}", "Thursday"),
+    );
+    expect(seriousHeadlines.some((headline) => output.includes(headline))).toBe(true);
   });
 
   it("renders the 1080x1350 portrait card", async () => {

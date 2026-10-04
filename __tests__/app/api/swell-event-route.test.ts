@@ -56,6 +56,12 @@ describe("GET /api/swell/[eventKey]", () => {
     expect(body.history).toHaveLength(1);
   });
 
+  it("resolves an uppercase uuid and answers with the stored lowercase key", async () => {
+    const response = await call(SWELL_EVENT_KEY.toUpperCase());
+    expect(response.status).toBe(200);
+    expect((await response.json()).eventKey).toBe(SWELL_EVENT_KEY);
+  });
+
   it("returns 404 not_found for an unknown event", async () => {
     mockDb = { snapshots: [] };
     const response = await call(SWELL_EVENT_KEY);

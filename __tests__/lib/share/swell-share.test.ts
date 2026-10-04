@@ -11,6 +11,8 @@ import {
   parseSwellKind,
   parseSwellTitleId,
 } from "@/lib/share/swell-share";
+import followupPool from "@/lib/notifications/copy/swell-followup-titles.v1.json";
+import titlePool from "@/lib/notifications/copy/surf-titles.v1.json";
 import {
   fakeSwellSupabase,
   swellSnapshot,
@@ -18,6 +20,18 @@ import {
   SWELL_EVENT_KEY,
   SWELL_NOW,
 } from "@/__tests__/helpers/swell-share-fixtures";
+
+interface PoolEntry {
+  id: string;
+  title: string;
+  tags: string[];
+}
+
+function poolFor(kind: string): PoolEntry[] {
+  return kind === "coming"
+    ? titlePool.swell
+    : (followupPool as unknown as Record<string, PoolEntry[]>)[kind];
+}
 
 const load = (db: Parameters<typeof fakeSwellSupabase>[0], now = SWELL_NOW) =>
   loadSwellShareEvent(fakeSwellSupabase(db), SWELL_EVENT_KEY, now);
@@ -30,6 +44,11 @@ describe("swell share param parsing", () => {
     });
     expect(parseSwellEventKey(encodeURIComponent(SWELL_EVENT_KEY))?.eventKey).toBe(SWELL_EVENT_KEY);
     expect(parseSwellEventKey(`${SWELL_EVENT_KEY}:2`)?.eventKey).toBe(`${SWELL_EVENT_KEY}:2`);
+  });
+
+  it("lowercases the beach uuid but not the direction band", () => {
+    const upper = `${SWELL_BEACH_ID.toUpperCase()}:NW:2026-10-08`;
+    expect(parseSwellEventKey(upper)).toEqual({ eventKey: SWELL_EVENT_KEY, beachId: SWELL_BEACH_ID });
   });
 
   it.each([
@@ -133,22 +152,84 @@ describe("swell card view and history line", () => {
     const view = buildSwellCardView({ event, kind: "arrived", titleId: "not-in-pool" });
 
     expect(view.generic).toBe(false);
+    expect(view.serious).toBe(false);
     expect(view.headline).not.toContain("not-in-pool");
+    expect(view.headline).not.toMatch(/[{}]/);
     expect(view.beachName).toBe("Trinidad State Beach");
     expect(view.stats).toEqual([
       { label: "Size", value: "6", unit: "ft" },
       { label: "Period", value: "14", unit: "s" },
       { label: "When", value: "Thu", unit: "Oct 8" },
     ]);
-    // Same event, same pick.
-    expect(buildSwellCardView({ event, kind: "arrived" }).titleId).toBe(view.titleId);
+    // An unknown t falls back to a deterministic pool pick for the same event.
+    const poolIds = poolFor("arrived").map(({ id }) => id);
+    expect(poolIds).toContain(view.titleId);
+    expect(buildSwellCardView({ event, kind: "arrived" })).toEqual(view);
   });
 
-  it("gives serious swells plain copy", async () => {
-    const event = await load({ snapshots: [swellSnapshot({ peak_face_height_ft: 9.1 })] });
-    const view = buildSwellCardView({ event, kind: "coming" });
-    expect(view.serious).toBe(true);
-    expect(view.headline).toBe("Serious swell at Trinidad State Beach");
+  it("honours a known title id on a non-serious swell", async () => {
+    const event = await load({ snapshots: [swellSnapshot()] });
+    const base = buildSwellCardView({ event, kind: "arrived" });
+    const other = poolFor("arrived").find(
+      (entry) => entry.id !== base.titleId && !entry.tags.includes("serious") && !/\{(?!beach\}|day\})/.test(entry.title),
+    )!;
+    const view = buildSwellCardView({ event, kind: "arrived", titleId: other.id });
+    expect(view.titleId).toBe(other.id);
+    expect(view.headline).not.toMatch(/[{}]/);
+  });
+
+  describe("serious swells", () => {
+    it.each(["coming", "bigger", "smaller", "moved", "dropped", "arrived"] as const)(
+      "never shows a joke title for %s, whatever t says",
+      async (kind) => {
+        const event = await load({ snapshots: [swellSnapshot({ peak_face_height_ft: 9.1 })] });
+        const entries = poolFor(kind);
+        const jokeIds = entries.filter((entry) => !entry.tags.includes("serious")).map(({ id }) => id);
+        const seriousIds = entries.filter((entry) => entry.tags.includes("serious")).map(({ id }) => id);
+
+        for (const titleId of [undefined, "not-in-pool", ...jokeIds]) {
+          const view = buildSwellCardView({ event, kind, titleId });
+          expect(view.serious).toBe(true);
+          expect(seriousIds).toContain(view.titleId);
+          expect(view.headline).not.toMatch(/[{}]/);
+          expect(view.headline.length).toBeGreaterThan(0);
+        }
+      },
+    );
+
+    it("treats exactly 8 ft as serious and just under as not", async () => {
+      const at = await load({ snapshots: [swellSnapshot({ peak_face_height_ft: 8 })] });
+      const under = await load({ snapshots: [swellSnapshot({ peak_face_height_ft: 7.9 })] });
+      expect(buildSwellCardView({ event: at, kind: "coming" }).serious).toBe(true);
+      // 7.9 ft rounds to 7.9 and stays below the line.
+      expect(buildSwellCardView({ event: under, kind: "coming" }).serious).toBe(false);
+    });
+  });
+
+  it("never leaves a placeholder on the card, across kinds, severities and event keys", async () => {
+    for (const faceHeight of [5, 10]) {
+      const event = await load({ snapshots: [swellSnapshot({ peak_face_height_ft: faceHeight })] });
+      for (const kind of ["coming", "bigger", "smaller", "moved", "dropped", "arrived"] as const) {
+        for (let day = 1; day <= 28; day += 1) {
+          const eventKey = `${SWELL_BEACH_ID}:NW:2026-10-${String(day).padStart(2, "0")}`;
+          const view = buildSwellCardView({
+            event: { ...event!, payload: { ...event!.payload, eventKey } },
+            kind,
+          });
+          expect(view.headline).not.toMatch(/[{}]/);
+        }
+      }
+    }
+  });
+
+  it("drops {day} templates rather than rendering a hole when the peak date is unknown", async () => {
+    const event = await load({ snapshots: [swellSnapshot()] });
+    const noDay = { ...event!, payload: { ...event!.payload, peakLocalDate: null } };
+    for (const kind of ["coming", "bigger", "smaller", "moved", "dropped", "arrived"] as const) {
+      const view = buildSwellCardView({ event: noDay, kind });
+      expect(view.headline).not.toMatch(/[{}]/);
+      expect(view.headline.trim()).not.toBe("");
+    }
   });
 
   it("returns a generic card without an event", () => {
