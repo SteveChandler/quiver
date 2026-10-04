@@ -146,7 +146,7 @@ describe("vercel.json", () => {
         expect.objectContaining({ path: "/api/monitoring/forecast-health" }),
         expect.objectContaining({
           path: "/api/cron/daily-call",
-          schedule: "0 * * * *",
+          schedule: "8 * * * *",
         }),
       ]),
     );
@@ -202,6 +202,33 @@ describe("vercel.json", () => {
       "/api/cron/ioos-sync?phase=observations",
     ];
     expect(config.crons.filter((cron) => heavy.includes(cron.path) && firesAtMinuteZero(cron.schedule))).toEqual([]);
+  });
+
+  // 2026-10-04 15:02-15:06 UTC: ~40 statements cancelled while the minute-0 sends, the :05 marine
+  // refresh and ad-hoc analytics overlapped. These jobs select by local hour or by queue state, never
+  // by the minute they fire in, so they move off minute 0 without changing who they select.
+  it("keeps the hourly per-user sends and the daily swell study off minute 0", () => {
+    const configPath = path.join(process.cwd(), "vercel.json");
+    const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+    const moved = {
+      "/api/cron/email-lifecycle": { schedule: "25 * * * *", source: "app/api/cron/email-lifecycle/route.ts" },
+      "/api/cron/daily-call": { schedule: "8 * * * *", source: "app/api/cron/daily-call/route.ts" },
+      "/api/cron/swell-alert": { schedule: "24 * * * *", source: "app/api/cron/swell-alert/route.ts" },
+      "/api/cron/condition-alert-deliver": { schedule: "17 * * * *", source: "app/api/cron/condition-alert-deliver/route.ts" },
+      "/api/cron/swell-watch": { schedule: "47 15 * * *", source: "app/api/cron/swell-watch/route.ts" },
+    };
+    for (const [route, { schedule, source }] of Object.entries(moved)) {
+      expect(config.crons.find((cron) => cron.path === route)?.schedule).toBe(schedule);
+      // The Sentry monitor schedule lives in the route and must match, or it alerts on every run.
+      if (route !== "/api/cron/condition-alert-deliver") {
+        expect(fs.readFileSync(path.join(process.cwd(), source), "utf8")).toContain(`schedule: "${schedule}"`);
+      }
+    }
+
+    // Distinct minutes so the moved jobs do not just form a second pile-up.
+    const minutes = Object.values(moved).map(({ schedule }) => schedule.split(" ")[0]);
+    expect(new Set(minutes).size).toBe(minutes.length);
+    expect(minutes.map(Number).every((minute) => minute > 0)).toBe(true);
   });
 
   it("refreshes tide predictions twice weekly to stay inside warning freshness", () => {

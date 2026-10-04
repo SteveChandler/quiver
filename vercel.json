@@ -16,7 +16,7 @@
   "crons": [
     {
       "path": "/api/cron/email-lifecycle",
-      "schedule": "0 * * * *"
+      "schedule": "25 * * * *"
     },
     {
       "path": "/api/cron/pro-offer-reconcile",
@@ -144,7 +144,7 @@
     },
     {
       "path": "/api/cron/daily-call",
-      "schedule": "0 * * * *"
+      "schedule": "8 * * * *"
     },
     {
       "path": "/api/cron/weekend-window",
@@ -152,11 +152,11 @@
     },
     {
       "path": "/api/cron/swell-watch",
-      "schedule": "0 15 * * *"
+      "schedule": "47 15 * * *"
     },
     {
       "path": "/api/cron/swell-alert",
-      "schedule": "0 * * * *"
+      "schedule": "24 * * * *"
     },
     {
       "path": "/api/cron/swell-event-snapshots",
@@ -176,7 +176,7 @@
     },
     {
       "path": "/api/cron/condition-alert-deliver",
-      "schedule": "0 * * * *"
+      "schedule": "17 * * * *"
     },
     {
       "path": "/api/cron/notifications-deliver",

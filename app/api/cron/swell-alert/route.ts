@@ -14,7 +14,7 @@ export const maxDuration = 300;
 
 const SENTRY_MONITOR = {
   slug: "swell-alert",
-  schedule: "0 * * * *",
+  schedule: "24 * * * *",
   maxRuntimeMinutes: 5,
 };
 
