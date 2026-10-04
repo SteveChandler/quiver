@@ -214,8 +214,8 @@ describe("vercel.json", () => {
       "/api/cron/email-lifecycle": { schedule: "25 * * * *", source: "app/api/cron/email-lifecycle/route.ts" },
       "/api/cron/daily-call": { schedule: "8 * * * *", source: "app/api/cron/daily-call/route.ts" },
       "/api/cron/swell-alert": { schedule: "24 * * * *", source: "app/api/cron/swell-alert/route.ts" },
-      "/api/cron/condition-alert-deliver": { schedule: "17 * * * *", source: "app/api/cron/condition-alert-deliver/route.ts" },
-      "/api/cron/swell-watch": { schedule: "47 15 * * *", source: "app/api/cron/swell-watch/route.ts" },
+      "/api/cron/condition-alert-deliver": { schedule: "2 * * * *", source: "app/api/cron/condition-alert-deliver/route.ts" },
+      "/api/cron/swell-watch": { schedule: "37 15 * * *", source: "app/api/cron/swell-watch/route.ts" },
     };
     for (const [route, { schedule, source }] of Object.entries(moved)) {
       expect(config.crons.find((cron) => cron.path === route)?.schedule).toBe(schedule);

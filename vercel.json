@@ -152,7 +152,7 @@
     },
     {
       "path": "/api/cron/swell-watch",
-      "schedule": "47 15 * * *"
+      "schedule": "37 15 * * *"
     },
     {
       "path": "/api/cron/swell-alert",
@@ -176,7 +176,7 @@
     },
     {
       "path": "/api/cron/condition-alert-deliver",
-      "schedule": "17 * * * *"
+      "schedule": "2 * * * *"
     },
     {
       "path": "/api/cron/notifications-deliver",

@@ -38,7 +38,7 @@ const LOOKAHEAD_HOURS = 10 * 24;
 const EVALUATION_CONCURRENCY = 8;
 const SENTRY_MONITOR = {
   slug: "swell-watch",
-  schedule: "47 15 * * *",
+  schedule: "37 15 * * *",
   maxRuntimeMinutes: 5,
 };
 
