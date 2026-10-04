@@ -17,7 +17,8 @@ One place in Quiver that lists every swell heading to the user's beaches and tra
 5. The current forecast feed stays primary. NOAA GFS-Wave extends the range, requested through the same Open-Meteo API.
 6. No wind-swell event type. The detector's 11 s minimum stays.
 7. The outlook LIST picks up swells the way a human forecaster's report does: one entry per swell train on the way, including modest ones, not only swells that stand out from what is already in the water. Pushes keep the stricter "notable swell" rule.
-8. Built on the user-facing swell-alert path (`lib/alerts/swell-events/`), not the no-send study (`lib/alerts/swell-watch/`). Study PRs #938, #943, #944 stay parked.
+8. Every swell is judged for the person reading it. Waist-high is a good swell for a beginner or on a longboard and a non-event for an advanced surfer on a shortboard; the list says which, using the user's skill level and boards.
+9. Built on the user-facing swell-alert path (`lib/alerts/swell-events/`), not the no-send study (`lib/alerts/swell-watch/`). Study PRs #938, #943, #944 stay parked.
 
 ## Verified facts this design rests on (measured 2026-10-04)
 
@@ -79,7 +80,11 @@ interface OutlookSwell {
   directionLabel: string;       // 'S', 'SSW', 'NW' …
   beach: { id: string; name: string };   // the user's beach it is sized for
   beachCount: number;           // how many of the user's beaches see it
-  notable: boolean;             // true when it matches a notable-swell event (push-eligible)
+  notable: boolean;             // true when it matches a notable-swell event
+  fit: {
+    status: 'in_range' | 'below_range' | 'above_range' | 'unknown';
+    boards: BoardClass[];       // the user's board classes whose band contains this size; empty unless in_range
+  };
   source: 'southern_hemisphere' | 'tropical' | 'north_pacific' | 'local' | 'unknown';
   stormName: string | null;     // active named tropical system, when one matches
   sizeByOrientation: {          // face height range, ft; null when no pool beach faces that way
@@ -93,6 +98,14 @@ interface OutlookSwell {
 **Source label.** Derived from direction, period and season: 180–230° at ≥ 14 s is `southern_hemisphere`; 150–190° during the East Pacific hurricane season with an active system is `tropical`; 280–320° at ≥ 13 s is `north_pacific`; under 11 s is `local`; anything else `unknown`. `stormName` comes from the National Hurricane Center's public active-storms feed (`CurrentStorms.json`) when a system lies on the swell's bearing; West Pacific names are out of scope until a source is verified.
 
 **Size by orientation.** Computed from the pool beaches' own swell windows (`swell_window_center_deg` / `halfwidth_deg`), split into south-facing and west-facing groups.
+
+**Fit for the user.** Reuse the existing rideability bands: `getRideabilityBand(skill, boardClass)` and `weekScoutRideableBands` / `sizeFitFor` in `week-scout-swells.ts`. For each swell, the face height at the user's beach is compared with the band for the user's skill level and each board class they own.
+- `in_range` with the boards it suits: the row reads as a swell for them, and names the board when not every board fits ("longboard size").
+- `below_range`: shown, dimmed, labelled small for them.
+- `above_range`: shown, labelled above their range. Never hidden; it is safety-relevant.
+- No boards recorded: the skill level's default band. No skill level: `unknown`, sizes shown without a fit label.
+- All three overlapping swells in a run always appear as separate entries; fit changes emphasis and wording, never whether a swell is listed.
+- List order stays chronological. The Home graphic draws out-of-range swells at lower contrast.
 
 **Whose beaches.** The same pool the alert runner uses (`lib/alerts/user-pool.ts`: home, favourites, custom spots, nearby within drive range). Sizes are quoted for the home beach when it sees the swell, otherwise for the pool beach with the largest face height.
 
@@ -148,7 +161,7 @@ This applies to the outlook list only; detection thresholds, snapshots and event
 
 ### Pushes
 
-- **First sighting.** One push per user per swell the first time it is listed and notable: the existing rarity rule (best in 30 days, or first swell after a flat spell) or face ≥ 5 ft at the user's beach. Sent at any lead inside the horizon, within the existing local send hours.
+- **First sighting.** One push per user per swell the first time it is listed, fits them (`fit.status === 'in_range'`), and is notable for them: the existing rarity rule (best in 30 days, or first swell after a flat spell), or at least the upper half of their rideable band. A waist-high swell can therefore push a beginner or a longboarder and will not push an advanced shortboarder. Sent at any lead inside the horizon, within the existing local send hours.
 - **Follow-ups.** The existing follow-up kinds (moved, bigger, smaller, dropped, arrived) and their limits (`lib/alerts/swell-followup/`), unchanged.
 - **Limits.** At most one first-sighting push per user per 72 h; free users for the home beach only, as today.
 - **Destination.** Pushes open the swell detail; its back action goes to the outlook.
