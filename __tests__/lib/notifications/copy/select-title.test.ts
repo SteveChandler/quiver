@@ -153,7 +153,8 @@ describe("surf title pool", () => {
     expect(titlePool.version).toBe(1);
     // 30 researched daily titles + 4 swell-day variants added with the swell alert producer.
     expect(titlePool.daily).toHaveLength(34);
-    expect(titlePool.swell).toHaveLength(40);
+    // 40 researched swell titles + 8 humorous 'coming' titles added with swell follow-ups.
+    expect(titlePool.swell).toHaveLength(48);
     // 11 film allusions: "Big Wednesday" (s13) became a plain title in the 2026-09-26 voice pass.
     expect(titlePool.swell.filter((entry) => entry.film)).toHaveLength(11);
 
