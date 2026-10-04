@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "bigger": [
+    { "id": "b01", "title": "Remember {day}? It's been lifting.", "body": "{beach} is up to {size} @ {period}, from {prev_size}. Peak {day} {part}.", "tags": [] },
+    { "id": "b02", "title": "{day} hit the gym. {beach} grew.", "body": "{beach} is up to {size} @ {period}, from {prev_size}. Peak {day} {part}.", "tags": [] },
+    { "id": "b03", "title": "{beach} got an upgrade for {day}.", "body": "{beach} is up to {size} @ {period}, from {prev_size}. Peak {day} {part}.", "tags": [] },
+    { "id": "b04", "title": "Bring the bigger board. {day} grew.", "body": "{beach} is up to {size} @ {period}, from {prev_size}. Peak {day} {part}.", "tags": [] },
+    { "id": "b05", "title": "{day} went back for seconds.", "body": "{beach} is up to {size} @ {period}, from {prev_size}. Peak {day} {part}.", "tags": [] },
+    { "id": "b06", "title": "Good news got taller. {beach}, {day}.", "body": "{beach} is up to {size} @ {period}, from {prev_size}. Peak {day} {part}.", "tags": [] },
+    { "id": "b07", "title": "{beach} has been eating its greens.", "body": "{beach} is up to {size} @ {period}, from {prev_size}. Peak {day} {part}.", "tags": [] },
+    { "id": "b08", "title": "{beach}: forecast size increased", "body": "Now {size} @ {period}, up from {prev_size}. Peak {day} {part}. Know your limits.", "tags": ["serious"] },
+    { "id": "b09", "title": "Larger surf now forecast for {day}", "body": "{beach}: now {size} @ {period}, up from {prev_size}. Peak {day} {part}. Know your limits.", "tags": ["serious"] },
+    { "id": "b10", "title": "{beach}: size revised up", "body": "Now {size} @ {period}, up from {prev_size}. Peak {day} {part}. Know your limits.", "tags": ["serious"] }
+  ],
+  "smaller": [
+    { "id": "sm01", "title": "Uncancel one plan. {day} shrank.", "body": "{beach} is down to {size} @ {period}, from {prev_size}. Peak {day} {part}.", "tags": [] },
+    { "id": "sm02", "title": "{day} skipped leg day. Still on.", "body": "{beach} is down to {size} @ {period}, from {prev_size}. Peak {day} {part}.", "tags": [] },
+    { "id": "sm03", "title": "{beach} came back down to earth.", "body": "{beach} is down to {size} @ {period}, from {prev_size}. Peak {day} {part}.", "tags": [] },
+    { "id": "sm04", "title": "Smaller, not gone. {beach}, {day}.", "body": "{beach} is down to {size} @ {period}, from {prev_size}. Peak {day} {part}.", "tags": [] },
+    { "id": "sm05", "title": "Put the step-up back. {day} eased.", "body": "{beach} is down to {size} @ {period}, from {prev_size}. Peak {day} {part}.", "tags": [] },
+    { "id": "sm06", "title": "{day} lost some weight. Still on.", "body": "{beach} is down to {size} @ {period}, from {prev_size}. Peak {day} {part}.", "tags": [] },
+    { "id": "sm07", "title": "{beach} is being modest about it.", "body": "{beach} is down to {size} @ {period}, from {prev_size}. Peak {day} {part}.", "tags": [] },
+    { "id": "sm08", "title": "{beach}: forecast size decreased", "body": "Now {size} @ {period}, down from {prev_size}. Peak {day} {part}.", "tags": ["serious"] },
+    { "id": "sm09", "title": "Smaller surf now forecast for {day}", "body": "{beach}: now {size} @ {period}, down from {prev_size}. Peak {day} {part}.", "tags": ["serious"] },
+    { "id": "sm10", "title": "{beach}: size revised down", "body": "Now {size} @ {period}, down from {prev_size}. Peak {day} {part}.", "tags": ["serious"] }
+  ],
+  "moved": [
+    { "id": "mv01", "title": "Swell's running late. Now {day}.", "body": "Reschedule your fake dentist. {beach}: {size} @ {period}, peak {day} {part}. Was {prev_day}.", "tags": ["later"] },
+    { "id": "mv02", "title": "New peak day: {day}. Tell your boss.", "body": "{beach}: {size} @ {period}, peak {day} {part}. Was {prev_day}.", "tags": [] },
+    { "id": "mv03", "title": "The swell hit traffic. Now {day}.", "body": "{beach}: {size} @ {period}, peak {day} {part}. Was {prev_day}.", "tags": ["later"] },
+    { "id": "mv04", "title": "{beach} rescheduled. See you {day}.", "body": "{beach}: {size} @ {period}, peak {day} {part}. Was {prev_day}.", "tags": [] },
+    { "id": "mv05", "title": "Plot twist. The peak is now {day}.", "body": "{beach}: {size} @ {period}, peak {day} {part}. Was {prev_day}.", "tags": [] },
+    { "id": "mv06", "title": "Move the fake dentist to {day}.", "body": "{beach}: {size} @ {period}, peak {day} {part}. Was {prev_day}.", "tags": [] },
+    { "id": "mv07", "title": "{beach} changed the meeting time.", "body": "{beach}: {size} @ {period}, peak {day} {part}. Was {prev_day}.", "tags": [] },
+    { "id": "mv08", "title": "Swell's early. Now {day}. Rude.", "body": "{beach}: {size} @ {period}, peak {day} {part}. Was {prev_day}.", "tags": ["earlier"] },
+    { "id": "mv09", "title": "The swell cut the line. Now {day}.", "body": "{beach}: {size} @ {period}, peak {day} {part}. Was {prev_day}.", "tags": ["earlier"] },
+    { "id": "mv10", "title": "{beach}: peak moved to {day}", "body": "{size} @ {period}, peak {day} {part}. Was {prev_day}. Know your limits.", "tags": ["serious"] },
+    { "id": "mv11", "title": "Timing change: peak now {day}", "body": "{beach}: {size} @ {period}, peak {day} {part}. Was {prev_day}. Know your limits.", "tags": ["serious"] },
+    { "id": "mv12", "title": "{beach}: peak timing revised", "body": "{size} @ {period}, peak {day} {part}. Was {prev_day}. Know your limits.", "tags": ["serious"] }
+  ],
+  "dropped": [
+    { "id": "dr01", "title": "Never mind. Go to work.", "body": "The swell we flagged for {beach} is out of the forecast there. It was {prev_size} for {prev_day}.", "tags": [] },
+    { "id": "dr02", "title": "The swell saw {beach} and kept driving.", "body": "The swell we flagged for {beach} is out of the forecast there. It was {prev_size} for {prev_day}.", "tags": [] },
+    { "id": "dr03", "title": "Stand down. {beach} got skipped.", "body": "The swell we flagged for {beach} is out of the forecast there. It was {prev_size} for {prev_day}.", "tags": [] },
+    { "id": "dr04", "title": "{beach} got ghosted by the swell.", "body": "The swell we flagged for {beach} is out of the forecast there. It was {prev_size} for {prev_day}.", "tags": [] },
+    { "id": "dr05", "title": "The swell left {beach} on read.", "body": "The swell we flagged for {beach} is out of the forecast there. It was {prev_size} for {prev_day}.", "tags": [] },
+    { "id": "dr06", "title": "Reinstate your plans. Swell bailed.", "body": "The swell we flagged for {beach} is out of the forecast there. It was {prev_size} for {prev_day}.", "tags": [] },
+    { "id": "dr07", "title": "The swell took a different exit.", "body": "The swell we flagged for {beach} is out of the forecast there. It was {prev_size} for {prev_day}.", "tags": [] },
+    { "id": "dr08", "title": "{beach}: swell no longer forecast", "body": "The swell we flagged for {beach} is out of the forecast there. It was {prev_size} for {prev_day}.", "tags": ["serious"] },
+    { "id": "dr09", "title": "Swell forecast withdrawn: {beach}", "body": "The swell we flagged for {beach} is out of the forecast there. It was {prev_size} for {prev_day}.", "tags": ["serious"] },
+    { "id": "dr10", "title": "{beach}: swell alert cancelled", "body": "The swell we flagged for {beach} is out of the forecast there. It was {prev_size} for {prev_day}.", "tags": ["serious"] }
+  ],
+  "arrived": [
+    { "id": "ar01", "title": "It showed up. Did you?", "body": "Forecast peak is today at {beach}: {size} @ {period}, {part}.", "tags": [] },
+    { "id": "ar02", "title": "{beach} is open for business.", "body": "Forecast peak is today at {beach}: {size} @ {period}, {part}.", "tags": [] },
+    { "id": "ar03", "title": "The swell is here. So is your excuse.", "body": "Forecast peak is today at {beach}: {size} @ {period}, {part}.", "tags": [] },
+    { "id": "ar04", "title": "Today's the day. {beach} got the memo.", "body": "Forecast peak is today at {beach}: {size} @ {period}, {part}.", "tags": [] },
+    { "id": "ar05", "title": "Swell's in the building. {beach}.", "body": "Forecast peak is today at {beach}: {size} @ {period}, {part}.", "tags": [] },
+    { "id": "ar06", "title": "As promised. {beach}, today.", "body": "Forecast peak is today at {beach}: {size} @ {period}, {part}.", "tags": [] },
+    { "id": "ar07", "title": "Your dentist appointment is today.", "body": "Forecast peak is today at {beach}: {size} @ {period}, {part}.", "tags": [] },
+    { "id": "ar08", "title": "Swell peaks today at {beach}", "body": "Forecast peak is today at {beach}: {size} @ {period}, {part}. Know your limits.", "tags": ["serious"] },
+    { "id": "ar09", "title": "{beach}: forecast swell is in today", "body": "Forecast peak is today at {beach}: {size} @ {period}, {part}. Know your limits.", "tags": ["serious"] },
+    { "id": "ar10", "title": "Large surf at {beach} today", "body": "Forecast peak is today at {beach}: {size} @ {period}, {part}. Know your limits.", "tags": ["serious"] }
+  ]
+}

@@ -76,6 +76,14 @@
     { "id": "s37", "title": "Eight-plus at {beach1}. Experts only", "body": "Serious {dir} surf: {size} @ {period}, peak {peak_day} {peak_part}. {beach1}, {beach2}, {beach3}. {rarity}.", "tags": ["serious", "south"], "film": false },
     { "id": "s38", "title": "{beach1}: big surf, no margin", "body": "Serious {dir} surf: {size} @ {period}, peak {peak_day} {peak_part}. {beach1}, {beach2}, {beach3}. {rarity}.", "tags": ["serious", "generic"], "film": false },
     { "id": "s39", "title": "NW wakes {beach1}. North Shore's on", "body": "North Shore: {dir} {size} @ {period}, peak {peak_day} {peak_part}. {beach1}, {beach2}, {beach3}. {rarity}.", "tags": ["hawaii", "northwest"], "film": true },
-    { "id": "s40", "title": "Long-period {beach1}. Pipe is calling", "body": "North Shore: {dir} {size} @ {period}, peak {peak_day} {peak_part}. {beach1}, {beach2}, {beach3}. {rarity}.", "tags": ["hawaii", "long-period"], "film": true }
+    { "id": "s40", "title": "Long-period {beach1}. Pipe is calling", "body": "North Shore: {dir} {size} @ {period}, peak {peak_day} {peak_part}. {beach1}, {beach2}, {beach3}. {rarity}.", "tags": ["hawaii", "long-period"], "film": true },
+    { "id": "s41", "title": "Cancel your plans. {beach1}, {peak_day}.", "body": "Best in weeks: {dir} {size} @ {period}. Peak: {peak_day} {peak_part}. {beach1}, {beach2}, {beach3}. {rarity}.", "tags": ["biggest-in-weeks", "generic"], "film": false },
+    { "id": "s42", "title": "Your {peak_day} just developed a cough.", "body": "Best in weeks: {dir} {size} @ {period}. Peak: {peak_day} {peak_part}. {beach1}, {beach2}, {beach3}. {rarity}.", "tags": ["biggest-in-weeks", "weekday"], "film": false },
+    { "id": "s43", "title": "Tell your boss it's a dentist thing.", "body": "Best in weeks: {dir} {size} @ {period}. Peak: {peak_day} {peak_part}. {beach1}, {beach2}, {beach3}. {rarity}.", "tags": ["biggest-in-weeks", "weekday"], "film": false },
+    { "id": "s44", "title": "Your {peak_day} brunch can wait.", "body": "Best in weeks: {dir} {size} @ {period}. Peak: {peak_day} {peak_part}. {beach1}, {beach2}, {beach3}. {rarity}.", "tags": ["biggest-in-weeks", "weekend"], "film": false },
+    { "id": "s45", "title": "{peak_day} has a sudden family thing.", "body": "Back on: {dir} {size} @ {period}, peak {peak_day} {peak_part}. {beach1}, {beach2}, {beach3}. {rarity}.", "tags": ["first-after-flat", "weekday"], "film": false },
+    { "id": "s46", "title": "Dust off the wetsuit. {beach1}, {peak_day}.", "body": "Back on: {dir} {size} @ {period}, peak {peak_day} {peak_part}. {beach1}, {beach2}, {beach3}. {rarity}.", "tags": ["first-after-flat", "generic"], "film": false },
+    { "id": "s47", "title": "Clear {peak_day}. {beach1} has plans.", "body": "Back on: {dir} {size} @ {period}, peak {peak_day} {peak_part}. {beach1}, {beach2}, {beach3}. {rarity}.", "tags": ["first-after-flat", "weekend"], "film": false },
+    { "id": "s48", "title": "Your board forgives you. {beach1}.", "body": "Back on: {dir} {size} @ {period}, peak {peak_day} {peak_part}. {beach1}, {beach2}, {beach3}. {rarity}.", "tags": ["first-after-flat", "generic"], "film": false }
   ]
 }
