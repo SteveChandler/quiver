@@ -30,3 +30,9 @@ export {
   type SwellEventSnapshot,
   type SwellEventSnapshotRow,
 } from "./snapshots";
+export {
+  SWELL_OUTLOOK_PULSE_DETECTOR_VERSION,
+  SWELL_OUTLOOK_PULSE_THRESHOLDS,
+  detectBeachSwellPulses,
+  prominenceRatio,
+} from "./outlook";

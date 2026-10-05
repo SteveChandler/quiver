@@ -77,7 +77,7 @@ export interface ExposedSwellPartition extends SwellPartition {
   energy: number;
 }
 
-interface ExposedSwellRow {
+export interface ExposedSwellRow {
   at: number;
   iso: string;
   localDate: string;
@@ -85,7 +85,7 @@ interface ExposedSwellRow {
   partitions: ExposedSwellPartition[];
 }
 
-interface DayPeak {
+export interface DayPeak {
   localDate: string;
   rowIndex: number;
   partition: ExposedSwellPartition | null;
@@ -93,7 +93,7 @@ interface DayPeak {
   faceHeightFt: number;
 }
 
-interface TrackPoint {
+export interface TrackPoint {
   rowIndex: number;
   partition: ExposedSwellPartition;
 }
@@ -244,7 +244,7 @@ export function exposedSwellRows(
  * slots are not identities (upstream orders them by size), so continuity of
  * direction and period decides which component a partition belongs to.
  */
-function buildTracks(rows: readonly ExposedSwellRow[]): TrackPoint[][] {
+export function buildTracks(rows: readonly ExposedSwellRow[]): TrackPoint[][] {
   const tracks: TrackPoint[][] = [];
   rows.forEach((row, rowIndex) => {
     const live = tracks.filter((track) => row.at - rows[track[track.length - 1].rowIndex].at <= TRACK_MAX_GAP_MS);
@@ -274,7 +274,7 @@ function buildTracks(rows: readonly ExposedSwellRow[]): TrackPoint[][] {
   return tracks;
 }
 
-function componentDays(
+export function componentDays(
   rows: readonly ExposedSwellRow[],
   track: readonly TrackPoint[],
   beach: SwellEventBeach,
