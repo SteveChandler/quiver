@@ -240,6 +240,54 @@ describe("persistence", () => {
     expect(await loadSwellOutlookUserState(fake.client, USER)).toEqual(initial);
   });
 
+  it("writes a list with undefined keys once and compares its stored JSON on repeat", async () => {
+    const fake = fakeClient(rowFor(EMPTY_SWELL_OUTLOOK_USER_STATE));
+    const outlook = populatedList();
+    Object.assign(outlook.swells[0].beach, { unused: undefined });
+    await saveSwellOutlookLists(fake.client, USER, outlook);
+    expect(fake.updates).toHaveLength(1);
+    expect(fake.rows.get(USER)?.outlook_list).toEqual(copy(outlook));
+    expect((fake.rows.get(USER)?.outlook_list as StoredOutlookList).swells[0].beach).not.toHaveProperty("unused");
+    const updatedAt = fake.rows.get(USER)?.updated_at;
+    await saveSwellOutlookLists(fake.client, USER, reverseKeys(outlook));
+    expect(fake.updates).toHaveLength(1);
+    expect(fake.rows.get(USER)?.updated_at).toBe(updatedAt);
+  });
+
+  it("ignores undefined keys in both list columns for a general transition", async () => {
+    const initial = { ...EMPTY_SWELL_OUTLOOK_USER_STATE, outlookList: populatedList(), outlookPrevList: populatedList("2026-10-03") };
+    const fake = fakeClient(rowFor(initial));
+    await saveSwellOutlookUserState(fake.client, USER, (fresh: SwellOutlookUserState): SwellOutlookUserState => {
+      if (!fresh.outlookList || !fresh.outlookPrevList) throw new Error("Expected stored lists");
+      return {
+        ...fresh,
+        outlookList: Object.assign(reverseKeys(copy(fresh.outlookList)), { unused: undefined }),
+        outlookPrevList: Object.assign(reverseKeys(copy(fresh.outlookPrevList)), { unused: undefined }),
+      };
+    });
+    expect(fake.updates).toEqual([]);
+    expect(fake.rows.get(USER)?.updated_at).toBe("2026-10-01T00:00:00.000Z");
+    expect(await loadSwellOutlookUserState(fake.client, USER)).toEqual(initial);
+  });
+
+  it("preserves array order and distinguishes null keys from missing keys", async () => {
+    const initial = { ...EMPTY_SWELL_OUTLOOK_USER_STATE, outlookList: populatedList("2026-10-04", 4, ["one", "two"]) };
+    const fake = fakeClient(rowFor(initial));
+    const reordered = copy(initial.outlookList);
+    reordered.swells.reverse();
+    await saveSwellOutlookLists(fake.client, USER, reordered);
+    expect(fake.updates).toHaveLength(1);
+    expect(fake.rows.get(USER)?.outlook_list).toEqual(reordered);
+    const withNull = copy(reordered);
+    Object.assign(withNull.swells[0].beach, { unused: null });
+    await saveSwellOutlookLists(fake.client, USER, withNull);
+    expect(fake.updates).toHaveLength(2);
+    expect(fake.rows.get(USER)?.outlook_list).toEqual(withNull);
+    await saveSwellOutlookLists(fake.client, USER, reordered);
+    expect(fake.updates).toHaveLength(3);
+    expect(fake.rows.get(USER)?.outlook_list).toEqual(reordered);
+  });
+
   it.each([
     ["a new swell", populatedList("2026-10-04", 4, ["one", "two"])],
     ["a changed size", populatedList("2026-10-04", 5)],

@@ -92,11 +92,16 @@ export async function loadSwellOutlookUserState(
   return (await loadSnapshot(supabase, userId))?.state ?? null;
 }
 
+function storedListsEqual(current: StoredOutlookList | null, next: StoredOutlookList | null): boolean {
+  // Match JSON storage semantics before comparing object keys and array order.
+  return isDeepStrictEqual(JSON.parse(JSON.stringify(current)), JSON.parse(JSON.stringify(next)));
+}
+
 function changedColumns(current: SwellOutlookUserState, next: SwellOutlookUserState): Record<string, unknown> {
   const patch: Record<string, unknown> = {};
   for (const field of Object.keys(STATE_COLUMNS) as Array<keyof typeof STATE_COLUMNS>) {
     const unchanged = field === 'outlookList' || field === 'outlookPrevList'
-      ? isDeepStrictEqual(current[field], next[field])
+      ? storedListsEqual(current[field], next[field])
       : current[field] === next[field];
     if (!unchanged) patch[STATE_COLUMNS[field]] = next[field];
   }

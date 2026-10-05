@@ -50,7 +50,12 @@ interface OutlookProfile {
   experienceLevel: string | null;
 }
 
-async function loadOutlookProfile(client: Client, userId: string): Promise<OutlookProfile | null> {
+interface ReadResult<T> {
+  data: T | null;
+  failed: boolean;
+}
+
+async function loadOutlookProfile(client: Client, userId: string): Promise<ReadResult<OutlookProfile>> {
   try {
     const { data, error } = await client
       .from('profiles')
@@ -58,7 +63,7 @@ async function loadOutlookProfile(client: Client, userId: string): Promise<Outlo
       .eq('id', userId)
       .maybeSingle();
     if (error) throw new Error(error.message);
-    if (!data) return null;
+    if (!data) return { data: null, failed: false };
     const row = data as unknown as {
       home_beach_id: string | null;
       max_drive_minutes: number | null;
@@ -67,14 +72,17 @@ async function loadOutlookProfile(client: Client, userId: string): Promise<Outlo
     };
     const joined = Array.isArray(row.user_location_snapshots) ? row.user_location_snapshots[0] : row.user_location_snapshots;
     return {
-      homeBeachId: row.home_beach_id,
-      location: joined ? { lat: joined.lat, lon: joined.lon } : null,
-      maxDriveMinutes: row.max_drive_minutes,
-      experienceLevel: row.experience_level,
+      data: {
+        homeBeachId: row.home_beach_id,
+        location: joined ? { lat: joined.lat, lon: joined.lon } : null,
+        maxDriveMinutes: row.max_drive_minutes,
+        experienceLevel: row.experience_level,
+      },
+      failed: false,
     };
   } catch (error) {
     console.warn('[swell-outlook] profile read failed; fit unknown', error instanceof Error ? error.message : String(error));
-    return { homeBeachId: null, location: null, maxDriveMinutes: null, experienceLevel: null };
+    return { data: { homeBeachId: null, location: null, maxDriveMinutes: null, experienceLevel: null }, failed: true };
   }
 }
 
@@ -94,12 +102,12 @@ async function loadBoardClasses(client: Client, userId: string): Promise<BoardCl
   }
 }
 
-async function safeState(client: Client, userId: string): Promise<SwellOutlookUserState | null> {
+async function safeState(client: Client, userId: string): Promise<ReadResult<SwellOutlookUserState>> {
   try {
-    return await loadSwellOutlookUserState(client, userId);
+    return { data: await loadSwellOutlookUserState(client, userId), failed: false };
   } catch (error) {
     console.warn('[swell-outlook] state read failed; sticky tracking skipped', error instanceof Error ? error.message : String(error));
-    return null;
+    return { data: null, failed: true };
   }
 }
 
@@ -117,13 +125,15 @@ export async function loadSwellOutlookForUser(args: {
   const { client, userId, now } = args;
   const deps = { ...DEFAULT_DEPS, ...args.deps };
 
-  const profile = await loadOutlookProfile(client, userId);
+  const profileRead = await loadOutlookProfile(client, userId);
+  const profile = profileRead.data;
   if (!profile) return emptyResponse(now);
 
   // A background sender must skip users whose engagement state is unavailable.
-  const state = args.recordOpen
+  const stateRead = args.recordOpen
     ? await safeState(client, userId)
-    : await loadSwellOutlookUserState(client, userId);
+    : { data: await loadSwellOutlookUserState(client, userId), failed: false };
+  const state = stateRead.data;
   const pool = await deps.loadPool({
     supabase: client,
     userId,
@@ -131,7 +141,7 @@ export async function loadSwellOutlookForUser(args: {
     location: profile.location,
     maxDriveMinutes: profile.maxDriveMinutes,
   });
-  if (pool.length === 0 && !state) return emptyResponse(now);
+  if (pool.length === 0 && !state && !profileRead.failed && !stateRead.failed) return emptyResponse(now);
 
   const poolIds = pool.map(({ beach }) => beach.id);
   const since = new Date(now.getTime() - SNAPSHOT_HISTORY_DAYS * DAY_MS);
@@ -141,6 +151,7 @@ export async function loadSwellOutlookForUser(args: {
     loadBoardClasses(client, userId),
     deps.getStorms().catch((): ActiveStorm[] => []),
   ]);
+  const degraded = profileRead.failed || stateRead.failed || boardClasses === null;
 
   const runDate = resolveOutlookRunDate(pulseSnapshots, now);
   const base = state ?? EMPTY_SWELL_OUTLOOK_USER_STATE;
@@ -170,10 +181,13 @@ export async function loadSwellOutlookForUser(args: {
   }
 
   async function persist(): Promise<void> {
-    try {
-      await saveSwellOutlookLists(client, userId, list);
-    } catch (error) {
-      console.warn('[swell-outlook] state write failed', error instanceof Error ? error.message : String(error));
+    // Partial reads must not replace good sticky state used by later requests or senders.
+    if (!degraded) {
+      try {
+        await saveSwellOutlookLists(client, userId, list);
+      } catch (error) {
+        console.warn('[swell-outlook] state write failed', error instanceof Error ? error.message : String(error));
+      }
     }
     if (!args.recordOpen) return;
     try {
