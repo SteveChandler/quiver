@@ -4,6 +4,10 @@ This directory contains performance analysis, optimization documentation, and pe
 
 ## Documents
 
+### Vercel cost (2026-10-05)
+
+- **`VERCEL_COST_20261005.md`** - Spend is runtime, not builds; header/footer prefetch and `/ingest` proxy cuts; water-quality hold read dedupe; how to measure cost by route without Observability Plus
+
 ### Signed-in home (2026-09-09, 2026-09-24)
 
 - **`SIGNED_IN_HOME_20260909.md`** - Duplicate discovery request and unbounded similarity RPCs
