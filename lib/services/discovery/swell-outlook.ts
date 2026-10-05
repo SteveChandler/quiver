@@ -247,7 +247,7 @@ export function buildSwellOutlook(input: BuildSwellOutlookInput): BuiltSwellOutl
     previous: input.previous,
     current,
     forecastsByBeach: input.forecastsByBeach,
-    beachesById: new Map(input.pool.map(({ beach }) => [beach.id, toSwellEventBeach(beach)])),
+    beachesById: new Map(input.pool.map(({ beach }) => [beach.id, { ...toSwellEventBeach(beach), timezone: beach.timezone }])),
     skillLevel: input.skillLevel,
     boardClasses: input.boardClasses,
     now: input.now,

@@ -1,4 +1,5 @@
 // __tests__/lib/services/discovery/swell-outlook-sticky.test.ts
+import { selectFirstSightingCandidates } from "@/lib/alerts/swell-outlook/first-sighting";
 import { carryOverSwells, STICKY_MIN_FACE_FT, type CarryOverInput } from "@/lib/services/discovery/swell-outlook-sticky";
 import type { OutlookSwell } from "@/lib/services/discovery/swell-outlook-types";
 import type { SwellEventBeach } from "@/lib/alerts/swell-events";
@@ -21,7 +22,7 @@ function rowsAround(spec: PartitionSpec): ReturnType<typeof dayRows> {
   return [2, 3, 4].flatMap((day) => dayRows(day, spec));
 }
 
-function carry(args: { previous: OutlookSwell[] | null; current?: CarryOverInput["current"]; rows?: ReturnType<typeof rowsAround>; beach?: SwellEventBeach; now?: Date; skill?: "advanced" | null }): OutlookSwell[] {
+function carry(args: { previous: OutlookSwell[] | null; current?: CarryOverInput["current"]; rows?: ReturnType<typeof rowsAround>; beach?: SwellEventBeach & { timezone?: string | null }; now?: Date; skill?: "advanced" | null }): OutlookSwell[] {
   return carryOverSwells({
     previous: args.previous ? { runDate: "2026-09-24", swells: args.previous } : null,
     current: args.current ?? [],
@@ -220,17 +221,67 @@ describe("carryOverSwells", () => {
     });
   });
 
-  it("fades when the only qualifying partition is before now but within 36 h of the peak", () => {
+  it("keeps peak-day stored values when the only matching row is before now", () => {
     const beforeNow = new Date(NOW.getTime() - 1).toISOString();
-    expect(carry({ previous: [entry({ peakAt: localIso(0, 12) })], rows: [row(beforeNow, { heightFt: 2.5, periodS: 14, direction: 270 })] })[0]).toMatchObject({ status: "faded", change: "downgraded" });
+    expect(carry({ previous: [entry({ peakAt: localIso(0, 12) })], rows: [row(beforeNow, { heightFt: 2.5, periodS: 14, direction: 270 })] })[0]).toMatchObject({ status: "forecast", change: "steady", faceHeightFt: entry().faceHeightFt });
   });
 
   it("includes a qualifying live row exactly at now", () => {
-    expect(carry({ previous: [entry({ peakAt: localIso(0, 12) })], rows: [row(NOW.toISOString(), { heightFt: 2.5, periodS: 14, direction: 270 })] })[0].status).toBe("shrinking");
+    expect(carry({ previous: [entry({ peakAt: localIso(0, 12) })], rows: [row(NOW.toISOString(), { heightFt: 2.5, periodS: 14, direction: 270 })] })[0].status).toBe("forecast");
   });
 
   it("preserves stored size, fit, period and orientation when an entry fades", () => {
     const previous = entry({ periodS: 22 });
     expect(carry({ previous: [previous], rows: rowsAround({ heightFt: 0.8, periodS: 10, direction: 270 }) })).toEqual([{ ...previous, status: "faded", change: "downgraded" }]);
+  });
+});
+
+describe("peak-day carry", () => {
+  it("refreshes size, fit, period and orientation from one live partition, without raising tier or pushing", () => {
+    const [kept] = carry({
+      previous: [entry({ peakAt: localIso(0, 12), tier: "early_signal", periodS: 22 })],
+      rows: [row(localIso(0, 12), { heightFt: 2.6, periodS: 9, direction: 270 },
+        { heightFt: 2.5, periodS: 13.6, direction: 270 })],
+    });
+    expect(kept).toMatchObject({
+      status: "forecast", change: "steady", tier: "early_signal", faceHeightFt: { min: 3, max: 4 },
+      periodS: 14, fit: { status: "rideable", boards: [] },
+      sizeByOrientation: { southFacing: null, westFacing: { min: 3, max: 4 } },
+    });
+    expect(selectFirstSightingCandidates({
+      swells: [{ ...kept, fit: { status: "in_range", boards: [] } }],
+      homeBeachId: BEACH_ID, tier: "premium",
+    })).toEqual([]);
+  });
+
+  it.each([{ rows: [] }, { rows: [row(localIso(0, 12), { heightFt: 3, periodS: 14, direction: 90 })] }])(
+    "preserves peak-day stored values without qualifying live partitions: %p", ({ rows }) => {
+      const previous = entry({ peakAt: localIso(0, 12), change: "downgraded" });
+      const [kept] = carry({ previous: [previous], rows });
+      expect(kept).toMatchObject({
+        ...previous, status: "forecast", change: "steady",
+      });
+    },
+  );
+
+  it("refreshes a peak-day live face below 2 ft without fading", () => {
+    const [kept] = carry({ previous: [entry({ peakAt: localIso(0, 12) })],
+      rows: [row(localIso(0, 12), { heightFt: 0.8, periodS: 14, direction: 270 })] });
+    expect(kept).toMatchObject({ status: "forecast", change: "steady", tier: "likely" });
+    expect(kept.faceHeightFt.max).toBeLessThan(2);
+  });
+
+  it.each(["America/Los_Angeles", "Pacific/Honolulu"])("uses the beach's local date in %s", (timezone) => {
+    const now = new Date("2026-09-26T07:30:00.000Z");
+    const previous = entry({ peakAt: "2026-09-26T18:00:00.000Z" });
+    const [kept] = carry({ previous: [previous], now, beach: { ...swellBeach(), timezone } });
+    expect(kept.status).toBe(timezone === "America/Los_Angeles" ? "forecast" : "faded");
+    expect(kept.change).toBe(timezone === "America/Los_Angeles" ? "steady" : "downgraded");
+  });
+
+  it.each([true, false])("preserves tomorrow's absent-swell rules with live partition = %s", (live) => {
+    const [kept] = carry({ previous: [entry({ peakAt: localIso(1, 12) })],
+      rows: live ? [row(localIso(1, 12), { heightFt: 2.5, periodS: 14, direction: 270 })] : [] });
+    expect(kept).toMatchObject({ status: live ? "shrinking" : "faded", change: "downgraded" });
   });
 });

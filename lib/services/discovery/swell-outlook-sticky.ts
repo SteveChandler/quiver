@@ -10,6 +10,9 @@ import type { BoardClass } from '@/lib/domains/rideability';
 import { angleDifference } from '@/lib/domains/shared/angle-utils';
 import type { SkillLevel } from '@/lib/domains/user-preferences';
 
+import { getLocalDateStr } from './window-selector/time-slot-utils';
+import { resolveBeachTimezone } from '@/lib/utils/timezone-utils';
+
 import { swellFitFor } from './swell-outlook-fit';
 import { faceHeightRange, sizeByOrientation } from './swell-outlook-source';
 import type { OutlookSwell, StoredOutlookList } from './swell-outlook-types';
@@ -23,7 +26,7 @@ export interface CarryOverInput {
   previous: StoredOutlookList | null;
   current: readonly OutlookSwell[];
   forecastsByBeach: ReadonlyMap<string, readonly SwellEventForecastRow[]>;
-  beachesById: ReadonlyMap<string, SwellEventBeach>;
+  beachesById: ReadonlyMap<string, SwellEventBeach & { timezone?: string | null }>;
   skillLevel: SkillLevel | null;
   boardClasses: readonly BoardClass[];
   now: Date;
@@ -79,15 +82,22 @@ export function carryOverSwells(input: CarryOverInput): OutlookSwell[] {
       continue;
     }
 
+    const timezone = resolveBeachTimezone(input.beachesById.get(previous.beach.id)?.timezone);
+    const peakToday = getLocalDateStr(new Date(peakMs), timezone) === getLocalDateStr(input.now, timezone);
     const livePeak = livePeakFor(previous, input, peakMs);
-    if (livePeak === null || livePeak.faceHeightFt < STICKY_MIN_FACE_FT) {
+    if (peakToday && livePeak === null) {
+      carried.push({ ...previous, status: 'forecast', change: 'steady', firstSightingEligible: false });
+      continue;
+    }
+    if (livePeak === null || (!peakToday && livePeak.faceHeightFt < STICKY_MIN_FACE_FT)) {
       carried.push({ ...previous, status: 'faded', change: 'downgraded' });
       continue;
     }
     carried.push({
       ...previous,
-      status: 'shrinking',
-      change: 'downgraded',
+      status: peakToday ? 'forecast' : 'shrinking',
+      change: peakToday ? 'steady' : 'downgraded',
+      ...(peakToday ? { firstSightingEligible: false as const } : {}),
       faceHeightFt: faceHeightRange(livePeak.faceHeightFt),
       fit: swellFitFor({ faceHeightFt: livePeak.faceHeightFt, skillLevel: input.skillLevel, boardClasses: input.boardClasses }),
       periodS: livePeak.periodS,

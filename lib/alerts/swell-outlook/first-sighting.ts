@@ -17,7 +17,7 @@ export function selectFirstSightingCandidates(args: {
   tier: Tier;
 }): OutlookSwell[] {
   return args.swells
-    .filter((swell) => swell.status === 'forecast' && swell.fit.status === 'in_range' && swell.periodS !== null)
+    .filter((swell) => swell.status === 'forecast' && swell.firstSightingEligible !== false && swell.fit.status === 'in_range' && swell.periodS !== null)
     .filter((swell) => args.tier !== 'free' || (args.homeBeachId !== null && swell.beach.id === args.homeBeachId))
     .sort((left, right) => Date.parse(left.peakAt) - Date.parse(right.peakAt));
 }

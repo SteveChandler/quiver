@@ -25,6 +25,8 @@ export interface OutlookSwell {
   tier: OutlookTier;
   status: OutlookStatus;
   change: OutlookChange;
+  /** Peak-day carry is already listed, even if it never received a push. */
+  firstSightingEligible?: false;
   arrivalAt: string | null;
   peakAt: string;
   peakWindow: { from: string; to: string } | null;
