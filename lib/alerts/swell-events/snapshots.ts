@@ -268,7 +268,24 @@ export async function upsertSwellEventSnapshots(
   const { error } = await client
     .from(SWELL_EVENT_SNAPSHOTS_TABLE)
     .upsert(rows, { onConflict: "beach_id,event_key,run_date" });
-  if (error) throw new Error(`Failed to write swell event snapshots: ${error.message}`);
+  if (!error) return rows.length;
+  if ((error.code !== "PGRST204" && error.code !== "42703") || !/\blead_days\b/.test(error.message)) {
+    throw new Error(`Failed to write swell event snapshots: ${error.message}`);
+  }
+
+  // Preserve snapshots while the additive migration or schema cache catches up.
+  const rowsWithoutLead = rows.map((row: SwellEventSnapshotRow): SwellEventSnapshotRow => {
+    const withoutLead = { ...row };
+    delete withoutLead.lead_days;
+    return withoutLead;
+  });
+  console.warn("[swell-event-snapshots] lead_days unavailable; retrying without lead metadata", {
+    error: error.message,
+  });
+  const { error: retryError } = await client
+    .from(SWELL_EVENT_SNAPSHOTS_TABLE)
+    .upsert(rowsWithoutLead, { onConflict: "beach_id,event_key,run_date" });
+  if (retryError) throw new Error(`Failed to write swell event snapshots: ${retryError.message}`);
   return rows.length;
 }
 

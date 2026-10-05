@@ -113,3 +113,81 @@ DO $$ BEGIN
   ASSERT (SELECT period_s = 14 AND detected_at = timestamptz '2026-10-03 14:30+00' FROM public.swell_event_forecast_snapshots WHERE event_key = '00000000-0000-4000-8000-000000000001:SW:2026-10-10:p:2') IS TRUE, 'second component unchanged';
 END $$;
 SELECT 'swell snapshot outcomes: all assertions passed';
+
+-- Historical backlog: 600 events, 30 beaches, 80 run dates, 2,100 snapshots.
+INSERT INTO public.beaches (id, timezone)
+SELECT ('10000000-0000-4000-8000-' || lpad(b::text, 12, '0'))::uuid, 'America/Los_Angeles'
+FROM generate_series(1, 30) b;
+
+CREATE TEMP TABLE bulk_events AS
+SELECT ('10000000-0000-4000-8000-' || lpad(b::text, 12, '0'))::uuid AS beach_id,
+  'bulk:' || e::text AS event_key,
+  timestamptz '2026-01-01 14:30+00' + (e * 8) * interval '1 day' AS first_run,
+  timestamptz '2026-01-05 20:00+00' + (e * 8) * interval '1 day' AS peak_at,
+  CASE WHEN (b + e) % 2 = 0 THEN 'held' ELSE 'vanished' END AS expected_outcome
+FROM generate_series(1, 30) b CROSS JOIN generate_series(1, 20) e;
+
+INSERT INTO public.swell_event_forecast_snapshots
+  (beach_id, event_key, detector_version, run_date, detected_at, direction_deg, direction_band, period_s,
+   peak_offshore_height_ft, peak_face_height_ft, exposure, energy_ratio, arrival_at, peak_at)
+SELECT e.beach_id, e.event_key, 'swell-events.v1', (e.first_run + r * interval '1 day')::date,
+  e.first_run + r * interval '1 day', 270, 'W', 14, 4, 5, 1, 5, e.peak_at, e.peak_at
+FROM bulk_events e
+CROSS JOIN LATERAL generate_series(0, CASE WHEN e.expected_outcome = 'held' THEN 3 ELSE 2 END) r;
+
+CREATE TEMP TABLE previously_resolved AS
+SELECT id, outcome, outcome_resolved_at FROM public.swell_event_forecast_snapshots WHERE outcome IS NOT NULL;
+
+-- Capture the original rule independently before the optimized resolver runs.
+CREATE TEMP TABLE expected_bulk_rows AS
+WITH latest AS (
+  SELECT DISTINCT ON (beach_id, event_key, detector_version)
+    beach_id, event_key, detector_version, peak_at, detected_at
+  FROM public.swell_event_forecast_snapshots
+  WHERE outcome IS NULL
+  ORDER BY beach_id, event_key, detector_version, detected_at DESC
+), due AS (
+  SELECT l.*, (SELECT max(s.detected_at) FROM public.swell_event_forecast_snapshots s WHERE s.detected_at < l.peak_at) AS last_run
+  FROM latest l WHERE l.peak_at < timestamptz '2026-10-05 12:00+00' - interval '12 hours'
+)
+SELECT s.id,
+  CASE WHEN d.last_run IS NULL OR d.detected_at >= d.last_run THEN 'held' ELSE 'vanished' END AS outcome
+FROM public.swell_event_forecast_snapshots s
+JOIN due d USING (beach_id, event_key, detector_version)
+WHERE s.outcome IS NULL;
+
+DO $$
+DECLARE
+  resolved integer;
+BEGIN
+  ASSERT (SELECT count(*) FROM bulk_events) = 600, '600 backlog events';
+  ASSERT (SELECT count(DISTINCT beach_id) FROM bulk_events) = 30, '30 backlog beaches';
+  ASSERT (SELECT count(DISTINCT run_date) FROM public.swell_event_forecast_snapshots WHERE event_key LIKE 'bulk:%') = 80, '80 backlog run dates';
+  ASSERT (SELECT count(*) FROM expected_bulk_rows) = 2100, '2100 due backlog rows';
+  resolved := public.resolve_swell_event_outcomes('2026-10-05 12:00+00');
+  ASSERT resolved = 2100, 'backlog row count matches';
+  ASSERT NOT EXISTS (
+    SELECT 1 FROM expected_bulk_rows e LEFT JOIN public.swell_event_forecast_snapshots s USING (id)
+    WHERE s.outcome IS DISTINCT FROM e.outcome OR s.outcome_resolved_at IS DISTINCT FROM timestamptz '2026-10-05 12:00+00'
+  ), 'every backlog row matches the original rule';
+  ASSERT NOT EXISTS (
+    SELECT 1 FROM bulk_events e JOIN public.swell_event_forecast_snapshots s USING (beach_id, event_key)
+    WHERE s.outcome IS DISTINCT FROM e.expected_outcome
+  ), '300 held and 300 vanished events match fixture intent';
+  ASSERT public.resolve_swell_event_outcomes('2026-10-05 13:00+00') = 0, 'backlog repeat updates nothing';
+  ASSERT NOT EXISTS (
+    SELECT 1 FROM previously_resolved p LEFT JOIN public.swell_event_forecast_snapshots s USING (id)
+    WHERE s.outcome IS DISTINCT FROM p.outcome OR s.outcome_resolved_at IS DISTINCT FROM p.outcome_resolved_at
+  ), 'previously resolved rows never change';
+  ASSERT (SELECT NOT prosecdef AND proconfig @> ARRAY['search_path=public'] FROM pg_proc WHERE oid = 'public.resolve_swell_event_outcomes(timestamptz)'::regprocedure) IS TRUE, 'resolver stays invoker with pinned search path';
+END $$;
+SELECT 'swell snapshot backlog equivalence OK: 600 events, 30 beaches, 80 run dates, 2100 rows';
+
+-- A run exactly at the peak is excluded, including already resolved history.
+SELECT fixture_snapshot('00000000-0000-4000-8000-000000000001', 'strict-before', '2026-01-11', '2026-01-11 14:30+00', '2026-01-12 14:30+00');
+DO $$ BEGIN
+  ASSERT EXISTS (SELECT 1 FROM public.swell_event_forecast_snapshots WHERE detected_at = timestamptz '2026-01-12 14:30+00'), 'run exists exactly at peak';
+  ASSERT public.resolve_swell_event_outcomes('2026-10-05 12:00+00') = 1, 'strict-before fixture resolves';
+  ASSERT (SELECT outcome = 'held' FROM public.swell_event_forecast_snapshots WHERE event_key = 'strict-before') IS TRUE, 'equal peak timestamp is excluded from earlier runs';
+END $$;
+SELECT 'swell snapshot strict run-boundary assertions passed';

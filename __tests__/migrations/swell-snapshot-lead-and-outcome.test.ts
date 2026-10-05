@@ -21,6 +21,9 @@ describe("swell snapshot lead and outcome migration", () => {
   });
 
   it("keeps the resolver service role only", () => {
+    expect(sql).toMatch(/SECURITY INVOKER/);
+    expect(sql).toMatch(/SET search_path = public/);
+    expect(sql).not.toMatch(/SECURITY DEFINER/);
     expect(sql).toMatch(/REVOKE ALL ON FUNCTION public\.resolve_swell_event_outcomes\(timestamptz\) FROM PUBLIC, anon, authenticated/);
     expect(sql).toMatch(/GRANT EXECUTE ON FUNCTION public\.resolve_swell_event_outcomes\(timestamptz\) TO service_role/);
   });
