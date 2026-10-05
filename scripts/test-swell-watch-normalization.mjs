@@ -5,6 +5,12 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync, readdirSync } from "node:fs";
 import { createRequire } from "node:module";
+import { mock } from "node:test";
+
+const hostNow = process.env.SWELL_WATCH_TEST_HOST_NOW ?? new Date().toISOString();
+assert(Number.isFinite(Date.parse(hostNow)), "Valid simulated host clock required");
+mock.timers.enable({ apis: ["Date"], now: Date.parse(hostNow) });
+console.log(JSON.stringify({ hostNow, clockMode: "fixed disposable study replay" }));
 
 // tsx registers the repository's CommonJS TypeScript imports without mocking them.
 const require = createRequire(import.meta.url);
@@ -17,6 +23,8 @@ const { loadAttestedSwellWatchRun } = require("../lib/alerts/swell-watch/atteste
 const container = process.argv[2];
 assert.match(container ?? "", /^swell-watch-study-test-\d+$/);
 let database = "study_normalization";
+let useFixtureClock = false;
+const clockFixture = readFileSync(new URL("../__tests__/fixtures/swell-watch-study-clock.sql", import.meta.url), "utf8");
 const migrationsDirectory = new URL("../supabase/migrations/", import.meta.url);
 const migrationNames = readdirSync(migrationsDirectory).filter((name) => /^\d{14}_normalize_swell_watch_provider_direction\.sql$/.test(name));
 assert.equal(migrationNames.length, 1, "Exactly one tracked normalization migration required");
@@ -29,6 +37,7 @@ const q = (value) => `'${String(value).replaceAll("'", "''")}'`;
 const j = (value) => `${q(JSON.stringify(value))}::jsonb`;
 const command = ["exec", "-i", container, "psql", "-X", "-U", "postgres", "-qAt", "-v", "ON_ERROR_STOP=1"];
 function sql(text) {
+  if (useFixtureClock) text = `SET search_path=public,extensions,pg_catalog,pg_temp; ${text}`;
   const result = spawnSync("docker", [...command, "-d", database], { input: text, encoding: "utf8", timeout: 30_000, maxBuffer: 32 * 1024 * 1024 });
   if (result.status !== 0) {
     const lines = (result.stderr || "isolated PostgreSQL command failed").trim().split("\n").filter(Boolean);
@@ -121,11 +130,15 @@ const client = {
     } catch (error) { return { data: null, error: { message: error.message } }; }
   },
 };
+sql(clockFixture);
+useFixtureClock = true;
+const normalizationNow = sql("SELECT public.clock_timestamp();");
+mock.timers.setTime(Date.parse(normalizationNow));
 const cohort = [...config.cohort].sort((a, b) => a.sourcePointId.localeCompare(b.sourcePointId));
 const inputs = cohort.map(({ sourcePointId }) => ({ sourcePointId, latitude: 32.8, longitude: -117.3,
   beach: { swell_window_center_deg: 180, swell_window_halfwidth_deg: 90, swell_access_factors: null, terrain_enabled: null, deepwater_decay_factor: null, shoaling_factors: null } }));
 const scopes = inputs.map((input, index) => ({ ...input, regionKey: cohort[index].regionKey }));
-const runUtc = new Date(Math.floor(Date.now() / 21_600_000) * 21_600_000).toISOString().slice(0, 16) + "Z";
+const runUtc = new Date(Math.floor(Date.parse(normalizationNow) / 21_600_000) * 21_600_000).toISOString().slice(0, 16) + "Z";
 const fields = ["swell_wave_height", "swell_wave_period", "swell_wave_direction", "secondary_swell_wave_height", "secondary_swell_wave_period", "secondary_swell_wave_direction"];
 function body(run = runUtc, normalized = false, unavailable = false) {
   const time = Array.from({ length: 168 }, (_, index) => new Date(Date.parse(run) + index * 3_600_000).toISOString().slice(0, 16));
@@ -159,6 +172,8 @@ const sendCounts = () => value("SELECT jsonb_build_object('authorities',(SELECT 
 const snapshot = () => value("SELECT jsonb_build_object('issuances',(SELECT count(*) FROM public.swell_watch_provider_run_issuances),'revisions',(SELECT count(*) FROM public.swell_watch_provider_run_revisions),'sets',(SELECT count(*) FROM public.swell_watch_provider_run_revision_sets),'components',(SELECT count(*) FROM public.swell_watch_provider_run_revision_components),'raw',(SELECT count(*) FROM public.swell_watch_provider_run_revision_raw_responses));");
 const functionHash = () => sql("SELECT encode(extensions.digest(pg_get_functiondef('public.record_swell_watch_provider_run_receipt(jsonb)'::regprocedure),'sha256'),'hex');");
 const permissions = () => sql("SELECT proacl::text FROM pg_proc WHERE oid='public.record_swell_watch_provider_run_receipt(jsonb)'::regprocedure;");
+// Restore the reviewed search path before comparing exact rollback/migration hashes.
+sql("ALTER FUNCTION public.record_swell_watch_provider_run_receipt(jsonb) SET search_path=public,pg_temp;");
 sql(rollback);
 assert.equal(functionHash(), "26d064b92fb0023f079d399ca062833f7d9a882d53d1f1e9ab55ef1a5726f522");
 const acl = permissions();
@@ -290,24 +305,18 @@ assert(waikikiIndex >= 0 && hatterasIndex >= 0);
   const nativeInputs = inputs.map((input, i) => ({ ...input, beach: i === waikikiIndex ? waikiki.beach : i === hatterasIndex ? hatteras.beach : input.beach }));
   const nativeScopes = nativeInputs.map((input, index) => ({ ...input, regionKey: cohort[index].regionKey }));
   assert.deepEqual(hatterasSep16.beach, hatteras.beach);
-const utcDay = runUtc.slice(0, 10);
-const issuances = [0, 6, 12, 18].map((hour) => `${utcDay}T${String(hour).padStart(2, "0")}:00:00.000Z`);
 const productionBodies = sql("SELECT jsonb_object_agg(oid::regprocedure::text,md5(prosrc)) FROM pg_proc WHERE pronamespace='public'::regnamespace;");
-sql(`CREATE TABLE public.native_sampling_test_clock(instant timestamptz NOT NULL);
-INSERT INTO public.native_sampling_test_clock VALUES(${q(issuances[0])}::timestamptz+interval '8 hours');
-CREATE FUNCTION public.clock_timestamp() RETURNS timestamptz LANGUAGE sql VOLATILE SECURITY DEFINER
-SET search_path=pg_catalog AS 'SELECT instant FROM public.native_sampling_test_clock';
-DO $$ DECLARE f regprocedure; BEGIN
-  FOR f IN SELECT oid::regprocedure FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname<>'clock_timestamp' LOOP
-    EXECUTE format('ALTER FUNCTION %s SET search_path=public,extensions,pg_catalog,pg_temp',f);
-  END LOOP;
-END $$;`);
+sql(clockFixture);
+const utcDay = sql("SELECT public.clock_timestamp();").slice(0, 10);
+const issuances = [0, 6, 12, 18].map((hour) => `${utcDay}T${String(hour).padStart(2, "0")}:00:00.000Z`);
   const setClock = (issuance, hours = 8) => {
   const now = new Date(Date.parse(issuance) + hours * 3_600_000).toISOString();
   sql(`UPDATE public.native_sampling_test_clock SET instant=${q(now)};`);
+  mock.timers.setTime(Date.parse(now));
   assert.equal(sql("SELECT public.clock_timestamp()=instant FROM public.native_sampling_test_clock;"), "t");
     return now;
   };
+  setClock(issuances[0]);
   const retainedFields = (fixture) => fixture.semanticPayload?.hourly ?? Object.fromEntries([
     ["swell_wave_height", "s1", "heightM"], ["swell_wave_period", "s1", "periodS"], ["swell_wave_direction", "s1", "directionDeg"],
     ["secondary_swell_wave_height", "s2", "heightM"], ["secondary_swell_wave_period", "s2", "periodS"], ["secondary_swell_wave_direction", "s2", "directionDeg"],
@@ -399,12 +408,14 @@ END $$;`);
       return { sourcePointId, receipt };
     }));
     const stored = await storePrototypeSingleRunReceipts(receipts, nativeClient);
-    if (issuance === issuances[0]) {
+    if (options.probeFreshness) {
       setClock(issuance, 13);
+      assert.equal(sql(`SELECT count(*) FROM public.swell_watch_current_study_authority(${q(policy.value_hash)});`), "1");
       const stale = await nativeClient.rpc("complete_swell_watch_study_run", { p_revision_set_id: stored.revisionSetId,
         p_policy_hash: policy.value_hash, p_cohort: cohort, p_scope_inputs: nativeInputs });
       assert.match(stale.error?.message ?? "", /study run is stale/, "Clock injection still enforces unchanged 12h freshness");
       assert.equal(sql("SELECT count(*) FROM public.swell_watch_study_acceptances;"), "0");
+      console.log(JSON.stringify({ check: "12h freshness", runUtc: issuance, now: sql("SELECT public.clock_timestamp();"), rejected: "study run is stale", acceptances: 0 }));
       setClock(issuance);
     }
     if (options.deferComplete) return { receipts, stored };
@@ -434,7 +445,7 @@ END $$;`);
     return { receipts, stored, completed, evaluation, recordArgs };
   }
   sql("CREATE DATABASE study_partition_coverage TEMPLATE study_native_sampling;");
-  const nativeFirst = await nativeRun(issuances[0]);
+  const nativeFirst = await nativeRun(issuances[0], false, completeRule, { probeFreshness: true });
   assert.equal(nativeFirst.evaluation.status, "evaluated"); assert.equal(nativeFirst.evaluation.candidateCount, 1);
   for (const table of ["swell_watch_beach_impacts", "swell_watch_event_impacts", "swell_watch_regional_events", "swell_watch_shadow_demand_runs"]) {
     assert.equal(sql(`SELECT count(*) FROM public.${table};`), "1", `${table}: first native candidate persisted`);
@@ -702,6 +713,8 @@ END $$;`);
   fixtureSystemAmendment = replacePinned(fixtureSystemAmendment,
     "automated-study.v3 model-reported-partition-count amendment under Steven Chandler authorization 2026-09-14", fixtureEpoch4.reviewer);
   fixtureSystemAmendment = replacePinned(fixtureSystemAmendment, "2026-09-14T19:55:52.959651Z", fixtureEpoch4.not_before.replace("+00:00", "Z"));
+  // Start this cycle at the next midnight issuance, before accepting its four runs.
+  setClock(epoch4Issuance, 6);
   sql(fixtureSystemAmendment);
   const epoch5Authority = authorityRows();
   assert.equal(epoch5Authority[4].qualification_rule, swellSystemCountRule);
@@ -898,7 +911,23 @@ END $$;`);
   assert(!((await nativeClient.rpc("read_swell_watch_study_pending_runs", { p_policy_hash: policy.value_hash })).data ?? []).some((row) => row.revision_set_id === extensionPending.stored.revisionSetId));
   sql(`ALTER TABLE public.swell_watch_study_recovery_failures DISABLE TRIGGER swell_watch_study_recovery_failures_append_only; UPDATE public.swell_watch_study_recovery_failures SET failed_at=public.clock_timestamp()-interval '5 hours' WHERE revision_set_id=${q(extensionPending.stored.revisionSetId)}::uuid; ALTER TABLE public.swell_watch_study_recovery_failures ENABLE TRIGGER swell_watch_study_recovery_failures_append_only;`);
   assert((await nativeClient.rpc("read_swell_watch_study_pending_runs", { p_policy_hash: policy.value_hash })).data.some((row) => row.revision_set_id === extensionPending.stored.revisionSetId));
-  await assert.rejects(async () => { const old = await nativeRun(preCycleRunUtc, false, swellSystemCountRule, { acceptOnly: true, flat: true, deferComplete: true, preserveClock: true }); const result = await nativeClient.rpc("complete_swell_watch_study_run", { p_revision_set_id: old.stored.revisionSetId, p_policy_hash: policy.value_hash, p_cohort: cohort, p_scope_inputs: nativeInputs }); if (result.error) throw new Error(result.error.message); return result; }, /study run predates current study cycle/);
+  const cycleClock = sql("SELECT public.clock_timestamp();");
+  assert(Date.parse(preCycleRunUtc) < Date.parse(epoch5Authority[4].not_before));
+  assert.equal(sql(`SELECT count(*) FROM public.swell_watch_current_study_authority(${q(policy.value_hash)});`), "1");
+  const old = await nativeRun(preCycleRunUtc, false, swellSystemCountRule, { acceptOnly: true, flat: true, deferComplete: true, preserveClock: true });
+  assert.equal(sql("SELECT public.clock_timestamp();"), cycleClock, "Cycle rejection preserves the current authority clock");
+  await assert.rejects(async () => {
+    const result = await nativeClient.rpc("complete_swell_watch_study_run", { p_revision_set_id: old.stored.revisionSetId, p_policy_hash: policy.value_hash, p_cohort: cohort, p_scope_inputs: nativeInputs });
+    if (result.error) throw new Error(result.error.message);
+    return result;
+  }, /study run predates current study cycle/);
+  assert.equal(sql(`SELECT count(*) FROM public.swell_watch_study_acceptances WHERE revision_set_id=${q(old.stored.revisionSetId)}::uuid;`), "0");
+  console.log(JSON.stringify({ check: "cycle boundary", runUtc: preCycleRunUtc, cycleNotBefore: epoch5Authority[4].not_before, now: cycleClock, rejected: "study run predates current study cycle" }));
+  setClock("2027-01-02T00:00:00Z", 0);
+  assert.equal(value("SELECT public.read_swell_watch_study_health();").status, "expired");
+  assert.equal(sql(`SELECT count(*) FROM public.swell_watch_current_study_authority(${q(policy.value_hash)});`), "0");
+  console.log(JSON.stringify({ check: "reviewed expiry", now: sql("SELECT public.clock_timestamp();"), status: "expired", currentAuthorities: 0 }));
+  setClock(cycleClock, 0);
   const cohortBeach = cohort[0].sourcePointId; const nonCohortBeach = "ffffffff-ffff-4fff-8fff-ffffffffffff";
   sql(`INSERT INTO public.beaches(id,lat,lon) VALUES(${q(nonCohortBeach)},32,-117) ON CONFLICT(id) DO NOTHING;`);
   assert.throws(() => sql(`UPDATE public.beaches SET lat=32.1 WHERE id=${q(cohortBeach)}::uuid;`), /pinned by the active Swell Watch study/);
@@ -927,6 +956,7 @@ END $$;`);
       persistedEvent: { arrivalAt: persistedCurrentEvidence.arrivalAt, peakAt: persistedCurrentEvidence.peakAt, sourceSlot: persistedCurrentEvidence.sourceSlot } }, sends: systemSafety }, null, 2));
 } finally {
   database = "study_native_sampling";
-  assert.equal(sql("SELECT jsonb_object_agg(oid::regprocedure::text,md5(prosrc)) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname<>'clock_timestamp';"), productionBodies, "Production SQL bodies unchanged by disposable clock injection");
+  assert.equal(sql("SELECT jsonb_object_agg(oid::regprocedure::text,md5(prosrc)) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname NOT IN ('clock_timestamp','now','transaction_timestamp','statement_timestamp');"), productionBodies, "Production SQL bodies unchanged by disposable clock injection");
   database = "study_normalization";
+  mock.timers.reset();
 }
