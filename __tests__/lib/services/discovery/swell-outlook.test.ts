@@ -304,7 +304,6 @@ describe("buildSwellOutlook", () => {
     ] })).response.swells;
     expect(swell).toMatchObject({ eventKey: "notable-key", notable: true, faceHeightFt: { min: 3.5, max: 4.5 } });
     expect(swell.history).toEqual([
-      { runDate: "2026-09-23", peakAt: localIso(3, 12), faceHeightFt: 3, periodS: 14 },
       { runDate: "2026-09-25", peakAt: localIso(3, 12), faceHeightFt: 4, periodS: 14 },
     ]);
   });
@@ -366,6 +365,67 @@ describe("buildSwellOutlook", () => {
     const arrived = buildSwellOutlook(input({ previous, pulseSnapshots: [], now: new Date(Date.parse(previous.swells[0].peakAt) + 6 * 3_600_000) }));
     expect(arrived.response.swells).toEqual([{ ...previous.swells[0], status: "arrived", change: "steady" }]);
     expect(JSON.stringify(previous)).toBe(before);
+  });
+
+  it.each<[boolean, string]>([[true, "available-member-key"], [false, "reserved-key:2"]])(
+    "reserves a unique fallback when a carried id collides and another member is available: %s", (hasOtherMember, expectedId) => {
+      const carriedPulse = pulse(HOME, { eventKey: "carried-pulse", periodS: 16, peakOffshoreHeightFt: 8 });
+      const collidingPulse = pulse(HOME, { eventKey: "reserved-key", periodS: 12, peakAt: localIso(4, 12) });
+      const otherMember = pulse(SECOND, { eventKey: "available-member-key", periodS: 12, peakAt: localIso(4, 15) });
+      const previous = buildSwellOutlook(input({ pulseSnapshots: [carriedPulse] })).list;
+      previous.swells[0].id = "reserved-key";
+      const args = input({ previous, pulseSnapshots: [collidingPulse, carriedPulse, ...(hasOtherMember ? [otherMember] : [])] });
+      const { response, list } = buildSwellOutlook(args);
+      expect(response.swells.map((swell) => [swell.id, swell.periodS])).toEqual([
+        ["reserved-key", 16], [expectedId, 12],
+      ]);
+      expect(new Set(response.swells.map((swell) => swell.id)).size).toBe(response.swells.length);
+      expect(list.swells).toEqual(response.swells);
+      expect(buildSwellOutlook(args).response.swells.map((swell) => swell.id)).toEqual(response.swells.map((swell) => swell.id));
+    },
+  );
+
+  it("skips reserved suffixes when every fallback member key is already used", () => {
+    const first = pulse(HOME, { eventKey: "first-pulse", periodS: 16, peakOffshoreHeightFt: 8 });
+    const second = pulse(THIRD, { eventKey: "second-pulse", periodS: 20, directionDeg: 180, peakOffshoreHeightFt: 7, peakAt: localIso(5, 12) });
+    const fallback = pulse(HOME, { eventKey: "reserved-key", periodS: 12, peakAt: localIso(4, 12) });
+    const previous = buildSwellOutlook(input({ pulseSnapshots: [first, second] })).list;
+    previous.swells[0].id = "reserved-key";
+    previous.swells[1].id = "reserved-key:2";
+    const args = input({ previous, pulseSnapshots: [fallback, second, first] });
+    const { response } = buildSwellOutlook(args);
+    expect(response.swells.map((swell) => swell.id)).toEqual(["reserved-key", "reserved-key:3", "reserved-key:2"]);
+    expect(buildSwellOutlook(args).response.swells.map((swell) => swell.id)).toEqual(response.swells.map((swell) => swell.id));
+  });
+
+  it("keeps notable-linked history aligned with the current pulse representative", () => {
+    const current = pulse(HOME, { peakFaceHeightFt: 4.04, periodS: 13.6 });
+    const older = pulse(HOME, { runDate: "2026-09-24", detectedAt: "2026-09-24T14:30:00.000Z", peakFaceHeightFt: 3.04, peakOffshoreHeightFt: 2.4, periodS: 12.4 });
+    const notable = pulse(HOME, { eventKey: "notable-link", detectorVersion: "swell-events.v1", peakFaceHeightFt: 9, periodS: 18 });
+    const [swell] = buildSwellOutlook(input({
+      pulseSnapshots: [current, pulse(SECOND, { peakFaceHeightFt: 7 }), older, { ...current, detectedAt: "2026-09-25T14:00:00.000Z", peakFaceHeightFt: 6 }],
+      notableSnapshots: [{ ...notable, runDate: "2026-09-23", detectedAt: "2026-09-23T14:30:00.000Z" }],
+    })).response.swells;
+    expect(swell).toMatchObject({ notable: true, eventKey: "notable-link", faceHeightFt: { min: 3.5, max: 4.5 }, periodS: 14, change: "upgraded" });
+    expect(swell.history).toEqual([
+      { runDate: "2026-09-24", peakAt: older.peakAt, faceHeightFt: 3, periodS: 12 },
+      { runDate: "2026-09-25", peakAt: current.peakAt, faceHeightFt: 4, periodS: 14 },
+    ]);
+    expect(swell.history[swell.history.length - 1]).toEqual({
+      runDate: "2026-09-25", peakAt: swell.peakAt, faceHeightFt: 4, periodS: swell.periodS,
+    });
+  });
+
+  it("uses the relation home beach consistently when homeBeachId is null", () => {
+    const { response } = buildSwellOutlook(input({ homeBeachId: null }));
+    expect(response.homeBeach).toEqual({ id: HOME, name: "Home Beach" });
+    expect(response.swells[0]).toMatchObject({ beach: response.homeBeach, faceHeightFt: { min: 3.5, max: 4.5 } });
+  });
+
+  it("prefers an explicit home beach id over another row's home relation consistently", () => {
+    const { response } = buildSwellOutlook(input({ homeBeachId: THIRD }));
+    expect(response.homeBeach).toEqual({ id: THIRD, name: "Third" });
+    expect(response.swells[0]).toMatchObject({ beach: response.homeBeach, faceHeightFt: { min: 4.5, max: 6 } });
   });
 
 });

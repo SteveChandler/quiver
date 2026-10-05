@@ -109,6 +109,12 @@ function historyFor(
     }));
 }
 
+function homeBeachFor(pool: BuildSwellOutlookInput['pool'], homeBeachId: string | null): Beach | null {
+  const explicitHome = pool.find(({ beach }) => beach.id === homeBeachId)?.beach;
+  if (explicitHome) return explicitHome;
+  return pool.find(({ relation }) => relation === 'home')?.beach ?? null;
+}
+
 function representative(group: SwellGroup, homeBeachId: string | null): BeachSwellEvent {
   const home = group.members.find((member) => member.beachId === homeBeachId);
   if (home) return home;
@@ -147,9 +153,12 @@ function stableId(
       - Math.abs(Date.parse(right.peakAt) - Date.parse(rep.peakAt))
       || left.id.localeCompare(right.id)
     ))[0];
-  const id = carried?.id ?? [...group.members].sort((left, right) => (
+  const memberKeys = [...group.members].sort((left, right) => (
     Date.parse(left.peakAt) - Date.parse(right.peakAt) || left.eventKey.localeCompare(right.eventKey)
-  ))[0].eventKey;
+  )).map((member) => member.eventKey);
+  const baseId = carried?.id ?? memberKeys.find((key) => !usedIds.has(key)) ?? memberKeys[0];
+  let id = baseId;
+  for (let suffix = 2; usedIds.has(id); suffix += 1) id = `${baseId}:${suffix}`;
   usedIds.add(id);
   return id;
 }
@@ -161,8 +170,9 @@ function toOutlookSwell(
   notableLatest: readonly SwellEventSnapshot[],
   usedIds: Set<string>,
   runDate: string,
+  homeBeachId: string | null,
 ): OutlookSwell | null {
-  const rep = representative(group, input.homeBeachId);
+  const rep = representative(group, homeBeachId);
   const beach = beachesById.get(rep.beachId);
   if (!beach) return null;
   const timezone = resolveBeachTimezone(beach.timezone);
@@ -212,7 +222,7 @@ function toOutlookSwell(
       windowCenterDeg: swellWindowForBeach(beachesById.get(member.beachId) ?? {})?.centerDeg ?? null,
       faceHeightFt: member.peakFaceHeightFt,
     }))),
-    history: historyFor(notable ? input.notableSnapshots : input.pulseSnapshots, rep.beachId, eventKey),
+    history: historyFor(input.pulseSnapshots, rep.beachId, rep.eventKey),
   };
 }
 
@@ -220,7 +230,7 @@ export function buildSwellOutlook(input: BuildSwellOutlookInput): BuiltSwellOutl
   const beachesById = new Map(input.pool.map(({ beach }) => [beach.id, beach]));
   const poolSnapshots = input.pulseSnapshots.filter((snapshot) => beachesById.has(snapshot.beachId));
   const runDate = resolveOutlookRunDate(poolSnapshots, input.now);
-  const homeBeach = input.pool.find(({ beach, relation }) => relation === 'home' || beach.id === input.homeBeachId)?.beach ?? null;
+  const homeBeach = homeBeachFor(input.pool, input.homeBeachId);
 
   const events = latestPerKey(poolSnapshots.filter((snapshot) => snapshot.runDate === runDate))
     .map((snapshot) => eventFromSnapshot(snapshot, resolveBeachTimezone(beachesById.get(snapshot.beachId)?.timezone)))
@@ -229,7 +239,7 @@ export function buildSwellOutlook(input: BuildSwellOutlookInput): BuiltSwellOutl
   const notableLatest = latestPerKey(input.notableSnapshots);
   const usedIds = new Set<string>();
   const current = groupEvents(events).flatMap((group) => {
-    const swell = toOutlookSwell(group, input, beachesById, notableLatest, usedIds, runDate);
+    const swell = toOutlookSwell(group, input, beachesById, notableLatest, usedIds, runDate, homeBeach?.id ?? null);
     return swell ? [swell] : [];
   });
 
