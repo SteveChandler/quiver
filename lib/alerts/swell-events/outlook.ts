@@ -169,12 +169,14 @@ export function filterPulsesByRegionAgreement(
   candidates: readonly PulseRegionCandidate[],
 ): Map<string, BeachSwellEvent[]> {
   const kept = new Map<string, BeachSwellEvent[]>();
-  for (const candidate of candidates) {
+  const pulseCandidates = candidates.filter((candidate) => candidate.pulses.length > 0);
+  for (const candidate of pulseCandidates) {
     const agreeing = candidate.pulses.filter((pulse) => {
       const beaches = new Set<string>([candidate.beachId]);
-      for (const other of candidates) {
-        if (beaches.has(other.beachId) || !withinRegion(candidate, other)) continue;
-        if (other.pulses.some((otherPulse) => sameSwell(pulse, otherPulse))) beaches.add(other.beachId);
+      for (const other of pulseCandidates) {
+        if (beaches.has(other.beachId)) continue;
+        if (!other.pulses.some((otherPulse) => sameSwell(pulse, otherPulse))) continue;
+        if (withinRegion(candidate, other)) beaches.add(other.beachId);
       }
       return beaches.size >= SWELL_OUTLOOK_PULSE_THRESHOLDS.minRegionBeaches;
     });
