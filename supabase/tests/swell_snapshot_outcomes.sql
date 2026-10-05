@@ -191,3 +191,63 @@ DO $$ BEGIN
   ASSERT (SELECT outcome = 'held' FROM public.swell_event_forecast_snapshots WHERE event_key = 'strict-before') IS TRUE, 'equal peak timestamp is excluded from earlier runs';
 END $$;
 SELECT 'swell snapshot strict run-boundary assertions passed';
+
+-- Per-user back-off state must remain private even with Supabase-style grants.
+CREATE TABLE public.profiles (id uuid PRIMARY KEY);
+INSERT INTO public.profiles VALUES ('dddddddd-1111-4111-8111-000000000001');
+\ir ../migrations/20261004210000_create_swell_outlook_user_state.sql
+\ir ../migrations/20261004210000_create_swell_outlook_user_state.sql
+
+DO $$ BEGIN
+  ASSERT (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.swell_outlook_user_state'::regclass), 'user state enables RLS';
+  ASSERT NOT EXISTS (SELECT 1 FROM pg_policy WHERE polrelid = 'public.swell_outlook_user_state'::regclass), 'user state has no policies';
+END $$;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.swell_outlook_user_state TO anon, authenticated, service_role;
+SET ROLE service_role;
+INSERT INTO public.swell_outlook_user_state (user_id, consecutive_unanswered, outlook_list, outlook_prev_list)
+VALUES ('dddddddd-1111-4111-8111-000000000001', 3, '{"runDate":"2026-10-04","swells":[]}', '{"runDate":"2026-10-03","swells":[]}');
+DO $$ BEGIN
+  ASSERT (SELECT count(*) FROM public.swell_outlook_user_state) = 1, 'service role reads its write';
+  ASSERT (SELECT outlook_list->>'runDate' = '2026-10-04' AND outlook_prev_list->>'runDate' = '2026-10-03' FROM public.swell_outlook_user_state), 'both lists round-trip';
+  BEGIN
+    INSERT INTO public.swell_outlook_user_state (user_id) VALUES ('dddddddd-1111-4111-8111-000000000001');
+    RAISE EXCEPTION 'duplicate user accepted';
+  EXCEPTION WHEN unique_violation THEN NULL;
+  END;
+  BEGIN
+    UPDATE public.swell_outlook_user_state SET consecutive_unanswered = -1;
+    RAISE EXCEPTION 'negative counter accepted';
+  EXCEPTION WHEN check_violation THEN NULL;
+  END;
+END $$;
+RESET ROLE;
+
+SET ROLE anon;
+DO $$ BEGIN
+  ASSERT NOT EXISTS (SELECT 1 FROM public.swell_outlook_user_state), 'anon cannot read user state';
+  BEGIN
+    INSERT INTO public.swell_outlook_user_state (user_id) VALUES ('dddddddd-1111-4111-8111-000000000001');
+    RAISE EXCEPTION 'anon write accepted';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+END $$;
+RESET ROLE;
+
+SET ROLE authenticated;
+DO $$ BEGIN
+  ASSERT NOT EXISTS (SELECT 1 FROM public.swell_outlook_user_state), 'authenticated cannot read user state';
+  BEGIN
+    INSERT INTO public.swell_outlook_user_state (user_id) VALUES ('dddddddd-1111-4111-8111-000000000001');
+    RAISE EXCEPTION 'authenticated write accepted';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+END $$;
+RESET ROLE;
+
+DELETE FROM public.profiles WHERE id = 'dddddddd-1111-4111-8111-000000000001';
+DO $$ BEGIN
+  ASSERT NOT EXISTS (SELECT 1 FROM public.swell_outlook_user_state), 'profile removal cascades to user state';
+END $$;
+SELECT 'swell outlook user state assertions passed';
+SELECT 'swell snapshot outcomes OK: ' || :resolved || ' rows resolved';
