@@ -97,6 +97,8 @@ export function SiteFooter({
             </div>
           )}
 
+          {/* Footer links render on every page; viewport prefetch of all of them
+              cost one proxy invocation per link per page view. */}
           {/* About */}
           <div>
             <h4 className={headingClass}>
@@ -107,6 +109,7 @@ export function SiteFooter({
                 <li key={link.href}>
                   <Link
                     href={link.href}
+                    prefetch={false}
                     className="hover:text-white transition-colors"
                   >
                     {link.name}
@@ -124,6 +127,7 @@ export function SiteFooter({
                 <li key={link.href}>
                   <Link
                     href={link.href}
+                    prefetch={false}
                     className="hover:text-white transition-colors"
                   >
                     {link.name}
@@ -141,6 +145,7 @@ export function SiteFooter({
                 <li key={link.href}>
                   <Link
                     href={link.href}
+                    prefetch={false}
                     className="hover:text-white transition-colors"
                   >
                     {link.name}
@@ -158,6 +163,7 @@ export function SiteFooter({
                 <li key={link.href}>
                   <Link
                     href={link.href}
+                    prefetch={false}
                     className="hover:text-white transition-colors"
                   >
                     {link.name}
@@ -175,6 +181,7 @@ export function SiteFooter({
                 <li key={link.href}>
                   <Link
                     href={link.href}
+                    prefetch={false}
                     className="hover:text-white transition-colors"
                   >
                     {link.name}
