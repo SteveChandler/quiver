@@ -368,3 +368,43 @@ the last 24 hours, so they stay on the estimate for now.
 - Monitor only: position and CTR on the four pages above in the first full
   28-day window after deploy. Don't read a change on Long Beach NY or
   Kailua-Kona as a title effect.
+
+## 2026-10-04 Baja Model Tides (FES2022)
+
+Not a CTR test. This adds coverage, not copy: 50 Baja California and Baja
+California Sur beaches have no NOAA tide station within 120 km, so their
+`/mexico/{region}/{city}/{beach}/tides` pages have had no tide data and answered
+`noindex`. The tide cron now writes FES2022 model tides for them (source
+`fes2022`, station `FES2022`, 30 days per run). Validated against five NOAA
+stations: median timing error 1.6–15.4 min, range ratio 0.913–1.123.
+
+**What changes on those 50 pages.**
+
+- They gain next high/low times, so they pass `isBeachSubPageIndexable` and
+  enter the sitemap through the existing tide coverage rule. Their beach and
+  water-temp pages were already listed on 2026-10-04, so the forecast gate is
+  already met. No coverage rule changed.
+- The visible note under the tide summary says the tide is modelled for the
+  spot, not measured at a station, and not for navigation, and carries the
+  FES2022 citation.
+- The `Dataset` JSON-LD on model-tide pages adds `creditText` (the FES2022
+  citation), `measurementTechnique` and `isBasedOn` (the AVISO FES2022 product),
+  and the description says the predictions are modelled. NOAA pages emit the
+  same JSON as before.
+
+**Exception to the 2026-09-27 hold.** That fix shipped to prod on 2026-09-29,
+and its four-week hold on tide sub-page metadata, schema and coverage rules
+runs to 2026-10-27. Steven chose on 2026-10-04 to ship the Baja pages now. The
+exception covers only pages that had no tide data and were `noindex`. The US
+and other NOAA tide pages have no metadata, schema or rule change, so their
+measurement window is undisturbed.
+
+**Deploy and hold.**
+
+- Deploy date and prod SHA: pending; record here when it ships. Pages go live
+  after the first prod tide cron run that follows the deploy (Sun/Wed 04:00 UTC).
+- Hold these 50 pages for four weeks after the first run that writes their
+  rows: no metadata, schema or copy changes.
+- Monitor only: indexed `/mexico/.../tides` count in GSC, Dataset
+  structured-data warnings, and impressions on the 50 pages. There is no CTR
+  baseline because the pages were `noindex`.

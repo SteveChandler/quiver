@@ -83,6 +83,8 @@ function sourceLabel(source: string): string {
   switch (source) {
     case "NOAA_CO-OPS":
       return "NOAA CO-OPS";
+    case "FES2022":
+      return "FES2022 tide model";
     case "NOAA_NWS":
       return "NOAA NWS";
     case "OPEN_METEO":

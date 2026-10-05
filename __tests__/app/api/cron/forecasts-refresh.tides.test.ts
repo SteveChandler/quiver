@@ -45,6 +45,16 @@ jest.mock("@/lib/services/noaa-coops", () => ({
   })),
 }));
 
+const mockGetBeachModelTides = jest.fn();
+const mockPredictHourlyModelTides = jest.fn();
+
+jest.mock("@/lib/services/tides/model-tides", () => ({
+  MODEL_TIDE_SOURCE: "fes2022",
+  MODEL_TIDE_STATION_ID: "FES2022",
+  getBeachModelTides: (...args: any[]) => mockGetBeachModelTides(...args),
+  predictHourlyModelTides: (...args: any[]) => mockPredictHourlyModelTides(...args),
+}));
+
 const mockSupabaseFrom = jest.fn();
 
 type DeleteCall = {
@@ -255,6 +265,8 @@ describe("/api/cron/forecasts/refresh (tides)", () => {
       mockGetNearestTideStation.mockReset();
       mockFetchHourlyTidePredictions.mockReset();
       mockFetchCOOPSData.mockReset().mockResolvedValue(null);
+      mockGetBeachModelTides.mockReset().mockReturnValue(null);
+      mockPredictHourlyModelTides.mockReset().mockImplementation(() => hourlyPoints(3));
       mockSupabaseFrom.mockReset();
     });
 
@@ -484,6 +496,61 @@ describe("/api/cron/forecasts/refresh (tides)", () => {
       expect(tideForecasts.deleteCalls[0].filters[1]).toEqual(["neq", "station_id", stationId]);
     });
 
+
+    it("writes model tides for a beach without a NOAA station", async () => {
+      mockGetNearestTideStation.mockResolvedValue(null);
+      mockGetBeachModelTides.mockReturnValue({ beachId: "model-beach", model: "FES2022", mllwOffsetM: 0, constituents: [{ name: "M2", amplitudeM: 1, phaseDeg: 0 }] });
+      const upsertTides = jest.fn(async () => ({ error: null }));
+      mockSupabaseFrom.mockImplementation((table: string) => {
+        if (table === "beaches") return thenable({ data: [{ id: "model-beach", name: "Model", lat: 23, lon: -110, tide_forecasts: [] }], error: null });
+        if (table === "tide_forecasts") return { upsert: upsertTides };
+        return { upsert: jest.fn(async () => ({ error: null })) };
+      });
+
+      const { json, failureReason } = await runTideRefresh("tidesBackfillMissing=1");
+
+      expect(mockPredictHourlyModelTides).toHaveBeenCalledWith(expect.objectContaining({ beachId: "model-beach" }), expect.any(String), expect.any(String));
+      expect(upsertTides).toHaveBeenCalledWith(
+        expect.arrayContaining([expect.objectContaining({ beach_id: "model-beach", source: "fes2022", station_id: "FES2022", tide_phase: null })]),
+        { onConflict: "beach_id,ts,source" },
+      );
+      expect(json.data.totals.tides).toBe(3);
+      expect(json.data.tideIngest).toEqual(expect.objectContaining({ beachesWithoutStation: 1, beachesWithoutTideSource: 0, modelBeachesWritten: 1 }));
+      expect(failureReason).toBeNull();
+    });
+
+    it("alarms when model tides cannot be written and coverage is under seven days", async () => {
+      mockGetNearestTideStation.mockResolvedValue(null);
+      mockGetBeachModelTides.mockReturnValue({ beachId: "model-beach", model: "FES2022", mllwOffsetM: 0, constituents: [{ name: "M2", amplitudeM: 1, phaseDeg: 0 }] });
+      const upsertTides = jest.fn(async () => ({ error: { message: "statement timeout" } }));
+      mockSupabaseFrom.mockImplementation((table: string) => {
+        if (table === "beaches") return thenable({ data: [{ id: "model-beach", name: "Model", lat: 23, lon: -110, tide_forecasts: [] }], error: null });
+        if (table === "tide_forecasts") return { upsert: upsertTides };
+        return { upsert: jest.fn(async () => ({ error: null })) };
+      });
+
+      const { json, failureReason } = await runTideRefresh("tidesBackfillMissing=1");
+
+      expectConsoleWarnings([/Tide upsert failed/]);
+      expect(json.data.tideIngest.failedStations).toEqual([{ stationId: "FES2022", beaches: 1, reason: "upsert_failed" }]);
+      expect(json.data.tideIngest.modelBeachesWritten).toBe(0);
+      expect(json.data.tideIngest.beachIdsBelowMinCoverage).toEqual(["model-beach"]);
+      expect(failureReason).toBe("tide coverage under 7 days for 1 beach");
+    });
+
+    it("does not alarm for a beach with neither a station nor model constants", async () => {
+      mockGetNearestTideStation.mockResolvedValue(null);
+      mockSupabaseFrom.mockImplementation((table: string) => {
+        if (table === "beaches") return thenable({ data: [{ id: "no-source", name: "No source", lat: 23, lon: -110, tide_forecasts: [] }], error: null });
+        if (table === "tide_forecasts") return { upsert: jest.fn() };
+        return { upsert: jest.fn(async () => ({ error: null })) };
+      });
+
+      const { json, failureReason } = await runTideRefresh("tidesBackfillMissing=1");
+
+      expect(json.data.tideIngest).toEqual(expect.objectContaining({ beachesWithoutStation: 1, beachesWithoutTideSource: 1, modelBeachesWritten: 0, beachesBelowMinCoverage: 0 }));
+      expect(failureReason).toBeNull();
+    });
   });
 });
 

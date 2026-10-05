@@ -25,6 +25,7 @@ import type {
   SurfDiscoveryResponse,
   TimeSlot,
 } from '@/types/personalization';
+import { retryAfterSeconds } from '@/lib/utils/retry-after';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30; // Allow 30s for GPS discovery + batch forecast fetching
@@ -94,7 +95,10 @@ function retryableDiscoveryResponse(error: unknown): NextResponse {
       code,
       retryable: true,
     },
-    { status: code === 'timeout' ? 504 : 503 },
+    {
+      status: code === 'timeout' ? 504 : 503,
+      headers: { 'Retry-After': String(retryAfterSeconds()) },
+    },
   );
 }
 

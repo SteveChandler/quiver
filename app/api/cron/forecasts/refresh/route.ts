@@ -16,6 +16,12 @@ import {
   fetchHourlyTidePredictions,
 } from "@/lib/services/noaa-tide-service";
 import { NOAACOOPSService } from "@/lib/services/noaa-coops";
+import {
+  getBeachModelTides,
+  MODEL_TIDE_SOURCE,
+  MODEL_TIDE_STATION_ID,
+  predictHourlyModelTides,
+} from "@/lib/services/tides/model-tides";
 import { fanOutTidePointsToBeaches } from "../../../../../lib/services/tide-forecast-batch-utils";
 import SunCalc from "suncalc";
 import { withObservedCron } from "@/lib/cron/observability";
@@ -166,6 +172,8 @@ async function _GET(request: Request): Promise<Response> {
       supersedeErrors: 0,
       failedStations: [] as Array<{ stationId: string; beaches: number; reason: TideGroupFailure }>,
       beachesWithoutStation: 0,
+      modelBeachesWritten: 0,
+      beachesWithoutTideSource: 0,
       beachesBelowMinCoverage: 0,
       beachIdsBelowMinCoverage: [] as string[],
     };
@@ -643,6 +651,7 @@ async function _GET(request: Request): Promise<Response> {
 
       const nearestStationCache = new Map<string, TideStationMeta | null>();
       const beachIdsWithoutStation = new Set<string>();
+      const beachIdsWithoutTideSource = new Set<string>();
       const writtenBeachIds = new Set<string>();
       const predictionsCache = new Map<string, TidePoint[]>();
       const stationGroups = new Map<string, { station: TideStationMeta; beaches: BeachRow[] }>();
@@ -902,18 +911,73 @@ async function _GET(request: Request): Promise<Response> {
         }
       }
 
+      for (const beach of selectedTideBeaches) {
+        if (!beachIdsWithoutStation.has(beach.id)) continue;
+        const model = getBeachModelTides(beach.id);
+        if (!model) {
+          beachIdsWithoutTideSource.add(beach.id);
+          continue;
+        }
+
+        let failure: TideGroupFailure | null = null;
+        try {
+          if (shouldStop()) {
+            failure = "time_budget";
+          } else {
+            const points = predictHourlyModelTides(model, tideStartIso, tideEndIso);
+            if (!points.length) {
+              failure = "no_predictions";
+            } else {
+              const rows = points.map((point) => ({
+                beach_id: beach.id,
+                ts: point.ts,
+                created_at: refreshedAt,
+                station_id: MODEL_TIDE_STATION_ID,
+                tide_height_m: point.tide_height_m,
+                tide_phase: null,
+                source: MODEL_TIDE_SOURCE,
+              }));
+              for (const chunk of chunkArray(rows, 1000)) {
+                if (shouldStop()) {
+                  failure = "time_budget";
+                  break;
+                }
+                const { error } = await supabase
+                  .from("tide_forecasts")
+                  .upsert(chunk as any[], { onConflict: "beach_id,ts,source" });
+                if (error) {
+                  failure = "upsert_failed";
+                  console.warn("[Forecast Refresh] Tide upsert failed", { stationId: MODEL_TIDE_STATION_ID, error: error.message });
+                } else {
+                  totals.tides += chunk.length;
+                }
+              }
+              if (!failure) {
+                writtenBeachIds.add(beach.id);
+                tideIngest.modelBeachesWritten++;
+              }
+            }
+          }
+        } catch (modelErr) {
+          failure = "error";
+          console.warn("Model tide ingest failed", { beachId: beach.id, modelErr });
+        }
+        if (failure) tideIngest.failedStations.push({ stationId: MODEL_TIDE_STATION_ID, beaches: 1, reason: failure });
+      }
+
       if (runTide) {
         // A write covers TIDE_FORECAST_DAYS ahead, so a beach's coverage ends
-        // that long after its latest write. Beaches without a NOAA station in
-        // range have never had tides and are not counted.
+        // that long after its latest write. Only beaches with no tide source
+        // are excluded from the coverage floor.
         const coverageFloorMs = Date.now() + TIDE_MIN_COVERAGE_DAYS * DAY_MS;
         for (const beach of targetBeachesForTides) {
-          if (writtenBeachIds.has(beach.id) || beachIdsWithoutStation.has(beach.id)) continue;
+          if (writtenBeachIds.has(beach.id) || beachIdsWithoutTideSource.has(beach.id)) continue;
           const latestWriteMs = tideLatestByBeachMs.get(beach.id);
           const coveredUntilMs = latestWriteMs === undefined ? 0 : latestWriteMs + TIDE_FORECAST_DAYS * DAY_MS;
           if (coveredUntilMs < coverageFloorMs) tideIngest.beachIdsBelowMinCoverage.push(beach.id);
         }
         tideIngest.beachesWithoutStation = beachIdsWithoutStation.size;
+        tideIngest.beachesWithoutTideSource = beachIdsWithoutTideSource.size;
         tideIngest.beachesBelowMinCoverage = tideIngest.beachIdsBelowMinCoverage.length;
         tideIngest.beachIdsBelowMinCoverage = tideIngest.beachIdsBelowMinCoverage.slice(0, 25);
       }

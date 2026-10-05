@@ -278,6 +278,7 @@ export class NOAACOOPSService {
       return {
         station_id: `cached_${beachId}`,
         station_name: "Cached Tide Data",
+        source: dedupedRows[0]?.source ?? null,
         tides,
         water_level: null,
         hourly: samples.map((sample) => ({
