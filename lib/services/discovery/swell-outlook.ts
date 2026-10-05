@@ -1,0 +1,257 @@
+// lib/services/discovery/swell-outlook.ts
+import {
+  SWELL_EVENT_THRESHOLDS,
+  isSwellEventCurrent,
+  swellWindowForBeach,
+  toSwellEventBeach,
+  type BeachSwellEvent,
+  type SwellEventForecastRow,
+  type SwellEventSnapshot,
+} from '@/lib/alerts/swell-events';
+import type { PoolBeach } from '@/lib/alerts/user-pool';
+import type { BoardClass } from '@/lib/domains/rideability';
+import { angleDifference } from '@/lib/domains/shared/angle-utils';
+import type { SkillLevel } from '@/lib/domains/user-preferences';
+import { getLocalDateStr } from '@/lib/services/discovery/window-selector/time-slot-utils';
+import { degreeToCardinal } from '@/lib/utils/geo-utils';
+import { resolveBeachTimezone } from '@/lib/utils/timezone-utils';
+import type { Beach } from '@/types/database';
+
+import type { ActiveStorm } from './nhc-storms';
+import { swellFitFor } from './swell-outlook-fit';
+import { carryOverSwells } from './swell-outlook-sticky';
+import { faceHeightRange, matchStormOnBearing, sizeByOrientation, swellSourceFor } from './swell-outlook-source';
+import type { OutlookSwell, StoredOutlookList, SwellOutlookResponse } from './swell-outlook-types';
+import { changeFor, confidenceFor, groupEvents, isPreviousRun, round, SWELL_TRACKING_RULES, type SwellGroup } from './swell-tracking';
+
+export type * from './swell-outlook-types';
+
+export const SWELL_OUTLOOK_HORIZON_DAYS = 9;
+
+const HOUR_MS = 60 * 60 * 1000;
+const WINDOW_LEAD_HOURS = 120;
+const WINDOW_HALF_HOURS = 12;
+const NOTABLE_MATCH_PEAK_MS = 36 * HOUR_MS;
+
+export interface BuildSwellOutlookInput {
+  pool: ReadonlyArray<Pick<PoolBeach, 'beach' | 'relation'>>;
+  homeBeachId: string | null;
+  pulseSnapshots: readonly SwellEventSnapshot[];
+  notableSnapshots: readonly SwellEventSnapshot[];
+  forecastsByBeach: ReadonlyMap<string, readonly SwellEventForecastRow[]>;
+  previous: StoredOutlookList | null;
+  skillLevel: SkillLevel | null;
+  boardClasses: readonly BoardClass[];
+  storms: readonly ActiveStorm[];
+  now: Date;
+}
+
+export interface BuiltSwellOutlook {
+  response: SwellOutlookResponse;
+  list: StoredOutlookList;
+}
+
+export function resolveOutlookRunDate(snapshots: readonly SwellEventSnapshot[], now: Date): string {
+  return snapshots.reduce((latest, snapshot) => (snapshot.runDate > latest ? snapshot.runDate : latest), '')
+    || now.toISOString().slice(0, 10);
+}
+
+function eventFromSnapshot(snapshot: SwellEventSnapshot, timezone: string): BeachSwellEvent {
+  return {
+    beachId: snapshot.beachId,
+    eventKey: snapshot.eventKey,
+    directionDeg: snapshot.directionDeg,
+    directionBand: snapshot.directionBand,
+    directionLabel: degreeToCardinal(snapshot.directionDeg),
+    periodS: snapshot.periodS,
+    peakOffshoreHeightFt: snapshot.peakOffshoreHeightFt,
+    peakFaceHeightFt: snapshot.peakFaceHeightFt,
+    baselineFaceHeightFt: 0,
+    peakEnergy: snapshot.exposure * snapshot.peakOffshoreHeightFt ** 2 * snapshot.periodS,
+    baselineEnergy: 0,
+    energyRatio: snapshot.energyRatio,
+    exposure: snapshot.exposure,
+    arrivalAt: snapshot.arrivalAt,
+    peakAt: snapshot.peakAt,
+    fadeAt: snapshot.fadeAt,
+    peakLocalDate: getLocalDateStr(new Date(snapshot.peakAt), timezone),
+  };
+}
+
+function latestPerKey(snapshots: readonly SwellEventSnapshot[]): SwellEventSnapshot[] {
+  const latest = new Map<string, SwellEventSnapshot>();
+  for (const snapshot of snapshots) {
+    const key = `${snapshot.beachId}|${snapshot.eventKey}`;
+    const current = latest.get(key);
+    if (!current || Date.parse(snapshot.detectedAt) > Date.parse(current.detectedAt)) latest.set(key, snapshot);
+  }
+  return [...latest.values()];
+}
+
+function historyFor(
+  snapshots: readonly SwellEventSnapshot[],
+  beachId: string,
+  eventKey: string,
+): OutlookSwell['history'] {
+  const byRun = new Map<string, SwellEventSnapshot>();
+  for (const snapshot of snapshots) {
+    if (snapshot.beachId !== beachId || snapshot.eventKey !== eventKey) continue;
+    const current = byRun.get(snapshot.runDate);
+    if (!current || Date.parse(snapshot.detectedAt) > Date.parse(current.detectedAt)) byRun.set(snapshot.runDate, snapshot);
+  }
+  return [...byRun.values()]
+    .sort((left, right) => left.runDate.localeCompare(right.runDate))
+    .map((snapshot) => ({
+      runDate: snapshot.runDate,
+      peakAt: snapshot.peakAt,
+      faceHeightFt: round(snapshot.peakFaceHeightFt, 1),
+      periodS: Math.round(snapshot.periodS),
+    }));
+}
+
+function representative(group: SwellGroup, homeBeachId: string | null): BeachSwellEvent {
+  const home = group.members.find((member) => member.beachId === homeBeachId);
+  if (home) return home;
+  return [...group.members].sort((left, right) => (
+    right.peakFaceHeightFt - left.peakFaceHeightFt || left.beachId.localeCompare(right.beachId)
+  ))[0];
+}
+
+function matchNotable(rep: BeachSwellEvent, notable: readonly SwellEventSnapshot[]): SwellEventSnapshot | null {
+  let best: { snapshot: SwellEventSnapshot; diff: number } | null = null;
+  for (const snapshot of notable) {
+    if (snapshot.beachId !== rep.beachId) continue;
+    if (angleDifference(snapshot.directionDeg, rep.directionDeg) > SWELL_EVENT_THRESHOLDS.trackDirectionDeg) continue;
+    const diff = Math.abs(Date.parse(snapshot.peakAt) - Date.parse(rep.peakAt));
+    if (diff <= NOTABLE_MATCH_PEAK_MS && (!best || diff < best.diff)) best = { snapshot, diff };
+  }
+  return best?.snapshot ?? null;
+}
+
+function stableId(
+  group: SwellGroup,
+  rep: BeachSwellEvent,
+  previous: StoredOutlookList | null,
+  usedIds: Set<string>,
+): string {
+  const carried = previous?.swells
+    .filter((entry) => (
+      entry.status !== 'faded'
+      && !usedIds.has(entry.id)
+      && angleDifference(entry.directionDeg, rep.directionDeg) <= SWELL_EVENT_THRESHOLDS.trackDirectionDeg
+      && Math.abs(Date.parse(entry.peakAt) - Date.parse(rep.peakAt)) <= NOTABLE_MATCH_PEAK_MS
+      && (entry.periodS === null || Math.abs(entry.periodS - rep.periodS) <= SWELL_TRACKING_RULES.groupPeriodS)
+    ))
+    .sort((left, right) => (
+      Math.abs(Date.parse(left.peakAt) - Date.parse(rep.peakAt))
+      - Math.abs(Date.parse(right.peakAt) - Date.parse(rep.peakAt))
+      || left.id.localeCompare(right.id)
+    ))[0];
+  const id = carried?.id ?? [...group.members].sort((left, right) => (
+    Date.parse(left.peakAt) - Date.parse(right.peakAt) || left.eventKey.localeCompare(right.eventKey)
+  ))[0].eventKey;
+  usedIds.add(id);
+  return id;
+}
+
+function toOutlookSwell(
+  group: SwellGroup,
+  input: BuildSwellOutlookInput,
+  beachesById: ReadonlyMap<string, Beach>,
+  notableLatest: readonly SwellEventSnapshot[],
+  usedIds: Set<string>,
+  runDate: string,
+): OutlookSwell | null {
+  const rep = representative(group, input.homeBeachId);
+  const beach = beachesById.get(rep.beachId);
+  if (!beach) return null;
+  const timezone = resolveBeachTimezone(beach.timezone);
+
+  const previousRuns = input.pulseSnapshots.filter((snapshot) => (
+    snapshot.beachId === rep.beachId && snapshot.eventKey === rep.eventKey
+    && snapshot.runDate < runDate && isPreviousRun(snapshot, input.now)
+  ));
+  const notable = matchNotable(rep, notableLatest);
+  const eventKey = notable?.eventKey ?? rep.eventKey;
+  const source = swellSourceFor({
+    directionDeg: rep.directionDeg,
+    periodS: Math.round(rep.periodS),
+    peakAt: rep.peakAt,
+    activeStorms: input.storms,
+  });
+  const leadHours = (Date.parse(rep.peakAt) - input.now.getTime()) / HOUR_MS;
+  const peakMs = Date.parse(rep.peakAt);
+
+  return {
+    id: stableId(group, rep, input.previous, usedIds),
+    eventKey,
+    tier: confidenceFor(rep, previousRuns, input.now),
+    status: Date.parse(rep.arrivalAt) <= input.now.getTime() ? 'arrived' : 'forecast',
+    change: changeFor(rep, previousRuns, input.pulseSnapshots, input.now, timezone)?.kind ?? 'new',
+    arrivalAt: rep.arrivalAt,
+    peakAt: rep.peakAt,
+    peakWindow: leadHours > WINDOW_LEAD_HOURS
+      ? {
+        from: new Date(peakMs - WINDOW_HALF_HOURS * HOUR_MS).toISOString(),
+        to: new Date(peakMs + WINDOW_HALF_HOURS * HOUR_MS).toISOString(),
+      }
+      : null,
+    faceHeightFt: faceHeightRange(rep.peakFaceHeightFt),
+    periodS: Math.round(rep.periodS),
+    directionDeg: Math.round(rep.directionDeg) % 360,
+    directionLabel: degreeToCardinal(rep.directionDeg),
+    beach: { id: beach.id, name: beach.name },
+    beachCount: group.members.length,
+    notable: notable !== null,
+    fit: swellFitFor({ faceHeightFt: rep.peakFaceHeightFt, skillLevel: input.skillLevel, boardClasses: input.boardClasses }),
+    source,
+    stormName: source === 'tropical'
+      ? matchStormOnBearing({ storms: input.storms, beach: { lat: beach.lat, lon: beach.lon }, directionDeg: rep.directionDeg })
+      : null,
+    sizeByOrientation: sizeByOrientation(group.members.map((member) => ({
+      windowCenterDeg: swellWindowForBeach(beachesById.get(member.beachId) ?? {})?.centerDeg ?? null,
+      faceHeightFt: member.peakFaceHeightFt,
+    }))),
+    history: historyFor(notable ? input.notableSnapshots : input.pulseSnapshots, rep.beachId, eventKey),
+  };
+}
+
+export function buildSwellOutlook(input: BuildSwellOutlookInput): BuiltSwellOutlook {
+  const beachesById = new Map(input.pool.map(({ beach }) => [beach.id, beach]));
+  const poolSnapshots = input.pulseSnapshots.filter((snapshot) => beachesById.has(snapshot.beachId));
+  const runDate = resolveOutlookRunDate(poolSnapshots, input.now);
+  const homeBeach = input.pool.find(({ beach, relation }) => relation === 'home' || beach.id === input.homeBeachId)?.beach ?? null;
+
+  const events = latestPerKey(poolSnapshots.filter((snapshot) => snapshot.runDate === runDate))
+    .map((snapshot) => eventFromSnapshot(snapshot, resolveBeachTimezone(beachesById.get(snapshot.beachId)?.timezone)))
+    .filter((event) => isSwellEventCurrent(event, input.now));
+
+  const notableLatest = latestPerKey(input.notableSnapshots);
+  const usedIds = new Set<string>();
+  const current = groupEvents(events).flatMap((group) => {
+    const swell = toOutlookSwell(group, input, beachesById, notableLatest, usedIds, runDate);
+    return swell ? [swell] : [];
+  });
+
+  const carried = carryOverSwells({
+    previous: input.previous,
+    current,
+    forecastsByBeach: input.forecastsByBeach,
+    beachesById: new Map(input.pool.map(({ beach }) => [beach.id, toSwellEventBeach(beach)])),
+    skillLevel: input.skillLevel,
+    boardClasses: input.boardClasses,
+    now: input.now,
+  });
+
+  const swells = [...current, ...carried].sort((left, right) => Date.parse(left.peakAt) - Date.parse(right.peakAt));
+  return {
+    response: {
+      generatedAt: input.now.toISOString(),
+      runDate,
+      horizonDays: SWELL_OUTLOOK_HORIZON_DAYS,
+      homeBeach: homeBeach ? { id: homeBeach.id, name: homeBeach.name } : null,
+      swells,
+    },
+    list: { runDate, swells },
+  };
+}
