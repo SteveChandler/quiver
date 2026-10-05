@@ -14,6 +14,7 @@ trap cleanup EXIT
 "$claim_pg_bin/initdb" -D "$claim_tmp/data" -A trust --no-locale >/dev/null
 "$claim_pg_bin/pg_ctl" -D "$claim_tmp/data" -l "$claim_tmp/postgres.log" -o "-k $claim_tmp -c listen_addresses=''" -w start >/dev/null
 python3 - "$claim_pg_bin/psql" "$claim_tmp" "$(id -un)" "$claim_root" <<'PY'
+import json
 import subprocess
 import sys
 import time
@@ -59,7 +60,7 @@ def race(first_key, second_key, second_user=user):
     try:
         first.stdin.write('BEGIN; SET ROLE service_role; ' + claim(first_key) + ';\n')
         first.stdin.flush()
-        assert first.stdout.readline().strip(), 'first claim failed'
+        assert json.loads(first.stdout.readline())['id'], 'first claim failed'
         second = subprocess.Popen(command + ['-c', 'SET ROLE service_role; ' + claim(second_key, recipient=second_user)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         deadline = time.monotonic() + 10
         while query("SELECT count(*) FROM pg_stat_activity WHERE wait_event = 'advisory'") != '1':
@@ -71,7 +72,9 @@ def race(first_key, second_key, second_user=user):
         assert first.wait(timeout=10) == 0
         result, error = second.communicate(timeout=10)
         assert second.returncode == 0, error
-        assert result.strip() == '', 'overlapping claim won a second first-sighting slot'
+        denied = json.loads(result)
+        expected_reason = 'event_exists' if first_key == second_key else 'first_sighting_spacing'
+        assert denied == {'id': None, 'reason': expected_reason}, 'overlapping claim returned the wrong reason'
     finally:
         for process in [first, second]:
             if process is not None and process.poll() is None:
@@ -83,10 +86,20 @@ assert query('SELECT count(*) FROM swell_event_alerts') == '1'
 query('TRUNCATE swell_event_alerts')
 race('first', 'different')
 assert query('SELECT count(*) FROM swell_event_alerts') == '1'
-assert query('SET ROLE service_role; ' + claim('other-user', recipient=other)), 'another user was blocked'
-assert query('SET ROLE service_role; ' + claim('within', at='2026-09-21T16:59:59Z')) == ''
-assert query('SET ROLE service_role; ' + claim('boundary', at='2026-09-21T17:00:00Z')), 'exact 72-hour boundary blocked'
-assert query('SET ROLE service_role; ' + claim('renamed', at='2026-09-25T17:00:00Z', aliases=['first'])) == '', 'an alias was sent twice'
-assert query('SET ROLE service_role; ' + claim('first', at='2026-09-25T17:00:00Z')) == '', 'old event was sent twice'
-print('PASS: repeat migration, service-role isolation, same/different-event concurrency, other-user independence, 72-hour boundary, aliases, permanent event dedupe')
+assert json.loads(query('SET ROLE service_role; ' + claim('other-user', recipient=other)))['id'], 'another user was blocked'
+within = query("BEGIN; UPDATE swell_event_alerts SET created_at=now()-interval '72 hours'+interval '1 microsecond' WHERE user_id='" + user + "'; SET ROLE service_role; " + claim('within') + "; ROLLBACK")
+assert json.loads(within) == {'id': None, 'reason': 'first_sighting_spacing'}
+boundary = query("BEGIN; UPDATE swell_event_alerts SET created_at=now()-interval '72 hours' WHERE user_id='" + user + "'; SET ROLE service_role; " + claim('boundary') + "; COMMIT")
+assert json.loads(boundary)['id'], 'exact 72-hour boundary blocked'
+query("UPDATE swell_event_alerts SET created_at=now()-interval '96 hours' WHERE user_id='" + user + "'")
+for key, aliases in [('renamed', ['first']), ('first', ['first'])]:
+    assert json.loads(query('SET ROLE service_role; ' + claim(key, aliases=aliases))) == {'id': None, 'reason': 'event_exists'}
+for supplied_clock in ['1970-01-01T00:00:00Z', '2999-01-01T00:00:00Z']:
+    query('TRUNCATE swell_event_alerts')
+    result = query('BEGIN; SET ROLE service_role; ' + claim('clock', at=supplied_clock)
+        + "; RESET ROLE; SELECT created_at=now() FROM swell_event_alerts WHERE event_key='clock'; COMMIT").splitlines()
+    assert json.loads(result[0])['id'] and result[1] == 't', 'caller clock affected created_at'
+    assert json.loads(query('SET ROLE service_role; ' + claim('clock-second', at=supplied_clock))) == {
+        'id': None, 'reason': 'first_sighting_spacing'}, 'caller clock affected spacing'
+print('PASS: repeat migration, service-role isolation, same/different-event concurrency with distinct reasons, other-user independence, exact 72-hour boundary, aliases, permanent event dedupe, database clock with far-past/future callers')
 PY

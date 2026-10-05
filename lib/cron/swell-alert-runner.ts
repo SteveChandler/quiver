@@ -35,7 +35,7 @@ import {
 import { loadUserPool } from "@/lib/alerts/user-pool";
 import { isSwellAlertEnabled, isSwellAlertUserAllowed } from "@/lib/flags/swell-alert";
 import { isSwellFollowupEnabled, isSwellFollowupUserAllowed } from "@/lib/flags/swell-followup";
-import { getUserEntitlement, type Tier } from "@/lib/alerts/entitlements";
+import { resolveEntitlement, type Tier } from "@/lib/alerts/entitlements";
 import { SWELL_FOLLOWUP_THRESHOLDS } from "@/lib/alerts/swell-followup/change-detection";
 import {
   decideSend,
@@ -98,12 +98,15 @@ const PEAK_ROW_MAX_MS = 3 * 60 * 60 * 1000;
 const OFFICIAL_ADVISORY_HORIZON_MS = 10 * DAY_MS;
 const OFFICIAL_ADVISORY_KINDS = new Set(["high_surf", "tropical_cyclone", "high_rip_current"]);
 const SERIOUS_FACE_HEIGHT_FT = 8;
+const MAX_FIRST_SIGHTING_RARITY_ASSESSMENTS = 3;
 // Forecast rows a pinned re-evaluation loads before now; detection itself reads 48 h back.
 const PINNED_LOOKBACK_MS = 3 * DAY_MS;
 // A swell that lost its key but still tracks the told one within this shift is the same swell, moved.
 const PINNED_MAX_PEAK_SHIFT_MS = 72 * 60 * 60 * 1000;
 
 type ServiceClient = SupabaseClient<Database>;
+type FirstSightingClaimSkipReason = "event_exists" | "first_sighting_spacing";
+type SwellRarityAssessor = (swell: OutlookSwell) => boolean;
 
 export interface SwellAlertProfile {
   id: string;
@@ -175,7 +178,11 @@ export interface SwellAlertDeps {
     peakDate: string;
     leadBeachId: string;
     payload: MajorSwellNotificationPayload;
-    firstSighting?: { now: Date; eventKeys: string[] };
+    firstSighting?: {
+      now: Date;
+      eventKeys: string[];
+      onDenied?: (reason: FirstSightingClaimSkipReason) => void;
+    };
   }) => Promise<{ id: string } | null>;
   enqueue: (args: EnqueueArgs) => Promise<EnqueueResult>;
   markAlertEnqueued: (alertId: string, eventId: string) => Promise<void>;
@@ -684,13 +691,11 @@ async function loadAlertState(
   };
 }
 
-/** The existing rarity rule (best in 30 days, first after flat) judged on the swell's peak row. */
-async function assessSwellRarityForUser(
+async function loadSwellRarityAssessor(
   client: ServiceClient,
   profile: SwellAlertProfile,
-  swell: OutlookSwell,
   now: Date,
-): Promise<boolean> {
+): Promise<SwellRarityAssessor> {
   const pool = await loadUserPool({
     supabase: client,
     userId: profile.id,
@@ -698,8 +703,7 @@ async function assessSwellRarityForUser(
     location: profile.location,
     maxDriveMinutes: profile.maxDriveMinutes,
   });
-  const beach = pool.find((entry) => entry.beach.id === swell.beach.id)?.beach;
-  if (!beach) return false;
+  if (pool.length === 0) return () => false;
   const forecasts = await loadForecasts(
     client,
     pool.map((entry) => entry.beach.id),
@@ -708,24 +712,42 @@ async function assessSwellRarityForUser(
   );
   const forecastsByBeach = new Map<string, EnhancedForecastEntity[]>();
   for (const forecast of forecasts) {
-    forecastsByBeach.set(forecast.beach_id, [...(forecastsByBeach.get(forecast.beach_id) ?? []), forecast]);
+    const rows = forecastsByBeach.get(forecast.beach_id) ?? [];
+    rows.push(forecast);
+    forecastsByBeach.set(forecast.beach_id, rows);
   }
-  const peakForecast = rowNearest(forecastsByBeach.get(beach.id) ?? [], swell.peakAt);
-  if (!peakForecast) return false;
+  const beaches = new Map(pool.map(({ beach }) => [beach.id, beach]));
   const verdictFor = makeVerdictFor(profile, now);
-  const peak = verdictFor(peakForecast, beach);
-  return assessRarity({
-    peakDate: getLocalDateString(new Date(swell.peakAt), profile.timezone),
-    history: buildScoreHistory({
-      pool,
-      forecastsByBeach,
-      verdictFor,
-      timezone: profile.timezone,
-      today: getLocalDateString(now, profile.timezone),
-    }),
-    peakScore: peak.score,
-    peakGo: peak.verdict === "go",
-  }).rare;
+  const history = buildScoreHistory({
+    pool,
+    forecastsByBeach,
+    verdictFor,
+    timezone: profile.timezone,
+    today: getLocalDateString(now, profile.timezone),
+  });
+  return (swell: OutlookSwell): boolean => {
+    const beach = beaches.get(swell.beach.id);
+    if (!beach) return false;
+    const peakForecast = rowNearest(forecastsByBeach.get(beach.id) ?? [], swell.peakAt);
+    if (!peakForecast) return false;
+    const peak = verdictFor(peakForecast, beach);
+    return assessRarity({
+      peakDate: getLocalDateString(new Date(swell.peakAt), profile.timezone),
+      history,
+      peakScore: peak.score,
+      peakGo: peak.verdict === "go",
+    }).rare;
+  };
+}
+
+async function getOutlookTier(client: ServiceClient, userId: string): Promise<Tier> {
+  const { data, error } = await client
+    .from("user_entitlements")
+    .select("is_pro, is_trialing, billing_issue, expires_at")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw new Error(`Failed to load outlook entitlement: ${error.message}`);
+  return resolveEntitlement(userId, data);
 }
 
 function defaultDependencies(args: {
@@ -733,6 +755,7 @@ function defaultDependencies(args: {
   deps?: Partial<RunnerDeps>;
 }): RunnerDeps {
   let client = args.supabase;
+  const rarityByUser = new Map<string, Promise<SwellRarityAssessor>>();
   const getClient = (): ServiceClient => {
     client ??= createSupabaseServiceRoleClient();
     return client;
@@ -760,7 +783,13 @@ function defaultDependencies(args: {
             p_now: input.firstSighting.now.toISOString(),
           });
         if (error) throw new Error(`Failed to claim first sighting: ${error.message}`);
-        return typeof data === "string" ? { id: data } : null;
+        const result = data as { id?: unknown; reason?: unknown } | null;
+        if (typeof result?.id === "string") return { id: result.id };
+        if (result?.id === null && (result.reason === "event_exists" || result.reason === "first_sighting_spacing")) {
+          input.firstSighting.onDenied?.(result.reason);
+          return null;
+        }
+        throw new Error("Invalid first-sighting claim result");
       }
       const { data, error } = await getClient()
         .from("swell_event_alerts")
@@ -822,9 +851,16 @@ function defaultDependencies(args: {
       return (data ?? []).length > 0;
     }),
     assessSwellRarity: args.deps?.assessSwellRarity
-      ?? ((profile, swell, now) => assessSwellRarityForUser(getClient(), profile, swell, now)),
+      ?? (async (profile, swell, now) => {
+        let assessor = rarityByUser.get(profile.id);
+        if (!assessor) {
+          assessor = loadSwellRarityAssessor(getClient(), profile, now);
+          rarityByUser.set(profile.id, assessor);
+        }
+        return (await assessor)(swell);
+      }),
     getTier: args.deps?.getTier
-      ?? ((userId) => getUserEntitlement(userId, getClient() as unknown as SupabaseClient)),
+      ?? ((userId) => getOutlookTier(getClient(), userId)),
   };
 }
 
@@ -1069,12 +1105,27 @@ async function sendFirstSighting(
     tier,
   });
 
+  let rarityAssessments = 0;
+  let rejectedForRarity = false;
   for (const swell of candidates) {
     if (await deps.hasFirstSightingAlert(profile.id, [swell.id, swell.eventKey])) continue;
 
     let decision = decideSend(gate.state, now, "first_sighting", false);
     if (!decision.ok && decision.exceptionEligible) {
-      decision = decideSend(gate.state, now, "first_sighting", await deps.assessSwellRarity(profile, swell, now));
+      decision = decideSend(gate.state, now, "first_sighting", true);
+      if (!decision.ok) {
+        increment(summary, decision.reason);
+        return;
+      }
+      if (rarityAssessments >= MAX_FIRST_SIGHTING_RARITY_ASSESSMENTS) {
+        increment(summary, "skipped_unengaged");
+        return;
+      }
+      rarityAssessments += 1;
+      if (!await deps.assessSwellRarity(profile, swell, now)) {
+        rejectedForRarity = true;
+        continue;
+      }
     }
     if (!decision.ok) {
       increment(summary, decision.reason);
@@ -1082,16 +1133,21 @@ async function sendFirstSighting(
     }
 
     const payload = buildFirstSightingPayload({ swell, timezone: profile.timezone });
+    let claimDenied: FirstSightingClaimSkipReason = "event_exists";
     const alert = await deps.insertAlert({
       userId: profile.id,
       eventKey: swell.id,
       peakDate: getLocalDateString(new Date(swell.peakAt), profile.timezone),
       leadBeachId: swell.beach.id,
       payload,
-      firstSighting: { now, eventKeys: [swell.id, swell.eventKey] },
+      firstSighting: {
+        now,
+        eventKeys: [swell.id, swell.eventKey],
+        onDenied: (reason) => { claimDenied = reason; },
+      },
     });
     if (!alert) {
-      increment(summary, "event_exists");
+      increment(summary, claimDenied);
       return;
     }
     const enqueued = await deps.enqueue({
@@ -1145,7 +1201,7 @@ async function sendFirstSighting(
     }
     return;
   }
-  increment(summary, "first_sighting_none");
+  increment(summary, rejectedForRarity ? "skipped_unengaged" : "first_sighting_none");
 }
 
 async function runOutlookUser(

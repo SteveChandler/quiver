@@ -460,8 +460,8 @@ describe("swell alert cron: atomic first-sighting claim adapter", () => {
   beforeEach(() => jest.spyOn(console, "error").mockImplementation(() => {}));
   afterEach(() => jest.restoreAllMocks());
 
-  it.each(["claimed", "lost", "error"])("uses a per-user atomic claim before enqueue: %s", async (outcome) => {
-    const rpc = jest.fn(async () => ({ data: outcome === "claimed" ? "claim-1" : null,
+  it.each(["claimed", "event_exists", "first_sighting_spacing", "error"])("uses a per-user atomic claim before enqueue: %s", async (outcome) => {
+    const rpc = jest.fn(async () => ({ data: { id: outcome === "claimed" ? "claim-1" : null, reason: outcome === "claimed" ? null : outcome },
       error: outcome === "error" ? { message: "claim unavailable" } : null }));
     const from = jest.fn(() => { throw new Error("direct insert bypassed the atomic claim"); });
     const deps = makeDeps({ insertAlert: undefined });
@@ -475,5 +475,177 @@ describe("swell alert cron: atomic first-sighting claim adapter", () => {
     expect(summary.sent).toBe(outcome === "claimed" ? 1 : 0);
     expect(deps.enqueue).toHaveBeenCalledTimes(outcome === "claimed" ? 1 : 0);
     expect(summary.errors).toBe(outcome === "error" ? 1 : 0);
+    expect(summary.skippedCounts.event_exists ?? 0).toBe(outcome === "event_exists" ? 1 : 0);
+    expect(summary.skippedCounts.first_sighting_spacing ?? 0).toBe(outcome === "first_sighting_spacing" ? 1 : 0);
+  });
+});
+
+describe("swell alert cron: exception candidate search", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.spyOn(console, "error").mockImplementation(() => {});
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  const paused = engagement({ consecutiveUnanswered: 3, lastSentAt: hoursAgo(408), pausedSince: hoursAgo(360) });
+  const early = outlookSwell({ id: "early", eventKey: "early" });
+  const later = outlookSwell({ id: "later", eventKey: "later", peakAt: "2026-09-22T15:00:00.000Z" });
+
+  it("sends and records only the first rare candidate, even when the earliest is not rare", async () => {
+    const rarity = jest.fn(async (_profile, swell) => swell.id !== "early");
+    const deps = makeDeps({ loadEngagement: jest.fn(async () => paused), assessSwellRarity: rarity,
+      loadOutlook: jest.fn(async () => [early, later, outlookSwell({ id: "last", peakAt: "2026-09-23T15:00:00.000Z" })]) });
+    const summary = await runSwellAlertCron({ now: MORNING, deps });
+    expect(rarity.mock.calls.map(([, swell]) => swell.id)).toEqual(["early", "later"]);
+    expect(summary.sent).toBe(1);
+    expect(deps.insertAlert).toHaveBeenCalledWith(expect.objectContaining({ eventKey: "later" }));
+    expect(deps.enqueue).toHaveBeenCalledTimes(1);
+    expect(deps.saveEngagement).toHaveBeenCalledTimes(1);
+    expect(savedState(deps, { ...EMPTY_SWELL_OUTLOOK_USER_STATE, ...paused })).toMatchObject({
+      lastExceptionAt: MORNING.toISOString(), consecutiveUnanswered: 4, pausedSince: paused.pausedSince,
+    });
+  });
+
+  it("assesses both non-rare candidates and counts one unengaged skip", async () => {
+    const deps = makeDeps({ loadEngagement: jest.fn(async () => paused),
+      loadOutlook: jest.fn(async () => [early, later]) });
+    const summary = await runSwellAlertCron({ now: MORNING, deps });
+    expect(deps.assessSwellRarity).toHaveBeenCalledTimes(2);
+    expect(deps.enqueue).not.toHaveBeenCalled();
+    expect(summary.skippedCounts.skipped_unengaged).toBe(1);
+    expect(summary.skippedCounts.first_sighting_none).toBeUndefined();
+  });
+
+  it("caps rarity work at three candidates per user per run", async () => {
+    const deps = makeDeps({ loadEngagement: jest.fn(async () => paused),
+      loadOutlook: jest.fn(async () => Array.from({ length: 6 }, (_, index) => outlookSwell({
+        id: `candidate-${index}`, peakAt: `2026-09-${21 + index}T15:00:00.000Z`,
+      }))) });
+    const summary = await runSwellAlertCron({ now: MORNING, deps });
+    expect(deps.assessSwellRarity).toHaveBeenCalledTimes(3);
+    expect(summary.skippedCounts.skipped_unengaged).toBe(1);
+    expect(deps.enqueue).not.toHaveBeenCalled();
+  });
+
+  it("loads one pool and one paginated forecast input set for several rarity candidates", async () => {
+    const pool = jest.mocked(pools.loadUserPool).mockResolvedValue([
+      { beach: { ...snapshot.beach, id: HOME } as unknown as Beach, relation: "home", distanceMiles: null },
+    ]);
+    const history = { ...snapshot.forecast, id: "history", beach_id: HOME, forecast_at: "2026-09-17T15:00:00.000Z" } as EnhancedForecastEntity;
+    const rows = [history, { ...history, id: "early", forecast_at: early.peakAt },
+      { ...history, id: "later", forecast_at: later.peakAt }];
+    jest.mocked(verdicts.evaluateForecastVerdict).mockImplementation(({ forecast }) => ({
+      score: forecast.id === "later" ? 90 : 50, verdict: "go",
+    } as verdicts.ForecastVerdict));
+    const query: Record<string, jest.Mock> = {};
+    for (const method of ["select", "in", "or", "gte", "lt", "order"]) query[method] = jest.fn(() => query);
+    query.range = jest.fn(async (offset: number) => ({ data: offset === 0 ? rows : [], error: null }));
+    const from = jest.fn(() => query);
+    const deps = makeDeps({ loadEngagement: jest.fn(async () => paused), assessSwellRarity: undefined,
+      loadOutlook: jest.fn(async () => [early, later]) });
+    const summary = await runSwellAlertCron({ now: MORNING, supabase: { from } as unknown as SupabaseClient<Database>, deps });
+    expect(summary.sent).toBe(1);
+    expect(deps.insertAlert).toHaveBeenCalledWith(expect.objectContaining({ eventKey: "later" }));
+    expect(pool).toHaveBeenCalledTimes(1);
+    expect(query.range.mock.calls.map(([offset]) => offset)).toEqual([0, 3]);
+    expect(from.mock.calls).toEqual([["enhanced_forecasts"], ["enhanced_forecasts"]]);
+  });
+
+  it("never assesses rarity when exception spacing is closed", async () => {
+    const deps = makeDeps({ loadEngagement: jest.fn(async () => ({ ...paused, lastFirstSightingAt: hoursAgo(1) })),
+      loadOutlook: jest.fn(async () => [early, later]) });
+    const summary = await runSwellAlertCron({ now: MORNING, deps });
+    expect(summary.skippedCounts.first_sighting_spacing).toBe(1);
+    expect(deps.assessSwellRarity).not.toHaveBeenCalled();
+    expect(deps.enqueue).not.toHaveBeenCalled();
+  });
+
+  it("keeps the earliest-candidate behavior without rarity work for an engaged user", async () => {
+    const deps = makeDeps({ loadOutlook: jest.fn(async () => [later, early]) });
+    const summary = await runSwellAlertCron({ now: MORNING, deps });
+    expect(summary.sent).toBe(1);
+    expect(deps.insertAlert).toHaveBeenCalledWith(expect.objectContaining({ eventKey: "early" }));
+    expect(deps.assessSwellRarity).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["null data", null], ["premium-looking data", { is_pro: true, is_trialing: false, expires_at: null }],
+  ])("skips an outlook user on a returned tier error with %s", async (_name, data) => {
+    const query: Record<string, jest.Mock> = {};
+    for (const method of ["select", "eq"]) query[method] = jest.fn(() => query);
+    query.maybeSingle = jest.fn(async () => ({ data, error: { message: "entitlements unavailable" } }));
+    const from = jest.fn(() => query);
+    const deps = makeDeps({ getTier: undefined, loadFollowupStates: jest.fn(async () => [pinnedState()]),
+      evaluatePinned: jest.fn(async () => biggerPinned()), loadOutlook: jest.fn(async () => [early,
+        outlookSwell({ beach: { id: "ffffffff-0000-4000-8000-000000000002", name: "Elsewhere" } })]) });
+    const summary = await runSwellAlertCron({ now: MORNING, supabase: { from } as unknown as SupabaseClient<Database>, deps });
+    expect(summary.errors).toBe(1);
+    expect(deps.loadOutlook).not.toHaveBeenCalled();
+    expect(deps.evaluatePinned).not.toHaveBeenCalled();
+    expect(deps.enqueue).not.toHaveBeenCalled();
+  });
+
+  it("isolates a rejected tier lookup and sends nothing to that user", async () => {
+    const deps = makeDeps({ getTier: jest.fn(async () => { throw new Error("network failure"); }) });
+    const summary = await runSwellAlertCron({ now: MORNING, deps });
+    expect(summary.errors).toBe(1);
+    expect(deps.loadOutlook).not.toHaveBeenCalled();
+    expect(deps.enqueue).not.toHaveBeenCalled();
+  });
+});
+
+describe("swell alert cron: exception eligibility filters", () => {
+  beforeEach(() => jest.spyOn(console, "error").mockImplementation(() => {}));
+  afterEach(() => jest.restoreAllMocks());
+
+  it("keeps a free user's exception inside forecast, in-range, home-beach filters", async () => {
+    const deps = makeDeps({ getTier: jest.fn(async () => "free"),
+      loadEngagement: jest.fn(async () => engagement({ consecutiveUnanswered: 3,
+        lastSentAt: hoursAgo(408), pausedSince: hoursAgo(360) })),
+      assessSwellRarity: jest.fn(async () => true),
+      loadOutlook: jest.fn(async () => [
+        outlookSwell({ id: "other", beach: { id: "ffffffff-0000-4000-8000-000000000002", name: "Elsewhere" } }),
+        outlookSwell({ id: "shrinking", status: "shrinking" }),
+        outlookSwell({ id: "faded", status: "faded" }),
+        outlookSwell({ id: "rideable", fit: { status: "rideable", boards: [] } }),
+        outlookSwell({ id: "home" }),
+      ]) });
+    const summary = await runSwellAlertCron({ now: MORNING, deps });
+    expect(summary.sent).toBe(1);
+    expect(deps.assessSwellRarity).toHaveBeenCalledTimes(1);
+    expect(deps.assessSwellRarity).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ id: "home" }), MORNING);
+    expect(deps.insertAlert).toHaveBeenCalledWith(expect.objectContaining({ eventKey: "home", leadBeachId: HOME }));
+  });
+
+  it("does not assess or send an exception outside send hours", async () => {
+    const deps = makeDeps({ loadEngagement: jest.fn(async () => engagement({ consecutiveUnanswered: 3,
+      lastSentAt: hoursAgo(408), pausedSince: hoursAgo(360) })), assessSwellRarity: jest.fn(async () => true) });
+    const summary = await runSwellAlertCron({ now: new Date("2026-09-18T10:00:00.000Z"), deps });
+    expect(summary.skippedCounts.first_sighting_window_closed).toBe(1);
+    expect(deps.loadOutlook).not.toHaveBeenCalled();
+    expect(deps.assessSwellRarity).not.toHaveBeenCalled();
+    expect(deps.enqueue).not.toHaveBeenCalled();
+  });
+
+  it("keeps a rare exception behind the atomic spacing claim", async () => {
+    const rpc = jest.fn(async () => ({ data: { id: null, reason: "first_sighting_spacing" }, error: null }));
+    const deps = makeDeps({ insertAlert: undefined, loadEngagement: jest.fn(async () => engagement({
+      consecutiveUnanswered: 3, lastSentAt: hoursAgo(408), pausedSince: hoursAgo(360),
+    })), assessSwellRarity: jest.fn(async () => true) });
+    const summary = await runSwellAlertCron({ now: MORNING, supabase: { rpc } as unknown as SupabaseClient<Database>, deps });
+    expect(summary.skippedCounts.first_sighting_spacing).toBe(1);
+    expect(summary.skippedCounts.event_exists).toBeUndefined();
+    expect(deps.assessSwellRarity).toHaveBeenCalledTimes(1);
+    expect(deps.enqueue).not.toHaveBeenCalled();
+    expect(deps.saveEngagement).not.toHaveBeenCalled();
+  });
+
+  it("continues processing other users after an entitlement rejection", async () => {
+    const deps = makeDeps({ loadProfiles: jest.fn(async () => [profile(), profile({ id: "second-user" })]),
+      getTier: jest.fn().mockRejectedValueOnce(new Error("network failure")).mockResolvedValue("free") });
+    const summary = await runSwellAlertCron({ now: MORNING, deps });
+    expect(summary.errors).toBe(1);
+    expect(summary.sent).toBe(1);
+    expect(deps.enqueue.mock.calls.map(([args]) => args.recipientUserId)).toEqual(["second-user"]);
   });
 });
