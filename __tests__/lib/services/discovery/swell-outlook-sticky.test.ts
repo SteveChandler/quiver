@@ -1,6 +1,7 @@
 // __tests__/lib/services/discovery/swell-outlook-sticky.test.ts
 import { carryOverSwells, STICKY_MIN_FACE_FT, type CarryOverInput } from "@/lib/services/discovery/swell-outlook-sticky";
 import type { OutlookSwell } from "@/lib/services/discovery/swell-outlook-types";
+import type { SwellEventBeach } from "@/lib/alerts/swell-events";
 import { BEACH_ID, NOW, dayRows, localIso, row, swellBeach, type PartitionSpec } from "@/__tests__/helpers/swell-events";
 
 const PEAK_AT = localIso(3, 12);
@@ -20,12 +21,12 @@ function rowsAround(spec: PartitionSpec): ReturnType<typeof dayRows> {
   return [2, 3, 4].flatMap((day) => dayRows(day, spec));
 }
 
-function carry(args: { previous: OutlookSwell[] | null; current?: CarryOverInput["current"]; rows?: ReturnType<typeof rowsAround>; now?: Date; skill?: "advanced" | null }): OutlookSwell[] {
+function carry(args: { previous: OutlookSwell[] | null; current?: CarryOverInput["current"]; rows?: ReturnType<typeof rowsAround>; beach?: SwellEventBeach; now?: Date; skill?: "advanced" | null }): OutlookSwell[] {
   return carryOverSwells({
     previous: args.previous ? { runDate: "2026-09-24", swells: args.previous } : null,
     current: args.current ?? [],
     forecastsByBeach: new Map([[BEACH_ID, args.rows ?? []]]),
-    beachesById: new Map([[BEACH_ID, swellBeach()]]),
+    beachesById: new Map([[BEACH_ID, args.beach ?? swellBeach()]]),
     skillLevel: args.skill === undefined ? "advanced" : args.skill,
     boardClasses: ["shortboard"],
     now: args.now ?? NOW,
@@ -175,5 +176,61 @@ describe("carryOverSwells", () => {
   it("preserves arrived size, fit and tier while resetting change to steady", () => {
     const previous = entry({ tier: "early_signal", change: "downgraded" });
     expect(carry({ previous: [previous], now: new Date(PEAK_AT) })).toEqual([{ ...previous, status: "arrived", change: "steady" }]);
+  });
+
+  it("drops an entry with an unparseable peak even when matching live partitions exist", () => {
+    expect(carry({ previous: [entry({ peakAt: "not-a-date" })], rows: rowsAround({ heightFt: 2.5, periodS: 14, direction: 270 }) })).toEqual([]);
+  });
+
+  it("ignores a qualifying row with an unparseable forecast time", () => {
+    expect(carry({ previous: [entry()], rows: [row("not-a-date", { heightFt: 2.5, periodS: 14, direction: 270 })] })[0]).toMatchObject({ status: "faded", change: "downgraded" });
+  });
+
+  it("ignores an unparseable larger row when valid live rows exist", () => {
+    expect(carry({ previous: [entry()], rows: [
+      row("not-a-date", { heightFt: 20, periodS: 18, direction: 270 }),
+      row(PEAK_AT, { heightFt: 2.5, periodS: 14, direction: 270 }),
+    ] })[0]).toMatchObject({ status: "shrinking", faceHeightFt: { min: 3, max: 4 } });
+  });
+
+  it.each<[number | null, number, OutlookSwell["sizeByOrientation"]]>([
+    [270, 270, { southFacing: null, westFacing: { min: 3, max: 4 } }],
+    [180, 180, { southFacing: { min: 3, max: 4 }, westFacing: null }],
+    [null, 270, { southFacing: null, westFacing: null }],
+  ])("refreshes shrinking size, fit, rounded period and orientation from the live partition at beach centre %s", (center, directionDeg, sizeByOrientation) => {
+    const previous = entry({ periodS: 22, directionDeg, peakWindow: { from: localIso(3, 9), to: localIso(3, 15) } });
+    const [kept] = carry({
+      previous: [previous], beach: swellBeach({ swell_window_center_deg: center }),
+      rows: rowsAround({ heightFt: 2.5, periodS: 13.6, direction: directionDeg }),
+    });
+    expect(kept).toEqual({
+      ...previous, status: "shrinking", change: "downgraded", faceHeightFt: { min: 3, max: 4 },
+      fit: { status: "rideable", boards: [] }, periodS: 14, sizeByOrientation,
+    });
+  });
+
+  it("uses the same largest projected-face partition for size, period, fit and orientation", () => {
+    const [kept] = carry({ previous: [entry({ periodS: 22 })], rows: [
+      row(PEAK_AT, { heightFt: 2.6, periodS: 9, direction: 270 }, { heightFt: 2.5, periodS: 13.6, direction: 270 }),
+      row(localIso(3, 15), { heightFt: 1.5, periodS: 18, direction: 270 }),
+    ] });
+    expect(kept).toMatchObject({
+      status: "shrinking", faceHeightFt: { min: 3, max: 4 }, periodS: 14,
+      fit: { status: "rideable", boards: [] }, sizeByOrientation: { southFacing: null, westFacing: { min: 3, max: 4 } },
+    });
+  });
+
+  it("fades when the only qualifying partition is before now but within 36 h of the peak", () => {
+    const beforeNow = new Date(NOW.getTime() - 1).toISOString();
+    expect(carry({ previous: [entry({ peakAt: localIso(0, 12) })], rows: [row(beforeNow, { heightFt: 2.5, periodS: 14, direction: 270 })] })[0]).toMatchObject({ status: "faded", change: "downgraded" });
+  });
+
+  it("includes a qualifying live row exactly at now", () => {
+    expect(carry({ previous: [entry({ peakAt: localIso(0, 12) })], rows: [row(NOW.toISOString(), { heightFt: 2.5, periodS: 14, direction: 270 })] })[0].status).toBe("shrinking");
+  });
+
+  it("preserves stored size, fit, period and orientation when an entry fades", () => {
+    const previous = entry({ periodS: 22 });
+    expect(carry({ previous: [previous], rows: rowsAround({ heightFt: 0.8, periodS: 10, direction: 270 }) })).toEqual([{ ...previous, status: "faded", change: "downgraded" }]);
   });
 });

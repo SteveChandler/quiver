@@ -11,7 +11,7 @@ import { angleDifference } from '@/lib/domains/shared/angle-utils';
 import type { SkillLevel } from '@/lib/domains/user-preferences';
 
 import { swellFitFor } from './swell-outlook-fit';
-import { faceHeightRange } from './swell-outlook-source';
+import { faceHeightRange, sizeByOrientation } from './swell-outlook-source';
 import type { OutlookSwell, StoredOutlookList } from './swell-outlook-types';
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -34,19 +34,32 @@ function isSameSwell(left: Pick<OutlookSwell, 'directionDeg' | 'peakAt'>, right:
     && Math.abs(Date.parse(left.peakAt) - Date.parse(right.peakAt)) <= MATCH_PEAK_MS;
 }
 
-function livePeakFaceFt(previous: OutlookSwell, input: CarryOverInput): number | null {
+interface LivePeak {
+  faceHeightFt: number;
+  periodS: number;
+  windowCenterDeg: number | null;
+}
+
+function livePeakFor(previous: OutlookSwell, input: CarryOverInput, peakMs: number): LivePeak | null {
   const beach = input.beachesById.get(previous.beach.id);
   if (!beach) return null;
-  const peakMs = Date.parse(previous.peakAt);
-  let best: number | null = null;
+  const nowMs = input.now.getTime();
+  let best: LivePeak | null = null;
   for (const row of input.forecastsByBeach.get(previous.beach.id) ?? []) {
-    if (Math.abs(Date.parse(row.forecast_at) - peakMs) > MATCH_PEAK_MS) continue;
+    const atMs = Date.parse(row.forecast_at);
+    if (!Number.isFinite(atMs) || atMs < nowMs || Math.abs(atMs - peakMs) > MATCH_PEAK_MS) continue;
     const partitions = parseSwellPartitions(row).filter((partition) => (
       angleDifference(partition.directionDeg, previous.directionDeg) <= SWELL_EVENT_THRESHOLDS.trackDirectionDeg
     ));
-    if (partitions.length === 0) continue;
-    const face = swellPartitionFaceHeightFt(partitions, beach);
-    if (face !== null && (best === null || face > best)) best = face;
+    for (const partition of partitions) {
+      const face = swellPartitionFaceHeightFt([partition], beach);
+      if (face === null || (best !== null && face <= best.faceHeightFt)) continue;
+      best = {
+        faceHeightFt: face,
+        periodS: Math.round(partition.periodS),
+        windowCenterDeg: beach.swell_window_center_deg,
+      };
+    }
   }
   return best;
 }
@@ -57,16 +70,17 @@ export function carryOverSwells(input: CarryOverInput): OutlookSwell[] {
   const carried: OutlookSwell[] = [];
   for (const previous of input.previous?.swells ?? []) {
     if (previous.status === 'faded') continue;
+    const peakMs = Date.parse(previous.peakAt);
+    if (!Number.isFinite(peakMs)) continue;
     if (input.current.some((entry) => entry.id === previous.id || isSameSwell(entry, previous))) continue;
 
-    const peakMs = Date.parse(previous.peakAt);
     if (peakMs <= nowMs) {
       if (nowMs - peakMs <= ARRIVED_CARRY_MS) carried.push({ ...previous, status: 'arrived', change: 'steady' });
       continue;
     }
 
-    const face = livePeakFaceFt(previous, input);
-    if (face === null || face < STICKY_MIN_FACE_FT) {
+    const livePeak = livePeakFor(previous, input, peakMs);
+    if (livePeak === null || livePeak.faceHeightFt < STICKY_MIN_FACE_FT) {
       carried.push({ ...previous, status: 'faded', change: 'downgraded' });
       continue;
     }
@@ -74,8 +88,10 @@ export function carryOverSwells(input: CarryOverInput): OutlookSwell[] {
       ...previous,
       status: 'shrinking',
       change: 'downgraded',
-      faceHeightFt: faceHeightRange(face),
-      fit: swellFitFor({ faceHeightFt: face, skillLevel: input.skillLevel, boardClasses: input.boardClasses }),
+      faceHeightFt: faceHeightRange(livePeak.faceHeightFt),
+      fit: swellFitFor({ faceHeightFt: livePeak.faceHeightFt, skillLevel: input.skillLevel, boardClasses: input.boardClasses }),
+      periodS: livePeak.periodS,
+      sizeByOrientation: sizeByOrientation([{ windowCenterDeg: livePeak.windowCenterDeg, faceHeightFt: livePeak.faceHeightFt }]),
     });
   }
   return carried;
