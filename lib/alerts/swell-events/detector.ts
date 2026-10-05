@@ -93,7 +93,7 @@ export interface DayPeak {
   faceHeightFt: number;
 }
 
-export interface TrackPoint {
+interface TrackPoint {
   rowIndex: number;
   partition: ExposedSwellPartition;
 }

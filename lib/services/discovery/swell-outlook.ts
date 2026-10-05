@@ -46,7 +46,7 @@ export interface BuildSwellOutlookInput {
   now: Date;
 }
 
-export interface BuiltSwellOutlook {
+interface BuiltSwellOutlook {
   response: SwellOutlookResponse;
   list: StoredOutlookList;
 }

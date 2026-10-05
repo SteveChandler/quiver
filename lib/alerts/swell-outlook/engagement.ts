@@ -1,4 +1,4 @@
-export const SWELL_ENGAGEMENT = {
+const SWELL_ENGAGEMENT = {
   answerWindowHours: 48,
   pauseAfterUnanswered: 3,
   exceptionAfterDays: 14,
@@ -24,7 +24,7 @@ export const EMPTY_SWELL_ENGAGEMENT: SwellEngagementState = {
 };
 
 export type SwellSendKind = 'first_sighting' | 'followup';
-export type SwellSendDecision =
+type SwellSendDecision =
   | { ok: true; exception: boolean }
   | { ok: false; reason: 'skipped_unengaged' | 'first_sighting_spacing'; exceptionEligible: boolean };
 
