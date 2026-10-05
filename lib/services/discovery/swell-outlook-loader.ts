@@ -19,6 +19,7 @@ import { normalizeBoardClass, type BoardClass } from '@/lib/domains/rideability'
 import { parseSkillLevel } from '@/lib/domains/user-preferences';
 import type { Database } from '@/types/database';
 
+import type { StoredOutlookList } from './swell-outlook-types';
 import { getActiveStorms, type ActiveStorm } from './nhc-storms';
 import { SWELL_OUTLOOK_HORIZON_DAYS, buildSwellOutlook, resolveOutlookRunDate, type SwellOutlookResponse } from './swell-outlook';
 
@@ -120,6 +121,7 @@ export async function loadSwellOutlookForUser(args: {
   userId: string;
   now: Date;
   recordOpen: boolean;
+  onList?: (list: StoredOutlookList) => void;
   deps?: Partial<SwellOutlookLoaderDeps>;
 }): Promise<SwellOutlookResponse> {
   const { client, userId, now } = args;
@@ -184,7 +186,9 @@ export async function loadSwellOutlookForUser(args: {
     // Partial reads must not replace good sticky state used by later requests or senders.
     if (!degraded) {
       try {
-        await saveSwellOutlookLists(client, userId, list);
+        // Cron combines this list and its send transitions into one state write.
+        if (args.onList) args.onList(list);
+        else await saveSwellOutlookLists(client, userId, list);
       } catch (error) {
         console.warn('[swell-outlook] state write failed', error instanceof Error ? error.message : String(error));
       }

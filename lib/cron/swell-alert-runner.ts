@@ -35,6 +35,30 @@ import {
 import { loadUserPool } from "@/lib/alerts/user-pool";
 import { isSwellAlertEnabled, isSwellAlertUserAllowed } from "@/lib/flags/swell-alert";
 import { isSwellFollowupEnabled, isSwellFollowupUserAllowed } from "@/lib/flags/swell-followup";
+import { getUserEntitlement, type Tier } from "@/lib/alerts/entitlements";
+import { SWELL_FOLLOWUP_THRESHOLDS } from "@/lib/alerts/swell-followup/change-detection";
+import {
+  decideSend,
+  recordSend,
+  settle,
+  type SwellEngagementState,
+  type SwellSendKind,
+} from "@/lib/alerts/swell-outlook/engagement";
+import {
+  buildFirstSightingPayload,
+  firstSightingFaceHeightFt,
+  selectFirstSightingCandidates,
+} from "@/lib/alerts/swell-outlook/first-sighting";
+import {
+  EMPTY_SWELL_OUTLOOK_USER_STATE,
+  advanceLists,
+  type SwellOutlookStateTransition,
+  loadSwellOutlookUserState,
+  saveSwellOutlookUserState,
+} from "@/lib/alerts/swell-outlook/state";
+import { isSwellOutlookEnabled, isSwellOutlookUserAllowed } from "@/lib/flags/swell-outlook";
+import { loadSwellOutlookForUser } from "@/lib/services/discovery/swell-outlook-loader";
+import type { OutlookSwell, StoredOutlookList } from "@/lib/services/discovery/swell-outlook-types";
 import { enqueueNotification } from "@/lib/notifications/enqueue";
 import { selectTitle } from "@/lib/notifications/copy/select-title";
 import {
@@ -151,6 +175,7 @@ export interface SwellAlertDeps {
     peakDate: string;
     leadBeachId: string;
     payload: MajorSwellNotificationPayload;
+    firstSighting?: { now: Date; eventKeys: string[] };
   }) => Promise<{ id: string } | null>;
   enqueue: (args: EnqueueArgs) => Promise<EnqueueResult>;
   markAlertEnqueued: (alertId: string, eventId: string) => Promise<void>;
@@ -176,7 +201,26 @@ export interface SwellFollowupDeps {
   closeFollowupState: (state: SwellFollowupState, status: "passed", now: Date) => Promise<void>;
 }
 
-type RunnerDeps = SwellAlertDeps & SwellFollowupDeps;
+export interface SwellOutlookDeps {
+  isOutlookEnabled: () => boolean;
+  isOutlookUserAllowed: (userId: string) => boolean;
+  loadOutlook: (profile: SwellAlertProfile, now: Date, onList?: (list: StoredOutlookList) => void) => Promise<OutlookSwell[]>;
+  loadEngagement: (userId: string) => Promise<SwellEngagementState | null>;
+  saveEngagement: (userId: string, transition: SwellOutlookStateTransition) => Promise<void>;
+  hasFirstSightingAlert: (userId: string, eventKeys: string[]) => Promise<boolean>;
+  assessSwellRarity: (profile: SwellAlertProfile, swell: OutlookSwell, now: Date) => Promise<boolean>;
+  getTier: (userId: string) => Promise<Tier>;
+}
+
+type RunnerDeps = SwellAlertDeps & SwellFollowupDeps & Partial<SwellOutlookDeps>;
+type OutlookRunnerDeps = SwellAlertDeps & SwellFollowupDeps & SwellOutlookDeps;
+
+interface EngagementGate {
+  state: SwellEngagementState;
+  dirty: boolean;
+  sends: Array<{ kind: SwellSendKind; exception: boolean; at: Date }>;
+  list?: StoredOutlookList;
+}
 
 export interface SwellAlertRunSummary {
   skipped: boolean;
@@ -392,6 +436,47 @@ function validOfficialEvidenceRefs(
   return [...new Set(refs)].sort((left, right) => left.localeCompare(right));
 }
 
+function makeVerdictFor(
+  profile: SwellAlertProfile,
+  now: Date,
+): (forecast: EnhancedForecastEntity, beach: Beach) => ForecastVerdict {
+  return (forecast, beach) => evaluateForecastVerdict({
+    forecast,
+    beach,
+    experienceLevel: profile.experienceLevel,
+    timezone: profile.timezone,
+    now,
+    candidateIdPrefix: "swell-alert",
+  });
+}
+
+function buildScoreHistory(args: {
+  pool: ReadonlyArray<{ beach: Beach }>;
+  forecastsByBeach: ReadonlyMap<string, readonly EnhancedForecastEntity[]>;
+  verdictFor: (forecast: EnhancedForecastEntity, beach: Beach) => ForecastVerdict;
+  timezone: string;
+  today: string;
+}): DayScore[] {
+  const historyByDate = new Map<string, DayScore>();
+  for (const { beach } of args.pool) {
+    for (const forecast of args.forecastsByBeach.get(beach.id) ?? []) {
+      const localDate = getLocalDateString(new Date(forecast.forecast_at), args.timezone);
+      const localHour = getLocalHour(new Date(forecast.forecast_at), args.timezone);
+      // Today counts: its forecast is known, and "first after flat" needs the
+      // day before a peak that is tomorrow at the earliest.
+      if (localDate > args.today || localHour < 6 || localHour >= 19) continue;
+      const { score, verdict } = args.verdictFor(forecast, beach);
+      const day = historyByDate.get(localDate);
+      historyByDate.set(localDate, {
+        localDate,
+        bestScore: Math.max(day?.bestScore ?? 0, score),
+        go: (day?.go ?? false) || verdict === "go",
+      });
+    }
+  }
+  return [...historyByDate.values()].sort((left, right) => left.localDate.localeCompare(right.localDate));
+}
+
 async function evaluatePool(
   client: ServiceClient,
   profile: SwellAlertProfile,
@@ -420,36 +505,8 @@ async function evaluatePool(
   }
 
   const today = getLocalDateString(now, profile.timezone);
-  const verdictFor = (
-    forecast: EnhancedForecastEntity,
-    beach: Beach,
-  ): ForecastVerdict => evaluateForecastVerdict({
-    forecast,
-    beach,
-    experienceLevel: profile.experienceLevel,
-    timezone: profile.timezone,
-    now,
-    candidateIdPrefix: "swell-alert",
-  });
-  const historyByDate = new Map<string, DayScore>();
-  for (const { beach } of pool) {
-    for (const forecast of forecastsByBeach.get(beach.id) ?? []) {
-      const localDate = getLocalDateString(new Date(forecast.forecast_at), profile.timezone);
-      const localHour = getLocalHour(new Date(forecast.forecast_at), profile.timezone);
-      // Today counts: its forecast is known, and "first after flat" needs the
-      // day before a peak that is tomorrow at the earliest.
-      if (localDate > today || localHour < 6 || localHour >= 19) continue;
-      const { score, verdict } = verdictFor(forecast, beach);
-      const day = historyByDate.get(localDate);
-      historyByDate.set(localDate, {
-        localDate,
-        bestScore: Math.max(day?.bestScore ?? 0, score),
-        go: (day?.go ?? false) || verdict === "go",
-      });
-    }
-  }
-  const history = [...historyByDate.values()]
-    .sort((left, right) => left.localDate.localeCompare(right.localDate));
+  const verdictFor = makeVerdictFor(profile, now);
+  const history = buildScoreHistory({ pool, forecastsByBeach, verdictFor, timezone: profile.timezone, today });
 
   const tomorrow = addCivilDays(today, 1);
   const snapshots = await loadKeySnapshots(client, pool.map(({ beach }) => beach.id), now);
@@ -627,6 +684,50 @@ async function loadAlertState(
   };
 }
 
+/** The existing rarity rule (best in 30 days, first after flat) judged on the swell's peak row. */
+async function assessSwellRarityForUser(
+  client: ServiceClient,
+  profile: SwellAlertProfile,
+  swell: OutlookSwell,
+  now: Date,
+): Promise<boolean> {
+  const pool = await loadUserPool({
+    supabase: client,
+    userId: profile.id,
+    homeBeachId: profile.homeBeachId,
+    location: profile.location,
+    maxDriveMinutes: profile.maxDriveMinutes,
+  });
+  const beach = pool.find((entry) => entry.beach.id === swell.beach.id)?.beach;
+  if (!beach) return false;
+  const forecasts = await loadForecasts(
+    client,
+    pool.map((entry) => entry.beach.id),
+    new Date(now.getTime() - HISTORY_DAYS * DAY_MS),
+    new Date(now.getTime() + LOOKAHEAD_DAYS * DAY_MS),
+  );
+  const forecastsByBeach = new Map<string, EnhancedForecastEntity[]>();
+  for (const forecast of forecasts) {
+    forecastsByBeach.set(forecast.beach_id, [...(forecastsByBeach.get(forecast.beach_id) ?? []), forecast]);
+  }
+  const peakForecast = rowNearest(forecastsByBeach.get(beach.id) ?? [], swell.peakAt);
+  if (!peakForecast) return false;
+  const verdictFor = makeVerdictFor(profile, now);
+  const peak = verdictFor(peakForecast, beach);
+  return assessRarity({
+    peakDate: getLocalDateString(new Date(swell.peakAt), profile.timezone),
+    history: buildScoreHistory({
+      pool,
+      forecastsByBeach,
+      verdictFor,
+      timezone: profile.timezone,
+      today: getLocalDateString(now, profile.timezone),
+    }),
+    peakScore: peak.score,
+    peakGo: peak.verdict === "go",
+  }).rare;
+}
+
 function defaultDependencies(args: {
   supabase?: ServiceClient;
   deps?: Partial<RunnerDeps>;
@@ -646,6 +747,21 @@ function defaultDependencies(args: {
     loadAlertState: args.deps?.loadAlertState
       ?? ((userId, eventKey, now) => loadAlertState(getClient(), userId, eventKey, now)),
     insertAlert: args.deps?.insertAlert ?? (async (input) => {
+      if (input.firstSighting) {
+        // Serialize claims across different swells too, before the non-transactional enqueue.
+        const { data, error } = await (getClient() as unknown as SupabaseClient)
+          .rpc("claim_swell_outlook_first_sighting", {
+            p_user_id: input.userId,
+            p_event_key: input.eventKey,
+            p_event_keys: input.firstSighting.eventKeys,
+            p_peak_date: input.peakDate,
+            p_beach_id: input.leadBeachId,
+            p_payload: input.payload,
+            p_now: input.firstSighting.now.toISOString(),
+          });
+        if (error) throw new Error(`Failed to claim first sighting: ${error.message}`);
+        return typeof data === "string" ? { id: data } : null;
+      }
       const { data, error } = await getClient()
         .from("swell_event_alerts")
         .insert({
@@ -687,6 +803,28 @@ function defaultDependencies(args: {
         .eq("id", alertId);
       if (error) throw new Error(`Failed to mark swell alert sent: ${error.message}`);
     }),
+    isOutlookEnabled: args.deps?.isOutlookEnabled ?? isSwellOutlookEnabled,
+    isOutlookUserAllowed: args.deps?.isOutlookUserAllowed ?? isSwellOutlookUserAllowed,
+    loadOutlook: args.deps?.loadOutlook ?? (async (profile, now, onList) => (
+      await loadSwellOutlookForUser({ client: getClient(), userId: profile.id, now, recordOpen: false, onList })
+    ).swells),
+    loadEngagement: args.deps?.loadEngagement ?? ((userId) => loadSwellOutlookUserState(getClient(), userId)),
+    saveEngagement: args.deps?.saveEngagement ?? ((userId, transition) =>
+      saveSwellOutlookUserState(getClient(), userId, transition)),
+    hasFirstSightingAlert: args.deps?.hasFirstSightingAlert ?? (async (userId, eventKeys) => {
+      const { data, error } = await getClient()
+        .from("swell_event_alerts")
+        .select("id")
+        .eq("user_id", userId)
+        .in("event_key", eventKeys)
+        .limit(1);
+      if (error) throw new Error(`Failed to check first-sighting alerts: ${error.message}`);
+      return (data ?? []).length > 0;
+    }),
+    assessSwellRarity: args.deps?.assessSwellRarity
+      ?? ((profile, swell, now) => assessSwellRarityForUser(getClient(), profile, swell, now)),
+    getTier: args.deps?.getTier
+      ?? ((userId) => getUserEntitlement(userId, getClient() as unknown as SupabaseClient)),
   };
 }
 
@@ -723,6 +861,7 @@ async function sendFollowups(
   profile: SwellAlertProfile,
   states: readonly SwellFollowupState[],
   now: Date,
+  gate?: EngagementGate,
 ): Promise<void> {
   for (const state of states) {
     summary.followupsEvaluated += 1;
@@ -847,6 +986,14 @@ async function sendFollowups(
         previous_peak_date: previousPeakDate,
       });
 
+      if (gate) {
+        const decision = decideSend(gate.state, now, "followup", false);
+        if (!decision.ok) {
+          increment(summary, decision.reason);
+          continue;
+        }
+      }
+
       const claimed = await deps.claimFollowup(state, {
         ...shown,
         serious,
@@ -875,9 +1022,179 @@ async function sendFollowups(
         continue;
       }
       countSent(summary, kind);
+      if (gate) recordOutlookSend(gate, now, "followup", false);
     } catch (error) {
       console.error(`[swell-alert] Error on follow-up ${state.eventKey} for ${profile.id}:`, error);
       summary.errors += 1;
+    }
+  }
+}
+
+function laterInstant(left: string | null, right: string | null): string | null {
+  if (left === null) return right;
+  if (right === null) return left;
+  return Date.parse(left) > Date.parse(right) ? left : right;
+}
+
+function recordOutlookSend(gate: EngagementGate, now: Date, kind: SwellSendKind, exception: boolean): void {
+  gate.state = recordSend(gate.state, now, kind, exception);
+  gate.sends.push({ kind, exception, at: now });
+  gate.dirty = true;
+}
+
+function isOutlookRecipient(deps: RunnerDeps, userId: string): deps is OutlookRunnerDeps {
+  return deps.isOutlookEnabled?.() === true
+    && deps.isOutlookUserAllowed?.(userId) === true
+    && Boolean(deps.loadOutlook && deps.loadEngagement && deps.saveEngagement
+      && deps.hasFirstSightingAlert && deps.assessSwellRarity && deps.getTier);
+}
+
+async function sendFirstSighting(
+  deps: OutlookRunnerDeps,
+  summary: SwellAlertRunSummary,
+  profile: SwellAlertProfile,
+  now: Date,
+  followupEnabled: boolean,
+  gate: EngagementGate,
+  tier: Tier,
+): Promise<void> {
+  const hour = getLocalHour(now, profile.timezone);
+  if (hour < SWELL_FOLLOWUP_THRESHOLDS.earliestLocalHour || hour > SWELL_FOLLOWUP_THRESHOLDS.latestLocalHour) {
+    increment(summary, "first_sighting_window_closed");
+    return;
+  }
+  const candidates = selectFirstSightingCandidates({
+    swells: await deps.loadOutlook(profile, now, (list) => { gate.list = list; gate.dirty = true; }),
+    homeBeachId: profile.homeBeachId,
+    tier,
+  });
+
+  for (const swell of candidates) {
+    if (await deps.hasFirstSightingAlert(profile.id, [swell.id, swell.eventKey])) continue;
+
+    let decision = decideSend(gate.state, now, "first_sighting", false);
+    if (!decision.ok && decision.exceptionEligible) {
+      decision = decideSend(gate.state, now, "first_sighting", await deps.assessSwellRarity(profile, swell, now));
+    }
+    if (!decision.ok) {
+      increment(summary, decision.reason);
+      return;
+    }
+
+    const payload = buildFirstSightingPayload({ swell, timezone: profile.timezone });
+    const alert = await deps.insertAlert({
+      userId: profile.id,
+      eventKey: swell.id,
+      peakDate: getLocalDateString(new Date(swell.peakAt), profile.timezone),
+      leadBeachId: swell.beach.id,
+      payload,
+      firstSighting: { now, eventKeys: [swell.id, swell.eventKey] },
+    });
+    if (!alert) {
+      increment(summary, "event_exists");
+      return;
+    }
+    const enqueued = await deps.enqueue({
+      type: "swell_watch",
+      recipientUserId: profile.id,
+      dedupeKey: `swell_watch:${profile.id}:${swell.id}`,
+      payload,
+    });
+    if (!enqueued.enqueued) {
+      if (enqueued.reason === "duplicate") {
+        summary.duplicates += 1;
+      } else {
+        increment(summary, "enqueue_failed");
+        summary.errors += 1;
+      }
+      return;
+    }
+    countSent(summary, "coming");
+    recordOutlookSend(gate, now, "first_sighting", decision.exception);
+    try {
+      await deps.markAlertEnqueued(alert.id, enqueued.eventId);
+    } catch (error) {
+      console.error(`[swell-alert] Failed to mark first sighting for ${profile.id}:`, error);
+      summary.errors += 1;
+    }
+
+    // Only a swell the notable detector also sees can be followed: a pulse it never
+    // detects would be reported as "dropped" by the follow-up evaluation.
+    if (followupEnabled && swell.notable && swell.periodS !== null) {
+      try {
+        await deps.saveFirstTold({
+          userId: profile.id,
+          eventKey: swell.eventKey,
+          beachId: swell.beach.id,
+          told: {
+            arrivalAt: swell.arrivalAt ?? swell.peakAt,
+            peakAt: swell.peakAt,
+            faceHeightFt: firstSightingFaceHeightFt(swell),
+            periodS: swell.periodS,
+            directionDeg: swell.directionDeg,
+            serious: payload.awareness_severity === "major",
+            kind: "coming",
+            toldAt: now.toISOString(),
+            status: "active",
+          },
+        });
+      } catch (error) {
+        console.error(`[swell-alert] Failed to pin ${swell.eventKey} for follow-ups:`, error);
+        summary.followupStateFailures += 1;
+      }
+    }
+    return;
+  }
+  increment(summary, "first_sighting_none");
+}
+
+async function runOutlookUser(
+  deps: OutlookRunnerDeps,
+  summary: SwellAlertRunSummary,
+  profile: SwellAlertProfile,
+  pinnedStates: readonly SwellFollowupState[],
+  now: Date,
+  followupEnabled: boolean,
+): Promise<void> {
+  let gate: EngagementGate | undefined;
+  try {
+    const loaded = await deps.loadEngagement(profile.id);
+    const state = loaded ?? EMPTY_SWELL_OUTLOOK_USER_STATE;
+    const settled = settle(state, now);
+    gate = { state: settled, dirty: settled !== state, sends: [] };
+    const tier = await deps.getTier(profile.id);
+    const eligiblePins = tier === "free"
+      ? pinnedStates.filter((pin) => profile.homeBeachId !== null && pin.beachId === profile.homeBeachId)
+      : pinnedStates;
+    if (followupEnabled && eligiblePins.length > 0 && deps.isFollowupUserAllowed(profile.id)) {
+      await sendFollowups(deps, summary, profile, eligiblePins, now, gate);
+    }
+    await sendFirstSighting(deps, summary, profile, now, followupEnabled, gate, tier);
+  } catch (error) {
+    console.error(`[swell-alert] Error processing outlook user ${profile.id}:`, error);
+    summary.errors += 1;
+  } finally {
+    if (gate?.dirty) {
+      const { sends, list } = gate;
+      await deps.saveEngagement(profile.id, (fresh) => {
+        let next = settle(fresh, now);
+        for (const send of sends) {
+          const recorded = recordSend(next, send.at, send.kind, send.exception);
+          // An open after this send already answered it; a delayed save must not revive its counter.
+          const answered = next.lastAnsweredAt !== null && Date.parse(next.lastAnsweredAt) >= send.at.getTime();
+          next = {
+            ...recorded,
+            ...(answered ? { consecutiveUnanswered: next.consecutiveUnanswered, pausedSince: next.pausedSince } : {}),
+            lastSentAt: laterInstant(next.lastSentAt, recorded.lastSentAt),
+            lastFirstSightingAt: laterInstant(next.lastFirstSightingAt, recorded.lastFirstSightingAt),
+            lastExceptionAt: laterInstant(next.lastExceptionAt, recorded.lastExceptionAt),
+          };
+        }
+        return list ? advanceLists(next, list) : next;
+      }).catch((error: unknown) => {
+        console.error(`[swell-alert] Failed to save engagement for ${profile.id}:`, error);
+        summary.errors += 1;
+      });
     }
   }
 }
@@ -920,6 +1237,10 @@ export async function runSwellAlertCron(args: {
     }
     if (!deps.isUserAllowed(profile.id)) {
       increment(summary, "not_allowed");
+      continue;
+    }
+    if (isOutlookRecipient(deps, profile.id)) {
+      await runOutlookUser(deps, summary, profile, followupStates.get(profile.id) ?? [], args.now, followupEnabled);
       continue;
     }
     const pinnedStates = followupStates.get(profile.id);

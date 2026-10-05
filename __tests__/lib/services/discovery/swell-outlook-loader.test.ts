@@ -140,6 +140,27 @@ describe("loadSwellOutlookForUser", () => {
     jest.mocked(outlookState.saveSwellOutlookLists).mockClear();
   });
   afterEach(() => jest.restoreAllMocks());
+  it("hands a healthy list to cron persistence without a separate write", async () => {
+    const client = fakeClient({ profile: PROFILE, boards: [] });
+    const onList = jest.fn();
+    const response = await loadSwellOutlookForUser({ client: client.client, userId: USER, now: NOW,
+      recordOpen: false, deps: deps(), onList });
+    expect(onList).toHaveBeenCalledWith({ runDate: response.runDate, swells: response.swells });
+    expect(response.swells).toHaveLength(1);
+    expect(outlookState.saveSwellOutlookLists).not.toHaveBeenCalled();
+    expect(client.updates).toEqual([]);
+    expect(client.upserts).toEqual([]);
+  });
+
+  it("does not hand degraded lists to cron persistence", async () => {
+    const client = fakeClient({ profile: PROFILE, boardsError: "unavailable" });
+    const onList = jest.fn();
+    await loadSwellOutlookForUser({ client: client.client, userId: USER, now: NOW,
+      recordOpen: false, deps: deps(), onList });
+    expect(onList).not.toHaveBeenCalled();
+    expect(client.updates).toEqual([]);
+  });
+
   it("returns an empty list for a user with no pool and reads no snapshots", async () => {
     const client = fakeClient({ profile: { ...PROFILE, home_beach_id: null } });
     const loaders = deps({ loadPool: jest.fn(async () => []) });
