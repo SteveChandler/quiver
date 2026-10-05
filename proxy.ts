@@ -871,11 +871,12 @@ export const config = {
     /*
      * Match all page routes but exclude:
      * - API routes (/api/*)
+     * - PostHog reverse proxy (/ingest/*), a next.config rewrite that needs no auth
      * - Static files (/_next/static, /_next/image)
      * - Vercel internal routes (/_vercel/*)
      * - Files with extensions (.svg, .png, etc.)
      * Only apply to actual page navigation
      */
-    "/((?!api|_next/static|_next/image|_vercel|favicon.ico|robots.txt|sitemap|.*\\.[^/]+$).*)",
+    "/((?!api|ingest/|_next/static|_next/image|_vercel|favicon.ico|robots.txt|sitemap|.*\\.[^/]+$).*)",
   ],
 };

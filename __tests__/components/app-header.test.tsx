@@ -18,6 +18,21 @@ jest.mock("next/navigation", () => ({
   useSearchParams: jest.fn(),
 }));
 
+// Expose Link's prefetch prop so header prefetch policy is assertable
+jest.mock("next/link", () => {
+  const React = require("react");
+  return React.forwardRef(function MockLink(
+    { href, prefetch, children, ...rest }: any,
+    ref: any,
+  ) {
+    return React.createElement(
+      "a",
+      { ...rest, ref, href, "data-prefetch": String(prefetch) },
+      children,
+    );
+  });
+});
+
 // Mock auth context
 jest.mock("@/context/auth-context", () => ({
   useAuth: jest.fn(),
@@ -1076,6 +1091,25 @@ describe("AppHeader", () => {
 
         const aboutLink = screen.getByRole("link", { name: /about/i });
         expect(aboutLink).toHaveAttribute("href", "/about");
+      });
+
+      it("does not prefetch the logo or desktop nav links", () => {
+        render(<AppHeader />);
+
+        for (const name of [
+          /^quiver$/i,
+          /features/i,
+          /live cams/i,
+          /tools/i,
+          /roadmap/i,
+          /what's new/i,
+          /about/i,
+        ]) {
+          expect(screen.getByRole("link", { name })).toHaveAttribute(
+            "data-prefetch",
+            "false",
+          );
+        }
       });
     });
 
