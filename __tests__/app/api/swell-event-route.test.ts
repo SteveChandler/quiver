@@ -24,24 +24,45 @@ jest.mock("@/lib/middleware/api-wrappers", () => {
   };
 });
 
+const mockRecordOpen = jest.fn<Promise<void>, unknown[]>(async () => {});
+jest.mock("@/lib/alerts/swell-outlook/state", () => ({
+  recordSwellOpen: (...args: unknown[]) => mockRecordOpen(...args),
+}));
+
+const mockAfterTasks: Array<() => Promise<void>> = [];
+jest.mock("next/server", () => ({
+  ...jest.requireActual("next/server"),
+  after: (task: () => Promise<void>): void => { mockAfterTasks.push(task); },
+}));
+
+async function finishBookkeeping(): Promise<void> {
+  for (const task of mockAfterTasks.splice(0)) await task();
+}
+
 import { GET } from "@/app/api/swell/[eventKey]/route";
 
-function call(eventKey: string, query = ""): Promise<Response> {
+function call(eventKey: string, query = "", user?: { id: string }): Promise<Response> {
   return GET(
     new NextRequest(`https://www.quiversurf.app/api/swell/${encodeURIComponent(eventKey)}${query}`),
-    { params: Promise.resolve({ eventKey: encodeURIComponent(eventKey) }) },
+    { params: Promise.resolve({ eventKey: encodeURIComponent(eventKey) }), ...(user ? { user } : {}) } as never,
   );
 }
 
 describe("GET /api/swell/[eventKey]", () => {
   beforeEach(() => {
+    mockAfterTasks.length = 0;
+    mockRecordOpen.mockReset();
+    mockRecordOpen.mockResolvedValue(undefined);
     mockDb = { snapshots: [swellSnapshot()] };
     jest.spyOn(console, "error").mockImplementation(() => {});
   });
   afterEach(() => jest.restoreAllMocks());
 
-  it("is public and rate limited", () => {
-    expect(jest.requireMock("@/lib/middleware/api-wrappers").protectionOptions[0]).toEqual({ rateLimit: { key: "public-default" } });
+  it("is public with optional auth and rate limited", () => {
+    expect(jest.requireMock("@/lib/middleware/api-wrappers").protectionOptions[0]).toEqual({
+      auth: { required: false },
+      rateLimit: { key: "public-default" },
+    });
   });
 
   it("returns the event with a short shared cache", async () => {
@@ -135,4 +156,55 @@ describe("GET /api/swell/[eventKey]", () => {
     const response = await call(SWELL_EVENT_KEY);
     expect(response.status).toBe(500);
   });
+
+  it("records a signed-in read as an answer, and an anonymous one not at all", async () => {
+    expect((await call(SWELL_EVENT_KEY, "", { id: "user-9" })).status).toBe(200);
+    await finishBookkeeping();
+    expect(mockRecordOpen).toHaveBeenCalledWith(expect.anything(), "user-9", expect.any(Date));
+    mockRecordOpen.mockClear();
+    await call(SWELL_EVENT_KEY);
+    await finishBookkeeping();
+    expect(mockRecordOpen).not.toHaveBeenCalled();
+  });
+
+  it("never fails the response when recording the open fails", async () => {
+    mockRecordOpen.mockRejectedValueOnce(new Error("db down"));
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+    expect((await call(SWELL_EVENT_KEY, "", { id: "user-9" })).status).toBe(200);
+    await finishBookkeeping();
+    expect(console.warn).toHaveBeenCalledWith("[api/swell] Failed to record swell open:", expect.any(Error));
+  });
+
+  it("does not record an open for a malformed key", async () => {
+    mockRecordOpen.mockClear();
+    expect((await call("1 OR 1=1", "", { id: "user-9" })).status).toBe(400);
+    expect(mockRecordOpen).not.toHaveBeenCalled();
+    expect(mockAfterTasks).toEqual([]);
+  });
+
+  it("keeps the public body and cache headers while open recording is pending", async () => {
+    const anonymous = await call(SWELL_EVENT_KEY);
+    let finish: () => void = (): void => { throw new Error("Open recording did not start"); };
+    mockRecordOpen.mockImplementationOnce(() => new Promise<void>((resolve) => { finish = resolve; }));
+    const signedIn = await call(SWELL_EVENT_KEY, "", { id: "user-9" });
+    expect(signedIn.status).toBe(200);
+    expect(await signedIn.json()).toEqual(await anonymous.json());
+    expect(signedIn.headers.get("Cache-Control")).toBe(anonymous.headers.get("Cache-Control"));
+    expect(mockAfterTasks).toHaveLength(1);
+    const bookkeeping = finishBookkeeping();
+    expect(mockRecordOpen).toHaveBeenCalledTimes(1);
+    finish();
+    await bookkeeping;
+  });
+
+  it("also isolates a profile-deletion foreign-key error", async () => {
+    mockRecordOpen.mockRejectedValueOnce(Object.assign(new Error("foreign key violation"), { code: "23503" }));
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+    const response = await call(SWELL_EVENT_KEY, "", { id: "deleted-user" });
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toBe("public, s-maxage=300, stale-while-revalidate=600");
+    await finishBookkeeping();
+    expect(console.warn).toHaveBeenCalled();
+  });
+
 });
