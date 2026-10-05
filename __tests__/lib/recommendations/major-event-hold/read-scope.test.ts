@@ -151,6 +151,24 @@ describe("water-quality hold read scope", () => {
     expect(executions.county_beach_advisory_runs).toBe(2);
   });
 
+  it("reads the County run once when no County-projected beach is in play", async () => {
+    const { client, executions } = recordingClient();
+    useServiceClient(client);
+
+    await runWithWaterQualityReadScope(async () => {
+      for (const ids of [[OWNER_HELD, SAMPLE_HELD, CLEAN], [SAMPLE_HELD, CLEAN], [CLEAN]]) {
+        await rankBeaches(ids.map((id) => ({ id })), { compare: () => 0 });
+      }
+    });
+
+    expect(executions).toEqual({
+      water_quality_held_beaches: 1,
+      beach_water_quality: 1,
+      county_beach_advisory_runs: 1,
+      county_beach_advisories: 1,
+    });
+  });
+
   it("keeps the pre-scope read counts outside a scope", async () => {
     const { client, executions } = recordingClient();
     useServiceClient(client);
