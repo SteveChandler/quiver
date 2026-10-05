@@ -134,33 +134,54 @@ function matchNotable(rep: BeachSwellEvent, notable: readonly SwellEventSnapshot
   return best?.snapshot ?? null;
 }
 
-function stableId(
-  group: SwellGroup,
-  rep: BeachSwellEvent,
+function assignGroupIds(
+  groups: readonly SwellGroup[],
   previous: StoredOutlookList | null,
-  usedIds: Set<string>,
-): string {
-  const carried = previous?.swells
+  homeBeachId: string | null,
+): Array<{ group: SwellGroup; id: string }> {
+  const ordered = groups.map((group) => ({
+    group,
+    rep: representative(group, homeBeachId),
+    key: group.members.map((member) => `${member.beachId}|${member.eventKey}`).sort().join('|'),
+  })).sort((left, right) => left.key.localeCompare(right.key));
+  const previousEntries = previous?.swells.filter((entry) => entry.status !== 'faded') ?? [];
+  const matches = ordered.flatMap((candidate) => previousEntries
     .filter((entry) => (
-      entry.status !== 'faded'
-      && !usedIds.has(entry.id)
-      && angleDifference(entry.directionDeg, rep.directionDeg) <= SWELL_EVENT_THRESHOLDS.trackDirectionDeg
-      && Math.abs(Date.parse(entry.peakAt) - Date.parse(rep.peakAt)) <= NOTABLE_MATCH_PEAK_MS
-      && (entry.periodS === null || Math.abs(entry.periodS - rep.periodS) <= SWELL_TRACKING_RULES.groupPeriodS)
+      angleDifference(entry.directionDeg, candidate.rep.directionDeg) <= SWELL_EVENT_THRESHOLDS.trackDirectionDeg
+      && Math.abs(Date.parse(entry.peakAt) - Date.parse(candidate.rep.peakAt)) <= NOTABLE_MATCH_PEAK_MS
+      && (entry.periodS === null || Math.abs(entry.periodS - candidate.rep.periodS) <= SWELL_TRACKING_RULES.groupPeriodS)
     ))
-    .sort((left, right) => (
-      Math.abs(Date.parse(left.peakAt) - Date.parse(rep.peakAt))
-      - Math.abs(Date.parse(right.peakAt) - Date.parse(rep.peakAt))
+    .map((entry) => ({
+      candidate,
+      id: entry.id,
+      diff: Math.abs(Date.parse(entry.peakAt) - Date.parse(candidate.rep.peakAt)),
+    })))
+    .sort((left, right) => left.diff - right.diff
       || left.id.localeCompare(right.id)
-    ))[0];
-  const memberKeys = [...group.members].sort((left, right) => (
-    Date.parse(left.peakAt) - Date.parse(right.peakAt) || left.eventKey.localeCompare(right.eventKey)
-  )).map((member) => member.eventKey);
-  const baseId = carried?.id ?? memberKeys.find((key) => !usedIds.has(key)) ?? memberKeys[0];
-  let id = baseId;
-  for (let suffix = 2; usedIds.has(id); suffix += 1) id = `${baseId}:${suffix}`;
-  usedIds.add(id);
-  return id;
+      || left.candidate.key.localeCompare(right.candidate.key));
+
+  const ids = new Map<SwellGroup, string>();
+  const carriedIds = new Set<string>();
+  for (const match of matches) {
+    if (ids.has(match.candidate.group) || carriedIds.has(match.id)) continue;
+    ids.set(match.candidate.group, match.id);
+    carriedIds.add(match.id);
+  }
+
+  // An absent previous swell still owns its id while sticky tracking carries it.
+  const usedIds = new Set([...previousEntries.map((entry) => entry.id), ...carriedIds]);
+  return ordered.map(({ group }) => {
+    const carriedId = ids.get(group);
+    if (carriedId !== undefined) return { group, id: carriedId };
+    const memberKeys = [...group.members].sort((left, right) => (
+      Date.parse(left.peakAt) - Date.parse(right.peakAt) || left.eventKey.localeCompare(right.eventKey)
+    )).map((member) => member.eventKey);
+    const baseId = memberKeys.find((key) => !usedIds.has(key)) ?? memberKeys[0];
+    let id = baseId;
+    for (let suffix = 2; usedIds.has(id); suffix += 1) id = `${baseId}:${suffix}`;
+    usedIds.add(id);
+    return { group, id };
+  });
 }
 
 function toOutlookSwell(
@@ -168,7 +189,7 @@ function toOutlookSwell(
   input: BuildSwellOutlookInput,
   beachesById: ReadonlyMap<string, Beach>,
   notableLatest: readonly SwellEventSnapshot[],
-  usedIds: Set<string>,
+  id: string,
   runDate: string,
   homeBeachId: string | null,
 ): OutlookSwell | null {
@@ -193,7 +214,7 @@ function toOutlookSwell(
   const peakMs = Date.parse(rep.peakAt);
 
   return {
-    id: stableId(group, rep, input.previous, usedIds),
+    id,
     eventKey,
     tier: confidenceFor(rep, previousRuns, input.now),
     status: Date.parse(rep.arrivalAt) <= input.now.getTime() ? 'arrived' : 'forecast',
@@ -237,9 +258,11 @@ export function buildSwellOutlook(input: BuildSwellOutlookInput): BuiltSwellOutl
     .filter((event) => isSwellEventCurrent(event, input.now));
 
   const notableLatest = latestPerKey(input.notableSnapshots);
-  const usedIds = new Set<string>();
-  const current = groupEvents(events).flatMap((group) => {
-    const swell = toOutlookSwell(group, input, beachesById, notableLatest, usedIds, runDate, homeBeach?.id ?? null);
+  const groups = groupEvents(events.sort((left, right) => (
+    left.eventKey.localeCompare(right.eventKey) || left.beachId.localeCompare(right.beachId)
+  )));
+  const current = assignGroupIds(groups, input.previous, homeBeach?.id ?? null).flatMap(({ group, id }) => {
+    const swell = toOutlookSwell(group, input, beachesById, notableLatest, id, runDate, homeBeach?.id ?? null);
     return swell ? [swell] : [];
   });
 

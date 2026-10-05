@@ -1,3 +1,8 @@
+jest.mock("@/lib/services/discovery/swell-tracking", () => {
+  const actual = jest.requireActual("@/lib/services/discovery/swell-tracking");
+  return { ...actual, groupEvents: jest.fn(actual.groupEvents) };
+});
+import * as tracking from "@/lib/services/discovery/swell-tracking";
 // __tests__/lib/services/discovery/swell-outlook.test.ts
 import {
   buildSwellOutlook,
@@ -434,5 +439,58 @@ describe("resolveOutlookRunDate", () => {
   it("is the newest snapshot run, else today's UTC date", () => {
     expect(resolveOutlookRunDate([pulse(HOME, { runDate: "2026-09-23" }), pulse(HOME, { runDate: "2026-09-24" })], NOW)).toBe("2026-09-24");
     expect(resolveOutlookRunDate([], NOW)).toBe("2026-09-25");
+  });
+});
+
+describe("two-pass swell ids", () => {
+  const originalGroupEvents: typeof tracking.groupEvents = jest.requireActual("@/lib/services/discovery/swell-tracking").groupEvents;
+  beforeEach(() => jest.mocked(tracking.groupEvents).mockImplementation(originalGroupEvents));
+  afterEach(() => jest.mocked(tracking.groupEvents).mockImplementation(originalGroupEvents));
+
+  it.each([false, true])("reserves a carried id before fallbacks regardless of group order reversed = %s", (reverseGroups) => {
+    const carried = pulse(HOME, { eventKey: "carry-source", periodS: 16, peakOffshoreHeightFt: 3 });
+    const fallback = pulse(HOME, { eventKey: "reserved-key", periodS: 12, peakOffshoreHeightFt: 8, peakAt: localIso(4, 12) });
+    const previous = buildSwellOutlook(input({ pulseSnapshots: [carried] })).list;
+    previous.swells[0].id = "reserved-key";
+    jest.mocked(tracking.groupEvents).mockImplementation((events) => {
+      const groups = originalGroupEvents(events);
+      return reverseGroups ? groups.reverse() : groups;
+    });
+    const swells = buildSwellOutlook(input({ previous, pulseSnapshots: [fallback, carried] })).response.swells;
+    expect(swells.map(({ id, periodS }) => [id, periodS])).toEqual([
+      ["reserved-key", 16], ["reserved-key:2", 12],
+    ]);
+  });
+
+  it("does not reuse an unmatched previous id for a new swell", () => {
+    const previous = buildSwellOutlook(input({ pulseSnapshots: [pulse(HOME)] })).list;
+    previous.swells[0].id = "reserved-key";
+    const newcomer = pulse(HOME, { eventKey: "reserved-key", directionDeg: 180, periodS: 20, peakAt: localIso(7, 12) });
+    const swells = buildSwellOutlook(input({ previous, pulseSnapshots: [newcomer] })).response.swells;
+    expect(swells.map(({ id, periodS }) => [id, periodS])).toEqual([
+      ["reserved-key", 14], ["reserved-key:2", 20],
+    ]);
+  });
+
+  it("gives the closest group the previous id, independent of energy, snapshot and group order", () => {
+    const close = pulse(HOME, { eventKey: "close", peakAt: localIso(3, 12), peakOffshoreHeightFt: 3 });
+    const further = pulse(HOME, { eventKey: "further", peakAt: localIso(4, 12), peakOffshoreHeightFt: 8 });
+    const previous = buildSwellOutlook(input({ pulseSnapshots: [close] })).list;
+    previous.swells[0].id = "previous-id";
+    const forward = buildSwellOutlook(input({ previous, pulseSnapshots: [further, close] })).response.swells;
+    const backward = buildSwellOutlook(input({ previous, pulseSnapshots: [close, further] })).response.swells;
+    expect(forward.map(({ eventKey, id }) => [eventKey, id])).toEqual([["close", "previous-id"], ["further", "further"]]);
+    expect(backward.map(({ eventKey, id }) => [eventKey, id])).toEqual(forward.map(({ eventKey, id }) => [eventKey, id]));
+  });
+
+  it("breaks equal-distance carry ties deterministically across both input orders", () => {
+    const early = pulse(HOME, { eventKey: "a-early", peakAt: localIso(3, 12) });
+    const late = pulse(HOME, { eventKey: "b-late", peakAt: localIso(4, 12) });
+    const previous = buildSwellOutlook(input({ pulseSnapshots: [pulse(HOME, { peakAt: localIso(4, 0) })] })).list;
+    previous.swells[0].id = "previous-id";
+    const forward = buildSwellOutlook(input({ previous, pulseSnapshots: [early, late] })).response.swells;
+    const backward = buildSwellOutlook(input({ previous, pulseSnapshots: [late, early] })).response.swells;
+    expect(forward.map(({ eventKey, id }) => [eventKey, id])).toEqual([["a-early", "previous-id"], ["b-late", "b-late"]]);
+    expect(backward.map(({ eventKey, id }) => [eventKey, id])).toEqual(forward.map(({ eventKey, id }) => [eventKey, id]));
   });
 });
