@@ -1,7 +1,8 @@
 import { after, NextRequest, NextResponse } from "next/server";
 
 import { recordSwellOpen } from "@/lib/alerts/swell-outlook/state";
-import { withProtection } from "@/lib/middleware/api-wrappers";
+import { isSwellOutlookEnabled, isSwellOutlookUserAllowed } from "@/lib/flags/swell-outlook";
+import { withAuth, withProtection } from "@/lib/middleware/api-wrappers";
 import type { RouteContext } from "@/lib/middleware/api-wrappers/types";
 import {
   buildSwellCard,
@@ -18,16 +19,26 @@ export const runtime = "nodejs";
 // The body varies by the k and t query params; shared caches key on the full URL, query included.
 const CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=600";
 
-type OptionalUserContext = RouteContext & { user?: { id: string } | null };
+const recordAuthenticatedOpen = withAuth(async (_request, { user }): Promise<NextResponse> => {
+  if (!user || !isSwellOutlookUserAllowed(user.id)) return new NextResponse(null);
+  try {
+    await recordSwellOpen(createSupabaseServiceRoleClient(), user.id, new Date());
+  } catch (error) {
+    console.warn("[api/swell] Failed to record swell open:", error);
+  }
+  return new NextResponse(null);
+}, { optional: true });
 
-function recordOpen(userId: string | null): void {
-  if (!userId) return;
-  const now = new Date();
-  // Preserve the cached public response even if engagement storage stalls or rejects.
+function recordOpen(request: NextRequest): void {
+  if (!isSwellOutlookEnabled()) return;
+  const hasCredentials = /^Bearer\s+\S+/i.test(request.headers.get("authorization") ?? "")
+    || /(?:^|;\s*)sb-[^=]+-auth-token(?:\.\d+)?=/.test(request.headers.get("cookie") ?? "");
+  if (!hasCredentials) return;
+  // Auth and engagement storage must not delay or alter the public response.
   try {
     after(async (): Promise<void> => {
       try {
-        await recordSwellOpen(createSupabaseServiceRoleClient(), userId, now);
+        await recordAuthenticatedOpen(request);
       } catch (error) {
         console.warn("[api/swell] Failed to record swell open:", error);
       }
@@ -48,14 +59,14 @@ function recordOpen(userId: string | null): void {
  */
 async function swellEventHandler(
   request: NextRequest,
-  context?: OptionalUserContext,
+  context?: RouteContext,
 ): Promise<NextResponse> {
   const { eventKey } = (await context?.params) ?? {};
   if (!parseSwellEventKey(eventKey)) {
     return NextResponse.json({ error: "invalid_event_key" }, { status: 400 });
   }
 
-  recordOpen(context?.user?.id ?? null);
+  recordOpen(request);
 
   try {
     const event = await loadSwellShareEvent(
@@ -81,6 +92,5 @@ async function swellEventHandler(
 }
 
 export const GET = withProtection(swellEventHandler, {
-  auth: { required: false },
   rateLimit: { key: "public-default" },
 });
