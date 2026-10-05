@@ -7,7 +7,26 @@ export type SwellWatchPolicyProvenance =
   | "pending_review"
   | "production_approved";
 
+const TRAILING_BASELINE_SOURCE = "trailing_persisted_frames.v1" as const;
+const PARTITION_RAMP_TIMING_SOURCE = "partition_ramp.v1" as const;
+
+/** Absent blocks select the legacy forecast-front baseline and gate-frame timing. */
+export interface SwellWatchDetectionPolicy {
+  baseline?: {
+    source: typeof TRAILING_BASELINE_SOURCE;
+    trailing_hours: number;
+    maximum_lead_hours: number;
+    minimum_trailing_frames: number;
+  };
+  timing?: {
+    source: typeof PARTITION_RAMP_TIMING_SOURCE;
+    arrival_rise_fraction: number;
+    actionability_basis: "ramp_arrival" | "gated_arrival";
+  };
+}
+
 export interface SwellWatchPolicyValues {
+  detection?: SwellWatchDetectionPolicy;
   local_significance: {
     minimum_height_rise_ft: number;
     minimum_energy_ratio: number;
@@ -102,6 +121,28 @@ function isBoolean(value: unknown): value is boolean {
   return typeof value === "boolean";
 }
 
+function isIntegerBetween(value: unknown, min: number, max: number): boolean {
+  return typeof value === "number" && Number.isInteger(value) && value >= min && value <= max;
+}
+
+function hasValidDetection(value: unknown): boolean {
+  if (value === undefined) return true;
+  if (!isRecord(value)) return false;
+  const { baseline, timing, ...rest } = value;
+  if (Object.keys(rest).length > 0) return false;
+  if (baseline !== undefined) {
+    if (!isRecord(baseline) || Object.keys(baseline).length !== 4 || baseline.source !== TRAILING_BASELINE_SOURCE
+      || !isIntegerBetween(baseline.trailing_hours, 6, 72) || !isIntegerBetween(baseline.maximum_lead_hours, 1, 24)
+      || !isIntegerBetween(baseline.minimum_trailing_frames, 1, baseline.trailing_hours as number)) return false;
+  }
+  if (timing !== undefined) {
+    if (!isRecord(timing) || Object.keys(timing).length !== 3 || timing.source !== PARTITION_RAMP_TIMING_SOURCE
+      || typeof timing.arrival_rise_fraction !== "number" || !(timing.arrival_rise_fraction > 0 && timing.arrival_rise_fraction < 1)
+      || (timing.actionability_basis !== "ramp_arrival" && timing.actionability_basis !== "gated_arrival")) return false;
+  }
+  return true;
+}
+
 function hasValidPolicyValues(value: unknown): value is SwellWatchPolicyValues {
   if (!isRecord(value)) return false;
   const significance = value.local_significance;
@@ -114,6 +155,7 @@ function hasValidPolicyValues(value: unknown): value is SwellWatchPolicyValues {
   const failureHold = value.provider_failure_hold;
   const staleness = value.staleness;
   const cadence = value.cadence;
+  if (!hasValidDetection(value.detection)) return false;
   if (
     !isRecord(significance) ||
     !isRecord(impact) ||

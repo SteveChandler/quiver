@@ -1,0 +1,73 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`backtest of the nine scored swells (persisted production runs, SELECT-only capture) reproduces the persisted old events exactly and records the new outcomes 1`] = `
+{
+  "hatteras-0917": {
+    "new": [
+      "09-17T07:00/09-17T07:00",
+      "09-17T15:00/09-17T15:00",
+    ],
+    "old": [
+      "09-17T07:00/09-17T07:00",
+      "09-17T15:00/09-17T15:00",
+    ],
+  },
+  "hatteras-0920": {
+    "new": [],
+    "old": [
+      "09-20T18:00/09-20T18:00",
+    ],
+  },
+  "hatteras-0925": {
+    "new": [
+      "09-23T19:00/09-23T20:00",
+      "09-25T06:00/09-25T06:00",
+    ],
+    "old": [
+      "09-23T18:00/09-23T20:00",
+      "09-25T06:00/09-25T06:00",
+    ],
+  },
+  "hbpier-0929": {
+    "new": [],
+    "old": [
+      "09-29T05:00/09-29T07:00",
+    ],
+  },
+  "oceanbeach-0923": {
+    "new": [
+      "09-23T04:00/09-23T07:00",
+    ],
+    "old": [
+      "09-23T06:00/09-23T07:00",
+    ],
+  },
+  "scripps-0925": {
+    "new": [
+      "09-24T11:00/09-25T09:00",
+    ],
+    "old": [
+      "09-24T19:00/09-24T19:00",
+      "09-25T00:00/09-25T09:00",
+    ],
+  },
+  "steamer-1001": {
+    "new": [],
+    "old": [
+      "10-01T10:00/10-01T10:00",
+    ],
+  },
+  "steamer-1002": {
+    "new": [],
+    "old": [
+      "10-02T22:00/10-02T22:00",
+    ],
+  },
+  "waikiki-0928": {
+    "new": "unclosed_episode",
+    "old": [
+      "09-28T04:00/09-28T06:00",
+    ],
+  },
+}
+`;
