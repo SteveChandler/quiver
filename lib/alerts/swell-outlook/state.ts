@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { isDeepStrictEqual } from 'node:util';
 
 import type { StoredOutlookList } from '@/lib/services/discovery/swell-outlook-types';
 import type { Database } from '@/types/database.generated';
@@ -94,7 +95,10 @@ export async function loadSwellOutlookUserState(
 function changedColumns(current: SwellOutlookUserState, next: SwellOutlookUserState): Record<string, unknown> {
   const patch: Record<string, unknown> = {};
   for (const field of Object.keys(STATE_COLUMNS) as Array<keyof typeof STATE_COLUMNS>) {
-    if (current[field] !== next[field]) patch[STATE_COLUMNS[field]] = next[field];
+    const unchanged = field === 'outlookList' || field === 'outlookPrevList'
+      ? isDeepStrictEqual(current[field], next[field])
+      : current[field] === next[field];
+    if (!unchanged) patch[STATE_COLUMNS[field]] = next[field];
   }
   return patch;
 }

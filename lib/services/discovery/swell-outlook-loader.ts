@@ -51,36 +51,47 @@ interface OutlookProfile {
 }
 
 async function loadOutlookProfile(client: Client, userId: string): Promise<OutlookProfile | null> {
-  const { data, error } = await client
-    .from('profiles')
-    .select('home_beach_id, max_drive_minutes, experience_level, user_location_snapshots(lat, lon)')
-    .eq('id', userId)
-    .maybeSingle();
-  if (error) throw new Error(`Failed to load swell outlook profile: ${error.message}`);
-  if (!data) return null;
-  const row = data as unknown as {
-    home_beach_id: string | null;
-    max_drive_minutes: number | null;
-    experience_level: string | null;
-    user_location_snapshots: { lat: number; lon: number } | Array<{ lat: number; lon: number }> | null;
-  };
-  const joined = Array.isArray(row.user_location_snapshots) ? row.user_location_snapshots[0] : row.user_location_snapshots;
-  return {
-    homeBeachId: row.home_beach_id,
-    location: joined ? { lat: joined.lat, lon: joined.lon } : null,
-    maxDriveMinutes: row.max_drive_minutes,
-    experienceLevel: row.experience_level,
-  };
+  try {
+    const { data, error } = await client
+      .from('profiles')
+      .select('home_beach_id, max_drive_minutes, experience_level, user_location_snapshots(lat, lon)')
+      .eq('id', userId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data) return null;
+    const row = data as unknown as {
+      home_beach_id: string | null;
+      max_drive_minutes: number | null;
+      experience_level: string | null;
+      user_location_snapshots: { lat: number; lon: number } | Array<{ lat: number; lon: number }> | null;
+    };
+    const joined = Array.isArray(row.user_location_snapshots) ? row.user_location_snapshots[0] : row.user_location_snapshots;
+    return {
+      homeBeachId: row.home_beach_id,
+      location: joined ? { lat: joined.lat, lon: joined.lon } : null,
+      maxDriveMinutes: row.max_drive_minutes,
+      experienceLevel: row.experience_level,
+    };
+  } catch (error) {
+    console.warn('[swell-outlook] profile read failed; fit unknown', error instanceof Error ? error.message : String(error));
+    return { homeBeachId: null, location: null, maxDriveMinutes: null, experienceLevel: null };
+  }
 }
 
 /** A board type that does not normalise is dropped: guessing a class would move the fit band. */
-async function loadBoardClasses(client: Client, userId: string): Promise<BoardClass[]> {
-  const { data, error } = await client.from('boards').select('board_type').eq('user_id', userId);
-  if (error || !Array.isArray(data)) return [];
-  const classes = data
-    .map((row) => normalizeBoardClass(row.board_type))
-    .filter((boardClass): boardClass is BoardClass => boardClass !== null);
-  return [...new Set(classes)];
+async function loadBoardClasses(client: Client, userId: string): Promise<BoardClass[] | null> {
+  try {
+    const { data, error } = await client.from('boards').select('board_type').eq('user_id', userId);
+    if (error) throw new Error(error.message);
+    if (!Array.isArray(data)) throw new Error('Board data unavailable');
+    const classes = data
+      .map((row) => normalizeBoardClass(row.board_type))
+      .filter((boardClass): boardClass is BoardClass => boardClass !== null);
+    return [...new Set(classes)];
+  } catch (error) {
+    console.warn('[swell-outlook] board read failed; fit unknown', error instanceof Error ? error.message : String(error));
+    return null;
+  }
 }
 
 async function safeState(client: Client, userId: string): Promise<SwellOutlookUserState | null> {
@@ -139,6 +150,7 @@ export async function loadSwellOutlookForUser(args: {
     ? await deps.loadForecasts(client, stickyIds, new Date(now.getTime() - STICKY_ROWS_BACK_MS), new Date(now.getTime() + STICKY_ROWS_AHEAD_MS))
     : new Map();
 
+  const skillLevel = boardClasses === null ? null : parseSkillLevel(profile.experienceLevel);
   const { response, list } = buildSwellOutlook({
     pool,
     homeBeachId: profile.homeBeachId,
@@ -146,11 +158,16 @@ export async function loadSwellOutlookForUser(args: {
     notableSnapshots,
     forecastsByBeach,
     previous,
-    skillLevel: parseSkillLevel(profile.experienceLevel),
-    boardClasses,
+    skillLevel,
+    boardClasses: boardClasses ?? [],
     storms,
     now,
   });
+
+  if (skillLevel === null) {
+    // Carried entries may retain fit from an earlier successful preference read.
+    for (const swell of response.swells) swell.fit = { status: 'unknown', boards: [] };
+  }
 
   async function persist(): Promise<void> {
     try {

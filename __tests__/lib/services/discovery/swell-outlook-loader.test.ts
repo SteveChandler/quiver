@@ -53,6 +53,10 @@ function fakeClient(tables: {
   state?: Row | null;
   upsertError?: string;
   stateError?: string;
+  boardsError?: string;
+  profileError?: string;
+  boardsThrow?: string;
+  profileThrow?: string;
   beforeUpdate?: (row: Row) => void;
 }): {
   client: SupabaseClient<Database>;
@@ -76,7 +80,8 @@ function fakeClient(tables: {
         eq: (key: string, value: unknown): FakeQueryBuilder => { filters[key] = value; return builder; },
         update: (row: Row): FakeQueryBuilder => { patch = row; return builder; },
         maybeSingle: async (): Promise<QueryResult> => {
-          if (table === "profiles") return { data: tables.profile ?? null, error: null };
+          if (table === "profiles" && tables.profileThrow) throw new Error(tables.profileThrow);
+          if (table === "profiles") return { data: tables.profile ?? null, error: tables.profileError ? { message: tables.profileError } : null };
           if (tables.stateError) return { data: null, error: { message: tables.stateError } };
           if (!patch) return { data: fake.state ? { ...fake.state } : null, error: null };
           updates.push(patch);
@@ -96,7 +101,10 @@ function fakeClient(tables: {
           else if (!options.ignoreDuplicates) Object.assign(fake.state, row);
           return { error: null };
         },
-        then: (resolve: (value: unknown) => unknown): unknown => resolve({ data: tables.boards ?? [], error: null }),
+        then: (resolve: (value: unknown) => unknown): unknown => {
+          if (table === "boards" && tables.boardsThrow) throw new Error(tables.boardsThrow);
+          return resolve({ data: tables.boards ?? [], error: tables.boardsError ? { message: tables.boardsError } : null });
+        },
       };
       return builder;
     },
@@ -145,6 +153,41 @@ describe("loadSwellOutlookForUser", () => {
     expect(mixed.swells[0].fit).toEqual({ status: "in_range", boards: ["fish", "shortboard"] });
   });
 
+  it("uses the default skill band when no boards are recorded", async () => {
+    const response = await loadSwellOutlookForUser({ client: fakeClient({ profile: PROFILE, boards: [] }).client, userId: USER, now: NOW, recordOpen: true, deps: deps() });
+    await finishBookkeeping();
+    expect(response.swells).toHaveLength(1);
+    expect(response.swells[0].fit).toEqual({ status: "in_range", boards: [] });
+    expect(console.warn).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["returned error", { boardsError: "boards unavailable" }],
+    ["query rejection", { boardsThrow: "boards unavailable" }],
+  ])("answers with unknown fit and warns once for a boards %s", async (_name: string, failure: { boardsError?: string; boardsThrow?: string }) => {
+    const response = await loadSwellOutlookForUser({ client: fakeClient({ profile: PROFILE, ...failure }).client, userId: USER, now: NOW, recordOpen: true, deps: deps() });
+    await finishBookkeeping();
+    expect(response.swells).toHaveLength(1);
+    expect(response.swells[0].fit).toEqual({ status: "unknown", boards: [] });
+    expect(console.warn).toHaveBeenCalledTimes(1);
+    expect(console.warn).toHaveBeenCalledWith("[swell-outlook] board read failed; fit unknown", "boards unavailable");
+  });
+
+  it.each([
+    ["returned error", { profileError: "profile unavailable" }],
+    ["query rejection", { profileThrow: "profile unavailable" }],
+  ])("answers with unknown fit and warns once for a profile/skill %s", async (_name: string, failure: { profileError?: string; profileThrow?: string }) => {
+    const loaders = deps({ loadPool: jest.fn(async () => [{ beach: homeBeach, relation: "favorite" as const, distanceMiles: null }]) });
+    const response = await loadSwellOutlookForUser({ client: fakeClient({ profile: PROFILE, ...failure, boards: [{ board_type: "fish" }] }).client, userId: USER, now: NOW, recordOpen: true, deps: loaders });
+    await finishBookkeeping();
+    expect(response.swells).toHaveLength(1);
+    expect(response.swells[0].fit).toEqual({ status: "unknown", boards: [] });
+    expect(response.homeBeach).toBeNull();
+    expect(loaders.loadPool).toHaveBeenCalledWith(expect.objectContaining({ homeBeachId: null, location: null, maxDriveMinutes: null }));
+    expect(console.warn).toHaveBeenCalledTimes(1);
+    expect(console.warn).toHaveBeenCalledWith("[swell-outlook] profile read failed; fit unknown", "profile unavailable");
+  });
+
   it("lists a swell without a skill level and marks fit unknown", async () => {
     const response = await loadSwellOutlookForUser({ client: fakeClient({ profile: { ...PROFILE, experience_level: null } }).client, userId: USER, now: NOW, recordOpen: false, deps: deps() });
     expect(response.swells[0].fit.status).toBe("unknown");
@@ -172,6 +215,10 @@ describe("loadSwellOutlookForUser", () => {
     expect(quiet.updates).toEqual([expect.objectContaining({ outlook_list: expect.any(Object) })]);
     expect(quiet.updates[0]).not.toHaveProperty("consecutive_unanswered");
     expect(quiet.state).not.toHaveProperty("last_answered_at");
+    const updatedAt = quiet.state?.updated_at;
+    await loadSwellOutlookForUser({ client: quiet.client, userId: USER, now: NOW, recordOpen: false, deps: deps() });
+    expect(quiet.updates).toHaveLength(1);
+    expect(quiet.state?.updated_at).toBe(updatedAt);
     const opened = fakeClient({ profile: PROFILE, state: pending });
     await loadSwellOutlookForUser({ client: opened.client, userId: USER, now: NOW, recordOpen: true, deps: deps() });
     await finishBookkeeping();
@@ -210,6 +257,50 @@ describe("loadSwellOutlookForUser", () => {
     expect(mockAfterTasks).toHaveLength(1);
     await finishBookkeeping();
     expect(client.state?.outlook_list).toMatchObject({ runDate: "2026-09-25" });
+  });
+
+  it.each([
+    ["boards", "shrinking", { boardsError: "boards unavailable" }, new Date(NOW.getTime() + 24 * 60 * 60 * 1000)],
+    ["boards", "faded", { boardsError: "boards unavailable" }, new Date(NOW.getTime() + 24 * 60 * 60 * 1000)],
+    ["boards", "arrived", { boardsError: "boards unavailable" }, new Date("2026-09-28T20:00:00.000Z")],
+    ["profile", "shrinking", { profileError: "profile unavailable" }, new Date(NOW.getTime() + 24 * 60 * 60 * 1000)],
+    ["profile", "faded", { profileError: "profile unavailable" }, new Date(NOW.getTime() + 24 * 60 * 60 * 1000)],
+    ["profile", "arrived", { profileError: "profile unavailable" }, new Date("2026-09-28T20:00:00.000Z")],
+  ])("keeps carried fit unknown after a %s error for a %s swell", async (
+    _kind: string,
+    status: string,
+    failure: { boardsError?: string; profileError?: string },
+    now: Date,
+  ) => {
+    const first = fakeClient({ profile: PROFILE });
+    await loadSwellOutlookForUser({ client: first.client, userId: USER, now: NOW, recordOpen: false, deps: deps() });
+    expect((first.state?.outlook_list as { swells: Array<{ fit: { status: string } }> }).swells[0].fit.status).toBe("in_range");
+    const second = fakeClient({ profile: PROFILE, state: first.state, ...failure });
+    const rows = status === "shrinking" ? dayRows(3, { heightFt: 2.5, periodS: 14, direction: 270 }) : [];
+    const response = await loadSwellOutlookForUser({
+      client: second.client, userId: USER, now, recordOpen: true,
+      deps: deps({ loadSnapshots: jest.fn(async () => []), loadForecasts: jest.fn(async () => new Map([[HOME, rows]])) }),
+    });
+    await finishBookkeeping();
+    expect(response.swells).toHaveLength(1);
+    expect(response.swells[0].status).toBe(status);
+    expect(response.swells[0].fit).toEqual({ status: "unknown", boards: [] });
+    expect(second.state?.outlook_list).toMatchObject({ swells: [expect.objectContaining({ fit: { status: "unknown", boards: [] } })] });
+    expect(console.warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("writes only once for two identical outlook GET builds", async () => {
+    const client = fakeClient({ profile: PROFILE });
+    const first = await loadSwellOutlookForUser({ client: client.client, userId: USER, now: NOW, recordOpen: true, deps: deps() });
+    await finishBookkeeping();
+    expect(client.updates).toHaveLength(1);
+    const updatedAt = client.state?.updated_at;
+    const second = await loadSwellOutlookForUser({ client: client.client, userId: USER, now: NOW, recordOpen: true, deps: deps() });
+    await finishBookkeeping();
+    expect(second).toEqual(first);
+    expect(client.updates).toHaveLength(1);
+    expect(client.state?.updated_at).toBe(updatedAt);
+    expect(console.warn).not.toHaveBeenCalled();
   });
 
   it("preserves a concurrent send when persisting only the list", async () => {

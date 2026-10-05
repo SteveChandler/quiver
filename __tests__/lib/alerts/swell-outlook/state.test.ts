@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database.generated";
-import type { StoredOutlookList } from "@/lib/services/discovery/swell-outlook-types";
+import type { OutlookSwell, StoredOutlookList } from "@/lib/services/discovery/swell-outlook-types";
 import {
   advanceLists,
   loadSwellOutlookUserState,
@@ -30,6 +30,25 @@ interface FakeQueryBuilder {
 
 function copy<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function populatedList(runDate: string = "2026-10-04", size: number = 4, ids: string[] = ["one"]): StoredOutlookList {
+  const swells: OutlookSwell[] = ids.map((id: string): OutlookSwell => ({
+    id, eventKey: `${id}:W:2026-10-08:p`, tier: "on_the_radar", status: "forecast", change: "new",
+    arrivalAt: "2026-10-08T07:00:00.000Z", peakAt: "2026-10-08T19:00:00.000Z", peakWindow: null,
+    faceHeightFt: { min: size - 0.5, max: size + 0.5 }, periodS: 14, directionDeg: 270, directionLabel: "W",
+    beach: { id: "home", name: "Home Beach" }, beachCount: 1, notable: false,
+    fit: { status: "in_range", boards: ["fish"] }, source: "unknown", stormName: null,
+    sizeByOrientation: { southFacing: null, westFacing: { min: size - 0.5, max: size + 0.5 } },
+    history: [{ runDate, peakAt: "2026-10-08T19:00:00.000Z", faceHeightFt: size, periodS: 14 }],
+  }));
+  return { runDate, swells };
+}
+
+function reverseKeys<T>(value: T): T {
+  if (Array.isArray(value)) return value.map(reverseKeys) as T;
+  if (value === null || typeof value !== "object") return value;
+  return Object.fromEntries(Object.entries(value).reverse().map(([key, entry]) => [key, reverseKeys(entry)])) as T;
 }
 
 function rowFor(state: SwellOutlookUserState): Row {
@@ -196,6 +215,47 @@ describe("persistence", () => {
     expect(fake.updates).toEqual([]);
   });
 
+  it("writes an identical list only once and leaves the comparison token unchanged on repeat", async () => {
+    const fake = fakeClient(rowFor(EMPTY_SWELL_OUTLOOK_USER_STATE));
+    const outlook = populatedList();
+    await saveSwellOutlookLists(fake.client, USER, outlook);
+    expect(fake.updates).toHaveLength(1);
+    const updatedAt = fake.rows.get(USER)?.updated_at;
+    expect(updatedAt).toBe("2026-10-01T00:00:00.001Z");
+    fake.beforeUpdate = async (): Promise<void> => fake.bump();
+    await expect(saveSwellOutlookLists(fake.client, USER, reverseKeys(copy(outlook)))).resolves.toBeUndefined();
+    expect(fake.updates).toHaveLength(1);
+    expect(fake.rows.get(USER)?.updated_at).toBe(updatedAt);
+  });
+
+  it("compares both list columns by value for general transitions", async () => {
+    const initial = { ...EMPTY_SWELL_OUTLOOK_USER_STATE, outlookList: populatedList(), outlookPrevList: populatedList("2026-10-03") };
+    const fake = fakeClient(rowFor(initial));
+    const updatedAt = fake.rows.get(USER)?.updated_at;
+    await saveSwellOutlookUserState(fake.client, USER, (fresh) => ({
+      ...fresh, outlookList: reverseKeys(copy(fresh.outlookList)), outlookPrevList: reverseKeys(copy(fresh.outlookPrevList)),
+    }));
+    expect(fake.updates).toEqual([]);
+    expect(fake.rows.get(USER)?.updated_at).toBe(updatedAt);
+    expect(await loadSwellOutlookUserState(fake.client, USER)).toEqual(initial);
+  });
+
+  it.each([
+    ["a new swell", populatedList("2026-10-04", 4, ["one", "two"])],
+    ["a changed size", populatedList("2026-10-04", 5)],
+    ["a new run date", populatedList("2026-10-05")],
+  ])("writes exactly once for %s", async (_label: string, next: StoredOutlookList) => {
+    const initial = { ...EMPTY_SWELL_OUTLOOK_USER_STATE, outlookList: populatedList() };
+    const fake = fakeClient(rowFor(initial));
+    await saveSwellOutlookLists(fake.client, USER, next);
+    expect(fake.updates).toHaveLength(1);
+    expect(fake.rows.get(USER)?.updated_at).toBe("2026-10-01T00:00:00.001Z");
+    expect(await loadSwellOutlookUserState(fake.client, USER)).toEqual(advanceLists(initial, next));
+    await saveSwellOutlookLists(fake.client, USER, copy(next));
+    expect(fake.updates).toHaveLength(1);
+    expect(fake.rows.get(USER)?.updated_at).toBe("2026-10-01T00:00:00.001Z");
+  });
+
   it("writes only list columns for a list-only save and ignores an older run", async () => {
     const fake = fakeClient(rowFor(pausedState()));
     await saveSwellOutlookLists(fake.client, USER, list("2026-10-04"));
@@ -248,6 +308,21 @@ describe("recordSwellOpen", () => {
 });
 
 describe("concurrent writers", () => {
+  it("a no-op list save does not conflict with or disturb a pending sender write", async () => {
+    const initial = { ...EMPTY_SWELL_OUTLOOK_USER_STATE, outlookList: populatedList() };
+    const fake = fakeClient(rowFor(initial));
+    once(fake, async (): Promise<void> => {
+      const updatedAt = fake.rows.get(USER)?.updated_at;
+      await saveSwellOutlookLists(fake.client, USER, reverseKeys(copy(initial.outlookList)));
+      expect(fake.rows.get(USER)?.updated_at).toBe(updatedAt);
+      expect(fake.updates).toHaveLength(1);
+    });
+    await saveSwellOutlookUserState(fake.client, USER, (fresh) => recordSend(fresh, NOW, "followup", false));
+    expect(fake.updates).toHaveLength(1);
+    expect(fake.updates[0].patch).toEqual({ consecutive_unanswered: 1, last_sent_at: NOW.toISOString() });
+    expect(await loadSwellOutlookUserState(fake.client, USER)).toEqual(recordSend(initial, NOW, "followup", false));
+  });
+
   it("(a) replays an open after a cron exception send and list advance without erasing the send", async () => {
     const initial = pausedState();
     const fake = fakeClient(rowFor(initial));
