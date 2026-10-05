@@ -20,6 +20,7 @@ import {
 
 import {
   SWELL_EVENT_THRESHOLDS,
+  SYNTHETIC_FORECAST_DATA_SOURCE,
   exposureFactor,
   swellWindowForBeach,
   type SwellWindow,
@@ -42,7 +43,7 @@ export type SwellEventForecastRow = Pick<
   | "swell_2_height"
   | "swell_2_period"
   | "swell_2_direction"
->;
+> & { data_source?: string | null };
 
 export interface BeachSwellEvent {
   beachId: string;
@@ -206,6 +207,8 @@ export function exposedSwellRows(
 ): ExposedSwellRow[] {
   const rows: ExposedSwellRow[] = [];
   for (const forecast of forecasts) {
+    // Defence in depth: loaders that select("*") still hand synthetic rows here.
+    if (forecast.data_source === SYNTHETIC_FORECAST_DATA_SOURCE) continue;
     try {
       const at = Date.parse(forecast.forecast_at);
       if (!Number.isFinite(at)) continue;

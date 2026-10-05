@@ -73,7 +73,7 @@ function rows(heightFor: (localDate: string) => number): EnhancedForecastEntity[
 function client(forecasts: EnhancedForecastEntity[], snapshots: { data: unknown[] | null; error: unknown }) {
   const from = jest.fn((table: string) => {
     const chain: Record<string, unknown> = {};
-    for (const method of ["select", "in", "eq", "gte", "lt", "order"]) chain[method] = () => chain;
+    for (const method of ["select", "in", "or", "eq", "gte", "lt", "order"]) chain[method] = () => chain;
     chain.range = async (first: number, last: number) => {
       if (table === "swell_event_forecast_snapshots") {
         return first === 0 ? snapshots : { data: [], error: null };
