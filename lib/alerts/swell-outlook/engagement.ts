@@ -2,7 +2,7 @@ const SWELL_ENGAGEMENT = {
   answerWindowHours: 48,
   pauseAfterUnanswered: 3,
   exceptionAfterDays: 14,
-  firstSightingMinHours: 72,
+  firstSightingMinHours: 96,
 } as const;
 
 export interface SwellEngagementState {

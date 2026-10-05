@@ -1,4 +1,4 @@
--- A first-sighting claim reserves the user's 72-hour slot before enqueueing.
+-- A first-sighting claim reserves the user's 96-hour slot before enqueueing.
 -- The existing event ledger provides deduplication even if engagement saving fails.
 BEGIN;
 
@@ -32,7 +32,7 @@ BEGIN
 
   IF EXISTS (
     SELECT 1 FROM public.swell_event_alerts
-    WHERE user_id = p_user_id AND created_at > claim_now - interval '72 hours'
+    WHERE user_id = p_user_id AND created_at > claim_now - interval '96 hours'
   ) THEN
     RETURN jsonb_build_object('id', NULL, 'reason', 'first_sighting_spacing');
   END IF;

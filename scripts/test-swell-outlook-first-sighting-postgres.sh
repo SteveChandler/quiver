@@ -87,10 +87,10 @@ query('TRUNCATE swell_event_alerts')
 race('first', 'different')
 assert query('SELECT count(*) FROM swell_event_alerts') == '1'
 assert json.loads(query('SET ROLE service_role; ' + claim('other-user', recipient=other)))['id'], 'another user was blocked'
-within = query("BEGIN; UPDATE swell_event_alerts SET created_at=now()-interval '72 hours'+interval '1 microsecond' WHERE user_id='" + user + "'; SET ROLE service_role; " + claim('within') + "; ROLLBACK")
+within = query("BEGIN; UPDATE swell_event_alerts SET created_at=now()-interval '96 hours'+interval '1 millisecond' WHERE user_id='" + user + "'; SET ROLE service_role; " + claim('within') + "; ROLLBACK")
 assert json.loads(within) == {'id': None, 'reason': 'first_sighting_spacing'}
-boundary = query("BEGIN; UPDATE swell_event_alerts SET created_at=now()-interval '72 hours' WHERE user_id='" + user + "'; SET ROLE service_role; " + claim('boundary') + "; COMMIT")
-assert json.loads(boundary)['id'], 'exact 72-hour boundary blocked'
+boundary = query("BEGIN; UPDATE swell_event_alerts SET created_at=now()-interval '96 hours' WHERE user_id='" + user + "'; SET ROLE service_role; " + claim('boundary') + "; COMMIT")
+assert json.loads(boundary)['id'], 'exact 96-hour boundary blocked'
 query("UPDATE swell_event_alerts SET created_at=now()-interval '96 hours' WHERE user_id='" + user + "'")
 for key, aliases in [('renamed', ['first']), ('first', ['first'])]:
     assert json.loads(query('SET ROLE service_role; ' + claim(key, aliases=aliases))) == {'id': None, 'reason': 'event_exists'}
@@ -101,5 +101,5 @@ for supplied_clock in ['1970-01-01T00:00:00Z', '2999-01-01T00:00:00Z']:
     assert json.loads(result[0])['id'] and result[1] == 't', 'caller clock affected created_at'
     assert json.loads(query('SET ROLE service_role; ' + claim('clock-second', at=supplied_clock))) == {
         'id': None, 'reason': 'first_sighting_spacing'}, 'caller clock affected spacing'
-print('PASS: repeat migration, service-role isolation, same/different-event concurrency with distinct reasons, other-user independence, exact 72-hour boundary, aliases, permanent event dedupe, database clock with far-past/future callers')
+print('PASS: repeat migration, service-role isolation, same/different-event concurrency with distinct reasons, other-user independence, exact 96-hour boundary, aliases, permanent event dedupe, database clock with far-past/future callers')
 PY

@@ -6,8 +6,8 @@ const sql = readFileSync(join(process.cwd(), "supabase/migrations/20261004220000
 describe("first-sighting atomic claim migration", () => {
   it("serializes each user's event claims and checks spacing inside that lock", () => {
     expect(sql).toContain("pg_advisory_xact_lock");
-    expect(sql.indexOf("pg_advisory_xact_lock")).toBeLessThan(sql.indexOf("interval '72 hours'"));
-    expect(sql).toContain("created_at > claim_now - interval '72 hours'");
+    expect(sql.indexOf("pg_advisory_xact_lock")).toBeLessThan(sql.indexOf("interval '96 hours'"));
+    expect(sql).toContain("created_at > claim_now - interval '96 hours'");
     expect(sql).toContain("event_key = ANY(p_event_keys)");
     expect(sql).toContain("ON CONFLICT (user_id, event_key) DO NOTHING");
   });

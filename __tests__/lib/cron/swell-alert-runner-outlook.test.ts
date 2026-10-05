@@ -147,7 +147,7 @@ describe("swell alert cron: outlook users", () => {
     expect(deps.enqueue).not.toHaveBeenCalled();
   });
 
-  it("allows one first sighting per 72 h", async () => {
+  it("allows one first sighting per 96 h", async () => {
     const deps = makeDeps({ loadEngagement: jest.fn(async () => engagement({ lastFirstSightingAt: hoursAgo(10), lastSentAt: hoursAgo(10), consecutiveUnanswered: 0 })) });
     const summary = await runSwellAlertCron({ now: MORNING, deps: deps as never });
     expect(summary.skippedCounts.first_sighting_spacing).toBe(1);
@@ -267,11 +267,11 @@ describe("swell alert cron: persistence and concurrency", () => {
 
   it("preserves a concurrent app open when recording a stale send decision", async () => {
     const deps = makeDeps({ loadEngagement: jest.fn(async () => engagement({
-      consecutiveUnanswered: 2, lastSentAt: hoursAgo(72), lastFirstSightingAt: hoursAgo(72),
+      consecutiveUnanswered: 2, lastSentAt: hoursAgo(96), lastFirstSightingAt: hoursAgo(96),
     })) });
     await runSwellAlertCron({ now: MORNING, deps });
     const fresh = { ...EMPTY_SWELL_OUTLOOK_USER_STATE,
-      lastSentAt: hoursAgo(72), lastFirstSightingAt: hoursAgo(72),
+      lastSentAt: hoursAgo(96), lastFirstSightingAt: hoursAgo(96),
       lastAnsweredAt: new Date(MORNING.getTime() + 1000).toISOString() };
     expect(savedState(deps, fresh)).toMatchObject({ consecutiveUnanswered: 0, pausedSince: null,
       lastAnsweredAt: fresh.lastAnsweredAt, lastFirstSightingAt: MORNING.toISOString() });
@@ -378,9 +378,9 @@ describe("swell alert cron: outlook send boundaries", () => {
     expect(summary.sent).toBe(1);
   });
 
-  it("sends at exactly 72 hours, and does not assess rarity for an engaged user", async () => {
+  it("sends at exactly 96 hours, and does not assess rarity for an engaged user", async () => {
     const deps = makeDeps({ loadEngagement: jest.fn(async () => engagement({
-      lastFirstSightingAt: hoursAgo(72), lastSentAt: hoursAgo(72), consecutiveUnanswered: 1,
+      lastFirstSightingAt: hoursAgo(96), lastSentAt: hoursAgo(96), consecutiveUnanswered: 1,
     })) });
     const summary = await runSwellAlertCron({ now: MORNING, deps });
     expect(summary.sent).toBe(1);
@@ -500,6 +500,9 @@ describe("swell alert cron: exception candidate search", () => {
     expect(summary.sent).toBe(1);
     expect(deps.insertAlert).toHaveBeenCalledWith(expect.objectContaining({ eventKey: "later" }));
     expect(deps.enqueue).toHaveBeenCalledTimes(1);
+    expect(deps.enqueue).toHaveBeenCalledWith(expect.objectContaining({
+      type: "swell_watch", payload: expect.objectContaining({ kind: "coming" }),
+    }));
     expect(deps.saveEngagement).toHaveBeenCalledTimes(1);
     expect(savedState(deps, { ...EMPTY_SWELL_OUTLOOK_USER_STATE, ...paused })).toMatchObject({
       lastExceptionAt: MORNING.toISOString(), consecutiveUnanswered: 4, pausedSince: paused.pausedSince,

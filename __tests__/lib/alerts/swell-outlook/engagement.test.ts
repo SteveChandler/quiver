@@ -1,3 +1,4 @@
+import { NOTIFICATION_REGISTRY } from "@/lib/notifications/registry";
 import {
   EMPTY_SWELL_ENGAGEMENT,
   applyOpen,
@@ -134,7 +135,7 @@ describe("the 14-day rarity exception", () => {
 
   it("still enforces first-sighting spacing on a rarity exception", () => {
     const day14 = hours(pausedAt(), 14 * 24);
-    const state = { ...paused(), lastFirstSightingAt: hours(day14, -71).toISOString() };
+    const state = { ...paused(), lastFirstSightingAt: new Date(day14.getTime() - 96 * 3_600_000 + 1).toISOString() };
     expect(decideSend(state, day14, "first_sighting", true)).toEqual({
       ok: false, reason: "first_sighting_spacing", exceptionEligible: false,
     });
@@ -142,13 +143,13 @@ describe("the 14-day rarity exception", () => {
 });
 
 describe("first-sighting spacing", () => {
-  it("allows at most one first sighting per 72 h, without limiting follow-ups", () => {
+  it("allows at most one first sighting per 96 h, without limiting follow-ups", () => {
     const state = recordSend(EMPTY_SWELL_ENGAGEMENT, T0, "first_sighting", false);
     const answered = applyOpen(state, hours(T0, 2));
-    expect(decideSend(answered, hours(T0, 71), "first_sighting", false)).toMatchObject({ ok: false, reason: "first_sighting_spacing" });
-    expect(decideSend(answered, hours(T0, 71), "followup", false)).toEqual({ ok: true, exception: false });
-    expect(decideSend(answered, hours(T0, 73), "first_sighting", false)).toEqual({ ok: true, exception: false });
-    expect(decideSend(answered, hours(T0, 72), "first_sighting", false)).toEqual({ ok: true, exception: false });
+    expect(decideSend(answered, new Date(hours(T0, 96).getTime() - 1), "first_sighting", false)).toMatchObject({ ok: false, reason: "first_sighting_spacing" });
+    expect(decideSend(answered, new Date(hours(T0, 96).getTime() - 1), "followup", false)).toEqual({ ok: true, exception: false });
+    expect(decideSend(answered, hours(T0, 97), "first_sighting", false)).toEqual({ ok: true, exception: false });
+    expect(decideSend(answered, hours(T0, 96), "first_sighting", false)).toEqual({ ok: true, exception: false });
   });
 });
 
@@ -158,4 +159,14 @@ it("preserves extended state without mutating inputs", () => {
   expect(sent).toMatchObject({ consecutiveUnanswered: 1, lastSentAt: T0.toISOString(), lastFirstSightingAt: null });
   expect(sent.outlookList).toBe(state.outlookList);
   expect(state).toMatchObject({ consecutiveUnanswered: 0, lastSentAt: null });
+});
+
+it("matches the worker's shared coming cooldown exactly", () => {
+  const cooldown = NOTIFICATION_REGISTRY.swell_watch.cooldownMs;
+  expect(cooldown).toBe(96 * 3_600_000);
+  const state = recordSend(EMPTY_SWELL_ENGAGEMENT, T0, "first_sighting", false);
+  expect(decideSend(state, new Date(T0.getTime() + cooldown - 1), "first_sighting", false))
+    .toMatchObject({ ok: false, reason: "first_sighting_spacing" });
+  expect(decideSend(state, new Date(T0.getTime() + cooldown), "first_sighting", false))
+    .toEqual({ ok: true, exception: false });
 });
