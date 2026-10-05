@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database.generated";
 import {
   SWELL_EVENT_DETECTOR_VERSION,
+  SWELL_OUTLOOK_PULSE_DETECTOR_VERSION,
   loadRecentSwellSnapshots,
   loadSwellCrossingHistory,
   resolveEventKeys,
@@ -219,5 +220,29 @@ describe("snapshot store", () => {
     const failing = { rpc: jest.fn(async () => ({ data: null, error: { message: "function does not exist" } })) };
     await expect(loadSwellCrossingHistory(failing as unknown as SupabaseClient<Database>, [BEACH], new Date()))
       .rejects.toThrow("function does not exist");
+  });
+});
+
+
+describe("pulse snapshot versioning", () => {
+  it("writes the pulse detector version and keeps the notable default", () => {
+    const at = new Date("2026-09-25T14:30:00.000Z");
+    expect(toSwellEventSnapshotRow(event(), at).detector_version).toBe(SWELL_EVENT_DETECTOR_VERSION);
+    expect(toSwellEventSnapshotRow(event(), at, null, SWELL_OUTLOOK_PULSE_DETECTOR_VERSION).detector_version)
+      .toBe(SWELL_OUTLOOK_PULSE_DETECTOR_VERSION);
+  });
+
+  it("reads only the requested detector version", async () => {
+    const eq = jest.fn();
+    const builder: Record<string, unknown> = {};
+    for (const method of ["select", "in", "gte", "order"]) builder[method] = () => builder;
+    builder.eq = (...args: unknown[]) => { eq(...args); return builder; };
+    builder.range = () => Promise.resolve({ data: [], error: null });
+    const client = { from: () => builder } as unknown as SupabaseClient<Database>;
+    await loadRecentSwellSnapshots(client, [BEACH], new Date(), SWELL_OUTLOOK_PULSE_DETECTOR_VERSION);
+    expect(eq).toHaveBeenCalledWith("detector_version", SWELL_OUTLOOK_PULSE_DETECTOR_VERSION);
+    eq.mockClear();
+    await loadRecentSwellSnapshots(client, [BEACH], new Date());
+    expect(eq).toHaveBeenCalledWith("detector_version", SWELL_EVENT_DETECTOR_VERSION);
   });
 });

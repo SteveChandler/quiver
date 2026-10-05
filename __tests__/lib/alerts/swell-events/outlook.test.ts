@@ -6,10 +6,12 @@ import {
   detectBeachSwellEvents,
   detectBeachSwellPulses,
   prominenceRatio,
+  filterPulsesByRegionAgreement,
   type BeachSwellEvent,
   type SwellEventForecastRow,
+  type PulseRegionCandidate,
 } from "@/lib/alerts/swell-events";
-import { NOW, TIMEZONE, dayRows, localDate, localIso, swellBeach, type PartitionSpec } from "@/__tests__/helpers/swell-events";
+import { NOW, TIMEZONE, beachSwellEvent, dayRows, localDate, localIso, swellBeach, type PartitionSpec } from "@/__tests__/helpers/swell-events";
 
 const beach = swellBeach();
 
@@ -125,5 +127,95 @@ describe("prominenceRatio", () => {
     expect(prominenceRatio([0, 0, 0], 1)).toBe(0);
     expect(prominenceRatio([4, 3, 2], 0)).toBe(0);
     expect(prominenceRatio([2, 3, 4], 2)).toBe(0);
+  });
+});
+
+
+describe("filterPulsesByRegionAgreement", () => {
+  const ids = ["aaaaaaaa-0000-4000-8000-000000000001", "aaaaaaaa-0000-4000-8000-000000000002", "aaaaaaaa-0000-4000-8000-000000000003", "aaaaaaaa-0000-4000-8000-000000000004"];
+  const near = (index: number): { lat: number; lon: number } => ({ lat: 32.7 + index * 0.05, lon: -117.25 - index * 0.01 });
+  const pulse = (beachId: string, overrides: Partial<BeachSwellEvent> = {}): BeachSwellEvent => beachSwellEvent({ beachId, eventKey: `${beachId}:W:2026-09-28:p`, directionDeg: 270, periodS: 12, peakAt: "2026-09-28T19:00:00.000Z", ...overrides });
+
+  it("keeps a pulse seen by three beaches inside the region", () => {
+    const kept = filterPulsesByRegionAgreement(ids.slice(0, 3).map((id, index) => ({ beachId: id, ...near(index), pulses: [pulse(id)] })));
+    expect([...kept.keys()].sort()).toEqual(ids.slice(0, 3));
+  });
+
+  it("drops a pulse only two beaches agree on", () => {
+    expect(filterPulsesByRegionAgreement(ids.slice(0, 2).map((id, index) => ({ beachId: id, ...near(index), pulses: [pulse(id)] }))).size).toBe(0);
+  });
+
+  it("does not count a far beach or a different swell", () => {
+    const candidates = [
+      { beachId: ids[0], ...near(0), pulses: [pulse(ids[0])] },
+      { beachId: ids[1], ...near(1), pulses: [pulse(ids[1])] },
+      { beachId: ids[2], lat: 34.0, lon: -118.5, pulses: [pulse(ids[2])] },
+      { beachId: ids[3], ...near(2), pulses: [pulse(ids[3], { directionDeg: 180, periodS: 17 })] },
+    ];
+    expect(filterPulsesByRegionAgreement(candidates).size).toBe(0);
+  });
+
+  it("never counts a beach without coordinates", () => {
+    expect(filterPulsesByRegionAgreement(ids.slice(0, 3).map((id) => ({ beachId: id, lat: null, lon: null, pulses: [pulse(id)] }))).size).toBe(0);
+  });
+
+  it("counts distinct beach ids, regardless of duplicate pulses or candidates", () => {
+    const candidates = ids.slice(0, 2).map((id, index) => ({
+      beachId: id, ...near(index), pulses: [pulse(id), pulse(id)],
+    }));
+    expect(filterPulsesByRegionAgreement([...candidates, candidates[0]]).size).toBe(0);
+  });
+
+  it.each([
+    { directionDeg: 316 },
+    { periodS: 15.1 },
+    { peakAt: "2026-09-30T07:00:01.000Z" },
+  ])("rejects a third beach outside a single swell tolerance: %p", (overrides) => {
+    const candidates = ids.slice(0, 3).map((id, index) => ({
+      beachId: id, ...near(index), pulses: [pulse(id, index === 2 ? overrides : {})],
+    }));
+    expect(filterPulsesByRegionAgreement(candidates).size).toBe(0);
+  });
+
+  it("includes the 45 degree, 3 second and 36 hour boundaries", () => {
+    const candidates = ids.slice(0, 3).map((id, index) => ({
+      beachId: id, ...near(index), pulses: [pulse(id, index === 2 ? {
+        directionDeg: 315, periodS: 15, peakAt: "2026-09-30T07:00:00.000Z",
+      } : {})],
+    }));
+    expect([...filterPulsesByRegionAgreement(candidates).keys()].sort()).toEqual(ids.slice(0, 3));
+  });
+
+  it("matches directions across north", () => {
+    const candidates = ids.slice(0, 3).map((id, index) => ({
+      beachId: id, ...near(index), pulses: [pulse(id, { directionDeg: index === 2 ? 1 : 359 })],
+    }));
+    expect(filterPulsesByRegionAgreement(candidates).size).toBe(3);
+  });
+
+  it.each([null, Number.NaN, Number.POSITIVE_INFINITY])("excludes a third beach with invalid latitude %p", (lat) => {
+    const candidates = ids.slice(0, 3).map((id, index) => ({
+      beachId: id, ...near(index), lat: index === 2 ? lat : near(index).lat, pulses: [pulse(id)],
+    }));
+    expect(filterPulsesByRegionAgreement(candidates).size).toBe(0);
+  });
+
+  it("uses a 40 mile radius around each beach, rather than transitive agreement", () => {
+    const candidates: PulseRegionCandidate[] = ids.slice(0, 3).map((id, index) => ({
+      beachId: id, lat: 32.7 + index * 0.4, lon: -117.25, pulses: [pulse(id)],
+    }));
+    expect([...filterPulsesByRegionAgreement(candidates).keys()]).toEqual([ids[1]]);
+  });
+
+  it("filters each pulse independently and preserves the original events", () => {
+    const agreed = pulse(ids[0]);
+    const isolated = pulse(ids[0], { periodS: 17 });
+    const candidates = ids.slice(0, 3).map((id, index) => ({
+      beachId: id, ...near(index), pulses: index === 0 ? [agreed, isolated] : [pulse(id)],
+    }));
+    const kept = filterPulsesByRegionAgreement(candidates);
+    expect(kept.get(ids[0])).toEqual([agreed]);
+    expect(kept.get(ids[0])?.[0]).toBe(agreed);
+    expect(candidates[0].pulses).toEqual([agreed, isolated]);
   });
 });

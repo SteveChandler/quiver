@@ -134,6 +134,7 @@ export async function loadRecentSwellSnapshots(
   supabase: SupabaseClient<Database>,
   beachIds: string[],
   since: Date,
+  detectorVersion: string = SWELL_EVENT_DETECTOR_VERSION,
 ): Promise<SwellEventSnapshot[]> {
   // The table is not in the generated types; rows are validated field by field below.
   const client = supabase as unknown as SupabaseClient;
@@ -146,7 +147,7 @@ export async function loadRecentSwellSnapshots(
         .from(SWELL_EVENT_SNAPSHOTS_TABLE)
         .select(SNAPSHOT_COLUMNS)
         .in("beach_id", chunk)
-        .eq("detector_version", SWELL_EVENT_DETECTOR_VERSION)
+        .eq("detector_version", detectorVersion)
         .gte("detected_at", since.toISOString())
         .order("detected_at", { ascending: false })
         .order("beach_id", { ascending: true })
@@ -232,11 +233,12 @@ export function toSwellEventSnapshotRow(
   event: BeachSwellEvent,
   detectedAt: Date,
   crossing: SwellCrossing | null = null,
+  detectorVersion: string = SWELL_EVENT_DETECTOR_VERSION,
 ): SwellEventSnapshotRow {
   return {
     beach_id: event.beachId,
     event_key: event.eventKey,
-    detector_version: SWELL_EVENT_DETECTOR_VERSION,
+    detector_version: detectorVersion,
     run_date: detectedAt.toISOString().slice(0, 10),
     detected_at: detectedAt.toISOString(),
     direction_deg: event.directionDeg,

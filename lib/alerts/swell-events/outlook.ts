@@ -1,5 +1,6 @@
 import { degreeToCardinal, degreesToCardinal } from "@/lib/utils/geo-utils";
 import { getLocalDateStr } from "@/lib/services/discovery/window-selector/time-slot-utils";
+import { calculateDistanceInMiles } from "@/lib/utils/distance-utils";
 
 import {
   SWELL_EVENT_BASELINE_LOOKBACK_HOURS,
@@ -142,4 +143,42 @@ export function detectBeachSwellPulses(input: {
     if (!duplicate) kept.push(pulse);
   }
   return kept.sort((left, right) => Date.parse(left.peakAt) - Date.parse(right.peakAt));
+}
+
+export interface PulseRegionCandidate {
+  beachId: string;
+  lat: number | null;
+  lon: number | null;
+  pulses: BeachSwellEvent[];
+}
+
+function sameSwell(left: BeachSwellEvent, right: BeachSwellEvent): boolean {
+  return tracksSwellComponent(left, right)
+    && Math.abs(Date.parse(left.peakAt) - Date.parse(right.peakAt)) <= DUPLICATE_PEAK_MS;
+}
+
+function withinRegion(left: PulseRegionCandidate, right: PulseRegionCandidate): boolean {
+  if (left.lat === null || left.lon === null || right.lat === null || right.lon === null) return false;
+  return calculateDistanceInMiles(
+    { lat: left.lat, lon: left.lon },
+    { lat: right.lat, lon: right.lon },
+  ) <= SWELL_OUTLOOK_PULSE_THRESHOLDS.regionRadiusMiles;
+}
+
+export function filterPulsesByRegionAgreement(
+  candidates: readonly PulseRegionCandidate[],
+): Map<string, BeachSwellEvent[]> {
+  const kept = new Map<string, BeachSwellEvent[]>();
+  for (const candidate of candidates) {
+    const agreeing = candidate.pulses.filter((pulse) => {
+      const beaches = new Set<string>([candidate.beachId]);
+      for (const other of candidates) {
+        if (beaches.has(other.beachId) || !withinRegion(candidate, other)) continue;
+        if (other.pulses.some((otherPulse) => sameSwell(pulse, otherPulse))) beaches.add(other.beachId);
+      }
+      return beaches.size >= SWELL_OUTLOOK_PULSE_THRESHOLDS.minRegionBeaches;
+    });
+    if (agreeing.length > 0) kept.set(candidate.beachId, agreeing);
+  }
+  return kept;
 }
