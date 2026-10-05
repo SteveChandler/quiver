@@ -7,6 +7,7 @@ CREATE ROLE service_role BYPASSRLS;
 CREATE TABLE public.beaches (id uuid PRIMARY KEY, timezone text);
 \ir ../migrations/20260925150500_create_swell_event_forecast_snapshots.sql
 \ir ../migrations/20261004200000_add_swell_snapshot_lead_and_outcome.sql
+\ir ../migrations/20261004200000_add_swell_snapshot_lead_and_outcome.sql
 
 INSERT INTO public.beaches VALUES
   ('00000000-0000-4000-8000-000000000001', 'America/Los_Angeles'),
@@ -34,7 +35,7 @@ SELECT fixture_snapshot('00000000-0000-4000-8000-000000000001', 'later', '2026-1
 
 GRANT SELECT, UPDATE ON public.swell_event_forecast_snapshots TO service_role;
 SET ROLE service_role;
-SELECT public.resolve_swell_event_outcomes(timestamptz '2026-10-05 12:00+00') AS resolved \gset
+SELECT public.resolve_swell_event_outcomes(timestamptz '2026-10-05 12:00+00', 'swell-outlook-pulse.v1') AS resolved \gset
 RESET ROLE;
 SELECT :resolved = 8 AS count_ok \gset
 \if :count_ok
@@ -53,22 +54,22 @@ BEGIN
 END $$;
 
 -- Idempotent: a second call resolves nothing.
-DO $$ BEGIN ASSERT public.resolve_swell_event_outcomes(timestamptz '2026-10-05 12:00+00') = 0, 'repeat resolves nothing'; END $$;
+DO $$ BEGIN ASSERT public.resolve_swell_event_outcomes(timestamptz '2026-10-05 12:00+00', 'swell-outlook-pulse.v1') = 0, 'repeat resolves nothing'; END $$;
 SELECT 'swell snapshot outcomes OK: ' || :resolved || ' rows resolved';
 
 -- A first observation after the peak has no earlier run and is held.
 SELECT fixture_snapshot('00000000-0000-4000-8000-000000000001', 'first', '2026-10-01', '2026-10-01 14:30+00', '2026-09-30 20:00+00');
 DO $$ BEGIN
-  ASSERT public.resolve_swell_event_outcomes('2026-10-05 12:00+00') = 1, 'first observation resolves';
+  ASSERT public.resolve_swell_event_outcomes('2026-10-05 12:00+00', 'swell-outlook-pulse.v1') = 1, 'first observation resolves';
   ASSERT (SELECT outcome = 'held' FROM public.swell_event_forecast_snapshots WHERE event_key = 'first') IS TRUE, 'no earlier run is held';
 END $$;
 
 -- Strictly more than twelve hours; resolving again preserves older timestamps.
 SELECT fixture_snapshot('00000000-0000-4000-8000-000000000001', 'boundary', '2026-10-03', '2026-10-03 14:30+00', '2026-10-05 00:00+00');
 DO $$ BEGIN
-  ASSERT public.resolve_swell_event_outcomes('2026-10-05 12:00+00') = 0, 'exactly twelve hours is not due';
+  ASSERT public.resolve_swell_event_outcomes('2026-10-05 12:00+00', 'swell-outlook-pulse.v1') = 0, 'exactly twelve hours is not due';
   ASSERT (SELECT outcome IS NULL AND outcome_resolved_at IS NULL FROM public.swell_event_forecast_snapshots WHERE event_key = 'boundary') IS TRUE, 'boundary remains unresolved';
-  ASSERT public.resolve_swell_event_outcomes('2026-10-05 12:00:01+00') = 1, 'past twelve hours resolves';
+  ASSERT public.resolve_swell_event_outcomes('2026-10-05 12:00:01+00', 'swell-outlook-pulse.v1') = 1, 'past twelve hours resolves';
   ASSERT (SELECT bool_and(outcome_resolved_at = timestamptz '2026-10-05 12:00+00') FROM public.swell_event_forecast_snapshots WHERE event_key = 'gone') IS TRUE, 'earlier resolutions stay unchanged';
 END $$;
 
@@ -78,13 +79,13 @@ SELECT fixture_snapshot('00000000-0000-4000-8000-000000000001', 'drift', '2026-1
 SELECT fixture_snapshot('00000000-0000-4000-8000-000000000001', 'versioned', '2026-10-01', '2026-10-01 14:30+00', '2026-10-04 20:00+00');
 SELECT fixture_snapshot('00000000-0000-4000-8000-000000000001', 'versioned', '2026-10-03', '2026-10-03 14:30+00', '2026-10-04 20:00+00', 'swell-outlook-pulse.v1');
 DO $$ BEGIN
-  ASSERT public.resolve_swell_event_outcomes('2026-10-05 12:00+00') = 2, 'both detector versions resolve';
+  ASSERT public.resolve_swell_event_outcomes('2026-10-05 12:00+00', 'swell-outlook-pulse.v1') = 2, 'both detector versions resolve';
   ASSERT (SELECT bool_and(outcome IS NULL) FROM public.swell_event_forecast_snapshots WHERE event_key = 'drift') IS TRUE, 'latest future peak keeps every row unresolved';
   ASSERT (SELECT outcome = 'vanished' FROM public.swell_event_forecast_snapshots WHERE event_key = 'versioned' AND detector_version = 'swell-events.v1') IS TRUE, 'older version vanished';
   ASSERT (SELECT outcome = 'held' FROM public.swell_event_forecast_snapshots WHERE event_key = 'versioned' AND detector_version = 'swell-outlook-pulse.v1') IS TRUE, 'latest version held';
-  ASSERT NOT has_function_privilege('anon', 'public.resolve_swell_event_outcomes(timestamptz)', 'EXECUTE'), 'anon cannot resolve';
-  ASSERT NOT has_function_privilege('authenticated', 'public.resolve_swell_event_outcomes(timestamptz)', 'EXECUTE'), 'authenticated cannot resolve';
-  ASSERT has_function_privilege('service_role', 'public.resolve_swell_event_outcomes(timestamptz)', 'EXECUTE'), 'service role can resolve';
+  ASSERT NOT has_function_privilege('anon', 'public.resolve_swell_event_outcomes(timestamptz,text)', 'EXECUTE'), 'anon cannot resolve';
+  ASSERT NOT has_function_privilege('authenticated', 'public.resolve_swell_event_outcomes(timestamptz,text)', 'EXECUTE'), 'authenticated cannot resolve';
+  ASSERT has_function_privilege('service_role', 'public.resolve_swell_event_outcomes(timestamptz,text)', 'EXECUTE'), 'service role can resolve';
   BEGIN
     UPDATE public.swell_event_forecast_snapshots SET outcome = 'other' WHERE event_key = 'boundary';
     RAISE EXCEPTION 'invalid outcome accepted';
@@ -164,7 +165,7 @@ BEGIN
   ASSERT (SELECT count(DISTINCT beach_id) FROM bulk_events) = 30, '30 backlog beaches';
   ASSERT (SELECT count(DISTINCT run_date) FROM public.swell_event_forecast_snapshots WHERE event_key LIKE 'bulk:%') = 80, '80 backlog run dates';
   ASSERT (SELECT count(*) FROM expected_bulk_rows) = 2100, '2100 due backlog rows';
-  resolved := public.resolve_swell_event_outcomes('2026-10-05 12:00+00');
+  resolved := public.resolve_swell_event_outcomes('2026-10-05 12:00+00', 'swell-outlook-pulse.v1');
   ASSERT resolved = 2100, 'backlog row count matches';
   ASSERT NOT EXISTS (
     SELECT 1 FROM expected_bulk_rows e LEFT JOIN public.swell_event_forecast_snapshots s USING (id)
@@ -174,12 +175,12 @@ BEGIN
     SELECT 1 FROM bulk_events e JOIN public.swell_event_forecast_snapshots s USING (beach_id, event_key)
     WHERE s.outcome IS DISTINCT FROM e.expected_outcome
   ), '300 held and 300 vanished events match fixture intent';
-  ASSERT public.resolve_swell_event_outcomes('2026-10-05 13:00+00') = 0, 'backlog repeat updates nothing';
+  ASSERT public.resolve_swell_event_outcomes('2026-10-05 13:00+00', 'swell-outlook-pulse.v1') = 0, 'backlog repeat updates nothing';
   ASSERT NOT EXISTS (
     SELECT 1 FROM previously_resolved p LEFT JOIN public.swell_event_forecast_snapshots s USING (id)
     WHERE s.outcome IS DISTINCT FROM p.outcome OR s.outcome_resolved_at IS DISTINCT FROM p.outcome_resolved_at
   ), 'previously resolved rows never change';
-  ASSERT (SELECT NOT prosecdef AND proconfig @> ARRAY['search_path=public'] FROM pg_proc WHERE oid = 'public.resolve_swell_event_outcomes(timestamptz)'::regprocedure) IS TRUE, 'resolver stays invoker with pinned search path';
+  ASSERT (SELECT NOT prosecdef AND proconfig @> ARRAY['search_path=public'] FROM pg_proc WHERE oid = 'public.resolve_swell_event_outcomes(timestamptz,text)'::regprocedure) IS TRUE, 'resolver stays invoker with pinned search path';
 END $$;
 SELECT 'swell snapshot backlog equivalence OK: 600 events, 30 beaches, 80 run dates, 2100 rows';
 
@@ -187,10 +188,23 @@ SELECT 'swell snapshot backlog equivalence OK: 600 events, 30 beaches, 80 run da
 SELECT fixture_snapshot('00000000-0000-4000-8000-000000000001', 'strict-before', '2026-01-11', '2026-01-11 14:30+00', '2026-01-12 14:30+00');
 DO $$ BEGIN
   ASSERT EXISTS (SELECT 1 FROM public.swell_event_forecast_snapshots WHERE detected_at = timestamptz '2026-01-12 14:30+00'), 'run exists exactly at peak';
-  ASSERT public.resolve_swell_event_outcomes('2026-10-05 12:00+00') = 1, 'strict-before fixture resolves';
+  ASSERT public.resolve_swell_event_outcomes('2026-10-05 12:00+00', 'swell-outlook-pulse.v1') = 1, 'strict-before fixture resolves';
   ASSERT (SELECT outcome = 'held' FROM public.swell_event_forecast_snapshots WHERE event_key = 'strict-before') IS TRUE, 'equal peak timestamp is excluded from earlier runs';
 END $$;
 SELECT 'swell snapshot strict run-boundary assertions passed';
+
+-- Pulses stop listing on peak day, while notable rows still run that morning.
+SELECT fixture_snapshot('00000000-0000-4000-8000-000000000002', 'peak-day-run', '2026-10-04', '2026-10-04 08:00+00', '2026-10-20 20:00+00');
+SELECT fixture_snapshot('00000000-0000-4000-8000-000000000001', 'pulse-held', '2026-10-03', '2026-10-03 14:30+00', '2026-10-04 14:30+00', 'swell-outlook-pulse.v1');
+SELECT fixture_snapshot('00000000-0000-4000-8000-000000000001', 'pulse-vanished', '2026-10-01', '2026-10-01 14:30+00', '2026-10-04 14:30+00', 'swell-outlook-pulse.v1');
+DO $$ BEGIN
+  ASSERT public.resolve_swell_event_outcomes('2026-10-05 12:00+00', 'swell-outlook-pulse.v1') = 2, 'two pulse rows resolve';
+  ASSERT (SELECT outcome = 'held' FROM public.swell_event_forecast_snapshots WHERE event_key = 'pulse-held') IS TRUE, 'pulse last seen exactly 24 hours before peak is held';
+  ASSERT (SELECT outcome = 'vanished' FROM public.swell_event_forecast_snapshots WHERE event_key = 'pulse-vanished') IS TRUE, 'pulse last seen three days before peak vanished';
+  ASSERT public.resolve_swell_event_outcomes('2026-10-05 13:00+00', 'swell-outlook-pulse.v1') = 0, 'pulse repeat updates nothing';
+  ASSERT (SELECT bool_and(outcome_resolved_at = timestamptz '2026-10-05 12:00+00') FROM public.swell_event_forecast_snapshots WHERE event_key IN ('pulse-held', 'pulse-vanished')) IS TRUE, 'pulse resolutions never re-stamped';
+END $$;
+SELECT 'pulse outcomes OK: 2 rows, held at inclusive 24-hour boundary and vanished three days before peak';
 
 -- Per-user back-off state must remain private even with Supabase-style grants.
 CREATE TABLE public.profiles (id uuid PRIMARY KEY);

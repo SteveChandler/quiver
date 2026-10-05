@@ -24,7 +24,14 @@ describe("swell snapshot lead and outcome migration", () => {
     expect(sql).toMatch(/SECURITY INVOKER/);
     expect(sql).toMatch(/SET search_path = public/);
     expect(sql).not.toMatch(/SECURITY DEFINER/);
-    expect(sql).toMatch(/REVOKE ALL ON FUNCTION public\.resolve_swell_event_outcomes\(timestamptz\) FROM PUBLIC, anon, authenticated/);
-    expect(sql).toMatch(/GRANT EXECUTE ON FUNCTION public\.resolve_swell_event_outcomes\(timestamptz\) TO service_role/);
+    expect(sql).toMatch(/REVOKE ALL ON FUNCTION public\.resolve_swell_event_outcomes\(timestamptz, text\) FROM PUBLIC, anon, authenticated/);
+    expect(sql).toMatch(/GRANT EXECUTE ON FUNCTION public\.resolve_swell_event_outcomes\(timestamptz, text\) TO service_role/);
   });
+});
+
+it("takes the pulse version from its caller and uses a 24-hour outcome boundary", () => {
+  expect(sql).toContain("p_pulse_detector_version text");
+  expect(sql).toContain("detector_version = p_pulse_detector_version");
+  expect(sql).toContain("peak_at - interval '24 hours'");
+  expect(sql).not.toContain("swell-outlook-pulse.v1");
 });

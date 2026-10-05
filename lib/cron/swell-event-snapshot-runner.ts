@@ -143,6 +143,7 @@ function defaultDependencies(client: SupabaseClient<Database>): SwellEventSnapsh
     resolveOutcomes: async (now: Date): Promise<number> => {
       const { data, error } = await (client as unknown as SupabaseClient).rpc("resolve_swell_event_outcomes", {
         p_now: now.toISOString(),
+        p_pulse_detector_version: SWELL_OUTLOOK_PULSE_DETECTOR_VERSION,
       });
       if (error) throw new Error(`Failed to resolve swell event outcomes: ${error.message}`);
       return typeof data === "number" ? data : 0;

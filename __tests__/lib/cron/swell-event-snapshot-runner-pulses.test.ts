@@ -241,7 +241,7 @@ describe("runSwellEventSnapshotCron outcome RPC", () => {
     const rpc = clientWithRpc({ data: 4, error: null });
     const summary = await runSwellEventSnapshotCron({ now: NOW });
     expect(rpc).toHaveBeenCalledTimes(1);
-    expect(rpc).toHaveBeenCalledWith("resolve_swell_event_outcomes", { p_now: NOW.toISOString() });
+    expect(rpc).toHaveBeenCalledWith("resolve_swell_event_outcomes", { p_now: NOW.toISOString(), p_pulse_detector_version: SWELL_OUTLOOK_PULSE_DETECTOR_VERSION });
     expect(summary.outcomesResolved).toBe(4);
   });
 
@@ -256,7 +256,7 @@ describe("runSwellEventSnapshotCron outcome RPC", () => {
     const warn = jest.spyOn(console, "warn");
     const rpc = clientWithRpc({ data: null, error: { message: "function unavailable" } });
     const summary = await runSwellEventSnapshotCron({ now: NOW });
-    expect(rpc).toHaveBeenCalledWith("resolve_swell_event_outcomes", { p_now: NOW.toISOString() });
+    expect(rpc).toHaveBeenCalledWith("resolve_swell_event_outcomes", { p_now: NOW.toISOString(), p_pulse_detector_version: SWELL_OUTLOOK_PULSE_DETECTOR_VERSION });
     expect(summary.outcomesResolved).toBe(0);
     expectConsoleWarnings([/outcome resolution failed/]);
     expect(warn).toHaveBeenCalledWith("[swell-event-snapshots] outcome resolution failed", {
