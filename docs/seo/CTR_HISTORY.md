@@ -401,8 +401,10 @@ measurement window is undisturbed.
 
 **Deploy and hold.**
 
-- Deploy date and prod SHA: pending; record here when it ships. Pages go live
-  after the first prod tide cron run that follows the deploy (Sun/Wed 04:00 UTC).
+- Deployed 2026-10-05 02:53 UTC (2026-10-04 19:53 PDT): prod `a2778c8b7`
+  via #953, which also carried #945 (cron :00 spread). Pages go live after the
+  first prod tide cron run that follows the deploy (Sun/Wed 04:00 UTC, or a
+  manual run).
 - Hold these 50 pages for four weeks after the first run that writes their
   rows: no metadata, schema or copy changes.
 - Monitor only: indexed `/mexico/.../tides` count in GSC, Dataset
