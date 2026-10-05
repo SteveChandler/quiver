@@ -6,10 +6,18 @@ import type { Database } from '@/types/database.generated';
 import { EMPTY_SWELL_ENGAGEMENT, applyOpen, type SwellEngagementState } from './engagement';
 
 const TABLE = 'swell_outlook_user_state';
-const COLUMNS = [
-  'user_id', 'consecutive_unanswered', 'last_sent_at', 'paused_since', 'last_answered_at',
-  'last_exception_at', 'last_first_sighting_at', 'outlook_list', 'outlook_prev_list',
-].join(',');
+const MAX_WRITE_ATTEMPTS = 3;
+const STATE_COLUMNS = {
+  consecutiveUnanswered: 'consecutive_unanswered',
+  lastSentAt: 'last_sent_at',
+  pausedSince: 'paused_since',
+  lastAnsweredAt: 'last_answered_at',
+  lastExceptionAt: 'last_exception_at',
+  lastFirstSightingAt: 'last_first_sighting_at',
+  outlookList: 'outlook_list',
+  outlookPrevList: 'outlook_prev_list',
+} as const;
+const COLUMNS = ['user_id', ...Object.values(STATE_COLUMNS), 'updated_at'].join(',');
 
 export interface SwellOutlookUserState extends SwellEngagementState {
   outlookList: StoredOutlookList | null;
@@ -21,6 +29,21 @@ export const EMPTY_SWELL_OUTLOOK_USER_STATE: SwellOutlookUserState = {
   outlookList: null,
   outlookPrevList: null,
 };
+
+// Retried against fresh state; callbacks must be pure and never return a captured snapshot.
+export type SwellOutlookStateTransition = (state: SwellOutlookUserState) => SwellOutlookUserState;
+
+export class SwellOutlookStateConflictError extends Error {
+  constructor(userId: string) {
+    super(`Swell outlook state changed during all ${MAX_WRITE_ATTEMPTS} attempts for user ${userId}`);
+    this.name = 'SwellOutlookStateConflictError';
+  }
+}
+
+interface StateSnapshot {
+  state: SwellOutlookUserState;
+  updatedAt: string;
+}
 
 // The written migration is not in the generated types yet.
 function untyped(supabase: SupabaseClient<Database>): SupabaseClient {
@@ -39,45 +62,85 @@ function parseList(value: unknown): StoredOutlookList | null {
     : null;
 }
 
-export async function loadSwellOutlookUserState(
-  supabase: SupabaseClient<Database>,
-  userId: string,
-): Promise<SwellOutlookUserState | null> {
+async function loadSnapshot(supabase: SupabaseClient<Database>, userId: string): Promise<StateSnapshot | null> {
   const { data, error } = await untyped(supabase).from(TABLE).select(COLUMNS).eq('user_id', userId).maybeSingle();
   if (error) throw new Error(`Failed to load swell outlook state: ${error.message}`);
   if (!data) return null;
   const row = data as unknown as Record<string, unknown>;
-  const count = typeof row.consecutive_unanswered === 'number' ? row.consecutive_unanswered : 0;
+  const updatedAt = text(row.updated_at);
+  if (!updatedAt) throw new Error('Swell outlook state is missing updated_at');
   return {
-    consecutiveUnanswered: count,
-    lastSentAt: text(row.last_sent_at),
-    pausedSince: text(row.paused_since),
-    lastAnsweredAt: text(row.last_answered_at),
-    lastExceptionAt: text(row.last_exception_at),
-    lastFirstSightingAt: text(row.last_first_sighting_at),
-    outlookList: parseList(row.outlook_list),
-    outlookPrevList: parseList(row.outlook_prev_list),
+    updatedAt,
+    state: {
+      consecutiveUnanswered: typeof row.consecutive_unanswered === 'number' ? row.consecutive_unanswered : 0,
+      lastSentAt: text(row.last_sent_at),
+      pausedSince: text(row.paused_since),
+      lastAnsweredAt: text(row.last_answered_at),
+      lastExceptionAt: text(row.last_exception_at),
+      lastFirstSightingAt: text(row.last_first_sighting_at),
+      outlookList: parseList(row.outlook_list),
+      outlookPrevList: parseList(row.outlook_prev_list),
+    },
   };
+}
+
+export async function loadSwellOutlookUserState(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+): Promise<SwellOutlookUserState | null> {
+  return (await loadSnapshot(supabase, userId))?.state ?? null;
+}
+
+function changedColumns(current: SwellOutlookUserState, next: SwellOutlookUserState): Record<string, unknown> {
+  const patch: Record<string, unknown> = {};
+  for (const field of Object.keys(STATE_COLUMNS) as Array<keyof typeof STATE_COLUMNS>) {
+    if (current[field] !== next[field]) patch[STATE_COLUMNS[field]] = next[field];
+  }
+  return patch;
+}
+
+async function applyTransition(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  transition: SwellOutlookStateTransition,
+  createIfMissing: boolean,
+): Promise<void> {
+  for (let attempt = 0; attempt < MAX_WRITE_ATTEMPTS; attempt += 1) {
+    let snapshot = await loadSnapshot(supabase, userId);
+    if (!snapshot) {
+      if (!createIfMissing) return;
+      const { error } = await untyped(supabase).from(TABLE).upsert(
+        { user_id: userId }, { onConflict: 'user_id', ignoreDuplicates: true },
+      );
+      if (error) throw new Error(`Failed to create swell outlook state: ${error.message}`);
+      snapshot = await loadSnapshot(supabase, userId);
+      if (!snapshot) continue;
+    }
+    const patch = changedColumns(snapshot.state, transition(snapshot.state));
+    if (Object.keys(patch).length === 0) return;
+    const { data, error } = await untyped(supabase).from(TABLE)
+      .update(patch).eq('user_id', userId).eq('updated_at', snapshot.updatedAt)
+      .select('user_id').maybeSingle();
+    if (error) throw new Error(`Failed to save swell outlook state: ${error.message}`);
+    if (data) return;
+  }
+  throw new SwellOutlookStateConflictError(userId);
 }
 
 export async function saveSwellOutlookUserState(
   supabase: SupabaseClient<Database>,
   userId: string,
-  state: SwellOutlookUserState,
+  transition: SwellOutlookStateTransition,
 ): Promise<void> {
-  const { error } = await untyped(supabase).from(TABLE).upsert({
-    user_id: userId,
-    consecutive_unanswered: state.consecutiveUnanswered,
-    last_sent_at: state.lastSentAt,
-    paused_since: state.pausedSince,
-    last_answered_at: state.lastAnsweredAt,
-    last_exception_at: state.lastExceptionAt,
-    last_first_sighting_at: state.lastFirstSightingAt,
-    outlook_list: state.outlookList,
-    outlook_prev_list: state.outlookPrevList,
-    updated_at: new Date().toISOString(),
-  }, { onConflict: 'user_id' });
-  if (error) throw new Error(`Failed to save swell outlook state: ${error.message}`);
+  await applyTransition(supabase, userId, transition, true);
+}
+
+export async function saveSwellOutlookLists(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  list: StoredOutlookList,
+): Promise<void> {
+  await saveSwellOutlookUserState(supabase, userId, (state) => advanceLists(state, list));
 }
 
 export function previousListFor(state: SwellOutlookUserState, runDate: string): StoredOutlookList | null {
@@ -87,6 +150,7 @@ export function previousListFor(state: SwellOutlookUserState, runDate: string): 
 }
 
 export function advanceLists(state: SwellOutlookUserState, list: StoredOutlookList): SwellOutlookUserState {
+  if (state.outlookList && state.outlookList.runDate > list.runDate) return state;
   if (state.outlookList?.runDate === list.runDate) return { ...state, outlookList: list };
   return { ...state, outlookPrevList: state.outlookList, outlookList: list };
 }
@@ -96,9 +160,10 @@ export async function recordSwellOpen(
   userId: string,
   now: Date,
 ): Promise<void> {
-  const state = await loadSwellOutlookUserState(supabase, userId);
-  if (!state) return;
-  const next = applyOpen(state, now);
-  if (next === state) return;
-  await saveSwellOutlookUserState(supabase, userId, next);
+  try {
+    await applyTransition(supabase, userId, (state) => applyOpen(state, now), false);
+  } catch (error) {
+    if (error instanceof SwellOutlookStateConflictError) return;
+    throw error;
+  }
 }

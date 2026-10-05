@@ -25,7 +25,15 @@ describe("swell outlook user state migration", () => {
 
   it("is service role only", () => {
     expect(sql).toMatch(/ALTER TABLE public\.swell_outlook_user_state ENABLE ROW LEVEL SECURITY/);
+    expect(sql).toMatch(/REVOKE ALL ON public\.swell_outlook_user_state FROM PUBLIC, anon, authenticated;/);
+    expect(sql).toMatch(/GRANT SELECT, INSERT, UPDATE ON public\.swell_outlook_user_state TO service_role;/);
     expect(sql).not.toMatch(/CREATE POLICY/);
     expect(sql).not.toMatch(/DROP |DELETE FROM|TRUNCATE/);
+  });
+
+  it("changes the comparison token on every update, including updates in one transaction", () => {
+    expect(sql).toMatch(/BEFORE UPDATE ON public\.swell_outlook_user_state/);
+    expect(sql).toMatch(/clock_timestamp\(\)/);
+    expect(sql).toMatch(/OLD\.updated_at \+ interval '1 microsecond'/);
   });
 });

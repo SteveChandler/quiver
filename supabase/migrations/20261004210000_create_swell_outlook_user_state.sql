@@ -19,5 +19,30 @@ CREATE TABLE IF NOT EXISTS public.swell_outlook_user_state (
 
 -- Service role only: RLS on with no policies, as on swell_event_user_state.
 ALTER TABLE public.swell_outlook_user_state ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.swell_outlook_user_state FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE ON public.swell_outlook_user_state TO service_role;
+
+-- A strictly increasing token detects every writer, even within one transaction.
+CREATE OR REPLACE FUNCTION public.set_swell_outlook_user_state_updated_at()
+RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $$
+BEGIN
+  NEW.updated_at := GREATEST(clock_timestamp(), OLD.updated_at + interval '1 microsecond');
+  RETURN NEW;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.set_swell_outlook_user_state_updated_at() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.set_swell_outlook_user_state_updated_at() TO service_role;
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger
+    WHERE tgrelid = 'public.swell_outlook_user_state'::regclass
+      AND tgname = 'swell_outlook_user_state_updated_at'
+  ) THEN
+    CREATE TRIGGER swell_outlook_user_state_updated_at
+      BEFORE UPDATE ON public.swell_outlook_user_state
+      FOR EACH ROW EXECUTE FUNCTION public.set_swell_outlook_user_state_updated_at();
+  END IF;
+END $$;
 
 COMMIT;

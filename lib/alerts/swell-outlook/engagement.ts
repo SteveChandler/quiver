@@ -94,12 +94,13 @@ export function recordSend<T extends SwellEngagementState>(
   kind: SwellSendKind,
   exception: boolean,
 ): T {
+  const current = settle(state, now);
   const at = now.toISOString();
   return {
-    ...state,
-    consecutiveUnanswered: state.consecutiveUnanswered + 1,
+    ...current,
+    consecutiveUnanswered: current.consecutiveUnanswered + 1,
     lastSentAt: at,
-    lastFirstSightingAt: kind === 'first_sighting' ? at : state.lastFirstSightingAt,
-    lastExceptionAt: exception ? at : state.lastExceptionAt,
+    lastFirstSightingAt: kind === 'first_sighting' ? at : current.lastFirstSightingAt,
+    lastExceptionAt: exception ? at : current.lastExceptionAt,
   };
 }

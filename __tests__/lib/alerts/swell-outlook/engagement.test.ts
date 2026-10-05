@@ -106,6 +106,24 @@ describe("the 14-day rarity exception", () => {
     expect(decideSend(after, hours(day14, 14 * 24), "first_sighting", true)).toEqual({ ok: true, exception: true });
   });
 
+  it("settles an unrecorded pause before two unanswered exceptions exactly 14 days apart", () => {
+    const state = sentThrice();
+    const pauseStart = hours(T0, 146 + 48);
+    const firstAt = hours(pauseStart, 14 * 24);
+    expect(state.pausedSince).toBeNull();
+    const first = recordSend(state, firstAt, "first_sighting", true);
+    expect(first.pausedSince).toBe(pauseStart.toISOString());
+    const secondAt = hours(firstAt, 14 * 24);
+    expect(decideSend(first, new Date(secondAt.getTime() - 1), "first_sighting", true)).toEqual({
+      ok: false, reason: "skipped_unengaged", exceptionEligible: false,
+    });
+    expect(decideSend(first, secondAt, "first_sighting", true)).toEqual({ ok: true, exception: true });
+    const second = recordSend(first, secondAt, "first_sighting", true);
+    expect(second).toMatchObject({
+      pausedSince: pauseStart.toISOString(), consecutiveUnanswered: 5, lastExceptionAt: secondAt.toISOString(),
+    });
+  });
+
   it("resumes and answers an exception opened within 48 h", () => {
     const day14 = hours(pausedAt(), 14 * 24);
     const after = recordSend(paused(), day14, "first_sighting", true);

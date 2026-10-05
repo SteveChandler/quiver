@@ -195,15 +195,26 @@ SELECT 'swell snapshot strict run-boundary assertions passed';
 -- Per-user back-off state must remain private even with Supabase-style grants.
 CREATE TABLE public.profiles (id uuid PRIMARY KEY);
 INSERT INTO public.profiles VALUES ('dddddddd-1111-4111-8111-000000000001');
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
 \ir ../migrations/20261004210000_create_swell_outlook_user_state.sql
 \ir ../migrations/20261004210000_create_swell_outlook_user_state.sql
 
-DO $$ BEGIN
+DO $$ DECLARE
+  role_name text;
+  privilege_name text;
+BEGIN
   ASSERT (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.swell_outlook_user_state'::regclass), 'user state enables RLS';
   ASSERT NOT EXISTS (SELECT 1 FROM pg_policy WHERE polrelid = 'public.swell_outlook_user_state'::regclass), 'user state has no policies';
+  FOREACH role_name IN ARRAY ARRAY['anon', 'authenticated'] LOOP
+    FOREACH privilege_name IN ARRAY ARRAY['SELECT', 'INSERT', 'UPDATE', 'DELETE'] LOOP
+      ASSERT NOT has_table_privilege(role_name, 'public.swell_outlook_user_state', privilege_name), 'client table privileges revoked';
+    END LOOP;
+  END LOOP;
+  FOREACH privilege_name IN ARRAY ARRAY['SELECT', 'INSERT', 'UPDATE'] LOOP
+    ASSERT has_table_privilege('service_role', 'public.swell_outlook_user_state', privilege_name), 'service role privileges granted';
+  END LOOP;
 END $$;
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.swell_outlook_user_state TO anon, authenticated, service_role;
 SET ROLE service_role;
 INSERT INTO public.swell_outlook_user_state (user_id, consecutive_unanswered, outlook_list, outlook_prev_list)
 VALUES ('dddddddd-1111-4111-8111-000000000001', 3, '{"runDate":"2026-10-04","swells":[]}', '{"runDate":"2026-10-03","swells":[]}');
@@ -221,11 +232,33 @@ DO $$ BEGIN
   EXCEPTION WHEN check_violation THEN NULL;
   END;
 END $$;
+DO $$ DECLARE
+  old_version timestamptz;
+  next_version timestamptz;
+  affected integer;
+BEGIN
+  SELECT updated_at INTO old_version FROM public.swell_outlook_user_state;
+  UPDATE public.swell_outlook_user_state SET consecutive_unanswered = 3;
+  SELECT updated_at INTO next_version FROM public.swell_outlook_user_state;
+  ASSERT next_version > old_version, 'trigger advances updated_at even on a no-op update';
+  UPDATE public.swell_outlook_user_state SET consecutive_unanswered = 0 WHERE updated_at = old_version;
+  GET DIAGNOSTICS affected = ROW_COUNT;
+  ASSERT affected = 0, 'stale compare-and-swap affects zero rows';
+  ASSERT (SELECT consecutive_unanswered = 3 FROM public.swell_outlook_user_state), 'stale counter write rejected';
+  UPDATE public.swell_outlook_user_state SET consecutive_unanswered = 2 WHERE updated_at = next_version;
+  GET DIAGNOSTICS affected = ROW_COUNT;
+  ASSERT affected = 1, 'fresh compare-and-swap affects one row';
+  ASSERT (SELECT updated_at > next_version FROM public.swell_outlook_user_state), 'updates in one transaction get distinct versions';
+END $$;
 RESET ROLE;
 
 SET ROLE anon;
 DO $$ BEGIN
-  ASSERT NOT EXISTS (SELECT 1 FROM public.swell_outlook_user_state), 'anon cannot read user state';
+  BEGIN
+    PERFORM 1 FROM public.swell_outlook_user_state;
+    RAISE EXCEPTION 'anon read accepted';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
   BEGIN
     INSERT INTO public.swell_outlook_user_state (user_id) VALUES ('dddddddd-1111-4111-8111-000000000001');
     RAISE EXCEPTION 'anon write accepted';
@@ -236,7 +269,11 @@ RESET ROLE;
 
 SET ROLE authenticated;
 DO $$ BEGIN
-  ASSERT NOT EXISTS (SELECT 1 FROM public.swell_outlook_user_state), 'authenticated cannot read user state';
+  BEGIN
+    PERFORM 1 FROM public.swell_outlook_user_state;
+    RAISE EXCEPTION 'authenticated read accepted';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
   BEGIN
     INSERT INTO public.swell_outlook_user_state (user_id) VALUES ('dddddddd-1111-4111-8111-000000000001');
     RAISE EXCEPTION 'authenticated write accepted';
