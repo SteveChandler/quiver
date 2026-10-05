@@ -18,7 +18,7 @@ export {
   type SwellEventForecastRow,
 } from "./detector";
 export { detectSwellCrossing, type SwellCrossing } from "./crossing";
-export { loadSwellForecastRows } from "./forecast-rows";
+export { EXCLUDE_SYNTHETIC_ROWS_FILTER, loadSwellForecastRows } from "./forecast-rows";
 export {
   SWELL_EVENT_KEY_REUSE_DAYS,
   loadRecentSwellSnapshots,

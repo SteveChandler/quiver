@@ -91,7 +91,7 @@ function cappedForecastClient(rows: EnhancedForecastEntity[], cap = 1000) {
     const ops: QueryOp[] = [];
     queries.push(ops);
     const chain: Record<string, unknown> = {};
-    for (const method of ["select", "in", "gte", "lt", "order"]) {
+    for (const method of ["select", "in", "or", "gte", "lt", "order"]) {
       chain[method] = (...args: unknown[]) => {
         ops.push([method, args]);
         return chain;
@@ -341,6 +341,7 @@ describe("swell alert forecast read under the PostgREST row cap", () => {
       expect(ops).toEqual([
         ["select", ["*"]],
         ["in", ["beach_id", [beach.id, southBeach.id]]],
+        ["or", ["data_source.is.null,data_source.neq.FALLBACK"]],
         ["gte", ["forecast_at", "2026-08-19T00:00:00.000Z"]],
         ["lt", ["forecast_at", "2026-09-28T00:00:00.000Z"]],
         ["order", ["forecast_at", { ascending: true }]],
