@@ -57,10 +57,10 @@ function isKnownPlayerEndpoint(url: URL, provider: string): boolean {
       return isWellFormedYouTubeEmbed(url);
     case "vimeo":
       return url.hostname === "player.vimeo.com" && url.pathname.startsWith("/video/");
-    case "ozolio": {
-      const cmd = url.searchParams.get("cmd");
-      return cmd === "embed" || cmd === "iframe";
-    }
+    case "ozolio":
+      // Ozolio streams are locked to the owner's site: on a device the player
+      // loads and never plays ("The embedding method is not supported").
+      return false;
     case "ipcamlive":
       return url.pathname.startsWith("/player/");
     case "angelcam":
