@@ -13,9 +13,14 @@ import {
   type SwellEventSnapshot,
   type SwellEventSnapshotRow,
 } from "@/lib/alerts/swell-events";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/database.generated";
+import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { FLAT, NOW, dayRows, type PartitionSpec } from "@/__tests__/helpers/swell-events";
 import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 import { parseSwellEventKey } from "@/lib/share/swell-share";
+
+jest.mock("@/lib/supabase/server", () => ({ createSupabaseServiceRoleClient: jest.fn() }));
 
 const PEAK: PartitionSpec = { heightFt: 4, periodS: 16, direction: 270 };
 const IDS = [1, 2, 3].map((n) => `bbbbbbbb-0000-4000-8000-00000000000${n}`);
@@ -188,5 +193,75 @@ describe("runSwellEventSnapshotCron pulse snapshots", () => {
     expect(store).toHaveLength(3);
     expect(store.every((row) => row.detector_version === SWELL_EVENT_DETECTOR_VERSION)).toBe(true);
     expectConsoleWarnings([/pulse write failed/]);
+  });
+
+  it("resolves outcomes after writing and reports the count", async () => {
+    const { deps, store } = harness(IDS.map(beach));
+    const resolveOutcomes = jest.fn(async (_now: Date): Promise<number> => {
+      expect(store.filter((row) => row.detector_version === SWELL_EVENT_DETECTOR_VERSION)).toHaveLength(3);
+      expect(store.filter((row) => row.detector_version === SWELL_OUTLOOK_PULSE_DETECTOR_VERSION)).toHaveLength(3);
+      return 4;
+    });
+    deps.resolveOutcomes = resolveOutcomes;
+    const summary = await runSwellEventSnapshotCron({ now: NOW, dependencies: deps });
+    expect(resolveOutcomes).toHaveBeenCalledTimes(1);
+    expect(resolveOutcomes).toHaveBeenCalledWith(NOW);
+    expect(summary.outcomesResolved).toBe(4);
+  });
+
+  it("never fails the run when outcome resolution throws", async () => {
+    const { deps } = harness(IDS.map(beach));
+    deps.resolveOutcomes = async (): Promise<number> => { throw new Error("rpc down"); };
+    await expect(runSwellEventSnapshotCron({ now: NOW, dependencies: deps }))
+      .resolves.toMatchObject({ outcomesResolved: 0, snapshotsWritten: 3, pulseSnapshotsWritten: 3 });
+    expectConsoleWarnings([/outcome resolution failed/]);
+  });
+
+  it("reports zero resolved outcomes when the optional resolver is absent", async () => {
+    const { deps } = harness(IDS.map(beach));
+    const summary = await runSwellEventSnapshotCron({ now: NOW, dependencies: deps });
+    expect(summary.outcomesResolved).toBe(0);
+  });
+});
+
+describe("runSwellEventSnapshotCron outcome RPC", () => {
+  function clientWithRpc(result: { data: unknown; error: { message: string } | null }): jest.Mock {
+    const builder: Record<string, unknown> = {};
+    for (const method of ["select", "eq", "not", "order"]) builder[method] = () => builder;
+    builder.range = async () => ({ data: [], error: null });
+    const rpc = jest.fn(async () => result);
+    jest.mocked(createSupabaseServiceRoleClient).mockReturnValueOnce({
+      from: () => builder,
+      rpc,
+    } as unknown as SupabaseClient<Database>);
+    return rpc;
+  }
+
+  it("passes the run instant to the default resolver and returns the row count", async () => {
+    const rpc = clientWithRpc({ data: 4, error: null });
+    const summary = await runSwellEventSnapshotCron({ now: NOW });
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledWith("resolve_swell_event_outcomes", { p_now: NOW.toISOString() });
+    expect(summary.outcomesResolved).toBe(4);
+  });
+
+  it("returns zero when the default resolver returns no numeric count", async () => {
+    const rpc = clientWithRpc({ data: null, error: null });
+    const summary = await runSwellEventSnapshotCron({ now: NOW });
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(summary.outcomesResolved).toBe(0);
+  });
+
+  it("reports a default resolver error while completing the run", async () => {
+    const warn = jest.spyOn(console, "warn");
+    const rpc = clientWithRpc({ data: null, error: { message: "function unavailable" } });
+    const summary = await runSwellEventSnapshotCron({ now: NOW });
+    expect(rpc).toHaveBeenCalledWith("resolve_swell_event_outcomes", { p_now: NOW.toISOString() });
+    expect(summary.outcomesResolved).toBe(0);
+    expectConsoleWarnings([/outcome resolution failed/]);
+    expect(warn).toHaveBeenCalledWith("[swell-event-snapshots] outcome resolution failed", {
+      error: "Failed to resolve swell event outcomes: function unavailable",
+    });
+    warn.mockRestore();
   });
 });

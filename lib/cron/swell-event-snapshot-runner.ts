@@ -83,6 +83,7 @@ export interface SwellEventSnapshotRunDependencies {
   loadSnapshots: (beachIds: string[], since: Date) => Promise<SwellEventSnapshot[]>;
   loadPulseSnapshots?: (beachIds: string[], since: Date) => Promise<SwellEventSnapshot[]>;
   writeSnapshots: (rows: SwellEventSnapshotRow[]) => Promise<number>;
+  resolveOutcomes?: (now: Date) => Promise<number>;
   isStale?: (updatedAt: string, dataSource: string | null) => boolean;
 }
 
@@ -99,6 +100,7 @@ interface SwellEventSnapshotRunSummary {
   snapshotsWritten: number;
   pulsesDetected: number;
   pulseSnapshotsWritten: number;
+  outcomesResolved: number;
   durationMs: number;
 }
 
@@ -138,6 +140,13 @@ function defaultDependencies(client: SupabaseClient<Database>): SwellEventSnapsh
       loadRecentSwellSnapshots(client, beachIds, since, SWELL_OUTLOOK_PULSE_DETECTOR_VERSION)
     ),
     writeSnapshots: (rows) => upsertSwellEventSnapshots(client, rows),
+    resolveOutcomes: async (now: Date): Promise<number> => {
+      const { data, error } = await (client as unknown as SupabaseClient).rpc("resolve_swell_event_outcomes", {
+        p_now: now.toISOString(),
+      });
+      if (error) throw new Error(`Failed to resolve swell event outcomes: ${error.message}`);
+      return typeof data === "number" ? data : 0;
+    },
   };
 }
 
@@ -170,6 +179,7 @@ export async function runSwellEventSnapshotCron(args: {
     snapshotsWritten: 0,
     pulsesDetected: 0,
     pulseSnapshotsWritten: 0,
+    outcomesResolved: 0,
     durationMs: 0,
   };
 
@@ -292,6 +302,16 @@ export async function runSwellEventSnapshotCron(args: {
     } catch (error) {
       summary.chunksFailed += 1;
       console.warn("[swell-event-snapshots] pulse write failed", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  if (deps.resolveOutcomes) {
+    try {
+      summary.outcomesResolved = await deps.resolveOutcomes(args.now);
+    } catch (error) {
+      console.warn("[swell-event-snapshots] outcome resolution failed", {
         error: error instanceof Error ? error.message : String(error),
       });
     }

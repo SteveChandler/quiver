@@ -246,3 +246,13 @@ describe("pulse snapshot versioning", () => {
     expect(eq).toHaveBeenCalledWith("detector_version", SWELL_EVENT_DETECTOR_VERSION);
   });
 });
+
+it("records the lead in days from the run to the peak", () => {
+  const row = toSwellEventSnapshotRow(event(), new Date("2026-09-25T19:00:00.000Z"));
+  expect(row.lead_days).toBe(3);
+});
+
+it("rounds fractional lead days to two decimals, including past peaks", () => {
+  expect(toSwellEventSnapshotRow(event(), new Date("2026-09-25T14:30:00.000Z")).lead_days).toBe(3.19);
+  expect(toSwellEventSnapshotRow(event(), new Date("2026-09-29T00:00:00.000Z")).lead_days).toBe(-0.21);
+});

@@ -67,6 +67,7 @@ export interface SwellEventSnapshotRow {
   detector_version: string;
   run_date: string;
   detected_at: string;
+  lead_days?: number | null;
   direction_deg: number;
   direction_band: string;
   period_s: number;
@@ -241,6 +242,7 @@ export function toSwellEventSnapshotRow(
     detector_version: detectorVersion,
     run_date: detectedAt.toISOString().slice(0, 10),
     detected_at: detectedAt.toISOString(),
+    lead_days: Math.round(((Date.parse(event.peakAt) - detectedAt.getTime()) / 86_400_000) * 100) / 100,
     direction_deg: event.directionDeg,
     direction_band: event.directionBand,
     period_s: event.periodS,
