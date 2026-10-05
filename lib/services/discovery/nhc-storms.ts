@@ -35,6 +35,19 @@ export function parseActiveStorms(payload: unknown): ActiveStorm[] {
   });
 }
 
+function warningMessage(error: unknown): string {
+  try {
+    const message: unknown = error instanceof Error ? error.message : undefined;
+    return typeof message === "string" ? message : "Unknown error";
+  } catch {
+    return "Unknown error";
+  }
+}
+
+function copyStorms(storms: readonly ActiveStorm[]): ActiveStorm[] {
+  return storms.map((storm: ActiveStorm): ActiveStorm => ({ ...storm }));
+}
+
 /** A storm name is garnish: any feed failure yields no storms, never an error. */
 export function createNhcStormClient(
   deps: { fetchImpl?: typeof fetch; now?: () => number } = {},
@@ -46,7 +59,16 @@ export function createNhcStormClient(
   let cached: { storms: ActiveStorm[]; expiresAt: number } | null = null;
   let inflight: Promise<ActiveStorm[]> | null = null;
 
-  async function load(): Promise<ActiveStorm[]> {
+  function failureExpiresAt(startedAt: number): number {
+    try {
+      return now() + FAILURE_TTL_MS;
+    } catch {
+      // Keep back-off in the injected clock's time base if it becomes unavailable.
+      return startedAt + FAILURE_TTL_MS;
+    }
+  }
+
+  async function load(startedAt: number): Promise<ActiveStorm[]> {
     try {
       const response = await fetchImpl(FEED_URL, {
         signal: AbortSignal.timeout(TIMEOUT_MS),
@@ -61,23 +83,35 @@ export function createNhcStormClient(
         throw new Error("NHC feed has an unexpected shape");
       }
       const storms = parseActiveStorms(payload);
+      if (storms.length === 0 && (payload as { activeStorms: unknown[] }).activeStorms.length > 0) {
+        throw new Error("NHC feed contains no parseable storms");
+      }
       cached = { storms, expiresAt: now() + OK_TTL_MS };
       return storms;
     } catch (error) {
-      console.warn(
-        "[nhc-storms] feed unavailable; storm names omitted",
-        error instanceof Error ? error.message : "Unknown error",
-      );
-      cached = { storms: [], expiresAt: now() + FAILURE_TTL_MS };
+      cached = { storms: [], expiresAt: failureExpiresAt(startedAt) };
+      try {
+        console.warn(
+          "[nhc-storms] feed unavailable; storm names omitted",
+          warningMessage(error),
+        );
+      } catch {
+        return [];
+      }
       return [];
     }
   }
 
   return {
     async getActiveStorms(): Promise<ActiveStorm[]> {
-      if (cached && cached.expiresAt > now()) return cached.storms;
-      inflight ??= load().finally((): void => { inflight = null; });
-      return inflight;
+      try {
+        const timestamp = now();
+        if (cached && cached.expiresAt > timestamp) return copyStorms(cached.storms);
+        inflight ??= load(timestamp).finally((): void => { inflight = null; });
+        return copyStorms(await inflight);
+      } catch {
+        return [];
+      }
     },
   };
 }

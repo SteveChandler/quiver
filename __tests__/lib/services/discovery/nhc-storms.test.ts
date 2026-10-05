@@ -176,4 +176,167 @@ describe("createNhcStormClient", () => {
       .resolves.toEqual([parseActiveStorms(FEED), parseActiveStorms(FEED)]);
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
+
+  it("caches failures before warning even when console.warn throws", async () => {
+    let clock = 0;
+    const warn = jest.mocked(console.warn).mockImplementation((): never => {
+      throw new Error("logging failed");
+    });
+    const fetchImpl = jest.fn(async (): Promise<Response> => { throw new Error("down"); });
+    const client = createNhcStormClient({ fetchImpl: fetchImpl as unknown as typeof fetch, now: () => clock });
+    await expect(Promise.all([
+      client.getActiveStorms(), client.getActiveStorms(), client.getActiveStorms(),
+    ])).resolves.toEqual([[], [], []]);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledTimes(1);
+    clock = 119_999;
+    await expect(client.getActiveStorms()).resolves.toEqual([]);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledTimes(1);
+    fetchImpl.mockResolvedValueOnce(ok(FEED));
+    clock = 120_000;
+    await expect(client.getActiveStorms()).resolves.toEqual(parseActiveStorms(FEED));
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("caches failures and logs safely when an Error message getter throws", async () => {
+    let clock = 0;
+    const error = new Error("down");
+    Object.defineProperty(error, "message", {
+      get: (): never => { throw new Error("message unavailable"); },
+    });
+    const fetchImpl = jest.fn(async (): Promise<Response> => { throw error; });
+    const client = createNhcStormClient({ fetchImpl: fetchImpl as unknown as typeof fetch, now: () => clock });
+    await expect(Promise.all([
+      client.getActiveStorms(), client.getActiveStorms(), client.getActiveStorms(),
+    ])).resolves.toEqual([[], [], []]);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(console.warn).toHaveBeenCalledWith(
+      "[nhc-storms] feed unavailable; storm names omitted", "Unknown error",
+    );
+    clock = 119_999;
+    await expect(client.getActiveStorms()).resolves.toEqual([]);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(console.warn).toHaveBeenCalledTimes(1);
+    fetchImpl.mockResolvedValueOnce(ok(FEED));
+    clock = 120_000;
+    await expect(client.getActiveStorms()).resolves.toEqual(parseActiveStorms(FEED));
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("resolves empty results when the injected clock always throws", async () => {
+    const fetchImpl = jest.fn(async (): Promise<Response> => ok(FEED));
+    const client = createNhcStormClient({
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      now: (): never => { throw new Error("clock unavailable"); },
+    });
+    await expect(Promise.all([
+      client.getActiveStorms(), client.getActiveStorms(), client.getActiveStorms(),
+    ])).resolves.toEqual([[], [], []]);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("resolves an empty result if the clock throws while reading a populated cache", async () => {
+    const now = jest.fn((): number => 0);
+    const fetchImpl = jest.fn(async (): Promise<Response> => ok(FEED));
+    const client = createNhcStormClient({ fetchImpl: fetchImpl as unknown as typeof fetch, now });
+    await expect(client.getActiveStorms()).resolves.toEqual(parseActiveStorms(FEED));
+    now.mockImplementation((): never => { throw new Error("clock unavailable"); });
+    await expect(client.getActiveStorms()).resolves.toEqual([]);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    now.mockReturnValue(60_000);
+    await expect(client.getActiveStorms()).resolves.toEqual(parseActiveStorms(FEED));
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("resolves an empty result if the clock fails when storing a successful feed", async () => {
+    let clock = 0;
+    let clockUnavailable = false;
+    const now = (): number => {
+      if (clockUnavailable) throw new Error("clock unavailable");
+      return clock;
+    };
+    const fetchImpl = jest.fn(async (): Promise<Response> => {
+      clockUnavailable = true;
+      return ok(FEED);
+    });
+    const client = createNhcStormClient({ fetchImpl: fetchImpl as unknown as typeof fetch, now });
+    await expect(client.getActiveStorms()).resolves.toEqual([]);
+    clockUnavailable = false;
+    clock = 119_999;
+    await expect(client.getActiveStorms()).resolves.toEqual([]);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    fetchImpl.mockResolvedValueOnce(ok(FEED));
+    clock = 120_000;
+    await expect(client.getActiveStorms()).resolves.toEqual(parseActiveStorms(FEED));
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("preserves failure back-off if the clock throws in the failure handler", async () => {
+    let clock = 0;
+    let clockUnavailable = false;
+    const now = (): number => {
+      if (clockUnavailable) throw new Error("clock unavailable");
+      return clock;
+    };
+    const fetchImpl = jest.fn(async (): Promise<Response> => {
+      clockUnavailable = true;
+      throw new Error("down");
+    });
+    const client = createNhcStormClient({ fetchImpl: fetchImpl as unknown as typeof fetch, now });
+    await expect(client.getActiveStorms()).resolves.toEqual([]);
+    clockUnavailable = false;
+    clock = 119_999;
+    await expect(client.getActiveStorms()).resolves.toEqual([]);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    fetchImpl.mockResolvedValueOnce(ok(FEED));
+    clock = 120_000;
+    await expect(client.getActiveStorms()).resolves.toEqual(parseActiveStorms(FEED));
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("treats a nonempty feed with no parseable storms as one briefly cached failure", async () => {
+    let clock = 0;
+    const fetchImpl = jest.fn(async (): Promise<Response> => ok({ activeStorms: [
+      null, 3, { id: "ep182026", name: " ", latitudeNumeric: 20.1, longitudeNumeric: -114.3 },
+    ] }));
+    const client = createNhcStormClient({ fetchImpl: fetchImpl as unknown as typeof fetch, now: () => clock });
+    await expect(client.getActiveStorms()).resolves.toEqual([]);
+    expect(console.warn).toHaveBeenCalledTimes(1);
+    clock = 119_999;
+    await expect(client.getActiveStorms()).resolves.toEqual([]);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(console.warn).toHaveBeenCalledTimes(1);
+    fetchImpl.mockResolvedValueOnce(ok(FEED));
+    clock = 120_000;
+    await expect(client.getActiveStorms()).resolves.toEqual(parseActiveStorms(FEED));
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(console.warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("isolates returned arrays and storm objects from concurrent results and the cache", async () => {
+    const fetchImpl = jest.fn(async (): Promise<Response> => ok(FEED));
+    const client = createNhcStormClient({ fetchImpl: fetchImpl as unknown as typeof fetch, now: (): number => 0 });
+    const [first, concurrent] = await Promise.all([client.getActiveStorms(), client.getActiveStorms()]);
+    first[0].name = "changed";
+    first.pop();
+    expect(concurrent).toEqual(parseActiveStorms(FEED));
+    const cachedResult = await client.getActiveStorms();
+    expect(cachedResult).toEqual(parseActiveStorms(FEED));
+    cachedResult[0].name = "changed again";
+    cachedResult.splice(0);
+    await expect(client.getActiveStorms()).resolves.toEqual(parseActiveStorms(FEED));
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("isolates returned failure arrays from the cached empty result", async () => {
+    const fetchImpl = jest.fn(async (): Promise<Response> => { throw new Error("down"); });
+    const client = createNhcStormClient({ fetchImpl: fetchImpl as unknown as typeof fetch, now: (): number => 0 });
+    await expect(client.getActiveStorms()).resolves.toEqual([]);
+    const result = await client.getActiveStorms();
+    expect(result).toEqual([]);
+    result.push(...parseActiveStorms(FEED));
+    await expect(client.getActiveStorms()).resolves.toEqual([]);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
 });
