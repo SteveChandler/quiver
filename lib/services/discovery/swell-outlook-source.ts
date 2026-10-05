@@ -25,7 +25,7 @@ export function swellSourceFor(args: {
   activeStorms: readonly ActiveStorm[];
 }): SwellSource {
   const { directionDeg, periodS } = args;
-  if (periodS === null) return 'unknown';
+  if (periodS === null || !Number.isFinite(periodS)) return 'unknown';
   const pacificSystem = args.activeStorms.some((storm) => storm.basin === 'ep' || storm.basin === 'cp');
   if (between(directionDeg, 150, 190) && pacificSystem && isEastPacificHurricaneSeason(new Date(args.peakAt))) {
     return 'tropical';
@@ -73,12 +73,11 @@ export function faceHeightRange(faceFt: number): FaceHeightRangeFt {
 }
 
 export function faceHeightSpan(values: readonly number[]): FaceHeightRangeFt | null {
-  if (values.length === 0) return null;
-  if (values.length === 1) return faceHeightRange(values[0]);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const span = { min: Math.floor(min * 2) / 2, max: Math.ceil(max * 2) / 2 };
-  return span.max - span.min >= 1 ? span : { min: span.min, max: span.min + 1 };
+  const finiteValues: number[] = values.filter(Number.isFinite);
+  if (finiteValues.length === 0) return null;
+  const lowest = Math.min(...finiteValues);
+  const highest = Math.max(...finiteValues);
+  return { min: faceHeightRange(lowest).min, max: faceHeightRange(highest).max };
 }
 
 export function sizeByOrientation(
@@ -87,7 +86,7 @@ export function sizeByOrientation(
   const south: number[] = [];
   const west: number[] = [];
   for (const member of members) {
-    if (member.windowCenterDeg === null) continue;
+    if (member.windowCenterDeg === null || !Number.isFinite(member.faceHeightFt)) continue;
     if (angleDifference(member.windowCenterDeg, 180) <= 45) south.push(member.faceHeightFt);
     else if (angleDifference(member.windowCenterDeg, 270) <= 45) west.push(member.faceHeightFt);
   }

@@ -67,6 +67,25 @@ describe("swellSourceFor", () => {
   it("does not label an invalid peak date as tropical", () => {
     expect(swellSourceFor({ directionDeg: 170, periodS: 12, peakAt: "invalid", activeStorms: [RACHEL] })).toBe("unknown");
   });
+
+  it.each([null, Number.NaN, undefined, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])(
+    "treats period %s as missing in every source sector",
+    (periodS) => {
+      for (const directionDeg of [170, 185, 205, 300, 60]) {
+        expect(swellSourceFor({
+          directionDeg,
+          periodS: periodS as number | null,
+          peakAt: OCT,
+          activeStorms: [RACHEL],
+        })).toBe("unknown");
+      }
+    },
+  );
+
+  it("keeps tropical ahead of local for a finite short period", () => {
+    expect(swellSourceFor({ directionDeg: 170, periodS: 9, peakAt: OCT, activeStorms: [RACHEL] })).toBe("tropical");
+    expect(swellSourceFor({ directionDeg: 185, periodS: 9, peakAt: OCT, activeStorms: [RACHEL] })).toBe("tropical");
+  });
 });
 
 describe("isEastPacificHurricaneSeason", () => {
@@ -131,11 +150,46 @@ describe("size ranges", () => {
 
   it("spans several beaches and is null for none", () => {
     expect(faceHeightSpan([])).toBeNull();
-    expect(faceHeightSpan([3, 5.2])).toEqual({ min: 3, max: 5.5 });
+    expect(faceHeightSpan([3, 5.2])).toEqual({ min: 2.5, max: 6 });
     expect(faceHeightSpan([4])).toEqual(faceHeightRange(4));
-    expect(faceHeightSpan([3, 3])).toEqual({ min: 3, max: 4 });
-    expect(faceHeightSpan([5.2, 3])).toEqual({ min: 3, max: 5.5 });
+    expect(faceHeightSpan([3, 3])).toEqual({ min: 2.5, max: 3.5 });
+    expect(faceHeightSpan([5.2, 3])).toEqual({ min: 2.5, max: 6 });
   });
+
+  it.each<[readonly number[]]>([[[3]], [[3, 3]], [[3, 3, 3]]])("preserves the single-value range for %j", (values) => {
+    expect(faceHeightSpan(values)).toEqual({ min: 2.5, max: 3.5 });
+    expect(faceHeightSpan(values)).toEqual(faceHeightRange(3));
+  });
+
+  it("uses the outer heights' own ranges for close and wide spans", () => {
+    expect(faceHeightSpan([3, 3.1])).toEqual({ min: 2.5, max: 3.5 });
+    expect(faceHeightSpan([4, 4.1])).toEqual({ min: 3.5, max: 4.5 });
+    expect(faceHeightSpan([2, 6])).toEqual({ min: 1.5, max: 7 });
+  });
+
+  it.each<[readonly number[]]>([[[0]], [[0, 0]], [[0, 6]], [[-2, 6]], [[-5, -2]]])("keeps the lower endpoint nonnegative for %j", (values) => {
+    const range = faceHeightSpan(values);
+    expect(range?.min).toBe(0);
+    expect(range?.max).toBeGreaterThanOrEqual(1);
+  });
+
+  it("ignores non-finite heights alongside finite values without mutating the input", () => {
+    const values = Object.freeze([Number.NaN, 2, Number.POSITIVE_INFINITY, 6, Number.NEGATIVE_INFINITY]);
+    expect(faceHeightSpan(values)).toEqual({ min: 1.5, max: 7 });
+    expect(faceHeightSpan([Number.NaN, 3])).toEqual({ min: 2.5, max: 3.5 });
+    expect(values).toEqual([Number.NaN, 2, Number.POSITIVE_INFINITY, 6, Number.NEGATIVE_INFINITY]);
+  });
+
+  it.each<[string, readonly number[]]>([
+    ["one NaN", [Number.NaN]],
+    ["all NaN", [Number.NaN, Number.NaN]],
+    ["both infinities", [Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]],
+  ])(
+    "returns null for only non-finite heights: %s",
+    (_description, values) => {
+      expect(faceHeightSpan(values)).toBeNull();
+    },
+  );
 });
 
 describe("sizeByOrientation", () => {
@@ -144,7 +198,7 @@ describe("sizeByOrientation", () => {
       { windowCenterDeg: 190, faceHeightFt: 4 },
       { windowCenterDeg: 270, faceHeightFt: 2.5 },
       { windowCenterDeg: 265, faceHeightFt: 3 },
-    ])).toEqual({ southFacing: faceHeightRange(4), westFacing: { min: 2.5, max: 3.5 } });
+    ])).toEqual({ southFacing: faceHeightRange(4), westFacing: { min: 2, max: 3.5 } });
   });
 
   it("is null for an orientation no beach faces, and ignores beaches without a window", () => {
@@ -160,7 +214,7 @@ describe("sizeByOrientation", () => {
       { windowCenterDeg: 134.9, faceHeightFt: 20 },
       { windowCenterDeg: 315.1, faceHeightFt: 20 },
       { windowCenterDeg: 0, faceHeightFt: 20 },
-    ])).toEqual({ southFacing: { min: 3, max: 5 }, westFacing: { min: 1.5, max: 2.5 } });
+    ])).toEqual({ southFacing: { min: 2.5, max: 6 }, westFacing: { min: 1.5, max: 2.5 } });
   });
 
   it("returns empty ranges for no members and accepts readonly members", () => {
@@ -168,5 +222,27 @@ describe("sizeByOrientation", () => {
     const members = Object.freeze([Object.freeze({ windowCenterDeg: 190, faceHeightFt: 4 })]);
     expect(sizeByOrientation(members)).toEqual({ southFacing: { min: 3.5, max: 4.5 }, westFacing: null });
     expect(members).toEqual([{ windowCenterDeg: 190, faceHeightFt: 4 }]);
+  });
+
+  it("ignores non-finite sizes independently for each orientation", () => {
+    expect(sizeByOrientation([
+      { windowCenterDeg: 190, faceHeightFt: Number.NaN },
+      { windowCenterDeg: 190, faceHeightFt: 4 },
+      { windowCenterDeg: 190, faceHeightFt: Number.POSITIVE_INFINITY },
+      { windowCenterDeg: 270, faceHeightFt: Number.NaN },
+      { windowCenterDeg: 270, faceHeightFt: 2 },
+      { windowCenterDeg: 270, faceHeightFt: Number.NEGATIVE_INFINITY },
+    ])).toEqual({ southFacing: { min: 3.5, max: 4.5 }, westFacing: { min: 1.5, max: 2.5 } });
+  });
+
+  it("returns null for orientations with no finite sizes", () => {
+    expect(sizeByOrientation([
+      { windowCenterDeg: 190, faceHeightFt: Number.NaN },
+      { windowCenterDeg: 270, faceHeightFt: Number.NaN },
+    ])).toEqual({ southFacing: null, westFacing: null });
+    expect(sizeByOrientation([
+      { windowCenterDeg: 190, faceHeightFt: Number.NaN },
+      { windowCenterDeg: 270, faceHeightFt: 2 },
+    ])).toEqual({ southFacing: null, westFacing: { min: 1.5, max: 2.5 } });
   });
 });
