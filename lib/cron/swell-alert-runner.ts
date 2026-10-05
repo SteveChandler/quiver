@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { evaluateForecastVerdict, type ForecastVerdict } from "@/lib/alerts/canonical-forecast-verdict";
 import {
+  EXCLUDE_SYNTHETIC_ROWS_FILTER,
   SWELL_EVENT_DETECTOR_VERSION,
   SWELL_EVENT_KEY_REUSE_DAYS,
   detectBeachSwellEvents,
@@ -331,6 +332,7 @@ async function loadForecasts(
       .from("enhanced_forecasts")
       .select("*")
       .in("beach_id", beachIds)
+      .or(EXCLUDE_SYNTHETIC_ROWS_FILTER)
       .gte("forecast_at", start.toISOString())
       .lt("forecast_at", end.toISOString())
       .order("forecast_at", { ascending: true })

@@ -5,6 +5,7 @@
 import { NextRequest } from "next/server";
 import { GET } from "@/app/api/surf/call/route";
 import { withRateLimit } from "@/lib/middleware/api-wrappers";
+import { memoizedWaterQualityRead } from "@/lib/recommendations/major-event-hold/read-scope";
 
 const mockSupabase = {
   from: jest.fn(),
@@ -788,6 +789,33 @@ describe("GET /api/surf/call", () => {
     );
 
     expect(mockCheckBoardFit).not.toHaveBeenCalled();
+  });
+
+  it("shares hold reads within one request but not across requests", async () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    mockBeachQuery({
+      id: beachId,
+      name: "Ocean Beach Pier",
+      slug: "ocean-beach-pier",
+      lat: 32.75,
+      lon: -117.25,
+      deleted_at: null,
+    });
+    const holdClient = {};
+    const load = jest.fn(async () => ({ data: [], error: null }));
+    mockResolveCanonicalSessionDecisionContext.mockImplementation(async () => {
+      // Discovery and the canonical decision each read the hold tables.
+      await memoizedWaterQualityRead(holdClient, "held", load);
+      await memoizedWaterQualityRead(holdClient, "held", load);
+      return canonicalContext;
+    });
+    const request = () =>
+      GET(new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}`));
+
+    expect((await request()).status).toBe(200);
+    expect(load).toHaveBeenCalledTimes(1);
+    expect((await request()).status).toBe(200);
+    expect(load).toHaveBeenCalledTimes(2);
   });
 
   it("returns the exact private no-store cache policy", async () => {

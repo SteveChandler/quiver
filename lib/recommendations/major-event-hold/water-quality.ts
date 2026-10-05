@@ -14,6 +14,11 @@ import {
   COUNTY_MAX_STALENESS_MS,
 } from "@/lib/services/county-beach-advisories/types";
 
+import {
+  memoizedBeachRowsRead,
+  memoizedWaterQualityRead,
+  type WaterQualityReadResult,
+} from "./read-scope";
 import type { MajorEventHoldCandidate } from "./types";
 
 /** Seed manifest only. Runtime truth is water_quality_held_beaches. */
@@ -53,6 +58,11 @@ const WATER_QUALITY_SELECT = [
   "status_reason",
 ].join(", ");
 const MISSING_TABLE_ERROR_CODE = "42P01";
+const COUNTY_LIVE_RUN_SELECT = "id, fetched_at, status, source_identifier";
+// Same columns as the current-status projection so one request reads a run's
+// notices once; this resolver validates only the fields it uses.
+const COUNTY_ADVISORY_SELECT =
+  "beach_id, source_site_identifier, advisory_type, county_latitude, county_longitude";
 
 const waterQualityRowSchema = z
   .object({
@@ -219,15 +229,19 @@ async function resolveCountyLiveHolds(
 ): Promise<CountyLiveHoldResolution> {
   const runQuery = client
     .from("county_beach_advisory_runs")
-    .select("id, fetched_at, status, source_identifier");
+    .select(COUNTY_LIVE_RUN_SELECT);
   if (!supportsCountyRunQuery(runQuery)) {
     return emptyCountyResolution("resolved", "county-live:client-unavailable");
   }
-  const { data: runData, error: runError } = await runQuery
-    .eq("source_identifier", COUNTY_FEED_SOURCE_IDENTIFIER)
-    .eq("status", "completed")
-    .order("fetched_at", { ascending: false })
-    .limit(1);
+  const { data: runData, error: runError } = await memoizedWaterQualityRead(
+    client,
+    `county_beach_advisory_runs|${COUNTY_LIVE_RUN_SELECT}|completed|${COUNTY_FEED_SOURCE_IDENTIFIER}`,
+    () => runQuery
+      .eq("source_identifier", COUNTY_FEED_SOURCE_IDENTIFIER)
+      .eq("status", "completed")
+      .order("fetched_at", { ascending: false })
+      .limit(1),
+  );
   if (runError !== null && runError !== undefined) {
     return emptyCountyResolution("unresolved", "county-live:run-query-error");
   }
@@ -255,13 +269,15 @@ async function resolveCountyLiveHolds(
 
   const advisoryQuery = client
     .from("county_beach_advisories")
-    .select("beach_id, advisory_type, source_site_identifier") as WaterQualityQuery;
+    .select(COUNTY_ADVISORY_SELECT) as WaterQualityQuery;
   if (!supportsCountyAdvisoryQuery(advisoryQuery)) {
     return emptyCountyResolution("resolved", "county-live:client-unavailable");
   }
-  const { data: advisoryData, error: advisoryError } = await advisoryQuery.eq(
-    "run_id",
-    (run as { id: string }).id,
+  const runId = (run as { id: string }).id;
+  const { data: advisoryData, error: advisoryError } = await memoizedWaterQualityRead(
+    client,
+    `county_beach_advisories|${COUNTY_ADVISORY_SELECT}|${runId}`,
+    () => advisoryQuery.eq("run_id", runId),
   );
   if (advisoryError !== null && advisoryError !== undefined) {
     return emptyCountyResolution(
@@ -329,22 +345,24 @@ async function resolveCountyLiveHolds(
   };
 }
 
-async function readQualityRows(
+function readQualityRows(
   client: WaterQualityHoldClient,
   table: "water_quality_held_beaches" | "beach_water_quality",
   columns: string,
   beachIds: readonly string[],
-): Promise<{ data: unknown; error: unknown }> {
-  const rows: unknown[] = [];
-  // Catalog-wide filters overflow response headers when the upstream echoes the URL.
-  for (let offset = 0; offset < beachIds.length; offset += 100) {
-    const result = await client.from(table).select(columns)
-      .in("beach_id", beachIds.slice(offset, offset + 100));
-    // Never turn a partial hazard read into a successful result.
-    if ((result.error !== null && result.error !== undefined) || !Array.isArray(result.data)) return result;
-    rows.push(...result.data);
-  }
-  return { data: rows, error: null };
+): Promise<WaterQualityReadResult> {
+  return memoizedBeachRowsRead(client, `${table}|${columns}`, beachIds, async () => {
+    const rows: unknown[] = [];
+    // Catalog-wide filters overflow response headers when the upstream echoes the URL.
+    for (let offset = 0; offset < beachIds.length; offset += 100) {
+      const result = await client.from(table).select(columns)
+        .in("beach_id", beachIds.slice(offset, offset + 100));
+      // Never turn a partial hazard read into a successful result.
+      if ((result.error !== null && result.error !== undefined) || !Array.isArray(result.data)) return result;
+      rows.push(...result.data);
+    }
+    return { data: rows, error: null };
+  });
 }
 
 const beachCoordinatesSchema = z.object({
@@ -363,8 +381,12 @@ async function countyCoveredBeachIds(
 ): Promise<string[] | null> {
   const located = new Map<string, { lat: number | null; lon: number | null }>();
   for (let offset = 0; offset < beachIds.length; offset += 100) {
-    const result = await client.from("beaches").select("id, lat, lon")
-      .in("id", beachIds.slice(offset, offset + 100));
+    const chunk = beachIds.slice(offset, offset + 100);
+    const result = await memoizedWaterQualityRead(
+      client,
+      `beaches|id, lat, lon|${chunk.join(",")}`,
+      () => client.from("beaches").select("id, lat, lon").in("id", chunk),
+    );
     if ((result.error !== null && result.error !== undefined) || !Array.isArray(result.data)) {
       console.error("[water-quality-hold:county-coverage-error]", {
         beachCount: beachIds.length,

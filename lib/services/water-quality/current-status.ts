@@ -2,6 +2,10 @@ import { z } from "zod";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { COUNTY_FEED_SOURCE_IDENTIFIER, COUNTY_MAX_STALENESS_MS, COUNTY_MAX_FUTURE_SKEW_MS } from "@/lib/services/county-beach-advisories/types";
 import type { WaterQualityHoldClient } from "@/lib/recommendations/major-event-hold/water-quality";
+import {
+  memoizedBeachRowsRead,
+  memoizedWaterQualityRead,
+} from "@/lib/recommendations/major-event-hold/read-scope";
 
 // Verified against the County sampling roster (EH-320, EH-330, FM-080),
 // 2026-09-03: https://gis-public.sandiegocounty.gov/arcgis/rest/services/Hosted/DEHQ_BB_Sampling_update20211010/FeatureServer/0
@@ -10,6 +14,9 @@ import type { WaterQualityHoldClient } from "@/lib/recommendations/major-event-h
 const COVERAGE: Readonly<Record<string, readonly [number, number, number, number]>> = {
   "d291411d-d331-4bf1-ad1a-302da3c69de0": [32.850, 32.861, -117.266, -117.252],
 };
+
+const RUN_SELECT = "id, status, source_identifier, fetched_at, advisory_count, closure_count, warning_count";
+const NOTICE_SELECT = "beach_id, source_site_identifier, advisory_type, county_latitude, county_longitude";
 
 const runSchema = z.object({
   id: z.string().uuid(), status: z.literal("completed"),
@@ -90,20 +97,34 @@ export async function currentWaterQuality<T extends SampleQualityRow>(
   if (!rows.some((row) => COVERAGE[row.beach_id.toLowerCase()])) return [...rows];
   try {
     const client = providedClient ?? createSupabaseServiceRoleClient();
-    const { data: runs, error } = await client.from("county_beach_advisory_runs")
-      .select("id, status, source_identifier, fetched_at, advisory_count, closure_count, warning_count")
-      .eq("source_identifier", COUNTY_FEED_SOURCE_IDENTIFIER)
-      .order("fetched_at", { ascending: false }).limit(1);
+    const { data: runs, error } = await memoizedWaterQualityRead(
+      client,
+      `county_beach_advisory_runs|${RUN_SELECT}|latest|${COUNTY_FEED_SOURCE_IDENTIFIER}`,
+      () => client.from("county_beach_advisory_runs")
+        .select(RUN_SELECT)
+        .eq("source_identifier", COUNTY_FEED_SOURCE_IDENTIFIER)
+        .order("fetched_at", { ascending: false }).limit(1),
+    );
     if (error || !Array.isArray(runs) || !runs[0]) return unavailable(rows);
     // Do not fall back to an earlier success after a failed/in-progress run.
     const run = runSchema.safeParse(runs[0]);
     if (!run.success) return unavailable(rows);
+    const coveredBeachIds = rows.filter((row) => COVERAGE[row.beach_id.toLowerCase()]).map((row) => row.beach_id);
     const [notices, owners] = await Promise.all([
-      client.from("county_beach_advisories")
-        .select("beach_id, source_site_identifier, advisory_type, county_latitude, county_longitude")
-        .eq("run_id", run.data.id),
-      client.from("water_quality_held_beaches").select("beach_id")
-        .in("beach_id", rows.filter((row) => COVERAGE[row.beach_id.toLowerCase()]).map((row) => row.beach_id)),
+      memoizedWaterQualityRead(
+        client,
+        `county_beach_advisories|${NOTICE_SELECT}|${run.data.id}`,
+        () => client.from("county_beach_advisories")
+          .select(NOTICE_SELECT)
+          .eq("run_id", run.data.id),
+      ),
+      memoizedBeachRowsRead(
+        client,
+        "water_quality_held_beaches|beach_id",
+        coveredBeachIds,
+        () => client.from("water_quality_held_beaches").select("beach_id")
+          .in("beach_id", coveredBeachIds),
+      ),
     ]);
     if (notices.error || owners.error) return unavailable(rows);
     return projectCurrentWaterQuality(rows, runs[0], notices.data, owners.data, now);

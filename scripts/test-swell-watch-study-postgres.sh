@@ -110,6 +110,7 @@ if [ "$(query 'SELECT jsonb_agg(to_jsonb(a) ORDER BY epoch)::text FROM public.sw
 fi
 query 'CREATE DATABASE study_activation TEMPLATE study_clean'
 study_database=study_activation
+run_file "$study_root/__tests__/fixtures/swell-watch-study-clock.sql" >/dev/null
 run_file "$study_root/__tests__/fixtures/swell-watch-study-activation.sql" >/dev/null
 run_file "$study_root/docs/operations/swell-watch-study-activate.sql" >/dev/null
 activation_before=$(query "SELECT row_to_json(a)::text FROM public.swell_watch_study_authorities a")
@@ -161,6 +162,7 @@ if [ "$(query 'SELECT count(*) FROM public.swell_watch_study_authorities')" != 3
   echo 'Rejected revocation changed authority' >&2; exit 1
 fi
 study_database=study_clean
+run_file "$study_root/__tests__/fixtures/swell-watch-study-clock.sql" >/dev/null
 run_file "$study_root/__tests__/fixtures/swell-watch-study-receipts.sql" >/dev/null
 run_file "$study_root/__tests__/fixtures/swell-watch-study-probe.sql"
 query 'SET ROLE service_role; SELECT public.study_complete_retry()' &

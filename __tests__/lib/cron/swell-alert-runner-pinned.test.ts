@@ -98,7 +98,7 @@ function client(args: {
     const filters: Array<[string, unknown]> = [];
     let update: Record<string, unknown> | null = null;
     const chain: Record<string, unknown> = {};
-    for (const method of ["in", "gte", "lt", "order"]) chain[method] = () => chain;
+    for (const method of ["in", "or", "gte", "lt", "order"]) chain[method] = () => chain;
     chain.eq = (column: string, value: unknown) => {
       filters.push([column, value]);
       return chain;
