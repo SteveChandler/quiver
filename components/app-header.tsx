@@ -218,11 +218,12 @@ export function AppHeader() {
       >
         {/* Left side with logo - uses container padding */}
         <div className="flex items-center pl-2 md:pl-4 shrink-0">
-          {/* Header links render on every page, so default prefetching fires one
-              proxy invocation per link per page view (mostly crawlers). */}
+          {/* Signed-out header links render on every public page, so default
+              prefetching fires one proxy invocation per link per page view
+              (mostly crawlers). Signed-in users keep prefetch for app routes. */}
           <Link
             href={getPreservedHref("/")}
-            prefetch={false}
+            prefetch={user ? undefined : false}
             className="flex items-center space-x-2 group focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded"
           >
             <Image
@@ -245,7 +246,7 @@ export function AppHeader() {
                 <Link
                   key={item.name}
                   href={getPreservedHref(item.href)}
-                  prefetch={false}
+                  prefetch={user ? undefined : false}
                   className={cn(
                     "text-sm font-medium transition-colors duration-200 hover:text-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded px-1",
                     isActiveRoute(item.href)

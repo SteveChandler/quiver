@@ -1043,6 +1043,15 @@ describe("AppHeader", () => {
       });
     });
 
+    it("keeps default prefetch on signed-in nav links", () => {
+      render(<AppHeader />);
+
+      expect(screen.getByRole("link", { name: /discover/i })).toHaveAttribute(
+        "data-prefetch",
+        "undefined",
+      );
+    });
+
     describe("Guest Users", () => {
       beforeEach(() => {
         (useAuth as jest.Mock).mockReturnValue({
