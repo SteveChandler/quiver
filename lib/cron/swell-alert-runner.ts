@@ -34,8 +34,8 @@ import {
 } from "@/lib/alerts/swell-verification/record";
 import { getUserEntitlement } from "@/lib/alerts/entitlements";
 import { getDaylightWindow } from "@/lib/alerts/sunrise";
-import { refineWindow, type RefinedWindow } from "@/lib/alerts/window-refiner";
-import { loadTideSamples } from "@/lib/cron/daily-call-runner";
+import { capToBestWindow, refineWindow, type RefinedWindow } from "@/lib/alerts/window-refiner";
+import { groupGoForecasts, loadTideSamples } from "@/lib/cron/daily-call-runner";
 import { loadUserPool } from "@/lib/alerts/user-pool";
 import { calculateDistance } from "@/lib/utils/distance-utils";
 import { isSwellAlertEnabled, isSwellAlertUserAllowed } from "@/lib/flags/swell-alert";
@@ -91,6 +91,7 @@ import type { OfficialSwellAdvisoryEvidence } from "@/lib/recommendations/major-
 import { recommendBoard } from "@/lib/scoring/personal-board";
 import { fetchUserBoardContext } from "@/lib/services/discovery/surf-discovery-orchestrator";
 import { TideCache } from "@/lib/services/noaa-coops/tide-cache";
+import { selectBestWindows } from "@/lib/services/discovery/window-selector";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { localDateTimeToUTC } from "@/lib/utils/forecast-time-resolver";
 import { getLocalDateString, getLocalHour, resolveBeachTimezone } from "@/lib/utils/timezone-utils";
@@ -104,7 +105,6 @@ const TITLE_HISTORY_DAYS = 120;
 const COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
-const GRID_MS = 3 * HOUR_MS;
 const POSTGRES_UNIQUE_VIOLATION = "23505";
 const FORECAST_PAGE_SIZE = 1000;
 const PEAK_ROW_MAX_MS = 3 * 60 * 60 * 1000;
@@ -641,6 +641,8 @@ async function evaluatePool(
       forecasts: beachForecasts,
       peakDate: best.peakDate,
       timezone: profile.timezone,
+      now,
+      experienceLevel: profile.experienceLevel,
       verdictFor,
     }).catch((error: unknown) => {
       // No window means the push says "Wed morning"; never drop the alert for it.
@@ -707,6 +709,8 @@ async function peakDayWindow(args: {
   peakForecast: EnhancedForecastEntity;
   peakDate: string;
   timezone: string;
+  now: Date;
+  experienceLevel: string | null;
   verdictFor: (forecast: EnhancedForecastEntity, beach: Beach) => ForecastVerdict;
 }): Promise<RefinedWindow | null> {
   // The daily call's day: 05:00–20:00 local, so daylight resolves to this date.
@@ -717,26 +721,11 @@ async function peakDayWindow(args: {
     return at >= dayStart && at < dayEnd;
   });
   const verdicts = dayRows.map((row) => args.verdictFor(row, args.beach));
-  // Runs of go rows on the 3-hourly grid; refineWindow then snaps each edge
-  // between the last go row and its neighbour.
-  const groups: ForecastVerdict[][] = [];
-  for (const verdict of verdicts) {
-    const run = groups.at(-1);
-    const previous = run?.at(-1);
-    if (verdict.verdict !== "go") {
-      if (run?.length) groups.push([]);
-      continue;
-    }
-    if (run && (!previous || Date.parse(verdict.forecast.forecast_at) - Date.parse(previous.forecast.forecast_at) <= GRID_MS)) {
-      run.push(verdict);
-    } else {
-      groups.push([verdict]);
-    }
-  }
+  const groups = groupGoForecasts(verdicts);
   const strongest = (group: ForecastVerdict[]): number => Math.max(...group.map(({ score }) => score));
   const group = groups.find((run) => run.some(({ forecast }) => forecast.id === args.peakForecast.id))
     ?? [...groups].sort((left, right) => strongest(right) - strongest(left))[0];
-  if (!group?.length) return null;
+  if (!group) return null;
 
   const coarse = {
     start: new Date(group[0].forecast.forecast_at).toISOString(),
@@ -751,7 +740,7 @@ async function peakDayWindow(args: {
     dayEnd,
   );
   const verdictById = new Map(verdicts.map(({ forecast, verdict }) => [forecast.id, verdict]));
-  return refineWindow({
+  const refined = refineWindow({
     coarse,
     forecasts: dayRows,
     beach: args.beach,
@@ -759,6 +748,16 @@ async function peakDayWindow(args: {
     daylight: { sunrise: daylight.sunrise.toISOString(), sunset: daylight.sunset.toISOString() },
     verdictAt: (forecast) => verdictById.get(forecast.id) ?? "no",
   });
+  if (!refined) return null;
+  const best = selectBestWindows({
+    forecasts: group.map(({ forecast }) => forecast),
+    beach: args.beach,
+    userPrefs: null,
+    now: args.now,
+    maxWindows: 1,
+    userSkillLevel: args.experienceLevel,
+  })[0];
+  return capToBestWindow(refined, best);
 }
 
 /** "Wednesday 8–11 AM" and "Best before the wind picks up around 12 PM.", in the daily call's words. */
