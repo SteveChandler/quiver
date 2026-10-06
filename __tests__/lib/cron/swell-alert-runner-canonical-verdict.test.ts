@@ -3,6 +3,15 @@
  */
 
 jest.mock("@/lib/alerts/user-pool", () => ({ loadUserPool: jest.fn() }));
+// Board reads are not under test here; keep them off the recorded query fake.
+jest.mock("@/lib/alerts/entitlements", () => ({ getUserEntitlement: jest.fn(async () => "free") }));
+jest.mock("@/lib/services/discovery/surf-discovery-orchestrator", () => ({
+  fetchUserBoardContext: jest.fn(async () => ({ boardsForPicks: [] })),
+}));
+jest.mock("@/lib/cron/daily-call-runner", () => ({
+  ...jest.requireActual("@/lib/cron/daily-call-runner"),
+  loadTideSamples: jest.fn(async () => null),
+}));
 jest.mock("@/lib/recommendations/major-swell-awareness/official-advisory-adapter", () => ({
   loadOfficialSwellAdvisories: jest.fn(async () => []),
   loadNwsSwellAdvisories: jest.fn(async () => []),
@@ -210,6 +219,8 @@ describe("swell alert pool evaluation with the canonical verdict", () => {
       "flat-14",
       "flat-15",
       "flat-16",
+      "peak",
+      // The peak day again, for the daily call's window.
       "peak",
     ]);
     for (const args of calls) {
