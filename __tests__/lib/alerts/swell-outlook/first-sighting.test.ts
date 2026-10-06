@@ -1,7 +1,9 @@
 // __tests__/lib/alerts/swell-outlook/first-sighting.test.ts
 import {
   buildFirstSightingPayload,
+  FIRST_SIGHTING_BODY_MAX_CHARS,
   firstSightingFaceHeightFt,
+  renderFirstSightingBody,
   selectFirstSightingCandidates,
 } from "@/lib/alerts/swell-outlook/first-sighting";
 import { OUTLOOK_HOME_BEACH_ID as HOME, outlookSwell } from "@/__tests__/helpers/outlook-swell";
@@ -41,7 +43,10 @@ describe("buildFirstSightingPayload", () => {
   });
 
   it("states size, period, direction and day, and makes no rarity claim", () => {
-    expect(payload.body).toBe("WNW swell, 4ft @ 14s, peaks Monday morning. Good size for your longboard.");
+    expect(payload.body).toBe(
+      "WNW swell from the North Pacific, 14s. Peaks Monday morning. 3.5-4.5 ft at Blacks Beach. "
+      + "Good size for your longboard. Showing at 3 nearby breaks.",
+    );
     expect(`${payload.title} ${payload.body}`).not.toMatch(/biggest|first swell|flat|in weeks|rare|the call/i);
   });
 
@@ -68,4 +73,39 @@ it("uses neutral copy across keys and sizes without any rarity field", () => {
       expect(payload).not.toHaveProperty("rarity");
     }
   }
+});
+
+describe("renderFirstSightingBody", () => {
+  const timezone = "America/Los_Angeles";
+
+  it("reads like a swell report: source, timing across days, size by spot direction, hazard", () => {
+    const swell = outlookSwell({
+      directionLabel: "SSW", source: "southern_hemisphere", periodS: 15, beachCount: 7,
+      arrivalAt: "2026-10-08T16:00:00.000Z", peakAt: "2026-10-10T01:00:00.000Z",
+      faceHeightFt: { min: 3, max: 4 }, beach: { id: HOME, name: "Blacks Beach" },
+      sizeByOrientation: { westFacing: { min: 2.5, max: 4.5 }, southFacing: { min: 1.5, max: 2.5 } },
+    });
+    expect(renderFirstSightingBody({ swell, timezone, hazard: "high_rip_current" })).toBe(
+      "SSW swell from the southern hemisphere, 15s. Builds from Thursday, peaks Friday evening. 3-4 ft at Blacks Beach. "
+      + "West-facing spots 2.5-4.5 ft, south-facing 1.5-2.5 ft. Showing at 7 nearby breaks. "
+      + "NWS beach hazards statement out for rip currents.",
+    );
+  });
+
+  it("names a tropical storm when there is one", () => {
+    const swell = outlookSwell({ source: "tropical", stormName: "Hurricane Priscilla" });
+    expect(renderFirstSightingBody({ swell, timezone, hazard: null })).toMatch(/^WNW swell from Hurricane Priscilla, 14s\./);
+  });
+
+  it("drops the least useful sentences first and never the core facts", () => {
+    const swell = outlookSwell({
+      beach: { id: HOME, name: "A".repeat(150) }, beachCount: 9, fit: { status: "in_range", boards: ["longboard"] },
+      sizeByOrientation: { westFacing: { min: 2.5, max: 4.5 }, southFacing: { min: 1.5, max: 2.5 } },
+    });
+    const body = renderFirstSightingBody({ swell, timezone, hazard: "high_surf" });
+    expect(body.length).toBeLessThanOrEqual(FIRST_SIGHTING_BODY_MAX_CHARS);
+    expect(body).toContain("NWS high surf advisory in effect.");
+    expect(body).not.toContain("nearby breaks");
+    expect(body).toContain(`at ${"A".repeat(150)}.`);
+  });
 });
