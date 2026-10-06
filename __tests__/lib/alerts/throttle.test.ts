@@ -95,3 +95,10 @@ describe("weeklyCapDecision", () => {
     ).toEqual({ ok: true });
   });
 });
+
+import type { AttemptStatus } from "@/lib/alerts/throttle";
+
+it("knows the unengaged-user skip status", () => {
+  const status: AttemptStatus = "skipped_unengaged";
+  expect(status).toBe("skipped_unengaged");
+});

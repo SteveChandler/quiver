@@ -76,10 +76,10 @@ export interface SwellCardView {
   generic: boolean;
 }
 
-// <beach uuid>:<direction band>:<beach-local peak date>, plus the ":<n>" suffix
-// resolveEventKeys adds when two detections would share a key.
+// <beach uuid>:<direction band>:<beach-local peak date>, plus the ":p" marker
+// of outlook pulse keys and the ":<n>" collision suffix resolveEventKeys adds.
 const EVENT_KEY_PATTERN =
-  /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}):[NESW]{1,3}:\d{4}-\d{2}-\d{2}(?::\d{1,2})?$/i;
+  /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}):[NESW]{1,3}:\d{4}-\d{2}-\d{2}(?::p)?(?::\d+)?$/i;
 const TITLE_ID_PATTERN = /^[a-z0-9][a-z0-9_-]{0,31}$/i;
 const HISTORY_LIMIT = 60;
 const HOUR_MS = 60 * 60 * 1000;
