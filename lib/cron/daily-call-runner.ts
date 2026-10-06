@@ -330,7 +330,7 @@ function cachedTideSamples(
   }));
 }
 
-async function loadTideSamples(
+export async function loadTideSamples(
   supabase: SupabaseClient<Database>,
   cache: TideCache,
   beachId: string,

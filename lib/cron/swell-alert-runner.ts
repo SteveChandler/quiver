@@ -33,6 +33,9 @@ import {
   type SwellEventForecastRecord,
 } from "@/lib/alerts/swell-verification/record";
 import { getUserEntitlement } from "@/lib/alerts/entitlements";
+import { getDaylightWindow } from "@/lib/alerts/sunrise";
+import { refineWindow, type RefinedWindow } from "@/lib/alerts/window-refiner";
+import { loadTideSamples } from "@/lib/cron/daily-call-runner";
 import { loadUserPool } from "@/lib/alerts/user-pool";
 import { isSwellAlertEnabled, isSwellAlertUserAllowed } from "@/lib/flags/swell-alert";
 import { isSwellFollowupEnabled, isSwellFollowupUserAllowed } from "@/lib/flags/swell-followup";
@@ -47,6 +50,7 @@ import {
   type SwellKind,
 } from "@/lib/notifications/copy/swell-card-headline";
 import titlePool from "@/lib/notifications/copy/surf-titles.v1.json";
+import { formatWindowLabel, limitSentence } from "@/lib/notifications/copy/daily-call-copy";
 import {
   MAJOR_SWELL_NOTIFICATION_SCHEMA_VERSION,
   parseMajorSwellNotificationPayload,
@@ -60,7 +64,9 @@ import {
 import type { OfficialSwellAdvisoryEvidence } from "@/lib/recommendations/major-swell-awareness/shadow-evaluator";
 import { recommendBoard } from "@/lib/scoring/personal-board";
 import { fetchUserBoardContext } from "@/lib/services/discovery/surf-discovery-orchestrator";
+import { TideCache } from "@/lib/services/noaa-coops/tide-cache";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { localDateTimeToUTC } from "@/lib/utils/forecast-time-resolver";
 import { getLocalDateString, getLocalHour, resolveBeachTimezone } from "@/lib/utils/timezone-utils";
 import type { Beach, Database } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
@@ -70,7 +76,9 @@ const LOOKAHEAD_DAYS = 10;
 const HISTORY_DAYS = 30;
 const TITLE_HISTORY_DAYS = 120;
 const COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
-const DAY_MS = 24 * 60 * 60 * 1000;
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
+const GRID_MS = 3 * HOUR_MS;
 const POSTGRES_UNIQUE_VIOLATION = "23505";
 const FORECAST_PAGE_SIZE = 1000;
 const PEAK_ROW_MAX_MS = 3 * 60 * 60 * 1000;
@@ -121,6 +129,8 @@ export interface SwellAlertCandidate {
   boardName?: string | null;
   /** An NWS statement in effect at this beach, named in the push. */
   hazard?: "high_surf" | "high_rip_current" | null;
+  /** The daily call's go window on the peak day, edges snapped to tide, wind and light. */
+  window?: RefinedWindow | null;
 }
 
 export interface SwellAlertPoolEvaluation {
@@ -227,6 +237,14 @@ function weekday(dateKey: string): string {
     weekday: "long",
     timeZone: "UTC",
   }).format(new Date(`${dateKey}T12:00:00.000Z`));
+}
+
+function personalCall(beachName: string, lead: SwellAlertCandidate, timezone: string): string {
+  const timing = lead.window ? windowCopy(lead.window, lead.peakDate, timezone) : null;
+  const board = lead.boardName ? `, grab your ${lead.boardName}` : "";
+  return timing
+    ? `Your call: ${beachName} ${timing.when}${board}. ${timing.limit}`
+    : `Your call: ${beachName}${board}.`;
 }
 
 function peakPart(forecastAt: string, timezone: string): string {
@@ -424,6 +442,7 @@ async function evaluatePool(
       console.warn(`[swell-alert] Board read failed for ${profile.id}:`, error);
       return [];
     });
+  const tideCache = new TideCache();
   const forecasts = await loadForecasts(
     client,
     pool.map(({ beach }) => beach.id),
@@ -493,6 +512,17 @@ async function evaluatePool(
     const sorted = events.sort((left, right) => right.peakScore - left.peakScore)[0];
     if (!sorted) return null;
     const { peakForecast, ...best } = sorted;
+    const window = await peakDayWindow({
+      client, tideCache, beach, peakForecast,
+      forecasts: beachForecasts,
+      peakDate: best.peakDate,
+      timezone: profile.timezone,
+      verdictFor,
+    }).catch((error: unknown) => {
+      // No window means the push says "Wed morning"; never drop the alert for it.
+      console.warn(`[swell-alert] Window refine failed for ${beach.id}:`, error);
+      return null;
+    });
 
     const ledgerAdvisories = await loadOfficialSwellAdvisories({
       supabase: client,
@@ -531,6 +561,7 @@ async function evaluatePool(
       officialEvidenceRefs,
       boardName: recommendBoard(boardsForPicks, peakForecast, beach, profile.experienceLevel)?.name ?? null,
       hazard: inEffect("high_surf") ? "high_surf" : inEffect("high_rip_current") ? "high_rip_current" : null,
+      window,
     };
     return candidate;
   }));
@@ -540,6 +571,82 @@ async function evaluatePool(
     candidates: candidates.filter(
       (candidate): candidate is SwellAlertCandidate => candidate !== null,
     ),
+  };
+}
+
+/** The go window on the peak day, refined like the daily call's: the run holding the peak row, else the strongest run. */
+async function peakDayWindow(args: {
+  client: ServiceClient;
+  tideCache: TideCache;
+  beach: Beach;
+  forecasts: EnhancedForecastEntity[];
+  peakForecast: EnhancedForecastEntity;
+  peakDate: string;
+  timezone: string;
+  verdictFor: (forecast: EnhancedForecastEntity, beach: Beach) => ForecastVerdict;
+}): Promise<RefinedWindow | null> {
+  // The daily call's day: 05:00–20:00 local, so daylight resolves to this date.
+  const dayStart = localDateTimeToUTC(args.peakDate, "05:00:00", args.timezone).toISOString();
+  const dayEnd = localDateTimeToUTC(args.peakDate, "20:00:00", args.timezone).toISOString();
+  const dayRows = args.forecasts.filter((row) => {
+    const at = new Date(row.forecast_at).toISOString();
+    return at >= dayStart && at < dayEnd;
+  });
+  const verdicts = dayRows.map((row) => args.verdictFor(row, args.beach));
+  // Runs of go rows on the 3-hourly grid; refineWindow then snaps each edge
+  // between the last go row and its neighbour.
+  const groups: ForecastVerdict[][] = [];
+  for (const verdict of verdicts) {
+    const run = groups.at(-1);
+    const previous = run?.at(-1);
+    if (verdict.verdict !== "go") {
+      if (run?.length) groups.push([]);
+      continue;
+    }
+    if (run && (!previous || Date.parse(verdict.forecast.forecast_at) - Date.parse(previous.forecast.forecast_at) <= GRID_MS)) {
+      run.push(verdict);
+    } else {
+      groups.push([verdict]);
+    }
+  }
+  const strongest = (group: ForecastVerdict[]): number => Math.max(...group.map(({ score }) => score));
+  const group = groups.find((run) => run.some(({ forecast }) => forecast.id === args.peakForecast.id))
+    ?? [...groups].sort((left, right) => strongest(right) - strongest(left))[0];
+  if (!group?.length) return null;
+
+  const coarse = {
+    start: new Date(group[0].forecast.forecast_at).toISOString(),
+    end: new Date(Date.parse(group[group.length - 1].forecast.forecast_at) + HOUR_MS).toISOString(),
+  };
+  const daylight = getDaylightWindow(args.beach.lat, args.beach.lon, new Date(coarse.start));
+  const tideSamples = await loadTideSamples(
+    args.client,
+    args.tideCache,
+    args.beach.id,
+    dayStart,
+    dayEnd,
+  );
+  const verdictById = new Map(verdicts.map(({ forecast, verdict }) => [forecast.id, verdict]));
+  return refineWindow({
+    coarse,
+    forecasts: dayRows,
+    beach: args.beach,
+    tideSamples,
+    daylight: { sunrise: daylight.sunrise.toISOString(), sunset: daylight.sunset.toISOString() },
+    verdictAt: (forecast) => verdictById.get(forecast.id) ?? "no",
+  });
+}
+
+/** "Wednesday 8–11 AM" and "Best before the wind picks up around 12 PM.", in the daily call's words. */
+function windowCopy(window: RefinedWindow, peakDate: string, timezone: string): { when: string; limit: string } {
+  const edge = (side: "start" | "end"): boolean =>
+    window.drivers.find((driver) => driver.edge === side)?.approximate ?? false;
+  return {
+    when: `${weekday(peakDate)} ${formatWindowLabel(window.start, window.end, timezone, {
+      approximateStart: edge("start"),
+      approximateEnd: edge("end"),
+    })}`,
+    limit: limitSentence(window.drivers, window.end, timezone),
   };
 }
 
@@ -1018,9 +1125,7 @@ export async function runSwellAlertCron(args: {
           peak_day: weekday(lead.peakDate),
           peak_part: peakPart(lead.event.peakAt, profile.timezone),
           rarity: rarity.rarityLine,
-          call: lead.boardName
-            ? `Your call: ${beachNames[0]}, grab your ${lead.boardName}.`
-            : `Your call: ${beachNames[0]}.`,
+          call: personalCall(beachNames[0], lead, profile.timezone),
         },
       });
       const body = lead.hazard ? `${selected.body} ${HAZARD_LINES[lead.hazard]}` : selected.body;

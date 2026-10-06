@@ -8,6 +8,10 @@ jest.mock("@/lib/alerts/entitlements", () => ({ getUserEntitlement: jest.fn(asyn
 jest.mock("@/lib/services/discovery/surf-discovery-orchestrator", () => ({
   fetchUserBoardContext: jest.fn(async () => ({ boardsForPicks: [] })),
 }));
+jest.mock("@/lib/cron/daily-call-runner", () => ({
+  ...jest.requireActual("@/lib/cron/daily-call-runner"),
+  loadTideSamples: jest.fn(async () => null),
+}));
 jest.mock("@/lib/recommendations/major-swell-awareness/official-advisory-adapter", () => ({
   loadOfficialSwellAdvisories: jest.fn(async () => []),
   loadNwsSwellAdvisories: jest.fn(async () => []),
@@ -138,6 +142,8 @@ describe("swell alert runner on the swell-events detector", () => {
 
     expect(result.sent).toBe(1);
     const payload = jest.mocked(runDeps.enqueue!).mock.calls[0][0].payload as Record<string, unknown>;
+    // Go all day: the window runs from first light to dark, as the daily call refines it.
+    expect(payload.body).toContain("Your call: Blacks Saturday 6:36 AM–6:51 PM. Good until dark around 6:51 PM.");
     expect(payload).toMatchObject({
       event_key: PREVIOUS_RUN_KEY,
       event_start_date: "2026-09-18",
