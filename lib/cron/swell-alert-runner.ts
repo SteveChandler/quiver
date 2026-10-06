@@ -32,6 +32,7 @@ import {
   recordSwellEventForecast,
   type SwellEventForecastRecord,
 } from "@/lib/alerts/swell-verification/record";
+import { getUserEntitlement } from "@/lib/alerts/entitlements";
 import { loadUserPool } from "@/lib/alerts/user-pool";
 import { isSwellAlertEnabled, isSwellAlertUserAllowed } from "@/lib/flags/swell-alert";
 import { isSwellFollowupEnabled, isSwellFollowupUserAllowed } from "@/lib/flags/swell-followup";
@@ -57,6 +58,8 @@ import {
   loadOfficialSwellAdvisories,
 } from "@/lib/recommendations/major-swell-awareness/official-advisory-adapter";
 import type { OfficialSwellAdvisoryEvidence } from "@/lib/recommendations/major-swell-awareness/shadow-evaluator";
+import { recommendBoard } from "@/lib/scoring/personal-board";
+import { fetchUserBoardContext } from "@/lib/services/discovery/surf-discovery-orchestrator";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { getLocalDateString, getLocalHour, resolveBeachTimezone } from "@/lib/utils/timezone-utils";
 import type { Beach, Database } from "@/types/database";
@@ -66,7 +69,7 @@ const SEND_HOUR = 17;
 const LOOKAHEAD_DAYS = 10;
 const HISTORY_DAYS = 30;
 const TITLE_HISTORY_DAYS = 120;
-const COOLDOWN_MS = 72 * 60 * 60 * 1000;
+const COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const POSTGRES_UNIQUE_VIOLATION = "23505";
 const FORECAST_PAGE_SIZE = 1000;
@@ -74,6 +77,10 @@ const PEAK_ROW_MAX_MS = 3 * 60 * 60 * 1000;
 const OFFICIAL_ADVISORY_HORIZON_MS = 10 * DAY_MS;
 const OFFICIAL_ADVISORY_KINDS = new Set(["high_surf", "tropical_cyclone", "high_rip_current"]);
 const SERIOUS_FACE_HEIGHT_FT = 8;
+const HAZARD_LINES = {
+  high_surf: "High surf advisory in effect.",
+  high_rip_current: "Rip current statement in effect.",
+} as const;
 // Forecast rows a pinned re-evaluation loads before now; detection itself reads 48 h back.
 const PINNED_LOOKBACK_MS = 3 * DAY_MS;
 // A swell that lost its key but still tracks the told one within this shift is the same swell, moved.
@@ -110,6 +117,10 @@ export interface SwellAlertCandidate {
   serious: boolean;
   awarenessSignal: "forecast_trend" | "corroborated";
   officialEvidenceRefs: string[];
+  /** The user's board for the peak, when board picks are on for them. */
+  boardName?: string | null;
+  /** An NWS statement in effect at this beach, named in the push. */
+  hazard?: "high_surf" | "high_rip_current" | null;
 }
 
 export interface SwellAlertPoolEvaluation {
@@ -406,6 +417,13 @@ async function evaluatePool(
   });
   if (pool.length === 0) return { history: [], candidates: [] };
 
+  // The board is optional copy; a failed read sends the alert without one.
+  const boardsForPicks = await getUserEntitlement(profile.id, client)
+    .then((tier) => fetchUserBoardContext(client, profile.id, tier === "premium"))
+    .then((context) => context.boardsForPicks, (error: unknown) => {
+      console.warn(`[swell-alert] Board read failed for ${profile.id}:`, error);
+      return [];
+    });
   const forecasts = await loadForecasts(
     client,
     pool.map(({ beach }) => beach.id),
@@ -470,10 +488,11 @@ async function evaluatePool(
       const peakForecast = rowNearest(beachForecasts, event.peakAt);
       if (!peakForecast) return [];
       const peak = verdictFor(peakForecast, beach);
-      return [{ event, arrivalDate, peakDate, peakScore: peak.score, peakVerdict: peak.verdict }];
+      return [{ event, arrivalDate, peakDate, peakScore: peak.score, peakVerdict: peak.verdict, peakForecast }];
     });
-    const best = events.sort((left, right) => right.peakScore - left.peakScore)[0];
-    if (!best) return null;
+    const sorted = events.sort((left, right) => right.peakScore - left.peakScore)[0];
+    if (!sorted) return null;
+    const { peakForecast, ...best } = sorted;
 
     const ledgerAdvisories = await loadOfficialSwellAdvisories({
       supabase: client,
@@ -493,6 +512,9 @@ async function evaluatePool(
     }
     const officialAdvisories = [...ledgerAdvisories, ...nwsAdvisories];
     const officialEvidenceRefs = validOfficialEvidenceRefs(officialAdvisories, beach.id, now);
+    const inEffect = (kind: string): boolean => validOfficialEvidenceRefs(
+      officialAdvisories.filter((advisory) => advisory.kind === kind), beach.id, now,
+    ).length > 0;
     const candidate: SwellAlertCandidate = {
       beach: {
         id: beach.id,
@@ -507,6 +529,8 @@ async function evaluatePool(
       ),
       awarenessSignal: officialEvidenceRefs.length > 0 ? "corroborated" : "forecast_trend",
       officialEvidenceRefs,
+      boardName: recommendBoard(boardsForPicks, peakForecast, beach, profile.experienceLevel)?.name ?? null,
+      hazard: inEffect("high_surf") ? "high_surf" : inEffect("high_rip_current") ? "high_rip_current" : null,
     };
     return candidate;
   }));
@@ -966,7 +990,7 @@ export async function runSwellAlertCron(args: {
       }
       const lastAlertAt = Date.parse(state.lastAlertAt ?? "");
       if (Number.isFinite(lastAlertAt) && args.now.getTime() - lastAlertAt < COOLDOWN_MS) {
-        increment(summary, "cooldown_72h");
+        increment(summary, "cooldown_7d");
         continue;
       }
 
@@ -994,8 +1018,12 @@ export async function runSwellAlertCron(args: {
           peak_day: weekday(lead.peakDate),
           peak_part: peakPart(lead.event.peakAt, profile.timezone),
           rarity: rarity.rarityLine,
+          call: lead.boardName
+            ? `Your call: ${beachNames[0]}, grab your ${lead.boardName}.`
+            : `Your call: ${beachNames[0]}.`,
         },
       });
+      const body = lead.hazard ? `${selected.body} ${HAZARD_LINES[lead.hazard]}` : selected.body;
       // selectTitle still picks (tags, rotation, length); the push shows that
       // id as the card function renders it, so push and card stay one text.
       const headline = getSwellCardHeadline({
@@ -1026,7 +1054,7 @@ export async function runSwellAlertCron(args: {
         would_suppress_cohorts: ["beginner", "intermediate", "unknown"],
         enforcement: null,
         title,
-        body: selected.body,
+        body,
         beaches: rankedBeaches,
         rarity: rarity.rarityLine,
         event_key: eventKey,
