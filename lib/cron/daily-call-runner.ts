@@ -7,6 +7,7 @@ import {
   type ForecastVerdict,
 } from "@/lib/alerts/canonical-forecast-verdict";
 import {
+  capToBestWindow,
   refineWindow,
   type RefinedWindow,
 } from "@/lib/alerts/window-refiner";
@@ -431,7 +432,7 @@ async function buildCandidates(
       const sourceForecast = selected?.sourceForecast ?? best.forecast;
       candidates.push({
         pool,
-        window: refined,
+        window: capToBestWindow(refined, selected),
         physicalScore: selected?.score ?? best.score,
         personalFit: 0,
         verdict: "go",
