@@ -24,6 +24,7 @@ const vars: TitleVars = {
   peak_day: "Wed",
   peak_part: "AM",
   rarity: "Best this month",
+  call: "Your call: Blacks, grab your 7'2.",
   tide: "Rising tide",
   wind: "Offshore wind",
   high_time: "8:15",

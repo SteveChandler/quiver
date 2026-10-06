@@ -110,11 +110,11 @@ describe("runSwellAlertCron", () => {
     expect(deps.enqueue).not.toHaveBeenCalled();
   });
 
-  it("enforces the 72-hour user cooldown across different events", async () => {
+  it("enforces the 7-day user cooldown across different events", async () => {
     const deps = dependencies({
       loadAlertState: jest.fn(async () => ({
         eventExists: false,
-        lastAlertAt: "2026-09-16T00:00:00.000Z",
+        lastAlertAt: "2026-09-13T00:00:00.000Z",
         recentTitleIds: ["s09"],
         recentFilmCount: 0,
       })),
@@ -122,8 +122,40 @@ describe("runSwellAlertCron", () => {
 
     const result = await runSwellAlertCron({ now: NOW, deps });
 
-    expect(result.skippedCounts.cooldown_72h).toBe(1);
+    expect(result.skippedCounts.cooldown_7d).toBe(1);
     expect(deps.insertAlert).not.toHaveBeenCalled();
+  });
+
+  it("names the user's board and an NWS hazard in the body", async () => {
+    const pool = evaluation();
+    pool.candidates[0] = { ...pool.candidates[0], boardName: "7'2", hazard: "high_rip_current" };
+    const deps = dependencies({ evaluatePool: jest.fn(async () => pool) });
+
+    await runSwellAlertCron({ now: NOW, deps });
+
+    const { body } = (deps.enqueue as jest.Mock).mock.calls[0][0].payload;
+    expect(body).toContain("Your call: Blacks, grab your 7'2.");
+    expect(body).toMatch(/Rip current statement in effect\.$/);
+  });
+
+  it("states the daily call's window and what closes it", async () => {
+    const pool = evaluation();
+    pool.candidates[0] = {
+      ...pool.candidates[0],
+      boardName: "7'2",
+      window: {
+        start: "2026-09-20T15:00:00.000Z",
+        end: "2026-09-20T18:00:00.000Z",
+        minutes: 180,
+        drivers: [{ kind: "wind", edge: "end", at: "2026-09-20T19:00:00.000Z", approximate: false, label: "onshore" }],
+      },
+    };
+    const deps = dependencies({ evaluatePool: jest.fn(async () => pool) });
+
+    await runSwellAlertCron({ now: NOW, deps });
+
+    const { body } = (deps.enqueue as jest.Mock).mock.calls[0][0].payload;
+    expect(body).toContain("Your call: Blacks Sunday 8–11 AM, grab your 7'2. Best before the wind picks up around 12 PM.");
   });
 
   it("uses only serious title copy for a nine-foot peak", async () => {

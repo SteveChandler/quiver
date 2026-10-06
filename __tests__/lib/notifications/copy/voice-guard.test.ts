@@ -56,6 +56,7 @@ const VARS = {
   peak_day: "Wed",
   peak_part: "AM",
   rarity: "Best in 30 days",
+  call: "Your call: Blacks, grab your 7'2.",
   day: "Wed",
   part: "AM",
   prev_size: "3ft",
