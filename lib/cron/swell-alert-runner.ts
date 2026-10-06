@@ -48,6 +48,7 @@ import {
   buildFirstSightingPayload,
   firstSightingFaceHeightFt,
   selectFirstSightingCandidates,
+  type FirstSightingHazard,
 } from "@/lib/alerts/swell-outlook/first-sighting";
 import {
   EMPTY_SWELL_OUTLOOK_USER_STATE,
@@ -217,6 +218,8 @@ export interface SwellOutlookDeps {
   hasFirstSightingAlert: (userId: string, eventKeys: string[]) => Promise<boolean>;
   assessSwellRarity: (profile: SwellAlertProfile, swell: OutlookSwell, now: Date) => Promise<boolean>;
   getTier: (userId: string) => Promise<Tier>;
+  /** Official hazard at the lead beach for the push text; null when none or the lookup fails. */
+  loadFirstSightingHazard?: (beachId: string, timezone: string, now: Date) => Promise<FirstSightingHazard | null>;
 }
 
 type RunnerDeps = SwellAlertDeps & SwellFollowupDeps & Partial<SwellOutlookDeps>;
@@ -423,6 +426,32 @@ function rowNearest(rows: readonly EnhancedForecastEntity[], at: string): Enhanc
 }
 
 /** The evidence rules the shadow evaluator applied, kept for corroboration. */
+async function loadFirstSightingHazard(
+  client: SupabaseClient,
+  beachId: string,
+  timezone: string,
+  now: Date,
+): Promise<FirstSightingHazard | null> {
+  const { data: beach, error } = await client
+    .from("beaches")
+    .select("nws_forecast_zone")
+    .eq("id", beachId)
+    .maybeSingle();
+  if (error) throw new Error(`Failed to load beach zone: ${error.message}`);
+  const [ledger, nws] = await Promise.all([
+    loadOfficialSwellAdvisories({ supabase: client, beachId, timezone, now }),
+    loadNwsSwellAdvisories({ zone: (beach as { nws_forecast_zone?: string | null } | null)?.nws_forecast_zone, beachId, now }),
+  ]);
+  const advisories = [...ledger, ...nws];
+  const inEffect = (kind: FirstSightingHazard): boolean => validOfficialEvidenceRefs(
+    advisories.filter((advisory) => advisory.kind === kind), beachId, now,
+  ).length > 0;
+  if (inEffect("tropical_cyclone")) return "tropical_cyclone";
+  if (inEffect("high_surf")) return "high_surf";
+  if (inEffect("high_rip_current")) return "high_rip_current";
+  return null;
+}
+
 function validOfficialEvidenceRefs(
   advisories: readonly OfficialSwellAdvisoryEvidence[],
   beachId: string,
@@ -861,6 +890,8 @@ function defaultDependencies(args: {
       }),
     getTier: args.deps?.getTier
       ?? ((userId) => getOutlookTier(getClient(), userId)),
+    loadFirstSightingHazard: args.deps?.loadFirstSightingHazard
+      ?? ((beachId, timezone, now) => loadFirstSightingHazard(getClient(), beachId, timezone, now)),
   };
 }
 
@@ -1132,7 +1163,12 @@ async function sendFirstSighting(
       return;
     }
 
-    const payload = buildFirstSightingPayload({ swell, timezone: profile.timezone });
+    const hazard = await (deps.loadFirstSightingHazard?.(swell.beach.id, profile.timezone, now) ?? Promise.resolve(null))
+      .catch((error: unknown) => {
+        console.warn(`[swell-alert] First-sighting hazard lookup failed for ${swell.beach.id}:`, error);
+        return null;
+      });
+    const payload = buildFirstSightingPayload({ swell, timezone: profile.timezone, hazard });
     let claimDenied: FirstSightingClaimSkipReason = "event_exists";
     const alert = await deps.insertAlert({
       userId: profile.id,
