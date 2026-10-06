@@ -281,7 +281,7 @@ describe("swell alert pool evaluation with the canonical verdict", () => {
     expect(result.sent).toBe(1);
     const payload = jest.mocked(deps.enqueue!).mock.calls[0][0].payload as { rarity: string };
     // A 70+ score alone no longer makes Sep 15 a go day; the 05:00 row is outside daylight.
-    expect(payload.rarity).toBe("Best since Sep 13");
+    expect(payload.rarity).toBe("Best in 6 days");
     expect(
       jest.mocked(evaluateForecastVerdict).mock.calls.map(([args]) => args.forecast.id),
     ).not.toContain("sep-16-predawn");
