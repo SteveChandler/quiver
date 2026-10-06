@@ -1,0 +1,71 @@
+// __tests__/lib/alerts/swell-outlook/first-sighting.test.ts
+import {
+  buildFirstSightingPayload,
+  firstSightingFaceHeightFt,
+  selectFirstSightingCandidates,
+} from "@/lib/alerts/swell-outlook/first-sighting";
+import { OUTLOOK_HOME_BEACH_ID as HOME, outlookSwell } from "@/__tests__/helpers/outlook-swell";
+
+const OTHER = "ffffffff-0000-4000-8000-000000000002";
+
+describe("selectFirstSightingCandidates", () => {
+  it("keeps only forecast swells that are in range, earliest peak first", () => {
+    const swells = [
+      outlookSwell({ id: "late", peakAt: "2026-09-24T15:00:00.000Z" }),
+      outlookSwell({ id: "early", peakAt: "2026-09-21T15:00:00.000Z" }),
+      outlookSwell({ id: "shrinking", status: "shrinking" }),
+      outlookSwell({ id: "faded", status: "faded" }),
+      outlookSwell({ id: "arrived", status: "arrived" }),
+      outlookSwell({ id: "rideable", fit: { status: "rideable", boards: [] } }),
+      outlookSwell({ id: "small", fit: { status: "below_range", boards: [] } }),
+      outlookSwell({ id: "big", fit: { status: "above_range", boards: [] } }),
+      outlookSwell({ id: "unknown", fit: { status: "unknown", boards: [] } }),
+      outlookSwell({ id: "noperiod", periodS: null }),
+    ];
+    expect(selectFirstSightingCandidates({ swells, homeBeachId: HOME, tier: "premium" }).map((swell) => swell.id)).toEqual(["early", "late"]);
+  });
+
+  it("limits free users to swells sized at the home beach", () => {
+    const swells = [outlookSwell({ id: "home" }), outlookSwell({ id: "other", beach: { id: OTHER, name: "Elsewhere" } })];
+    expect(selectFirstSightingCandidates({ swells, homeBeachId: HOME, tier: "free" }).map((swell) => swell.id)).toEqual(["home"]);
+    expect(selectFirstSightingCandidates({ swells, homeBeachId: null, tier: "free" })).toEqual([]);
+  });
+});
+
+describe("buildFirstSightingPayload", () => {
+  const payload = buildFirstSightingPayload({ swell: outlookSwell({ fit: { status: "in_range", boards: ["longboard"] } }), timezone: "America/Los_Angeles" });
+
+  it("opens the swell detail by the swell's own key", () => {
+    expect(payload).toMatchObject({ event_key: `${HOME}:NW:2026-09-21:p`, kind: "coming", beach_id: HOME, peak_date: "2026-09-21" });
+    expect(payload.share_url).toContain(encodeURIComponent(`${HOME}:NW:2026-09-21:p`));
+  });
+
+  it("states size, period, direction and day, and makes no rarity claim", () => {
+    expect(payload.body).toBe("WNW swell, 4ft @ 14s, peaks Monday morning. Good size for your longboard.");
+    expect(`${payload.title} ${payload.body}`).not.toMatch(/biggest|first swell|flat|in weeks|rare|the call/i);
+  });
+
+  it("never names a board when several fit or none do", () => {
+    const several = buildFirstSightingPayload({ swell: outlookSwell({ fit: { status: "in_range", boards: ["fish", "longboard"] } }), timezone: "America/Los_Angeles" });
+    expect(several.body).not.toMatch(/your/);
+    const none = buildFirstSightingPayload({ swell: outlookSwell(), timezone: "America/Los_Angeles" });
+    expect(none.body).not.toMatch(/your/);
+  });
+
+  it("marks 8 ft and up as major", () => {
+    const big = buildFirstSightingPayload({ swell: outlookSwell({ faceHeightFt: { min: 7.5, max: 9.5 } }), timezone: "America/Los_Angeles" });
+    expect(big.awareness_severity).toBe("major");
+    expect(firstSightingFaceHeightFt(outlookSwell({ faceHeightFt: { min: 3.5, max: 4.5 } }))).toBe(4);
+  });
+});
+
+it("uses neutral copy across keys and sizes without any rarity field", () => {
+  for (const size of [4, 8, 12]) {
+    for (let key = 0; key < 30; key += 1) {
+      const payload = buildFirstSightingPayload({ swell: outlookSwell({ eventKey: `swell-${key}`,
+        faceHeightFt: { min: size - 0.5, max: size + 0.5 } }), timezone: "America/Los_Angeles" });
+      expect(`${payload.title} ${payload.body}`).not.toMatch(/biggest|first swell|flat|in weeks|rare|the call|machine.learning|\bAI\b/i);
+      expect(payload).not.toHaveProperty("rarity");
+    }
+  }
+});
