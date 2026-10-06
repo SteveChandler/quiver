@@ -67,6 +67,7 @@ export interface SwellEventSnapshotRow {
   detector_version: string;
   run_date: string;
   detected_at: string;
+  lead_days?: number | null;
   direction_deg: number;
   direction_band: string;
   period_s: number;
@@ -134,6 +135,7 @@ export async function loadRecentSwellSnapshots(
   supabase: SupabaseClient<Database>,
   beachIds: string[],
   since: Date,
+  detectorVersion: string = SWELL_EVENT_DETECTOR_VERSION,
 ): Promise<SwellEventSnapshot[]> {
   // The table is not in the generated types; rows are validated field by field below.
   const client = supabase as unknown as SupabaseClient;
@@ -146,7 +148,7 @@ export async function loadRecentSwellSnapshots(
         .from(SWELL_EVENT_SNAPSHOTS_TABLE)
         .select(SNAPSHOT_COLUMNS)
         .in("beach_id", chunk)
-        .eq("detector_version", SWELL_EVENT_DETECTOR_VERSION)
+        .eq("detector_version", detectorVersion)
         .gte("detected_at", since.toISOString())
         .order("detected_at", { ascending: false })
         .order("beach_id", { ascending: true })
@@ -232,13 +234,15 @@ export function toSwellEventSnapshotRow(
   event: BeachSwellEvent,
   detectedAt: Date,
   crossing: SwellCrossing | null = null,
+  detectorVersion: string = SWELL_EVENT_DETECTOR_VERSION,
 ): SwellEventSnapshotRow {
   return {
     beach_id: event.beachId,
     event_key: event.eventKey,
-    detector_version: SWELL_EVENT_DETECTOR_VERSION,
+    detector_version: detectorVersion,
     run_date: detectedAt.toISOString().slice(0, 10),
     detected_at: detectedAt.toISOString(),
+    lead_days: Math.round(((Date.parse(event.peakAt) - detectedAt.getTime()) / 86_400_000) * 100) / 100,
     direction_deg: event.directionDeg,
     direction_band: event.directionBand,
     period_s: event.periodS,
@@ -264,7 +268,24 @@ export async function upsertSwellEventSnapshots(
   const { error } = await client
     .from(SWELL_EVENT_SNAPSHOTS_TABLE)
     .upsert(rows, { onConflict: "beach_id,event_key,run_date" });
-  if (error) throw new Error(`Failed to write swell event snapshots: ${error.message}`);
+  if (!error) return rows.length;
+  if ((error.code !== "PGRST204" && error.code !== "42703") || !/\blead_days\b/.test(error.message)) {
+    throw new Error(`Failed to write swell event snapshots: ${error.message}`);
+  }
+
+  // Preserve snapshots while the additive migration or schema cache catches up.
+  const rowsWithoutLead = rows.map((row: SwellEventSnapshotRow): SwellEventSnapshotRow => {
+    const withoutLead = { ...row };
+    delete withoutLead.lead_days;
+    return withoutLead;
+  });
+  console.warn("[swell-event-snapshots] lead_days unavailable; retrying without lead metadata", {
+    error: error.message,
+  });
+  const { error: retryError } = await client
+    .from(SWELL_EVENT_SNAPSHOTS_TABLE)
+    .upsert(rowsWithoutLead, { onConflict: "beach_id,event_key,run_date" });
+  if (retryError) throw new Error(`Failed to write swell event snapshots: ${retryError.message}`);
   return rows.length;
 }
 
