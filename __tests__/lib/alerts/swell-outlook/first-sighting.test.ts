@@ -1,6 +1,7 @@
 // __tests__/lib/alerts/swell-outlook/first-sighting.test.ts
 import {
   buildFirstSightingPayload,
+  renderFirstSightingTitle,
   FIRST_SIGHTING_BODY_MAX_CHARS,
   firstSightingFaceHeightFt,
   renderFirstSightingBody,
@@ -11,7 +12,7 @@ import { OUTLOOK_HOME_BEACH_ID as HOME, outlookSwell } from "@/__tests__/helpers
 const OTHER = "ffffffff-0000-4000-8000-000000000002";
 
 describe("selectFirstSightingCandidates", () => {
-  it("keeps only forecast swells that are in range, earliest peak first", () => {
+  it("keeps only forecast swells that are in range, same size earliest peak first", () => {
     const swells = [
       outlookSwell({ id: "late", peakAt: "2026-09-24T15:00:00.000Z" }),
       outlookSwell({ id: "early", peakAt: "2026-09-21T15:00:00.000Z" }),
@@ -25,6 +26,19 @@ describe("selectFirstSightingCandidates", () => {
       outlookSwell({ id: "noperiod", periodS: null }),
     ];
     expect(selectFirstSightingCandidates({ swells, homeBeachId: HOME, tier: "premium" }).map((swell) => swell.id)).toEqual(["early", "late"]);
+  });
+
+  it("picks the biggest swell first, and the closest beach when sizes tie", () => {
+    const near = { id: "ffffffff-0000-4000-8000-000000000003", name: "Near" };
+    const far = { id: "ffffffff-0000-4000-8000-000000000004", name: "Far" };
+    const swells = [
+      outlookSwell({ id: "small-early", faceHeightFt: { min: 1, max: 2 }, peakAt: "2026-09-20T15:00:00.000Z" }),
+      outlookSwell({ id: "big-far", faceHeightFt: { min: 4, max: 5.5 }, beach: far, peakAt: "2026-09-25T15:00:00.000Z" }),
+      outlookSwell({ id: "big-near", faceHeightFt: { min: 4, max: 5.5 }, beach: near, peakAt: "2026-09-26T15:00:00.000Z" }),
+    ];
+    const distanceKmByBeach = new Map([[near.id, 12], [far.id, 140]]);
+    expect(selectFirstSightingCandidates({ swells, homeBeachId: HOME, tier: "premium", distanceKmByBeach }).map((swell) => swell.id))
+      .toEqual(["big-near", "big-far", "small-early"]);
   });
 
   it("limits free users to swells sized at the home beach", () => {
@@ -44,10 +58,21 @@ describe("buildFirstSightingPayload", () => {
 
   it("states size, period, direction and day, and makes no rarity claim", () => {
     expect(payload.body).toBe(
-      "WNW swell from the North Pacific, 14s. Peaks Monday morning. 3.5-4.5 ft at Blacks Beach. "
+      "WNW swell from the North Pacific, 14s. Peaks Monday morning. Sets up to 4.5 ft at Blacks Beach. "
       + "Good size for your longboard. Showing at 3 nearby breaks.",
     );
     expect(`${payload.title} ${payload.body}`).not.toMatch(/biggest|first swell|flat|in weeks|rare|the call/i);
+  });
+
+  it("titles the push with direction, days in the water and set size, never a title-pool line", () => {
+    expect(payload.title).toBe("WNW swell Mon, sets to 4.5 ft");
+    const spanning = outlookSwell({
+      directionLabel: "SSW", arrivalAt: "2026-10-06T16:00:00.000Z", peakAt: "2026-10-08T22:00:00.000Z",
+      fadeAt: "2026-10-09T23:00:00.000Z", faceHeightFt: { min: 3, max: 4 },
+    });
+    expect(renderFirstSightingTitle(spanning, "America/Los_Angeles")).toBe("SSW swell Tue-Fri, sets to 4 ft");
+    expect(renderFirstSightingTitle({ ...spanning, fadeAt: undefined }, "America/Los_Angeles")).toBe("SSW swell Tue-Thu, sets to 4 ft");
+    expect(renderFirstSightingTitle({ ...spanning, fadeAt: "2026-10-07T12:00:00.000Z" }, "America/Los_Angeles")).toBe("SSW swell Tue-Thu, sets to 4 ft");
   });
 
   it("never names a board when several fit or none do", () => {
@@ -86,15 +111,15 @@ describe("renderFirstSightingBody", () => {
       sizeByOrientation: { westFacing: { min: 2.5, max: 4.5 }, southFacing: { min: 1.5, max: 2.5 } },
     });
     expect(renderFirstSightingBody({ swell, timezone, hazard: "high_rip_current" })).toBe(
-      "SSW swell from the southern hemisphere, 15s. Builds from Thursday, peaks Friday evening. 3-4 ft at Blacks Beach. "
-      + "West-facing spots 2.5-4.5 ft, south-facing 1.5-2.5 ft. Showing at 7 nearby breaks. "
+      "SSW swell from the southern hemisphere, 15s. Builds from Thursday, peaks Friday evening. Sets up to 4 ft at Blacks Beach. "
+      + "West-facing spots up to 4.5 ft, south-facing up to 2.5 ft. Showing at 7 nearby breaks. "
       + "NWS beach hazards statement out for rip currents.",
     );
   });
 
   it("names a tropical storm when there is one", () => {
-    const swell = outlookSwell({ source: "tropical", stormName: "Hurricane Priscilla" });
-    expect(renderFirstSightingBody({ swell, timezone, hazard: null })).toMatch(/^WNW swell from Hurricane Priscilla, 14s\./);
+    const swell = outlookSwell({ source: "tropical", stormName: "Priscilla" });
+    expect(renderFirstSightingBody({ swell, timezone, hazard: null })).toMatch(/^WNW swell from tropical storm Priscilla, 14s\./);
   });
 
   it("drops the least useful sentences first and never the core facts", () => {
@@ -106,6 +131,6 @@ describe("renderFirstSightingBody", () => {
     expect(body.length).toBeLessThanOrEqual(FIRST_SIGHTING_BODY_MAX_CHARS);
     expect(body).toContain("NWS high surf advisory in effect.");
     expect(body).not.toContain("nearby breaks");
-    expect(body).toContain(`at ${"A".repeat(150)}.`);
+    expect(body).toContain(`Sets up to 4.5 ft at ${"A".repeat(150)}.`);
   });
 });

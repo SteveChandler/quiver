@@ -29,6 +29,8 @@ export interface OutlookSwell {
   firstSightingEligible?: false;
   arrivalAt: string | null;
   peakAt: string;
+  /** When the swell drops back out; null or absent on lists stored before this field existed. */
+  fadeAt?: string | null;
   peakWindow: { from: string; to: string } | null;
   faceHeightFt: FaceHeightRangeFt;
   periodS: number | null;
