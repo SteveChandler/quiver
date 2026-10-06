@@ -7,7 +7,15 @@ import { NextRequest } from "next/server";
 import { GET } from "@/app/app-store/route";
 
 describe("GET /app-store", () => {
-  it.each(["web", "email", "partner_qr", "share"])(
+  it.each([
+    "web",
+    "web_banner",
+    "web_app_links",
+    "web_page",
+    "email",
+    "partner_qr",
+    "share",
+  ])(
     "redirects the %s campaign through the tracked handoff",
     (campaign) => {
       const response = GET(
