@@ -47,6 +47,7 @@ import {
 
 const WINDOW_CLOSE_BUFFER_MS = 30 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
+const GRID_MS = 3 * HOUR_MS;
 
 export interface DailyCallCandidate {
   pool: PoolBeach;
@@ -281,22 +282,20 @@ function buildPayload(args: {
   };
 }
 
-function groupGoForecasts(evaluations: ForecastVerdict[]): ForecastVerdict[][] {
+/**
+ * Runs of go rows. The forecast grid is 3-hourly, so consecutive go rows join
+ * across one grid step; a non-go row or a missing row ends the run.
+ */
+export function groupGoForecasts(evaluations: ForecastVerdict[]): ForecastVerdict[][] {
   const groups: ForecastVerdict[][] = [];
+  let previous: ForecastVerdict | null = null;
   for (const evaluation of evaluations) {
-    if (evaluation.verdict !== "go") continue;
-    const current = groups.at(-1);
-    const previous = current?.at(-1);
-    if (
-      current
-      &&
-      previous
-      && Date.parse(evaluation.forecast.forecast_at) - Date.parse(previous.forecast.forecast_at) <= HOUR_MS
-    ) {
-      current.push(evaluation);
-    } else {
-      groups.push([evaluation]);
-    }
+    const joins = previous?.verdict === "go"
+      && evaluation.verdict === "go"
+      && Date.parse(evaluation.forecast.forecast_at) - Date.parse(previous.forecast.forecast_at) <= GRID_MS;
+    if (joins) groups[groups.length - 1].push(evaluation);
+    else if (evaluation.verdict === "go") groups.push([evaluation]);
+    previous = evaluation;
   }
   return groups;
 }

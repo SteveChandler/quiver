@@ -35,7 +35,7 @@ import {
 import { getUserEntitlement } from "@/lib/alerts/entitlements";
 import { getDaylightWindow } from "@/lib/alerts/sunrise";
 import { refineWindow, type RefinedWindow } from "@/lib/alerts/window-refiner";
-import { loadTideSamples } from "@/lib/cron/daily-call-runner";
+import { groupGoForecasts, loadTideSamples } from "@/lib/cron/daily-call-runner";
 import { loadUserPool } from "@/lib/alerts/user-pool";
 import { isSwellAlertEnabled, isSwellAlertUserAllowed } from "@/lib/flags/swell-alert";
 import { isSwellFollowupEnabled, isSwellFollowupUserAllowed } from "@/lib/flags/swell-followup";
@@ -102,7 +102,6 @@ const TITLE_HISTORY_DAYS = 120;
 const COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
-const GRID_MS = 3 * HOUR_MS;
 const POSTGRES_UNIQUE_VIOLATION = "23505";
 const FORECAST_PAGE_SIZE = 1000;
 const PEAK_ROW_MAX_MS = 3 * 60 * 60 * 1000;
@@ -657,26 +656,11 @@ async function peakDayWindow(args: {
     return at >= dayStart && at < dayEnd;
   });
   const verdicts = dayRows.map((row) => args.verdictFor(row, args.beach));
-  // Runs of go rows on the 3-hourly grid; refineWindow then snaps each edge
-  // between the last go row and its neighbour.
-  const groups: ForecastVerdict[][] = [];
-  for (const verdict of verdicts) {
-    const run = groups.at(-1);
-    const previous = run?.at(-1);
-    if (verdict.verdict !== "go") {
-      if (run?.length) groups.push([]);
-      continue;
-    }
-    if (run && (!previous || Date.parse(verdict.forecast.forecast_at) - Date.parse(previous.forecast.forecast_at) <= GRID_MS)) {
-      run.push(verdict);
-    } else {
-      groups.push([verdict]);
-    }
-  }
+  const groups = groupGoForecasts(verdicts);
   const strongest = (group: ForecastVerdict[]): number => Math.max(...group.map(({ score }) => score));
   const group = groups.find((run) => run.some(({ forecast }) => forecast.id === args.peakForecast.id))
     ?? [...groups].sort((left, right) => strongest(right) - strongest(left))[0];
-  if (!group?.length) return null;
+  if (!group) return null;
 
   const coarse = {
     start: new Date(group[0].forecast.forecast_at).toISOString(),
