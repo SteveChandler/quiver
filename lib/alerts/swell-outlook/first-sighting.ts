@@ -9,6 +9,16 @@ import type { OutlookSwell } from '@/lib/services/discovery/swell-outlook-types'
 import { getLocalDateString, getLocalHour } from '@/lib/utils/timezone-utils';
 
 const SERIOUS_FACE_HEIGHT_FT = 8;
+/** Android shows the full text when expanded; iOS shows about four lines and the rest on long-press. */
+export const FIRST_SIGHTING_BODY_MAX_CHARS = 300;
+
+export type FirstSightingHazard = 'high_surf' | 'high_rip_current' | 'tropical_cyclone';
+
+const HAZARD_SENTENCES: Record<FirstSightingHazard, string> = {
+  high_surf: 'NWS high surf advisory in effect.',
+  high_rip_current: 'NWS beach hazards statement out for rip currents.',
+  tropical_cyclone: 'NWS tropical storm alert in effect.',
+};
 
 /** Listed for the first time and in range for this user; sticky and arrived entries never push. */
 export function selectFirstSightingCandidates(args: {
@@ -41,8 +51,76 @@ function dayPart(iso: string, timezone: string): string {
   return 'evening';
 }
 
+function range(size: { min: number; max: number }): string {
+  return size.min === size.max ? `${formatNumber(size.min)} ft` : `${formatNumber(size.min)}-${formatNumber(size.max)} ft`;
+}
+
+function sourcePhrase(swell: OutlookSwell): string {
+  switch (swell.source) {
+    case 'southern_hemisphere': return ' from the southern hemisphere';
+    case 'north_pacific': return ' from the North Pacific';
+    case 'tropical': return swell.stormName ? ` from ${swell.stormName}` : ' from the tropics';
+    default: return '';
+  }
+}
+
+function timingSentence(swell: OutlookSwell, timezone: string): string {
+  const peakDate = getLocalDateString(new Date(swell.peakAt), timezone);
+  const peak = `peaks ${weekday(peakDate)} ${dayPart(swell.peakAt, timezone)}`;
+  if (!swell.arrivalAt) return `${peak[0].toUpperCase()}${peak.slice(1)}.`;
+  const arrivalDate = getLocalDateString(new Date(swell.arrivalAt), timezone);
+  if (arrivalDate === peakDate) {
+    const arrivalPart = dayPart(swell.arrivalAt, timezone);
+    if (arrivalPart === dayPart(swell.peakAt, timezone)) return `${peak[0].toUpperCase()}${peak.slice(1)}.`;
+    return `Fills in ${weekday(arrivalDate)} ${arrivalPart}, ${peak}.`;
+  }
+  return `Builds from ${weekday(arrivalDate)}, ${peak}.`;
+}
+
+function orientationSentence(swell: OutlookSwell): string | null {
+  const { westFacing, southFacing } = swell.sizeByOrientation;
+  if (westFacing && southFacing) return `West-facing spots ${range(westFacing)}, south-facing ${range(southFacing)}.`;
+  return null;
+}
+
+/**
+ * Reads like a short swell report: what is coming, when, how big and where, then anything official.
+ * Lower-priority sentences drop first so the text never runs past what a notification can carry.
+ */
+export function renderFirstSightingBody(args: {
+  swell: OutlookSwell;
+  timezone: string;
+  hazard: FirstSightingHazard | null;
+}): string {
+  const { swell, timezone, hazard } = args;
+  const period = swell.periodS === null ? '' : `, ${formatNumber(swell.periodS)}s`;
+  const sentences: Array<{ text: string; priority: number }> = [
+    { text: `${swell.directionLabel} swell${sourcePhrase(swell)}${period}.`, priority: 0 },
+    { text: timingSentence(swell, timezone), priority: 0 },
+    { text: `${range(swell.faceHeightFt)} at ${swell.beach.name}.`, priority: 0 },
+  ];
+  const orientation = orientationSentence(swell);
+  if (orientation) sentences.push({ text: orientation, priority: 2 });
+  if (swell.fit.boards.length === 1) sentences.push({ text: `Good size for your ${swell.fit.boards[0]}.`, priority: 3 });
+  if (swell.beachCount > 1) sentences.push({ text: `Showing at ${swell.beachCount} nearby breaks.`, priority: 4 });
+  if (hazard) sentences.push({ text: HAZARD_SENTENCES[hazard], priority: 1 });
+
+  const kept = [...sentences];
+  const length = (): number => kept.map(({ text }) => text).join(' ').length;
+  while (length() > FIRST_SIGHTING_BODY_MAX_CHARS) {
+    const lowest = kept.reduce((worst, entry, index) => (entry.priority > kept[worst].priority ? index : worst), 0);
+    if (kept[lowest].priority === 0) break;
+    kept.splice(lowest, 1);
+  }
+  return kept.map(({ text }) => text).join(' ');
+}
+
 /** Plain facts only: a modest swell must not borrow the rarity titles written for the evening-before alert. */
-export function buildFirstSightingPayload(args: { swell: OutlookSwell; timezone: string }): MajorSwellNotificationPayload {
+export function buildFirstSightingPayload(args: {
+  swell: OutlookSwell;
+  timezone: string;
+  hazard?: FirstSightingHazard | null;
+}): MajorSwellNotificationPayload {
   const { swell, timezone } = args;
   const faceHeightFt = firstSightingFaceHeightFt(swell);
   const serious = faceHeightFt >= SERIOUS_FACE_HEIGHT_FT;
@@ -55,9 +133,7 @@ export function buildFirstSightingPayload(args: { swell: OutlookSwell; timezone:
     peakDayLabel,
     serious,
   });
-  const board = swell.fit.boards.length === 1 ? ` Good size for your ${swell.fit.boards[0]}.` : '';
-  const body = `${swell.directionLabel} swell, ${formatNumber(faceHeightFt)}ft @ ${formatNumber(swell.periodS ?? 0)}s, `
-    + `peaks ${peakDayLabel} ${dayPart(swell.peakAt, timezone)}.${board}`;
+  const body = renderFirstSightingBody({ swell, timezone, hazard: args.hazard ?? null });
   return parseMajorSwellNotificationPayload({
     schema_version: MAJOR_SWELL_NOTIFICATION_SCHEMA_VERSION,
     beach_id: swell.beach.id,
