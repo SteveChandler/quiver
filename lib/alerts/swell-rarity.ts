@@ -19,14 +19,6 @@ const HISTORY_DAYS = 30;
 export const MIN_HISTORY_DAYS_FOR_WEEKS = 14;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-function formatDate(localDate: string): string {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(`${localDate}T12:00:00.000Z`));
-}
-
 function shiftDate(localDate: string, days: number): string {
   const date = new Date(`${localDate}T12:00:00.000Z`);
   date.setUTCDate(date.getUTCDate() + days);
@@ -84,13 +76,11 @@ export function assessRarity(args: {
     return { rare: false, kind: null, rarityLine: null, historyDays };
   }
 
-  const previousGo = [...history].reverse().find((day) => day.go);
+  // Every earlier day scored lower, so no "best since <date>": that date would read as a match.
   return {
     rare: true,
     kind: "best-in-30",
-    rarityLine: previousGo
-      ? `Best since ${formatDate(previousGo.localDate)}`
-      : `Best in ${Math.min(historyDays, HISTORY_DAYS)} days`,
+    rarityLine: `Best in ${Math.min(historyDays, HISTORY_DAYS)} days`,
     historyDays,
   };
 }
