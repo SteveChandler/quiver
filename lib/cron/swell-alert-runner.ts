@@ -37,6 +37,7 @@ import { getDaylightWindow } from "@/lib/alerts/sunrise";
 import { refineWindow, type RefinedWindow } from "@/lib/alerts/window-refiner";
 import { loadTideSamples } from "@/lib/cron/daily-call-runner";
 import { loadUserPool } from "@/lib/alerts/user-pool";
+import { calculateDistance } from "@/lib/utils/distance-utils";
 import { isSwellAlertEnabled, isSwellAlertUserAllowed } from "@/lib/flags/swell-alert";
 import { isSwellFollowupEnabled, isSwellFollowupUserAllowed } from "@/lib/flags/swell-followup";
 import { resolveEntitlement, type Tier } from "@/lib/alerts/entitlements";
@@ -241,6 +242,8 @@ export interface SwellOutlookDeps {
   getTier: (userId: string) => Promise<Tier>;
   /** Official hazard at the lead beach for the push text; null when none or the lookup fails. */
   loadFirstSightingHazard?: (beachId: string, timezone: string, now: Date) => Promise<FirstSightingHazard | null>;
+  /** Km from the user's last location, else the home beach, to each beach; empty when neither is known. */
+  loadBeachDistancesKm?: (profile: SwellAlertProfile, beachIds: readonly string[]) => Promise<ReadonlyMap<string, number>>;
 }
 
 type RunnerDeps = SwellAlertDeps & SwellFollowupDeps & Partial<SwellOutlookDeps>;
@@ -455,6 +458,34 @@ function rowNearest(rows: readonly EnhancedForecastEntity[], at: string): Enhanc
 }
 
 /** The evidence rules the shadow evaluator applied, kept for corroboration. */
+async function loadBeachDistancesKm(
+  client: SupabaseClient,
+  profile: SwellAlertProfile,
+  beachIds: readonly string[],
+): Promise<ReadonlyMap<string, number>> {
+  const { data: snapshot, error: snapshotError } = await client
+    .from("user_location_snapshots")
+    .select("lat, lon")
+    .eq("user_id", profile.id)
+    .maybeSingle();
+  if (snapshotError) throw new Error(`Failed to load last location: ${snapshotError.message}`);
+  const ids = profile.homeBeachId ? [...beachIds, profile.homeBeachId] : [...beachIds];
+  const { data: beaches, error } = await client.from("beaches").select("id, lat, lon").in("id", ids);
+  if (error) throw new Error(`Failed to load beach coordinates: ${error.message}`);
+  const coords = new Map((beaches ?? []).flatMap((beach: { id: string; lat: number | null; lon: number | null }) => (
+    beach.lat === null || beach.lon === null ? [] : [[beach.id, { lat: beach.lat, lon: beach.lon }] as const]
+  )));
+  const last = snapshot as { lat: number | null; lon: number | null } | null;
+  const origin = last && last.lat !== null && last.lon !== null
+    ? { lat: last.lat, lon: last.lon }
+    : profile.homeBeachId ? coords.get(profile.homeBeachId) ?? null : null;
+  if (!origin) return new Map();
+  return new Map(beachIds.flatMap((id) => {
+    const beach = coords.get(id);
+    return beach ? [[id, calculateDistance(origin, beach, "km")] as const] : [];
+  }));
+}
+
 async function loadFirstSightingHazard(
   client: SupabaseClient,
   beachId: string,
@@ -1023,6 +1054,8 @@ function defaultDependencies(args: {
       ?? ((userId) => getOutlookTier(getClient(), userId)),
     loadFirstSightingHazard: args.deps?.loadFirstSightingHazard
       ?? ((beachId, timezone, now) => loadFirstSightingHazard(getClient(), beachId, timezone, now)),
+    loadBeachDistancesKm: args.deps?.loadBeachDistancesKm
+      ?? ((profile, beachIds) => loadBeachDistancesKm(getClient(), profile, beachIds)),
   };
 }
 
@@ -1261,10 +1294,20 @@ async function sendFirstSighting(
     increment(summary, "first_sighting_window_closed");
     return;
   }
+  const swells = await deps.loadOutlook(profile, now, (list) => { gate.list = list; gate.dirty = true; });
+  const beachIds = [...new Set(swells.map((swell) => swell.beach.id))];
+  const distanceKmByBeach = beachIds.length === 0 || !deps.loadBeachDistancesKm
+    ? new Map<string, number>()
+    : await deps.loadBeachDistancesKm(profile, beachIds).catch((error: unknown) => {
+      // Distance only breaks a size tie; never drop the push for it.
+      console.warn(`[swell-alert] Beach distance lookup failed for ${profile.id}:`, error);
+      return new Map<string, number>();
+    });
   const candidates = selectFirstSightingCandidates({
-    swells: await deps.loadOutlook(profile, now, (list) => { gate.list = list; gate.dirty = true; }),
+    swells,
     homeBeachId: profile.homeBeachId,
     tier,
+    distanceKmByBeach,
   });
 
   let rarityAssessments = 0;

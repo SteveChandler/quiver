@@ -20,16 +20,21 @@ const HAZARD_SENTENCES: Record<FirstSightingHazard, string> = {
   tropical_cyclone: 'NWS tropical storm alert in effect.',
 };
 
-/** Listed for the first time and in range for this user; sticky and arrived entries never push. */
+/** Listed for the first time and in range for this user, biggest first; sticky and arrived entries never push. */
 export function selectFirstSightingCandidates(args: {
   swells: readonly OutlookSwell[];
   homeBeachId: string | null;
   tier: Tier;
+  /** Distance from the user's last location (or home beach) to each beach; closer wins a size tie. */
+  distanceKmByBeach?: ReadonlyMap<string, number>;
 }): OutlookSwell[] {
+  const distance = (swell: OutlookSwell): number => args.distanceKmByBeach?.get(swell.beach.id) ?? Number.POSITIVE_INFINITY;
   return args.swells
     .filter((swell) => swell.status === 'forecast' && swell.firstSightingEligible !== false && swell.fit.status === 'in_range' && swell.periodS !== null)
     .filter((swell) => args.tier !== 'free' || (args.homeBeachId !== null && swell.beach.id === args.homeBeachId))
-    .sort((left, right) => Date.parse(left.peakAt) - Date.parse(right.peakAt));
+    .sort((left, right) => (right.faceHeightFt.max - left.faceHeightFt.max)
+      || (distance(left) - distance(right))
+      || (Date.parse(left.peakAt) - Date.parse(right.peakAt)));
 }
 
 export function firstSightingFaceHeightFt(swell: OutlookSwell): number {
@@ -51,17 +56,31 @@ function dayPart(iso: string, timezone: string): string {
   return 'evening';
 }
 
-function range(size: { min: number; max: number }): string {
-  return size.min === size.max ? `${formatNumber(size.min)} ft` : `${formatNumber(size.min)}-${formatNumber(size.max)} ft`;
-}
-
 function sourcePhrase(swell: OutlookSwell): string {
   switch (swell.source) {
     case 'southern_hemisphere': return ' from the southern hemisphere';
     case 'north_pacific': return ' from the North Pacific';
-    case 'tropical': return swell.stormName ? ` from ${swell.stormName}` : ' from the tropics';
+    case 'tropical': return swell.stormName ? ` from tropical storm ${swell.stormName}` : ' from the tropics';
     default: return '';
   }
+}
+
+function shortWeekday(iso: string, timezone: string): string {
+  return new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: timezone }).format(new Date(iso));
+}
+
+/** "Tue-Fri" from arrival to fade; a swell with no fade time is named by its arrival and peak days. */
+function daySpan(swell: OutlookSwell, timezone: string): string {
+  const start = swell.arrivalAt ?? swell.peakAt;
+  const end = swell.fadeAt && Date.parse(swell.fadeAt) > Date.parse(swell.peakAt) ? swell.fadeAt : swell.peakAt;
+  const from = shortWeekday(start, timezone);
+  const to = shortWeekday(end, timezone);
+  return from === to ? from : `${from}-${to}`;
+}
+
+/** Facts, not a title pool: direction, the days it is in the water and how big the sets get. */
+export function renderFirstSightingTitle(swell: OutlookSwell, timezone: string): string {
+  return `${swell.directionLabel} swell ${daySpan(swell, timezone)}, sets to ${formatNumber(swell.faceHeightFt.max)} ft`;
 }
 
 function timingSentence(swell: OutlookSwell, timezone: string): string {
@@ -79,7 +98,9 @@ function timingSentence(swell: OutlookSwell, timezone: string): string {
 
 function orientationSentence(swell: OutlookSwell): string | null {
   const { westFacing, southFacing } = swell.sizeByOrientation;
-  if (westFacing && southFacing) return `West-facing spots ${range(westFacing)}, south-facing ${range(southFacing)}.`;
+  if (westFacing && southFacing) {
+    return `West-facing spots up to ${formatNumber(westFacing.max)} ft, south-facing up to ${formatNumber(southFacing.max)} ft.`;
+  }
   return null;
 }
 
@@ -97,7 +118,7 @@ export function renderFirstSightingBody(args: {
   const sentences: Array<{ text: string; priority: number }> = [
     { text: `${swell.directionLabel} swell${sourcePhrase(swell)}${period}.`, priority: 0 },
     { text: timingSentence(swell, timezone), priority: 0 },
-    { text: `${range(swell.faceHeightFt)} at ${swell.beach.name}.`, priority: 0 },
+    { text: `Sets up to ${formatNumber(swell.faceHeightFt.max)} ft at ${swell.beach.name}.`, priority: 0 },
   ];
   const orientation = orientationSentence(swell);
   if (orientation) sentences.push({ text: orientation, priority: 2 });
@@ -150,7 +171,7 @@ export function buildFirstSightingPayload(args: {
     official_evidence_refs: [],
     would_suppress_cohorts: ['beginner', 'intermediate', 'unknown'],
     enforcement: null,
-    title: headline.headline,
+    title: renderFirstSightingTitle(swell, timezone),
     body,
     beaches: [{ beach_id: swell.beach.id, beach_name: swell.beach.name, rank: 1 }],
     event_key: swell.eventKey,
