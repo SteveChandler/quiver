@@ -3,6 +3,7 @@
 import { readFileSync } from "fs";
 import { join } from "path";
 import { withCronObservability, withObservedCron } from "@/lib/cron/observability";
+import { withCronOutcome } from "@/lib/cron/outcome";
 import { completeCronCheckIn, startCronCheckIn } from "@/lib/monitoring/sentry-cron";
 import * as Sentry from "@sentry/nextjs";
 
@@ -65,6 +66,7 @@ jest.mock("@/lib/monitoring/sentry-cron", () => ({
 
 jest.mock("@sentry/nextjs", () => ({
   captureException: jest.fn(),
+  captureMessage: jest.fn(),
 }));
 
 describe("cron observability source guard", () => {
@@ -215,6 +217,121 @@ describe("withObservedCron", () => {
   function findUpdate(client: MockChain, predicate: (row: Record<string, unknown>) => boolean) {
     return client._updateMock.mock.calls.find((call) => predicate(call[0] as Record<string, unknown>));
   }
+
+  it.each([
+    { produced: 2, legitimate: false, status: "ok" },
+    { produced: 0, legitimate: false, status: "failed" },
+    { produced: 0, legitimate: true, status: "ok" },
+  ])("keeps one row and the $status outcome after HTTP 200 (produced: $produced, legitimate: $legitimate)", async ({ produced, legitimate, status }) => {
+    const { createSupabaseServiceRoleClient } = require("@/lib/supabase/server");
+    const client = mockChain();
+    createSupabaseServiceRoleClient.mockResolvedValue(client);
+    const result = { produced };
+    const handler = withObservedCron("/api/cron/test", async (_request: Request): Promise<Response> => {
+      const value = await withCronOutcome({
+        job: "test?phase=work", unit: "items", expectedMin: 1,
+        getProduced: (value) => value.produced,
+        legitimatelyZero: () => legitimate ? { reason: "Nothing eligible" } : undefined,
+      }, async () => result);
+      return successEnvelope(value);
+    });
+
+    expect((await handler(makeAuthorizedRequest())).status).toBe(200);
+    expect(client._insertMock).toHaveBeenCalledTimes(1);
+    expect(client._insertMock).toHaveBeenCalledWith({ route: "/api/cron/test", job: "/api/cron/test", status: "started" });
+    const completion = client._updateMock.mock.calls.at(-1)![0];
+    expect(completion).toMatchObject({
+      job: "test?phase=work", unit: "items", produced, expected_min: 1, status,
+      summary: { result, cron_outcome: { produced, status } },
+      finished_at: expect.any(String), duration_ms: expect.any(Number),
+      error_message: status === "failed" ? "produced 0, expected at least 1" : null,
+      legitimately_zero_reason: legitimate ? "Nothing eligible" : null,
+    });
+    expect(completion).not.toHaveProperty("route");
+    expect(client._lastEqArgs).toEqual([["status", "started"], ["id", "run-1"], ["id", "run-1"]]);
+    expect(Sentry.captureMessage).toHaveBeenCalledTimes(status === "failed" ? 1 : 0);
+  });
+
+  it("keeps outcome fields and the original thrown error on the observed row", async () => {
+    const { createSupabaseServiceRoleClient } = require("@/lib/supabase/server");
+    const client = mockChain();
+    createSupabaseServiceRoleClient.mockResolvedValue(client);
+    const original = new Error("job broke");
+    const handler = withObservedCron("/api/cron/test", async (_request: Request): Promise<Response> => {
+      await withCronOutcome({ job: "test", unit: "items", expectedMin: 1, getProduced: () => 0 }, async () => { throw original; });
+      return successEnvelope({});
+    });
+
+    await expect(handler(makeAuthorizedRequest())).rejects.toBe(original);
+    expect(client._insertMock).toHaveBeenCalledTimes(1);
+    expect(client._updateMock).toHaveBeenCalledWith(expect.objectContaining({
+      job: "test", produced: 0, expected_min: 1, status: "error", error_message: "job broke",
+    }));
+    expect(client._updateMock.mock.calls.at(-1)![0]).toMatchObject({ status: "error", error_message: "job broke" });
+    expect(client._lastEqArgs.filter(([col]) => col === "id")).toEqual([["id", "run-1"], ["id", "run-1"]]);
+  });
+
+  it("reports a failed outcome update without inserting a duplicate or changing the response", async () => {
+    const { createSupabaseServiceRoleClient } = require("@/lib/supabase/server");
+    const client = mockChain();
+    client._updateMock.mockImplementation(() => ({ eq: () => Object.assign(
+      Promise.resolve({ error: { message: "write failed" } }),
+      { lt: async () => ({ error: null }) },
+    ) }));
+    createSupabaseServiceRoleClient.mockResolvedValue(client);
+    const onPersistenceFailure = jest.fn();
+    const handler = withObservedCron("/api/cron/test", async (_request: Request): Promise<Response> => successEnvelope(await withCronOutcome({
+      job: "test", unit: "items", expectedMin: 1, getProduced: (value) => value.produced, onPersistenceFailure,
+    }, async () => ({ produced: 1 }))));
+
+    expect(await (await handler(makeAuthorizedRequest())).json()).toMatchObject({ data: { produced: 1 } });
+    expect(onPersistenceFailure).toHaveBeenCalledTimes(1);
+    expect(onPersistenceFailure).toHaveBeenCalledWith({ produced: 1 });
+    expect(client._insertMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("isolates concurrent run ids and leaves standalone outcomes on the insert path", async () => {
+    const { createSupabaseServiceRoleClient } = require("@/lib/supabase/server");
+    const client = mockChain();
+    let nextId = 0;
+    client._insertMock.mockImplementation(() => ({
+      select: () => ({ single: async () => ({ data: { id: `run-${++nextId}` }, error: null }) }),
+    }));
+    createSupabaseServiceRoleClient.mockResolvedValue(client);
+    const writes: Array<{ row: Record<string, unknown>; id: string }> = [];
+    client._updateMock.mockImplementation((row: Record<string, unknown>) => ({
+      eq: (col: string, id: string) => {
+        if (col === "id") writes.push({ row, id });
+        return Object.assign(Promise.resolve({ error: null }), { lt: async () => ({ error: null }) });
+      },
+    }));
+    let releaseFirst!: () => void;
+    const firstGate = new Promise<void>((resolve) => { releaseFirst = resolve; });
+    let enteredFirst!: () => void;
+    const firstEntered = new Promise<void>((resolve) => { enteredFirst = resolve; });
+    const runOutcome = async (produced: number): Promise<{ produced: number }> => withCronOutcome({
+      job: "test", unit: "items", expectedMin: 1, getProduced: (value) => value.produced,
+    }, async () => ({ produced }));
+    const first = withObservedCron("/api/cron/first", async (_request: Request): Promise<Response> => {
+      enteredFirst();
+      await firstGate;
+      return successEnvelope(await runOutcome(1));
+    })(makeAuthorizedRequest());
+    await firstEntered;
+    await withObservedCron("/api/cron/second", async (_request: Request): Promise<Response> => successEnvelope(await runOutcome(2)))(makeAuthorizedRequest());
+    releaseFirst();
+    await first;
+
+    expect(client._insertMock).toHaveBeenCalledTimes(2);
+    expect(writes.filter(({ row }) => row.produced !== undefined).map(({ row, id }) => [row.produced, id])).toEqual([
+      [2, "run-2"], [2, "run-2"], [1, "run-1"], [1, "run-1"],
+    ]);
+    client._insertMock.mockResolvedValue({ error: null });
+    await runOutcome(3);
+    expect(client._insertMock).toHaveBeenCalledTimes(3);
+    expect(client._insertMock).toHaveBeenLastCalledWith(expect.objectContaining({ route: "test", produced: 3, status: "ok" }));
+    expect(writes).toHaveLength(4);
+  });
 
   it("handles a response without headers", async () => {
     const { createSupabaseServiceRoleClient } = require("@/lib/supabase/server");
