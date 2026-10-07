@@ -66,22 +66,26 @@ it("skips the reply check when no candidate is due", async () => {
   expect(mockRpc.mock.calls.filter(([name]) => name === "evaluate_email_lifecycle")).toHaveLength(1);
 });
 
-it("records unavailable approval as health information without failing an empty run", async () => {
+it("fails an empty run when approval is unavailable and records health counts", async () => {
  process.env.EMAIL_LIFECYCLE_ENABLED = "true";
  mockRpc.mockImplementation(async name => name === "email_lifecycle_cohort" ? [] : name === "reconcile_email_lifecycle" ? {unknown_handoffs:0,expired_reservations:0} : name === "email_automation_health" ? {due_unsent:0,enrollment_pending:0,approval_unavailable:1} : null);
  const update=jest.fn().mockReturnValue({eq:async () => ({error:null})});
  mockDb.mockResolvedValue({from:() => ({insert:() => ({select:() => ({single:async () => ({data:{id:"run"},error:null})})}),update})});
- expect(await runEmailLifecycle(false)).toMatchObject({status:"ok",accepted:0});
- expect(update).toHaveBeenCalledWith(expect.objectContaining({status:"ok",error_message:null,produced:0,summary:expect.objectContaining({health:{due_unsent:0,enrollment_pending:0,approval_unavailable:1}})}));
+ const errorMessage = "0 due recipient(s) unsent over 30 min; 0 enrollment pending; 1 approval unavailable";
+ expect(await runEmailLifecycle(false)).toMatchObject({status:"attention",error_message:errorMessage,accepted:0});
+ expect(update).toHaveBeenCalledWith(expect.objectContaining({status:"error",error_message:errorMessage,produced:0,summary:expect.objectContaining({health:{due_unsent:0,enrollment_pending:0,approval_unavailable:1}})}));
  expect(mockSend).not.toHaveBeenCalled();
 });
 
-it("preserves every deliberate skip and records zero output as successful despite health backlog", async () => {
+it.each([
+  { health: { due_unsent: 0, enrollment_pending: 0, approval_unavailable: 0 }, errorMessage: null },
+  { health: { due_unsent: 2, enrollment_pending: 0, approval_unavailable: 0 }, errorMessage: "2 due recipient(s) unsent over 30 min; 0 enrollment pending; 0 approval unavailable" },
+  { health: { due_unsent: 0, enrollment_pending: 3, approval_unavailable: 0 }, errorMessage: "0 due recipient(s) unsent over 30 min; 3 enrollment pending; 0 approval unavailable" },
+])("preserves every deliberate skip and fails only for health backlog: %j", async ({ health, errorMessage }) => {
   process.env.EMAIL_LIFECYCLE_ENABLED = "true";
   process.env.EMAIL_REPLY_MAILBOX = "support@example.com";
   const reasons = ["no_relevant_job", "timezone_unknown", "version_mismatch", "cadence_or_quiet_hours", "entitlement_review_stale"];
   const users = reasons.map((_, index) => `11111111-1111-4111-8111-${String(index).padStart(12, "0")}`);
-  const health = { due_unsent: 7, enrollment_pending: 3, approval_unavailable: 1 };
   mockRpc.mockImplementation(async (name: string, args?: { p_user_id: string }): Promise<unknown> => {
     if (name === "email_lifecycle_cohort") return users;
     if (name === "reconcile_email_lifecycle") return { unknown_handoffs: 0, expired_reservations: 0 };
@@ -93,8 +97,9 @@ it("preserves every deliberate skip and records zero output as successful despit
   const update = jest.fn().mockReturnValue({ eq: async () => ({ error: null }) });
   mockDb.mockResolvedValue({ from: () => ({ insert: () => ({ select: () => ({ single: async () => ({ data: { id: "run" }, error: null }) }) }), update }) });
   const counts = Object.fromEntries(reasons.map(reason => [reason, 1]));
-  expect(await runEmailLifecycle(false)).toMatchObject({ status: "ok", candidates: 5, accepted: 0, reasons: counts, health });
-  expect(update).toHaveBeenCalledWith(expect.objectContaining({ status: "ok", error_message: null, produced: 0, summary: expect.objectContaining({ reasons: counts, health, reply_check: { status: "ok", checked: 4, recorded: 2 } }) }));
+  const hasBacklog = errorMessage !== null;
+  expect(await runEmailLifecycle(false)).toMatchObject({ status: hasBacklog ? "attention" : "ok", ...(hasBacklog ? { error_message: errorMessage } : {}), candidates: 5, accepted: 0, reasons: counts, health });
+  expect(update).toHaveBeenCalledWith(expect.objectContaining({ status: hasBacklog ? "error" : "ok", error_message: errorMessage, produced: 0, summary: expect.objectContaining({ reasons: counts, health, reply_check: { status: "ok", checked: 4, recorded: 2 } }) }));
   expect(mockSend).not.toHaveBeenCalled();
   expect(mockReplyCheck).toHaveBeenCalledTimes(1);
   expect(mockRpc.mock.calls.filter(([name]) => name === "record_email_lifecycle_decision")).toHaveLength(5);

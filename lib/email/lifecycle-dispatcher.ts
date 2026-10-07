@@ -100,7 +100,7 @@ export async function runEmailLifecycle(dryRun: boolean): Promise<Record<string,
     }
     health = z.object({ due_unsent: z.number().int().nonnegative(), enrollment_pending: z.number().int().nonnegative(), approval_unavailable: z.number().int().nonnegative().default(0) }).parse(await lifecycleRpc("email_automation_health"));
     if (health.due_unsent + health.enrollment_pending + health.approval_unavailable > 0) {
-      // Backlog and approval holds do not indicate a failed execution.
+      errors.push(`${health.due_unsent} due recipient(s) unsent over 30 min; ${health.enrollment_pending} enrollment pending; ${health.approval_unavailable} approval unavailable`);
       Sentry.captureMessage("Email automation needs attention", { level: "warning", tags: { component: "email-lifecycle" }, extra: health, fingerprint: ["email-automation-backlog"] });
     }
     return { status: errors.length ? "attention" : "ok", ...(errors.length ? { error_message: errors.join("; ") } : {}), candidates: users.length, accepted: counts.accepted ?? 0, reasons: counts, reconciliation, reply_check: replyCheck, health };
