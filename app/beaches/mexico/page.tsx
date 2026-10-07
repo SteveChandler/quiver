@@ -224,7 +224,7 @@ export default async function MexicoStatesIndexPage() {
           </section>
 
           <aside className="notebook mt-12 border-l-4 border-[#11100D] py-4 pl-6 pr-4">
-            <p className="font-handwritten text-2xl leading-tight text-[#11100D]">
+            <p className="text-lg font-semibold leading-snug text-[#11100D]">
               The directory grows coast by coast. Each new state will slot into
               the same photo-led field-guide format.
             </p>

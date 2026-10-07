@@ -127,7 +127,7 @@ export function TopRankedBeachHero({
 
   return (
     <article
-      className="mb-16 grid min-w-0 overflow-hidden border-2 border-[#11100D] bg-[#F0E5CC] shadow-[4px_5px_0_rgba(17,16,13,0.2)] md:grid-cols-[1.15fr_0.85fr]"
+      className="mb-16 grid min-w-0 overflow-hidden border-2 border-[#11100D] bg-[#F0E5CC] md:grid-cols-[1.15fr_0.85fr]"
       data-testid="top-ranked-beach-hero"
     >
       <div className="relative min-h-[260px] bg-[#D9C49C] md:min-h-[360px]">
@@ -152,7 +152,7 @@ export function TopRankedBeachHero({
           </div>
         )}
 
-        <div className="absolute left-4 top-4 bg-[#F4EBD8] px-3 py-2 font-mono text-xs font-bold uppercase tracking-[0.12em] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.3)]">
+        <div className="absolute left-4 top-4 bg-[#F4EBD8] px-3 py-2 font-mono text-xs font-bold uppercase tracking-[0.12em] text-[#11100D]">
           {isUpcoming ? "Next best call" : "Top beach now"}
         </div>
       </div>

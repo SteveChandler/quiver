@@ -78,7 +78,7 @@ function ReleaseSectionBlock({
               {section.bullets.map((bullet) => (
                 <li
                   key={bullet}
-                  className="flex items-start gap-3 border-2 border-[#11100D] bg-[#FBF6E8] p-3 text-sm font-medium leading-6 text-[#11100D]/78 shadow-[2px_3px_0_rgba(17,16,13,0.15)]"
+                  className="flex items-start gap-3 border-2 border-[#11100D] bg-[#FBF6E8] p-3 text-sm font-medium leading-6 text-[#11100D]/78"
                 >
                   <span className="mt-2 block h-2 w-2 shrink-0 bg-[#F78E42]" />
                   <span>{bullet}</span>
@@ -109,7 +109,7 @@ function ReleaseSectionBlock({
           )}
 
           {section.availability && (
-            <p className="mt-6 inline-block -rotate-1 border-2 border-dashed border-[#11100D] px-3 py-1 font-mono text-xs uppercase tracking-widest text-[#8A5E00]">
+            <p className="mt-6 inline-block border-2 border-dashed border-[#11100D] px-3 py-1 font-mono text-xs uppercase tracking-widest text-[#8A5E00]">
               {section.availability}
             </p>
           )}
@@ -117,7 +117,7 @@ function ReleaseSectionBlock({
 
         {section.preview && (
           <figure className="mx-auto w-full max-w-[200px] lg:mx-0 lg:sticky lg:top-28">
-            <div className="relative aspect-[9/19.5] overflow-hidden rounded-[24px] border-2 border-[#11100D] bg-[#11100D] shadow-[3px_4px_0_rgba(17,16,13,0.3)]">
+            <div className="relative aspect-[9/19.5] overflow-hidden rounded-[24px] border-2 border-[#11100D] bg-[#11100D]">
               <Image
                 src={section.preview.src}
                 alt={section.preview.alt}
@@ -132,7 +132,7 @@ function ReleaseSectionBlock({
                   ariaLabel={section.preview.alt}
                   className="absolute inset-0 h-full w-full object-cover object-top"
                   playLabel="Play"
-                  playButtonClassName="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 border-2 border-[#11100D] bg-[#F4EBD8] px-3 py-1.5 font-mono text-[11px] font-black uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_3px_0_rgba(17,16,13,0.2)]"
+                  playButtonClassName="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 border-2 border-[#11100D] bg-[#F4EBD8] px-3 py-1.5 font-mono text-[11px] font-black uppercase tracking-[0.14em] text-[#11100D]"
                 />
               )}
             </div>
@@ -352,7 +352,7 @@ export default function WhatsNewPage(): ReactElement {
               <div className="grid gap-4 sm:grid-cols-2">
                 <Link
                   href="/roadmap"
-                  className="group border-2 border-[#11100D] bg-[#FBF6E8] p-5 shadow-[3px_4px_0_rgba(17,16,13,0.25)] transition-transform hover:-translate-y-0.5"
+                  className="group border-2 border-[#11100D] bg-[#FBF6E8] p-5 transition-transform hover:-translate-y-0.5"
                 >
                   <p className="font-heading text-xl font-bold uppercase text-[#11100D]">
                     Vote on what ships next
@@ -364,7 +364,7 @@ export default function WhatsNewPage(): ReactElement {
                 </Link>
                 <Link
                   href="/support"
-                  className="group border-2 border-[#11100D] bg-[#FBF6E8] p-5 shadow-[3px_4px_0_rgba(17,16,13,0.25)] transition-transform hover:-translate-y-0.5"
+                  className="group border-2 border-[#11100D] bg-[#FBF6E8] p-5 transition-transform hover:-translate-y-0.5"
                 >
                   <p className="font-heading text-xl font-bold uppercase text-[#11100D]">
                     Tell us what broke

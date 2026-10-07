@@ -26,7 +26,6 @@ const config: Config = {
         sans: ["var(--font-sans)", "system-ui", "sans-serif"],
         heading: ["var(--font-heading)", "system-ui", "sans-serif"],
         mono: ["var(--font-mono)", "ui-monospace", "monospace"],
-        handwritten: ["var(--font-handwritten)", "cursive"],
       },
       colors: {
         // ocean-blue is the primary interactive CTA token used across buttons.

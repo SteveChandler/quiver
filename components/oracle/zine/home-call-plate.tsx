@@ -204,25 +204,20 @@ export function HomeCallPlate({
         </div>
       </HomeHeroMedia>
 
-      {/* The local's read, as a margin note rather than a second headline. */}
+      {/* The local's read, set in body type under the call (native has no
+          handwritten face). */}
       {greeting && (
         <p
           className="m-0 mt-4 max-w-[560px]"
           style={{
-            fontFamily: "var(--font-handwritten), cursive",
-            fontSize: 19,
-            lineHeight: 1.25,
-            color: INK,
-            opacity: 0.82,
+            fontFamily: "var(--font-sans), sans-serif",
+            fontSize: 17,
+            lineHeight: 1.45,
+            fontWeight: 500,
+            color: "#4A463C",
           }}
         >
-          <span aria-hidden style={{ color: STAMP_BLUE, marginRight: 4 }}>
-            &ldquo;
-          </span>
           {greeting}
-          <span aria-hidden style={{ color: STAMP_BLUE, marginLeft: 2 }}>
-            &rdquo;
-          </span>
         </p>
       )}
 

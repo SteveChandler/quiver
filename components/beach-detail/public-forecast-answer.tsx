@@ -15,6 +15,7 @@ import { getSurfCallVerdictCall, SCORE_LABEL_INK } from "@/components/forecast/s
 import type {
   PublicForecastContextFacts,
   PublicForecastReportFacts,
+  PublicGeneralCall,
 } from "@/lib/utils/public-forecast-facts";
 
 const DECK_LABEL =
@@ -29,6 +30,8 @@ interface PublicForecastAnswerProps {
   waterQuality?: WaterQuality | null;
   report: PublicForecastReportFacts | null;
   context: PublicForecastContextFacts | null;
+  /** The call computed without a user, shown until a personal call resolves. */
+  generalCall?: PublicGeneralCall | null;
   isTomorrow: boolean;
   publicDecisionWindow?: {
     start: string | null;
@@ -93,6 +96,7 @@ export function PublicForecastAnswer({
   waterQuality,
   report: publicReport,
   context: publicContext,
+  generalCall = null,
   isTomorrow: publicIsTomorrow,
   publicDecisionWindow,
   nearbyBeaches = [],
@@ -138,6 +142,17 @@ export function PublicForecastAnswer({
         isTomorrow ? "upcoming" : "now",
       )
     : null;
+  // Native's guest view: the general call, the same for every surfer, until a
+  // personal call resolves. It is the latest call, so a selected day or window
+  // never shows it.
+  const generalDecisionCall =
+    generalCall && !hasSelection && !hasResolvedAuthenticatedDecision
+      ? getSurfCallVerdictCall(
+          generalCall.verdict,
+          generalCall.score,
+          isTomorrow ? "upcoming" : "now",
+        )
+      : null;
   const bestWindow = formatTimeRangeInTimezone(
     windowStart,
     windowEnd,
@@ -185,6 +200,7 @@ export function PublicForecastAnswer({
   const HeadingTag = headingLevel;
   const hasForecastDetails = Boolean(
     decisionReport?.verdict ||
+    generalDecisionCall ||
     (context?.selectedRowTime && waveHeight) ||
       (hasDisplayedWindow && (waveHeight || bestWindow || wind || tide)),
   );
@@ -255,6 +271,23 @@ export function PublicForecastAnswer({
                 <dd className="mt-1 text-base font-bold text-[#11100D]">{decisionCall.action}</dd>
               </div>
             )}
+            {generalDecisionCall && (
+              <div data-testid="public-general-call">
+                <dt className={DECK_LABEL}>General forecast</dt>
+                <dd className={DECK_VALUE} style={{ color: SCORE_LABEL_INK[generalDecisionCall.label] }}>
+                  {generalDecisionCall.label}
+                </dd>
+                <dd className="mt-1 text-base font-bold text-[#11100D]">{generalDecisionCall.action}</dd>
+                <dd className="mt-1 max-w-[17rem] text-sm leading-snug text-[#4A463C]">
+                  Same for every surfer. Not adjusted for your level or boards.
+                </dd>
+                {!authenticatedDecision.isAuthenticated && (
+                  <dd className="mt-2">
+                    <ForecastDecisionLoginLink returnTo={returnTo} label="Get your call" />
+                  </dd>
+                )}
+              </div>
+            )}
             {bestWindow && (
               <div>
                 <dt className={DECK_LABEL}>Best window</dt>
@@ -263,7 +296,7 @@ export function PublicForecastAnswer({
                 </dd>
               </div>
             )}
-            {!decisionReport?.verdict && !bestWindow && !hasDisplayedWindow && (
+            {!decisionReport?.verdict && !generalDecisionCall && !bestWindow && !hasDisplayedWindow && (
               <div>
                 <dt className={DECK_LABEL}>Verdict &amp; best window</dt>
                 <dd className="mt-1.5">

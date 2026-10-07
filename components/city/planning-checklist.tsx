@@ -133,7 +133,7 @@ export function PlanningChecklist({ items, storageKey }: PlanningChecklistProps)
 
       {allDone && (
         <p className="mt-5 flex flex-wrap items-baseline justify-between gap-3 border-t border-dashed border-[#11100D]/25 pt-4">
-          <span className="-rotate-1 font-handwritten text-2xl leading-none text-[#8A5E00] motion-safe:animate-fade-in-fast">
+          <span className="text-base font-semibold leading-snug text-[#8A5E00] motion-safe:animate-fade-in-fast">
             All ticked. Now go look at it from the sand.
           </span>
           <button

@@ -13,6 +13,8 @@ import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
 import {
   selectPublicForecastContextFacts,
   selectPublicForecastReportFacts,
+  selectPublicGeneralCall,
+  type PublicGeneralCall,
 } from "@/lib/utils/public-forecast-facts";
 
 let mockSearch = new URLSearchParams();
@@ -122,6 +124,7 @@ function renderAnswer({
   tomorrow = true,
   backups = nearbyBeaches,
   publicWindow,
+  general = null,
 }: {
   answerBeach?: Beach;
   answerReport?: SurfCallResult | null;
@@ -129,6 +132,7 @@ function renderAnswer({
   tomorrow?: boolean;
   backups?: Beach[];
   publicWindow?: { start: string | null; end: string | null };
+  general?: PublicGeneralCall | null;
 } = {}) {
   return render(
     <AuthenticatedForecastDecisionProvider beachId={beach.id}>
@@ -136,6 +140,7 @@ function renderAnswer({
         beach={answerBeach}
         report={answerReport}
         context={answerContext}
+        generalCall={general}
         isTomorrow={tomorrow}
         publicDecisionWindow={publicWindow ?? {
           start: answerReport?.bestWindowStart ?? null,
@@ -335,6 +340,55 @@ describe("PublicForecastAnswer", () => {
     expect(screen.queryByText("8:00 AM–8:30 AM")).not.toBeInTheDocument();
     expect(screen.queryByText("Score")).not.toBeInTheDocument();
     expect(screen.queryByText("0/100")).not.toBeInTheDocument();
+  });
+
+  it("shows guests the general call as native does, the same for every surfer", () => {
+    renderAnswer({ general: selectPublicGeneralCall(report) });
+
+    const call = screen.getByTestId("public-general-call");
+    expect(call).toHaveTextContent("General forecast");
+    expect(call).toHaveTextContent("GOOD");
+    expect(call).toHaveTextContent("Worth planning");
+    expect(call).toHaveTextContent(
+      "Same for every surfer. Not adjusted for your level or boards.",
+    );
+    expect(screen.getByRole("link", { name: "Get your call" })).toHaveAttribute(
+      "href",
+      "/auth/sign-in?redirectTo=%2Fca%2Fsan-diego%2Focean-beach",
+    );
+    expect(screen.queryByText("YES")).not.toBeInTheDocument();
+    expect(screen.queryByText("Score")).not.toBeInTheDocument();
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("keeps the latest general call off a selected day", () => {
+    mockSearch = new URLSearchParams("date=2026-08-10");
+
+    renderAnswer({ general: selectPublicGeneralCall(report) });
+
+    expect(screen.queryByTestId("public-general-call")).not.toBeInTheDocument();
+  });
+
+  it("swaps the general call for the personal call once it resolves", async () => {
+    mockUseAuth.mockReturnValue({
+      user: { id: "user-1" },
+      isLoading: false,
+    } as ReturnType<typeof useAuth>);
+    (global.fetch as jest.Mock).mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: true,
+          data: { report: { ...report, verdict: "MAYBE", score: 60 }, forecastContext: context, isTomorrow: true },
+        }),
+        { status: 200 },
+      ),
+    );
+
+    renderAnswer({ general: selectPublicGeneralCall(report) });
+
+    expect(screen.queryByRole("link", { name: "Get your call" })).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("FAIR")).toBeInTheDocument());
+    expect(screen.queryByTestId("public-general-call")).not.toBeInTheDocument();
   });
 
   it("fetches and renders the verdict and best window for an authenticated user", async () => {

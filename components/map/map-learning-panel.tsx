@@ -243,7 +243,7 @@ export function MapLearningPanel(): ReactElement {
                 onClick={() => selectMode(id)}
                 onKeyDown={(event) => handleModeKeyDown(event, index)}
                 className={cn(
-                  "inline-flex min-h-12 items-center justify-center gap-2 border-2 border-[#11100D] px-2 font-mono text-xs font-black uppercase tracking-[0.08em] shadow-[2px_3px_0_rgba(17,16,13,0.18)] transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#11100D]",
+                  "inline-flex min-h-12 items-center justify-center gap-2 border-2 border-[#11100D] px-2 font-mono text-xs font-black uppercase tracking-[0.08em] transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#11100D]",
                   active
                     ? "bg-[#F78E42] text-[#11100D]"
                     : "bg-[#F5EEDC] text-[#11100D] hover:-translate-y-0.5",
@@ -260,7 +260,7 @@ export function MapLearningPanel(): ReactElement {
           role="tabpanel"
           id={`map-learning-panel-${activeMode.id}`}
           aria-labelledby={`map-learning-tab-${activeMode.id}`}
-          className="space-y-4 border-2 border-[#11100D] bg-[#F5EEDC] p-4 shadow-[4px_6px_0_rgba(17,16,13,0.16)]"
+          className="space-y-4 border-2 border-[#11100D] bg-[#F5EEDC] p-4"
         >
           <div className="flex items-start gap-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center border-2 border-[#11100D] bg-[#11100D] text-[#F5EEDC]">
@@ -336,7 +336,7 @@ export function MapLearningPanel(): ReactElement {
           </div>
         </section>
 
-        <section className="grid gap-4 border-2 border-[#11100D] bg-[#11100D] p-4 text-[#F5EEDC] shadow-[4px_6px_0_rgba(247,142,66,0.28)] sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center xl:grid-cols-1">
+        <section className="grid gap-4 border-2 border-[#11100D] bg-[#11100D] p-4 text-[#F5EEDC] sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center xl:grid-cols-1">
           <div className="mx-auto hidden rounded-md bg-white p-2 sm:block">
             <QRCodeSVG
               aria-label="Scan to open Quiver on your phone"
@@ -363,7 +363,7 @@ export function MapLearningPanel(): ReactElement {
             </p>
             <a
               href={QR_VALUE}
-              className="rounded-full mt-3 inline-flex min-h-11 items-center justify-center bg-[#F78E42] px-4 font-mono text-xs font-black uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_3px_0_rgba(245,238,220,0.2)] transition hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FDB84B]"
+              className="rounded-full mt-3 inline-flex min-h-11 items-center justify-center bg-[#F78E42] px-4 font-mono text-xs font-black uppercase tracking-[0.14em] text-[#11100D] transition hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FDB84B]"
             >
               Get the app
             </a>

@@ -49,7 +49,7 @@ export default function AboutPage() {
           </ScrollReveal>
         </header>
 
-        {/* The Problem — handwritten notebook confession */}
+        {/* The Problem — notebook confession */}
         <ScrollReveal>
           <section className="mt-12">
             <p className="typewriter mb-3">Before Quiver</p>
@@ -145,7 +145,7 @@ export default function AboutPage() {
 
         {/* CTA */}
         <ScrollReveal>
-          <section className="relative mt-14 border-2 border-[#11100D] bg-[#F0E5CC] px-6 py-12 text-center shadow-[3px_4px_0_rgba(17,16,13,0.25)]">
+          <section className="relative mt-14 border-2 border-[#11100D] bg-[#F0E5CC] px-6 py-12 text-center">
             <QuiverSticker
               sticker="creamTape"
               className="absolute -top-5 left-1/2 hidden w-32 -translate-x-1/2 -rotate-3 opacity-90 sm:block"

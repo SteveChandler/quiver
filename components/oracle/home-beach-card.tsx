@@ -43,7 +43,6 @@ export function HomeBeachCard({ rec, onClick }: HomeBeachCardProps) {
       className="cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#F78E42]/60"
       style={{
         background: "#F0E5CC",
-        boxShadow: "2px 4px 0 rgba(0,0,0,0.18)",
       }}
     >
       <div className="flex items-center justify-between gap-4 px-4 py-3 sm:px-5 sm:py-4">
@@ -53,7 +52,6 @@ export function HomeBeachCard({ rec, onClick }: HomeBeachCardProps) {
             style={{
               background: "#F78E42",
               color: "#11100D",
-              boxShadow: "2px 2px 0 rgba(17,16,13,0.3)",
             }}
           >
             Your home

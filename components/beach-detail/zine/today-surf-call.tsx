@@ -9,7 +9,7 @@ import {
   SCORE_LABEL_INK,
   SCORE_LABEL_PAPER_WASH,
 } from "@/components/forecast/score-band-call";
-import { DoodleWave, DoodleWind, DoodleTide, DoodleStar, TornDivider, HandArrow } from "./atoms";
+import { DoodleWave, DoodleWind, DoodleTide, DoodleStar } from "./atoms";
 
 interface TodaySurfCallProps {
   beach: Beach;
@@ -24,6 +24,18 @@ const TIER_LABEL: Record<TierKey, string> = {
   intermediate: "intermediates",
   advanced: "advanced surfers",
 };
+
+/** Native's eyebrow: Space Mono bold caps, tracked, flat on paper. */
+const NOTE_STYLE = {
+  fontFamily: "var(--font-mono), monospace",
+  fontSize: 11,
+  fontWeight: 700,
+  letterSpacing: "0.16em",
+  textTransform: "uppercase",
+  color: "#4A463C",
+  background: "#F4EBD8",
+  padding: "2px 8px",
+} as const;
 
 function selectDisplayTier(userTier: SkillLevel | null | undefined): TierKey {
   if (userTier === "intermediate") return "intermediate";
@@ -79,13 +91,12 @@ export function TodaySurfCall({
       className="relative mt-8"
       aria-label={isTomorrow ? "Tomorrow's surf call" : "Today's surf call"}
     >
-      <TornDivider />
-
       <div
         className="relative px-5 pt-7 pb-10 md:px-8 md:pt-9 md:pb-12"
         style={{
-          background: "linear-gradient(180deg, #EDE2C8 0%, #DCC9A2 100%)",
-          boxShadow: "0 8px 22px rgba(0,0,0,0.22)",
+          background: "#F4EBD8",
+          border: "1px solid #E5D4B3",
+          borderRadius: "14px 22px 14px 14px",
         }}
       >
         {/* Section header — title only; metadata moves to the printer's mark at bottom-right */}
@@ -260,39 +271,21 @@ function TierMarginScrawl({
     return (
       <div
         className="absolute -top-4 -left-1 md:-top-5 md:-left-2 z-10 pointer-events-none"
-        style={{
-          transform: "rotate(-3deg)",
-          fontFamily: "var(--font-handwritten), cursive",
-          fontSize: 18,
-          fontWeight: 700,
-          color: "#8A5E00",
-          background: "rgba(244,235,216,0.85)",
-          padding: "2px 8px",
-          borderRadius: 2,
-        }}
+        style={NOTE_STYLE}
         aria-label={`Your call — for ${TIER_LABEL[displayTier]}`}
       >
-        Your call <span style={{ opacity: 0.65, fontSize: 14 }}>· {TIER_LABEL[displayTier]}</span>
+        Your call · {TIER_LABEL[displayTier]}
       </div>
     );
   }
 
   return (
     <div
-      className="absolute -top-5 -left-2 md:-top-6 md:-left-3 z-10 pointer-events-none"
-      style={{
-        transform: "rotate(-4deg)",
-        fontFamily: "var(--font-handwritten), cursive",
-        fontSize: 22,
-        fontWeight: 700,
-        color: verdictColor,
-        background: "rgba(244,235,216,0.85)",
-        padding: "2px 10px",
-        borderRadius: 2,
-      }}
+      className="absolute -top-4 -left-1 md:-top-5 md:-left-2 z-10 pointer-events-none"
+      style={{ ...NOTE_STYLE, color: verdictColor }}
       aria-label="Beginner call — not you?"
     >
-      for beginners <span style={{ color: "#11100D" }}>— you?</span>
+      For beginners · <span style={{ color: "#11100D" }}>you?</span>
     </div>
   );
 }
@@ -302,34 +295,17 @@ function WhyCallout({ text }: { text: string }) {
     <div className="mt-6 md:mt-7 max-w-[640px] mx-auto">
       <p
         style={{
-          fontFamily: "var(--font-handwritten), cursive",
-          fontSize: 26,
-          lineHeight: 1.18,
+          fontFamily: "var(--font-sans), sans-serif",
+          fontSize: 17,
+          lineHeight: 1.45,
           color: "#11100D",
-          fontWeight: 700,
+          fontWeight: 500,
           margin: 0,
           textAlign: "center",
         }}
       >
-        <span aria-hidden style={{ color: "#8A5E00", marginRight: 6 }}>“</span>
         {text}
-        <span aria-hidden style={{ color: "#8A5E00", marginLeft: 4 }}>”</span>
       </p>
-      {/* Hand-drawn squiggle — wider/wavier than CSS wavy underline, sells the editorial annotation. */}
-      <svg
-        viewBox="0 0 240 8"
-        preserveAspectRatio="none"
-        aria-hidden
-        style={{ display: "block", width: "min(280px, 80%)", height: 8, marginTop: 4, marginInline: "auto" }}
-      >
-        <path
-          d="M 1 5 Q 12 0, 24 5 T 48 5 T 72 5 T 96 5 T 120 5 T 144 5 T 168 5 T 192 5 T 216 5 T 239 5"
-          stroke="#8A5E00"
-          strokeWidth="1.6"
-          fill="none"
-          strokeLinecap="round"
-        />
-      </svg>
     </div>
   );
 }
@@ -343,12 +319,11 @@ function UpgradeCallHint() {
         style={{
           display: "inline-flex",
           alignItems: "center",
-          gap: 14,
-          fontFamily: "var(--font-handwritten), cursive",
-          fontSize: 24,
+          gap: 8,
+          fontFamily: "var(--font-sans), sans-serif",
+          fontSize: 16,
           color: "#11100D",
           fontWeight: 700,
-          transform: "rotate(-2deg)",
           textDecoration: "none",
         }}
       >
@@ -356,16 +331,15 @@ function UpgradeCallHint() {
           surf at a higher level?{" "}
           <span
             style={{
-              textDecoration: "underline wavy",
-              textDecorationThickness: "2.5px",
-              textUnderlineOffset: 5,
-              textDecorationColor: "#B91C1C",
+              color: "#AA4918",
+              textDecoration: "underline",
+              textDecorationThickness: "2px",
+              textUnderlineOffset: 4,
             }}
           >
             get your call
           </span>
         </span>
-        <HandArrow dir="down-right" length={56} color="#11100D" strokeWidth={2.6} />
       </Link>
     </div>
   );

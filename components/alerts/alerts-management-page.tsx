@@ -518,7 +518,7 @@ export function AlertsManagementPage() {
               onClick={() =>
                 document.getElementById("alert-beach-search")?.focus()
               }
-              className="h-11 rounded-full border-2 border-ink bg-q-orange px-5 font-semibold text-ink shadow-[2px_2px_0_rgba(17,16,13,0.35)] hover:bg-q-orange/90"
+              className="h-11 rounded-full border-2 border-ink bg-q-orange px-5 font-semibold text-ink hover:bg-q-orange/90"
             >
               <Plus className="mr-2 h-4 w-4" />
               Create alert
@@ -527,7 +527,7 @@ export function AlertsManagementPage() {
         </section>
 
         <section className="grid gap-6 lg:grid-cols-[360px_1fr]">
-          <div className="torn torn-tb rotate-[-0.35deg] border-2 border-ink bg-[#FBF6E8] p-5 shadow-[5px_6px_0_rgba(17,16,13,0.22)]">
+          <div className="torn torn-tb border-2 border-ink bg-[#FBF6E8] p-5">
             <div className="flex items-center gap-2">
               <Search className="h-4 w-4 text-q-orange" />
               <h2 className="font-[family-name:var(--font-space-grotesk)] text-base font-black uppercase tracking-[0.03em] text-ink">
@@ -572,7 +572,7 @@ export function AlertsManagementPage() {
                   key={beach.id}
                   type="button"
                   onClick={() => openCreateEditor(beach.id)}
-                  className="flex w-full items-center justify-between gap-3 rounded-sm border-2 border-ink bg-paper px-3 py-3 text-left text-ink shadow-[2px_2px_0_rgba(17,16,13,0.18)] transition hover:-translate-y-0.5 hover:bg-[#FFF9EA] hover:shadow-[3px_3px_0_rgba(17,16,13,0.24)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-q-orange/70"
+                  className="flex w-full items-center justify-between gap-3 rounded-sm border-2 border-ink bg-paper px-3 py-3 text-left text-ink transition hover:-translate-y-0.5 hover:bg-[#FFF9EA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-q-orange/70"
                 >
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-black">
@@ -606,14 +606,14 @@ export function AlertsManagementPage() {
             ) : null}
 
             {rulesLoading ? (
-              <div className="rounded-sm border-2 border-ink bg-[#FBF6E8] p-8 text-center text-[#403A2E] shadow-[4px_5px_0_rgba(17,16,13,0.18)]">
+              <div className="rounded-sm border-2 border-ink bg-[#FBF6E8] p-8 text-center text-[#403A2E]">
                 <Loader2 className="mx-auto mb-3 h-6 w-6 animate-spin text-q-orange" />
                 Loading alerts
               </div>
             ) : null}
 
             {!rulesLoading && groupedRules.length === 0 ? (
-              <div className="rounded-sm border-2 border-dashed border-ink bg-[#FBF6E8] p-8 text-center text-ink shadow-[4px_5px_0_rgba(17,16,13,0.14)]">
+              <div className="rounded-sm border-2 border-dashed border-ink bg-[#FBF6E8] p-8 text-center text-ink">
                 <Waves className="mx-auto h-8 w-8 text-q-orange" />
                 <h2 className="mt-3 font-[family-name:var(--font-space-grotesk)] text-xl font-black uppercase">
                   No condition alerts yet
@@ -628,7 +628,7 @@ export function AlertsManagementPage() {
             {groupedRules.map((group) => (
               <section
                 key={group.beachId}
-                className="rounded-sm border-2 border-ink bg-[#FBF6E8] p-4 text-ink shadow-[4px_5px_0_rgba(17,16,13,0.18)]"
+                className="rounded-sm border-2 border-ink bg-[#FBF6E8] p-4 text-ink"
               >
                 <div className="flex flex-col gap-2 border-b-2 border-ink pb-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
@@ -643,7 +643,7 @@ export function AlertsManagementPage() {
                   <button
                     type="button"
                     onClick={() => openCreateEditor(group.beachId)}
-                    className="inline-flex min-h-10 items-center gap-2 rounded-full border-2 border-ink bg-paper px-3 text-sm font-black text-ink shadow-[2px_2px_0_rgba(17,16,13,0.18)] transition hover:-translate-y-0.5 hover:bg-q-orange focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-q-orange/70"
+                    className="inline-flex min-h-10 items-center gap-2 rounded-full border-2 border-ink bg-paper px-3 text-sm font-black text-ink transition hover:-translate-y-0.5 hover:bg-q-orange focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-q-orange/70"
                   >
                     <Plus className="h-4 w-4" />
                     Add rule
@@ -876,7 +876,7 @@ function AlertRuleEditorDialog({
     <Dialog open={!!editor} onOpenChange={(open) => (!open ? onClose() : null)}>
       <DialogContent
         data-testid="alert-editor-dialog"
-        className="max-w-lg overflow-hidden rounded-sm border-2 border-ink bg-paper p-0 text-ink shadow-[8px_8px_0_rgba(17,16,13,0.55)] [&>button]:text-ink [&>button]:opacity-100 [&>button]:ring-offset-paper"
+        className="max-w-lg overflow-hidden rounded-sm border-2 border-ink bg-paper p-0 text-ink [&>button]:text-ink [&>button]:opacity-100 [&>button]:ring-offset-paper"
       >
         {editor ? (
           <>
@@ -890,7 +890,7 @@ function AlertRuleEditorDialog({
             </DialogHeader>
 
             <div className="max-h-[74vh] space-y-4 overflow-y-auto px-5 py-5">
-              <div className="rounded-sm border-2 border-ink bg-[#FFF9EA] p-3 shadow-[2px_2px_0_rgba(17,16,13,0.18)]">
+              <div className="rounded-sm border-2 border-ink bg-[#FFF9EA] p-3">
                 <div className="flex items-center gap-2 text-sm font-black text-ink">
                   <Waves className="h-4 w-4" />
                   Small clean longboard default
@@ -972,7 +972,7 @@ function AlertRuleEditorDialog({
                 onClick={handleSave}
                 disabled={saving}
                 data-testid="alert-editor-save"
-                className="h-11 w-full rounded-full border-2 border-ink bg-q-orange font-black text-ink shadow-[2px_2px_0_rgba(17,16,13,0.35)] hover:bg-q-orange/90 disabled:opacity-60"
+                className="h-11 w-full rounded-full border-2 border-ink bg-q-orange font-black text-ink hover:bg-q-orange/90 disabled:opacity-60"
               >
                 {saving ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

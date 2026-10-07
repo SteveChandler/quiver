@@ -330,7 +330,7 @@ function ExternalCamClickout({
         <Button
           asChild
           size="sm"
-          className="bg-[#F78E42] text-[#11100D] shadow-[3px_4px_0_rgba(0,0,0,0.35)] hover:bg-[#F78E42]/90"
+          className="bg-[#F78E42] text-[#11100D] hover:bg-[#F78E42]/90"
         >
           <a
             href={href}
@@ -374,7 +374,7 @@ function YouTubeCamClickout({
         <Button
           asChild
           size="sm"
-          className="bg-[#F78E42] text-[#11100D] shadow-[3px_4px_0_rgba(0,0,0,0.35)] hover:bg-[#F78E42]/90"
+          className="bg-[#F78E42] text-[#11100D] hover:bg-[#F78E42]/90"
         >
           <a
             href={href}

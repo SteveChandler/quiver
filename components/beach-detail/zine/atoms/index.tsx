@@ -1,4 +1,3 @@
-import type { CSSProperties } from "react";
 import { getOptimizedImageUrl } from "@/lib/image-proxy";
 import { getStaticMapImageUrl } from "@/lib/map-utils";
 import { buildZineMapScene, type ZineMapCue } from "../map-doodle-scene";
@@ -12,85 +11,6 @@ export function RoughEdgeFilter() {
           <feDisplacementMap in="SourceGraphic" scale={3} />
         </filter>
       </defs>
-    </svg>
-  );
-}
-
-export function HandArrow({
-  dir = "down",
-  length = 60,
-  color = "#11100D",
-  strokeWidth = 2.4,
-  style,
-}: {
-  dir?: "down" | "down-right" | "curve-right";
-  length?: number;
-  color?: string;
-  strokeWidth?: number;
-  style?: CSSProperties;
-}) {
-  if (dir === "down-right") {
-    return (
-      <svg width={length} height={length * 0.7} viewBox={`0 0 ${length} ${length * 0.7}`} fill="none" style={style} aria-hidden>
-        <path
-          d={`M5,5 C${length * 0.3},${length * 0.15} ${length * 0.5},${length * 0.3} ${length * 0.7},${length * 0.45} C${length * 0.8},${length * 0.55} ${length * 0.85},${length * 0.55} ${length - 8},${length * 0.6}`}
-          stroke={color}
-          strokeWidth={strokeWidth}
-          strokeLinecap="round"
-          fill="none"
-          filter="url(#zine-rough-edge)"
-        />
-        <path
-          d={`M${length - 18},${length * 0.5} L${length - 5},${length * 0.62} L${length - 12},${length * 0.68}`}
-          stroke={color}
-          strokeWidth={strokeWidth}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          fill="none"
-        />
-      </svg>
-    );
-  }
-  if (dir === "curve-right") {
-    return (
-      <svg width={length} height={length * 0.5} viewBox={`0 0 ${length} ${length * 0.5}`} fill="none" style={style} aria-hidden>
-        <path
-          d={`M5,${length * 0.45} C${length * 0.3},${length * 0.05} ${length * 0.55},${length * 0.05} ${length - 12},${length * 0.32}`}
-          stroke={color}
-          strokeWidth={strokeWidth}
-          strokeLinecap="round"
-          fill="none"
-          filter="url(#zine-rough-edge)"
-        />
-        <path
-          d={`M${length - 22},${length * 0.18} L${length - 8},${length * 0.34} L${length - 22},${length * 0.42}`}
-          stroke={color}
-          strokeWidth={strokeWidth}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          fill="none"
-        />
-      </svg>
-    );
-  }
-  return (
-    <svg width={34} height={length} viewBox={`0 0 34 ${length}`} fill="none" style={style} aria-hidden>
-      <path
-        d={`M17,3 C16,${length * 0.25} 19,${length * 0.5} 16,${length * 0.75} C15,${length * 0.85} 18,${length * 0.92} 17,${length - 8}`}
-        stroke={color}
-        strokeWidth={strokeWidth}
-        strokeLinecap="round"
-        fill="none"
-        filter="url(#zine-rough-edge)"
-      />
-      <path
-        d={`M9,${length - 15} L17,${length - 3} L25,${length - 15}`}
-        stroke={color}
-        strokeWidth={strokeWidth}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
     </svg>
   );
 }
@@ -332,7 +252,7 @@ export function MapDoodle({
   const { x: markerX, y: markerY } = scene.marker;
   const approachStartX = scene.oceanSide === "left" ? 30 : 370;
   const approachEndX = scene.oceanSide === "left" ? markerX - 18 : markerX + 18;
-  const locationFontSize = locationName.length > 18 ? 15 : locationName.length > 14 ? 17 : 20;
+  const locationFontSize = locationName.length > 18 ? 13 : locationName.length > 14 ? 15 : 17;
   // Request the tile at the aspect it will actually be displayed at. The frame
   // is roughly 450px wide in the hero column, so a fixed 800x480 request got
   // object-cover-cropped once the frame grew taller, throwing away most of the
@@ -400,7 +320,7 @@ export function MapDoodle({
         <text
           x={hasRealMap ? 302 : scene.label.x}
           y={hasRealMap ? 214 : scene.label.y}
-          fontFamily="var(--font-handwritten), cursive"
+          fontFamily="var(--font-zine-display), 'Space Grotesk', sans-serif"
           fontSize={locationFontSize}
           fill="#11100D"
           fontWeight="700"
@@ -519,10 +439,3 @@ export function SaltyEyebrow({ text = "KEEP IT SALTY" }: { text?: string }) {
   );
 }
 
-export function TornDivider({ flip = false, color = "#DCC9A2" }: { flip?: boolean; color?: string }) {
-  return (
-    <svg viewBox="0 0 1200 24" preserveAspectRatio="none" style={{ display: "block", width: "100%", height: 18, transform: flip ? "scaleY(-1)" : "none" }} aria-hidden>
-      <path d="M0,8 C40,4 70,18 110,8 C150,2 190,16 230,7 C270,2 310,16 350,6 C390,2 430,18 470,9 C510,4 550,16 600,7 C650,2 690,16 730,7 C770,2 820,16 860,8 C900,4 940,16 1000,8 C1060,4 1130,16 1200,8 L1200,24 L0,24 Z" fill={color} filter="url(#zine-rough-edge)" />
-    </svg>
-  );
-}

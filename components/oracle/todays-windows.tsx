@@ -132,7 +132,6 @@ export function TodaysWindows({ windows, preferredTime, forecastUrl, isTomorrow,
             className="flex items-center justify-between px-4 py-3"
             style={{
               background: "#F0E5CC",
-              boxShadow: "2px 3px 0 rgba(0,0,0,0.16)",
             }}
           >
             <div>

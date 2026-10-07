@@ -30,23 +30,8 @@ interface RegionalGuidesStripProps {
   variant?: "default" | "zine";
 }
 
-// Cycling sticker-aesthetic knobs. Indexing by card position keeps the
+// Cycling sticker shapes. Indexing by card position keeps the
 // SSR/CSR output stable and consistent across reloads.
-const CARD_ROTATIONS = [
-  "-rotate-[1.25deg]",
-  "rotate-[1deg]",
-  "-rotate-[0.5deg]",
-  "rotate-[1.5deg]",
-  "-rotate-[1.75deg]",
-  "rotate-[0.75deg]",
-  "-rotate-[1deg]",
-  "rotate-[0.5deg]",
-  "-rotate-[0.75deg]",
-  "rotate-[1.25deg]",
-  "-rotate-[0.5deg]",
-  "rotate-[1.5deg]",
-];
-
 const CARD_SHAPES = [
   "rounded-[28px_10px_30px_12px]",
   "rounded-[12px_32px_12px_32px]",
@@ -103,7 +88,7 @@ function FeaturedGuideCard({ region, guideSlug, photoUrl }: GuideCardData) {
     <Link
       href={`/guides/surfing-${guideSlug}`}
       data-testid={`guide-card-featured-${guideSlug}`}
-      className="group relative col-span-12 overflow-hidden shadow-[0_6px_0_rgba(0,0,0,0.3)] transition-transform motion-reduce:transform-none hover:-rotate-0 hover:scale-[1.01] md:col-span-8 md:row-span-2 rounded-[36px_14px_40px_12px] -rotate-[1deg] bg-[#1f265f]"
+      className="group relative col-span-12 overflow-hidden transition-transform motion-reduce:transform-none hover:scale-[1.01] md:col-span-8 md:row-span-2 rounded-[36px_14px_40px_12px] bg-[#1f265f]"
     >
       {photoUrl ? (
         <>
@@ -131,7 +116,7 @@ function FeaturedGuideCard({ region, guideSlug, photoUrl }: GuideCardData) {
       )}
 
       <div className="relative flex min-h-[20rem] flex-col justify-end p-6 md:min-h-[26rem] md:p-8">
-        <span className="mb-3 inline-flex w-fit -rotate-[2deg] items-center rounded-[10px_4px_14px_4px] border border-[#F78E42]/50 bg-[#F78E42]/20 px-2.5 py-1 font-[var(--font-handwritten)] text-base text-[#F78E42]">
+        <span className="mb-3 inline-flex w-fit items-center rounded-[10px_4px_14px_4px] border border-[#F78E42]/50 bg-[#F78E42]/20 px-2.5 py-1 font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-[#F78E42]">
           Featured
         </span>
         <h3 className="font-[family-name:var(--font-heading)] text-2xl font-bold leading-tight text-white md:text-3xl">
@@ -153,15 +138,14 @@ function StandardGuideCard({
   region,
   guideSlug,
   photoUrl,
-  rotationClass,
   shapeClass,
-}: GuideCardData & { rotationClass: string; shapeClass: string }) {
+}: GuideCardData & { shapeClass: string }) {
   const subtitle = getRegionalGuideSubtitle(guideSlug);
   return (
     <Link
       href={`/guides/surfing-${guideSlug}`}
       data-testid={`guide-card-${guideSlug}`}
-      className={`group relative col-span-12 overflow-hidden bg-[#1b2255] shadow-[0_3px_0_rgba(0,0,0,0.3)] transition-transform motion-reduce:rotate-0 motion-reduce:transform-none hover:rotate-0 hover:scale-[1.015] sm:col-span-6 md:col-span-4 ${shapeClass} ${rotationClass}`}
+      className={`group relative col-span-12 overflow-hidden bg-[#1b2255] transition-transform motion-reduce:transform-none hover:scale-[1.015] sm:col-span-6 md:col-span-4 ${shapeClass}`}
     >
       {photoUrl ? (
         <>
@@ -255,8 +239,8 @@ export function RegionalGuidesStrip({
         <span
           className={
             isZine
-              ? "font-[var(--font-handwritten)] text-lg text-[#11100D]/55"
-              : "font-[var(--font-handwritten)] text-lg text-white/55"
+              ? "font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-[#4A463C]"
+              : "font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-white/70"
           }
         >
           local knowledge, by region
@@ -268,13 +252,12 @@ export function RegionalGuidesStrip({
           if (card.isFeatured) {
             return <FeaturedGuideCard key={card.guideSlug} {...card} />;
           }
-          // Skip index 0 (featured) — start rotation/shape cycle at 1.
-          const cycleIdx = i % CARD_ROTATIONS.length;
+          // Skip index 0 (featured) — start the shape cycle at 1.
+          const cycleIdx = i % CARD_SHAPES.length;
           return (
             <StandardGuideCard
               key={card.guideSlug}
               {...card}
-              rotationClass={CARD_ROTATIONS[cycleIdx]}
               shapeClass={CARD_SHAPES[cycleIdx]}
             />
           );

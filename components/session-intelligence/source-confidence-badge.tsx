@@ -77,7 +77,7 @@ export function SourceConfidenceBadge({
     <Badge
       variant="outline"
       className={cn(
-        "gap-1.5 rounded-[12px_4px_14px_6px] border px-2.5 py-1 font-mono text-[11px] font-bold uppercase shadow-[2px_3px_0_rgba(0,0,0,0.22)]",
+        "gap-1.5 rounded-[12px_4px_14px_6px] border px-2.5 py-1 font-mono text-[11px] font-bold uppercase",
         badgeTone(confidence),
         className
       )}

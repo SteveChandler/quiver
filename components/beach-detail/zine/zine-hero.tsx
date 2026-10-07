@@ -12,7 +12,6 @@ import {
   DoodleReef,
   DoodleStar,
   MapDoodle,
-  HandArrow,
 } from "./atoms";
 
 export type ZineHeroHeadingLevel = "h1" | "h2";
@@ -140,14 +139,12 @@ export function ZineHero({
           <p
             className="mt-6"
             style={{
-              fontFamily:
-                "var(--font-zine-marker), 'Permanent Marker', cursive",
+              fontFamily: "var(--font-sans), sans-serif",
               fontWeight: 400,
-              fontSize: 22,
+              fontSize: 17,
               color: "#11100D",
-              letterSpacing: "-0.01em",
-              lineHeight: 1.25,
-              maxWidth: "78ch",
+              lineHeight: 1.5,
+              maxWidth: "68ch",
             }}
           >
             {beach.best_conditions_prose}
@@ -211,8 +208,7 @@ function RatingStamp({ rating, filled }: { rating: string; filled: number }) {
           color: "#8A5E00",
           fontWeight: 900,
           position: "relative",
-          filter: "url(#zine-rough-edge)",
-          background: "rgba(244,235,216,0.6)",
+          background: "#F4EBD8",
         }}
       >
         {rating}
@@ -244,8 +240,6 @@ function ReviewCircle({ count }: { count: number }) {
           fontSize: count > 99 ? 14 : 18,
           color: "#11100D",
           fontWeight: 900,
-          filter: "url(#zine-rough-edge)",
-          transform: "rotate(3deg)",
         }}
       >
         {count > 999 ? "999+" : count}
@@ -377,17 +371,18 @@ function TapedMapPhoto({
 
       {/* Map doodle with location stamp */}
       {showMap ? (
-      <div className="relative" style={{ transform: "rotate(-1.2deg)", marginTop: 4 }}>
-        <span className="tape tl" aria-hidden />
-        <span className="tape br" aria-hidden />
-        <div className="absolute z-10" style={{ top: 10, left: -10, transform: "rotate(-3deg)" }} aria-hidden>
+      <div
+        className="relative overflow-hidden"
+        style={{ marginTop: 4, border: "1px solid #E5D4B3", borderRadius: "14px 22px 14px 14px" }}
+      >
+        <div className="absolute z-10" style={{ top: 10, left: 10 }} aria-hidden>
           <div
             className="label-black"
             style={{
               background: "#F4EBD8",
               color: "#11100D",
-              border: "2.5px solid #11100D",
-              boxShadow: "2px 3px 0 rgba(0,0,0,0.25)",
+              border: "1.5px solid #11100D",
+              borderRadius: 6,
               fontSize: 13,
             }}
           >
@@ -422,33 +417,28 @@ function TapedCamFrame({
   showLiveLabel: boolean;
 }) {
   return (
-    <div className="zine-hero-cam-frame relative" style={{ transform: "rotate(1.4deg)" }}>
-      <span className="tape tl" aria-hidden />
-      <span className="tape tr" aria-hidden />
+    <div className="zine-hero-cam-frame relative">
       {showLiveLabel ? (
         <div
-          className="absolute z-10 hidden md:block"
+          className="mb-2 hidden md:block"
           style={{
-            top: -26,
-            right: -8,
-            fontFamily: "var(--font-handwritten), cursive",
-            fontSize: 22,
-            color: "#11100D",
+            fontFamily: "var(--font-mono), monospace",
+            fontSize: 11,
             fontWeight: 700,
-            transform: "rotate(-6deg)",
+            letterSpacing: "0.16em",
+            textTransform: "uppercase",
+            color: "#4A463C",
           }}
           aria-hidden
         >
           Live now
-          <HandArrow dir="curve-right" length={70} style={{ position: "absolute", left: -45, top: 12 }} />
         </div>
       ) : null}
       <div
         className="overflow-hidden"
         style={{
-          border: "3px solid #11100D",
-          borderRadius: 4,
-          boxShadow: "4px 5px 0 rgba(17,16,13,0.3)",
+          border: "1px solid #E5D4B3",
+          borderRadius: "14px 22px 14px 14px",
           background: "#11100D",
         }}
       >

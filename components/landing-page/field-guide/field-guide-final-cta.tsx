@@ -16,7 +16,7 @@ export function FieldGuideFinalCta({
     <ZineSurface
       sectionLabel="Back cover"
       data-testid="field-guide-final-cta"
-      className="bg-[#252D6B] px-3 pb-8 pt-0 sm:px-6 sm:pb-12 sm:pt-0"
+      className="bg-[#252D6B] px-3 pb-8 pt-3 sm:px-6 sm:pb-12 sm:pt-4"
       stageClassName="mx-auto max-w-5xl !py-0"
       paperClassName="relative overflow-hidden text-center"
       showMasthead={false}

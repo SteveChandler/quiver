@@ -15,6 +15,9 @@ interface PublicForecastHourlyProps {
   context: PublicForecastContextFacts | null;
   forecastDay: PublicForecastDay;
   returnTo: string;
+  /** The general best window, only when it falls on `forecastDay`. Marks the
+   *  hours for guests, as native's forecast grid does. */
+  publicWindow?: { start: string | null; end: string | null } | null;
 }
 
 function join(parts: (string | null | undefined)[], separator = " "): string {
@@ -65,9 +68,18 @@ export function PublicForecastHourly({
   context,
   forecastDay,
   returnTo,
+  publicWindow = null,
 }: PublicForecastHourlyProps) {
   const authenticatedDecision = useAuthenticatedForecastDecision();
   if (forecastHours.length === 0) return null;
+
+  const guestWindow =
+    !authenticatedDecision.report &&
+    !authenticatedDecision.isAuthenticated &&
+    publicWindow?.start &&
+    publicWindow.end
+      ? { start: publicWindow.start, end: publicWindow.end }
+      : null;
 
   const timezone = context?.timezone ?? "UTC";
   const dayLabel = forecastDay === "tomorrow" ? "Tomorrow" : "Today";
@@ -108,7 +120,8 @@ export function PublicForecastHourly({
                   {label}
                   {label === "Quiver call" &&
                   !authenticatedDecision.report &&
-                  !authenticatedDecision.isAuthenticated ? (
+                  !authenticatedDecision.isAuthenticated &&
+                  !guestWindow ? (
                     <span className="mt-1 block normal-case tracking-normal">
                       <ForecastDecisionLoginLink returnTo={returnTo} compact />
                     </span>
@@ -119,19 +132,20 @@ export function PublicForecastHourly({
           </thead>
           <tbody>
             {forecastHours.map((hour) => {
-              const inCallWindow =
-                Boolean(authenticatedDecision.report) &&
-                forecastDay ===
-                  (authenticatedDecision.isTomorrow ? "tomorrow" : "today") &&
-                isWithinCallWindow(
-                  hour.forecast_at,
-                  authenticatedDecision.context?.displayWindowStart ??
-                    authenticatedDecision.report?.bestWindowStart ??
-                    "",
-                  authenticatedDecision.context?.displayWindowEnd ??
-                    authenticatedDecision.report?.bestWindowEnd ??
-                    "",
-                );
+              const inCallWindow = guestWindow
+                ? isWithinCallWindow(hour.forecast_at, guestWindow.start, guestWindow.end)
+                : Boolean(authenticatedDecision.report) &&
+                  forecastDay ===
+                    (authenticatedDecision.isTomorrow ? "tomorrow" : "today") &&
+                  isWithinCallWindow(
+                    hour.forecast_at,
+                    authenticatedDecision.context?.displayWindowStart ??
+                      authenticatedDecision.report?.bestWindowStart ??
+                      "",
+                    authenticatedDecision.context?.displayWindowEnd ??
+                      authenticatedDecision.report?.bestWindowEnd ??
+                      "",
+                  );
 
               return (
                 <tr
@@ -149,7 +163,7 @@ export function PublicForecastHourly({
                   </td>
                   <td className="px-3 py-2.5">
                     {inCallWindow ? (
-                      <span className="inline-block -rotate-1 border-2 border-[#11100D] bg-[#F78E42] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#11100D]">
+                      <span className="inline-block rounded-full border-2 border-[#11100D] bg-[#F78E42] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#11100D]">
                         Best window
                       </span>
                     ) : (

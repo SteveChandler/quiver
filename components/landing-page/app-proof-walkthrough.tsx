@@ -9,7 +9,7 @@ const STEPS = [
     imageSrc: "/images/app-screenshots/surf-call-720.webp",
     imageAlt:
       "Quiver app surf call with swell, wind, tide, and best-window guidance.",
-    className: "md:col-span-5 md:rotate-[-1deg]",
+    className: "md:col-span-5",
     imageClassName: "aspect-[9/13]",
   },
   {
@@ -19,7 +19,7 @@ const STEPS = [
     imageSrc: "/images/app-screenshots/local-intel-720.webp",
     imageAlt:
       "Quiver app local beach finder with nearby surf spots and skill filters.",
-    className: "md:col-span-4 md:translate-y-10 md:rotate-[1.5deg]",
+    className: "md:col-span-4 md:translate-y-10",
     imageClassName: "aspect-[9/14]",
   },
   {
@@ -29,7 +29,7 @@ const STEPS = [
     imageSrc: "/images/app-screenshots/session-log-720.webp",
     imageAlt:
       "Quiver app session log with beach, board, duration, rating, and wave conditions.",
-    className: "md:col-span-3 md:rotate-[-2deg]",
+    className: "md:col-span-3",
     imageClassName: "aspect-[9/15]",
   },
 ] as const;
@@ -58,7 +58,7 @@ export function AppProofWalkthrough(): ReactElement {
           {STEPS.map((step) => (
             <li key={step.title} className={step.className}>
               <article className="relative overflow-hidden rounded-[26px_10px_30px_14px] border border-white/12 bg-card p-4 shadow-[0_14px_50px_rgba(0,0,0,0.28)]">
-                <p className="mb-3 inline-flex rotate-[-1deg] rounded-[9px_3px_11px_4px] bg-sunset-orange px-2.5 py-1 font-mono text-[10px] font-black uppercase tracking-[0.16em] text-background shadow-[0_2px_0_rgba(0,0,0,0.24)]">
+                <p className="mb-3 inline-flex rounded-[9px_3px_11px_4px] bg-sunset-orange px-2.5 py-1 font-mono text-[10px] font-black uppercase tracking-[0.16em] text-background shadow-[0_2px_0_rgba(0,0,0,0.24)]">
                   {step.eyebrow}
                 </p>
                 <div

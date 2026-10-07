@@ -161,7 +161,7 @@ export default function FeaturesPage(): ReactElement {
                   source="features-hero-app-store"
                   surface="features-page"
                   placement="hero_primary"
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)] transition-transform hover:-translate-y-0.5"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-2 font-semibold text-[#11100D] transition-transform hover:-translate-y-0.5"
                 >
                   {IOS_APP_STORE_CTA}
                   <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -170,7 +170,7 @@ export default function FeaturesPage(): ReactElement {
                   source="features-hero-android-waitlist"
                   surface="features-page"
                   placement="hero_secondary"
-                  className="inline-flex min-h-11 items-center justify-center rounded-full border-2 border-[#11100D] bg-[#FBF6E8] px-5 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.22)] transition-transform hover:-translate-y-0.5"
+                  className="inline-flex min-h-11 items-center justify-center rounded-full border-2 border-[#11100D] bg-[#FBF6E8] px-5 py-2 font-semibold text-[#11100D] transition-transform hover:-translate-y-0.5"
                 >
                   Get the Android beta
                 </AndroidWaitlistCta>
@@ -197,7 +197,7 @@ export default function FeaturesPage(): ReactElement {
             <div className="mx-auto grid w-full max-w-[520px] grid-cols-3 gap-3 sm:gap-4 lg:max-w-none">
               {APP_SCREENS.map((screen, index) => (
                 <figure key={screen.src} className="relative min-w-0">
-                  <div className="relative aspect-[9/19.5] overflow-hidden rounded-[24px] border-2 border-[#11100D] bg-[#11100D] shadow-[3px_4px_0_rgba(17,16,13,0.3)]">
+                  <div className="relative aspect-[9/19.5] overflow-hidden rounded-[24px] border-2 border-[#11100D] bg-[#11100D]">
                     <Image
                       src={screen.src}
                       alt={screen.alt}
@@ -294,7 +294,7 @@ export default function FeaturesPage(): ReactElement {
               const Icon = feature.icon;
               return (
                 <ScrollReveal key={feature.title} delay={index * 60}>
-                  <article className="torn flex h-full flex-col border-2 border-[#11100D] bg-[#FBF6E8] p-5 shadow-[2px_3px_0_rgba(17,16,13,0.22)]">
+                  <article className="torn flex h-full flex-col border-2 border-[#11100D] bg-[#FBF6E8] p-5">
                     <div className="flex items-center gap-3">
                       <span className="circled bg-[#252D6B]/12">
                         <Icon className="h-5 w-5" aria-hidden="true" />
@@ -362,7 +362,7 @@ export default function FeaturesPage(): ReactElement {
                   source="features-final-app-store"
                   surface="features-page"
                   placement="final_cta"
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)] transition-transform hover:-translate-y-0.5"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-2 font-semibold text-[#11100D] transition-transform hover:-translate-y-0.5"
                 >
                   {IOS_APP_STORE_CTA}
                   <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -371,7 +371,7 @@ export default function FeaturesPage(): ReactElement {
                   source="features-final-android-waitlist"
                   surface="features-page"
                   placement="final_secondary"
-                  className="inline-flex min-h-11 items-center justify-center rounded-full border-2 border-[#11100D] bg-[#FBF6E8] px-5 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.22)] transition-transform hover:-translate-y-0.5"
+                  className="inline-flex min-h-11 items-center justify-center rounded-full border-2 border-[#11100D] bg-[#FBF6E8] px-5 py-2 font-semibold text-[#11100D] transition-transform hover:-translate-y-0.5"
                 >
                   Get the Android beta
                 </AndroidWaitlistCta>

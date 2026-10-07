@@ -46,7 +46,6 @@ export function ActivityFeed({ items }: ActivityFeedProps) {
           className="px-5 py-6 text-center"
           style={{
             background: "#F0E5CC",
-            boxShadow: "2px 3px 0 rgba(0,0,0,0.16)",
           }}
         >
           <p

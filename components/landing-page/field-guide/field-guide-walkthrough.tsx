@@ -38,7 +38,7 @@ export function FieldGuideWalkthrough(): ReactElement {
     <ZineSurface
       sectionLabel="How Quiver works"
       data-testid="field-guide-walkthrough"
-      className="bg-[#252D6B] px-3 py-0 sm:px-6 sm:py-0"
+      className="bg-[#252D6B] px-3 pb-0 pt-3 sm:px-6 sm:pb-0 sm:pt-4"
       stageClassName="mx-auto max-w-5xl !py-0"
       paperClassName="relative overflow-hidden !px-5 !py-7 sm:!px-8 sm:!py-10"
       showMasthead={false}
@@ -97,7 +97,7 @@ export function FieldGuideWalkthrough(): ReactElement {
           ))}
         </ol>
 
-        <div className="relative mx-auto w-full max-w-[300px] -rotate-1 border-2 border-[#11100D] bg-[#11100D] p-2 shadow-[10px_10px_0_rgba(247,142,66,0.42)]">
+        <div className="relative mx-auto w-full max-w-[300px] border-2 border-[#11100D] bg-[#11100D] p-2">
           <div
             className="relative aspect-[9/16] overflow-hidden bg-[#0D1020]"
             data-testid="field-guide-walkthrough-video"

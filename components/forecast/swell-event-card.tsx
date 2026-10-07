@@ -365,7 +365,7 @@ function SwellEventCard({
         className={cn(
           "p-3 transition-[box-shadow,transform] duration-200",
           isZine
-            ? "torn torn-tb border-2 border-[#11100D] bg-[#F4EBD8] shadow-[2px_2px_0_rgba(17,16,13,0.35)] hover:-translate-y-0.5"
+            ? "torn torn-tb border-2 border-[#11100D] bg-[#F4EBD8] hover:-translate-y-0.5"
             : cn("rounded-lg border hover:shadow-md", styles.bg, styles.border),
           className
         )}
@@ -400,7 +400,7 @@ function SwellEventCard({
       className={cn(
         "border-2 p-4 transition-[box-shadow,transform] duration-200",
         isZine
-          ? "torn torn-tb border-[#11100D] bg-[#F4EBD8] shadow-[3px_3px_0_rgba(17,16,13,0.35)] hover:-translate-y-0.5"
+          ? "torn torn-tb border-[#11100D] bg-[#F4EBD8] hover:-translate-y-0.5"
           : cn("rounded-xl hover:shadow-lg", styles.bg, styles.border, isLargeSwell && styles.glow),
         className
       )}

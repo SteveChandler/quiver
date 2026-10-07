@@ -60,7 +60,7 @@ export function CamCard({ beach }: CamCardProps) {
   return (
     <Link
       href={beachUrl}
-      className="torn torn-tb group block overflow-hidden border-2 border-[#11100D] bg-[#FBF6E8] p-0 text-[#11100D] shadow-[4px_5px_0_rgba(17,16,13,0.18)] transition-transform duration-200 hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4EBD8]"
+      className="torn torn-tb group block overflow-hidden border-2 border-[#11100D] bg-[#FBF6E8] p-0 text-[#11100D] transition-transform duration-200 hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4EBD8]"
     >
       {/* Camera preview area */}
       <div
@@ -104,12 +104,12 @@ export function CamCard({ beach }: CamCardProps) {
         )}
 
         {showThumbnail ? (
-          <span className="absolute right-3 top-3 z-10 inline-flex items-center gap-1.5 border-2 border-[#11100D] bg-[#F78E42] px-2.5 py-1 font-mono text-[10px] font-black uppercase tracking-[0.12em] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.25)]">
+          <span className="absolute right-3 top-3 z-10 inline-flex items-center gap-1.5 border-2 border-[#11100D] bg-[#F78E42] px-2.5 py-1 font-mono text-[10px] font-black uppercase tracking-[0.12em] text-[#11100D]">
             <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-[#11100D]" />
             LIVE
           </span>
         ) : (
-          <span className="absolute right-3 top-3 z-10 inline-flex border-2 border-[#11100D] bg-[#FDB84B] px-2.5 py-1 font-mono text-[10px] font-black uppercase tracking-[0.12em] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.25)]">
+          <span className="absolute right-3 top-3 z-10 inline-flex border-2 border-[#11100D] bg-[#FDB84B] px-2.5 py-1 font-mono text-[10px] font-black uppercase tracking-[0.12em] text-[#11100D]">
             Cam link
           </span>
         )}

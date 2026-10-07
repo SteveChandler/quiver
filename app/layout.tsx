@@ -4,8 +4,6 @@ import {
   DM_Sans,
   Space_Grotesk,
   Space_Mono,
-  Caveat,
-  Permanent_Marker,
 } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
@@ -38,12 +36,6 @@ const spaceMono = Space_Mono({
   variable: "--font-mono",
 });
 
-const caveat = Caveat({
-  subsets: ["latin"],
-  display: "swap",
-  preload: false,
-  variable: "--font-handwritten",
-});
 
 // Display face: the static Space Grotesk Bold cut (latin, OFL), declared for
 // every weight so anything set in it reads bold whatever weight it asks for.
@@ -61,13 +53,6 @@ const spaceGroteskDisplay = localFont({
   fallback: ["Space Grotesk", "sans-serif"],
 });
 
-const permanentMarker = Permanent_Marker({
-  weight: "400",
-  subsets: ["latin"],
-  display: "swap",
-  preload: false,
-  variable: "--font-zine-marker",
-});
 
 // Optimize viewport for mobile performance
 // Note: maximumScale removed for WCAG 1.4.4 compliance (allow user zoom)
@@ -181,7 +166,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${dmSans.variable} ${spaceGrotesk.variable} ${spaceMono.variable} ${caveat.variable} ${spaceGroteskDisplay.variable} ${permanentMarker.variable}`}
+      className={`${dmSans.variable} ${spaceGrotesk.variable} ${spaceMono.variable} ${spaceGroteskDisplay.variable}`}
     >
       {/* WARNING: No whitespace allowed between tags in <head> to prevent React hydration errors. See: https://react.dev/link/hydration-mismatch */}
       <head>

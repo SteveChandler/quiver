@@ -312,7 +312,7 @@ export default async function ForecastHubPage({
                 <Link
                   key={card.href}
                   href={card.href}
-                  className="group relative block min-h-36 overflow-hidden rounded-[24px_10px_28px_12px] border-2 border-[#11100D] bg-[#FBF6E8] p-4 shadow-[3px_4px_0_rgba(17,16,13,0.2)] transition-transform hover:-translate-y-1"
+                  className="group relative block min-h-36 overflow-hidden rounded-[24px_10px_28px_12px] border-2 border-[#11100D] bg-[#FBF6E8] p-4 transition-transform hover:-translate-y-1"
                 >
                   <QuiverSticker
                     sticker={card.sticker}

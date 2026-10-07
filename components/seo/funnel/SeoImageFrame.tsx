@@ -23,7 +23,7 @@ export function SeoImageFrame({
 
   return (
     <figure className={className}>
-      <div className="relative overflow-hidden rounded-lg border border-[#11100D]/10 bg-[#F4EBD8] shadow-[3px_4px_0_rgba(17,16,13,0.14)]">
+      <div className="relative overflow-hidden rounded-lg border border-[#11100D]/10 bg-[#F4EBD8]">
         <div className="relative aspect-[4/3]">
           {hasImage ? (
             <Image

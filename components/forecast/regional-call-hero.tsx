@@ -7,7 +7,7 @@
  * from the peak-week conditions of a single region's summary and renders the
  * scene as a layered "sticker wall": photo backdrop + navy tint + scan lines
  * behind a set of absolutely / flow-positioned stickers (date, region chip,
- * wave-height tag, polaroid inset photo, handwritten pullquote, headline,
+ * wave-height tag, inset photo, pullquote, headline,
  * sub, CTAs). Each sticker has a `--depth-*` coefficient; pointer movement
  * and page scroll drive `--px`, `--py`, `--scroll` CSS vars on the wall,
  * producing a gentle parallax where stickers further from the board move
@@ -153,14 +153,13 @@ function computeHeadlineAngle(
 function stickerTransform(
   depthX: number,
   depthY: number,
-  scrollCoef: number,
-  rotateDeg: string
+  scrollCoef: number
 ): string {
   return `translate3d(
     calc(var(--px, 0) * ${depthX}px),
     calc(var(--py, 0) * ${depthY}px + var(--scroll, 0) * ${scrollCoef}px),
     0
-  ) rotate(${rotateDeg})`;
+  )`;
 }
 
 export function RegionalCallHero({
@@ -299,7 +298,7 @@ export function RegionalCallHero({
             className="absolute inset-0"
             style={{
               willChange: "transform",
-              transform: stickerTransform(-6, -4, 40, "0deg"),
+              transform: stickerTransform(-6, -4, 40),
             }}
           >
             <Image
@@ -332,7 +331,7 @@ export function RegionalCallHero({
           than the backdrop where possible, so the hero reads as two windows
           into the region rather than one image used twice. Falls back to the
           primary photo when the region only has one approved image. The
-          image is decorative (`aria-hidden`); the handwritten caption stays
+          image is decorative (`aria-hidden`); the caption stays
           readable so screen readers still get the beach-name attribution
           (local/cultural signal, not pure decoration). */}
       {(summary?.secondaryPhotoUrl ?? photoUrl) && (
@@ -340,13 +339,13 @@ export function RegionalCallHero({
           className="pointer-events-none absolute right-6 top-6 hidden w-44 lg:block xl:w-52"
           style={{
             willChange: "transform",
-            transform: stickerTransform(14, 9, -55, "4.5deg"),
+            transform: stickerTransform(14, 9, -55),
           }}
         >
-          <div className="rounded-[2px] bg-white p-2 shadow-[0_18px_40px_-16px_rgba(0,0,0,0.7)]">
+          <div className="rounded-[14px_22px_14px_14px] border border-[#E5D4B3] bg-[#F4EBD8] p-2">
             <div
               aria-hidden="true"
-              className="relative aspect-[4/5] overflow-hidden"
+              className="relative aspect-[4/5] overflow-hidden rounded-[8px_14px_8px_8px]"
             >
               <Image
                 src={(summary?.secondaryPhotoUrl ?? photoUrl) as string}
@@ -356,7 +355,7 @@ export function RegionalCallHero({
                 className="object-cover"
               />
             </div>
-            <p className="mt-2 text-center font-[var(--font-handwritten)] text-sm leading-tight text-[#252D6B]">
+            <p className="mt-2 text-center font-mono text-[11px] font-bold uppercase leading-tight tracking-[0.14em] text-[#11100D]">
               {summary?.secondaryPhotoBeachName ??
                 summary?.photoBeachName ??
                 region.name}
@@ -369,11 +368,11 @@ export function RegionalCallHero({
         {/* Date sticker + wave-height tag + region chip */}
         <div className="flex flex-wrap items-center gap-3">
           <span
-            className="inline-flex items-center rounded-[14px_6px_16px_4px] border border-[#F78E42]/40 bg-[#F78E42]/15 px-3 py-1 font-[var(--font-handwritten)] text-lg text-[#F78E42]"
+            className="inline-flex items-center rounded-[14px_6px_16px_4px] border border-[#F78E42]/40 bg-[#F78E42]/15 px-3 py-1 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#F78E42]"
             data-testid="date-sticker"
             style={{
               willChange: "transform",
-              transform: stickerTransform(7, 4, -22, "-2deg"),
+              transform: stickerTransform(7, 4, -22),
             }}
           >
             <time dateTime={stickerDateTime}>{dateSticker}</time>
@@ -385,7 +384,7 @@ export function RegionalCallHero({
               className="inline-flex items-center rounded-[8px_18px_6px_16px] border border-white/20 bg-white/[0.06] px-2.5 py-1 font-mono text-[0.68rem] uppercase tracking-[0.18em] text-white/75"
               style={{
                 willChange: "transform",
-                transform: stickerTransform(5, 3, -14, "1.25deg"),
+                transform: stickerTransform(5, 3, -14),
               }}
             >
               Peak · {angle.peakWaveRange.split(" (")[0]}
@@ -398,7 +397,7 @@ export function RegionalCallHero({
             data-testid="region-chip"
             style={{
               willChange: "transform",
-              transform: stickerTransform(4, 2.5, -12, "0deg"),
+              transform: stickerTransform(4, 2.5, -12),
             }}
           >
             <span>Showing {region.name}</span>
@@ -411,7 +410,7 @@ export function RegionalCallHero({
           className="max-w-3xl"
           style={{
             willChange: "transform",
-            transform: stickerTransform(2.5, 1.5, -8, "0deg"),
+            transform: stickerTransform(2.5, 1.5, -8),
           }}
         >
           <h1
@@ -551,15 +550,15 @@ export function RegionalCallHero({
           })();
           }}
           aria-label={`Share ${region.name}'s forecast`}
-          className="group relative ml-auto mt-7 hidden w-fit max-w-[16rem] flex-col items-end gap-0.5 rounded-[10px_4px_14px_4px] text-right transition-transform hover:scale-[1.04] hover:rotate-[-1.5deg] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B] motion-reduce:hover:scale-100 motion-reduce:hover:rotate-0 sm:flex md:text-3xl"
+          className="group relative ml-auto mt-7 hidden w-fit max-w-[16rem] flex-col items-end gap-0.5 rounded-[10px_4px_14px_4px] text-right transition-transform hover:scale-[1.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B] motion-reduce:hover:scale-100 sm:flex"
           style={{
             willChange: "transform",
-            transform: stickerTransform(11, 7, -30, "-3deg"),
+            transform: stickerTransform(11, 7, -30),
           }}
         >
           {/* Gold rather than orange: over the photo scrim the orange sat at
               2.9:1, under AA even for large display text. */}
-          <span className="inline-flex items-center gap-2 font-[var(--font-handwritten)] text-2xl leading-tight text-[#FDB84B] md:text-3xl">
+          <span className="inline-flex items-center gap-2 font-mono text-sm font-bold uppercase leading-tight tracking-[0.14em] text-[#FDB84B]">
             <span className="whitespace-nowrap">Share forecast</span>
             <Share2
               aria-hidden="true"

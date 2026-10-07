@@ -234,10 +234,10 @@ export function AlertCreationPopover({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md overflow-hidden rounded-md border-2 border-[#11100D] bg-[#1E2660] p-0 text-white shadow-[8px_8px_0_rgba(17,16,13,0.75)] sm:rounded-md [&>button]:right-5 [&>button]:top-5 [&>button]:text-[#11100D] [&>button]:opacity-100 [&>button]:ring-offset-[#F4EBD8] [&>button]:hover:bg-[#F78E42]/20">
+      <DialogContent className="max-w-md overflow-hidden rounded-md border-2 border-[#11100D] bg-[#1E2660] p-0 text-white sm:rounded-md [&>button]:right-5 [&>button]:top-5 [&>button]:text-[#11100D] [&>button]:opacity-100 [&>button]:ring-offset-[#F4EBD8] [&>button]:hover:bg-[#F78E42]/20">
         <DialogHeader className="border-b-2 border-[#11100D] bg-[#F4EBD8] px-5 py-4 pr-12 text-left text-[#11100D] shadow-[0_3px_0_rgba(17,16,13,0.55)]">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-sm border-2 border-[#11100D] bg-[#F78E42] px-2 py-1 font-mono text-[10px] font-black uppercase tracking-[0.16em] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)]">
+            <span className="rounded-sm border-2 border-[#11100D] bg-[#F78E42] px-2 py-1 font-mono text-[10px] font-black uppercase tracking-[0.16em] text-[#11100D]">
               Condition watch
             </span>
             <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[#403A2E]">
@@ -408,7 +408,7 @@ function PresetGroup({
               }}
               disabled={disabled}
               aria-label={`Customize ${preset.name}`}
-              className="absolute right-2 top-1/2 flex min-h-[32px] min-w-[76px] -translate-y-1/2 items-center justify-center rounded-sm border border-[#11100D] bg-[#11100D] px-2 py-1 font-mono text-[10px] font-black uppercase tracking-[0.08em] text-[#F4EBD8] shadow-[2px_2px_0_rgba(247,142,66,0.45)] transition-colors hover:bg-[#F78E42] hover:text-[#11100D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/70 disabled:cursor-not-allowed disabled:opacity-40"
+              className="absolute right-2 top-1/2 flex min-h-[32px] min-w-[76px] -translate-y-1/2 items-center justify-center rounded-sm border border-[#11100D] bg-[#11100D] px-2 py-1 font-mono text-[10px] font-black uppercase tracking-[0.08em] text-[#F4EBD8] transition-colors hover:bg-[#F78E42] hover:text-[#11100D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/70 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Customize
             </button>

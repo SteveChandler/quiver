@@ -97,7 +97,7 @@ export function FoundingOfferSurface() {
   const barrelWaveFigure = (
     <figure
       data-testid="plans-barrel-wave"
-      className="mt-4 max-w-3xl border-2 border-[#11100D] bg-[#F0E5CC] p-2 shadow-[4px_5px_0_rgba(17,16,13,0.2)] sm:mt-6 sm:p-3"
+      className="mt-4 max-w-3xl border-2 border-[#11100D] bg-[#F0E5CC] p-2 sm:mt-6 sm:p-3"
     >
       <div className="relative aspect-[16/9] w-full overflow-hidden">
         <Image
@@ -149,7 +149,7 @@ export function FoundingOfferSurface() {
                 source="plans"
                 surface="plans-page"
                 placement="hero"
-                className="mt-6 inline-flex min-h-12 w-full max-w-2xl items-center justify-center gap-2 rounded-full border-2 border-[#11100D] bg-[#F78E42] px-6 font-semibold text-[#11100D] shadow-[3px_3px_0_rgba(17,16,13,0.35)] motion-safe:transition-transform motion-safe:hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D] sm:hidden"
+                className="mt-6 inline-flex min-h-12 w-full max-w-2xl items-center justify-center gap-2 rounded-full border-2 border-[#11100D] bg-[#F78E42] px-6 font-semibold text-[#11100D] motion-safe:transition-transform motion-safe:hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D] sm:hidden"
               >
                 {IOS_APP_STORE_CTA}
                 <ArrowRight className="h-4 w-4" aria-hidden />
@@ -221,7 +221,7 @@ export function FoundingOfferSurface() {
                 source="plans"
                 surface="plans-page"
                 placement="plans_primary"
-                className="mt-7 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full border-2 border-[#11100D] bg-[#F78E42] px-6 font-semibold text-[#11100D] shadow-[3px_3px_0_rgba(17,16,13,0.35)] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D] sm:max-w-sm"
+                className="mt-7 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full border-2 border-[#11100D] bg-[#F78E42] px-6 font-semibold text-[#11100D] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D] sm:max-w-sm"
               >
                 {IOS_APP_STORE_CTA}
                 <ArrowRight className="h-4 w-4" aria-hidden />
@@ -234,7 +234,7 @@ export function FoundingOfferSurface() {
 
               <div className="mt-6 border-t-2 border-dashed border-[#11100D]/30 pt-5 sm:max-w-sm">
                 <div className="flex flex-wrap gap-2">
-                  <div className="rounded-full border-2 border-[#11100D] bg-[#FFF7E6] px-3 py-2 shadow-[2px_2px_0_rgba(17,16,13,0.18)]">
+                  <div className="rounded-full border-2 border-[#11100D] bg-[#FFF7E6] px-3 py-2">
                     <div className="flex items-center gap-2 text-sm font-semibold text-[#11100D]">
                       <Apple className="h-4 w-4 text-[#F78E42]" aria-hidden />
                       iPhone
@@ -243,7 +243,7 @@ export function FoundingOfferSurface() {
                       Available
                     </p>
                   </div>
-                  <div className="rounded-full border-2 border-[#11100D] bg-[#FFF7E6] px-3 py-2 shadow-[2px_2px_0_rgba(17,16,13,0.18)]">
+                  <div className="rounded-full border-2 border-[#11100D] bg-[#FFF7E6] px-3 py-2">
                     <div className="flex items-center gap-2 text-sm font-semibold text-[#11100D]">
                       <Smartphone
                         className="h-4 w-4 text-[#252D6B]"
@@ -263,7 +263,7 @@ export function FoundingOfferSurface() {
 
           <ScrollReveal delay={80}>
             <section
-              className="relative border-2 border-[#11100D] bg-[#F0E5CC] p-6 shadow-[3px_4px_0_rgba(17,16,13,0.18)] sm:p-8"
+              className="relative border-2 border-[#11100D] bg-[#F0E5CC] p-6 sm:p-8"
               aria-labelledby="plans-included-heading"
             >
               <QuiverSticker
@@ -283,7 +283,7 @@ export function FoundingOfferSurface() {
                       className="grid grid-cols-[3.5rem_minmax(0,1fr)] gap-4 py-4 first:pt-0 sm:grid-cols-[4rem_minmax(0,1fr)]"
                       data-testid="plans-pro-feature"
                     >
-                      <div className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg border-2 border-[#11100D] bg-[#D9EEF4] shadow-[3px_4px_0_rgba(17,16,13,0.16)] sm:h-14 sm:w-14">
+                      <div className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg border-2 border-[#11100D] bg-[#D9EEF4] sm:h-14 sm:w-14">
                         <QuiverSticker
                           sticker={feature.sticker}
                           className="absolute -right-6 -top-4 w-20 rotate-12 opacity-55"

@@ -134,8 +134,8 @@ function ConditionRow({
   }
 
   return (
-    <div className="flex items-center gap-3 rounded-[12px_6px_14px_8px] border border-white/8 bg-white/[0.03] px-3 py-2 shadow-[2px_3px_0_rgba(0,0,0,0.12)]">
-      <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px_4px_14px_6px] bg-[#252D6B]/45 shadow-[2px_3px_0_rgba(0,0,0,0.18)]">
+    <div className="flex items-center gap-3 rounded-[12px_6px_14px_8px] border border-white/8 bg-white/[0.03] px-3 py-2">
+      <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px_4px_14px_6px] bg-[#252D6B]/45">
         <QuiverSticker
           sticker={sticker}
           className="h-7 w-7 object-contain"
@@ -156,7 +156,7 @@ function ScoreDisk({ score, compact = false }: { score: number; compact?: boolea
   return (
     <div
       className={cn(
-        "flex shrink-0 rotate-[1.5deg] flex-col items-center justify-center border border-[#F78E42]/35 bg-[#F78E42]/15 text-white shadow-[2px_3px_0_rgba(0,0,0,0.28)] motion-reduce:rotate-0",
+        "flex shrink-0 flex-col items-center justify-center border border-[#F78E42]/35 bg-[#F78E42]/15 text-white motion-reduce:rotate-0",
         compact
           ? "h-12 w-12 rounded-[16px_7px_18px_9px]"
           : "h-14 w-14 rounded-[18px_8px_20px_10px]"
@@ -268,7 +268,7 @@ function FeatureWindowPanel({
         sizes="96px"
       />
       {photoSrc ? (
-        <div className="relative mb-4 h-44 overflow-hidden rounded-[14px_5px_16px_7px] border border-white/10 shadow-[2px_3px_0_rgba(0,0,0,0.22)] sm:mb-0 sm:h-full sm:min-h-[300px]">
+        <div className="relative mb-4 h-44 overflow-hidden rounded-[14px_5px_16px_7px] border border-white/10 sm:mb-0 sm:h-full sm:min-h-[300px]">
           {webUrl ? (
             <a
               href={webUrl}
@@ -290,7 +290,7 @@ function FeatureWindowPanel({
             <div className="flex flex-wrap items-center gap-2">
               <Badge
                 variant="outline"
-                className="rotate-[-1deg] rounded-[12px_4px_14px_6px] border-[#FDB84B]/35 bg-[#FDB84B]/12 font-mono text-[11px] font-bold text-[#FFE1A0] shadow-[2px_3px_0_rgba(0,0,0,0.22)] motion-reduce:rotate-0"
+                className="rounded-[12px_4px_14px_6px] border-[#FDB84B]/35 bg-[#FDB84B]/12 font-mono text-[11px] font-bold text-[#FFE1A0] motion-reduce:rotate-0"
               >
                 #{recommendation.rank}
               </Badge>
@@ -301,7 +301,7 @@ function FeatureWindowPanel({
               <Badge
                 variant="outline"
                 className={cn(
-                  "rounded-[12px_4px_14px_6px] border px-2.5 py-1 font-mono text-[11px] font-bold uppercase shadow-[2px_3px_0_rgba(0,0,0,0.22)]",
+                  "rounded-[12px_4px_14px_6px] border px-2.5 py-1 font-mono text-[11px] font-bold uppercase",
                   verdictClasses(recommendation.verdict)
                 )}
               >
@@ -365,7 +365,7 @@ function FeatureWindowPanel({
             <Button
               asChild
               size="sm"
-              className="h-10 w-full rounded-full bg-[#F78E42] text-[#252D6B] shadow-[2px_3px_0_rgba(0,0,0,0.28)] hover:bg-[#F78E42]/90"
+              className="h-10 w-full rounded-full bg-[#F78E42] text-[#252D6B] hover:bg-[#F78E42]/90"
             >
               <a
                 href={webUrl}
@@ -473,7 +473,7 @@ function WindowCard({
       {photoSrc ? (
         <div
           className={cn(
-            "relative shrink-0 overflow-hidden rounded-[12px_4px_14px_6px] border border-white/10 shadow-[2px_3px_0_rgba(0,0,0,0.22)]",
+            "relative shrink-0 overflow-hidden rounded-[12px_4px_14px_6px] border border-white/10",
             isFeatured ? "h-44" : "h-28"
           )}
         >
@@ -496,7 +496,7 @@ function WindowCard({
           <div className="flex flex-wrap items-center gap-2">
             <Badge
               variant="outline"
-              className="rotate-[-1deg] rounded-[12px_4px_14px_6px] border-[#FDB84B]/35 bg-[#FDB84B]/12 font-mono text-[11px] font-bold text-[#FFE1A0] shadow-[2px_3px_0_rgba(0,0,0,0.22)] motion-reduce:rotate-0"
+              className="rounded-[12px_4px_14px_6px] border-[#FDB84B]/35 bg-[#FDB84B]/12 font-mono text-[11px] font-bold text-[#FFE1A0] motion-reduce:rotate-0"
             >
               #{recommendation.rank}
             </Badge>
@@ -529,7 +529,7 @@ function WindowCard({
         <Badge
           variant="outline"
           className={cn(
-            "rounded-[12px_4px_14px_6px] border px-2.5 py-1 font-mono text-[11px] font-bold uppercase shadow-[2px_3px_0_rgba(0,0,0,0.22)]",
+            "rounded-[12px_4px_14px_6px] border px-2.5 py-1 font-mono text-[11px] font-bold uppercase",
             verdictClasses(recommendation.verdict)
           )}
         >
@@ -578,7 +578,7 @@ function WindowCard({
           <Button
             asChild
             size="sm"
-            className="h-10 w-full rounded-full bg-[#F78E42] text-[#252D6B] shadow-[2px_3px_0_rgba(0,0,0,0.28)] hover:bg-[#F78E42]/90"
+            className="h-10 w-full rounded-full bg-[#F78E42] text-[#252D6B] hover:bg-[#F78E42]/90"
           >
             <a
               href={webUrl}
@@ -704,7 +704,7 @@ function CompactWindowRow({
               data-testid="surf-window-web-cta"
               aria-label={`View ${beach.name} forecast`}
               onClick={handleWebClick}
-              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-[#F78E42] px-3 text-sm font-semibold text-[#252D6B] shadow-[2px_3px_0_rgba(0,0,0,0.22)] hover:bg-[#F78E42]/90"
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-[#F78E42] px-3 text-sm font-semibold text-[#252D6B] hover:bg-[#F78E42]/90"
             >
               <span>View</span>
               <ArrowRight className="h-4 w-4" aria-hidden="true" />

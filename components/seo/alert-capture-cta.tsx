@@ -121,7 +121,7 @@ export function AlertCaptureCta({
       <div
         className={cn(
           isPaper
-            ? "rounded-[20px_8px_22px_10px] border-2 border-[#11100D] bg-[#FBF6E8] shadow-[3px_4px_0_rgba(17,16,13,0.2)]"
+            ? "rounded-[20px_8px_22px_10px] border-2 border-[#11100D] bg-[#FBF6E8]"
             : "rounded-2xl bg-[#252D6B] border border-white/10 shadow-sm",
           "p-6",
           className,

@@ -103,7 +103,6 @@ function SpotCard({
             style={{
               backgroundColor: STRATEGY_TAG_COLORS[spot.strategyTag.type] ?? INK,
               color: "#F4EBD8",
-              boxShadow: "2px 2px 0 rgba(0,0,0,0.25)",
             }}
           >
             {spot.strategyTag.label}

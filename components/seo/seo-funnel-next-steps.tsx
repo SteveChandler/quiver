@@ -89,7 +89,7 @@ export function SeoFunnelNextSteps({
               "group flex min-h-[132px] flex-col justify-between rounded-lg",
               "border p-4 transition-colors",
               isPaper
-                ? "border-[#11100D]/15 bg-[#FBF6E8]/85 shadow-[2px_3px_0_rgba(17,16,13,0.1)] hover:border-[#11100D]/40 hover:bg-[#F4EBD8]"
+                ? "border-[#11100D]/15 bg-[#FBF6E8]/85 hover:border-[#11100D]/40 hover:bg-[#F4EBD8]"
                 : "border-slate-200 bg-slate-50/80 hover:border-ocean-blue/40 hover:bg-ocean-blue/5",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
               isPaper

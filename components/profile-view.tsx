@@ -62,7 +62,7 @@ function getProfileTabClassName(
   return cn(
     PROFILE_TAB_BASE_CLASS,
     activeTab === tab
-      ? "border-[#11100D] bg-[#11100D] text-[#F4EBD8] shadow-[2px_2px_0_rgba(17,16,13,0.25)]"
+      ? "border-[#11100D] bg-[#11100D] text-[#F4EBD8]"
       : "border-[#11100D]/30 bg-[#F4EBD8] text-[#11100D] hover:bg-[#F78E42]/20",
     extraClassName
   );
@@ -263,7 +263,7 @@ function ProfileViewContent() {
       >
         <div className="flex min-h-[52vh] items-center justify-center">
           <div
-            className="rounded-full inline-flex items-center gap-3 border-2 border-[#11100D] bg-[#F78E42] px-5 py-3 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)]"
+            className="rounded-full inline-flex items-center gap-3 border-2 border-[#11100D] bg-[#F78E42] px-5 py-3 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#11100D]"
             role="status"
             aria-label="Loading profile"
           >
@@ -322,7 +322,7 @@ function ProfileViewContent() {
               <Button
                 onClick={handleRetry}
                 variant="outline"
-                className="border-2 border-[#11100D] bg-[#FBF6E8] font-heading font-bold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.22)] transition-transform hover:-translate-y-0.5 hover:bg-[#F78E42]"
+                className="border-2 border-[#11100D] bg-[#FBF6E8] font-heading font-bold text-[#11100D] transition-transform hover:-translate-y-0.5 hover:bg-[#F78E42]"
               >
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Retry
@@ -341,7 +341,7 @@ function ProfileViewContent() {
                   sticker="orangeTape"
                   className="absolute -top-8 right-6 hidden w-32 rotate-6 opacity-90 sm:block"
                 />
-                <div className="torn torn-tb overflow-hidden border-2 border-[#11100D] bg-[#FBF6E8] p-3 shadow-[4px_5px_0_rgba(17,16,13,0.22)] sm:p-4 lg:p-5">
+                <div className="torn torn-tb overflow-hidden border-2 border-[#11100D] bg-[#FBF6E8] p-3 sm:p-4 lg:p-5">
                     <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4">
                       <motion.div
                         {...ANIMATION_VARIANTS.staggerItem(0)}
@@ -353,7 +353,7 @@ function ProfileViewContent() {
                           name={profile?.full_name}
                           email={user?.email}
                           size="md"
-                          className="border-2 border-[#11100D] ring-2 ring-[#F78E42]/45 shadow-[2px_3px_0_rgba(17,16,13,0.22)]"
+                          className="border-2 border-[#11100D] ring-2 ring-[#F78E42]/45"
                         />
                       </motion.div>
 
@@ -418,7 +418,7 @@ function ProfileViewContent() {
 
                         {/* Surf Style Card */}
                         {preferences && (
-                          <div className="mt-4 border-2 border-[#11100D] bg-[#F4EBD8] p-3 shadow-[2px_3px_0_rgba(17,16,13,0.18)]">
+                          <div className="mt-4 border-2 border-[#11100D] bg-[#F4EBD8] p-3">
                             <p className="font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#11100D]">
                               Your Surf Style
                             </p>
@@ -460,7 +460,7 @@ function ProfileViewContent() {
                         <Button
                           size="sm"
                           onClick={() => setEditModalOpen(true)}
-                          className="rounded-full border-2 border-[#11100D] bg-[#F78E42] px-3 py-1.5 font-heading text-xs font-bold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)] transition-transform hover:-translate-y-0.5 hover:bg-[#F78E42]"
+                          className="rounded-full border-2 border-[#11100D] bg-[#F78E42] px-3 py-1.5 font-heading text-xs font-bold text-[#11100D] transition-transform hover:-translate-y-0.5 hover:bg-[#F78E42]"
                         >
                           <Edit className="h-3 w-3 mr-1" />
                           Edit
@@ -489,7 +489,7 @@ function ProfileViewContent() {
               {...ANIMATION_VARIANTS.fadeUpWithDelay(0.2)}
               className="mx-auto max-w-6xl"
             >
-              <div className="border-2 border-[#11100D] bg-[#FBF6E8] p-4 shadow-[3px_4px_0_rgba(17,16,13,0.18)] sm:p-6">
+              <div className="border-2 border-[#11100D] bg-[#FBF6E8] p-4 sm:p-6">
                 {user && (
                   <UserStats
                     userId={user.id}
@@ -528,7 +528,7 @@ function ProfileViewContent() {
                 }}
                 className="space-y-8"
               >
-                <TabsList className="grid h-auto w-full grid-cols-2 gap-2 border-2 border-[#11100D] bg-[#FBF6E8] p-2 shadow-[3px_4px_0_rgba(17,16,13,0.18)] sm:grid-cols-5">
+                <TabsList className="grid h-auto w-full grid-cols-2 gap-2 border-2 border-[#11100D] bg-[#FBF6E8] p-2 sm:grid-cols-5">
                   <TabsTrigger
                     value="sessions"
                     className={getProfileTabClassName(activeTab, "sessions")}
@@ -570,7 +570,7 @@ function ProfileViewContent() {
                   </TabsTrigger>
                 </TabsList>
 
-                <div className="profile-zine-tabs overflow-hidden border-2 border-[#11100D] bg-[#FBF6E8] shadow-[4px_5px_0_rgba(17,16,13,0.2)]">
+                <div className="profile-zine-tabs overflow-hidden border-2 border-[#11100D] bg-[#FBF6E8]">
                   <TabsContent
                     value="sessions"
                     className="p-4 sm:p-6 space-y-4 m-0"
@@ -622,7 +622,7 @@ function ProfileViewContent() {
                         onClick={() => {
                           router.push("/map");
                         }}
-                        className="rounded-full border-2 border-[#11100D] bg-[#F78E42] font-heading font-bold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)] transition-transform hover:-translate-y-0.5 hover:bg-[#F78E42]"
+                        className="rounded-full border-2 border-[#11100D] bg-[#F78E42] font-heading font-bold text-[#11100D] transition-transform hover:-translate-y-0.5 hover:bg-[#F78E42]"
                       >
                         <Plus className="h-4 w-4 mr-1" />
                         Add Beach
@@ -716,7 +716,7 @@ export function ProfileView() {
         >
           <div className="flex min-h-[52vh] items-center justify-center">
             <div
-              className="rounded-full inline-flex items-center gap-3 border-2 border-[#11100D] bg-[#F78E42] px-5 py-3 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)]"
+              className="rounded-full inline-flex items-center gap-3 border-2 border-[#11100D] bg-[#F78E42] px-5 py-3 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#11100D]"
               role="status"
               aria-label="Loading profile"
             >

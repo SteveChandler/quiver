@@ -17,8 +17,4 @@ module.exports = {
   "https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap":
     `${fontFace("Space Mono", "400")}
 ${fontFace("Space Mono", "700")}`,
-  "https://fonts.googleapis.com/css2?family=Caveat:wght@400..700&display=swap":
-    fontFace("Caveat", "400 700"),
-  "https://fonts.googleapis.com/css2?family=Permanent+Marker:wght@400&display=swap":
-    fontFace("Permanent Marker", "400"),
 };
