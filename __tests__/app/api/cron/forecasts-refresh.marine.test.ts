@@ -465,7 +465,7 @@ it.each([false, true])('checks the cursor acknowledgement through real PostgREST
   expect(body.data.marineCoverage.rejectionCounts).toEqual(failCursor ? { cursor_write_failed: 1 } : {});
   const cursorRequest = requests.find(({ url, method }) => url.pathname === '/rest/v1/cron_runs' && method === 'GET');
   expect(cursorRequest?.url.searchParams.get('summary->result->marineCoverage->>lastAttemptedBeachId')).toBe('not.is.null');
-  expect(cursorRequest?.url.searchParams.get('route')).toBe('eq./api/cron/forecasts/refresh?source=marine');
+  expect(cursorRequest?.url.searchParams.get('job')).toBe('eq./api/cron/forecasts/refresh?source=marine');
   const inventoryRequest = requests.find(({ url }) => url.pathname === '/rest/v1/marine_forecasts'
     && url.searchParams.get('select')?.includes('beach_id'));
   expect(inventoryRequest?.url.searchParams.get('beach_id')).toBe('in.(a)');

@@ -333,7 +333,7 @@ async function _GET(request: Request): Promise<Response> {
     let marineInventory = allBeaches;
     if (runMarine) {
       const { data: last, error } = await supabase.from("cron_runs").select("summary")
-        .eq("route", `/api/cron/forecasts/refresh?source=${source}`)
+        .eq("job", `/api/cron/forecasts/refresh?source=${source}`)
         .not("summary->result->marineCoverage->>lastAttemptedBeachId", "is", null)
         .order("started_at", { ascending: false }).limit(1).maybeSingle();
       if (error) throw error;
