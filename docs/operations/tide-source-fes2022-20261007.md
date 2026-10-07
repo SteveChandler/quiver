@@ -38,7 +38,20 @@ No rows are written, updated or deleted.
 2. `supabase/migrations/20261007050100_validate_tide_source_check.sql`
    - `VALIDATE CONSTRAINT` in its own transaction;
    - takes SHARE UPDATE EXCLUSIVE, so reads and writes continue;
-   - scans about 1.18M rows / 1.2 GB.
+   - scans about 1.18M rows / 1.2 GB;
+   - `statement_timeout = 10min`, because the owner role's default is 2 min.
+
+File 1 alone lets FES2022 writes through. File 2 is cleanup. If it fails or times
+out, the constraint stays `NOT VALID` but in force, and the Baja pages are not
+blocked; rerun it later.
+
+**Nothing else rejects FES rows.** Checked 2026-10-07:
+- All 50 failures in the 04:00 run were `upsert_failed`, never `no_predictions`.
+- The upsert payload sets only real, non-generated columns (`beach_id`, `ts`,
+  `created_at`, `station_id`, `tide_height_m`, `tide_phase`, `source`) and fills every
+  NOT NULL column.
+- Locally, the catalog predicts 721 hourly points per beach for 30 days (36,050 rows),
+  with no duplicate `ts` and every height finite.
 
 **Why psql and not `supabase db push`:** prod has three tracked versions with no local
 file (`20260917191609`, `20260917201732`, `20260929162811`), and the CLI refuses to push
@@ -103,3 +116,9 @@ WHERE version IN ('20261007050000', '20261007050100');
 
 The next tide cron run (manual, or Sun 2026-10-11 04:00 UTC) should then write
 `fes2022` rows for all 50 Baja beaches, and the run should finish `ok`.
+
+## Files this approval covers (sha256)
+
+- `supabase/migrations/20261007050000_allow_fes2022_tide_source.sql`: `3415c0e926aff04023ba380e68a7751f04a254d12ec4c328ecda3a2067bc0e8a`
+- `supabase/migrations/20261007050100_validate_tide_source_check.sql`: `65d39674deb9246236d030d185e8be5ec1ccdae35c8c2e65764d9824c7449570`
+- `docs/operations/tide-source-fes2022-20261007-rollback.sql`: `f149832e090f23806fc18c028ff3941b08144d2ccbaac04a106013347de3f595`
