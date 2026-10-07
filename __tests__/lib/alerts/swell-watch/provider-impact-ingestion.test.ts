@@ -115,7 +115,7 @@ describe("attested component impact ingestion", () => {
       now: value.now, policy: value.policy, scopes }, { rpc, ...identityReader }))
       .toEqual({ kind: "ingested", runs: [expect.objectContaining({ source: expect.objectContaining({ sourcePointId: id }) }),
         expect.objectContaining({ source: expect.objectContaining({ sourcePointId: third }) })],
-        derivation: { qualificationRule: "complete_partitions.v1", version: "swell-watch-horizon-derivation.v3", samplingProfile: "ncep_gfswave016.native-1h-to-120h-3h-to-168h.v1",
+        derivation: { qualificationRule: "complete_partitions.v1", version: "swell-watch-horizon-derivation.v4", samplingProfile: "ncep_gfswave016.native-1h-to-120h-3h-to-168h.v1",
           witness: "provider-linear-interpolation.v1", scopes: [id, third].map((sourcePointId) => ({ sourcePointId, nativeFrames: 136, interpolatedFrames: 32, boundaryDeferrals: [], partitionCoverage: { s1: { observed: 168, unavailable: 0, absent: 0, absentNativeFrames: [] }, s2: { observed: 168, unavailable: 0, absent: 0, unavailableNativeFrames: [], absentNativeFrames: [] } }, events: [] })) },
         scopeOutcomes: [
           { sourcePointId: id, status: "derived", reason: null },
@@ -227,7 +227,7 @@ it("carries native derivation and event windows while persisting only point esti
     : [{ ordinal: 0, regional_event_id: id, event_state: "candidate" }] }));
   const result = await ingestAttestedSwellWatchRun({ qualificationRule: "complete_partitions.v1", providerBatchId: data.source.providerBatchId, sourcePointId: waikiki.sourcePointId,
     regionKey: "retained-waikiki", now: waikiki.replayClockBounds[0], beach: waikiki.beach, policy: proposed.policy as SwellWatchPolicy }, { rpc, ...identityReader });
-  expect(result).toMatchObject({ kind: "ingested", derivation: { version: "swell-watch-horizon-derivation.v3", nativeFrames: 136, interpolatedFrames: 32 },
+  expect(result).toMatchObject({ kind: "ingested", derivation: { version: "swell-watch-horizon-derivation.v4", nativeFrames: 136, interpolatedFrames: 32 },
     events: [{ arrivalAt: "2026-09-18T18:00:00.000Z", arrivalWindow: { earliestAt: "2026-09-18T15:00:00.000Z", latestAt: "2026-09-18T18:00:00.000Z" },
       peakWindow: { earliestAt: "2026-09-18T18:00:00.000Z", latestAt: "2026-09-18T21:00:00.000Z" },
       closureWindow: { earliestAt: "2026-09-20T00:00:00.000Z", latestAt: "2026-09-20T03:00:00.000Z" } }] });
@@ -250,7 +250,7 @@ it("carries native derivation and event windows while persisting only point esti
 it("caps persisted derivation events per scope and stays below the study result budget", () => {
   const window = { earliestAt: "2026-09-10T00:00:00.000Z", latestAt: "2026-09-10T01:00:00.000Z" };
   const derivation = {
-    version: "swell-watch-horizon-derivation.v3", samplingProfile: "fixture", witness: "fixture",
+    version: "swell-watch-horizon-derivation.v4", samplingProfile: "fixture", witness: "fixture",
     qualificationRule: "complete_partitions.v1", scopes: Array.from({ length: 10 }, (_, scopeIndex) => ({
       sourcePointId: `scope-${scopeIndex}`, nativeFrames: 136, interpolatedFrames: 32,
       boundaryDeferrals: [{ boundary: "minimum", sourceSlot: "s1", arrivalWindow: window }],
