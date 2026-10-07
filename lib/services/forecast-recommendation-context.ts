@@ -263,7 +263,7 @@ function forecastProvenance(row: EnhancedForecastEntity | null): {
   const sources = [
     ...(row.raw_forecast?.data_sources ?? []),
     row.data_source,
-    row.coops_station_id ? "NOAA_CO-OPS" : null,
+    row.coops_station_id && !row.raw_forecast?.data_sources?.includes("FES2022") ? "NOAA_CO-OPS" : null,
   ].filter((source): source is string => Boolean(source?.trim()));
 
   return {

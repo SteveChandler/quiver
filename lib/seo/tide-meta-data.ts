@@ -12,6 +12,8 @@ import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import { selectTideSeries } from "@/lib/services/tide-forecast-selection";
 
 export interface TideMetaData {
+  /** tide_forecasts.source of the series read; "fes2022" marks model tides, which need a source note. */
+  source?: string | null;
   /** Next high tide time formatted for display (e.g., "2:30 PM") */
   nextHighTime: string | null;
   /** Next low tide time formatted for display (e.g., "8:45 AM") */
@@ -130,6 +132,7 @@ export function findNextTideExtremes(
 export const getTideMetaData = cache(
   async (beachId: string): Promise<TideMetaData> => {
     const nullResult: TideMetaData = {
+      source: null,
       nextHighTime: null,
       nextLowTime: null,
       nextHighHeight: null,
@@ -175,9 +178,11 @@ export const getTideMetaData = cache(
         return nullResult;
       }
 
-      const { nextHigh, nextLow } = findNextTideExtremes(selectTideSeries(rows));
+      const selectedRows = selectTideSeries(rows);
+      const { nextHigh, nextLow } = findNextTideExtremes(selectedRows);
 
       return {
+        source: selectedRows[0]?.source ?? null,
         nextHighTime: nextHigh ? formatTideTime(nextHigh.ts, timezone) : null,
         nextLowTime: nextLow ? formatTideTime(nextLow.ts, timezone) : null,
         nextHighHeight: nextHigh ? Math.round(nextHigh.heightFt * 10) / 10 : null,

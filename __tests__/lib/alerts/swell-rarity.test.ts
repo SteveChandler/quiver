@@ -35,6 +35,17 @@ describe("assessRarity", () => {
     });
   });
 
+  it("never dates the line to an earlier go day that scored lower", () => {
+    const history = [day("2026-09-10", 50), day("2026-09-12", 72), day("2026-09-14", 55)];
+
+    expect(assessRarity({
+      peakDate: "2026-09-17",
+      history,
+      peakScore: 80,
+      peakGo: true,
+    }).rarityLine).toBe("Best in 7 days");
+  });
+
   it("marks the first go after three flat days", () => {
     expect(assessRarity({
       peakDate: "2026-09-17",

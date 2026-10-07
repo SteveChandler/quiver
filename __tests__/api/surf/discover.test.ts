@@ -593,6 +593,10 @@ describe("/api/surf/discover entitlement resolution", () => {
       code: "forecast_unavailable",
     });
     expect(mockSanitizeSerializationBoundary).not.toHaveBeenCalled();
+    const retryAfter = Number(response.headers.get("Retry-After"));
+    expect(Number.isInteger(retryAfter)).toBe(true);
+    expect(retryAfter).toBeGreaterThanOrEqual(3);
+    expect(retryAfter).toBeLessThanOrEqual(6);
   });
 
   it("passes de-duped includeBeachIds through to the discovery orchestrator", async () => {

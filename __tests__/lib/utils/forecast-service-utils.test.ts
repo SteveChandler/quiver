@@ -386,6 +386,7 @@ describe("getBatchFreshForecastsFromCache", () => {
     const beach1 = result.get("beach-1-fresh");
     expect(beach1?.metadata.missing).toBe(true);
     expect(beach1?.metadata.reason).toContain("Database error");
+    expect(beach1?.metadata.readFailed).toBe(true);
     expect(beach1?.forecasts).toEqual([]);
 
     expect(enhancedForecastsQueried).toBe(false);
@@ -413,7 +414,17 @@ describe("getBatchFreshForecastsFromCache", () => {
     const beach1 = result.get("beach-1-fresh");
     expect(beach1?.metadata.missing).toBe(true);
     expect(beach1?.metadata.reason).toContain("Database error");
+    expect(beach1?.metadata.readFailed).toBe(true);
     expect(beach1?.forecasts).toEqual([]);
+  });
+
+  it("does not flag a successful read with no rows as a failed read", async () => {
+    latestBatchResult = { data: [], error: null };
+
+    const result = await getBatchFreshForecastsFromCache(["beach-1-fresh"], 48);
+
+    expect(result.get("beach-1-fresh")?.metadata.missing).toBe(true);
+    expect(result.get("beach-1-fresh")?.metadata.readFailed).toBeUndefined();
   });
 
   it("handles fresh beach with no forecast rows (metadata exists but no data)", async () => {

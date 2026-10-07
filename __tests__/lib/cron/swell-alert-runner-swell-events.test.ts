@@ -3,6 +3,15 @@
  */
 
 jest.mock("@/lib/alerts/user-pool", () => ({ loadUserPool: jest.fn() }));
+// Board reads are not under test here; keep them off the recorded query fake.
+jest.mock("@/lib/alerts/entitlements", () => ({ getUserEntitlement: jest.fn(async () => "free") }));
+jest.mock("@/lib/services/discovery/surf-discovery-orchestrator", () => ({
+  fetchUserBoardContext: jest.fn(async () => ({ boardsForPicks: [] })),
+}));
+jest.mock("@/lib/cron/daily-call-runner", () => ({
+  ...jest.requireActual("@/lib/cron/daily-call-runner"),
+  loadTideSamples: jest.fn(async () => null),
+}));
 jest.mock("@/lib/recommendations/major-swell-awareness/official-advisory-adapter", () => ({
   loadOfficialSwellAdvisories: jest.fn(async () => []),
   loadNwsSwellAdvisories: jest.fn(async () => []),
@@ -73,7 +82,7 @@ function rows(heightFor: (localDate: string) => number): EnhancedForecastEntity[
 function client(forecasts: EnhancedForecastEntity[], snapshots: { data: unknown[] | null; error: unknown }) {
   const from = jest.fn((table: string) => {
     const chain: Record<string, unknown> = {};
-    for (const method of ["select", "in", "eq", "gte", "lt", "order"]) chain[method] = () => chain;
+    for (const method of ["select", "in", "or", "eq", "gte", "lt", "order"]) chain[method] = () => chain;
     chain.range = async (first: number, last: number) => {
       if (table === "swell_event_forecast_snapshots") {
         return first === 0 ? snapshots : { data: [], error: null };
@@ -133,6 +142,8 @@ describe("swell alert runner on the swell-events detector", () => {
 
     expect(result.sent).toBe(1);
     const payload = jest.mocked(runDeps.enqueue!).mock.calls[0][0].payload as Record<string, unknown>;
+    // Go all day: the best stretch, capped at four hours, not first light to dark.
+    expect(payload.body).toContain("Your call: Blacks Saturday 6:36–10 AM. Good until 10 AM.");
     expect(payload).toMatchObject({
       event_key: PREVIOUS_RUN_KEY,
       event_start_date: "2026-09-18",

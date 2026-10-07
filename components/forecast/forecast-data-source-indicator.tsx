@@ -328,6 +328,7 @@ export function ForecastDataSourceIndicator({
                   .map((s) => {
                     if (s === "NOAA_NWS") return "NOAA Weather";
                     if (s === "NOAA_COOPS") return "Tide";
+                    if (s === "FES2022") return "Tide model (FES2022)";
                     return s;
                   })
                   .join(" & ")}

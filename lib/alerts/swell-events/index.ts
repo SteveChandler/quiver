@@ -18,7 +18,7 @@ export {
   type SwellEventForecastRow,
 } from "./detector";
 export { detectSwellCrossing, type SwellCrossing } from "./crossing";
-export { loadSwellForecastRows } from "./forecast-rows";
+export { EXCLUDE_SYNTHETIC_ROWS_FILTER, loadSwellForecastRows } from "./forecast-rows";
 export {
   SWELL_EVENT_KEY_REUSE_DAYS,
   loadRecentSwellSnapshots,
@@ -30,3 +30,11 @@ export {
   type SwellEventSnapshot,
   type SwellEventSnapshotRow,
 } from "./snapshots";
+export {
+  SWELL_OUTLOOK_PULSE_DETECTOR_VERSION,
+  SWELL_OUTLOOK_PULSE_THRESHOLDS,
+  detectBeachSwellPulses,
+  filterPulsesByRegionAgreement,
+  prominenceRatio,
+  type PulseRegionCandidate,
+} from "./outlook";
