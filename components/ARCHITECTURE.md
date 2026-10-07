@@ -219,8 +219,9 @@ function Providers({ children }) {
 - Respects `allow_implicit_tracking` profile setting
 - Rate limited: 60 requests/minute per user
 - Caches denials only; allowed consent is rechecked before each recorded event
-- Authenticated PostHog consent is revalidated when the tab becomes visible or focused, with capture disabled while the owner-only lookup is pending
-- Initial auth resolution remains fail-closed, while later sign-in/sign-up loading transitions preserve the resolved tracking decision so outcome events are not dropped
+- Authenticated PostHog consent is revalidated when the tab becomes visible or focused, with SDK capture disabled while the owner-only lookup is pending; custom events fired meanwhile are queued with their original page and time, flushed if consent resolves true, and discarded on denial or reset
+- Initial auth resolution remains fail-closed, while later sign-in/sign-up loading transitions preserve the resolved tracking decision so outcome events are not dropped; auth settling unauthenticated only resets PostHog when an identified user left, so failed logins keep the anonymous id
+- `identify` sends stable person properties only (provider, email domain, account creation time); page context stays on events
 
 ---
 
