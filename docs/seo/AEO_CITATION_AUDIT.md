@@ -32,6 +32,25 @@ than no number.
 3. One search per query per run. Do not retry a query that returned nothing in
    the hope of a better draw.
 4. Record the count per segment and the overall count.
+5. Use the Claude Code `WebSearch` tool with `mode: "extended"` on every query,
+   and record the mode in the per-query receipts. Never use `standard` or leave
+   the mode out.
+
+Why the mode is pinned: on 2026-10-07, `standard` mode returned a different
+index from earlier runs. Host overlap with the previous week fell from 0.75 to
+0.10, staging and scraped sites appeared on first pages, and Quiver went from
+4/30 to 0/30 while every cited page was healthy and on page one in GSC. Four
+diagnostic `extended` searches the same day returned the earlier kind of
+results and cited `quiversurf.app` on 3 of them. Runs before 2026-10-07 did not
+record a mode.
+
+The first run on the pinned mode is a `baseline-reset`. It opens a new series
+and is not comparable with 2026-09-30 or earlier.
+
+This search provider is **not Google**. DataForSEO's Google SERPs (depth 100,
+mobile) did not rank Quiver for `surfline alternative` in any October export,
+even though this proxy cited `/vs/surfline` for that query on six consecutive
+runs. For Google, use GSC or the DataForSEO export, not this proxy.
 
 **This is a search-presence proxy.** It does not measure citations inside Google
 AI Overviews, ChatGPT, Perplexity, or Gemini. Every report must say so. Do not
