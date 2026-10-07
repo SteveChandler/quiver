@@ -3,6 +3,15 @@
  */
 
 jest.mock("@/lib/alerts/user-pool", () => ({ loadUserPool: jest.fn() }));
+// Board reads are not under test here; keep them off the recorded query fake.
+jest.mock("@/lib/alerts/entitlements", () => ({ getUserEntitlement: jest.fn(async () => "free") }));
+jest.mock("@/lib/services/discovery/surf-discovery-orchestrator", () => ({
+  fetchUserBoardContext: jest.fn(async () => ({ boardsForPicks: [] })),
+}));
+jest.mock("@/lib/cron/daily-call-runner", () => ({
+  ...jest.requireActual("@/lib/cron/daily-call-runner"),
+  loadTideSamples: jest.fn(async () => null),
+}));
 jest.mock("@/lib/recommendations/major-swell-awareness/official-advisory-adapter", () => ({
   loadOfficialSwellAdvisories: jest.fn(async () => []),
   loadNwsSwellAdvisories: jest.fn(async () => []),
@@ -211,6 +220,8 @@ describe("swell alert pool evaluation with the canonical verdict", () => {
       "flat-15",
       "flat-16",
       "peak",
+      // The peak day again, for the daily call's window.
+      "peak",
     ]);
     for (const args of calls) {
       expect(args).toEqual({
@@ -270,7 +281,7 @@ describe("swell alert pool evaluation with the canonical verdict", () => {
     expect(result.sent).toBe(1);
     const payload = jest.mocked(deps.enqueue!).mock.calls[0][0].payload as { rarity: string };
     // A 70+ score alone no longer makes Sep 15 a go day; the 05:00 row is outside daylight.
-    expect(payload.rarity).toBe("Best since Sep 13");
+    expect(payload.rarity).toBe("Best in 6 days");
     expect(
       jest.mocked(evaluateForecastVerdict).mock.calls.map(([args]) => args.forecast.id),
     ).not.toContain("sep-16-predawn");

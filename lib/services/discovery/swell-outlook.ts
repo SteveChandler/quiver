@@ -221,6 +221,7 @@ function toOutlookSwell(
     change: changeFor(rep, previousRuns, input.pulseSnapshots, input.now, timezone)?.kind ?? 'new',
     arrivalAt: rep.arrivalAt,
     peakAt: rep.peakAt,
+    fadeAt: rep.fadeAt ?? null,
     peakWindow: leadHours > WINDOW_LEAD_HOURS
       ? {
         from: new Date(peakMs - WINDOW_HALF_HOURS * HOUR_MS).toISOString(),

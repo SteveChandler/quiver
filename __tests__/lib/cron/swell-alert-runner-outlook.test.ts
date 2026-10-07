@@ -69,6 +69,8 @@ function makeDeps(overrides: Record<string, unknown> = {}): SwellOutlookDeps & R
     hasFirstSightingAlert: jest.fn(async () => false),
     assessSwellRarity: jest.fn(async () => false),
     getTier: jest.fn(async () => "premium" as const),
+    loadFirstSightingHazard: jest.fn(async () => null),
+    loadBeachDistancesKm: jest.fn(async () => new Map<string, number>()),
     ...overrides,
   } as never as SwellOutlookDeps & Record<string, jest.Mock>;
 }
@@ -130,6 +132,34 @@ describe("swell alert cron: outlook users", () => {
     expect(sent.payload).toMatchObject({ event_key: swell.eventKey, kind: "coming" });
     expect(deps.saveEngagement).toHaveBeenCalledTimes(1);
     expect(savedState(deps)).toMatchObject({ consecutiveUnanswered: 1, lastFirstSightingAt: MORNING.toISOString() });
+  });
+
+  it("adds an official hazard at the lead beach to the push text", async () => {
+    const deps = makeDeps({ loadFirstSightingHazard: jest.fn(async () => "high_rip_current" as const) });
+    await runSwellAlertCron({ now: MORNING, deps: deps as never });
+    expect(deps.loadFirstSightingHazard).toHaveBeenCalledWith(HOME, expect.any(String), MORNING);
+    expect(deps.enqueue.mock.calls[0][0].payload.body).toContain("NWS beach hazards statement out for rip currents.");
+  });
+
+  it("passes beach distances to selection and still sends when the lookup fails", async () => {
+    const ok = makeDeps();
+    await runSwellAlertCron({ now: MORNING, deps: ok as never });
+    expect(ok.loadBeachDistancesKm).toHaveBeenCalledWith(expect.objectContaining({ id: USER }), [HOME]);
+
+    const restore = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    const failing = makeDeps({ loadBeachDistancesKm: jest.fn(async () => { throw new Error("db down"); }) });
+    const summary = await runSwellAlertCron({ now: MORNING, deps: failing as never });
+    restore.mockRestore();
+    expect(summary.sentByKind.coming).toBe(1);
+  });
+
+  it("still sends, without a hazard line, when the hazard lookup fails", async () => {
+    const restore = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    const deps = makeDeps({ loadFirstSightingHazard: jest.fn(async () => { throw new Error("NWS down"); }) });
+    const summary = await runSwellAlertCron({ now: MORNING, deps: deps as never });
+    restore.mockRestore();
+    expect(summary.sentByKind.coming).toBe(1);
+    expect(deps.enqueue.mock.calls[0][0].payload.body).not.toContain("NWS");
   });
 
   it("does not push a swell that is not in range, or is only shrinking", async () => {
