@@ -13,7 +13,7 @@ const COPY: Record<Exclude<LifecycleJob, "trial_feedback">, { subject: string; p
   progress: { subject: "Your surf log is filling up", paragraphs: ["You’ve logged a few sessions in Quiver.", "Keep rating how the forecast matched. The more surfs Quiver sees, the better its calls get for you."], cta: "Log your next session" },
   friction: { subject: "What got in the way?", paragraphs: ["Looks like Quiver didn’t stick for you.", "If something was confusing or just wrong, I’d like to hear about it. Reply with whatever comes to mind, even one line."], cta: "Reply to Steven" },
   trial_support: { subject: "A few things to set up first", paragraphs: ["Add the spot you actually surf, even if it isn’t on the map yet.", "Set an alert for the conditions you want there.", "Log your surfs and rate the forecast so Quiver learns your break."], cta: "Open Quiver" },
-  routine: { subject: "A quick question", paragraphs: ["You’ve had Quiver for a few weeks now.", "What would make it the thing you check before every surf? Just hit reply."], cta: "Reply to Steven" },
+  routine: { subject: "What’s missing?", paragraphs: ["You’ve had Quiver for a few weeks now.", "If there’s something you keep wishing it did, tell me. I’m picking what to build next."], cta: "Reply to Steven" },
 };
 
 const OFFER_COPY = {

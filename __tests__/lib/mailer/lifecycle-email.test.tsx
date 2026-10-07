@@ -43,7 +43,7 @@ it('supports the personal loop without promising trial access or exact forecast 
 });
 it('keeps the routine question, stickers, postal address and unsubscribe footer', async () => {
  const email = await render({...base,job:'routine'});
- expect(email.text).toContain('What would make it the thing you check before every surf? Just hit reply.');
+ expect(email.text).toContain('If there’s something you keep wishing it did, tell me. I’m picking what to build next.');
  expect(email.html).not.toContain('You opted in');
  expect(email.html).toContain('2261 Market Street STE 10852, San Francisco, CA 94114');
  expect(email.text).toContain('2261 Market Street STE 10852, San Francisco, CA 94114');
@@ -73,7 +73,7 @@ it('matches the approved startup-lifecycle-v2 content hash when feedback is enab
  const before=process.env.TRIAL_FEEDBACK_ENABLED;
  try {
   process.env.TRIAL_FEEDBACK_ENABLED='true';
-  jest.isolateModules(() => expect(require('@/lib/mailer/lifecycle-email').LIFECYCLE_CONTENT_HASH).toBe('429cf6e60ac803b9c5602e85063be90ec9a5172da6134694318a8434d5bb43a1'));
+  jest.isolateModules(() => expect(require('@/lib/mailer/lifecycle-email').LIFECYCLE_CONTENT_HASH).toBe('1a92cfa8ab7df8381db8b784d7a3e8edbb047ef5b8cea1c6277fd1740a4fc0a2'));
   delete process.env.TRIAL_FEEDBACK_ENABLED;
   // v1 copy is retired: running with the flag off no longer matches the approved v1 hash.
   jest.isolateModules(() => expect(require('@/lib/mailer/lifecycle-email').LIFECYCLE_CONTENT_HASH).not.toBe('7fa9c944e8d8d1c86680c750f99d1db593a1f6a540ff0244f94eb4515de0e39d'));

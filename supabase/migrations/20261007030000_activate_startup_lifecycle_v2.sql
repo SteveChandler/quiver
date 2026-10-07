@@ -9,7 +9,7 @@
 BEGIN;
 
 INSERT INTO public.email_campaigns(id, version, content_hash, status, owner, approved_by, approved_at, expires_at)
-VALUES ('startup-lifecycle-v2', 2, '429cf6e60ac803b9c5602e85063be90ec9a5172da6134694318a8434d5bb43a1',
+VALUES ('startup-lifecycle-v2', 2, '1a92cfa8ab7df8381db8b784d7a3e8edbb047ef5b8cea1c6277fd1740a4fc0a2',
   'approved', 'Steven', 'steven:approved-v2-content:20261007', now(), now() + interval '90 days');
 
 UPDATE public.email_contact_controls SET automation_campaign = 'startup-lifecycle-v2' WHERE singleton;
