@@ -352,7 +352,7 @@ export default async function ForecastHubPage({
             <div className="relative max-w-2xl">
               {isAuthed ? (
                 <>
-                  <h2 className="mb-2 font-[var(--font-heading)] text-2xl font-bold text-white sm:text-3xl">
+                  <h2 className="mb-2 font-[family-name:var(--font-heading)] text-2xl font-bold text-white sm:text-3xl">
                     Open the Oracle for your home beach
                   </h2>
                   <p className="mb-5 text-sm text-white/75 sm:text-base">
@@ -361,14 +361,14 @@ export default async function ForecastHubPage({
                   </p>
                   <Link
                     href="/"
-                    className="inline-flex items-center gap-2 rounded-[14px_6px_16px_4px] bg-[#F78E42] px-5 py-3 font-[var(--font-heading)] text-sm font-semibold uppercase tracking-wide text-[#252D6B] shadow-[0_2px_0_rgba(0,0,0,0.25)] transition hover:bg-[#ffa760]"
+                    className="inline-flex items-center gap-2 rounded-[14px_6px_16px_4px] bg-[#F78E42] px-5 py-3 font-[family-name:var(--font-heading)] text-sm font-semibold uppercase tracking-wide text-[#252D6B] shadow-[0_2px_0_rgba(0,0,0,0.25)] transition hover:bg-[#ffa760]"
                   >
                     Open Oracle →
                   </Link>
                 </>
               ) : (
                 <>
-                  <h2 className="mb-2 font-[var(--font-heading)] text-2xl font-bold text-white sm:text-3xl">
+                  <h2 className="mb-2 font-[family-name:var(--font-heading)] text-2xl font-bold text-white sm:text-3xl">
                     Sign up for your local beach
                   </h2>
                   <p className="mb-5 text-sm text-white/75 sm:text-base">
@@ -377,7 +377,7 @@ export default async function ForecastHubPage({
                   </p>
                   <Link
                     href="/auth/sign-up"
-                    className="inline-flex items-center gap-2 rounded-[14px_6px_16px_4px] bg-[#F78E42] px-5 py-3 font-[var(--font-heading)] text-sm font-semibold uppercase tracking-wide text-[#252D6B] shadow-[0_2px_0_rgba(0,0,0,0.25)] transition hover:bg-[#ffa760]"
+                    className="inline-flex items-center gap-2 rounded-[14px_6px_16px_4px] bg-[#F78E42] px-5 py-3 font-[family-name:var(--font-heading)] text-sm font-semibold uppercase tracking-wide text-[#252D6B] shadow-[0_2px_0_rgba(0,0,0,0.25)] transition hover:bg-[#ffa760]"
                   >
                     Sign up for YOUR home beach →
                   </Link>

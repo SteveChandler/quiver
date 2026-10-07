@@ -61,7 +61,7 @@ export function HomeBeachCard({ rec, onClick }: HomeBeachCardProps) {
           <h3
             className="truncate"
             style={{
-              fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+              fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
               fontSize: 20,
               lineHeight: 1.1,
               textTransform: "uppercase",
@@ -85,7 +85,7 @@ export function HomeBeachCard({ rec, onClick }: HomeBeachCardProps) {
           </span>
           <div
             style={{
-              fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+              fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
               fontSize: 20,
               color: STAMP_BLUE,
             }}

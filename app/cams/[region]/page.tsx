@@ -165,7 +165,7 @@ export async function CamsRegionDirectoryPage({
                       href={getCamRegionPath(r)}
                       className="torn torn-tb group block border-2 border-[#11100D] bg-[#F0E5CC] p-5 text-[#11100D] shadow-[4px_5px_0_rgba(17,16,13,0.18)] transition-transform hover:-translate-y-1"
                     >
-                      <h3 className="mb-2 font-[var(--font-zine-display)] text-2xl uppercase leading-none tracking-normal text-[#11100D] transition-colors group-hover:text-[#0B3A75]">
+                      <h3 className="mb-2 font-[family-name:var(--font-zine-display)] text-2xl uppercase leading-none tracking-normal text-[#11100D] transition-colors group-hover:text-[#0B3A75]">
                         {r.name}
                       </h3>
                       <p className="font-mono text-xs font-bold uppercase tracking-[0.1em] text-[#11100D]/65">
@@ -180,7 +180,7 @@ export async function CamsRegionDirectoryPage({
 
           <section className="pb-4">
             <div className="mx-auto max-w-3xl border-2 border-[#11100D] bg-[#252D6B] p-8 text-center text-[#F4EBD8] shadow-[8px_8px_0_rgba(17,16,13,0.28)]">
-              <h2 className="font-[var(--font-zine-display)] text-4xl uppercase leading-none tracking-normal">
+              <h2 className="font-[family-name:var(--font-zine-display)] text-4xl uppercase leading-none tracking-normal">
                 Know a {region.name}{" "}
                 cam we&apos;re missing?
               </h2>

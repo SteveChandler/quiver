@@ -144,7 +144,7 @@ function SpotCard({
         <p
           className="mt-1"
           style={{
-            fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+            fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
             fontSize: 22,
             lineHeight: 1,
             color: STAMP_BLUE,

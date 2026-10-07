@@ -30,8 +30,8 @@
   --zine-torn-inset: 20px;
 
   /* font stacks — first family is the next/font variable, then design fallbacks */
-  --f-rough: var(--font-zine-display), 'Bowlby One', 'Big Shoulders Stencil', var(--font-heading), 'Space Grotesk', sans-serif;
-  --f-stencil: var(--font-zine-display), 'Bowlby One', var(--font-heading), 'Space Grotesk', sans-serif;
+  --f-rough: var(--font-zine-display), var(--font-heading), 'Space Grotesk', sans-serif;
+  --f-stencil: var(--font-zine-display), var(--font-heading), 'Space Grotesk', sans-serif;
   --f-mono: var(--font-mono), 'Space Mono', 'Special Elite', ui-monospace, monospace;
   --f-marker: var(--font-zine-marker), 'Permanent Marker', var(--font-handwritten), 'Caveat', cursive;
   --f-hand: var(--font-handwritten), 'Caveat', var(--font-zine-marker), 'Permanent Marker', cursive;
@@ -44,11 +44,13 @@
 }
 
 /* ─── Twilight backdrop with subtle vignette ────────────── */
+/* Deep Twilight, the colour every native screen sits on, so paper moves
+   from the web page into the app without the stage changing under it. */
 .zine-tab .zine-stage {
   position: relative;
   background:
     radial-gradient(ellipse at top, rgba(60, 70, 160, 0.35), transparent 60%),
-    linear-gradient(180deg, var(--q-bg-1) 0%, var(--q-bg-0) 60%, #06070F 100%);
+    var(--q-twilight);
   padding: 32px 0 48px;
   overflow: hidden;
   isolation: isolate;
@@ -551,7 +553,7 @@
 .zine-page .zine-tabs-slot [role="tab"] {
   background: transparent !important;
   color: #11100D !important;
-  font-family: var(--font-zine-display), 'Bowlby One', sans-serif !important;
+  font-family: var(--font-zine-display), 'Space Grotesk', sans-serif !important;
   font-weight: 400 !important;
   font-size: 13px !important;
   letter-spacing: 0.06em;
@@ -592,7 +594,7 @@
   color: #F4EBD8 !important;
   border-bottom: none !important;
   box-shadow: none !important;
-  font-family: var(--font-zine-display), 'Bowlby One', sans-serif !important;
+  font-family: var(--font-zine-display), 'Space Grotesk', sans-serif !important;
   font-size: 14px !important;
   font-weight: 400 !important;
   letter-spacing: 0.05em;
@@ -628,10 +630,10 @@ body:has(.zine-page) {
    Forecast tab now lives inside the cream zine paper, so the
    muted-foreground header copy ("11-Day Outlook" / "Tap a day to
    view details") becomes nearly invisible. Promote the header
-   to zine typography (Bowlby ink stencil) and darken the hint.
+   to zine typography (bold display ink) and darken the hint.
    ─────────────────────────────────────────────────────────── */
 .zine-page .zine-tabs-slot section h2 {
-  font-family: var(--font-zine-display), 'Bowlby One', sans-serif !important;
+  font-family: var(--font-zine-display), 'Space Grotesk', sans-serif !important;
   font-weight: 400 !important;
   font-size: 14px !important;
   letter-spacing: 0.06em !important;
@@ -641,7 +643,7 @@ body:has(.zine-page) {
 }
 
 /* The install CTA is a self-contained card, not a tab section heading. The rule
-   above crushes its h2 to 14px uppercase Bowlby One - the same size as its own
+   above crushes its h2 to 14px uppercase display type - the same size as its own
    body copy - leaving the card with no hierarchy on beach detail. Utilities
    cannot beat those !important declarations, so reset them here. */
 .zine-page .zine-tabs-slot section.install-cta h2.install-cta-heading {
@@ -799,7 +801,7 @@ body:has(.zine-page) {
    navy so it doesn't disappear into the sticky-bar shadow.
    ─────────────────────────────────────────────────────────── */
 .zine-page .zine-tabs-slot [data-day-card] button {
-  font-family: var(--font-zine-display), 'Bowlby One', sans-serif;
+  font-family: var(--font-zine-display), 'Space Grotesk', sans-serif;
   font-weight: 400;
   letter-spacing: 0.02em;
   border-width: 2.5px !important;

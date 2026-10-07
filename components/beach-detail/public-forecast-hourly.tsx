@@ -74,7 +74,7 @@ export function PublicForecastHourly({
       <p className="typewriter font-bold text-[#0B3A75]">{dayLabel} by time</p>
       <h2
         id="public-forecast-hourly-heading"
-        className="mt-1.5 font-[var(--font-zine-display)] text-2xl uppercase leading-[1.05] text-[#11100D] sm:text-3xl"
+        className="mt-1.5 font-[family-name:var(--font-zine-display)] text-2xl uppercase leading-[1.05] text-[#11100D] sm:text-3xl"
       >
         {beachName} Hourly Surf Forecast
       </h2>
@@ -134,7 +134,7 @@ export function PublicForecastHourly({
                   <th scope="row" className="whitespace-nowrap px-3 py-2.5 text-left font-bold">
                     {formatTimeInTimezone(hour.forecast_at, timezone)}
                   </th>
-                  <td className="px-3 py-2.5 font-[var(--font-zine-display)] text-base leading-none">
+                  <td className="px-3 py-2.5 font-[family-name:var(--font-zine-display)] text-base leading-none">
                     {hour.wave_height || "—"}
                   </td>
                   <td className="px-3 py-2.5">

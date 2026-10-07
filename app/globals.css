@@ -580,11 +580,14 @@ html.has-auth-cookie #ssr-beach-links {
 .theme-retro-dark [class*="border-blue-100"] { border-color: #404C92 !important; }
 .theme-retro-dark [class*="border-ocean-blue\\/"] { border-color: rgba(247, 142, 66, 0.15) !important; }
 
-/* ---- Typography: brush font for headings ---- */
+/* ---- Typography: headings ---- */
+/* Space Grotesk Bold, as every native heading helper (Display, H1, H2,
+   ComicTitle) sets it. `--font-zine-display` is the 700-only face, so a
+   heading without a weight class still reads bold rather than Regular. */
 .theme-retro-dark h1,
 .theme-retro-dark h2,
 .theme-retro-dark h3 {
-  font-family: var(--font-heading), sans-serif !important;
+  font-family: var(--font-zine-display), var(--font-heading), sans-serif !important;
   letter-spacing: 0.01em;
 }
 
@@ -675,7 +678,11 @@ html.has-auth-cookie #ssr-beach-links {
   background-color: rgba(74, 112, 217, 0.08) !important;
 }
 
-/* ---- Buttons — CTA orange fill (WCAG AA), slightly hand-cut radius ---- */
+/* ---- Buttons — Charming Orange with ink type, slightly hand-cut radius ----
+   Native's primary actions are #F78E42 with #11100D lettering (title stage,
+   comic panel and trial CTAs). Ink on that orange is 8.0:1, so it clears AA
+   without the darker #9E5010 fill that made web CTAs read as a second brand
+   colour. */
 .theme-retro-dark .bg-primary,
 .theme-retro-dark button.bg-primary,
 .theme-retro-dark a.bg-primary,
@@ -683,7 +690,8 @@ html.has-auth-cookie #ssr-beach-links {
 .theme-retro-dark a[class*="bg-ocean-blue"],
 .theme-retro-dark button[class*="bg-pink"],
 .theme-retro-dark a[class*="bg-pink"] {
-  background-color: #9E5010 !important;
+  background-color: #F78E42 !important;
+  color: #11100D !important;
   border-radius: 12px 14px 11px 13px !important;
 }
 /* ---- Card hover glow ---- */
@@ -1051,9 +1059,9 @@ html.has-auth-cookie #ssr-beach-links {
 }
 
 .theme-retro-dark .seo-paper-page [data-testid="alert-capture-primary-cta"] {
-  /* Cream on --seo-paper-orange (#B65F1A) is 4.19:1; this shade clears AA at 5.39:1. */
-  background-color: #9E5010 !important;
-  color: #FBF6E8 !important;
+  /* Native's primary CTA: Charming Orange with ink type (8.0:1). */
+  background-color: #F78E42 !important;
+  color: #11100D !important;
 }
 
 /* =============================================================================

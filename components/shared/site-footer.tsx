@@ -29,17 +29,21 @@ export function SiteFooter({
 }: SiteFooterProps) {
   const currentYear = new Date().getFullYear();
 
+  // Mono caps section labels in native's slate `textMuted`, as the app's
+  // `Label` helper sets them.
   const headingClass = showBrandSection
     ? "font-heading font-semibold mb-4 text-lg"
-    : "font-heading font-semibold mb-3 text-sm uppercase tracking-wide text-gray-400";
+    : "font-mono font-bold mb-3 text-xs uppercase tracking-[0.12em] text-[#B8C7E0]";
 
   const listClass = showBrandSection
     ? "space-y-2.5 font-sans text-gray-300 text-sm"
     : "space-y-2 text-sm text-gray-300";
 
+  // Twilight chrome below the stage, matching the native tab bar (#0D1020
+  // with a #404C92 hairline) rather than a neutral grey.
   return (
     <footer
-      className={`bg-dark-grey text-white ${showBrandSection ? "py-12 md:py-16" : "py-10"} px-4${showBrandSection ? "" : " mt-12"}`}
+      className={`border-t border-[#404C92] bg-[#0D1020] text-white ${showBrandSection ? "py-12 md:py-16" : "py-10"} px-4${showBrandSection ? "" : " mt-12"}`}
     >
       <div className="max-w-7xl mx-auto">
         <div
@@ -192,7 +196,7 @@ export function SiteFooter({
           </div>
         </div>
 
-        <div className={`border-t border-gray-700 ${showBrandSection ? "pt-8" : "pt-6"}`}>
+        <div className={`border-t border-[#404C92] ${showBrandSection ? "pt-8" : "pt-6"}`}>
           {showBrandSection ? (
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
               <p className="font-sans text-gray-400 text-sm">

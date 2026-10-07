@@ -232,7 +232,7 @@ export function SwellArc({
         <div className="mb-1.5 flex items-end justify-between gap-3 px-1">
           <div className="flex items-baseline gap-2">
             <span
-              className={`font-[var(--font-heading)] text-xs font-semibold uppercase tracking-[0.18em] ${isZine ? "text-[#11100D]" : "text-white/75"}`}
+              className={`font-[family-name:var(--font-heading)] text-xs font-semibold uppercase tracking-[0.18em] ${isZine ? "text-[#11100D]" : "text-white/75"}`}
             >
               Swell arc
             </span>

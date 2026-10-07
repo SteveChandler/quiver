@@ -134,7 +134,7 @@ function FeaturedGuideCard({ region, guideSlug, photoUrl }: GuideCardData) {
         <span className="mb-3 inline-flex w-fit -rotate-[2deg] items-center rounded-[10px_4px_14px_4px] border border-[#F78E42]/50 bg-[#F78E42]/20 px-2.5 py-1 font-[var(--font-handwritten)] text-base text-[#F78E42]">
           Featured
         </span>
-        <h3 className="font-[var(--font-heading)] text-2xl font-bold leading-tight text-white md:text-3xl">
+        <h3 className="font-[family-name:var(--font-heading)] text-2xl font-bold leading-tight text-white md:text-3xl">
           {region.name} Guide
         </h3>
         <p className="mt-2 max-w-lg text-sm text-white/85 md:text-base">
@@ -189,7 +189,7 @@ function StandardGuideCard({
       )}
 
       <div className="relative flex min-h-[10rem] flex-col justify-end p-4 md:min-h-[12rem] md:p-5">
-        <h3 className="font-[var(--font-heading)] text-lg font-bold leading-tight text-white">
+        <h3 className="font-[family-name:var(--font-heading)] text-lg font-bold leading-tight text-white">
           {region.name}
         </h3>
         <p className="mt-1 text-xs leading-snug text-white/75 md:text-sm">
@@ -247,7 +247,7 @@ export function RegionalGuidesStrip({
           className={
             isZine
               ? "font-display text-3xl font-black uppercase leading-tight text-[#11100D]"
-              : "font-[var(--font-heading)] text-2xl font-bold text-white sm:text-3xl"
+              : "font-[family-name:var(--font-heading)] text-2xl font-bold text-white sm:text-3xl"
           }
         >
           Regional Surf Guides

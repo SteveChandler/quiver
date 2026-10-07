@@ -370,11 +370,11 @@ export function HorizonStrip({
     return <HorizonStripSkeleton />;
   }
 
-  // Empty state
+  // Empty state, in native's words for a missing reading.
   if (days.length === 0) {
     return (
       <div className="py-4 px-4 text-center text-muted-foreground text-sm">
-        No forecast data available
+        no data
       </div>
     );
   }

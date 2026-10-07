@@ -52,7 +52,7 @@ export function ActivityFeed({ items }: ActivityFeedProps) {
           <p
             className="mb-1"
             style={{
-              fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+              fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
               fontSize: 16,
               textTransform: "uppercase",
               color: INK,

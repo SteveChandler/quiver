@@ -66,7 +66,7 @@ export function ZineNearbySpots({
         <div className="flex items-end gap-3">
           <h2
             style={{
-              fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+              fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
               fontWeight: 400,
               fontSize: 36,
               color: "#11100D",
@@ -176,7 +176,7 @@ function NearbyCard({
         <div className="mt-3 flex flex-col flex-1">
           <h3
             style={{
-              fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+              fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
               fontWeight: 400,
               fontSize: 18,
               color: "#11100D",
@@ -233,7 +233,7 @@ function NearbyCard({
                 background: "#0B3A75",
                 color: "#F4EBD8",
                 padding: "3px 10px",
-                fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+                fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
                 fontWeight: 400,
                 fontSize: 13,
                 letterSpacing: "0.04em",

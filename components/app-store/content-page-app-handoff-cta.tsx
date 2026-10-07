@@ -125,7 +125,7 @@ export function ContentPageAppHandoffCta({
           </p>
           <h2
             id={`${ctaId}-heading`}
-            className="mt-2 max-w-2xl font-[var(--font-zine-display)] text-xl uppercase leading-tight tracking-[0.01em] sm:text-2xl"
+            className="mt-2 max-w-2xl font-[family-name:var(--font-zine-display)] text-xl uppercase leading-tight tracking-[0.01em] sm:text-2xl"
           >
             {title}
           </h2>

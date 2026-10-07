@@ -443,7 +443,7 @@ export function MapDoodle({
             left: 8,
             background: "#11100D",
             color: "#F4EBD8",
-            fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+            fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
             fontSize: 12,
             letterSpacing: "0.12em",
             textTransform: "uppercase",

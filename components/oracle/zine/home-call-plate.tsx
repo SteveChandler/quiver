@@ -114,7 +114,7 @@ export function HomeCallPlate({
           <p
             className="m-0 text-[30px] sm:text-[40px]"
             style={{
-              fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+              fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
               lineHeight: 0.95,
               letterSpacing: "-0.01em",
               textTransform: "uppercase",
@@ -156,7 +156,7 @@ export function HomeCallPlate({
               <h1
                 className="zine-display m-0 text-[44px] sm:text-[56px]"
                 style={{
-                  fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+                  fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
                   lineHeight: 0.9,
                   letterSpacing: "-0.02em",
                   textTransform: "uppercase",
@@ -316,7 +316,7 @@ function ConditionStrip({
             aria-label={"ariaLabel" in c ? c.ariaLabel : undefined}
             data-testid={"testId" in c ? c.testId : undefined}
             style={{
-              fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+              fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
               fontWeight: 900,
               lineHeight: 1.05,
               color: c.color,

@@ -191,7 +191,7 @@ export function ContextualCTA(props: ContextualCTAProps) {
           style={{
             background: "#F78E42",
             color: "#11100D",
-            fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+            fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
             letterSpacing: "0.02em",
             textTransform: "uppercase",
             boxShadow: "3px 4px 0 rgba(17,16,13,0.35)",

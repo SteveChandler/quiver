@@ -19,7 +19,7 @@ export function FieldGuideHero({
     <ZineSurface
       sectionLabel="Cover"
       data-testid="field-guide-hero"
-      className="bg-[#0D1020] px-3 pb-0 pt-4 sm:px-6 sm:pb-0 sm:pt-5"
+      className="bg-[#252D6B] px-3 pb-0 pt-4 sm:px-6 sm:pb-0 sm:pt-5"
       stageClassName="mx-auto max-w-5xl !py-0"
       paperClassName="relative overflow-hidden !px-5 !py-6 sm:!px-8 sm:!py-7 md:!px-10 md:!py-8"
       showMasthead={false}
@@ -29,7 +29,7 @@ export function FieldGuideHero({
           <h1 className="zine-h1 max-w-3xl leading-[0.94] text-[#11100D] md:max-w-[620px] md:!text-[clamp(60px,5.9vw,76px)] md:leading-[0.92]">
             Know where to paddle out before dawn.
           </h1>
-          <p className="mt-4 max-w-xl font-mono text-sm leading-relaxed text-[#11100D]/80 sm:text-base md:text-sm">
+          <p className="mt-4 max-w-xl font-sans text-[15px] leading-relaxed text-[#11100D]/80 sm:text-base md:text-sm">
             A local read for every break, built around the boards you actually
             ride.
           </p>
@@ -37,7 +37,7 @@ export function FieldGuideHero({
             <Link
               href={downloadHref}
               data-testid="field-guide-hero-primary-cta"
-              className="inline-flex min-h-12 items-center justify-center rounded-[14px_6px_16px_6px] bg-[#F78E42] px-6 py-3 font-mono text-sm font-bold uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_4px_0_rgba(0,0,0,0.18)] transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B3A75]"
+              className="inline-flex min-h-12 items-center justify-center rounded-full border-2 border-[#11100D] bg-[#F78E42] px-6 py-3 font-sans text-sm font-bold uppercase tracking-[0.12em] text-[#11100D] transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B3A75]"
             >
               Get the app
             </Link>

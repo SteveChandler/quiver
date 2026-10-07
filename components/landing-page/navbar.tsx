@@ -186,10 +186,10 @@ export function Navbar({
               />
               <span
                 className={cn(
-                  "hidden text-lg font-semibold tracking-tight sm:inline",
+                  "hidden font-heading text-lg font-bold uppercase tracking-[0.1em] sm:inline",
                   isStatic
                     ? "text-[#11100D]"
-                    : "text-white [text-shadow:_0_1px_3px_rgb(0_0_0_/_40%)]",
+                    : "text-[#F5EEDC] [text-shadow:_0_1px_3px_rgb(0_0_0_/_40%)]",
                 )}
               >
                 Quiver

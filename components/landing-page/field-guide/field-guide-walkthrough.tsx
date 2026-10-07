@@ -38,7 +38,7 @@ export function FieldGuideWalkthrough(): ReactElement {
     <ZineSurface
       sectionLabel="How Quiver works"
       data-testid="field-guide-walkthrough"
-      className="bg-[#0D1020] px-3 py-0 sm:px-6 sm:py-0"
+      className="bg-[#252D6B] px-3 py-0 sm:px-6 sm:py-0"
       stageClassName="mx-auto max-w-5xl !py-0"
       paperClassName="relative overflow-hidden !px-5 !py-7 sm:!px-8 sm:!py-10"
       showMasthead={false}
@@ -54,11 +54,11 @@ export function FieldGuideWalkthrough(): ReactElement {
         </p>
         <h2
           id="field-guide-walkthrough-heading"
-          className="mt-2 max-w-2xl font-[var(--font-zine-display)] text-3xl uppercase leading-tight text-[#11100D] sm:text-4xl"
+          className="mt-2 max-w-2xl font-[family-name:var(--font-zine-display)] text-3xl uppercase leading-tight text-[#11100D] sm:text-4xl"
         >
           Turn a forecast into a surf plan.
         </h2>
-        <p className="mt-3 max-w-3xl font-mono text-sm leading-relaxed text-[#11100D]/75 sm:text-base">
+        <p className="mt-3 max-w-3xl font-sans text-[15px] leading-relaxed text-[#11100D]/75 sm:text-base">
           Start with a beach, tell Quiver what you ride, and get a call for the
           window worth chasing. Then your session gives the next call more
           context.
@@ -77,7 +77,7 @@ export function FieldGuideWalkthrough(): ReactElement {
               className="grid grid-cols-[3.5rem_minmax(0,1fr)] gap-3 border-b-2 border-dashed border-[#0B3A75]/25 pb-6 last:border-b-0 last:pb-0 sm:grid-cols-[4.5rem_minmax(0,1fr)]"
             >
               <span
-                className="font-[var(--font-zine-display)] text-4xl leading-none text-[#F78E42] sm:text-5xl"
+                className="font-[family-name:var(--font-zine-display)] text-4xl leading-none text-[#F78E42] sm:text-5xl"
                 aria-hidden="true"
               >
                 {String(index + 1).padStart(2, "0")}
@@ -86,10 +86,10 @@ export function FieldGuideWalkthrough(): ReactElement {
                 <p className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[#0B3A75]">
                   {step.eyebrow}
                 </p>
-                <h3 className="mt-1 font-[var(--font-zine-display)] text-xl uppercase leading-tight text-[#11100D] sm:text-2xl">
+                <h3 className="mt-1 font-[family-name:var(--font-zine-display)] text-xl uppercase leading-tight text-[#11100D] sm:text-2xl">
                   {step.title}
                 </h3>
-                <p className="mt-2 font-mono text-sm leading-relaxed text-[#11100D]/80">
+                <p className="mt-2 font-sans text-[15px] leading-relaxed text-[#11100D]/80">
                   {step.body}
                 </p>
               </div>

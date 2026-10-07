@@ -25,11 +25,11 @@ export function FieldGuideInsideApp(): ReactElement {
         <div>
           <h2
             id="field-guide-inside-app-heading"
-            className="font-[var(--font-zine-display)] text-4xl uppercase leading-[0.98] text-[#11100D] sm:text-5xl"
+            className="font-[family-name:var(--font-zine-display)] text-4xl uppercase leading-[0.98] text-[#11100D] sm:text-5xl"
           >
             Built for the board you paddle out on.
           </h2>
-          <p className="mt-4 max-w-xl font-mono text-sm leading-relaxed text-[#11100D]/75 sm:text-base">
+          <p className="mt-4 max-w-xl font-sans text-[15px] leading-relaxed text-[#11100D]/75 sm:text-base">
             Shortboards, logs, fish, midlengths. Quiver turns a beach forecast
             into the call you can actually use before you load the car.
           </p>
@@ -43,13 +43,13 @@ export function FieldGuideInsideApp(): ReactElement {
           />
           <div className="grid gap-5 md:grid-cols-[0.84fr_1.16fr] md:items-center">
             <div className="pt-8 md:pt-0">
-              <p className="inline-flex rounded-full border border-[#128A48]/25 bg-[#D7F5DD] px-4 py-2 font-mono text-[11px] font-bold uppercase tracking-[0.22em] text-[#145A35]">
+              <p className="inline-flex rounded-full border border-[#06765F]/30 bg-[#E6EAD4] px-4 py-2 font-mono text-[11px] font-bold uppercase tracking-[0.22em] text-[#06765F]">
                 Live - App Store
               </p>
-              <h3 className="mt-6 font-[var(--font-zine-display)] text-3xl uppercase leading-tight text-[#11100D]">
+              <h3 className="mt-6 font-[family-name:var(--font-zine-display)] text-3xl uppercase leading-tight text-[#11100D]">
                 Beach-level calls, filtered for how you surf.
               </h3>
-              <p className="mt-3 font-mono text-sm leading-relaxed text-[#11100D]/70">
+              <p className="mt-3 font-sans text-[15px] leading-relaxed text-[#11100D]/70">
                 Scan nearby breaks, save home spots, and see the window worth
                 protecting before the first cup of coffee is gone.
               </p>

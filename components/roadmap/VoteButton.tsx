@@ -76,12 +76,12 @@ export function VoteButton({
           aria-hidden="true"
           className="text-[#11100D]/45 transition group-hover:text-[#B56A2B]"
         />
-        <span className="font-[var(--font-mono)] text-[11px] font-bold uppercase tracking-[0.15em]">
+        <span className="font-[family-name:var(--font-mono)] text-[11px] font-bold uppercase tracking-[0.15em]">
           Sign in to vote
         </span>
         <span
           aria-hidden="true"
-          className="ml-1 border-l border-[#11100D]/25 pl-2 font-[var(--font-mono)] text-sm font-bold tabular-nums text-[#11100D] group-hover:border-[#F78E42]/60"
+          className="ml-1 border-l border-[#11100D]/25 pl-2 font-[family-name:var(--font-mono)] text-sm font-bold tabular-nums text-[#11100D] group-hover:border-[#F78E42]/60"
         >
           {localCount}
         </span>
@@ -103,7 +103,7 @@ export function VoteButton({
       ) + " focus-ring"}
     >
       <ThumbsUp size={14} aria-hidden="true" />
-      <span className="font-[var(--font-mono)] text-sm font-bold">{localCount}</span>
+      <span className="font-[family-name:var(--font-mono)] text-sm font-bold">{localCount}</span>
     </button>
   );
 }

@@ -63,7 +63,7 @@ export function FieldGuideFeatures(): ReactElement {
       id="features"
       sectionLabel="What's inside"
       data-testid="field-guide-features"
-      className="bg-[#0D1020] px-3 py-0 sm:px-6 sm:py-0"
+      className="bg-[#252D6B] px-3 py-0 sm:px-6 sm:py-0"
       stageClassName="mx-auto max-w-5xl !py-0"
       paperClassName="space-y-8"
       showMasthead={false}
@@ -83,7 +83,7 @@ export function FieldGuideFeatures(): ReactElement {
               className={cn(
                 "absolute right-4 top-4 rounded-[8px_3px_8px_3px] border-2 border-[#11100D] px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[0.1em]",
                 feature.tier === "free"
-                  ? "bg-[#C0DD97] text-[#27500A]"
+                  ? "bg-[#E6EAD4] text-[#06765F]"
                   : "bg-[#F78E42] text-[#5C2E0C]",
               )}
             >
@@ -94,10 +94,10 @@ export function FieldGuideFeatures(): ReactElement {
               className="mb-3 w-16"
               sizes="4rem"
             />
-            <h3 className="font-[var(--font-zine-display)] text-xl uppercase leading-tight text-[#11100D]">
+            <h3 className="font-[family-name:var(--font-zine-display)] text-xl uppercase leading-tight text-[#11100D]">
               {feature.title}
             </h3>
-            <p className="mt-2 font-mono text-sm leading-relaxed text-[#11100D]/80">
+            <p className="mt-2 font-sans text-[15px] leading-relaxed text-[#11100D]/80">
               {feature.body}
             </p>
           </div>

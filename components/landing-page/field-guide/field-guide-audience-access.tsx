@@ -40,16 +40,16 @@ export function FieldGuideAudienceAccess(): ReactElement {
       </div>
 
       <div className="mx-auto max-w-3xl text-center">
-        <p className="mx-auto inline-flex rounded-full border border-[#128A48]/25 bg-[#D7F5DD] px-4 py-2 font-mono text-[11px] font-bold uppercase tracking-[0.22em] text-[#145A35]">
+        <p className="mx-auto inline-flex rounded-full border border-[#06765F]/30 bg-[#E6EAD4] px-4 py-2 font-mono text-[11px] font-bold uppercase tracking-[0.22em] text-[#06765F]">
           Public forecast data is free forever
         </p>
         <h2
           id="field-guide-access-heading"
-          className="mt-5 font-[var(--font-zine-display)] text-4xl uppercase leading-[1.02] text-[#11100D] sm:text-5xl"
+          className="mt-5 font-[family-name:var(--font-zine-display)] text-4xl uppercase leading-[1.02] text-[#11100D] sm:text-5xl"
         >
           One surf app. Go Pro when it’s time to lock in.
         </h2>
-        <p className="mx-auto mt-4 max-w-2xl font-mono text-sm leading-relaxed text-[#11100D]/70 sm:text-base">
+        <p className="mx-auto mt-4 max-w-2xl font-sans text-[15px] leading-relaxed text-[#11100D]/70 sm:text-base">
           Public forecast data and custom spots are free forever. Upgrade for
           board-aware picks, smart alerts, offline session saving, and personal
           forecasting that learns from your boards, spots, alerts, and saved

@@ -328,7 +328,9 @@ describe("PublicForecastAnswer", () => {
       },
     });
 
-    await waitFor(() => expect(screen.getByText("NO")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("MEH")).toBeInTheDocument());
+    expect(screen.getByText("Skip it")).toBeInTheDocument();
+    expect(screen.queryByText("NO")).not.toBeInTheDocument();
     expect(screen.getByText(/No personalized surf candidate was available/)).toBeInTheDocument();
     expect(screen.queryByText("8:00 AM–8:30 AM")).not.toBeInTheDocument();
     expect(screen.queryByText("Score")).not.toBeInTheDocument();
@@ -352,7 +354,9 @@ describe("PublicForecastAnswer", () => {
 
     renderAnswer();
 
-    await waitFor(() => expect(screen.getByText("YES")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("GOOD")).toBeInTheDocument());
+    expect(screen.getByText("Worth planning")).toBeInTheDocument();
+    expect(screen.queryByText("YES")).not.toBeInTheDocument();
     expect(screen.getByText("11:00 AM–1:00 PM")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /sign in to reveal/i })).not.toBeInTheDocument();
     expect(global.fetch).toHaveBeenCalledWith(
@@ -414,7 +418,8 @@ describe("public forecast context consistency", () => {
       isTomorrow: false,
     } }), { status: 200 }));
     renderAnswer();
-    await waitFor(() => expect(screen.getByText("YES")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("GOOD")).toBeInTheDocument());
+    expect(screen.getByText("Worth a surf")).toBeInTheDocument();
     expect(screen.getByText("8:00 AM–10:30 AM")).toBeInTheDocument();
     expect(screen.queryByText("8:00 AM–12:00 PM")).not.toBeInTheDocument();
     expect(screen.getByText("3-4 ft")).toBeInTheDocument();

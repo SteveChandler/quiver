@@ -138,7 +138,7 @@ function SessionPolaroid({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+            fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
             fontSize: 10,
             fontWeight: 900,
           }}

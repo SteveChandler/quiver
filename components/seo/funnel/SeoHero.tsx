@@ -47,7 +47,7 @@ export function SeoHero({
               asChild
               size="lg"
               variant="outline"
-              className="rounded-lg border-[#252D6B] bg-[#252D6B] text-[#FBF6E8] hover:bg-[#1E2558] hover:text-[#FBF6E8]"
+              className="rounded-lg border-2 border-[#11100D] bg-[#F4EBD8] font-bold text-[#11100D] hover:bg-[#EEE3C9] hover:text-[#11100D]"
             >
               <Link href={secondaryCta.href}>{secondaryCta.label}</Link>
             </Button>

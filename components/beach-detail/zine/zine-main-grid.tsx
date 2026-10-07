@@ -185,7 +185,7 @@ function HazardsPanel({ beach }: { beach: Beach }) {
             style={{
               background: "#B91C1C",
               color: "#F4EBD8",
-              fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+              fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
               fontWeight: 900,
               fontSize: 22,
               padding: "6px 14px",
@@ -223,7 +223,7 @@ function HazardsPanel({ beach }: { beach: Beach }) {
           style={{
             border: "2.5px solid #F4EBD8",
             padding: "10px 14px",
-            fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+            fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
             fontWeight: 900,
             fontSize: 13,
             letterSpacing: "0.08em",

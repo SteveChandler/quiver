@@ -12,7 +12,7 @@ function StencilHeading({ children }: { children: React.ReactNode }) {
     <h1
       className="zine-display"
       style={{
-        fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+        fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
         fontWeight: 400,
         fontSize: 30,
         lineHeight: 1,
@@ -94,7 +94,7 @@ function PendingCallPlate({
         <p
           className="m-0 text-[30px] sm:text-[40px]"
           style={{
-            fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+            fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
             lineHeight: 0.95,
             letterSpacing: "-0.01em",
             textTransform: "uppercase",

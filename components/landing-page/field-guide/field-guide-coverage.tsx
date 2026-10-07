@@ -67,10 +67,10 @@ export function FieldGuideCoverage(): ReactElement {
               <p className="font-mono text-[11px] font-bold uppercase tracking-[0.24em] text-[#11100D]/55">
                 {stat.label}
               </p>
-              <div className="mt-5 font-[var(--font-zine-display)] text-4xl uppercase leading-none text-[#11100D] sm:text-5xl">
+              <div className="mt-5 font-[family-name:var(--font-zine-display)] text-4xl uppercase leading-none text-[#11100D] sm:text-5xl">
                 {stat.value}
                 {stat.suffix ? (
-                  <span className="ml-0.5 text-[#128A48]">{stat.suffix}</span>
+                  <span className="ml-0.5 text-[#06765F]">{stat.suffix}</span>
                 ) : null}
               </div>
               <p className="mt-4 font-mono text-xs leading-relaxed text-[#11100D]/58">

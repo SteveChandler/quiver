@@ -146,7 +146,7 @@ export function TodaysWindows({ windows, preferredTime, forecastUrl, isTomorrow,
             <span
               className="ml-3 shrink-0"
               style={{
-                fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+                fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
                 fontSize: 18,
                 color: STAMP_BLUE,
               }}

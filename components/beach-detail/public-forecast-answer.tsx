@@ -11,22 +11,16 @@ import { isDataStale } from "@/lib/utils/forecast-client-utils";
 import { useAuthenticatedForecastDecision } from "@/components/beach-detail/authenticated-forecast-decision";
 import { ForecastDecisionLoginLink } from "@/components/beach-detail/forecast-decision-login-link";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
+import { getSurfCallVerdictCall, SCORE_LABEL_INK } from "@/components/forecast/score-band-call";
 import type {
   PublicForecastContextFacts,
   PublicForecastReportFacts,
 } from "@/lib/utils/public-forecast-facts";
 
-// Same contrast-checked verdict palette the in-tab surf call uses on tan paper.
-const VERDICT_COLOR: Record<string, string> = {
-  YES: "#006B5F",
-  MAYBE: "#B47A0F",
-  NO: "#5C5A57",
-};
-
 const DECK_LABEL =
   "font-mono text-xs font-bold uppercase tracking-[0.16em] text-[#0B3A75]";
 const DECK_VALUE =
-  "mt-0.5 font-[var(--font-zine-display)] text-3xl leading-none text-[#11100D] sm:text-4xl";
+  "mt-0.5 font-[family-name:var(--font-zine-display)] text-3xl leading-none text-[#11100D] sm:text-4xl";
 const STRIP_LABEL =
   "font-mono text-xs font-bold uppercase tracking-[0.16em] text-[#11100D]";
 
@@ -137,6 +131,13 @@ export function PublicForecastAnswer({
       ]
     : [publicDecisionWindow?.start ?? null, publicDecisionWindow?.end ?? null];
   const hasDisplayedWindow = Boolean(windowStart && windowEnd);
+  const decisionCall = decisionReport?.verdict
+    ? getSurfCallVerdictCall(
+        decisionReport.verdict,
+        decisionReport.score,
+        isTomorrow ? "upcoming" : "now",
+      )
+    : null;
   const bestWindow = formatTimeRangeInTimezone(
     windowStart,
     windowEnd,
@@ -241,12 +242,13 @@ export function PublicForecastAnswer({
                 <dd className={DECK_VALUE}>{waveHeight}</dd>
               </div>
             )}
-            {decisionReport?.verdict && (
+            {decisionCall && (
               <div>
-                <dt className={DECK_LABEL}>Verdict</dt>
-                <dd className={DECK_VALUE} style={{ color: VERDICT_COLOR[decisionReport.verdict] }}>
-                  {decisionReport.verdict}
+                <dt className={DECK_LABEL}>Call</dt>
+                <dd className={DECK_VALUE} style={{ color: SCORE_LABEL_INK[decisionCall.label] }}>
+                  {decisionCall.label}
                 </dd>
+                <dd className="mt-1 text-base font-bold text-[#11100D]">{decisionCall.action}</dd>
               </div>
             )}
             {bestWindow && (
@@ -296,7 +298,7 @@ export function PublicForecastAnswer({
               .map((cell) => (
                 <div key={cell.label} className="min-w-0 bg-[#EFE5CF] px-4 py-3">
                   <dt className={STRIP_LABEL}>{cell.label}</dt>
-                  <dd className="mt-1 font-[var(--font-zine-display)] text-xl leading-tight text-[#11100D] sm:text-2xl">
+                  <dd className="mt-1 font-[family-name:var(--font-zine-display)] text-xl leading-tight text-[#11100D] sm:text-2xl">
                     {cell.value}
                   </dd>
                 </div>

@@ -57,7 +57,7 @@ export function ZineHero({
         <HeadingTag
           className="zine-h1 mt-3"
           style={{
-            fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+            fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
             fontWeight: 400,
             color: "#11100D",
             letterSpacing: "-0.02em",
@@ -179,7 +179,7 @@ function RatingStamp({ rating, filled }: { rating: string; filled: number }) {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+          fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
           fontSize: 22,
           color: "#0B3A75",
           fontWeight: 900,
@@ -213,7 +213,7 @@ function ReviewCircle({ count }: { count: number }) {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+          fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
           fontSize: count > 99 ? 14 : 18,
           color: "#11100D",
           fontWeight: 900,

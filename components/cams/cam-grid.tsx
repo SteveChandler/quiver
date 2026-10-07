@@ -41,7 +41,7 @@ export function CamGrid({ beaches, groupByRegion = false }: CamGridProps) {
         return (
           <section key={region.slug} id={region.slug} className="scroll-mt-24">
             <div className="mb-5 flex items-end justify-between gap-4 border-b-2 border-[#11100D] pb-3">
-              <h2 className="font-[var(--font-zine-display)] text-3xl uppercase leading-none tracking-normal text-[#11100D] sm:text-4xl">
+              <h2 className="font-[family-name:var(--font-zine-display)] text-3xl uppercase leading-none tracking-normal text-[#11100D] sm:text-4xl">
                 {region.name}
               </h2>
               <Link
