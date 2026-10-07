@@ -89,6 +89,7 @@ const QUEUE_MARK_REASONS = [
   "stale",
   "below_score_floor",
   "major_event_hold",
+  "contact_policy_hold",
   "canonical_safety_rejected",
   "shadow_withheld",
   "delivery_disabled",
@@ -781,6 +782,11 @@ export async function GET(request: Request): Promise<NextResponse> {
               deliberateReasons.add("major_event_hold");
             } else if (
               attempt.status === "skipped_disabled" &&
+              attempt.skipReason?.startsWith("Contact held: ")
+            ) {
+              deliberateReasons.add("contact_policy_hold");
+            } else if (
+              attempt.status === "skipped_disabled" &&
               attempt.skipReason?.startsWith("canonical_decision:")
             ) {
               deliberateReasons.add("canonical_safety_rejected");
@@ -1449,21 +1455,25 @@ export async function GET(request: Request): Promise<NextResponse> {
                       }
                       result.emailQuietHoursSkipped += emailSurvivors.length;
                     } else if (sendError) {
-                      console.error(
-                        `${CONTEXT_TAG} Email send failed for user ${payload.user_id}:`,
-                        sendError,
-                      );
-                      result.errors++;
                       const errorMessage =
                         (sendError as { message?: string })?.message ??
                         String(sendError);
+                      const contactHeld = errorMessage.startsWith("Contact held: ");
+                      if (!contactHeld) {
+                        console.error(
+                          `${CONTEXT_TAG} Email send failed for user ${payload.user_id}:`,
+                          sendError,
+                        );
+                        result.errors++;
+                      }
                       for (const item of emailSurvivors) {
                         await recordAttempt({
                           queueId: item.id,
                           ruleId: item.rule_id,
                           userId: payload.user_id,
                           channel: "email",
-                          status: "failed_provider",
+                          // The CHECK has no contact-policy status; keep the reason in skip_reason.
+                          status: contactHeld ? "skipped_disabled" : "failed_provider",
                           skipReason: errorMessage,
                           messageInstanceId,
                         });

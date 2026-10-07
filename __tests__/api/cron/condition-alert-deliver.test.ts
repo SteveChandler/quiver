@@ -438,6 +438,7 @@ function expectQueueReasonTotals(body: {
       "stale",
       "below_score_floor",
       "major_event_hold",
+      "contact_policy_hold",
       "canonical_safety_rejected",
       "shadow_withheld",
       "delivery_disabled",
@@ -967,7 +968,97 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     expectQueueReasonTotals(body);
   });
 
-  it("degrades when a provider failure is consumed without delivery or a deliberate skip", async () => {
+  it.each([
+    "ineligible_or_suppressed",
+    "contact_cap",
+    "contact_cooldown_or_unknown",
+  ])("consumes %s contact holds as deliberate skips with legitimate zero output", async (reason) => {
+    seedQueueRow({
+      alert_rules: { name: "Test rule", notify_email: true, notify_push: false },
+    });
+    seedProfile();
+    mockEmailsSend.mockResolvedValueOnce({
+      data: null,
+      error: { message: `Contact held: ${reason}` },
+    });
+
+    const res = await GET(makeRequest());
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body).toMatchObject({
+      status: "ok", errors: 0, emailSent: 0, pushSent: 0, queueMarked: 1,
+      queue_marked_by_reason: {
+        contact_policy_hold: 1, failed_delivery: 0, unrecorded_consumption: 0,
+      },
+    });
+    expect(store.attemptInserts).toEqual([
+      expect.objectContaining({
+        queue_id: QUEUE_1, rule_id: RULE_1, user_id: USER_A, channel: "email",
+        status: "skipped_disabled", skip_reason: `Contact held: ${reason}`,
+        message_instance_id: expect.any(String),
+      }),
+    ]);
+    expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
+    expect(store.deliveryInserts).toEqual([]);
+    expect(mockLogDelivery).not.toHaveBeenCalled();
+    expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
+    expectQueueReasonTotals(body);
+    const options = jest.mocked(withCronOutcome).mock.calls[0][0];
+    expect(options.legitimatelyZero?.(body)).toEqual({
+      reason: "All consumed alert queue items had deliberate skip outcomes",
+    });
+    expect(options.failureReason?.(body)).toBeNull();
+  });
+
+  it.each(["disabled", "enqueued", "failed"])("keeps a contact hold independent of a %s push outcome", async (pushOutcome) => {
+    seedQueueRow();
+    seedProfile({ notif_push_enabled: pushOutcome !== "disabled" });
+    mockEmailsSend.mockResolvedValueOnce({
+      data: null,
+      error: { message: "Contact held: contact_cap" },
+    });
+    if (pushOutcome === "failed") {
+      mockEnqueueNotification.mockResolvedValueOnce({ enqueued: false, reason: "internal_error" });
+    }
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const res = await GET(makeRequest());
+      const body = await res.json();
+      const failed = pushOutcome === "failed";
+      const queueReason = failed ? "failed_delivery"
+        : pushOutcome === "enqueued" ? "delivered" : "mixed_deliberate_skip";
+      expect(res.status).toBe(failed ? 503 : 200);
+      expect(body).toMatchObject({
+        status: failed ? "degraded" : "ok", errors: failed ? 1 : 0,
+        emailSent: 0, pushSent: pushOutcome === "enqueued" ? 1 : 0, queueMarked: 1,
+        queue_marked_by_reason: { [queueReason]: 1, contact_policy_hold: 0 },
+      });
+      expect(store.attemptInserts.filter((row) => row.channel === "email")).toEqual([
+        expect.objectContaining({ status: "skipped_disabled", skip_reason: "Contact held: contact_cap" }),
+      ]);
+      expect(store.deliveryInserts.filter((row) => row.channel === "email")).toEqual([]);
+      expect(mockLogDelivery).not.toHaveBeenCalled();
+      expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
+      expectQueueReasonTotals(body);
+      const expectedPushAttempts = pushOutcome === "enqueued" ? [] : [{
+        queue_id: QUEUE_1, rule_id: RULE_1, user_id: USER_A, channel: "push",
+        status: failed ? "failed_internal" : "skipped_channel_disabled",
+        skip_reason: failed ? "enqueue: internal_error" : "profile.notif_push_enabled=false",
+      }];
+      expect(store.attemptInserts.filter((row) => row.channel === "push")).toEqual(expectedPushAttempts);
+      if (failed) {
+        expectConsoleWarnings([/degraded queue consumption/]);
+      }
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  it.each([
+    "provider unavailable",
+    "Alert handoff unknown; held for reconciliation",
+  ])("degrades on provider failure: %s", async (errorMessage) => {
     process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     seedQueueRow({
@@ -980,7 +1071,7 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     seedProfile({ notif_email_enabled: true, notif_push_enabled: false });
     mockEmailsSend.mockResolvedValue({
       data: null,
-      error: { message: "provider unavailable" },
+      error: { message: errorMessage },
     });
 
     const consoleErrorSpy = jest
@@ -993,6 +1084,7 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     expect(res.status).toBe(503);
     expect(body).toMatchObject({
       status: "degraded",
+      errors: 1,
       queueMarked: 1,
       queue_marked_by_reason: { failed_delivery: 1 },
     });
@@ -1000,6 +1092,7 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
       expect.objectContaining({
         queue_id: QUEUE_1,
         status: "failed_provider",
+        skip_reason: errorMessage,
       }),
     ]);
     expectQueueReasonTotals(body);

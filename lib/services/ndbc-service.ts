@@ -19,6 +19,8 @@ type NDBCObservation = {
   water_temp_c: number | null; // WTMP water temperature in Celsius
 };
 
+type NDBCObservationCache = Map<string, Promise<NDBCObservation | null>>;
+
 /**
  * Fetch the active NDBC station list (lat/lon) and cache in memory
  */
@@ -70,7 +72,8 @@ export async function getActiveNDBCStations(): Promise<NDBCStation[]> {
 export async function getNearestNDBCStation(
   lat: number,
   lon: number,
-  maxKm = 80
+  maxKm = 80,
+  observationRequests?: NDBCObservationCache
 ): Promise<NDBCStation | null> {
   if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
   const stations = await getActiveNDBCStations();
@@ -85,7 +88,7 @@ export async function getNearestNDBCStation(
     const remaining = deadline - Date.now();
     if (remaining <= 0) break;
     try {
-      const observation = await fetchLatestNDBCObservation(station.id, Math.min(5_000, remaining));
+      const observation = await fetchLatestNDBCObservation(station.id, Math.min(5_000, remaining), observationRequests);
       if (!observation) continue;
       const age = Date.now() - Date.parse(observation.ts);
       if (age >= 0 && age < MAX_WAVE_AGE_MS
@@ -196,8 +199,30 @@ export async function fetchRecentNDBCObservations(
  */
 export async function fetchLatestNDBCObservation(
   stationId: string,
-  timeoutMs: number = 15_000
+  timeoutMs: number = 15_000,
+  observationRequests?: NDBCObservationCache
 ): Promise<NDBCObservation | null> {
+  if (observationRequests) {
+    const cached = observationRequests.get(stationId);
+    if (!cached) {
+      const pending = fetchLatestNDBCObservation(stationId, timeoutMs);
+      observationRequests.set(stationId, pending);
+      return pending;
+    }
+    // Joining a request must not extend this beach's remaining probe budget.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        cached,
+        new Promise<never>((_resolve, reject) => {
+          timer = setTimeout(() => reject(new DOMException("NDBC observation timed out", "TimeoutError")), timeoutMs);
+        }),
+      ]);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   // Check cache first
   const cached = observationCache.get(stationId);
   if (cached && Date.now() - cached.at < OBS_CACHE_TTL) {

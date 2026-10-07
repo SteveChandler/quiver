@@ -58,7 +58,7 @@ it.each(["complete_partitions.v1", "primary_partition_with_retained_unavailable_
   expect(result.scopeOutcomes?.filter((outcome) => outcome.status === "derived")).toHaveLength(qualificationRule === "complete_partitions.v1" ? 7 : 9);
   expect(result.scopeOutcomes?.filter((outcome) => outcome.reason === "incomplete_partition")).toHaveLength(qualificationRule === "complete_partitions.v1" ? 2 : 0);
   expect(result.scopeOutcomes?.filter((outcome) => outcome.reason === "unbounded_episode")).toHaveLength(1);
-  expect(result.derivation).toEqual({ qualificationRule, version: "swell-watch-horizon-derivation.v3",
+  expect(result.derivation).toEqual({ qualificationRule, version: "swell-watch-horizon-derivation.v4",
     samplingProfile: "ncep_gfswave016.native-1h-to-120h-3h-to-168h.v1", witness: "provider-linear-interpolation.v1",
     scopes: result.scopeOutcomes!.filter((s) => s.status === "derived").map((s) => ({ sourcePointId: s.sourcePointId, nativeFrames: 136, interpolatedFrames: 32, boundaryDeferrals: [], partitionCoverage: expect.objectContaining({ s1: expect.objectContaining({ observed: 168, unavailable: 0, absent: 0 }) }), events: expect.any(Array) })) });
   expect(result.scopeOutcomes?.every((s) => Object.keys(s).sort().join(",") === "reason,sourcePointId,status")).toBe(true);
@@ -88,7 +88,7 @@ it.each([{ allIncomplete: false, sourceCount: 2 }, { allIncomplete: true, source
   const result = await evaluateSwellWatchShadow({ qualificationRule: "complete_partitions.v1", providerBatchId: first.providerBatchId, forecastDays: 7,
     now: waikiki.replayClockBounds[0], policy: proposed.policy as SwellWatchPolicy, scopes }, client as never);
   expect(result).toMatchObject({ status: allIncomplete ? "suppressed" : "evaluated", reason: allIncomplete ? "incomplete_partition" : null,
-    derivation: allIncomplete ? null : { version: "swell-watch-horizon-derivation.v3" } });
+    derivation: allIncomplete ? null : { version: "swell-watch-horizon-derivation.v4" } });
   expect(result.scopeOutcomes).toEqual(fixtures.map(({ sourcePointId }) => ({ sourcePointId,
     status: allIncomplete || sourcePointId === hatteras.sourcePointId ? "suppressed" : "derived",
     reason: allIncomplete || sourcePointId === hatteras.sourcePointId ? "incomplete_partition" : null })));
