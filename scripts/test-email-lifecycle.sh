@@ -58,7 +58,6 @@ assert sum('"status": "busy"' in s for s in texts)==1, texts
 PYTEST
 psql_local -f "$repo_dir/__tests__/integration/email-lifecycle-audience.sql"
 psql_local -f "$repo_dir/supabase/migrations/20260930152000_prioritize_due_lifecycle_recipients.sql"
-psql_local -f "$repo_dir/supabase/migrations/20261007020000_fix_lifecycle_cohort_starvation.sql"
 psql_local -f "$repo_dir/__tests__/integration/email-full-audience.sql"
 psql_local -f "$repo_dir/__tests__/integration/email-account-permissions.sql"
 psql_local -f "$repo_dir/supabase/migrations/20260916180000_email_daily_cap_optional.sql" \
