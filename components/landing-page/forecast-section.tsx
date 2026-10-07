@@ -42,7 +42,7 @@ const FEATURES: Feature[] = [
     body: CONTENT.sections.forecast.subtitle,
     imageSrc: "/images/app-screenshots/surf-call-720.webp",
     imageAlt:
-      "Quiver app showing a La Jolla Shores surf call with best-window, swell, wind, tide, and session guidance.",
+      "Quiver app showing a Mission Beach surf call, GOOD and Worth a surf, with swell, wind, and the surf window.",
   },
   {
     id: "journal",
@@ -51,7 +51,7 @@ const FEATURES: Feature[] = [
     body: "After your session, save the beach, board, rating, notes, and wave check so Quiver has real surf signal to learn from.",
     imageSrc: "/images/app-screenshots/session-log-720.webp",
     imageAlt:
-      "Quiver Log Session screen with beach search, board picker, duration, rating, and wave conditions.",
+      "Quiver Log Session screen with La Jolla Shores chosen, a four-star rating, wave height, and duration.",
   },
   {
     id: "intel",
@@ -60,7 +60,7 @@ const FEATURES: Feature[] = [
     body: "Use local reports, photos, and spot context to ground-truth the call before you drive or paddle out.",
     imageSrc: "/images/app-screenshots/local-intel-720.webp",
     imageAlt:
-      "Quiver beach finder screen showing nearby surf spots, skill filters, and trending local breaks.",
+      "Quiver beach screen for La Jolla Shores with live swell and wind readings, a rip-current alert, and today's surf call.",
   },
 ];
 

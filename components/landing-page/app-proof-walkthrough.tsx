@@ -18,7 +18,7 @@ const STEPS = [
     body: "Ground-truth the forecast with nearby spots, skill fit, and local context.",
     imageSrc: "/images/app-screenshots/local-intel-720.webp",
     imageAlt:
-      "Quiver app local beach finder with nearby surf spots and skill filters.",
+      "Quiver app beach screen with live swell and wind readings, a rip-current alert, and today's surf call.",
     className: "md:col-span-4 md:translate-y-10 md:rotate-[1.5deg]",
     imageClassName: "aspect-[9/14]",
   },
@@ -28,7 +28,7 @@ const STEPS = [
     body: "Save what happened so your next call gets smarter.",
     imageSrc: "/images/app-screenshots/session-log-720.webp",
     imageAlt:
-      "Quiver app session log with beach, board, duration, rating, and wave conditions.",
+      "Quiver app session log with beach, rating, wave height, and duration.",
     className: "md:col-span-3 md:rotate-[-2deg]",
     imageClassName: "aspect-[9/15]",
   },

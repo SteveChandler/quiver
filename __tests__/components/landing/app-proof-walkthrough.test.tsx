@@ -28,7 +28,7 @@ describe("AppProofWalkthrough", () => {
       "src",
       expect.stringContaining("surf-call-720.webp"),
     );
-    expect(screen.getByAltText(/local beach finder/i)).toHaveAttribute(
+    expect(screen.getByAltText(/beach screen with live swell/i)).toHaveAttribute(
       "src",
       expect.stringContaining("local-intel-720.webp"),
     );

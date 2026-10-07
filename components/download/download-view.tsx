@@ -31,7 +31,7 @@ const CHAPTERS: DownloadChapter[] = [
   {
     sticker: "spotSwellMatch",
     image: "/images/app-screenshots/local-intel.png",
-    imageAlt: "Quiver local intel and spot discovery screen",
+    imageAlt: "Quiver beach screen with live conditions, a rip-current alert, and today's surf call for La Jolla Shores",
     title: "Find the right window",
     body: "Scan nearby options, wind reads, and local context before you burn the morning.",
   },

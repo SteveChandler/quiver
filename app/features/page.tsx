@@ -92,7 +92,7 @@ const NATIVE_FEATURES: Feature[] = [
     eyebrow: "Forecast -> log -> learn",
     imageSrc: "/images/app-screenshots/native-features/beach-detail-personal.png",
     imageAlt:
-      "Quiver beach detail screen showing a personal match prompt and forecast feedback controls.",
+      "Quiver beach detail for La Jolla Shores with the comic title, swell map, and a FAIR, Worth a look surf call.",
   },
   {
     title: "Custom spots",
@@ -101,7 +101,7 @@ const NATIVE_FEATURES: Feature[] = [
     eyebrow: "Your coast, saved",
     imageSrc: "/images/app-screenshots/native-features/save-custom-spot.png",
     imageAlt:
-      "Quiver custom spot editor with name, break type, visibility, and local rules map.",
+      "Quiver custom spot editor: the Name your beach sheet with spot name, break type, and visibility.",
   },
   {
     title: "Custom alerts",
@@ -116,12 +116,12 @@ const NATIVE_FEATURES: Feature[] = [
 const APP_SCREENS = [
   {
     src: "/images/app-screenshots/native-features/home-loop.png",
-    alt: "Quiver home screen showing a session logging prompt and surf conditions.",
+    alt: "Quiver home screen showing today's surf call and surf conditions.",
     label: "Loop",
   },
   {
     src: "/images/app-screenshots/native-features/explore-beaches.png",
-    alt: "Quiver explore screen showing 300 beaches and saved beach cards.",
+    alt: "Quiver explore screen showing this week's picks and nearby beaches with their calls.",
     label: "Explore",
   },
   {

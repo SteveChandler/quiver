@@ -81,7 +81,7 @@ const releases: Release[] = [
         },
         preview: {
           src: "/images/whats-new/home-poster.jpg",
-          alt: "Quiver Home scrolling from today's conditions to the Looking Ahead card with the next 7 days of best windows.",
+          alt: "Quiver Home scrolling from today's surf call to the Looking Ahead card with the next 7 days of best windows.",
           label: "Home",
           video: "/videos/whats-new/home.mp4",
         },
@@ -103,7 +103,7 @@ const releases: Release[] = [
         ],
         preview: {
           src: "/images/whats-new/beach-poster.jpg",
-          alt: "Quiver beach detail for La Jolla Shores: safety today, live conditions, and the forecast timeline expanding to the 18-hour trend.",
+          alt: "Quiver beach detail for La Jolla Shores: today's surf call under the beach name, the forecast timeline, today's rip-current risk, and live conditions.",
           label: "Beach detail",
           video: "/videos/whats-new/beach.mp4",
         },
@@ -127,8 +127,8 @@ const releases: Release[] = [
         },
         preview: {
           src: "/images/whats-new/spot-poster.jpg",
-          alt: "Quiver Explore map with the swell field, tapping Add a spot, dragging the pin, and opening the Save this spot sheet.",
-          label: "Add spot",
+          alt: "Quiver custom spot detail for Rivi: today's surf call, the forecast timeline, the next session pick, and calibration status.",
+          label: "Custom spot",
           video: "/videos/whats-new/spot.mp4",
         },
         availability: "Live now in the iPhone app, free tier included.",

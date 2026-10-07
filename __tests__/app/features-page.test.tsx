@@ -121,7 +121,7 @@ describe("FeaturesPage", () => {
     );
 
     expect(
-      screen.getByAltText(/home screen showing a session logging prompt/i),
+      screen.getByAltText(/home screen showing today's surf call/i),
     ).toBeInTheDocument();
     expect(screen.getByAltText(/custom spot editor/i)).toBeInTheDocument();
     expect(

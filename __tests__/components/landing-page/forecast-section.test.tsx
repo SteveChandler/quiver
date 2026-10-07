@@ -68,7 +68,7 @@ describe("ForecastSection", () => {
     expect(
       screen.getByText(/swell, wind, tide, and beach context/i),
     ).toBeInTheDocument();
-    expect(screen.getByAltText(/La Jolla Shores surf call/i)).toHaveAttribute(
+    expect(screen.getByAltText(/Mission Beach surf call/i)).toHaveAttribute(
       "src",
       expect.stringContaining("surf-call-720.webp"),
     );
