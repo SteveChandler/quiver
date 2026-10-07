@@ -6,12 +6,17 @@ import { readFileSync } from "fs";
 import { NextRequest } from "next/server";
 import { GET, POST } from "@/app/api/cron/resolve-cam-thumbnails/route";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import * as Sentry from "@sentry/nextjs";
 
-jest.mock("@/lib/cron/outcome", () => ({
-  withCronOutcome: jest.fn(async (_options: unknown, handler: () => Promise<unknown>) => handler()),
+const mockInsert = jest.fn();
+
+jest.mock("@sentry/nextjs", () => ({
+  captureMessage: jest.fn(),
+  captureException: jest.fn(),
 }));
 
 jest.mock("@/lib/cron/observability", () => ({
+  ...jest.requireActual("@/lib/cron/observability"),
   withObservedCron: jest.fn((_job: string, handler: (request: Request) => Promise<Response>) => handler),
 }));
 
@@ -45,6 +50,7 @@ jest.mock("@/lib/media/cam-thumbnail", () => ({
 }));
 
 type EmptyBeachSourcesQuery = {
+  update: jest.Mock;
   select: jest.Mock<EmptyBeachSourcesQuery, [string]>;
   not: jest.Mock<EmptyBeachSourcesQuery, [string, string, null]>;
   neq: jest.Mock<EmptyBeachSourcesQuery, [string, string]>;
@@ -52,9 +58,10 @@ type EmptyBeachSourcesQuery = {
   then: Promise<{ data: unknown[]; error: null }>["then"];
 };
 
-function createEmptyBeachSourcesQuery(): EmptyBeachSourcesQuery {
-  const emptyResult = Promise.resolve({ data: [], error: null });
+function createEmptyBeachSourcesQuery(rows: unknown[] = []): EmptyBeachSourcesQuery {
+  const emptyResult = Promise.resolve({ data: rows, error: null });
   const query = {} as EmptyBeachSourcesQuery;
+  query.update = jest.fn(() => ({ eq: jest.fn().mockResolvedValue({ error: null }) }));
   query.select = jest.fn<EmptyBeachSourcesQuery, [string]>(() => query);
   query.not = jest.fn<EmptyBeachSourcesQuery, [string, string, null]>(
     () => query
@@ -75,7 +82,7 @@ describe("resolve cam thumbnails cron route", () => {
   );
 
   let beachSourcesQuery: EmptyBeachSourcesQuery;
-  let supabase: { from: jest.Mock<EmptyBeachSourcesQuery, [string]> };
+  let supabase: { from: jest.Mock };
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -84,9 +91,10 @@ describe("resolve cam thumbnails cron route", () => {
     );
 
     beachSourcesQuery = createEmptyBeachSourcesQuery();
+    mockInsert.mockResolvedValue({ error: null });
     supabase = {
-      from: jest.fn<EmptyBeachSourcesQuery, [string]>(
-        () => beachSourcesQuery
+      from: jest.fn(
+        (table: string) => table === "cron_runs" ? { insert: mockInsert } : beachSourcesQuery
       ),
     };
     (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue(supabase);
@@ -139,6 +147,47 @@ describe("resolve cam thumbnails cron route", () => {
       message: "No cams to process",
     });
     expect(typeof data.data.duration).toBe("string");
+    expect(mockInsert).toHaveBeenCalledTimes(1);
+    expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({ status: "ok", produced: 0, expected_min: 0 }));
+    expect(Sentry.captureMessage).not.toHaveBeenCalled();
+  });
+
+  it("reports an ok zero when camera URLs have no supported thumbnail provider", async () => {
+    beachSourcesQuery = createEmptyBeachSourcesQuery([
+      { beach_id: "unsupported", camera_url: "https://example.com/camera", thumbnail_url: null },
+    ]);
+    const response = await GET(new NextRequest("http://localhost/api/cron/resolve-cam-thumbnails"));
+    expect(response.status).toBe(200);
+    expect((await response.json()).data).toMatchObject({ total: 1, updated: 0, skipped: 1, failed: 0 });
+    expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({
+      status: "ok", produced: 0, legitimately_zero_reason: "No camera sources had supported thumbnail providers",
+    }));
+    expect(Sentry.captureMessage).not.toHaveBeenCalled();
+    expect(beachSourcesQuery.update).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])("keeps a failure when an eligible thumbnail cannot be stored (write fails: %s)", async (writeFails) => {
+    beachSourcesQuery = createEmptyBeachSourcesQuery([
+      { beach_id: "supported", camera_url: "https://portal.hdontap.com/?stream=beach", thumbnail_url: null },
+    ]);
+    beachSourcesQuery.update.mockReturnValue({ eq: jest.fn().mockResolvedValue({
+      error: writeFails ? { message: "write failed" } : null,
+    }) });
+    const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const response = await GET(new NextRequest("http://localhost/api/cron/resolve-cam-thumbnails"));
+      expect(response.status).toBe(200);
+      expect((await response.json()).data).toMatchObject({ updated: writeFails ? 0 : 1, failed: writeFails ? 1 : 0 });
+      expect(beachSourcesQuery.update).toHaveBeenCalledWith({
+        thumbnail_url: "https://storage.hdontap.com/wowza_stream_thumbnails/snapshot_beach.stream.jpg",
+      });
+      expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({
+        status: writeFails ? "failed" : "ok", produced: writeFails ? 0 : 1, expected_min: 1,
+      }));
+      expect(Sentry.captureMessage).toHaveBeenCalledTimes(writeFails ? 1 : 0);
+    } finally {
+      consoleSpy.mockRestore();
+    }
   });
 
   it("does not filter missing thumbnails when force mode is enabled", async () => {
