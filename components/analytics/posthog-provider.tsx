@@ -47,9 +47,14 @@ export function PostHogProvider(): null {
     hasResolvedAuth.current = true;
 
     if (!user) {
-      setClientPostHogTrackingAllowed(null);
-      resetPostHog();
-      identifiedUserId.current = null;
+      // Only an identified user leaving needs a reset. Resetting on every
+      // unauthenticated settle (e.g. after a failed login) would rotate the
+      // anonymous id and split the visitor's auth funnel.
+      if (identifiedUserId.current) {
+        setClientPostHogTrackingAllowed(null);
+        resetPostHog();
+        identifiedUserId.current = null;
+      }
       setAnonymousClientPostHogTracking();
       flushQueuedClientPostHogEvents();
       return () => {

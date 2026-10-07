@@ -7,6 +7,7 @@ type PostHogTrackingState = "unknown" | "allowed" | "denied";
 type PendingPostHogEvent = {
   event: string;
   properties: PostHogProperties;
+  timestamp: Date;
 };
 
 const POSTHOG_HOST = "/ingest";
@@ -54,6 +55,20 @@ function getLocationProperties(): PostHogProperties {
     search,
     external_referrer: document.referrer || undefined,
     title: document.title || undefined,
+  };
+}
+
+// Queued events flush after consent resolves, possibly on a later page, so
+// they carry the SDK's own location keys from when they happened.
+function getSdkLocationProperties(): PostHogProperties {
+  if (typeof window === "undefined") return {};
+
+  // eslint-disable-next-line no-restricted-properties -- Analytics snapshot only; no navigation or routing decision is made here.
+  const { host, href, pathname } = window.location;
+  return {
+    $current_url: href,
+    $host: host,
+    $pathname: pathname,
   };
 }
 
@@ -213,18 +228,25 @@ export function applyClientPostHogTrackingStorageEvent(
   resetPostHog();
 }
 
-export function captureClientPostHogEvent(
+function sendClientPostHogEvent(
   event: string,
-  properties: PostHogProperties = {}
+  properties: PostHogProperties,
+  timestamp?: Date,
 ): boolean {
   if (postHogTrackingState !== "allowed") return false;
   if (!initPostHog()) return false;
 
+  const eventProperties = {
+    ...getBaseProperties(),
+    ...properties,
+  };
+
   try {
-    posthog.capture(event, {
-      ...getBaseProperties(),
-      ...properties,
-    });
+    if (timestamp) {
+      posthog.capture(event, eventProperties, { timestamp });
+    } else {
+      posthog.capture(event, eventProperties);
+    }
     return true;
   } catch (error) {
     if (process.env.NODE_ENV === "development") {
@@ -232,6 +254,42 @@ export function captureClientPostHogEvent(
     }
     return false;
   }
+}
+
+function queueClientPostHogEvent(
+  event: string,
+  properties: PostHogProperties,
+): boolean {
+  if (pendingPostHogEvents.length >= MAX_PENDING_POSTHOG_EVENTS) {
+    pendingPostHogEvents.shift();
+  }
+  pendingPostHogEvents.push({
+    event,
+    properties: {
+      ...getBaseProperties(),
+      ...getSdkLocationProperties(),
+      ...properties,
+    },
+    timestamp: new Date(),
+  });
+  return true;
+}
+
+/**
+ * Captures now when tracking is allowed, queues while consent is unresolved
+ * (initial load and every foreground recheck), and drops when denied. The
+ * queue is flushed after consent resolves true and cleared on denial or reset.
+ */
+export function captureClientPostHogEvent(
+  event: string,
+  properties: PostHogProperties = {}
+): boolean {
+  if (!isPostHogEnabled()) return false;
+  if (postHogTrackingState === "denied") return false;
+  if (postHogTrackingState === "unknown") {
+    return queueClientPostHogEvent(event, properties);
+  }
+  return sendClientPostHogEvent(event, properties);
 }
 
 export function getClientPostHogDistinctId(): string | undefined {
@@ -249,19 +307,7 @@ export function captureClientPostHogEventAfterConsent(
   event: string,
   properties: PostHogProperties = {},
 ): boolean {
-  if (postHogTrackingState === "allowed") {
-    return captureClientPostHogEvent(event, properties);
-  }
-  if (postHogTrackingState === "denied") return false;
-
-  if (pendingPostHogEvents.length >= MAX_PENDING_POSTHOG_EVENTS) {
-    pendingPostHogEvents.shift();
-  }
-  pendingPostHogEvents.push({
-    event,
-    properties: { ...properties },
-  });
-  return true;
+  return captureClientPostHogEvent(event, properties);
 }
 
 export function flushQueuedClientPostHogEvents(): number {
@@ -275,9 +321,10 @@ export function flushQueuedClientPostHogEvents(): number {
     const pendingEvent = events[index];
     if (
       pendingEvent &&
-      captureClientPostHogEvent(
+      sendClientPostHogEvent(
         pendingEvent.event,
         pendingEvent.properties,
+        pendingEvent.timestamp,
       )
     ) {
       capturedCount += 1;
@@ -344,10 +391,9 @@ export function identifyPostHogUser(
   if (!initPostHog()) return;
 
   try {
-    posthog.identify(userId, {
-      ...getBaseProperties(),
-      ...properties,
-    });
+    // Person properties stay stable: page context belongs on events, and a
+    // changed property set makes posthog-js send another $set.
+    posthog.identify(userId, properties);
   } catch (error) {
     if (process.env.NODE_ENV === "development") {
       console.warn("[PostHog] Failed to identify user:", error);
