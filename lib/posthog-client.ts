@@ -135,7 +135,11 @@ export function initPostHog(): boolean {
       api_host: POSTHOG_HOST,
       ui_host: POSTHOG_UI_HOST,
       defaults: "2026-01-30",
-      capture_pageview: false,
+      // PostHog Web Analytics, Paths, and session entry/bounce only read the
+      // SDK's $pageview/$pageleave. PageTracker's page_view stays the canonical
+      // Quiver traffic event; never sum the two in one insight.
+      capture_pageview: "history_change",
+      capture_pageleave: true,
       autocapture: false,
       persistence: "localStorage+cookie",
       loaded: () => {

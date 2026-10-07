@@ -13,7 +13,7 @@
   - Audit known mismatches: `beach-alert-cta` reporting `surface='beach-detail'` near landing-page views, and `state-hub-ca` clicks reporting `surface='other'`.
 
 - [ ] Clean PostHog web navigation instrumentation.
-  - Decide whether Quiver should use custom `page_view`, PostHog `$pageview`, or both; avoid double-counting.
+  - Decided 2026-10-06: both, with separate roles. See `docs/analytics/posthog-pageview-taxonomy.md`.
   - Remove or explain `(unknown)` paths before building a sticky-parts dashboard.
   - Ensure core web events consistently include `pathname`, `page`, `$session_id`, visitor type, and product surface.
 
