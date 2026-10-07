@@ -53,7 +53,7 @@ export function FieldGuideCoverage(): ReactElement {
         </p>
       </div>
 
-      <div className="overflow-hidden rounded-[18px_8px_20px_10px] border-2 border-[#11100D]/15 bg-[#FFFDF4] shadow-[3px_5px_0_rgba(17,16,13,0.12)]">
+      <div className="overflow-hidden rounded-[18px_8px_20px_10px] border-2 border-[#11100D]/15 bg-[#FFFDF4]">
         <div className="grid md:grid-cols-4">
           {COVERAGE_STATS.map((stat, index) => (
             <div
@@ -67,10 +67,10 @@ export function FieldGuideCoverage(): ReactElement {
               <p className="font-mono text-[11px] font-bold uppercase tracking-[0.24em] text-[#11100D]/55">
                 {stat.label}
               </p>
-              <div className="mt-5 font-[var(--font-zine-display)] text-4xl uppercase leading-none text-[#11100D] sm:text-5xl">
+              <div className="mt-5 font-[family-name:var(--font-zine-display)] text-4xl uppercase leading-none text-[#11100D] sm:text-5xl">
                 {stat.value}
                 {stat.suffix ? (
-                  <span className="ml-0.5 text-[#128A48]">{stat.suffix}</span>
+                  <span className="ml-0.5 text-[#06765F]">{stat.suffix}</span>
                 ) : null}
               </div>
               <p className="mt-4 font-mono text-xs leading-relaxed text-[#11100D]/58">
@@ -85,7 +85,7 @@ export function FieldGuideCoverage(): ReactElement {
         <p>Sources: NOAA / NDBC / CO-OPS / CDIP / surfer logs</p>
         <Link
           href="/vs/surfline"
-          className="text-[#11100D] underline decoration-[#F78E42] decoration-2 underline-offset-4 transition hover:text-[#0B3A75] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B3A75]"
+          className="text-[#11100D] underline decoration-[#F78E42] decoration-2 underline-offset-4 transition hover:text-[#AA4918] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#11100D]"
         >
           Vs Surfline -&gt;
         </Link>

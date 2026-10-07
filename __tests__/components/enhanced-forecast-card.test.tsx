@@ -169,7 +169,7 @@ describe("Enhanced Forecast Components", () => {
       );
 
       expect(
-        screen.getByText("No forecast data available")
+        screen.getByText("no data")
       ).toBeInTheDocument();
     });
 

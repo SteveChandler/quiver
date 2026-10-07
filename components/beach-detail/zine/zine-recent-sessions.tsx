@@ -9,7 +9,6 @@ interface ZineRecentSessionsProps {
   beachId: string;
 }
 
-const ROTATIONS = ["rotate(-1.6deg)", "rotate(1.4deg)", "rotate(-0.8deg)"];
 
 interface ZineSessionsBundle {
   sessions: SessionWithDetails[];
@@ -76,11 +75,12 @@ export function ZineRecentSessions({ beachId }: ZineRecentSessionsProps) {
         <div
           className="hidden md:block"
           style={{
-            fontFamily: "var(--font-handwritten), cursive",
-            fontSize: 26,
-            color: "#11100D",
+            fontFamily: "var(--font-mono), monospace",
+            fontSize: 11,
+            color: "#4A463C",
             fontWeight: 700,
-            transform: "rotate(-2deg)",
+            letterSpacing: "0.16em",
+            textTransform: "uppercase",
             lineHeight: 1,
           }}
           aria-hidden
@@ -94,7 +94,6 @@ export function ZineRecentSessions({ beachId }: ZineRecentSessionsProps) {
           <SessionPolaroid
             key={s.id}
             session={s}
-            rotation={ROTATIONS[i] ?? "rotate(0deg)"}
             fallbackPhoto={approvedPhotos[i] ?? approvedPhotos[0] ?? null}
           />
         ))}
@@ -105,11 +104,9 @@ export function ZineRecentSessions({ beachId }: ZineRecentSessionsProps) {
 
 function SessionPolaroid({
   session,
-  rotation,
   fallbackPhoto,
 }: {
   session: SessionWithDetails;
-  rotation: string;
   fallbackPhoto: string | null;
 }) {
   const initials = getInitials(session.profiles?.full_name ?? session.user?.full_name);
@@ -122,8 +119,7 @@ function SessionPolaroid({
     : "";
 
   return (
-    <article className="polaroid relative" style={{ transform: rotation }}>
-      <span className="tape tl" aria-hidden />
+    <article className="polaroid relative">
       <div className="photo">
         <HalftonePhoto src={photoSrc} alt={photoSrc ? `${displayName} session photo` : undefined} height={170} />
       </div>
@@ -133,12 +129,12 @@ function SessionPolaroid({
             width: 26,
             height: 26,
             borderRadius: "50%",
-            background: "#0B3A75",
+            background: "#8A5E00",
             color: "#F4EBD8",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+            fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
             fontSize: 10,
             fontWeight: 900,
           }}
@@ -158,7 +154,7 @@ function SessionPolaroid({
       {rating > 0 && (
         <div className="flex gap-px justify-center mt-2" aria-label={`${rating} of 5 stars`}>
           {[0, 1, 2, 3, 4].map((i) => (
-            <DoodleStar key={i} size={12} color="#0B3A75" filled={i < rating} />
+            <DoodleStar key={i} size={12} color="#8A5E00" filled={i < rating} />
           ))}
         </div>
       )}

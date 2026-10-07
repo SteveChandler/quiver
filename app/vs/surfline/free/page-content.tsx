@@ -325,7 +325,7 @@ function StatusBadge({
   return (
     <div className="flex flex-col items-center gap-1">
       <span
-        className={`inline-flex items-center gap-1 rounded-sm border-2 px-2 py-0.5 text-xs font-black uppercase shadow-[2px_2px_0_rgba(17,16,13,0.18)] ${config.classes}`}
+        className={`inline-flex items-center gap-1 rounded-sm border-2 px-2 py-0.5 text-xs font-black uppercase ${config.classes}`}
       >
         {config.icon}
         {config.text}
@@ -348,7 +348,7 @@ function StickerBadge({
 }) {
   return (
     <span
-      className={`inline-block rounded-sm border-2 border-[#11100D] bg-[#F78E42] px-3 py-1 font-heading text-xs font-black uppercase tracking-[0.16em] text-[#11100D] shadow-[3px_3px_0_rgba(17,16,13,0.28)] ${className}`}
+      className={`inline-block rounded-sm border-2 border-[#11100D] bg-[#F78E42] px-3 py-1 font-heading text-xs font-black uppercase tracking-[0.16em] text-[#11100D] ${className}`}
     >
       {children}
     </span>
@@ -406,7 +406,7 @@ export default async function VsSurflineFreePage() {
         />
         <div
           aria-hidden
-          className="absolute left-0 top-24 hidden h-10 w-2/5 -rotate-[1.5deg] bg-[#F78E42] md:block"
+          className="absolute left-0 top-24 hidden h-10 w-2/5 bg-[#F78E42] md:block"
         />
 
         <div className="relative mx-auto grid max-w-7xl gap-7 lg:grid-cols-[minmax(0,1.02fr)_minmax(380px,0.98fr)] lg:items-end">
@@ -437,14 +437,14 @@ export default async function VsSurflineFreePage() {
             <div className="flex flex-col gap-3 sm:flex-row">
               <Link
                 href="/auth/sign-up"
-                className="inline-flex items-center justify-center gap-2 rounded-sm border-2 border-[#11100D] bg-[#F78E42] px-5 py-3 font-heading text-sm font-black uppercase tracking-[0.08em] text-[#11100D] shadow-[5px_5px_0_rgba(17,16,13,0.3)] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D]"
+                className="inline-flex items-center justify-center gap-2 rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-3 font-heading text-sm font-black uppercase tracking-[0.08em] text-[#11100D] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D]"
               >
                 Start free
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
                 href="/forecast"
-                className="inline-flex items-center justify-center gap-2 rounded-sm border-2 border-[#11100D] bg-[#F8EFD8] px-5 py-3 font-heading text-sm font-black uppercase tracking-[0.08em] text-[#11100D] shadow-[5px_5px_0_rgba(17,16,13,0.18)] transition-transform hover:-translate-y-0.5 hover:bg-[#F78E42] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D]"
+                className="inline-flex items-center justify-center gap-2 rounded-full border-2 border-[#11100D] bg-[#F8EFD8] px-5 py-3 font-heading text-sm font-black uppercase tracking-[0.08em] text-[#11100D] transition-transform hover:-translate-y-0.5 hover:bg-[#F78E42] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D]"
               >
                 Browse Forecasts
               </Link>
@@ -458,7 +458,7 @@ export default async function VsSurflineFreePage() {
               ].map((s, i) => (
                 <div
                   key={s.l}
-                  className={`bg-[#252D6B] text-[#F5EEDC] rounded-[12px_4px_14px_6px] shadow-[2px_3px_0_rgba(0,0,0,0.3)] px-3 py-3 ${["rotate-[-1deg]", "rotate-[1.2deg]", "rotate-[-0.6deg]"][i]}`}
+                  className={`bg-[#252D6B] text-[#F5EEDC] rounded-[12px_4px_14px_6px] px-3 py-3`}
                 >
                   <div className="font-heading font-bold text-2xl leading-none">
                     {s.n}
@@ -472,7 +472,7 @@ export default async function VsSurflineFreePage() {
           </div>
 
           <FadeInSection delay={150} className="relative min-h-[340px] sm:min-h-[430px] lg:min-h-[560px]">
-            <div className="absolute left-1 top-4 w-[76%] -rotate-[3deg] border-2 border-[#11100D] bg-[#F8EFD8] p-3 shadow-[9px_9px_0_rgba(17,16,13,0.28)] sm:left-0 sm:top-8 sm:w-[70%] sm:p-4">
+            <div className="absolute left-1 top-4 w-[76%] border-2 border-[#11100D] bg-[#F8EFD8] p-3 sm:left-0 sm:top-8 sm:w-[70%] sm:p-4">
               <div className="flex items-center justify-between border-b-2 border-[#11100D] pb-2 font-mono text-[10px] font-black uppercase tracking-[0.16em] text-[#252D6B]">
                 <span>Surfline</span>
                 <span>Regional read</span>
@@ -486,7 +486,7 @@ export default async function VsSurflineFreePage() {
               </p>
             </div>
 
-            <div className="absolute bottom-0 right-0 w-[90%] rotate-[1.8deg] border-2 border-[#11100D] bg-[#252D6B] p-3 text-[#F4EBD8] shadow-[13px_13px_0_rgba(17,16,13,0.38)] sm:w-[78%] sm:p-4">
+            <div className="absolute bottom-0 right-0 w-[90%] border-2 border-[#11100D] bg-[#252D6B] p-3 text-[#F4EBD8] sm:w-[78%] sm:p-4">
               <div className="flex items-center justify-between border-b-2 border-[#F78E42] pb-3 font-mono text-[10px] font-black uppercase tracking-[0.18em] text-[#F78E42]">
                 <span>Quiver Oracle</span>
                 <span>Session-aware</span>
@@ -501,7 +501,7 @@ export default async function VsSurflineFreePage() {
                     sessions were best before the wind turned.
                   </p>
                 </div>
-                <div className="flex h-20 w-20 rotate-[-8deg] flex-col items-center justify-center rounded-full border-4 border-[#F78E42] bg-[#F4EBD8] text-center text-[#11100D] shadow-[4px_4px_0_rgba(0,0,0,0.26)] sm:h-24 sm:w-24">
+                <div className="flex h-20 w-20 rotate-[-8deg] flex-col items-center justify-center rounded-full border-4 border-[#F78E42] bg-[#F4EBD8] text-center text-[#11100D] sm:h-24 sm:w-24">
                   <span className="font-heading text-2xl font-black sm:text-3xl">7</span>
                   <span className="font-mono text-[10px] font-black uppercase tracking-[0.12em]">
                     am
@@ -537,8 +537,8 @@ export default async function VsSurflineFreePage() {
       {/* ================================================================= */}
       <section className="relative px-4 py-8 md:py-10">
         <div className="mx-auto max-w-7xl">
-          <div className="relative -rotate-[0.6deg] border-2 border-[#11100D] bg-[#11100D] p-5 text-[#F4EBD8] shadow-[8px_8px_0_rgba(17,16,13,0.25)] md:p-7">
-            <div className="absolute -top-4 left-7 rotate-[-2deg] border-2 border-[#11100D] bg-[#F78E42] px-3 py-1 font-mono text-[10px] font-black uppercase tracking-[0.18em] text-[#11100D]">
+          <div className="relative border-2 border-[#11100D] bg-[#11100D] p-5 text-[#F4EBD8] md:p-7">
+            <div className="absolute -top-4 left-7 border-2 border-[#11100D] bg-[#F78E42] px-3 py-1 font-mono text-[10px] font-black uppercase tracking-[0.18em] text-[#11100D]">
               the short answer
             </div>
             <p className="font-heading text-2xl font-black leading-tight md:text-4xl">
@@ -558,7 +558,7 @@ export default async function VsSurflineFreePage() {
         <div className="mx-auto max-w-7xl">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
-              <p className="inline-flex border-2 border-[#11100D] bg-[#F78E42] px-2 py-1 font-mono text-[10px] font-black uppercase tracking-[0.18em] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.22)]">
+              <p className="inline-flex border-2 border-[#11100D] bg-[#F78E42] px-2 py-1 font-mono text-[10px] font-black uppercase tracking-[0.18em] text-[#11100D]">
                 pick your stack
               </p>
               <h2 className="mt-3 max-w-3xl font-heading text-4xl font-black leading-none text-[#11100D] md:text-6xl">
@@ -643,7 +643,7 @@ export default async function VsSurflineFreePage() {
       {/* ================================================================= */}
       <section className="px-4 py-10 md:py-14">
         <div className="mx-auto max-w-7xl">
-          <div className="relative rotate-[0.25deg] border-2 border-[#11100D] bg-[#F8EFD8] p-4 shadow-[9px_9px_0_rgba(17,16,13,0.22)] md:p-6">
+          <div className="relative border-2 border-[#11100D] bg-[#F8EFD8] p-4 md:p-6">
             <div
               aria-hidden
               className="pointer-events-none absolute inset-0 opacity-[0.16] mix-blend-multiply"
@@ -665,7 +665,7 @@ export default async function VsSurflineFreePage() {
               </div>
               <Link
                 href="/forecast-accuracy"
-                className="inline-flex w-fit items-center gap-2 rounded-sm border-2 border-[#11100D] bg-[#252D6B] px-4 py-2 font-heading text-xs font-black uppercase tracking-[0.1em] text-[#F4EBD8] shadow-[4px_4px_0_rgba(17,16,13,0.24)] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D]"
+                className="inline-flex w-fit items-center gap-2 rounded-sm border-2 border-[#11100D] bg-[#252D6B] px-4 py-2 font-heading text-xs font-black uppercase tracking-[0.1em] text-[#F4EBD8] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D]"
               >
                 How we measure accuracy
                 <ArrowRight className="h-4 w-4" />
@@ -731,7 +731,7 @@ export default async function VsSurflineFreePage() {
           <div className="relative mt-6 space-y-3 md:hidden">
             {COMPARISON_FEATURES.map((row, i) => (
               <AnimatedFeatureRow key={row.feature} index={i}>
-                <div className="border-2 border-[#11100D] bg-[#F4EBD8] p-4 shadow-[4px_4px_0_rgba(17,16,13,0.16)]">
+                <div className="border-2 border-[#11100D] bg-[#F4EBD8] p-4">
                   <p className="font-heading text-lg font-black text-[#11100D]">
                     {row.feature}
                   </p>
@@ -773,7 +773,7 @@ export default async function VsSurflineFreePage() {
       {/* ================================================================= */}
       <section className="px-4 py-10 md:py-16">
         <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[minmax(0,0.92fr)_minmax(360px,1.08fr)] lg:items-start">
-          <div className="relative border-2 border-[#11100D] bg-[#252D6B] p-6 text-[#F4EBD8] shadow-[9px_9px_0_rgba(17,16,13,0.26)] md:p-8">
+          <div className="relative border-2 border-[#11100D] bg-[#252D6B] p-6 text-[#F4EBD8] md:p-8">
             <QuiverSticker
               sticker="navyLightning"
               className="absolute -right-4 -top-6 hidden w-20 rotate-[8deg] drop-shadow-md sm:block"
@@ -793,7 +793,7 @@ export default async function VsSurflineFreePage() {
             <div className="mt-6 flex flex-wrap gap-3">
               <Link
                 href="/forecast-accuracy"
-                className="inline-flex items-center gap-2 rounded-sm border-2 border-[#F78E42] bg-[#F78E42] px-4 py-2 font-heading text-xs font-black uppercase tracking-[0.1em] text-[#11100D] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]"
+                className="inline-flex items-center gap-2 rounded-full border-2 border-[#F78E42] bg-[#F78E42] px-4 py-2 font-heading text-xs font-black uppercase tracking-[0.1em] text-[#11100D] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]"
               >
                 How we measure accuracy
                 <ArrowRight className="h-4 w-4" />
@@ -824,7 +824,7 @@ export default async function VsSurflineFreePage() {
           <h2 className="font-heading text-4xl font-black leading-none text-[#11100D] md:text-5xl">
             FAQ, no fluff.
           </h2>
-          <div className="mt-6 divide-y-2 divide-[#11100D] overflow-hidden border-2 border-[#11100D] bg-[#F8EFD8] shadow-[7px_7px_0_rgba(17,16,13,0.2)]">
+          <div className="mt-6 divide-y-2 divide-[#11100D] overflow-hidden border-2 border-[#11100D] bg-[#F8EFD8]">
             {FAQ_ITEMS.map((faq) => (
               <details key={faq.question} className="group">
                 <summary className="flex cursor-pointer items-center justify-between px-5 py-4 font-sans text-sm font-black text-[#11100D] hover:bg-[#F78E42]/20 [&::-webkit-details-marker]:hidden">
@@ -861,7 +861,7 @@ export default async function VsSurflineFreePage() {
       {/* ================================================================= */}
       <section className="px-4 pb-16 pt-8 md:pb-20">
         <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[minmax(0,0.92fr)_minmax(360px,1.08fr)] lg:items-start">
-          <div className="border-2 border-[#11100D] bg-[#11100D] p-6 text-[#F4EBD8] shadow-[8px_8px_0_rgba(17,16,13,0.26)] md:p-8">
+          <div className="border-2 border-[#11100D] bg-[#11100D] p-6 text-[#F4EBD8] md:p-8">
             <h2 className="font-heading text-4xl font-black leading-none md:text-6xl">
               Ready for a more personal surf call?
             </h2>
@@ -872,7 +872,7 @@ export default async function VsSurflineFreePage() {
             <div className="mt-7 flex flex-col gap-3 sm:flex-row">
               <Link
                 href="/auth/sign-up"
-                className="inline-flex items-center justify-center gap-2 rounded-sm border-2 border-[#F78E42] bg-[#F78E42] px-5 py-3 font-heading text-sm font-black uppercase tracking-[0.08em] text-[#11100D] shadow-[5px_5px_0_rgba(0,0,0,0.26)] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]"
+                className="inline-flex items-center justify-center gap-2 rounded-full border-2 border-[#F78E42] bg-[#F78E42] px-5 py-3 font-heading text-sm font-black uppercase tracking-[0.08em] text-[#11100D] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]"
               >
                 Start Your Personal Forecast
                 <ArrowRight className="h-4 w-4" />
@@ -904,7 +904,7 @@ export default async function VsSurflineFreePage() {
               <Link
                 key={beach.href}
                 href={beach.href}
-                className="group flex items-center justify-between border-2 border-[#11100D] bg-[#F8EFD8] px-4 py-3 font-heading text-base font-black text-[#11100D] shadow-[4px_4px_0_rgba(17,16,13,0.18)] transition-transform hover:-translate-y-0.5 hover:bg-[#F78E42] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D]"
+                className="group flex items-center justify-between border-2 border-[#11100D] bg-[#F8EFD8] px-4 py-3 font-heading text-base font-black text-[#11100D] transition-transform hover:-translate-y-0.5 hover:bg-[#F78E42] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D]"
               >
                 {beach.name}
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
@@ -925,8 +925,8 @@ export default async function VsSurflineFreePage() {
       {/* Keep Reading: Learn Cluster Rail */}
       {/* ================================================================= */}
       <section className="px-4 pb-16 md:pb-20">
-        <div className="mx-auto max-w-7xl border-2 border-[#11100D] bg-[#F8EFD8] p-5 shadow-[6px_6px_0_rgba(17,16,13,0.2)] md:p-7">
-          <p className="inline-flex border-2 border-[#11100D] bg-[#252D6B] px-2 py-1 font-mono text-[10px] font-black uppercase tracking-[0.18em] text-[#F4EBD8] shadow-[2px_2px_0_rgba(17,16,13,0.22)]">
+        <div className="mx-auto max-w-7xl border-2 border-[#11100D] bg-[#F8EFD8] p-5 md:p-7">
+          <p className="inline-flex border-2 border-[#11100D] bg-[#252D6B] px-2 py-1 font-mono text-[10px] font-black uppercase tracking-[0.18em] text-[#F4EBD8]">
             Keep reading
           </p>
           <div className="mt-5 flex flex-wrap gap-4">
@@ -979,11 +979,9 @@ function DecisionCard({
   decision: (typeof QUICK_DECISIONS)[number];
   index: number;
 }) {
-  const rotations = ["rotate-[-0.7deg]", "rotate-[0.45deg]", "rotate-[-0.2deg]"];
-
   const content = (
     <div
-      className={`h-full border-2 border-[#11100D] bg-[#F8EFD8] p-5 shadow-[6px_6px_0_rgba(17,16,13,0.22)] ${rotations[index]}`}
+      className={`h-full border-2 border-[#11100D] bg-[#F8EFD8] p-5`}
     >
       <div className="flex items-start justify-between gap-4">
         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 border-[#11100D] bg-[#F78E42] text-[#11100D]">
@@ -1039,7 +1037,7 @@ function ProofRow({
   index: number;
 }) {
   const row = (
-    <div className="flex gap-4 border-2 border-[#11100D] bg-[#F8EFD8] p-4 shadow-[5px_5px_0_rgba(17,16,13,0.18)]">
+    <div className="flex gap-4 border-2 border-[#11100D] bg-[#F8EFD8] p-4">
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-[#11100D] bg-[#F78E42] text-[#11100D]">
         {item.icon}
       </span>

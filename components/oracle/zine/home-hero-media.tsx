@@ -167,8 +167,9 @@ export function HomeHeroMedia({
       data-viewpoint={active ?? "none"}
       style={{
         background: "#1A1535",
-        border: "1.5px solid #11100D",
-        boxShadow: "4px 6px 0 rgba(17,16,13,0.3)",
+        border: "3px solid #11100D",
+        borderRadius: "16px 6px 18px 8px",
+        boxShadow: "8px 8px 0 #11100D",
       }}
     >
       {active === "swell" && streetsMap && (

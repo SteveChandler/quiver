@@ -15,7 +15,7 @@ interface ActivityFeedProps {
 }
 
 const INK = "#11100D";
-const STAMP_BLUE = "#0B3A75";
+const STAMP_BLUE = "#8A5E00";
 
 function AvatarCircle({
   initial,
@@ -46,13 +46,12 @@ export function ActivityFeed({ items }: ActivityFeedProps) {
           className="px-5 py-6 text-center"
           style={{
             background: "#F0E5CC",
-            boxShadow: "2px 3px 0 rgba(0,0,0,0.16)",
           }}
         >
           <p
             className="mb-1"
             style={{
-              fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+              fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
               fontSize: 16,
               textTransform: "uppercase",
               color: INK,

@@ -138,7 +138,7 @@ export default async function BestTimeToSurfHubPage() {
                 return (
                   <div
                     key={slug}
-                    className="torn border-2 border-[#11100D] bg-[#FBF6E8] p-5 shadow-[2px_3px_0_rgba(17,16,13,0.22)] transition-transform hover:-translate-y-1"
+                    className="torn border-2 border-[#11100D] bg-[#FBF6E8] p-5 transition-transform hover:-translate-y-1"
                   >
                     <h2 className="font-heading text-lg font-black uppercase leading-tight text-[#11100D]">
                       {profile.stateName}
@@ -344,14 +344,14 @@ export default async function BestTimeToSurfHubPage() {
                 <div className="flex flex-wrap gap-3 lg:justify-end">
                   <Link
                     href="/forecast"
-                    className="inline-flex min-h-11 items-center rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)] transition-transform hover:-translate-y-0.5"
+                    className="inline-flex min-h-11 items-center rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-2 font-semibold text-[#11100D] transition-transform hover:-translate-y-0.5"
                   >
                     7-Day Forecast
                     <ArrowRight className="ml-2 h-4 w-4" aria-hidden />
                   </Link>
                   <Link
                     href="/beaches"
-                    className="inline-flex min-h-11 items-center rounded-full border-2 border-[#F4EBD8]/70 bg-[#F4EBD8] px-5 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.25)] transition-transform hover:-translate-y-0.5"
+                    className="inline-flex min-h-11 items-center rounded-full border-2 border-[#F4EBD8]/70 bg-[#F4EBD8] px-5 py-2 font-semibold text-[#11100D] transition-transform hover:-translate-y-0.5"
                   >
                     Browse All Beaches
                     <Waves className="ml-2 h-4 w-4" aria-hidden />

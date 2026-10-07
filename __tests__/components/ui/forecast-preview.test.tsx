@@ -72,7 +72,7 @@ describe("ForecastPreview", () => {
       );
 
       expect(
-        screen.getByText("No forecast data available")
+        screen.getByText("no data")
       ).toBeInTheDocument();
     });
 
@@ -86,7 +86,7 @@ describe("ForecastPreview", () => {
         />
       );
 
-      const noDataElement = screen.getByText("No forecast data available");
+      const noDataElement = screen.getByText("no data");
       expect(noDataElement).toHaveClass("custom-no-data-class");
     });
   });
@@ -450,7 +450,7 @@ describe("ForecastPreview", () => {
 
       expect(screen.getByText("Some error")).toBeInTheDocument();
       expect(
-        screen.queryByText("No forecast data available")
+        screen.queryByText("no data")
       ).not.toBeInTheDocument();
     });
 
@@ -465,7 +465,7 @@ describe("ForecastPreview", () => {
 
       expect(screen.getByText("4-6 ft")).toBeInTheDocument();
       expect(
-        screen.queryByText("No forecast data available")
+        screen.queryByText("no data")
       ).not.toBeInTheDocument();
     });
   });

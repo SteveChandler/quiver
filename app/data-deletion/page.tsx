@@ -66,7 +66,7 @@ export default function DataDeletionPage() {
         </header>
 
         {/* In-App Steps */}
-        <section className="mt-12 border-2 border-[#11100D] bg-[#FBF6E8] p-6 shadow-[2px_3px_0_rgba(17,16,13,0.22)] sm:p-8">
+        <section className="mt-12 border-2 border-[#11100D] bg-[#FBF6E8] p-6 sm:p-8">
           <p className="typewriter mb-2">Recommended</p>
           <h2 className="font-display text-2xl font-black uppercase leading-tight text-[#11100D] sm:text-3xl">
             Delete from inside the app
@@ -108,7 +108,7 @@ export default function DataDeletionPage() {
           <div className="mt-6">
             <Link
               href="mailto:privacy@quiversurf.app?subject=Account%20deletion%20request"
-              className="inline-flex min-h-11 items-center rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)] transition-transform hover:-translate-y-0.5"
+              className="inline-flex min-h-11 items-center rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-2 font-semibold text-[#11100D] transition-transform hover:-translate-y-0.5"
             >
               <Mail className="mr-2 h-5 w-5" aria-hidden />
               privacy@quiversurf.app

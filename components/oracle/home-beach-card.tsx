@@ -4,7 +4,7 @@ import { WaveHeightDisplay } from "@/components/ui/wave-height-display";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
 
 const INK = "#11100D";
-const STAMP_BLUE = "#0B3A75";
+const STAMP_BLUE = "#8A5E00";
 
 interface HomeBeachCardProps {
   /** Recommendation row for the user's home beach (from useSurfDiscovery). */
@@ -43,7 +43,6 @@ export function HomeBeachCard({ rec, onClick }: HomeBeachCardProps) {
       className="cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#F78E42]/60"
       style={{
         background: "#F0E5CC",
-        boxShadow: "2px 4px 0 rgba(0,0,0,0.18)",
       }}
     >
       <div className="flex items-center justify-between gap-4 px-4 py-3 sm:px-5 sm:py-4">
@@ -53,7 +52,6 @@ export function HomeBeachCard({ rec, onClick }: HomeBeachCardProps) {
             style={{
               background: "#F78E42",
               color: "#11100D",
-              boxShadow: "2px 2px 0 rgba(17,16,13,0.3)",
             }}
           >
             Your home
@@ -61,7 +59,7 @@ export function HomeBeachCard({ rec, onClick }: HomeBeachCardProps) {
           <h3
             className="truncate"
             style={{
-              fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+              fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
               fontSize: 20,
               lineHeight: 1.1,
               textTransform: "uppercase",
@@ -85,7 +83,7 @@ export function HomeBeachCard({ rec, onClick }: HomeBeachCardProps) {
           </span>
           <div
             style={{
-              fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+              fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
               fontSize: 20,
               color: STAMP_BLUE,
             }}

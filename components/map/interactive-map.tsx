@@ -3422,7 +3422,7 @@ export function InteractiveMap({
             <button
               ref={mapRetryButtonRef}
               type="button"
-              className="mt-3 min-h-11 rounded-md bg-[#F78E42] px-4 py-2 text-sm font-semibold text-[#151C36] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              className="mt-3 min-h-11 rounded-full bg-[#F78E42] px-4 py-2 text-sm font-semibold text-[#151C36] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
               onClick={() => {
                 shouldRestoreMapFocusRef.current = true;
                 setMapLoadFailure(null);

@@ -94,7 +94,7 @@ function AppFirstHeroSection({
     <section className="noise-texture relative isolate overflow-hidden bg-background text-foreground">
       <div className="mx-auto grid min-h-[76svh] w-full max-w-7xl items-center gap-10 px-5 py-10 sm:px-6 lg:grid-cols-[minmax(0,0.98fr)_minmax(360px,0.82fr)] lg:px-8 lg:py-12">
         <div className="max-w-4xl">
-          <p className="mb-5 inline-flex -rotate-1 rounded-[10px_4px_12px_5px] border border-sunset-orange/35 bg-card/70 px-3 py-1 font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-sunset-orange shadow-[0_2px_0_rgba(0,0,0,0.22)]">
+          <p className="mb-5 inline-flex rounded-[10px_4px_12px_5px] border border-sunset-orange/35 bg-card/70 px-3 py-1 font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-sunset-orange shadow-[0_2px_0_rgba(0,0,0,0.22)]">
             iPhone is live · Android beta is open
           </p>
 

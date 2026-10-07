@@ -347,7 +347,7 @@ function SwellEventCard({
   const isZine = variant === "zine";
   const primaryTextClass = isZine ? "text-[#11100D]" : styles.text;
   const mutedTextClass = isZine ? "text-[#11100D]/62" : "text-muted-foreground";
-  const iconClass = isZine ? "text-[#0B3A75]" : styles.icon;
+  const iconClass = isZine ? "text-[#8A5E00]" : styles.icon;
   const badgeClass = isZine
     ? "border-2 border-[#11100D] bg-[#F78E42] text-[#11100D]"
     : styles.badge;
@@ -355,7 +355,7 @@ function SwellEventCard({
     ? {
         ...styles,
         badge: "bg-[#F78E42] text-[#11100D]",
-        peakBg: "bg-[#0B3A75]",
+        peakBg: "bg-[#11100D]",
       }
     : styles;
 
@@ -365,7 +365,7 @@ function SwellEventCard({
         className={cn(
           "p-3 transition-[box-shadow,transform] duration-200",
           isZine
-            ? "torn torn-tb border-2 border-[#11100D] bg-[#F4EBD8] shadow-[2px_2px_0_rgba(17,16,13,0.35)] hover:-translate-y-0.5"
+            ? "torn torn-tb border-2 border-[#11100D] bg-[#F4EBD8] hover:-translate-y-0.5"
             : cn("rounded-lg border hover:shadow-md", styles.bg, styles.border),
           className
         )}
@@ -400,7 +400,7 @@ function SwellEventCard({
       className={cn(
         "border-2 p-4 transition-[box-shadow,transform] duration-200",
         isZine
-          ? "torn torn-tb border-[#11100D] bg-[#F4EBD8] shadow-[3px_3px_0_rgba(17,16,13,0.35)] hover:-translate-y-0.5"
+          ? "torn torn-tb border-[#11100D] bg-[#F4EBD8] hover:-translate-y-0.5"
           : cn("rounded-xl hover:shadow-lg", styles.bg, styles.border, isLargeSwell && styles.glow),
         className
       )}

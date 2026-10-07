@@ -87,13 +87,13 @@ export async function CamsRegionDirectoryPage({
           <Breadcrumb className="mb-8">
             <BreadcrumbList className="font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#11100D]/55">
               <BreadcrumbItem>
-                <BreadcrumbLink asChild className="hover:text-[#0B3A75]">
+                <BreadcrumbLink asChild className="hover:text-[#AA4918]">
                   <Link href="/">Home</Link>
                 </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator className="text-[#11100D]/35" />
               <BreadcrumbItem>
-                <BreadcrumbLink asChild className="hover:text-[#0B3A75]">
+                <BreadcrumbLink asChild className="hover:text-[#AA4918]">
                   <Link href="/cams">Live Surf Cams</Link>
                 </BreadcrumbLink>
               </BreadcrumbItem>
@@ -123,7 +123,7 @@ export async function CamsRegionDirectoryPage({
                 <CamsShareButton />
                 <Link
                   href="/cams"
-                  className="inline-flex min-h-10 items-center justify-center rounded-[12px_5px_14px_5px] border-2 border-[#11100D] bg-[#F4EBD8] px-4 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_3px_0_rgba(17,16,13,0.16)] transition-transform hover:-translate-y-0.5"
+                  className="inline-flex min-h-10 items-center justify-center rounded-[12px_5px_14px_5px] border-2 border-[#11100D] bg-[#F4EBD8] px-4 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#11100D] transition-transform hover:-translate-y-0.5"
                 >
                   All regions
                 </Link>
@@ -163,9 +163,9 @@ export async function CamsRegionDirectoryPage({
                     <Link
                       key={r.slug}
                       href={getCamRegionPath(r)}
-                      className="torn torn-tb group block border-2 border-[#11100D] bg-[#F0E5CC] p-5 text-[#11100D] shadow-[4px_5px_0_rgba(17,16,13,0.18)] transition-transform hover:-translate-y-1"
+                      className="torn torn-tb group block border-2 border-[#11100D] bg-[#F0E5CC] p-5 text-[#11100D] transition-transform hover:-translate-y-1"
                     >
-                      <h3 className="mb-2 font-[var(--font-zine-display)] text-2xl uppercase leading-none tracking-normal text-[#11100D] transition-colors group-hover:text-[#0B3A75]">
+                      <h3 className="mb-2 font-[family-name:var(--font-zine-display)] text-2xl uppercase leading-none tracking-normal text-[#11100D] transition-colors group-hover:text-[#AA4918]">
                         {r.name}
                       </h3>
                       <p className="font-mono text-xs font-bold uppercase tracking-[0.1em] text-[#11100D]/65">
@@ -179,8 +179,8 @@ export async function CamsRegionDirectoryPage({
           ) : null}
 
           <section className="pb-4">
-            <div className="mx-auto max-w-3xl border-2 border-[#11100D] bg-[#252D6B] p-8 text-center text-[#F4EBD8] shadow-[8px_8px_0_rgba(17,16,13,0.28)]">
-              <h2 className="font-[var(--font-zine-display)] text-4xl uppercase leading-none tracking-normal">
+            <div className="mx-auto max-w-3xl border-2 border-[#11100D] bg-[#252D6B] p-8 text-center text-[#F4EBD8]">
+              <h2 className="font-[family-name:var(--font-zine-display)] text-4xl uppercase leading-none tracking-normal">
                 Know a {region.name}{" "}
                 cam we&apos;re missing?
               </h2>
@@ -189,7 +189,7 @@ export async function CamsRegionDirectoryPage({
               </p>
               <Button
                 asChild
-                className="mt-5 rounded-[14px_6px_16px_6px] bg-[#F78E42] font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_3px_0_rgba(17,16,13,0.35)] hover:bg-[#FDB84B] hover:text-[#11100D]"
+                className="mt-5 rounded-[14px_6px_16px_6px] bg-[#F78E42] font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#11100D] hover:bg-[#FDB84B] hover:text-[#11100D]"
               >
                 <a href="mailto:support@quiversurf.app?subject=Surf%20cam%20suggestion">
                   Suggest a cam

@@ -26,7 +26,7 @@ export function FieldGuideHeroVideo(): ReactElement {
         ariaLabel="Quiver app launch video preview"
         className="absolute inset-0 h-full w-full object-cover"
         playLabel="Play demo"
-        playButtonClassName="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 border-2 border-[#11100D] bg-[#F4EBD8] px-4 py-2 font-mono text-xs font-black uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_3px_0_rgba(17,16,13,0.2)] transition-transform hover:scale-[1.02] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B3A75]"
+        playButtonClassName="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 border-2 border-[#11100D] bg-[#F4EBD8] px-4 py-2 font-mono text-xs font-black uppercase tracking-[0.14em] text-[#11100D] transition-transform hover:scale-[1.02] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#11100D]"
       />
       <div className="absolute bottom-1.5 right-1.5 z-10 border border-[#11100D] bg-[#F4EBD8]/85 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-[#11100D]">
         App preview

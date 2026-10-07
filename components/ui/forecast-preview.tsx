@@ -127,7 +127,7 @@ function ForecastPreviewComponent({
 
     return (
       <div className={`text-sm text-muted-foreground ${className}`}>
-        No forecast data available
+        no data
       </div>
     );
   }

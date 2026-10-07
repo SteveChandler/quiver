@@ -104,7 +104,7 @@ export default function GuidesIndexPage() {
                 <ScrollReveal key={region.slug} delay={index * 50}>
                   <Link
                     href={`/guides/surfing-${region.slug}`}
-                    className="group block min-h-28 border-2 border-[#11100D] bg-[#FBF6E8] p-5 shadow-[2px_3px_0_rgba(17,16,13,0.22)] transition-transform hover:-translate-y-0.5"
+                    className="group block min-h-28 border-2 border-[#11100D] bg-[#FBF6E8] p-5 transition-transform hover:-translate-y-0.5"
                   >
                     <h2 className="font-heading text-xl font-black uppercase leading-tight text-[#11100D] transition-colors group-hover:text-[#B56A2B]">
                       {region.name}

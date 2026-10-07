@@ -239,7 +239,7 @@ export function ForecastDisplay({
         </div>
 
         <div className="text-center py-8">
-          <p className="text-gray-600">No forecast data available</p>
+          <p className="text-gray-600">no data</p>
         </div>
       </div>
     );

@@ -48,6 +48,7 @@ import { sanitizeBeachEditorialContent } from "@/lib/seo/editorial-integrity";
 import {
   selectPublicForecastContextFacts,
   selectPublicForecastReportFacts,
+  selectPublicGeneralCall,
 } from "@/lib/utils/public-forecast-facts";
 import {
   evaluateBeachPageIndexability,
@@ -227,6 +228,12 @@ export default async function GenericBeachDetailPage(props: PageProps) {
       selectPublicForecastReportFacts(surfCallReport);
     const publicForecastContext =
       selectPublicForecastContextFacts(forecastContext);
+    // getSpotSurfReportPublic computes without a user: the general call.
+    const publicGeneralCall = selectPublicGeneralCall(surfCallReport);
+    const publicDecisionWindow = {
+      start: forecastContext?.displayWindowStart ?? surfCallReport?.bestWindowStart ?? null,
+      end: forecastContext?.displayWindowEnd ?? surfCallReport?.bestWindowEnd ?? null,
+    };
     const returnTo = buildBeachUrl(publicBeach);
 
     const nearbyBeachesRaw = nearbyResult?.success && nearbyResult.data
@@ -313,11 +320,9 @@ export default async function GenericBeachDetailPage(props: PageProps) {
                 waterQuality={waterQualityResult}
                 report={publicForecastReport}
                 context={publicForecastContext}
+                generalCall={publicGeneralCall}
                 isTomorrow={surfCallIsTomorrow}
-                publicDecisionWindow={{
-                  start: forecastContext?.displayWindowStart ?? surfCallReport?.bestWindowStart ?? null,
-                  end: forecastContext?.displayWindowEnd ?? surfCallReport?.bestWindowEnd ?? null,
-                }}
+                publicDecisionWindow={publicDecisionWindow}
                 nearbyBeaches={nearbyBeachesRaw}
                 headingLevel="h1"
                 returnTo={returnTo}
@@ -332,6 +337,11 @@ export default async function GenericBeachDetailPage(props: PageProps) {
                   context={publicForecastContext}
                   forecastDay={hourlyForecastDay}
                   returnTo={returnTo}
+                  publicWindow={
+                    hourlyForecastDay === (surfCallIsTomorrow ? "tomorrow" : "today")
+                      ? publicDecisionWindow
+                      : null
+                  }
                 />
                 {forecastContext?.selectedRowTime && forecastContext.waveHeight ? (
                 <HideWhenInstallBarOwns>

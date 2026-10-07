@@ -112,7 +112,7 @@ export default async function CamsHubPage() {
           <Breadcrumb className="mb-8">
             <BreadcrumbList className="font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#11100D]/55">
               <BreadcrumbItem>
-                <BreadcrumbLink asChild className="hover:text-[#0B3A75]">
+                <BreadcrumbLink asChild className="hover:text-[#AA4918]">
                   <Link href="/">Home</Link>
                 </BreadcrumbLink>
               </BreadcrumbItem>
@@ -142,7 +142,7 @@ export default async function CamsHubPage() {
                 <CamsShareButton />
                 <Link
                   href="mailto:support@quiversurf.app?subject=Surf%20cam%20suggestion"
-                  className="inline-flex min-h-10 items-center justify-center rounded-[12px_5px_14px_5px] border-2 border-[#11100D] bg-[#F4EBD8] px-4 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_3px_0_rgba(17,16,13,0.16)] transition-transform hover:-translate-y-0.5"
+                  className="inline-flex min-h-10 items-center justify-center rounded-[12px_5px_14px_5px] border-2 border-[#11100D] bg-[#F4EBD8] px-4 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#11100D] transition-transform hover:-translate-y-0.5"
                 >
                   Suggest a cam
                 </Link>
@@ -167,10 +167,10 @@ export default async function CamsHubPage() {
                   <Link
                     key={region.slug}
                     href={`#${region.slug}`}
-                    className="group inline-flex items-center gap-1.5 rounded-[10px_4px_12px_5px] border-2 border-[#11100D] bg-[#FBF6E8] px-3 py-1.5 font-mono text-xs font-bold uppercase tracking-[0.1em] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.14)] transition-transform hover:-translate-y-0.5 hover:bg-[#F0E5CC]"
+                    className="group inline-flex items-center gap-1.5 rounded-[10px_4px_12px_5px] border-2 border-[#11100D] bg-[#FBF6E8] px-3 py-1.5 font-mono text-xs font-bold uppercase tracking-[0.1em] text-[#11100D] transition-transform hover:-translate-y-0.5 hover:bg-[#F0E5CC]"
                   >
                     {region.name}
-                    <span className="text-[#0B3A75]/70 group-hover:text-[#0B3A75]">
+                    <span className="text-[#8A5E00]/70 group-hover:text-[#AA4918]">
                       ({count})
                     </span>
                   </Link>
@@ -200,7 +200,7 @@ export default async function CamsHubPage() {
                     href={page.path}
                     className="torn torn-tb group block min-h-40 border-2 border-[#11100D] bg-[#FBF6E8] p-5 text-[#11100D] transition-transform hover:-translate-y-1"
                   >
-                    <h3 className="mb-2 font-[var(--font-zine-display)] text-2xl uppercase leading-none tracking-normal text-[#11100D] transition-colors group-hover:text-[#0B3A75]">
+                    <h3 className="mb-2 font-[family-name:var(--font-zine-display)] text-2xl uppercase leading-none tracking-normal text-[#11100D] transition-colors group-hover:text-[#AA4918]">
                       {page.locationName} surf cams
                     </h3>
                     <p className="font-sans text-sm leading-6 text-[#11100D]/70">
@@ -250,7 +250,7 @@ export default async function CamsHubPage() {
                   href={card.href}
                   className="torn torn-tb group block min-h-40 border-2 border-[#11100D] bg-[#F0E5CC] p-5 text-[#11100D] transition-transform hover:-translate-y-1"
                 >
-                  <h3 className="mb-2 font-[var(--font-zine-display)] text-2xl uppercase leading-none tracking-normal text-[#11100D] transition-colors group-hover:text-[#0B3A75]">
+                  <h3 className="mb-2 font-[family-name:var(--font-zine-display)] text-2xl uppercase leading-none tracking-normal text-[#11100D] transition-colors group-hover:text-[#AA4918]">
                     {card.title}
                   </h3>
                   <p className="font-sans text-sm leading-6 text-[#11100D]/70">
@@ -263,8 +263,8 @@ export default async function CamsHubPage() {
 
           {/* Bottom CTA */}
           <section className="pb-4">
-            <div className="mx-auto max-w-3xl border-2 border-[#11100D] bg-[#252D6B] p-8 text-center text-[#F4EBD8] shadow-[8px_8px_0_rgba(17,16,13,0.28)]">
-              <h2 className="font-[var(--font-zine-display)] text-4xl uppercase leading-none tracking-normal">
+            <div className="mx-auto max-w-3xl border-2 border-[#11100D] bg-[#252D6B] p-8 text-center text-[#F4EBD8]">
+              <h2 className="font-[family-name:var(--font-zine-display)] text-4xl uppercase leading-none tracking-normal">
                 Know a cam we&apos;re missing?
               </h2>
               <p className="mt-3 font-sans text-[#F4EBD8]/75">
@@ -272,7 +272,7 @@ export default async function CamsHubPage() {
               </p>
               <Button
                 asChild
-                className="mt-5 rounded-[14px_6px_16px_6px] bg-[#F78E42] font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_3px_0_rgba(17,16,13,0.35)] hover:bg-[#FDB84B] hover:text-[#11100D]"
+                className="mt-5 rounded-[14px_6px_16px_6px] bg-[#F78E42] font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#11100D] hover:bg-[#FDB84B] hover:text-[#11100D]"
               >
                 <a href="mailto:support@quiversurf.app?subject=Surf%20cam%20suggestion">
                   Suggest a cam

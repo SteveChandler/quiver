@@ -139,7 +139,7 @@ function GetAppCta({
       href={href}
       onClick={handleClick}
       className={cn(
-        "inline-flex min-h-12 items-center justify-center gap-3 rounded-[14px_4px_16px_6px] border-2 border-[#11100D] bg-[#F78E42] px-5 py-3 font-heading text-base font-black uppercase leading-none text-[#11100D] shadow-[5px_5px_0_rgba(17,16,13,0.32)] transition-colors hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#252D6B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4EBD8]",
+        "inline-flex min-h-12 items-center justify-center gap-3 rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-3 font-heading text-base font-black uppercase leading-none text-[#11100D] transition-colors hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#252D6B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4EBD8]",
         className,
       )}
       whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
@@ -211,8 +211,8 @@ function VideoModule(): ReactElement {
         </p>
       </div>
 
-      <div className="relative mx-auto w-full max-w-[330px] -rotate-1 border-2 border-[#11100D] bg-[#11100D] p-2 shadow-[10px_10px_0_rgba(247,142,66,0.42)] sm:max-w-[360px] lg:max-w-[340px]">
-        <div className="absolute -left-4 -top-4 z-10 rotate-2 rounded-[12px_4px_14px_6px] border-2 border-[#11100D] bg-[#F4EBD8] px-3 py-2 font-mono text-xs font-bold uppercase leading-tight text-[#11100D] shadow-[3px_3px_0_rgba(17,16,13,0.25)]">
+      <div className="relative mx-auto w-full max-w-[330px] border-2 border-[#11100D] bg-[#11100D] p-2 sm:max-w-[360px] lg:max-w-[340px]">
+        <div className="absolute -left-4 -top-4 z-10 rounded-[12px_4px_14px_6px] border-2 border-[#11100D] bg-[#F4EBD8] px-3 py-2 font-mono text-xs font-bold uppercase leading-tight text-[#11100D]">
           Buoy loop
         </div>
         <div
@@ -241,7 +241,7 @@ function VideoModule(): ReactElement {
               onClick={playVideo}
               className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#F4EBD8]/88 font-heading text-lg font-black uppercase text-[#11100D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-inset"
             >
-              <span className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-[#11100D] bg-[#F78E42] shadow-[4px_4px_0_rgba(17,16,13,0.26)]">
+              <span className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-[#11100D] bg-[#F78E42]">
                 <Play className="ml-1 h-7 w-7 fill-[#11100D]" aria-hidden="true" />
               </span>
               Play video
@@ -251,7 +251,7 @@ function VideoModule(): ReactElement {
           <button
             type="button"
             onClick={toggleMuted}
-            className="absolute bottom-3 right-3 inline-flex min-h-11 items-center gap-2 rounded-[10px_3px_12px_5px] border-2 border-[#11100D] bg-[#F4EBD8] px-3 py-2 font-mono text-xs font-bold uppercase text-[#11100D] shadow-[3px_3px_0_rgba(17,16,13,0.3)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]"
+            className="absolute bottom-3 right-3 inline-flex min-h-11 items-center gap-2 rounded-[10px_3px_12px_5px] border-2 border-[#11100D] bg-[#F4EBD8] px-3 py-2 font-mono text-xs font-bold uppercase text-[#11100D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]"
             aria-pressed={!isMuted}
           >
             {isMuted ? (
@@ -282,7 +282,7 @@ export function PbscWelcomeClient({
         <section className="relative grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
           <div
             aria-hidden
-            className="absolute -right-10 top-5 hidden h-6 w-44 rotate-3 opacity-80 sm:block"
+            className="absolute -right-10 top-5 hidden h-6 w-44 opacity-80 sm:block"
             style={{
               backgroundImage:
                 "linear-gradient(45deg,#11100D 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#11100D 75%),linear-gradient(45deg,transparent 75%,#11100D 75%),linear-gradient(45deg,#11100D 25%,#F4EBD8 25%)",
@@ -293,7 +293,7 @@ export function PbscWelcomeClient({
 
           <div className="relative">
             <motion.div
-              className="mb-5 inline-flex rotate-2 items-center gap-2 rounded-[16px_5px_18px_7px] border-2 border-[#11100D] bg-[#F78E42] px-4 py-2 font-mono text-xs font-bold uppercase leading-tight text-[#11100D] shadow-[4px_4px_0_rgba(17,16,13,0.3)]"
+              className="mb-5 inline-flex items-center gap-2 rounded-[16px_5px_18px_7px] border-2 border-[#11100D] bg-[#F78E42] px-4 py-2 font-mono text-xs font-bold uppercase leading-tight text-[#11100D]"
               initial={
                 shouldReduceMotion
                   ? { opacity: 0, y: 0, rotate: 2 }
@@ -374,7 +374,7 @@ export function PbscWelcomeClient({
           </div>
 
           <motion.aside
-            className="relative border-2 border-[#11100D] bg-[#FFF8E8] p-5 shadow-[9px_9px_0_rgba(17,16,13,0.18)]"
+            className="relative border-2 border-[#11100D] bg-[#FFF8E8] p-5"
             initial={
               shouldReduceMotion
                 ? { opacity: 0, y: 0, rotate: 0 }
@@ -387,7 +387,7 @@ export function PbscWelcomeClient({
                 : { type: "spring", stiffness: 170, damping: 20, delay: 0.82 }
             }
           >
-            <div className="absolute -right-3 -top-3 rotate-3 rounded-[12px_5px_14px_4px] border-2 border-[#11100D] bg-[#252D6B] px-3 py-2 font-mono text-xs font-bold uppercase text-[#F4EBD8] shadow-[3px_3px_0_rgba(247,142,66,0.55)]">
+            <div className="absolute -right-3 -top-3 rounded-[12px_5px_14px_4px] border-2 border-[#11100D] bg-[#252D6B] px-3 py-2 font-mono text-xs font-bold uppercase text-[#F4EBD8]">
               Straight off the flyer
             </div>
             <p className="typewriter flex items-center gap-2">
@@ -423,7 +423,7 @@ export function PbscWelcomeClient({
           {GOOD_DAY_NOTES.map((note, index) => (
             <motion.article
               key={note.title}
-              className="border-2 border-[#11100D] bg-[#FFF8E8] p-5 shadow-[5px_5px_0_rgba(17,16,13,0.14)]"
+              className="border-2 border-[#11100D] bg-[#FFF8E8] p-5"
               initial={
                 shouldReduceMotion
                   ? { opacity: 0, y: 0, rotate: 0 }
@@ -453,7 +453,7 @@ export function PbscWelcomeClient({
           ))}
         </section>
 
-        <section className="mt-12 grid gap-5 border-2 border-[#11100D] bg-[#252D6B] p-5 text-[#F4EBD8] shadow-[8px_8px_0_rgba(17,16,13,0.22)] md:grid-cols-[1fr_auto] md:items-center md:p-6">
+        <section className="mt-12 grid gap-5 border-2 border-[#11100D] bg-[#252D6B] p-5 text-[#F4EBD8] md:grid-cols-[1fr_auto] md:items-center md:p-6">
           <div>
             <p className="font-mono text-xs font-bold uppercase tracking-[0.12em] text-[#FDB84B]">
               You scanned the flyer · Smart move

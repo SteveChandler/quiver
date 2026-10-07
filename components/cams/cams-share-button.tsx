@@ -63,7 +63,7 @@ export function CamsShareButton() {
       variant="outline"
       size="sm"
       onClick={handleShare}
-      className="rounded-[14px_6px_16px_6px] border-2 border-[#11100D] bg-[#F78E42] px-4 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_3px_0_rgba(17,16,13,0.24)] transition-transform hover:-translate-y-0.5 hover:bg-[#FDB84B] hover:text-[#11100D]"
+      className="rounded-[14px_6px_16px_6px] border-2 border-[#11100D] bg-[#F78E42] px-4 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#11100D] transition-transform hover:-translate-y-0.5 hover:bg-[#FDB84B] hover:text-[#11100D]"
       aria-label="Share this page"
     >
       {copied ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}

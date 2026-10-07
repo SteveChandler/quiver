@@ -21,19 +21,19 @@ import {
 function RankBadge({ rank }: { rank: number }) {
   if (rank === 1)
     return (
-      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-amber-500/20 border border-amber-500/40 rotate-[-2deg]">
+      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-amber-500/20 border border-amber-500/40">
         <Trophy className="h-4 w-4 text-amber-400" />
       </div>
     );
   if (rank === 2)
     return (
-      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-300/20 border border-slate-300/40 rotate-[1deg]">
+      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-300/20 border border-slate-300/40">
         <Medal className="h-4 w-4 text-slate-300" />
       </div>
     );
   if (rank === 3)
     return (
-      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-orange-700/20 border border-orange-700/40 rotate-[-1deg]">
+      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-orange-700/20 border border-orange-700/40">
         <Award className="h-4 w-4 text-orange-600" />
       </div>
     );

@@ -39,14 +39,14 @@ interface NearbySpotsProps {
 }
 
 const INK = "#11100D";
-const STAMP_BLUE = "#0B3A75";
+const STAMP_BLUE = "#8A5E00";
 
 /** Ink-on-paper tag colours. The neon set read as a dashboard on cream. */
 const STRATEGY_TAG_COLORS: Record<string, string> = {
   biggest_waves: '#C2410C',
   cleanest: '#006B5F',
   sleep_in: '#5B3A8E',
-  low_crowd: '#0B3A75',
+  low_crowd: '#8A5E00',
   skip: '#B91C1C',
 };
 
@@ -103,7 +103,6 @@ function SpotCard({
             style={{
               backgroundColor: STRATEGY_TAG_COLORS[spot.strategyTag.type] ?? INK,
               color: "#F4EBD8",
-              boxShadow: "2px 2px 0 rgba(0,0,0,0.25)",
             }}
           >
             {spot.strategyTag.label}
@@ -144,7 +143,7 @@ function SpotCard({
         <p
           className="mt-1"
           style={{
-            fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+            fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
             fontSize: 22,
             lineHeight: 1,
             color: STAMP_BLUE,

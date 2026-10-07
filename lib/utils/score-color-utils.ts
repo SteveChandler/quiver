@@ -12,13 +12,13 @@
  * Color configuration for score-based styling
  */
 interface ScoreColorConfig {
-  /** Background color class (e.g., "bg-teal-500") */
+  /** Fill class for a badge with white numerals (e.g., "bg-[#06765F]") */
   bg: string;
-  /** Text color class for score labels (e.g., "text-teal-700 dark:text-teal-300") */
+  /** Label text class on paper (e.g., "text-[#06765F] dark:text-[#06765F]") */
   text: string;
   /** Opaque ink badge treatment for score numbers on paper surfaces */
   paperBadge: string;
-  /** Border color class (e.g., "border-teal-500/30") */
+  /** Border color class (e.g., "border-[#06765F]/30") */
   border: string;
   /** Quality label (e.g., "EPIC", "GOOD", "FAIR", "RIDEABLE", "MEH") */
   label: string;
@@ -66,6 +66,26 @@ export function scoreLabel(score: number): ScoreLabel {
 }
 
 /**
+ * Every class `getScoreColorClasses` can return. This file sits outside
+ * Tailwind's `content` globs, so `tailwind.config.ts` safelists these; without
+ * that, the fills and label colours are never generated.
+ */
+export const SCORE_COLOR_CLASS_SAFELIST: readonly string[] = [
+  "bg-[#06765F]",
+  "text-[#06765F]",
+  "dark:text-[#06765F]",
+  "border-[#06765F]/30",
+  "bg-[#8A5E00]",
+  "text-[#8A5E00]",
+  "dark:text-[#8A5E00]",
+  "border-[#8A5E00]/30",
+  "bg-[#4A463C]",
+  "text-[#11100D]",
+  "dark:text-[#11100D]",
+  "border-[#11100D]/25",
+];
+
+/**
  * A label computed elsewhere (a database match band, a stored snapshot),
  * brought in line with what Quiver shows today.
  */
@@ -87,47 +107,34 @@ export function gateScoreLabel<T extends string>(label: T): T | "GOOD" {
  */
 export function getScoreColorClasses(score: number): ScoreColorConfig {
   const label = scoreLabel(score);
-  if (label === "EPIC") {
+  // Native's call colours on paper (quiver-native score-labels.ts): teal ink
+  // for EPIC/GOOD, gold ink for FAIR/RIDEABLE, ink for MEH. Every score
+  // surface sits on cream paper, and `dark:` always applies under
+  // `.theme-retro-dark`, so both variants carry the paper colour. Fills take
+  // white numerals: teal ink 5.6:1, gold ink 5.0:1, muted ink 9.3:1.
+  if (label === "EPIC" || label === "GOOD") {
     return {
-      bg: "bg-teal-500",
-      text: "text-teal-700 dark:text-teal-300",
+      bg: "bg-[#06765F]",
+      text: "text-[#06765F] dark:text-[#06765F]",
       paperBadge: PAPER_SCORE_BADGE_CLASSES,
-      border: "border-teal-500/30",
-      label: "EPIC",
+      border: "border-[#06765F]/30",
+      label,
     };
   }
-  if (label === "GOOD") {
+  if (label === "FAIR" || label === "RIDEABLE") {
     return {
-      bg: "bg-ocean-blue-decorative",
-      text: "text-ocean-blue dark:text-ocean-blue-decorative",
+      bg: "bg-[#8A5E00]",
+      text: "text-[#8A5E00] dark:text-[#8A5E00]",
       paperBadge: PAPER_SCORE_BADGE_CLASSES,
-      border: "border-ocean-blue-decorative/40",
-      label: "GOOD",
-    };
-  }
-  if (label === "FAIR") {
-    return {
-      bg: "bg-accent-orange",
-      text: "text-amber-800 dark:text-accent-orange",
-      paperBadge: PAPER_SCORE_BADGE_CLASSES,
-      border: "border-accent-orange/40",
-      label: "FAIR",
-    };
-  }
-  if (label === "RIDEABLE") {
-    return {
-      bg: "bg-slate-500",
-      text: "text-slate-600 dark:text-slate-300",
-      paperBadge: PAPER_SCORE_BADGE_CLASSES,
-      border: "border-slate-500/30",
-      label: "RIDEABLE",
+      border: "border-[#8A5E00]/30",
+      label,
     };
   }
   return {
-    bg: "bg-slate-400",
-    text: "text-slate-500 dark:text-slate-400",
+    bg: "bg-[#4A463C]",
+    text: "text-[#11100D] dark:text-[#11100D]",
     paperBadge: PAPER_SCORE_BADGE_CLASSES,
-    border: "border-slate-400/30",
+    border: "border-[#11100D]/25",
     label: "MEH",
   };
 }

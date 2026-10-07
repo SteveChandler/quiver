@@ -11,7 +11,7 @@
   --paper-shadow: #E5D4B3;
   --paper-deep: #D9C49C;
   --stamp-red: #B91C1C;
-  --stamp-blue: #0B3A75;
+  --kicker-ink: #8A5E00;
   --tape: #C8A46B;
   --tape-light: #DCC18B;
   --warning-black: #0A0A08;
@@ -25,16 +25,15 @@
   --q-orange: #F78E42;
   --q-cream: #F5EEDC;
 
-  /* torn paper geometry */
-  --zine-torn-edge-depth: 16px;
+  /* paper card inset */
   --zine-torn-inset: 20px;
 
   /* font stacks — first family is the next/font variable, then design fallbacks */
-  --f-rough: var(--font-zine-display), 'Bowlby One', 'Big Shoulders Stencil', var(--font-heading), 'Space Grotesk', sans-serif;
-  --f-stencil: var(--font-zine-display), 'Bowlby One', var(--font-heading), 'Space Grotesk', sans-serif;
+  --f-rough: var(--font-zine-display), var(--font-heading), 'Space Grotesk', sans-serif;
+  --f-stencil: var(--font-zine-display), var(--font-heading), 'Space Grotesk', sans-serif;
   --f-mono: var(--font-mono), 'Space Mono', 'Special Elite', ui-monospace, monospace;
-  --f-marker: var(--font-zine-marker), 'Permanent Marker', var(--font-handwritten), 'Caveat', cursive;
-  --f-hand: var(--font-handwritten), 'Caveat', var(--font-zine-marker), 'Permanent Marker', cursive;
+  /* Native sets only Space Grotesk, Space Mono, DM Sans and Inter, so the
+     zine has no handwritten or marker face. */
   --f-body: var(--font-sans), 'DM Sans', system-ui, sans-serif;
 
   font-family: var(--f-body);
@@ -44,22 +43,14 @@
 }
 
 /* ─── Twilight backdrop with subtle vignette ────────────── */
+/* Deep Twilight, the colour every native screen sits on, so paper moves
+   from the web page into the app without the stage changing under it. */
 .zine-tab .zine-stage {
   position: relative;
-  background:
-    radial-gradient(ellipse at top, rgba(60, 70, 160, 0.35), transparent 60%),
-    linear-gradient(180deg, var(--q-bg-1) 0%, var(--q-bg-0) 60%, #06070F 100%);
+  background: var(--q-twilight);
   padding: 32px 0 48px;
   overflow: hidden;
   isolation: isolate;
-}
-.zine-tab .zine-stage::before {
-  content: "";
-  position: absolute; inset: 0;
-  pointer-events: none;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/><feColorMatrix values='0 0 0 0 0.96 0 0 0 0 0.93 0 0 0 0 0.86 0 0 0 0.18 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
-  opacity: 0.25;
-  mix-blend-mode: overlay;
 }
 
 /* tiny Quiver masthead byline */
@@ -89,118 +80,50 @@
 }
 
 /* ─── Paper sheet ────────────────────────────────────────── */
+/* Native's paper card: flat paper, a 1px paper-shadow edge, 14px corners
+   with the top-right swept to 22px. No grain, fleck or drop shadow. */
 .zine-tab .zine-paper {
   position: relative;
   width: 1180px;
   max-width: calc(100% - 32px);
   margin: 0 auto;
   background: var(--paper);
-  background-image:
-    radial-gradient(circle at 20% 10%, rgba(0,0,0,0.04), transparent 50%),
-    radial-gradient(circle at 80% 60%, rgba(0,0,0,0.05), transparent 55%),
-    radial-gradient(circle at 50% 100%, rgba(0,0,0,0.06), transparent 50%);
-  box-shadow:
-    0 30px 80px rgba(0,0,0,0.55),
-    0 6px 20px rgba(0,0,0,0.35),
-    inset 0 0 80px rgba(180, 140, 80, 0.12);
+  border: 1px solid var(--paper-shadow);
+  border-radius: 14px 22px 14px 14px;
   padding: 36px 40px 48px;
   color: var(--ink);
 }
+/* Zero specificity: children stay containing blocks, but a sticker's own
+   `absolute` utility still places it where its author put it. */
+:where(.zine-tab .zine-paper) > * { position: relative; z-index: 1; }
 
-/* paper grain overlay */
-.zine-tab .zine-paper::before {
-  content: "";
-  position: absolute; inset: 0;
-  pointer-events: none;
-  background-image:
-    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320'><filter id='p'><feTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='3' seed='5'/><feColorMatrix values='0 0 0 0 0.32 0 0 0 0 0.25 0 0 0 0 0.15 0 0 0 0.16 0'/></filter><rect width='100%25' height='100%25' filter='url(%23p)'/></svg>");
-  mix-blend-mode: multiply;
-  opacity: 0.35;
-}
-/* photocopy fleck */
-.zine-tab .zine-paper::after {
-  content: "";
-  position: absolute; inset: 0;
-  pointer-events: none;
-  background-image:
-    radial-gradient(circle at 12% 32%, rgba(0,0,0,0.18) 0.5px, transparent 1.2px),
-    radial-gradient(circle at 78% 88%, rgba(0,0,0,0.14) 0.5px, transparent 1px),
-    radial-gradient(circle at 45% 12%, rgba(0,0,0,0.12) 0.5px, transparent 1px);
-  background-size: 7px 9px, 11px 7px, 9px 11px;
-  mix-blend-mode: multiply;
-  opacity: 0.55;
-}
-.zine-tab .zine-paper > * { position: relative; z-index: 1; }
-
-/* ─── Universal: torn paper module ───────────────────────── */
+/* ─── Universal: paper module ───────────────────────────── */
+/* Kept as .torn for existing markup; it now draws native's flat paper card
+   instead of a torn, shadowed scrap. */
 :where(.zine-tab) .torn {
   position: relative;
   background: var(--paper);
-  background-image: radial-gradient(circle at 30% 70%, rgba(0,0,0,0.04), transparent 60%);
   padding: var(--zine-torn-inset);
-  box-shadow:
-    2px 3px 0 rgba(0,0,0,0.18),
-    0 8px 18px rgba(0,0,0,0.12);
 }
-:where(.zine-tab) .torn::before {
-  content: "";
-  position: absolute; inset: 0;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' seed='9'/><feColorMatrix values='0 0 0 0 0.32 0 0 0 0 0.25 0 0 0 0 0.15 0 0 0 0.13 0'/></filter><rect width='100%25' height='100%25' filter='url(%23g)'/></svg>");
-  mix-blend-mode: multiply;
-  opacity: 0.35;
-  pointer-events: none;
-}
-
-/* deckled edge masks for torn modules — top + bottom torn */
-.zine-tab .torn-tb {
-  -webkit-mask-image:
-    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 16' preserveAspectRatio='none'><path d='M0,7 C40,3 70,10 110,6 C150,1 190,9 230,5 C270,2 310,9 350,4 C390,2 430,10 470,6 C510,2 550,9 600,5 C650,1 690,9 730,5 C770,2 820,10 860,5 C900,2 940,9 1000,5 L1000,16 L0,16 Z' fill='black'/></svg>"),
-    linear-gradient(black, black),
-    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 16' preserveAspectRatio='none'><path d='M0,0 H1000 V10 C950,15 910,7 870,12 C820,15 770,8 720,12 C670,15 630,7 590,11 C540,15 500,8 450,12 C400,15 360,7 320,11 C270,15 220,7 180,11 C140,15 80,8 40,12 C20,15 0,11 0,11 Z' fill='black'/></svg>");
-  mask-image:
-    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 16' preserveAspectRatio='none'><path d='M0,7 C40,3 70,10 110,6 C150,1 190,9 230,5 C270,2 310,9 350,4 C390,2 430,10 470,6 C510,2 550,9 600,5 C650,1 690,9 730,5 C770,2 820,10 860,5 C900,2 940,9 1000,5 L1000,16 L0,16 Z' fill='black'/></svg>"),
-    linear-gradient(black, black),
-    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 16' preserveAspectRatio='none'><path d='M0,0 H1000 V10 C950,15 910,7 870,12 C820,15 770,8 720,12 C670,15 630,7 590,11 C540,15 500,8 450,12 C400,15 360,7 320,11 C270,15 220,7 180,11 C140,15 80,8 40,12 C20,15 0,11 0,11 Z' fill='black'/></svg>");
-  -webkit-mask-position: top, center, bottom;
-  mask-position: top, center, bottom;
-  -webkit-mask-repeat: no-repeat;
-  mask-repeat: no-repeat;
-  -webkit-mask-size: 100% var(--zine-torn-edge-depth), 100% calc(100% - var(--zine-torn-edge-depth) - var(--zine-torn-edge-depth)), 100% var(--zine-torn-edge-depth);
-  mask-size: 100% var(--zine-torn-edge-depth), 100% calc(100% - var(--zine-torn-edge-depth) - var(--zine-torn-edge-depth)), 100% var(--zine-torn-edge-depth);
-  -webkit-mask-composite: source-over, source-over;
-  mask-composite: add, add;
+/* Pages still pass these cards a 2px ink border and a soft drop. Native
+   outlines only its standouts, so the paper edge wins here. */
+.zine-tab .torn,
+.zine-tab .notebook {
+  border: 1px solid var(--paper-shadow) !important;
+  border-radius: 14px 22px 14px 14px;
+  box-shadow: none !important;
 }
 
 /* ─── Tape pieces ────────────────────────────────────────── */
-.zine-tab .tape {
-  position: absolute;
-  width: 88px; height: 22px;
-  background: linear-gradient(180deg, rgba(220, 193, 139, 0.85), rgba(200, 164, 107, 0.78));
-  border-left: 1px dashed rgba(0,0,0,0.06);
-  border-right: 1px dashed rgba(0,0,0,0.06);
-  box-shadow: 0 2px 4px rgba(0,0,0,0.15);
-  z-index: 4;
-  pointer-events: none;
-  background-image:
-    repeating-linear-gradient(90deg, rgba(0,0,0,0.04) 0 2px, transparent 2px 6px),
-    linear-gradient(180deg, rgba(220, 193, 139, 0.85), rgba(200, 164, 107, 0.78));
-}
-.zine-tab .tape::after {
-  content: "";
-  position: absolute; inset: 0;
-  background: radial-gradient(ellipse at 50% 50%, rgba(255,255,255,0.18), transparent 60%);
-}
-.zine-tab .tape.tl { top: -8px; left: -22px; transform: rotate(-32deg); }
-.zine-tab .tape.tr { top: -8px; right: -22px; transform: rotate(28deg); }
-.zine-tab .tape.bl { bottom: -8px; left: -22px; transform: rotate(28deg); }
-.zine-tab .tape.br { bottom: -8px; right: -22px; transform: rotate(-32deg); }
+/* Native pins nothing to the page. Markup still carries tape spans. */
+.zine-tab .tape { display: none; }
 
 /* ─── Stamps & badges ───────────────────────────────────── */
 .zine-tab .stamp-circle {
   width: 130px; height: 130px;
-  border: 4px solid var(--stamp-blue);
+  border: 4px solid var(--kicker-ink);
   border-radius: 50%;
-  color: var(--stamp-blue);
+  color: var(--kicker-ink);
   display: flex; align-items: center; justify-content: center;
   flex-direction: column;
   font-family: var(--f-stencil);
@@ -211,14 +134,12 @@
   line-height: 0.95;
   font-size: 18px;
   position: relative;
-  filter: url(#zine-rough-edge);
-  transform: rotate(-8deg);
-  background: rgba(244, 235, 216, 0.6);
+  background: var(--paper);
 }
 .zine-tab .stamp-circle::before {
   content: "";
   position: absolute; inset: 6px;
-  border: 2px solid var(--stamp-blue);
+  border: 2px solid var(--kicker-ink);
   border-radius: 50%;
   opacity: 0.6;
 }
@@ -236,7 +157,6 @@
   padding: 8px 14px;
   font-size: 16px;
   position: relative;
-  box-shadow: 2px 3px 0 rgba(0,0,0,0.25);
 }
 
 /* typewriter eyebrow */
@@ -260,32 +180,18 @@
   width: 38px; height: 38px;
   border: 2.5px solid var(--ink);
   border-radius: 50%;
-  font-family: var(--f-marker);
+  font-family: var(--f-rough);
   font-weight: 700;
   font-size: 18px;
-  filter: url(#zine-rough-edge);
 }
 
-/* notebook ruled paper */
+/* notebook: was ruled paper with hole punches; now native's flat card */
 .zine-tab .notebook {
-  background:
-    linear-gradient(transparent 31px, #B6C8D8 31px, #B6C8D8 32px, transparent 32px) 0 0/100% 32px,
-    #FBF6E8;
-  border-left: 2px solid #D89A9A;
-  padding: 18px 22px 24px 28px;
+  background: var(--paper);
+  border: 1px solid var(--paper-shadow);
+  border-radius: 14px 22px 14px 14px;
+  padding: 18px 22px 24px;
   position: relative;
-  box-shadow: 2px 3px 0 rgba(0,0,0,0.15), 0 8px 16px rgba(0,0,0,0.08);
-}
-.zine-tab .notebook::before {
-  /* hole punches */
-  content: "";
-  position: absolute;
-  left: 8px; top: 0; bottom: 0;
-  width: 14px;
-  background-image: radial-gradient(circle, rgba(0,0,0,0.22) 4px, transparent 5px);
-  background-size: 14px 90px;
-  background-repeat: repeat-y;
-  background-position: center 30px;
 }
 
 /* halftone over real photos */
@@ -324,7 +230,8 @@
   color: var(--paper);
   padding: 32px 22px 22px;
   position: relative;
-  box-shadow: 3px 4px 0 rgba(0,0,0,0.4), 0 12px 24px rgba(0,0,0,0.3);
+  border-radius: 14px 22px 14px 14px;
+  overflow: hidden;
 }
 .zine-tab .hazards-panel::before {
   content: "";
@@ -334,35 +241,42 @@
 
 /* condition strip */
 .zine-tab .condition-strip {
-  background: linear-gradient(180deg, #F0E6CC, #E2D2AC);
+  background: var(--paper);
+  border: 1px solid var(--paper-shadow);
+  border-radius: 14px 22px 14px 14px;
   padding: 20px 18px;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 0;
-  box-shadow: inset 0 0 0 1px rgba(17,16,13,0.18), 2px 3px 0 rgba(0,0,0,0.15);
   position: relative;
 }
 
 /* polaroid */
 .zine-tab .polaroid {
-  background: #FBF6E8;
-  padding: 8px 8px 22px;
-  box-shadow: 2px 4px 0 rgba(0,0,0,0.18), 0 10px 22px rgba(0,0,0,0.12);
+  background: var(--paper);
+  border: 1px solid var(--paper-shadow);
+  border-radius: 14px 22px 14px 14px;
+  padding: 8px 8px 14px;
   position: relative;
+  overflow: hidden;
 }
 .zine-tab .polaroid .photo {
   width: 100%;
   aspect-ratio: 4/3;
-  background: #B8A892;
+  background: var(--paper-shadow);
+  border-radius: 8px 14px 8px 8px;
   position: relative;
   overflow: hidden;
 }
 .zine-tab .polaroid .cap {
-  font-family: var(--f-hand);
-  font-size: 22px;
+  font-family: var(--f-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
   color: var(--ink);
-  margin-top: 6px;
-  line-height: 1.05;
+  margin-top: 10px;
+  line-height: 1.3;
   text-align: center;
 }
 /* Polaroid beside a tall display headline: goes portrait so it rises to the top
@@ -377,24 +291,23 @@
 
 /* spot summary strip */
 .zine-tab .summary-strip {
-  background: #C8A46B;
-  background-image:
-    repeating-linear-gradient(90deg, rgba(0,0,0,0.04) 0 2px, transparent 2px 8px),
-    linear-gradient(180deg, #D2AE7A, #B8945A);
+  background: #F6E9CE;
+  border: 1px solid var(--paper-shadow);
+  border-radius: 14px 22px 14px 14px;
   padding: 18px 24px;
   display: grid;
   grid-template-columns: auto 1fr auto 1fr auto 1fr;
   gap: 18px;
   align-items: center;
-  box-shadow: 2px 4px 0 rgba(0,0,0,0.25), inset 0 0 0 2px rgba(0,0,0,0.1);
   position: relative;
 }
 
 /* utility strip background */
 .zine-tab .utility-strip {
-  background: #F0E5CC;
+  background: var(--paper);
+  border: 1px solid var(--paper-shadow);
+  border-radius: 14px 22px 14px 14px;
   padding: 22px 24px;
-  box-shadow: 2px 4px 0 rgba(0,0,0,0.18), 0 10px 22px rgba(0,0,0,0.1);
   position: relative;
 }
 
@@ -415,22 +328,12 @@
   color: var(--ink);
 }
 
-/* helper rotations */
-.zine-tab .rot-1 { transform: rotate(-0.6deg); }
-.zine-tab .rot-2 { transform: rotate(1deg); }
-.zine-tab .rot-3 { transform: rotate(-1.4deg); }
-.zine-tab .rot-4 { transform: rotate(2deg); }
-.zine-tab .rot-neg { transform: rotate(-2.2deg); }
-
-@media (max-width: 900px) {
-  .zine-tab .rot-1,
-  .zine-tab .rot-2,
-  .zine-tab .rot-3,
-  .zine-tab .rot-4,
-  .zine-tab .rot-neg {
-    transform: none;
-  }
-}
+/* helper rotations: native sets paper square to the screen */
+.zine-tab .rot-1,
+.zine-tab .rot-2,
+.zine-tab .rot-3,
+.zine-tab .rot-4,
+.zine-tab .rot-neg { transform: none; }
 
 /* ─── Mobile (<= 640px) ─────────────────────────────────── */
 @media (max-width: 640px) {
@@ -458,7 +361,6 @@
   }
   .zine-tab .stamp-circle .lg { font-size: 26px; }
   .zine-tab .label-black { font-size: 13px; padding: 6px 10px; }
-  .zine-tab .polaroid .cap { font-size: 18px; }
 }
 
 /* ─── Display type on zine headings ──────────────────────── */
@@ -486,14 +388,6 @@
 
 /* ─── Reduced motion ─────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
-  .zine-tab .rot-1,
-  .zine-tab .rot-2,
-  .zine-tab .rot-3,
-  .zine-tab .rot-4,
-  .zine-tab .rot-neg,
-  .zine-tab .stamp-circle {
-    transform: none;
-  }
   .zine-tab .zine-developing {
     animation: none;
   }
@@ -515,7 +409,7 @@
 .zine-tab .zine-h1-suffix {
   display: block;
   margin-top: 0.32em;
-  color: var(--stamp-blue);
+  color: var(--kicker-ink);
   font-family: var(--f-stencil);
   font-size: clamp(17px, 2.4vw, 28px);
   letter-spacing: 0.055em;
@@ -541,7 +435,6 @@
   border-left: none;
   border-right: none;
   margin-bottom: 24px;
-  box-shadow: 0 4px 0 rgba(0,0,0,0.12);
 }
 
 .zine-page .zine-tabs-slot [role="tablist"] {
@@ -551,7 +444,7 @@
 .zine-page .zine-tabs-slot [role="tab"] {
   background: transparent !important;
   color: #11100D !important;
-  font-family: var(--font-zine-display), 'Bowlby One', sans-serif !important;
+  font-family: var(--font-zine-display), 'Space Grotesk', sans-serif !important;
   font-weight: 400 !important;
   font-size: 13px !important;
   letter-spacing: 0.06em;
@@ -588,11 +481,11 @@
 .zine-page .zine-tabs-slot [data-zine-directions] {
   height: 100%;
   justify-content: center;
-  background: #0B3A75 !important;
+  background: #11100D !important;
   color: #F4EBD8 !important;
   border-bottom: none !important;
   box-shadow: none !important;
-  font-family: var(--font-zine-display), 'Bowlby One', sans-serif !important;
+  font-family: var(--font-zine-display), 'Space Grotesk', sans-serif !important;
   font-size: 14px !important;
   font-weight: 400 !important;
   letter-spacing: 0.05em;
@@ -600,8 +493,9 @@
 }
 
 .zine-page .zine-tabs-slot [data-zine-directions]:hover {
-  background: #0A2F5E !important;
+  background: #11100D !important;
   color: #F4EBD8 !important;
+  opacity: 0.88;
 }
 
 .zine-page .zine-tabs-slot [data-zine-directions]:disabled {
@@ -628,10 +522,10 @@ body:has(.zine-page) {
    Forecast tab now lives inside the cream zine paper, so the
    muted-foreground header copy ("11-Day Outlook" / "Tap a day to
    view details") becomes nearly invisible. Promote the header
-   to zine typography (Bowlby ink stencil) and darken the hint.
+   to zine typography (bold display ink) and darken the hint.
    ─────────────────────────────────────────────────────────── */
 .zine-page .zine-tabs-slot section h2 {
-  font-family: var(--font-zine-display), 'Bowlby One', sans-serif !important;
+  font-family: var(--font-zine-display), 'Space Grotesk', sans-serif !important;
   font-weight: 400 !important;
   font-size: 14px !important;
   letter-spacing: 0.06em !important;
@@ -641,7 +535,7 @@ body:has(.zine-page) {
 }
 
 /* The install CTA is a self-contained card, not a tab section heading. The rule
-   above crushes its h2 to 14px uppercase Bowlby One - the same size as its own
+   above crushes its h2 to 14px uppercase display type - the same size as its own
    body copy - leaving the card with no hierarchy on beach detail. Utilities
    cannot beat those !important declarations, so reset them here. */
 .zine-page .zine-tabs-slot section.install-cta h2.install-cta-heading {
@@ -799,12 +693,12 @@ body:has(.zine-page) {
    navy so it doesn't disappear into the sticky-bar shadow.
    ─────────────────────────────────────────────────────────── */
 .zine-page .zine-tabs-slot [data-day-card] button {
-  font-family: var(--font-zine-display), 'Bowlby One', sans-serif;
+  font-family: var(--font-zine-display), 'Space Grotesk', sans-serif;
   font-weight: 400;
   letter-spacing: 0.02em;
   border-width: 2.5px !important;
   border-color: #11100D !important;
-  box-shadow: 2px 3px 0 rgba(17, 16, 13, 0.25) !important;
+  box-shadow: none !important;
   color: #11100D !important;
 }
 
@@ -815,7 +709,6 @@ body:has(.zine-page) {
 .zine-page .zine-tabs-slot [data-day-card] button .text-xs,
 .zine-page .zine-tabs-slot [data-day-card] button .text-lg,
 .zine-page .zine-tabs-slot [data-day-card] button .text-\[11px\] {
-  text-shadow: 0 1px 0 rgba(17, 16, 13, 0.18);
 }
 
 /* Tier-specific cream-paper palette — keep the quality signal
@@ -839,7 +732,7 @@ body:has(.zine-page) {
    so it reads on cream. */
 .zine-page .zine-tabs-slot [data-day-card] button.ring-ocean-blue {
   --tw-ring-color: #11100D !important;
-  box-shadow: 3px 4px 0 rgba(17, 16, 13, 0.4) !important;
+  box-shadow: none !important;
 }
 
 /* ───────────────────────────────────────────────────────────
@@ -856,7 +749,7 @@ body:has(.zine-page) {
 .zine-page .zine-tabs-slot section.bg-\[\#141937\] {
   background-color: #F4EBD8 !important;
   border-color: #11100D !important;
-  box-shadow: 3px 4px 0 rgba(17, 16, 13, 0.18) !important;
+  box-shadow: none !important;
 }
 
 /* Three primary stat cards (Tide / Wind / Swell) — keep the
@@ -864,7 +757,7 @@ body:has(.zine-page) {
    the dark navy fill to cream and shrink the heavy navy shadow. */
 .zine-page .zine-tabs-slot section.bg-\[\#141937\] .bg-\[\#141937\] {
   background-color: #F0E5CC !important;
-  box-shadow: 2px 3px 0 rgba(17, 16, 13, 0.18) !important;
+  box-shadow: none !important;
   border-color: rgba(17, 16, 13, 0.25) !important;
 }
 
@@ -895,7 +788,7 @@ body:has(.zine-page) {
 .zine-page .zine-tabs-slot .text-\[\#FFA559\],
 .zine-page .zine-tabs-slot .text-\[\#8DC8F5\],
 .zine-page .zine-tabs-slot .text-\[\#FDCA7B\] {
-  color: #0B3A75 !important;
+  color: #8A5E00 !important;
 }
 
 /* Primary stat card icon-circle backgrounds + borders were
@@ -904,12 +797,12 @@ body:has(.zine-page) {
 .zine-page .zine-tabs-slot .bg-\[rgba\(247\,142\,66\,0\.1\)\],
 .zine-page .zine-tabs-slot .bg-\[rgba\(108\,180\,238\,0\.1\)\],
 .zine-page .zine-tabs-slot .bg-\[rgba\(253\,184\,75\,0\.1\)\] {
-  background-color: rgba(11, 58, 117, 0.08) !important;
+  background-color: #F6E9CE !important;
 }
 .zine-page .zine-tabs-slot .border-\[rgba\(247\,142\,66\,0\.15\)\],
 .zine-page .zine-tabs-slot .border-\[rgba\(108\,180\,238\,0\.15\)\],
 .zine-page .zine-tabs-slot .border-\[rgba\(253\,184\,75\,0\.15\)\] {
-  border-color: rgba(11, 58, 117, 0.25) !important;
+  border-color: rgba(138, 94, 0, 0.25) !important;
 }
 
 /* Forecast sub-tabs list (Today / Tides / Conditions) — was
@@ -922,7 +815,7 @@ body:has(.zine-page) {
 .zine-page .zine-tabs-slot [data-state="active"][data-radix-collection-item] {
   background-color: #11100D !important;
   color: #F4EBD8 !important;
-  box-shadow: 2px 2px 0 rgba(17, 16, 13, 0.4) !important;
+  box-shadow: none !important;
 }
 
 /* TideStatusStrip — was bg-white/95 border-blue-100/60. */
@@ -956,8 +849,8 @@ body:has(.zine-page) {
 }
 .zine-page .zine-tabs-slot [data-testid="tide-conditions-card"] .from-blue-50\/80,
 .zine-page .zine-tabs-slot [data-testid="tide-conditions-card"] .to-indigo-50\/80 {
-  --tw-gradient-from: #0B3A75 !important;
-  --tw-gradient-to: #0B3A75 !important;
+  --tw-gradient-from: #11100D !important;
+  --tw-gradient-to: #11100D !important;
 }
 .zine-page .zine-tabs-slot [data-testid="tide-conditions-card"] .text-gray-800 {
   color: #F4EBD8 !important;
@@ -973,16 +866,16 @@ body:has(.zine-page) {
    already flattens; we override the deep-color stops here. */
 .zine-page .zine-tabs-slot .from-blue-600,
 .zine-page .zine-tabs-slot .to-cyan-500 {
-  --tw-gradient-from: #0B3A75 !important;
-  --tw-gradient-to: #0B3A75 !important;
+  --tw-gradient-from: #11100D !important;
+  --tw-gradient-to: #11100D !important;
 }
 .zine-page .zine-tabs-slot .from-blue-600.to-cyan-500,
 .zine-page .zine-tabs-slot [class*="from-blue-600"][class*="to-cyan-500"] {
   background-image: none !important;
-  background-color: #0B3A75 !important;
+  background-color: #11100D !important;
   color: #F4EBD8 !important;
   border: 2.5px solid #11100D !important;
-  box-shadow: 3px 4px 0 rgba(17, 16, 13, 0.35) !important;
+  box-shadow: none !important;
 }
 
 /* Card surfaces inside zine tabs — bg-card/text-card-foreground are
@@ -1018,7 +911,7 @@ body:has(.zine-page) {
 .zine-page .zine-tabs-slot [data-tier="hero"].bg-card .text-blue-700,
 .zine-page .zine-tabs-slot [data-tier="hero"].bg-card .text-blue-600,
 .zine-page .zine-tabs-slot [data-tier="hero"].bg-card .text-blue-400 {
-  color: #0B3A75 !important;
+  color: #8A5E00 !important;
 }
 .zine-page .zine-tabs-slot [data-tier="hero"].bg-card .text-gray-600 {
   color: #4B4030 !important;
@@ -1031,22 +924,22 @@ body:has(.zine-page) {
 .zine-page .zine-tabs-slot [data-tier="hero"].bg-card .border-blue-200\/60,
 .zine-page .zine-tabs-slot [data-tier="hero"].bg-card .border-gray-200\/40,
 .zine-page .zine-tabs-slot [data-tier="hero"].bg-card .border-gray-200\/60 {
-  border-color: rgba(11, 58, 117, 0.28) !important;
+  border-color: rgba(138, 94, 0, 0.28) !important;
 }
 .zine-page .zine-tabs-slot [data-tier="hero"].bg-card .rounded-2xl.border-blue-200\/60 {
-  background: rgba(11, 58, 117, 0.08) !important;
-  border-color: #0B3A75 !important;
+  background: #F6E9CE !important;
+  border-color: #11100D !important;
 }
 .zine-page .zine-tabs-slot [data-tier="hero"].bg-card .rounded-2xl.border-blue-200\/60 .text-blue-900 {
   color: #11100D !important;
 }
 .zine-page .zine-tabs-slot [data-tier="hero"].bg-card .rounded-2xl.border-blue-200\/60 .text-blue-700,
 .zine-page .zine-tabs-slot [data-tier="hero"].bg-card .rounded-2xl.border-blue-200\/60 .text-blue-600 {
-  color: #0A2F5E !important;
+  color: #11100D !important;
 }
 .zine-page .zine-tabs-slot [data-tier="hero"].bg-card .rounded-xl.border-gray-200\/40 {
-  background-color: rgba(11, 58, 117, 0.08) !important;
-  border-color: #0B3A75 !important;
+  background-color: #F6E9CE !important;
+  border-color: #11100D !important;
 }
 .zine-page .zine-tabs-slot [data-tier="hero"].bg-card .rounded-xl.border-gray-200\/40 .text-gray-700 {
   color: #11100D !important;
@@ -1063,13 +956,13 @@ body:has(.zine-page) {
 }
 .zine-page .zine-tabs-slot #intel-section .text-blue-600,
 .zine-page .zine-tabs-slot #intel-section .text-blue-700 {
-  color: #0B3A75 !important;
+  color: #8A5E00 !important;
 }
 .zine-page .zine-tabs-slot #intel-section .border-blue-200 {
-  border-color: #0B3A75 !important;
+  border-color: #11100D !important;
 }
 .zine-page .zine-tabs-slot #intel-section .hover\:bg-blue-50:hover {
-  background-color: rgba(11, 58, 117, 0.08) !important;
+  background-color: #F6E9CE !important;
 }
 
 /* Recent Sessions cards reuse the global social SessionCard, whose muted
@@ -1084,12 +977,12 @@ body:has(.zine-page) {
 }
 .zine-page .zine-tabs-slot .session-card-hover .bg-muted\/30,
 .zine-page .zine-tabs-slot .session-card-hover .bg-muted\/50 {
-  background-color: rgba(11, 58, 117, 0.08) !important;
-  border-color: rgba(11, 58, 117, 0.25) !important;
+  background-color: #F6E9CE !important;
+  border-color: rgba(138, 94, 0, 0.25) !important;
   color: #11100D !important;
 }
 .zine-page .zine-tabs-slot .session-card-hover .text-blue-500 {
-  color: #0B3A75 !important;
+  color: #8A5E00 !important;
 }
 .zine-page .zine-tabs-slot .session-card-hover .text-orange-500 {
   color: #9E5010 !important;
@@ -1124,10 +1017,10 @@ body:has(.zine-page) {
   color: #4B4030 !important;
 }
 .zine-page .zine-tabs-slot [data-testid="conditions-explore-more-links"] .bg-blue-50 {
-  background-color: rgba(11, 58, 117, 0.08) !important;
+  background-color: #F6E9CE !important;
 }
 .zine-page .zine-tabs-slot [data-testid="conditions-explore-more-links"] .text-blue-600 {
-  color: #0B3A75 !important;
+  color: #8A5E00 !important;
 }
 
 /* Misc legacy backgrounds still appearing inside the forecast
@@ -1160,14 +1053,14 @@ body:has(.zine-page) {
 }
 
 .profile-zine-tabs .text-info {
-  color: #0B3A75 !important;
+  color: #8A5E00 !important;
 }
 
 .theme-retro-dark [role="tablist"] .profile-zine-tab-trigger[data-state="active"] {
   background-color: #11100D !important;
   border-color: #11100D !important;
   color: #F4EBD8 !important;
-  box-shadow: 2px 2px 0 rgba(17, 16, 13, 0.25) !important;
+  box-shadow: none !important;
 }
 
 .theme-retro-dark .profile-zine-tabs .text-muted-foreground {
@@ -1191,7 +1084,7 @@ body:has(.zine-page) {
 }
 
 .theme-retro-dark .profile-zine-tabs .text-info {
-  color: #0B3A75 !important;
+  color: #8A5E00 !important;
 }
 
 /* Cam frame inside the zine hero — let CamsSection's inner

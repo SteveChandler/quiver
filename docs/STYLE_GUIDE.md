@@ -106,21 +106,21 @@ Three font families are loaded via Google Fonts and configured as CSS variables:
 | **Space Grotesk** | `font-heading` | `--font-heading` | All headings (h1-h4), CTAs, brand-prominent text |
 | **Space Mono** | `font-mono` | `--font-mono` | Code blocks, data tables, technical content |
 
-**Rule:** App pages must use `font-heading` on headings. Many components default to DM Sans -- always add `font-heading` to `text-xl font-semibold`, `text-2xl font-bold`, and similar heading patterns.
+**Rule:** h1–h3 render in Space Grotesk **Bold** under `.theme-retro-dark` (`app/globals.css`), as every native heading helper (`Display`, `H1`, `H2`, `ComicTitle`) does. Other heading-like text must use `font-heading` with `font-bold`; native has no Regular-weight headings.
 
-**Local font copies** exist in `public/fonts/` but are used exclusively by Satori for OG image rendering (see `scripts/fetch-fonts.mjs`). Web pages load fonts via Google Fonts CDN.
+**Tailwind arbitrary fonts:** write `font-[family-name:var(--font-…)]`. Tailwind 3 reads a bare `font-[var(--font-…)]` as a font-weight, so the family is silently dropped and the text falls back to DM Sans.
 
-### Zine layer display & marker fonts
+**Local font copies** in `public/fonts/` are used exclusively by Satori for OG image rendering (see `scripts/fetch-fonts.mjs`). Web pages load fonts through `next/font`: Google Fonts, plus the display cut in `app/fonts/` (below).
 
-The trio above stays canonical. On **zine surfaces** the zine layer adds display and hand-lettered fonts for headings and marker accents (tokens defined in `app/styles/zine.css`):
+### Zine layer display font
+
+The trio above stays canonical. On **zine surfaces** headings use one extra token (defined in `app/layout.tsx`):
 
 | Token | Fonts | Usage |
 |-------|-------|-------|
-| `--font-zine-display` | Bowlby One / Big Shoulders Stencil | Bold display headings on zine surfaces |
-| `--font-zine-marker` | Permanent Marker | Hand-lettered marker accents, stamps, callouts |
-| `--font-handwritten` | Caveat | Casual hand-lettered notes on zine surfaces |
+| `--font-zine-display` | Space Grotesk Bold (`app/fonts/space-grotesk-700-latin.woff2`, declared for weights 100–900) | Display type: headings, tier words, deck values. Always reads bold, like native `Fonts.displayBold` |
 
-Use these only on zine content surfaces — body data and UI chrome still use the DM Sans / Space Mono pair.
+There is no handwritten or marker face. Native sets only Space Grotesk, Space Mono, DM Sans and Inter, so a note that used to be hand-lettered is either a Space Mono eyebrow (11px, bold, caps, 0.16em tracking) or DM Sans body text.
 
 ---
 
@@ -223,15 +223,17 @@ Props: `icon` (Lucide), `title`, `description`, `action?`, `secondaryAction?`, `
 
 ### Surf calls
 
-A rating never appears without its call, in the same words as native. Build it with `getCanonicalVerdictCall()` (`components/forecast/score-band-call.ts`); never render the internal `go` / `maybe` / `no` verdicts as copy.
+A rating never appears without its call, in the same words as native. Build it with `getCanonicalVerdictCall()`, or `getSurfCallVerdictCall()` for a surf report's `YES` / `MAYBE` / `NO` (`components/forecast/score-band-call.ts`); never render the internal verdicts as copy. Colour call type with `SCORE_LABEL_INK` and wash its panel with `SCORE_LABEL_PAPER_WASH` from the same file. A call that is the point of the page takes native's call-caption treatment: sticker corners, a 2.5 px ink outline and a hard ink drop, never tilted.
 
 | Tier | Call | Over media (dark band) | On paper |
 |---|---|---|---|
-| EPIC / GOOD | "Go now!" / "Go surf!" ("Don't miss it" / "Worth planning" when the window is later) | teal `#00D4AA` | teal ink |
-| FAIR / RIDEABLE | "Worth a look" / "Slim pickings" | gold `#FDB84B` | gold ink |
-| MEH | "Skip it" | cream `#F4EBD8` | muted ink |
+| GOOD (EPIC while rare days are off) | "Worth a surf" ("Worth planning" when the window is later) | teal `#00D4AA` | tealInk `#06765F` on paperTeal `#E6EAD4` |
+| FAIR / RIDEABLE | "Worth a look" / "Slim pickings" | gold `#FDB84B` | goldInk `#8A5E00` on paperGold `#F6E9CE` |
+| MEH | "Skip it" | cream `#F4EBD8` | ink `#11100D` on paper `#F4EBD8` |
 
+- Score badges and fills come from `getScoreColorClasses()` (`lib/utils/score-color-utils.ts`) in native's paper inks: teal ink `#06765F` for GOOD, gold ink `#8A5E00` for FAIR and RIDEABLE, ink for MEH. A positive call is never orange or success green.
 - State the best window once per surface. The call's band owns it; other modules show the timeline, not a restatement.
+- Empty readings say `no data` or show `—`, never "No data available". No emoji in interface chrome (titles, labels, buttons); shared post text may carry one.
 - Zine display headings (tier words, stencil headings) need the `zine-display` class, because `globals.css` forces the heading font onto h1–h3 with `!important`.
 
 ## 10. Brand Colors
@@ -253,15 +255,15 @@ The page is built in two layers. The twilight stage is the backdrop only; cream 
 
 **(a) Twilight stage (backdrop only)**
 
-These are the stage, **not** content surfaces. The page backdrop is a gradient, not a flat fill.
+These are the stage, **not** content surfaces.
 
 | Role | Hex | Notes |
 |------|-----|-------|
-| Stage gradient stop 1 | `#252D6B` | Deep Twilight -- gradient start |
-| Stage gradient stop 2 | `#1A1535` | Mid twilight |
-| Stage gradient stop 3 | `#0D1020` | Deep twilight -- gradient end |
+| Stage | `#252D6B` | Deep Twilight -- the zine stage (`.zine-stage`), with a soft top glow and grain. Every native screen sits on this colour |
+| Chrome | `#0D1020` | Deepest twilight -- footer and other chrome below or around the stage, like the native tab bar |
+| Hairline | `#404C92` | Border between stage and chrome |
 
-The page stage is the `#252D6B → #1A1535 → #0D1020` gradient. Do not place body content directly on the stage — content belongs on cream paper.
+The brand's `BgStops` gradient (`#0D1020 → #1A1535 → #1E1040 → #252D6B`) is for hero and marketing art, not the page stage. Do not place body content directly on the stage — content belongs on cream paper.
 
 **(b) Cream paper (default content surface)**
 
@@ -275,7 +277,9 @@ The default surface for cards, panels, and content blocks. Ink text on paper, no
 | paper deep | `#D9C49C` | Deep paper tone for layered edges |
 | `--ink` | `#11100D` | Ink text on paper (primary) |
 
-**Craft accents** (on paper, sparingly): stamp red `#B91C1C`, stamp blue `#0B3A75`, tape `#C8A46B`, hi-yellow `#F2C94C`, ocean `#7FA7B8`. Primary accent Charming Orange `#F78E42` is shared across both layers.
+**Ink accents on paper** (native's paper tokens): gold ink `#8A5E00` (`--kicker-ink`, Tailwind `kicker-ink`) for eyebrows, kickers, labels and decorative marks; orange ink `#AA4918` for links; full ink `#11100D` for solid plates, borders and focus rings; paper gold `#F6E9CE` for tinted chip washes. Gold and orange ink are 4.8:1 on paper but fall under 4.5:1 on darker or tinted paper, so put body-size text on plain paper or `#F6E9CE`. There is no blue on paper: the old stamp blue `#0B3A75` was retired to match the app.
+
+**Craft accents** (on paper, sparingly): stamp red `#B91C1C`, tape `#C8A46B`, hi-yellow `#F2C94C`, ocean `#7FA7B8`. Primary accent Charming Orange `#F78E42` is shared across both layers.
 
 **Legacy (stage-layer only, not default content):** the old dark card surfaces `#2D357D` (card surface) and `#354090` (elevated surface) — with border `#404C92`, Twilight Blue `#4A70D9`, Paradise Gold `#FDB84B`, Charming Orange dark `#D57835`, Valentina Pink `#D3408B` — survive only as stage-layer dark values. They are **not** the default content surface; content now lives on cream paper.
 
@@ -289,7 +293,7 @@ Use Tailwind opacity modifiers instead of separate dark tokens:
 
 ### CSS custom property
 
-`--primary` in `globals.css` is set to match `#F78E42` (Charming Orange). All `bg-primary` / `text-primary` usages from shadcn/ui inherit the Charming Orange value automatically.
+`--primary` in `globals.css` is `#9E5010`, a darker orange kept for `text-primary` links on light surfaces. Filled buttons do not use it: `.theme-retro-dark` paints `bg-primary` / `bg-ocean-blue` buttons as Charming Orange `#F78E42` pills with ink `#11100D` type (8.0:1), matching native's primary actions. Hand-built orange buttons use `rounded-full` too; sticker corners belong to stickers and comic panels, not buttons. Install CTAs on paper are orange pills with a 2 px ink outline; secondary actions on paper are paper buttons with the same outline.
 
 ### Do / Don't
 
@@ -311,10 +315,11 @@ The landing page and authenticated app share the same visual language:
 
 - **Same font hierarchy:** Space Grotesk for headings, DM Sans for body, Space Mono for monospace
 - **Same primary color:** Charming Orange `#F78E42` (`ocean-blue` token) for all CTAs and action buttons
-- **Same twilight stage + cream paper content:** Deep Twilight (`#252D6B → #1A1535 → #0D1020`) as the page stage, cream paper (`#F4EBD8`) as the default content surface — shared by landing and app via the zine layer (`app/styles/zine.css`, `ZineSurface`).
+- **Same twilight stage + cream paper content:** Deep Twilight `#252D6B` as the page stage (the colour every native screen sits on), cream paper (`#F4EBD8`) as the default content surface — shared by landing and app via the zine layer (`app/styles/zine.css`, `ZineSurface`). Chrome below the stage (the footer) uses `#0D1020` with a `#404C92` hairline, like the native tab bar.
 - **Gradients encouraged** in both contexts for visual depth against the twilight stage
 - **Same shadow scale** (see Shadow Scale section)
 - **Same footer component** (`SiteFooter`) with optional brand section for landing
+- **Same wordmark:** "QUIVER" in Space Grotesk Bold caps, tracked, cream on the stage (ink on a cream bar), next to the app icon
 
 ---
 
@@ -339,7 +344,7 @@ There are two text systems, scoped to the two layers: **white-on-dark** for the 
 
 ### White-on-dark (twilight stage & masthead only)
 
-On the twilight stage (Deep Twilight `#252D6B → #1A1535 → #0D1020`) and the masthead, use the three-tier white opacity system instead of raw `text-white` or arbitrary opacity modifiers. This system is **scoped to the stage layer** — do not apply it to cream content surfaces.
+On the twilight stage (Deep Twilight `#252D6B`), its `#0D1020` chrome, and the masthead, use the three-tier white opacity system instead of raw `text-white` or arbitrary opacity modifiers. This system is **scoped to the stage layer** — do not apply it to cream content surfaces.
 
 | Class | Opacity | Color value | Use for |
 |-------|---------|-------------|---------|
@@ -399,7 +404,7 @@ When editing a component that uses raw `text-white/{n}`, migrate to the semantic
 
 ## 14. Texture & Grain
 
-Texture is split across the two layers: `noise-texture*` grain on the twilight **stage**, and zine paper/halftone/torn-edge/tape texture on cream **content surfaces**.
+Texture is split across the two layers: `noise-texture*` grain on the twilight **stage**, and halftone on drawn panels. Cream **content surfaces** are flat, like native paper.
 
 ### Stage grain (`noise-texture*`)
 
@@ -413,14 +418,12 @@ A CSS-only noise texture is available as utility classes defined in `app/globals
 
 ### Zine content-surface texture
 
-Cream content surfaces carry their own zine texture vocabulary — implementations live in `app/styles/zine.css` (reference the tokens; do not reinvent):
+Cream content surfaces match native's paper card (`app/styles/zine.css`):
 
-- **Paper grain** — subtle fibrous grain on cream paper surfaces, distinct from the stage's `feTurbulence` noise.
-- **Halftone** — dot-screen shading for retro print depth.
-- **Torn edge** — ragged paper edges on cards and cutouts.
-- **Tape** — masking-tape strips (tape `#C8A46B`) anchoring stickers and cards.
-
-Use the zine texture on cream surfaces and the `noise-texture*` grain on the stage — do not mix the two on the same surface.
+- **Flat paper** — paper `#F4EBD8`, a 1 px paper-shadow `#E5D4B3` edge, 14 px corners with the top-right swept to 22 px. No grain, fleck, torn edge, tape or drop shadow. `.zine-paper`, `.torn`, `.notebook`, `.polaroid`, `.utility-strip` and `.condition-strip` all draw this card; `.tape` renders nothing.
+- **Square to the screen** — no tilt on cards, panels, labels or buttons (`.rot-*` is a no-op). Only decorative sticker images (`QuiverSticker`) tilt, as native's sticker backdrop does.
+- **Outline and hard ink drop** — only on a standout, such as the call caption or the beach media panel. Never a translucent offset drop.
+- **Halftone** — dot-screen shading on drawn panels (maps, dioramas), never over a photo.
 
 ### How it works
 

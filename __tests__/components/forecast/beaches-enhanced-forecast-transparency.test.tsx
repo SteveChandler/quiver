@@ -543,6 +543,6 @@ describe("ForecastDisplayWithTransparency (smoke)", () => {
     );
 
     expect(screen.getByText("10-Day Surf Forecast")).toBeInTheDocument();
-    expect(screen.getByText("No forecast data available")).toBeInTheDocument();
+    expect(screen.getByText("no data")).toBeInTheDocument();
   });
 });

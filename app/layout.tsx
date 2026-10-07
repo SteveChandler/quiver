@@ -4,10 +4,8 @@ import {
   DM_Sans,
   Space_Grotesk,
   Space_Mono,
-  Caveat,
-  Bowlby_One,
-  Permanent_Marker,
 } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { SEO_CONFIG } from "@/lib/constants/seo";
 import { Providers } from "@/components/providers";
@@ -38,28 +36,23 @@ const spaceMono = Space_Mono({
   variable: "--font-mono",
 });
 
-const caveat = Caveat({
-  subsets: ["latin"],
-  display: "swap",
-  preload: false,
-  variable: "--font-handwritten",
-});
 
-const bowlbyOne = Bowlby_One({
-  weight: "400",
-  subsets: ["latin"],
+// Display face: the static Space Grotesk Bold cut (latin, OFL), declared for
+// every weight so anything set in it reads bold whatever weight it asks for.
+// Mirrors native `Fonts.displayBold`, which sets every heading, comic title and
+// call rating in the app. A local file keeps its own family name; a second
+// next/font/google Space Grotesk would merge into the variable --font-heading
+// family and fall back to Regular.
+const spaceGroteskDisplay = localFont({
+  src: "./fonts/space-grotesk-700-latin.woff2",
+  weight: "100 900",
+  style: "normal",
   display: "swap",
   preload: false,
   variable: "--font-zine-display",
+  fallback: ["Space Grotesk", "sans-serif"],
 });
 
-const permanentMarker = Permanent_Marker({
-  weight: "400",
-  subsets: ["latin"],
-  display: "swap",
-  preload: false,
-  variable: "--font-zine-marker",
-});
 
 // Optimize viewport for mobile performance
 // Note: maximumScale removed for WCAG 1.4.4 compliance (allow user zoom)
@@ -173,7 +166,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${dmSans.variable} ${spaceGrotesk.variable} ${spaceMono.variable} ${caveat.variable} ${bowlbyOne.variable} ${permanentMarker.variable}`}
+      className={`${dmSans.variable} ${spaceGrotesk.variable} ${spaceMono.variable} ${spaceGroteskDisplay.variable}`}
     >
       {/* WARNING: No whitespace allowed between tags in <head> to prevent React hydration errors. See: https://react.dev/link/hydration-mismatch */}
       <head>

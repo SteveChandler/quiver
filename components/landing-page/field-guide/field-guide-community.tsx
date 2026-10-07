@@ -56,7 +56,7 @@ export function FieldGuideCommunity(): ReactElement {
     <ZineSurface
       sectionLabel="From the lineup"
       data-testid="field-guide-community"
-      className="bg-[#0D1020] px-3 py-0 sm:px-6 sm:py-0"
+      className="bg-[#252D6B] px-3 pb-0 pt-3 sm:px-6 sm:pb-0 sm:pt-4"
       stageClassName="mx-auto max-w-5xl !py-0"
       paperClassName="relative overflow-hidden"
       showMasthead={false}
@@ -67,13 +67,13 @@ export function FieldGuideCommunity(): ReactElement {
         sizes="6rem"
       />
       <div className="mb-7 max-w-3xl">
-        <p className="font-mono text-[11px] font-bold uppercase tracking-[0.28em] text-[#0B3A75]">
+        <p className="font-mono text-[11px] font-bold uppercase tracking-[0.28em] text-[#8A5E00]">
           From the lineup
         </p>
-        <h2 className="mt-2 font-[var(--font-zine-display)] text-3xl uppercase leading-tight text-[#11100D] sm:text-4xl">
+        <h2 className="mt-2 font-[family-name:var(--font-zine-display)] text-3xl uppercase leading-tight text-[#11100D] sm:text-4xl">
           What surfers told us.
         </h2>
-        <p className="mt-3 font-mono text-sm leading-relaxed text-[#11100D]/75 sm:text-base">
+        <p className="mt-3 font-sans text-[15px] leading-relaxed text-[#11100D]/75 sm:text-base">
           Notes from Quiver surfers, shared with us by email.
           Forecasting accuracy, sessions, conditions, photos.
         </p>
@@ -82,12 +82,12 @@ export function FieldGuideCommunity(): ReactElement {
         {TESTIMONIALS.map((item) => (
           <li
             key={item.quote}
-            className="notebook flex flex-col bg-[#FFFDF4] p-5 shadow-[2px_4px_0_rgba(17,16,13,0.12)]"
+            className="notebook flex flex-col bg-[#FFFDF4] p-5"
           >
-            <span className="inline-block self-start -rotate-1 rounded-[8px_3px_8px_3px] border-2 border-[#11100D] bg-[#C0DD97] px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#27500A]">
+            <span className="inline-block self-start rounded-[8px_3px_8px_3px] border-2 border-[#11100D] bg-[#E6EAD4] px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#06765F]">
               {item.tag}
             </span>
-            <p className="mt-3 flex-1 font-mono text-sm leading-relaxed text-[#11100D]/85">
+            <p className="mt-3 flex-1 font-sans text-[15px] leading-relaxed text-[#11100D]/85">
               &ldquo;{item.quote}&rdquo;
             </p>
             <p className="mt-4 font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-[#11100D]/60">
