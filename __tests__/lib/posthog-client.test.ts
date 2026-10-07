@@ -92,6 +92,19 @@ describe("posthog-client", () => {
     expect(posthog.capture).not.toHaveBeenCalled();
   });
 
+  it("captures SDK pageviews and pageleaves for PostHog web analytics", () => {
+    setClientPostHogTrackingAllowed(true);
+
+    expect(posthog.init).toHaveBeenCalledTimes(1);
+    expect(posthog.init).toHaveBeenCalledWith(
+      "phc_test",
+      expect.objectContaining({
+        capture_pageview: "history_change",
+        capture_pageleave: true,
+      }),
+    );
+  });
+
   it("enables capture only after explicit consent and disables autocapture", () => {
     setClientPostHogTrackingAllowed(true);
     expect(initPostHog()).toBe(true);
@@ -101,7 +114,6 @@ describe("posthog-client", () => {
     expect(posthog.init).toHaveBeenCalledWith(
       "phc_test",
       expect.objectContaining({
-        capture_pageview: false,
         autocapture: false,
       }),
     );
