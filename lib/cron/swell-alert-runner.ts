@@ -118,8 +118,10 @@ const HAZARD_LINES = {
 const MAX_FIRST_SIGHTING_RARITY_ASSESSMENTS = 3;
 // Forecast rows a pinned re-evaluation loads before now; detection itself reads 48 h back.
 const PINNED_LOOKBACK_MS = 3 * DAY_MS;
-// A swell that lost its key but still tracks the told one within this shift is the same swell, moved.
+// A swell that lost its key but still tracks the told one within this shift is the same swell, moved...
 const PINNED_MAX_PEAK_SHIFT_MS = 72 * 60 * 60 * 1000;
+// ...and keeps its size: a fallback match that grew or shrank past this is another swell.
+const PINNED_MAX_SIZE_RATIO = 1.5;
 
 type ServiceClient = SupabaseClient<Database>;
 type FirstSightingClaimSkipReason = "event_exists" | "first_sighting_spacing";
@@ -817,6 +819,7 @@ async function evaluatePinned(
     crossingPeriodS: null,
     crossingOffshoreHeightFt: null,
   };
+  const snapshots = await loadKeySnapshots(client, [beach.id], now);
   const events = resolveEventKeys(
     detectBeachSwellEvents({
       beach: toSwellEventBeach(beach),
@@ -824,13 +827,20 @@ async function evaluatePinned(
       now,
       timezone: resolveBeachTimezone(beach.timezone),
     }),
-    [...await loadKeySnapshots(client, [beach.id], now), toldSnapshot],
+    [...snapshots, toldSnapshot],
   );
   const toldPeakAt = Date.parse(state.lastPeakAt);
   const told = { directionDeg: state.lastDirectionDeg, periodS: state.lastPeriodS };
+  // A swell the detector already tracks under another key is that swell, not ours moved.
+  const otherKeys = new Set(snapshots.map(({ eventKey }) => eventKey).filter((key) => key !== state.eventKey));
+  const sameSize = (faceHeightFt: number): boolean =>
+    faceHeightFt <= state.lastFaceHeightFt * PINNED_MAX_SIZE_RATIO
+    && state.lastFaceHeightFt <= faceHeightFt * PINNED_MAX_SIZE_RATIO;
   const event = events.find(({ eventKey }) => eventKey === state.eventKey)
     ?? events
-      .filter((candidate) => tracksSwellComponent(told, candidate)
+      .filter((candidate) => !otherKeys.has(candidate.eventKey)
+        && tracksSwellComponent(told, candidate)
+        && sameSize(candidate.peakFaceHeightFt)
         && Math.abs(Date.parse(candidate.peakAt) - toldPeakAt) <= PINNED_MAX_PEAK_SHIFT_MS)
       .sort((left, right) =>
         Math.abs(Date.parse(left.peakAt) - toldPeakAt) - Math.abs(Date.parse(right.peakAt) - toldPeakAt))[0]
