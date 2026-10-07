@@ -1,7 +1,10 @@
 /** @jest-environment node */
 import { GET } from '@/app/api/cron/forecasts/refresh/route';
 
-jest.mock('@/lib/cron/observability', () => ({ withObservedCron: (_: string, fn: unknown) => fn }));
+jest.mock('@/lib/cron/observability', () => ({
+  withObservedCron: (_: string, fn: unknown) => fn,
+  observedCronRun: { getStore: () => undefined },
+}));
 jest.mock('@sentry/nextjs', () => ({ captureMessage: jest.fn(), captureException: jest.fn() }));
 jest.mock('@/lib/middleware/api-wrappers', () => ({
   validateCronRequest: () => true,
@@ -12,7 +15,7 @@ jest.mock('@/lib/middleware/api-wrappers', () => ({
 jest.mock('@/lib/supabase/server', () => ({ createSupabaseServiceRoleClient: () => ({ from: mockFrom }) }));
 jest.mock('@/lib/services/ndbc-service', () => ({
   getNearestNDBCStation: (...args: unknown[]) => mockNearest(...args),
-  fetchLatestNDBCObservation: () => mockObservation(),
+  fetchLatestNDBCObservation: (...args: unknown[]) => mockObservation(...args),
 }));
 jest.mock('@/lib/services/cdip', () => ({ CDIPService: jest.fn(() => ({
   getNearestStation: (...args: unknown[]) => mockCdipNearest(...args),
@@ -82,6 +85,72 @@ beforeEach(() => {
   });
 });
 afterEach(() => { jest.useRealTimers(); jest.restoreAllMocks(); });
+
+it.each(['ndbc', 'cdip'])('shares the in-flight %s fetch and still writes rows for both beaches', async (provider) => {
+  let release!: (value: unknown) => void;
+  const pending = new Promise(resolve => { release = resolve; });
+  const fetch = provider === 'ndbc' ? mockObservation : mockCdipFetch;
+  if (provider === 'ndbc') mockNearest.mockResolvedValue({ id: 'shared' });
+  else mockCdipNearest.mockResolvedValue('shared');
+  fetch.mockReturnValue(pending);
+
+  const refresh = GET(new Request('http://localhost/api/cron/forecasts/refresh?source=marine&maxBeaches=2'));
+  await jest.advanceTimersByTimeAsync(0);
+  expect(fetch).toHaveBeenCalledTimes(1);
+  expect(fetch).toHaveBeenCalledWith('shared');
+  expect(written).toEqual([]);
+  release(provider === 'ndbc'
+    ? { ts: '2026-09-09T11:00:00.000Z', wave_height_m: 1.5, wave_period_s: 10 }
+    : { skipReason: 'success', data: { data: [{ timestamp: '2026-09-09T11:00:00Z', significantWaveHeight: 5, peakWavePeriod: 10 }] } });
+
+  const response = await refresh;
+  const body = await response.json();
+  expect(response.status).toBe(200);
+  expect(written.flat()).toEqual(['a', 'b'].map(beach_id => expect.objectContaining({
+    beach_id, source: provider, is_observed: true, ts: '2026-09-09T11:00:00.000Z',
+    wave_height_m: provider === 'ndbc' ? 1.5 : 5 * 0.3048, wave_period_s: 10,
+  })));
+  expect(body.data.totals.marine).toBe(2);
+  expect(body.data.marineCoverage).toMatchObject({ expectedCoverage: 2, actualCoverage: 2,
+    attemptedCoverage: 2, lastAttemptedBeachId: 'b', rejectionCounts: {}, coverageGaps: {},
+    providerOutcomes: provider === 'cdip' ? { success: 2 } : {} });
+
+  ledger = []; written = [];
+  await GET(new Request('http://localhost/api/cron/forecasts/refresh?source=marine&maxBeaches=2'));
+  expect(fetch).toHaveBeenCalledTimes(2);
+  expect(written.flat()).toHaveLength(2);
+});
+
+it.each(['ndbc', 'cdip'])('counts a shared rejected %s fetch for each beach', async (provider) => {
+  const fetch = provider === 'ndbc' ? mockObservation : mockCdipFetch;
+  if (provider === 'ndbc') mockNearest.mockResolvedValue({ id: 'shared' });
+  else mockCdipNearest.mockResolvedValue('shared');
+  fetch.mockRejectedValue(new Error('private provider failure'));
+  const response = await GET(new Request('http://localhost/api/cron/forecasts/refresh?source=marine&maxBeaches=2'));
+  const body = await response.json();
+  expect(fetch).toHaveBeenCalledTimes(1);
+  expect(response.status).toBe(503);
+  expect(body.data.marineCoverage).toMatchObject({ expectedCoverage: 2, actualCoverage: 0,
+    attemptedCoverage: 2, rejectionCounts: { wave_fetch_failed: 2 } });
+  expect(written).toEqual([]);
+});
+
+it('retains empty CDIP diagnostics across batches and counts each beach fallback', async () => {
+  jest.replaceProperty(process, 'env', { ...process.env, FORECAST_REFRESH_BATCH_SIZE: '1', FORECAST_REFRESH_BATCH_DELAY_MS: '0' });
+  mockCdipNearest.mockImplementation((_lat: number, _lon: number, _radius: number, excluded: string[]) =>
+    Promise.resolve(excluded.length ? 'alternate' : 'shared'));
+  mockCdipFetch.mockImplementation((station: string) => Promise.resolve(station === 'shared'
+    ? { skipReason: 'cdip_404', data: null }
+    : { skipReason: 'success', data: { data: [{ timestamp: '2026-09-09T11:00:00Z', significantWaveHeight: 5, peakWavePeriod: 10 }] } }));
+  const refresh = GET(new Request('http://localhost/api/cron/forecasts/refresh?source=marine&maxBeaches=2'));
+  await jest.runAllTimersAsync();
+  const response = await refresh;
+  expect(response.status).toBe(200);
+  expect(mockCdipFetch.mock.calls).toEqual([['shared'], ['alternate']]);
+  expect(written.flat().map(row => row.beach_id)).toEqual(['a', 'b']);
+  expect((await response.json()).data.marineCoverage).toMatchObject({ actualCoverage: 2,
+    providerOutcomes: { cdip_404: 2, success: 2 } });
+});
 
 it('advances past a beach with no data on the next bounded run', async () => {
   const request = () => new Request('http://localhost/api/cron/forecasts/refresh?source=marine&maxBeaches=1');

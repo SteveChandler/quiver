@@ -180,6 +180,8 @@ async function _GET(request: Request): Promise<Response> {
     const tideLatestByBeachMs = new Map<string, number>();
     const cdip = new CDIPService();
     const nwsWind = new NwsWindService();
+    const cdipFetches = new Map<string, ReturnType<CDIPService["fetchBuoyDataWithDiagnostics"]>>();
+    const ndbcFetches = new Map<string, ReturnType<typeof fetchLatestNDBCObservation>>();
     const refreshedAt = new Date().toISOString();
 
     const allBeaches: BeachRow[] = (beaches || []).map((b: any) => ({
@@ -436,7 +438,12 @@ async function _GET(request: Request): Promise<Response> {
                 const ndbc = await getNearestNDBCStation(b.lat, b.lon);
                 if (ndbc) {
                   waveStationFound = true;
-                  const obs = await fetchLatestNDBCObservation(ndbc.id);
+                  let observation = ndbcFetches.get(ndbc.id);
+                  if (!observation) {
+                    observation = fetchLatestNDBCObservation(ndbc.id);
+                    ndbcFetches.set(ndbc.id, observation);
+                  }
+                  const obs = await observation;
                   // Only use observations with valid wave height data
                   if (obs && usableWaveObservation(obs, nowMs)) {
                     marineRows.push({
@@ -460,7 +467,12 @@ async function _GET(request: Request): Promise<Response> {
                     if (!station) break;
                     waveStationFound = true;
                     excluded.push(station);
-                    const diagnostic = await cdip.fetchBuoyDataWithDiagnostics(station);
+                    let fetch = cdipFetches.get(station);
+                    if (!fetch) {
+                      fetch = cdip.fetchBuoyDataWithDiagnostics(station);
+                      cdipFetches.set(station, fetch);
+                    }
+                    const diagnostic = await fetch;
                     const outcome = diagnostic.skipReason;
                     marineCoverage.providerOutcomes[outcome] = (marineCoverage.providerOutcomes[outcome] ?? 0) + 1;
                     const points = diagnostic.data?.data || [];
