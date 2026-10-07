@@ -6,7 +6,7 @@ import {
 } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { CDIPService } from "@/lib/services/cdip";
-import { NwsWindService } from "@/lib/services/nws-wind-service";
+import { NwsWindService, type NwsForecastCache } from "@/lib/services/nws-wind-service";
 import {
   getNearestNDBCStation,
   fetchLatestNDBCObservation,
@@ -182,6 +182,7 @@ async function _GET(request: Request): Promise<Response> {
     const nwsWind = new NwsWindService();
     const cdipFetches = new Map<string, ReturnType<CDIPService["fetchBuoyDataWithDiagnostics"]>>();
     const ndbcFetches = new Map<string, ReturnType<typeof fetchLatestNDBCObservation>>();
+    const nwsForecasts: NwsForecastCache = new Map();
     const refreshedAt = new Date().toISOString();
 
     const allBeaches: BeachRow[] = (beaches || []).map((b: any) => ({
@@ -435,7 +436,7 @@ async function _GET(request: Request): Promise<Response> {
               try {
                 const marineRows: any[] = [];
                 let waveStationFound = false;
-                const ndbc = await getNearestNDBCStation(b.lat, b.lon);
+                const ndbc = await getNearestNDBCStation(b.lat, b.lon, 80, ndbcFetches);
                 if (ndbc) {
                   waveStationFound = true;
                   let observation = ndbcFetches.get(ndbc.id);
@@ -564,7 +565,7 @@ async function _GET(request: Request): Promise<Response> {
                   lon: b.lon,
                   start: windowStart,
                   end: windowEnd,
-                });
+                }, nwsForecasts);
 
                 if (windPoints.length) {
                   const windRows = windPoints.map((p) => ({

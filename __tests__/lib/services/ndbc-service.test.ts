@@ -38,6 +38,50 @@ it('skips an unavailable nearest station and reuses the selected observation', a
   ]);
 });
 
+it.each([null, new Error('unavailable')])('shares candidate probes within a run, including an unavailable nearest station: %s', async (unavailable) => {
+  const fetch = arrange([unavailable, wave()]);
+  await service.getActiveNDBCStations();
+  fetch.mockClear();
+  const cache = new Map<string, ReturnType<typeof service.fetchLatestNDBCObservation>>();
+  const stations = await Promise.all([
+    service.getNearestNDBCStation(32, -117, 80, cache),
+    service.getNearestNDBCStation(32.001, -117, 80, cache),
+  ]);
+  expect(stations.map(station => station?.id)).toEqual(['1', '1']);
+  expect(fetch.mock.calls.map(([url]) => url)).toEqual([
+    'https://www.ndbc.noaa.gov/data/realtime2/0.txt',
+    'https://www.ndbc.noaa.gov/data/realtime2/1.txt',
+  ]);
+  expect(await service.fetchLatestNDBCObservation('1', 15_000, cache)).toMatchObject({ wave_height_m: 1.2, wave_period_s: 8 });
+  expect(fetch).toHaveBeenCalledTimes(2);
+  await service.getNearestNDBCStation(32, -117, 80, cache);
+  expect(fetch).toHaveBeenCalledTimes(2);
+  await service.getNearestNDBCStation(32, -117, 80, new Map());
+  expect(fetch).toHaveBeenCalledTimes(unavailable instanceof Error ? 3 : 2);
+});
+
+it('keeps each probe timeout when joining a longer shared request', async () => {
+  let release!: (value: null) => void;
+  const pending = new Promise<null>(resolve => { release = resolve; });
+  const cache = new Map([['shared', pending]]);
+  const longer = service.fetchLatestNDBCObservation('shared', 5_000, cache);
+  let timedOut = false;
+  let timeoutName: string | undefined;
+  const shorter = service.fetchLatestNDBCObservation('shared', 1_000, cache)
+    .catch(error => { timeoutName = error.name; timedOut = true; });
+  try {
+    await jest.advanceTimersByTimeAsync(999);
+    expect(timedOut).toBe(false);
+    await jest.advanceTimersByTimeAsync(1);
+    expect(timedOut).toBe(true);
+    expect(timeoutName).toBe('TimeoutError');
+    expect(cache.get('shared')).toBe(pending);
+  } finally {
+    release(null);
+    await Promise.all([longer, shorter]);
+  }
+});
+
 it.each([
   wave('00'), wave('13'), wave('11', 'MM'), wave('11', '-1'),
   wave('11', '1', 'MM'), wave('11', '1', '0'), wave('11', '1', '99'),
