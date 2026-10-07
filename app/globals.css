@@ -84,9 +84,9 @@
     color: rgba(255, 255, 255, 0.7);
   }
 
-  /* Stamp-blue is clear on paper; the paper offset stays clear on twilight. */
+  /* Ink is clear on paper; the paper offset stays clear on twilight. */
   .focus-ring:focus-visible {
-    outline: 2px solid var(--stamp-blue, #0B3A75);
+    outline: 2px solid #11100D;
     outline-offset: 2px;
     box-shadow: 0 0 0 4px var(--paper, #F4EBD8);
   }
@@ -678,11 +678,12 @@ html.has-auth-cookie #ssr-beach-links {
   background-color: rgba(74, 112, 217, 0.08) !important;
 }
 
-/* ---- Buttons — Charming Orange with ink type, slightly hand-cut radius ----
-   Native's primary actions are #F78E42 with #11100D lettering (title stage,
-   comic panel and trial CTAs). Ink on that orange is 8.0:1, so it clears AA
-   without the darker #9E5010 fill that made web CTAs read as a second brand
-   colour. */
+/* ---- Buttons — Charming Orange pills with ink type ----
+   Native's primary actions are #F78E42 pills with #11100D lettering (title
+   stage, comic panel and trial CTAs). Ink on that orange is 8.0:1, so it
+   clears AA without the darker #9E5010 fill that made web CTAs read as a
+   second brand colour. The pill radius applies to buttons and links only, so
+   progress bars and other primary fills keep their own shape. */
 .theme-retro-dark .bg-primary,
 .theme-retro-dark button.bg-primary,
 .theme-retro-dark a.bg-primary,
@@ -692,7 +693,14 @@ html.has-auth-cookie #ssr-beach-links {
 .theme-retro-dark a[class*="bg-pink"] {
   background-color: #F78E42 !important;
   color: #11100D !important;
-  border-radius: 12px 14px 11px 13px !important;
+}
+.theme-retro-dark button.bg-primary,
+.theme-retro-dark a.bg-primary,
+.theme-retro-dark button[class*="bg-ocean-blue"],
+.theme-retro-dark a[class*="bg-ocean-blue"],
+.theme-retro-dark button[class*="bg-pink"],
+.theme-retro-dark a[class*="bg-pink"] {
+  border-radius: 999px !important;
 }
 /* ---- Card hover glow ---- */
 .theme-retro-dark .session-card-hover:hover {
@@ -888,9 +896,8 @@ html.has-auth-cookie #ssr-beach-links {
   --seo-paper-muted: #655C4C;
   /* Soft captions: #8A806F was 3.3:1 on cream; #6B6252 clears AA on cream, panel, and mist. */
   --seo-paper-soft: #6B6252;
-  --seo-paper-blue: #0B3A75;
-  --seo-paper-blue-soft: rgba(11, 58, 117, 0.1);
-  --seo-paper-orange: #B65F1A;
+  --seo-paper-link: #AA4918;
+  --seo-paper-link-soft: rgba(170, 73, 24, 0.1);
   --seo-paper-shadow: rgba(17, 16, 13, 0.1);
 
   position: relative;
@@ -898,7 +905,7 @@ html.has-auth-cookie #ssr-beach-links {
   isolation: isolate;
   color: var(--seo-paper-ink);
   background:
-    radial-gradient(circle at 12% 4%, rgba(11, 58, 117, 0.06), transparent 34rem),
+    radial-gradient(circle at 12% 4%, rgba(138, 94, 0, 0.06), transparent 34rem),
     radial-gradient(circle at 88% 18%, rgba(182, 95, 26, 0.08), transparent 28rem),
     linear-gradient(180deg, #F8F0DD 0%, var(--seo-paper) 42%, #EFE0C2 100%);
 }
@@ -929,7 +936,7 @@ html.has-auth-cookie #ssr-beach-links {
 
 .theme-retro-dark .seo-paper-page {
   background:
-    radial-gradient(circle at 12% 4%, rgba(11, 58, 117, 0.06), transparent 34rem),
+    radial-gradient(circle at 12% 4%, rgba(138, 94, 0, 0.06), transparent 34rem),
     radial-gradient(circle at 88% 18%, rgba(182, 95, 26, 0.08), transparent 28rem),
     linear-gradient(180deg, #F8F0DD 0%, var(--seo-paper) 42%, #EFE0C2 100%) !important;
   color: var(--seo-paper-ink) !important;
@@ -1004,13 +1011,15 @@ html.has-auth-cookie #ssr-beach-links {
 .theme-retro-dark .seo-paper-page .text-sky-600,
 .theme-retro-dark .seo-paper-page .text-blue-700,
 .theme-retro-dark .seo-paper-page .text-blue-600 {
-  color: var(--seo-paper-blue) !important;
+  color: var(--seo-paper-link) !important;
 }
 
 .theme-retro-dark .seo-paper-page .bg-ocean-blue,
 .theme-retro-dark .seo-paper-page button.bg-ocean-blue,
 .theme-retro-dark .seo-paper-page a.bg-ocean-blue {
-  background-color: var(--seo-paper-orange) !important;
+  /* Native's primary action: Charming Orange with ink type (8.0:1). */
+  background-color: #F78E42 !important;
+  color: #11100D !important;
 }
 
 .theme-retro-dark .seo-paper-page .border-gray-200,
@@ -1054,8 +1063,8 @@ html.has-auth-cookie #ssr-beach-links {
 }
 
 .theme-retro-dark .seo-paper-page [data-testid="alert-capture-cta"] [aria-label="Available alert types"] span {
-  background-color: rgba(11, 58, 117, 0.1) !important;
-  color: var(--seo-paper-blue) !important;
+  background-color: #F6E9CE !important;
+  color: var(--seo-paper-link) !important;
 }
 
 .theme-retro-dark .seo-paper-page [data-testid="alert-capture-primary-cta"] {

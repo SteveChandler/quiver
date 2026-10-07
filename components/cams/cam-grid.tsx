@@ -46,7 +46,7 @@ export function CamGrid({ beaches, groupByRegion = false }: CamGridProps) {
               </h2>
               <Link
                 href={getCamRegionPath(region)}
-                className="font-mono text-xs font-black uppercase tracking-[0.12em] text-[#0B3A75] underline decoration-[#F78E42] decoration-2 underline-offset-4 transition hover:text-[#11100D]"
+                className="font-mono text-xs font-black uppercase tracking-[0.12em] text-[#AA4918] underline decoration-[#F78E42] decoration-2 underline-offset-4 transition hover:text-[#11100D]"
               >
                 {/* One string expression: SWC eats the leading space of a
                     multi-line JSX text child that contains an HTML entity. */}

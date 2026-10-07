@@ -21,19 +21,29 @@ function join(parts: (string | null | undefined)[], separator = " "): string {
   return parts.filter(Boolean).join(separator) || "—";
 }
 
-function swellLabel(hour: PublicForecastHour): string {
+/** Each swell train stays on one line, so a narrow column never splits a reading. */
+function SwellLabel({ hour }: { hour: PublicForecastHour }) {
+  const primary = [
+    hour.swell_1_height,
+    hour.swell_1_period ? `@ ${hour.swell_1_period}` : null,
+    hour.swell_1_direction,
+  ].filter(Boolean);
   const secondary = [
     hour.swell_2_height,
     hour.swell_2_period ? `@ ${hour.swell_2_period}` : null,
     hour.swell_2_direction,
   ].filter(Boolean);
 
-  return join([
-    hour.swell_1_height,
-    hour.swell_1_period ? `@ ${hour.swell_1_period}` : null,
-    hour.swell_1_direction,
-    secondary.length > 0 ? `(${secondary.join(" ")})` : null,
-  ]);
+  if (primary.length === 0 && secondary.length === 0) return <>—</>;
+  return (
+    <>
+      {primary.length > 0 ? <span className="whitespace-nowrap">{primary.join(" ")}</span> : null}
+      {primary.length > 0 && secondary.length > 0 ? " " : null}
+      {secondary.length > 0 ? (
+        <span className="whitespace-nowrap">({secondary.join(" ")})</span>
+      ) : null}
+    </>
+  );
 }
 
 function isWithinCallWindow(
@@ -69,9 +79,9 @@ export function PublicForecastHourly({
     <section
       aria-labelledby="public-forecast-hourly-heading"
       data-testid="public-forecast-hourly"
-      className="mt-6 border-t-2 border-dashed border-[#0B3A75]/35 pt-5"
+      className="mt-6 border-t-2 border-dashed border-[#11100D]/35 pt-5"
     >
-      <p className="typewriter font-bold text-[#0B3A75]">{dayLabel} by time</p>
+      <p className="typewriter font-bold text-[#8A5E00]">{dayLabel} by time</p>
       <h2
         id="public-forecast-hourly-heading"
         className="mt-1.5 font-[family-name:var(--font-zine-display)] text-2xl uppercase leading-[1.05] text-[#11100D] sm:text-3xl"
@@ -93,7 +103,7 @@ export function PublicForecastHourly({
                 <th
                   key={label}
                   scope="col"
-                  className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-[#0B3A75]"
+                  className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-[#8A5E00]"
                 >
                   {label}
                   {label === "Quiver call" &&
@@ -127,7 +137,7 @@ export function PublicForecastHourly({
                 <tr
                   key={hour.forecast_at}
                   data-testid="public-forecast-hour"
-                  className={`border-b border-dashed border-[#0B3A75]/25 last:border-0${
+                  className={`border-b border-dashed border-[#11100D]/25 last:border-0${
                     inCallWindow ? " bg-[#F7E7BE]" : ""
                   }`}
                 >
@@ -146,7 +156,7 @@ export function PublicForecastHourly({
                       <span className="text-[#11100D]/30">—</span>
                     )}
                   </td>
-                  <td className="px-3 py-2.5">{swellLabel(hour)}</td>
+                  <td className="px-3 py-2.5"><SwellLabel hour={hour} /></td>
                   <td className="px-3 py-2.5">{join([hour.wind_speed, hour.wind_direction])}</td>
                   <td className="px-3 py-2.5">{join([hour.tide_height, hour.tide_status], " · ")}</td>
                   <td className="px-3 py-2.5">

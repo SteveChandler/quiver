@@ -434,7 +434,7 @@ export function ForecastTable({
   if (forecasts.length === 0) {
     return (
       <div className="text-center py-8">
-        <p className="text-gray-500">No forecast data available</p>
+        <p className="text-gray-500">no data</p>
       </div>
     );
   }

@@ -233,7 +233,9 @@ A rating never appears without its call, in the same words as native. Build it w
 | FAIR / RIDEABLE | "Worth a look" / "Slim pickings" | gold `#FDB84B` | goldInk `#8A5E00` on paperGold `#F6E9CE` |
 | MEH | "Skip it" | cream `#F4EBD8` | ink `#11100D` on paper `#F4EBD8` |
 
+- Score badges and fills come from `getScoreColorClasses()` (`lib/utils/score-color-utils.ts`) in native's paper inks: teal ink `#06765F` for GOOD, gold ink `#8A5E00` for FAIR and RIDEABLE, ink for MEH. A positive call is never orange or success green.
 - State the best window once per surface. The call's band owns it; other modules show the timeline, not a restatement.
+- Empty readings say `no data` or show `—`, never "No data available". No emoji in interface chrome (titles, labels, buttons); shared post text may carry one.
 - Zine display headings (tier words, stencil headings) need the `zine-display` class, because `globals.css` forces the heading font onto h1–h3 with `!important`.
 
 ## 10. Brand Colors
@@ -277,7 +279,9 @@ The default surface for cards, panels, and content blocks. Ink text on paper, no
 | paper deep | `#D9C49C` | Deep paper tone for layered edges |
 | `--ink` | `#11100D` | Ink text on paper (primary) |
 
-**Craft accents** (on paper, sparingly): stamp red `#B91C1C`, stamp blue `#0B3A75`, tape `#C8A46B`, hi-yellow `#F2C94C`, ocean `#7FA7B8`. Primary accent Charming Orange `#F78E42` is shared across both layers.
+**Ink accents on paper** (native's paper tokens): gold ink `#8A5E00` (`--kicker-ink`, Tailwind `kicker-ink`) for eyebrows, kickers, labels and decorative marks; orange ink `#AA4918` for links; full ink `#11100D` for solid plates, borders and focus rings; paper gold `#F6E9CE` for tinted chip washes. Gold and orange ink are 4.8:1 on paper but fall under 4.5:1 on darker or tinted paper, so put body-size text on plain paper or `#F6E9CE`. There is no blue on paper: the old stamp blue `#0B3A75` was retired to match the app.
+
+**Craft accents** (on paper, sparingly): stamp red `#B91C1C`, tape `#C8A46B`, hi-yellow `#F2C94C`, ocean `#7FA7B8`. Primary accent Charming Orange `#F78E42` is shared across both layers.
 
 **Legacy (stage-layer only, not default content):** the old dark card surfaces `#2D357D` (card surface) and `#354090` (elevated surface) — with border `#404C92`, Twilight Blue `#4A70D9`, Paradise Gold `#FDB84B`, Charming Orange dark `#D57835`, Valentina Pink `#D3408B` — survive only as stage-layer dark values. They are **not** the default content surface; content now lives on cream paper.
 
@@ -291,7 +295,7 @@ Use Tailwind opacity modifiers instead of separate dark tokens:
 
 ### CSS custom property
 
-`--primary` in `globals.css` is `#9E5010`, a darker orange kept for `text-primary` links on light surfaces. Filled buttons do not use it: `.theme-retro-dark` paints `bg-primary` / `bg-ocean-blue` buttons Charming Orange `#F78E42` with ink `#11100D` type (8.0:1), matching native's primary actions. Install CTAs on paper are orange pills with a 2 px ink outline; secondary actions on paper are paper buttons with the same outline.
+`--primary` in `globals.css` is `#9E5010`, a darker orange kept for `text-primary` links on light surfaces. Filled buttons do not use it: `.theme-retro-dark` paints `bg-primary` / `bg-ocean-blue` buttons as Charming Orange `#F78E42` pills with ink `#11100D` type (8.0:1), matching native's primary actions. Hand-built orange buttons use `rounded-full` too; sticker corners belong to stickers and comic panels, not buttons. Install CTAs on paper are orange pills with a 2 px ink outline; secondary actions on paper are paper buttons with the same outline.
 
 ### Do / Don't
 

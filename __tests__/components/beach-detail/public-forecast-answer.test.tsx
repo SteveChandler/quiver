@@ -203,7 +203,7 @@ describe("PublicForecastAnswer", () => {
     expect(screen.getByText("2-3 ft")).toBeInTheDocument();
     expect(screen.getByText("11:00 AM–1:00 PM")).toBeInTheDocument();
     expect(screen.getByText("5 mph E offshore")).toBeInTheDocument();
-    expect(screen.getByText("3.2 ft rising next high")).toBeInTheDocument();
+    expect(screen.getByText("Rising · 3.2 ft · next high")).toBeInTheDocument();
     expect(screen.getByText(/NOAA NWS, NOAA CO-OPS/)).toBeInTheDocument();
     expect(screen.queryByText("YES")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /sign in to reveal/i })).not.toBeInTheDocument();

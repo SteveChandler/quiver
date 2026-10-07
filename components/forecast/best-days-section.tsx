@@ -253,7 +253,7 @@ function BestDayCard({
 
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
               <ConditionStat
-                icon={<Waves className="h-5 w-5 text-[#0B3A75]" />}
+                icon={<Waves className="h-5 w-5 text-[#8A5E00]" />}
                 label="Waves"
                 value={formatWaveRange(day.waveRange)}
                 delay={200}
@@ -411,7 +411,7 @@ function BestDayCard({
 
               <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[#11100D]/68">
                 <span className="flex items-center gap-1">
-                  <Waves className="h-3 w-3 text-[#0B3A75]" />
+                  <Waves className="h-3 w-3 text-[#8A5E00]" />
                   {formatWaveRange(day.waveRange)}
                 </span>
                 <span className="flex items-center gap-1">

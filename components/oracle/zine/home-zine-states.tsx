@@ -5,7 +5,7 @@ import { HomeZineShell } from "./home-zine-shell";
 import { HomeHeroMedia } from "./home-hero-media";
 
 const INK = "#11100D";
-const STAMP_BLUE = "#0B3A75";
+const STAMP_BLUE = "#8A5E00";
 
 function StencilHeading({ children }: { children: React.ReactNode }) {
   return (

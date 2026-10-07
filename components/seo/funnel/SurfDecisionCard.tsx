@@ -87,7 +87,7 @@ export async function SurfDecisionCard({ decision }: SurfDecisionCardProps) {
       <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-md md:p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
-            <p className="font-mono text-xs font-bold uppercase tracking-[0.16em] text-[#0B3A75]">
+            <p className="font-mono text-xs font-bold uppercase tracking-[0.16em] text-[#8A5E00]">
               Today&apos;s call
             </p>
             <h2

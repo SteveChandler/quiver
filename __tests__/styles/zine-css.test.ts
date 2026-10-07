@@ -26,22 +26,22 @@ describe("zine stylesheet", () => {
     expect(zineCss).toContain(
       '.zine-page .zine-tabs-slot [data-tier="hero"].bg-card .bg-blue-50\\/50'
     );
-    expect(zineCss).toContain("color: #0B3A75 !important;");
+    expect(zineCss).toContain("color: #8A5E00 !important;");
   });
 
   it("keeps the forecast window panel readable on cream zine paper", () => {
     expect(zineCss).toContain(
       '.zine-page .zine-tabs-slot [data-tier="hero"].bg-card .rounded-2xl.border-blue-200\\/60'
     );
-    expect(zineCss).toContain("background: rgba(11, 58, 117, 0.08) !important;");
-    expect(zineCss).toContain("color: #0A2F5E !important;");
+    expect(zineCss).toContain("background: #F6E9CE !important;");
+    expect(zineCss).toContain("color: #11100D !important;");
   });
 
   it("keeps the forecast why-sentence panel readable on cream zine paper", () => {
     expect(zineCss).toContain(
       '.zine-page .zine-tabs-slot [data-tier="hero"].bg-card .rounded-xl.border-gray-200\\/40'
     );
-    expect(zineCss).toContain("border-color: #0B3A75 !important;");
+    expect(zineCss).toContain("border-color: #11100D !important;");
     expect(zineCss).toContain("opacity: 1;");
   });
 
@@ -55,7 +55,7 @@ describe("zine stylesheet", () => {
     expect(zineCss).toContain(
       ".zine-page .zine-tabs-slot #intel-section .text-blue-700"
     );
-    expect(zineCss).toContain("color: #0B3A75 !important;");
+    expect(zineCss).toContain("color: #8A5E00 !important;");
   });
 
   it("keeps recent session cards readable on cream zine paper", () => {
@@ -69,7 +69,7 @@ describe("zine stylesheet", () => {
       ".zine-page .zine-tabs-slot .session-card-hover .bg-muted\\/50"
     );
     expect(zineCss).toContain(
-      "background-color: rgba(11, 58, 117, 0.08) !important;"
+      "background-color: #F6E9CE !important;"
     );
   });
 

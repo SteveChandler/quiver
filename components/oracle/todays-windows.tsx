@@ -47,7 +47,7 @@ interface TodaysWindowsProps {
 }
 
 const INK = "#11100D";
-const STAMP_BLUE = "#0B3A75";
+const STAMP_BLUE = "#8A5E00";
 /** Marker yellow, matching `.hl` in zine.css. */
 const HIGHLIGHT = "rgba(242,201,76,0.85)";
 
@@ -238,7 +238,7 @@ export function TodaysWindows({ windows, preferredTime, forecastUrl, isTomorrow,
                     <WaveHeightDisplay
                       height={height}
                       showTooltip={false}
-                      className="w-16 shrink-0 whitespace-nowrap text-right text-sm font-semibold text-[#0B3A75]"
+                      className="w-16 shrink-0 whitespace-nowrap text-right text-sm font-semibold text-[#8A5E00]"
                       isCalibrated={window.isCalibrated}
                     />
                   )}

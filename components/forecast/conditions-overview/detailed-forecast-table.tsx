@@ -236,7 +236,7 @@ export function DetailedForecastTable({
                 <Icon className="h-4 w-4" />
                 {group.label}
               </span>
-              <span className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-[#0B3A75]">
+              <span className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-[#8A5E00]">
                 {group.rows.length} slots
               </span>
             </button>
@@ -246,7 +246,7 @@ export function DetailedForecastTable({
                 <div className="hidden overflow-x-auto md:block">
                   <table className="w-full min-w-[1180px] border-collapse">
                     <thead>
-                      <tr className="border-b-2 border-[#11100D] bg-[#0B3A75] text-left">
+                      <tr className="border-b-2 border-[#11100D] bg-[#11100D] text-left">
                         {[
                           "Time",
                           "Surf",

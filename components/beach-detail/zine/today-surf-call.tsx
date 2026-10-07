@@ -90,7 +90,7 @@ export function TodaySurfCall({
       >
         {/* Section header — title only; metadata moves to the printer's mark at bottom-right */}
         <div className="flex items-center gap-3">
-          <DoodleStar size={20} color="#0B3A75" />
+          <DoodleStar size={20} color="#8A5E00" />
           <h2
             style={{
               fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
@@ -161,7 +161,7 @@ export function TodaySurfCall({
             }}
             aria-label={`Updated ${updatedAt}`}
           >
-            ⚑ updated {updatedAt}
+            Updated {updatedAt}
           </div>
         )}
       </div>
@@ -265,14 +265,14 @@ function TierMarginScrawl({
           fontFamily: "var(--font-handwritten), cursive",
           fontSize: 18,
           fontWeight: 700,
-          color: "#0B3A75",
+          color: "#8A5E00",
           background: "rgba(244,235,216,0.85)",
           padding: "2px 8px",
           borderRadius: 2,
         }}
         aria-label={`Your call — for ${TIER_LABEL[displayTier]}`}
       >
-        ✦ your call <span style={{ opacity: 0.65, fontSize: 14 }}>· {TIER_LABEL[displayTier]}</span>
+        Your call <span style={{ opacity: 0.65, fontSize: 14 }}>· {TIER_LABEL[displayTier]}</span>
       </div>
     );
   }
@@ -311,9 +311,9 @@ function WhyCallout({ text }: { text: string }) {
           textAlign: "center",
         }}
       >
-        <span aria-hidden style={{ color: "#0B3A75", marginRight: 6 }}>“</span>
+        <span aria-hidden style={{ color: "#8A5E00", marginRight: 6 }}>“</span>
         {text}
-        <span aria-hidden style={{ color: "#0B3A75", marginLeft: 4 }}>”</span>
+        <span aria-hidden style={{ color: "#8A5E00", marginLeft: 4 }}>”</span>
       </p>
       {/* Hand-drawn squiggle — wider/wavier than CSS wavy underline, sells the editorial annotation. */}
       <svg
@@ -324,7 +324,7 @@ function WhyCallout({ text }: { text: string }) {
       >
         <path
           d="M 1 5 Q 12 0, 24 5 T 48 5 T 72 5 T 96 5 T 120 5 T 144 5 T 168 5 T 192 5 T 216 5 T 239 5"
-          stroke="#0B3A75"
+          stroke="#8A5E00"
           strokeWidth="1.6"
           fill="none"
           strokeLinecap="round"
@@ -392,7 +392,7 @@ function ConditionStrip({
       big: swell,
       sub: null,
       font: "display" as const,
-      color: "#0B3A75",
+      color: "#8A5E00",
     },
     {
       label: "WIND",

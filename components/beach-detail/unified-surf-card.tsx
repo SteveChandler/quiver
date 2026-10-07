@@ -290,7 +290,7 @@ export function UnifiedSurfCard({
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1">
             <CardTitle className="text-xl font-bold text-blue-900">
-              {isTomorrow ? "🌊 Best Surf Window Tomorrow" : "🌊 Best Surf Window Today"}
+              {isTomorrow ? "Best Surf Window Tomorrow" : "Best Surf Window Today"}
             </CardTitle>
             <p className="text-xs text-muted-foreground mt-1">
               Based on tide, swell, wind, and spot fit · Updated {updatedTime}

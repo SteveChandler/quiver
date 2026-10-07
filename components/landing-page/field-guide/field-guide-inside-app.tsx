@@ -72,7 +72,7 @@ export function FieldGuideInsideApp(): ReactElement {
                   playLabel="Play preview"
                   playButtonClassName="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 border-2 border-[#11100D] bg-[#F4EBD8] px-4 py-2 font-mono text-xs font-black uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_3px_0_rgba(17,16,13,0.2)]"
                 />
-                <div className="absolute bottom-5 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap bg-[#FFFDF4] px-4 py-2 font-mono text-[11px] font-bold uppercase tracking-[0.22em] text-[#0B3A75] shadow-[2px_3px_0_rgba(17,16,13,0.18)]">
+                <div className="absolute bottom-5 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap bg-[#FFFDF4] px-4 py-2 font-mono text-[11px] font-bold uppercase tracking-[0.22em] text-[#8A5E00] shadow-[2px_3px_0_rgba(17,16,13,0.18)]">
                   Looking ahead - live
                 </div>
               </div>

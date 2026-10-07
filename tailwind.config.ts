@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import { SCORE_COLOR_CLASS_SAFELIST } from "./lib/utils/score-color-utils";
 
 // Tailwind's plain `var(--token)` form cannot generate `/opacity` utilities.
 // color-mix keeps the zine CSS variable as the source of truth while preserving
@@ -14,6 +15,8 @@ const config: Config = {
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
     "*.{js,ts,jsx,tsx,mdx}",
   ],
+  // lib/ is not scanned; score colours are built there.
+  safelist: [...SCORE_COLOR_CLASS_SAFELIST],
   theme: {
     extend: {
       screens: {
@@ -45,8 +48,8 @@ const config: Config = {
         "paper-shadow": zineColor("--paper-shadow", "#E5D4B3"),
         "paper-deep": zineColor("--paper-deep", "#D9C49C"),
         "stamp-red": zineColor("--stamp-red", "#B91C1C"),
-        // Stamp blue on paper is 9.44:1.
-        "stamp-blue": zineColor("--stamp-blue", "#0B3A75"),
+        // Native goldInk: kicker and label type on paper, 4.81:1.
+        "kicker-ink": zineColor("--kicker-ink", "#8A5E00"),
         tape: zineColor("--tape", "#C8A46B"),
         "tape-light": zineColor("--tape-light", "#DCC18B"),
         "warning-black": zineColor("--warning-black", "#0A0A08"),

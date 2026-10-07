@@ -133,7 +133,7 @@ function SessionPolaroid({
             width: 26,
             height: 26,
             borderRadius: "50%",
-            background: "#0B3A75",
+            background: "#8A5E00",
             color: "#F4EBD8",
             display: "flex",
             alignItems: "center",
@@ -158,7 +158,7 @@ function SessionPolaroid({
       {rating > 0 && (
         <div className="flex gap-px justify-center mt-2" aria-label={`${rating} of 5 stars`}>
           {[0, 1, 2, 3, 4].map((i) => (
-            <DoodleStar key={i} size={12} color="#0B3A75" filled={i < rating} />
+            <DoodleStar key={i} size={12} color="#8A5E00" filled={i < rating} />
           ))}
         </div>
       )}

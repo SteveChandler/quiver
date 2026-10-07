@@ -74,9 +74,9 @@ type NavbarPosition = "overlay" | "static";
 type NavbarNativeCtaPlacement = "navbar_primary" | "navbar_mobile_primary";
 
 const NAVBAR_CTA_CLASS =
-  "inline-flex min-h-11 items-center justify-center rounded-md border border-[#11100D]/45 bg-transparent px-4 py-2 font-mono text-xs font-bold uppercase tracking-[0.12em] text-[#11100D] transition hover:bg-[#11100D]/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0B3A75] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4EBD8]";
+  "inline-flex min-h-11 items-center justify-center rounded-md border border-[#11100D]/45 bg-transparent px-4 py-2 font-mono text-xs font-bold uppercase tracking-[0.12em] text-[#11100D] transition hover:bg-[#11100D]/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4EBD8]";
 const NAVBAR_MOBILE_CTA_CLASS =
-  "inline-flex min-h-12 w-full items-center justify-center rounded-md bg-[#F78E42] px-4 text-base font-bold text-[#11100D] transition hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0B3A75]";
+  "inline-flex min-h-12 w-full items-center justify-center rounded-full bg-[#F78E42] px-4 text-base font-bold text-[#11100D] transition hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D]";
 const NAVBAR_APP_CTA_LABEL = "Get the app";
 
 function NavbarNativeCta({
@@ -160,7 +160,7 @@ export function Navbar({
 
   const isStatic = position === "static";
   const navTextClass = isStatic
-    ? "text-[#11100D] hover:text-[#0B3A75] [text-shadow:none]"
+    ? "text-[#11100D] hover:text-[#AA4918] [text-shadow:none]"
     : "text-white hover:text-white/80 [text-shadow:_0_1px_3px_rgb(0_0_0_/_40%)]";
 
   return (

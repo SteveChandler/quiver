@@ -53,7 +53,7 @@ export function AccuracyComparison() {
         </div>
 
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="rounded-[8px] border-2 border-[#11100D] bg-[#0B3A75] px-4 py-3 text-sm font-bold text-[#F4EBD8] shadow-[3px_3px_0_#11100D]">
+          <p className="rounded-[8px] border-2 border-[#11100D] bg-[#11100D] px-4 py-3 text-sm font-bold text-[#F4EBD8] shadow-[3px_3px_0_#11100D]">
             A buoy check can validate an offshore-height forecast. By itself, it
             cannot prove the breaking surf-height call was right.
           </p>

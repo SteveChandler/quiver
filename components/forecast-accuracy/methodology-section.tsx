@@ -67,7 +67,7 @@ export function MethodologySection() {
         </ol>
 
         <div className="mt-5 grid gap-3 md:grid-cols-[1.1fr_0.9fr]">
-          <div className="rounded-[8px] border-2 border-[#11100D] bg-[#0B3A75] p-4 text-[#F4EBD8] shadow-[3px_3px_0_#11100D]">
+          <div className="rounded-[8px] border-2 border-[#11100D] bg-[#11100D] p-4 text-[#F4EBD8] shadow-[3px_3px_0_#11100D]">
             <h3 className="font-heading text-xl font-black">
               What a head-to-head requires
             </h3>

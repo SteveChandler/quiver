@@ -49,7 +49,7 @@ export function FieldGuideWalkthrough(): ReactElement {
         sizes="5rem"
       />
       <header className="max-w-3xl">
-        <p className="font-mono text-[11px] font-bold uppercase tracking-[0.28em] text-[#0B3A75]">
+        <p className="font-mono text-[11px] font-bold uppercase tracking-[0.28em] text-[#8A5E00]">
           How Quiver works
         </p>
         <h2
@@ -74,7 +74,7 @@ export function FieldGuideWalkthrough(): ReactElement {
           {STEPS.map((step, index) => (
             <li
               key={step.title}
-              className="grid grid-cols-[3.5rem_minmax(0,1fr)] gap-3 border-b-2 border-dashed border-[#0B3A75]/25 pb-6 last:border-b-0 last:pb-0 sm:grid-cols-[4.5rem_minmax(0,1fr)]"
+              className="grid grid-cols-[3.5rem_minmax(0,1fr)] gap-3 border-b-2 border-dashed border-[#11100D]/25 pb-6 last:border-b-0 last:pb-0 sm:grid-cols-[4.5rem_minmax(0,1fr)]"
             >
               <span
                 className="font-[family-name:var(--font-zine-display)] text-4xl leading-none text-[#F78E42] sm:text-5xl"
@@ -83,7 +83,7 @@ export function FieldGuideWalkthrough(): ReactElement {
                 {String(index + 1).padStart(2, "0")}
               </span>
               <div className="min-w-0">
-                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[#0B3A75]">
+                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[#8A5E00]">
                   {step.eyebrow}
                 </p>
                 <h3 className="mt-1 font-[family-name:var(--font-zine-display)] text-xl uppercase leading-tight text-[#11100D] sm:text-2xl">

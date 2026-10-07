@@ -203,7 +203,7 @@ export function SiteFooter({
                 &copy; {currentYear} Quiver Surf. All rights reserved.
               </p>
               <p className="font-sans text-gray-400 text-sm">
-                Made with 🌊 for the surf community
+                Made by surfers for the surf community
               </p>
             </div>
           ) : (

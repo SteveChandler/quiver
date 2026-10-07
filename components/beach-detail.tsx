@@ -152,7 +152,7 @@ function AlertNudge({
         <div className="flex items-center gap-2 px-1 sm:ml-3 sm:px-0">
           <button
             onClick={onSetupAlerts}
-            className="inline-flex min-h-9 items-center border-2 border-[#11100D] bg-[#F78E42] px-3 font-[family-name:var(--font-mono)] text-[11px] font-black uppercase tracking-[0.12em] text-[#11100D] shadow-[2px_2px_0_#11100D] transition hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D] focus-visible:ring-offset-2 focus-visible:ring-offset-[#E8DCC0]"
+            className="rounded-full inline-flex min-h-9 items-center border-2 border-[#11100D] bg-[#F78E42] px-3 font-[family-name:var(--font-mono)] text-[11px] font-black uppercase tracking-[0.12em] text-[#11100D] shadow-[2px_2px_0_#11100D] transition hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D] focus-visible:ring-offset-2 focus-visible:ring-offset-[#E8DCC0]"
           >
             Set up alert
           </button>

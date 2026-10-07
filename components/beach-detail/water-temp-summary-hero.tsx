@@ -46,7 +46,7 @@ export function WaterTempSummaryHero({
           unstyled, invisible text run. */}
       <div
         aria-hidden="true"
-        className="flex size-[120px] shrink-0 -rotate-[8deg] flex-col items-center justify-center rounded-full border-4 border-[#0B3A75] bg-[#F4EBD8]/60 text-center font-heading font-black uppercase leading-[0.95] tracking-[0.06em] text-[#0B3A75]"
+        className="flex size-[120px] shrink-0 -rotate-[8deg] flex-col items-center justify-center rounded-full border-4 border-[#11100D] bg-[#F4EBD8]/60 text-center font-heading font-black uppercase leading-[0.95] tracking-[0.06em] text-[#8A5E00]"
       >
         <span className="text-[15px]">Water</span>
         <span className="mt-0.5 text-[28px] leading-none">{tempF}°F</span>
@@ -55,7 +55,7 @@ export function WaterTempSummaryHero({
 
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 border-2 border-[#0B3A75] bg-[#F78E42] px-2.5 py-1 font-[family-name:var(--font-mono)] text-[11px] font-black uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_2px_0_#0B3A75]">
+          <span className="rounded-full inline-flex items-center gap-1.5 border-2 border-[#11100D] bg-[#F78E42] px-2.5 py-1 font-[family-name:var(--font-mono)] text-[11px] font-black uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_2px_0_#8A5E00]">
             <Thermometer className="h-3.5 w-3.5" aria-hidden="true" />
             {profile}
           </span>
@@ -77,7 +77,7 @@ export function WaterTempSummaryHero({
 
         <Link
           href={seasonalTrendsHref}
-          className="mt-3 inline-flex min-h-11 items-center gap-1.5 font-[family-name:var(--font-mono)] text-xs font-black uppercase tracking-[0.09em] text-[#0B3A75] underline decoration-2 underline-offset-4 transition-colors hover:text-[#11100D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0B3A75] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4EBD8]"
+          className="mt-3 inline-flex min-h-11 items-center gap-1.5 font-[family-name:var(--font-mono)] text-xs font-black uppercase tracking-[0.09em] text-[#AA4918] underline decoration-2 underline-offset-4 transition-colors hover:text-[#11100D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4EBD8]"
         >
           Seasonal water trends for {seasonalTrendsLocation}
           <ArrowUpRight className="h-4 w-4 shrink-0" aria-hidden="true" />

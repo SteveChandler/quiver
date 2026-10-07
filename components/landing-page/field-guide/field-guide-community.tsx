@@ -67,7 +67,7 @@ export function FieldGuideCommunity(): ReactElement {
         sizes="6rem"
       />
       <div className="mb-7 max-w-3xl">
-        <p className="font-mono text-[11px] font-bold uppercase tracking-[0.28em] text-[#0B3A75]">
+        <p className="font-mono text-[11px] font-bold uppercase tracking-[0.28em] text-[#8A5E00]">
           From the lineup
         </p>
         <h2 className="mt-2 font-[family-name:var(--font-zine-display)] text-3xl uppercase leading-tight text-[#11100D] sm:text-4xl">

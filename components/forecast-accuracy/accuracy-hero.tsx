@@ -20,7 +20,7 @@ const METHOD_CHECKS = [
     label: "Definition",
     detail: "Confirm both values describe the same physical quantity.",
     icon: Ruler,
-    color: "text-[#0B3A75]",
+    color: "text-[#8A5E00]",
   },
 ] as const;
 
@@ -34,7 +34,7 @@ export function AccuracyHero() {
       />
 
       <div className="relative grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-stretch">
-        <div className="rounded-[8px] border-2 border-[#11100D] bg-[#0B3A75] p-5 text-[#F4EBD8] shadow-[3px_3px_0_#11100D] md:p-7">
+        <div className="rounded-[8px] border-2 border-[#11100D] bg-[#11100D] p-5 text-[#F4EBD8] shadow-[3px_3px_0_#11100D] md:p-7">
           <div className="mb-4 inline-flex rotate-[-1.5deg] items-center gap-2 rounded-[8px] border-2 border-[#11100D] bg-[#EFE5CF] px-3 py-1.5 text-xs font-black uppercase tracking-[0.14em] text-[#11100D] shadow-[3px_3px_0_#11100D]">
             <Waves className="h-3.5 w-3.5" aria-hidden />
             Start with the measurement

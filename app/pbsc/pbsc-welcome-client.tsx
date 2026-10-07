@@ -139,7 +139,7 @@ function GetAppCta({
       href={href}
       onClick={handleClick}
       className={cn(
-        "inline-flex min-h-12 items-center justify-center gap-3 rounded-[14px_4px_16px_6px] border-2 border-[#11100D] bg-[#F78E42] px-5 py-3 font-heading text-base font-black uppercase leading-none text-[#11100D] shadow-[5px_5px_0_rgba(17,16,13,0.32)] transition-colors hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#252D6B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4EBD8]",
+        "inline-flex min-h-12 items-center justify-center gap-3 rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-3 font-heading text-base font-black uppercase leading-none text-[#11100D] shadow-[5px_5px_0_rgba(17,16,13,0.32)] transition-colors hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#252D6B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4EBD8]",
         className,
       )}
       whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}

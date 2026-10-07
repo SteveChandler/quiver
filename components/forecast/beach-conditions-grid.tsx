@@ -171,7 +171,7 @@ function BeachConditionRow({
       </TableCell>
       <TableCell>
         <div className={cn("flex items-center gap-1.5", isZine ? "text-[#11100D]/68" : "text-muted-foreground")}>
-          <Waves className={cn("h-4 w-4", isZine ? "text-[#0B3A75]" : "text-blue-500")} />
+          <Waves className={cn("h-4 w-4", isZine ? "text-[#8A5E00]" : "text-blue-500")} />
           <span className={cn("font-medium tabular-nums", isZine ? "text-[#11100D]" : "text-foreground")}>
             <AnimatedCounter
               value={beach.currentWaveHeight}
@@ -276,7 +276,7 @@ function BeachConditionCard({
               {/* Quick Stats with animated wave height */}
               <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
                 <span className={cn("flex items-center gap-1", isZine ? "text-[#11100D]/68" : "text-muted-foreground")}>
-                  <Waves className={cn("h-3.5 w-3.5", isZine ? "text-[#0B3A75]" : "text-blue-500")} />
+                  <Waves className={cn("h-3.5 w-3.5", isZine ? "text-[#8A5E00]" : "text-blue-500")} />
                   <span className={cn("font-medium tabular-nums", isZine ? "text-[#11100D]" : "text-foreground")}>
                     <AnimatedCounter
                       value={beach.currentWaveHeight}

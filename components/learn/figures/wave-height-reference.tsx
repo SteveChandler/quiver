@@ -79,7 +79,7 @@ export default function WaveHeightReference() {
             <path
               d="M44 214 C82 174 126 174 164 214"
               fill="none"
-              stroke="#0B3A75"
+              stroke="#8A5E00"
               strokeWidth="5"
               strokeLinecap="round"
             />
@@ -88,7 +88,7 @@ export default function WaveHeightReference() {
           <rect x="566" width="114" height="270" fill="#D9C49C" />
           <path
             d="M314 224 C366 217 389 183 417 129 C443 78 497 69 538 103 C508 96 482 110 469 139 C500 145 526 169 540 211 C484 224 400 229 314 224Z"
-            fill="#0B3A75"
+            fill="#8A5E00"
             opacity="0.93"
             className="transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)]"
             style={{

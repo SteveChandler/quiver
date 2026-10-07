@@ -15,7 +15,7 @@ interface ActivityFeedProps {
 }
 
 const INK = "#11100D";
-const STAMP_BLUE = "#0B3A75";
+const STAMP_BLUE = "#8A5E00";
 
 function AvatarCircle({
   initial,

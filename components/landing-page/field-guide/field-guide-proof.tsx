@@ -32,7 +32,7 @@ export function FieldGuideProof(): ReactElement {
             className="absolute -top-3 left-1/2 w-16 -translate-x-1/2"
             sizes="4rem"
           />
-          <div className="pt-3 font-[family-name:var(--font-zine-display)] text-4xl uppercase leading-none text-[#0B3A75]">
+          <div className="pt-3 font-[family-name:var(--font-zine-display)] text-4xl uppercase leading-none text-[#8A5E00]">
             {stat.value}
           </div>
           <div className="mt-2 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#11100D]/70">

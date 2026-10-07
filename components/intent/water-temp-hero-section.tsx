@@ -57,16 +57,16 @@ export function WaterTempHeroSection({ data }: WaterTempHeroSectionProps) {
           <div className="flex flex-col sm:flex-row items-start gap-6">
             {/* Large temp display */}
             <div className="flex items-baseline">
-              <Thermometer className="h-8 w-8 text-[#0B3A75] mr-3 self-center" />
-              <span className="text-5xl md:text-6xl font-bold text-[#0B3A75]">
+              <Thermometer className="h-8 w-8 text-[#8A5E00] mr-3 self-center" />
+              <span className="text-5xl md:text-6xl font-bold text-[#8A5E00]">
                 {Math.round(currentTemp)}
               </span>
-              <span className="text-2xl font-semibold text-[#0B3A75] ml-1">
+              <span className="text-2xl font-semibold text-[#8A5E00] ml-1">
                 °F
               </span>
               {trend !== 0 && (
                 <span
-                  className={`ml-3 flex items-center text-sm ${trend > 0 ? "text-[#B65F1A]" : "text-[#0B3A75]"}`}
+                  className={`ml-3 flex items-center text-sm ${trend > 0 ? "text-[#B65F1A]" : "text-[#8A5E00]"}`}
                 >
                   <TrendIcon className="h-4 w-4 mr-1" />
                   {Math.abs(Math.round(trend * 10) / 10)}° this week
@@ -78,7 +78,7 @@ export function WaterTempHeroSection({ data }: WaterTempHeroSectionProps) {
             <div className="flex-1 space-y-2">
               <Badge
                 variant="secondary"
-                className="border border-[#0B3A75]/20 bg-[#0B3A75]/10 text-sm font-semibold text-[#0B3A75]"
+                className="border border-[#11100D]/20 bg-[#F6E9CE] text-sm font-semibold text-[#8A5E00]"
               >
                 {wetsuitRecommendation.thickness}
               </Badge>
@@ -128,7 +128,7 @@ export function WaterTempHeroSection({ data }: WaterTempHeroSectionProps) {
                     </defs>
                     <CartesianGrid
                       strokeDasharray="4 6"
-                      stroke="rgba(11, 58, 117, 0.28)"
+                      stroke="rgba(138, 94, 0, 0.28)"
                       vertical={false}
                     />
                     <ReferenceArea
@@ -187,13 +187,13 @@ export function WaterTempHeroSection({ data }: WaterTempHeroSectionProps) {
                     <Area
                       type="monotone"
                       dataKey="temp"
-                      stroke="#0B3A75"
+                      stroke="#8A5E00"
                       strokeWidth={3}
                       fill="url(#waterTempTrendFill)"
                       connectNulls
                       isAnimationActive={false}
                       dot={{
-                        fill: "#0B3A75",
+                        fill: "#8A5E00",
                         stroke: "#F4EBD8",
                         strokeWidth: 2,
                         r: 5,

@@ -4,7 +4,7 @@ import { WaveHeightDisplay } from "@/components/ui/wave-height-display";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
 
 const INK = "#11100D";
-const STAMP_BLUE = "#0B3A75";
+const STAMP_BLUE = "#8A5E00";
 
 interface HomeBeachCardProps {
   /** Recommendation row for the user's home beach (from useSurfDiscovery). */

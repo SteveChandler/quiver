@@ -145,14 +145,14 @@ export default async function MexicoStatesIndexPage() {
             >
               <Link
                 href="/"
-                className="rounded-sm underline decoration-2 underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0B3A75]"
+                className="rounded-sm underline decoration-2 underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D]"
               >
                 Home
               </Link>
               <span aria-hidden>/</span>
               <Link
                 href="/beaches"
-                className="rounded-sm underline decoration-2 underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0B3A75]"
+                className="rounded-sm underline decoration-2 underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D]"
               >
                 Beaches
               </Link>
@@ -188,7 +188,7 @@ export default async function MexicoStatesIndexPage() {
                 <Link
                   key={state.stateSlug}
                   href={`/beaches/mexico/${state.stateSlug}`}
-                  className={`group block rounded-sm focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0B3A75] focus-visible:ring-offset-4 focus-visible:ring-offset-[#F4EBD8] ${index % 2 === 0 ? "rot-1" : "rot-2"}`}
+                  className={`group block rounded-sm focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#11100D] focus-visible:ring-offset-4 focus-visible:ring-offset-[#F4EBD8] ${index % 2 === 0 ? "rot-1" : "rot-2"}`}
                 >
                   <article className="torn torn-tb grid gap-6 border-2 border-[#11100D] transition-transform group-hover:-translate-y-1 md:grid-cols-[minmax(0,1.35fr)_minmax(240px,0.65fr)] md:items-center md:gap-8">
                     <div className="relative">
@@ -213,7 +213,7 @@ export default async function MexicoStatesIndexPage() {
                       <p className="mt-5 text-base leading-relaxed text-[#11100D]/72">
                         Explore surf spots and ranked beaches across {state.stateName}.
                       </p>
-                      <span className="mt-6 inline-flex font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#0B3A75] group-hover:underline">
+                      <span className="mt-6 inline-flex font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#AA4918] group-hover:underline">
                         Explore the coastline →
                       </span>
                     </div>
@@ -223,7 +223,7 @@ export default async function MexicoStatesIndexPage() {
             })}
           </section>
 
-          <aside className="notebook mt-12 border-l-4 border-[#0B3A75] py-4 pl-6 pr-4">
+          <aside className="notebook mt-12 border-l-4 border-[#11100D] py-4 pl-6 pr-4">
             <p className="font-handwritten text-2xl leading-tight text-[#11100D]">
               The directory grows coast by coast. Each new state will slot into
               the same photo-led field-guide format.

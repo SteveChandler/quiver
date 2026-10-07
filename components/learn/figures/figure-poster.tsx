@@ -57,7 +57,7 @@ export function FigurePoster({ kind }: FigurePosterProps) {
             {[...Array(18)].map((_, i) => {
               const ground = i > 8;
               const x = 20 + i * (ground ? 34 : 20);
-              const stroke = ground ? "#0B3A75" : "#7FA7B8";
+              const stroke = ground ? "#8A5E00" : "#7FA7B8";
               const w = ground ? 3 : 1.4;
               return (
                 <path
@@ -79,7 +79,7 @@ export function FigurePoster({ kind }: FigurePosterProps) {
                 <path
                   key={i}
                   d={`M ${x} -4 C ${x + 3} 60, ${x - 3} 170, ${x} 234`}
-                  stroke="#0B3A75"
+                  stroke="#8A5E00"
                   strokeWidth={3}
                   fill="none"
                   opacity={0.8}
@@ -99,12 +99,12 @@ export function FigurePoster({ kind }: FigurePosterProps) {
             <path
               d="M70 184 C101 150 139 150 170 184"
               fill="none"
-              stroke="#0B3A75"
+              stroke="#8A5E00"
               strokeWidth="5"
             />
             <path
               d="M310 194 C365 188 387 148 414 91 C441 39 499 43 548 81 C504 73 471 98 465 126 C504 135 531 157 546 188 C480 202 391 203 310 194Z"
-              fill="#0B3A75"
+              fill="#8A5E00"
               opacity="0.92"
             />
             <path
@@ -176,7 +176,7 @@ export function FigurePoster({ kind }: FigurePosterProps) {
             <path
               d="M 32 200 C 132 200 210 61 340 61 C 470 61 548 200 648 200"
               fill="none"
-              stroke="#0B3A75"
+              stroke="#8A5E00"
               strokeWidth="5"
               strokeLinecap="round"
             />

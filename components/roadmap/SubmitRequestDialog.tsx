@@ -178,7 +178,7 @@ export function SubmitRequestDialog({ open, onOpenChange }: Props) {
             type="button"
             onClick={handleSubmit}
             disabled={!canSubmit}
-            className="w-full rounded-[14px_6px_16px_4px] border-2 border-[#11100D] bg-[#F78E42] px-4 py-3 font-[family-name:var(--font-zine-display)] text-sm font-black uppercase tracking-wide text-[#11100D] shadow-[2px_3px_0_rgba(17,16,13,0.3)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 focus-ring"
+            className="w-full rounded-full border-2 border-[#11100D] bg-[#F78E42] px-4 py-3 font-[family-name:var(--font-zine-display)] text-sm font-black uppercase tracking-wide text-[#11100D] shadow-[2px_3px_0_rgba(17,16,13,0.3)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 focus-ring"
           >
             {pending ? "Sending…" : "Send it"}
           </button>

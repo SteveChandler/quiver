@@ -85,7 +85,7 @@ export function FieldGuideCoverage(): ReactElement {
         <p>Sources: NOAA / NDBC / CO-OPS / CDIP / surfer logs</p>
         <Link
           href="/vs/surfline"
-          className="text-[#11100D] underline decoration-[#F78E42] decoration-2 underline-offset-4 transition hover:text-[#0B3A75] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B3A75]"
+          className="text-[#11100D] underline decoration-[#F78E42] decoration-2 underline-offset-4 transition hover:text-[#AA4918] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#11100D]"
         >
           Vs Surfline -&gt;
         </Link>

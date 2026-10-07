@@ -37,13 +37,13 @@ export function FieldGuideHero({
             <Link
               href={downloadHref}
               data-testid="field-guide-hero-primary-cta"
-              className="inline-flex min-h-12 items-center justify-center rounded-full border-2 border-[#11100D] bg-[#F78E42] px-6 py-3 font-sans text-sm font-bold uppercase tracking-[0.12em] text-[#11100D] transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B3A75]"
+              className="inline-flex min-h-12 items-center justify-center rounded-full border-2 border-[#11100D] bg-[#F78E42] px-6 py-3 font-sans text-sm font-bold uppercase tracking-[0.12em] text-[#11100D] transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#11100D]"
             >
               Get the app
             </Link>
             <Link
               href="#demo"
-              className="inline-flex min-h-11 items-center px-1 py-2 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#11100D]/75 underline decoration-[#F78E42] decoration-2 underline-offset-4 transition-colors hover:text-[#11100D] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B3A75]"
+              className="inline-flex min-h-11 items-center px-1 py-2 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#11100D]/75 underline decoration-[#F78E42] decoration-2 underline-offset-4 transition-colors hover:text-[#11100D] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#11100D]"
             >
               Watch demo
             </Link>

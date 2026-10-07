@@ -254,7 +254,7 @@ async function renderRegionalForecast(region: typeof FORECAST_REGIONS[string]) {
 
                 <div className="mt-6 flex flex-wrap items-center gap-4 font-mono text-xs uppercase tracking-[0.12em] text-[#11100D]/65">
                   <div className="flex items-center gap-1.5">
-                    <MapPin className="h-4 w-4 text-[#0B3A75]" />
+                    <MapPin className="h-4 w-4 text-[#8A5E00]" />
                     <span>
                       <AnimatedCounter
                         value={summary.stats.beachesWithData}

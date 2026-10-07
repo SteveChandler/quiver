@@ -46,7 +46,7 @@ describe("ForecastDisplay", () => {
   it("should render no data message when no forecasts", () => {
     render(<TestForecastDisplay {...defaultProps} forecasts={[]} />);
 
-    expect(screen.getByText("No forecast data available")).toBeInTheDocument();
+    expect(screen.getByText("no data")).toBeInTheDocument();
   });
 
   it("should render loading state", () => {
@@ -73,13 +73,13 @@ describe("ForecastDisplay", () => {
   it("should render no data state when forecasts array is empty", () => {
     render(<TestForecastDisplay {...defaultProps} forecasts={[]} />);
 
-    expect(screen.getByText("No forecast data available")).toBeInTheDocument();
+    expect(screen.getByText("no data")).toBeInTheDocument();
   });
 
   it("should render no data state when forecasts is null", () => {
     render(<TestForecastDisplay {...defaultProps} forecasts={null as any} />);
 
-    expect(screen.getByText("No forecast data available")).toBeInTheDocument();
+    expect(screen.getByText("no data")).toBeInTheDocument();
   });
 
   it("should render beach name even when beach is null", () => {

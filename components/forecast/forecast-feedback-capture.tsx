@@ -387,7 +387,7 @@ export function ForecastFeedbackCapture({
               <label className="block text-sm font-bold text-[#11100D]">
                 What face height did you see?{" "}
                 <span className="font-medium">(optional)</span>
-                <span className="mt-1 flex max-w-48 items-center rounded-[8px] border-2 border-[#11100D] bg-[#F4EBD8] focus-within:ring-2 focus-within:ring-[#0B3A75]">
+                <span className="mt-1 flex max-w-48 items-center rounded-[8px] border-2 border-[#11100D] bg-[#F4EBD8] focus-within:ring-2 focus-within:ring-[#11100D]">
                   <input
                     type="number"
                     inputMode="decimal"
@@ -428,7 +428,7 @@ export function ForecastFeedbackCapture({
               maxLength={1000}
               rows={2}
               disabled={isLocked}
-              className="min-h-12 flex-1 rounded-[8px] border-2 border-[#11100D] bg-[#F4EBD8] px-3 py-2 text-sm font-medium text-[#11100D] outline-none focus:ring-2 focus:ring-[#0B3A75] disabled:cursor-not-allowed disabled:opacity-60"
+              className="min-h-12 flex-1 rounded-[8px] border-2 border-[#11100D] bg-[#F4EBD8] px-3 py-2 text-sm font-medium text-[#11100D] outline-none focus:ring-2 focus:ring-[#11100D] disabled:cursor-not-allowed disabled:opacity-60"
               placeholder="Add a detail"
             />
             <button
@@ -437,7 +437,7 @@ export function ForecastFeedbackCapture({
                 void handleSubmit();
               }}
               disabled={isLocked}
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-[8px] border-2 border-[#11100D] bg-[#F78E42] px-4 py-2 font-heading text-sm font-black uppercase text-[#11100D] shadow-[2px_2px_0_#11100D] transition hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[1px_1px_0_#11100D] disabled:cursor-not-allowed disabled:opacity-60 focus-ring"
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border-2 border-[#11100D] bg-[#F78E42] px-4 py-2 font-heading text-sm font-black uppercase text-[#11100D] shadow-[2px_2px_0_#11100D] transition hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[1px_1px_0_#11100D] disabled:cursor-not-allowed disabled:opacity-60 focus-ring"
             >
               {isSubmitting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -462,7 +462,7 @@ export function ForecastFeedbackCapture({
           {sessionLogUrl && (
             <Link
               href={sessionLogUrl}
-              className="inline-flex min-h-10 items-center justify-center rounded-[8px] border-2 border-[#11100D] bg-[#F78E42] px-4 py-2 font-heading text-xs font-black uppercase text-[#11100D] shadow-[2px_2px_0_#11100D] transition hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[1px_1px_0_#11100D]"
+              className="inline-flex min-h-10 items-center justify-center rounded-full border-2 border-[#11100D] bg-[#F78E42] px-4 py-2 font-heading text-xs font-black uppercase text-[#11100D] shadow-[2px_2px_0_#11100D] transition hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[1px_1px_0_#11100D]"
             >
               Log the session
             </Link>

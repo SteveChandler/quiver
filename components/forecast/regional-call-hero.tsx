@@ -459,7 +459,7 @@ export function RegionalCallHero({
           <Link
             href={`/forecast/${region.slug}`}
             data-testid="primary-cta"
-            className="group inline-flex items-center justify-center gap-2 rounded-[14px_6px_16px_4px] bg-[#F78E42] px-5 py-3 font-[family-name:var(--font-heading)] text-sm font-semibold uppercase tracking-wide text-[#252D6B] shadow-[0_2px_0_rgba(0,0,0,0.25)] transition hover:bg-[#ffa760] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]"
+            className="group inline-flex items-center justify-center gap-2 rounded-full bg-[#F78E42] px-5 py-3 font-[family-name:var(--font-heading)] text-sm font-semibold uppercase tracking-wide text-[#252D6B] shadow-[0_2px_0_rgba(0,0,0,0.25)] transition hover:bg-[#ffa760] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]"
           >
             Open {region.name} forecast
             <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />

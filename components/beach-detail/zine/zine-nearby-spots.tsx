@@ -102,7 +102,7 @@ export function ZineNearbySpots({
             fontSize: 12,
             letterSpacing: "0.12em",
             textTransform: "uppercase",
-            color: "#0B3A75",
+            color: "#8A5E00",
             fontWeight: 700,
             textDecoration: "underline",
             textUnderlineOffset: 4,
@@ -230,7 +230,7 @@ function NearbyCard({
             <div
               className="mt-2.5 inline-flex items-center gap-1.5 self-start"
               style={{
-                background: "#0B3A75",
+                background: "#8A5E00",
                 color: "#F4EBD8",
                 padding: "3px 10px",
                 fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",

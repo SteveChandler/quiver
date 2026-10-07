@@ -98,7 +98,7 @@ function RedemptionQrFallback({ redeemUrl }: { redeemUrl: string }): ReactElemen
       </h3>
       <a
         href={redeemUrl}
-        className="mt-5 inline-flex min-h-12 items-center justify-center rounded-[14px_6px_16px_6px] bg-[#F78E42] px-5 py-3 text-center font-mono text-xs font-bold uppercase tracking-[0.1em] text-[#11100D] shadow-[2px_4px_0_rgba(17,16,13,0.18)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0B3A75]"
+        className="mt-5 inline-flex min-h-12 items-center justify-center rounded-full bg-[#F78E42] px-5 py-3 text-center font-mono text-xs font-bold uppercase tracking-[0.1em] text-[#11100D] shadow-[2px_4px_0_rgba(17,16,13,0.18)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#11100D]"
       >
         Open redemption link
       </a>
@@ -111,7 +111,7 @@ function RedemptionQrFallback({ redeemUrl }: { redeemUrl: string }): ReactElemen
       <textarea
         id="redeem-copyable-link"
         aria-describedby="redeem-copyable-link-help"
-        className="mt-2 min-h-24 w-full resize-none break-all border-2 border-[#11100D] bg-[#F4EBD8] p-3 font-mono text-xs leading-5 text-[#11100D] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B3A75]"
+        className="mt-2 min-h-24 w-full resize-none break-all border-2 border-[#11100D] bg-[#F4EBD8] p-3 font-mono text-xs leading-5 text-[#11100D] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#11100D]"
         onFocus={(event) => event.currentTarget.select()}
         readOnly
         rows={3}
@@ -206,7 +206,7 @@ function RedemptionContent({
                 surface: "redeem",
               })
             }
-            className="mt-7 inline-flex min-h-14 items-center justify-center rounded-[14px_6px_16px_6px] bg-[#F78E42] px-7 py-4 font-mono text-sm font-bold uppercase tracking-[0.12em] text-[#11100D] shadow-[3px_5px_0_rgba(17,16,13,0.25)] motion-safe:transition-transform motion-safe:hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0B3A75] active:translate-y-0"
+            className="mt-7 inline-flex min-h-14 items-center justify-center rounded-full bg-[#F78E42] px-7 py-4 font-mono text-sm font-bold uppercase tracking-[0.12em] text-[#11100D] shadow-[3px_5px_0_rgba(17,16,13,0.25)] motion-safe:transition-transform motion-safe:hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#11100D] active:translate-y-0"
           >
             Redeem Pro in Quiver
           </a>
@@ -281,7 +281,7 @@ function RedemptionContent({
         <button
           type="button"
           onClick={onRetry}
-          className="mt-6 inline-flex min-h-12 items-center justify-center border-2 border-[#11100D] bg-[#F4EBD8] px-5 py-3 font-mono text-xs font-bold uppercase tracking-[0.12em] text-[#11100D] transition hover:bg-[#E5D4B3] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0B3A75]"
+          className="mt-6 inline-flex min-h-12 items-center justify-center border-2 border-[#11100D] bg-[#F4EBD8] px-5 py-3 font-mono text-xs font-bold uppercase tracking-[0.12em] text-[#11100D] transition hover:bg-[#E5D4B3] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#11100D]"
         >
           Try loading again
         </button>
@@ -394,13 +394,13 @@ export function RedeemView({
                       surface: "redeem",
                     })
                   }
-                  className="inline-flex min-h-12 items-center justify-center rounded-[14px_6px_16px_6px] bg-[#F78E42] px-5 py-3 text-center font-mono text-xs font-bold uppercase tracking-[0.1em] text-[#11100D] shadow-[2px_4px_0_rgba(17,16,13,0.18)] motion-safe:transition-transform motion-safe:hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0B3A75]"
+                  className="inline-flex min-h-12 items-center justify-center rounded-full bg-[#F78E42] px-5 py-3 text-center font-mono text-xs font-bold uppercase tracking-[0.1em] text-[#11100D] shadow-[2px_4px_0_rgba(17,16,13,0.18)] motion-safe:transition-transform motion-safe:hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#11100D]"
                 >
                   Install or open Quiver
                 </Link>
                 <Link
                   href="/download"
-                  className="inline-flex min-h-12 items-center justify-center border-2 border-[#11100D] px-5 py-3 text-center font-mono text-xs font-bold uppercase tracking-[0.1em] text-[#0B3A75] underline decoration-[#F78E42] decoration-2 underline-offset-4 transition hover:bg-[#E5D4B3] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0B3A75]"
+                  className="inline-flex min-h-12 items-center justify-center border-2 border-[#11100D] px-5 py-3 text-center font-mono text-xs font-bold uppercase tracking-[0.1em] text-[#AA4918] underline decoration-[#F78E42] decoration-2 underline-offset-4 transition hover:bg-[#E5D4B3] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#11100D]"
                 >
                   See install options
                 </Link>
@@ -418,7 +418,7 @@ export function RedeemView({
                 If the newest link still fails, contact{" "}
                 <a
                   href="mailto:support@quiversurf.app"
-                  className="font-semibold text-[#0B3A75] underline decoration-[#F78E42] decoration-2 underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0B3A75]"
+                  className="font-semibold text-[#AA4918] underline decoration-[#F78E42] decoration-2 underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#11100D]"
                 >
                   Quiver support
                 </a>

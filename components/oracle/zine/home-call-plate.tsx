@@ -10,7 +10,7 @@ import { HomeHeroMedia } from "./home-hero-media";
 
 const INK = "#11100D";
 const CREAM = "#F4EBD8";
-const STAMP_BLUE = "#0B3A75";
+const STAMP_BLUE = "#8A5E00";
 
 /**
  * Tier colours over the dark media band, matching the native verdict band:

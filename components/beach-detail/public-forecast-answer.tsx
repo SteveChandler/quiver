@@ -18,7 +18,7 @@ import type {
 } from "@/lib/utils/public-forecast-facts";
 
 const DECK_LABEL =
-  "font-mono text-xs font-bold uppercase tracking-[0.16em] text-[#0B3A75]";
+  "font-mono text-xs font-bold uppercase tracking-[0.16em] text-[#8A5E00]";
 const DECK_VALUE =
   "mt-0.5 font-[family-name:var(--font-zine-display)] text-3xl leading-none text-[#11100D] sm:text-4xl";
 const STRIP_LABEL =
@@ -158,11 +158,15 @@ export function PublicForecastAnswer({
     context?.windDirection ?? report?.windCompass,
     report?.windType,
   ]);
-  const tide = joinParts([
-    report?.tideHeight,
-    report?.tidePhase,
+  // Native's tide read: phase first, then the height, e.g. "Rising · 3.2 ft".
+  const tideParts = [
+    report?.tidePhase
+      ? report.tidePhase.charAt(0).toUpperCase() + report.tidePhase.slice(1)
+      : null,
+    report?.tideHeight?.replace(/(\d)(ft|m)\b/, "$1 $2"),
     report?.nextTideType ? `next ${report.nextTideType.toLowerCase()}` : null,
-  ]);
+  ].filter((part): part is string => Boolean(part?.trim()));
+  const tide = tideParts.length > 0 ? tideParts.join(" · ") : null;
   const sourceDataUpdatedAt = context?.sourceDataUpdatedAt ?? null;
   const primaryDataSource = context?.primaryDataSource ?? null;
   const isStale = sourceDataUpdatedAt
@@ -197,9 +201,9 @@ export function PublicForecastAnswer({
     <section
       aria-labelledby="public-forecast-answer-heading"
       data-testid="public-forecast-answer"
-      className="border-t-2 border-dashed border-[#0B3A75]/30 pt-5"
+      className="border-t-2 border-dashed border-[#11100D]/30 pt-5"
     >
-      <HeadingTag id="public-forecast-answer-heading" className="font-mono text-sm font-bold uppercase text-[#0B3A75]">
+      <HeadingTag id="public-forecast-answer-heading" className="font-mono text-sm font-bold uppercase text-[#8A5E00]">
         {beach.name} Surf Forecast{hasSelection ? "" : titleDate}
       </HeadingTag>
       {hasSelection ? (
@@ -227,7 +231,7 @@ export function PublicForecastAnswer({
         </p>
       )}
       {isStale && <p role="status" className="mt-3 border-l-4 border-[#B47A0F] bg-[#F7E7BE] p-3 text-base">Source data is stale; conditions may have changed.</p>}
-      <Link href={`${returnTo}?${new URLSearchParams({ ...Object.fromEntries(searchParams?.entries() ?? []), tab: "forecast" })}#operational-forecast`} className="mt-4 inline-flex min-h-11 items-center border-2 border-[#11100D] bg-[#F78E42] px-4 text-base font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4">Explore forecast</Link>
+      <Link href={`${returnTo}?${new URLSearchParams({ ...Object.fromEntries(searchParams?.entries() ?? []), tab: "forecast" })}#operational-forecast`} className="rounded-full mt-4 inline-flex min-h-11 items-center border-2 border-[#11100D] bg-[#F78E42] px-4 text-base font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4">Explore forecast</Link>
       <details open={!hasSelection || hasResolvedAuthenticatedDecision} className="mt-4">
         <summary className="cursor-pointer text-sm font-semibold focus-visible:outline focus-visible:outline-2">
           {hasResolvedAuthenticatedDecision && selectedWindow ? "Selected call" : "Latest forecast"}{titleDate}

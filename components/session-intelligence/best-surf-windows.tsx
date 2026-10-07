@@ -365,7 +365,7 @@ function FeatureWindowPanel({
             <Button
               asChild
               size="sm"
-              className="h-10 w-full rounded-[12px_4px_14px_6px] bg-[#F78E42] text-[#252D6B] shadow-[2px_3px_0_rgba(0,0,0,0.28)] hover:bg-[#F78E42]/90"
+              className="h-10 w-full rounded-full bg-[#F78E42] text-[#252D6B] shadow-[2px_3px_0_rgba(0,0,0,0.28)] hover:bg-[#F78E42]/90"
             >
               <a
                 href={webUrl}
@@ -578,7 +578,7 @@ function WindowCard({
           <Button
             asChild
             size="sm"
-            className="h-10 w-full rounded-[12px_4px_14px_6px] bg-[#F78E42] text-[#252D6B] shadow-[2px_3px_0_rgba(0,0,0,0.28)] hover:bg-[#F78E42]/90"
+            className="h-10 w-full rounded-full bg-[#F78E42] text-[#252D6B] shadow-[2px_3px_0_rgba(0,0,0,0.28)] hover:bg-[#F78E42]/90"
           >
             <a
               href={webUrl}
@@ -704,7 +704,7 @@ function CompactWindowRow({
               data-testid="surf-window-web-cta"
               aria-label={`View ${beach.name} forecast`}
               onClick={handleWebClick}
-              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-[12px_4px_14px_6px] bg-[#F78E42] px-3 text-sm font-semibold text-[#252D6B] shadow-[2px_3px_0_rgba(0,0,0,0.22)] hover:bg-[#F78E42]/90"
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-[#F78E42] px-3 text-sm font-semibold text-[#252D6B] shadow-[2px_3px_0_rgba(0,0,0,0.22)] hover:bg-[#F78E42]/90"
             >
               <span>View</span>
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -765,7 +765,7 @@ function ZineWindowEntry({
       <div className="flex flex-wrap items-center gap-3">
         <Badge variant="outline" className={cn("px-2.5 py-1 text-sm", paperVerdictClasses(recommendation.verdict))}>{recommendation.verdict}</Badge>
         {webUrl && (
-          <Button asChild size="sm" className="min-h-11 bg-[#F78E42] text-[#11100D] hover:bg-[#FDB84B]">
+          <Button asChild size="sm" className="rounded-full min-h-11 bg-[#F78E42] text-[#11100D] hover:bg-[#FDB84B]">
             <a href={webUrl} data-testid="surf-window-web-cta" aria-label={`View ${beach.name} window`} onClick={handleWebClick}>View this window <ArrowRight className="h-4 w-4" aria-hidden="true" /></a>
           </Button>
         )}

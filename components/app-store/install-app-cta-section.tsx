@@ -96,7 +96,7 @@ export function InstallAppCtaSection({
         source={source}
         surface={surface}
         placement={placement}
-        className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#F78E42] px-6 py-3 font-sans text-sm font-bold text-[#11100D] shadow-[2px_3px_0_rgba(17,16,13,0.22)] transition hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0B3A75] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4EBD8]"
+        className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#F78E42] px-6 py-3 font-sans text-sm font-bold text-[#11100D] shadow-[2px_3px_0_rgba(17,16,13,0.22)] transition hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4EBD8]"
       />
     </section>
   );
