@@ -35,15 +35,15 @@ it.each(['entitled', 'trial', undefined] as const)('never renders promo copy for
 });
 it('supports the personal loop without promising trial access or exact forecast accuracy', async () => {
  const email = await render({...base,job:'trial_support',source:{...base.source!,audience:'trial'}});
- expect(email.subject).toBe('Make the most of Quiver');
- expect(email.text).toContain('Create a custom beach');
+ expect(email.subject).toBe('A few things to set up first');
+ expect(email.text).toContain('Add the spot you actually surf');
  expect(email.text).toContain('Set an alert');
- expect(email.text).toContain('helps tune your personal forecaster');
+ expect(email.text).toContain('rate the forecast so Quiver learns your break');
  expect(email.text).not.toContain('on us');
 });
 it('keeps the routine question, stickers, postal address and unsubscribe footer', async () => {
  const email = await render({...base,job:'routine'});
- expect(email.text).toContain('How can we help Quiver fit into your routine, and what is still missing from the app that you’d like to see?');
+ expect(email.text).toContain('What would make it the thing you check before every surf? Just hit reply.');
  expect(email.html).not.toContain('You opted in');
  expect(email.html).toContain('2261 Market Street STE 10852, San Francisco, CA 94114');
  expect(email.text).toContain('2261 Market Street STE 10852, San Francisco, CA 94114');
@@ -56,24 +56,26 @@ it('keeps the routine question, stickers, postal address and unsubscribe footer'
 
 it.each(['activation', 'progress'] as const)('gives paid users personal-loop support for %s', async job => {
  const email = await render({...base, job, source:{...base.source!,audience:'entitled'}});
- expect(email.text).toMatch(/personal forecaster|Keep the loop going/);
+ expect(email.text).toMatch(/how the forecast held up|tune its calls for you/);
  expect(email.text).not.toContain('on us');
 });
 
 it('asks for trial feedback with the approved sticker and no incentive in the email',async () => {
  const email=await render({...base,job:'trial_feedback',source:{...base.source!,audience:'trial'}});
  expect(email.subject).toBe('Before you head out');
- expect(email.text).toContain('What clicked for you? What never quite did?');
+ expect(email.text).toContain('I’d like to know what didn’t work for you');
  expect(email.html).toContain('/images/quiver-stickers/single-fin.png');
  expect(email.text).toContain('/trial-feedback?message_instance_id=22222222-2222-4222-8222-222222222222');
  expect(email.text).not.toMatch(/on us|extra month|gift|renew/);
 });
-it('preserves existing campaign approval while feedback is disabled and requires new approval when enabled', () => {
+// The v2 hash is recorded in migration 20261007030000. Any copy change needs a new approved campaign.
+it('matches the approved startup-lifecycle-v2 content hash when feedback is enabled', () => {
  const before=process.env.TRIAL_FEEDBACK_ENABLED;
  try {
-  delete process.env.TRIAL_FEEDBACK_ENABLED;
-  jest.isolateModules(() => expect(require('@/lib/mailer/lifecycle-email').LIFECYCLE_CONTENT_HASH).toBe('7fa9c944e8d8d1c86680c750f99d1db593a1f6a540ff0244f94eb4515de0e39d'));
   process.env.TRIAL_FEEDBACK_ENABLED='true';
+  jest.isolateModules(() => expect(require('@/lib/mailer/lifecycle-email').LIFECYCLE_CONTENT_HASH).toBe('429cf6e60ac803b9c5602e85063be90ec9a5172da6134694318a8434d5bb43a1'));
+  delete process.env.TRIAL_FEEDBACK_ENABLED;
+  // v1 copy is retired: running with the flag off no longer matches the approved v1 hash.
   jest.isolateModules(() => expect(require('@/lib/mailer/lifecycle-email').LIFECYCLE_CONTENT_HASH).not.toBe('7fa9c944e8d8d1c86680c750f99d1db593a1f6a540ff0244f94eb4515de0e39d'));
  } finally { if(before===undefined) delete process.env.TRIAL_FEEDBACK_ENABLED;else process.env.TRIAL_FEEDBACK_ENABLED=before; }
 });

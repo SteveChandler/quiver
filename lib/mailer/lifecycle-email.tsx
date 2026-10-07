@@ -7,13 +7,13 @@ import type { QuiverStickerKey } from "@/lib/ui/quiver-sticker-assets";
 import { LifecycleEmail } from "@/lib/mailer/templates/LifecycleEmail";
 
 const COPY: Record<Exclude<LifecycleJob, "trial_feedback">, { subject: string; paragraphs: string[]; cta: string }> = {
-  offer_ready: { subject: "Your Pro offer is ready", paragraphs: ["I built Quiver to help you make more of your time in the water.", "Your offer is saved on your Quiver account. Review it when you’re ready."], cta: "Review my Pro offer" },
-  welcome: { subject: "Why I built Quiver", paragraphs: ["I built Quiver for the question before every surf: is it worth the drive?", "Save your home beach. Get the forecast. Make your call."], cta: "Check your beach" },
-  activation: { subject: "Remember what the forecast felt like", paragraphs: ["The forecast is half the story. Your surf is the other half.", "Log your next session so you can look back on what worked."], cta: "Log a session" },
-  progress: { subject: "Quiver remembers what works for you", paragraphs: ["Your session history is starting to take shape.", "Check the forecast. Surf. Tell Quiver how it matched. Your feedback helps your personal forecaster learn the conditions you love."], cta: "Log your next session" },
-  friction: { subject: "What got in the way?", paragraphs: ["I’d love to know where Quiver fell short.", "What’s the one thing that made it hard to keep using?"], cta: "Reply to Steven" },
-  trial_support: { subject: "Make the most of Quiver", paragraphs: ["Create a custom beach for the spot you surf.", "Set an alert for the conditions you want there.", "Log your surf and give forecast feedback. It helps tune your personal forecaster."], cta: "Open Quiver" },
-  routine: { subject: "Does Quiver fit your surf routine?", paragraphs: ["You’ve been using Quiver for a few weeks now.", "How can we help Quiver fit into your routine, and what is still missing from the app that you’d like to see?"], cta: "Reply to Steven" },
+  offer_ready: { subject: "Your Pro offer is ready", paragraphs: ["Your Pro offer is saved on your Quiver account.", "Claim it whenever you’re ready."], cta: "Review my Pro offer" },
+  welcome: { subject: "Why I built Quiver", paragraphs: ["I built Quiver because I wanted to know whether a surf was worth the drive before I got in the car.", "Pick your home beach and you’ll see that call for it."], cta: "Check your beach" },
+  activation: { subject: "How was your last surf?", paragraphs: ["When you log a session, Quiver keeps that day’s conditions with it.", "Log a few and you can look back at which days were actually good."], cta: "Log a session" },
+  progress: { subject: "Your surf log is filling up", paragraphs: ["You’ve logged a few sessions in Quiver.", "Keep rating how the forecast matched. The more surfs Quiver sees, the better its calls get for you."], cta: "Log your next session" },
+  friction: { subject: "What got in the way?", paragraphs: ["Looks like Quiver didn’t stick for you.", "If something was confusing or just wrong, I’d like to hear about it. Reply with whatever comes to mind, even one line."], cta: "Reply to Steven" },
+  trial_support: { subject: "A few things to set up first", paragraphs: ["Add the spot you actually surf, even if it isn’t on the map yet.", "Set an alert for the conditions you want there.", "Log your surfs and rate the forecast so Quiver learns your break."], cta: "Open Quiver" },
+  routine: { subject: "A quick question", paragraphs: ["You’ve had Quiver for a few weeks now.", "What would make it the thing you check before every surf? Just hit reply."], cta: "Reply to Steven" },
 };
 
 const OFFER_COPY = {
@@ -22,20 +22,20 @@ const OFFER_COPY = {
   readyThree: "I’d like to give you three calendar months of Quiver Pro on us.",
   acceptance: "Accept your gift in Quiver. It starts once added to your account. No payment or automatic renewal.",
 };
-const FEEDBACK_COPY = { subject: "Before you head out", paragraphs: ["Thanks for giving Quiver a little time in your surf routine.", "I started building it because checking the forecast doesn’t always answer the personal question: will these conditions work for me?", "I’d love to hear how it felt on your end. What clicked for you? What never quite did?"], cta: "Tell me how it went" };
+const FEEDBACK_COPY = { subject: "Before you head out", paragraphs: ["Saw you canceled your Quiver trial. No hard feelings.", "I’m still building Quiver, and I’d like to know what didn’t work for you. It’s two quick questions."], cta: "Tell me how it went" };
 const FEEDBACK_VISUAL = { sticker: "singleFin" as const, eyebrow: "A note from Steven" };
 const POSTAL_ADDRESS = "Quiver Surf Technologies · 2261 Market Street STE 10852, San Francisco, CA 94114";
 const PERSONAL_COPY = {
-  activation: "Log your next surf and give forecast feedback. It helps tune your personal forecaster.",
-  progress: "Check the forecast. Surf. Tell Quiver how it matched. Your feedback helps your personal forecaster learn the conditions you love.",
+  activation: "After you surf, tell Quiver how the forecast held up. That’s how it learns your break.",
+  progress: "Keep rating how the forecast matched each surf. Quiver uses that to tune its calls for you.",
 };
 const VISUALS: Record<Exclude<LifecycleJob, "trial_feedback">, { sticker: QuiverStickerKey; eyebrow: string }> = {
   welcome: { sticker: "breakingWave", eyebrow: "A note from Steven" },
-  activation: { sticker: "surfWax", eyebrow: "From forecast to water" },
-  progress: { sticker: "singleFin", eyebrow: "Keep the loop going" },
-  friction: { sticker: "creamCoastMap", eyebrow: "Let’s find your way" },
-  trial_support: { sticker: "orangeMap", eyebrow: "Your spot. Your forecast." },
-  routine: { sticker: "singleFin", eyebrow: "Room for your routine" },
+  activation: { sticker: "surfWax", eyebrow: "Your surf log" },
+  progress: { sticker: "singleFin", eyebrow: "Your surf log" },
+  friction: { sticker: "creamCoastMap", eyebrow: "A note from Steven" },
+  trial_support: { sticker: "orangeMap", eyebrow: "Getting set up" },
+  routine: { sticker: "singleFin", eyebrow: "A note from Steven" },
   offer_ready: { sticker: "breakingWave", eyebrow: "This one’s on us" },
 };
 // Variant copy participates in approval just like the base messages.
