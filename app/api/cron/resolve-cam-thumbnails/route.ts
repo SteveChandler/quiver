@@ -117,6 +117,7 @@ async function _GET(request: Request): Promise<Response> {
     let skipped = 0;
     let failed = 0;
     let eligible = 0;
+    let scrapeMisses = 0;
 
     for (const row of rows) {
       const cameraUrl = row.camera_url!;
@@ -135,6 +136,7 @@ async function _GET(request: Request): Promise<Response> {
       if (!thumbnailUrl && isHdontapPage(cameraUrl)) {
         thumbnailUrl = await resolveHdontapThumbnail(cameraUrl);
         if (!thumbnailUrl) {
+          scrapeMisses++;
           console.warn(
             `[resolve-cam-thumbnails] HDOnTap scrape failed: ${cameraUrl}`
           );
@@ -169,9 +171,17 @@ async function _GET(request: Request): Promise<Response> {
         unit: "thumbnails_updated",
         expectedMin: 1,
         getProduced: (value) => value.updated,
-        legitimatelyZero: () => eligible === 0
-          ? { reason: "No camera sources had supported thumbnail providers" }
-          : undefined,
+        legitimatelyZero: () => {
+          if (eligible === 0) {
+            return { reason: "No camera sources had supported thumbnail providers" };
+          }
+          // Partner pages can swap players and stop exposing a snapshot; that is a
+          // per-cam data gap, not a cron failure. Store errors still fail the run.
+          if (failed === 0 && scrapeMisses === eligible) {
+            return { reason: `${scrapeMisses} partner camera page(s) exposed no HDOnTap snapshot` };
+          }
+          return undefined;
+        },
       },
       async () => ({
         total: rows.length,
