@@ -3,6 +3,7 @@ import {
   isPromotionalProductId,
   PROMOTIONAL_PRODUCT_PREFIX,
 } from "@/lib/subscription/revenuecat-products";
+/** @public RevenueCat entitlement identifier shared with Quiver Native. */
 export const PRO_ENTITLEMENT_ID = "Quiver Pro";
 
 export interface RCEvent {
