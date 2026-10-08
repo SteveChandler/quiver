@@ -4,7 +4,7 @@ export interface DayScore {
   go: boolean;
 }
 
-export interface RarityVerdict {
+interface RarityVerdict {
   rare: boolean;
   kind: "best-in-30" | "first-after-flat" | null;
   rarityLine: string | null;

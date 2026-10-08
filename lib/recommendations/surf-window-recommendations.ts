@@ -30,7 +30,7 @@ export interface SurfWindowForecastGroup {
   sourceHints?: SurfWindowSourceSupportHints;
 }
 
-export interface BuildSurfWindowRecommendationsOptions {
+interface BuildSurfWindowRecommendationsOptions {
   now?: Date;
   baseUrl?: string;
   maxRecommendations?: number;

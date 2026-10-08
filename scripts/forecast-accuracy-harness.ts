@@ -157,9 +157,9 @@ interface ProposedApplicationResult {
   missingCount: number;
 }
 
-export type DirectionSlice = "inside-centre" | "inside-edge" | "outside";
+type DirectionSlice = "inside-centre" | "inside-edge" | "outside";
 
-export interface DirectionSliceMetric {
+interface DirectionSliceMetric {
   slice: DirectionSlice;
   beach: string;
   sample_count: number;
@@ -2160,5 +2160,4 @@ export {
   parseCliArgs,
   predictionSelectColumns,
   resolveBeachScope,
-  writeForecastAccuracyHarnessReport,
 };

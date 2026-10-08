@@ -12,7 +12,7 @@ export interface AlertTideSample {
   heightFt: number;
 }
 
-export interface HourlyExpansion {
+interface HourlyExpansion {
   hours: ForecastHour[];
   maxWaveByForecastAt: Map<string, number>;
 }

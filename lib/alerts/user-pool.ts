@@ -10,7 +10,7 @@ export interface PoolBeach {
   distanceMiles: number | null;
 }
 
-export interface LoadUserPoolArgs {
+interface LoadUserPoolArgs {
   supabase: SupabaseClient<Database>;
   userId: string;
   homeBeachId: string | null;

@@ -1,6 +1,6 @@
 import { setTimeout as sleep } from "node:timers/promises";
 
-export interface ResilientFetchOptions {
+interface ResilientFetchOptions {
   timeoutMs?: number;
   retries?: number;
   retryDelayMs?: number;

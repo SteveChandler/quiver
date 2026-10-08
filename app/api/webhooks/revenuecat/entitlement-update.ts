@@ -26,7 +26,7 @@ export interface RCEvent {
   [k: string]: unknown;
 }
 
-export interface RevenueCatProviderEventInsert {
+interface RevenueCatProviderEventInsert {
   provider_event_id: string;
   app_user_id: string | null;
   app_user_id_status: "uuid" | "missing" | "anonymous" | "invalid";

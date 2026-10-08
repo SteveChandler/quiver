@@ -75,7 +75,7 @@ export async function loadLandmask(
  *
  * Uses elevation-based detection: elevation > 0.5m = land
  */
-export function isLand(landmask: LandmaskTile, utmX: number, utmY: number): boolean {
+function isLand(landmask: LandmaskTile, utmX: number, utmY: number): boolean {
   // Check bounds
   if (
     utmX < landmask.bounds.minX ||
@@ -131,7 +131,7 @@ export function distanceToLand(
 /**
  * Result of swell path analysis
  */
-export interface SwellPathResult {
+interface SwellPathResult {
   /** Did we reach water (ocean) in this direction? */
   reachedWater: boolean
   /** Distance to water from beach (how far to get past shoreline) */

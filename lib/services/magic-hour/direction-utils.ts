@@ -52,7 +52,7 @@ export function circularAngleDiff(angle1: number, angle2: number): number {
  * interpolateAngle(350, 10, 0.5) // Returns 0 (midpoint going through 0)
  * interpolateAngle(90, 270, 0.5) // Returns 180 (midpoint going CW)
  */
-export function interpolateAngle(
+function interpolateAngle(
   angleA: number,
   angleB: number,
   ratio: number

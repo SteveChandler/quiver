@@ -21,7 +21,7 @@ export type UsageGate = {
   source: 'web' | 'native' | 'shared';
 };
 
-export type UsageCoverageRow = UsageGate & {
+type UsageCoverageRow = UsageGate & {
   observedRank: number | null;
   observedWeight: number;
   status: CoverageStatus;

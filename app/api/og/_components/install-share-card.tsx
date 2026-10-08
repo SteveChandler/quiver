@@ -16,7 +16,7 @@ interface QrBlockProps {
   compact?: boolean;
 }
 
-export interface InstallShareCardProps {
+interface InstallShareCardProps {
   baseUrl: string;
   qrValue: string;
   qrImageSrc: string;

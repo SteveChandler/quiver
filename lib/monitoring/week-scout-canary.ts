@@ -24,7 +24,7 @@ const CANARY_TIMEZONE = "America/Los_Angeles";
 /** Home Best promises the next 72 hours. */
 const CANARY_DAY_COUNT = 3;
 
-export type WeekScoutCanaryResult =
+type WeekScoutCanaryResult =
   | { healthy: true; rankedWindows: number; heldBy?: string }
   | { healthy: false; reason: "hold_state_unavailable" | "no_windows" | "threw"; detail: string };
 

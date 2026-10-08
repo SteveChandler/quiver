@@ -30,7 +30,7 @@ export interface MappableBeach {
   aspect_deg: number | null;
 }
 
-export interface MopMatch {
+interface MopMatch {
   point: MopPointMeta;
   distanceM: number;
   /** Distance from the beach to the point's shore-normal line. */

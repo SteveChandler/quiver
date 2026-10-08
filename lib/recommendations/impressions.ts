@@ -11,7 +11,7 @@ export const RecommendationImpressionSurfaceSchema = z.enum([
 
 const RecommendationImpressionModeSchema = z.enum(["log"]);
 
-export const RecommendationImpressionTimeSlotSchema = z
+const RecommendationImpressionTimeSlotSchema = z
   .enum([
     "dawn-patrol",
     "morning",
@@ -24,7 +24,7 @@ export const RecommendationImpressionTimeSlotSchema = z
   .nullable()
   .optional();
 
-export const RecommendationImpressionInputSchema = z.object({
+const RecommendationImpressionInputSchema = z.object({
   recommendationId: z.string().min(1).max(200),
   beachId: z.string().uuid(),
   rank: z.number().int().min(1).max(100),
@@ -40,7 +40,7 @@ export const RecommendationImpressionsRequestSchema = z.object({
   impressions: z.array(RecommendationImpressionInputSchema).min(1).max(20),
 });
 
-export type RecommendationImpressionInput = z.infer<
+type RecommendationImpressionInput = z.infer<
   typeof RecommendationImpressionInputSchema
 >;
 
@@ -48,7 +48,7 @@ export type RecommendationImpressionSurface = z.infer<
   typeof RecommendationImpressionSurfaceSchema
 >;
 
-export function buildRecommendationImpressionKey(
+function buildRecommendationImpressionKey(
   userId: string,
   impression: Pick<
     RecommendationImpressionInput,

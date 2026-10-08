@@ -2,7 +2,7 @@
  * Coastal region configuration for location-aware surf messaging
  */
 
-export interface CoastalRegion {
+interface CoastalRegion {
   id: string;
   name: string;
   latMin: number;

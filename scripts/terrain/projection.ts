@@ -10,7 +10,7 @@ import proj4 from 'proj4'
 /**
  * UTM coordinate result
  */
-export interface UTMCoordinate {
+interface UTMCoordinate {
   /** Easting in meters */
   x: number
   /** Northing in meters */
@@ -29,7 +29,7 @@ export interface UTMCoordinate {
  * @param longitude Longitude in degrees (-180 to 180)
  * @returns UTM zone number (1-60)
  */
-export function getUTMZone(longitude: number): number {
+function getUTMZone(longitude: number): number {
   // Normalize longitude to -180 to 180
   let lon = ((longitude + 180) % 360) - 180
 
@@ -45,7 +45,7 @@ export function getUTMZone(longitude: number): number {
  * @param hemisphere 'N' for northern, 'S' for southern
  * @returns proj4 projection definition string
  */
-export function getUTMProjection(zone: number, hemisphere: 'N' | 'S'): string {
+function getUTMProjection(zone: number, hemisphere: 'N' | 'S'): string {
   // Central meridian for the zone
   const centralMeridian = (zone - 1) * 6 - 180 + 3
 

@@ -258,7 +258,7 @@ interface EngagementGate {
   list?: StoredOutlookList;
 }
 
-export interface SwellAlertRunSummary {
+interface SwellAlertRunSummary {
   skipped: boolean;
   reason?: string;
   evaluated: number;
