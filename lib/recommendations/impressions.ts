@@ -36,10 +36,6 @@ const RecommendationImpressionInputSchema = z.object({
   surface: RecommendationImpressionSurfaceSchema,
 });
 
-export const RecommendationImpressionsRequestSchema = z.object({
-  impressions: z.array(RecommendationImpressionInputSchema).min(1).max(20),
-});
-
 type RecommendationImpressionInput = z.infer<
   typeof RecommendationImpressionInputSchema
 >;
@@ -61,45 +57,4 @@ function buildRecommendationImpressionKey(
     impression.surface,
     new Date(impression.windowStart).toISOString(),
   ].join(":");
-}
-
-export function toRecommendationImpressionRow(
-  userId: string,
-  impression: RecommendationImpressionInput
-): Record<string, unknown> {
-  return {
-    user_id: userId,
-    recommendation_id: impression.recommendationId,
-    beach_id: impression.beachId,
-    rank: impression.rank,
-    score: impression.score ?? null,
-    window_start: impression.windowStart,
-    window_end: impression.windowEnd,
-    mode: impression.mode,
-    time_slot: impression.timeSlot ?? null,
-    surface: impression.surface,
-    impression_key: buildRecommendationImpressionKey(userId, impression),
-  };
-}
-
-export function toRecommendationImpressionEventRow(
-  userId: string,
-  impression: RecommendationImpressionInput
-): Record<string, unknown> {
-  return {
-    user_id: userId,
-    event_type: "recommendation_impression",
-    beach_id: impression.beachId,
-    metadata: {
-      recommendation_id: impression.recommendationId,
-      rank: impression.rank,
-      score: impression.score ?? null,
-      window_start: impression.windowStart,
-      window_end: impression.windowEnd,
-      mode: impression.mode,
-      time_slot: impression.timeSlot ?? null,
-      surface: impression.surface,
-      impression_key: buildRecommendationImpressionKey(userId, impression),
-    },
-  };
 }

@@ -98,37 +98,6 @@ function isLand(landmask: LandmaskTile, utmX: number, utmY: number): boolean {
 }
 
 /**
- * Find distance to first land point along a ray
- *
- * @param landmask Landmask data
- * @param originUtmX Origin X coordinate in UTM
- * @param originUtmY Origin Y coordinate in UTM
- * @param bearingDeg Bearing in degrees (0 = North, 90 = East)
- * @param maxDistanceM Maximum distance to check
- * @param stepM Step size for ray casting
- * @returns Distance to first land in meters, or null if no land within max distance
- */
-export function distanceToLand(
-  landmask: LandmaskTile,
-  originUtmX: number,
-  originUtmY: number,
-  bearingDeg: number,
-  maxDistanceM: number,
-  stepM: number
-): number | null {
-  // Cast ray from origin outward
-  for (let distance = stepM; distance <= maxDistanceM; distance += stepM) {
-    const { utmX, utmY } = pointAtDistanceAndBearing(originUtmX, originUtmY, distance, bearingDeg)
-
-    if (isLand(landmask, utmX, utmY)) {
-      return distance
-    }
-  }
-
-  return null // No land found
-}
-
-/**
  * Result of swell path analysis
  */
 interface SwellPathResult {

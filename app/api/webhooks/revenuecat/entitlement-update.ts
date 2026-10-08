@@ -3,11 +3,6 @@ import {
   isPromotionalProductId,
   PROMOTIONAL_PRODUCT_PREFIX,
 } from "@/lib/subscription/revenuecat-products";
-export {
-  isPaidLifetimeProductId,
-  isPromotionalProductId,
-} from "@/lib/subscription/revenuecat-products";
-
 export const PRO_ENTITLEMENT_ID = "Quiver Pro";
 
 export interface RCEvent {
@@ -124,16 +119,6 @@ export interface ExistingEntitlementRow {
 
 function isLifetimeProductId(productId?: string | null): boolean {
   return isPromotionalProductId(productId) || isPaidLifetimeProductId(productId);
-}
-
-export function isLifetimePromotionalRow(
-  row?: ExistingEntitlementRow | null,
-): boolean {
-  return (
-    row?.is_pro === true &&
-    row.expires_at == null &&
-    isPromotionalProductId(row.product_id)
-  );
 }
 
 function fallbackPromotionalProductId(expiresAt: string | null): string {

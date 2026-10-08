@@ -14,7 +14,6 @@
 
 import { normalizeAngle } from "@/lib/domains/shared/angle-utils";
 
-export { normalizeAngle };
 
 /**
  * Calculates the circular angular difference between two directions.
