@@ -136,6 +136,11 @@ describe("loadBatchConfig", () => {
   beforeEach(() => {
     jest.resetModules();
     process.env = { ...originalEnv };
+    delete process.env.FORECAST_BATCH_SIZE;
+    delete process.env.FORECAST_BATCH_DELAY_MS;
+    delete process.env.FORECAST_MAX_BEACHES_PER_RUN;
+    delete process.env.FORECAST_FRESHNESS_WINDOW_HOURS;
+    delete process.env.FORECAST_REFRESH_LEAD_HOURS;
   });
 
   afterAll(() => {
@@ -143,12 +148,6 @@ describe("loadBatchConfig", () => {
   });
 
   it("returns default values when env vars are not set", () => {
-    delete process.env.FORECAST_BATCH_SIZE;
-    delete process.env.FORECAST_BATCH_DELAY_MS;
-    delete process.env.FORECAST_MAX_BEACHES_PER_RUN;
-    delete process.env.FORECAST_FRESHNESS_WINDOW_HOURS;
-    delete process.env.FORECAST_REFRESH_LEAD_HOURS;
-
     const config = loadBatchConfig();
     expect(config.batchSize).toBe(3);
     expect(config.batchDelayMs).toBe(1000);
