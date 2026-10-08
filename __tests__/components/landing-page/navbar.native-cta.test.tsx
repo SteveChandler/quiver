@@ -24,8 +24,8 @@ jest.mock("@/context/auth-context", () => ({
   useAuth: () => ({ user: null, isLoading: false, loading: false }),
 }));
 
-jest.mock("@/hooks/use-landing-location", () => ({
-  useLandingLocation: () => ({ regionName: null, isLoading: false }),
+jest.mock("@/context/location-context", () => ({
+  useLocationSafe: () => ({ location: { displayName: null } }),
 }));
 
 jest.mock("@/components/auth/unified-auth-modal", () => ({

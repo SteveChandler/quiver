@@ -19,7 +19,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 import { createBoard } from "@/actions/board-actions";
 import { useAuth } from "@/context/auth-context";
 import type { Board } from "@/types/database";
@@ -113,10 +113,7 @@ export function AddBoardDialog({
         throw new Error(result.error || "Failed to create board");
       }
 
-      toast({
-        title: "Board added",
-        description: "Your new board has been added to your quiver.",
-      });
+      toast("Board added", { description: "Your new board has been added to your quiver." });
 
       // Close dialog
       const shouldClose = open !== undefined ? false : true;
@@ -136,11 +133,7 @@ export function AddBoardDialog({
       }
     } catch (error) {
       console.error("Error adding board:", error);
-      toast({
-        title: "Error",
-        description: "Failed to add board. Please try again.",
-        variant: "destructive",
-      });
+      toast.error("Error", { description: "Failed to add board. Please try again." });
     } finally {
       setIsSubmitting(false);
     }

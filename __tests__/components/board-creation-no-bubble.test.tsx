@@ -22,8 +22,8 @@ jest.mock("next/navigation", () => ({
 }));
 
 // Mock the toast
-jest.mock("@/components/ui/use-toast", () => ({
-  toast: jest.fn(),
+jest.mock("sonner", () => ({
+  toast: Object.assign(jest.fn(), { error: jest.fn() }),
 }));
 
 // Mock the AddBoardDialog to avoid Radix UI focus issues with jsdom

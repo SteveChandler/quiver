@@ -21,10 +21,6 @@ const GoogleOneTap = dynamic(
 );
 
 // Dynamic imports for analytics components
-const GoogleAnalytics = dynamic(
-  () => import("@/components/analytics/google-analytics"),
-  { ssr: false }
-);
 const PWAAndPushListeners = dynamic(
   () => import("@/components/analytics/pwa-and-push-listeners"),
   { ssr: false }
@@ -52,7 +48,6 @@ const ClientErrorTracker = dynamic(
 );
 
 // Toast systems
-import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import { AppHeader } from "@/components/app-header";
 import { IphoneAppBannerGate } from "@/components/app-store/iphone-app-banner-gate";
@@ -211,9 +206,6 @@ function AuthenticatedAppContent({
   return (
     <>
       <Suspense fallback={null}>
-        <GoogleAnalytics />
-      </Suspense>
-      <Suspense fallback={null}>
         <PWAAndPushListeners />
       </Suspense>
       <Suspense fallback={null}>
@@ -223,7 +215,6 @@ function AuthenticatedAppContent({
       <main id="main-content" role="main">
         {children}
       </main>
-      <Toaster />
       <SonnerToaster />
       {/* Confetti script for E2E */}
       <script
@@ -263,7 +254,6 @@ function LandingPageContent({
         Minimal toasts for landing page interactions 
         (e.g. auth errors on login form)
       */}
-      <Toaster />
       <SonnerToaster />
     </>
   );

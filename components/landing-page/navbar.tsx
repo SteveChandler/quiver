@@ -31,7 +31,8 @@ import {
   getFirstTouchPlatform,
   type FirstTouchPlatform,
 } from "@/lib/analytics/web-context";
-import { useLandingLocation } from "@/hooks/use-landing-location";
+import { useLocationSafe } from "@/context/location-context";
+import { DEFAULT_LOCATION } from "@/lib/location/ip-location";
 import { cn } from "@/lib/utils";
 
 const STATIC_MENU_ITEMS = [
@@ -129,7 +130,8 @@ export function Navbar({
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
   const [nativeCtaPlatform, setNativeCtaPlatform] =
     useState<FirstTouchPlatform>("desktop");
-  const { regionName } = useLandingLocation();
+  const locationContext = useLocationSafe();
+  const regionName = locationContext ? locationContext.location.displayName : DEFAULT_LOCATION.displayName;
 
   // Prevent hydration mismatch from Radix UI components generating different IDs
   useEffect(() => {

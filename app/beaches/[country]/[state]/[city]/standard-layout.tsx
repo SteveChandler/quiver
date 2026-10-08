@@ -1,3 +1,4 @@
+import { JsonLd } from "@/components/seo/funnel/JsonLd";
 /**
  * Standard layout for city pages without editorial content.
  *
@@ -92,10 +93,7 @@ export function StandardLayout({
   return (
     <>
       {/* JSON-LD Structured Data */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      <JsonLd data={jsonLd} />
       <ItemListSchema
         items={itemListItems}
         name={`Surf Spots in ${displayCityName}`}

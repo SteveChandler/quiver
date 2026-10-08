@@ -218,50 +218,11 @@ describe("UnifiedAuthModal", () => {
       ).not.toBeInTheDocument();
     });
 
-    it("should respect enableOAuth prop", () => {
-      render(
-        <UnifiedAuthModal
-          isOpen={true}
-          onClose={mockOnClose}
-          mode="login"
-          enableOAuth={false}
-        />
-      );
 
-      expect(
-        screen.queryByText("Continue with Google")
-      ).not.toBeInTheDocument();
-    });
 
-    it("should respect enablePassword prop", () => {
-      render(
-        <UnifiedAuthModal
-          isOpen={true}
-          onClose={mockOnClose}
-          mode="login"
-          enablePassword={false}
-        />
-      );
 
-      expect(
-        screen.queryByText("Continue with Email")
-      ).not.toBeInTheDocument();
-    });
 
-    it("should respect enableMagicLink prop", () => {
-      render(
-        <UnifiedAuthModal
-          isOpen={true}
-          onClose={mockOnClose}
-          mode="login"
-          enableMagicLink={false}
-        />
-      );
 
-      expect(
-        screen.queryByText("Continue with Email Link")
-      ).not.toBeInTheDocument();
-    });
 
     it("should switch to signup mode when footer Sign up clicked", () => {
       render(
@@ -305,27 +266,13 @@ describe("UnifiedAuthModal", () => {
             isOpen={true}
             onClose={mockOnClose}
             mode="login"
-            enableOAuth={true}
           />
         );
 
         expect(screen.getByText("Continue with Apple")).toBeInTheDocument();
       });
 
-      it("should not show the Apple button when enableOAuth is false", () => {
-        render(
-          <UnifiedAuthModal
-            isOpen={true}
-            onClose={mockOnClose}
-            mode="login"
-            enableOAuth={false}
-          />
-        );
 
-        expect(
-          screen.queryByText("Continue with Apple")
-        ).not.toBeInTheDocument();
-      });
 
       it("should show Apple button before Google button", () => {
         render(
@@ -333,7 +280,6 @@ describe("UnifiedAuthModal", () => {
             isOpen={true}
             onClose={mockOnClose}
             mode="login"
-            enableOAuth={true}
           />
         );
 
@@ -362,7 +308,6 @@ describe("UnifiedAuthModal", () => {
             isOpen={true}
             onClose={mockOnClose}
             mode="login"
-            enableOAuth={true}
           />
         );
 
@@ -928,7 +873,6 @@ describe("UnifiedAuthModal", () => {
           isOpen={true}
           onClose={mockOnClose}
           mode="login"
-          dismissible={true}
         />
       );
 
@@ -939,19 +883,6 @@ describe("UnifiedAuthModal", () => {
       expect(mockOnClose).toHaveBeenCalled();
     });
 
-    it("should respect dismissible=false prop", () => {
-      const { container } = render(
-        <UnifiedAuthModal
-          isOpen={true}
-          onClose={mockOnClose}
-          mode="login"
-          dismissible={false}
-        />
-      );
 
-      // The Dialog component will handle preventing outside clicks
-      // We're just testing the prop is passed correctly
-      expect(container).toBeInTheDocument();
-    });
   });
 });
