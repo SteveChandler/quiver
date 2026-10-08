@@ -15,6 +15,19 @@ jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: (...args: unknown[]) => createServiceClient(...args),
 }));
 jest.mock("@sentry/nextjs", () => ({ captureException: jest.fn() }));
+// after() only runs inside a Next request scope; collect the callbacks so tests
+// decide when the post-response work runs.
+const afterCallbacks: Array<() => Promise<void>> = [];
+jest.mock("next/server", () => ({
+  ...jest.requireActual("next/server"),
+  after: (callback: () => Promise<void>) => {
+    afterCallbacks.push(callback);
+  },
+}));
+async function runAfterCallbacks(): Promise<void> {
+  for (const callback of afterCallbacks.splice(0)) await callback();
+}
+
 jest.mock("@/lib/posthog-server", () => ({
   capturePostHogEvent: (...args: unknown[]) => capturePostHogEvent(...args),
 }));
@@ -53,6 +66,7 @@ describe("RevenueCat webhook provider ledger", () => {
       .mockReset()
       .mockResolvedValue({ data: { allow_implicit_tracking: true }, error: null });
     capturePostHogEvent.mockReset().mockResolvedValue(undefined);
+    afterCallbacks.length = 0;
     createServiceClient.mockReset().mockResolvedValue({
       from: (table: string) => {
         if (table === "revenuecat_provider_events") {
@@ -246,6 +260,7 @@ describe("RevenueCat webhook PostHog funnel events", () => {
       .mockReset()
       .mockResolvedValue({ data: { allow_implicit_tracking: true }, error: null });
     capturePostHogEvent.mockReset().mockResolvedValue(undefined);
+    afterCallbacks.length = 0;
     createServiceClient.mockReset().mockResolvedValue({
       from: (table: string) => {
         if (table === "revenuecat_provider_events") {
@@ -265,7 +280,7 @@ describe("RevenueCat webhook PostHog funnel events", () => {
     });
   });
 
-  it("captures trial_started once the ledger row is stored", async () => {
+  it("captures trial_started after the entitlement is applied", async () => {
     const response = await POST(request({
       id: EVENT_ID,
       type: "INITIAL_PURCHASE",
@@ -278,6 +293,10 @@ describe("RevenueCat webhook PostHog funnel events", () => {
     }));
 
     expect(response.status).toBe(200);
+    // The entitlement is granted and the response is built before PostHog runs.
+    expect(entitlementUpsert).toHaveBeenCalled();
+    expect(capturePostHogEvent).not.toHaveBeenCalled();
+    await runAfterCallbacks();
     expect(capturePostHogEvent).toHaveBeenCalledTimes(1);
     expect(capturePostHogEvent).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -304,6 +323,7 @@ describe("RevenueCat webhook PostHog funnel events", () => {
       app_user_id: USER_ID,
       is_trial_conversion: true,
     }));
+    await runAfterCallbacks();
 
     expect(capturePostHogEvent).toHaveBeenCalledWith(
       expect.objectContaining({ event: "trial_converted" }),
@@ -324,6 +344,7 @@ describe("RevenueCat webhook PostHog funnel events", () => {
     }));
 
     expect(await response.json()).toMatchObject({ duplicate: true });
+    await runAfterCallbacks();
     expect(capturePostHogEvent).not.toHaveBeenCalled();
   });
 
@@ -336,6 +357,7 @@ describe("RevenueCat webhook PostHog funnel events", () => {
       type: "INITIAL_PURCHASE",
       app_user_id: USER_ID,
     }));
+    await runAfterCallbacks();
 
     expect(capturePostHogEvent).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -354,7 +376,62 @@ describe("RevenueCat webhook PostHog funnel events", () => {
       app_user_id: USER_ID,
     }));
     expectConsoleErrors([/Provider event ledger insert failed/]);
+    await runAfterCallbacks();
 
+    expect(capturePostHogEvent).not.toHaveBeenCalled();
+  });
+
+  it("does not capture when the entitlement write fails and goes to the DLQ", async () => {
+    entitlementUpsert.mockResolvedValue({ error: { message: "upsert failed" } });
+
+    const response = await POST(request({
+      id: EVENT_ID,
+      type: "INITIAL_PURCHASE",
+      app_user_id: USER_ID,
+      period_type: "TRIAL",
+    }));
+    expectConsoleErrors([/Upsert failed/]);
+    await runAfterCallbacks();
+
+    expect(await response.json()).toMatchObject({ queued_for_reconciliation: true });
+    expect(dlqInsert).toHaveBeenCalled();
+    expect(capturePostHogEvent).not.toHaveBeenCalled();
+  });
+
+  it("does not capture when the entitlement read fails", async () => {
+    entitlementRead.mockResolvedValue({ data: null, error: { message: "read failed" } });
+
+    await POST(request({
+      id: EVENT_ID,
+      type: "INITIAL_PURCHASE",
+      app_user_id: USER_ID,
+    }));
+    expectConsoleErrors([/Read failed/]);
+    await runAfterCallbacks();
+
+    expect(capturePostHogEvent).not.toHaveBeenCalled();
+  });
+
+  it("does not capture when a lifetime promo preserves the entitlement", async () => {
+    entitlementRead.mockResolvedValue({
+      data: {
+        is_pro: true,
+        is_trialing: false,
+        expires_at: null,
+        product_id: "rc_promo_Quiver Pro_lifetime",
+      },
+      error: null,
+    });
+
+    const response = await POST(request({
+      id: EVENT_ID,
+      type: "RENEWAL",
+      app_user_id: USER_ID,
+      product_id: "app.quiversurf.surf.pro.annual",
+    }));
+    await runAfterCallbacks();
+
+    expect(await response.json()).toMatchObject({ preserved: "lifetime_promotional_pro" });
     expect(capturePostHogEvent).not.toHaveBeenCalled();
   });
 
@@ -364,6 +441,7 @@ describe("RevenueCat webhook PostHog funnel events", () => {
       type: "INITIAL_PURCHASE",
       app_user_id: "$RCAnonymousID:abc123",
     }));
+    await runAfterCallbacks();
 
     expect(capturePostHogEvent).not.toHaveBeenCalled();
     expect(profileConsent).not.toHaveBeenCalled();
@@ -381,6 +459,8 @@ describe("RevenueCat webhook PostHog funnel events", () => {
       app_user_id: USER_ID,
     }));
 
+    await runAfterCallbacks();
+
     expect(response.status).toBe(200);
     expect(capturePostHogEvent).not.toHaveBeenCalled();
     expect(entitlementUpsert).toHaveBeenCalled();
@@ -393,6 +473,7 @@ describe("RevenueCat webhook PostHog funnel events", () => {
       app_user_id: USER_ID,
       environment: "SANDBOX",
     }));
+    await runAfterCallbacks();
 
     expect(capturePostHogEvent).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -412,6 +493,7 @@ describe("RevenueCat webhook PostHog funnel events", () => {
       type: "INITIAL_PURCHASE",
       app_user_id: USER_ID,
     }));
+    await runAfterCallbacks();
     expectConsoleErrors([/RevenueCat funnel capture failed/]);
 
     expect(response.status).toBe(200);
@@ -425,6 +507,7 @@ describe("RevenueCat webhook PostHog funnel events", () => {
       type: "SUBSCRIPTION_PAUSED",
       app_user_id: USER_ID,
     }));
+    await runAfterCallbacks();
 
     expect(capturePostHogEvent).not.toHaveBeenCalled();
   });

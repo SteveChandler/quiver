@@ -27,6 +27,7 @@ import { NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import * as Sentry from "@sentry/nextjs";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { runAfterResponse } from "@/lib/analytics/after-response";
 import { captureRevenueCatFunnelEvent } from "@/lib/analytics/revenuecat-funnel-events";
 import {
   buildRevenueCatProviderEventInsert,
@@ -130,17 +131,6 @@ export async function POST(request: Request) {
     return providerEvent.retryRequired ? ledgerRetryResponse() : response;
   }
 
-  // The ledger row is stored and a processed redelivery already returned
-  // above, so each RC event reaches PostHog once (retries of an unfinished
-  // event reuse the same event id, uuid and timestamp).
-  if (providerEvent.providerEventId) {
-    await captureRevenueCatFunnelEvent({
-      supabase: supabase as any,
-      event,
-      userId,
-    });
-  }
-
   try {
     const update = buildEntitlementUpdate(event);
     if (!update) {
@@ -208,6 +198,20 @@ export async function POST(request: Request) {
     console.log(
       `${CONTEXT_TAG} Applied ${event.type} for user ${userId}`,
     );
+
+    // Only a stored ledger row and an applied entitlement count as a
+    // conversion; the DLQ paths above never reach this point. It runs after
+    // the response so PostHog can never delay the grant, and a retry of an
+    // unfinished event reuses the same uuid and timestamp.
+    if (providerEvent.providerEventId) {
+      runAfterResponse(() =>
+        captureRevenueCatFunnelEvent({
+          supabase: supabase as any,
+          event,
+          userId,
+        }),
+      );
+    }
 
     return finishProviderEvent(
       supabase,

@@ -108,6 +108,26 @@ describe("captureRevenueCatFunnelEvent", () => {
     });
   });
 
+  it("derives a stable uuid when the RevenueCat event id is not a uuid", async () => {
+    const send = () =>
+      captureRevenueCatFunnelEvent({
+        supabase: consentClient().client,
+        userId: USER_ID,
+        event: { id: "rc-event-123", type: "RENEWAL" },
+      });
+
+    await send();
+    await send();
+
+    const uuids = mockCapturePostHogEvent.mock.calls.map(
+      ([call]) => (call as { uuid: string }).uuid,
+    );
+    expect(uuids[0]).toBe(uuids[1]);
+    expect(uuids[0]).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
+  });
+
   it("never overrides the standard environment property", async () => {
     await captureRevenueCatFunnelEvent({
       supabase: consentClient().client,

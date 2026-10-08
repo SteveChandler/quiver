@@ -1,3 +1,4 @@
+import { deterministicEventUuid } from "@/lib/analytics/deterministic-uuid";
 import { capturePostHogEvent } from "@/lib/posthog-server";
 import {
   isPaidLifetimeProductId,
@@ -114,10 +115,12 @@ function optionalNumber(value: unknown, key: string) {
 
 /**
  * Mirrors a RevenueCat webhook event into PostHog so trial and paid conversion
- * can be measured next to the product funnel. Call only after the provider
- * ledger row is stored (redeliveries of processed events return earlier). The
- * RC event id doubles as `$insert_id` and uuid, and the RC timestamp is used,
- * so a retry of an unfinished event lands on the same PostHog row.
+ * can be measured next to the product funnel. Call it only once the ledger row
+ * is stored and the entitlement write has succeeded. PostHog dedupes on `uuid`,
+ * so the RevenueCat event id (or a uuid derived from it) is used as the uuid,
+ * together with the RevenueCat event time as the timestamp; a retry of an
+ * unfinished event then lands on the same row. `$insert_id` is kept for
+ * readability only.
  *
  * `userId` must be a verified Supabase user UUID: anonymous RevenueCat ids are
  * never sent. SANDBOX events are sent but tagged `is_sandbox: true`.
@@ -150,7 +153,9 @@ export async function captureRevenueCatFunnelEvent({
         typeof occurredAtMs === "number" && Number.isFinite(occurredAtMs)
           ? new Date(occurredAtMs)
           : undefined,
-      uuid: UUID_PATTERN.test(event.id) ? event.id : undefined,
+      uuid: UUID_PATTERN.test(event.id)
+        ? event.id
+        : deterministicEventUuid(`revenuecat:${event.id}`),
       properties: {
         $insert_id: `revenuecat:${event.id}`,
         rc_event_id: event.id,
