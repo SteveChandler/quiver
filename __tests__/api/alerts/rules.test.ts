@@ -282,6 +282,19 @@ var mockTrackingAllowed = jest.fn<Promise<boolean>, unknown[]>(() =>
   Promise.resolve(true),
 );
 
+// after() only runs inside a Next request scope; collect the callbacks so tests
+// decide when the post-response work runs.
+const afterCallbacks: Array<() => Promise<void>> = [];
+jest.mock("next/server", () => ({
+  ...jest.requireActual("next/server"),
+  after: (callback: () => Promise<void>) => {
+    afterCallbacks.push(callback);
+  },
+}));
+async function runAfterCallbacks(): Promise<void> {
+  for (const callback of afterCallbacks.splice(0)) await callback();
+}
+
 jest.mock("@/lib/posthog-server", () => ({
   capturePostHogEvent: (arg: unknown) => mockCapturePostHogEvent(arg),
 }));
@@ -357,6 +370,7 @@ beforeEach(() => {
   deleteSpy.mockReset();
   upsertSpy.mockReset();
   mockCapturePostHogEvent.mockClear();
+  afterCallbacks.length = 0;
   mockTrackingAllowed.mockReset().mockResolvedValue(true);
 });
 
@@ -584,10 +598,17 @@ describe("POST /api/alerts/rules — alert_created analytics", () => {
     const res = await POST(reqWithHeaders({ cookie: "sb-x-auth-token=1" }));
 
     expect(res.status).toBe(201);
+    // Nothing is awaited before the response: the capture waits for after().
+    expect(mockTrackingAllowed).not.toHaveBeenCalled();
+    expect(mockCapturePostHogEvent).not.toHaveBeenCalled();
+
+    await runAfterCallbacks();
+
     expect(mockCapturePostHogEvent).toHaveBeenCalledTimes(1);
     expect(mockCapturePostHogEvent).toHaveBeenCalledWith({
       distinctId: "user-1",
       event: "alert_created",
+      uuid: expect.stringMatching(/^[0-9a-f-]{36}$/),
       properties: expect.objectContaining({
         $insert_id: "alert_created:rule-new",
         alert_type: "weekend_warrior",
@@ -604,6 +625,7 @@ describe("POST /api/alerts/rules — alert_created analytics", () => {
     mockExistingRules = [userRule()];
 
     await POST(reqWithHeaders({ authorization: "Bearer native.jwt" }));
+    await runAfterCallbacks();
 
     expect(mockCapturePostHogEvent).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -620,6 +642,7 @@ describe("POST /api/alerts/rules — alert_created analytics", () => {
       headers: { get: () => null },
       json: async () => ({ ...body, preset_type: null }),
     } as any);
+    await runAfterCallbacks();
 
     expect(mockCapturePostHogEvent).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -632,6 +655,7 @@ describe("POST /api/alerts/rules — alert_created analytics", () => {
     mockTrackingAllowed.mockResolvedValue(false);
 
     const res = await POST(makeReq(body));
+    await runAfterCallbacks();
 
     expect(res.status).toBe(201);
     expect(mockCapturePostHogEvent).not.toHaveBeenCalled();
@@ -645,6 +669,7 @@ describe("POST /api/alerts/rules — alert_created analytics", () => {
     );
 
     expect(res.status).toBe(409);
+    expect(afterCallbacks).toHaveLength(0);
     expect(mockCapturePostHogEvent).not.toHaveBeenCalled();
   });
 });
@@ -696,6 +721,7 @@ describe("POST /api/alerts/rules — watched_call idempotency", () => {
       already_exists: true,
     });
     expect(insertSpy).not.toHaveBeenCalled();
+    expect(afterCallbacks).toHaveLength(0);
     expect(mockCapturePostHogEvent).not.toHaveBeenCalled();
   });
 

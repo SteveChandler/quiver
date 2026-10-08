@@ -18,6 +18,13 @@ jest.mock("@/lib/alerts/seed-default-rule", () => ({
     mockSeedDefaultRulesForUser(...args),
 }));
 
+// alert_created is scheduled after the response; assert the scheduling only.
+const mockScheduleSeededAlertCreated = jest.fn();
+jest.mock("@/lib/analytics/alert-created-server", () => ({
+  scheduleSeededAlertCreated: (...args: unknown[]) =>
+    mockScheduleSeededAlertCreated(...args),
+}));
+
 // Track last operations for assertions
 let lastProfileUpdate: any = null;
 let lastXPTrackCalls: any[] = [];
@@ -160,6 +167,7 @@ describe("saveOnboardingData", () => {
     allUserEventInserts = [];
     beachTimezone = "America/Los_Angeles";
     beachLookupIds = [];
+    mockScheduleSeededAlertCreated.mockReset();
     mockSeedDefaultRulesForUser.mockReset();
     mockSeedDefaultRulesForUser.mockResolvedValue({
       seeded: true,
@@ -443,6 +451,42 @@ describe("saveOnboardingData", () => {
       expect(call.preferredTimeBucket).toBe("dawn");
       expect(call.notifyEmail).toBe(true);
       expect(call.notifyPush).toBe(false);
+    });
+
+    it("schedules alert_created for the seeded rules as a web onboarding", async () => {
+      await saveOnboardingData({
+        homeBeachId: "beach-123",
+        experienceLevel: "beginner" as const,
+        emailEnabled: true,
+        pushEnabled: false,
+      });
+
+      expect(mockScheduleSeededAlertCreated).toHaveBeenCalledTimes(1);
+      expect(mockScheduleSeededAlertCreated).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: "user-123",
+          beachId: "beach-123",
+          platform: "web",
+          notifyEmail: true,
+          notifyPush: false,
+          rules: [
+            { ruleId: "rule-1", presetType: "mellow_session" },
+            { ruleId: "rule-2", presetType: "weekend_warrior" },
+          ],
+        }),
+      );
+    });
+
+    it("does not schedule alert_created when nothing was seeded", async () => {
+      mockSeedDefaultRulesForUser.mockResolvedValueOnce({
+        seeded: false,
+        reason: "already_has_rules",
+      });
+
+      const result = await saveOnboardingData({ homeBeachId: "beach-123" });
+
+      expect(result.success).toBe(true);
+      expect(mockScheduleSeededAlertCreated).not.toHaveBeenCalled();
     });
 
     it("passes null experienceLevel through when not provided (helper handles skip)", async () => {

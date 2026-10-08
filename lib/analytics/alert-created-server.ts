@@ -1,4 +1,6 @@
+import { runAfterResponse } from "@/lib/analytics/after-response";
 import { getOwnAnalyticsTrackingAllowed } from "@/lib/analytics/consent";
+import { deterministicEventUuid } from "@/lib/analytics/deterministic-uuid";
 import { capturePostHogEvent } from "@/lib/posthog-server";
 
 type ConsentClient = Parameters<typeof getOwnAnalyticsTrackingAllowed>[0];
@@ -29,8 +31,9 @@ export interface AlertCreatedEvent {
 }
 
 /**
- * Native sends a Supabase Bearer token; the web uses the cookie session. The
- * optional `x-quiver-platform` header wins when a client sets it.
+ * Native sends a Supabase Bearer token; the web uses the cookie session. An
+ * explicit `x-quiver-platform` header wins when a client sets it, and native
+ * should send it: the Bearer check is only a fallback.
  */
 export function resolveRequestPlatform(request: {
   headers?: { get?: (name: string) => string | null };
@@ -44,7 +47,7 @@ export function resolveRequestPlatform(request: {
   return /^Bearer\s+\S+/i.test(authorization) ? "native" : "web";
 }
 
-function insertId(event: AlertCreatedEvent): string | null {
+function dedupeKey(event: AlertCreatedEvent): string | null {
   if (event.ruleId) return `alert_created:${event.ruleId}`;
   if (event.captureId) return `alert_created:capture:${event.captureId}`;
   return null;
@@ -74,12 +77,14 @@ export async function captureAlertCreatedEvents({
     if (!allowed) return;
 
     for (const event of events) {
-      const dedupeId = insertId(event);
+      const key = dedupeKey(event);
       await capturePostHogEvent({
         distinctId: userId,
         event: "alert_created",
+        // PostHog dedupes on uuid; $insert_id is kept for readability only.
+        ...(key ? { uuid: deterministicEventUuid(key) } : {}),
         properties: {
-          ...(dedupeId ? { $insert_id: dedupeId } : {}),
+          ...(key ? { $insert_id: key } : {}),
           alert_type: event.presetType ?? "custom",
           beach_id: event.beachId,
           source: event.source,
@@ -98,4 +103,54 @@ export async function captureAlertCreatedEvents({
   } catch (error) {
     console.error("[analytics] alert_created capture failed:", error);
   }
+}
+
+interface CaptureInput {
+  supabase: ConsentClient;
+  userId: string;
+  events: AlertCreatedEvent[];
+}
+
+/** Capture after the response is sent; see runAfterResponse. */
+export function scheduleAlertCreatedEvents(input: CaptureInput): void {
+  runAfterResponse(() => captureAlertCreatedEvents(input));
+}
+
+/**
+ * Schedules alert_created for rules seeded by seedDefaultRulesForUser. The seed
+ * only runs for a user with no rules, so the first rule is their first alert.
+ */
+export function scheduleSeededAlertCreated({
+  supabase,
+  userId,
+  beachId,
+  rules,
+  platform,
+  notifyEmail,
+  notifyPush,
+}: {
+  supabase: ConsentClient;
+  userId: string;
+  beachId: string;
+  rules: ReadonlyArray<{ ruleId: string; presetType: string }>;
+  platform: AlertCreatedPlatform;
+  notifyEmail: boolean;
+  notifyPush: boolean;
+}): void {
+  if (rules.length === 0) return;
+
+  scheduleAlertCreatedEvents({
+    supabase,
+    userId,
+    events: rules.map((rule, index) => ({
+      ruleId: rule.ruleId,
+      beachId,
+      presetType: rule.presetType,
+      source: "onboarding_seed",
+      platform,
+      isFirstAlert: index === 0,
+      notifyEmail,
+      notifyPush,
+    })),
+  });
 }

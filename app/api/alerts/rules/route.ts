@@ -24,8 +24,8 @@ import {
 } from "@/lib/personalization/eligibility";
 import { isFreeGrowthPhaseEnabled } from "@/lib/flags/free-growth-phase";
 import {
-  captureAlertCreatedEvents,
   resolveRequestPlatform,
+  scheduleAlertCreatedEvents,
 } from "@/lib/analytics/alert-created-server";
 
 interface AlertRulesEntitlementSignal {
@@ -314,7 +314,7 @@ export const POST = withAuth(
     }
     if (insertError) throw insertError;
 
-    await captureAlertCreatedEvents({
+    scheduleAlertCreatedEvents({
       supabase,
       userId: user.id,
       events: [

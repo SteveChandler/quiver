@@ -13,9 +13,19 @@ jest.mock("@/lib/analytics/consent", () => ({
     mockGetOwnAnalyticsTrackingAllowed(...args),
 }));
 
+const afterCallbacks: Array<() => Promise<void>> = [];
+jest.mock("next/server", () => ({
+  ...jest.requireActual("next/server"),
+  after: (callback: () => Promise<void>) => {
+    afterCallbacks.push(callback);
+  },
+}));
+
 import {
   captureAlertCreatedEvents,
   resolveRequestPlatform,
+  scheduleAlertCreatedEvents,
+  scheduleSeededAlertCreated,
   type AlertCreatedEvent,
 } from "@/lib/analytics/alert-created-server";
 
@@ -36,6 +46,7 @@ function event(overrides: Partial<AlertCreatedEvent> = {}): AlertCreatedEvent {
 describe("captureAlertCreatedEvents", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    afterCallbacks.length = 0;
     mockGetOwnAnalyticsTrackingAllowed.mockResolvedValue(true);
   });
 
@@ -54,6 +65,7 @@ describe("captureAlertCreatedEvents", () => {
     expect(mockCapturePostHogEvent).toHaveBeenCalledWith({
       distinctId: "user-1",
       event: "alert_created",
+      uuid: "f413417f-7c1d-594d-87e6-8e37ccb66192",
       properties: {
         $insert_id: "alert_created:rule-1",
         alert_type: "mellow_session",
@@ -95,13 +107,13 @@ describe("captureAlertCreatedEvents", () => {
       ],
     });
 
-    const properties = (
-      mockCapturePostHogEvent.mock.calls[0][0] as {
-        properties: Record<string, unknown>;
-      }
-    ).properties;
-    expect(properties.$insert_id).toBe("alert_created:capture:capture-9");
-    expect(properties).not.toHaveProperty("rule_id");
+    const call = mockCapturePostHogEvent.mock.calls[0][0] as {
+      uuid: string;
+      properties: Record<string, unknown>;
+    };
+    expect(call.uuid).toBe("760ed442-0b28-5f89-a1f7-5f865b2774a3");
+    expect(call.properties.$insert_id).toBe("alert_created:capture:capture-9");
+    expect(call.properties).not.toHaveProperty("rule_id");
   });
 
   it("captures one event per rule in a batch", async () => {
@@ -160,6 +172,19 @@ describe("captureAlertCreatedEvents", () => {
     consoleError.mockRestore();
   });
 
+  it("gives the same rule the same uuid on every capture", async () => {
+    await captureAlertCreatedEvents({ supabase, userId: "user-1", events: [event()] });
+    await captureAlertCreatedEvents({ supabase, userId: "user-1", events: [event()] });
+
+    const uuids = mockCapturePostHogEvent.mock.calls.map(
+      ([call]) => (call as { uuid: string }).uuid,
+    );
+    expect(uuids[0]).toBe(uuids[1]);
+    expect(uuids[0]).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
+  });
+
   it("does nothing for an empty batch", async () => {
     await captureAlertCreatedEvents({ supabase, userId: "user-1", events: [] });
 
@@ -200,5 +225,87 @@ describe("resolveRequestPlatform", () => {
 
   it("tolerates request stubs without headers", () => {
     expect(resolveRequestPlatform({})).toBe("web");
+  });
+});
+
+describe("scheduleAlertCreatedEvents", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    afterCallbacks.length = 0;
+    mockGetOwnAnalyticsTrackingAllowed.mockResolvedValue(true);
+  });
+
+  it("defers consent and capture until after the response", async () => {
+    scheduleAlertCreatedEvents({ supabase, userId: "user-1", events: [event()] });
+
+    expect(afterCallbacks).toHaveLength(1);
+    expect(mockGetOwnAnalyticsTrackingAllowed).not.toHaveBeenCalled();
+    expect(mockCapturePostHogEvent).not.toHaveBeenCalled();
+
+    await afterCallbacks[0]();
+
+    expect(mockCapturePostHogEvent).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("scheduleSeededAlertCreated", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    afterCallbacks.length = 0;
+    mockGetOwnAnalyticsTrackingAllowed.mockResolvedValue(true);
+  });
+
+  const seeded = {
+    supabase,
+    userId: "user-1",
+    beachId: "beach-1",
+    rules: [
+      { ruleId: "rule-1", presetType: "mellow_session" },
+      { ruleId: "rule-2", presetType: "weekend_warrior" },
+    ],
+    platform: "native" as const,
+    notifyEmail: true,
+    notifyPush: false,
+  };
+
+  it("captures one onboarding_seed event per rule and flags only the first", async () => {
+    scheduleSeededAlertCreated(seeded);
+    expect(mockCapturePostHogEvent).not.toHaveBeenCalled();
+
+    await afterCallbacks[0]();
+
+    expect(mockCapturePostHogEvent).toHaveBeenCalledTimes(2);
+    expect(mockCapturePostHogEvent).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        distinctId: "user-1",
+        event: "alert_created",
+        properties: expect.objectContaining({
+          $insert_id: "alert_created:rule-1",
+          alert_type: "mellow_session",
+          beach_id: "beach-1",
+          source: "onboarding_seed",
+          platform: "native",
+          is_first_alert: true,
+          notify_email: true,
+          notify_push: false,
+        }),
+      }),
+    );
+    expect(mockCapturePostHogEvent).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        properties: expect.objectContaining({
+          alert_type: "weekend_warrior",
+          is_first_alert: false,
+        }),
+      }),
+    );
+  });
+
+  it("schedules nothing when no rules were seeded", () => {
+    scheduleSeededAlertCreated({ ...seeded, rules: [] });
+
+    expect(afterCallbacks).toHaveLength(0);
   });
 });

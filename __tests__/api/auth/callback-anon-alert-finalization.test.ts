@@ -408,6 +408,7 @@ describe("/auth/callback — alert_created analytics for converted captures", ()
     expect(mockCapturePostHogEvent).toHaveBeenNthCalledWith(1, {
       distinctId: USER_ID,
       event: "alert_created",
+      uuid: expect.stringMatching(/^[0-9a-f-]{36}$/),
       properties: expect.objectContaining({
         $insert_id: "alert_created:capture:00000000-0000-0000-0000-000000000001",
         alert_type: "glass_off",
