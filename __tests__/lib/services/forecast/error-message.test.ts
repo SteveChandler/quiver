@@ -28,6 +28,28 @@ describe("describeThrownError", () => {
     expect(describeThrownError({ code: "PGRST000" })).toBe('{"code":"PGRST000"}');
   });
 
+  it("appends the code of an Error the same way (throwOnError path)", () => {
+    const error = Object.assign(new Error("canceling statement due to statement timeout"), { code: "57014" });
+    expect(describeThrownError(error)).toBe("canceling statement due to statement timeout (57014)");
+  });
+
+  it("does not repeat a code the message already carries", () => {
+    const error = Object.assign(new Error("read ECONNRESET"), { code: "ECONNRESET" });
+    expect(describeThrownError(error)).toBe("read ECONNRESET");
+  });
+
+  it("keeps a numeric code", () => {
+    expect(describeThrownError({ message: "fetch failed", code: 500 })).toBe("fetch failed (500)");
+  });
+
+  it("caps a large serialised object", () => {
+    expect(describeThrownError({ payload: "x".repeat(2000) }).length).toBeLessThanOrEqual(500);
+  });
+
+  it("returns a string when toJSON yields undefined", () => {
+    expect(describeThrownError({ toJSON: () => undefined })).toBe("Unknown error");
+  });
+
   it("handles strings, null and undefined", () => {
     expect(describeThrownError("plain")).toBe("plain");
     expect(describeThrownError(null)).toBe("Unknown error");
