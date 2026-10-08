@@ -1,6 +1,5 @@
 /**
  * Tests for Web Push Notifications
- * Following patterns from __tests__/lib/push-notifications.test.ts
  */
 
 import { describe, it, expect, beforeEach, jest } from "@jest/globals";
@@ -77,6 +76,7 @@ beforeEach(() => {
   mockNotification.permission = "default";
   mockNotification.requestPermission.mockResolvedValue("granted");
   mockGetMessaging.mockReturnValue({});
+  mockOnMessage.mockReturnValue(jest.fn());
   mockServiceWorker.getRegistrations.mockResolvedValue([]);
   mockServiceWorker.register.mockResolvedValue({
     scope: "/",
@@ -154,6 +154,20 @@ describe("Web Push Notifications", () => {
   });
 
   describe("setupWebPushListeners", () => {
+    it("registers only one listener when called twice", async () => {
+      const { setupWebPushListeners } =
+        await import("@/lib/web/push-notifications");
+
+      setupWebPushListeners();
+      setupWebPushListeners();
+
+      expect(mockOnMessage).toHaveBeenCalledTimes(1);
+      expect(mockOnMessage).toHaveBeenCalledWith(
+        mockGetMessaging.mock.results[0].value,
+        expect.any(Function)
+      );
+    });
+
     it("should set up foreground message listener", async () => {
       const { setupWebPushListeners } =
         await import("@/lib/web/push-notifications");

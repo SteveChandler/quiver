@@ -3,12 +3,13 @@
  * Handles FCM token registration and notification handling for web browsers
  */
 
-import { getToken, onMessage } from "firebase/messaging";
+import { getToken, onMessage, type Unsubscribe } from "firebase/messaging";
 import { getFirebaseMessaging } from "@/lib/firebase/config";
 
 // VAPID key from Firebase Console (Cloud Messaging → Web Push certificates)
 // This is a public key and safe to include in client-side code
 const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY || "";
+let unsubscribeFromMessages: Unsubscribe | null = null;
 
 function getRuntimeIanaTimezone(): string | null {
   try {
@@ -214,6 +215,8 @@ async function registerServiceWorker(): Promise<void> {
  * Call this once during app initialization
  */
 export function setupWebPushListeners(): void {
+  if (unsubscribeFromMessages) return;
+
   if (!isPushSupported()) {
     return;
   }
@@ -224,7 +227,7 @@ export function setupWebPushListeners(): void {
   }
 
   // Handle foreground messages (when app is open)
-  onMessage(messaging, (payload) => {
+  unsubscribeFromMessages = onMessage(messaging, (payload) => {
     if (process.env.NODE_ENV === "development") {
       console.log("Push notifications: Received in foreground", {
         title: payload.notification?.title,

@@ -1,7 +1,5 @@
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 
-import type { RecommendationsResponse } from "@/types/api/recommendations";
-
 import type {
   MajorEventHoldCandidate,
   MajorEventHoldCandidateDecision,
@@ -66,11 +64,6 @@ type SanitizedDailyIntelResponse<TIntel extends DailyIntelResponseLike> =
       | TIntel["best_window_wave_height_label"]
       | null;
     raw_intel_data: unknown;
-    recommendationAvailability: RecommendationAvailability;
-  };
-
-export type SanitizedLegacyV1RecommendationsResponse =
-  RecommendationsResponse & {
     recommendationAvailability: RecommendationAvailability;
   };
 
