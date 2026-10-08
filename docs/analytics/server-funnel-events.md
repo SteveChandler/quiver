@@ -13,7 +13,10 @@ All of them:
 
 - use the Supabase user id as `distinct_id`, so they join the person native and
   web already identify;
-- carry the `$insert_id` shown below, so a retry does not double count;
+- carry a deterministic `uuid` (PostHog dedupes on `uuid`, not `$insert_id`) so
+  a retry does not double count, plus a readable `$insert_id`;
+- are sent after the response (`after()`), so PostHog or the consent lookup can
+  never delay a request;
 - are sent only when the user has analytics tracking allowed
   (`profiles.allow_implicit_tracking`, the same rule as
   `notification_delivery_attempt`). Opted-out users are absent from these
@@ -31,12 +34,13 @@ one-tap button, and never covered onboarding seeds or the web.
 | `alert_type` | `alert_rules.preset_type`, or `custom` for a hand-built condition set |
 | `beach_id` | beach the rule watches |
 | `source` | `rules_api` (`POST /api/alerts/rules`: web popover, web alerts page, native), `onboarding_seed` (default rules seeded when onboarding completes: web action and native `POST /api/alerts/seed-default`), `anon_capture` (email captures converted in `/auth/callback`) |
-| `platform` | `web` or `native` (a Bearer token or `x-quiver-platform: ios\|android` means native) |
+| `platform` | `web` or `native`. `x-quiver-platform: ios\|android\|web` wins when sent; otherwise a Bearer token means native. Native should send the header. |
 | `is_first_alert` | the user owned no alert rule before this one; in a seed batch only the first rule is true |
 | `rule_id` | rule id (absent for `anon_capture`, which only knows the capture id) |
 | `notify_email`, `notify_push` | channels on the rule (absent for `anon_capture`) |
 
-`$insert_id` is `alert_created:<rule_id>` or `alert_created:capture:<capture_id>`.
+`uuid` is a v5 uuid of `alert_created:<rule_id>` (or
+`alert_created:capture:<capture_id>`), and `$insert_id` is that same key.
 Not emitted when `POST /api/alerts/rules` returns an existing watched call
 (`already_exists`) or rejects the request.
 
@@ -47,12 +51,14 @@ rules are onboarding seeds.
 ## RevenueCat events
 
 Emitted by `app/api/webhooks/revenuecat/route.ts` through
-`lib/analytics/revenuecat-funnel-events.ts`, right after the
-`revenuecat_provider_events` ledger row is stored. A redelivery of an event
-that already finished returns before this point. The RevenueCat event id is
-the PostHog `uuid` and `$insert_id` (`revenuecat:<id>`), and the RevenueCat
-event time is the PostHog `timestamp`, so a retry of an unfinished event lands
-on the same row.
+`lib/analytics/revenuecat-funnel-events.ts`, after the
+`revenuecat_provider_events` ledger row is stored **and** the
+`user_entitlements` write succeeds. Entitlement failures (DLQ) and lifetime
+promo preservation send nothing. A redelivery of an event that already
+finished returns earlier. The RevenueCat event id is the PostHog `uuid` (a v5
+uuid of it when it is not a uuid) and `$insert_id` is `revenuecat:<id>`; the
+RevenueCat event time is the PostHog `timestamp`, so a retry of an unfinished
+event lands on the same row.
 
 | RevenueCat event | PostHog event |
 | --- | --- |
@@ -81,9 +87,9 @@ Rules:
 - Promotional grants (store or period `PROMOTIONAL`, `rc_promo_*` products)
   are skipped, because they are not paid conversion. `TRANSFER` and other
   unmapped event types are skipped too.
-- If the ledger insert fails and the event is only recorded in the DLQ, the
-  PostHog event is skipped; the RevenueCat retry or reconciler is the repair
-  path for entitlements, not for PostHog.
+- If the ledger insert or the entitlement write fails and the event goes to
+  the DLQ, the PostHog event is skipped; the reconciler repairs entitlements,
+  not PostHog.
 
 Related client events that still exist: `paywall_opened`,
 `paywall_purchase_started`, `paywall_purchase_success`, `onboarding_trial_started`
