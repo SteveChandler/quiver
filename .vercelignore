@@ -15,8 +15,9 @@ __tests__/
 # Documentation
 docs/
 
-# Scripts (dev-only)
-scripts/
+# Scripts (dev-only). playwright.config.ts imports load-env.mjs and is type-checked by `next build`.
+scripts/*
+!scripts/load-env.mjs
 
 # Supabase config/migrations (deployed separately)
 /supabase/
