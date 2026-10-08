@@ -11,7 +11,7 @@
 import { createMockProfile, type MockSupabaseClient } from './api-test-helpers';
 import type { ProfileDTO } from '@/types/profile';
 
-export interface ProfileTestData {
+interface ProfileTestData {
   profileData: Partial<ProfileDTO>;
   sessions?: Array<{ id: number; rating: number; status: string }>;
   homeBeach?: { id: string; name: string } | null;
@@ -68,24 +68,6 @@ export function setupProfileApiMocks(
 }
 
 /**
- * Creates mock profile with onboarding field defaulted
- */
-export function createMockProfileWithOnboarding(
-  overrides: Partial<ProfileDTO> = {}
-): Partial<ProfileDTO> {
-  return {
-    ...createMockProfile(),
-    onboarding_completed_at: null,
-    experience_level: null,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    homeBeachName: null,
-    home_beach: null,
-    ...overrides,
-  };
-}
-
-/**
  * Creates mock profile DTO matching the view output
  */
 export function createMockProfileDTO(
@@ -114,16 +96,4 @@ export function expectOnboardingField(
 ): void {
   expect(responseData).toHaveProperty('onboarding_completed_at');
   expect(responseData.onboarding_completed_at).toBe(expectedValue);
-}
-
-/**
- * Asserts profile has all required core fields
- */
-export function expectCoreProfileFields(responseData: any): void {
-  expect(responseData).toHaveProperty('id');
-  expect(responseData).toHaveProperty('full_name');
-  expect(responseData).toHaveProperty('home_beach_id');
-  expect(responseData).toHaveProperty('experience_level');
-  expect(responseData).toHaveProperty('created_at');
-  expect(responseData).toHaveProperty('updated_at');
 }

@@ -484,7 +484,7 @@ ANALYZE=true yarn build
 
 ```bash
 # Lighthouse
-yarn lighthouse
+npx -y @lhci/cli@0.15.1 autorun
 
 # Or use Chrome DevTools
 ```

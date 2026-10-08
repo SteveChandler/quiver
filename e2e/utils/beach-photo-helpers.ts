@@ -43,7 +43,7 @@ export interface PhotoOperationResult {
 /**
  * Test beach photo data
  */
-export interface TestBeachPhoto {
+interface TestBeachPhoto {
   id: string;
   beach_id: string;
   source: string;
@@ -276,52 +276,6 @@ export async function getBeachPhoto(photoId: string): Promise<TestBeachPhoto | n
 }
 
 /**
- * Get all beach photos for a specific beach
- *
- * @param beachId - Beach ID
- * @param options - Filter options
- * @returns Promise<TestBeachPhoto[]> - Array of photos
- */
-export async function getBeachPhotos(
-  beachId: string,
-  options?: {
-    includeDeleted?: boolean;
-    approvedOnly?: boolean;
-  }
-): Promise<TestBeachPhoto[]> {
-  const admin = getAdminClient();
-
-  try {
-    let query = admin
-      .from('beach_photos')
-      .select('id, beach_id, source, source_id, image_url, thumb_url, approved, deleted_at')
-      .eq('beach_id', beachId);
-
-    // Filter by deleted_at unless explicitly including deleted
-    if (!options?.includeDeleted) {
-      query = query.is('deleted_at', null);
-    }
-
-    // Filter by approved status if requested
-    if (options?.approvedOnly) {
-      query = query.eq('approved', true);
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      console.error('[Beach Photo Helper] Failed to get beach photos:', error);
-      return [];
-    }
-
-    return (data || []) as TestBeachPhoto[];
-  } catch (error) {
-    console.error('[Beach Photo Helper] Failed to get beach photos:', error);
-    return [];
-  }
-}
-
-/**
  * Delete all test photos for a beach (cleanup helper)
  *
  * @param beachId - Beach ID
@@ -360,34 +314,6 @@ export async function deleteAllTestPhotosForBeach(beachId: string): Promise<Phot
       success: false,
       error: error instanceof Error ? error.message : String(error),
     };
-  }
-}
-
-/**
- * Find a beach ID by name (helper for tests)
- *
- * @param beachName - Beach name to search for
- * @returns Promise<string | null> - Beach ID or null if not found
- */
-export async function findBeachIdByName(beachName: string): Promise<string | null> {
-  const admin = getAdminClient();
-
-  try {
-    const { data, error } = await admin
-      .from('beaches')
-      .select('id')
-      .eq('name', beachName)
-      .single() as { data: { id: string } | null; error: any };
-
-    if (error || !data) {
-      console.error('[Beach Photo Helper] Failed to find beach:', error);
-      return null;
-    }
-
-    return data.id;
-  } catch (error) {
-    console.error('[Beach Photo Helper] Failed to find beach:', error);
-    return null;
   }
 }
 

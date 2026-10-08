@@ -8,19 +8,12 @@ import { Page } from '@playwright/test';
  * localStorage, which are used by Supabase SSR.
  */
 
-export interface AuthTokens {
+interface AuthTokens {
   cookies: string[];
   storage: Array<{ key: string; value: string | null }>;
 }
 
-export interface AuthCheckResult {
-  hasAuthCookie: boolean;
-  hasAuthStorage: boolean;
-  cookieCount: number;
-  storageCount: number;
-}
-
-export interface ServerSessionCheckResult {
+interface ServerSessionCheckResult {
   ok: boolean;
   status: number;
   hasSession: boolean;
@@ -396,71 +389,6 @@ export async function loginAs(
 
   await page.waitForSelector('[role="dialog"]', { state: 'hidden', timeout: 5000 })
     .catch(() => undefined);
-}
-
-/**
- * Wait for Supabase session to be established
- *
- * Checks for the presence of a valid Supabase session in localStorage.
- * This is more thorough than just checking for auth tokens, as it
- * verifies that the session object is properly structured.
- *
- * @param page - Playwright page object
- * @param timeout - Maximum time to wait in milliseconds (default: 10000)
- * @throws Error if session is not established within timeout
- */
-export async function waitForSupabaseSession(page: Page, timeout = 10000): Promise<void> {
-  const startTime = Date.now();
-  const pollInterval = 500;
-
-  console.log('[Auth] Waiting for Supabase session to be established...');
-
-  while (Date.now() - startTime < timeout) {
-    // Try localStorage first, but gracefully fall back to cookie check if blocked
-    const hasSession = await page.evaluate(() => {
-      try {
-        // Check for Supabase session in localStorage
-        const keys = Object.keys(localStorage);
-        const sessionKey = keys.find(k => k.startsWith('sb-') && k.includes('auth-token'));
-
-        if (!sessionKey) return false;
-
-        try {
-          const sessionData = localStorage.getItem(sessionKey);
-          if (!sessionData) return false;
-
-          const parsed = JSON.parse(sessionData);
-          return parsed && parsed.access_token && parsed.refresh_token;
-        } catch {
-          return false;
-        }
-      } catch (error) {
-        // localStorage blocked - this is OK, cookies are sufficient
-        // Return false here to allow cookie-based verification below
-        return false;
-      }
-    });
-
-    // If localStorage check passed, we're good
-    if (hasSession) {
-      const elapsed = Date.now() - startTime;
-      console.log(`[Auth] ✓ Supabase session established in ${elapsed}ms`);
-      return;
-    }
-
-    // If localStorage is blocked, rely on cookie-based auth verification
-    const hasAuthCookies = await verifySupabaseAuth(page);
-    if (hasAuthCookies) {
-      const elapsed = Date.now() - startTime;
-      console.log(`[Auth] ✓ Authentication verified via cookies in ${elapsed}ms (localStorage unavailable)`);
-      return;
-    }
-
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- polling interval for auth state verification
-    await page.waitForTimeout(pollInterval);
-  }
-
-  throw new Error(`Supabase session was not established within ${timeout}ms`);
 }
 
 /**
