@@ -67,6 +67,15 @@ export function beachToSpotProfile(beach: Beach): SpotProfile {
 }
 
 /**
+ * A forecast the caller assembled from request conditions has no stored
+ * confidence_score by construction, so the neutral 50 is expected, not data loss.
+ */
+const REQUEST_DERIVED_CONFIDENCE_TRACKING = {
+  severity: 'low',
+  reason: 'request_derived_forecast',
+} as const;
+
+/**
  * Convert EnhancedForecastEntity to ConditionsSnapshot.
  *
  * Snapshot semantics: `primarySwell`, `waveDirection`, and `wavePeriod` all
@@ -81,7 +90,10 @@ export function beachToSpotProfile(beach: Beach): SpotProfile {
  * `primarySwell.periodS`/`directionDeg`; those fields must reflect the
  * dominant component or the period-relevance gates fire on the wrong train.
  */
-export function forecastToSnapshot(forecast: EnhancedForecastEntity): ConditionsSnapshot {
+export function forecastToSnapshot(
+  forecast: EnhancedForecastEntity,
+  options: { requestDerived?: boolean } = {},
+): ConditionsSnapshot {
   const waveHeight = parseFloat(forecast.wave_height || '0');
   const storedWavePeriod = parseFloat(forecast.wave_period?.replace('s', '') || '0');
 
@@ -146,7 +158,12 @@ export function forecastToSnapshot(forecast: EnhancedForecastEntity): Conditions
       direction: tideDirection,
       heightKnown: Number.isFinite(parsedTideHeight),
     },
-    confidence: resolveConfidence(forecast.confidence_score, 'discovery'),
+    confidence: resolveConfidence(
+      forecast.confidence_score,
+      'discovery',
+      undefined,
+      options.requestDerived ? REQUEST_DERIVED_CONFIDENCE_TRACKING : undefined,
+    ),
     dataSource: forecast.data_source || 'unknown',
   };
 }
