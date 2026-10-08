@@ -1,3 +1,4 @@
+import { JsonLd } from "@/components/seo/funnel/JsonLd";
 import type React from "react";
 import type { Metadata, Viewport } from "next";
 import {
@@ -267,12 +268,7 @@ export default function RootLayout({
         {/* Note: quiver-app-icon.png is only used on landing page, so preload is handled there */}
         {/* Remove non-existent webpack chunk preload - these are dynamic */}
         {/* Structured Data for SEO */}
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify(buildRootStructuredDataGraph()),
-          }}
-        />
+        <JsonLd data={buildRootStructuredDataGraph()} />
         {/* Critical inline styles for faster render */}
         <style
           dangerouslySetInnerHTML={{

@@ -1,3 +1,4 @@
+import { JsonLd } from "@/components/seo/funnel/JsonLd";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
@@ -192,10 +193,7 @@ function SoftwareApplicationStructuredData(): ReactElement {
   };
 
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
-    />
+    <JsonLd data={data} />
   );
 }
 
@@ -219,10 +217,7 @@ function ComparisonItemListStructuredData(): ReactElement {
   };
 
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
-    />
+    <JsonLd data={data} />
   );
 }
 
@@ -241,10 +236,7 @@ function FreeIntentFaqStructuredData(): ReactElement {
   };
 
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
-    />
+    <JsonLd data={data} />
   );
 }
 
