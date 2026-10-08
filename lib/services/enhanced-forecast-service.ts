@@ -9,6 +9,7 @@ import {
   ForecastBuilder,
 } from "./forecast/forecast-builder";
 import { hashString } from "./forecast/batch-update-coordinator";
+import { describeThrownError } from "./forecast/error-message";
 import {
   DeadlineTracker,
   getRefreshSelectionWindowHours,
@@ -774,7 +775,7 @@ export class EnhancedForecastService {
         cdip_station: cdip.stationId,
       };
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
+      const errorMsg = describeThrownError(error);
       console.error(`${beach.name}: ${errorMsg}`);
       return {
         beach: beach.name,
@@ -860,7 +861,7 @@ export class EnhancedForecastService {
       return {
         success: false,
         results: [],
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: describeThrownError(error),
       };
     }
   }
@@ -1011,7 +1012,7 @@ export class EnhancedForecastService {
       return {
         success: false,
         results: [],
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: describeThrownError(error),
       };
     }
   }

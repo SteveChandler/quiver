@@ -8,6 +8,7 @@
 
 import type { Beach } from "@/types/database";
 import type { CDIPSkipReason } from "@/lib/services/cdip/types";
+import { describeThrownError } from "./error-message";
 
 /**
  * Result of processing a single beach
@@ -337,7 +338,7 @@ export function createBeachProcessor(
         error: result.error,
       };
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
+      const errorMsg = describeThrownError(error);
       console.error(`${beach.name}: ${errorMsg}`);
       return { beach: beach.name, success: false, error: errorMsg };
     }

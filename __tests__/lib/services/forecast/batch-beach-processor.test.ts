@@ -657,6 +657,26 @@ describe("createBeachProcessor", () => {
     expect(result.error).toBe("plain string error");
   });
 
+  it("keeps the message of a thrown Supabase-style error object", async () => {
+    const beach = makeBeach("b1", "Timeout Beach");
+
+    const generateForecast = jest.fn().mockRejectedValue({
+      message: "canceling statement due to statement timeout",
+      code: "57014",
+      details: null,
+      hint: null,
+    });
+    const storeForecast = jest.fn();
+
+    const processor = createBeachProcessor(generateForecast, storeForecast);
+    const result = await processor(beach);
+
+    expectConsoleErrors([/Timeout Beach: canceling statement due to statement timeout \(57014\)/]);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("canceling statement due to statement timeout (57014)");
+  });
+
   it("can be used directly with processBeachesInBatches", async () => {
     const beaches = [makeBeach("1", "A"), makeBeach("2", "B")];
     const forecasts = [{ id: "f1" }];
