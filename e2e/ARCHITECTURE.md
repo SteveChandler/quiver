@@ -58,7 +58,6 @@ e2e/
 │   ├── persona-auth.ts    # Multi-user authentication for personas
 │   ├── persona-content-generators.ts  # Persona-style content generation
 │   ├── persona-helpers.ts # High-level persona test helpers
-│   ├── personalization-helpers.ts # Personalization data availability checks
 │   ├── profile-helpers.ts # Profile management utilities
 │   ├── profile-preferences-helpers.ts # Profile preference form helpers
 │   ├── session-test-data.ts # Session test data fixtures
@@ -1362,125 +1361,6 @@ When adding new tests:
 
 ---
 
-## Personalized Insights Tests
-
-### Test File: `e2e/personalized-insights.spec.ts`
-
-**Purpose**: Comprehensive E2E testing of the personalized insights feature that compares forecast conditions to user's session history.
-
-**Test Coverage** (13 scenarios):
-
-1. **Onboarding State Display**
-   - Validates users with <3 rated sessions see onboarding encouragement
-   - Ensures no board tips or similar sessions shown in onboarding
-   - Tests graceful UI for new users building session history
-
-2. **Insights Display with Sufficient Data**
-   - Validates users with >=3 rated sessions see personalized insights
-   - Checks "For You" KPI tile displays match label or percentage
-   - Verifies reason bullets displayed in summary section
-
-3. **Match Quality Indicators**
-   - Tests match labels (Perfect/Great/Good/Low) align with percentages
-   - Validates percentage thresholds: Perfect >=80%, Great 60-79%, Good 40-59%, Low <40%
-
-4. **Board Recommendation Display**
-   - Tests board tip appears when pattern detected (>=60% same board)
-   - Validates amber UI element with ruler icon
-   - Checks board name and type displayed correctly
-
-5. **Similar Sessions Drawer Opening**
-   - Tests "View similar sessions" button opens drawer
-   - Validates drawer contains session items with conditions/boards
-   - Checks close button functionality
-
-6. **For You Tile Click Interaction**
-   - Tests clicking "For You" KPI tile opens similar sessions drawer
-   - Validates cursor-pointer class indicates clickability
-   - Only when similar sessions available
-
-7. **Insights API Error Handling**
-   - Tests graceful fallback when /api/surf/insights fails
-   - Validates card still renders with standard "For You" label
-   - Ensures no board tips or similar sessions links on error
-
-8. **Insights Loading State**
-   - Tests loading skeleton displays while fetching
-   - Validates transition from loading to loaded state
-   - Checks error state handling
-
-9. **Mobile Responsiveness**
-   - Tests insights display correctly on mobile viewport (375x667)
-   - Validates touch-friendly button sizes (>=40px height)
-   - Checks text wrapping and no horizontal scroll
-
-10. **Data Consistency Validation**
-    - Tests match percentage aligns with label
-    - Validates threshold consistency
-    - Ensures no mismatched data displayed
-
-11. **Personalization Badge Present**
-    - Tests "For You" badge visible on personalized forecast cards
-    - Validates badge indicates insights are active
-
-12. **Insights Update on Forecast Change**
-    - Tests insights refresh when recommendation changes
-    - Validates insights match new forecast conditions
-
-13. **Drawer Session Details**
-    - Tests similar sessions show: beach, date, rating (stars), conditions, board
-    - Validates match percentage badges color-coded correctly
-    - Checks empty state when no sessions found
-
-**Test Data Requirements**:
-
-- **User with <3 rated sessions**: For onboarding state tests
-- **User with 3+ rated sessions**: For full insights tests
-- **Sessions with board_snapshot data**: For board recommendations
-- **Sessions with similar conditions**: For similar sessions list
-- **Sessions from different beaches**: For cross-spot explanations
-
-**Key Test Patterns**:
-
-```typescript
-// Wait for personalized forecast card
-const card = page.getByTestId('personalized-forecast-card');
-await expect(card).toBeVisible({ timeout: TIMEOUTS.long });
-
-// Check For You tile
-const forYouTile = card.locator('.bg-purple-50').first();
-const tileText = await forYouTile.textContent();
-
-// Validate board tip (amber background)
-const boardTip = card.locator('.bg-amber-50.border-amber-200');
-await expect(boardTip).toBeVisible();
-
-// Open similar sessions drawer
-const viewSimilarButton = card.getByRole('button', {
-  name: /view.*similar session/i
-});
-await viewSimilarButton.click();
-
-const drawer = page.locator('[role="dialog"]');
-await expect(drawer).toBeVisible({ timeout: TIMEOUTS.medium });
-```
-
-**Performance Considerations**:
-
-- Uses `test.skip()` when personalized forecast not available
-- Gracefully handles conditional UI elements (insights may vary by user)
-- Waits for API responses with appropriate timeouts
-- Tests error scenarios with mocked API failures
-
-**Integration Points**:
-
-- Depends on `/api/surf/insights` endpoint
-- Uses same authentication as other @auth tests
-- Interacts with PersonalizedForecastCard component
-- Tests SimilarSessionsDrawer component interaction
-
----
-
 ## API Contract Tests
 
 ### Overview
@@ -1499,7 +1379,6 @@ e2e/api/
 ├── gamification.spec.ts    # Badges, XP, achievements
 ├── health.spec.ts          # Health check endpoints
 ├── intel.spec.ts           # Local intel CRUD and confirmations
-├── recommendations.spec.ts # AI-powered surf recommendations
 ├── session-comments.spec.ts    # Session comment threads
 ├── session-planner.spec.ts     # Optimal time calculations
 ├── sessions-crud.spec.ts       # Session logging lifecycle

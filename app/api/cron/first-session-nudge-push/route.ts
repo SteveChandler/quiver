@@ -6,11 +6,10 @@
  * Sends ONE push notification to users who signed up 6–8 days ago AND have
  * fewer than 3 sessions logged. Catches the habit-formation window where
  * a surfer is making it-or-break-it on "is this app part of my weekly
- * routine?" — distinct from:
- *   - Day-1 EMAIL (`/api/cron/first-session-nudge`) — 18–30h-old 0-session users
- *   - Day-12 PUSH (`/api/cron/trial-ending-push-deliver`) — trial-ending
+ * routine?" — distinct from the Day-12 trial-ending push
+ * (`/api/cron/trial-ending-push-deliver`).
  *
- * The three are additive and non-overlapping on (cohort, channel, lifecycle).
+ * The two are additive and non-overlapping on (cohort, channel, lifecycle).
  *
  * Cohort branching (5-way):
  *   - Trialing + home beach             → "Unlock your Quiver"

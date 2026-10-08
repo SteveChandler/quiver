@@ -1,6 +1,5 @@
 import {
   saveOnboardingData,
-  skipOnboarding,
 } from "@/actions/onboarding-actions";
 
 // Mock gamification actions
@@ -635,31 +634,6 @@ describe("saveOnboardingData", () => {
         expect(profile.home_beach_id).toBe("beach-123");
       }
       /* eslint-enable jest/no-conditional-expect */
-    });
-  });
-});
-
-describe("skipOnboarding", () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    lastProfileUpdate = null;
-    lastUserEventInsert = null;
-    allUserEventInserts = [];
-  });
-
-  it("dismisses onboarding without setting onboarding_completed_at", async () => {
-    const result = await skipOnboarding();
-
-    expect(result.success).toBe(true);
-    expect(lastProfileUpdate).toBeNull();
-    expect(lastUserEventInsert).toEqual({
-      user_id: "user-123",
-      event_type: "onboarding_step",
-      metadata: {
-        step: "dismissed",
-        step_name: "dismissed",
-        source: "server",
-      },
     });
   });
 });

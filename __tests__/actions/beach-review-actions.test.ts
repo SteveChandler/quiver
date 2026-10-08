@@ -26,12 +26,10 @@ jest.mock("@/lib/services/beach-query-service", () => ({
 // Import after mocking
 import {
   getBeachReviews,
-  getUserReviewForBeach,
   createBeachReview,
   updateBeachReview,
   deleteBeachReview,
   getBeachReviewStats,
-  getMultipleBeachReviewStats,
 } from "@/actions/beach-review-actions";
 import { revalidatePath } from "next/cache";
 
@@ -125,46 +123,6 @@ describe("Beach Review Actions", () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toBe("Database error");
-    });
-  });
-
-  describe("getUserReviewForBeach", () => {
-    it("should return user's review for a beach", async () => {
-      mockSupabaseClient = mockSupabaseBuilder
-        .withSelectSingle("beach-1", "user-1", mockReviewWithUser, null)
-        .build();
-
-      const result = await getUserReviewForBeach("beach-1", "user-1");
-
-      expect(result.success).toBe(true);
-      expect(result.data).toEqual(mockReviewWithUser);
-    });
-
-    it("should handle no review found", async () => {
-      mockSupabaseClient = mockSupabaseBuilder
-        .withSelectSingle("beach-1", "user-1", null, { message: "No rows returned", code: "PGRST116" })
-        .build();
-
-      const result = await getUserReviewForBeach("beach-1", "user-1");
-
-      expect(result.success).toBe(true);
-      expect(result.data).toBeNull();
-    });
-
-    it("should handle other database errors", async () => {
-      mockSupabaseClient = mockSupabaseBuilder
-        .withSelectSingle(
-          "beach-1",
-          "user-1",
-          null,
-          new Error("Database connection failed")
-        )
-        .build();
-
-      const result = await getUserReviewForBeach("beach-1", "user-1");
-
-      expect(result.success).toBe(false);
-      expect(result.error).toBe("Database connection failed");
     });
   });
 
@@ -371,164 +329,6 @@ describe("Beach Review Actions", () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toBe("Stats query failed");
-    });
-  });
-
-  describe("getMultipleBeachReviewStats", () => {
-    it("should fetch and calculate stats for multiple beaches", async () => {
-      const mockReviews = [
-        {
-          beach_id: "beach-1",
-          overall_rating: 4,
-          wave_quality_rating: 5,
-          crowd_density_rating: 3,
-          parking_rating: 4,
-          accessibility_rating: 5,
-        },
-        {
-          beach_id: "beach-1",
-          overall_rating: 5,
-          wave_quality_rating: 4,
-          crowd_density_rating: 3,
-          parking_rating: 3,
-          accessibility_rating: 4,
-        },
-        {
-          beach_id: "beach-2",
-          overall_rating: 3,
-          wave_quality_rating: 3,
-          crowd_density_rating: 4,
-          parking_rating: 2,
-          accessibility_rating: 3,
-        },
-      ];
-
-      mockSupabaseClient = mockSupabaseBuilder
-        .withMultipleBeachStats(
-          ["beach-1", "beach-2", "beach-3"],
-          mockReviews,
-          null
-        )
-        .build();
-
-      const result = await getMultipleBeachReviewStats([
-        "beach-1",
-        "beach-2",
-        "beach-3",
-      ]);
-
-      expect(result.success).toBe(true);
-      expect(result.data).toEqual({
-        "beach-1": {
-          total_reviews: 2,
-          average_overall: 4.5,
-          average_wave_quality: 4.5,
-          average_crowd_density: 3,
-          average_parking: 3.5,
-          average_accessibility: 4.5,
-          distribution: [
-            { rating: 5, count: 1 },
-            { rating: 4, count: 1 },
-            { rating: 3, count: 0 },
-            { rating: 2, count: 0 },
-            { rating: 1, count: 0 },
-          ],
-        },
-        "beach-2": {
-          total_reviews: 1,
-          average_overall: 3,
-          average_wave_quality: 3,
-          average_crowd_density: 4,
-          average_parking: 2,
-          average_accessibility: 3,
-          distribution: [
-            { rating: 5, count: 0 },
-            { rating: 4, count: 0 },
-            { rating: 3, count: 1 },
-            { rating: 2, count: 0 },
-            { rating: 1, count: 0 },
-          ],
-        },
-        "beach-3": {
-          total_reviews: 0,
-          average_overall: 0,
-          average_wave_quality: 0,
-          average_crowd_density: 0,
-          average_parking: 0,
-          average_accessibility: 0,
-          distribution: [
-            { rating: 5, count: 0 },
-            { rating: 4, count: 0 },
-            { rating: 3, count: 0 },
-            { rating: 2, count: 0 },
-            { rating: 1, count: 0 },
-          ],
-        },
-      });
-    });
-
-    it("should return empty object when no beach IDs provided", async () => {
-      const result = await getMultipleBeachReviewStats([]);
-
-      expect(result.success).toBe(true);
-      expect(result.data).toEqual({});
-    });
-
-    it("should handle errors when fetching multiple beach stats", async () => {
-      mockSupabaseClient = mockSupabaseBuilder
-        .withMultipleBeachStats(
-          ["beach-1", "beach-2"],
-          null,
-          new Error("Database error")
-        )
-        .build();
-
-      const result = await getMultipleBeachReviewStats(["beach-1", "beach-2"]);
-
-      expect(result.success).toBe(false);
-      expect(result.error).toBe("Database error");
-    });
-
-    it("should initialize all beaches with zero stats even if no reviews exist", async () => {
-      mockSupabaseClient = mockSupabaseBuilder
-        .withMultipleBeachStats(["beach-1", "beach-2"], [], null)
-        .build();
-
-      const result = await getMultipleBeachReviewStats(["beach-1", "beach-2"]);
-
-      expect(result.success).toBe(true);
-      expect(result.data).toEqual({
-        "beach-1": {
-          total_reviews: 0,
-          average_overall: 0,
-          average_wave_quality: 0,
-          average_crowd_density: 0,
-          average_parking: 0,
-          average_accessibility: 0,
-          distribution: [
-            { rating: 5, count: 0 },
-            { rating: 4, count: 0 },
-            { rating: 3, count: 0 },
-            { rating: 2, count: 0 },
-            { rating: 1, count: 0 },
-          ],
-        },
-        "beach-2": {
-          total_reviews: 0,
-          average_overall: 0,
-          average_wave_quality: 0,
-          average_crowd_density: 0,
-          average_parking: 0,
-          average_accessibility: 0,
-          distribution: [
-            { rating: 5, count: 0 },
-            { rating: 4, count: 0 },
-            { rating: 3, count: 0 },
-            { rating: 2, count: 0 },
-            { rating: 1, count: 0 },
-          ],
-        },
-      });
     });
   });
 

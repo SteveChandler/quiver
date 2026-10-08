@@ -165,11 +165,6 @@ The `/app` directory follows Next.js 16 App Router conventions, implementing a m
   - Session analytics
   - Data portability
 
-#### `/api/recent-posts/`
-
-- **Function**: Social feed data
-- **Features**: Recent community activity aggregation
-
 #### `/api/surf/`
 
 - **Function**: Core surf forecast API

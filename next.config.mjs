@@ -275,15 +275,6 @@ const nextConfig = {
         ],
       },
       {
-        source: "/api/v1/recommendations",
-        headers: [
-          {
-            key: "Cache-Control",
-            value: "private, no-store, no-cache, must-revalidate",
-          },
-        ],
-      },
-      {
         source: "/api/forecasts/bulk",
         headers: [
           {
@@ -303,15 +294,6 @@ const nextConfig = {
       },
       {
         source: "/api/beach-daily-intel",
-        headers: [
-          {
-            key: "Cache-Control",
-            value: "private, no-store, no-cache, must-revalidate",
-          },
-        ],
-      },
-      {
-        source: "/api/coach-picks",
         headers: [
           {
             key: "Cache-Control",
@@ -745,7 +727,7 @@ const nextConfig = {
 /**
  * Determines if a beach API path should use StaleWhileRevalidate caching.
  * Only caches public read-only endpoints. Excludes:
- * - Authenticated endpoints (/favorites, /favorite/toggle)
+ * - Authenticated endpoints (/favorites)
  * - Mutation endpoints
  * - Frequently-changing feeds (/sessions)
  *
@@ -757,7 +739,6 @@ const isPublicBeachApiPath = (pathname) => {
 
   // Exclude authenticated and mutation endpoints
   if (pathname === "/api/beaches/favorites") return false;
-  if (pathname.includes("/favorite/toggle")) return false;
   if (pathname.includes("/sessions")) return false;
 
   // Whitelist safe public GET routes

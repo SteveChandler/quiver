@@ -38,11 +38,7 @@ test("offer jobs and claim API stay disabled or authenticated", async ({ request
   const headers = { Authorization: "Bearer lifecycle-local-cron-fixture" };
   const response = await request.get("/api/cron/pro-offer-reconcile", { headers });
   expect(response.status()).toBe(200); expect(await response.json()).toEqual({ status: "disabled" });
-  const retired = await request.get("/api/cron/earn-pro-evaluate", { headers });
-  expect(retired.status()).toBe(200); expect(await retired.json()).toMatchObject({ status: "retired", granted: 0 });
   expect((await request.post("/api/offers/claim", { data: { code: "a".repeat(43) } })).status()).toBe(401);
-  expect((await request.post("/api/admin/offers", { data: {} })).status()).toBe(401);
-  expect((await request.post("/api/admin/email/replies/sync")).status()).toBe(401);
   expect((await request.get("/api/offers/claim")).status()).toBe(405);
 });
 

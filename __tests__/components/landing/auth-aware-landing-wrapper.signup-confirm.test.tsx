@@ -26,21 +26,6 @@ jest.mock("@/lib/utils/performance-utils", () => ({
 jest.mock("@/components/oracle/oracle-home-screen", () => ({
   OracleHomeScreen: () => <div data-testid="home-screen" />,
 }));
-jest.mock("@/components/landing-page/hero-section", () => ({
-  HeroSection: ({
-    initialPlatform,
-    appFirst,
-  }: {
-    initialPlatform?: string;
-    appFirst?: boolean;
-  }) => (
-    <div
-      data-testid="hero-section"
-      data-platform={initialPlatform}
-      data-app-first={String(appFirst)}
-    />
-  ),
-}));
 jest.mock(
   "@/components/landing-page/field-guide/quiver-field-guide-landing",
   () => ({
@@ -64,37 +49,9 @@ jest.mock("@/components/landing-page/navbar", () => ({
     <nav data-position={position} data-testid="landing-navbar" />
   ),
 }));
-jest.mock("@/components/landing-page/surf-highlights-section", () => ({
-  SurfHighlightsSection: () => <div data-testid="surf-highlights" />,
-}));
-jest.mock("@/components/landing-page/activities-section", () => ({
-  ActivitiesSection: () => <div data-testid="activities" />,
-}));
-jest.mock("@/components/landing-page/forecast-section", () => ({
-  ForecastSection: () => <div data-testid="forecast" />,
-}));
 jest.mock("@/components/landing-page/cta-section", () => ({
   CTASection: () => <div data-testid="cta" />,
 }));
-jest.mock("@/components/landing-page/landing-interactive-sections", () => ({
-  LandingInteractiveSections: ({
-    initialPlatform,
-    appFirst,
-  }: {
-    initialPlatform?: string;
-    appFirst?: boolean;
-  }) => (
-    <div
-      data-testid="landing-interactive-sections"
-      data-platform={initialPlatform}
-      data-app-first={String(appFirst)}
-    />
-  ),
-}));
-jest.mock("@/components/landing-page/landing-conditions-ticker", () => ({
-  LandingConditionsTicker: () => <div data-testid="landing-conditions-ticker" />,
-}));
-
 describe("AuthAwareLandingWrapper post-signup confirm email", () => {
   const replace = jest.fn();
   // eslint-disable-next-line no-restricted-properties -- test needs to mock window.location

@@ -24,7 +24,6 @@ import { formatPushNotification, qualityWord } from "@/lib/alerts/push-formatter
 import { buildConsolidatedSubject } from "@/lib/alerts/consolidated-subject";
 import { ConditionsAlertEmail } from "@/lib/mailer/templates/ConditionsAlertEmail";
 import type { MatchingWindow } from "@/lib/alerts/types";
-import { getOracleGreeting } from "@/lib/oracle/greeting";
 import { swellMatchShareText } from "@/lib/analyzers/swell-analyzer";
 import { AnonAlertCaptureForm } from "@/components/alerts/anon-alert-capture-form";
 
@@ -174,27 +173,6 @@ describe("condition and greeting copy voice", () => {
 
     expect(labels.length).toBeGreaterThanOrEqual(10);
     expect(loud(labels)).toEqual([]);
-  });
-
-  it("keeps every Oracle greeting branch calm", () => {
-    const greetings: string[] = [];
-    for (const score of [null, 1, 5, 8]) {
-      for (const hour of [4, 6, 9, 14, 20]) {
-        for (const swellPeriod of [null, 10, 14]) {
-          for (const windCondition of [null, "onshore", "offshore"]) {
-            for (const beachName of [null, "Blacks"]) {
-              for (const daysAbsent of [0, 5]) {
-                greetings.push(getOracleGreeting({
-                  score, hour, swellPeriod, windCondition, userName: "Alex", beachName, daysAbsent,
-                }));
-              }
-            }
-          }
-        }
-      }
-    }
-
-    expect(loud([...new Set(greetings)])).toEqual([]);
   });
 
   it("keeps the swell analyzer share text calm", () => {

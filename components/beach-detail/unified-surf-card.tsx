@@ -24,7 +24,6 @@ const TREND_TAG_STYLES: Record<TrendTag, { bg: string; text: string }> = {
 
 // ------------------------------------------------------------------
 // Character category → color mapping
-// Mirrors the same mapping in PersonalizedBadge for consistency.
 // ------------------------------------------------------------------
 
 function getCharacterLabelColor(category: ConditionCharacterCategory): string {
