@@ -71,7 +71,7 @@ export const GET = withAuth(
             ...(dataSource ? { data_source: dataSource } : {}),
             ...(Number.isFinite(wavePeriodOm) ? { wave_period_om: wavePeriodOm } : {}),
           } as EnhancedForecastEntity;
-          return recommendBoard(boardsForPicks, boardForecast, beach as Beach, experience);
+          return recommendBoard(boardsForPicks, boardForecast, beach as Beach, experience, { requestDerived: true });
         },
       },
     );

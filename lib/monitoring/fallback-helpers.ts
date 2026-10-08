@@ -1,5 +1,7 @@
 import { trackFallback, FallbackEvent } from './fallback-tracker';
 
+type FallbackTracking = Pick<FallbackEvent, 'severity' | 'reason'>;
+
 /**
  * Generic fallback-with-tracking helper. Returns `value` if non-null,
  * otherwise tracks the fallback and returns `fallbackValue`.
@@ -20,11 +22,14 @@ function withFallbackTracking<T extends string | number | null>(
 /**
  * Track and resolve a missing confidence score.
  * Returns the score if present, otherwise tracks fallback and returns 50.
+ * `tracking` lets a caller whose forecast cannot have a stored score say so
+ * (lower severity plus a reason) instead of raising the default alert.
  */
 export function resolveConfidence(
   score: number | null | undefined,
   domain: 'forecast' | 'discovery',
-  context?: FallbackEvent['context']
+  context?: FallbackEvent['context'],
+  tracking?: FallbackTracking
 ): number {
   if (score == null) {
     trackFallback({
@@ -32,6 +37,7 @@ export function resolveConfidence(
       field: 'confidence_score',
       fallbackValue: 50,
       context,
+      ...tracking,
     });
     return 50;
   }
