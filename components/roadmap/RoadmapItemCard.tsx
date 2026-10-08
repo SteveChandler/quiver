@@ -36,7 +36,7 @@ function formatShippedDate(shippedAt: string | null): string {
 
 function FounderReply({ text }: { text: string }) {
   return (
-    <div className="notebook relative mt-4 rotate-[-1deg] border-2 border-[#11100D] bg-[#F0E5CC] p-4 shadow-[2px_3px_0_rgba(17,16,13,0.22)]">
+    <div className="notebook relative mt-4 border-2 border-[#11100D] bg-[#F0E5CC] p-4 shadow-[2px_3px_0_rgba(17,16,13,0.22)]">
       <div className="mb-2 font-[family-name:var(--font-mono)] text-[10px] font-bold uppercase tracking-[0.2em] text-[#B56A2B]">
         {"// Quiver HQ / Steven"}
       </div>
@@ -73,7 +73,7 @@ export function RoadmapItemCard({ item, authed, onSignInRequired, rank }: Props)
         id={`item-${item.id}`}
         className="torn torn-tb relative rounded-[16px_6px_18px_6px] border-2 border-[#11100D] bg-[#FBF6E8] p-5 shadow-[2px_3px_0_rgba(17,16,13,0.24)]"
       >
-        <span className="absolute -left-2 -top-2 rotate-[-2deg] border-2 border-[#11100D] bg-[#F78E42] px-2 py-0.5 font-[family-name:var(--font-mono)] text-[10px] font-bold uppercase tracking-widest text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.24)]">
+        <span className="absolute -left-2 -top-2 border-2 border-[#11100D] bg-[#F78E42] px-2 py-0.5 font-[family-name:var(--font-mono)] text-[10px] font-bold uppercase tracking-widest text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.24)]">
           Building now
         </span>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -133,7 +133,7 @@ export function RoadmapItemCard({ item, authed, onSignInRequired, rank }: Props)
       className="relative rounded-[12px_4px_14px_4px] border-2 border-[#11100D]/45 bg-[#FBF6E8] p-4 shadow-[2px_3px_0_rgba(17,16,13,0.12)]"
     >
       {rank && rank <= 3 && (
-        <span className="absolute -right-2 -top-2 rotate-[2deg] rounded-[6px_2px_8px_2px] border-2 border-[#11100D] bg-[#F78E42] px-2 py-0.5 font-[family-name:var(--font-mono)] text-[11px] font-bold tracking-wider text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.26)]">
+        <span className="absolute -right-2 -top-2 rounded-[6px_2px_8px_2px] border-2 border-[#11100D] bg-[#F78E42] px-2 py-0.5 font-[family-name:var(--font-mono)] text-[11px] font-bold tracking-wider text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.26)]">
           #0{rank}
         </span>
       )}

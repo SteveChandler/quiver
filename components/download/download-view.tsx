@@ -114,7 +114,6 @@ export function DownloadView({ platform }: DownloadViewProps): ReactElement {
             <PhoneShot
               src="/images/app-screenshots/surf-call.png"
               alt="Quiver iPhone surf forecast app"
-              className="-rotate-2"
               priority
             />
           </div>
@@ -133,7 +132,6 @@ export function DownloadView({ platform }: DownloadViewProps): ReactElement {
             <article
               key={chapter.title}
               className="torn relative bg-[#F4EBD8] p-5 shadow-[2px_4px_0_rgba(0,0,0,0.18)]"
-              style={{ transform: `rotate(${index % 2 === 0 ? -0.8 : 0.8}deg)` }}
             >
               <QuiverSticker
                 sticker={chapter.sticker}

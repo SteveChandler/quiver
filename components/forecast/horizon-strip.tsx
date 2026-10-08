@@ -43,25 +43,12 @@ interface HorizonStripProps {
 }
 
 /**
- * Cycling sticker treatments applied to gated cards so the 9-card run
- * reads as tilted stickers instead of a Netflix-style paywall grid.
- * Rotations stay within ±1.25° so horizontal-scroll containers don't
- * overlap neighbors at narrower breakpoints. Radii cycle through three
+ * Cycling sticker shapes applied to gated cards so the 9-card run reads
+ * as stickers instead of a Netflix-style paywall grid. Cards sit square,
+ * with no tilt. Radii cycle through three
  * asymmetric shapes (shared vocabulary with the sticker pills in
  * `lib/ui/sticker-pill.ts`). Plan: D1.
  */
-const GATED_ROTATIONS = [
-  "rotate-[-1deg]",
-  "rotate-[0.5deg]",
-  "rotate-[-0.75deg]",
-  "rotate-[1deg]",
-  "rotate-[-1.25deg]",
-  "rotate-[0.75deg]",
-  "rotate-[-0.5deg]",
-  "rotate-[1.25deg]",
-  "rotate-[-1deg]",
-] as const;
-
 const GATED_RADII = [
   "rounded-[10px_14px_11px_13px]",
   "rounded-[13px_10px_14px_11px]",
@@ -113,18 +100,13 @@ function DayCard({
   index: number;
   gated?: boolean;
   /** Position within the gated run (0-indexed). Drives the cycling
-   *  rotation + asymmetric-radius so the 9 gated cards read as tilted
-   *  stickers instead of an aligned paywall grid. Undefined for
-   *  ungated cards. */
+   *  asymmetric radius so the 9 gated cards read as stickers instead
+   *  of an aligned paywall grid. Undefined for ungated cards. */
   gatedIndex?: number;
 }) {
   const colors = TIER_COLORS[day.tier];
   const waveRange = day.headlineLabel ?? formatWaveRange(day.minHeight, day.maxHeight);
 
-  const gatedRotation =
-    gated && typeof gatedIndex === "number"
-      ? GATED_ROTATIONS[gatedIndex % GATED_ROTATIONS.length]
-      : undefined;
   const gatedRadius =
     gated && typeof gatedIndex === "number"
       ? GATED_RADII[gatedIndex % GATED_RADII.length]
@@ -156,13 +138,9 @@ function DayCard({
         colors.text,
         // Transitions
         "transition-[background-color,border-color,box-shadow,transform] duration-200 ease-out",
-        // Entry animation — on gated cards the rotation already makes
-        // the row feel lively, so skip the staggered slide-up that
-        // looked chaotic when stacked on top of tilt.
+        // Entry animation — gated cards skip the staggered slide-up,
+        // which looked chaotic across the sticker cluster.
         !gated && "animate-container-fade-slide-up motion-reduce:animate-none",
-        // Per-card tilt for gated cards (motion-safe — the static
-        // rotation does not animate, so prefers-reduced-motion is fine).
-        gatedRotation,
         // Selected state
         isSelected && !gated && [
           "ring-2 ring-offset-2 ring-ocean-blue",
@@ -254,7 +232,7 @@ function DayCard({
 
       {/* Corner Lock icon removed in D1. The overlay sticker at
           the strip level (HorizonStrip below) now owns the "later this
-          week" affordance, and the per-card tilt + asymmetric radius
+          week" affordance, and the per-card asymmetric radius
           communicates "sticker cluster" rather than "aligned paywall
           grid". */}
     </button>
@@ -433,7 +411,6 @@ export function HorizonStrip({
             "left-1/2 -translate-x-1/4",
             "rounded-full bg-[#F78E42] px-3 py-1",
             "font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-[#11100D]",
-            "rotate-[2deg]",
             "whitespace-nowrap select-none"
           )}
         >

@@ -153,14 +153,13 @@ function computeHeadlineAngle(
 function stickerTransform(
   depthX: number,
   depthY: number,
-  scrollCoef: number,
-  rotateDeg: string
+  scrollCoef: number
 ): string {
   return `translate3d(
     calc(var(--px, 0) * ${depthX}px),
     calc(var(--py, 0) * ${depthY}px + var(--scroll, 0) * ${scrollCoef}px),
     0
-  ) rotate(${rotateDeg})`;
+  )`;
 }
 
 export function RegionalCallHero({
@@ -299,7 +298,7 @@ export function RegionalCallHero({
             className="absolute inset-0"
             style={{
               willChange: "transform",
-              transform: stickerTransform(-6, -4, 40, "0deg"),
+              transform: stickerTransform(-6, -4, 40),
             }}
           >
             <Image
@@ -340,7 +339,7 @@ export function RegionalCallHero({
           className="pointer-events-none absolute right-6 top-6 hidden w-44 lg:block xl:w-52"
           style={{
             willChange: "transform",
-            transform: stickerTransform(14, 9, -55, "4.5deg"),
+            transform: stickerTransform(14, 9, -55),
           }}
         >
           <div className="rounded-[2px] bg-white p-2 shadow-[0_18px_40px_-16px_rgba(0,0,0,0.7)]">
@@ -373,7 +372,7 @@ export function RegionalCallHero({
             data-testid="date-sticker"
             style={{
               willChange: "transform",
-              transform: stickerTransform(7, 4, -22, "-2deg"),
+              transform: stickerTransform(7, 4, -22),
             }}
           >
             <time dateTime={stickerDateTime}>{dateSticker}</time>
@@ -385,7 +384,7 @@ export function RegionalCallHero({
               className="inline-flex items-center rounded-[8px_18px_6px_16px] border border-white/20 bg-white/[0.06] px-2.5 py-1 font-mono text-[0.68rem] uppercase tracking-[0.18em] text-white/75"
               style={{
                 willChange: "transform",
-                transform: stickerTransform(5, 3, -14, "1.25deg"),
+                transform: stickerTransform(5, 3, -14),
               }}
             >
               Peak · {angle.peakWaveRange.split(" (")[0]}
@@ -398,7 +397,7 @@ export function RegionalCallHero({
             data-testid="region-chip"
             style={{
               willChange: "transform",
-              transform: stickerTransform(4, 2.5, -12, "0deg"),
+              transform: stickerTransform(4, 2.5, -12),
             }}
           >
             <span>Showing {region.name}</span>
@@ -411,7 +410,7 @@ export function RegionalCallHero({
           className="max-w-3xl"
           style={{
             willChange: "transform",
-            transform: stickerTransform(2.5, 1.5, -8, "0deg"),
+            transform: stickerTransform(2.5, 1.5, -8),
           }}
         >
           <h1
@@ -551,10 +550,10 @@ export function RegionalCallHero({
           })();
           }}
           aria-label={`Share ${region.name}'s forecast`}
-          className="group relative ml-auto mt-7 hidden w-fit max-w-[16rem] flex-col items-end gap-0.5 rounded-[10px_4px_14px_4px] text-right transition-transform hover:scale-[1.04] hover:rotate-[-1.5deg] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B] motion-reduce:hover:scale-100 motion-reduce:hover:rotate-0 sm:flex md:text-3xl"
+          className="group relative ml-auto mt-7 hidden w-fit max-w-[16rem] flex-col items-end gap-0.5 rounded-[10px_4px_14px_4px] text-right transition-transform hover:scale-[1.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B] motion-reduce:hover:scale-100 sm:flex md:text-3xl"
           style={{
             willChange: "transform",
-            transform: stickerTransform(11, 7, -30, "-3deg"),
+            transform: stickerTransform(11, 7, -30),
           }}
         >
           {/* Gold rather than orange: over the photo scrim the orange sat at

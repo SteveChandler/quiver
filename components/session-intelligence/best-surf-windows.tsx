@@ -156,7 +156,7 @@ function ScoreDisk({ score, compact = false }: { score: number; compact?: boolea
   return (
     <div
       className={cn(
-        "flex shrink-0 rotate-[1.5deg] flex-col items-center justify-center border border-[#F78E42]/35 bg-[#F78E42]/15 text-white shadow-[2px_3px_0_rgba(0,0,0,0.28)] motion-reduce:rotate-0",
+        "flex shrink-0 flex-col items-center justify-center border border-[#F78E42]/35 bg-[#F78E42]/15 text-white shadow-[2px_3px_0_rgba(0,0,0,0.28)]",
         compact
           ? "h-12 w-12 rounded-[16px_7px_18px_9px]"
           : "h-14 w-14 rounded-[18px_8px_20px_10px]"
@@ -290,7 +290,7 @@ function FeatureWindowPanel({
             <div className="flex flex-wrap items-center gap-2">
               <Badge
                 variant="outline"
-                className="rotate-[-1deg] rounded-[12px_4px_14px_6px] border-[#FDB84B]/35 bg-[#FDB84B]/12 font-mono text-[11px] font-bold text-[#FFE1A0] shadow-[2px_3px_0_rgba(0,0,0,0.22)] motion-reduce:rotate-0"
+                className="rounded-[12px_4px_14px_6px] border-[#FDB84B]/35 bg-[#FDB84B]/12 font-mono text-[11px] font-bold text-[#FFE1A0] shadow-[2px_3px_0_rgba(0,0,0,0.22)]"
               >
                 #{recommendation.rank}
               </Badge>
@@ -496,7 +496,7 @@ function WindowCard({
           <div className="flex flex-wrap items-center gap-2">
             <Badge
               variant="outline"
-              className="rotate-[-1deg] rounded-[12px_4px_14px_6px] border-[#FDB84B]/35 bg-[#FDB84B]/12 font-mono text-[11px] font-bold text-[#FFE1A0] shadow-[2px_3px_0_rgba(0,0,0,0.22)] motion-reduce:rotate-0"
+              className="rounded-[12px_4px_14px_6px] border-[#FDB84B]/35 bg-[#FDB84B]/12 font-mono text-[11px] font-bold text-[#FFE1A0] shadow-[2px_3px_0_rgba(0,0,0,0.22)]"
             >
               #{recommendation.rank}
             </Badge>

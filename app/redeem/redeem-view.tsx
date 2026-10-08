@@ -220,7 +220,7 @@ function RedemptionContent({
             key={state.redeemUrl}
             redeemUrl={state.redeemUrl}
           >
-            <div className="-rotate-1 border-[3px] border-[#11100D] bg-white p-3 shadow-[6px_7px_0_rgba(17,16,13,0.28)]">
+            <div className="border-[3px] border-[#11100D] bg-white p-3 shadow-[6px_7px_0_rgba(17,16,13,0.28)]">
               <QRCodeSVG
                 aria-label="QR code for your Quiver Pro redemption link"
                 data-redeem-qr="true"

@@ -87,10 +87,13 @@ describe("zine stylesheet", () => {
     expect(zineCss).not.toContain("mask-size: 100% 100%;");
   });
 
-  it("removes decorative rotations at compact desktop widths", () => {
-    expect(zineCss).toContain("@media (max-width: 900px)");
+  it("sets cards square at every width", () => {
     expect(zineCss).toMatch(
-      /@media \(max-width: 900px\)[\s\S]*?\.zine-tab \.rot-neg\s*\{[\s\S]*?transform: none;/
+      /\.zine-tab \.rot-1,\s*\.zine-tab \.rot-2,\s*\.zine-tab \.rot-3,\s*\.zine-tab \.rot-4,\s*\.zine-tab \.rot-neg \{ transform: none; \}/
     );
+    // Only the corner tape keeps an angle.
+    const rotations = zineCss.match(/rotate\([^)]*\)/g) ?? [];
+    expect(rotations).toHaveLength(4);
+    expect(zineCss).not.toContain("rotate(-8deg)");
   });
 });

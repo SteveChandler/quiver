@@ -77,7 +77,6 @@ export function FieldGuideFeatures(): ReactElement {
           <div
             key={feature.title}
             className="notebook relative bg-[#F4EBD8] p-6 shadow-[2px_4px_0_rgba(0,0,0,0.18)]"
-            style={{ transform: `rotate(${index % 2 === 0 ? -0.8 : 0.8}deg)` }}
           >
             <span
               className={cn(

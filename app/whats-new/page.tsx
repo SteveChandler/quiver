@@ -109,7 +109,7 @@ function ReleaseSectionBlock({
           )}
 
           {section.availability && (
-            <p className="mt-6 inline-block -rotate-1 border-2 border-dashed border-[#11100D] px-3 py-1 font-mono text-xs uppercase tracking-widest text-[#8A5E00]">
+            <p className="mt-6 inline-block border-2 border-dashed border-[#11100D] px-3 py-1 font-mono text-xs uppercase tracking-widest text-[#8A5E00]">
               {section.availability}
             </p>
           )}

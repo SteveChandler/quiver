@@ -9,7 +9,6 @@ interface ZineRecentSessionsProps {
   beachId: string;
 }
 
-const ROTATIONS = ["rotate(-1.6deg)", "rotate(1.4deg)", "rotate(-0.8deg)"];
 
 interface ZineSessionsBundle {
   sessions: SessionWithDetails[];
@@ -95,7 +94,6 @@ export function ZineRecentSessions({ beachId }: ZineRecentSessionsProps) {
           <SessionPolaroid
             key={s.id}
             session={s}
-            rotation={ROTATIONS[i] ?? "rotate(0deg)"}
             fallbackPhoto={approvedPhotos[i] ?? approvedPhotos[0] ?? null}
           />
         ))}
@@ -106,11 +104,9 @@ export function ZineRecentSessions({ beachId }: ZineRecentSessionsProps) {
 
 function SessionPolaroid({
   session,
-  rotation,
   fallbackPhoto,
 }: {
   session: SessionWithDetails;
-  rotation: string;
   fallbackPhoto: string | null;
 }) {
   const initials = getInitials(session.profiles?.full_name ?? session.user?.full_name);
@@ -123,7 +119,7 @@ function SessionPolaroid({
     : "";
 
   return (
-    <article className="polaroid relative" style={{ transform: rotation }}>
+    <article className="polaroid relative">
       <span className="tape tl" aria-hidden />
       <div className="photo">
         <HalftonePhoto src={photoSrc} alt={photoSrc ? `${displayName} session photo` : undefined} height={170} />

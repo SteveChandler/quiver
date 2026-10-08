@@ -188,7 +188,7 @@ export function BeachAlertCta({
         >
           <span
             aria-hidden="true"
-            className="absolute inset-x-0 top-1/2 h-[36px] -translate-y-1/2 bg-[url('/images/alerts/condition-watch-button.webp')] bg-contain bg-center bg-no-repeat drop-shadow-[2px_2px_0_rgba(17,16,13,0.25)] transition-transform group-hover:-rotate-1 group-hover:scale-[1.03] min-[1100px]:h-[42px]"
+            className="absolute inset-x-0 top-1/2 h-[36px] -translate-y-1/2 bg-[url('/images/alerts/condition-watch-button.webp')] bg-contain bg-center bg-no-repeat drop-shadow-[2px_2px_0_rgba(17,16,13,0.25)] transition-transform group-hover:scale-[1.03] min-[1100px]:h-[42px]"
           />
           <span className="relative z-10 flex w-full items-center justify-center gap-1 pr-4 pl-[34px] font-mono text-[9px] font-black uppercase leading-none tracking-[0.08em] text-[#11100D] min-[1100px]:gap-1.5 min-[1100px]:pr-7 min-[1100px]:pl-[44px] min-[1100px]:text-[10px] min-[1100px]:tracking-[0.1em]">
             <span className="min-[1100px]:hidden">{compactLabel}</span>

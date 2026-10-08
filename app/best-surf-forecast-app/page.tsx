@@ -295,7 +295,7 @@ export default function BestSurfForecastAppPage(): ReactElement {
               </p>
             </div>
 
-            <aside className="rotate-[0.7deg] border-2 border-[#11100D] bg-[#F8EFD8] p-5 shadow-[7px_7px_0_rgba(17,16,13,0.22)]">
+            <aside className="border-2 border-[#11100D] bg-[#F8EFD8] p-5 shadow-[7px_7px_0_rgba(17,16,13,0.22)]">
               <div className="flex items-center gap-2 font-heading text-xl font-black uppercase text-[#11100D]">
                 <CalendarCheck className="h-5 w-5 text-[#F78E42]" aria-hidden />
                 Last updated
@@ -540,7 +540,7 @@ export default function BestSurfForecastAppPage(): ReactElement {
                 </Link>
               </div>
 
-              <figure className="mt-6 -rotate-1 border-2 border-[#11100D] bg-[#F4EBD8] p-2 shadow-[5px_5px_0_rgba(17,16,13,0.18)]">
+              <figure className="mt-6 border-2 border-[#11100D] bg-[#F4EBD8] p-2 shadow-[5px_5px_0_rgba(17,16,13,0.18)]">
                 <Image
                   src="/images/seo-scenes/san-onofre-clean.webp"
                   alt="Clean longboard surf at San Onofre"

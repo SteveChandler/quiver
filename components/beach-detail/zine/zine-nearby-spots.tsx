@@ -20,7 +20,6 @@ interface ZineNearbySpotsProps {
   sourceBeachLon?: number | null;
 }
 
-const ROTATIONS = ["rotate(-1.4deg)", "rotate(0.9deg)", "rotate(-0.6deg)", "rotate(1.2deg)"];
 
 /**
  * Cream-paper styled Nearby Surf Spots — replaces the legacy dark-theme
@@ -119,7 +118,6 @@ export function ZineNearbySpots({
             key={beach.id}
             beach={beach}
             index={i}
-            rotation={ROTATIONS[i % ROTATIONS.length]}
           />
         ))}
       </div>
@@ -130,11 +128,9 @@ export function ZineNearbySpots({
 function NearbyCard({
   beach,
   index,
-  rotation,
 }: {
   beach: EnrichedNearbyBeach;
   index: number;
-  rotation: string;
 }) {
   const href = getBeachHrefSafe({
     id: beach.id,
@@ -154,7 +150,6 @@ function NearbyCard({
       prefetch={false}
       onClick={() => trackNearbyBeachClick(beach.name, index + 1, beach.score ?? 0)}
       className="block group"
-      style={{ transform: rotation, transformOrigin: "center" }}
     >
       <article
         style={{
@@ -240,7 +235,6 @@ function NearbyCard({
                 letterSpacing: "0.04em",
                 border: "2px solid #11100D",
                 boxShadow: "2px 2px 0 rgba(17,16,13,0.5)",
-                transform: "rotate(-1.5deg)",
               }}
             >
               <DoodleStar size={11} color="#F4EBD8" filled />

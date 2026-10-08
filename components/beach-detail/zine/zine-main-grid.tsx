@@ -82,7 +82,7 @@ function AboutSpotArticle({ beach, beachPhoto }: { beach: Beach; beachPhoto?: Zi
       {beachPhoto?.image_url && (
         <div
           className="relative"
-          style={{ marginTop: 14, transform: "rotate(0.8deg)" }}
+          style={{ marginTop: 14 }}
         >
           <span className="tape tl" aria-hidden />
           <span className="tape br" aria-hidden />
@@ -191,7 +191,6 @@ function HazardsPanel({ beach }: { beach: Beach }) {
               letterSpacing: "0.06em",
               textTransform: "uppercase",
               filter: "url(#zine-rough-edge)",
-              transform: "rotate(-1deg)",
             }}
           >
             HAZARDS

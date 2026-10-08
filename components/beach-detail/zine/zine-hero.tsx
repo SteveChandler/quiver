@@ -242,7 +242,6 @@ function ReviewCircle({ count }: { count: number }) {
           color: "#11100D",
           fontWeight: 900,
           filter: "url(#zine-rough-edge)",
-          transform: "rotate(3deg)",
         }}
       >
         {count > 999 ? "999+" : count}
@@ -374,10 +373,10 @@ function TapedMapPhoto({
 
       {/* Map doodle with location stamp */}
       {showMap ? (
-      <div className="relative" style={{ transform: "rotate(-1.2deg)", marginTop: 4 }}>
+      <div className="relative" style={{ marginTop: 4 }}>
         <span className="tape tl" aria-hidden />
         <span className="tape br" aria-hidden />
-        <div className="absolute z-10" style={{ top: 10, left: -10, transform: "rotate(-3deg)" }} aria-hidden>
+        <div className="absolute z-10" style={{ top: 10, left: -10 }} aria-hidden>
           <div
             className="label-black"
             style={{
@@ -419,7 +418,7 @@ function TapedCamFrame({
   showLiveLabel: boolean;
 }) {
   return (
-    <div className="zine-hero-cam-frame relative" style={{ transform: "rotate(1.4deg)" }}>
+    <div className="zine-hero-cam-frame relative">
       <span className="tape tl" aria-hidden />
       <span className="tape tr" aria-hidden />
       {showLiveLabel ? (

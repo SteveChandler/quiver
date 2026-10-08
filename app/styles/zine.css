@@ -217,7 +217,6 @@
   font-size: 18px;
   position: relative;
   filter: url(#zine-rough-edge);
-  transform: rotate(-8deg);
   background: rgba(244, 235, 216, 0.6);
 }
 .zine-tab .stamp-circle::before {
@@ -423,22 +422,12 @@
   color: var(--ink);
 }
 
-/* helper rotations */
-.zine-tab .rot-1 { transform: rotate(-0.6deg); }
-.zine-tab .rot-2 { transform: rotate(1deg); }
-.zine-tab .rot-3 { transform: rotate(-1.4deg); }
-.zine-tab .rot-4 { transform: rotate(2deg); }
-.zine-tab .rot-neg { transform: rotate(-2.2deg); }
-
-@media (max-width: 900px) {
-  .zine-tab .rot-1,
-  .zine-tab .rot-2,
-  .zine-tab .rot-3,
-  .zine-tab .rot-4,
-  .zine-tab .rot-neg {
-    transform: none;
-  }
-}
+/* helper rotations: cards sit square, so these are no-ops kept for markup */
+.zine-tab .rot-1,
+.zine-tab .rot-2,
+.zine-tab .rot-3,
+.zine-tab .rot-4,
+.zine-tab .rot-neg { transform: none; }
 
 /* ─── Mobile (<= 640px) ─────────────────────────────────── */
 @media (max-width: 640px) {
@@ -493,14 +482,6 @@
 
 /* ─── Reduced motion ─────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
-  .zine-tab .rot-1,
-  .zine-tab .rot-2,
-  .zine-tab .rot-3,
-  .zine-tab .rot-4,
-  .zine-tab .rot-neg,
-  .zine-tab .stamp-circle {
-    transform: none;
-  }
   .zine-tab .zine-developing {
     animation: none;
   }

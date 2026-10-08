@@ -427,6 +427,8 @@ Cream content surfaces carry their own zine texture vocabulary — implementatio
 
 Use the zine texture on cream surfaces and the `noise-texture*` grain on the stage — do not mix the two on the same surface.
 
+Cards, panels, photos, labels and buttons sit square: no tilt (`.rot-*` is a no-op). Only the corner tape keeps its angle, along with decorative sticker images and icon turns such as chevrons.
+
 ### How it works
 
 Each class sets `position: relative; isolation: isolate` on the element and injects a full-bleed `::after` pseudo-element with `mix-blend-mode: overlay`. The grain layer sits on top of the content at `z-index: 1` with `pointer-events: none`, so it never interferes with interaction.

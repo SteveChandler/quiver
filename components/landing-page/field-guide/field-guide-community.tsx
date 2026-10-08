@@ -84,7 +84,7 @@ export function FieldGuideCommunity(): ReactElement {
             key={item.quote}
             className="notebook flex flex-col bg-[#FFFDF4] p-5 shadow-[2px_4px_0_rgba(17,16,13,0.12)]"
           >
-            <span className="inline-block self-start -rotate-1 rounded-[8px_3px_8px_3px] border-2 border-[#11100D] bg-[#E6EAD4] px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#06765F]">
+            <span className="inline-block self-start rounded-[8px_3px_8px_3px] border-2 border-[#11100D] bg-[#E6EAD4] px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#06765F]">
               {item.tag}
             </span>
             <p className="mt-3 flex-1 font-sans text-[15px] leading-relaxed text-[#11100D]/85">

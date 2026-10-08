@@ -67,7 +67,7 @@ export function VoteButton({
         className={cn(
           "group inline-flex items-center gap-2 rounded-[12px_3px_14px_3px] border-2 px-3 py-1 transition",
           "border-[#11100D]/45 bg-[#F0E5CC] text-[#11100D]/70 shadow-[1px_2px_0_rgba(17,16,13,0.12)]",
-          "hover:-rotate-[0.5deg] hover:border-[#F78E42] hover:text-[#11100D]",
+          "hover:border-[#F78E42] hover:text-[#11100D]",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4EBD8]",
         )}
       >

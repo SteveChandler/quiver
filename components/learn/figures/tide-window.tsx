@@ -259,7 +259,7 @@ export default function TideWindow() {
 
       <Link
         href="/tools/tide-clock?source=learn_tide_figure"
-        className="mt-4 block rotate-[-0.35deg] bg-[#11100D] px-3 py-2.5 text-[13px] leading-snug text-[#F4EBD8]"
+        className="mt-4 block bg-[#11100D] px-3 py-2.5 text-[13px] leading-snug text-[#F4EBD8]"
       >
         Tide is timing, not a universal quality score.{" "}
         <span className="whitespace-nowrap font-bold text-[#F78E42]">

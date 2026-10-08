@@ -97,7 +97,7 @@ export function FieldGuideWalkthrough(): ReactElement {
           ))}
         </ol>
 
-        <div className="relative mx-auto w-full max-w-[300px] -rotate-1 border-2 border-[#11100D] bg-[#11100D] p-2 shadow-[10px_10px_0_rgba(247,142,66,0.42)]">
+        <div className="relative mx-auto w-full max-w-[300px] border-2 border-[#11100D] bg-[#11100D] p-2 shadow-[10px_10px_0_rgba(247,142,66,0.42)]">
           <div
             className="relative aspect-[9/16] overflow-hidden bg-[#0D1020]"
             data-testid="field-guide-walkthrough-video"
