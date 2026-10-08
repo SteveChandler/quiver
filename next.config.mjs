@@ -275,15 +275,6 @@ const nextConfig = {
         ],
       },
       {
-        source: "/api/v1/recommendations",
-        headers: [
-          {
-            key: "Cache-Control",
-            value: "private, no-store, no-cache, must-revalidate",
-          },
-        ],
-      },
-      {
         source: "/api/forecasts/bulk",
         headers: [
           {
@@ -303,15 +294,6 @@ const nextConfig = {
       },
       {
         source: "/api/beach-daily-intel",
-        headers: [
-          {
-            key: "Cache-Control",
-            value: "private, no-store, no-cache, must-revalidate",
-          },
-        ],
-      },
-      {
-        source: "/api/coach-picks",
         headers: [
           {
             key: "Cache-Control",

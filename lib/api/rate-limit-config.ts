@@ -56,21 +56,6 @@ export const RATE_LIMITS = {
   }),
 
   /**
-   * Recommendations - HIGH
-   *
-   * Endpoint: /api/v1/recommendations
-   * Risk: N+1 query performance issue
-   * Cost: Multiple database queries per request
-   *
-   * Strict limits until N+1 query is optimized
-   */
-  recommendations: relaxForE2E({
-    requestsPerMinute: 20,
-    requestsPerHour: 200,
-    burstLimit: 5,
-  }),
-
-  /**
    * Beach Search - HIGH
    *
    * Endpoint: /api/beaches/search
@@ -95,19 +80,6 @@ export const RATE_LIMITS = {
    * Higher limits but still controlled
    */
   "forecast-bulk": relaxForE2E({
-    requestsPerMinute: 60,
-    requestsPerHour: 1000,
-    burstLimit: 20,
-  }),
-
-  /**
-   * Coach Picks - MEDIUM
-   *
-   * Endpoint: /api/coach-picks
-   * Risk: Complex RPC calls
-   * Cost: Database RPC function execution
-   */
-  "coach-picks": relaxForE2E({
     requestsPerMinute: 60,
     requestsPerHour: 1000,
     burstLimit: 20,
@@ -301,11 +273,8 @@ export type RateLimitKey = keyof typeof RATE_LIMITS;
  */
 const RATE_LIMIT_MESSAGES = {
   "image-proxy": "Image proxy rate limit exceeded. Please reduce request frequency.",
-  recommendations:
-    "Recommendation API rate limit exceeded. Please wait before requesting more recommendations.",
   "beach-search": "Search rate limit exceeded. Please wait before searching again.",
   "forecast-bulk": "Forecast data rate limit exceeded. Please reduce request frequency.",
-  "coach-picks": "Coach picks rate limit exceeded. Please wait before retrying.",
   "public-default": "API rate limit exceeded. Please wait before making more requests.",
   "public-showcase":
     "API rate limit exceeded. Please wait before making more requests.",

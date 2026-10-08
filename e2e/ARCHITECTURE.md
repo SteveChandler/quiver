@@ -1498,7 +1498,6 @@ e2e/api/
 ├── gamification.spec.ts    # Badges, XP, achievements
 ├── health.spec.ts          # Health check endpoints
 ├── intel.spec.ts           # Local intel CRUD and confirmations
-├── recommendations.spec.ts # AI-powered surf recommendations
 ├── session-comments.spec.ts    # Session comment threads
 ├── session-planner.spec.ts     # Optimal time calculations
 ├── sessions-crud.spec.ts       # Session logging lifecycle
