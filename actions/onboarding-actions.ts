@@ -1,6 +1,7 @@
 "use server";
 
 import { withAuthenticatedAction } from "@/lib/server-action-utils";
+import { scheduleSeededAlertCreated } from "@/lib/analytics/alert-created-server";
 import { PROFILE_PUBLIC_SELECT } from "@/lib/profile/constants";
 import type { Database } from "@/types/database.generated";
 import type { SupabaseServerClient } from "@/types/supabase";
@@ -293,6 +294,17 @@ export async function saveOnboardingData(data: OnboardingData) {
           notifyEmail: updatedProfile.notif_email_enabled ?? true,
           notifyPush: updatedProfile.notif_push_enabled ?? false,
         });
+        if (seedResult.seeded) {
+          scheduleSeededAlertCreated({
+            supabase,
+            userId: user.id,
+            beachId: data.homeBeachId,
+            rules: seedResult.rules,
+            platform: "web",
+            notifyEmail: updatedProfile.notif_email_enabled ?? true,
+            notifyPush: updatedProfile.notif_push_enabled ?? false,
+          });
+        }
         const seedMetadata = seedResult.seeded
           ? {
               seeded: true,
