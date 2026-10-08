@@ -56,14 +56,3 @@ export function metersToFeet(
   const multiplier = Math.pow(10, precision);
   return Math.round(meters * METERS_TO_FEET * multiplier) / multiplier;
 }
-
-// =============================================================================
-// EXPORTED ALIASES (Only used functions)
-// =============================================================================
-
-/**
- * Alias for metersToFeet with single decimal precision.
- * @deprecated Prefer metersToFeet for clarity
- */
-export const mToFt = (m: number | null | undefined): number | null =>
-  metersToFeet(m, 1);

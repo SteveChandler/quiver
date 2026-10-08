@@ -5,32 +5,6 @@
 
 export { formatWaveRange } from '@/lib/utils/wave-formatters';
 
-export interface RegionalForecastData {
-  region: 'norcal' | 'central' | 'socal';
-  primaryBeach: {
-    id: string;
-    name: string;
-    waveHeight: number | null;
-    wavePeriod: number | null;
-    windSpeed: number | null;
-    windDirection: string | null;
-    windOffshoreDeg: number | null;
-    tideTime: string | null;
-    tideHeight: number | null;
-    tideType: string | null;
-    tideAt: string | null;
-    waterTemp: number | null;
-  };
-  secondaryBeaches: Array<{
-    name: string;
-    waveHeight: number | null;
-    windDirection: string | null;
-    windOffshoreDeg: number | null;
-    windSpeed: number | null;
-    conditions: string;
-  }>;
-}
-
 /**
  * Parse water temperature from DB text format (e.g., "57°F") (Bug 5)
  */

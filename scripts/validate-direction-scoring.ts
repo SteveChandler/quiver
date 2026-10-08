@@ -12,10 +12,6 @@ export function directionForForecast(row: Record<string, unknown>, beach: BeachT
   return directionInput(row as unknown as EnhancedForecastEntity, beach as BeachTerrainConfig & { wind_offshore_deg?: number | null }, true);
 }
 
-export function numberOrNull(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
 function client(): SupabaseClient {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;

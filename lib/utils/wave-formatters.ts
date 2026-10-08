@@ -632,25 +632,6 @@ export interface DecomposedFaceHeightParams extends FaceHeightParams {
 }
 
 /**
- * Decomposed face-height variant of `toFaceHeightFeet`.
- *
- * Applies per-component alignment weighting + short-period cutoff + RMS
- * sum via `transformToFaceHeightDecomposed`. Falls back to the scalar
- * pipeline when no components are populated (bad/missing WW3 data) — in
- * that case the return value is byte-identical to `toFaceHeightFeet`.
- *
- * Introduced as part of the Workstream A shoaling decomposition fix; the
- * forecast builder uses this path for rows where it has WW3 component
- * data on hand, falling through to `toFaceHeightFeet` otherwise. Scalar
- * callers (scoring, discovery) keep using `toFaceHeightFeet` unchanged.
- */
-export function toFaceHeightFeetDecomposed(
-  params: DecomposedFaceHeightParams,
-): string | null {
-  return toFaceHeightFeetDecomposedWithDebug(params).value;
-}
-
-/**
  * Provenance metadata emitted alongside a face-height computation.
  *
  * Surfaced from the forecast builder into `enhanced_forecasts.raw_forecast`
@@ -692,13 +673,8 @@ export interface WaveHeightDebugInfo {
 }
 
 /**
- * Sibling of `toFaceHeightFeetDecomposed` that also returns provenance
- * metadata. Used by the forecast builder to populate `raw_forecast` so every
- * stored row carries enough information to explain its own number.
- *
- * Behavior is identical to `toFaceHeightFeetDecomposed` — same selector,
- * same transformer, same clamp/round. The only difference is the return
- * shape includes `debug`.
+ * Returns the decomposed face height and provenance metadata. The forecast
+ * builder stores this in `raw_forecast` to explain the displayed number.
  */
 export function toFaceHeightFeetDecomposedWithDebug(
   params: DecomposedFaceHeightParams,

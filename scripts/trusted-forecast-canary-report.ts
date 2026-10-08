@@ -174,7 +174,7 @@ export async function runCanaryReport({
   }
 }
 
-export function createProductionReader(): CanaryReportReader {
+function createProductionReader(): CanaryReportReader {
   return {
     async selectApplications(from) {
       const { createServiceRoleClient } = await import("../lib/supabase");

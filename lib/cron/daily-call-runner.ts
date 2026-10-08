@@ -61,7 +61,7 @@ export interface DailyCallCandidate {
   sessionDecision: unknown;
 }
 
-export interface DailyCallRunSummary {
+interface DailyCallRunSummary {
   evaluated: number;
   sent: number;
   silent: number;

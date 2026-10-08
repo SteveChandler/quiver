@@ -56,7 +56,7 @@ type SessionFaceHeightTruthReadinessFindingCode =
   | "short_horizon_freshness_missing"
   | "short_horizon_freshness_stale";
 
-export interface CliOptions {
+interface CliOptions {
   start: string;
   end: string;
   days: number;
@@ -75,7 +75,7 @@ export interface CliOptions {
   maxReportAgeHours: number | null;
 }
 
-export interface SessionFaceHeightTruthReadinessCriteria {
+interface SessionFaceHeightTruthReadinessCriteria {
   minMatchedPositiveCandidates: number;
   minShortHorizonMatchedCandidates: number;
   minMatchedPositiveBeaches: number;
@@ -113,7 +113,7 @@ export interface SessionFaceHeightProfileRow {
   is_system_account: boolean | null;
 }
 
-export interface SessionFaceHeightHorizonCoverage {
+interface SessionFaceHeightHorizonCoverage {
   horizon: string;
   positiveObservedCandidates: number;
   linkedPositiveCandidates: number;
@@ -125,14 +125,14 @@ export interface SessionFaceHeightHorizonCoverage {
   matchedPositiveUserCount: number;
 }
 
-export interface SessionFaceHeightUnmatchedPositiveDiagnostics {
+interface SessionFaceHeightUnmatchedPositiveDiagnostics {
   reasons: Record<string, number>;
   byHorizon: Record<string, number>;
   bySourceCreatedBy: Record<string, number>;
   nonCanonicalDisplaySources: Record<string, number>;
 }
 
-export interface SessionFaceHeightTruthReport {
+interface SessionFaceHeightTruthReport {
   reportSchemaVersion: 2;
   generatedAt: string;
   start: string;
@@ -177,12 +177,12 @@ export interface SessionFaceHeightTruthReport {
   readiness: SessionFaceHeightTruthReadiness;
 }
 
-export interface SessionFaceHeightTruthReportValidationResult {
+interface SessionFaceHeightTruthReportValidationResult {
   ok: boolean;
   blockers: string[];
 }
 
-export interface SessionFaceHeightTruthReadiness {
+interface SessionFaceHeightTruthReadiness {
   verdict: "ready" | "not-ready";
   readyForHarnessTruth: boolean;
   criteria: SessionFaceHeightTruthReadinessCriteria;
@@ -858,7 +858,7 @@ export function renderSessionFaceHeightTruthReport(
   return `${lines.join("\n")}\n`;
 }
 
-export function buildSessionFaceHeightTruthReadiness(
+function buildSessionFaceHeightTruthReadiness(
   report: Omit<SessionFaceHeightTruthReport, "readiness">,
   criteria: SessionFaceHeightTruthReadinessCriteria =
     defaultSessionFaceHeightTruthReadinessCriteria()

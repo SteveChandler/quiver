@@ -461,7 +461,3 @@ export function ForecastTable({
 export const MultiDayForecastTable = (
   props: Omit<ForecastTableProps, "variant"> & { beachTimezone?: string | null }
 ) => <ForecastTable {...props} variant="standard" />;
-
-export const SimplifiedForecastTable = (
-  props: Omit<ForecastTableProps, "variant"> & { beachTimezone?: string | null }
-) => <ForecastTable {...props} variant="simplified" />;

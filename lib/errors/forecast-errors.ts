@@ -2,8 +2,11 @@
 
 export enum ForecastErrorCode {
   // Data source errors
+  /** @public Serialized forecast error code retained for historical logs. */
   WAVE_DATA_UNAVAILABLE = "WAVE_DATA_UNAVAILABLE",
+  /** @public Serialized forecast error code retained for historical logs. */
   TIDE_DATA_UNAVAILABLE = "TIDE_DATA_UNAVAILABLE",
+  /** @public Serialized forecast error code retained for historical logs. */
   WEATHER_DATA_UNAVAILABLE = "WEATHER_DATA_UNAVAILABLE",
 
   // API errors
@@ -18,6 +21,7 @@ export enum ForecastErrorCode {
   INVALID_CONFIDENCE_SCORE = "INVALID_CONFIDENCE_SCORE",
 
   // Processing errors
+  /** @public Serialized forecast error code retained for historical logs. */
   FORECAST_GENERATION_FAILED = "FORECAST_GENERATION_FAILED",
   STORAGE_FAILED = "STORAGE_FAILED",
 

@@ -24,7 +24,7 @@ export type EmailType =
 /**
  * Email log entry with all optional fields for flexibility
  */
-export interface EmailLogEntry {
+interface EmailLogEntry {
   userId: string;
   emailType: EmailType;
   subject?: string;

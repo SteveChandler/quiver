@@ -4,7 +4,6 @@ export {
   exposureFactor,
   exposureLabel,
   swellWindowForBeach,
-  type SwellWindow,
 } from "./exposure";
 export {
   SWELL_EVENT_BASELINE_LOOKBACK_HOURS,

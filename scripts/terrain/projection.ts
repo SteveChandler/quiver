@@ -10,7 +10,7 @@ import proj4 from 'proj4'
 /**
  * UTM coordinate result
  */
-export interface UTMCoordinate {
+interface UTMCoordinate {
   /** Easting in meters */
   x: number
   /** Northing in meters */
@@ -29,7 +29,7 @@ export interface UTMCoordinate {
  * @param longitude Longitude in degrees (-180 to 180)
  * @returns UTM zone number (1-60)
  */
-export function getUTMZone(longitude: number): number {
+function getUTMZone(longitude: number): number {
   // Normalize longitude to -180 to 180
   let lon = ((longitude + 180) % 360) - 180
 
@@ -45,7 +45,7 @@ export function getUTMZone(longitude: number): number {
  * @param hemisphere 'N' for northern, 'S' for southern
  * @returns proj4 projection definition string
  */
-export function getUTMProjection(zone: number, hemisphere: 'N' | 'S'): string {
+function getUTMProjection(zone: number, hemisphere: 'N' | 'S'): string {
   // Central meridian for the zone
   const centralMeridian = (zone - 1) * 6 - 180 + 3
 
@@ -127,52 +127,4 @@ export function pointAtDistanceAndBearing(
     x: originX + distanceM * Math.sin(bearingRad),
     y: originY + distanceM * Math.cos(bearingRad),
   }
-}
-
-/**
- * Calculate distance between two UTM points
- *
- * @param x1 First point X
- * @param y1 First point Y
- * @param x2 Second point X
- * @param y2 Second point Y
- * @returns Distance in meters
- */
-export function distanceBetween(
-  x1: number,
-  y1: number,
-  x2: number,
-  y2: number
-): number {
-  const dx = x2 - x1
-  const dy = y2 - y1
-  return Math.sqrt(dx * dx + dy * dy)
-}
-
-/**
- * Calculate bearing from point 1 to point 2 (in UTM)
- *
- * @param x1 First point X
- * @param y1 First point Y
- * @param x2 Second point X
- * @param y2 Second point Y
- * @returns Bearing in degrees (0 = North, 90 = East, clockwise)
- */
-export function bearingBetween(
-  x1: number,
-  y1: number,
-  x2: number,
-  y2: number
-): number {
-  const dx = x2 - x1
-  const dy = y2 - y1
-
-  // atan2 gives angle from positive X axis, counter-clockwise
-  // We want angle from positive Y axis (North), clockwise
-  let bearing = (Math.atan2(dx, dy) * 180) / Math.PI
-
-  // Normalize to 0-360
-  if (bearing < 0) bearing += 360
-
-  return bearing
 }

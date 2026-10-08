@@ -201,7 +201,7 @@ export function assertTerrainResultsMatchApproval(
   }
 }
 
-export function getRequestedBeachIds(args: TerrainAnalysisArgs): string[] {
+function getRequestedBeachIds(args: TerrainAnalysisArgs): string[] {
   return normalizeUniqueStrings(getRawRequestedBeachIds(args))
 }
 

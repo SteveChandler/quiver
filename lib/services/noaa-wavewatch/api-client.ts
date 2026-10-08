@@ -30,7 +30,7 @@ interface OpenMeteoFetchBaseOptions {
   signal?: AbortSignal;
 }
 
-export type OpenMeteoFetchOptions = OpenMeteoFetchBaseOptions &
+type OpenMeteoFetchOptions = OpenMeteoFetchBaseOptions &
   (
     | {
         timeformat?: "iso8601";

@@ -179,7 +179,7 @@ function hasBeachSubstantiveContent(
   );
 }
 
-export function evaluateBeachEditorialQuality(
+function evaluateBeachEditorialQuality(
   input: BeachIndexabilityInput,
 ): EditorialQualityResult {
   const rejected = Boolean(
@@ -205,7 +205,7 @@ export function evaluateBeachEditorialQuality(
   return { approved: true, rejected: false, reason: null };
 }
 
-export function evaluateCityEditorialQuality(
+function evaluateCityEditorialQuality(
   input: CityIntentEditorialInput | null,
   expectedIntent: string | null,
 ): EditorialQualityResult {

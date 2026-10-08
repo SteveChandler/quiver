@@ -23,14 +23,14 @@ export interface ProviderRunReceiptRpcClient {
   };
 }
 
-export interface StoredProviderRunReceipt {
+interface StoredProviderRunReceipt {
   issuanceId: string;
   runBatchId: string;
   revisionSetId: string;
 }
 
-export type ProviderRunAcquisitionSkipReason = "latest_issuance_stale" | "latest_issuance_already_evaluated";
-export type ProviderRunAcquisitionResult = StoredProviderRunReceipt | { skipped: true; reason: ProviderRunAcquisitionSkipReason; enqueued: 0 };
+type ProviderRunAcquisitionSkipReason = "latest_issuance_stale" | "latest_issuance_already_evaluated";
+type ProviderRunAcquisitionResult = StoredProviderRunReceipt | { skipped: true; reason: ProviderRunAcquisitionSkipReason; enqueued: 0 };
 type StoredProviderRunState = { evaluated: boolean };
 
 interface ProviderRunAcquisitionScope {
