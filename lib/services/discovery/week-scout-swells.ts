@@ -195,12 +195,7 @@ function swellRowsFor(input: BuildWeekScoutSwellsInput, beachId: string): SwellE
 }
 
 function detectCandidateEvents(input: BuildWeekScoutSwellsInput): BeachSwellEvent[] {
-  const snapshotsByBeach = new Map<string, SwellEventSnapshot[]>();
-  for (const snapshot of input.snapshots) {
-    const list = snapshotsByBeach.get(snapshot.beachId) ?? [];
-    list.push(snapshot);
-    snapshotsByBeach.set(snapshot.beachId, list);
-  }
+  const snapshotsByBeach = Map.groupBy(input.snapshots, (snapshot) => snapshot.beachId);
   const events: BeachSwellEvent[] = [];
   for (const beach of input.beaches) {
     try {

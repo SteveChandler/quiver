@@ -22,7 +22,7 @@ import {
 } from "@/lib/scoring/native-condition-score";
 import { getRideabilityBand } from "@/lib/domains/rideability";
 import { getDirectionDegrees } from "./direction-utils";
-import { getScoringEngine } from "./scoring-engine-singleton";
+import { getDiscoveryScoringEngine } from "@/lib/domains/scoring";
 import { isDirectionScoringEnabledForBeach } from "@/lib/flags/direction-scoring";
 import { windChopCeiling } from "@/lib/domains/scoring/wind-chop-ceiling";
 import type { NativeDirectionScoreInput } from "@/lib/scoring/native-condition-score";
@@ -246,7 +246,7 @@ export function scoreWindowWithComposite(
   forecast: EnhancedForecastEntity,
   beach: Beach,
 ): CompositeScore {
-  const engine = getScoringEngine();
+  const engine = getDiscoveryScoringEngine();
   const profile = beachToSpotProfile(beach);
   const snapshot = forecastToSnapshot(forecast);
 

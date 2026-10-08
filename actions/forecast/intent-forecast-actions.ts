@@ -1,5 +1,7 @@
 "use server";
 
+import { getLocalDateFormatter } from "@/lib/services/discovery/window-selector/time-slot-utils";
+
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import type { TidePoint } from "@/components/forecast/tide-chart-recharts";
 import type { TideScheduleEntry } from "@/types/forecast";
@@ -678,7 +680,7 @@ async function fetchExpandedTideData(
   const today = new Date();
   const dateFmt = new Intl.DateTimeFormat("en-US", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" });
   const todayStr = dateFmt.format(today);
-  const isoDateFmt = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }); // YYYY-MM-DD, lexicographically sortable
+  const isoDateFmt = getLocalDateFormatter(timeZone); // YYYY-MM-DD, lexicographically sortable
   const todayIso = isoDateFmt.format(today);
   const dayMap = new Map<string, TideDayExtrema & { _isoDate: string }>();
 
@@ -1236,12 +1238,7 @@ export async function getIntentForecastSummary(
     }
 
     // Group forecasts by beach_id
-    const forecastsByBeach = new Map<string, EnhancedForecastEntity[]>();
-    for (const f of forecasts) {
-      const existing = forecastsByBeach.get(f.beach_id) ?? [];
-      existing.push(f as EnhancedForecastEntity);
-      forecastsByBeach.set(f.beach_id, existing);
-    }
+    const forecastsByBeach = Map.groupBy(forecasts as EnhancedForecastEntity[], (forecast) => forecast.beach_id);
 
     // Build BeachMetadata for each beach
     const beachMetaMap = new Map<string, BeachMetadata>();

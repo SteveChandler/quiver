@@ -121,7 +121,7 @@ function isValidBfrViewportWidth(value: unknown): value is number {
     && value <= MAX_BFR_VIEWPORT_WIDTH;
 }
 
-import { isValidUUID } from '@/lib/utils/validation';
+import { isUuid } from '@/lib/utils/validation';
 
 /**
  * Check if implicit tracking is allowed for a user.
@@ -297,7 +297,7 @@ export const POST = withAuth(
 
   // 5. Anonymous flow — requires sessionId
   if (body.sessionId) {
-    if (!isValidUUID(body.sessionId)) {
+    if (!isUuid(body.sessionId)) {
       return createErrorResponse('Invalid sessionId format', undefined, 400);
     }
 

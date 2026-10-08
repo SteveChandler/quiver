@@ -371,32 +371,6 @@ export class EnhancedRateLimiter {
   }
 
   /**
-   * Get diagnostic information about the rate limiter
-   *
-   * Useful for debugging and monitoring
-   */
-  getDiagnostics(): {
-    name: string;
-    config: RateLimiterConfig;
-    activeIdentifiers: number;
-    totalRequests: number;
-    lastCleanup: string;
-  } {
-    let totalRequests = 0;
-    for (const records of this.requestHistory.values()) {
-      totalRequests += records.length;
-    }
-
-    return {
-      name: this.name,
-      config: this.config,
-      activeIdentifiers: this.requestHistory.size,
-      totalRequests,
-      lastCleanup: new Date(this.lastCleanup).toISOString(),
-    };
-  }
-
-  /**
    * Clean up resources
    *
    * Call this when the rate limiter is no longer needed

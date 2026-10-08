@@ -1,3 +1,4 @@
+import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
 /**
  * Forecast Builder
  *
@@ -15,7 +16,6 @@ import { isForecastHandoffBlendEnabled } from "@/lib/flags/forecast-handoff-blen
 import { calculateConfidenceScore } from "./confidence-scorer";
 import {
   toFaceHeightFeetDecomposedWithDebug,
-  METERS_TO_FEET,
   type WaveHeightDebugInfo,
 } from "@/lib/utils/wave-formatters";
 import {
@@ -2089,7 +2089,7 @@ export class ForecastBuilder {
    */
 
   private metersToFeet(meters: number): string {
-    const feet = meters * 3.28084;
+    const feet = meters * METERS_TO_FEET;
     if (feet < 1) {
       return `${Math.round(feet * 10) / 10} ft`;
     }

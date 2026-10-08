@@ -1,3 +1,4 @@
+import { degreeToCardinal } from "@/lib/utils/geo-utils";
 /**
  * Shared Angle and Direction Utilities
  *
@@ -24,26 +25,6 @@ export const CARDINAL_TO_DEGREES: Record<string, number> = {
   nw: 315,
   nnw: 337.5,
 };
-
-/** 16-point cardinal directions for angle formatting */
-const CARDINAL_DIRECTIONS = [
-  'N',
-  'NNE',
-  'NE',
-  'ENE',
-  'E',
-  'ESE',
-  'SE',
-  'SSE',
-  'S',
-  'SSW',
-  'SW',
-  'WSW',
-  'W',
-  'WNW',
-  'NW',
-  'NNW',
-] as const;
 
 /**
  * Normalizes an angle to the 0-360 degree range.
@@ -102,7 +83,5 @@ export function directionName(degrees: number | null | undefined): string {
   if (degrees == null || !Number.isFinite(degrees)) {
     return 'Unknown';
   }
-  const normalized = normalizeAngle(degrees);
-  const index = Math.round(normalized / 22.5) % 16;
-  return CARDINAL_DIRECTIONS[index];
+  return degreeToCardinal(degrees);
 }

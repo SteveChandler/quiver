@@ -1,3 +1,4 @@
+import { getLocalDateFormatter } from "@/lib/services/discovery/window-selector/time-slot-utils";
 // app/api/cron/condition-alert-evaluate/route.ts
 import { NextResponse } from "next/server";
 import { validateCronRequest } from "@/lib/middleware/api-wrappers";
@@ -243,7 +244,7 @@ export async function GET(request: Request) {
             const homeBeachId = profile.home_beach_id;
             const homeBeach = homeBeachId ? beachesById.get(homeBeachId) : undefined;
             const homeBeachTz = homeBeach?.timezone ?? "America/New_York";
-            const userLocalDate = new Date().toLocaleDateString("en-CA", { timeZone: homeBeachTz });
+            const userLocalDate = getLocalDateFormatter(homeBeachTz).format(new Date());
 
             // A surf alert is unique per beach, not per user. This lets an
             // actionable second break through while keeping repeat windows at

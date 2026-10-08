@@ -1,3 +1,4 @@
+import { clamp as clampScoreRange } from "@/lib/utils/clamp";
 /**
  * Surf Discovery Orchestrator
  *
@@ -48,6 +49,7 @@ import { currentWaterQuality } from "@/lib/services/water-quality/current-status
 import {
   scoreBeachWithEngine,
   beachToSpotProfile,
+  getDiscoveryScoringEngine,
 } from '@/lib/domains/scoring';
 import type { SkillLevel } from '@/lib/domains/user-preferences';
 import { parseSkillLevel, getSkillLevelOrDefault, SKILL_WAVE_RANGES } from '@/lib/domains/user-preferences';
@@ -96,10 +98,7 @@ import {
   generateDiscoverySummary,
   buildDiscoveryMessage,
 } from './response-formatter';
-import {
-  getDiscoveryScoringEngine,
-  resolveRecommendationLabel,
-} from './recommendation-label';
+import { resolveRecommendationLabel } from './recommendation-label';
 import { fetchPersonalizationContext, calculatePersonalizationBonus } from './personalization-layer';
 import { getCanonicalRecommendationLabel } from '@/lib/recommendations/canonical-decision/discovery-adapter';
 import { applySimilarityLayer } from './similarity-layer';
@@ -635,7 +634,7 @@ function toRecommendationV2Candidate(
       end: rec.window.end,
       timezone: rec.window.timezone,
     },
-    conditionScore: clamp(conditionScore, 0, 100),
+    conditionScore: clampScoreRange(conditionScore, 0, 100),
     personalMatchScore: clamp(personalMatchScore, 0, 10),
     overallScore: clamp(rec.score, 0, 100),
     label,
@@ -1000,16 +999,7 @@ function compareLearnedWindowCandidates(
 function collapseWindowCandidates(
   recommendations: SurfDiscoveryRecommendation[],
 ): SurfDiscoveryRecommendation[] {
-  const candidatesByRecommendation = new Map<
-    string,
-    SurfDiscoveryRecommendation[]
-  >();
-  for (const rec of recommendations) {
-    const key = recommendationKey(rec);
-    const candidates = candidatesByRecommendation.get(key) ?? [];
-    candidates.push(rec);
-    candidatesByRecommendation.set(key, candidates);
-  }
+  const candidatesByRecommendation = Map.groupBy(recommendations, recommendationKey);
 
   return Array.from(candidatesByRecommendation.values()).map((candidates) => {
     const learnedCandidates = candidates.filter(hasCanonicalLearnedMatch);
@@ -1196,16 +1186,12 @@ interface DiscoveryDisplayScore {
   matchQuality: DetailedScore['matchQuality'];
 }
 
-function clampDiscoveryScore(score: number): number {
-  return Math.max(0, Math.min(100, score));
-}
-
 /**
  * The number surfaces display: conditions only, clamped to the 0-100 scale the
  * UI and the verdict thresholds both assume.
  */
 export function toDisplayConditionScore(conditionScore: number): number {
-  return clampDiscoveryScore(conditionScore);
+  return clampScoreRange(conditionScore, 0, 100);
 }
 
 /**
@@ -1711,13 +1697,7 @@ async function discoverSurfSpotsInner(
   const discoverableBeachIds = new Set(
     [...nearbyCandidates, ...includedCandidates].map((beach) => beach.id)
   );
-  const customSpotCandidatesByNearestBeachId = new Map<string, CustomSpotDiscoveryCandidate[]>();
-  for (const candidate of customSpotCandidates) {
-    const nearestBeachId = candidate.nearestBeach.id;
-    const existing = customSpotCandidatesByNearestBeachId.get(nearestBeachId) ?? [];
-    existing.push(candidate);
-    customSpotCandidatesByNearestBeachId.set(nearestBeachId, existing);
-  }
+  const customSpotCandidatesByNearestBeachId = Map.groupBy(customSpotCandidates, (candidate) => candidate.nearestBeach.id);
 
   if (finalCandidates.length === 0) {
     log.warn('No candidate beaches found');

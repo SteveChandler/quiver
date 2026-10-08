@@ -1,3 +1,4 @@
+import { setTimeout as sleep } from "node:timers/promises";
 /**
  * Email Rate Limiter Utility
  *
@@ -14,13 +15,6 @@
  * Add 100ms buffer for safety = 600ms between requests
  */
 export const RESEND_RATE_LIMIT_MS = 600;
-
-/**
- * Sleep for specified milliseconds
- */
-export function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 /**
  * Sequential rate limiter for operations that must respect time-based limits.

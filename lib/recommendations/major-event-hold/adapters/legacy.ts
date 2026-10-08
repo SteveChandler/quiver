@@ -1,3 +1,4 @@
+import { isUuid } from "@/lib/utils/validation";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 
 import type {
@@ -10,8 +11,6 @@ import {
   type MajorEventHoldBoundaryDecision,
 } from "./shared";
 
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CIVIL_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const POSTGRES_TIME_PATTERN = /^(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?$/;
 const AMBIGUITY_SCAN_RADIUS_MS = 3 * 60 * 60 * 1000;
@@ -192,7 +191,7 @@ export function buildDailyIntelMajorEventHoldCandidate(
     typeof intel !== "object" ||
     !isNonEmptyString(intel.id) ||
     !isNonEmptyString(intel.beach_id) ||
-    !UUID_PATTERN.test(intel.beach_id) ||
+    !isUuid(intel.beach_id) ||
     !isValidTimeZone(beachTimeZone)
   ) {
     return null;

@@ -1,3 +1,4 @@
+import { isUuid } from "@/lib/utils/validation";
 import { angleDifference } from "@/lib/domains/shared";
 import { haversineDistance } from "@/lib/utils/geo-utils";
 import type { MopPointMeta } from "./mop-client";
@@ -19,7 +20,6 @@ const REVIEW_NORMAL_DIFFERENCE_DEG = 20;
 const HOLD_NORMAL_DIFFERENCE_DEG = 45;
 /** Most beaches sit 0.4–1.2 km inland of their point; past that the pin or the transect deserves a look. */
 const HOLD_LANDWARD_M = 1200;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const POINT_ID = /^[A-Z]+\d+$/;
 
 export interface MappableBeach {
@@ -93,7 +93,7 @@ function holdReason(beach: MappableBeach, match: MopMatch): string | null {
 }
 
 function updateStatement(beach: MappableBeach, match: MopMatch): string {
-  if (!UUID.test(beach.id)) throw new Error(`beach id ${JSON.stringify(beach.id)} is not a uuid`);
+  if (!isUuid(beach.id)) throw new Error(`beach id ${JSON.stringify(beach.id)} is not a uuid`);
   if (!POINT_ID.test(match.point.pointId)) throw new Error(`MOP point id ${JSON.stringify(match.point.pointId)} is malformed`);
   return (
     `UPDATE public.beaches SET mop_point_id = '${match.point.pointId}', ` +

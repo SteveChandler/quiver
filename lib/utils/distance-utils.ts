@@ -123,33 +123,6 @@ export function toRadians(degrees: number): number {
 }
 
 /**
- * Format a distance in miles for display. Matches the legacy formatMiles
- * signature from utils/distance.ts.
- *
- * @param miles Distance in miles
- * @param digits Decimal precision (default 1)
- * @returns Formatted string, e.g. "3.5 miles away", or "—" for invalid input
- */
-export function formatMiles(miles?: number, digits = 1): string {
-  if (typeof miles !== "number" || !Number.isFinite(miles) || miles < 0) {
-    return "—";
-  }
-
-  if (miles === 0) {
-    return "0.0 miles away";
-  }
-
-  if (miles < 0.05) {
-    return "<0.1 miles away";
-  }
-
-  const factor = 10 ** Math.max(0, digits);
-  const rounded = Math.round(miles * factor) / factor;
-
-  return `${rounded.toFixed(digits)} miles away`;
-}
-
-/**
  * 8-point compass bearing — used by the Oracle hero "drive" subtitle.
  */
 export type CompassPoint = "N" | "NE" | "E" | "SE" | "S" | "SW" | "W" | "NW";

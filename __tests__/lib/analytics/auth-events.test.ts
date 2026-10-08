@@ -390,6 +390,17 @@ describe("auth-events", () => {
 
   describe("Signup events", () => {
     describe("trackSignupStarted", () => {
+      it("creates a signup flow when randomUUID is unavailable", () => {
+        const randomUUID = crypto.randomUUID;
+        Object.defineProperty(crypto, "randomUUID", { value: undefined });
+        try {
+          const flow = trackSignupStarted("password");
+          expect(flow.flow_id).toMatch(/^signup_\d+_[a-z0-9]+$/);
+        } finally {
+          Object.defineProperty(crypto, "randomUUID", { value: randomUUID });
+        }
+      });
+
       it("should track signup started with method and timestamp", () => {
         trackSignupStarted("password");
 

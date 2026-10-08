@@ -1,3 +1,4 @@
+import { isUuid } from "@/lib/utils/validation";
 /**
  * GET /api/cron/first-session-nudge-push
  *
@@ -227,11 +228,7 @@ async function fetchFiringConfidence(
   }
 }
 
-function isUuid(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-    value,
-  );
-}
+
 
 function isValidIanaTimezone(value: unknown): value is string {
   if (

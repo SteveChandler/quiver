@@ -65,9 +65,7 @@ jest.mock("@/lib/mailer/templates/ConsolidatedAlertEmail", () => ({
 // ---- Mock email logging + rate limiter ----
 const mockLogDelivery = jest.fn();
 jest.mock("@/lib/services/email-logging-service", () => ({
-  createEmailLogger: jest.fn(() => ({
-    logDelivery: (...args: unknown[]) => mockLogDelivery(...args),
-  })),
+  logEmailDelivery: (...args: unknown[]) => mockLogDelivery(...args),
 }));
 jest.mock("@/lib/utils/email-rate-limiter", () => ({
   createResendRateLimiter: jest.fn(() => ({
@@ -768,6 +766,7 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
       channel: "email",
     });
     expect(mockLogDelivery).toHaveBeenCalledWith(
+      expect.anything(),
       expect.objectContaining({
         userId: USER_A,
         emailType: "conditions_alert",
@@ -792,7 +791,7 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     });
     const messageInstanceId = mockConsolidatedAlertEmail.mock.calls[0][0]
       .messageInstanceId;
-    expect(mockLogDelivery.mock.calls[0][0].messageInstanceId).toBe(
+    expect(mockLogDelivery.mock.calls[0][1].messageInstanceId).toBe(
       messageInstanceId,
     );
     expect(store.attemptInserts[0].message_instance_id).toBe(messageInstanceId);
@@ -1535,6 +1534,7 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
         ],
       });
       expect(mockLogDelivery).toHaveBeenCalledWith(
+        expect.anything(),
         expect.objectContaining({
           meta: expect.objectContaining({
             matches: [
@@ -1670,6 +1670,7 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
         ],
       });
       expect(mockLogDelivery).toHaveBeenCalledWith(
+        expect.anything(),
         expect.objectContaining({
           meta: expect.objectContaining({
             matches: [

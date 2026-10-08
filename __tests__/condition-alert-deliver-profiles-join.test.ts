@@ -59,7 +59,7 @@ jest.mock("@/lib/mailer/client", () => ({
 }));
 
 jest.mock("@/lib/services/email-logging-service", () => ({
-  createEmailLogger: () => ({ logDelivery: jest.fn() }),
+  logEmailDelivery: jest.fn(),
 }));
 
 jest.mock("@/lib/utils/email-rate-limiter", () => ({

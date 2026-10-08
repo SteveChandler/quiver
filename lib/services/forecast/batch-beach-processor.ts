@@ -1,3 +1,4 @@
+import { setTimeout as sleep } from "node:timers/promises";
 /**
  * Batch Beach Processor
  *
@@ -288,7 +289,7 @@ export async function processBeachesInBatches(
         });
         break;
       }
-      await new Promise((resolve) => setTimeout(resolve, config.batchDelayMs));
+      await sleep(config.batchDelayMs);
     }
   }
 

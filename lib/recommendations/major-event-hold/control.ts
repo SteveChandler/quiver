@@ -1011,12 +1011,7 @@ export async function listAdminHoldViews(options: {
   if (!Number.isFinite(now.getTime()))
     throw new HoldControlError("invalid_request");
   const records = await loadStableHoldRecords(options.store);
-  const chains = new Map<string, RegionalRecommendationHoldRecord[]>();
-  for (const record of records) {
-    const chain = chains.get(record.holdId) ?? [];
-    chain.push(record);
-    chains.set(record.holdId, chain);
-  }
+  const chains = Map.groupBy(records, (record) => record.holdId);
 
   const visible: RegionalRecommendationHoldRecord[] = [];
   for (const chain of chains.values()) {

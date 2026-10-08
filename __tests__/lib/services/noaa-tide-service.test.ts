@@ -2,10 +2,6 @@
 
 const mockFetchWithTimeout = jest.fn();
 
-jest.mock("@/lib/utils/fetch-utils", () => ({
-  fetchWithTimeout: (...args: any[]) => mockFetchWithTimeout(...args),
-}));
-
 import {
   fetchCachedHourlyTidePredictions,
   fetchHighLowTidePredictions,
@@ -37,6 +33,7 @@ function createTideForecastClient(rows: unknown[], error: unknown = null): any {
 describe("noaa-tide-service", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    global.fetch = mockFetchWithTimeout;
   });
 
   it("fetches and normalizes exact high/low tide predictions from NOAA", async () => {
