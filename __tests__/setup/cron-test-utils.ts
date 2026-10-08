@@ -948,30 +948,6 @@ export function createRateLimiterMock() {
   return { mockThrottle, factory };
 }
 
-/**
- * Shared mock for email formatters used across cron + email template tests.
- */
-export function mockEmailFormatters() {
-  jest.mock("@/lib/email/email-formatters", () => ({
-    formatDatabaseTime: jest.fn((time: string) => {
-      if (!time) return null;
-      const parts = time.split(":");
-      const hours = parseInt(parts[0], 10);
-      const minutes = parts[1];
-      const ampm = hours >= 12 ? "PM" : "AM";
-      const displayHour = hours > 12 ? hours - 12 : hours || 12;
-      return `${displayHour}:${minutes} ${ampm}`;
-    }),
-    getConditionLabel: jest.fn((score: number) => {
-      if (score >= 80) return { label: "EPIC", color: "#00D4AA" };
-      if (score >= 70) return { label: "GOOD", color: "#1D9E75" };
-      if (score >= 55) return { label: "FAIR", color: "#FDB84B" };
-      if (score >= 40) return { label: "RIDEABLE", color: "#888780" };
-      return { label: "MEH", color: "#5F5E5A" };
-    }),
-  }));
-}
-
 // ============================================================================
 // Export All
 // ============================================================================

@@ -4,7 +4,6 @@ import { useEffect, useRef, useCallback } from "react";
 import { useAuth } from "@/context/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import {
-  trackAuthMethodSelected,
   trackAuthProviderSelected,
   trackSignupStarted,
   trackSignupSuccess,
@@ -92,7 +91,6 @@ export function GoogleOneTap() {
     async (response: GoogleCredentialResponse) => {
       const start = startTimeRef.current || Date.now();
 
-      trackAuthMethodSelected({ method: "google", mode: "signup" });
       trackAuthProviderSelected({
         provider: "google",
         mode: "signup",

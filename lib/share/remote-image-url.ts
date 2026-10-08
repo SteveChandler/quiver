@@ -14,7 +14,3 @@ export function isRemoteImageUrl(value: unknown): value is string {
 export function remoteImageUrlOrUndefined(value: unknown): string | undefined {
   return isRemoteImageUrl(value) ? value.trim() : undefined;
 }
-
-export function remoteImageUrlOrFallback(value: unknown, fallback: string): string {
-  return remoteImageUrlOrUndefined(value) ?? fallback;
-}

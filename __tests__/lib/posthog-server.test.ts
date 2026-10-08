@@ -19,10 +19,7 @@ jest.mock("posthog-node", () => ({
   PostHog: mockPostHogClass,
 }));
 
-import {
-  _resetPostHogServerClientForTesting,
-  capturePostHogEvent,
-} from "@/lib/posthog-server";
+import { capturePostHogEvent, _resetPostHogServerClientForTesting } from "@/lib/posthog-server";
 
 describe("posthog-server", () => {
   const originalToken = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;

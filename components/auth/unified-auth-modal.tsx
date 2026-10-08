@@ -27,7 +27,6 @@ import {
 import {
   trackAuthModalOpened,
   trackAuthModalClosedWithoutAction,
-  trackAuthMethodSelected,
   trackAuthProviderSelected,
   trackLoginStarted,
   trackLoginSuccess,
@@ -271,7 +270,6 @@ export function UnifiedAuthModal({
     setError(null);
 
     authActionTakenRef.current = true;
-    trackAuthMethodSelected({ method: "apple", mode: activeMode });
     trackAuthProviderSelected({ provider: "apple", mode: activeMode, source });
     if (activeMode === "signup") {
       signupFlowRef.current = trackSignupStarted("apple", {
@@ -327,7 +325,6 @@ export function UnifiedAuthModal({
     setError(null);
 
     authActionTakenRef.current = true;
-    trackAuthMethodSelected({ method: "google", mode: activeMode });
     trackAuthProviderSelected({ provider: "google", mode: activeMode, source });
     if (activeMode === "signup") {
       signupFlowRef.current = trackSignupStarted("google", {
@@ -387,7 +384,6 @@ export function UnifiedAuthModal({
     setError(null);
 
     authActionTakenRef.current = true;
-    trackAuthMethodSelected({ method: "magic_link", mode: "login" });
     trackAuthProviderSelected({ provider: "email", mode: "login", source, email_method: "magic_link" });
     trackLoginStarted("magic_link");
 
@@ -430,7 +426,6 @@ export function UnifiedAuthModal({
 
     setLoading(true);
     authActionTakenRef.current = true;
-    trackAuthMethodSelected({ method: "password", mode: activeMode });
     trackAuthProviderSelected({ provider: "email", mode: activeMode, source, email_method: "password" });
     if (!user) {
       // Emit the mode-specific event so dashboards don't have to filter by

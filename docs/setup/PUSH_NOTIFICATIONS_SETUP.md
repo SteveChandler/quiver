@@ -241,7 +241,7 @@ limit 10;
 **Key Files:**
 
 - `lib/services/firebase-admin.ts` - Admin SDK init
-- `lib/services/push-notifications.ts` - Push utilities
+- `lib/notifications/worker.ts` - Push delivery worker
 - `app/api/devices/upsert/route.ts` - Token registration
 - `lib/mobile/push-notifications.ts` - Mobile client
 

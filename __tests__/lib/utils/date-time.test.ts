@@ -5,41 +5,7 @@
  *   - __tests__/lib/utils/date-utils.test.ts
  *   - __tests__/lib/utils/time-formatting.test.ts
  */
-import {
-  // dateUtils object (backward-compat)
-  dateUtils,
-  // timezone-aware hour/minute extraction
-  getHourInTimezone,
-  getMinuteInTimezone,
-  // flattened named exports
-  formatDate,
-  formatForecastTime,
-  formatForecastTimeDetailed,
-  formatLastUpdate,
-  formatTideTime,
-  isToday,
-  getRelativeDayName,
-  // beach timezone helpers
-  formatTimeInBeachTimezone,
-  formatBeachDateTime,
-  formatBeachTimeRange,
-  formatBestAtLabel,
-  // month range
-  formatMonthRange,
-  // date-formatting.ts
-  formatDateInTimezone,
-  // time-formatting.ts
-  formatTimeInTimezone,
-  formatTimeRangeInTimezone,
-  formatTimeCasual,
-  // time-formatters.ts
-  formatTimeAgo,
-  getWindowDayLabel,
-  formatTimeWindowCompact,
-  formatCompactDate,
-  formatShortDate,
-  formatFullDateWithYear,
-} from "@/lib/utils/date-time";
+import { getHourInTimezone, getMinuteInTimezone, formatTimeInBeachTimezone, formatBeachDateTime, formatMonthRange, formatDateInTimezone, formatTimeInTimezone, formatTimeRangeInTimezone, formatTimeCasual, formatTimeAgo, formatTimeWindowCompact, formatCompactDate, formatShortDate, formatFullDateWithYear } from "@/lib/utils/date-time";
 
 describe("formatTimeRangeInTimezone", () => {
   it("formats both endpoints in the requested timezone and omits incomplete ranges", () => {
@@ -66,174 +32,17 @@ describe("formatTimeRangeInTimezone", () => {
 // dateUtils backward-compat object (delegates to named exports)
 // =============================================================================
 
-describe("dateUtils (backward-compat object)", () => {
-  test("formatDate returns short month and day", () => {
-    expect(dateUtils.formatDate("2025-01-15")).toMatch(
-      /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s\d{1,2}$/
-    );
-  });
-
-  test("formatForecastTime without time returns date only", () => {
-    const result = dateUtils.formatForecastTime("2025-01-15");
-    // Avoid timezone assumptions: just ensure month-day shape exists
-    expect(result).toMatch(/Jan\s\d{1,2}$/);
-    expect(result.includes(" at ")).toBe(false);
-  });
-
-  test("formatForecastTime with time returns 'date at time'", () => {
-    const result = dateUtils.formatForecastTime("2025-01-15", "06:30");
-    expect(result).toMatch(/Jan\s\d{1,2}\sat\s6:30\s(AM|Pm|am|pm)/);
-  });
-
-  test("formatForecastTimeDetailed toggles hour/minute formatting", () => {
-    const withTime = dateUtils.formatForecastTimeDetailed(
-      "2025-01-15",
-      "18:00"
-    );
-    expect(withTime).toMatch(
-      /(Mon|Tue|Wed|Thu|Fri|Sat|Sun),\sJan\s\d{1,2}.*6:00\s(AM|PM|am|pm)/
-    );
-
-    const withoutTime = dateUtils.formatForecastTimeDetailed("2025-01-15");
-    expect(withoutTime).toMatch(/(Mon|Tue|Wed|Thu|Fri|Sat|Sun),\sJan\s\d{1,2}/);
-  });
-
-  test("formatLastUpdate returns relative minutes and hours, else date", () => {
-    const now = new Date();
-    const fiveMinAgo = new Date(now.getTime() - 5 * 60 * 1000);
-    expect(dateUtils.formatLastUpdate(fiveMinAgo)).toBe("5m ago");
-
-    const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
-    expect(dateUtils.formatLastUpdate(twoHoursAgo)).toBe("2h ago");
-  });
-
-  test("formatTideTime format unix seconds to 12-hour clock with am/pm", () => {
-    // 1700000000 corresponds to a deterministic hour; we only test format shape
-    const result = dateUtils.formatTideTime(1700000000);
-    expect(result).toMatch(/^\d{1,2}:\d{2}\s(am|pm)$/);
-  });
-
-  test("isToday returns true only for today's ISO date", () => {
-    const todayIso = new Date().toISOString().split("T")[0];
-    expect(dateUtils.isToday(todayIso)).toBe(true);
-    expect(dateUtils.isToday("1999-01-01")).toBe(false);
-  });
-
-  test("getRelativeDayName returns Today/Tomorrow/Yesterday or formatted date", () => {
-    const todayIso = new Date().toISOString().split("T")[0];
-    expect(dateUtils.getRelativeDayName(todayIso)).toBe("Today");
-
-    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000)
-      .toISOString()
-      .split("T")[0];
-    expect(dateUtils.getRelativeDayName(tomorrow)).toBe("Tomorrow");
-
-    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000)
-      .toISOString()
-      .split("T")[0];
-    expect(dateUtils.getRelativeDayName(yesterday)).toBe("Yesterday");
-
-    expect(dateUtils.getRelativeDayName("2025-01-15")).toMatch(/Jan\s\d{1,2}/);
-  });
-});
 
 // =============================================================================
 // Named exports from flattened dateUtils
 // =============================================================================
 
-describe("formatDate", () => {
-  it("returns short month and day", () => {
-    expect(formatDate("2025-01-15")).toMatch(
-      /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s\d{1,2}$/
-    );
-  });
-});
 
-describe("formatTideTime", () => {
-  it("formats unix seconds to 12-hour clock with am/pm", () => {
-    const result = formatTideTime(1700000000);
-    expect(result).toMatch(/^\d{1,2}:\d{2}\s(am|pm)$/);
-  });
-});
 
-describe("isToday", () => {
-  it("returns true only for today's ISO date", () => {
-    const todayIso = new Date().toISOString().split("T")[0];
-    expect(isToday(todayIso)).toBe(true);
-    expect(isToday("1999-01-01")).toBe(false);
-  });
-});
 
-describe("getRelativeDayName", () => {
-  it("returns Today for today", () => {
-    const todayIso = new Date().toISOString().split("T")[0];
-    expect(getRelativeDayName(todayIso)).toBe("Today");
-  });
 
-  it("returns Tomorrow for tomorrow", () => {
-    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000)
-      .toISOString()
-      .split("T")[0];
-    expect(getRelativeDayName(tomorrow)).toBe("Tomorrow");
-  });
 
-  it("returns Yesterday for yesterday", () => {
-    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000)
-      .toISOString()
-      .split("T")[0];
-    expect(getRelativeDayName(yesterday)).toBe("Yesterday");
-  });
 
-  it("returns formatted date for older dates", () => {
-    expect(getRelativeDayName("2025-01-15")).toMatch(/Jan\s\d{1,2}/);
-  });
-});
-
-describe("formatLastUpdate", () => {
-  it("returns minutes ago for recent updates", () => {
-    const now = new Date();
-    const fiveMinAgo = new Date(now.getTime() - 5 * 60 * 1000);
-    expect(formatLastUpdate(fiveMinAgo)).toBe("5m ago");
-  });
-
-  it("returns hours ago for updates within 24h", () => {
-    const now = new Date();
-    const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
-    expect(formatLastUpdate(twoHoursAgo)).toBe("2h ago");
-  });
-});
-
-describe("formatForecastTime", () => {
-  it("without time returns date only", () => {
-    const result = formatForecastTime("2025-01-15");
-    expect(result).toMatch(/Jan\s\d{1,2}$/);
-    expect(result.includes(" at ")).toBe(false);
-  });
-
-  it("with time returns 'date at time'", () => {
-    const result = formatForecastTime("2025-01-15", "06:30");
-    expect(result).toMatch(/Jan\s\d{1,2}\sat\s6:30\s(AM|Pm|am|pm)/);
-  });
-
-  it("accepts ISO timestamp (single-arg path)", () => {
-    const result = formatForecastTime("2025-01-15T18:00:00.000Z");
-    expect(result).toContain(" at ");
-  });
-});
-
-describe("formatForecastTimeDetailed", () => {
-  it("includes time when forecast_time provided", () => {
-    const withTime = formatForecastTimeDetailed("2025-01-15", "18:00");
-    expect(withTime).toMatch(
-      /(Mon|Tue|Wed|Thu|Fri|Sat|Sun),\sJan\s\d{1,2}.*6:00\s(AM|PM|am|pm)/
-    );
-  });
-
-  it("omits time when no forecast_time", () => {
-    const withoutTime = formatForecastTimeDetailed("2025-01-15");
-    expect(withoutTime).toMatch(/(Mon|Tue|Wed|Thu|Fri|Sat|Sun),\sJan\s\d{1,2}/);
-  });
-});
 
 // =============================================================================
 // formatTimeInBeachTimezone (from date-utils.ts)
@@ -337,43 +146,11 @@ describe("formatBeachDateTime", () => {
 // formatBeachTimeRange (from date-utils.ts)
 // =============================================================================
 
-describe("formatBeachTimeRange", () => {
-  it("formats time range on same day", () => {
-    const start = new Date("2025-01-15T18:00:00Z"); // 10:00 AM Pacific
-    const end = new Date("2025-01-15T21:00:00Z"); // 1:00 PM Pacific
-    const result = formatBeachTimeRange(start, end, "America/Los_Angeles");
-    expect(result).toBe("Wed 10:00 AM - 1:00 PM");
-  });
-
-  it("formats time range crossing midnight", () => {
-    const start = new Date("2025-01-16T07:00:00Z"); // 11:00 PM Pacific Jan 15
-    const end = new Date("2025-01-16T10:00:00Z"); // 2:00 AM Pacific Jan 16
-    const result = formatBeachTimeRange(start, end, "America/Los_Angeles");
-    expect(result).toBe("Wed 11:00 PM - Thu 2:00 AM");
-  });
-});
 
 // =============================================================================
 // formatBestAtLabel (from date-utils.ts)
 // =============================================================================
 
-describe("formatBestAtLabel", () => {
-  it("formats compact time range with shared AM/PM", () => {
-    const start = new Date("2025-01-15T18:00:00Z"); // 10:00 AM Pacific
-    const end = new Date("2025-01-15T21:00:00Z"); // 1:00 PM Pacific
-    const result = formatBestAtLabel(start, end, "America/Los_Angeles");
-    // Both are in different periods (AM/PM), so format should be "Best Wed 10am-1pm"
-    expect(result).toBe("Best Wed 10am-1pm");
-  });
-
-  it("formats compact time range within same period", () => {
-    const start = new Date("2025-01-15T15:00:00Z"); // 7:00 AM Pacific
-    const end = new Date("2025-01-15T18:00:00Z"); // 10:00 AM Pacific
-    const result = formatBestAtLabel(start, end, "America/Los_Angeles");
-    // Both are AM, so should share suffix: "Best Wed 7-10am"
-    expect(result).toBe("Best Wed 7-10am");
-  });
-});
 
 // =============================================================================
 // formatMonthRange (from date-utils.ts)
@@ -510,18 +287,6 @@ describe("formatTimeAgo", () => {
 // getWindowDayLabel (from time-formatters.ts)
 // =============================================================================
 
-describe("getWindowDayLabel", () => {
-  it("returns 'today' when start is today", () => {
-    const result = getWindowDayLabel(new Date(), "America/Los_Angeles");
-    expect(result).toBe("today");
-  });
-
-  it("returns 'tomorrow' when start is tomorrow", () => {
-    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    const result = getWindowDayLabel(tomorrow, "America/Los_Angeles");
-    expect(result).toBe("tomorrow");
-  });
-});
 
 // =============================================================================
 // formatTimeWindowCompact (from time-formatters.ts)

@@ -2940,11 +2940,6 @@ export function getIndexableSurfCamPages(): SeoPageConfig[] {
   return INDEXABLE_SEO_FUNNEL_PAGES.filter((page) => page.type === "surf-cams");
 }
 
-function getSeoFunnelPageByPath(path: string): SeoPageConfig | null {
-  const normalized = path.startsWith("/") ? path : `/${path}`;
-  return SEO_FUNNEL_PAGES.find((page) => page.path === normalized) ?? null;
-}
-
 export function getSeoFunnelPageByTypeAndSlug(
   type: SeoPageType,
   slug: string,
@@ -2965,15 +2960,6 @@ export function getSeoFunnelPageByIntentRoute(
 
 export function getIndexableSeoFunnelRoutes(): string[] {
   return INDEXABLE_SEO_FUNNEL_PAGES.map((page) => page.path);
-}
-
-export function getSeoFunnelImagePrompts(): Array<{
-  path: string;
-  image: SeoImage;
-}> {
-  return SEO_FUNNEL_PAGES.flatMap((page) =>
-    page.images.map((image) => ({ path: page.path, image })),
-  );
 }
 
 export function filterSeoCamBeaches<

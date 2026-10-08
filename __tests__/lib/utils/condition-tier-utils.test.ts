@@ -1,13 +1,4 @@
-import {
-  ConditionTier,
-  CONDITION_TIER_THRESHOLDS,
-  getConditionTier,
-  getScoreColorClass,
-  getConditionBadge,
-  buildHeadlineText,
-  isFutureDayInTimezone,
-  isEveningInTimezone,
-} from "@/lib/utils/condition-tier-utils";
+import { ConditionTier, CONDITION_TIER_THRESHOLDS, getConditionTier, getConditionBadge, isFutureDayInTimezone } from "@/lib/utils/condition-tier-utils";
 
 describe("condition-tier-utils", () => {
   describe("getConditionTier", () => {
@@ -53,23 +44,6 @@ describe("condition-tier-utils", () => {
     });
   });
 
-  describe("getScoreColorClass", () => {
-    it("returns orange for epic tier", () => {
-      expect(getScoreColorClass("epic")).toBe("text-accent-orange");
-    });
-
-    it("returns orange for good tier", () => {
-      expect(getScoreColorClass("good")).toBe("text-accent-orange");
-    });
-
-    it("returns amber for fair tier", () => {
-      expect(getScoreColorClass("fair")).toBe("text-amber-400");
-    });
-
-    it("returns muted white for meh tier", () => {
-      expect(getScoreColorClass("meh")).toBe("text-medium");
-    });
-  });
 
   describe("getConditionBadge", () => {
     it("returns EPIC Conditions badge for epic tier", () => {
@@ -98,108 +72,6 @@ describe("condition-tier-utils", () => {
     });
   });
 
-  describe("buildHeadlineText", () => {
-    describe("today (isTomorrow = false)", () => {
-      it("builds epic tier headline", () => {
-        const result = buildHeadlineText("Big Jetty", "epic", false);
-        expect(result.prefix).toBe("");
-        expect(result.beachPart).toBe("Big Jetty");
-        expect(result.connector).toBe("is your best bet at");
-      });
-
-      it("builds good tier headline", () => {
-        const result = buildHeadlineText("Big Jetty", "good", false);
-        expect(result.prefix).toBe("");
-        expect(result.beachPart).toBe("Big Jetty");
-        expect(result.connector).toBe("is a good option at");
-      });
-
-      it("builds fair tier headline", () => {
-        const result = buildHeadlineText("Big Jetty", "fair", false);
-        expect(result.prefix).toBe("Conditions are fair at ");
-        expect(result.beachPart).toBe("Big Jetty");
-        expect(result.connector).toBe("—");
-      });
-
-      it("builds meh tier headline", () => {
-        const result = buildHeadlineText("Big Jetty", "meh", false);
-        expect(result.prefix).toBe("Conditions are meh at ");
-        expect(result.beachPart).toBe("Big Jetty");
-        expect(result.connector).toBe("—");
-      });
-    });
-
-    describe("tomorrow (isTomorrow = true)", () => {
-      it("builds headline with default tomorrow prefix", () => {
-        const result = buildHeadlineText("Big Jetty", "epic", true);
-        expect(result.prefix).toBe("Skip today \u2014 tomorrow at ");
-        expect(result.beachPart).toBe("Big Jetty");
-      });
-
-      it("builds headline with dawn-patrol time slot", () => {
-        const result = buildHeadlineText("Big Jetty", "epic", true, "dawn-patrol");
-        expect(result.prefix).toBe("Skip today \u2014 tomorrow's dawn patrol at ");
-      });
-
-      it("builds headline with lunch-session time slot", () => {
-        const result = buildHeadlineText("Big Jetty", "epic", true, "lunch-session");
-        expect(result.prefix).toBe("Skip today \u2014 tomorrow midday at ");
-      });
-
-      it("builds headline with afternoon time slot", () => {
-        const result = buildHeadlineText("Big Jetty", "epic", true, "afternoon");
-        expect(result.prefix).toBe("Skip today \u2014 tomorrow afternoon at ");
-      });
-
-      it("builds fair tier headline for tomorrow", () => {
-        const result = buildHeadlineText("Big Jetty", "fair", true);
-        expect(result.prefix).toBe("Skip today \u2014 tomorrow at ");
-        expect(result.connector).toBe("\u2014 conditions are fair at");
-      });
-    });
-
-    describe("tomorrow evening (isEvening = true)", () => {
-      it("builds headline with plain tomorrow prefix", () => {
-        const result = buildHeadlineText("Big Jetty", "epic", true, undefined, true);
-        expect(result.prefix).toBe("Tomorrow at ");
-        expect(result.beachPart).toBe("Big Jetty");
-        expect(result.connector).toBe("is your best bet at");
-      });
-
-      it("builds headline with dawn-patrol time slot", () => {
-        const result = buildHeadlineText("Big Jetty", "epic", true, "dawn-patrol", true);
-        expect(result.prefix).toBe("Tomorrow's dawn patrol at ");
-      });
-
-      it("builds headline with lunch-session time slot", () => {
-        const result = buildHeadlineText("Big Jetty", "epic", true, "lunch-session", true);
-        expect(result.prefix).toBe("Tomorrow midday at ");
-      });
-
-      it("builds headline with afternoon time slot", () => {
-        const result = buildHeadlineText("Big Jetty", "epic", true, "afternoon", true);
-        expect(result.prefix).toBe("Tomorrow afternoon at ");
-      });
-
-      it("builds good tier headline for tomorrow evening", () => {
-        const result = buildHeadlineText("Big Jetty", "good", true, undefined, true);
-        expect(result.prefix).toBe("Tomorrow at ");
-        expect(result.connector).toBe("is a good option at");
-      });
-
-      it("builds fair tier headline for tomorrow evening", () => {
-        const result = buildHeadlineText("Big Jetty", "fair", true, undefined, true);
-        expect(result.prefix).toBe("Tomorrow at ");
-        expect(result.connector).toBe("\u2014 conditions are fair at");
-      });
-
-      it("builds meh tier headline for tomorrow evening", () => {
-        const result = buildHeadlineText("Big Jetty", "meh", true, undefined, true);
-        expect(result.prefix).toBe("Tomorrow at ");
-        expect(result.connector).toBe("\u2014 conditions are meh at");
-      });
-    });
-  });
 
   describe("isFutureDayInTimezone", () => {
     it("returns false for today", () => {
@@ -228,43 +100,6 @@ describe("condition-tier-utils", () => {
     });
   });
 
-  describe("isEveningInTimezone", () => {
-    it("returns true when local time is 18:00 or later", () => {
-      // Mock a time at 8 PM UTC — in UTC that's 20:00, well past 18
-      jest.useFakeTimers();
-      jest.setSystemTime(new Date("2026-02-28T20:00:00Z"));
-      expect(isEveningInTimezone("UTC")).toBe(true);
-      jest.useRealTimers();
-    });
-
-    it("returns false when local time is before 18:00", () => {
-      // Mock a time at 10 AM UTC
-      jest.useFakeTimers();
-      jest.setSystemTime(new Date("2026-02-28T10:00:00Z"));
-      expect(isEveningInTimezone("UTC")).toBe(false);
-      jest.useRealTimers();
-    });
-
-    it("respects timezone offset", () => {
-      // 1 AM UTC = 5 PM (17:00) Pacific (UTC-8) — not evening
-      jest.useFakeTimers();
-      jest.setSystemTime(new Date("2026-02-28T01:00:00Z"));
-      expect(isEveningInTimezone("America/Los_Angeles")).toBe(false);
-      jest.useRealTimers();
-    });
-
-    it("returns true at exactly 18:00 in timezone", () => {
-      // 2 AM UTC = 6 PM (18:00) Pacific (PST, UTC-8) — evening
-      jest.useFakeTimers();
-      jest.setSystemTime(new Date("2026-02-28T02:00:00Z"));
-      expect(isEveningInTimezone("America/Los_Angeles")).toBe(true);
-      jest.useRealTimers();
-    });
-
-    it("returns false for invalid timezone (safe default)", () => {
-      expect(isEveningInTimezone("Invalid/Timezone")).toBe(false);
-    });
-  });
 
   describe("CONDITION_TIER_THRESHOLDS", () => {
     it("exports correct threshold values", () => {

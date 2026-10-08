@@ -64,21 +64,6 @@ export type RecommendationHoldReasonCode =
   | "water_quality_hold"
   | "hold_state_unavailable";
 
-const RECOMMENDATION_HOLD_REASON_CODES = [
-  "major_event_hold",
-  "water_quality_hold",
-  "hold_state_unavailable",
-] as const satisfies readonly RecommendationHoldReasonCode[];
-
-function isRecommendationHoldReasonCode(
-  value: unknown,
-): value is RecommendationHoldReasonCode {
-  return (
-    typeof value === "string" &&
-    (RECOMMENDATION_HOLD_REASON_CODES as readonly string[]).includes(value)
-  );
-}
-
 export interface RecommendationAvailability {
   state: "available" | "none";
   reasonCode?: RecommendationHoldReasonCode;

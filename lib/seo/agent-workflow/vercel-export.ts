@@ -1,4 +1,4 @@
-import type { VercelExportInput, VercelReferrerMetric, VercelSeoPageMetric } from "./types";
+import type { VercelExportInput } from "./types";
 
 export const DEFAULT_BOT_PATHS = [
   "/",
@@ -44,14 +44,6 @@ export function buildVercelExport(
     countries: groupedTotals(responses.countries).map(([country, visits]) => ({ country, visits })),
     devices: groupedTotals(responses.devices).map(([device, visits]) => ({ device, visits })),
   };
-}
-
-export function toVercelSeoPages(exportInput: VercelExportInput): VercelSeoPageMetric[] {
-  return exportInput.pages;
-}
-
-export function toVercelReferrers(exportInput: VercelExportInput): VercelReferrerMetric[] {
-  return exportInput.referrers;
 }
 
 function groupedTotals(raw: unknown): Array<[string, number]> {

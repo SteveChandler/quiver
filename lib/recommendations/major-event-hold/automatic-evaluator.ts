@@ -265,9 +265,3 @@ export function evaluateOfficialRipCurrentHoldDiagnostics({
 
   return { proposals, invalidMetadataCount };
 }
-
-export function evaluateOfficialRipCurrentHolds(
-  input: EvaluateOfficialRipCurrentHoldsInput,
-): OfficialRipCurrentHoldProposal[] {
-  return evaluateOfficialRipCurrentHoldDiagnostics(input).proposals;
-}

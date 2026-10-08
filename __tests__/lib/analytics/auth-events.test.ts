@@ -4,29 +4,7 @@
  * and that key auth funnel events dual-fire to the internal user_events table.
  */
 
-import {
-  trackAuthModalOpened,
-  trackAuthModalClosedWithoutAction,
-  trackAuthMethodSelected,
-  trackAuthProviderSelected,
-  trackLoginStarted,
-  trackLoginSuccess,
-  trackLoginFailed,
-  trackSignupStarted,
-  trackSignupSuccess,
-  trackSignupFailed,
-  getSignupFlow,
-  SIGNUP_FLOW_TTL_MS,
-  trackMagicLinkSent,
-  trackMagicLinkClicked,
-  trackAuthRedirectCompleted,
-  trackAuthWallShown,
-  trackAuthWallDismissed,
-  trackSignupFormSubmitted,
-  trackLoginFormSubmitted,
-  categorizeAuthError,
-  extractEmailDomain,
-} from "@/lib/analytics/auth-events";
+import { trackAuthModalOpened, trackAuthModalClosedWithoutAction, trackAuthProviderSelected, trackLoginStarted, trackLoginSuccess, trackLoginFailed, trackSignupStarted, trackSignupSuccess, trackSignupFailed, getSignupFlow, SIGNUP_FLOW_TTL_MS, trackMagicLinkSent, trackSignupFormSubmitted, trackLoginFormSubmitted, categorizeAuthError, extractEmailDomain } from "@/lib/analytics/auth-events";
 
 // Mock the analytics track function
 jest.mock("@/lib/analytics", () => ({
@@ -270,56 +248,7 @@ describe("auth-events", () => {
       });
     });
 
-    describe("trackAuthMethodSelected (deprecated no-op)", () => {
-      let warnSpy: jest.SpyInstance;
-      let originalNodeEnv: string | undefined;
-
-      beforeEach(() => {
-        warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
-        originalNodeEnv = process.env.NODE_ENV;
-      });
-
-      afterEach(() => {
-        warnSpy.mockRestore();
-        if (originalNodeEnv === undefined) {
-          delete (process.env as Record<string, string | undefined>).NODE_ENV;
-        } else {
-          (process.env as Record<string, string | undefined>).NODE_ENV =
-            originalNodeEnv;
-        }
-      });
-
-      it("should not call track() or fetch (no-op)", () => {
-        trackAuthMethodSelected({ method: "google", mode: "login" });
-        trackAuthMethodSelected({ method: "password", mode: "signup" });
-        trackAuthMethodSelected({ method: "magic_link", mode: "login" });
-        trackAuthMethodSelected({ method: "apple", mode: "signup" });
-
-        expect(track).not.toHaveBeenCalled();
-        expect(mockFetch).not.toHaveBeenCalled();
-      });
-
-      it("should warn in development", () => {
-        (process.env as Record<string, string | undefined>).NODE_ENV =
-          "development";
-
-        trackAuthMethodSelected({ method: "google", mode: "login" });
-
-        expect(warnSpy).toHaveBeenCalledWith(
-          expect.stringContaining("[deprecated] trackAuthMethodSelected")
-        );
-      });
-
-      it("should not warn outside development", () => {
-        (process.env as Record<string, string | undefined>).NODE_ENV = "test";
-
-        trackAuthMethodSelected({ method: "google", mode: "login" });
-
-        expect(warnSpy).not.toHaveBeenCalled();
-      });
-    });
-
-    describe("trackAuthProviderSelected (covers former trackAuthMethodSelected provider paths)", () => {
+    describe("trackAuthProviderSelected", () => {
       it("should track Google provider selection", () => {
         trackAuthProviderSelected({
           provider: "google",
@@ -678,50 +607,9 @@ describe("auth-events", () => {
       });
     });
 
-    describe("trackMagicLinkClicked", () => {
-      it("should track magic link clicked with timestamp", () => {
-        trackMagicLinkClicked();
-
-        expect(track).toHaveBeenCalledWith("magic_link_clicked", {
-          timestamp: expect.any(Number),
-        });
-      });
-    });
   });
 
-  describe("Redirect events", () => {
-    describe("trackAuthRedirectCompleted", () => {
-      it("should track redirect completed with return path", () => {
-        trackAuthRedirectCompleted("/beach/123");
 
-        expect(track).toHaveBeenCalledWith("auth_redirect_completed", {
-          return_path: "/beach/123",
-        });
-      });
-    });
-  });
-
-  describe("Auth wall events", () => {
-    describe("trackAuthWallShown", () => {
-      it("should track auth wall shown with delay", () => {
-        trackAuthWallShown(5000);
-
-        expect(track).toHaveBeenCalledWith("auth_wall_shown", {
-          delay_ms: 5000,
-        });
-      });
-    });
-
-    describe("trackAuthWallDismissed", () => {
-      it("should track auth wall dismissed with timestamp", () => {
-        trackAuthWallDismissed();
-
-        expect(track).toHaveBeenCalledWith("auth_wall_dismissed", {
-          timestamp: expect.any(Number),
-        });
-      });
-    });
-  });
 
   describe("Dual-fire to user_events (internal DB)", () => {
     describe("trackAuthModalOpened", () => {

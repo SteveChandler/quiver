@@ -1,37 +1,6 @@
 type TideDirection = "rising" | "falling" | "slack";
 type TidePreference = "rising" | "falling" | "slack" | "either";
 
-/**
- * Returns a multiplier (0.0-1.0) based on how well the current tide direction
- * matches the beach's preference.
- *
- * - Perfect match or "either" preference: 1.0
- * - Slack preference but not slack: 0.85
- * - Mismatch: 0.7
- */
-export function getDirectionMultiplier(
-  beachPref: TidePreference | string | null,
-  currentDir: TideDirection | null
-): number {
-  // No preference or unknown direction = no adjustment
-  if (!beachPref || beachPref === "either" || !currentDir) {
-    return 1.0;
-  }
-
-  // Perfect match
-  if (beachPref === currentDir) {
-    return 1.0;
-  }
-
-  // Slack preference has softer penalty
-  if (beachPref === "slack") {
-    return 0.85;
-  }
-
-  // Mismatch (rising vs falling, or vice versa)
-  return 0.7;
-}
-
 export interface TideAlert {
   status: "optimal" | "waiting" | "neutral";
   message: string;

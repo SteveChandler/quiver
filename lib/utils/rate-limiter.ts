@@ -213,14 +213,6 @@ export class RateLimiter {
   }
 }
 
-// Factory function for creating rate limiters
-export function createRateLimiter(
-  name: string,
-  config: RateLimiterConfig
-): RateLimiter {
-  return new RateLimiter(name, config);
-}
-
 /**
  * Generic singleton wrapper interface for rate limiters
  */
@@ -280,19 +272,4 @@ export const NOAARateLimiter = createRateLimiterSingleton("NOAA", {
   requestsPerHour: 10000, // High hourly limit
   burstLimit: 20, // Allow larger bursts
 });
-
-// Utility function to wait for rate limit reset
-async function waitForRateLimit(
-  rateLimiter: RateLimiter | RateLimiterSingleton
-): Promise<void> {
-  if (rateLimiter.canMakeRequest()) {
-    return;
-  }
-
-  const waitTime = rateLimiter.getTimeUntilReset();
-  if (waitTime > 0) {
-    console.log(`Rate limit exceeded, waiting ${waitTime}ms...`);
-    await new Promise((resolve) => setTimeout(resolve, waitTime));
-  }
-}
 

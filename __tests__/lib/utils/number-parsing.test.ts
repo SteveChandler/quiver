@@ -1,12 +1,5 @@
 // __tests__/lib/utils/number-parsing.test.ts
-import {
-  parseFloatSafe,
-  parseIntSafe,
-  parseCoordinate,
-  parseWaveHeightRange,
-  parseWindSpeed,
-  parseWavePeriod,
-} from '@/lib/utils/number-parsing';
+import { parseFloatSafe, parseCoordinate, parseWaveHeightRange, parseWindSpeed, parseWavePeriod } from '@/lib/utils/number-parsing';
 
 describe('number-parsing', () => {
   describe('parseFloatSafe', () => {
@@ -30,22 +23,6 @@ describe('number-parsing', () => {
     });
   });
 
-  describe('parseIntSafe', () => {
-    it('should parse valid integer strings', () => {
-      expect(parseIntSafe('42', 0)).toBe(42);
-      expect(parseIntSafe('-10', 0)).toBe(-10);
-    });
-
-    it('should truncate floats', () => {
-      expect(parseIntSafe('3.7', 0)).toBe(3);
-      expect(parseIntSafe('3.2', 0)).toBe(3);
-    });
-
-    it('should return fallback for invalid inputs', () => {
-      expect(parseIntSafe('abc', 0)).toBe(0);
-      expect(parseIntSafe(null, 5)).toBe(5);
-    });
-  });
 
   describe('parseCoordinate', () => {
     it('should parse valid coordinates', () => {

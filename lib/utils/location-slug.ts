@@ -91,52 +91,6 @@ export function parseLocationFromSlug(slug: string): string {
 }
 
 /**
- * Build breadcrumb segments from location data
- *
- * @param city - City name
- * @param state - State name
- * @param country - Country name (defaults to "USA")
- * @returns Array of breadcrumb segments with labels and URLs
- */
-export function buildBreadcrumbSegments(
-  city: string | null | undefined,
-  state: string | null | undefined,
-  country?: string | null
-): Array<{ label: string; url: string | null }> {
-  const segments: Array<{ label: string; url: string | null }> = [];
-
-  const countrySlug = generateLocationSlug(country || "USA");
-  const stateSlug = generateLocationSlug(state);
-  const citySlug = generateLocationSlug(city);
-
-  // Add country segment (optional - can be added later for international)
-  if (country && country !== "USA") {
-    segments.push({
-      label: country,
-      url: `/beaches/${countrySlug}`,
-    });
-  }
-
-  // Add state segment
-  if (state) {
-    segments.push({
-      label: state,
-      url: `/beaches/${countrySlug}/${stateSlug}`,
-    });
-  }
-
-  // Add city segment (main location page)
-  if (city) {
-    segments.push({
-      label: city,
-      url: buildLocationUrl(city, state, country),
-    });
-  }
-
-  return segments;
-}
-
-/**
  * Normalize country name to standard format
  *
  * @param country - Country name in various formats

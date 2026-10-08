@@ -411,20 +411,6 @@ export class EnhancedRateLimiter {
 }
 
 /**
- * Factory function for creating enhanced rate limiters
- *
- * @param name - Limiter name for logging
- * @param config - Rate limiter configuration
- * @returns EnhancedRateLimiter instance
- */
-function createEnhancedRateLimiter(
-  name: string,
-  config: RateLimiterConfig
-): EnhancedRateLimiter {
-  return new EnhancedRateLimiter(name, config);
-}
-
-/**
  * Singleton cache for rate limiters
  *
  * Ensures we only create one rate limiter instance per configuration key
@@ -447,16 +433,4 @@ export function getCachedRateLimiter(
     rateLimiterCache.set(name, new EnhancedRateLimiter(name, config));
   }
   return rateLimiterCache.get(name)!;
-}
-
-/**
- * Clear all cached rate limiters
- *
- * Useful for testing and cleanup
- */
-function clearRateLimiterCache(): void {
-  for (const limiter of rateLimiterCache.values()) {
-    limiter.destroy();
-  }
-  rateLimiterCache.clear();
 }

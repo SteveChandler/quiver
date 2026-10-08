@@ -116,70 +116,10 @@ export function calculateDistanceInMiles(
 }
 
 /**
- * Legacy function signature for backward compatibility
- * @deprecated Use calculateDistance(from, to, unit) with Coordinates instead
- */
-export function calculateDistanceLegacy(
-  lat1: number,
-  lng1: number,
-  lat2: number,
-  lng2: number,
-  unit: "miles" | "km" | "meters" = "miles"
-): number {
-  return calculateDistanceRaw(lat1, lng1, lat2, lng2, unit);
-}
-
-/**
  * Helper function for radians conversion
  */
 export function toRadians(degrees: number): number {
   return degrees * (Math.PI / 180);
-}
-
-/**
- * Calculate distance in miles between two coordinate pairs, returning null for
- * missing or invalid inputs. Matches the signature from the legacy
- * utils/distance.ts module.
- *
- * @param a Starting coordinates (optional/nullable)
- * @param b Destination coordinates (optional/nullable)
- * @returns Distance in miles, or null if either coordinate is missing/invalid
- */
-export function milesBetween(
-  a?: Coordinates | null,
-  b?: Coordinates | null
-): number | null {
-  if (!a || !b) return null;
-
-  const { lat: lat1, lon: lon1 } = a;
-  const { lat: lat2, lon: lon2 } = b;
-
-  if (
-    !Number.isFinite(lat1) ||
-    !Number.isFinite(lon1) ||
-    !Number.isFinite(lat2) ||
-    !Number.isFinite(lon2)
-  ) {
-    return null;
-  }
-
-  const toRad = (degrees: number) => (degrees * Math.PI) / 180;
-
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const radLat1 = toRad(lat1);
-  const radLat2 = toRad(lat2);
-
-  const sinHalfDLat = Math.sin(dLat / 2);
-  const sinHalfDLon = Math.sin(dLon / 2);
-
-  const haversine =
-    sinHalfDLat * sinHalfDLat +
-    Math.cos(radLat1) * Math.cos(radLat2) * sinHalfDLon * sinHalfDLon;
-
-  const arc = 2 * Math.asin(Math.min(1, Math.sqrt(haversine)));
-
-  return EARTH_RADIUS_MI * arc;
 }
 
 /**
