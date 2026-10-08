@@ -1,0 +1,101 @@
+{
+  "$schema": "https://unpkg.com/knip@latest/schema.json",
+  "project": [
+    "app/**/*.{ts,tsx}",
+    "actions/**/*.{ts,tsx}",
+    "components/**/*.{ts,tsx}",
+    "hooks/**/*.{ts,tsx}",
+    "lib/**/*.{ts,tsx}",
+    "types/**/*.{ts,tsx}",
+    "context/**/*.{ts,tsx}",
+    "e2e/**/*.ts",
+    "__tests__/**/*.{ts,tsx}",
+    "scripts/**/*.{ts,tsx,mjs}",
+    "store/**/*.{ts,tsx}",
+    "config/**/*.{ts,tsx}"
+  ],
+  "entry": [
+    "app/**/page.tsx",
+    "app/**/layout.tsx",
+    // Package scripts: Knip discovers their targets but still reports them as unused.
+    "scripts/audit-custom-spot-forecast-anchors.ts",
+    "scripts/check-comparison-sources.ts",
+    "scripts/db-local-from-snapshot.mjs",
+    "scripts/db-snapshot-catalog.mjs",
+    "scripts/dev-note.mjs",
+    "scripts/download-approved-seo-photos.ts",
+    "scripts/fetch-beach-photos.ts",
+    "scripts/fetch-fonts.mjs",
+    "scripts/find-beach-photo-candidates.ts",
+    "scripts/import-posthog-history.ts",
+    "scripts/morningIntel.ts",
+    "scripts/revenuecat-entitlement-reconciliation.ts",
+    "scripts/seed-prod-mock-users.ts",
+    "scripts/shoaling-regression.ts",
+    "scripts/terrain-analysis.ts",
+    "scripts/db/rollback-validate-advisor-cleanup.mjs",
+    "scripts/qa/accounts.ts",
+    "scripts/seo/backlink-proxy.ts",
+    "scripts/seo/enrich.ts",
+    "scripts/seo/export-aeo.ts",
+    "scripts/seo/export-competitors.ts",
+    "scripts/seo/export-dataforseo.ts",
+    "scripts/seo/export-posthog.ts",
+    "scripts/seo/export-vercel.ts",
+    "scripts/seo/forecast-authority-audit.ts",
+    "scripts/seo/forecast-authority-benchmark.ts",
+    "scripts/seo/gsc-refresh.ts",
+    "scripts/seo/keyword-bank.ts",
+    "scripts/seo/metadata-audit.ts",
+    "scripts/seo/outreach-digest.ts",
+    "scripts/seo/recommend.ts",
+    "scripts/seo/store-snapshot.ts",
+    "scripts/seo/technical-audit.ts",
+    "scripts/seo/validate-aeo-report.ts",
+    "scripts/seo/weekly-report.ts",
+    "scripts/terrain/validate-golden-beaches.ts",
+    // Workflow and script-driven tools.
+    "scripts/swell-watch-provider-probe.mjs",
+    "scripts/test-swell-watch-normalization.mjs",
+    // Operator runbooks and repeatable maintenance tools.
+    "scripts/audit-beach-timezones.ts",
+    "scripts/diag-snapshot-writer.ts",
+    "scripts/freeze-sd-beach-fixture.ts",
+    "scripts/generate-apple-secret.mjs",
+    "scripts/list-new-users-week.ts",
+    "scripts/map-beaches-to-mop.ts",
+    "scripts/ml-stats.ts",
+    "scripts/preview-email-lifecycle.ts",
+    "scripts/regenerate-enhanced-forecasts.ts",
+    "scripts/validate-cameras.ts",
+    "scripts/verify-native-sentry-rls.mjs",
+    "scripts/weekly-signup-intel.ts",
+    "scripts/climatology/build-surf-climatology.ts",
+    "scripts/tides/list-model-tide-beaches.ts"
+  ],
+  "ignoreDependencies": [
+    "server-only",
+    "ansi-regex",
+    "string-width",
+    "strip-ansi"
+  ],
+  "ignore": [
+    "**/__tests__/**",
+    "types/**",
+    "e2e/**"
+  ],
+  "webpack": true,
+  "eslint": true,
+  "typescript": {
+    "tsConfigPath": "tsconfig.json"
+  },
+  "paths": {
+    "@/*": [
+      "./*"
+    ]
+  },
+  "ignoreBinaries": [
+    "supabase",
+    "psql"
+  ]
+}
