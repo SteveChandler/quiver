@@ -707,7 +707,7 @@ describe("ForecastBuilder", () => {
 
       const f = forecasts[0];
       // NOAA-side wave_height remains a TEXT-style string produced by the
-      // face-height transformer — see toFaceHeightFeetDecomposed mock.
+      // face-height transformer — see toFaceHeightFeetDecomposedWithDebug mock.
       expect(typeof f.wave_height).toBe("string");
       // OM-side is numeric (meters), completely independent of the TEXT.
       expect(typeof f.wave_height_om).toBe("number");

@@ -294,7 +294,7 @@ export async function getBeachForecastPreview(beachId: string) {
     //      row in the current 24h window — zero coverage gaps.
     // Removing the fallback also closes a wave-height divergence path:
     // the basic table's `wave_height` was never routed through the canonical
-    // face-height transformer (`toFaceHeightFeetDecomposed`), so any
+    // face-height transformer (`toFaceHeightFeetDecomposedWithDebug`), so any
     // consumer that fell through here would render a raw-Hs number that
     // disagreed with the beach detail hero (face-height) and the Oracle
     // home (face-height via `waveHeightBadge`). Returning null surfaces
