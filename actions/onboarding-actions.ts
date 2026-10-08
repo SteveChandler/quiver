@@ -292,6 +292,7 @@ export async function saveOnboardingData(data: OnboardingData) {
           preferredTimeBucket: data.preferredTime ?? null,
           notifyEmail: updatedProfile.notif_email_enabled ?? true,
           notifyPush: updatedProfile.notif_push_enabled ?? false,
+          platform: "web",
         });
         const seedMetadata = seedResult.seeded
           ? {

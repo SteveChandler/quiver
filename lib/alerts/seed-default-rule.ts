@@ -1,6 +1,10 @@
 import type { Json, SupabaseServerClient } from "@/types/supabase";
 import { getPreset } from "@/lib/alerts/presets";
 import type { BeachAlertMeta } from "@/lib/alerts/types";
+import {
+  captureAlertCreatedEvents,
+  type AlertCreatedPlatform,
+} from "@/lib/analytics/alert-created-server";
 
 export type ExperienceLevel =
   | "beginner"
@@ -49,6 +53,8 @@ interface SeedDefaultRuleParams {
   // different beach (e.g. a recommended nearby break) so rule names credit
   // the actual beach instead.
   isHomeBeach?: boolean;
+  // Client that triggered the seed, for the alert_created analytics event.
+  platform?: AlertCreatedPlatform;
 }
 
 // Fields required to build a BeachAlertMeta for preset conditions.
@@ -119,6 +125,7 @@ export async function seedDefaultRulesForUser(
     notifyEmail,
     notifyPush,
     isHomeBeach = true,
+    platform = "web",
   } = params;
 
   const { count, error: countError } = await supabase
@@ -213,6 +220,22 @@ export async function seedDefaultRulesForUser(
   if (insertError) {
     return { seeded: false, reason: "error", error: insertError.message };
   }
+
+  // The count check above makes this the user's first alert batch.
+  await captureAlertCreatedEvents({
+    supabase,
+    userId,
+    events: (inserted ?? []).map((rule, index) => ({
+      ruleId: rule.id,
+      beachId,
+      presetType: rule.preset_type as string | null,
+      source: "onboarding_seed" as const,
+      platform,
+      isFirstAlert: index === 0,
+      notifyEmail,
+      notifyPush,
+    })),
+  });
 
   return {
     seeded: true,

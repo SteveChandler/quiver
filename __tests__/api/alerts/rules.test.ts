@@ -275,6 +275,21 @@ jest.mock("@/lib/middleware/api-wrappers", () => {
   };
 });
 
+var mockCapturePostHogEvent = jest.fn<Promise<void>, [unknown]>(() =>
+  Promise.resolve(),
+);
+var mockTrackingAllowed = jest.fn<Promise<boolean>, unknown[]>(() =>
+  Promise.resolve(true),
+);
+
+jest.mock("@/lib/posthog-server", () => ({
+  capturePostHogEvent: (arg: unknown) => mockCapturePostHogEvent(arg),
+}));
+jest.mock("@/lib/analytics/consent", () => ({
+  getOwnAnalyticsTrackingAllowed: (...args: unknown[]) =>
+    mockTrackingAllowed(...args),
+}));
+
 // ---- Imports must follow mocks ----
 import { GET, POST } from "@/app/api/alerts/rules/route";
 import { DELETE, PATCH } from "@/app/api/alerts/rules/[ruleId]/route";
@@ -341,6 +356,8 @@ beforeEach(() => {
   updateSpy.mockReset();
   deleteSpy.mockReset();
   upsertSpy.mockReset();
+  mockCapturePostHogEvent.mockClear();
+  mockTrackingAllowed.mockReset().mockResolvedValue(true);
 });
 
 // ============================================================================
@@ -548,6 +565,90 @@ describe("POST /api/alerts/rules — duplicate similarity_match guard", () => {
   });
 });
 
+describe("POST /api/alerts/rules — alert_created analytics", () => {
+  const body = {
+    beach_id: "beach-home",
+    name: "Weekend windows",
+    preset_type: "weekend_warrior",
+    conditions: { swell_height_min: 1, swell_height_max: 3, days_of_week: [0, 6] },
+  };
+
+  function reqWithHeaders(headers: Record<string, string>) {
+    return {
+      headers: { get: (name: string) => headers[name.toLowerCase()] ?? null },
+      json: async () => body,
+    } as any;
+  }
+
+  it("captures alert_created for a user's first web rule", async () => {
+    const res = await POST(reqWithHeaders({ cookie: "sb-x-auth-token=1" }));
+
+    expect(res.status).toBe(201);
+    expect(mockCapturePostHogEvent).toHaveBeenCalledTimes(1);
+    expect(mockCapturePostHogEvent).toHaveBeenCalledWith({
+      distinctId: "user-1",
+      event: "alert_created",
+      properties: expect.objectContaining({
+        $insert_id: "alert_created:rule-new",
+        alert_type: "weekend_warrior",
+        beach_id: "beach-home",
+        source: "rules_api",
+        platform: "web",
+        is_first_alert: true,
+        rule_id: "rule-new",
+      }),
+    });
+  });
+
+  it("labels Bearer-authenticated requests as native and later rules as not first", async () => {
+    mockExistingRules = [userRule()];
+
+    await POST(reqWithHeaders({ authorization: "Bearer native.jwt" }));
+
+    expect(mockCapturePostHogEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        properties: expect.objectContaining({
+          platform: "native",
+          is_first_alert: false,
+        }),
+      }),
+    );
+  });
+
+  it("reports hand-built condition alerts as custom", async () => {
+    await POST({
+      headers: { get: () => null },
+      json: async () => ({ ...body, preset_type: null }),
+    } as any);
+
+    expect(mockCapturePostHogEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        properties: expect.objectContaining({ alert_type: "custom" }),
+      }),
+    );
+  });
+
+  it("respects analytics opt-out without blocking the create", async () => {
+    mockTrackingAllowed.mockResolvedValue(false);
+
+    const res = await POST(makeReq(body));
+
+    expect(res.status).toBe(201);
+    expect(mockCapturePostHogEvent).not.toHaveBeenCalled();
+  });
+
+  it("does not capture when the request is rejected", async () => {
+    mockExistingRules = [autoSimilarityRule()];
+
+    const res = await POST(
+      makeReq({ ...body, preset_type: "similarity_match", conditions: {} }),
+    );
+
+    expect(res.status).toBe(409);
+    expect(mockCapturePostHogEvent).not.toHaveBeenCalled();
+  });
+});
+
 describe("POST /api/alerts/rules — watched_call idempotency", () => {
   const watchedCall = {
     version: 1,
@@ -595,6 +696,7 @@ describe("POST /api/alerts/rules — watched_call idempotency", () => {
       already_exists: true,
     });
     expect(insertSpy).not.toHaveBeenCalled();
+    expect(mockCapturePostHogEvent).not.toHaveBeenCalled();
   });
 
   it("creates the first watched call with its bounded identity intact", async () => {

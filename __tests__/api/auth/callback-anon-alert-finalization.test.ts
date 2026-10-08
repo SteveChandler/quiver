@@ -42,6 +42,30 @@ jest.mock("next/headers", () => ({
   })),
 }));
 
+// after() only runs inside a Next request scope; collect callbacks so tests
+// can run them explicitly.
+const afterCallbacks: Array<() => Promise<void>> = [];
+jest.mock("next/server", () => ({
+  ...jest.requireActual("next/server"),
+  after: (callback: () => Promise<void>) => {
+    afterCallbacks.push(callback);
+  },
+}));
+
+var mockCapturePostHogEvent = jest.fn<Promise<void>, [unknown]>(() =>
+  Promise.resolve(),
+);
+var mockTrackingAllowed = jest.fn<Promise<boolean>, unknown[]>(() =>
+  Promise.resolve(true),
+);
+jest.mock("@/lib/posthog-server", () => ({
+  capturePostHogEvent: (arg: unknown) => mockCapturePostHogEvent(arg),
+}));
+jest.mock("@/lib/analytics/consent", () => ({
+  getOwnAnalyticsTrackingAllowed: (...args: unknown[]) =>
+    mockTrackingAllowed(...args),
+}));
+
 // Stub email-token verify so the invite-cookie path is a no-op (no cookie
 // is set in tests anyway).
 jest.mock("@/lib/utils/email-token", () => ({
@@ -72,6 +96,7 @@ interface MockState {
   rpcCalls: Array<{ name: string; args: unknown }>;
   eventInserts: EventRow[];
   exchangeCodeError: unknown;
+  alertRuleCount: number;
 }
 
 const state: MockState = {
@@ -81,6 +106,7 @@ const state: MockState = {
   rpcCalls: [],
   eventInserts: [],
   exchangeCodeError: null,
+  alertRuleCount: 0,
 };
 
 const mockSupabaseClient = {
@@ -120,6 +146,13 @@ const mockSupabaseClient = {
           return { error: null };
         }),
       };
+    }
+    if (table === "alert_rules") {
+      const chain: any = {
+        select: jest.fn(() => chain),
+        eq: jest.fn(async () => ({ count: state.alertRuleCount, error: null })),
+      };
+      return chain;
     }
     if (table === "user_follows") {
       return {
@@ -195,6 +228,9 @@ beforeEach(() => {
   state.rpcCalls = [];
   state.eventInserts = [];
   state.exchangeCodeError = null;
+  state.alertRuleCount = 0;
+  afterCallbacks.length = 0;
+  mockTrackingAllowed.mockReset().mockResolvedValue(true);
 });
 
 describe("/auth/callback — anon alert capture finalization", () => {
@@ -337,5 +373,94 @@ describe("/auth/callback — anon alert capture finalization", () => {
     expect(parsed.pathname).toBe("/explicit");
     expect(parsed.searchParams.get("welcome")).toBe("alert_capture");
     expect(parsed.searchParams.get("count")).toBe("1");
+  });
+});
+
+describe("/auth/callback — alert_created analytics for converted captures", () => {
+  async function runAfterCallbacks(): Promise<void> {
+    for (const callback of afterCallbacks.splice(0)) await callback();
+  }
+
+  it("captures alert_created per converted capture after the response, flagging the first alert", async () => {
+    state.rpcResponse = {
+      data: [
+        captureRow({
+          capture_id: "00000000-0000-0000-0000-000000000001",
+          beach_id: BEACH_ID_1,
+          preset_type: "glass_off",
+        }),
+        captureRow({
+          capture_id: "00000000-0000-0000-0000-000000000002",
+          beach_id: BEACH_ID_2,
+          preset_type: "big_day",
+        }),
+      ],
+      error: null,
+    };
+    state.alertRuleCount = 2;
+
+    await GET(makeRequest("?code=abc"));
+    expect(mockCapturePostHogEvent).not.toHaveBeenCalled();
+
+    await runAfterCallbacks();
+
+    expect(mockCapturePostHogEvent).toHaveBeenCalledTimes(2);
+    expect(mockCapturePostHogEvent).toHaveBeenNthCalledWith(1, {
+      distinctId: USER_ID,
+      event: "alert_created",
+      properties: expect.objectContaining({
+        $insert_id: "alert_created:capture:00000000-0000-0000-0000-000000000001",
+        alert_type: "glass_off",
+        beach_id: BEACH_ID_1,
+        source: "anon_capture",
+        platform: "web",
+        is_first_alert: true,
+      }),
+    });
+    expect(mockCapturePostHogEvent).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        properties: expect.objectContaining({
+          alert_type: "big_day",
+          beach_id: BEACH_ID_2,
+          is_first_alert: false,
+        }),
+      }),
+    );
+  });
+
+  it("does not flag a first alert when the user already owned rules", async () => {
+    state.rpcResponse = { data: [captureRow()], error: null };
+    state.alertRuleCount = 4;
+
+    await GET(makeRequest("?code=abc"));
+    await runAfterCallbacks();
+
+    expect(mockCapturePostHogEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        properties: expect.objectContaining({ is_first_alert: false }),
+      }),
+    );
+  });
+
+  it("respects analytics opt-out", async () => {
+    state.rpcResponse = { data: [captureRow()], error: null };
+    state.alertRuleCount = 1;
+    mockTrackingAllowed.mockResolvedValue(false);
+
+    const res = await GET(makeRequest("?code=abc"));
+    await runAfterCallbacks();
+
+    expect(res.status).toBe(307);
+    expect(mockCapturePostHogEvent).not.toHaveBeenCalled();
+  });
+
+  it("schedules nothing when there are no pending captures", async () => {
+    state.rpcResponse = { data: [], error: null };
+
+    await GET(makeRequest("?code=abc"));
+
+    expect(afterCallbacks).toHaveLength(0);
+    expect(mockCapturePostHogEvent).not.toHaveBeenCalled();
   });
 });
