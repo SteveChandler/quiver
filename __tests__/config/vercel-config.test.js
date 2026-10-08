@@ -87,9 +87,11 @@ describe("vercel.json", () => {
       git("commit", "-m", "test update");
       expect(runIgnoreCommand()).toBe(0);
 
-      // .vercelignore keeps root scripts/ and supabase/ out of the upload, so
-      // a commit touching only them cannot change the build.
-      expect(vercelIgnore).toMatch(/^scripts\/$/m);
+      // .vercelignore keeps root scripts/ (except load-env.mjs, which the
+      // type-checked playwright.config.ts imports) and supabase/ out of the
+      // upload, so a commit touching only them cannot change the build.
+      expect(vercelIgnore).toMatch(/^scripts\/\*$/m);
+      expect(vercelIgnore).toMatch(/^!scripts\/load-env\.mjs$/m);
       expect(vercelIgnore).toMatch(/^\/supabase\/$/m);
       fs.mkdirSync(path.join(repoPath, "scripts"));
       fs.writeFileSync(path.join(repoPath, "scripts", "collector.py"), "print(1)\n");
