@@ -196,55 +196,6 @@ formatTimeOfDay(new Date())    // "dawn patrol"
 
 ---
 
-## Scripts
-
-### Profile Migration (`scripts/migrate-npc-profiles.ts`)
-
-Updates existing NPC profiles to new names and configuration:
-
-```bash
-# Development
-CONFIRM_TARGET=DEV yarn npc:migrate
-
-# Production (requires confirmation)
-CONFIRM_TARGET=PROD CONFIRM_PROD=YES yarn npc:migrate
-```
-
-**What it does:**
-1. Finds existing mock profiles by matching old names
-2. Updates to new natural names
-3. Sets personality, region, activity level
-4. Creates new NPCs if not found
-
-### Morning Forecast (`scripts/morning-forecast.ts`)
-
-Posts 3 regional surf forecasts from the "Quiver Surf Forecast" system account:
-
-```bash
-yarn npc:forecast
-```
-
-**Schedule:** Daily at 5:30am PT (via cron/GitHub Actions)
-
-**Posts:**
-1. NorCal Morning Report (tagged to Ocean Beach SF)
-2. Central Coast Morning Report (tagged to Steamer Lane)
-3. SoCal Morning Report (tagged to Scripps)
-
-### Template Health Check (`scripts/check-template-health.ts`)
-
-Monitors template usage for staleness:
-
-```bash
-yarn npc:health
-```
-
-**Alerts when:**
-- A template is used 3+ times in 7 days
-- A personality/content-type category has no templates
-
----
-
 ## Configuration Files
 
 ### NPC Roster (`config/npc-roster.ts`)
@@ -275,18 +226,6 @@ interface RegionConfig {
 
 // Regions: sf-bay-area, central-coast, north-san-diego,
 //          south-san-diego, orange-county, socal-visitor, norcal-visitor
-```
-
----
-
-## Package.json Scripts
-
-```json
-{
-  "npc:migrate": "tsx scripts/migrate-npc-profiles.ts",
-  "npc:forecast": "tsx scripts/morning-forecast.ts",
-  "npc:health": "tsx scripts/check-template-health.ts"
-}
 ```
 
 ---
@@ -397,11 +336,6 @@ gh run list --workflow="Morning Forecast"
 - `lib/npc/beach-selection.ts` - Weighted beach picking
 - `lib/npc/posting-windows.ts` - Time-based posting logic
 - `lib/npc/forecast-formatter.ts` - Natural language formatters
-
-### Scripts
-- `scripts/migrate-npc-profiles.ts` - NPC migration
-- `scripts/morning-forecast.ts` - Daily forecast posts
-- `scripts/check-template-health.ts` - Staleness monitoring
 
 ### Database
 - `supabase/migrations/20260113200001_add_npc_profile_fields.sql`

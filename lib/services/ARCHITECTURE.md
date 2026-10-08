@@ -838,11 +838,7 @@ All forecast-consuming services (e.g., `surf-discovery-service`) now operate in 
 
 #### **Background Job Responsibility**
 
-Forecast generation is exclusively handled by background jobs:
-
-1. **Automated**: `.github/workflows/enhanced-forecast-sync.yml` (daily 6 AM UTC)
-2. **Manual**: `npm run update-forecasts` (for immediate refresh)
-3. **API endpoint**: `/api/cron/enhanced-forecast-sync` (Vercel Cron)
+Forecast generation is handled by the scheduled Vercel crons in `vercel.json`.
 
 These jobs call `updateAllBeachForecasts()` which uses `EnhancedForecastService` to regenerate all forecasts.
 

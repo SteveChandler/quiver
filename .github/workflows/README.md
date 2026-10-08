@@ -28,22 +28,22 @@ The following secrets must be configured in your GitHub repository settings (Set
 
 ## Active Workflows
 
-### 2. morning-intel.yml
+### 1. morning-intel.yml
 **Schedule:** Daily at 6am PT
 **Purpose:** Posts automated morning surf intel for a specific beach
 **Script:** `scripts/morningIntel.ts`
 
-### 4. database-backup.yml
+### 2. database-backup.yml
 **Schedule:** Daily at 2am UTC
 **Purpose:** Creates automated database backups using Supabase CLI
 **Retention:** 30 days
 
-### 5. fetch-beach-photos.yml
+### 3. fetch-beach-photos.yml
 **Schedule:** Daily at 9:30am UTC
 **Purpose:** Fetches beach photos from Flickr and OpenVerse
 **Script:** `scripts/fetch-beach-photos.ts`
 
-### 6. lighthouse-ci.yml
+### 4. lighthouse-ci.yml
 **Triggers:** Push to main/develop, PRs to main, workflow_dispatch (with optional URL override)
 **Purpose:** Runs Lighthouse performance, accessibility, SEO, and best practices audits against Vercel deployments
 **Runtime:** ~10-15 minutes

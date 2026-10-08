@@ -323,7 +323,7 @@ jobs:
 
 ```mermaid
 graph TD
-    Start[Code Ready] --> CapSync[yarn build:ios]
+    Start[Code Ready] --> CapSync[Build in quiver-native]
     CapSync --> UpdateCap[Sync Capacitor<br/>npx cap sync ios]
     UpdateCap --> Xcode[Open Xcode]
 
@@ -364,7 +364,7 @@ graph TD
 
 ```mermaid
 graph TD
-    Start[Code Ready] --> CapSync[yarn build<br/>yarn mobile:sync:prod]
+    Start[Code Ready] --> CapSync[Build in quiver-native]
     CapSync --> BuildAPK[Build APK<br/>./gradlew assembleDebug]
 
     BuildAPK --> BetaChoice{Distribution<br/>Channel?}
@@ -409,7 +409,6 @@ graph TD
 
 ```bash
 # Build debug APK
-yarn build && yarn mobile:sync:prod
 cd android && ./gradlew assembleDebug
 
 # Upload via Firebase CLI

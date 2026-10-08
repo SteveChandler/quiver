@@ -143,9 +143,6 @@ npm run test:e2e:ui               # With Playwright UI
 npm run test:e2e:dev
 npm run test:e2e:dev:ui
 
-# Run persona tests
-npm run test:e2e:personas
-npm run test:e2e:personas:dev    # Against dev environment
 ```
 
 #### Option 2: Set Environment Variables
@@ -204,8 +201,6 @@ npm run test:e2e:auth:reset
 # Regenerate for current environment
 npm run test:e2e:setup
 
-# Regenerate persona auth states
-npm run test:e2e:persona-setup
 ```
 
 ### Troubleshooting
@@ -523,25 +518,22 @@ expect(verification.isCorrectPersona).toBe(true);
 
 ### API Response Waiting
 
-**Location:** `e2e/utils/test-helpers.ts`
-
-Use `waitForApiResponse` instead of `waitForTimeout` when waiting for debounced or async API calls:
+Use Playwright's `page.waitForResponse()` instead of `waitForTimeout` when waiting for debounced or async API calls:
 
 ```typescript
-import { waitForApiResponse } from './utils/test-helpers';
-
-// Sets up waitForResponse BEFORE the action, then awaits both
-await waitForApiResponse(page, '/api/surf/discover', async () => {
-  await filterButton.click();
-});
+const responsePromise = page.waitForResponse((response) =>
+  response.url().includes('/api/surf/discover')
+);
+await filterButton.click();
+await responsePromise;
 
 // With regex pattern
-await waitForApiResponse(page, /\/api\/beaches\/search/, async () => {
-  await searchInput.fill('Ocean Beach');
-});
+const searchResponsePromise = page.waitForResponse(/\/api\/beaches\/search/);
+await searchInput.fill('Ocean Beach');
+await searchResponsePromise;
 ```
 
-For direct use without the helper (e.g., when the response isn't guaranteed):
+For responses that aren't guaranteed:
 
 ```typescript
 const responsePromise = page.waitForResponse(
@@ -890,11 +882,6 @@ Quiver includes a comprehensive persona-based testing framework for validating m
 # 1. Seed mock users (one-time setup)
 yarn seed:prod-mock-users
 
-# 2. Authenticate all personas
-yarn test:e2e:persona-setup
-
-# 3. Run persona tests
-yarn test:e2e:personas
 ```
 
 ### The 6 Personas
@@ -1311,9 +1298,8 @@ Quiver E2E tests now **server-validate** auth state (not just cookie presence). 
 
 If persona tests fail with auth state errors:
 
-1. Run persona setup: `yarn test:e2e:persona-setup`
-2. Verify mock users exist: `yarn seed:prod-mock-users`
-3. Check `PERSONA_PASSWORD` environment variable
+1. Verify mock users exist: `yarn seed:prod-mock-users`
+2. Check `PERSONA_PASSWORD` environment variable
 
 ### Geolocation Not Working
 
