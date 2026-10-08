@@ -27,6 +27,7 @@ import { NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import * as Sentry from "@sentry/nextjs";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { captureRevenueCatFunnelEvent } from "@/lib/analytics/revenuecat-funnel-events";
 import {
   buildRevenueCatProviderEventInsert,
   buildEntitlementUpdate,
@@ -127,6 +128,17 @@ export async function POST(request: Request) {
       userId,
     );
     return providerEvent.retryRequired ? ledgerRetryResponse() : response;
+  }
+
+  // The ledger row is stored and a processed redelivery already returned
+  // above, so each RC event reaches PostHog once (retries of an unfinished
+  // event reuse the same event id, uuid and timestamp).
+  if (providerEvent.providerEventId) {
+    await captureRevenueCatFunnelEvent({
+      supabase: supabase as any,
+      event,
+      userId,
+    });
   }
 
   try {
