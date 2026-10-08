@@ -58,7 +58,6 @@ e2e/
 │   ├── persona-auth.ts    # Multi-user authentication for personas
 │   ├── persona-content-generators.ts  # Persona-style content generation
 │   ├── persona-helpers.ts # High-level persona test helpers
-│   ├── personalization-helpers.ts # Personalization data availability checks
 │   ├── profile-helpers.ts # Profile management utilities
 │   ├── profile-preferences-helpers.ts # Profile preference form helpers
 │   ├── session-test-data.ts # Session test data fixtures

@@ -172,36 +172,6 @@ export async function reopenOnboarding() {
   });
 }
 
-/**
- * Dismiss onboarding without marking the profile complete.
- *
- * Completion is reserved for saveOnboardingData(), which requires a home beach.
- * Keeping dismissals out of onboarding_completed_at prevents skipped users from
- * looking activated in the funnel.
- */
-export async function skipOnboarding() {
-  return withAuthenticatedAction(async (user, supabase) => {
-    // Log a server-confirmed dismissal event to user_events. Reuses the
-    // existing 'onboarding_step' event type because the table CHECK constraint
-    // only allows the existing enum values.
-    const { error: eventError } = await supabase.from("user_events").insert({
-      user_id: user.id,
-      event_type: "onboarding_step",
-      metadata: {
-        step: "dismissed",
-        step_name: "dismissed",
-        source: "server",
-      },
-    });
-
-    if (eventError) {
-      console.warn("Failed to log onboarding_dismissed event:", eventError);
-    }
-
-    return { success: true };
-  });
-}
-
 export async function saveOnboardingData(data: OnboardingData) {
   return withAuthenticatedAction(async (user, supabase) => {
     try {

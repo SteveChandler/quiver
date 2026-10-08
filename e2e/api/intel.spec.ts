@@ -22,7 +22,6 @@ dotenv.config();
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 const INTEL_ENDPOINT = `${BASE_URL}/api/intel`;
-const INTEL_CONFIRM = (id: string) => `${BASE_URL}/api/intel/${id}/confirm`;
 
 // UUID format regex (v1-v5)
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -660,73 +659,6 @@ test.describe('Intel API Contract', () => {
         console.log(`[Intel POST] Response time: ${duration}ms`);
 
         expect(duration).toBeLessThan(5000);
-      });
-    });
-  });
-
-  test.describe('POST /api/intel/[id]/confirm', () => {
-    test.describe('Authentication Requirements', () => {
-      test('should require authentication', async ({ playwright }) => {
-        const unauthContext = await playwright.request.newContext({
-          storageState: { cookies: [], origins: [] },
-        });
-
-        const response = await unauthContext.post(INTEL_CONFIRM(FAKE_INTEL_ID));
-
-        expect(response.status()).toBe(401);
-
-        const json = await response.json();
-        expect(json.success).toBe(false);
-      });
-    });
-
-    test.describe('Parameter Validation', () => {
-      test('should reject invalid UUID format', async ({ request }) => {
-        const response = await request.post(INTEL_CONFIRM('invalid-uuid'));
-
-        expect(response.status()).toBe(400);
-
-        const json = await response.json();
-        expect(json.success).toBe(false);
-        expect(json.error).toBeDefined();
-      });
-    });
-
-    test.describe('Response Structure', () => {
-      test('should return standard API response structure', async ({ request }) => {
-        const response = await request.post(INTEL_CONFIRM(FAKE_INTEL_ID));
-        const json = await response.json();
-
-        expect(json).toHaveProperty('success');
-        expect(json).toHaveProperty('timestamp');
-      });
-    });
-
-    test.describe('Security Headers', () => {
-      test('should include security headers', async ({ request }) => {
-        const response = await request.post(INTEL_CONFIRM(FAKE_INTEL_ID));
-        const headers = response.headers();
-
-        expect(headers['x-content-type-options']).toBe('nosniff');
-        expect(headers['x-frame-options']).toBe('DENY');
-      });
-    });
-
-    test.describe('Error Handling', () => {
-      test('should handle non-existent intel post gracefully', async ({ request }) => {
-        const response = await request.post(INTEL_CONFIRM(FAKE_INTEL_ID));
-
-        // Should not crash
-        expect(response.status()).toBeGreaterThanOrEqual(400);
-
-        const json = await response.json();
-        expect(json).toHaveProperty('success');
-      });
-
-      test('should handle GET requests with 405 Method Not Allowed', async ({ request }) => {
-        const response = await request.get(INTEL_CONFIRM(FAKE_INTEL_ID));
-
-        expect(response.status()).toBe(405);
       });
     });
   });

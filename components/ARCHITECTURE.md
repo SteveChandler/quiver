@@ -464,7 +464,6 @@ For details, see [`/components/oracle/ARCHITECTURE.md`](/components/oracle/ARCHI
 
 #### Utility Components
 
-- **`section-wrapper.tsx`** - Consistent section layout
 - **`feature-card.tsx`** - Individual feature display
 - **`index.ts`** - Clean component exports
 

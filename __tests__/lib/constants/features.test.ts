@@ -1,60 +1,6 @@
-import { FEATURE_CARDS, CONTENT } from "@/lib/constants/features";
+import { CONTENT } from "@/lib/constants/features";
 
 describe("Features Constants", () => {
-  describe("FEATURE_CARDS", () => {
-    it("has the correct number of feature cards", () => {
-      expect(FEATURE_CARDS).toHaveLength(7);
-    });
-
-    it("describes Android access without the retired tester incentive", () => {
-      const appCard = FEATURE_CARDS.find((card) => card.title === "Get the App");
-      const featureText = appCard?.features.map((feature) => feature.text).join(" ") ?? "";
-
-      expect(featureText).toMatch(/native android access/i);
-      expect(featureText).not.toMatch(/14 days|free year|year of pro/i);
-    });
-
-    it("has all required properties for each feature card", () => {
-      FEATURE_CARDS.forEach((card, index) => {
-        expect(card).toHaveProperty("icon");
-        expect(card).toHaveProperty("title");
-        expect(card).toHaveProperty("description");
-        expect(card).toHaveProperty("iconBgColor");
-        expect(card).toHaveProperty("iconColor");
-        expect(card).toHaveProperty("features");
-
-        expect(typeof card.title).toBe("string");
-        expect(typeof card.description).toBe("string");
-        expect(typeof card.iconBgColor).toBe("string");
-        expect(typeof card.iconColor).toBe("string");
-        expect(Array.isArray(card.features)).toBe(true);
-
-        // Check feature items structure
-        card.features.forEach((feature) => {
-          expect(feature).toHaveProperty("icon");
-          expect(feature).toHaveProperty("text");
-          expect(feature).toHaveProperty("color");
-          expect(typeof feature.text).toBe("string");
-          expect(typeof feature.color).toBe("string");
-        });
-      });
-    });
-
-    it("has correct titles for feature cards", () => {
-      const expectedTitles = [
-        "Your Surf Call",
-        "Tuned to You",
-        "What's Happening Now",
-        "Spot Discovery",
-        "Session Tracking",
-        "Get the App",
-        "Community",
-      ];
-      const actualTitles = FEATURE_CARDS.map((card) => card.title);
-      expect(actualTitles).toEqual(expectedTitles);
-    });
-  });
-
   describe("CONTENT", () => {
     it("has hero content structure", () => {
       expect(CONTENT.hero).toHaveProperty("title");

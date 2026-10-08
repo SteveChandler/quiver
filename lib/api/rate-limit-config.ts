@@ -204,21 +204,6 @@ export const RATE_LIMITS = {
   }),
 
   /**
-   * Surf Insights - MEDIUM
-   *
-   * Endpoint: /api/surf/insights
-   * Risk: Complex similarity scoring algorithm
-   * Cost: Database queries for user sessions, similarity computation
-   *
-   * Moderate limits for personalized insights (same as surf-discovery)
-   */
-  "surf-insights": relaxForE2E({
-    requestsPerMinute: IS_PRODUCTION ? 10 : 40,
-    requestsPerHour: IS_PRODUCTION ? 100 : 400,
-    burstLimit: IS_PRODUCTION ? 3 : 15,
-  }),
-
-  /**
    * Webhook - Resend
    *
    * Endpoint: /api/webhooks/resend
@@ -332,8 +317,6 @@ const RATE_LIMIT_MESSAGES = {
     "Surf discovery rate limit exceeded. Please wait before requesting more recommendations.",
   "surf-call":
     "Surf call rate limit exceeded. Please wait before requesting more calls.",
-  "surf-insights":
-    "Surf insights rate limit exceeded. Please wait before requesting more insights.",
   "webhook-resend":
     "Webhook rate limit exceeded. Events will be retried by Resend.",
   "hls-proxy":

@@ -745,7 +745,7 @@ const nextConfig = {
 /**
  * Determines if a beach API path should use StaleWhileRevalidate caching.
  * Only caches public read-only endpoints. Excludes:
- * - Authenticated endpoints (/favorites, /favorite/toggle)
+ * - Authenticated endpoints (/favorites)
  * - Mutation endpoints
  * - Frequently-changing feeds (/sessions)
  *
@@ -757,7 +757,6 @@ const isPublicBeachApiPath = (pathname) => {
 
   // Exclude authenticated and mutation endpoints
   if (pathname === "/api/beaches/favorites") return false;
-  if (pathname.includes("/favorite/toggle")) return false;
   if (pathname.includes("/sessions")) return false;
 
   // Whitelist safe public GET routes

@@ -5,7 +5,6 @@ import { useEffect, useState, type ReactNode } from "react";
 import { AuthProvider, useAuth } from "@/context/auth-context";
 import { ProfileProvider } from "@/context/profile-context";
 import { LocationProvider } from "@/context/location-context";
-import { SelectedBeachProvider } from "@/state/selectedBeach";
 import { Suspense } from "react";
 import { AnalyticsLoader } from "@/components/analytics/analytics-loader";
 import { PostHogProvider } from "@/components/analytics/posthog-provider";
@@ -155,9 +154,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
     return <EmbedBodyOverride>{children}</EmbedBodyOverride>;
   }
 
-  // Note: We keep SelectedBeachProvider mounted even on "/"
-  // so back/forward navigation doesn't destroy client caches and force refetches.
-
   return (
     <>
       {/* Auto-reload on stale chunk errors after deployments */}
@@ -191,21 +187,15 @@ export function Providers({ children }: { children: React.ReactNode }) {
             {/* Auth-only overlays (do not mount when logged out) */}
             <AuthOverlays />
 
-            <SelectedBeachProvider>
-              {isWelcomePage ? (
-                /* Welcome/onboarding — full-screen, no nav or footer */
-                <>{children}</>
-              ) : !isLandingPage ? (
-                <AuthenticatedAppContent>
-                  {children}
-                </AuthenticatedAppContent>
-              ) : (
-                /* Landing Page Optimized Path */
-                <LandingPageContent>
-                  {children}
-                </LandingPageContent>
-              )}
-            </SelectedBeachProvider>
+            {isWelcomePage ? (
+              /* Welcome/onboarding — full-screen, no nav or footer */
+              <>{children}</>
+            ) : !isLandingPage ? (
+              <AuthenticatedAppContent>{children}</AuthenticatedAppContent>
+            ) : (
+              /* Landing Page Optimized Path */
+              <LandingPageContent>{children}</LandingPageContent>
+            )}
           </ProfileProvider>
         </AuthProvider>
       </LocationProvider>
