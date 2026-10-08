@@ -96,9 +96,6 @@
   },
   "ignoreBinaries": [
     "supabase",
-    "psql",
-    "sleep",
-    "pkill",
-    "codex"
+    "psql"
   ]
 }
