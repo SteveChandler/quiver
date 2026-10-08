@@ -285,8 +285,7 @@ interface RegionConfig {
 {
   "npc:migrate": "tsx scripts/migrate-npc-profiles.ts",
   "npc:forecast": "tsx scripts/morning-forecast.ts",
-  "npc:health": "tsx scripts/check-template-health.ts",
-  "npc:daily": "tsx scripts/npc-daily-activity.ts"
+  "npc:health": "tsx scripts/check-template-health.ts"
 }
 ```
 
@@ -403,7 +402,6 @@ gh run list --workflow="Morning Forecast"
 - `scripts/migrate-npc-profiles.ts` - NPC migration
 - `scripts/morning-forecast.ts` - Daily forecast posts
 - `scripts/check-template-health.ts` - Staleness monitoring
-- `scripts/npc-daily-activity.ts` - General NPC activity (existing)
 
 ### Database
 - `supabase/migrations/20260113200001_add_npc_profile_fields.sql`

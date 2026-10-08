@@ -144,8 +144,6 @@ yarn npc:forecast
 # Check template health
 yarn npc:health
 
-# Run daily activity (existing)
-CONFIRM_TARGET=DEV yarn npc:daily
 ```
 
 **Key Files:**

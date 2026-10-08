@@ -28,21 +28,10 @@ The following secrets must be configured in your GitHub repository settings (Set
 
 ## Active Workflows
 
-### 1. daily-intel.yml
-**Schedule:** 3x daily (6am, 10am, 2pm PT)
-**Purpose:** Generates surf intel for top 10 San Diego beaches
-**Script:** `scripts/generate-daily-intel.ts`
-
 ### 2. morning-intel.yml
 **Schedule:** Daily at 6am PT
 **Purpose:** Posts automated morning surf intel for a specific beach
 **Script:** `scripts/morningIntel.ts`
-
-### 3. npc-daily.yml
-**Schedule:** Daily at 9am PT
-**Purpose:** Creates synthetic user activity (sessions, intel posts, reviews) from mock users
-**Script:** `scripts/npc-daily-activity.ts`
-**Note:** Requires mock users with `is_mock=true` in the database
 
 ### 4. database-backup.yml
 **Schedule:** Daily at 2am UTC
@@ -97,10 +86,6 @@ All workflows now use:
 **Workflow fails during "Install dependencies"**
 - Corepack should automatically use the correct Yarn version
 - Check that `packageManager` field is set in package.json
-
-**NPC workflow fails with "No mock users found"**
-- Run the mock user seeding script first: `npm run seed:prod-mock-users`
-- Verify users have `is_mock=true` in the database
 
 **Database backup fails**
 - Verify `SUPABASE_PROJECT_REF` secret is set correctly
