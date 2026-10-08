@@ -1,3 +1,4 @@
+import { degreeToCardinal } from "@/lib/utils/geo-utils";
 /**
  * Swell Analyzer Module
  * Analyzes swell components and their match with beach preferences
@@ -19,21 +20,6 @@ function normalizeAngle(angle: number): number {
   while (angle < 0) angle += 360;
   while (angle >= 360) angle -= 360;
   return angle;
-}
-
-/**
- * Convert degrees to cardinal direction
- */
-function degreesToCardinal(degrees: number): string {
-  const normalized = normalizeAngle(degrees);
-  const directions = [
-    "N", "NNE", "NE", "ENE",
-    "E", "ESE", "SE", "SSE",
-    "S", "SSW", "SW", "WSW",
-    "W", "WNW", "NW", "NNW"
-  ];
-  const index = Math.round(normalized / 22.5) % 16;
-  return directions[index];
 }
 
 /**
@@ -86,7 +72,7 @@ export function primarySecondarySwell(
         height: Number(forecastWithSwell.swell_height.toFixed(1)),
         period: Math.round(forecastWithSwell.swell_period || 0),
         direction: Math.round(forecastWithSwell.swell_direction || 0),
-        cardinal: degreesToCardinal(forecastWithSwell.swell_direction || 0),
+        cardinal: degreeToCardinal(forecastWithSwell.swell_direction || 0),
       }
     : null;
 
@@ -98,7 +84,7 @@ export function primarySecondarySwell(
           direction: Math.round(
             forecastWithSwell.secondary_swell_direction || 0
           ),
-          cardinal: degreesToCardinal(
+          cardinal: degreeToCardinal(
             forecastWithSwell.secondary_swell_direction || 0
           ),
         }
@@ -157,7 +143,7 @@ export function analyzeSwellMatch(
     return {
       status: "optimal",
       emoji: "✅",
-      message: `${degreesToCardinal(swellDirection)} (${Math.round(swellDirection)}°) - within optimal window`,
+      message: `${degreeToCardinal(swellDirection)} (${Math.round(swellDirection)}°) - within optimal window`,
     };
   }
 
@@ -179,13 +165,13 @@ export function analyzeSwellMatch(
     return {
       status: "acceptable",
       emoji: "⚠️",
-      message: `${degreesToCardinal(swellDirection)} (${Math.round(swellDirection)}°) - slightly off optimal`,
+      message: `${degreeToCardinal(swellDirection)} (${Math.round(swellDirection)}°) - slightly off optimal`,
     };
   }
 
   return {
     status: "poor",
     emoji: "❌",
-    message: `${degreesToCardinal(swellDirection)} (${Math.round(swellDirection)}°) - outside optimal window`,
+    message: `${degreeToCardinal(swellDirection)} (${Math.round(swellDirection)}°) - outside optimal window`,
   };
 }

@@ -13,6 +13,7 @@ const mockGetRecommendationLabelGated = jest.fn(
 
 jest.mock("@/lib/domains/scoring", () => ({
   beachToSpotProfile: jest.fn(() => mockProfile),
+  get discoveryScoringEngine() { return this.createDiscoveryScoringEngine(); },
   createDiscoveryScoringEngine: jest.fn(() => ({ score: mockScore })),
   forecastToSnapshot: jest.fn(() => mockSnapshot),
   getConditionCharacter: jest.fn(() => mockCharacter),

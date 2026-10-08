@@ -158,13 +158,7 @@ export function buildForecastBenchmarkQueries(
   spots: ForecastBenchmarkSpot[],
   spotsPerRegion = 5,
 ): ForecastBenchmarkQuery[] {
-  const spotsByRegion = new Map<string, ForecastBenchmarkSpot[]>();
-  for (const spot of spots) {
-    const region = classifyForecastBenchmarkRegion(spot);
-    const regionSpots = spotsByRegion.get(region) ?? [];
-    regionSpots.push(spot);
-    spotsByRegion.set(region, regionSpots);
-  }
+  const spotsByRegion = Map.groupBy(spots, classifyForecastBenchmarkRegion);
 
   const queries: ForecastBenchmarkQuery[] = [];
   for (const [region, regionSpots] of spotsByRegion) {

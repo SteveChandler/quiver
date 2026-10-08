@@ -3,7 +3,7 @@
  * Tests CDIP and NOAA API rate limiting functionality
  */
 
-import { CDIPRateLimiter, NOAARateLimiter, RateLimiter } from "@/lib/utils/rate-limiter";
+import { RateLimiter } from "@/lib/utils/rate-limiter";
 
 // Mock console to avoid noise in tests
 const originalConsole = { ...console };
@@ -64,20 +64,5 @@ describe("RateLimiter", () => {
       expect(rateLimiter.canMakeRequest()).toBe(false);
     });
   });
-
-  describe("CDIPRateLimiter", () => {
-
-    it("should maintain singleton behavior", () => {
-      // The singleton should provide consistent responses
-      const status1 = CDIPRateLimiter.getStatus();
-      const status2 = CDIPRateLimiter.getStatus();
-
-      // Both calls should return the same instance's status
-      expect(status1.requestsRemaining).toBe(status2.requestsRemaining);
-    });
-  });
-
-
-
 
 });

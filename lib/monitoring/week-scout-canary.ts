@@ -1,3 +1,4 @@
+import { getLocalDateFormatter } from "@/lib/services/discovery/window-selector/time-slot-utils";
 import { generateWeekScoutForecastForDays } from "@/lib/services/discovery/week-scout";
 
 /**
@@ -33,12 +34,7 @@ interface WeekScoutCanaryDependencies {
 }
 
 function localDate(now: Date, timeZone: string): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(now);
+  return getLocalDateFormatter(timeZone).format(now);
 }
 
 export async function runWeekScoutCanary(

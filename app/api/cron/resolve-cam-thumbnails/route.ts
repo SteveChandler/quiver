@@ -1,3 +1,4 @@
+import { setTimeout as sleep } from "node:timers/promises";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import {
   validateCronRequest,
@@ -142,7 +143,7 @@ async function _GET(request: Request): Promise<Response> {
           );
         }
         // Polite delay between scrapes
-        await new Promise((r) => setTimeout(r, 500));
+        await sleep(500);
       }
 
       if (!thumbnailUrl) {

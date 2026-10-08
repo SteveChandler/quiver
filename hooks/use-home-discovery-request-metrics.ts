@@ -11,14 +11,7 @@ const HOME_DISCOVERY_MARK_PREFIX = "quiver:home:discovery-request:";
 const HOME_CALL_RENDERED_MARK_PREFIX = "quiver:home:call-rendered:";
 
 function createHomeLoadId(): string {
-  if (
-    typeof crypto !== "undefined" &&
-    typeof crypto.randomUUID === "function"
-  ) {
-    return crypto.randomUUID();
-  }
-
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  return crypto.randomUUID();
 }
 
 function clearStaleHomeDiscoveryMarks(): void {

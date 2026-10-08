@@ -1,3 +1,4 @@
+import { setTimeout as sleep } from "node:timers/promises";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { NOAAConditionsSync } from "./noaa-conditions-sync";
 
@@ -128,7 +129,7 @@ export class InactiveBuoyCleanup {
         }
 
         // Add delay to avoid overwhelming NOAA servers
-        await new Promise((resolve) => setTimeout(resolve, 200));
+        await sleep(200);
       }
 
       console.log(

@@ -1,3 +1,4 @@
+import { setTimeout as sleep } from "node:timers/promises";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { fetchWaterTemperature } from "@/lib/services/noaa-coops/api-client";
 import { getStationDistanceKm } from "@/lib/services/noaa-coops/station-resolver";
@@ -957,7 +958,7 @@ export class EnhancedForecastService {
       );
       // Small delay between station batches
       if (i + STATION_BATCH_SIZE < uniqueStations.length) {
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        await sleep(500);
       }
     }
 

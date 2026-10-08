@@ -42,10 +42,7 @@ const SIGNUP_FLOW_KEY = "quiver_signup_flow";
 const signupTerminalFlows = new Set<string>();
 
 function createSignupFlowId(): string {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-  return `signup_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  return crypto.randomUUID();
 }
 
 function normalizeSignupProvider(method: string): SignupProvider {

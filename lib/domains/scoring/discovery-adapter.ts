@@ -28,18 +28,16 @@ import { getRideabilityBand, type BoardClass } from '../rideability';
 import { createSpotProfile } from '../spot-profile';
 import { createSwellComponent, pickDominantSwell } from '../conditions';
 import type { SwellPartition, SwellPartitions } from '../conditions';
-import {
-  ScoringEngine,
-  baseConditionsScorer,
-  swellAlignmentScorer,
-  swellInterferenceScorer,
-  windQualityScorer,
-  tideFitScorer,
-  tideDirectionScorer,
-  setupRiskScorer,
-  windowStabilityScorer,
-  trendPreferenceScorer,
-} from './index';
+import { ScoringEngine } from './scoring-engine';
+import { baseConditionsScorer } from './scorers/base-conditions-scorer';
+import { swellAlignmentScorer } from './scorers/swell-alignment-scorer';
+import { swellInterferenceScorer } from './scorers/swell-interference-scorer';
+import { windQualityScorer } from './scorers/wind-quality-scorer';
+import { tideFitScorer } from './scorers/tide-fit-scorer';
+import { tideDirectionScorer } from './scorers/tide-direction-scorer';
+import { setupRiskScorer } from './scorers/setup-risk-scorer';
+import { windowStabilityScorer } from './scorers/window-stability-scorer';
+import { trendPreferenceScorer } from './scorers/trend-preference-scorer';
 
 /**
  * Create a pre-configured scoring engine with all standard scorers.
@@ -58,6 +56,8 @@ export function createDiscoveryScoringEngine(): ScoringEngine {
     trendPreferenceScorer,
   ]);
 }
+
+export const discoveryScoringEngine = createDiscoveryScoringEngine();
 
 /**
  * Convert Beach database row to SpotProfile.

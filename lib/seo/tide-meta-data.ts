@@ -1,3 +1,4 @@
+import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
 /**
  * Tide Meta Data Helper for SEO
  *
@@ -45,7 +46,6 @@ function formatTideTime(ts: string | Date, timezone: string = DEFAULT_TIMEZONE):
   });
 }
 
-const METERS_TO_FEET = 3.28084;
 const HOUR_MS = 60 * 60 * 1000;
 
 /**

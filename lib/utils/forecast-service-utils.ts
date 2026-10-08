@@ -1,3 +1,4 @@
+import { chunk } from "@/lib/utils/chunk";
 import { EnhancedForecastService } from "@/lib/services/enhanced-forecast-service";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { getStalenessThreshold } from "@/lib/config/forecast-staleness";
@@ -12,13 +13,7 @@ import type { EnhancedForecastEntity } from "@/types/forecast";
 /**
  * Split an array into chunks of a given size
  */
-function chunkArray<T>(array: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let i = 0; i < array.length; i += size) {
-    chunks.push(array.slice(i, i + size));
-  }
-  return chunks;
-}
+
 
 /**
  * Get singleton instance of EnhancedForecastService
@@ -411,7 +406,7 @@ export async function getBatchFreshForecastsFromCache(
     // Query 1: Get staleness metadata for all beaches in one query
     const latestRows: Array<{ beach_id: string; updated_at: string; data_source: string | null }> = [];
     let latestError: { message: string } | null = null;
-    for (const ids of chunkArray(beachIds, 500)) {
+    for (const ids of chunk(beachIds, 500)) {
       if (signal?.aborted) {
         latestError = abortedError;
         break;
@@ -525,7 +520,7 @@ export async function getBatchFreshForecastsFromCache(
     // Chunk beaches to avoid Supabase PostgREST 1000-row default limit.
     // 10 beaches/chunk × ~64 rows/beach = ~640 rows, safely under 1000.
     const CHUNK_SIZE = 10;
-    const chunks = chunkArray(freshBeachIds, CHUNK_SIZE);
+    const chunks = chunk(freshBeachIds, CHUNK_SIZE);
 
     // PostgREST defaults to 1,000 rows. Seven days of hourly forecasts can
     // exceed that for even a small chunk, so every chunk is range-paged rather

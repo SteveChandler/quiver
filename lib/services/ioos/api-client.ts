@@ -7,7 +7,6 @@
  * @module ioos/api-client
  */
 
-import { fetchWithTimeout } from "@/lib/utils/fetch-utils";
 import { IOOS_API_CONFIG } from "@/lib/constants/ioos-config";
 import { IOOSServiceConfig } from "@/types/ioos";
 
@@ -43,13 +42,9 @@ async function fetchERDDAP<T = ERDDAPTableResponse>(
   url: string,
   config: IOOSServiceConfig = IOOS_API_CONFIG
 ): Promise<T> {
-  const response = await fetchWithTimeout(url, {
-    timeoutMs: config.timeoutMs,
-    init: {
-      headers: {
-        "User-Agent": config.userAgent,
-      },
-    },
+  const response = await fetch(url, {
+    signal: AbortSignal.timeout(config.timeoutMs),
+    headers: { "User-Agent": config.userAgent },
   });
 
   if (!response.ok) {

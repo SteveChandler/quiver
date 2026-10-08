@@ -31,9 +31,16 @@ jest.mock("@supabase/ssr", () => ({
     return { auth: { getUser: mockGetUser } };
   },
 }));
-jest.mock("@/lib/middleware/api-wrappers/rate-limit-wrapper", () => ({
-  withRateLimit: (handler: unknown) => handler,
-}));
+jest.mock("@/lib/middleware/api-wrappers/rate-limit-wrapper", () => {
+  const rateLimitOptions: unknown[] = [];
+  return {
+    rateLimitOptions,
+    withRateLimit: (handler: unknown, options: unknown) => {
+      rateLimitOptions.push(options);
+      return handler;
+    },
+  };
+});
 let mockOutlookEnabled = true;
 const mockAllowedUsers = new Set(["user-9", "deleted-user"]);
 jest.mock("@/lib/flags/swell-outlook", () => ({
@@ -41,14 +48,9 @@ jest.mock("@/lib/flags/swell-outlook", () => ({
   isSwellOutlookUserAllowed: (id: string) => mockAllowedUsers.has(id),
 }));
 jest.mock("@/lib/middleware/api-wrappers", () => {
-  const protectionOptions: unknown[] = [];
   return {
-    protectionOptions,
     withAuth: jest.requireActual("@/lib/middleware/api-wrappers/auth-wrapper").withAuth,
-    withProtection: (handler: unknown, options: unknown) => {
-      protectionOptions.push(options);
-      return jest.requireActual("@/lib/middleware/api-wrappers/protection-wrappers").withProtection(handler, options);
-    },
+    withRateLimit: jest.requireMock("@/lib/middleware/api-wrappers/rate-limit-wrapper").withRateLimit,
   };
 });
 
@@ -91,9 +93,8 @@ describe("GET /api/swell/[eventKey]", () => {
   afterEach(() => jest.restoreAllMocks());
 
   it("preserves the public rate-limited wrapper without auth", () => {
-    expect(jest.requireMock("@/lib/middleware/api-wrappers").protectionOptions[0]).toEqual({
-      rateLimit: { key: "public-default" },
-    });
+    expect(jest.requireMock("@/lib/middleware/api-wrappers/rate-limit-wrapper").rateLimitOptions)
+      .toContainEqual({ key: "public-default" });
   });
 
   it("returns the event with a short shared cache", async () => {

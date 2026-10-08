@@ -1,3 +1,4 @@
+import { getLocalDateFormatter } from "@/lib/services/discovery/window-selector/time-slot-utils";
 import { normalizeForecastWindowParam } from "@/lib/utils/forecast-window-param";
 export { normalizeForecastWindowParam } from "@/lib/utils/forecast-window-param";
 import { resolveMajorEventHoldBoundary } from "@/lib/recommendations/major-event-hold/adapters/shared";
@@ -112,7 +113,7 @@ function isValidTimeZone(value: unknown): value is string {
 }
 
 function calendarDay(date: Date, timeZone: string): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone }).format(date);
+  return getLocalDateFormatter(timeZone).format(date);
 }
 
 function formatForecastWindowLabel(

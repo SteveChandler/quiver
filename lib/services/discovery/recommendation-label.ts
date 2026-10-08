@@ -1,6 +1,6 @@
 import {
   beachToSpotProfile,
-  createDiscoveryScoringEngine,
+  discoveryScoringEngine,
   forecastToSnapshot,
   getConditionCharacter,
   type ConditionCharacterCategory,
@@ -13,10 +13,7 @@ import {
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
-let discoveryScoringEngine: ReturnType<typeof createDiscoveryScoringEngine> | null = null;
-
-export function getDiscoveryScoringEngine(): ReturnType<typeof createDiscoveryScoringEngine> {
-  discoveryScoringEngine ??= createDiscoveryScoringEngine();
+export function getDiscoveryScoringEngine(): typeof discoveryScoringEngine {
   return discoveryScoringEngine;
 }
 

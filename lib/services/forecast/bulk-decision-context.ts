@@ -141,15 +141,10 @@ export async function fetchBulkDecisionContext(
     const interpreted = premium ? interpretRpcResult(match.result) : null;
     matches.set(matchSlotKey(match.beach_id, match.forecast_at), interpreted);
   }
-  const forecastsByBeach = new Map<string, EnhancedForecastEntity[]>();
+  const forecastsByBeach = Map.groupBy(forecasts, (forecast) => forecast.beach_id);
   const beachById = new Map<string, Beach>(
     (data.beaches as Beach[]).map((beach): [string, Beach] => [beach.id, beach]),
   );
-  for (const forecast of forecasts) {
-    const beachRows = forecastsByBeach.get(forecast.beach_id) ?? [];
-    beachRows.push(forecast);
-    forecastsByBeach.set(forecast.beach_id, beachRows);
-  }
   const rowDurationsMs: BulkDecisionContext["rowDurationsMs"] = new Map();
   for (const beachRows of forecastsByBeach.values()) {
     const sortedRows = beachRows

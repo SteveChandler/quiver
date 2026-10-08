@@ -1,3 +1,4 @@
+import { degreeToCardinal } from "@/lib/utils/geo-utils";
 /**
  * Wind Analysis Module
  * Extracted from morning-intel-utils.ts as part of Phase 7.2.3 refactoring
@@ -23,21 +24,6 @@ export { normalizeAngle };
 
 // Ocean Beach, San Diego faces approximately WSW (260-270°)
 const OB_SHORE_NORMAL = 270; // degrees
-
-/**
- * Convert degrees to cardinal direction
- */
-function degreesToCardinal(degrees: number): string {
-  const normalized = normalizeAngle(degrees);
-  const directions = [
-    "N", "NNE", "NE", "ENE",
-    "E", "ESE", "SE", "SSE",
-    "S", "SSW", "SW", "WSW",
-    "W", "WNW", "NW", "NNW"
-  ];
-  const index = Math.round(normalized / 22.5) % 16;
-  return directions[index];
-}
 
 /**
  * Calculate if wind is offshore relative to beach orientation
@@ -121,7 +107,7 @@ export function windAt(
   return {
     speed: Math.round(windSpeed),
     direction: Math.round(windDir),
-    cardinal: degreesToCardinal(windDir),
+    cardinal: degreeToCardinal(windDir),
     offshore,
     description,
   };

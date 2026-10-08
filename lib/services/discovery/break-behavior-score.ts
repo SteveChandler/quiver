@@ -1,3 +1,4 @@
+import { chunk as splitIntoChunks } from "@/lib/utils/chunk";
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { Database } from '@/types/database.generated';
@@ -178,20 +179,14 @@ function isRealProfile(profile: BreakBehaviorProfileRow | undefined): boolean {
   return true;
 }
 
-function chunkValues<T>(values: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-  return chunks;
-}
+
 
 async function fetchBehaviorProfiles(
   supabase: SupabaseClient<Database>,
   userIds: string[]
 ): Promise<Map<string, BreakBehaviorProfileRow>> {
   const rows: BreakBehaviorProfileRow[] = [];
-  for (const chunk of chunkValues(userIds, PROFILE_CHUNK_SIZE)) {
+  for (const chunk of splitIntoChunks(userIds, PROFILE_CHUNK_SIZE)) {
     const { data, error } = await supabase
       .from('profiles')
       .select('id,deleted_at,is_mock,analytics_is_real_user,is_system_account')

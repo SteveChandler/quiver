@@ -19,6 +19,15 @@ if (typeof crypto !== "undefined" && !crypto.randomUUID) {
   crypto.randomUUID = nodeCrypto.randomUUID;
 }
 
+if (typeof AbortSignal !== "undefined" && !AbortSignal.timeout) {
+  AbortSignal.timeout = (ms) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(new DOMException("The operation was aborted due to timeout", "TimeoutError")), ms);
+    timeout.unref?.();
+    return controller.signal;
+  };
+}
+
 // Create a more robust mock for next/navigation
 jest.mock("next/navigation", () => {
   const router = {

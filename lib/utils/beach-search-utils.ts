@@ -4,13 +4,7 @@ import {
   normalizeSearchText,
   BEACH_ALIASES,
 } from "@/lib/utils/text-normalization";
-import type { MatchStrategy } from "@/lib/utils/beach-search/match-strategy";
-import {
-  ExactMatchStrategy,
-  AliasMatchStrategy,
-  SubstringMatchStrategy,
-  WordMatchStrategy,
-} from "@/lib/utils/beach-search/strategies";
+import { matchBeach } from "@/lib/utils/beach-search/match-beach";
 import { BeachRelevanceScorer } from "@/lib/utils/beach-search/beach-relevance-scorer";
 
 /**
@@ -37,28 +31,16 @@ export async function searchBeachesMultiple(
     const aliasTarget = BEACH_ALIASES[normalizedSearch] || null;
     console.log(`🔧 Normalized search: "${normalizedSearch}"`, aliasTarget ? `(alias: ${aliasTarget})` : "");
 
-    // Initialize strategies in priority order
-    const strategies: MatchStrategy[] = [
-      new ExactMatchStrategy(),
-      new AliasMatchStrategy(),
-      new SubstringMatchStrategy(),
-      new WordMatchStrategy(),
-    ];
-
     // Initialize scorer
     const scorer = new BeachRelevanceScorer(normalizedSearch, aliasTarget);
 
     // Find and score matches
     const scoredMatches = allBeachesResult.data
       .map((beach) => {
-        // Try each strategy until we get a match
-        for (const strategy of strategies) {
-          const result = strategy.matches(beach, normalizedSearch, aliasTarget);
-          if (result.matches) {
-            return scorer.score(beach, result.matchType || strategy.name, result.score);
-          }
-        }
-        return null;
+        const result = matchBeach(beach, normalizedSearch, aliasTarget);
+        return result.matches
+          ? scorer.score(beach, result.matchType!, result.score)
+          : null;
       })
       .filter((match): match is NonNullable<typeof match> => match !== null);
 

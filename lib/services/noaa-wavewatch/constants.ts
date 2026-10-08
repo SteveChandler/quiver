@@ -1,3 +1,4 @@
+import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
 /**
  * Constants and configuration for NOAA WaveWatch III service
  *
@@ -137,7 +138,7 @@ export const UNIT_CONVERSIONS = {
   /** Feet to meters conversion factor */
   FEET_TO_METERS: 0.3048,
   /** Meters to feet conversion factor */
-  METERS_TO_FEET: 3.28084,
+  METERS_TO_FEET: METERS_TO_FEET,
 } as const;
 
 /**
