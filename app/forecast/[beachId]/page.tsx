@@ -309,7 +309,6 @@ async function renderRegionalForecast(region: typeof FORECAST_REGIONS[string]) {
             regionSlug={region.slug}
             authAwareScores
             className="mb-16"
-            variant="zine"
           />
 
           {summary.upcomingSwells.length > 0 && (
@@ -327,8 +326,7 @@ async function renderRegionalForecast(region: typeof FORECAST_REGIONS[string]) {
                 <SwellEventList
                   events={summary.upcomingSwells}
                   title={null}
-                  variant="zine"
-                />
+                      />
               </section>
             </ScrollReveal>
           )}
@@ -339,7 +337,6 @@ async function renderRegionalForecast(region: typeof FORECAST_REGIONS[string]) {
             maxBeaches={12}
             showViewAll={true}
             className="mb-16"
-            variant="zine"
             authAwareScores
           />
 
