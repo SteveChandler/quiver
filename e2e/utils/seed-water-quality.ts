@@ -79,7 +79,7 @@ export function canSeedWaterQuality(): boolean {
  * Throws if the required environment variables are not set – call
  * `canSeedWaterQuality()` first if you want a softer check.
  */
-export function getServiceClient(): SupabaseClient {
+function getServiceClient(): SupabaseClient {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 

@@ -208,7 +208,7 @@ After:  Server → Render → Stream → Hydrate Islands → Interactive
 
    ```bash
    # Identify large packages
-   yarn dead:knip
+   yarn deadcode
    npx webpack-bundle-analyzer
 
    # Example: Replace framer-motion with CSS
@@ -504,8 +504,6 @@ npx lighthouse https://yoursite.com --view
 # CI/CD -- not a repo dependency, always run via npx
 npx -y @lhci/cli@0.15.1 autorun
 
-# or, from this repo (same pinned version)
-yarn lighthouse:ci
 ```
 
 **2. WebPageTest**
@@ -562,7 +560,7 @@ vercel analytics
 - [ ] Lazy loading for non-critical components
 - [ ] Code-splitting by route
 - [ ] Tree-shaking enabled (default in Next.js)
-- [ ] Unused dependencies removed (`yarn dead:knip`)
+- [ ] Unused dependencies removed (`yarn deadcode`)
 
 ### Resource Optimization
 
@@ -713,7 +711,7 @@ export default async function Page() {
 - CI/CD: `@lhci/cli`, pinned to 0.15.1. Deliberately **not** a devDependency
   here -- its bundled Puppeteer chain pulled a vulnerable `extract-zip` with no
   patched release (GHSA-jmr9-qjv8-65gv). `.github/workflows/lighthouse-ci.yml`
-  installs it globally, and `yarn lighthouse:ci` runs it via npx. Do not add it
+  installs it globally. Do not add it
   back to `package.json`.
 
 **WebPageTest**
@@ -747,7 +745,7 @@ npx @next/bundle-analyzer
 **Dependency Check**
 
 ```bash
-yarn dead:knip
+yarn deadcode
 npm outdated
 ```
 

@@ -39,7 +39,7 @@ export interface CleanupResult {
   error?: string;
 }
 
-export interface FullCleanupResult {
+interface FullCleanupResult {
   sessions: CleanupResult;
   intelPosts: CleanupResult;
   ephemeralUsers: CleanupResult;
@@ -49,7 +49,7 @@ export interface FullCleanupResult {
   dryRun: boolean;
 }
 
-export interface CleanupOptions {
+interface CleanupOptions {
   /** Preview what would be deleted without actually deleting */
   dryRun?: boolean;
   /** Enable verbose logging */
@@ -687,13 +687,6 @@ export async function cleanupAllTestData(
  */
 export async function previewCleanup(verbose: boolean = true): Promise<FullCleanupResult> {
   return cleanupAllTestData({ dryRun: true, verbose });
-}
-
-/**
- * Execute cleanup (soft-deletes test data)
- */
-export async function executeCleanup(verbose: boolean = false): Promise<FullCleanupResult> {
-  return cleanupAllTestData({ dryRun: false, verbose });
 }
 
 /**

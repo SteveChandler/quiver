@@ -61,7 +61,7 @@ export const MOCK_PERSONALIZED_SCORE = {
 // ---------------------------------------------------------------------------
 // Matches PersonalizedInsights interface from types/personalization.ts
 
-export const MOCK_INSIGHTS_READY = {
+const MOCK_INSIGHTS_READY = {
   matchPercent: 87,
   label: "Great" as const,
   reasonBullets: [
@@ -107,7 +107,7 @@ export const MOCK_INSIGHTS_READY = {
 // ---------------------------------------------------------------------------
 // Matches SurfDiscoveryResponse interface from types/personalization.ts
 
-export const MOCK_DISCOVER_RESPONSE = {
+const MOCK_DISCOVER_RESPONSE = {
   recommendations: [
     {
       beach: {
@@ -236,7 +236,7 @@ export const MOCK_DISCOVER_RESPONSE = {
 // ---------------------------------------------------------------------------
 // Matches the response shape from app/api/surf/call/route.ts.
 
-export const MOCK_SURF_CALL_RESPONSE = {
+const MOCK_SURF_CALL_RESPONSE = {
   report: {
     verdict: "MAYBE" as const,
     score: 85,
@@ -264,7 +264,7 @@ export const MOCK_SURF_CALL_RESPONSE = {
 // Matches the shape from app/api/beaches/favorites/route.ts:
 //   createSuccessResponse({ beaches })
 
-export const MOCK_FAVORITES_RESPONSE = {
+const MOCK_FAVORITES_RESPONSE = {
   beaches: [
     {
       id: TEST_BEACH_ID,
@@ -276,18 +276,6 @@ export const MOCK_FAVORITES_RESPONSE = {
       center_lng: -117.2536,
     },
   ],
-};
-
-// ---------------------------------------------------------------------------
-// GET /api/auth/check-session mock response (authenticated)
-// ---------------------------------------------------------------------------
-
-export const MOCK_AUTH_SESSION_RESPONSE = {
-  hasSession: true,
-  sessionData: {
-    userId: "test-user-uuid-0000-0000-0000-000000000001",
-    email: "testuser@quivertest.local",
-  },
 };
 
 // ---------------------------------------------------------------------------
