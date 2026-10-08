@@ -10,7 +10,7 @@ import type { EnhancedForecastEntity } from '@/types/forecast';
 import { toForecastForScoring } from '@/lib/scoring';
 import { getConditionBoardPick } from '@/lib/scoring/board-pick';
 import { scoreWindowForSelection } from '@/lib/services/discovery/window-selector/window-scorer';
-import { discoveryScoringEngine } from '@/lib/domains/scoring';
+import { getDiscoveryScoringEngine } from '@/lib/domains/scoring';
 
 // Mock beaches
 const mockBeach: Partial<Beach> = {
@@ -136,7 +136,7 @@ describe('window selection scoring', () => {
 
   it('runs the composite engine once per selection score', () => {
     const forecast = createForecast({});
-    const scoreSpy = jest.spyOn(discoveryScoringEngine, 'score');
+    const scoreSpy = jest.spyOn(getDiscoveryScoringEngine(), 'score');
     const fullBeach = {
       ...mockBeach,
       break_type: null,
@@ -151,7 +151,7 @@ describe('window selection scoring', () => {
 
   it('does not force a minimal threshold-only beach through the composite adapter', () => {
     const forecast = createForecast({});
-    const scoreSpy = jest.spyOn(discoveryScoringEngine, 'score');
+    const scoreSpy = jest.spyOn(getDiscoveryScoringEngine(), 'score');
 
     const details = scoreWindowConditionDetails(forecast, {
       id: 'minimal-beach',

@@ -176,8 +176,7 @@ jest.mock('@/lib/logger', () => ({
 }));
 
 jest.mock('@/lib/domains/scoring', () => ({
-  get discoveryScoringEngine() { return this.createDiscoveryScoringEngine(); },
-  createDiscoveryScoringEngine: jest.fn(() => ({
+  getDiscoveryScoringEngine: jest.fn(() => ({
     score: jest.fn(() => ({
       total: 75,
       subscores: new Map(),

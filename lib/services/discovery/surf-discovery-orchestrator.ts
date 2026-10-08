@@ -49,6 +49,7 @@ import { currentWaterQuality } from "@/lib/services/water-quality/current-status
 import {
   scoreBeachWithEngine,
   beachToSpotProfile,
+  getDiscoveryScoringEngine,
 } from '@/lib/domains/scoring';
 import type { SkillLevel } from '@/lib/domains/user-preferences';
 import { parseSkillLevel, getSkillLevelOrDefault, SKILL_WAVE_RANGES } from '@/lib/domains/user-preferences';
@@ -97,10 +98,7 @@ import {
   generateDiscoverySummary,
   buildDiscoveryMessage,
 } from './response-formatter';
-import {
-  getDiscoveryScoringEngine,
-  resolveRecommendationLabel,
-} from './recommendation-label';
+import { resolveRecommendationLabel } from './recommendation-label';
 import { fetchPersonalizationContext, calculatePersonalizationBonus } from './personalization-layer';
 import { getCanonicalRecommendationLabel } from '@/lib/recommendations/canonical-decision/discovery-adapter';
 import { applySimilarityLayer } from './similarity-layer';

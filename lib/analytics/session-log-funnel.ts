@@ -3,7 +3,11 @@ import type { SessionLogMetadata } from "@/types/implicit-preferences";
 const SESSION_LOG_TELEMETRY_SCHEMA_VERSION = 1;
 
 export function createSessionLogFlowId(): string {
-  return crypto.randomUUID();
+  if (typeof globalThis.crypto?.randomUUID === "function") {
+    return globalThis.crypto.randomUUID();
+  }
+
+  return `web-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
 export function buildSessionLogEventMetadata(

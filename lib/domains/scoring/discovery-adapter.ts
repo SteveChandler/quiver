@@ -57,7 +57,11 @@ export function createDiscoveryScoringEngine(): ScoringEngine {
   ]);
 }
 
-export const discoveryScoringEngine = createDiscoveryScoringEngine();
+let discoveryScoringEngine: ScoringEngine | undefined;
+
+export function getDiscoveryScoringEngine(): ScoringEngine {
+  return discoveryScoringEngine ??= createDiscoveryScoringEngine();
+}
 
 /**
  * Convert Beach database row to SpotProfile.

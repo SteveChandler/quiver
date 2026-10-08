@@ -18,7 +18,7 @@ import { calculateRideableWaves } from '@/lib/domains/wave-frequency/calculator'
 import {
   beachToSpotProfile,
   forecastToSnapshot,
-  discoveryScoringEngine,
+  getDiscoveryScoringEngine,
   getConditionCharacter,
   LOW_TIDE_HEAVY_SWELL_WARNING,
   type ConditionCharacter,
@@ -638,7 +638,7 @@ function computeCompositeAndCharacter(
   try {
     const profile = beachToSpotProfile(beach);
     const snapshot = forecastToSnapshot(representativeForecast);
-    const composite = discoveryScoringEngine.score({
+    const composite = getDiscoveryScoringEngine().score({
       profile,
       snapshot,
       window: null,

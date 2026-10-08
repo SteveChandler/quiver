@@ -19,7 +19,7 @@ import type { BoardClass } from '@/lib/domains/rideability';
 import { createSwellComponent } from '@/lib/domains/conditions';
 import {
   beachToSpotProfile,
-  discoveryScoringEngine,
+  getDiscoveryScoringEngine,
   getConditionCharacter,
 } from '@/lib/domains/scoring';
 import {
@@ -790,7 +790,7 @@ function buildWindowFromBlock(
   // is a singleton, so this is microseconds).
   const peakProfile = beachToSpotProfile(beach as unknown as Beach);
   const peakSnapshot = forecastForScoringToSnapshot(peakForecast);
-  const peakComposite = discoveryScoringEngine.score({
+  const peakComposite = getDiscoveryScoringEngine().score({
     profile: peakProfile,
     snapshot: peakSnapshot,
     window: null,

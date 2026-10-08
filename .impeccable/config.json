@@ -11,15 +11,6 @@
         ],
         "createdAt": "2026-09-03T19:49:39.774Z",
         "reason": "Agent review: intentional Next Image test mock forwards real src through props; not a production broken image."
-      },
-      {
-        "rule": "broken-image",
-        "value": "*",
-        "files": [
-          "jest.setup.js"
-        ],
-        "createdAt": "2026-10-08T17:42:28.207Z",
-        "reason": "Agent review: intentional Next Image test mock forwards supplied src props; no production image is rendered."
       }
     ]
   }

@@ -29,7 +29,7 @@ import {
 } from '@/lib/services/discovery/window-authority';
 import {
   beachToSpotProfile,
-  discoveryScoringEngine,
+  getDiscoveryScoringEngine,
   scoreBeachWithEngine,
 } from '@/lib/domains/scoring';
 import { rerankHero, type RerankResult } from '@/lib/services/discovery/hero-ranking';
@@ -525,7 +525,7 @@ function clampScore(score: number): number {
 }
 
 function defaultDependencies(now: Date): WeekScoutServiceDependencies {
-  const scoringEngine = discoveryScoringEngine;
+  const scoringEngine = getDiscoveryScoringEngine();
 
   return {
     now,
