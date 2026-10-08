@@ -38,7 +38,7 @@
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import * as dotenv from 'dotenv';
+import * as dotenv from '../../scripts/load-env.mjs';
 
 // ---------------------------------------------------------------------------
 // Environment variable loading

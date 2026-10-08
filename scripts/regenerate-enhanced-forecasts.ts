@@ -6,7 +6,7 @@
  *   yarn tsx scripts/regenerate-enhanced-forecasts.ts --force-all --confirm-prod
  */
 
-import { config } from "dotenv";
+import { config } from "./load-env.mjs";
 import type { CDIPSkipReason } from "../lib/services/cdip/types";
 import type {
   BatchProcessResult,

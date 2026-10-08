@@ -338,7 +338,7 @@ Use these tools:
 - React DevTools Profiler
 - Chrome DevTools Performance tab
 - Lighthouse audits
-- Bundle analyzer: `ANALYZE=true yarn build`
+- Bundle analyzer: `yarn build --experimental-analyze`
 
 ---
 

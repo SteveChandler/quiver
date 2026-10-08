@@ -106,9 +106,7 @@ After:  Server → Render → Stream → Hydrate Islands → Interactive
 2. **Analyze Bundle Composition**
 
    ```bash
-   ANALYZE=true yarn build
-   # Or
-   npx @next/bundle-analyzer
+   yarn build --experimental-analyze
    ```
 
 3. **Profile Runtime Performance**
@@ -209,7 +207,6 @@ After:  Server → Render → Stream → Hydrate Islands → Interactive
    ```bash
    # Identify large packages
    yarn deadcode
-   npx webpack-bundle-analyzer
 
    # Example: Replace framer-motion with CSS
    npm uninstall framer-motion
@@ -540,7 +537,7 @@ vercel analytics
 ### Pre-Optimization
 
 - [ ] Baseline metrics recorded (Lighthouse, WebPageTest)
-- [ ] Bundle analyzed (webpack-bundle-analyzer)
+- [ ] Bundle analyzed
 - [ ] Performance profile captured (Chrome DevTools)
 - [ ] Critical path identified (Network waterfall)
 - [ ] Prioritized optimization targets defined
@@ -706,7 +703,7 @@ export default async function Page() {
 
 **Lighthouse**
 
-- CLI: `npx lighthouse <url>` (`lighthouse` is a devDependency of this repo)
+- CLI: `npx lighthouse <url>`
 - Chrome DevTools: Lighthouse tab
 - CI/CD: `@lhci/cli`, pinned to 0.15.1. Deliberately **not** a devDependency
   here -- its bundled Puppeteer chain pulled a vulnerable `extract-zip` with no
@@ -738,8 +735,7 @@ export default async function Page() {
 **Bundle Analyzer**
 
 ```bash
-ANALYZE=true yarn build
-npx @next/bundle-analyzer
+yarn build --experimental-analyze
 ```
 
 **Dependency Check**

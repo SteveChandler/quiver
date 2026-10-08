@@ -9,7 +9,7 @@
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { config } from "dotenv";
+import { config } from "./load-env.mjs";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import { getForecastAccuracyHorizonBucket } from "../lib/services/forecast/accuracy-metrics";

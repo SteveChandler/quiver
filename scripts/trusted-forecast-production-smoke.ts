@@ -46,7 +46,7 @@
  * and codes. No source narrative, URL, hash or measured range.
  */
 
-import { config } from "dotenv";
+import { config } from "./load-env.mjs";
 
 import {
   TRUSTED_FORECAST_UNCOVERED_VOCABULARY,

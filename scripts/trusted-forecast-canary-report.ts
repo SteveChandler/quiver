@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 
-import { config } from "dotenv";
+import { config } from "./load-env.mjs";
 
 import { TRUSTED_FORECAST_POLICY_VERSION } from "../lib/services/forecast/trusted-forecast-policy";
 

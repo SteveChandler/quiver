@@ -1,4 +1,3 @@
-import { createRequire } from "node:module";
 import withPWA from "@ducanh2912/next-pwa";
 import { withSentryConfig } from "@sentry/nextjs";
 import { validateEnvironment } from "./config/environment-validation.mjs";
@@ -7,8 +6,6 @@ import {
   isCacheableRuntimeImage,
 } from "./config/forecast-api-cache-rules.mjs";
 import { apiCacheHeaderRules } from "./config/api-cache-header-rules.mjs";
-
-const require = createRequire(import.meta.url);
 
 validateEnvironment();
 
@@ -675,46 +672,9 @@ const nextConfig = {
 
   // Reduce bundle size by rewriting common libs to per-module imports
   modularizeImports: {
-    lodash: {
-      transform: "lodash/{{member}}",
-    },
     "date-fns": {
       transform: "date-fns/{{member}}",
     },
-  },
-
-  // Webpack configuration for externals and bundle analyzer
-  webpack: (config, { isServer }) => {
-    // CRITICAL FIX: Configure externals for @resvg/resvg-js
-    config.externals = config.externals || [];
-    if (Array.isArray(config.externals)) {
-      config.externals.push({
-        "@resvg/resvg-js": "@resvg/resvg-js",
-      });
-    }
-
-    // Resolve alias optimizations
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      // Optimize bundle size
-      "react/jsx-runtime.js": "react/jsx-runtime",
-    };
-
-    // geo-tz is resolved at runtime via serverExternalPackages
-    // (no CopyPlugin needed — saves 69 MB per server compilation)
-
-    // Add bundle analyzer in development
-    if (process.env.ANALYZE === "true") {
-      config.plugins.push(
-        new (require("webpack-bundle-analyzer").BundleAnalyzerPlugin)({
-          analyzerMode: "static",
-          openAnalyzer: false,
-          reportFilename: "bundle-analyzer-report.html",
-        })
-      );
-    }
-
-    return config;
   },
 
   // Dev server page caching — keep more pages in memory to reduce recompilation
