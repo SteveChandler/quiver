@@ -1,6 +1,5 @@
 // Import Jest DOM matchers
 import "@testing-library/jest-dom";
-import "jest-axe/extend-expect";
 // Import whatwg-fetch for fetch polyfill
 import "whatwg-fetch";
 

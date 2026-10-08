@@ -13,7 +13,7 @@
 
 import { test, expect } from '../fixtures/auth-fixture';
 import { createClient } from '@supabase/supabase-js';
-import * as dotenv from 'dotenv';
+import * as dotenv from '../../scripts/load-env.mjs';
 
 dotenv.config({ path: '.env.playwright' });
 dotenv.config({ path: '.env.playwright.local' });

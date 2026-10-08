@@ -14,7 +14,7 @@
 
 import { spawn } from 'node:child_process';
 import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
-import * as dotenv from 'dotenv';
+import * as dotenv from '../../scripts/load-env.mjs';
 import { existsSync } from 'fs';
 import { resolvePsqlExecutable } from '../scripts/lib/playwright-env';
 

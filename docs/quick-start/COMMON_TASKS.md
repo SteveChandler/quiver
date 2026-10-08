@@ -475,7 +475,7 @@ Refs: #issue-number
 
 ```bash
 # Analyze bundle
-ANALYZE=true yarn build
+yarn build --experimental-analyze
 
 # Opens visualization in browser
 ```
