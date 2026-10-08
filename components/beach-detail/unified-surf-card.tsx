@@ -69,12 +69,10 @@ const CONTEXT_CHIP_VARIANT_CLASSES: Record<ContextChipVariant, string> = {
 function ContextChip({
   children,
   variant = "neutral",
-  rotate = 0,
   className,
 }: {
   children: React.ReactNode;
   variant?: ContextChipVariant;
-  rotate?: number;
   className?: string;
 }) {
   return (
@@ -82,12 +80,8 @@ function ContextChip({
       className={cn(
         "inline-flex items-center gap-1 rounded-[6px_10px_8px_10px] px-2.5 py-1 text-xs font-medium",
         CONTEXT_CHIP_VARIANT_CLASSES[variant],
-        // Cancel rotation for users who prefer reduced motion
-        "motion-reduce:!transform-none",
         className
       )}
-      // Inline style for rotation — avoids dynamic Tailwind class purging.
-      style={rotate !== 0 ? { transform: `rotate(${rotate}deg)` } : undefined}
     >
       {children}
     </span>
@@ -170,7 +164,6 @@ export function UnifiedSurfCard({
     const badges: Array<{
       key: string;
       variant: ContextChipVariant;
-      rotate: number;
       content: React.ReactNode;
     }> = [];
 
@@ -178,7 +171,6 @@ export function UnifiedSurfCard({
       badges.push({
         key: "best-week",
         variant: "gold",
-        rotate: -1,
         content: (
           <>
             <Zap className="h-3 w-3" aria-hidden="true" />
@@ -201,7 +193,6 @@ export function UnifiedSurfCard({
       badges.push({
         key: "swell-incoming",
         variant: "swell",
-        rotate: 1,
         content: (
           <>
             <Waves className="h-3 w-3" aria-hidden="true" />
@@ -214,7 +205,6 @@ export function UnifiedSurfCard({
         badges.push({
           key: "trend-up",
           variant: "up",
-          rotate: 0,
           content: (
             <>
               <TrendingUp className="h-3 w-3" aria-hidden="true" />
@@ -226,7 +216,6 @@ export function UnifiedSurfCard({
         badges.push({
           key: "trend-down",
           variant: "down",
-          rotate: 0,
           content: (
             <>
               <TrendingDown className="h-3 w-3" aria-hidden="true" />
@@ -436,7 +425,7 @@ export function UnifiedSurfCard({
           >
             {contextBadges.map((badge) => (
               <div key={badge.key} role="listitem">
-                <ContextChip variant={badge.variant} rotate={badge.rotate}>
+                <ContextChip variant={badge.variant}>
                   {badge.content}
                 </ContextChip>
               </div>

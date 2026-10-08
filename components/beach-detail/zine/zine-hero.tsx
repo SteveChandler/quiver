@@ -208,7 +208,8 @@ function RatingStamp({ rating, filled }: { rating: string; filled: number }) {
           color: "#8A5E00",
           fontWeight: 900,
           position: "relative",
-          background: "#F4EBD8",
+          filter: "url(#zine-rough-edge)",
+          background: "rgba(244,235,216,0.6)",
         }}
       >
         {rating}
@@ -240,6 +241,7 @@ function ReviewCircle({ count }: { count: number }) {
           fontSize: count > 99 ? 14 : 18,
           color: "#11100D",
           fontWeight: 900,
+          filter: "url(#zine-rough-edge)",
         }}
       >
         {count > 999 ? "999+" : count}
@@ -371,18 +373,17 @@ function TapedMapPhoto({
 
       {/* Map doodle with location stamp */}
       {showMap ? (
-      <div
-        className="relative overflow-hidden"
-        style={{ marginTop: 4, border: "1px solid #E5D4B3", borderRadius: "14px 22px 14px 14px" }}
-      >
-        <div className="absolute z-10" style={{ top: 10, left: 10 }} aria-hidden>
+      <div className="relative" style={{ marginTop: 4 }}>
+        <span className="tape tl" aria-hidden />
+        <span className="tape br" aria-hidden />
+        <div className="absolute z-10" style={{ top: 10, left: -10 }} aria-hidden>
           <div
             className="label-black"
             style={{
               background: "#F4EBD8",
               color: "#11100D",
-              border: "1.5px solid #11100D",
-              borderRadius: 6,
+              border: "2.5px solid #11100D",
+              boxShadow: "2px 3px 0 rgba(0,0,0,0.25)",
               fontSize: 13,
             }}
           >
@@ -418,10 +419,14 @@ function TapedCamFrame({
 }) {
   return (
     <div className="zine-hero-cam-frame relative">
+      <span className="tape tl" aria-hidden />
+      <span className="tape tr" aria-hidden />
       {showLiveLabel ? (
         <div
-          className="mb-2 hidden md:block"
+          className="absolute z-10 hidden md:block"
           style={{
+            top: -24,
+            right: 0,
             fontFamily: "var(--font-mono), monospace",
             fontSize: 11,
             fontWeight: 700,
@@ -437,8 +442,9 @@ function TapedCamFrame({
       <div
         className="overflow-hidden"
         style={{
-          border: "1px solid #E5D4B3",
-          borderRadius: "14px 22px 14px 14px",
+          border: "3px solid #11100D",
+          borderRadius: 4,
+          boxShadow: "4px 5px 0 rgba(17,16,13,0.3)",
           background: "#11100D",
         }}
       >

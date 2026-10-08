@@ -145,7 +145,7 @@ function CopyButton({ code }: { code: string }) {
     <button
       type="button"
       onClick={handleCopy}
-      className="inline-flex min-h-9 shrink-0 items-center gap-2 rounded-full border-2 border-[#11100D] bg-[#FBF6E8] px-4 py-1.5 font-mono text-xs font-bold uppercase tracking-[0.12em] text-[#11100D] transition-transform hover:-translate-y-0.5 focus-ring"
+      className="inline-flex min-h-9 shrink-0 items-center gap-2 rounded-full border-2 border-[#11100D] bg-[#FBF6E8] px-4 py-1.5 font-mono text-xs font-bold uppercase tracking-[0.12em] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.25)] transition-transform hover:-translate-y-0.5 focus-ring"
     >
       {copied ? (
         <>
@@ -211,7 +211,7 @@ export function SurfSchoolsZinePage({
               <div className="mt-8 flex flex-wrap gap-3">
                 <a
                   href="#generator"
-                  className="inline-flex min-h-11 items-center rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-2 font-semibold text-[#11100D] transition-transform hover:-translate-y-0.5"
+                  className="inline-flex min-h-11 items-center rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)] transition-transform hover:-translate-y-0.5"
                 >
                   Build Your Widget
                 </a>
@@ -409,7 +409,7 @@ export function SurfSchoolsZinePage({
                 <div className="mt-7 flex flex-wrap justify-center gap-3 lg:justify-start">
                   <a
                     href="#generator"
-                    className="inline-flex min-h-11 items-center rounded-full border-2 border-[#F4EBD8] bg-[#F78E42] px-6 py-2 font-semibold text-[#11100D] transition-transform hover:-translate-y-0.5"
+                    className="inline-flex min-h-11 items-center rounded-full border-2 border-[#F4EBD8] bg-[#F78E42] px-6 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(244,235,216,0.35)] transition-transform hover:-translate-y-0.5"
                   >
                     Build Your Widget
                   </a>

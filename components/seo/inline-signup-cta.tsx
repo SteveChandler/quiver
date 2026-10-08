@@ -83,7 +83,7 @@ export function InlineSignupCta({
         className={cn(
           variant === "zine"
             ? [
-                "rounded-md border-2 border-[#11100D] bg-[#F4EBD8] p-6",
+                "rounded-md border-2 border-[#11100D] bg-[#F4EBD8] p-6 shadow-[3px_4px_0_rgba(17,16,13,0.22)]",
                 "relative overflow-hidden",
               ]
             : [
@@ -144,7 +144,7 @@ export function InlineSignupCta({
               onClick={handleSignupClick}
               className={cn(
                 variant === "zine"
-                  ? "rounded-full border-2 border-[#11100D] bg-[#B56A2B] px-6 text-[#F4EBD8] hover:bg-[#9A5820] font-semibold"
+                  ? "rounded-full border-2 border-[#11100D] bg-[#B56A2B] px-6 text-[#F4EBD8] shadow-[2px_2px_0_rgba(17,16,13,0.35)] hover:bg-[#9A5820] hover:shadow-[3px_3px_0_rgba(17,16,13,0.35)] font-semibold"
                   : "rounded-full bg-ocean-blue text-white px-6 shadow-sm hover:shadow-md font-semibold",
               )}
               data-testid="inline-signup-primary-cta"

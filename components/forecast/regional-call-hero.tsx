@@ -7,7 +7,7 @@
  * from the peak-week conditions of a single region's summary and renders the
  * scene as a layered "sticker wall": photo backdrop + navy tint + scan lines
  * behind a set of absolutely / flow-positioned stickers (date, region chip,
- * wave-height tag, inset photo, pullquote, headline,
+ * wave-height tag, polaroid inset photo, pullquote, headline,
  * sub, CTAs). Each sticker has a `--depth-*` coefficient; pointer movement
  * and page scroll drive `--px`, `--py`, `--scroll` CSS vars on the wall,
  * producing a gentle parallax where stickers further from the board move
@@ -342,10 +342,10 @@ export function RegionalCallHero({
             transform: stickerTransform(14, 9, -55),
           }}
         >
-          <div className="rounded-[14px_22px_14px_14px] border border-[#E5D4B3] bg-[#F4EBD8] p-2">
+          <div className="rounded-[2px] bg-white p-2 shadow-[0_18px_40px_-16px_rgba(0,0,0,0.7)]">
             <div
               aria-hidden="true"
-              className="relative aspect-[4/5] overflow-hidden rounded-[8px_14px_8px_8px]"
+              className="relative aspect-[4/5] overflow-hidden"
             >
               <Image
                 src={(summary?.secondaryPhotoUrl ?? photoUrl) as string}
@@ -355,7 +355,7 @@ export function RegionalCallHero({
                 className="object-cover"
               />
             </div>
-            <p className="mt-2 text-center font-mono text-[11px] font-bold uppercase leading-tight tracking-[0.14em] text-[#11100D]">
+            <p className="mt-2 text-center font-mono text-[11px] font-bold uppercase leading-tight tracking-[0.14em] text-[#252D6B]">
               {summary?.secondaryPhotoBeachName ??
                 summary?.photoBeachName ??
                 region.name}
@@ -550,7 +550,7 @@ export function RegionalCallHero({
           })();
           }}
           aria-label={`Share ${region.name}'s forecast`}
-          className="group relative ml-auto mt-7 hidden w-fit max-w-[16rem] flex-col items-end gap-0.5 rounded-[10px_4px_14px_4px] text-right transition-transform hover:scale-[1.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B] motion-reduce:hover:scale-100 sm:flex"
+          className="group relative ml-auto mt-7 hidden w-fit max-w-[16rem] flex-col items-end gap-0.5 rounded-[10px_4px_14px_4px] text-right transition-transform hover:scale-[1.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B] motion-reduce:hover:scale-100 sm:flex md:text-3xl"
           style={{
             willChange: "transform",
             transform: stickerTransform(11, 7, -30),

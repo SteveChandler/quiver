@@ -44,8 +44,8 @@ interface HorizonStripProps {
 
 /**
  * Cycling sticker shapes applied to gated cards so the 9-card run reads
- * as stickers instead of a Netflix-style paywall grid. Native sets cards
- * square, so there is no tilt. Radii cycle through three
+ * as stickers instead of a Netflix-style paywall grid. Cards sit square,
+ * with no tilt. Radii cycle through three
  * asymmetric shapes (shared vocabulary with the sticker pills in
  * `lib/ui/sticker-pill.ts`). Plan: D1.
  */
@@ -230,7 +230,7 @@ function DayCard({
         </span>
       </div>
 
-      {/* Corner Lock icon removed in D1. The overlay chip at
+      {/* Corner Lock icon removed in D1. The overlay sticker at
           the strip level (HorizonStrip below) now owns the "later this
           week" affordance, and the per-card asymmetric radius
           communicates "sticker cluster" rather than "aligned paywall
@@ -397,7 +397,7 @@ export function HorizonStrip({
         <div className="shrink-0 w-3 sm:hidden" aria-hidden="true" />
       </div>
 
-      {/* "Later this week →" chip — floats over the
+      {/* "Later this week →" sticker — floats over the
           center of the gated card run. Decorative only (aria-hidden);
           per-card aria-labels already announce "locked — sign up to
           unlock". Positioned absolute + pointer-events-none so each

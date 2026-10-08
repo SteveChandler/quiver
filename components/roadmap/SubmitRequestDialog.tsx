@@ -85,7 +85,7 @@ export function SubmitRequestDialog({ open, onOpenChange }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="zine-tab border-2 border-[#11100D] bg-[#F4EBD8] text-[#11100D] sm:max-w-lg sm:rounded-[18px_6px_20px_8px]">
+      <DialogContent className="zine-tab border-2 border-[#11100D] bg-[#F4EBD8] text-[#11100D] shadow-[4px_5px_0_rgba(17,16,13,0.35),0_18px_50px_rgba(0,0,0,0.35)] sm:max-w-lg sm:rounded-[18px_6px_20px_8px]">
         <DialogHeader>
           <DialogTitle className="font-[family-name:var(--font-zine-display)] text-2xl font-black uppercase tracking-normal text-[#11100D]">
             Suggest something
@@ -178,7 +178,7 @@ export function SubmitRequestDialog({ open, onOpenChange }: Props) {
             type="button"
             onClick={handleSubmit}
             disabled={!canSubmit}
-            className="w-full rounded-full border-2 border-[#11100D] bg-[#F78E42] px-4 py-3 font-[family-name:var(--font-zine-display)] text-sm font-black uppercase tracking-wide text-[#11100D] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 focus-ring"
+            className="w-full rounded-full border-2 border-[#11100D] bg-[#F78E42] px-4 py-3 font-[family-name:var(--font-zine-display)] text-sm font-black uppercase tracking-wide text-[#11100D] shadow-[2px_3px_0_rgba(17,16,13,0.3)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 focus-ring"
           >
             {pending ? "Sending…" : "Send it"}
           </button>

@@ -176,7 +176,7 @@ export function ConditionBuilder({ conditions, onChange }: ConditionBuilderProps
             <div
               role="listbox"
               aria-label="Available conditions"
-              className="absolute z-10 mt-1 w-52 rounded-sm border-2 border-[#11100D] bg-[#FBF6E8] p-1.5"
+              className="absolute z-10 mt-1 w-52 rounded-sm border-2 border-[#11100D] bg-[#FBF6E8] p-1.5 shadow-[4px_4px_0_rgba(17,16,13,0.28)]"
             >
               {availableConditions.map((ct) => (
                 <button

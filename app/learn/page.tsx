@@ -230,7 +230,7 @@ export default function LearnHubPage() {
                   </p>
                   <Link
                     href={`/learn/${featuredArticle.slug}`}
-                    className="mt-5 inline-flex items-center rounded-full border-2 border-[#11100D] bg-[#F78E42] px-4 py-2 font-semibold text-[#11100D] transition-transform hover:-translate-y-0.5"
+                    className="mt-5 inline-flex items-center rounded-full border-2 border-[#11100D] bg-[#F78E42] px-4 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)] transition-transform hover:-translate-y-0.5"
                   >
                     Read guide <span className="ml-2">&rarr;</span>
                   </Link>

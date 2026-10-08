@@ -18,7 +18,7 @@ export function QuiverSeoCta({
   secondaryCta,
 }: QuiverSeoCtaProps) {
   return (
-    <section className="rounded-lg border border-[#11100D]/10 bg-[#252D6B] p-6 text-white md:p-8">
+    <section className="rounded-lg border border-[#11100D]/10 bg-[#252D6B] p-6 text-white shadow-[4px_5px_0_rgba(17,16,13,0.18)] md:p-8">
       <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 className="font-heading text-2xl font-bold">{title}</h2>

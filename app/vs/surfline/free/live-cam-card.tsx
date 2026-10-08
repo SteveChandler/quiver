@@ -64,7 +64,7 @@ export function LiveCamCard({ beach }: LiveCamCardProps): ReactElement {
     <Link
       href={href}
       aria-label={`Watch the ${beach.name} live cam in ${location}`}
-      className="group block overflow-hidden rounded-md border-2 border-[#11100D] bg-[#FFFDF7] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4EBD8]"
+      className="group block overflow-hidden rounded-md border-2 border-[#11100D] bg-[#FFFDF7] shadow-[3px_3px_0_rgba(17,16,13,0.18)] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4EBD8]"
     >
       <div className="relative aspect-[16/9] overflow-hidden border-b-2 border-[#11100D] bg-[#F0E5CC]">
         {imageUrl ? (
@@ -86,7 +86,7 @@ export function LiveCamCard({ beach }: LiveCamCardProps): ReactElement {
           >
             <div className="absolute inset-0 opacity-20 [background-image:radial-gradient(circle_at_1px_1px,#11100D_1px,transparent_0)] [background-size:9px_9px]" />
             <div className="absolute -bottom-8 left-[-8%] h-16 w-[116%] border-t-2 border-[#11100D] bg-[#D9C49C]" />
-            <div className="relative flex items-center gap-2 border-2 border-[#11100D] bg-[#FBF6E8] px-3 py-2">
+            <div className="relative flex items-center gap-2 border-2 border-[#11100D] bg-[#FBF6E8] px-3 py-2 shadow-[3px_3px_0_rgba(17,16,13,0.22)]">
               <Camera className="h-5 w-5" strokeWidth={2.5} />
               <span className="font-mono text-[9px] font-black uppercase tracking-[0.12em]">
                 Cam at the coast
@@ -95,7 +95,7 @@ export function LiveCamCard({ beach }: LiveCamCardProps): ReactElement {
           </div>
         )}
 
-        <span className="absolute left-2 top-2 z-10 inline-flex items-center gap-1.5 border-2 border-[#11100D] bg-[#FBF6E8] px-2 py-1 font-mono text-[8px] font-black uppercase tracking-[0.14em] text-[#11100D]">
+        <span className="absolute left-2 top-2 z-10 inline-flex items-center gap-1.5 border-2 border-[#11100D] bg-[#FBF6E8] px-2 py-1 font-mono text-[8px] font-black uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.24)]">
           <span className="h-1.5 w-1.5 rounded-full bg-[#00A884]" aria-hidden="true" />
           Live
         </span>

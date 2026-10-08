@@ -173,7 +173,7 @@ export default function SessionsPage(): ReactElement {
           <Button
             onClick={retrySessions}
             variant="outline"
-            className="border-2 border-[#11100D] bg-[#F4EBD8] font-semibold text-[#11100D] hover:bg-[#F0E5CC]"
+            className="border-2 border-[#11100D] bg-[#F4EBD8] font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.22)] hover:bg-[#F0E5CC]"
           >
             <RefreshCw className="mr-2 h-4 w-4" aria-hidden />
             Try again
@@ -377,7 +377,7 @@ export default function SessionsPage(): ReactElement {
             ctaDescription="Sign up to view session logs and connect with local surfers"
             blurLevel="lg"
             source="sessions-feed"
-            className="min-h-[600px] overflow-hidden border-2 border-[#11100D] bg-[#F0E5CC] p-4 sm:p-5"
+            className="min-h-[600px] overflow-hidden border-2 border-[#11100D] bg-[#F0E5CC] p-4 shadow-[2px_3px_0_rgba(17,16,13,0.22)] sm:p-5"
           >
             {gatedContent}
           </PublicContentGate>
@@ -388,7 +388,7 @@ export default function SessionsPage(): ReactElement {
           <Link href="/sessions/new?mode=log">
             <Button
               size="lg"
-              className="fixed bottom-24 right-4 z-50 h-14 rounded-full border-2 border-[#11100D] bg-[#F78E42] px-6 font-heading font-bold text-[#11100D] hover:bg-[#F78E42]/90 md:bottom-8 md:right-8"
+              className="fixed bottom-24 right-4 z-50 h-14 rounded-full border-2 border-[#11100D] bg-[#F78E42] px-6 font-heading font-bold text-[#11100D] shadow-[3px_4px_0_rgba(17,16,13,0.35)] hover:bg-[#F78E42]/90 md:bottom-8 md:right-8"
               data-testid="log-session-btn"
             >
               <Plus className="mr-2 h-5 w-5" aria-hidden />
@@ -413,7 +413,7 @@ export default function SessionsPage(): ReactElement {
             <Button
               size="lg"
               onClick={() => router.push("/auth/sign-up")}
-              className="border-2 border-[#11100D] bg-[#F78E42] font-heading font-bold text-[#11100D] hover:bg-[#F78E42]/90"
+              className="border-2 border-[#11100D] bg-[#F78E42] font-heading font-bold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.28)] hover:bg-[#F78E42]/90"
             >
               <Sparkles className="mr-2 h-4 w-4" aria-hidden />
               Sign Up
@@ -422,7 +422,7 @@ export default function SessionsPage(): ReactElement {
               size="lg"
               variant="outline"
               onClick={() => router.push("/auth/sign-in")}
-              className="border-2 border-[#11100D] bg-[#F4EBD8] font-heading font-bold text-[#11100D] hover:bg-[#F0E5CC]"
+              className="border-2 border-[#11100D] bg-[#F4EBD8] font-heading font-bold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.18)] hover:bg-[#F0E5CC]"
             >
               Sign In
             </Button>

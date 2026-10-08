@@ -74,18 +74,18 @@ interface LoopStepCardProps {
 function LoopStepCard({ step, inView }: LoopStepCardProps) {
   return (
     <div
-      className={`group relative isolate flex min-h-[360px] h-full flex-col overflow-hidden rounded-lg border-2 border-[#121735] bg-[#F5EEDC] p-5 text-[#121735] transition-transform duration-300 ease-out hover:-translate-y-1`}
+      className={`group relative isolate flex min-h-[360px] h-full flex-col overflow-hidden rounded-lg border-2 border-[#121735] bg-[#F5EEDC] p-5 text-[#121735] shadow-[10px_10px_0_rgba(7,12,42,0.35)] transition-transform duration-300 ease-out hover:-translate-y-1`}
     >
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.08] [background-image:radial-gradient(circle_at_center,#121735_1px,transparent_1px)] [background-size:8px_8px]"
         aria-hidden="true"
       />
       <div
-        className="absolute -top-2 left-8 z-20 h-5 w-24 rotate-[-7deg] bg-[#F78E42]"
+        className="absolute -top-2 left-8 z-20 h-5 w-24 rotate-[-7deg] bg-[#F78E42] shadow-[3px_3px_0_rgba(18,23,53,0.25)]"
         aria-hidden="true"
       />
       <div className="relative z-10 flex items-start justify-between gap-3">
-        <div className="flex h-11 w-11 items-center justify-center border-2 border-[#121735] bg-[#F78E42] font-heading text-base font-black text-[#121735]">
+        <div className="flex h-11 w-11 items-center justify-center border-2 border-[#121735] bg-[#F78E42] font-heading text-base font-black text-[#121735] shadow-[3px_3px_0_rgba(18,23,53,0.28)]">
           {step.number}
         </div>
         <QuiverSticker
@@ -112,7 +112,7 @@ function LoopStepCard({ step, inView }: LoopStepCardProps) {
         </div>
       ) : (
         <div className="relative z-10 mt-auto pt-8" aria-hidden="true">
-          <div className="h-2 w-24 bg-[#00D4AA]/70" />
+          <div className="h-2 w-24 bg-[#00D4AA]/70 shadow-[3px_3px_0_rgba(18,23,53,0.2)]" />
         </div>
       )}
       <div className="relative z-10 mt-5 flex flex-wrap gap-2">

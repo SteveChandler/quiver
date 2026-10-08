@@ -66,7 +66,7 @@ export function VoteButton({
         aria-label={`Sign in to vote, ${localCount} ${localCount === 1 ? "vote" : "votes"}`}
         className={cn(
           "group inline-flex items-center gap-2 rounded-[12px_3px_14px_3px] border-2 px-3 py-1 transition",
-          "border-[#11100D]/45 bg-[#F0E5CC] text-[#11100D]/70",
+          "border-[#11100D]/45 bg-[#F0E5CC] text-[#11100D]/70 shadow-[1px_2px_0_rgba(17,16,13,0.12)]",
           "hover:border-[#F78E42] hover:text-[#11100D]",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4EBD8]",
         )}
@@ -98,7 +98,7 @@ export function VoteButton({
       className={cn(
         "inline-flex items-center gap-1.5 rounded-[12px_3px_14px_3px] border-2 px-3 py-1 transition disabled:cursor-not-allowed",
         localVoted
-          ? "border-[#11100D] bg-[#F78E42] text-[#11100D]"
+          ? "border-[#11100D] bg-[#F78E42] text-[#11100D] shadow-[1px_2px_0_rgba(17,16,13,0.2)]"
           : "border-[#11100D]/45 bg-[#F0E5CC] text-[#11100D]/70 hover:border-[#F78E42] hover:text-[#11100D]",
       ) + " focus-ring"}
     >

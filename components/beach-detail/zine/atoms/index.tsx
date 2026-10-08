@@ -439,3 +439,10 @@ export function SaltyEyebrow({ text = "KEEP IT SALTY" }: { text?: string }) {
   );
 }
 
+export function TornDivider({ flip = false, color = "#DCC9A2" }: { flip?: boolean; color?: string }) {
+  return (
+    <svg viewBox="0 0 1200 24" preserveAspectRatio="none" style={{ display: "block", width: "100%", height: 18, transform: flip ? "scaleY(-1)" : "none" }} aria-hidden>
+      <path d="M0,8 C40,4 70,18 110,8 C150,2 190,16 230,7 C270,2 310,16 350,6 C390,2 430,18 470,9 C510,4 550,16 600,7 C650,2 690,16 730,7 C770,2 820,16 860,8 C900,4 940,16 1000,8 C1060,4 1130,16 1200,8 L1200,24 L0,24 Z" fill={color} filter="url(#zine-rough-edge)" />
+    </svg>
+  );
+}

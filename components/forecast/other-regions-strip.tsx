@@ -98,7 +98,7 @@ export function OtherRegionsStrip({
                 data-testid={`other-region-chip-${region.slug}`}
                 className={
                   isZine
-                    ? "group inline-flex items-center gap-2 rounded-[14px_5px_16px_6px] border-2 border-[#11100D]/35 bg-[#FBF6E8] px-3 py-1.5 text-sm text-[#11100D]/78 transition hover:-translate-y-0.5 hover:border-[#B56A2B] hover:text-[#11100D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F0E5CC]"
+                    ? "group inline-flex items-center gap-2 rounded-[14px_5px_16px_6px] border-2 border-[#11100D]/35 bg-[#FBF6E8] px-3 py-1.5 text-sm text-[#11100D]/78 shadow-[2px_2px_0_rgba(17,16,13,0.16)] transition hover:-translate-y-0.5 hover:border-[#B56A2B] hover:text-[#11100D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F0E5CC]"
                     : "group inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.04] px-3 py-1.5 text-sm text-white/80 transition hover:border-white/30 hover:bg-white/[0.08] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]"
                 }
               >

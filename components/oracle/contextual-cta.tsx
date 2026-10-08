@@ -183,17 +183,18 @@ export function ContextualCTA(props: ContextualCTAProps) {
         </p>
       )}
       <div className="flex flex-col gap-3">
-        {/* Charming Orange stays the single primary accent: native's pill
-            CTA with an ink label. */}
+        {/* Charming Orange stays the single primary accent, but printed flat
+            with an offset block shadow rather than a rounded SaaS pill. */}
         <Button
           variant={primary.variant}
-          className="w-full rounded-full py-4 hover:bg-[#D57835]"
+          className="w-full rounded-none py-4 text-base font-semibold hover:bg-[#D57835]"
           style={{
             background: "#F78E42",
             color: "#11100D",
-            fontFamily: "var(--font-sans), sans-serif",
-            fontSize: 15,
-            fontWeight: 700,
+            fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
+            letterSpacing: "0.02em",
+            textTransform: "uppercase",
+            boxShadow: "3px 4px 0 rgba(17,16,13,0.35)",
           }}
           onClick={primary.handler}
         >
@@ -205,7 +206,7 @@ export function ContextualCTA(props: ContextualCTAProps) {
             <Button
               key={action.label}
               variant="ghost"
-              className="w-full rounded-full text-sm hover:bg-[rgba(17,16,13,0.06)] sm:flex-1"
+              className="w-full rounded-none text-sm hover:bg-[rgba(17,16,13,0.06)] sm:flex-1"
               style={{
                 fontFamily: "var(--font-mono), monospace",
                 fontSize: 12,
@@ -213,7 +214,7 @@ export function ContextualCTA(props: ContextualCTAProps) {
                 textTransform: "uppercase",
                 fontWeight: 700,
                 color: INK,
-                border: "1.5px solid rgba(17,16,13,0.45)",
+                border: "1.5px dashed rgba(17,16,13,0.45)",
               }}
               onClick={action.handler}
             >

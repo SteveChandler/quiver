@@ -78,7 +78,7 @@ interface BeachThumbProps {
 
 function BeachThumb({ imageUrl, beachName, index }: BeachThumbProps) {
   const shape = THUMB_SHAPES[index % THUMB_SHAPES.length];
-  const common = `relative h-12 w-12 shrink-0 overflow-hidden ${shape}`;
+  const common = `relative h-12 w-12 shrink-0 overflow-hidden ${shape} shadow-[0_2px_0_rgba(0,0,0,0.3)]`;
 
   if (imageUrl) {
     return (

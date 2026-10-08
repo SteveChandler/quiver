@@ -53,7 +53,7 @@ export function FieldGuideCoverage(): ReactElement {
         </p>
       </div>
 
-      <div className="overflow-hidden rounded-[18px_8px_20px_10px] border-2 border-[#11100D]/15 bg-[#FFFDF4]">
+      <div className="overflow-hidden rounded-[18px_8px_20px_10px] border-2 border-[#11100D]/15 bg-[#FFFDF4] shadow-[3px_5px_0_rgba(17,16,13,0.12)]">
         <div className="grid md:grid-cols-4">
           {COVERAGE_STATS.map((stat, index) => (
             <div

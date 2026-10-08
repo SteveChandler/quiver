@@ -46,7 +46,7 @@ export function WaterTempSummaryHero({
           unstyled, invisible text run. */}
       <div
         aria-hidden="true"
-        className="flex size-[120px] shrink-0 -rotate-[8deg] flex-col items-center justify-center rounded-full border-4 border-[#11100D] bg-[#F4EBD8]/60 text-center font-heading font-black uppercase leading-[0.95] tracking-[0.06em] text-[#8A5E00]"
+        className="flex size-[120px] shrink-0 flex-col items-center justify-center rounded-full border-4 border-[#11100D] bg-[#F4EBD8]/60 text-center font-heading font-black uppercase leading-[0.95] tracking-[0.06em] text-[#8A5E00]"
       >
         <span className="text-[15px]">Water</span>
         <span className="mt-0.5 text-[28px] leading-none">{tempF}°F</span>

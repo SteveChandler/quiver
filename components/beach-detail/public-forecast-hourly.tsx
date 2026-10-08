@@ -163,7 +163,7 @@ export function PublicForecastHourly({
                   </td>
                   <td className="px-3 py-2.5">
                     {inCallWindow ? (
-                      <span className="inline-block rounded-full border-2 border-[#11100D] bg-[#F78E42] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#11100D]">
+                      <span className="inline-block border-2 border-[#11100D] bg-[#F78E42] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#11100D]">
                         Best window
                       </span>
                     ) : (

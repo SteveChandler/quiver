@@ -4,7 +4,7 @@
  * Replaces the uniform 3×4 guide grid with an asymmetric, sticker-aesthetic
  * layout: one featured card (the active region's guide — or the top-scoring
  * region with a guide when the active region has none), photo-backed where
- * `summaries[slug].photoUrl` is available, with varied rotations and
+ * `summaries[slug].photoUrl` is available, with varied
  * asymmetric border-radius so the list reads hand-cut.
  *
  * @module components/forecast/regional-guides-strip
@@ -88,7 +88,7 @@ function FeaturedGuideCard({ region, guideSlug, photoUrl }: GuideCardData) {
     <Link
       href={`/guides/surfing-${guideSlug}`}
       data-testid={`guide-card-featured-${guideSlug}`}
-      className="group relative col-span-12 overflow-hidden transition-transform motion-reduce:transform-none hover:scale-[1.01] md:col-span-8 md:row-span-2 rounded-[36px_14px_40px_12px] bg-[#1f265f]"
+      className="group relative col-span-12 overflow-hidden shadow-[0_6px_0_rgba(0,0,0,0.3)] transition-transform motion-reduce:transform-none hover:scale-[1.01] md:col-span-8 md:row-span-2 rounded-[36px_14px_40px_12px] bg-[#1f265f]"
     >
       {photoUrl ? (
         <>
@@ -145,7 +145,7 @@ function StandardGuideCard({
     <Link
       href={`/guides/surfing-${guideSlug}`}
       data-testid={`guide-card-${guideSlug}`}
-      className={`group relative col-span-12 overflow-hidden bg-[#1b2255] transition-transform motion-reduce:transform-none hover:scale-[1.015] sm:col-span-6 md:col-span-4 ${shapeClass}`}
+      className={`group relative col-span-12 overflow-hidden bg-[#1b2255] shadow-[0_3px_0_rgba(0,0,0,0.3)] transition-transform motion-reduce:transform-none hover:scale-[1.015] sm:col-span-6 md:col-span-4 ${shapeClass}`}
     >
       {photoUrl ? (
         <>

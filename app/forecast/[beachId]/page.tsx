@@ -406,7 +406,7 @@ async function renderRegionalForecast(region: typeof FORECAST_REGIONS[string]) {
               </p>
               <Link
                 href="/auth/sign-up"
-                className="mt-6 inline-flex items-center justify-center rounded-full border-2 border-[#F4EBD8] bg-[#F78E42] px-6 py-3 font-semibold text-[#11100D] transition-transform hover:-translate-y-0.5"
+                className="mt-6 inline-flex items-center justify-center rounded-full border-2 border-[#F4EBD8] bg-[#F78E42] px-6 py-3 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(244,235,216,0.3)] transition-transform hover:-translate-y-0.5"
               >
                 Sign Up for Free
               </Link>

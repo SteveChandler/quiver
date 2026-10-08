@@ -120,6 +120,7 @@ function SessionPolaroid({
 
   return (
     <article className="polaroid relative">
+      <span className="tape tl" aria-hidden />
       <div className="photo">
         <HalftonePhoto src={photoSrc} alt={photoSrc ? `${displayName} session photo` : undefined} height={170} />
       </div>

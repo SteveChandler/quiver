@@ -36,7 +36,6 @@ function TideBadge({ label, time, height, variant }: TideBadgeProps) {
         borderColor: isHigh
           ? "rgba(247, 142, 66, 0.35)"
           : "rgba(184, 199, 224, 0.2)",
-        transform: isHigh ? "rotate(-1deg)" : "rotate(0.75deg)",
       }}
     >
       {/* Label with directional icon */}

@@ -85,7 +85,7 @@ function RedemptionQrFallback({ redeemUrl }: { redeemUrl: string }): ReactElemen
   return (
     <div
       aria-labelledby="redeem-qr-fallback-heading"
-      className="border-[3px] border-[#11100D] bg-white p-5"
+      className="border-[3px] border-[#11100D] bg-white p-5 shadow-[6px_7px_0_rgba(17,16,13,0.28)]"
       data-testid="redeem-qr-fallback"
       role="group"
     >
@@ -98,7 +98,7 @@ function RedemptionQrFallback({ redeemUrl }: { redeemUrl: string }): ReactElemen
       </h3>
       <a
         href={redeemUrl}
-        className="mt-5 inline-flex min-h-12 items-center justify-center rounded-full bg-[#F78E42] px-5 py-3 text-center font-mono text-xs font-bold uppercase tracking-[0.1em] text-[#11100D] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#11100D]"
+        className="mt-5 inline-flex min-h-12 items-center justify-center rounded-full bg-[#F78E42] px-5 py-3 text-center font-mono text-xs font-bold uppercase tracking-[0.1em] text-[#11100D] shadow-[2px_4px_0_rgba(17,16,13,0.18)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#11100D]"
       >
         Open redemption link
       </a>
@@ -206,7 +206,7 @@ function RedemptionContent({
                 surface: "redeem",
               })
             }
-            className="mt-7 inline-flex min-h-14 items-center justify-center rounded-full bg-[#F78E42] px-7 py-4 font-mono text-sm font-bold uppercase tracking-[0.12em] text-[#11100D] motion-safe:transition-transform motion-safe:hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#11100D] active:translate-y-0"
+            className="mt-7 inline-flex min-h-14 items-center justify-center rounded-full bg-[#F78E42] px-7 py-4 font-mono text-sm font-bold uppercase tracking-[0.12em] text-[#11100D] shadow-[3px_5px_0_rgba(17,16,13,0.25)] motion-safe:transition-transform motion-safe:hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#11100D] active:translate-y-0"
           >
             Redeem Pro in Quiver
           </a>
@@ -220,7 +220,7 @@ function RedemptionContent({
             key={state.redeemUrl}
             redeemUrl={state.redeemUrl}
           >
-            <div className="border-[3px] border-[#11100D] bg-white p-3">
+            <div className="border-[3px] border-[#11100D] bg-white p-3 shadow-[6px_7px_0_rgba(17,16,13,0.28)]">
               <QRCodeSVG
                 aria-label="QR code for your Quiver Pro redemption link"
                 data-redeem-qr="true"
@@ -394,7 +394,7 @@ export function RedeemView({
                       surface: "redeem",
                     })
                   }
-                  className="inline-flex min-h-12 items-center justify-center rounded-full bg-[#F78E42] px-5 py-3 text-center font-mono text-xs font-bold uppercase tracking-[0.1em] text-[#11100D] motion-safe:transition-transform motion-safe:hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#11100D]"
+                  className="inline-flex min-h-12 items-center justify-center rounded-full bg-[#F78E42] px-5 py-3 text-center font-mono text-xs font-bold uppercase tracking-[0.1em] text-[#11100D] shadow-[2px_4px_0_rgba(17,16,13,0.18)] motion-safe:transition-transform motion-safe:hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#11100D]"
                 >
                   Install or open Quiver
                 </Link>

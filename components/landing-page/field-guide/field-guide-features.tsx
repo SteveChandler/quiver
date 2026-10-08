@@ -63,7 +63,7 @@ export function FieldGuideFeatures(): ReactElement {
       id="features"
       sectionLabel="What's inside"
       data-testid="field-guide-features"
-      className="bg-[#252D6B] px-3 pb-0 pt-3 sm:px-6 sm:pb-0 sm:pt-4"
+      className="bg-[#252D6B] px-3 py-0 sm:px-6 sm:py-0"
       stageClassName="mx-auto max-w-5xl !py-0"
       paperClassName="space-y-8"
       showMasthead={false}
@@ -76,7 +76,7 @@ export function FieldGuideFeatures(): ReactElement {
         {FEATURES.map((feature, index) => (
           <div
             key={feature.title}
-            className="notebook relative bg-[#F4EBD8] p-6"
+            className="notebook relative bg-[#F4EBD8] p-6 shadow-[2px_4px_0_rgba(0,0,0,0.18)]"
           >
             <span
               className={cn(

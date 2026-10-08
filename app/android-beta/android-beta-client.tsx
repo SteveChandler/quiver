@@ -189,7 +189,7 @@ export function AndroidBetaClient({
   }
 
   const handoffButtonClass =
-    "inline-flex min-h-11 items-center rounded-full border-2 border-[#11100D] px-5 py-2 font-semibold transition-transform hover:-translate-y-0.5";
+    "inline-flex min-h-11 items-center rounded-full border-2 border-[#11100D] px-5 py-2 font-semibold shadow-[2px_2px_0_rgba(17,16,13,0.35)] transition-transform hover:-translate-y-0.5";
 
   return (
     <ZineSurface
@@ -285,14 +285,14 @@ export function AndroidBetaClient({
               <a
                 href={ANDROID_BETA_CONTACT_MAILTO}
                 onClick={() => trackAndroidBetaOutboundClick("email_contact")}
-                className="inline-flex min-h-11 items-center rounded-full border-2 border-[#11100D] bg-[#FBF6E8] px-5 py-2 font-semibold text-[#11100D] transition-transform hover:-translate-y-0.5"
+                className="inline-flex min-h-11 items-center rounded-full border-2 border-[#11100D] bg-[#FBF6E8] px-5 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.22)] transition-transform hover:-translate-y-0.5"
               >
                 Email {ANDROID_BETA_CONTACT_EMAIL}
               </a>
             </div>
 
             {hasCapturedEmail ? (
-              <div className="mt-7 rounded-[14px_6px_16px_6px] border-2 border-[#11100D] bg-[#7BDCB5] px-4 py-3 text-[#11100D]">
+              <div className="mt-7 rounded-[14px_6px_16px_6px] border-2 border-[#11100D] bg-[#7BDCB5] px-4 py-3 text-[#11100D] shadow-[2px_3px_0_rgba(17,16,13,0.25)]">
                 <p
                   className="break-words font-mono text-sm font-bold tracking-[0.08em]"
                   role="status"
@@ -310,7 +310,7 @@ export function AndroidBetaClient({
             ) : (
               <form
                 onSubmit={handleSubmit}
-                className="mt-8 grid max-w-xl gap-3 rounded-[18px_8px_20px_10px] border-2 border-[#11100D] bg-[#FBF6E8] p-4 sm:grid-cols-[minmax(0,1fr)_auto]"
+                className="mt-8 grid max-w-xl gap-3 rounded-[18px_8px_20px_10px] border-2 border-[#11100D] bg-[#FBF6E8] p-4 shadow-[3px_4px_0_rgba(17,16,13,0.24)] sm:grid-cols-[minmax(0,1fr)_auto]"
                 noValidate
               >
                 <label
@@ -340,7 +340,7 @@ export function AndroidBetaClient({
                 <button
                   type="submit"
                   disabled={status === "saving"}
-                  className="inline-flex min-h-12 items-center justify-center rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-2 font-semibold text-[#11100D] transition-transform hover:-translate-y-0.5 disabled:cursor-wait disabled:opacity-70 disabled:hover:translate-y-0 focus-ring"
+                  className="inline-flex min-h-12 items-center justify-center rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)] transition-transform hover:-translate-y-0.5 disabled:cursor-wait disabled:opacity-70 disabled:hover:translate-y-0 focus-ring"
                 >
                   {status === "saving"
                     ? "Saving..."
@@ -370,7 +370,7 @@ export function AndroidBetaClient({
               className="absolute -top-6 left-8 z-10 w-28 -rotate-6 opacity-90"
             />
             <div className="torn torn-tb rot-2 border-2 border-[#11100D] bg-[#FBF6E8]">
-              <div className="mx-auto w-fit border-2 border-[#11100D] bg-white p-4">
+              <div className="mx-auto w-fit border-2 border-[#11100D] bg-white p-4 shadow-[3px_3px_0_rgba(17,16,13,0.25)]">
                 <QRCodeSVG
                   data-testid="android-beta-qr"
                   data-smart-url={ANDROID_BETA_SMART_QR_URL}

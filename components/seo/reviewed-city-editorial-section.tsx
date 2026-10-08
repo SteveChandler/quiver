@@ -27,7 +27,7 @@ export function ReviewedCityEditorialSection({
     <section
       aria-labelledby="local-planning-guidance"
       data-testid="reviewed-city-editorial"
-      className="my-8 rounded-[20px_8px_22px_10px] border-2 border-[#11100D] bg-[#FBF6E8] p-5 text-[#11100D] sm:p-6"
+      className="my-8 rounded-[20px_8px_22px_10px] border-2 border-[#11100D] bg-[#FBF6E8] p-5 text-[#11100D] shadow-[3px_4px_0_rgba(17,16,13,0.2)] sm:p-6"
     >
       <div className={photo ? "grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(220px,36%)] md:items-start" : undefined}>
         <div>
@@ -46,7 +46,7 @@ export function ReviewedCityEditorialSection({
 
         {photo && (
           <figure className="md:mt-1" data-testid="reviewed-city-editorial-photo">
-            <div className="relative aspect-[4/3] overflow-hidden rounded-[6px_14px_6px_12px] border-2 border-[#11100D] bg-[#EEE3C9]">
+            <div className="relative aspect-[4/3] overflow-hidden rounded-[6px_14px_6px_12px] border-2 border-[#11100D] bg-[#EEE3C9] shadow-[3px_3px_0_rgba(17,16,13,0.18)]">
               <Image
                 src={photo.src}
                 alt={photoAlt ?? photo.title ?? ""}

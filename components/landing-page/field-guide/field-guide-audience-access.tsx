@@ -23,7 +23,7 @@ export function FieldGuideAudienceAccess(): ReactElement {
       className="space-y-10"
       aria-labelledby="field-guide-access-heading"
     >
-      <div className="rounded-[18px_8px_20px_10px] border-2 border-[#11100D]/15 bg-[#EDE5D1] p-5 sm:p-7">
+      <div className="rounded-[18px_8px_20px_10px] border-2 border-[#11100D]/15 bg-[#EDE5D1] p-5 shadow-[2px_4px_0_rgba(17,16,13,0.1)] sm:p-7">
         <p className="font-mono text-[11px] font-bold uppercase tracking-[0.28em] text-[#11100D]/60">
           Built for
         </p>
@@ -60,7 +60,7 @@ export function FieldGuideAudienceAccess(): ReactElement {
           {ACCESS_POINTS.map((point) => (
             <div
               key={point}
-              className="notebook bg-[#FFFDF4] p-4 font-mono text-xs font-bold leading-relaxed text-[#11100D]/72"
+              className="notebook bg-[#FFFDF4] p-4 font-mono text-xs font-bold leading-relaxed text-[#11100D]/72 shadow-[2px_4px_0_rgba(17,16,13,0.12)]"
             >
               {point}
             </div>
@@ -69,7 +69,7 @@ export function FieldGuideAudienceAccess(): ReactElement {
 
         <Link
           href="/plans"
-          className="mt-6 inline-flex min-h-12 items-center justify-center rounded-[12px_5px_14px_5px] border-2 border-[#11100D] bg-[#F4EBD8] px-5 py-3 font-mono text-sm font-bold uppercase tracking-[0.14em] text-[#11100D] transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#11100D]"
+          className="mt-6 inline-flex min-h-12 items-center justify-center rounded-[12px_5px_14px_5px] border-2 border-[#11100D] bg-[#F4EBD8] px-5 py-3 font-mono text-sm font-bold uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_4px_0_rgba(0,0,0,0.14)] transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#11100D]"
         >
           See plans
         </Link>

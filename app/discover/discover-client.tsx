@@ -212,7 +212,7 @@ export default function DiscoverPageClient(): ReactElement {
                 onClick={() => {
                   router.push("/auth/sign-in");
                 }}
-                className="min-h-11 rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-2 font-semibold text-[#11100D] transition-transform hover:-translate-y-0.5 hover:bg-[#F78E42]"
+                className="min-h-11 rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)] transition-transform hover:-translate-y-0.5 hover:bg-[#F78E42]"
               >
                 Sign In
               </Button>
@@ -222,7 +222,7 @@ export default function DiscoverPageClient(): ReactElement {
                 onClick={() => {
                   router.push("/auth/sign-up");
                 }}
-                className="min-h-11 rounded-full border-2 border-[#11100D] bg-[#FBF6E8] px-5 py-2 font-semibold text-[#11100D] transition-transform hover:-translate-y-0.5 hover:bg-[#FBF6E8]"
+                className="min-h-11 rounded-full border-2 border-[#11100D] bg-[#FBF6E8] px-5 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.22)] transition-transform hover:-translate-y-0.5 hover:bg-[#FBF6E8]"
               >
                 Sign Up
               </Button>
@@ -296,7 +296,7 @@ export default function DiscoverPageClient(): ReactElement {
             <Button
               onClick={handleSearch}
               disabled={!searchQuery.trim() || searchLoading}
-              className="min-h-11 rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-2 font-semibold text-[#11100D] transition-transform hover:-translate-y-0.5 hover:bg-[#F78E42] disabled:translate-y-0 disabled:opacity-60"
+              className="min-h-11 rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)] transition-transform hover:-translate-y-0.5 hover:bg-[#F78E42] disabled:translate-y-0 disabled:opacity-60"
             >
               <Search className="mr-2 h-4 w-4" />
               {searchLoading ? "Searching..." : "Search"}
@@ -351,7 +351,7 @@ export default function DiscoverPageClient(): ReactElement {
                       onClick={() => {
                         handleProfileOpen(searchUser.id, "search");
                       }}
-                      className="rounded-full border-2 border-[#11100D] bg-[#FBF6E8] font-semibold text-[#11100D] hover:bg-[#F0E5CC]"
+                      className="rounded-full border-2 border-[#11100D] bg-[#FBF6E8] font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.2)] hover:bg-[#F0E5CC]"
                     >
                       View Profile
                     </Button>
@@ -466,7 +466,7 @@ export default function DiscoverPageClient(): ReactElement {
                       onClick={() => {
                         handleProfileOpen(suggestedUser.id, "suggested");
                       }}
-                      className="rounded-full border-2 border-[#11100D] bg-[#FBF6E8] font-semibold text-[#11100D] hover:bg-[#F0E5CC]"
+                      className="rounded-full border-2 border-[#11100D] bg-[#FBF6E8] font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.2)] hover:bg-[#F0E5CC]"
                     >
                       View Profile
                     </Button>
