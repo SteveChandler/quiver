@@ -30,7 +30,7 @@ export function RevenueCatWebCheckoutCta() {
         </p>
         <Link
           href="/auth/sign-in?redirectTo=%2Fplans"
-          className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border-2 border-[#11100D] bg-[#D9EEF4] px-5 font-semibold text-[#11100D] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D] sm:max-w-sm"
+          className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border-2 border-[#11100D] bg-[#D9EEF4] px-5 font-semibold text-[#11100D] shadow-[3px_3px_0_rgba(17,16,13,0.24)] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D] sm:max-w-sm"
           data-testid="revenuecat-web-checkout-sign-in"
         >
           Sign in for web checkout
@@ -47,7 +47,7 @@ export function RevenueCatWebCheckoutCta() {
       </p>
       <a
         href={checkoutUrl}
-        className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border-2 border-[#11100D] bg-[#D9EEF4] px-5 font-semibold text-[#11100D] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D] sm:max-w-sm"
+        className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border-2 border-[#11100D] bg-[#D9EEF4] px-5 font-semibold text-[#11100D] shadow-[3px_3px_0_rgba(17,16,13,0.24)] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D] sm:max-w-sm"
         data-testid="revenuecat-web-checkout-cta"
       >
         Start web checkout

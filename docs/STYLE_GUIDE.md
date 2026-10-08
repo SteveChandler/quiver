@@ -404,7 +404,7 @@ When editing a component that uses raw `text-white/{n}`, migrate to the semantic
 
 ## 14. Texture & Grain
 
-Texture is split across the two layers: `noise-texture*` grain on the twilight **stage**, and halftone on drawn panels. Cream **content surfaces** are flat, like native paper.
+Texture is split across the two layers: `noise-texture*` grain on the twilight **stage**, and zine paper/halftone/torn-edge/tape texture on cream **content surfaces**.
 
 ### Stage grain (`noise-texture*`)
 
@@ -418,12 +418,14 @@ A CSS-only noise texture is available as utility classes defined in `app/globals
 
 ### Zine content-surface texture
 
-Cream content surfaces match native's paper card (`app/styles/zine.css`):
+Cream content surfaces carry their own zine texture vocabulary — implementations live in `app/styles/zine.css` (reference the tokens; do not reinvent):
 
-- **Flat paper** — paper `#F4EBD8`, a 1 px paper-shadow `#E5D4B3` edge, 14 px corners with the top-right swept to 22 px. No grain, fleck, torn edge, tape or drop shadow. `.zine-paper`, `.torn`, `.notebook`, `.polaroid`, `.utility-strip` and `.condition-strip` all draw this card; `.tape` renders nothing.
-- **Square to the screen** — no tilt on cards, panels, labels or buttons (`.rot-*` is a no-op). Only decorative sticker images (`QuiverSticker`) tilt, as native's sticker backdrop does.
-- **Outline and hard ink drop** — only on a standout, such as the call caption or the beach media panel. Never a translucent offset drop.
-- **Halftone** — dot-screen shading on drawn panels (maps, dioramas), never over a photo.
+- **Paper grain** — subtle fibrous grain on cream paper surfaces, distinct from the stage's `feTurbulence` noise.
+- **Halftone** — dot-screen shading for retro print depth.
+- **Torn edge** — ragged paper edges on cards and cutouts.
+- **Tape** — masking-tape strips (tape `#C8A46B`) anchoring stickers and cards.
+
+Use the zine texture on cream surfaces and the `noise-texture*` grain on the stage — do not mix the two on the same surface.
 
 ### How it works
 

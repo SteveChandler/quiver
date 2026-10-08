@@ -113,7 +113,7 @@ export default function SwellPeriodMorph() {
       <div className="relative overflow-hidden rounded-lg border-[1.5px] border-[#11100D] bg-[#e2e9e8]">
         <canvas ref={canvasRef} className="block h-[230px] w-full" />
         <div
-          className={`absolute left-2 top-2 rounded-[3px] px-2 py-1 font-display text-[13px] font-black tracking-wider ${
+          className={`absolute left-2 top-2 rotate-[-2deg] rounded-[3px] px-2 py-1 font-display text-[13px] font-black tracking-wider ${
             isGround ? "bg-[#F78E42] text-[#11100D]" : "bg-[#11100D] text-[#F4EBD8]"
           }`}
         >
@@ -155,7 +155,7 @@ export default function SwellPeriodMorph() {
 
       <Link
         href="/map?source=learn_groundswell_figure"
-        className="mt-4 block rounded-md bg-[#11100D] px-3 py-2.5 text-[13px] leading-snug text-[#F4EBD8]"
+        className="mt-4 block rotate-[-0.4deg] rounded-md bg-[#11100D] px-3 py-2.5 text-[13px] leading-snug text-[#F4EBD8]"
       >
         On a Quiver forecast, this is the <b className="text-[#F78E42]">Period</b> number — the fastest read on whether it&apos;s worth paddling out.{" "}
         <span className="whitespace-nowrap font-bold text-[#F78E42]">See it on your beach →</span>

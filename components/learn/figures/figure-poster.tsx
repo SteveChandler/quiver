@@ -200,7 +200,7 @@ export function FigurePoster({ kind }: FigurePosterProps) {
           </>
         ) : null}
       </svg>
-      <div className="absolute left-2 top-2 rounded-[3px] bg-[#11100D] px-2 py-1 font-display text-[13px] font-black tracking-wider text-[#F4EBD8]">
+      <div className="absolute left-2 top-2 rotate-[-2deg] rounded-[3px] bg-[#11100D] px-2 py-1 font-display text-[13px] font-black tracking-wider text-[#F4EBD8]">
         {badges[kind]}
       </div>
     </div>

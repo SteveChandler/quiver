@@ -21,7 +21,7 @@ export function FigureFrame({
   downloadTitle = "Quiver surf science figure",
 }: FigureFrameProps) {
   return (
-    <figure className="my-8 rounded-[14px_12px_15px_11px] border-[1.5px] border-[#11100D] bg-[#F4EBD8] p-4">
+    <figure className="my-8 rounded-[14px_12px_15px_11px] border-[1.5px] border-[#11100D] bg-[#F4EBD8] p-4 shadow-[3px_4px_0_rgba(17,16,13,0.18)]">
       <span className="sr-only">{summary}</span>
       <div className="mb-3 border-b-[1.5px] border-[#11100D] pb-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[#6b6455]">
         <span className="font-bold text-[#F78E42]">QUIVER</span> · SURF SCIENCE

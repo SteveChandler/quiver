@@ -114,7 +114,7 @@ export function ContentPageAppHandoffCta({
       data-surface={surface}
       data-placement={placement}
       className={cn(
-        "relative overflow-hidden border-2 border-[#11100D] bg-[#F4EBD8] p-4 text-[#11100D] sm:p-5",
+        "relative overflow-hidden border-2 border-[#11100D] bg-[#F4EBD8] p-4 text-[#11100D] shadow-[3px_4px_0_rgba(17,16,13,0.22)] sm:p-5",
         className,
       )}
     >
@@ -138,7 +138,7 @@ export function ContentPageAppHandoffCta({
           href={handoffPath}
           onClick={handleClick}
           data-testid={`${ctaId}-link`}
-          className="rounded-full inline-flex min-h-11 w-full shrink-0 items-center justify-center border-2 border-[#11100D] bg-[#F78E42] px-4 py-2.5 text-center font-mono text-xs font-black uppercase tracking-[0.08em] text-[#11100D] transition-colors hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4EBD8] motion-reduce:transition-none sm:w-auto sm:px-5"
+          className="rounded-full inline-flex min-h-11 w-full shrink-0 items-center justify-center border-2 border-[#11100D] bg-[#F78E42] px-4 py-2.5 text-center font-mono text-xs font-black uppercase tracking-[0.08em] text-[#11100D] shadow-[2px_3px_0_rgba(17,16,13,0.3)] transition-colors hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4EBD8] motion-reduce:transition-none sm:w-auto sm:px-5"
         >
           {ctaLabel}
         </a>

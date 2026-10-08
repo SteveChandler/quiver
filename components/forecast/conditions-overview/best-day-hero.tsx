@@ -43,7 +43,7 @@ export function BestDayHero({ bestDay, otherGoodDays, isUserSelected, isPersonal
           className="relative overflow-hidden rounded-[8px] border-2 border-[#11100D] bg-[#F4EBD8] p-5 shadow-[4px_4px_0_#11100D] sm:p-6"
         >
           <div className="relative flex flex-col items-center gap-6 sm:flex-row sm:items-start">
-            <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-full border-[3px] border-[#11100D] bg-[#11100D] shadow-[3px_3px_0_#11100D]">
+            <div className="flex h-24 w-24 shrink-0 rotate-[-2deg] items-center justify-center rounded-full border-[3px] border-[#11100D] bg-[#11100D] shadow-[3px_3px_0_#11100D]">
               <div className="text-center">
                 <div className="font-heading text-4xl font-black leading-none text-[#F4EBD8]">
                   {bestDay.score}

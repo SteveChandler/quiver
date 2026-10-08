@@ -35,7 +35,7 @@ export function AccuracyHero() {
 
       <div className="relative grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-stretch">
         <div className="rounded-[8px] border-2 border-[#11100D] bg-[#11100D] p-5 text-[#F4EBD8] shadow-[3px_3px_0_#11100D] md:p-7">
-          <div className="mb-4 inline-flex items-center gap-2 rounded-[8px] border-2 border-[#11100D] bg-[#EFE5CF] px-3 py-1.5 text-xs font-black uppercase tracking-[0.14em] text-[#11100D] shadow-[3px_3px_0_#11100D]">
+          <div className="mb-4 inline-flex rotate-[-1.5deg] items-center gap-2 rounded-[8px] border-2 border-[#11100D] bg-[#EFE5CF] px-3 py-1.5 text-xs font-black uppercase tracking-[0.14em] text-[#11100D] shadow-[3px_3px_0_#11100D]">
             <Waves className="h-3.5 w-3.5" aria-hidden />
             Start with the measurement
           </div>
@@ -50,7 +50,7 @@ export function AccuracyHero() {
           </p>
         </div>
 
-        <div className="flex flex-col justify-between rounded-[8px] border-2 border-[#11100D] bg-[#EFE5CF] p-5 shadow-[3px_3px_0_#11100D]">
+        <div className="flex rotate-1 flex-col justify-between rounded-[8px] border-2 border-[#11100D] bg-[#EFE5CF] p-5 shadow-[3px_3px_0_#11100D]">
           <p className="font-mono text-xs font-black uppercase tracking-[0.16em] text-[#5F5646]">
             Quiver&apos;s current position
           </p>
@@ -71,7 +71,7 @@ export function AccuracyHero() {
           return (
             <div
               key={check.label}
-              className={`flex items-start gap-3 rounded-[8px] border-2 border-[#11100D] bg-[#EFE5CF] px-4 py-3 shadow-[3px_3px_0_#11100D]`}
+              className={`${index % 2 === 0 ? "-rotate-1" : "rotate-1"} flex items-start gap-3 rounded-[8px] border-2 border-[#11100D] bg-[#EFE5CF] px-4 py-3 shadow-[3px_3px_0_#11100D]`}
             >
               <Icon className={`mt-0.5 h-5 w-5 ${check.color}`} aria-hidden />
               <div>

@@ -241,7 +241,7 @@ export default async function CustomSpotDetailPage(
             />
             <div className="mb-5 flex flex-wrap items-center gap-3">
               <span className="label-black">Custom spot</span>
-              <span className="rounded-full border-2 border-[#11100D] bg-[#F78E42] px-3 py-1 font-mono text-[11px] font-black uppercase tracking-[0.14em] text-[#11100D]">
+              <span className="rounded-full border-2 border-[#11100D] bg-[#F78E42] px-3 py-1 font-mono text-[11px] font-black uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.24)]">
                 {spot.visibility}
               </span>
             </div>
@@ -327,7 +327,7 @@ export default async function CustomSpotDetailPage(
               {customSpotPhotos.map((photo, index) => (
                 <figure
                   key={photo.id}
-                  className="overflow-hidden border-2 border-[#11100D] bg-[#FBF6E8]"
+                  className="overflow-hidden border-2 border-[#11100D] bg-[#FBF6E8] shadow-[2px_3px_0_rgba(17,16,13,0.18)]"
                 >
                   <div className="relative aspect-[4/3]">
                     <Image
@@ -369,7 +369,7 @@ export default async function CustomSpotDetailPage(
             </h2>
           </div>
           {currentForecast ? (
-            <div className="overflow-hidden border-2 border-[#11100D] bg-[#FBF6E8] font-mono [&_span]:!text-[#11100D] [&_svg]:!text-[#11100D]">
+            <div className="overflow-hidden border-2 border-[#11100D] bg-[#FBF6E8] font-mono shadow-[2px_3px_0_rgba(17,16,13,0.18)] [&_span]:!text-[#11100D] [&_svg]:!text-[#11100D]">
               <ConditionsTicker
                 data={forecastToConditionsData(currentForecast, nearestBeach)}
                 beachName={spot.name}
@@ -440,7 +440,7 @@ export default async function CustomSpotDetailPage(
               ) : null}
             </div>
             <div
-              className="zine-forecast-table overflow-x-auto border-2 border-[#11100D] bg-[#F4EBD8] p-3 font-mono"
+              className="zine-forecast-table overflow-x-auto border-2 border-[#11100D] bg-[#F4EBD8] p-3 font-mono shadow-[2px_3px_0_rgba(17,16,13,0.18)]"
               data-testid="custom-spot-forecast-table"
             >
               <MultiDayForecastTable

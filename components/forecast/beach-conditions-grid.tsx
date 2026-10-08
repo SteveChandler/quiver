@@ -233,7 +233,7 @@ function BeachConditionCard({
         className={cn(
           "transition-[background-color,border-color,box-shadow,transform] duration-200 group",
           isZine
-            ? "rounded-none border-2 border-[#11100D] bg-[#FBF6E8] hover:-translate-y-0.5"
+            ? "rounded-none border-2 border-[#11100D] bg-[#FBF6E8] shadow-[2px_3px_0_rgba(17,16,13,0.18)] hover:-translate-y-0.5"
             : "hover:shadow-md hover:border-border/80"
         )}
       >

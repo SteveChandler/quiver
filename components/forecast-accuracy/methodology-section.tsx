@@ -11,7 +11,7 @@ export function MethodologySection() {
       <div className="rounded-[8px] border-2 border-[#11100D] bg-[#F4EBD8] p-5 shadow-[4px_4px_0_#11100D] md:p-6">
         <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
-            <p className="mb-2 inline-flex rounded-[8px] border-2 border-[#11100D] bg-[#EFE5CF] px-3 py-1 font-mono text-xs font-black uppercase tracking-[0.16em] text-[#11100D] shadow-[2px_2px_0_#11100D]">
+            <p className="mb-2 inline-flex rotate-1 rounded-[8px] border-2 border-[#11100D] bg-[#EFE5CF] px-3 py-1 font-mono text-xs font-black uppercase tracking-[0.16em] text-[#11100D] shadow-[2px_2px_0_#11100D]">
               A fair test
             </p>
             <h2 className="font-heading text-2xl font-black text-[#11100D]">
@@ -25,7 +25,7 @@ export function MethodologySection() {
         </div>
 
         <ol className="grid gap-3 md:grid-cols-3">
-          <li className="rounded-[8px] border-2 border-[#11100D] bg-[#F78E42] p-4 text-[#11100D] shadow-[3px_3px_0_#11100D]">
+          <li className="-rotate-1 rounded-[8px] border-2 border-[#11100D] bg-[#F78E42] p-4 text-[#11100D] shadow-[3px_3px_0_#11100D]">
             <span className="font-mono text-xs font-black uppercase tracking-[0.18em]">
               01 save
             </span>
@@ -38,7 +38,7 @@ export function MethodologySection() {
               Do not backfill a revised value.
             </p>
           </li>
-          <li className="rounded-[8px] border-2 border-[#11100D] bg-[#EFE5CF] p-4 text-[#11100D] shadow-[3px_3px_0_#11100D]">
+          <li className="rotate-1 rounded-[8px] border-2 border-[#11100D] bg-[#EFE5CF] p-4 text-[#11100D] shadow-[3px_3px_0_#11100D]">
             <span className="font-mono text-xs font-black uppercase tracking-[0.18em]">
               02 match
             </span>
@@ -51,7 +51,7 @@ export function MethodologySection() {
               time-matched readings from nearby IOOS and NOAA buoys.
             </p>
           </li>
-          <li className="rounded-[8px] border-2 border-[#11100D] bg-[#8AB4F8] p-4 text-[#11100D] shadow-[3px_3px_0_#11100D]">
+          <li className="-rotate-1 rounded-[8px] border-2 border-[#11100D] bg-[#8AB4F8] p-4 text-[#11100D] shadow-[3px_3px_0_#11100D]">
             <span className="font-mono text-xs font-black uppercase tracking-[0.18em]">
               03 report
             </span>

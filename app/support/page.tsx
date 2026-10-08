@@ -77,7 +77,7 @@ export default function SupportPage() {
             </p>
             <a
               href="mailto:support@quiversurf.app"
-              className="inline-flex min-h-11 items-center rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-2 font-mono text-sm font-semibold tracking-tight text-[#11100D] transition-transform hover:-translate-y-0.5"
+              className="inline-flex min-h-11 items-center rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-2 font-mono text-sm font-semibold tracking-tight text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)] transition-transform hover:-translate-y-0.5"
             >
               support@quiversurf.app
             </a>

@@ -22,7 +22,8 @@ export function FieldGuideProof(): ReactElement {
       {STATS.map((stat, index) => (
         <div
           key={stat.label}
-          className="torn relative bg-[#F4EBD8] p-5 text-center"
+          className="torn relative bg-[#F4EBD8] p-5 text-center shadow-[2px_4px_0_rgba(0,0,0,0.18)]"
+          style={{ transform: `rotate(${index % 2 === 0 ? -1.5 : 1.5}deg)` }}
         >
           <QuiverSticker
             sticker={

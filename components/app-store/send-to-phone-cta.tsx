@@ -212,7 +212,7 @@ export function SendToPhoneCta({
       )}
     >
       <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-        <div className="mx-auto shrink-0 rounded-[1.1rem] border-2 border-[#11100D] bg-[#F4EBD8] p-3 shadow-[3px_3px_0_#11100D]">
+        <div className="mx-auto shrink-0 -rotate-1 rounded-[1.1rem] border-2 border-[#11100D] bg-[#F4EBD8] p-3 shadow-[3px_3px_0_#11100D]">
           {qrValue ? (
             <QRCodeSVG
               aria-label="Scan to open Quiver on your phone"

@@ -199,7 +199,7 @@ function AccessBadge({ access }: { access: string }): ReactElement {
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-sm border-2 border-[#11100D] px-2.5 py-1 font-mono text-[10px] font-black uppercase tracking-[0.1em] ${
+      className={`inline-flex items-center gap-1.5 rounded-sm border-2 border-[#11100D] px-2.5 py-1 font-mono text-[10px] font-black uppercase tracking-[0.1em] shadow-[2px_2px_0_rgba(17,16,13,0.18)] ${
         isPro
           ? "bg-[#252D6B] text-[#F4EBD8]"
           : "bg-[#F78E42] text-[#11100D]"
@@ -255,7 +255,7 @@ export default function SurfSessionLogPage(): ReactElement {
 
             <div className="relative mx-auto grid max-w-7xl gap-9 lg:grid-cols-[minmax(0,1.04fr)_minmax(380px,0.96fr)] lg:items-center">
               <div>
-                <span className="inline-block rounded-sm border-2 border-[#11100D] bg-[#F78E42] px-3 py-1 font-heading text-xs font-black uppercase tracking-[0.16em] text-[#11100D]">
+                <span className="inline-block -rotate-1 rounded-sm border-2 border-[#11100D] bg-[#F78E42] px-3 py-1 font-heading text-xs font-black uppercase tracking-[0.16em] text-[#11100D] shadow-[3px_3px_0_rgba(17,16,13,0.28)]">
                   Surf journal field guide
                 </span>
                 <p className="mb-3 mt-7 font-mono text-xs font-black uppercase tracking-[0.24em] text-[#9E5010]">
@@ -273,14 +273,14 @@ export default function SurfSessionLogPage(): ReactElement {
                 <div className="mt-7 flex flex-col gap-3 sm:flex-row">
                   <Link
                     href="/auth/sign-up"
-                    className="inline-flex items-center justify-center gap-2 rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-3 font-heading text-sm font-black uppercase tracking-[0.08em] text-[#11100D] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D]"
+                    className="inline-flex items-center justify-center gap-2 rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-3 font-heading text-sm font-black uppercase tracking-[0.08em] text-[#11100D] shadow-[5px_5px_0_rgba(17,16,13,0.3)] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D]"
                   >
                     Create a free account
                     <ArrowRight className="h-4 w-4" aria-hidden />
                   </Link>
                   <Link
                     href="/forecast"
-                    className="inline-flex items-center justify-center gap-2 rounded-full border-2 border-[#11100D] bg-[#F8EFD8] px-5 py-3 font-heading text-sm font-black uppercase tracking-[0.08em] text-[#11100D] transition-transform hover:-translate-y-0.5 hover:bg-[#F78E42] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D]"
+                    className="inline-flex items-center justify-center gap-2 rounded-full border-2 border-[#11100D] bg-[#F8EFD8] px-5 py-3 font-heading text-sm font-black uppercase tracking-[0.08em] text-[#11100D] shadow-[5px_5px_0_rgba(17,16,13,0.18)] transition-transform hover:-translate-y-0.5 hover:bg-[#F78E42] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D]"
                   >
                     Browse forecasts
                   </Link>
@@ -304,7 +304,7 @@ export default function SurfSessionLogPage(): ReactElement {
                   sticker="orangeTape"
                   className="absolute right-8 top-0 z-10 hidden w-32 rotate-6 opacity-90 sm:block"
                 />
-                <div className="absolute left-2 top-10 w-[88%] border-2 border-[#11100D] bg-[#F8EFD8] p-4 sm:left-8 sm:p-6">
+                <div className="absolute left-2 top-10 w-[88%] -rotate-2 border-2 border-[#11100D] bg-[#F8EFD8] p-4 shadow-[10px_10px_0_rgba(17,16,13,0.3)] sm:left-8 sm:p-6">
                   <div className="flex items-center justify-between border-b-2 border-[#11100D] pb-3 font-mono text-[10px] font-black uppercase tracking-[0.16em] text-[#252D6B]">
                     <span>Session 042</span>
                     <span>Private</span>
@@ -318,7 +318,7 @@ export default function SurfSessionLogPage(): ReactElement {
                         Beach · board · 1h 35m
                       </p>
                     </div>
-                    <div className="flex h-16 w-16 shrink-0 -rotate-6 items-center justify-center rounded-full border-4 border-[#11100D] bg-[#F78E42] font-heading text-2xl font-black">
+                    <div className="flex h-16 w-16 shrink-0 -rotate-6 items-center justify-center rounded-full border-4 border-[#11100D] bg-[#F78E42] font-heading text-2xl font-black shadow-[3px_3px_0_rgba(17,16,13,0.22)]">
                       4/5
                     </div>
                   </div>
@@ -351,12 +351,12 @@ export default function SurfSessionLogPage(): ReactElement {
 
           <section className="px-4 py-8 md:py-10">
             <div className="mx-auto max-w-7xl">
-              <div className="relative border-2 border-[#11100D] bg-[#11100D] p-6 text-[#F4EBD8] md:p-8">
+              <div className="relative -rotate-[0.5deg] border-2 border-[#11100D] bg-[#11100D] p-6 text-[#F4EBD8] shadow-[8px_8px_0_rgba(17,16,13,0.25)] md:p-8">
                 <QuiverSticker
                   sticker="halftoneCircle"
                   className="absolute -right-5 -top-7 hidden w-20 rotate-[8deg] opacity-90 md:block"
                 />
-                <span className="absolute -top-4 left-7 border-2 border-[#11100D] bg-[#F78E42] px-3 py-1 font-mono text-[10px] font-black uppercase tracking-[0.18em] text-[#11100D]">
+                <span className="absolute -top-4 left-7 rotate-[-2deg] border-2 border-[#11100D] bg-[#F78E42] px-3 py-1 font-mono text-[10px] font-black uppercase tracking-[0.18em] text-[#11100D]">
                   quick take
                 </span>
                 <p className="font-heading text-2xl font-black leading-tight md:text-4xl">
@@ -371,7 +371,7 @@ export default function SurfSessionLogPage(): ReactElement {
 
           <section className="px-4 py-10 md:py-14">
             <div className="mx-auto max-w-7xl">
-              <p className="inline-flex border-2 border-[#11100D] bg-[#F78E42] px-2 py-1 font-mono text-[10px] font-black uppercase tracking-[0.18em] text-[#11100D]">
+              <p className="inline-flex border-2 border-[#11100D] bg-[#F78E42] px-2 py-1 font-mono text-[10px] font-black uppercase tracking-[0.18em] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.22)]">
                 choose by job
               </p>
               <h2 className="mt-3 max-w-4xl font-heading text-4xl font-black leading-none text-[#11100D] md:text-6xl">
@@ -381,7 +381,7 @@ export default function SurfSessionLogPage(): ReactElement {
                 {DECISION_ITEMS.map((item, index) => (
                   <article
                     key={item.title}
-                    className={`border-2 border-[#11100D] p-5 ${
+                    className={`border-2 border-[#11100D] p-5 shadow-[6px_6px_0_rgba(17,16,13,0.2)] ${
                       index === 2
                         ? "bg-[#252D6B] text-[#F4EBD8]"
                         : "bg-[#F8EFD8] text-[#11100D]"
@@ -404,7 +404,7 @@ export default function SurfSessionLogPage(): ReactElement {
           </section>
 
           <section className="px-4 py-10 md:py-14">
-            <div className="relative mx-auto max-w-7xl border-2 border-[#11100D] bg-[#F8EFD8] p-4 md:p-6">
+            <div className="relative mx-auto max-w-7xl rotate-[0.2deg] border-2 border-[#11100D] bg-[#F8EFD8] p-4 shadow-[9px_9px_0_rgba(17,16,13,0.22)] md:p-6">
               <QuiverSticker
                 sticker="spotSwellMatch"
                 className="absolute -right-4 -top-7 hidden w-20 rotate-6 drop-shadow-md md:block"
@@ -462,7 +462,7 @@ export default function SurfSessionLogPage(): ReactElement {
                 {CAPABILITY_ITEMS.map((item) => (
                   <article
                     key={item.capability}
-                    className="border-2 border-[#11100D] bg-[#F4EBD8] p-4"
+                    className="border-2 border-[#11100D] bg-[#F4EBD8] p-4 shadow-[4px_4px_0_rgba(17,16,13,0.16)]"
                   >
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <h3 className="font-heading text-lg font-black text-[#11100D]">
@@ -482,7 +482,7 @@ export default function SurfSessionLogPage(): ReactElement {
           <section className="px-4 py-10 md:py-16">
             <div className="mx-auto max-w-7xl">
               <div className="grid gap-6 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
-                <div className="relative border-2 border-[#11100D] bg-[#252D6B] p-6 text-[#F4EBD8] md:p-8">
+                <div className="relative border-2 border-[#11100D] bg-[#252D6B] p-6 text-[#F4EBD8] shadow-[9px_9px_0_rgba(17,16,13,0.26)] md:p-8">
                   <QuiverSticker
                     sticker="navyLightning"
                     className="absolute -right-5 -top-6 hidden w-16 rotate-[10deg] drop-shadow-md md:block"
@@ -515,7 +515,7 @@ export default function SurfSessionLogPage(): ReactElement {
                   {MECHANISM_ITEMS.map((item) => (
                     <li
                       key={item.step}
-                      className="border-2 border-[#11100D] bg-[#F8EFD8] p-5"
+                      className="border-2 border-[#11100D] bg-[#F8EFD8] p-5 shadow-[6px_6px_0_rgba(17,16,13,0.18)]"
                     >
                       <div className="flex items-center justify-between gap-4">
                         <span className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-[#11100D] bg-[#F78E42] font-mono text-xs font-black">
@@ -551,7 +551,7 @@ export default function SurfSessionLogPage(): ReactElement {
                 {FAQ_ITEMS.map((item) => (
                   <details
                     key={item.question}
-                    className="group border-2 border-[#11100D] bg-[#F4EBD8]"
+                    className="group border-2 border-[#11100D] bg-[#F4EBD8] shadow-[5px_5px_0_rgba(17,16,13,0.18)]"
                   >
                     <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 font-heading text-lg font-black text-[#11100D]">
                       {item.question}
@@ -569,7 +569,7 @@ export default function SurfSessionLogPage(): ReactElement {
           </section>
 
           <section className="px-4 pb-16 pt-10 md:pb-20 md:pt-14">
-            <div className="relative mx-auto max-w-7xl overflow-hidden border-2 border-[#11100D] bg-[#11100D] p-6 text-[#F4EBD8] md:p-10">
+            <div className="relative mx-auto max-w-7xl overflow-hidden border-2 border-[#11100D] bg-[#11100D] p-6 text-[#F4EBD8] shadow-[10px_10px_0_rgba(247,142,66,0.42)] md:p-10">
               <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full border-[24px] border-[#F78E42]/25" aria-hidden />
               <div className="relative grid gap-8 lg:grid-cols-[1fr_0.9fr] lg:items-end">
                 <div>

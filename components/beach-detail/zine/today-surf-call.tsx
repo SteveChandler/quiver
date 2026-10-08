@@ -9,7 +9,7 @@ import {
   SCORE_LABEL_INK,
   SCORE_LABEL_PAPER_WASH,
 } from "@/components/forecast/score-band-call";
-import { DoodleWave, DoodleWind, DoodleTide, DoodleStar } from "./atoms";
+import { DoodleWave, DoodleWind, DoodleTide, DoodleStar, TornDivider } from "./atoms";
 
 interface TodaySurfCallProps {
   beach: Beach;
@@ -91,12 +91,13 @@ export function TodaySurfCall({
       className="relative mt-8"
       aria-label={isTomorrow ? "Tomorrow's surf call" : "Today's surf call"}
     >
+      <TornDivider />
+
       <div
         className="relative px-5 pt-7 pb-10 md:px-8 md:pt-9 md:pb-12"
         style={{
-          background: "#F4EBD8",
-          border: "1px solid #E5D4B3",
-          borderRadius: "14px 22px 14px 14px",
+          background: "linear-gradient(180deg, #EDE2C8 0%, #DCC9A2 100%)",
+          boxShadow: "0 8px 22px rgba(0,0,0,0.22)",
         }}
       >
         {/* Section header — title only; metadata moves to the printer's mark at bottom-right */}

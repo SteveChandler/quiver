@@ -229,14 +229,14 @@ export default function FreeSurfReportsPage(): ReactElement {
                 <div className="mt-8 flex flex-wrap gap-3">
                   <Link
                     href="/forecast"
-                    className="inline-flex min-h-11 items-center rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-2 font-semibold text-[#11100D] transition-transform hover:-translate-y-0.5"
+                    className="inline-flex min-h-11 items-center rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)] transition-transform hover:-translate-y-0.5"
                   >
                     Check the forecast
                     <ArrowRight className="ml-2 h-4 w-4" aria-hidden />
                   </Link>
                   <Link
                     href="/map"
-                    className="inline-flex min-h-11 items-center rounded-full border-2 border-[#11100D] bg-[#FBF6E8] px-5 py-2 font-semibold text-[#11100D] transition-transform hover:-translate-y-0.5"
+                    className="inline-flex min-h-11 items-center rounded-full border-2 border-[#11100D] bg-[#FBF6E8] px-5 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.22)] transition-transform hover:-translate-y-0.5"
                   >
                     Browse beaches
                     <MapPinned className="ml-2 h-4 w-4" aria-hidden />
@@ -440,7 +440,7 @@ export default function FreeSurfReportsPage(): ReactElement {
                 <ScrollReveal key={link.href}>
                   <Link
                     href={link.href}
-                    className="group block min-h-28 border-2 border-[#11100D] bg-[#FBF6E8] p-5 transition-transform hover:-translate-y-0.5"
+                    className="group block min-h-28 border-2 border-[#11100D] bg-[#FBF6E8] p-5 shadow-[2px_3px_0_rgba(17,16,13,0.22)] transition-transform hover:-translate-y-0.5"
                   >
                     <span className="text-sm font-bold text-[#11100D] transition-colors group-hover:text-[#B56A2B]">
                       {link.title}

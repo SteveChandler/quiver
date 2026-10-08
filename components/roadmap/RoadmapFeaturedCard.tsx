@@ -22,9 +22,9 @@ export function RoadmapFeaturedCard({ item, authed, onSignInRequired }: Props) {
   return (
     <article
       id={`item-${item.id}`}
-      className="relative mb-12 rounded-[20px_8px_22px_8px] border-2 border-[#11100D] bg-[#FBF6E8] p-7"
+      className="relative mb-12 -rotate-[0.5deg] rounded-[20px_8px_22px_8px] border-2 border-[#11100D] bg-[#FBF6E8] p-7 shadow-[3px_4px_0_rgba(17,16,13,0.28)]"
     >
-      <span className="absolute -left-3 -top-3 border-2 border-[#11100D] bg-[#FDB84B] px-3 py-1 font-[family-name:var(--font-mono)] text-[11px] font-bold uppercase tracking-[0.2em] text-[#11100D]">
+      <span className="absolute -left-3 -top-3 -rotate-[3deg] border-2 border-[#11100D] bg-[#FDB84B] px-3 py-1 font-[family-name:var(--font-mono)] text-[11px] font-bold uppercase tracking-[0.2em] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.3)]">
         Featured
       </span>
 

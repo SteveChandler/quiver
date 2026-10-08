@@ -29,12 +29,14 @@ function AboutSpotArticle({ beach, beachPhoto }: { beach: Beach; beachPhoto?: Zi
 
   return (
     <article
-      className="torn relative"
+      className="torn torn-tb relative rot-1"
       style={{
         background: "#F0E5CC",
         padding: "22px 22px 24px",
+        boxShadow: "2px 4px 0 rgba(0,0,0,0.18), 0 10px 22px rgba(0,0,0,0.12)",
       }}
     >
+      <span className="tape tl" aria-hidden />
       <div className="label-black mb-3" style={{ fontSize: 13 }}>
         ABOUT THIS SPOT
       </div>
@@ -42,9 +44,9 @@ function AboutSpotArticle({ beach, beachPhoto }: { beach: Beach; beachPhoto?: Zi
       {beach.best_conditions_prose ? (
         <p
           style={{
-            fontFamily: "var(--font-sans), sans-serif",
-            fontSize: 15,
-            lineHeight: 1.5,
+            fontFamily: "var(--font-mono), monospace",
+            fontSize: 13.5,
+            lineHeight: 1.55,
             color: "#11100D",
             margin: 0,
           }}
@@ -54,9 +56,9 @@ function AboutSpotArticle({ beach, beachPhoto }: { beach: Beach; beachPhoto?: Zi
       ) : (
         <p
           style={{
-            fontFamily: "var(--font-sans), sans-serif",
-            fontSize: 15,
-            lineHeight: 1.5,
+            fontFamily: "var(--font-mono), monospace",
+            fontSize: 13.5,
+            lineHeight: 1.55,
             color: "#11100D",
             margin: 0,
           }}
@@ -79,9 +81,11 @@ function AboutSpotArticle({ beach, beachPhoto }: { beach: Beach; beachPhoto?: Zi
 
       {beachPhoto?.image_url && (
         <div
-          className="relative overflow-hidden"
-          style={{ marginTop: 14, borderRadius: "8px 14px 8px 8px" }}
+          className="relative"
+          style={{ marginTop: 14, transform: "rotate(0.8deg)" }}
         >
+          <span className="tape tl" aria-hidden />
+          <span className="tape br" aria-hidden />
           <HalftonePhoto src={beachPhoto.image_url} alt={`${beach.name} reef`} label="REEF · LOW TIDE" height={140} />
         </div>
       )}
@@ -118,7 +122,8 @@ function LocalKnowledgeNotebook({ beach }: { beach: Beach }) {
   }
 
   return (
-    <article className="notebook relative">
+    <article className="notebook rot-2 relative">
+      <span className="tape tr" aria-hidden />
       <div className="text-center mb-1">
         <div
           className="label-black"
@@ -126,7 +131,8 @@ function LocalKnowledgeNotebook({ beach }: { beach: Beach }) {
             fontSize: 13,
             background: "#F4EBD8",
             color: "#11100D",
-            border: "1.5px solid #11100D",
+            border: "2.5px solid #11100D",
+            boxShadow: "2px 3px 0 rgba(0,0,0,0.25)",
           }}
         >
           LOCAL KNOWLEDGE
@@ -171,7 +177,7 @@ function HazardsPanel({ beach }: { beach: Beach }) {
   if (items.length === 0) return null;
 
   return (
-    <article className="relative">
+    <article className="rot-3 relative">
       <div className="hazards-panel">
         <div className="flex items-center justify-between mb-3 mt-1">
           <div
@@ -184,7 +190,8 @@ function HazardsPanel({ beach }: { beach: Beach }) {
               padding: "6px 14px",
               letterSpacing: "0.06em",
               textTransform: "uppercase",
-              borderRadius: 6,
+              filter: "url(#zine-rough-edge)",
+              transform: "rotate(-1deg)",
             }}
           >
             HAZARDS
@@ -220,7 +227,7 @@ function HazardsPanel({ beach }: { beach: Beach }) {
             fontSize: 13,
             letterSpacing: "0.08em",
             textTransform: "uppercase",
-            borderRadius: 999,
+            filter: "url(#zine-rough-edge)",
           }}
         >
           <DoodleSkull size={22} color="#F4EBD8" />

@@ -76,7 +76,7 @@ export default function TermsPage() {
         <ScrollReveal>
           <nav
             aria-label="Terms sections"
-            className="mt-10 border-2 border-[#11100D] bg-[#FBF6E8] p-5"
+            className="mt-10 border-2 border-[#11100D] bg-[#FBF6E8] p-5 shadow-[2px_3px_0_rgba(17,16,13,0.18)]"
           >
             <p className="typewriter mb-4">On this page</p>
             <ul className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
@@ -154,7 +154,7 @@ export default function TermsPage() {
             <div className="mt-7">
               <Link
                 href="mailto:legal@quiversurf.com"
-                className="inline-flex min-h-11 items-center rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-2 font-semibold text-[#11100D] transition-transform hover:-translate-y-0.5"
+                className="inline-flex min-h-11 items-center rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)] transition-transform hover:-translate-y-0.5"
               >
                 <Mail className="mr-2 h-5 w-5" aria-hidden />
                 Contact Legal Team

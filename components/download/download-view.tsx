@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { ReactElement } from "react";
 
-import { SaltyEyebrow } from "@/components/beach-detail/zine/atoms";
+import { SaltyEyebrow, TornDivider } from "@/components/beach-detail/zine/atoms";
 import { StoreDownloadButtons } from "@/components/landing-page/store-download-buttons";
 import { QuiverSticker, ZineSurface, type QuiverStickerProps } from "@/components/zine";
 import type { FirstTouchPlatform } from "@/lib/analytics/web-context";
@@ -57,7 +57,7 @@ function PhoneShot({
 }): ReactElement {
   return (
     <div
-      className={`relative mx-auto aspect-[9/19.5] w-full max-w-[230px] overflow-hidden rounded-[28px] border-4 border-[#11100D] bg-[#11100D] ${className ?? ""}`}
+      className={`relative mx-auto aspect-[9/19.5] w-full max-w-[230px] overflow-hidden rounded-[28px] border-4 border-[#11100D] bg-[#11100D] shadow-[8px_10px_0_rgba(17,16,13,0.18)] ${className ?? ""}`}
     >
       <Image
         src={src}
@@ -114,6 +114,7 @@ export function DownloadView({ platform }: DownloadViewProps): ReactElement {
             <PhoneShot
               src="/images/app-screenshots/surf-call.png"
               alt="Quiver iPhone surf forecast app"
+              className="-rotate-2"
               priority
             />
           </div>
@@ -131,7 +132,8 @@ export function DownloadView({ platform }: DownloadViewProps): ReactElement {
           {CHAPTERS.map((chapter, index) => (
             <article
               key={chapter.title}
-              className="torn relative bg-[#F4EBD8] p-5"
+              className="torn relative bg-[#F4EBD8] p-5 shadow-[2px_4px_0_rgba(0,0,0,0.18)]"
+              style={{ transform: `rotate(${index % 2 === 0 ? -0.8 : 0.8}deg)` }}
             >
               <QuiverSticker
                 sticker={chapter.sticker}
@@ -162,7 +164,7 @@ export function DownloadView({ platform }: DownloadViewProps): ReactElement {
         showMasthead={false}
       >
         <div className="grid gap-5 md:grid-cols-2">
-          <div className="notebook bg-[#F4EBD8] p-6">
+          <div className="notebook bg-[#F4EBD8] p-6 shadow-[2px_4px_0_rgba(0,0,0,0.18)]">
             <h2 className="font-[family-name:var(--font-zine-display)] text-2xl uppercase text-[#11100D]">
               iPhone
             </h2>
@@ -171,7 +173,7 @@ export function DownloadView({ platform }: DownloadViewProps): ReactElement {
               logging.
             </p>
           </div>
-          <div className="notebook bg-[#F4EBD8] p-6">
+          <div className="notebook bg-[#F4EBD8] p-6 shadow-[2px_4px_0_rgba(0,0,0,0.18)]">
             <h2 className="font-[family-name:var(--font-zine-display)] text-2xl uppercase text-[#11100D]">
               Android
             </h2>
@@ -183,13 +185,14 @@ export function DownloadView({ platform }: DownloadViewProps): ReactElement {
             <Link
               href={ANDROID_BETA_LANDING_PATH}
               data-testid="download-android-beta-link"
-              className="mt-4 inline-flex min-h-11 items-center rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-2 font-semibold text-[#11100D] transition-transform hover:-translate-y-0.5"
+              className="mt-4 inline-flex min-h-11 items-center rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)] transition-transform hover:-translate-y-0.5"
             >
               Join the Android beta
             </Link>
           </div>
         </div>
-        <div className="mt-5 flex justify-center border-t border-[#E5D4B3] pt-5">
+        <TornDivider />
+        <div className="mt-5 flex justify-center">
           <StoreDownloadButtons
             platform={platform}
             surface="download"

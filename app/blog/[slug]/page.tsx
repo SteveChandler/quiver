@@ -155,7 +155,7 @@ export default async function BlogPostPage({ params }: Props) {
                   {post.tags.map((tag) => (
                     <span
                       key={tag}
-                      className="border-2 border-[#11100D] bg-[#FBF6E8] px-3 py-1 font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-[#11100D]"
+                      className="border-2 border-[#11100D] bg-[#FBF6E8] px-3 py-1 font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_3px_0_rgba(17,16,13,0.18)]"
                     >
                       {tag}
                     </span>
@@ -290,7 +290,7 @@ export default async function BlogPostPage({ params }: Props) {
                           {section.bullets.map((bullet) => (
                             <li
                               key={bullet}
-                              className="flex items-start gap-3 border-2 border-[#11100D] bg-[#FBF6E8] p-3 text-sm font-medium leading-6 text-[#11100D]/75"
+                              className="flex items-start gap-3 border-2 border-[#11100D] bg-[#FBF6E8] p-3 text-sm font-medium leading-6 text-[#11100D]/75 shadow-[2px_3px_0_rgba(17,16,13,0.15)]"
                             >
                               <span className="mt-1.5 block h-2 w-2 shrink-0 bg-[#F78E42]" />
                               <span>{bullet}</span>

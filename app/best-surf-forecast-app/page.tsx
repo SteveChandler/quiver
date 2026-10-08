@@ -280,7 +280,7 @@ export default function BestSurfForecastAppPage(): ReactElement {
               priority
             />
             <div className="max-w-4xl">
-              <p className="mb-4 inline-flex border-2 border-[#11100D] bg-[#F78E42] px-3 py-1 font-mono text-[10px] font-black uppercase tracking-[0.18em] text-[#11100D]">
+              <p className="mb-4 inline-flex border-2 border-[#11100D] bg-[#F78E42] px-3 py-1 font-mono text-[10px] font-black uppercase tracking-[0.18em] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.22)]">
                 Best surf forecast app
               </p>
               <h1 className="font-heading text-5xl font-black uppercase leading-[0.9] tracking-normal text-[#11100D] sm:text-6xl md:text-7xl">
@@ -295,7 +295,7 @@ export default function BestSurfForecastAppPage(): ReactElement {
               </p>
             </div>
 
-            <aside className="border-2 border-[#11100D] bg-[#F8EFD8] p-5">
+            <aside className="rotate-[0.7deg] border-2 border-[#11100D] bg-[#F8EFD8] p-5 shadow-[7px_7px_0_rgba(17,16,13,0.22)]">
               <div className="flex items-center gap-2 font-heading text-xl font-black uppercase text-[#11100D]">
                 <CalendarCheck className="h-5 w-5 text-[#F78E42]" aria-hidden />
                 Last updated
@@ -328,7 +328,7 @@ export default function BestSurfForecastAppPage(): ReactElement {
               </div>
               <Link
                 href="/forecast-accuracy"
-                className="inline-flex w-fit items-center justify-center gap-2 rounded-full border-2 border-[#F78E42] bg-[#F78E42] px-4 py-3 font-heading text-xs font-black uppercase tracking-[0.1em] text-[#11100D] transition-transform hover:-translate-y-0.5"
+                className="inline-flex w-fit items-center justify-center gap-2 rounded-full border-2 border-[#F78E42] bg-[#F78E42] px-4 py-3 font-heading text-xs font-black uppercase tracking-[0.1em] text-[#11100D] shadow-[4px_4px_0_rgba(247,142,66,0.24)] transition-transform hover:-translate-y-0.5"
               >
                 Read the accuracy method
                 <ArrowRight className="h-4 w-4" aria-hidden />
@@ -340,7 +340,7 @@ export default function BestSurfForecastAppPage(): ReactElement {
             id="best-free-surf-forecast-app"
             className="px-1 py-12"
           >
-            <div className="border-2 border-[#11100D] bg-[#F8EFD8] p-6 md:p-8">
+            <div className="border-2 border-[#11100D] bg-[#F8EFD8] p-6 shadow-[8px_8px_0_rgba(17,16,13,0.2)] md:p-8">
               <p className="font-mono text-[10px] font-black uppercase tracking-[0.2em] text-[#9E5010]">
                 Free app answer
               </p>
@@ -371,7 +371,7 @@ export default function BestSurfForecastAppPage(): ReactElement {
           </section>
 
           <section className="px-1 py-12">
-            <div className="overflow-x-auto border-2 border-[#11100D] bg-[#F4EBD8]">
+            <div className="overflow-x-auto border-2 border-[#11100D] bg-[#F4EBD8] shadow-[8px_8px_0_rgba(17,16,13,0.2)]">
               <table className="w-full min-w-[1180px] border-collapse text-sm">
                 <caption className="sr-only">
                   Capability-led comparison of surf forecast apps checked on
@@ -464,7 +464,7 @@ export default function BestSurfForecastAppPage(): ReactElement {
               {FREE_FAQ_ITEMS.map((item) => (
                 <details
                   key={item.question}
-                  className="group border-2 border-[#11100D] bg-[#F4EBD8]"
+                  className="group border-2 border-[#11100D] bg-[#F4EBD8] shadow-[5px_5px_0_rgba(17,16,13,0.18)]"
                 >
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 font-heading text-lg font-black text-[#11100D]">
                     {item.question}
@@ -484,7 +484,7 @@ export default function BestSurfForecastAppPage(): ReactElement {
           </section>
 
           <section className="grid gap-6 px-1 py-8 lg:grid-cols-[0.9fr_1.1fr]">
-            <div className="relative border-2 border-[#11100D] bg-[#F8EFD8] p-6">
+            <div className="relative border-2 border-[#11100D] bg-[#F8EFD8] p-6 shadow-[7px_7px_0_rgba(17,16,13,0.2)]">
               <QuiverSticker
                 sticker="spotSwellMatch"
                 className="absolute -right-3 -top-8 hidden w-24 rotate-6 opacity-90 md:block"
@@ -540,7 +540,7 @@ export default function BestSurfForecastAppPage(): ReactElement {
                 </Link>
               </div>
 
-              <figure className="mt-6 border-2 border-[#11100D] bg-[#F4EBD8] p-2">
+              <figure className="mt-6 -rotate-1 border-2 border-[#11100D] bg-[#F4EBD8] p-2 shadow-[5px_5px_0_rgba(17,16,13,0.18)]">
                 <Image
                   src="/images/seo-scenes/san-onofre-clean.webp"
                   alt="Clean longboard surf at San Onofre"
@@ -551,7 +551,7 @@ export default function BestSurfForecastAppPage(): ReactElement {
               </figure>
             </div>
 
-            <div className="border-2 border-[#11100D] bg-[#F4EBD8] p-6">
+            <div className="border-2 border-[#11100D] bg-[#F4EBD8] p-6 shadow-[7px_7px_0_rgba(17,16,13,0.18)]">
               <div className="flex items-center gap-2">
                 <ListChecks className="h-5 w-5 text-[#F78E42]" aria-hidden />
                 <h2 className="font-heading text-3xl font-black uppercase leading-none text-[#11100D]">

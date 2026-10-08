@@ -61,7 +61,7 @@ const filterChipClass = (active: boolean): string =>
   ].join(" ");
 
 const toolbarActionClass =
-  "h-11 w-full min-w-0 justify-center whitespace-nowrap rounded-[8px_3px_9px_4px] border-2 border-[#11100D] bg-[#F5EEDC] px-2 text-xs font-bold text-[#11100D] hover:bg-[#E9DEC7] sm:px-3 sm:text-sm lg:w-auto";
+  "h-11 w-full min-w-0 justify-center whitespace-nowrap rounded-[8px_3px_9px_4px] border-2 border-[#11100D] bg-[#F5EEDC] px-2 text-xs font-bold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.22)] hover:bg-[#E9DEC7] sm:px-3 sm:text-sm lg:w-auto";
 
 export function MapToolbar({
   searchQuery,
@@ -172,7 +172,7 @@ export function MapToolbar({
                 }
               }}
               placeholder="Search beaches, spots, or cities"
-              className="h-11 w-full rounded-[9px_4px_10px_5px] border-2 !border-[#11100D] border-[#11100D] !bg-[#F5EEDC] bg-[#F5EEDC] py-2 pl-9 pr-11 text-sm font-medium !text-[#11100D] text-[#11100D] outline-none transition-colors placeholder:!text-[#11100D]/55 focus-visible:ring-2 focus-visible:ring-[#FDB84B]"
+              className="h-11 w-full rounded-[9px_4px_10px_5px] border-2 !border-[#11100D] border-[#11100D] !bg-[#F5EEDC] bg-[#F5EEDC] py-2 pl-9 pr-11 text-sm font-medium !text-[#11100D] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.2)] outline-none transition-colors placeholder:!text-[#11100D]/55 focus-visible:ring-2 focus-visible:ring-[#FDB84B]"
               style={{
                 background: SWELL_MAP_LEGEND_SURFACE.paperRaised,
                 borderColor: SWELL_MAP_LEGEND_SURFACE.border,
@@ -195,7 +195,7 @@ export function MapToolbar({
                 id={suggestionsListId}
                 role="listbox"
                 data-testid="map-search-suggestions"
-                className="absolute left-0 right-0 top-11 z-30 overflow-hidden rounded-[9px_4px_10px_5px] border-2 border-[#11100D] bg-[#F5EEDC] text-[#11100D]"
+                className="absolute left-0 right-0 top-11 z-30 overflow-hidden rounded-[9px_4px_10px_5px] border-2 border-[#11100D] bg-[#F5EEDC] text-[#11100D] shadow-[3px_4px_0_rgba(17,16,13,0.28)]"
               >
                 {suggestions.map((beach, index) => {
                   const location = [beach.city, beach.state]
@@ -255,7 +255,7 @@ export function MapToolbar({
               </PopoverTrigger>
               <PopoverContent
                 align="end"
-                className="w-[calc(100vw-2rem)] max-w-md space-y-4 border-2 border-[#11100D] bg-[#F4EBD8] p-4 text-[#11100D] sm:w-[28rem]"
+                className="w-[calc(100vw-2rem)] max-w-md space-y-4 border-2 border-[#11100D] bg-[#F4EBD8] p-4 text-[#11100D] shadow-[4px_5px_0_rgba(17,16,13,0.32)] sm:w-[28rem]"
                 style={{ borderRadius: SWELL_MAP_STICKER_RADIUS }}
               >
                 <section

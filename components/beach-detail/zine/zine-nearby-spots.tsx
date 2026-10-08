@@ -20,6 +20,7 @@ interface ZineNearbySpotsProps {
   sourceBeachLon?: number | null;
 }
 
+const ROTATIONS = ["rotate(-1.4deg)", "rotate(0.9deg)", "rotate(-0.6deg)", "rotate(1.2deg)"];
 
 /**
  * Cream-paper styled Nearby Surf Spots — replaces the legacy dark-theme
@@ -118,6 +119,7 @@ export function ZineNearbySpots({
             key={beach.id}
             beach={beach}
             index={i}
+            rotation={ROTATIONS[i % ROTATIONS.length]}
           />
         ))}
       </div>
@@ -128,9 +130,11 @@ export function ZineNearbySpots({
 function NearbyCard({
   beach,
   index,
+  rotation,
 }: {
   beach: EnrichedNearbyBeach;
   index: number;
+  rotation: string;
 }) {
   const href = getBeachHrefSafe({
     id: beach.id,
@@ -150,21 +154,23 @@ function NearbyCard({
       prefetch={false}
       onClick={() => trackNearbyBeachClick(beach.name, index + 1, beach.score ?? 0)}
       className="block group"
+      style={{ transform: rotation, transformOrigin: "center" }}
     >
       <article
         style={{
           background: "#F4EBD8",
-          border: "1px solid #E5D4B3",
-          borderRadius: "14px 22px 14px 14px",
+          border: "2.5px solid #11100D",
+          borderRadius: 4,
+          boxShadow: "3px 4px 0 rgba(17,16,13,0.25)",
           padding: 10,
-          transition: "transform 180ms ease",
+          transition: "transform 180ms ease, box-shadow 180ms ease",
           height: "100%",
           display: "flex",
           flexDirection: "column",
         }}
-        className="group-hover:translate-y-[-2px]"
+        className="group-hover:translate-y-[-2px] group-hover:shadow-[5px_6px_0_rgba(17,16,13,0.3)]"
       >
-        <div className="relative" style={{ aspectRatio: "4/3", overflow: "hidden", borderRadius: "8px 14px 8px 8px" }}>
+        <div className="relative" style={{ aspectRatio: "4/3", overflow: "hidden", border: "2px solid #11100D" }}>
           <HalftonePhoto src={photoUrl} alt={photoUrl ? `${beach.name} photo` : undefined} height={140} />
         </div>
 
@@ -232,7 +238,9 @@ function NearbyCard({
                 fontWeight: 400,
                 fontSize: 13,
                 letterSpacing: "0.04em",
-                borderRadius: 999,
+                border: "2px solid #11100D",
+                boxShadow: "2px 2px 0 rgba(17,16,13,0.5)",
+                transform: "rotate(-1.5deg)",
               }}
             >
               <DoodleStar size={11} color="#F4EBD8" filled />

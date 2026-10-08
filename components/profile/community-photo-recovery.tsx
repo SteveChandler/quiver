@@ -196,7 +196,7 @@ export function CommunityPhotoRecovery() {
           return (
             <article
               key={photo.id}
-              className="grid grid-cols-[7rem_1fr] gap-3 border-2 border-[#11100D] bg-[#F4EBD8] p-3"
+              className="grid grid-cols-[7rem_1fr] gap-3 border-2 border-[#11100D] bg-[#F4EBD8] p-3 shadow-[2px_3px_0_rgba(17,16,13,0.18)]"
             >
               <Image
                 src={photo.thumbUrl ?? photo.imageUrl}
@@ -224,7 +224,7 @@ export function CommunityPhotoRecovery() {
                   variant="outline"
                   disabled={Boolean(blockReason) || isPending}
                   onClick={() => void recoverPhoto(photo.id)}
-                  className="mt-3 border-2 border-[#11100D] bg-[#FBF6E8] font-heading text-xs font-bold text-[#11100D] hover:bg-[#F78E42]"
+                  className="mt-3 border-2 border-[#11100D] bg-[#FBF6E8] font-heading text-xs font-bold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.18)] hover:bg-[#F78E42]"
                 >
                   {isPending ? (
                     <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />

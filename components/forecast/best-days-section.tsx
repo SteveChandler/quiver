@@ -214,7 +214,7 @@ function BestDayCard({
       <button
         type="button"
         className={cn(
-          "group relative block w-full overflow-hidden border-2 border-[#11100D] bg-[#F0E5CC] p-5 text-left transition-transform hover:-translate-y-1",
+          "group relative block w-full overflow-hidden border-2 border-[#11100D] bg-[#F0E5CC] p-5 text-left shadow-[4px_5px_0_rgba(17,16,13,0.2)] transition-transform hover:-translate-y-1",
           className
         ) + " focus-ring"}
         onClick={onClick}

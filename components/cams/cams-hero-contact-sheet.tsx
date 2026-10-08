@@ -39,10 +39,10 @@ export function CamsHeroContactSheet({
   return (
     <aside className="relative lg:pt-8" aria-label={label}>
       <div
-        className="absolute -top-2 left-10 z-20 h-5 w-28 rotate-[-7deg] bg-[#F78E42]"
+        className="absolute -top-2 left-10 z-20 h-5 w-28 rotate-[-7deg] bg-[#F78E42] shadow-[3px_3px_0_rgba(17,16,13,0.22)]"
         aria-hidden="true"
       />
-      <div className="torn torn-tb relative border-2 border-[#11100D] bg-[#F0E5CC] p-3">
+      <div className="torn torn-tb relative border-2 border-[#11100D] bg-[#F0E5CC] p-3 shadow-[8px_9px_0_rgba(17,16,13,0.22)]">
         <div className="grid gap-3">
           {featuredBeaches.map((beach, index) => (
             <figure
@@ -61,13 +61,13 @@ export function CamsHeroContactSheet({
                 className="object-cover"
                 sizes="(min-width: 1024px) 38vw, 100vw"
               />
-              <figcaption className="absolute bottom-2 left-2 bg-[#FBF6E8] px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#11100D]">
+              <figcaption className="absolute bottom-2 left-2 bg-[#FBF6E8] px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.24)]">
                 {beach.name}
               </figcaption>
             </figure>
           ))}
         </div>
-        <p className="mt-3 inline-flex border-2 border-[#11100D] bg-[#F78E42] px-2 py-1 font-mono text-[10px] font-black uppercase tracking-[0.16em] text-[#11100D]">
+        <p className="mt-3 inline-flex border-2 border-[#11100D] bg-[#F78E42] px-2 py-1 font-mono text-[10px] font-black uppercase tracking-[0.16em] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.22)]">
           Live cam roll
         </p>
       </div>

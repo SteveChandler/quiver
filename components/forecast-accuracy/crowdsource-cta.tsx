@@ -23,7 +23,7 @@ export function CrowdsourceCta() {
       </p>
       <Link
         href="/auth/sign-up"
-        className="mt-5 inline-flex items-center rounded-full border-2 border-[#11100D] bg-[#F78E42] px-6 py-3 text-sm font-black text-[#11100D] shadow-[3px_3px_0_#11100D] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4EBD8] focus-visible:ring-offset-2 focus-visible:ring-offset-[#8A5E00]"
+        className="mt-5 inline-flex rotate-[-1deg] items-center rounded-full border-2 border-[#11100D] bg-[#F78E42] px-6 py-3 text-sm font-black text-[#11100D] shadow-[3px_3px_0_#11100D] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4EBD8] focus-visible:ring-offset-2 focus-visible:ring-offset-[#8A5E00]"
       >
         Log a session
       </Link>
