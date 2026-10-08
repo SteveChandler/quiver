@@ -519,55 +519,6 @@ export function getBestRegionToday(
   return null;
 }
 
-interface BestRegionResult {
-  region: ForecastRegion;
-  summary: RegionalForecastSummary;
-  isLocationPersonalized: boolean;
-}
-
-/**
- * Get the closest region to the user with valid forecast data.
- *
- * If userCoords are provided, finds regions within maxDistanceMiles,
- * sorts by distance ascending, and picks the closest one with valid data.
- * Falls back to global best if no coords or no nearby regions have data.
- */
-export function getBestRegionForUser(
-  summaries: Record<string, RegionalForecastSummary>,
-  userCoords: { lat: number; lon: number } | null,
-  maxDistanceMiles: number = 300
-): BestRegionResult | null {
-  if (userCoords) {
-    // Find regions within range, sorted by distance (closest first)
-    const nearbyRegions: { region: ForecastRegion; distance: number }[] = [];
-    for (const region of Object.values(FORECAST_REGIONS)) {
-      const distance = calculateDistanceInMiles(userCoords, {
-        lat: region.centerLat,
-        lon: region.centerLon,
-      });
-      if (!isNaN(distance) && distance <= maxDistanceMiles) {
-        nearbyRegions.push({ region, distance });
-      }
-    }
-
-    // Sort by distance ascending (closest first)
-    nearbyRegions.sort((a, b) => a.distance - b.distance);
-
-    // Pick the closest region that has valid summary data
-    for (const { region } of nearbyRegions) {
-      const summary = summaries[region.slug];
-      if (summary && summary.days[0]) {
-        return { region, summary, isLocationPersonalized: true };
-      }
-    }
-  }
-
-  // Fall back to global best
-  const globalBest = getBestRegionToday(summaries);
-  if (!globalBest) return null;
-  return { ...globalBest, isLocationPersonalized: false };
-}
-
 /**
  * Find the closest region to the given coordinates.
  */

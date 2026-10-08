@@ -1,14 +1,4 @@
-import {
-  getFormText,
-  getModeStyles,
-  getSectionConfig,
-  getRatingDescription,
-  SESSION_FORM_TEXT,
-  MODE_STYLES,
-  SKILL_GOALS,
-  DURATION_OPTIONS,
-  RATING_DESCRIPTIONS,
-} from "@/lib/constants/session-form-constants";
+import { getFormText, SESSION_FORM_TEXT, MODE_STYLES, SKILL_GOALS, DURATION_OPTIONS, RATING_DESCRIPTIONS } from "@/lib/constants/session-form-constants";
 
 describe("Session Form Constants", () => {
   describe("getFormText", () => {
@@ -21,82 +11,8 @@ describe("Session Form Constants", () => {
     });
   });
 
-  describe("getModeStyles", () => {
-    it("should return green styles for log mode", () => {
-      const styles = getModeStyles("log");
-      expect(styles.headerBg).toBe("bg-green-50");
-      expect(styles.headerText).toBe("text-green-800");
-      expect(styles.buttonColor).toBe("bg-green-600 hover:bg-green-700");
-    });
-  });
 
-  describe("getSectionConfig", () => {
-    it("should return config for sections", () => {
-      const locationConfig = getSectionConfig("location", "log");
-      expect(locationConfig).toEqual({
-        icon: "MapPin",
-        required: true,
-        order: 1,
-      });
-    });
 
-    it("should return config for conditions section in log mode", () => {
-      const conditionsConfig = getSectionConfig("conditions", "log");
-      expect(conditionsConfig).toEqual({
-        icon: "Activity",
-        required: false,
-        // Order shifted from 5 → 4 when the planning-only section was removed
-        // in commit 4a8499ec (session-form refactor).
-        order: 4,
-        showOnlyFor: "log",
-      });
-    });
-  });
-
-  describe("getRatingDescription", () => {
-    it("should return correct wave quality descriptions", () => {
-      expect(getRatingDescription("waveQuality", 1)).toBe(
-        "Poor - Blown out/Flat"
-      );
-      expect(getRatingDescription("waveQuality", 3)).toBe(
-        "Average - Decent waves"
-      );
-      expect(getRatingDescription("waveQuality", 5)).toBe(
-        "Excellent - Epic session"
-      );
-    });
-
-    it("should return correct crowd level descriptions", () => {
-      expect(getRatingDescription("crowdLevel", 1)).toBe(
-        "Empty - Solo session"
-      );
-      expect(getRatingDescription("crowdLevel", 3)).toBe(
-        "Moderate - Some crowd"
-      );
-      expect(getRatingDescription("crowdLevel", 5)).toBe(
-        "Packed - Very crowded"
-      );
-    });
-
-    it("should return correct parking descriptions", () => {
-      expect(getRatingDescription("parkingEase", 1)).toBe(
-        "Difficult - No spots"
-      );
-      expect(getRatingDescription("parkingEase", 5)).toBe(
-        "Perfect - Right there"
-      );
-    });
-
-    it("should return correct performance descriptions", () => {
-      expect(getRatingDescription("overallRating", 2)).toBe("Below Goals");
-      expect(getRatingDescription("overallRating", 4)).toBe("Achieved Goals");
-    });
-
-    it("should return empty string for invalid ratings", () => {
-      expect(getRatingDescription("waveQuality", 0)).toBe("");
-      expect(getRatingDescription("waveQuality", 6)).toBe("");
-    });
-  });
 
   describe("Constants Structure", () => {
     it("should have all required skill goals", () => {

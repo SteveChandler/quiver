@@ -139,9 +139,3 @@ export function evaluateMajorEventHold({
     holdEpoch,
   };
 }
-
-function evaluateMajorEventHoldCandidateBatch(
-  inputs: readonly EvaluateMajorEventHoldInput[],
-): MajorEventHoldEvaluation[] {
-  return inputs.map(evaluateMajorEventHold);
-}

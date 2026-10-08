@@ -3,30 +3,14 @@ import type {
   TimeSlot,
 } from "@/types/personalization";
 import type {
-  RecommendationImpressionInput,
   RecommendationImpressionSurface,
 } from "./impressions";
-import { RecommendationImpressionTimeSlotSchema } from "./impressions";
 
 interface RecommendationAttributionInput {
   recommendation: SurfDiscoveryRecommendation;
   rank: number;
   surface: RecommendationImpressionSurface;
   timeSlot?: TimeSlot | string | null;
-}
-
-function normalizeImpressionTimeSlot(
-  timeSlot: RecommendationAttributionInput["timeSlot"]
-): RecommendationImpressionInput["timeSlot"] {
-  const parsed = RecommendationImpressionTimeSlotSchema.safeParse(
-    timeSlot ?? undefined
-  );
-
-  if (!parsed.success) {
-    return undefined;
-  }
-
-  return parsed.data ?? undefined;
 }
 
 function getRecommendationId(
@@ -45,25 +29,6 @@ function getRecommendationId(
       : `beach:${recommendation.beach.id}`;
 
   return `${entityId}:${forecastAt}`;
-}
-
-export function buildRecommendationImpressionInput({
-  recommendation,
-  rank,
-  surface,
-  timeSlot,
-}: RecommendationAttributionInput): RecommendationImpressionInput {
-  return {
-    recommendationId: getRecommendationId(recommendation),
-    beachId: recommendation.beach.id,
-    rank,
-    score: recommendation.score,
-    windowStart: recommendation.window.start.toISOString(),
-    windowEnd: recommendation.window.end.toISOString(),
-    mode: "log",
-    timeSlot: normalizeImpressionTimeSlot(timeSlot),
-    surface,
-  };
 }
 
 export function buildRecommendationLogUrl({

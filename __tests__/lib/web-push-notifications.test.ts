@@ -88,22 +88,6 @@ beforeEach(() => {
 });
 
 describe("Web Push Notifications", () => {
-  describe("isPushSupported", () => {
-    it("should return true when Notification and serviceWorker are available", async () => {
-      const { checkNotificationPermissions } =
-        await import("@/lib/web/push-notifications");
-      const result = checkNotificationPermissions();
-      expect(result).toEqual({ granted: false, status: "default" });
-    });
-
-    it("should return false when Notification is not available", async () => {
-      delete (window as any).Notification;
-      const { checkNotificationPermissions } =
-        await import("@/lib/web/push-notifications");
-      const result = checkNotificationPermissions();
-      expect(result.granted).toBe(false);
-    });
-  });
 
   describe("registerWebPushNotifications", () => {
     it("should request permission and register token", async () => {
@@ -189,57 +173,6 @@ describe("Web Push Notifications", () => {
     });
   });
 
-  describe("checkNotificationPermissions", () => {
-    it("should return granted status when permission is granted", async () => {
-      mockNotification.permission = "granted";
 
-      const { checkNotificationPermissions } =
-        await import("@/lib/web/push-notifications");
-      const result = checkNotificationPermissions();
-
-      expect(result.granted).toBe(true);
-      expect(result.status).toBe("granted");
-    });
-
-    it("should return not granted when permission is default", async () => {
-      mockNotification.permission = "default";
-
-      const { checkNotificationPermissions } =
-        await import("@/lib/web/push-notifications");
-      const result = checkNotificationPermissions();
-
-      expect(result.granted).toBe(false);
-      expect(result.status).toBe("default");
-    });
-
-    it("should return not granted when permission is denied", async () => {
-      mockNotification.permission = "denied";
-
-      const { checkNotificationPermissions } =
-        await import("@/lib/web/push-notifications");
-      const result = checkNotificationPermissions();
-
-      expect(result.granted).toBe(false);
-      expect(result.status).toBe("denied");
-    });
-  });
-
-  describe("unregisterWebPushNotifications", () => {
-    it("should unsubscribe from messages", async () => {
-      const mockUnsubscribe = jest.fn();
-      mockOnMessage.mockReturnValue(mockUnsubscribe);
-
-      const { setupWebPushListeners, unregisterWebPushNotifications } =
-        await import("@/lib/web/push-notifications");
-
-      // Set up first
-      setupWebPushListeners();
-
-      // Then unregister
-      await unregisterWebPushNotifications();
-
-      expect(mockUnsubscribe).toHaveBeenCalled();
-    });
-  });
 });
 

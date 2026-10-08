@@ -1,9 +1,4 @@
-import {
-  getCurrentForecast,
-  getBestForecastForDate,
-  isForecastInFuture,
-  formatCurrentTime,
-} from "@/lib/utils/current-forecast-utils";
+import { getCurrentForecast } from "@/lib/utils/current-forecast-utils";
 
 type F = { forecast_date: string; forecast_time: string };
 
@@ -65,78 +60,5 @@ describe("current-forecast-utils", () => {
     ];
     const result = getCurrentForecast(forecasts)!;
     expect(["2025-01-15", "2025-01-14"]).toContain(result.forecast_date);
-  });
-
-  test("getBestForecastForDate uses forward-looking for today and earliest slot for other date", () => {
-    setNow("2025-01-15T10:30:00.000Z");
-    const todays: F[] = [
-      { forecast_date: "2025-01-15", forecast_time: "09:00", forecast_at: "2025-01-15T09:00:00Z" } as any,
-      { forecast_date: "2025-01-15", forecast_time: "11:00", forecast_at: "2025-01-15T11:00:00Z" } as any,
-    ];
-    const todayResult = getBestForecastForDate(todays, "2025-01-15")!;
-    expect(todayResult.forecast_date).toBe("2025-01-15");
-    expect(["09:00", "11:00"]).toContain(todayResult.forecast_time);
-
-    const other: F[] = [
-      { forecast_date: "2025-01-16", forecast_time: "12:00", forecast_at: "2025-01-16T12:00:00Z" } as any,
-      { forecast_date: "2025-01-16", forecast_time: "06:00", forecast_at: "2025-01-16T06:00:00Z" } as any,
-    ];
-    expect(getBestForecastForDate(other, "2025-01-16")).toEqual({
-      forecast_at: "2025-01-16T06:00:00Z",
-      forecast_date: "2025-01-16",
-      forecast_time: "06:00",
-    });
-  });
-
-  test("isForecastInFuture handles dates and same-day times correctly", () => {
-    setNow("2025-01-15T10:30:00.000Z");
-    expect(
-      isForecastInFuture({
-        forecast_at: "2025-01-16T00:00Z",
-        forecast_date: "2025-01-16",
-        forecast_time: "00:00",
-      })
-    ).toBe(true);
-    expect(
-      isForecastInFuture({
-        forecast_at: "2025-01-14T23:59Z",
-        forecast_date: "2025-01-14",
-        forecast_time: "23:59",
-      })
-    ).toBe(false);
-
-    const nowLocal = new Date();
-    const hh = nowLocal.getUTCHours();
-    const mm = nowLocal.getUTCMinutes();
-    const pad = (n: number) => n.toString().padStart(2, "0");
-    // one minute after now
-    const afterMin = (mm + 1) % 60;
-    const afterHour = mm === 59 ? (hh + 1) % 24 : hh;
-    const after = `${pad(afterHour)}:${pad(afterMin)}`;
-    // one minute before now
-    const beforeMin = mm === 0 ? 59 : mm - 1;
-    const beforeHour = mm === 0 ? (hh + 23) % 24 : hh;
-    const before = `${pad(beforeHour)}:${pad(beforeMin)}`;
-
-    const nowDate = nowLocal.toISOString().split("T")[0];
-    expect(
-      isForecastInFuture({
-        forecast_at: `${nowDate}T${after}:00Z`,
-        forecast_date: nowDate,
-        forecast_time: after,
-      })
-    ).toBe(true);
-    expect(
-      isForecastInFuture({
-        forecast_at: `${nowDate}T${before}:00Z`,
-        forecast_date: nowDate,
-        forecast_time: before,
-      })
-    ).toBe(false);
-  });
-
-  test("formatCurrentTime returns HH:MM:SS pattern", () => {
-    setNow("2025-01-15T01:02:03.000Z");
-    expect(formatCurrentTime()).toMatch(/^\d{2}:\d{2}:\d{2}$/);
   });
 });

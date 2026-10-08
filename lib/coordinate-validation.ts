@@ -40,16 +40,6 @@ export function isValidLongitude(lon: number | undefined | null): lon is number 
 }
 
 /**
- * Validates if both latitude and longitude are valid
- */
-export function isValidCoordinate(
-  lat: number | undefined | null,
-  lon: number | undefined | null
-): lat is number {
-  return isValidLatitude(lat) && isValidLongitude(lon);
-}
-
-/**
  * Validates coordinates and returns detailed error message if invalid
  * Returns null if coordinates are valid
  */
@@ -132,91 +122,4 @@ export function validateCoordinates(
   }
 
   return true;
-}
-
-/**
- * Asserts that coordinates are valid, throwing an error if they are not
- * Use this for critical paths where invalid coordinates should halt execution
- *
- * @throws {Error} if coordinates are invalid
- */
-export function assertValidCoordinates(
-  lat: number | undefined | null,
-  lon: number | undefined | null,
-  context?: string
-): asserts lat is number {
-  const error = getCoordinateValidationError(lat, lon, context);
-
-  if (error) {
-    throw new Error(`Invalid coordinates: ${error}`);
-  }
-}
-
-/**
- * Sanitizes coordinates by clamping them to valid ranges
- * Returns null if coordinates cannot be sanitized (e.g., NaN, undefined)
- *
- * @param lat - Latitude value to sanitize
- * @param lon - Longitude value to sanitize
- * @returns Sanitized coordinates or null if invalid
- */
-export function sanitizeCoordinates(
-  lat: number | undefined | null,
-  lon: number | undefined | null
-): { latitude: number; longitude: number } | null {
-  // Cannot sanitize undefined, null, or NaN
-  if (
-    lat === undefined || lat === null ||
-    lon === undefined || lon === null ||
-    typeof lat !== 'number' || typeof lon !== 'number' ||
-    isNaN(lat) || isNaN(lon)
-  ) {
-    return null;
-  }
-
-  // Clamp to valid ranges
-  const clampedLat = Math.max(-90, Math.min(90, lat));
-  const clampedLon = Math.max(-180, Math.min(180, lon));
-
-  // Warn in development if clamping occurred
-  if (process.env.NODE_ENV === 'development') {
-    if (lat !== clampedLat) {
-      console.warn(`⚠️ Latitude ${lat} was clamped to ${clampedLat}`);
-    }
-    if (lon !== clampedLon) {
-      console.warn(`⚠️ Longitude ${lon} was clamped to ${clampedLon}`);
-    }
-  }
-
-  return {
-    latitude: clampedLat,
-    longitude: clampedLon,
-  };
-}
-
-/**
- * Type guard for checking if an object has valid coordinate properties
- * Useful for runtime validation of API responses or database records
- */
-export function hasValidCoordinates(
-  obj: unknown
-): obj is { lat: number; lon: number } | { latitude: number; longitude: number } {
-  if (!obj || typeof obj !== 'object') {
-    return false;
-  }
-
-  const hasLatLon = 'lat' in obj && 'lon' in obj;
-  const hasLatitudeLongitude = 'latitude' in obj && 'longitude' in obj;
-
-  if (hasLatLon) {
-    const { lat, lon } = obj as { lat: unknown; lon: unknown };
-    return isValidCoordinate(lat as number, lon as number);
-  }
-
-  if (hasLatitudeLongitude) {
-    const { latitude, longitude } = obj as { latitude: unknown; longitude: unknown };
-    return isValidCoordinate(latitude as number, longitude as number);
-  }
-
-  return false;
 }

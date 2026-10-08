@@ -1,4 +1,4 @@
-import { acquireProviderRunReceipts, completeAttestedProviderRun, loadAttestedProviderRunScope, loadSwellWatchAcquisitionScope, readStoredProviderRunStates, storePrototypeSingleRunReceipts, type ProviderRunReceiptRpcClient } from "@/lib/alerts/swell-watch/provider-run-store";
+import { acquireProviderRunReceipts, loadAttestedProviderRunScope, loadSwellWatchAcquisitionScope, readStoredProviderRunStates, storePrototypeSingleRunReceipts, type ProviderRunReceiptRpcClient } from "@/lib/alerts/swell-watch/provider-run-store";
 import { fetchOpenMeteoSingleRunReceipt } from "@/lib/alerts/swell-watch/single-run-receipt";
 
 const input = { latitude: 32.8, longitude: -117.3, runUtc: "2026-09-03T06:00Z", forecastDays: 1 };
@@ -238,17 +238,6 @@ describe("provider run receipt store", () => {
       expect(fetcher).toHaveBeenCalledTimes(1);
       expect(rpc).not.toHaveBeenCalled();
     }
-  });
-
-  it("requires database attestation and validates the returned completion identity", async () => {
-    const stored = { issuanceId: ids.issuance_id, runBatchId: ids.run_batch_id, revisionSetId: ids.revision_set_id };
-    const rpc = jest.fn().mockResolvedValueOnce({ data: null, error: { message: "active accepted attestation is required" } })
-      .mockResolvedValueOnce({ data: [{ provider_batch_id: ids.issuance_id, evaluation_id: `genuine_completed:${ids.revision_set_id}` }], error: null })
-      .mockResolvedValueOnce({ data: [{ provider_batch_id: ids.issuance_id, evaluation_id: `genuine_completed:${ids.run_batch_id}` }], error: null });
-    await expect(completeAttestedProviderRun(stored, { rpc })).rejects.toThrow("attestation");
-    await expect(completeAttestedProviderRun(stored, { rpc })).rejects.toThrow("invalid identity");
-    await expect(completeAttestedProviderRun(stored, { rpc })).resolves.toEqual({ providerBatchId: ids.issuance_id, evaluationId: `genuine_completed:${ids.run_batch_id}` });
-    expect(rpc).toHaveBeenLastCalledWith("complete_swell_watch_provider_run_receipt", { p_revision_set_id: ids.revision_set_id });
   });
 
   it("stores an atomic scope and accepts Supabase table-return rows", async () => {

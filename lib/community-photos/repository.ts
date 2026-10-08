@@ -238,31 +238,6 @@ export async function completeCommunityPhotoUpload({
   return { photo, replay: reservation.replay };
 }
 
-async function uploadCommunityPhoto({
-  uploaderId,
-  image,
-  ...fields
-}: {
-  uploaderId: string;
-  targetType: CommunityPhotoTargetType;
-  targetId: string;
-  visibility: CommunityPhotoVisibility;
-  termsVersion: string;
-  rightsConfirmed: boolean;
-  idempotencyKey: string;
-  image: ProcessedCommunityPhoto;
-}): Promise<{ photo: ResolvedSpotPhoto; replay: boolean }> {
-  const reservation = await reserveCommunityPhotoUpload({
-    uploaderId,
-    ...fields,
-  });
-  return completeCommunityPhotoUpload({
-    uploaderId,
-    reservation,
-    image: reservation.replay ? null : image,
-  });
-}
-
 export async function downloadCommunityPhoto({
   photoId,
   viewerId,

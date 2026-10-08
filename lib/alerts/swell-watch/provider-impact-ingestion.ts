@@ -171,17 +171,6 @@ async function persistRuns(
   }));
 }
 
-/** Retries reconcile at database uniqueness keys; no release or send occurs here. */
-export async function ingestAttestedSwellWatchRun(
-  input: RunInput, client: RunClient,
-): Promise<{ kind: "suppressed"; reason: string } | IngestedRun> {
-  input = structuredClone(input);
-  if (!input.regionKey.trim() || input.regionKey.trim().length > 100) throw new Error("Invalid region key");
-  const derived = await deriveAttestedSwellWatchRun(input, client);
-  if (derived.kind === "suppressed") return derived;
-  return (await persistRuns([{ input, derived }], client, "ingest_swell_watch_run"))[0];
-}
-
 /** Complete cohort preflight precedes one transaction across the valid feeds. */
 export async function ingestAttestedSwellWatchCohort(
   input: Omit<Parameters<typeof loadAttestedProviderRunScope>[0], "scopes"> & Pick<RunInput, "now" | "policy" | "qualificationRule"> & {

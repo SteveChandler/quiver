@@ -76,13 +76,6 @@ jest.mock("@/lib/utils/email-rate-limiter", () => ({
 }));
 
 // ---- Mock push service ----
-// Phase 3d: the route no longer imports sendPushNotifications, but this mock
-// is retained as a defensive guard — if any path regresses to direct send,
-// the test will catch the unexpected FCM call.
-const mockSendPushNotifications = jest.fn().mockResolvedValue(undefined);
-jest.mock("@/lib/services/push-notifications", () => ({
-  sendPushNotifications: (...args: any[]) => mockSendPushNotifications(...args),
-}));
 
 // ---- Mock notifications enqueue (Phase 3d push branch) ----
 const mockEnqueueNotification = jest.fn();
@@ -655,7 +648,6 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     expect(res.status).toBe(200);
 
     expect(mockEmailsSend).not.toHaveBeenCalled();
-    expect(mockSendPushNotifications).not.toHaveBeenCalled();
     expect(mockEnqueueNotification).not.toHaveBeenCalled();
     expect(mockLogDelivery).not.toHaveBeenCalled();
     expect(mockConsolidatedAlertEmail).not.toHaveBeenCalled();
@@ -719,7 +711,6 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     expect(res.status).toBe(200);
 
     expect(mockEmailsSend).not.toHaveBeenCalled();
-    expect(mockSendPushNotifications).not.toHaveBeenCalled();
     expect(store.deliveryInserts).toHaveLength(0);
 
     expect(store.attemptInserts).toHaveLength(1);
@@ -769,7 +760,6 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
         ),
       }),
     );
-    expect(mockSendPushNotifications).not.toHaveBeenCalled();
 
     expect(store.deliveryInserts).toHaveLength(1);
     expect(store.deliveryInserts[0]).toMatchObject({
@@ -1843,7 +1833,6 @@ describe("condition-alert-deliver — throttle (cooldown + weekly cap)", () => {
     expect(res.status).toBe(200);
 
     expect(mockEmailsSend).not.toHaveBeenCalled();
-    expect(mockSendPushNotifications).not.toHaveBeenCalled();
     expect(store.deliveryInserts).toHaveLength(0);
 
     expect(store.attemptInserts).toHaveLength(1);
@@ -1897,7 +1886,6 @@ describe("condition-alert-deliver — throttle (cooldown + weekly cap)", () => {
     expect(res.status).toBe(200);
 
     expect(mockEmailsSend).not.toHaveBeenCalled();
-    expect(mockSendPushNotifications).not.toHaveBeenCalled();
     expect(store.deliveryInserts).toHaveLength(0);
 
     expect(store.attemptInserts).toHaveLength(1);
@@ -2243,7 +2231,6 @@ describe("condition-alert-deliver — orphaned queue rows", () => {
     expectQueueReasonTotals(body);
 
     expect(mockEmailsSend).not.toHaveBeenCalled();
-    expect(mockSendPushNotifications).not.toHaveBeenCalled();
 
     expect(store.attemptInserts).toHaveLength(2);
     expect(store.attemptInserts).toEqual(
@@ -2283,8 +2270,6 @@ describe("condition-alert-deliver — push branch enqueues via notifications pip
 
     const res = await GET(makeRequest());
     expect(res.status).toBe(200);
-
-    expect(mockSendPushNotifications).not.toHaveBeenCalled();
     expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
 
     const call = mockEnqueueNotification.mock.calls[0][0];

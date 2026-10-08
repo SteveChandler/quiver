@@ -340,21 +340,6 @@ function getGenericBaseShoalingFactor(
   return { factor: BASE_SHOALING, provenance: 'generic' };
 }
 
-const QUARANTINED_BUCKET_MIN_PERIOD_S = 15;
-const QUARANTINED_BUCKET_MAX_FACTOR = 1;
-
-function isQuarantinedShoalingBucket(
-  periodS: number | null | undefined,
-  bucketFactor: number,
-): boolean {
-  return (
-    periodS != null &&
-    Number.isFinite(periodS) &&
-    periodS >= QUARANTINED_BUCKET_MIN_PERIOD_S &&
-    bucketFactor < QUARANTINED_BUCKET_MAX_FACTOR
-  );
-}
-
 /**
  * Transform raw buoy significant wave height to estimated face height
  *
@@ -528,34 +513,6 @@ export function transformToFaceHeightWithMetadata(
     isCalibrated: false,
     provenance: baseShoaling.provenance,
     ...(calibrationBucketQuarantined ? { calibrationBucketQuarantined } : {}),
-  };
-}
-
-/**
- * Get transformation factors for debugging/transparency
- *
- * Useful for understanding why a particular face height was calculated.
- *
- * @param params Transformation parameters
- * @returns Object with all factors and intermediate values
- */
-export function getTransformationFactors(params: TransformParams): {
-  rawHeightFt: number;
-  baseShoaling: number;
-  periodFactor: number;
-  directionFactor: number;
-  faceHeightFt: number;
-} {
-  const periodFactor = calculatePeriodFactor(params.periodS);
-  const directionFactor = calculateDirectionFactor(params.swellDirectionDeg, params.beach);
-  const faceHeightFt = transformToFaceHeight(params);
-
-  return {
-    rawHeightFt: params.rawHeightFt,
-    baseShoaling: BASE_SHOALING,
-    periodFactor,
-    directionFactor,
-    faceHeightFt,
   };
 }
 

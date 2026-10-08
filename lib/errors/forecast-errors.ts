@@ -65,40 +65,6 @@ export class ForecastError extends Error {
   }
 
   /**
-   * Get a user-friendly error message
-   */
-  getUserMessage(): string {
-    switch (this.code) {
-      case ForecastErrorCode.WAVE_DATA_UNAVAILABLE:
-        return "Wave forecast data is temporarily unavailable. Please try again later.";
-
-      case ForecastErrorCode.TIDE_DATA_UNAVAILABLE:
-        return "Tide information is temporarily unavailable. Please try again later.";
-
-      case ForecastErrorCode.WEATHER_DATA_UNAVAILABLE:
-        return "Weather forecast data is temporarily unavailable. Please try again later.";
-
-      case ForecastErrorCode.NOAA_API_ERROR:
-        return "Weather service is temporarily unavailable. Please try again later.";
-
-      case ForecastErrorCode.INVALID_LOCATION:
-        return "Invalid location provided. Please check the coordinates.";
-
-      case ForecastErrorCode.INVALID_BEACH_ID:
-        return "Beach not found. Please select a valid beach.";
-
-      case ForecastErrorCode.RATE_LIMIT_EXCEEDED:
-        return "Too many requests. Please wait before trying again.";
-
-      case ForecastErrorCode.FORECAST_GENERATION_FAILED:
-        return "Unable to generate forecast. Please try again later.";
-
-      default:
-        return "An unexpected error occurred. Please try again later.";
-    }
-  }
-
-  /**
    * Convert to JSON for logging
    */
   toJSON() {

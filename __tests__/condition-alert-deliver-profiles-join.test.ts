@@ -66,10 +66,6 @@ jest.mock("@/lib/utils/email-rate-limiter", () => ({
   createResendRateLimiter: () => ({ throttle: jest.fn() }),
 }));
 
-jest.mock("@/lib/services/push-notifications", () => ({
-  sendPushNotifications: jest.fn(),
-}));
-
 import { GET } from "@/app/api/cron/condition-alert-deliver/route";
 import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
 

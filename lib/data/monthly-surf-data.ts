@@ -428,17 +428,6 @@ export function getStateSurfProfile(stateSlug: string): StateSurfProfile | null 
 }
 
 /**
- * Get the best month entry for a state.
- */
-function getBestMonth(stateSlug: string): MonthlyData | null {
-  const profile = getStateSurfProfile(stateSlug);
-  if (!profile) return null;
-  return profile.monthly.reduce((best, entry) =>
-    entry.overallScore > best.overallScore ? entry : best
-  );
-}
-
-/**
  * Get all state slugs that have surf profile data.
  */
 export function getAvailableStateProfiles(): string[] {

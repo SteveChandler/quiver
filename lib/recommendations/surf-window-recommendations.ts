@@ -468,11 +468,3 @@ export function buildSurfWindowRecommendations(
     recommendations,
   };
 }
-
-export function buildBeachSurfWindowRecommendations(
-  beach: Beach,
-  forecasts: EnhancedForecastEntity[],
-  options: BuildSurfWindowRecommendationsOptions = {}
-): SurfWindowRecommendationResult {
-  return buildSurfWindowRecommendations({ beach, forecasts }, options);
-}

@@ -1,14 +1,4 @@
-import {
-  calculateDistance,
-  calculateDistanceFormatted,
-  calculateDistanceInMiles,
-  calculateDistanceLegacy,
-  toRadians,
-  formatDistanceDisplay,
-  bearingFromTo,
-  compassPointToWord,
-  type CompassPoint,
-} from "@/lib/utils/distance-utils";
+import { calculateDistance, calculateDistanceFormatted, calculateDistanceInMiles, toRadians, formatDistanceDisplay, bearingFromTo, compassPointToWord, type CompassPoint } from "@/lib/utils/distance-utils";
 import type { Coordinates } from "@/lib/types/coordinates";
 
 describe("calculateDistance", () => {
@@ -105,36 +95,6 @@ describe("calculateDistanceInMiles", () => {
   });
 });
 
-describe("calculateDistanceLegacy", () => {
-  it("computes distance using old signature (backward compatibility)", () => {
-    const sanDiegoLat = 32.715736;
-    const sanDiegoLng = -117.161087;
-    const losAngelesLat = 34.052235;
-    const losAngelesLng = -118.243683;
-
-    const miles = calculateDistanceLegacy(
-      sanDiegoLat,
-      sanDiegoLng,
-      losAngelesLat,
-      losAngelesLng,
-      "miles"
-    );
-
-    expect(miles).toBeCloseTo(111.48, 1);
-  });
-
-  it("handles lng parameter name (legacy compatibility)", () => {
-    const km = calculateDistanceLegacy(
-      32.715736,
-      -117.161087, // lng parameter (old naming)
-      34.052235,
-      -118.243683, // lng parameter (old naming)
-      "km"
-    );
-
-    expect(km).toBeCloseTo(179.4, 1);
-  });
-});
 
 describe("toRadians", () => {
   it("converts degrees to radians", () => {

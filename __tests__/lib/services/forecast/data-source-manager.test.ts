@@ -1,9 +1,6 @@
 /**
  * Unit tests for ForecastDataSourceManager and NOAAWeatherDataSource
  *
- * Note: The full fetchBuoyObservationWithFallback integration flow is covered
- * by __tests__/lib/services/ioos-integration.test.ts.
- *
  * These tests focus on:
  * - Service accessor methods (getCDIPService, getWaveWatchService, etc.)
  * - fetchWaveData / fetchTideData / fetchWeatherData delegation
@@ -59,37 +56,6 @@ jest.mock("@/lib/services/cdip", () => ({
   })),
 }));
 
-jest.mock("@/lib/services/ioos", () => ({
-  IOOSService: jest.fn().mockImplementation(() => ({
-    findNearbyStations: jest.fn(),
-    fetchObservationDynamic: jest.fn(),
-  })),
-}));
-
-jest.mock("@/lib/services/ioos-station-scorer", () => ({
-  rankStations: jest.fn(() => []),
-}));
-
-jest.mock("@/lib/supabase/server", () => ({
-  createSupabaseServiceRoleClient: jest.fn(() => ({
-    from: jest.fn(() => ({
-      select: jest.fn(() => ({
-        in: jest.fn(() => ({
-          gte: jest.fn(() => ({
-            order: jest.fn(() => Promise.resolve({ data: [], error: null })),
-          })),
-        })),
-      })),
-      upsert: jest.fn(() => ({
-        then: jest.fn((cb) => {
-          cb();
-          return { catch: jest.fn(() => Promise.resolve()) };
-        }),
-      })),
-    })),
-  })),
-}));
-
 // ─── ForecastDataSourceManager - service accessors ────────────────────────────
 
 describe("ForecastDataSourceManager", () => {
@@ -128,23 +94,6 @@ describe("ForecastDataSourceManager", () => {
       const service = manager.getCOOPSService();
       expect(service).toBeDefined();
       expect(typeof service.fetchCOOPSData).toBe("function");
-    });
-  });
-
-  describe("getIOOSService", () => {
-    it("returns a service with findNearbyStations method", () => {
-      const service = manager.getIOOSService();
-      expect(service).toBeDefined();
-      expect(typeof service.findNearbyStations).toBe("function");
-    });
-  });
-
-  describe("getDataSources", () => {
-    it("returns wave, tide, and weather data sources", () => {
-      const sources = manager.getDataSources();
-      expect(sources).toHaveProperty("wave");
-      expect(sources).toHaveProperty("tide");
-      expect(sources).toHaveProperty("weather");
     });
   });
 

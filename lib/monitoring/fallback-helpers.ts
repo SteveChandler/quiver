@@ -3,23 +3,6 @@ import { trackFallback, FallbackEvent } from './fallback-tracker';
 type FallbackTracking = Pick<FallbackEvent, 'severity' | 'reason'>;
 
 /**
- * Generic fallback-with-tracking helper. Returns `value` if non-null,
- * otherwise tracks the fallback and returns `fallbackValue`.
- * Replaces the comma-operator pattern: `value ?? (trackFallback(...), default)`
- */
-function withFallbackTracking<T extends string | number | null>(
-  value: T | null | undefined,
-  fallbackValue: T,
-  tracking: Omit<FallbackEvent, 'fallbackValue' | 'severity'> & { severity?: FallbackEvent['severity'] }
-): T {
-  if (value == null) {
-    trackFallback({ ...tracking, fallbackValue });
-    return fallbackValue;
-  }
-  return value;
-}
-
-/**
  * Track and resolve a missing confidence score.
  * Returns the score if present, otherwise tracks fallback and returns 50.
  * `tracking` lets a caller whose forecast cannot have a stored score say so

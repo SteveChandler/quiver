@@ -352,17 +352,6 @@ export function parseWaveHeight(
   return undefined;
 }
 
-/**
- * Get the raw numeric wave height value from any format
- * @param waveHeight Wave height in any format
- * @returns Numeric value or undefined
- */
-export function getWaveHeightValue(
-  waveHeight?: number | string | null
-): number | undefined {
-  return parseWaveHeight(waveHeight);
-}
-
 // ============================================================================
 // Formatting Functions (from wave-height-formatter.ts)
 // ============================================================================

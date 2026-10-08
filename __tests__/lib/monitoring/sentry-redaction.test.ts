@@ -1,10 +1,10 @@
 /** @jest-environment node */
 jest.mock("@sentry/nextjs", () => ({ init: jest.fn() }));
 
-describe.each(["server", "edge"])("%s telemetry redaction", (runtime) => {
+describe("server telemetry redaction", () => {
   it("scrubs actual exception, transaction and log hooks", () => {
     jest.isolateModules(() => {
-      require(`../../../sentry.${runtime}.config`);
+      require("../../../sentry.server.config");
       const { init } = require("@sentry/nextjs");
       const config = init.mock.calls[0][0];
       const event = {

@@ -10,61 +10,6 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import type { ServerActionResponse } from "@/lib/server-action-utils";
 
 /**
- * Wrap a server action with admin authentication and service role client
- *
- * Usage:
- * ```typescript
- * export const deleteBeach = withAdminAction(
- *   async (beachId: string, { supabaseAdmin }) => {
- *     await supabaseAdmin.from('beaches').delete().eq('id', beachId);
- *     return { success: true };
- *   }
- * );
- * ```
- */
-function withAdminAction<TArgs extends any[], TResult>(
-  action: (
-    ...args: [...TArgs, { supabaseAdmin: ReturnType<typeof createSupabaseServiceRoleClient> }]
-  ) => Promise<TResult>
-) {
-  return async (...args: TArgs): Promise<ServerActionResponse<TResult>> => {
-    try {
-      // Check authentication and admin privileges
-      const user = await getCurrentUser();
-      assertIsAdmin(user);
-
-      // Create service role client for admin operations
-      const supabaseAdmin = createSupabaseServiceRoleClient();
-
-      // Execute the action with service role client
-      const data = await action(...args, { supabaseAdmin });
-
-      return { success: true, data };
-    } catch (error) {
-      console.error("Admin server action error:", error);
-
-      // Provide helpful error messages
-      let message: string;
-      if (error instanceof Error) {
-        message = error.message;
-      } else if (typeof error === "string") {
-        message = error;
-      } else if (error && typeof error === "object" && "message" in error) {
-        message = String(error.message);
-      } else {
-        message = "Unknown error occurred";
-        console.error("Unhandled error type:", typeof error, error);
-      }
-
-      return {
-        success: false,
-        error: message,
-      };
-    }
-  };
-}
-
-/**
  * Alternative admin action wrapper that provides both user and service role client
  *
  * Usage:

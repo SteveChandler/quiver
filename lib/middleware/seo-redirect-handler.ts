@@ -13,11 +13,7 @@
  * Uses lightweight seoLog() helper instead.
  */
 
-import {
-  isValidStateSlug,
-  stateToSlug,
-  cityToSlug,
-} from "@/lib/utils/beach-url-utils";
+import { isValidStateSlug } from "@/lib/utils/beach-url-utils";
 import { COLLISION_CITY_SLUGS } from "@/lib/seo/city-collision-list";
 
 /**
@@ -246,115 +242,6 @@ export function extractBeachSlugFromPath(pathname: string): string | null {
   }
 
   return null;
-}
-
-/**
- * Beach lookup result from database
- */
-interface BeachLookupResult {
-  slug: string;
-  state: string | null;
-  city: string | null;
-  name: string;
-}
-
-/**
- * Lookup beach by slug using direct Supabase REST API
- *
- * Uses fetch instead of Supabase client to avoid SSR overhead in middleware.
- * This is designed for Edge runtime where the full Supabase client may not work.
- *
- * Design principles:
- * - Fail open: If lookup fails, return null (let request pass to normal routing)
- * - Short timeout: Don't block requests waiting for slow database
- * - Minimal data: Only fetch fields needed for redirect construction
- *
- * NOTE: This function is no longer called from the SEO redirect flow (removed to
- * eliminate DB latency for anonymous users). It is preserved here for potential
- * future use (e.g., if a new redirect use case requiring DB lookup is introduced).
- * It is no longer imported or called from middleware.ts.
- *
- * @param slug - Beach slug to look up
- * @returns Beach data if found, null otherwise
- */
-export async function lookupBeachBySlug(
-  slug: string
-): Promise<BeachLookupResult | null> {
-  try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseAnonKey) {
-      seoLog.warn("Missing Supabase credentials");
-      return null;
-    }
-
-    // Query beaches table for exact slug match
-    const url = `${supabaseUrl}/rest/v1/beaches?slug=eq.${encodeURIComponent(slug)}&select=slug,state,city,name&limit=1`;
-
-    // Create abort signal with timeout if available (Edge runtime supports this)
-    // Fall back to no signal in environments that don't support AbortSignal.timeout
-    const fetchOptions: RequestInit = {
-      headers: {
-        apikey: supabaseAnonKey,
-        Authorization: `Bearer ${supabaseAnonKey}`,
-      },
-    };
-
-    // Add timeout signal if available (500ms to avoid blocking requests)
-    if (typeof AbortSignal !== "undefined" && "timeout" in AbortSignal) {
-      fetchOptions.signal = AbortSignal.timeout(500);
-    }
-
-    const response = await fetch(url, fetchOptions);
-
-    if (!response.ok) {
-      seoLog.warn("Supabase query failed", { status: response.status });
-      return null;
-    }
-
-    const data = await response.json();
-
-    if (Array.isArray(data) && data.length > 0) {
-      return data[0] as BeachLookupResult;
-    }
-
-    return null;
-  } catch (error) {
-    seoLog.warn("Beach lookup error", {
-      slug,
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
-    return null;
-  }
-}
-
-/**
- * Build canonical URL for a beach
- *
- * For US beaches with valid state and city, builds: /{state}/{city}/{slug}
- * For international or incomplete data, falls back to: /spots/{slug}
- *
- * @param beach - Beach data from database lookup
- * @returns Canonical URL path or null if slug is missing
- */
-export function buildCanonicalBeachUrl(
-  beach: BeachLookupResult
-): string | null {
-  if (!beach.slug) {
-    return null;
-  }
-
-  const stateSlug = stateToSlug(beach.state);
-  const citySlug = cityToSlug(beach.city);
-
-  // For US states with valid state and city, build hierarchical URL
-  if (stateSlug && isValidStateSlug(stateSlug) && citySlug) {
-    return `/${stateSlug}/${citySlug}/${beach.slug}`;
-  }
-
-  // For international beaches or missing data, fall back to /spots/ route
-  return `/spots/${beach.slug}`;
 }
 
 /**

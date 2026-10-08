@@ -91,21 +91,6 @@ export function clearAuthRedirect(): void {
 }
 
 /**
- * Build an auth URL with the return path as a query parameter
- * @param basePath - The base auth path (e.g., "/auth/sign-in")
- * @param returnTo - Optional explicit return path
- * @returns Full URL path with redirect parameter
- */
-export function buildAuthUrl(basePath: string, returnTo?: string): string {
-  const redirect = returnTo || getAuthRedirect();
-  if (!redirect) return basePath;
-
-  const url = new URL(basePath, window.location.origin); // eslint-disable-line no-restricted-properties
-  url.searchParams.set(REDIRECT_URL_PARAM, redirect);
-  return url.pathname + url.search;
-}
-
-/**
  * Initiate OAuth authentication flow
  * @param provider - OAuth provider (currently only 'google')
  * @param returnTo - Path to return to after auth
@@ -316,48 +301,6 @@ export function validateEmailDomain(email: string): EmailDomainValidation {
   }
 
   return { valid: true };
-}
-
-/**
- * Check if a user account exists for the given email
- * Note: This is a client-side check and may not be 100% accurate
- * @param email - Email address to check
- * @returns Promise<boolean> indicating if user likely exists
- */
-export async function checkUserExists(email: string): Promise<boolean> {
-  // For now, we can't reliably check this client-side without exposing security issues
-  // This function is here for future implementation (e.g., via dedicated API endpoint)
-  // For Phase 1, we'll return false (assume new user) and handle auto-detection later
-  console.log("[auth-utils] User existence check not yet implemented");
-  return false;
-}
-
-/**
- * Increment the redirect attempt counter (for loop prevention)
- * @returns The new attempt count
- */
-export function incrementRedirectAttempt(): number {
-  const current = parseInt(safeGetItem(REDIRECT_ATTEMPTS_KEY) || "0");
-  // Handle NaN case (invalid value in localStorage)
-  const next = (isNaN(current) ? 0 : current) + 1;
-  safeSetItem(REDIRECT_ATTEMPTS_KEY, next.toString());
-  return next;
-}
-
-/**
- * Clear the redirect attempt counter
- */
-export function clearRedirectAttempts(): void {
-  safeRemoveItem(REDIRECT_ATTEMPTS_KEY);
-}
-
-/**
- * Check if we've hit the redirect loop threshold
- * @returns true if loop detected, false otherwise
- */
-export function isRedirectLoopDetected(): boolean {
-  const attempts = parseInt(safeGetItem(REDIRECT_ATTEMPTS_KEY) || "0");
-  return attempts >= MAX_REDIRECT_ATTEMPTS;
 }
 
 /**

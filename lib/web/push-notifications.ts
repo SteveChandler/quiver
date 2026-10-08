@@ -3,15 +3,12 @@
  * Handles FCM token registration and notification handling for web browsers
  */
 
-import { getToken, onMessage, type Unsubscribe } from "firebase/messaging";
+import { getToken, onMessage } from "firebase/messaging";
 import { getFirebaseMessaging } from "@/lib/firebase/config";
 
 // VAPID key from Firebase Console (Cloud Messaging → Web Push certificates)
 // This is a public key and safe to include in client-side code
 const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY || "";
-
-// Store the unsubscribe function for cleanup
-let unsubscribeFromMessages: Unsubscribe | null = null;
 
 function getRuntimeIanaTimezone(): string | null {
   try {
@@ -227,7 +224,7 @@ export function setupWebPushListeners(): void {
   }
 
   // Handle foreground messages (when app is open)
-  unsubscribeFromMessages = onMessage(messaging, (payload) => {
+  onMessage(messaging, (payload) => {
     if (process.env.NODE_ENV === "development") {
       console.log("Push notifications: Received in foreground", {
         title: payload.notification?.title,
@@ -268,51 +265,4 @@ export function setupWebPushListeners(): void {
   if (process.env.NODE_ENV === "development") {
     console.log("Push notifications: Foreground listeners configured");
   }
-}
-
-/**
- * Unregister push notifications (e.g., on logout)
- */
-export async function unregisterWebPushNotifications(): Promise<void> {
-  if (!isPushSupported()) {
-    return;
-  }
-
-  try {
-    // Unsubscribe from foreground messages
-    if (unsubscribeFromMessages) {
-      unsubscribeFromMessages();
-      unsubscribeFromMessages = null;
-    }
-
-    // Note: We don't delete the token from the backend here
-    // The server will prune invalid tokens automatically when they fail
-    // This allows users to re-enable notifications without re-registering
-
-    if (process.env.NODE_ENV === "development") {
-      console.log("Push notifications: Unregistered and listeners removed");
-    }
-  } catch (error) {
-    if (process.env.NODE_ENV === "development") {
-      console.error("Push notifications: Unregistration failed", error);
-    }
-  }
-}
-
-/**
- * Check current notification permission status
- */
-export function checkNotificationPermissions(): {
-  granted: boolean;
-  status: NotificationPermission;
-} {
-  if (!isPushSupported()) {
-    return { granted: false, status: "default" };
-  }
-
-  const status = Notification.permission;
-  return {
-    granted: status === "granted",
-    status,
-  };
 }

@@ -14,14 +14,6 @@ jest.mock("@/context/auth-context", () => ({
   useAuth: jest.fn(),
 }));
 
-jest.mock("@/lib/utils/performance-utils", () => ({
-  PerformanceUtils: {
-    trackWebVitals: jest.fn(() => undefined),
-    preloadCriticalResources: jest.fn(() => undefined),
-    monitorMemoryUsage: jest.fn(() => undefined),
-  },
-}));
-
 // Keep the wrapper test focused: mock the heavy landing sections.
 jest.mock("@/components/oracle/oracle-home-screen", () => ({
   OracleHomeScreen: () => <div data-testid="home-screen" />,

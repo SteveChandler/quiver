@@ -68,11 +68,6 @@ import {
 } from "./trusted-forecast-persistence";
 import type { TrustedForecastServingProjectionStore } from "./trusted-forecast-current-projection";
 import {
-  buildGfsWaveShadowRows,
-  logGfsWaveShadowRows,
-  type GfsWaveShadowForecast,
-} from "@/lib/services/noaa-wavewatch/gfs-wave-shadow";
-import {
   computeV5Shadow,
   getActiveCalibration,
 } from "./calibration-v5";
@@ -276,8 +271,6 @@ export interface ForecastInputs {
   heightOffset?: BeachHeightOffsetRow | null;
   /** Optional active temporary feedback calibration, loaded once per beach. */
   feedbackCalibrationCandidate?: FeedbackHeightCalibrationCandidate | null;
-  /** Optional report-only GFS-Wave issue-time source shadow data. */
-  gfsWaveData?: GfsWaveShadowForecast | null;
   /** Test/smoke override for the build anchor; production defaults to now. */
   buildAnchorAt?: Date;
   /**
@@ -473,7 +466,6 @@ export class ForecastBuilder {
       southOcSanoShadowZoneSnapshot,
       heightOffset,
       feedbackCalibrationCandidate,
-      gfsWaveData,
       buildAnchorAt,
     } = inputs;
     const forecasts: EnhancedForecastWithRawData[] = [];
@@ -504,7 +496,6 @@ export class ForecastBuilder {
     // during the row loop; consumed only after the loop, so a trusted decision
     // always sees the complete local day.
     const trustedSlotBuffer: TrustedSlotRecord[] = [];
-    const gfsWaveForecastTimes: Date[] = [];
     const handoffBlendEnabled = isForecastHandoffBlendEnabled();
     const handoffBlendState = createForecastHandoffBlendState();
     const calibrationCoverage: CalibrationCoverage = {
@@ -541,7 +532,6 @@ export class ForecastBuilder {
       const forecastTime = new Date(
         firstSlotMs + i * FORECAST_CONSTANTS.INTERVAL_HOURS * 60 * 60 * 1000
       );
-      gfsWaveForecastTimes.push(forecastTime);
 
       // Get data for this time point
       const wavePoint = this.getWaveDataForTime(waveData, forecastTime);
@@ -667,24 +657,6 @@ export class ForecastBuilder {
         log.warn("Snapshot dispatch threw (caught, non-blocking)", {
           err: String(err),
         });
-      }
-    }
-
-    if (gfsWaveData) {
-      const gfsRows = buildGfsWaveShadowRows({
-        beachId: beach.id,
-        generatedAt: now,
-        forecastTimes: gfsWaveForecastTimes,
-        shadow: gfsWaveData,
-      });
-      if (gfsRows.length > 0) {
-        try {
-          await logGfsWaveShadowRows(gfsRows);
-        } catch (err) {
-          log.warn("GFS-Wave shadow dispatch threw (caught, non-blocking)", {
-            err: String(err),
-          });
-        }
       }
     }
 

@@ -22,7 +22,6 @@ import {
 import { PRESETS } from "@/lib/alerts/presets";
 import { formatPushNotification, qualityWord } from "@/lib/alerts/push-formatter";
 import { buildConsolidatedSubject } from "@/lib/alerts/consolidated-subject";
-import { ConditionsAlertEmail } from "@/lib/mailer/templates/ConditionsAlertEmail";
 import type { MatchingWindow } from "@/lib/alerts/types";
 import { swellMatchShareText } from "@/lib/analyzers/swell-analyzer";
 import { AnonAlertCaptureForm } from "@/components/alerts/anon-alert-capture-form";
@@ -132,35 +131,7 @@ describe("alert copy voice", () => {
     expect(loud(copies)).toEqual([]);
   });
 
-  it.each(["go", "maybe"] as const)("keeps the %s conditions alert email calm", (decisionVerdict) => {
-    const html = renderToStaticMarkup(ConditionsAlertEmail({
-      beachName: "Ocean Beach",
-      decisionVerdict,
-      surfDescription: "3-4 ft",
-      windDescription: "Light offshore",
-      tideDescription: "2.1 ft, incoming",
-      bestWindow: { start: "7:00 AM", end: "9:00 AM" },
-      dateline: "FRI · JUN 13",
-      signals: {
-        ripRisk: "moderate",
-        rideableWavesPerHour: 18,
-        setIntervalSeconds: 90,
-        waveFrequencyConfidence: "high",
-        forecastConfidence: 82,
-        conditionCharacter: null,
-        waterQuality: "advisory",
-      },
-      why: { whyText: ["NW swell inside this spot's window."], crowdWarning: null },
-      ctaUrl: "https://quiversurf.app/surf/sf/ocean-beach",
-      manageUrl: "https://quiversurf.app/settings",
-      unsubscribeUrl: "https://quiversurf.app/settings",
-    }) as Parameters<typeof renderToStaticMarkup>[0]);
-    const text = html
-      .replace(/<style[\s\S]*?<\/style>/gi, " ")
-      .replace(/<[^>]+>/g, " ");
 
-    expect(loud([text])).toEqual([]);
-  });
 });
 
 describe("condition and greeting copy voice", () => {

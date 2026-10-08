@@ -9,16 +9,6 @@ export const SYSTEM_CARD_CLASSES = [
 
 export type SystemCardClass = (typeof SYSTEM_CARD_CLASSES)[number];
 
-const PROMPT_CARD_CLASSES = new Set<SystemCardClass>([
-  "prompt",
-  "correction_request",
-  "forecast_vs_observation",
-]);
-
-function isPromptCardClass(contentClass: SystemCardClass): boolean {
-  return PROMPT_CARD_CLASSES.has(contentClass);
-}
-
 /** Deterministic ten-card cadence: three response-shaped cards per ten. */
 export function planSystemCardClasses(
   count: number,
