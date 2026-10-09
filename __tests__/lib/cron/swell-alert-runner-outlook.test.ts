@@ -785,7 +785,7 @@ it.each(['recommended', 'throws'])('handles the lead-beach window in the default
     forecast_at: new Date(Date.parse('2026-09-21T07:00:00.000Z') + hour * 3_600_000).toISOString(),
     wave_height: '3-4 ft', tide_height: hour >= 10 && hour < 12 ? '2' : '5', wind_speed: '3 mph' } as EnhancedForecastEntity));
   const tideRows = [...rows, { ...rows[0], forecast_at: '2026-09-22T07:00:00.000Z' }]
-    .map((row) => ({ ts: row.forecast_at, tide_ft: Number(row.tide_height), tide_height_m: null, source: 'noaa', station_id: '9410230', created_at: MORNING.toISOString() }));
+    .map((row) => ({ ts: row.forecast_at, tide_ft: row.id === 'hour-12' ? 3 : Number(row.tide_height), tide_height_m: null, source: 'noaa', station_id: '9410230', created_at: MORNING.toISOString() }));
   const spot = { ...snapshot.beach, id: HOME, timezone: 'America/Los_Angeles', preferred_tide_ft_min: 0, preferred_tide_ft_max: 3 } as unknown as Beach;
   let releaseHazard: (value: null) => void = () => { throw new Error('hazard read not started'); };
   const hazard = new Promise<null>((resolve) => { releaseHazard = resolve; });
