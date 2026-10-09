@@ -6,11 +6,14 @@
 -- change (pinned by __tests__/lib/mailer/lifecycle-email.test.tsx). Apply only after that copy is live
 -- on prod, or claims keep failing with version_mismatch. Existing (user, job, episode) attempt uniqueness
 -- keeps v1 stages from resending under v2.
+-- The loop runs until refresh_lifecycle_enrollment() returns 0, also completing pending first-time enrollment in one transaction; check email_contact_controls.daily_cap if a send burst matters.
+-- Rollback: with TRIAL_FEEDBACK_ENABLED unset the app hash matches neither v1 nor v2, stopping lifecycle sends; revert the code plus flag as described in the PR.
 BEGIN;
 
 INSERT INTO public.email_campaigns(id, version, content_hash, status, owner, approved_by, approved_at, expires_at)
 VALUES ('startup-lifecycle-v2', 2, '1a92cfa8ab7df8381db8b784d7a3e8edbb047ef5b8cea1c6277fd1740a4fc0a2',
-  'approved', 'Steven', 'steven:approved-v2-content:20261007', now(), now() + interval '90 days');
+  'approved', 'Steven', 'steven:approved-v2-content:20261007', now(), now() + interval '90 days')
+ON CONFLICT (id) DO NOTHING;
 
 UPDATE public.email_contact_controls SET automation_campaign = 'startup-lifecycle-v2' WHERE singleton;
 
@@ -38,6 +41,9 @@ BEGIN
     moved := public.refresh_lifecycle_enrollment();
     EXIT WHEN moved = 0;
   END LOOP;
+  RAISE NOTICE 'Lifecycle contacts: % on v2, % still on v1',
+    (SELECT count(*) FROM public.email_contact_state WHERE approved_campaign = 'startup-lifecycle-v2'),
+    (SELECT count(*) FROM public.email_contact_state WHERE approved_campaign = 'startup-lifecycle-v1');
 END $$;
 
 COMMIT;
