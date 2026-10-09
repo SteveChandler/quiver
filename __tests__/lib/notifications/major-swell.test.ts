@@ -290,3 +290,45 @@ describe("major swell notification contract", () => {
     });
   });
 });
+
+describe("swell follow-up payload fields", () => {
+  const followup = {
+    ...base,
+    ...physicalEvent,
+    awareness_mode: "shadow",
+    automation_enabled: false,
+    awareness_signal: "forecast_trend",
+    official_evidence_refs: [],
+    enforcement: null,
+    event_key: "11111111-1111-4111-8111-111111111111:NW:2026-09-20",
+    title_id: "b01",
+    kind: "bigger",
+    share_url: "https://www.quiversurf.app/app/swell/11111111-1111-4111-8111-111111111111%3ANW%3A2026-09-20?k=bigger&t=b01",
+    previous_peak_height_ft: 4.5,
+    previous_peak_date: "2026-09-19",
+  };
+
+  it("accepts and keeps the follow-up fields", () => {
+    expect(parseMajorSwellNotificationPayload(followup)).toMatchObject({
+      kind: "bigger",
+      title_id: "b01",
+      share_url: followup.share_url,
+      previous_peak_height_ft: 4.5,
+      previous_peak_date: "2026-09-19",
+    });
+  });
+
+  it("still accepts a first alert without them", () => {
+    const { kind: _kind, share_url: _url, previous_peak_height_ft: _ft, previous_peak_date: _date, ...first } = followup;
+    expect(parseMajorSwellNotificationPayload(first)).not.toHaveProperty("kind");
+  });
+
+  it.each([
+    { kind: "gone" },
+    { share_url: "not a url" },
+    { previous_peak_height_ft: 0 },
+    { previous_peak_date: "Saturday" },
+  ])("rejects %j", (bad) => {
+    expect(acceptsMajorSwellNotificationPayload({ ...followup, ...bad })).toBe(false);
+  });
+});

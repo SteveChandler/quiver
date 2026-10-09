@@ -41,12 +41,12 @@ export function CamGrid({ beaches, groupByRegion = false }: CamGridProps) {
         return (
           <section key={region.slug} id={region.slug} className="scroll-mt-24">
             <div className="mb-5 flex items-end justify-between gap-4 border-b-2 border-[#11100D] pb-3">
-              <h2 className="font-[var(--font-zine-display)] text-3xl uppercase leading-none tracking-normal text-[#11100D] sm:text-4xl">
+              <h2 className="font-[family-name:var(--font-zine-display)] text-3xl uppercase leading-none tracking-normal text-[#11100D] sm:text-4xl">
                 {region.name}
               </h2>
               <Link
                 href={getCamRegionPath(region)}
-                className="font-mono text-xs font-black uppercase tracking-[0.12em] text-[#0B3A75] underline decoration-[#F78E42] decoration-2 underline-offset-4 transition hover:text-[#11100D]"
+                className="font-mono text-xs font-black uppercase tracking-[0.12em] text-[#AA4918] underline decoration-[#F78E42] decoration-2 underline-offset-4 transition hover:text-[#11100D]"
               >
                 {/* One string expression: SWC eats the leading space of a
                     multi-line JSX text child that contains an HTML entity. */}

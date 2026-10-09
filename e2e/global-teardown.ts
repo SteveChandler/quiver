@@ -2,7 +2,7 @@ import { FullConfig } from '@playwright/test';
 import { spawn } from 'node:child_process';
 import { existsSync, readdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
-import { config as dotenvConfig } from 'dotenv';
+import { config as dotenvConfig } from '../scripts/load-env.mjs';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import {
   cleanupAllTestData,

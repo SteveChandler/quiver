@@ -62,11 +62,8 @@ export function setTrackingCache(
   trackingAllowedCache.set(userId, value);
 }
 
-/**
- * Clear the tracking allowed cache (for testing purposes)
- * @internal
- */
-export function __clearTrackingCache() {
+/** Clear cache state between tests. */
+export function __clearTrackingCache(): void {
   trackingAllowedCache.clear();
   cacheOrder.length = 0;
 }

@@ -5,8 +5,6 @@
  *
  * Tests the auth endpoints at:
  * - app/api/auth/check-session/route.ts
- * - app/api/auth/email/update/route.ts
- * - app/api/auth/refresh-session/route.ts
  */
 
 import { NextRequest } from "next/server";
@@ -42,8 +40,6 @@ jest.mock("next/headers", () => ({
 
 // Import route handlers after mocks are set up
 import { GET as checkSessionGET } from "@/app/api/auth/check-session/route";
-import { POST as refreshSessionPOST } from "@/app/api/auth/refresh-session/route";
-import { POST as emailUpdatePOST } from "@/app/api/auth/email/update/route";
 
 describe("Authentication Flows Integration", () => {
   let cleanup: () => void;
@@ -132,274 +128,6 @@ describe("Authentication Flows Integration", () => {
       });
     });
 
-    describe("refresh-session", () => {
-      it("extends valid session", async () => {
-        const mockUser = createMockUser({
-          id: "user-refresh-123",
-          email: "refresh@example.com",
-        });
-
-        const existingSession = createMockSession(mockUser);
-
-        // Mock existing session
-        mockSupabaseClient.auth.getSession.mockResolvedValue({
-          data: { session: existingSession },
-          error: null,
-        });
-
-        // Mock successful refresh with new tokens
-        const refreshedSession = {
-          ...existingSession,
-          access_token: "new-access-token-456",
-          refresh_token: "new-refresh-token-789",
-          expires_at: Date.now() / 1000 + 7200, // Extended by 2 hours
-        };
-
-        mockSupabaseClient.auth.refreshSession.mockResolvedValue({
-          data: { session: refreshedSession, user: mockUser },
-          error: null,
-        });
-
-        mockSupabaseClient.auth.getUser.mockResolvedValue({
-          data: { user: mockUser },
-          error: null,
-        });
-
-        const response = await refreshSessionPOST();
-        const data = await response.json();
-
-        expect(response.status).toBe(200);
-        expect(data.success).toBe(true);
-        expect(data.hasSession).toBe(true);
-        expect(data.sessionData).toEqual({
-          userId: "user-refresh-123",
-          email: "refresh@example.com",
-        });
-
-        // Verify refresh was called
-        expect(mockSupabaseClient.auth.refreshSession).toHaveBeenCalledTimes(1);
-      });
-
-      it("rejects invalid refresh token", async () => {
-        const mockUser = createMockUser();
-        const existingSession = createMockSession(mockUser);
-
-        // Mock existing session
-        mockSupabaseClient.auth.getSession.mockResolvedValue({
-          data: { session: existingSession },
-          error: null,
-        });
-
-        // Mock refresh failure due to invalid token
-        mockSupabaseClient.auth.refreshSession.mockResolvedValue({
-          data: { session: null, user: null },
-          error: { message: "Invalid refresh token", status: 401 },
-        });
-
-        const response = await refreshSessionPOST();
-        const data = await response.json();
-
-        expect(response.status).toBe(401);
-        expect(data.success).toBe(false);
-        expect(data.error).toBe("Invalid refresh token");
-      });
-
-      it("handles missing session gracefully", async () => {
-        // No existing session
-        mockSupabaseClient.auth.getSession.mockResolvedValue({
-          data: { session: null },
-          error: null,
-        });
-
-        const response = await refreshSessionPOST();
-        const data = await response.json();
-
-        expect(response.status).toBe(200);
-        expect(data.success).toBe(false);
-        expect(data.hasSession).toBe(false);
-        expect(data.message).toBe("No existing session to refresh");
-
-        // Should not attempt refresh when no session exists
-        expect(mockSupabaseClient.auth.refreshSession).not.toHaveBeenCalled();
-      });
-
-      it("handles refresh token expiration", async () => {
-        const mockUser = createMockUser();
-        const existingSession = createMockSession(mockUser);
-
-        mockSupabaseClient.auth.getSession.mockResolvedValue({
-          data: { session: existingSession },
-          error: null,
-        });
-
-        mockSupabaseClient.auth.refreshSession.mockResolvedValue({
-          data: { session: null, user: null },
-          error: { message: "Refresh token expired" },
-        });
-
-        const response = await refreshSessionPOST();
-        const data = await response.json();
-
-        expect(response.status).toBe(401);
-        expect(data.success).toBe(false);
-        expect(data.error).toBe("Refresh token expired");
-      });
-    });
-  });
-
-  describe("Email Update Flow", () => {
-    const createEmailUpdateRequest = (body: any) =>
-      new NextRequest("http://localhost:3000/api/auth/email/update", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-    it("initiates email change with verification", async () => {
-      const mockUser = createMockUser({
-        id: "user-email-update-123",
-        email: "current@example.com",
-      });
-
-      mockAuthenticatedUser(mockSupabaseClient, mockUser);
-
-      // Mock successful email update initiation
-      mockSupabaseClient.auth.updateUser.mockResolvedValue({
-        data: { user: { ...mockUser, email: "new@example.com" } },
-        error: null,
-      });
-
-      const request = createEmailUpdateRequest({ newEmail: "new@example.com" });
-      const response = await emailUpdatePOST(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(200);
-      expect(data.success).toBe(true);
-      expect(data.data.message).toContain("Email update process initiated");
-
-      // Verify updateUser was called with new email
-      expect(mockSupabaseClient.auth.updateUser).toHaveBeenCalledWith({
-        email: "new@example.com",
-      });
-    });
-
-    it("prevents duplicate email registration", async () => {
-      const mockUser = createMockUser({
-        id: "user-email-dup-123",
-        email: "current@example.com",
-      });
-
-      mockAuthenticatedUser(mockSupabaseClient, mockUser);
-
-      // Mock duplicate email error from Supabase
-      mockSupabaseClient.auth.updateUser.mockResolvedValue({
-        data: { user: null },
-        error: {
-          message: "A user with this email address has already been registered",
-          status: 422,
-        },
-      });
-
-      const request = createEmailUpdateRequest({
-        newEmail: "existing@example.com",
-      });
-      const response = await emailUpdatePOST(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(500);
-      expect(data.success).toBe(false);
-      expect(data.error).toBe("Failed to update email");
-    });
-
-    it("requires authentication for email update", async () => {
-      mockUnauthenticatedUser(mockSupabaseClient);
-
-      const request = createEmailUpdateRequest({ newEmail: "new@example.com" });
-      const response = await emailUpdatePOST(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(401);
-      expect(data.success).toBe(false);
-      expect(data.error).toBe("Authentication required");
-
-      // Should not attempt to update email
-      expect(mockSupabaseClient.auth.updateUser).not.toHaveBeenCalled();
-    });
-
-    it("validates newEmail is required", async () => {
-      const mockUser = createMockUser();
-      mockAuthenticatedUser(mockSupabaseClient, mockUser);
-
-      const request = createEmailUpdateRequest({});
-      const response = await emailUpdatePOST(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(400);
-      expect(data.success).toBe(false);
-      expect(data.error).toContain("newEmail");
-    });
-
-    it("validates newEmail is a string", async () => {
-      const mockUser = createMockUser();
-      mockAuthenticatedUser(mockSupabaseClient, mockUser);
-
-      const request = createEmailUpdateRequest({ newEmail: 12345 });
-      const response = await emailUpdatePOST(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(400);
-      expect(data.success).toBe(false);
-      expect(data.error).toContain("newEmail");
-    });
-
-    it("handles malformed request body gracefully", async () => {
-      const mockUser = createMockUser();
-      mockAuthenticatedUser(mockSupabaseClient, mockUser);
-
-      // Create request with invalid JSON
-      const request = new NextRequest(
-        "http://localhost:3000/api/auth/email/update",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: "not valid json",
-        }
-      );
-
-      const response = await emailUpdatePOST(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(400);
-      expect(data.success).toBe(false);
-    });
-
-    it("rate limits email change requests", async () => {
-      const mockUser = createMockUser({
-        id: "user-rate-limit-123",
-        email: "current@example.com",
-      });
-
-      mockAuthenticatedUser(mockSupabaseClient, mockUser);
-
-      // Simulate rate limit error from Supabase
-      mockSupabaseClient.auth.updateUser.mockResolvedValue({
-        data: { user: null },
-        error: {
-          message: "Rate limit exceeded. Please try again later.",
-          status: 429,
-        },
-      });
-
-      const request = createEmailUpdateRequest({
-        newEmail: "ratelimited@example.com",
-      });
-      const response = await emailUpdatePOST(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(500);
-      expect(data.success).toBe(false);
-      expect(data.error).toBe("Failed to update email");
-    });
   });
 
   describe("Rate Limiting", () => {
@@ -509,44 +237,6 @@ describe("Authentication Flows Integration", () => {
       expect(data.sessionData).not.toHaveProperty("sensitive_key");
     });
 
-    it("does not expose tokens in refresh-session response", async () => {
-      const mockUser = createMockUser({
-        id: "user-token-123",
-        email: "token@example.com",
-      });
-
-      const mockSession = createMockSession(mockUser);
-
-      mockSupabaseClient.auth.getSession.mockResolvedValue({
-        data: { session: mockSession },
-        error: null,
-      });
-
-      mockSupabaseClient.auth.refreshSession.mockResolvedValue({
-        data: {
-          session: {
-            ...mockSession,
-            access_token: "super-secret-new-token",
-            refresh_token: "super-secret-refresh-token",
-          },
-          user: mockUser,
-        },
-        error: null,
-      });
-
-      mockSupabaseClient.auth.getUser.mockResolvedValue({
-        data: { user: mockUser },
-        error: null,
-      });
-
-      const response = await refreshSessionPOST();
-      const data = await response.json();
-
-      expect(response.status).toBe(200);
-      expect(JSON.stringify(data)).not.toContain("super-secret");
-      expect(data.sessionData).not.toHaveProperty("access_token");
-      expect(data.sessionData).not.toHaveProperty("refresh_token");
-    });
 
     it("does not leak error details in production for check-session", async () => {
       const restoreEnv = mockNodeEnv("production");
@@ -567,24 +257,6 @@ describe("Authentication Flows Integration", () => {
       restoreEnv();
     });
 
-    it("does not leak error details in production for refresh-session", async () => {
-      const restoreEnv = mockNodeEnv("production");
-
-      mockSupabaseClient.auth.getSession.mockRejectedValue(
-        new Error("Internal error: API key exposed xyz123")
-      );
-
-      const response = await refreshSessionPOST();
-      const data = await response.json();
-
-      expect(response.status).toBe(500);
-      expect(data.error).toBe("Failed to refresh session");
-      expect(JSON.stringify(data)).not.toContain("xyz123");
-      expect(JSON.stringify(data)).not.toContain("API key");
-      expect(data).not.toHaveProperty("stack");
-
-      restoreEnv();
-    });
   });
 
   describe("Edge Cases", () => {
@@ -634,36 +306,6 @@ describe("Authentication Flows Integration", () => {
       expect(mockSupabaseClient.auth.getUser).toHaveBeenCalledTimes(5);
     });
 
-    it("handles refresh with session but getUser returns null", async () => {
-      const mockUser = createMockUser();
-      const mockSession = createMockSession(mockUser);
-
-      mockSupabaseClient.auth.getSession.mockResolvedValue({
-        data: { session: mockSession },
-        error: null,
-      });
-
-      mockSupabaseClient.auth.refreshSession.mockResolvedValue({
-        data: { session: mockSession, user: null },
-        error: null,
-      });
-
-      // getUser returns null after refresh (edge case)
-      mockSupabaseClient.auth.getUser.mockResolvedValue({
-        data: { user: null },
-        error: null,
-      });
-
-      const response = await refreshSessionPOST();
-      const data = await response.json();
-
-      expect(response.status).toBe(200);
-      expect(data.success).toBe(true);
-      expect(data.sessionData).toEqual({
-        userId: undefined,
-        email: undefined,
-      });
-    });
 
     it("handles network timeouts gracefully", async () => {
       mockSupabaseClient.auth.getUser.mockImplementation(
@@ -683,35 +325,5 @@ describe("Authentication Flows Integration", () => {
       expect(data.error).toBe("Failed to check session");
     });
 
-    it("handles email update with very long email address", async () => {
-      const mockUser = createMockUser();
-      mockAuthenticatedUser(mockSupabaseClient, mockUser);
-
-      // Very long but technically valid email
-      const longEmail = "a".repeat(200) + "@example.com";
-
-      mockSupabaseClient.auth.updateUser.mockResolvedValue({
-        data: { user: null },
-        error: {
-          message: "Email address too long",
-          status: 400,
-        },
-      });
-
-      const request = new NextRequest(
-        "http://localhost:3000/api/auth/email/update",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ newEmail: longEmail }),
-        }
-      );
-
-      const response = await emailUpdatePOST(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(500);
-      expect(data.success).toBe(false);
-    });
   });
 });

@@ -362,15 +362,4 @@ export const data = {
       return res.json();
     },
   },
-  auth: {
-    async updateEmail(newEmail: string) {
-      const res = await fetchWithAuthRetry(`/api/auth/email/update`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ newEmail }),
-      });
-      if (!res.ok) throw new Error(`Failed to update email: ${res.status}`);
-      return res.json();
-    },
-  },
 };

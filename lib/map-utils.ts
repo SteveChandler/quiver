@@ -33,39 +33,6 @@ function setCachedMapUrl(key: string, url: string): void {
   mapUrlCache.set(key, { url, timestamp: Date.now() });
 }
 
-// Generate a simple SVG placeholder for when map services fail
-function generateMapPlaceholder(
-  latitude: number,
-  longitude: number,
-  width: number = 300,
-  height: number = 120
-): string {
-  const svg = `
-    <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" style="stop-color:#e0f2fe;stop-opacity:1" />
-          <stop offset="100%" style="stop-color:#b3e5fc;stop-opacity:1" />
-        </linearGradient>
-      </defs>
-      <rect width="100%" height="100%" fill="url(#bg)"/>
-      <circle cx="${width / 2}" cy="${height / 2}" r="8" fill="#1976d2"/>
-      <text x="${width / 2}" y="${
-    height / 2 + 25
-  }" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#424242">
-        Beach Location
-      </text>
-      <text x="${width / 2}" y="${
-    height / 2 + 40
-  }" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">
-        ${latitude.toFixed(4)}, ${longitude.toFixed(4)}
-      </text>
-    </svg>
-  `;
-
-  return `data:image/svg+xml;base64,${btoa(svg)}`;
-}
-
 // Generate enhanced SVG placeholder with wave height data or beach name
 function generateEnhancedMapPlaceholder(
   latitude: number,
@@ -318,31 +285,6 @@ function getGeoapifyStaticImageUrl(
   return `https://maps.geoapify.com/v1/staticmap?style=osm-carto&width=${width}&height=${height}&center=lonlat:${longitude},${latitude}&zoom=${zoom}&marker=lonlat:${longitude},${latitude};color:%233b82f6;size:medium&apiKey=${apiKey}`;
 }
 
-// Option 4: Free OpenStreetMap static image (no API key required)
-function getOpenStreetMapStaticImageUrl(
-  latitude: number,
-  longitude: number,
-  options: {
-    width?: number;
-    height?: number;
-    zoom?: number;
-  } = {}
-) {
-  const { width = 300, height = 120, zoom = 14 } = options;
-
-  // Validate coordinates
-  if (!isValidCoordinates(latitude, longitude)) {
-    console.warn("Invalid coordinates for OpenStreetMap:", {
-      latitude,
-      longitude,
-    });
-    return generateMapPlaceholder(latitude, longitude, width, height);
-  }
-
-  // StaticMapLite is a free service for OpenStreetMap static images
-  return `https://staticmap.openstreetmap.de/staticmap.php?center=${latitude},${longitude}&zoom=${zoom}&size=${width}x${height}&maptype=mapnik&markers=${latitude},${longitude},lightblue`;
-}
-
 // Helper function to validate coordinates
 function isValidCoordinates(latitude: number, longitude: number): boolean {
   return (
@@ -458,37 +400,6 @@ export function getStaticMapImageUrl(
   );
   setCachedMapUrl(cacheKey, fallbackUrl);
   return fallbackUrl;
-}
-
-/**
- * Generate a static map image URL with wave height data displayed on the pin
- * @param latitude Beach latitude
- * @param longitude Beach longitude
- * @param waveHeight Wave height in feet (will be formatted)
- * @param options Map display options
- * @returns Static map image URL with wave height pin
- */
-export function getStaticMapImageUrlWithWaveHeight(
-  latitude: number | undefined,
-  longitude: number | undefined,
-  waveHeight: number | undefined,
-  options: {
-    width?: number;
-    height?: number;
-    zoom?: number;
-  } = {}
-): string {
-  // Import wave height formatter
-  const { formatWaveHeightBucket } = require("@/lib/utils/wave-formatters");
-
-  // Format wave height for display
-  const waveHeightText = formatWaveHeightBucket(waveHeight);
-
-  // Use the main function with marker text
-  return getStaticMapImageUrl(latitude, longitude, {
-    ...options,
-    markerText: waveHeightText,
-  });
 }
 
 interface StaticMapPin {

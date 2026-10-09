@@ -1,3 +1,4 @@
+import { JsonLd } from "@/components/seo/funnel/JsonLd";
 interface BlogSchemaPost {
   title: string;
   description: string;
@@ -67,9 +68,6 @@ export function BlogSchema({
   };
 
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
-    />
+    <JsonLd data={data} />
   );
 }

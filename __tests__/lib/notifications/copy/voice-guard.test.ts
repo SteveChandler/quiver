@@ -13,6 +13,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import titlePool from "@/lib/notifications/copy/surf-titles.v1.json";
+import followupPool from "@/lib/notifications/copy/swell-followup-titles.v1.json";
 import {
   renderTemplate,
   SWELL_TAG_PRIORITY,
@@ -21,9 +22,7 @@ import {
 import { PRESETS } from "@/lib/alerts/presets";
 import { formatPushNotification, qualityWord } from "@/lib/alerts/push-formatter";
 import { buildConsolidatedSubject } from "@/lib/alerts/consolidated-subject";
-import { ConditionsAlertEmail } from "@/lib/mailer/templates/ConditionsAlertEmail";
 import type { MatchingWindow } from "@/lib/alerts/types";
-import { getOracleGreeting } from "@/lib/oracle/greeting";
 import { swellMatchShareText } from "@/lib/analyzers/swell-analyzer";
 import { AnonAlertCaptureForm } from "@/components/alerts/anon-alert-capture-form";
 
@@ -55,6 +54,11 @@ const VARS = {
   peak_day: "Wed",
   peak_part: "AM",
   rarity: "Best in 30 days",
+  call: "Your call: Blacks, grab your 7'2.",
+  day: "Wed",
+  part: "AM",
+  prev_size: "3ft",
+  prev_day: "Tue",
 };
 
 function match(overrides: Partial<MatchingWindow> = {}): MatchingWindow {
@@ -76,7 +80,15 @@ function match(overrides: Partial<MatchingWindow> = {}): MatchingWindow {
 }
 
 describe("push title pool voice", () => {
-  const entries = [...titlePool.daily, ...titlePool.swell];
+  const entries = [
+    ...titlePool.daily,
+    ...titlePool.swell,
+    ...followupPool.bigger,
+    ...followupPool.smaller,
+    ...followupPool.moved,
+    ...followupPool.dropped,
+    ...followupPool.arrived,
+  ];
 
   it("has no hype, exclamation marks or emoji in any title or body", () => {
     expect(loud(entries.flatMap((entry) => [entry.title, entry.body]))).toEqual([]);
@@ -119,35 +131,7 @@ describe("alert copy voice", () => {
     expect(loud(copies)).toEqual([]);
   });
 
-  it.each(["go", "maybe"] as const)("keeps the %s conditions alert email calm", (decisionVerdict) => {
-    const html = renderToStaticMarkup(ConditionsAlertEmail({
-      beachName: "Ocean Beach",
-      decisionVerdict,
-      surfDescription: "3-4 ft",
-      windDescription: "Light offshore",
-      tideDescription: "2.1 ft, incoming",
-      bestWindow: { start: "7:00 AM", end: "9:00 AM" },
-      dateline: "FRI · JUN 13",
-      signals: {
-        ripRisk: "moderate",
-        rideableWavesPerHour: 18,
-        setIntervalSeconds: 90,
-        waveFrequencyConfidence: "high",
-        forecastConfidence: 82,
-        conditionCharacter: null,
-        waterQuality: "advisory",
-      },
-      why: { whyText: ["NW swell inside this spot's window."], crowdWarning: null },
-      ctaUrl: "https://quiversurf.app/surf/sf/ocean-beach",
-      manageUrl: "https://quiversurf.app/settings",
-      unsubscribeUrl: "https://quiversurf.app/settings",
-    }) as Parameters<typeof renderToStaticMarkup>[0]);
-    const text = html
-      .replace(/<style[\s\S]*?<\/style>/gi, " ")
-      .replace(/<[^>]+>/g, " ");
 
-    expect(loud([text])).toEqual([]);
-  });
 });
 
 describe("condition and greeting copy voice", () => {
@@ -160,27 +144,6 @@ describe("condition and greeting copy voice", () => {
 
     expect(labels.length).toBeGreaterThanOrEqual(10);
     expect(loud(labels)).toEqual([]);
-  });
-
-  it("keeps every Oracle greeting branch calm", () => {
-    const greetings: string[] = [];
-    for (const score of [null, 1, 5, 8]) {
-      for (const hour of [4, 6, 9, 14, 20]) {
-        for (const swellPeriod of [null, 10, 14]) {
-          for (const windCondition of [null, "onshore", "offshore"]) {
-            for (const beachName of [null, "Blacks"]) {
-              for (const daysAbsent of [0, 5]) {
-                greetings.push(getOracleGreeting({
-                  score, hour, swellPeriod, windCondition, userName: "Alex", beachName, daysAbsent,
-                }));
-              }
-            }
-          }
-        }
-      }
-    }
-
-    expect(loud([...new Set(greetings)])).toEqual([]);
   });
 
   it("keeps the swell analyzer share text calm", () => {

@@ -87,7 +87,7 @@ export function SubmitRequestDialog({ open, onOpenChange }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="zine-tab border-2 border-[#11100D] bg-[#F4EBD8] text-[#11100D] shadow-[4px_5px_0_rgba(17,16,13,0.35),0_18px_50px_rgba(0,0,0,0.35)] sm:max-w-lg sm:rounded-[18px_6px_20px_8px]">
         <DialogHeader>
-          <DialogTitle className="font-[var(--font-zine-display)] text-2xl font-black uppercase tracking-normal text-[#11100D]">
+          <DialogTitle className="font-[family-name:var(--font-zine-display)] text-2xl font-black uppercase tracking-normal text-[#11100D]">
             Suggest something
           </DialogTitle>
           <DialogDescription className="sr-only">
@@ -97,7 +97,7 @@ export function SubmitRequestDialog({ open, onOpenChange }: Props) {
 
         <div className="space-y-4">
           <label className="block">
-            <span className="font-[var(--font-mono)] text-[11px] uppercase tracking-widest text-[#B56A2B]">
+            <span className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-widest text-[#B56A2B]">
               Title
             </span>
             <input
@@ -116,7 +116,7 @@ export function SubmitRequestDialog({ open, onOpenChange }: Props) {
 
           {duplicates.length > 0 && (
             <div className="rounded-[10px_3px_12px_3px] border-2 border-[#11100D]/35 bg-[#F0E5CC] p-3">
-              <p className="font-[var(--font-mono)] text-[11px] uppercase tracking-widest text-[#11100D]/60">
+              <p className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-widest text-[#11100D]/60">
                 Is this what you mean?
               </p>
               <ul className="mt-2 space-y-1">
@@ -135,7 +135,7 @@ export function SubmitRequestDialog({ open, onOpenChange }: Props) {
           )}
 
           <label className="block">
-            <span className="font-[var(--font-mono)] text-[11px] uppercase tracking-widest text-[#B56A2B]">
+            <span className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-widest text-[#B56A2B]">
               Description
             </span>
             <textarea
@@ -149,7 +149,7 @@ export function SubmitRequestDialog({ open, onOpenChange }: Props) {
           </label>
 
           <div>
-            <span className="font-[var(--font-mono)] text-[11px] uppercase tracking-widest text-[#B56A2B]">
+            <span className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-widest text-[#B56A2B]">
               Category
             </span>
             <div className="mt-2 flex flex-wrap gap-2">
@@ -158,7 +158,7 @@ export function SubmitRequestDialog({ open, onOpenChange }: Props) {
                   key={c.value}
                   type="button"
                   onClick={() => setCategory(c.value)}
-                  className={`rounded-[10px_3px_12px_3px] border-2 px-3 py-1 font-[var(--font-mono)] text-xs uppercase tracking-wider transition ${
+                  className={`rounded-[10px_3px_12px_3px] border-2 px-3 py-1 font-[family-name:var(--font-mono)] text-xs uppercase tracking-wider transition ${
                     category === c.value
                       ? "border-[#11100D] bg-[#F78E42] text-[#11100D]"
                       : "border-[#11100D]/40 bg-[#FBF6E8] text-[#11100D]/70 hover:border-[#F78E42] hover:text-[#11100D]"
@@ -178,12 +178,12 @@ export function SubmitRequestDialog({ open, onOpenChange }: Props) {
             type="button"
             onClick={handleSubmit}
             disabled={!canSubmit}
-            className="w-full rounded-[14px_6px_16px_4px] border-2 border-[#11100D] bg-[#F78E42] px-4 py-3 font-[var(--font-zine-display)] text-sm font-black uppercase tracking-wide text-[#11100D] shadow-[2px_3px_0_rgba(17,16,13,0.3)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 focus-ring"
+            className="w-full rounded-full border-2 border-[#11100D] bg-[#F78E42] px-4 py-3 font-[family-name:var(--font-zine-display)] text-sm font-black uppercase tracking-wide text-[#11100D] shadow-[2px_3px_0_rgba(17,16,13,0.3)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 focus-ring"
           >
             {pending ? "Sending…" : "Send it"}
           </button>
 
-          <p className="font-[var(--font-mono)] text-[11px] uppercase tracking-wider text-[#11100D]/50">
+          <p className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-wider text-[#11100D]/50">
             {"// We read every one. Live within 48h if approved, or a reply if not."}
           </p>
         </div>

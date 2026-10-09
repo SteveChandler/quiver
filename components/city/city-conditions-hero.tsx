@@ -8,6 +8,7 @@
 import Link from "next/link";
 import { AlertCaptureCta } from "@/components/seo/alert-capture-cta";
 import { ContentPageAppHandoffCta } from "@/components/app-store/content-page-app-handoff-cta";
+import { HideWhenInstallBarOwns } from "@/components/app-store/install-bar-owned-slot";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import type { CitySurfReportSummary, CityBeachCondition } from "@/actions/city/city-conditions-actions";
 
@@ -213,6 +214,7 @@ export function CityConditionsHero({
             >
               View Forecast →
             </Link>
+            <HideWhenInstallBarOwns>
             <ContentPageAppHandoffCta
               source={`content-city-hub-${citySlug}-${stateSlug}`}
               surface="city_hub"
@@ -224,6 +226,7 @@ export function CityConditionsHero({
               ctaLabel={`Open ${best.beachName} in the app`}
               className="mt-4"
             />
+            </HideWhenInstallBarOwns>
           </div>
         </div>
       )}

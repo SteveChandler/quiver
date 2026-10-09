@@ -1,3 +1,4 @@
+import { isUuid } from "@/lib/utils/validation";
 /**
  * GET /api/admin/notifications/recent
  *
@@ -30,7 +31,6 @@ export const revalidate = 0;
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 200;
 const STALE_LEASE_MS = 5 * 60 * 1000;
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ALLOWED_STATUSES = new Set([
   "pending",
   "processing",
@@ -48,7 +48,7 @@ export const GET = withAdminAuth(async (request: NextRequest) => {
   const retryHeavyParam = searchParams.get("retry_heavy");
   const limitParam = searchParams.get("limit");
 
-  if (userIdParam !== null && !UUID_RE.test(userIdParam)) {
+  if (userIdParam !== null && !isUuid(userIdParam)) {
     return NextResponse.json(
       {
         success: false,

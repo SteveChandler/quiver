@@ -351,7 +351,7 @@ jest.mock('@/lib/logger', () => ({
 jest.mock('@/lib/domains/scoring', () => ({
   // Engine stub: score() returns a CompositeScore-like with .total used by
   // computeWindowSlotScores. .skip = false so the helper doesn't short-circuit.
-  createDiscoveryScoringEngine: jest.fn(() => ({
+  getDiscoveryScoringEngine: jest.fn(() => ({
     score: jest.fn(() => ({
       total: 70,
       subscores: new Map(),
@@ -2356,6 +2356,124 @@ describe('discoverSurfSpots - Stale Data Fallback', () => {
   });
 });
 
+describe('discoverSurfSpots - failed forecast read', () => {
+  const defaultUserLocation = { lat: 32.7157, lon: -117.1611 };
+
+  beforeEach(() => {
+    mockState.candidatePoolResponse = {
+      candidates: [mockBeach1, mockBeach2, mockBeach3, mockBeach4] as Beach[],
+      preferredWaveSize: null,
+      userSkillLevel: null,
+      preferredBreakType: null,
+    };
+    mockState.favoriteBeaches = [];
+    mockState.favoritesError = null;
+  });
+
+  // The Promise.race only abandons the response; the signal is what releases the database.
+  test('aborts the forecast reads when the overall timeout fires', async () => {
+    const { batchFetchForecasts: mockBatchFetch } = require('@/lib/services/discovery/forecast-batch-fetcher');
+    jest.clearAllMocks();
+    let seenSignal: AbortSignal | undefined;
+    mockBatchFetch.mockImplementationOnce((_beaches: unknown, options: { signal?: AbortSignal }) => {
+      seenSignal = options.signal;
+      return new Promise(() => {});
+    });
+
+    await expect(
+      discoverSurfSpots('test-user-123', {
+        userLocation: defaultUserLocation,
+        overallTimeout: 5,
+        throwOnFailure: true,
+      }),
+    ).rejects.toMatchObject({ code: 'timeout', retryable: true });
+
+    expect(seenSignal).toBeDefined();
+    expect(seenSignal?.aborted).toBe(true);
+  });
+
+  test('saved-spots-only skips the nearby search; normal discovery does not', async () => {
+    const { batchFetchForecasts: mockBatchFetch } = require('@/lib/services/discovery/forecast-batch-fetcher');
+    const { buildCandidatePool } = require('@/lib/services/discovery/candidate-pool-builder');
+    jest.clearAllMocks();
+    mockState.favoriteBeaches = [mockBeach1];
+    const forecastResponse = {
+      successful: [{ beach: mockBeach1, forecasts: [mockForecast] }],
+      failed: [],
+      staleCount: 0,
+    };
+    mockBatchFetch.mockResolvedValueOnce(forecastResponse).mockResolvedValueOnce(forecastResponse);
+
+    await discoverSurfSpots('test-user-123', {
+      userLocation: defaultUserLocation,
+      savedSpotsOnly: true,
+      throwOnFailure: true,
+    });
+    expect(buildCandidatePool).toHaveBeenLastCalledWith(
+      'test-user-123',
+      expect.objectContaining({ skipNearby: true }),
+    );
+
+    await discoverSurfSpots('test-user-123', { userLocation: defaultUserLocation, throwOnFailure: true });
+    expect(buildCandidatePool.mock.calls.at(-1)?.[1]).not.toHaveProperty('skipNearby');
+    mockState.favoriteBeaches = [];
+  });
+
+  test('hands the forecast reads a live signal when the request completes in time', async () => {
+    const { batchFetchForecasts: mockBatchFetch } = require('@/lib/services/discovery/forecast-batch-fetcher');
+    jest.clearAllMocks();
+    let seenSignal: AbortSignal | undefined;
+    mockBatchFetch.mockImplementationOnce(async (_beaches: unknown, options: { signal?: AbortSignal }) => {
+      seenSignal = options.signal;
+      return {
+        successful: [{ beach: mockBeach1, forecasts: [mockForecast] }],
+        failed: [],
+        staleCount: 0,
+      };
+    });
+
+    const result = await discoverSurfSpots('test-user-123', {
+      userLocation: defaultUserLocation,
+      maxResults: 5,
+      throwOnFailure: true,
+    });
+
+    expect(result.recommendations.length).toBeGreaterThan(0);
+    expect(seenSignal?.aborted).toBe(false);
+  });
+
+  // 2026-10-04: a saturated database made every forecast read error. The fallback re-reads the same
+  // table, so retrying with allowStale only doubles the load; the request must fail fast and retryably.
+  test('does not retry with allowStale when the read itself failed, and reports forecast_unavailable', async () => {
+    const { batchFetchForecasts: mockBatchFetch } = require('@/lib/services/discovery/forecast-batch-fetcher');
+    jest.clearAllMocks();
+    mockBatchFetch.mockResolvedValueOnce({
+      successful: [],
+      failed: [mockBeach1, mockBeach2, mockBeach3, mockBeach4].map((beach) => ({
+        beach,
+        stale: false,
+        readFailed: true,
+        reason: 'Database error: canceling statement due to statement timeout',
+      })),
+      staleCount: 0,
+    });
+
+    await expect(
+      discoverSurfSpots('test-user-123', {
+        userLocation: defaultUserLocation,
+        maxResults: 5,
+        throwOnFailure: true,
+      }),
+    ).rejects.toMatchObject({
+      code: 'forecast_unavailable',
+      retryable: true,
+      message: 'Forecast read failed for discovery candidates',
+    });
+    expect(mockBatchFetch).toHaveBeenCalledTimes(1);
+    expect(mockBatchFetch.mock.calls[0][1]).not.toHaveProperty('allowStale');
+  });
+});
+
 describe('discoverSurfSpots - Personalization Integration', () => {
   const testUserId = 'test-user-123';
   const defaultUserLocation = { lat: 32.7157, lon: -117.1611 };
@@ -3296,7 +3414,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       createSupabaseServiceRoleClient: jest.fn(() => ({ from: mockSupabaseFrom, rpc: mockSupabaseRpc })),
     }));
     jest.doMock('@/lib/domains/scoring', () => ({
-      createDiscoveryScoringEngine: jest.fn(() => ({
+  getDiscoveryScoringEngine: jest.fn(() => ({
         score: jest.fn(() => ({
           total: 70,
           subscores: new Map(),
@@ -3496,7 +3614,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       createSupabaseServiceRoleClient: jest.fn(() => ({ from: mockSupabaseFrom, rpc: mockSupabaseRpc })),
     }));
     jest.doMock('@/lib/domains/scoring', () => ({
-      createDiscoveryScoringEngine: jest.fn(() => ({
+  getDiscoveryScoringEngine: jest.fn(() => ({
         score: jest.fn(() => ({
           total: 70,
           subscores: new Map(),
@@ -3691,7 +3809,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       }, rpc: mockSupabaseRpc })),
     }));
     jest.doMock('@/lib/domains/scoring', () => ({
-      createDiscoveryScoringEngine: jest.fn(() => ({
+  getDiscoveryScoringEngine: jest.fn(() => ({
         score: jest.fn(() => ({
           total: 70,
           subscores: new Map(),
@@ -3869,7 +3987,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       createSupabaseServiceRoleClient: jest.fn(() => ({ from: mockSupabaseFrom, rpc: mockSupabaseRpc })),
     }));
     jest.doMock('@/lib/domains/scoring', () => ({
-      createDiscoveryScoringEngine: jest.fn(() => ({
+  getDiscoveryScoringEngine: jest.fn(() => ({
         score: jest.fn(() => ({
           total: 70,
           subscores: new Map(),
@@ -4043,7 +4161,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       createSupabaseServiceRoleClient: jest.fn(() => ({ from: mockSupabaseFrom, rpc: mockSupabaseRpc })),
     }));
     jest.doMock('@/lib/domains/scoring', () => ({
-      createDiscoveryScoringEngine: jest.fn(() => ({
+  getDiscoveryScoringEngine: jest.fn(() => ({
         score: jest.fn(() => ({
           total: 70,
           subscores: new Map(),

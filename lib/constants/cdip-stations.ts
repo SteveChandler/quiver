@@ -183,18 +183,6 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
 // Primary stations for Southern California beaches
 export const SOCAL_PRIMARY_STATIONS = ["100", "67", "191"];
 
-// Station coverage areas (approximate radius in km)
-const STATION_COVERAGE_RADIUS = {
-  "100": 100, // Covers most of San Diego County
-  "67": 75, // Covers LA/Orange County
-  "191": 50, // Covers Point Loma / South San Diego
-  "157": 60, // Covers Big Sur area
-  "46236": 80, // Covers Monterey Bay area
-  "71": 50, // Covers San Francisco Peninsula
-  "46225": 75, // Covers North Bay
-  "46221": 60, // Covers Mendocino Coast
-} as const;
-
 // API Configuration - Updated to use working ERDDAP endpoints
 export const CDIP_API_CONFIG = {
   // Primary API: ERDDAP - reliable and standardized
@@ -264,12 +252,4 @@ export const DATA_QUALITY_THRESHOLDS = {
 
 export function getStationConfig(stationId: string): CDIPStationConfig | null {
   return CDIP_STATIONS[stationId] || null;
-}
-
-function getStationCoverageRadius(stationId: string): number {
-  return (
-    STATION_COVERAGE_RADIUS[
-      stationId as keyof typeof STATION_COVERAGE_RADIUS
-    ] || 50
-  );
 }

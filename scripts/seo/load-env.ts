@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { parse } from "dotenv";
+import { parseEnv } from "node:util";
 
 const SEO_ENV_FILES = [".env", ".env.production.local", ".env.local"] as const;
 
@@ -10,7 +10,7 @@ export function loadSeoEnv(): void {
   for (const fileName of SEO_ENV_FILES) {
     const envPath = path.join(process.cwd(), fileName);
     if (fs.existsSync(envPath)) {
-      const parsed = parse(fs.readFileSync(envPath));
+      const parsed = parseEnv(fs.readFileSync(envPath, "utf8"));
       for (const [key, value] of Object.entries(parsed)) {
         if (!shellEnvKeys.has(key)) {
           process.env[key] = value;

@@ -28,7 +28,7 @@ interface ProcessNOAAGridDataOptions {
 }
 
 /** Return a finite number or null — guards against undefined/NaN in OM payloads. */
-export function numberOrNull(value: unknown): number | null {
+function numberOrNull(value: unknown): number | null {
   if (value === null || value === undefined) return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;

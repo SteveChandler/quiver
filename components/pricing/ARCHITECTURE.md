@@ -52,4 +52,3 @@ Pricing components render the public `/plans` acquisition and purchase surface. 
   eligibility is handled through
   [`docs/android-beta-legacy-offer-runbook.md`](../../docs/android-beta-legacy-offer-runbook.md),
   not public copy; tester identities remain in the private fulfillment ledger.
-- `landing-pricing-teaser.tsx` adds a restrained landing-page link to `/plans`.

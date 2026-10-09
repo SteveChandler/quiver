@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { config } from "dotenv";
+import { config } from "./load-env.mjs";
 
 config({ path: ".env.local" });
 config();

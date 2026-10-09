@@ -204,7 +204,27 @@ test.describe("/app/handoff route", () => {
 
     expect([301, 302, 307, 308]).toContain(response.status());
     expect(response.headers()["location"] ?? "").toContain("apps.apple.com");
-    expect(response.headers()["location"] ?? "").toContain("ct=web");
+    // No page signal on this link, so it keeps the fallback web campaign.
+    expect(
+      new URL(response.headers()["location"] ?? "").searchParams.get("ct"),
+    ).toBe("web");
+  });
+
+  test("link-preview bot UA still gets the redirect, never a 403", async ({
+    page,
+  }) => {
+    const response = await page.request.get(
+      `/app/handoff?source=qr&handoff_id=${HANDOFF_ID}`,
+      {
+        headers: {
+          "user-agent": `facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php) ${IPHONE_UA}`,
+        },
+        maxRedirects: 0,
+      },
+    );
+
+    expect([301, 302, 307, 308]).toContain(response.status());
+    expect(response.headers()["location"] ?? "").toContain("apps.apple.com");
   });
 
   test("Android UA redirects to the guided beta page", async ({ page }) => {

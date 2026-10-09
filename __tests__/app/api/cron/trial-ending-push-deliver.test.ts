@@ -112,13 +112,6 @@ jest.mock("@/lib/supabase/server", () => ({
   })),
 }));
 
-// Phase 3e: route uses enqueueNotification, not sendPushNotifications.
-// Retain the FCM mock as a defensive guard so any future regression is caught.
-const mockSendPushNotifications = jest.fn().mockResolvedValue(undefined);
-jest.mock("@/lib/services/push-notifications", () => ({
-  sendPushNotifications: (...args: unknown[]) =>
-    mockSendPushNotifications(...args),
-}));
 
 const mockEnqueueNotification = jest.fn();
 jest.mock("@/lib/notifications/enqueue", () => ({
@@ -233,7 +226,6 @@ describe("Trial-Ending Push Cron", () => {
       expect(data.success).toBe(false);
       expect(data.error).toBe("Unauthorized");
       expect(response.status).toBe(401);
-      expect(mockSendPushNotifications).not.toHaveBeenCalled();
     });
 
     it("accepts Bearer cron token", async () => {
@@ -257,7 +249,6 @@ describe("Trial-Ending Push Cron", () => {
       expect(data.success).toBe(true);
       expect(data.data.summary.candidates).toBe(0);
       expect(data.data.summary.sent).toBe(0);
-      expect(mockSendPushNotifications).not.toHaveBeenCalled();
     });
   });
 
@@ -279,7 +270,6 @@ describe("Trial-Ending Push Cron", () => {
       expect(data.success).toBe(true);
       expect(data.data.summary.sent).toBe(0);
       expect(data.data.summary.skipped.alreadySent).toBe(1);
-      expect(mockSendPushNotifications).not.toHaveBeenCalled();
       expect(mockInsert).not.toHaveBeenCalled();
     });
   });
@@ -303,7 +293,6 @@ describe("Trial-Ending Push Cron", () => {
       expect(data.success).toBe(true);
       expect(data.data.summary.sent).toBe(0);
       expect(data.data.summary.skipped.noPushPref).toBe(1);
-      expect(mockSendPushNotifications).not.toHaveBeenCalled();
       expect(mockInsert).not.toHaveBeenCalled();
     });
 
@@ -326,7 +315,6 @@ describe("Trial-Ending Push Cron", () => {
       expect(data.success).toBe(true);
       expect(data.data.summary.sent).toBe(0);
       expect(data.data.summary.skipped.noDeviceToken).toBe(1);
-      expect(mockSendPushNotifications).not.toHaveBeenCalled();
       expect(mockInsert).not.toHaveBeenCalled();
     });
   });
@@ -360,7 +348,6 @@ describe("Trial-Ending Push Cron", () => {
       });
 
       // Phase 3e: cron no longer calls FCM directly.
-      expect(mockSendPushNotifications).not.toHaveBeenCalled();
 
       expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
       expect(mockEnqueueNotification).toHaveBeenCalledWith(
@@ -406,8 +393,6 @@ describe("Trial-Ending Push Cron", () => {
 
       expect(data.success).toBe(true);
       expect(data.data.summary.sent).toBe(1);
-
-      expect(mockSendPushNotifications).not.toHaveBeenCalled();
       expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
 
       expect(mockInsert).toHaveBeenCalledTimes(1);

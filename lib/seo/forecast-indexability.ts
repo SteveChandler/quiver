@@ -1,3 +1,4 @@
+import { chunk } from "@/lib/utils/chunk";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { getStalenessThreshold } from "@/lib/config/forecast-staleness";
 import {
@@ -157,13 +158,7 @@ export function buildForecastIndexabilitySnapshot(
   };
 }
 
-function chunk<T>(items: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < items.length; index += size) {
-    chunks.push(items.slice(index, index + size));
-  }
-  return chunks;
-}
+
 
 /**
  * Fetch the small forecast-coverage envelope needed by the sitemap. Keeping

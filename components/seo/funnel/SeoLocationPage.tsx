@@ -299,7 +299,7 @@ export async function SeoLocationPage({
         </div>
         <div className="py-8">
           <QuiverSeoCta
-            title="Make the call with Quiver"
+            title="Plan your session with Quiver"
             description="Use the page context for planning, then open Quiver for live surf conditions, best windows, tide risk, and session logging."
             primaryCta={page.primaryCta}
             secondaryCta={page.secondaryCta}
@@ -307,7 +307,7 @@ export async function SeoLocationPage({
         </div>
       </main>
       <StickySignupBar
-        ctaText="Get the live surf call"
+        ctaText="Get the live surf forecast"
         supportingText="Best window, tide, wind, and board notes in Quiver."
         source={`seo-funnel-${page.type}-${page.slug}`}
       />

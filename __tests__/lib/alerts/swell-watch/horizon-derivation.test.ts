@@ -86,7 +86,7 @@ it.each(waikiki.replayClockBounds)("closes the retained Waikiki rank-swap episod
     peakWindow: { earliestAt: "2026-09-18T18:00:00.000Z", latestAt: "2026-09-18T21:00:00.000Z" },
     arrivalWindow: { earliestAt: "2026-09-18T15:00:00.000Z", latestAt: "2026-09-18T18:00:00.000Z" },
     closureWindow: { earliestAt: "2026-09-20T00:00:00.000Z", latestAt: "2026-09-20T03:00:00.000Z" } });
-  expect(result.derivation).toMatchObject({ version: "swell-watch-horizon-derivation.v3", nativeFrames: 136, interpolatedFrames: 32, boundaryDeferrals: [] });
+  expect(result.derivation).toMatchObject({ version: "swell-watch-horizon-derivation.v4", nativeFrames: 136, interpolatedFrames: 32, boundaryDeferrals: [] });
   expect(input).toEqual(before);
 });
 it("recognizes the native rank swap that hourly interpolation broke", () => {

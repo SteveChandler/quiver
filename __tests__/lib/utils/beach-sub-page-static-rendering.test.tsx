@@ -14,6 +14,7 @@ import { getBeachBySlugOrId } from "@/lib/utils/beach-lookup-utils";
 import { renderBeachSubPage } from "@/lib/utils/beach-sub-page-utils";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
 import { WaterTempSummaryHero } from "@/components/beach-detail/water-temp-summary-hero";
+import { TideDatasetSchema } from "@/components/seo/tide-dataset-schema";
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
 import type { Beach } from "@/types/database";
 
@@ -106,6 +107,28 @@ describe("renderBeachSubPage static rendering", () => {
 
     expect(headers).not.toHaveBeenCalled();
     expect(mockHeadersGet).not.toHaveBeenCalled();
+  });
+
+  it.each(["fes2022", "noaa", null])("forwards the tide source %s to its dataset schema", async (source) => {
+    (getTideMetaData as jest.MockedFunction<typeof getTideMetaData>)
+      .mockResolvedValue({
+        nextHighTime: null,
+        nextHighHeight: null,
+        nextLowTime: null,
+        nextLowHeight: null,
+        nextHighAt: null,
+        nextLowAt: null,
+        source,
+      });
+
+    const page = await renderBeachSubPage({
+      beachSlug: "blacks",
+      pageType: "tides",
+      beachPath: "/ca/san-diego/blacks",
+    }) as PageTreeElement;
+    const dataset = getPageChildren(page).find((child) => child.type === TideDatasetSchema);
+
+    expect(dataset).toMatchObject({ props: { source } });
   });
 
   it("wires available water-temperature data into the zine hero", async () => {

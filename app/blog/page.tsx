@@ -148,7 +148,7 @@ export default function BlogIndexPage() {
                     placement="hub-cross-link"
                     className={`torn torn-tb group block min-h-40 border-2 border-[#11100D] bg-[#FBF6E8] p-5 text-[#11100D] transition-transform duration-200 hover:-translate-y-1 ${getCardRotation(index)}`}
                   >
-                    <h2 className="font-heading text-xl font-bold uppercase tracking-normal transition-colors group-hover:text-[#0B3A75]">
+                    <h2 className="font-heading text-xl font-bold uppercase tracking-normal transition-colors group-hover:text-[#AA4918]">
                       {link.label}
                     </h2>
                     <p className="mt-3 text-sm leading-6 text-[#11100D]/70">
@@ -193,7 +193,7 @@ export default function BlogIndexPage() {
                         <span>/</span>
                         <span>{featuredPost.readingTimeMin} min read</span>
                       </div>
-                      <h2 className="font-heading text-4xl font-bold uppercase leading-none tracking-normal text-[#11100D] transition-colors group-hover:text-[#0B3A75]">
+                      <h2 className="font-heading text-4xl font-bold uppercase leading-none tracking-normal text-[#11100D] transition-colors group-hover:text-[#AA4918]">
                         {featuredPost.title}
                       </h2>
                       <p className="mt-5 text-base leading-7 text-[#11100D]/75">
@@ -242,7 +242,7 @@ export default function BlogIndexPage() {
                           {formatPostDate(post.datePublished)} /{" "}
                           {post.readingTimeMin} min read
                         </p>
-                        <h3 className="font-heading text-2xl font-bold uppercase tracking-normal text-[#11100D] transition-colors group-hover:text-[#0B3A75]">
+                        <h3 className="font-heading text-2xl font-bold uppercase tracking-normal text-[#11100D] transition-colors group-hover:text-[#AA4918]">
                           {post.title}
                         </h3>
                         <p className="mt-2 max-w-2xl text-sm leading-6 text-[#11100D]/70">

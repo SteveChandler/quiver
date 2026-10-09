@@ -5,7 +5,7 @@
  * transformed from SessionFormState to database schema.
  */
 
-import { transformSessionFormStateToDbSchema, sessionToFormState } from '@/lib/utils/session-utils';
+import { transformSessionFormStateToDbSchema } from '@/lib/utils/session-utils';
 import type { SessionFormState } from '@/hooks/use-session-form';
 
 describe('Session Tide Fields Transformation', () => {
@@ -244,51 +244,4 @@ describe('Session Tide Fields Transformation', () => {
     });
   });
 
-  describe('sessionToFormState', () => {
-    it('should reverse transform tide fields from database to form state', () => {
-      const sessionData = {
-        id: 'session-123',
-        beach_id: 'beach-123',
-        beach_name: 'Pacific Beach',
-        arrival_time: '2026-01-07T08:00:00.000Z',
-        duration_minutes: 90,
-        wave_height_ft: 4.5,
-        wind_speed_mph: 10,
-        wind_direction: 'NW',
-        water_temp: 65,
-        forecast_accuracy: 'accurate',
-        tide_height_ft: 3.25,
-        tide_status: 'rising',
-        notes: 'Great session!',
-      };
-
-      const formState = sessionToFormState(sessionData);
-
-      // Verify tide fields are transformed back correctly
-      expect(formState.tideHeight).toBe(3.25);
-      expect(formState.tideStatus).toBe('rising');
-
-      // Verify other condition fields
-      expect(formState.waveHeight).toBe(4.5);
-      expect(formState.windSpeed).toBe(10);
-      expect(formState.windDirection).toBe('NW');
-      expect(formState.forecastAccuracy).toBe('accurate');
-    });
-
-    it('should handle missing tide fields when converting from database', () => {
-      const sessionData = {
-        id: 'session-123',
-        beach_id: 'beach-123',
-        beach_name: 'Pacific Beach',
-        arrival_time: '2026-01-07T08:00:00.000Z',
-        duration_minutes: 60,
-        // No tide fields
-      };
-
-      const formState = sessionToFormState(sessionData);
-
-      expect(formState.tideHeight).toBeUndefined();
-      expect(formState.tideStatus).toBeUndefined();
-    });
-  });
 });

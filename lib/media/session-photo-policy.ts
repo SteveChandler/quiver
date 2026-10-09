@@ -1,5 +1,5 @@
 export const SESSION_PHOTO_MAX_INPUT_BYTES = 10 * 1024 * 1024;
-/** Maximum size permitted after compression and before storage. */
+/** Maximum size permitted before storage. */
 export const SESSION_PHOTO_MAX_STORAGE_BYTES = 5 * 1024 * 1024;
 export const SESSION_PHOTO_MAX_PER_SESSION = 5;
 
@@ -25,7 +25,7 @@ function isSessionPhotoMimeType(
   );
 }
 
-export function validateSessionPhotoFile(
+function validateSessionPhotoFile(
   file: Pick<File, "size" | "type">,
   maxBytes: number = SESSION_PHOTO_MAX_INPUT_BYTES,
 ): SessionPhotoValidationError | null {
@@ -38,10 +38,4 @@ export function validateSessionPhotoInput(
   file: Pick<File, "size" | "type">,
 ): SessionPhotoValidationError | null {
   return validateSessionPhotoFile(file, SESSION_PHOTO_MAX_INPUT_BYTES);
-}
-
-export function validateSessionPhotoStorage(
-  file: Pick<File, "size" | "type">,
-): SessionPhotoValidationError | null {
-  return validateSessionPhotoFile(file, SESSION_PHOTO_MAX_STORAGE_BYTES);
 }

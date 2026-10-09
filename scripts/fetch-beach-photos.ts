@@ -14,8 +14,7 @@ FLICKR_API_KEY=
 OPENVERSE_API_URL=https://api.openverse.org/v1/images/
 */
 
-import "dotenv/config";
-import fetch from "node-fetch";
+import "./load-default-env.mjs";
 import { createClient } from "@supabase/supabase-js";
 import pLimit from "p-limit";
 import { requirePhotoReview } from "./lib/beach-photo-review";

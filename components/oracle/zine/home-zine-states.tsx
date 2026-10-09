@@ -5,14 +5,14 @@ import { HomeZineShell } from "./home-zine-shell";
 import { HomeHeroMedia } from "./home-hero-media";
 
 const INK = "#11100D";
-const STAMP_BLUE = "#0B3A75";
+const STAMP_BLUE = "#8A5E00";
 
 function StencilHeading({ children }: { children: React.ReactNode }) {
   return (
     <h1
       className="zine-display"
       style={{
-        fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+        fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
         fontWeight: 400,
         fontSize: 30,
         lineHeight: 1,
@@ -94,7 +94,7 @@ function PendingCallPlate({
         <p
           className="m-0 text-[30px] sm:text-[40px]"
           style={{
-            fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+            fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
             lineHeight: 0.95,
             letterSpacing: "-0.01em",
             textTransform: "uppercase",

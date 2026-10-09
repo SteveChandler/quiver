@@ -635,13 +635,3 @@ export interface WeeklyActionItem {
   confidence: WeeklyActionConfidence;
   whyNow: string;
 }
-
-export interface SeoDraftRequest {
-  slug: string;
-  title: string;
-  targetKeyword: string;
-  pageType: string;
-  competingInternalUrls: string[];
-  citations: Array<{ label: string; url: string }>;
-  requiredInternalLinks: string[];
-}

@@ -186,17 +186,6 @@ export function getTransformedUrl(
   return getTransformedStorageUrl(url, IMAGE_TRANSFORM_PRESETS[preset]);
 }
 
-/**
- * Checks if a URL is a Supabase Storage URL that can be transformed.
- * Returns true only if it's a Supabase URL with the /object/ path (not already transformed).
- *
- * @param url - The URL to check
- * @returns true if the URL can be transformed
- */
-export function isTransformableStorageUrl(url: string | null | undefined): boolean {
-  return isSupabaseStorageUrl(url) && (url?.includes('/storage/v1/object/') ?? false);
-}
-
 // ============================================================================
 // External Image Proxying
 // ============================================================================
@@ -364,30 +353,6 @@ export function getProxiedImageUrl(url: string | null | undefined): string {
     console.error('Failed to encode URL for image proxy:', error);
     return '';
   }
-}
-
-/**
- * Batch processes multiple image URLs, proxying external ones.
- * Useful for processing lists of images from API responses.
- *
- * @param urls - Array of image URLs to process
- * @returns Array of processed URLs (proxied if external, original if internal)
- *
- * @example
- * const urls = [
- *   'https://api.openverse.org/v1/images/1',
- *   '/images/local.png',
- *   'https://xyz.supabase.co/storage/v1/object/public/photo.jpg'
- * ];
- * getProxiedImageUrls(urls)
- * // Returns: [
- * //   '/api/image-proxy?url=https%3A%2F%2Fapi.openverse.org%2Fv1%2Fimages%2F1',
- * //   '/images/local.png',
- * //   'https://xyz.supabase.co/storage/v1/object/public/photo.jpg'
- * // ]
- */
-function getProxiedImageUrls(urls: (string | null | undefined)[]): string[] {
-  return urls.map(getProxiedImageUrl).filter(url => url !== '');
 }
 
 /**

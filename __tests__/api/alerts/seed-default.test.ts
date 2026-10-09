@@ -92,6 +92,13 @@ jest.mock("@/lib/alerts/seed-default-rule", () => ({
   seedDefaultRulesForUser: (...args: unknown[]) => seedSpy(...args),
 }));
 
+const scheduleSeededSpy = jest.fn();
+jest.mock("@/lib/analytics/alert-created-server", () => ({
+  ...jest.requireActual("@/lib/analytics/alert-created-server"),
+  scheduleSeededAlertCreated: (...args: unknown[]) =>
+    scheduleSeededSpy(...args),
+}));
+
 import { POST } from "@/app/api/alerts/seed-default/route";
 
 function makeReq(body?: unknown, rawBody?: string): any {
@@ -106,6 +113,7 @@ function makeReq(body?: unknown, rawBody?: string): any {
 
 beforeEach(() => {
   seedSpy.mockReset();
+  scheduleSeededSpy.mockReset();
   mockProfileResult = {
     data: {
       home_beach_id: "beach-123",
@@ -181,6 +189,42 @@ describe("POST /api/alerts/seed-default", () => {
         notifyPush: false,
       })
     );
+  });
+
+  it("schedules alert_created for the seeded rules, labelling a Bearer caller native", async () => {
+    seedSpy.mockResolvedValueOnce({
+      seeded: true,
+      rules: [{ ruleId: "rule-abc", presetType: "mellow_session" }],
+    });
+    const req = makeReq();
+    req.headers = {
+      get: (name: string) =>
+        name.toLowerCase() === "authorization" ? "Bearer native.jwt" : null,
+    };
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(200);
+    expect(scheduleSeededSpy).toHaveBeenCalledTimes(1);
+    expect(scheduleSeededSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user-1",
+        beachId: "beach-123",
+        platform: "native",
+        notifyEmail: true,
+        notifyPush: false,
+        rules: [{ ruleId: "rule-abc", presetType: "mellow_session" }],
+      }),
+    );
+  });
+
+  it("does not schedule alert_created when nothing was seeded", async () => {
+    seedSpy.mockResolvedValueOnce({ seeded: false, reason: "already_has_rules" });
+
+    const res = await POST(makeReq());
+
+    expect(res.status).toBe(200);
+    expect(scheduleSeededSpy).not.toHaveBeenCalled();
   });
 
   it("forwards profile notif flags to seedDefaultRulesForUser (push opted in)", async () => {

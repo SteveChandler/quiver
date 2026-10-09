@@ -1,8 +1,13 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 
 import PbscPage, { metadata } from "@/app/pbsc/page";
 
 const mockHeadersGet = jest.fn();
+const mockTrackIosAppCtaClick = jest.fn();
+
+jest.mock("@/lib/analytics/ios-app-cta-tracking", () => ({
+  trackIosAppCtaClick: (arg: unknown) => mockTrackIosAppCtaClick(arg),
+}));
 
 jest.mock("next/headers", () => ({
   headers: jest.fn(async () => ({
@@ -149,5 +154,41 @@ describe("PbscPage", () => {
     expect(getAppLinks).toHaveLength(2);
     expectPbscHandoffHref(getAppLinks[0], "hero_primary");
     expectPbscHandoffHref(getAppLinks[1], "bottom_primary");
+  });
+
+  it("rewrites the iOS CTA href with a per-click handoff_id and writes the canonical tap", async () => {
+    await renderPbscPage(IPHONE_UA);
+
+    const [hero] = screen.getAllByRole("link", {
+      name: /Get it on the App Store/i,
+    });
+    fireEvent.click(hero);
+
+    const href = hero.getAttribute("href") ?? "";
+    expect(href).toMatch(/^\/app\/handoff\?/);
+    expectPbscHandoffHref(hero, "hero_primary");
+    const handoffId = new URL(href, "https://www.quiversurf.app").searchParams.get(
+      "handoff_id",
+    );
+    expect(handoffId).toMatch(/^[0-9a-f-]{36}$/i);
+    expect(mockTrackIosAppCtaClick).toHaveBeenCalledTimes(1);
+    expect(mockTrackIosAppCtaClick).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: "pbsc-flyer",
+        surface: "pbsc-page",
+        placement: "hero_primary",
+        handoff_id: handoffId,
+      }),
+    );
+  });
+
+  it("does not record an iOS tap for Android visitors", async () => {
+    await renderPbscPage(ANDROID_UA);
+
+    fireEvent.click(
+      screen.getAllByRole("link", { name: /Get it on Google Play/i })[0],
+    );
+
+    expect(mockTrackIosAppCtaClick).not.toHaveBeenCalled();
   });
 });

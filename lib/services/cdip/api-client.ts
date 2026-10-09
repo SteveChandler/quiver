@@ -152,7 +152,7 @@ export class CDIPApiClient {
 
       if (isDeterministicUnavailableStatus(status)) {
         log.warn(`CDIP station ${stationId} has no deterministic data (${status})`);
-      } else if (error instanceof Error && error.name === "AbortError") {
+      } else if (error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError")) {
         log.error(`⏰ CDIP API request timeout for station ${stationId}`);
       } else {
         log.error(

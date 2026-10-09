@@ -1,7 +1,12 @@
 /** @jest-environment node */
 import { GET } from '@/app/api/cron/forecasts/refresh/route';
+import { NwsWindService } from '@/lib/services/nws-wind-service';
+import { apiClient } from '@/lib/utils/api-retry';
 
-jest.mock('@/lib/cron/observability', () => ({ withObservedCron: (_: string, fn: unknown) => fn }));
+jest.mock('@/lib/cron/observability', () => ({
+  withObservedCron: (_: string, fn: unknown) => fn,
+  observedCronRun: { getStore: () => undefined },
+}));
 jest.mock('@sentry/nextjs', () => ({ captureMessage: jest.fn(), captureException: jest.fn() }));
 jest.mock('@/lib/middleware/api-wrappers', () => ({
   validateCronRequest: () => true,
@@ -12,7 +17,7 @@ jest.mock('@/lib/middleware/api-wrappers', () => ({
 jest.mock('@/lib/supabase/server', () => ({ createSupabaseServiceRoleClient: () => ({ from: mockFrom }) }));
 jest.mock('@/lib/services/ndbc-service', () => ({
   getNearestNDBCStation: (...args: unknown[]) => mockNearest(...args),
-  fetchLatestNDBCObservation: () => mockObservation(),
+  fetchLatestNDBCObservation: (...args: unknown[]) => mockObservation(...args),
 }));
 jest.mock('@/lib/services/cdip', () => ({ CDIPService: jest.fn(() => ({
   getNearestStation: (...args: unknown[]) => mockCdipNearest(...args),
@@ -82,6 +87,123 @@ beforeEach(() => {
   });
 });
 afterEach(() => { jest.useRealTimers(); jest.restoreAllMocks(); });
+
+it.each(['ndbc', 'cdip'])('shares the in-flight %s fetch and still writes rows for both beaches', async (provider) => {
+  let release!: (value: unknown) => void;
+  const pending = new Promise(resolve => { release = resolve; });
+  const fetch = provider === 'ndbc' ? mockObservation : mockCdipFetch;
+  if (provider === 'ndbc') mockNearest.mockResolvedValue({ id: 'shared' });
+  else mockCdipNearest.mockResolvedValue('shared');
+  fetch.mockReturnValue(pending);
+
+  const refresh = GET(new Request('http://localhost/api/cron/forecasts/refresh?source=marine&maxBeaches=2'));
+  await jest.advanceTimersByTimeAsync(0);
+  expect(fetch).toHaveBeenCalledTimes(1);
+  expect(fetch).toHaveBeenCalledWith('shared');
+  expect(written).toEqual([]);
+  release(provider === 'ndbc'
+    ? { ts: '2026-09-09T11:00:00.000Z', wave_height_m: 1.5, wave_period_s: 10 }
+    : { skipReason: 'success', data: { data: [{ timestamp: '2026-09-09T11:00:00Z', significantWaveHeight: 5, peakWavePeriod: 10 }] } });
+
+  const response = await refresh;
+  const body = await response.json();
+  expect(response.status).toBe(200);
+  expect(written.flat()).toEqual(['a', 'b'].map(beach_id => expect.objectContaining({
+    beach_id, source: provider, is_observed: true, ts: '2026-09-09T11:00:00.000Z',
+    wave_height_m: provider === 'ndbc' ? 1.5 : 5 * 0.3048, wave_period_s: 10,
+  })));
+  expect(body.data.totals.marine).toBe(2);
+  expect(body.data.marineCoverage).toMatchObject({ expectedCoverage: 2, actualCoverage: 2,
+    attemptedCoverage: 2, lastAttemptedBeachId: 'b', rejectionCounts: {}, coverageGaps: {},
+    providerOutcomes: provider === 'cdip' ? { success: 2 } : {} });
+
+  ledger = []; written = [];
+  await GET(new Request('http://localhost/api/cron/forecasts/refresh?source=marine&maxBeaches=2'));
+  expect(fetch).toHaveBeenCalledTimes(2);
+  expect(written.flat()).toHaveLength(2);
+});
+
+it.each(['ndbc', 'cdip'])('counts a shared rejected %s fetch for each beach', async (provider) => {
+  const fetch = provider === 'ndbc' ? mockObservation : mockCdipFetch;
+  if (provider === 'ndbc') mockNearest.mockResolvedValue({ id: 'shared' });
+  else mockCdipNearest.mockResolvedValue('shared');
+  fetch.mockRejectedValue(new Error('private provider failure'));
+  const response = await GET(new Request('http://localhost/api/cron/forecasts/refresh?source=marine&maxBeaches=2'));
+  const body = await response.json();
+  expect(fetch).toHaveBeenCalledTimes(1);
+  expect(response.status).toBe(503);
+  expect(body.data.marineCoverage).toMatchObject({ expectedCoverage: 2, actualCoverage: 0,
+    attemptedCoverage: 2, rejectionCounts: { wave_fetch_failed: 2 } });
+  expect(written).toEqual([]);
+});
+
+it('retains empty CDIP diagnostics across batches and counts each beach fallback', async () => {
+  jest.replaceProperty(process, 'env', { ...process.env, FORECAST_REFRESH_BATCH_SIZE: '1', FORECAST_REFRESH_BATCH_DELAY_MS: '0' });
+  mockCdipNearest.mockImplementation((_lat: number, _lon: number, _radius: number, excluded: string[]) =>
+    Promise.resolve(excluded.length ? 'alternate' : 'shared'));
+  mockCdipFetch.mockImplementation((station: string) => Promise.resolve(station === 'shared'
+    ? { skipReason: 'cdip_404', data: null }
+    : { skipReason: 'success', data: { data: [{ timestamp: '2026-09-09T11:00:00Z', significantWaveHeight: 5, peakWavePeriod: 10 }] } }));
+  const refresh = GET(new Request('http://localhost/api/cron/forecasts/refresh?source=marine&maxBeaches=2'));
+  await jest.runAllTimersAsync();
+  const response = await refresh;
+  expect(response.status).toBe(200);
+  expect(mockCdipFetch.mock.calls).toEqual([['shared'], ['alternate']]);
+  expect(written.flat().map(row => row.beach_id)).toEqual(['a', 'b']);
+  expect((await response.json()).data.marineCoverage).toMatchObject({ actualCoverage: 2,
+    providerOutcomes: { cdip_404: 2, success: 2 } });
+});
+
+it('shares the real NDBC candidate probe and writes its observation for both beaches', async () => {
+  const actual = jest.requireActual<typeof import('@/lib/services/ndbc-service')>('@/lib/services/ndbc-service');
+  mockNearest.mockImplementation(actual.getNearestNDBCStation);
+  const fetch = jest.spyOn(global, 'fetch').mockImplementation(async input => {
+    const url = String(input);
+    if (url.endsWith('ndbcmapstations.json')) return Response.json({ station: [
+      { id: 'shared-probe', name: 'fixture', lat: 32.5, lon: -117, data: 'y' },
+    ] });
+    if (url.endsWith('/shared-probe.txt')) return new Response('#YY MM DD hh mm WVHT DPD\n2026 09 09 11 00 1.5 10\n');
+    throw new Error(`Unexpected mocked URL: ${url}`);
+  });
+  const response = await GET(new Request('http://localhost/api/cron/forecasts/refresh?source=marine&maxBeaches=2'));
+  expect(response.status).toBe(200);
+  expect(fetch.mock.calls.filter(([url]) => String(url).endsWith('/shared-probe.txt'))).toHaveLength(1);
+  expect(mockObservation).not.toHaveBeenCalled();
+  expect(written.flat()).toEqual(['a', 'b'].map(beach_id => expect.objectContaining({
+    beach_id, source: 'ndbc', is_observed: true, wave_height_m: 1.5, wave_period_s: 10,
+  })));
+  expect((await response.json()).data.marineCoverage).toMatchObject({ actualCoverage: 2, rejectionCounts: {} });
+});
+
+it.each([false, true])('shares the real NWS grid request and preserves per-beach rows and failures (failure: %s)', async fail => {
+  const actual = jest.requireActual<typeof import('@/lib/services/nws-wind-service')>('@/lib/services/nws-wind-service');
+  jest.mocked(NwsWindService).mockImplementationOnce(() => new actual.NwsWindService());
+  mockNearest.mockResolvedValue({ id: 'shared' });
+  mockObservation.mockResolvedValue({ ts: '2026-09-09T11:00:00Z', wave_height_m: 1.5, wave_period_s: 10 });
+  const hourlyUrl = 'https://api.weather.gov/gridpoints/SGX/53,34/forecast/hourly';
+  const fetch = jest.spyOn(apiClient, 'fetchNOAAData').mockImplementation(async url => {
+    if (url.includes('/points/')) return Response.json({ properties: { forecastHourly: hourlyUrl } });
+    if (url !== hourlyUrl) throw new Error(`Unexpected mocked URL: ${url}`);
+    if (fail) throw new Error('private grid outage');
+    return Response.json({ properties: { periods: [{ startTime: '2026-09-09T15:00:00Z', windSpeed: '10 mph', windDirection: 'NW' }] } });
+  });
+  const response = await GET(new Request('http://localhost/api/cron/forecasts/refresh?source=marine&maxBeaches=2'));
+  const body = await response.json();
+  expect(fetch.mock.calls.filter(([url]) => url === hourlyUrl)).toHaveLength(1);
+  expect(response.status).toBe(fail ? 503 : 200);
+  for (const beachId of ['a', 'b']) {
+    const rows = written.flat().filter(row => row.beach_id === beachId);
+    expect(rows).toHaveLength(fail ? 1 : 2);
+    expect(rows).toContainEqual(expect.objectContaining({ source: 'ndbc', wave_height_m: 1.5, wave_period_s: 10 }));
+    const expectedWind = expect.objectContaining({ source: 'nws_wind',
+      ts: '2026-09-09T15:00:00.000Z', created_at: now.toISOString(), wind_speed_ms: 10 * 0.44704,
+      wind_direction_deg: 315, wave_height_m: null, is_observed: false });
+    expect(rows.filter(row => row.source === 'nws_wind')).toEqual(fail ? [] : [expectedWind]);
+  }
+  expect(body.data.totals.marine).toBe(fail ? 2 : 4);
+  expect(body.data.marineCoverage).toMatchObject({ actualCoverage: 2, attemptedCoverage: 2,
+    rejectionCounts: fail ? { wind_fetch_failed: 2 } : {} });
+});
 
 it('advances past a beach with no data on the next bounded run', async () => {
   const request = () => new Request('http://localhost/api/cron/forecasts/refresh?source=marine&maxBeaches=1');
@@ -343,7 +465,7 @@ it.each([false, true])('checks the cursor acknowledgement through real PostgREST
   expect(body.data.marineCoverage.rejectionCounts).toEqual(failCursor ? { cursor_write_failed: 1 } : {});
   const cursorRequest = requests.find(({ url, method }) => url.pathname === '/rest/v1/cron_runs' && method === 'GET');
   expect(cursorRequest?.url.searchParams.get('summary->result->marineCoverage->>lastAttemptedBeachId')).toBe('not.is.null');
-  expect(cursorRequest?.url.searchParams.get('route')).toBe('eq./api/cron/forecasts/refresh?source=marine');
+  expect(cursorRequest?.url.searchParams.get('job')).toBe('eq./api/cron/forecasts/refresh?source=marine');
   const inventoryRequest = requests.find(({ url }) => url.pathname === '/rest/v1/marine_forecasts'
     && url.searchParams.get('select')?.includes('beach_id'));
   expect(inventoryRequest?.url.searchParams.get('beach_id')).toBe('in.(a)');

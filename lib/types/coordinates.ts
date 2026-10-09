@@ -5,12 +5,7 @@
  * - Use 'lat' and 'lon' (NOT 'lng')
  * - Exception: Mapbox APIs use 'LngLat' (third-party convention)
  *
- * BRANDED TYPES:
- * - For compile-time safety against coordinate swaps, use BrandedCoordinates
- * - See /docs/BRANDED_COORDINATES.md for migration guide
- *
  * @see /docs/COORDINATE_CONVENTIONS.md
- * @see /docs/BRANDED_COORDINATES.md
  */
 
 /**
@@ -266,55 +261,3 @@ function isLegacyLngLatFormat(obj: unknown): obj is { lat: number; lng: number }
     typeof (obj as any).lng === 'number'
   );
 }
-
-// ============================================================================
-// BRANDED TYPES (for compile-time coordinate swap prevention)
-// ============================================================================
-
-/**
- * Re-export branded coordinate types for compile-time safety
- *
- * Use these when you need to prevent accidental coordinate swaps at compile time.
- * Regular `Coordinates` type (above) uses plain `number` types, which allows swaps.
- * Branded types make swaps impossible via TypeScript's type system.
- *
- * @see /lib/types/branded-coordinates.ts for implementation
- * @see /docs/BRANDED_COORDINATES.md for usage guide
- *
- * @example
- * ```ts
- * import { BrandedCoordinates, latitude, longitude } from '@/lib/types/coordinates';
- *
- * // Compile-time safe coordinates
- * const coords: BrandedCoordinates = {
- *   lat: latitude(32.75),
- *   lon: longitude(-117.25),
- * };
- *
- * // This would be a compile error:
- * const swapped: BrandedCoordinates = {
- *   lat: longitude(-117.25),  // ❌ Error: Longitude not assignable to Latitude
- *   lon: latitude(32.75),     // ❌ Error: Latitude not assignable to Longitude
- * };
- * ```
- */
-
-
-/**
- * Coordinates with optional branded types
- * Use this when you want compile-time safety against swapped coordinates
- *
- * This is an alias for BrandedCoordinates for backward compatibility.
- *
- * @example
- * ```ts
- * import type { StrictCoordinates } from '@/lib/types/coordinates';
- * import { latitude, longitude } from '@/lib/types/coordinates';
- *
- * const coords: StrictCoordinates = {
- *   lat: latitude(32.75),
- *   lon: longitude(-117.25),
- * };
- * ```
- */
-type StrictCoordinates = import('./branded-coordinates').BrandedCoordinates;

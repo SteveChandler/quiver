@@ -5,14 +5,13 @@ import type { ZineBeachPhoto } from "./types";
 import { PhotoAttribution } from "@/components/photos/photo-attribution";
 import { buildCamEmbed } from "@/lib/media/cam-embed";
 import { CamsSection } from "@/components/beach-detail/cams-section";
+import { getOptimizedImageUrl } from "@/lib/image-proxy";
 import {
   SaltyEyebrow,
   SkillBars,
   DoodleReef,
   DoodleStar,
-  HalftonePhoto,
   MapDoodle,
-  HandArrow,
 } from "./atoms";
 
 export type ZineHeroHeadingLevel = "h1" | "h2";
@@ -47,6 +46,15 @@ export function ZineHero({
   const filledStars = rating ? Math.round(parseFloat(rating)) : 0;
   const locationName = [beach.city, beach.state].filter(Boolean).join(", ");
   const HeadingTag = headingLevel;
+  // The hero panel shows real imagery when there is some, else the spot map.
+  // The collapsed section below adds only what the hero did not already show.
+  const hasLiveCam =
+    !!sources?.camera_url && buildCamEmbed(sources.camera_url).kind !== "none";
+  const heroShowsPhoto = !!(
+    beachPhoto?.image_url ??
+    sources?.diorama_url ??
+    (!hasLiveCam ? sources?.cam_thumbnail_url : null)
+  );
 
   return (
     <section>
@@ -57,7 +65,7 @@ export function ZineHero({
         <HeadingTag
           className="zine-h1 mt-3"
           style={{
-            fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+            fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
             fontWeight: 400,
             color: "#11100D",
             letterSpacing: "-0.02em",
@@ -87,6 +95,19 @@ export function ZineHero({
             {locationName}
           </p>
         )}
+
+        <HeroMediaPanel
+          beachPhoto={beachPhoto}
+          sources={sources}
+          hasLiveCam={hasLiveCam}
+          beachName={beach.name}
+          locationName={locationName || beach.name}
+          lat={beach.lat}
+          lon={beach.lon}
+          aspectDeg={beach.aspect_deg}
+          breakType={beach.break_type}
+          features={beach.features}
+        />
 
         {summarySlot ? <div className="mt-5">{summarySlot}</div> : null}
 
@@ -118,14 +139,12 @@ export function ZineHero({
           <p
             className="mt-6"
             style={{
-              fontFamily:
-                "var(--font-zine-marker), 'Permanent Marker', cursive",
+              fontFamily: "var(--font-sans), sans-serif",
               fontWeight: 400,
-              fontSize: 22,
+              fontSize: 17,
               color: "#11100D",
-              letterSpacing: "-0.01em",
-              lineHeight: 1.25,
-              maxWidth: "78ch",
+              lineHeight: 1.5,
+              maxWidth: "68ch",
             }}
           >
             {beach.best_conditions_prose}
@@ -134,8 +153,12 @@ export function ZineHero({
         </details>
       </div>
 
-      <details className="mt-4"><summary className="cursor-pointer text-base font-bold focus-visible:outline focus-visible:outline-2">Spot photo, map &amp; camera</summary><TapedMapPhoto
-        beachPhoto={beachPhoto}
+      {/* The photo now leads the hero; the live cam embed and the spot map stay
+          collapsed so no iframe loads with the first paint. */}
+      {hasLiveCam || heroShowsPhoto ? (
+      <details className="mt-4"><summary className="cursor-pointer text-base font-bold focus-visible:outline focus-visible:outline-2">{hasLiveCam && heroShowsPhoto ? "Live cam & spot map" : hasLiveCam ? "Live cam" : "Spot map"}</summary><TapedMapPhoto
+        showLiveCam={hasLiveCam}
+        showMap={heroShowsPhoto}
         beachName={beach.name}
         locationName={locationName || beach.name}
         sources={sources}
@@ -145,6 +168,7 @@ export function ZineHero({
         breakType={beach.break_type}
         features={beach.features}
       /></details>
+      ) : null}
       </div>
     </section>
   );
@@ -175,13 +199,13 @@ function RatingStamp({ rating, filled }: { rating: string; filled: number }) {
           width: 56,
           height: 56,
           borderRadius: "50%",
-          border: "2.5px solid #0B3A75",
+          border: "2.5px solid #11100D",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+          fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
           fontSize: 22,
-          color: "#0B3A75",
+          color: "#8A5E00",
           fontWeight: 900,
           position: "relative",
           filter: "url(#zine-rough-edge)",
@@ -189,11 +213,11 @@ function RatingStamp({ rating, filled }: { rating: string; filled: number }) {
         }}
       >
         {rating}
-        <span style={{ position: "absolute", inset: 4, border: "1.5px solid #0B3A75", borderRadius: "50%", opacity: 0.5 }} aria-hidden />
+        <span style={{ position: "absolute", inset: 4, border: "1.5px solid #11100D", borderRadius: "50%", opacity: 0.5 }} aria-hidden />
       </div>
       <div className="flex gap-0.5" aria-hidden>
         {[0, 1, 2, 3, 4].map((i) => (
-          <DoodleStar key={i} size={10} color="#0B3A75" filled={i < filled} />
+          <DoodleStar key={i} size={10} color="#8A5E00" filled={i < filled} />
         ))}
       </div>
       <span style={{ fontFamily: "var(--font-mono), monospace", fontSize: 9, letterSpacing: "0.16em", textTransform: "uppercase", fontWeight: 700 }}>RATING</span>
@@ -213,12 +237,11 @@ function ReviewCircle({ count }: { count: number }) {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+          fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
           fontSize: count > 99 ? 14 : 18,
           color: "#11100D",
           fontWeight: 900,
           filter: "url(#zine-rough-edge)",
-          transform: "rotate(3deg)",
         }}
       >
         {count > 999 ? "999+" : count}
@@ -228,8 +251,100 @@ function ReviewCircle({ count }: { count: number }) {
   );
 }
 
-function TapedMapPhoto({
+/**
+ * Native Beach Detail's media panel: real place imagery under the beach name,
+ * in a comic panel (3 pt ink outline, large sticker corners, hard ink drop,
+ * ink halftone on the right half). No tilt and no tape. Falls back from the
+ * beach photo to its diorama, then a stored cam still (labelled as a still,
+ * when no live stream exists), then the spot map, so it never shows an empty
+ * placeholder. A live cam embed stays in the collapsed section below.
+ */
+function HeroMediaPanel({
   beachPhoto,
+  sources,
+  hasLiveCam,
+  beachName,
+  locationName,
+  lat,
+  lon,
+  aspectDeg,
+  breakType,
+  features,
+}: {
+  beachPhoto?: ZineBeachPhoto | null;
+  sources?: BeachSources | null;
+  hasLiveCam: boolean;
+  beachName: string;
+  locationName: string;
+  lat?: number | null;
+  lon?: number | null;
+  aspectDeg?: number | null;
+  breakType?: string | null;
+  features?: string[] | null;
+}) {
+  const photoUrl = beachPhoto?.image_url ?? sources?.diorama_url ?? null;
+  const showsCamStill = !photoUrl && !hasLiveCam && !!sources?.cam_thumbnail_url;
+  const showsBeachPhoto = !!beachPhoto?.image_url;
+
+  return (
+    <div className="mb-2 mr-2 mt-5" data-testid="zine-hero-media">
+      <div
+        className="relative overflow-hidden"
+        style={{
+          border: "3px solid #11100D",
+          borderRadius: "16px 6px 18px 8px",
+          boxShadow: "8px 8px 0 #11100D",
+          background: "#11100D",
+        }}
+      >
+        {photoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- matches HalftonePhoto: the image proxy already sizes the photo, and cover-fit needs no Next image wrapper
+          <img
+            src={getOptimizedImageUrl(photoUrl)}
+            alt={`${beachName}, ${locationName}`}
+            className="block h-[240px] w-full object-cover sm:h-[320px] md:h-[380px]"
+          />
+        ) : showsCamStill ? (
+          <CamsSection sources={sources!} variant="hero" beachName={beachName} />
+        ) : (
+          <MapDoodle
+            height={320}
+            beachName={beachName}
+            locationName={locationName}
+            lat={lat}
+            lon={lon}
+            aspectDeg={aspectDeg}
+            breakType={breakType}
+            features={features}
+          />
+        )}
+        {/* Native's panel halftone sits on drawn panels only; over a photo it
+            reads as a seam down the middle. */}
+        {!photoUrl && !showsCamStill ? (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-y-0 left-1/2 right-0"
+            style={{
+              backgroundImage: "radial-gradient(rgba(17,16,13,0.07) 1.1px, transparent 1.3px)",
+              backgroundSize: "6px 6px",
+            }}
+          />
+        ) : null}
+        {showsBeachPhoto && (beachPhoto!.attribution || beachPhoto!.attribution_html) ? (
+          <PhotoAttribution
+            attribution={beachPhoto!.attribution ?? null}
+            attributionHtml={beachPhoto!.attribution_html}
+            className="absolute bottom-2 right-2 z-20 max-w-[70%] truncate bg-[#11100D]/75 px-2 py-1 font-mono text-[10px] text-[#F4EBD8] underline-offset-2 hover:underline"
+          />
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function TapedMapPhoto({
+  showLiveCam,
+  showMap,
   beachName,
   locationName,
   sources,
@@ -239,7 +354,8 @@ function TapedMapPhoto({
   breakType,
   features,
 }: {
-  beachPhoto?: ZineBeachPhoto | null;
+  showLiveCam: boolean;
+  showMap: boolean;
   beachName: string;
   locationName: string;
   sources?: BeachSources | null;
@@ -249,41 +365,18 @@ function TapedMapPhoto({
   breakType?: string | null;
   features?: string[] | null;
 }) {
-  const hasEmbeddableCam =
-    !!sources?.camera_url && buildCamEmbed(sources.camera_url).kind !== "none";
-  const hasStoredCamStill = !!sources?.cam_thumbnail_url;
-  const shouldShowCamFrame = hasEmbeddableCam || hasStoredCamStill;
-
   return (
     <div className="relative flex flex-col gap-3 md:gap-3.5">
-      {/* Hero slot — live cam (when available) or halftone photo */}
-      {shouldShowCamFrame ? (
-        <TapedCamFrame
-          sources={sources!}
-          beachName={beachName}
-          showLiveLabel={hasEmbeddableCam}
-        />
-      ) : (
-        <div className="relative" style={{ transform: "rotate(1.4deg)" }}>
-          <span className="tape tl" aria-hidden />
-          <span className="tape tr" aria-hidden />
-          <HalftonePhoto src={beachPhoto?.image_url} alt={beachPhoto ? `${beachName} surf zine photo` : undefined} label="HERO PHOTO" height={300} />
-          {beachPhoto?.image_url &&
-          (beachPhoto.attribution || beachPhoto.attribution_html) ? (
-            <PhotoAttribution
-              attribution={beachPhoto.attribution ?? null}
-              attributionHtml={beachPhoto.attribution_html}
-              className="absolute bottom-2 right-2 z-20 max-w-[70%] truncate bg-[#11100D]/75 px-2 py-1 font-mono text-[10px] text-[#F4EBD8] underline-offset-2 hover:underline"
-            />
-          ) : null}
-        </div>
-      )}
+      {showLiveCam ? (
+        <TapedCamFrame sources={sources!} beachName={beachName} showLiveLabel />
+      ) : null}
 
       {/* Map doodle with location stamp */}
-      <div className="relative" style={{ transform: "rotate(-1.2deg)", marginTop: 4 }}>
+      {showMap ? (
+      <div className="relative" style={{ marginTop: 4 }}>
         <span className="tape tl" aria-hidden />
         <span className="tape br" aria-hidden />
-        <div className="absolute z-10" style={{ top: 10, left: -10, transform: "rotate(-3deg)" }} aria-hidden>
+        <div className="absolute z-10" style={{ top: 10, left: -10 }} aria-hidden>
           <div
             className="label-black"
             style={{
@@ -310,6 +403,7 @@ function TapedMapPhoto({
           features={features}
         />
       </div>
+      ) : null}
     </div>
   );
 }
@@ -324,25 +418,25 @@ function TapedCamFrame({
   showLiveLabel: boolean;
 }) {
   return (
-    <div className="zine-hero-cam-frame relative" style={{ transform: "rotate(1.4deg)" }}>
+    <div className="zine-hero-cam-frame relative">
       <span className="tape tl" aria-hidden />
       <span className="tape tr" aria-hidden />
       {showLiveLabel ? (
         <div
           className="absolute z-10 hidden md:block"
           style={{
-            top: -26,
-            right: -8,
-            fontFamily: "var(--font-handwritten), cursive",
-            fontSize: 22,
-            color: "#11100D",
+            top: -24,
+            right: 0,
+            fontFamily: "var(--font-mono), monospace",
+            fontSize: 11,
             fontWeight: 700,
-            transform: "rotate(-6deg)",
+            letterSpacing: "0.16em",
+            textTransform: "uppercase",
+            color: "#4A463C",
           }}
           aria-hidden
         >
           Live now
-          <HandArrow dir="curve-right" length={70} style={{ position: "absolute", left: -45, top: 12 }} />
         </div>
       ) : null}
       <div

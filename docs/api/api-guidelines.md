@@ -88,7 +88,6 @@ Import everything from `@/lib/middleware/api-wrappers`:
 
 ```typescript
 import {
-  withProtection,      // Unified wrapper (recommended)
   withAuth,            // Auth only
   withRateLimit,       // Rate limiting only
   withBotBlockingAndRateLimit,
@@ -100,8 +99,8 @@ import {
 
 | Goal | Code |
 |------|------|
-| **Public endpoint** | `withProtection(handler, { rateLimit: { key: "public-default" }, botBlocking: { enabled: true } })` |
-| **Authenticated endpoint** | `withProtection(handler, { auth: { required: true }, rateLimit: { key: "authenticated-default" } })` |
+| **Public endpoint** | `withBotBlockingAndRateLimit(handler, { key: "public-default" })` |
+| **Authenticated endpoint** | `withRateLimit(withAuth(handler), { key: "authenticated-default" })` |
 | **Auth only (no rate limit)** | `withAuth(handler)` |
 
 #### Rate Limit Keys
@@ -145,7 +144,6 @@ See [API_MIDDLEWARE.md](/docs/API_MIDDLEWARE.md) for the complete rate limit key
     *   ✅ `createSuccessResponse(beach)`
 2.  **Missing Error Context**: Always provide a custom message to `handleApiError` for better debugging.
 3.  **Direct DB Access**: Avoid raw Supabase calls in routes; use shared helpers or actions to ensure RLS and business logic consistency.
-
 
 
 

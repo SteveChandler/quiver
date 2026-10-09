@@ -6,7 +6,8 @@ import { generateIntentFAQ } from "@/lib/seo/intent-faq-generator";
 import { CityMapView } from "@/components/city/city-map-view";
 import { CTASection } from "@/components/landing-page/cta-section";
 import { AlertCaptureCta } from "@/components/seo/alert-capture-cta";
-import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
+import { StickyInstallAsk } from "@/components/app-store/sticky-install-ask";
+import { HideWhenInstallBarOwns } from "@/components/app-store/install-bar-owned-slot";
 import type { SurfSpot } from "@/lib/data/surf-spots";
 import type { CityWaterTempExpanded } from "@/actions/forecast/intent-forecast-actions";
 import type { IntentPageContent } from "@/lib/seo/intent-content-templates";
@@ -117,6 +118,7 @@ export function WaterTempPageContent({
           {/* Module 1: Water Temp Hero */}
           <WaterTempHeroSection data={waterTempData} />
 
+          <HideWhenInstallBarOwns>
           <ContentPageAppHandoffCta
             source={`content-water-temp-${citySlug}`}
             surface="water_temp"
@@ -124,9 +126,10 @@ export function WaterTempPageContent({
             target={`water-temp:${citySlug}`}
             eyebrow={`${cityName} water temp · next check`}
             title="Water temp sorted. Is it worth paddling out?"
-            description={`Your ${roundedCurrentTemp}°F answer is set. Take the surf call for ${cityName} with you and check the conditions when you're ready to go.`}
+            description={`Your ${roundedCurrentTemp}°F answer is set. Take the ${cityName} surf forecast with you and check the conditions when you're ready to go.`}
             ctaLabel="Check the surf in the app"
           />
+          </HideWhenInstallBarOwns>
 
           {/* Module 2: Monthly Averages Chart (optional) */}
           <MonthlyAveragesChart data={waterTempData.monthlyAverages} />
@@ -230,11 +233,18 @@ export function WaterTempPageContent({
       <CTASection />
 
       {/* Mobile Sticky Signup Bar */}
-      <StickySignupBar
-        source={`intent-water-temp-${citySlug}`}
-        searchReferralCta={{
-          ctaText: "Wetsuit Alert",
-          supportingText: `Get gear recs for ${cityName}`,
+      <StickyInstallAsk
+        stickySignup={{
+          source: `intent-water-temp-${citySlug}`,
+          searchReferralCta: {
+            ctaText: "Wetsuit Alert",
+            supportingText: `Get gear recs for ${cityName}`,
+          },
+        }}
+        bar={{
+          placeName: cityName,
+          valueLabel: `${roundedCurrentTemp}°F`,
+          source: `water-temp-${citySlug}`,
         }}
       />
     </div>

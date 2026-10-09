@@ -351,31 +351,5 @@ export class NOAABuoySync {
     return { buoysAdded, stationsAdded };
   }
 
-  /**
-   * Extract station record from station name if it contains " - "
-   */
-  private extractStationRecord(station: NOAAStationRow): {
-    id: string;
-    name: string;
-  } | null {
-    if (!station.stationName.includes(" - ")) {
-      return null;
-    }
 
-    const parts = station.stationName.split(" - ");
-    const stationId = parts[0].trim();
-    const stationName = parts.slice(1).join(" - ").trim();
-
-    // Only create station if stationId is numeric (matches Ruby logic)
-    if (isNaN(parseInt(stationId))) {
-      return null;
-    }
-
-    log.debug(`Creating station: ${stationId} from ${station.stationName}`);
-
-    return {
-      id: stationId,
-      name: stationName,
-    };
-  }
 }

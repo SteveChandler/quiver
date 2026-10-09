@@ -90,7 +90,7 @@ describe("/p/[partnerCode]/flyer", () => {
 
     expect(chain.eq).toHaveBeenCalledWith("referral_code", "SURF12");
     expect(
-      screen.getByRole("heading", { name: /scan for the surf call/i }),
+      screen.getByRole("heading", { name: /scan for the surf forecast/i }),
     ).toBeInTheDocument();
     expect(screen.getByText(/Pacific Surf Co/i)).toBeInTheDocument();
 

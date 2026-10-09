@@ -1,10 +1,4 @@
-import {
-  buildPostHogExport,
-  computePostHogWebRows,
-  parsePostHogWebEvents,
-  parsePostHogNativeRows,
-  toPostHogSeoPages,
-} from "@/lib/seo/agent-workflow/posthog-export";
+import { buildPostHogExport, computePostHogWebRows, parsePostHogWebEvents, parsePostHogNativeRows } from "@/lib/seo/agent-workflow/posthog-export";
 
 describe("SEO workflow PostHog export", () => {
   it("maps HogQL web and native rows into report input", () => {
@@ -85,35 +79,6 @@ describe("SEO workflow PostHog export", () => {
         topExitPaths: [{ path: "/water-temp/playa-del-rey", count: 1 }],
       },
     ]);
-  });
-
-  it("converts computed web rows into the export schema", () => {
-    const exportInput = buildPostHogExport(
-      [
-        {
-          path: "/beginner/san-diego",
-          landingSessions: 100,
-          multiPageRate: 0.2,
-          landingSignupRate: 0.08,
-          assistedSignupRate: 0.12,
-          topNextPaths: [{ path: "/map", count: 20 }],
-          topExitPaths: [{ path: "/beginner/san-diego", count: 80 }],
-        },
-      ],
-      [],
-      "2026-05-20T12:00:00Z",
-      { from: "2026-05-13", to: "2026-05-20" },
-    );
-
-    expect(toPostHogSeoPages(exportInput)[0]).toEqual({
-      path: "/beginner/san-diego",
-      landingSessions: 100,
-      multiPageRate: 0.2,
-      landingSignupRate: 0.08,
-      assistedSignupRate: 0.12,
-      topNextPaths: [{ path: "/map", count: 20 }],
-      topExitPaths: [{ path: "/beginner/san-diego", count: 80 }],
-    });
   });
 
   it("ignores sessions that only have native PostHog pageviews", () => {
