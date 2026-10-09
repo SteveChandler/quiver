@@ -140,6 +140,10 @@ export function renderFirstSightingBody(args: {
   }
   const orientation = orientationSentence(swell);
   if (orientation) sentences.push({ text: orientation, priority: 2 });
+  if (swell.options?.length) sentences.push({
+    text: `Also: ${swell.options.map((option) => `${option.beachName} up to ${formatNumber(option.faceHeightFt.max)} ft`).join(', ')}.`,
+    priority: 2.5,
+  });
   if (swell.fit.boards.length === 1) sentences.push({ text: `Good size for your ${swell.fit.boards[0]}.`, priority: 3 });
   if (swell.beachCount > 1) sentences.push({ text: `Showing at ${swell.beachCount} nearby breaks.`, priority: 4 });
   if (hazard) sentences.push({ text: HAZARD_SENTENCES[hazard], priority: 1 });
@@ -200,7 +204,12 @@ export function buildFirstSightingPayload(args: {
       timezone: args.surfWindow.window?.timezone ?? null,
       reasons: args.surfWindow.reasons,
     } } : {}),
-    beaches: [{ beach_id: swell.beach.id, beach_name: swell.beach.name, rank: 1 }],
+    beaches: [
+      { beach_id: swell.beach.id, beach_name: swell.beach.name, rank: 1 },
+      ...(swell.options ?? []).map((option, index) => ({
+        beach_id: option.beachId, beach_name: option.beachName, rank: index + 2, forecast_at: swell.peakAt,
+      })),
+    ],
     event_key: swell.eventKey,
     title_id: headline.titleId,
     kind: 'coming',

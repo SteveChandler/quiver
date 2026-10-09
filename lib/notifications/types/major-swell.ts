@@ -16,6 +16,7 @@ const rankedBeachSchema = z.object({
   beach_id: z.string().uuid(),
   beach_name: z.string().min(1),
   rank: z.number().int().min(1).max(3),
+  forecast_at: instantSchema.optional(),
 }).strict();
 
 const baseSchema = z.object({

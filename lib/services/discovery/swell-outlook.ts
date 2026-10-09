@@ -8,7 +8,7 @@ import {
   type SwellEventForecastRow,
   type SwellEventSnapshot,
 } from '@/lib/alerts/swell-events';
-import type { PoolBeach } from '@/lib/alerts/user-pool';
+import type { PoolBeach, PoolRelation } from '@/lib/alerts/user-pool';
 import { tracksSwellComponent, tracksSwellSize } from '@/lib/alerts/swell-events/detector';
 import type { BoardClass } from '@/lib/domains/rideability';
 import { angleDifference } from '@/lib/domains/shared/angle-utils';
@@ -33,6 +33,7 @@ const HOUR_MS = 60 * 60 * 1000;
 const WINDOW_LEAD_HOURS = 120;
 const WINDOW_HALF_HOURS = 12;
 const NOTABLE_MATCH_PEAK_MS = 36 * HOUR_MS;
+const OPTION_RELATION_RANK: Record<PoolRelation, number> = { home: 3, favorite: 2, custom: 2, nearby: 1 };
 
 export interface BuildSwellOutlookInput {
   pool: ReadonlyArray<Pick<PoolBeach, 'beach' | 'relation'>>;
@@ -216,6 +217,24 @@ function toOutlookSwell(
   });
   const leadHours = (Date.parse(rep.peakAt) - input.now.getTime()) / HOUR_MS;
   const peakMs = Date.parse(rep.peakAt);
+  const seenBeachIds = new Set([beach.id]);
+  const options = group.members.flatMap((member) => {
+    const entry = input.pool.find(({ beach: item }) => item.id === member.beachId);
+    if (!entry || member.beachId === beach.id) return [];
+    const memberNotable = notable ? matchNotable(member, notableLatest) : null;
+    if (notable && !memberNotable) return [];
+    const faceHeightFt = memberNotable?.peakFaceHeightFt ?? member.peakFaceHeightFt;
+    if (swellFitFor({ faceHeightFt, skillLevel: input.skillLevel, boardClasses: input.boardClasses }).status !== 'in_range') return [];
+    return [{ beachId: entry.beach.id, beachName: entry.beach.name, relation: entry.relation, faceHeightFt }];
+  }).sort((left, right) => OPTION_RELATION_RANK[right.relation] - OPTION_RELATION_RANK[left.relation]
+    || right.faceHeightFt - left.faceHeightFt
+    || left.beachId.localeCompare(right.beachId))
+    .filter((option) => {
+      if (seenBeachIds.has(option.beachId)) return false;
+      seenBeachIds.add(option.beachId);
+      return true;
+    }).slice(0, 2)
+    .map((option) => ({ ...option, faceHeightFt: faceHeightRange(option.faceHeightFt) }));
 
   return {
     id,
@@ -237,6 +256,7 @@ function toOutlookSwell(
     directionDeg: Math.round(rep.directionDeg) % 360,
     directionLabel: degreeToCardinal(rep.directionDeg),
     beach: { id: beach.id, name: beach.name },
+    options,
     beachCount: group.members.length,
     notable: notable !== null,
     fit: swellFitFor({ faceHeightFt: rep.peakFaceHeightFt, skillLevel: input.skillLevel, boardClasses: input.boardClasses }),

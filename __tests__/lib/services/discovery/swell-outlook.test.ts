@@ -60,6 +60,85 @@ function input(overrides: Partial<BuildSwellOutlookInput> = {}): BuildSwellOutlo
 }
 
 describe("buildSwellOutlook", () => {
+  it.each([
+    { homeSize: 3.5, favoriteSize: 5, customSize: 6, homeRelation: "home" as const, expected: [HOME, THIRD] },
+    { homeSize: 3.5, favoriteSize: 6, customSize: 5, homeRelation: "home" as const, expected: [HOME, SECOND] },
+    { homeSize: 2, favoriteSize: 5, customSize: 6, homeRelation: "home" as const, expected: [THIRD, SECOND] },
+    { homeSize: 3.5, favoriteSize: 5, customSize: 6, homeRelation: "nearby" as const, expected: [THIRD, SECOND] },
+    { homeSize: 3.5, favoriteSize: 5, customSize: 5, homeRelation: "nearby" as const, expected: [SECOND, THIRD] },
+  ])("ranks options by relation, then their own size, then id: %j", ({ homeSize, favoriteSize, customSize, homeRelation, expected }) => {
+    const leadId = "cccccccc-0000-4000-8000-000000000005";
+    const pool: BuildSwellOutlookInput["pool"] = [
+      { beach: beach(leadId, "Lead"), relation: "nearby" },
+      { beach: beach(NO_WINDOW, "Nearby"), relation: "nearby" },
+      { beach: beach(THIRD, "Custom"), relation: "custom" },
+      { beach: beach(SECOND, "Favorite"), relation: "favorite" },
+      { beach: beach(HOME, "Home"), relation: homeRelation },
+    ];
+    const [swell, ...rest] = buildSwellOutlook(input({ pool, homeBeachId: leadId, pulseSnapshots: [
+      pulse(leadId, { peakFaceHeightFt: 4 }), pulse(NO_WINDOW, { peakFaceHeightFt: 8 }),
+      pulse(HOME, { peakFaceHeightFt: homeSize }), pulse(SECOND, { peakFaceHeightFt: favoriteSize }),
+      pulse(THIRD, { peakFaceHeightFt: customSize }),
+    ] })).response.swells;
+    expect(rest).toEqual([]);
+    expect(swell.beach).toEqual({ id: leadId, name: "Lead" });
+    expect(swell.options?.map(({ beachId }) => beachId)).toEqual(expected);
+    expect(swell.options).toHaveLength(2);
+    expect(swell.options).not.toContainEqual(expect.objectContaining({ beachId: leadId }));
+    expect(swell.options).toEqual(expected.map((beachId) => {
+      const entry = pool.find(({ beach: item }) => item.id === beachId)!;
+      return expect.objectContaining({ beachId, beachName: entry.beach.name, relation: entry.relation });
+    }));
+  });
+
+  it.each([0.2, 2, 9, 15, Number.NaN, Number.POSITIVE_INFINITY])("excludes an option whose own %s ft size is not in_range", (peakFaceHeightFt) => {
+    const [swell] = buildSwellOutlook(input({ pulseSnapshots: [pulse(HOME), pulse(SECOND, { peakFaceHeightFt })] })).response.swells;
+    expect(swell.options).toEqual([]);
+  });
+
+  it("uses the surfer's boards and skill default to fit options, and excludes unknown fit", () => {
+    const args = input({ pulseSnapshots: [pulse(HOME), pulse(SECOND, { peakFaceHeightFt: 3 })] });
+    expect(buildSwellOutlook({ ...args, boardClasses: [] }).response.swells[0].options).toEqual([
+      { beachId: SECOND, beachName: "Second", relation: "nearby", faceHeightFt: { min: 2.5, max: 3.5 } },
+    ]);
+    expect(buildSwellOutlook(args).response.swells[0].options).toEqual([]);
+    expect(buildSwellOutlook({ ...args, skillLevel: null }).response.swells[0].options).toEqual([]);
+  });
+
+  it("uses only same-run notable-matched options and fits and sizes them from the notable event", () => {
+    const extra = "cccccccc-0000-4000-8000-000000000005";
+    const [swell] = buildSwellOutlook(input({
+      pool: [...input().pool, { beach: beach(NO_WINDOW, "Stale"), relation: "favorite" }, { beach: beach(extra, "Too small"), relation: "custom" }],
+      pulseSnapshots: [pulse(HOME), pulse(SECOND, { peakFaceHeightFt: 3 }), pulse(THIRD), pulse(NO_WINDOW), pulse(extra)],
+      notableSnapshots: [
+        pulse(HOME, { eventKey: "lead-notable", peakFaceHeightFt: 6 }),
+        pulse(SECOND, { eventKey: "second-notable", peakFaceHeightFt: 4 }),
+        pulse(NO_WINDOW, { eventKey: "stale-notable", runDate: "2026-09-24" }),
+        pulse(extra, { eventKey: "small-notable", peakFaceHeightFt: 3 }),
+      ],
+    })).response.swells;
+    expect(swell).toMatchObject({ notable: true, eventKey: "lead-notable", faceHeightFt: { min: 5, max: 7 } });
+    expect(swell.options).toEqual([
+      { beachId: SECOND, beachName: "Second", relation: "nearby", faceHeightFt: { min: 3.5, max: 4.5 } },
+    ]);
+  });
+
+  it("deduplicates options by beach before taking two", () => {
+    const original: typeof tracking.groupEvents = jest.requireActual("@/lib/services/discovery/swell-tracking").groupEvents;
+    jest.mocked(tracking.groupEvents).mockImplementation((events) => original(events).map((group) => ({
+      ...group, members: [...group.members, ...group.members],
+    })));
+    try {
+      const [swell] = buildSwellOutlook(input({ pulseSnapshots: [pulse(HOME), pulse(SECOND), pulse(THIRD)] })).response.swells;
+      expect(swell.options).toEqual([
+        { beachId: SECOND, beachName: "Second", relation: "nearby", faceHeightFt: { min: 3.5, max: 4.5 } },
+        { beachId: THIRD, beachName: "Third", relation: "nearby", faceHeightFt: { min: 3.5, max: 4.5 } },
+      ]);
+    } finally {
+      jest.mocked(tracking.groupEvents).mockImplementation(original);
+    }
+  });
+
   it("leaves the faded Thursday pulse unpinned when Oct 6 no longer emits its old notable key", () => {
     const thursday = pulse(HOME, {
       runDate: "2026-10-06", detectedAt: "2026-10-06T14:30:00.000Z",
