@@ -19,9 +19,8 @@ import type { BoardClass } from '@/lib/domains/rideability';
 import { createSwellComponent } from '@/lib/domains/conditions';
 import {
   beachToSpotProfile,
-  createDiscoveryScoringEngine,
+  getDiscoveryScoringEngine,
   getConditionCharacter,
-  type ScoringEngine,
 } from '@/lib/domains/scoring';
 import {
   resolveNativeSkillLevel,
@@ -34,15 +33,6 @@ import {
 } from '@/lib/services/magic-hour/constants';
 import { getLocalHour } from '@/lib/utils/timezone-utils';
 import { generateWindowMessage } from './message-generator';
-
-// Singleton engine for performance — created lazily on first call.
-let _engine: ScoringEngine | null = null;
-function getEngine(): ScoringEngine {
-  if (!_engine) {
-    _engine = createDiscoveryScoringEngine();
-  }
-  return _engine;
-}
 
 /**
  * Convert ForecastForScoring (legacy scoring shape) to a ConditionsSnapshot
@@ -807,7 +797,7 @@ function buildWindowFromBlock(
   // is a singleton, so this is microseconds).
   const peakProfile = beachToSpotProfile(beach as unknown as Beach);
   const peakSnapshot = forecastForScoringToSnapshot(peakForecast);
-  const peakComposite = getEngine().score({
+  const peakComposite = getDiscoveryScoringEngine().score({
     profile: peakProfile,
     snapshot: peakSnapshot,
     window: null,

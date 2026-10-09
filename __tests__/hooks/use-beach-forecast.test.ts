@@ -33,7 +33,7 @@ describe("useBeachForecast", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     global.fetch = jest.fn();
-    
+
     mockGetBeaches.mockResolvedValue({
       success: true,
       data: mockBeaches as any,
@@ -146,32 +146,5 @@ describe("useBeachForecast", () => {
     );
   });
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 

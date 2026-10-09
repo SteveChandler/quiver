@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import * as Sentry from "@sentry/nextjs";
 import { validateCronRequest } from "@/lib/middleware/api-wrappers";
 import {
@@ -6,6 +7,13 @@ import {
   type CronMonitorConfig,
 } from "@/lib/monitoring/sentry-cron";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+
+interface ObservedCronRun {
+  runId: string | null;
+  outcome?: Record<string, unknown>;
+}
+
+export const observedCronRun = new AsyncLocalStorage<ObservedCronRun>();
 
 // Supabase query builders are thenables, not full Promises — they expose
 // .then() but not .catch(). PromiseLike accurately reflects that shape;
@@ -180,8 +188,9 @@ export function withObservedCron<H extends (request: Request) => Promise<Respons
       runId = insertResult?.data?.id ?? null;
     }
 
+    const observedRun: ObservedCronRun = { runId };
     try {
-      const response = await handler(request);
+      const response = await observedCronRun.run(observedRun, () => handler(request));
 
       let summary: unknown = null;
       if (authorized || runId) {
@@ -250,11 +259,15 @@ export function withObservedCron<H extends (request: Request) => Promise<Respons
           return db
             .from("cron_runs")
             .update({
-              status: response.ok ? "ok" : "error",
               finished_at: new Date().toISOString(),
               duration_ms: Date.now() - start,
               summary: summary as object | null,
-              error_message: response.ok ? null : extractErrorMessage(summary, response.status),
+              // Keep outcome failures and counts when the route returns HTTP 200.
+              ...observedRun.outcome,
+              status: response.ok ? observedRun.outcome?.status ?? "ok" : "error",
+              error_message: response.ok
+                ? observedRun.outcome?.error_message ?? null
+                : extractErrorMessage(summary, response.status),
             })
             .eq("id", runId);
         });

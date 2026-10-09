@@ -1,6 +1,6 @@
 // app/api/cron/condition-alert-deliver/route.ts
 //
-// Delivery cron — runs hourly (`0 * * * *`).
+// Delivery cron — runs hourly at :02 (`2 * * * *`), off the minute-0 pile-up.
 // Reads due items from alert_queue, consolidates per user, sends email + push.
 // Cadence relaxed from `*/15 * * * *` on 2026-05-02 — initial-rollout latency budget is
 // 60 min from evaluator → delivery, acceptable for surf condition alerts.
@@ -32,7 +32,7 @@ import {
   buildConditionsLine,
   ConsolidatedAlertEmail,
 } from "@/lib/mailer/templates/ConsolidatedAlertEmail";
-import { createEmailLogger } from "@/lib/services/email-logging-service";
+import { logEmailDelivery } from "@/lib/services/email-logging-service";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
 import {
   consolidateQueueItems,
@@ -89,6 +89,7 @@ const QUEUE_MARK_REASONS = [
   "stale",
   "below_score_floor",
   "major_event_hold",
+  "contact_policy_hold",
   "canonical_safety_rejected",
   "shadow_withheld",
   "delivery_disabled",
@@ -781,6 +782,11 @@ export async function GET(request: Request): Promise<NextResponse> {
               deliberateReasons.add("major_event_hold");
             } else if (
               attempt.status === "skipped_disabled" &&
+              attempt.skipReason?.startsWith("Contact held: ")
+            ) {
+              deliberateReasons.add("contact_policy_hold");
+            } else if (
+              attempt.status === "skipped_disabled" &&
               attempt.skipReason?.startsWith("canonical_decision:")
             ) {
               deliberateReasons.add("canonical_safety_rejected");
@@ -1029,12 +1035,7 @@ export async function GET(request: Request): Promise<NextResponse> {
         // for shadow observability. The user's matched rules remain the
         // delivery candidates regardless of verdict or skill eligibility.
         const deliverableItems: QueueItemWithMeta[] = [];
-        const itemsByUser = new Map<string, QueueItemWithMeta[]>();
-        for (const item of scoreEligibleItems) {
-          const userItems = itemsByUser.get(item.user_id) ?? [];
-          userItems.push(item);
-          itemsByUser.set(item.user_id, userItems);
-        }
+        const itemsByUser = Map.groupBy(scoreEligibleItems, (item) => item.user_id);
 
         for (const [userId, userItems] of itemsByUser) {
           const profile = profilesByUser.get(userId);
@@ -1116,7 +1117,6 @@ export async function GET(request: Request): Promise<NextResponse> {
         const payloads = consolidateQueueItems(deliverableItems);
         const baseUrl = getBaseUrl();
         const rateLimiter = createResendRateLimiter();
-        const emailLogger = createEmailLogger(supabase, CONTEXT_TAG);
 
         for (const payload of payloads) {
           const payloadBeachId = payload.matches[0]?.beach_id ?? null;
@@ -1449,21 +1449,25 @@ export async function GET(request: Request): Promise<NextResponse> {
                       }
                       result.emailQuietHoursSkipped += emailSurvivors.length;
                     } else if (sendError) {
-                      console.error(
-                        `${CONTEXT_TAG} Email send failed for user ${payload.user_id}:`,
-                        sendError,
-                      );
-                      result.errors++;
                       const errorMessage =
                         (sendError as { message?: string })?.message ??
                         String(sendError);
+                      const contactHeld = errorMessage.startsWith("Contact held: ");
+                      if (!contactHeld) {
+                        console.error(
+                          `${CONTEXT_TAG} Email send failed for user ${payload.user_id}:`,
+                          sendError,
+                        );
+                        result.errors++;
+                      }
                       for (const item of emailSurvivors) {
                         await recordAttempt({
                           queueId: item.id,
                           ruleId: item.rule_id,
                           userId: payload.user_id,
                           channel: "email",
-                          status: "failed_provider",
+                          // The CHECK has no contact-policy status; keep the reason in skip_reason.
+                          status: contactHeld ? "skipped_disabled" : "failed_provider",
                           skipReason: errorMessage,
                           messageInstanceId,
                         });
@@ -1504,7 +1508,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                           });
                         }
                       } else {
-                        await emailLogger.logDelivery({
+                        await logEmailDelivery(supabase, {
                           userId: payload.user_id,
                           emailType: "conditions_alert",
                           messageInstanceId,

@@ -20,6 +20,7 @@ import {
 
 import {
   SWELL_EVENT_THRESHOLDS,
+  SYNTHETIC_FORECAST_DATA_SOURCE,
   exposureFactor,
   swellWindowForBeach,
   type SwellWindow,
@@ -42,7 +43,7 @@ export type SwellEventForecastRow = Pick<
   | "swell_2_height"
   | "swell_2_period"
   | "swell_2_direction"
->;
+> & { data_source?: string | null };
 
 export interface BeachSwellEvent {
   beachId: string;
@@ -76,7 +77,7 @@ export interface ExposedSwellPartition extends SwellPartition {
   energy: number;
 }
 
-interface ExposedSwellRow {
+export interface ExposedSwellRow {
   at: number;
   iso: string;
   localDate: string;
@@ -84,7 +85,7 @@ interface ExposedSwellRow {
   partitions: ExposedSwellPartition[];
 }
 
-interface DayPeak {
+export interface DayPeak {
   localDate: string;
   rowIndex: number;
   partition: ExposedSwellPartition | null;
@@ -188,6 +189,14 @@ export function tracksSwellComponent(previous: SwellComponentShape, next: SwellC
     && Math.abs(previous.periodS - next.periodS) <= SWELL_EVENT_THRESHOLDS.trackPeriodS;
 }
 
+export function tracksSwellSize(
+  previous: Pick<BeachSwellEvent, "peakFaceHeightFt">,
+  next: Pick<BeachSwellEvent, "peakFaceHeightFt">,
+): boolean {
+  return previous.peakFaceHeightFt <= next.peakFaceHeightFt * SWELL_EVENT_THRESHOLDS.trackSizeRatio
+    && next.peakFaceHeightFt <= previous.peakFaceHeightFt * SWELL_EVENT_THRESHOLDS.trackSizeRatio;
+}
+
 function addLocalDays(localDate: string, days: number): string {
   const date = new Date(`${localDate}T00:00:00.000Z`);
   date.setUTCDate(date.getUTCDate() + days);
@@ -206,6 +215,8 @@ export function exposedSwellRows(
 ): ExposedSwellRow[] {
   const rows: ExposedSwellRow[] = [];
   for (const forecast of forecasts) {
+    // Defence in depth: loaders that select("*") still hand synthetic rows here.
+    if (forecast.data_source === SYNTHETIC_FORECAST_DATA_SOURCE) continue;
     try {
       const at = Date.parse(forecast.forecast_at);
       if (!Number.isFinite(at)) continue;
@@ -241,7 +252,7 @@ export function exposedSwellRows(
  * slots are not identities (upstream orders them by size), so continuity of
  * direction and period decides which component a partition belongs to.
  */
-function buildTracks(rows: readonly ExposedSwellRow[]): TrackPoint[][] {
+export function buildTracks(rows: readonly ExposedSwellRow[]): TrackPoint[][] {
   const tracks: TrackPoint[][] = [];
   rows.forEach((row, rowIndex) => {
     const live = tracks.filter((track) => row.at - rows[track[track.length - 1].rowIndex].at <= TRACK_MAX_GAP_MS);
@@ -271,7 +282,7 @@ function buildTracks(rows: readonly ExposedSwellRow[]): TrackPoint[][] {
   return tracks;
 }
 
-function componentDays(
+export function componentDays(
   rows: readonly ExposedSwellRow[],
   track: readonly TrackPoint[],
   beach: SwellEventBeach,

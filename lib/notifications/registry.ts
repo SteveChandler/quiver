@@ -331,15 +331,9 @@ const SURF_ALERT_PUSH_PRESENTATION = {
 
 // ─── Payload shapes (what producers pass + what builders consume) ────────────
 
-interface LikePayload {
-  session_id: string;
-  beach_name?: string | null;
-}
+type LikePayload = z.infer<typeof likeSchema>;
 
-interface FollowPayload {
-  /** No specific fields — actor identity comes from BuildCtx. */
-  [k: string]: unknown;
-}
+type FollowPayload = z.infer<typeof followSchema>;
 
 interface ForecastAlertPayload {
   alert_date: string;
@@ -363,104 +357,23 @@ interface ForecastAlertPayload {
   queue_items?: Array<{ queue_id: string; rule_id: string }>;
 }
 
-interface TrialEndingPayload {
-  title: string;
-  body: string;
-  trial_ends_at: string;
-}
+type TrialEndingPayload = z.infer<typeof trialEndingSchema>;
 
-interface LogSessionNudgePayload {
-  cohort: string;
-  title: string;
-  body: string;
-  beach_id?: string | null;
-  beach_name?: string | null;
-  policy_context?: PositiveRecommendationPolicyContextPayload;
-  notification_category?: string;
-  trigger_source?: string;
-  relevance_confidence?: "high" | "medium" | "low" | "unknown";
-  beach_confidence?: "high" | "medium" | "low" | "unknown";
-  assumed_attendance?: false;
-  attendance_confidence_score?: number;
-  beach_confidence_score?: number;
-  relevance_score?: number;
-}
+type LogSessionNudgePayload = z.infer<typeof logSessionNudgeSchema>;
 
-interface ForecastFeedbackNudgePayload {
-  beach_id: string;
-  beach_slug?: string;
-  beach_name?: string;
-  forecast_at?: string;
-  deeplink?: string;
-  notification_category?: string;
-  trigger_source?: string;
-  relevance_confidence?: "high" | "medium" | "low" | "unknown";
-  beach_confidence?: "high" | "medium" | "low" | "unknown";
-  assumed_attendance?: false;
-  attendance_confidence_score?: number;
-  beach_confidence_score?: number;
-  relevance_score?: number;
-}
+type ForecastFeedbackNudgePayload = z.infer<typeof forecastFeedbackNudgeSchema>;
 
-interface WeekendWindowPayload {
-  snapshot_id: string;
-  weekend_start: string;
-  weekend_end: string;
-  qualifying_count: 1 | 2 | 3;
-  beach_id: string;
-  lead_beach_id: string;
-  lead_beach_name: string;
-  lead_window_local: string;
-  forecast_at: string;
-  policy_context: PositiveRecommendationPolicyContextPayload;
-}
+type WeekendWindowPayload = z.infer<typeof weekendWindowSchema>;
 
-interface WeeklyStreakReminderPayload {
-  streak: number;
-  period_key?: string;
-  notification_category?: string;
-  trigger_source?: string;
-  relevance_confidence?: "high" | "medium" | "low" | "unknown";
-  beach_confidence?: "high" | "medium" | "low" | "unknown";
-  assumed_attendance?: false;
-}
+type WeeklyStreakReminderPayload = z.infer<typeof weeklyStreakReminderSchema>;
 
-interface WaterQualityPayload {
-  beach_id: string;
-  beach_slug: string;
-  beach_name: string;
-  status: "good" | "advisory" | "closure" | "unknown";
-  previous_status: "good" | "advisory" | "closure" | "unknown" | null;
-  status_changed_at: string;
-}
+type WaterQualityPayload = z.infer<typeof waterQualitySchema>;
 
-interface DailyDigestPayload {
-  alert_date: string;
-  title: string;
-  body: string;
-  match_count?: number;
-  // Phase 5h: optional consolidated summaries
-  forecast_summary?: {
-    top_match: string;
-    match_count: number;
-  };
-  water_quality_summary?: {
-    advisory_count: number;
-    closure_count: number;
-  };
-}
+type DailyDigestPayload = z.infer<typeof dailyDigestSchema>;
 
-interface AdminTestPayload {
-  title?: string;
-  body?: string;
-}
+type AdminTestPayload = z.infer<typeof adminTestSchema>;
 
-interface AdminBroadcastPayload {
-  title: string;
-  body: string;
-  url?: string | null;
-  data?: Record<string, string>;
-}
+type AdminBroadcastPayload = z.infer<typeof adminBroadcastSchema>;
 
 // ─── Registry ─────────────────────────────────────────────────────────────────
 
@@ -772,6 +685,12 @@ export const NOTIFICATION_REGISTRY = {
     surfAlertPriority: 1,
     quietHours: DEFAULT_QUIET,
     cooldownMs: 96 * 60 * 60 * 1000,
+    // First alerts keep one shared 96 h window. A follow-up is scoped to its own
+    // event and kind, so it is never blocked by the first alert it follows; the
+    // runner owns the 24 h spacing between follow-ups.
+    cooldownKey: (p) => (
+      p.kind && p.kind !== "coming" && p.event_key ? `${p.event_key}:${p.kind}` : "coming"
+    ),
     validatePayload: parseMajorSwellNotificationPayload,
     buildPushPayload: (p) => ({
       ...SURF_ALERT_PUSH_PRESENTATION,
@@ -786,6 +705,13 @@ export const NOTIFICATION_REGISTRY = {
         ...(p.beaches ? { beaches: JSON.stringify(p.beaches) } : {}),
         ...(p.event_key ? { event_key: p.event_key } : {}),
         ...(p.rarity ? { rarity: p.rarity } : {}),
+        ...(p.peak_height_ft ? { peak_height_ft: p.peak_height_ft } : {}),
+        ...(p.peak_period_s ? { peak_period_s: p.peak_period_s } : {}),
+        ...(p.kind ? { kind: p.kind } : {}),
+        ...(p.title_id ? { title_id: p.title_id } : {}),
+        ...(p.share_url ? { share_url: p.share_url } : {}),
+        ...(p.previous_peak_height_ft ? { previous_peak_height_ft: p.previous_peak_height_ft } : {}),
+        ...(p.previous_peak_date ? { previous_peak_date: p.previous_peak_date } : {}),
         awareness_signal: p.awareness_signal,
         awareness_severity: p.awareness_severity,
       },
@@ -805,6 +731,12 @@ export const NOTIFICATION_REGISTRY = {
         awareness_severity: p.awareness_severity,
         title: p.title,
         body: p.body,
+        ...(p.event_key ? { event_key: p.event_key } : {}),
+        ...(p.kind ? { kind: p.kind } : {}),
+        ...(p.title_id ? { title_id: p.title_id } : {}),
+        ...(p.share_url ? { share_url: p.share_url } : {}),
+        ...(p.previous_peak_height_ft ? { previous_peak_height_ft: p.previous_peak_height_ft } : {}),
+        ...(p.previous_peak_date ? { previous_peak_date: p.previous_peak_date } : {}),
       },
     }),
   } satisfies NotificationTypeDef<MajorSwellNotificationPayload>,

@@ -153,18 +153,15 @@ type WindowForecast = {
 
 /**
  * Sticker-style chip for relative context badges.
- * Max 2 shown at a time; slightly rotated for retro aesthetic.
- * Respects prefers-reduced-motion — rotation is motion-safe only.
+ * Max 2 shown at a time.
  */
 function ContextChip({
   children,
   variant = "neutral",
-  rotate = 0,
   className,
 }: {
   children: React.ReactNode;
   variant?: "gold" | "up" | "down" | "stable" | "swell" | "neutral";
-  rotate?: number;
   className?: string;
 }) {
   const variantClasses: Record<typeof variant, string> = {
@@ -182,11 +179,8 @@ function ContextChip({
         "inline-flex items-center gap-1 rounded-[6px_10px_8px_10px] px-2.5 py-1 text-xs font-medium",
         // Asymmetric border radius for sticker feel
         variantClasses[variant],
-        // Cancel rotation for users who prefer reduced motion
-        "motion-reduce:!transform-none",
         className
       )}
-      style={rotate !== 0 ? { transform: `rotate(${rotate}deg)` } : undefined}
     >
       {children}
     </span>
@@ -381,7 +375,6 @@ export function BestSurfWindow({
     const badges: Array<{
       key: string;
       variant: "gold" | "up" | "down" | "stable" | "swell" | "neutral";
-      rotate: number;
       content: React.ReactNode;
     }> = [];
 
@@ -390,7 +383,6 @@ export function BestSurfWindow({
       badges.push({
         key: "best-week",
         variant: "gold",
-        rotate: -1,
         content: (
           <>
             <Zap className="h-3 w-3" aria-hidden="true" />
@@ -415,7 +407,6 @@ export function BestSurfWindow({
       badges.push({
         key: "swell-incoming",
         variant: "swell",
-        rotate: 1,
         content: (
           <>
             <Waves className="h-3 w-3" aria-hidden="true" />
@@ -430,7 +421,6 @@ export function BestSurfWindow({
           badges.push({
             key: "trend-up",
             variant: "up",
-            rotate: 0,
             content: (
               <>
                 <TrendingUp className="h-3 w-3" aria-hidden="true" />
@@ -442,7 +432,6 @@ export function BestSurfWindow({
           badges.push({
             key: "trend-down",
             variant: "down",
-            rotate: 0,
             content: (
               <>
                 <TrendingDown className="h-3 w-3" aria-hidden="true" />
@@ -998,7 +987,6 @@ function RelativeContextBadges({
   badges: Array<{
     key: string;
     variant: "gold" | "up" | "down" | "stable" | "swell" | "neutral";
-    rotate: number;
     content: React.ReactNode;
   }>;
 }) {
@@ -1012,7 +1000,7 @@ function RelativeContextBadges({
     >
       {badges.map((badge) => (
         <div key={badge.key} role="listitem">
-          <ContextChip variant={badge.variant} rotate={badge.rotate}>
+          <ContextChip variant={badge.variant}>
             {badge.content}
           </ContextChip>
         </div>

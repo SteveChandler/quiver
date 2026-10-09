@@ -1,4 +1,3 @@
-import { fetchWithTimeout } from "@/lib/utils/fetch-utils";
 import { calculateDistance } from "@/lib/utils/distance-utils";
 import { parseCOOPSTimestampToUnixSecondsUTC } from "@/lib/services/noaa-coops/tide-analysis";
 import {
@@ -122,7 +121,7 @@ async function getTideStations(): Promise<StationMeta[]> {
   }
   const url =
     "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json?type=tidepredictions";
-  const res = await fetchWithTimeout(url, { timeoutMs: 20000 });
+  const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
   if (!res.ok) throw new Error(`NOAA stations failed: ${res.status}`);
   const json = await res.json();
   const list: StationMeta[] = (json?.stations || [])
@@ -184,7 +183,7 @@ export async function fetchHourlyTidePredictions(
     end_date,
   });
   const url = `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?${params.toString()}`;
-  const res = await fetchWithTimeout(url, { timeoutMs: 20000 });
+  const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
   if (!res.ok) {
     const body = await res.text();
     console.warn("NOAA tide request failed", {
@@ -243,7 +242,7 @@ export async function fetchHighLowTidePredictions(
     end_date,
   });
   const url = `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?${params.toString()}`;
-  const res = await fetchWithTimeout(url, { timeoutMs: 20000 });
+  const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
   if (!res.ok) {
     const body = await res.text();
     console.warn("NOAA high/low tide request failed", {

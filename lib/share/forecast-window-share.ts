@@ -1,3 +1,4 @@
+import { getLocalDateFormatter } from "@/lib/services/discovery/window-selector/time-slot-utils";
 import { normalizeForecastWindowParam } from "@/lib/utils/forecast-window-param";
 export { normalizeForecastWindowParam } from "@/lib/utils/forecast-window-param";
 import { resolveMajorEventHoldBoundary } from "@/lib/recommendations/major-event-hold/adapters/shared";
@@ -61,6 +62,7 @@ interface ForecastWindowShareDependencies {
   evaluateHoldCandidates?: (
     input: EvaluateMajorEventHoldCandidatesInput,
   ) => Promise<MajorEventHoldCandidateDecision[]>;
+  now?: () => Date;
 }
 
 const FALLBACK_TITLE = "Open Quiver Surf Window";
@@ -68,13 +70,8 @@ const FALLBACK_DESCRIPTION = "Open this surf window in Quiver.";
 const NEUTRAL_DESCRIPTION =
   "Wave, wind, and tide conditions can change quickly. Check the latest forecast and official advisories.";
 const FORECAST_SLOT_DURATION_MS = 60 * 60 * 1000;
-
-function firstSearchValue(
-  value: string | string[] | null | undefined,
-): string | null {
-  if (Array.isArray(value)) return value[0] ?? null;
-  return value ?? null;
-}
+/** A chat link opened after its window has passed no longer says it is lining up. */
+const EXPIRED_WINDOW_GRACE_MS = 60 * 60 * 1000;
 
 function cleanText(value: unknown): string | null {
   if (typeof value !== "string" && typeof value !== "number") return null;
@@ -115,15 +112,26 @@ function isValidTimeZone(value: unknown): value is string {
   }
 }
 
+function calendarDay(date: Date, timeZone: string): string {
+  return getLocalDateFormatter(timeZone).format(date);
+}
+
 function formatForecastWindowLabel(
   forecastAt: string,
   timezone: string | null | undefined = DEFAULT_TIMEZONE,
+  now: Date = new Date(),
 ): string {
+  const timeZone = timezone || DEFAULT_TIMEZONE;
+  const windowStart = new Date(forecastAt);
+  // A card opened tomorrow must not read like today's window.
+  const isToday =
+    calendarDay(windowStart, timeZone) === calendarDay(now, timeZone);
   return new Intl.DateTimeFormat("en-US", {
+    ...(isToday ? {} : { weekday: "short" }),
     hour: "numeric",
     minute: "2-digit",
-    timeZone: timezone || DEFAULT_TIMEZONE,
-  }).format(new Date(forecastAt));
+    timeZone,
+  }).format(windowStart);
 }
 
 function buildConditionRow(segments: ConditionSegment[] | undefined): string {
@@ -192,6 +200,7 @@ function buildResolvedForecastWindowShareMetadata(input: {
   waveHeight: string | number | null | undefined;
   conditionSegments: ConditionSegment[];
   recommendationAllowed: boolean;
+  now: Date;
 }): ForecastWindowShareMetadata {
   const slug = normalizeSlug(input.slug);
   const beachName = cleanText(input.beachName) ?? "This spot";
@@ -223,6 +232,7 @@ function buildResolvedForecastWindowShareMetadata(input: {
   const windowLabel = formatForecastWindowLabel(
     input.forecastAt,
     input.timezone,
+    input.now,
   );
   const title = `${beachName} ${windowLabel} is lining up`;
   const conditions = [waveHeight, conditionRow].filter(
@@ -341,6 +351,10 @@ export async function loadForecastWindowShareMetadata(
   const requestedForecastAt = normalizeForecastWindowParam(window);
   if (!requestedForecastAt || !fallback.slug) return fallback;
 
+  const now = (dependencies.now ?? (() => new Date()))();
+  const expiresAfter = now.getTime() - EXPIRED_WINDOW_GRACE_MS;
+  if (Date.parse(requestedForecastAt) < expiresAfter) return fallback;
+
   const loadBeach = dependencies.loadBeach ?? defaultLoadBeach;
   const loadForecast = dependencies.loadForecast ?? defaultLoadForecast;
   const evaluateHoldCandidates =
@@ -401,6 +415,7 @@ export async function loadForecastWindowShareMetadata(
       waveHeight: cleanText(forecast.wave_height ?? forecast.wave_height_om),
       conditionSegments: forecastConditionSegments(forecast),
       recommendationAllowed,
+      now,
     });
   } catch {
     return fallback;

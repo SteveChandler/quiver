@@ -38,6 +38,7 @@ jest.mock("next/headers", () => ({
 
 jest.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
+  usePathname: () => "/ca/san-diego/blacks",
   notFound: jest.fn(() => {
     const err = new Error("NEXT_NOT_FOUND");
     (err as any).digest = "NEXT_NOT_FOUND";

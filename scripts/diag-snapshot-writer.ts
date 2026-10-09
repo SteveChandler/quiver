@@ -11,7 +11,7 @@
  * This bypasses the cron / Vercel runtime entirely so we can see every log
  * line without going through prod-level filtering.
  */
-import "dotenv/config";
+import "./load-default-env.mjs";
 import {
   logDisplayPredictions,
   type DisplayPredictionRow,

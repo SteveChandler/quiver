@@ -218,7 +218,7 @@ export default async function BestTimeToSurfHubPage() {
 
           {/* All City Links Section */}
           {cities.length > 0 && (
-            <ScrollReveal>
+            <ScrollReveal threshold={0}>
               <section className="mt-14" aria-labelledby="all-city-guides-heading">
                 <div className="mb-5 flex items-end justify-between gap-4 border-b-2 border-dashed border-[#11100D]/35 pb-4">
                   <div>

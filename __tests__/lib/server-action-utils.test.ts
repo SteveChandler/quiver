@@ -1,16 +1,5 @@
 import { z } from "zod";
-import {
-  withServerAction,
-  withAuthenticatedAction,
-  withDatabaseOperation,
-  makeAuthenticatedAction,
-  withValidation,
-  createServerAction,
-  getUserById,
-  getUserByEmail,
-  uploadFile,
-  deleteFile,
-} from "@/lib/server-action-utils";
+import { withServerAction, withAuthenticatedAction, withDatabaseOperation, makeAuthenticatedAction, createServerAction, getUserById } from "@/lib/server-action-utils";
 
 // Mock supabase server client and its usage inside the utils
 jest.mock("@/lib/supabase/server", () => {
@@ -172,11 +161,11 @@ describe("server-action-utils", () => {
           },
         }),
       }));
-      
+
       const { makeAuthenticatedAction: makeAuthAgain } = await import(
         "@/lib/server-action-utils"
       );
-      
+
       const action = makeAuthAgain(async (user, supabase, arg: string) => {
         return arg;
       });
@@ -294,7 +283,7 @@ describe("server-action-utils", () => {
           }),
         }),
       }));
-      
+
       const { getUserById: getUserAgain } = await import("@/lib/server-action-utils");
       const result = await getUserAgain("user-123");
       expect(result.success).toBe(false);
@@ -302,86 +291,8 @@ describe("server-action-utils", () => {
     });
   });
 
-  describe("getUserByEmail", () => {
-    test("returns user profile by email", async () => {
-      const result = await getUserByEmail("test@example.com");
-      expect(result.success).toBe(true);
-      expect(result.data).toEqual({ id: "1" });
-    });
 
-    test("handles email lookup errors", async () => {
-      jest.doMock("@/lib/supabase/server", () => ({
-        createSupabaseServerClient: async () => ({
-          from: () => ({
-            select: () => ({
-              eq: () => ({
-                single: async () => ({ data: null, error: { message: "Email not found" } }),
-              }),
-            }),
-          }),
-        }),
-      }));
-      
-      const { getUserByEmail: getUserAgain } = await import("@/lib/server-action-utils");
-      const result = await getUserAgain("test@example.com");
-      expect(result.success).toBe(false);
-      expect(result.error).toBe("Email not found");
-    });
-  });
 
-  describe("uploadFile", () => {
-    test("uploads file successfully", async () => {
-      const mockFile = new File(["test content"], "test.jpg", { type: "image/jpeg" });
-      const result = await uploadFile(mockFile, "media", "test/path.jpg");
-      
-      expect(result.success).toBe(true);
-      expect(result.data).toBe("http://example.com");
-    });
-
-    test("handles upload errors", async () => {
-      jest.doMock("@/lib/supabase/server", () => ({
-        createSupabaseServerClient: async () => ({
-          storage: {
-            from: () => ({
-              upload: async () => ({ data: null, error: { message: "Upload failed" } }),
-            }),
-          },
-        }),
-      }));
-      
-      const { uploadFile: uploadAgain } = await import("@/lib/server-action-utils");
-      const mockFile = new File(["test"], "test.jpg", { type: "image/jpeg" });
-      const result = await uploadAgain(mockFile, "media", "test/path.jpg");
-      
-      expect(result.success).toBe(false);
-      expect(result.error).toBe("File upload failed: Upload failed");
-    });
-  });
-
-  describe("deleteFile", () => {
-    test("deletes file successfully", async () => {
-      const result = await deleteFile("media", "test/path.jpg");
-      expect(result.success).toBe(true);
-    });
-
-    test("handles deletion errors", async () => {
-      jest.doMock("@/lib/supabase/server", () => ({
-        createSupabaseServerClient: async () => ({
-          storage: {
-            from: () => ({
-              remove: async () => ({ error: { message: "Deletion failed" } }),
-            }),
-          },
-        }),
-      }));
-      
-      const { deleteFile: deleteAgain } = await import("@/lib/server-action-utils");
-      const result = await deleteAgain("media", "test/path.jpg");
-      
-      expect(result.success).toBe(false);
-      expect(result.error).toBe("File deletion failed: Deletion failed");
-    });
-  });
 
   describe("error handling edge cases", () => {
     test("handles supabase client creation errors", async () => {
@@ -390,11 +301,11 @@ describe("server-action-utils", () => {
           throw new Error("Client creation failed");
         },
       }));
-      
+
       const { withAuthenticatedAction: withAuthAgain } = await import(
         "@/lib/server-action-utils"
       );
-      
+
       const result = await withAuthAgain(async () => "test");
       expect(result.success).toBe(false);
       expect(result.error).toBe("Client creation failed");
@@ -411,11 +322,11 @@ describe("server-action-utils", () => {
           },
         }),
       }));
-      
+
       const { withAuthenticatedAction: withAuthAgain } = await import(
         "@/lib/server-action-utils"
       );
-      
+
       const result = await withAuthAgain(async () => "test");
       expect(result.success).toBe(false);
       expect(result.error).toBe("Authentication error: Invalid token");
@@ -438,68 +349,6 @@ describe("server-action-utils", () => {
     });
   });
 
-  describe("withValidation", () => {
-    const schema = z.object({
-      name: z.string().min(1),
-      age: z.number().positive(),
-    });
-
-    test("validates input and calls action with parsed data", async () => {
-      const action = jest.fn().mockResolvedValue({ id: 1 });
-      const validated = withValidation(schema, action);
-
-      const result = await validated({ name: "John", age: 25 });
-
-      expect(result.success).toBe(true);
-      expect(result.data).toEqual({ id: 1 });
-      expect(action).toHaveBeenCalledWith({ name: "John", age: 25 });
-    });
-
-    test("returns validation error for invalid input", async () => {
-      const action = jest.fn();
-      const validated = withValidation(schema, action);
-
-      const result = await validated({ name: "", age: -5 });
-
-      expect(result.success).toBe(false);
-      expect(result.error).toContain("Validation failed");
-      expect(action).not.toHaveBeenCalled();
-    });
-
-    test("handles missing required fields", async () => {
-      const action = jest.fn();
-      const validated = withValidation(schema, action);
-
-      const result = await validated({ name: "John" });
-
-      expect(result.success).toBe(false);
-      expect(result.error).toContain("Validation failed");
-      expect(action).not.toHaveBeenCalled();
-    });
-
-    test("handles action errors after validation", async () => {
-      const action = jest.fn().mockRejectedValue(new Error("Action failed"));
-      const validated = withValidation(schema, action);
-
-      const result = await validated({ name: "John", age: 25 });
-
-      expect(result.success).toBe(false);
-      expect(result.error).toBe("Action failed");
-    });
-
-    test("transforms input according to schema", async () => {
-      const transformSchema = z.object({
-        count: z.string().transform((val) => parseInt(val, 10)),
-      });
-      const action = jest.fn().mockResolvedValue("ok");
-      const validated = withValidation(transformSchema, action);
-
-      const result = await validated({ count: "42" });
-
-      expect(result.success).toBe(true);
-      expect(action).toHaveBeenCalledWith({ count: 42 });
-    });
-  });
 
   describe("createServerAction", () => {
     test("creates action with validation only", async () => {

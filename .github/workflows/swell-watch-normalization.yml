@@ -5,8 +5,19 @@ on:
     paths:
       - "lib/alerts/swell-watch/**"
       - "supabase/migrations/*swell_watch*"
+      - "supabase/migrations/20261002200000_match_score_missing_inputs_neutral.sql"
+      - "supabase/tests/match_score_missing_inputs.sql"
       - "scripts/*swell-watch*"
+      - "scripts/test-match-score-missing-inputs-postgres.sh"
       - "__tests__/lib/alerts/swell-watch/**"
+      - "lib/cron/swell-alert-runner.ts"
+      - "lib/alerts/swell-outlook/**"
+      - "supabase/migrations/*swell_outlook*"
+      - "supabase/tests/swell_snapshot_outcomes.sql"
+      - "scripts/test-swell-snapshot-outcomes-postgres.sh"
+      - "scripts/test-swell-outlook-first-sighting-postgres.sh"
+      - "__tests__/lib/cron/swell-alert-runner-outlook.test.ts"
+      - "__tests__/migrations/match-score-missing-inputs-neutral.test.ts"
       - ".github/workflows/swell-watch-normalization.yml"
 permissions:
   contents: read
@@ -46,6 +57,21 @@ jobs:
           set -o pipefail
           bash scripts/test-swell-watch-study-postgres.sh 2>&1 | tee /tmp/swell-normalization-artifact/integration.log
           bash scripts/test-swell-watch-feed-isolation-postgres.sh 2>&1 | tee /tmp/swell-normalization-artifact/feed-isolation.log
+          bash scripts/test-swell-watch-event-identity-postgres.sh 2>&1 | tee /tmp/swell-normalization-artifact/event-identity.log
+          docker run --rm --user postgres -v "$PWD:/workspace:ro" -w /workspace -e MODEL_PG_BIN=/usr/lib/postgresql/15/bin postgres:15 bash scripts/test-match-score-missing-inputs-postgres.sh 2>&1 | tee /tmp/swell-normalization-artifact/match-score.log
+      - name: Test snapshot outcomes and outlook first-sighting claims
+        run: |
+          set -o pipefail
+          docker run --rm -v "$PWD:/repo:ro" -v /tmp/swell-normalization-artifact:/artifacts \
+            -w /repo --entrypoint bash postgres:15 -c '
+              set -euo pipefail
+              apt-get update -qq
+              apt-get install -y --no-install-recommends python3
+              runuser -u postgres -- env SCOUT_PG_BIN=/usr/lib/postgresql/15/bin \
+                bash scripts/test-swell-snapshot-outcomes-postgres.sh 2>&1 | tee /artifacts/snapshot-outcomes.log
+              runuser -u postgres -- env SCOUT_PG_BIN=/usr/lib/postgresql/15/bin \
+                bash scripts/test-swell-outlook-first-sighting-postgres.sh 2>&1 | tee /artifacts/outlook-first-sighting.log
+            '
       - uses: actions/upload-artifact@v4
         if: always()
         with:

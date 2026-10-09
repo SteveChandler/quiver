@@ -1,5 +1,4 @@
 import { createEmptyDashboard } from "@/lib/seo/agent-workflow/dashboard";
-import { renderSeoDraftArtifact } from "@/lib/seo/agent-workflow/drafts";
 import {
   mergeSeoRecommendations,
   renderSeoRecommendationReport,
@@ -60,22 +59,7 @@ describe("SEO workflow recommendations", () => {
     expect(report).toContain("resolved: Ahrefs keyword opportunity is already in the keyword bank review queue.");
   });
 
-  it("renders staged draft metadata for manual approval", () => {
-    const draft = renderSeoDraftArtifact({
-      slug: "example-draft",
-      title: "Example Draft",
-      targetKeyword: "surf forecast example",
-      pageType: "learn",
-      competingInternalUrls: ["/learn/existing"],
-      citations: [{ label: "NOAA", url: "https://www.noaa.gov/" }],
-      requiredInternalLinks: ["/map", "/learn"],
-    });
 
-    expect(draft).toContain("status: review-queue");
-    expect(draft).toContain("publishing: manual-approval-required");
-    expect(draft).toContain("/learn/existing");
-    expect(draft).toContain("https://www.noaa.gov/");
-  });
 });
 
 function rec(

@@ -35,11 +35,11 @@ export function ExploreMoreLinks({ beach }: ExploreMoreLinksProps) {
     >
       {cards.map((card) => (
         <Link key={card.href} href={card.href} className={cardClass}>
-          <div className="flex-shrink-0 rounded-full border-2 border-[#11100D] bg-[#0B3A75] p-2 text-[#F4EBD8]">
+          <div className="flex-shrink-0 rounded-full border-2 border-[#11100D] bg-[#11100D] p-2 text-[#F4EBD8]">
             <card.icon className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="font-heading text-sm font-black uppercase text-[#11100D] transition-colors group-hover:text-[#0B3A75]">
+            <p className="font-heading text-sm font-black uppercase text-[#11100D] transition-colors group-hover:text-[#AA4918]">
               {card.title}
             </p>
             <p className="text-xs font-medium text-[#5F5646]">

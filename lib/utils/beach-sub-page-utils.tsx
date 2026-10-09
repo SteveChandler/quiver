@@ -24,6 +24,7 @@ import {
   buildDynamicWaterTempMetadata,
 } from "@/lib/seo/meta";
 import { getTideMetaData } from "@/lib/seo/tide-meta-data";
+import { FES2022_CITATION, MODEL_TIDE_SOURCE } from "@/lib/services/tides/model-tides";
 import { getWaterTempMetaData } from "@/lib/seo/water-temp-meta-data";
 import { notFound } from "next/navigation";
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
@@ -227,6 +228,7 @@ export async function renderBeachSubPage({
           nextHighHeight={tideMeta?.nextHighHeight ?? null}
           nextLowTime={tideMeta?.nextLowTime ?? null}
           nextLowHeight={tideMeta?.nextLowHeight ?? null}
+          source={tideMeta?.source ?? null}
         />
       )}
 
@@ -244,6 +246,11 @@ export async function renderBeachSubPage({
 
       {hasTideHero && tideMeta && (
         <TideSummaryHero beachName={beach.name} tideData={tideMeta} />
+      )}
+      {pageType === "tides" && tideMeta?.source === MODEL_TIDE_SOURCE && (
+        <p className="container mx-auto px-4 py-2 text-xs text-medium">
+          Modelled for this spot from the FES2022 global tide model, not measured at a tide station. Not for navigation. {FES2022_CITATION}
+        </p>
       )}
       {!hasTideHero && !hasWaterTempSummary && (
         <BeachSubPageCrawlIntro copy={crawlCopy} />

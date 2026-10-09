@@ -430,12 +430,7 @@ async function _GET(request: Request): Promise<Response> {
       throw new Error(`Failed to query enhanced_forecasts: ${forecastsError.message}`);
     }
 
-    const forecastsByBeachId = new Map<string, EnhancedForecastEntity[]>();
-    for (const forecast of (forecasts ?? []) as EnhancedForecastEntity[]) {
-      const rows = forecastsByBeachId.get(forecast.beach_id) ?? [];
-      rows.push(forecast);
-      forecastsByBeachId.set(forecast.beach_id, rows);
-    }
+    const forecastsByBeachId = Map.groupBy((forecasts ?? []) as EnhancedForecastEntity[], (forecast) => forecast.beach_id);
 
     const rawCandidates: Candidate[] = [];
     for (const target of targets.values()) {

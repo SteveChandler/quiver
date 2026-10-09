@@ -5,6 +5,7 @@ import {
   handleApiError,
 } from "@/lib/middleware/api-wrappers";
 import { buildCamEmbed, getViewableUrl, toProxiedHlsUrl } from "@/lib/media/cam-embed";
+import { toNativeCamEmbed } from "@/lib/media/native-cam-embed";
 
 interface BeachLookupRow {
   id: string;
@@ -28,11 +29,6 @@ function isBeachSlug(identifier: string): boolean {
   return BEACH_SLUG_PATTERN.test(identifier);
 }
 
-function createTimeoutSignal(milliseconds: number): AbortSignal | undefined {
-  if (typeof AbortSignal.timeout !== "function") return undefined;
-  return AbortSignal.timeout(milliseconds);
-}
-
 function isSurflineHlsUrl(url: string | null): url is string {
   if (!url) return false;
 
@@ -49,7 +45,7 @@ async function isSurflineHlsAvailable(url: string): Promise<boolean> {
     const response = await globalThis.fetch(url, {
       method: "HEAD",
       headers: SURFLINE_HEALTH_HEADERS,
-      signal: createTimeoutSignal(3000),
+      signal: AbortSignal.timeout(3000),
     });
 
     return response.status === 200;
@@ -197,7 +193,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
         try {
           const head = await fetch(cameraUrl, {
             method: "HEAD",
-            signal: createTimeoutSignal(3000),
+            signal: AbortSignal.timeout(3000),
           });
           const xfo = head.headers.get("x-frame-options");
           const csp = head.headers.get("content-security-policy");
@@ -221,6 +217,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
       cam_open_url: cameraUrl ? getViewableUrl(cameraUrl) : null,
       cam_thumbnail_url: cameraThumbnailUrl,
       cam_kind: camIntent.kind,
+      cam_embed: toNativeCamEmbed(camIntent),
     };
 
     // PERFORMANCE OPTIMIZATION: Cache sources for 30 minutes (1800s)

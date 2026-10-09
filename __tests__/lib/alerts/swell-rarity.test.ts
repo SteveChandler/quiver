@@ -2,11 +2,7 @@
  * @jest-environment node
  */
 
-import {
-  assessRarity,
-  buildEventKey,
-  type DayScore,
-} from "@/lib/alerts/swell-rarity";
+import { assessRarity, type DayScore } from "@/lib/alerts/swell-rarity";
 
 function day(
   localDate: string,
@@ -33,6 +29,17 @@ describe("assessRarity", () => {
       rarityLine: "Best in 30 days",
       historyDays: 31,
     });
+  });
+
+  it("never dates the line to an earlier go day that scored lower", () => {
+    const history = [day("2026-09-10", 50), day("2026-09-12", 72), day("2026-09-14", 55)];
+
+    expect(assessRarity({
+      peakDate: "2026-09-17",
+      history,
+      peakScore: 80,
+      peakGo: true,
+    }).rarityLine).toBe("Best in 7 days");
   });
 
   it("marks the first go after three flat days", () => {
@@ -89,17 +96,5 @@ describe("assessRarity", () => {
       rarityLine: "Best in 6 days",
       historyDays: 6,
     });
-  });
-});
-
-describe("buildEventKey", () => {
-  it("buckets adjacent peak dates together for the same lead beach", () => {
-    expect(buildEventKey({
-      peakDate: "2026-09-20",
-      leadBeachId: "beach-1",
-    })).toBe(buildEventKey({
-      peakDate: "2026-09-21",
-      leadBeachId: "beach-1",
-    }));
   });
 });

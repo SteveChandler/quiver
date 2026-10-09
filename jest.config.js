@@ -31,10 +31,6 @@ const customJestConfig = {
     "/__tests__/fixtures/",
     "<rootDir>/__tests__/helpers/",
     "/__fixtures__/",
-    // Example-only test docs (not part of the suite)
-    "<rootDir>/components/session/wizard/__tests__/",
-    // Shared helper modules imported by tests are not suites themselves
-    "<rootDir>/__tests__/helpers/",
     "<rootDir>/__tests__/performance/helpers/",
   ],
   // jest-haste-map scans __mocks__ regardless of testPathIgnorePatterns;
@@ -47,10 +43,7 @@ const customJestConfig = {
   ],
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/$1",
-    // Mock Supabase entirely for problematic component tests
-    "^@/lib/supabase/client$": "<rootDir>/__tests__/setup/mock-supabase.ts",
-    "^@/lib/supabase/server$": "<rootDir>/__tests__/setup/mock-supabase.ts",
-    "^@/lib/supabase$": "<rootDir>/__tests__/setup/mock-supabase.ts",
+    "^@neaps/tide-predictor$": "<rootDir>/node_modules/@neaps/tide-predictor/dist/index.js",
     // Mock the realtime module specifically
     "^@supabase/realtime-js$": "<rootDir>/__tests__/setup/mock-supabase.ts",
     // Mock canvas module that jsdom tries to require
@@ -64,7 +57,7 @@ const customJestConfig = {
   },
   // Add transformIgnorePatterns to handle ESM modules
   transformIgnorePatterns: [
-    "node_modules/(?!(@supabase|@supabase/.*/?|jose|uuid|date-fns|supercluster|kdbush|@vercel/speed-insights)/)",
+    "node_modules/(?!(@supabase|@supabase/.*/?|@neaps|jose|uuid|date-fns|supercluster|kdbush|@vercel/speed-insights)/)",
   ],
   // Add module file extensions
   moduleFileExtensions: ["js", "jsx", "ts", "tsx", "json"],
@@ -112,4 +105,12 @@ const customJestConfig = {
 };
 
 // createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async
-module.exports = createJestConfig(customJestConfig);
+// next/jest adds its own node_modules ignore pattern, which also skips @neaps/tide-predictor
+// (ESM-only), so that pattern has to let it through as well.
+module.exports = async () => {
+  const config = await createJestConfig(customJestConfig)();
+  config.transformIgnorePatterns = config.transformIgnorePatterns.map(
+    (pattern) => pattern.replace("(geist|", "(@neaps/tide-predictor|geist|")
+  );
+  return config;
+};

@@ -156,6 +156,38 @@ describe("ZineHero heading level", () => {
     expect(document.querySelector("strong")).not.toBeInTheDocument();
   });
 
+  it("leads with the beach photo in the media panel, not behind a disclosure", () => {
+    const beach = createMockBeach({ name: "Seaside Reef", city: "Cardiff", state: "CA" });
+
+    render(
+      <ZineHero
+        beach={beach}
+        beachPhoto={{
+          image_url: "/photo.jpg",
+          thumb_url: null,
+          source: "community",
+          creator_name: null,
+          license_code: null,
+          attribution_html: null,
+        }}
+      />,
+    );
+
+    const panel = screen.getByTestId("zine-hero-media");
+    expect(panel.closest("details")).toBeNull();
+    expect(screen.getByAltText("Seaside Reef, Cardiff, CA")).toBeInTheDocument();
+    expect(screen.getByText("Spot map")).toBeInTheDocument();
+  });
+
+  it("falls back to the spot map in the panel and drops the empty disclosure", () => {
+    render(<ZineHero beach={createMockBeach({ name: "Seaside Reef" })} />);
+
+    expect(screen.getByTestId("zine-hero-media")).toBeInTheDocument();
+    expect(screen.queryByText("Spot map")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Live cam/)).not.toBeInTheDocument();
+    expect(document.querySelector("details summary")?.textContent).not.toMatch(/map|cam/i);
+  });
+
   it("does not claim a lineup location on a beach photo", () => {
     render(
       <ZineHero

@@ -40,6 +40,7 @@ export interface TideHeightSample {
 export interface COOPSForecast {
   station_id: string;
   station_name: string;
+  source?: string | null;
   tides: TideData[];
   water_level: number | null; // Current water level in feet
   /**

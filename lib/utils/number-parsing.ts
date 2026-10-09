@@ -16,13 +16,6 @@ export function parseFloatSafe(value: unknown, fallback: number): number {
   return Number.isNaN(parsed) ? fallback : parsed;
 }
 
-export function parseIntSafe(value: unknown, fallback: number, radix: number = 10): number {
-  if (value === null || value === undefined) return fallback;
-  if (typeof value === 'number') return Number.isNaN(value) ? fallback : Math.trunc(value);
-  const parsed = parseInt(String(value), radix);
-  return Number.isNaN(parsed) ? fallback : parsed;
-}
-
 export function parseCoordinate(value: unknown, type?: 'lat' | 'lon'): number | null {
   if (value === null || value === undefined || value === '') return null;
   const parsed = parseFloat(String(value));

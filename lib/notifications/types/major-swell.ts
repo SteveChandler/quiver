@@ -31,6 +31,12 @@ const baseSchema = z.object({
   rarity: z.string().min(1).optional(),
   event_key: z.string().min(1).optional(),
   title_id: z.string().min(1).optional(),
+  // Follow-ups for the same swell. An absent kind means 'coming' (the first alert).
+  kind: z.enum(["coming", "bigger", "smaller", "moved", "dropped", "arrived"]).optional(),
+  share_url: z.string().url().optional(),
+  // What this user was last told; only on follow-ups.
+  previous_peak_height_ft: z.number().positive().optional(),
+  previous_peak_date: z.string().date().optional(),
 });
 
 const physicalEventSchema = {

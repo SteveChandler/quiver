@@ -57,7 +57,7 @@ export interface SwellWatchPolicy {
   } | null;
 }
 
-export interface ProductionPolicyAuthority {
+interface ProductionPolicyAuthority {
   policy_hash: string;
   approval_id: string;
   approval_evidence_hash: string;

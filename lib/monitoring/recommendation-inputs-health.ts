@@ -20,7 +20,7 @@ export interface RecommendationInputsReads {
   sessionsAwaitingConditions(now: Date): Promise<number>;
 }
 
-export interface RecommendationInputsHealth {
+interface RecommendationInputsHealth {
   status: HealthStatus;
   issues: string[];
   countyAgeMinutes: number | null;
@@ -113,7 +113,7 @@ export async function checkRecommendationInputsHealth(
   return result;
 }
 
-export function supabaseRecommendationInputsReads(): RecommendationInputsReads {
+function supabaseRecommendationInputsReads(): RecommendationInputsReads {
   const db = createSupabaseServiceRoleClient();
   return {
     async latestCountyRunAt() {

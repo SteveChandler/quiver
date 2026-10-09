@@ -69,13 +69,13 @@ export interface MockApiError {
   timestamp: string;
 }
 
-export interface MockApiSuccess<T = any> {
+interface MockApiSuccess<T = any> {
   success: true;
   data: T;
   timestamp: string;
 }
 
-export type MockApiResponse<T = any> = MockApiSuccess<T> | MockApiError;
+type MockApiResponse<T = any> = MockApiSuccess<T> | MockApiError;
 
 // Mock user factory following Supabase User interface
 export function createMockUser(overrides: Partial<User> = {}): User {
@@ -448,57 +448,6 @@ export function mockDatabaseError(
   });
 
   return mockClient;
-}
-
-// Validation test helpers
-export function testRequiredParameters(
-  routeHandler: (request: NextRequest, ...args: any[]) => Promise<Response>,
-  requiredParams: string[],
-  validRequest: any = {},
-  ...additionalArgs: any[]
-) {
-  return Promise.all(
-    requiredParams.map(async (param) => {
-      const invalidRequest = { ...validRequest };
-      delete invalidRequest[param];
-      
-      const request = createMockRequest("POST", "http://localhost:3000/api/test", {
-        body: invalidRequest,
-      });
-      
-      const response = await routeHandler(request, ...additionalArgs);
-      await expectErrorResponse(response, 400, param);
-    })
-  );
-}
-
-// Admin authorization test helper
-export function testAdminAuthorization(
-  routeHandler: (request: NextRequest, ...args: any[]) => Promise<Response>,
-  mockClient: any,
-  validRequest: any = {},
-  ...additionalArgs: any[]
-) {
-  return async () => {
-    // Test with non-admin user
-    mockAuthenticatedUser(mockClient, createMockUser());
-    
-    const request = createMockRequest("POST", "http://localhost:3000/api/admin/test", {
-      body: validRequest,
-    });
-    
-    const response = await routeHandler(request, ...additionalArgs);
-    await expectErrorResponse(response, 401, "Unauthorized");
-  };
-}
-
-// Rate limiting test helpers (for future use)
-export function createRateLimitHeaders(remaining: number = 0) {
-  return {
-    "X-RateLimit-Limit": "100",
-    "X-RateLimit-Remaining": remaining.toString(),
-    "X-RateLimit-Reset": (Date.now() + 60000).toString(),
-  };
 }
 
 // Test data factories for common entities

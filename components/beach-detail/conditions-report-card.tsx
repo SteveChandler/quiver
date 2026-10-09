@@ -119,10 +119,10 @@ export function ConditionsReportCard({
           <div className="pointer-events-none absolute inset-0" aria-hidden="true" data-testid="conditions-report-confetti">
             {[
               { x: -42, y: -30, rotate: -20, color: "var(--q-orange)" },
-              { x: 38, y: -34, rotate: 18, color: "var(--stamp-blue)" },
+              { x: 38, y: -34, rotate: 18, color: "var(--kicker-ink)" },
               { x: -50, y: 18, rotate: 28, color: "var(--hi-yellow)" },
               { x: 48, y: 20, rotate: -24, color: "var(--q-orange)" },
-              { x: -20, y: 42, rotate: 12, color: "var(--stamp-blue)" },
+              { x: -20, y: 42, rotate: 12, color: "var(--kicker-ink)" },
               { x: 20, y: 42, rotate: -12, color: "var(--hi-yellow)" },
             ].map((particle, index) => (
               <motion.span

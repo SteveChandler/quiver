@@ -101,6 +101,19 @@ describe('batchFetchForecasts', () => {
     mockBatchResults = new Map();
   });
 
+  describe('abort signal', () => {
+    it('forwards the signal as the fifth argument and keeps the existing call shape without one', async () => {
+      const controller = new AbortController();
+      await batchFetchForecasts([mockBeach1 as Beach], { allowStale: true, signal: controller.signal });
+      expect(getBatchFreshForecastsFromCache).toHaveBeenLastCalledWith(
+        ['beach-1'], 48, true, false, controller.signal,
+      );
+
+      await batchFetchForecasts([mockBeach1 as Beach]);
+      expect(getBatchFreshForecastsFromCache).toHaveBeenLastCalledWith(['beach-1'], 48, false);
+    });
+  });
+
   describe('successful forecast fetching', () => {
     it('should return successful forecasts for beaches with fresh data', async () => {
       mockBatchResults.set('beach-1', {
@@ -216,6 +229,31 @@ describe('batchFetchForecasts', () => {
       expect(result.failed).toHaveLength(1);
       expect(result.failed[0].stale).toBe(false);
       expect(result.failed[0].reason).toContain('No forecast data');
+      expect(result.staleCount).toBe(0);
+    });
+
+    it('should carry readFailed through so callers can tell a failed read from missing data', async () => {
+      mockBatchResults.set('beach-1', {
+        beachId: 'beach-1',
+        forecasts: [],
+        metadata: {
+          cached: false,
+          stale: false,
+          missing: true,
+          readFailed: true,
+          reason: 'Database error: statement timeout',
+        } as never,
+      });
+      mockBatchResults.set('beach-2', {
+        beachId: 'beach-2',
+        forecasts: [],
+        metadata: { cached: false, stale: false, missing: true, reason: 'No forecast data in cache' },
+      });
+
+      const result = await batchFetchForecasts([mockBeach1 as Beach, mockBeach2 as Beach]);
+
+      expect(result.failed.find((f) => f.beach.id === 'beach-1')?.readFailed).toBe(true);
+      expect(result.failed.find((f) => f.beach.id === 'beach-2')).not.toHaveProperty('readFailed');
       expect(result.staleCount).toBe(0);
     });
 

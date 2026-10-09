@@ -134,6 +134,15 @@ describe("Middleware", () => {
     expect(matcher.test("/surf-game/assets/index-abc123.js")).toBe(false);
   });
 
+  test("excludes the PostHog reverse proxy from the proxy matcher", () => {
+    const matcher = new RegExp(`^${config.matcher[0]}$`);
+
+    expect(matcher.test("/ingest/flags/")).toBe(false);
+    expect(matcher.test("/ingest/i/v0/e/")).toBe(false);
+    expect(matcher.test("/ingest/s/")).toBe(false);
+    expect(matcher.test("/ingestion-guide")).toBe(true);
+  });
+
   test("serves the static surf game at /surf-game via rewrite", async () => {
     for (const pathname of ["/surf-game", "/surf-game/"]) {
       mockRewrite.mockClear();

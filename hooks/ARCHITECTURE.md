@@ -44,7 +44,6 @@ hooks/
 ├── use-mobile.tsx                   # Mobile device detection
 ├── use-toast.ts                     # Toast notification system
 ├── use-form-submission.ts           # Form handling and submission
-├── use-personalization-milestones.ts # Personalization milestone toasts
 ```
 
 ## **ARCHITECTURE PATTERNS**
@@ -321,101 +320,6 @@ export function useEnhancedForecast({
 - **Return value**: `discovery`, `loading`, `error`, `refetch`, `hasRecommendations`, and cache migration helpers
 - **Authentication**: Requires an authenticated user
 
-### **useInsights** (Personalized Insights Hook) - December 2025
-
-- **Purpose**: Fetch personalized insights comparing forecast conditions to user's session history
-- **Location**: `hooks/use-insights.ts`
-- **Features**:
-  - Automatic fetching when enabled with valid beach and conditions
-  - Three states: ready (>=3 sessions), onboarding (<3 sessions), degraded (no snapshots)
-  - Similar sessions list with match percentages
-  - Board recommendations when pattern detected
-  - Match quality labels (Perfect/Great/Good/Low)
-
-**TypeScript Interface:**
-
-```typescript
-interface UseInsightsOptions extends SimilarityInsightsInput {
-  beachId: string; // Beach UUID
-  beachName: string; // Beach name
-  waveHeight: number; // Wave height in feet
-  wavePeriod: number; // Wave period in seconds
-  windSpeed: number; // Wind speed in mph
-  windDirection?: number; // Wind direction in degrees (optional)
-  tideHeight?: number; // Tide height in feet (optional)
-  tideStatus?: string; // Tide status (optional)
-  windowStart?: string; // ISO timestamp (optional)
-  enabled?: boolean; // Whether hook is enabled (default: true)
-}
-
-interface UseInsightsReturn {
-  insights: PersonalizedInsights | null; // Insights data
-  loading: boolean; // Loading state
-  error: string | null; // Error message
-  refetch: () => Promise<void>; // Manual refetch function
-}
-```
-
-**Usage Example:**
-
-```typescript
-function PersonalizedForecastCard({ recommendation }) {
-  const { insights, loading, error } = useInsights({
-    beachId: recommendation.beach.id,
-    beachName: recommendation.beach.name,
-    waveHeight: parseWaveHeight(recommendation.window.waveHeight),
-    wavePeriod: parseWavePeriod(recommendation.window.wavePeriod),
-    windSpeed: parseWindSpeed(recommendation.window.wind),
-    windDirection: 270, // SW wind
-    enabled: !!recommendation,
-  });
-
-  if (loading) return <InsightsLoader />;
-  if (error) return <InsightsError message={error} />;
-  if (!insights || insights.state === "onboarding")
-    return <OnboardingMessage />;
-
-  return (
-    <div>
-      <Badge>
-        {insights.label} ({insights.matchPercent}%)
-      </Badge>
-      {insights.reasonBullets.map((reason) => (
-        <p key={reason}>{reason}</p>
-      ))}
-      {insights.boardTip && <BoardTip text={insights.boardTip} />}
-      {insights.similarSessions.length > 0 && (
-        <Button onClick={() => setDrawerOpen(true)}>
-          View {insights.similarSessions.length} similar sessions
-        </Button>
-      )}
-    </div>
-  );
-}
-```
-
-**Data Flow:**
-
-1. Hook validates required parameters (beachId, beachName, wave/wind data)
-2. Constructs query params with required + optional conditions
-3. Fetches from `/api/surf/insights?beachId=...&waveHeight=...`
-4. Parses response into PersonalizedInsights type
-5. Provides loading/error/data states via useDataFetcher pattern
-
-**Performance:**
-
-- Respects useDataFetcher caching patterns
-- Private per-user API caching (5 minutes)
-- Skip fetch when conditions invalid or user not authenticated
-- Automatic refetch capability for manual refresh
-
-**Integration:**
-
-- Used by `PersonalizedForecastCard` component
-- Drives similar sessions drawer display
-- Provides board recommendation UI
-- Shows match quality indicators
-
 ### **Utility Hooks**
 
 #### **useScrollToElement** (Smooth Scrolling)
@@ -618,47 +522,6 @@ export function useFormSubmission(options: UseFormSubmissionOptions = {}) {
   };
 }
 ```
-
-#### **usePersonalizationMilestones** (Personalization Milestone Toasts)
-
-- **Purpose**: Fetches unshown personalization milestones and displays them as Sonner toast notifications
-- **Location**: `hooks/use-personalization-milestones.ts`
-- **Signature**: `usePersonalizationMilestones(isAuthenticated: boolean): void`
-- **Features**:
-  - Max 2 toasts per visit, staggered (2s initial delay, 1.5s between)
-  - Marks milestones as shown via PATCH after display
-  - Prevents double-fire in React strict mode via hasRun ref
-  - Silent failure (non-critical feature)
-  - Returns void (side-effect only hook)
-
-**Usage Example:**
-
-```typescript
-function HomeScreen() {
-  const { user } = useAuth();
-
-  // Display milestone toasts for authenticated users
-  usePersonalizationMilestones(!!user);
-
-  return <div>Home content...</div>;
-}
-```
-
-**Integration:**
-
-- Related service: `lib/services/personalization-milestone-service.ts`
-- Constants: `lib/constants/personalization-milestones.ts`
-- Messaging utils: `lib/utils/personalization-messaging.ts`
-- API endpoint: `/api/me/milestones` (GET for fetching, PATCH for marking shown)
-- Toast library: Sonner (via `use-toast.ts`)
-
-**Implementation Notes:**
-
-- Uses `useRef` to prevent double-execution in React strict mode
-- Fetches unshown milestones on mount when authenticated
-- Displays up to 2 milestones with progressive delays
-- Marks milestones as shown after toast display
-- Gracefully handles API errors without user disruption
 
 ## **PERFORMANCE OPTIMIZATIONS**
 

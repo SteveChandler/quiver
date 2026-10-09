@@ -25,7 +25,7 @@ import {
   FormLabel,
 } from "@/components/ui/form";
 import { FormSwitch } from "@/components/ui/form-fields";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 import { updateProfile } from "@/actions/profile-actions";
 import { BeachSelector } from "@/components/BeachSelector";
 import {
@@ -149,17 +149,10 @@ export function ProfilePreferences({
         target_user_id: userId,
       });
       if (error) throw error;
-      toast({
-        title: 'Browsing data cleared',
-        description: 'Your activity history has been deleted.',
-      });
+      toast('Browsing data cleared', { description: 'Your activity history has been deleted.' });
     } catch (err) {
       console.error('Error clearing browsing data:', err);
-      toast({
-        title: 'Failed to clear data',
-        description: 'Please try again later.',
-        variant: 'destructive',
-      });
+      toast.error('Failed to clear data', { description: 'Please try again later.' });
     } finally {
       setIsClearing(false);
     }
@@ -201,10 +194,7 @@ export function ProfilePreferences({
         }
       }
 
-      toast({
-        title: "Preferences updated",
-        description: "Your profile preferences have been updated.",
-      });
+      toast("Preferences updated", { description: "Your profile preferences have been updated." });
 
       // Call onSaveComplete callback if provided, otherwise navigate
       if (onSaveComplete) {
@@ -216,11 +206,7 @@ export function ProfilePreferences({
       }
     } catch (error) {
       console.error("Error updating preferences:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update preferences. Please try again.",
-        variant: "destructive",
-      });
+      toast.error("Error", { description: "Failed to update preferences. Please try again." });
     } finally {
       setIsSubmitting(false);
     }

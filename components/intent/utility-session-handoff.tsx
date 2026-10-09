@@ -115,7 +115,7 @@ export function UtilitySessionHandoff({
       className="relative overflow-hidden rounded-2xl border border-[#11100D]/15 bg-[#FBF6E8] p-5 text-[#11100D] shadow-[0_16px_36px_rgba(17,16,13,0.12)]"
       role="region"
     >
-      <div className="pointer-events-none absolute right-4 top-3 hidden rotate-2 sm:block">
+      <div className="pointer-events-none absolute right-4 top-3 hidden sm:block">
         <Image
           alt=""
           aria-hidden="true"

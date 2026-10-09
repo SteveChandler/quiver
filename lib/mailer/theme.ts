@@ -18,23 +18,17 @@ export const CANVAS = "#252D6B"; // Deep Twilight — outer canvas + hero
 export const MAST = "#1A1F4D"; // darker twilight — masthead bar
 export const CARD = "#2D357D"; // card surface
 export const SURFACE = "#354090"; // elevated surface / cells
-export const SURFACE_HIGH = "#3A4896"; // higher elevation
-export const ROW = "#2F3880"; // list-row surface
 export const BORDER = "#404C92"; // card borders / dividers
 
 export const ORANGE = "#F78E42"; // Charming Orange — CTA / actions only
 export const ORANGE_INK = "#3A1C02"; // dark text on orange
 export const GOLD = "#FDB84B"; // Paradise Gold — achievement / best-of flags
 export const GOLD_INK = "#3A2A06"; // dark text on gold
-export const TEAL = "#00D4AA"; // Pacific Teal — data highlights / "worth it"
-export const CORAL = "#FF6B5C"; // danger / high rip risk / closure
-export const GRAY = "#888780"; // muted verdict (RIDEABLE / MEH)
 
 export const CREAM = "#F5EEDC"; // hero / display text
 export const CREAM_MUTED = "rgba(245,238,220,0.62)";
 export const TEXT = "#F0F0F0"; // primary body text
 export const MUTED = "#B8C7E0"; // secondary text
-export const INK = "#0F1330"; // dark text on bright chips
 
 // Cut-paper zine panels (cream on twilight). Text on cream uses dark twilight
 // ink, never the cream/muted text colors above.

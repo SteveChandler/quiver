@@ -1,13 +1,4 @@
-import {
-  SESSION_PHOTO_ACCEPTED_MIME_TYPES,
-  SESSION_PHOTO_ACCEPT_ATTRIBUTE,
-  SESSION_PHOTO_MAX_INPUT_BYTES,
-  SESSION_PHOTO_MAX_PER_SESSION,
-  SESSION_PHOTO_MAX_STORAGE_BYTES,
-  validateSessionPhotoFile,
-  validateSessionPhotoInput,
-  validateSessionPhotoStorage,
-} from "@/lib/media/session-photo-policy";
+import { SESSION_PHOTO_ACCEPTED_MIME_TYPES, SESSION_PHOTO_ACCEPT_ATTRIBUTE, SESSION_PHOTO_MAX_INPUT_BYTES, SESSION_PHOTO_MAX_PER_SESSION, validateSessionPhotoInput } from "@/lib/media/session-photo-policy";
 
 describe("session photo upload policy", () => {
   it("keeps the accepted MIME types and browser accept value in sync", () => {
@@ -36,29 +27,5 @@ describe("session photo upload policy", () => {
         size: SESSION_PHOTO_MAX_INPUT_BYTES + 1,
       }),
     ).toBe("file_too_large");
-  });
-
-  it("accepts storage at 5 MiB and rejects larger uncompressed storage", () => {
-    expect(
-      validateSessionPhotoStorage({
-        type: "image/webp",
-        size: SESSION_PHOTO_MAX_STORAGE_BYTES,
-      }),
-    ).toBeNull();
-    expect(
-      validateSessionPhotoStorage({
-        type: "image/webp",
-        size: SESSION_PHOTO_MAX_STORAGE_BYTES + 1,
-      }),
-    ).toBe("file_too_large");
-  });
-
-  it("rejects unsupported MIME types at either validation boundary", () => {
-    expect(
-      validateSessionPhotoFile({ type: "image/gif", size: 1 }),
-    ).toBe("invalid_file_type");
-    expect(
-      validateSessionPhotoStorage({ type: "image/gif", size: 1 }),
-    ).toBe("invalid_file_type");
   });
 });

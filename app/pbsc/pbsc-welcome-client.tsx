@@ -18,10 +18,13 @@ import {
   useMemo,
   useRef,
   useState,
+  type MouseEvent,
   type ReactElement,
 } from "react";
 
 import { ZineSurface } from "@/components/zine";
+import { createClientAppHandoffLink } from "@/lib/analytics/app-handoff-link";
+import { trackIosAppCtaClick } from "@/lib/analytics/ios-app-cta-tracking";
 import { buildAppHandoffPath } from "@/lib/constants/app-handoff";
 import { cn } from "@/lib/utils";
 
@@ -74,15 +77,16 @@ const VIDEO_POSTER = `data:image/svg+xml;utf8,${encodeURIComponent(`
 </svg>
 `)}`;
 
+const PBSC_HANDOFF_PARAMS = {
+  source: "pbsc-flyer",
+  surface: "pbsc-page",
+  utm_source: "pbsc_qr",
+  utm_medium: "flyer",
+  utm_campaign: "pbsc_2026",
+} as const;
+
 function buildPbscHandoffHref(placement: PbscPlacement): string {
-  return buildAppHandoffPath({
-    source: "pbsc-flyer",
-    surface: "pbsc-page",
-    placement,
-    utm_source: "pbsc_qr",
-    utm_medium: "flyer",
-    utm_campaign: "pbsc_2026",
-  });
+  return buildAppHandoffPath({ ...PBSC_HANDOFF_PARAMS, placement });
 }
 
 function getWordTransition(
@@ -109,11 +113,33 @@ function GetAppCta({
   const label = CTA_LABELS[platform];
   const href = useMemo(() => buildPbscHandoffHref(placement), [placement]);
 
+  const handleClick = (event: MouseEvent<HTMLAnchorElement>): void => {
+    // Only iPhone taps are install-intent clicks; Android and desktop visitors
+    // are routed by /app/handoff and have no App Store tap to count.
+    if (platform !== "ios") return;
+    const handoff = createClientAppHandoffLink({
+      ...PBSC_HANDOFF_PARAMS,
+      placement,
+    });
+    const url = new URL(handoff.url);
+    // Keep the href relative so it stays on the current host.
+    event.currentTarget.href = url.pathname + url.search;
+    trackIosAppCtaClick({
+      source: PBSC_HANDOFF_PARAMS.source,
+      surface: PBSC_HANDOFF_PARAMS.surface,
+      placement,
+      cta_text: label,
+      destination_url: handoff.url,
+      handoff_id: handoff.handoffId,
+    });
+  };
+
   return (
     <motion.a
       href={href}
+      onClick={handleClick}
       className={cn(
-        "inline-flex min-h-12 items-center justify-center gap-3 rounded-[14px_4px_16px_6px] border-2 border-[#11100D] bg-[#F78E42] px-5 py-3 font-heading text-base font-black uppercase leading-none text-[#11100D] shadow-[5px_5px_0_rgba(17,16,13,0.32)] transition-colors hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#252D6B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4EBD8]",
+        "inline-flex min-h-12 items-center justify-center gap-3 rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-3 font-heading text-base font-black uppercase leading-none text-[#11100D] shadow-[5px_5px_0_rgba(17,16,13,0.32)] transition-colors hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#252D6B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4EBD8]",
         className,
       )}
       whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
@@ -185,8 +211,8 @@ function VideoModule(): ReactElement {
         </p>
       </div>
 
-      <div className="relative mx-auto w-full max-w-[330px] -rotate-1 border-2 border-[#11100D] bg-[#11100D] p-2 shadow-[10px_10px_0_rgba(247,142,66,0.42)] sm:max-w-[360px] lg:max-w-[340px]">
-        <div className="absolute -left-4 -top-4 z-10 rotate-2 rounded-[12px_4px_14px_6px] border-2 border-[#11100D] bg-[#F4EBD8] px-3 py-2 font-mono text-xs font-bold uppercase leading-tight text-[#11100D] shadow-[3px_3px_0_rgba(17,16,13,0.25)]">
+      <div className="relative mx-auto w-full max-w-[330px] border-2 border-[#11100D] bg-[#11100D] p-2 shadow-[10px_10px_0_rgba(247,142,66,0.42)] sm:max-w-[360px] lg:max-w-[340px]">
+        <div className="absolute -left-4 -top-4 z-10 rounded-[12px_4px_14px_6px] border-2 border-[#11100D] bg-[#F4EBD8] px-3 py-2 font-mono text-xs font-bold uppercase leading-tight text-[#11100D] shadow-[3px_3px_0_rgba(17,16,13,0.25)]">
           Buoy loop
         </div>
         <div
@@ -256,7 +282,7 @@ export function PbscWelcomeClient({
         <section className="relative grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
           <div
             aria-hidden
-            className="absolute -right-10 top-5 hidden h-6 w-44 rotate-3 opacity-80 sm:block"
+            className="absolute -right-10 top-5 hidden h-6 w-44 opacity-80 sm:block"
             style={{
               backgroundImage:
                 "linear-gradient(45deg,#11100D 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#11100D 75%),linear-gradient(45deg,transparent 75%,#11100D 75%),linear-gradient(45deg,#11100D 25%,#F4EBD8 25%)",
@@ -267,7 +293,7 @@ export function PbscWelcomeClient({
 
           <div className="relative">
             <motion.div
-              className="mb-5 inline-flex rotate-2 items-center gap-2 rounded-[16px_5px_18px_7px] border-2 border-[#11100D] bg-[#F78E42] px-4 py-2 font-mono text-xs font-bold uppercase leading-tight text-[#11100D] shadow-[4px_4px_0_rgba(17,16,13,0.3)]"
+              className="mb-5 inline-flex items-center gap-2 rounded-[16px_5px_18px_7px] border-2 border-[#11100D] bg-[#F78E42] px-4 py-2 font-mono text-xs font-bold uppercase leading-tight text-[#11100D] shadow-[4px_4px_0_rgba(17,16,13,0.3)]"
               initial={
                 shouldReduceMotion
                   ? { opacity: 0, y: 0, rotate: 2 }
@@ -361,7 +387,7 @@ export function PbscWelcomeClient({
                 : { type: "spring", stiffness: 170, damping: 20, delay: 0.82 }
             }
           >
-            <div className="absolute -right-3 -top-3 rotate-3 rounded-[12px_5px_14px_4px] border-2 border-[#11100D] bg-[#252D6B] px-3 py-2 font-mono text-xs font-bold uppercase text-[#F4EBD8] shadow-[3px_3px_0_rgba(247,142,66,0.55)]">
+            <div className="absolute -right-3 -top-3 rounded-[12px_5px_14px_4px] border-2 border-[#11100D] bg-[#252D6B] px-3 py-2 font-mono text-xs font-bold uppercase text-[#F4EBD8] shadow-[3px_3px_0_rgba(247,142,66,0.55)]">
               Straight off the flyer
             </div>
             <p className="typewriter flex items-center gap-2">

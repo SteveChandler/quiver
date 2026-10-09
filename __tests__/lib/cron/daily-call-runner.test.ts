@@ -4,8 +4,10 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PoolBeach } from "@/lib/alerts/user-pool";
+import type { ForecastVerdict } from "@/lib/alerts/canonical-forecast-verdict";
 import {
   buildComparisonLine,
+  groupGoForecasts,
   rankCandidates,
   runDailyCallCron,
   type DailyCallCandidate,
@@ -271,6 +273,29 @@ describe("runDailyCallCron", () => {
       }),
       supabase,
     );
+  });
+});
+
+describe("groupGoForecasts", () => {
+  // Local 08:00, 11:00, 14:00, 17:00 PDT on the 3-hourly grid.
+  const at = (hour: number): string => new Date(Date.UTC(2026, 8, 16, hour + 7)).toISOString();
+  const row = (hour: number, verdict: ForecastVerdict["verdict"]): ForecastVerdict =>
+    ({ forecast: { id: `h${hour}`, forecast_at: at(hour) }, verdict, score: 80 }) as unknown as ForecastVerdict;
+  const ids = (groups: ForecastVerdict[][]): string[][] => groups.map((group) => group.map(({ forecast }) => forecast.id));
+
+  it("joins consecutive 3-hourly go rows into one run", () => {
+    expect(ids(groupGoForecasts([row(8, "go"), row(11, "go"), row(14, "go"), row(17, "no")])))
+      .toEqual([["h8", "h11", "h14"]]);
+  });
+
+  it("ends a run at a non-go row", () => {
+    expect(ids(groupGoForecasts([row(8, "go"), row(9, "maybe"), row(10, "go")])))
+      .toEqual([["h8"], ["h10"]]);
+  });
+
+  it("ends a run at a missing grid row", () => {
+    expect(ids(groupGoForecasts([row(8, "go"), row(14, "go")])))
+      .toEqual([["h8"], ["h14"]]);
   });
 });
 

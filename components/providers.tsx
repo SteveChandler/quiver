@@ -5,7 +5,6 @@ import { useEffect, useState, type ReactNode } from "react";
 import { AuthProvider, useAuth } from "@/context/auth-context";
 import { ProfileProvider } from "@/context/profile-context";
 import { LocationProvider } from "@/context/location-context";
-import { SelectedBeachProvider } from "@/state/selectedBeach";
 import { Suspense } from "react";
 import { AnalyticsLoader } from "@/components/analytics/analytics-loader";
 import { PostHogProvider } from "@/components/analytics/posthog-provider";
@@ -22,10 +21,6 @@ const GoogleOneTap = dynamic(
 );
 
 // Dynamic imports for analytics components
-const GoogleAnalytics = dynamic(
-  () => import("@/components/analytics/google-analytics"),
-  { ssr: false }
-);
 const PWAAndPushListeners = dynamic(
   () => import("@/components/analytics/pwa-and-push-listeners"),
   { ssr: false }
@@ -53,10 +48,9 @@ const ClientErrorTracker = dynamic(
 );
 
 // Toast systems
-import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import { AppHeader } from "@/components/app-header";
-import { IphoneAppBanner } from "@/components/app-store/iphone-app-banner";
+import { IphoneAppBannerGate } from "@/components/app-store/iphone-app-banner-gate";
 import { TimezoneCapture } from "@/components/profile/timezone-capture";
 
 /**
@@ -155,9 +149,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
     return <EmbedBodyOverride>{children}</EmbedBodyOverride>;
   }
 
-  // Note: We keep SelectedBeachProvider mounted even on "/"
-  // so back/forward navigation doesn't destroy client caches and force refetches.
-
   return (
     <>
       {/* Auto-reload on stale chunk errors after deployments */}
@@ -191,21 +182,15 @@ export function Providers({ children }: { children: React.ReactNode }) {
             {/* Auth-only overlays (do not mount when logged out) */}
             <AuthOverlays />
 
-            <SelectedBeachProvider>
-              {isWelcomePage ? (
-                /* Welcome/onboarding — full-screen, no nav or footer */
-                <>{children}</>
-              ) : !isLandingPage ? (
-                <AuthenticatedAppContent>
-                  {children}
-                </AuthenticatedAppContent>
-              ) : (
-                /* Landing Page Optimized Path */
-                <LandingPageContent>
-                  {children}
-                </LandingPageContent>
-              )}
-            </SelectedBeachProvider>
+            {isWelcomePage ? (
+              /* Welcome/onboarding — full-screen, no nav or footer */
+              <>{children}</>
+            ) : !isLandingPage ? (
+              <AuthenticatedAppContent>{children}</AuthenticatedAppContent>
+            ) : (
+              /* Landing Page Optimized Path */
+              <LandingPageContent>{children}</LandingPageContent>
+            )}
           </ProfileProvider>
         </AuthProvider>
       </LocationProvider>
@@ -221,19 +206,15 @@ function AuthenticatedAppContent({
   return (
     <>
       <Suspense fallback={null}>
-        <GoogleAnalytics />
-      </Suspense>
-      <Suspense fallback={null}>
         <PWAAndPushListeners />
       </Suspense>
       <Suspense fallback={null}>
         <AppHeader />
       </Suspense>
-      <IphoneAppBanner />
+      <IphoneAppBannerGate />
       <main id="main-content" role="main">
         {children}
       </main>
-      <Toaster />
       <SonnerToaster />
       {/* Confetti script for E2E */}
       <script
@@ -261,7 +242,7 @@ function LandingPageContent({
       <Suspense fallback={null}>
         <AppHeader />
       </Suspense>
-      <IphoneAppBanner />
+      <IphoneAppBannerGate />
       {/* PWA SW registration/unregistration (runtime-controlled; never on localhost) */}
       <Suspense fallback={null}>
         <PWAAndPushListeners />
@@ -273,7 +254,6 @@ function LandingPageContent({
         Minimal toasts for landing page interactions 
         (e.g. auth errors on login form)
       */}
-      <Toaster />
       <SonnerToaster />
     </>
   );

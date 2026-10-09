@@ -1,3 +1,4 @@
+import { JsonLd } from "@/components/seo/funnel/JsonLd";
 /**
  * Offshore Wind Checker — /tools/wind-checker
  *
@@ -95,10 +96,7 @@ export default async function WindCheckerPage({ searchParams }: Props) {
         ]}
       />
       <FAQSchema items={WIND_FAQ_ITEMS} />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+      <JsonLd data={{
             "@context": "https://schema.org",
             "@type": "WebApplication",
             name: "Quiver Offshore Wind Checker",
@@ -113,9 +111,7 @@ export default async function WindCheckerPage({ searchParams }: Props) {
               name: "Quiver",
               url: SITE_URL,
             },
-          }),
-        }}
-      />
+          }} />
       <div className="min-h-screen" style={{ background: "#0F1535" }}>
         <WindCheckerClient
           initialData={initialData}

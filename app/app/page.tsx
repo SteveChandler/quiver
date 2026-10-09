@@ -5,6 +5,10 @@ import { redirect } from "next/navigation";
 import { getFirstTouchPlatform } from "@/lib/analytics/web-context";
 import { logAppHandoffLinkOpenedServer } from "@/lib/analytics/app-handoff-server";
 import {
+  classifyHandoffRequest,
+  type HandoffTrafficSignals,
+} from "@/lib/analytics/app-handoff-traffic";
+import {
   APP_FIRST_CAMPAIGN,
   buildAppHandoffUrl,
   iosAppStoreUrlWithCampaign,
@@ -16,7 +20,7 @@ import {
 import { buildAndroidBetaHandoffPath } from "@/lib/install-attribution";
 import { parseUserAgent } from "@/lib/utils/user-agent-parser";
 import { DesktopHandoff } from "./desktop-handoff";
-import { isValidUUID } from "@/lib/utils/validation";
+import { isUuid } from "@/lib/utils/validation";
 
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
@@ -35,9 +39,25 @@ function readSource(searchParams: Awaited<SearchParams>): string {
   return value ?? "app_handoff_route";
 }
 
-function resolveHandoffId(searchParams: Awaited<SearchParams>): string {
+function resolveHandoffId(searchParams: Awaited<SearchParams>): {
+  handoffId: string;
+  fromUrl: boolean;
+} {
   const handoffId = readFirstParam(searchParams, "handoff_id");
-  return handoffId && isValidUUID(handoffId) ? handoffId : crypto.randomUUID();
+  if (handoffId && isUuid(handoffId)) return { handoffId, fromUrl: true };
+  return { handoffId: crypto.randomUUID(), fromUrl: false };
+}
+
+function classifyTraffic(
+  requestHeaders: Awaited<ReturnType<typeof headers>>,
+  handoffIdInUrl: boolean,
+): HandoffTrafficSignals | null {
+  try {
+    return classifyHandoffRequest({ headers: requestHeaders, handoffIdInUrl });
+  } catch {
+    // Classification is measurement only; the redirect must never depend on it.
+    return null;
+  }
 }
 
 function buildHandoffMetadata(
@@ -124,19 +144,24 @@ export default async function AppHandoffPage({
   const userAgent = requestHeaders.get("user-agent") ?? "";
   const host = requestHeaders.get("host") ?? "www.quiversurf.app";
   const platform = getFirstTouchPlatform(userAgent);
-  const handoffId = resolveHandoffId(sp);
+  const { handoffId, fromUrl } = resolveHandoffId(sp);
+  const traffic = classifyTraffic(requestHeaders, fromUrl);
 
   const logOpen = (destination: { type: string; url: string }): Promise<void> =>
     logAppHandoffLinkOpenedServer({
       sessionId: handoffId,
-      metadata: buildHandoffMetadata(
-        sp,
-        handoffId,
-        platform,
-        host,
-        userAgent,
-        destination,
-      ),
+      metadata: {
+        ...buildHandoffMetadata(
+          sp,
+          handoffId,
+          platform,
+          host,
+          userAgent,
+          destination,
+        ),
+        ...traffic?.metadata,
+      },
+      botFlagged: traffic?.botFlagged,
     });
 
   if (platform === "ios") {

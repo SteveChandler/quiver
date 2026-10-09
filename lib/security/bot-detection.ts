@@ -11,8 +11,6 @@
  * - API endpoint hammering
  */
 
-import { NextRequest } from "next/server";
-
 /**
  * Bot User-Agent patterns to BLOCK
  * These bots hammer APIs and pollute analytics
@@ -93,10 +91,12 @@ export interface BotDetectionResult {
 /**
  * Detect if request is from a bot
  *
- * @param request - NextRequest object
+ * @param request - NextRequest, or anything exposing readable headers
  * @returns BotDetectionResult with detection details
  */
-export function detectBot(request: NextRequest): BotDetectionResult {
+export function detectBot(request: {
+  headers: { get(name: string): string | null };
+}): BotDetectionResult {
   const userAgent = (request.headers.get("user-agent") || "").toLowerCase();
   const acceptLanguage = request.headers.get("accept-language");
 

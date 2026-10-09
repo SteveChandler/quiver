@@ -22,7 +22,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -49,7 +49,6 @@ import { format } from "date-fns";
 
 export default function ReviewsAdminPage() {
   const router = useRouter();
-  const { toast } = useToast();
 
   // State
   const [showDeleted, setShowDeleted] = useState(false);
@@ -108,20 +107,12 @@ export default function ReviewsAdminPage() {
 
     try {
       await softDeleteReview(reviewToDelete.id);
-      toast({
-        title: "Review deleted",
-        description: `Review for ${reviewToDelete.beach_name} has been soft deleted.`,
-      });
+      toast("Review deleted", { description: `Review for ${reviewToDelete.beach_name} has been soft deleted.` });
       refetchReviews();
       refetchStats();
       setReviewToDelete(null);
     } catch (error) {
-      toast({
-        title: "Error",
-        description:
-          error instanceof Error ? error.message : "Failed to delete review",
-        variant: "destructive",
-      });
+      toast.error("Error", { description: error instanceof Error ? error.message : "Failed to delete review" });
     }
   };
 
@@ -130,20 +121,12 @@ export default function ReviewsAdminPage() {
 
     try {
       await restoreReview(reviewToRestore.id);
-      toast({
-        title: "Review restored",
-        description: `Review for ${reviewToRestore.beach_name} has been restored.`,
-      });
+      toast("Review restored", { description: `Review for ${reviewToRestore.beach_name} has been restored.` });
       refetchReviews();
       refetchStats();
       setReviewToRestore(null);
     } catch (error) {
-      toast({
-        title: "Error",
-        description:
-          error instanceof Error ? error.message : "Failed to restore review",
-        variant: "destructive",
-      });
+      toast.error("Error", { description: error instanceof Error ? error.message : "Failed to restore review" });
     }
   };
 

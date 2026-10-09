@@ -58,7 +58,7 @@ export function InstallAppCtaSection({
   return (
     <section
       aria-label="Get the Quiver app"
-      className="install-cta my-8 w-full -rotate-1 rounded-lg rounded-tr-3xl border-2 border-[#11100D] bg-[#F4EBD8] p-5 shadow-[4px_5px_0_rgba(17,16,13,0.85)] md:rotate-0"
+      className="install-cta my-8 w-full rounded-lg rounded-tr-3xl border-2 border-[#11100D] bg-[#F4EBD8] p-5 shadow-[4px_5px_0_rgba(17,16,13,0.85)]"
     >
       {beachName ? (
         <p className="install-cta-eyebrow truncate font-sans text-[11px] font-semibold tracking-wide text-[#11100D]/65 uppercase">
@@ -96,7 +96,7 @@ export function InstallAppCtaSection({
         source={source}
         surface={surface}
         placement={placement}
-        className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#F78E42] px-6 py-3 font-sans text-sm font-bold text-[#11100D] shadow-[2px_3px_0_rgba(17,16,13,0.22)] transition hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0B3A75] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4EBD8]"
+        className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#F78E42] px-6 py-3 font-sans text-sm font-bold text-[#11100D] shadow-[2px_3px_0_rgba(17,16,13,0.22)] transition hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4EBD8]"
       />
     </section>
   );

@@ -19,6 +19,7 @@ import type {
 import { formatWindSpeed } from "@/lib/formatters/surf-data";
 import { normalizeAngle } from "@/lib/domains/shared/angle-utils";
 import { parseWindSpeedOrNull } from "@/lib/utils/number-parsing";
+import { degreeToCardinal } from "@/lib/utils/geo-utils";
 
 export { normalizeAngle };
 
@@ -33,21 +34,6 @@ const UNKNOWN_WIND: WindMetrics = {
   offshore: false,
   description: "N/A",
 };
-
-/**
- * Convert degrees to cardinal direction
- */
-function degreesToCardinal(degrees: number): string {
-  const normalized = normalizeAngle(degrees);
-  const directions = [
-    "N", "NNE", "NE", "ENE",
-    "E", "ESE", "SE", "SSE",
-    "S", "SSW", "SW", "WSW",
-    "W", "WNW", "NW", "NNW"
-  ];
-  const index = Math.round(normalized / 22.5) % 16;
-  return directions[index];
-}
 
 /**
  * Calculate if wind is offshore relative to beach orientation
@@ -129,7 +115,7 @@ export function windAt(
   return {
     speed: Math.round(windSpeed),
     direction: hasDirection ? Math.round(windDir) : 0,
-    cardinal: hasDirection ? degreesToCardinal(windDir) : "N/A",
+    cardinal: hasDirection ? degreeToCardinal(windDir) : "N/A",
     offshore,
     description,
   };

@@ -1,3 +1,4 @@
+import { JsonLd } from "@/components/seo/funnel/JsonLd";
 import { AMENITY_DISPLAY_MAP } from "@/types/amenities";
 import type { AmenityKey } from "@/types/amenities";
 
@@ -59,11 +60,6 @@ export function BeachPageStructuredData({
   // Organization is already in the root layout via buildRootStructuredDataGraph()
   // in app/layout.tsx.
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{
-        __html: JSON.stringify(placeData),
-      }}
-    />
+    <JsonLd data={placeData} />
   );
 }

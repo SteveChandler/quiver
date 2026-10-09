@@ -139,12 +139,6 @@ const forecasts = await service.generateComprehensiveForecast(beach);
 ### Local Testing
 
 ```bash
-# Update forecasts for specific beach
-curl -X POST "http://localhost:3000/api/forecasts/update?beachId=beach-id"
-
-# Update all beaches
-curl -X POST "http://localhost:3000/api/forecasts/update"
-
 # Get enhanced forecast
 curl "http://localhost:3000/api/forecasts/update-enhanced?beachId=beach-id&days=10"
 ```

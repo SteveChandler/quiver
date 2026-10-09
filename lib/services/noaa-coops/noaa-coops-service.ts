@@ -37,7 +37,7 @@ import {
 } from "./tide-analysis";
 import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
 import { TideExtremaDetector, TideSample } from "./tide-extrema-detector";
-import { TideCacheMonitor } from "./tide-cache-monitor";
+import * as Sentry from "@sentry/nextjs";
 import {
   selectTideSeries,
   type TideForecastSelectionRow,
@@ -227,7 +227,12 @@ export class NOAACOOPSService {
         if (this.isVerbose()) {
           log.warn(`No cached tide data found for beach ${beachId}`);
         }
-        TideCacheMonitor.logNoData({ beachId, rowCount: rows?.length ?? 0 });
+        Sentry.addBreadcrumb({
+          category: "tide-cache",
+          message: `Cache fallback - no data for beach ${beachId}`,
+          level: "warning",
+          data: { beachId, rowCount: rows?.length ?? 0 },
+        });
         return null;
       }
 
@@ -262,7 +267,12 @@ export class NOAACOOPSService {
       if (tides.length === 0) {
         // If no extremes found, something is wrong with the data
         log.warn(`No tide extremes found in cached data for beach ${beachId}, rows: ${rows.length}`);
-        TideCacheMonitor.logNoExtrema({ beachId, rowCount: rows.length });
+        Sentry.addBreadcrumb({
+          category: "tide-cache",
+          message: `Cache fallback - no extremes found for beach ${beachId}`,
+          level: "warning",
+          data: { beachId, rowCount: rows.length },
+        });
         return null;
       }
 
@@ -278,6 +288,7 @@ export class NOAACOOPSService {
       return {
         station_id: `cached_${beachId}`,
         station_name: "Cached Tide Data",
+        source: dedupedRows[0]?.source ?? null,
         tides,
         water_level: null,
         hourly: samples.map((sample) => ({

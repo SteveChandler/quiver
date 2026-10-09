@@ -52,6 +52,28 @@ export function matchSwellWatchFrame(active: SwellPartitionObservation[][], fram
   return winners[0].links;
 }
 
+/** A one-step partition split or absent frame closes an episode that the same swell reopens hours
+ * later. Persisted identity holds one span per issuance per beach, so the reopened half could never
+ * rejoin its event; rejoin it here under the tolerances that match a swell across issuances. */
+function coalesceEpisodes(events: Event[], policy: SwellWatchPolicy): Event[] {
+  const maximumGap = policy.policy_values.partition_matching.maximum_arrival_delta_hours * HOUR;
+  const merged: Array<{ event: Event; last: Event }> = [];
+  for (const next of events) {
+    let prior: { event: Event; last: Event } | undefined;
+    for (let index = merged.length - 1; index >= 0 && !prior; index -= 1) {
+      const gap = Date.parse(next.arrivalAt) - Date.parse(merged[index].last.closureWindow.latestAt);
+      if (gap >= 0 && gap <= maximumGap && follows(merged[index].last.impact.partition, next.impact.partition, policy)) prior = merged[index];
+    }
+    if (!prior) { merged.push({ event: next, last: next }); continue; }
+    const first = prior.event;
+    const peak = next.impact.projectedFaceHeightFt > first.impact.projectedFaceHeightFt ? next : first;
+    prior.event = { ...peak, arrivalAt: first.arrivalAt, arrivalWindow: first.arrivalWindow,
+      closureWindow: next.closureWindow, impact: { ...peak.impact, arrivalAt: first.arrivalAt } };
+    prior.last = next;
+  }
+  return merged.map(({ event }) => event);
+}
+
 /** A partial transition has at most one link; use the same cardinality/minimax/sum ordering. */
 function matchPartialFrame(active: TrackStep[][], frame: SwellPartitionObservation[], policy: SwellWatchPolicy): Array<number | null> {
   const candidates = active.flatMap((track, previous) => frame.flatMap((part, current) => {
@@ -210,6 +232,7 @@ export function deriveSwellWatchHorizon(input: {
   events.sort((left, right) => Date.parse(left.arrivalAt) - Date.parse(right.arrivalAt)
     || Date.parse(left.peakAt) - Date.parse(right.peakAt)
     || left.impact.partition.sourceSlot.localeCompare(right.impact.partition.sourceSlot));
+  const coalesced = coalesceEpisodes(events, policy);
   boundaryDeferrals.sort((left, right) => Date.parse(left.arrivalWindow.latestAt) - Date.parse(right.arrivalWindow.latestAt)
     || left.sourceSlot.localeCompare(right.sourceSlot));
   const coverage = (slot: "s1" | "s2") => ({
@@ -225,5 +248,5 @@ export function deriveSwellWatchHorizon(input: {
       unavailableNativeFrames: selection.native.filter(({ index }) => series[index].some((part) => part.sourceSlot === "s2" && "kind" in part && part.kind === "unavailable")).map(({ index }) => index),
     } };
   return { derivation: { qualificationRule, partitionCoverage, boundaryDeferrals, version: SWELL_WATCH_DERIVATION_VERSION, samplingProfile: input.sampling.profile.id,
-    witness: input.sampling.profile.witness, nativeFrames: selection.native.length, interpolatedFrames: selection.interpolated.length }, baseline, events };
+    witness: input.sampling.profile.witness, nativeFrames: selection.native.length, interpolatedFrames: selection.interpolated.length }, baseline, events: coalesced };
 }

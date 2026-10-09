@@ -27,6 +27,7 @@ import { isFutureDayInTimezone } from '@/lib/utils/condition-tier-utils';
 import { checkBoardFit } from '@/lib/domains/scoring/discovery-adapter';
 import type { BoardClass, SkillLevel } from '@/lib/domains/user-preferences';
 import type { RecommendationAvailability } from '@/lib/recommendations/major-event-hold/types';
+import { runWithWaterQualityReadScope } from '@/lib/recommendations/major-event-hold/read-scope';
 import { resolveScopedRecommendationAvailability } from '@/lib/services/discovery/discovery-availability';
 import { loadNowRecommendation } from '@/lib/services/discovery/now-recommendation';
 import {
@@ -34,6 +35,7 @@ import {
   resolveForecastAlignment,
   type SurfCallForecastAlignment,
 } from '@/lib/services/discovery/forecast-alignment';
+import { retryAfterSeconds } from '@/lib/utils/retry-after';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 15;
@@ -149,7 +151,10 @@ function retryableDiscoveryResponse(error: unknown): NextResponse {
       code,
       retryable: true,
     },
-    { status: code === 'timeout' ? 504 : 503 },
+    {
+      status: code === 'timeout' ? 504 : 503,
+      headers: { 'Retry-After': String(retryAfterSeconds()) },
+    },
   );
 }
 
@@ -547,7 +552,11 @@ export const GET = async (
   request: NextRequest,
   context?: RouteContext,
 ): Promise<NextResponse> => {
-  const response = await optionalGET(request, context);
+  // Discovery and the canonical decision each resolve water-quality holds;
+  // the scope lets them share one read of each hold table per request.
+  const response = await runWithWaterQualityReadScope(() =>
+    optionalGET(request, context),
+  );
   response.headers.delete('ETag');
   response.headers.set(
     'Cache-Control',

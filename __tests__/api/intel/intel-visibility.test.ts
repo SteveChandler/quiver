@@ -36,10 +36,6 @@ interface IntelPostCreateResponse {
  * - POST: Requires authentication
  * - POST: User can create posts
  * - POST: user_id automatically set from auth context
- * - Confirm: Requires authentication
- * - Confirm: User cannot confirm own posts (authorization)
- * - Report: Requires authentication
- * - Report: User cannot report own posts (authorization)
  * - RLS policies enforcement
  */
 
@@ -104,18 +100,12 @@ jest.mock("@/lib/middleware/api-wrappers", () => {
 // Import after mocks
 let GET: any;
 let POST: any;
-let CONFIRM_POST: any;
-let REPORT_POST: any;
 
 beforeAll(async () => {
   const intelRoute = await import("@/app/api/intel/route");
-  const confirmRoute = await import("@/app/api/intel/[id]/confirm/route");
-  const reportRoute = await import("@/app/api/intel/[id]/report/route");
 
   GET = intelRoute.GET;
   POST = intelRoute.POST;
-  CONFIRM_POST = confirmRoute.POST;
-  REPORT_POST = reportRoute.POST;
 });
 
 // =============================================================================
@@ -417,122 +407,6 @@ describe("POST /api/intel - Authentication Requirement", () => {
 
 // =============================================================================
 // CONFIRM - AUTHORIZATION TESTS
-// =============================================================================
-
-describe("POST /api/intel/[id]/confirm - Authorization", () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  describe("Unauthenticated Access", () => {
-    it("should reject unauthenticated confirmation attempts", async () => {
-      mockUnauthenticatedUser(mockSupabaseClient);
-
-      const request = createMockRequest("POST", "http://localhost/api/intel/VALID_INTEL_POST_ID/confirm");
-      const response = await CONFIRM_POST(request, { params: { id: VALID_INTEL_POST_ID } });
-
-      await expectErrorResponse(response, 401, "Authentication required");
-    });
-  });
-
-  describe("Self-Confirmation Prevention", () => {
-    it("should prevent users from confirming their own posts", async () => {
-      mockAuthenticatedUser(mockSupabaseClient, createMockUser({ id: VALID_OTHER_USER_ID }));
-
-      const ownPost = mockIntelPost({ user_id: VALID_OTHER_USER_ID });
-
-      setupMockChain(mockSupabaseClient, [
-        { data: ownPost, error: null },
-      ]);
-
-      const request = createMockRequest("POST", "http://localhost/api/intel/VALID_INTEL_POST_ID/confirm");
-      const response = await CONFIRM_POST(request, { params: { id: VALID_INTEL_POST_ID } });
-
-      await expectErrorResponse(response, 400, "cannot confirm your own");
-    });
-
-    it("should allow users to confirm posts by other authors", async () => {
-      mockAuthenticatedUser(mockSupabaseClient, createMockUser({ id: "VALID_USER_ID" }));
-
-      const post = mockIntelPost({ user_id: VALID_OTHER_USER_ID });
-      const confirmation = {
-        id: "98765432-1234-1234-1234-123456789abc",
-        intel_post_id: VALID_INTEL_POST_ID,
-        user_id: "VALID_USER_ID",
-      };
-
-      setupMockChain(mockSupabaseClient, [
-        { data: post, error: null },
-        { data: null, error: null },
-        { data: confirmation, error: null },
-        { data: { confirmations_count: 1 }, error: null },
-      ]);
-
-      const request = createMockRequest("POST", "http://localhost/api/intel/VALID_INTEL_POST_ID/confirm");
-      const response = await CONFIRM_POST(request, { params: { id: VALID_INTEL_POST_ID } });
-
-      await expectSuccessResponse<IntelPostsResponse>(response, 200);
-    });
-  });
-});
-
-// =============================================================================
-// REPORT - AUTHORIZATION TESTS
-// =============================================================================
-
-describe("POST /api/intel/[id]/report - Authorization", () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  describe("Unauthenticated Access", () => {
-    it("should reject unauthenticated report attempts", async () => {
-      mockUnauthenticatedUser(mockSupabaseClient);
-
-      const request = createMockRequest("POST", "http://localhost/api/intel/VALID_INTEL_POST_ID/report");
-      const response = await REPORT_POST(request, { params: { id: VALID_INTEL_POST_ID } });
-
-      await expectErrorResponse(response, 401, "Authentication required");
-    });
-  });
-
-  describe("Self-Reporting Prevention", () => {
-    it("should prevent users from reporting their own posts", async () => {
-      mockAuthenticatedUser(mockSupabaseClient, createMockUser({ id: VALID_OTHER_USER_ID }));
-
-      const ownPost = mockIntelPost({ user_id: VALID_OTHER_USER_ID });
-
-      setupMockChain(mockSupabaseClient, [
-        { data: ownPost, error: null },
-      ]);
-
-      const request = createMockRequest("POST", "http://localhost/api/intel/VALID_INTEL_POST_ID/report");
-      const response = await REPORT_POST(request, { params: { id: VALID_INTEL_POST_ID } });
-
-      await expectErrorResponse(response, 400, "cannot report your own");
-    });
-
-    it("should allow users to report posts by other authors", async () => {
-      mockAuthenticatedUser(mockSupabaseClient, createMockUser({ id: VALID_USER_ID }));
-
-      const post = mockIntelPost({ user_id: VALID_OTHER_USER_ID });
-
-      setupMockChain(mockSupabaseClient, [
-        { data: post, error: null },
-        { data: null, error: null }, // No existing report
-        { data: null, error: null }, // Insert report
-      ]);
-
-      const request = createMockRequest("POST", "http://localhost/api/intel/VALID_INTEL_POST_ID/report");
-      const response = await REPORT_POST(request, { params: { id: VALID_INTEL_POST_ID } });
-
-      await expectSuccessResponse<IntelPostsResponse>(response, 200);
-    });
-  });
-});
-
-// =============================================================================
-// RLS POLICY DOCUMENTATION
 // =============================================================================
 
 describe("RLS Policies - Documentation", () => {

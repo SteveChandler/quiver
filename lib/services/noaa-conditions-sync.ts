@@ -1,3 +1,4 @@
+import { setTimeout as sleep } from "node:timers/promises";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 
 // NOAA Real-time Data URLs
@@ -85,7 +86,7 @@ export class NOAAConditionsSync {
         }
 
         // Add small delay to avoid overwhelming NOAA servers
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        await sleep(100);
       }
 
       console.log(

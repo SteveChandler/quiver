@@ -139,7 +139,7 @@ describe("GET /api/personalization/match-score", () => {
     expect(mockFetchUserBoardContext).toHaveBeenCalledWith(expect.anything(), "user-1", true);
     expect(mockRecommendBoard).toHaveBeenCalledWith(expect.any(Array),
       expect.objectContaining({ forecast_at: "2026-09-28T15:00:00.000Z", wind_direction_deg: 210, tide_status: "rising" }),
-      expect.objectContaining({ id: "beach-1" }), "advanced");
+      expect.objectContaining({ id: "beach-1" }), "advanced", { requestDerived: true });
   });
 
   it("passes the optional source keys to the board pick and sends nothing extra without them", async () => {

@@ -2,8 +2,11 @@
 
 export enum ForecastErrorCode {
   // Data source errors
+  /** @public Serialized forecast error code retained for historical logs. */
   WAVE_DATA_UNAVAILABLE = "WAVE_DATA_UNAVAILABLE",
+  /** @public Serialized forecast error code retained for historical logs. */
   TIDE_DATA_UNAVAILABLE = "TIDE_DATA_UNAVAILABLE",
+  /** @public Serialized forecast error code retained for historical logs. */
   WEATHER_DATA_UNAVAILABLE = "WEATHER_DATA_UNAVAILABLE",
 
   // API errors
@@ -18,6 +21,7 @@ export enum ForecastErrorCode {
   INVALID_CONFIDENCE_SCORE = "INVALID_CONFIDENCE_SCORE",
 
   // Processing errors
+  /** @public Serialized forecast error code retained for historical logs. */
   FORECAST_GENERATION_FAILED = "FORECAST_GENERATION_FAILED",
   STORAGE_FAILED = "STORAGE_FAILED",
 
@@ -61,40 +65,6 @@ export class ForecastError extends Error {
     // Maintains proper stack trace for where our error was thrown (only available on V8)
     if (Error.captureStackTrace) {
       Error.captureStackTrace(this, ForecastError);
-    }
-  }
-
-  /**
-   * Get a user-friendly error message
-   */
-  getUserMessage(): string {
-    switch (this.code) {
-      case ForecastErrorCode.WAVE_DATA_UNAVAILABLE:
-        return "Wave forecast data is temporarily unavailable. Please try again later.";
-
-      case ForecastErrorCode.TIDE_DATA_UNAVAILABLE:
-        return "Tide information is temporarily unavailable. Please try again later.";
-
-      case ForecastErrorCode.WEATHER_DATA_UNAVAILABLE:
-        return "Weather forecast data is temporarily unavailable. Please try again later.";
-
-      case ForecastErrorCode.NOAA_API_ERROR:
-        return "Weather service is temporarily unavailable. Please try again later.";
-
-      case ForecastErrorCode.INVALID_LOCATION:
-        return "Invalid location provided. Please check the coordinates.";
-
-      case ForecastErrorCode.INVALID_BEACH_ID:
-        return "Beach not found. Please select a valid beach.";
-
-      case ForecastErrorCode.RATE_LIMIT_EXCEEDED:
-        return "Too many requests. Please wait before trying again.";
-
-      case ForecastErrorCode.FORECAST_GENERATION_FAILED:
-        return "Unable to generate forecast. Please try again later.";
-
-      default:
-        return "An unexpected error occurred. Please try again later.";
     }
   }
 

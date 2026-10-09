@@ -60,20 +60,3 @@ export function pickDominantSwell(parts: SwellPartitions): DominantSwell | null 
 
   return sorted[0];
 }
-
-/**
- * Pick the next-most-energetic partition after the dominant.
- * Energy = height² × period, matching `createSwellComponent`.
- * Returns `null` when only one material partition exists.
- */
-function pickSecondarySwell(parts: SwellPartitions, dominant: DominantSource): DominantSwell | null {
-  const others: DominantSwell[] = [];
-
-  if (dominant !== 'swell_1' && isMaterial(parts.swell_1)) others.push({ ...parts.swell_1, source: 'swell_1' });
-  if (dominant !== 'swell_2' && isMaterial(parts.swell_2)) others.push({ ...parts.swell_2, source: 'swell_2' });
-  if (dominant !== 'wind_wave' && isMaterial(parts.wind_wave)) others.push({ ...parts.wind_wave, source: 'wind_wave' });
-
-  if (others.length === 0) return null;
-
-  return others.sort((a, b) => (b.height * b.height * b.period) - (a.height * a.height * a.period))[0];
-}

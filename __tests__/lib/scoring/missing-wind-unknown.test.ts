@@ -32,7 +32,7 @@ import {
   type BeachMetadata,
 } from '@/lib/services/magic-hour';
 import { generateConditionBadges } from '@/lib/services/discovery/surf-discovery-orchestrator';
-import { scoreForecastWindow } from '@/lib/services/discovery/window-selector/window-scorer';
+import { scoreWindowConditionDetails } from '@/lib/services/discovery/window-selector/window-scorer';
 import { enrichDaySummaries } from '@/lib/utils/enriched-day-summary';
 import type { DaySummary } from '@/lib/utils/horizon-strip-utils';
 import type { Beach } from '@/types/database';
@@ -234,19 +234,15 @@ describe('condition character', () => {
   });
 });
 
-describe('window selector (scoreForecastWindow)', () => {
-  // Wave 20 + period 20 + tide 15 are fixed; wind is 0-20 points.
+describe('window selector (native condition score)', () => {
   const beach = createBeach({ wind_offshore_deg: 90, wind_offshore_tol_deg: 30 }) as unknown as Beach;
 
-  it('gives a missing speed the 10-point midpoint, even with an offshore direction', () => {
-    expect(scoreForecastWindow(forecast(noWind), beach, null)).toBe(65);
-    expect(
-      scoreForecastWindow(forecast({ wind_speed: null, wind_direction: 'E', wind_direction_deg: 90 }), beach, null),
-    ).toBe(65);
+  it('gives missing speed the 12.5-point midpoint', () => {
+    expect(scoreWindowConditionDetails(forecast(noWind), beach).components.wind).toBe(12.5);
   });
 
   it('scores calm with no direction on speed alone', () => {
-    expect(scoreForecastWindow(forecast(calm), beach, null)).toBe(70);
+    expect(scoreWindowConditionDetails(forecast(calm), beach).components.wind).toBe(25);
   });
 });
 
