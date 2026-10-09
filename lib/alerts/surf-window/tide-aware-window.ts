@@ -1,7 +1,6 @@
 import { parseWaveHeightRangeFt } from '@/lib/alerts/forecast-parsers';
 import { getDaylightWindow } from '@/lib/alerts/sunrise';
 import { capToBestWindow, refineWindow } from '@/lib/alerts/window-refiner';
-import { groupGoForecasts } from '@/lib/cron/daily-call-runner';
 import { createSpotProfile } from '@/lib/domains/spot-profile/spot-profile';
 import { selectBestWindows } from '@/lib/services/discovery/window-selector';
 import { MIN_SESSION_HOURS } from '@/lib/services/discovery/window-selector/constants';
@@ -37,7 +36,6 @@ interface TideAwareWindowArgs {
   isTideReasonEligible?: (beach: Beach) => boolean;
 }
 
-// shortcut: forecast rows represent one-hour intervals, revisit if ingest changes resolution.
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 
@@ -104,23 +102,24 @@ export function findTideAwareWindow(args: TideAwareWindowArgs): TideAwareWindowR
         const height = tideAt(Date.parse(row.forecast_at));
         return height === null ? row : { ...row, tide_height: String(height) };
       });
+    const gaps = dayRows.slice(1).map((row, index) => Date.parse(row.forecast_at) - Date.parse(dayRows[index].forecast_at))
+      .filter((gap) => gap > 0).sort((left, right) => left - right);
+    const middle = Math.floor(gaps.length / 2);
+    const spacing = gaps.length === 0 ? HOUR_MS : (gaps[middle] + gaps[Math.floor((gaps.length - 1) / 2)]) / 2;
     const verdicts = dayRows.map(args.verdictFor);
     const verdictById = new Map(verdicts.map(({ forecast, verdict }) => [forecast.id, verdict]));
-    const groups = groupGoForecasts(verdicts).flatMap((run) => {
-      const contiguous: ForecastVerdict[][] = [];
-      for (const evaluation of run) {
-        const previous = contiguous[contiguous.length - 1]?.at(-1);
-        if (!previous || Date.parse(evaluation.forecast.forecast_at) - Date.parse(previous.forecast.forecast_at) > HOUR_MS) {
-          contiguous.push([]);
-        }
-        contiguous[contiguous.length - 1].push(evaluation);
-      }
-      return contiguous;
-    });
+    const groups: ForecastVerdict[][] = [];
+    for (const [index, evaluation] of verdicts.entries()) {
+      if (evaluation.verdict !== 'go') continue;
+      const previous = verdicts[index - 1];
+      if (previous?.verdict !== 'go'
+        || Date.parse(evaluation.forecast.forecast_at) - Date.parse(previous.forecast.forecast_at) > spacing) groups.push([]);
+      groups[groups.length - 1].push(evaluation);
+    }
     for (const group of groups) {
       const coarse = {
         start: new Date(Math.max(dayStart, Date.parse(group[0].forecast.forecast_at))).toISOString(),
-        end: new Date(Math.min(dayEnd, Date.parse(group[group.length - 1].forecast.forecast_at) + HOUR_MS)).toISOString(),
+        end: new Date(Math.min(dayEnd, Date.parse(group[group.length - 1].forecast.forecast_at) + spacing)).toISOString(),
       };
       if (Date.parse(coarse.end) <= Date.parse(coarse.start)) continue;
       const daylight = getDaylightWindow(args.beach.lat, args.beach.lon, new Date(coarse.start));
@@ -131,12 +130,11 @@ export function findTideAwareWindow(args: TideAwareWindowArgs): TideAwareWindowR
       const best = selectBestWindows({ forecasts: group.map(({ forecast }) => forecast),
         beach: { ...args.beach, timezone: args.timezone }, userPrefs: null, now: args.now, maxWindows: 1, userSkillLevel: args.skillLevel })[0];
       const capped = capToBestWindow(refined, best);
-      // Keep only complete qualifying forecast hours; interpolation must not extend into a no row.
-      const rows = group.filter(({ forecast }) => Date.parse(forecast.forecast_at) >= Math.max(Date.parse(coarse.start), Date.parse(capped.start))
-        && Date.parse(forecast.forecast_at) + HOUR_MS <= Math.min(Date.parse(coarse.end), Date.parse(capped.end)));
+      const start = new Date(Math.max(dayStart, daylight.sunrise.getTime(), Date.parse(capped.start))).toISOString();
+      const end = new Date(Math.min(dayEnd, daylight.sunset.getTime(), Date.parse(capped.end))).toISOString();
+      const rows = verdicts.filter(({ forecast }) => Date.parse(forecast.forecast_at) < Date.parse(end)
+        && Date.parse(forecast.forecast_at) + spacing > Date.parse(start));
       if (rows.length === 0) continue;
-      const start = rows[0].forecast.forecast_at;
-      const end = new Date(Date.parse(rows[rows.length - 1].forecast.forecast_at) + HOUR_MS).toISOString();
       if (Date.parse(end) - Date.parse(start) < MIN_SESSION_HOURS * HOUR_MS) continue;
       const heights = rows.map(({ forecast }) => parseWaveHeightRangeFt(forecast.wave_height));
       if (heights.some((height) => height === null)) continue;

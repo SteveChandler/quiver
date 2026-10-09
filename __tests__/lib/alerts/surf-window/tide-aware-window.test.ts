@@ -4,6 +4,8 @@ jest.mock('@/lib/services/discovery/window-selector', () => {
   return { ...actual, selectBestWindows: jest.fn(actual.selectBestWindows) };
 });
 import { findTideAwareWindow } from '@/lib/alerts/surf-window/tide-aware-window';
+import { getDaylightWindow } from '@/lib/alerts/sunrise';
+import { capToBestWindow, refineWindow } from '@/lib/alerts/window-refiner';
 import * as windowSelector from '@/lib/services/discovery/window-selector';
 import { evaluateForecastVerdict, type ForecastVerdict } from '@/lib/alerts/canonical-forecast-verdict';
 import { localDateTimeToUTC } from '@/lib/utils/forecast-time-resolver';
@@ -28,6 +30,118 @@ const verdictFor = (row: EnhancedForecastEntity, spot: Beach = beach): ForecastV
 } as ForecastVerdict);
 const input = { beach, forecasts, tideSamples, arrivalAt: at(5), peakAt: at(7), fadeAt: at(20), timezone,
   now: new Date(at(0)), skillLevel: 'advanced', verdictFor: (row: EnhancedForecastEntity): ForecastVerdict => verdictFor(row) };
+
+const wednesday = '2026-10-14';
+const shores = { ...beach, lat: 32.857, lon: -117.257, preferred_tide_ft_min: 1,
+  preferred_tide_ft_max: 5, preferred_tide_direction: 'rising' };
+const heightsByDay = [
+  { date: '2026-10-13', heights: [1, 2.2, 4.4, 5.7, 3.1, 0.3, 1, 2] },
+  { date: wednesday, heights: [1, 2.5, 4, 5.4, 3.7, 1, 0.5, 1] },
+];
+const smoothTides = heightsByDay.flatMap(({ date: day, heights }) => Array.from({ length: 211 }, (_, index) => {
+  const segment = Math.min(Math.floor(index / 30), heights.length - 2);
+  const ratio = (index - segment * 30) / 30;
+  return { at: new Date(Date.parse(at(2, day)) + index * 6 * 60_000).toISOString(),
+    heightFt: heights[segment] + (heights[segment + 1] - heights[segment]) * (1 - Math.cos(Math.PI * ratio)) / 2 };
+}));
+function shoresInput(spacingHours: number): typeof input {
+  const rows = heightsByDay.flatMap(({ date: day }) => Array.from({ length: 21 / spacingHours + 1 }, (_, index) => {
+    const hour = 2 + index * spacingHours;
+    const tide = smoothTides.find((sample) => sample.at === at(hour, day))!;
+    return { ...snapshot.forecast, id: `${day}-${hour}`, forecast_at: at(hour, day), wave_height: day === wednesday ? '3.4 ft' : '3.8 ft',
+      wind_speed: hour >= 14 ? '10 mph' : '5 mph', wind_direction: hour <= 8 ? 'NE' : 'NW',
+      wind_direction_deg: hour <= 8 ? 45 : 315, tide_height: String(tide.heightFt), tide_status: hour <= 11 ? 'Rising' : 'Falling' } as EnhancedForecastEntity;
+  }));
+  return { ...input, beach: shores, forecasts: rows, tideSamples: smoothTides, arrivalAt: at(5, '2026-10-13'),
+    peakAt: at(8, '2026-10-13'), fadeAt: at(20, wednesday), now: new Date('2026-10-09T16:52:00Z'),
+    verdictFor: (row) => {
+      const hour = Number(row.id.split('-').at(-1));
+      const wed = row.id.startsWith(wednesday);
+      return { forecast: row, verdict: (wed && hour >= 5 && hour <= 17) || (!wed && hour === 17) ? 'go' : 'maybe',
+        score: wed ? (hour <= 8 ? 86 : hour <= 11 ? 79 : hour <= 14 ? 75 : 72) : hour === 17 ? 73 : 65 } as ForecastVerdict;
+    } };
+}
+
+it('refines and caps the three-hourly Wednesday go run without whole-hour truncation', () => {
+  const args = shoresInput(3);
+  const dayRows = args.forecasts.filter((row) => row.id.startsWith(wednesday));
+  const goRows = dayRows.filter((row) => args.verdictFor(row).verdict === 'go');
+  const daylight = getDaylightWindow(shores.lat, shores.lon, new Date(at(5, wednesday)));
+  const refined = refineWindow({ coarse: { start: at(5, wednesday), end: at(20, wednesday) }, forecasts: dayRows,
+    beach: shores, tideSamples: smoothTides, daylight: { sunrise: daylight.sunrise.toISOString(), sunset: daylight.sunset.toISOString() },
+    verdictAt: (row) => args.verdictFor(row).verdict });
+  expect(refined).not.toBeNull();
+  const best = windowSelector.selectBestWindows({ forecasts: goRows, beach: shores, userPrefs: null, now: args.now,
+    maxWindows: 1, userSkillLevel: args.skillLevel })[0];
+  const expected = capToBestWindow(refined!, best);
+  const result = findTideAwareWindow(args);
+  expect(result).toMatchObject({ state: 'recommended', window: { localDate: wednesday, start: expected.start, end: expected.end } });
+  expect(Date.parse(result.window!.start)).toBeGreaterThanOrEqual(daylight.sunrise.getTime());
+  expect(Date.parse(result.window!.end) - Date.parse(result.window!.start)).toBeGreaterThan(2 * 3_600_000);
+  expect(result.window).not.toMatchObject({ start: at(8, wednesday), end: at(9, wednesday) });
+});
+
+it('gives an equivalent refined window with hourly and three-hourly forecasts', () => {
+  const sparse = findTideAwareWindow(shoresInput(3));
+  const select = jest.mocked(windowSelector.selectBestWindows);
+  // Hold the selected stretch fixed: the shared selector rescores denser grids.
+  const best = select.mock.results.at(-1)!.value;
+  select.mockReturnValueOnce([]).mockReturnValueOnce(best);
+  const hourly = findTideAwareWindow(shoresInput(1));
+  expect(sparse.state).toBe('recommended');
+  expect(hourly.state).toBe('recommended');
+  expect(sparse.window).toEqual(hourly.window);
+  expect(Date.parse(sparse.window!.end) - Date.parse(sparse.window!.start)).toBeGreaterThan(2 * 3_600_000);
+});
+
+it('keeps the exact late-morning tide edge when it ends a three-hourly go run', () => {
+  const args = shoresInput(3);
+  const verdict = args.verdictFor;
+  args.verdictFor = (row) => ({ ...verdict(row), verdict: row.id.startsWith(wednesday)
+    && (row.id.endsWith('-5') || row.id.endsWith('-8')) ? 'go' : 'maybe' });
+  const dayRows = args.forecasts.filter((row) => row.id.startsWith(wednesday));
+  const daylight = getDaylightWindow(shores.lat, shores.lon, new Date(at(5, wednesday)));
+  const expected = refineWindow({ coarse: { start: at(5, wednesday), end: at(11, wednesday) }, forecasts: dayRows,
+    beach: shores, tideSamples: smoothTides, daylight: { sunrise: daylight.sunrise.toISOString(), sunset: daylight.sunset.toISOString() },
+    verdictAt: (row) => args.verdictFor(row).verdict });
+  expect(expected?.drivers).toContainEqual(expect.objectContaining({ kind: 'tide', edge: 'end' }));
+  expect(Date.parse(expected!.end)).toBeLessThan(Date.parse(at(11, wednesday)));
+  jest.mocked(windowSelector.selectBestWindows).mockReturnValueOnce([]);
+  const result = findTideAwareWindow(args);
+  expect(result).toMatchObject({ state: 'recommended', window: { start: expected!.start, end: expected!.end } });
+});
+
+it('separates three-hourly go rows around a maybe and keeps each single-row span', () => {
+  const rows = [5, 8, 11, 14, 17].map((hour) => ({ ...forecasts[hour], id: `isolated-${hour}`, tide_height: '2' }));
+  rows.splice(2, 0, { ...forecasts[9], id: 'maybe-between', forecast_at: new Date(Date.parse(at(9)) + 30 * 60_000).toISOString(), tide_height: '2' });
+  const select = jest.mocked(windowSelector.selectBestWindows);
+  select.mockClear();
+  select.mockReturnValueOnce([]).mockReturnValueOnce([]);
+  const result = findTideAwareWindow({ ...input, forecasts: rows, tideSamples: tideSamples.map((sample) => ({ ...sample, heightFt: 2 })),
+    verdictFor: (row) => ({ forecast: row, score: row.id === 'isolated-8' ? 90 : 80,
+      verdict: row.id === 'isolated-8' || row.id === 'isolated-11' ? 'go' : 'maybe' } as ForecastVerdict) });
+  expect(select).toHaveBeenCalledTimes(2);
+  expect(select).toHaveBeenNthCalledWith(1, expect.objectContaining({ forecasts: [expect.objectContaining({ id: 'isolated-8' })] }));
+  expect(select).toHaveBeenNthCalledWith(2, expect.objectContaining({ forecasts: [expect.objectContaining({ id: 'isolated-11' })] }));
+  expect(result.window).toMatchObject({ start: at(8), end: at(11) });
+});
+
+it('clips to the usable swell and includes both partially overlapping rows in face height', () => {
+  const rows = [5, 8, 11, 14].map((hour) => ({ ...forecasts[hour], tide_height: '2', wave_height: hour === 8 ? '2-3 ft' : '4-5 ft' }));
+  const start = new Date(Date.parse(at(8)) + 30 * 60_000).toISOString();
+  const end = new Date(Date.parse(at(11)) + 30 * 60_000).toISOString();
+  jest.mocked(windowSelector.selectBestWindows).mockReturnValueOnce([]);
+  const result = findTideAwareWindow({ ...input, forecasts: rows, arrivalAt: start, fadeAt: end,
+    tideSamples: tideSamples.map((sample) => ({ ...sample, heightFt: 2 })),
+    verdictFor: (row) => ({ forecast: row, score: 80, verdict: 'go' } as ForecastVerdict) });
+  expect(result.window).toMatchObject({ start, end, faceHeightFt: { min: 2, max: 5 } });
+});
+
+it('defaults a day with a single forecast row to one hour', () => {
+  jest.mocked(windowSelector.selectBestWindows).mockReturnValueOnce([]);
+  const result = findTideAwareWindow({ ...input, forecasts: [forecasts[10]] });
+  expect(result.window).toMatchObject({ start: at(10), end: at(11) });
+});
 
 it('waits for the tide after the peak and reports the face height during that window', () => {
   const result = findTideAwareWindow(input);
@@ -117,7 +231,8 @@ it('uses the canonical verdict to enforce skill eligibility', () => {
 });
 
 it('does not join missing forecast hours into a session', () => {
-  const rows = forecasts.filter((_, hour) => hour === 10 || hour === 12).map((row) => ({ ...row, tide_height: '2' }));
+  const rows = forecasts.filter((_, hour) => hour !== 11).map((row) => ({ ...row, tide_height: '2',
+    wave_height: row.id === 'hour-10' || row.id === 'hour-12' ? '3-4 ft' : '0 ft' }));
   const samples = tideSamples.map((sample) => ({ ...sample, heightFt: 2 }));
   const result = findTideAwareWindow({ ...input, forecasts: rows, tideSamples: samples });
   expect(Date.parse(result.window!.end) - Date.parse(result.window!.start)).toBe(3_600_000);
