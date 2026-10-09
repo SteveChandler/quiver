@@ -10,6 +10,7 @@ import {
   type BuildSwellOutlookInput,
 } from "@/lib/services/discovery/swell-outlook";
 import { matchStormOnBearing } from "@/lib/services/discovery/swell-outlook-source";
+import { renderFirstSightingBody } from "@/lib/alerts/swell-outlook/first-sighting";
 import type { OutlookSwell } from "@/lib/services/discovery/swell-outlook-types";
 import type { SwellEventSnapshot } from "@/lib/alerts/swell-events";
 import { createMockBeach } from "@/__tests__/setup/typed-mocks";
@@ -87,6 +88,50 @@ describe("buildSwellOutlook", () => {
       notable: true, eventKey: notable.eventKey, peakAt: notable.peakAt, arrivalAt: notable.arrivalAt,
       fadeAt: notable.fadeAt, periodS: 16, directionDeg: 280, faceHeightFt: { min: 4.5, max: 6 },
     });
+  });
+
+  it("does not mix pulse and notable sizes in the first-sighting orientation sentence", () => {
+    const pool = [
+      { beach: beach(HOME, "Home Beach", 270), relation: "home" as const },
+      { beach: beach(SECOND, "South Beach", 190), relation: "nearby" as const },
+    ];
+    const notable = pulse(HOME, {
+      eventKey: `${HOME}:W:2026-09-28`, detectorVersion: "swell-events.v1", peakFaceHeightFt: 6,
+    });
+    const [swell] = buildSwellOutlook(input({
+      pool,
+      pulseSnapshots: [pulse(HOME, { peakFaceHeightFt: 4 }), pulse(SECOND, { peakFaceHeightFt: 5 })],
+      notableSnapshots: [notable],
+    })).response.swells;
+
+    expect(swell.sizeByOrientation).toMatchObject({ westFacing: { min: 5, max: 7 }, southFacing: null });
+    expect(renderFirstSightingBody({ swell, timezone: TIMEZONE, hazard: null })).not.toContain("South-facing");
+  });
+
+  it("uses notable history for linked change and confidence when pulse history differs", () => {
+    const currentPulse = pulse(HOME, {
+      peakOffshoreHeightFt: 3, peakFaceHeightFt: 4, peakAt: "2026-09-29T07:00:00.000Z",
+    });
+    const previousPulse = pulse(HOME, {
+      runDate: "2026-09-24", detectedAt: "2026-09-24T14:30:00.000Z",
+      peakOffshoreHeightFt: 2, peakFaceHeightFt: 3, peakAt: "2026-09-28T19:00:00.000Z",
+    });
+    const notableKey = `${HOME}:W:2026-09-29`;
+    const currentNotable = pulse(HOME, {
+      eventKey: notableKey, detectorVersion: "swell-events.v1", peakOffshoreHeightFt: 3.2,
+      peakFaceHeightFt: 4.2, peakAt: "2026-09-29T07:00:00.000Z",
+    });
+    const previousNotable = pulse(HOME, {
+      eventKey: notableKey, detectorVersion: "swell-events.v1", runDate: "2026-09-24",
+      detectedAt: "2026-09-24T14:30:00.000Z", peakOffshoreHeightFt: 3.1,
+      peakFaceHeightFt: 4.1, peakAt: "2026-09-29T07:00:00.000Z",
+    });
+    const [swell] = buildSwellOutlook(input({
+      pulseSnapshots: [currentPulse, previousPulse],
+      notableSnapshots: [currentNotable, previousNotable],
+    })).response.swells;
+
+    expect(swell).toMatchObject({ notable: true, change: "steady", tier: "likely" });
   });
 
   it.each([{ periodS: 18 }, { peakFaceHeightFt: 7 }])("does not borrow a live notable key from a different component: %s", (facts) => {

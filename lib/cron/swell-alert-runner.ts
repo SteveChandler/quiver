@@ -13,7 +13,7 @@ import {
   type BeachSwellEvent,
   type SwellEventSnapshot,
 } from "@/lib/alerts/swell-events";
-import { tracksSwellComponent } from "@/lib/alerts/swell-events/detector";
+import { tracksSwellComponent, tracksSwellSize } from "@/lib/alerts/swell-events/detector";
 import {
   detectSwellFollowupKind,
   isSwellFollowupExpired,
@@ -805,20 +805,17 @@ async function evaluatePinned(
   const toldPeakAt = Date.parse(state.lastPeakAt);
   const told = { directionDeg: state.lastDirectionDeg, periodS: state.lastPeriodS };
   const pinnedRunDates = new Set(snapshots
-    .filter((snapshot) => snapshot.eventKey === state.eventKey
-      && snapshot.detectorVersion === SWELL_EVENT_DETECTOR_VERSION)
+    .filter((snapshot) => snapshot.eventKey === state.eventKey)
     .map(({ runDate }) => runDate));
   const coexistingKeys = new Set(snapshots
-    .filter((snapshot) => snapshot.detectorVersion === SWELL_EVENT_DETECTOR_VERSION
-      && pinnedRunDates.has(snapshot.runDate))
+    .filter((snapshot) => pinnedRunDates.has(snapshot.runDate))
     .map(({ eventKey }) => eventKey));
-  // Keys can change; the told component and size anchor identity under every key.
+  // Prefer the exact key; component and size fallback excludes keys emitted alongside it in a detector run.
   const event = events.find(({ eventKey }) => eventKey === state.eventKey)
     ?? events
     .filter((candidate) => tracksSwellComponent(told, candidate)
       && !coexistingKeys.has(candidate.eventKey)
-      && candidate.peakFaceHeightFt <= state.lastFaceHeightFt * SWELL_EVENT_THRESHOLDS.trackSizeRatio
-      && state.lastFaceHeightFt <= candidate.peakFaceHeightFt * SWELL_EVENT_THRESHOLDS.trackSizeRatio
+      && tracksSwellSize({ peakFaceHeightFt: state.lastFaceHeightFt }, candidate)
       && Math.abs(Date.parse(candidate.peakAt) - toldPeakAt) <= PINNED_MAX_PEAK_SHIFT_MS)
     .sort((left, right) =>
       Math.abs(Date.parse(left.peakAt) - toldPeakAt) - Math.abs(Date.parse(right.peakAt) - toldPeakAt))[0]
@@ -1391,6 +1388,7 @@ async function sendFirstSighting(
         summary.followupStateFailures += 1;
       }
     }
+    if (followupEnabled && !swell.notable) increment(summary, "first_sighting_unpinned");
     return;
   }
   increment(summary, rejectedForRarity ? "skipped_unengaged" : "first_sighting_none");

@@ -9,7 +9,7 @@ import {
   type SwellEventSnapshot,
 } from '@/lib/alerts/swell-events';
 import type { PoolBeach } from '@/lib/alerts/user-pool';
-import { tracksSwellComponent } from '@/lib/alerts/swell-events/detector';
+import { tracksSwellComponent, tracksSwellSize } from '@/lib/alerts/swell-events/detector';
 import type { BoardClass } from '@/lib/domains/rideability';
 import { angleDifference } from '@/lib/domains/shared/angle-utils';
 import type { SkillLevel } from '@/lib/domains/user-preferences';
@@ -129,8 +129,7 @@ function matchNotable(rep: BeachSwellEvent, notable: readonly SwellEventSnapshot
   for (const snapshot of notable) {
     if (snapshot.beachId !== rep.beachId) continue;
     if (!tracksSwellComponent(snapshot, rep)) continue;
-    if (snapshot.peakFaceHeightFt > rep.peakFaceHeightFt * SWELL_EVENT_THRESHOLDS.trackSizeRatio
-      || rep.peakFaceHeightFt > snapshot.peakFaceHeightFt * SWELL_EVENT_THRESHOLDS.trackSizeRatio) continue;
+    if (!tracksSwellSize(snapshot, rep)) continue;
     const diff = Math.abs(Date.parse(snapshot.peakAt) - Date.parse(rep.peakAt));
     if (diff <= NOTABLE_MATCH_PEAK_MS && (!best || diff < best.diff)) best = { snapshot, diff };
   }
@@ -201,13 +200,14 @@ function toOutlookSwell(
   if (!beach) return null;
   const timezone = resolveBeachTimezone(beach.timezone);
 
-  const previousRuns = input.pulseSnapshots.filter((snapshot) => (
-    snapshot.beachId === pulse.beachId && snapshot.eventKey === pulse.eventKey
-    && snapshot.runDate < runDate && isPreviousRun(snapshot, input.now)
-  ));
   const notable = matchNotable(pulse, notableLatest);
   // A linked first sighting and its follow-up pin must describe the same detector event.
   const rep = notable ? eventFromSnapshot(notable, timezone) : pulse;
+  const trackingSnapshots = notable ? input.notableSnapshots : input.pulseSnapshots;
+  const previousRuns = trackingSnapshots.filter((snapshot) => (
+    snapshot.beachId === rep.beachId && snapshot.eventKey === rep.eventKey
+    && snapshot.runDate < runDate && isPreviousRun(snapshot, input.now)
+  ));
   const source = swellSourceFor({
     directionDeg: rep.directionDeg,
     periodS: Math.round(rep.periodS),
@@ -220,9 +220,9 @@ function toOutlookSwell(
   return {
     id,
     eventKey: rep.eventKey,
-    tier: confidenceFor(pulse, previousRuns, input.now),
+    tier: confidenceFor(rep, previousRuns, input.now),
     status: Date.parse(rep.arrivalAt) <= input.now.getTime() ? 'arrived' : 'forecast',
-    change: changeFor(pulse, previousRuns, input.pulseSnapshots, input.now, timezone)?.kind ?? 'new',
+    change: changeFor(rep, previousRuns, trackingSnapshots, input.now, timezone)?.kind ?? 'new',
     arrivalAt: rep.arrivalAt,
     peakAt: rep.peakAt,
     fadeAt: rep.fadeAt ?? null,
@@ -244,11 +244,15 @@ function toOutlookSwell(
     stormName: source === 'tropical'
       ? matchStormOnBearing({ storms: input.storms, beach: { lat: beach.lat, lon: beach.lon }, directionDeg: rep.directionDeg })
       : null,
-    sizeByOrientation: sizeByOrientation(group.members.map((member) => ({
-      windowCenterDeg: swellWindowForBeach(beachesById.get(member.beachId) ?? {})?.centerDeg ?? null,
-      faceHeightFt: member.beachId === rep.beachId ? rep.peakFaceHeightFt : member.peakFaceHeightFt,
-    }))),
-    history: historyFor(notable ? input.notableSnapshots : input.pulseSnapshots, rep.beachId, rep.eventKey),
+    sizeByOrientation: sizeByOrientation(group.members.flatMap((member) => {
+      const memberNotable = notable ? matchNotable(member, notableLatest) : null;
+      if (notable && !memberNotable) return [];
+      return [{
+        windowCenterDeg: swellWindowForBeach(beachesById.get(member.beachId) ?? {})?.centerDeg ?? null,
+        faceHeightFt: memberNotable?.peakFaceHeightFt ?? member.peakFaceHeightFt,
+      }];
+    })),
+    history: historyFor(trackingSnapshots, rep.beachId, rep.eventKey),
   };
 }
 
