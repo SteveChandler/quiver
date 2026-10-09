@@ -10,8 +10,8 @@ interface Store {
   forecasts?: Array<{ beach_id: string }>;
 }
 
-function makeBeach(id: string, slug = id): Beach {
-  return { id, name: id, slug } as Beach;
+function makeBeach(id: string, slug = id, country: string | null = "USA"): Beach {
+  return { id, name: id, slug, country } as Beach;
 }
 
 function makeSupabase(store: Store): SupabaseClient<Database> {
@@ -53,6 +53,183 @@ function makeSupabase(store: Store): SupabaseClient<Database> {
 }
 
 describe("user pool", () => {
+  it.each([
+    { homeCountry: "USA", homeSlug: "home", closestCountry: "Mexico", expectedCountry: "Mexico" },
+    { homeCountry: "USA", homeSlug: "home", closestCountry: "USA", expectedCountry: "USA" },
+    { homeCountry: "Mexico", homeSlug: "home", closestCountry: "USA", expectedCountry: "USA" },
+    { homeCountry: "Mexico", homeSlug: "home", closestCountry: "Mexico", expectedCountry: "Mexico" },
+    { homeCountry: null, homeSlug: "home", closestCountry: "USA", expectedCountry: "USA" },
+    { homeCountry: null, homeSlug: "home", closestCountry: "Mexico", expectedCountry: "Mexico" },
+    { homeCountry: "USA", homeSlug: "", closestCountry: "Mexico", expectedCountry: "Mexico" },
+  ])(
+    "keeps $expectedCountry nearby beaches with home=$homeCountry, slug='$homeSlug', and closest=$closestCountry",
+    async ({ homeCountry, homeSlug, closestCountry, expectedCountry }) => {
+      const home = makeBeach("home", homeSlug, homeCountry);
+      const favorite = makeBeach("favorite");
+      const usa = makeBeach("usa");
+      const mexico = makeBeach("mexico", "mexico", "Mexico");
+      const closestId = closestCountry === "USA" ? usa.id : mexico.id;
+      const supabase = makeSupabase({
+        favorites: [{ beach_id: favorite.id, custom_spot_id: null }],
+        // Hydration and RPC order must not determine the closest beach.
+        beaches: [mexico, usa, home, favorite],
+        nearby: [
+          { id: "unhydrated", distance_meters: 1, total_count: 3 },
+          { id: closestId === usa.id ? mexico.id : usa.id, distance_meters: 3000, total_count: 3 },
+          { id: closestId, distance_meters: 1000, total_count: 3 },
+        ],
+      });
+
+      const result = await loadUserPool({
+        supabase,
+        userId: "user-1",
+        homeBeachId: homeCountry ? home.id : null,
+        location: closestCountry === "Mexico"
+          ? { lat: 31.86, lon: -116.6 }
+          : { lat: 32.8, lon: -117.2 },
+        maxDriveMinutes: 90,
+      });
+
+      const keptId = expectedCountry === "USA" ? usa.id : mexico.id;
+      expect(result.map(({ beach, relation }) => [beach.id, relation])).toEqual([
+        ...(homeCountry && home.slug ? [[home.id, "home"]] : []),
+        [favorite.id, "favorite"],
+        [keptId, "nearby"],
+      ]);
+      expect(result.find(({ beach }) => beach.id === keptId)?.distanceMiles).toBe(
+        (keptId === closestId ? 1000 : 3000) / 1609.344,
+      );
+    },
+  );
+
+  it.each([null, "home"])("keeps nearby beaches when the closest beach has no country with home=%s", async (homeBeachId) => {
+    const home = makeBeach("home");
+    const usa = makeBeach("usa");
+    const mexico = makeBeach("mexico", "mexico", "Mexico");
+    const unknown = makeBeach("unknown", "unknown", null);
+    const supabase = makeSupabase({
+      favorites: [],
+      beaches: [home, unknown, usa, mexico],
+      nearby: [unknown, usa, mexico].map((beach, index) => ({
+        id: beach.id, distance_meters: (index + 1) * 1000, total_count: 3,
+      })),
+    });
+
+    const result = await loadUserPool({
+      supabase,
+      userId: "user-1",
+      homeBeachId,
+      location: { lat: 32.8, lon: -117.2 },
+      maxDriveMinutes: 90,
+    });
+
+    expect(result.map(({ beach, relation }) => [beach.id, relation])).toEqual([
+      ...(homeBeachId ? [[home.id, "home"]] : []),
+      [unknown.id, "nearby"], [usa.id, "nearby"], [mexico.id, "nearby"],
+    ]);
+  });
+
+  it.each(["USA", "Mexico"])("falls back to the %s home when no nearby beach hydrates", async (country) => {
+    const home = makeBeach("home", "home", country);
+    const favorite = makeBeach("favorite", "favorite", country === "USA" ? "Mexico" : "USA");
+    const supabase = makeSupabase({
+      favorites: [{ beach_id: favorite.id, custom_spot_id: null }],
+      beaches: [home, favorite],
+      nearby: [{ id: "unhydrated", distance_meters: 1000, total_count: 1 }],
+    });
+
+    const result = await loadUserPool({
+      supabase,
+      userId: "user-1",
+      homeBeachId: home.id,
+      location: { lat: 32.8, lon: -117.2 },
+      maxDriveMinutes: 90,
+    });
+
+    expect(result.map(({ beach, relation }) => [beach.id, relation])).toEqual([
+      [home.id, "home"], [favorite.id, "favorite"],
+    ]);
+  });
+
+  it("preserves Mexican favorites and custom anchors even when also nearby", async () => {
+    const home = makeBeach("home");
+    const favorite = makeBeach("favorite", "favorite", "Mexico");
+    const custom = makeBeach("custom-anchor", "custom-anchor", "Mexico");
+    const nearby = makeBeach("nearby", "nearby", "Mexico");
+    const local = makeBeach("local");
+    const supabase = makeSupabase({
+      favorites: [
+        { beach_id: favorite.id, custom_spot_id: null },
+        { beach_id: null, custom_spot_id: "custom-spot" },
+      ],
+      customSpots: [{ id: "custom-spot", nearest_beach_id: custom.id }],
+      forecasts: [{ beach_id: custom.id }],
+      beaches: [home, favorite, custom, nearby, local],
+      nearby: [
+        ...[favorite, custom, nearby].map((beach) => ({
+          id: beach.id, distance_meters: 1000, total_count: 4,
+        })),
+        { id: local.id, distance_meters: 500, total_count: 4 },
+      ],
+    });
+
+    const result = await loadUserPool({
+      supabase,
+      userId: "user-1",
+      homeBeachId: home.id,
+      location: { lat: 32.8, lon: -117.2 },
+      maxDriveMinutes: 90,
+    });
+
+    expect(result.map(({ beach, relation }) => [beach.id, relation])).toEqual([
+      [home.id, "home"],
+      [favorite.id, "favorite"],
+      [custom.id, "custom"],
+      [local.id, "nearby"],
+    ]);
+  });
+
+  it.each(["missing-home", "unknown-country"])(
+    "uses the closest nearby country when the home anchor is unavailable: %s",
+    async (homeBeachId) => {
+      const usa = makeBeach("usa");
+      const mexico = makeBeach("mexico", "mexico", "Mexico");
+      const unknown = makeBeach("unknown-country", "unknown-country", null);
+      const supabase = makeSupabase({
+        favorites: [],
+        beaches: [usa, mexico, unknown],
+        nearby: [usa, mexico].map((beach, index) => ({
+          id: beach.id, distance_meters: (index + 1) * 1000, total_count: 2,
+        })),
+      });
+
+      const result = await loadUserPool({
+        supabase,
+        userId: "user-1",
+        homeBeachId,
+        location: { lat: 32.8, lon: -117.2 },
+        maxDriveMinutes: 90,
+      });
+
+      expect(result.filter(({ relation }) => relation === "nearby").map(({ beach }) => beach.id))
+        .toEqual([usa.id]);
+    },
+  );
+
+  it("returns an empty pool without a home, location, or favorites", async () => {
+    const supabase = makeSupabase({ favorites: [], beaches: [], nearby: [] });
+
+    expect(await loadUserPool({
+      supabase,
+      userId: "user-1",
+      homeBeachId: null,
+      location: null,
+      maxDriveMinutes: null,
+    })).toEqual([]);
+    expect(supabase.rpc).not.toHaveBeenCalled();
+    expect(supabase.from).not.toHaveBeenCalledWith("beaches");
+  });
+
   it("includes home, favorites, and nearby beaches with home precedence", async () => {
     const home = makeBeach("home");
     const favoriteOne = makeBeach("favorite-1");
