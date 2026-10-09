@@ -39,12 +39,15 @@ describe("match score missing-inputs-neutral migration", () => {
     expect(header(migration, "compute_user_match_scores")).toBe(header(previousScorer, "compute_user_match_scores"));
   });
 
-  it("parses wind, direction and tide to NULL when absent, on both the history and the slot side", () => {
+  it("parses wind, direction and tide to NULL when absent, in history, similarity and slots", () => {
     const sql = flat(migration);
     for (const [expr, alias] of [
       ["sfs.forecast_snapshot->>'wind_speed'", "wind"],
       ["sfs.forecast_snapshot->>'wind_direction_deg'", "wind_dir"],
       ["sfs.forecast_snapshot->>'tide_height'", "tide"],
+      ["sfs.forecast_snapshot->>'wind_speed'", "similarity_wind"],
+      ["sfs.forecast_snapshot->>'wind_direction_deg'", "similarity_wind_dir"],
+      ["sfs.forecast_snapshot->>'tide_height'", "similarity_tide"],
       ["conditions->>2", "f_wind"],
       ["conditions->>3", "f_wind_dir"],
       ["conditions->>4", "f_tide"],

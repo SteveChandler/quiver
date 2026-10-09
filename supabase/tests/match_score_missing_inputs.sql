@@ -26,19 +26,20 @@ CREATE TABLE public.session_forecast_snapshots (session_id uuid PRIMARY KEY, for
 \ir ../migrations/20260609201625_session_fit_match_score.sql
 \ir ../migrations/20260923040000_share_match_score_inputs.sql
 \ir ../migrations/20260927230000_board_model_merge_match_score.sql
-\ir ../migrations/20260927230000_board_model_merge_match_score.sql
 \ir ../migrations/20260929120000_match_score_om_similarity_period.sql
 
 CREATE FUNCTION fixture_id(n integer) RETURNS uuid LANGUAGE sql IMMUTABLE AS $$
   SELECT ('00000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid
 $$;
 -- User 1: five complete sessions. User 2: the same, but one session has no wind.
-INSERT INTO public.profiles VALUES (fixture_id(1),'advanced'),(fixture_id(2),'advanced');
+-- User 3: three complete sessions, so their profile remains in the starter state.
+INSERT INTO public.profiles VALUES (fixture_id(1),'advanced'),(fixture_id(2),'advanced'),(fixture_id(3),'advanced');
 INSERT INTO public.beaches VALUES (fixture_id(101),'beach',90,1,5);
 INSERT INTO public.sessions
-SELECT fixture_id(1000+u*10+n), fixture_id(u), fixture_id(101), NULL, NULL,
+SELECT fixture_id(1000+user_n*10+n), fixture_id(user_n), fixture_id(101), NULL, NULL,
   5, 'completed', now()-n*interval '1 day', NULL, NULL
-FROM generate_series(1,2) u CROSS JOIN generate_series(1,5) n;
+FROM (VALUES (1,5),(2,5),(3,3)) AS users(user_n,session_n)
+CROSS JOIN LATERAL generate_series(1,session_n) n;
 INSERT INTO public.session_forecast_snapshots
 SELECT id, CASE WHEN user_id=fixture_id(2) AND id=fixture_id(1021) THEN
   '{"wave_height":"3 ft","wave_period":"12s","wind_direction_deg":"270","tide_height":"3 ft","tide_status":"incoming"}'::jsonb
@@ -67,7 +68,7 @@ SELECT * FROM scores(1, jsonb_build_array(
 \endif
 
 DO $$
-DECLARE r record; n integer; v numeric;
+DECLARE r record; n integer; v numeric; starter jsonb;
 BEGIN
   -- 1. Complete slots are unchanged, to the last field.
   FOR r IN SELECT b.label, b.result AS before, a.result AS after
@@ -124,6 +125,35 @@ BEGIN
   IF (public.compute_user_match_score(fixture_id(1),fixture_id(101),'3 ft','12s','null','null','-- ft'))->>'state'
     IS DISTINCT FROM 'learned' THEN
     RAISE EXCEPTION 'Single-slot RPC must still return a learned result for missing inputs';
+  END IF;
+
+  -- 9. A starter profile skips missing spot factors but uses them for complete slots.
+  SELECT result INTO starter FROM scores(3, jsonb_build_array(slot('starter missing','10 mph','null','-- ft')));
+  IF starter->>'state' IS DISTINCT FROM 'starter'
+    OR starter->>'session_count' IS DISTINCT FROM '3'
+    OR starter->>'fit_label' IS DISTINCT FROM 'Based on your skill level'
+    OR starter->'prior_dimensions' IS DISTINCT FROM '["skill_wave"]'::jsonb THEN
+    RAISE EXCEPTION 'Starter missing-factor prior is wrong: %', starter;
+  END IF;
+  SELECT result INTO starter FROM scores(3, jsonb_build_array(slot('starter complete','10 mph','270','3 ft')));
+  IF starter->>'fit_label' IS DISTINCT FROM 'Based on your skill + this spot' THEN
+    RAISE EXCEPTION 'Complete starter slot must use spot prior: %', starter;
+  END IF;
+END $$;
+
+-- Add this after check 1 so its new session cannot change the complete-slot before/after comparison.
+-- Its other factors sit near the similarity cutoff: interpreting "-- ft" as 0 ft crosses it.
+INSERT INTO public.sessions VALUES (fixture_id(1016),fixture_id(1),fixture_id(101),NULL,NULL,
+  5,'completed',now()-interval '6 days',NULL,NULL);
+INSERT INTO public.session_forecast_snapshots VALUES (fixture_id(1016),
+  '{"wave_height":"4 ft","wave_period":"9s","wind_speed":"12 mph","wind_direction_deg":"330","tide_height":"-- ft","tide_status":"incoming"}'::jsonb);
+DO $$
+DECLARE n integer;
+BEGIN
+  SELECT (result->>'similar_good_session_count')::integer INTO n
+  FROM scores(1, jsonb_build_array(slot('match','10 mph','270','3 ft')));
+  IF n IS DISTINCT FROM 6 THEN
+    RAISE EXCEPTION 'A non-numeric snapshot tide must not count as 0 ft; expected 6 similar sessions, got %', n;
   END IF;
 END $$;
 

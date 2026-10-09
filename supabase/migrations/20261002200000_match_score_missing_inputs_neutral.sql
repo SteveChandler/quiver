@@ -12,6 +12,8 @@
 --     wind-less beaches up in 43 of 102 cases and down in 17. Half a miss moved them up 23, down 33,
 --     an average of -0.08 places;
 --   * the two tuple joins use IS NOT DISTINCT FROM so a slot with a NULL factor still returns.
+-- Session-fit evidence (fit_pairs) still requires a complete snapshot; sessions missing wind, direction or tide are excluded from fit evidence instead of scored as half a miss.
+-- similar_good_session_count can rise for slots missing a factor because that factor no longer contributes a mismatch term.
 -- Complete slots are untouched, so they score exactly as before.
 -- Wave height and period, the shared parser, prior_score (starter profiles keep their own
 -- skip-and-renormalize rule), the batch wrapper and every signature are unchanged.
@@ -52,12 +54,9 @@ WITH history AS MATERIALIZED (
       THEN public.parse_numeric_from_text(sfs.forecast_snapshot->>'wave_period_om')
       WHEN sfs.forecast_snapshot->>'wave_period' IS NOT NULL
       THEN public.parse_numeric_from_text(sfs.forecast_snapshot->>'wave_period') END AS similarity_period_by_source,
-    CASE WHEN sfs.forecast_snapshot->>'wind_speed' IS NOT NULL
-      THEN public.parse_numeric_from_text(sfs.forecast_snapshot->>'wind_speed') END AS similarity_wind,
-    CASE WHEN sfs.forecast_snapshot->>'wind_direction_deg' IS NOT NULL
-      THEN public.parse_numeric_from_text(sfs.forecast_snapshot->>'wind_direction_deg') END AS similarity_wind_dir,
-    CASE WHEN sfs.forecast_snapshot->>'tide_height' IS NOT NULL
-      THEN public.parse_numeric_from_text(sfs.forecast_snapshot->>'tide_height') END AS similarity_tide,
+    (regexp_match(sfs.forecast_snapshot->>'wind_speed', '(-?\d+\.?\d*)'))[1]::numeric AS similarity_wind,
+    (regexp_match(sfs.forecast_snapshot->>'wind_direction_deg', '(-?\d+\.?\d*)'))[1]::numeric AS similarity_wind_dir,
+    (regexp_match(sfs.forecast_snapshot->>'tide_height', '(-?\d+\.?\d*)'))[1]::numeric AS similarity_tide,
     CASE s.session_skill_fit WHEN 'dialed' THEN 1.0 WHEN 'over_my_head' THEN -1.0
       WHEN 'under' THEN -0.5 ELSE 0 END
       + CASE s.session_board_fit WHEN 'right' THEN 0.5
