@@ -9,6 +9,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { runSwellAlertCron, type SwellAlertProfile } from "@/lib/cron/swell-alert-runner";
 import { createMockBeach } from "@/__tests__/setup/typed-mocks";
+import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 import type { Database } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import { row } from "@/__tests__/helpers/swell-events";
@@ -98,11 +99,16 @@ function client(args: {
   claimed?: boolean;
   snapshots?: unknown[];
   beach?: typeof beach;
+  globalRuns?: Array<{ run_date: string; detected_at: string }>;
+  globalRunError?: string;
+  snapshotError?: string;
 }) {
   const stateWrites: StateWrite[] = [];
+  const globalRunLoads = jest.fn();
   const from = jest.fn((table: string) => {
     const filters: Array<[string, unknown]> = [];
     let update: Record<string, unknown> | null = null;
+    let globalRunsQuery = false;
     const chain: Record<string, unknown> = {};
     for (const method of ["in", "or", "gte", "lt", "order"]) chain[method] = () => chain;
     chain.eq = (column: string, value: unknown) => {
@@ -113,7 +119,8 @@ function client(args: {
       update = values;
       return chain;
     };
-    chain.select = () => {
+    chain.select = (columns?: string) => {
+      globalRunsQuery = columns === "run_date,detected_at";
       if (!update) return chain;
       stateWrites.push({ values: update, filters });
       return Promise.resolve({ data: args.claimed === false ? [] : [{ user_id: USER_ID }], error: null });
@@ -124,13 +131,21 @@ function client(args: {
         return { data: first === 0 ? args.states ?? [STATE_ROW] : [], error: null };
       }
       if (table === "swell_event_forecast_snapshots") {
-        return { data: first === 0 ? args.snapshots ?? [] : [], error: null };
+        if (globalRunsQuery && first === 0) globalRunLoads();
+        if (globalRunsQuery && args.globalRunError) {
+          return { data: null, error: { message: args.globalRunError } };
+        }
+        if (!globalRunsQuery && args.snapshotError) {
+          return { data: null, error: { message: args.snapshotError } };
+        }
+        const data = globalRunsQuery ? args.globalRuns ?? args.snapshots ?? [] : args.snapshots ?? [];
+        return { data: first === 0 ? data : [], error: null };
       }
       return { data: args.forecasts.slice(first, last + 1), error: null };
     };
     return chain;
   });
-  return { supabase: { from } as unknown as SupabaseClient<Database>, stateWrites, from };
+  return { supabase: { from } as unknown as SupabaseClient<Database>, stateWrites, from, globalRunLoads };
 }
 
 async function run(
@@ -305,25 +320,102 @@ describe("pinned swell follow-ups on the real detector", () => {
     }) }]);
   });
 
-  it("confirms a long-lead move on the second detector run, including runs on the same UTC date", async () => {
+  it("confirms a long-lead move across two distinct run dates", async () => {
     const { state, forecasts, event } = await firstOctoberSighting();
     const shifted = forecasts.map((forecast) => ({ ...forecast,
       forecast_at: new Date(Date.parse(forecast.forecast_at) + 24 * 3_600_000).toISOString() }));
     const movedEvent = { ...event, peakAt: "2026-10-11T15:00:00.000Z" };
-    const firstSnapshots = [toSwellEventSnapshotRow(event, oct6),
-      toSwellEventSnapshotRow(movedEvent, new Date("2026-10-07T14:30:00.000Z"))];
+    const firstSnapshots = [toSwellEventSnapshotRow(event, new Date("2026-10-05T14:30:00.000Z")),
+      toSwellEventSnapshotRow(movedEvent, new Date("2026-10-06T16:00:00.000Z"))];
     const first = await run(client({ forecasts: shifted, states: [state], snapshots: firstSnapshots }),
-      new Date("2026-10-07T15:24:00.000Z"));
+      new Date("2026-10-06T16:24:00.000Z"));
     expect(first.enqueue).not.toHaveBeenCalled();
     const snapshots = [...firstSnapshots,
-      toSwellEventSnapshotRow(movedEvent, new Date("2026-10-07T16:00:00.000Z"))];
+      toSwellEventSnapshotRow(movedEvent, new Date("2026-10-07T14:30:00.000Z"))];
     const fake = client({ forecasts: shifted, states: [state], snapshots });
-    const second = await run(fake, new Date("2026-10-07T16:24:00.000Z"));
+    const second = await run(fake, new Date("2026-10-07T15:24:00.000Z"));
     expect(second.result.sentByKind).toEqual({ moved: 1 });
     expect(second.enqueue).toHaveBeenCalledTimes(1);
     const third = await run(client({ forecasts: shifted, states: [{ ...state, ...fake.stateWrites[0]?.values }],
-      snapshots }), new Date("2026-10-07T17:24:00.000Z"));
+      snapshots }), new Date("2026-10-07T16:24:00.000Z"));
     expect(third.enqueue).not.toHaveBeenCalled();
+  });
+
+  it("does not treat fragments of a same-day partial rerun as independent confirmation", async () => {
+    const { state, forecasts, event } = await firstOctoberSighting();
+    const shifted = forecasts.map((forecast) => ({ ...forecast,
+      forecast_at: new Date(Date.parse(forecast.forecast_at) + 24 * 3_600_000).toISOString() }));
+    const movedEvent = { ...event, peakAt: "2026-10-11T15:00:00.000Z" };
+    const snapshots = [toSwellEventSnapshotRow(event, oct6),
+      toSwellEventSnapshotRow(movedEvent, new Date("2026-10-07T14:30:00.000Z")),
+      toSwellEventSnapshotRow({ ...event, eventKey: `${BEACH_ID}:S:other`, directionDeg: 180 },
+        new Date("2026-10-07T16:00:00.000Z"))];
+    const fake = client({ forecasts: shifted, states: [state], snapshots });
+    const next = await run(fake, new Date("2026-10-07T16:24:00.000Z"));
+    expect(next.result.errors).toBe(0);
+    expect(next.result.skippedCounts.followup_no_change).toBe(1);
+    expect(next.enqueue).not.toHaveBeenCalled();
+    expect(fake.stateWrites).toEqual([]);
+  });
+
+  it("uses the previous global run when the latest run emitted nothing for this beach", async () => {
+    const { state, event } = await firstOctoberSighting();
+    const pinned = { ...state, last_peak_at: "2026-10-11T15:00:00.000Z" };
+    const snapshots = [toSwellEventSnapshotRow({ ...event, peakAt: pinned.last_peak_at }, oct6),
+      toSwellEventSnapshotRow({ ...event, eventKey: `${BEACH_ID}:S:other`, directionDeg: 180 },
+        new Date("2026-10-05T14:30:00.000Z"))];
+    const globalRuns = snapshots.map(({ run_date, detected_at }) => ({ run_date, detected_at }));
+    globalRuns.push({ run_date: "2026-10-07", detected_at: "2026-10-07T14:30:00.000Z" });
+    const forecasts = octoberForecasts().map((forecast) => ({ ...forecast, swell_1_height: "0.5 ft" }));
+    const firstFake = client({ forecasts, states: [pinned], snapshots, globalRuns });
+    const first = await run(firstFake, new Date("2026-10-07T15:24:00.000Z"));
+    expect(first.result.errors).toBe(0);
+    expect(first.enqueue).not.toHaveBeenCalled();
+    expect(firstFake.stateWrites).toEqual([]);
+    globalRuns.push({ run_date: "2026-10-08", detected_at: "2026-10-08T14:30:00.000Z" });
+    const second = await run(client({ forecasts, states: [pinned], snapshots, globalRuns }),
+      new Date("2026-10-08T15:24:00.000Z"));
+    expect(second.result.sentByKind).toEqual({ dropped: 1 });
+    expect(second.enqueue).toHaveBeenCalledTimes(1);
+  });
+
+  it("loads global run dates once for all pinned evaluations in one invocation", async () => {
+    const { state, forecasts, event } = await firstOctoberSighting();
+    const fake = client({ forecasts, snapshots: [toSwellEventSnapshotRow(event, oct6)],
+      states: [state, { ...state, event_key: `${BEACH_ID}:W:another-pin` }] });
+    const next = await run(fake, new Date("2026-10-06T16:24:00.000Z"));
+    expect(next.result.errors).toBe(0);
+    expect(next.result.followupsEvaluated).toBe(2);
+    expect(fake.globalRunLoads).toHaveBeenCalledTimes(1);
+    expect(next.enqueue).not.toHaveBeenCalled();
+  });
+
+  it.each([30, 72])("treats a failed global history read as unconfirmed at %i hours of lead", async (lead) => {
+    expectConsoleWarnings([/Detector run date read failed/]);
+    const { state } = await firstOctoberSighting();
+    const now = new Date("2026-10-07T15:24:00.000Z");
+    const fake = client({ forecasts: octoberForecasts().map((forecast) => ({ ...forecast, swell_1_height: "0.5 ft" })),
+      states: [{ ...state, last_peak_at: new Date(now.getTime() + lead * 3_600_000).toISOString() }],
+      globalRunError: "run dates unavailable" });
+    const next = await run(fake, now);
+    expect(next.result.errors).toBe(0);
+    expect(next.result.sentByKind).toEqual(lead === 30 ? { dropped: 1 } : {});
+    expect(next.enqueue).toHaveBeenCalledTimes(lead === 30 ? 1 : 0);
+  });
+
+  it.each([30, 72])("does not confirm absence from a failed beach history read at %i hours of lead", async (lead) => {
+    expectConsoleWarnings([/Snapshot read failed/]);
+    const { state } = await firstOctoberSighting();
+    const now = new Date("2026-10-07T15:24:00.000Z");
+    const fake = client({ forecasts: octoberForecasts().map((forecast) => ({ ...forecast, swell_1_height: "0.5 ft" })),
+      states: [{ ...state, last_peak_at: new Date(now.getTime() + lead * 3_600_000).toISOString() }],
+      globalRuns: [{ run_date: "2026-10-06", detected_at: "2026-10-06T14:30:00.000Z" },
+        { run_date: "2026-10-07", detected_at: "2026-10-07T14:30:00.000Z" }],
+      snapshotError: "beach snapshots unavailable" });
+    const next = await run(fake, now);
+    expect(next.result.errors).toBe(0);
+    expect(next.result.sentByKind).toEqual(lead === 30 ? { dropped: 1 } : {});
+    expect(next.enqueue).toHaveBeenCalledTimes(lead === 30 ? 1 : 0);
   });
 
   it("sends a single-run move immediately when the told peak is 30 hours away", async () => {
@@ -358,18 +450,19 @@ describe("pinned swell follow-ups on the real detector", () => {
   it("confirms a long-lead drop only when the previous detector run also lacks a matching swell", async () => {
     const { state, event } = await firstOctoberSighting();
     const other = { ...event, eventKey: `${BEACH_ID}:S:2026-10-12`, directionDeg: 180, periodS: 10 };
+    const longState = { ...state, last_peak_at: "2026-10-11T15:00:00.000Z" };
     const snapshots = [toSwellEventSnapshotRow(event, oct6),
       toSwellEventSnapshotRow(other, new Date("2026-10-07T14:30:00.000Z"))];
     const missing = octoberForecasts().map((forecast) => ({ ...forecast, swell_1_height: "0.5 ft" }));
-    const first = await run(client({ forecasts: missing, states: [state], snapshots }),
+    const first = await run(client({ forecasts: missing, states: [longState], snapshots }),
       new Date("2026-10-07T15:24:00.000Z"));
     expect(first.enqueue).not.toHaveBeenCalled();
-    snapshots.push(toSwellEventSnapshotRow(other, new Date("2026-10-07T16:00:00.000Z")));
-    const fake = client({ forecasts: missing, states: [state], snapshots });
-    const second = await run(fake, new Date("2026-10-07T16:24:00.000Z"));
+    snapshots.push(toSwellEventSnapshotRow(other, new Date("2026-10-08T14:30:00.000Z")));
+    const fake = client({ forecasts: missing, states: [longState], snapshots });
+    const second = await run(fake, new Date("2026-10-08T15:24:00.000Z"));
     expect(second.result.sentByKind).toEqual({ dropped: 1 });
-    const third = await run(client({ forecasts: missing, states: [{ ...state, ...fake.stateWrites[0]?.values }],
-      snapshots }), new Date("2026-10-07T17:24:00.000Z"));
+    const third = await run(client({ forecasts: missing, states: [{ ...longState, ...fake.stateWrites[0]?.values }],
+      snapshots }), new Date("2026-10-08T16:24:00.000Z"));
     expect(third.enqueue).not.toHaveBeenCalled();
   });
 

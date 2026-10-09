@@ -69,6 +69,7 @@ function pinned(
   return {
     beach: { id: BEACH_ID, name: "Blacks Beach", shortName: "Blacks", slug: "blacks", state: "CA" },
     forecastAvailable: true,
+    previous: null,
     event: event === null ? null : beachSwellEvent({
       beachId: BEACH_ID,
       eventKey: EVENT_KEY,

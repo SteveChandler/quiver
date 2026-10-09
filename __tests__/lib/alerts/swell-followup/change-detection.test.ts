@@ -44,7 +44,7 @@ function detect(args: {
     current: args.current === null ? null : current(args.current ?? {}),
     now: args.now ?? NOW,
     timezone: TIMEZONE,
-    previous: args.previous,
+    previous: args.previous ?? null,
   });
 }
 

@@ -8,6 +8,7 @@ import {
   SWELL_EVENT_THRESHOLDS,
   detectBeachSwellEvents,
   loadRecentSwellSnapshots,
+  loadRecentSwellRunDates,
   resolveEventKeys,
   toSwellEventBeach,
   type BeachSwellEvent,
@@ -176,7 +177,7 @@ export interface PinnedSwellEvaluation {
   /** False when no future forecast rows loaded: a data gap is never reported as a dropped swell. */
   forecastAvailable: boolean;
   event: BeachSwellEvent | null;
-  previous?: { event: SwellCurrentForecast | null } | null;
+  previous: { event: SwellCurrentForecast | null } | null;
 }
 
 export interface SwellAlertState {
@@ -441,12 +442,12 @@ async function loadKeySnapshots(
   client: ServiceClient,
   beachIds: string[],
   now: Date,
-): Promise<SwellEventSnapshot[]> {
+): Promise<SwellEventSnapshot[] | null> {
   try {
     return await loadRecentSwellSnapshots(client, beachIds, new Date(now.getTime() - SWELL_EVENT_KEY_REUSE_DAYS * DAY_MS));
   } catch (error) {
     console.warn("[swell-alert] Snapshot read failed; using detector keys:", error);
-    return [];
+    return null;
   }
 }
 
@@ -613,7 +614,7 @@ async function evaluatePool(
   const history = buildScoreHistory({ pool, forecastsByBeach, verdictFor, timezone: profile.timezone, today });
 
   const tomorrow = addCivilDays(today, 1);
-  const snapshots = await loadKeySnapshots(client, pool.map(({ beach }) => beach.id), now);
+  const snapshots = await loadKeySnapshots(client, pool.map(({ beach }) => beach.id), now) ?? [];
   const candidates = await Promise.all(pool.map(async ({ beach }) => {
     const beachForecasts = forecastsByBeach.get(beach.id) ?? [];
     const events = resolveEventKeys(
@@ -781,6 +782,7 @@ async function evaluatePinned(
   client: ServiceClient,
   state: SwellFollowupState,
   now: Date,
+  runDates: readonly string[],
 ): Promise<PinnedSwellEvaluation> {
   const { data: beach, error } = await client
     .from("beaches")
@@ -788,7 +790,7 @@ async function evaluatePinned(
     .eq("id", state.beachId)
     .maybeSingle();
   if (error) throw new Error(`Failed to load pinned swell beach: ${error.message}`);
-  if (!beach) return { beach: null, forecastAvailable: false, event: null };
+  if (!beach) return { beach: null, forecastAvailable: false, event: null, previous: null };
 
   const forecasts = await loadForecasts(
     client,
@@ -796,7 +798,8 @@ async function evaluatePinned(
     new Date(now.getTime() - PINNED_LOOKBACK_MS),
     new Date(now.getTime() + LOOKAHEAD_DAYS * DAY_MS),
   );
-  const snapshots = await loadKeySnapshots(client, [beach.id], now);
+  const keySnapshots = await loadKeySnapshots(client, [beach.id], now);
+  const snapshots = keySnapshots ?? [];
   const events = resolveEventKeys(
     detectBeachSwellEvents({
       beach: toSwellEventBeach(beach),
@@ -829,12 +832,10 @@ async function evaluatePinned(
       ?? null;
   }
   const event = matchPinned(events);
-  // Detector runs, not UTC dates: hourly evaluations must keep the same independent evidence after midnight.
-  const runTimes = [...new Set(snapshots.map(({ detectedAt }) => Date.parse(detectedAt)))]
-    .sort((left, right) => right - left);
-  const previousRunAt = runTimes[1];
-  const previousEvent = previousRunAt === undefined ? null
-    : matchPinned(snapshots.filter(({ detectedAt }) => Date.parse(detectedAt) === previousRunAt));
+  // A run_date can contain mixed timestamps after a partial rerun; the clock date never advances this evidence.
+  const previousRunDate = keySnapshots === null ? undefined : runDates[1];
+  const previousEvent = previousRunDate === undefined ? null
+    : matchPinned(snapshots.filter(({ runDate }) => runDate === previousRunDate));
 
   return {
     beach: {
@@ -846,7 +847,7 @@ async function evaluatePinned(
     },
     forecastAvailable: forecasts.some((row) => Date.parse(row.forecast_at) > now.getTime()),
     event,
-    previous: previousRunAt === undefined ? null : {
+    previous: previousRunDate === undefined ? null : {
       event: previousEvent ? {
         peakAt: previousEvent.peakAt, faceHeightFt: previousEvent.peakFaceHeightFt, exposure: previousEvent.exposure,
       } : null,
@@ -947,6 +948,7 @@ function defaultDependencies(args: {
   let client = args.supabase;
   const firstSightingTideCache = new TideCache();
   const rarityByUser = new Map<string, Promise<SwellRarityAssessor>>();
+  let swellRunDates: Promise<string[]> | undefined;
   const getClient = (): ServiceClient => {
     client ??= createSupabaseServiceRoleClient();
     return client;
@@ -1006,7 +1008,14 @@ function defaultDependencies(args: {
     loadFollowupStates: args.deps?.loadFollowupStates
       ?? (() => loadActiveSwellFollowupStates(getClient())),
     evaluatePinned: args.deps?.evaluatePinned
-      ?? ((_profile, state, now) => evaluatePinned(getClient(), state, now)),
+      ?? (async (_profile, state, now) => {
+        swellRunDates ??= loadRecentSwellRunDates(getClient(), new Date(now.getTime() - SWELL_EVENT_KEY_REUSE_DAYS * DAY_MS))
+          .catch((error: unknown) => {
+            console.warn("[swell-alert] Detector run date read failed; changes unconfirmed:", error);
+            return [];
+          });
+        return evaluatePinned(getClient(), state, now, await swellRunDates);
+      }),
     saveFirstTold: args.deps?.saveFirstTold
       ?? ((input) => saveSwellFirstTold(getClient(), input)),
     claimFollowup: args.deps?.claimFollowup

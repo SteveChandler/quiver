@@ -4,6 +4,7 @@ import { getLocalDateString, getLocalHour } from "@/lib/utils/timezone-utils";
 const HOUR_MS = 60 * 60 * 1000;
 
 export const SWELL_FOLLOWUP_THRESHOLDS = {
+  /** Beyond this lead from the told peak, moved, bigger, smaller and dropped need confirmation. */
   confirmLeadHours: 48,
   /** Peak moved by at least this much -> moved. */
   movedMinHours: 12,
@@ -44,8 +45,8 @@ export interface SwellCurrentForecast {
 interface SwellFollowupInput {
   told: SwellToldSnapshot;
   current: SwellCurrentForecast | null;
-  /** Null or absent means no independent earlier detector run is available. */
-  previous?: { event: SwellCurrentForecast | null } | null;
+  /** Null means no independent earlier detector run is available. */
+  previous: { event: SwellCurrentForecast | null } | null;
   now: Date;
   timezone: string;
 }

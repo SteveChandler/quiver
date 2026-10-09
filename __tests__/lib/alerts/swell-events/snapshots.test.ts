@@ -4,6 +4,7 @@ import {
   SWELL_EVENT_DETECTOR_VERSION,
   SWELL_OUTLOOK_PULSE_DETECTOR_VERSION,
   loadRecentSwellSnapshots,
+  loadRecentSwellRunDates,
   loadSwellCrossingHistory,
   resolveEventKeys,
   toSwellEventSnapshotRow,
@@ -169,6 +170,48 @@ describe("snapshot store", () => {
   it("throws on a query error so callers can omit swells rather than guess", async () => {
     const { client } = queryClient({ data: null, error: { message: "relation does not exist" } });
     await expect(loadRecentSwellSnapshots(client, [BEACH], new Date())).rejects.toThrow("relation does not exist");
+  });
+
+  it("loads distinct global run dates ordered by each run's latest detectedAt", async () => {
+    const { client, calls } = queryClient({ data: [
+      { run_date: "2026-10-06", detected_at: "2026-10-06T14:30:00Z" },
+      { run_date: "2026-10-07", detected_at: "2026-10-07T14:30:00Z" },
+      { run_date: "2026-10-06", detected_at: "2026-10-08T14:30:00Z" },
+      { run_date: null, detected_at: "2026-10-09T14:30:00Z" },
+      { run_date: "2026-10-09", detected_at: "invalid" },
+    ], error: null });
+    const since = new Date("2026-10-04T15:24:00Z");
+    await expect(loadRecentSwellRunDates(client, since)).resolves.toEqual(["2026-10-06", "2026-10-07"]);
+    expect(calls).toEqual(expect.arrayContaining([
+      ["select", "run_date,detected_at"],
+      ["eq", "detector_version", SWELL_EVENT_DETECTOR_VERSION],
+      ["gte", "detected_at", since.toISOString()],
+    ]));
+    expect(calls.some(([method]) => method === "in")).toBe(false);
+  });
+
+  it("reads global run dates across server-capped pages", async () => {
+    const rows = [
+      { run_date: "2026-10-08", detected_at: "2026-10-08T16:00:00Z" },
+      { run_date: "2026-10-08", detected_at: "2026-10-08T14:30:00Z" },
+      { run_date: "2026-10-07", detected_at: "2026-10-07T14:30:00Z" },
+      { run_date: "2026-10-06", detected_at: "2026-10-06T14:30:00Z" },
+    ];
+    const builder: Record<string, unknown> = {};
+    for (const method of ["select", "eq", "gte", "order"]) builder[method] = () => builder;
+    const range = jest.fn(async (offset: number) => ({ data: rows.slice(offset, offset + 2), error: null }));
+    builder.range = range;
+    const client = { from: () => builder } as unknown as SupabaseClient<Database>;
+    await expect(loadRecentSwellRunDates(client, new Date("2026-10-04T15:24:00Z")))
+      .resolves.toEqual(["2026-10-08", "2026-10-07", "2026-10-06"]);
+    expect(range.mock.calls.map(([offset]) => offset)).toEqual([0, 2, 4]);
+  });
+
+  it("returns no global runs for an empty result and throws on a failed read", async () => {
+    const empty = queryClient({ data: [], error: null });
+    await expect(loadRecentSwellRunDates(empty.client, new Date())).resolves.toEqual([]);
+    const failed = queryClient({ data: null, error: { message: "run dates unavailable" } });
+    await expect(loadRecentSwellRunDates(failed.client, new Date())).rejects.toThrow("run dates unavailable");
   });
 
   it("upserts today's rows on (beach_id, event_key, run_date)", async () => {
