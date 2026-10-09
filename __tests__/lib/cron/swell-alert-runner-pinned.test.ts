@@ -92,13 +92,14 @@ function client(args: {
   forecasts: EnhancedForecastEntity[];
   states?: unknown[];
   claimed?: boolean;
+  snapshots?: unknown[];
 }) {
   const stateWrites: StateWrite[] = [];
   const from = jest.fn((table: string) => {
     const filters: Array<[string, unknown]> = [];
     let update: Record<string, unknown> | null = null;
     const chain: Record<string, unknown> = {};
-    for (const method of ["in", "gte", "lt", "order"]) chain[method] = () => chain;
+    for (const method of ["in", "or", "gte", "lt", "order"]) chain[method] = () => chain;
     chain.eq = (column: string, value: unknown) => {
       filters.push([column, value]);
       return chain;
@@ -117,7 +118,9 @@ function client(args: {
       if (table === "swell_event_user_state") {
         return { data: first === 0 ? args.states ?? [STATE_ROW] : [], error: null };
       }
-      if (table === "swell_event_forecast_snapshots") return { data: [], error: null };
+      if (table === "swell_event_forecast_snapshots") {
+        return { data: first === 0 ? args.snapshots ?? [] : [], error: null };
+      }
       return { data: args.forecasts.slice(first, last + 1), error: null };
     };
     return chain;
@@ -177,6 +180,38 @@ describe("pinned swell follow-ups on the real detector", () => {
 
     expect(result.sentByKind).toEqual({ moved: 1 });
     expect(payload).toMatchObject({ event_key: EVENT_KEY, peak_date: "2026-09-21" });
+  });
+
+  it("does not call a different swell, already tracked under its own key, the told swell moved", async () => {
+    // Prod 2026-10-06: a Wednesday pin fell back to Friday's swell, which the
+    // detector had tracked under its own key since the day before.
+    const fake = client({
+      forecasts: rows((date) => (date === "2026-09-21" ? 5 : 1.5)),
+      snapshots: [{
+        beach_id: BEACH_ID, event_key: `${BEACH_ID}:W:2026-09-21`, detector_version: "swell-events.v1",
+        run_date: "2026-09-17", detected_at: "2026-09-17T14:30:00+00:00", direction_deg: 270, direction_band: "W",
+        period_s: 16, peak_offshore_height_ft: 5, peak_face_height_ft: 6, exposure: 1, energy_ratio: 9,
+        arrival_at: "2026-09-20T15:00:00+00:00", peak_at: "2026-09-21T15:00:00+00:00", fade_at: null,
+      }],
+    });
+
+    const { result, payload } = await run(fake);
+
+    expect(result.sentByKind).toEqual({ dropped: 1 });
+    expect(payload).toMatchObject({ kind: "dropped", event_key: EVENT_KEY, peak_date: "2026-09-19" });
+  });
+
+  it("does not call a swell twice the told size the told swell moved", async () => {
+    // Told a small pulse; the only swell left is a much bigger one two days later.
+    const fake = client({
+      forecasts: rows((date) => (date === "2026-09-21" ? 5 : 1.5)),
+      states: [{ ...STATE_ROW, last_face_height_ft: "1.5" }],
+    });
+
+    const { result, payload } = await run(fake);
+
+    expect(result.sentByKind).toEqual({ dropped: 1 });
+    expect(payload).toMatchObject({ kind: "dropped", peak_date: "2026-09-19" });
   });
 
   it("tells the user the swell dropped when it leaves the forecast", async () => {

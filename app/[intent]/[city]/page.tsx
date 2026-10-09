@@ -1,3 +1,4 @@
+import { JsonLd } from "@/components/seo/funnel/JsonLd";
 import Link from "next/link";
 import { ChevronLeft, MapPin } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
@@ -634,10 +635,7 @@ export default async function IntentPage(props: IntentPageParams) {
       <>
         <ReviewedCityEditorialSection editorial={reviewedEditorial} />
         {/* Place JSON-LD — exposes geo data to crawlers (Mapbox canvas is not crawlable) */}
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(beginnerPlaceSchema) }}
-        />
+        <JsonLd data={beginnerPlaceSchema} />
         {/* ItemList JSON-LD for Google carousel SERP features */}
         <ItemListSchema
           items={beaches.map((b, i) => ({
@@ -725,10 +723,7 @@ export default async function IntentPage(props: IntentPageParams) {
         <>
           <ReviewedCityEditorialSection editorial={reviewedEditorial} />
           {/* Place JSON-LD — exposes geo data to crawlers */}
-          <script
-            type="application/ld+json"
-            dangerouslySetInnerHTML={{ __html: JSON.stringify(tidePlaceSchema) }}
-          />
+          <JsonLd data={tidePlaceSchema} />
           {/* ItemList JSON-LD for Google carousel SERP features */}
           <ItemListSchema
             items={tideBeaches.map((b, i) => ({
@@ -818,10 +813,7 @@ export default async function IntentPage(props: IntentPageParams) {
       return (
         <>
           <ReviewedCityEditorialSection editorial={reviewedEditorial} />
-          <script
-            type="application/ld+json"
-            dangerouslySetInnerHTML={{ __html: JSON.stringify(waterTempPlaceSchema) }}
-          />
+          <JsonLd data={waterTempPlaceSchema} />
           <ItemListSchema
             items={waterTempBeaches.map((b, i) => ({
               name: b.name,
@@ -915,10 +907,7 @@ export default async function IntentPage(props: IntentPageParams) {
       return (
         <>
           <ReviewedCityEditorialSection editorial={reviewedEditorial} />
-          <script
-            type="application/ld+json"
-            dangerouslySetInnerHTML={{ __html: JSON.stringify(dpPlaceSchema) }}
-          />
+          <JsonLd data={dpPlaceSchema} />
           <ItemListSchema
             items={dpBeaches.map((b, i) => ({
               name: b.name,
@@ -1003,10 +992,7 @@ export default async function IntentPage(props: IntentPageParams) {
       return (
         <>
           <ReviewedCityEditorialSection editorial={reviewedEditorial} />
-          <script
-            type="application/ld+json"
-            dangerouslySetInnerHTML={{ __html: JSON.stringify(sunsetPlaceSchema) }}
-          />
+          <JsonLd data={sunsetPlaceSchema} />
           <ItemListSchema
             items={sunsetBeaches.map((b, i) => ({
               name: b.name,
@@ -1189,10 +1175,7 @@ export default async function IntentPage(props: IntentPageParams) {
         name={`${definition.label} Spots in ${cityMetadata.cityName}`}
       />
       {/* Place JSON-LD with GeoCoordinates — exposes Mapbox pin data to crawlers */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(placeSchema) }}
-      />
+      <JsonLd data={placeSchema} />
       {/* WebPage JSON-LD with dateModified signals content freshness to Google */}
       <WebPageSchema
         name={pageContent.title}

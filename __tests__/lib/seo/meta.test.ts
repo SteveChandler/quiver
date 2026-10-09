@@ -5,16 +5,7 @@
  * Priority 2 test coverage for San Diego page redesign.
  */
 
-import {
-  buildPageMetadata,
-  buildDynamicBeachMetadata,
-  buildDynamicTideMetadata,
-  buildDynamicWaterTempMetadata,
-  extractDescriptionSnippet,
-  formatCrowdSignal,
-  shortenBeachNameForSerpTitle,
-  titleContainsQuiver,
-} from "@/lib/seo/meta";
+import { buildPageMetadata, buildDynamicBeachMetadata, buildDynamicTideMetadata, buildDynamicWaterTempMetadata, shortenBeachNameForSerpTitle, titleContainsQuiver } from "@/lib/seo/meta";
 import { SEO_CONFIG } from "@/lib/constants/seo";
 
 // Type helper for test assertions - Metadata has union types that need narrowing
@@ -690,83 +681,7 @@ describe("SEO Meta Builder", () => {
     });
   });
 
-  describe("extractDescriptionSnippet", () => {
-    it("returns whole first sentence when it fits budget", () => {
-      const result = extractDescriptionSnippet("Powerful beach break.", 50);
-      expect(result).toBe("Powerful beach break");
-    });
 
-    it("splits at semicolons when first sentence is too long", () => {
-      const tip = "Small peaks form around the pier; look for sandbars";
-      const result = extractDescriptionSnippet(tip, 35);
-      expect(result).toBe("Small peaks form around the pier");
-    });
-
-    it("splits at em-dash clause boundaries", () => {
-      const tip = "Long right-hand walls — best at mid tide with south swell";
-      const result = extractDescriptionSnippet(tip, 25);
-      expect(result).toBe("Long right-hand walls");
-    });
-
-    it("strips weak trailing words before period", () => {
-      const result = extractDescriptionSnippet("Great waves roll in from the", 30);
-      // "the" is a weak word at the end — should be stripped
-      expect(result).not.toMatch(/ (the|a|for|in|at|to|of)$/i);
-    });
-
-    it("capitalizes first character of snippet", () => {
-      const result = extractDescriptionSnippet("powerful waves on the north shore", 50);
-      expect(result[0]).toBe("P");
-    });
-
-    it("returns empty string for empty input", () => {
-      expect(extractDescriptionSnippet("", 60)).toBe("");
-    });
-
-    it("returns empty string when budget is 0", () => {
-      expect(extractDescriptionSnippet("Some wave tips here", 0)).toBe("");
-    });
-
-    it("only uses first sentence when multiple sentences exist", () => {
-      const result = extractDescriptionSnippet("First sentence. Second sentence. Third.", 60);
-      expect(result).toBe("First sentence");
-    });
-  });
-
-  describe("formatCrowdSignal", () => {
-    it("returns 'Uncrowded' for light", () => {
-      expect(formatCrowdSignal("light")).toBe("Uncrowded");
-    });
-
-    it("returns 'Busy' for moderate", () => {
-      expect(formatCrowdSignal("moderate")).toBe("Busy");
-    });
-
-    it("returns 'Crowded' for heavy", () => {
-      expect(formatCrowdSignal("heavy")).toBe("Crowded");
-    });
-
-    it("returns 'Packed' for very_heavy", () => {
-      expect(formatCrowdSignal("very_heavy")).toBe("Packed");
-    });
-
-    it("returns null for unknown level", () => {
-      expect(formatCrowdSignal("unknown_level")).toBeNull();
-    });
-
-    it("returns null for null input", () => {
-      expect(formatCrowdSignal(null)).toBeNull();
-    });
-
-    it("returns null for undefined input", () => {
-      expect(formatCrowdSignal(undefined)).toBeNull();
-    });
-
-    it("is case-insensitive", () => {
-      expect(formatCrowdSignal("VERY_HEAVY")).toBe("Packed");
-      expect(formatCrowdSignal("Light")).toBe("Uncrowded");
-    });
-  });
 
   describe("buildDynamicTideMetadata", () => {
     const mockBeach = {

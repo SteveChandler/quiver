@@ -228,6 +228,7 @@ export async function renderBeachSubPage({
           nextHighHeight={tideMeta?.nextHighHeight ?? null}
           nextLowTime={tideMeta?.nextLowTime ?? null}
           nextLowHeight={tideMeta?.nextLowHeight ?? null}
+          source={tideMeta?.source ?? null}
         />
       )}
 

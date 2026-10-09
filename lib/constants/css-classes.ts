@@ -19,14 +19,3 @@ export const BODY_CLASSES = {
    */
   AUTHENTICATED: "authenticated",
 } as const;
-
-/**
- * Timing constants for performance monitoring.
- */
-export const PERFORMANCE_TIMING = {
-  /**
-   * Delay before starting memory monitoring in development.
-   * Allows app to stabilize after initial render before measuring.
-   */
-  MEMORY_MONITOR_DELAY_MS: 5000,
-} as const;

@@ -329,8 +329,7 @@ export interface SurfDiscoveryRecommendation {
   matchQuality: 'perfect' | 'excellent' | 'good' | 'fair' | 'minimal';
   /**
    * Qualitative character of the conditions from the scoring engine.
-   * When present, can be passed to PersonalizedBadge and AnimatedScoreGauge
-   * for richer condition descriptions on beach cards.
+   * Qualitative character for condition descriptions on beach cards.
    */
   character?: {
     label: string;

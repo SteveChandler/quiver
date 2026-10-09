@@ -1,20 +1,13 @@
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 
 // Success toast utilities
 const showSuccessToast = (title: string, description?: string) => {
-  toast({
-    title,
-    description,
-  });
+  toast(title, { description });
 };
 
 // Error toast utilities
 const showErrorToast = (title: string, description?: string) => {
-  toast({
-    title,
-    description,
-    variant: "destructive",
-  });
+  toast.error(title, { description });
 };
 
 // Common toast patterns for specific actions

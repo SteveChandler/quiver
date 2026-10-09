@@ -774,13 +774,7 @@ function priorTerminalOutcome(
 function groupAttemptsByChannel(
   attempts: NotificationDeliveryAttemptRow[],
 ): Map<NotificationChannel, NotificationDeliveryAttemptRow[]> {
-  const m = new Map<NotificationChannel, NotificationDeliveryAttemptRow[]>();
-  for (const a of attempts) {
-    const list = m.get(a.channel) ?? [];
-    list.push(a);
-    m.set(a.channel, list);
-  }
-  return m;
+  return Map.groupBy(attempts, (attempt) => attempt.channel);
 }
 
 async function finalizeEventStatus(
@@ -1688,12 +1682,7 @@ async function loadAttemptsForEvents(
     );
   }
 
-  for (const row of data ?? []) {
-    const list = result.get(row.notification_event_id) ?? [];
-    list.push(row);
-    result.set(row.notification_event_id, list);
-  }
-  return result;
+  return Map.groupBy(data ?? [], (row) => row.notification_event_id);
 }
 
 /**

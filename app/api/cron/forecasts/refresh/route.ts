@@ -1,3 +1,5 @@
+import { setTimeout as sleep } from "node:timers/promises";
+import { chunk as splitIntoChunks } from "@/lib/utils/chunk";
 import {
   createErrorResponse,
   createSuccessResponse,
@@ -6,7 +8,7 @@ import {
 } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { CDIPService } from "@/lib/services/cdip";
-import { NwsWindService } from "@/lib/services/nws-wind-service";
+import { NwsWindService, type NwsForecastCache } from "@/lib/services/nws-wind-service";
 import {
   getNearestNDBCStation,
   fetchLatestNDBCObservation,
@@ -72,15 +74,6 @@ type TidePoint = {
   source: string;
 };
 type TideGroupFailure = "no_predictions" | "upsert_failed" | "time_budget" | "error";
-
-function chunkArray<T>(items: T[], chunkSize: number): T[][] {
-  if (chunkSize <= 0) return [items];
-  const out: T[][] = [];
-  for (let i = 0; i < items.length; i += chunkSize) {
-    out.push(items.slice(i, i + chunkSize));
-  }
-  return out;
-}
 
 function getSupabaseProjectRef(): string | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -180,6 +173,9 @@ async function _GET(request: Request): Promise<Response> {
     const tideLatestByBeachMs = new Map<string, number>();
     const cdip = new CDIPService();
     const nwsWind = new NwsWindService();
+    const cdipFetches = new Map<string, ReturnType<CDIPService["fetchBuoyDataWithDiagnostics"]>>();
+    const ndbcFetches = new Map<string, ReturnType<typeof fetchLatestNDBCObservation>>();
+    const nwsForecasts: NwsForecastCache = new Map();
     const refreshedAt = new Date().toISOString();
 
     const allBeaches: BeachRow[] = (beaches || []).map((b: any) => ({
@@ -235,7 +231,7 @@ async function _GET(request: Request): Promise<Response> {
         // The beach/time index bounds database work; output pagination alone does not.
         const checkedBeaches = new Set<string>();
         marineCoverage.freshnessCoverage.expectedCoverage = args.beaches.length;
-        for (const batch of chunkArray(args.beaches, 25)) {
+        for (const batch of splitIntoChunks(args.beaches, 25)) {
           if (shouldStop()) {
             rejectMarine("freshness_budget_exhausted");
             break;
@@ -330,7 +326,7 @@ async function _GET(request: Request): Promise<Response> {
     let marineInventory = allBeaches;
     if (runMarine) {
       const { data: last, error } = await supabase.from("cron_runs").select("summary")
-        .eq("route", `/api/cron/forecasts/refresh?source=${source}`)
+        .eq("job", `/api/cron/forecasts/refresh?source=${source}`)
         .not("summary->result->marineCoverage->>lastAttemptedBeachId", "is", null)
         .order("started_at", { ascending: false }).limit(1).maybeSingle();
       if (error) throw error;
@@ -396,7 +392,7 @@ async function _GET(request: Request): Promise<Response> {
         });
       }
 
-      const batches = chunkArray(
+      const batches = splitIntoChunks(
         // If both marine + sun are requested, run marine selection set (it’s likely superset during recovery).
         runMarine ? selectedMarineBeaches : selectedSunBeaches,
         BATCH_SIZE
@@ -433,10 +429,15 @@ async function _GET(request: Request): Promise<Response> {
               try {
                 const marineRows: any[] = [];
                 let waveStationFound = false;
-                const ndbc = await getNearestNDBCStation(b.lat, b.lon);
+                const ndbc = await getNearestNDBCStation(b.lat, b.lon, 80, ndbcFetches);
                 if (ndbc) {
                   waveStationFound = true;
-                  const obs = await fetchLatestNDBCObservation(ndbc.id);
+                  let observation = ndbcFetches.get(ndbc.id);
+                  if (!observation) {
+                    observation = fetchLatestNDBCObservation(ndbc.id);
+                    ndbcFetches.set(ndbc.id, observation);
+                  }
+                  const obs = await observation;
                   // Only use observations with valid wave height data
                   if (obs && usableWaveObservation(obs, nowMs)) {
                     marineRows.push({
@@ -460,7 +461,12 @@ async function _GET(request: Request): Promise<Response> {
                     if (!station) break;
                     waveStationFound = true;
                     excluded.push(station);
-                    const diagnostic = await cdip.fetchBuoyDataWithDiagnostics(station);
+                    let fetch = cdipFetches.get(station);
+                    if (!fetch) {
+                      fetch = cdip.fetchBuoyDataWithDiagnostics(station);
+                      cdipFetches.set(station, fetch);
+                    }
+                    const diagnostic = await fetch;
                     const outcome = diagnostic.skipReason;
                     marineCoverage.providerOutcomes[outcome] = (marineCoverage.providerOutcomes[outcome] ?? 0) + 1;
                     const points = diagnostic.data?.data || [];
@@ -552,7 +558,7 @@ async function _GET(request: Request): Promise<Response> {
                   lon: b.lon,
                   start: windowStart,
                   end: windowEnd,
-                });
+                }, nwsForecasts);
 
                 if (windPoints.length) {
                   const windRows = windPoints.map((p) => ({
@@ -634,7 +640,7 @@ async function _GET(request: Request): Promise<Response> {
             });
             break;
           }
-          await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
+          await sleep(BATCH_DELAY_MS);
         }
       }
     }
@@ -816,7 +822,7 @@ async function _GET(request: Request): Promise<Response> {
           if (!rows.length) return "no_predictions";
 
           let upsertFailed = false;
-          for (const chunk of chunkArray(rows, 1000)) {
+          for (const chunk of splitIntoChunks(rows, 1000)) {
             if (shouldStop()) {
               console.warn("[Forecast Refresh] Stopping early due to time budget (before tide upsert)", {
                 stationId,
@@ -937,7 +943,7 @@ async function _GET(request: Request): Promise<Response> {
                 tide_phase: null,
                 source: MODEL_TIDE_SOURCE,
               }));
-              for (const chunk of chunkArray(rows, 1000)) {
+              for (const chunk of splitIntoChunks(rows, 1000)) {
                 if (shouldStop()) {
                   failure = "time_budget";
                   break;

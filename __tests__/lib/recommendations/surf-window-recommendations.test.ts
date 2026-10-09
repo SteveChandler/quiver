@@ -1,10 +1,6 @@
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
-import {
-  buildBeachSurfWindowRecommendations,
-  buildSurfWindowRecommendations,
-  type SurfWindowForecastGroup,
-} from "@/lib/recommendations/surf-window-recommendations";
+import { buildSurfWindowRecommendations, type SurfWindowForecastGroup } from "@/lib/recommendations/surf-window-recommendations";
 
 jest.mock("@/lib/utils/timezone-utils.server", () => ({
   getTimezoneFromCoords: jest.fn(() => "America/Los_Angeles"),
@@ -77,37 +73,6 @@ function dayForecast(day: number, overrides: Partial<EnhancedForecastEntity> = {
 }
 
 describe("buildSurfWindowRecommendations", () => {
-  it("renders existing feet units once without changing raw measurements", () => {
-    const result = buildBeachSurfWindowRecommendations(makeBeach(), [makeForecast({ wave_height: "3-4 ft", tide_height: "-0.5 ft" })], { now: NOW });
-    expect(result.recommendations).toHaveLength(1);
-    expect(result.recommendations[0].wave.summary).toContain("3-4 ft at");
-    expect(result.recommendations[0].tide.summary).toBe("Rising, -0.5 ft");
-    expect(result.recommendations[0].wave.height).toBe("3-4 ft");
-  });
-
-  it("returns top 3 ranked recommendations for normal beach input", () => {
-    const result = buildBeachSurfWindowRecommendations(
-      makeBeach(),
-      [
-        dayForecast(15, { wave_height: "4", confidence_score: 85 }),
-        dayForecast(16, { wave_height: "5", confidence_score: 90 }),
-        dayForecast(17, { wave_height: "3", confidence_score: 80 }),
-        dayForecast(18, { wave_height: "2", confidence_score: 70 }),
-      ],
-      { now: NOW, baseUrl: "https://example.com", maxRecommendations: 3 }
-    );
-
-    expect(result.horizonDays).toBe(7);
-    expect(result.recommendations).toHaveLength(3);
-    expect(result.recommendations.map((item) => item.rank)).toEqual([1, 2, 3]);
-    expect(result.recommendations[0].windowId).toContain("beach-1");
-    expect(result.recommendations[0].timezone).toBe("America/Los_Angeles");
-    expect(result.recommendations[0].appDeepLink).toContain("/app/spot/test-beach?window=");
-    expect(result.recommendations[0].universalLink).toMatch(/^https:\/\/example.com\/app\/spot\/test-beach\?window=/);
-    expect(result.recommendations[0].canonicalWebUrl).toBe(
-      "https://example.com/ca/san-diego/test-beach"
-    );
-  });
 
   it("uses shared source and link helpers in built recommendations", () => {
     const result = buildSurfWindowRecommendations(
@@ -186,99 +151,5 @@ describe("buildSurfWindowRecommendations", () => {
       second.recommendations.map((item) => item.windowId)
     );
     expect(first.recommendations.map((item) => item.rank)).toEqual([1, 2]);
-  });
-
-  it("handles sparse rows with one valid window", () => {
-    const result = buildBeachSurfWindowRecommendations(
-      makeBeach(),
-      [
-        makeForecast({
-          id: "invalid-date",
-          forecast_at: "not-a-date",
-        }),
-        dayForecast(15, {
-          id: "sparse-valid",
-          wave_period: null,
-          wave_direction: null,
-          swell_1_period: null,
-          swell_1_direction: null,
-          tide_status: null,
-          tide_height: null,
-          next_tide_at: null,
-          next_tide_time: null,
-          next_tide_type: null,
-          next_tide_height: null,
-          confidence_score: 62,
-        }),
-      ],
-      { now: NOW }
-    );
-
-    expect(result.recommendations).toHaveLength(1);
-    expect(result.recommendations[0].wave.summary.length).toBeGreaterThan(0);
-    expect(result.recommendations[0].sources.tide).toBe(false);
-  });
-
-  it("uses only 7-day horizon when supplied rows do not extend into week two", () => {
-    const result = buildBeachSurfWindowRecommendations(
-      makeBeach(),
-      [dayForecast(15), dayForecast(16), dayForecast(20)],
-      { now: NOW }
-    );
-
-    expect(result.horizonDays).toBe(7);
-  });
-
-  it("uses 14-day horizon when supplied rows include future week-two data", () => {
-    const result = buildBeachSurfWindowRecommendations(
-      makeBeach(),
-      [dayForecast(15), dayForecast(24)],
-      { now: NOW }
-    );
-
-    expect(result.horizonDays).toBe(14);
-  });
-
-  it("marks low-confidence output without throwing", () => {
-    const result = buildBeachSurfWindowRecommendations(
-      makeBeach(),
-      [dayForecast(15, { confidence_score: 25, data_source: "FALLBACK" })],
-      { now: NOW }
-    );
-
-    expect(result.recommendations).toHaveLength(1);
-    expect(result.recommendations[0].confidence.level).toBe("low");
-    expect(result.recommendations[0].dataNotes).toContain("Forecast confidence is low");
-  });
-
-  it("returns an explicit empty result when no recommendation is available", () => {
-    const result = buildBeachSurfWindowRecommendations(
-      makeBeach(),
-      [
-        makeForecast({
-          id: "past",
-          forecast_at: "2024-01-14T17:00:00Z",
-          forecast_date: "2024-01-14",
-          forecast_time: "09:00",
-        }),
-      ],
-      { now: NOW }
-    );
-
-    expect(result).toMatchObject({
-      generatedAt: NOW.toISOString(),
-      horizonDays: 7,
-      recommendations: [],
-    });
-  });
-
-  it("limits output to 3 recommendations by default", () => {
-    const result = buildBeachSurfWindowRecommendations(
-      makeBeach(),
-      [dayForecast(15), dayForecast(16), dayForecast(17), dayForecast(18)],
-      { now: NOW }
-    );
-
-    expect(result.recommendations.length).toBeLessThanOrEqual(3);
   });
 });

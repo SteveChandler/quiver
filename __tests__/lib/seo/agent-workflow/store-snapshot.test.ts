@@ -1,9 +1,4 @@
-import {
-  buildStoreSnapshot,
-  compareListingMetadata,
-  extractPriceEvidence,
-  parseAppStoreLookup,
-} from "@/lib/seo/agent-workflow/store-snapshot";
+import { buildStoreSnapshot, compareListingMetadata, parseAppStoreLookup } from "@/lib/seo/agent-workflow/store-snapshot";
 
 describe("SEO workflow store snapshot", () => {
   it("parses App Store lookup rows and detects listing drift", () => {
@@ -41,13 +36,6 @@ describe("SEO workflow store snapshot", () => {
         runId: "20260620T202412Z",
       })],
     });
-  });
-
-  it("extracts public price evidence from store HTML", () => {
-    expect(extractPriceEvidence("Quiver Pro $4.99/month or $39.99/year")).toEqual([
-      "$39.99",
-      "$4.99",
-    ]);
   });
 
   it("parses Swell Scope as a competitor listing", () => {

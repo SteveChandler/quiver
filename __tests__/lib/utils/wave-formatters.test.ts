@@ -1,22 +1,4 @@
-import {
-  formatWaveHeightDecimal,
-  formatWaveHeightBucket,
-  formatWaveRange,
-  formatWaveHeightRangeString,
-  getWaveSizeDescription,
-  getWaveSizeLabel,
-  WAVE_SIZE_LABELS,
-  parseWaveHeight,
-  getWaveHeightValue,
-  toFaceHeightFeet,
-  toFaceHeightRangeFeet,
-  extractNumericWaveHeight,
-  selectWaveHeightSource,
-  metersToFeet,
-  roundWaveHeight,
-  clampWaveHeight,
-  WAVE_HEIGHT_NUMBER_PATTERN,
-} from "@/lib/utils/wave-formatters";
+import { formatWaveHeightDecimal, formatWaveHeightBucket, formatWaveRange, formatWaveHeightRangeString, getWaveSizeDescription, getWaveSizeLabel, WAVE_SIZE_LABELS, parseWaveHeight, toFaceHeightFeet, toFaceHeightRangeFeet, extractNumericWaveHeight, selectWaveHeightSource, metersToFeet, roundWaveHeight, clampWaveHeight, WAVE_HEIGHT_NUMBER_PATTERN } from "@/lib/utils/wave-formatters";
 import type { ShoalingFactors } from "@/lib/utils/wave-height-transformer";
 import { TERRAIN_BINS } from "@/types/terrain";
 
@@ -318,23 +300,6 @@ describe("wave-formatters", () => {
   // =========================================================================
   // getWaveHeightValue (merged from wave-height-formatter.test.ts)
   // =========================================================================
-  describe("getWaveHeightValue", () => {
-    it("should return numeric values from various formats", () => {
-      expect(getWaveHeightValue(4)).toBe(4);
-      expect(getWaveHeightValue("3.5")).toBe(3.5);
-      expect(getWaveHeightValue("4 ft")).toBe(4);
-      expect(getWaveHeightValue(null)).toBeUndefined();
-      expect(getWaveHeightValue("invalid")).toBeUndefined();
-    });
-
-    it("should be consistent with parseWaveHeight", () => {
-      const testValues = [2.5, "4", "3.5 ft", null, undefined, "abc"];
-
-      testValues.forEach((value) => {
-        expect(getWaveHeightValue(value)).toBe(parseWaveHeight(value));
-      });
-    });
-  });
 
   // =========================================================================
   // toFaceHeightFeet (merged from wave-height-formatter.test.ts)

@@ -95,10 +95,3 @@ export function classifyWindDirection(
 
   return "onshore";
 }
-
-/**
- * Get the scoring points for a wind classification.
- */
-export function getWindScore(classification: WindClassification): number {
-  return WIND_SCORE[classification.toUpperCase() as keyof typeof WIND_SCORE];
-}

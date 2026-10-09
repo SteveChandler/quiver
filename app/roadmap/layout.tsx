@@ -1,3 +1,4 @@
+import { JsonLd } from "@/components/seo/funnel/JsonLd";
 import type { Metadata } from "next";
 import { SEO_CONFIG } from "@/lib/constants/seo";
 
@@ -19,19 +20,14 @@ export const metadata: Metadata = {
 export default function RoadmapLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+      <JsonLd data={{
             "@context": "https://schema.org",
             "@type": "WebPage",
             name: "Quiver Roadmap",
             description:
               "Public roadmap for Quiver surf app — shipped, in progress, and under consideration features.",
             url: "https://www.quiversurf.app/roadmap",
-          }),
-        }}
-      />
+          }} />
       {children}
     </>
   );

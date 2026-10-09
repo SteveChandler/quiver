@@ -110,37 +110,3 @@ export function calculateBeachAverageRatings(reviews: ReviewRatings[]) {
       reviews.length,
   };
 }
-
-/**
- * Group reviews by beach_id and calculate stats for multiple beaches
- */
-export function calculateMultipleBeachStats(
-  reviews: (ReviewRatings & { beach_id: string })[],
-  beachIds: string[]
-): Record<string, ReviewStats> {
-  // Initialize all beaches with zero stats
-  const beachStats: Record<string, ReviewStats> = {};
-  beachIds.forEach((beachId) => {
-    beachStats[beachId] = calculateReviewStats([]);
-  });
-
-  if (reviews.length === 0) {
-    return beachStats;
-  }
-
-  // Group reviews by beach_id
-  const reviewsByBeach = reviews.reduce((acc, review) => {
-    if (!acc[review.beach_id]) {
-      acc[review.beach_id] = [];
-    }
-    acc[review.beach_id].push(review);
-    return acc;
-  }, {} as Record<string, typeof reviews>);
-
-  // Calculate stats for each beach that has reviews
-  Object.entries(reviewsByBeach).forEach(([beachId, beachReviews]) => {
-    beachStats[beachId] = calculateReviewStats(beachReviews);
-  });
-
-  return beachStats;
-}

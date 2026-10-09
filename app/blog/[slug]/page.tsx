@@ -134,11 +134,11 @@ export default async function BlogPostPage({ params }: Props) {
             <header className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
               <div>
                 <nav className="mb-6 font-mono text-xs font-bold uppercase tracking-[0.18em] text-[#11100D]/60">
-                  <Link href="/" className="hover:text-[#0B3A75]">
+                  <Link href="/" className="hover:text-[#AA4918]">
                     Home
                   </Link>
                   <span className="mx-2 select-none">/</span>
-                  <Link href="/blog" className="hover:text-[#0B3A75]">
+                  <Link href="/blog" className="hover:text-[#AA4918]">
                     Blog
                   </Link>
                 </nav>
@@ -218,7 +218,7 @@ export default async function BlogPostPage({ params }: Props) {
                         <li key={item.id}>
                           <a
                             href={`#${item.id}`}
-                            className="group flex items-baseline gap-2 font-mono text-xs font-bold uppercase tracking-[0.1em] text-[#11100D]/70 transition-colors hover:text-[#0B3A75]"
+                            className="group flex items-baseline gap-2 font-mono text-xs font-bold uppercase tracking-[0.1em] text-[#11100D]/70 transition-colors hover:text-[#AA4918]"
                           >
                             <span className="text-[#F78E42]">
                               {String(index + 1).padStart(2, "0")}
@@ -275,7 +275,7 @@ export default async function BlogPostPage({ params }: Props) {
                                   className="border-t border-[#11100D]/20 text-[#11100D]/75"
                                 >
                                   <td className="px-4 py-3">{metric.label}</td>
-                                  <td className="px-4 py-3 text-right font-mono font-bold text-[#0B3A75]">
+                                  <td className="px-4 py-3 text-right font-mono font-bold text-[#8A5E00]">
                                     {metric.value}
                                   </td>
                                 </tr>
@@ -326,7 +326,7 @@ export default async function BlogPostPage({ params }: Props) {
                       placement="related-links"
                       className={`torn torn-tb group block min-h-48 border-2 border-[#11100D] bg-[#FBF6E8] p-5 text-[#11100D] transition-transform duration-200 hover:-translate-y-1 ${getSectionRotation(index)}`}
                     >
-                      <h3 className="font-heading text-xl font-bold uppercase tracking-normal transition-colors group-hover:text-[#0B3A75]">
+                      <h3 className="font-heading text-xl font-bold uppercase tracking-normal transition-colors group-hover:text-[#AA4918]">
                         {link.label}
                       </h3>
                       <p className="mt-3 text-sm leading-6 text-[#11100D]/70">

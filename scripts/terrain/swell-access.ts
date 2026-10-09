@@ -33,7 +33,7 @@ import { toUTM } from './dem-loader'
 /**
  * Result of swell access computation
  */
-export interface SwellAccessResult {
+interface SwellAccessResult {
   /** 72 smoothed access values [0, 1] */
   factors: number[]
   /** 72 direct access values (before wrap) */

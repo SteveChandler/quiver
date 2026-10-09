@@ -18,6 +18,21 @@ jest.mock("next/navigation", () => ({
   useSearchParams: jest.fn(),
 }));
 
+// Expose Link's prefetch prop so header prefetch policy is assertable
+jest.mock("next/link", () => {
+  const React = require("react");
+  return React.forwardRef(function MockLink(
+    { href, prefetch, children, ...rest }: any,
+    ref: any,
+  ) {
+    return React.createElement(
+      "a",
+      { ...rest, ref, href, "data-prefetch": String(prefetch) },
+      children,
+    );
+  });
+});
+
 // Mock auth context
 jest.mock("@/context/auth-context", () => ({
   useAuth: jest.fn(),
@@ -1028,6 +1043,15 @@ describe("AppHeader", () => {
       });
     });
 
+    it("keeps default prefetch on signed-in nav links", () => {
+      render(<AppHeader />);
+
+      expect(screen.getByRole("link", { name: /discover/i })).toHaveAttribute(
+        "data-prefetch",
+        "undefined",
+      );
+    });
+
     describe("Guest Users", () => {
       beforeEach(() => {
         (useAuth as jest.Mock).mockReturnValue({
@@ -1076,6 +1100,25 @@ describe("AppHeader", () => {
 
         const aboutLink = screen.getByRole("link", { name: /about/i });
         expect(aboutLink).toHaveAttribute("href", "/about");
+      });
+
+      it("does not prefetch the logo or desktop nav links", () => {
+        render(<AppHeader />);
+
+        for (const name of [
+          /^quiver$/i,
+          /features/i,
+          /live cams/i,
+          /tools/i,
+          /roadmap/i,
+          /what's new/i,
+          /about/i,
+        ]) {
+          expect(screen.getByRole("link", { name })).toHaveAttribute(
+            "data-prefetch",
+            "false",
+          );
+        }
       });
     });
 
@@ -1383,13 +1426,13 @@ describe("AppHeader", () => {
         expect(logoText.className).toContain("duration-300");
       });
 
-      it("logo has orange hover class", () => {
+      it("logo brightens on hover", () => {
         render(<AppHeader />);
 
         const logoText = screen.getByText("Quiver");
 
         expect(logoText).toBeInTheDocument();
-        expect(logoText.className).toContain("group-hover:text-[#FFAA63]");
+        expect(logoText.className).toContain("group-hover:text-white");
       });
 
       it("logo link has group class for hover coordination", () => {
@@ -1509,15 +1552,17 @@ describe("AppHeader", () => {
     });
 
     describe("Typography Consistency", () => {
-      it("logo has text-xl and font-bold classes", () => {
+      it("logo uses the native wordmark: bold display caps in cream", () => {
         render(<AppHeader />);
 
         const logoText = screen.getByText("Quiver");
 
         expect(logoText).toBeInTheDocument();
         expect(logoText.className).toContain("text-xl");
+        expect(logoText.className).toContain("font-heading");
         expect(logoText.className).toContain("font-bold");
-        expect(logoText.className).toContain("text-[#F78E42]");
+        expect(logoText.className).toContain("uppercase");
+        expect(logoText.className).toContain("text-[#F5EEDC]");
       });
 
       it("navigation links have text-sm and font-medium classes", () => {

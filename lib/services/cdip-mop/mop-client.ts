@@ -60,7 +60,7 @@ async function fetchAscii(pointId: string, query: string, fetchImpl: FetchImpl):
  * `name[dims]` followed by comma-separated values (grid rows prefixed `[i], `); a grid's array is named
  * `grid.grid` and its map copies `grid.map` are skipped. Scalars are `name, value` lines.
  */
-export function parseOpendapAscii(text: string): Record<string, number[]> {
+function parseOpendapAscii(text: string): Record<string, number[]> {
   const rule = text.search(/^-{10,}$/m);
   const body = rule >= 0 ? text.slice(text.indexOf("\n", rule) + 1) : text;
   const values: Record<string, number[]> = {};

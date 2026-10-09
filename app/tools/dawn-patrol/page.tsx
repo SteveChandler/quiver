@@ -1,3 +1,4 @@
+import { JsonLd } from "@/components/seo/funnel/JsonLd";
 /**
  * Dawn Patrol Calculator — /tools/dawn-patrol
  *
@@ -74,10 +75,7 @@ export default function DawnPatrolPage() {
         ]}
       />
 
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+      <JsonLd data={{
             "@context": "https://schema.org",
             "@type": "WebApplication",
             name: "Quiver Dawn Patrol Calculator",
@@ -96,14 +94,9 @@ export default function DawnPatrolPage() {
               name: "Quiver",
               url: SITE_ORIGIN,
             },
-          }),
-        }}
-      />
+          }} />
 
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+      <JsonLd data={{
             "@context": "https://schema.org",
             "@type": "FAQPage",
             mainEntity: DAWN_FAQ_ITEMS.map((item) => ({
@@ -114,9 +107,7 @@ export default function DawnPatrolPage() {
                 text: item.answer,
               },
             })),
-          }),
-        }}
-      />
+          }} />
 
       <div className="min-h-screen" style={{ background: "#0F1535" }}>
         <h1 className="sr-only">Dawn Patrol Calculator</h1>

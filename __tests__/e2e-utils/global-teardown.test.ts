@@ -10,6 +10,8 @@ jest.mock('fs', () => ({
   statSync: jest.fn(),
 }));
 
+jest.mock('../../scripts/load-env.mjs', () => ({ config: jest.fn() }));
+
 const cleanupAllTestData = jest.fn();
 const cleanupEphemeralSmokeUsers = jest.fn();
 const createServiceClient = jest.fn();

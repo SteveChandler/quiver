@@ -21,7 +21,7 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { config } from "dotenv";
+import { config } from "./load-env.mjs";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import {
@@ -157,9 +157,9 @@ interface ProposedApplicationResult {
   missingCount: number;
 }
 
-export type DirectionSlice = "inside-centre" | "inside-edge" | "outside";
+type DirectionSlice = "inside-centre" | "inside-edge" | "outside";
 
-export interface DirectionSliceMetric {
+interface DirectionSliceMetric {
   slice: DirectionSlice;
   beach: string;
   sample_count: number;
@@ -2160,5 +2160,4 @@ export {
   parseCliArgs,
   predictionSelectColumns,
   resolveBeachScope,
-  writeForecastAccuracyHarnessReport,
 };

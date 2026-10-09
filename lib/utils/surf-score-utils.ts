@@ -1,3 +1,4 @@
+import { clamp } from "@/lib/utils/clamp";
 /**
  * Surf Score Utilities
  *
@@ -90,7 +91,7 @@ export function computeCompositeScore(
   }
 ): number {
   if (!options || options.tier === 3) {
-    return clamp(Math.round(beachPeakScore));
+    return clamp(Math.round(beachPeakScore), 0, 100);
   }
 
   if (options.tier === 1) {
@@ -99,7 +100,7 @@ export function computeCompositeScore(
       0.25 * (options.stateOverallScore ?? 0) +
       0.1 * (options.waterTempComfort ?? 0) +
       0.05 * (options.crowdBonus ?? 0);
-    return clamp(Math.round(raw));
+    return clamp(Math.round(raw), 0, 100);
   }
 
   // Tier 2
@@ -107,7 +108,7 @@ export function computeCompositeScore(
     0.8 * beachPeakScore +
     0.15 * (options.waterTempComfort ?? 0) +
     0.05 * (options.crowdBonus ?? 0);
-  return clamp(Math.round(raw));
+  return clamp(Math.round(raw), 0, 100);
 }
 
 /**
@@ -197,7 +198,3 @@ export function buildMonthlyScores(
 }
 
 // --- Internal helpers ---
-
-function clamp(value: number, min = 0, max = 100): number {
-  return Math.min(max, Math.max(min, value));
-}

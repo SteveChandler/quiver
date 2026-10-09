@@ -1,3 +1,4 @@
+import { setTimeout as sleep } from "node:timers/promises";
 /**
  * Batch Beach Processor
  *
@@ -288,7 +289,7 @@ export async function processBeachesInBatches(
         });
         break;
       }
-      await new Promise((resolve) => setTimeout(resolve, config.batchDelayMs));
+      await sleep(config.batchDelayMs);
     }
   }
 
@@ -312,34 +313,5 @@ export async function processBeachesInBatches(
         : undefined,
       cdipSkipReasonCounts,
     },
-  };
-}
-
-/**
- * Create a beach processor function for use with processBeachesInBatches
- */
-export function createBeachProcessor(
-  generateForecast: (beach: Beach) => Promise<any[]>,
-  storeForecast: (beach: Beach, forecasts: any[]) => Promise<{ success: boolean; error?: string }>
-): (beach: Beach) => Promise<BeachProcessResult> {
-  return async (beach: Beach): Promise<BeachProcessResult> => {
-    try {
-      const forecasts = await generateForecast(beach);
-      const result = await storeForecast(beach, forecasts);
-      if (result.success) {
-        console.log(`${beach.name}: ${forecasts.length} forecasts stored`);
-      } else {
-        console.warn(`${beach.name}: store failed - ${result.error}`);
-      }
-      return {
-        beach: beach.name,
-        success: result.success,
-        error: result.error,
-      };
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error(`${beach.name}: ${errorMsg}`);
-      return { beach: beach.name, success: false, error: errorMsg };
-    }
   };
 }

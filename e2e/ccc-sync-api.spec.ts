@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { existsSync, readFileSync } from 'fs';
-import { parse as parseEnv } from 'dotenv';
+import { parseEnv } from 'node:util';
 
 /**
  * CCC Sync API Tests
@@ -25,7 +25,7 @@ import { parse as parseEnv } from 'dotenv';
 function readEnvValue(filePath: string, key: string): string | undefined {
   if (!existsSync(filePath)) return undefined;
 
-  const parsed = parseEnv(readFileSync(filePath));
+  const parsed = parseEnv(readFileSync(filePath, "utf8"));
   const value = parsed[key];
   return value && value.length > 0 ? value : undefined;
 }

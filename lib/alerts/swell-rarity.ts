@@ -4,7 +4,7 @@ export interface DayScore {
   go: boolean;
 }
 
-export interface RarityVerdict {
+interface RarityVerdict {
   rare: boolean;
   kind: "best-in-30" | "first-after-flat" | null;
   rarityLine: string | null;
@@ -18,14 +18,6 @@ const HISTORY_DAYS = 30;
 /** "In weeks" copy needs at least this much history behind it. */
 export const MIN_HISTORY_DAYS_FOR_WEEKS = 14;
 const DAY_MS = 24 * 60 * 60 * 1000;
-
-function formatDate(localDate: string): string {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(`${localDate}T12:00:00.000Z`));
-}
 
 function shiftDate(localDate: string, days: number): string {
   const date = new Date(`${localDate}T12:00:00.000Z`);
@@ -84,36 +76,11 @@ export function assessRarity(args: {
     return { rare: false, kind: null, rarityLine: null, historyDays };
   }
 
-  const previousGo = [...history].reverse().find((day) => day.go);
+  // Every earlier day scored lower, so no "best since <date>": that date would read as a match.
   return {
     rare: true,
     kind: "best-in-30",
-    rarityLine: previousGo
-      ? `Best since ${formatDate(previousGo.localDate)}`
-      : `Best in ${Math.min(historyDays, HISTORY_DAYS)} days`,
+    rarityLine: `Best in ${Math.min(historyDays, HISTORY_DAYS)} days`,
     historyDays,
   };
-}
-
-export function buildEventKey(args: {
-  peakDate: string;
-  leadBeachId: string;
-}): string {
-  const peakDate = new Date(`${args.peakDate}T00:00:00.000Z`);
-  if (
-    !/^\d{4}-\d{2}-\d{2}$/.test(args.peakDate)
-    || !Number.isFinite(peakDate.getTime())
-    || peakDate.toISOString().slice(0, 10) !== args.peakDate
-  ) {
-    throw new TypeError("peakDate must be a valid YYYY-MM-DD date");
-  }
-  if (!args.leadBeachId) {
-    throw new TypeError("leadBeachId is required");
-  }
-
-  const ordinal = Math.floor(peakDate.getTime() / DAY_MS);
-  const bucketStart = new Date((ordinal - (ordinal % 2)) * DAY_MS)
-    .toISOString()
-    .slice(0, 10);
-  return `${args.leadBeachId}:${bucketStart}`;
 }

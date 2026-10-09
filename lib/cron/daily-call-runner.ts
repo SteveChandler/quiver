@@ -1,3 +1,4 @@
+import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
 import { persistableSessionDecision } from "@/lib/recommendations/canonical-decision/contract";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isDailyCallEnabled, isDailyCallUserAllowed } from "@/lib/flags/daily-call";
@@ -7,6 +8,7 @@ import {
   type ForecastVerdict,
 } from "@/lib/alerts/canonical-forecast-verdict";
 import {
+  capToBestWindow,
   refineWindow,
   type RefinedWindow,
 } from "@/lib/alerts/window-refiner";
@@ -47,6 +49,7 @@ import {
 
 const WINDOW_CLOSE_BUFFER_MS = 30 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
+const GRID_MS = 3 * HOUR_MS;
 
 export interface DailyCallCandidate {
   pool: PoolBeach;
@@ -58,7 +61,7 @@ export interface DailyCallCandidate {
   sessionDecision: unknown;
 }
 
-export interface DailyCallRunSummary {
+interface DailyCallRunSummary {
   evaluated: number;
   sent: number;
   silent: number;
@@ -281,22 +284,20 @@ function buildPayload(args: {
   };
 }
 
-function groupGoForecasts(evaluations: ForecastVerdict[]): ForecastVerdict[][] {
+/**
+ * Runs of go rows. The forecast grid is 3-hourly, so consecutive go rows join
+ * across one grid step; a non-go row or a missing row ends the run.
+ */
+export function groupGoForecasts(evaluations: ForecastVerdict[]): ForecastVerdict[][] {
   const groups: ForecastVerdict[][] = [];
+  let previous: ForecastVerdict | null = null;
   for (const evaluation of evaluations) {
-    if (evaluation.verdict !== "go") continue;
-    const current = groups.at(-1);
-    const previous = current?.at(-1);
-    if (
-      current
-      &&
-      previous
-      && Date.parse(evaluation.forecast.forecast_at) - Date.parse(previous.forecast.forecast_at) <= HOUR_MS
-    ) {
-      current.push(evaluation);
-    } else {
-      groups.push([evaluation]);
-    }
+    const joins = previous?.verdict === "go"
+      && evaluation.verdict === "go"
+      && Date.parse(evaluation.forecast.forecast_at) - Date.parse(previous.forecast.forecast_at) <= GRID_MS;
+    if (joins) groups[groups.length - 1].push(evaluation);
+    else if (evaluation.verdict === "go") groups.push([evaluation]);
+    previous = evaluation;
   }
   return groups;
 }
@@ -330,7 +331,7 @@ function cachedTideSamples(
   }));
 }
 
-async function loadTideSamples(
+export async function loadTideSamples(
   supabase: SupabaseClient<Database>,
   cache: TideCache,
   beachId: string,
@@ -348,7 +349,7 @@ async function loadTideSamples(
     .order("ts", { ascending: true });
   if (error) throw new Error(`Failed to load tide forecasts for ${beachId}: ${error.message}`);
   const samples = selectTideSeries(data ?? []).flatMap((row) => {
-    const heightFt = row.tide_ft ?? (row.tide_height_m == null ? null : row.tide_height_m * 3.28084);
+    const heightFt = row.tide_ft ?? (row.tide_height_m == null ? null : row.tide_height_m * METERS_TO_FEET);
     return heightFt == null ? [] : [{ at: row.ts, heightFt }];
   });
   if (samples.length === 0) return null;
@@ -432,7 +433,7 @@ async function buildCandidates(
       const sourceForecast = selected?.sourceForecast ?? best.forecast;
       candidates.push({
         pool,
-        window: refined,
+        window: capToBestWindow(refined, selected),
         physicalScore: selected?.score ?? best.score,
         personalFit: 0,
         verdict: "go",

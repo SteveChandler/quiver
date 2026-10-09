@@ -1,6 +1,5 @@
 // Import Jest DOM matchers
 import "@testing-library/jest-dom";
-import "jest-axe/extend-expect";
 // Import whatwg-fetch for fetch polyfill
 import "whatwg-fetch";
 
@@ -17,6 +16,15 @@ if (typeof TextDecoder === "undefined") {
 if (typeof crypto !== "undefined" && !crypto.randomUUID) {
   const nodeCrypto = require("crypto");
   crypto.randomUUID = nodeCrypto.randomUUID;
+}
+
+if (typeof AbortSignal !== "undefined" && !AbortSignal.timeout) {
+  AbortSignal.timeout = (ms) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(new DOMException("The operation was aborted due to timeout", "TimeoutError")), ms);
+    timeout.unref?.();
+    return controller.signal;
+  };
 }
 
 // Create a more robust mock for next/navigation

@@ -73,9 +73,8 @@ npm run test:e2e:setup  # Generate auth state
 
 **Why**: Authentication is critical for protected features.
 
-### 4. API Endpoints (6 tests)
+### 4. API Endpoints (5 tests)
 - ✅ GET /api/v1/beaches returns success
-- ✅ GET /api/v1/recommendations returns success
 - ✅ GET /api/v1/beaches/:id returns beach data
 - ✅ Invalid API request returns error
 - ✅ API returns JSON content-type

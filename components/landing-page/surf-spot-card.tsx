@@ -10,7 +10,7 @@ import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 import { getScoreColorClasses } from "@/lib/utils/score-color-utils";
 import { formatWaveHeightRange as formatWaveHeight } from "@/lib/formatters/surf-data";
 
-export interface SurfSpotCardProps {
+interface SurfSpotCardProps {
   id: string;
   name: string;
   location: string;

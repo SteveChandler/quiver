@@ -23,14 +23,14 @@ export interface ProviderRunReceiptRpcClient {
   };
 }
 
-export interface StoredProviderRunReceipt {
+interface StoredProviderRunReceipt {
   issuanceId: string;
   runBatchId: string;
   revisionSetId: string;
 }
 
-export type ProviderRunAcquisitionSkipReason = "latest_issuance_stale" | "latest_issuance_already_evaluated";
-export type ProviderRunAcquisitionResult = StoredProviderRunReceipt | { skipped: true; reason: ProviderRunAcquisitionSkipReason; enqueued: 0 };
+type ProviderRunAcquisitionSkipReason = "latest_issuance_stale" | "latest_issuance_already_evaluated";
+type ProviderRunAcquisitionResult = StoredProviderRunReceipt | { skipped: true; reason: ProviderRunAcquisitionSkipReason; enqueued: 0 };
 type StoredProviderRunState = { evaluated: boolean };
 
 interface ProviderRunAcquisitionScope {
@@ -197,19 +197,6 @@ export async function readStoredProviderRunStates(
   } catch {
     return null;
   }
-}
-
-/** The database rechecks current owner attestation; acquisition never calls this itself. */
-export async function completeAttestedProviderRun(
-  stored: StoredProviderRunReceipt,
-  client: { rpc: (name: "complete_swell_watch_provider_run_receipt", args: { p_revision_set_id: string }) => Promise<{ data: unknown; error: { message: string } | null }> },
-): Promise<{ providerBatchId: string; evaluationId: string }> {
-  if (![stored.issuanceId, stored.runBatchId, stored.revisionSetId].every((value) => UUID.test(value))) throw new Error("Provider completion identity is invalid");
-  const { data, error } = await client.rpc("complete_swell_watch_provider_run_receipt", { p_revision_set_id: stored.revisionSetId });
-  if (error) throw new Error(`Provider completion failed: ${error.message}`);
-  const row = resultRow(data);
-  if (typeof row.provider_batch_id !== "string" || !UUID.test(row.provider_batch_id) || row.evaluation_id !== `genuine_completed:${stored.runBatchId}`) throw new Error("Provider completion returned an invalid identity");
-  return { providerBatchId: row.provider_batch_id, evaluationId: row.evaluation_id as string };
 }
 
 function validReceipt(receipt: PrototypeSingleRunReceipt): void {

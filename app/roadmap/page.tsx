@@ -101,7 +101,7 @@ function RoadmapDivider({ label }: { label: string }) {
   return (
     <div
       aria-hidden="true"
-      className="my-8 flex items-center gap-2 overflow-hidden font-[var(--font-mono)] text-[10px] uppercase tracking-[0.4em] text-[#11100D]/45"
+      className="my-8 flex items-center gap-2 overflow-hidden font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.4em] text-[#11100D]/45"
     >
       <span className="shrink-0 text-[#F78E42]">{"//"}</span>
       <span className="shrink-0">{label}</span>
@@ -154,7 +154,7 @@ export default async function RoadmapPage() {
               className="absolute -top-8 right-4 hidden w-36 rotate-6 opacity-85 sm:block"
             />
             <p className="label-black mb-5">Public roadmap</p>
-            <p className="mb-3 font-[var(--font-mono)] text-[11px] uppercase tracking-[0.24em] text-[#B56A2B]">
+            <p className="mb-3 font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.24em] text-[#B56A2B]">
               {`// Quiver roadmap // ${nowLabel}`}
             </p>
             <h1 className="zine-h1 font-black uppercase leading-[0.88] tracking-normal text-[#11100D]">
@@ -166,7 +166,7 @@ export default async function RoadmapPage() {
               Building in the open. Vote on what ships next, or drop a request
               if you&apos;ve got one we haven&apos;t thought of.
             </p>
-            <div className="mt-7 flex flex-wrap gap-x-5 gap-y-2 font-[var(--font-mono)] text-[11px] uppercase tracking-[0.14em] text-[#11100D]/65">
+            <div className="mt-7 flex flex-wrap gap-x-5 gap-y-2 font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.14em] text-[#11100D]/65">
               <span>{items.length} ideas</span>
               <span aria-hidden>/</span>
               <span>{grouped.shipped.length} shipped</span>
@@ -202,7 +202,7 @@ export default async function RoadmapPage() {
           <div className="grid gap-5 md:grid-cols-[0.9fr_1.1fr] md:items-center">
             <div>
               <p className="typewriter mb-2">How this works</p>
-              <h2 className="font-[var(--font-zine-display)] text-3xl font-black uppercase leading-none text-[#11100D] sm:text-4xl">
+              <h2 className="font-[family-name:var(--font-zine-display)] text-3xl font-black uppercase leading-none text-[#11100D] sm:text-4xl">
                 The surf app gets shaped in public.
               </h2>
             </div>
@@ -243,7 +243,7 @@ export default async function RoadmapPage() {
           />
           {grouped.declined.length > 0 && (
             <details className="mt-10">
-              <summary className="cursor-pointer font-[var(--font-mono)] text-xs uppercase tracking-widest text-[#11100D]/55 hover:text-[#11100D]">
+              <summary className="cursor-pointer font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-[#11100D]/55 hover:text-[#11100D]">
                 {grouped.declined.length} passed, see why
               </summary>
               <div className="mt-4">

@@ -85,8 +85,8 @@ export function LiveCamCard({ beach }: LiveCamCardProps): ReactElement {
             className="absolute inset-0 flex items-center justify-center overflow-hidden bg-[#F0E5CC] text-[#11100D]"
           >
             <div className="absolute inset-0 opacity-20 [background-image:radial-gradient(circle_at_1px_1px,#11100D_1px,transparent_0)] [background-size:9px_9px]" />
-            <div className="absolute -bottom-8 left-[-8%] h-16 w-[116%] rotate-[-3deg] border-t-2 border-[#11100D] bg-[#D9C49C]" />
-            <div className="relative flex rotate-[-2deg] items-center gap-2 border-2 border-[#11100D] bg-[#FBF6E8] px-3 py-2 shadow-[3px_3px_0_rgba(17,16,13,0.22)]">
+            <div className="absolute -bottom-8 left-[-8%] h-16 w-[116%] border-t-2 border-[#11100D] bg-[#D9C49C]" />
+            <div className="relative flex items-center gap-2 border-2 border-[#11100D] bg-[#FBF6E8] px-3 py-2 shadow-[3px_3px_0_rgba(17,16,13,0.22)]">
               <Camera className="h-5 w-5" strokeWidth={2.5} />
               <span className="font-mono text-[9px] font-black uppercase tracking-[0.12em]">
                 Cam at the coast

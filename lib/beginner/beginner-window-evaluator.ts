@@ -118,16 +118,6 @@ export function getSandyBeginnerWindowProfile(
   };
 }
 
-export function isSandyBeginnerBeachMetadata(
-  beach: BeginnerBeachMetadata,
-): boolean {
-  const beginnerWindow = readBeginnerWindow(beach.preference_model);
-  if (!beginnerWindow) return false;
-
-  const fit = readString(beginnerWindow.beginner_fit)?.toLowerCase();
-  return fit === "primary" || fit === "conditional";
-}
-
 export function evaluateBeginnerWindow(
   input: BeginnerWindowInput,
 ): BeginnerWindowEvaluation {

@@ -1,3 +1,4 @@
+import { JsonLd } from "@/components/seo/funnel/JsonLd";
 /**
  * Swell Quality Analyzer — /tools/swell-analyzer
  *
@@ -108,10 +109,7 @@ export default async function SwellAnalyzerPage({ searchParams }: Props) {
         ]}
       />
       <FAQSchema items={SWELL_FAQ_ITEMS} />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+      <JsonLd data={{
             "@context": "https://schema.org",
             "@type": "WebApplication",
             name: "Quiver Swell Quality Analyzer",
@@ -126,9 +124,7 @@ export default async function SwellAnalyzerPage({ searchParams }: Props) {
               name: "Quiver",
               url: SITE_URL,
             },
-          }),
-        }}
-      />
+          }} />
       <div className="min-h-screen" style={{ background: "#0F1535" }}>
         <SwellAnalyzerClient initialData={initialData} isDemo={isDemo} />
 

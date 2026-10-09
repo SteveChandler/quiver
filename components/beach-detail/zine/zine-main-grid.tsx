@@ -1,7 +1,7 @@
 import type { Beach } from "@/types/database";
 import type { ZineBeachPhoto } from "./types";
 import { formatMonthRange } from "@/lib/utils/date-time";
-import { HalftonePhoto, DoodleStar, DoodleWarning, DoodleSkull, HandArrow } from "./atoms";
+import { HalftonePhoto, DoodleStar, DoodleWarning, DoodleSkull } from "./atoms";
 
 interface ZineMainGridProps {
   beach: Beach;
@@ -82,7 +82,7 @@ function AboutSpotArticle({ beach, beachPhoto }: { beach: Beach; beachPhoto?: Zi
       {beachPhoto?.image_url && (
         <div
           className="relative"
-          style={{ marginTop: 14, transform: "rotate(0.8deg)" }}
+          style={{ marginTop: 14 }}
         >
           <span className="tape tl" aria-hidden />
           <span className="tape br" aria-hidden />
@@ -91,15 +91,14 @@ function AboutSpotArticle({ beach, beachPhoto }: { beach: Beach; beachPhoto?: Zi
       )}
 
       {beach.wave_tips && (
-        <div className="mt-4 flex items-start gap-2">
-          <HandArrow dir="down-right" length={48} />
+        <div className="mt-4">
           <span
             style={{
-              fontFamily: "var(--font-handwritten), cursive",
-              fontSize: 19,
+              fontFamily: "var(--font-sans), sans-serif",
+              fontSize: 15,
               color: "#11100D",
-              fontWeight: 700,
-              lineHeight: 1.15,
+              fontWeight: 600,
+              lineHeight: 1.45,
             }}
           >
             {truncate(beach.wave_tips, 110)}
@@ -142,9 +141,9 @@ function LocalKnowledgeNotebook({ beach }: { beach: Beach }) {
       <h3
         className="text-center my-3"
         style={{
-          fontFamily: "var(--font-zine-marker), 'Permanent Marker', cursive",
-          fontWeight: 400,
-          fontSize: 26,
+          fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
+          fontWeight: 700,
+          fontSize: 22,
           color: "#11100D",
         }}
       >
@@ -156,10 +155,10 @@ function LocalKnowledgeNotebook({ beach }: { beach: Beach }) {
             <DoodleStar size={14} color="#11100D" />
             <span
               style={{
-                fontFamily: "var(--font-handwritten), cursive",
-                fontSize: 19,
+                fontFamily: "var(--font-sans), sans-serif",
+                fontSize: 15,
                 color: "#11100D",
-                lineHeight: 1.15,
+                lineHeight: 1.45,
                 fontWeight: 500,
                 flex: 1,
               }}
@@ -185,14 +184,13 @@ function HazardsPanel({ beach }: { beach: Beach }) {
             style={{
               background: "#B91C1C",
               color: "#F4EBD8",
-              fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+              fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
               fontWeight: 900,
               fontSize: 22,
               padding: "6px 14px",
               letterSpacing: "0.06em",
               textTransform: "uppercase",
               filter: "url(#zine-rough-edge)",
-              transform: "rotate(-1deg)",
             }}
           >
             HAZARDS
@@ -223,7 +221,7 @@ function HazardsPanel({ beach }: { beach: Beach }) {
           style={{
             border: "2.5px solid #F4EBD8",
             padding: "10px 14px",
-            fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+            fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
             fontWeight: 900,
             fontSize: 13,
             letterSpacing: "0.08em",

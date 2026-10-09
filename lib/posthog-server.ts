@@ -4,6 +4,9 @@ interface CapturePostHogEventInput {
   distinctId: string;
   event: string;
   properties?: Record<string, unknown>;
+  /** Set both so a redelivered source event lands on the same row. */
+  timestamp?: Date;
+  uuid?: string;
 }
 
 let postHogServerClient: PostHog | null = null;
@@ -36,6 +39,8 @@ export async function capturePostHogEvent({
   distinctId,
   event,
   properties,
+  timestamp,
+  uuid,
 }: CapturePostHogEventInput): Promise<void> {
   const client = getPostHogServerClient();
   if (!client) return;
@@ -48,6 +53,8 @@ export async function capturePostHogEvent({
         ...getStandardServerProperties(),
         ...properties,
       },
+      ...(timestamp ? { timestamp } : {}),
+      ...(uuid ? { uuid } : {}),
     });
     await client.flush();
   } catch (error) {

@@ -1,10 +1,6 @@
 {
   "regions": ["sfo1"],
-  "functions": {
-    "app/api/surf/discover/route.ts": { "regions": ["sfo1"] },
-    "app/api/surf/week-scout/route.ts": { "regions": ["sfo1"] }
-  },
-  "ignoreCommand": "test -n \"$VERCEL_GIT_PREVIOUS_SHA\" && git diff --quiet \"$VERCEL_GIT_PREVIOUS_SHA\" HEAD -- . ':!:*.md' ':!:.github/**' ':!:.planning/**' ':!:__tests__/**' ':!:docs/**' ':!:e2e/**' ':!:plans/**' ':!:scripts/**' ':!:supabase/**'",
+  "ignoreCommand": "test -n \"$VERCEL_GIT_PREVIOUS_SHA\" && test \"$VERCEL_GIT_PREVIOUS_SHA\" != \"$VERCEL_GIT_COMMIT_SHA\" && git diff --quiet $VERCEL_GIT_PREVIOUS_SHA HEAD -- . ':!*.md' ':!.github' ':!.planning' ':!:__tests__' ':!docs' ':!e2e' ':!plans' ':!scripts' ':!supabase'",
   "git": {
     "deploymentEnabled": {
       "**": false,
@@ -16,7 +12,7 @@
   "crons": [
     {
       "path": "/api/cron/email-lifecycle",
-      "schedule": "0 * * * *"
+      "schedule": "25 * * * *"
     },
     {
       "path": "/api/cron/pro-offer-reconcile",
@@ -144,19 +140,15 @@
     },
     {
       "path": "/api/cron/daily-call",
-      "schedule": "0 * * * *"
+      "schedule": "8 * * * *"
     },
     {
       "path": "/api/cron/weekend-window",
       "schedule": "0 * * * 4-6"
     },
     {
-      "path": "/api/cron/swell-watch",
-      "schedule": "0 15 * * *"
-    },
-    {
       "path": "/api/cron/swell-alert",
-      "schedule": "0 * * * *"
+      "schedule": "24 * * * *"
     },
     {
       "path": "/api/cron/swell-event-snapshots",
@@ -176,7 +168,7 @@
     },
     {
       "path": "/api/cron/condition-alert-deliver",
-      "schedule": "0 * * * *"
+      "schedule": "2 * * * *"
     },
     {
       "path": "/api/cron/notifications-deliver",

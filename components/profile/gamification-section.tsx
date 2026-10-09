@@ -7,7 +7,7 @@ import { UserXPCard } from "@/components/gamification/user-xp-card";
 import { BadgeGallery } from "@/components/gamification/badge-gallery";
 import { Trophy, Zap } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 
 interface GamificationSectionProps {
   user: {
@@ -115,11 +115,7 @@ export function GamificationSection({
       setAllBadges(cachedResult.allBadges || []);
     } catch (error) {
       console.error("Error loading gamification data:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load gamification data",
-        variant: "destructive",
-      });
+      toast.error("Error", { description: "Failed to load gamification data" });
     } finally {
       __gamificationInflightByUserId.delete(cacheKey);
       setLoading(false);

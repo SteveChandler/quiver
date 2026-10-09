@@ -76,32 +76,6 @@ export const MAP_IMAGE_PRESETS = {
 } as const;
 
 /**
- * Type for map image preset keys
- */
-type MapImagePreset = keyof typeof MAP_IMAGE_PRESETS;
-
-/**
- * Type for map image options
- */
-type MapImageOptions = {
-  width?: number;
-  height?: number;
-  zoom?: number;
-};
-
-/**
- * Get map image options from preset or custom options
- */
-export function getMapImageOptions(
-  presetOrOptions: MapImagePreset | MapImageOptions
-): MapImageOptions {
-  if (typeof presetOrOptions === "string") {
-    return MAP_IMAGE_PRESETS[presetOrOptions];
-  }
-  return presetOrOptions;
-}
-
-/**
  * Common preset combinations for specific use cases
  */
 export const MAP_PRESET_USAGE = {

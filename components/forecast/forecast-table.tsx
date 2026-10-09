@@ -434,7 +434,7 @@ export function ForecastTable({
   if (forecasts.length === 0) {
     return (
       <div className="text-center py-8">
-        <p className="text-gray-500">No forecast data available</p>
+        <p className="text-gray-500">no data</p>
       </div>
     );
   }
@@ -461,7 +461,3 @@ export function ForecastTable({
 export const MultiDayForecastTable = (
   props: Omit<ForecastTableProps, "variant"> & { beachTimezone?: string | null }
 ) => <ForecastTable {...props} variant="standard" />;
-
-export const SimplifiedForecastTable = (
-  props: Omit<ForecastTableProps, "variant"> & { beachTimezone?: string | null }
-) => <ForecastTable {...props} variant="simplified" />;

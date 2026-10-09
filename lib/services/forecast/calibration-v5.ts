@@ -374,17 +374,3 @@ export async function getActiveCalibration(): Promise<CalibrationVersion | null>
 
   return cacheLoadInFlight;
 }
-
-/**
- * Test-only: clear the in-process cache. Not exported from a barrel; tests
- * import directly.
- */
-function __resetCalibrationCacheForTests(): void {
-  cachedVersion = null;
-  cachedAt = 0;
-  cacheLoadInFlight = null;
-  warnedNoActiveVersion = false;
-  warnedMissingServiceRoleKey = false;
-  warnedMalformedRow = false;
-  warnedV5ComputeError = false;
-}

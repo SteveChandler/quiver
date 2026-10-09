@@ -1,12 +1,4 @@
-import {
-  formatWaveRange,
-  formatWindDescription,
-  formatTimeOfDay,
-  parseWaterTemp,
-  getSeasonalWaterTemp,
-  generateRegionalForecast,
-  type RegionalForecastData,
-} from "@/lib/npc/forecast-formatter";
+import { formatWaveRange, parseWaterTemp, getSeasonalWaterTemp } from "@/lib/npc/forecast-formatter";
 
 describe("formatWaveRange", () => {
   it("formats wave height into range", () => {
@@ -20,87 +12,11 @@ describe("formatWaveRange", () => {
   });
 });
 
-describe("formatWindDescription", () => {
-  it("describes calm conditions", () => {
-    expect(formatWindDescription(2, "NW")).toContain("glassy");
-  });
-});
 
-describe("formatTimeOfDay", () => {
-  it("formats early morning as dawn patrol", () => {
-    // 5:30am PT = 13:30 UTC; formatTimeOfDay uses getUTCHours()-8 for PT conversion
-    const date = new Date("2026-01-13T13:30:00Z");
-    expect(formatTimeOfDay(date)).toBe("dawn patrol");
-  });
-});
 
 // ---------------------------------------------------------------------------
 // Bug 3 & 4: Tide formatting — no double AM/PM suffix, correct High/Low type
 // ---------------------------------------------------------------------------
-describe("generateRegionalForecast tide formatting", () => {
-  function makeData(
-    overrides: Partial<RegionalForecastData["primaryBeach"]>
-  ): RegionalForecastData {
-    return {
-      region: "socal",
-      primaryBeach: {
-        id: "beach-1",
-        name: "Scripps",
-        waveHeight: 4,
-        wavePeriod: 12,
-        windSpeed: 5,
-        windDirection: "E",
-        windOffshoreDeg: 270,
-        tideTime: null,
-        tideHeight: 1.5,
-        tideType: null,
-        tideAt: null,
-        waterTemp: 65,
-        ...overrides,
-      },
-      secondaryBeaches: [],
-    };
-  }
-
-  it("does not produce double AM/PM when next_tide_time has AM/PM already", () => {
-    const data = makeData({ tideTime: "09:00 AM", tideType: "Low" });
-    const { description } = generateRegionalForecast(data);
-    // Should NOT contain "amam", "pmpm", "AMpm", "PMam", etc.
-    expect(description).not.toMatch(/[aApP][mM][aApP][mM]/);
-    expect(description).toContain("9:00am");
-  });
-
-  it("uses the correct Low tide type from DB", () => {
-    const data = makeData({ tideTime: "02:00 PM", tideType: "Low" });
-    const { description } = generateRegionalForecast(data);
-    expect(description).toContain("Low tide");
-  });
-
-  it("uses the correct High tide type from DB", () => {
-    const data = makeData({ tideTime: "07:00 AM", tideType: "High" });
-    const { description } = generateRegionalForecast(data);
-    expect(description).toContain("High tide");
-  });
-
-  it("prefers tideAt (timestamptz) over tideTime string when both present", () => {
-    // 2026-02-20T14:30:00Z = 6:30am PT
-    const data = makeData({
-      tideAt: "2026-02-20T14:30:00Z",
-      tideTime: "09:00 AM",
-      tideType: "Low",
-    });
-    const { description } = generateRegionalForecast(data);
-    // Should use the tideAt-derived time, not 9:00am
-    expect(description).toContain("Low tide");
-    expect(description).not.toMatch(/9:00am/);
-  });
-
-  it("falls back to Low when tideType is null", () => {
-    const data = makeData({ tideTime: "03:30 PM", tideType: null });
-    const { description } = generateRegionalForecast(data);
-    expect(description).toContain("Low tide");
-  });
-});
 
 // ---------------------------------------------------------------------------
 // Bug 5: Water temp parsing from DB text format
@@ -167,185 +83,11 @@ describe("getSeasonalWaterTemp", () => {
 // ---------------------------------------------------------------------------
 // Bugs 2 & 7: Wind descriptions with offshore/onshore awareness
 // ---------------------------------------------------------------------------
-describe("generateRegionalForecast wind descriptions", () => {
-  function makeData(
-    windSpeed: number | null,
-    windDirection: string | null,
-    windOffshoreDeg: number | null
-  ): RegionalForecastData {
-    return {
-      region: "socal",
-      primaryBeach: {
-        id: "beach-1",
-        name: "Scripps",
-        waveHeight: 4,
-        wavePeriod: 12,
-        windSpeed,
-        windDirection,
-        windOffshoreDeg,
-        tideTime: null,
-        tideHeight: null,
-        tideType: null,
-        tideAt: null,
-        waterTemp: 65,
-      },
-      secondaryBeaches: [],
-    };
-  }
-
-  it("describes glassy conditions for very light wind", () => {
-    const { description } = generateRegionalForecast(makeData(1, "NW", 90));
-    expect(description).toContain("Glassy");
-  });
-
-  it("describes light offshore correctly", () => {
-    // E wind on a west-facing beach (offshore deg ~90) → offshore classification
-    const { description } = generateRegionalForecast(makeData(5, "E", 90));
-    expect(description).toContain("offshore");
-    expect(description).toContain("clean faces");
-  });
-
-  it("describes moderate offshore correctly", () => {
-    const { description } = generateRegionalForecast(makeData(10, "E", 90));
-    expect(description).toContain("offshore");
-    expect(description).toContain("lined up and groomed");
-  });
-
-  it("describes strong offshore correctly", () => {
-    const { description } = generateRegionalForecast(makeData(20, "E", 90));
-    expect(description).toContain("offshore");
-    expect(description).toContain("hold-downs");
-  });
-
-  it("describes light variable wind as clean", () => {
-    const { description } = generateRegionalForecast(makeData(5, "Light and Variable", 90));
-    expect(description).toContain("variable");
-    expect(description).toContain("clean");
-  });
-
-  it("describes light onshore with slight texture", () => {
-    // W wind on a west-facing beach → onshore
-    const { description } = generateRegionalForecast(makeData(5, "W", 90));
-    expect(description).toContain("onshore");
-    expect(description).toContain("slight texture");
-  });
-
-  it("describes moderate onshore with chop", () => {
-    const { description } = generateRegionalForecast(makeData(10, "W", 90));
-    expect(description).toContain("onshore");
-    expect(description).toContain("some chop");
-  });
-
-  it("describes strong onshore as blown out", () => {
-    const { description } = generateRegionalForecast(makeData(22, "W", 90));
-    expect(description).toContain("choppy and blown out");
-  });
-});
 
 // ---------------------------------------------------------------------------
 // Bug 7: describeConditionsBriefly with wind awareness (via secondaryBeaches)
 // ---------------------------------------------------------------------------
-describe("generateRegionalForecast secondary beach conditions", () => {
-  function makeDataWithSecondary(
-    secondary: RegionalForecastData["secondaryBeaches"]
-  ): RegionalForecastData {
-    return {
-      region: "socal",
-      primaryBeach: {
-        id: "beach-1",
-        name: "Scripps",
-        waveHeight: 4,
-        wavePeriod: 12,
-        windSpeed: 5,
-        windDirection: "E",
-        windOffshoreDeg: 90,
-        tideTime: null,
-        tideHeight: null,
-        tideType: null,
-        tideAt: null,
-        waterTemp: 65,
-      },
-      secondaryBeaches: secondary,
-    };
-  }
-
-  it("describes small clean conditions for offshore secondary beach", () => {
-    const data = makeDataWithSecondary([
-      {
-        name: "Trestles",
-        waveHeight: 2.5,
-        windDirection: "E",
-        windOffshoreDeg: 90,
-        windSpeed: 5,
-        conditions: "small and clean",
-      },
-    ]);
-    const { description } = generateRegionalForecast(data);
-    expect(description).toContain("Trestles");
-  });
-
-  it("skips secondary beaches with no wave height", () => {
-    const data = makeDataWithSecondary([
-      {
-        name: "Huntington",
-        waveHeight: null,
-        windDirection: "W",
-        windOffshoreDeg: 90,
-        windSpeed: 15,
-        conditions: "choppy",
-      },
-    ]);
-    const { description } = generateRegionalForecast(data);
-    expect(description).not.toContain("Huntington");
-  });
-});
 
 // ---------------------------------------------------------------------------
 // Opening tone logic in generateRegionalForecast
 // ---------------------------------------------------------------------------
-describe("generateRegionalForecast opening tone", () => {
-  function makeData(
-    windSpeed: number | null,
-    windDirection: string | null,
-    windOffshoreDeg: number | null
-  ): RegionalForecastData {
-    return {
-      region: "norcal",
-      primaryBeach: {
-        id: "beach-1",
-        name: "Ocean Beach SF",
-        waveHeight: 5,
-        wavePeriod: 14,
-        windSpeed,
-        windDirection,
-        windOffshoreDeg,
-        tideTime: null,
-        tideHeight: null,
-        tideType: null,
-        tideAt: null,
-        waterTemp: 55,
-      },
-      secondaryBeaches: [],
-    };
-  }
-
-  it("uses 'waking up to' tone for calm wind", () => {
-    const { description } = generateRegionalForecast(makeData(1, "E", 90));
-    expect(description).toContain("waking up to");
-  });
-
-  it("uses 'waking up to' tone for offshore wind", () => {
-    const { description } = generateRegionalForecast(makeData(8, "E", 90));
-    expect(description).toContain("waking up to");
-  });
-
-  it("uses 'showing' tone for light onshore wind (< 10mph)", () => {
-    const { description } = generateRegionalForecast(makeData(7, "W", 90));
-    expect(description).toContain("showing");
-  });
-
-  it("uses 'at' tone for strong onshore wind", () => {
-    const { description } = generateRegionalForecast(makeData(18, "W", 90));
-    expect(description).toContain(" at ");
-  });
-});

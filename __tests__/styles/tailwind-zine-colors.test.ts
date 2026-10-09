@@ -8,7 +8,7 @@ const expectedZineColors = {
   "paper-shadow": ["--paper-shadow", "#E5D4B3"],
   "paper-deep": ["--paper-deep", "#D9C49C"],
   "stamp-red": ["--stamp-red", "#B91C1C"],
-  "stamp-blue": ["--stamp-blue", "#0B3A75"],
+  "kicker-ink": ["--kicker-ink", "#8A5E00"],
   tape: ["--tape", "#C8A46B"],
   "tape-light": ["--tape-light", "#DCC18B"],
   "warning-black": ["--warning-black", "#0A0A08"],
@@ -20,6 +20,19 @@ const expectedZineColors = {
   "q-orange": ["--q-orange", "#F78E42"],
   "q-cream": ["--q-cream", "#F5EEDC"],
 } as const;
+
+describe("Tailwind score colours", () => {
+  it("generates the score fills and label colours built in lib/", async () => {
+    const result = await postcss([
+      tailwindcss({ ...tailwindConfig, content: [{ raw: "", extension: "html" }] }),
+    ]).process("@tailwind utilities;", { from: undefined });
+
+    expect(result.css).toContain(".bg-\\[\\#06765F\\]");
+    expect(result.css).toContain(".bg-\\[\\#8A5E00\\]");
+    expect(result.css).toContain(".bg-\\[\\#4A463C\\]");
+    expect(result.css).toContain(".dark\\:text-\\[\\#06765F\\]");
+  });
+});
 
 describe("Tailwind zine palette", () => {
   it("maps every zine token to its CSS variable and exact fallback", () => {

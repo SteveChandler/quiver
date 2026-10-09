@@ -80,7 +80,9 @@ Every community public, image, mutation, admin, and retention route emits
 `community_photo_route_outcome`. Its properties are limited to normalized
 route, method, status, duration, normalized platform/build or `unknown`,
 bounded result class, rollout eligibility, and deployment SHA. The distinct
-ID is the constant `community-photo-route`; the event never includes request
+ID is the constant `community-photo-route`, sent with
+`$process_person_profile: false` so it never creates a PostHog person; the
+event never includes request
 or response bodies, image content or URLs, EXIF/GPS, tokens, user or reporter
 identity, IDs, filenames, storage paths, IPs, or report text. Metrics capture
 is best effort after the route outcome is known and cannot replace or weaken

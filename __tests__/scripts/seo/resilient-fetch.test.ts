@@ -44,6 +44,17 @@ describe("resilient-fetch", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it("preserves a caller's abort signal alongside the timeout", async () => {
+    const controller = new AbortController();
+    const fetchMock = jest.fn().mockResolvedValue(new Response("ok"));
+    global.fetch = fetchMock as typeof fetch;
+
+    await fetchWithRetry("https://example.com", { signal: controller.signal }, { retries: 1 });
+    const signal = fetchMock.mock.calls[0][1].signal as AbortSignal;
+    controller.abort();
+    expect(signal.aborted).toBe(true);
+  });
+
   it("normalizes unknown errors", () => {
     expect(normalizeFetchError(new Error("boom"))).toBe("boom");
     expect(normalizeFetchError("plain string")).toBe("plain string");

@@ -9,8 +9,6 @@ import {
 } from '@/types/terrain';
 import { METERS_TO_FEET } from '@/lib/utils/unit-conversions';
 
-type Grade = "epic" | "good" | "fair" | "poor";
-
 /** Minimum wind exposure floor (prevents "perfect wind" in extreme shelter) */
 const MIN_EXPOSURE = 0.15;
 
@@ -285,27 +283,6 @@ export function computeHourScore(arg1: any, arg2?: any, arg3?: any): any {
 
 // Keep the object-based implementation available under a named export
 export const computeHourScoreBreakdown = computeHourScoreObject;
-
-// Overloaded boardCall
-function boardCall(score0to100: number): Grade;
-function boardCall(avgHsFt: number, breakType?: string | null): string;
-function boardCall(a: number, breakType?: string | null): any {
-  if (breakType === undefined) {
-    // Grade variant
-    const score0to100 = a;
-    if (score0to100 >= 85) return "epic";
-    if (score0to100 >= 70) return "good";
-    if (score0to100 >= 55) return "fair";
-    return "poor";
-  }
-  // Simple board suggestion based on face height and break type
-  const hs = a;
-  const bt = (breakType || "").toLowerCase();
-  if (hs < 2) return "Longboard";
-  if (hs < 4) return bt.includes("point") ? "Mid-length" : "Funboard";
-  if (hs < 6) return "Shortboard";
-  return "Step-up";
-}
 
 export function clamp01(n: number): number {
   if (Number.isNaN(n)) return 0;

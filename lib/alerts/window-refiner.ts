@@ -1,6 +1,7 @@
 import { isWithinArc, resolveWindDirection } from "@/lib/alerts/degree-utils";
 import { parseSwellDirectionToDegrees } from "@/lib/alerts/forecast-parsers";
 import { getDaylightWindow } from "@/lib/alerts/sunrise";
+import { MAX_WINDOW_HOURS } from "@/lib/services/discovery/window-selector/constants";
 import { extractTideSchedule } from "@/lib/services/discovery/window-selector/tide-boundary-calculator";
 import { TideExtremaDetector } from "@/lib/services/noaa-coops/tide-extrema-detector";
 import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
@@ -17,12 +18,12 @@ export interface WindowDriver {
   label: string;
 }
 
-export interface CoarseWindow {
+interface CoarseWindow {
   start: string;
   end: string;
 }
 
-export interface RefineWindowArgs {
+interface RefineWindowArgs {
   coarse: CoarseWindow;
   forecasts: EnhancedForecastEntity[];
   beach: Beach;
@@ -46,6 +47,40 @@ interface BoundaryPair {
 export function roundToFiveMinutes(iso: string): string {
   const intervalMs = 5 * 60 * 1000;
   return new Date(Math.round(new Date(iso).getTime() / intervalMs) * intervalMs).toISOString();
+}
+
+const HOUR_MS = 60 * 60 * 1000;
+
+/**
+ * Narrows a refined go window to the window selector's best stretch, at most
+ * MAX_WINDOW_HOURS, so a run that is go all day reads as the session to surf
+ * rather than sunrise to dark. An edge the cap moves loses its driver, so the
+ * copy says "Good until …" instead of naming a tide or wind change it skipped.
+ */
+export function capToBestWindow(
+  window: RefinedWindow,
+  best: { start: Date; end: Date } | null | undefined,
+): RefinedWindow {
+  const refinedStart = Date.parse(window.start);
+  const refinedEnd = Date.parse(window.end);
+  const maxMs = MAX_WINDOW_HOURS * HOUR_MS;
+  let start = Math.max(refinedStart, best?.start.getTime() ?? refinedStart);
+  let end = Math.min(refinedEnd, best?.end.getTime() ?? refinedEnd, start + maxMs);
+  if (end - start < HOUR_MS) {
+    // The selector's stretch sits outside the refined window: keep the refined start.
+    start = refinedStart;
+    end = Math.min(refinedEnd, refinedStart + maxMs);
+  }
+  if (start === refinedStart && end === refinedEnd) return window;
+
+  const startIso = start === refinedStart ? window.start : roundToFiveMinutes(new Date(start).toISOString());
+  const endIso = end === refinedEnd ? window.end : roundToFiveMinutes(new Date(end).toISOString());
+  return {
+    start: startIso,
+    end: endIso,
+    drivers: window.drivers.filter((driver) => driver.at === (driver.edge === "start" ? startIso : endIso)),
+    minutes: (Date.parse(endIso) - Date.parse(startIso)) / 60_000,
+  };
 }
 
 export function refineWindow(args: RefineWindowArgs): RefinedWindow | null {

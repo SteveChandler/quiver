@@ -1,3 +1,4 @@
+import { JsonLd } from "@/components/seo/funnel/JsonLd";
 /**
  * ItemList Schema Component
  * Provides structured data for listing pages to target Google carousel SERP features.
@@ -38,11 +39,6 @@ export function ItemListSchema({ items, name }: ItemListSchemaProps) {
   };
 
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{
-        __html: JSON.stringify(structuredData),
-      }}
-    />
+    <JsonLd data={structuredData} />
   );
 }
