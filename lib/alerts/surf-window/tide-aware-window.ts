@@ -7,7 +7,6 @@ import { selectBestWindows } from '@/lib/services/discovery/window-selector';
 import { MIN_SESSION_HOURS } from '@/lib/services/discovery/window-selector/constants';
 import { localDateTimeToUTC } from '@/lib/utils/forecast-time-resolver';
 import { getLocalDateString } from '@/lib/utils/timezone-utils';
-import { interpolateTideHeight } from '@/lib/utils/tide-interpolation';
 import type { ForecastVerdict } from '@/lib/alerts/canonical-forecast-verdict';
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
@@ -45,7 +44,8 @@ const DAY_MS = 24 * HOUR_MS;
 export function findTideAwareWindow(args: TideAwareWindowArgs): TideAwareWindowResult {
   const arrival = Date.parse(args.arrivalAt ?? args.peakAt);
   const peak = Date.parse(args.peakAt);
-  const fade = Date.parse(args.fadeAt ?? args.peakAt);
+  const fade = args.fadeAt ? Date.parse(args.fadeAt)
+    : localDateTimeToUTC(getLocalDateString(new Date(peak), args.timezone), '20:00:00', args.timezone).getTime();
   // Match the swell runner's existing ten-day forecast lookahead.
   const horizon = args.now.getTime() + 10 * DAY_MS;
   const usableStart = Math.max(arrival, args.now.getTime());
@@ -58,16 +58,24 @@ export function findTideAwareWindow(args: TideAwareWindowArgs): TideAwareWindowR
   const samples = (args.tideSamples ?? [])
     .filter((sample) => Number.isFinite(Date.parse(sample.at)) && Number.isFinite(sample.heightFt))
     .sort((left, right) => Date.parse(left.at) - Date.parse(right.at));
-  const tidePoints = samples.map((sample) => ({ time: sample.at, height: sample.heightFt }));
+  const sampleTimes = samples.map((sample) => Date.parse(sample.at));
   const tideAt = (time: number): number | null => {
-    const before = [...samples].reverse().find((sample) => Date.parse(sample.at) <= time);
-    const after = samples.find((sample) => Date.parse(sample.at) >= time);
-    if (!before || !after || Date.parse(after.at) - Date.parse(before.at) > 3 * HOUR_MS) return null;
-    return interpolateTideHeight(tidePoints, time);
+    let low = 0;
+    let high = sampleTimes.length;
+    while (low < high) {
+      const middle = Math.floor((low + high) / 2);
+      if (sampleTimes[middle] < time) low = middle + 1;
+      else high = middle;
+    }
+    if (sampleTimes[low] === time) return samples[low].heightFt;
+    const before = low - 1;
+    if (before < 0 || low >= samples.length || sampleTimes[low] - sampleTimes[before] > 3 * HOUR_MS) return null;
+    const ratio = (time - sampleTimes[before]) / (sampleTimes[low] - sampleTimes[before]);
+    return samples[before].heightFt + ratio * (samples[low].heightFt - samples[before].heightFt);
   };
   const inBand = (height: number): boolean => height >= preferences.minHeightFt && height <= preferences.maxHeightFt;
   const dates: Array<{ localDate: string; start: number; end: number }> = [];
-  const firstDate = getLocalDateString(new Date(arrival), args.timezone);
+  const firstDate = getLocalDateString(new Date(usableStart), args.timezone);
   const lastDate = getLocalDateString(new Date(usableEnd), args.timezone);
   for (let offset = 0; offset < 4; offset += 1) {
     const localDate = new Date(Date.parse(`${firstDate}T12:00:00Z`) + offset * DAY_MS).toISOString().slice(0, 10);
@@ -76,17 +84,19 @@ export function findTideAwareWindow(args: TideAwareWindowArgs): TideAwareWindowR
     const end = Math.min(usableEnd, localDateTimeToUTC(localDate, '20:00:00', args.timezone).getTime());
     if (end > start) dates.push({ localDate, start, end });
   }
-  if (tideMatters && (samples.length === 0 || dates.some(({ start, end }) =>
-    tideAt(start) === null || tideAt(end) === null || samples.some((sample, index) => {
+  const tideCoveredDates = (date: { localDate: string; start: number; end: number }): boolean =>
+    tideAt(date.start) !== null && tideAt(date.end) !== null && !samples.some((sample, index) => {
       const next = samples[index + 1];
-      return next && Date.parse(sample.at) < end && Date.parse(next.at) > start
-        && Date.parse(next.at) - Date.parse(sample.at) > 3 * HOUR_MS;
-    })))) {
+      return next && sampleTimes[index] < date.end && sampleTimes[index + 1] > date.start
+        && sampleTimes[index + 1] - sampleTimes[index] > 3 * HOUR_MS;
+    });
+  const coveredDates = tideMatters ? dates.filter(tideCoveredDates) : dates;
+  if (tideMatters && dates.length > 0 && coveredDates.length === 0) {
     return { state: 'insufficient_tide_evidence', window: null, reasons: ['tide_data_unavailable'] };
   }
 
-  const candidates: Array<{ window: NonNullable<TideAwareWindowResult['window']>; score: number; tideInside: boolean }> = [];
-  for (const { localDate, start: dayStart, end: dayEnd } of dates) {
+  const candidates: Array<{ window: NonNullable<TideAwareWindowResult['window']>; score: number; duration: number; tideInside: boolean }> = [];
+  for (const { localDate, start: dayStart, end: dayEnd } of coveredDates) {
     const dayRows = args.forecasts
       .filter((row) => getLocalDateString(new Date(row.forecast_at), args.timezone) === localDate)
       .sort((left, right) => Date.parse(left.forecast_at) - Date.parse(right.forecast_at))
@@ -94,13 +104,7 @@ export function findTideAwareWindow(args: TideAwareWindowArgs): TideAwareWindowR
         const height = tideAt(Date.parse(row.forecast_at));
         return height === null ? row : { ...row, tide_height: String(height) };
       });
-    const verdicts = dayRows.map((row) => {
-      const evaluation = args.verdictFor(row);
-      const at = Date.parse(row.forecast_at);
-      const badTideWithinHour = preferences.explicitRange && samples.some((sample) =>
-        Date.parse(sample.at) >= at && Date.parse(sample.at) < at + HOUR_MS && !inBand(sample.heightFt));
-      return badTideWithinHour ? { ...evaluation, verdict: 'no' as const } : evaluation;
-    });
+    const verdicts = dayRows.map(args.verdictFor);
     const verdictById = new Map(verdicts.map(({ forecast, verdict }) => [forecast.id, verdict]));
     const groups = groupGoForecasts(verdicts).flatMap((run) => {
       const contiguous: ForecastVerdict[][] = [];
@@ -138,13 +142,15 @@ export function findTideAwareWindow(args: TideAwareWindowArgs): TideAwareWindowR
       if (heights.some((height) => height === null)) continue;
       candidates.push({ window: { start: new Date(start).toISOString(), end, localDate, timezone: args.timezone,
         faceHeightFt: { min: Math.min(...heights.map((height) => height!.min)), max: Math.max(...heights.map((height) => height!.max)) } },
-        score: Math.max(...rows.map(({ score }) => score)),
+        score: rows.reduce((sum, { score }) => sum + score, 0) / rows.length,
+        duration: Date.parse(end) - Date.parse(start),
         tideInside: rows.every(({ forecast }) => { const height = tideAt(Date.parse(forecast.forecast_at)); return height !== null && inBand(height); }) });
     }
   }
   const distanceToPeak = (window: NonNullable<TideAwareWindowResult['window']>): number =>
     Math.max(Date.parse(window.start) - peak, peak - Date.parse(window.end), 0);
   const chosen = candidates.sort((left, right) => right.score - left.score
+    || right.duration - left.duration
     || distanceToPeak(left.window) - distanceToPeak(right.window)
     || Date.parse(left.window.start) - Date.parse(right.window.start))[0];
   if (!chosen) return noWindow;

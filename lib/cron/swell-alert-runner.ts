@@ -1347,22 +1347,19 @@ async function sendFirstSighting(
       return;
     }
 
-    let surfWindow: TideAwareWindowResult | undefined;
-    if (isSwellOutlookTideWindowEnabled() && deps.loadFirstSightingWindow) {
-      try {
-        // Optional evidence runs alongside the existing hazard read; never await it before sending.
-        void deps.loadFirstSightingWindow(profile, swell, now).then((result) => { surfWindow = result; }).catch((error: unknown) => {
-          console.warn(`[swell-alert] First-sighting window computation failed for ${swell.beach.id}:`, error);
-        });
-      } catch (error) {
-        console.warn(`[swell-alert] First-sighting window computation failed for ${swell.beach.id}:`, error);
-      }
-    }
-    const hazard = await (deps.loadFirstSightingHazard?.(swell.beach.id, profile.timezone, now) ?? Promise.resolve(null))
-      .catch((error: unknown) => {
-        console.warn(`[swell-alert] First-sighting hazard lookup failed for ${swell.beach.id}:`, error);
-        return null;
-      });
+    const windowPromise = Promise.resolve().then(() =>
+      isSwellOutlookTideWindowEnabled() ? deps.loadFirstSightingWindow?.(profile, swell, now) : undefined,
+    ).catch((error: unknown) => {
+      console.warn(`[swell-alert] First-sighting window computation failed for ${swell.beach.id}:`, error);
+      return undefined;
+    });
+    const hazardPromise = Promise.resolve().then(() =>
+      deps.loadFirstSightingHazard?.(swell.beach.id, profile.timezone, now) ?? null,
+    ).catch((error: unknown) => {
+      console.warn(`[swell-alert] First-sighting hazard lookup failed for ${swell.beach.id}:`, error);
+      return null;
+    });
+    const [surfWindow, hazard] = await Promise.all([windowPromise, hazardPromise]);
     const payload = buildFirstSightingPayload({ swell, timezone: profile.timezone, hazard, surfWindow });
     let claimDenied: FirstSightingClaimSkipReason = "event_exists";
     const alert = await deps.insertAlert({

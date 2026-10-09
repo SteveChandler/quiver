@@ -1,5 +1,10 @@
 /** @jest-environment node */
+jest.mock('@/lib/services/discovery/window-selector', () => {
+  const actual = jest.requireActual('@/lib/services/discovery/window-selector');
+  return { ...actual, selectBestWindows: jest.fn(actual.selectBestWindows) };
+});
 import { findTideAwareWindow } from '@/lib/alerts/surf-window/tide-aware-window';
+import * as windowSelector from '@/lib/services/discovery/window-selector';
 import { evaluateForecastVerdict, type ForecastVerdict } from '@/lib/alerts/canonical-forecast-verdict';
 import { localDateTimeToUTC } from '@/lib/utils/forecast-time-resolver';
 import type { Beach } from '@/types/database';
@@ -58,9 +63,17 @@ it('selects a stronger run on the next beach-local day', () => {
   expect(result.reasons).toContain('better_tide_after_peak');
 });
 
-it('uses verdicts at an uncurated beach without making tide claims, even with missing samples', () => {
+it('uses the injected eligibility predicate consistently for evidence and tide reasons', () => {
+  const result = findTideAwareWindow({ ...input, tideSamples: null, isTideReasonEligible: () => false,
+    verdictFor: (row) => ({ forecast: row, score: 80, verdict: 'go' } as ForecastVerdict) });
+  expect(result.state).toBe('recommended');
+  expect(result.reasons).toEqual([]);
+});
+
+it('uses verdicts without tide claims at an uncurated beach', () => {
   const uncurated = { ...beach, preferred_tide_ft_min: null, preferred_tide_ft_max: null };
-  const result = findTideAwareWindow({ ...input, beach: uncurated, tideSamples: null, verdictFor: (row) => verdictFor(row, uncurated) });
+  const result = findTideAwareWindow({ ...input, beach: uncurated, tideSamples: null,
+    verdictFor: (row) => ({ forecast: row, score: 80, verdict: 'go' } as ForecastVerdict) });
   expect(result.state).toBe('recommended');
   expect(result.reasons).toEqual([]);
 });
@@ -118,7 +131,45 @@ it('never searches past four beach-local dates or the ten-day lookahead', () => 
   expect(findTideAwareWindow({ ...input, now: new Date('2026-09-01T00:00:00.000Z') }).state).toBe('no_suitable_window');
 });
 
-it('does not claim a tide-safe hour when denser samples show an out-of-band tide within it', () => {
-  const result = findTideAwareWindow({ ...input, tideSamples: [...tideSamples, { at: '2026-10-08T17:30:00.000Z', heightFt: 5 }] });
-  expect(result.window).toMatchObject({ start: at(11), end: at(12) });
+it('leaves within-hour tide tolerance to the canonical verdict', () => {
+  const verdict = jest.fn((row: EnhancedForecastEntity) => ({ forecast: row, score: 80, verdict: row.id === 'hour-10' ? 'go' : 'no' } as ForecastVerdict));
+  const result = findTideAwareWindow({ ...input, tideSamples: [...tideSamples, { at: '2026-10-08T17:30:00.000Z', heightFt: 5 }], verdictFor: verdict });
+  expect(verdict.mock.calls.some(([row]) => row.id === 'hour-10' && row.tide_height === '2')).toBe(true);
+  expect(result.window?.start).toBe(at(10));
+});
+
+
+it('uses the rest of the peak day when fadeAt is missing', () => {
+  const result = findTideAwareWindow({ ...input, fadeAt: null });
+  expect(result.window).toMatchObject({ start: at(10), end: at(12), localDate: date });
+  expect(result.reasons).toContain('better_tide_after_peak');
+});
+
+it('starts its four-date budget from the later of arrival and now', () => {
+  const dates = ['2026-10-08', '2026-10-09', '2026-10-10', '2026-10-11'];
+  const rows = dates.flatMap((day) => forecasts.map((row, hour) => ({ ...row, id: `${day}-${hour}`, forecast_at: at(hour, day) })));
+  const samples = dates.flatMap((day) => Array.from({ length: 25 }, (_, hour) => ({ at: at(hour, day), heightFt: hour >= 10 && hour < 12 ? 2 : 5 })));
+  const result = findTideAwareWindow({ ...input, arrivalAt: at(7, '2026-10-06'), peakAt: at(7, '2026-10-09'), fadeAt: at(20, '2026-10-12'),
+    now: new Date(at(0, '2026-10-08')), forecasts: rows, tideSamples: samples,
+    verdictFor: (row) => ({ ...verdictFor(row), score: row.id.startsWith('2026-10-11') ? 95 : 60 }) });
+  expect(result.window?.localDate).toBe('2026-10-11');
+});
+
+it('skips uncovered dates when another candidate date has full tide coverage', () => {
+  const nextDate = '2026-10-09';
+  const nextRows = forecasts.map((row, hour) => ({ ...row, id: `covered-${hour}`, forecast_at: at(hour, nextDate) }));
+  const coveredSamples = Array.from({ length: 16 }, (_, index) => ({ at: at(index + 5, nextDate), heightFt: index >= 5 && index < 7 ? 2 : 5 }));
+  const result = findTideAwareWindow({ ...input, fadeAt: at(20, nextDate), forecasts: [...forecasts, ...nextRows], tideSamples: coveredSamples });
+  expect(result).toMatchObject({ state: 'recommended', window: { localDate: nextDate }, reasons: expect.any(Array) });
+});
+
+it('ranks by mean window score before duration and peak closeness', () => {
+  const scores = new Map<string, number>([['hour-7', 82], ['hour-8', 68],
+    ['hour-12', 82], ['hour-13', 80], ['hour-14', 80], ['hour-15', 78]]);
+  const rows = forecasts.map((row, hour) => ({ ...row, tide_height: '2',
+    wave_height: (scores.get(`hour-${hour}`) ?? 0) > 0 ? '3-4 ft' : '0 ft' }));
+  jest.mocked(windowSelector.selectBestWindows).mockReturnValueOnce([]);
+  const result = findTideAwareWindow({ ...input, forecasts: rows, tideSamples: tideSamples.map((sample) => ({ ...sample, heightFt: 2 })),
+    verdictFor: (row) => ({ forecast: row, score: scores.get(row.id) ?? 0, verdict: scores.has(row.id) ? 'go' : 'no' } as ForecastVerdict) });
+  expect(result.window).toMatchObject({ start: at(12), end: at(16) });
 });

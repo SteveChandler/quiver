@@ -750,22 +750,28 @@ describe('swell first-sighting tide-window flag', () => {
   });
 });
 
-it('sends without waiting for optional window evidence', async () => {
+it('waits for a macrotask window result before building the first-sighting payload', async () => {
   const oldFlag = process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED;
   process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED = 'true';
   try {
-    const compute = jest.fn(() => new Promise<never>(() => {}));
-    const deps = makeDeps({ loadFirstSightingWindow: compute });
+    const loadWindow = jest.fn(async () => {
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      return { state: 'recommended' as const,
+        window: { start: '2026-10-08T17:00:00.000Z', end: '2026-10-08T19:00:00.000Z', localDate: '2026-10-08',
+          timezone: 'America/Los_Angeles', faceHeightFt: { min: 3, max: 4 } },
+        reasons: ['high_tide_outside_preference', 'better_tide_after_peak'] };
+    });
+    const deps = makeDeps({ loadFirstSightingWindow: loadWindow });
     const summary = await runSwellAlertCron({ now: MORNING, deps });
     expect(summary.sent).toBe(1);
-    expect(compute).toHaveBeenCalledTimes(1);
-    expect(deps.enqueue.mock.calls[0][0].payload).not.toHaveProperty('surf_window');
+    expect(loadWindow).toHaveBeenCalledTimes(1);
+    expect(deps.enqueue.mock.calls[0][0].payload.surf_window).toMatchObject({ state: 'recommended' });
+    expect(deps.enqueue.mock.calls[0][0].payload.body).toContain('Best window Thu 10 AM–12 PM.');
   } finally {
     if (oldFlag === undefined) delete process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED;
     else process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED = oldFlag;
   }
 });
-
 
 it.each(['recommended', 'throws'])('handles the lead-beach window in the default adapter: %s', async (outcome) => {
   jest.clearAllMocks();
