@@ -297,7 +297,7 @@ function buildWindowDescription(
   // Build conditions text; unknown wind makes no wind claim.
   let conditions = "";
   if (wind === null) {
-    conditions = "Moderate conditions";
+    conditions = "Wind unknown";
   } else if (isOffshore && wind < 8) {
     conditions = "Clean offshore winds";
   } else if (wind < 5) {

@@ -8,8 +8,12 @@
  * which is how NWS reports calm) still scores as calm on speed alone.
  */
 
+jest.mock('date-fns/format', () => (date: Date) => date.toISOString().slice(0, 10));
+
 import { scoreForecastSlots } from '@/app/api/forecasts/scored/[beachId]/route';
 import { forecastToSnapshot } from '@/lib/domains/scoring/discovery-adapter';
+import { calculateRideableWaves } from '@/lib/domains/wave-frequency/calculator';
+import { windAt, analyzeWindConditions } from '@/lib/analyzers/wind-analyzer';
 import { getConditionCharacter } from '@/lib/domains/scoring/condition-character';
 import { windQualityScorer } from '@/lib/domains/scoring/scorers/wind-quality-scorer';
 import type { CompositeScore } from '@/lib/domains/scoring';
@@ -29,6 +33,8 @@ import {
 } from '@/lib/services/magic-hour';
 import { generateConditionBadges } from '@/lib/services/discovery/surf-discovery-orchestrator';
 import { scoreForecastWindow } from '@/lib/services/discovery/window-selector/window-scorer';
+import { enrichDaySummaries } from '@/lib/utils/enriched-day-summary';
+import type { DaySummary } from '@/lib/utils/horizon-strip-utils';
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import { createBeach, createForecast, createProfile, createSnapshot, createSwell } from '../domains/__fixtures__';
@@ -38,6 +44,73 @@ const calm = { wind_speed: '0 mph', wind_direction: null, wind_direction_deg: nu
 
 const forecast = (overrides: Partial<EnhancedForecastEntity>): EnhancedForecastEntity =>
   createForecast(overrides) as unknown as EnhancedForecastEntity;
+
+describe('enriched day summary', () => {
+  const day: DaySummary = {
+    date: 'Jan 14', dayName: 'Wed', minHeight: 3, maxHeight: 4,
+    tier: 'good', score: 65, fullDate: '2026-01-14', isToday: false,
+    bestTime: '12:00', period: 12,
+  };
+  const summary = (overrides: Partial<EnhancedForecastEntity>) =>
+    enrichDaySummaries([day], [forecast({
+      forecast_at: '2026-01-14T12:00:00Z', forecast_date: '2026-01-14',
+      forecast_time: '12:00', ...overrides,
+    })])[0];
+
+  it('labels missing wind unknown even when a direction is present', () => {
+    expect(summary({ wind_speed: null, wind_direction: 'E' }).windConditions).toBe('unknown');
+    expect(summary({ wind_speed: null, wind_direction: 'E' }).windSpeed).toBeNull();
+  });
+
+  it('keeps a real 0 mph wind light without a direction', () => {
+    expect(summary(calm).windConditions).toBe('light');
+    expect(summary(calm).windSpeed).toBe('0 mph');
+  });
+});
+
+describe('wind analyzer', () => {
+  const row = (speed: number | null, direction: number | null) => [{
+    forecast_at: '2026-01-14T12:00:00Z', forecast_date: '2026-01-14',
+    forecast_time: '12:00', wind_speed: speed, wind_direction: direction,
+  }];
+
+  it('keeps missing or non-finite wind unknown and does not infer north', () => {
+    for (const speed of [null, Number.NaN, Number.POSITIVE_INFINITY]) {
+      const wind = windAt('12:00', row(speed, null), 'UTC');
+      expect(wind).toMatchObject({ cardinal: 'N/A', offshore: false, description: 'N/A' });
+      expect(analyzeWindConditions(wind, { name: 'Test Beach', windOffshoreDeg: 270 }).message)
+        .toBe('Wind unknown');
+    }
+    const directionless = windAt('12:00', row(8, null), 'UTC');
+    expect(directionless).toMatchObject({
+      cardinal: 'N/A', offshore: false, description: '8 mph wind',
+    });
+    expect(analyzeWindConditions(directionless, { name: 'Test Beach', windOffshoreDeg: 270 }).message)
+      .toBe('Moderate winds (8 mph)');
+  });
+
+  it('keeps a real calm with no direction calm', () => {
+    expect(windAt('12:00', row(0, null), 'UTC')).toMatchObject({
+      speed: 0, cardinal: 'N/A', offshore: false, description: 'calm',
+    });
+  });
+});
+
+describe('wave frequency wind penalty', () => {
+  const beach = createBeach({ aspect_deg: 270, break_type: 'beach' }) as unknown as Beach;
+  const rideable = (speed: string | null) => calculateRideableWaves(
+    forecast({ wind_speed: speed, wind_direction: 'W', wind_direction_deg: 270 }), beach,
+  ).rideableWavesPerHour;
+
+  it('applies no wind penalty when speed is unknown', () => {
+    expect(rideable(null)).toBe(rideable('0 mph'));
+    expect(rideable(null)).toBeGreaterThan(rideable('25 mph'));
+  });
+
+  it('keeps a real 0 mph wind unpenalized', () => {
+    expect(rideable('0 mph')).toBeGreaterThan(rideable('25 mph'));
+  });
+});
 
 describe('board pick / window calculator (toForecastForScoring)', () => {
   const beach = createBeach() as unknown as Beach;
@@ -266,7 +339,7 @@ describe('morning intel session window', () => {
     // Wind is the only scored factor here: neutral 20 meets the 20-point floor.
     const window = findNextBestWindow([slot('12:00', null, null)], now, 270);
     expect(window?.startTime).toBe('12:00');
-    expect(window?.conditions).not.toMatch(/offshore|light winds/i);
+    expect(window?.conditions).toBe('Wind unknown');
   });
 
   it('does not rank an unknown wind above light offshore', () => {
