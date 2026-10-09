@@ -66,6 +66,7 @@ function isChoppy(
   forecast: ForecastForScoring,
   beach?: BeachWithThresholds
 ): boolean {
+  if (forecast.windSpeed == null) return false; // Unknown speed — no chop evidence
   if (forecast.windSpeed <= 5) return false; // Light wind is always clean
   if (forecast.windDirection == null) return false; // Unknown direction — assume clean
 

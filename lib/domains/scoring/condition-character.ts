@@ -126,11 +126,11 @@ function calculateSwellDirectionFit(
  * which is narrower than the wind-quality scorer's three-tier classification.
  */
 function isWindOnshoreForCharacter(
-  windSpeed: number,
+  windSpeed: number | null,
   windDirection: number | null,
   profile: SpotProfile
 ): boolean {
-  if (windDirection === null) return false;
+  if (windSpeed === null || windDirection === null) return false;
   const { offshoreDeg, offshoreToleranceDeg } = profile.windThresholds;
   const onshoreDir = (offshoreDeg + 180) % 360;
   return (
@@ -191,7 +191,7 @@ export function getConditionCharacter(
   if (waveHeight < 2) {
     // Small-weak: short period wind chop (checked early, like legacy)
     if (wavePeriod < 8) {
-      if (isOnshore && windSpeed > 5) {
+      if (isOnshore && windSpeed !== null && windSpeed > 5) {
         return { category: 'small-weak', label: 'Small & choppy — onshore wind' };
       }
       return { category: 'small-weak', label: 'Weak swell — minimal energy' };
@@ -221,13 +221,13 @@ export function getConditionCharacter(
       }
     }
 
-    // Small-clean: light wind, not onshore (8s+ period)
-    if (windSpeed <= 5 && !isOnshore) {
+    // Small-clean: light wind, not onshore (8s+ period). Unknown wind is not light.
+    if (windSpeed !== null && windSpeed <= 5 && !isOnshore) {
       return { category: 'small-clean', label: 'Small & clean — glassy conditions' };
     }
 
     // Small-weak: onshore wind (8-11s period)
-    if (isOnshore && windSpeed > 5) {
+    if (isOnshore && windSpeed !== null && windSpeed > 5) {
       return { category: 'small-weak', label: 'Small & choppy — onshore wind' };
     }
 

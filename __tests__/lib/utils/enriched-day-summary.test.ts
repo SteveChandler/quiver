@@ -90,7 +90,7 @@ describe("enrichDaySummaries", () => {
       expect(result[0].windConditions).toBe("onshore");
     });
 
-    it("handles empty wind direction as onshore", () => {
+    it("handles empty wind direction as unknown", () => {
       const day = makeDaySummary({ fullDate: "2026-02-10", bestTime: "09:00" });
       const forecast = makeForecast({
         forecast_at: "2026-02-10T09:00Z",
@@ -101,7 +101,7 @@ describe("enrichDaySummaries", () => {
 
       const result = enrichDaySummaries([day], [forecast]);
 
-      expect(result[0].windConditions).toBe("onshore");
+      expect(result[0].windConditions).toBe("unknown");
     });
   });
 
@@ -567,7 +567,7 @@ describe("enrichDaySummaries", () => {
       expect(result[0].windConditions).toBe("light");
     });
 
-    it("classifies as 'light' when wind_speed is null or missing", () => {
+    it("classifies wind as unknown when wind_speed is null", () => {
       const day = makeDaySummary({ fullDate: "2026-02-10", bestTime: "06:00" });
       const forecast = makeForecast({
         forecast_at: "2026-02-10T06:00Z",
@@ -579,8 +579,7 @@ describe("enrichDaySummaries", () => {
 
       const result = enrichDaySummaries([day], [forecast]);
 
-      // parseFloat(null || "0") = 0, which is ≤5, so "light"
-      expect(result[0].windConditions).toBe("light");
+      expect(result[0].windConditions).toBe("unknown");
     });
 
     it("preserves offshore classification when wind speed is >5 mph", () => {

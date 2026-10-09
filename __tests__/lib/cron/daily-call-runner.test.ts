@@ -400,6 +400,19 @@ describe("daily call copy on the real title pool", () => {
     expect(payload.window_local).toBe("8–11 AM");
   });
 
+  it("never prints 0mph or light wind when the forecast has no wind", async () => {
+    const payload = await send([go(torrey, { ...torreyForecast, wind_speed: null, wind_direction: null }, 82)]);
+
+    expect(payload.wind_label).toBe("Wind unknown");
+    expect(payload.reason).toBe("4–5 ft at 15s WSW with wind unknown. Best before the tide drops around 11 AM.");
+  });
+
+  it("labels calm as 0mph", async () => {
+    const payload = await send([go(torrey, { ...torreyForecast, wind_speed: "0 mph", wind_direction: null }, 82)]);
+
+    expect(payload.wind_label).toBe("0mph");
+  });
+
   it("leads with a comparison only when home was evaluated, and names the real difference", async () => {
     const payload = await send([
       go(obPier, { wave_height: "2.6 ft", wave_period: "10s", wave_direction: "SSW", wind_speed: "0 mph" }, 60),

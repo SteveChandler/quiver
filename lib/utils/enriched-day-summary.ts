@@ -17,6 +17,7 @@ import {
 } from "@/lib/services/magic-hour/constants";
 import { extractForecastDate } from "@/lib/utils/forecast-at-adapter";
 import { getLocalHour } from "@/lib/utils/timezone-utils";
+import { parseWindSpeedOrNull } from "@/lib/utils/number-parsing";
 
 export type TimeSlot =
   | "dawn-patrol"
@@ -26,7 +27,7 @@ export type TimeSlot =
   | "evening";
 
 export interface EnrichedDaySummary extends DaySummary {
-  windConditions: WindClassification;
+  windConditions: WindClassification | "unknown";
   bestTimeSlot: TimeSlot | null;
   windSpeed: string | null;
 }
@@ -122,11 +123,15 @@ export function enrichDaySummaries(
     // This aligns the display label with the scorer (which gives 20/20 wind
     // points for ≤3 mph) and avoids confusing "Onshore" labels at dawn patrol
     // when wind is essentially calm.
-    const windSpeedMph = parseFloat(closest.wind_speed || "0");
-    const windConditions: WindClassification =
-      !Number.isNaN(windSpeedMph) && windSpeedMph >= 0 && windSpeedMph <= 5
-        ? "light"
-        : classifyWindDirection(closest.wind_direction || "", windOffshoreDeg);
+    const windSpeedMph = parseWindSpeedOrNull(closest.wind_speed);
+    const windConditions: EnrichedDaySummary["windConditions"] =
+      windSpeedMph === null
+        ? "unknown"
+        : windSpeedMph >= 0 && windSpeedMph <= 5
+          ? "light"
+          : closest.wind_direction
+            ? classifyWindDirection(closest.wind_direction, windOffshoreDeg)
+            : "unknown";
 
     return {
       ...day,

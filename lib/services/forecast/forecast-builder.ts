@@ -1333,6 +1333,7 @@ export class ForecastBuilder {
       snapshotIndex,
     });
 
+    const windSpeed = this.getWindSpeed(weatherPoint);
     const sourceSelection = waveHeightResult.debug.source?.startsWith('model_')
       ? wavePoint?.source_selection : undefined;
     const effectiveConfidence = sourceSelection?.disagreement
@@ -1386,11 +1387,12 @@ export class ForecastBuilder {
       // Water temperature
       water_temp: this.getWaterTemperature(buoyData, beach, forecastTime, ioosWaterTempC, coopsWaterTempC),
 
-      // Wind data
-      wind_speed: this.getWindSpeed(weatherPoint),
+      // Wind data. Missing NWS wind stays null; NWS leaves direction blank
+      // when calm, so "0 mph" with no direction is a real reading.
+      wind_speed: windSpeed,
       wind_direction: this.getWindDirection(weatherPoint),
-      wind_direction_deg: cardinalToDegrees(weatherPoint?.windDirection || "SW"),
-      wind_source: weatherPoint?.windSpeed ? 'NWS' : null,
+      wind_direction_deg: cardinalToDegrees(weatherPoint?.windDirection),
+      wind_source: windSpeed != null ? 'NWS' : null,
 
       // Tide information
       tide_status: tideInfo.status,
@@ -2069,12 +2071,12 @@ export class ForecastBuilder {
   }
 
   private getWindSpeed(weatherPoint: WeatherPeriod | null): string | null {
-    if (!weatherPoint) return "10 mph";
+    if (!weatherPoint) return null;
     return this.extractWindSpeed(weatherPoint.windSpeed);
   }
 
   private getWindDirection(weatherPoint: WeatherPeriod | null): string | null {
-    return weatherPoint?.windDirection || "SW";
+    return weatherPoint?.windDirection?.trim() || null;
   }
 
   private getAirTemperature(weatherPoint: WeatherPeriod | null, beach: Beach, forecastTime: Date): string | null {
@@ -2097,10 +2099,10 @@ export class ForecastBuilder {
     return `${rounded} ft`;
   }
 
-  private extractWindSpeed(windSpeedStr: string): string {
-    if (!windSpeedStr) return "10 mph";
+  private extractWindSpeed(windSpeedStr: string | null | undefined): string | null {
+    if (!windSpeedStr) return null;
     const match = windSpeedStr.match(/(\d+)/);
-    return match ? `${match[1]} mph` : "10 mph";
+    return match ? `${match[1]} mph` : null;
   }
 
   private estimateWaterTemperature(lat: number, date: Date): string {

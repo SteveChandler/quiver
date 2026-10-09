@@ -186,6 +186,13 @@ function numberValue(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+/** A missing wind is unknown, never "0mph". */
+function windLabel(forecast: { wind_speed?: unknown; wind_direction?: string | null } | undefined): string {
+  const speed = Number.parseFloat(String(forecast?.wind_speed ?? ""));
+  if (!Number.isFinite(speed)) return "Wind unknown";
+  return forecast?.wind_direction ? `${speed}mph ${forecast.wind_direction}` : `${speed}mph`;
+}
+
 function windowLabel(candidate: DailyCallCandidate, timezone: string): string {
   const startDriver = candidate.window.drivers.find((driver) => driver.edge === "start");
   const endDriver = candidate.window.drivers.find((driver) => driver.edge === "end");
@@ -270,9 +277,7 @@ function buildPayload(args: {
     wave_height_ft: numberValue(forecast?.wave_height),
     wave_period_s: numberValue(forecast?.wave_period),
     swell_dir: forecast?.wave_direction ?? forecast?.swell_1_direction ?? "unknown",
-    wind_label: forecast?.wind_direction
-      ? `${numberValue(forecast.wind_speed)}mph ${forecast.wind_direction}`
-      : `${numberValue(forecast?.wind_speed)}mph`,
+    wind_label: windLabel(forecast),
     tide_label: forecast?.tide_status ?? "Unknown tide",
     reason: args.title.body || fallbackReason(args.vars),
     title: args.title.title,

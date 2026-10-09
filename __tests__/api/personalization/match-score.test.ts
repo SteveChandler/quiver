@@ -159,6 +159,41 @@ describe("GET /api/personalization/match-score", () => {
     });
   });
 
+  // Native sends String(null) = "null" when the forecast has no wind.
+  it.each([
+    ["missing", "", "0", "0"],
+    ["empty", "&wind_speed=&wind_direction=", "", ""],
+    ["\"null\"", "&wind_speed=null&wind_direction=null", "null", "null"],
+  ])("scores the board pick with unknown wind when wind is %s, leaving the RPC inputs as sent", async (
+    _shape, windParams, rpcWindSpeed, rpcWindDirection,
+  ) => {
+    rpc.mockResolvedValue({ data: { state: "learned", score: 8.4, sessions_in_profile: 15, reason_bullets: [] }, error: null });
+
+    await GET(new NextRequest(
+      `https://www.quiversurf.app/api/personalization/match-score?beach_id=beach-1&wave_height=3&wave_period=12&tide_height=3${windParams}`,
+    ));
+
+    expect(mockRecommendBoard.mock.calls[0][1]).toMatchObject({
+      wind_speed: null, wind_direction: null, wind_direction_deg: null,
+    });
+    // SQL parses wind itself (parse_numeric_from_text); that unknown-wind fix is a separate migration.
+    expect(rpc).toHaveBeenLastCalledWith("compute_user_match_score", expect.objectContaining({
+      p_wind_speed: rpcWindSpeed, p_wind_direction: rpcWindDirection,
+    }));
+  });
+
+  it("keeps calm as 0 mph with no direction for the board pick", async () => {
+    rpc.mockResolvedValue({ data: { state: "learned", score: 8.4, sessions_in_profile: 15, reason_bullets: [] }, error: null });
+
+    await GET(new NextRequest(
+      "https://www.quiversurf.app/api/personalization/match-score?beach_id=beach-1&wave_height=3&wave_period=12&tide_height=3&wind_speed=0&wind_direction=null",
+    ));
+
+    expect(mockRecommendBoard.mock.calls[0][1]).toMatchObject({
+      wind_speed: "0", wind_direction: null, wind_direction_deg: null,
+    });
+  });
+
   it("keeps a learned response successful when board loading rejects", async () => {
     mockFetchUserBoardContext.mockRejectedValue(new Error("board read failed"));
     rpc.mockResolvedValue({ data: { state: "learned", score: 8.4, sessions_in_profile: 15,
