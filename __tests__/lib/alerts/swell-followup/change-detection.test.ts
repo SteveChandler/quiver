@@ -37,18 +37,21 @@ function detect(args: {
   told?: Partial<SwellToldSnapshot>;
   current?: Partial<SwellCurrentForecast> | null;
   now?: Date;
+  previous?: { event: SwellCurrentForecast | null } | null;
 }) {
   return detectSwellFollowupKind({
     told: told(args.told),
     current: args.current === null ? null : current(args.current ?? {}),
     now: args.now ?? NOW,
     timezone: TIMEZONE,
+    previous: args.previous,
   });
 }
 
 describe("swell follow-up thresholds", () => {
   it("names the contract thresholds", () => {
     expect(SWELL_FOLLOWUP_THRESHOLDS).toMatchObject({
+      confirmLeadHours: 48,
       movedMinHours: 12,
       sizeMinDeltaFt: 1.5,
       sizeMinDeltaRatio: 0.3,
@@ -139,6 +142,41 @@ describe("detectSwellFollowupKind", () => {
     });
   });
 
+  describe("independent-run confirmation at long lead", () => {
+    const longPeak = "2026-09-28T16:00:00.000Z";
+    const shifted = current({ peakAt: "2026-09-29T16:00:00.000Z" });
+
+    it.each([
+      ["moved", shifted],
+      ["bigger", current({ peakAt: longPeak, faceHeightFt: 7 })],
+      ["smaller", current({ peakAt: longPeak, faceHeightFt: 3 })],
+      ["dropped", null],
+    ] as const)("requires the previous run to also report %s", (kind, forecast) => {
+      const input = { told: { peakAt: longPeak }, current: forecast };
+      expect(detect({ ...input, previous: null })).toBeNull();
+      expect(detect({ ...input, previous: { event: current({ peakAt: longPeak }) } })).toBeNull();
+      expect(detect({ ...input, previous: { event: forecast } })).toBe(kind);
+    });
+
+    it("does not confirm a move with a previous size change", () => {
+      expect(detect({ told: { peakAt: longPeak }, current: shifted,
+        previous: { event: current({ peakAt: longPeak, faceHeightFt: 7 }) } })).toBeNull();
+    });
+
+    it("sends immediately at 30 hours and exactly 48 hours without a previous run", () => {
+      for (const hours of [30, 48]) {
+        const peakAt = new Date(NOW.getTime() + hours * 3_600_000).toISOString();
+        expect(detect({ told: { peakAt }, current: shifted, previous: null })).toBe("moved");
+        expect(detect({ told: { peakAt }, current: null, previous: null })).toBe("dropped");
+      }
+    });
+
+    it("never gates arrived even when the told peak is far off", () => {
+      expect(detect({ told: { peakAt: longPeak }, current: { peakAt: NOW.toISOString() },
+        previous: null })).toBe("arrived");
+    });
+  });
+
   describe("caps", () => {
     it("sends each kind once per event, falling through to the next that applies", () => {
       const bothChanged = { peakAt: "2026-09-27T16:00:00.000Z", faceHeightFt: 9 };
@@ -171,7 +209,7 @@ describe("detectSwellFollowupKind", () => {
     it("only evaluates between 06:00 and 21:59 local", () => {
       const change = { faceHeightFt: 9 };
       expect(detect({ current: change, now: new Date("2026-09-24T12:59:00.000Z") })).toBeNull();
-      expect(detect({ current: change, now: new Date("2026-09-24T13:00:00.000Z") })).toBe("bigger");
+      expect(detect({ current: change, previous: { event: current(change) }, now: new Date("2026-09-24T13:00:00.000Z") })).toBe("bigger");
       expect(detect({ current: change, now: new Date("2026-09-25T04:59:00.000Z") })).toBe("bigger");
       expect(detect({ current: change, now: new Date("2026-09-25T05:00:00.000Z") })).toBeNull();
     });

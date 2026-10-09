@@ -19,6 +19,7 @@ import {
   isSwellFollowupExpired,
   isSwellFollowupWindowOpen,
   swellMoveDirection,
+  type SwellCurrentForecast,
 } from "@/lib/alerts/swell-followup/change-detection";
 import {
   claimSwellFollowup,
@@ -175,6 +176,7 @@ export interface PinnedSwellEvaluation {
   /** False when no future forecast rows loaded: a data gap is never reported as a dropped swell. */
   forecastAvailable: boolean;
   event: BeachSwellEvent | null;
+  previous?: { event: SwellCurrentForecast | null } | null;
 }
 
 export interface SwellAlertState {
@@ -813,15 +815,26 @@ async function evaluatePinned(
     .filter((snapshot) => pinnedRunDates.has(snapshot.runDate))
     .map(({ eventKey }) => eventKey));
   // Prefer the exact key; component and size fallback excludes keys emitted alongside it in a detector run.
-  const event = events.find(({ eventKey }) => eventKey === state.eventKey)
-    ?? events
-    .filter((candidate) => tracksSwellComponent(told, candidate)
-      && !coexistingKeys.has(candidate.eventKey)
-      && tracksSwellSize({ peakFaceHeightFt: state.lastFaceHeightFt }, candidate)
-      && Math.abs(Date.parse(candidate.peakAt) - toldPeakAt) <= PINNED_MAX_PEAK_SHIFT_MS)
-    .sort((left, right) =>
-      Math.abs(Date.parse(left.peakAt) - toldPeakAt) - Math.abs(Date.parse(right.peakAt) - toldPeakAt))[0]
-    ?? null;
+  function matchPinned<T extends Pick<BeachSwellEvent, "eventKey" | "peakAt" | "directionDeg" | "periodS" | "peakFaceHeightFt">>(
+    candidates: T[],
+  ): T | null {
+    return candidates.find(({ eventKey }) => eventKey === state.eventKey)
+      ?? candidates
+      .filter((candidate) => tracksSwellComponent(told, candidate)
+        && !coexistingKeys.has(candidate.eventKey)
+        && tracksSwellSize({ peakFaceHeightFt: state.lastFaceHeightFt }, candidate)
+        && Math.abs(Date.parse(candidate.peakAt) - toldPeakAt) <= PINNED_MAX_PEAK_SHIFT_MS)
+      .sort((left, right) =>
+        Math.abs(Date.parse(left.peakAt) - toldPeakAt) - Math.abs(Date.parse(right.peakAt) - toldPeakAt))[0]
+      ?? null;
+  }
+  const event = matchPinned(events);
+  // Detector runs, not UTC dates: hourly evaluations must keep the same independent evidence after midnight.
+  const runTimes = [...new Set(snapshots.map(({ detectedAt }) => Date.parse(detectedAt)))]
+    .sort((left, right) => right - left);
+  const previousRunAt = runTimes[1];
+  const previousEvent = previousRunAt === undefined ? null
+    : matchPinned(snapshots.filter(({ detectedAt }) => Date.parse(detectedAt) === previousRunAt));
 
   return {
     beach: {
@@ -833,6 +846,11 @@ async function evaluatePinned(
     },
     forecastAvailable: forecasts.some((row) => Date.parse(row.forecast_at) > now.getTime()),
     event,
+    previous: previousRunAt === undefined ? null : {
+      event: previousEvent ? {
+        peakAt: previousEvent.peakAt, faceHeightFt: previousEvent.peakFaceHeightFt, exposure: previousEvent.exposure,
+      } : null,
+    },
   };
 }
 
@@ -1106,6 +1124,7 @@ async function sendFollowups(
       const event = pinned.event;
       const kind = detectSwellFollowupKind({
         told,
+        previous: pinned.previous,
         current: event
           ? { peakAt: event.peakAt, faceHeightFt: event.peakFaceHeightFt, exposure: event.exposure }
           : null,
