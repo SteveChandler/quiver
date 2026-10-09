@@ -629,7 +629,7 @@ export function MapView() {
                 type="button"
                 aria-label="Close map field guide"
                 onClick={handleCloseFieldGuide}
-                className="absolute right-3 top-3 z-10 inline-flex h-11 w-11 items-center justify-center rounded-md border border-[#11100D]/20 bg-[#F5EEDC] text-[#11100D] shadow-sm transition-colors hover:bg-[#F4EBD8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0B3A75]"
+                className="absolute right-3 top-3 z-10 inline-flex h-11 w-11 items-center justify-center rounded-md border border-[#11100D]/20 bg-[#F5EEDC] text-[#11100D] shadow-sm transition-colors hover:bg-[#F4EBD8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D]"
               >
                 <X className="h-4 w-4" aria-hidden="true" />
               </button>

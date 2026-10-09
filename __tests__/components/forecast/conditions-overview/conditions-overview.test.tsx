@@ -146,7 +146,7 @@ describe("ConditionsOverview", () => {
       />
     );
 
-    expect(screen.getByText("No forecast data available")).toBeInTheDocument();
+    expect(screen.getByText("no data")).toBeInTheDocument();
     expect(screen.queryByTestId("best-day-hero")).not.toBeInTheDocument();
   });
 

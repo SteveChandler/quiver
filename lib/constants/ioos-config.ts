@@ -224,19 +224,6 @@ export const IOOS_VARIABLE_ALIASES: Record<CanonicalVar, readonly string[]> = {
  */
 export const NDBC_WAVE_CAPABLE_TYPES = new Set(["buoy", "dart", "oilrig"]);
 
-export const IOOS_NETWORK_PRIORITY: Record<string, number> = {
-  CDIP: 0.30,      // Wave-focused, lots of nearshore buoys
-  NDBC: 0.15,      // Reliable, broad coverage, often more offshore
-  CeNCOOS: 0.05,   // Regional IOOS networks
-  SCCOOS: 0.05,
-  NANOOS: 0.05,
-  NERACOOS: 0.05,
-  PacIOOS: 0.05,
-  SECOORA: 0.05,
-  MARACOOS: 0.05,
-  GCOOS: 0.05,
-};
-
 /**
  * Observation fetching and caching configuration
  */

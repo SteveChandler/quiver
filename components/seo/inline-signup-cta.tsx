@@ -122,7 +122,7 @@ export function InlineSignupCta({
                 variant === "zine"
                   ? {
                       fontFamily:
-                        "var(--font-zine-display), 'Bowlby One', sans-serif",
+                        "var(--font-zine-display), 'Space Grotesk', sans-serif",
                     }
                   : undefined
               }

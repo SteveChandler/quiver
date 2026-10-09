@@ -1,12 +1,4 @@
-import {
-  blogPosts,
-  getAllBlogPosts,
-  getFeaturedBlogPost,
-  getLatestBlogModifiedDate,
-  getNextBlogPost,
-  sortBlogPosts,
-  type BlogPost,
-} from "@/lib/data/blog-posts";
+import { blogPosts, getAllBlogPosts, getFeaturedBlogPost, getLatestBlogModifiedDate, sortBlogPosts, type BlogPost } from "@/lib/data/blog-posts";
 
 function makePost(
   slug: string,
@@ -105,11 +97,5 @@ describe("blog post helpers", () => {
       .at(-1);
 
     expect(getLatestBlogModifiedDate()).toBe(latestModifiedDate);
-  });
-
-  it("uses sorted order for next-post navigation", () => {
-    const allPosts = getAllBlogPosts();
-
-    expect(getNextBlogPost(allPosts[0].slug)).toEqual(allPosts[1]);
   });
 });

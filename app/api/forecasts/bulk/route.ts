@@ -1,3 +1,4 @@
+import { getLocalDateFormatter } from "@/lib/services/discovery/window-selector/time-slot-utils";
 import { recommendBoard, type RecommendedBoard } from "@/lib/scoring/personal-board";
 import { conditionLabelForVerdict, recommendationLabelForVerdict } from "@/lib/recommendations/canonical-decision/engine";
 import { lightMetadata } from "@/lib/services/discovery/daylight-eligibility";
@@ -420,13 +421,7 @@ function buildSwellPartitionTimeline(
   now: Date,
   hourOffsets: readonly number[] = SWELL_TIMELINE_HOUR_OFFSETS,
 ): Record<string, SwellPartition[]> {
-  const rowsByBeach = new Map<string, EnhancedForecastEntity[]>();
-
-  for (const row of rows) {
-    const existing = rowsByBeach.get(row.beach_id) ?? [];
-    existing.push(row);
-    rowsByBeach.set(row.beach_id, existing);
-  }
+  const rowsByBeach = Map.groupBy(rows, (row) => row.beach_id);
 
   const timeline: Record<string, SwellPartition[]> = {};
   const nowMs = now.getTime();
@@ -747,13 +742,7 @@ async function fetchBulkForecastRowsWithV51Display(
 function groupForecastsByBeach(
   rows: EnhancedForecastEntity[] | null | undefined
 ): Map<string, EnhancedForecastEntity[]> {
-  const grouped = new Map<string, EnhancedForecastEntity[]>();
-  for (const row of rows ?? []) {
-    const existing = grouped.get(row.beach_id) ?? [];
-    existing.push(row);
-    grouped.set(row.beach_id, existing);
-  }
-  return grouped;
+  return Map.groupBy(rows ?? [], (row) => row.beach_id);
 }
 
 function closestForecastRow(
@@ -776,9 +765,7 @@ function closestForecastRow(
 }
 
 function beachTodayDate(beach: Beach, now: Date): string {
-  return now.toLocaleDateString("en-CA", {
-    timeZone: beach.timezone || "America/Los_Angeles",
-  });
+  return getLocalDateFormatter(beach.timezone || "America/Los_Angeles").format(now);
 }
 
 export async function bulkForecastHandler(

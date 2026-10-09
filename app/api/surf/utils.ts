@@ -12,22 +12,24 @@ import { getBeachForecasts, getLatestBeachForecast } from "@/actions/forecast-ac
 import { EARTH_RADIUS_KM } from "@/lib/utils/geo-utils";
 import { rankBeaches } from "@/lib/recommendations/selection";
 
+/** @public Coordinates in the GET /api/surf response. */
 export interface Coordinates {
   lat: number;
   lon: number;
 }
 
-export interface Beach {
+interface Beach {
   name: string;
   lat: number;
   lon: number;
 }
 
-export interface ForecastParams {
+interface ForecastParams {
   beach?: string;
   coords?: Coordinates;
 }
 
+/** @public Forecast fields returned by GET /api/surf. */
 export interface ForecastData {
   wave_height: string;
   water_temp: string;
@@ -39,6 +41,7 @@ export interface ForecastData {
   forecast_time: string;
 }
 
+/** @public GET /api/surf response body. */
 export interface ForecastResponse {
   beach: string;
   coords: Coordinates;

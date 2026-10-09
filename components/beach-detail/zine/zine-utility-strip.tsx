@@ -4,6 +4,7 @@ import { AmenitiesBadges } from "@/components/beach-detail/amenities-badges";
 import { WaterQualityBadge, type WaterQuality } from "@/components/beach-detail/water-quality-badge";
 import { OverviewReviewCTA } from "@/components/beach-detail/overview-review-cta";
 import { CCC_AMENITY_KEYS } from "@/types/amenities";
+import { useOptionalAuth } from "@/context/auth-context";
 
 interface ZineUtilityStripProps {
   beach: Beach;
@@ -28,12 +29,18 @@ function hasAnyAmenity(amenities: BeachAmenities | Partial<BeachAmenities> | nul
  *
  * The retained components render as-is (preserves their internal labels +
  * test surface). Each rail is hidden when its source data is empty so we
- * don't show empty WATER/FIELD SUPPLIES boxes on the cream paper.
+ * don't show empty WATER/FIELD SUPPLIES boxes on the cream paper, and the
+ * strip itself is skipped when nothing in it would render for this viewer.
  */
 export function ZineUtilityStrip({ beach, amenities, waterQuality, onWriteReview }: ZineUtilityStripProps) {
+  const auth = useOptionalAuth();
   const showWater = !!waterQuality && waterQuality.status !== "unknown";
   const showAmenities = hasAnyAmenity(amenities ?? null);
   const showAnyRail = showWater || showAmenities;
+  // OverviewReviewCTA renders nothing for signed-out visitors.
+  const showReview = !!onWriteReview && !!auth?.user;
+
+  if (!showAnyRail && !showReview) return null;
 
   return (
     <section className="utility-strip mt-7" aria-label="Spot facts and utility">
@@ -49,7 +56,7 @@ export function ZineUtilityStrip({ beach, amenities, waterQuality, onWriteReview
       )}
 
       {/* Review CTA — only renders for authed users (self-guarded) */}
-      {onWriteReview && (
+      {showReview && (
         <div className="mt-5">
           <OverviewReviewCTA onWriteReview={onWriteReview} reviewCount={beach.review_count ?? undefined} />
         </div>

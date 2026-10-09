@@ -85,12 +85,6 @@ export interface IntelDeps {
   authWrapper?: typeof withAuthenticatedAction;
 }
 
-export const GLOBAL_INTEL_FALLBACK = {
-  lat: 32.7507, // Ocean Beach, San Diego acts as seeded demo hub
-  lon: -117.254,
-  radius: 400,
-};
-
 const MPH_TO_METERS_PER_SECOND = 0.44704;
 
 const INTEL_FALLBACK_ERROR_CODES = new Set(["0A000", "42P01", "42501", "42703"]);

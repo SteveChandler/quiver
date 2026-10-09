@@ -32,7 +32,7 @@ import {
   buildConditionsLine,
   ConsolidatedAlertEmail,
 } from "@/lib/mailer/templates/ConsolidatedAlertEmail";
-import { createEmailLogger } from "@/lib/services/email-logging-service";
+import { logEmailDelivery } from "@/lib/services/email-logging-service";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
 import {
   consolidateQueueItems,
@@ -1035,12 +1035,7 @@ export async function GET(request: Request): Promise<NextResponse> {
         // for shadow observability. The user's matched rules remain the
         // delivery candidates regardless of verdict or skill eligibility.
         const deliverableItems: QueueItemWithMeta[] = [];
-        const itemsByUser = new Map<string, QueueItemWithMeta[]>();
-        for (const item of scoreEligibleItems) {
-          const userItems = itemsByUser.get(item.user_id) ?? [];
-          userItems.push(item);
-          itemsByUser.set(item.user_id, userItems);
-        }
+        const itemsByUser = Map.groupBy(scoreEligibleItems, (item) => item.user_id);
 
         for (const [userId, userItems] of itemsByUser) {
           const profile = profilesByUser.get(userId);
@@ -1122,7 +1117,6 @@ export async function GET(request: Request): Promise<NextResponse> {
         const payloads = consolidateQueueItems(deliverableItems);
         const baseUrl = getBaseUrl();
         const rateLimiter = createResendRateLimiter();
-        const emailLogger = createEmailLogger(supabase, CONTEXT_TAG);
 
         for (const payload of payloads) {
           const payloadBeachId = payload.matches[0]?.beach_id ?? null;
@@ -1514,7 +1508,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                           });
                         }
                       } else {
-                        await emailLogger.logDelivery({
+                        await logEmailDelivery(supabase, {
                           userId: payload.user_id,
                           emailType: "conditions_alert",
                           messageInstanceId,

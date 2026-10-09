@@ -234,7 +234,8 @@ export function AppHeader() {
               className="h-7 w-7 rounded-md shadow-sm"
               aria-hidden="true"
             />
-            <div className="text-xl font-bold text-[#F78E42] transition-colors duration-300 group-hover:text-[#FFAA63]">
+            {/* Native's header wordmark: Space Grotesk Bold caps, tracked, in cream. */}
+            <div className="font-heading text-xl font-bold uppercase tracking-[0.1em] text-[#F5EEDC] transition-colors duration-300 group-hover:text-white">
               Quiver
             </div>
           </Link>

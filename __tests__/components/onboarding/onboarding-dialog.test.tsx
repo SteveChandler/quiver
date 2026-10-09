@@ -36,7 +36,6 @@ jest.mock("@/hooks/use-reduced-motion", () => ({
   useReducedMotion: () => false,
 }));
 jest.mock("@/actions/onboarding-actions", () => ({
-  skipOnboarding: jest.fn(),
 }));
 jest.mock("framer-motion", () => {
   const React = require("react");

@@ -32,7 +32,7 @@ type ProbeResult = {
   durationMs: number;
 };
 
-export function classifyPattern(url: string): string {
+function classifyPattern(url: string): string {
   try {
     const path = new URL(url).pathname;
     const seg = path.split("/").filter(Boolean);
@@ -66,7 +66,7 @@ export function classifyPattern(url: string): string {
   }
 }
 
-export function decodeXml(s: string): string {
+function decodeXml(s: string): string {
   return s
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")

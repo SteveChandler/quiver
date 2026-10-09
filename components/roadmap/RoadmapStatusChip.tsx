@@ -21,7 +21,7 @@ interface Props {
 export function RoadmapStatusChip({ status }: Props) {
   return (
     <span
-      className={`inline-flex items-center whitespace-nowrap rounded-[8px_3px_10px_3px] border px-2 py-0.5 font-[var(--font-mono)] text-[10px] uppercase tracking-widest ${COLORS[status]}`}
+      className={`inline-flex items-center whitespace-nowrap rounded-[8px_3px_10px_3px] border px-2 py-0.5 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest ${COLORS[status]}`}
     >
       {LABELS[status]}
     </span>

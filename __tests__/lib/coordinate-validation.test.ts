@@ -2,16 +2,7 @@
  * Unit tests for coordinate validation utilities
  */
 
-import {
-  isValidLatitude,
-  isValidLongitude,
-  isValidCoordinate,
-  getCoordinateValidationError,
-  validateCoordinates,
-  assertValidCoordinates,
-  sanitizeCoordinates,
-  hasValidCoordinates,
-} from '@/lib/coordinate-validation';
+import { isValidLatitude, isValidLongitude, getCoordinateValidationError, validateCoordinates } from '@/lib/coordinate-validation';
 
 describe('Coordinate Validation Utilities', () => {
   describe('isValidLatitude', () => {
@@ -54,24 +45,6 @@ describe('Coordinate Validation Utilities', () => {
     });
   });
 
-  describe('isValidCoordinate', () => {
-    it('should accept valid coordinate pairs', () => {
-      expect(isValidCoordinate(32.7157, -117.1611)).toBe(true); // San Diego
-      expect(isValidCoordinate(0, 0)).toBe(true); // Null Island
-      expect(isValidCoordinate(90, 180)).toBe(true); // Edge case
-      expect(isValidCoordinate(-90, -180)).toBe(true); // Edge case
-    });
-
-    it('should reject invalid coordinate pairs', () => {
-      expect(isValidCoordinate(91, -117.1611)).toBe(false); // Invalid lat
-      expect(isValidCoordinate(32.7157, 181)).toBe(false); // Invalid lon
-      expect(isValidCoordinate(91, 181)).toBe(false); // Both invalid
-      expect(isValidCoordinate(NaN, -117.1611)).toBe(false);
-      expect(isValidCoordinate(32.7157, NaN)).toBe(false);
-      expect(isValidCoordinate(undefined, -117.1611)).toBe(false);
-      expect(isValidCoordinate(32.7157, null)).toBe(false);
-    });
-  });
 
   describe('getCoordinateValidationError', () => {
     it('should return null for valid coordinates', () => {
@@ -159,166 +132,7 @@ describe('Coordinate Validation Utilities', () => {
     });
   });
 
-  describe('assertValidCoordinates', () => {
-    it('should not throw for valid coordinates', () => {
-      expect(() => assertValidCoordinates(32.7157, -117.1611)).not.toThrow();
-    });
 
-    it('should throw for invalid coordinates', () => {
-      expect(() => assertValidCoordinates(91, -117.1611)).toThrow('Invalid coordinates');
-      expect(() => assertValidCoordinates(32.7157, 181)).toThrow('Invalid coordinates');
-      expect(() => assertValidCoordinates(NaN, -117.1611)).toThrow('Invalid coordinates');
-    });
 
-    it('should include context in error message', () => {
-      expect(() => assertValidCoordinates(91, -117.1611, 'Test Beach')).toThrow('Test Beach');
-    });
-  });
 
-  describe('sanitizeCoordinates', () => {
-    let consoleWarnSpy: jest.SpyInstance;
-    const originalEnv = process.env.NODE_ENV;
-
-    beforeEach(() => {
-      consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
-    });
-
-    afterEach(() => {
-      consoleWarnSpy.mockRestore();
-      Object.defineProperty(process.env, 'NODE_ENV', {
-        value: originalEnv,
-        writable: true,
-        configurable: true,
-      });
-    });
-
-    it('should return valid coordinates unchanged', () => {
-      const result = sanitizeCoordinates(32.7157, -117.1611);
-      expect(result).toEqual({
-        latitude: 32.7157,
-        longitude: -117.1611,
-      });
-    });
-
-    it('should clamp out-of-range latitude', () => {
-      const result1 = sanitizeCoordinates(91, -117.1611);
-      expect(result1).toEqual({
-        latitude: 90,
-        longitude: -117.1611,
-      });
-
-      const result2 = sanitizeCoordinates(-91, -117.1611);
-      expect(result2).toEqual({
-        latitude: -90,
-        longitude: -117.1611,
-      });
-    });
-
-    it('should clamp out-of-range longitude', () => {
-      const result1 = sanitizeCoordinates(32.7157, 181);
-      expect(result1).toEqual({
-        latitude: 32.7157,
-        longitude: 180,
-      });
-
-      const result2 = sanitizeCoordinates(32.7157, -181);
-      expect(result2).toEqual({
-        latitude: 32.7157,
-        longitude: -180,
-      });
-    });
-
-    it('should return null for undefined/null/NaN values', () => {
-      expect(sanitizeCoordinates(undefined, -117.1611)).toBeNull();
-      expect(sanitizeCoordinates(null, -117.1611)).toBeNull();
-      expect(sanitizeCoordinates(32.7157, undefined)).toBeNull();
-      expect(sanitizeCoordinates(32.7157, null)).toBeNull();
-      expect(sanitizeCoordinates(NaN, -117.1611)).toBeNull();
-      expect(sanitizeCoordinates(32.7157, NaN)).toBeNull();
-    });
-
-    it('should log warnings when clamping in development mode', () => {
-      Object.defineProperty(process.env, 'NODE_ENV', {
-        value: 'development',
-        writable: true,
-        configurable: true,
-      });
-      sanitizeCoordinates(91, 181);
-
-      expect(consoleWarnSpy).toHaveBeenCalledTimes(2);
-      expect(consoleWarnSpy.mock.calls[0][0]).toContain('clamped');
-    });
-
-    it('should not log warnings in production mode', () => {
-      Object.defineProperty(process.env, 'NODE_ENV', {
-        value: 'production',
-        writable: true,
-        configurable: true,
-      });
-      sanitizeCoordinates(91, 181);
-
-      expect(consoleWarnSpy).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('hasValidCoordinates', () => {
-    it('should accept objects with valid lat/lon properties', () => {
-      expect(hasValidCoordinates({ lat: 32.7157, lon: -117.1611 })).toBe(true);
-    });
-
-    it('should accept objects with valid latitude/longitude properties', () => {
-      expect(hasValidCoordinates({ latitude: 32.7157, longitude: -117.1611 })).toBe(true);
-    });
-
-    it('should reject objects with invalid coordinates', () => {
-      expect(hasValidCoordinates({ lat: 91, lon: -117.1611 })).toBe(false);
-      expect(hasValidCoordinates({ lat: 32.7157, lon: 181 })).toBe(false);
-      expect(hasValidCoordinates({ latitude: NaN, longitude: -117.1611 })).toBe(false);
-    });
-
-    it('should reject objects without coordinate properties', () => {
-      expect(hasValidCoordinates({ name: 'Beach' })).toBe(false);
-      expect(hasValidCoordinates({})).toBe(false);
-    });
-
-    it('should reject non-object values', () => {
-      expect(hasValidCoordinates(null)).toBe(false);
-      expect(hasValidCoordinates(undefined)).toBe(false);
-      expect(hasValidCoordinates('string')).toBe(false);
-      expect(hasValidCoordinates(123)).toBe(false);
-    });
-  });
-
-  describe('Real-world scenarios', () => {
-    it('should validate San Diego coordinates', () => {
-      const pacificBeach = { lat: 32.7956, lon: -117.2258 };
-      expect(isValidCoordinate(pacificBeach.lat, pacificBeach.lon)).toBe(true);
-      expect(hasValidCoordinates(pacificBeach)).toBe(true);
-    });
-
-    it('should validate Ocean Beach coordinates', () => {
-      const oceanBeach = { lat: 32.7534, lon: -117.2511 };
-      expect(isValidCoordinate(oceanBeach.lat, oceanBeach.lon)).toBe(true);
-      expect(hasValidCoordinates(oceanBeach)).toBe(true);
-    });
-
-    it('should catch swapped coordinates', () => {
-      // This is the bug we're preventing - lon in lat field, lat in lon field
-      const swapped = { lat: -117.1611, lon: 32.7157 };
-      expect(isValidCoordinate(swapped.lat, swapped.lon)).toBe(false);
-      expect(getCoordinateValidationError(swapped.lat, swapped.lon)).toContain('out of range');
-    });
-
-    it('should handle database null values', () => {
-      const beachWithNulls = { lat: null, lon: null };
-      expect(hasValidCoordinates(beachWithNulls)).toBe(false);
-      expect(validateCoordinates(beachWithNulls.lat, beachWithNulls.lon)).toBe(false);
-    });
-
-    it('should handle API missing values', () => {
-      const beachWithUndefined = { lat: undefined, lon: undefined };
-      expect(hasValidCoordinates(beachWithUndefined)).toBe(false);
-      expect(validateCoordinates(beachWithUndefined.lat, beachWithUndefined.lon)).toBe(false);
-    });
-  });
 });

@@ -49,7 +49,7 @@ function SummaryItem({ icon, label, value }: { icon: React.ReactNode; label: str
         </span>
         <span
           className="text-[22px] md:text-[26px]"
-          style={{ fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif", fontWeight: 900, color: "#11100D", letterSpacing: "0.02em", lineHeight: 1.05 }}
+          style={{ fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif", fontWeight: 900, color: "#11100D", letterSpacing: "0.02em", lineHeight: 1.05 }}
         >
           {value}
         </span>

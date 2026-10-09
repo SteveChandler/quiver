@@ -8,7 +8,7 @@
 import { jest } from '@jest/globals';
 
 // Mock user for all gamification tests
-export const mockGamificationUser = {
+const mockGamificationUser = {
   id: 'test-user-123',
   email: 'test@quiver.surf',
   user_metadata: {},
@@ -23,7 +23,7 @@ export const mockGamificationUser = {
 } as const;
 
 // Mock database results that can be configured per test
-export interface MockDatabaseState {
+interface MockDatabaseState {
   userXP: { xp_total: number; level: number; created_at: string; updated_at: string } | null;
   userBadges: any[];
   badgeDefinitions: any[];
@@ -73,7 +73,7 @@ export interface MockOperationTracker {
 }
 
 // Create a comprehensive Supabase client mock
-export function createGamificationSupabaseMock(
+function createGamificationSupabaseMock(
   state: MockDatabaseState,
   tracker: MockOperationTracker = { selects: [], inserts: [], updates: [], rpcs: [] }
 ) {
@@ -359,46 +359,6 @@ export const mockBadgeDefinitions = [
   }
 ];
 
-// Helper to create mock stats that would unlock specific badges
-export function createStatsForBadges(badgeSlugs: string[]) {
-  const stats = createDefaultMockState().userStats;
-  
-  for (const slug of badgeSlugs) {
-    switch (slug) {
-      case 'first_ride':
-        stats.session_count = 1;
-        break;
-      case 'quiver_starter':
-      case 'quiver_builder':
-        stats.board_count = slug === 'quiver_starter' ? 1 : 3;
-        break;
-      case 'first_entry':
-        stats.reflection_count = 1;
-        break;
-      case 'wave_whisperer':
-        stats.intel_posts = 10;
-        break;
-      case 'session_captain':
-        stats.group_sessions = 5;
-        break;
-      case 'locals_tip':
-        stats.intel_likes = 5;
-        break;
-      case 'the_recruiter':
-        stats.invites_sent = 3;
-        break;
-      case 'sunrise_chaser':
-        stats.early_sessions = 1;
-        break;
-      case 'dawn_patrol_legend':
-        stats.early_sessions = 5;
-        break;
-    }
-  }
-  
-  return stats;
-}
-
 // Assertion helpers
 export function expectXPTracked(tracker: MockOperationTracker, expectedXP: number) {
   const xpUpdates = tracker.updates.filter(u => u.table === 'user_xp');
@@ -414,10 +374,4 @@ export function expectXPEventLogged(tracker: MockOperationTracker, action: strin
   
   const lastEvent = xpEvents[xpEvents.length - 1];
   expect(lastEvent.data.action).toBe(action);
-}
-
-export function expectBadgeUnlocked(tracker: MockOperationTracker, badgeSlug: string) {
-  const badgeInserts = tracker.inserts.filter(i => i.table === 'user_badges');
-  const unlockedBadge = badgeInserts.find(i => i.data.badge_slug === badgeSlug);
-  expect(unlockedBadge).toBeDefined();
 }

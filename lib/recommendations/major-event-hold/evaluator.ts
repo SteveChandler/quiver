@@ -1,3 +1,4 @@
+import { isUuid } from "@/lib/utils/validation";
 import type {
   MajorEventHoldCandidate,
   MajorEventHoldEvaluation,
@@ -9,8 +10,6 @@ import type {
 export const P0_PROTECTED_ALTERNATIVE_POLICY_VERSION =
   "protected-alternative-explicit-none-v1" as const;
 
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ISO_INSTANT_PATTERN = /(?:Z|[+-]\d{2}:\d{2})$/;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -33,7 +32,7 @@ export function parseMajorEventHoldCandidate(
     candidate.candidateId.trim().length === 0 ||
     candidate.candidateId.length > 160 ||
     typeof candidate.beachId !== "string" ||
-    !UUID_PATTERN.test(candidate.beachId)
+    !isUuid(candidate.beachId)
   ) {
     return null;
   }
@@ -138,10 +137,4 @@ export function evaluateMajorEventHold({
     expiresAt,
     holdEpoch,
   };
-}
-
-function evaluateMajorEventHoldCandidateBatch(
-  inputs: readonly EvaluateMajorEventHoldInput[],
-): MajorEventHoldEvaluation[] {
-  return inputs.map(evaluateMajorEventHold);
 }

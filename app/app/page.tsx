@@ -20,7 +20,7 @@ import {
 import { buildAndroidBetaHandoffPath } from "@/lib/install-attribution";
 import { parseUserAgent } from "@/lib/utils/user-agent-parser";
 import { DesktopHandoff } from "./desktop-handoff";
-import { isValidUUID } from "@/lib/utils/validation";
+import { isUuid } from "@/lib/utils/validation";
 
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
@@ -44,7 +44,7 @@ function resolveHandoffId(searchParams: Awaited<SearchParams>): {
   fromUrl: boolean;
 } {
   const handoffId = readFirstParam(searchParams, "handoff_id");
-  if (handoffId && isValidUUID(handoffId)) return { handoffId, fromUrl: true };
+  if (handoffId && isUuid(handoffId)) return { handoffId, fromUrl: true };
   return { handoffId: crypto.randomUUID(), fromUrl: false };
 }
 

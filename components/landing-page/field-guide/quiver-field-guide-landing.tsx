@@ -21,7 +21,7 @@ export function QuiverFieldGuideLanding({
   return (
     <div
       data-testid="quiver-field-guide-landing"
-      className="bg-[#0D1020]"
+      className="bg-[#252D6B]"
     >
       <FieldGuideHero platform={platform} />
       <FieldGuideWalkthrough />

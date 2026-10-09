@@ -12,7 +12,7 @@
  * - Configurable limits per service
  */
 
-import { RateLimiterConfig, RateLimitStatus } from "@/types/forecast";
+import { RateLimiterConfig } from "@/types/forecast";
 
 interface RequestRecord {
   timestamp: number;
@@ -173,35 +173,6 @@ export class RateLimiter {
   }
 
   /**
-   * Get current rate limit status
-   */
-  getStatus(): RateLimitStatus {
-    try {
-      const now = Date.now();
-      const oneMinuteAgo = now - 60 * 1000;
-      const requestsLastMinute = this.requestHistory.filter(
-        (record) => record.timestamp > oneMinuteAgo
-      ).length;
-
-      return {
-        canMakeRequest: this.canMakeRequest(),
-        timeUntilReset: this.getTimeUntilReset(),
-        requestsRemaining: Math.max(
-          0,
-          this.config.requestsPerMinute - requestsLastMinute
-        ),
-      };
-    } catch (error) {
-      console.error(`${this.name}: Error getting status:`, error);
-      return {
-        canMakeRequest: false,
-        timeUntilReset: 60000,
-        requestsRemaining: 0,
-      };
-    }
-  }
-
-  /**
    * Clean up resources
    */
   destroy(): void {
@@ -213,86 +184,19 @@ export class RateLimiter {
   }
 }
 
-// Factory function for creating rate limiters
-export function createRateLimiter(
-  name: string,
-  config: RateLimiterConfig
-): RateLimiter {
-  return new RateLimiter(name, config);
+// Keep the existing lazy singleton so CDIP requests share the same limits.
+let cdipLimiter: RateLimiter | null = null;
+function getCDIPLimiter(): RateLimiter {
+  cdipLimiter ??= new RateLimiter("CDIP", {
+    requestsPerMinute: 60,
+    requestsPerHour: 3000,
+    burstLimit: 10,
+  });
+  return cdipLimiter;
 }
 
-/**
- * Generic singleton wrapper interface for rate limiters
- */
-interface RateLimiterSingleton {
-  canMakeRequest(): boolean;
-  recordRequest(endpoint?: string): void;
-  getTimeUntilReset(): number;
-  getStatus(): RateLimitStatus;
-}
-
-/**
- * Creates a singleton wrapper for a rate limiter with the specified configuration.
- * This eliminates code duplication by providing a generic factory function.
- *
- * @param name - The name of the service for logging
- * @param config - Rate limiter configuration
- * @returns A singleton wrapper object with static-like methods
- */
-function createRateLimiterSingleton(
-  name: string,
-  config: RateLimiterConfig
-): RateLimiterSingleton {
-  let instance: RateLimiter | null = null;
-
-  const getInstance = (): RateLimiter => {
-    if (!instance) {
-      instance = new RateLimiter(name, config);
-    }
-    return instance;
-  };
-
-  return {
-    canMakeRequest(): boolean {
-      return getInstance().canMakeRequest();
-    },
-    recordRequest(endpoint?: string): void {
-      getInstance().recordRequest(endpoint);
-    },
-    getTimeUntilReset(): number {
-      return getInstance().getTimeUntilReset();
-    },
-    getStatus(): RateLimitStatus {
-      return getInstance().getStatus();
-    },
-  };
-}
-
-// Service-specific singleton rate limiters
-export const CDIPRateLimiter = createRateLimiterSingleton("CDIP", {
-  requestsPerMinute: 60, // CDIP allows 60 requests per minute
-  requestsPerHour: 3000, // Conservative hourly limit
-  burstLimit: 10, // Allow small bursts
-});
-
-export const NOAARateLimiter = createRateLimiterSingleton("NOAA", {
-  requestsPerMinute: 300, // NOAA is more generous
-  requestsPerHour: 10000, // High hourly limit
-  burstLimit: 20, // Allow larger bursts
-});
-
-// Utility function to wait for rate limit reset
-async function waitForRateLimit(
-  rateLimiter: RateLimiter | RateLimiterSingleton
-): Promise<void> {
-  if (rateLimiter.canMakeRequest()) {
-    return;
-  }
-
-  const waitTime = rateLimiter.getTimeUntilReset();
-  if (waitTime > 0) {
-    console.log(`Rate limit exceeded, waiting ${waitTime}ms...`);
-    await new Promise((resolve) => setTimeout(resolve, waitTime));
-  }
-}
-
+export const CDIPRateLimiter = {
+  canMakeRequest: (): boolean => getCDIPLimiter().canMakeRequest(),
+  recordRequest: (endpoint?: string): void => getCDIPLimiter().recordRequest(endpoint),
+  getTimeUntilReset: (): number => getCDIPLimiter().getTimeUntilReset(),
+};

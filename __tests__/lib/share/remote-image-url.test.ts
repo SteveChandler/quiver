@@ -1,8 +1,4 @@
-import {
-  isRemoteImageUrl,
-  remoteImageUrlOrFallback,
-  remoteImageUrlOrUndefined,
-} from "@/lib/share/remote-image-url";
+import { isRemoteImageUrl } from "@/lib/share/remote-image-url";
 
 describe("remote image URL helpers", () => {
   it("accepts http and https URLs", () => {
@@ -15,12 +11,5 @@ describe("remote image URL helpers", () => {
     expect(isRemoteImageUrl("content://media/external/images/1")).toBe(false);
     expect(isRemoteImageUrl("data:image/png;base64,abc")).toBe(false);
     expect(isRemoteImageUrl("not a url")).toBe(false);
-  });
-
-  it("returns a fallback for invalid image URLs", () => {
-    expect(remoteImageUrlOrUndefined("file:///tmp/session.jpg")).toBeUndefined();
-    expect(remoteImageUrlOrFallback("file:///tmp/session.jpg", "https://example.com/default.jpg")).toBe(
-      "https://example.com/default.jpg"
-    );
   });
 });

@@ -30,7 +30,7 @@ export function TideConditionsCard({
       data-testid="tide-conditions-card"
       className="mt-6 overflow-hidden rounded-[8px] border-2 border-[#11100D] bg-[#F4EBD8] shadow-[3px_3px_0_#11100D]"
     >
-      <header className="border-b-2 border-[#11100D] bg-[#0B3A75] px-4 py-3">
+      <header className="border-b-2 border-[#11100D] bg-[#11100D] px-4 py-3">
         <h3 className="flex items-center gap-2 font-heading text-lg font-black uppercase text-[#F4EBD8]">
           <Waves className="h-5 w-5 text-[#F78E42]" />
           Best Tide Conditions

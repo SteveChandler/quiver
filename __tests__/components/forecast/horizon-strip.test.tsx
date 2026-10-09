@@ -103,7 +103,7 @@ describe("HorizonStrip", () => {
         />
       );
 
-      expect(screen.getByText("No forecast data available")).toBeInTheDocument();
+      expect(screen.getByText("no data")).toBeInTheDocument();
     });
 
     it("does not render skeleton or day cards in empty state", () => {

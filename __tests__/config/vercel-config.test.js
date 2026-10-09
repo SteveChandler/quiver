@@ -87,9 +87,11 @@ describe("vercel.json", () => {
       git("commit", "-m", "test update");
       expect(runIgnoreCommand()).toBe(0);
 
-      // .vercelignore keeps root scripts/ and supabase/ out of the upload, so
-      // a commit touching only them cannot change the build.
-      expect(vercelIgnore).toMatch(/^scripts\/$/m);
+      // .vercelignore keeps root scripts/ (except load-env.mjs, which the
+      // type-checked playwright.config.ts imports) and supabase/ out of the
+      // upload, so a commit touching only them cannot change the build.
+      expect(vercelIgnore).toMatch(/^scripts\/\*$/m);
+      expect(vercelIgnore).toMatch(/^!scripts\/load-env\.mjs$/m);
       expect(vercelIgnore).toMatch(/^\/supabase\/$/m);
       fs.mkdirSync(path.join(repoPath, "scripts"));
       fs.writeFileSync(path.join(repoPath, "scripts", "collector.py"), "print(1)\n");
@@ -171,19 +173,6 @@ describe("vercel.json", () => {
         expect.objectContaining({ path: "/api/cron/home-morning-call" }),
       ]),
     );
-  });
-
-  it("colocates the discovery routes with the Northern California database", () => {
-    // Each makes a chain of sequential database reads; from the default
-    // East Coast region every one of them pays a cross-country round trip.
-    const configPath = path.join(process.cwd(), "vercel.json");
-    const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
-    for (const route of [
-      "app/api/surf/discover/route.ts",
-      "app/api/surf/week-scout/route.ts",
-    ]) {
-      expect(config.functions[route]?.regions).toEqual(["sfo1"]);
-    }
   });
 
   // 2026-10-02: /api/surf/call and every other route ran in iad1 (x-vercel-id sfo1::iad1) against

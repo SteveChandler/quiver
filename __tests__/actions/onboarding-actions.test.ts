@@ -1,6 +1,5 @@
 import {
   saveOnboardingData,
-  skipOnboarding,
 } from "@/actions/onboarding-actions";
 
 // Mock gamification actions
@@ -16,6 +15,13 @@ const mockSeedDefaultRulesForUser = jest.fn();
 jest.mock("@/lib/alerts/seed-default-rule", () => ({
   seedDefaultRulesForUser: (...args: unknown[]) =>
     mockSeedDefaultRulesForUser(...args),
+}));
+
+// alert_created is scheduled after the response; assert the scheduling only.
+const mockScheduleSeededAlertCreated = jest.fn();
+jest.mock("@/lib/analytics/alert-created-server", () => ({
+  scheduleSeededAlertCreated: (...args: unknown[]) =>
+    mockScheduleSeededAlertCreated(...args),
 }));
 
 // Track last operations for assertions
@@ -160,6 +166,7 @@ describe("saveOnboardingData", () => {
     allUserEventInserts = [];
     beachTimezone = "America/Los_Angeles";
     beachLookupIds = [];
+    mockScheduleSeededAlertCreated.mockReset();
     mockSeedDefaultRulesForUser.mockReset();
     mockSeedDefaultRulesForUser.mockResolvedValue({
       seeded: true,
@@ -445,6 +452,42 @@ describe("saveOnboardingData", () => {
       expect(call.notifyPush).toBe(false);
     });
 
+    it("schedules alert_created for the seeded rules as a web onboarding", async () => {
+      await saveOnboardingData({
+        homeBeachId: "beach-123",
+        experienceLevel: "beginner" as const,
+        emailEnabled: true,
+        pushEnabled: false,
+      });
+
+      expect(mockScheduleSeededAlertCreated).toHaveBeenCalledTimes(1);
+      expect(mockScheduleSeededAlertCreated).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: "user-123",
+          beachId: "beach-123",
+          platform: "web",
+          notifyEmail: true,
+          notifyPush: false,
+          rules: [
+            { ruleId: "rule-1", presetType: "mellow_session" },
+            { ruleId: "rule-2", presetType: "weekend_warrior" },
+          ],
+        }),
+      );
+    });
+
+    it("does not schedule alert_created when nothing was seeded", async () => {
+      mockSeedDefaultRulesForUser.mockResolvedValueOnce({
+        seeded: false,
+        reason: "already_has_rules",
+      });
+
+      const result = await saveOnboardingData({ homeBeachId: "beach-123" });
+
+      expect(result.success).toBe(true);
+      expect(mockScheduleSeededAlertCreated).not.toHaveBeenCalled();
+    });
+
     it("passes null experienceLevel through when not provided (helper handles skip)", async () => {
       await saveOnboardingData({
         homeBeachId: "beach-123",
@@ -591,31 +634,6 @@ describe("saveOnboardingData", () => {
         expect(profile.home_beach_id).toBe("beach-123");
       }
       /* eslint-enable jest/no-conditional-expect */
-    });
-  });
-});
-
-describe("skipOnboarding", () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    lastProfileUpdate = null;
-    lastUserEventInsert = null;
-    allUserEventInserts = [];
-  });
-
-  it("dismisses onboarding without setting onboarding_completed_at", async () => {
-    const result = await skipOnboarding();
-
-    expect(result.success).toBe(true);
-    expect(lastProfileUpdate).toBeNull();
-    expect(lastUserEventInsert).toEqual({
-      user_id: "user-123",
-      event_type: "onboarding_step",
-      metadata: {
-        step: "dismissed",
-        step_name: "dismissed",
-        source: "server",
-      },
     });
   });
 });

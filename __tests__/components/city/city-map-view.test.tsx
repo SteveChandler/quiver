@@ -470,7 +470,7 @@ describe("CityMapView Component", () => {
       expect(advancedBadges[0].className).toContain("#8A2626");
     });
 
-    it("should apply blue style for Longboard friendly", () => {
+    it("should apply the gold-ink style for Longboard friendly", () => {
       render(
         <CityMapView
           spots={mockSpots}
@@ -480,7 +480,7 @@ describe("CityMapView Component", () => {
       );
 
       const longboardBadges = screen.getAllByText("Longboard friendly");
-      expect(longboardBadges[0].className).toContain("#0B3A75");
+      expect(longboardBadges[0].className).toContain("#8A5E00");
     });
   });
 

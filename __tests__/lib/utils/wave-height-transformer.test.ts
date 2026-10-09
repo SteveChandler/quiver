@@ -1,34 +1,4 @@
-import {
-  calibratedShadowFactor,
-  transformToFaceHeight,
-  transformToFaceHeightWithMetadata,
-  transformToFaceHeightRange,
-  transformToFaceHeightDecomposed,
-  alignmentFactor,
-  componentAccessFactor,
-  calculatePeriodFactor,
-  calculateDirectionFactor,
-  getTransformationFactors,
-  lookupShoalingBucket,
-  SHORT_PERIOD_CUTOFF_S,
-  WIND_WAVE_FACE_HEIGHT_CUTOFF_S,
-  ALIGNMENT_FLOOR,
-  BASE_SHOALING,
-  PERIOD_REF,
-  PERIOD_MULT,
-  PERIOD_FACTOR_MIN,
-  PERIOD_FACTOR_MAX,
-  DIRECTION_FACTOR_MIN,
-  DIRECTION_FACTOR_RANGE,
-  SET_WAVE_VARIANCE,
-  POPULATION_PRIOR_BUCKETS,
-  POPULATION_PRIOR_PROVENANCE,
-  type BeachTerrainConfig,
-  type ShoalingFactors,
-  type SwellComponentInput,
-  type TransformParams,
-  type WaveHeightSourceTag,
-} from '@/lib/utils/wave-height-transformer';
+import { calibratedShadowFactor, transformToFaceHeight, transformToFaceHeightWithMetadata, transformToFaceHeightRange, transformToFaceHeightDecomposed, alignmentFactor, componentAccessFactor, calculatePeriodFactor, calculateDirectionFactor, lookupShoalingBucket, SHORT_PERIOD_CUTOFF_S, WIND_WAVE_FACE_HEIGHT_CUTOFF_S, ALIGNMENT_FLOOR, BASE_SHOALING, PERIOD_REF, PERIOD_MULT, PERIOD_FACTOR_MIN, PERIOD_FACTOR_MAX, DIRECTION_FACTOR_MIN, DIRECTION_FACTOR_RANGE, SET_WAVE_VARIANCE, POPULATION_PRIOR_BUCKETS, POPULATION_PRIOR_PROVENANCE, type BeachTerrainConfig, type ShoalingFactors, type SwellComponentInput, type TransformParams, type WaveHeightSourceTag } from '@/lib/utils/wave-height-transformer';
 import { TERRAIN_BINS, toBin5 } from '@/types/terrain';
 import {
   createMockBeach,
@@ -833,43 +803,6 @@ describe('Wave Height Transformer', () => {
     });
   });
 
-  describe('getTransformationFactors', () => {
-    it('should return all transformation factors', () => {
-      const params: TransformParams = {
-        rawHeightFt: 2.0,
-        periodS: 14,
-        swellDirectionDeg: null,
-        beach: null,
-      };
-
-      const factors = getTransformationFactors(params);
-
-      expect(factors.rawHeightFt).toBe(2.0);
-      expect(factors.baseShoaling).toBe(1.0);
-      expect(factors.periodFactor).toBeCloseTo(1.2, 5);
-      expect(factors.directionFactor).toBe(1.0);
-      // 2.0 * 1.0 * 1.2 * 1.0 = 2.4
-      expect(factors.faceHeightFt).toBe(2.4);
-    });
-
-    it('should include direction factor when terrain available', () => {
-      const params: TransformParams = {
-        rawHeightFt: 2.0,
-        periodS: 10,
-        swellDirectionDeg: 180,
-        beach: {
-          terrain_enabled: true,
-          swell_access_factors: Array(TERRAIN_BINS).fill(0.5),
-        },
-      };
-
-      const factors = getTransformationFactors(params);
-
-      expect(factors.directionFactor).toBe(0.8); // 0.6 + 0.5 * 0.4
-      // 2.0 * 1.0 * 1.0 * 0.8 = 1.6
-      expect(factors.faceHeightFt).toBe(1.6);
-    });
-  });
 
   describe('transformToFaceHeightRange', () => {
     it('should return low and high values', () => {

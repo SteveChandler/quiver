@@ -45,7 +45,7 @@ export interface SwellCardStat {
   unit: string;
 }
 
-/** The `card` object of GET /api/swell/[eventKey]: the same values the page and images draw. */
+/** @public `card` in GET /api/swell/[eventKey], parsed by Quiver Native. */
 export interface SwellCard {
   kind: SwellKind;
   titleId: string;

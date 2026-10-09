@@ -226,7 +226,7 @@ export function WhyThisCall({
                 sources={recommendation.sources}
                 className={
                   variant === "zine"
-                    ? "border-[#0B3A75]/45 bg-[#0B3A75]/10 text-[#0B3A75]"
+                    ? "border-[#11100D]/45 bg-[#F6E9CE] text-[#8A5E00]"
                     : undefined
                 }
               />
@@ -255,7 +255,7 @@ export function WhyThisCall({
                 <Radio
                   className={cn(
                     "h-4 w-4",
-                    variant === "zine" ? "text-[#0B3A75]" : "text-ocean-blue",
+                    variant === "zine" ? "text-[#8A5E00]" : "text-ocean-blue",
                   )}
                   aria-hidden="true"
                 />

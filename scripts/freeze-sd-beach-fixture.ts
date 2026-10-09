@@ -9,7 +9,7 @@
  * `__tests__/lib/services/discovery/hero-ranking/__fixtures__/scenario-matrix.ts`.
  */
 import { createClient } from "@supabase/supabase-js";
-import { config } from "dotenv";
+import { config } from "./load-env.mjs";
 
 config({ path: ".env.local" });
 

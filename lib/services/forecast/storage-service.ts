@@ -16,7 +16,6 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
-import { StorageError } from "@/lib/errors/forecast-errors";
 // NOTE: the legacy ML-correction merge path was removed alongside the
 // OM-primary scalar override (migration
 // 20260424182324_remove_om_primary_override_from_bulk.sql). Display height
@@ -334,80 +333,6 @@ export class ForecastStorageService {
     }
   }
 
-  /**
-   * Fetch beaches that need forecast updates
-   *
-   * Returns beaches with stale or missing forecast data based on
-   * the provided freshness window.
-   *
-   * @param freshnessWindowHours - Hours threshold for staleness
-   * @param maxBeaches - Maximum beaches to return
-   * @returns Array of beaches needing updates
-   */
-  async fetchStaleBeaches(
-    freshnessWindowHours: number = 12,
-    maxBeaches: number = 45
-  ): Promise<Beach[]> {
-    const supabase = await createSupabaseServiceRoleClient();
-    
-    try {
-      const staleThresholdMs = Date.now() - freshnessWindowHours * 60 * 60 * 1000;
-
-      // Get all beaches
-      const { data: allBeaches, error: beachError } = await supabase
-        .from("beaches")
-        .select("*");
-
-      if (beachError) {
-        throw beachError;
-      }
-
-      if (!allBeaches || allBeaches.length === 0) {
-        console.log("📭 No beaches found to update");
-        return [];
-      }
-
-      // Get latest forecast timestamp per beach
-      const todayUtc = new Date().toISOString().split("T")[0];
-      const { data: latestRows, error: latestError } = await supabase
-        .from("enhanced_forecasts")
-        .select("beach_id, updated_at")
-        .gte("forecast_at", `${todayUtc}T00:00:00Z`)
-        .order("updated_at", { ascending: false });
-
-      if (latestError) {
-        throw latestError;
-      }
-
-      // Build map of beach_id → latest updated_at
-      const latestMap = new Map<string, Date>();
-      if (latestRows && latestRows.length > 0) {
-        latestRows.forEach((row) => {
-          const beachId = row.beach_id as string;
-          const updatedAt = new Date(row.updated_at);
-          if (!latestMap.has(beachId) || updatedAt > latestMap.get(beachId)!) {
-            latestMap.set(beachId, updatedAt);
-          }
-        });
-      }
-
-      // Filter beaches to those with stale or missing data
-      const staleBeaches = allBeaches.filter((beach) => {
-        const latest = latestMap.get(beach.id);
-        if (!latest) return true; // No data, needs update
-        return latest.getTime() < staleThresholdMs; // Stale data
-      });
-
-      // Limit to max beaches
-      return staleBeaches.slice(0, maxBeaches);
-    } catch (error) {
-      console.error("Error fetching stale beaches:", error);
-      throw new StorageError(
-        "FETCH_STALE_BEACHES",
-        error instanceof Error ? error : new Error(String(error))
-      );
-    }
-  }
 
 }
 

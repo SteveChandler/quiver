@@ -351,7 +351,7 @@ jest.mock('@/lib/logger', () => ({
 jest.mock('@/lib/domains/scoring', () => ({
   // Engine stub: score() returns a CompositeScore-like with .total used by
   // computeWindowSlotScores. .skip = false so the helper doesn't short-circuit.
-  createDiscoveryScoringEngine: jest.fn(() => ({
+  getDiscoveryScoringEngine: jest.fn(() => ({
     score: jest.fn(() => ({
       total: 70,
       subscores: new Map(),
@@ -3414,7 +3414,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       createSupabaseServiceRoleClient: jest.fn(() => ({ from: mockSupabaseFrom, rpc: mockSupabaseRpc })),
     }));
     jest.doMock('@/lib/domains/scoring', () => ({
-      createDiscoveryScoringEngine: jest.fn(() => ({
+  getDiscoveryScoringEngine: jest.fn(() => ({
         score: jest.fn(() => ({
           total: 70,
           subscores: new Map(),
@@ -3614,7 +3614,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       createSupabaseServiceRoleClient: jest.fn(() => ({ from: mockSupabaseFrom, rpc: mockSupabaseRpc })),
     }));
     jest.doMock('@/lib/domains/scoring', () => ({
-      createDiscoveryScoringEngine: jest.fn(() => ({
+  getDiscoveryScoringEngine: jest.fn(() => ({
         score: jest.fn(() => ({
           total: 70,
           subscores: new Map(),
@@ -3809,7 +3809,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       }, rpc: mockSupabaseRpc })),
     }));
     jest.doMock('@/lib/domains/scoring', () => ({
-      createDiscoveryScoringEngine: jest.fn(() => ({
+  getDiscoveryScoringEngine: jest.fn(() => ({
         score: jest.fn(() => ({
           total: 70,
           subscores: new Map(),
@@ -3987,7 +3987,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       createSupabaseServiceRoleClient: jest.fn(() => ({ from: mockSupabaseFrom, rpc: mockSupabaseRpc })),
     }));
     jest.doMock('@/lib/domains/scoring', () => ({
-      createDiscoveryScoringEngine: jest.fn(() => ({
+  getDiscoveryScoringEngine: jest.fn(() => ({
         score: jest.fn(() => ({
           total: 70,
           subscores: new Map(),
@@ -4161,7 +4161,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       createSupabaseServiceRoleClient: jest.fn(() => ({ from: mockSupabaseFrom, rpc: mockSupabaseRpc })),
     }));
     jest.doMock('@/lib/domains/scoring', () => ({
-      createDiscoveryScoringEngine: jest.fn(() => ({
+  getDiscoveryScoringEngine: jest.fn(() => ({
         score: jest.fn(() => ({
           total: 70,
           subscores: new Map(),

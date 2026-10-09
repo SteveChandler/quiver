@@ -45,7 +45,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js'
-import { config } from 'dotenv'
+import { config } from './load-env.mjs'
 import pLimit from 'p-limit'
 import type { TerrainAnalysisArgs, BeachAnalysisResult, AnalysisSummary } from './terrain/types'
 import { DEFAULT_TERRAIN_PARAMS } from '../types/terrain'

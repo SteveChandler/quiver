@@ -367,7 +367,7 @@ export function PayoffStep() {
             >
               <div className="flex items-center gap-2">
                 <MapPin className="h-5 w-5 text-[#F78E42]" />
-                <h2 className="font-handwritten text-3xl sm:text-4xl text-white">
+                <h2 className="font-heading font-bold text-3xl sm:text-4xl text-white">
                   You&apos;re set up for {data.homeBeachName || 'your home beach'}
                 </h2>
               </div>

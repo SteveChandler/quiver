@@ -98,38 +98,6 @@ These tests require sessions with photos in the dev database:
 - Touch interactions
 - Keyboard navigation
 
-**Note**: Skipping is intentional. See "Creating Test Data" below.
-
-## Creating Test Data on Dev
-
-Some tests require sessions with photos to exist. You can create test data using the automated script:
-
-### Prerequisites
-
-1. Authenticated session (run `npx playwright test --grep auth`)
-2. `.env.playwright` configured for dev environment
-
-### Running the Script
-
-```bash
-# Create 5 test sessions with photos on dev
-npx ts-node e2e/scripts/create-photo-test-data.ts
-```
-
-The script will:
-- Use BASE_URL from `.env.playwright` (dev.quiversurf.app)
-- Use authentication from `e2e/.auth/state.json`
-- Create sessions via the UI wizard
-- Upload test photos (minimal valid JPEGs)
-- Create sessions at different beaches with varying photo counts
-
-### What It Creates
-
-- **Session 1**: Blacks Beach, 3 stars, 1 photo
-- **Session 2**: Swamis, 4 stars, 2 photos
-- **Session 3**: Windansea, 5 stars, 3 photos
-- *Sessions 4-5*: Varied beaches and photo counts
-
 ## Switching Environments
 
 ### Local → Dev

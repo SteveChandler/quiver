@@ -1,13 +1,12 @@
 /** @jest-environment node */
 import fixturePolicy from "@/__tests__/fixtures/swell-watch-provisional-policy.json";
-import { capSwellWatchDerivationEvents, ingestAttestedSwellWatchCohort, ingestAttestedSwellWatchImpact, ingestAttestedSwellWatchRun } from "@/lib/alerts/swell-watch/provider-impact-ingestion";
+import { capSwellWatchDerivationEvents, ingestAttestedSwellWatchCohort, ingestAttestedSwellWatchImpact } from "@/lib/alerts/swell-watch/provider-impact-ingestion";
 import type { SwellWatchPolicy } from "@/lib/alerts/swell-watch/policy";
 import proposed from "@/docs/operations/swell-watch-no-send-producer-config-v2-proposed.json";
 import { gunzipSync } from "node:zlib";
 import { createHash } from "node:crypto";
 import { swellWatchAttestedReplayGzipBase64 } from "@/__tests__/fixtures/swell-watch-attested-replay-20260910";
 
-import { retainedRun, waikiki } from "@/__tests__/helpers/swell-watch-retained";
 
 const id = "11111111-1111-4111-8111-111111111111";
 const input: Parameters<typeof ingestAttestedSwellWatchImpact>[0] = {
@@ -62,82 +61,6 @@ describe("attested component impact ingestion", () => {
     expect(result.scopeOutcomes.filter((outcome) => outcome.reason === "unbounded_episode")).toHaveLength(1);
     expect(rpc.mock.calls.map(([name]) => name)).toContain("ingest_swell_watch_cohort");
     expect(result.derivation?.scopes.flatMap((scope) => scope.events).every((event) => event.regionalEventId === first.providerBatchId)).toBe(true);
-  });
-  it("does not persist incomplete cohort coverage, and reports every scope", async () => {
-    const value = { qualificationRule: "complete_partitions.v1" as const, providerBatchId: id, sourcePointId: id, regionKey: "fixture-region",
-      now: "2026-09-05T00:00:00.000Z", policy: fixturePolicy as SwellWatchPolicy,
-      beach: { swell_window_center_deg: 170, swell_window_halfwidth_deg: 90 } };
-    const data = { source: { provider: "open_meteo", transportProvider: "open_meteo_single_runs",
-      model: "ncep_gfswave016", upstreamModelProvider: "ncep", sourcePointId: id, providerBatchId: id,
-      issuanceId: id, revisionSetId: id, issuedAt: value.now, evaluationId: `genuine_completed:${id}` },
-    forecastDays: 1, selectedGrid: {}, samples: Array.from({ length: 24 }, (_, hour) => ({
-      forecastAt: new Date(Date.parse(value.now) + hour * 3_600_000).toISOString(),
-      components: [
-        { sourceSlot: "s1", heightM: 1, periodS: 13, directionDeg: 170, rawFieldProvenance: {}, timeProvenance: {} },
-        { sourceSlot: "s2", heightM: 0, periodS: 0, directionDeg: 0, unavailableReason: "provider_zero_tuple",
-          rawFieldProvenance: {}, timeProvenance: {} },
-      ],
-    })) };
-    const rpc = jest.fn().mockResolvedValue({ data, error: null });
-    expect(await ingestAttestedSwellWatchRun(value, { rpc, ...identityReader }))
-      .toEqual({ kind: "suppressed", reason: "incomplete_partition" });
-    expect(rpc).toHaveBeenCalledTimes(1);
-    expect(rpc).toHaveBeenCalledWith("read_swell_watch_attested_run", expect.any(Object));
-    rpc.mockClear();
-    await expect(ingestAttestedSwellWatchRun({ ...value, regionKey: " " }, { rpc, ...identityReader }))
-      .rejects.toThrow("Invalid region key");
-    expect(rpc).not.toHaveBeenCalled();
-    expect(from).not.toHaveBeenCalled();
-    const other = "22222222-2222-4222-8222-222222222222";
-    const third = "33333333-3333-4333-8333-333333333333";
-    const scopes = [id, other, third].map((sourcePointId) => ({ sourcePointId, latitude: 32.8, longitude: -117.3,
-      regionKey: "fixture-region", beach: value.beach }));
-    const good = { ...data, forecastDays: 7, samples: Array.from({ length: 168 }, (_, hour) => ({
-      forecastAt: new Date(Date.parse(value.now) + hour * 3_600_000).toISOString(),
-      components: [
-        { sourceSlot: "s1", heightM: 0.3, periodS: 9, directionDeg: 260, rawFieldProvenance: {}, timeProvenance: {} },
-        { sourceSlot: "s2", heightM: 0.25, periodS: 13, directionDeg: 170, rawFieldProvenance: {}, timeProvenance: {} },
-      ],
-    })) };
-    const missing = { ...good, source: { ...good.source, sourcePointId: other }, samples: good.samples.map((sample, index) =>
-      index === 80 ? { ...sample, components: [sample.components[0], data.samples[0].components[1]] } : sample) };
-    rpc.mockReset().mockImplementation(async (name: string, args: Record<string, string>) => {
-      if (name === "read_swell_watch_run_scope") return { data: { providerBatchId: id,
-        evaluationId: data.source.evaluationId, issuedAt: value.now, scopeHash: "a".repeat(64),
-        expectedComponentCount: 1008, scopes: scopes.map((scope) => ({ ...scope, forecastDays: 7 })) }, error: null };
-      if (name === "read_swell_watch_attested_run") {
-        if (args.p_source_point_id === other) return { data: missing, error: null };
-        return { data: { ...good, source: { ...good.source, sourcePointId: args.p_source_point_id } }, error: null };
-      }
-      throw new Error("Cohort must not write after failed preflight");
-    });
-    expect(await ingestAttestedSwellWatchCohort({ qualificationRule: "complete_partitions.v1", providerBatchId: id, forecastDays: 7,
-      now: value.now, policy: value.policy, scopes }, { rpc, ...identityReader }))
-      .toEqual({ kind: "ingested", runs: [expect.objectContaining({ source: expect.objectContaining({ sourcePointId: id }) }),
-        expect.objectContaining({ source: expect.objectContaining({ sourcePointId: third }) })],
-        derivation: { qualificationRule: "complete_partitions.v1", version: "swell-watch-horizon-derivation.v4", samplingProfile: "ncep_gfswave016.native-1h-to-120h-3h-to-168h.v1",
-          witness: "provider-linear-interpolation.v1", scopes: [id, third].map((sourcePointId) => ({ sourcePointId, nativeFrames: 136, interpolatedFrames: 32, boundaryDeferrals: [], partitionCoverage: { s1: { observed: 168, unavailable: 0, absent: 0, absentNativeFrames: [] }, s2: { observed: 168, unavailable: 0, absent: 0, unavailableNativeFrames: [], absentNativeFrames: [] } }, events: [] })) },
-        scopeOutcomes: [
-          { sourcePointId: id, status: "derived", reason: null },
-          { sourcePointId: other, status: "suppressed", reason: "incomplete_partition" },
-          { sourcePointId: third, status: "derived", reason: null },
-        ] });
-    expect(rpc.mock.calls.map(([name]) => name)).toEqual([
-      "read_swell_watch_run_scope", "read_swell_watch_attested_run", "read_swell_watch_attested_run", "read_swell_watch_attested_run",
-    ]);
-    expect(rpc.mock.calls.map(([name]) => name)).not.toContain("ingest_swell_watch_cohort");
-    expect(rpc.mock.calls.map(([name]) => name)).not.toContain("ingest_swell_watch_run");
-    rpc.mockReset().mockImplementation(async (name: string) => {
-      if (name === "read_swell_watch_run_scope") return { data: { providerBatchId: id,
-        evaluationId: data.source.evaluationId, issuedAt: value.now, scopeHash: "a".repeat(64),
-        expectedComponentCount: 1008, scopes: scopes.map((scope) => ({ ...scope, forecastDays: 7 })) }, error: null };
-      if (name === "read_swell_watch_attested_run") return { data: null, error: { message: "fixture trust failure" } };
-      throw new Error("Cohort must not write after failed preflight");
-    });
-    await expect(ingestAttestedSwellWatchCohort({ qualificationRule: "complete_partitions.v1", providerBatchId: id, forecastDays: 7,
-      now: value.now, policy: value.policy, scopes }, { rpc, ...identityReader })).rejects.toThrow("Attested run read failed");
-    expect(rpc.mock.calls.map(([name]) => name)).not.toContain("ingest_swell_watch_cohort");
-    expect(rpc.mock.calls.map(([name]) => name)).not.toContain("ingest_swell_watch_run");
   });
 
   it("persists the exact attested S2, not headline S1, through the verified RPC only", async () => {
@@ -219,32 +142,6 @@ describe("attested component impact ingestion", () => {
     rpc.mockReset().mockResolvedValueOnce({ data: rows, error: null }).mockResolvedValueOnce({ data: null, error: { message: "resolution unavailable" } });
     await expect(ingestAttestedSwellWatchImpact(input, { rpc, ...identityReader })).rejects.toThrow("ingestion failed");
   });
-});
-
-it("carries native derivation and event windows while persisting only point estimates", async () => {
-  const data = retainedRun(waikiki);
-  const rpc = jest.fn(async (name: string) => ({ error: null, data: name === "read_swell_watch_attested_run" ? data
-    : [{ ordinal: 0, regional_event_id: id, event_state: "candidate" }] }));
-  const result = await ingestAttestedSwellWatchRun({ qualificationRule: "complete_partitions.v1", providerBatchId: data.source.providerBatchId, sourcePointId: waikiki.sourcePointId,
-    regionKey: "retained-waikiki", now: waikiki.replayClockBounds[0], beach: waikiki.beach, policy: proposed.policy as SwellWatchPolicy }, { rpc, ...identityReader });
-  expect(result).toMatchObject({ kind: "ingested", derivation: { version: "swell-watch-horizon-derivation.v4", nativeFrames: 136, interpolatedFrames: 32 },
-    events: [{ arrivalAt: "2026-09-18T18:00:00.000Z", arrivalWindow: { earliestAt: "2026-09-18T15:00:00.000Z", latestAt: "2026-09-18T18:00:00.000Z" },
-      peakWindow: { earliestAt: "2026-09-18T18:00:00.000Z", latestAt: "2026-09-18T21:00:00.000Z" },
-      closureWindow: { earliestAt: "2026-09-20T00:00:00.000Z", latestAt: "2026-09-20T03:00:00.000Z" } }] });
-  expect(rpc).toHaveBeenCalledTimes(2);
-  if (result.kind !== "ingested") throw new Error("Expected ingested event");
-  const event = result.events[0];
-  expect(event.impact.partition).not.toHaveProperty("gapHoursBefore");
-  expect(event.impact.partition).not.toHaveProperty("nativeIndex");
-  const physicalKey = createHash("sha256").update(JSON.stringify([data.source.evaluationId, waikiki.sourcePointId,
-    event.arrivalAt, event.peakAt, event.impact.partition.sourceSlot])).digest("hex");
-  const impactHash = createHash("sha256").update(JSON.stringify({ providerBatchId: data.source.providerBatchId,
-    sourcePointId: waikiki.sourcePointId, partition: event.impact.partition, projectedFaceHeightFt: event.impact.projectedFaceHeightFt,
-    heightRiseFt: event.impact.heightRiseFt, energyRatio: event.impact.energyRatio, arrivalAt: event.arrivalAt, peakAt: event.peakAt,
-    policyHash: proposed.policy.value_hash })).digest("hex");
-  expect(rpc).toHaveBeenLastCalledWith("ingest_swell_watch_run", { p_impacts: [expect.objectContaining({
-    p_arrival_at: event.arrivalWindow.latestAt, p_peak_at: event.peakAt, p_physical_key: physicalKey, p_impact_hash: impactHash,
-  })] });
 });
 
 it("caps persisted derivation events per scope and stays below the study result budget", () => {

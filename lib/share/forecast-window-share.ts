@@ -1,3 +1,4 @@
+import { getLocalDateFormatter } from "@/lib/services/discovery/window-selector/time-slot-utils";
 import { normalizeForecastWindowParam } from "@/lib/utils/forecast-window-param";
 export { normalizeForecastWindowParam } from "@/lib/utils/forecast-window-param";
 import { resolveMajorEventHoldBoundary } from "@/lib/recommendations/major-event-hold/adapters/shared";
@@ -72,13 +73,6 @@ const FORECAST_SLOT_DURATION_MS = 60 * 60 * 1000;
 /** A chat link opened after its window has passed no longer says it is lining up. */
 const EXPIRED_WINDOW_GRACE_MS = 60 * 60 * 1000;
 
-function firstSearchValue(
-  value: string | string[] | null | undefined,
-): string | null {
-  if (Array.isArray(value)) return value[0] ?? null;
-  return value ?? null;
-}
-
 function cleanText(value: unknown): string | null {
   if (typeof value !== "string" && typeof value !== "number") return null;
   const trimmed = String(value)
@@ -119,7 +113,7 @@ function isValidTimeZone(value: unknown): value is string {
 }
 
 function calendarDay(date: Date, timeZone: string): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone }).format(date);
+  return getLocalDateFormatter(timeZone).format(date);
 }
 
 function formatForecastWindowLabel(

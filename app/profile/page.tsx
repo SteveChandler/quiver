@@ -69,7 +69,7 @@ function ProfileSkeleton() {
 
         {/* Loading indicator */}
         <div className="flex justify-center">
-          <div className="inline-flex items-center gap-3 border-2 border-[#11100D] bg-[#F78E42] px-5 py-3 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)]">
+          <div className="rounded-full inline-flex items-center gap-3 border-2 border-[#11100D] bg-[#F78E42] px-5 py-3 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)]">
             <div className="h-5 w-5 rounded-full border-2 border-[#11100D] border-t-transparent animate-spin"></div>
             <span>
               Loading Profile...

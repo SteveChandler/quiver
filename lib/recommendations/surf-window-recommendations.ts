@@ -30,7 +30,7 @@ export interface SurfWindowForecastGroup {
   sourceHints?: SurfWindowSourceSupportHints;
 }
 
-export interface BuildSurfWindowRecommendationsOptions {
+interface BuildSurfWindowRecommendationsOptions {
   now?: Date;
   baseUrl?: string;
   maxRecommendations?: number;
@@ -467,12 +467,4 @@ export function buildSurfWindowRecommendations(
     horizonDays,
     recommendations,
   };
-}
-
-export function buildBeachSurfWindowRecommendations(
-  beach: Beach,
-  forecasts: EnhancedForecastEntity[],
-  options: BuildSurfWindowRecommendationsOptions = {}
-): SurfWindowRecommendationResult {
-  return buildSurfWindowRecommendations({ beach, forecasts }, options);
 }

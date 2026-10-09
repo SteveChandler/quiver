@@ -158,16 +158,6 @@ export function validateRequiredParams(
   return null;
 }
 
-// Environment variable checker
-export function checkRequiredEnvVars(vars: string[]): string | null {
-  for (const varName of vars) {
-    if (!process.env[varName]) {
-      return `Missing required environment variable: ${varName}`;
-    }
-  }
-  return null;
-}
-
 /**
  * Validate that a request originated from an approved cron source.
  *
@@ -195,14 +185,6 @@ export const DEFAULT_SECURITY_HEADERS = {
   // Allow geolocation for first-party context while keeping camera/microphone disabled.
   "Permissions-Policy": "geolocation=(self), camera=(), microphone=()",
 };
-
-// Apply security headers to any NextResponse
-export function withSecurityHeaders(response: NextResponse) {
-  Object.entries(DEFAULT_SECURITY_HEADERS).forEach(([key, value]) => {
-    response.headers.set(key, value);
-  });
-  return response;
-}
 
 // Return 405 Method Not Allowed
 export function methodNotAllowed(allowedMethods: string[] = ["GET"]): NextResponse<ApiError> {

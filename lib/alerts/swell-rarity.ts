@@ -4,7 +4,7 @@ export interface DayScore {
   go: boolean;
 }
 
-export interface RarityVerdict {
+interface RarityVerdict {
   rare: boolean;
   kind: "best-in-30" | "first-after-flat" | null;
   rarityLine: string | null;
@@ -83,27 +83,4 @@ export function assessRarity(args: {
     rarityLine: `Best in ${Math.min(historyDays, HISTORY_DAYS)} days`,
     historyDays,
   };
-}
-
-export function buildEventKey(args: {
-  peakDate: string;
-  leadBeachId: string;
-}): string {
-  const peakDate = new Date(`${args.peakDate}T00:00:00.000Z`);
-  if (
-    !/^\d{4}-\d{2}-\d{2}$/.test(args.peakDate)
-    || !Number.isFinite(peakDate.getTime())
-    || peakDate.toISOString().slice(0, 10) !== args.peakDate
-  ) {
-    throw new TypeError("peakDate must be a valid YYYY-MM-DD date");
-  }
-  if (!args.leadBeachId) {
-    throw new TypeError("leadBeachId is required");
-  }
-
-  const ordinal = Math.floor(peakDate.getTime() / DAY_MS);
-  const bucketStart = new Date((ordinal - (ordinal % 2)) * DAY_MS)
-    .toISOString()
-    .slice(0, 10);
-  return `${args.leadBeachId}:${bucketStart}`;
 }

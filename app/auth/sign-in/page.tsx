@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { useRouter, useSearchParams } from "next/navigation";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { resolveConfirmNext } from "@/lib/auth/confirm-utils";
@@ -76,10 +76,7 @@ function SignInPageContent() {
   useEffect(() => {
     if (!justConfirmed || confirmedToastShown.current) return;
     confirmedToastShown.current = true;
-    toast({
-      title: "Email confirmed",
-      description: "Sign in to continue.",
-    });
+    toast("Email confirmed", { description: "Sign in to continue." });
   }, [justConfirmed]);
 
   // Handle modal close - redirect to intended destination or home

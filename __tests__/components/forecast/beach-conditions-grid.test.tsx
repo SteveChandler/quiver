@@ -52,7 +52,6 @@ describe("BeachConditionsGrid view-all link", () => {
         regionSlug="san-diego"
         maxBeaches={12}
         showViewAll
-        variant="zine"
       />
     );
 
@@ -74,7 +73,6 @@ describe("BeachConditionsGrid view-all link", () => {
         regionSlug="san-diego"
         maxBeaches={12}
         showViewAll
-        variant="zine"
       />
     );
 
@@ -88,7 +86,6 @@ describe("BeachConditionsGrid view-all link", () => {
         regionSlug="san-diego"
         maxBeaches={12}
         showViewAll={false}
-        variant="zine"
       />
     );
 
@@ -115,7 +112,6 @@ describe("BeachConditionsGrid", () => {
         beaches={[beach]}
         regionSlug="san-diego"
         authAwareScores
-        variant="zine"
       />
     );
 
@@ -131,7 +127,6 @@ describe("BeachConditionsGrid", () => {
         beaches={[beach]}
         regionSlug="san-diego"
         showScores={false}
-        variant="zine"
       />
     );
 
@@ -156,7 +151,6 @@ describe("BeachConditionsGrid", () => {
         beaches={[beach]}
         regionSlug="san-diego"
         showScores
-        variant="zine"
       />
     );
 

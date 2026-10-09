@@ -249,19 +249,3 @@ export async function shareImage(
     onLoadingChange?.(false);
   }
 }
-
-/**
- * Checks if sharing is supported on the current platform
- * (Always returns true since we have download fallback)
- */
-function isShareSupported(): boolean {
-  return true;
-}
-
-/**
- * Checks if the Web Share API is available
- */
-function isNativeShareAvailable(): boolean {
-  if (typeof navigator === "undefined") return false;
-  return typeof navigator.share === "function" && typeof navigator.canShare === "function";
-}

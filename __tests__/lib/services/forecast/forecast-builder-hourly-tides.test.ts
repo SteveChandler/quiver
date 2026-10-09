@@ -49,14 +49,6 @@ jest.mock("@/lib/logger", () => ({
   }),
 }));
 
-jest.mock("@/lib/services/noaa-wavewatch/gfs-wave-shadow", () => {
-  const actual = jest.requireActual("@/lib/services/noaa-wavewatch/gfs-wave-shadow");
-  return {
-    ...actual,
-    logGfsWaveShadowRows: jest.fn(async () => undefined),
-  };
-});
-
 const METERS_TO_FEET = 3.28084;
 
 describe("ForecastBuilder hourly tide heights", () => {

@@ -37,13 +37,7 @@ export interface QueueItemWithMeta {
 }
 
 export function consolidateQueueItems(items: QueueItemWithMeta[]): ConsolidatedAlertPayload[] {
-  const byUserBeach = new Map<string, QueueItemWithMeta[]>();
-  for (const item of items) {
-    const key = `${item.user_id}:${item.beach_id}`;
-    const existing = byUserBeach.get(key) ?? [];
-    existing.push(item);
-    byUserBeach.set(key, existing);
-  }
+  const byUserBeach = Map.groupBy(items, (item) => `${item.user_id}:${item.beach_id}`);
 
   const payloads: ConsolidatedAlertPayload[] = [];
   for (const userItems of byUserBeach.values()) {

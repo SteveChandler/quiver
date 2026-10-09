@@ -2,7 +2,6 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { JournalView } from "@/components/journal/journal-view";
 import { useAuth } from "@/context/auth-context";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
-import { getUserSessions } from "@/actions/session-actions";
 
 // Mock all Supabase-related modules
 jest.mock("@/lib/supabase/client", () => ({
