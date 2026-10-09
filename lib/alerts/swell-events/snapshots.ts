@@ -165,6 +165,36 @@ export async function loadRecentSwellSnapshots(
   return snapshots;
 }
 
+/** Global detector runs, including runs that emitted no swell for a pinned beach. */
+export async function loadRecentSwellRunDates(
+  supabase: SupabaseClient<Database>,
+  since: Date,
+): Promise<string[]> {
+  const client = supabase as unknown as SupabaseClient;
+  const rows = await readAllPages(async (offset, limit) => {
+    const { data, error } = await client
+      .from(SWELL_EVENT_SNAPSHOTS_TABLE)
+      .select("run_date,detected_at")
+      .eq("detector_version", SWELL_EVENT_DETECTOR_VERSION)
+      .gte("detected_at", since.toISOString())
+      .order("detected_at", { ascending: false })
+      .order("beach_id", { ascending: true })
+      .order("event_key", { ascending: true })
+      .order("run_date", { ascending: false })
+      .range(offset, offset + limit - 1);
+    if (error) throw new Error(`Failed to load swell detector run dates: ${error.message}`);
+    return (data ?? []) as Array<Record<string, unknown>>;
+  });
+  const latestByRun = new Map<string, number>();
+  for (const row of rows) {
+    const runDate = text(row.run_date);
+    const detectedAt = instant(row.detected_at);
+    if (!runDate || !detectedAt) continue;
+    latestByRun.set(runDate, Math.max(latestByRun.get(runDate) ?? -Infinity, Date.parse(detectedAt)));
+  }
+  return [...latestByRun].sort((left, right) => right[1] - left[1]).map(([runDate]) => runDate);
+}
+
 interface KeyMatch {
   eventIndex: number;
   snapshot: SwellEventSnapshot;
