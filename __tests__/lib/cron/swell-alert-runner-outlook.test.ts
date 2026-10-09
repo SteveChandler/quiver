@@ -24,7 +24,7 @@ import * as pools from "@/lib/alerts/user-pool";
 import * as states from "@/lib/alerts/swell-outlook/state";
 import * as outlookLoader from "@/lib/services/discovery/swell-outlook-loader";
 import snapshot from "@/__tests__/fixtures/grandview-crossing-swells-20260911.json";
-import { runSwellAlertCron, type SwellAlertProfile, type SwellOutlookDeps } from "@/lib/cron/swell-alert-runner";
+import { runSwellAlertCron, type SwellAlertProfile, type SwellOutlookDeps, type PinnedSwellEvaluation } from "@/lib/cron/swell-alert-runner";
 import { EMPTY_SWELL_ENGAGEMENT, type SwellEngagementState } from "@/lib/alerts/swell-outlook/engagement";
 import { EMPTY_SWELL_OUTLOOK_USER_STATE, SwellOutlookStateConflictError, type SwellOutlookStateTransition, type SwellOutlookUserState } from "@/lib/alerts/swell-outlook/state";
 import type { SwellFollowupState } from "@/lib/alerts/swell-followup/state";
@@ -63,7 +63,9 @@ function makeDeps(overrides: Record<string, unknown> = {}): SwellOutlookDeps & R
     isFollowupEnabled: jest.fn(() => true),
     isFollowupUserAllowed: jest.fn(() => true),
     loadFollowupStates: jest.fn(async () => [] as SwellFollowupState[]),
-    evaluatePinned: jest.fn(),
+    evaluatePinned: jest.fn(async (): Promise<PinnedSwellEvaluation> => ({
+      beach: null, forecastAvailable: false, event: null, previous: null,
+    })),
     saveFirstTold: jest.fn(async () => undefined),
     claimFollowup: jest.fn(async () => true),
     closeFollowupState: jest.fn(async () => undefined),
@@ -97,13 +99,14 @@ function pinnedState(): SwellFollowupState {
   };
 }
 
-function biggerPinned(): Record<string, unknown> {
+function biggerPinned(): PinnedSwellEvaluation {
   const pinned = pinnedState();
   return {
     beach: { id: HOME, name: "Blacks Beach", shortName: "Blacks", slug: "blacks", state: "CA" },
     forecastAvailable: true,
     event: beachSwellEvent({ beachId: HOME, eventKey: pinned.eventKey, peakFaceHeightFt: 8,
       periodS: 16, directionDeg: 300, peakAt: pinned.lastPeakAt }),
+    previous: { event: { peakAt: pinned.lastPeakAt, faceHeightFt: 8, exposure: 1 } },
   };
 }
 
@@ -273,6 +276,7 @@ describe("swell alert cron: back-off", () => {
       evaluatePinned: jest.fn(async () => ({
         beach: { id: HOME, name: "Blacks Beach", shortName: "Blacks", slug: "blacks", state: "CA" }, forecastAvailable: true,
         event: beachSwellEvent({ beachId: HOME, eventKey: pinned.eventKey, peakFaceHeightFt: 8, periodS: 16, directionDeg: 300, peakAt: pinned.lastPeakAt }),
+        previous: { event: { peakAt: pinned.lastPeakAt, faceHeightFt: 8, exposure: 1 } },
       })),
     });
     const summary = await runSwellAlertCron({ now: MORNING, deps: deps as never });
