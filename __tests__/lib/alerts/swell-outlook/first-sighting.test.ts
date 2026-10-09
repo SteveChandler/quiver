@@ -134,3 +134,53 @@ describe("renderFirstSightingBody", () => {
     expect(body).toContain(`Sets up to 4.5 ft at ${"A".repeat(150)}.`);
   });
 });
+
+describe('tide-aware first-sighting copy and payload', () => {
+  const surfWindow = {
+    state: 'recommended' as const,
+    window: { start: '2026-10-08T17:00:00.000Z', end: '2026-10-08T19:00:00.000Z', localDate: '2026-10-08',
+      timezone: 'America/Los_Angeles', faceHeightFt: { min: 3, max: 4 } },
+    reasons: ['high_tide_outside_preference', 'better_tide_after_peak'],
+  };
+
+  it('adds a beach-local window and fixed tide sentence while preserving existing fields', () => {
+    const args = { swell: outlookSwell(), timezone: 'Pacific/Honolulu' };
+    const baseline = buildFirstSightingPayload(args);
+    const payload = buildFirstSightingPayload({ ...args, surfWindow });
+    expect(payload.body).toContain('Best window Thu 10 AM–12 PM.');
+    expect(payload.body).toContain('Swell peaks at high tide; go as it drops.');
+    expect(payload.body.length).toBeLessThanOrEqual(300);
+    expect(payload.surf_window).toEqual({ state: 'recommended', start: surfWindow.window.start, end: surfWindow.window.end,
+      local_date: '2026-10-08', timezone: 'America/Los_Angeles', reasons: surfWindow.reasons });
+    const { body: _body, surf_window: _window, ...existing } = payload;
+    const { body: _baselineBody, ...baselineFields } = baseline;
+    expect(existing).toEqual(baselineFields);
+  });
+
+  it.each(['no_suitable_window', 'insufficient_tide_evidence'] as const)('keeps the body unchanged for %s', (state) => {
+    const args = { swell: outlookSwell(), timezone: 'America/Los_Angeles' };
+    const baseline = buildFirstSightingPayload(args);
+    const payload = buildFirstSightingPayload({ ...args, surfWindow: { state, window: null, reasons: ['tide_data_unavailable'] } });
+    expect(payload.body).toBe(baseline.body);
+    expect(payload.surf_window).toMatchObject({ state, start: null, end: null, local_date: null, timezone: null });
+  });
+
+  it('drops lower-priority copy to retain the window within the body budget', () => {
+    const payload = buildFirstSightingPayload({ swell: outlookSwell({ source: 'southern_hemisphere',
+      fit: { status: 'in_range', boards: ['longboard'] },
+      sizeByOrientation: { westFacing: { min: 4, max: 6 }, southFacing: { min: 3, max: 5 } } }),
+      timezone: 'America/Los_Angeles', hazard: 'high_rip_current', surfWindow });
+    expect(payload.body).toContain('Best window Thu 10 AM–12 PM.');
+    expect(payload.body.length).toBeLessThanOrEqual(FIRST_SIGHTING_BODY_MAX_CHARS);
+  });
+});
+
+
+it('retains the window within 300 characters with a long beach name', () => {
+  const payload = buildFirstSightingPayload({ swell: outlookSwell({ source: 'southern_hemisphere',
+    beach: { id: HOME, name: 'A'.repeat(180) }, arrivalAt: '2026-10-06T16:00:00.000Z', peakAt: '2026-10-08T22:00:00.000Z' }), timezone: 'America/Los_Angeles', hazard: 'high_surf',
+    surfWindow: { state: 'recommended', window: { start: '2026-10-08T17:00:00.000Z', end: '2026-10-08T19:00:00.000Z',
+      localDate: '2026-10-08', timezone: 'America/Los_Angeles', faceHeightFt: { min: 3, max: 4 } }, reasons: [] } });
+  expect(payload.body).toContain('Best window Thu 10 AM–12 PM.');
+  expect(payload.body.length).toBeLessThanOrEqual(300);
+});

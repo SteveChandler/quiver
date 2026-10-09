@@ -10,9 +10,15 @@ jest.mock("@/lib/services/discovery/swell-outlook-loader", () => ({ loadSwellOut
 jest.mock("@/lib/alerts/user-pool", () => ({ loadUserPool: jest.fn() }));
 jest.mock("@/lib/alerts/canonical-forecast-verdict", () => ({ evaluateForecastVerdict: jest.fn() }));
 
+jest.mock("@/lib/alerts/surf-window/tide-aware-window", () => {
+  const actual = jest.requireActual("@/lib/alerts/surf-window/tide-aware-window");
+  return { ...actual, findTideAwareWindow: jest.fn(actual.findTideAwareWindow) };
+});
+
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Beach, Database } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import * as tideWindow from "@/lib/alerts/surf-window/tide-aware-window";
 import * as verdicts from "@/lib/alerts/canonical-forecast-verdict";
 import * as pools from "@/lib/alerts/user-pool";
 import * as states from "@/lib/alerts/swell-outlook/state";
@@ -690,4 +696,134 @@ describe("swell alert cron: exception eligibility filters", () => {
     expect(summary.sent).toBe(1);
     expect(deps.enqueue.mock.calls.map(([args]) => args.recipientUserId)).toEqual(["second-user"]);
   });
+});
+
+describe('swell first-sighting tide-window flag', () => {
+  const oldFlag = process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED;
+  afterEach(() => {
+    if (oldFlag === undefined) delete process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED;
+    else process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED = oldFlag;
+    jest.restoreAllMocks();
+  });
+  const surfWindow = { state: 'recommended' as const,
+    window: { start: '2026-10-08T17:00:00.000Z', end: '2026-10-08T19:00:00.000Z', localDate: '2026-10-08',
+      timezone: 'America/Los_Angeles', faceHeightFt: { min: 3, max: 4 } },
+    reasons: ['high_tide_outside_preference', 'better_tide_after_peak'] };
+
+  it('includes the computed window when enabled', async () => {
+    process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED = 'true';
+    const compute = jest.fn(async () => surfWindow);
+    const deps = makeDeps({ loadFirstSightingWindow: compute });
+    const summary = await runSwellAlertCron({ now: MORNING, deps });
+    expect(summary.sent).toBe(1);
+    expect(compute).toHaveBeenCalledWith(profile(), outlookSwell(), MORNING);
+    const payload = deps.enqueue.mock.calls[0][0].payload;
+    expect(payload.surf_window).toMatchObject({ state: 'recommended', local_date: '2026-10-08', timezone: 'America/Los_Angeles' });
+    expect(payload.body).toContain('Best window Thu 10 AM–12 PM.');
+    expect(payload.body.length).toBeLessThanOrEqual(300);
+    expect(payload.forecast_at).toBe(outlookSwell().peakAt);
+  });
+
+  it.each([undefined, 'false', 'TRUE', '1'])('keeps flag-off payloads byte-identical: %s', async (flag) => {
+    if (flag === undefined) delete process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED;
+    else process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED = flag;
+    const compute = jest.fn(async () => surfWindow);
+    const deps = makeDeps({ loadFirstSightingWindow: compute });
+    await runSwellAlertCron({ now: MORNING, deps });
+    const baseline = makeDeps();
+    await runSwellAlertCron({ now: MORNING, deps: baseline });
+    expect(JSON.stringify(deps.enqueue.mock.calls[0][0].payload)).toBe(JSON.stringify(baseline.enqueue.mock.calls[0][0].payload));
+    expect(compute).not.toHaveBeenCalled();
+  });
+
+  it('still sends the unchanged push when window computation throws', async () => {
+    process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED = 'true';
+    const warning = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const deps = makeDeps({ loadFirstSightingWindow: jest.fn(() => { throw new Error('window failed'); }) });
+    const summary = await runSwellAlertCron({ now: MORNING, deps });
+    expect(summary.sent).toBe(1);
+    expect(warning).toHaveBeenCalledWith(expect.stringContaining('window'), expect.any(Error));
+    process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED = 'false';
+    const baseline = makeDeps();
+    await runSwellAlertCron({ now: MORNING, deps: baseline });
+    expect(deps.enqueue.mock.calls[0][0].payload).toEqual(baseline.enqueue.mock.calls[0][0].payload);
+  });
+});
+
+it('sends without waiting for optional window evidence', async () => {
+  const oldFlag = process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED;
+  process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED = 'true';
+  try {
+    const compute = jest.fn(() => new Promise<never>(() => {}));
+    const deps = makeDeps({ loadFirstSightingWindow: compute });
+    const summary = await runSwellAlertCron({ now: MORNING, deps });
+    expect(summary.sent).toBe(1);
+    expect(compute).toHaveBeenCalledTimes(1);
+    expect(deps.enqueue.mock.calls[0][0].payload).not.toHaveProperty('surf_window');
+  } finally {
+    if (oldFlag === undefined) delete process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED;
+    else process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED = oldFlag;
+  }
+});
+
+
+it.each(['recommended', 'throws'])('handles the lead-beach window in the default adapter: %s', async (outcome) => {
+  jest.clearAllMocks();
+  const oldFlag = process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED;
+  process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED = 'true';
+  const rows = Array.from({ length: 24 }, (_, hour) => ({ ...snapshot.forecast, id: `hour-${hour}`, beach_id: HOME,
+    forecast_at: new Date(Date.parse('2026-09-21T07:00:00.000Z') + hour * 3_600_000).toISOString(),
+    wave_height: '3-4 ft', tide_height: hour >= 10 && hour < 12 ? '2' : '5', wind_speed: '3 mph' } as EnhancedForecastEntity));
+  const tideRows = [...rows, { ...rows[0], forecast_at: '2026-09-22T07:00:00.000Z' }]
+    .map((row) => ({ ts: row.forecast_at, tide_ft: Number(row.tide_height), tide_height_m: null, source: 'noaa', station_id: '9410230', created_at: MORNING.toISOString() }));
+  const spot = { ...snapshot.beach, id: HOME, timezone: 'America/Los_Angeles', preferred_tide_ft_min: 0, preferred_tide_ft_max: 3 } as unknown as Beach;
+  let releaseHazard: (value: null) => void = () => { throw new Error('hazard read not started'); };
+  const hazard = new Promise<null>((resolve) => { releaseHazard = resolve; });
+  const warning = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  const realFind = jest.requireActual<typeof tideWindow>('@/lib/alerts/surf-window/tide-aware-window').findTideAwareWindow;
+  const find = jest.spyOn(tideWindow, 'findTideAwareWindow').mockImplementation((args) => {
+    if (outcome === 'throws') {
+      releaseHazard(null);
+      throw new Error('window function failed');
+    }
+    const result = realFind(args);
+    releaseHazard(null);
+    return result;
+  });
+  const verdict = jest.mocked(verdicts.evaluateForecastVerdict).mockImplementation(({ forecast }) => ({
+    forecast, score: 90, verdict: Number(forecast.tide_height) <= 3 ? 'go' : 'no',
+  } as verdicts.ForecastVerdict));
+  const queries: Record<string, Record<string, jest.Mock>> = {};
+  const from = jest.fn((table: string) => {
+    const query: Record<string, jest.Mock> = {};
+    for (const method of ['select', 'eq', 'in', 'or', 'gte', 'lt', 'order']) query[method] = jest.fn(() => query);
+    query.maybeSingle = jest.fn(async () => ({ data: spot, error: null }));
+    query.range = jest.fn(async (offset: number) => ({ data: offset === 0 ? rows : [], error: null }));
+    if (table === 'tide_forecasts') query.order = jest.fn(async () => ({ data: tideRows, error: null }));
+    queries[table] = query;
+    return query;
+  });
+  try {
+    const swell = outlookSwell({ fadeAt: '2026-09-22T03:00:00.000Z' });
+    const traveler = profile({ timezone: 'Pacific/Honolulu' });
+    const deps = makeDeps({ loadProfiles: jest.fn(async () => [traveler]), loadOutlook: jest.fn(async () => [swell]),
+      loadFirstSightingHazard: jest.fn(() => hazard) });
+    const summary = await runSwellAlertCron({ now: MORNING, supabase: { from } as unknown as SupabaseClient<Database>, deps });
+    expect(summary.sent).toBe(1);
+    expect(find).toHaveBeenCalledWith(expect.objectContaining({ timezone: 'America/Los_Angeles', skillLevel: 'advanced', beach: spot }));
+    const failureCalls = [[expect.stringContaining('window computation failed'), expect.any(Error)]];
+    expect(warning.mock.calls).toEqual(outcome === 'throws' ? failureCalls : []);
+    expect(verdict.mock.calls.map(([args]) => ({ timezone: args.timezone, experienceLevel: args.experienceLevel })))
+      .toEqual(outcome === 'throws' ? [] : rows.map(() => ({ timezone: 'America/Los_Angeles', experienceLevel: 'advanced' })));
+    expect(queries.enhanced_forecasts.order).toHaveBeenCalledWith('forecast_at', { ascending: true });
+    expect(queries.tide_forecasts.eq).toHaveBeenCalledWith('beach_id', HOME);
+    expect(deps.enqueue.mock.calls[0][0].payload.surf_window).toEqual(outcome === 'throws' ? undefined : {
+      state: 'recommended', start: '2026-09-21T17:00:00.000Z', end: '2026-09-21T19:00:00.000Z',
+      local_date: '2026-09-21', timezone: 'America/Los_Angeles', reasons: ['high_tide_outside_preference', 'better_tide_after_peak'] });
+    expect(deps.enqueue.mock.calls[0][0].payload.body.includes('Best window Mon 10 AM–12 PM.')).toBe(outcome === 'recommended');
+  } finally {
+    if (oldFlag === undefined) delete process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED;
+    else process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED = oldFlag;
+    jest.restoreAllMocks();
+  }
 });

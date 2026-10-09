@@ -63,7 +63,8 @@ import {
   loadSwellOutlookUserState,
   saveSwellOutlookUserState,
 } from "@/lib/alerts/swell-outlook/state";
-import { isSwellOutlookEnabled, isSwellOutlookUserAllowed } from "@/lib/flags/swell-outlook";
+import { findTideAwareWindow, type TideAwareWindowResult } from "@/lib/alerts/surf-window/tide-aware-window";
+import { isSwellOutlookEnabled, isSwellOutlookUserAllowed, isSwellOutlookTideWindowEnabled } from "@/lib/flags/swell-outlook";
 import { loadSwellOutlookForUser } from "@/lib/services/discovery/swell-outlook-loader";
 import type { OutlookSwell, StoredOutlookList } from "@/lib/services/discovery/swell-outlook-types";
 import { enqueueNotification } from "@/lib/notifications/enqueue";
@@ -241,6 +242,7 @@ export interface SwellOutlookDeps {
   hasFirstSightingAlert: (userId: string, eventKeys: string[]) => Promise<boolean>;
   assessSwellRarity: (profile: SwellAlertProfile, swell: OutlookSwell, now: Date) => Promise<boolean>;
   getTier: (userId: string) => Promise<Tier>;
+  loadFirstSightingWindow?: (profile: SwellAlertProfile, swell: OutlookSwell, now: Date) => Promise<TideAwareWindowResult>;
   /** Official hazard at the lead beach for the push text; null when none or the lookup fails. */
   loadFirstSightingHazard?: (beachId: string, timezone: string, now: Date) => Promise<FirstSightingHazard | null>;
   /** Km from the user's last location, else the home beach, to each beach; empty when neither is known. */
@@ -925,6 +927,7 @@ function defaultDependencies(args: {
   deps?: Partial<RunnerDeps>;
 }): RunnerDeps {
   let client = args.supabase;
+  const firstSightingTideCache = new TideCache();
   const rarityByUser = new Map<string, Promise<SwellRarityAssessor>>();
   const getClient = (): ServiceClient => {
     client ??= createSupabaseServiceRoleClient();
@@ -1031,6 +1034,8 @@ function defaultDependencies(args: {
       }),
     getTier: args.deps?.getTier
       ?? ((userId) => getOutlookTier(getClient(), userId)),
+    loadFirstSightingWindow: args.deps?.loadFirstSightingWindow
+      ?? ((profile, swell, now) => loadFirstSightingWindow(getClient(), firstSightingTideCache, profile, swell, now)),
     loadFirstSightingHazard: args.deps?.loadFirstSightingHazard
       ?? ((beachId, timezone, now) => loadFirstSightingHazard(getClient(), beachId, timezone, now)),
     loadBeachDistancesKm: args.deps?.loadBeachDistancesKm
@@ -1259,6 +1264,32 @@ function isOutlookRecipient(deps: RunnerDeps, userId: string): deps is OutlookRu
       && deps.hasFirstSightingAlert && deps.assessSwellRarity && deps.getTier);
 }
 
+async function loadFirstSightingWindow(
+  client: ServiceClient,
+  tideCache: TideCache,
+  profile: SwellAlertProfile,
+  swell: OutlookSwell,
+  now: Date,
+): Promise<TideAwareWindowResult> {
+  const { data: beach, error } = await client.from("beaches").select("*").eq("id", swell.beach.id).maybeSingle();
+  if (error) throw new Error(`Failed to load surf-window beach: ${error.message}`);
+  if (!beach) throw new Error(`Surf-window beach ${swell.beach.id} unavailable`);
+  const timezone = resolveBeachTimezone(beach.timezone);
+  const arrivalAt = swell.arrivalAt ?? swell.peakAt;
+  const startDate = getLocalDateString(new Date(arrivalAt), timezone);
+  const endDate = addCivilDays(startDate, 3);
+  const start = localDateTimeToUTC(startDate, "02:00:00", timezone);
+  const end = localDateTimeToUTC(endDate, "23:00:00", timezone);
+  const [forecasts, tideSamples] = await Promise.all([
+    loadForecasts(client, [beach.id], start, end),
+    loadTideSamples(client, tideCache, beach.id, start.toISOString(), end.toISOString()),
+  ]);
+  const verdictFor = makeVerdictFor({ ...profile, timezone }, now);
+  return findTideAwareWindow({ beach, forecasts, tideSamples, arrivalAt, peakAt: swell.peakAt,
+    fadeAt: swell.fadeAt ?? null, timezone, now, skillLevel: profile.experienceLevel,
+    verdictFor: (row) => verdictFor(row, beach) });
+}
+
 async function sendFirstSighting(
   deps: OutlookRunnerDeps,
   summary: SwellAlertRunSummary,
@@ -1316,12 +1347,23 @@ async function sendFirstSighting(
       return;
     }
 
+    let surfWindow: TideAwareWindowResult | undefined;
+    if (isSwellOutlookTideWindowEnabled() && deps.loadFirstSightingWindow) {
+      try {
+        // Optional evidence runs alongside the existing hazard read; never await it before sending.
+        void deps.loadFirstSightingWindow(profile, swell, now).then((result) => { surfWindow = result; }).catch((error: unknown) => {
+          console.warn(`[swell-alert] First-sighting window computation failed for ${swell.beach.id}:`, error);
+        });
+      } catch (error) {
+        console.warn(`[swell-alert] First-sighting window computation failed for ${swell.beach.id}:`, error);
+      }
+    }
     const hazard = await (deps.loadFirstSightingHazard?.(swell.beach.id, profile.timezone, now) ?? Promise.resolve(null))
       .catch((error: unknown) => {
         console.warn(`[swell-alert] First-sighting hazard lookup failed for ${swell.beach.id}:`, error);
         return null;
       });
-    const payload = buildFirstSightingPayload({ swell, timezone: profile.timezone, hazard });
+    const payload = buildFirstSightingPayload({ swell, timezone: profile.timezone, hazard, surfWindow });
     let claimDenied: FirstSightingClaimSkipReason = "event_exists";
     const alert = await deps.insertAlert({
       userId: profile.id,
