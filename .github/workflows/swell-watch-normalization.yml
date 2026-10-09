@@ -58,6 +58,7 @@ jobs:
           bash scripts/test-swell-watch-study-postgres.sh 2>&1 | tee /tmp/swell-normalization-artifact/integration.log
           bash scripts/test-swell-watch-feed-isolation-postgres.sh 2>&1 | tee /tmp/swell-normalization-artifact/feed-isolation.log
           bash scripts/test-swell-watch-event-identity-postgres.sh 2>&1 | tee /tmp/swell-normalization-artifact/event-identity.log
+          docker run --rm --user postgres -v "$PWD:/workspace:ro" -w /workspace -e MODEL_PG_BIN=/usr/lib/postgresql/15/bin postgres:15 bash scripts/test-match-score-missing-inputs-postgres.sh 2>&1 | tee /tmp/swell-normalization-artifact/match-score.log
       - name: Test snapshot outcomes and outlook first-sighting claims
         run: |
           set -o pipefail
@@ -71,7 +72,6 @@ jobs:
               runuser -u postgres -- env SCOUT_PG_BIN=/usr/lib/postgresql/15/bin \
                 bash scripts/test-swell-outlook-first-sighting-postgres.sh 2>&1 | tee /artifacts/outlook-first-sighting.log
             '
-          docker run --rm --user postgres -v "$PWD:/workspace:ro" -w /workspace -e MODEL_PG_BIN=/usr/lib/postgresql/15/bin postgres:15 bash scripts/test-match-score-missing-inputs-postgres.sh 2>&1 | tee /tmp/swell-normalization-artifact/match-score.log
       - uses: actions/upload-artifact@v4
         if: always()
         with:
