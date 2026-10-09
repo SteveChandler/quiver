@@ -135,30 +135,6 @@ export function makeAuthenticatedAction<
 }
 
 /**
- * Validation wrapper for server actions
- *
- * Validates input against a Zod schema before calling the action.
- */
-export function withValidation<TInput, TOutput>(
-  schema: z.ZodType<TInput>,
-  action: (input: TInput) => Promise<TOutput>
-): (input: unknown) => Promise<ServerActionResponse<TOutput>> {
-  return async (input: unknown) => {
-    const parsed = schema.safeParse(input);
-
-    if (!parsed.success) {
-      const errors = parsed.error.issues.map((e) => e.message).join(", ");
-      return {
-        success: false,
-        error: `Validation failed: ${errors}`,
-      };
-    }
-
-    return withServerAction(() => action(parsed.data));
-  };
-}
-
-/**
  * Options for createServerAction
  */
 interface CreateServerActionOptions<TInput, TOutput> {
@@ -279,55 +255,5 @@ export async function getUserById(userId: string) {
       .select(PROFILE_PUBLIC_SELECT)
       .eq("id", userId)
       .single<PublicProfile>();
-  });
-}
-
-export async function getUserByEmail(email: string) {
-  return withDatabaseOperation(async (supabase) => {
-    return supabase
-      .from("profiles")
-      .select(PROFILE_PUBLIC_SELECT)
-      .eq("email", email)
-      .single<PublicProfile>();
-  });
-}
-
-// File upload utilities
-export async function uploadFile(
-  file: File,
-  bucket: string,
-  path: string
-): Promise<ServerActionResponse<string>> {
-  return withServerAction(async () => {
-    const supabase = await createSupabaseServerClient();
-
-    const { data, error } = await supabase.storage
-      .from(bucket)
-      .upload(path, file);
-
-    if (error) {
-      throw new Error(`File upload failed: ${error.message}`);
-    }
-
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from(bucket).getPublicUrl(path);
-
-    return publicUrl;
-  });
-}
-
-export async function deleteFile(
-  bucket: string,
-  path: string
-): Promise<ServerActionResponse<void>> {
-  return withServerAction(async () => {
-    const supabase = await createSupabaseServerClient();
-
-    const { error } = await supabase.storage.from(bucket).remove([path]);
-
-    if (error) {
-      throw new Error(`File deletion failed: ${error.message}`);
-    }
   });
 }

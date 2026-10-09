@@ -1,4 +1,4 @@
-export type BreakFamily = 'beach' | 'reef' | 'point' | (string & {});
+type BreakFamily = 'beach' | 'reef' | 'point' | (string & {});
 
 const BEACH_TOKENS = new Set(['beach', 'pier', 'jetty', 'breakwater', 'inlet', 'river-mouth']);
 

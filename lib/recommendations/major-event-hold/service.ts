@@ -435,16 +435,3 @@ export async function evaluateMajorEventHoldCandidates(
 
   return decisions;
 }
-
-export async function evaluateRecommendationHoldCandidates(
-  input: Omit<
-    EvaluateMajorEventHoldCandidatesInput,
-    "applyWaterQualityHolds"
-  >,
-  dependencies: MajorEventHoldServiceDependencies = {},
-): Promise<MajorEventHoldCandidateDecision[]> {
-  return evaluateMajorEventHoldCandidates(
-    { ...input, applyWaterQualityHolds: true },
-    dependencies,
-  );
-}

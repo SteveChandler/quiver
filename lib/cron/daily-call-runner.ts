@@ -1,3 +1,4 @@
+import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
 import { persistableSessionDecision } from "@/lib/recommendations/canonical-decision/contract";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isDailyCallEnabled, isDailyCallUserAllowed } from "@/lib/flags/daily-call";
@@ -60,7 +61,7 @@ export interface DailyCallCandidate {
   sessionDecision: unknown;
 }
 
-export interface DailyCallRunSummary {
+interface DailyCallRunSummary {
   evaluated: number;
   sent: number;
   silent: number;
@@ -348,7 +349,7 @@ export async function loadTideSamples(
     .order("ts", { ascending: true });
   if (error) throw new Error(`Failed to load tide forecasts for ${beachId}: ${error.message}`);
   const samples = selectTideSeries(data ?? []).flatMap((row) => {
-    const heightFt = row.tide_ft ?? (row.tide_height_m == null ? null : row.tide_height_m * 3.28084);
+    const heightFt = row.tide_ft ?? (row.tide_height_m == null ? null : row.tide_height_m * METERS_TO_FEET);
     return heightFt == null ? [] : [{ at: row.ts, heightFt }];
   });
   if (samples.length === 0) return null;

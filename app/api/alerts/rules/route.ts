@@ -23,6 +23,10 @@ import {
   type PersonalizationResultCode,
 } from "@/lib/personalization/eligibility";
 import { isFreeGrowthPhaseEnabled } from "@/lib/flags/free-growth-phase";
+import {
+  resolveRequestPlatform,
+  scheduleAlertCreatedEvents,
+} from "@/lib/analytics/alert-created-server";
 
 interface AlertRulesEntitlementSignal {
   tier: Tier;
@@ -309,6 +313,23 @@ export const POST = withAuth(
       }
     }
     if (insertError) throw insertError;
+
+    scheduleAlertCreatedEvents({
+      supabase,
+      userId: user.id,
+      events: [
+        {
+          ruleId: rule.id,
+          beachId: beach_id,
+          presetType: rule.preset_type ?? null,
+          source: "rules_api",
+          platform: resolveRequestPlatform(request),
+          isFirstAlert: existingRuleCount === 0,
+          notifyEmail: rule.notify_email,
+          notifyPush: rule.notify_push,
+        },
+      ],
+    });
 
     return createSuccessResponse(rule, 201);
   },

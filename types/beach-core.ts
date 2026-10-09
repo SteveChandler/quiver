@@ -80,33 +80,6 @@ export interface BeachIdentityWithCoords extends BeachIdentity {
 }
 
 /**
- * Minimal beach data for URL generation with fallback
- *
- * Supports both hierarchical URLs (with slug/city/state) and ID-based fallback
- * Used by: getBeachUrlSafe utility, navigation components
- *
- * @example
- * // Hierarchical URL
- * const beach1: BeachUrlData = {
- *   id: "123",
- *   slug: "ocean-beach",
- *   city: "San Diego",
- *   state: "CA"
- * };
- *
- * // ID-based fallback
- * const beach2: BeachUrlData = {
- *   id: "456",
- *   slug: null,
- *   city: null,
- *   state: null
- * };
- */
-export type BeachUrlData = Partial<BeachLocation> & {
-  id?: string;
-};
-
-/**
  * Type guard to check if beach has complete location data
  *
  * @param beach - Beach object to check

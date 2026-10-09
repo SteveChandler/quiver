@@ -168,22 +168,6 @@ export function findKeywordCannibalization(
   });
 }
 
-export function findDuplicateTargetKeywords(
-  dashboard: SeoDashboard,
-): Map<string, SeoDashboardEntry[]> {
-  const groups = new Map<string, SeoDashboardEntry[]>();
-  for (const entry of dashboard.entries) {
-    const keyword = normalizeKeyword(entry.targetKeyword);
-    groups.set(keyword, [...(groups.get(keyword) ?? []), entry]);
-  }
-
-  for (const [keyword, entries] of groups) {
-    if (entries.length < 2) groups.delete(keyword);
-  }
-
-  return groups;
-}
-
 function mergeEntry(
   existing: SeoDashboardEntry,
   incoming: SeoDashboardEntry,

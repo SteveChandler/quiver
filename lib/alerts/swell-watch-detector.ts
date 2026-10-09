@@ -13,7 +13,7 @@ const DAYLIGHT_START_HOUR = 6;
 const DAYLIGHT_END_HOUR = 19;
 const MAX_SCAN_DAY_OFFSET = 9;
 
-export interface SwellWatchEvent {
+interface SwellWatchEvent {
   eventStartDate: string;
   peakDate: string;
   peakHeightFt: number;

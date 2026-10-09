@@ -1,3 +1,4 @@
+import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
 /**
  * Forecast Builder
  *
@@ -15,7 +16,6 @@ import { isForecastHandoffBlendEnabled } from "@/lib/flags/forecast-handoff-blen
 import { calculateConfidenceScore } from "./confidence-scorer";
 import {
   toFaceHeightFeetDecomposedWithDebug,
-  METERS_TO_FEET,
   type WaveHeightDebugInfo,
 } from "@/lib/utils/wave-formatters";
 import {
@@ -67,11 +67,6 @@ import {
   type TrustedForecastPersistenceStore,
 } from "./trusted-forecast-persistence";
 import type { TrustedForecastServingProjectionStore } from "./trusted-forecast-current-projection";
-import {
-  buildGfsWaveShadowRows,
-  logGfsWaveShadowRows,
-  type GfsWaveShadowForecast,
-} from "@/lib/services/noaa-wavewatch/gfs-wave-shadow";
 import {
   computeV5Shadow,
   getActiveCalibration,
@@ -276,8 +271,6 @@ export interface ForecastInputs {
   heightOffset?: BeachHeightOffsetRow | null;
   /** Optional active temporary feedback calibration, loaded once per beach. */
   feedbackCalibrationCandidate?: FeedbackHeightCalibrationCandidate | null;
-  /** Optional report-only GFS-Wave issue-time source shadow data. */
-  gfsWaveData?: GfsWaveShadowForecast | null;
   /** Test/smoke override for the build anchor; production defaults to now. */
   buildAnchorAt?: Date;
   /**
@@ -473,7 +466,6 @@ export class ForecastBuilder {
       southOcSanoShadowZoneSnapshot,
       heightOffset,
       feedbackCalibrationCandidate,
-      gfsWaveData,
       buildAnchorAt,
     } = inputs;
     const forecasts: EnhancedForecastWithRawData[] = [];
@@ -504,7 +496,6 @@ export class ForecastBuilder {
     // during the row loop; consumed only after the loop, so a trusted decision
     // always sees the complete local day.
     const trustedSlotBuffer: TrustedSlotRecord[] = [];
-    const gfsWaveForecastTimes: Date[] = [];
     const handoffBlendEnabled = isForecastHandoffBlendEnabled();
     const handoffBlendState = createForecastHandoffBlendState();
     const calibrationCoverage: CalibrationCoverage = {
@@ -541,7 +532,6 @@ export class ForecastBuilder {
       const forecastTime = new Date(
         firstSlotMs + i * FORECAST_CONSTANTS.INTERVAL_HOURS * 60 * 60 * 1000
       );
-      gfsWaveForecastTimes.push(forecastTime);
 
       // Get data for this time point
       const wavePoint = this.getWaveDataForTime(waveData, forecastTime);
@@ -667,24 +657,6 @@ export class ForecastBuilder {
         log.warn("Snapshot dispatch threw (caught, non-blocking)", {
           err: String(err),
         });
-      }
-    }
-
-    if (gfsWaveData) {
-      const gfsRows = buildGfsWaveShadowRows({
-        beachId: beach.id,
-        generatedAt: now,
-        forecastTimes: gfsWaveForecastTimes,
-        shadow: gfsWaveData,
-      });
-      if (gfsRows.length > 0) {
-        try {
-          await logGfsWaveShadowRows(gfsRows);
-        } catch (err) {
-          log.warn("GFS-Wave shadow dispatch threw (caught, non-blocking)", {
-            err: String(err),
-          });
-        }
       }
     }
 
@@ -2117,7 +2089,7 @@ export class ForecastBuilder {
    */
 
   private metersToFeet(meters: number): string {
-    const feet = meters * 3.28084;
+    const feet = meters * METERS_TO_FEET;
     if (feet < 1) {
       return `${Math.round(feet * 10) / 10} ft`;
     }

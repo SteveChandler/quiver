@@ -1,4 +1,3 @@
-import type { CSSProperties } from "react";
 import { getOptimizedImageUrl } from "@/lib/image-proxy";
 import { getStaticMapImageUrl } from "@/lib/map-utils";
 import { buildZineMapScene, type ZineMapCue } from "../map-doodle-scene";
@@ -16,86 +15,7 @@ export function RoughEdgeFilter() {
   );
 }
 
-export function HandArrow({
-  dir = "down",
-  length = 60,
-  color = "#11100D",
-  strokeWidth = 2.4,
-  style,
-}: {
-  dir?: "down" | "down-right" | "curve-right";
-  length?: number;
-  color?: string;
-  strokeWidth?: number;
-  style?: CSSProperties;
-}) {
-  if (dir === "down-right") {
-    return (
-      <svg width={length} height={length * 0.7} viewBox={`0 0 ${length} ${length * 0.7}`} fill="none" style={style} aria-hidden>
-        <path
-          d={`M5,5 C${length * 0.3},${length * 0.15} ${length * 0.5},${length * 0.3} ${length * 0.7},${length * 0.45} C${length * 0.8},${length * 0.55} ${length * 0.85},${length * 0.55} ${length - 8},${length * 0.6}`}
-          stroke={color}
-          strokeWidth={strokeWidth}
-          strokeLinecap="round"
-          fill="none"
-          filter="url(#zine-rough-edge)"
-        />
-        <path
-          d={`M${length - 18},${length * 0.5} L${length - 5},${length * 0.62} L${length - 12},${length * 0.68}`}
-          stroke={color}
-          strokeWidth={strokeWidth}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          fill="none"
-        />
-      </svg>
-    );
-  }
-  if (dir === "curve-right") {
-    return (
-      <svg width={length} height={length * 0.5} viewBox={`0 0 ${length} ${length * 0.5}`} fill="none" style={style} aria-hidden>
-        <path
-          d={`M5,${length * 0.45} C${length * 0.3},${length * 0.05} ${length * 0.55},${length * 0.05} ${length - 12},${length * 0.32}`}
-          stroke={color}
-          strokeWidth={strokeWidth}
-          strokeLinecap="round"
-          fill="none"
-          filter="url(#zine-rough-edge)"
-        />
-        <path
-          d={`M${length - 22},${length * 0.18} L${length - 8},${length * 0.34} L${length - 22},${length * 0.42}`}
-          stroke={color}
-          strokeWidth={strokeWidth}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          fill="none"
-        />
-      </svg>
-    );
-  }
-  return (
-    <svg width={34} height={length} viewBox={`0 0 34 ${length}`} fill="none" style={style} aria-hidden>
-      <path
-        d={`M17,3 C16,${length * 0.25} 19,${length * 0.5} 16,${length * 0.75} C15,${length * 0.85} 18,${length * 0.92} 17,${length - 8}`}
-        stroke={color}
-        strokeWidth={strokeWidth}
-        strokeLinecap="round"
-        fill="none"
-        filter="url(#zine-rough-edge)"
-      />
-      <path
-        d={`M9,${length - 15} L17,${length - 3} L25,${length - 15}`}
-        stroke={color}
-        strokeWidth={strokeWidth}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
-    </svg>
-  );
-}
-
-export function DoodleWave({ size = 36, color = "#0B3A75" }: { size?: number; color?: string }) {
+export function DoodleWave({ size = 36, color = "#8A5E00" }: { size?: number; color?: string }) {
   return (
     <svg width={size} height={size * 0.75} viewBox="0 0 48 36" fill="none" aria-hidden>
       <path d="M2,22 C8,16 12,16 16,20 C20,26 24,26 28,20 C32,14 38,14 46,22" stroke={color} strokeWidth="2.4" strokeLinecap="round" fill="none" filter="url(#zine-rough-edge)" />
@@ -132,7 +52,7 @@ function DoodleClock({ size = 22, color = "#11100D" }: { size?: number; color?: 
   );
 }
 
-export function DoodleStar({ size = 16, color = "#0B3A75", filled = true }: { size?: number; color?: string; filled?: boolean }) {
+export function DoodleStar({ size = 16, color = "#8A5E00", filled = true }: { size?: number; color?: string; filled?: boolean }) {
   return (
     <svg width={size} height={size} viewBox="0 0 20 20" fill={filled ? color : "none"} aria-hidden>
       <path d="M10,2 L12.5,7.6 L18.5,8.4 L14.2,12.7 L15.4,18.6 L10,15.7 L4.6,18.6 L5.8,12.7 L1.5,8.4 L7.5,7.6 Z" stroke={color} strokeWidth="1.2" strokeLinejoin="round" />
@@ -176,7 +96,7 @@ export function DoodleSkull({ size = 28, color = "#11100D" }: { size?: number; c
   );
 }
 
-export function DoodleReef({ size = 30, color = "#0B3A75" }: { size?: number; color?: string }) {
+export function DoodleReef({ size = 30, color = "#8A5E00" }: { size?: number; color?: string }) {
   return (
     <svg width={size} height={size * 0.85} viewBox="0 0 40 32" fill="none" aria-hidden>
       <path d="M3,28 L9,14 L14,22 L20,8 L26,20 L32,12 L37,28 Z" fill={color} stroke={color} strokeWidth="1.5" strokeLinejoin="round" filter="url(#zine-rough-edge)" />
@@ -185,7 +105,7 @@ export function DoodleReef({ size = 30, color = "#0B3A75" }: { size?: number; co
   );
 }
 
-export function SkillBars({ size = 28, color = "#0B3A75" }: { size?: number; color?: string }) {
+export function SkillBars({ size = 28, color = "#8A5E00" }: { size?: number; color?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 28 28" fill="none" aria-hidden>
       <rect x="2" y="14" width="5" height="12" fill={color} filter="url(#zine-rough-edge)" />
@@ -332,7 +252,7 @@ export function MapDoodle({
   const { x: markerX, y: markerY } = scene.marker;
   const approachStartX = scene.oceanSide === "left" ? 30 : 370;
   const approachEndX = scene.oceanSide === "left" ? markerX - 18 : markerX + 18;
-  const locationFontSize = locationName.length > 18 ? 15 : locationName.length > 14 ? 17 : 20;
+  const locationFontSize = locationName.length > 18 ? 13 : locationName.length > 14 ? 15 : 17;
   // Request the tile at the aspect it will actually be displayed at. The frame
   // is roughly 450px wide in the hero column, so a fixed 800x480 request got
   // object-cover-cropped once the frame grew taller, throwing away most of the
@@ -389,18 +309,18 @@ export function MapDoodle({
               <circle r="14" fill="none" stroke="#11100D" strokeWidth="2" filter="url(#zine-rough-edge)" />
               <path d="M-7,-7 L7,7 M-7,7 L7,-7" stroke="#11100D" strokeWidth="2.2" strokeLinecap="round" />
             </g>
-            <g stroke="#0B3A75" strokeWidth="1.6" fill="none" strokeDasharray="3,3">
+            <g stroke="#8A5E00" strokeWidth="1.6" fill="none" strokeDasharray="3,3">
               <path d={`M${approachStartX},${markerY - 30} C${approachStartX - 18},${markerY - 25} ${approachEndX},${markerY - 28} ${approachEndX},${markerY - 12}`} />
               <path d={`M${approachStartX},${markerY + 30} C${approachStartX - 18},${markerY + 25} ${approachEndX},${markerY + 28} ${approachEndX},${markerY + 12}`} />
             </g>
-            <path d={`M${approachEndX},${markerY - 17} L${markerX},${markerY - 12} L${approachEndX},${markerY - 7}`} stroke="#0B3A75" strokeWidth="1.6" fill="none" />
-            <path d={`M${approachEndX},${markerY + 7} L${markerX},${markerY + 12} L${approachEndX},${markerY + 17}`} stroke="#0B3A75" strokeWidth="1.6" fill="none" />
+            <path d={`M${approachEndX},${markerY - 17} L${markerX},${markerY - 12} L${approachEndX},${markerY - 7}`} stroke="#8A5E00" strokeWidth="1.6" fill="none" />
+            <path d={`M${approachEndX},${markerY + 7} L${markerX},${markerY + 12} L${approachEndX},${markerY + 17}`} stroke="#8A5E00" strokeWidth="1.6" fill="none" />
           </>
         )}
         <text
           x={hasRealMap ? 302 : scene.label.x}
           y={hasRealMap ? 214 : scene.label.y}
-          fontFamily="var(--font-handwritten), cursive"
+          fontFamily="var(--font-zine-display), 'Space Grotesk', sans-serif"
           fontSize={locationFontSize}
           fill="#11100D"
           fontWeight="700"
@@ -443,7 +363,7 @@ export function MapDoodle({
             left: 8,
             background: "#11100D",
             color: "#F4EBD8",
-            fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+            fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
             fontSize: 12,
             letterSpacing: "0.12em",
             textTransform: "uppercase",
@@ -478,7 +398,7 @@ function MapCue({ cue }: { cue: ZineMapCue }) {
   }
   if (cue === "reef") {
     return (
-      <g stroke="#0B3A75" fill="none" strokeLinecap="round" filter="url(#zine-rough-edge)">
+      <g stroke="#8A5E00" fill="none" strokeLinecap="round" filter="url(#zine-rough-edge)">
         <path d="M-30,14 C-16,-8 -2,16 10,-6 C18,8 24,10 32,-8" strokeWidth="2.2" />
         <path d="M-22,22 C-8,8 8,24 26,10" strokeWidth="1.4" opacity="0.75" />
       </g>
@@ -494,14 +414,14 @@ function MapCue({ cue }: { cue: ZineMapCue }) {
   if (cue === "inlet") {
     return (
       <g strokeLinecap="round" filter="url(#zine-rough-edge)">
-        <path d="M-34,-8 C-12,-2 10,-16 34,-6" stroke="#0B3A75" strokeWidth="2.2" fill="none" />
-        <path d="M-34,8 C-12,14 10,0 34,10" stroke="#0B3A75" strokeWidth="2.2" fill="none" />
+        <path d="M-34,-8 C-12,-2 10,-16 34,-6" stroke="#8A5E00" strokeWidth="2.2" fill="none" />
+        <path d="M-34,8 C-12,14 10,0 34,10" stroke="#8A5E00" strokeWidth="2.2" fill="none" />
         <path d="M-24,-2 L-10,3 M8,-5 L20,0" stroke="#11100D" strokeWidth="1.4" />
       </g>
     );
   }
   return (
-    <g stroke="#0B3A75" strokeLinecap="round" fill="none" filter="url(#zine-rough-edge)">
+    <g stroke="#8A5E00" strokeLinecap="round" fill="none" filter="url(#zine-rough-edge)">
       <path d="M-34,-8 C-18,-14 -6,-2 8,-8 C20,-13 28,-8 36,-12" strokeWidth="1.7" />
       <path d="M-32,8 C-16,2 -4,14 12,8 C24,3 30,9 36,4" strokeWidth="1.7" opacity="0.75" />
     </g>

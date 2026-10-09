@@ -18,29 +18,6 @@ interface SessionIntelligenceSurfacePolicy {
   sourceHints: SurfWindowSourceSupportHints;
 }
 
-export const PHASE_18_SESSION_INTELLIGENCE_ALLOWLIST = {
-  waterTempCityPaths: [
-    "/water-temp/huntington-beach",
-    "/water-temp/santa-cruz",
-    "/water-temp/santa-monica",
-    "/water-temp/kailua-kona",
-  ],
-  waterTempBeachPaths: [
-    "/ca/del-mar/del-mar/water-temp",
-    "/nj/long-branch/long-branch-long-branch-nj/water-temp",
-  ],
-  spotPaths: [
-    "/ca/malibu/malibu-surfrider-first-point-malibu-ca",
-    "/ca/san-diego/blacks",
-    "/ca/la-jolla/blacks",
-  ],
-  bestTimeCityPaths: [
-    "/best-time-to-surf/la-jolla",
-    "/best-time-to-surf/westport",
-    "/best-time-to-surf/cocoa-beach",
-  ],
-} as const;
-
 function normalizePath(path: string): string {
   const pathname = path.split(/[?#]/)[0] ?? path;
   const withoutTrailingSlash =
@@ -51,15 +28,11 @@ function normalizePath(path: string): string {
 function pathSet(values: readonly string[]): Set<string> {
   return new Set(values.map(normalizePath));
 }
-
-const waterTempPaths = pathSet([
-  ...PHASE_18_SESSION_INTELLIGENCE_ALLOWLIST.waterTempCityPaths,
-  ...PHASE_18_SESSION_INTELLIGENCE_ALLOWLIST.waterTempBeachPaths,
+const bestTimePaths = pathSet([
+  "/best-time-to-surf/la-jolla",
+  "/best-time-to-surf/westport",
+  "/best-time-to-surf/cocoa-beach",
 ]);
-const spotPaths = pathSet(PHASE_18_SESSION_INTELLIGENCE_ALLOWLIST.spotPaths);
-const bestTimePaths = pathSet(
-  PHASE_18_SESSION_INTELLIGENCE_ALLOWLIST.bestTimeCityPaths
-);
 
 const surfacePolicies: Record<
   SessionIntelligenceSeoSurface,
@@ -129,30 +102,6 @@ export function getSessionIntelligenceSurfacePolicy(
   return surfacePolicies[surface];
 }
 
-export function isPhase18WaterTempPath(path: string): boolean {
-  return waterTempPaths.has(normalizePath(path));
-}
-
-export function isPhase18SpotPath(path: string): boolean {
-  return spotPaths.has(normalizePath(path));
-}
-
 export function isPhase18BestTimePath(path: string): boolean {
   return bestTimePaths.has(normalizePath(path));
-}
-
-export function requiresPublicBasicAnswer(
-  surface: SessionIntelligenceSeoSurface
-): boolean {
-  return getSessionIntelligenceSurfacePolicy(surface).basicAnswerPublic;
-}
-
-export function canRenderBestSurfWindowsForSurface(
-  surface: SessionIntelligenceSeoSurface,
-  path?: string
-): boolean {
-  const policy = getSessionIntelligenceSurfacePolicy(surface);
-  if (!policy.fullBestSurfWindows) return false;
-  if (surface !== "spot") return policy.fullBestSurfWindows;
-  return path ? isPhase18SpotPath(path) : false;
 }

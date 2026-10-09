@@ -24,7 +24,7 @@ interface ClassFitRow {
   openSide?: 'small' | 'big';
 }
 
-export const CLASS_FIT_TABLE: Partial<Record<BoardClass, ClassFitRow>> = {
+const CLASS_FIT_TABLE: Partial<Record<BoardClass, ClassFitRow>> = {
   foamie: { centerFt: 1.6, width: 0.35, lengthIn: 84, cleanSwing: 12, openSide: 'small' },
   longboard: { centerFt: 2.0, width: 0.33, lengthIn: 108, cleanSwing: 16, openSide: 'small' },
   funboard: { centerFt: 2.6, width: 0.38, lengthIn: 80, cleanSwing: 10 },
@@ -46,7 +46,7 @@ const WIND_BASE = { offshore: 0.98, 'cross-offshore': 0.92, 'cross-shore': 0.8, 
 const WIND_SLOPE = { offshore: 0.012, 'cross-offshore': 0.02, 'cross-shore': 0.04, onshore: 0.05, unknown: 0.03 } as const;
 const OFFSHORE_TOLERANCE_DEG = 30;
 
-export interface FitForecast {
+interface FitForecast {
   forecast_at?: string | null;
   wave_height?: string | null;
   wave_period?: unknown;
@@ -64,14 +64,14 @@ export interface FitForecast {
   tide_status?: string | null;
 }
 
-export interface FitBeach {
+interface FitBeach {
   wind_offshore_deg?: number | null;
   preferred_tide_ft_min?: number | null;
   preferred_tide_ft_max?: number | null;
   break_type?: string | null;
 }
 
-export interface FitConditions {
+interface FitConditions {
   heightFt: number;
   periodSec: number | null;
   windMph: number | null;
@@ -93,7 +93,7 @@ function numeric(value: unknown): number | null {
 }
 
 /** Whole-sea period: Open-Meteo mean, else energy-weighted partitions, else the stored period. */
-export function seaPeriodSec(row: FitForecast): number | null {
+function seaPeriodSec(row: FitForecast): number | null {
   const mean = numeric(row.wave_period_om);
   if (mean !== null && mean > 0) return mean;
   const parts: Array<[number, number]> = [];
@@ -225,7 +225,7 @@ function sizeBand(heightFt: number): string {
 }
 
 /** Board-free advice for these conditions, e.g. "Ride an all-rounder in 3-4 ft waves". */
-export function conditionsAdvice(c: FitConditions, skill: SkillLevel): { headline: string; bestScore: number } {
+function conditionsAdvice(c: FitConditions, skill: SkillLevel): { headline: string; bestScore: number } {
   const groups = Object.entries(ARCHETYPES).map(([group, members]) => ({
     group, score: Math.max(...members.map((m) => classFitScore(c, skill, m) ?? -Infinity)),
   })).sort((a, b) => b.score - a.score);

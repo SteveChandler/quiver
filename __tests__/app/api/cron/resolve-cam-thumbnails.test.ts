@@ -166,6 +166,27 @@ describe("resolve cam thumbnails cron route", () => {
     expect(beachSourcesQuery.update).not.toHaveBeenCalled();
   });
 
+  it("reports an ok zero when the only eligible partner page exposes no snapshot", async () => {
+    beachSourcesQuery = createEmptyBeachSourcesQuery([
+      { beach_id: "ob", camera_url: "https://www.obhotel.com/Webcam-Oceanbeach.php", thumbnail_url: null },
+    ]);
+    const fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue(
+      new Response("<script>HDRelay.create({})</script>", { headers: { "content-type": "text/html" } })
+    );
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const response = await GET(new NextRequest("http://localhost/api/cron/resolve-cam-thumbnails"));
+      expect((await response.json()).data).toMatchObject({ total: 1, updated: 0, skipped: 1, failed: 0 });
+      expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({
+        status: "ok", produced: 0, legitimately_zero_reason: "1 partner camera page(s) exposed no HDOnTap snapshot",
+      }));
+      expect(Sentry.captureMessage).not.toHaveBeenCalled();
+    } finally {
+      fetchSpy.mockRestore();
+      warnSpy.mockRestore();
+    }
+  });
+
   it.each([false, true])("keeps a failure when an eligible thumbnail cannot be stored (write fails: %s)", async (writeFails) => {
     beachSourcesQuery = createEmptyBeachSourcesQuery([
       { beach_id: "supported", camera_url: "https://portal.hdontap.com/?stream=beach", thumbnail_url: null },

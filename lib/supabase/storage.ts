@@ -1,4 +1,3 @@
-import { compress } from "image-conversion";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   SESSION_PHOTO_MAX_PER_SESSION,
@@ -40,74 +39,6 @@ export interface StorageUsageInfo {
 }
 
 /**
- * Compress and optimize image for free tier storage
- * Returns compressed file or original file if compression fails (with detailed logging)
- */
-async function compressImage(file: File): Promise<File> {
-  try {
-    // Log attempt for diagnostics
-    console.log("[Image Compression] Attempting compression:", {
-      fileName: file.name,
-      fileType: file.type,
-      fileSize: file.size,
-      fileSizeMB: (file.size / (1024 * 1024)).toFixed(2) + "MB",
-    });
-
-    const compressedFile = await compress(file, {
-      quality: 0.8,
-      maxWidth: 1920,
-      maxHeight: 1080,
-    });
-
-    // Convert blob to File if needed
-    if (compressedFile instanceof Blob && !(compressedFile instanceof File)) {
-      const convertedFile = new File(
-        [compressedFile],
-        file.name.replace(/\.[^/.]+$/, ".jpg"),
-        {
-          type: "image/jpeg",
-          lastModified: Date.now(),
-        }
-      );
-
-      console.log("[Image Compression] Success:", {
-        originalSize: file.size,
-        compressedSize: convertedFile.size,
-        reduction: (
-          ((file.size - convertedFile.size) / file.size) *
-          100
-        ).toFixed(1),
-      });
-
-      return convertedFile;
-    }
-
-    return compressedFile as File;
-  } catch (error) {
-    // Log detailed error for debugging
-    console.error("[Image Compression] Failed:", {
-      fileName: file.name,
-      fileType: file.type,
-      fileSize: file.size,
-      error: error instanceof Error ? error.message : String(error),
-      errorStack: error instanceof Error ? error.stack : undefined,
-    });
-
-    // Return original file if it's small enough, otherwise throw
-    if (file.size <= SESSION_PHOTO_MAX_STORAGE_BYTES) {
-      console.warn(
-        `[Image Compression] Using original file (${(file.size / (1024 * 1024)).toFixed(2)}MB) - compression failed but size is acceptable`
-      );
-      return file;
-    }
-
-    throw new Error(
-      `Failed to compress image. File is ${(file.size / (1024 * 1024)).toFixed(2)}MB. Please choose an image under ${(SESSION_PHOTO_MAX_STORAGE_BYTES / (1024 * 1024)).toFixed(0)}MB or try a different image format.`
-    );
-  }
-}
-
-/**
  * Validate file before upload
  */
 function validateFile(file: File): { valid: boolean; error?: string } {
@@ -120,7 +51,6 @@ function validateFile(file: File): { valid: boolean; error?: string } {
   }
 
   if (validationError === "file_too_large") {
-    // Allow larger files before compression
     return {
       valid: false,
       error: "File is too large. Please choose an image smaller than 10MB.",
@@ -232,20 +162,17 @@ export async function uploadSessionPhoto(
       };
     }
 
-    // Compress image (with fallback to original if compression fails)
-    const compressedFile = await compressImage(file);
-
-    // The shared storage limit applies after compression; input validation allows up to 10 MiB.
-    if (compressedFile.size > SESSION_PHOTO_MAX_STORAGE_BYTES) {
-      const fileSizeMB = (compressedFile.size / (1024 * 1024)).toFixed(2);
+    // The shared storage limit is lower than the input limit.
+    if (file.size > SESSION_PHOTO_MAX_STORAGE_BYTES) {
+      const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
       const maxSizeMB = (SESSION_PHOTO_MAX_STORAGE_BYTES / (1024 * 1024)).toFixed(0);
-      console.error("[Upload] File too large after compression:", {
+      console.error("[Upload] File too large for storage:", {
         fileSizeMB,
         maxSizeMB,
       });
       return {
         success: false,
-        error: `File size is ${fileSizeMB}MB even after compression. Please choose an image under ${maxSizeMB}MB.`,
+        error: `File size is ${fileSizeMB}MB. Please choose an image under ${maxSizeMB}MB.`,
       };
     }
 
@@ -256,13 +183,13 @@ export async function uploadSessionPhoto(
     console.log("[Upload] Uploading to storage:", {
       bucket: STORAGE_BUCKET,
       path: fileName,
-      size: compressedFile.size,
+      size: file.size,
     });
 
     // Upload to Supabase Storage
     const { data, error } = await supabase.storage
       .from(STORAGE_BUCKET)
-      .upload(fileName, compressedFile, {
+      .upload(fileName, file, {
         cacheControl: "3600",
         upsert: false,
       });
@@ -285,13 +212,13 @@ export async function uploadSessionPhoto(
     });
 
     // Update storage usage
-    await updateStorageUsage(userId, compressedFile.size, supabase);
+    await updateStorageUsage(userId, file.size, supabase);
 
     return {
       success: true,
       url: urlData.publicUrl,
       path: data.path,
-      fileSize: compressedFile.size,
+      fileSize: file.size,
     };
   } catch (error) {
     console.error("[Upload] Upload failed:", {

@@ -9,7 +9,7 @@
  *   npx tsx scripts/ml-stats.ts 2>/dev/null
  */
 
-import { config } from "dotenv";
+import { config } from "./load-env.mjs";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 config({ path: ".env.local" });

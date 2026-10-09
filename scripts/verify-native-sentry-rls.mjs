@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { createClient } from "@supabase/supabase-js";
-import { config as loadEnv } from "dotenv";
+import { config as loadEnv } from "./load-env.mjs";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

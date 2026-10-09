@@ -51,7 +51,6 @@ export {
 
 // Re-export window scorer
 export {
-  scoreForecastWindow,
   scoreWindowConditionDetails,
   scoreWindowConditionScore,
   scoreWindowWithComposite,

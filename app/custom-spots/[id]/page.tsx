@@ -241,7 +241,7 @@ export default async function CustomSpotDetailPage(
             />
             <div className="mb-5 flex flex-wrap items-center gap-3">
               <span className="label-black">Custom spot</span>
-              <span className="border-2 border-[#11100D] bg-[#F78E42] px-3 py-1 font-mono text-[11px] font-black uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.24)]">
+              <span className="rounded-full border-2 border-[#11100D] bg-[#F78E42] px-3 py-1 font-mono text-[11px] font-black uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.24)]">
                 {spot.visibility}
               </span>
             </div>

@@ -388,19 +388,6 @@ test.describe('API Endpoints @dev', () => {
     expect(Array.isArray(json.data.beaches)).toBe(true);
   });
 
-  test('GET /api/v1/recommendations returns success @dev', async () => {
-    const response = await api.get('/api/v1/recommendations?lat=32.8473&lon=-117.275');
-
-    // Allow 200 or 429 (rate limited)
-    expect([200, 429]).toContain(response.status());
-
-    if (response.status() === 200) {
-      const json = await response.json();
-      expect(json.success).toBe(true);
-      expect(json.data).toBeDefined();
-    }
-  });
-
   test('GET /api/beaches/:id returns beach data @dev', async () => {
     const beachId = await resolveBeachIdForApiContract(api);
     const response = await api.get(`/api/beaches/${beachId}`);

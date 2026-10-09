@@ -1,3 +1,4 @@
+import { METERS_TO_FEET as FEET_PER_METER } from "@/lib/utils/unit-conversions";
 /**
  * Checks each recorded swell-event forecast against the beach's buoy once the
  * event has passed, and writes a hit/miss status to swell_event_verifications.
@@ -25,7 +26,6 @@ const BATCH_LIMIT = 200;
 const MIN_OBSERVATIONS = 6;
 const OBSERVATION_PAGE_SIZE = 1000;
 const MAX_OBSERVATION_PAGES = 10;
-const FEET_PER_METER = 3.28084;
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 

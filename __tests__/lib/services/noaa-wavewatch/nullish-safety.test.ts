@@ -1,33 +1,7 @@
 import { processOpenMeteoData } from '@/lib/services/noaa-wavewatch/data-processors';
-import { getValueAtIndex, hasValidWaveData } from '@/lib/services/noaa-wavewatch/wave-analysis';
+import { hasValidWaveData } from '@/lib/services/noaa-wavewatch/wave-analysis';
 import type { OpenMeteoMarineResponse } from '@/lib/services/noaa-wavewatch/types';
 
-describe('nullish safety: getValueAtIndex', () => {
-  it('returns 0 when value is 0 (not null)', () => {
-    const values = [
-      { validTime: '2026-02-16T00:00:00Z/PT3H', value: 0 },
-    ];
-    expect(getValueAtIndex(values, 0)).toBe(0);
-  });
-
-  it('returns null when values array is undefined', () => {
-    expect(getValueAtIndex(undefined, 0)).toBeNull();
-  });
-
-  it('returns null when index is out of bounds', () => {
-    const values = [
-      { validTime: '2026-02-16T00:00:00Z/PT3H', value: 1.5 },
-    ];
-    expect(getValueAtIndex(values, 5)).toBeNull();
-  });
-
-  it('returns positive value correctly', () => {
-    const values = [
-      { validTime: '2026-02-16T00:00:00Z/PT3H', value: 2.5 },
-    ];
-    expect(getValueAtIndex(values, 0)).toBe(2.5);
-  });
-});
 
 describe('nullish safety: hasValidWaveData', () => {
   it('returns true when value is 0 (calm conditions)', () => {

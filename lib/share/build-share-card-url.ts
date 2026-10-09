@@ -21,16 +21,6 @@ function getBaseUrl(): string {
 }
 
 /**
- * Parameters for wave share card
- */
-interface WaveShareParams {
-  /** Wave size (e.g., "3-5ft") */
-  size: string;
-  /** Wave description (e.g., "Clean and glassy") */
-  desc: string;
-}
-
-/**
  * Parameters for session share card
  */
 interface SessionShareParams {
@@ -58,23 +48,6 @@ interface SessionShareParams {
   bg?: string;
   /** Public URL recipients should open from the share card */
   shareUrl?: string;
-}
-
-/**
- * Build a fully qualified URL for wave share OG image
- *
- * @example
- * buildWaveShareUrl({ size: "3-5ft", desc: "Clean and glassy" })
- * // => "https://quiversurf.app/api/og/wave?size=3-5ft&desc=Clean%20and%20glassy"
- */
-function buildWaveShareUrl(params: WaveShareParams): string {
-  const baseUrl = getBaseUrl();
-  const searchParams = new URLSearchParams();
-
-  searchParams.set('size', params.size);
-  searchParams.set('desc', params.desc);
-
-  return `${baseUrl}/api/og/wave?${searchParams.toString()}`;
 }
 
 /**

@@ -22689,7 +22689,7 @@ CASE
     ELSE (("tide_height_m" * 3.28084))::real
 END) STORED,
     "station_id" "text",
-    CONSTRAINT "tide_forecasts_source_check" CHECK (("source" = ANY (ARRAY['open-meteo'::"text", 'noaa'::"text", 'noaa_hilo_interpolated'::"text"])))
+    CONSTRAINT "tide_forecasts_source_check" CHECK (("source" = ANY (ARRAY['open-meteo'::"text", 'noaa'::"text", 'noaa_hilo_interpolated'::"text", 'fes2022'::"text"])))
 );
 
 

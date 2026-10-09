@@ -27,7 +27,7 @@ import { toUTM, getBeachElevation, getElevation, pointAtDistanceAndBearing } fro
 /**
  * Result of wind exposure computation
  */
-export interface WindExposureResult {
+interface WindExposureResult {
   /** 72 smoothed exposure values [0, 1] */
   factors: number[]
   /** 72 raw horizon angles (degrees) */

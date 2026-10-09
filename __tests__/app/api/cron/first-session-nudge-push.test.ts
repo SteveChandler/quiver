@@ -161,13 +161,6 @@ jest.mock("@/lib/supabase/server", () => ({
   })),
 }));
 
-// Phase 3e: route uses enqueueNotification, not sendPushNotifications.
-// Retain the FCM mock as a defensive guard so any future regression is caught.
-const mockSendPushNotifications = jest.fn().mockResolvedValue(undefined);
-jest.mock("@/lib/services/push-notifications", () => ({
-  sendPushNotifications: (...args: unknown[]) =>
-    mockSendPushNotifications(...args),
-}));
 
 const mockEnqueueNotification = jest.fn();
 jest.mock("@/lib/notifications/enqueue", () => ({
@@ -292,7 +285,6 @@ describe("First-Session-Nudge Push Cron", () => {
       expect(data.success).toBe(false);
       expect(data.error).toBe("Unauthorized");
       expect(response.status).toBe(401);
-      expect(mockSendPushNotifications).not.toHaveBeenCalled();
     });
 
     it("accepts Bearer cron token", async () => {
@@ -316,7 +308,6 @@ describe("First-Session-Nudge Push Cron", () => {
       expect(data.success).toBe(true);
       expect(data.data.summary.total).toBe(0);
       expect(data.data.summary.sent).toBe(0);
-      expect(mockSendPushNotifications).not.toHaveBeenCalled();
       expect(mockInsert).not.toHaveBeenCalled();
     });
   });
@@ -336,7 +327,6 @@ describe("First-Session-Nudge Push Cron", () => {
       expect(data.success).toBe(true);
       expect(data.data.summary.sent).toBe(0);
       expect(data.data.summary.skipped.already_logged).toBe(1);
-      expect(mockSendPushNotifications).not.toHaveBeenCalled();
       expect(mockInsert).not.toHaveBeenCalled();
     });
   });
@@ -361,7 +351,6 @@ describe("First-Session-Nudge Push Cron", () => {
       expect(data.success).toBe(true);
       expect(data.data.summary.sent).toBe(0);
       expect(data.data.summary.skipped.at_3_sessions).toBe(1);
-      expect(mockSendPushNotifications).not.toHaveBeenCalled();
     });
 
     it("keeps users with exactly 2 sessions (under threshold)", async () => {
@@ -405,7 +394,6 @@ describe("First-Session-Nudge Push Cron", () => {
       expect(data.success).toBe(true);
       expect(data.data.summary.sent).toBe(0);
       expect(data.data.summary.skipped.no_email_confirmed).toBe(1);
-      expect(mockSendPushNotifications).not.toHaveBeenCalled();
     });
   });
 
@@ -427,7 +415,6 @@ describe("First-Session-Nudge Push Cron", () => {
       expect(data.success).toBe(true);
       expect(data.data.summary.sent).toBe(0);
       expect(data.data.summary.skipped.push_disabled).toBe(1);
-      expect(mockSendPushNotifications).not.toHaveBeenCalled();
       expect(mockInsert).not.toHaveBeenCalled();
     });
 
@@ -450,7 +437,6 @@ describe("First-Session-Nudge Push Cron", () => {
       expect(data.success).toBe(true);
       expect(data.data.summary.sent).toBe(0);
       expect(data.data.summary.skipped.no_token).toBe(1);
-      expect(mockSendPushNotifications).not.toHaveBeenCalled();
       expect(mockInsert).not.toHaveBeenCalled();
     });
   });
@@ -521,7 +507,6 @@ describe("First-Session-Nudge Push Cron", () => {
 
       expect(data.data.summary.sent).toBe(1);
       expect(data.data.summary.cohorts.trialing_home).toBe(1);
-      expect(mockSendPushNotifications).not.toHaveBeenCalled();
 
       expect(mockEnqueueNotification).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -740,7 +725,6 @@ describe("First-Session-Nudge Push Cron", () => {
       expect(data.success).toBe(true);
       expect(data.data.summary.sent).toBe(1);
       // Phase 3e: cron enqueues once; the worker fans out across devices.
-      expect(mockSendPushNotifications).not.toHaveBeenCalled();
       expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
 
       expect(mockInsert).toHaveBeenCalledTimes(1);

@@ -258,7 +258,7 @@ interface EngagementGate {
   list?: StoredOutlookList;
 }
 
-export interface SwellAlertRunSummary {
+interface SwellAlertRunSummary {
   skipped: boolean;
   reason?: string;
   evaluated: number;
@@ -603,12 +603,7 @@ async function evaluatePool(
     new Date(now.getTime() - HISTORY_DAYS * DAY_MS),
     new Date(now.getTime() + LOOKAHEAD_DAYS * DAY_MS),
   );
-  const forecastsByBeach = new Map<string, EnhancedForecastEntity[]>();
-  for (const forecast of forecasts) {
-    const rows = forecastsByBeach.get(forecast.beach_id) ?? [];
-    rows.push(forecast);
-    forecastsByBeach.set(forecast.beach_id, rows);
-  }
+  const forecastsByBeach = Map.groupBy(forecasts, (forecast) => forecast.beach_id);
 
   const today = getLocalDateString(now, profile.timezone);
   const verdictFor = makeVerdictFor(profile, now);
@@ -910,12 +905,7 @@ async function loadSwellRarityAssessor(
     new Date(now.getTime() - HISTORY_DAYS * DAY_MS),
     new Date(now.getTime() + LOOKAHEAD_DAYS * DAY_MS),
   );
-  const forecastsByBeach = new Map<string, EnhancedForecastEntity[]>();
-  for (const forecast of forecasts) {
-    const rows = forecastsByBeach.get(forecast.beach_id) ?? [];
-    rows.push(forecast);
-    forecastsByBeach.set(forecast.beach_id, rows);
-  }
+  const forecastsByBeach = Map.groupBy(forecasts, (forecast) => forecast.beach_id);
   const beaches = new Map(pool.map(({ beach }) => [beach.id, beach]));
   const verdictFor = makeVerdictFor(profile, now);
   const history = buildScoreHistory({

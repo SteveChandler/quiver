@@ -8,11 +8,7 @@
  * Priority 1 test coverage for San Diego page redesign.
  */
 
-import {
-  transformBeachToSurfSpot,
-  transformBeachesToSurfSpots,
-  validateBeachCoordinates,
-} from "@/lib/utils/beach-to-surfspot-transformer";
+import { transformBeachToSurfSpot, transformBeachesToSurfSpots } from "@/lib/utils/beach-to-surfspot-transformer";
 import type { BeachWithMetrics } from "@/types/location";
 import {
   mockBeachComplete,
@@ -21,7 +17,6 @@ import {
   mockBeachAdvanced,
   mockBeachExpert,
   mockBeachMinimal,
-  mockBeachInvalidCoords,
   mockBeachOrangeCounty,
   mockBeachLightCrowd,
   mockBeachCollection,
@@ -563,148 +558,6 @@ describe("Beach to SurfSpot Transformer", () => {
     });
   });
 
-  describe("validateBeachCoordinates", () => {
-    it("should return true for valid coordinates", () => {
-      const result = validateBeachCoordinates(mockBeachComplete, "test");
-      expect(result).toBe(true);
-    });
-
-    it("should return false for null lat", () => {
-      const beachNullLat: BeachWithMetrics = {
-        ...mockBeachComplete,
-        lat: null as unknown as number,
-      };
-      const result = validateBeachCoordinates(beachNullLat, "test");
-      expect(result).toBe(false);
-    });
-
-    it("should return false for null lon", () => {
-      const beachNullLon: BeachWithMetrics = {
-        ...mockBeachComplete,
-        lon: null as unknown as number,
-      };
-
-      const result = validateBeachCoordinates(beachNullLon, "test");
-      expect(result).toBe(false);
-    });
-
-    it("should return false for lat > 90", () => {
-      const result = validateBeachCoordinates(mockBeachInvalidCoords, "test");
-      expect(result).toBe(false);
-    });
-
-    it("should return false for lat < -90", () => {
-      const beachInvalid: BeachWithMetrics = {
-        ...mockBeachComplete,
-        lat: -100,
-      };
-
-      const result = validateBeachCoordinates(beachInvalid, "test");
-      expect(result).toBe(false);
-    });
-
-    it("should return false for lon > 180", () => {
-      const beachInvalid: BeachWithMetrics = {
-        ...mockBeachComplete,
-        lon: 200,
-      };
-
-      const result = validateBeachCoordinates(beachInvalid, "test");
-      expect(result).toBe(false);
-    });
-
-    it("should return false for lon < -180", () => {
-      const result = validateBeachCoordinates(mockBeachInvalidCoords, "test");
-      expect(result).toBe(false);
-    });
-
-    it("should return false for NaN lat", () => {
-      const beachNaN: BeachWithMetrics = {
-        ...mockBeachComplete,
-        lat: NaN,
-      };
-
-      const result = validateBeachCoordinates(beachNaN, "test");
-      expect(result).toBe(false);
-    });
-
-    it("should return false for NaN lon", () => {
-      const beachNaN: BeachWithMetrics = {
-        ...mockBeachComplete,
-        lon: NaN,
-      };
-
-      const result = validateBeachCoordinates(beachNaN, "test");
-      expect(result).toBe(false);
-    });
-
-    it("should return true for edge case: exactly 90 lat", () => {
-      const beachEdge: BeachWithMetrics = {
-        ...mockBeachComplete,
-        lat: 90,
-        lon: 0,
-      };
-
-      const result = validateBeachCoordinates(beachEdge, "test");
-      expect(result).toBe(true);
-    });
-
-    it("should return true for edge case: exactly -90 lat", () => {
-      const beachEdge: BeachWithMetrics = {
-        ...mockBeachComplete,
-        lat: -90,
-        lon: 0,
-      };
-
-      const result = validateBeachCoordinates(beachEdge, "test");
-      expect(result).toBe(true);
-    });
-
-    it("should return true for edge case: exactly 180 lon", () => {
-      const beachEdge: BeachWithMetrics = {
-        ...mockBeachComplete,
-        lat: 0,
-        lon: 180,
-      };
-
-      const result = validateBeachCoordinates(beachEdge, "test");
-      expect(result).toBe(true);
-    });
-
-    it("should return true for edge case: exactly -180 lon", () => {
-      const beachEdge: BeachWithMetrics = {
-        ...mockBeachComplete,
-        lat: 0,
-        lon: -180,
-      };
-
-      const result = validateBeachCoordinates(beachEdge, "test");
-      expect(result).toBe(true);
-    });
-
-    it("should log warning in development for invalid coordinates", () => {
-      const originalEnv = process.env.NODE_ENV;
-      Object.defineProperty(process.env, 'NODE_ENV', {
-        value: 'development',
-        writable: true,
-        configurable: true,
-      });
-      const consoleSpy = jest.spyOn(console, "warn").mockImplementation();
-
-      validateBeachCoordinates(mockBeachInvalidCoords, "test-context");
-
-      expect(consoleSpy).toHaveBeenCalled();
-      expect(consoleSpy.mock.calls[0][0]).toContain("Invalid coordinates");
-      expect(consoleSpy.mock.calls[0][0]).toContain("test-context");
-
-      consoleSpy.mockRestore();
-      Object.defineProperty(process.env, 'NODE_ENV', {
-        value: originalEnv,
-        writable: true,
-        configurable: true,
-      });
-    });
-  });
 
   describe("Type Safety", () => {
     it("should return object with all required SurfSpot fields", () => {

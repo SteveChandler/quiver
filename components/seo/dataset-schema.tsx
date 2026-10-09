@@ -1,3 +1,4 @@
+import { JsonLd } from "@/components/seo/funnel/JsonLd";
 /**
  * Dataset structured data for a buoy-record CSV. Describes only the stations
  * the page actually uses and the file readers can download.
@@ -43,9 +44,6 @@ export function DatasetSchema({ dataset, csvPath }: DatasetSchemaProps) {
   };
 
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
-    />
+    <JsonLd data={structuredData} />
   );
 }

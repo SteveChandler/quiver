@@ -204,7 +204,10 @@ test.describe("/app/handoff route", () => {
 
     expect([301, 302, 307, 308]).toContain(response.status());
     expect(response.headers()["location"] ?? "").toContain("apps.apple.com");
-    expect(response.headers()["location"] ?? "").toContain("ct=web");
+    // No page signal on this link, so it keeps the fallback web campaign.
+    expect(
+      new URL(response.headers()["location"] ?? "").searchParams.get("ct"),
+    ).toBe("web");
   });
 
   test("link-preview bot UA still gets the redirect, never a 403", async ({

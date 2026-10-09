@@ -1,8 +1,4 @@
-import {
-  MAP_IMAGE_PRESETS,
-  MAP_PRESET_USAGE,
-  getMapImageOptions,
-} from "@/lib/constants/map-presets";
+import { MAP_IMAGE_PRESETS, MAP_PRESET_USAGE } from "@/lib/constants/map-presets";
 
 describe("Map Presets", () => {
   describe("MAP_IMAGE_PRESETS", () => {
@@ -88,52 +84,6 @@ describe("Map Presets", () => {
     });
   });
 
-  describe("getMapImageOptions", () => {
-    it("should return preset options when given preset name", () => {
-      const options = getMapImageOptions("CARD_LARGE");
-      expect(options).toEqual({
-        width: 300,
-        height: 200,
-        zoom: 15,
-      });
-    });
-
-    it("should return custom options when given object", () => {
-      const customOptions = { width: 500, height: 300, zoom: 12 };
-      const options = getMapImageOptions(customOptions);
-      expect(options).toEqual(customOptions);
-    });
-
-    it("should work with all preset names", () => {
-      const presetNames = [
-        "CARD_LARGE",
-        "CARD_LARGE_WIDE",
-        "CARD_SMALL",
-        "HERO",
-        "MEDIUM",
-        "THUMBNAIL",
-        "SQUARE",
-        "FULL_WIDTH",
-      ] as const;
-
-      presetNames.forEach((presetName) => {
-        const options = getMapImageOptions(presetName);
-        expect(options).toEqual(MAP_IMAGE_PRESETS[presetName]);
-      });
-    });
-
-    it("should handle partial custom options", () => {
-      const partialOptions = { width: 150 };
-      const options = getMapImageOptions(partialOptions);
-      expect(options).toEqual({ width: 150 });
-    });
-
-    it("should handle empty custom options", () => {
-      const emptyOptions = {};
-      const options = getMapImageOptions(emptyOptions);
-      expect(options).toEqual({});
-    });
-  });
 
   describe("Preset consistency", () => {
     it("should have consistent aspect ratios for card sizes", () => {
@@ -170,24 +120,4 @@ describe("Map Presets", () => {
     });
   });
 
-  describe("Type safety", () => {
-    it("should enforce correct types for preset names", () => {
-      // This test ensures TypeScript compilation works correctly
-      const validPreset: keyof typeof MAP_IMAGE_PRESETS = "CARD_LARGE";
-      const options = getMapImageOptions(validPreset);
-      expect(options).toBeDefined();
-    });
-
-    it("should enforce correct types for custom options", () => {
-      // This test ensures TypeScript compilation works correctly
-      const customOptions: { width?: number; height?: number; zoom?: number } =
-        {
-          width: 100,
-          height: 100,
-          zoom: 10,
-        };
-      const options = getMapImageOptions(customOptions);
-      expect(options).toEqual(customOptions);
-    });
-  });
 });

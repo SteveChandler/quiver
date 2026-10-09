@@ -6,10 +6,10 @@ export type MajorEventHoldFixturePhase =
   | "held"
   | "cancelled";
 
-export const HOLD_TEST_BEACH_ID = "11111111-1111-4111-8111-111111111111";
+const HOLD_TEST_BEACH_ID = "11111111-1111-4111-8111-111111111111";
 export const HOLD_TEST_BEACH_NAME = "Major Event Test Beach";
 export const OBJECTIVE_WAVE_HEIGHT = "4-5ft";
-export const HOLD_TEST_CANDIDATE_ID = "recommendation:major-event-e2e";
+const HOLD_TEST_CANDIDATE_ID = "recommendation:major-event-e2e";
 
 function recommendationAvailability(
   phase: MajorEventHoldFixturePhase,

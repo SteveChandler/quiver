@@ -2,12 +2,7 @@
  * @jest-environment node
  */
 
-import {
-  SESSION_CREATED_EVENT,
-  SESSION_CREATED_NON_NORTH_STAR_EVENTS,
-  emitSessionCreatedEvent,
-  isNorthStarSessionEvent,
-} from "@/lib/analytics/session-created";
+import { SESSION_CREATED_EVENT, emitSessionCreatedEvent } from "@/lib/analytics/session-created";
 
 function resolved<T>(value: T): Promise<T> {
   return Promise.resolve(value);
@@ -111,14 +106,6 @@ describe("session_created analytics", () => {
       });
 
       expect(userEventsInsert).not.toHaveBeenCalled();
-    }
-  });
-
-  it("does not count intent or funnel events as north-star session creation", () => {
-    expect(isNorthStarSessionEvent(SESSION_CREATED_EVENT)).toBe(true);
-
-    for (const eventType of SESSION_CREATED_NON_NORTH_STAR_EVENTS) {
-      expect(isNorthStarSessionEvent(eventType)).toBe(false);
     }
   });
 });

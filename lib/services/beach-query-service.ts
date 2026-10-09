@@ -17,7 +17,7 @@ import type { ServerActionResponse } from "@/lib/server-action-utils";
 import { withServerAction, withPublicDatabaseOperation } from "@/lib/server-action-utils";
 import type { Database } from "@/types/database.generated";
 import type { Beach } from "@/types/database";
-import { isValidUUID } from "@/lib/utils/validation";
+import { isUuid } from "@/lib/utils/validation";
 
 // ---------------------------------------------------------------------------
 // Field constants (mirrored from actions/beach/beach-query-actions.ts)
@@ -81,7 +81,7 @@ export async function getBeachesFromDb(): Promise<ServerActionResponse<Beach[]>>
  * Extracted from `getBeachById()` in beach-query-actions.
  */
 export async function getBeachByIdFromDb(id: string): Promise<ServerActionResponse<Beach>> {
-  if (!isValidUUID(id)) {
+  if (!isUuid(id)) {
     return { success: false, error: "Invalid beach ID" };
   }
 

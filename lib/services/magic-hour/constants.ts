@@ -48,13 +48,6 @@ export const DEFAULT_WEIGHTS: WeightConfig = {
 };
 
 /**
- * Minimum tide change threshold for interpolation.
- * When tide change is less than this, we're in slack tide and
- * should use midpoint instead of interpolation to avoid division by zero.
- */
-export const SLACK_TIDE_THRESHOLD_FT = 0.01;
-
-/**
  * Half-window size in milliseconds for building optimal window.
  * Default is 30 minutes before and after peak time.
  */

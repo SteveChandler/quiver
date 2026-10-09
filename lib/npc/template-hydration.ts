@@ -260,14 +260,6 @@ export function hydrateTemplate(
 }
 
 /**
- * Extract variable names from a template
- */
-function extractVariables(template: string): string[] {
-  const matches = template.match(/\{\{(\w+)\}\}/g) || [];
-  return matches.map((match) => match.replace(/[{}]/g, ''));
-}
-
-/**
  * Fetch a random template for the given content type and personality
  */
 export async function fetchRandomTemplate(

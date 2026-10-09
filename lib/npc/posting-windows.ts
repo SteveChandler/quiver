@@ -12,8 +12,6 @@ export type PersonalityType =
   | 'competitor'
   | 'forecaster';
 
-type ActivityLevel = 'high' | 'medium' | 'low';
-
 interface PostingWindow {
   primary: [number, number]; // Start and end hour (0-23)
   secondary: [number, number] | []; // Optional secondary window
@@ -80,15 +78,6 @@ export function isWithinPostingWindow(
 }
 
 /**
- * Legacy compatibility: Check if personality is in posting window
- */
-export function isInPostingWindow(personality: PersonalityType, date: Date): boolean {
-  const hour = date.getHours();
-  const window = POSTING_WINDOWS[personality];
-  return isWithinPostingWindow(hour, window);
-}
-
-/**
  * Check if a personality type should be posting at the current time
  */
 export function shouldPostAtTime(
@@ -100,19 +89,6 @@ export function shouldPostAtTime(
   if (!window) return false;
 
   return isWithinPostingWindow(currentHour, window);
-}
-
-/**
- * Legacy compatibility: Should post now with probability
- */
-function shouldPostNow(
-  personality: PersonalityType,
-  activityLevel: ActivityLevel,
-  date: Date = new Date()
-): boolean {
-  if (!isInPostingWindow(personality, date)) return false;
-  const probability = { high: 0.7, medium: 0.4, low: 0.2 }[activityLevel];
-  return Math.random() < probability;
 }
 
 /**
@@ -154,13 +130,4 @@ export function describeTimeOfDay(hour: number): string {
   if (hour < 17) return 'afternoon';
   if (hour < 20) return 'sunset session';
   return 'evening';
-}
-
-/**
- * Format clock time for display
- */
-function formatClockTime(date: Date): string {
-  return date
-    .toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-    .replace(/\s/g, '');
 }

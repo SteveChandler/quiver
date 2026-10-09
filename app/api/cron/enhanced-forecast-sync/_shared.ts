@@ -22,7 +22,7 @@ import {
 } from "@/lib/monitoring/sentry-cron";
 
 // Allow up to 5 minutes for the cron job to complete (Vercel limit)
-export const MAX_DURATION_SECONDS = 300;
+const MAX_DURATION_SECONDS = 300;
 const DEFAULT_SAFETY_MARGIN_MS = 20_000;
 
 function getCronDeadlineMs(): { deadlineMs: number; timeBudgetMs: number; safetyMarginMs: number } {
@@ -111,7 +111,7 @@ export function resolveShardFromTime(
   return { shard, shardCount };
 }
 
-export interface RunEnhancedForecastSyncOptions {
+interface RunEnhancedForecastSyncOptions {
   /**
    * When true and URL has no shard query params, fall back to
    * time-based shard resolution (the consolidated dispatch entry-point).

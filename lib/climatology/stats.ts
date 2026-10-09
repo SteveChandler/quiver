@@ -1,3 +1,4 @@
+import { METERS_TO_FEET as M_TO_FT } from "@/lib/utils/unit-conversions";
 import { MIN_STATION_MONTHS } from "./coverage";
 import {
   SECTORS,
@@ -10,7 +11,6 @@ import {
   type WindMonthStats,
 } from "./types";
 
-const M_TO_FT = 3.28084;
 export const LIGHT_WIND_KT = 6;
 const ONSHORE_HALF_WIDTH_DEG = 67.5;
 export const WIND_BLOCKS = {
@@ -73,13 +73,7 @@ function values(hours: LocalHourObservation[], pick: (o: LocalHourObservation) =
 }
 
 function groupByDay(hours: LocalHourObservation[]): LocalHourObservation[][] {
-  const days = new Map<string, LocalHourObservation[]>();
-  for (const hour of hours) {
-    const key = `${hour.year}-${hour.month}-${hour.day}`;
-    const list = days.get(key) ?? [];
-    list.push(hour);
-    days.set(key, list);
-  }
+  const days = Map.groupBy(hours, (hour) => `${hour.year}-${hour.month}-${hour.day}`);
   return [...days.values()];
 }
 

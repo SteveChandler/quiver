@@ -225,7 +225,7 @@ export default function LearnHubPage() {
                   </p>
                 </div>
                 <div className="notebook">
-                  <p className="font-handwritten text-2xl leading-tight text-[#11100D]">
+                  <p className="text-lg font-semibold leading-snug text-[#11100D]">
                     Read height, period, wind, tide, and direction together.
                   </p>
                   <Link

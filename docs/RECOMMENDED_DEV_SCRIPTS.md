@@ -1,5 +1,7 @@
 # Recommended Development Scripts
 
+These are proposed additions, not current `package.json` scripts; add them before running the examples below.
+
 **Date**: November 15, 2025
 **Purpose**: Prevent stale webpack bundle issues and improve development workflow
 

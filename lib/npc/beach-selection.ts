@@ -9,7 +9,6 @@
 import { selectBeach } from "@/lib/recommendations/selection";
 
 const DEFAULT_TRAFFIC_FLOOR = 1;
-const DEFAULT_MAX_BEACH_SHARE = 0.12;
 
 export interface BeachTrafficWeight {
   beachId: string;
@@ -37,18 +36,6 @@ export interface NPCBeachConfig {
   maxBeachShare?: number;
   selectionRun?: BeachSelectionRun;
   excludedIds?: ReadonlySet<string>;
-}
-
-function createBeachSelectionRun(
-  targetPosts: number,
-  maxBeachShare: number = DEFAULT_MAX_BEACH_SHARE,
-): BeachSelectionRun {
-  return {
-    targetPosts: Math.max(1, Math.floor(targetPosts)),
-    maxBeachShare: clampShare(maxBeachShare),
-    counts: new Map<string, number>(),
-    total: 0,
-  };
 }
 
 function recordBeachSelection(
@@ -203,9 +190,4 @@ function finiteWeight(value: number): number {
 function normalizeRandom(value: number): number {
   if (!Number.isFinite(value) || value <= 0) return 0;
   return Math.min(value, 0.9999999999999999);
-}
-
-function clampShare(value: number): number {
-  if (!Number.isFinite(value)) return DEFAULT_MAX_BEACH_SHARE;
-  return Math.min(1, Math.max(0.01, value));
 }

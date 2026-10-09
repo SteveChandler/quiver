@@ -1,3 +1,5 @@
+import { setTimeout as sleep } from "node:timers/promises";
+import { chunk as splitIntoChunks } from "@/lib/utils/chunk";
 import {
   createErrorResponse,
   createSuccessResponse,
@@ -72,15 +74,6 @@ type TidePoint = {
   source: string;
 };
 type TideGroupFailure = "no_predictions" | "upsert_failed" | "time_budget" | "error";
-
-function chunkArray<T>(items: T[], chunkSize: number): T[][] {
-  if (chunkSize <= 0) return [items];
-  const out: T[][] = [];
-  for (let i = 0; i < items.length; i += chunkSize) {
-    out.push(items.slice(i, i + chunkSize));
-  }
-  return out;
-}
 
 function getSupabaseProjectRef(): string | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -238,7 +231,7 @@ async function _GET(request: Request): Promise<Response> {
         // The beach/time index bounds database work; output pagination alone does not.
         const checkedBeaches = new Set<string>();
         marineCoverage.freshnessCoverage.expectedCoverage = args.beaches.length;
-        for (const batch of chunkArray(args.beaches, 25)) {
+        for (const batch of splitIntoChunks(args.beaches, 25)) {
           if (shouldStop()) {
             rejectMarine("freshness_budget_exhausted");
             break;
@@ -399,7 +392,7 @@ async function _GET(request: Request): Promise<Response> {
         });
       }
 
-      const batches = chunkArray(
+      const batches = splitIntoChunks(
         // If both marine + sun are requested, run marine selection set (it’s likely superset during recovery).
         runMarine ? selectedMarineBeaches : selectedSunBeaches,
         BATCH_SIZE
@@ -647,7 +640,7 @@ async function _GET(request: Request): Promise<Response> {
             });
             break;
           }
-          await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
+          await sleep(BATCH_DELAY_MS);
         }
       }
     }
@@ -829,7 +822,7 @@ async function _GET(request: Request): Promise<Response> {
           if (!rows.length) return "no_predictions";
 
           let upsertFailed = false;
-          for (const chunk of chunkArray(rows, 1000)) {
+          for (const chunk of splitIntoChunks(rows, 1000)) {
             if (shouldStop()) {
               console.warn("[Forecast Refresh] Stopping early due to time budget (before tide upsert)", {
                 stationId,
@@ -950,7 +943,7 @@ async function _GET(request: Request): Promise<Response> {
                 tide_phase: null,
                 source: MODEL_TIDE_SOURCE,
               }));
-              for (const chunk of chunkArray(rows, 1000)) {
+              for (const chunk of splitIntoChunks(rows, 1000)) {
                 if (shouldStop()) {
                   failure = "time_budget";
                   break;

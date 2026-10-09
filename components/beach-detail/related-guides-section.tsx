@@ -82,12 +82,12 @@ export async function RelatedGuidesSection({
         className="group flex items-center justify-between gap-3 rounded-lg border-2 border-[#11100D] bg-[#EFE5CF] p-4 mb-3 transition-[background-color,border-color,box-shadow] hover:bg-[#F7E7BE] hover:shadow-[2px_2px_0_#11100D]"
       >
         <div className="flex items-center gap-2">
-          <PrimaryIcon className="h-5 w-5 text-[#0B3A75]" />
-          <span className="font-medium text-[#0B3A75] text-sm">
+          <PrimaryIcon className="h-5 w-5 text-[#8A5E00]" />
+          <span className="font-medium text-[#8A5E00] text-sm">
             {linkSet.primaryLink.label}
           </span>
         </div>
-        <ArrowRight className="h-4 w-4 text-[#0B3A75] group-hover:translate-x-0.5 transition-transform" />
+        <ArrowRight className="h-4 w-4 text-[#8A5E00] group-hover:translate-x-0.5 transition-transform" />
       </Link>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
         {linkSet.guides.map(({ key, label, href, icon: Icon, description }) => (
@@ -97,7 +97,7 @@ export async function RelatedGuidesSection({
             className="group flex flex-col gap-2 rounded-lg border-2 border-[#11100D] bg-[#F4EBD8] p-4 transition-colors hover:bg-[#F7E7BE]"
           >
             <div className="flex items-center gap-2">
-              <Icon className="h-5 w-5 text-[#0B3A75]" />
+              <Icon className="h-5 w-5 text-[#8A5E00]" />
               <span className="font-medium text-[#11100D] text-sm">{label}</span>
             </div>
             <p className="text-xs text-[#11100D]/75 line-clamp-2">{description}</p>

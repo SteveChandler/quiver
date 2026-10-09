@@ -252,27 +252,6 @@ export function trackAuthModalClosedWithoutAction(params: {
 }
 
 /**
- * @deprecated Use {@link trackAuthProviderSelected} instead. This helper is a
- * no-op retained only so existing call sites compile while we migrate dashboards
- * off the redundant `auth_method_selected` event. The event type remains in the
- * union (`types/implicit-preferences.ts`) for backwards compatibility with SQL
- * dashboards, but no new events will be emitted from the client.
- *
- * @param params.method - The auth method selected (apple/google/password/magic_link)
- * @param params.mode - The current mode (login/signup)
- */
-export function trackAuthMethodSelected(_params: {
-  method: "apple" | "google" | "password" | "magic_link";
-  mode: "login" | "signup";
-}): void {
-  if (process.env.NODE_ENV === "development") {
-    console.warn(
-      "[deprecated] trackAuthMethodSelected: use trackAuthProviderSelected instead"
-    );
-  }
-}
-
-/**
  * Track when user clicks a specific auth provider button (Google, Apple, Email).
  * Dual-fires to GA4 and /api/events for internal funnel measurement.
  *
@@ -593,48 +572,6 @@ export function trackSignupFailed(params: {
 export function trackMagicLinkSent(email_domain: string) {
   track("magic_link_sent", {
     email_domain,
-  });
-}
-
-/**
- * Track when a user clicks a magic link from email
- */
-export function trackMagicLinkClicked() {
-  track("magic_link_clicked", {
-    timestamp: Date.now(),
-  });
-}
-
-/**
- * Track successful auth redirect completion
- * @param return_path - The path the user was redirected to
- */
-export function trackAuthRedirectCompleted(return_path: string) {
-  track("auth_redirect_completed", {
-    return_path,
-  });
-}
-
-/**
- * Re-export existing auth wall events for consistency
- */
-
-/**
- * Track when the auth wall/gate is shown to user
- * @param delay_ms - The delay before showing the wall
- */
-export function trackAuthWallShown(delay_ms: number) {
-  track("auth_wall_shown", {
-    delay_ms,
-  });
-}
-
-/**
- * Track when user dismisses the auth wall/gate
- */
-export function trackAuthWallDismissed() {
-  track("auth_wall_dismissed", {
-    timestamp: Date.now(),
   });
 }
 

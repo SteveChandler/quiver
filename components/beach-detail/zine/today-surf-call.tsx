@@ -4,7 +4,12 @@ import type { SurfCallResult, SurfCallVerdict } from "@/lib/utils/surf-call-logi
 import type { SkillLevel } from "@/lib/domains/user-preferences/skill-level";
 import { degreeWindowToCardinal } from "@/lib/utils/direction-utils";
 import { formatTimeInTimezone } from "@/lib/utils/date-time";
-import { DoodleWave, DoodleWind, DoodleTide, DoodleStar, TornDivider, HandArrow } from "./atoms";
+import {
+  getSurfCallVerdictCall,
+  SCORE_LABEL_INK,
+  SCORE_LABEL_PAPER_WASH,
+} from "@/components/forecast/score-band-call";
+import { DoodleWave, DoodleWind, DoodleTide, DoodleStar, TornDivider } from "./atoms";
 
 interface TodaySurfCallProps {
   beach: Beach;
@@ -13,20 +18,24 @@ interface TodaySurfCallProps {
   isTomorrow?: boolean;
 }
 
-const ZINE_YES_DARK_TEAL_3_95_CONTRAST_ON_TAN = "#006B5F";
-
-const VERDICT_COLOR: Record<SurfCallVerdict, string> = {
-  YES: ZINE_YES_DARK_TEAL_3_95_CONTRAST_ON_TAN,
-  MAYBE: "#B47A0F",
-  NO: "#5C5A57",
-};
-
 type TierKey = "beginner" | "intermediate" | "advanced";
 const TIER_LABEL: Record<TierKey, string> = {
   beginner: "beginners",
   intermediate: "intermediates",
   advanced: "advanced surfers",
 };
+
+/** Native's eyebrow: Space Mono bold caps, tracked, flat on paper. */
+const NOTE_STYLE = {
+  fontFamily: "var(--font-mono), monospace",
+  fontSize: 11,
+  fontWeight: 700,
+  letterSpacing: "0.16em",
+  textTransform: "uppercase",
+  color: "#4A463C",
+  background: "#F4EBD8",
+  padding: "2px 8px",
+} as const;
 
 function selectDisplayTier(userTier: SkillLevel | null | undefined): TierKey {
   if (userTier === "intermediate") return "intermediate";
@@ -56,7 +65,12 @@ export function TodaySurfCall({
     beachTimezone,
     tierSlice?.trail,
   );
-  const color = VERDICT_COLOR[verdict];
+  const call = getSurfCallVerdictCall(
+    verdict,
+    surfCallReport?.score,
+    isTomorrow ? "upcoming" : "now",
+  );
+  const color = SCORE_LABEL_INK[call.label];
 
   const isAuthed = userTier != null;
   const showUpgradeCta = tiers != null && !isAuthed;
@@ -88,10 +102,10 @@ export function TodaySurfCall({
       >
         {/* Section header — title only; metadata moves to the printer's mark at bottom-right */}
         <div className="flex items-center gap-3">
-          <DoodleStar size={20} color="#0B3A75" />
+          <DoodleStar size={20} color="#8A5E00" />
           <h2
             style={{
-              fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+              fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
               fontWeight: 400,
               fontSize: 26,
               color: "#11100D",
@@ -114,7 +128,13 @@ export function TodaySurfCall({
           {tiers && (
             <TierMarginScrawl displayTier={displayTier!} isAuthed={isAuthed} verdictColor={color} />
           )}
-          <YesStamp verdict={verdict} trail={trail} color={color} />
+          <CallCaption
+            label={call.label}
+            action={call.action}
+            trail={trail}
+            color={color}
+            wash={SCORE_LABEL_PAPER_WASH[call.label]}
+          />
         </div>
 
         {/* Why-callout — promoted from footer to right under the stamp.
@@ -153,7 +173,7 @@ export function TodaySurfCall({
             }}
             aria-label={`Updated ${updatedAt}`}
           >
-            ⚑ updated {updatedAt}
+            Updated {updatedAt}
           </div>
         )}
       </div>
@@ -161,52 +181,77 @@ export function TodaySurfCall({
   );
 }
 
-function YesStamp({ verdict, trail, color }: { verdict: SurfCallVerdict; trail: string; color: string }) {
+/**
+ * Native's call caption (`verdict-strip.tsx`): the rating and its call on a
+ * paper wash, in a comic panel with sticker corners, an ink outline and a hard
+ * ink drop. It never tilts, and the internal verdict never shows as copy.
+ */
+function CallCaption({
+  label,
+  action,
+  trail,
+  color,
+  wash,
+}: {
+  label: string;
+  action: string;
+  trail: string | null;
+  color: string;
+  wash: string;
+}) {
   return (
     <div
-      className="w-full flex flex-col items-center justify-center"
+      className="relative w-full overflow-hidden px-5 pb-4 pt-3 md:px-7 md:pb-5 md:pt-4"
       style={{
-        border: `5px double ${color}`,
-        padding: "10px 24px 8px",
-        transform: "rotate(-1.5deg)",
-        position: "relative",
-        filter: "url(#zine-rough-edge)",
-        background: `linear-gradient(180deg, rgba(244,235,216,0.6) 0%, ${color}1A 100%)`,
-        // Two-layer offset shadow sells the "stamped on paper twice" affordance.
-        boxShadow: `5px 6px 0 ${color}55, 12px 14px 0 ${color}22`,
+        background: wash,
+        border: "2.5px solid #11100D",
+        borderRadius: "12px 4px 14px 6px",
+        boxShadow: "7px 7px 0 #11100D",
       }}
     >
-      {/* Verdict word — the marquee. Massive, single-line, color-coded. */}
       <div
-        className="text-[96px] md:text-[150px]"
+        aria-hidden
+        className="pointer-events-none absolute inset-y-0 right-0 left-[45%]"
         style={{
-          fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
-          fontWeight: 900,
-          lineHeight: 0.88,
-          letterSpacing: "-0.025em",
-          color,
-          textTransform: "uppercase",
-          textAlign: "center",
-          textShadow: `2px 2px 0 ${color}33, -1px -1px 0 ${color}22`,
+          backgroundImage: "radial-gradient(rgba(17,16,13,0.07) 1.1px, transparent 1.3px)",
+          backgroundSize: "6px 6px",
         }}
-      >
-        {verdict}
-      </div>
-      {/* Trail caption — small stamp-impression date marker, not a separate label. */}
-      <div
-        className="-mt-1 md:mt-0"
-        style={{
-          fontFamily: "var(--font-mono), monospace",
-          fontSize: 11,
-          letterSpacing: "0.28em",
-          textTransform: "uppercase",
-          fontWeight: 700,
-          color: "#11100D",
-          textAlign: "center",
-          opacity: 0.78,
-        }}
-      >
-        {trail}
+      />
+      <div className="relative">
+        <div
+          className="text-[56px] md:text-[80px]"
+          style={{
+            fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
+            fontWeight: 700,
+            lineHeight: 0.95,
+            letterSpacing: "-0.02em",
+            color,
+            textTransform: "uppercase",
+          }}
+        >
+          {label}
+        </div>
+        <div
+          className="mt-1 text-xl md:text-2xl"
+          style={{ fontWeight: 700, lineHeight: 1.2, color: "#11100D" }}
+        >
+          {action}
+        </div>
+        {trail && (
+          <div
+            className="mt-2"
+            style={{
+              fontFamily: "var(--font-mono), monospace",
+              fontSize: 12,
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+              fontWeight: 700,
+              color: "#11100D",
+            }}
+          >
+            {trail}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -227,39 +272,21 @@ function TierMarginScrawl({
     return (
       <div
         className="absolute -top-4 -left-1 md:-top-5 md:-left-2 z-10 pointer-events-none"
-        style={{
-          transform: "rotate(-3deg)",
-          fontFamily: "var(--font-handwritten), cursive",
-          fontSize: 18,
-          fontWeight: 700,
-          color: "#0B3A75",
-          background: "rgba(244,235,216,0.85)",
-          padding: "2px 8px",
-          borderRadius: 2,
-        }}
+        style={NOTE_STYLE}
         aria-label={`Your call — for ${TIER_LABEL[displayTier]}`}
       >
-        ✦ your call <span style={{ opacity: 0.65, fontSize: 14 }}>· {TIER_LABEL[displayTier]}</span>
+        Your call · {TIER_LABEL[displayTier]}
       </div>
     );
   }
 
   return (
     <div
-      className="absolute -top-5 -left-2 md:-top-6 md:-left-3 z-10 pointer-events-none"
-      style={{
-        transform: "rotate(-4deg)",
-        fontFamily: "var(--font-handwritten), cursive",
-        fontSize: 22,
-        fontWeight: 700,
-        color: verdictColor,
-        background: "rgba(244,235,216,0.85)",
-        padding: "2px 10px",
-        borderRadius: 2,
-      }}
+      className="absolute -top-4 -left-1 md:-top-5 md:-left-2 z-10 pointer-events-none"
+      style={{ ...NOTE_STYLE, color: verdictColor }}
       aria-label="Beginner call — not you?"
     >
-      for beginners <span style={{ color: "#11100D" }}>— you?</span>
+      For beginners · <span style={{ color: "#11100D" }}>you?</span>
     </div>
   );
 }
@@ -269,34 +296,17 @@ function WhyCallout({ text }: { text: string }) {
     <div className="mt-6 md:mt-7 max-w-[640px] mx-auto">
       <p
         style={{
-          fontFamily: "var(--font-handwritten), cursive",
-          fontSize: 26,
-          lineHeight: 1.18,
+          fontFamily: "var(--font-sans), sans-serif",
+          fontSize: 17,
+          lineHeight: 1.45,
           color: "#11100D",
-          fontWeight: 700,
+          fontWeight: 500,
           margin: 0,
           textAlign: "center",
         }}
       >
-        <span aria-hidden style={{ color: "#0B3A75", marginRight: 6 }}>“</span>
         {text}
-        <span aria-hidden style={{ color: "#0B3A75", marginLeft: 4 }}>”</span>
       </p>
-      {/* Hand-drawn squiggle — wider/wavier than CSS wavy underline, sells the editorial annotation. */}
-      <svg
-        viewBox="0 0 240 8"
-        preserveAspectRatio="none"
-        aria-hidden
-        style={{ display: "block", width: "min(280px, 80%)", height: 8, marginTop: 4, marginInline: "auto" }}
-      >
-        <path
-          d="M 1 5 Q 12 0, 24 5 T 48 5 T 72 5 T 96 5 T 120 5 T 144 5 T 168 5 T 192 5 T 216 5 T 239 5"
-          stroke="#0B3A75"
-          strokeWidth="1.6"
-          fill="none"
-          strokeLinecap="round"
-        />
-      </svg>
     </div>
   );
 }
@@ -310,12 +320,11 @@ function UpgradeCallHint() {
         style={{
           display: "inline-flex",
           alignItems: "center",
-          gap: 14,
-          fontFamily: "var(--font-handwritten), cursive",
-          fontSize: 24,
+          gap: 8,
+          fontFamily: "var(--font-sans), sans-serif",
+          fontSize: 16,
           color: "#11100D",
           fontWeight: 700,
-          transform: "rotate(-2deg)",
           textDecoration: "none",
         }}
       >
@@ -323,16 +332,15 @@ function UpgradeCallHint() {
           surf at a higher level?{" "}
           <span
             style={{
-              textDecoration: "underline wavy",
-              textDecorationThickness: "2.5px",
-              textUnderlineOffset: 5,
-              textDecorationColor: "#B91C1C",
+              color: "#AA4918",
+              textDecoration: "underline",
+              textDecorationThickness: "2px",
+              textUnderlineOffset: 4,
             }}
           >
             get your call
           </span>
         </span>
-        <HandArrow dir="down-right" length={56} color="#11100D" strokeWidth={2.6} />
       </Link>
     </div>
   );
@@ -359,7 +367,7 @@ function ConditionStrip({
       big: swell,
       sub: null,
       font: "display" as const,
-      color: "#0B3A75",
+      color: "#8A5E00",
     },
     {
       label: "WIND",
@@ -432,7 +440,7 @@ function ConditionCell({
         className="text-[24px] md:text-[34px]"
         style={{
           fontFamily:
-            font === "display" ? "var(--font-zine-display), 'Bowlby One', sans-serif" : "var(--font-zine-display), 'Bowlby One', monospace",
+            font === "display" ? "var(--font-zine-display), 'Space Grotesk', sans-serif" : "var(--font-zine-display), 'Space Grotesk', monospace",
           fontWeight: 900,
           lineHeight: 1.05,
           color,
@@ -471,25 +479,27 @@ function normalizeTrailOverride(
   trail: string | null | undefined,
 ): string | null {
   if (!trail) return null;
-  if (verdict === "YES" && trail.trim().toUpperCase() === "PADDLE OUT") {
-    return "WORTH A SURF";
+  // The action phrase already makes the call; these would restate it.
+  if (verdict === "YES" && ["PADDLE OUT", "WORTH A SURF"].includes(trail.trim().toUpperCase())) {
+    return null;
   }
   return trail;
 }
 
+/** Timing under the call. The action phrase owns the call itself. */
 function buildDisplayTrail(
   verdict: SurfCallVerdict,
   windowStart: string | null | undefined,
   timezone: string | null | undefined,
   trailOverride?: string | null,
-): string {
+): string | null {
   const normalizedTrailOverride = normalizeTrailOverride(verdict, trailOverride);
   if (normalizedTrailOverride && isNonTimeTrailOverride(normalizedTrailOverride)) {
     return normalizedTrailOverride;
   }
 
   const formattedWindow = formatWindow(windowStart, timezone);
-  if (verdict === "YES") return formattedWindow ? `BEST AT ${formattedWindow}` : "WORTH A SURF";
+  if (verdict === "YES") return formattedWindow ? `BEST AT ${formattedWindow}` : null;
   if (verdict === "MAYBE") return formattedWindow ? `TRY AT ${formattedWindow}` : "KEEP WATCHING";
   return "WAIT FOR SWELL";
 }
