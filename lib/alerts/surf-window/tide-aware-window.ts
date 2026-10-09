@@ -132,17 +132,27 @@ export function findTideAwareWindow(args: TideAwareWindowArgs): TideAwareWindowR
       const capped = capToBestWindow(refined, best);
       const start = new Date(Math.max(dayStart, daylight.sunrise.getTime(), Date.parse(capped.start))).toISOString();
       const end = new Date(Math.min(dayEnd, daylight.sunset.getTime(), Date.parse(capped.end))).toISOString();
-      const rows = verdicts.filter(({ forecast }) => Date.parse(forecast.forecast_at) < Date.parse(end)
-        && Date.parse(forecast.forecast_at) + spacing > Date.parse(start));
+      const startMs = Date.parse(start);
+      const endMs = Date.parse(end);
+      const duration = endMs - startMs;
+      const rows = verdicts.filter(({ forecast }) => Date.parse(forecast.forecast_at) < endMs
+        && Date.parse(forecast.forecast_at) + spacing > startMs);
       if (rows.length === 0) continue;
-      if (Date.parse(end) - Date.parse(start) < MIN_SESSION_HOURS * HOUR_MS) continue;
+      if (duration < MIN_SESSION_HOURS * HOUR_MS) continue;
       const heights = rows.map(({ forecast }) => parseWaveHeightRangeFt(forecast.wave_height));
       if (heights.some((height) => height === null)) continue;
+      const scoredRows = group.map(({ forecast, score }) => {
+        const rowStart = Date.parse(forecast.forecast_at);
+        return { score, overlap: Math.max(0, Math.min(endMs, rowStart + spacing) - Math.max(startMs, rowStart)) };
+      });
+      const scoredDuration = scoredRows.reduce((sum, { overlap }) => sum + overlap, 0);
+      if (scoredDuration === 0) continue;
+      const tideTimes = [endMs, ...Array.from({ length: Math.ceil(duration / (HOUR_MS / 2)) }, (_, index) => startMs + index * HOUR_MS / 2)];
       candidates.push({ window: { start: new Date(start).toISOString(), end, localDate, timezone: args.timezone,
         faceHeightFt: { min: Math.min(...heights.map((height) => height!.min)), max: Math.max(...heights.map((height) => height!.max)) } },
-        score: rows.reduce((sum, { score }) => sum + score, 0) / rows.length,
-        duration: Date.parse(end) - Date.parse(start),
-        tideInside: rows.every(({ forecast }) => { const height = tideAt(Date.parse(forecast.forecast_at)); return height !== null && inBand(height); }) });
+        score: scoredRows.reduce((sum, { score, overlap }) => sum + score * overlap, 0) / scoredDuration,
+        duration,
+        tideInside: tideTimes.every((time) => { const height = tideAt(time); return height !== null && inBand(height); }) });
     }
   }
   const distanceToPeak = (window: NonNullable<TideAwareWindowResult['window']>): number =>

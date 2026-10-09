@@ -143,12 +143,72 @@ it('defaults a day with a single forecast row to one hour', () => {
   expect(result.window).toMatchObject({ start: at(10), end: at(11) });
 });
 
+it('reports a tide shift when the three-hourly row starts outside the band but the window stays inside', () => {
+  const rows = [2, 5, 8, 11, 14, 17, 20, 23].map((hour) => ({ ...forecasts[hour], wave_height: '3-4 ft' }));
+  const samples = Array.from({ length: 241 }, (_, index) => {
+    const hour = index / 10;
+    return { at: new Date(Date.parse(at(0)) + index * 6 * 60_000).toISOString(),
+      heightFt: hour <= 5 ? 5 : hour < 6 ? 5 - (hour - 5) * 3 : 2 };
+  });
+  jest.mocked(windowSelector.selectBestWindows).mockReturnValueOnce([]);
+  const result = findTideAwareWindow({ ...input, forecasts: rows, tideSamples: samples, peakAt: at(5),
+    verdictFor: (row) => ({ forecast: row, score: 85, verdict: row.id === 'hour-5' || row.id === 'hour-8' ? 'go' : 'no' } as ForecastVerdict) });
+  const daylight = getDaylightWindow(beach.lat, beach.lon, new Date(at(5)));
+  expect(result).toMatchObject({ state: 'recommended', window: { start: daylight.sunrise.toISOString() },
+    reasons: ['high_tide_outside_preference', 'better_tide_after_peak'] });
+  expect(Date.parse(result.window!.start)).toBeLessThan(Date.parse(at(8)));
+  expect(Date.parse(result.window!.end)).toBeLessThanOrEqual(Date.parse(at(11)));
+});
+
+it.each(['interior', 'end'])('withholds a tide-shift reason when the window tide is out of band at its %s', (position) => {
+  const rows = [2, 5, 8, 11, 14, 17, 20, 23].map((hour) => ({ ...forecasts[hour], wave_height: '3-4 ft' }));
+  const start = at(8);
+  const end = new Date(Date.parse(at(10)) + 15 * 60_000).toISOString();
+  const excursion = position === 'interior' ? new Date(Date.parse(start) + 30 * 60_000).toISOString() : end;
+  const samples = Array.from({ length: 49 }, (_, index) => ({ at: new Date(Date.parse(at(0)) + index * 30 * 60_000).toISOString(),
+    heightFt: index === 10 ? 5 : 2 }));
+  samples.push({ at: excursion, heightFt: 5 });
+  // Replace an existing sample at the excursion rather than adding a duplicate timestamp.
+  const curve = samples.filter((sample, index) => sample.at !== excursion || index === samples.length - 1);
+  jest.mocked(windowSelector.selectBestWindows).mockReturnValueOnce([]);
+  const result = findTideAwareWindow({ ...input, forecasts: rows, tideSamples: curve, arrivalAt: start, fadeAt: end, peakAt: at(5),
+    verdictFor: (row) => ({ forecast: row, score: 85, verdict: row.id === 'hour-8' ? 'go' : 'no' } as ForecastVerdict) });
+  expect(result).toMatchObject({ state: 'recommended', window: { start, end }, reasons: [] });
+});
+
+it('ranks a strong go run above a weaker run despite a low-scoring no row at the refined edge', () => {
+  const rows = [2, 5, 8, 11, 14, 17, 20, 23].map((hour) => ({ ...forecasts[hour],
+    wave_height: hour === 5 ? '6-7 ft' : '3-4 ft', tide_height: hour === 5 ? '4' : '2' }));
+  const samples = Array.from({ length: 241 }, (_, index) => {
+    const hour = index / 10;
+    return { at: new Date(Date.parse(at(0)) + index * 6 * 60_000).toISOString(),
+      heightFt: hour < 2 || hour > 8 ? 2 : hour <= 5 ? 2 + (hour - 2) * 2 / 3 : 4 - (hour - 5) * 2 / 3 };
+  });
+  jest.mocked(windowSelector.selectBestWindows).mockReturnValueOnce([]).mockReturnValueOnce([]);
+  const result = findTideAwareWindow({ ...input, forecasts: rows, tideSamples: samples,
+    verdictFor: (row) => ({ forecast: row, score: row.id === 'hour-17' ? 70 : row.id === 'hour-8' || row.id === 'hour-11' ? 90 : 0,
+      verdict: ['hour-8', 'hour-11', 'hour-17'].includes(row.id) ? 'go' : 'no' } as ForecastVerdict) });
+  expect(result.state).toBe('recommended');
+  expect(Date.parse(result.window!.start)).toBeLessThan(Date.parse(at(8)));
+  expect(Date.parse(result.window!.end)).toBeLessThan(Date.parse(at(12)));
+  expect(result.window!.faceHeightFt).toEqual({ min: 3, max: 7 });
+});
+
+it('weights go scores by their overlap duration rather than their row count', () => {
+  const rows = [5, 8, 11, 14, 17, 20].map((hour) => ({ ...forecasts[hour], wave_height: '3-4 ft', tide_height: '2' }));
+  const scores = new Map([['hour-8', 60], ['hour-11', 100], ['hour-17', 75]]);
+  jest.mocked(windowSelector.selectBestWindows).mockReturnValueOnce([]).mockReturnValueOnce([]);
+  const result = findTideAwareWindow({ ...input, forecasts: rows, tideSamples: tideSamples.map((sample) => ({ ...sample, heightFt: 2 })),
+    verdictFor: (row) => ({ forecast: row, score: scores.get(row.id) ?? 0, verdict: scores.has(row.id) ? 'go' : 'no' } as ForecastVerdict) });
+  expect(result.window).toMatchObject({ start: at(17), faceHeightFt: { min: 3, max: 4 } });
+});
+
 it('waits for the tide after the peak and reports the face height during that window', () => {
   const result = findTideAwareWindow(input);
   expect(result.state).toBe('recommended');
   expect(result.window).toMatchObject({ start: at(10), end: at(12), localDate: date, timezone, faceHeightFt: { min: 3, max: 4 } });
   expect(result.window?.start).not.toBe(input.peakAt);
-  expect(result.reasons).toEqual(['high_tide_outside_preference', 'better_tide_after_peak']);
+  expect(result.reasons).toEqual([]);
 });
 
 it('uses the same curve differently for a mid/high tide beach', () => {
@@ -174,7 +234,7 @@ it('selects a stronger run on the next beach-local day', () => {
     forecasts: [...forecasts, ...rows], tideSamples: [...tideSamples, ...rows.map((row) => ({ at: row.forecast_at, heightFt: Number(row.tide_height) })),
       { at: at(0, '2026-10-10'), heightFt: 5 }] });
   expect(result.window).toMatchObject({ start: at(10, nextDate), end: at(12, nextDate), localDate: nextDate });
-  expect(result.reasons).toContain('better_tide_after_peak');
+  expect(result.reasons).toEqual([]);
 });
 
 it('uses the injected eligibility predicate consistently for evidence and tide reasons', () => {
@@ -206,7 +266,7 @@ it('allows the tide-reason predicate to exclude a curated band', () => {
 
 it('emits a before-peak reason for an unsuitable low tide', () => {
   const rows = forecasts.map((row, hour) => ({ ...row, tide_height: hour >= 10 && hour < 12 ? '2' : '-1' }));
-  const result = findTideAwareWindow({ ...input, peakAt: at(15), forecasts: rows,
+  const result = findTideAwareWindow({ ...input, peakAt: at(15), fadeAt: at(11), forecasts: rows,
     tideSamples: [...rows.map((row) => ({ at: row.forecast_at, heightFt: Number(row.tide_height) })), { at: at(0, '2026-10-09'), heightFt: -1 }] });
   expect(result.reasons).toEqual(['low_tide_outside_preference', 'better_tide_before_peak']);
 });
@@ -257,7 +317,7 @@ it('leaves within-hour tide tolerance to the canonical verdict', () => {
 it('uses the rest of the peak day when fadeAt is missing', () => {
   const result = findTideAwareWindow({ ...input, fadeAt: null });
   expect(result.window).toMatchObject({ start: at(10), end: at(12), localDate: date });
-  expect(result.reasons).toContain('better_tide_after_peak');
+  expect(result.reasons).toEqual([]);
 });
 
 it('starts its four-date budget from the later of arrival and now', () => {
