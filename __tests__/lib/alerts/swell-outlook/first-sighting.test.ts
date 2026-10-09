@@ -21,8 +21,8 @@ it("puts the lead and two options in both the first-sighting text and ranked tap
   const payload = buildFirstSightingPayload({ ...args, swell: outlookSwell({ options: OPTIONS }) });
   expect(payload.beaches).toEqual([
     { beach_id: HOME, beach_name: "Blacks Beach", rank: 1 },
-    { beach_id: OTHER, beach_name: "Scripps", rank: 2 },
-    { beach_id: OPTIONS[1].beachId, beach_name: "Del Mar", rank: 3 },
+    { beach_id: OTHER, beach_name: "Scripps", rank: 2, forecast_at: args.swell.peakAt },
+    { beach_id: OPTIONS[1].beachId, beach_name: "Del Mar", rank: 3, forecast_at: args.swell.peakAt },
   ]);
   expect(payload.body).toBe("WNW swell from the North Pacific, 14s. Peaks Monday morning. Sets up to 4.5 ft at Blacks Beach. "
     + "Also: Scripps up to 4 ft, Del Mar up to 3 ft. Showing at 3 nearby breaks.");

@@ -206,7 +206,9 @@ export function buildFirstSightingPayload(args: {
     } } : {}),
     beaches: [
       { beach_id: swell.beach.id, beach_name: swell.beach.name, rank: 1 },
-      ...(swell.options ?? []).map((option, index) => ({ beach_id: option.beachId, beach_name: option.beachName, rank: index + 2 })),
+      ...(swell.options ?? []).map((option, index) => ({
+        beach_id: option.beachId, beach_name: option.beachName, rank: index + 2, forecast_at: swell.peakAt,
+      })),
     ],
     event_key: swell.eventKey,
     title_id: headline.titleId,
