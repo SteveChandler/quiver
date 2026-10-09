@@ -300,6 +300,17 @@ describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () =>
       type: "daily_call",
       data: payload,
     });
+    expect(def.buildPushPayload!(payload).data).not.toHaveProperty("options");
+    const options = [{
+      beach_id: "22222222-2222-4222-8222-222222222222", beach_slug: "scripps", beach_name: "Scripps",
+      window_start: "2026-09-18T16:00:00.000Z", window_end: "2026-09-18T18:00:00.000Z",
+      window_local: "9–11 AM", wave_height_ft: null, relation: "home" as const,
+    }];
+    const withOptions = def.validatePayload!({ ...payload, options });
+    const push = def.buildPushPayload!(withOptions);
+    expect(push.body).toBe(`${payload.reason} Also: Scripps 9–11 AM.`);
+    expect(JSON.parse(push.data.options as string)).toEqual(options);
+    expect(def.buildInAppPayload!(withOptions).data).toEqual(withOptions);
   });
 
   it("forecast_alert in-app payload carries selected-window beach context", () => {
