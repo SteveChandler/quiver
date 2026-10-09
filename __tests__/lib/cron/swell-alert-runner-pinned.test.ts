@@ -178,6 +178,50 @@ describe("pinned swell follow-ups on the real detector", () => {
     return { ...events[0], eventKey: saturdayKey };
   }
 
+  function octoberXForecasts(): EnhancedForecastEntity[] {
+    return octoberForecasts().map((forecast) => {
+      const at = forecast.forecast_at;
+      return {
+        ...forecast,
+        swell_1_height: `${at.startsWith("2026-10-08") ? 2 : at === "2026-10-09T00:00:00.000Z" ? 3 : 0.5} ft`,
+        swell_1_period: "11s",
+      };
+    });
+  }
+
+  function coexistingSnapshots(): { snapshots: ReturnType<typeof toSwellEventSnapshotRow>[]; x: ReturnType<typeof saturdayEvent> } {
+    const xEvents = detectBeachSwellEvents({ beach: toSwellEventBeach(beach), forecasts: octoberXForecasts(), now: oct6, timezone: profile.timezone });
+    expect(xEvents).toHaveLength(1);
+    const x = xEvents[0];
+    const y = saturdayEvent(octoberForecasts());
+    expect(x.peakAt).toBe("2026-10-09T00:00:00.000Z");
+    expect(y.peakAt).toBe("2026-10-10T15:00:00.000Z");
+    expect(Math.abs(Date.parse(y.peakAt) - Date.parse(x.peakAt)) / 3_600_000).toBe(39);
+    expect(y.peakFaceHeightFt / x.peakFaceHeightFt).toBeGreaterThan(1.2);
+    expect(y.peakFaceHeightFt / x.peakFaceHeightFt).toBeLessThan(1.5);
+    const detectedAt = new Date("2026-10-05T14:30:00.000Z");
+    return {
+      x: { ...x, eventKey: `${BEACH_ID}:SW:2026-10-07` },
+      snapshots: [
+        toSwellEventSnapshotRow({ ...x, eventKey: `${BEACH_ID}:SW:2026-10-07` }, detectedAt),
+        toSwellEventSnapshotRow({ ...y, eventKey: `${BEACH_ID}:SW:2026-10-11` }, detectedAt),
+      ],
+    };
+  }
+
+  function pinnedXState(x: ReturnType<typeof saturdayEvent>) {
+    return {
+      ...STATE_ROW,
+      event_key: x.eventKey,
+      last_arrival_at: x.arrivalAt,
+      last_peak_at: x.peakAt,
+      last_face_height_ft: String(x.peakFaceHeightFt),
+      last_period_s: String(x.periodS),
+      last_direction_deg: String(x.directionDeg),
+      last_told_at: "2026-10-06T15:24:00.000Z",
+    };
+  }
+
   async function firstOctoberSighting() {
     const forecasts = octoberForecasts();
     const event = saturdayEvent(forecasts);
@@ -215,6 +259,24 @@ describe("pinned swell follow-ups on the real detector", () => {
     const fake = client({ forecasts, states: [state], snapshots: [toSwellEventSnapshotRow(event, oct6)] });
     const next = await run(fake, new Date("2026-10-06T16:24:00.000Z"));
     expect(next.result.errors).toBe(0);
+    expect(next.result.skippedCounts.followup_no_change).toBe(1);
+    expect(next.enqueue).not.toHaveBeenCalled();
+    expect(fake.stateWrites).toEqual([]);
+  });
+
+  it("drops X instead of moving it to Y when X and similar Y coexisted in the Oct 5 detector run", async () => {
+    const { snapshots, x } = coexistingSnapshots();
+    const fake = client({ forecasts: octoberForecasts(), states: [pinnedXState(x)], snapshots });
+    const next = await run(fake, new Date("2026-10-08T15:24:00.000Z"));
+    expect(next.result.sentByKind).toEqual({ dropped: 1 });
+    expect(next.enqueue).toHaveBeenCalledTimes(1);
+    expect(next.payload).toMatchObject({ kind: "dropped", event_key: x.eventKey, peak_date: "2026-10-08" });
+  });
+
+  it("stays quiet when X still exists while similar Y coexists under its own key", async () => {
+    const { snapshots, x } = coexistingSnapshots();
+    const fake = client({ forecasts: octoberXForecasts(), states: [pinnedXState(x)], snapshots });
+    const next = await run(fake, new Date("2026-10-07T15:24:00.000Z"));
     expect(next.result.skippedCounts.followup_no_change).toBe(1);
     expect(next.enqueue).not.toHaveBeenCalled();
     expect(fake.stateWrites).toEqual([]);

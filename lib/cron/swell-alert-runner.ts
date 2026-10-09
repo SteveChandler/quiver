@@ -804,9 +804,19 @@ async function evaluatePinned(
   );
   const toldPeakAt = Date.parse(state.lastPeakAt);
   const told = { directionDeg: state.lastDirectionDeg, periodS: state.lastPeriodS };
+  const pinnedRunDates = new Set(snapshots
+    .filter((snapshot) => snapshot.eventKey === state.eventKey
+      && snapshot.detectorVersion === SWELL_EVENT_DETECTOR_VERSION)
+    .map(({ runDate }) => runDate));
+  const coexistingKeys = new Set(snapshots
+    .filter((snapshot) => snapshot.detectorVersion === SWELL_EVENT_DETECTOR_VERSION
+      && pinnedRunDates.has(snapshot.runDate))
+    .map(({ eventKey }) => eventKey));
   // Keys can change; the told component and size anchor identity under every key.
-  const event = events
+  const event = events.find(({ eventKey }) => eventKey === state.eventKey)
+    ?? events
     .filter((candidate) => tracksSwellComponent(told, candidate)
+      && !coexistingKeys.has(candidate.eventKey)
       && candidate.peakFaceHeightFt <= state.lastFaceHeightFt * SWELL_EVENT_THRESHOLDS.trackSizeRatio
       && state.lastFaceHeightFt <= candidate.peakFaceHeightFt * SWELL_EVENT_THRESHOLDS.trackSizeRatio
       && Math.abs(Date.parse(candidate.peakAt) - toldPeakAt) <= PINNED_MAX_PEAK_SHIFT_MS)
