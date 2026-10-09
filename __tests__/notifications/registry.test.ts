@@ -6,8 +6,27 @@
  */
 
 import { NOTIFICATION_REGISTRY } from "@/lib/notifications/registry";
+import { buildFirstSightingPayload } from "@/lib/alerts/swell-outlook/first-sighting";
+import { outlookSwell } from "@/__tests__/helpers/outlook-swell";
 
 describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () => {
+  it("serializes first-sighting beach options with the peak timestamp for native chips", () => {
+    const swell = outlookSwell({ peakAt: "2026-09-22T18:00:00.000Z", options: [
+      { beachId: "22222222-2222-4222-8222-222222222222", beachName: "Scripps", relation: "favorite", faceHeightFt: { min: 3, max: 4 } },
+      { beachId: "33333333-3333-4333-8333-333333333333", beachName: "Del Mar", relation: "nearby", faceHeightFt: { min: 2, max: 3 } },
+    ] });
+    const def = NOTIFICATION_REGISTRY.swell_watch;
+    const payload = def.validatePayload!(buildFirstSightingPayload({ swell, timezone: "America/Los_Angeles" }));
+    const push = def.buildPushPayload!(payload);
+    expect(push.data.type).toBe("swell_watch");
+    expect(push.data.forecast_at).toBe(swell.peakAt);
+    expect(push.data.beaches).toBe(JSON.stringify([
+      { beach_id: swell.beach.id, beach_name: swell.beach.name, rank: 1 },
+      { beach_id: "22222222-2222-4222-8222-222222222222", beach_name: "Scripps", rank: 2, forecast_at: swell.peakAt },
+      { beach_id: "33333333-3333-4333-8333-333333333333", beach_name: "Del Mar", rank: 3, forecast_at: swell.peakAt },
+    ]));
+  });
+
   it("keeps watched-call payloads bounded and category-specific", () => {
     const def = NOTIFICATION_REGISTRY.watched_call_update;
     const payload = def.validatePayload!({
