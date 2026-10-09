@@ -10,6 +10,7 @@ import {
   type BuildSwellOutlookInput,
 } from "@/lib/services/discovery/swell-outlook";
 import { matchStormOnBearing } from "@/lib/services/discovery/swell-outlook-source";
+import { renderFirstSightingBody } from "@/lib/alerts/swell-outlook/first-sighting";
 import type { OutlookSwell } from "@/lib/services/discovery/swell-outlook-types";
 import type { SwellEventSnapshot } from "@/lib/alerts/swell-events";
 import { createMockBeach } from "@/__tests__/setup/typed-mocks";
@@ -59,6 +60,85 @@ function input(overrides: Partial<BuildSwellOutlookInput> = {}): BuildSwellOutlo
 }
 
 describe("buildSwellOutlook", () => {
+  it("leaves the faded Thursday pulse unpinned when Oct 6 no longer emits its old notable key", () => {
+    const thursday = pulse(HOME, {
+      runDate: "2026-10-06", detectedAt: "2026-10-06T14:30:00.000Z",
+      eventKey: `${HOME}:SW:2026-10-08:p`, directionDeg: 202.5, periodS: 15,
+      peakFaceHeightFt: 2.7, arrivalAt: "2026-10-08T07:00:00.000Z", peakAt: "2026-10-09T00:00:00.000Z",
+      fadeAt: "2026-10-09T12:00:00.000Z",
+    });
+    const stale = { ...thursday, eventKey: `${HOME}:SW:2026-10-07`, detectorVersion: "swell-events.v1",
+      runDate: "2026-10-05", detectedAt: "2026-10-05T14:30:00.000Z", peakFaceHeightFt: 3.6, periodS: 11 };
+    const saturday = { ...stale, eventKey: `${HOME}:SW:2026-10-11`, runDate: "2026-10-06",
+      detectedAt: "2026-10-06T14:30:00.000Z", peakAt: "2026-10-10T15:00:00.000Z", peakFaceHeightFt: 3.3, periodS: 14 };
+    const [swell] = buildSwellOutlook(input({
+      now: new Date("2026-10-06T15:24:00.000Z"), pulseSnapshots: [thursday], notableSnapshots: [stale, saturday],
+    })).response.swells;
+    expect(swell).toMatchObject({ notable: false, eventKey: thursday.eventKey, peakAt: thursday.peakAt, periodS: 15 });
+  });
+
+  it("uses the current notable event's facts for a linked first sighting, rather than the pulse's facts", () => {
+    const notable = pulse(HOME, {
+      eventKey: `${HOME}:W:2026-09-28`, detectorVersion: "swell-events.v1",
+      peakAt: "2026-09-29T07:00:00.000Z", arrivalAt: "2026-09-28T13:00:00.000Z",
+      fadeAt: "2026-09-30T07:00:00.000Z", periodS: 16, directionDeg: 280, peakFaceHeightFt: 5,
+    });
+    const [swell] = buildSwellOutlook(input({ notableSnapshots: [notable] })).response.swells;
+    expect(swell).toMatchObject({
+      notable: true, eventKey: notable.eventKey, peakAt: notable.peakAt, arrivalAt: notable.arrivalAt,
+      fadeAt: notable.fadeAt, periodS: 16, directionDeg: 280, faceHeightFt: { min: 4.5, max: 6 },
+    });
+  });
+
+  it("does not mix pulse and notable sizes in the first-sighting orientation sentence", () => {
+    const pool = [
+      { beach: beach(HOME, "Home Beach", 270), relation: "home" as const },
+      { beach: beach(SECOND, "South Beach", 190), relation: "nearby" as const },
+    ];
+    const notable = pulse(HOME, {
+      eventKey: `${HOME}:W:2026-09-28`, detectorVersion: "swell-events.v1", peakFaceHeightFt: 6,
+    });
+    const [swell] = buildSwellOutlook(input({
+      pool,
+      pulseSnapshots: [pulse(HOME, { peakFaceHeightFt: 4 }), pulse(SECOND, { peakFaceHeightFt: 5 })],
+      notableSnapshots: [notable],
+    })).response.swells;
+
+    expect(swell.sizeByOrientation).toMatchObject({ westFacing: { min: 5, max: 7 }, southFacing: null });
+    expect(renderFirstSightingBody({ swell, timezone: TIMEZONE, hazard: null })).not.toContain("South-facing");
+  });
+
+  it("uses notable history for linked change and confidence when pulse history differs", () => {
+    const currentPulse = pulse(HOME, {
+      peakOffshoreHeightFt: 3, peakFaceHeightFt: 4, peakAt: "2026-09-29T07:00:00.000Z",
+    });
+    const previousPulse = pulse(HOME, {
+      runDate: "2026-09-24", detectedAt: "2026-09-24T14:30:00.000Z",
+      peakOffshoreHeightFt: 2, peakFaceHeightFt: 3, peakAt: "2026-09-28T19:00:00.000Z",
+    });
+    const notableKey = `${HOME}:W:2026-09-29`;
+    const currentNotable = pulse(HOME, {
+      eventKey: notableKey, detectorVersion: "swell-events.v1", peakOffshoreHeightFt: 3.2,
+      peakFaceHeightFt: 4.2, peakAt: "2026-09-29T07:00:00.000Z",
+    });
+    const previousNotable = pulse(HOME, {
+      eventKey: notableKey, detectorVersion: "swell-events.v1", runDate: "2026-09-24",
+      detectedAt: "2026-09-24T14:30:00.000Z", peakOffshoreHeightFt: 3.1,
+      peakFaceHeightFt: 4.1, peakAt: "2026-09-29T07:00:00.000Z",
+    });
+    const [swell] = buildSwellOutlook(input({
+      pulseSnapshots: [currentPulse, previousPulse],
+      notableSnapshots: [currentNotable, previousNotable],
+    })).response.swells;
+
+    expect(swell).toMatchObject({ notable: true, change: "steady", tier: "likely" });
+  });
+
+  it.each([{ periodS: 18 }, { peakFaceHeightFt: 7 }])("does not borrow a live notable key from a different component: %s", (facts) => {
+    const [swell] = buildSwellOutlook(input({ notableSnapshots: [pulse(HOME, { eventKey: "other-key", ...facts })] })).response.swells;
+    expect(swell).toMatchObject({ notable: false, eventKey: pulse(HOME).eventKey });
+  });
+
   it("builds an empty outlook for an empty pool", () => {
     const { response, list } = buildSwellOutlook(input({ pool: [], homeBeachId: null, pulseSnapshots: [] }));
     expect(response).toMatchObject({ runDate: "2026-09-25", horizonDays: 9, homeBeach: null, swells: [] });
@@ -309,6 +389,7 @@ describe("buildSwellOutlook", () => {
     ] })).response.swells;
     expect(swell).toMatchObject({ eventKey: "notable-key", notable: true, faceHeightFt: { min: 3.5, max: 4.5 } });
     expect(swell.history).toEqual([
+      { runDate: "2026-09-23", peakAt: localIso(3, 12), faceHeightFt: 3, periodS: 14 },
       { runDate: "2026-09-25", peakAt: localIso(3, 12), faceHeightFt: 4, periodS: 14 },
     ]);
   });
@@ -403,7 +484,7 @@ describe("buildSwellOutlook", () => {
     expect(buildSwellOutlook(args).response.swells.map((swell) => swell.id)).toEqual(response.swells.map((swell) => swell.id));
   });
 
-  it("keeps notable-linked history aligned with the current pulse representative", () => {
+  it("keeps pulse history when only a stale notable snapshot matches", () => {
     const current = pulse(HOME, { peakFaceHeightFt: 4.04, periodS: 13.6 });
     const older = pulse(HOME, { runDate: "2026-09-24", detectedAt: "2026-09-24T14:30:00.000Z", peakFaceHeightFt: 3.04, peakOffshoreHeightFt: 2.4, periodS: 12.4 });
     const notable = pulse(HOME, { eventKey: "notable-link", detectorVersion: "swell-events.v1", peakFaceHeightFt: 9, periodS: 18 });
@@ -411,7 +492,7 @@ describe("buildSwellOutlook", () => {
       pulseSnapshots: [current, pulse(SECOND, { peakFaceHeightFt: 7 }), older, { ...current, detectedAt: "2026-09-25T14:00:00.000Z", peakFaceHeightFt: 6 }],
       notableSnapshots: [{ ...notable, runDate: "2026-09-23", detectedAt: "2026-09-23T14:30:00.000Z" }],
     })).response.swells;
-    expect(swell).toMatchObject({ notable: true, eventKey: "notable-link", faceHeightFt: { min: 3.5, max: 4.5 }, periodS: 14, change: "upgraded" });
+    expect(swell).toMatchObject({ notable: false, eventKey: current.eventKey, faceHeightFt: { min: 3.5, max: 4.5 }, periodS: 14, change: "upgraded" });
     expect(swell.history).toEqual([
       { runDate: "2026-09-24", peakAt: older.peakAt, faceHeightFt: 3, periodS: 12 },
       { runDate: "2026-09-25", peakAt: current.peakAt, faceHeightFt: 4, periodS: 14 },

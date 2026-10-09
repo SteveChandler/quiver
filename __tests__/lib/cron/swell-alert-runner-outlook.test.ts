@@ -207,6 +207,15 @@ describe("swell alert cron: outlook users", () => {
     expect(notable.saveFirstTold).toHaveBeenCalledWith(expect.objectContaining({ userId: USER, eventKey: `${HOME}:NW:2026-09-21`, beachId: HOME }));
   });
 
+  it("counts a first sighting that cannot be pinned because it has no same-run notable match", async () => {
+    const deps = makeDeps({ loadOutlook: jest.fn(async () => [outlookSwell({ notable: false })]) });
+    const summary = await runSwellAlertCron({ now: MORNING, deps: deps as never });
+
+    expect(summary.sentByKind.coming).toBe(1);
+    expect(summary.skippedCounts.first_sighting_unpinned).toBe(1);
+    expect(deps.saveFirstTold).not.toHaveBeenCalled();
+  });
+
   it("records nothing and sends nothing when the enqueue is refused", async () => {
     const deps = makeDeps({ enqueue: jest.fn(async () => ({ enqueued: false as const, reason: "duplicate" as const })) });
     const summary = await runSwellAlertCron({ now: MORNING, deps: deps as never });
