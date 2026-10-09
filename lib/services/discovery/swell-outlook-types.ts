@@ -1,4 +1,5 @@
 import type { BoardClass } from '@/lib/domains/rideability';
+import type { PoolRelation } from '@/lib/alerts/user-pool';
 
 import type { SwellChangeKind, SwellConfidence } from './swell-tracking';
 
@@ -37,6 +38,13 @@ export interface OutlookSwell {
   directionDeg: number;
   directionLabel: string;
   beach: { id: string; name: string };
+  /** Absent on lists stored before beach options were added. */
+  options?: Array<{
+    beachId: string;
+    beachName: string;
+    relation: PoolRelation;
+    faceHeightFt: FaceHeightRangeFt;
+  }>;
   beachCount: number;
   notable: boolean;
   fit: SwellFit;
