@@ -642,7 +642,18 @@ export const NOTIFICATION_REGISTRY = {
           window_end: p.window_end,
           window_local: p.window_local,
           drivers: JSON.stringify(p.drivers),
-          ...(options.length ? { options: JSON.stringify(options) } : {}),
+          ...(options.length ? {
+            options: JSON.stringify(options),
+            beaches: JSON.stringify([
+              { beach_id: p.beach_id, beach_name: p.beach_name, rank: 1, forecast_at: p.window_start },
+              ...options.map((option, index) => ({
+                beach_id: option.beach_id,
+                beach_name: option.beach_name,
+                rank: index + 2,
+                forecast_at: option.window_start,
+              })),
+            ]),
+          } : {}),
           reason: p.reason,
           decision_id: p.decision_id,
         },
