@@ -15,6 +15,8 @@ import {
   type DailyCallProfile,
 } from "@/lib/cron/daily-call-runner";
 import { selectTitle as realSelectTitle } from "@/lib/notifications/copy/select-title";
+import { parseDailyCallPayload } from "@/lib/notifications/types/daily-call";
+import { NOTIFICATION_REGISTRY } from "@/lib/notifications/registry";
 import type { Database } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
@@ -152,6 +154,112 @@ function deps(
 }
 
 const supabase = {} as SupabaseClient<Database>;
+
+describe("daily call alternatives", () => {
+  const nearby = poolBeach("30000000-0000-4000-8000-000000000001", "K-40", "nearby");
+  const custom = poolBeach("30000000-0000-4000-8000-000000000002", "Custom", "custom");
+  const otherNearby = poolBeach("30000000-0000-4000-8000-000000000003", "Nearby", "nearby");
+  const lead = candidate({ pool: nearby, physicalScore: 99 });
+
+  async function send(candidates: DailyCallCandidate[]) {
+    const mocked = deps({
+      buildCandidates: jest.fn(async () => ({ candidates, hadForecasts: true })),
+      selectTitle: jest.fn(realSelectTitle),
+    });
+    const summary = await runDailyCallCron({ now, supabase, deps: mocked });
+    expect(summary.errors).toBe(0);
+    expect(summary.sent).toBe(1);
+    return {
+      payload: (mocked.enqueue as jest.Mock).mock.calls[0][0].payload,
+      titleArgs: (mocked.selectTitle as jest.Mock).mock.calls[0][0],
+    };
+  }
+
+  it("keeps the best nearby lead and its copy, with home then the best saved spot as options", async () => {
+    const homeCandidate = candidate({ pool: { ...home, relation: "favorite" }, physicalScore: 55 });
+    const baseline = await send([lead, homeCandidate]);
+    const customCandidate = candidate({ pool: custom, physicalScore: 80 });
+    customCandidate.pool = { ...custom, beach: { ...custom.beach, name: "Custom State Beach", short_name: null } };
+    customCandidate.sourceForecast.wave_height = null;
+    const { payload, titleArgs } = await send([
+      candidate({ pool: otherNearby, physicalScore: 98 }),
+      candidate({ pool: favorite, physicalScore: 75, personalFit: 100 }),
+      customCandidate,
+      homeCandidate,
+      lead,
+    ]);
+
+    expect(payload.beach_id).toBe(nearby.beach.id);
+    expect(titleArgs).toEqual(baseline.titleArgs);
+    expect(payload).toMatchObject({
+      title: baseline.payload.title,
+      title_id: baseline.payload.title_id,
+      reason: baseline.payload.reason,
+      comparison: baseline.payload.comparison,
+      options: [
+        { beach_id: blacksId, beach_slug: "blacks", beach_name: "Blacks",
+          window_start: homeCandidate.window.start, window_end: homeCandidate.window.end,
+          window_local: "8–~9:40 AM", wave_height_ft: 3, relation: "home" },
+        { beach_id: custom.beach.id, beach_slug: "custom", beach_name: "Custom State Beach",
+          window_start: customCandidate.window.start, window_end: customCandidate.window.end,
+          window_local: "8–~9:40 AM", wave_height_ft: null, relation: "custom" },
+      ],
+    });
+    const parsed = parseDailyCallPayload(payload);
+    expect(parsed.options).toEqual(payload.options);
+    expect(NOTIFICATION_REGISTRY.daily_call.buildPushPayload!(parsed).body).toBe(
+      `${payload.reason} Also: Blacks 8–~9:40 AM, Custom State Beach 8–~9:40 AM.`,
+    );
+  });
+
+  it.each([
+    { label: "physical score within saved spots", candidates: [
+      candidate({ pool: favorite, physicalScore: 70 }), candidate({ pool: custom, physicalScore: 80 }),
+      candidate({ pool: otherNearby, physicalScore: 98 }),
+    ], ids: [custom.beach.id, ospreyId] },
+    { label: "nearby filling the remaining slot", candidates: [
+      candidate({ pool: favorite, physicalScore: 70 }), candidate({ pool: otherNearby, physicalScore: 98 }),
+    ], ids: [ospreyId, otherNearby.beach.id] },
+    { label: "personal fit breaking a score tie", candidates: [
+      candidate({ pool: favorite, physicalScore: 80, personalFit: 1 }),
+      candidate({ pool: custom, physicalScore: 80, personalFit: 2 }),
+    ], ids: [custom.beach.id, ospreyId] },
+    { label: "earlier window breaking a fit tie", candidates: [
+      candidate({ pool: favorite, physicalScore: 80, start: "2026-09-16T16:00:00.000Z" }),
+      candidate({ pool: custom, physicalScore: 80 }),
+    ], ids: [custom.beach.id, ospreyId] },
+    { label: "beach id breaking the final tie", candidates: [
+      candidate({ pool: custom, physicalScore: 80 }), candidate({ pool: favorite, physicalScore: 80 }),
+    ], ids: [ospreyId, custom.beach.id] },
+  ])("orders options by $label", async ({ candidates, ids }) => {
+    const { payload } = await send([lead, ...candidates]);
+    expect(payload.options.map((option: { beach_id: string }) => option.beach_id)).toEqual(ids);
+  });
+
+  it("excludes every winner window, deduplicates beaches, and filters closing windows", async () => {
+    const { payload } = await send([
+      lead, candidate({ pool: nearby, physicalScore: 90 }),
+      candidate({ pool: home, physicalScore: 80, end: "2026-09-16T13:29:59.000Z" }),
+      candidate({ pool: favorite, physicalScore: 70 }),
+      candidate({ pool: favorite, physicalScore: 85 }),
+      candidate({ pool: otherNearby, physicalScore: 90, start: "2026-09-16T12:00:00.000Z", end: "2026-09-16T13:30:00.000Z" }),
+    ]);
+    expect(payload.options).toHaveLength(2);
+    expect(payload.options.map((option: { beach_id: string }) => option.beach_id)).toEqual([ospreyId, otherNearby.beach.id]);
+    expect(payload.options[1].window_local).toBe("5–~6:30 AM");
+  });
+
+  it("omits options when only winner windows and closing windows remain", async () => {
+    const { payload } = await send([
+      lead, candidate({ pool: nearby, physicalScore: 90 }),
+      candidate({ pool: home, end: "2026-09-16T13:20:00.000Z" }),
+    ]);
+    expect(payload).not.toHaveProperty("options");
+    const push = NOTIFICATION_REGISTRY.daily_call.buildPushPayload!(parseDailyCallPayload(payload));
+    expect(push.body).toBe(payload.reason);
+    expect(push.data).not.toHaveProperty("options");
+  });
+});
 
 describe("runDailyCallCron", () => {
   it("sends the best go window with comparison and local window copy", async () => {

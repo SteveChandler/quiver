@@ -617,24 +617,48 @@ export const NOTIFICATION_REGISTRY = {
     surfAlertPriority: 2,
     quietHours: DEFAULT_QUIET,
     validatePayload: parseDailyCallPayload,
-    buildPushPayload: (p) => ({
-      ...SURF_ALERT_PUSH_PRESENTATION,
-      title: p.title,
-      body: p.reason,
-      data: {
-        type: "daily_call",
-        beach_id: p.beach_id,
-        beach_slug: p.beach_slug,
-        alert_date: p.alert_date,
-        forecast_at: p.window_start,
-        window_start: p.window_start,
-        window_end: p.window_end,
-        window_local: p.window_local,
-        drivers: JSON.stringify(p.drivers),
-        reason: p.reason,
-        decision_id: p.decision_id,
-      },
-    }),
+    buildPushPayload: (p) => {
+      let body = p.reason;
+      const options = p.options ?? [];
+      for (let count = options.length; count > 0; count -= 1) {
+        const also = options.slice(0, count)
+          .map((option) => `${option.beach_name} ${option.window_local}`).join(", ");
+        const candidateBody = `${p.reason} Also: ${also}.`;
+        if (candidateBody.length > 240) continue;
+        body = candidateBody;
+        break;
+      }
+      return {
+        ...SURF_ALERT_PUSH_PRESENTATION,
+        title: p.title,
+        body,
+        data: {
+          type: "daily_call",
+          beach_id: p.beach_id,
+          beach_slug: p.beach_slug,
+          alert_date: p.alert_date,
+          forecast_at: p.window_start,
+          window_start: p.window_start,
+          window_end: p.window_end,
+          window_local: p.window_local,
+          drivers: JSON.stringify(p.drivers),
+          ...(options.length ? {
+            options: JSON.stringify(options),
+            beaches: JSON.stringify([
+              { beach_id: p.beach_id, beach_name: p.beach_name, rank: 1, forecast_at: p.window_start },
+              ...options.map((option, index) => ({
+                beach_id: option.beach_id,
+                beach_name: option.beach_name,
+                rank: index + 2,
+                forecast_at: option.window_start,
+              })),
+            ]),
+          } : {}),
+          reason: p.reason,
+          decision_id: p.decision_id,
+        },
+      };
+    },
     buildInAppPayload: (p) => ({
       type: "daily_call",
       data: p,

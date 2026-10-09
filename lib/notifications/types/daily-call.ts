@@ -11,6 +11,16 @@ export const dailyCallPayloadSchema = z.object({
   window_start: z.string().datetime(),
   window_end: z.string().datetime(),
   window_local: z.string().min(1),
+  options: z.array(z.object({
+    beach_id: z.string().uuid(),
+    beach_slug: z.string().min(1),
+    beach_name: z.string().min(1),
+    window_start: z.string().datetime(),
+    window_end: z.string().datetime(),
+    window_local: z.string().min(1),
+    wave_height_ft: z.number().nullable(),
+    relation: z.enum(["home", "favorite", "custom", "nearby"]),
+  })).max(2).optional(),
   drivers: z.array(
     z.object({
       kind: z.enum(["tide", "wind", "swell", "daylight"]),
