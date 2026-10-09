@@ -43,7 +43,10 @@ export function analyzeConditionsWindow(
 
   // Extract metric arrays
   const waveHeights = sorted.map((s) => s.waveHeight);
-  const windSpeeds = sorted.map((s) => s.wind.speedMph);
+  // Unknown wind has no trend; only known speeds are compared.
+  const windSpeeds = sorted
+    .map((s) => s.wind.speedMph)
+    .filter((speed): speed is number => speed !== null);
   const tideHeights = sorted.map((s) => s.tide.heightFt);
   const confidences = sorted.map((s) => s.confidence);
 

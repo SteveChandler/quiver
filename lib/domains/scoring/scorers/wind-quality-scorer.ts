@@ -246,6 +246,20 @@ export const windQualityScorer: ScorerPlugin = {
     const wavePeriod = snapshot.wavePeriod;
     const { windThresholds } = profile;
 
+    // Unknown speed => neutral midpoint of the 0-100 range. Checked before
+    // the glassy short-circuit: a missing wind is not a calm one.
+    if (windSpeed === null) {
+      return {
+        name: 'windQuality',
+        score: 50,
+        weight: SCORER_WEIGHTS.windQuality,
+        reasons: [],
+        warnings: ['Wind speed unknown'],
+        skip: false,
+        skipReason: null,
+      };
+    }
+
     // Glassy short-circuit (any direction, including null).
     if (windSpeed <= GLASSY_MPH) {
       return {
