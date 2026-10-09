@@ -149,17 +149,31 @@ export async function loadUserPool({
   }
 
   const beachesById = new Map(
-    ((beaches ?? []) as Beach[])
-      .filter((beach) => beach.slug)
-      .map((beach) => [beach.id, beach]),
+    ((beaches ?? []) as Beach[]).map((beach) => [beach.id, beach]),
   );
+  const closestNearby = homeBeachId
+    ? undefined
+    : nearby
+        .filter((row) => beachesById.has(row.id))
+        .sort((left, right) => left.distance_meters - right.distance_meters)[0];
+  const anchorCountry = homeBeachId
+    ? beachesById.get(homeBeachId)?.country
+    : closestNearby && beachesById.get(closestNearby.id)?.country;
+
+  if (anchorCountry) {
+    for (const [beachId, relation] of relations) {
+      if (relation === "nearby" && beachesById.get(beachId)?.country !== anchorCountry) {
+        relations.delete(beachId);
+      }
+    }
+  }
   const nearbyDistances = new Map(
     nearby.map((row) => [row.id, row.distance_meters / METERS_PER_MILE]),
   );
 
-  return beachIds.flatMap((beachId) => {
+  return [...relations.keys()].flatMap((beachId) => {
     const beach = beachesById.get(beachId);
-    if (!beach) return [];
+    if (!beach?.slug) return [];
     return [
       {
         beach,
