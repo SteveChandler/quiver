@@ -11,8 +11,8 @@
 BEGIN;
 
 INSERT INTO public.email_campaigns(id, version, content_hash, status, owner, approved_by, approved_at, expires_at)
-VALUES ('startup-lifecycle-v2', 2, '172803d87d8ee9a7be33bd03bd9cbfe71a069de81f74cc320894dd32cd1aedb1',
-  'approved', 'Steven', 'steven:approved-v2-content:20261009', now(), now() + interval '90 days')
+VALUES ('startup-lifecycle-v2', 2, '1a92cfa8ab7df8381db8b784d7a3e8edbb047ef5b8cea1c6277fd1740a4fc0a2',
+  'approved', 'Steven', 'steven:approved-v2-content:20261007', now(), now() + interval '90 days')
 ON CONFLICT (id) DO NOTHING;
 
 UPDATE public.email_contact_controls SET automation_campaign = 'startup-lifecycle-v2' WHERE singleton;

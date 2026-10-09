@@ -17,12 +17,12 @@ const COPY: Record<Exclude<LifecycleJob, "trial_feedback">, { subject: string; p
 };
 
 const OFFER_COPY = {
-  progress: "Log five sessions and your next month of Pro is on me. Sessions you’ve already logged count, and nothing renews.",
+  progress: "Five logged sessions gets you a month of Pro on me. Sessions you’ve already logged count, and nothing renews.",
   readyOne: "You’ve logged five sessions, so your next month of Pro is on me.",
   readyThree: "I’d like to give you three months of Quiver Pro, on me.",
-  acceptance: "Tap below to add it. No card needed, and nothing renews.",
+  acceptance: "Tap below to add it. Nothing to pay, and nothing renews.",
 };
-const FEEDBACK_COPY = { subject: "Why’d you cancel?", paragraphs: ["Saw you canceled your Quiver trial. No hard feelings.", "I’m still building Quiver, and I’d like to know what didn’t work for you. It’s two quick questions."], cta: "Tell me how it went" };
+const FEEDBACK_COPY = { subject: "Why’d you cancel?", paragraphs: ["No hard feelings at all.", "I’m still building Quiver, and I’d like to know what didn’t work for you. It’s two quick questions."], cta: "Tell me how it went" };
 const FEEDBACK_VISUAL = { sticker: "singleFin" as const, eyebrow: "A note from Steve" };
 const POSTAL_ADDRESS = "Quiver Surf Technologies · 2261 Market Street STE 10852, San Francisco, CA 94114";
 const PERSONAL_COPY = {

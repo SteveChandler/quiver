@@ -8,10 +8,10 @@ const render = (decision: LifecycleDecision) => renderLifecycleEmail(decision,'2
 it('does not leak or duplicate a reward paragraph between recipients',async () => {
  const offered = {...base,source:{...base.source!,offer_id:'33333333-3333-4333-8333-333333333333',offer_months:1 as const}};
  const first=await render(offered), second=await render(offered), regular=await render(base);
- expect(first.text.match(/next month of Pro/g)).toHaveLength(1);
+ expect(first.text.match(/month of Pro/g)).toHaveLength(1);
  expect(second.text).toBe(first.text);
- expect(regular.text).not.toContain('next month of Pro');
- expect(regular.html).not.toContain('next month of Pro');
+ expect(regular.text).not.toContain('month of Pro');
+ expect(regular.html).not.toContain('month of Pro');
 });
 it.each([1,3] as const)('renders the approved %s-month offer without an automatic-renewal claim',async months => {
  const email=await render({...base,job:'offer_ready',source:{...base.source!,sessions:months===1?5:0,offer_id:'33333333-3333-4333-8333-333333333333',offer_months:months}});
@@ -68,19 +68,19 @@ it('asks for trial feedback with the approved sticker and no incentive in the em
  expect(email.text).toContain('/trial-feedback?message_instance_id=22222222-2222-4222-8222-222222222222');
  expect(email.text).not.toMatch(/on me|extra month|gift|renew/);
 });
-// The v2 hash is recorded in migration 20261007030000. Any copy change needs a new approved campaign.
-it('matches the approved startup-lifecycle-v2 content hash when feedback is enabled', () => {
+// The v3 hash is recorded in migration 20261009150000. Approved campaigns are frozen: any copy change needs a new campaign row and version.
+it('matches the approved startup-lifecycle-v3 content hash when feedback is enabled', () => {
  const before=process.env.TRIAL_FEEDBACK_ENABLED;
  try {
   process.env.TRIAL_FEEDBACK_ENABLED='true';
-  jest.isolateModules(() => expect(require('@/lib/mailer/lifecycle-email').LIFECYCLE_CONTENT_HASH).toBe('172803d87d8ee9a7be33bd03bd9cbfe71a069de81f74cc320894dd32cd1aedb1'));
+  jest.isolateModules(() => expect(require('@/lib/mailer/lifecycle-email').LIFECYCLE_CONTENT_HASH).toBe('c4420192008baef0a920860820092f5e13e00788833963112bc2634c929fbde2'));
   delete process.env.TRIAL_FEEDBACK_ENABLED;
   // v1 copy is retired: running with the flag off no longer matches the approved v1 hash.
   jest.isolateModules(() => expect(require('@/lib/mailer/lifecycle-email').LIFECYCLE_CONTENT_HASH).not.toBe('7fa9c944e8d8d1c86680c750f99d1db593a1f6a540ff0244f94eb4515de0e39d'));
  } finally { if(before===undefined) delete process.env.TRIAL_FEEDBACK_ENABLED;else process.env.TRIAL_FEEDBACK_ENABLED=before; }
 });
 
-it.each(['welcome','activation','progress','friction','trial_support','routine','offer_ready'] as const)('%s copy has no dash characters',async job => {
+it.each(['welcome','activation','progress','friction','trial_support','routine','offer_ready','trial_feedback'] as const)('%s copy has no dash characters',async job => {
  const email=await render({...base,job,source:{...base.source!,sessions:5,offer_id:'33333333-3333-4333-8333-333333333333',offer_months:1}});
- expect(`${email.subject}\n${email.text.replace(/https?:\/\/\S+/g,'')}`).not.toMatch(/[\u2010-\u2015\u2212]| - /);
+ for (const body of [email.subject, email.text, email.html.replace(/<[^>]+>/g,' ')]) expect(body.replace(/https?:\/\/\S+/g,'')).not.toMatch(/[\u2010-\u2015\u2212]| - /);
 });
