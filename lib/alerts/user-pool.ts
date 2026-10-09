@@ -151,14 +151,12 @@ export async function loadUserPool({
   const beachesById = new Map(
     ((beaches ?? []) as Beach[]).map((beach) => [beach.id, beach]),
   );
-  const closestNearby = homeBeachId
-    ? undefined
-    : nearby
-        .filter((row) => beachesById.has(row.id))
-        .sort((left, right) => left.distance_meters - right.distance_meters)[0];
-  const anchorCountry = homeBeachId
-    ? beachesById.get(homeBeachId)?.country
-    : closestNearby && beachesById.get(closestNearby.id)?.country;
+  const closestNearby = nearby
+    .filter((row) => beachesById.has(row.id))
+    .sort((left, right) => left.distance_meters - right.distance_meters)[0];
+  const anchorCountry = closestNearby
+    ? beachesById.get(closestNearby.id)?.country
+    : homeBeachId ? beachesById.get(homeBeachId)?.country : undefined;
 
   if (anchorCountry) {
     for (const [beachId, relation] of relations) {
