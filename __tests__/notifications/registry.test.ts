@@ -300,6 +300,36 @@ describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () =>
       type: "daily_call",
       data: payload,
     });
+    expect(def.buildPushPayload!(payload).data).not.toHaveProperty("options");
+    expect(def.buildPushPayload!(payload).data).not.toHaveProperty("beaches");
+    expect(def.buildPushPayload!(def.validatePayload!({ ...payload, options: [] })).data)
+      .not.toHaveProperty("beaches");
+    const options = [{
+      beach_id: "22222222-2222-4222-8222-222222222222", beach_slug: "scripps", beach_name: "Scripps",
+      window_start: "2026-09-18T16:00:00.000Z", window_end: "2026-09-18T18:00:00.000Z",
+      window_local: "9–11 AM", wave_height_ft: null, relation: "home" as const,
+    }];
+    const withOptions = def.validatePayload!({ ...payload, options });
+    const push = def.buildPushPayload!(withOptions);
+    expect(push.body).toBe(`${payload.reason} Also: Scripps 9–11 AM.`);
+    expect(JSON.parse(push.data.options as string)).toEqual(options);
+    expect(JSON.parse(push.data.beaches as string)).toEqual([
+      { beach_id: payload.beach_id, beach_name: payload.beach_name, rank: 1, forecast_at: payload.window_start },
+      { beach_id: options[0].beach_id, beach_name: "Scripps", rank: 2, forecast_at: options[0].window_start },
+    ]);
+    const secondOption = {
+      ...options[0], beach_id: "33333333-3333-4333-8333-333333333333", beach_name: "OB Pier",
+      window_start: "2026-09-18T15:00:00.000Z",
+    };
+    const withTwoOptions = def.validatePayload!({ ...payload, options: [...options, secondOption] });
+    const twoOptionsPush = def.buildPushPayload!(withTwoOptions);
+    expect(JSON.parse(twoOptionsPush.data.beaches as string)).toEqual([
+      { beach_id: payload.beach_id, beach_name: payload.beach_name, rank: 1, forecast_at: payload.window_start },
+      { beach_id: options[0].beach_id, beach_name: "Scripps", rank: 2, forecast_at: options[0].window_start },
+      { beach_id: secondOption.beach_id, beach_name: "OB Pier", rank: 3, forecast_at: secondOption.window_start },
+    ]);
+    expect(JSON.parse(twoOptionsPush.data.options as string)).toEqual([...options, secondOption]);
+    expect(def.buildInAppPayload!(withOptions).data).toEqual(withOptions);
   });
 
   it("forecast_alert in-app payload carries selected-window beach context", () => {
