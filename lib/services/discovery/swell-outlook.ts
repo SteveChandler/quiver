@@ -9,6 +9,7 @@ import {
   type SwellEventSnapshot,
 } from '@/lib/alerts/swell-events';
 import type { PoolBeach } from '@/lib/alerts/user-pool';
+import { tracksSwellComponent } from '@/lib/alerts/swell-events/detector';
 import type { BoardClass } from '@/lib/domains/rideability';
 import { angleDifference } from '@/lib/domains/shared/angle-utils';
 import type { SkillLevel } from '@/lib/domains/user-preferences';
@@ -127,7 +128,9 @@ function matchNotable(rep: BeachSwellEvent, notable: readonly SwellEventSnapshot
   let best: { snapshot: SwellEventSnapshot; diff: number } | null = null;
   for (const snapshot of notable) {
     if (snapshot.beachId !== rep.beachId) continue;
-    if (angleDifference(snapshot.directionDeg, rep.directionDeg) > SWELL_EVENT_THRESHOLDS.trackDirectionDeg) continue;
+    if (!tracksSwellComponent(snapshot, rep)) continue;
+    if (snapshot.peakFaceHeightFt > rep.peakFaceHeightFt * SWELL_EVENT_THRESHOLDS.trackSizeRatio
+      || rep.peakFaceHeightFt > snapshot.peakFaceHeightFt * SWELL_EVENT_THRESHOLDS.trackSizeRatio) continue;
     const diff = Math.abs(Date.parse(snapshot.peakAt) - Date.parse(rep.peakAt));
     if (diff <= NOTABLE_MATCH_PEAK_MS && (!best || diff < best.diff)) best = { snapshot, diff };
   }
@@ -193,17 +196,18 @@ function toOutlookSwell(
   runDate: string,
   homeBeachId: string | null,
 ): OutlookSwell | null {
-  const rep = representative(group, homeBeachId);
-  const beach = beachesById.get(rep.beachId);
+  const pulse = representative(group, homeBeachId);
+  const beach = beachesById.get(pulse.beachId);
   if (!beach) return null;
   const timezone = resolveBeachTimezone(beach.timezone);
 
   const previousRuns = input.pulseSnapshots.filter((snapshot) => (
-    snapshot.beachId === rep.beachId && snapshot.eventKey === rep.eventKey
+    snapshot.beachId === pulse.beachId && snapshot.eventKey === pulse.eventKey
     && snapshot.runDate < runDate && isPreviousRun(snapshot, input.now)
   ));
-  const notable = matchNotable(rep, notableLatest);
-  const eventKey = notable?.eventKey ?? rep.eventKey;
+  const notable = matchNotable(pulse, notableLatest);
+  // A linked first sighting and its follow-up pin must describe the same detector event.
+  const rep = notable ? eventFromSnapshot(notable, timezone) : pulse;
   const source = swellSourceFor({
     directionDeg: rep.directionDeg,
     periodS: Math.round(rep.periodS),
@@ -215,10 +219,10 @@ function toOutlookSwell(
 
   return {
     id,
-    eventKey,
-    tier: confidenceFor(rep, previousRuns, input.now),
+    eventKey: rep.eventKey,
+    tier: confidenceFor(pulse, previousRuns, input.now),
     status: Date.parse(rep.arrivalAt) <= input.now.getTime() ? 'arrived' : 'forecast',
-    change: changeFor(rep, previousRuns, input.pulseSnapshots, input.now, timezone)?.kind ?? 'new',
+    change: changeFor(pulse, previousRuns, input.pulseSnapshots, input.now, timezone)?.kind ?? 'new',
     arrivalAt: rep.arrivalAt,
     peakAt: rep.peakAt,
     fadeAt: rep.fadeAt ?? null,
@@ -242,9 +246,9 @@ function toOutlookSwell(
       : null,
     sizeByOrientation: sizeByOrientation(group.members.map((member) => ({
       windowCenterDeg: swellWindowForBeach(beachesById.get(member.beachId) ?? {})?.centerDeg ?? null,
-      faceHeightFt: member.peakFaceHeightFt,
+      faceHeightFt: member.beachId === rep.beachId ? rep.peakFaceHeightFt : member.peakFaceHeightFt,
     }))),
-    history: historyFor(input.pulseSnapshots, rep.beachId, rep.eventKey),
+    history: historyFor(notable ? input.notableSnapshots : input.pulseSnapshots, rep.beachId, rep.eventKey),
   };
 }
 
@@ -258,7 +262,7 @@ export function buildSwellOutlook(input: BuildSwellOutlookInput): BuiltSwellOutl
     .map((snapshot) => eventFromSnapshot(snapshot, resolveBeachTimezone(beachesById.get(snapshot.beachId)?.timezone)))
     .filter((event) => isSwellEventCurrent(event, input.now));
 
-  const notableLatest = latestPerKey(input.notableSnapshots);
+  const notableLatest = latestPerKey(input.notableSnapshots.filter((snapshot) => snapshot.runDate === runDate));
   const groups = groupEvents(events.sort((left, right) => (
     left.eventKey.localeCompare(right.eventKey) || left.beachId.localeCompare(right.beachId)
   )));

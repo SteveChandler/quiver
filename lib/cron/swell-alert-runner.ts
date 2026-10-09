@@ -5,6 +5,7 @@ import {
   EXCLUDE_SYNTHETIC_ROWS_FILTER,
   SWELL_EVENT_DETECTOR_VERSION,
   SWELL_EVENT_KEY_REUSE_DAYS,
+  SWELL_EVENT_THRESHOLDS,
   detectBeachSwellEvents,
   loadRecentSwellSnapshots,
   resolveEventKeys,
@@ -118,10 +119,8 @@ const HAZARD_LINES = {
 const MAX_FIRST_SIGHTING_RARITY_ASSESSMENTS = 3;
 // Forecast rows a pinned re-evaluation loads before now; detection itself reads 48 h back.
 const PINNED_LOOKBACK_MS = 3 * DAY_MS;
-// A swell that lost its key but still tracks the told one within this shift is the same swell, moved...
+// A matching swell can keep its pin when its peak shifts beyond the key-reuse window.
 const PINNED_MAX_PEAK_SHIFT_MS = 72 * 60 * 60 * 1000;
-// ...and keeps its size: a fallback match that grew or shrank past this is another swell.
-const PINNED_MAX_SIZE_RATIO = 1.5;
 
 type ServiceClient = SupabaseClient<Database>;
 type FirstSightingClaimSkipReason = "event_exists" | "first_sighting_spacing";
@@ -793,27 +792,6 @@ async function evaluatePinned(
     new Date(now.getTime() - PINNED_LOOKBACK_MS),
     new Date(now.getTime() + LOOKAHEAD_DAYS * DAY_MS),
   );
-  // What the user was last told anchors the key too, in case no daily snapshot carries it.
-  const toldSnapshot: SwellEventSnapshot = {
-    beachId: state.beachId,
-    eventKey: state.eventKey,
-    detectorVersion: SWELL_EVENT_DETECTOR_VERSION,
-    runDate: state.lastToldAt.slice(0, 10),
-    detectedAt: new Date(state.lastToldAt).toISOString(),
-    directionDeg: state.lastDirectionDeg,
-    directionBand: "",
-    periodS: state.lastPeriodS,
-    peakOffshoreHeightFt: 0,
-    peakFaceHeightFt: state.lastFaceHeightFt,
-    exposure: 1,
-    energyRatio: 1,
-    arrivalAt: state.lastArrivalAt,
-    peakAt: state.lastPeakAt,
-    fadeAt: null,
-    crossingDirectionDeg: null,
-    crossingPeriodS: null,
-    crossingOffshoreHeightFt: null,
-  };
   const snapshots = await loadKeySnapshots(client, [beach.id], now);
   const events = resolveEventKeys(
     detectBeachSwellEvents({
@@ -822,23 +800,18 @@ async function evaluatePinned(
       now,
       timezone: resolveBeachTimezone(beach.timezone),
     }),
-    [...snapshots, toldSnapshot],
+    snapshots,
   );
   const toldPeakAt = Date.parse(state.lastPeakAt);
   const told = { directionDeg: state.lastDirectionDeg, periodS: state.lastPeriodS };
-  // A swell the detector already tracks under another key is that swell, not ours moved.
-  const otherKeys = new Set(snapshots.map(({ eventKey }) => eventKey).filter((key) => key !== state.eventKey));
-  const sameSize = (faceHeightFt: number): boolean =>
-    faceHeightFt <= state.lastFaceHeightFt * PINNED_MAX_SIZE_RATIO
-    && state.lastFaceHeightFt <= faceHeightFt * PINNED_MAX_SIZE_RATIO;
-  const event = events.find(({ eventKey }) => eventKey === state.eventKey)
-    ?? events
-      .filter((candidate) => !otherKeys.has(candidate.eventKey)
-        && tracksSwellComponent(told, candidate)
-        && sameSize(candidate.peakFaceHeightFt)
-        && Math.abs(Date.parse(candidate.peakAt) - toldPeakAt) <= PINNED_MAX_PEAK_SHIFT_MS)
-      .sort((left, right) =>
-        Math.abs(Date.parse(left.peakAt) - toldPeakAt) - Math.abs(Date.parse(right.peakAt) - toldPeakAt))[0]
+  // Keys can change; the told component and size anchor identity under every key.
+  const event = events
+    .filter((candidate) => tracksSwellComponent(told, candidate)
+      && candidate.peakFaceHeightFt <= state.lastFaceHeightFt * SWELL_EVENT_THRESHOLDS.trackSizeRatio
+      && state.lastFaceHeightFt <= candidate.peakFaceHeightFt * SWELL_EVENT_THRESHOLDS.trackSizeRatio
+      && Math.abs(Date.parse(candidate.peakAt) - toldPeakAt) <= PINNED_MAX_PEAK_SHIFT_MS)
+    .sort((left, right) =>
+      Math.abs(Date.parse(left.peakAt) - toldPeakAt) - Math.abs(Date.parse(right.peakAt) - toldPeakAt))[0]
     ?? null;
 
   return {
