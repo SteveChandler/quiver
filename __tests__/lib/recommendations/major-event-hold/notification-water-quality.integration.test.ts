@@ -100,4 +100,56 @@ describe("notification water-quality provenance", () => {
       reasonCode: "water_quality_hold",
     });
   });
+
+  it("holds Quiver-chosen beaches with major-event holds off, but still delivers a configured alert", async () => {
+    const dailyCall = await resolveNotificationMajorEventHold({
+      eventId: "event-daily-call-off",
+      type: "daily_call",
+      payload: {
+        beach_id: "33333333-3333-4333-8333-333333333333",
+        window_start: FORECAST_AT,
+        window_end: "2026-08-13T12:00:00.000Z",
+        options: [{
+          beach_id: ALTERNATIVE_BEACH_ID,
+          window_start: FORECAST_AT,
+          window_end: "2026-08-13T12:00:00.000Z",
+        }],
+      },
+      profileExperience: "advanced",
+      mode: "off",
+    }, { evaluateCandidates: evaluateWaterQualityOnly });
+
+    const weekendWindow = await resolveNotificationMajorEventHold({
+      eventId: "event-weekend-off",
+      type: "weekend_window",
+      payload: {
+        beach_id: ALTERNATIVE_BEACH_ID,
+        forecast_at: FORECAST_AT,
+        policy_context: policyContext(ALTERNATIVE_BEACH_ID),
+      },
+      profileExperience: "advanced",
+      mode: "off",
+    }, { evaluateCandidates: evaluateWaterQualityOnly });
+
+    const configuredAlert = await resolveNotificationMajorEventHold({
+      eventId: "event-configured-off",
+      type: "forecast_alert",
+      payload: {
+        beach_id: CONFIGURED_BEACH_ID,
+        configured_beach_id: CONFIGURED_BEACH_ID,
+        forecast_at: FORECAST_AT,
+        policy_context: policyContext(CONFIGURED_BEACH_ID),
+      },
+      profileExperience: "advanced",
+      mode: "off",
+    }, { evaluateCandidates: evaluateWaterQualityOnly });
+
+    expect(dailyCall).toMatchObject({
+      status: "suppressed",
+      reasonCode: "water_quality_hold",
+      candidate: { beachId: ALTERNATIVE_BEACH_ID },
+    });
+    expect(weekendWindow).toMatchObject({ status: "suppressed", reasonCode: "water_quality_hold" });
+    expect(configuredAlert).toMatchObject({ status: "allowed" });
+  });
 });

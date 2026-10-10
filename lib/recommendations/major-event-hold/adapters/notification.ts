@@ -659,6 +659,19 @@ export async function resolveNotificationMajorEventHold(
       blockedCandidate ?? candidate,
     );
   }
+  if (mode !== "enforce") {
+    // Water-quality holds apply in every mode, as they do on the in-app
+    // surfaces; MAJOR_EVENT_HOLD_MODE stages only the major-event rollout.
+    // An unknown hold state still delivers here: a skipped push is never
+    // retried, so a stale County feed must not silently drop it.
+    const heldForWaterQuality = validCandidates.find((value) =>
+      decisions.some((decision) =>
+        decision.candidateId === value.candidateId
+        && decision.evaluation.reasonCode === "water_quality_hold"));
+    if (heldForWaterQuality) {
+      return suppressed("water_quality_hold", heldForWaterQuality);
+    }
+  }
   if (boundary.allowedCandidateIds.size === validCandidates.length) {
     return { status: "allowed", candidate };
   }
