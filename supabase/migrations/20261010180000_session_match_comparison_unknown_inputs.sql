@@ -19,6 +19,8 @@ $function$;
 
 COMMENT ON FUNCTION public.parse_numeric_or_null(text) IS
   'First number in a forecast string ("-1.2 ft" -> -1.2); NULL when there is none, unlike parse_numeric_from_text.';
+-- Internal to SQL functions; not an RPC.
+REVOKE EXECUTE ON FUNCTION public.parse_numeric_or_null(text) FROM PUBLIC, anon, authenticated;
 
 CREATE OR REPLACE FUNCTION public.get_user_session_match_comparison(p_user_id uuid, p_beach_id uuid, p_wave_height text, p_wave_period text, p_wind_speed text, p_wind_direction text, p_tide_height text)
  RETURNS jsonb
