@@ -33,6 +33,7 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { enqueueNotification } from "@/lib/notifications/enqueue";
 import { withObservedCron } from "@/lib/cron/observability";
 import { withCronOutcome } from "@/lib/cron/outcome";
+import { DEFAULT_TIMEZONE } from "@/lib/utils/timezone-constants";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -57,9 +58,24 @@ const SENTRY_MONITOR = {
 const WINDOW_START_HOURS = 36; // 1.5 days
 const WINDOW_END_HOURS = 60; // 2.5 days
 
-const PUSH_TITLE = "Trial ends in 2 days";
 const PUSH_BODY =
-  "Keep your board picks + similarity alerts, or cancel anytime in App Store settings.";
+  "Keep your board picks and alerts for up to 10 beaches, or cancel anytime in your phone's subscription settings.";
+
+function getTrialEndingTitle(trialEndsAt: string, timezone: string): string {
+  const endsAt = new Date(trialEndsAt);
+  try {
+    return `Your trial ends ${endsAt.toLocaleDateString("en-US", {
+      weekday: "long",
+      timeZone: timezone,
+    })}`;
+  } catch (error) {
+    console.warn(`${CONTEXT_TAG} Invalid profile timezone:`, timezone, error);
+    return `Your trial ends ${endsAt.toLocaleDateString("en-US", {
+      weekday: "long",
+      timeZone: DEFAULT_TIMEZONE,
+    })}`;
+  }
+}
 
 // ============================================================================
 // Type Definitions
@@ -68,6 +84,7 @@ const PUSH_BODY =
 interface TrialCandidate {
   user_id: string;
   trial_ends_at: string;
+  timezone: string;
   device_tokens: string[];
 }
 
@@ -199,7 +216,7 @@ async function _GET(request: Request): Promise<Response> {
     // 3. Filter to users with push enabled.
     const { data: profiles, error: profilesError } = await supabase
       .from("profiles")
-      .select("id, notif_push_enabled")
+      .select("id, notif_push_enabled, timezone")
       .in("id", unsentUserIds);
 
     if (profilesError) {
@@ -210,6 +227,9 @@ async function _GET(request: Request): Promise<Response> {
       (profiles ?? [])
         .filter((p) => p.notif_push_enabled === true)
         .map((p) => p.id),
+    );
+    const timezoneByUser = new Map(
+      (profiles ?? []).map((p) => [p.id, p.timezone || DEFAULT_TIMEZONE]),
     );
     summary.skipped.noPushPref = unsentUserIds.length - pushEnabledIds.size;
 
@@ -257,6 +277,7 @@ async function _GET(request: Request): Promise<Response> {
       candidates.push({
         user_id: userId,
         trial_ends_at: endsAt,
+        timezone: timezoneByUser.get(userId) ?? DEFAULT_TIMEZONE,
         device_tokens: tokens,
       });
     }
@@ -281,7 +302,7 @@ async function _GET(request: Request): Promise<Response> {
           type: "trial_ending",
           recipientUserId: candidate.user_id,
           payload: {
-            title: PUSH_TITLE,
+            title: getTrialEndingTitle(candidate.trial_ends_at, candidate.timezone),
             body: PUSH_BODY,
             trial_ends_at: candidate.trial_ends_at,
           },
