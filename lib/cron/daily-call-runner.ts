@@ -4,6 +4,7 @@ import { persistableSessionDecision } from "@/lib/recommendations/canonical-deci
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isDailyCallEnabled, isDailyCallUserAllowed } from "@/lib/flags/daily-call";
 import { loadUserPool, type PoolBeach } from "@/lib/alerts/user-pool";
+import { resolveHeldPushBeaches, type ResolveHeldPushBeaches } from "@/lib/alerts/push-beach-holds";
 import {
   evaluateForecastVerdict,
   type ForecastVerdict,
@@ -112,6 +113,7 @@ export interface DailyCallDeps {
     maxDriveMinutes: number | null;
   }) => Promise<PoolBeach[]>;
   buildCandidates: (args: BuildCandidatesArgs) => Promise<CandidateBuildResult>;
+  resolveHeldBeaches: ResolveHeldPushBeaches;
   alreadySentToday: (userId: string, alertDate: string) => Promise<boolean>;
   loadSwellEventKey: (userId: string, alertDate: string) => Promise<string | null>;
   loadRecentTitleIds: (userId: string, since: Date) => Promise<string[]>;
@@ -138,6 +140,10 @@ function skippedCounts(): Record<string, number> {
     no_forecast: 0,
     not_send_hour: 0,
     enqueue_failed: 0,
+    held_major_event_hold: 0,
+    held_water_quality_hold: 0,
+    held_hold_state_unavailable: 0,
+    no_clear_window: 0,
   };
 }
 
@@ -534,6 +540,7 @@ function defaultDeps(
     },
     loadPool: loadUserPool,
     buildCandidates: (args) => buildCandidates(supabase, tideCache, args),
+    resolveHeldBeaches: resolveHeldPushBeaches,
     alreadySentToday: async (userId, alertDate) => {
       const { data, error } = await supabase
         .from("notification_events")
@@ -653,15 +660,34 @@ export async function runDailyCallCron(args: {
         summary.silent += 1;
         continue;
       }
+      // The push never names a beach the app withholds; that includes home in the comparison line.
+      const held = await deps.resolveHeldBeaches({
+        candidates: built.candidates.map((candidate, index) => ({
+          candidateId: `daily-call:${index}`,
+          beachId: candidate.pool.beach.id,
+          startsAt: candidate.window.start,
+          endsAt: candidate.window.end,
+        })),
+        profileExperience: profile.experienceLevel,
+        asOf: args.now,
+      });
+      const heldReason = (candidate: DailyCallCandidate): string | undefined =>
+        held.get(`daily-call:${built.candidates.indexOf(candidate)}`);
       const ranked = rankCandidates(built.candidates, profile.homeBeachId);
       const eligible = ranked.filter((candidate) => {
         const closing = Date.parse(candidate.window.end) - args.now.getTime() < WINDOW_CLOSE_BUFFER_MS;
-        if (closing) increment(summary, "window_closing_within_30m");
-        return !closing;
+        if (closing) {
+          increment(summary, "window_closing_within_30m");
+          return false;
+        }
+        const reason = heldReason(candidate);
+        if (reason) increment(summary, `held_${reason}`);
+        return !reason;
       });
       const winner = eligible[0];
       if (!winner) {
-        increment(summary, "no_go_window");
+        // Distinguishes surf the app withholds from a day with nothing surfable.
+        increment(summary, built.candidates.some((candidate) => heldReason(candidate)) ? "no_clear_window" : "no_go_window");
         summary.silent += 1;
         continue;
       }
@@ -678,7 +704,7 @@ export async function runDailyCallCron(args: {
           return true;
         }).slice(0, 2);
       const home = built.candidates.find((candidate) =>
-        candidate.pool.beach.id === profile.homeBeachId) ?? null;
+        candidate.pool.beach.id === profile.homeBeachId && !heldReason(candidate)) ?? null;
       const swellEventKey = await deps.loadSwellEventKey(profile.id, alertDate);
       const recentTitleIds = await deps.loadRecentTitleIds(
         profile.id,

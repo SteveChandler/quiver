@@ -30,6 +30,8 @@ import { EMPTY_SWELL_OUTLOOK_USER_STATE, SwellOutlookStateConflictError, type Sw
 import type { SwellFollowupState } from "@/lib/alerts/swell-followup/state";
 import { beachSwellEvent } from "@/__tests__/helpers/swell-events";
 import { OUTLOOK_HOME_BEACH_ID as HOME, outlookSwell } from "@/__tests__/helpers/outlook-swell";
+import { resolveNotificationMajorEventHold } from "@/lib/recommendations/major-event-hold/adapters/notification";
+import type { MajorEventHoldCandidate } from "@/lib/recommendations/major-event-hold/types";
 
 const USER = "73040cff-afe9-4fa0-a874-2016203fc015";
 /** Friday 2026-09-18, 10:00 PDT: inside the 6-21 window, not the 17:00 evening-before hour. */
@@ -60,6 +62,7 @@ function makeDeps(overrides: Record<string, unknown> = {}): SwellOutlookDeps & R
     enqueue: jest.fn(async () => ({ enqueued: true as const, eventId: "event-1" })),
     markAlertEnqueued: jest.fn(async () => undefined),
     recordForecast: jest.fn(async () => ({ inserted: true })),
+    resolveHeldBeaches: jest.fn(async () => new Map()),
     isFollowupEnabled: jest.fn(() => true),
     isFollowupUserAllowed: jest.fn(() => true),
     loadFollowupStates: jest.fn(async () => [] as SwellFollowupState[]),
@@ -776,6 +779,21 @@ describe('swell first-sighting tide-window flag', () => {
     expect(payload.forecast_at).toBe(outlookSwell().peakAt);
   });
 
+  it('checks the lead beach for holds over the window the push names, before claiming', async () => {
+    process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED = 'true';
+    const resolveHeldBeaches = jest.fn(async ({ candidates }: { candidates: Array<{ candidateId: string }> }) =>
+      new Map(candidates.map((candidate) => [candidate.candidateId, 'major_event_hold'])));
+    const deps = makeDeps({ loadFirstSightingWindow: jest.fn(async () => surfWindow), resolveHeldBeaches });
+
+    const summary = await runSwellAlertCron({ now: MORNING, deps });
+
+    expect(resolveHeldBeaches.mock.calls[0][0].candidates[0]).toEqual({
+      candidateId: 'lead', beachId: HOME, startsAt: surfWindow.window.start, endsAt: surfWindow.window.end,
+    });
+    expect(deps.insertAlert).not.toHaveBeenCalled();
+    expect(summary.skippedCounts.held_major_event_hold).toBe(1);
+  });
+
   it.each([undefined, 'false', 'TRUE', '1'])('keeps flag-off payloads byte-identical: %s', async (flag) => {
     if (flag === undefined) delete process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED;
     else process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED = flag;
@@ -941,5 +959,91 @@ describe("Daily Call ownership for outlook swells", () => {
     expect(deps.enqueue).not.toHaveBeenCalled();
     expect(deps.claimFollowup).not.toHaveBeenCalled();
     expect(deps.saveEngagement).not.toHaveBeenCalled();
+  });
+});
+
+describe("swell alert cron: held beaches", () => {
+  beforeEach(() => jest.spyOn(console, "error").mockImplementation(() => {}));
+  afterEach(() => jest.restoreAllMocks());
+
+  const OTHER = "ffffffff-0000-4000-8000-000000000002";
+  const HELD_OPTION = "ffffffff-0000-4000-8000-000000000003";
+
+  function holding(beachIds: string[]): jest.Mock {
+    return jest.fn(async ({ candidates }: { candidates: Array<{ candidateId: string; beachId: string }> }) =>
+      new Map(candidates
+        .filter((candidate) => beachIds.includes(candidate.beachId))
+        .map((candidate) => [candidate.candidateId, "water_quality_hold"])));
+  }
+
+  it("skips a first sighting whose lead beach is held before claiming it, and tells the next swell", async () => {
+    const clear = outlookSwell({
+      id: `${OTHER}:NW:2026-09-21:p`, eventKey: `${OTHER}:NW:2026-09-21:p`,
+      beach: { id: OTHER, name: "Osprey" }, faceHeightFt: { min: 3, max: 4 },
+    });
+    const deps = makeDeps({
+      loadOutlook: jest.fn(async () => [outlookSwell(), clear]),
+      resolveHeldBeaches: holding([HOME]),
+    });
+
+    const summary = await runSwellAlertCron({ now: MORNING, deps });
+
+    expect(deps.resolveHeldBeaches).toHaveBeenCalledWith(expect.objectContaining({
+      profileExperience: "advanced", asOf: MORNING,
+    }));
+    expect(deps.insertAlert).toHaveBeenCalledTimes(1);
+    expect(deps.insertAlert).toHaveBeenCalledWith(expect.objectContaining({ leadBeachId: OTHER }));
+    expect(summary.skippedCounts.held_water_quality_hold).toBe(1);
+  });
+
+  it("drops a held alternative from the push's beaches and its Also line", async () => {
+    const deps = makeDeps({
+      loadOutlook: jest.fn(async () => [outlookSwell({
+        options: [
+          { beachId: HELD_OPTION, beachName: "Held Spot", relation: "nearby", faceHeightFt: { min: 3, max: 4 } },
+          { beachId: OTHER, beachName: "Osprey", relation: "favorite", faceHeightFt: { min: 2, max: 3 } },
+        ],
+      })]),
+      resolveHeldBeaches: holding([HELD_OPTION]),
+    });
+
+    await runSwellAlertCron({ now: MORNING, deps });
+
+    const payload = deps.enqueue.mock.calls[0][0].payload as {
+      body: string;
+      beaches: Array<{ beach_id: string }>;
+    };
+    expect(payload.beaches.map(({ beach_id }) => beach_id)).toEqual([HOME, OTHER]);
+    expect(payload.body).toContain("Also: Osprey up to 3 ft.");
+    expect(payload.body).not.toContain("Held Spot");
+
+    const evaluateCandidates = jest.fn(async ({ candidates }) =>
+      (candidates as MajorEventHoldCandidate[]).map((value) => ({
+        candidateId: value.candidateId,
+        evaluation: { outcome: "allow" as const, holdIds: [], holdEpoch: "epoch" },
+        recommendationAvailability: { state: "available" as const, holdEpoch: "epoch" },
+      })));
+    const delivery = await resolveNotificationMajorEventHold(
+      { eventId: "event-1", type: "swell_watch", payload, profileExperience: "beginner", mode: "enforce" },
+      { evaluateCandidates },
+    );
+    expect(delivery.status).toBe("allowed");
+    expect(evaluateCandidates.mock.calls[0][0].candidates.map((value: MajorEventHoldCandidate) => value.beachId))
+      .toEqual([HOME, OTHER]);
+  });
+
+  it("does not claim or send a follow-up for a held pinned beach", async () => {
+    const deps = makeDeps({
+      loadFollowupStates: jest.fn(async () => [pinnedState()]),
+      evaluatePinned: jest.fn(async () => biggerPinned()),
+      loadOutlook: jest.fn(async () => []),
+      resolveHeldBeaches: holding([HOME]),
+    });
+
+    const summary = await runSwellAlertCron({ now: MORNING, deps });
+
+    expect(deps.claimFollowup).not.toHaveBeenCalled();
+    expect(deps.enqueue).not.toHaveBeenCalled();
+    expect(summary.skippedCounts.held_water_quality_hold).toBe(1);
   });
 });

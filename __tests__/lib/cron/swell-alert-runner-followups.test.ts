@@ -130,6 +130,7 @@ function dependencies(overrides: Partial<Deps> = {}): Deps {
     enqueue: jest.fn(async () => ({ enqueued: true as const, eventId: "event-1" })),
     markAlertEnqueued: jest.fn(async () => undefined),
     recordForecast: jest.fn(async () => ({ inserted: true })),
+    resolveHeldBeaches: jest.fn(async () => new Map()),
     isFollowupEnabled: jest.fn(() => true),
     isFollowupUserAllowed: jest.fn(() => true),
     loadFollowupStates: jest.fn(async () => [pinnedState()]),
