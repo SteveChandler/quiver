@@ -42,6 +42,7 @@ import { capToBestWindow, refineWindow, type RefinedWindow } from "@/lib/alerts/
 import { groupGoForecasts, loadTideSamples } from "@/lib/cron/daily-call-runner";
 import { loadUserPool } from "@/lib/alerts/user-pool";
 import { calculateDistance } from "@/lib/utils/distance-utils";
+import { isDailyCallEnabled, isDailyCallUserAllowed } from "@/lib/flags/daily-call";
 import { isSwellAlertEnabled, isSwellAlertUserAllowed } from "@/lib/flags/swell-alert";
 import { isSwellFollowupEnabled, isSwellFollowupUserAllowed } from "@/lib/flags/swell-followup";
 import { resolveEntitlement, type Tier } from "@/lib/alerts/entitlements";
@@ -140,6 +141,7 @@ export interface SwellAlertProfile {
   experienceLevel: string | null;
   notifPushEnabled: boolean | null;
   notifSwellAlerts: boolean | null;
+  notifForecastAlerts: boolean | null;
 }
 
 export interface SwellAlertCandidate {
@@ -370,6 +372,11 @@ function increment(summary: SwellAlertRunSummary, reason: string): void {
   summary.skippedCounts[reason] = (summary.skippedCounts[reason] ?? 0) + 1;
 }
 
+function dailyCallOwnsToday(profile: SwellAlertProfile): boolean {
+  return isDailyCallEnabled() && isDailyCallUserAllowed(profile.id)
+    && profile.notifPushEnabled === true && profile.notifForecastAlerts === true;
+}
+
 async function loadProfiles(client: ServiceClient, now: Date): Promise<SwellAlertProfile[]> {
   const { data, error } = await client
     .from("profiles")
@@ -381,6 +388,7 @@ async function loadProfiles(client: ServiceClient, now: Date): Promise<SwellAler
       experience_level,
       notif_push_enabled,
       notif_swell_alerts,
+      notif_forecast_alerts,
       user_location_snapshots(lat, lon, timezone, captured_at),
       home_beach:beaches!profiles_home_beach_id_fkey(lat, lon, timezone)
     `)
@@ -409,6 +417,7 @@ async function loadProfiles(client: ServiceClient, now: Date): Promise<SwellAler
       experienceLevel: row.experience_level,
       notifPushEnabled: row.notif_push_enabled,
       notifSwellAlerts: row.notif_swell_alerts,
+      notifForecastAlerts: row.notif_forecast_alerts,
     };
   });
 }
@@ -1142,6 +1151,14 @@ async function sendFollowups(
         continue;
       }
 
+      const today = getLocalDateString(now, profile.timezone);
+      if (dailyCallOwnsToday(profile) && (kind === "arrived"
+        || getLocalDateString(new Date(state.lastPeakAt), profile.timezone) === today
+        || (event && getLocalDateString(new Date(event.peakAt), profile.timezone) === today))) {
+        increment(summary, "skipped_daily_call_owns_today");
+        continue;
+      }
+
       // A dropped swell has no current numbers, so the push restates what was last told.
       const shown = kind !== "dropped" && event
         ? {
@@ -1348,6 +1365,11 @@ async function sendFirstSighting(
   let rarityAssessments = 0;
   let rejectedForRarity = false;
   for (const swell of candidates) {
+    if (dailyCallOwnsToday(profile)
+      && getLocalDateString(new Date(swell.peakAt), profile.timezone) === getLocalDateString(now, profile.timezone)) {
+      increment(summary, "skipped_daily_call_owns_today");
+      continue;
+    }
     if (await deps.hasFirstSightingAlert(profile.id, [swell.id, swell.eventKey])) continue;
 
     let decision = decideSend(gate.state, now, "first_sighting", false);
@@ -1575,6 +1597,11 @@ export async function runSwellAlertCron(args: {
       const lead = candidates[0];
       if (!lead) {
         increment(summary, "no_event_tomorrow");
+        continue;
+      }
+      if (dailyCallOwnsToday(profile)
+        && getLocalDateString(new Date(lead.event.peakAt), profile.timezone) === getLocalDateString(args.now, profile.timezone)) {
+        increment(summary, "skipped_daily_call_owns_today");
         continue;
       }
 

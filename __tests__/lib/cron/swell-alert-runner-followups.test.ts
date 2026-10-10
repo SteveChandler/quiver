@@ -37,7 +37,7 @@ function profile(overrides: Partial<SwellAlertProfile> = {}): SwellAlertProfile 
     maxDriveMinutes: 45,
     experienceLevel: "advanced",
     notifPushEnabled: true,
-    notifSwellAlerts: true,
+    notifSwellAlerts: true, notifForecastAlerts: false,
     ...overrides,
   };
 }

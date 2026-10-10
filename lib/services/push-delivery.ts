@@ -113,7 +113,9 @@ async function dispatchFcmMessages(
       ? `${responseItem.error.code}: ${responseItem.error.message}`
       : "FCM delivery outcome was ambiguous";
     const invalidToken = Boolean(
-      responseItem.error && FCM_INVALID_TOKEN_ERROR_CODES.has(responseItem.error.code),
+      responseItem.error && (FCM_INVALID_TOKEN_ERROR_CODES.has(responseItem.error.code)
+        || (responseItem.error.code === "messaging/invalid-argument"
+          && responseItem.error.message.includes("The registration token is not a valid FCM registration token"))),
     );
     return {
       token: message.to,
@@ -128,7 +130,7 @@ async function dispatchFcmMessages(
     if (resp.error) {
       errors.push(`${resp.error.code}: ${resp.error.message}`);
     }
-    if (resp.error && FCM_INVALID_TOKEN_ERROR_CODES.has(resp.error.code)) {
+    if (outcomes[idx]?.invalidToken) {
       invalidTokens.push(message.to);
     }
   });

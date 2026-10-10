@@ -53,7 +53,7 @@ const profile: SwellAlertProfile = {
   maxDriveMinutes: null,
   experienceLevel: "advanced",
   notifPushEnabled: true,
-  notifSwellAlerts: true,
+  notifSwellAlerts: true, notifForecastAlerts: false,
 };
 
 /** Three-hourly W 16 s rows from 2026-09-08 through 2026-09-27 (PDT), sized per local date. */

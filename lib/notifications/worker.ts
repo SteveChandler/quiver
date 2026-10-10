@@ -113,10 +113,6 @@ const MAX_FAILED_ATTEMPTS_PER_CHANNEL = 3;
  * crashed) and may be reclaimed by another tick.
  */
 const CLAIM_STALE_AFTER_MS = 5 * 60 * 1000;
-const INVALID_TOKEN_ERROR_CODES = new Set([
-  "messaging/registration-token-not-registered",
-  "messaging/invalid-registration-token",
-]);
 
 // Statuses that mean "channel is done, do not retry".
 const TERMINAL_SKIP_STATUSES = new Set<NotificationDeliveryStatus>([
