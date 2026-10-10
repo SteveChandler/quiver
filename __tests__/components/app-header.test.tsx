@@ -844,6 +844,19 @@ describe("AppHeader", () => {
       expect(container.firstChild).toBeNull();
     });
 
+    it("treats the ISR root pathname /index as the landing page", () => {
+      (useAuth as jest.Mock).mockReturnValue({
+        user: null,
+        isLoading: false,
+        signOut: jest.fn(),
+      });
+      (usePathname as jest.Mock).mockReturnValue("/index");
+
+      const { container } = render(<AppHeader />);
+
+      expect(container.firstChild).toBeNull();
+    });
+
     it("renders on other pages for guests", () => {
       (useAuth as jest.Mock).mockReturnValue({
         user: null,
