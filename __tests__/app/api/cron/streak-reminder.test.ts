@@ -70,6 +70,7 @@ interface TableState {
   rows: Array<Record<string, unknown>>;
   selectError?: { message: string } | null;
   insertError?: { message: string } | null;
+  errorOffset?: number;
 }
 
 interface Filter {
@@ -79,6 +80,13 @@ interface Filter {
 }
 
 const tableState: Record<string, TableState> = {};
+const queryReads: Array<{
+  table: string;
+  filters: Filter[];
+  range: [number, number] | null;
+  count: number;
+}> = [];
+let rowCap = 1000;
 const originalAllowlist = process.env.STREAK_REMINDER_TEST_USER_IDS;
 const originalFeedbackAllowlist =
   process.env.FORECAST_FEEDBACK_NUDGE_TEST_USER_IDS;
@@ -106,6 +114,12 @@ function applyFilters(
 function buildQuery(table: string) {
   const filters: Filter[] = [];
   const builder: Record<string, unknown> = {};
+  let range: [number, number] | null = null;
+  const orders: string[] = [];
+  builder.range = jest.fn((from: number, to: number) => {
+    range = [from, to];
+    return builder;
+  });
   builder.select = jest.fn(() => builder);
   builder.eq = jest.fn((column: string, value: unknown) => {
     filters.push({ op: "eq", column, value });
@@ -131,7 +145,10 @@ function buildQuery(table: string) {
     filters.push({ op: "is", column, value });
     return builder;
   });
-  builder.order = jest.fn(() => builder);
+  builder.order = jest.fn((column: string) => {
+    orders.push(column);
+    return builder;
+  });
   builder.insert = jest.fn((payload: Record<string, unknown>) => {
     mockInsert(table, payload);
     const row = tableState[table] ?? { rows: [] };
@@ -142,9 +159,22 @@ function buildQuery(table: string) {
     onRejected?: (reason: unknown) => unknown
   ) => {
     const row = tableState[table] ?? { rows: [] };
+    const filtered = applyFilters(row.rows, filters).sort((a, b) => {
+      for (const column of orders) {
+        const result = String(a[column]).localeCompare(String(b[column]));
+        if (result !== 0) return result;
+      }
+      return 0;
+    });
+    const offset = range?.[0] ?? 0;
+    const limit = Math.min(rowCap, range ? range[1] - offset + 1 : rowCap);
+    const data = filtered.slice(offset, offset + limit);
+    queryReads.push({ table, filters, range, count: data.length });
     const resolved = {
-      data: applyFilters(row.rows, filters),
-      error: row.selectError ?? null,
+      data,
+      error: row.errorOffset === offset
+        ? { message: "page failed" }
+        : row.selectError ?? null,
     };
     return Promise.resolve(resolved).then(onFulfilled, onRejected);
   };
@@ -163,6 +193,8 @@ function mockRequest(): Request {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  queryReads.length = 0;
+  rowCap = 1000;
   for (const key of Object.keys(tableState)) delete tableState[key];
   delete process.env.STREAK_REMINDER_TEST_USER_IDS;
   process.env.FORECAST_FEEDBACK_NUDGE_ENABLED = "true";
@@ -564,6 +596,213 @@ describe("weekly-streak-reminder cron", () => {
       reminder_type: "weekly_streak",
       period_key: "2026-25",
     });
+  });
+});
+
+describe("weekly streak pagination and local weeks", () => {
+  function session(userId: string, arrivalTime: string): Record<string, unknown> {
+    return { id: `${userId}:${arrivalTime}`, user_id: userId, arrival_time: arrivalTime, deleted_at: null };
+  }
+
+  it("counts relevant sessions beyond row 1000 and paginates each bounded read", async () => {
+    jest.setSystemTime(new Date("2026-06-21T17:00:00.000Z"));
+    seed("profiles", [
+      { id: "u-busy", notif_reminders: true },
+      { id: "u-late", notif_reminders: true },
+      { id: "u-off", notif_reminders: false },
+      { id: "u-outside", notif_reminders: true },
+    ]);
+    process.env.STREAK_REMINDER_TEST_USER_IDS = "u-busy,u-late,u-off";
+    seed("sessions", [
+      ...Array.from({ length: 1001 }, (_, i) => ({ ...session("u-busy", "2026-06-08T15:00:00.000Z"), id: String(i).padStart(4, "0") })),
+      session("u-late", "2026-06-08T15:00:00.000Z"),
+      session("u-late", "2026-06-01T15:00:00.000Z"),
+      session("u-off", "2026-06-08T15:00:00.000Z"),
+      session("u-outside", "2026-06-08T15:00:00.000Z"),
+      { ...session("u-late", "2026-06-16T15:00:00.000Z"), deleted_at: "2026-06-17T00:00:00.000Z" },
+    ]);
+
+    const response = await weeklyGet(mockRequest());
+    expect(response.status).toBe(200);
+    expect(mockEnqueueNotification).toHaveBeenCalledTimes(2);
+    expect(mockEnqueueNotification).toHaveBeenCalledWith(expect.objectContaining({
+      recipientUserId: "u-late", payload: expect.objectContaining({ streak: 2 }),
+    }));
+    const reads = queryReads.filter((read) => read.table === "sessions");
+    expect(reads.reduce((count, read) => count + read.count, 0)).toBe(1003);
+    expect(reads).toContainEqual(expect.objectContaining({ range: [1000, 1999], count: 1 }));
+    for (const read of reads) {
+      expect(read.range).not.toBeNull();
+      expect(read.filters).toEqual(expect.arrayContaining([
+        { op: "eq", column: "user_id", value: expect.stringMatching(/^u-(busy|late)$/) },
+        { op: "is", column: "deleted_at", value: null },
+        { op: "gte", column: "arrival_time", value: expect.any(String) },
+        { op: "lt", column: "arrival_time", value: expect.any(String) },
+      ]));
+    }
+  });
+
+  it.each([1000, 2])("paginates profiles and logs with server cap %i", async (cap) => {
+    rowCap = cap;
+    jest.setSystemTime(new Date("2026-06-21T17:00:00.000Z"));
+    const profileCount = cap + 1;
+    const lastUser = `u-${String(cap).padStart(4, "0")}`;
+    const profiles = Array.from({ length: profileCount }, (_, i) => ({ id: `u-${String(i).padStart(4, "0")}`, notif_reminders: true }));
+    seed("profiles", [...profiles, { id: "z-send", notif_reminders: null }]);
+    seed("streak_reminder_log", profiles.map(({ id }) => ({ user_id: id, reminder_type: "weekly_streak", period_key: "2026-25" })));
+    seed("sessions", [session(lastUser, "2026-06-08T15:00:00.000Z"), session("z-send", "2026-06-08T15:00:00.000Z")]);
+
+    const response = await weeklyGet(mockRequest());
+    const body = await response.json();
+    expect(response.status).toBe(200);
+    expect(body.data.summary.skipped.alreadyLogged).toBe(profileCount);
+    expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
+    expect(mockEnqueueNotification).toHaveBeenCalledWith(expect.objectContaining({ recipientUserId: "z-send" }));
+    expect(queryReads.filter((read) => read.table === "profiles" || read.table === "streak_reminder_log")
+      .every((read) => read.range !== null)).toBe(true);
+  });
+
+  it("keeps Pacific Sunday 8 PM in the current local week and continues the streak", async () => {
+    jest.setSystemTime(new Date("2026-06-22T04:00:00.000Z"));
+    seed("profiles", [{ id: "u-pacific", notif_reminders: true, timezone: "America/Los_Angeles" }]);
+    seed("sessions", [session("u-pacific", "2026-06-22T03:00:00.000Z"), session("u-pacific", "2026-06-08T15:00:00.000Z")]);
+    const response = await weeklyGet(mockRequest());
+    expect(response.status).toBe(200);
+    expect((await response.json()).data.summary.skipped.alreadyLoggedThisWeek).toBe(1);
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
+
+    jest.setSystemTime(new Date("2026-06-28T17:00:00.000Z"));
+    expect((await weeklyGet(mockRequest())).status).toBe(200);
+    expect(mockEnqueueNotification).toHaveBeenCalledWith(expect.objectContaining({
+      payload: expect.objectContaining({ streak: 2, period_key: "2026-26" }),
+    }));
+  });
+
+  it("uses profile timezone before home beach, then home beach before Pacific fallback", async () => {
+    jest.setSystemTime(new Date("2026-06-22T06:00:00.000Z"));
+    seed("profiles", [
+      { id: "u-hawaii", notif_reminders: true, timezone: null, home_beach: { timezone: "Pacific/Honolulu" } },
+      { id: "u-new-york", notif_reminders: true, timezone: "America/New_York", home_beach: { timezone: "Pacific/Honolulu" } },
+      { id: "u-default", notif_reminders: true, timezone: null, home_beach: null },
+    ]);
+    seed("sessions", [
+      session("u-hawaii", "2026-06-15T05:00:00.000Z"),
+      session("u-new-york", "2026-06-15T05:00:00.000Z"),
+      session("u-new-york", "2026-06-08T05:00:00.000Z"),
+      session("u-default", "2026-06-15T05:00:00.000Z"),
+    ]);
+    expect((await weeklyGet(mockRequest())).status).toBe(200);
+    expect(mockEnqueueNotification).toHaveBeenCalledTimes(3);
+    for (const [userId, streak, periodKey] of [["u-hawaii", 1, "2026-25"], ["u-new-york", 2, "2026-26"], ["u-default", 1, "2026-25"]]) {
+      expect(mockEnqueueNotification).toHaveBeenCalledWith(expect.objectContaining({
+        recipientUserId: userId,
+        payload: expect.objectContaining({ streak, period_key: periodKey }),
+        dedupeKey: `weekly_streak:${userId}:${periodKey}`,
+      }));
+    }
+    expect(queryReads.filter((read) => read.table === "sessions").map((read) => read.filters))
+      .toContainEqual(expect.arrayContaining([
+        { op: "eq", column: "user_id", value: "u-hawaii" },
+        { op: "gte", column: "arrival_time", value: "2026-06-15T10:00:00.000Z" },
+        { op: "lt", column: "arrival_time", value: "2026-06-22T10:00:00.000Z" },
+      ]));
+    expect(queryReads.filter((read) => read.table === "sessions").map((read) => read.filters))
+      .toContainEqual(expect.arrayContaining([
+        { op: "eq", column: "user_id", value: "u-new-york" },
+        { op: "gte", column: "arrival_time", value: "2026-06-22T04:00:00.000Z" },
+      ]));
+  });
+
+  it.each(["2026-25", "2026-26"])("suppresses a Pacific reminder logged under local or legacy key %s", async (periodKey) => {
+    jest.setSystemTime(new Date("2026-06-22T04:00:00.000Z"));
+    seed("profiles", [{ id: "u-logged", notif_reminders: true }]);
+    seed("sessions", [session("u-logged", "2026-06-15T03:00:00.000Z")]);
+    seed("streak_reminder_log", [{ user_id: "u-logged", reminder_type: "weekly_streak", period_key: periodKey, sent_at: "2026-06-21T17:00:00.000Z" }]);
+    const response = await weeklyGet(mockRequest());
+    expect(response.status).toBe(200);
+    expect((await response.json()).data.summary.skipped.alreadyLogged).toBe(1);
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
+  });
+
+  it("checks the legacy enqueue key when UTC and local weeks differ and the log is missing", async () => {
+    jest.setSystemTime(new Date("2026-06-22T04:00:00.000Z"));
+    seed("profiles", [{ id: "u-queued", notif_reminders: true }]);
+    seed("sessions", [session("u-queued", "2026-06-15T03:00:00.000Z")]);
+    seed("notification_events", [{ id: "event", dedupe_key: "weekly_streak:u-queued:2026-26", created_at: "2026-06-22T03:00:00.000Z" }]);
+    expect((await weeklyGet(mockRequest())).status).toBe(200);
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
+  });
+
+  it.each(["streak_reminder_log", "notification_events"])("honors an eastern timezone's legacy key after UTC rollover via %s", async (table) => {
+    jest.setSystemTime(new Date("2026-06-22T02:00:00.000Z"));
+    seed("profiles", [{ id: "u-tokyo", notif_reminders: true, timezone: "Asia/Tokyo" }]);
+    seed("sessions", [session("u-tokyo", "2026-06-16T10:00:00.000Z")]);
+    seed(table, [{ id: "event", user_id: "u-tokyo", reminder_type: "weekly_streak", period_key: "2026-25", sent_at: "2026-06-21T17:00:00.000Z", created_at: "2026-06-21T17:00:00.000Z", dedupe_key: "weekly_streak:u-tokyo:2026-25" }]);
+    const response = await weeklyGet(mockRequest());
+    expect(response.status).toBe(200);
+    expect((await response.json()).data.summary.skipped.alreadyLogged).toBe(1);
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
+  });
+
+  it.each(["streak_reminder_log", "notification_events"])("does not mistake the previous local week's reminder for a legacy send via %s", async (table) => {
+    jest.setSystemTime(new Date("2026-06-22T02:00:00.000Z"));
+    seed("profiles", [{ id: "u-tokyo", notif_reminders: true, timezone: "Asia/Tokyo" }]);
+    seed("sessions", [session("u-tokyo", "2026-06-16T10:00:00.000Z")]);
+    seed(table, [{ id: "event", user_id: "u-tokyo", reminder_type: "weekly_streak", period_key: "2026-25", sent_at: "2026-06-15T02:00:00.000Z", created_at: "2026-06-15T02:00:00.000Z", dedupe_key: "weekly_streak:u-tokyo:2026-25" }]);
+    expect((await weeklyGet(mockRequest())).status).toBe(200);
+    expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
+    expect(mockEnqueueNotification).toHaveBeenCalledWith(expect.objectContaining({
+      dedupeKey: "weekly_streak:u-tokyo:2026-26", payload: expect.objectContaining({ streak: 1, period_key: "2026-26" }),
+    }));
+  });
+
+  it("keeps the local key stable across UTC Monday and handles ISO year rollover", async () => {
+    seed("profiles", [{ id: "u-stable", notif_reminders: true }]);
+    seed("sessions", [session("u-stable", "2026-12-21T15:00:00.000Z")]);
+    for (const instant of ["2027-01-04T00:00:00.000Z", "2027-01-04T06:59:59.000Z"]) {
+      jest.setSystemTime(new Date(instant));
+      expect((await weeklyGet(mockRequest())).status).toBe(200);
+    }
+    expect(mockEnqueueNotification).toHaveBeenCalledTimes(2);
+    for (const call of mockEnqueueNotification.mock.calls) {
+      expect(call[0]).toMatchObject({ dedupeKey: "weekly_streak:u-stable:2026-53", payload: { streak: 1, period_key: "2026-53" } });
+    }
+  });
+
+  it("uses local midnight bounds across DST and stops at the first gap", async () => {
+    jest.setSystemTime(new Date("2026-03-15T17:00:00.000Z"));
+    seed("profiles", [{ id: "u-dst", notif_reminders: true, timezone: "America/Los_Angeles" }]);
+    seed("sessions", [session("u-dst", "2026-03-09T06:59:59.000Z"), session("u-dst", "2026-02-16T15:00:00.000Z")]);
+    expect((await weeklyGet(mockRequest())).status).toBe(200);
+    expect(mockEnqueueNotification).toHaveBeenCalledWith(expect.objectContaining({ payload: expect.objectContaining({ streak: 1 }) }));
+    expect(queryReads.filter((read) => read.table === "sessions").map((read) => read.filters))
+      .toContainEqual(expect.arrayContaining([
+        { op: "gte", column: "arrival_time", value: "2026-03-02T08:00:00.000Z" },
+        { op: "lt", column: "arrival_time", value: "2026-03-09T07:00:00.000Z" },
+      ]));
+    expect(queryReads.filter((read) => read.table === "sessions").every((read) =>
+      read.filters.some((filter) => filter.op === "gte" && String(filter.value) >= "2026-02-23"))).toBe(true);
+  });
+
+  it("does not truncate a long streak", async () => {
+    jest.setSystemTime(new Date("2026-06-21T17:00:00.000Z"));
+    seed("profiles", [{ id: "u-long", notif_reminders: true }]);
+    seed("sessions", Array.from({ length: 70 }, (_, i) => {
+      const arrival = new Date("2026-06-08T15:00:00.000Z");
+      arrival.setUTCDate(arrival.getUTCDate() - i * 7);
+      return session("u-long", arrival.toISOString());
+    }));
+    expect((await weeklyGet(mockRequest())).status).toBe(200);
+    expect(mockEnqueueNotification).toHaveBeenCalledWith(expect.objectContaining({ payload: expect.objectContaining({ streak: 70 }) }));
+  });
+
+  it("fails closed when a later page fails", async () => {
+    seed("profiles", Array.from({ length: 1001 }, (_, i) => ({ id: `u-${i}`, notif_reminders: true })));
+    tableState.profiles.errorOffset = 1000;
+    const response = await weeklyGet(mockRequest());
+    expect(response.status).toBe(500);
+    expect((await response.json()).error).toContain("page failed");
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
   });
 });
 

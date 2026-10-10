@@ -5,6 +5,11 @@
  * Auth: Authorization: Bearer <CRON_SECRET> or Vercel Cron header.
  */
 
+import { fromZonedTime } from "date-fns-tz";
+import { readAllPages } from "@/lib/alerts/swell-events/paging";
+import { getLocalDateString, resolveBeachTimezone } from "@/lib/utils/timezone-utils";
+import { chunk } from "@/lib/utils/chunk";
+import { normalizeIanaTimezone } from "@/lib/utils/iana-timezone";
 import { enqueueNotification } from "@/lib/notifications/enqueue";
 import { buildNotificationRelevanceMetadata } from "@/lib/notifications/relevance";
 import {
@@ -35,6 +40,7 @@ const SENTRY_MONITOR = {
 interface Candidate {
   userId: string;
   streak: number;
+  periodKey: string;
 }
 
 interface RunSummary {
@@ -115,19 +121,6 @@ function isoWeekKey(weekStartKey: string): string {
   return `${isoYear}-${String(weekNumber).padStart(2, "0")}`;
 }
 
-function consecutiveWeekStreakEnding(
-  weeks: Set<string>,
-  endingWeekStartKey: string
-): number {
-  let streak = 0;
-  let cursor = endingWeekStartKey;
-  while (weeks.has(cursor)) {
-    streak++;
-    cursor = shiftDateKey(cursor, -7);
-  }
-  return streak;
-}
-
 function parseTestUserAllowlist(): Set<string> {
   const raw = process.env.STREAK_REMINDER_TEST_USER_IDS ?? "";
   return new Set(
@@ -147,8 +140,8 @@ async function _GET(request: Request): Promise<Response> {
     }
 
     const supabase = createSupabaseServiceRoleClient();
-    const thisWeekStart = startOfUtcIsoWeek(new Date());
-    const previousWeekStart = shiftDateKey(thisWeekStart, -7);
+    const now = new Date();
+    const thisWeekStart = startOfUtcIsoWeek(now);
     const periodKey = isoWeekKey(thisWeekStart);
     const allowlist = parseTestUserAllowlist();
     const summary: RunSummary = {
@@ -169,103 +162,152 @@ async function _GET(request: Request): Promise<Response> {
       durationMs: 0,
     };
 
-    const { data: profiles, error: profilesError } = await supabase
-      .from("profiles")
-      .select("id, notif_reminders");
+    const profiles = await readAllPages(async (offset, limit) => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, notif_reminders, timezone, home_beach:beaches!profiles_home_beach_id_fkey(timezone)")
+        .order("id")
+        .range(offset, offset + limit - 1);
+      if (error) throw new Error(`Failed to query profiles: ${error.message}`);
+      return data ?? [];
+    });
 
-    if (profilesError) {
-      throw new Error(`Failed to query profiles: ${profilesError.message}`);
-    }
-
-    const reminderEnabledUserIds = new Set<string>();
-    for (const profile of profiles ?? []) {
+    const users = [];
+    for (const profile of profiles) {
       if (!profile.id) continue;
       if (profile.notif_reminders === false) {
         summary.skipped.remindersDisabled++;
         continue;
       }
-      reminderEnabledUserIds.add(profile.id);
+      if (allowlist.size > 0 && !allowlist.has(profile.id)) {
+        summary.skipped.notInTestAllowlist++;
+        continue;
+      }
+      const timezone = resolveBeachTimezone(
+        normalizeIanaTimezone(profile.timezone) ?? normalizeIanaTimezone(profile.home_beach?.timezone),
+      );
+      const weekStart = startOfUtcIsoWeek(keyToDate(getLocalDateString(now, timezone)));
+      const localPeriodKey = isoWeekKey(weekStart);
+      const startsAt = fromZonedTime(`${weekStart}T00:00:00`, timezone).toISOString();
+      const endsAt = fromZonedTime(`${shiftDateKey(weekStart, 7)}T00:00:00`, timezone).toISOString();
+      const utcWeekAtLocalStart = startOfUtcIsoWeek(new Date(startsAt));
+      const compatibleKeys = [...new Set([localPeriodKey, periodKey, isoWeekKey(utcWeekAtLocalStart)])];
+      users.push({ userId: profile.id, timezone, weekStart, periodKey: localPeriodKey, compatibleKeys, startsAt, endsAt });
     }
 
-    if (reminderEnabledUserIds.size === 0) {
+    if (users.length === 0) {
       summary.durationMs = Date.now() - startedAt;
       return createSuccessResponse(await recordWeeklyStreakOutcome({ candidates: 0, sent: 0, skipped: summary.skipped, summary }));
     }
 
-    const { data: loggedRows, error: logError } = await (supabase as any).from("streak_reminder_log")
-      .select("user_id")
-      .eq("reminder_type", REMINDER_TYPE)
-      .eq("period_key", periodKey);
-
-    if (logError) {
-      throw new Error(`Failed to query streak_reminder_log: ${logError.message}`);
+    const periodKeys = [...new Set(users.flatMap((user) => user.compatibleKeys))];
+    const loggedRows: Array<{ user_id: string; period_key: string; sent_at: string }> = [];
+    // Keep UUID filters below URL limits as the profile population grows.
+    for (const userIds of chunk(users.map((user) => user.userId), 200)) {
+      loggedRows.push(...await readAllPages(async (offset, limit) => {
+        const { data, error } = await supabase.from("streak_reminder_log")
+          .select("user_id, period_key, sent_at")
+          .eq("reminder_type", REMINDER_TYPE)
+          .in("user_id", userIds)
+          .in("period_key", periodKeys)
+          .order("user_id")
+          .order("period_key")
+          .range(offset, offset + limit - 1);
+        if (error) throw new Error(`Failed to query streak_reminder_log: ${error.message}`);
+        return data ?? [];
+      }));
     }
-
-    const alreadyLogged = new Set<string>(
-      ((loggedRows ?? []) as Array<{ user_id: string }>).map((row) => row.user_id),
-    );
-
-    const { data: sessionRows, error: sessionsError } = await supabase
-      .from("sessions")
-      .select("user_id, arrival_time, deleted_at");
-
-    if (sessionsError) {
-      throw new Error(`Failed to query sessions: ${sessionsError.message}`);
-    }
-
-    const weeksByUser = new Map<string, Set<string>>();
-    for (const row of sessionRows ?? []) {
-      if (!reminderEnabledUserIds.has(row.user_id)) continue;
-      if (row.deleted_at !== null) continue;
-      const weekStart = startOfUtcIsoWeek(new Date(row.arrival_time));
-      const weeks = weeksByUser.get(row.user_id) ?? new Set<string>();
-      weeks.add(weekStart);
-      weeksByUser.set(row.user_id, weeks);
-    }
+    const alreadyLogged = new Map(loggedRows.map((row) => [`${row.user_id}:${row.period_key}`, row.sent_at]));
 
     const candidates: Candidate[] = [];
-    for (const userId of reminderEnabledUserIds) {
-      if (alreadyLogged.has(userId)) {
+    for (const user of users) {
+      const legacyKeys = user.compatibleKeys.filter((key) => key !== user.periodKey);
+      // A legacy label can also belong to last week's local reminder; check when it was sent.
+      const loggedUnderLegacyKey = legacyKeys.some((key) => {
+        const sentAt = alreadyLogged.get(`${user.userId}:${key}`);
+        if (!sentAt) return false;
+        const sentTime = new Date(sentAt).getTime();
+        return sentTime >= new Date(user.startsAt).getTime() && sentTime < new Date(user.endsAt).getTime();
+      });
+      if (alreadyLogged.has(`${user.userId}:${user.periodKey}`) || loggedUnderLegacyKey) {
         summary.skipped.alreadyLogged++;
         continue;
       }
+      if (legacyKeys.length > 0) {
+        const legacyEvents = await readAllPages(async (offset, limit) => {
+          const { data, error } = await supabase.from("notification_events")
+            .select("id")
+            .in("dedupe_key", legacyKeys.map((key) => `${REMINDER_TYPE}:${user.userId}:${key}`))
+            .gte("created_at", user.startsAt)
+            .lt("created_at", user.endsAt)
+            .order("id")
+            .range(offset, offset + limit - 1);
+          if (error) throw new Error(`Failed to query notification_events: ${error.message}`);
+          return data ?? [];
+        });
+        if (legacyEvents.length > 0) {
+          summary.skipped.alreadyLogged++;
+          continue;
+        }
+      }
 
-      const sessionWeeks = weeksByUser.get(userId) ?? new Set<string>();
-      if (sessionWeeks.has(thisWeekStart)) {
+      let streak = 0;
+      let weekStart = user.weekStart;
+      let loggedThisWeek = false;
+      // Walk to the first gap instead of imposing a limit that could truncate a real streak.
+      for (;;) {
+        const start = fromZonedTime(`${weekStart}T00:00:00`, user.timezone).toISOString();
+        const end = fromZonedTime(`${shiftDateKey(weekStart, 7)}T00:00:00`, user.timezone).toISOString();
+        const sessions = await readAllPages(async (offset, limit) => {
+          const { data, error } = await supabase.from("sessions")
+            .select("id")
+            .eq("user_id", user.userId)
+            .is("deleted_at", null)
+            .gte("arrival_time", start)
+            .lt("arrival_time", end)
+            .order("id")
+            .range(offset, offset + limit - 1);
+          if (error) throw new Error(`Failed to query sessions: ${error.message}`);
+          return data ?? [];
+        });
+        if (weekStart === user.weekStart) {
+          if (sessions.length > 0) {
+            loggedThisWeek = true;
+            break;
+          }
+        } else {
+          if (sessions.length === 0) break;
+          streak++;
+        }
+        weekStart = shiftDateKey(weekStart, -7);
+      }
+
+      if (loggedThisWeek) {
         summary.skipped.alreadyLoggedThisWeek++;
         continue;
       }
-
-      const streak = consecutiveWeekStreakEnding(sessionWeeks, previousWeekStart);
       if (streak < 1) {
         summary.skipped.streakTooShort++;
         continue;
       }
-
-      candidates.push({ userId, streak });
+      candidates.push({ userId: user.userId, streak, periodKey: user.periodKey });
     }
 
     summary.candidates = candidates.length;
-    const sendCandidates =
-      allowlist.size === 0
-        ? candidates
-        : candidates.filter((candidate) => allowlist.has(candidate.userId));
-    summary.skipped.notInTestAllowlist = candidates.length - sendCandidates.length;
-
     if (allowlist.size > 0) {
       console.log(
-        `${CONTEXT_TAG} STREAK_REMINDER_TEST_USER_IDS active; filtered ${summary.skipped.notInTestAllowlist} candidate(s)`
+        `${CONTEXT_TAG} STREAK_REMINDER_TEST_USER_IDS active; filtered ${summary.skipped.notInTestAllowlist} user(s)`
       );
     }
 
-    for (const candidate of sendCandidates) {
+    for (const candidate of candidates) {
       try {
         const enqueueResult = await enqueueNotification({
           type: NOTIFICATION_TYPE,
           recipientUserId: candidate.userId,
           payload: {
             streak: candidate.streak,
-            period_key: periodKey,
+            period_key: candidate.periodKey,
             ...buildNotificationRelevanceMetadata({
               category: "session_growth",
               triggerSource: "weekly_streak_reminder",
@@ -273,7 +315,7 @@ async function _GET(request: Request): Promise<Response> {
               beachConfidence: "low",
             }),
           },
-          dedupeKey: `${REMINDER_TYPE}:${candidate.userId}:${periodKey}`,
+          dedupeKey: `${REMINDER_TYPE}:${candidate.userId}:${candidate.periodKey}`,
         });
 
         if (!enqueueResult.enqueued && enqueueResult.reason !== "duplicate") {
@@ -286,11 +328,11 @@ async function _GET(request: Request): Promise<Response> {
           continue;
         }
 
-        const { error: insertError } = await (supabase as any).from("streak_reminder_log")
+        const { error: insertError } = await supabase.from("streak_reminder_log")
           .insert({
             user_id: candidate.userId,
             reminder_type: REMINDER_TYPE,
-            period_key: periodKey,
+            period_key: candidate.periodKey,
           });
 
         if (insertError) {
@@ -311,7 +353,7 @@ async function _GET(request: Request): Promise<Response> {
 
     summary.durationMs = Date.now() - startedAt;
     return createSuccessResponse(await recordWeeklyStreakOutcome({
-      candidates: sendCandidates.length,
+      candidates: candidates.length,
       sent: summary.sent,
       skipped: summary.skipped,
       summary,
