@@ -151,5 +151,8 @@ export default async function LocationPage(props: LocationPageProps) {
 }
 
 // The public read client fetches with no-store; see createPublicReadClient.
+// Daily: these hubs had no human views in 28 days (Oct 2026) and ~3K crawler
+// requests a day. Steven accepted that a water-quality closure can take up to
+// a day to leave the surf report here, since nothing revalidates these paths.
 export const dynamic = "force-static";
-export const revalidate = 3600;
+export const revalidate = 86400;

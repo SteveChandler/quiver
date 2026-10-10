@@ -69,9 +69,11 @@ import { getSeasonCopy } from "@/lib/data/surf-climatology/copy";
 
 // The public Supabase client fetches with no-store, which keeps a page dynamic
 // unless it opts into static rendering. The live "today" window and its
-// water-quality holds use the same 15-minute window as /[intent]/[city].
+// water-quality holds use the same hourly window as /[intent]/[city]'s live
+// recommendations (15 minutes until Oct 2026).
 export const dynamic = "force-static";
-export const revalidate = 900;
+export const revalidate = 3600;
+const BEACH_LIST_WINDOW_SECONDS = 3600;
 
 // Constants
 const currentMonthIndex = new Date().getMonth(); // 0-based
@@ -474,7 +476,9 @@ export default async function BestTimeToSurfPage(props: PageParams) {
   const [dataResult, excludeIntents, forecastBeachesResult, cityEditorial] = await Promise.all([
     getBestTimeToSurfData(cityName, state),
     getCityExcludeIntents(cityName, state),
-    getBeachesByIntentAndCity("best-time", citySlug, stateSlug),
+    getBeachesByIntentAndCity("best-time", citySlug, stateSlug, {
+      revalidateSeconds: BEACH_LIST_WINDOW_SECONDS,
+    }),
     getCityEditorialContent(
       cityToSlug(cityName),
       stateSlug,

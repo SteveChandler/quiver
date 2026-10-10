@@ -1,6 +1,5 @@
 "use server";
 
-import { unstable_cache } from "next/cache";
 import { createPublicReadClient } from "@/lib/supabase/server";
 import { rankBeaches } from "@/lib/recommendations/selection";
 import { WATER_QUALITY_HOLD_PREFETCH_BUFFER } from "@/lib/recommendations/major-event-hold/water-quality";
@@ -121,7 +120,7 @@ function describeWind(windSpeed: string | null): string | null {
 }
 
 // ---------------------------------------------------------------------------
-// Main query (wrapped in unstable_cache)
+// Main query
 // ---------------------------------------------------------------------------
 
 async function fetchCitySurfReport(
@@ -296,20 +295,14 @@ async function fetchCitySurfReport(
 /**
  * Get a recent surf report summary for a city.
  *
- * Cached for 15 minutes via unstable_cache. Server-only (ISR-safe).
+ * Not wrapped in unstable_cache: Next.js would lower the calling ISR page's
+ * window to the cache window, and a cached copy under an ISR page stacks ages.
+ * The /beaches city hub that renders this owns the freshness window.
  * Returns null when no forecast data is available so the UI degrades gracefully.
  */
 export async function getCitySurfReport(
   cityName: string,
   stateSlug: string,
 ): Promise<CitySurfReportSummary | null> {
-  const cityKey = cityName.toLowerCase().replace(/\s+/g, "-");
-
-  const cached = unstable_cache(
-    () => fetchCitySurfReport(cityName, stateSlug),
-    [`city-surf-report`, "source-freshness-v3", cityKey, stateSlug],
-    { revalidate: 900, tags: [`city-surf-report-${cityKey}`] },
-  );
-
-  return cached();
+  return fetchCitySurfReport(cityName, stateSlug);
 }
