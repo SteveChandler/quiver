@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { useSearchParams, usePathname } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { useRoutePathname } from "@/hooks/use-route-pathname";
 import { normalizeForecastDateParam, normalizeForecastWindowParam } from "@/lib/utils/forecast-window-param";
 import { useAuthenticatedForecastDecision } from "@/components/beach-detail/authenticated-forecast-decision";
 import { RipCurrentWarning } from "@/components/beach-detail/rip-current-warning";
@@ -97,7 +98,7 @@ export function ForecastTab({
   const surfCallLoading =
     decisionLoading || (hasHeroDecision && decisionReport !== (surfCall ?? null));
   const searchParams = useSearchParams();
-  const pathname = usePathname();
+  const pathname = useRoutePathname();
   const selectedDate = normalizeForecastDateParam(searchParams?.get("date"));
   const selectedWindow = selectedDate ? null : normalizeForecastWindowParam(searchParams?.get("window"));
 

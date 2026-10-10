@@ -313,7 +313,7 @@ export default function RootLayout({
             below the nav, not above it. Don't re-declare the id here. */}
         <Providers>{children}</Providers>
 
-        {/* HideOnRoutes client gate handles footer visibility via usePathname() */}
+        {/* HideOnRoutes client gate handles footer visibility via useRoutePathname() */}
         <HideOnRoutes exact={["/"]} prefixes={hideFooterPrefixes}>
           <SiteFooter />
         </HideOnRoutes>

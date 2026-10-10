@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
+import { useRoutePathname } from "@/hooks/use-route-pathname";
 import { X } from "lucide-react";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { useBeachSearch } from "@/hooks/use-beach-search";
@@ -111,7 +112,7 @@ async function resolveLastViewedCenter(): Promise<{
 export function MapView() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const pathname = usePathname();
+  const pathname = useRoutePathname();
   const isShareView = searchParams.get("share") === "1";
   const [showFieldGuide, setShowFieldGuide] = useState(false);
   const [cameraOwner, setCameraOwner] = useState<MapCameraOwner>("initial");
