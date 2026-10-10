@@ -140,6 +140,25 @@ describe("loadSwellOutlookForUser", () => {
     jest.mocked(outlookState.saveSwellOutlookLists).mockClear();
   });
   afterEach(() => jest.restoreAllMocks());
+  it.each([72, 1, null])("resolves a %s-hour fix for the outlook pool", async (ageHours) => {
+    const location = ageHours === null ? null : { lat: 21.28, lon: -157.83,
+      captured_at: new Date(NOW.getTime() - ageHours * 3_600_000).toISOString() };
+    const home_beach = { lat: 32.89, lon: -117.25 };
+    const loaders = deps();
+    const response = await loadSwellOutlookForUser({ client: fakeClient({ profile: { ...PROFILE, home_beach, user_location_snapshots: location } }).client,
+      userId: USER, now: NOW, recordOpen: false, deps: loaders });
+    expect(loaders.loadPool).toHaveBeenCalledWith(expect.objectContaining({ location: ageHours === 1 ? { lat: 21.28, lon: -157.83 } : home_beach }));
+    expect(response).toMatchObject({ anchorSource: ageHours === 1 ? "location" : "home" });
+  });
+
+  it("does not use stale coordinates without a home beach", async () => {
+    const loaders = deps({ loadPool: jest.fn(async () => []) });
+    await loadSwellOutlookForUser({ client: fakeClient({ profile: { ...PROFILE, home_beach_id: null, home_beach: null,
+      user_location_snapshots: { lat: 21.28, lon: -157.83, captured_at: new Date(NOW.getTime() - 72 * 3_600_000).toISOString() } } }).client,
+      userId: USER, now: NOW, recordOpen: false, deps: loaders });
+    expect(loaders.loadPool).toHaveBeenCalledWith(expect.objectContaining({ location: null, homeBeachId: null }));
+  });
+
   it("hands a healthy list to cron persistence without a separate write", async () => {
     const client = fakeClient({ profile: PROFILE, boards: [] });
     const onList = jest.fn();

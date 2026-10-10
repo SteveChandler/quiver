@@ -1,3 +1,4 @@
+import { resolveLocationAnchor, type LocationAnchor, type LocationSnapshot } from "@/lib/alerts/location-freshness";
 import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
 import { persistableSessionDecision } from "@/lib/recommendations/canonical-decision/contract";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -79,7 +80,8 @@ export interface DailyCallProfile {
   notifForecastAlerts: boolean | null;
   experienceLevel: string | null;
   maxDriveMinutes: number | null;
-  location: { lat: number; lon: number; timezone: string } | null;
+  location: (LocationSnapshot & { timezone: string }) | null;
+  anchorSource?: LocationAnchor["source"];
   homeBeach: Beach | null;
 }
 
@@ -247,6 +249,7 @@ function fallbackReason(vars: Record<string, string>): string {
 
 function buildPayload(args: {
   candidate: DailyCallCandidate;
+  options: DailyCallCandidate[];
   profile: DailyCallProfile;
   timezone: string;
   alertDate: string;
@@ -259,6 +262,7 @@ function buildPayload(args: {
   const forecast = details?.sourceForecast;
   return {
     schema_version: DAILY_CALL_SCHEMA_VERSION,
+    anchor_source: args.profile.anchorSource,
     beach_id: args.candidate.pool.beach.id,
     beach_slug: args.candidate.pool.beach.slug,
     beach_name: args.candidate.pool.beach.short_name ?? args.candidate.pool.beach.name,
@@ -266,6 +270,21 @@ function buildPayload(args: {
     window_start: args.candidate.window.start,
     window_end: args.candidate.window.end,
     window_local: windowLabel(args.candidate, args.timezone),
+    ...(args.options.length > 0 ? {
+      options: args.options.map((option) => {
+        const height = Number.parseFloat(String(candidateDetails(option)?.sourceForecast.wave_height ?? ""));
+        return {
+          beach_id: option.pool.beach.id,
+          beach_slug: option.pool.beach.slug,
+          beach_name: option.pool.beach.short_name ?? option.pool.beach.name,
+          window_start: option.window.start,
+          window_end: option.window.end,
+          window_local: windowLabel(option, args.timezone),
+          wave_height_ft: Number.isFinite(height) ? height : null,
+          relation: option.pool.beach.id === args.profile.homeBeachId ? "home" : option.pool.relation,
+        };
+      }),
+    } : {}),
     drivers: args.candidate.window.drivers,
     wave_height_ft: numberValue(forecast?.wave_height),
     wave_period_s: numberValue(forecast?.wave_period),
@@ -464,7 +483,7 @@ async function loadProfiles(
       ? Promise.resolve({ data: [], error: null })
       : supabase
           .from("user_location_snapshots")
-          .select("user_id, lat, lon, timezone")
+          .select("user_id, lat, lon, timezone, captured_at")
           .in("user_id", userIds),
     homeBeachIds.length === 0
       ? Promise.resolve({ data: [], error: null })
@@ -576,7 +595,9 @@ export async function runDailyCallCron(args: {
   }
 
   const profiles = await deps.loadProfiles(supabase);
-  for (const profile of profiles) {
+  for (const loadedProfile of profiles) {
+    const { anchor, source } = resolveLocationAnchor(loadedProfile.location, args.now, loadedProfile.homeBeach);
+    const profile = { ...loadedProfile, location: source === "location" ? loadedProfile.location : null, anchorSource: source };
     summary.evaluated += 1;
     if (profile.notifPushEnabled !== true || profile.notifForecastAlerts !== true) {
       increment(summary, "disabled");
@@ -607,9 +628,7 @@ export async function runDailyCallCron(args: {
         supabase,
         userId: profile.id,
         homeBeachId: profile.homeBeachId,
-        location: profile.location
-          ? { lat: profile.location.lat, lon: profile.location.lon }
-          : null,
+        location: anchor,
         maxDriveMinutes: profile.maxDriveMinutes,
       });
       if (pool.length === 0) {
@@ -641,6 +660,18 @@ export async function runDailyCallCron(args: {
         summary.silent += 1;
         continue;
       }
+      const seenBeachIds = new Set([winner.pool.beach.id]);
+      const options = [...eligible].sort((left, right) =>
+        relationRank(right, profile.homeBeachId) - relationRank(left, profile.homeBeachId)
+        || right.physicalScore - left.physicalScore
+        || right.personalFit - left.personalFit
+        || Date.parse(left.window.start) - Date.parse(right.window.start)
+        || left.pool.beach.id.localeCompare(right.pool.beach.id))
+        .filter((candidate) => {
+          if (seenBeachIds.has(candidate.pool.beach.id)) return false;
+          seenBeachIds.add(candidate.pool.beach.id);
+          return true;
+        }).slice(0, 2);
       const home = built.candidates.find((candidate) =>
         candidate.pool.beach.id === profile.homeBeachId) ?? null;
       const swellEventKey = await deps.loadSwellEventKey(profile.id, alertDate);
@@ -665,6 +696,7 @@ export async function runDailyCallCron(args: {
         dedupeKey: `daily_call:${profile.id}:${alertDate}`,
         payload: buildPayload({
           candidate: winner,
+          options,
           profile,
           timezone,
           alertDate,

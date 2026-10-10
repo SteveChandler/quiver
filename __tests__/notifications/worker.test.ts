@@ -2291,6 +2291,36 @@ describe("processPendingEvents — push provider details", () => {
     ]);
   });
 
+  it.each([
+    { message: "The registration token is not a valid FCM registration token", retires: true },
+    { message: "Invalid value at message.data", retires: false },
+  ])("retires only a token-specific invalid-argument error: $message", async ({ message, retires }) => {
+    const state = emptyState();
+    state.events.push(buildEvent());
+    state.profiles.set("user-recipient", buildProfile());
+    state.profiles.set("user-actor", buildProfile({ id: "user-actor" }));
+    state.devices.set("user-recipient", ["stale-token"]);
+    const fakeFcm = {
+      sendEach: jest.fn(async () => ({
+        successCount: 0, failureCount: 1,
+        responses: [{ success: false, error: { code: "messaging/invalid-argument", message } }],
+      })),
+    };
+
+    await processPendingEvents(buildMockSupabase(state) as never, {
+      now: NOON_PT, fcm: fakeFcm as never,
+    });
+
+    expect(fakeFcm.sendEach).toHaveBeenCalledTimes(1);
+    expect(state.deviceRetirements).toEqual(retires
+      ? [{ tokens: ["stale-token"], reason: "provider_invalid_token" }]
+      : []);
+    expect(state.attempts).toContainEqual(expect.objectContaining({
+      channel: "push", status: "failed_provider",
+      provider_response: expect.objectContaining({ invalidTokenCount: retires ? 1 : 0 }),
+    }));
+  });
+
   it("failed provider responses persist provider_response and error_message", async () => {
     const state = emptyState();
     state.events.push(buildEvent());

@@ -426,7 +426,7 @@ describe("surf push budget integration", () => {
       maxDriveMinutes: null,
       experienceLevel: "advanced",
       notifPushEnabled: true,
-      notifSwellAlerts: true,
+      notifSwellAlerts: true, notifForecastAlerts: false,
     };
     const swellDeps: SwellAlertDeps = {
       isEnabled: () => true,

@@ -71,6 +71,7 @@ jest.mock("@/lib/alerts/sunrise", () => ({
   getDaylightWindow: (...args: any[]) => mockGetDaylightWindow(...args),
 }));
 jest.mock("@/lib/alerts/timezone-utils", () => ({
+  ...jest.requireActual("@/lib/alerts/timezone-utils"),
   getUtcDayBounds: (...args: any[]) => mockGetUtcDayBounds(...args),
 }));
 jest.mock("@/lib/alerts/entitlements", () => ({
@@ -432,6 +433,191 @@ afterEach(() => {
 });
 
 // ---- Tests ----
+
+describe("condition-alert-evaluate — upcoming local surf day", () => {
+  let queries: Record<string, ReturnType<typeof makeChain>[]>;
+
+  beforeEach(() => {
+    jest.setSystemTime(new Date("2026-10-09T09:00:00Z"));
+    queries = {};
+    const actual = jest.requireActual<typeof import("@/lib/alerts/timezone-utils")>(
+      "@/lib/alerts/timezone-utils",
+    );
+    mockGetUtcDayBounds.mockImplementation(actual.getUtcDayBounds);
+    mockSupabase.from.mockImplementation((table: string) => {
+      const chain = mockFrom(table);
+      (queries[table] ??= []).push(chain);
+      if (!["beaches", "alert_deliveries", "enhanced_forecasts"].includes(table)) return chain;
+      chain.gte.mockImplementation((col: string, value: string) => {
+        chain._filters[`${col}__gte`] = value;
+        return chain;
+      });
+      chain.lt.mockImplementation((col: string, value: string) => {
+        chain._filters[`${col}__lt`] = value;
+        return chain;
+      });
+      chain.then.mockImplementation((resolve: (value: unknown) => unknown) => {
+        const rows = table === "beaches" ? store.beaches
+          : table === "alert_deliveries" ? store.deliveries : store.forecasts;
+        return resolve({
+          data: rows.filter((row) => Object.entries(chain._filters).every(([key, value]) => {
+            if (key.endsWith("__in")) return (value as unknown[]).includes(row[key.slice(0, -4)]);
+            if (key.endsWith("__gte")) return row[key.slice(0, -5)] >= String(value);
+            if (key.endsWith("__lt")) return row[key.slice(0, -4)] < String(value);
+            return row[key] === value;
+          })),
+          error: null,
+        });
+      });
+      return chain;
+    });
+  });
+
+  function seedSurfDay(timezone: string, start: string, sunrise: string): void {
+    seedRule();
+    seedProfile({ timezone: null });
+    seedBeach({ timezone });
+    seedForecast();
+    store.forecasts[0] = { ...store.forecasts[0], beach_id: BEACH_1, forecast_at: start };
+    mockGetDaylightWindow.mockReturnValue({ sunrise: new Date(sunrise), sunset: new Date("2026-10-10T04:00:00Z") });
+    mockFindMatchingWindows.mockReturnValue([{
+      window_start: start,
+      window_end: new Date(Date.parse(start) + 2 * 60 * 60 * 1000).toISOString(),
+      best_hour: start,
+      best_score: 0.9,
+      conditions_snapshot: { wave_height: 3.5 },
+    }]);
+  }
+
+  it.each([
+    ["Pacific/Honolulu", "2026-10-09T10:00:00.000Z", "2026-10-10T09:59:59.000Z", "2026-10-09T18:00:00Z", "2026-10-09T16:30:00Z", "2026-10-09T16:30:00.000Z"],
+    ["America/Los_Angeles", "2026-10-09T07:00:00.000Z", "2026-10-10T06:59:59.000Z", "2026-10-09T17:00:00Z", "2026-10-09T14:00:00Z", "2026-10-09T15:00:00.000Z"],
+    ["America/New_York", "2026-10-09T04:00:00.000Z", "2026-10-10T03:59:59.000Z", "2026-10-09T14:00:00Z", "2026-10-09T11:00:00Z", "2026-10-09T12:00:00.000Z"],
+  ])("loads and queues the upcoming day for a %s home at 09:00 UTC", async (timezone, dayStart, dayEnd, start, sunrise, sendAt) => {
+    seedSurfDay(timezone, start, sunrise);
+    store.forecasts.push({ ...store.forecasts[0], forecast_at: "2026-10-08T18:00:00Z" });
+    store.deliveries.push({ user_id: USER_A, beach_id: BEACH_1, alert_date: "2026-10-08" });
+
+    const res = await GET(makeRequest());
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({ evaluated: 1, queued: 1, errors: 0 });
+    expect(mockGetUtcDayBounds).toHaveBeenCalledWith("2026-10-09", timezone);
+    expect(queries.enhanced_forecasts[0].gte).toHaveBeenCalledWith("forecast_at", dayStart);
+    expect(queries.enhanced_forecasts[0].lt).toHaveBeenCalledWith("forecast_at", dayEnd);
+    expect(mockFilterToDaylight.mock.calls[0][0].map((hour: { forecast_at: string }) => hour.forecast_at)).toEqual([start]);
+    expect(store.queueUpserts).toHaveLength(1);
+    expect(store.queueUpserts[0]).toMatchObject({ alert_date: "2026-10-09", window_start: start, send_at: sendAt });
+  });
+
+  it.each(["2026-10-09T09:00:00Z", "2026-10-09T02:00:00Z"])("uses the rule beach timezone without home or profile timezone at %s", async (now) => {
+    seedSurfDay("Pacific/Honolulu", "2026-10-09T18:00:00Z", "2026-10-09T16:30:00Z");
+    jest.setSystemTime(new Date(now));
+    store.profiles[0].home_beach_id = null;
+
+    await GET(makeRequest());
+
+    expect(mockGetUtcDayBounds).toHaveBeenCalledWith("2026-10-09", "Pacific/Honolulu");
+    expect(store.queueUpserts).toHaveLength(1);
+    expect(store.queueUpserts[0].alert_date).toBe("2026-10-09");
+  });
+
+  it("clamps a Hawaii alert to the upcoming day's real sunrise", async () => {
+    const windowStart = "2026-10-09T18:00:00Z";
+    seedSurfDay("Pacific/Honolulu", windowStart, "2026-10-09T16:30:00Z");
+    store.beaches[0].lat = 21.28;
+    store.beaches[0].lon = -157.83;
+    const actual = jest.requireActual<typeof import("@/lib/alerts/sunrise")>("@/lib/alerts/sunrise");
+    mockGetDaylightWindow.mockImplementation(actual.getDaylightWindow);
+    const { sunrise } = actual.getDaylightWindow(21.28, -157.83, new Date(windowStart));
+
+    await GET(makeRequest());
+
+    expect(store.queueUpserts).toHaveLength(1);
+    expect(store.queueUpserts[0]).toMatchObject({ alert_date: "2026-10-09", send_at: sunrise.toISOString() });
+    expect(Date.parse(store.queueUpserts[0].send_at)).toBeGreaterThan(Date.parse(windowStart) - 2 * 60 * 60 * 1000);
+  });
+
+  it("uses profile timezone before the rule beach timezone when there is no home", async () => {
+    seedSurfDay("Pacific/Honolulu", "2026-10-09T18:00:00Z", "2026-10-09T16:30:00Z");
+    jest.setSystemTime(new Date("2026-10-09T01:00:00Z")); // 15:00 HST, 18:00 Pacific
+    store.profiles[0].home_beach_id = null;
+    store.profiles[0].timezone = "America/Los_Angeles";
+
+    await GET(makeRequest());
+
+    expect(queries.profiles[0].select).toHaveBeenCalledWith(expect.stringContaining("timezone"));
+    expect(mockGetUtcDayBounds).toHaveBeenCalledWith("2026-10-09", "Pacific/Honolulu");
+    expect(store.queueUpserts).toHaveLength(1);
+    expect(store.queueUpserts[0].alert_date).toBe("2026-10-09");
+  });
+
+  it("loads a home beach outside the rules and gives it precedence over profile timezone", async () => {
+    seedSurfDay("America/Los_Angeles", "2026-10-09T17:00:00Z", "2026-10-09T14:00:00Z");
+    jest.setSystemTime(new Date("2026-10-09T01:00:00Z"));
+    store.profiles[0].home_beach_id = BEACH_2;
+    store.profiles[0].timezone = "Pacific/Honolulu";
+    seedBeach({ id: BEACH_2, timezone: "America/Los_Angeles" });
+
+    await GET(makeRequest());
+
+    expect(mockGetUtcDayBounds).toHaveBeenCalledWith("2026-10-09", "America/Los_Angeles");
+    expect(store.queueUpserts).toHaveLength(1);
+    expect(store.queueUpserts[0].alert_date).toBe("2026-10-09");
+  });
+
+  it("dedupes using each rule's date when fallback timezones choose different days", async () => {
+    seedSurfDay("Pacific/Honolulu", "2026-10-08T18:00:00Z", "2026-10-08T16:30:00Z");
+    jest.setSystemTime(new Date("2026-10-09T01:00:00Z"));
+    store.profiles[0].home_beach_id = null;
+    seedRule({ id: "rule-2", beach_id: BEACH_2 });
+    seedBeach({ id: BEACH_2, timezone: "America/Los_Angeles" });
+    store.deliveries.push(
+      { user_id: USER_A, beach_id: BEACH_1, alert_date: "2026-10-09" },
+      { user_id: USER_A, beach_id: BEACH_2, alert_date: "2026-10-09" },
+    );
+
+    const res = await GET(makeRequest());
+
+    await expect(res.json()).resolves.toMatchObject({ evaluated: 1, queued: 1, errors: 0 });
+    expect(mockGetUtcDayBounds).toHaveBeenCalledWith("2026-10-08", "Pacific/Honolulu");
+    expect(store.queueUpserts).toHaveLength(1);
+    expect(store.queueUpserts[0]).toMatchObject({ beach_id: BEACH_1, alert_date: "2026-10-08" });
+  });
+
+  it("suppresses a Hawaii rule already delivered on its upcoming surf day", async () => {
+    seedSurfDay("Pacific/Honolulu", "2026-10-09T18:00:00Z", "2026-10-09T16:30:00Z");
+    store.deliveries.push({ user_id: USER_A, beach_id: BEACH_1, alert_date: "2026-10-09" });
+
+    const res = await GET(makeRequest());
+
+    await expect(res.json()).resolves.toMatchObject({ evaluated: 0, queued: 0, errors: 0 });
+    expect(store.queueUpserts).toHaveLength(0);
+    expect(mockFindMatchingWindows).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])("uses the upcoming date for watched-call updates (post-window: %s)", async (postWindow) => {
+    seedSurfDay("Pacific/Honolulu", "2026-10-09T18:00:00Z", "2026-10-09T16:30:00Z");
+    const windowStart = postWindow ? "2026-10-08T18:00:00Z" : "2026-10-09T18:00:00Z";
+    const windowEnd = postWindow ? "2026-10-08T20:00:00.000Z" : "2026-10-09T20:00:00.000Z";
+    store.rules[0].preset_type = "watched_call";
+    store.rules[0].conditions.watched_call = {
+      version: 1, recommendationId: "recommendation-1", sourceSurface: "home_hero", mode: "best",
+      beachId: BEACH_1, windowStart, windowEnd, forecastAt: windowStart,
+      recommendationState: "ready_today", conditionScore: 82, personalMatchScore: 76,
+      overallScore: 80, reasonType: "forecast_conditions", dedupeKey: "watched-call.v1:recommendation-1",
+    };
+
+    const res = await GET(makeRequest());
+
+    await expect(res.json()).resolves.toMatchObject({ evaluated: 1, queued: 1, errors: 0 });
+    expect(store.queueUpserts).toHaveLength(1);
+    expect(store.queueUpserts[0]).toMatchObject({
+      alert_date: "2026-10-09",
+      conditions_snapshot: { alert_type: "watched_call_update", payload: { category: postWindow ? "post_window" : "still_on" } },
+    });
+  });
+});
 
 describe("condition-alert-evaluate — A4.2 flat queries", () => {
   const routeSource = readFileSync("app/api/cron/condition-alert-evaluate/route.ts", "utf8");

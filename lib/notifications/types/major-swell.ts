@@ -16,10 +16,12 @@ const rankedBeachSchema = z.object({
   beach_id: z.string().uuid(),
   beach_name: z.string().min(1),
   rank: z.number().int().min(1).max(3),
+  forecast_at: instantSchema.optional(),
 }).strict();
 
 const baseSchema = z.object({
   schema_version: z.literal(MAJOR_SWELL_NOTIFICATION_SCHEMA_VERSION),
+  anchor_source: z.enum(["location", "home", "none"]).optional(),
   beach_id: z.string().uuid(),
   beach_slug: z.string().min(1).optional(),
   beach_name: z.string().min(1),
@@ -28,6 +30,18 @@ const baseSchema = z.object({
   title: z.string().min(1),
   body: z.string().min(1),
   beaches: z.array(rankedBeachSchema).min(1).max(3).optional(),
+  surf_window: z.object({
+    state: z.enum(["recommended", "no_suitable_window", "insufficient_tide_evidence"]),
+    start: instantSchema.nullable(),
+    end: instantSchema.nullable(),
+    local_date: z.string().date().nullable(),
+    timezone: z.string().min(1).nullable(),
+    reasons: z.array(z.enum([
+      "high_tide_outside_preference", "low_tide_outside_preference",
+      "better_tide_before_peak", "better_tide_after_peak",
+      "tide_data_unavailable", "no_overlap_with_usable_swell",
+    ])),
+  }).strict().optional(),
   rarity: z.string().min(1).optional(),
   event_key: z.string().min(1).optional(),
   title_id: z.string().min(1).optional(),

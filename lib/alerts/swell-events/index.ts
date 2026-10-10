@@ -21,6 +21,7 @@ export { EXCLUDE_SYNTHETIC_ROWS_FILTER, loadSwellForecastRows } from "./forecast
 export {
   SWELL_EVENT_KEY_REUSE_DAYS,
   loadRecentSwellSnapshots,
+  loadRecentSwellRunDates,
   loadSwellCrossingHistory,
   resolveEventKeys,
   toSwellEventSnapshotRow,
