@@ -1,4 +1,3 @@
-import { getLocalDateFormatter } from "@/lib/services/discovery/window-selector/time-slot-utils";
 // app/api/cron/condition-alert-evaluate/route.ts
 import { NextResponse } from "next/server";
 import { validateCronRequest } from "@/lib/middleware/api-wrappers";
@@ -12,7 +11,7 @@ import { prepareAlertForecastHours, type EnhancedForecastAlertRow } from "@/lib/
 import { createAlertTideCache, type AlertTideClient } from "@/lib/alerts/alert-tide-samples";
 import { isAlertHourlyWindowsEnabledFor } from "@/lib/flags/alert-hourly-windows";
 import { CAPS, resolveEntitlement } from "@/lib/alerts/entitlements";
-import { getUtcDayBounds } from "@/lib/alerts/timezone-utils";
+import { getUpcomingSurfDate, getUtcDayBounds } from "@/lib/alerts/timezone-utils";
 import type { AlertConditions, BeachAlertMeta } from "@/lib/alerts/types";
 import type { Database } from "@/types/database.generated";
 import { getMinRideable, MINIMUM_VIABLE_WINDOW_MINUTES } from "@/lib/utils/surf-call-logic";
@@ -33,6 +32,7 @@ type ProfileRow = Pick<
   Database["public"]["Tables"]["profiles"]["Row"],
   | "id"
   | "home_beach_id"
+  | "timezone"
   | "notif_forecast_alerts"
   | "notif_email_enabled"
   | "notif_push_enabled"
@@ -185,7 +185,7 @@ export async function GET(request: Request) {
         const [profilesRes, beachesRes, entitlementsRes] = await Promise.all([
           supabase
             .from("profiles")
-            .select("id, home_beach_id, notif_forecast_alerts, notif_email_enabled, notif_push_enabled, experience_level")
+            .select("id, home_beach_id, timezone, notif_forecast_alerts, notif_email_enabled, notif_push_enabled, experience_level")
             .in("id", userIds),
           supabase
             .from("beaches")
@@ -208,6 +208,20 @@ export async function GET(request: Request) {
 
         const beachesById = new Map<string, BeachRow>();
         for (const b of beachesRes.data ?? []) beachesById.set(b.id, b);
+
+        const missingHomeBeachIds = [...new Set(
+          (profilesRes.data ?? [])
+            .map((profile) => profile.home_beach_id)
+            .filter((id): id is string => id !== null && !beachesById.has(id)),
+        )];
+        if (missingHomeBeachIds.length > 0) {
+          const { data: homeBeaches, error: homeBeachesError } = await supabase
+            .from("beaches")
+            .select("*")
+            .in("id", missingHomeBeachIds);
+          if (homeBeachesError) throw homeBeachesError;
+          for (const beach of homeBeaches ?? []) beachesById.set(beach.id, beach);
+        }
 
         const entitlementByUserId = new Map<string, EntitlementRow>();
         for (const e of entitlementsRes.data ?? []) entitlementByUserId.set(e.user_id, e);
@@ -243,8 +257,11 @@ export async function GET(request: Request) {
             const profileExperience = parseSkillLevel(profile.experience_level);
             const homeBeachId = profile.home_beach_id;
             const homeBeach = homeBeachId ? beachesById.get(homeBeachId) : undefined;
-            const homeBeachTz = homeBeach?.timezone ?? "America/New_York";
-            const userLocalDate = getLocalDateFormatter(homeBeachTz).format(new Date());
+            const now = new Date();
+            const surfDatesByBeach = new Map(userRules.map((rule) => [
+              rule.beach_id,
+              getUpcomingSurfDate(now, homeBeach?.timezone ?? profile.timezone ?? beachesById.get(rule.beach_id)!.timezone),
+            ]));
 
             // A surf alert is unique per beach, not per user. This lets an
             // actionable second break through while keeping repeat windows at
@@ -254,20 +271,20 @@ export async function GET(request: Request) {
             // are refreshed in the deployment environment.
             const { data: existing, error: existingError } = await (supabase as any)
               .from("alert_deliveries")
-              .select("beach_id")
+              .select("beach_id, alert_date")
               .eq("user_id", userId)
-              .eq("alert_date", userLocalDate);
+              .in("alert_date", [...new Set(surfDatesByBeach.values())]);
 
             if (existingError) throw existingError;
 
-            const deliveredBeachIds = new Set(
-              ((existing ?? []) as Array<{ beach_id?: unknown }>)
-                .map((delivery: { beach_id?: unknown }) => delivery.beach_id)
-                .filter((beachId: unknown): beachId is string => typeof beachId === "string"),
+            const deliveredBeachDates = new Set(
+              ((existing ?? []) as Array<{ beach_id?: unknown; alert_date?: unknown }>)
+                .filter((delivery) => typeof delivery.beach_id === "string" && typeof delivery.alert_date === "string")
+                .map((delivery) => `${delivery.beach_id}:${delivery.alert_date}`),
             );
             const eligibleRules = userRules.filter(
               (rule) => rule.preset_type === "watched_call"
-                || !deliveredBeachIds.has(rule.beach_id),
+                || !deliveredBeachDates.has(`${rule.beach_id}:${surfDatesByBeach.get(rule.beach_id)}`),
             );
             if (eligibleRules.length === 0) {
               result.skipped += userRules.length;
@@ -308,6 +325,7 @@ export async function GET(request: Request) {
               watched: NonNullable<AlertConditions["watched_call"]>;
               beach: BeachAlertMeta;
               evaluation: ReturnType<typeof evaluateWatchedCall>;
+              localDate: string;
             }): Promise<boolean> => {
               const payload = watchedCallPayload({
                 evaluation: args.evaluation,
@@ -352,7 +370,7 @@ export async function GET(request: Request) {
                 user_id: userId,
                 rule_id: args.rule.id,
                 beach_id: String(payload.beach_id),
-                alert_date: userLocalDate,
+                alert_date: args.localDate,
                 send_at: new Date().toISOString(),
                 window_start: queueStart,
                 window_end: queueEnd,
@@ -381,6 +399,7 @@ export async function GET(request: Request) {
             for (const rule of activeRules) {
               result.evaluated++;
               const beach = beachesById.get(rule.beach_id) as BeachAlertMeta;
+              const userLocalDate = surfDatesByBeach.get(rule.beach_id)!;
               const conditions = rule.conditions as AlertConditions;
               const watched = rule.preset_type === "watched_call"
                 ? conditions.watched_call
@@ -414,7 +433,7 @@ export async function GET(request: Request) {
                   alreadyResponded: (responses?.length ?? 0) > 0,
                   lastStillOnAt: null,
                 });
-                const terminalHandled = await queueWatchedUpdate({ rule, watched, beach, evaluation });
+                const terminalHandled = await queueWatchedUpdate({ rule, watched, beach, evaluation, localDate: userLocalDate });
                 if (terminalHandled && !evaluation.keepWatchActive) {
                   const { error: retireError } = await supabase
                     .from("alert_rules")
@@ -567,7 +586,7 @@ export async function GET(request: Request) {
                     reasonType: "forecast_conditions",
                   } : undefined,
                 });
-                await queueWatchedUpdate({ rule, watched, beach, evaluation });
+                await queueWatchedUpdate({ rule, watched, beach, evaluation, localDate: userLocalDate });
                 continue;
               }
 
@@ -576,7 +595,8 @@ export async function GET(request: Request) {
 
               result.matched++;
 
-              const { sunrise } = getDaylightWindow(beach.lat, beach.lon, new Date(todayStart));
+              // Local midnight can resolve to the previous solar day in Hawaii.
+              const { sunrise } = getDaylightWindow(beach.lat, beach.lon, new Date(matchedWindow.window_start));
 
               let holdSuppressed = false;
               for (const window of [matchedWindow]) {
