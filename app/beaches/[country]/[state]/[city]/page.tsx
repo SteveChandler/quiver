@@ -151,5 +151,9 @@ export default async function LocationPage(props: LocationPageProps) {
 }
 
 // The public read client fetches with no-store; see createPublicReadClient.
+// Hourly, and really hourly: the surf report below used to sit in a 15-minute
+// unstable_cache, which lowered this page's window to 15 minutes. Water-quality
+// closures apply at render and nothing revalidates these paths, so a new
+// closure can take up to an hour to leave the surf report (Steven, Oct 2026).
 export const dynamic = "force-static";
 export const revalidate = 3600;

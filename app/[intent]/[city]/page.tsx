@@ -101,9 +101,11 @@ export const revalidate = 3600;
 // Next.js lowers this page's revalidate to the shortest unstable_cache window a
 // render reads, so the beach-list window is the page window. Tide, water-temp,
 // and sun-time renders show no live recommendation and keep the declared hour.
-// Live recommendations apply water-quality holds at render and keep 15 minutes.
+// Live recommendations apply water-quality holds at render. They were 15
+// minutes until Oct 2026; nearly all traffic here is crawlers, so Steven moved
+// them to hourly, accepting up to an hour before a new closure drops off.
 const BEACH_METADATA_WINDOW_SECONDS = 3600;
-const LIVE_RECOMMENDATION_WINDOW_SECONDS = 900;
+const LIVE_RECOMMENDATION_WINDOW_SECONDS = 3600;
 
 /**
  * Try to resolve a city slug with automatic state suffix detection.
@@ -1209,7 +1211,7 @@ export default async function IntentPage(props: IntentPageParams) {
 
             <div className="space-y-2 mt-6">
               <p className="text-base text-gray-700">
-                Recommendations refresh every 30 minutes based on tide, wind,
+                Recommendations refresh hourly based on tide, wind,
                 and crowd telemetry from Quiver.
               </p>
               <p className="text-base text-gray-700">
