@@ -1,0 +1,460 @@
+-- Match scoring runs in linear time again. No result changes.
+-- 20261002200000 switched three joins to IS NOT DISTINCT FROM so a slot with a NULL factor still
+-- returns. IS NOT DISTINCT FROM cannot drive a hash join, and every CTE here is built from jsonb,
+-- which the planner estimates at about one row, so those joins became nested loops over
+-- scenarios x targets. The cost grew with the square of the slot count: on 2026-10-10, for one
+-- premium user (122 sessions), 820 slots took 0.54 s and 1,640 took 2.3 s. A /map batch is 20
+-- beaches x 240 hours, about 1,640 slots, inside get_bulk_forecast_decision_context. On the
+-- smallest Supabase compute, three of those in parallel pushed /api/forecasts/bulk past the 8 s
+-- statement timeout ("Failed to load bulk decision context", 72 failures in 12:46-12:48 UTC).
+--   * Each IS NOT DISTINCT FROM tuple join gains an equal jsonb_build_array key over the same
+--     columns. The original condition stays, and it implies the key (jsonb compares numerics by
+--     value and treats NULL as null), so the joined rows are identical; the key only makes the
+--     join hashable.
+--   * SET enable_nestloop = off on the function, because the one-row estimates still chose nested
+--     loops with the key present. Joins with no equality (the similarity and fit windows) still
+--     run as nested loops, as before.
+-- Checked read-only against prod data before writing this: old and new returned identical rows
+-- (EXCEPT ALL both ways, equal counts) for learned, avoidance-only and starter users, slots with
+-- missing wind/direction/tide, mixed OPEN_METEO and other sources, and duplicate slots. 1,640
+-- slots went from about 1.7 s to about 0.4 s; 360 slots from about 0.6 s to 0.3 s.
+-- Signature, security, volatility, search_path and every result are unchanged.
+-- Rollback: re-run compute_user_match_scores from 20261002200000_match_score_missing_inputs_neutral.sql.
+BEGIN;
+
+CREATE OR REPLACE FUNCTION public.compute_user_match_scores(
+  p_user_id uuid, p_beach_ids uuid[], p_slots jsonb
+)
+RETURNS TABLE(slot_idx integer, beach_id uuid, forecast_at text, result jsonb)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp
+-- Every CTE here is built from jsonb, so the planner estimates about one row for each and picks
+-- nested loops; hash joins are the right plan at any batch size.
+SET enable_nestloop = off
+AS $scores$
+WITH history AS MATERIALIZED (
+  SELECT s.rating, s.arrival_time, s.session_skill_fit, s.session_board_fit,
+    s.arrival_time > now() - interval '12 months'
+      AND s.deleted_at IS NULL AND sfs.forecast_snapshot IS NOT NULL AS eligible,
+    b.break_type, public.break_type_families(b.break_type) AS break_families,
+    b.preferred_tide_ft_min, b.preferred_tide_ft_max,
+    COALESCE(s.board_id::text, s.board_snapshot->>'name', s.board_snapshot->>'board_type') AS board_key,
+    boards.board_type AS row_board_type, boards.name AS row_board_name,
+    s.board_snapshot->>'board_type' AS snapshot_board_type,
+    s.board_snapshot->>'name' AS snapshot_board_name,
+    public.parse_numeric_from_text(sfs.forecast_snapshot->>'wave_height') AS wave,
+    public.parse_numeric_from_text(sfs.forecast_snapshot->>'wave_period') AS period,
+    -- Missing wind, direction and tide stay NULL: parse_numeric_from_text reads them as 0 (glassy,
+    -- due north, dead low). Same regex, so present values are unchanged.
+    (regexp_match(sfs.forecast_snapshot->>'wind_speed', '(-?\d+\.?\d*)'))[1]::numeric AS wind,
+    (regexp_match(sfs.forecast_snapshot->>'wind_direction_deg', '(-?\d+\.?\d*)'))[1]::numeric AS wind_dir,
+    (regexp_match(sfs.forecast_snapshot->>'tide_height', '(-?\d+\.?\d*)'))[1]::numeric AS tide,
+    sfs.forecast_snapshot->>'tide_status' AS tide_status,
+    public.parse_wave_height_midpoint_ft(sfs.forecast_snapshot->>'wave_height') AS similarity_wave,
+    CASE WHEN sfs.forecast_snapshot->>'wave_period' IS NOT NULL
+      THEN public.parse_numeric_from_text(sfs.forecast_snapshot->>'wave_period') END AS similarity_period,
+    -- Open-Meteo snapshots store the tallest partition's period in wave_period; wave_period_om is the
+    -- whole-sea mean that CDIP/NWS periods measure. Twin of similarityPeriod in lib/scoring/personal-board.ts.
+    CASE WHEN upper(sfs.forecast_snapshot->>'data_source') = 'OPEN_METEO'
+        AND public.parse_numeric_from_text(sfs.forecast_snapshot->>'wave_period_om') > 0
+      THEN public.parse_numeric_from_text(sfs.forecast_snapshot->>'wave_period_om')
+      WHEN sfs.forecast_snapshot->>'wave_period' IS NOT NULL
+      THEN public.parse_numeric_from_text(sfs.forecast_snapshot->>'wave_period') END AS similarity_period_by_source,
+    (regexp_match(sfs.forecast_snapshot->>'wind_speed', '(-?\d+\.?\d*)'))[1]::numeric AS similarity_wind,
+    (regexp_match(sfs.forecast_snapshot->>'wind_direction_deg', '(-?\d+\.?\d*)'))[1]::numeric AS similarity_wind_dir,
+    (regexp_match(sfs.forecast_snapshot->>'tide_height', '(-?\d+\.?\d*)'))[1]::numeric AS similarity_tide,
+    CASE s.session_skill_fit WHEN 'dialed' THEN 1.0 WHEN 'over_my_head' THEN -1.0
+      WHEN 'under' THEN -0.5 ELSE 0 END
+      + CASE s.session_board_fit WHEN 'right' THEN 0.5
+        WHEN 'too_small' THEN -0.5 WHEN 'too_much_board' THEN -0.5
+        WHEN 'wrong_type' THEN -0.5 ELSE 0 END AS fit_value
+  FROM public.sessions s
+  LEFT JOIN public.session_forecast_snapshots sfs ON sfs.session_id = s.id
+  LEFT JOIN public.beaches b ON b.id = s.beach_id
+  LEFT JOIN public.boards boards ON boards.id = s.board_id
+  WHERE s.user_id = p_user_id AND s.status = 'completed' AND s.rating IS NOT NULL
+), chosen_board AS (
+WITH board_usage AS (
+    SELECT board_key, row_board_type, row_board_name, snapshot_board_type, snapshot_board_name,
+      COUNT(*)::integer AS use_count, MAX(arrival_time) AS last_used_at
+    FROM history WHERE eligible AND rating >= 4
+    GROUP BY board_key, row_board_type, row_board_name, snapshot_board_type, snapshot_board_name
+  ),
+  board_keys AS (
+    SELECT board_key, use_count, last_used_at, candidate.source_priority,
+      regexp_replace(
+        regexp_replace(
+          regexp_replace(lower(trim(candidate.value)), '[[:space:]_]+', '-', 'g'),
+          '-+',
+          '-',
+          'g'
+        ),
+        '(^-+|-+$)',
+        '',
+        'g'
+      ) AS key
+    FROM board_usage
+    CROSS JOIN LATERAL (VALUES
+      (row_board_type,0),(row_board_name,1),(snapshot_board_type,2),(snapshot_board_name,3)
+    ) AS candidate(value,source_priority)
+    WHERE candidate.value IS NOT NULL AND trim(candidate.value) <> ''
+  ),
+  board_classes AS (
+    SELECT
+      board_key,
+      use_count,
+      last_used_at,
+      source_priority,
+      CASE
+        WHEN key IN ('foamie', 'foam', 'foamboard', 'foam-board', 'soft', 'softboard', 'soft-board', 'softtop', 'soft-top', 'softtopboard', 'soft-top-board')
+          OR replace(key, '-', '') IN ('foamie', 'foam', 'foamboard', 'soft', 'softboard', 'softtop', 'softtopboard')
+        THEN 'foamie'
+        WHEN key IN ('longboard', 'long-board', 'log', 'longboard-single-fin', 'longboard-2-plus-1')
+          OR replace(key, '-', '') IN ('longboard', 'longboard21')
+        THEN 'longboard'
+        WHEN key IN ('midlength', 'mid-length', 'mini-mid', 'egg')
+          OR replace(key, '-', '') = 'midlength'
+        THEN 'mid-length'
+        WHEN key IN ('funboard', 'fun-board', 'mini', 'minimal', 'mini-mal', 'mini-simmons')
+          OR replace(key, '-', '') IN ('funboard', 'minisimmons')
+        THEN 'funboard'
+        WHEN key IN ('fish', 'twin', 'twin-pin', 'groveler')
+          OR replace(key, '-', '') = 'twinpin'
+        THEN 'fish'
+        WHEN key IN ('shortboard', 'short-board', 'thruster')
+          OR replace(key, '-', '') = 'shortboard'
+        THEN 'shortboard'
+        WHEN key IN ('step-up', 'stepup')
+          OR replace(key, '-', '') = 'stepup'
+        THEN 'step-up'
+        WHEN key = 'gun' THEN 'gun'
+        WHEN key IN ('sup', 'standuppaddle', 'standuppaddleboard', 'stand-up-paddle', 'stand-up-paddleboard', 'paddleboard', 'paddle-board')
+          OR replace(key, '-', '') IN ('sup', 'standuppaddle', 'standuppaddleboard', 'paddleboard')
+        THEN 'sup'
+        WHEN key = 'foil' THEN 'foil'
+        WHEN key IN ('bodyboard', 'body-board', 'boogie', 'boogieboard', 'boogie-board')
+          OR replace(key, '-', '') IN ('bodyboard', 'boogieboard')
+        THEN 'bodyboard'
+        ELSE NULL
+      END AS board_class
+    FROM board_keys
+    WHERE key <> ''
+  )
+  SELECT board_class
+  FROM board_classes
+  WHERE board_class IS NOT NULL
+  ORDER BY use_count DESC, last_used_at DESC NULLS LAST, source_priority ASC, board_key
+  LIMIT 1
+
+), global_inputs AS MATERIALIZED (
+  SELECT (SELECT count(*)::integer FROM history WHERE eligible) AS session_count,
+    (SELECT count(*)::integer FROM history WHERE eligible AND rating >= 4) AS good_total,
+    (SELECT lower(trim(experience_level)) FROM public.profiles WHERE id = p_user_id) AS profile_skill,
+    (SELECT board_class FROM chosen_board) AS board_class,
+    cap.samples,
+    CASE WHEN cap.ceiling IS NOT NULL THEN
+      GREATEST(0.5, cap.ceiling * (1.0 + 0.15 * COALESCE(cap.fit_net, 0))) END AS ceiling
+  FROM (
+    SELECT percentile_cont(0.85) WITHIN GROUP (ORDER BY wave)::numeric AS ceiling,
+      count(*)::integer AS samples,
+      avg(CASE session_skill_fit WHEN 'dialed' THEN 1.0 WHEN 'under' THEN -0.5
+        WHEN 'over_my_head' THEN -1.0 ELSE 0 END) AS fit_net
+    FROM history WHERE eligible AND rating >= 4 AND wave IS NOT NULL
+  ) cap
+), skill AS MATERIALIZED (
+  SELECT g.*,
+    CASE WHEN session_count >= 5 AND samples >= 5 AND ceiling IS NOT NULL THEN
+      CASE WHEN ceiling <= 3 THEN 'beginner' WHEN ceiling <= 5 THEN 'intermediate'
+        WHEN ceiling <= 8 THEN 'advanced' ELSE 'expert' END
+      WHEN profile_skill IN ('beginner','intermediate','advanced','expert') THEN profile_skill
+      WHEN board_class IN ('foamie','longboard','sup','foil') THEN 'beginner'
+      WHEN board_class IN ('step-up','gun') THEN 'advanced' ELSE 'intermediate' END AS skill_used,
+    CASE WHEN session_count >= 5 AND samples >= 5 AND ceiling IS NOT NULL THEN 'session_derived'
+      WHEN profile_skill IN ('beginner','intermediate','advanced','expert') THEN 'profile'
+      WHEN board_class IS NOT NULL THEN 'board_prior' ELSE 'default' END AS skill_source
+  FROM global_inputs g
+), raw_slots AS MATERIALIZED (
+  SELECT (ordinality - 1)::integer AS slot_idx, (value->>'beach_id')::uuid AS beach_id,
+    value->>'forecast_at' AS forecast_at,
+    jsonb_build_array(value->'wave_height',value->'wave_period',value->'wind_speed',
+      value->'wind_direction',value->'tide_height',value->'data_source',value->'wave_period_om') AS conditions
+  FROM jsonb_array_elements(p_slots) WITH ORDINALITY
+), conditions AS MATERIALIZED (
+  -- Parse shared condition strings once, even across beaches and timestamps.
+  SELECT conditions,
+    public.parse_numeric_from_text(conditions->>0) AS f_wave,
+    public.parse_wave_height_midpoint_ft(conditions->>0) AS similarity_wave,
+    public.parse_numeric_from_text(conditions->>1) AS f_period,
+    -- A slot without wind, direction or tide ("", "null", "-- ft") leaves that factor NULL.
+    (regexp_match(conditions->>2, '(-?\d+\.?\d*)'))[1]::numeric AS f_wind,
+    (regexp_match(conditions->>3, '(-?\d+\.?\d*)'))[1]::numeric AS f_wind_dir,
+    (regexp_match(conditions->>4, '(-?\d+\.?\d*)'))[1]::numeric AS f_tide,
+    -- Slots without data_source (installed clients calling the single-slot RPCs) keep the legacy comparison.
+    NULLIF(trim(conditions->>5), '') IS NOT NULL AS period_aware,
+    CASE WHEN upper(trim(conditions->>5)) = 'OPEN_METEO'
+        AND public.parse_numeric_from_text(conditions->>6) > 0
+      THEN public.parse_numeric_from_text(conditions->>6)
+      ELSE public.parse_numeric_from_text(conditions->>1) END AS similarity_period
+  FROM (SELECT DISTINCT conditions FROM raw_slots) c
+), slots AS MATERIALIZED (
+  SELECT s.slot_idx,s.beach_id,s.forecast_at,c.f_wave,c.f_period,c.f_wind,c.f_wind_dir,c.f_tide,c.similarity_wave,
+    c.similarity_period,c.period_aware
+  FROM raw_slots s JOIN conditions c USING (conditions)
+), scenarios AS MATERIALIZED (
+  -- Repeated conditions share a result; timestamps and duplicate slots survive.
+  SELECT min(slot_idx) AS scenario_id, beach_id, f_wave, f_period, f_wind, f_wind_dir, f_tide, similarity_wave,
+    similarity_period, period_aware
+  FROM slots GROUP BY beach_id, f_wave, f_period, f_wind, f_wind_dir, f_tide, similarity_wave,
+    similarity_period, period_aware
+), requested_beaches AS MATERIALIZED (
+  SELECT ids.id, b.break_type, public.break_type_families(b.break_type) AS break_families, b.wind_offshore_deg,
+    (b.preferred_tide_ft_min + b.preferred_tide_ft_max) / 2.0 AS spot_tide
+  FROM (SELECT DISTINCT unnest(p_beach_ids) AS id) ids
+  LEFT JOIN public.beaches b ON b.id = ids.id
+), peaks AS MATERIALIZED (
+  SELECT t.break_type,
+    sum(h.wave * (h.rating - 3)) FILTER (WHERE h.rating >= 4) /
+      NULLIF(sum(h.rating - 3) FILTER (WHERE h.rating >= 4), 0) AS p_wave,
+    sum(h.period * (h.rating - 3)) FILTER (WHERE h.rating >= 4) /
+      NULLIF(sum(h.rating - 3) FILTER (WHERE h.rating >= 4), 0) AS p_period,
+    sum(h.wind * (h.rating - 3)) FILTER (WHERE h.rating >= 4 AND h.wind IS NOT NULL) /
+      NULLIF(sum(h.rating - 3) FILTER (WHERE h.rating >= 4 AND h.wind IS NOT NULL), 0) AS p_wind,
+    sum(h.wind_dir * (h.rating - 3)) FILTER (WHERE h.rating >= 4 AND h.wind_dir IS NOT NULL) /
+      NULLIF(sum(h.rating - 3) FILTER (WHERE h.rating >= 4 AND h.wind_dir IS NOT NULL), 0) AS p_wind_dir,
+    sum(h.tide * (h.rating - 3)) FILTER (WHERE h.rating >= 4 AND h.tide IS NOT NULL) /
+      NULLIF(sum(h.rating - 3) FILTER (WHERE h.rating >= 4 AND h.tide IS NOT NULL), 0) AS p_tide,
+    count(*) FILTER (WHERE h.rating >= 4)::integer AS p_count,
+    sum(h.wave * (3 - h.rating)) FILTER (WHERE h.rating <= 2) /
+      NULLIF(sum(3 - h.rating) FILTER (WHERE h.rating <= 2), 0) AS a_wave,
+    sum(h.period * (3 - h.rating)) FILTER (WHERE h.rating <= 2) /
+      NULLIF(sum(3 - h.rating) FILTER (WHERE h.rating <= 2), 0) AS a_period,
+    sum(h.wind * (3 - h.rating)) FILTER (WHERE h.rating <= 2 AND h.wind IS NOT NULL) /
+      NULLIF(sum(3 - h.rating) FILTER (WHERE h.rating <= 2 AND h.wind IS NOT NULL), 0) AS a_wind,
+    sum(h.wind_dir * (3 - h.rating)) FILTER (WHERE h.rating <= 2 AND h.wind_dir IS NOT NULL) /
+      NULLIF(sum(3 - h.rating) FILTER (WHERE h.rating <= 2 AND h.wind_dir IS NOT NULL), 0) AS a_wind_dir,
+    sum(h.tide * (3 - h.rating)) FILTER (WHERE h.rating <= 2 AND h.tide IS NOT NULL) /
+      NULLIF(sum(3 - h.rating) FILTER (WHERE h.rating <= 2 AND h.tide IS NOT NULL), 0) AS a_tide,
+    count(*) FILTER (WHERE h.rating <= 2)::integer AS a_count
+  FROM (SELECT DISTINCT break_type, break_families FROM requested_beaches) t
+  -- Families inside the averaged profile cost ~6 pp concordance; use exact breaks.
+  -- Evidence: docs/superpowers/plans/2026-09-27-match-score-backtest.md (B3).
+  LEFT JOIN history h ON h.eligible AND (t.break_type IS NULL OR h.break_type = t.break_type OR h.break_type IS NULL)
+  GROUP BY t.break_type
+), inputs AS MATERIALIZED (
+  SELECT s.*, b.break_type, b.break_families, b.wind_offshore_deg, b.spot_tide, g.*, p.p_wave, p.p_period,
+    p.p_wind, p.p_wind_dir, p.p_tide, p.p_count, p.a_wave, p.a_period, p.a_wind,
+    p.a_wind_dir, p.a_tide, p.a_count
+  FROM scenarios s
+  JOIN requested_beaches b ON b.id IS NOT DISTINCT FROM s.beach_id
+  JOIN peaks p ON p.break_type IS NOT DISTINCT FROM b.break_type
+  CROSS JOIN skill g
+), good_history AS MATERIALIZED (
+  SELECT h.*,
+    similarity_tide-(preferred_tide_ft_min+preferred_tide_ft_max)/2 AS relative_tide,
+    similarity_wave / NULLIF(power(similarity_period,2),0) AS steepness,
+    similarity_wave / NULLIF(power(similarity_period_by_source,2),0) AS steepness_by_source
+  FROM history h WHERE eligible AND rating >= 4
+), similarity_targets AS MATERIALIZED (
+  SELECT row_number() OVER () AS target_id, t.*,
+    similarity_wave / NULLIF(power(similarity_period,2),0) AS steepness
+  FROM (
+    SELECT DISTINCT b.break_families, s.similarity_wave, s.f_period, s.similarity_period, s.period_aware,
+      s.f_wind, s.f_wind_dir, s.f_tide-b.spot_tide AS relative_tide
+    FROM scenarios s JOIN requested_beaches b ON b.id IS NOT DISTINCT FROM s.beach_id
+  ) t
+), similar_good AS MATERIALIZED (
+  -- Inline the similarity math and reuse parsed families; SQL helper calls per pair dominate batch time.
+  SELECT t.target_id,
+    count(*) FILTER (WHERE h.similarity_wave IS NOT NULL AND t.similarity_wave IS NOT NULL
+      AND exp(-(
+        0.4 * power((h.similarity_wave-t.similarity_wave)/1.5,2)
+        + COALESCE(0.25 * power((CASE WHEN t.period_aware THEN h.similarity_period_by_source
+          ELSE h.similarity_period END-t.similarity_period)/4,2),0)
+        + COALESCE(0.2 * power((h.similarity_wind-t.f_wind)/8,2),0)
+        + COALESCE(0.15 * power((h.relative_tide-t.relative_tide)/2,2),0)
+        + COALESCE(0.1 * power(least(mod(abs(h.similarity_wind_dir-t.f_wind_dir),360),
+          360-mod(abs(h.similarity_wind_dir-t.f_wind_dir),360))/90,2),0)
+        + CASE WHEN h.break_families IS NULL OR t.break_families IS NULL
+            OR h.break_families && t.break_families THEN 0 ELSE 0.5 END
+        + COALESCE(0.15 * power(((CASE WHEN t.period_aware THEN h.steepness_by_source
+          ELSE h.steepness END)-t.steepness)/0.04,2),0)
+        -- Slots have no tide direction, so its mismatch term is always zero.
+      -- Twin of LIKE_THIS_SIMILARITY in lib/scoring/personal-board.ts for user-facing reasons.
+      )/2) >= 0.7)::integer AS similar_good
+  FROM similarity_targets t
+  -- At 0.7, the height term alone requires a gap below 2.01 ft (sqrt(-2*ln(0.7)/0.4)*1.5).
+  LEFT JOIN good_history h ON h.similarity_wave BETWEEN t.similarity_wave-2.01 AND t.similarity_wave+2.01
+  GROUP BY t.target_id
+), fit_targets AS MATERIALIZED (
+  SELECT row_number() OVER () AS target_id, t.* FROM (
+    SELECT DISTINCT break_type, break_families, f_wave, f_period, f_wind, f_wind_dir, f_tide
+    FROM inputs WHERE session_count >= 5 AND p_count > 0
+  ) t
+), fit_pairs AS MATERIALIZED (
+  SELECT t.target_id, h.fit_value, 1.0 - LEAST((
+      0.35 * LEAST(ABS(h.wave - t.f_wave) / GREATEST(h.wave, 1), 1) +
+      0.25 * LEAST(ABS(h.period - t.f_period) / GREATEST(h.period, 1), 1) +
+      CASE WHEN t.f_wind IS NOT NULL THEN 0.20 * LEAST(ABS(h.wind - t.f_wind) / GREATEST(h.wind, 5), 1) ELSE 0.20 * 0.5 END +
+      CASE WHEN t.f_tide IS NOT NULL THEN 0.10 * LEAST(ABS(h.tide - t.f_tide) / 3, 1) ELSE 0.10 * 0.5 END +
+      CASE WHEN t.f_wind_dir IS NOT NULL THEN 0.10 * LEAST(LEAST(ABS(h.wind_dir - t.f_wind_dir),
+        360 - ABS(h.wind_dir - t.f_wind_dir)) / 180, 1) ELSE 0.10 * 0.5 END
+      ), 1.0) AS proximity
+  FROM fit_targets t JOIN history h ON h.eligible AND h.fit_value <> 0
+    AND (h.session_skill_fit IS NOT NULL OR h.session_board_fit IS NOT NULL)
+    -- Keep fit evidence on the same exact-break population as the scored profile (B3).
+    AND (t.break_type IS NULL OR h.break_type = t.break_type OR h.break_type IS NULL)
+  WHERE h.wave IS NOT NULL AND h.period IS NOT NULL AND h.wind IS NOT NULL
+    AND h.wind_dir IS NOT NULL AND h.tide IS NOT NULL
+), fit AS MATERIALIZED (
+  SELECT target_id, count(*)::integer AS fit_count,
+    count(*) FILTER (WHERE fit_value > 0)::integer AS fit_positive,
+    count(*) FILTER (WHERE fit_value < 0)::integer AS fit_negative,
+    GREATEST(-1.0, LEAST(1.0, COALESCE(sum(fit_value * proximity) /
+      NULLIF(sum(proximity), 0), 0))) AS fit_adjustment
+  FROM fit_pairs WHERE proximity > 0.15 GROUP BY target_id
+), priors AS MATERIALIZED (
+  SELECT i.*,
+    CASE skill_used WHEN 'beginner' THEN 2.0 WHEN 'advanced' THEN 5.5
+      WHEN 'expert' THEN 8.0 ELSE 3.5 END AS skill_wave,
+    session_count::numeric / (session_count::numeric + 5.0) AS blend,
+    CASE skill_used WHEN 'intermediate' THEN 2.0 WHEN 'advanced' THEN 3.0 WHEN 'expert' THEN 4.0 ELSE 1.0 END AS ideal_min,
+    CASE skill_used WHEN 'intermediate' THEN 5.0 WHEN 'advanced' THEN 8.0 WHEN 'expert' THEN 12.0 ELSE 3.0 END AS ideal_max,
+    CASE skill_used WHEN 'intermediate' THEN 1.0 WHEN 'advanced' THEN 2.0 WHEN 'expert' THEN 2.0 ELSE 0.5 END AS accept_min,
+    CASE skill_used WHEN 'intermediate' THEN 6.0 WHEN 'advanced' THEN 12.0 WHEN 'expert' THEN 20.0 ELSE 4.0 END AS accept_max,
+    CASE board_class WHEN 'foamie' THEN 0.5 WHEN 'longboard' THEN 0.5 WHEN 'mid-length' THEN 0.7
+      WHEN 'funboard' THEN 0.6 WHEN 'fish' THEN 0.85 WHEN 'shortboard' THEN 1.15 WHEN 'step-up' THEN 1.4
+      WHEN 'gun' THEN 1.6 WHEN 'sup' THEN 0.4 WHEN 'foil' THEN 0.2 WHEN 'bodyboard' THEN 1.0 END AS shape_lo,
+    CASE board_class WHEN 'foamie' THEN 0.6 WHEN 'longboard' THEN 0.7 WHEN 'mid-length' THEN 0.85
+      WHEN 'funboard' THEN 0.8 WHEN 'fish' THEN 0.95 WHEN 'shortboard' THEN 1.05 WHEN 'step-up' THEN 1.15
+      WHEN 'gun' THEN 1.2 WHEN 'sup' THEN 0.6 WHEN 'foil' THEN 0.5 WHEN 'bodyboard' THEN 1.0 END AS shape_hi
+  FROM inputs i
+), bands AS MATERIALIZED (
+  SELECT p.*,
+    CASE WHEN p_count > 0 AND p_wave IS NOT NULL THEN blend * p_wave + (1.0-blend) * skill_wave ELSE skill_wave END AS prior_wave,
+    CASE WHEN p_count > 0 AND p_wind_dir IS NOT NULL AND wind_offshore_deg IS NOT NULL THEN
+      mod(blend * (p_wind_dir + CASE WHEN abs(p_wind_dir - wind_offshore_deg) > 180 AND p_wind_dir <= wind_offshore_deg THEN 360 ELSE 0 END)
+        + (1.0-blend) * (wind_offshore_deg + CASE WHEN abs(p_wind_dir - wind_offshore_deg) > 180 AND p_wind_dir > wind_offshore_deg THEN 360 ELSE 0 END), 360)
+      ELSE wind_offshore_deg END AS prior_wind,
+    CASE WHEN p_count > 0 AND p_tide IS NOT NULL AND spot_tide IS NOT NULL THEN blend * p_tide + (1.0-blend) * spot_tide ELSE spot_tide END AS prior_tide,
+    CASE WHEN board_class IS NOT NULL THEN greatest(0.3, round(ideal_min * shape_lo, 1)) END AS board_ideal_min,
+    CASE WHEN board_class IS NOT NULL THEN greatest(0.3, round(accept_min * shape_lo, 1)) END AS board_accept_min
+  FROM priors p
+), distances AS MATERIALIZED (
+  SELECT b.*,
+    CASE WHEN board_class IS NOT NULL THEN greatest(board_ideal_min + 0.5, round(ideal_max * shape_hi, 1)) END AS board_ideal_max,
+    CASE WHEN board_class IS NOT NULL THEN greatest(board_accept_min + 0.5, round(accept_max * shape_hi, 1)) END AS board_accept_max,
+    (1.0 - LEAST((
+      0.35 * LEAST(ABS(p_wave - f_wave) / GREATEST(p_wave, 1), 1) +
+      0.25 * LEAST(ABS(p_period - f_period) / GREATEST(p_period, 1), 1) +
+      CASE WHEN p_wind IS NOT NULL AND f_wind IS NOT NULL THEN
+        0.20 * LEAST(ABS(p_wind - f_wind) / GREATEST(p_wind, 5), 1) ELSE 0.20 * 0.5 END +
+      CASE WHEN p_tide IS NOT NULL AND f_tide IS NOT NULL THEN
+        0.10 * LEAST(ABS(p_tide - f_tide) / 3, 1) ELSE 0.10 * 0.5 END +
+      CASE WHEN p_wind_dir IS NOT NULL AND f_wind_dir IS NOT NULL THEN
+        0.10 * LEAST(LEAST(ABS(p_wind_dir - f_wind_dir),
+          360 - ABS(p_wind_dir - f_wind_dir)) / 180, 1) ELSE 0.10 * 0.5 END
+      ), 1.0)) * 10.0 AS base_score,
+    CASE WHEN a_count > 0 THEN (1.0 - LEAST((
+      0.35 * LEAST(ABS(a_wave - f_wave) / GREATEST(a_wave, 1), 1) +
+      0.25 * LEAST(ABS(a_period - f_period) / GREATEST(a_period, 1), 1) +
+      CASE WHEN a_wind IS NOT NULL AND f_wind IS NOT NULL THEN
+        0.20 * LEAST(ABS(a_wind - f_wind) / GREATEST(a_wind, 5), 1) ELSE 0.20 * 0.5 END +
+      CASE WHEN a_tide IS NOT NULL AND f_tide IS NOT NULL THEN
+        0.10 * LEAST(ABS(a_tide - f_tide) / 3, 1) ELSE 0.10 * 0.5 END +
+      CASE WHEN a_wind_dir IS NOT NULL AND f_wind_dir IS NOT NULL THEN
+        0.10 * LEAST(LEAST(ABS(a_wind_dir - f_wind_dir),
+          360 - ABS(a_wind_dir - f_wind_dir)) / 180, 1) ELSE 0.10 * 0.5 END
+      ), 1.0)) * 3.0 ELSE 0 END AS aversion_penalty,
+    greatest(0, least(10, (1.0 - least((
+      0.35 * least(abs(prior_wave - coalesce(f_wave, prior_wave)) / greatest(prior_wave, 1), 1)
+      + CASE WHEN prior_wind IS NOT NULL AND f_wind_dir IS NOT NULL THEN
+        0.10 * least(least(abs(prior_wind - f_wind_dir), 360-abs(prior_wind-f_wind_dir))/180, 1) ELSE 0 END
+      + CASE WHEN prior_tide IS NOT NULL AND f_tide IS NOT NULL THEN
+        0.10 * least(abs(prior_tide-f_tide)/3, 1) ELSE 0 END
+    ) / (0.35 + CASE WHEN prior_wind IS NOT NULL AND f_wind_dir IS NOT NULL THEN 0.10 ELSE 0 END
+      + CASE WHEN prior_tide IS NOT NULL AND f_tide IS NOT NULL THEN 0.10 ELSE 0 END), 1.0)) * 10.0)) AS prior_score,
+    prior_wind IS NOT NULL AND f_wind_dir IS NOT NULL AS has_wind,
+    prior_tide IS NOT NULL AND f_tide IS NOT NULL AS has_tide
+  FROM bands b
+), adjustments AS MATERIALIZED (
+  SELECT d.*, coalesce(f.fit_count, 0) AS fit_count, coalesce(f.fit_positive, 0) AS fit_positive,
+    coalesce(f.fit_negative, 0) AS fit_negative, coalesce(f.fit_adjustment, 0) AS fit_adjustment,
+    sg.similar_good,
+    CASE WHEN d.f_wave BETWEEN board_ideal_min AND board_ideal_max THEN 0.5
+      WHEN d.f_wave < board_accept_min THEN -least(1.0, greatest(0.5, round((board_accept_min-d.f_wave)*0.5, 2)))
+      WHEN d.f_wave > board_accept_max THEN -least(1.0, greatest(0.5, round((d.f_wave-board_accept_max)*0.5, 2)))
+      ELSE 0 END AS board_adjustment
+  FROM distances d
+  LEFT JOIN fit_targets t ON t.break_type IS NOT DISTINCT FROM d.break_type
+    AND (t.f_wave,t.f_period,t.f_wind,t.f_wind_dir,t.f_tide) IS NOT DISTINCT FROM (d.f_wave,d.f_period,d.f_wind,d.f_wind_dir,d.f_tide)
+    -- The same match as a hashable key (jsonb compares numerics by value and NULL as null).
+    -- IS NOT DISTINCT FROM alone cannot hash, so these joins ran as N x N nested loops.
+    AND jsonb_build_array(t.break_type,t.f_wave,t.f_period,t.f_wind,t.f_wind_dir,t.f_tide)
+      = jsonb_build_array(d.break_type,d.f_wave,d.f_period,d.f_wind,d.f_wind_dir,d.f_tide)
+  LEFT JOIN fit f USING (target_id)
+  JOIN similarity_targets st ON (st.break_families,st.similarity_wave,st.f_period,st.similarity_period,st.period_aware,
+    st.f_wind,st.f_wind_dir,st.relative_tide)
+    IS NOT DISTINCT FROM (d.break_families,d.similarity_wave,d.f_period,d.similarity_period,d.period_aware,
+    d.f_wind,d.f_wind_dir,d.f_tide-d.spot_tide)
+    AND jsonb_build_array(st.break_families,st.similarity_wave,st.f_period,st.similarity_period,st.period_aware,
+      st.f_wind,st.f_wind_dir,st.relative_tide)
+      = jsonb_build_array(d.break_families,d.similarity_wave,d.f_period,d.similarity_period,d.period_aware,
+      d.f_wind,d.f_wind_dir,d.f_tide-d.spot_tide)
+  JOIN similar_good sg ON sg.target_id = st.target_id
+), scored AS MATERIALIZED (
+  SELECT a.*, greatest(0, least(10, base_score-aversion_penalty+fit_adjustment+board_adjustment)) AS score
+  FROM adjustments a
+), results AS MATERIALIZED (
+  SELECT s.scenario_id, CASE
+    WHEN session_count < 5 THEN jsonb_build_object(
+      'state','starter', 'score',round(prior_score,1), 'session_count',session_count,
+      'sessions_needed',5-session_count,
+      'fit_label',CASE WHEN has_wind OR has_tide THEN 'Based on your skill + this spot' ELSE 'Based on your skill level' END,
+      'body','A starter read from your skill' || CASE WHEN has_wind OR has_tide THEN ' and this spot''s setup' ELSE '' END || '. It gets more personal as you rate sessions.',
+      'quality_band','starter',
+      'prior_dimensions',jsonb_build_array('skill_wave') || CASE WHEN has_wind THEN '["spot_wind_direction"]'::jsonb ELSE '[]'::jsonb END
+        || CASE WHEN has_tide THEN '["spot_tide"]'::jsonb ELSE '[]'::jsonb END,
+      'skill_used',skill_used,'skill_source',skill_source,'board_class',board_class)
+    WHEN p_count = 0 AND a_count = 0 THEN jsonb_build_object(
+      'state','avoidance_learned','score',NULL,'board_tip',NULL,'fit_label','Need a few more ratings',
+      'reason_bullets',jsonb_build_array('We know what you tend to avoid. Rate a few good sessions to sharpen your match.'),
+      'sessions_in_profile',session_count,'profile_kind','neutral','quality_band','mixed_signal')
+    WHEN p_count = 0 THEN jsonb_build_object(
+      'state','avoidance_learned','board_tip',NULL,'session_count',session_count,'sessions_needed',0,
+      'fit_label','Need a few more ratings',
+      'reason_bullets',jsonb_build_array('We know what you tend to avoid. Rate a few good sessions to sharpen your match.'),
+      'score',NULL,'quality_band','mixed_signal','reason','no_positive_sessions')
+    ELSE jsonb_build_object(
+      'state','learned','board_tip',NULL,'score',round(score,1),
+      'label',CASE WHEN score >= 8.5 THEN 'EPIC' WHEN score >= 7 THEN 'GOOD' WHEN score >= 5.5 THEN 'FAIR' WHEN score >= 3.5 THEN 'RIDEABLE' ELSE 'MEH' END,
+      -- The similar/good session counts stay as data below; they are not user-facing copy.
+      'reason_bullets','[]'::jsonb
+        || CASE WHEN fit_count > 0 THEN jsonb_build_array(CASE WHEN fit_adjustment > 0.15 THEN 'Your session fit feedback lifts this window.'
+          WHEN fit_adjustment < -0.15 THEN 'Similar sessions were flagged as a skill or board mismatch.'
+          ELSE 'Your session fit feedback is neutral for this window.' END) ELSE '[]'::jsonb END
+        || CASE WHEN board_class IS NOT NULL AND abs(board_adjustment) >= 0.15 THEN jsonb_build_array(
+          CASE WHEN board_adjustment > 0 THEN format('Your %s band fits this wave height.',board_class)
+          ELSE format('This wave height is outside your usual %s band.',board_class) END) ELSE '[]'::jsonb END,
+      'good_session_count',good_total,'similar_good_session_count',similar_good,
+      'confidence',CASE WHEN session_count >= 25 THEN 'high' WHEN session_count >= 10 THEN 'medium' ELSE 'low' END,
+      'sessions_in_profile',session_count,'profile_kind',CASE WHEN a_count > 0 THEN 'two_sided' ELSE 'preference_only' END,
+      'quality_band',CASE WHEN session_count >= 15 THEN 'dense_signal' ELSE 'session_backed' END,
+      'base_score',round(base_score,2),'aversion_penalty',round(aversion_penalty,2),'aversion_sample_count',a_count,
+      'fit_signal_adjustment',round(fit_adjustment,2),'fit_signal_sample_count',fit_count,
+      'fit_signal_positive_count',fit_positive,'fit_signal_negative_count',fit_negative,
+      'skill_used',skill_used,'skill_source',skill_source,'board_class',board_class,
+      'board_band_adjustment',round(board_adjustment,2),'board_ideal_wave_min_ft',board_ideal_min,'board_ideal_wave_max_ft',board_ideal_max)
+    END AS result
+  FROM scored s
+)
+SELECT s.slot_idx, s.beach_id, s.forecast_at, r.result
+FROM slots s JOIN scenarios c ON c.beach_id IS NOT DISTINCT FROM s.beach_id
+  AND c.similarity_wave IS NOT DISTINCT FROM s.similarity_wave
+  AND c.similarity_period = s.similarity_period AND c.period_aware = s.period_aware
+  AND (c.f_wave,c.f_period,c.f_wind,c.f_wind_dir,c.f_tide) IS NOT DISTINCT FROM (s.f_wave,s.f_period,s.f_wind,s.f_wind_dir,s.f_tide)
+  AND jsonb_build_array(c.beach_id,c.similarity_wave,c.similarity_period,c.period_aware,c.f_wave,c.f_period,c.f_wind,c.f_wind_dir,c.f_tide)
+    = jsonb_build_array(s.beach_id,s.similarity_wave,s.similarity_period,s.period_aware,s.f_wave,s.f_period,s.f_wind,s.f_wind_dir,s.f_tide)
+JOIN results r USING (scenario_id)
+ORDER BY s.slot_idx;
+$scores$;
+
+COMMIT;
