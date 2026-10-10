@@ -3,7 +3,8 @@
 import * as React from "react";
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/context/auth-context";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { useRoutePathname } from "@/hooks/use-route-pathname";
 import { resolveConfirmNext } from "@/lib/auth/confirm-utils";
 import {
   Dialog,
@@ -124,7 +125,7 @@ export function UnifiedAuthModal({
 }: UnifiedAuthModalProps) {
   const { signIn, signUp, user } = useAuth();
   const router = useRouter();
-  const pathname = usePathname();
+  const pathname = useRoutePathname();
 
   const initialMode: "login" | "signup" =
     mode === "signup" ? "signup" : "login";

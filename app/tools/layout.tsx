@@ -2,11 +2,11 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useRoutePathname } from "@/hooks/use-route-pathname";
 import { ArrowLeft } from "lucide-react";
 
 export default function ToolsLayout({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
+  const pathname = useRoutePathname();
   const isIndex = pathname === "/tools";
 
   return (
