@@ -41,6 +41,11 @@ import { getDaylightWindow } from "@/lib/alerts/sunrise";
 import { capToBestWindow, refineWindow, type RefinedWindow } from "@/lib/alerts/window-refiner";
 import { groupGoForecasts, loadTideSamples } from "@/lib/cron/daily-call-runner";
 import { loadUserPool } from "@/lib/alerts/user-pool";
+import {
+  forecastSlotCandidate,
+  resolveHeldPushBeaches,
+  type ResolveHeldPushBeaches,
+} from "@/lib/alerts/push-beach-holds";
 import { calculateDistance } from "@/lib/utils/distance-utils";
 import { isDailyCallEnabled, isDailyCallUserAllowed } from "@/lib/flags/daily-call";
 import { isSwellAlertEnabled, isSwellAlertUserAllowed } from "@/lib/flags/swell-alert";
@@ -219,6 +224,7 @@ export interface SwellAlertDeps {
   enqueue: (args: EnqueueArgs) => Promise<EnqueueResult>;
   markAlertEnqueued: (alertId: string, eventId: string) => Promise<void>;
   recordForecast: (record: SwellEventForecastRecord) => Promise<{ inserted: boolean }>;
+  resolveHeldBeaches: ResolveHeldPushBeaches;
 }
 
 export interface SwellFollowupDeps {
@@ -1009,6 +1015,7 @@ function defaultDependencies(args: {
       ?? ((input) => enqueueNotification(input, getClient())),
     recordForecast: args.deps?.recordForecast
       ?? ((record) => recordSwellEventForecast(getClient(), record)),
+    resolveHeldBeaches: args.deps?.resolveHeldBeaches ?? resolveHeldPushBeaches,
     isFollowupEnabled: args.deps?.isFollowupEnabled ?? isSwellFollowupEnabled,
     isFollowupUserAllowed: args.deps?.isFollowupUserAllowed ?? isSwellFollowupUserAllowed,
     loadFollowupStates: args.deps?.loadFollowupStates
@@ -1175,6 +1182,17 @@ async function sendFollowups(
             periodS: state.lastPeriodS,
             directionDeg: state.lastDirectionDeg,
           };
+      const held = await deps.resolveHeldBeaches({
+        candidates: [forecastSlotCandidate("followup", pinned.beach.id, shown.peakAt)],
+        profileExperience: profile.experienceLevel,
+        asOf: now,
+      });
+      const heldReason = held.get("followup");
+      if (heldReason) {
+        increment(summary, `held_${heldReason}`);
+        continue;
+      }
+
       const serious = state.serious || shown.faceHeightFt >= SERIOUS_FACE_HEIGHT_FT;
       const peakDate = getLocalDateString(new Date(shown.peakAt), profile.timezone);
       const previousPeakDate = getLocalDateString(new Date(state.lastPeakAt), profile.timezone);
@@ -1362,15 +1380,37 @@ async function sendFirstSighting(
     distanceKmByBeach,
   });
 
+  const held = await deps.resolveHeldBeaches({
+    candidates: candidates.flatMap((swell, index) => [
+      forecastSlotCandidate(`swell:${index}`, swell.beach.id, swell.peakAt),
+      ...(swell.options ?? []).map((option, optionIndex) =>
+        forecastSlotCandidate(`swell:${index}:option:${optionIndex}`, option.beachId, swell.peakAt)),
+    ]),
+    profileExperience: profile.experienceLevel,
+    asOf: now,
+  });
+
   let rarityAssessments = 0;
   let rejectedForRarity = false;
-  for (const swell of candidates) {
+  for (const [index, candidate] of candidates.entries()) {
     if (dailyCallOwnsToday(profile)
-      && getLocalDateString(new Date(swell.peakAt), profile.timezone) === getLocalDateString(now, profile.timezone)) {
+      && getLocalDateString(new Date(candidate.peakAt), profile.timezone) === getLocalDateString(now, profile.timezone)) {
       increment(summary, "skipped_daily_call_owns_today");
       continue;
     }
-    if (await deps.hasFirstSightingAlert(profile.id, [swell.id, swell.eventKey])) continue;
+    if (await deps.hasFirstSightingAlert(profile.id, [candidate.id, candidate.eventKey])) continue;
+    // Checked before the claim, so a swell whose beach clears later can still be told.
+    const leadHold = held.get(`swell:${index}`);
+    if (leadHold) {
+      increment(summary, `held_${leadHold}`);
+      continue;
+    }
+    const options = candidate.options?.filter((_, optionIndex) => {
+      const optionHold = held.get(`swell:${index}:option:${optionIndex}`);
+      if (optionHold) increment(summary, `held_${optionHold}`);
+      return !optionHold;
+    });
+    const swell: OutlookSwell = { ...candidate, ...(options ? { options } : {}) };
 
     let decision = decideSend(gate.state, now, "first_sighting", false);
     if (!decision.ok && decision.exceptionEligible) {
@@ -1594,7 +1634,18 @@ export async function runSwellAlertCron(args: {
           right.peakScore - left.peakScore
           || left.beach.id.localeCompare(right.beach.id));
       summary.candidates += candidates.length;
-      const lead = candidates[0];
+      const held = await deps.resolveHeldBeaches({
+        candidates: candidates.map((candidate, index) =>
+          forecastSlotCandidate(`swell:${index}`, candidate.beach.id, candidate.event.peakAt)),
+        profileExperience: profile.experienceLevel,
+        asOf: args.now,
+      });
+      const clearCandidates = candidates.filter((_, index) => {
+        const reason = held.get(`swell:${index}`);
+        if (reason) increment(summary, `held_${reason}`);
+        return !reason;
+      });
+      const lead = clearCandidates[0];
       if (!lead) {
         increment(summary, "no_event_tomorrow");
         continue;
@@ -1629,7 +1680,7 @@ export async function runSwellAlertCron(args: {
         continue;
       }
 
-      const rankedBeaches = candidates.slice(0, 3).map((candidate, index) => ({
+      const rankedBeaches = clearCandidates.slice(0, 3).map((candidate, index) => ({
         beach_id: candidate.beach.id,
         beach_name: candidate.beach.shortName ?? candidate.beach.name,
         rank: index + 1,

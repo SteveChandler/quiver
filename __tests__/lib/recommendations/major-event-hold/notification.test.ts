@@ -456,6 +456,219 @@ describe("notification major-event hold adapter", () => {
     });
   });
 
+  describe("Daily Call and swell pushes", () => {
+    const OPTION_A = "33333333-3333-4333-8333-333333333333";
+    const OPTION_B = "44444444-4444-4444-8444-444444444444";
+    const WINDOW_START = "2026-10-10T14:00:00.000Z";
+    const WINDOW_END = "2026-10-10T16:00:00.000Z";
+
+    function dailyCallPayload(): Record<string, unknown> {
+      return {
+        schema_version: "daily-call.v1",
+        beach_id: BEACH_ID,
+        beach_slug: "lead",
+        beach_name: "Lead",
+        alert_date: "2026-10-10",
+        window_start: WINDOW_START,
+        window_end: WINDOW_END,
+        window_local: "7–9 AM",
+        options: [
+          { beach_id: OPTION_A, beach_slug: "a", beach_name: "A", window_start: "2026-10-10T15:00:00.000Z", window_end: "2026-10-10T17:00:00.000Z", window_local: "8–10 AM", wave_height_ft: 3, relation: "favorite" },
+          { beach_id: OPTION_B, beach_slug: "b", beach_name: "B", window_start: "2026-10-10T16:00:00.000Z", window_end: "2026-10-10T18:00:00.000Z", window_local: "9–11 AM", wave_height_ft: 2, relation: "nearby" },
+        ],
+        drivers: [],
+        wave_height_ft: 3.5,
+        wave_period_s: 16,
+        swell_dir: "SSW",
+        wind_label: "4mph E",
+        tide_label: "Rising",
+        reason: "Good window",
+        title: "Good window",
+        title_id: "daily-1",
+        comparison: null,
+        swell_event_key: null,
+        decision_id: "decision-1",
+        session_decision: {},
+      };
+    }
+
+    function swellPayload(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+      return {
+        schema_version: "major-swell-notification.v1",
+        beach_id: BEACH_ID,
+        beach_name: "Lead",
+        forecast_at: WINDOW_START,
+        title: "SSW swell Tue-Fri, sets to 4 ft",
+        body: "A swell is coming.",
+        beaches: [
+          { beach_id: BEACH_ID, beach_name: "Lead", rank: 1 },
+          { beach_id: OPTION_A, beach_name: "A", rank: 2, forecast_at: WINDOW_START },
+          { beach_id: OPTION_B, beach_name: "B", rank: 3, forecast_at: WINDOW_START },
+        ],
+        ...overrides,
+      };
+    }
+
+    function evaluatorHolding(
+      heldBeachId: string | null,
+    ): jest.MockedFunction<NotificationMajorEventHoldEvaluator> {
+      return jest.fn(async ({ candidates }) =>
+        (candidates as MajorEventHoldCandidate[]).map((candidate) => {
+          const decision = decisionFor(
+            candidate,
+            candidate.beachId === heldBeachId ? "water_quality_block" : "allowed",
+          );
+          return {
+            ...decision,
+            evaluation: { ...decision.evaluation, holdEpoch: "epoch-shared" },
+            recommendationAvailability: { ...decision.recommendationAvailability, holdEpoch: "epoch-shared" },
+          };
+        }));
+    }
+
+    it("checks the Daily Call lead and both alternatives with their own windows", async () => {
+      const evaluateCandidates = evaluatorHolding(null);
+
+      const result = await resolveNotificationMajorEventHold(
+        {
+          eventId: "event-daily-call",
+          type: "daily_call",
+          payload: dailyCallPayload(),
+          profileExperience: "beginner",
+          mode: "enforce",
+        },
+        { evaluateCandidates },
+      );
+
+      expect(result).toMatchObject({ status: "allowed", candidate: { beachId: BEACH_ID } });
+      expect(evaluateCandidates).toHaveBeenCalledTimes(1);
+      const input = evaluateCandidates.mock.calls[0][0];
+      expect(input.applyWaterQualityHolds).toBe(true);
+      expect(input.waterQualityExemptBeachIds).toEqual([]);
+      expect(input.candidates).toMatchObject([
+        { beachId: BEACH_ID, startsAt: WINDOW_START, endsAt: WINDOW_END },
+        { beachId: OPTION_A, startsAt: "2026-10-10T15:00:00.000Z", endsAt: "2026-10-10T17:00:00.000Z" },
+        { beachId: OPTION_B, startsAt: "2026-10-10T16:00:00.000Z", endsAt: "2026-10-10T18:00:00.000Z" },
+      ]);
+    });
+
+    it.each(MODE_EXPECTATIONS)(
+      "%s mode returns %s for a Daily Call whose alternative is held",
+      async (mode, expectedStatus) => {
+        const result = await resolveNotificationMajorEventHold(
+          {
+            eventId: `event-daily-call-held-${mode}`,
+            type: "daily_call",
+            payload: dailyCallPayload(),
+            profileExperience: "beginner",
+            mode,
+          },
+          { evaluateCandidates: evaluatorHolding(OPTION_B) },
+        );
+
+        expect(result).toMatchObject(
+          expectedStatus === "suppressed"
+            ? { status: "suppressed", reasonCode: "water_quality_hold", candidate: { beachId: OPTION_B } }
+            : { status: "allowed" },
+        );
+      },
+    );
+
+    it("fails a Daily Call with a malformed alternative closed in enforce mode", async () => {
+      const payload = dailyCallPayload();
+      payload.options = [{ beach_id: "not-a-uuid", window_start: WINDOW_START, window_end: WINDOW_END }];
+
+      const result = await resolveNotificationMajorEventHold(
+        {
+          eventId: "event-daily-call-malformed",
+          type: "daily_call",
+          payload,
+          profileExperience: "beginner",
+          mode: "enforce",
+        },
+        { evaluateCandidates: evaluatorHolding(null) },
+      );
+
+      expect(result).toMatchObject({ status: "suppressed", reasonCode: "hold_state_unavailable" });
+    });
+
+    it("checks every beach a swell push names, once each", async () => {
+      const evaluateCandidates = evaluatorHolding(null);
+
+      const result = await resolveNotificationMajorEventHold(
+        {
+          eventId: "event-swell-first-sighting",
+          type: "swell_watch",
+          payload: swellPayload(),
+          profileExperience: "beginner",
+          mode: "enforce",
+        },
+        { evaluateCandidates },
+      );
+
+      expect(result).toMatchObject({ status: "allowed", candidate: { beachId: BEACH_ID } });
+      expect(evaluateCandidates.mock.calls[0][0].candidates).toMatchObject([
+        { beachId: BEACH_ID, startsAt: WINDOW_START, endsAt: "2026-10-10T15:00:00.000Z" },
+        { beachId: OPTION_A, startsAt: WINDOW_START, endsAt: "2026-10-10T15:00:00.000Z" },
+        { beachId: OPTION_B, startsAt: WINDOW_START, endsAt: "2026-10-10T15:00:00.000Z" },
+      ]);
+    });
+
+    it("uses a recommended surf window for the swell lead and its window for untimed alternatives", async () => {
+      const evaluateCandidates = evaluatorHolding(null);
+
+      await resolveNotificationMajorEventHold(
+        {
+          eventId: "event-swell-tide-window",
+          type: "swell_watch",
+          payload: swellPayload({
+            surf_window: {
+              state: "recommended",
+              start: "2026-10-10T13:53:00.000Z",
+              end: "2026-10-10T16:00:00.000Z",
+              local_date: "2026-10-10",
+              timezone: "America/Los_Angeles",
+              reasons: [],
+            },
+            beaches: [
+              { beach_id: BEACH_ID, beach_name: "Lead", rank: 1 },
+              { beach_id: OPTION_A, beach_name: "A", rank: 2 },
+            ],
+          }),
+          profileExperience: "beginner",
+          mode: "enforce",
+        },
+        { evaluateCandidates },
+      );
+
+      expect(evaluateCandidates.mock.calls[0][0].candidates).toMatchObject([
+        { beachId: BEACH_ID, startsAt: "2026-10-10T13:53:00.000Z", endsAt: "2026-10-10T16:00:00.000Z" },
+        { beachId: OPTION_A, startsAt: "2026-10-10T13:53:00.000Z", endsAt: "2026-10-10T16:00:00.000Z" },
+      ]);
+    });
+
+    it("suppresses a swell follow-up whose lead beach is held, in enforce mode only", async () => {
+      const payload = swellPayload({
+        beaches: [{ beach_id: BEACH_ID, beach_name: "Lead", rank: 1 }],
+        kind: "bigger",
+      });
+
+      for (const [mode, expectedStatus] of MODE_EXPECTATIONS) {
+        const result = await resolveNotificationMajorEventHold(
+          {
+            eventId: `event-swell-followup-${mode}`,
+            type: "swell_watch",
+            payload,
+            profileExperience: "beginner",
+            mode,
+          },
+          { evaluateCandidates: evaluatorHolding(BEACH_ID) },
+        );
+        expect(result.status).toBe(expectedStatus);
+      }
+    });
+  });
+
   it("suppresses a Quiver-initiated recommendation that names a held beach", async () => {
     const evaluateCandidates = jest.fn(async (input) => {
       expect(input.applyWaterQualityHolds).toBe(true);
@@ -779,16 +992,6 @@ describe("notification major-event hold adapter", () => {
           cohort: "free_home",
           title: "Start your surf log",
           body: "Add your first session when you paddle out.",
-        },
-      },
-      {
-        eventId: "event-swell",
-        type: "swell_watch",
-        payload: {
-          beach_id: BEACH_ID,
-          forecast_at: STARTS_AT,
-          title: "Swell Watch",
-          body: "A significant swell is arriving.",
         },
       },
       {
