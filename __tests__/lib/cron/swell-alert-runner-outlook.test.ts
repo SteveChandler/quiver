@@ -779,6 +779,21 @@ describe('swell first-sighting tide-window flag', () => {
     expect(payload.forecast_at).toBe(outlookSwell().peakAt);
   });
 
+  it('checks the lead beach for holds over the window the push names, before claiming', async () => {
+    process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED = 'true';
+    const resolveHeldBeaches = jest.fn(async ({ candidates }: { candidates: Array<{ candidateId: string }> }) =>
+      new Map(candidates.map((candidate) => [candidate.candidateId, 'major_event_hold'])));
+    const deps = makeDeps({ loadFirstSightingWindow: jest.fn(async () => surfWindow), resolveHeldBeaches });
+
+    const summary = await runSwellAlertCron({ now: MORNING, deps });
+
+    expect(resolveHeldBeaches.mock.calls[0][0].candidates[0]).toEqual({
+      candidateId: 'lead', beachId: HOME, startsAt: surfWindow.window.start, endsAt: surfWindow.window.end,
+    });
+    expect(deps.insertAlert).not.toHaveBeenCalled();
+    expect(summary.skippedCounts.held_major_event_hold).toBe(1);
+  });
+
   it.each([undefined, 'false', 'TRUE', '1'])('keeps flag-off payloads byte-identical: %s', async (flag) => {
     if (flag === undefined) delete process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED;
     else process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED = flag;

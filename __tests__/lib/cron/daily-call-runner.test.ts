@@ -497,7 +497,7 @@ describe("daily call holds", () => {
 
     expect(mocked.enqueue).not.toHaveBeenCalled();
     expect(summary).toMatchObject({ sent: 0, silent: 1 });
-    expect(summary.skippedCounts).toMatchObject({ no_go_window: 1, held_hold_state_unavailable: 2 });
+    expect(summary.skippedCounts).toMatchObject({ no_go_window: 0, no_clear_window: 1, held_hold_state_unavailable: 2 });
   });
 });
 

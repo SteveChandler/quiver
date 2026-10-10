@@ -1380,37 +1380,15 @@ async function sendFirstSighting(
     distanceKmByBeach,
   });
 
-  const held = await deps.resolveHeldBeaches({
-    candidates: candidates.flatMap((swell, index) => [
-      forecastSlotCandidate(`swell:${index}`, swell.beach.id, swell.peakAt),
-      ...(swell.options ?? []).map((option, optionIndex) =>
-        forecastSlotCandidate(`swell:${index}:option:${optionIndex}`, option.beachId, swell.peakAt)),
-    ]),
-    profileExperience: profile.experienceLevel,
-    asOf: now,
-  });
-
   let rarityAssessments = 0;
   let rejectedForRarity = false;
-  for (const [index, candidate] of candidates.entries()) {
+  for (const swell of candidates) {
     if (dailyCallOwnsToday(profile)
-      && getLocalDateString(new Date(candidate.peakAt), profile.timezone) === getLocalDateString(now, profile.timezone)) {
+      && getLocalDateString(new Date(swell.peakAt), profile.timezone) === getLocalDateString(now, profile.timezone)) {
       increment(summary, "skipped_daily_call_owns_today");
       continue;
     }
-    if (await deps.hasFirstSightingAlert(profile.id, [candidate.id, candidate.eventKey])) continue;
-    // Checked before the claim, so a swell whose beach clears later can still be told.
-    const leadHold = held.get(`swell:${index}`);
-    if (leadHold) {
-      increment(summary, `held_${leadHold}`);
-      continue;
-    }
-    const options = candidate.options?.filter((_, optionIndex) => {
-      const optionHold = held.get(`swell:${index}:option:${optionIndex}`);
-      if (optionHold) increment(summary, `held_${optionHold}`);
-      return !optionHold;
-    });
-    const swell: OutlookSwell = { ...candidate, ...(options ? { options } : {}) };
+    if (await deps.hasFirstSightingAlert(profile.id, [swell.id, swell.eventKey])) continue;
 
     let decision = decideSend(gate.state, now, "first_sighting", false);
     if (!decision.ok && decision.exceptionEligible) {
@@ -1447,7 +1425,33 @@ async function sendFirstSighting(
       return null;
     });
     const [surfWindow, hazard] = await Promise.all([windowPromise, hazardPromise]);
-    const payload = { ...buildFirstSightingPayload({ swell, timezone: profile.timezone, hazard, surfWindow }),
+
+    // Checked against the window the push will name, before the claim, so a
+    // swell whose beach clears later can still be told.
+    const recommended = surfWindow?.state === "recommended" ? surfWindow.window : null;
+    const held = await deps.resolveHeldBeaches({
+      candidates: [
+        recommended
+          ? { candidateId: "lead", beachId: swell.beach.id, startsAt: recommended.start, endsAt: recommended.end }
+          : forecastSlotCandidate("lead", swell.beach.id, swell.peakAt),
+        ...(swell.options ?? []).map((option, index) =>
+          forecastSlotCandidate(`option:${index}`, option.beachId, swell.peakAt)),
+      ],
+      profileExperience: profile.experienceLevel,
+      asOf: now,
+    });
+    const leadHold = held.get("lead");
+    if (leadHold) {
+      increment(summary, `held_${leadHold}`);
+      continue;
+    }
+    const options = swell.options?.filter((_, index) => {
+      const optionHold = held.get(`option:${index}`);
+      if (optionHold) increment(summary, `held_${optionHold}`);
+      return !optionHold;
+    });
+    const told: OutlookSwell = { ...swell, ...(options ? { options } : {}) };
+    const payload = { ...buildFirstSightingPayload({ swell: told, timezone: profile.timezone, hazard, surfWindow }),
       anchor_source: profile.anchorSource };
     let claimDenied: FirstSightingClaimSkipReason = "event_exists";
     const alert = await deps.insertAlert({

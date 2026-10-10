@@ -143,6 +143,7 @@ function skippedCounts(): Record<string, number> {
     held_major_event_hold: 0,
     held_water_quality_hold: 0,
     held_hold_state_unavailable: 0,
+    no_clear_window: 0,
   };
 }
 
@@ -685,7 +686,8 @@ export async function runDailyCallCron(args: {
       });
       const winner = eligible[0];
       if (!winner) {
-        increment(summary, "no_go_window");
+        // Distinguishes surf the app withholds from a day with nothing surfable.
+        increment(summary, built.candidates.some((candidate) => heldReason(candidate)) ? "no_clear_window" : "no_go_window");
         summary.silent += 1;
         continue;
       }
