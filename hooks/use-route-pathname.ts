@@ -3,7 +3,8 @@
 import { usePathname } from "next/navigation";
 
 /**
- * usePathname() for route gates that change server-rendered structure.
+ * The pathname for anything that renders from it. Use this instead of usePathname(),
+ * which eslint.config.mjs bans outside this file.
  *
  * Next's ISR render of the root page reports "/index" while the browser reports
  * "/". A gate that branches on "/" then renders different markup on the server

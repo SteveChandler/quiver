@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { useRoutePathname } from "@/hooks/use-route-pathname";
 import Link from "next/link";
 import { Fragment } from "react";
 import {
@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/breadcrumb";
 
 export function AdminBreadcrumbs() {
-  const pathname = usePathname();
+  const pathname = useRoutePathname();
 
   // Generate breadcrumbs from pathname
   const segments = pathname.split("/").filter(Boolean);

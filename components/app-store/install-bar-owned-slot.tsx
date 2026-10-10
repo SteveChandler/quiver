@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { useRoutePathname } from "@/hooks/use-route-pathname";
 import { useEffect, useState, type ReactElement, type ReactNode } from "react";
 
 import {
@@ -19,7 +19,7 @@ export function HideWhenInstallBarOwns({
 }: {
   children: ReactNode;
 }): ReactElement | null {
-  const pathname = usePathname() ?? "";
+  const pathname = useRoutePathname() ?? "";
   const [suppressed, setSuppressed] = useState(false);
 
   useEffect(() => {

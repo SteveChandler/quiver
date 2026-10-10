@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { usePendingAction } from "@/hooks/use-pending-action";
-import { usePathname } from "next/navigation";
+import { useRoutePathname } from "@/hooks/use-route-pathname";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { useTrackEvent } from "@/hooks/use-track-event";
 import { trackSignupCtaClick } from "@/lib/analytics/signup-conversion-tracking";
@@ -41,7 +41,7 @@ export function BeachAlertCta({
   const { user } = useAuth();
   const { track } = useTrackEvent();
   const { pendingAction, setPendingAction, clearPendingAction } = usePendingAction();
-  const pathname = usePathname();
+  const pathname = useRoutePathname();
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const previousRefreshKey = useRef(refreshKey);
   const freeGrowthImpressionKey = useRef<string | null>(null);

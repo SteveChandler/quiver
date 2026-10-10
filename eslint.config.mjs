@@ -131,6 +131,34 @@ export default tseslint.config(
       ],
     },
   },
+  // Next's ISR render of "/" reports usePathname() as "/index" while the browser
+  // reports "/", so any output derived from the raw value differs between the cached
+  // HTML and hydration (Oct 2026: an orphaned site footer above the /map header).
+  // Tests still import usePathname to drive the next/navigation mock.
+  {
+    files: ["**/*.{js,jsx,ts,tsx}"],
+    ignores: [
+      "hooks/use-route-pathname.ts",
+      "**/__tests__/**",
+      "**/*.test.{ts,tsx,js,jsx}",
+      "e2e/**",
+    ],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "next/navigation",
+              importNames: ["usePathname"],
+              message:
+                "Use useRoutePathname from @/hooks/use-route-pathname. Next's ISR render of \"/\" reports \"/index\", so raw usePathname() output differs between the cached HTML and hydration.",
+            },
+          ],
+        },
+      ],
+    },
+  },
   // Test file overrides (shared by Jest and Playwright)
   {
     files: [
