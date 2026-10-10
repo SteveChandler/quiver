@@ -1,3 +1,4 @@
+import { resolveLocationAnchor, type LocationAnchor, type LocationSnapshot } from "@/lib/alerts/location-freshness";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { evaluateForecastVerdict, type ForecastVerdict } from "@/lib/alerts/canonical-forecast-verdict";
@@ -134,6 +135,7 @@ export interface SwellAlertProfile {
   timezone: string;
   homeBeachId: string | null;
   location: { lat: number; lon: number } | null;
+  anchorSource?: LocationAnchor["source"];
   maxDriveMinutes: number | null;
   experienceLevel: string | null;
   notifPushEnabled: boolean | null;
@@ -248,7 +250,7 @@ export interface SwellOutlookDeps {
   loadFirstSightingWindow?: (profile: SwellAlertProfile, swell: OutlookSwell, now: Date) => Promise<TideAwareWindowResult>;
   /** Official hazard at the lead beach for the push text; null when none or the lookup fails. */
   loadFirstSightingHazard?: (beachId: string, timezone: string, now: Date) => Promise<FirstSightingHazard | null>;
-  /** Km from the user's last location, else the home beach, to each beach; empty when neither is known. */
+  /** Km from the resolved location or home anchor, to each beach; empty when neither is known. */
   loadBeachDistancesKm?: (profile: SwellAlertProfile, beachIds: readonly string[]) => Promise<ReadonlyMap<string, number>>;
 }
 
@@ -368,7 +370,7 @@ function increment(summary: SwellAlertRunSummary, reason: string): void {
   summary.skippedCounts[reason] = (summary.skippedCounts[reason] ?? 0) + 1;
 }
 
-async function loadProfiles(client: ServiceClient): Promise<SwellAlertProfile[]> {
+async function loadProfiles(client: ServiceClient, now: Date): Promise<SwellAlertProfile[]> {
   const { data, error } = await client
     .from("profiles")
     .select(`
@@ -379,7 +381,8 @@ async function loadProfiles(client: ServiceClient): Promise<SwellAlertProfile[]>
       experience_level,
       notif_push_enabled,
       notif_swell_alerts,
-      user_location_snapshots(lat, lon, timezone)
+      user_location_snapshots(lat, lon, timezone, captured_at),
+      home_beach:beaches!profiles_home_beach_id_fkey(lat, lon, timezone)
     `)
     .is("deleted_at", null);
   if (error) throw new Error(`Failed to load swell alert users: ${error.message}`);
@@ -387,18 +390,21 @@ async function loadProfiles(client: ServiceClient): Promise<SwellAlertProfile[]>
   return (data ?? []).map((value) => {
     const row = value as typeof value & {
       user_location_snapshots:
-        | { lat: number; lon: number; timezone: string }
-        | Array<{ lat: number; lon: number; timezone: string }>
+        | (LocationSnapshot & { timezone: string })
+        | Array<LocationSnapshot & { timezone: string }>
         | null;
+      home_beach: { lat: number | null; lon: number | null; timezone: string | null } | null;
     };
     const joined = Array.isArray(row.user_location_snapshots)
       ? row.user_location_snapshots[0]
       : row.user_location_snapshots;
+    const { anchor, source } = resolveLocationAnchor(joined, now, row.home_beach);
     return {
       id: row.id,
-      timezone: row.timezone ?? joined?.timezone ?? "America/Los_Angeles",
+      timezone: row.timezone ?? (source === "location" ? joined?.timezone : row.home_beach?.timezone) ?? "America/Los_Angeles",
       homeBeachId: row.home_beach_id,
-      location: joined ? { lat: joined.lat, lon: joined.lon } : null,
+      location: anchor,
+      anchorSource: source,
       maxDriveMinutes: row.max_drive_minutes,
       experienceLevel: row.experience_level,
       notifPushEnabled: row.notif_push_enabled,
@@ -469,22 +475,12 @@ async function loadBeachDistancesKm(
   profile: SwellAlertProfile,
   beachIds: readonly string[],
 ): Promise<ReadonlyMap<string, number>> {
-  const { data: snapshot, error: snapshotError } = await client
-    .from("user_location_snapshots")
-    .select("lat, lon")
-    .eq("user_id", profile.id)
-    .maybeSingle();
-  if (snapshotError) throw new Error(`Failed to load last location: ${snapshotError.message}`);
-  const ids = profile.homeBeachId ? [...beachIds, profile.homeBeachId] : [...beachIds];
-  const { data: beaches, error } = await client.from("beaches").select("id, lat, lon").in("id", ids);
+  const { data: beaches, error } = await client.from("beaches").select("id, lat, lon").in("id", [...beachIds]);
   if (error) throw new Error(`Failed to load beach coordinates: ${error.message}`);
   const coords = new Map((beaches ?? []).flatMap((beach: { id: string; lat: number | null; lon: number | null }) => (
     beach.lat === null || beach.lon === null ? [] : [[beach.id, { lat: beach.lat, lon: beach.lon }] as const]
   )));
-  const last = snapshot as { lat: number | null; lon: number | null } | null;
-  const origin = last && last.lat !== null && last.lon !== null
-    ? { lat: last.lat, lon: last.lon }
-    : profile.homeBeachId ? coords.get(profile.homeBeachId) ?? null : null;
+  const origin = profile.location;
   if (!origin) return new Map();
   return new Map(beachIds.flatMap((id) => {
     const beach = coords.get(id);
@@ -942,6 +938,7 @@ async function getOutlookTier(client: ServiceClient, userId: string): Promise<Ti
 }
 
 function defaultDependencies(args: {
+  now: Date;
   supabase?: ServiceClient;
   deps?: Partial<RunnerDeps>;
 }): RunnerDeps {
@@ -957,7 +954,7 @@ function defaultDependencies(args: {
   return {
     isEnabled: args.deps?.isEnabled ?? isSwellAlertEnabled,
     isUserAllowed: args.deps?.isUserAllowed ?? isSwellAlertUserAllowed,
-    loadProfiles: args.deps?.loadProfiles ?? (() => loadProfiles(getClient())),
+    loadProfiles: args.deps?.loadProfiles ?? (() => loadProfiles(getClient(), args.now)),
     evaluatePool: args.deps?.evaluatePool
       ?? ((profile, now) => evaluatePool(getClient(), profile, now)),
     loadAlertState: args.deps?.loadAlertState
@@ -1388,7 +1385,8 @@ async function sendFirstSighting(
       return null;
     });
     const [surfWindow, hazard] = await Promise.all([windowPromise, hazardPromise]);
-    const payload = buildFirstSightingPayload({ swell, timezone: profile.timezone, hazard, surfWindow });
+    const payload = { ...buildFirstSightingPayload({ swell, timezone: profile.timezone, hazard, surfWindow }),
+      anchor_source: profile.anchorSource };
     let claimDenied: FirstSightingClaimSkipReason = "event_exists";
     const alert = await deps.insertAlert({
       userId: profile.id,

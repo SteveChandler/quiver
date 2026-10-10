@@ -454,6 +454,52 @@ describe("swell alert cron: default outlook adapters", () => {
   });
   afterEach(() => jest.restoreAllMocks());
 
+  it.each([72, 1])("uses one resolved anchor for a %s-hour fix in pools and first-sighting distances", async (ageHours) => {
+    const nearbyId = "ffffffff-0000-4000-8000-000000000002";
+    const hawaiiId = "ffffffff-0000-4000-8000-000000000003";
+    const hawaii = outlookSwell({ id: "hawaii-swell", beach: { id: hawaiiId, name: "Waikiki" } });
+    const nearby = outlookSwell({ id: "nearby-swell", beach: { id: nearbyId, name: "La Jolla" } });
+    const home_beach = { lat: 32.89, lon: -117.25, timezone: "America/Los_Angeles" };
+    const select = jest.fn();
+    const from = jest.fn((table: string) => {
+      const builder: Record<string, unknown> = {};
+      builder.select = (fields: string) => { select(fields); return builder; };
+      builder.in = () => builder;
+      builder.is = async () => ({ data: [{ id: USER, timezone: null, home_beach_id: HOME,
+        home_beach, user_location_snapshots: [{ lat: 21.28, lon: -157.83, timezone: "Pacific/Honolulu",
+          captured_at: new Date(MORNING.getTime() - ageHours * 3_600_000).toISOString() }],
+        notif_push_enabled: true, notif_swell_alerts: true }], error: null });
+      builder.then = (resolve: (value: unknown) => void) => resolve({ data: table === "beaches"
+        ? [{ id: HOME, ...home_beach }, { id: nearbyId, lat: 32.90, lon: -117.25 }, { id: hawaiiId, lat: 21.28, lon: -157.83 }] : [], error: null });
+      return builder;
+    });
+    const client = { from } as unknown as SupabaseClient<Database>;
+    const loadOutlook = jest.fn(async (_profile: SwellAlertProfile) => [hawaii, nearby]);
+    const mocked = makeDeps({ loadOutlook });
+    const dependencies = { ...mocked,
+      loadProfiles: undefined, loadBeachDistancesKm: undefined };
+    const result = await runSwellAlertCron({ now: MORNING, supabase: client, deps: dependencies });
+    expect(result.sentByKind.coming).toBe(1);
+    expect(mocked.enqueue).toHaveBeenCalledWith(expect.objectContaining({ payload: expect.objectContaining({ anchor_source: ageHours === 72 ? "home" : "location", beach_id: ageHours === 72 ? nearbyId : hawaiiId }) }));
+    expect(from).not.toHaveBeenCalledWith("user_location_snapshots");
+    expect(select).toHaveBeenCalledWith(expect.stringContaining("captured_at"));
+    const loaded = loadOutlook.mock.calls[0][0];
+    const expectedAnchor = ageHours === 72 ? { lat: home_beach.lat, lon: home_beach.lon } : { lat: 21.28, lon: -157.83 };
+    expect(loaded.location).toEqual(expectedAnchor);
+
+    jest.mocked(pools.loadUserPool).mockResolvedValue([]);
+    const eveningDeps = { ...makeDeps(), loadProfiles: async () => [loaded], evaluatePool: undefined,
+      isOutlookEnabled: () => false };
+    await runSwellAlertCron({ now: ageHours === 72 ? EVENING : new Date("2026-09-18T03:00:00Z"), supabase: client, deps: eveningDeps });
+    expect(pools.loadUserPool).toHaveBeenLastCalledWith(expect.objectContaining({ location: expectedAnchor }));
+    jest.mocked(pools.loadUserPool).mockClear();
+    const rarityDeps = { ...makeDeps(), loadProfiles: async () => [loaded], assessSwellRarity: undefined,
+      loadEngagement: async () => engagement({ consecutiveUnanswered: 3, lastSentAt: hoursAgo(408), pausedSince: hoursAgo(360) }) };
+    await runSwellAlertCron({ now: MORNING, supabase: client, deps: rarityDeps });
+    expect(pools.loadUserPool).toHaveBeenCalledTimes(1);
+    expect(pools.loadUserPool).toHaveBeenCalledWith(expect.objectContaining({ location: expectedAnchor }));
+  });
+
   it("loads without recording an open and forwards one transition to CAS persistence", async () => {
     const list = { runDate: "2026-09-18", swells: [outlookSwell()] };
     const client = {} as SupabaseClient<Database>;
