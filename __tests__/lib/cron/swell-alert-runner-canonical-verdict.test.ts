@@ -85,7 +85,7 @@ const profile: SwellAlertProfile = {
   maxDriveMinutes: null,
   experienceLevel: "intermediate",
   notifPushEnabled: true,
-  notifSwellAlerts: true,
+  notifSwellAlerts: true, notifForecastAlerts: false,
 };
 
 type QueryOp = [string, unknown[]];
