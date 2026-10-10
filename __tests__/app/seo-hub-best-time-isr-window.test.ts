@@ -103,7 +103,7 @@ beforeEach(() => {
 });
 
 describe("/beaches/[country]/[state]/[city] effective ISR window", () => {
-  it("regenerates daily, with no shorter cache read under the surf report", async () => {
+  it("regenerates hourly, with no shorter cache read under the surf report", async () => {
     (getLocationPageData as jest.Mock).mockResolvedValue({
       success: true,
       data: {
@@ -119,8 +119,8 @@ describe("/beaches/[country]/[state]/[city] effective ISR window", () => {
 
     // The surf report really ran its query; it just isn't cached under the page.
     expect(fromTables.length).toBeGreaterThan(0);
-    expect(hubRevalidate).toBe(86400);
-    expect(Math.min(hubRevalidate, ...mockCacheWindowsRead)).toBe(86400);
+    expect(hubRevalidate).toBe(3600);
+    expect(Math.min(hubRevalidate, ...mockCacheWindowsRead)).toBe(3600);
   });
 });
 

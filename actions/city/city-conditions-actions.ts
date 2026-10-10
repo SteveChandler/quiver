@@ -297,7 +297,7 @@ async function fetchCitySurfReport(
  *
  * Not wrapped in unstable_cache: Next.js would lower the calling ISR page's
  * window to the cache window, and a cached copy under an ISR page stacks ages.
- * The /beaches city hub that renders this owns the freshness window.
+ * The /{state}/{city} hub (app/beaches/[country]/[state]/[city]) owns the window.
  * Returns null when no forecast data is available so the UI degrades gracefully.
  */
 export async function getCitySurfReport(
