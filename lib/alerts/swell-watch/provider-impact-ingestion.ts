@@ -4,6 +4,8 @@ import type { Database } from "@/types/database.generated";
 import { evaluateSwellWatchImpact, type SwellWatchImpactResult } from "./impact-evaluator";
 import { normalizeSwellPartitions } from "./partition-normalizer";
 import { deriveAttestedSwellWatchRun } from "./attested-run";
+import type { SwellWatchTrackingEvent } from "./horizon-derivation";
+import { SUB_FLOOR_TRACKING_MODE } from "./native-sampling";
 import { loadAttestedProviderRunScope } from "./provider-run-store";
 import { verifySwellWatchPolicy } from "./policy";
 
@@ -115,7 +117,20 @@ type CohortDerivation = (Pick<DerivedRun["derivation"], "version" | "samplingPro
   }>;
 }) | null;
 type SuppressedCohort = { kind: "suppressed"; reason: string; sourcePointId: string; scopeOutcomes: CohortScopeOutcome[]; derivation: CohortDerivation };
-type IngestedCohort = { kind: "ingested"; runs: IngestedRun[]; scopeOutcomes: CohortScopeOutcome[]; derivation: CohortDerivation };
+export type SwellWatchScopedTrackingEvent = SwellWatchTrackingEvent & { sourcePointId: string };
+type IngestedCohort = { kind: "ingested"; runs: IngestedRun[]; scopeOutcomes: CohortScopeOutcome[]; derivation: CohortDerivation;
+  /** Present only when the authority enables tracking; never an input to events, candidates or sends. */
+  trackingEvents?: SwellWatchScopedTrackingEvent[] };
+
+/** Bounded like derivation events so tracking cannot crowd the 128 KiB study-result cap. */
+export function capSwellWatchTrackingEvents(events: SwellWatchScopedTrackingEvent[]): SwellWatchScopedTrackingEvent[] {
+  const perScope = new Map<string, number>();
+  return events.filter((event) => {
+    const count = perScope.get(event.sourcePointId) ?? 0;
+    perScope.set(event.sourcePointId, count + 1);
+    return count < 10;
+  });
+}
 
 export function capSwellWatchDerivationEvents(derivation: Exclude<CohortDerivation, null>): Exclude<CohortDerivation, null> {
   return {
@@ -173,7 +188,7 @@ async function persistRuns(
 
 /** Complete cohort preflight precedes one transaction across the valid feeds. */
 export async function ingestAttestedSwellWatchCohort(
-  input: Omit<Parameters<typeof loadAttestedProviderRunScope>[0], "scopes"> & Pick<RunInput, "now" | "policy" | "qualificationRule"> & {
+  input: Omit<Parameters<typeof loadAttestedProviderRunScope>[0], "scopes"> & Pick<RunInput, "now" | "policy" | "qualificationRule" | "trackingMode"> & {
     scopes: Array<Parameters<typeof loadAttestedProviderRunScope>[0]["scopes"][number] & Pick<RunInput, "regionKey" | "beach">>;
   },
   client: RunClient & Parameters<typeof loadAttestedProviderRunScope>[1],
@@ -188,7 +203,8 @@ export async function ingestAttestedSwellWatchCohort(
   const scopeOutcomes: CohortScopeOutcome[] = [];
   for (const scope of input.scopes) {
     const runInput = { providerBatchId: input.providerBatchId, sourcePointId: scope.sourcePointId,
-      now: input.now, policy: input.policy, qualificationRule: input.qualificationRule, regionKey: scope.regionKey, beach: scope.beach };
+      now: input.now, policy: input.policy, qualificationRule: input.qualificationRule, regionKey: scope.regionKey, beach: scope.beach,
+      ...(input.trackingMode === undefined ? {} : { trackingMode: input.trackingMode }) };
     const derived = await deriveAttestedSwellWatchRun(runInput, client);
     if (derived.kind === "suppressed") {
       scopeOutcomes.push({ sourcePointId: scope.sourcePointId, status: "suppressed", reason: derived.reason });
@@ -215,5 +231,8 @@ export async function ingestAttestedSwellWatchCohort(
     if (!suppressed) throw new Error("Cohort contains no feeds");
     return { kind: "suppressed", reason: suppressed.reason!, sourcePointId: suppressed.sourcePointId, scopeOutcomes, derivation };
   }
-  return { kind: "ingested", runs, scopeOutcomes, derivation };
+  const trackingEvents = input.trackingMode === SUB_FLOOR_TRACKING_MODE
+    ? capSwellWatchTrackingEvents(prepared.flatMap(({ input: scope, derived }) =>
+      (derived.trackingEvents ?? []).map((event) => ({ ...event, sourcePointId: scope.sourcePointId })))) : null;
+  return { kind: "ingested", runs, scopeOutcomes, derivation, ...(trackingEvents ? { trackingEvents } : {}) };
 }

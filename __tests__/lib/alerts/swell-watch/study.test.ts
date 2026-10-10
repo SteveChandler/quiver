@@ -181,3 +181,33 @@ it("reads the model-reported partition-count rule", async () => {
   rpc.mockResolvedValueOnce({ data, error: null });
   await expect(readSwellWatchStudyStatus(client)).resolves.toEqual(data);
 });
+
+describe("sub-floor tracking authority", () => {
+  const rule = "model_reported_swell_system_count.v1";
+
+  it("reads the tracking mode from study health, defaulting to the existing behaviour", async () => {
+    rpc.mockResolvedValueOnce({ data: { status: "active", qualificationRule: rule }, error: null });
+    await expect(readSwellWatchStudyStatus(client)).resolves.toEqual({ status: "active", qualificationRule: rule });
+    rpc.mockResolvedValueOnce({ data: { status: "active", qualificationRule: rule, trackingMode: "none" }, error: null });
+    await expect(readSwellWatchStudyStatus(client)).resolves.toEqual({ status: "active", qualificationRule: rule });
+    rpc.mockResolvedValueOnce({ data: { status: "active", qualificationRule: rule, trackingMode: "sub_floor_tracking.v1" }, error: null });
+    await expect(readSwellWatchStudyStatus(client)).resolves.toEqual({ status: "active", qualificationRule: rule, trackingMode: "sub_floor_tracking.v1" });
+    rpc.mockResolvedValueOnce({ data: { status: "active", qualificationRule: rule, trackingMode: "future-mode" }, error: null });
+    await expect(readSwellWatchStudyStatus(client)).rejects.toThrow();
+  });
+
+  it("gives evaluation its default arguments unless the authority enables tracking", async () => {
+    await completeSwellWatchStudyRun(revision, studyConfig.parse(config), client, "complete_partitions.v1");
+    expect(jest.mocked(evaluateSwellWatchShadow).mock.calls[0][0]).not.toHaveProperty("trackingMode");
+    await completeSwellWatchStudyRun(revision, studyConfig.parse(config), client, "complete_partitions.v1", undefined, "none");
+    expect(jest.mocked(evaluateSwellWatchShadow).mock.calls[1][0]).not.toHaveProperty("trackingMode");
+    await completeSwellWatchStudyRun(revision, studyConfig.parse(config), client, "complete_partitions.v1", undefined, "sub_floor_tracking.v1");
+    expect(jest.mocked(evaluateSwellWatchShadow).mock.calls[2][0]).toMatchObject({ trackingMode: "sub_floor_tracking.v1" });
+  });
+
+  it("applies the same mode to recovered runs", async () => {
+    rpc.mockResolvedValueOnce({ data: [{ revision_set_id: revision }], error: null });
+    await recoverSwellWatchStudyRuns(studyConfig.parse(config), client, "complete_partitions.v1", undefined, "sub_floor_tracking.v1");
+    expect(jest.mocked(evaluateSwellWatchShadow).mock.calls[0][0]).toMatchObject({ trackingMode: "sub_floor_tracking.v1" });
+  });
+});

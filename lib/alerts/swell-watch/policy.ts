@@ -18,6 +18,8 @@ export interface SwellWatchPolicyValues {
     maximum_period_delta_s: number;
     maximum_arrival_delta_hours: number;
     trajectory_assignment?: "max-cardinality-minimax-normalized.v1";
+    /** Absent keeps the approved behaviour; present excludes shorter-period partitions (wind sea) from detection. */
+    minimum_period_s?: 9;
   };
   missing_or_disagreement: {
     suppress_on_missing_partition: boolean;
@@ -136,6 +138,7 @@ function hasValidPolicyValues(value: unknown): value is SwellWatchPolicyValues {
     !isPositiveFinite(matching.maximum_period_delta_s) ||
     !isPositiveFinite(matching.maximum_arrival_delta_hours) ||
     (matching.trajectory_assignment !== undefined && matching.trajectory_assignment !== "max-cardinality-minimax-normalized.v1") ||
+    (matching.minimum_period_s !== undefined && matching.minimum_period_s !== 9) ||
     !isBoolean(missing.suppress_on_missing_partition) ||
     !isBoolean(missing.suppress_on_material_source_disagreement) ||
     !isPositiveFinite(actionability.minimum_days_before_arrival) ||

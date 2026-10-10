@@ -1,4 +1,4 @@
-import { COMPLETE_PARTITIONS_RULE, MODEL_REPORTED_PARTITION_COUNT_RULE, MODEL_REPORTED_SWELL_SYSTEM_COUNT_RULE, RETAINED_UNAVAILABLE_SECONDARY_RULE, type SwellWatchQualificationRule } from "./native-sampling";
+import { COMPLETE_PARTITIONS_RULE, MODEL_REPORTED_PARTITION_COUNT_RULE, MODEL_REPORTED_SWELL_SYSTEM_COUNT_RULE, NO_TRACKING_MODE, RETAINED_UNAVAILABLE_SECONDARY_RULE, SUB_FLOOR_TRACKING_MODE, type SwellWatchQualificationRule, type SwellWatchTrackingMode } from "./native-sampling";
 import { z } from "zod";
 import { acquisitionConfig } from "./acquisition";
 import { verifySwellWatchPolicy, type SwellWatchPolicy } from "./policy";
@@ -30,15 +30,19 @@ export type SwellWatchStudyStage = "study_completion" | "study_evaluation" | "st
 
 export async function readSwellWatchStudyStatus(
   client: Parameters<typeof loadSwellWatchAcquisitionScope>[1],
-): Promise<{ status: "active" | "complete" | "expired" | "unconfigured" | "blocked"; qualificationRule: SwellWatchQualificationRule }> {
+): Promise<{ status: "active" | "complete" | "expired" | "unconfigured" | "blocked"; qualificationRule: SwellWatchQualificationRule;
+  /** Omitted unless the authority enables tracking, so the default status shape is unchanged. */
+  trackingMode?: Exclude<SwellWatchTrackingMode, "none"> }> {
   const reader = client as unknown as {
     rpc: (name: string) => PromiseLike<{ data: unknown; error: unknown }>;
   };
   const result = await reader.rpc("read_swell_watch_study_health");
   if (result.error) throw new Error("Study health unavailable");
-  return z.object({ status: z.enum(["active", "complete", "expired", "unconfigured", "blocked"]),
+  const { trackingMode, ...health } = z.object({ status: z.enum(["active", "complete", "expired", "unconfigured", "blocked"]),
     qualificationRule: z.enum([COMPLETE_PARTITIONS_RULE, RETAINED_UNAVAILABLE_SECONDARY_RULE, MODEL_REPORTED_PARTITION_COUNT_RULE, MODEL_REPORTED_SWELL_SYSTEM_COUNT_RULE]).default(COMPLETE_PARTITIONS_RULE),
+    trackingMode: z.enum([NO_TRACKING_MODE, SUB_FLOOR_TRACKING_MODE]).default(NO_TRACKING_MODE),
   }).parse(result.data);
+  return trackingMode === SUB_FLOOR_TRACKING_MODE ? { ...health, trackingMode } : health;
 }
 
 export async function recoverSwellWatchStudyRuns(
@@ -46,6 +50,7 @@ export async function recoverSwellWatchStudyRuns(
   client: Parameters<typeof loadSwellWatchAcquisitionScope>[1],
   qualificationRule: SwellWatchQualificationRule,
   onStage?: (stage: SwellWatchStudyStage) => void,
+  trackingMode: SwellWatchTrackingMode = NO_TRACKING_MODE,
 ): Promise<{ processed: number; failed: number }> {
   const reader = client as unknown as {
     rpc: (name: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: unknown }>;
@@ -56,7 +61,7 @@ export async function recoverSwellWatchStudyRuns(
   const result = { processed: 0, failed: 0 };
   for (const run of runs) {
     try {
-      await completeSwellWatchStudyRun(run.revision_set_id, config, client, qualificationRule, onStage);
+      await completeSwellWatchStudyRun(run.revision_set_id, config, client, qualificationRule, onStage, trackingMode);
       result.processed += 1;
     } catch {
       await reader.rpc("record_swell_watch_study_recovery_failure", {
@@ -75,6 +80,7 @@ export async function completeSwellWatchStudyRun(
   client: Parameters<typeof loadSwellWatchAcquisitionScope>[1],
   qualificationRule: SwellWatchQualificationRule,
   onStage?: (stage: SwellWatchStudyStage) => void,
+  trackingMode: SwellWatchTrackingMode = NO_TRACKING_MODE,
 ): Promise<Awaited<ReturnType<typeof evaluateSwellWatchShadow>>
   | { skipped: true; reason: "already_evaluated"; providerBatchId: string; enqueued: 0 }> {
   onStage?.("study_completion");
@@ -111,7 +117,8 @@ export async function completeSwellWatchStudyRun(
   if (batch.already_evaluated) return { skipped: true, reason: "already_evaluated", providerBatchId: batch.provider_batch_id, enqueued: 0 };
   onStage?.("study_evaluation");
   const result = await evaluateSwellWatchShadow({ providerBatchId: batch.provider_batch_id,
-    qualificationRule: batch.qualification_rule ?? qualificationRule, forecastDays: 7, now: new Date().toISOString(), policy: config.policy, scopes },
+    qualificationRule: batch.qualification_rule ?? qualificationRule,
+    ...(trackingMode === SUB_FLOOR_TRACKING_MODE ? { trackingMode } : {}), forecastDays: 7, now: new Date().toISOString(), policy: config.policy, scopes },
   client as unknown as Parameters<typeof evaluateSwellWatchShadow>[1]);
   onStage?.("study_recording");
   const recorded = await writer.rpc("record_swell_watch_study_evaluation", {

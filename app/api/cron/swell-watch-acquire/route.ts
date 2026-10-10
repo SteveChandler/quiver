@@ -1,4 +1,4 @@
-import { COMPLETE_PARTITIONS_RULE, type SwellWatchQualificationRule } from "@/lib/alerts/swell-watch/native-sampling";
+import { COMPLETE_PARTITIONS_RULE, SUB_FLOOR_TRACKING_MODE, type SwellWatchQualificationRule, type SwellWatchTrackingMode } from "@/lib/alerts/swell-watch/native-sampling";
 import { withObservedCron } from "@/lib/cron/observability";
 import { createErrorResponse, createSuccessResponse, validateCronRequest } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
@@ -129,6 +129,9 @@ async function acquire(request: Request): Promise<Response> {
   try {
     const client = createSupabaseServiceRoleClient();
     let qualificationRule: SwellWatchQualificationRule = COMPLETE_PARTITIONS_RULE;
+    let trackingMode: Exclude<SwellWatchTrackingMode, "none"> | undefined;
+    // Spread only when the authority enables tracking so default calls keep their exact argument list.
+    const trackingArgs = (): [SwellWatchTrackingMode] | [] => trackingMode === SUB_FLOOR_TRACKING_MODE ? [trackingMode] : [];
     let recovery = { processed: 0, failed: 0 };
     let stalled = false;
     const respond = (response: Response, status: "ok" | "error" = "ok"): Response => setMonitorStatus(response, stalled ? "error" : status);
@@ -140,6 +143,7 @@ async function acquire(request: Request): Promise<Response> {
       if (stalled) console.error("[swell-watch-acquire] study stalled", { reason: stallReason(operationalHealth) });
       const { status } = health;
       qualificationRule = health.qualificationRule;
+      trackingMode = health.trackingMode;
       if (status === "complete" || status === "expired") {
         return respond(createSuccessResponse({ skipped: true, reason: `study_${status}`, enqueued: 0 }));
       }
@@ -152,7 +156,7 @@ async function acquire(request: Request): Promise<Response> {
         return respond(createSuccessResponse({ skipped: true, reason: "study_expiring", enqueued: 0 }));
       }
       stage = "recovery";
-      recovery = await recoverSwellWatchStudyRuns(studyConfig.parse(config), client, qualificationRule, (studyStage) => { stage = studyStage; });
+      recovery = await recoverSwellWatchStudyRuns(studyConfig.parse(config), client, qualificationRule, (studyStage) => { stage = studyStage; }, ...trackingArgs());
       if (recovery.processed) {
         stage = "health_after_recovery";
         const afterRecovery = await readSwellWatchStudyStatus(client);
@@ -161,6 +165,7 @@ async function acquire(request: Request): Promise<Response> {
         }
         if (afterRecovery.status !== "active") return createErrorResponse("Study unavailable", "Study authority is not active", 503);
         qualificationRule = afterRecovery.qualificationRule;
+        trackingMode = afterRecovery.trackingMode;
         const afterRecoveryHealth = await readOperationalStudyHealth(client, afterRecovery);
         const afterRecoveryStall = afterRecoveryHealth.status === "active" && stallReason(afterRecoveryHealth);
         if (afterRecoveryStall && !stalled) {
@@ -179,7 +184,7 @@ async function acquire(request: Request): Promise<Response> {
       stage = "study_completion";
       let study;
       try {
-        study = await completeSwellWatchStudyRun(stored.revisionSetId, studyConfig.parse(config), client, qualificationRule, (studyStage) => { stage = studyStage; });
+        study = await completeSwellWatchStudyRun(stored.revisionSetId, studyConfig.parse(config), client, qualificationRule, (studyStage) => { stage = studyStage; }, ...trackingArgs());
       } catch (error) {
         if (!(error instanceof SwellWatchStudySkip)) throw error;
         if (recovery.failed) return createErrorResponse("Study recovery incomplete", { recovery, enqueued: 0 }, 500);

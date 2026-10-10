@@ -1,4 +1,5 @@
-import { ingestAttestedSwellWatchCohort } from "./provider-impact-ingestion";
+import { ingestAttestedSwellWatchCohort, type SwellWatchScopedTrackingEvent } from "./provider-impact-ingestion";
+import { SUB_FLOOR_TRACKING_MODE, type SwellWatchTrackingMode } from "./native-sampling";
 import { loadMatchedSwellWatchHistory } from "./persisted-history";
 import { loadSwellWatchAudience } from "./audience";
 import { consolidateRegionalSwellEvents, consolidateSwellWatchRecipients } from "./regional-consolidator";
@@ -22,6 +23,9 @@ interface ShadowEvaluation {
   recordedDemand: { observedAt: string; recipientEventPairs24Hours: number } | null;
   safety: ReturnType<typeof evaluateSwellWatchSafety> | null;
   enqueued: 0;
+  /** Present only under a tracking-enabled authority; absent keys keep the default result byte-identical. */
+  trackingMode?: Exclude<SwellWatchTrackingMode, "none">;
+  trackingEvents?: SwellWatchScopedTrackingEvent[];
 }
 
 /** Local-only until evaluation-policy authority is separated from push authority in SQL.
@@ -39,8 +43,13 @@ export async function evaluateSwellWatchShadow(
     preSafetyRecipientsThisEvaluation: null, sendEligibility: "not_evaluated",
     projectedSendsRolling24Hours: null, deliveryHealth: null, recordedDemand: null, safety: null, enqueued: 0,
   };
+  if (input.trackingMode === SUB_FLOOR_TRACKING_MODE) {
+    result.trackingMode = SUB_FLOOR_TRACKING_MODE;
+    result.trackingEvents = [];
+  }
   const cohort = await ingestAttestedSwellWatchCohort(input, client);
   result.derivation = cohort.derivation;
+  if (cohort.kind === "ingested" && cohort.trackingEvents) result.trackingEvents = cohort.trackingEvents;
   if (cohort.kind === "suppressed") return { ...result, reason: cohort.reason, scopeOutcomes: cohort.scopeOutcomes };
   const candidates: Array<Awaited<ReturnType<typeof loadMatchedSwellWatchHistory>> & {
     beachId: string; projectedImpact: number;

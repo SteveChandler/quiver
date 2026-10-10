@@ -14,6 +14,7 @@ export type SwellWatchImpactSuppression =
   | "source_contradiction"
   | "non_impactful"
   | "low_significance"
+  | "below_period_floor"
   | "not_actionable";
 
 export type SwellWatchImpactResult =
@@ -149,6 +150,10 @@ function calculatePhysicalImpact(input: PhysicalInput): PhysicalResult {
       windowHalfWidth
   ) {
     return { kind: "suppressed", reason: "non_impactful" };
+  }
+  const periodFloor = input.policy.policy_values.partition_matching.minimum_period_s;
+  if (periodFloor !== undefined && input.partition.periodS < periodFloor) {
+    return { kind: "suppressed", reason: "below_period_floor" };
   }
   const projected = transformToFaceHeightDecomposed({
     components: [

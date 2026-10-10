@@ -5,6 +5,10 @@ export const RETAINED_UNAVAILABLE_SECONDARY_RULE = "primary_partition_with_retai
 export const MODEL_REPORTED_PARTITION_COUNT_RULE = "model_reported_partition_count.v1" as const;
 export const MODEL_REPORTED_SWELL_SYSTEM_COUNT_RULE = "model_reported_swell_system_count.v1" as const;
 export type SwellWatchQualificationRule = typeof COMPLETE_PARTITIONS_RULE | typeof RETAINED_UNAVAILABLE_SECONDARY_RULE | typeof MODEL_REPORTED_PARTITION_COUNT_RULE | typeof MODEL_REPORTED_SWELL_SYSTEM_COUNT_RULE;
+/** Authority-bound study feature: persist sub-actionability-floor updates as non-evaluative tracking rows. */
+export const NO_TRACKING_MODE = "none" as const;
+export const SUB_FLOOR_TRACKING_MODE = "sub_floor_tracking.v1" as const;
+export type SwellWatchTrackingMode = typeof NO_TRACKING_MODE | typeof SUB_FLOOR_TRACKING_MODE;
 export type SwellWatchFramePart = SwellPartitionObservation | {
   kind: "unavailable"; sourceSlot: "s2"; forecastAt: string; reason: "provider_zero_tuple";
 } | {

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { resolveNativeSamplingProfile, COMPLETE_PARTITIONS_RULE, MODEL_REPORTED_PARTITION_COUNT_RULE, MODEL_REPORTED_SWELL_SYSTEM_COUNT_RULE, RETAINED_UNAVAILABLE_SECONDARY_RULE, type SwellWatchQualificationRule, type SwellWatchFramePart } from "./native-sampling";
+import { resolveNativeSamplingProfile, COMPLETE_PARTITIONS_RULE, MODEL_REPORTED_PARTITION_COUNT_RULE, MODEL_REPORTED_SWELL_SYSTEM_COUNT_RULE, RETAINED_UNAVAILABLE_SECONDARY_RULE, type SwellWatchQualificationRule, type SwellWatchFramePart, type SwellWatchTrackingMode } from "./native-sampling";
 import { deriveSwellWatchHorizon } from "./horizon-derivation";
 import { normalizeSwellPartitions } from "./partition-normalizer";
 import { verifySwellWatchPolicy } from "./policy";
@@ -53,6 +53,7 @@ export async function deriveAttestedSwellWatchRun(
   input: Parameters<typeof loadAttestedSwellWatchRun>[0] & {
     now: string;
     qualificationRule: SwellWatchQualificationRule;
+    trackingMode?: SwellWatchTrackingMode;
     beach: Parameters<typeof deriveSwellWatchHorizon>[0]["beach"];
     policy: Parameters<typeof deriveSwellWatchHorizon>[0]["policy"];
   },
@@ -105,7 +106,7 @@ export async function deriveAttestedSwellWatchRun(
       })];
     });
     return { kind: "derived", source: run.source, thresholdPolicyHash: input.policy.value_hash,
-      ...deriveSwellWatchHorizon({ qualificationRule: input.qualificationRule, series, sampling: { profile, issuedAt: run.source.issuedAt }, now: input.now, beach: input.beach, policy: input.policy }) };
+      ...deriveSwellWatchHorizon({ qualificationRule: input.qualificationRule, trackingMode: input.trackingMode, series, sampling: { profile, issuedAt: run.source.issuedAt }, now: input.now, beach: input.beach, policy: input.policy }) };
   } catch (error) {
     return { kind: "suppressed", reason: error instanceof Error ? error.message : "invalid_horizon" };
   }

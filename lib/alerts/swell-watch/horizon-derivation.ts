@@ -1,4 +1,4 @@
-import { selectNativeFrames, verifyInterpolationWitness, SWELL_WATCH_DERIVATION_VERSION, type NativeSamplingProfile, COMPLETE_PARTITIONS_RULE, MODEL_REPORTED_PARTITION_COUNT_RULE, MODEL_REPORTED_SWELL_SYSTEM_COUNT_RULE, RETAINED_UNAVAILABLE_SECONDARY_RULE, isAbsentPartition, isObservedPartition, type SwellWatchFramePart, type SwellWatchQualificationRule } from "./native-sampling";
+import { selectNativeFrames, verifyInterpolationWitness, SWELL_WATCH_DERIVATION_VERSION, type NativeSamplingProfile, COMPLETE_PARTITIONS_RULE, MODEL_REPORTED_PARTITION_COUNT_RULE, MODEL_REPORTED_SWELL_SYSTEM_COUNT_RULE, RETAINED_UNAVAILABLE_SECONDARY_RULE, isAbsentPartition, isObservedPartition, type SwellWatchFramePart, type SwellWatchQualificationRule, type SwellWatchTrackingMode, SUB_FLOOR_TRACKING_MODE } from "./native-sampling";
 import { evaluateSwellWatchImpact, evaluateSwellWatchPhysicalImpact } from "./impact-evaluator";
 import type { SwellPartitionObservation } from "./partition-normalizer";
 import type { SwellWatchPolicy } from "./policy";
@@ -9,6 +9,12 @@ const HOUR = 3_600_000;
 type Impact = Extract<ReturnType<typeof evaluateSwellWatchImpact>, { kind: "candidate" }>;
 interface Window { earliestAt: string; latestAt: string }
 interface Event { arrivalAt: string; peakAt: string; arrivalWindow: Window; peakWindow: Window; closureWindow: Window; impact: Impact; confidence: number | null }
+/** Non-evaluative update for a swell below the actionability floor; never an event, candidate or send input. */
+export interface SwellWatchTrackingEvent {
+  sourceSlot: "s1" | "s2"; phase: "approaching" | "in_progress"; onsetObserved: boolean;
+  arrivalAt: string; arrivalWindow: Window; peakAt: string; peakWindow: Window; closureWindow: Window | null;
+  heightM: number; periodS: number; directionDeg: number; heightFt: number | null; projectedFaceHeightFt: number;
+}
 interface TrackStep extends SwellPartitionObservation { nativeIndex: number; gapHoursBefore: number | null }
 interface Derivation { version: typeof SWELL_WATCH_DERIVATION_VERSION; samplingProfile: NativeSamplingProfile["id"];
   witness: NativeSamplingProfile["witness"]; nativeFrames: number; interpolatedFrames: number; qualificationRule: SwellWatchQualificationRule;
@@ -89,15 +95,83 @@ function matchPartialFrame(active: TrackStep[][], frame: SwellPartitionObservati
   return frame.map((_, current) => best?.current === current ? best.previous : null);
 }
 
+/**
+ * Sub-floor tracking: swells whose onset is nearer than the minimum lead time can never qualify as events, because the
+ * 48 h baseline already contains them. Each track is therefore judged against the other partitions in that window.
+ * Pure and non-throwing: tracking must never change whether the approved derivation succeeds.
+ */
+function deriveSubFloorTracking(context: {
+  tracks: TrackStep[][]; series: SwellWatchFramePart[][]; nativeAt: (index: number) => string; now: string;
+  beach: BeachTerrainConfig & { swell_window_center_deg: number; swell_window_halfwidth_deg: number }; policy: SwellWatchPolicy;
+}): SwellWatchTrackingEvent[] {
+  const { tracks, series, nativeAt, now, beach, policy } = context;
+  const nowMs = Date.parse(now);
+  const minimumDays = policy.policy_values.actionability.minimum_days_before_arrival;
+  const events: SwellWatchTrackingEvent[] = [];
+  try {
+    for (const track of tracks) {
+      const own = new Set(track.map((step) => `${step.forecastAt}|${step.sourceSlot}`));
+      const baseline = { heightFt: 0, energy: 0 };
+      for (const part of series.slice(0, 48).flat()) {
+        if (!isObservedPartition(part) || own.has(`${part.forecastAt}|${part.sourceSlot}`)
+          || distance(part.directionDeg, beach.swell_window_center_deg) > beach.swell_window_halfwidth_deg) continue;
+        const height = metersToFeet(part.heightM, 4);
+        if (height === null) continue;
+        baseline.heightFt = Math.max(baseline.heightFt, height);
+        baseline.energy = Math.max(baseline.energy, height ** 2 * part.periodS);
+      }
+      // With no other swell in the window the baseline is calm; a strictly positive energy keeps the ratio finite.
+      const physicalInput = { baselineHeightFt: baseline.heightFt, baselineEnergy: Math.max(baseline.energy, 1e-9),
+        beach, policy, seamContinuous: true, sourceCoherent: true };
+      let episode: { arrivalWindow: Window; start: number; peak: number; projected: number; onsetObserved: boolean } | null = null;
+      const emit = (closure: Window | null, last: number): void => {
+        if (!episode) return;
+        const earliestDays = (Date.parse(episode.arrivalWindow.earliestAt) - nowMs) / (24 * HOUR);
+        if (earliestDays >= minimumDays || (closure && Date.parse(closure.latestAt) <= nowMs)) return;
+        const peak = track[episode.peak];
+        events.push({ sourceSlot: peak.sourceSlot, onsetObserved: episode.onsetObserved,
+          phase: Date.parse(episode.arrivalWindow.latestAt) <= nowMs ? "in_progress" : "approaching",
+          arrivalAt: episode.arrivalWindow.latestAt, arrivalWindow: episode.arrivalWindow, peakAt: peak.forecastAt,
+          peakWindow: { earliestAt: track[Math.max(episode.start, episode.peak - 1)].forecastAt, latestAt: track[Math.min(last, episode.peak + 1)].forecastAt },
+          closureWindow: closure, heightM: peak.heightM, periodS: peak.periodS, directionDeg: peak.directionDeg,
+          heightFt: metersToFeet(peak.heightM, 4), projectedFaceHeightFt: episode.projected });
+      };
+      for (const [index, part] of track.entries()) {
+        const physical = evaluateSwellWatchPhysicalImpact({ ...physicalInput, partition: part });
+        if (physical.kind === "candidate") {
+          if (!episode) {
+            const onset = Math.max(0, part.nativeIndex - 1);
+            episode = { arrivalWindow: { earliestAt: nativeAt(onset), latestAt: part.forecastAt }, start: index, peak: index,
+              projected: physical.projectedFaceHeightFt, onsetObserved: !(index === 0 && part.nativeIndex === 0) };
+          } else if (physical.projectedFaceHeightFt > episode.projected) {
+            episode.peak = index;
+            episode.projected = physical.projectedFaceHeightFt;
+          }
+          continue;
+        }
+        emit({ earliestAt: track[index - 1]?.forecastAt ?? part.forecastAt, latestAt: part.forecastAt }, index - 1);
+        episode = null;
+      }
+      emit(null, track.length - 1);
+    }
+  } catch {
+    return [];
+  }
+  return events.sort((left, right) => Date.parse(left.arrivalAt) - Date.parse(right.arrivalAt)
+    || Date.parse(left.peakAt) - Date.parse(right.peakAt) || left.sourceSlot.localeCompare(right.sourceSlot));
+}
+
 /** Pure calculation over validated hourly frames; does not establish evidence or release authority. */
 export function deriveSwellWatchHorizon(input: {
   series: SwellWatchFramePart[][];
   qualificationRule: SwellWatchQualificationRule;
+  /** Defaults to none: output and every error path are then identical to the approved study. */
+  trackingMode?: SwellWatchTrackingMode;
   now: string;
   beach: BeachTerrainConfig & { swell_window_center_deg: number; swell_window_halfwidth_deg: number };
   policy: SwellWatchPolicy;
   sampling: { profile: NativeSamplingProfile; issuedAt: string };
-}): { derivation: Derivation; baseline: { heightFt: number; energy: number }; events: Event[] } {
+}): { derivation: Derivation; baseline: { heightFt: number; energy: number }; events: Event[]; trackingEvents?: SwellWatchTrackingEvent[] } {
   const { series, policy, qualificationRule } = input;
   if (![COMPLETE_PARTITIONS_RULE, RETAINED_UNAVAILABLE_SECONDARY_RULE, MODEL_REPORTED_PARTITION_COUNT_RULE, MODEL_REPORTED_SWELL_SYSTEM_COUNT_RULE].includes(qualificationRule)) {
     throw new Error("invalid_qualification_rule");
@@ -199,7 +273,7 @@ export function deriveSwellWatchHorizon(input: {
         }
         continue;
       }
-      if (physical.reason !== "low_significance" && physical.reason !== "non_impactful") throw new Error(physical.reason);
+      if (physical.reason !== "low_significance" && physical.reason !== "non_impactful" && physical.reason !== "below_period_floor") throw new Error(physical.reason);
       if (episode?.actionable) {
         // Latest onset bound is the persisted point estimate. A 3h native step fits within
         // the unchanged 6h arrival/peak matching window; thresholds remain per native step.
@@ -248,5 +322,6 @@ export function deriveSwellWatchHorizon(input: {
       unavailableNativeFrames: selection.native.filter(({ index }) => series[index].some((part) => part.sourceSlot === "s2" && "kind" in part && part.kind === "unavailable")).map(({ index }) => index),
     } };
   return { derivation: { qualificationRule, partitionCoverage, boundaryDeferrals, version: SWELL_WATCH_DERIVATION_VERSION, samplingProfile: input.sampling.profile.id,
-    witness: input.sampling.profile.witness, nativeFrames: selection.native.length, interpolatedFrames: selection.interpolated.length }, baseline, events: coalesced };
+    witness: input.sampling.profile.witness, nativeFrames: selection.native.length, interpolatedFrames: selection.interpolated.length }, baseline, events: coalesced,
+    ...(input.trackingMode === SUB_FLOOR_TRACKING_MODE ? { trackingEvents: deriveSubFloorTracking({ tracks, series, nativeAt, now: input.now, beach: input.beach, policy }) } : {}) };
 }

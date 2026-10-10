@@ -8,6 +8,8 @@ on:
       - "supabase/migrations/20261002200000_match_score_missing_inputs_neutral.sql"
       - "supabase/tests/match_score_missing_inputs.sql"
       - "scripts/*swell-watch*"
+      - "docs/operations/swell-watch-study-*"
+      - "__tests__/fixtures/swell-watch-tracking-*"
       - "scripts/test-match-score-missing-inputs-postgres.sh"
       - "__tests__/lib/alerts/swell-watch/**"
       - "lib/cron/swell-alert-runner.ts"
@@ -57,6 +59,7 @@ jobs:
           set -o pipefail
           bash scripts/test-swell-watch-study-postgres.sh 2>&1 | tee /tmp/swell-normalization-artifact/integration.log
           bash scripts/test-swell-watch-feed-isolation-postgres.sh 2>&1 | tee /tmp/swell-normalization-artifact/feed-isolation.log
+          bash scripts/test-swell-watch-tracking-postgres.sh 2>&1 | tee /tmp/swell-normalization-artifact/sub-floor-tracking.log
           bash scripts/test-swell-watch-event-identity-postgres.sh 2>&1 | tee /tmp/swell-normalization-artifact/event-identity.log
           docker run --rm --user postgres -v "$PWD:/workspace:ro" -w /workspace -e MODEL_PG_BIN=/usr/lib/postgresql/15/bin postgres:15 bash scripts/test-match-score-missing-inputs-postgres.sh 2>&1 | tee /tmp/swell-normalization-artifact/match-score.log
       - name: Test snapshot outcomes and outlook first-sighting claims
