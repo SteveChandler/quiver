@@ -195,6 +195,20 @@ export function useBeachSearch() {
 
   // Update filtered beaches when inputs change
   useEffect(() => {
+    const hasSearchQuery = state.searchQuery.trim().length > 0;
+    // A search loads the full catalogue into `beaches`. Clearing it while a nearby
+    // reload is pending would otherwise render that whole list (hundreds of
+    // markers and bulk forecast batches) just before the nearby set replaces it.
+    // The reload resets `hasLoadedAllBeaches` when it lands, which re-runs this
+    // effect against the nearby set.
+    if (
+      !hasSearchQuery &&
+      hasLoadedAllBeaches &&
+      nearbyPresentationSnapshotRef.current !== null
+    ) {
+      return;
+    }
+
     const filtered = applyFiltersAndSearch(
       state.searchQuery,
       beaches || [],
@@ -202,7 +216,6 @@ export function useBeachSearch() {
       state.filters
     );
 
-    const hasSearchQuery = state.searchQuery.trim().length > 0;
     presentationGenerationRef.current += 1;
     filteredBeachesRef.current = filtered;
     const resultsQuery = state.searchQuery.trim();
@@ -231,7 +244,7 @@ export function useBeachSearch() {
         selectedBeach: nextSelection,
       };
     });
-  }, [beaches, state.searchQuery, state.activeRegion, state.filters, applyFiltersAndSearch]);
+  }, [beaches, hasLoadedAllBeaches, state.searchQuery, state.activeRegion, state.filters, applyFiltersAndSearch]);
 
   // Load all beaches function - defined before useEffect to avoid hoisting issues
   const loadBeaches = useCallback(async () => {
