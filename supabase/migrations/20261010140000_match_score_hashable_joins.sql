@@ -6,7 +6,8 @@
 -- premium user (122 sessions), 820 slots took 0.54 s and 1,640 took 2.3 s. A /map batch is 20
 -- beaches x 240 hours, about 1,640 slots, inside get_bulk_forecast_decision_context. On the
 -- smallest Supabase compute, three of those in parallel pushed /api/forecasts/bulk past the 8 s
--- statement timeout ("Failed to load bulk decision context", 72 failures in 12:46-12:48 UTC).
+-- statement timeout ("Failed to load bulk decision context": 72 bulk-route error log lines in
+-- 12:46-12:48 UTC, during a testing session that included clear-search request storms).
 --   * Each IS NOT DISTINCT FROM tuple join gains an equal jsonb_build_array key over the same
 --     columns. The original condition stays, and it implies the key (jsonb compares numerics by
 --     value and treats NULL as null), so the joined rows are identical; the key only makes the
