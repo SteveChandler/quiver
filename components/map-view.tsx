@@ -475,33 +475,39 @@ export function MapView() {
   // The URL→state effect above will re-sync searchQuery="" on the next tick when the URL
   // update lands — same value, React bails — but skipping the direct hook write would
   // introduce a one-tick window where the UI still shows filtered results.
-  const handleClearSearch = useCallback(() => {
-    clearSearch();
-    stripMapUrlParams(["search"]);
-    // Reset to the beaches around where the camera is. userLocation is only a
-    // fallback seed on /map, so it would reload around the wrong coast. Background
-    // keeps the current markers and colours until the nearby set lands.
+  // Leaving a search reloads the beaches around where the camera is. userLocation is
+  // only a fallback seed on /map, so it would reload around the wrong coast. Background
+  // keeps the current markers and colours until the nearby set lands.
+  const reloadNearbyAroundView = useCallback(() => {
     const center = viewCenter ?? userLocation;
     if (center) {
       void loadNearbyBeaches(center.lat, center.lon, { background: true });
     } else {
       getUserLocation();
     }
-  }, [clearSearch, stripMapUrlParams, viewCenter, userLocation, loadNearbyBeaches, getUserLocation]);
+  }, [viewCenter, userLocation, loadNearbyBeaches, getUserLocation]);
+
+  const handleClearSearch = useCallback(() => {
+    clearSearch();
+    stripMapUrlParams(["search"]);
+    reloadNearbyAroundView();
+  }, [clearSearch, stripMapUrlParams, reloadNearbyAroundView]);
 
   const handleSearchChange = useCallback(
     (query: string) => {
       setSelectedBeach(null);
       setSearchQuery(query);
       stripMapUrlParams(["search"], { preserveSearchState: true });
+      if (!query.trim() && searchQuery.trim()) reloadNearbyAroundView();
     },
-    [setSearchQuery, setSelectedBeach, stripMapUrlParams]
+    [reloadNearbyAroundView, searchQuery, setSearchQuery, setSelectedBeach, stripMapUrlParams]
   );
 
   const handleClearAll = useCallback(() => {
     clearAllFilters();
     stripMapUrlParams(["search", "type", "level"]);
-  }, [clearAllFilters, stripMapUrlParams]);
+    if (searchQuery.trim()) reloadNearbyAroundView();
+  }, [clearAllFilters, reloadNearbyAroundView, searchQuery, stripMapUrlParams]);
 
   const handleUseMyLocation = useCallback(() => {
     setLocationDeniedPromptDismissed(true);

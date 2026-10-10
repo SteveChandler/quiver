@@ -168,6 +168,7 @@ export function createLocationCacheKey(
   - Real-time search filtering
   - Beach selection state
   - Search query persistence
+  - An empty query browses the last nearby set; the full catalogue a search loads is only ever searched, never rendered whole on /map
 
 #### **useGeolocation** (Geolocation)
 
