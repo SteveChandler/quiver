@@ -494,6 +494,109 @@ describe("useBeachSearch", () => {
     });
   });
 
+  describe("an empty query after a search loaded the full catalogue", () => {
+    const nearby = () => mockBeaches.slice(1, 3);
+
+    async function nearbyThenSearchCatalogue() {
+      const renders: Beach[][] = [];
+      const hook = renderHook(() => {
+        const value = useBeachSearch();
+        renders.push(value.filteredBeaches);
+        return value;
+      });
+      mockGetNearbyBeaches.mockResolvedValueOnce({ success: true, data: nearby() } as any);
+      await act(async () => {
+        await hook.result.current.loadNearbyBeaches(32.77, -117.25);
+      });
+      act(() => {
+        hook.result.current.setSearchQuery("Ocean");
+      });
+      await act(async () => {
+        await hook.result.current.loadBeaches();
+      });
+      expect(hook.result.current.beaches).toHaveLength(mockBeaches.length);
+      return { ...hook, renders };
+    }
+
+    function expectNoCatalogueRender(renders: Beach[][], from: number) {
+      for (const rendered of renders.slice(from)) {
+        expect(rendered.length).toBeLessThan(mockBeaches.length);
+      }
+    }
+
+    it("shows the last nearby set when the query is emptied without a reload", async () => {
+      const { result, renders } = await nearbyThenSearchCatalogue();
+      const from = renders.length;
+
+      act(() => {
+        result.current.setSearchQuery("");
+      });
+
+      expect(result.current.filteredBeaches).toEqual(nearby());
+      expectNoCatalogueRender(renders, from);
+    });
+
+    it("shows the last nearby set after Clear all", async () => {
+      const { result, renders } = await nearbyThenSearchCatalogue();
+      const from = renders.length;
+
+      act(() => {
+        result.current.clearAllFilters();
+      });
+
+      expect(result.current.filteredBeaches).toEqual(nearby());
+      expectNoCatalogueRender(renders, from);
+    });
+
+    it("applies empty-query filters to the nearby set, not the catalogue", async () => {
+      const { result, renders } = await nearbyThenSearchCatalogue();
+      act(() => {
+        result.current.setSearchQuery("");
+      });
+      const from = renders.length;
+
+      act(() => {
+        result.current.toggleBeginnerFriendly();
+      });
+
+      const nearbyIds = new Set(nearby().map((beach) => beach.id));
+      expect(result.current.filteredBeaches.every((beach) => nearbyIds.has(beach.id))).toBe(true);
+      expectNoCatalogueRender(renders, from);
+    });
+
+    it("ignores a catalogue load that lands after the query was cleared", async () => {
+      const renders: Beach[][] = [];
+      const { result } = renderHook(() => {
+        const value = useBeachSearch();
+        renders.push(value.filteredBeaches);
+        return value;
+      });
+      mockGetNearbyBeaches.mockResolvedValueOnce({ success: true, data: nearby() } as any);
+      await act(async () => {
+        await result.current.loadNearbyBeaches(32.77, -117.25);
+      });
+      let resolveCatalogue!: (value: any) => void;
+      mockGetBeaches.mockReturnValueOnce(new Promise((resolve) => { resolveCatalogue = resolve; }) as any);
+      let pendingCatalogue!: Promise<void>;
+      act(() => {
+        result.current.setSearchQuery("Ocean");
+        pendingCatalogue = result.current.loadBeaches();
+      });
+      act(() => {
+        result.current.clearSearch();
+      });
+      const from = renders.length;
+
+      await act(async () => {
+        resolveCatalogue({ success: true, data: mockBeaches });
+        await pendingCatalogue;
+      });
+
+      expect(result.current.filteredBeaches).toEqual(nearby());
+      expectNoCatalogueRender(renders, from);
+    });
+  });
+
   describe("nearbyBeachesForScroll", () => {
     it("should return beaches excluding selected beach", async () => {
       const { result } = renderHook(() => useBeachSearch());
