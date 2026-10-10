@@ -501,8 +501,10 @@ const nextConfig = {
     // a slot rounds up to the next kept width, never down.
     deviceSizes: [640, 828, 1200, 1920],
 
-    // Performance optimizations for images
-    formats: ["image/webp", "image/avif"],
+    // One output format per image: AVIF-capable browsers shared no cache entries
+    // with WebP ones, so the same photo paid for both. Clients that send no
+    // Accept header (crawlers) still get the source format.
+    formats: ["image/webp"],
     // Not raised: this is a floor, and cam stills (img.youtube.com mqdefault,
     // camstills.cdn-surfline.com latest_small, hdontap) keep one URL while the
     // frame changes. Long-lived sources set their own TTL (/api/image-proxy).
