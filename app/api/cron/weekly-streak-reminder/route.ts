@@ -31,6 +31,7 @@ const CONTEXT_TAG = "[weekly-streak-reminder]";
 const REMINDER_TYPE = "weekly_streak";
 const NOTIFICATION_TYPE = "weekly_streak_reminder";
 const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
+const LOOKBACK_WEEKS = 26;
 const SENTRY_MONITOR = {
   slug: "weekly-streak-reminder",
   schedule: "0 17 * * 0",
@@ -219,73 +220,113 @@ async function _GET(request: Request): Promise<Response> {
     }
     const alreadyLogged = new Map(loggedRows.map((row) => [`${row.user_id}:${row.period_key}`, row.sent_at]));
 
-    const candidates: Candidate[] = [];
-    for (const user of users) {
-      const legacyKeys = user.compatibleKeys.filter((key) => key !== user.periodKey);
+    const widestStart = users.map((user) => user.startsAt).sort()[0];
+    const widestEnd = users.map((user) => user.endsAt).sort()[users.length - 1];
+    const legacyDedupeKeys = users.flatMap((user) => user.compatibleKeys
+      .filter((key) => key !== user.periodKey)
+      .map((key) => `${REMINDER_TYPE}:${user.userId}:${key}`));
+    const legacyEvents: Array<{ dedupe_key: string | null; created_at: string }> = [];
+    for (const keys of chunk(legacyDedupeKeys, 100)) {
+      legacyEvents.push(...await readAllPages(async (offset, limit) => {
+        const { data, error } = await supabase.from("notification_events")
+          .select("dedupe_key, created_at")
+          .in("dedupe_key", keys)
+          .gte("created_at", widestStart)
+          .lt("created_at", widestEnd)
+          .order("id")
+          .range(offset, offset + limit - 1);
+        if (error) throw new Error(`Failed to query notification_events: ${error.message}`);
+        return data ?? [];
+      }));
+    }
+    const legacyEventsByKey = new Map<string, string[]>();
+    for (const row of legacyEvents) {
+      if (!row.dedupe_key) continue;
+      const times = legacyEventsByKey.get(row.dedupe_key) ?? [];
+      times.push(row.created_at);
+      legacyEventsByKey.set(row.dedupe_key, times);
+    }
+    const pendingUsers = users.filter((user) => {
       // A legacy label can also belong to last week's local reminder; check when it was sent.
-      const loggedUnderLegacyKey = legacyKeys.some((key) => {
-        const sentAt = alreadyLogged.get(`${user.userId}:${key}`);
-        if (!sentAt) return false;
-        const sentTime = new Date(sentAt).getTime();
-        return sentTime >= new Date(user.startsAt).getTime() && sentTime < new Date(user.endsAt).getTime();
-      });
+      const loggedUnderLegacyKey = user.compatibleKeys
+        .filter((key) => key !== user.periodKey)
+        .some((key) => [
+          alreadyLogged.get(`${user.userId}:${key}`),
+          ...(legacyEventsByKey.get(`${REMINDER_TYPE}:${user.userId}:${key}`) ?? []),
+        ].some((sentAt) => {
+          if (!sentAt) return false;
+          const sentTime = new Date(sentAt).getTime();
+          return sentTime >= new Date(user.startsAt).getTime() && sentTime < new Date(user.endsAt).getTime();
+        }));
       if (alreadyLogged.has(`${user.userId}:${user.periodKey}`) || loggedUnderLegacyKey) {
         summary.skipped.alreadyLogged++;
-        continue;
+        return false;
       }
-      if (legacyKeys.length > 0) {
-        const legacyEvents = await readAllPages(async (offset, limit) => {
-          const { data, error } = await supabase.from("notification_events")
-            .select("id")
-            .in("dedupe_key", legacyKeys.map((key) => `${REMINDER_TYPE}:${user.userId}:${key}`))
-            .gte("created_at", user.startsAt)
-            .lt("created_at", user.endsAt)
-            .order("id")
-            .range(offset, offset + limit - 1);
-          if (error) throw new Error(`Failed to query notification_events: ${error.message}`);
-          return data ?? [];
-        });
-        if (legacyEvents.length > 0) {
-          summary.skipped.alreadyLogged++;
-          continue;
-        }
-      }
+      return true;
+    });
 
-      let streak = 0;
-      let weekStart = user.weekStart;
-      let loggedThisWeek = false;
-      // Walk to the first gap instead of imposing a limit that could truncate a real streak.
-      for (;;) {
-        const start = fromZonedTime(`${weekStart}T00:00:00`, user.timezone).toISOString();
-        const end = fromZonedTime(`${shiftDateKey(weekStart, 7)}T00:00:00`, user.timezone).toISOString();
-        const sessions = await readAllPages(async (offset, limit) => {
-          const { data, error } = await supabase.from("sessions")
-            .select("id")
-            .eq("user_id", user.userId)
-            .is("deleted_at", null)
-            .gte("arrival_time", start)
-            .lt("arrival_time", end)
-            .order("id")
-            .range(offset, offset + limit - 1);
-          if (error) throw new Error(`Failed to query sessions: ${error.message}`);
-          return data ?? [];
-        });
-        if (weekStart === user.weekStart) {
-          if (sessions.length > 0) {
-            loggedThisWeek = true;
-            break;
-          }
-        } else {
-          if (sessions.length === 0) break;
-          streak++;
-        }
-        weekStart = shiftDateKey(weekStart, -7);
+    const usersById = new Map(users.map((user) => [user.userId, user]));
+    const weeksByUser = new Map<string, Set<string>>();
+    async function loadSessionWeeks(userIds: string[], startsAt: string, endsAt: string): Promise<void> {
+      const sessions = await readAllPages(async (offset, limit) => {
+        const { data, error } = await supabase.from("sessions")
+          .select("user_id, arrival_time")
+          .in("user_id", userIds)
+          .is("deleted_at", null)
+          .gte("arrival_time", startsAt)
+          .lt("arrival_time", endsAt)
+          .order("id")
+          .range(offset, offset + limit - 1);
+        if (error) throw new Error(`Failed to query sessions: ${error.message}`);
+        return data ?? [];
+      });
+      for (const row of sessions) {
+        const user = usersById.get(row.user_id);
+        if (!user) continue;
+        const weekStart = startOfUtcIsoWeek(keyToDate(getLocalDateString(new Date(row.arrival_time), user.timezone)));
+        const weeks = weeksByUser.get(row.user_id) ?? new Set<string>();
+        weeks.add(weekStart);
+        weeksByUser.set(row.user_id, weeks);
       }
+    }
 
-      if (loggedThisWeek) {
+    if (pendingUsers.length > 0) {
+      const lookbackStart = pendingUsers.map((user) => fromZonedTime(
+        `${shiftDateKey(user.weekStart, -LOOKBACK_WEEKS * 7)}T00:00:00`, user.timezone,
+      ).toISOString()).sort()[0];
+      const sessionEnd = pendingUsers.map((user) => user.endsAt).sort()[pendingUsers.length - 1];
+      for (const userIds of chunk(pendingUsers.map((user) => user.userId), 200)) {
+        await loadSessionWeeks(userIds, lookbackStart, sessionEnd);
+      }
+    }
+
+    const candidates: Candidate[] = [];
+    for (const user of pendingUsers) {
+      const weeks = weeksByUser.get(user.userId) ?? new Set<string>();
+      if (weeks.has(user.weekStart)) {
         summary.skipped.alreadyLoggedThisWeek++;
         continue;
       }
+
+      let streak = 0;
+      let weekStart = shiftDateKey(user.weekStart, -7);
+      let loadedWeekStart = shiftDateKey(user.weekStart, -LOOKBACK_WEEKS * 7);
+      let extensionWeeks = LOOKBACK_WEEKS;
+      while (weeks.has(weekStart)) {
+        streak++;
+        weekStart = shiftDateKey(weekStart, -7);
+        if (weekStart >= loadedWeekStart) continue;
+        // Only boundary streaks need more reads; growing windows avoid per-week round trips.
+        extensionWeeks *= 2;
+        const nextLoadedWeekStart = shiftDateKey(loadedWeekStart, -extensionWeeks * 7);
+        await loadSessionWeeks(
+          [user.userId],
+          fromZonedTime(`${nextLoadedWeekStart}T00:00:00`, user.timezone).toISOString(),
+          fromZonedTime(`${loadedWeekStart}T00:00:00`, user.timezone).toISOString(),
+        );
+        loadedWeekStart = nextLoadedWeekStart;
+      }
+
       if (streak < 1) {
         summary.skipped.streakTooShort++;
         continue;

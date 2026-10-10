@@ -630,11 +630,11 @@ describe("weekly streak pagination and local weeks", () => {
     }));
     const reads = queryReads.filter((read) => read.table === "sessions");
     expect(reads.reduce((count, read) => count + read.count, 0)).toBe(1003);
-    expect(reads).toContainEqual(expect.objectContaining({ range: [1000, 1999], count: 1 }));
+    expect(reads).toContainEqual(expect.objectContaining({ range: [1000, 1999], count: 3 }));
     for (const read of reads) {
       expect(read.range).not.toBeNull();
       expect(read.filters).toEqual(expect.arrayContaining([
-        { op: "eq", column: "user_id", value: expect.stringMatching(/^u-(busy|late)$/) },
+        { op: "in", column: "user_id", value: ["u-busy", "u-late"] },
         { op: "is", column: "deleted_at", value: null },
         { op: "gte", column: "arrival_time", value: expect.any(String) },
         { op: "lt", column: "arrival_time", value: expect.any(String) },
@@ -702,14 +702,9 @@ describe("weekly streak pagination and local weeks", () => {
     }
     expect(queryReads.filter((read) => read.table === "sessions").map((read) => read.filters))
       .toContainEqual(expect.arrayContaining([
-        { op: "eq", column: "user_id", value: "u-hawaii" },
-        { op: "gte", column: "arrival_time", value: "2026-06-15T10:00:00.000Z" },
-        { op: "lt", column: "arrival_time", value: "2026-06-22T10:00:00.000Z" },
-      ]));
-    expect(queryReads.filter((read) => read.table === "sessions").map((read) => read.filters))
-      .toContainEqual(expect.arrayContaining([
-        { op: "eq", column: "user_id", value: "u-new-york" },
-        { op: "gte", column: "arrival_time", value: "2026-06-22T04:00:00.000Z" },
+        { op: "in", column: "user_id", value: ["u-default", "u-hawaii", "u-new-york"] },
+        { op: "gte", column: "arrival_time", value: "2025-12-15T08:00:00.000Z" },
+        { op: "lt", column: "arrival_time", value: "2026-06-29T04:00:00.000Z" },
       ]));
   });
 
@@ -777,23 +772,97 @@ describe("weekly streak pagination and local weeks", () => {
     expect(mockEnqueueNotification).toHaveBeenCalledWith(expect.objectContaining({ payload: expect.objectContaining({ streak: 1 }) }));
     expect(queryReads.filter((read) => read.table === "sessions").map((read) => read.filters))
       .toContainEqual(expect.arrayContaining([
-        { op: "gte", column: "arrival_time", value: "2026-03-02T08:00:00.000Z" },
-        { op: "lt", column: "arrival_time", value: "2026-03-09T07:00:00.000Z" },
+        { op: "gte", column: "arrival_time", value: "2025-09-08T07:00:00.000Z" },
+        { op: "lt", column: "arrival_time", value: "2026-03-16T07:00:00.000Z" },
       ]));
-    expect(queryReads.filter((read) => read.table === "sessions").every((read) =>
-      read.filters.some((filter) => filter.op === "gte" && String(filter.value) >= "2026-02-23"))).toBe(true);
   });
 
-  it("does not truncate a long streak", async () => {
+  it.each([
+    { streakLength: 25, expectedReads: 2, pageCounts: [25] },
+    { streakLength: 26, expectedReads: 3, pageCounts: [26, 0] },
+    { streakLength: 27, expectedReads: 4, pageCounts: [26, 1] },
+    { streakLength: 70, expectedReads: 4, pageCounts: [26, 44] },
+    { streakLength: 200, expectedReads: 8, pageCounts: [26, 52, 104, 18] },
+  ])("counts a $streakLength-week streak without truncation", async ({ streakLength, expectedReads, pageCounts }) => {
     jest.setSystemTime(new Date("2026-06-21T17:00:00.000Z"));
     seed("profiles", [{ id: "u-long", notif_reminders: true }]);
-    seed("sessions", Array.from({ length: 70 }, (_, i) => {
+    seed("sessions", Array.from({ length: streakLength }, (_, i) => {
       const arrival = new Date("2026-06-08T15:00:00.000Z");
       arrival.setUTCDate(arrival.getUTCDate() - i * 7);
       return session("u-long", arrival.toISOString());
     }));
     expect((await weeklyGet(mockRequest())).status).toBe(200);
-    expect(mockEnqueueNotification).toHaveBeenCalledWith(expect.objectContaining({ payload: expect.objectContaining({ streak: 70 }) }));
+    expect(mockEnqueueNotification).toHaveBeenCalledWith(expect.objectContaining({ payload: expect.objectContaining({ streak: streakLength }) }));
+    const reads = queryReads.filter((read) => read.table === "sessions");
+    expect(reads).toHaveLength(expectedReads);
+    expect(reads.filter((read) => read.range?.[0] === 0).map((read) => read.count)).toEqual(pageCounts);
+  });
+
+  it.each([[1, 1, 2], [1, 20, 2], [40, 1, 2], [40, 20, 2], [201, 1, 4], [460, 1, 6]])(
+    "batches session reads for %i users with %i-week streaks into %i page calls",
+    async (userCount, streakLength, expectedReads) => {
+      jest.setSystemTime(new Date("2026-06-21T17:00:00.000Z"));
+      const profiles = Array.from({ length: userCount }, (_, i) => ({ id: `u-${i}`, notif_reminders: true }));
+      seed("profiles", profiles);
+      seed("sessions", profiles.flatMap(({ id }) => Array.from({ length: streakLength }, (_, i) => {
+        const arrival = new Date("2026-06-08T15:00:00.000Z");
+        arrival.setUTCDate(arrival.getUTCDate() - i * 7);
+        return session(id, arrival.toISOString());
+      })));
+      expect((await weeklyGet(mockRequest())).status).toBe(200);
+      expect(mockEnqueueNotification).toHaveBeenCalledTimes(userCount);
+      expect(mockEnqueueNotification.mock.calls.every(([args]) => args.payload.streak === streakLength)).toBe(true);
+      expect(queryReads.filter((read) => read.table === "sessions")).toHaveLength(expectedReads);
+    },
+  );
+
+  it("batches legacy events across users and filters their timestamps by each local week", async () => {
+    jest.setSystemTime(new Date("2026-06-22T04:00:00.000Z"));
+    seed("profiles", [
+      { id: "u-pacific", notif_reminders: true, timezone: "America/Los_Angeles" },
+      { id: "u-hawaii", notif_reminders: true, timezone: "Pacific/Honolulu" },
+      { id: "u-tokyo", notif_reminders: true, timezone: "Asia/Tokyo" },
+    ]);
+    seed("notification_events", [
+      { id: "e-pacific", dedupe_key: "weekly_streak:u-pacific:2026-26", created_at: "2026-06-15T08:00:00.000Z" },
+      { id: "e-pacific-later", dedupe_key: "weekly_streak:u-pacific:2026-26", created_at: "2026-06-23T08:00:00.000Z" },
+      { id: "e-hawaii", dedupe_key: "weekly_streak:u-hawaii:2026-26", created_at: "2026-06-15T08:00:00.000Z" },
+      { id: "e-tokyo", dedupe_key: "weekly_streak:u-tokyo:2026-25", created_at: "2026-06-15T12:00:00.000Z" },
+    ]);
+    seed("sessions", [
+      session("u-pacific", "2026-06-08T15:00:00.000Z"),
+      session("u-hawaii", "2026-06-08T15:00:00.000Z"),
+      session("u-tokyo", "2026-06-16T10:00:00.000Z"),
+    ]);
+    const response = await weeklyGet(mockRequest());
+    expect(response.status).toBe(200);
+    expect((await response.json()).data.summary.skipped.alreadyLogged).toBe(1);
+    expect(mockEnqueueNotification).toHaveBeenCalledTimes(2);
+    expect(mockEnqueueNotification).toHaveBeenCalledWith(expect.objectContaining({ recipientUserId: "u-hawaii" }));
+    expect(mockEnqueueNotification).toHaveBeenCalledWith(expect.objectContaining({ recipientUserId: "u-tokyo" }));
+    const eventReads = queryReads.filter((read) => read.table === "notification_events");
+    expect(eventReads).toHaveLength(2);
+    expect(eventReads[0].count).toBe(4);
+    expect(eventReads[0].filters).toEqual(expect.arrayContaining([
+      { op: "in", column: "dedupe_key", value: expect.arrayContaining([
+        "weekly_streak:u-hawaii:2026-26", "weekly_streak:u-pacific:2026-26", "weekly_streak:u-tokyo:2026-25",
+      ]) },
+      { op: "gte", column: "created_at", value: "2026-06-15T07:00:00.000Z" },
+      { op: "lt", column: "created_at", value: "2026-06-28T15:00:00.000Z" },
+    ]));
+  });
+
+  it("chunks the legacy key pool and paginates within each chunk", async () => {
+    jest.setSystemTime(new Date("2026-06-22T04:00:00.000Z"));
+    const profiles = Array.from({ length: 201 }, (_, i) => ({ id: `u-${i}`, notif_reminders: true }));
+    seed("profiles", profiles);
+    seed("notification_events", profiles.map(({ id }) => ({
+      id: `event-${id}`, dedupe_key: `weekly_streak:${id}:2026-26`, created_at: "2026-06-21T17:00:00.000Z",
+    })));
+    expect((await weeklyGet(mockRequest())).status).toBe(200);
+    expect(queryReads.filter((read) => read.table === "notification_events")).toHaveLength(6);
+    expect(queryReads.filter((read) => read.table === "sessions")).toHaveLength(0);
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
   });
 
   it("fails closed when a later page fails", async () => {
