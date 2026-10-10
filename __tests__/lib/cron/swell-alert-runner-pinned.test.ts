@@ -42,7 +42,7 @@ const profile: SwellAlertProfile = {
   maxDriveMinutes: null,
   experienceLevel: "advanced",
   notifPushEnabled: true,
-  notifSwellAlerts: true,
+  notifSwellAlerts: true, notifForecastAlerts: false,
 };
 
 /** Told on Thursday evening: a W 16 s swell peaking Saturday 2026-09-19 at 08:00 PDT. */
@@ -726,5 +726,46 @@ describe("pinned swell follow-ups on the real detector", () => {
 
     expect(result.followupsEvaluated).toBe(0);
     expect(enqueue).not.toHaveBeenCalled();
+  });
+});
+
+describe("Daily Call ownership for real pinned follow-ups", () => {
+  const originalEnv = { ...process.env };
+  beforeEach(() => {
+    process.env.DAILY_CALL_ENABLED = "true";
+    process.env.DAILY_CALL_USER_ALLOWLIST = "";
+  });
+  afterEach(() => { process.env = { ...originalEnv }; });
+
+  it.each([true, false])("handles arrived without consuming a suppressed pin (recipient: %s)", async (recipient) => {
+    const fake = client({ forecasts: rows((date) => date === "2026-09-19" ? 5 : 1.5) });
+    const { result, enqueue } = await run(fake, new Date("2026-09-19T14:00:00.000Z"), {
+      loadProfiles: async () => [{ ...profile, notifForecastAlerts: recipient }],
+    });
+    expect(enqueue).toHaveBeenCalledTimes(recipient ? 0 : 1);
+    expect(fake.stateWrites).toHaveLength(recipient ? 0 : 1);
+    expect(result.sentByKind).toEqual(recipient ? {} : { arrived: 1 });
+    expect(result.skippedCounts.skipped_daily_call_owns_today ?? 0).toBe(recipient ? 1 : 0);
+  });
+
+  it("still claims and sends a days-ahead moved peak to a Daily Call recipient", async () => {
+    const fake = client({ forecasts: rows((date) => date === "2026-09-21" ? 5 : 1.5) });
+    const { result, enqueue, payload } = await run(fake, NOW, {
+      loadProfiles: async () => [{ ...profile, notifForecastAlerts: true }],
+    });
+    expect(result.sentByKind).toEqual({ moved: 1 });
+    expect(enqueue).toHaveBeenCalledTimes(1);
+    expect(fake.stateWrites).toHaveLength(1);
+    expect(payload).toMatchObject({ kind: "moved", peak_date: "2026-09-21" });
+  });
+
+  it("withholds a dropped swell whose told peak is today", async () => {
+    const fake = client({ forecasts: rows(() => 1.5), states: [{ ...STATE_ROW, last_peak_at: "2026-09-18T22:00:00.000Z" }] });
+    const { result, enqueue } = await run(fake, NOW, {
+      loadProfiles: async () => [{ ...profile, notifForecastAlerts: true }],
+    });
+    expect(result.skippedCounts.skipped_daily_call_owns_today).toBe(1);
+    expect(enqueue).not.toHaveBeenCalled();
+    expect(fake.stateWrites).toEqual([]);
   });
 });

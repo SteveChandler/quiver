@@ -25,7 +25,7 @@ function profile(
     maxDriveMinutes: 45,
     experienceLevel: "advanced",
     notifPushEnabled: true,
-    notifSwellAlerts: true,
+    notifSwellAlerts: true, notifForecastAlerts: false,
     ...overrides,
   };
 }
@@ -324,5 +324,37 @@ describe("runSwellAlertCron go rule and verification record", () => {
     expect(result.skippedCounts.event_exists).toBe(1);
     expect(deps.recordForecast).not.toHaveBeenCalled();
     expect(deps.enqueue).not.toHaveBeenCalled();
+  });
+});
+
+describe("Daily Call ownership on the legacy swell path", () => {
+  const originalEnv = { ...process.env };
+  beforeEach(() => {
+    process.env.DAILY_CALL_ENABLED = "true";
+    process.env.DAILY_CALL_USER_ALLOWLIST = "";
+  });
+  afterEach(() => { process.env = { ...originalEnv }; });
+
+  it.each([true, false])("handles a same-day peak (Daily Call recipient: %s)", async (recipient) => {
+    const pool = evaluation();
+    pool.candidates = pool.candidates.map((candidate) => ({
+      ...candidate, arrivalDate: "2026-09-18", peakDate: "2026-09-17",
+      event: { ...candidate.event, peakAt: "2026-09-18T01:00:00.000Z" },
+    }));
+    const deps = dependencies({
+      loadProfiles: jest.fn(async () => [profile({ notifForecastAlerts: recipient })]),
+      evaluatePool: jest.fn(async () => pool),
+    });
+    const summary = await runSwellAlertCron({ now: NOW, deps });
+    expect(deps.enqueue).toHaveBeenCalledTimes(recipient ? 0 : 1);
+    expect(deps.insertAlert).toHaveBeenCalledTimes(recipient ? 0 : 1);
+    expect(summary.skippedCounts.skipped_daily_call_owns_today ?? 0).toBe(recipient ? 1 : 0);
+  });
+
+  it("still sends a days-ahead peak to a Daily Call recipient", async () => {
+    const deps = dependencies({ loadProfiles: jest.fn(async () => [profile({ notifForecastAlerts: true })]) });
+    const summary = await runSwellAlertCron({ now: NOW, deps });
+    expect(summary.sent).toBe(1);
+    expect(deps.enqueue).toHaveBeenCalledTimes(1);
   });
 });

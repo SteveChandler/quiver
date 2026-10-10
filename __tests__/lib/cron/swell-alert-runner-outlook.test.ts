@@ -41,7 +41,7 @@ const hoursAgo = (hours: number): string => new Date(MORNING.getTime() - hours *
 function profile(overrides: Partial<SwellAlertProfile> = {}): SwellAlertProfile {
   return {
     id: USER, timezone: "America/Los_Angeles", homeBeachId: HOME, location: { lat: 32.75, lon: -117.25 }, maxDriveMinutes: 45,
-    experienceLevel: "advanced", notifPushEnabled: true, notifSwellAlerts: true, ...overrides,
+    experienceLevel: "advanced", notifPushEnabled: true, notifSwellAlerts: true, notifForecastAlerts: false, ...overrides,
   };
 }
 
@@ -468,7 +468,7 @@ describe("swell alert cron: default outlook adapters", () => {
       builder.is = async () => ({ data: [{ id: USER, timezone: null, home_beach_id: HOME,
         home_beach, user_location_snapshots: [{ lat: 21.28, lon: -157.83, timezone: "Pacific/Honolulu",
           captured_at: new Date(MORNING.getTime() - ageHours * 3_600_000).toISOString() }],
-        notif_push_enabled: true, notif_swell_alerts: true }], error: null });
+        notif_push_enabled: true, notif_swell_alerts: true, notif_forecast_alerts: true }], error: null });
       builder.then = (resolve: (value: unknown) => void) => resolve({ data: table === "beaches"
         ? [{ id: HOME, ...home_beach }, { id: nearbyId, lat: 32.90, lon: -117.25 }, { id: hawaiiId, lat: 21.28, lon: -157.83 }] : [], error: null });
       return builder;
@@ -483,6 +483,8 @@ describe("swell alert cron: default outlook adapters", () => {
     expect(mocked.enqueue).toHaveBeenCalledWith(expect.objectContaining({ payload: expect.objectContaining({ anchor_source: ageHours === 72 ? "home" : "location", beach_id: ageHours === 72 ? nearbyId : hawaiiId }) }));
     expect(from).not.toHaveBeenCalledWith("user_location_snapshots");
     expect(select).toHaveBeenCalledWith(expect.stringContaining("captured_at"));
+    expect(select).toHaveBeenCalledWith(expect.stringContaining("notif_forecast_alerts"));
+    expect(loadOutlook.mock.calls[0][0].notifForecastAlerts).toBe(true);
     const loaded = loadOutlook.mock.calls[0][0];
     const expectedAnchor = ageHours === 72 ? { lat: home_beach.lat, lon: home_beach.lon } : { lat: 21.28, lon: -157.83 };
     expect(loaded.location).toEqual(expectedAnchor);
@@ -882,4 +884,62 @@ it.each(['recommended', 'throws'])('handles the lead-beach window in the default
     else process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED = oldFlag;
     jest.restoreAllMocks();
   }
+});
+
+describe("Daily Call ownership for outlook swells", () => {
+  const originalEnv = { ...process.env };
+  beforeEach(() => {
+    process.env.DAILY_CALL_ENABLED = "true";
+    process.env.DAILY_CALL_USER_ALLOWLIST = "";
+  });
+  afterEach(() => { process.env = { ...originalEnv }; });
+
+  it.each([
+    { forecastAlerts: true, enabled: true, allowed: true, sends: 0 },
+    { forecastAlerts: false, enabled: true, allowed: true, sends: 1 },
+    { forecastAlerts: null, enabled: true, allowed: true, sends: 1 },
+    { forecastAlerts: true, enabled: false, allowed: true, sends: 1 },
+    { forecastAlerts: true, enabled: true, allowed: false, sends: 1 },
+  ])("gates a same-day first sighting with $forecastAlerts/$enabled/$allowed", async ({ forecastAlerts, enabled, allowed, sends }) => {
+    process.env.DAILY_CALL_ENABLED = String(enabled);
+    process.env.DAILY_CALL_USER_ALLOWLIST = allowed ? "" : "another-user";
+    const deps = makeDeps({
+      loadProfiles: jest.fn(async () => [profile({ notifForecastAlerts: forecastAlerts })]),
+      loadOutlook: jest.fn(async () => [outlookSwell({ notable: true, peakAt: "2026-09-19T05:00:00.000Z" })]),
+    });
+    const summary = await runSwellAlertCron({ now: MORNING, deps });
+    expect(deps.enqueue).toHaveBeenCalledTimes(sends);
+    expect(deps.insertAlert).toHaveBeenCalledTimes(sends);
+    expect(deps.saveFirstTold).toHaveBeenCalledTimes(sends);
+    expect(summary.skippedCounts.skipped_daily_call_owns_today ?? 0).toBe(sends === 0 ? 1 : 0);
+    expect(deps.saveEngagement).toHaveBeenCalledTimes(sends);
+  });
+
+  it("still sends and pins a days-ahead first sighting to a Daily Call recipient", async () => {
+    const deps = makeDeps({
+      loadProfiles: jest.fn(async () => [profile({ notifForecastAlerts: true })]),
+      loadOutlook: jest.fn(async () => [outlookSwell({ notable: true })]),
+    });
+    const summary = await runSwellAlertCron({ now: MORNING, deps });
+    expect(summary.sentByKind).toEqual({ coming: 1 });
+    expect(deps.enqueue).toHaveBeenCalledTimes(1);
+    expect(deps.saveFirstTold).toHaveBeenCalledTimes(1);
+    expect(savedState(deps)).toMatchObject({ consecutiveUnanswered: 1, lastFirstSightingAt: MORNING.toISOString() });
+  });
+
+  it("withholds a moved follow-up whose told peak is today without recording a send", async () => {
+    const state = { ...pinnedState(), lastPeakAt: "2026-09-18T22:00:00.000Z" };
+    const event = beachSwellEvent({ beachId: HOME, eventKey: state.eventKey, peakAt: "2026-09-20T15:00:00.000Z" });
+    const deps = makeDeps({
+      loadProfiles: jest.fn(async () => [profile({ notifForecastAlerts: true })]),
+      loadFollowupStates: jest.fn(async () => [state]),
+      evaluatePinned: jest.fn(async () => ({ ...biggerPinned(), event })),
+      loadOutlook: jest.fn(async () => []),
+    });
+    const summary = await runSwellAlertCron({ now: MORNING, deps });
+    expect(summary.skippedCounts.skipped_daily_call_owns_today).toBe(1);
+    expect(deps.enqueue).not.toHaveBeenCalled();
+    expect(deps.claimFollowup).not.toHaveBeenCalled();
+    expect(deps.saveEngagement).not.toHaveBeenCalled();
+  });
 });
