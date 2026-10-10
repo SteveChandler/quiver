@@ -1,4 +1,4 @@
-import { buildOpenMeteoSingleRunRequest, fetchOpenMeteoSingleRunReceipt, type PrototypeSingleRunReceipt } from "./single-run-receipt";
+import { buildOpenMeteoSingleRunRequest, fetchOpenMeteoSingleRunReceipt, getSingleRunTupleDiagnostic, type PrototypeSingleRunReceipt } from "./single-run-receipt";
 import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database.generated";
@@ -152,7 +152,7 @@ export async function acquireProviderRunReceipts(
       extraRuns = [1, 2].map((hours) => new Date(issued * 1000 - hours * 6 * 3_600_000).toISOString().slice(0, 16) + "Z")
         .filter((candidate) => Date.parse(candidate) <= issued * 1000)
         .filter((candidate) => !states.has(candidate))
-        .sort((left, right) => Date.parse(left) - Date.parse(right)).slice(0, 2);
+        .sort((left, right) => Date.parse(right) - Date.parse(left)).slice(0, 2);
     } else {
       console.warn("[swell-watch-acquire] provider run state unavailable");
     }
@@ -165,8 +165,26 @@ export async function acquireProviderRunReceipts(
     }
     return storePrototypeSingleRunReceipts(receipts, client);
   };
-  for (const requestedRunUtc of extraRuns) await acquireOne(requestedRunUtc);
-  return acquireOne(runUtc);
+  // Issuances are independent (completion is per revision set), so the newest goes first and a provider tuple that
+  // fails validation in one run can never block the others. Transient errors still propagate.
+  const isolateInvalid = (requestedRunUtc: string, error: unknown): void => {
+    const tuple = getSingleRunTupleDiagnostic(error);
+    if (!tuple) throw error;
+    console.error("[swell-watch-acquire] invalid provider run skipped", { runUtc: requestedRunUtc, tuple });
+  };
+  let latestInvalid: unknown;
+  let stored: StoredProviderRunReceipt | undefined;
+  try {
+    stored = await acquireOne(runUtc);
+  } catch (error) {
+    if (!extraRuns.length || !getSingleRunTupleDiagnostic(error)) throw error;
+    latestInvalid = error;
+  }
+  for (const requestedRunUtc of extraRuns) {
+    try { await acquireOne(requestedRunUtc); } catch (error) { isolateInvalid(requestedRunUtc, error); }
+  }
+  if (!stored) throw latestInvalid;
+  return stored;
 }
 
 export async function readStoredProviderRunStates(

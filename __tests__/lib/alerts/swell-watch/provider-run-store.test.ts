@@ -135,7 +135,7 @@ describe("provider run receipt store", () => {
     }
   });
 
-  it("acquires the two missing earlier fresh issuances through the RPC, oldest first, and bounds the lookback", async () => {
+  it("acquires the latest issuance first, then the two missing earlier fresh issuances newest first, and bounds the lookback", async () => {
     const latest = "2026-09-05T12:00Z";
     const metadata = { last_run_initialisation_time: Date.parse(latest) / 1000, last_run_modification_time: Date.parse(latest) / 1000,
       last_run_availability_time: Date.parse(latest) / 1000, temporal_resolution_seconds: 3600, update_interval_seconds: 21600 };
@@ -148,8 +148,59 @@ describe("provider run receipt store", () => {
 
     expect(fetcher).toHaveBeenCalledTimes(4);
     expect(fetcher.mock.calls.slice(1).map(([url]) => new URL(url).searchParams.get("run")))
-      .toEqual(["2026-09-05T00:00", "2026-09-05T06:00", "2026-09-05T12:00"]);
+      .toEqual(["2026-09-05T12:00", "2026-09-05T06:00", "2026-09-05T00:00"]);
     expect(rpc).toHaveBeenCalledWith("read_swell_watch_provider_run_states", { p_run_utcs: ["2026-09-05T12:00Z", "2026-09-05T06:00Z", "2026-09-05T00:00Z"] });
+  });
+
+  describe("a deterministically invalid issuance", () => {
+    const latest = "2026-09-05T12:00Z";
+    const invalidRun = "2026-09-05T00:00";
+    const badResponse = (runUtc: string) => responseFor(runUtc).replace(/"secondary_swell_wave_period":\[[^\]]*\]/, (m) => m.replace("9", "0"))
+      .replace(/"secondary_swell_wave_height":\[[^\]]*\]/, (m) => m.replace("0.6", "0.02"));
+    const setup = (invalidFor: (run: string) => boolean) => {
+      const metadata = { last_run_initialisation_time: Date.parse(latest) / 1000, last_run_modification_time: Date.parse(latest) / 1000,
+        last_run_availability_time: Date.parse(latest) / 1000, temporal_resolution_seconds: 3600, update_interval_seconds: 21600 };
+      const fetcher = jest.fn().mockResolvedValueOnce({ status: 200, text: async () => JSON.stringify(metadata) })
+        .mockImplementation(async (url: string) => {
+          const run = new URL(url).searchParams.get("run")!;
+          return { status: 200, text: async () => invalidFor(run) ? badResponse(`${run}Z`) : responseFor(`${run}Z`) };
+        });
+      const rpc = jest.fn().mockImplementation(async (name: string) => name === "read_swell_watch_provider_run_states"
+        ? { data: [], error: null } : { data: [ids], error: null });
+      return { fetcher, rpc };
+    };
+    const run = (fetcher: jest.Mock, rpc: jest.Mock) => acquireProviderRunReceipts({ forecastDays: 1, scopes: [source],
+      latestAvailableAt: new Date("2026-09-05T17:00Z") }, fetcher, { rpc });
+    const storedRuns = (rpc: jest.Mock) => rpc.mock.calls.filter(([name]) => name === "record_swell_watch_provider_run_receipt")
+      .map(([, args]) => args.p_scopes[0].receipt.requested.runUtc);
+
+    it("does not block newer valid issuances and is logged", async () => {
+      const { fetcher, rpc } = setup((r) => r === invalidRun);
+      const error = jest.spyOn(console, "error").mockImplementation(() => undefined);
+      await expect(run(fetcher, rpc)).resolves.toEqual({ issuanceId: ids.issuance_id, runBatchId: ids.run_batch_id, revisionSetId: ids.revision_set_id });
+      expect(storedRuns(rpc)).toEqual(["2026-09-05T12:00Z", "2026-09-05T06:00Z"]);
+      expect(error).toHaveBeenCalledWith("[swell-watch-acquire] invalid provider run skipped",
+        expect.objectContaining({ runUtc: "2026-09-05T00:00Z", tuple: expect.objectContaining({ invalidFields: expect.any(Array) }) }));
+      error.mockRestore();
+    });
+
+    it("still stores older valid issuances but fails when the latest itself is invalid", async () => {
+      const { fetcher, rpc } = setup((r) => r === "2026-09-05T12:00");
+      const error = jest.spyOn(console, "error").mockImplementation(() => undefined);
+      await expect(run(fetcher, rpc)).rejects.toThrow("Single Runs tuple is invalid");
+      expect(storedRuns(rpc)).toEqual(["2026-09-05T06:00Z", "2026-09-05T00:00Z"]);
+      error.mockRestore();
+    });
+
+    it("does not swallow transient errors on an older issuance", async () => {
+      const { fetcher, rpc } = setup(() => false);
+      fetcher.mockImplementation(async (url: string) => {
+        const runParam = new URL(url).searchParams.get("run")!;
+        return runParam === "2026-09-05T06:00" ? { status: 503, text: async () => "down" } : { status: 200, text: async () => responseFor(`${runParam}Z`) };
+      });
+      await expect(run(fetcher, rpc)).rejects.toThrow();
+      expect(storedRuns(rpc)).toEqual(["2026-09-05T12:00Z"]);
+    });
   });
 
   it("skips provider fetches when the latest issuance is stale", async () => {
