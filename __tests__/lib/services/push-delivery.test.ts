@@ -83,6 +83,25 @@ describe("dispatchPushMessages per-token outcomes", () => {
     });
   });
 
+  it.each([
+    { code: "messaging/invalid-argument", errorMessage: "The registration token is not a valid FCM registration token", invalid: true },
+    { code: "messaging/invalid-argument", errorMessage: "Invalid value at message.data", invalid: false },
+    { code: "messaging/internal-error", errorMessage: "The registration token is not a valid FCM registration token", invalid: false },
+  ])("classifies $code with $errorMessage", async ({ code, errorMessage, invalid }) => {
+    const result = await dispatchPushMessages({
+      messages: [message("token-invalid")],
+      fcm: { sendEach: jest.fn().mockResolvedValue({
+        successCount: 0, failureCount: 1,
+        responses: [{ success: false, error: { code, message: errorMessage } }],
+      }) } as never,
+    });
+    expect(result.invalidTokens).toEqual(invalid ? ["token-invalid"] : []);
+    expect(result.outcomes).toEqual([{
+      token: "token-invalid", status: invalid ? "failed" : "unknown",
+      invalidToken: invalid, error: `${code}: ${errorMessage}`,
+    }]);
+  });
+
   it("keeps unconfigured FCM outcomes ambiguous", async () => {
     const result = await dispatchPushMessages({
       messages: [message("token-without-provider")],
