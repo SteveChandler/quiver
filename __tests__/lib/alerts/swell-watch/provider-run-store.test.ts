@@ -1,5 +1,8 @@
 import { acquireProviderRunReceipts, loadAttestedProviderRunScope, loadSwellWatchAcquisitionScope, readStoredProviderRunStates, storePrototypeSingleRunReceipts, type ProviderRunReceiptRpcClient } from "@/lib/alerts/swell-watch/provider-run-store";
 import { fetchOpenMeteoSingleRunReceipt } from "@/lib/alerts/swell-watch/single-run-receipt";
+import * as Sentry from "@sentry/nextjs";
+
+jest.mock("@sentry/nextjs", () => ({ captureMessage: jest.fn() }));
 
 const input = { latitude: 32.8, longitude: -117.3, runUtc: "2026-09-03T06:00Z", forecastDays: 1 };
 const slots = Array.from({ length: 24 }, (_, index) => new Date(Date.parse(input.runUtc) + index * 3_600_000).toISOString().slice(0, 16));
@@ -174,13 +177,16 @@ describe("provider run receipt store", () => {
     const storedRuns = (rpc: jest.Mock) => rpc.mock.calls.filter(([name]) => name === "record_swell_watch_provider_run_receipt")
       .map(([, args]) => args.p_scopes[0].receipt.requested.runUtc);
 
-    it("does not block newer valid issuances and is logged", async () => {
+    beforeEach(() => jest.mocked(Sentry.captureMessage).mockClear());
+
+    it("does not block newer valid issuances and alerts", async () => {
       const { fetcher, rpc } = setup((r) => r === invalidRun);
       const error = jest.spyOn(console, "error").mockImplementation(() => undefined);
       await expect(run(fetcher, rpc)).resolves.toEqual({ issuanceId: ids.issuance_id, runBatchId: ids.run_batch_id, revisionSetId: ids.revision_set_id });
       expect(storedRuns(rpc)).toEqual(["2026-09-05T12:00Z", "2026-09-05T06:00Z"]);
-      expect(error).toHaveBeenCalledWith("[swell-watch-acquire] invalid provider run skipped",
-        expect.objectContaining({ runUtc: "2026-09-05T00:00Z", tuple: expect.objectContaining({ invalidFields: expect.any(Array) }) }));
+      expect(error).toHaveBeenCalledWith("[swell-watch-acquire] provider run skipped", expect.objectContaining({
+        runUtc: "2026-09-05T00:00Z", reason: "invalid_provider_tuple", tuple: expect.objectContaining({ invalidFields: expect.any(Array) }) }));
+      expect(Sentry.captureMessage).toHaveBeenCalledWith(expect.stringContaining("2026-09-05T00:00Z"), expect.objectContaining({ level: "warning" }));
       error.mockRestore();
     });
 
@@ -192,14 +198,27 @@ describe("provider run receipt store", () => {
       error.mockRestore();
     });
 
-    it("does not swallow transient errors on an older issuance", async () => {
+    it("reports a transient error on an older issuance without failing the stored latest", async () => {
       const { fetcher, rpc } = setup(() => false);
+      const error = jest.spyOn(console, "error").mockImplementation(() => undefined);
       fetcher.mockImplementation(async (url: string) => {
         const runParam = new URL(url).searchParams.get("run")!;
         return runParam === "2026-09-05T06:00" ? { status: 503, text: async () => "down" } : { status: 200, text: async () => responseFor(`${runParam}Z`) };
       });
+      await expect(run(fetcher, rpc)).resolves.toEqual({ issuanceId: ids.issuance_id, runBatchId: ids.run_batch_id, revisionSetId: ids.revision_set_id });
+      expect(storedRuns(rpc)).toEqual(["2026-09-05T12:00Z", "2026-09-05T00:00Z"]);
+      expect(Sentry.captureMessage).toHaveBeenCalledWith(expect.stringContaining("backfill_failed"), expect.objectContaining({ level: "warning" }));
+      error.mockRestore();
+    });
+
+    it("still fails the run on a transient error for the latest issuance", async () => {
+      const { fetcher, rpc } = setup(() => false);
+      fetcher.mockImplementation(async (url: string) => {
+        const runParam = new URL(url).searchParams.get("run")!;
+        return runParam === "2026-09-05T12:00" ? { status: 503, text: async () => "down" } : { status: 200, text: async () => responseFor(`${runParam}Z`) };
+      });
       await expect(run(fetcher, rpc)).rejects.toThrow();
-      expect(storedRuns(rpc)).toEqual(["2026-09-05T12:00Z"]);
+      expect(storedRuns(rpc)).toEqual([]);
     });
   });
 
