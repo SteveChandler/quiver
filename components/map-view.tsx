@@ -134,6 +134,10 @@ export function MapView() {
       if (input.source !== "gps") {
         explicitGpsRequestRef.current = null;
       }
+      // A command moves the camera, so any earlier user pan no longer describes
+      // where the map is looking.
+      exploredCenterRef.current = null;
+      setExploredCenter(null);
       setCameraCommand((previous) => createCameraCommand(previous, input));
       cameraOwnerRef.current = owner;
       setCameraOwner(owner);
@@ -474,13 +478,16 @@ export function MapView() {
   const handleClearSearch = useCallback(() => {
     clearSearch();
     stripMapUrlParams(["search"]);
-    // Reset to nearby beaches when clearing search
-    if (userLocation) {
-      loadNearbyBeaches(userLocation.lat, userLocation.lon);
+    // Reset to the beaches around where the camera is. userLocation is only a
+    // fallback seed on /map, so it would reload around the wrong coast. Background
+    // keeps the current markers and colours until the nearby set lands.
+    const center = viewCenter ?? userLocation;
+    if (center) {
+      void loadNearbyBeaches(center.lat, center.lon, { background: true });
     } else {
       getUserLocation();
     }
-  }, [clearSearch, stripMapUrlParams, userLocation, loadNearbyBeaches, getUserLocation]);
+  }, [clearSearch, stripMapUrlParams, viewCenter, userLocation, loadNearbyBeaches, getUserLocation]);
 
   const handleSearchChange = useCallback(
     (query: string) => {
