@@ -511,12 +511,13 @@ describe("notification major-event hold adapter", () => {
 
     function evaluatorHolding(
       heldBeachId: string | null,
+      state: "blocked" | "water_quality_block" | "unavailable" = "water_quality_block",
     ): jest.MockedFunction<NotificationMajorEventHoldEvaluator> {
       return jest.fn(async ({ candidates }) =>
         (candidates as MajorEventHoldCandidate[]).map((candidate) => {
           const decision = decisionFor(
             candidate,
-            candidate.beachId === heldBeachId ? "water_quality_block" : "allowed",
+            candidate.beachId === heldBeachId ? state : "allowed",
           );
           return {
             ...decision,
@@ -552,9 +553,9 @@ describe("notification major-event hold adapter", () => {
       ]);
     });
 
-    it.each(MODE_EXPECTATIONS)(
-      "%s mode returns %s for a Daily Call whose alternative is held",
-      async (mode, expectedStatus) => {
+    it.each(["off", "shadow", "enforce"] as const)(
+      "%s mode suppresses a Daily Call whose alternative is under a water-quality hold",
+      async (mode) => {
         const result = await resolveNotificationMajorEventHold(
           {
             eventId: `event-daily-call-held-${mode}`,
@@ -566,9 +567,53 @@ describe("notification major-event hold adapter", () => {
           { evaluateCandidates: evaluatorHolding(OPTION_B) },
         );
 
+        expect(result).toMatchObject({
+          status: "suppressed",
+          reasonCode: "water_quality_hold",
+          candidate: { beachId: OPTION_B },
+        });
+      },
+    );
+
+    it.each(MODE_EXPECTATIONS)(
+      "%s mode returns %s for a Daily Call whose alternative is under a major-event hold",
+      async (mode, expectedStatus) => {
+        const result = await resolveNotificationMajorEventHold(
+          {
+            eventId: `event-daily-call-major-${mode}`,
+            type: "daily_call",
+            payload: dailyCallPayload(),
+            profileExperience: "beginner",
+            mode,
+          },
+          { evaluateCandidates: evaluatorHolding(OPTION_B, "blocked") },
+        );
+
         expect(result).toMatchObject(
           expectedStatus === "suppressed"
-            ? { status: "suppressed", reasonCode: "water_quality_hold", candidate: { beachId: OPTION_B } }
+            ? { status: "suppressed", reasonCode: "major_event_hold", candidate: { beachId: OPTION_B } }
+            : { status: "allowed" },
+        );
+      },
+    );
+
+    it.each(MODE_EXPECTATIONS)(
+      "%s mode returns %s for a Daily Call whose alternative has an unknown hold state",
+      async (mode, expectedStatus) => {
+        const result = await resolveNotificationMajorEventHold(
+          {
+            eventId: `event-daily-call-unknown-${mode}`,
+            type: "daily_call",
+            payload: dailyCallPayload(),
+            profileExperience: "beginner",
+            mode,
+          },
+          { evaluateCandidates: evaluatorHolding(OPTION_B, "unavailable") },
+        );
+
+        expect(result).toMatchObject(
+          expectedStatus === "suppressed"
+            ? { status: "suppressed", reasonCode: "hold_state_unavailable" }
             : { status: "allowed" },
         );
       },
@@ -647,13 +692,13 @@ describe("notification major-event hold adapter", () => {
       ]);
     });
 
-    it("suppresses a swell follow-up whose lead beach is held, in enforce mode only", async () => {
+    it("suppresses a swell follow-up whose lead beach has a water-quality hold, in every mode", async () => {
       const payload = swellPayload({
         beaches: [{ beach_id: BEACH_ID, beach_name: "Lead", rank: 1 }],
         kind: "bigger",
       });
 
-      for (const [mode, expectedStatus] of MODE_EXPECTATIONS) {
+      for (const mode of ["off", "shadow", "enforce"] as const) {
         const result = await resolveNotificationMajorEventHold(
           {
             eventId: `event-swell-followup-${mode}`,
@@ -664,7 +709,7 @@ describe("notification major-event hold adapter", () => {
           },
           { evaluateCandidates: evaluatorHolding(BEACH_ID) },
         );
-        expect(result.status).toBe(expectedStatus);
+        expect(result).toMatchObject({ status: "suppressed", reasonCode: "water_quality_hold" });
       }
     });
   });
