@@ -416,6 +416,7 @@ function BeachDetailContent({
     forecastCached,
     sources,
     loading,
+    forecastsLoading,
     errors,
     refetch,
   } = useBeachDetailData({
@@ -1035,6 +1036,7 @@ function BeachDetailContent({
                   beach={beach}
                   beachTimezone={beachTimezone}
                   forecasts={forecasts || []}
+                  forecastsLoading={forecastsLoading}
                   currentForecast={currentForecast}
                   forecastMetadata={forecastMetadata}
                   surfCall={surfCallReport}
