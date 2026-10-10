@@ -431,6 +431,7 @@ function expectQueueReasonTotals(body: {
       "major_event_hold",
       "contact_policy_hold",
       "canonical_safety_rejected",
+      "canonical_decision:verdict_no",
       "shadow_withheld",
       "delivery_disabled",
       "allowlist_excluded",
@@ -804,7 +805,7 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     expectQueueReasonTotals(body);
   });
 
-  it("sends email but rejects push when an expert beach has no canonical selection", async () => {
+  it("withholds both channels when an expert beach has no canonical selection", async () => {
     seedQueueRow({
       best_score: 95,
       alert_rules: {
@@ -827,13 +828,14 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     const res = await GET(makeRequest());
 
     expect(res.status).toBe(200);
-    expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+    expect(mockEmailsSend).not.toHaveBeenCalled();
     expect(mockEnqueueNotification).not.toHaveBeenCalled();
     expect(store.attemptInserts).toContainEqual(
       expect.objectContaining({
         queue_id: QUEUE_1,
         channel: "email",
-        status: "sent",
+        status: "skipped_disabled",
+        skip_reason: "canonical_decision:verdict_no",
       }),
     );
     expect(store.attemptInserts).toContainEqual(
@@ -841,14 +843,14 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
         queue_id: QUEUE_1,
         channel: "push",
         status: "skipped_disabled",
-        skip_reason: "canonical_decision:beach_skill_exceeds_user",
+        skip_reason: "canonical_decision:verdict_no",
       }),
     );
     expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
   });
 
   it.each([
-    { verdict: "no", bestScore: 20 },
+    { verdict: "go", bestScore: 95 },
     { verdict: "maybe", bestScore: 50 },
   ])(
     "sends when the canonical verdict is $verdict",
@@ -881,6 +883,83 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
       );
     },
   );
+
+  it("consumes a no verdict with a skipped attempt for each enabled channel", async () => {
+    seedQueueRow({ best_score: 20 });
+    seedProfile();
+
+    const res = await GET(makeRequest());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(mockEmailsSend).not.toHaveBeenCalled();
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
+    expect(store.deliveryInserts).toEqual([]);
+    expect(store.attemptInserts).toHaveLength(2);
+    expect(store.attemptInserts).toEqual(expect.arrayContaining(
+      ["email", "push"].map((channel) => expect.objectContaining({
+        queue_id: QUEUE_1, rule_id: RULE_1, user_id: USER_A, channel,
+        status: "skipped_disabled", skip_reason: "canonical_decision:verdict_no",
+      })),
+    ));
+    expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
+    expect(body).toMatchObject({
+      status: "ok", queueMarked: 1,
+      queue_marked_by_reason: { "canonical_decision:verdict_no": 1 },
+    });
+    expectQueueReasonTotals(body);
+  });
+
+  it("keeps recording a no verdict and would-use channels in shadow mode", async () => {
+    process.env.FORECAST_ALERT_DELIVERY_ENABLED = "false";
+    seedQueueRow({ best_score: 20 });
+    seedProfile();
+    store.deviceRows.push({ user_id: USER_A, device_token: "device-token" });
+
+    const res = await GET(makeRequest());
+
+    expect(res.status).toBe(200);
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
+    expect(store.queueRefreshUpdates).toContainEqual({
+      id: QUEUE_1,
+      values: { delivery_shadow_outcome: expect.objectContaining({
+        verdict: "no", would_use_channels: ["email", "push"],
+      }) },
+    });
+    expect(store.attemptInserts.map((attempt) => attempt.status)).toEqual([
+      "shadow_withheld", "shadow_withheld",
+    ]);
+    expect((await res.json()).queue_marked_by_reason.shadow_withheld).toBe(1);
+  });
+
+  it("sends a beginner window with a no verdict while withholding other matches", async () => {
+    process.env.ALERTS_DELIVERY_ENABLED = "true";
+    seedQueueRow({ best_score: 20 });
+    const beginnerQueueId = "00000000-0000-0000-0000-0000000000c2";
+    seedQueueRow({
+      id: beginnerQueueId,
+      rule_id: "00000000-0000-0000-0000-0000000000a2",
+      best_score: 20,
+      conditions_snapshot: { wave_height: 1, beginner_window_reason: "Small approachable surf" },
+    });
+    seedProfile();
+
+    const res = await GET(makeRequest());
+
+    expect(res.status).toBe(200);
+    expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+    expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
+    expect(mockEnqueueNotification.mock.calls[0][0].payload).toMatchObject({
+      title: expect.stringContaining("Beginner-friendly"),
+      session_decision: expect.objectContaining({ verdict: "no" }),
+    });
+    expect(store.attemptInserts).toContainEqual(expect.objectContaining({
+      queue_id: QUEUE_1, channel: "push", skip_reason: "canonical_decision:verdict_no",
+    }));
+    expect(store.attemptInserts).toContainEqual(expect.objectContaining({
+      queue_id: beginnerQueueId, channel: "email", status: "sent",
+    }));
+  });
 
   it("sends when major-event hold state is unavailable", async () => {
     seedQueueRow({
@@ -1210,9 +1289,12 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
   });
 
-  it.each([0.3, 0.64])(
-    "still delivers a queued alert with best score %s at or above the floor",
-    async (bestScore) => {
+  it.each([
+    { bestScore: 0.3, sends: 0, status: "skipped_disabled", skipReason: "canonical_decision:verdict_no" },
+    { bestScore: 0.64, sends: 1, status: "sent", skipReason: null },
+  ])(
+    "applies the canonical verdict after the score floor for $bestScore",
+    async ({ bestScore, sends, status, skipReason }) => {
       seedQueueRow({
         best_score: bestScore,
         alert_rules: {
@@ -1228,12 +1310,13 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
 
       expect(res.status).toBe(200);
       expect(body.queue_marked_by_reason.below_score_floor).toBe(0);
-      expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+      expect(mockEmailsSend).toHaveBeenCalledTimes(sends);
       expect(store.attemptInserts).toContainEqual(
         expect.objectContaining({
           queue_id: QUEUE_1,
           channel: "email",
-          status: "sent",
+          status,
+          skip_reason: skipReason,
         }),
       );
     },
@@ -1243,7 +1326,7 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     { label: "null", bestScore: null },
     { label: "unparseable", bestScore: "not-a-score" },
   ])(
-    "keeps a queue row with a $label best score deliverable",
+    "withholds a $label best score by verdict rather than by the score floor",
     async ({ bestScore }) => {
       seedQueueRow({
         best_score: bestScore,
@@ -1260,12 +1343,13 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
 
       expect(res.status).toBe(200);
       expect(body.queue_marked_by_reason.below_score_floor).toBe(0);
-      expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+      expect(mockEmailsSend).not.toHaveBeenCalled();
       expect(store.attemptInserts).toContainEqual(
         expect.objectContaining({
           queue_id: QUEUE_1,
           channel: "email",
-          status: "sent",
+          status: "skipped_disabled",
+          skip_reason: "canonical_decision:verdict_no",
         }),
       );
     },
