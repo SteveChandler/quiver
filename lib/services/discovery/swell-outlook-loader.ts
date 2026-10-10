@@ -1,3 +1,4 @@
+import { resolveLocationAnchor, type LocationAnchor, type LocationSnapshot } from "@/lib/alerts/location-freshness";
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { after } from 'next/server';
 
@@ -47,6 +48,7 @@ const DEFAULT_DEPS: SwellOutlookLoaderDeps = {
 interface OutlookProfile {
   homeBeachId: string | null;
   location: { lat: number; lon: number } | null;
+  anchorSource: LocationAnchor["source"];
   maxDriveMinutes: number | null;
   experienceLevel: string | null;
 }
@@ -56,11 +58,11 @@ interface ReadResult<T> {
   failed: boolean;
 }
 
-async function loadOutlookProfile(client: Client, userId: string): Promise<ReadResult<OutlookProfile>> {
+async function loadOutlookProfile(client: Client, userId: string, now: Date): Promise<ReadResult<OutlookProfile>> {
   try {
     const { data, error } = await client
       .from('profiles')
-      .select('home_beach_id, max_drive_minutes, experience_level, user_location_snapshots(lat, lon)')
+      .select('home_beach_id, max_drive_minutes, experience_level, user_location_snapshots(lat, lon, captured_at), home_beach:beaches!profiles_home_beach_id_fkey(lat, lon)')
       .eq('id', userId)
       .maybeSingle();
     if (error) throw new Error(error.message);
@@ -69,13 +71,16 @@ async function loadOutlookProfile(client: Client, userId: string): Promise<ReadR
       home_beach_id: string | null;
       max_drive_minutes: number | null;
       experience_level: string | null;
-      user_location_snapshots: { lat: number; lon: number } | Array<{ lat: number; lon: number }> | null;
+      user_location_snapshots: LocationSnapshot | LocationSnapshot[] | null;
+      home_beach: { lat: number | null; lon: number | null } | null;
     };
     const joined = Array.isArray(row.user_location_snapshots) ? row.user_location_snapshots[0] : row.user_location_snapshots;
+    const { anchor, source } = resolveLocationAnchor(joined, now, row.home_beach);
     return {
       data: {
         homeBeachId: row.home_beach_id,
-        location: joined ? { lat: joined.lat, lon: joined.lon } : null,
+        location: anchor,
+        anchorSource: source,
         maxDriveMinutes: row.max_drive_minutes,
         experienceLevel: row.experience_level,
       },
@@ -83,7 +88,7 @@ async function loadOutlookProfile(client: Client, userId: string): Promise<ReadR
     };
   } catch (error) {
     console.warn('[swell-outlook] profile read failed; fit unknown', error instanceof Error ? error.message : String(error));
-    return { data: { homeBeachId: null, location: null, maxDriveMinutes: null, experienceLevel: null }, failed: true };
+    return { data: { homeBeachId: null, location: null, anchorSource: "none", maxDriveMinutes: null, experienceLevel: null }, failed: true };
   }
 }
 
@@ -112,8 +117,8 @@ async function safeState(client: Client, userId: string): Promise<ReadResult<Swe
   }
 }
 
-function emptyResponse(now: Date): SwellOutlookResponse {
-  return { generatedAt: now.toISOString(), runDate: now.toISOString().slice(0, 10), horizonDays: SWELL_OUTLOOK_HORIZON_DAYS, homeBeach: null, swells: [] };
+function emptyResponse(now: Date, anchorSource: LocationAnchor["source"] = "none"): SwellOutlookResponse {
+  return { anchorSource, generatedAt: now.toISOString(), runDate: now.toISOString().slice(0, 10), horizonDays: SWELL_OUTLOOK_HORIZON_DAYS, homeBeach: null, swells: [] };
 }
 
 export async function loadSwellOutlookForUser(args: {
@@ -127,7 +132,7 @@ export async function loadSwellOutlookForUser(args: {
   const { client, userId, now } = args;
   const deps = { ...DEFAULT_DEPS, ...args.deps };
 
-  const profileRead = await loadOutlookProfile(client, userId);
+  const profileRead = await loadOutlookProfile(client, userId, now);
   const profile = profileRead.data;
   if (!profile) return emptyResponse(now);
 
@@ -143,7 +148,7 @@ export async function loadSwellOutlookForUser(args: {
     location: profile.location,
     maxDriveMinutes: profile.maxDriveMinutes,
   });
-  if (pool.length === 0 && !state && !profileRead.failed && !stateRead.failed) return emptyResponse(now);
+  if (pool.length === 0 && !state && !profileRead.failed && !stateRead.failed) return emptyResponse(now, profile.anchorSource);
 
   const poolIds = pool.map(({ beach }) => beach.id);
   const since = new Date(now.getTime() - SNAPSHOT_HISTORY_DAYS * DAY_MS);
@@ -176,6 +181,8 @@ export async function loadSwellOutlookForUser(args: {
     storms,
     now,
   });
+
+  response.anchorSource = profile.anchorSource;
 
   if (skillLevel === null) {
     // Carried entries may retain fit from an earlier successful preference read.

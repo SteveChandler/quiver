@@ -4,6 +4,7 @@ export const DAILY_CALL_SCHEMA_VERSION = "daily-call.v1" as const;
 
 export const dailyCallPayloadSchema = z.object({
   schema_version: z.literal(DAILY_CALL_SCHEMA_VERSION),
+  anchor_source: z.enum(["location", "home", "none"]).optional(),
   beach_id: z.string().uuid(),
   beach_slug: z.string().min(1),
   beach_name: z.string().min(1),
