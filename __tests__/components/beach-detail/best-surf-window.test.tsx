@@ -6,6 +6,7 @@ import { useMagicHour } from "@/hooks/use-magic-hour";
 import { findNextBestWindow } from "@/lib/utils/morning-intel-utils";
 import { getWindowStatus } from "@/lib/utils/window-status";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
 
 // Mock dependencies
 jest.mock("@/hooks/use-data-fetcher");
@@ -834,6 +835,177 @@ describe("BestSurfWindow", () => {
       render(<BestSurfWindow {...defaultProps} />);
 
       expect(screen.getByText(/Updated at/i)).toBeInTheDocument();
+    });
+  });
+
+  describe("Loading is not an empty state", () => {
+    const surfCall: SurfCallResult = {
+      verdict: "YES",
+      bestWindowStart: "2024-01-15T15:00:00Z",
+      bestWindowEnd: "2024-01-15T19:00:00Z",
+      windowMinutes: 240,
+      shortWindow: false,
+      waveHeight: "3-4 ft",
+      windDescription: "Light offshore",
+      windSpeed: "5 mph",
+      windCompass: "NE",
+      windType: "offshore",
+      tideDescription: "Rising",
+      tidePhase: "rising",
+      tideHeight: null,
+      nextTideType: "high",
+      nextTideAt: "2024-01-15T20:00:00Z",
+      whySentence: "Clean offshore wind lines up a quality swell.",
+      forecastConfidence: 70,
+      lowForecastConfidence: false,
+      score: 80,
+      peakTime: "2024-01-15T17:00:00Z",
+      trendTags: [],
+      updatedAt: "2024-01-15T15:00:00Z",
+      isCalibrated: true,
+      rideableWavesPerHour: null,
+      dominantBeatIntervalS: null,
+    };
+
+    const noIntel = { data: null, loading: false, error: null, refetch: jest.fn() };
+    const forecastWindow = {
+      startTime: "15:00:00",
+      endTime: "18:00:00",
+      description: "Excellent conditions",
+      conditions: "Light winds, quality swell",
+    };
+
+    function visibleState(container: HTMLElement): {
+      skeleton: boolean;
+      emptyState: boolean;
+      interimCard: boolean;
+    } {
+      return {
+        skeleton: container.querySelectorAll(".animate-pulse").length > 0,
+        emptyState: screen.queryAllByText(/Surf intel not available yet/i).length > 0,
+        interimCard:
+          screen.queryAllByText(/Best Surf Window Today|Most Favorable Window/i).length > 0,
+      };
+    }
+
+    const LOADING = { skeleton: true, emptyState: false, interimCard: false };
+
+    it("shows the skeleton, not the empty state, while the surf decision loads", () => {
+      mockUseDataFetcher.mockReturnValue(noIntel);
+      mockFindNextBestWindow.mockReturnValue(null);
+
+      const { container } = render(
+        <BestSurfWindow {...defaultProps} forecasts={[]} surfCallLoading />
+      );
+
+      expect(visibleState(container)).toEqual(LOADING);
+    });
+
+    it("shows the skeleton, not the empty state, while forecasts load", () => {
+      mockUseDataFetcher.mockReturnValue(noIntel);
+      mockFindNextBestWindow.mockReturnValue(null);
+
+      const { container } = render(
+        <BestSurfWindow {...defaultProps} forecasts={[]} forecastsLoading />
+      );
+
+      expect(visibleState(container)).toEqual(LOADING);
+    });
+
+    it("holds the interim forecast-window card back while the surf decision loads", () => {
+      mockUseDataFetcher.mockReturnValue(noIntel);
+      mockFindNextBestWindow.mockReturnValue(forecastWindow);
+
+      const { container } = render(
+        <BestSurfWindow {...defaultProps} forecasts={mockForecasts} surfCallLoading />
+      );
+
+      expect(visibleState(container)).toEqual(LOADING);
+    });
+
+    it("holds the daily-intel card back while the surf decision loads", () => {
+      mockUseDataFetcher.mockReturnValue({ ...noIntel, data: mockIntel });
+
+      const { container } = render(
+        <BestSurfWindow {...defaultProps} surfCallLoading />
+      );
+
+      expect(visibleState(container)).toEqual(LOADING);
+    });
+
+    it("shows the empty state once nothing is loading and there is nothing to show", () => {
+      mockUseDataFetcher.mockReturnValue(noIntel);
+      mockFindNextBestWindow.mockReturnValue(null);
+
+      const { container } = render(
+        <BestSurfWindow
+          {...defaultProps}
+          forecasts={[]}
+          surfCallLoading={false}
+          forecastsLoading={false}
+        />
+      );
+
+      expect(screen.getByText(/Surf intel not available yet/i)).toBeInTheDocument();
+      expect(container.querySelectorAll(".animate-pulse")).toHaveLength(0);
+    });
+
+    it("shows the forecast-window card once the decision settles without a report", () => {
+      mockUseDataFetcher.mockReturnValue(noIntel);
+      mockFindNextBestWindow.mockReturnValue(forecastWindow);
+
+      render(
+        <BestSurfWindow {...defaultProps} forecasts={mockForecasts} surfCallLoading={false} />
+      );
+
+      expect(screen.getByText(/Most Favorable Window/i)).toBeInTheDocument();
+      expect(screen.queryByText(/Surf intel not available yet/i)).not.toBeInTheDocument();
+    });
+
+    it("goes from skeleton straight to the final card with no interim card in between", () => {
+      mockUseDataFetcher.mockReturnValue(noIntel);
+      mockFindNextBestWindow.mockReturnValue(forecastWindow);
+
+      const { container, rerender } = render(
+        <BestSurfWindow {...defaultProps} forecasts={mockForecasts} surfCall={null} surfCallLoading />
+      );
+      expect(visibleState(container)).toEqual(LOADING);
+
+      rerender(
+        <BestSurfWindow
+          {...defaultProps}
+          forecasts={mockForecasts}
+          surfCall={surfCall}
+          surfCallLoading={false}
+        />
+      );
+
+      expect(screen.getByTestId("primary-wave-height")).toBeInTheDocument();
+      expect(screen.queryByText(/Surf intel not available yet/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Most Favorable Window/i)).not.toBeInTheDocument();
+      expect(container.querySelectorAll(".animate-pulse")).toHaveLength(0);
+    });
+
+    it("skips the daily-intel fetch once the surf decision is present", () => {
+      mockUseDataFetcher.mockReturnValue(noIntel);
+
+      render(<BestSurfWindow {...defaultProps} surfCall={surfCall} />);
+
+      expect(mockUseDataFetcher).toHaveBeenCalledWith(
+        expect.any(Function),
+        expect.objectContaining({ skip: true })
+      );
+    });
+
+    it("fetches daily intel while there is no surf decision", () => {
+      mockUseDataFetcher.mockReturnValue(noIntel);
+
+      render(<BestSurfWindow {...defaultProps} surfCallLoading />);
+
+      expect(mockUseDataFetcher).toHaveBeenCalledWith(
+        expect.any(Function),
+        expect.objectContaining({ skip: false })
+      );
     });
   });
 });

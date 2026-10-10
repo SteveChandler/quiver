@@ -108,7 +108,11 @@ interface BestSurfWindowProps {
   beachName: string;
   beachTimezone?: string | null;
   forecasts?: EnhancedForecastEntity[];
+  /** True until the forecast fetch settles; empty `forecasts` then means "not loaded", not "none". */
+  forecastsLoading?: boolean;
   surfCall?: SurfCallResult | null;
+  /** True while the surf decision that becomes `surfCall` is still being fetched. */
+  surfCallLoading?: boolean;
   surfCallIsTomorrow?: boolean;
 
   // ---- NEW optional props for Condition Intelligence ----
@@ -215,7 +219,9 @@ export function BestSurfWindow({
   beachName,
   beachTimezone,
   forecasts,
+  forecastsLoading = false,
   surfCall,
+  surfCallLoading = false,
   surfCallIsTomorrow,
   windows,
   boardPick,
@@ -307,7 +313,12 @@ export function BestSurfWindow({
     return await data.intel.getDaily(beachId, forecastDate);
   }, [beachId, forecastDate]);
 
-  const { data: intel, loading, error } = useDataFetcher(fetchIntel);
+  // The unified card replaces everything below, so its intel fetch would be wasted.
+  const {
+    data: intel,
+    loading,
+    error,
+  } = useDataFetcher(fetchIntel, { skip: Boolean(surfCall) });
   const fallbackWaveHeightLabel = useMemo(
     () => formatIntelWaveHeightLabel(intel?.surf_min_ft, intel?.surf_max_ft),
     [intel?.surf_min_ft, intel?.surf_max_ft]
@@ -464,8 +475,10 @@ export function BestSurfWindow({
     );
   }
 
-  // Loading state
-  if (loading) {
+  // Loading state. Every card below is interim while the surf decision is in
+  // flight, and the forecast-derived fallbacks are only meaningful once
+  // forecasts have landed, so neither may paint as an empty state.
+  if (loading || surfCallLoading || (forecastsLoading && !intel)) {
     return (
       <Card className="rounded-3xl border-blue-100/60">
         <CardContent className="p-6 space-y-4">

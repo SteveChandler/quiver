@@ -58,6 +58,8 @@ const ConditionsOverview = dynamic(
 interface ForecastTabProps {
   beach: Beach;
   forecasts: EnhancedForecastEntity[];
+  /** True until the forecast fetch settles, so an empty array is not read as "no forecast". */
+  forecastsLoading?: boolean;
   currentForecast: EnhancedForecastEntity | null;
   forecastMetadata?: BeachForecastMetadata | null;
   beachTimezone?: string | null;
@@ -70,6 +72,7 @@ interface ForecastTabProps {
 export function ForecastTab({
   beach,
   forecasts,
+  forecastsLoading = false,
   currentForecast,
   forecastMetadata,
   beachTimezone,
@@ -84,7 +87,15 @@ export function ForecastTab({
   const { user } = useAuth();
   const profileContext = useOptionalProfileContext();
   const profileExperienceLevel = profileContext?.profile?.experience_level ?? null;
-  const { isProvided: hasHeroDecision } = useAuthenticatedForecastDecision();
+  const {
+    isProvided: hasHeroDecision,
+    isLoading: decisionLoading,
+    report: decisionReport,
+  } = useAuthenticatedForecastDecision();
+  // The provider resolves a render before BeachDetailClient copies its report
+  // down into surfCall; until they match, the final card is still on its way.
+  const surfCallLoading =
+    decisionLoading || (hasHeroDecision && decisionReport !== (surfCall ?? null));
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const selectedDate = normalizeForecastDateParam(searchParams?.get("date"));
@@ -576,6 +587,8 @@ export function ForecastTab({
             beachTimezone={beachTimezone}
             forecasts={todaysForecasts}
             surfCall={surfCall}
+            surfCallLoading={surfCallLoading}
+            forecastsLoading={forecastsLoading}
             surfCallIsTomorrow={surfCallIsTomorrow}
             windows={conditionIntel.windows.map((w) => ({
               start: w.start.toISOString(),
