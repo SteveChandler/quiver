@@ -1,3 +1,4 @@
+import type { LocationAnchor } from "@/lib/alerts/location-freshness";
 import type { BoardClass } from '@/lib/domains/rideability';
 import type { PoolRelation } from '@/lib/alerts/user-pool';
 
@@ -58,6 +59,7 @@ export interface OutlookSwell {
 }
 
 export interface SwellOutlookResponse {
+  anchorSource?: LocationAnchor["source"];
   generatedAt: string;
   runDate: string;
   horizonDays: number;

@@ -1,3 +1,4 @@
+import { resolveLocationAnchor, type LocationAnchor, type LocationSnapshot } from "@/lib/alerts/location-freshness";
 import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
 import { persistableSessionDecision } from "@/lib/recommendations/canonical-decision/contract";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -79,7 +80,8 @@ export interface DailyCallProfile {
   notifForecastAlerts: boolean | null;
   experienceLevel: string | null;
   maxDriveMinutes: number | null;
-  location: { lat: number; lon: number; timezone: string } | null;
+  location: (LocationSnapshot & { timezone: string }) | null;
+  anchorSource?: LocationAnchor["source"];
   homeBeach: Beach | null;
 }
 
@@ -260,6 +262,7 @@ function buildPayload(args: {
   const forecast = details?.sourceForecast;
   return {
     schema_version: DAILY_CALL_SCHEMA_VERSION,
+    anchor_source: args.profile.anchorSource,
     beach_id: args.candidate.pool.beach.id,
     beach_slug: args.candidate.pool.beach.slug,
     beach_name: args.candidate.pool.beach.short_name ?? args.candidate.pool.beach.name,
@@ -480,7 +483,7 @@ async function loadProfiles(
       ? Promise.resolve({ data: [], error: null })
       : supabase
           .from("user_location_snapshots")
-          .select("user_id, lat, lon, timezone")
+          .select("user_id, lat, lon, timezone, captured_at")
           .in("user_id", userIds),
     homeBeachIds.length === 0
       ? Promise.resolve({ data: [], error: null })
@@ -592,7 +595,9 @@ export async function runDailyCallCron(args: {
   }
 
   const profiles = await deps.loadProfiles(supabase);
-  for (const profile of profiles) {
+  for (const loadedProfile of profiles) {
+    const { anchor, source } = resolveLocationAnchor(loadedProfile.location, args.now, loadedProfile.homeBeach);
+    const profile = { ...loadedProfile, location: source === "location" ? loadedProfile.location : null, anchorSource: source };
     summary.evaluated += 1;
     if (profile.notifPushEnabled !== true || profile.notifForecastAlerts !== true) {
       increment(summary, "disabled");
@@ -623,9 +628,7 @@ export async function runDailyCallCron(args: {
         supabase,
         userId: profile.id,
         homeBeachId: profile.homeBeachId,
-        location: profile.location
-          ? { lat: profile.location.lat, lon: profile.location.lon }
-          : null,
+        location: anchor,
         maxDriveMinutes: profile.maxDriveMinutes,
       });
       if (pool.length === 0) {

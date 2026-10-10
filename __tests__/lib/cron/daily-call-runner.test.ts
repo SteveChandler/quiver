@@ -2,8 +2,14 @@
  * @jest-environment node
  */
 
+jest.mock("@/lib/alerts/sunrise", () => {
+  const actual = jest.requireActual("@/lib/alerts/sunrise");
+  return { ...actual, getDaylightWindow: jest.fn(actual.getDaylightWindow) };
+});
+
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { PoolBeach } from "@/lib/alerts/user-pool";
+import { loadUserPool, type PoolBeach } from "@/lib/alerts/user-pool";
+import * as sunrise from "@/lib/alerts/sunrise";
 import type { ForecastVerdict } from "@/lib/alerts/canonical-forecast-verdict";
 import {
   buildComparisonLine,
@@ -533,5 +539,66 @@ describe("daily call copy on the real title pool", () => {
     const tags = selectTitle.mock.calls[0][0].tags;
     expect(tags).not.toContain("not-home");
     expect(tags).not.toContain("home-beach");
+  });
+});
+
+
+describe("daily call location freshness", () => {
+  it.each([72, 1])("resolves a %s-hour Honolulu fix before pool selection and timezone fallback", async (ageHours) => {
+    const runNow = ageHours === 72 ? now : new Date("2026-09-16T16:00:00Z");
+    const homeBeach = { ...home.beach, lat: 32.89, lon: -117.25 };
+    const location = { lat: 21.28, lon: -157.83, timezone: "Pacific/Honolulu",
+      captured_at: new Date(runNow.getTime() - ageHours * 3_600_000).toISOString() };
+    const user = { ...profile, timezone: null, homeBeach: { ...homeBeach, timezone: null }, location };
+    const sanDiego = poolBeach("30000000-0000-4000-8000-000000000003", "La Jolla", "nearby");
+    const honolulu = poolBeach("30000000-0000-4000-8000-000000000004", "Waikiki", "nearby");
+    const nearby = ageHours === 72 ? sanDiego : honolulu;
+    const rpc = jest.fn(async (_name: string, input: { input_lat: number }) => ({ data: [{ id: input.input_lat === homeBeach.lat ? sanDiego.beach.id : honolulu.beach.id, distance_meters: 1000 }], error: null }));
+    const select = jest.fn();
+    const client = { rpc, from: (table: string) => {
+      const builder: Record<string, unknown> = {};
+      let ids: string[] = [];
+      builder.select = (fields: string) => { select(fields); return builder; };
+      builder.order = builder.eq = () => builder;
+      builder.in = (_column: string, values: string[]) => { ids = values; return builder; };
+      builder.is = () => builder;
+      builder.then = (resolve: (value: unknown) => void) => resolve({ data: table === "profiles"
+        ? [{ id: user.id, timezone: null, home_beach_id: blacksId, daily_call_time: "06:00", notif_push_enabled: true, notif_forecast_alerts: true }]
+        : table === "user_location_snapshots" ? [{ user_id: userId, ...location }]
+        : table === "beaches" ? [user.homeBeach, sanDiego.beach, honolulu.beach].filter((beach) => ids.includes(beach.id)) : [], error: null });
+      return builder;
+    } } as unknown as SupabaseClient<Database>;
+    const overrides = deps({
+      loadPool: jest.fn(loadUserPool),
+      buildCandidates: jest.fn(async ({ pool }: Parameters<DailyCallDeps["buildCandidates"]>[0]) => ({ candidates: pool.filter((entry) => entry.relation === "nearby").map((entry) => candidate({ pool: entry, end: "2026-09-16T18:40:00.000Z" })), hadForecasts: true })),
+      getSunrise: jest.fn(() => null),
+    });
+    const { resolveTimezone: _resolveTimezone, loadProfiles: _loadProfiles, ...injected } = overrides;
+    const result = await runDailyCallCron({ now: runNow, supabase: client, deps: injected });
+    expect(result.sent).toBe(1);
+    expect(overrides.loadPool).toHaveBeenCalledWith(expect.objectContaining({ location: ageHours === 72
+      ? { lat: homeBeach.lat, lon: homeBeach.lon } : { lat: location.lat, lon: location.lon } }));
+    expect(overrides.getSunrise).toHaveBeenCalledWith(expect.objectContaining({ location: ageHours === 72 ? null : { user_id: userId, ...location } }), runNow);
+    expect(overrides.buildCandidates).toHaveBeenCalledWith(expect.objectContaining({ timezone: ageHours === 72 ? "America/Los_Angeles" : "Pacific/Honolulu" }));
+    expect(overrides.enqueue).toHaveBeenCalledWith(expect.objectContaining({ payload: expect.objectContaining({
+      beach_id: nearby.beach.id, beach_name: nearby.beach.name, anchor_source: ageHours === 72 ? "home" : "location",
+      window_local: ageHours === 72 ? "8–~11:40 AM" : "5–~8:40 AM",
+    }) }), client);
+    expect(select).toHaveBeenCalledWith("user_id, lat, lon, timezone, captured_at");
+    expect(rpc).toHaveBeenCalledWith("get_weekend_scout_candidates", expect.objectContaining({ input_lat: ageHours === 72 ? homeBeach.lat : location.lat }));
+  });
+
+  it("does not use stale coordinates for the sunrise fallback without a home", async () => {
+    const daylight = jest.mocked(sunrise.getDaylightWindow);
+    daylight.mockClear();
+    const injected = deps({ loadProfiles: async () => [{ ...profile, homeBeachId: null, homeBeach: null,
+      location: { lat: 21.28, lon: -157.83, timezone: "Pacific/Honolulu", captured_at: "2026-09-13T13:00:00Z" } }],
+      loadPool: jest.fn(async () => []),
+    });
+    const { getSunrise: _getSunrise, resolveTimezone: _resolveTimezone, ...overrides } = injected;
+    const result = await runDailyCallCron({ now, supabase, deps: overrides });
+    expect(result.skippedCounts.no_pool).toBe(1);
+    expect(injected.loadPool).toHaveBeenCalledWith(expect.objectContaining({ location: null }));
+    expect(daylight).not.toHaveBeenCalled();
   });
 });

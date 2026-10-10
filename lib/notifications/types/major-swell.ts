@@ -21,6 +21,7 @@ const rankedBeachSchema = z.object({
 
 const baseSchema = z.object({
   schema_version: z.literal(MAJOR_SWELL_NOTIFICATION_SCHEMA_VERSION),
+  anchor_source: z.enum(["location", "home", "none"]).optional(),
   beach_id: z.string().uuid(),
   beach_slug: z.string().min(1).optional(),
   beach_name: z.string().min(1),
