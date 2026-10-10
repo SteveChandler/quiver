@@ -494,8 +494,18 @@ const nextConfig = {
     // CRITICAL FIX: Enable image optimization in production
     unoptimized: false,
 
+    // Crawlers fetch every srcset candidate, and each width is a separate paid
+    // transformation. Most sources are Openverse thumbs (600px) and cam stills
+    // (<=640px), and next/image never upscales, so every rung above the source
+    // width returns identical bytes. These are a subset of the default ladder:
+    // a slot rounds up to the next kept width, never down.
+    deviceSizes: [640, 828, 1200, 1920],
+
     // Performance optimizations for images
     formats: ["image/webp", "image/avif"],
+    // Not raised: this is a floor, and cam stills (img.youtube.com mqdefault,
+    // camstills.cdn-surfline.com latest_small, hdontap) keep one URL while the
+    // frame changes. Long-lived sources set their own TTL (/api/image-proxy).
     minimumCacheTTL: 86400, // 24 hours
 
     // Allow image proxy with query strings (Next.js 16+ requirement)
