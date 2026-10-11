@@ -68,7 +68,9 @@ function hasLongboardSignal(value: unknown, depth = 0): boolean {
   ));
 }
 
-function matchesScope(candidate: WeekendScoutCandidate, options: BuildWeekendScoutCandidatePoolOptions): boolean {
+type ScopeFilterOptions = Pick<BuildWeekendScoutCandidatePoolOptions, 'filters' | 'mapBounds' | 'nearbyLocation'>;
+
+function matchesScope(candidate: WeekendScoutCandidate, options: ScopeFilterOptions): boolean {
   const filters = options.filters ?? [];
   const beach = candidate.beach as Beach & { skill_level?: string | null; break_type?: string | null; features?: unknown; preference_model?: unknown; crowd_level?: string | null };
   const bounds = options.mapBounds;
@@ -93,6 +95,27 @@ function crowdRank(value: string | null | undefined): number {
   if (normalized === 'medium' || normalized === 'moderate') return 1;
   if (normalized === 'high' || normalized === 'heavy' || normalized === 'crowded' || normalized === 'very high') return 2;
   return 3;
+}
+
+function sortForFilters(candidates: WeekendScoutCandidate[], options: ScopeFilterOptions): void {
+  if (!(options.filters ?? []).includes('quiet')) return;
+  candidates.sort((left, right) => (
+    crowdRank((left.beach as Beach & { crowd_level?: string | null }).crowd_level)
+    - crowdRank((right.beach as Beach & { crowd_level?: string | null }).crowd_level)
+    || left.distanceMiles - right.distanceMiles
+    || left.beach.id.localeCompare(right.beach.id)
+  ));
+}
+
+function isRecommendable(candidate: Beach): boolean {
+  const recommendationEligible = (
+    candidate as Beach & { recommendation_eligible?: boolean }
+  ).recommendation_eligible;
+  return (
+    candidate.is_private !== true &&
+    candidate.deleted_at == null &&
+    recommendationEligible !== false
+  );
 }
 
 function defaultDependencies(): WeekendScoutCandidatePoolDependencies {
@@ -257,16 +280,7 @@ export async function buildWeekendScoutCandidatePool(
     incomplete = true;
     beaches = [];
   }
-  const safeBeaches = beaches.filter((candidate) => {
-    const recommendationEligible = (
-      candidate as Beach & { recommendation_eligible?: boolean }
-    ).recommendation_eligible;
-    return (
-      candidate.is_private !== true &&
-      candidate.deleted_at == null &&
-      recommendationEligible !== false
-    );
-  });
+  const safeBeaches = beaches.filter(isRecommendable);
   const beachesById = new Map(safeBeaches.map((candidate) => [candidate.id, candidate]));
   const hydratedCandidates = exactRows.flatMap((row): WeekendScoutCandidate[] => {
     const candidate = beachesById.get(row.id);
@@ -276,14 +290,7 @@ export async function buildWeekendScoutCandidatePool(
     return [{ beach: candidate, distanceMiles: row.distance_meters / METERS_PER_MILE }];
   });
   const candidates = hydratedCandidates.filter((candidate) => matchesScope(candidate, options));
-  if ((options.filters ?? []).includes('quiet')) {
-    candidates.sort((left, right) => (
-      crowdRank((left.beach as Beach & { crowd_level?: string | null }).crowd_level)
-      - crowdRank((right.beach as Beach & { crowd_level?: string | null }).crowd_level)
-      || left.distanceMiles - right.distanceMiles
-      || left.beach.id.localeCompare(right.beach.id)
-    ));
-  }
+  sortForFilters(candidates, options);
   incomplete ||= hydratedCandidates.length !== exactRows.length;
 
   return {
@@ -294,5 +301,38 @@ export async function buildWeekendScoutCandidatePool(
     filteredOutCount: hydratedCandidates.length - candidates.length,
     incomplete,
     wasTruncated: incomplete,
+  };
+}
+
+/**
+ * The surfer's alert pool (home, saved and custom spots plus nearby beaches in
+ * the drive range, from `loadUserPool`) under the same safety, hidden-beach and
+ * filter rules as a radius scope, so Week Scout ranks the beaches Daily Call
+ * and swell alerts choose from.
+ */
+export function scopeAlertPoolCandidates(
+  pool: readonly { beach: Beach }[],
+  options: ScopeFilterOptions & {
+    anchor: { lat: number; lon: number };
+    excludedBeachIds?: ReadonlySet<string>;
+  },
+): WeekendScoutCandidatePool {
+  const hydratedCandidates = pool
+    .filter(({ beach }) => isRecommendable(beach) && !options.excludedBeachIds?.has(beach.id))
+    .map(({ beach }): WeekendScoutCandidate => ({
+      beach,
+      distanceMiles: calculateDistanceInMiles(options.anchor, { lat: beach.lat, lon: beach.lon }),
+    }));
+  const candidates = hydratedCandidates.filter((candidate) => matchesScope(candidate, options));
+  sortForFilters(candidates, options);
+
+  return {
+    candidates,
+    totalCount: pool.length,
+    enumeratedCount: pool.length,
+    hydratedCount: hydratedCandidates.length,
+    filteredOutCount: hydratedCandidates.length - candidates.length,
+    incomplete: false,
+    wasTruncated: false,
   };
 }

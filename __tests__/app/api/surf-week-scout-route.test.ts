@@ -16,6 +16,7 @@ jest.mock('@/lib/middleware/api-wrappers', () => {
 
 const mockGenerateWeekScoutForecast = jest.fn();
 const mockBuildWeekendScoutCandidatePool = jest.fn();
+const mockLoadUserPool = jest.fn();
 jest.mock(
   '@/lib/services/discovery/week-scout',
   () => ({
@@ -23,7 +24,14 @@ jest.mock(
   }),
 );
 jest.mock('@/lib/services/discovery/weekend-scout-candidate-pool', () => ({
+  ...jest.requireActual('@/lib/services/discovery/weekend-scout-candidate-pool'),
   buildWeekendScoutCandidatePool: (...args: unknown[]) => mockBuildWeekendScoutCandidatePool(...args),
+}));
+jest.mock('@/lib/alerts/user-pool', () => ({
+  loadUserPool: (...args: unknown[]) => mockLoadUserPool(...args),
+}));
+jest.mock('@/lib/supabase/server', () => ({
+  createSupabaseServiceRoleClient: () => ({ serviceRole: true }),
 }));
 
 import { NextRequest } from 'next/server';
@@ -180,6 +188,141 @@ describe('POST /api/surf/week-scout', () => {
     const body = await response.json();
     expect(body.data.candidateBeaches).toEqual([expect.objectContaining({ beachId: BEACH_A, distanceMiles: null })]);
     expect(body.data.coverage.scope.candidates).toEqual({ enumerated: 1, hydrated: 1, filteredOut: 0 });
+  });
+
+  describe('alert pool scope', () => {
+    const HOME = '33333333-3333-4333-8333-333333333333';
+    const SAVED = '44444444-4444-4444-8444-444444444444';
+    const HIDDEN = '55555555-5555-4555-8555-555555555555';
+    const PRIVATE = '66666666-6666-4666-8666-666666666666';
+    const poolBeach = (id: string, lat: number, extra: Record<string, unknown> = {}) => ({
+      beach: { id, name: `Beach ${id.slice(0, 4)}`, slug: `beach-${id.slice(0, 4)}`, lat, lon: -117.25, timezone: 'America/Los_Angeles', deleted_at: null, ...extra },
+      relation: 'nearby',
+      distanceMiles: null,
+    });
+    const alertPoolBody = {
+      candidateScope: { kind: 'complete-radius', mapBounds: null, pool: 'alerts' },
+      localTimezone: 'America/Los_Angeles', startLocalDate: '2026-07-15', dayCount: 7,
+    };
+
+    function alertPoolSupabase(args: {
+      snapshot: { lat: number; lon: number; captured_at: string } | null;
+      profile: { home_beach_id: string | null; max_drive_minutes: number | null };
+      homeBeach?: { lat: number; lon: number } | null;
+      hidden?: string[];
+    }) {
+      return {
+        from: jest.fn((table: string) => {
+          if (table === 'user_beach_exclusions') {
+            return { select: () => ({ eq: async () => ({ data: (args.hidden ?? []).map((beach_id) => ({ beach_id })), error: null }) }) };
+          }
+          const data = table === 'user_location_snapshots'
+            ? args.snapshot
+            : table === 'beaches' ? args.homeBeach ?? null : args.profile;
+          return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data, error: null }) }) }) };
+        }),
+      };
+    }
+
+    beforeEach(() => {
+      mockLoadUserPool.mockResolvedValue([
+        poolBeach(HOME, 32.8),
+        poolBeach(SAVED, 33.2),
+        poolBeach(HIDDEN, 32.9),
+        poolBeach(PRIVATE, 32.95, { is_private: true }),
+        poolBeach(BEACH_B, 33.0),
+      ]);
+    });
+
+    it('ranks the Daily Call and swell alert pool, anchored on a fix under a day old', async () => {
+      const capturedAt = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
+      const response = await callRoute(alertPoolBody, alertPoolSupabase({
+        snapshot: { lat: 32.85, lon: -117.27, captured_at: capturedAt },
+        profile: { home_beach_id: HOME, max_drive_minutes: 60 },
+        homeBeach: { lat: 32.8, lon: -117.25 },
+        hidden: [HIDDEN],
+      }));
+
+      expect(response.status).toBe(200);
+      expect(mockLoadUserPool).toHaveBeenCalledWith({
+        supabase: { serviceRole: true },
+        userId: 'user-week-scout',
+        homeBeachId: HOME,
+        location: { lat: 32.85, lon: -117.27 },
+        maxDriveMinutes: 60,
+      });
+      expect(mockBuildWeekendScoutCandidatePool).not.toHaveBeenCalled();
+      const forecastRequest = mockGenerateWeekScoutForecast.mock.calls[0]?.[1];
+      expect(forecastRequest.candidateBeachIds).toEqual([HOME, SAVED, BEACH_B]);
+      // A three-hour-old fix anchors the pool but is not a current position.
+      expect(forecastRequest.userLocation).toBeUndefined();
+      expect(forecastRequest.requirePerRowFreshness).toBeUndefined();
+      const body = await response.json();
+      expect(body.data.candidateBeaches.map((candidate: { beachId: string }) => candidate.beachId)).toEqual([HOME, SAVED, BEACH_B]);
+      // A coverage deadline would expire Home's call within a minute.
+      expect(body.data.coverage).toBeUndefined();
+    });
+
+    it('anchors on the home beach when there is no recent fix', async () => {
+      const response = await callRoute(alertPoolBody, alertPoolSupabase({
+        snapshot: { lat: 40, lon: -74, captured_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString() },
+        profile: { home_beach_id: HOME, max_drive_minutes: null },
+        homeBeach: { lat: 32.8, lon: -117.25 },
+      }));
+
+      expect(response.status).toBe(200);
+      expect(mockLoadUserPool).toHaveBeenCalledWith(expect.objectContaining({
+        location: { lat: 32.8, lon: -117.25 },
+        maxDriveMinutes: null,
+      }));
+    });
+
+    it('applies Week Scout filters to the alert pool', async () => {
+      mockLoadUserPool.mockResolvedValueOnce([
+        poolBeach(HOME, 32.8, { break_type: 'reef' }),
+        poolBeach(SAVED, 33.2, { break_type: 'beach break' }),
+      ]);
+      const response = await callRoute({
+        ...alertPoolBody,
+        candidateScope: { ...alertPoolBody.candidateScope, filters: ['beach'] },
+      }, alertPoolSupabase({
+        snapshot: null,
+        profile: { home_beach_id: HOME, max_drive_minutes: 30 },
+        homeBeach: { lat: 32.8, lon: -117.25 },
+      }));
+
+      expect(response.status).toBe(200);
+      expect(mockGenerateWeekScoutForecast.mock.calls[0]?.[1].candidateBeachIds).toEqual([SAVED]);
+    });
+
+    it('rejects an alert pool with neither a recent fix nor a home beach', async () => {
+      const response = await callRoute(alertPoolBody, alertPoolSupabase({
+        snapshot: null,
+        profile: { home_beach_id: null, max_drive_minutes: 60 },
+      }));
+
+      expect(response.status).toBe(400);
+      expect(mockLoadUserPool).not.toHaveBeenCalled();
+      expect(mockGenerateWeekScoutForecast).not.toHaveBeenCalled();
+    });
+
+    it('keeps a map-bounded scope on the map even when the alert pool is asked for', async () => {
+      mockBuildWeekendScoutCandidatePool.mockResolvedValueOnce({
+        candidates: [], enumeratedCount: 0, hydratedCount: 0, filteredOutCount: 0, incomplete: false,
+      });
+      const response = await callRoute({
+        ...alertPoolBody,
+        candidateScope: { kind: 'complete-radius', pool: 'alerts', mapBounds: { minLat: 32, maxLat: 32.1, minLon: -117.2, maxLon: -117.1 } },
+      }, alertPoolSupabase({
+        snapshot: null,
+        profile: { home_beach_id: HOME, max_drive_minutes: 60 },
+        homeBeach: { lat: 32.8, lon: -117.25 },
+      }));
+
+      expect(response.status).toBe(200);
+      expect(mockBuildWeekendScoutCandidatePool).toHaveBeenCalled();
+      expect(mockLoadUserPool).not.toHaveBeenCalled();
+    });
   });
 
   it('applies distance friction from a fresh authenticated user location snapshot', async () => {

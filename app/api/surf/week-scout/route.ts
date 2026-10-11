@@ -9,9 +9,16 @@ import {
 } from '@/lib/middleware/api-wrappers';
 import { generateWeekScoutForecast } from '@/lib/services/discovery/week-scout';
 import { parseSessionTime } from '@/lib/scoring/session-time-preference';
-import { buildWeekendScoutCandidatePool } from '@/lib/services/discovery/weekend-scout-candidate-pool';
+import {
+  buildWeekendScoutCandidatePool,
+  scopeAlertPoolCandidates,
+  type WeekendScoutCandidatePool,
+} from '@/lib/services/discovery/weekend-scout-candidate-pool';
 import { calculateDistanceInMiles } from '@/lib/utils/distance-utils';
 import { driveRadiusMiles, MAX_DRIVE_RADIUS_MILES } from '@/lib/profile/drive-range';
+import { resolveLocationAnchor, type LocationSnapshot } from '@/lib/alerts/location-freshness';
+import { loadUserPool } from '@/lib/alerts/user-pool';
+import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import {
   isWeekScoutSwellsEnabled,
   isWeekScoutSwellsUserAllowed,
@@ -52,7 +59,10 @@ const CompleteRadiusScopeSchema = z.object({
     minLon: z.number().finite().min(-180).max(180),
     maxLon: z.number().finite().min(-180).max(180),
   }).refine((bounds) => bounds.minLat <= bounds.maxLat && bounds.minLon <= bounds.maxLon, 'Invalid map bounds').nullable().optional(),
+  // Additive: without map bounds, rank the beaches Daily Call and swell alerts use.
+  pool: z.literal('alerts').optional(),
 });
+type WeekScoutFilter = z.infer<typeof WeekScoutFilterSchema>;
 
 function isValidLocalDate(value: string): boolean {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
@@ -95,6 +105,55 @@ const WeekScoutRequestSchema = z.object({
   message: 'Candidate IDs or complete-radius scope is required',
 });
 
+/**
+ * The surfer's alert pool: home, saved and custom spots plus nearby beaches in
+ * the drive range, anchored on a fix under a day old or else the home beach,
+ * exactly as Daily Call and swell alerts load it. Null when nothing anchors it.
+ */
+async function loadAlertPool(
+  supabase: AuthenticatedContext['supabase'],
+  userId: string,
+  snapshot: LocationSnapshot | null,
+  filters: readonly WeekScoutFilter[] | undefined,
+  userLocation: { lat: number; lon: number } | undefined,
+): Promise<WeekendScoutCandidatePool | null> {
+  const profile = await supabase
+    .from('profiles')
+    .select('home_beach_id, max_drive_minutes')
+    .eq('id', userId)
+    .maybeSingle();
+  if (profile.error) throw new Error(`Failed to load Week Scout profile: ${profile.error.message}`);
+  const homeBeachId = profile.data?.home_beach_id ?? null;
+  const maxDriveMinutes = profile.data?.max_drive_minutes ?? null;
+  let homeBeach: { lat: number | null; lon: number | null } | null = null;
+  if (homeBeachId) {
+    const home = await supabase.from('beaches').select('lat, lon').eq('id', homeBeachId).maybeSingle();
+    if (home.error) throw new Error(`Failed to load Week Scout home beach: ${home.error.message}`);
+    homeBeach = home.data ?? null;
+  }
+  const { anchor } = resolveLocationAnchor(snapshot, new Date(), homeBeach);
+  if (!anchor) return null;
+
+  const exclusions = await supabase
+    .from('user_beach_exclusions')
+    .select('beach_id')
+    .eq('user_id', userId);
+  if (exclusions.error) throw new Error(`Failed to load Week Scout hidden beaches: ${exclusions.error.message}`);
+  const poolBeaches = await loadUserPool({
+    supabase: createSupabaseServiceRoleClient(),
+    userId,
+    homeBeachId,
+    location: anchor,
+    maxDriveMinutes,
+  });
+  return scopeAlertPoolCandidates(poolBeaches, {
+    anchor,
+    filters,
+    nearbyLocation: userLocation ?? anchor,
+    excludedBeachIds: new Set((exclusions.data ?? []).map((row) => row.beach_id)),
+  });
+}
+
 async function weekScoutHandler(
   request: NextRequest,
   { user, supabase }: AuthenticatedContext,
@@ -123,8 +182,15 @@ async function weekScoutHandler(
   const completeRadiusScope = parsed.data.candidateScope === 'complete-radius'
     ? { kind: 'complete-radius' as const }
     : parsed.data.candidateScope;
+  // The alert pool replaces only the candidate list. It carries no coverage
+  // deadline (capped at a minute), so Home keeps its usual cache instead of
+  // dropping the call every minute while it refetches.
+  const usesAlertPool = completeRadiusScope?.kind === 'complete-radius'
+    && completeRadiusScope.pool === 'alerts'
+    && !completeRadiusScope.mapBounds;
 
   let userLocation: { lat: number; lon: number } | undefined;
+  let locationSnapshot: LocationSnapshot | null = null;
   try {
     const { data } = await supabase
       .from('user_location_snapshots')
@@ -136,6 +202,9 @@ async function weekScoutHandler(
     const capturedAt = typeof data?.captured_at === 'string'
       ? Date.parse(data.captured_at)
       : Number.NaN;
+    if (typeof lat === 'number' && typeof lon === 'number' && typeof data?.captured_at === 'string') {
+      locationSnapshot = { lat, lon, captured_at: data.captured_at };
+    }
     if (
       typeof lat === 'number'
       && Number.isFinite(lat)
@@ -168,48 +237,61 @@ async function weekScoutHandler(
     if (!userLocation && mapBounds && completeRadiusScope.filters?.includes('nearby')) {
       return createValidationError('A current location is required for the nearby filter');
     }
-    const mapCenter = mapBounds ? {
-      lat: (mapBounds.minLat + mapBounds.maxLat) / 2,
-      lon: (mapBounds.minLon + mapBounds.maxLon) / 2,
-    } : null;
-    const candidateOrigin = mapCenter ?? userLocation;
-    if (!candidateOrigin) return createValidationError('A current location or map scope is required for complete-radius Week Scout');
-    const profile = await supabase
-      .from('profiles')
-      .select('max_drive_minutes')
-      .eq('id', user.id)
-      .maybeSingle();
-    if (profile.error) throw new Error(`Failed to load Week Scout profile: ${profile.error.message}`);
-    const configuredMinutes = profile.data?.max_drive_minutes;
-    const radiusMiles = mapBounds
-      ? Math.max(
-        calculateDistanceInMiles(candidateOrigin, { lat: mapBounds.minLat, lon: mapBounds.minLon }),
-        calculateDistanceInMiles(candidateOrigin, { lat: mapBounds.minLat, lon: mapBounds.maxLon }),
-        calculateDistanceInMiles(candidateOrigin, { lat: mapBounds.maxLat, lon: mapBounds.minLon }),
-        calculateDistanceInMiles(candidateOrigin, { lat: mapBounds.maxLat, lon: mapBounds.maxLon }),
-      )
-      : Math.max(0.5, driveRadiusMiles(configuredMinutes));
-    const mapPrefilterMargin = mapBounds
-      ? radiusMiles * MAP_PREFILTER_MARGIN_RATIO + MAP_PREFILTER_MARGIN_MIN_MILES
-      : 0;
-    if (radiusMiles + mapPrefilterMargin > MAX_RADIUS_MILES) {
-      return createValidationError('Map scope exceeds the supported 100-mile extent');
+    let pool: WeekendScoutCandidatePool;
+    if (usesAlertPool) {
+      const alertPool = await loadAlertPool(
+        supabase,
+        user.id,
+        locationSnapshot,
+        completeRadiusScope.filters,
+        userLocation,
+      );
+      if (!alertPool) return createValidationError('A recent location or home beach is required for alert-pool Week Scout');
+      pool = alertPool;
+    } else {
+      const mapCenter = mapBounds ? {
+        lat: (mapBounds.minLat + mapBounds.maxLat) / 2,
+        lon: (mapBounds.minLon + mapBounds.maxLon) / 2,
+      } : null;
+      const candidateOrigin = mapCenter ?? userLocation;
+      if (!candidateOrigin) return createValidationError('A current location or map scope is required for complete-radius Week Scout');
+      const profile = await supabase
+        .from('profiles')
+        .select('max_drive_minutes')
+        .eq('id', user.id)
+        .maybeSingle();
+      if (profile.error) throw new Error(`Failed to load Week Scout profile: ${profile.error.message}`);
+      const configuredMinutes = profile.data?.max_drive_minutes;
+      const radiusMiles = mapBounds
+        ? Math.max(
+          calculateDistanceInMiles(candidateOrigin, { lat: mapBounds.minLat, lon: mapBounds.minLon }),
+          calculateDistanceInMiles(candidateOrigin, { lat: mapBounds.minLat, lon: mapBounds.maxLon }),
+          calculateDistanceInMiles(candidateOrigin, { lat: mapBounds.maxLat, lon: mapBounds.minLon }),
+          calculateDistanceInMiles(candidateOrigin, { lat: mapBounds.maxLat, lon: mapBounds.maxLon }),
+        )
+        : Math.max(0.5, driveRadiusMiles(configuredMinutes));
+      const mapPrefilterMargin = mapBounds
+        ? radiusMiles * MAP_PREFILTER_MARGIN_RATIO + MAP_PREFILTER_MARGIN_MIN_MILES
+        : 0;
+      if (radiusMiles + mapPrefilterMargin > MAX_RADIUS_MILES) {
+        return createValidationError('Map scope exceeds the supported 100-mile extent');
+      }
+      const boundedRadiusMiles = Math.min(radiusMiles, MAX_RADIUS_MILES);
+      scopeRadiusMiles = boundedRadiusMiles;
+      pool = await buildWeekendScoutCandidatePool(user.id, {
+        userLocation: candidateOrigin,
+        // The RPC uses a different geodesic implementation than the client
+        // corner calculation. Expand only the prefilter; map bounds remain the
+        // exact final inclusion check in the candidate pool.
+        radiusMiles: mapBounds
+          ? boundedRadiusMiles + mapPrefilterMargin
+          : boundedRadiusMiles,
+        requirePagedCoverage: true,
+        filters: completeRadiusScope.filters,
+        mapBounds: completeRadiusScope.mapBounds,
+        nearbyLocation: userLocation ?? null,
+      });
     }
-    const boundedRadiusMiles = Math.min(radiusMiles, MAX_RADIUS_MILES);
-    scopeRadiusMiles = boundedRadiusMiles;
-    const pool = await buildWeekendScoutCandidatePool(user.id, {
-      userLocation: candidateOrigin,
-      // The RPC uses a different geodesic implementation than the client
-      // corner calculation. Expand only the prefilter; map bounds remain the
-      // exact final inclusion check in the candidate pool.
-      radiusMiles: mapBounds
-        ? boundedRadiusMiles + mapPrefilterMargin
-        : boundedRadiusMiles,
-      requirePagedCoverage: true,
-      filters: completeRadiusScope.filters,
-      mapBounds: completeRadiusScope.mapBounds,
-      nearbyLocation: userLocation ?? null,
-    });
     if (pool.incomplete) {
       return NextResponse.json({ success: false, error: 'Week Scout candidate coverage is incomplete' }, { status: 503 });
     }
@@ -252,13 +334,13 @@ async function weekScoutHandler(
     startLocalDate: parsed.data.startLocalDate,
     dayCount: parsed.data.dayCount,
     ...(userLocation ? { userLocation } : {}),
-    ...(completeRadiusScope?.kind === 'complete-radius'
+    ...(completeRadiusScope?.kind === 'complete-radius' && !usesAlertPool
       ? { requirePerRowFreshness: true }
       : {}),
     ...(swellsEnabled ? { includeSwells: true } : {}),
   });
   const { coverage: forecastCoverage, swells, ...forecastPayload } = forecast;
-  const coverage = completeRadiusScope?.kind === 'complete-radius'
+  const coverage = completeRadiusScope?.kind === 'complete-radius' && !usesAlertPool
     ? {
         scope: {
           kind: 'complete-radius' as const,
