@@ -484,7 +484,8 @@ describe("getCityWaterTempHistory", () => {
     expect(result?.source).toBeNull();
   });
 
-  it.each(["latitude", "ioos", "coops", "ndbc", "unverified"] as const)("parses water temperature and %s provenance", async (source) => {
+  it.each(["latitude", "ioos", "coops", "ndbc", "unverified", null] as const)("parses water temperature and %s provenance", async (source) => {
+    const selectForecastFields = jest.fn().mockReturnThis();
     mockSupabase.from = jest.fn().mockImplementation((table: string) => {
       if (table === "beaches") {
         return {
@@ -499,7 +500,7 @@ describe("getCityWaterTempHistory", () => {
         };
       }
       return {
-        select: jest.fn().mockReturnThis(),
+        select: selectForecastFields,
         eq: jest.fn().mockReturnThis(),
         gte: jest.fn().mockReturnThis(),
         lt: jest.fn().mockReturnThis(),
@@ -507,7 +508,7 @@ describe("getCityWaterTempHistory", () => {
         not: jest.fn().mockReturnThis(),
         order: jest.fn().mockResolvedValue({
             data: [
-              { forecast_date: "2025-01-25", forecast_at: "2025-01-25T06:00:00Z", water_temp: "65°F", forecast_time: "06:00", raw_forecast: { water_temp_source: source } },
+              { forecast_date: "2025-01-25", forecast_at: "2025-01-25T06:00:00Z", water_temp: "65°F", forecast_time: "06:00", water_temp_source: source },
             ],
             error: null,
           }),
@@ -516,6 +517,7 @@ describe("getCityWaterTempHistory", () => {
 
     const result = await getCityWaterTempHistory("Huntington Beach", "CA");
 
+    expect(selectForecastFields).toHaveBeenCalledWith("forecast_date, forecast_at, water_temp, water_temp_source:raw_forecast->>water_temp_source");
     expect(result?.currentTemp).toBe(65);
     expect(result?.beachName).toBe("Huntington Beach");
     expect(result?.source).toBe(source === "unverified" ? null : source);

@@ -88,6 +88,7 @@ import {
   TOTAL_FORECASTS,
   type EnhancedForecastEntity,
   type EnhancedForecastWithRawData,
+  type WaterTempSource,
   type CDIPBuoyData,
 } from "@/types/forecast";
 import type { NowcastAnchor } from "@/lib/services/observations/nowcast-anchor.types";
@@ -2050,7 +2051,7 @@ export class ForecastBuilder {
     forecastTime: Date,
     ioosWaterTempC: number | null,
     coopsWaterTempC: number | null
-  ): { value: string | null; source: "ioos" | "coops" | "ndbc" | "latitude" } {
+  ): { value: string | null; source: WaterTempSource } {
     // Priority 1: IOOS observed water temperature (most geographically accurate)
     if (ioosWaterTempC != null && isFinite(ioosWaterTempC)) {
       const tempF = (ioosWaterTempC * 9) / 5 + 32;

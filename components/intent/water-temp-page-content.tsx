@@ -10,6 +10,7 @@ import { StickyInstallAsk } from "@/components/app-store/sticky-install-ask";
 import { HideWhenInstallBarOwns } from "@/components/app-store/install-bar-owned-slot";
 import type { SurfSpot } from "@/lib/data/surf-spots";
 import type { CityWaterTempExpanded } from "@/actions/forecast/intent-forecast-actions";
+import type { WaterTempSource } from "@/types/forecast";
 import type { IntentPageContent } from "@/lib/seo/intent-content-templates";
 import type { BeachEditorialItem } from "@/types/location";
 import type { IntentKey } from "@/lib/constants/intent-definitions";
@@ -39,11 +40,11 @@ interface WaterTempPageContentProps {
   excludeIntents?: IntentKey[];
 }
 
-export function getWaterTempSourceDescription(source: CityWaterTempExpanded["source"]): string {
+export function getWaterTempSourceDescription(source: WaterTempSource | null | undefined): string {
   if (source === "ndbc") return "Water temperature refreshed hourly from a NOAA buoy reading.";
   if (source === "ioos" || source === "coops") return "Water temperature refreshed hourly from an observed station reading.";
   if (source === "latitude") return "Water temperature refreshed hourly from a latitude-based estimate.";
-  return "Water temperature refreshed hourly; reading source unavailable.";
+  return "Water temperature refreshed hourly.";
 }
 
 export function WaterTempPageContent({

@@ -6,6 +6,7 @@
  */
 
 import type { CityMetadata } from "@/types/location";
+import type { WaterTempSource } from "@/types/forecast";
 import type { SurfIntentSlug } from "@/lib/data/surf-spots";
 import { getClimateZone } from "@/lib/seo/regional-surf-data";
 import { truncateTitleForSEO } from "@/lib/seo/meta";
@@ -29,7 +30,7 @@ interface ContentTemplateArgs {
   topSpotNames: string;
   allSpotNames: string[];
   tideData?: { nextTideType?: string | null; nextTideTime?: string | null; nextTideHeight?: string | null } | null;
-  waterTempData?: { currentTemp?: number | null; source?: "ioos" | "coops" | "ndbc" | "latitude" | null } | null;
+  waterTempData?: { currentTemp?: number | null; source?: WaterTempSource | null } | null;
 }
 
 /**

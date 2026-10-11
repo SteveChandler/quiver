@@ -4,7 +4,7 @@ import { getLocalDateFormatter } from "@/lib/services/discovery/window-selector/
 
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import type { TidePoint } from "@/components/forecast/tide-chart-recharts";
-import type { TideScheduleEntry } from "@/types/forecast";
+import type { TideScheduleEntry, WaterTempSource } from "@/types/forecast";
 import { parseWaterTempF, getWetsuitRecommendation } from "@/lib/utils/wetsuit-utils";
 import { TideExtremaDetector } from "@/lib/services/noaa-coops/tide-extrema-detector";
 import { selectTideSeries } from "@/lib/services/tide-forecast-selection";
@@ -104,7 +104,7 @@ export interface CityWaterTempData {
   /** Current water temperature in Fahrenheit */
   currentTemp: number;
   /** Source of the displayed temperature; absent for older forecast rows. */
-  source?: "ioos" | "coops" | "ndbc" | "latitude" | null;
+  source?: WaterTempSource | null;
   /** Historical temperature points for trend chart */
   points: Array<{
     date: string;
@@ -791,7 +791,7 @@ async function fetchWaterTempData(
   const endNextDay = new Date(new Date(endDate + 'T00:00:00Z').getTime() + 86400000).toISOString().split('T')[0];
   const { data: forecasts, error: forecastError } = await supabase
     .from("enhanced_forecasts")
-    .select("forecast_date, forecast_at, water_temp, raw_forecast")
+    .select("forecast_date, forecast_at, water_temp, water_temp_source:raw_forecast->>water_temp_source")
     .eq("beach_id", beach.id)
     .gte("forecast_at", `${startDate}T00:00:00Z`)
     .lt("forecast_at", `${endNextDay}T00:00:00Z`)
@@ -812,7 +812,7 @@ async function fetchWaterTempData(
   const seenDates = new Set<string>();
   const points: Array<{ date: string; tempF: number }> = [];
   let latestTemp: number | null = null;
-  let latestSource: CityWaterTempData["source"] = null;
+  let latestSource: WaterTempSource | null = null;
 
   for (const forecast of forecasts) {
     if (seenDates.has(forecast.forecast_date)) continue;
@@ -826,7 +826,7 @@ async function fetchWaterTempData(
       tempF,
     });
     latestTemp = tempF;
-    const source = (forecast.raw_forecast as { water_temp_source?: unknown } | null)?.water_temp_source;
+    const source: unknown = forecast.water_temp_source;
     latestSource = source === "ioos" || source === "coops" || source === "ndbc" || source === "latitude"
       ? source : null;
   }
