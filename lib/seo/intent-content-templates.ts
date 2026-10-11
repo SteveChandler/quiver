@@ -6,6 +6,7 @@
  */
 
 import type { CityMetadata } from "@/types/location";
+import type { WaterTempSource } from "@/types/forecast";
 import type { SurfIntentSlug } from "@/lib/data/surf-spots";
 import { getClimateZone } from "@/lib/seo/regional-surf-data";
 import { truncateTitleForSEO } from "@/lib/seo/meta";
@@ -29,7 +30,7 @@ interface ContentTemplateArgs {
   topSpotNames: string;
   allSpotNames: string[];
   tideData?: { nextTideType?: string | null; nextTideTime?: string | null; nextTideHeight?: string | null } | null;
-  waterTempData?: { currentTemp?: number | null } | null;
+  waterTempData?: { currentTemp?: number | null; source?: WaterTempSource | null } | null;
 }
 
 /**
@@ -45,7 +46,7 @@ export function buildIntentPageContent(
   metadata: CityMetadata,
   dynamicData?: {
     tideData?: { nextTideType?: string | null; nextTideTime?: string | null; nextTideHeight?: string | null } | null;
-    waterTempData?: { currentTemp?: number | null } | null;
+    waterTempData?: ContentTemplateArgs["waterTempData"];
   }
 ): IntentPageContent {
   const args: ContentTemplateArgs = {
@@ -116,6 +117,11 @@ function getIntentTemplates(
   const currentYear = new Date().getFullYear();
   const spotCount = beginnerCount > 0 ? beginnerCount : totalBeaches;
   const DATA_FRESHNESS_SUFFIX = "Updated hourly with live buoy data.";
+  const waterTempFreshnessSuffix = waterTempData?.source === "ndbc"
+    ? DATA_FRESHNESS_SUFFIX
+    : waterTempData?.source === "ioos" || waterTempData?.source === "coops"
+      ? "Updated hourly with observed station data."
+      : "Updated hourly.";
   const spotNoun = (n: number) => n === 1 ? "spot" : "spots";
   const breakNoun = (n: number) => n === 1 ? "break" : "breaks";
   const roundedWaterTemp =
@@ -168,8 +174,8 @@ function getIntentTemplates(
       intro: waterTempIntro,
       metaDescription: truncateMetaDescription(
         roundedWaterTemp != null
-          ? `${cityName} water temperature today is ${roundedWaterTemp}°F. Wetsuit guide, seasonal ocean temps, and surf report links for ${topSpotNames}. ${DATA_FRESHNESS_SUFFIX}`
-          : `Current ${cityName} water temperature, wetsuit guide, seasonal ocean temps, and surf report links for ${totalBeaches} surf ${spotNoun(totalBeaches)} including ${topSpotNames}. ${DATA_FRESHNESS_SUFFIX}`
+          ? `${cityName} water temperature today is ${roundedWaterTemp}°F. Wetsuit guide, seasonal ocean temps, and surf report links for ${topSpotNames}. ${waterTempFreshnessSuffix}`
+          : `Current ${cityName} water temperature, wetsuit guide, seasonal ocean temps, and surf report links for ${totalBeaches} surf ${spotNoun(totalBeaches)} including ${topSpotNames}. ${waterTempFreshnessSuffix}`
       ),
     },
     longboard: {

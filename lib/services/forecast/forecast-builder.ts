@@ -88,6 +88,7 @@ import {
   TOTAL_FORECASTS,
   type EnhancedForecastEntity,
   type EnhancedForecastWithRawData,
+  type WaterTempSource,
   type CDIPBuoyData,
 } from "@/types/forecast";
 import type { NowcastAnchor } from "@/lib/services/observations/nowcast-anchor.types";
@@ -1337,6 +1338,7 @@ export class ForecastBuilder {
       ? wavePoint?.source_selection : undefined;
     const effectiveConfidence = sourceSelection?.disagreement
       ? Math.min(confidenceScore, 40) : confidenceScore;
+    const waterTemperature = this.getWaterTemperature(buoyData, beach, forecastTime, ioosWaterTempC, coopsWaterTempC);
     return {
       id: `forecast-${beach.id}-${forecastTime.getTime()}`,
       forecast_date: dateString,
@@ -1384,7 +1386,7 @@ export class ForecastBuilder {
         : {}),
 
       // Water temperature
-      water_temp: this.getWaterTemperature(buoyData, beach, forecastTime, ioosWaterTempC, coopsWaterTempC),
+      water_temp: waterTemperature.value,
 
       // Wind data
       wind_speed: this.getWindSpeed(weatherPoint),
@@ -1413,6 +1415,7 @@ export class ForecastBuilder {
 
       // Raw forecast metadata
       raw_forecast: {
+        water_temp_source: waterTemperature.source,
         ...this.buildRawForecast({
           dataSources,
           useCDIPData,
@@ -2046,26 +2049,26 @@ export class ForecastBuilder {
     forecastTime: Date,
     ioosWaterTempC: number | null,
     coopsWaterTempC: number | null
-  ): string | null {
+  ): { value: string | null; source: WaterTempSource } {
     // Priority 1: IOOS observed water temperature (most geographically accurate)
     if (ioosWaterTempC != null && isFinite(ioosWaterTempC)) {
       const tempF = (ioosWaterTempC * 9) / 5 + 32;
-      return formatWaterTemp(tempF);
+      return { value: formatWaterTemp(tempF), source: "ioos" };
     }
 
     // Priority 2: CO-OPS observed water temperature
     if (coopsWaterTempC != null && isFinite(coopsWaterTempC)) {
       const tempF = (coopsWaterTempC * 9) / 5 + 32;
-      return formatWaterTemp(tempF);
+      return { value: formatWaterTemp(tempF), source: "coops" };
     }
 
     // Priority 3: NDBC buoy water temperature (currently dead code — buoyData always null)
     if (buoyData?.water_temperature != null && isFinite(buoyData.water_temperature)) {
-      return formatWaterTemp((buoyData.water_temperature * 9) / 5 + 32);
+      return { value: formatWaterTemp((buoyData.water_temperature * 9) / 5 + 32), source: "ndbc" };
     }
 
     // Priority 4: Latitude-based estimation
-    return this.estimateWaterTemperature(beach.lat ?? 0, forecastTime);
+    return { value: this.estimateWaterTemperature(beach.lat ?? 0, forecastTime), source: "latitude" };
   }
 
   private getWindSpeed(weatherPoint: WeatherPeriod | null): string | null {
