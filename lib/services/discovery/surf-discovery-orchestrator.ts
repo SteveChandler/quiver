@@ -78,7 +78,7 @@ import {
 } from './candidate-pool-builder';
 import { batchFetchForecasts } from './forecast-batch-fetcher';
 import {
-  calculateDistancePenalty,
+  calculateDriveRangeDistancePenalty,
   compareDiscoveryRecommendations,
   WORTH_THE_DRIVE_DISTANCE_MILES,
   WORTH_THE_DRIVE_REASON,
@@ -1270,6 +1270,7 @@ async function scoreBeachForDiscovery(args: {
   /** Pre-parsed and validated skill level from candidate pool builder */
   userSkillLevel: SkillLevel | null;
   distanceMiles?: number;
+  driveRadiusMiles?: number;
   affinityBonus?: number;
   personalizationBonus?: number;
   personalizationReasons?: string[];
@@ -1285,7 +1286,7 @@ async function scoreBeachForDiscovery(args: {
   // Use affinity bonus from personalization layer if provided
   const affinityBonus = args.affinityBonus ?? 0;
 
-  const distancePenalty = calculateDistancePenalty(distanceMiles);
+  const distancePenalty = calculateDriveRangeDistancePenalty(distanceMiles, args.driveRadiusMiles);
 
   // userSkillLevel is pre-parsed as SkillLevel | null from candidate pool builder.
   const explanationScore = scoreBeachWithEngine(engine, beach, forecast, {
@@ -1589,6 +1590,7 @@ async function discoverSurfSpotsInner(
 ): Promise<SurfDiscoveryResponse> {
   const {
     radiusMiles: requestedRadiusMiles,
+    driveRadiusMiles,
     horizonHours,
     savedSpotsOnly = false,
     forecastAt,
@@ -2089,6 +2091,7 @@ async function discoverSurfSpotsInner(
 
     // Detailed scoring
     const detailedScore = await scoreBeachForDiscovery({
+      driveRadiusMiles,
       beach,
       forecast: bestWindowForecast,
       userPrefs,
@@ -2216,6 +2219,7 @@ async function discoverSurfSpotsInner(
         personalizationCtx,
       );
       const customDetailedScore = await scoreBeachForDiscovery({
+        driveRadiusMiles,
         beach: customBeach,
         forecast: bestWindowForecast,
         userPrefs,
@@ -2567,6 +2571,7 @@ async function discoverSurfSpotsInner(
 
       const distMiles = rec.distanceMiles;
       const lateScore = await scoreBeachForDiscovery({
+        driveRadiusMiles,
         beach: rec.beach,
         forecast: lateForecast,
         userPrefs,
