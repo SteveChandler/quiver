@@ -1,9 +1,14 @@
-import { resolveLocationAnchor, type LocationAnchor, type LocationSnapshot } from "@/lib/alerts/location-freshness";
+import {
+  DAILY_CALL_LOCATION_FIX_MAX_AGE_HOURS,
+  resolveLocationAnchor,
+  type LocationAnchor,
+  type LocationSnapshot,
+} from "@/lib/alerts/location-freshness";
 import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
 import { persistableSessionDecision } from "@/lib/recommendations/canonical-decision/contract";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isDailyCallEnabled, isDailyCallUserAllowed } from "@/lib/flags/daily-call";
-import { loadUserPool, type PoolBeach } from "@/lib/alerts/user-pool";
+import { capNearbyPool, loadUserPool, type PoolBeach } from "@/lib/alerts/user-pool";
 import { resolveHeldPushBeaches, type ResolveHeldPushBeaches } from "@/lib/alerts/push-beach-holds";
 import {
   evaluateForecastVerdict,
@@ -603,7 +608,12 @@ export async function runDailyCallCron(args: {
 
   const profiles = await deps.loadProfiles(supabase);
   for (const loadedProfile of profiles) {
-    const { anchor, source } = resolveLocationAnchor(loadedProfile.location, args.now, loadedProfile.homeBeach);
+    const { anchor, source } = resolveLocationAnchor(
+      loadedProfile.location,
+      args.now,
+      loadedProfile.homeBeach,
+      DAILY_CALL_LOCATION_FIX_MAX_AGE_HOURS,
+    );
     const profile = { ...loadedProfile, location: source === "location" ? loadedProfile.location : null, anchorSource: source };
     summary.evaluated += 1;
     if (profile.notifPushEnabled !== true || profile.notifForecastAlerts !== true) {
@@ -631,13 +641,14 @@ export async function runDailyCallCron(args: {
         increment(summary, "already_sent_today");
         continue;
       }
-      const pool = await deps.loadPool({
+      // The same nearest-beach cap as Home's Week Scout, so the two choose from one list.
+      const { pool } = capNearbyPool(await deps.loadPool({
         supabase,
         userId: profile.id,
         homeBeachId: profile.homeBeachId,
         location: anchor,
         maxDriveMinutes: profile.maxDriveMinutes,
-      });
+      }));
       if (pool.length === 0) {
         increment(summary, "no_pool");
         summary.silent += 1;
