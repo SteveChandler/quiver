@@ -71,6 +71,10 @@ describe('POST /api/surf/week-scout', () => {
     });
   });
 
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   function tables(rows: Record<string, unknown>) {
     return jest.fn((table: string) => ({
       select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: rows[table] ?? null, error: null }) }) }),
@@ -481,6 +485,82 @@ describe('POST /api/surf/week-scout', () => {
       driveRadiusMiles: 45,
     });
     expect((await response.json()).data).not.toHaveProperty('coverage');
+  });
+
+  it.each([
+    ['home beach', 0],
+    ['candidate pool', 1],
+  ] as const)('preserves installed-app scoring when the %s lookup fails', async (failedLookup, expectedPoolLookups) => {
+    const lookupError = new Error('Lookup unavailable');
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const from = jest.fn((table: string) => ({
+      select: () => ({ eq: () => ({ maybeSingle: async () => ({
+        data: table === 'profiles'
+          ? { max_drive_minutes: 90, home_beach_id: 'home-beach' }
+          : table === 'beaches' ? { lat: 32.2, lon: -116.9 } : null,
+        error: table === 'beaches' && failedLookup === 'home beach' ? lookupError : null,
+      }) }) }),
+    }));
+    if (failedLookup === 'candidate pool') {
+      mockBuildDriveRangeCandidatePool.mockRejectedValueOnce(lookupError);
+    }
+
+    const response = await callRoute({
+      candidateBeachIds: [BEACH_B, BEACH_A], localTimezone: 'America/Tijuana', startLocalDate: '2026-07-15', dayCount: 7,
+    }, { from });
+
+    expect(response.status).toBe(200);
+    expect(mockGenerateWeekScoutForecast).toHaveBeenCalledWith('user-week-scout', {
+      candidateBeachIds: [BEACH_B, BEACH_A],
+      localTimezone: 'America/Tijuana', startLocalDate: '2026-07-15', dayCount: 7,
+      driveRadiusMiles: 45,
+    });
+    expect(consoleError).toHaveBeenCalledWith('Failed to bound legacy Week Scout candidates', expect.any(Error));
+    expect(mockBuildDriveRangeCandidatePool).toHaveBeenCalledTimes(expectedPoolLookups);
+  });
+
+  it('skips installed-app bounding when the profile read fails', async () => {
+    const anchor = { lat: 32.2, lon: -116.9 };
+    const from = jest.fn((table: string) => ({
+      select: () => ({ eq: () => ({ maybeSingle: async () => ({
+        data: table === 'profiles' ? null : { ...anchor, captured_at: new Date().toISOString() },
+        error: table === 'profiles' ? { message: 'Profile unavailable' } : null,
+      }) }) }),
+    }));
+
+    const response = await callRoute({
+      candidateBeachIds: [BEACH_B, BEACH_A], localTimezone: 'America/Tijuana', startLocalDate: '2026-07-15', dayCount: 7,
+    }, { from });
+
+    expect(response.status).toBe(200);
+    expect(mockBuildDriveRangeCandidatePool).not.toHaveBeenCalled();
+    expect(from).not.toHaveBeenCalledWith('beaches');
+    expect(mockGenerateWeekScoutForecast).toHaveBeenCalledWith('user-week-scout', {
+      candidateBeachIds: [BEACH_B, BEACH_A],
+      localTimezone: 'America/Tijuana', startLocalDate: '2026-07-15', dayCount: 7,
+      userLocation: anchor,
+    });
+  });
+
+  it('keeps installed-app candidate IDs when the drive-range pool is empty', async () => {
+    const anchor = { lat: 32.2, lon: -116.9 };
+    const from = tables({
+      profiles: { max_drive_minutes: 90 },
+      user_location_snapshots: { ...anchor, captured_at: new Date().toISOString() },
+    });
+    mockBuildDriveRangeCandidatePool.mockResolvedValueOnce({ candidates: [] });
+
+    const response = await callRoute({
+      candidateBeachIds: [BEACH_B, BEACH_A], localTimezone: 'America/Tijuana', startLocalDate: '2026-07-15', dayCount: 7,
+    }, { from });
+
+    expect(response.status).toBe(200);
+    expect(mockBuildDriveRangeCandidatePool).toHaveBeenCalledTimes(1);
+    expect(mockGenerateWeekScoutForecast).toHaveBeenCalledWith('user-week-scout', expect.objectContaining({
+      candidateBeachIds: [BEACH_B, BEACH_A],
+      driveRadiusMiles: 45,
+      userLocation: anchor,
+    }));
   });
 
   it('scores in-range pool candidates when no installed-app ID intersects the pool', async () => {
