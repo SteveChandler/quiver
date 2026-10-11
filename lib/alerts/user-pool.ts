@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Beach, Database } from "@/types/database";
 import { driveRadiusMiles } from "@/lib/profile/drive-range";
+import { calculateDistanceInMiles } from "@/lib/utils/distance-utils";
 
 export type PoolRelation = "home" | "favorite" | "custom" | "nearby";
 
@@ -172,12 +173,25 @@ export async function loadUserPool({
   return [...relations.keys()].flatMap((beachId) => {
     const beach = beachesById.get(beachId);
     if (!beach?.slug) return [];
+    const distanceMiles = nearbyDistances.get(beachId) ?? distanceFromAnchor(location, beach);
+    // Saved and home spots are candidates only when the surfer could drive to
+    // them from where they are; with no anchor there is nothing to measure.
+    if (distanceMiles !== null && distanceMiles > radiusMiles) return [];
     return [
       {
         beach,
         relation: relations.get(beachId)!,
-        distanceMiles: nearbyDistances.get(beachId) ?? null,
+        distanceMiles,
       },
     ];
   });
+}
+
+function distanceFromAnchor(
+  location: { lat: number; lon: number } | null,
+  beach: Beach,
+): number | null {
+  if (!location || !Number.isFinite(beach.lat) || !Number.isFinite(beach.lon)) return null;
+  const miles = calculateDistanceInMiles(location, { lat: beach.lat, lon: beach.lon });
+  return Number.isFinite(miles) ? miles : null;
 }

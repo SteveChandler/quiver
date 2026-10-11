@@ -354,6 +354,60 @@ describe("user pool", () => {
     expect(result.map(({ beach }) => beach.id)).toEqual([valid.id]);
   });
 
+  describe("drive range", () => {
+    const sanDiego = { lat: 32.767, lon: -117.188 };
+    const located = (id: string, lat: number, lon: number): Beach =>
+      ({ ...makeBeach(id), lat, lon }) as Beach;
+    const pacificBeach = located("pacific-beach", 32.797, -117.258);
+    const alaMoana = located("ala-moana-bowls", 21.281, -157.844);
+    const farHome = located("far-home", 21.27, -157.82);
+    const farCustomAnchor = located("far-custom-anchor", 33.47, -117.72);
+
+    function store(): Store {
+      return {
+        favorites: [
+          { beach_id: pacificBeach.id, custom_spot_id: null },
+          { beach_id: alaMoana.id, custom_spot_id: null },
+          { beach_id: null, custom_spot_id: "far-custom" },
+        ],
+        customSpots: [{ id: "far-custom", nearest_beach_id: farCustomAnchor.id }],
+        forecasts: [{ beach_id: farCustomAnchor.id }],
+        beaches: [pacificBeach, alaMoana, farHome, farCustomAnchor],
+        nearby: [],
+      };
+    }
+
+    it("drops home, saved and custom beaches outside the range of the anchor", async () => {
+      const result = await loadUserPool({
+        supabase: makeSupabase(store()),
+        userId: "user-1",
+        homeBeachId: farHome.id,
+        location: sanDiego,
+        maxDriveMinutes: 90,
+      });
+
+      expect(result.map(({ beach, relation }) => [beach.id, relation])).toEqual([
+        [pacificBeach.id, "favorite"],
+      ]);
+      expect(result[0].distanceMiles).toBeCloseTo(4.6, 1);
+    });
+
+    it("keeps every saved spot when there is no anchor to measure from", async () => {
+      const result = await loadUserPool({
+        supabase: makeSupabase(store()),
+        userId: "user-1",
+        homeBeachId: farHome.id,
+        location: null,
+        maxDriveMinutes: 90,
+      });
+
+      expect(result.map(({ beach }) => beach.id)).toEqual([
+        farHome.id, pacificBeach.id, alaMoana.id, farCustomAnchor.id,
+      ]);
+      expect(result.every(({ distanceMiles }) => distanceMiles === null)).toBe(true);
+    });
+  });
+
   it("includes only custom spots whose forecast anchor has fresh forecasts", async () => {
     const freshAnchor = makeBeach("fresh-anchor");
     const staleAnchor = makeBeach("stale-anchor");

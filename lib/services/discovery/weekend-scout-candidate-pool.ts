@@ -1,8 +1,10 @@
 import "server-only";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { loadUserPool } from "@/lib/alerts/user-pool";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { calculateDistanceInMiles } from "@/lib/utils/distance-utils";
-import type { Beach } from "@/types/database";
+import type { Beach, Database } from "@/types/database";
 
 const METERS_PER_MILE = 1609.344;
 const MAX_RADIUS_MILES = 100;
@@ -294,5 +296,86 @@ export async function buildWeekendScoutCandidatePool(
     filteredOutCount: hydratedCandidates.length - candidates.length,
     incomplete,
     wasTruncated: incomplete,
+  };
+}
+
+type WeekScoutFilter = NonNullable<BuildWeekendScoutCandidatePoolOptions["filters"]>[number];
+
+/**
+ * Week Scout scores the nearest in-range beaches, plus every home, saved and
+ * custom spot in range. Measured 2026-10-11 against production data (LA, 100
+ * mile range): 30 beaches 1.07 s, 50 1.44 s, 60 1.77 s, 99 2.49 s.
+ */
+export const DRIVE_RANGE_NEARBY_CANDIDATE_CAP = 50;
+
+interface BuildDriveRangeCandidatePoolOptions {
+  anchor: { lat: number; lon: number };
+  homeBeachId: string | null;
+  maxDriveMinutes: number | null;
+  filters?: readonly WeekScoutFilter[];
+}
+
+interface DriveRangeCandidatePoolDependencies {
+  loadPool: typeof loadUserPool;
+  supabase: SupabaseClient<Database>;
+}
+
+export interface DriveRangeCandidatePool {
+  candidates: Array<{ beach: Beach; distanceMiles: number | null }>;
+  enumeratedCount: number;
+  filteredOutCount: number;
+  /** Nearby beaches in range left out past the nearest-beach cap. */
+  cappedCount: number;
+  /** Distance to the farthest nearby beach kept; null when nothing was capped. */
+  farthestNearbyMiles: number | null;
+}
+
+/**
+ * Home's drive-range scope. It is the Daily Call's own pool (home, saved and
+ * custom spots inside the range, plus every eligible beach in it, same country)
+ * so the two surfaces choose among the same beaches, narrowed by the surfer's
+ * Week Scout filters.
+ */
+export async function buildDriveRangeCandidatePool(
+  userId: string,
+  options: BuildDriveRangeCandidatePoolOptions,
+  dependencies?: DriveRangeCandidatePoolDependencies,
+): Promise<DriveRangeCandidatePool> {
+  const deps = dependencies ?? {
+    loadPool: loadUserPool,
+    supabase: createSupabaseServiceRoleClient(),
+  };
+  const pool = await deps.loadPool({
+    supabase: deps.supabase,
+    userId,
+    homeBeachId: options.homeBeachId,
+    location: options.anchor,
+    maxDriveMinutes: options.maxDriveMinutes,
+  });
+  const scope: BuildWeekendScoutCandidatePoolOptions = {
+    userLocation: options.anchor,
+    radiusMiles: MAX_RADIUS_MILES,
+    filters: options.filters,
+    nearbyLocation: options.anchor,
+  };
+  const matching = pool.filter(({ beach, distanceMiles }) => (
+    matchesScope({ beach, distanceMiles: distanceMiles ?? 0 }, scope)
+  ));
+  const nearby = matching
+    .filter(({ relation }) => relation === "nearby")
+    .sort((left, right) => (left.distanceMiles ?? 0) - (right.distanceMiles ?? 0));
+  const keptNearby = new Set(nearby.slice(0, DRIVE_RANGE_NEARBY_CANDIDATE_CAP));
+  const cappedCount = nearby.length - keptNearby.size;
+  const candidates = matching
+    .filter((entry) => entry.relation !== "nearby" || keptNearby.has(entry))
+    .map(({ beach, distanceMiles }) => ({ beach, distanceMiles }));
+  return {
+    candidates,
+    enumeratedCount: pool.length,
+    filteredOutCount: pool.length - matching.length,
+    cappedCount,
+    farthestNearbyMiles: cappedCount > 0
+      ? nearby[DRIVE_RANGE_NEARBY_CANDIDATE_CAP - 1]?.distanceMiles ?? null
+      : null,
   };
 }
