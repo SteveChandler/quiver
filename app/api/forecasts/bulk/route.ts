@@ -55,7 +55,7 @@ import {
 
 import { resolveMajorEventHoldBoundary } from "@/lib/recommendations/major-event-hold/adapters/shared";
 import { getClientIdentifier } from "@/lib/middleware/api-wrappers/rate-limit-wrapper";
-import { acquireBulkForecastSlot, bulkForecastShedResponse, FORECAST_BULK_DEADLINE_MS } from "@/lib/api/bulk-forecast-guard";
+import { withBulkForecastSlot, bulkForecastShedResponse, FORECAST_BULK_DEADLINE_MS } from "@/lib/api/bulk-forecast-guard";
 
 export const dynamic = 'force-dynamic';
 
@@ -787,18 +787,13 @@ export async function bulkForecastHandler(
   request: NextRequest,
   context: OptionalAuthContext
 ): Promise<NextResponse> {
-  if (request.signal.aborted) return bulkForecastShedResponse("deadline");
-  const ip = getClientIdentifier(request);
-  const beachCount = request.nextUrl.searchParams.get("beachIds")?.split(",").filter((id) => id.trim()).length ?? 0;
-  const slot = acquireBulkForecastSlot(ip, beachCount);
-  if (slot.reason) return bulkForecastShedResponse(slot.reason);
-
+  const startedAt = Date.now();
   const signal = AbortSignal.any([request.signal, AbortSignal.timeout(FORECAST_BULK_DEADLINE_MS)]);
+  const beachIds = request.nextUrl.searchParams.get("beachIds")?.split(",").map((id) => id.trim()).filter(Boolean) ?? [];
 
   try {
     signal.throwIfAborted();
     const searchParams = request.nextUrl.searchParams;
-    const beachIdsParam = searchParams.get("beachIds");
     const forecastAtParam = searchParams.get("forecastAt");
     const isHourlyTimeline = searchParams.get("timeline") === "hourly";
     const timelineOnlyParam = searchParams.get("timelineOnly");
@@ -823,19 +818,6 @@ export async function bulkForecastHandler(
       return createValidationError(hourlyTimelineParseResult.error);
     }
     const hourlyTimelineWindow = hourlyTimelineParseResult?.window ?? null;
-
-    // Return empty forecasts for missing/empty beachIds (not an error)
-    if (!beachIdsParam || !beachIdsParam.trim()) {
-      return createSuccessResponse(
-        await sanitizeBulkResponse(emptyBulkForecastResponse, new Map(), null)
-      );
-    }
-
-    // Parse beach IDs and filter out empty strings
-    const beachIds = beachIdsParam
-      .split(",")
-      .map(id => id.trim())
-      .filter(Boolean);
 
     if (beachIds.length === 0) {
       return createSuccessResponse(
@@ -1136,21 +1118,22 @@ export async function bulkForecastHandler(
       )
     );
   } catch (error) {
-    if (signal.aborted) return bulkForecastShedResponse("deadline");
+    if (signal.aborted) {
+      console.warn("[forecast-bulk:shed]", { reason: "deadline", ip: getClientIdentifier(request), beachCount: beachIds.length, elapsedMs: Date.now() - startedAt });
+      return bulkForecastShedResponse("deadline");
+    }
     console.error("Unexpected error in bulk forecast API:", error);
     return handleApiError(error instanceof Error ? error : new Error(String(error)), "Unexpected error fetching forecasts");
-  } finally {
-    slot.release();
   }
 }
 
 // Apply rate limiting to prevent abuse of bulk operations
 export const GET = withNoStore(
   withRateLimit(
-    withAuth(bulkForecastHandler, {
+    withBulkForecastSlot(withAuth(bulkForecastHandler, {
       optional: true,
       errorMessage: "Unexpected error fetching forecasts",
-    }),
+    })),
     "forecast-bulk"
   )
 );

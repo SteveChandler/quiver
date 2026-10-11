@@ -66,6 +66,7 @@ async function mapBootstrapHandler(
       headers: request.headers,
       signal: request.signal,
     });
+    // Bootstrap runs once per map open, so it bypasses bulk slots and keeps the deadline.
     const forecastResponse = await bulkForecastHandler(forecastRequest, context);
     const forecast = forecastResponse.ok ? await forecastResponse.json() : null;
 
