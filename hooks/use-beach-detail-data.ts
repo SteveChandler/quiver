@@ -235,6 +235,7 @@ export function useBeachDetailData({
     forecastCached,
     sources,
     loading,
+    forecastsLoading: forecastLoading,
     errors,
     refetch,
     refreshForecast,

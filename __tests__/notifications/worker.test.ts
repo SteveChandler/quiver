@@ -834,6 +834,56 @@ describe("worker recommendation-hold integration", () => {
       "water_quality_held_beaches",
     );
   });
+
+  it("skips a Daily Call naming a water-quality-held alternative with major-event holds off", async () => {
+    const leadId = "11111111-1111-4111-8111-111111111111";
+    const heldId = "22222222-2222-4222-8222-222222222222";
+    mockWaterQualityHeldBeachIds.add(heldId);
+
+    const state = emptyState();
+    state.events.push(
+      buildEvent({
+        id: "evt-daily-call-held-option",
+        actor_user_id: null,
+        type: "daily_call",
+        entity_type: null,
+        entity_id: null,
+        payload: {
+          beach_id: leadId,
+          window_start: "2026-04-29T15:00:00.000Z",
+          window_end: "2026-04-29T17:00:00.000Z",
+          options: [{
+            beach_id: heldId,
+            window_start: "2026-04-29T16:00:00.000Z",
+            window_end: "2026-04-29T18:00:00.000Z",
+          }],
+        },
+      }),
+    );
+    state.profiles.set("user-recipient", buildProfile());
+
+    const summary = await processPendingEventsReal(
+      buildMockSupabase(state) as never,
+      {
+        now: NOON_PT,
+        fcm: null,
+        resolveMajorEventHold: (input) =>
+          resolveNotificationMajorEventHold({ ...input, mode: "off" }),
+      },
+    );
+
+    expect(summary.by_status.skipped_disabled).toBeGreaterThanOrEqual(1);
+    expect(state.attempts).toContainEqual(
+      expect.objectContaining({
+        notification_event_id: "evt-daily-call-held-option",
+        status: "skipped_disabled",
+        provider_response: {
+          audit_code: "major_event_hold",
+          reason_code: "water_quality_hold",
+        },
+      }),
+    );
+  });
 });
 
 describe("processPendingEvents — empty state", () => {

@@ -1,4 +1,5 @@
-import { buildOpenMeteoSingleRunRequest, fetchOpenMeteoSingleRunReceipt, type PrototypeSingleRunReceipt } from "./single-run-receipt";
+import { buildOpenMeteoSingleRunRequest, fetchOpenMeteoSingleRunReceipt, getSingleRunTupleDiagnostic, type PrototypeSingleRunReceipt } from "./single-run-receipt";
+import * as Sentry from "@sentry/nextjs";
 import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database.generated";
@@ -152,7 +153,7 @@ export async function acquireProviderRunReceipts(
       extraRuns = [1, 2].map((hours) => new Date(issued * 1000 - hours * 6 * 3_600_000).toISOString().slice(0, 16) + "Z")
         .filter((candidate) => Date.parse(candidate) <= issued * 1000)
         .filter((candidate) => !states.has(candidate))
-        .sort((left, right) => Date.parse(left) - Date.parse(right)).slice(0, 2);
+        .sort((left, right) => Date.parse(right) - Date.parse(left)).slice(0, 2);
     } else {
       console.warn("[swell-watch-acquire] provider run state unavailable");
     }
@@ -165,8 +166,32 @@ export async function acquireProviderRunReceipts(
     }
     return storePrototypeSingleRunReceipts(receipts, client);
   };
-  for (const requestedRunUtc of extraRuns) await acquireOne(requestedRunUtc);
-  return acquireOne(runUtc);
+  // Issuances are independent (completion is per revision set), so the newest goes first and an earlier issuance is
+  // best-effort backfill: its failure is reported, never allowed to block the latest. A missing earlier issuance is
+  // retried next hour while it stays in the lookback. Only the latest's transient errors fail the run.
+  let latest: { stored: StoredProviderRunReceipt } | { invalid: unknown };
+  try {
+    latest = { stored: await acquireOne(runUtc) };
+  } catch (error) {
+    if (!getSingleRunTupleDiagnostic(error)) throw error;
+    reportSkippedProviderRun(runUtc, error);
+    latest = { invalid: error };
+  }
+  for (const requestedRunUtc of extraRuns) {
+    try { await acquireOne(requestedRunUtc); } catch (error) { reportSkippedProviderRun(requestedRunUtc, error); }
+  }
+  if ("invalid" in latest) throw latest.invalid;
+  return latest.stored;
+}
+
+/** A skipped issuance can cost the study a qualifying day, so it alerts rather than only logging. */
+function reportSkippedProviderRun(runUtc: string, error: unknown): void {
+  const tuple = getSingleRunTupleDiagnostic(error);
+  const reason = tuple ? "invalid_provider_tuple" : "backfill_failed";
+  console.error("[swell-watch-acquire] provider run skipped", { runUtc, reason, tuple, error: error instanceof Error ? error.message : String(error) });
+  Sentry.captureMessage(`[swell-watch-acquire] provider run ${runUtc} skipped (${reason})`, {
+    level: "warning", tags: { cron_job: "swell-watch-acquire", swell_watch_skip_reason: reason }, extra: { runUtc, tuple },
+  });
 }
 
 export async function readStoredProviderRunStates(

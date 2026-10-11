@@ -3,7 +3,7 @@
 import { useAuth } from "@/context/auth-context";
 import { Button } from "@/components/ui/button";
 import { Waves } from "lucide-react";
-import { usePathname } from "next/navigation";
+import { useRoutePathname } from "@/hooks/use-route-pathname";
 import React, { useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
@@ -37,7 +37,7 @@ export function PublicContentGate({
   ctaCopyVariant,
 }: PublicContentGateProps) {
   const { user, isLoading } = useAuth();
-  const pathname = usePathname();
+  const pathname = useRoutePathname();
   const hasTrackedView = useRef(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "signup">("signup");

@@ -88,6 +88,7 @@ function dependencies(
     enqueue: jest.fn(async () => ({ enqueued: true as const, eventId: "event-1" })),
     markAlertEnqueued: jest.fn(async () => undefined),
     recordForecast: jest.fn(async () => ({ inserted: true })),
+    resolveHeldBeaches: jest.fn(async () => new Map()),
     ...overrides,
   };
 }
@@ -324,6 +325,35 @@ describe("runSwellAlertCron go rule and verification record", () => {
     expect(result.skippedCounts.event_exists).toBe(1);
     expect(deps.recordForecast).not.toHaveBeenCalled();
     expect(deps.enqueue).not.toHaveBeenCalled();
+  });
+});
+
+describe("held beaches on the legacy swell path", () => {
+  it("leads with the best clear beach and never names a held one", async () => {
+    const blacks = "11111111-1111-4111-8111-111111111111";
+    const deps = dependencies({
+      resolveHeldBeaches: jest.fn(async ({ candidates }) => new Map(candidates
+        .filter((candidate) => candidate.beachId === blacks)
+        .map((candidate) => [candidate.candidateId, "water_quality_hold" as const]))),
+    });
+
+    const result = await runSwellAlertCron({ now: NOW, deps });
+
+    expect(deps.resolveHeldBeaches).toHaveBeenCalledWith(expect.objectContaining({
+      profileExperience: "advanced",
+      asOf: NOW,
+    }));
+    expect(result.sent).toBe(1);
+    expect(result.skippedCounts.held_water_quality_hold).toBe(1);
+    const payload = jest.mocked(deps.enqueue).mock.calls[0][0].payload as {
+      beach_id: string;
+      beaches: Array<{ beach_id: string; rank: number }>;
+    };
+    expect(payload.beach_id).toBe("22222222-2222-4222-8222-222222222222");
+    expect(payload.beaches.map(({ beach_id }) => beach_id)).toEqual([
+      "22222222-2222-4222-8222-222222222222",
+      "33333333-3333-4333-8333-333333333333",
+    ]);
   });
 });
 

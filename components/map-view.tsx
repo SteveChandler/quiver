@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
+import { useRoutePathname } from "@/hooks/use-route-pathname";
 import { X } from "lucide-react";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { useBeachSearch } from "@/hooks/use-beach-search";
@@ -111,7 +112,7 @@ async function resolveLastViewedCenter(): Promise<{
 export function MapView() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const pathname = usePathname();
+  const pathname = useRoutePathname();
   const isShareView = searchParams.get("share") === "1";
   const [showFieldGuide, setShowFieldGuide] = useState(false);
   const [cameraOwner, setCameraOwner] = useState<MapCameraOwner>("initial");
@@ -134,6 +135,10 @@ export function MapView() {
       if (input.source !== "gps") {
         explicitGpsRequestRef.current = null;
       }
+      // A command moves the camera, so any earlier user pan no longer describes
+      // where the map is looking.
+      exploredCenterRef.current = null;
+      setExploredCenter(null);
       setCameraCommand((previous) => createCameraCommand(previous, input));
       cameraOwnerRef.current = owner;
       setCameraOwner(owner);
@@ -471,30 +476,39 @@ export function MapView() {
   // The URL→state effect above will re-sync searchQuery="" on the next tick when the URL
   // update lands — same value, React bails — but skipping the direct hook write would
   // introduce a one-tick window where the UI still shows filtered results.
-  const handleClearSearch = useCallback(() => {
-    clearSearch();
-    stripMapUrlParams(["search"]);
-    // Reset to nearby beaches when clearing search
-    if (userLocation) {
-      loadNearbyBeaches(userLocation.lat, userLocation.lon);
+  // Leaving a search reloads the beaches around where the camera is. userLocation is
+  // only a fallback seed on /map, so it would reload around the wrong coast. Background
+  // keeps the current markers and colours until the nearby set lands.
+  const reloadNearbyAroundView = useCallback(() => {
+    const center = viewCenter ?? userLocation;
+    if (center) {
+      void loadNearbyBeaches(center.lat, center.lon, { background: true });
     } else {
       getUserLocation();
     }
-  }, [clearSearch, stripMapUrlParams, userLocation, loadNearbyBeaches, getUserLocation]);
+  }, [viewCenter, userLocation, loadNearbyBeaches, getUserLocation]);
+
+  const handleClearSearch = useCallback(() => {
+    clearSearch();
+    stripMapUrlParams(["search"]);
+    reloadNearbyAroundView();
+  }, [clearSearch, stripMapUrlParams, reloadNearbyAroundView]);
 
   const handleSearchChange = useCallback(
     (query: string) => {
       setSelectedBeach(null);
       setSearchQuery(query);
       stripMapUrlParams(["search"], { preserveSearchState: true });
+      if (!query.trim() && searchQuery.trim()) reloadNearbyAroundView();
     },
-    [setSearchQuery, setSelectedBeach, stripMapUrlParams]
+    [reloadNearbyAroundView, searchQuery, setSearchQuery, setSelectedBeach, stripMapUrlParams]
   );
 
   const handleClearAll = useCallback(() => {
     clearAllFilters();
     stripMapUrlParams(["search", "type", "level"]);
-  }, [clearAllFilters, stripMapUrlParams]);
+    if (searchQuery.trim()) reloadNearbyAroundView();
+  }, [clearAllFilters, reloadNearbyAroundView, searchQuery, stripMapUrlParams]);
 
   const handleUseMyLocation = useCallback(() => {
     setLocationDeniedPromptDismissed(true);

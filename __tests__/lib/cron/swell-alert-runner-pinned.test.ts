@@ -164,6 +164,7 @@ async function run(
       isFollowupUserAllowed: () => true,
       loadProfiles: async () => [profile],
       enqueue,
+      resolveHeldBeaches: async () => new Map(),
       ...deps,
     },
   });
