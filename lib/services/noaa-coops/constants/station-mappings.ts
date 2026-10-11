@@ -9,9 +9,10 @@ export const COOPS_STATIONS: Record<string, string> = {
   // ==================== WEST COAST ====================
 
   // San Diego County, CA
+  "san-diego-bay": "9410170",
   "la-jolla": "9410230",
-  "san-diego": "9410170",
-  "imperial-beach": "9410170",
+  "san-diego": "9410230",
+  "imperial-beach": "9410230",
   oceanside: "9410230",
   carlsbad: "9410230",
   encinitas: "9410230",
@@ -30,12 +31,12 @@ export const COOPS_STATIONS: Record<string, string> = {
   "crystal-pier": "9410230",
   "pacific-beach": "9410230",
   "mission-beach": "9410230",
-  "ocean-beach": "9410170",
-  "sunset-cliffs-garbage": "9410170", // DB slug
-  "sunset-cliffs": "9410170", // legacy alias
-  coronado: "9410170",
-  "silver-strand-state-beach": "9410170", // DB slug
-  "silver-strand": "9410170", // legacy alias
+  "ocean-beach": "9410230",
+  "sunset-cliffs-garbage": "9410230", // DB slug
+  "sunset-cliffs": "9410230", // legacy alias
+  coronado: "9410230",
+  "silver-strand-state-beach": "9410230", // DB slug
+  "silver-strand": "9410230", // legacy alias
 
   // Orange County, CA
   "huntington-beach": "9410580", // Newport Beach station
