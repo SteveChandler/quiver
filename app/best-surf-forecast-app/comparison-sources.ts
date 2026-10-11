@@ -7,7 +7,7 @@ export interface ComparisonSourceLink {
 }
 
 export const COMPARISON_SOURCE_REVIEW = {
-  lastVerified: "2026-09-06",
+  lastVerified: "2026-10-11",
   reviewedBy: "Quiver editorial team",
   // Pricing and product features change often enough to warrant review every two months.
   freshnessThresholdDays: 60,
@@ -18,13 +18,13 @@ export const COMPARISON_SOURCE_LINKS: readonly ComparisonSourceLink[] = [
     label: "Quiver App Store listing",
     href: `${IOS_APP_STORE_WEB_REDIRECT_PATH}&source=best_surf_forecast_app&surface=comparison&placement=source_link`,
     note:
-      "Quiver iPhone listing with session logging and Pro monthly, annual, and lifetime in-app purchases; Pro features include similarity alerts, board recommendations, and offline mode.",
+      "Quiver iPhone listing: free download; Pro in-app purchases $4.99 monthly, $39.99 annual, and $119.99 lifetime. Pro features include similarity alerts, board recommendations, and offline mode.",
   },
   {
-    label: "Surfline upgrade page",
-    href: "https://www.surfline.com/upgrade",
+    label: "Surfline App Store listing",
+    href: "https://apps.apple.com/us/app/surfline-wave-surf-reports/id393782096",
     note:
-      "Premium and Premium+ plan positioning, 16-day forecasts, live cams, and annual pricing.",
+      "Free download; Premium in-app purchases $15.99 monthly and $119.99 annual, Premium+ $149.99 annual. Also on Android and the web.",
   },
   {
     label: "Surfline free vs Premium support",
@@ -34,27 +34,34 @@ export const COMPARISON_SOURCE_LINKS: readonly ComparisonSourceLink[] = [
       "Free, Premium, Premium with Ads, and Premium+ feature differences.",
   },
   {
-    label: "LazySurfer vs Quiver comparison",
-    href: "https://lazysurfer.app/compare/quiver.html",
+    label: "Lazy Surfer App Store listing",
+    href: "https://apps.apple.com/us/app/lazy-surfer/id1450887020",
     note:
-      "LazySurfer pricing, cross-platform availability, and personalization framing.",
+      "Free download with Pro in-app purchases from $4.99; session logging and personalized forecasts. Also on Google Play.",
   },
   {
-    label: "Surf-Forecast.com app page",
-    href: "https://www.surf-forecast.com/pages/app-store",
+    label: "Swell Scope App Store listing",
+    href: "https://apps.apple.com/us/app/swell-scope-surf-forecast/id6747609653",
     note:
-      "Global spot coverage, maps, alerts, tide timing, hourly forecasts, and 16-day planning.",
+      "Free download with in-app purchases of $2.99, $24.99, and $49.99; user-defined spots with exposure settings and a surf journal. Also on Google Play.",
+  },
+  {
+    label: "Surf-Forecast.com App Store listing",
+    href: "https://apps.apple.com/us/app/surf-forecast-com/id6450721636",
+    note:
+      "Free download; Premium in-app purchases $4.99 monthly and $34.99 annual. Global spot coverage, maps, alerts, and long-range planning.",
   },
   {
     label: "Surf Captain FAQ",
     href: "https://surfcaptain.com/faq",
     note:
-      "Free 5-day forecasts with ads and Surf Captain Pro 16-day forecast pricing.",
+      "Basic users get a 5-day forecast with ads; Surf Captain Pro is $19.99 per year for 16-day forecasts.",
   },
   {
-    label: "Windy surfing guide",
-    href: "https://windy.app/guide/mini-guide-to-surfing.html",
-    note: "Wind, swell, tide, and map-reading education for surf forecasting.",
+    label: "Windy.app App Store listing",
+    href: "https://apps.apple.com/us/app/windy-app-wind-tides-radar/id997079492",
+    note:
+      "Free wind, wave, and tide maps; paid plans are sold as in-app purchases. Also on Android.",
   },
   {
     label: "NOAA NDBC",
