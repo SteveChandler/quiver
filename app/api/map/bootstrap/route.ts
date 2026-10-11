@@ -64,6 +64,7 @@ async function mapBootstrapHandler(
     forecastUrl.searchParams.set("beachIds", beachIds.join(","));
     const forecastRequest = new NextRequest(forecastUrl, {
       headers: request.headers,
+      signal: request.signal,
     });
     const forecastResponse = await bulkForecastHandler(forecastRequest, context);
     const forecast = forecastResponse.ok ? await forecastResponse.json() : null;

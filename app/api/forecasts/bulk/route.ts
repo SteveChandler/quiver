@@ -54,6 +54,8 @@ import {
 } from "@/lib/domains/conditions/map-forecast";
 
 import { resolveMajorEventHoldBoundary } from "@/lib/recommendations/major-event-hold/adapters/shared";
+import { getClientIdentifier } from "@/lib/middleware/api-wrappers/rate-limit-wrapper";
+import { acquireBulkForecastSlot, bulkForecastShedResponse, FORECAST_BULK_DEADLINE_MS } from "@/lib/api/bulk-forecast-guard";
 
 export const dynamic = 'force-dynamic';
 
@@ -569,10 +571,12 @@ export async function fetchHourlySwellTimelineRows(
   start: Date,
   end: Date,
   includeConditions = false,
+  signal?: AbortSignal,
 ): Promise<{
   data: EnhancedForecastEntity[] | null;
   error: { message: string } | null;
 }> {
+  signal?.throwIfAborted();
   const anchorTimestamps = timelineAnchorTimestamps(start, end);
   const chunks: string[][] = [];
   const chunkSize = Math.min(10, Math.max(1, Math.floor(999 / Math.max(1, anchorTimestamps.length))));
@@ -580,8 +584,8 @@ export async function fetchHourlySwellTimelineRows(
     chunks.push(beachIds.slice(index, index + chunkSize));
   }
   const chunkResults = await Promise.all(
-    chunks.map((chunk) =>
-      supabase
+    chunks.map((chunk) => {
+      const query = supabase
         .from("enhanced_forecasts")
         .select((includeConditions ? BULK_FORECAST_SELECT : HOURLY_TIMELINE_SELECT) as string)
         .in("beach_id", chunk)
@@ -589,9 +593,11 @@ export async function fetchHourlySwellTimelineRows(
         .gte("forecast_at", new Date(start.getTime() - HOURLY_SAMPLE_HALO_MS).toISOString())
         .lt("forecast_at", new Date(end.getTime() + HOURLY_SAMPLE_HALO_MS).toISOString())
         .order("forecast_at", { ascending: true })
-        .order("beach_id", { ascending: true }),
-    ),
+        .order("beach_id", { ascending: true });
+      return signal ? query.abortSignal(signal) : query;
+    }),
   );
+  signal?.throwIfAborted();
   const rows: unknown[] = [];
   for (const result of chunkResults) {
     if (result.error) return { data: null, error: { message: result.error.message } };
@@ -613,15 +619,17 @@ async function fetchNextHourlySwellTimelineStart(
   supabase: SupabaseClient<Database>,
   beachIds: string[],
   end: Date,
+  signal?: AbortSignal,
 ): Promise<{
   nextStart: string | null;
   error: { message: string } | null;
 }> {
+  signal?.throwIfAborted();
   const eligibleFutureAnchors = timelineAnchorTimestamps(
     end,
     new Date(end.getTime() + MAX_TIMELINE_HOURS * HOUR_MS),
   ).filter((timestamp) => Date.parse(timestamp) >= end.getTime());
-  const { data, error } = await supabase
+  const query = supabase
     .from("enhanced_forecasts")
     .select("forecast_at")
     .in("beach_id", beachIds)
@@ -629,6 +637,8 @@ async function fetchNextHourlySwellTimelineStart(
     .gte("forecast_at", end.toISOString())
     .order("forecast_at", { ascending: true })
     .limit(1);
+  const { data, error } = await (signal ? query.abortSignal(signal) : query);
+  signal?.throwIfAborted();
 
   if (error) return { nextStart: null, error: { message: error.message } };
 
@@ -706,19 +716,23 @@ async function fetchBulkForecastRowsWithV51Display(
   supabase: SupabaseClient<Database>,
   beachIds: string[],
   start: Date,
-  end: Date
+  end: Date,
+  signal?: AbortSignal,
 ): Promise<{
   data: EnhancedForecastEntity[] | null;
   timelineRows: EnhancedForecastEntity[];
   error: { message: string } | null;
 }> {
-  const { data, error } = await supabase
+  signal?.throwIfAborted();
+  const query = supabase
     .from("enhanced_forecasts")
     .select(BULK_FORECAST_SELECT)
     .in("beach_id", beachIds)
     .gte("forecast_at", start.toISOString())
     .lt("forecast_at", end.toISOString())
     .order("forecast_at", { ascending: true });
+  const { data, error } = await (signal ? query.abortSignal(signal) : query);
+  signal?.throwIfAborted();
 
   if (error || !data) {
     return {
@@ -731,6 +745,7 @@ async function fetchBulkForecastRowsWithV51Display(
   const displayRows = await applyV51DisplayOverrideToForecasts(
     data as unknown as EnhancedForecastEntity[]
   );
+  signal?.throwIfAborted();
 
   return {
     data: displayRows,
@@ -772,7 +787,45 @@ export async function bulkForecastHandler(
   request: NextRequest,
   context: OptionalAuthContext
 ): Promise<NextResponse> {
+  if (request.signal.aborted) return bulkForecastShedResponse("deadline");
+  const ip = getClientIdentifier(request);
+  const beachCount = request.nextUrl.searchParams.get("beachIds")?.split(",").filter((id) => id.trim()).length ?? 0;
+  const slot = acquireBulkForecastSlot(ip, beachCount);
+  if (slot.reason) return bulkForecastShedResponse(slot.reason);
+
+  const controller = new AbortController();
+  const abortFromClient = (): void => controller.abort(request.signal.reason);
+  const timer = setTimeout(() => controller.abort(), FORECAST_BULK_DEADLINE_MS);
+  let rejectOnAbort: () => void = (): void => {};
+  const aborted = new Promise<never>((_, reject) => {
+    rejectOnAbort = (): void => reject(controller.signal.reason);
+    controller.signal.addEventListener("abort", rejectOnAbort, { once: true });
+  });
+  request.signal.addEventListener("abort", abortFromClient, { once: true });
+
   try {
+    // Bound response latency even if a downstream helper is slow to settle after abort.
+    const response = await Promise.race([runBulkForecastHandler(request, context, controller.signal), aborted]);
+    if (!response.ok) controller.abort();
+    return response;
+  } catch (error) {
+    if (controller.signal.aborted) return bulkForecastShedResponse("deadline");
+    throw error;
+  } finally {
+    clearTimeout(timer);
+    request.signal.removeEventListener("abort", abortFromClient);
+    controller.signal.removeEventListener("abort", rejectOnAbort);
+    slot.release();
+  }
+}
+
+async function runBulkForecastHandler(
+  request: NextRequest,
+  context: OptionalAuthContext,
+  signal: AbortSignal,
+): Promise<NextResponse> {
+  try {
+    signal.throwIfAborted();
     const searchParams = request.nextUrl.searchParams;
     const beachIdsParam = searchParams.get("beachIds");
     const forecastAtParam = searchParams.get("forecastAt");
@@ -838,16 +891,17 @@ export async function bulkForecastHandler(
     const [forecastResult, hourlyRowsResult, nextStartResult] = await Promise.all([
       timelineResponseOnly
         ? Promise.resolve({ data: [], timelineRows: [], error: null })
-        : fetchBulkForecastRowsWithV51Display(supabase, limitedBeachIds, fetchWindow.start, fetchWindow.end),
+        : fetchBulkForecastRowsWithV51Display(supabase, limitedBeachIds, fetchWindow.start, fetchWindow.end, signal),
       hourlyTimelineWindow
-        ? fetchHourlySwellTimelineRows(supabase, timelineBeachIds, hourlyTimelineWindow.start, hourlyTimelineWindow.end, includeConditions)
+        ? fetchHourlySwellTimelineRows(supabase, timelineBeachIds, hourlyTimelineWindow.start, hourlyTimelineWindow.end, includeConditions, signal)
             .catch((error: Error) => ({ data: [], error: { message: error.message } }))
         : Promise.resolve({ data: [], error: null }),
       hourlyTimelineWindow
-        ? fetchNextHourlySwellTimelineStart(supabase, timelineBeachIds, hourlyTimelineWindow.end)
+        ? fetchNextHourlySwellTimelineStart(supabase, timelineBeachIds, hourlyTimelineWindow.end, signal)
             .catch((error: Error) => ({ nextStart: null, error: { message: error.message } }))
         : Promise.resolve({ nextStart: null, error: null }),
     ]);
+    signal.throwIfAborted();
     if (forecastResult.error) {
       console.error("Error fetching bulk forecasts:", forecastResult.error);
       return handleApiError(new Error(forecastResult.error.message), "Failed to fetch bulk forecasts");
@@ -860,6 +914,7 @@ export async function bulkForecastHandler(
     const { data, timelineRows } = forecastResult;
     const hourlyRows = hourlyRowsResult.data ?? [];
     const hourlyDisplayRows = includeConditions ? await applyV51DisplayOverrideToForecasts(hourlyRows) : hourlyRows;
+    signal.throwIfAborted();
     const selectedRows = [...groupForecastsByBeach(data).values()].flatMap((rows) => {
       const row = fetchWindow.selectedAt ? closestForecastRow(rows, fetchWindow.selectedAt)
         : designateCurrentRow(rows, now, { toleranceMs: CURRENT_CONDITIONS_TOLERANCE_MS })?.row;
@@ -869,7 +924,9 @@ export async function bulkForecastHandler(
       user?.id ?? null, limitedBeachIds, [...selectedRows, ...(includeConditions ? hourlyDisplayRows : [])],
       hourlyTimelineWindow && hourlyTimelineWindow.start < fetchWindow.start ? hourlyTimelineWindow.start : fetchWindow.start,
       hourlyTimelineWindow && hourlyTimelineWindow.end > fetchWindow.end ? hourlyTimelineWindow.end : fetchWindow.end,
+      signal,
     ) : undefined;
+    signal.throwIfAborted();
     const userSkillLevel = decisionContext?.skillLevel ?? parseSkillLevel(searchParams.get("skillLevel"));
     if (decisionContext) decisionContext.skillLevel = userSkillLevel;
     const boardClasses = decisionContext?.boardClasses ?? [];
@@ -878,6 +935,7 @@ export async function bulkForecastHandler(
       hourlyRows, hourlyDisplayRows, timelineBeachIds, hourlyTimelineWindow, nextStartResult.nextStart,
       includeConditions ? decisionContext : undefined,
     ) : undefined;
+    signal.throwIfAborted();
     if (timelineResponseOnly) {
       return createSuccessResponse({
         ...(isHourlyTimelineOnly ? emptyBulkForecastResponse : {}),
@@ -1107,6 +1165,7 @@ export async function bulkForecastHandler(
       )
     );
   } catch (error) {
+    if (signal.aborted) throw signal.reason;
     console.error("Unexpected error in bulk forecast API:", error);
     return handleApiError(error instanceof Error ? error : new Error(String(error)), "Unexpected error fetching forecasts");
   }

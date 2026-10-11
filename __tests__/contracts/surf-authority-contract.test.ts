@@ -99,6 +99,7 @@ function queryFor(table: string) {
       return query;
     }),
     order: jest.fn(() => query),
+    abortSignal: jest.fn(() => query),
     limit: jest.fn(() => query),
     maybeSingle: jest.fn(async () => {
       if (table === "beaches") return { data: { id: BEACH_ID }, error: null };
@@ -127,7 +128,9 @@ function queryFor(table: string) {
 
 const mockSupabase = {
   from: jest.fn((table: string) => queryFor(table)),
-  rpc: jest.fn(async (name: string) => ({
+  rpc: jest.fn((name: string) => ({
+    abortSignal: function () { return this; },
+    then: (resolve: (value: unknown) => unknown) => Promise.resolve(resolve({
     data: name === "get_bulk_forecast_decision_context" ? {
       beaches: [beach],
       profile: null,
@@ -141,6 +144,7 @@ const mockSupabase = {
       water_quality: {},
     } : [],
     error: null,
+    })),
   })),
 };
 const mockBatchFetchForecasts = jest.fn(async () => ({
