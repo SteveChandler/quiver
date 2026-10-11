@@ -635,22 +635,24 @@ async function buildSharedCall(
 
 async function loadProfiles(
   supabase: SupabaseClient<Database>,
+  userIds?: readonly string[],
 ): Promise<DailyCallProfile[]> {
-  const { data, error } = await supabase
+  const query = supabase
     .from("profiles")
     .select("id, home_beach_id, timezone, daily_call_time, notif_push_enabled, notif_forecast_alerts, experience_level, max_drive_minutes, preferred_session_time")
     .is("deleted_at", null);
+  const { data, error } = await (userIds ? query.in("id", userIds) : query);
   if (error) throw new Error(`Failed to load daily-call profiles: ${error.message}`);
   const rows = data ?? [];
-  const userIds = rows.map((row) => row.id);
+  const loadedUserIds = rows.map((row) => row.id);
   const homeBeachIds = rows.flatMap((row) => row.home_beach_id ? [row.home_beach_id] : []);
   const [locationsResult, beachesResult] = await Promise.all([
-    userIds.length === 0
+    loadedUserIds.length === 0
       ? Promise.resolve({ data: [], error: null })
       : supabase
           .from("user_location_snapshots")
           .select("user_id, lat, lon, timezone, captured_at")
-          .in("user_id", userIds),
+          .in("user_id", loadedUserIds),
     homeBeachIds.length === 0
       ? Promise.resolve({ data: [], error: null })
       : supabase.from("beaches").select("*").in("id", homeBeachIds),
@@ -677,6 +679,8 @@ async function loadProfiles(
     homeBeach: row.home_beach_id ? beaches.get(row.home_beach_id) ?? null : null,
   }));
 }
+
+export { loadProfiles as loadDailyCallProfiles };
 
 function defaultDeps(
   supabase: SupabaseClient<Database>,

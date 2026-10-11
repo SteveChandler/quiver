@@ -393,8 +393,12 @@ function dailyCallOwnsToday(profile: SwellAlertProfile): boolean {
     && profile.notifPushEnabled === true && profile.notifForecastAlerts === true;
 }
 
-async function loadProfiles(client: ServiceClient, now: Date): Promise<SwellAlertProfile[]> {
-  const { data, error } = await client
+async function loadProfiles(
+  client: ServiceClient,
+  now: Date,
+  userIds?: readonly string[],
+): Promise<SwellAlertProfile[]> {
+  const query = client
     .from("profiles")
     .select(`
       id,
@@ -410,6 +414,7 @@ async function loadProfiles(client: ServiceClient, now: Date): Promise<SwellAler
       home_beach:beaches!profiles_home_beach_id_fkey(lat, lon, timezone)
     `)
     .is("deleted_at", null);
+  const { data, error } = await (userIds ? query.in("id", userIds) : query);
   if (error) throw new Error(`Failed to load swell alert users: ${error.message}`);
 
   return (data ?? []).map((value) => {
@@ -439,6 +444,12 @@ async function loadProfiles(client: ServiceClient, now: Date): Promise<SwellAler
     };
   });
 }
+
+export {
+  loadProfiles as loadSwellAlertProfiles,
+  evaluatePool as evaluateSwellAlertPool,
+  SEND_HOUR as SWELL_ALERT_SEND_HOUR,
+};
 
 /**
  * PostgREST caps every response (Supabase default 1,000 rows), and 40 days of
