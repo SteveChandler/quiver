@@ -183,10 +183,10 @@ async function weekScoutHandler(
     // A searched origin when the surfer picked one; otherwise where the phone is
     // when it synced in the last 15 minutes, else the home break, the same
     // anchor Home seeds from while it locates.
-    const origin = completeRadiusScope.origin ?? null;
-    const anchor = origin ?? userLocation ?? await loadHomeBeachCoordinates(supabase, homeBeachId);
-    if (!anchor) return createValidationError('A current location or map scope is required for complete-radius Week Scout');
-    scopeAnchor = origin ? 'origin' : userLocation ? 'location' : 'home';
+    const resolvedAnchor = await resolveScopeAnchor(supabase, completeRadiusScope.origin ?? null, userLocation, homeBeachId);
+    if (!resolvedAnchor) return createValidationError('A current location or map scope is required for complete-radius Week Scout');
+    const { anchor } = resolvedAnchor;
+    scopeAnchor = resolvedAnchor.source;
     rankingLocation = anchor;
     scopeRadiusMiles = Math.min(Math.max(0.5, driveRadiusMiles(profile?.max_drive_minutes)), MAX_RADIUS_MILES);
     const pool = await buildDriveRangeCandidatePool(user.id, {
@@ -269,6 +269,29 @@ async function weekScoutHandler(
       lat: candidate.beach.lat,
       lon: candidate.beach.lon,
     }));
+  } else if (profileError === null) {
+    try {
+      const homeBeachId = profile?.home_beach_id ?? null;
+      const resolvedAnchor = await resolveScopeAnchor(supabase, null, userLocation, homeBeachId);
+      if (resolvedAnchor) {
+        const { anchor } = resolvedAnchor;
+        const pool = await buildDriveRangeCandidatePool(user.id, {
+          anchor,
+          homeBeachId,
+          maxDriveMinutes: profile?.max_drive_minutes ?? null,
+          filters: undefined,
+        });
+        const poolIds = pool.candidates.map((candidate) => candidate.beach.id);
+        const allowedIds = new Set(poolIds);
+        const submittedInRange = candidateBeachIds.filter((id) => allowedIds.has(id));
+        if (poolIds.length > 0) {
+          candidateBeachIds = submittedInRange.length > 0 ? submittedInRange : poolIds;
+        }
+        rankingLocation = anchor;
+      }
+    } catch (error) {
+      console.error('Failed to bound legacy Week Scout candidates', error);
+    }
   }
   // The preference only narrows the pick; if it can't be read, rank every window.
   const sessionTime = profileError === null ? parseSessionTime(profile?.preferred_session_time) : null;
@@ -344,6 +367,18 @@ async function readLocationSnapshot(
   } catch {
     return null;
   }
+}
+
+async function resolveScopeAnchor(
+  supabase: AuthenticatedContext['supabase'],
+  origin: { lat: number; lon: number } | null,
+  userLocation: { lat: number; lon: number } | undefined,
+  homeBeachId: string | null,
+): Promise<{ anchor: { lat: number; lon: number }; source: 'origin' | 'location' | 'home' } | null> {
+  if (origin) return { anchor: origin, source: 'origin' };
+  if (userLocation) return { anchor: userLocation, source: 'location' };
+  const anchor = await loadHomeBeachCoordinates(supabase, homeBeachId);
+  return anchor ? { anchor, source: 'home' } : null;
 }
 
 async function loadHomeBeachCoordinates(
