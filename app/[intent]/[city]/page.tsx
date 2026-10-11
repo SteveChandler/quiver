@@ -339,7 +339,7 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
     cityMetadata,
     {
       tideData: tideDataForMeta ? { nextTideType: tideDataForMeta.nextTideType, nextTideTime: tideDataForMeta.nextTideTime, nextTideHeight: tideDataForMeta.nextTideHeight } : null,
-      waterTempData: waterTempDataForMeta ? { currentTemp: waterTempDataForMeta.currentTemp } : null,
+      waterTempData: waterTempDataForMeta ? { currentTemp: waterTempDataForMeta.currentTemp, source: waterTempDataForMeta.source } : null,
     }
   );
 
@@ -778,7 +778,7 @@ export default async function IntentPage(props: IntentPageParams) {
     // If expanded data available, render dedicated water-temp page
     if (expandedWaterTempData) {
       const waterTempPageContent = buildIntentPageContent("water-temp", cityMetadata, {
-        waterTempData: { currentTemp: expandedWaterTempData.currentTemp },
+        waterTempData: { currentTemp: expandedWaterTempData.currentTemp, source: expandedWaterTempData.source },
       });
       const waterTempBeaches = waterTempBeachesResult.success && waterTempBeachesResult.data
         ? waterTempBeachesResult.data
