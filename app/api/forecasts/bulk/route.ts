@@ -421,7 +421,7 @@ function nearestForecastRow(
 function buildSwellPartitionTimeline(
   rows: EnhancedForecastEntity[],
   now: Date,
-  hourOffsets: readonly number[] = SWELL_TIMELINE_HOUR_OFFSETS,
+  hourOffsets: readonly number[],
 ): Record<string, SwellPartition[]> {
   const rowsByBeach = Map.groupBy(rows, (row) => row.beach_id);
 
