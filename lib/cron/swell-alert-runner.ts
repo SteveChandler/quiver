@@ -39,7 +39,7 @@ import {
 import { getUserEntitlement } from "@/lib/alerts/entitlements";
 import { getDaylightWindow } from "@/lib/alerts/sunrise";
 import { capToBestWindow, refineWindow, type RefinedWindow } from "@/lib/alerts/window-refiner";
-import { groupGoForecasts, loadTideSamples } from "@/lib/cron/daily-call-runner";
+import { groupGoForecasts, loadTideSamples, rankDayWithWeekScout, type RankDay } from "@/lib/cron/daily-call-runner";
 import { loadUserPool } from "@/lib/alerts/user-pool";
 import {
   forecastSlotCandidate,
@@ -48,6 +48,7 @@ import {
 } from "@/lib/alerts/push-beach-holds";
 import { calculateDistance } from "@/lib/utils/distance-utils";
 import { isDailyCallEnabled, isDailyCallUserAllowed } from "@/lib/flags/daily-call";
+import { isSharedCallRankingEnabled, isSharedCallRankingUserAllowed } from "@/lib/flags/shared-call-ranking";
 import { isSwellAlertEnabled, isSwellAlertUserAllowed } from "@/lib/flags/swell-alert";
 import { isSwellFollowupEnabled, isSwellFollowupUserAllowed } from "@/lib/flags/swell-followup";
 import { resolveEntitlement, type Tier } from "@/lib/alerts/entitlements";
@@ -99,8 +100,11 @@ import {
   loadOfficialSwellAdvisories,
 } from "@/lib/recommendations/major-swell-awareness/official-advisory-adapter";
 import type { OfficialSwellAdvisoryEvidence } from "@/lib/recommendations/major-swell-awareness/shadow-evaluator";
+import { selectDayCall } from "@/lib/recommendations/day-call";
 import { recommendBoard } from "@/lib/scoring/personal-board";
+import { parseSessionTime, type SessionTime } from "@/lib/scoring/session-time-preference";
 import { fetchUserBoardContext } from "@/lib/services/discovery/surf-discovery-orchestrator";
+import type { WeekScoutDayResponse } from "@/lib/services/discovery/week-scout";
 import { TideCache } from "@/lib/services/noaa-coops/tide-cache";
 import { selectBestWindows } from "@/lib/services/discovery/window-selector";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
@@ -144,6 +148,7 @@ export interface SwellAlertProfile {
   anchorSource?: LocationAnchor["source"];
   maxDriveMinutes: number | null;
   experienceLevel: string | null;
+  preferredSessionTime?: SessionTime | null;
   notifPushEnabled: boolean | null;
   notifSwellAlerts: boolean | null;
   notifForecastAlerts: boolean | null;
@@ -178,6 +183,8 @@ export interface SwellAlertCandidate {
 export interface SwellAlertPoolEvaluation {
   history: DayScore[];
   candidates: SwellAlertCandidate[];
+  poolBeachIds?: string[];
+  anchor?: { lat: number; lon: number } | null;
 }
 
 /** The pinned beach and, when still detected there, the pinned event. */
@@ -199,6 +206,8 @@ export interface SwellAlertState {
 export interface SwellAlertDeps {
   isEnabled: () => boolean;
   isUserAllowed: (userId: string) => boolean;
+  rankDay?: RankDay;
+  usesSharedRanking?: (userId: string) => boolean;
   loadProfiles: () => Promise<SwellAlertProfile[]>;
   evaluatePool: (
     profile: SwellAlertProfile,
@@ -262,8 +271,9 @@ export interface SwellOutlookDeps {
   loadBeachDistancesKm?: (profile: SwellAlertProfile, beachIds: readonly string[]) => Promise<ReadonlyMap<string, number>>;
 }
 
-type RunnerDeps = SwellAlertDeps & SwellFollowupDeps & Partial<SwellOutlookDeps>;
-type OutlookRunnerDeps = SwellAlertDeps & SwellFollowupDeps & SwellOutlookDeps;
+type RunnerDeps = SwellAlertDeps & SwellFollowupDeps & Partial<SwellOutlookDeps>
+  & Required<Pick<SwellAlertDeps, "rankDay" | "usesSharedRanking">>;
+type OutlookRunnerDeps = RunnerDeps & SwellOutlookDeps;
 
 interface EngagementGate {
   state: SwellEngagementState;
@@ -392,6 +402,7 @@ async function loadProfiles(client: ServiceClient, now: Date): Promise<SwellAler
       home_beach_id,
       max_drive_minutes,
       experience_level,
+      preferred_session_time,
       notif_push_enabled,
       notif_swell_alerts,
       notif_forecast_alerts,
@@ -421,6 +432,7 @@ async function loadProfiles(client: ServiceClient, now: Date): Promise<SwellAler
       anchorSource: source,
       maxDriveMinutes: row.max_drive_minutes,
       experienceLevel: row.experience_level,
+      preferredSessionTime: parseSessionTime(row.preferred_session_time),
       notifPushEnabled: row.notif_push_enabled,
       notifSwellAlerts: row.notif_swell_alerts,
       notifForecastAlerts: row.notif_forecast_alerts,
@@ -602,7 +614,7 @@ async function evaluatePool(
     location: profile.location,
     maxDriveMinutes: profile.maxDriveMinutes,
   });
-  if (pool.length === 0) return { history: [], candidates: [] };
+  if (pool.length === 0) return { history: [], candidates: [], poolBeachIds: [], anchor: null };
 
   // The board is optional copy; a failed read sends the alert without one.
   const boardsForPicks = await getUserEntitlement(profile.id, client)
@@ -706,6 +718,8 @@ async function evaluatePool(
 
   return {
     history,
+    poolBeachIds: pool.map(({ beach }) => beach.id),
+    anchor: profile.location,
     candidates: candidates.filter(
       (candidate): candidate is SwellAlertCandidate => candidate !== null,
     ),
@@ -969,6 +983,9 @@ function defaultDependencies(args: {
   return {
     isEnabled: args.deps?.isEnabled ?? isSwellAlertEnabled,
     isUserAllowed: args.deps?.isUserAllowed ?? isSwellAlertUserAllowed,
+    rankDay: args.deps?.rankDay ?? rankDayWithWeekScout,
+    usesSharedRanking: args.deps?.usesSharedRanking
+      ?? ((userId) => isSharedCallRankingEnabled() && isSharedCallRankingUserAllowed(userId)),
     loadProfiles: args.deps?.loadProfiles ?? (() => loadProfiles(getClient(), args.now)),
     evaluatePool: args.deps?.evaluatePool
       ?? ((profile, now) => evaluatePool(getClient(), profile, now)),
@@ -1576,6 +1593,50 @@ async function runOutlookUser(
   }
 }
 
+/** @public Shared ordering for the parity script, before rarity and delivery gates (plan Task 8). */
+export async function orderSwellCandidatesForTomorrow(args: {
+  profile: SwellAlertProfile;
+  evaluation: SwellAlertPoolEvaluation;
+  now: Date;
+  rankDay: RankDay;
+  usesSharedRanking: (userId: string) => boolean;
+}): Promise<SwellAlertCandidate[]> {
+  const { profile, evaluation, now, rankDay, usesSharedRanking } = args;
+  const tomorrow = addCivilDays(getLocalDateString(now, profile.timezone), 1);
+  const candidates = evaluation.candidates
+    .filter(({ arrivalDate, peakDate }) => arrivalDate === tomorrow || peakDate === tomorrow)
+    .sort((left, right) =>
+      right.peakScore - left.peakScore
+      || left.beach.id.localeCompare(right.beach.id));
+  const poolBeachIds = evaluation.poolBeachIds ?? [];
+  if (!usesSharedRanking(profile.id) || poolBeachIds.length === 0) return candidates;
+
+  try {
+    const response = await rankDay({
+      userId: profile.id,
+      poolBeachIds,
+      timezone: profile.timezone,
+      localDate: tomorrow,
+      sessionTime: profile.preferredSessionTime ?? null,
+      anchor: evaluation.anchor ?? null,
+    });
+    // The hold adapter widens window scores; this mirrors the Daily Call's day selection.
+    const day = response.days[0] as WeekScoutDayResponse | undefined;
+    const pick = day ? selectDayCall(day, now, { closeBufferMs: 0 }) : null;
+    if (!pick) return candidates;
+
+    const ranks = new Map(pick.rankedSpots.map((spot, index) => [spot.beachId, index]));
+    ranks.set(pick.beachId, -1);
+    return candidates.sort((left, right) => (
+      (ranks.get(left.beach.id) ?? Number.MAX_SAFE_INTEGER)
+      - (ranks.get(right.beach.id) ?? Number.MAX_SAFE_INTEGER)
+    ));
+  } catch (error) {
+    console.warn(`[swell-alert] Shared ranking failed for ${profile.id}; using peak-score order:`, error);
+    return candidates;
+  }
+}
+
 export async function runSwellAlertCron(args: {
   now: Date;
   supabase?: ServiceClient;
@@ -1631,12 +1692,9 @@ export async function runSwellAlertCron(args: {
 
     try {
       const evaluation = await deps.evaluatePool(profile, args.now);
-      const tomorrow = addCivilDays(getLocalDateString(args.now, profile.timezone), 1);
-      const candidates = evaluation.candidates
-        .filter(({ arrivalDate, peakDate }) => arrivalDate === tomorrow || peakDate === tomorrow)
-        .sort((left, right) =>
-          right.peakScore - left.peakScore
-          || left.beach.id.localeCompare(right.beach.id));
+      const candidates = await orderSwellCandidatesForTomorrow({
+        profile, evaluation, now: args.now, rankDay: deps.rankDay, usesSharedRanking: deps.usesSharedRanking,
+      });
       summary.candidates += candidates.length;
       const held = await deps.resolveHeldBeaches({
         candidates: candidates.map((candidate, index) =>
