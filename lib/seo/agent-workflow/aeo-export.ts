@@ -231,6 +231,9 @@ function normalizeQueryText(value: string): string {
   return value.toLowerCase().replace(/[`*_]/g, "").replace(/\s+/g, " ").trim();
 }
 
+const AI_OVERVIEW_ROW = /^ai overview/i;
+const AI_OVERVIEW_HEADING = "AI Overview citations";
+
 /**
  * Gate a run before it is published, not after it is reviewed.
  *
@@ -244,7 +247,7 @@ function normalizeQueryText(value: string): string {
 export function validateAeoCitationReport(
   markdown: string,
   querySet: AeoQuerySet,
-  options: { requireCapturePoints?: boolean } = {},
+  options: { requireCapturePoints?: boolean; requireAiOverview?: boolean } = {},
 ): AeoReportValidation {
   const problems: string[] = [];
 
@@ -290,6 +293,31 @@ export function validateAeoCitationReport(
   ];
   if (rows.length === 0) problems.push("Missing the citation baseline table.");
 
+  // Google AI Overview citations (DataForSEO method, from 2026-10-14) are a second headline
+  // number, so they get the same rule as the first: the count must equal the queries listed.
+  const aiOverviewRow = baseline.segments.find((row) => AI_OVERVIEW_ROW.test(row.segment));
+  if (options.requireAiOverview || aiOverviewRow) {
+    if (!aiOverviewRow) {
+      problems.push("Missing the `AI Overview citations` row in the baseline table.");
+    }
+    if (!new RegExp(`^##\\s*${escapeRegExp(AI_OVERVIEW_HEADING)}\\s*$`, "im").test(markdown)) {
+      problems.push(`Missing required section \`## ${AI_OVERVIEW_HEADING}\`.`);
+    } else if (aiOverviewRow) {
+      if (aiOverviewRow.total !== allQueries.length) {
+        problems.push(
+          `Baseline row "${aiOverviewRow.segment}" reports a denominator of ${aiOverviewRow.total}; the query set has ${allQueries.length}.`,
+        );
+      }
+      const listed = extractAeoSectionQueries(markdown, AI_OVERVIEW_HEADING, allQueries, { structuredOnly: true });
+      if (aiOverviewRow.cited !== listed.length) {
+        problems.push(
+          `Baseline row "${aiOverviewRow.segment}" claims ${aiOverviewRow.cited} cited but \`## ${AI_OVERVIEW_HEADING}\` names ${listed.length}. `
+          + "The count and the list must agree.",
+        );
+      }
+    }
+  }
+
   for (const row of rows) {
     const segmentQueries = matchSegmentQueries(row.segment, querySet, allQueries);
     if (!segmentQueries) continue;
@@ -332,7 +360,10 @@ export function detectAeoCitationRunAnomalies(
   const surfaced = extractAeoSectionQueries(markdown, "Queries that surfaced", allQueries, { structuredOnly: true });
   const previousSurfaced = extractAeoSectionQueries(previousMarkdown, "Queries that surfaced", allQueries, { structuredOnly: true });
 
-  if (surfaced.length > 0 && previousSurfaced.length > 0) {
+  const declaresMethodChange = /^##\s*Method change\s*$/im.test(markdown);
+
+  // A declared method change is expected to surface a different set, same as it is exempt from the swing check.
+  if (!declaresMethodChange && surfaced.length > 0 && previousSurfaced.length > 0) {
     const shared = surfaced.filter((query) => previousSurfaced.includes(query));
     if (shared.length === 0) {
       anomalies.push(
@@ -344,7 +375,6 @@ export function detectAeoCitationRunAnomalies(
 
   const current = parseAeoCitationReport(markdown).overall;
   const previous = parseAeoCitationReport(previousMarkdown).overall;
-  const declaresMethodChange = /^##\s*Method change\s*$/im.test(markdown);
 
   if (current && previous && !declaresMethodChange) {
     const points = Math.abs(current.rate - previous.rate) * 100;
