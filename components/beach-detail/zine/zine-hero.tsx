@@ -1,4 +1,6 @@
-import type { ReactNode } from "react";
+"use client";
+
+import { useState, type ReactNode } from "react";
 import type { Beach } from "@/types/database";
 import type { BeachSources } from "@/hooks/use-beach-detail-data";
 import type { ZineBeachPhoto } from "./types";
@@ -6,6 +8,7 @@ import { PhotoAttribution } from "@/components/photos/photo-attribution";
 import { buildCamEmbed } from "@/lib/media/cam-embed";
 import { CamsSection } from "@/components/beach-detail/cams-section";
 import { getOptimizedImageUrl } from "@/lib/image-proxy";
+import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import {
   SaltyEyebrow,
   SkillBars,
@@ -282,9 +285,18 @@ function HeroMediaPanel({
   breakType?: string | null;
   features?: string[] | null;
 }) {
-  const photoUrl = beachPhoto?.image_url ?? sources?.diorama_url ?? null;
-  const showsCamStill = !photoUrl && !hasLiveCam && !!sources?.cam_thumbnail_url;
-  const showsBeachPhoto = !!beachPhoto?.image_url;
+  const [failedUrls, setFailedUrls] = useState<Set<string>>(new Set());
+  const reducedMotion = useReducedMotion();
+  const beachPhotoUrl = beachPhoto?.image_url;
+  const dioramaUrl = sources?.diorama_url;
+  const camStillUrl = !hasLiveCam ? sources?.cam_thumbnail_url : null;
+  const photoUrl = beachPhotoUrl && !failedUrls.has(beachPhotoUrl) ? beachPhotoUrl : null;
+  const videoUrl = !photoUrl && dioramaUrl && !failedUrls.has(dioramaUrl) ? dioramaUrl : null;
+  const stillUrl = !photoUrl && !videoUrl && camStillUrl && !failedUrls.has(camStillUrl) ? camStillUrl : null;
+  const showMap = !photoUrl && !videoUrl && !stillUrl;
+  const handleMediaError = (url: string): void => {
+    setFailedUrls((current) => new Set(current).add(url));
+  };
 
   return (
     <div className="mb-2 mr-2 mt-5" data-testid="zine-hero-media">
@@ -302,10 +314,32 @@ function HeroMediaPanel({
           <img
             src={getOptimizedImageUrl(photoUrl)}
             alt={`${beachName}, ${locationName}`}
-            className="block h-[240px] w-full object-cover sm:h-[320px] md:h-[380px]"
+            className="block h-[320px] w-full object-cover"
+            onError={() => handleMediaError(photoUrl)}
           />
-        ) : showsCamStill ? (
-          <CamsSection sources={sources!} variant="hero" beachName={beachName} />
+        ) : videoUrl ? (
+          <video
+            src={videoUrl}
+            autoPlay={!reducedMotion}
+            controls={reducedMotion}
+            loop={!reducedMotion}
+            muted
+            playsInline
+            aria-label={`Illustrated scene of ${beachName}; not live conditions`}
+            className="block h-[320px] w-full object-cover"
+            onError={() => handleMediaError(videoUrl)}
+          />
+        ) : stillUrl ? (
+          <div className="relative h-[320px]">
+            {/* eslint-disable-next-line @next/next/no-img-element -- stored cam stills are already sized */}
+            <img
+              src={getOptimizedImageUrl(stillUrl)}
+              alt={`Live cam of ${beachName} still frame`}
+              className="h-full w-full object-cover"
+              onError={() => handleMediaError(stillUrl)}
+            />
+            <span className="absolute bottom-2 left-2 bg-[#11100D]/75 px-2 py-1 text-xs text-[#F4EBD8]">Live stream unavailable right now</span>
+          </div>
         ) : (
           <MapDoodle
             height={320}
@@ -320,7 +354,7 @@ function HeroMediaPanel({
         )}
         {/* Native's panel halftone sits on drawn panels only; over a photo it
             reads as a seam down the middle. */}
-        {!photoUrl && !showsCamStill ? (
+        {showMap ? (
           <div
             aria-hidden
             className="pointer-events-none absolute inset-y-0 left-1/2 right-0"
@@ -330,10 +364,10 @@ function HeroMediaPanel({
             }}
           />
         ) : null}
-        {showsBeachPhoto && (beachPhoto!.attribution || beachPhoto!.attribution_html) ? (
+        {photoUrl && (beachPhoto?.attribution || beachPhoto?.attribution_html) ? (
           <PhotoAttribution
-            attribution={beachPhoto!.attribution ?? null}
-            attributionHtml={beachPhoto!.attribution_html}
+            attribution={beachPhoto.attribution ?? null}
+            attributionHtml={beachPhoto.attribution_html}
             className="absolute bottom-2 right-2 z-20 max-w-[70%] truncate bg-[#11100D]/75 px-2 py-1 font-mono text-[10px] text-[#F4EBD8] underline-offset-2 hover:underline"
           />
         ) : null}
