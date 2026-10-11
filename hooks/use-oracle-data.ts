@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useProfileContext } from "@/context/profile-context";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { useSurfDiscovery } from "@/hooks/use-surf-discovery";
@@ -157,6 +157,13 @@ export function useOracleData(): OracleData {
   // ------------------------------------------------------------------
   const userSkillLevel = (profile as Record<string, unknown> | null)?.experience_level as string | null ?? null;
 
+  const locationReadyRef = useRef(!geoLoading);
+  useEffect(() => {
+    if (!geoLoading) locationReadyRef.current = true;
+  }, [geoLoading]);
+  // Later GPS checks must not disable discovery when the coordinates have not changed.
+  const discoveryEnabled = !!profile && (!geoLoading || locationReadyRef.current);
+
   // ------------------------------------------------------------------
   // Surf discovery
   // ------------------------------------------------------------------
@@ -167,7 +174,7 @@ export function useOracleData(): OracleData {
   } = useSurfDiscovery({
     maxResults: 10,
     horizonHours: 24,
-    enabled: !!profile && !geoLoading,
+    enabled: discoveryEnabled,
     immediate: true,
     suppressInitialResume: true,
     userLocation,
@@ -195,7 +202,7 @@ export function useOracleData(): OracleData {
   } = useSurfDiscovery({
     maxResults: 10,
     horizonHours: 24,
-    enabled: !!profile && !geoLoading && primaryReturnedEmpty && !alreadySanDiego,
+    enabled: discoveryEnabled && primaryReturnedEmpty && !alreadySanDiego,
     immediate: true,
     suppressInitialResume: true,
     userLocation: DEFAULT_LOCATION,
