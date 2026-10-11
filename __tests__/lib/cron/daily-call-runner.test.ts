@@ -668,15 +668,17 @@ describe("daily call copy on the real title pool", () => {
 
 
 describe("daily call location freshness", () => {
-  it.each([72, 1])("resolves a %s-hour Honolulu fix before pool selection and timezone fallback", async (ageHours) => {
-    const runNow = ageHours === 72 ? now : new Date("2026-09-16T16:00:00Z");
+  it.each([72, 21, 1])("resolves a %s-hour Honolulu fix before pool selection and timezone fallback", async (ageHours) => {
+    // The morning call trusts a fix from the last 12 hours; older ones fall back to the home beach.
+    const stale = ageHours > 12;
+    const runNow = stale ? now : new Date("2026-09-16T16:00:00Z");
     const homeBeach = { ...home.beach, lat: 32.89, lon: -117.25 };
     const location = { lat: 21.28, lon: -157.83, timezone: "Pacific/Honolulu",
       captured_at: new Date(runNow.getTime() - ageHours * 3_600_000).toISOString() };
     const user = { ...profile, timezone: null, homeBeach: { ...homeBeach, timezone: null }, location };
     const sanDiego = poolBeach("30000000-0000-4000-8000-000000000003", "La Jolla", "nearby");
     const honolulu = poolBeach("30000000-0000-4000-8000-000000000004", "Waikiki", "nearby");
-    const nearby = ageHours === 72 ? sanDiego : honolulu;
+    const nearby = stale ? sanDiego : honolulu;
     const rpc = jest.fn(async (_name: string, input: { input_lat: number }) => ({ data: [{ id: input.input_lat === homeBeach.lat ? sanDiego.beach.id : honolulu.beach.id, distance_meters: 1000 }], error: null }));
     const select = jest.fn();
     const client = { rpc, from: (table: string) => {
@@ -700,16 +702,31 @@ describe("daily call location freshness", () => {
     const { resolveTimezone: _resolveTimezone, loadProfiles: _loadProfiles, ...injected } = overrides;
     const result = await runDailyCallCron({ now: runNow, supabase: client, deps: injected });
     expect(result.sent).toBe(1);
-    expect(overrides.loadPool).toHaveBeenCalledWith(expect.objectContaining({ location: ageHours === 72
+    expect(overrides.loadPool).toHaveBeenCalledWith(expect.objectContaining({ location: stale
       ? { lat: homeBeach.lat, lon: homeBeach.lon } : { lat: location.lat, lon: location.lon } }));
-    expect(overrides.getSunrise).toHaveBeenCalledWith(expect.objectContaining({ location: ageHours === 72 ? null : { user_id: userId, ...location } }), runNow);
-    expect(overrides.buildCandidates).toHaveBeenCalledWith(expect.objectContaining({ timezone: ageHours === 72 ? "America/Los_Angeles" : "Pacific/Honolulu" }));
+    expect(overrides.getSunrise).toHaveBeenCalledWith(expect.objectContaining({ location: stale ? null : { user_id: userId, ...location } }), runNow);
+    expect(overrides.buildCandidates).toHaveBeenCalledWith(expect.objectContaining({ timezone: stale ? "America/Los_Angeles" : "Pacific/Honolulu" }));
     expect(overrides.enqueue).toHaveBeenCalledWith(expect.objectContaining({ payload: expect.objectContaining({
-      beach_id: nearby.beach.id, beach_name: nearby.beach.name, anchor_source: ageHours === 72 ? "home" : "location",
-      window_local: ageHours === 72 ? "8–~11:40 AM" : "5–~8:40 AM",
+      beach_id: nearby.beach.id, beach_name: nearby.beach.name, anchor_source: stale ? "home" : "location",
+      window_local: stale ? "8–~11:40 AM" : "5–~8:40 AM",
     }) }), client);
     expect(select).toHaveBeenCalledWith("user_id, lat, lon, timezone, captured_at");
-    expect(rpc).toHaveBeenCalledWith("get_weekend_scout_candidates", expect.objectContaining({ input_lat: ageHours === 72 ? homeBeach.lat : location.lat }));
+    expect(rpc).toHaveBeenCalledWith("get_weekend_scout_candidates", expect.objectContaining({ input_lat: stale ? homeBeach.lat : location.lat }));
+  });
+
+  it("ranks the 50 nearest beaches plus every saved spot in range", async () => {
+    const nearby = Array.from({ length: 60 }, (_, index) => ({
+      ...poolBeach(`40000000-0000-4000-8000-${String(index).padStart(12, "0")}`, `Nearby ${index}`, "nearby"),
+      distanceMiles: 60 - index,
+    }));
+    const injected = deps({ loadPool: jest.fn(async () => [home, favorite, ...nearby]) });
+
+    await runDailyCallCron({ now, supabase, deps: injected });
+
+    const { pool } = jest.mocked(injected.buildCandidates).mock.calls[0][0];
+    expect(pool).toHaveLength(52);
+    expect(pool).toEqual(expect.arrayContaining([home, favorite, nearby[59], nearby[10]]));
+    expect(pool).not.toContain(nearby[9]);
   });
 
   it("does not use stale coordinates for the sunrise fallback without a home", async () => {

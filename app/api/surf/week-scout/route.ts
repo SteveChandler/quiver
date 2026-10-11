@@ -9,7 +9,10 @@ import {
 } from '@/lib/middleware/api-wrappers';
 import { generateWeekScoutForecast } from '@/lib/services/discovery/week-scout';
 import { parseSessionTime } from '@/lib/scoring/session-time-preference';
-import { buildWeekendScoutCandidatePool } from '@/lib/services/discovery/weekend-scout-candidate-pool';
+import {
+  buildDriveRangeCandidatePool,
+  buildWeekendScoutCandidatePool,
+} from '@/lib/services/discovery/weekend-scout-candidate-pool';
 import { calculateDistanceInMiles } from '@/lib/utils/distance-utils';
 import { driveRadiusMiles, MAX_DRIVE_RADIUS_MILES } from '@/lib/profile/drive-range';
 import {
@@ -52,6 +55,11 @@ const CompleteRadiusScopeSchema = z.object({
     minLon: z.number().finite().min(-180).max(180),
     maxLon: z.number().finite().min(-180).max(180),
   }).refine((bounds) => bounds.minLat <= bounds.maxLat && bounds.minLon <= bounds.maxLon, 'Invalid map bounds').nullable().optional(),
+  /** A searched town or beach that re-centres the drive-range scope instead of the phone. */
+  origin: z.object({
+    lat: z.number().finite().min(-90).max(90),
+    lon: z.number().finite().min(-180).max(180),
+  }).nullable().optional(),
 });
 
 function isValidLocalDate(value: string): boolean {
@@ -124,74 +132,106 @@ async function weekScoutHandler(
     ? { kind: 'complete-radius' as const }
     : parsed.data.candidateScope;
 
+  // The profile and the location snapshot are independent reads; run them together.
+  const [profileRead, snapshotRead] = await Promise.all([
+    readWeekScoutProfile(supabase, user.id),
+    readLocationSnapshot(supabase, user.id),
+  ]);
+  const { profile, error: profileError } = profileRead;
+  // Without a profile the legacy ranking stands: no session-time narrowing and
+  // distance friction from 10 miles.
+  const surferDriveRadiusMiles = profileError === null
+    ? driveRadiusMiles(profile?.max_drive_minutes)
+    : undefined;
+
   let userLocation: { lat: number; lon: number } | undefined;
-  try {
-    const { data } = await supabase
-      .from('user_location_snapshots')
-      .select('lat, lon, captured_at')
-      .eq('user_id', user.id)
-      .maybeSingle();
-    const lat = data?.lat;
-    const lon = data?.lon;
-    const capturedAt = typeof data?.captured_at === 'string'
-      ? Date.parse(data.captured_at)
-      : Number.NaN;
-    if (
-      typeof lat === 'number'
-      && Number.isFinite(lat)
-      && lat >= -90
-      && lat <= 90
-      && typeof lon === 'number'
-      && Number.isFinite(lon)
-      && lon >= -180
-      && lon <= 180
-      && Number.isFinite(capturedAt)
-      && capturedAt <= Date.now()
-      && Date.now() - capturedAt < (
-        completeRadiusScope?.kind === 'complete-radius'
-          ? INTERACTIVE_LOCATION_MAX_AGE_MS
-          : LEGACY_LOCATION_MAX_AGE_MS
-      )
-    ) {
-      userLocation = { lat, lon };
-    }
-  } catch {
-    // Location is optional; preserve the legacy conditions-only ranking.
+  const lat = snapshotRead?.lat;
+  const lon = snapshotRead?.lon;
+  const capturedAt = typeof snapshotRead?.captured_at === 'string'
+    ? Date.parse(snapshotRead.captured_at)
+    : Number.NaN;
+  if (
+    typeof lat === 'number'
+    && Number.isFinite(lat)
+    && lat >= -90
+    && lat <= 90
+    && typeof lon === 'number'
+    && Number.isFinite(lon)
+    && lon >= -180
+    && lon <= 180
+    && Number.isFinite(capturedAt)
+    && capturedAt <= Date.now()
+    && Date.now() - capturedAt < (
+      completeRadiusScope?.kind === 'complete-radius'
+        ? INTERACTIVE_LOCATION_MAX_AGE_MS
+        : LEGACY_LOCATION_MAX_AGE_MS
+    )
+  ) {
+    userLocation = { lat, lon };
   }
 
   let candidateBeachIds = parsed.data.candidateBeachIds ?? [];
   let scopeRadiusMiles: number | null = null;
-  let scopeCandidateCounts: { enumerated: number; hydrated: number; filteredOut: number } | null = null;
+  let scopeCandidateCounts: { enumerated: number; hydrated: number; filteredOut: number; capped?: number } | null = null;
+  let scopeAnchor: 'origin' | 'location' | 'home' | null = null;
+  let scopeCoveredMiles: number | null = null;
+  let rankingLocation = userLocation;
   let candidateBeaches: Array<{ beachId: string; beachName: string; beachSlugOrRef: string; distanceMiles: number | null; timezone: string | null; lat: number; lon: number }> | undefined;
-  if (completeRadiusScope?.kind === 'complete-radius') {
-    const mapBounds = completeRadiusScope.mapBounds;
-    if (!userLocation && mapBounds && completeRadiusScope.filters?.includes('nearby')) {
+  if (completeRadiusScope?.kind === 'complete-radius' && !completeRadiusScope.mapBounds) {
+    if (profileError !== null) throw new Error(`Failed to load Week Scout profile: ${profileError}`);
+    const homeBeachId = profile?.home_beach_id ?? null;
+    // A searched origin when the surfer picked one; otherwise where the phone is
+    // when it synced in the last 15 minutes, else the home break, the same
+    // anchor Home seeds from while it locates.
+    const origin = completeRadiusScope.origin ?? null;
+    const anchor = origin ?? userLocation ?? await loadHomeBeachCoordinates(supabase, homeBeachId);
+    if (!anchor) return createValidationError('A current location or map scope is required for complete-radius Week Scout');
+    scopeAnchor = origin ? 'origin' : userLocation ? 'location' : 'home';
+    rankingLocation = anchor;
+    scopeRadiusMiles = Math.min(Math.max(0.5, driveRadiusMiles(profile?.max_drive_minutes)), MAX_RADIUS_MILES);
+    const pool = await buildDriveRangeCandidatePool(user.id, {
+      anchor,
+      homeBeachId,
+      maxDriveMinutes: profile?.max_drive_minutes ?? null,
+      filters: completeRadiusScope.filters,
+    });
+    candidateBeachIds = pool.candidates.map((candidate) => candidate.beach.id);
+    scopeCandidateCounts = {
+      enumerated: pool.enumeratedCount,
+      hydrated: pool.enumeratedCount,
+      filteredOut: pool.filteredOutCount,
+      capped: pool.cappedCount,
+    };
+    // Past the nearest-beach cap the scout covers less than the whole range;
+    // report the distance it actually reached so "within N miles" stays true.
+    scopeCoveredMiles = typeof pool.farthestNearbyMiles === 'number' && Number.isFinite(pool.farthestNearbyMiles)
+      ? Math.min(scopeRadiusMiles, pool.farthestNearbyMiles)
+      : scopeRadiusMiles;
+    candidateBeaches = pool.candidates.map((candidate) => ({
+      beachId: candidate.beach.id,
+      beachName: candidate.beach.name,
+      beachSlugOrRef: candidate.beach.slug ?? candidate.beach.id,
+      distanceMiles: candidate.distanceMiles,
+      timezone: candidate.beach.timezone ?? null,
+      lat: candidate.beach.lat,
+      lon: candidate.beach.lon,
+    }));
+  } else if (completeRadiusScope?.kind === 'complete-radius') {
+    const mapBounds = completeRadiusScope.mapBounds!;
+    if (!userLocation && completeRadiusScope.filters?.includes('nearby')) {
       return createValidationError('A current location is required for the nearby filter');
     }
-    const mapCenter = mapBounds ? {
+    const candidateOrigin = {
       lat: (mapBounds.minLat + mapBounds.maxLat) / 2,
       lon: (mapBounds.minLon + mapBounds.maxLon) / 2,
-    } : null;
-    const candidateOrigin = mapCenter ?? userLocation;
-    if (!candidateOrigin) return createValidationError('A current location or map scope is required for complete-radius Week Scout');
-    const profile = await supabase
-      .from('profiles')
-      .select('max_drive_minutes')
-      .eq('id', user.id)
-      .maybeSingle();
-    if (profile.error) throw new Error(`Failed to load Week Scout profile: ${profile.error.message}`);
-    const configuredMinutes = profile.data?.max_drive_minutes;
-    const radiusMiles = mapBounds
-      ? Math.max(
-        calculateDistanceInMiles(candidateOrigin, { lat: mapBounds.minLat, lon: mapBounds.minLon }),
-        calculateDistanceInMiles(candidateOrigin, { lat: mapBounds.minLat, lon: mapBounds.maxLon }),
-        calculateDistanceInMiles(candidateOrigin, { lat: mapBounds.maxLat, lon: mapBounds.minLon }),
-        calculateDistanceInMiles(candidateOrigin, { lat: mapBounds.maxLat, lon: mapBounds.maxLon }),
-      )
-      : Math.max(0.5, driveRadiusMiles(configuredMinutes));
-    const mapPrefilterMargin = mapBounds
-      ? radiusMiles * MAP_PREFILTER_MARGIN_RATIO + MAP_PREFILTER_MARGIN_MIN_MILES
-      : 0;
+    };
+    const radiusMiles = Math.max(
+      calculateDistanceInMiles(candidateOrigin, { lat: mapBounds.minLat, lon: mapBounds.minLon }),
+      calculateDistanceInMiles(candidateOrigin, { lat: mapBounds.minLat, lon: mapBounds.maxLon }),
+      calculateDistanceInMiles(candidateOrigin, { lat: mapBounds.maxLat, lon: mapBounds.minLon }),
+      calculateDistanceInMiles(candidateOrigin, { lat: mapBounds.maxLat, lon: mapBounds.maxLon }),
+    );
+    const mapPrefilterMargin = radiusMiles * MAP_PREFILTER_MARGIN_RATIO + MAP_PREFILTER_MARGIN_MIN_MILES;
     if (radiusMiles + mapPrefilterMargin > MAX_RADIUS_MILES) {
       return createValidationError('Map scope exceeds the supported 100-mile extent');
     }
@@ -202,12 +242,10 @@ async function weekScoutHandler(
       // The RPC uses a different geodesic implementation than the client
       // corner calculation. Expand only the prefilter; map bounds remain the
       // exact final inclusion check in the candidate pool.
-      radiusMiles: mapBounds
-        ? boundedRadiusMiles + mapPrefilterMargin
-        : boundedRadiusMiles,
+      radiusMiles: boundedRadiusMiles + mapPrefilterMargin,
       requirePagedCoverage: true,
       filters: completeRadiusScope.filters,
-      mapBounds: completeRadiusScope.mapBounds,
+      mapBounds,
       nearbyLocation: userLocation ?? null,
     });
     if (pool.incomplete) {
@@ -233,17 +271,7 @@ async function weekScoutHandler(
     }));
   }
   // The preference only narrows the pick; if it can't be read, rank every window.
-  let sessionTime: ReturnType<typeof parseSessionTime> = null;
-  try {
-    const sessionTimeRow = await supabase
-      .from('profiles')
-      .select('preferred_session_time')
-      .eq('id', user.id)
-      .maybeSingle();
-    sessionTime = sessionTimeRow.error ? null : parseSessionTime(sessionTimeRow.data?.preferred_session_time);
-  } catch {
-    sessionTime = null;
-  }
+  const sessionTime = profileError === null ? parseSessionTime(profile?.preferred_session_time) : null;
   const swellsEnabled = isWeekScoutSwellsEnabled() && isWeekScoutSwellsUserAllowed(user.id);
   const forecast = await generateWeekScoutForecast(user.id, {
     candidateBeachIds,
@@ -251,7 +279,8 @@ async function weekScoutHandler(
     localTimezone: parsed.data.localTimezone,
     startLocalDate: parsed.data.startLocalDate,
     dayCount: parsed.data.dayCount,
-    ...(userLocation ? { userLocation } : {}),
+    ...(rankingLocation ? { userLocation: rankingLocation } : {}),
+    ...(surferDriveRadiusMiles !== undefined ? { driveRadiusMiles: surferDriveRadiusMiles } : {}),
     ...(completeRadiusScope?.kind === 'complete-radius'
       ? { requirePerRowFreshness: true }
       : {}),
@@ -264,6 +293,8 @@ async function weekScoutHandler(
           kind: 'complete-radius' as const,
           radiusMiles: scopeRadiusMiles,
           mapBounded: completeRadiusScope.mapBounds !== null && completeRadiusScope.mapBounds !== undefined,
+          ...(scopeAnchor ? { anchor: scopeAnchor } : {}),
+          ...(scopeCoveredMiles !== null ? { coveredMiles: scopeCoveredMiles } : {}),
           candidates: scopeCandidateCounts ?? { enumerated: 0, hydrated: 0, filteredOut: 0 },
         },
         freshness: { state: 'unknown' as const },
@@ -277,6 +308,60 @@ async function weekScoutHandler(
     ...(coverage ? { coverage } : {}),
     ...(swellsEnabled && swells ? { swells } : {}),
   });
+}
+
+async function readWeekScoutProfile(
+  supabase: AuthenticatedContext['supabase'],
+  userId: string,
+): Promise<{
+  profile: { max_drive_minutes?: number | null; preferred_session_time?: string | null; home_beach_id?: string | null } | null;
+  error: string | null;
+}> {
+  try {
+    const result = await supabase
+      .from('profiles')
+      .select('max_drive_minutes, preferred_session_time, home_beach_id')
+      .eq('id', userId)
+      .maybeSingle();
+    return result.error ? { profile: null, error: result.error.message } : { profile: result.data, error: null };
+  } catch (error) {
+    return { profile: null, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+/** Location is optional; a failed read preserves the legacy conditions-only ranking. */
+async function readLocationSnapshot(
+  supabase: AuthenticatedContext['supabase'],
+  userId: string,
+): Promise<{ lat?: unknown; lon?: unknown; captured_at?: unknown } | null> {
+  try {
+    const { data } = await supabase
+      .from('user_location_snapshots')
+      .select('lat, lon, captured_at')
+      .eq('user_id', userId)
+      .maybeSingle();
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+async function loadHomeBeachCoordinates(
+  supabase: AuthenticatedContext['supabase'],
+  homeBeachId: string | null,
+): Promise<{ lat: number; lon: number } | null> {
+  if (!homeBeachId) return null;
+  const { data, error } = await supabase
+    .from('beaches')
+    .select('lat, lon')
+    .eq('id', homeBeachId)
+    .maybeSingle();
+  if (error) throw new Error(`Failed to load Week Scout home beach: ${error.message}`);
+  const lat = data?.lat;
+  const lon = data?.lon;
+  return typeof lat === 'number' && Number.isFinite(lat) && typeof lon === 'number' && Number.isFinite(lon)
+    ? { lat, lon }
+    : null;
 }
 
 const protectedPOST = withRateLimit(

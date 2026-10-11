@@ -26,6 +26,30 @@ export function calculateDistancePenalty(distanceMiles?: number): number {
 }
 
 /**
+ * Distance friction for a surfer with a known drive range. The range is their
+ * own answer to "how far is too far", so a beach inside it is not marked down
+ * for the drive; past it, the usual friction applies.
+ */
+export function calculateDriveRangeDistancePenalty(
+  distanceMiles: number | undefined,
+  driveRadiusMiles: number | undefined,
+): number {
+  if (
+    distanceMiles === undefined
+    || driveRadiusMiles === undefined
+    || !Number.isFinite(driveRadiusMiles)
+  ) {
+    return calculateDistancePenalty(distanceMiles);
+  }
+  // Past the range only the miles beyond it count, so the friction starts at
+  // zero on the edge instead of jumping to the full 10-mile-based penalty.
+  const freeMiles = Math.max(driveRadiusMiles, DISTANCE_FRICTION_HOME_ZONE_MILES);
+  return calculateDistancePenalty(
+    distanceMiles - freeMiles + DISTANCE_FRICTION_HOME_ZONE_MILES,
+  );
+}
+
+/**
  * Ordering value: the internal ranking score when present, else the displayed
  * condition score. `score` is condition-only and clamped at 100, so ranking on
  * it directly would re-create the artificial ties this split removed.

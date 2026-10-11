@@ -479,6 +479,8 @@ export interface SurfDiscoveryOptions {
   userLocation?: { lat: number; lon: number };
   /** Search radius in miles; omitted lets discovery expand from 25 to 100 as needed */
   radiusMiles?: number;
+  /** The surfer's saved drive range in miles; beaches inside it carry no distance friction. */
+  driveRadiusMiles?: number;
   /**
    * Hard cap for how far in the future a "best window" may start (in hours).
    * If provided, discovery will ignore forecast slots beyond this horizon when
