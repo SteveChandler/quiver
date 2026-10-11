@@ -17,7 +17,33 @@ jest.mock("@/components/beach-detail/rip-current-warning", () => ({
 
 // Mock ALL child components as simple divs with data-testid
 jest.mock("@/components/beach-detail/best-surf-window", () => ({
-  BestSurfWindow: (props: any) => <div data-testid="best-surf-window" />,
+  BestSurfWindow: (props: any) => (
+    <div
+      data-testid="best-surf-window"
+      data-surf-call-loading={String(props.surfCallLoading)}
+      data-forecasts-loading={String(props.forecastsLoading)}
+    />
+  ),
+}));
+interface MockDecision {
+  report: SurfCallResult | null;
+  context: null;
+  isTomorrow: boolean;
+  isLoading: boolean;
+  isAuthenticated: boolean;
+  isProvided: boolean;
+}
+const mockNoDecision: MockDecision = {
+  report: null,
+  context: null,
+  isTomorrow: false,
+  isLoading: false,
+  isAuthenticated: false,
+  isProvided: false,
+};
+let mockDecision: MockDecision = mockNoDecision;
+jest.mock("@/components/beach-detail/authenticated-forecast-decision", () => ({
+  useAuthenticatedForecastDecision: () => mockDecision,
 }));
 jest.mock("@/components/forecast/horizon-strip", () => ({
   HorizonStrip: (props: any) => (
@@ -243,6 +269,7 @@ describe("ForecastTab", () => {
     mockSearch = new URLSearchParams();
     mockTrackEvent.mockClear();
     mockUseAuth.mockReturnValue({ user: null });
+    mockDecision = mockNoDecision;
   });
 
   it("switches to dated conditions when navigation changes the selected window", () => {
@@ -341,6 +368,65 @@ describe("ForecastTab", () => {
       render(<ForecastTab {...defaultProps} />);
 
       expect(screen.getByTestId("best-surf-window")).toBeInTheDocument();
+    });
+
+    describe("loading flags for BestSurfWindow", () => {
+      const report = { verdict: "YES" } as SurfCallResult;
+      const provided = { ...mockNoDecision, isProvided: true, isAuthenticated: true };
+
+      beforeEach(() => {
+        mockUseAuth.mockReturnValue({ user: { id: "u1" } });
+      });
+
+      function flags(): { surfCall: string | null; forecasts: string | null } {
+        const el = screen.getByTestId("best-surf-window");
+        return {
+          surfCall: el.getAttribute("data-surf-call-loading"),
+          forecasts: el.getAttribute("data-forecasts-loading"),
+        };
+      }
+
+      it("flags the surf decision as loading while the provider request is in flight", () => {
+        mockDecision = { ...provided, isLoading: true };
+        render(<ForecastTab {...defaultProps} />);
+
+        expect(flags().surfCall).toBe("true");
+      });
+
+      it("keeps flagging loading after the provider resolves until the report reaches this tab", () => {
+        mockDecision = { ...provided, report };
+        render(<ForecastTab {...defaultProps} surfCall={null} />);
+
+        expect(flags().surfCall).toBe("true");
+      });
+
+      it("stops flagging once the resolved report has reached this tab", () => {
+        mockDecision = { ...provided, report };
+        render(<ForecastTab {...defaultProps} surfCall={report} />);
+
+        expect(flags().surfCall).toBe("false");
+      });
+
+      it("stops flagging when the provider settled without a report", () => {
+        mockDecision = provided;
+        render(<ForecastTab {...defaultProps} surfCall={null} />);
+
+        expect(flags().surfCall).toBe("false");
+      });
+
+      it("does not flag loading without a provider (legacy route)", () => {
+        render(<ForecastTab {...defaultProps} surfCall={null} />);
+
+        expect(flags().surfCall).toBe("false");
+      });
+
+      it("passes the forecast fetch state through", () => {
+        const { rerender } = render(<ForecastTab {...defaultProps} forecastsLoading />);
+        expect(flags().forecasts).toBe("true");
+
+        rerender(<ForecastTab {...defaultProps} forecastsLoading={false} />);
+        expect(flags().forecasts).toBe("false");
+      });
     });
 
     it("omits the redundant no-window card for an authenticated NO call", () => {

@@ -10,7 +10,7 @@ import {
   useState,
   type MouseEvent,
 } from "react";
-import { usePathname } from "next/navigation";
+import { useRoutePathname } from "@/hooks/use-route-pathname";
 import { track } from "@/lib/analytics";
 import { createClientAppHandoffLink } from "@/lib/analytics/app-handoff-link";
 import { trackIosAppCtaClick } from "@/lib/analytics/ios-app-cta-tracking";
@@ -58,7 +58,7 @@ function setDismissedAt(): void {
 }
 
 export function IphoneAppBanner() {
-  const pathname = usePathname();
+  const pathname = useRoutePathname();
   const trackedKeysRef = useRef<Set<string>>(new Set());
   const [decision, setDecision] = useState<IphoneAppBannerDecision | null>(
     null,

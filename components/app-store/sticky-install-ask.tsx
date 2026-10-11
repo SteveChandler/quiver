@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { usePathname } from "next/navigation";
+import { useRoutePathname } from "@/hooks/use-route-pathname";
 import {
   useEffect,
   useMemo,
@@ -50,7 +50,7 @@ export function StickyInstallAsk({
   stickySignup,
   bar,
 }: StickyInstallAskProps): ReactElement | null {
-  const pathname = usePathname() ?? "";
+  const pathname = useRoutePathname() ?? "";
   const { isDismissed, handleDismiss } = usePersistedDismissal(
     INSTALL_BAR_DISMISSAL_KEY,
     { durationDays: INSTALL_BAR_DISMISSAL_DAYS, storage: "local" },

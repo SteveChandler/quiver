@@ -21,6 +21,8 @@ import {
   type DailyCallProfile,
 } from "@/lib/cron/daily-call-runner";
 import { selectTitle as realSelectTitle } from "@/lib/notifications/copy/select-title";
+import { resolveNotificationMajorEventHold } from "@/lib/recommendations/major-event-hold/adapters/notification";
+import type { MajorEventHoldCandidate } from "@/lib/recommendations/major-event-hold/types";
 import { parseDailyCallPayload } from "@/lib/notifications/types/daily-call";
 import { NOTIFICATION_REGISTRY } from "@/lib/notifications/registry";
 import type { Database } from "@/types/database";
@@ -154,6 +156,7 @@ function deps(
       body: "Offshore through ~9:40, then it turns.",
       fallback: false,
     })),
+    resolveHeldBeaches: jest.fn(async () => new Map()),
     enqueue: jest.fn(async () => ({ enqueued: true as const, eventId: "event-1" })),
     ...overrides,
   };
@@ -387,6 +390,114 @@ describe("runDailyCallCron", () => {
       }),
       supabase,
     );
+  });
+});
+
+describe("daily call holds", () => {
+  const nearby = poolBeach("30000000-0000-4000-8000-000000000001", "K-40", "nearby");
+  const custom = poolBeach("30000000-0000-4000-8000-000000000002", "Custom", "custom");
+
+  function holding(heldBeachIds: string[], reason = "water_quality_hold"): DailyCallDeps["resolveHeldBeaches"] {
+    return jest.fn(async ({ candidates }) => new Map(candidates
+      .filter((value) => heldBeachIds.includes(value.beachId))
+      .map((value) => [value.candidateId, reason as "water_quality_hold"])));
+  }
+
+  it("checks every candidate window for the surfer's skill before choosing", async () => {
+    const homeCandidate = candidate({ pool: home, physicalScore: 55 });
+    const mocked = deps({
+      buildCandidates: jest.fn(async () => ({
+        candidates: [homeCandidate, candidate({ pool: favorite, physicalScore: 82 })],
+        hadForecasts: true,
+      })),
+    });
+
+    await runDailyCallCron({ now, supabase, deps: mocked });
+
+    expect(mocked.resolveHeldBeaches).toHaveBeenCalledWith({
+      candidates: [
+        { candidateId: "daily-call:0", beachId: blacksId, startsAt: homeCandidate.window.start, endsAt: homeCandidate.window.end },
+        { candidateId: "daily-call:1", beachId: ospreyId, startsAt: homeCandidate.window.start, endsAt: homeCandidate.window.end },
+      ],
+      profileExperience: "advanced",
+      asOf: now,
+    });
+  });
+
+  it("leads with the best clear beach and leaves held beaches out of the options", async () => {
+    const mocked = deps({
+      buildCandidates: jest.fn(async () => ({
+        candidates: [
+          candidate({ pool: nearby, physicalScore: 99 }),
+          candidate({ pool: favorite, physicalScore: 82 }),
+          candidate({ pool: custom, physicalScore: 80 }),
+          candidate({ pool: home, physicalScore: 55 }),
+        ],
+        hadForecasts: true,
+      })),
+      resolveHeldBeaches: holding([nearby.beach.id, custom.beach.id]),
+    });
+
+    const summary = await runDailyCallCron({ now, supabase, deps: mocked });
+
+    const payload = (mocked.enqueue as jest.Mock).mock.calls[0][0].payload;
+    expect(payload.beach_id).toBe(ospreyId);
+    expect(payload.options.map((option: { beach_id: string }) => option.beach_id)).toEqual([blacksId]);
+    expect(summary.skippedCounts.held_water_quality_hold).toBe(2);
+  });
+
+  it("does not compare the winner with a held home beach", async () => {
+    const mocked = deps({ resolveHeldBeaches: holding([blacksId], "major_event_hold") });
+
+    const summary = await runDailyCallCron({ now, supabase, deps: mocked });
+
+    expect((mocked.enqueue as jest.Mock).mock.calls[0][0].payload).toMatchObject({
+      beach_id: ospreyId,
+      comparison: null,
+    });
+    expect(summary.skippedCounts.held_major_event_hold).toBe(1);
+  });
+
+  it("enqueues a payload the delivery-time hold check can read, lead and options", async () => {
+    const mocked = deps({
+      buildCandidates: jest.fn(async () => ({
+        candidates: [
+          candidate({ pool: nearby, physicalScore: 99 }),
+          candidate({ pool: favorite, physicalScore: 82 }),
+          candidate({ pool: home, physicalScore: 55 }),
+        ],
+        hadForecasts: true,
+      })),
+    });
+    await runDailyCallCron({ now, supabase, deps: mocked });
+    const payload = (mocked.enqueue as jest.Mock).mock.calls[0][0].payload;
+    const evaluateCandidates = jest.fn(async ({ candidates }) =>
+      (candidates as MajorEventHoldCandidate[]).map((value) => ({
+        candidateId: value.candidateId,
+        evaluation: { outcome: "allow" as const, holdIds: [], holdEpoch: "epoch" },
+        recommendationAvailability: { state: "available" as const, holdEpoch: "epoch" },
+      })));
+
+    const result = await resolveNotificationMajorEventHold(
+      { eventId: "event-1", type: "daily_call", payload, profileExperience: "beginner", mode: "enforce" },
+      { evaluateCandidates },
+    );
+
+    expect(result.status).toBe("allowed");
+    expect(evaluateCandidates.mock.calls[0][0].candidates.map((value: MajorEventHoldCandidate) => value.beachId))
+      .toEqual([nearby.beach.id, blacksId, ospreyId]);
+  });
+
+  it("stays silent when every go window is held or its hold state is unknown", async () => {
+    const mocked = deps({
+      resolveHeldBeaches: holding([blacksId, ospreyId], "hold_state_unavailable"),
+    });
+
+    const summary = await runDailyCallCron({ now, supabase, deps: mocked });
+
+    expect(mocked.enqueue).not.toHaveBeenCalled();
+    expect(summary).toMatchObject({ sent: 0, silent: 1 });
+    expect(summary.skippedCounts).toMatchObject({ no_go_window: 0, no_clear_window: 1, held_hold_state_unavailable: 2 });
   });
 });
 
