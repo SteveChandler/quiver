@@ -269,6 +269,22 @@ async function weekScoutHandler(
       lat: candidate.beach.lat,
       lon: candidate.beach.lon,
     }));
+  } else {
+    const homeBeachId = profile?.home_beach_id ?? null;
+    const anchor = userLocation ?? await loadHomeBeachCoordinates(supabase, homeBeachId);
+    if (anchor) {
+      const pool = await buildDriveRangeCandidatePool(user.id, {
+        anchor,
+        homeBeachId,
+        maxDriveMinutes: profile?.max_drive_minutes ?? null,
+        filters: undefined,
+      });
+      const poolIds = pool.candidates.map((candidate) => candidate.beach.id);
+      const allowedIds = new Set(poolIds);
+      const submittedInRange = candidateBeachIds.filter((id) => allowedIds.has(id));
+      candidateBeachIds = submittedInRange.length > 0 ? submittedInRange : poolIds;
+      rankingLocation = anchor;
+    }
   }
   // The preference only narrows the pick; if it can't be read, rank every window.
   const sessionTime = profileError === null ? parseSessionTime(profile?.preferred_session_time) : null;
