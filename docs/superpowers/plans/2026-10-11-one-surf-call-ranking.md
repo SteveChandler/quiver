@@ -1,6 +1,6 @@
 # One Surf Call Ranking Implementation Plan
 
-> **For Codex (or any agentic worker):** implement this plan task by task, in order, on the branch named under Global Constraints. Each task lists its files, the behaviour, the tests to write first, and the checks to run. Commit after each task with the Conventional Commit subject given. Do not push, open a pull request, change environment variables or flags, or touch production. Stop and report if a check fails twice or a step needs a decision this plan does not make.
+> **For the local Claude Code session (or any agentic worker):** implement this plan task by task, in order, on the branch named under Global Constraints. Each task lists its files, the behaviour, the tests to write first, and the checks to run. Commit after each task with the Conventional Commit subject given. Do not push, open a pull request, change environment variables or flags, or touch production. Stop and report if a check fails twice or a step needs a decision this plan does not make.
 
 **Goal:** Home, the Daily Call and the evening swell alert name the same beach because one ranker (Week Scout) decides, over one beach list (`loadUserPool`).
 
@@ -136,7 +136,7 @@ Before the final report, also run `yarn deadcode` in quiver (knip; exit 0 requir
 
 ## Task 6 — Distance inside the drive range (D1) — **only if D1 says Confirmed**
 
-**Gate:** open the spec's D1 row. If it does not say **Confirmed**, skip this task entirely and say so in the final report.
+**Gate:** open the spec's D1 row. If it does not say **Confirmed**, skip this task entirely and say so in the final report. (D1 was confirmed on 2026-10-11, so this task runs.)
 
 **Files:**
 - `lib/services/discovery/week-scout.ts`

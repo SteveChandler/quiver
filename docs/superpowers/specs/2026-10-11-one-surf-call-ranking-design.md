@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-11
 **Owner:** Steven
-**Status:** proposed. D1 needs Steven's confirmation before Task 6 of the plan runs.
+**Status:** approved; D1 confirmed by Steven on 2026-10-11. Implementation to run in a local Claude Code session from the plan.
 **Repos:** `quiver` (ranking, Daily Call, swell alert), `quiver-native` (Week Scout screen)
 **Plan:** `docs/superpowers/plans/2026-10-11-one-surf-call-ranking.md`
 **Builds on:** `docs/superpowers/specs/2026-09-17-daily-call-and-swell-alert-design.md`. That spec's §9 rollout step said "compare the push to what Home shows at the same time; they must agree." This design makes them agree by construction.
@@ -42,7 +42,7 @@ They share building blocks (the window selector and the canonical verdict) but n
 
 | # | Decision |
 |---|---|
-| D1 | **Confirm before Task 6.** Inside the drive range, drop the per-mile distance penalty. Distance stays only as the tiebreak between windows within 3 points of each other. Reason: the drive range is the surfer's own statement of how far they will go, so a penalty inside it second-guesses them. This changes Week Scout, so it changes every surface. |
+| D1 | **Confirmed** (Steven, 2026-10-11). Inside the drive range, drop the per-mile distance penalty. Distance stays only as the tiebreak between windows within 3 points of each other. Reason: the drive range is the surfer's own statement of how far they will go, so a penalty inside it second-guesses them. This changes Week Scout, so it changes every surface. |
 | D2 | Week Scout's ranking is the only judge. The Daily Call and the swell alert ask it for the day's pick; they no longer rank beaches themselves. |
 | D3 | The pushes keep only push rules: send only when the pick's personal verdict is `go`; skip a window closing within 30 minutes; the surf push budget; title and copy; drivers. |
 | D4 | The push window is the window Home shows: Week Scout's `displayWindowStart`/`displayWindowEnd`. The alert refiner (`lib/alerts/window-refiner.ts`) still supplies drivers, but only for an edge it places within 15 minutes of Week Scout's edge. Otherwise that edge gets no driver. |
