@@ -6,10 +6,10 @@ import { metadata } from "@/app/best-surf-forecast-app/page";
 describe("Best surf forecast app SEO page", () => {
   it("uses capability-led metadata for paid and free best-app intent", () => {
     expect(metadata.title).toBe(
-      "Best Surf Forecast Apps: Free & Paid Picks for 2026",
+      "Best Surf Apps 2026: Free & Paid Surf Forecast Apps",
     );
     expect(metadata.description).toBe(
-      "Compare the best paid and free surf forecast apps for 2026, including Quiver, Surfline, Windy, and more, with clear free-tier limits.",
+      "The best surf apps for 2026: Surfline, Quiver, Windy, Surf-Forecast.com and more, compared on free tiers, prices, platforms, and who each suits.",
     );
     expect(String(metadata.title).length).toBeLessThanOrEqual(60);
     expect(String(metadata.description).length).toBeLessThanOrEqual(155);
@@ -18,6 +18,9 @@ describe("Best surf forecast app SEO page", () => {
         "best free surf forecast app",
         "free surf forecast app",
         "best free surf report app",
+        "best surf app",
+        "best surf apps",
+        "surf forecast app",
       ]),
     );
   });
