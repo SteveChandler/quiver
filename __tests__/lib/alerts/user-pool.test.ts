@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { loadUserPool } from "@/lib/alerts/user-pool";
+import { capNearbyPool, loadUserPool, type PoolBeach } from "@/lib/alerts/user-pool";
 import type { Beach, Database } from "@/types/database";
 
 interface Store {
@@ -405,6 +405,29 @@ describe("user pool", () => {
         farHome.id, pacificBeach.id, alaMoana.id, farCustomAnchor.id,
       ]);
       expect(result.every(({ distanceMiles }) => distanceMiles === null)).toBe(true);
+    });
+  });
+
+  describe("capNearbyPool", () => {
+    const entry = (id: string, relation: PoolBeach["relation"], distanceMiles: number | null): PoolBeach =>
+      ({ beach: makeBeach(id), relation, distanceMiles });
+
+    it("keeps the nearest nearby beaches and every home, saved and custom spot", () => {
+      const pool = [
+        entry("far", "nearby", 30), entry("home", "home", 40), entry("near", "nearby", 5),
+        entry("saved", "favorite", 44), entry("mid", "nearby", 12), entry("custom", "custom", 41),
+      ];
+
+      const capped = capNearbyPool(pool, 2);
+
+      expect(capped.pool.map(({ beach }) => beach.id)).toEqual(["home", "near", "saved", "mid", "custom"]);
+      expect(capped).toEqual(expect.objectContaining({ cappedCount: 1, farthestNearbyMiles: 12 }));
+    });
+
+    it("leaves a pool under the cap untouched", () => {
+      const pool = [entry("a", "nearby", 1), entry("b", "favorite", 2)];
+
+      expect(capNearbyPool(pool, 2)).toEqual({ pool, cappedCount: 0, farthestNearbyMiles: null });
     });
   });
 

@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { loadUserPool } from "@/lib/alerts/user-pool";
+import { capNearbyPool, loadUserPool } from "@/lib/alerts/user-pool";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { calculateDistanceInMiles } from "@/lib/utils/distance-utils";
 import type { Beach, Database } from "@/types/database";
@@ -301,12 +301,6 @@ export async function buildWeekendScoutCandidatePool(
 
 type WeekScoutFilter = NonNullable<BuildWeekendScoutCandidatePoolOptions["filters"]>[number];
 
-/**
- * Week Scout scores the nearest in-range beaches, plus every home, saved and
- * custom spot in range. Measured 2026-10-11 against production data (LA, 100
- * mile range): 30 beaches 1.07 s, 50 1.44 s, 60 1.77 s, 99 2.49 s.
- */
-export const DRIVE_RANGE_NEARBY_CANDIDATE_CAP = 50;
 
 interface BuildDriveRangeCandidatePoolOptions {
   anchor: { lat: number; lon: number };
@@ -361,21 +355,12 @@ export async function buildDriveRangeCandidatePool(
   const matching = pool.filter(({ beach, distanceMiles }) => (
     matchesScope({ beach, distanceMiles: distanceMiles ?? 0 }, scope)
   ));
-  const nearby = matching
-    .filter(({ relation }) => relation === "nearby")
-    .sort((left, right) => (left.distanceMiles ?? 0) - (right.distanceMiles ?? 0));
-  const keptNearby = new Set(nearby.slice(0, DRIVE_RANGE_NEARBY_CANDIDATE_CAP));
-  const cappedCount = nearby.length - keptNearby.size;
-  const candidates = matching
-    .filter((entry) => entry.relation !== "nearby" || keptNearby.has(entry))
-    .map(({ beach, distanceMiles }) => ({ beach, distanceMiles }));
+  const capped = capNearbyPool(matching);
   return {
-    candidates,
+    candidates: capped.pool.map(({ beach, distanceMiles }) => ({ beach, distanceMiles })),
     enumeratedCount: pool.length,
     filteredOutCount: pool.length - matching.length,
-    cappedCount,
-    farthestNearbyMiles: cappedCount > 0
-      ? nearby[DRIVE_RANGE_NEARBY_CANDIDATE_CAP - 1]?.distanceMiles ?? null
-      : null,
+    cappedCount: capped.cappedCount,
+    farthestNearbyMiles: capped.farthestNearbyMiles,
   };
 }

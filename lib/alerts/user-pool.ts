@@ -35,6 +35,36 @@ interface CustomSpotRow {
 }
 
 const METERS_PER_MILE = 1609.344;
+
+/**
+ * How many nearby beaches a ranking scores, nearest first; home, saved and
+ * custom spots in range are always kept on top. Measured 2026-10-11 against
+ * production data (Week Scout, LA, 100-mile range): 30 beaches 1.07 s, 50
+ * 1.44 s, 60 1.77 s, 99 2.49 s. The Daily Call uses the same cap so it and
+ * Home choose from the same beaches.
+ */
+export const NEARBY_POOL_CAP = 50;
+
+export interface CappedPool {
+  pool: PoolBeach[];
+  /** Nearby beaches in range left out past the cap. */
+  cappedCount: number;
+  /** Distance to the farthest nearby beach kept; null when nothing was capped. */
+  farthestNearbyMiles: number | null;
+}
+
+export function capNearbyPool(pool: PoolBeach[], cap: number = NEARBY_POOL_CAP): CappedPool {
+  const nearby = pool
+    .filter(({ relation }) => relation === "nearby")
+    .sort((left, right) => (left.distanceMiles ?? 0) - (right.distanceMiles ?? 0));
+  if (nearby.length <= cap) return { pool, cappedCount: 0, farthestNearbyMiles: null };
+  const kept = new Set(nearby.slice(0, cap));
+  return {
+    pool: pool.filter((entry) => entry.relation !== "nearby" || kept.has(entry)),
+    cappedCount: nearby.length - cap,
+    farthestNearbyMiles: nearby[cap - 1]?.distanceMiles ?? null,
+  };
+}
 const FORECAST_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 export async function loadUserPool({
