@@ -1,14 +1,10 @@
-"use client";
-
-import { useState, type ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 import type { Beach } from "@/types/database";
 import type { BeachSources } from "@/hooks/use-beach-detail-data";
 import type { ZineBeachPhoto } from "./types";
-import { PhotoAttribution } from "@/components/photos/photo-attribution";
+import { ZineHeroMedia } from "./zine-hero-media";
 import { buildCamEmbed } from "@/lib/media/cam-embed";
 import { CamsSection } from "@/components/beach-detail/cams-section";
-import { getOptimizedImageUrl } from "@/lib/image-proxy";
-import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import {
   SaltyEyebrow,
   SkillBars,
@@ -41,7 +37,7 @@ export function ZineHero({
   summarySlot,
   forecastSlot,
   children,
-}: ZineHeroProps) {
+}: ZineHeroProps): ReactElement {
   const skill = (beach.skill_level || "All").toUpperCase();
   const breakType = (beach.break_type || "Spot").toUpperCase();
   const rating = typeof beach.average_rating === "number" ? beach.average_rating.toFixed(1) : null;
@@ -99,8 +95,12 @@ export function ZineHero({
           </p>
         )}
 
-        <HeroMediaPanel
-          beachPhoto={beachPhoto}
+        <ZineHeroMedia
+          photoUrl={beachPhoto?.image_url}
+          attributionKind={beachPhoto?.attribution?.kind}
+          attributionName={beachPhoto?.attribution?.displayName}
+          attributionProfileId={beachPhoto?.attribution?.profileId}
+          attributionHtml={beachPhoto?.attribution_html}
           sources={sources}
           hasLiveCam={hasLiveCam}
           beachName={beach.name}
@@ -250,128 +250,6 @@ function ReviewCircle({ count }: { count: number }) {
         {count > 999 ? "999+" : count}
       </div>
       <span style={{ fontFamily: "var(--font-mono), monospace", fontSize: 9, letterSpacing: "0.16em", textTransform: "uppercase", fontWeight: 700 }}>REVIEWS</span>
-    </div>
-  );
-}
-
-/**
- * Native Beach Detail's media panel: real place imagery under the beach name,
- * in a comic panel (3 pt ink outline, large sticker corners, hard ink drop,
- * ink halftone on the right half). No tilt and no tape. Falls back from the
- * beach photo to its diorama, then a stored cam still (labelled as a still,
- * when no live stream exists), then the spot map, so it never shows an empty
- * placeholder. A live cam embed stays in the collapsed section below.
- */
-function HeroMediaPanel({
-  beachPhoto,
-  sources,
-  hasLiveCam,
-  beachName,
-  locationName,
-  lat,
-  lon,
-  aspectDeg,
-  breakType,
-  features,
-}: {
-  beachPhoto?: ZineBeachPhoto | null;
-  sources?: BeachSources | null;
-  hasLiveCam: boolean;
-  beachName: string;
-  locationName: string;
-  lat?: number | null;
-  lon?: number | null;
-  aspectDeg?: number | null;
-  breakType?: string | null;
-  features?: string[] | null;
-}) {
-  const [failedUrls, setFailedUrls] = useState<Set<string>>(new Set());
-  const reducedMotion = useReducedMotion();
-  const beachPhotoUrl = beachPhoto?.image_url;
-  const dioramaUrl = sources?.diorama_url;
-  const camStillUrl = !hasLiveCam ? sources?.cam_thumbnail_url : null;
-  const photoUrl = beachPhotoUrl && !failedUrls.has(beachPhotoUrl) ? beachPhotoUrl : null;
-  const videoUrl = !photoUrl && dioramaUrl && !failedUrls.has(dioramaUrl) ? dioramaUrl : null;
-  const stillUrl = !photoUrl && !videoUrl && camStillUrl && !failedUrls.has(camStillUrl) ? camStillUrl : null;
-  const showMap = !photoUrl && !videoUrl && !stillUrl;
-  const handleMediaError = (url: string): void => {
-    setFailedUrls((current) => new Set(current).add(url));
-  };
-
-  return (
-    <div className="mb-2 mr-2 mt-5" data-testid="zine-hero-media">
-      <div
-        className="relative overflow-hidden"
-        style={{
-          border: "3px solid #11100D",
-          borderRadius: "16px 6px 18px 8px",
-          boxShadow: "8px 8px 0 #11100D",
-          background: "#11100D",
-        }}
-      >
-        {photoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element -- matches HalftonePhoto: the image proxy already sizes the photo, and cover-fit needs no Next image wrapper
-          <img
-            src={getOptimizedImageUrl(photoUrl)}
-            alt={`${beachName}, ${locationName}`}
-            className="block h-[320px] w-full object-cover"
-            onError={() => handleMediaError(photoUrl)}
-          />
-        ) : videoUrl ? (
-          <video
-            src={videoUrl}
-            autoPlay={!reducedMotion}
-            controls={reducedMotion}
-            loop={!reducedMotion}
-            muted
-            playsInline
-            aria-label={`Illustrated scene of ${beachName}; not live conditions`}
-            className="block h-[320px] w-full object-cover"
-            onError={() => handleMediaError(videoUrl)}
-          />
-        ) : stillUrl ? (
-          <div className="relative h-[320px]">
-            {/* eslint-disable-next-line @next/next/no-img-element -- stored cam stills are already sized */}
-            <img
-              src={getOptimizedImageUrl(stillUrl)}
-              alt={`Live cam of ${beachName} still frame`}
-              className="h-full w-full object-cover"
-              onError={() => handleMediaError(stillUrl)}
-            />
-            <span className="absolute bottom-2 left-2 bg-[#11100D]/75 px-2 py-1 text-xs text-[#F4EBD8]">Live stream unavailable right now</span>
-          </div>
-        ) : (
-          <MapDoodle
-            height={320}
-            beachName={beachName}
-            locationName={locationName}
-            lat={lat}
-            lon={lon}
-            aspectDeg={aspectDeg}
-            breakType={breakType}
-            features={features}
-          />
-        )}
-        {/* Native's panel halftone sits on drawn panels only; over a photo it
-            reads as a seam down the middle. */}
-        {showMap ? (
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-y-0 left-1/2 right-0"
-            style={{
-              backgroundImage: "radial-gradient(rgba(17,16,13,0.07) 1.1px, transparent 1.3px)",
-              backgroundSize: "6px 6px",
-            }}
-          />
-        ) : null}
-        {photoUrl && (beachPhoto?.attribution || beachPhoto?.attribution_html) ? (
-          <PhotoAttribution
-            attribution={beachPhoto.attribution ?? null}
-            attributionHtml={beachPhoto.attribution_html}
-            className="absolute bottom-2 right-2 z-20 max-w-[70%] truncate bg-[#11100D]/75 px-2 py-1 font-mono text-[10px] text-[#F4EBD8] underline-offset-2 hover:underline"
-          />
-        ) : null}
-      </div>
     </div>
   );
 }

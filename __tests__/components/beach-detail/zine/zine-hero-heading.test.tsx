@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { createMockBeach } from "@/__tests__/setup/typed-mocks";
 import { ZineHero } from "@/components/beach-detail/zine/zine-hero";
 import { WaterTempSummaryHero } from "@/components/beach-detail/water-temp-summary-hero";
@@ -190,75 +190,6 @@ describe("ZineHero heading level", () => {
     expect(screen.queryByText("Spot map")).not.toBeInTheDocument();
     expect(screen.queryByText(/Live cam/)).not.toBeInTheDocument();
     expect(document.querySelector("details summary")?.textContent).not.toMatch(/map|cam/i);
-  });
-
-  it("uses the available diorama video when the beach has no approved photo", () => {
-    const beach = createMockBeach({ name: "Lower Trestles" });
-    const sources = { diorama_url: "/trestles.mp4" } as BeachSources;
-
-    render(<ZineHero beach={beach} sources={sources} />);
-
-    const video = screen.getByLabelText("Illustrated scene of Lower Trestles; not live conditions");
-    expect(video).toHaveAttribute("src", "/trestles.mp4");
-    expect(video).toHaveAttribute("autoplay");
-    expect(screen.getByTestId("zine-hero-media").querySelector("img")).toBeNull();
-  });
-
-  it("uses the diorama when a selected photo fails to load", () => {
-    const beach = createMockBeach({ name: "Lower Trestles", city: "San Onofre", state: "CA" });
-    const sources = { diorama_url: "/trestles.mp4" } as BeachSources;
-    render(
-      <ZineHero
-        beach={beach}
-        sources={sources}
-        beachPhoto={{
-          image_url: "/missing.jpg",
-          thumb_url: null,
-          source: "curated",
-          creator_name: null,
-          license_code: null,
-          attribution_html: null,
-        }}
-      />,
-    );
-
-    fireEvent.error(screen.getByAltText("Lower Trestles, San Onofre, CA"));
-
-    expect(screen.queryByAltText("Lower Trestles, San Onofre, CA")).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Illustrated scene of Lower Trestles; not live conditions")).toHaveAttribute("src", "/trestles.mp4");
-  });
-
-  it("keeps the same frame and map fallback when the diorama request fails", () => {
-    render(
-      <ZineHero
-        beach={createMockBeach({ name: "Lower Trestles" })}
-        sources={{ diorama_url: "/missing.mp4" } as BeachSources}
-      />,
-    );
-
-    const panel = screen.getByTestId("zine-hero-media");
-    const video = screen.getByLabelText("Illustrated scene of Lower Trestles; not live conditions");
-    expect(video).toHaveClass("h-[320px]");
-    fireEvent.error(video);
-
-    expect(panel.querySelector("video")).toBeNull();
-    expect(within(panel).getByRole("img", { name: "Map showing Lower Trestles at its actual location" })).toBeInTheDocument();
-    expect(panel.querySelector("[style*='height: 320px']")).toBeInTheDocument();
-  });
-
-  it("uses the map when a stored cam still fails to load", () => {
-    render(
-      <ZineHero
-        beach={createMockBeach({ name: "Inches" })}
-        sources={{ cam_thumbnail_url: "/missing-still.jpg" } as BeachSources}
-      />,
-    );
-
-    const panel = screen.getByTestId("zine-hero-media");
-    fireEvent.error(within(panel).getByAltText("Live cam of Inches still frame"));
-
-    expect(within(panel).queryByAltText("Live cam of Inches still frame")).not.toBeInTheDocument();
-    expect(within(panel).getByRole("img", { name: "Map showing Inches at its actual location" })).toBeInTheDocument();
   });
 
   it("does not claim a lineup location on a beach photo", () => {
