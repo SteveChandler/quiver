@@ -162,6 +162,7 @@ describe("ZineHero heading level", () => {
     render(
       <ZineHero
         beach={beach}
+        sources={{ diorama_url: "/trestles.mp4" } as BeachSources}
         beachPhoto={{
           image_url: "/photo.jpg",
           thumb_url: null,
@@ -176,6 +177,7 @@ describe("ZineHero heading level", () => {
     const panel = screen.getByTestId("zine-hero-media");
     expect(panel.closest("details")).toBeNull();
     expect(screen.getByAltText("Seaside Reef, Cardiff, CA")).toBeInTheDocument();
+    expect(panel.querySelector("video")).toBeNull();
     expect(screen.getByText("Spot map")).toBeInTheDocument();
   });
 
@@ -183,6 +185,8 @@ describe("ZineHero heading level", () => {
     render(<ZineHero beach={createMockBeach({ name: "Seaside Reef" })} />);
 
     expect(screen.getByTestId("zine-hero-media")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Map showing Seaside Reef at its actual location" })).toBeInTheDocument();
+    expect(screen.queryByText("HERO PHOTO")).not.toBeInTheDocument();
     expect(screen.queryByText("Spot map")).not.toBeInTheDocument();
     expect(screen.queryByText(/Live cam/)).not.toBeInTheDocument();
     expect(document.querySelector("details summary")?.textContent).not.toMatch(/map|cam/i);
