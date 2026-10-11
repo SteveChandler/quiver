@@ -6,10 +6,10 @@ import { metadata } from "@/app/best-surf-forecast-app/page";
 describe("Best surf forecast app SEO page", () => {
   it("uses capability-led metadata for paid and free best-app intent", () => {
     expect(metadata.title).toBe(
-      "Best Surf Apps 2026: Free & Paid Surf Forecast Apps",
+      "Best Surf App 2026: How to Choose a Surf Forecast App",
     );
     expect(metadata.description).toBe(
-      "The best surf apps for 2026: Surfline, Quiver, Windy, Surf-Forecast.com and more, compared on free tiers, prices, platforms, and who each suits.",
+      "How to choose the best surf app in 2026: what to look for in forecasts, cams, alerts, and session logs, what surf apps cost, and where Quiver fits.",
     );
     expect(String(metadata.title).length).toBeLessThanOrEqual(60);
     expect(String(metadata.description).length).toBeLessThanOrEqual(155);
@@ -36,9 +36,6 @@ describe("Best surf forecast app SEO page", () => {
     expect(source).toContain('href="#best-free-surf-forecast-app"');
     expect(source).toContain('href="/vs/surfline"');
     expect(source).toContain('href="/forecast-accuracy"');
-    expect(source).toContain("Surf Captain");
-    expect(source).toContain("https://surfcaptain.com/faq");
-    expect(source).toContain('"@type": "ItemList"');
     expect(source).toContain('"@type": "FAQPage"');
     // 2026-08-19: /best-free-surf-forecast-app was consolidated into this page,
     // so this page inherited the "eligible app page" role. It is now the ONLY page
@@ -54,6 +51,24 @@ describe("Best surf forecast app SEO page", () => {
     expect(source).toContain("one watched beach with up to three alert rules");
     expect(source).toContain(
       "Pro only: personal match score, ranked session windows, and personal alerts.",
+    );
+  });
+
+  // Steven, 2026-10-11: compare by capability; never name other surf apps or
+  // give them backlinks on this page. Internal /vs/* hrefs are fine.
+  it("names no other surf app and links to none", () => {
+    const pageDir = join(process.cwd(), "app/best-surf-forecast-app");
+    const copy = ["page.tsx", "comparison-sources.ts"]
+      .map((file) => readFileSync(join(pageDir, file), "utf8"))
+      .join("\n")
+      .replace(/href="\/vs\/surfline(\/free)?"/g, "");
+
+    expect(copy).not.toMatch(
+      /surfline|lazy ?surfer|swell ?scope|swellify|surf-forecast\.com|surf captain|surfcaptain|windy|magicseaweed|duune|blue ?verdict|swell intel/i,
+    );
+    const externalHosts = [...copy.matchAll(/https:\/\/([a-z0-9.-]+)/gi)].map((match) => match[1]);
+    expect(new Set(externalHosts)).toEqual(
+      new Set(["schema.org", "www.ndbc.noaa.gov", "cdip.ucsd.edu"]),
     );
   });
 
