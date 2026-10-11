@@ -8,6 +8,7 @@ interface Store {
   nearby: Array<{ id: string; distance_meters: number; total_count: number }>;
   customSpots?: Array<{ id: string; nearest_beach_id: string | null }>;
   forecasts?: Array<{ beach_id: string }>;
+  exclusions?: Array<{ beach_id: string }>;
 }
 
 function makeBeach(id: string, slug = id, country: string | null = "USA"): Beach {
@@ -46,6 +47,7 @@ function makeSupabase(store: Store): SupabaseClient<Database> {
       if (table === "beaches") return chain(store.beaches);
       if (table === "custom_spots") return chain(store.customSpots ?? []);
       if (table === "enhanced_forecasts") return chain(store.forecasts ?? []);
+      if (table === "user_beach_exclusions") return chain(store.exclusions ?? []);
       throw new Error(`Unexpected table: ${table}`);
     }),
     rpc: jest.fn(() => Promise.resolve({ data: store.nearby, error: null })),
@@ -406,6 +408,30 @@ describe("user pool", () => {
       ]);
       expect(result.every(({ distanceMiles }) => distanceMiles === null)).toBe(true);
     });
+  });
+
+  it("leaves out home and saved beaches the surfer excluded or that cannot be recommended", async () => {
+    const keep = makeBeach("keep");
+    const excluded = makeBeach("excluded-home");
+    const privateBeach = { ...makeBeach("private"), is_private: true } as Beach;
+    const ineligible = { ...makeBeach("ineligible"), recommendation_eligible: false } as Beach;
+    const deleted = { ...makeBeach("deleted"), deleted_at: "2026-10-01T00:00:00Z" } as Beach;
+    const supabase = makeSupabase({
+      favorites: [keep, privateBeach, ineligible, deleted].map((beach) => ({ beach_id: beach.id, custom_spot_id: null })),
+      beaches: [keep, excluded, privateBeach, ineligible, deleted],
+      nearby: [],
+      exclusions: [{ beach_id: excluded.id }],
+    });
+
+    const result = await loadUserPool({
+      supabase,
+      userId: "user-1",
+      homeBeachId: excluded.id,
+      location: null,
+      maxDriveMinutes: null,
+    });
+
+    expect(result.map(({ beach }) => beach.id)).toEqual([keep.id]);
   });
 
   describe("capNearbyPool", () => {

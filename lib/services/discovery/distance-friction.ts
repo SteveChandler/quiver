@@ -35,14 +35,18 @@ export function calculateDriveRangeDistancePenalty(
   driveRadiusMiles: number | undefined,
 ): number {
   if (
-    distanceMiles !== undefined
-    && driveRadiusMiles !== undefined
-    && Number.isFinite(driveRadiusMiles)
-    && distanceMiles <= driveRadiusMiles
+    distanceMiles === undefined
+    || driveRadiusMiles === undefined
+    || !Number.isFinite(driveRadiusMiles)
   ) {
-    return 0;
+    return calculateDistancePenalty(distanceMiles);
   }
-  return calculateDistancePenalty(distanceMiles);
+  // Past the range only the miles beyond it count, so the friction starts at
+  // zero on the edge instead of jumping to the full 10-mile-based penalty.
+  const freeMiles = Math.max(driveRadiusMiles, DISTANCE_FRICTION_HOME_ZONE_MILES);
+  return calculateDistancePenalty(
+    distanceMiles - freeMiles + DISTANCE_FRICTION_HOME_ZONE_MILES,
+  );
 }
 
 /**

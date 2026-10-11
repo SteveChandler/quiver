@@ -300,7 +300,8 @@ describe('POST /api/surf/week-scout', () => {
     }, { from });
     const scope = (await response.json()).data.coverage.scope;
 
-    expect(scope.radiusMiles).toBe(51.2);
+    expect(scope.radiusMiles).toBe(100);
+    expect(scope.coveredMiles).toBe(51.2);
     expect(scope.candidates).toEqual({ enumerated: 99, hydrated: 99, filteredOut: 0, capped: 49 });
     expect(mockGenerateWeekScoutForecast).toHaveBeenCalledWith('user-week-scout', expect.objectContaining({
       driveRadiusMiles: 100,

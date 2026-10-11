@@ -132,23 +132,12 @@ async function weekScoutHandler(
     ? { kind: 'complete-radius' as const }
     : parsed.data.candidateScope;
 
-  let profile: {
-    max_drive_minutes?: number | null;
-    preferred_session_time?: string | null;
-    home_beach_id?: string | null;
-  } | null = null;
-  let profileError: string | null = null;
-  try {
-    const result = await supabase
-      .from('profiles')
-      .select('max_drive_minutes, preferred_session_time, home_beach_id')
-      .eq('id', user.id)
-      .maybeSingle();
-    if (result.error) profileError = result.error.message;
-    else profile = result.data;
-  } catch (error) {
-    profileError = error instanceof Error ? error.message : String(error);
-  }
+  // The profile and the location snapshot are independent reads; run them together.
+  const [profileRead, snapshotRead] = await Promise.all([
+    readWeekScoutProfile(supabase, user.id),
+    readLocationSnapshot(supabase, user.id),
+  ]);
+  const { profile, error: profileError } = profileRead;
   // Without a profile the legacy ranking stands: no session-time narrowing and
   // distance friction from 10 miles.
   const surferDriveRadiusMiles = profileError === null
@@ -156,44 +145,36 @@ async function weekScoutHandler(
     : undefined;
 
   let userLocation: { lat: number; lon: number } | undefined;
-  try {
-    const { data } = await supabase
-      .from('user_location_snapshots')
-      .select('lat, lon, captured_at')
-      .eq('user_id', user.id)
-      .maybeSingle();
-    const lat = data?.lat;
-    const lon = data?.lon;
-    const capturedAt = typeof data?.captured_at === 'string'
-      ? Date.parse(data.captured_at)
-      : Number.NaN;
-    if (
-      typeof lat === 'number'
-      && Number.isFinite(lat)
-      && lat >= -90
-      && lat <= 90
-      && typeof lon === 'number'
-      && Number.isFinite(lon)
-      && lon >= -180
-      && lon <= 180
-      && Number.isFinite(capturedAt)
-      && capturedAt <= Date.now()
-      && Date.now() - capturedAt < (
-        completeRadiusScope?.kind === 'complete-radius'
-          ? INTERACTIVE_LOCATION_MAX_AGE_MS
-          : LEGACY_LOCATION_MAX_AGE_MS
-      )
-    ) {
-      userLocation = { lat, lon };
-    }
-  } catch {
-    // Location is optional; preserve the legacy conditions-only ranking.
+  const lat = snapshotRead?.lat;
+  const lon = snapshotRead?.lon;
+  const capturedAt = typeof snapshotRead?.captured_at === 'string'
+    ? Date.parse(snapshotRead.captured_at)
+    : Number.NaN;
+  if (
+    typeof lat === 'number'
+    && Number.isFinite(lat)
+    && lat >= -90
+    && lat <= 90
+    && typeof lon === 'number'
+    && Number.isFinite(lon)
+    && lon >= -180
+    && lon <= 180
+    && Number.isFinite(capturedAt)
+    && capturedAt <= Date.now()
+    && Date.now() - capturedAt < (
+      completeRadiusScope?.kind === 'complete-radius'
+        ? INTERACTIVE_LOCATION_MAX_AGE_MS
+        : LEGACY_LOCATION_MAX_AGE_MS
+    )
+  ) {
+    userLocation = { lat, lon };
   }
 
   let candidateBeachIds = parsed.data.candidateBeachIds ?? [];
   let scopeRadiusMiles: number | null = null;
   let scopeCandidateCounts: { enumerated: number; hydrated: number; filteredOut: number; capped?: number } | null = null;
   let scopeAnchor: 'origin' | 'location' | 'home' | null = null;
+  let scopeCoveredMiles: number | null = null;
   let rankingLocation = userLocation;
   let candidateBeaches: Array<{ beachId: string; beachName: string; beachSlugOrRef: string; distanceMiles: number | null; timezone: string | null; lat: number; lon: number }> | undefined;
   if (completeRadiusScope?.kind === 'complete-radius' && !completeRadiusScope.mapBounds) {
@@ -223,9 +204,9 @@ async function weekScoutHandler(
     };
     // Past the nearest-beach cap the scout covers less than the whole range;
     // report the distance it actually reached so "within N miles" stays true.
-    if (typeof pool.farthestNearbyMiles === 'number' && Number.isFinite(pool.farthestNearbyMiles)) {
-      scopeRadiusMiles = Math.min(scopeRadiusMiles, pool.farthestNearbyMiles);
-    }
+    scopeCoveredMiles = typeof pool.farthestNearbyMiles === 'number' && Number.isFinite(pool.farthestNearbyMiles)
+      ? Math.min(scopeRadiusMiles, pool.farthestNearbyMiles)
+      : scopeRadiusMiles;
     candidateBeaches = pool.candidates.map((candidate) => ({
       beachId: candidate.beach.id,
       beachName: candidate.beach.name,
@@ -313,6 +294,7 @@ async function weekScoutHandler(
           radiusMiles: scopeRadiusMiles,
           mapBounded: completeRadiusScope.mapBounds !== null && completeRadiusScope.mapBounds !== undefined,
           ...(scopeAnchor ? { anchor: scopeAnchor } : {}),
+          ...(scopeCoveredMiles !== null ? { coveredMiles: scopeCoveredMiles } : {}),
           candidates: scopeCandidateCounts ?? { enumerated: 0, hydrated: 0, filteredOut: 0 },
         },
         freshness: { state: 'unknown' as const },
@@ -326,6 +308,42 @@ async function weekScoutHandler(
     ...(coverage ? { coverage } : {}),
     ...(swellsEnabled && swells ? { swells } : {}),
   });
+}
+
+async function readWeekScoutProfile(
+  supabase: AuthenticatedContext['supabase'],
+  userId: string,
+): Promise<{
+  profile: { max_drive_minutes?: number | null; preferred_session_time?: string | null; home_beach_id?: string | null } | null;
+  error: string | null;
+}> {
+  try {
+    const result = await supabase
+      .from('profiles')
+      .select('max_drive_minutes, preferred_session_time, home_beach_id')
+      .eq('id', userId)
+      .maybeSingle();
+    return result.error ? { profile: null, error: result.error.message } : { profile: result.data, error: null };
+  } catch (error) {
+    return { profile: null, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+/** Location is optional; a failed read preserves the legacy conditions-only ranking. */
+async function readLocationSnapshot(
+  supabase: AuthenticatedContext['supabase'],
+  userId: string,
+): Promise<{ lat?: unknown; lon?: unknown; captured_at?: unknown } | null> {
+  try {
+    const { data } = await supabase
+      .from('user_location_snapshots')
+      .select('lat, lon, captured_at')
+      .eq('user_id', userId)
+      .maybeSingle();
+    return data;
+  } catch {
+    return null;
+  }
 }
 
 async function loadHomeBeachCoordinates(

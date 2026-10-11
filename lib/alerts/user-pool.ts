@@ -89,9 +89,15 @@ export async function loadUserPool({
           max_distance_meters: Math.round(radiusMiles * METERS_PER_MILE),
         })
       : Promise.resolve({ data: [] as NearbyRow[], error: null });
-  const [favoritesResult, nearbyResult] = await Promise.all([
+  // The nearby RPC already leaves these out; home and saved beaches need the same check.
+  const exclusionsRequest = supabase
+    .from("user_beach_exclusions")
+    .select("beach_id")
+    .eq("user_id", userId);
+  const [favoritesResult, nearbyResult, exclusionsResult] = await Promise.all([
     favoritesRequest,
     nearbyRequest,
+    exclusionsRequest,
   ]);
 
   if (favoritesResult.error) {
@@ -104,6 +110,16 @@ export async function loadUserPool({
       `Failed to load nearby beaches: ${nearbyResult.error.message}`,
     );
   }
+  if (exclusionsResult.error) {
+    throw new Error(
+      `Failed to load beach exclusions: ${exclusionsResult.error.message}`,
+    );
+  }
+  const excludedIds = new Set(
+    ((exclusionsResult.data ?? []) as Array<{ beach_id: string | null }>)
+      .map((row) => row.beach_id)
+      .filter((id): id is string => id !== null),
+  );
 
   const favorites = (favoritesResult.data ?? []) as FavoriteRow[];
   const nearby = (nearbyResult.data ?? []) as NearbyRow[];
@@ -179,8 +195,12 @@ export async function loadUserPool({
     );
   }
 
+  // A home or saved beach the surfer excluded, or one that is deleted, private
+  // or not recommendable, is not a candidate; nearby rows were filtered by the RPC.
   const beachesById = new Map(
-    ((beaches ?? []) as Beach[]).map((beach) => [beach.id, beach]),
+    ((beaches ?? []) as Beach[])
+      .filter((beach) => isRecommendable(beach) && !excludedIds.has(beach.id))
+      .map((beach) => [beach.id, beach]),
   );
   const closestNearby = nearby
     .filter((row) => beachesById.has(row.id))
@@ -215,6 +235,11 @@ export async function loadUserPool({
       },
     ];
   });
+}
+
+function isRecommendable(beach: Beach): boolean {
+  const flags = beach as Beach & { recommendation_eligible?: boolean | null };
+  return beach.deleted_at == null && beach.is_private !== true && flags.recommendation_eligible !== false;
 }
 
 function distanceFromAnchor(

@@ -19,7 +19,10 @@ describe('distance friction', () => {
   it('waives the penalty inside the surfer\'s drive range and keeps it past it', () => {
     expect(calculateDriveRangeDistancePenalty(35, 45)).toBe(0);
     expect(calculateDriveRangeDistancePenalty(45, 45)).toBe(0);
-    expect(calculateDriveRangeDistancePenalty(50, 45)).toBe(calculateDistancePenalty(50));
+    // Past the range only the miles beyond it count, so there is no cliff at the edge.
+    expect(calculateDriveRangeDistancePenalty(46, 45)).toBeCloseTo(-0.2);
+    expect(calculateDriveRangeDistancePenalty(50, 45)).toBeCloseTo(-1);
+    expect(calculateDriveRangeDistancePenalty(13, 5)).toBe(calculateDistancePenalty(13));
     expect(calculateDriveRangeDistancePenalty(35, undefined)).toBe(-5);
     expect(calculateDriveRangeDistancePenalty(undefined, 45)).toBe(0);
   });
