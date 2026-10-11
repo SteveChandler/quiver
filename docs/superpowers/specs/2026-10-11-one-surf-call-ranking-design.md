@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-11
 **Owner:** Steven
-**Status:** approved; D1 confirmed by Steven on 2026-10-11. Implementation to run in a local Claude Code session from the plan.
+**Status:** implemented behind CALL_SHARED_RANKING_ENABLED (flag off, no allowlist set); D1 confirmed by Steven on 2026-10-11. No task skipped.
 **Repos:** `quiver` (ranking, Daily Call, swell alert), `quiver-native` (Week Scout screen)
 **Plan:** `docs/superpowers/plans/2026-10-11-one-surf-call-ranking.md`
 **Builds on:** `docs/superpowers/specs/2026-09-17-daily-call-and-swell-alert-design.md`. That spec's §9 rollout step said "compare the push to what Home shows at the same time; they must agree." This design makes them agree by construction.
@@ -59,6 +59,8 @@ New `lib/recommendations/day-call.ts` exports `selectDayCall(day, now, { closeBu
 1. If the day's `bestWindowId` window is still open (its end is at least `closeBufferMs` after `now`), use it.
 2. Otherwise use the open window with the highest `conditionScore`.
 3. If no window is open, return null.
+
+A window counts as open by its display end (`displayWindowEnd` when the display pair is valid, else the raw end), the same end native Home uses (`windowHasClosed`), and a window ending exactly now is closed.
 
 This is the rule native Home already applies (`quiver-native src/lib/week-scout/canonical-week-scout.ts` `projectDayBestWindow`). Native keeps its own copy because it cannot import server code; a parity test pins the two together (plan Task 3).
 
