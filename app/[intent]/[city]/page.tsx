@@ -84,6 +84,7 @@ import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { WaterTempDatasetSchema } from "@/components/seo/water-temp-dataset-schema";
 import { getSeoFunnelPageByIntentRoute } from "@/lib/seo/funnel-pages";
 import { getCityEditorialContent } from "@/actions/city/city-editorial-actions";
+import { isGscPerformanceProtected } from "@/lib/seo/gsc-performance-protection";
 import {
   applyIndexabilityToMetadata,
   evaluateCityDataIntentIndexability,
@@ -384,11 +385,12 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
     "usa",
     params.intent as SurfIntentSlug,
   );
+  const canonicalPath = `/${params.intent}/${canonicalCitySlug}`;
+  const protectedWaterTemp = params.intent === "water-temp" && isGscPerformanceProtected(canonicalPath);
   const dataRich =
     hasMatchingBeaches &&
-    intentDataAvailability !== "missing" &&
+    (intentDataAvailability !== "missing" || protectedWaterTemp) &&
     !excludedCityIntents.includes(params.intent as IntentKey);
-  const canonicalPath = `/${params.intent}/${canonicalCitySlug}`;
   const decision = isDataBackedCityIntent(params.intent)
     ? evaluateCityDataIntentIndexability(
         toCityEditorialInput(cityEditorial),
@@ -595,7 +597,7 @@ export default async function IntentPage(props: IntentPageParams) {
   // Database-driven city resolution with automatic state suffix detection (parallel lookup)
   // This handles cases where sitemap has "/beginner/nags-head-nc" but user accesses "/beginner/nags-head"
   // NOTE: We serve content directly instead of redirecting to avoid redirect chains that Google flags
-  const { cityMetadata } = await resolveCityWithStateSuffix(params.city);
+  const { cityMetadata, resolvedSlug: canonicalCitySlug } = await resolveCityWithStateSuffix(params.city);
 
   if (!cityMetadata) {
     return notFound();
@@ -1050,6 +1052,7 @@ export default async function IntentPage(props: IntentPageParams) {
   // Extract intent-specific data from Promise.all result
   const tideData: CityTideData | null = params.intent === "tide" ? intentData as CityTideData | null : null;
   const waterTempData: CityWaterTempData | null = params.intent === "water-temp" ? intentData as CityWaterTempData | null : null;
+  const protectedWaterTemp = params.intent === "water-temp" && isGscPerformanceProtected(`/water-temp/${canonicalCitySlug}`);
 
   if (!beachesResult.success || !beachesResult.data || beachesResult.data.length === 0) {
     // least-crowded with no light/moderate beaches should 404, not show empty state
@@ -1064,6 +1067,9 @@ export default async function IntentPage(props: IntentPageParams) {
               {definition.heading({ cityName: cityMetadata.cityName })}
             </h1>
           </header>
+          {protectedWaterTemp && !waterTempData && (
+            <WaterTempOverviewSection data={null} isGscProtected />
+          )}
           <IntentEmptyState
             intentLabel={definition.label}
             locationName={cityMetadata.cityName}
@@ -1231,7 +1237,7 @@ export default async function IntentPage(props: IntentPageParams) {
         {/* Intent-specific live data sections */}
         {params.intent === "tide" && <TideOverviewSection data={tideData} />}
         {params.intent === "water-temp" && (
-          <WaterTempOverviewSection data={waterTempData} />
+          <WaterTempOverviewSection data={waterTempData} isGscProtected={protectedWaterTemp} />
         )}
 
         <div className="space-y-12">
