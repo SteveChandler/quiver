@@ -745,7 +745,7 @@ async function fetchExpandedTideData(
  * Get water temperature history for a city's intent page
  *
  * Finds a representative beach and retrieves the past 7 days of
- * water temperature readings for trend visualization.
+ * water temperature readings when today's reading is available.
  */
 export async function getCityWaterTempHistory(
   cityName: string,
@@ -789,7 +789,7 @@ async function fetchWaterTempData(
   const endNextDay = new Date(new Date(endDate + 'T00:00:00Z').getTime() + 86400000).toISOString().split('T')[0];
   const { data: forecasts, error: forecastError } = await supabase
     .from("enhanced_forecasts")
-    .select("forecast_date, forecast_at, water_temp")
+    .select("forecast_at, water_temp")
     .eq("beach_id", beach.id)
     .gte("forecast_at", `${startDate}T00:00:00Z`)
     .lt("forecast_at", `${endNextDay}T00:00:00Z`)
@@ -812,20 +812,21 @@ async function fetchWaterTempData(
   let latestTemp: number | null = null;
 
   for (const forecast of forecasts) {
-    if (seenDates.has(forecast.forecast_date)) continue;
+    const date = forecast.forecast_at?.slice(0, 10);
+    if (!date || seenDates.has(date)) continue;
 
     const tempF = parseWaterTempF(forecast.water_temp);
     if (tempF === null) continue;
 
-    seenDates.add(forecast.forecast_date);
+    seenDates.add(date);
     points.push({
-      date: forecast.forecast_date,
+      date,
       tempF,
     });
     latestTemp = tempF;
   }
 
-  if (points.length === 0 || latestTemp === null) {
+  if (points.length === 0 || latestTemp === null || points.at(-1)?.date !== endDate) {
     return null;
   }
 

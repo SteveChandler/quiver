@@ -148,12 +148,12 @@ jest.mock("@/lib/seo/forecast-indexability", () => ({
   isBeachSubPageIndexable: jest.fn().mockReturnValue(false),
 }));
 
-jest.mock("next/cache", () => ({
-  unstable_cache: jest.fn((fn: unknown) => fn),
+jest.mock("@/lib/seo/tide-meta-data", () => ({
+  getTideMetaData: jest.fn().mockResolvedValue({ nextHighTime: null, nextLowTime: null }),
 }));
 
-jest.mock("@/lib/seo/water-temp-meta-data", () => ({
-  getWaterTempMetaData: jest.fn().mockResolvedValue({ tempF: 65, wetsuitRec: "3/2mm fullsuit" }),
+jest.mock("next/cache", () => ({
+  unstable_cache: jest.fn((fn: unknown) => fn),
 }));
 
 jest.mock("@/components/ui/sticky-signup-bar", () => ({

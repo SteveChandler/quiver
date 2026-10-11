@@ -211,6 +211,21 @@ describe("isBeachSubPageIndexable", () => {
       }),
     ).toBe(false);
   });
+
+  it("keeps a sourced water-temp sub-page indexable without a reading or fresh forecast", () => {
+    expect(
+      isBeachSubPageIndexable(undefined, "/ca/la-jolla/windansea/water-temp", {
+        hasSubPageData: false,
+        hasPersistentSource: true,
+      }),
+    ).toBe(true);
+    expect(
+      isBeachSubPageIndexable(undefined, "/beach/windansea/water-temp", {
+        hasSubPageData: false,
+        hasPersistentSource: true,
+      }),
+    ).toBe(false);
+  });
 });
 
 describe("evaluateBeachPageIndexability", () => {

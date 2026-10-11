@@ -32,7 +32,6 @@ import { getReviewedCityEditorialContent } from "@/actions/city/city-editorial-a
 import { getSurfClimatology } from "@/lib/climatology/get-surf-climatology";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { unstable_cache } from "next/cache";
-import { parseWaterTempF } from "@/lib/utils/wetsuit-utils";
 import type { Beach } from "@/types/database";
 import {
   findNextTideExtremes,
@@ -129,7 +128,6 @@ type SitemapBeachEditorialFields = {
 
 export interface BeachSubPageCoverage {
   tideCoverage: ReadonlySet<string>;
-  waterTempCoverage: ReadonlySet<string>;
 }
 
 interface TideCoverageRow {
@@ -141,15 +139,9 @@ interface TideCoverageRow {
   created_at: string | null;
 }
 
-interface WaterTempCoverageRow {
-  beach_id: string | null;
-  water_temp: string | null;
-  forecast_at: string | null;
-}
-
 // PostgREST caps a response at 1000 rows regardless of .limit(). Coverage now
-// reads every row per beach (25 hourly tide points, twice that while a beach
-// still holds an old station's series, and ~8 water-temp points), so
+// reads every tide row per beach (25 hourly points, twice that while a beach
+// still holds an old station's series), so
 // the batch must stay small enough that a full batch cannot reach that cap:
 // 10 beaches x 25h stays well under it even if tide granularity went 4x finer.
 const BEACH_COVERAGE_BATCH_SIZE = 10;
@@ -200,7 +192,7 @@ function batchBeachIds(ids: readonly string[]): string[][] {
 }
 
 /**
- * The sub-page routes are force-static with revalidate = 3600, so the robots
+ * Tide sub-page routes are force-static with revalidate = 3600, so the robots
  * meta they serve is frozen for up to an hour. The sitemap is force-dynamic and
  * re-evaluated on every request. That asymmetry lets the sitemap advertise a URL
  * the moment its data qualifies, while the page it points at can still be
@@ -223,17 +215,15 @@ async function getBeachSubPageCoverage(
       const coverage = await fetchBeachSubPageCoverage(beachIds);
       return {
         tideCoverage: [...coverage.tideCoverage],
-        waterTempCoverage: [...coverage.waterTempCoverage],
       };
     },
     ["beach-sub-page-coverage", fingerprintBeachIds(beachIds)],
     { revalidate: FORECAST_INDEXABILITY_REVALIDATE_SECONDS },
   );
 
-  const { tideCoverage, waterTempCoverage } = await load();
+  const { tideCoverage } = await load();
   return {
     tideCoverage: new Set(tideCoverage),
-    waterTempCoverage: new Set(waterTempCoverage),
   };
 }
 
@@ -252,8 +242,7 @@ async function fetchBeachSubPageCoverage(
   beachIds: readonly string[],
 ): Promise<BeachSubPageCoverage> {
   const tideCoverage = new Set<string>();
-  const waterTempCoverage = new Set<string>();
-  if (beachIds.length === 0) return { tideCoverage, waterTempCoverage };
+  if (beachIds.length === 0) return { tideCoverage };
 
   let supabase: Awaited<ReturnType<typeof createSupabaseServiceRoleClient>>;
   try {
@@ -262,41 +251,26 @@ async function fetchBeachSubPageCoverage(
     console.error("Sitemap: Failed to create sub-page coverage client", {
       message: error instanceof Error ? error.message : "Unknown error",
     });
-    return { tideCoverage, waterTempCoverage };
+    return { tideCoverage };
   }
 
   const now = new Date();
   const tideWindow = tideExtremesWindow(now);
-  const today = now.toISOString().split("T")[0];
-  const tomorrow = new Date(`${today}T00:00:00.000Z`);
-  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
 
   try {
     const responses = await Promise.all(
-      batchBeachIds(beachIds).map(async (batch) => {
-        const [tideResponse, waterTempResponse] = await Promise.all([
-          supabase
-            .from("tide_forecasts")
-            .select("beach_id, ts, tide_height_m, source, station_id, created_at")
-            .in("beach_id", batch)
-            .gte("ts", tideWindow.from)
-            .lte("ts", tideWindow.to)
-            .limit(POSTGREST_MAX_ROWS),
-          supabase
-            .from("enhanced_forecasts")
-            .select("beach_id, water_temp, forecast_at")
-            .in("beach_id", batch)
-            .gte("forecast_at", `${today}T00:00:00.000Z`)
-            .lt("forecast_at", tomorrow.toISOString())
-            .not("water_temp", "is", null)
-            .limit(POSTGREST_MAX_ROWS),
-        ]);
-
-        return { tideResponse, waterTempResponse };
-      }),
+      batchBeachIds(beachIds).map((batch) =>
+        supabase
+          .from("tide_forecasts")
+          .select("beach_id, ts, tide_height_m, source, station_id, created_at")
+          .in("beach_id", batch)
+          .gte("ts", tideWindow.from)
+          .lte("ts", tideWindow.to)
+          .limit(POSTGREST_MAX_ROWS),
+      ),
     );
 
-    for (const { tideResponse, waterTempResponse } of responses) {
+    for (const tideResponse of responses) {
       if (tideResponse.error) {
         console.error("Sitemap: Tide coverage query failed", {
           message: tideResponse.error.message,
@@ -326,35 +300,6 @@ async function fetchBeachSubPageCoverage(
           if (nextHigh || nextLow) tideCoverage.add(beachId);
         }
       }
-
-      if (waterTempResponse.error) {
-        console.error("Sitemap: Water-temperature coverage query failed", {
-          message: waterTempResponse.error.message,
-        });
-      } else {
-        const rows = (waterTempResponse.data ?? []) as WaterTempCoverageRow[];
-        warnIfTruncated(rows.length, "water-temperature");
-        // Pick the newest row per beach -- the one getWaterTempMetaData would
-        // select -- then apply the same parse and validity bounds. A present
-        // but unparseable reading is not coverage.
-        const newest = new Map<string, WaterTempCoverageRow>();
-        for (const row of rows) {
-          if (!row.beach_id) continue;
-          const current = newest.get(row.beach_id);
-          if (
-            !current ||
-            Date.parse(row.forecast_at ?? "") >
-              Date.parse(current.forecast_at ?? "")
-          ) {
-            newest.set(row.beach_id, row);
-          }
-        }
-        for (const [beachId, row] of newest) {
-          if (parseWaterTempF(row.water_temp) !== null) {
-            waterTempCoverage.add(beachId);
-          }
-        }
-      }
     }
   } catch (error) {
     console.error("Sitemap: Sub-page coverage query failed", {
@@ -362,7 +307,7 @@ async function fetchBeachSubPageCoverage(
     });
   }
 
-  return { tideCoverage, waterTempCoverage };
+  return { tideCoverage };
 }
 
 /**
@@ -625,13 +570,12 @@ export function buildBeachRoutes(
         ...(hasDedicatedSubPages
           ? subPageTypes.flatMap((subPage) => {
               const subPagePath = `${beachPath}/${subPage}`;
-              const hasSubPageData = subPageCoverage
-                ? subPage === "tides"
-                  ? subPageCoverage.tideCoverage.has(beach.id)
-                  : subPageCoverage.waterTempCoverage.has(beach.id)
-                : true;
+              const hasSubPageData = subPage === "tides"
+                ? subPageCoverage?.tideCoverage.has(beach.id) ?? true
+                : false;
               return isBeachSubPageIndexable(forecastSnapshot, subPagePath, {
                 hasSubPageData,
+                hasPersistentSource: subPage === "water-temp",
               })
                 ? [
                     {
@@ -830,8 +774,8 @@ async function getLocationRoutes(
  *
  * IMPORTANT: Filters out:
  * 1. Skill-based intent pages (beginner, longboard) for cities without matching beaches
- * 2. Single-beach cities unless the state has <20 total beaches AND the beach has editorial content
- * 3. Cities with exactly 2 beaches that lack editorial quality content
+ * 2. Single-beach cities for non-water-temp intents unless the state has <20 total beaches AND the beach has editorial content
+ * 3. Cities with exactly 2 beaches that lack editorial quality content for non-water-temp intents
  *    (editorial quality = description + at least one of crowd_tips/wave_tips/best_conditions_prose
  *     on both beaches). Cities with 3+ beaches are included without this extra guard.
  *
@@ -888,19 +832,14 @@ export async function buildIntentRoutes(
         );
         if (!citySlug) continue;
 
-        // Single-beach cities: allow only in thin states (<20 beaches) WITH editorial content
-        if (cityRecord.beachCount === 1) {
-          const stateTotal = stateBeachCounts.get(cityRecord.state) ?? 0;
-          if (stateTotal >= 20 || !cityRecord.hasEditorialContent) continue;
-        }
-
-        // For cities with exactly 2 beaches, require editorial quality content
-        // (description + at least one editorial field on both beaches).
-        // Cities with 3+ beaches have sufficient content depth without this check.
-        if (cityRecord.beachCount === 2 && !cityRecord.hasEditorialContent)
-          continue;
+        const stateTotal = stateBeachCounts.get(cityRecord.state) ?? 0;
+        const needsEditorialDepth =
+          (cityRecord.beachCount === 1 &&
+            (stateTotal >= 20 || !cityRecord.hasEditorialContent)) ||
+          (cityRecord.beachCount === 2 && !cityRecord.hasEditorialContent);
 
         for (const intent of intents) {
+          if (intent !== "water-temp" && needsEditorialDepth) continue;
           const editorial = cityEditorialRoutes.get(
             cityEditorialKey(
               "usa",
@@ -921,12 +860,11 @@ export async function buildIntentRoutes(
               continue;
           }
           if (intent === "tide" && cityRecord.hasTideData === false) continue;
-          if (intent === "water-temp" && cityRecord.hasWaterTempData === false)
-            continue;
-
           const canonicalPath = `/${intent}/${citySlug}`;
           const dataRich =
-            cityRecord.beachCount >= 3 || cityRecord.hasEditorialContent;
+            intent === "water-temp"
+              ? cityRecord.beachCount > 0
+              : cityRecord.beachCount >= 3 || cityRecord.hasEditorialContent;
 
           const indexable = isDataBackedCityIntent(intent)
             ? evaluateCityDataIntentIndexability(
@@ -936,7 +874,7 @@ export async function buildIntentRoutes(
                   hasIntentData:
                     intent === "tide"
                       ? cityRecord.hasTideData !== false
-                      : cityRecord.hasWaterTempData !== false,
+                      : cityRecord.beachCount > 0,
                   dataRich,
                 },
               ).indexable

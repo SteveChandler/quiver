@@ -255,6 +255,11 @@ export async function renderBeachSubPage({
       {!hasTideHero && !hasWaterTempSummary && (
         <BeachSubPageCrawlIntro copy={crawlCopy} />
       )}
+      {pageType === "water-temp" && !hasWaterTempSummary && (
+        <p className="container mx-auto px-4 py-4 text-sm text-medium">
+          No live water temperature reading right now. Check back for the next update.
+        </p>
+      )}
 
       <BeachDetailClient
         beach={beach}
@@ -419,10 +424,11 @@ export async function generateBeachSubPageMetadata({
               tideMetaForIndexing?.nextLowTime,
           )
         : tempMetaForIndexing?.tempF != null;
+    // The forecast builder can estimate water temperature for a catalog beach.
     const indexable = isBeachSubPageIndexable(
       snapshots.get(beach.id),
       subPagePath,
-      { hasSubPageData },
+      { hasSubPageData, hasPersistentSource: pageType === "water-temp" },
     );
     return applyIndexabilityToMetadata(metadata, {
       indexable,

@@ -329,9 +329,6 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
       : await getCityIntentDataAvailability("tide", cityMetadata.cityName, cityMetadata.state);
   } else if (params.intent === "water-temp") {
     waterTempDataForMeta = await getCityWaterTempHistory(cityMetadata.cityName, cityMetadata.state);
-    intentDataAvailability = waterTempDataForMeta
-      ? "available"
-      : await getCityIntentDataAvailability("water-temp", cityMetadata.cityName, cityMetadata.state);
   }
 
   const pageContent = buildIntentPageContent(
@@ -384,9 +381,12 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
     "usa",
     params.intent as SurfIntentSlug,
   );
+  // Every catalog beach has the forecast builder's latitude estimate as a fallback source.
   const dataRich =
     hasMatchingBeaches &&
-    intentDataAvailability !== "missing" &&
+    (params.intent === "water-temp"
+      ? cityMetadata.totalBeaches > 0
+      : intentDataAvailability !== "missing") &&
     !excludedCityIntents.includes(params.intent as IntentKey);
   const canonicalPath = `/${params.intent}/${canonicalCitySlug}`;
   const decision = isDataBackedCityIntent(params.intent)
@@ -397,7 +397,7 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
           hasIntentData:
             params.intent === "tide"
               ? tideDataForMeta != null
-              : waterTempDataForMeta != null,
+              : cityMetadata.totalBeaches > 0,
           dataRich,
         },
       )
@@ -1064,6 +1064,9 @@ export default async function IntentPage(props: IntentPageParams) {
               {definition.heading({ cityName: cityMetadata.cityName })}
             </h1>
           </header>
+          {params.intent === "water-temp" && (
+            <WaterTempOverviewSection data={waterTempData} />
+          )}
           <IntentEmptyState
             intentLabel={definition.label}
             locationName={cityMetadata.cityName}

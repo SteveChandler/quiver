@@ -56,7 +56,6 @@ import {
 } from "@/lib/seo/forecast-indexability";
 import { getCachedForecastIndexabilitySnapshots } from "@/lib/seo/forecast-indexability-cache";
 import { getTideMetaData } from "@/lib/seo/tide-meta-data";
-import { getWaterTempMetaData } from "@/lib/seo/water-temp-meta-data";
 
 // Rendered per request so forecast revisions and windows are current; the HTML
 // is then shared at the CDN for at most 15 minutes (lib/seo/beach-detail-cdn-cache.ts),
@@ -431,18 +430,17 @@ export default async function GenericBeachDetailPage(props: PageProps) {
 
 async function DeferredRelatedGuidesSection({ beach }: { beach: Beach }) {
   const beachPath = buildBeachUrl(beach);
-  const [forecastSnapshots, waterTempData, tideData] = await Promise.all([
+  const [forecastSnapshots, tideData] = await Promise.all([
     getCachedForecastIndexabilitySnapshots([
       { id: beach.id, timezone: beach.timezone ?? null },
     ]),
-    getWaterTempMetaData(beach.id),
     getTideMetaData(beach.id),
   ]);
   const forecastSnapshot = forecastSnapshots.get(beach.id);
   const hasWaterTemp = isBeachSubPageIndexable(
     forecastSnapshot,
     `${beachPath}/water-temp`,
-    { hasSubPageData: waterTempData.tempF != null },
+    { hasSubPageData: false, hasPersistentSource: true },
   );
   // Same availability test the tides sub-page applies in its own metadata
   // (lib/utils/beach-sub-page-utils.tsx), so the link only appears when the

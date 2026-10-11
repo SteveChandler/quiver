@@ -220,10 +220,7 @@ describe("legacy state/city URLs", () => {
     }
   );
 
-  test.each([
-    ["tide", getCityTideData],
-    ["water-temp", getCityWaterTempHistory],
-  ])(
+  test.each([["tide", getCityTideData]])(
     "noindexes %s city pages only when live data is confirmed missing",
     async (intent, dataLoader) => {
       (findCityBySlug as jest.Mock).mockResolvedValue({
@@ -250,10 +247,7 @@ describe("legacy state/city URLs", () => {
     }
   );
 
-  test.each([
-    ["tide", getCityTideData],
-    ["water-temp", getCityWaterTempHistory],
-  ])(
+  test.each([["tide", getCityTideData]])(
     "noindexes %s city pages when no reading resolves and availability is unknown",
     async (intent, dataLoader) => {
       (findCityBySlug as jest.Mock).mockResolvedValue({

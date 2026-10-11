@@ -109,4 +109,16 @@ describe("beach sub-page metadata indexability", () => {
 
     expect(meta.robots).toMatchObject({ index: false, follow: true });
   });
+
+  it("indexes a beach water-temp page with no current reading", async () => {
+    (getForecastIndexabilityForBeaches as jest.Mock).mockResolvedValue(new Map());
+
+    const meta = await generateBeachSubPageMetadata({
+      beachSlug: "windansea",
+      pageType: "water-temp",
+      beachPath: "/ca/la-jolla/windansea",
+    });
+
+    expect(meta.robots).toMatchObject({ index: true, follow: true });
+  });
 });

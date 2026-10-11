@@ -36,6 +36,8 @@ export interface ForecastIndexabilityBeach {
 interface SubPageDataAvailability {
   /** The sub-page's own dataset resolved to a real value this render. */
   hasSubPageData: boolean;
+  /** Water temperature can be estimated for a beach without a live reading. */
+  hasPersistentSource?: boolean;
 }
 
 const FORECAST_COVERAGE_SELECT =
@@ -69,6 +71,9 @@ export function isBeachSubPageIndexable(
   canonicalPath: string,
   availability: SubPageDataAvailability,
 ): boolean {
+  if (availability.hasPersistentSource) {
+    return !canonicalPath.startsWith("/beach/");
+  }
   if (!snapshot) return false;
   if (!availability.hasSubPageData) return false;
 

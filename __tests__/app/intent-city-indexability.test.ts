@@ -27,6 +27,7 @@ jest.mock("@/actions/city/city-editorial-actions", () => ({
 import { generateMetadata } from "@/app/[intent]/[city]/page";
 import {
   findCityBySlug,
+  findCitiesMatchingPattern,
   getCityExcludeIntents,
 } from "@/actions/city/city-metadata-actions";
 import {
@@ -55,6 +56,7 @@ describe("city intent indexability", () => {
       },
     });
     (getCityExcludeIntents as jest.Mock).mockResolvedValue([]);
+    (findCitiesMatchingPattern as jest.Mock).mockResolvedValue({ success: true, data: [] });
     (getCityIntentDataAvailability as jest.Mock).mockResolvedValue("available");
     (getCityWaterTempHistory as jest.Mock).mockResolvedValue({ currentTemp: 76 });
     (getCityEditorialContent as jest.Mock).mockResolvedValue(null);
@@ -138,12 +140,39 @@ describe("city intent indexability", () => {
     expect(metadata.robots).toMatchObject({ index: false, follow: true });
   });
 
-  it("noindexes /water-temp/{city} when no reading resolves", async () => {
+  it("keeps /water-temp/playa-del-rey indexable when no reading resolves", async () => {
+    (findCityBySlug as jest.Mock).mockResolvedValue({
+      success: true,
+      data: {
+        cityName: "Playa Del Rey",
+        state: "CA",
+        stateName: "California",
+        totalBeaches: 1,
+        beginnerCount: 1,
+        intermediateCount: 0,
+        advancedCount: 0,
+        beaches: [],
+        centerLat: 33.95,
+        centerLon: -118.45,
+      },
+    });
     (getCityWaterTempHistory as jest.Mock).mockResolvedValue(null);
     (getCityIntentDataAvailability as jest.Mock).mockResolvedValue("missing");
 
     const metadata = await generateMetadata({
-      params: Promise.resolve({ intent: "water-temp", city: "ma" }),
+      params: Promise.resolve({ intent: "water-temp", city: "playa-del-rey" }),
+    });
+
+    expect(metadata.robots).toMatchObject({ index: true, follow: true });
+    expect(metadata.alternates?.canonical).toContain("/water-temp/playa-del-rey");
+    expect(getCityIntentDataAvailability).not.toHaveBeenCalled();
+  });
+
+  it("noindexes a water-temp city with no beach", async () => {
+    (findCityBySlug as jest.Mock).mockResolvedValue({ success: false, data: null });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ intent: "water-temp", city: "unknown-harbor" }),
     });
 
     expect(metadata.robots).toMatchObject({ index: false, follow: true });

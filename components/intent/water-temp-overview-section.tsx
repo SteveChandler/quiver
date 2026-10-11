@@ -42,8 +42,20 @@ function formatDayLabel(dateStr: string): string {
 export function WaterTempOverviewSection({
   data,
 }: WaterTempOverviewSectionProps) {
-  // Don't render if no data available
-  if (!data) return null;
+  if (!data) {
+    return (
+      <section className="mt-8" aria-label="Water temperature status">
+        <Card>
+          <CardHeader>
+            <CardTitle>Water Temperature</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p>No live water temperature reading right now. Check back for the next update.</p>
+          </CardContent>
+        </Card>
+      </section>
+    );
+  }
 
   const { currentTemp, points, beachName } = data;
   const wetsuitRec = getWetsuitRecommendation(currentTemp);

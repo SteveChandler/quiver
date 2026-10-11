@@ -548,6 +548,29 @@ describe("Sitemap Generation", () => {
       );
     });
 
+    it("keeps Playa Del Rey in the sitemap when its only beach has no current reading", async () => {
+      (getAllCitiesWithBeachSkills as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [{
+          city: "Playa Del Rey",
+          state: "CA",
+          country: "USA",
+          beachCount: 1,
+          hasBeginnerBeaches: true,
+          hasLeastCrowdedBeaches: false,
+          hasEditorialContent: false,
+          hasTideData: false,
+          hasWaterTempData: false,
+        }],
+      });
+
+      const urls = (await buildIntentRoutes(new Map())).map((route) => route.url);
+
+      expect(urls).toContain(`${baseUrl}/water-temp/playa-del-rey`);
+      expect(urls).not.toContain(`${baseUrl}/tide/playa-del-rey`);
+      expect(urls).not.toContain(`${baseUrl}/beginner/playa-del-rey`);
+    });
+
     it.each([
       ["Huntington Beach", "CA", "huntington-beach"],
       ["Corolla", "NC", "corolla"],
@@ -733,7 +756,7 @@ describe("Sitemap Generation", () => {
       expect(result.find((r) => r.url === `${baseUrl}/beginner/encinitas`)).toBeUndefined();
     });
 
-    it("should exclude confirmed missing tide and water-temp city intent routes", async () => {
+    it("keeps water-temp city routes when readings lapse while excluding missing tides", async () => {
       (getAllCitiesWithBeachSkills as jest.Mock).mockResolvedValue({
         success: true,
         data: [
@@ -768,7 +791,7 @@ describe("Sitemap Generation", () => {
       const result = await sitemap();
 
       expect(result.find((r) => r.url === `${baseUrl}/tide/dry-harbor`)).toBeUndefined();
-      expect(result.find((r) => r.url === `${baseUrl}/water-temp/dry-harbor`)).toBeUndefined();
+      expect(result.find((r) => r.url === `${baseUrl}/water-temp/dry-harbor`)).not.toBeUndefined();
       expect(result.find((r) => r.url === `${baseUrl}/tide/live-harbor`)).not.toBeUndefined();
       expect(result.find((r) => r.url === `${baseUrl}/water-temp/live-harbor`)).not.toBeUndefined();
     });
@@ -1040,7 +1063,6 @@ describe("Sitemap Generation", () => {
         new Map([[BEACH_WITH_FRESH_FORECAST.id, FRESH_SNAPSHOT]]),
         {
           tideCoverage: new Set<string>(),
-          waterTempCoverage: new Set([BEACH_WITH_FRESH_FORECAST.id]),
         },
       );
       const urls = routes.map((route) => route.url);
@@ -1081,7 +1103,6 @@ describe("Sitemap Generation", () => {
         new Map(protectedRoutes.map((beach) => [beach.id, FRESH_SNAPSHOT])),
         {
           tideCoverage: new Set<string>(),
-          waterTempCoverage: new Set(protectedRoutes.map((beach) => beach.id)),
         },
       );
       const urls = new Set(routes.map((route) => route.url));

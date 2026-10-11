@@ -334,7 +334,7 @@ export function evaluateCityEditorialIndexability(
 }
 
 interface CityDataIntentAvailability {
-  /** The intent's own live dataset resolved to a real value this render. */
+  /** Tide needs a live value; water temperature can use a persistent source. */
   hasIntentData: boolean;
   /** The city has beaches that make the intent meaningful. */
   dataRich: boolean;
@@ -350,8 +350,8 @@ export function isDataBackedCityIntent(
 }
 
 /**
- * Tide and water-temp city pages answer a question with a current number, so they
- * earn indexability from that number rather than from the editorial review queue.
+ * Tide pages need a current number. Water-temp pages can retain indexability
+ * through gaps in readings when a source remains available.
  * An explicit editorial rejection still wins - a human pulling a page must not be
  * overridden by the presence of data.
  */

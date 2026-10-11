@@ -51,36 +51,7 @@ export const getWaterTempMetaData = cache(
         .limit(1)
         .single();
 
-      if (error || !forecast) {
-        // Try yesterday if today has no data
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = yesterday.toISOString().split("T")[0];
-
-        const { data: fallbackForecast, error: fallbackError } = await supabase
-          .from("enhanced_forecasts")
-          .select("water_temp")
-          .eq("beach_id", beachId)
-          .gte("forecast_at", `${yesterdayStr}T00:00:00Z`)
-          .lt("forecast_at", `${today}T00:00:00Z`)
-          .not("water_temp", "is", null)
-          .order("forecast_at", { ascending: false })
-          .limit(1)
-          .single();
-
-        if (fallbackError || !fallbackForecast) {
-          return nullResult;
-        }
-
-        const tempF = parseWaterTempF(fallbackForecast.water_temp);
-        if (tempF === null) return nullResult;
-
-        const wetsuitRec = getWetsuitRecommendation(tempF);
-        return {
-          tempF: Math.round(tempF),
-          wetsuitRec: wetsuitRec.thickness,
-        };
-      }
+      if (error || !forecast) return nullResult;
 
       const tempF = parseWaterTempF(forecast.water_temp);
       if (tempF === null) return nullResult;
