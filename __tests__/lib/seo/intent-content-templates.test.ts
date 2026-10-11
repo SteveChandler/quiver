@@ -95,6 +95,49 @@ describe("buildIntentPageContent", () => {
 
       expect(content.title.toLowerCase()).toMatch(/water|temperature|temp/);
     });
+
+    it.each([
+      ["ndbc", "Updated hourly with live buoy data."],
+      ["ioos", "Updated hourly with observed station data."],
+      ["coops", "Updated hourly with observed station data."],
+      ["latitude", "Updated hourly."],
+      [null, "Updated hourly."],
+    ] as const)("uses a truthful freshness suffix for %s", (source, suffix) => {
+      const metadata: CityMetadata = {
+        ...mockMetadata,
+        cityName: "Hilo",
+        beaches: [{ name: "Bay", slug: "bay", skillLevel: "beginner" }],
+      };
+      const content = buildIntentPageContent("water-temp", metadata, {
+        waterTempData: { currentTemp: 75, source },
+      });
+
+      expect(content.metaDescription.endsWith(suffix)).toBe(true);
+      expect(content.metaDescription.includes("live buoy data")).toBe(source === "ndbc");
+      expect(content.metaDescription.length).toBeLessThanOrEqual(160);
+    });
+
+    it("keeps long estimated descriptions within the existing truncation limit", () => {
+      const content = buildIntentPageContent("water-temp", {
+        ...mockMetadata,
+        beaches: [{ name: "A Very Long Beach Name That Extends The Description Past Its Limit", slug: "long-beach", skillLevel: "beginner" }],
+      }, { waterTempData: { currentTemp: 62, source: "latitude" } });
+
+      expect(content.metaDescription.length).toBeLessThanOrEqual(160);
+      expect(content.metaDescription).toMatch(/\.\.\.$/);
+      expect(content.metaDescription).not.toContain("buoy");
+    });
+
+    it("keeps the no-reading description free of buoy claims", () => {
+      const content = buildIntentPageContent("water-temp", {
+        ...mockMetadata,
+        cityName: "Hilo",
+        beaches: [{ name: "Bay", slug: "bay", skillLevel: "beginner" }],
+      });
+
+      expect(content.metaDescription).not.toContain("buoy");
+      expect(content.metaDescription.length).toBeLessThanOrEqual(160);
+    });
   });
 
   describe("longboard intent", () => {

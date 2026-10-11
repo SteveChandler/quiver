@@ -39,6 +39,13 @@ interface WaterTempPageContentProps {
   excludeIntents?: IntentKey[];
 }
 
+export function getWaterTempSourceDescription(source: CityWaterTempExpanded["source"]): string {
+  if (source === "ndbc") return "Water temperature refreshed hourly from a NOAA buoy reading.";
+  if (source === "ioos" || source === "coops") return "Water temperature refreshed hourly from an observed station reading.";
+  if (source === "latitude") return "Water temperature refreshed hourly from a latitude-based estimate.";
+  return "Water temperature refreshed hourly; reading source unavailable.";
+}
+
 export function WaterTempPageContent({
   cityName,
   citySlug,
@@ -107,8 +114,7 @@ export function WaterTempPageContent({
               {waterTempData.wetsuitRecommendation.thickness}.
             </p>
             <p className="text-base text-gray-700">
-              Water temperatures refreshed hourly from NOAA buoys and forecast
-              models.
+              {getWaterTempSourceDescription(waterTempData.source)}
             </p>
             <p className="text-base text-gray-700">{pageContent.intro}</p>
           </div>

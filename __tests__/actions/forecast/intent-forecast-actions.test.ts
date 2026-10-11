@@ -475,11 +475,16 @@ describe("getCityWaterTempHistory", () => {
       };
     });
 
-    // Directly test the deduplication logic since mocking is complex
-    // The actual function behavior is tested in integration tests
+    const result = await getCityWaterTempHistory("San Diego", "CA");
+    expect(result?.points).toEqual([
+      { date: "2025-01-23", tempF: 62 },
+      { date: "2025-01-24", tempF: 64 },
+      { date: "2025-01-25", tempF: 65 },
+    ]);
+    expect(result?.source).toBeNull();
   });
 
-  it("parses water temperature strings correctly", async () => {
+  it.each(["latitude", "ioos", "coops", "ndbc", "unverified"] as const)("parses water temperature and %s provenance", async (source) => {
     mockSupabase.from = jest.fn().mockImplementation((table: string) => {
       if (table === "beaches") {
         return {
@@ -502,7 +507,7 @@ describe("getCityWaterTempHistory", () => {
         not: jest.fn().mockReturnThis(),
         order: jest.fn().mockResolvedValue({
             data: [
-              { forecast_date: "2025-01-25", forecast_at: "2025-01-25T06:00:00Z", water_temp: "65°F", forecast_time: "06:00" },
+              { forecast_date: "2025-01-25", forecast_at: "2025-01-25T06:00:00Z", water_temp: "65°F", forecast_time: "06:00", raw_forecast: { water_temp_source: source } },
             ],
             error: null,
           }),
@@ -511,10 +516,9 @@ describe("getCityWaterTempHistory", () => {
 
     const result = await getCityWaterTempHistory("Huntington Beach", "CA");
 
-    if (result) {
-      expect(result.currentTemp).toBe(65);
-      expect(result.beachName).toBe("Huntington Beach");
-    }
+    expect(result?.currentTemp).toBe(65);
+    expect(result?.beachName).toBe("Huntington Beach");
+    expect(result?.source).toBe(source === "unverified" ? null : source);
   });
 
   it("handles invalid water_temp values gracefully", async () => {
