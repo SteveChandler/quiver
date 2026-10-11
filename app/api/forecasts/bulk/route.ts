@@ -793,37 +793,8 @@ export async function bulkForecastHandler(
   const slot = acquireBulkForecastSlot(ip, beachCount);
   if (slot.reason) return bulkForecastShedResponse(slot.reason);
 
-  const controller = new AbortController();
-  const abortFromClient = (): void => controller.abort(request.signal.reason);
-  const timer = setTimeout(() => controller.abort(), FORECAST_BULK_DEADLINE_MS);
-  let rejectOnAbort: () => void = (): void => {};
-  const aborted = new Promise<never>((_, reject) => {
-    rejectOnAbort = (): void => reject(controller.signal.reason);
-    controller.signal.addEventListener("abort", rejectOnAbort, { once: true });
-  });
-  request.signal.addEventListener("abort", abortFromClient, { once: true });
+  const signal = AbortSignal.any([request.signal, AbortSignal.timeout(FORECAST_BULK_DEADLINE_MS)]);
 
-  try {
-    // Bound response latency even if a downstream helper is slow to settle after abort.
-    const response = await Promise.race([runBulkForecastHandler(request, context, controller.signal), aborted]);
-    if (!response.ok) controller.abort();
-    return response;
-  } catch (error) {
-    if (controller.signal.aborted) return bulkForecastShedResponse("deadline");
-    throw error;
-  } finally {
-    clearTimeout(timer);
-    request.signal.removeEventListener("abort", abortFromClient);
-    controller.signal.removeEventListener("abort", rejectOnAbort);
-    slot.release();
-  }
-}
-
-async function runBulkForecastHandler(
-  request: NextRequest,
-  context: OptionalAuthContext,
-  signal: AbortSignal,
-): Promise<NextResponse> {
   try {
     signal.throwIfAborted();
     const searchParams = request.nextUrl.searchParams;
@@ -1165,9 +1136,11 @@ async function runBulkForecastHandler(
       )
     );
   } catch (error) {
-    if (signal.aborted) throw signal.reason;
+    if (signal.aborted) return bulkForecastShedResponse("deadline");
     console.error("Unexpected error in bulk forecast API:", error);
     return handleApiError(error instanceof Error ? error : new Error(String(error)), "Unexpected error fetching forecasts");
+  } finally {
+    slot.release();
   }
 }
 
