@@ -1013,6 +1013,11 @@ async function generateWeekScoutForecastInternal(
     { length: request.dayCount },
     (_, index) => addLocalDays(request.startLocalDate, index),
   );
+  const sunDates = [
+    addLocalDays(request.startLocalDate, -1),
+    ...localDates,
+    addLocalDays(localDates[localDates.length - 1], 1),
+  ];
   // Canonical order breaks exact ties consistently before shared-setup ranking.
   const requestedEligibleCount = new Set(request.candidateBeachIds).size;
   const beaches = [...await deps.fetchBeaches(request.candidateBeachIds)]
@@ -1023,7 +1028,7 @@ async function generateWeekScoutForecastInternal(
     : deps.fetchForecasts(beaches, 24 * (request.dayCount + 1));
   const [forecastsByBeach, sunTimes, personalizationContext, userSkillLevel, boardClasses] = await Promise.all([
     forecastRequest,
-    deps.fetchSunTimes(beachIds, localDates),
+    deps.fetchSunTimes(beachIds, sunDates),
     deps.fetchRankingContext(userId),
     deps.fetchSkill(userId),
     deps.fetchBoardClasses?.(userId) ?? Promise.resolve([]),
