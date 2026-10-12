@@ -47,6 +47,7 @@ import type {
 import type { ConditionBadge } from '@/types/personalization';
 import { currentWaterQuality, unsampledWaterQualityRow, type CountyStatusMetadata } from "@/lib/services/water-quality/current-status";
 import { waterQualityWarning } from "@/lib/constants/water-quality";
+import { withRainfallNotice } from "@/lib/services/water-quality/rainfall-runoff-read";
 import {
   scoreBeachWithEngine,
   beachToSpotProfile,
@@ -1861,14 +1862,15 @@ async function discoverSurfSpotsInner(
   const breakBehaviorRowsByBeach = groupBreakBehaviorRowsByBeach(breakBehaviorRows);
   endStage('context');
 
-  const wqMap = new Map<string, { status: string; kind: CountyStatusMetadata['county_advisory_kind'] }>();
+  const wqMap = new Map<string, { status: string; kind: CountyStatusMetadata['county_advisory_kind']; rainRunoff: boolean }>();
   const sampledWq = wqResult.data ?? [];
   const sampledWqIds = new Set(sampledWq.map((row) => row.beach_id));
   // Unsampled beaches still need County status (a rain advisory covers them too).
   const wqRows = [...sampledWq, ...candidateBeachIds
     .filter((beachId) => !sampledWqIds.has(beachId)).map(unsampledWaterQualityRow)];
-  for (const row of await currentWaterQuality(wqRows)) {
-    wqMap.set(row.beach_id, { status: row.status, kind: row.county_advisory_kind });
+  const currentWqRows = await currentWaterQuality(wqRows);
+  for (const row of await withRainfallNotice(currentWqRows, beachForecasts.map(({ beach }) => beach))) {
+    wqMap.set(row.beach_id, { status: row.status, kind: row.county_advisory_kind, rainRunoff: Boolean(row.rain_runoff) });
   }
 
   // 3. Score each beach with detailed breakdown
@@ -2108,7 +2110,7 @@ async function discoverSurfSpotsInner(
     // Apply water quality override after scoring
     const wq = wqMap.get(beach.id);
     const wqStatus = wq?.status;
-    const wqWarning = waterQualityWarning(wqStatus, wq?.kind);
+    const wqWarning = waterQualityWarning(wqStatus, wq?.kind, wq?.rainRunoff);
     if (wqStatus === 'closure') {
       // Score to 0 and demote to 'fair' (lowest non-skip tier) so the beach
       // sorts last but still surfaces with a clear health warning.

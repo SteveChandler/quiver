@@ -13,6 +13,12 @@ describe("waterQualityWarning", () => {
     expect(waterQualityWarning("advisory", kind)).toBe("Water quality advisory — elevated bacteria levels");
   });
 
+  it("uses the rainfall wording only where no County status exists", () => {
+    expect(waterQualityWarning("advisory", undefined, true)).toBe("Rain runoff advisory — avoid storm drains and river mouths for 72 hours");
+    expect(waterQualityWarning("advisory", "general", true)).toMatch(/^County rain advisory/);
+    expect(waterQualityWarning("advisory", "site", true)).toBe("Water quality advisory — elevated bacteria levels");
+  });
+
   it("keeps the closure wording", () => {
     expect(waterQualityWarning("closure", "site")).toBe("Water quality closure — health advisory active");
   });
