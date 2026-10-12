@@ -65,6 +65,7 @@ jobs:
           bash scripts/test-swell-watch-study-postgres.sh 2>&1 | tee /tmp/swell-normalization-artifact/integration.log
           bash scripts/test-swell-watch-feed-isolation-postgres.sh 2>&1 | tee /tmp/swell-normalization-artifact/feed-isolation.log
           bash scripts/test-swell-watch-event-identity-postgres.sh 2>&1 | tee /tmp/swell-normalization-artifact/event-identity.log
+          bash scripts/test-swell-watch-shadow-dedup-postgres.sh 2>&1 | tee /tmp/swell-normalization-artifact/shadow-dedup.log
           docker run --rm --user postgres -v "$PWD:/workspace:ro" -w /workspace -e MODEL_PG_BIN=/usr/lib/postgresql/15/bin postgres:15 bash scripts/test-match-score-missing-inputs-postgres.sh 2>&1 | tee /tmp/swell-normalization-artifact/match-score.log
           docker run --rm --user postgres -v "$PWD:/workspace:ro" -w /workspace -e MODEL_PG_BIN=/usr/lib/postgresql/15/bin postgres:15 bash scripts/test-match-score-hashable-joins-postgres.sh 2>&1 | tee /tmp/swell-normalization-artifact/match-score-hashable-joins.log
           docker run --rm --user postgres -v "$PWD:/workspace:ro" -w /workspace -e MODEL_PG_BIN=/usr/lib/postgresql/15/bin postgres:15 bash scripts/test-session-match-comparison-postgres.sh 2>&1 | tee /tmp/swell-normalization-artifact/session-match.log
