@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-11
 **Owner:** Steven
-**Status:** implemented behind CALL_SHARED_RANKING_ENABLED (flag off, no allowlist set); D1 confirmed by Steven on 2026-10-11. No task skipped.
+**Status:** single judge (D2–D4, D7) implemented behind CALL_SHARED_RANKING_ENABLED on feat/single-judge-ranking; the pool decisions (D1, D5, D6, D9) shipped differently in quiver#1037/#1050 and quiver-native#441 — see those
 **Repos:** `quiver` (ranking, Daily Call, swell alert), `quiver-native` (Week Scout screen)
 **Plan:** `docs/superpowers/plans/2026-10-11-one-surf-call-ranking.md`
 **Builds on:** `docs/superpowers/specs/2026-09-17-daily-call-and-swell-alert-design.md`. That spec's §9 rollout step said "compare the push to what Home shows at the same time; they must agree." This design makes them agree by construction.
@@ -11,7 +11,7 @@
 
 On the evening of 2026-10-09, Home's tomorrow card on Steven's Pixel said **BEST CALL · Pacific Beach · 11:23 AM – 1:41 PM**. Steven expected that call to respect his drive range and match the Daily Call and swell alerts. An investigation on 2026-10-10 found two separate causes.
 
-**1. Different beach lists (fixed on branch `ccr-999ae335-5oe2ze`).**
+**1. Different beach lists (fixed by quiver#1037/#1050 and quiver-native#441).**
 - Home ranked a list the phone built itself (`quiver-native src/hooks/use-nearby-beaches.ts`). That list:
   - starts at 15 miles and stops widening once it finds five beaches, so in San Diego any drive range over 30 minutes is ignored;
   - searches a square, not a circle, and never trims results to the real distance (the corners reach about 1.4× the radius);
@@ -21,14 +21,14 @@ On the evening of 2026-10-09, Home's tomorrow card on Steven's Pixel said **BEST
   - nearby beaches in the full drive circle, anchored on a fix under a day old or else the home beach;
   - same country as the anchor.
 - Fix:
-  - web `d6ac4c8` adds `candidateScope.pool: 'alerts'` to `/api/surf/week-scout`, which builds candidates with `loadUserPool`;
-  - native `27b2d01` makes Home send it whenever the surfer has a home beach.
+  - quiver#1037 makes complete-radius Home/Explore use `loadUserPool` plus filters and `capNearbyPool`: 50 nearest in-range beaches plus all in-range home/saved/custom spots; excluded/deleted/private/ineligible beaches leave every relation. quiver#1050 bounds legacy candidate IDs too;
+  - quiver-native#441 uses the server-owned scope. Anchors differ: Home uses a fix < 15 min else home (or a searched origin); Daily Call < 12 h; swell < 24 h. Main's anchor helpers retain their inclusive 12 h/24 h boundary.
 
 **2. Different judges (this design).** Three surfaces each decide the winner their own way:
 
 | Surface | Who wins |
 |---|---|
-| Home (Best, tomorrow card) and the Week Scout screen | Week Scout. A blended window score: 30% swell-to-beach fit, 25% the base conditions score, 15% tide, 15% wind, 10% how steady conditions stay, 5% window length (`lib/services/discovery/hero-ranking/`). Then a penalty of 0.2 points per mile past 10 miles, capped at 10. Then scores within 3 points go to the closer beach (`lib/services/discovery/week-scout.ts` `rankDrafts`, `distance-friction.ts`). |
+| Home (Best, tomorrow card) and the Week Scout screen | Week Scout. A blended window score: 30% swell-to-beach fit, 25% the base conditions score, 15% tide, 15% wind, 10% how steady conditions stay, 5% window length (`lib/services/discovery/hero-ranking/`). Then distance friction only for miles past the drive range (quiver#1037). Then scores within 3 points go to the closer beach (`lib/services/discovery/week-scout.ts` `rankDrafts`, `distance-friction.ts`). |
 | Daily Call | Hours are gated by the canonical go/maybe/no verdict. Windows are ranked by the window-selector score, then personal fit, then home/saved, then earliest start (`lib/cron/daily-call-runner.ts` `rankCandidates`). |
 | Swell alert lead beach | The swell event's peak score (`lib/cron/swell-alert-runner.ts`, the evening run's candidate sort). |
 
@@ -111,7 +111,7 @@ Rollout uses it each morning.
 - **Cron cost.** One Week Scout run per user at their send hour. The route's own measurements are about 0.2–0.8 s for 1–40 beaches, and a 100-mile pool can be larger. The cron already runs hourly over only the users due that hour.
 - **Holds gate pushes.** Week Scout's major-event and water-quality holds now silence the Daily Call. That's intended: a push must not send a call that Home is holding back.
 - **Window copy.** Fewer edges carry a driver (D4), so some pushes lose the "rising to a 9:52 high" detail.
-- **Deploy order.** Native Home's alert pool (`27b2d01`) needs web `d6ac4c8` deployed first; an older server ignores the field. This design's web changes affect pushes only.
+- **Deploy order.** Pool changes shipped in quiver#1037/#1050 and quiver-native#441. This branch adds flagged push ranking.
 
 ## 6. Success measure
 
