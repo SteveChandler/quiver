@@ -13,7 +13,7 @@ const body = (sql: string): string => {
   return flat(match![1]);
 };
 const header = (sql: string): string => {
-  const match = sql.match(/CREATE OR REPLACE FUNCTION public\.compute_user_match_scores\(.*?AS \$scores\$/s);
+  const match = sql.match(/CREATE OR REPLACE FUNCTION public\.compute_user_match_scores\([\s\S]*?AS \$scores\$/);
   expect(match).not.toBeNull();
   return flat(match![0]);
 };
