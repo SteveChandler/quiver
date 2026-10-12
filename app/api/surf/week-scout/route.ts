@@ -13,6 +13,11 @@ import {
   buildDriveRangeCandidatePool,
   buildWeekendScoutCandidatePool,
 } from '@/lib/services/discovery/weekend-scout-candidate-pool';
+import {
+  getWeekScoutLocation,
+  INTERACTIVE_LOCATION_MAX_AGE_MS,
+  resolveWeekScoutScopeAnchor,
+} from '@/lib/services/discovery/week-scout-scope';
 import { calculateDistanceInMiles } from '@/lib/utils/distance-utils';
 import { driveRadiusMiles, MAX_DRIVE_RADIUS_MILES } from '@/lib/profile/drive-range';
 import {
@@ -43,7 +48,6 @@ const MAX_LEGACY_CANDIDATE_BEACHES = 30;
 const MAX_RADIUS_MILES = MAX_DRIVE_RADIUS_MILES;
 const MAP_PREFILTER_MARGIN_RATIO = 0.006;
 const MAP_PREFILTER_MARGIN_MIN_MILES = 0.01;
-const INTERACTIVE_LOCATION_MAX_AGE_MS = 15 * 60 * 1000;
 const LEGACY_LOCATION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const WeekScoutFilterSchema = z.enum(['longboard', 'beginner', 'quiet', 'beach', 'reef', 'nearby']);
 const CompleteRadiusScopeSchema = z.object({
@@ -144,31 +148,10 @@ async function weekScoutHandler(
     ? driveRadiusMiles(profile?.max_drive_minutes)
     : undefined;
 
-  let userLocation: { lat: number; lon: number } | undefined;
-  const lat = snapshotRead?.lat;
-  const lon = snapshotRead?.lon;
-  const capturedAt = typeof snapshotRead?.captured_at === 'string'
-    ? Date.parse(snapshotRead.captured_at)
-    : Number.NaN;
-  if (
-    typeof lat === 'number'
-    && Number.isFinite(lat)
-    && lat >= -90
-    && lat <= 90
-    && typeof lon === 'number'
-    && Number.isFinite(lon)
-    && lon >= -180
-    && lon <= 180
-    && Number.isFinite(capturedAt)
-    && capturedAt <= Date.now()
-    && Date.now() - capturedAt < (
-      completeRadiusScope?.kind === 'complete-radius'
-        ? INTERACTIVE_LOCATION_MAX_AGE_MS
-        : LEGACY_LOCATION_MAX_AGE_MS
-    )
-  ) {
-    userLocation = { lat, lon };
-  }
+  const userLocation = getWeekScoutLocation(snapshotRead, Date.now(),
+    completeRadiusScope?.kind === 'complete-radius'
+      ? INTERACTIVE_LOCATION_MAX_AGE_MS
+      : LEGACY_LOCATION_MAX_AGE_MS);
 
   let candidateBeachIds = parsed.data.candidateBeachIds ?? [];
   let scopeRadiusMiles: number | null = null;
@@ -183,7 +166,7 @@ async function weekScoutHandler(
     // A searched origin when the surfer picked one; otherwise where the phone is
     // when it synced in the last 15 minutes, else the home break, the same
     // anchor Home seeds from while it locates.
-    const resolvedAnchor = await resolveScopeAnchor(supabase, completeRadiusScope.origin ?? null, userLocation, homeBeachId);
+    const resolvedAnchor = await resolveWeekScoutScopeAnchor(supabase, completeRadiusScope.origin ?? null, userLocation, homeBeachId);
     if (!resolvedAnchor) return createValidationError('A current location or map scope is required for complete-radius Week Scout');
     const { anchor } = resolvedAnchor;
     scopeAnchor = resolvedAnchor.source;
@@ -272,7 +255,7 @@ async function weekScoutHandler(
   } else if (profileError === null) {
     try {
       const homeBeachId = profile?.home_beach_id ?? null;
-      const resolvedAnchor = await resolveScopeAnchor(supabase, null, userLocation, homeBeachId);
+      const resolvedAnchor = await resolveWeekScoutScopeAnchor(supabase, null, userLocation, homeBeachId);
       if (resolvedAnchor) {
         const { anchor } = resolvedAnchor;
         const pool = await buildDriveRangeCandidatePool(user.id, {
@@ -367,36 +350,6 @@ async function readLocationSnapshot(
   } catch {
     return null;
   }
-}
-
-async function resolveScopeAnchor(
-  supabase: AuthenticatedContext['supabase'],
-  origin: { lat: number; lon: number } | null,
-  userLocation: { lat: number; lon: number } | undefined,
-  homeBeachId: string | null,
-): Promise<{ anchor: { lat: number; lon: number }; source: 'origin' | 'location' | 'home' } | null> {
-  if (origin) return { anchor: origin, source: 'origin' };
-  if (userLocation) return { anchor: userLocation, source: 'location' };
-  const anchor = await loadHomeBeachCoordinates(supabase, homeBeachId);
-  return anchor ? { anchor, source: 'home' } : null;
-}
-
-async function loadHomeBeachCoordinates(
-  supabase: AuthenticatedContext['supabase'],
-  homeBeachId: string | null,
-): Promise<{ lat: number; lon: number } | null> {
-  if (!homeBeachId) return null;
-  const { data, error } = await supabase
-    .from('beaches')
-    .select('lat, lon')
-    .eq('id', homeBeachId)
-    .maybeSingle();
-  if (error) throw new Error(`Failed to load Week Scout home beach: ${error.message}`);
-  const lat = data?.lat;
-  const lon = data?.lon;
-  return typeof lat === 'number' && Number.isFinite(lat) && typeof lon === 'number' && Number.isFinite(lon)
-    ? { lat, lon }
-    : null;
 }
 
 const protectedPOST = withRateLimit(

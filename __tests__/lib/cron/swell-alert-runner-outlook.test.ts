@@ -7,7 +7,10 @@ jest.mock("@/lib/alerts/swell-outlook/state", () => ({
   loadSwellOutlookUserState: jest.fn(), saveSwellOutlookUserState: jest.fn(),
 }));
 jest.mock("@/lib/services/discovery/swell-outlook-loader", () => ({ loadSwellOutlookForUser: jest.fn() }));
-jest.mock("@/lib/alerts/user-pool", () => ({ loadUserPool: jest.fn() }));
+jest.mock("@/lib/alerts/user-pool", () => ({
+  ...jest.requireActual("@/lib/alerts/user-pool"),
+  loadUserPool: jest.fn(),
+}));
 jest.mock("@/lib/alerts/canonical-forecast-verdict", () => ({ evaluateForecastVerdict: jest.fn() }));
 
 jest.mock("@/lib/alerts/surf-window/tide-aware-window", () => {
