@@ -43,6 +43,7 @@ import {
 import { calculateDistanceInMiles } from '@/lib/utils/distance-utils';
 import { deriveDisplayWindow } from '@/lib/services/discovery/window-authority';
 import type { WindowSelectorOptions } from '@/lib/services/discovery/window-selector/types';
+import { localDateTimeToUTC } from '@/lib/utils/forecast-time-resolver';
 
 const BEACH_A = '11111111-1111-4111-8111-111111111111';
 const BEACH_B = '22222222-2222-4222-8222-222222222222';
@@ -495,11 +496,11 @@ describe('generateWeekScoutForecast', () => {
     expect(afternoon.sessionTimePreference).toBe('afternoon');
     // The day cards follow the preference too, so they agree with the pick.
     const unsetDayBest = unset.days.map((day) => day.bestWindowId);
-    afternoon.days.forEach((day, index) => {
-      if (unsetDayBest[index] === null) {
-        expect(day.bestWindowId).toBeNull();
-        return;
-      }
+    const emptyDayBest = afternoon.days
+      .filter((_day, index) => unsetDayBest[index] === null)
+      .map((day) => day.bestWindowId);
+    expect(emptyDayBest).toEqual(unsetDayBest.filter((id) => id === null));
+    afternoon.days.filter((_day, index) => unsetDayBest[index] !== null).forEach((day) => {
       const dayBest = day.bestDayWindow!;
       expect(getLocalHour(new Date(dayBest.displayWindowStart), 'Pacific/Honolulu')).toBeLessThan(17);
       expect(getLocalHour(new Date(dayBest.displayWindowEnd), 'Pacific/Honolulu')).toBeGreaterThanOrEqual(13);
@@ -592,7 +593,7 @@ describe('generateWeekScoutForecast', () => {
     const morning = await generateWeekScoutForecast('user-week-scout', { ...request, sessionTime: 'morning' }, deps);
     const selectedId = morning.sessionDecision.selection?.candidateId;
     const selected = morning.days.flatMap((day) => day.windows).find((window) => window.id === selectedId);
-    expect(selected).toBeDefined();
+    expect(selected).toMatchObject({ id: selectedId });
     expect(getLocalHour(new Date(selected!.start), 'Pacific/Honolulu')).toBeLessThan(10);
     expect(getLocalHour(new Date(selected!.displayWindowStart), 'Pacific/Honolulu')).toBeGreaterThanOrEqual(13);
     // Falls back to the unfiltered pick and does not call it a morning pick.
@@ -600,6 +601,46 @@ describe('generateWeekScoutForecast', () => {
 
     const afternoon = await generateWeekScoutForecast('user-week-scout', { ...request, sessionTime: 'afternoon' }, deps);
     expect(afternoon.sessionTimePreference).toBe('afternoon');
+  });
+
+  it.each(['old', 'new'] as const)('keeps one-day and seven-day light windows identical with %s sun labels', async (labels) => {
+    const deps = dependencies();
+    const timezone = 'America/Los_Angeles';
+    const localDates = ['2026-10-11', '2026-10-12', '2026-10-13', '2026-10-14', '2026-10-15', '2026-10-16', '2026-10-17'];
+    const paddedDates = ['2026-10-10', ...localDates, '2026-10-18'];
+    const pbPoint = { ...beach(BEACH_A, 'PB Point'), timezone, lat: 32.8, lon: -117.25 };
+    deps.now = new Date('2026-10-11T12:00:00Z');
+    deps.fetchBeaches = jest.fn(async () => [pbPoint]);
+    deps.fetchForecasts = jest.fn(async () => new Map([[BEACH_A, localDates.map((date) => (
+      forecast(BEACH_A, localDateTimeToUTC(date, '17:00:00', timezone).toISOString())
+    ))]]));
+    const sunRows = paddedDates.map((date, index) => ({
+      label: labels === 'old' ? `2026-10-${11 + index}` : date,
+      sunrise: localDateTimeToUTC(date, '06:51:00', timezone),
+      sunset: localDateTimeToUTC(date, '18:22:00', timezone),
+    }));
+    deps.fetchSunTimes = jest.fn(async (_beachIds, dates) => {
+      const rows = sunRows.filter((row) => dates.includes(row.label));
+      return new Map([[BEACH_A, { sunrises: rows.map((row) => row.sunrise), sunsets: rows.map((row) => row.sunset) }]]);
+    });
+    const request = { candidateBeachIds: [BEACH_A], localTimezone: timezone, startLocalDate: localDates[0] };
+    const week = await generateWeekScoutForecastForDays('user-week-scout', { ...request, dayCount: 7 }, deps);
+
+    for (const index of [0, 6]) {
+      const date = localDates[index];
+      const day = await generateWeekScoutForecastForDays('user-week-scout', { ...request, startLocalDate: date, dayCount: 1 }, deps);
+      const evening = day.days[0].windows.find((window) => window.bucket === 'evening');
+      const weeklyEvening = week.days[index].windows.find((window) => window.bucket === 'evening');
+      expect(evening).toMatchObject({ beachId: BEACH_A, bucket: 'evening' });
+      expect(weeklyEvening).toMatchObject({ beachId: BEACH_A, bucket: 'evening' });
+      expect(evening).toMatchObject({
+        displayWindowStart: weeklyEvening!.displayWindowStart,
+        displayWindowEnd: weeklyEvening!.displayWindowEnd,
+      });
+      expect(evening!.displayWindowEnd).toBe(localDateTimeToUTC(date, '18:42:00', timezone).toISOString());
+      expect(deps.fetchSunTimes).toHaveBeenLastCalledWith([BEACH_A], paddedDates.slice(index, index + 3));
+    }
+    expect(deps.fetchSunTimes).toHaveBeenNthCalledWith(1, [BEACH_A], paddedDates);
   });
 
   it('retains every daily ranking while adding one supplemental canonical weekly session', async () => {
