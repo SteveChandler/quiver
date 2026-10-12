@@ -335,6 +335,8 @@ describe("shared ranking (flag on)", () => {
 
   it.each([
     { label: "held day", scoutDay: { ...day([]), exclusionReasons: ["major_event_hold"] } as WeekScoutDayResponse, skip: "no_clear_window" },
+    { label: "held nomination", scoutDay: { ...day([window(blacksId)]), bestWindowId: null,
+      exclusionReasons: ["major_event_hold"] } as WeekScoutDayResponse, skip: "no_clear_window" },
     { label: "no go windows", scoutDay: day([]), skip: "no_go_window" },
     { label: "missing forecasts", scoutDay: { ...day([]), exclusionReasons: ["no_forecasts"] } as WeekScoutDayResponse, skip: "no_forecast" },
   ])("stays silent for a $label", async ({ scoutDay, skip }) => {
@@ -507,7 +509,7 @@ describe("shared ranking (flag on)", () => {
     await runDailyCallCron({ now, supabase, deps: mocked });
     expect(mocked.rankDay).toHaveBeenCalledWith({
       userId, poolBeachIds: [blacksId, ospreyId], timezone: profile.timezone, localDate: "2026-09-16",
-      sessionTime: "morning", anchor: { lat: location.lat, lon: location.lon },
+      sessionTime: "morning", anchor: { lat: location.lat, lon: location.lon }, driveRadiusMiles: 100,
     });
   });
 
@@ -528,6 +530,7 @@ describe("shared ranking (flag on)", () => {
         profileExperience: profile.experienceLevel, asOf: now,
       });
       expect(mocked.enqueue).not.toHaveBeenCalled();
+      expect(mocked.loadBeachDay).not.toHaveBeenCalled();
     },
   );
 
@@ -569,27 +572,29 @@ describe("shared ranking (flag on)", () => {
       distanceMiles: 60 - index,
     }));
     const custom = poolBeach("30000000-0000-4000-8000-000000000001", "Custom", "custom");
-    const loadPool = jest.fn(async () => [home, favorite, custom, ...nearby]);
+    const loadPool = jest.fn(async () => [home, favorite, custom, ...nearby].map((entry) => ({
+      ...entry, beach: { ...entry.beach, lat: 32.89, lon: -117.25 },
+    })));
     const shared = sharedDeps(undefined, { loadPool });
     const legacy = sharedDeps(undefined, { loadPool, usesSharedRanking: () => false });
-    await runDailyCallCron({ now, supabase, deps: shared });
-    await runDailyCallCron({ now, supabase, deps: legacy });
+    expect(await runDailyCallCron({ now, supabase, deps: shared })).toMatchObject({ sent: 1, errors: 0 });
+    expect(await runDailyCallCron({ now, supabase, deps: legacy })).toMatchObject({ sent: 1, errors: 0 });
     const expected = [home, favorite, custom, ...nearby.slice(10)].map((entry) => entry.beach.id);
     expect(jest.mocked(shared.rankDay).mock.calls[0][0].poolBeachIds).toEqual(expected);
     expect(jest.mocked(legacy.buildCandidates).mock.calls[0][0].pool.map((entry) => entry.beach.id)).toEqual(expected);
   });
 
-  it.each([11, 13, 25])("uses the Daily Call's 12-hour anchor for a %s-hour fix", async (ageHours) => {
+  it.each([11, 12, 13, 25])("uses the Daily Call's 12-hour anchor for a %s-hour fix", async (ageHours) => {
     const homeBeach = { ...home.beach, lat: 32.89, lon: -117.25 };
     const location = { lat: 33.15, lon: -117.35, timezone: profile.timezone!,
       captured_at: new Date(now.getTime() - ageHours * 3_600_000).toISOString() };
     const mocked = sharedDeps(undefined, {
-      loadProfiles: jest.fn(async () => [{ ...profile, homeBeach, location }]),
+      loadProfiles: jest.fn(async () => [{ ...profile, homeBeach, location, maxDriveMinutes: 90 }]),
     });
     await runDailyCallCron({ now, supabase, deps: mocked });
     const anchor = ageHours <= 12 ? { lat: location.lat, lon: location.lon } : { lat: homeBeach.lat, lon: homeBeach.lon };
     expect(mocked.loadPool).toHaveBeenCalledWith(expect.objectContaining({ location: anchor }));
-    expect(mocked.rankDay).toHaveBeenCalledWith(expect.objectContaining({ anchor }));
+    expect(mocked.rankDay).toHaveBeenCalledWith(expect.objectContaining({ anchor, driveRadiusMiles: 45 }));
   });
 
   it("uses the default flag and allowlist gate", async () => {

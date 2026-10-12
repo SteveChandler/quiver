@@ -2,8 +2,11 @@
  * @jest-environment node
  */
 
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/database";
 import titlePool from "@/lib/notifications/copy/surf-titles.v1.json";
 import {
+  loadSwellAlertProfiles,
   orderSwellCandidatesForTomorrow,
   runSwellAlertCron,
   type SwellAlertDeps,
@@ -431,6 +434,65 @@ describe("swell alert shared ranking", () => {
     return jest.mocked(deps.enqueue).mock.calls[0][0].payload as ReturnType<typeof payload>;
   }
 
+  it.each([13, 23, 24, 25])("passes the swell runner's 24-hour anchor for a %s-hour fix", async (ageHours) => {
+    const homeBeach = { lat: 32.89, lon: -117.25, timezone: "America/Los_Angeles" };
+    const location = { lat: 33.15, lon: -117.35, timezone: "America/Los_Angeles",
+      captured_at: new Date(NOW.getTime() - ageHours * 3_600_000).toISOString() };
+    const select = jest.fn(() => ({ is: async () => ({ data: [{
+      id: USER_ID, home_beach_id: profile().homeBeachId, home_beach: homeBeach,
+      user_location_snapshots: [location], preferred_session_time: "morning",
+    }], error: null }) }));
+    const client = { from: jest.fn(() => ({ select })) } as unknown as SupabaseClient<Database>;
+    const [loaded] = await loadSwellAlertProfiles(client, NOW);
+    const anchor = ageHours <= 24 ? { lat: location.lat, lon: location.lon } : { lat: homeBeach.lat, lon: homeBeach.lon };
+    expect(loaded.location).toEqual(anchor);
+    expect(loaded.anchorSource).toBe(ageHours <= 24 ? "location" : "home");
+    const pool = { ...sharedEvaluation(), anchor: loaded.location };
+    const rankDay = jest.fn(async () => rankingResponse(pool.candidates[2].beach.id, []));
+    await orderSwellCandidatesForTomorrow({ profile: loaded, evaluation: pool, now: NOW, rankDay, usesSharedRanking: () => true });
+    expect(rankDay).toHaveBeenCalledWith(expect.objectContaining({ anchor, sessionTime: "morning" }));
+    expect(select).toHaveBeenCalledWith(expect.stringContaining("preferred_session_time"));
+  });
+
+  it("ranks the evaluation's full pool, including beaches with no swell event", async () => {
+    const pool = sharedEvaluation();
+    pool.poolBeachIds = [...pool.poolBeachIds!, ...Array.from({ length: 60 }, (_, index) => `no-event-${index}`)];
+    const rankDay = jest.fn(async () => rankingResponse("no-event-59", []));
+    const ordered = await orderSwellCandidatesForTomorrow({
+      profile: profile(), evaluation: pool, now: NOW, rankDay, usesSharedRanking: () => true,
+    });
+    expect(rankDay).toHaveBeenCalledWith(expect.objectContaining({ poolBeachIds: pool.poolBeachIds }));
+    expect(ordered).toEqual(pool.candidates);
+  });
+
+  it("withholds the shared lead and held chips through main's push resolver", async () => {
+    const pool = sharedEvaluation();
+    const [clear, picked, heldOption] = pool.candidates;
+    const resolveHeldBeaches = jest.fn<ReturnType<SwellAlertDeps["resolveHeldBeaches"]>,
+      Parameters<SwellAlertDeps["resolveHeldBeaches"]>>(async ({ candidates }) => new Map(candidates
+        .filter((value) => value.beachId !== clear.beach.id)
+        .map((value) => [value.candidateId, "water_quality_hold" as const])));
+    const deps = dependencies({
+      evaluatePool: jest.fn(async () => pool), usesSharedRanking: () => true,
+      rankDay: jest.fn(async () => rankingResponse(picked.beach.id, [heldOption.beach.id, clear.beach.id])),
+      resolveHeldBeaches,
+    });
+    const result = await runSwellAlertCron({ now: NOW, deps });
+    expect(result).toMatchObject({ sent: 1, errors: 0, skippedCounts: { held_water_quality_hold: 2 } });
+    expect(resolveHeldBeaches).toHaveBeenCalledWith({
+      candidates: [picked, heldOption, clear].map((candidate, index) => ({
+        candidateId: `swell:${index}`, beachId: candidate.beach.id,
+        startsAt: candidate.event.peakAt,
+        endsAt: new Date(Date.parse(candidate.event.peakAt) + 3_600_000).toISOString(),
+      })),
+      profileExperience: "advanced", asOf: NOW,
+    });
+    expect(payload(deps).beach_id).toBe(clear.beach.id);
+    expect(payload(deps).beaches).toEqual([{ beach_id: clear.beach.id, beach_name: clear.beach.name, rank: 1 }]);
+    expect(payload(deps).body).not.toContain(picked.beach.name);
+    expect(payload(deps).body).not.toContain(heldOption.beach.name);
+  });
+
   it("leads with the pick instead of the peak-score winner throughout the alert", async () => {
     const pool = sharedEvaluation();
     const [highest, picked, third] = pool.candidates;
@@ -451,7 +513,7 @@ describe("swell alert shared ranking", () => {
     expect(rankDay).toHaveBeenCalledTimes(1);
     expect(rankDay).toHaveBeenCalledWith({
       userId: USER_ID, poolBeachIds: pool.poolBeachIds, timezone: "America/Los_Angeles",
-      localDate: "2026-09-18", sessionTime: "morning", anchor: pool.anchor,
+      localDate: "2026-09-18", sessionTime: "morning", anchor: pool.anchor, driveRadiusMiles: 22.5,
     });
     expect(payload(deps).beach_id).toBe(picked.beach.id);
     expect(payload(deps).beaches).toEqual([picked, third, highest].map((candidate, index) => ({

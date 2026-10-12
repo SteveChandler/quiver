@@ -187,8 +187,8 @@ async function main(): Promise<void> {
     assert.equal(fixtureNow.source, "home");
     assert.equal(sameAnchor(fixtureCall, fixtureEvening), true);
     assert.equal(sameAnchor(fixtureNow, fixtureEvening), true);
-    assert.equal(sameAnchor(fixtureCall, { source: "location", anchor: { lat: 3, lon: 2 } }), false);
-    assert.equal(sameAnchor(fixtureCall, { source: "location", anchor: { lat: 1, lon: 4 } }), false);
+    assert.equal(sameAnchor(fixtureCall, { source: "home", anchor: { lat: 3, lon: 2 } }), false);
+    assert.equal(sameAnchor(fixtureCall, { source: "home", anchor: { lat: 1, lon: 4 } }), false);
     assert.equal(sameAnchor(fixtureCall, { ...fixtureCall, source: "location" }), false);
     assert.equal(sameAnchor({ anchor: null, source: "none" }, { anchor: null, source: "none" }), true);
 
@@ -294,6 +294,7 @@ async function main(): Promise<void> {
     const cronScout = await read("Crons -> rankDayWithWeekScout (1 day)", () => rankDayWithWeekScout({
       userId: profile.id, poolBeachIds: pool.map(({ beach }) => beach.id), timezone,
       localDate: date, sessionTime, anchor: anchorAtCall.anchor,
+      driveRadiusMiles: driveRadiusMiles(profile.maxDriveMinutes),
     }));
     const cronPick = showScout(`Crons' Week Scout for ${date} (pool at ${local(at)})`, cronScout, date, at);
     console.log(`D bestWindowId: 7-day=${home?.days.find((day) => day.localDate === date)?.bestWindowId ?? "null"}; 1-day=${cronScout.days[0]?.bestWindowId ?? "null"}`);

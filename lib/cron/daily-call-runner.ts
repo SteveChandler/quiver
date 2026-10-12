@@ -4,6 +4,7 @@ import {
   type LocationAnchor,
   type LocationSnapshot,
 } from "@/lib/alerts/location-freshness";
+import { driveRadiusMiles } from "@/lib/profile/drive-range";
 import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
 import { persistableSessionDecision } from "@/lib/recommendations/canonical-decision/contract";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -143,6 +144,7 @@ export interface DailyCallDeps {
 export type RankDay = (args: {
   userId: string;
   poolBeachIds: string[];
+  driveRadiusMiles: number;
   timezone: string;
   localDate: string;
   sessionTime: SessionTime | null;
@@ -151,9 +153,10 @@ export type RankDay = (args: {
 
 /** @public Shared entry point for the swell runner and parity script (plan Tasks 7–8). */
 export const rankDayWithWeekScout: RankDay = ({
-  userId, poolBeachIds, timezone, localDate, sessionTime, anchor,
+  userId, poolBeachIds, driveRadiusMiles, timezone, localDate, sessionTime, anchor,
 }) => generateWeekScoutForecastForDays(userId, {
   candidateBeachIds: poolBeachIds,
+  driveRadiusMiles,
   localTimezone: timezone,
   startLocalDate: localDate,
   dayCount: 1,
@@ -561,16 +564,18 @@ function candidateFromRankedWindow(
 
 async function buildSharedCall(
   args: BuildCandidatesArgs,
-  deps: DailyCallRankingDeps,
+  deps: DailyCallRankingDeps & Pick<DailyCallDeps, "resolveHeldBeaches">,
 ): Promise<{
   winner: DailyCallCandidate;
   options: DailyCallCandidate[];
   home: DailyCallCandidate | null;
-} | { skip: string }> {
+  heldReasons: string[];
+} | { skip: string; heldReasons?: string[] }> {
   const { profile, pool, timezone, alertDate, now } = args;
   const response = await deps.rankDay({
     userId: profile.id,
     poolBeachIds: pool.map((entry) => entry.beach.id),
+    driveRadiusMiles: driveRadiusMiles(profile.maxDriveMinutes),
     timezone,
     localDate: alertDate,
     sessionTime: profile.preferredSessionTime ?? null,
@@ -584,15 +589,44 @@ async function buildSharedCall(
       : day.exclusionReasons.includes("no_forecasts") ? "no_forecast" : "no_go_window" };
   }
   const pick = selectDayCall(day, now, { closeBufferMs: WINDOW_CLOSE_BUFFER_MS });
-  if (!pick || pick.personalVerdict !== "go") return { skip: "no_go_window" };
+  if (!pick || pick.personalVerdict !== "go") {
+    return { skip: day.exclusionReasons.includes("major_event_hold") ? "no_clear_window" : "no_go_window" };
+  }
   const entry = pool.find((value) => value.beach.id === pick.beachId);
   if (!entry) return { skip: "ranking_beach_not_in_pool" };
+
+  const alternatives = pick.rankedSpots.flatMap((spot) => {
+    if (spot.beachId === pick.beachId || spot.personalVerdict !== "go") return [];
+    const optionPool = pool.find((value) => value.beach.id === spot.beachId);
+    const window = day.windows.find((value) => value.beachId === spot.beachId && value.isBeachDayBest);
+    return optionPool && window ? [{ pool: optionPool, window }] : [];
+  }).sort((left, right) =>
+    relationRank(right, profile.homeBeachId) - relationRank(left, profile.homeBeachId)).slice(0, 2);
+  const homePool = pool.find((value) => value.beach.id === profile.homeBeachId);
+  const homeWindow = homePool && profile.homeBeachId !== pick.beachId
+    ? day.windows.find((value) => value.beachId === profile.homeBeachId && value.isBeachDayBest)
+    : undefined;
+  const windows = [...new Set([pick, ...alternatives.map((option) => option.window), ...(homeWindow ? [homeWindow] : [])])];
+  const held = await deps.resolveHeldBeaches({
+    candidates: windows.map((window, index) => ({
+      candidateId: `daily-call:${index}`,
+      beachId: window.beachId,
+      startsAt: window.displayWindowStart,
+      endsAt: window.displayWindowEnd,
+    })),
+    profileExperience: profile.experienceLevel,
+    asOf: now,
+  });
+  const heldReason = (window: WeekScoutWindowResponse): string | undefined =>
+    held.get(`daily-call:${windows.indexOf(window)}`);
+  const heldReasons = [...held.values()];
+  if (heldReason(pick)) return { skip: "no_clear_window", heldReasons };
 
   const { forecasts, tideSamples } = await deps.loadBeachDay({
     beach: entry.beach, timezone, localDate: alertDate,
   });
   const winner = candidateFromRankedWindow(entry, pick, forecasts, timezone);
-  if (!winner.sourceForecast) return { skip: "no_forecast" };
+  if (!winner.sourceForecast) return { skip: "no_forecast", heldReasons };
   const evaluations = forecasts.map((forecast) => evaluateForecast(profile, entry, forecast, timezone, now));
   const verdictById = new Map(evaluations.map((value) => [value.forecast.id, value.verdict]));
   const daylight = getDaylightWindow(entry.beach.lat, entry.beach.lon, new Date(winner.window.start));
@@ -607,30 +641,22 @@ async function buildSharedCall(
   winner.window.drivers = refined?.drivers.filter((driver) =>
     Math.abs(Date.parse(driver.at) - Date.parse(winner.window[driver.edge])) <= 15 * 60_000) ?? [];
   const evaluation = evaluateForecast(profile, entry, winner.sourceForecast, timezone, now);
-  if (evaluation.verdict !== "go") return { skip: "ranking_verdict_mismatch" };
+  if (evaluation.verdict !== "go") return { skip: "ranking_verdict_mismatch", heldReasons };
   winner.decisionId = evaluation.decision.decisionId;
   winner.sessionDecision = evaluation.decision;
 
-  const alternatives = pick.rankedSpots.flatMap((spot) => {
-    if (spot.beachId === pick.beachId || spot.personalVerdict !== "go") return [];
-    const optionPool = pool.find((value) => value.beach.id === spot.beachId);
-    const window = day.windows.find((value) => value.beachId === spot.beachId && value.isBeachDayBest);
-    return optionPool && window ? [{ pool: optionPool, window }] : [];
-  }).sort((left, right) =>
-    relationRank(right, profile.homeBeachId) - relationRank(left, profile.homeBeachId)).slice(0, 2);
   const options: DailyCallCandidate[] = [];
   for (const option of alternatives) {
+    if (heldReason(option.window)) continue;
     const data = await deps.loadBeachDay({ beach: option.pool.beach, timezone, localDate: alertDate });
     options.push(candidateFromRankedWindow(option.pool, option.window, data.forecasts, timezone));
   }
   let home: DailyCallCandidate | null = options.find((option) => option.pool.beach.id === profile.homeBeachId) ?? null;
-  const homePool = pool.find((value) => value.beach.id === profile.homeBeachId);
-  const homeWindow = day.windows.find((value) => value.beachId === profile.homeBeachId && value.isBeachDayBest);
-  if (!home && homePool && homeWindow && profile.homeBeachId !== pick.beachId) {
+  if (!home && homePool && homeWindow && !heldReason(homeWindow)) {
     const data = await deps.loadBeachDay({ beach: homePool.beach, timezone, localDate: alertDate });
     home = candidateFromRankedWindow(homePool, homeWindow, data.forecasts, timezone);
   }
-  return { winner, options, home };
+  return { winner, options, home, heldReasons };
 }
 
 async function loadProfiles(
@@ -837,36 +863,13 @@ export async function runDailyCallCron(args: {
       let home: DailyCallCandidate | null;
       if (deps.usesSharedRanking(profile.id)) {
         const shared = await buildSharedCall({ profile, pool, timezone, alertDate, now: args.now }, deps);
+        for (const reason of shared.heldReasons ?? []) increment(summary, `held_${reason}`);
         if ("skip" in shared) {
           increment(summary, shared.skip);
           summary.silent += 1;
           continue;
         }
         ({ winner, options, home } = shared);
-        const candidates = [...new Set([winner, ...options, ...(home ? [home] : [])])];
-        const held = await deps.resolveHeldBeaches({
-          candidates: candidates.map((candidate, index) => ({
-            candidateId: `daily-call:${index}`,
-            beachId: candidate.pool.beach.id,
-            startsAt: candidate.window.start,
-            endsAt: candidate.window.end,
-          })),
-          profileExperience: profile.experienceLevel,
-          asOf: args.now,
-        });
-        const heldReason = (candidate: DailyCallCandidate): string | undefined =>
-          held.get(`daily-call:${candidates.indexOf(candidate)}`);
-        for (const candidate of candidates) {
-          const reason = heldReason(candidate);
-          if (reason) increment(summary, `held_${reason}`);
-        }
-        if (heldReason(winner)) {
-          increment(summary, "no_clear_window");
-          summary.silent += 1;
-          continue;
-        }
-        options = options.filter((candidate) => !heldReason(candidate));
-        if (home && heldReason(home)) home = null;
       } else {
         const built = await deps.buildCandidates({
           profile,

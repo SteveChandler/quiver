@@ -40,6 +40,7 @@ import { getUserEntitlement } from "@/lib/alerts/entitlements";
 import { getDaylightWindow } from "@/lib/alerts/sunrise";
 import { capToBestWindow, refineWindow, type RefinedWindow } from "@/lib/alerts/window-refiner";
 import { groupGoForecasts, loadTideSamples, rankDayWithWeekScout, type RankDay } from "@/lib/cron/daily-call-runner";
+import { driveRadiusMiles } from "@/lib/profile/drive-range";
 import { loadUserPool } from "@/lib/alerts/user-pool";
 import {
   forecastSlotCandidate,
@@ -1626,6 +1627,7 @@ export async function orderSwellCandidatesForTomorrow(args: {
     const response = await rankDay({
       userId: profile.id,
       poolBeachIds,
+      driveRadiusMiles: driveRadiusMiles(profile.maxDriveMinutes),
       timezone: profile.timezone,
       localDate: tomorrow,
       sessionTime: profile.preferredSessionTime ?? null,
