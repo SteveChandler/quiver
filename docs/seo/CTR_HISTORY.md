@@ -404,8 +404,9 @@ measurement window is undisturbed.
 - Deployed 2026-10-05 02:53 UTC (2026-10-04 19:53 PDT): prod `a2778c8b7`
   via #953, which also carried #945 (cron :00 spread).
 - The 2026-10-07 04:00 UTC run wrote no FES2022 rows: prod's
-  `tide_forecasts_source_check` did not allow `fes2022`. The fix was #982, applied
-  to prod 2026-10-07 ~05:25 UTC (`docs/operations/tide-source-fes2022-20261007.md`).
+  `tide_forecasts_source_check` did not allow `fes2022`. The fix was #982, merged
+  at 12:30 UTC on 2026-10-07 and applied to prod before the 13:03 UTC manual run
+  (`docs/operations/tide-source-fes2022-20261007.md`).
 - Live 2026-10-07: a manual tide cron at 13:03 UTC wrote 36,000 `fes2022` rows for
   all 50 beaches. At 14:17 UTC all 50 tide pages served `index, follow` with the
   modelled note and `creditText`, and all 50 were in the sitemap. The four-week
