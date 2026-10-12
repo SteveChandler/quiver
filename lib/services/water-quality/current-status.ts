@@ -127,7 +127,8 @@ export function projectCurrentWaterQuality<T extends SampleQualityRow>(
           <= COUNTY_MAX_MATCH_DISTANCE_METERS));
     const status = local.some((notice) => notice.advisory_type === "closure") ? "closure"
       : local.length > 0 || general ? "advisory" : "clear";
-    // An owner hold marks chronic contamination; a County clear must not read as clean water there.
+    // An owner hold marks chronic contamination, so a County clear is not applied there:
+    // the beach keeps its prior sample display until the hold question is settled.
     if (status === "clear" && held.has(id)) return row;
     const kind = status === "clear" ? undefined
       : status === "advisory" && general ? "general" as const : "site" as const;
