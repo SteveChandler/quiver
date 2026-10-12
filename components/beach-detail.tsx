@@ -241,7 +241,6 @@ interface BeachDetailProps {
   heroForecastSlot?: ReactNode;
   beforeTabsContent?: ReactNode;
   afterTabsContent?: ReactNode;
-  freeGrowthPhaseEnabled?: boolean;
   personalizationData?: {
     score:
       | import("@/lib/services/personalized-scoring-service").PersonalizedScore
@@ -274,7 +273,6 @@ function BeachDetailContent({
   heroForecastSlot,
   beforeTabsContent,
   afterTabsContent,
-  freeGrowthPhaseEnabled = false,
   personalizationData,
   onPersonalizationRequest,
 }: BeachDetailProps) {
@@ -936,7 +934,6 @@ function BeachDetailContent({
         refreshKey={alertRulesRefreshKey}
         onOpenAlerts={handleOpenAlerts}
         className="shrink-0"
-        freeGrowthPhaseEnabled={freeGrowthPhaseEnabled}
       />
       <Button
         variant="ghost"
@@ -1164,7 +1161,6 @@ function BeachDetailContent({
           open={alertCreationOpen}
           onOpenChange={setAlertCreationOpen}
           onRuleCreated={() => setAlertRulesRefreshKey((key) => key + 1)}
-          freeGrowthPhaseEnabled={freeGrowthPhaseEnabled}
         />
       )}
 

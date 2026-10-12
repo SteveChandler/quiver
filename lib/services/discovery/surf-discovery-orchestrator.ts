@@ -1,4 +1,4 @@
-import { clamp as clampScoreRange } from "@/lib/utils/clamp";
+import { clamp } from "@/lib/utils/clamp";
 /**
  * Surf Discovery Orchestrator
  *
@@ -123,7 +123,6 @@ import {
   type RecommendationV2SourceState,
 } from '@/lib/services/discovery/recommendations-v2';
 import { buildRecommendationEvidence } from '@/lib/services/discovery/recommendation-evidence';
-import { FEATURE_HERO_WINDOW_SCORE } from '@/lib/constants/feature-flags';
 import type { ScoringEngine } from '@/lib/domains/scoring';
 import { resolveWavePunchiness } from '@/lib/domains/spot-profile/wave-punchiness';
 import { boardStyleFit } from './board-style-fit';
@@ -551,11 +550,6 @@ function emptyResponse(
   };
 }
 
-function clamp(value: number, min: number, max: number): number {
-  if (!Number.isFinite(value)) return min;
-  return Math.max(min, Math.min(max, value));
-}
-
 function deriveRecommendationV2SourceState(
   rec: SurfDiscoveryRecommendation,
   usingStaleData: boolean,
@@ -636,7 +630,7 @@ function toRecommendationV2Candidate(
       end: rec.window.end,
       timezone: rec.window.timezone,
     },
-    conditionScore: clampScoreRange(conditionScore, 0, 100),
+    conditionScore: clamp(conditionScore, 0, 100),
     personalMatchScore: clamp(personalMatchScore, 0, 10),
     overallScore: clamp(rec.score, 0, 100),
     label,
@@ -1193,7 +1187,7 @@ interface DiscoveryDisplayScore {
  * UI and the verdict thresholds both assume.
  */
 export function toDisplayConditionScore(conditionScore: number): number {
-  return clampScoreRange(conditionScore, 0, 100);
+  return clamp(conditionScore, 0, 100);
 }
 
 /**
@@ -2417,18 +2411,12 @@ async function discoverSurfSpotsInner(
     );
   }
 
-  // Run rerank ALWAYS (cheap pure compute) so diagnostics are complete.
-  // The flag below decides which array becomes the response; diagnostics
-  // emit either way. Single source of truth: this orchestrator is the only
-  // call site for `logHeroRankingDiagnostic`.
-  const { reranked, diagnostics } = rerankHero(merged);
+  // The rerank is diagnostics only: the response keeps the engine-sorted
+  // slice. This orchestrator is the only call site for `logHeroRankingDiagnostic`.
+  const { diagnostics } = rerankHero(merged);
   diagnostics.forEach(logHeroRankingDiagnostic);
 
-  // Flag-gated behavior: when off (default), return the engine-sorted slice
-  // verbatim. When on, return the hero-lifted slice (only [0] moves;
-  // remaining order is preserved).
-  const rankedSlice = FEATURE_HERO_WINDOW_SCORE ? reranked : merged;
-  const finalSlice = applyWorthTheDriveReasons(rankedSlice);
+  const finalSlice = applyWorthTheDriveReasons(merged);
   const finalSliceKeys = new Set(finalSlice.map((rec) => recommendationKey(rec)));
   const includedSlice = safeRecsScored.filter((rec) => {
     if ((rec.kind ?? 'beach') === 'beach') {

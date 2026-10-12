@@ -28,3 +28,17 @@ describe("getUtcDayBounds", () => {
     expect(end).toBe("2026-04-01T23:59:59.000Z");
   });
 });
+
+describe("getUtcDayBounds on DST transition days", () => {
+  it("spans 23 hours when America/Los_Angeles springs forward", () => {
+    const { start, end } = getUtcDayBounds("2026-03-08", "America/Los_Angeles");
+    expect(start).toBe("2026-03-08T08:00:00.000Z");
+    expect(end).toBe("2026-03-09T06:59:59.000Z");
+  });
+
+  it("spans 25 hours when America/Los_Angeles falls back", () => {
+    const { start, end } = getUtcDayBounds("2026-11-01", "America/Los_Angeles");
+    expect(start).toBe("2026-11-01T07:00:00.000Z");
+    expect(end).toBe("2026-11-02T07:59:59.000Z");
+  });
+});
