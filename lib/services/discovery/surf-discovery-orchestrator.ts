@@ -1811,7 +1811,8 @@ async function discoverSurfSpotsInner(
   // CRITICAL: Always include today and next 2 days in UTC format
   // This fixes a bug where forecast_date values might not include today's date
   // when viewing in a timezone ahead of UTC (e.g., Hawaii beaches viewed in the afternoon).
-  // The sun_times table stores dates in UTC, so we need to ensure we query for:
+  // sun_times dates are beach-local; before this fix, rows west of ~37.5°W
+  // were labelled one day late, which this padding tolerates. Query for:
   // - Yesterday (in case of timezone edge cases)
   // - Today
   // - Tomorrow
