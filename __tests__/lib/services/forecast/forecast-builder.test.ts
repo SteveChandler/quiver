@@ -229,6 +229,7 @@ describe("ForecastBuilder", () => {
     });
 
     expect(forecasts[0].water_temp).toBe("79°F");
+    expect(forecasts[0].raw_forecast?.water_temp_source).toBe("ioos");
   });
 
   it("falls back to latitude estimate when no IOOS or buoy data", async () => {
@@ -248,6 +249,7 @@ describe("ForecastBuilder", () => {
     const tempF = parseInt(forecasts[0].water_temp || "0");
     expect(tempF).toBeGreaterThanOrEqual(69);
     expect(tempF).toBeLessThanOrEqual(81);
+    expect(forecasts[0].raw_forecast?.water_temp_source).toBe("latitude");
   });
 
   it("includes forecast_at as ISO 8601 UTC string", async () => {
@@ -353,6 +355,7 @@ describe("ForecastBuilder", () => {
     });
 
     expect(forecasts[0].water_temp).toBe("68°F");
+    expect(forecasts[0].raw_forecast?.water_temp_source).toBe("coops");
   });
 
   it("prefers IOOS over CO-OPS water temperature", async () => {

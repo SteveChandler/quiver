@@ -238,6 +238,9 @@ async function surfDiscoveryHandler(
         : resolveProfileRadiusMiles(supabase, user.id),
     ]),
   );
+  // The saved drive range also waives distance friction inside it. An explicit
+  // radius is a search extent, not the surfer's range, so it keeps the friction.
+  const driveRadiusMiles = radius === undefined ? radiusMiles : undefined;
   const isPro = entitlementFromRow(entitlementRow ?? null) === 'premium';
   const entitlement: SurfDiscoveryEntitlement = {
     tier: isPro ? 'premium' : 'free',
@@ -251,6 +254,7 @@ async function surfDiscoveryHandler(
     discovery = await time('discover', discoverSurfSpots(user.id, {
       userLocation,
       radiusMiles,
+      ...(driveRadiusMiles !== undefined ? { driveRadiusMiles } : {}),
       horizonHours: mode === 'my-spots' ? 72 : horizonHours,
       maxResults,
       // Consider the full pool. `maxResults` alone controls how many spots the

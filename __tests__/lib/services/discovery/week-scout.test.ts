@@ -1549,6 +1549,34 @@ describe('generateWeekScoutForecast', () => {
     );
   });
 
+  it.each([
+    { driveRadiusMiles: 45, penalized: false },
+    { driveRadiusMiles: 15, penalized: true },
+  ])('applies distance friction only past a $driveRadiusMiles-mile drive range', async ({ driveRadiusMiles, penalized }) => {
+    const rawScores = { [BEACH_A]: 82, [BEACH_B]: 89 };
+    const response = await generateWeekScoutForecastForDays(
+      'user-week-scout',
+      {
+        candidateBeachIds: [BEACH_A, BEACH_B],
+        localTimezone: 'Pacific/Honolulu',
+        startLocalDate: '2026-07-31',
+        dayCount: 1,
+        userLocation: K40_LOCATION,
+        driveRadiusMiles,
+      },
+      k40Dependencies(rawScores),
+    );
+    const morning = response.days[0].windows.filter(({ bucket }) => bucket === 'morning');
+    const farDistance = calculateDistanceInMiles(K40_LOCATION, { lat: 32.749, lon: -117.252 });
+
+    expect(farDistance).toBeGreaterThan(15);
+    expect(farDistance).toBeLessThan(45);
+    expect(morning[0].beachId).toBe(penalized ? BEACH_A : BEACH_B);
+    expect(morning.find(({ beachId }) => beachId === BEACH_B)?.rankingScore).toBe(
+      rawScores[BEACH_B] + (penalized ? calculateDistancePenalty(farDistance - 15 + 10) : 0),
+    );
+  });
+
   it('keeps a much stronger distant winner and marks it worth the drive', async () => {
     const response = await generateWeekScoutForecastForDays(
       'user-week-scout',

@@ -22,6 +22,10 @@ describe("resolveLocationAnchor", () => {
     expect(resolveLocationAnchor({ ...fix, captured_at }, now, home).source).toBe("location");
     expect(resolveLocationAnchor({ ...fix, captured_at }, new Date(now.getTime() + 1), home).source).toBe("home");
   });
+  it("takes a shorter window for callers that need a recent fix", () => {
+    expect(resolveLocationAnchor(fix, now, home, 12)).toEqual({ anchor: home, source: "home" });
+    expect(resolveLocationAnchor({ ...fix, captured_at: "2026-10-10T01:08:00Z" }, now, home, 12).source).toBe("location");
+  });
   it("does not anchor on missing home coordinates", () => {
     expect(resolveLocationAnchor(null, now, { lat: null, lon: null })).toEqual({ anchor: null, source: "none" });
   });

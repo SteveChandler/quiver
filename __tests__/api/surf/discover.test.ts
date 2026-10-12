@@ -634,7 +634,10 @@ describe("/api/surf/discover entitlement resolution", () => {
     } as any);
 
     expect(supabase.from).toHaveBeenCalledWith("profiles");
-    expect(mockDiscoverSurfSpots.mock.calls[0][1]).toMatchObject({ radiusMiles: expectedMiles });
+    expect(mockDiscoverSurfSpots.mock.calls[0][1]).toMatchObject({
+      radiusMiles: expectedMiles,
+      driveRadiusMiles: expectedMiles,
+    });
   });
 
   it("lets an explicit request radius win over the profile drive range", async () => {
@@ -649,6 +652,7 @@ describe("/api/surf/discover entitlement resolution", () => {
 
     expect(supabase.from).not.toHaveBeenCalledWith("profiles");
     expect(mockDiscoverSurfSpots.mock.calls[0][1]).toMatchObject({ radiusMiles: 50 });
+    expect(mockDiscoverSurfSpots.mock.calls[0][1]).not.toHaveProperty("driveRadiusMiles");
   });
 
   it("keeps the default radius when the profile drive range cannot be read", async () => {
@@ -664,6 +668,7 @@ describe("/api/surf/discover entitlement resolution", () => {
 
     expect(response.status).toBe(200);
     expect(mockDiscoverSurfSpots.mock.calls[0][1].radiusMiles).toBeUndefined();
+    expect(mockDiscoverSurfSpots.mock.calls[0][1]).not.toHaveProperty("driveRadiusMiles");
     warn.mockRestore();
   });
 

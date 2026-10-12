@@ -83,6 +83,10 @@ export const RATE_LIMITS = {
     requestsPerMinute: 60,
     requestsPerHour: 1000,
     burstLimit: 20,
+    // Without a window the burst cap applies per minute and the 60/min budget
+    // is unreachable. The native Explore map spends up to 6 calls (300 beaches,
+    // 50 per call) per pan or timeline scrub, so 20/min ran out mid-session.
+    burstWindowMs: 10_000,
   }),
 
   /**

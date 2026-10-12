@@ -916,6 +916,25 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     expect(lastRec.beach.id).toBe('beach-2');
   });
 
+  test('drops distance friction for beaches inside the surfer\'s drive range', async () => {
+    const { scoreBeachWithEngine } = require('@/lib/domains/scoring');
+    const penaltyFor = (beachId: string): number | undefined => scoreBeachWithEngine.mock.calls
+      .filter(([, beach, , options]: [unknown, Beach, unknown, unknown]) => beach.id === beachId && options !== undefined)
+      .map(([, , , options]: [unknown, unknown, unknown, { distancePenalty: number }]) => options.distancePenalty)
+      .at(-1);
+
+    await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation, maxResults: 5 });
+    expect(penaltyFor('beach-3')).toBeLessThan(0);
+
+    scoreBeachWithEngine.mockClear();
+    await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation, maxResults: 5, driveRadiusMiles: 45 });
+    expect(penaltyFor('beach-3')).toBe(0);
+
+    scoreBeachWithEngine.mockClear();
+    await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation, maxResults: 5, driveRadiusMiles: 5 });
+    expect(penaltyFor('beach-3')).toBeLessThan(0);
+  });
+
   test('handles empty favorites gracefully', async () => {
     mockState.favoriteBeaches = [];
 

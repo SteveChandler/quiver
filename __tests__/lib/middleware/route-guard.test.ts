@@ -180,9 +180,14 @@ describe("RouteGuard", () => {
           "/profile/bcacdc51-b01b-4702-ac0b-fb492c0a926a/",
           "HEAD",
         );
+        const versionSevenProfile = RouteGuard.classifyRoute(
+          "/profile/0199b6ad-3a23-7b41-84e0-8bf139d048b7",
+          "GET",
+        );
 
         expect(profile).toMatchObject({ type: "public", requiresAuth: false });
         expect(profileWithSlash).toMatchObject({ type: "public", requiresAuth: false });
+        expect(versionSevenProfile).toMatchObject({ type: "public", requiresAuth: false });
       });
     });
   });
