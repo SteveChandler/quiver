@@ -12,7 +12,7 @@ until docker exec "$study_container" sh -c 'test "$(head -n 1 /var/lib/postgresq
 done
 run_file() { docker exec -i "$study_container" psql -X -U postgres -d postgres -v ON_ERROR_STOP=1 -f - < "$1" >/dev/null; }
 query() { docker exec "$study_container" psql -X -U postgres -d postgres -v ON_ERROR_STOP=1 -Atqc "$1"; }
-dedup_migration="$study_root/supabase/migrations/20261004120000_dedupe_swell_watch_shadow_demand_by_coast.sql"
+dedup_migration="$study_root/supabase/migrations/20261012190001_dedupe_swell_watch_shadow_demand_by_coast.sql"
 run_file "$study_root/__tests__/fixtures/swell-watch-study-base.sql"
 for migration in \
   20260824120000_create_swell_watch_event_pipeline \

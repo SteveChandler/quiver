@@ -1,5 +1,7 @@
 # Automated Swell Watch study
 
+Epoch-6 shadow-demand readouts must split at the actual apply date of `20261012190001_dedupe_swell_watch_shadow_demand_by_coast.sql`. From that date, `recorded_pairs_24h` excludes flagged duplicate observations; earlier values include them. Use the rollout record to identify the date.
+
 Implementation plan, September 10, 2026. Deployment and a fresh provider run are authorized by Steven after implementation, tests, and review pass.
 
 1. Extend the existing hourly acquisition job to recover retained fresh runs oldest-first, then acquire, validate, accept, complete, evaluate, and record the fixed ten-source cohort. Reuse the receipt collector, shadow evaluator, and collection lease. Recovery remains bounded by the policy freshness window; older failures remain gaps.

@@ -41,15 +41,23 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public,pg_temp AS $$
     SELECT (policy_values #>> '{partition_matching,maximum_period_delta_s}')::numeric AS period_s,
       (policy_values #>> '{partition_matching,maximum_direction_delta_deg}')::numeric AS direction_deg
     FROM public.swell_watch_get_matching_policy()
-  ), win AS (
-    SELECT event.id,bounds.domain,min(impact.arrival_at) AS start_at,max(impact.arrival_at) AS end_at
+  ), candidate AS (
+    SELECT DISTINCT event.id,bounds.domain
     FROM bounds
     JOIN public.swell_watch_regional_events event ON public.swell_watch_coast_domain(event.region_key)=bounds.domain
     JOIN public.swell_watch_event_impacts impact ON impact.regional_event_id=event.id
       AND impact.arrival_at>=bounds.start_at-interval '5 days' AND impact.arrival_at<=bounds.end_at+interval '5 days'
-    GROUP BY event.id,bounds.domain,bounds.start_at,bounds.end_at
+  ), win AS (
+    SELECT candidate.id,candidate.domain,min(impact.arrival_at) AS start_at,max(impact.arrival_at) AS end_at,
+      (array_agg(observation.period_s ORDER BY beach_impact.projected_face_height_ft DESC,impact.peak_at,impact.id))[1] AS period_s,
+      (array_agg(observation.direction_deg ORDER BY beach_impact.projected_face_height_ft DESC,impact.peak_at,impact.id))[1] AS direction_deg
+    FROM candidate
+    JOIN public.swell_watch_event_impacts impact ON impact.regional_event_id=candidate.id
+    JOIN public.swell_watch_beach_impacts beach_impact ON beach_impact.id=impact.beach_impact_id
+    JOIN public.swell_watch_observations observation ON observation.id=beach_impact.observation_id
+    GROUP BY candidate.id,candidate.domain
   ), ordered AS (
-    SELECT id,domain,start_at,end_at,row_number() OVER (PARTITION BY domain ORDER BY start_at,id::text) AS rn FROM win
+    SELECT id,domain,start_at,end_at,period_s,direction_deg,row_number() OVER (PARTITION BY domain ORDER BY start_at,id::text) AS rn FROM win
   ), walk(id,domain,rn,roots,root) AS (
     SELECT id,domain,rn,ARRAY[id],id FROM ordered WHERE rn=1
     UNION ALL
@@ -62,18 +70,9 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public,pg_temp AS $$
       WHERE prior.domain=o.domain AND prior.rn<o.rn
         AND o.start_at<=prior.end_at+interval '24 hours'
         AND o.start_at<=first_event.start_at+interval '72 hours'
-        AND EXISTS (
-          SELECT 1 FROM public.swell_watch_event_impacts earlier
-          JOIN public.swell_watch_beach_impacts earlier_impact ON earlier_impact.id=earlier.beach_impact_id
-          JOIN public.swell_watch_observations earlier_observation ON earlier_observation.id=earlier_impact.observation_id
-          JOIN public.swell_watch_event_impacts later ON later.regional_event_id=o.id
-          JOIN public.swell_watch_beach_impacts later_impact ON later_impact.id=later.beach_impact_id
-          JOIN public.swell_watch_observations later_observation ON later_observation.id=later_impact.observation_id
-          WHERE earlier.regional_event_id=prior.id
-            AND abs(earlier_observation.period_s-later_observation.period_s)<=limits.period_s
-            AND least(abs(earlier_observation.direction_deg-later_observation.direction_deg),
-              360-abs(earlier_observation.direction_deg-later_observation.direction_deg))<=limits.direction_deg
-        )
+        AND abs(prior.period_s-o.period_s)<=limits.period_s
+        AND least(abs(prior.direction_deg-o.direction_deg),
+          360-abs(prior.direction_deg-o.direction_deg))<=limits.direction_deg
       ORDER BY first_event.start_at,first_event.id::text LIMIT 1
     ) match ON true
   ), swell AS (
@@ -103,7 +102,7 @@ DO $amend$
 DECLARE current_hash text;
 BEGIN
   SELECT encode(extensions.digest(pg_get_functiondef('public.record_swell_watch_shadow_demand(uuid,text,jsonb)'::regprocedure),'sha256'),'hex') INTO current_hash;
-  IF current_hash NOT IN ('343ffc9289a607a6707bf46f4204025a1cb5fe21c8feb5e02a454b86d022c79a','a0988e626f8813aaed74e932d5850e35dde846153c9b9ee3306c778657482931','62cef61fbd2e6d8cacb5bbdfcbf909cbb7fc90d75766e4818fd85a2faeaa4c6e') THEN
+  IF current_hash NOT IN ('343ffc9289a607a6707bf46f4204025a1cb5fe21c8feb5e02a454b86d022c79a','62cef61fbd2e6d8cacb5bbdfcbf909cbb7fc90d75766e4818fd85a2faeaa4c6e') THEN
     RAISE EXCEPTION 'shadow demand definition differs from reviewed baseline';
   END IF;
 END;

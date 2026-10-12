@@ -1,4 +1,4 @@
--- Rollback for 20261004120000_dedupe_swell_watch_shadow_demand_by_coast.sql.
+-- Rollback for 20261012190001_dedupe_swell_watch_shadow_demand_by_coast.sql.
 -- Restores record_swell_watch_shadow_demand to its 20260918180000 definition (hash 343ffc92...) and drops the
 -- dedupe helpers. The duplicate_of_regional_event_id column and existing observation/pair rows are kept (ledger
 -- is append-only); after rollback the old function counts flagged duplicates again in recorded_pairs_24h.

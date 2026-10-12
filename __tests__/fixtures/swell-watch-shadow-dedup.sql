@@ -23,6 +23,7 @@ BEGIN
   INSERT INTO public.dedup_events VALUES(p_label,v_id,p_batch);
   RETURN v_id;
 END; $$;
+
 CREATE FUNCTION public.dedup_pairs(VARIADIC specs text[]) RETURNS jsonb LANGUAGE sql AS $$
   SELECT jsonb_agg(jsonb_build_object('regional_event_id',e.id,'recipient_id',
     CASE split_part(s,':',2) WHEN 'u1' THEN 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' WHEN 'u2' THEN 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' ELSE 'cccccccc-cccc-4ccc-8ccc-cccccccccccc' END))
@@ -32,7 +33,26 @@ CREATE FUNCTION public.dedup_pair_count(p_label text,p_user text) RETURNS bigint
   SELECT count(*) FROM public.swell_watch_shadow_demand_pairs pair JOIN public.dedup_events e ON e.id=pair.regional_event_id
   WHERE e.label=p_label AND pair.recipient_id=CASE p_user WHEN 'u1' THEN 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'::uuid WHEN 'u2' THEN 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'::uuid ELSE 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'::uuid END;
 $$;
-
+CREATE FUNCTION public.dedup_frame(p_label text,p_arrival timestamptz,p_period numeric,p_direction numeric,p_face numeric) RETURNS void LANGUAGE plpgsql AS $$
+DECLARE template record; v_observation uuid:=gen_random_uuid(); v_impact uuid:=gen_random_uuid(); v_evaluation text;
+BEGIN
+  SELECT observation.*,impact.beach_id,impact.projected_face_height_ft,impact.policy_id,impact.policy_hash,impact.impact_hash,
+    link.evaluation_id INTO STRICT template
+  FROM public.dedup_events event
+  JOIN public.swell_watch_event_impacts link ON link.regional_event_id=event.id
+  JOIN public.swell_watch_beach_impacts impact ON impact.id=link.beach_impact_id
+  JOIN public.swell_watch_observations observation ON observation.id=impact.observation_id
+  WHERE event.label=p_label ORDER BY impact.projected_face_height_ft DESC LIMIT 1;
+  v_evaluation:=template.evaluation_id||'-frame-'||to_char(p_arrival,'YYYYMMDDHH24MISS');
+  SET LOCAL session_replication_role=replica;
+  INSERT INTO public.swell_watch_observations(id,evaluation_id,source_point_id,provider,forecast_at,source_slot,height_m,period_s,direction_deg,identity_kind,provider_batch_id)
+    VALUES(v_observation,v_evaluation,template.source_point_id,template.provider,p_arrival,'s2',template.height_m,p_period,p_direction,template.identity_kind,template.provider_batch_id);
+  INSERT INTO public.swell_watch_beach_impacts(id,observation_id,beach_id,evaluation_id,projected_face_height_ft,policy_id,policy_hash,impact_hash)
+    VALUES(v_impact,v_observation,template.beach_id,v_evaluation,p_face,template.policy_id,template.policy_hash,template.impact_hash);
+  INSERT INTO public.swell_watch_event_impacts(id,regional_event_id,evaluation_id,beach_id,beach_impact_id,arrival_at,peak_at,evaluated_at)
+    VALUES(gen_random_uuid(),(SELECT id FROM public.dedup_events WHERE label=p_label),v_evaluation,template.beach_id,v_impact,p_arrival,p_arrival+interval '2 hours',clock_timestamp());
+  SET LOCAL session_replication_role=origin;
+END; $$;
 DO $$
 DECLARE
   b1 uuid; b2 uuid; t timestamptz:=date_trunc('hour',now())+interval '10 days'; first_run record; retry_run record; second_run record;
@@ -108,4 +128,40 @@ BEGIN
     SELECT id,'cccccccc-cccc-4ccc-8ccc-cccccccccccc',now()-interval '2 days' FROM public.dedup_events WHERE label='OLD';
   SET LOCAL session_replication_role=origin;
   PERFORM public.study_assert(public.dedup_dupes(public.dedup_pairs('NEW:u3'))='','old event outside lookback does not suppress');
+END; $$;
+
+-- A fading SW frame must not make the peak SW swell look like a later NW swell.
+DO $$
+DECLARE b2 uuid; t timestamptz:=date_trunc('hour',now())+interval '50 days';
+BEGIN
+  SELECT provider_batch_id INTO STRICT b2 FROM public.study_manual_batch;
+  PERFORM public.dedup_event('SW','san-diego',t,b2);
+  PERFORM public.dedup_event('NW','orange-county',t+interval '20 hours',b2);
+  SET LOCAL session_replication_role=replica;
+  UPDATE public.swell_watch_observations SET period_s=16,direction_deg=225
+    WHERE id IN (SELECT impact.observation_id FROM public.swell_watch_event_impacts link JOIN public.swell_watch_beach_impacts impact ON impact.id=link.beach_impact_id JOIN public.dedup_events event ON event.id=link.regional_event_id WHERE event.label='SW');
+  UPDATE public.swell_watch_observations SET period_s=12,direction_deg=315
+    WHERE id IN (SELECT impact.observation_id FROM public.swell_watch_event_impacts link JOIN public.swell_watch_beach_impacts impact ON impact.id=link.beach_impact_id JOIN public.dedup_events event ON event.id=link.regional_event_id WHERE event.label='NW');
+  UPDATE public.swell_watch_beach_impacts SET projected_face_height_ft=8
+    WHERE id IN (SELECT link.beach_impact_id FROM public.swell_watch_event_impacts link JOIN public.dedup_events event ON event.id=link.regional_event_id WHERE event.label='SW');
+  SET LOCAL session_replication_role=origin;
+  PERFORM public.dedup_frame('SW',t+interval '5 hours',12,315,2);
+  PERFORM public.study_assert(public.dedup_dupes(public.dedup_pairs('SW:u1','NW:u1'))='',
+    'peak SW and later NW retain both pairs despite a matching late frame');
+END; $$;
+
+-- A held event selected by its near impact retains its earlier full window for the 72 h cap.
+DO $$
+DECLARE b2 uuid; t timestamptz:=date_trunc('hour',now())+interval '70 days';
+BEGIN
+  SELECT provider_batch_id INTO STRICT b2 FROM public.study_manual_batch;
+  PERFORM public.dedup_event('STRADDLE','san-diego',t-interval '20 hours',b2);
+  PERFORM public.dedup_frame('STRADDLE',t-interval '7 days',16,225,0);
+  PERFORM public.dedup_event('CURRENT','orange-county',t,b2);
+  SET LOCAL session_replication_role=replica;
+  INSERT INTO public.swell_watch_shadow_demand_pairs(regional_event_id,recipient_id,first_observed_at)
+    SELECT id,'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',now()-interval '1 day' FROM public.dedup_events WHERE label='STRADDLE';
+  SET LOCAL session_replication_role=origin;
+  PERFORM public.study_assert(public.dedup_dupes(public.dedup_pairs('CURRENT:u1'))='',
+    'full straddling window keeps current swell outside the 72 h cap');
 END; $$;
