@@ -59,12 +59,10 @@ const OracleHomeScreenDynamic = dynamic(
  */
 interface AuthAwareLandingWrapperProps {
   initialPlatform?: FirstTouchPlatform;
-  appFirst?: boolean;
 }
 
 export function AuthAwareLandingWrapper({
   initialPlatform = "desktop",
-  appFirst = true,
 }: AuthAwareLandingWrapperProps = {}): ReactElement {
   const { user, isLoading } = useAuth();
   const router = useRouter();
@@ -148,7 +146,6 @@ export function AuthAwareLandingWrapper({
       <main role="main">
         <QuiverFieldGuideLanding
           platform={platform}
-          appFirst={appFirst}
         />
       </main>
 
