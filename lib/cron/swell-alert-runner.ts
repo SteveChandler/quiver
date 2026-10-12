@@ -41,7 +41,7 @@ import { getDaylightWindow } from "@/lib/alerts/sunrise";
 import { capToBestWindow, refineWindow, type RefinedWindow } from "@/lib/alerts/window-refiner";
 import { groupGoForecasts, loadTideSamples, rankDayWithWeekScout, type RankDay } from "@/lib/cron/daily-call-runner";
 import { driveRadiusMiles } from "@/lib/profile/drive-range";
-import { loadUserPool } from "@/lib/alerts/user-pool";
+import { capNearbyPool, loadUserPool } from "@/lib/alerts/user-pool";
 import {
   forecastSlotCandidate,
   resolveHeldPushBeaches,
@@ -730,7 +730,7 @@ async function evaluatePool(
 
   return {
     history,
-    poolBeachIds: pool.map(({ beach }) => beach.id),
+    poolBeachIds: capNearbyPool(pool).pool.map(({ beach }) => beach.id),
     anchor: profile.location,
     candidates: candidates.filter(
       (candidate): candidate is SwellAlertCandidate => candidate !== null,

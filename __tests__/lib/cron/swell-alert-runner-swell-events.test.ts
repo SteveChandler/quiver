@@ -2,7 +2,10 @@
  * @jest-environment node
  */
 
-jest.mock("@/lib/alerts/user-pool", () => ({ loadUserPool: jest.fn() }));
+jest.mock("@/lib/alerts/user-pool", () => ({
+  ...jest.requireActual("@/lib/alerts/user-pool"),
+  loadUserPool: jest.fn(),
+}));
 // Board reads are not under test here; keep them off the recorded query fake.
 jest.mock("@/lib/alerts/entitlements", () => ({ getUserEntitlement: jest.fn(async () => "free") }));
 jest.mock("@/lib/services/discovery/surf-discovery-orchestrator", () => ({
@@ -23,13 +26,15 @@ jest.mock("@/lib/alerts/canonical-forecast-verdict", () => ({
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { evaluateForecastVerdict } from "@/lib/alerts/canonical-forecast-verdict";
-import { loadUserPool } from "@/lib/alerts/user-pool";
+import { loadUserPool, type PoolBeach } from "@/lib/alerts/user-pool";
 import { runSwellAlertCron, type SwellAlertDeps, type SwellAlertProfile } from "@/lib/cron/swell-alert-runner";
 import type { CanonicalSessionDecision } from "@/lib/recommendations/canonical-decision";
 import { createMockBeach } from "@/__tests__/setup/typed-mocks";
 import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 import type { Database } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import type { RankDay } from "@/lib/cron/daily-call-runner";
+import type { CanonicalWeekScoutResponse } from "@/lib/services/discovery/week-scout";
 
 // 17:00 PDT on Thursday 2026-09-17: the send hour. Tomorrow is 2026-09-18.
 const NOW = new Date("2026-09-18T00:00:00.000Z");
@@ -133,6 +138,40 @@ afterEach(() => {
 });
 
 describe("swell alert runner on the swell-events detector", () => {
+  it("ranks the nearest 50 nearby beaches plus home/saved/custom while detecting swells over the full pool", async () => {
+    const nearby: PoolBeach[] = Array.from({ length: 60 }, (_, index) => ({
+      beach: createMockBeach({ ...beach,
+        id: index === 0 ? BEACH_ID : `40000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+      }),
+      relation: "nearby",
+      distanceMiles: 60 - index,
+    }));
+    const preferred: PoolBeach[] = (["home", "favorite", "custom"] as const).map((relation, index) => ({
+      beach: createMockBeach({ ...beach, id: `50000000-0000-4000-8000-${String(index).padStart(12, "0")}` }),
+      relation,
+      distanceMiles: 80,
+    }));
+    jest.mocked(loadUserPool).mockResolvedValue([...nearby, ...preferred]);
+    const rankDay = jest.fn<ReturnType<RankDay>, Parameters<RankDay>>(async () => ({ days: [] }) as unknown as CanonicalWeekScoutResponse);
+    const runDeps = { ...deps(), usesSharedRanking: () => true, rankDay,
+      loadProfiles: async () => [{ ...profile, homeBeachId: preferred[0].beach.id }],
+    };
+
+    const result = await runSwellAlertCron({
+      now: NOW, supabase: client(SWELL_TOMORROW, { data: [PREVIOUS_RUN], error: null }), deps: runDeps,
+    });
+
+    expect(result).toMatchObject({ sent: 1, errors: 0, candidates: 1 });
+    expect(rankDay).toHaveBeenCalledTimes(1);
+    const rankedIds = rankDay.mock.calls[0][0].poolBeachIds;
+    expect(rankedIds).toEqual([...nearby.slice(10), ...preferred].map(({ beach }) => beach.id));
+    expect(rankedIds).toHaveLength(53);
+    expect(rankedIds).not.toContain(BEACH_ID);
+    expect(runDeps.enqueue).toHaveBeenCalledWith(expect.objectContaining({
+      payload: expect.objectContaining({ beach_id: BEACH_ID, event_key: PREVIOUS_RUN_KEY }),
+    }));
+  });
+
   it("alerts on tomorrow's swell under the key an earlier run gave it", async () => {
     const runDeps = deps();
     const result = await runSwellAlertCron({

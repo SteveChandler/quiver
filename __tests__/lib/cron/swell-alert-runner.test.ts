@@ -454,7 +454,7 @@ describe("swell alert shared ranking", () => {
     expect(select).toHaveBeenCalledWith(expect.stringContaining("preferred_session_time"));
   });
 
-  it("ranks the evaluation's full pool, including beaches with no swell event", async () => {
+  it("ranks the evaluation's supplied pool IDs, including beaches with no swell event", async () => {
     const pool = sharedEvaluation();
     pool.poolBeachIds = [...pool.poolBeachIds!, ...Array.from({ length: 60 }, (_, index) => `no-event-${index}`)];
     const rankDay = jest.fn(async () => rankingResponse("no-event-59", []));

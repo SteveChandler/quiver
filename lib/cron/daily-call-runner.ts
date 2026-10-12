@@ -601,7 +601,7 @@ async function buildSharedCall(
     const window = day.windows.find((value) => value.beachId === spot.beachId && value.isBeachDayBest);
     return optionPool && window ? [{ pool: optionPool, window }] : [];
   }).sort((left, right) =>
-    relationRank(right, profile.homeBeachId) - relationRank(left, profile.homeBeachId)).slice(0, 2);
+    relationRank(right, profile.homeBeachId) - relationRank(left, profile.homeBeachId));
   const homePool = pool.find((value) => value.beach.id === profile.homeBeachId);
   const homeWindow = homePool && profile.homeBeachId !== pick.beachId
     ? day.windows.find((value) => value.beachId === profile.homeBeachId && value.isBeachDayBest)
@@ -645,17 +645,17 @@ async function buildSharedCall(
   winner.decisionId = evaluation.decision.decisionId;
   winner.sessionDecision = evaluation.decision;
 
-  const options: DailyCallCandidate[] = [];
-  for (const option of alternatives) {
-    if (heldReason(option.window)) continue;
-    const data = await deps.loadBeachDay({ beach: option.pool.beach, timezone, localDate: alertDate });
-    options.push(candidateFromRankedWindow(option.pool, option.window, data.forecasts, timezone));
-  }
-  let home: DailyCallCandidate | null = options.find((option) => option.pool.beach.id === profile.homeBeachId) ?? null;
-  if (!home && homePool && homeWindow && !heldReason(homeWindow)) {
-    const data = await deps.loadBeachDay({ beach: homePool.beach, timezone, localDate: alertDate });
-    home = candidateFromRankedWindow(homePool, homeWindow, data.forecasts, timezone);
-  }
+  const clearOptions = alternatives.filter((option) => !heldReason(option.window)).slice(0, 2);
+  const homeComparison = homePool && homeWindow && !heldReason(homeWindow)
+    && !clearOptions.some((option) => option.pool.beach.id === profile.homeBeachId)
+    ? [{ pool: homePool, window: homeWindow }]
+    : [];
+  const candidates = await Promise.all([...clearOptions, ...homeComparison].map(async ({ pool, window }) => {
+    const { forecasts } = await deps.loadBeachDay({ beach: pool.beach, timezone, localDate: alertDate });
+    return candidateFromRankedWindow(pool, window, forecasts, timezone);
+  }));
+  const options = candidates.slice(0, clearOptions.length);
+  const home = candidates.find((candidate) => candidate.pool.beach.id === profile.homeBeachId) ?? null;
   return { winner, options, home, heldReasons };
 }
 
