@@ -87,42 +87,6 @@ export const RATING_DESCRIPTIONS = {
   },
 } as const;
 
-// Form sections configuration
-export const FORM_SECTIONS = {
-  location: {
-    icon: "MapPin",
-    required: true,
-    order: 1,
-  },
-  dateTime: {
-    icon: "CalendarDays",
-    required: true,
-    order: 2,
-  },
-  equipment: {
-    icon: "Surfboard",
-    required: false,
-    order: 3,
-  },
-  conditions: {
-    icon: "Activity",
-    required: false,
-    order: 4,
-    showOnlyFor: "log" as SessionFormMode,
-  },
-  photos: {
-    icon: "Camera",
-    required: false,
-    order: 5,
-    showOnlyFor: "log" as SessionFormMode,
-  },
-  notes: {
-    icon: "ClipboardList",
-    required: false,
-    order: 6,
-  },
-} as const;
-
 export const MODE_STYLES = {
   log: {
     headerBg: "bg-green-50",
@@ -139,33 +103,4 @@ export function getFormText<M extends SessionFormMode>(
   mode: M
 ): (typeof SESSION_FORM_TEXT)[M] {
   return SESSION_FORM_TEXT[mode];
-}
-
-export function getModeStyles(mode: SessionFormMode) {
-  return MODE_STYLES[mode];
-}
-
-export function getSectionConfig(
-  section: keyof typeof FORM_SECTIONS,
-  mode: SessionFormMode
-) {
-  const config = FORM_SECTIONS[section];
-
-  // Check if section should be shown for this mode
-  if ('showOnlyFor' in config && config.showOnlyFor && config.showOnlyFor !== mode) {
-    return null;
-  }
-
-  return config;
-}
-
-export function getRatingDescription(
-  type: keyof typeof RATING_DESCRIPTIONS,
-  rating: number
-) {
-  return (
-    RATING_DESCRIPTIONS[type][
-      rating as keyof (typeof RATING_DESCRIPTIONS)[typeof type]
-    ] || ""
-  );
 }

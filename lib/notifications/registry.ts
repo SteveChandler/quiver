@@ -331,15 +331,9 @@ const SURF_ALERT_PUSH_PRESENTATION = {
 
 // ─── Payload shapes (what producers pass + what builders consume) ────────────
 
-interface LikePayload {
-  session_id: string;
-  beach_name?: string | null;
-}
+type LikePayload = z.infer<typeof likeSchema>;
 
-interface FollowPayload {
-  /** No specific fields — actor identity comes from BuildCtx. */
-  [k: string]: unknown;
-}
+type FollowPayload = z.infer<typeof followSchema>;
 
 interface ForecastAlertPayload {
   alert_date: string;
@@ -363,104 +357,23 @@ interface ForecastAlertPayload {
   queue_items?: Array<{ queue_id: string; rule_id: string }>;
 }
 
-interface TrialEndingPayload {
-  title: string;
-  body: string;
-  trial_ends_at: string;
-}
+type TrialEndingPayload = z.infer<typeof trialEndingSchema>;
 
-interface LogSessionNudgePayload {
-  cohort: string;
-  title: string;
-  body: string;
-  beach_id?: string | null;
-  beach_name?: string | null;
-  policy_context?: PositiveRecommendationPolicyContextPayload;
-  notification_category?: string;
-  trigger_source?: string;
-  relevance_confidence?: "high" | "medium" | "low" | "unknown";
-  beach_confidence?: "high" | "medium" | "low" | "unknown";
-  assumed_attendance?: false;
-  attendance_confidence_score?: number;
-  beach_confidence_score?: number;
-  relevance_score?: number;
-}
+type LogSessionNudgePayload = z.infer<typeof logSessionNudgeSchema>;
 
-interface ForecastFeedbackNudgePayload {
-  beach_id: string;
-  beach_slug?: string;
-  beach_name?: string;
-  forecast_at?: string;
-  deeplink?: string;
-  notification_category?: string;
-  trigger_source?: string;
-  relevance_confidence?: "high" | "medium" | "low" | "unknown";
-  beach_confidence?: "high" | "medium" | "low" | "unknown";
-  assumed_attendance?: false;
-  attendance_confidence_score?: number;
-  beach_confidence_score?: number;
-  relevance_score?: number;
-}
+type ForecastFeedbackNudgePayload = z.infer<typeof forecastFeedbackNudgeSchema>;
 
-interface WeekendWindowPayload {
-  snapshot_id: string;
-  weekend_start: string;
-  weekend_end: string;
-  qualifying_count: 1 | 2 | 3;
-  beach_id: string;
-  lead_beach_id: string;
-  lead_beach_name: string;
-  lead_window_local: string;
-  forecast_at: string;
-  policy_context: PositiveRecommendationPolicyContextPayload;
-}
+type WeekendWindowPayload = z.infer<typeof weekendWindowSchema>;
 
-interface WeeklyStreakReminderPayload {
-  streak: number;
-  period_key?: string;
-  notification_category?: string;
-  trigger_source?: string;
-  relevance_confidence?: "high" | "medium" | "low" | "unknown";
-  beach_confidence?: "high" | "medium" | "low" | "unknown";
-  assumed_attendance?: false;
-}
+type WeeklyStreakReminderPayload = z.infer<typeof weeklyStreakReminderSchema>;
 
-interface WaterQualityPayload {
-  beach_id: string;
-  beach_slug: string;
-  beach_name: string;
-  status: "good" | "advisory" | "closure" | "unknown";
-  previous_status: "good" | "advisory" | "closure" | "unknown" | null;
-  status_changed_at: string;
-}
+type WaterQualityPayload = z.infer<typeof waterQualitySchema>;
 
-interface DailyDigestPayload {
-  alert_date: string;
-  title: string;
-  body: string;
-  match_count?: number;
-  // Phase 5h: optional consolidated summaries
-  forecast_summary?: {
-    top_match: string;
-    match_count: number;
-  };
-  water_quality_summary?: {
-    advisory_count: number;
-    closure_count: number;
-  };
-}
+type DailyDigestPayload = z.infer<typeof dailyDigestSchema>;
 
-interface AdminTestPayload {
-  title?: string;
-  body?: string;
-}
+type AdminTestPayload = z.infer<typeof adminTestSchema>;
 
-interface AdminBroadcastPayload {
-  title: string;
-  body: string;
-  url?: string | null;
-  data?: Record<string, string>;
-}
+type AdminBroadcastPayload = z.infer<typeof adminBroadcastSchema>;
 
 // ─── Registry ─────────────────────────────────────────────────────────────────
 
@@ -704,24 +617,48 @@ export const NOTIFICATION_REGISTRY = {
     surfAlertPriority: 2,
     quietHours: DEFAULT_QUIET,
     validatePayload: parseDailyCallPayload,
-    buildPushPayload: (p) => ({
-      ...SURF_ALERT_PUSH_PRESENTATION,
-      title: p.title,
-      body: p.reason,
-      data: {
-        type: "daily_call",
-        beach_id: p.beach_id,
-        beach_slug: p.beach_slug,
-        alert_date: p.alert_date,
-        forecast_at: p.window_start,
-        window_start: p.window_start,
-        window_end: p.window_end,
-        window_local: p.window_local,
-        drivers: JSON.stringify(p.drivers),
-        reason: p.reason,
-        decision_id: p.decision_id,
-      },
-    }),
+    buildPushPayload: (p) => {
+      let body = p.reason;
+      const options = p.options ?? [];
+      for (let count = options.length; count > 0; count -= 1) {
+        const also = options.slice(0, count)
+          .map((option) => `${option.beach_name} ${option.window_local}`).join(", ");
+        const candidateBody = `${p.reason} Also: ${also}.`;
+        if (candidateBody.length > 240) continue;
+        body = candidateBody;
+        break;
+      }
+      return {
+        ...SURF_ALERT_PUSH_PRESENTATION,
+        title: p.title,
+        body,
+        data: {
+          type: "daily_call",
+          beach_id: p.beach_id,
+          beach_slug: p.beach_slug,
+          alert_date: p.alert_date,
+          forecast_at: p.window_start,
+          window_start: p.window_start,
+          window_end: p.window_end,
+          window_local: p.window_local,
+          drivers: JSON.stringify(p.drivers),
+          ...(options.length ? {
+            options: JSON.stringify(options),
+            beaches: JSON.stringify([
+              { beach_id: p.beach_id, beach_name: p.beach_name, rank: 1, forecast_at: p.window_start },
+              ...options.map((option, index) => ({
+                beach_id: option.beach_id,
+                beach_name: option.beach_name,
+                rank: index + 2,
+                forecast_at: option.window_start,
+              })),
+            ]),
+          } : {}),
+          reason: p.reason,
+          decision_id: p.decision_id,
+        },
+      };
+    },
     buildInAppPayload: (p) => ({
       type: "daily_call",
       data: p,
@@ -788,6 +725,7 @@ export const NOTIFICATION_REGISTRY = {
         beach_id: p.beach_id,
         ...(p.beach_slug ? { beach_slug: p.beach_slug } : {}),
         ...(p.forecast_at ? { forecast_at: p.forecast_at } : {}),
+        ...(p.surf_window ? { surf_window: JSON.stringify(p.surf_window) } : {}),
         ...(p.peak_date ? { peak_date: p.peak_date } : {}),
         ...(p.beaches ? { beaches: JSON.stringify(p.beaches) } : {}),
         ...(p.event_key ? { event_key: p.event_key } : {}),
@@ -814,6 +752,7 @@ export const NOTIFICATION_REGISTRY = {
         peak_height_ft: p.peak_height_ft,
         peak_period_s: p.peak_period_s,
         forecast_at: p.forecast_at,
+        ...(p.surf_window ? { surf_window: p.surf_window } : {}),
         awareness_signal: p.awareness_signal,
         awareness_severity: p.awareness_severity,
         title: p.title,

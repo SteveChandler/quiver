@@ -202,7 +202,7 @@ export function CommunityPhotoUpload({
     >
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="font-mono text-[10px] font-black uppercase tracking-[0.18em] text-[#0B3A75]">
+          <p className="font-mono text-[10px] font-black uppercase tracking-[0.18em] text-[#8A5E00]">
             Local proof
           </p>
           <h2
@@ -215,7 +215,7 @@ export function CommunityPhotoUpload({
             Show the crew what this break looked like when you were here.
           </p>
         </div>
-        <Camera className="h-7 w-7 text-[#0B3A75]" aria-hidden="true" />
+        <Camera className="h-7 w-7 text-[#8A5E00]" aria-hidden="true" />
       </div>
 
       <div className="mt-5 grid gap-5 md:grid-cols-[minmax(0,15rem)_minmax(0,1fr)] md:items-start">
@@ -225,7 +225,7 @@ export function CommunityPhotoUpload({
             <img src={previewUrl} alt="Selected community spot photo" className="h-full w-full object-cover" />
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-2 p-5 text-center">
-              <Upload className="h-7 w-7 text-[#0B3A75]" aria-hidden="true" />
+              <Upload className="h-7 w-7 text-[#8A5E00]" aria-hidden="true" />
               <p className="font-mono text-[10px] font-bold uppercase tracking-[0.12em]">
                 Select a photo to preview
               </p>
@@ -237,7 +237,7 @@ export function CommunityPhotoUpload({
           <div>
             <label
               htmlFor={inputId}
-              className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 border-2 border-[var(--ink)] bg-[#F4EBD8] px-4 py-2 font-mono text-xs font-black uppercase tracking-[0.1em] transition hover:bg-[#E5D4B3] focus-within:outline-none focus-within:ring-2 focus-within:ring-[#0B3A75] focus-within:ring-offset-2"
+              className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 border-2 border-[var(--ink)] bg-[#F4EBD8] px-4 py-2 font-mono text-xs font-black uppercase tracking-[0.1em] transition hover:bg-[#E5D4B3] focus-within:outline-none focus-within:ring-2 focus-within:ring-[#11100D] focus-within:ring-offset-2"
             >
               <Upload className="h-4 w-4" aria-hidden="true" />
               {selectedFile ? "Choose a different photo" : "Choose a photo"}
@@ -262,7 +262,7 @@ export function CommunityPhotoUpload({
               checked={consent}
               onChange={(event) => setConsent(event.target.checked)}
               disabled={busy || state.status === "pending-review"}
-              className="mt-0.5 h-5 w-5 shrink-0 accent-[#0B3A75]"
+              className="mt-0.5 h-5 w-5 shrink-0 accent-[#8A5E00]"
             />
             <span>
               I took this photo or have permission to share it with Quiver.
@@ -287,7 +287,7 @@ export function CommunityPhotoUpload({
 
       {state.status === "uploading" ? (
         <progress
-          className="mt-4 h-2 w-full accent-[#0B3A75]"
+          className="mt-4 h-2 w-full accent-[#8A5E00]"
           value={state.progress}
           max={100}
           aria-label="Community photo upload progress"
@@ -298,7 +298,7 @@ export function CommunityPhotoUpload({
         <p
           className={cn(
             "mt-4 flex items-start gap-2 text-sm leading-5",
-            state.status === "error" ? "text-[#991B1B]" : "text-[#0B3A75]",
+            state.status === "error" ? "text-[#991B1B]" : "text-[#8A5E00]",
           )}
           role={state.status === "error" ? "alert" : undefined}
           aria-live="polite"

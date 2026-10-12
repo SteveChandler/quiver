@@ -34,11 +34,6 @@ export function parseAppStoreLookup(
   };
 }
 
-export function extractPriceEvidence(text: string): string[] {
-  const matches = text.match(/\$[0-9]+(?:\.[0-9]{2})?(?:\s?[-–]\s?\$[0-9]+(?:\.[0-9]{2})?)?/g) ?? [];
-  return [...new Set(matches)].sort();
-}
-
 export function compareListingMetadata(
   expected: string,
   snapshot: StoreListingSnapshot,

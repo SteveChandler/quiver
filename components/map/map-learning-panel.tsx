@@ -210,7 +210,7 @@ export function MapLearningPanel(): ReactElement {
     >
       <div className="space-y-5 p-4 sm:p-5">
         <div className="space-y-2">
-          <p className="font-mono text-[11px] font-bold uppercase tracking-[0.22em] text-[#0B3A75]">
+          <p className="font-mono text-[11px] font-bold uppercase tracking-[0.22em] text-[#8A5E00]">
             Read the call
           </p>
           <h2 className="font-heading text-2xl font-black leading-none text-[#11100D] sm:text-3xl">
@@ -243,7 +243,7 @@ export function MapLearningPanel(): ReactElement {
                 onClick={() => selectMode(id)}
                 onKeyDown={(event) => handleModeKeyDown(event, index)}
                 className={cn(
-                  "inline-flex min-h-12 items-center justify-center gap-2 border-2 border-[#11100D] px-2 font-mono text-xs font-black uppercase tracking-[0.08em] shadow-[2px_3px_0_rgba(17,16,13,0.18)] transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B3A75]",
+                  "inline-flex min-h-12 items-center justify-center gap-2 border-2 border-[#11100D] px-2 font-mono text-xs font-black uppercase tracking-[0.08em] shadow-[2px_3px_0_rgba(17,16,13,0.18)] transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#11100D]",
                   active
                     ? "bg-[#F78E42] text-[#11100D]"
                     : "bg-[#F5EEDC] text-[#11100D] hover:-translate-y-0.5",
@@ -285,9 +285,9 @@ export function MapLearningPanel(): ReactElement {
                   type="button"
                   onClick={() => selectMetric(index)}
                   className={cn(
-                    "grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border px-3 py-2 text-left transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B3A75]",
+                    "grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border px-3 py-2 text-left transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#11100D]",
                     selected
-                      ? "border-[#0B3A75] bg-[#0B3A75] text-[#F5EEDC]"
+                      ? "border-[#11100D] bg-[#11100D] text-[#F5EEDC]"
                       : "border-[#11100D]/25 bg-[#F4EBD8] text-[#11100D] hover:border-[#11100D]",
                   )}
                 >
@@ -304,7 +304,7 @@ export function MapLearningPanel(): ReactElement {
 
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-1">
             <div className="border border-[#11100D]/20 bg-[#F4EBD8] p-3">
-              <div className="mb-2 flex items-center gap-2 font-mono text-[11px] font-black uppercase tracking-[0.16em] text-[#0B3A75]">
+              <div className="mb-2 flex items-center gap-2 font-mono text-[11px] font-black uppercase tracking-[0.16em] text-[#8A5E00]">
                 <Gauge className="h-4 w-4" aria-hidden="true" />
                 Active cue
               </div>
@@ -316,7 +316,7 @@ export function MapLearningPanel(): ReactElement {
               </p>
             </div>
             <div className="border border-[#11100D]/20 bg-[#F4EBD8] p-3">
-              <div className="mb-2 flex items-center gap-2 font-mono text-[11px] font-black uppercase tracking-[0.16em] text-[#0B3A75]">
+              <div className="mb-2 flex items-center gap-2 font-mono text-[11px] font-black uppercase tracking-[0.16em] text-[#8A5E00]">
                 <Activity className="h-4 w-4" aria-hidden="true" />
                 Make the call
               </div>
@@ -363,7 +363,7 @@ export function MapLearningPanel(): ReactElement {
             </p>
             <a
               href={QR_VALUE}
-              className="mt-3 inline-flex min-h-11 items-center justify-center bg-[#F78E42] px-4 font-mono text-xs font-black uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_3px_0_rgba(245,238,220,0.2)] transition hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FDB84B]"
+              className="rounded-full mt-3 inline-flex min-h-11 items-center justify-center bg-[#F78E42] px-4 font-mono text-xs font-black uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_3px_0_rgba(245,238,220,0.2)] transition hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FDB84B]"
             >
               Get the app
             </a>

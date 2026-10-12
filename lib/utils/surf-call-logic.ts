@@ -18,7 +18,7 @@ import { calculateRideableWaves } from '@/lib/domains/wave-frequency/calculator'
 import {
   beachToSpotProfile,
   forecastToSnapshot,
-  createDiscoveryScoringEngine,
+  getDiscoveryScoringEngine,
   getConditionCharacter,
   LOW_TIDE_HEAVY_SWELL_WARNING,
   type ConditionCharacter,
@@ -27,7 +27,7 @@ import {
   getRecommendationLabel,
   getRecommendationLabelGated,
 } from '@/lib/services/discovery/response-formatter';
-import type { ScoringEngine, CompositeScore } from '@/lib/domains/scoring';
+import type { CompositeScore } from '@/lib/domains/scoring';
 
 // ============================================================================
 // Types
@@ -591,21 +591,6 @@ function determineVerdict(
 // ============================================================================
 
 /**
- * Lazy-initialised scoring engine used by `computeSurfCall` to derive the
- * `composite` (and from it the `character`) for the chosen window.
- *
- * Cached at module scope because the plugin set + weights are stable;
- * `score()` is pure so concurrent callers cannot interfere.
- */
-let _engine: ScoringEngine | null = null;
-function getEngine(): ScoringEngine {
-  if (!_engine) {
-    _engine = createDiscoveryScoringEngine();
-  }
-  return _engine;
-}
-
-/**
  * Pick the representative forecast row inside the chosen window for
  * composite scoring + character classification. Prefers the row closest
  * to `peakTime`, falls back to the first window forecast, then to the
@@ -653,7 +638,7 @@ function computeCompositeAndCharacter(
   try {
     const profile = beachToSpotProfile(beach);
     const snapshot = forecastToSnapshot(representativeForecast);
-    const composite = getEngine().score({
+    const composite = getDiscoveryScoringEngine().score({
       profile,
       snapshot,
       window: null,

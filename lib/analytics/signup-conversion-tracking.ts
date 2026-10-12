@@ -43,10 +43,7 @@ function markViewedInSession(source: string): void {
   }
 }
 
-/**
- * Reset the deduplication state. Only intended for use in tests.
- * Do NOT call this in application code.
- */
+/** Reset session deduplication between tests. */
 export function _resetViewedSourcesForTesting(): void {
   viewedSources.clear();
   try {
@@ -55,7 +52,7 @@ export function _resetViewedSourcesForTesting(): void {
       const key = sessionStorage.key(i);
       if (key?.startsWith("quiver_cta_viewed_")) keysToRemove.push(key);
     }
-    keysToRemove.forEach((k) => sessionStorage.removeItem(k));
+    keysToRemove.forEach((key) => sessionStorage.removeItem(key));
   } catch {
     // SSR or storage unavailable
   }

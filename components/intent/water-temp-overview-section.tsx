@@ -20,6 +20,7 @@ import type { CityWaterTempData } from "@/actions/forecast/intent-forecast-actio
 
 interface WaterTempOverviewSectionProps {
   data: CityWaterTempData | null;
+  isGscProtected: boolean;
 }
 
 /**
@@ -41,9 +42,16 @@ function formatDayLabel(dateStr: string): string {
  */
 export function WaterTempOverviewSection({
   data,
-}: WaterTempOverviewSectionProps) {
-  // Don't render if no data available
-  if (!data) return null;
+  isGscProtected,
+}: WaterTempOverviewSectionProps): React.JSX.Element | null {
+  if (!data) {
+    if (!isGscProtected) return null;
+    return (
+      <section className="space-y-4 mt-8">
+        <p>No live water temperature reading right now. Check back for the next update.</p>
+      </section>
+    );
+  }
 
   const { currentTemp, points, beachName } = data;
   const wetsuitRec = getWetsuitRecommendation(currentTemp);

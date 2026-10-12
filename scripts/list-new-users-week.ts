@@ -11,7 +11,7 @@
  * Usage: npx tsx scripts/list-new-users-week.ts
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { config } from "dotenv";
+import { config } from "./load-env.mjs";
 import path from "node:path";
 
 config({ path: path.resolve(process.cwd(), ".env.local") });

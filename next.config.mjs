@@ -1,4 +1,3 @@
-import { createRequire } from "node:module";
 import withPWA from "@ducanh2912/next-pwa";
 import { withSentryConfig } from "@sentry/nextjs";
 import { validateEnvironment } from "./config/environment-validation.mjs";
@@ -7,8 +6,6 @@ import {
   isCacheableRuntimeImage,
 } from "./config/forecast-api-cache-rules.mjs";
 import { apiCacheHeaderRules } from "./config/api-cache-header-rules.mjs";
-
-const require = createRequire(import.meta.url);
 
 validateEnvironment();
 
@@ -275,15 +272,6 @@ const nextConfig = {
         ],
       },
       {
-        source: "/api/v1/recommendations",
-        headers: [
-          {
-            key: "Cache-Control",
-            value: "private, no-store, no-cache, must-revalidate",
-          },
-        ],
-      },
-      {
         source: "/api/forecasts/bulk",
         headers: [
           {
@@ -303,15 +291,6 @@ const nextConfig = {
       },
       {
         source: "/api/beach-daily-intel",
-        headers: [
-          {
-            key: "Cache-Control",
-            value: "private, no-store, no-cache, must-revalidate",
-          },
-        ],
-      },
-      {
-        source: "/api/coach-picks",
         headers: [
           {
             key: "Cache-Control",
@@ -515,8 +494,20 @@ const nextConfig = {
     // CRITICAL FIX: Enable image optimization in production
     unoptimized: false,
 
-    // Performance optimizations for images
-    formats: ["image/webp", "image/avif"],
+    // Crawlers fetch every srcset candidate, and each width is a separate paid
+    // transformation. Most sources are Openverse thumbs (600px) and cam stills
+    // (<=640px), and next/image never upscales, so every rung above the source
+    // width returns identical bytes. These are a subset of the default ladder:
+    // a slot rounds up to the next kept width, never down.
+    deviceSizes: [640, 828, 1200, 1920],
+
+    // One output format per image: AVIF-capable browsers shared no cache entries
+    // with WebP ones, so the same photo paid for both. Clients that send no
+    // Accept header (crawlers) still get the source format.
+    formats: ["image/webp"],
+    // Not raised: this is a floor, and cam stills (img.youtube.com mqdefault,
+    // camstills.cdn-surfline.com latest_small, hdontap) keep one URL while the
+    // frame changes. Long-lived sources set their own TTL (/api/image-proxy).
     minimumCacheTTL: 86400, // 24 hours
 
     // Allow image proxy with query strings (Next.js 16+ requirement)
@@ -693,46 +684,9 @@ const nextConfig = {
 
   // Reduce bundle size by rewriting common libs to per-module imports
   modularizeImports: {
-    lodash: {
-      transform: "lodash/{{member}}",
-    },
     "date-fns": {
       transform: "date-fns/{{member}}",
     },
-  },
-
-  // Webpack configuration for externals and bundle analyzer
-  webpack: (config, { isServer }) => {
-    // CRITICAL FIX: Configure externals for @resvg/resvg-js
-    config.externals = config.externals || [];
-    if (Array.isArray(config.externals)) {
-      config.externals.push({
-        "@resvg/resvg-js": "@resvg/resvg-js",
-      });
-    }
-
-    // Resolve alias optimizations
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      // Optimize bundle size
-      "react/jsx-runtime.js": "react/jsx-runtime",
-    };
-
-    // geo-tz is resolved at runtime via serverExternalPackages
-    // (no CopyPlugin needed — saves 69 MB per server compilation)
-
-    // Add bundle analyzer in development
-    if (process.env.ANALYZE === "true") {
-      config.plugins.push(
-        new (require("webpack-bundle-analyzer").BundleAnalyzerPlugin)({
-          analyzerMode: "static",
-          openAnalyzer: false,
-          reportFilename: "bundle-analyzer-report.html",
-        })
-      );
-    }
-
-    return config;
   },
 
   // Dev server page caching — keep more pages in memory to reduce recompilation
@@ -745,7 +699,7 @@ const nextConfig = {
 /**
  * Determines if a beach API path should use StaleWhileRevalidate caching.
  * Only caches public read-only endpoints. Excludes:
- * - Authenticated endpoints (/favorites, /favorite/toggle)
+ * - Authenticated endpoints (/favorites)
  * - Mutation endpoints
  * - Frequently-changing feeds (/sessions)
  *
@@ -757,7 +711,6 @@ const isPublicBeachApiPath = (pathname) => {
 
   // Exclude authenticated and mutation endpoints
   if (pathname === "/api/beaches/favorites") return false;
-  if (pathname.includes("/favorite/toggle")) return false;
   if (pathname.includes("/sessions")) return false;
 
   // Whitelist safe public GET routes

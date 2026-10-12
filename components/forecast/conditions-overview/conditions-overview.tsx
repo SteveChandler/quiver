@@ -65,7 +65,7 @@ export function ConditionsOverview({
   if (enrichedDays.length === 0) {
     return (
       <div className="rounded-2xl border border-slate-100 bg-white/95 p-6 text-center shadow-sm">
-        <p className="text-sm text-slate-500">No forecast data available</p>
+        <p className="text-sm text-slate-500">no data</p>
       </div>
     );
   }

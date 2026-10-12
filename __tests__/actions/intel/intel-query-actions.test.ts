@@ -6,7 +6,6 @@
  * Covers:
  * - getNearbyIntelPosts: geo-spatial RPC, profile enrichment, confirmation state
  * - getPublicIntelPosts: same RPC without user confirmations
- * - getAllIntelPosts: service-role client, tag filtering, fallback to global
  * - Empty results handling
  * - RPC failure (returns empty, not fallback)
  * - Profile lookup failure (graceful degradation to RPC fallback names)
@@ -69,7 +68,6 @@ jest.mock("@/lib/supabase/server", () => ({
 import {
   getNearbyIntelPosts,
   getPublicIntelPosts,
-  getAllIntelPosts,
 } from "@/actions/intel/intel-query-actions";
 
 // =============================================================================
@@ -410,59 +408,5 @@ describe("getPublicIntelPosts", () => {
 
     expect(result.success).toBe(true);
     expect((result.data as any).posts[0].user.full_name).toBe("FallbackUser");
-  });
-});
-
-describe("getAllIntelPosts", () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockServerClient.auth.getUser.mockResolvedValue({
-      data: { user: mockAuthUser },
-      error: null,
-    });
-  });
-
-  test("filters by tag when provided", async () => {
-    // Track the eq calls through a custom mock chain
-    const eqCalls: [string, any][] = [];
-    const mockPostsQuery: any = {};
-    const addBuilder = (obj: any) => {
-      obj.select = jest.fn().mockReturnValue(obj);
-      obj.eq = jest.fn((...args: any[]) => {
-        eqCalls.push(args as [string, any]);
-        return obj;
-      });
-      obj.or = jest.fn().mockReturnValue(obj);
-      obj.order = jest.fn().mockReturnValue(obj);
-      obj.limit = jest.fn().mockReturnValue(obj);
-      // Make the builder "thenable" so await resolves the query
-      obj.then = (resolve: any) =>
-        resolve({ data: [], error: null });
-      return obj;
-    };
-    addBuilder(mockPostsQuery);
-
-    mockServiceRoleClient.from.mockReturnValueOnce(mockPostsQuery);
-
-    await getAllIntelPosts({ tag: "conditions", limit: 10 });
-
-    // eq is called with ("is_active", true) first, then ("tag", "conditions")
-    const tagCall = eqCalls.find(([key]) => key === "tag");
-    expect(tagCall).toEqual(["tag", "conditions"]);
-  });
-
-  test("catches and returns error on unexpected exceptions", async () => {
-    // Force an exception by making the service role client throw
-    const { createSupabaseServiceRoleClient } = jest.requireMock(
-      "@/lib/supabase/server"
-    );
-    createSupabaseServiceRoleClient.mockRejectedValueOnce(
-      new Error("Connection failed")
-    );
-
-    const result = await getAllIntelPosts();
-
-    expect(result.success).toBe(false);
-    expect(result.error).toBe("Connection failed");
   });
 });

@@ -249,49 +249,6 @@ export function Footer({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Rotated zine stamp (the "4 SESH" / "GO CALL" / "DAY 1" badge). Dynamic
- * text on a solid chip with the asymmetric radius + hard offset shadow. The
- * rotation flattens to upright in Outlook; everywhere else it tilts.
- */
-export function Stamp({
-  children,
-  bg = GOLD,
-  ink = GOLD_INK,
-  rotation = STICKER_ROTATIONS.hard,
-  fontSize = 13,
-  padding = "10px 12px",
-}: {
-  children: React.ReactNode;
-  bg?: string;
-  ink?: string;
-  rotation?: string;
-  fontSize?: number;
-  padding?: string;
-}) {
-  return (
-    <span
-      style={{
-        display: "inline-block",
-        fontFamily: FONT_MONO,
-        fontWeight: 700,
-        textAlign: "center",
-        letterSpacing: "1px",
-        lineHeight: 1.05,
-        fontSize,
-        color: ink,
-        backgroundColor: bg,
-        padding,
-        borderRadius: STICKER_RADIUS,
-        transform: `rotate(${rotation})`,
-        boxShadow: STICKER_SHADOW,
-      }}
-    >
-      {children}
-    </span>
-  );
-}
-
-/**
  * Cut-paper zine panel: a cream surface tilted onto the twilight page with the
  * asymmetric radius + hard offset shadow, like a note taped into a zine. Text
  * inside must use the PAPER_INK / PAPER_MUTED colors (cream background). Uses a

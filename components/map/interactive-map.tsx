@@ -20,7 +20,8 @@ import { debounce } from "@/lib/utils/debounce";
 import type { MapBeach } from "@/lib/services/nearby-beach-service";
 import type { Beach } from "@/types/database";
 import * as AuthContext from "@/context/auth-context";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { useRoutePathname } from "@/hooks/use-route-pathname";
 import { createCachedMapFetch } from "@/lib/utils/request-cache";
 import { hasViewportChanged as checkViewportChanged } from "@/lib/utils/map-utilities";
 import { CACHE_TTL } from "@/lib/constants/ui";
@@ -781,7 +782,7 @@ export function InteractiveMap({
   const userId = showMapChrome ? user?.id : undefined;
   const { track } = useTrackEvent();
   const router = useRouter();
-  const pathname = usePathname();
+  const pathname = useRoutePathname();
   const markerBeaches = useMemo(() => {
     const enriched = new Map(swellFieldBeaches.map((beach) => [beach.id, beach]));
     return (beaches ?? swellFieldBeaches).map((beach) => ({ ...beach, ...enriched.get(beach.id) }));
@@ -3422,7 +3423,7 @@ export function InteractiveMap({
             <button
               ref={mapRetryButtonRef}
               type="button"
-              className="mt-3 min-h-11 rounded-md bg-[#F78E42] px-4 py-2 text-sm font-semibold text-[#151C36] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              className="mt-3 min-h-11 rounded-full bg-[#F78E42] px-4 py-2 text-sm font-semibold text-[#151C36] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
               onClick={() => {
                 shouldRestoreMapFocusRef.current = true;
                 setMapLoadFailure(null);

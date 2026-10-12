@@ -25,7 +25,7 @@ import {
 } from "@/actions/beach/beach-favorite-actions";
 import { useAuth } from "@/context/auth-context";
 import Link from "next/link";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 import type { Beach } from "@/types/database";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { beachNavigation } from "@/lib/navigation-utils";
@@ -111,24 +111,13 @@ export function FavoriteBeaches() {
       const result = await removeFavoriteBeach(user.id, beach.id);
       if (result.success) {
         setBeaches((prev) => prev.filter((b) => b.id !== beach.id));
-        toast({
-          title: "Beach removed",
-          description: "Beach removed from favorites.",
-        });
+        toast("Beach removed", { description: "Beach removed from favorites." });
       } else {
-        toast({
-          title: "Error",
-          description: "Failed to remove beach from favorites.",
-          variant: "destructive",
-        });
+        toast.error("Error", { description: "Failed to remove beach from favorites." });
       }
     } catch (error) {
       console.error("Error removing favorite beach:", error);
-      toast({
-        title: "Error",
-        description: "Failed to remove beach from favorites.",
-        variant: "destructive",
-      });
+      toast.error("Error", { description: "Failed to remove beach from favorites." });
     } finally {
       setRemoving(null);
     }
@@ -152,16 +141,12 @@ export function FavoriteBeaches() {
       const orderedIds = beaches.map((b) => b.id);
       const result = await reorderFavoriteBeaches(orderedIds);
       if (result?.success) {
-        toast({ title: "Order saved", description: "Favorites updated." });
+        toast("Order saved", { description: "Favorites updated." });
       } else {
         throw new Error(result?.error || "Failed to save order");
       }
     } catch (e) {
-      toast({
-        title: "Error",
-        description: "Failed to save order.",
-        variant: "destructive",
-      });
+      toast.error("Error", { description: "Failed to save order." });
     } finally {
       setSavingOrder(false);
     }

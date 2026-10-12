@@ -17,6 +17,7 @@ import {
 } from '@/lib/domains/rideability';
 import { classifyWindQuality } from '@/lib/utils/wind-quality';
 import { alignmentFactor } from '@/lib/utils/wave-height-transformer';
+import { parseWindSpeedOrNull } from '@/lib/utils/number-parsing';
 
 interface NativeSkillThresholds {
   waveMinFt: number;
@@ -28,7 +29,8 @@ interface NativeSkillThresholds {
 
 interface NativeScoreInputs {
   waveHeightFt: number;
-  windSpeedMph: number;
+  /** Null when the forecast has no wind: scored as unknown, not calm. */
+  windSpeedMph: number | null;
   periodSec: number;
   tideHeightFt: number | null;
   tideStatus: string | null;
@@ -60,6 +62,10 @@ export interface NativeScoredForecast {
   forecast: EnhancedForecastEntity;
   score: number;
 }
+
+const NATIVE_MAX_WIND_POINTS = 25;
+// Unknown wind sits halfway between the worst (0) and best (25) wind points.
+const NATIVE_UNKNOWN_WIND_POINTS = NATIVE_MAX_WIND_POINTS / 2;
 
 const NATIVE_MAX_WIND_MPH: Record<SkillLevel, number> = {
   beginner: 12,
@@ -128,7 +134,7 @@ export function nativeScoreInputsFromForecast(
 ): NativeScoreInputs {
   return {
     waveHeightFt: parseMaxWaveHeightFt(forecast.wave_height),
-    windSpeedMph: parseFirstNumber(forecast.wind_speed),
+    windSpeedMph: parseWindSpeedOrNull(forecast.wind_speed),
     periodSec: parseFirstNumber(forecast.swell_1_period ?? forecast.wave_period),
     tideHeightFt: parseSignedNumber(forecast.tide_height),
     tideStatus: forecast.tide_status ?? null,
@@ -209,7 +215,9 @@ function scoreNativeConditionBreakdownForBand(
       : periodSec > 0
         ? Math.min(18, (periodSec / 13) * 18)
         : 0;
-  const windScore = Math.max(0, 25 * (1 - windSpeedMph / thresholds.maxWindMph));
+  const windScore = windSpeedMph === null
+    ? NATIVE_UNKNOWN_WIND_POINTS
+    : Math.max(0, NATIVE_MAX_WIND_POINTS * (1 - windSpeedMph / thresholds.maxWindMph));
 
   let tideScore = 7;
   if (tideHeightFt != null) {
@@ -223,8 +231,9 @@ function scoreNativeConditionBreakdownForBand(
   if (tideStatus.includes("high") || tideStatus.includes("low")) tideScore -= 1;
   tideScore = Math.max(0, Math.min(10, tideScore));
 
+  // Direction cannot judge a wind whose strength is unknown.
   const windQuality = direction
-    ? windScore * windQualityMultiplier(direction)
+    ? windSpeedMph === null ? windScore : windScore * windQualityMultiplier(direction)
     : undefined;
   const swellAlignment = direction
     ? 15 * swellAlignmentFactor(periodSec, direction)

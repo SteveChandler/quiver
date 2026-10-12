@@ -1,6 +1,6 @@
+import { isUuid } from "@/lib/utils/validation";
 const ALLOWED_PRESETS = new Set(["glass_off", "big_day", "mellow_session"] as const);
 type AllowedPreset = "glass_off" | "big_day" | "mellow_session";
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SAFE_PATH_RE = /^\/[a-z0-9\-/]+$/;
 
@@ -28,7 +28,7 @@ export function validateAnonCapture(input: unknown): ValidationResult {
   const email = i.email.trim().toLowerCase();
   if (!EMAIL_RE.test(email)) return { ok: false, error: "invalid_email" };
 
-  if (typeof i.beach_id !== "string" || !UUID_RE.test(i.beach_id)) {
+  if (typeof i.beach_id !== "string" || !isUuid(i.beach_id)) {
     return { ok: false, error: "invalid_beach_id" };
   }
 

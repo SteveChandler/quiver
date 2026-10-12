@@ -10,16 +10,35 @@ const sample: WaterQuality = {
 
 it.each(["clear", "advisory", "closure", "unavailable"] as const)(
   "shows current county %s without historical evidence", (county) => {
-    render(<WaterQualityBadge waterQuality={{ ...sample,
+    const { container } = render(<WaterQualityBadge waterQuality={{ ...sample,
       status: county === "clear" ? "unknown" : county === "closure" ? "closure" : "advisory",
       county_advisory_status: county,
       county_checked_at: county === "unavailable" ? undefined : "2026-09-04T03:00:00Z",
     }} />);
-    fireEvent.click(screen.getByRole("button"));
+    expect(container.firstChild).toHaveClass("bg-paper", "text-ink", "border-ink/20", "shadow-sm");
+    expect((container.firstChild as HTMLElement).className).not.toMatch(/gradient|backdrop-blur|shadow-lg/);
+    const toggle = screen.getByRole("button");
+    expect(toggle).toHaveClass("text-ink");
+    expect(toggle).toHaveClass(county === "advisory" || county === "closure" ? "border-destructive/40" : "border-ink/20");
+    fireEvent.click(toggle);
     expect(screen.getByRole("link", { name: /County of San Diego/ })).toHaveAttribute("href", "https://www.sdbeachinfo.com/");
     expect(screen.queryByText(/220|Enterococcus|Fecal Coliform|Latest sample|30-day exceedances|CEDEN/)).not.toBeInTheDocument();
-    if (county === "clear") expect(screen.getByText("No current county advisory")).toBeInTheDocument();
-    if (county === "unavailable") expect(screen.getByText("County status unavailable")).toBeInTheDocument();
+    expect(screen.queryByText("No current county advisory") !== null).toBe(county === "clear");
+    expect(screen.queryByText("County status unavailable") !== null).toBe(county === "unavailable");
     expect(screen.queryByText("Water Quality: Good")).not.toBeInTheDocument();
   },
 );
+
+it("keeps historical sample details and source attribution behind the toggle", () => {
+  render(<WaterQualityBadge waterQuality={sample} beachState="HI" />);
+  const toggle = screen.getByRole("button", { name: /Water Advisory/ });
+  expect(toggle).toHaveAttribute("aria-expanded", "false");
+  fireEvent.click(toggle);
+  expect(toggle).toHaveAttribute("aria-expanded", "true");
+  expect(screen.getByText("Enterococcus:").parentElement).toHaveTextContent("Enterococcus: 220 CFU/100mL");
+  expect(screen.getByText("30-day exceedances:").parentElement).toHaveTextContent("1 of 16 samples exceeded EPA limits");
+  expect(screen.getByRole("link", { name: /Hawaii DOH Clean Water Branch/ })).toHaveAttribute("href", "https://health.hawaii.gov/cwb/");
+  fireEvent.click(toggle);
+  expect(toggle).toHaveAttribute("aria-expanded", "false");
+  expect(screen.queryByText("30-day exceedances:")).not.toBeInTheDocument();
+});

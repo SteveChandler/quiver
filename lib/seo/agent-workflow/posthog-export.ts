@@ -1,7 +1,6 @@
 import type {
   NativeFunnelMetric,
   PostHogExportInput,
-  PostHogSeoPageMetric,
 } from "./types";
 
 interface PostHogWebEventRow {
@@ -153,10 +152,6 @@ export function parsePostHogNativeRows(raw: unknown): PostHogNativeRow[] {
     event: stringOrFallback(row[1], "unknown"),
     count: numberOrZero(row[2]),
   }));
-}
-
-export function toPostHogSeoPages(exportInput: PostHogExportInput): PostHogSeoPageMetric[] {
-  return exportInput.pages;
 }
 
 interface LandingStats {

@@ -347,9 +347,8 @@ describe("/api/cron/forecasts/refresh (tides)", () => {
       const mockFetch = jest.fn()
         .mockImplementationOnce(async () => new Response(JSON.stringify(noPredictions)))
         .mockImplementationOnce(async () => new Response(JSON.stringify({ predictions })));
-      jest.doMock("@/lib/utils/fetch-utils", () => ({
-        fetchWithTimeout: (...args: any[]) => mockFetch(...args),
-      }));
+      const originalFetch = global.fetch;
+      global.fetch = mockFetch;
       try {
         const realService = jest.requireActual("@/lib/services/noaa-tide-service");
         mockFetchHourlyTidePredictions.mockImplementation(
@@ -376,7 +375,7 @@ describe("/api/cron/forecasts/refresh (tides)", () => {
           failedStations: [],
         }));
       } finally {
-        jest.dontMock("@/lib/utils/fetch-utils");
+        global.fetch = originalFetch;
       }
     });
 
@@ -553,7 +552,6 @@ describe("/api/cron/forecasts/refresh (tides)", () => {
     });
   });
 });
-
 
 
 

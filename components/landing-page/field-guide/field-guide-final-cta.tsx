@@ -16,7 +16,7 @@ export function FieldGuideFinalCta({
     <ZineSurface
       sectionLabel="Back cover"
       data-testid="field-guide-final-cta"
-      className="bg-[#0D1020] px-3 pb-8 pt-0 sm:px-6 sm:pb-12 sm:pt-0"
+      className="bg-[#252D6B] px-3 pb-8 pt-0 sm:px-6 sm:pb-12 sm:pt-0"
       stageClassName="mx-auto max-w-5xl !py-0"
       paperClassName="relative overflow-hidden text-center"
       showMasthead={false}
@@ -32,7 +32,7 @@ export function FieldGuideFinalCta({
       <h2 className="zine-h1 mx-auto mt-3 max-w-3xl text-[#11100D]">
         Get Quiver on your phone.
       </h2>
-      <p className="mx-auto mt-3 max-w-prose font-mono text-sm leading-relaxed text-[#11100D]/80 sm:text-base">
+      <p className="mx-auto mt-3 max-w-prose font-sans text-[15px] leading-relaxed text-[#11100D]/80 sm:text-base">
         Free to start. The dawn patrol call lives in your pocket.
       </p>
       <div className="mt-6 flex justify-center">

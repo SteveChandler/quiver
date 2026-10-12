@@ -1,3 +1,4 @@
+import { JsonLd } from "@/components/seo/funnel/JsonLd";
 /**
  * Water Quality Check Tool
  *
@@ -205,10 +206,7 @@ export default async function WaterQualityPage({ searchParams }: PageProps) {
           },
         ]}
       />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+      <JsonLd data={{
             "@context": "https://schema.org",
             "@type": "WebApplication",
             name: "Quiver Water Quality Check",
@@ -223,9 +221,7 @@ export default async function WaterQualityPage({ searchParams }: PageProps) {
               name: "Quiver",
               url: SITE_ORIGIN,
             },
-          }),
-        }}
-      />
+          }} />
 
       <ToolHero
         imageSrc={TOOL_IMAGES["water-quality"]}

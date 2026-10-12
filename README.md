@@ -196,8 +196,7 @@ yarn test:e2e            # Run E2E tests with UI
 
 # Code Quality
 yarn lint                # Run ESLint
-yarn type-check          # TypeScript type checking
-yarn format              # Format code with Prettier
+yarn typecheck           # TypeScript type checking
 
 # Database
 supabase start           # Start local Supabase
@@ -403,7 +402,6 @@ See [Database Schema Documentation](docs/diagrams/database-schema.md) for comple
 **iOS:**
 
 ```bash
-yarn build:ios
 npx cap sync ios
 npx cap open ios
 # Build in Xcode: Product > Archive
@@ -412,7 +410,6 @@ npx cap open ios
 **Android:**
 
 ```bash
-yarn build:android
 npx cap sync android
 npx cap open android
 # Build in Android Studio: Build > Generate Signed Bundle

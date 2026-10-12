@@ -183,15 +183,6 @@ export const GET = withAuth(handler);
 - **Data Source**: NOAA real-time feeds
 - **Scheduling**: Designed for cron job integration
 
-#### `/admin/test-push/route.ts`
-
-- **Methods**: `GET`, `POST`
-- **Access Level**: Admin-only
-- **Function**: Sends a test push notification to the currently authenticated admin user (end-to-end verification).
-- **Service Layer**: `lib/services/push-notifications.ts` (`sendPushNotification()`)
-
----
-
 ### 📊 `/analytics` - User Analytics & Insights
 
 #### `/analytics/sessions/route.ts`
@@ -238,24 +229,6 @@ export const GET = withAuth(handler);
 - **Usage**: Client-side authentication state verification
 - **Response**: Session existence and basic user data
 
-#### `/auth/refresh-session/route.ts`
-
-- **Methods**: `POST`
-- **Function**: Automatic token refresh
-- **Features**:
-  - Graceful session restoration
-  - Error handling for expired sessions
-  - Secure token rotation
-
-#### `/auth/supabase/resend-confirmation/route.ts`
-
-- **Methods**: `POST`
-- **Function**: Email confirmation resend utility
-- **Usage**: Account verification flows
-- **Integration**: Supabase email service
-
----
-
 ### 🏖️ `/beaches` - Location Data Management
 
 #### `/beaches/route.ts`
@@ -301,34 +274,6 @@ export const GET = withAuth(handler);
 
 ---
 
-### 🌊 `/buoys` - Real-time Oceanographic Data
-
-#### `/buoys/conditions/route.ts`
-
-- **Methods**: `GET`
-- **Function**: Current buoy conditions lookup
-- **Data Sources**: NOAA NDBC real-time feeds
-- **Features**:
-  - Wind direction calculation
-  - Multi-parameter condition data
-  - Geospatial fallback queries
-- **Fallback Strategy**: PostGIS function compatibility handling
-
-#### `/buoys/nearby/route.ts`
-
-- **Methods**: `GET`
-- **Function**: Geographic buoy discovery
-- **Features**:
-  - Distance-based filtering
-  - Real-time condition integration
-  - Configurable result limits
-- **Query Parameters**:
-  - `latitude`, `longitude`: Required coordinates
-  - `limit`: Result count (default: 4)
-  - `maxDistance`: Search radius (default: 100km)
-
----
-
 ### ⏰ `/cron` - Scheduled Job Management
 
 **Authentication**: Vercel Cron header or cron token
@@ -363,34 +308,9 @@ export const GET = withAuth(handler);
 - **Why it exists**: Enables an effective **90-minute** cron cadence without relying on multiple cron entries targeting the same path.
   - Scheduled alongside `/api/cron/enhanced-forecast-sync` in `vercel.json` (staggered schedules).
 
-#### `/cron/first-session-nudge/route.ts`
-
-- **Methods**: `GET`
-- **Schedule**: Every 6 hours (`30 */6 * * *` per `vercel.json`)
-- **Authentication**: Vercel Cron header (`x-vercel-cron`) OR `Authorization: Bearer <CRON_SECRET>`
-- **Function**: Sends "Your first forecast is waiting" email to users who signed up 18-30h ago with zero sessions
-- **Features**:
-  - Deduplication via `email_send_log` table
-  - 24h global email cooldown (no emails sent if user received any email in last 24h)
-  - Batched auth queries (5 concurrent) for efficient email lookups
-  - Rate-limited sending via `createResendRateLimiter()`
-- **Email Type**: `first_session_nudge`
-- **Template**: `FirstSessionNudgeEmail` with quick-log CTA
-- **Service Layer**: `lib/services/email-logging-service.ts`, `lib/utils/email-rate-limiter.ts`
-
 ### 🔮 `/forecasts` - Surf Forecast System
 
 **Data Sources**: NOAA WaveWatch III, CO-OPS, Weather Service, NDBC
-
-#### `/forecasts/update/route.ts`
-
-- **Methods**: `POST`, `GET`
-- **Function**: Manual forecast update triggers
-- **Features**:
-  - Single beach or bulk updates
-  - Enhanced forecast system integration
-  - Success/failure reporting
-- **Usage**: Administrative operations and manual refreshes
 
 #### `/forecasts/update-enhanced/route.ts`
 
@@ -587,16 +507,6 @@ HDOnTap media playlists are checked with a HEAD request to the first segment on 
   - Auto-expiring posts (1-7 days based on type)
 - **Validation**: Comprehensive input validation and sanitization
 
-#### `/intel/[id]/confirm/route.ts`
-
-- **Methods**: `POST`, `DELETE`
-- **Function**: Community confirmation system
-- **Features**:
-  - User confirmation tracking
-  - Duplicate prevention
-  - Real-time confirmation counts
-- **Security**: Users cannot confirm their own posts
-
 **Intel Post Types**:
 
 - `parking`: Parking availability/restrictions
@@ -608,18 +518,6 @@ HDOnTap media playlists are checked with a HEAD request to the first segment on 
 
 ---
 
-### 📓 `/journal` - Session Journaling & Export
-
-#### `/journal/export/route.ts`
-
-- **Methods**: `POST`
-- **Function**: PDF export generation for user sessions
-- **Features**:
-  - Customizable export options
-  - Analytics integration
-  - Temporary download URL generation
-- **Security**: User data isolation and authentication
-
 ### 📸 `/sessions/[id]/photos` - Session Photo Media
 
 #### `/sessions/[id]/photos/route.ts`
@@ -629,40 +527,6 @@ HDOnTap media playlists are checked with a HEAD request to the first segment on 
 - **Function**: Lists session media and uploads owner-scoped session photos
 - **Policy**: `lib/media/session-photo-policy.ts` owns the accepted MIME types, 10 MiB input limit, and 5 MiB storage limit
 - **Behavior**: Upload failures return the established validation or stage-specific HTTP error responses and never return a successful response for a failed write
-
----
-
-### 🎯 `/me` - Current User Data
-
-**Authentication**: All endpoints require user session (via `withAuth` wrapper)
-**Rate Limiting**: Applied via `withRateLimit` wrapper
-
-#### `/me/milestones/route.ts`
-
-- **Methods**: `GET`, `PATCH`
-- **Authentication**: `withAuth` wrapper
-- **Rate Limiting**: `withRateLimit` (10 req/min per user)
-- **Function**: Manages personalization milestone notifications for toast display
-- **Features**:
-  - GET: Fetches unshown milestones for the current user
-  - PATCH: Marks milestones as shown (sets `shown_at` timestamp)
-  - Validates milestone keys against `PERSONALIZATION_MILESTONES` constant
-  - Detection runs inline via fire-and-forget calls (no redundant home screen checks)
-- **Used By**: `use-personalization-milestones` hook
-- **Service Layer**: `lib/services/personalization-milestone-service.ts`
-
----
-
-### 📱 `/recent-posts` - Social Feed
-
-#### `/recent-posts/route.ts`
-
-- **Methods**: `GET`
-- **Function**: Recent community activity aggregation
-- **Features**:
-  - Social feed data compilation
-  - Activity timeline generation
-- **Usage**: Home screen social features
 
 ---
 
@@ -694,46 +558,6 @@ HDOnTap media playlists are checked with a HEAD request to the first segment on 
 
 - `beach`: Beach name (e.g., "Ocean Beach")
 - `lat`, `lon`: Geographic coordinates (alternative to beach name)
-
-#### `/surf/insights/route.ts`
-
-- **Methods**: `GET`
-- **Authentication**: Required (user session)
-- **Function**: Returns personalized insights comparing current forecast to user's past high-rated sessions
-- **Features**:
-  - ML-powered session matching using bucket-based similarity scoring
-  - Three response states: ready, onboarding, degraded
-  - Board recommendations when pattern detected (≥60% of similar sessions used same board)
-  - Cross-spot explanations when >50% of matches are from different beaches
-  - Top 5 similar sessions ranked by similarity score
-- **Query Parameters (Required)**:
-  - `beachId`: Beach UUID
-  - `beachName`: Beach name
-  - `waveHeight`: Wave height in feet (0-50)
-  - `wavePeriod`: Wave period in seconds (0-30)
-  - `windSpeed`: Wind speed in mph (0-100)
-- **Query Parameters (Optional)**:
-  - `windDirection`: Wind direction in degrees (0-360)
-  - `tideHeight`: Tide height in feet (-5 to 15)
-  - `tideStatus`: Tide status (e.g., "Rising", "High Slack")
-  - `windowStart`: ISO timestamp for forecast window
-- **Rate Limit**: 10 requests/minute
-- **Caching**: Private per-user cache (5 minutes)
-- **Response**: `PersonalizedInsights`
-  - `matchPercent`: Overall similarity percentage (0-100)
-  - `label`: Match quality ("Perfect" ≥80%, "Great" 60-79%, "Good" 40-59%, "Low" <40%)
-  - `reasonBullets`: 2-4 explanation bullets
-  - `similarSessions`: Top 5 similar sessions with conditions and board info
-  - `boardTip`: Board recommendation if majority pattern detected (≥60% threshold)
-  - `sessionCount`: Total rated sessions in user's history
-  - `state`: "ready" (≥3 sessions), "onboarding" (<3 sessions), or "degraded" (no forecast snapshots)
-- **Service Layer**: `lib/services/similarity-insights-service.ts`
-- **Algorithm Details**:
-  - Weighted similarity scoring: wave height (35%), wave period (25%), wind speed (20%), wind direction (10%), tide (10%)
-  - Bucket-based matching for robustness (e.g., 2-4 ft waves, 8-12s period)
-  - Adjacent bucket matches receive 50% credit
-  - Minimum similarity threshold: 60% to be included in results
-  - Lookback period: 12 months of completed sessions rated ≥3 stars
 
 ---
 

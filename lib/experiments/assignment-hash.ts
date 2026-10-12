@@ -11,7 +11,7 @@ export const EXPERIMENT_KEYS: readonly ExperimentKey[] = [
   "t2a-swellwatch-v1",
 ];
 
-export type ExperimentArm = 0 | 1;
+type ExperimentArm = 0 | 1;
 
 /**
  * arm = first byte (big-endian, index 0) of SHA-256(UTF-8(userId ':' key)) mod 2.

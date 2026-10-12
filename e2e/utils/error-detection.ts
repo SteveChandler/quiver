@@ -95,7 +95,7 @@ export function setupErrorDetection(page: Page): ErrorCapture {
  * Check for visible errors on the page
  * Returns array of visible error messages
  */
-export async function getVisibleErrors(page: Page): Promise<string[]> {
+async function getVisibleErrors(page: Page): Promise<string[]> {
   const errors: string[] = [];
 
   for (const selector of ERROR_SELECTORS) {
@@ -249,7 +249,7 @@ export async function assertNoErrors(
  * Wait for page to load and assert no errors
  * Combines waitForPageLoad with error checking
  */
-export async function waitForPageLoadWithErrorCheck(
+async function waitForPageLoadWithErrorCheck(
   page: Page,
   capture: ErrorCapture,
   options: { timeout?: number; context?: string } = {}
@@ -286,26 +286,6 @@ export async function gotoWithErrorCheck(
 
   await page.goto(url, { timeout, waitUntil: 'domcontentloaded' });
   await waitForPageLoadWithErrorCheck(page, capture, { context: `Navigate to ${url}` });
-}
-
-/**
- * Click element and assert no errors appear after
- */
-export async function clickWithErrorCheck(
-  page: Page,
-  capture: ErrorCapture,
-  selector: string,
-  description: string,
-  options: { timeout?: number } = {}
-): Promise<void> {
-  const { timeout = 10000 } = options;
-
-  await page.locator(selector).click({ timeout });
-
-  // eslint-disable-next-line playwright/no-wait-for-timeout -- brief delay to let error UI render after click
-  await page.waitForTimeout(500);
-
-  await assertNoErrors(page, capture, { context: `After clicking ${description}` });
 }
 
 // Helper: Ignorable console errors (noisy but not real problems)

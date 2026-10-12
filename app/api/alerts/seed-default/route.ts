@@ -10,6 +10,10 @@ import {
   seedDefaultRulesForUser,
   type ExperienceLevel,
 } from "@/lib/alerts/seed-default-rule";
+import {
+  resolveRequestPlatform,
+  scheduleSeededAlertCreated,
+} from "@/lib/analytics/alert-created-server";
 
 /**
  * POST /api/alerts/seed-default — Seed the authenticated user's default alert
@@ -109,6 +113,18 @@ export const POST = withAuth(
       notifyEmail: profile.notif_email_enabled ?? true,
       notifyPush: profile.notif_push_enabled ?? false,
     });
+
+    if (result.seeded) {
+      scheduleSeededAlertCreated({
+        supabase,
+        userId: user.id,
+        beachId,
+        rules: result.rules,
+        platform: resolveRequestPlatform(request),
+        notifyEmail: profile.notif_email_enabled ?? true,
+        notifyPush: profile.notif_push_enabled ?? false,
+      });
+    }
 
     return createSuccessResponse(result);
   },

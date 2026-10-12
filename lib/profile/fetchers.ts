@@ -36,16 +36,6 @@ export async function getProfileWithHomeBeachById(userId: string, client?: any) 
   return { profile: result, homeBeachName: result.home_beach?.name ?? null };
 }
 
-function toProfileDTO(profile: ProfileWithHomeBeach, homeBeachName: string | null): ProfileDTO {
-  return {
-    id: profile.id,
-    full_name: profile.full_name ?? null,
-    home_beach_id: profile.home_beach_id ?? null,
-    homeBeachName,
-    home_beach: profile.home_beach ?? null,
-  };
-}
-
 export async function getProfileDTOById(userId: string, client?: any): Promise<ProfileDTO | null> {
   const supabase = client || (await createSupabaseServerClient());
   const { data, error } = await supabase

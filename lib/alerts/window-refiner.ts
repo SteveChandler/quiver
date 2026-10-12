@@ -18,12 +18,12 @@ export interface WindowDriver {
   label: string;
 }
 
-export interface CoarseWindow {
+interface CoarseWindow {
   start: string;
   end: string;
 }
 
-export interface RefineWindowArgs {
+interface RefineWindowArgs {
   coarse: CoarseWindow;
   forecasts: EnhancedForecastEntity[];
   beach: Beach;

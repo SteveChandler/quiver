@@ -148,15 +148,6 @@ export function getForecastAccuracyRowHorizonBucket(row: {
   return getForecastAccuracyHorizonBucket(row.forecast_horizon_hours);
 }
 
-function getForecastAccuracyBaselineLabel(
-  baseline: ForecastAccuracyBaseline
-): string {
-  const definition = FORECAST_ACCURACY_BASELINES.find(
-    (candidate) => candidate.id === baseline
-  );
-  return definition?.label ?? baseline;
-}
-
 export function computeForecastAccuracyMetrics(
   rows: ForecastAccuracyInputRow[],
   options: { includeProposed?: boolean } = {}
@@ -219,47 +210,6 @@ export function computeForecastAccuracyMetrics(
       ];
     })
   );
-}
-
-export function computeForecastAccuracyDeltas(
-  metrics: ForecastAccuracyMetric[],
-  comparisonBaseline: ForecastAccuracyBaseline = "current_display"
-): ForecastAccuracyDelta[] {
-  const byKey = new Map(
-    metrics.map((metric) => [
-      metricKey(metric.horizon_bucket, metric.baseline),
-      metric,
-    ])
-  );
-
-  return metrics.flatMap((metric) => {
-    if (metric.baseline === comparisonBaseline) {
-      return [];
-    }
-
-    const comparison = byKey.get(
-      metricKey(metric.horizon_bucket, comparisonBaseline)
-    );
-    if (!comparison) {
-      return [];
-    }
-    if (metric.sample_count !== comparison.sample_count) {
-      return [];
-    }
-
-    return [
-      {
-        horizon_bucket: metric.horizon_bucket,
-        baseline: metric.baseline,
-        baseline_label: metric.baseline_label,
-        sample_count: metric.sample_count,
-        comparison_sample_count: comparison.sample_count,
-        mae_m: metric.mae_m,
-        comparison_mae_m: comparison.mae_m,
-        delta_mae_m: roundMetric(metric.mae_m - comparison.mae_m),
-      },
-    ];
-  });
 }
 
 export function computeForecastAccuracyPairedDeltas(
@@ -410,42 +360,6 @@ export function computeForecastAccuracyGateMetrics(
         bias_m: roundMetric(
           accumulator.signedErrorSum / accumulator.sampleCount
         ),
-      },
-    ];
-  });
-}
-
-export function computeForecastAccuracyGateDeltas(
-  metrics: ForecastAccuracyGateMetric[],
-  comparisonBaseline: ForecastAccuracyBaseline = "current_display"
-): ForecastAccuracyGateDelta[] {
-  const byBaseline = new Map(
-    metrics.map((metric) => [metric.baseline, metric])
-  );
-
-  return metrics.flatMap((metric) => {
-    if (metric.baseline === comparisonBaseline) {
-      return [];
-    }
-
-    const comparison = byBaseline.get(comparisonBaseline);
-    if (!comparison) {
-      return [];
-    }
-    if (metric.sample_count !== comparison.sample_count) {
-      return [];
-    }
-
-    return [
-      {
-        horizon_group: FORECAST_ACCURACY_GATE_HORIZON_LABEL,
-        baseline: metric.baseline,
-        baseline_label: metric.baseline_label,
-        sample_count: metric.sample_count,
-        comparison_sample_count: comparison.sample_count,
-        mae_m: metric.mae_m,
-        comparison_mae_m: comparison.mae_m,
-        delta_mae_m: roundMetric(metric.mae_m - comparison.mae_m),
       },
     ];
   });

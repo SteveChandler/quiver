@@ -1,5 +1,5 @@
 import { existsSync } from "fs";
-import { config as dotenvConfig } from "dotenv";
+import { config as dotenvConfig } from "../../../scripts/load-env.mjs";
 
 export interface LocalSupabaseEnv {
   anonKey: string;

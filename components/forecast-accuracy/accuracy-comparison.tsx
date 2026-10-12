@@ -6,7 +6,7 @@ export function AccuracyComparison() {
   return (
     <section aria-labelledby="wave-height-definitions-heading">
       <div className="relative overflow-hidden rounded-[8px] border-2 border-[#11100D] bg-[#F4EBD8] p-5 shadow-[4px_4px_0_#11100D] md:p-7">
-        <p className="mb-2 inline-flex rotate-[-1.5deg] rounded-[8px] border-2 border-[#11100D] bg-[#F78E42] px-3 py-1 font-mono text-xs font-black uppercase tracking-[0.16em] text-[#11100D] shadow-[2px_2px_0_#11100D]">
+        <p className="mb-2 inline-flex rounded-[8px] border-2 border-[#11100D] bg-[#F78E42] px-3 py-1 font-mono text-xs font-black uppercase tracking-[0.16em] text-[#11100D] shadow-[2px_2px_0_#11100D]">
           Same words, different water
         </p>
         <h2
@@ -22,7 +22,7 @@ export function AccuracyComparison() {
         </p>
 
         <div className="mt-6 grid gap-4 md:grid-cols-2">
-          <article className="-rotate-1 rounded-[8px] border-2 border-[#11100D] bg-[#8AB4F8] p-5 text-[#11100D] shadow-[3px_3px_0_#11100D]">
+          <article className="rounded-[8px] border-2 border-[#11100D] bg-[#8AB4F8] p-5 text-[#11100D] shadow-[3px_3px_0_#11100D]">
             <p className="font-mono text-xs font-black uppercase tracking-[0.16em]">
               Buoy observation
             </p>
@@ -36,7 +36,7 @@ export function AccuracyComparison() {
             </p>
           </article>
 
-          <article className="rotate-1 rounded-[8px] border-2 border-[#11100D] bg-[#EFE5CF] p-5 text-[#11100D] shadow-[3px_3px_0_#11100D]">
+          <article className="rounded-[8px] border-2 border-[#11100D] bg-[#EFE5CF] p-5 text-[#11100D] shadow-[3px_3px_0_#11100D]">
             <p className="font-mono text-xs font-black uppercase tracking-[0.16em]">
               Surf observation
             </p>
@@ -53,7 +53,7 @@ export function AccuracyComparison() {
         </div>
 
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="rounded-[8px] border-2 border-[#11100D] bg-[#0B3A75] px-4 py-3 text-sm font-bold text-[#F4EBD8] shadow-[3px_3px_0_#11100D]">
+          <p className="rounded-[8px] border-2 border-[#11100D] bg-[#11100D] px-4 py-3 text-sm font-bold text-[#F4EBD8] shadow-[3px_3px_0_#11100D]">
             A buoy check can validate an offshore-height forecast. By itself, it
             cannot prove the breaking surf-height call was right.
           </p>

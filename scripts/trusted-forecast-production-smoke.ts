@@ -46,7 +46,7 @@
  * and codes. No source narrative, URL, hash or measured range.
  */
 
-import { config } from "dotenv";
+import { config } from "./load-env.mjs";
 
 import {
   TRUSTED_FORECAST_UNCOVERED_VOCABULARY,
@@ -61,14 +61,14 @@ import {
 } from "../lib/services/forecast/trusted-forecast-policy";
 import { TRUSTED_FORECAST_BUILD_SCHEMA_VERSION } from "../lib/services/forecast/trusted-forecast-persistence";
 
-export const SMOKE_MODES = ["forecast", "audit"] as const;
-export type SmokeMode = (typeof SMOKE_MODES)[number];
+const SMOKE_MODES = ["forecast", "audit"] as const;
+type SmokeMode = (typeof SMOKE_MODES)[number];
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const LOCAL_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-export interface SmokeArgs {
+interface SmokeArgs {
   readonly mode: SmokeMode;
   readonly beachId: string;
   readonly localDate: string;
@@ -78,7 +78,7 @@ export interface SmokeArgs {
   readonly liveVocabularyPath: string | null;
 }
 
-export type SmokeAbortCode =
+type SmokeAbortCode =
   | "missing_argument"
   | "duplicate_argument"
   | "malformed_argument"
@@ -136,7 +136,7 @@ export interface SmokeWriteRunner {
   run(args: SmokeArgs): Promise<SmokeWriteResult>;
 }
 
-export interface SmokeWriteResult {
+interface SmokeWriteResult {
   readonly beachId: string;
   readonly buildKey: string;
   readonly receiptFound: boolean;
@@ -247,7 +247,7 @@ export function parseSmokeArgs(argv: readonly string[]): SmokeArgs {
 /* 2-7. Preflight                                                             */
 /* -------------------------------------------------------------------------- */
 
-export interface SmokeTarget {
+interface SmokeTarget {
   readonly beachId: string;
   readonly beachSlug: string;
   readonly timezone: string;

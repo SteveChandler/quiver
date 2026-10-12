@@ -14,7 +14,7 @@ export function FieldGuideReleaseStrip(): ReactElement {
     <Link
       href="/whats-new"
       data-testid="field-guide-release-strip"
-      className="group mt-6 flex flex-wrap items-baseline gap-x-3 gap-y-1 border-t-2 border-dashed border-[#11100D]/30 pt-4 font-mono text-xs text-[#11100D]/80 transition-colors hover:text-[#11100D] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B3A75]"
+      className="group mt-6 flex flex-wrap items-baseline gap-x-3 gap-y-1 border-t-2 border-dashed border-[#11100D]/30 pt-4 font-mono text-xs text-[#11100D]/80 transition-colors hover:text-[#11100D] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#11100D]"
     >
       <span className="inline-flex items-center bg-[#11100D] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.22em] text-[#FBF6E8]">
         New

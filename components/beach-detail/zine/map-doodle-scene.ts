@@ -1,3 +1,5 @@
+import { clamp } from "@/lib/utils/clamp";
+
 export type ZineMapCue = "pier" | "jetty" | "reef" | "point" | "inlet" | "sandbars";
 
 export interface ZineMapSceneInput {
@@ -194,8 +196,4 @@ function stableSeed(parts: Array<string | null | undefined>): number {
     hash = (hash * 31 + source.charCodeAt(i)) % 9973;
   }
   return hash;
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
 }

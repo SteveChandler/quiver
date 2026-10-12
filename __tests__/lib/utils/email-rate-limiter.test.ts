@@ -1,3 +1,7 @@
+jest.mock("node:timers/promises", () => ({
+  setTimeout: (ms: number) => new Promise((resolve) => setTimeout(resolve, ms)),
+}));
+
 /**
  * Unit tests for email rate limiter utility
  * Tests sequential rate limiting for Resend API
@@ -6,7 +10,6 @@
 import {
   SequentialRateLimiter,
   createResendRateLimiter,
-  sleep,
   RESEND_RATE_LIMIT_MS,
 } from "@/lib/utils/email-rate-limiter";
 
@@ -25,22 +28,6 @@ describe("email-rate-limiter", () => {
   describe("RESEND_RATE_LIMIT_MS constant", () => {
     it("should be 600ms (2 req/s with buffer)", () => {
       expect(RESEND_RATE_LIMIT_MS).toBe(600);
-    });
-  });
-
-  describe("sleep", () => {
-    it("should resolve after specified time", async () => {
-      let resolved = false;
-      const sleepPromise = sleep(50).then(() => {
-        resolved = true;
-      });
-
-      await jest.advanceTimersByTimeAsync(49);
-      expect(resolved).toBe(false);
-
-      await jest.advanceTimersByTimeAsync(1);
-      await sleepPromise;
-      expect(resolved).toBe(true);
     });
   });
 

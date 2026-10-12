@@ -67,7 +67,7 @@ export function ExperienceLevelStep() {
     <div className="space-y-6" data-testid="level-and-time-step">
       <div className="space-y-3 max-w-md mx-auto">
         <div className="text-center">
-          <h2 className="font-handwritten text-3xl sm:text-4xl text-white">
+          <h2 className="font-heading font-bold text-3xl sm:text-4xl text-white">
             What kind of surfer?
           </h2>
           <p className="text-white/60 text-sm mt-1">

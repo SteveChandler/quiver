@@ -113,10 +113,6 @@ const MAX_FAILED_ATTEMPTS_PER_CHANNEL = 3;
  * crashed) and may be reclaimed by another tick.
  */
 const CLAIM_STALE_AFTER_MS = 5 * 60 * 1000;
-const INVALID_TOKEN_ERROR_CODES = new Set([
-  "messaging/registration-token-not-registered",
-  "messaging/invalid-registration-token",
-]);
 
 // Statuses that mean "channel is done, do not retry".
 const TERMINAL_SKIP_STATUSES = new Set<NotificationDeliveryStatus>([
@@ -774,13 +770,7 @@ function priorTerminalOutcome(
 function groupAttemptsByChannel(
   attempts: NotificationDeliveryAttemptRow[],
 ): Map<NotificationChannel, NotificationDeliveryAttemptRow[]> {
-  const m = new Map<NotificationChannel, NotificationDeliveryAttemptRow[]>();
-  for (const a of attempts) {
-    const list = m.get(a.channel) ?? [];
-    list.push(a);
-    m.set(a.channel, list);
-  }
-  return m;
+  return Map.groupBy(attempts, (attempt) => attempt.channel);
 }
 
 async function finalizeEventStatus(
@@ -1688,12 +1678,7 @@ async function loadAttemptsForEvents(
     );
   }
 
-  for (const row of data ?? []) {
-    const list = result.get(row.notification_event_id) ?? [];
-    list.push(row);
-    result.set(row.notification_event_id, list);
-  }
-  return result;
+  return Map.groupBy(data ?? [], (row) => row.notification_event_id);
 }
 
 /**

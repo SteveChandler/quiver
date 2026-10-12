@@ -106,36 +106,6 @@ describe("BeachAlertCta", () => {
       ).toBeInTheDocument();
     });
 
-    it("shows locked free-growth copy when the phase flag prop is on", () => {
-      render(<BeachAlertCta {...defaultProps} freeGrowthPhaseEnabled />);
-
-      expect(
-        screen.getByRole("button", { name: /watch this spot, free/i })
-      ).toBeInTheDocument();
-      expect(
-        screen.getByText(
-          "Watch this spot, free. Track up to 3 breaks and we'll call the window.",
-        )
-      ).toBeInTheDocument();
-    });
-
-    it("tracks a free-growth education impression for anonymous viewers", async () => {
-      render(<BeachAlertCta {...defaultProps} freeGrowthPhaseEnabled />);
-
-      await waitFor(() => {
-        expect(mockTrack).toHaveBeenCalledWith(
-          "free_growth_education_impression",
-          {
-            beachId: defaultProps.beachId,
-            metadata: {
-              surface: "beach_detail_alert_cta",
-              audience: "anonymous",
-            },
-          },
-        );
-      });
-    });
-
     it("renders a Waves icon inside the button", () => {
       const { container } = render(<BeachAlertCta {...defaultProps} />);
       const icon = container.querySelector(".lucide-waves");
@@ -164,24 +134,6 @@ describe("BeachAlertCta", () => {
       );
     });
 
-    it("tracks free-growth education CTA taps before opening auth", () => {
-      render(<BeachAlertCta {...defaultProps} freeGrowthPhaseEnabled />);
-
-      fireEvent.click(
-        screen.getByRole("button", { name: /watch this spot, free/i }),
-      );
-
-      expect(mockTrack).toHaveBeenCalledWith(
-        "free_growth_education_cta_tapped",
-        {
-          beachId: defaultProps.beachId,
-          metadata: {
-            surface: "beach_detail_alert_cta",
-            audience: "anonymous",
-          },
-        },
-      );
-    });
   });
 
   describe("stores pending action before opening auth modal", () => {

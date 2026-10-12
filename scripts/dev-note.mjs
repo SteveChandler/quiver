@@ -10,7 +10,7 @@
  * with Claude Code before running this script.
  */
 
-import { config } from "dotenv";
+import { config } from "./load-env.mjs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { createClient } from "@supabase/supabase-js";

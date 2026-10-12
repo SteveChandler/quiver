@@ -1,4 +1,6 @@
-export interface ResilientFetchOptions {
+import { setTimeout as sleep } from "node:timers/promises";
+
+interface ResilientFetchOptions {
   timeoutMs?: number;
   retries?: number;
   retryDelayMs?: number;
@@ -23,7 +25,7 @@ export async function fetchWithRetry(
     try {
       const response = await fetch(url, {
         ...init,
-        signal: mergeSignals(init.signal ?? undefined, timeoutSignal(timeoutMs)),
+        signal: mergeSignals(init.signal ?? undefined, AbortSignal.timeout(timeoutMs)),
       });
 
       if (response.status >= 400 && response.status < 500 && response.status !== 429) {
@@ -106,18 +108,5 @@ function mergeSignals(existing?: AbortSignal, timeout?: AbortSignal): AbortSigna
   const abort = () => controller.abort();
   existing.addEventListener("abort", abort, { once: true });
   timeout.addEventListener("abort", abort, { once: true });
-  return controller.signal;
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function timeoutSignal(ms: number): AbortSignal | undefined {
-  if (typeof AbortSignal.timeout === "function") {
-    return AbortSignal.timeout(ms);
-  }
-  const controller = new AbortController();
-  setTimeout(() => controller.abort(new Error(`Timeout after ${ms}ms`)), ms);
   return controller.signal;
 }

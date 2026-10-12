@@ -13,7 +13,7 @@ interface BeachTempComparisonProps {
 
 /** Color-code temperature: cold blue to warm amber with paper-safe contrast. */
 function getTempColor(tempF: number): string {
-  if (tempF < 54) return "border-[#0B3A75]/25 text-[#0B3A75]";
+  if (tempF < 54) return "border-[#11100D]/25 text-[#8A5E00]";
   if (tempF < 62) return "border-[#08708A]/25 text-[#075E75]";
   if (tempF < 68) return "border-[#0F766E]/25 text-[#115E59]";
   if (tempF < 74) return "border-[#B65F1A]/25 text-[#8A4B12]";

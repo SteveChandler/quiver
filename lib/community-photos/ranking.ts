@@ -1,23 +1,6 @@
 import type { ResolvedSpotPhoto } from "./types";
 
-const WILSON_Z = 1.959963984540054;
 const MIN_RANKING_VOTES = 5;
-
-export function wilsonLowerBound(upvotes: number, downvotes: number): number {
-  const total = upvotes + downvotes;
-  if (total < MIN_RANKING_VOTES) return 0;
-
-  const proportion = upvotes / total;
-  const zSquared = WILSON_Z * WILSON_Z;
-  const numerator =
-    proportion +
-    zSquared / (2 * total) -
-    WILSON_Z *
-      Math.sqrt(
-        (proportion * (1 - proportion) + zSquared / (4 * total)) / total,
-      );
-  return numerator / (1 + zSquared / total);
-}
 
 export function mergeResolvedSpotPhotos({
   curated,

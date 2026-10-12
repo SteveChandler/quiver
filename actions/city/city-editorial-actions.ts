@@ -129,30 +129,3 @@ export async function getReviewedCityEditorialContent(): Promise<
     };
   });
 }
-
-/**
- * Check if a city has editorial content without fetching the full content.
- * Useful for determining layout strategy before the full data fetch.
- */
-export async function hasCityEditorialContent(
-  citySlug: string,
-  stateSlug: string = "ca",
-  countrySlug: string = "usa"
-): Promise<boolean> {
-  const supabase = createPublicReadClient();
-
-  const { data, error } = await supabase
-    .from("city_editorial_content")
-    .select("id")
-    .eq("city_slug", citySlug)
-    .eq("state_slug", stateSlug)
-    .eq("country_slug", countrySlug)
-    .maybeSingle();
-
-  if (error) {
-    console.error("[hasCityEditorialContent] Error checking editorial content:", error);
-    return false;
-  }
-
-  return !!data;
-}

@@ -126,7 +126,7 @@ export function CamCard({ beach }: CamCardProps) {
             {beach.city}, {beach.state}
           </span>
         </div>
-        <p className="mt-3 font-mono text-[11px] font-black uppercase tracking-[0.14em] text-[#0B3A75] opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+        <p className="mt-3 font-mono text-[11px] font-black uppercase tracking-[0.14em] text-[#8A5E00] opacity-0 transition-opacity duration-200 group-hover:opacity-100">
           {/* One string expression: SWC eats the leading space of a
               multi-line JSX text child that contains an HTML entity. */}
           {`${showThumbnail ? "Watch live cam" : "Open cam page"} →`}

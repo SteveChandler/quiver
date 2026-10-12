@@ -1,3 +1,4 @@
+import { clamp } from "@/lib/utils/clamp";
 /**
  * Surf Discovery Orchestrator
  *
@@ -48,6 +49,7 @@ import { currentWaterQuality } from "@/lib/services/water-quality/current-status
 import {
   scoreBeachWithEngine,
   beachToSpotProfile,
+  getDiscoveryScoringEngine,
 } from '@/lib/domains/scoring';
 import type { SkillLevel } from '@/lib/domains/user-preferences';
 import { parseSkillLevel, getSkillLevelOrDefault, SKILL_WAVE_RANGES } from '@/lib/domains/user-preferences';
@@ -56,6 +58,7 @@ import { formatWaveHeightRangeString } from '@/lib/utils/wave-formatters';
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
 import { isFutureDayInTimezone } from '@/lib/utils/condition-tier-utils';
 import { resolveForecastTime } from '@/lib/utils/forecast-time-resolver';
+import { parseWindSpeedOrNull } from '@/lib/utils/number-parsing';
 import {
   type BoardForPick,
 } from '@/lib/scoring';
@@ -75,7 +78,7 @@ import {
 } from './candidate-pool-builder';
 import { batchFetchForecasts } from './forecast-batch-fetcher';
 import {
-  calculateDistancePenalty,
+  calculateDriveRangeDistancePenalty,
   compareDiscoveryRecommendations,
   WORTH_THE_DRIVE_DISTANCE_MILES,
   WORTH_THE_DRIVE_REASON,
@@ -96,10 +99,7 @@ import {
   generateDiscoverySummary,
   buildDiscoveryMessage,
 } from './response-formatter';
-import {
-  getDiscoveryScoringEngine,
-  resolveRecommendationLabel,
-} from './recommendation-label';
+import { resolveRecommendationLabel } from './recommendation-label';
 import { fetchPersonalizationContext, calculatePersonalizationBonus } from './personalization-layer';
 import { getCanonicalRecommendationLabel } from '@/lib/recommendations/canonical-decision/discovery-adapter';
 import { applySimilarityLayer } from './similarity-layer';
@@ -123,7 +123,6 @@ import {
   type RecommendationV2SourceState,
 } from '@/lib/services/discovery/recommendations-v2';
 import { buildRecommendationEvidence } from '@/lib/services/discovery/recommendation-evidence';
-import { FEATURE_HERO_WINDOW_SCORE } from '@/lib/constants/feature-flags';
 import type { ScoringEngine } from '@/lib/domains/scoring';
 import { resolveWavePunchiness } from '@/lib/domains/spot-profile/wave-punchiness';
 import { boardStyleFit } from './board-style-fit';
@@ -306,25 +305,26 @@ export function applyWindowWaveHeightBadgesForRecommendations(
 /**
  * Generate condition badges based on thresholds
  * Returns top 2-3 badges sorted by contribution
+ * @internal Exported for testing
  */
-function generateConditionBadges(
+export function generateConditionBadges(
   forecast: EnhancedForecastEntity,
   beach: Beach,
   subscores: { waveHeightFit: number; periodEnergyScore: number; windAlignment: number; tideFit: number }
 ): ConditionBadge[] {
   const badges: ConditionBadge[] = [];
 
-  const windSpeed = parseFloat(String(forecast.wind_speed ?? '0'));
+  const windSpeed = parseWindSpeedOrNull(forecast.wind_speed);
   const windDirection = forecast.wind_direction_deg ?? null;
   const wavePeriod = parseFloat(forecast.wave_period?.replace('s', '') || '0');
   const offshoreDir = beach.wind_offshore_deg ?? 90;
 
-  // Glass: wind < 5 mph
-  if (windSpeed < 5) {
+  // Glass: wind < 5 mph. Unknown wind earns no wind badge.
+  if (windSpeed !== null && windSpeed < 5) {
     badges.push({ label: 'Glass', contribution: subscores.windAlignment });
   }
   // Light Offshore: offshore direction AND < 10 mph
-  else if (windDirection !== null && windSpeed < 10) {
+  else if (windSpeed !== null && windDirection !== null && windSpeed < 10) {
     const angleDiff = Math.abs(windDirection - offshoreDir) % 360;
     const isOffshore = angleDiff <= 45 || angleDiff >= 315;
     if (isOffshore) {
@@ -548,11 +548,6 @@ function emptyResponse(
     },
     regionalCall: '',
   };
-}
-
-function clamp(value: number, min: number, max: number): number {
-  if (!Number.isFinite(value)) return min;
-  return Math.max(min, Math.min(max, value));
 }
 
 function deriveRecommendationV2SourceState(
@@ -1000,16 +995,7 @@ function compareLearnedWindowCandidates(
 function collapseWindowCandidates(
   recommendations: SurfDiscoveryRecommendation[],
 ): SurfDiscoveryRecommendation[] {
-  const candidatesByRecommendation = new Map<
-    string,
-    SurfDiscoveryRecommendation[]
-  >();
-  for (const rec of recommendations) {
-    const key = recommendationKey(rec);
-    const candidates = candidatesByRecommendation.get(key) ?? [];
-    candidates.push(rec);
-    candidatesByRecommendation.set(key, candidates);
-  }
+  const candidatesByRecommendation = Map.groupBy(recommendations, recommendationKey);
 
   return Array.from(candidatesByRecommendation.values()).map((candidates) => {
     const learnedCandidates = candidates.filter(hasCanonicalLearnedMatch);
@@ -1196,16 +1182,12 @@ interface DiscoveryDisplayScore {
   matchQuality: DetailedScore['matchQuality'];
 }
 
-function clampDiscoveryScore(score: number): number {
-  return Math.max(0, Math.min(100, score));
-}
-
 /**
  * The number surfaces display: conditions only, clamped to the 0-100 scale the
  * UI and the verdict thresholds both assume.
  */
 export function toDisplayConditionScore(conditionScore: number): number {
-  return clampDiscoveryScore(conditionScore);
+  return clamp(conditionScore, 0, 100);
 }
 
 /**
@@ -1282,6 +1264,7 @@ async function scoreBeachForDiscovery(args: {
   /** Pre-parsed and validated skill level from candidate pool builder */
   userSkillLevel: SkillLevel | null;
   distanceMiles?: number;
+  driveRadiusMiles?: number;
   affinityBonus?: number;
   personalizationBonus?: number;
   personalizationReasons?: string[];
@@ -1297,7 +1280,7 @@ async function scoreBeachForDiscovery(args: {
   // Use affinity bonus from personalization layer if provided
   const affinityBonus = args.affinityBonus ?? 0;
 
-  const distancePenalty = calculateDistancePenalty(distanceMiles);
+  const distancePenalty = calculateDriveRangeDistancePenalty(distanceMiles, args.driveRadiusMiles);
 
   // userSkillLevel is pre-parsed as SkillLevel | null from candidate pool builder.
   const explanationScore = scoreBeachWithEngine(engine, beach, forecast, {
@@ -1601,6 +1584,7 @@ async function discoverSurfSpotsInner(
 ): Promise<SurfDiscoveryResponse> {
   const {
     radiusMiles: requestedRadiusMiles,
+    driveRadiusMiles,
     horizonHours,
     savedSpotsOnly = false,
     forecastAt,
@@ -1711,13 +1695,7 @@ async function discoverSurfSpotsInner(
   const discoverableBeachIds = new Set(
     [...nearbyCandidates, ...includedCandidates].map((beach) => beach.id)
   );
-  const customSpotCandidatesByNearestBeachId = new Map<string, CustomSpotDiscoveryCandidate[]>();
-  for (const candidate of customSpotCandidates) {
-    const nearestBeachId = candidate.nearestBeach.id;
-    const existing = customSpotCandidatesByNearestBeachId.get(nearestBeachId) ?? [];
-    existing.push(candidate);
-    customSpotCandidatesByNearestBeachId.set(nearestBeachId, existing);
-  }
+  const customSpotCandidatesByNearestBeachId = Map.groupBy(customSpotCandidates, (candidate) => candidate.nearestBeach.id);
 
   if (finalCandidates.length === 0) {
     log.warn('No candidate beaches found');
@@ -1829,7 +1807,8 @@ async function discoverSurfSpotsInner(
   // CRITICAL: Always include today and next 2 days in UTC format
   // This fixes a bug where forecast_date values might not include today's date
   // when viewing in a timezone ahead of UTC (e.g., Hawaii beaches viewed in the afternoon).
-  // The sun_times table stores dates in UTC, so we need to ensure we query for:
+  // sun_times dates are beach-local; before this fix, rows west of ~37.5°W
+  // were labelled one day late, which this padding tolerates. Query for:
   // - Yesterday (in case of timezone edge cases)
   // - Today
   // - Tomorrow
@@ -2107,6 +2086,7 @@ async function discoverSurfSpotsInner(
 
     // Detailed scoring
     const detailedScore = await scoreBeachForDiscovery({
+      driveRadiusMiles,
       beach,
       forecast: bestWindowForecast,
       userPrefs,
@@ -2234,6 +2214,7 @@ async function discoverSurfSpotsInner(
         personalizationCtx,
       );
       const customDetailedScore = await scoreBeachForDiscovery({
+        driveRadiusMiles,
         beach: customBeach,
         forecast: bestWindowForecast,
         userPrefs,
@@ -2430,18 +2411,12 @@ async function discoverSurfSpotsInner(
     );
   }
 
-  // Run rerank ALWAYS (cheap pure compute) so diagnostics are complete.
-  // The flag below decides which array becomes the response; diagnostics
-  // emit either way. Single source of truth: this orchestrator is the only
-  // call site for `logHeroRankingDiagnostic`.
-  const { reranked, diagnostics } = rerankHero(merged);
+  // The rerank is diagnostics only: the response keeps the engine-sorted
+  // slice. This orchestrator is the only call site for `logHeroRankingDiagnostic`.
+  const { diagnostics } = rerankHero(merged);
   diagnostics.forEach(logHeroRankingDiagnostic);
 
-  // Flag-gated behavior: when off (default), return the engine-sorted slice
-  // verbatim. When on, return the hero-lifted slice (only [0] moves;
-  // remaining order is preserved).
-  const rankedSlice = FEATURE_HERO_WINDOW_SCORE ? reranked : merged;
-  const finalSlice = applyWorthTheDriveReasons(rankedSlice);
+  const finalSlice = applyWorthTheDriveReasons(merged);
   const finalSliceKeys = new Set(finalSlice.map((rec) => recommendationKey(rec)));
   const includedSlice = safeRecsScored.filter((rec) => {
     if ((rec.kind ?? 'beach') === 'beach') {
@@ -2585,6 +2560,7 @@ async function discoverSurfSpotsInner(
 
       const distMiles = rec.distanceMiles;
       const lateScore = await scoreBeachForDiscovery({
+        driveRadiusMiles,
         beach: rec.beach,
         forecast: lateForecast,
         userPrefs,

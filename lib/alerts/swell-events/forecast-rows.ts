@@ -28,8 +28,7 @@ export async function loadSwellForecastRows(
   from: Date,
   to: Date,
 ): Promise<Map<string, SwellEventForecastRow[]>> {
-  const byBeach = new Map<string, SwellEventForecastRow[]>();
-  if (beachIds.length === 0) return byBeach;
+  if (beachIds.length === 0) return new Map();
   const rows = await readAllPages(async (offset, limit) => {
     const { data, error } = await supabase
       .from("enhanced_forecasts")
@@ -44,10 +43,5 @@ export async function loadSwellForecastRows(
     if (error) throw new Error(`Failed to load swell forecast rows: ${error.message}`);
     return (data ?? []) as unknown as Array<SwellEventForecastRow & { beach_id: string }>;
   });
-  for (const row of rows) {
-    const list = byBeach.get(row.beach_id) ?? [];
-    list.push(row);
-    byBeach.set(row.beach_id, list);
-  }
-  return byBeach;
+  return Map.groupBy(rows, (row) => row.beach_id);
 }

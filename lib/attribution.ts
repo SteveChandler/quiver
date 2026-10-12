@@ -18,7 +18,6 @@
 // Cookie configuration
 const COOKIE_PREFIX = "qvr_";
 const COOKIE_EXPIRY_DAYS = 90;
-const COOKIE_OPTIONS = "path=/; SameSite=Lax; Secure";
 
 // UTM parameter names
 const UTM_PARAMS = [
@@ -105,19 +104,6 @@ function getCookie(name: string): string | null {
 }
 
 /**
- * Set cookie with expiry (client-side)
- */
-function setCookie(name: string, value: string, days: number = COOKIE_EXPIRY_DAYS): void {
-  if (typeof document === "undefined") return;
-
-  const cookieName = name.startsWith(COOKIE_PREFIX) ? name : `${COOKIE_PREFIX}${name}`;
-  const expires = new Date();
-  expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
-
-  document.cookie = `${cookieName}=${encodeURIComponent(value)}; expires=${expires.toUTCString()}; ${COOKIE_OPTIONS}`;
-}
-
-/**
  * Get all attribution data from cookies (client-side)
  */
 export function getAttributionFromCookies(): AttributionData {
@@ -131,27 +117,6 @@ export function getAttributionFromCookies(): AttributionData {
     first_touch_ts: getCookie("first_touch_ts"),
     landing_page: getCookie("landing_page"),
   };
-}
-
-/**
- * Save attribution data to cookies (client-side)
- * Uses first-touch model - only saves if not already set
- */
-function saveAttributionToCookies(
-  data: Partial<AttributionData>,
-  options: { overwrite?: boolean; days?: number } = {}
-): void {
-  const { overwrite = false, days = COOKIE_EXPIRY_DAYS } = options;
-
-  for (const [key, value] of Object.entries(data)) {
-    if (value != null && value !== "") {
-      const existing = getCookie(key);
-      // First-touch: only set if not already present (unless overwrite is true)
-      if (overwrite || !existing) {
-        setCookie(key, value, days);
-      }
-    }
-  }
 }
 
 /**

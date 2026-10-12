@@ -25,6 +25,7 @@ import {
 const REPORT_DIR = path.join(process.cwd(), "docs/seo/reports/aeo-citation-tracking");
 const QUERY_SET = path.join(process.cwd(), "docs/seo/aeo-query-set.json");
 const CAPTURE_POINTS_REQUIRED_FROM = "2026-09-02";
+const AI_OVERVIEW_REQUIRED_FROM = "2026-10-14";
 
 function previousValidReport(target: string): string | null {
   const files = fs.readdirSync(REPORT_DIR)
@@ -61,6 +62,7 @@ function main(): void {
 
   const validation = validateAeoCitationReport(markdown, querySet, {
     requireCapturePoints: name >= CAPTURE_POINTS_REQUIRED_FROM,
+    requireAiOverview: name >= AI_OVERVIEW_REQUIRED_FROM,
   });
   const anomalies = detectAeoCitationRunAnomalies(markdown, previousValidReport(target), querySet);
 

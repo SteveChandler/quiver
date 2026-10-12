@@ -1,3 +1,4 @@
+import { setTimeout as sleep } from "node:timers/promises";
 /**
  * CDIP (Coastal Data Information Program) Service
  *
@@ -258,7 +259,7 @@ export class CDIPService {
 
       // Small delay between batches to be respectful to API
       if (i + MAX_CONCURRENT_REQUESTS < stationIds.length) {
-        await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
+        await sleep(BATCH_DELAY_MS);
       }
     }
 

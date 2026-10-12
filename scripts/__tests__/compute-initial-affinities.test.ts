@@ -64,7 +64,7 @@ describe('Beach Affinity Initial Computation Script', () => {
     // Check for standard script patterns
     expect(content).toContain('#!/usr/bin/env node');
     expect(content).toContain('import { createClient }');
-    expect(content).toContain('import { config } from \'dotenv\'');
+    expect(content).toContain('import { config } from \'./load-env.mjs\'');
     expect(content).toContain('config()');
     expect(content).toContain('if (require.main === module)');
   });

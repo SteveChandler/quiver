@@ -1,3 +1,4 @@
+import { setTimeout as sleep } from "node:timers/promises";
 /**
  * Batch Update Coordinator
  *
@@ -94,7 +95,7 @@ export class BatchUpdateCoordinator {
         if (hasDeadline && Date.now() + this.batchDelayMs >= deadlineMs!) {
           break;
         }
-        await new Promise((resolve) => setTimeout(resolve, this.batchDelayMs));
+        await sleep(this.batchDelayMs);
       }
     }
 

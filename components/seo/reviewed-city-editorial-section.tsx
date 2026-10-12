@@ -31,7 +31,7 @@ export function ReviewedCityEditorialSection({
     >
       <div className={photo ? "grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(220px,36%)] md:items-start" : undefined}>
         <div>
-          <p className="mb-3 inline-flex -rotate-[1.5deg] items-center gap-1.5 rounded-full border border-[#B65F1A]/30 bg-[#B65F1A]/10 px-3 py-1 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-[#8F4A13]">
+          <p className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-[#B65F1A]/30 bg-[#B65F1A]/10 px-3 py-1 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-[#8F4A13]">
             <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
             Access &amp; safety
           </p>
@@ -45,7 +45,7 @@ export function ReviewedCityEditorialSection({
         </div>
 
         {photo && (
-          <figure className="md:mt-1 md:rotate-[1.2deg]" data-testid="reviewed-city-editorial-photo">
+          <figure className="md:mt-1" data-testid="reviewed-city-editorial-photo">
             <div className="relative aspect-[4/3] overflow-hidden rounded-[6px_14px_6px_12px] border-2 border-[#11100D] bg-[#EEE3C9] shadow-[3px_3px_0_rgba(17,16,13,0.18)]">
               <Image
                 src={photo.src}

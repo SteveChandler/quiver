@@ -29,14 +29,6 @@ function lerp(a: number, b: number, t: number): number {
 }
 
 /**
- * Cosine interpolation factor - more accurate for tidal motion
- * Returns value between 0 and 1 representing progress through tide cycle
- */
-function cosineInterpolationFactor(t: number): number {
-  return (1 - Math.cos(t * Math.PI)) / 2;
-}
-
-/**
  * Interpolates tide height at a specific timestamp using linear interpolation
  * between the nearest surrounding data points.
  * 
@@ -102,63 +94,6 @@ export function interpolateTideHeight(
   }
 
   // Fallback (shouldn't reach here due to early returns)
-  return null;
-}
-
-/**
- * Interpolates tide height using cosine interpolation (more accurate for tides).
- * Tides follow a sinusoidal pattern, so cosine interpolation is more accurate
- * than linear interpolation between high/low tide events.
- *
- * @param data - Array of tide data points (high/low events)
- * @param targetTime - Target timestamp to interpolate
- * @returns Interpolated tide height in feet, or null if insufficient data
- */
-export function interpolateTideHeightCosine(
-  data: TideDataPoint[],
-  targetTime: Date | string | number
-): number | null {
-  if (!data || data.length === 0) return null;
-
-  const targetTs = normalizeTimestamp(targetTime);
-
-  // Normalize all points to have numeric timestamps
-  const points = data
-    .map(point => ({
-      ts: normalizeTimestamp(point.time),
-      height: point.height,
-    }))
-    .filter(p => !isNaN(p.ts) && isFinite(p.height))
-    .sort((a, b) => a.ts - b.ts);
-
-  if (points.length === 0) return null;
-  if (points.length === 1) return points[0].height;
-
-  // If target is before first point, return first height
-  if (targetTs <= points[0].ts) return points[0].height;
-
-  // If target is after last point, return last height
-  if (targetTs >= points[points.length - 1].ts) {
-    return points[points.length - 1].height;
-  }
-
-  // Find the two points that bracket the target time
-  for (let i = 0; i < points.length - 1; i++) {
-    const before = points[i];
-    const after = points[i + 1];
-
-    if (targetTs >= before.ts && targetTs <= after.ts) {
-      const timeDiff = after.ts - before.ts;
-      if (timeDiff === 0) return before.height;
-
-      const t = (targetTs - before.ts) / timeDiff;
-      const cosineT = cosineInterpolationFactor(t);
-
-      // Cosine interpolation
-      return before.height + (after.height - before.height) * cosineT;
-    }
-  }
-
   return null;
 }
 
@@ -246,100 +181,12 @@ export function findTideThresholdCrossing(
   return null;
 }
 
-/**
- * Finds the two data points that bracket a target timestamp.
- * Useful for debugging or custom interpolation logic.
- *
- * @param data - Array of tide data points
- * @param targetTime - Target timestamp
- * @returns Object with before/after points, or null if not found
- */
-export function findBracketingPoints(
-  data: TideDataPoint[],
-  targetTime: Date | string | number
-): { before: TideDataPoint; after: TideDataPoint } | null {
-  if (!data || data.length < 2) return null;
-
-  const targetTs = normalizeTimestamp(targetTime);
-
-  const points = [...data]
-    .map(p => ({ ...p, ts: normalizeTimestamp(p.time) }))
-    .sort((a, b) => a.ts - b.ts);
-
-  for (let i = 0; i < points.length - 1; i++) {
-    if (targetTs >= points[i].ts && targetTs <= points[i + 1].ts) {
-      return {
-        before: data[i],
-        after: data[i + 1],
-      };
-    }
-  }
-
-  return null;
-}
-
 interface TideWindowOptions {
   tideSchedule: TideScheduleEntry[];
   minHeight: number;
   maxHeight: number;
   preferredDirection: "rising" | "falling" | "slack" | "either";
   afterTime: Date | string | number;
-}
-
-interface TideExtremum {
-  time: Date;
-  height: number;
-  type: "high" | "low";
-}
-
-/**
- * Finds the nearest tide extremum (high or low) after a given time.
- *
- * @param tideSchedule - Array of tide schedule entries (high/low events)
- * @param afterTime - Find extremum after this time
- * @param preferredType - Optional: prefer "high" or "low", or null for nearest
- * @returns The nearest tide extremum, or null if not found
- */
-export function findNearestTideExtremum(
-  tideSchedule: TideScheduleEntry[],
-  afterTime: Date | string | number,
-  preferredType?: "high" | "low" | null
-): TideExtremum | null {
-  if (!tideSchedule || tideSchedule.length === 0) return null;
-
-  const afterTs = normalizeTimestamp(afterTime);
-
-  // Sort by time and find entries after afterTime
-  const sorted = [...tideSchedule]
-    .map(t => ({
-      time: t.time * 1000, // Convert to ms
-      height: t.height,
-      type: t.type,
-    }))
-    .sort((a, b) => a.time - b.time)
-    .filter(t => t.time > afterTs);
-
-  if (sorted.length === 0) return null;
-
-  // If preferred type specified, find the first matching type
-  if (preferredType) {
-    const preferred = sorted.find(t => t.type === preferredType);
-    if (preferred) {
-      return {
-        time: new Date(preferred.time),
-        height: preferred.height,
-        type: preferred.type,
-      };
-    }
-  }
-
-  // Otherwise return the nearest
-  const nearest = sorted[0];
-  return {
-    time: new Date(nearest.time),
-    height: nearest.height,
-    type: nearest.type,
-  };
 }
 
 /**

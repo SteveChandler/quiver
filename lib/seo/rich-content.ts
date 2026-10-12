@@ -54,41 +54,6 @@ export function RichContentRenderer({
 }
 
 /**
- * Flatten a RichContent array back to a plain string.
- * Useful for JSON-LD structured data and other contexts that need plain text.
- */
-function richContentToString(content: RichContent): string {
-  return content.map((s) => s.text).join("");
-}
-
-/**
- * Replace the first occurrence of `name` in `text` with a link segment.
- * Returns the resulting RichContent segments. If `name` is not found,
- * returns a single text segment.
- */
-function linkFirstMention(
-  text: string,
-  name: string,
-  href: string
-): RichContent {
-  const idx = text.indexOf(name);
-  if (idx === -1) {
-    return [{ type: "text", text }];
-  }
-
-  const segments: RichContent = [];
-  if (idx > 0) {
-    segments.push({ type: "text", text: text.slice(0, idx) });
-  }
-  segments.push({ type: "link", text: name, href });
-  const after = text.slice(idx + name.length);
-  if (after.length > 0) {
-    segments.push({ type: "text", text: after });
-  }
-  return segments;
-}
-
-/**
  * Replace the first occurrence of each name in `names` within `text`.
  * Each name is linked only once (first mention). Names already linked
  * are skipped in subsequent passes.

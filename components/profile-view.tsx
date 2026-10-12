@@ -263,7 +263,7 @@ function ProfileViewContent() {
       >
         <div className="flex min-h-[52vh] items-center justify-center">
           <div
-            className="inline-flex items-center gap-3 border-2 border-[#11100D] bg-[#F78E42] px-5 py-3 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)]"
+            className="rounded-full inline-flex items-center gap-3 border-2 border-[#11100D] bg-[#F78E42] px-5 py-3 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)]"
             role="status"
             aria-label="Loading profile"
           >
@@ -716,7 +716,7 @@ export function ProfileView() {
         >
           <div className="flex min-h-[52vh] items-center justify-center">
             <div
-              className="inline-flex items-center gap-3 border-2 border-[#11100D] bg-[#F78E42] px-5 py-3 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)]"
+              className="rounded-full inline-flex items-center gap-3 border-2 border-[#11100D] bg-[#F78E42] px-5 py-3 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)]"
               role="status"
               aria-label="Loading profile"
             >

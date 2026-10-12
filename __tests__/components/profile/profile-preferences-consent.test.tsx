@@ -51,8 +51,8 @@ jest.mock("@/components/profile/shared/preference-fields", () => ({
   SurfStylesField: () => null,
 }));
 
-jest.mock("@/components/ui/use-toast", () => ({
-  toast: jest.fn(),
+jest.mock("sonner", () => ({
+  toast: Object.assign(jest.fn(), { error: jest.fn() }),
 }));
 
 const { ProfilePreferences } = require("@/components/profile/profile-preferences");

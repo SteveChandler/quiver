@@ -11,7 +11,6 @@ import { join } from "path";
 import {
   getCityEditorialContent,
   getReviewedCityEditorialContent,
-  hasCityEditorialContent,
 } from "@/actions/city/city-editorial-actions";
 import { createPublicReadClient } from "@/lib/supabase/server";
 import {
@@ -402,97 +401,6 @@ describe("City Editorial Actions", () => {
     });
   });
 
-  describe("hasCityEditorialContent", () => {
-    describe("Success Cases", () => {
-      it("should return true for city with editorial content", async () => {
-        tableChain.maybeSingle.mockResolvedValue(mockTableExistsResponse);
-
-        const result = await hasCityEditorialContent("san-diego", "ca", "usa");
-
-        expect(result).toBe(true);
-      });
-
-      it("should return false for city without editorial content", async () => {
-        tableChain.maybeSingle.mockResolvedValue(mockTableNotExistsResponse);
-
-        const result = await hasCityEditorialContent("unknown-city", "ca", "usa");
-
-        expect(result).toBe(false);
-      });
-
-      it("should call table query with correct filters", async () => {
-        tableChain.maybeSingle.mockResolvedValue(mockTableExistsResponse);
-
-        await hasCityEditorialContent("san-diego", "ca", "usa");
-
-        expect(mockSupabaseClient.from).toHaveBeenCalledWith("city_editorial_content");
-        expect(tableChain.select).toHaveBeenCalledWith("id");
-        expect(tableChain.eq).toHaveBeenCalledWith("city_slug", "san-diego");
-        expect(tableChain.eq).toHaveBeenCalledWith("state_slug", "ca");
-        expect(tableChain.eq).toHaveBeenCalledWith("country_slug", "usa");
-      });
-
-      it("should use default state and country if not provided", async () => {
-        tableChain.maybeSingle.mockResolvedValue(mockTableExistsResponse);
-
-        await hasCityEditorialContent("san-diego");
-
-        expect(tableChain.eq).toHaveBeenCalledWith("state_slug", "ca");
-        expect(tableChain.eq).toHaveBeenCalledWith("country_slug", "usa");
-      });
-    });
-
-    describe("Error Handling", () => {
-      it("should return false on database error", async () => {
-        tableChain.maybeSingle.mockResolvedValue(mockRpcErrorResponse);
-
-        const result = await hasCityEditorialContent("san-diego");
-
-        expect(result).toBe(false);
-      });
-
-      it("should log error on database error", async () => {
-        const consoleSpy = jest.spyOn(console, "error").mockImplementation();
-        tableChain.maybeSingle.mockResolvedValue(mockRpcErrorResponse);
-
-        await hasCityEditorialContent("san-diego");
-
-        expect(consoleSpy).toHaveBeenCalled();
-        expect(consoleSpy.mock.calls[0][0]).toContain("hasCityEditorialContent");
-
-        consoleSpy.mockRestore();
-      });
-
-      it("should not throw exceptions on error", async () => {
-        tableChain.maybeSingle.mockResolvedValue(mockRpcErrorResponse);
-
-        await expect(
-          hasCityEditorialContent("san-diego")
-        ).resolves.not.toThrow();
-      });
-    });
-
-    describe("Return Value Types", () => {
-      it("should return boolean true when content exists", async () => {
-        tableChain.maybeSingle.mockResolvedValue(mockTableExistsResponse);
-
-        const result = await hasCityEditorialContent("san-diego");
-
-        expect(typeof result).toBe("boolean");
-        expect(result).toBe(true);
-      });
-
-      it("should return boolean false when content does not exist", async () => {
-        tableChain.maybeSingle.mockResolvedValue(mockTableNotExistsResponse);
-
-        const result = await hasCityEditorialContent("unknown-city");
-
-        expect(typeof result).toBe("boolean");
-        expect(result).toBe(false);
-      });
-    });
-  });
-
   describe("getReviewedCityEditorialContent", () => {
     it("fails closed for malformed JSONB fields", async () => {
       tableChain.select.mockResolvedValue({
@@ -523,12 +431,5 @@ describe("City Editorial Actions", () => {
       expect(createPublicReadClient).toHaveBeenCalled();
     });
 
-    it("should create Supabase client for hasCityEditorialContent", async () => {
-      tableChain.maybeSingle.mockResolvedValue(mockTableNotExistsResponse);
-
-      await hasCityEditorialContent("san-diego");
-
-      expect(createPublicReadClient).toHaveBeenCalled();
-    });
   });
 });

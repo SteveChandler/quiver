@@ -527,7 +527,7 @@ export function AlertsManagementPage() {
         </section>
 
         <section className="grid gap-6 lg:grid-cols-[360px_1fr]">
-          <div className="torn torn-tb rotate-[-0.35deg] border-2 border-ink bg-[#FBF6E8] p-5 shadow-[5px_6px_0_rgba(17,16,13,0.22)]">
+          <div className="torn torn-tb border-2 border-ink bg-[#FBF6E8] p-5 shadow-[5px_6px_0_rgba(17,16,13,0.22)]">
             <div className="flex items-center gap-2">
               <Search className="h-4 w-4 text-q-orange" />
               <h2 className="font-[family-name:var(--font-space-grotesk)] text-base font-black uppercase tracking-[0.03em] text-ink">

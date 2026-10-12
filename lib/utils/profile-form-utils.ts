@@ -71,17 +71,3 @@ export function prepareAvatarPayload(
   }
   return {};
 }
-
-/**
- * Determines the redirect URL after profile save based on context
- *
- * @param hasCallback - Whether an onSuccess callback is provided
- * @param defaultPath - Default path to redirect to (default: "/profile")
- * @returns The URL to redirect to, or null if callback will handle navigation
- */
-function getRedirectUrl(
-  hasCallback: boolean,
-  defaultPath: string = "/profile"
-): string | null {
-  return hasCallback ? null : defaultPath;
-}

@@ -2,13 +2,14 @@ import {
   createErrorResponse,
   createSuccessResponse,
   withNoStore,
-  withProtection,
+  withAuth,
+  withRateLimit,
   type AuthenticatedContext,
 } from "@/lib/middleware/api-wrappers";
 import { getOwnAnalyticsTrackingAllowed } from "@/lib/analytics/consent";
 import { ALERT_ATTRIBUTION_EVENT_TYPES } from "@/lib/analytics/event-taxonomy";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import { isValidUUID } from "@/lib/utils/validation";
+import { isUuid } from "@/lib/utils/validation";
 import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -70,7 +71,7 @@ async function resolveStoredMessage(
     return {
       notificationType: data.type,
       beachId:
-        data.entity_type === "beach" && isValidUUID(data.entity_id)
+        data.entity_type === "beach" && isUuid(data.entity_id)
           ? data.entity_id
           : null,
     };
@@ -89,11 +90,11 @@ async function resolveStoredMessage(
 
   return {
     notificationType: data.email_type,
-    beachId: isValidUUID(data.best_beach_id) ? data.best_beach_id : null,
+    beachId: isUuid(data.best_beach_id) ? data.best_beach_id : null,
   };
 }
 
-export const POST = withNoStore(withProtection(async (
+export const POST = withNoStore(withRateLimit(withAuth(async (
   request: NextRequest,
   { user, supabase }: AuthenticatedContext,
 ) => {
@@ -121,7 +122,7 @@ export const POST = withNoStore(withProtection(async (
     return createErrorResponse("Invalid attribution payload", undefined, 400);
   }
 
-  if (typeof messageInstanceId !== "string" || !isValidUUID(messageInstanceId)) {
+  if (typeof messageInstanceId !== "string" || !isUuid(messageInstanceId)) {
     return createSuccessResponse({ ok: true });
   }
 
@@ -155,7 +156,4 @@ export const POST = withNoStore(withProtection(async (
   }
 
   return createSuccessResponse({ ok: true });
-}, {
-  auth: { required: true },
-  rateLimit: { key: "authenticated-default" },
-}));
+}), { key: "authenticated-default" }));

@@ -1,3 +1,4 @@
+import { setTimeout as sleep } from "node:timers/promises";
 /**
  * IOOS Service
  *
@@ -37,7 +38,6 @@ import {
   ISM_FILTER_WARNING_THRESHOLD,
   NEARBY_STATIONS_LIMIT,
 } from "./constants";
-import { fetchWithTimeout } from "@/lib/utils/fetch-utils";
 
 /**
  * IOOS Service for fetching wave data from ERDDAP API
@@ -248,13 +248,9 @@ export class IOOSService {
 
     try {
       const url = buildObservationUrl(stationId);
-      const response = await fetchWithTimeout(url, {
-        timeoutMs: this.config.timeoutMs,
-        init: {
-          headers: {
-            "User-Agent": this.config.userAgent,
-          },
-        },
+      const response = await fetch(url, {
+        signal: AbortSignal.timeout(this.config.timeoutMs),
+        headers: { "User-Agent": this.config.userAgent },
       });
 
       if (!response.ok) {
@@ -330,7 +326,7 @@ export class IOOSService {
 
       // Delay between batches (except for last batch)
       if (i + batchSize < stationIds.length) {
-        await this.delay(this.config.batchDelayMs);
+        await sleep(this.config.batchDelayMs);
       }
     }
 
@@ -497,12 +493,4 @@ export class IOOSService {
     this.observationCache.clear();
   }
 
-  /**
-   * Delay utility for batching
-   *
-   * @param ms - Milliseconds to delay
-   */
-  private delay(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
 }

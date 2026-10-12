@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-export type ProdReadonlyAuthStatus = {
+type ProdReadonlyAuthStatus = {
   reason?: string;
   status: 'blocked' | 'ok';
   updatedAt: string;
@@ -42,7 +42,7 @@ export async function writeProdReadonlyAuthStatus(
   );
 }
 
-export function readProdReadonlyAuthStatus(): ProdReadonlyAuthStatus | null {
+function readProdReadonlyAuthStatus(): ProdReadonlyAuthStatus | null {
   if (!existsSync(AUTH_STATUS_PATH)) {
     return null;
   }

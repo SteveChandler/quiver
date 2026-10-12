@@ -3,14 +3,15 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useRoutePathname } from "@/hooks/use-route-pathname";
 import { Bookmark, Star, Waves } from "lucide-react";
 import { getBlurPlaceholder } from "@/lib/constants/blur-placeholders";
 import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 import { getScoreColorClasses } from "@/lib/utils/score-color-utils";
 import { formatWaveHeightRange as formatWaveHeight } from "@/lib/formatters/surf-data";
 
-export interface SurfSpotCardProps {
+interface SurfSpotCardProps {
   id: string;
   name: string;
   location: string;
@@ -87,7 +88,7 @@ export function SurfSpotCard({
   // Track image load errors to show fallback
   const [imageError, setImageError] = useState(false);
   const router = useRouter();
-  const pathname = usePathname();
+  const pathname = useRoutePathname();
   const searchParams = useSearchParams();
   const searchParamsString = searchParams.toString() ? `?${searchParams.toString()}` : "";
 

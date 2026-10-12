@@ -272,7 +272,7 @@ export function HomeBeachStep() {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
       <div>
-        <h2 className="font-handwritten text-3xl sm:text-4xl text-white mb-1">
+        <h2 className="font-heading font-bold text-3xl sm:text-4xl text-white mb-1">
           Where do you surf?
         </h2>
         <p className="text-white/60 text-sm">

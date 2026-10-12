@@ -34,7 +34,7 @@
 
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { config as dotenvConfig } from 'dotenv';
+import { config as dotenvConfig } from './load-env.mjs';
 
 import {
   transformToFaceHeight,

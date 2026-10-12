@@ -142,7 +142,7 @@ Integration: Supplementary wave/wind data
 
 ### 5. Firebase (Push Notifications)
 
-**Service**: `lib/services/firebase-admin.ts`, `lib/services/push-notifications.ts`
+**Service**: `lib/services/firebase-admin.ts`, `lib/notifications/worker.ts`
 
 ```
 Purpose: Mobile push notifications for:
@@ -502,7 +502,7 @@ flowchart LR
 
 ### Push Notification Flow
 
-**Service**: `lib/services/push-notifications.ts`
+**Service**: `lib/notifications/worker.ts`
 
 ```
 1. Event triggers (forecast threshold, social action)

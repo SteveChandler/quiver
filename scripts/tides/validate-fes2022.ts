@@ -85,7 +85,7 @@ function format(value: number, digits = 1): string {
   return Number.isFinite(value) ? value.toFixed(digits) : "N/A";
 }
 
-export async function validate(raw: RawExtraction, start: string, days: number): Promise<string> {
+async function validate(raw: RawExtraction, start: string, days: number): Promise<string> {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !Number.isInteger(days) || days <= 0) throw new Error("--start must be YYYY-MM-DD and --days a positive integer");
   const startMs = Date.parse(`${start}T00:00:00Z`);
   if (!Number.isFinite(startMs)) throw new Error("Invalid --start date");

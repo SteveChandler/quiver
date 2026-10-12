@@ -7,7 +7,7 @@ type CamEmbedIntent = ReturnType<typeof buildCamEmbed>;
  * quiver-native for cams its own players cannot handle (direct video, HLS,
  * HDOnTap and Surfline embeds keep priority and yield `null` here).
  */
-export type NativeCamEmbed =
+type NativeCamEmbed =
   | { kind: "iframe"; src: string; provider: string; title?: string }
   | { kind: "external"; pageUrl: string; provider: string };
 

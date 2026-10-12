@@ -844,6 +844,19 @@ describe("AppHeader", () => {
       expect(container.firstChild).toBeNull();
     });
 
+    it("treats the ISR root pathname /index as the landing page", () => {
+      (useAuth as jest.Mock).mockReturnValue({
+        user: null,
+        isLoading: false,
+        signOut: jest.fn(),
+      });
+      (usePathname as jest.Mock).mockReturnValue("/index");
+
+      const { container } = render(<AppHeader />);
+
+      expect(container.firstChild).toBeNull();
+    });
+
     it("renders on other pages for guests", () => {
       (useAuth as jest.Mock).mockReturnValue({
         user: null,
@@ -1426,13 +1439,13 @@ describe("AppHeader", () => {
         expect(logoText.className).toContain("duration-300");
       });
 
-      it("logo has orange hover class", () => {
+      it("logo brightens on hover", () => {
         render(<AppHeader />);
 
         const logoText = screen.getByText("Quiver");
 
         expect(logoText).toBeInTheDocument();
-        expect(logoText.className).toContain("group-hover:text-[#FFAA63]");
+        expect(logoText.className).toContain("group-hover:text-white");
       });
 
       it("logo link has group class for hover coordination", () => {
@@ -1552,15 +1565,17 @@ describe("AppHeader", () => {
     });
 
     describe("Typography Consistency", () => {
-      it("logo has text-xl and font-bold classes", () => {
+      it("logo uses the native wordmark: bold display caps in cream", () => {
         render(<AppHeader />);
 
         const logoText = screen.getByText("Quiver");
 
         expect(logoText).toBeInTheDocument();
         expect(logoText.className).toContain("text-xl");
+        expect(logoText.className).toContain("font-heading");
         expect(logoText.className).toContain("font-bold");
-        expect(logoText.className).toContain("text-[#F78E42]");
+        expect(logoText.className).toContain("uppercase");
+        expect(logoText.className).toContain("text-[#F5EEDC]");
       });
 
       it("navigation links have text-sm and font-medium classes", () => {

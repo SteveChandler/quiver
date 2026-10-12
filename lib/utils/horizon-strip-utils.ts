@@ -113,18 +113,6 @@ export const TIER_COLOR_HEX: Record<ConditionTier, string> = {
 };
 
 /**
- * Get a unified className string for a tier card
- */
-function getTierCardClassName(tier: ConditionTier, isSelected: boolean): string {
-  const colors = TIER_COLORS[tier];
-  const baseClasses = `${colors.bg} ${colors.border} ${colors.text}`;
-  const selectedClasses = isSelected
-    ? 'ring-2 ring-offset-2 ring-blue-500 scale-105 shadow-lg'
-    : 'hover:scale-102 hover:shadow-md';
-  return `${baseClasses} ${selectedClasses}`;
-}
-
-/**
  * Group forecasts by date
  */
 function groupForecastsByDate(

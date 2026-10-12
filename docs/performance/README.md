@@ -119,9 +119,6 @@ Critical performance fix for the recommendations API endpoint that was suffering
 # Run performance validation
 npx tsx scripts/test-recommendations-perf.ts
 
-# Manual API test
-curl "http://localhost:3000/api/v1/recommendations?lat=32.7157&lon=-117.1611"
-
 # Check server logs for performance metrics
 [PERF] Fetched forecasts for 25 beaches in 127ms (was 50 queries, now 2)
 ```
@@ -289,7 +286,6 @@ npx tsx scripts/test-recommendations-perf.ts
 
 | Endpoint                  | P95 Target | Alert Threshold |
 | ------------------------- | ---------- | --------------- |
-| `/api/v1/recommendations` | <500ms     | >1000ms         |
 | `/api/beaches/nearby`     | <200ms     | >500ms          |
 | `/api/forecasts/bulk`     | <1000ms    | >2000ms         |
 | `/api/sessions/[id]`      | <300ms     | >800ms          |

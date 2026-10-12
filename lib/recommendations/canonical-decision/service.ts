@@ -89,14 +89,3 @@ export async function resolveCanonicalSessionDecisionContext(
 
   return { decision, discovery };
 }
-
-export async function resolveCanonicalSessionDecision(
-  input: ResolveCanonicalSessionDecisionInput,
-  dependencies: CanonicalSessionDecisionServiceDependencies = {},
-): Promise<CanonicalSessionDecision> {
-  const { decision } = await resolveCanonicalSessionDecisionContext(
-    input,
-    dependencies,
-  );
-  return decision;
-}

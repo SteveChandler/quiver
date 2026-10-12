@@ -133,26 +133,10 @@ The NPC system creates realistic community content using 25 distinct profiles wi
 
 ### Quick Reference
 
-**Scripts:**
-```bash
-# Migrate NPC profiles to new configuration
-CONFIRM_TARGET=DEV yarn npc:migrate
-
-# Post morning regional forecasts
-yarn npc:forecast
-
-# Check template health
-yarn npc:health
-
-# Run daily activity (existing)
-CONFIRM_TARGET=DEV yarn npc:daily
-```
-
 **Key Files:**
 - `config/npc-roster.ts` - 25 NPC profile definitions
 - `config/regions.ts` - California region mappings
 - `lib/npc/` - Utility libraries (template hydration, beach selection, posting windows)
-- `scripts/morning-forecast.ts` - Daily regional forecast posts
 
 ### Content Generation
 

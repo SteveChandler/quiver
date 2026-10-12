@@ -18,7 +18,7 @@ import {
   updateBeachReview,
 } from "@/actions/beach-review-actions";
 import { useAuth } from "@/context/auth-context";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useTrackEvent } from "@/hooks/use-track-event";
@@ -261,11 +261,7 @@ export function BeachReviewForm({
         } as ReviewFormMetadata,
       });
 
-      toast({
-        title: "Missing Ratings",
-        description: "Please provide ratings for all categories.",
-        variant: "destructive",
-      });
+      toast.error("Missing Ratings", { description: "Please provide ratings for all categories." });
       return;
     }
 
@@ -282,11 +278,7 @@ export function BeachReviewForm({
         } as ReviewFormMetadata,
       });
 
-      toast({
-        title: "Missing Information",
-        description: "Please provide both a title and review content.",
-        variant: "destructive",
-      });
+      toast.error("Missing Information", { description: "Please provide both a title and review content." });
       return;
     }
 
@@ -329,27 +321,16 @@ export function BeachReviewForm({
           } as ReviewFormMetadata,
         });
 
-        toast({
-          title: existingReview ? "Review Updated" : "Review Posted",
-          description: `Your review for ${beachName} has been ${
+        toast(existingReview ? "Review Updated" : "Review Posted", { description: `Your review for ${beachName} has been ${
             existingReview ? "updated" : "posted"
-          } successfully.`,
-        });
+          } successfully.` });
         onSuccess?.();
       } else {
-        toast({
-          title: "Error",
-          description: result.error || "Failed to save review",
-          variant: "destructive",
-        });
+        toast.error("Error", { description: result.error || "Failed to save review" });
       }
     } catch (error) {
       console.error("Error submitting review:", error);
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred. Please try again.",
-        variant: "destructive",
-      });
+      toast.error("Error", { description: "An unexpected error occurred. Please try again." });
     } finally {
       setSubmitting(false);
     }

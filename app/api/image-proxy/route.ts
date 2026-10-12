@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
  * Image Proxy API Route
  *
  * Proxies external images (Openverse, Flickr, etc.) to enable Next.js Image Optimization.
- * This solves CORS issues and allows Next.js to optimize, resize, and serve images in modern formats (WebP, AVIF).
+ * This solves CORS issues and allows Next.js to optimize, resize, and serve images in WebP.
  *
  * Security Hardening (SSRF Prevention):
  * - Rate limited (10 req/min, 100 req/hour) to prevent abuse
@@ -31,7 +31,7 @@ export const dynamic = 'force-dynamic';
  * Usage: /api/image-proxy?url=<encoded_image_url>
  *
  * Performance benefits:
- * - Enables automatic WebP/AVIF conversion
+ * - Enables automatic WebP conversion
  * - Allows responsive image sizing
  * - Provides caching headers
  * - Reduces bandwidth usage

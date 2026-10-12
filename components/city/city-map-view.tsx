@@ -135,7 +135,7 @@ function BeachListItem({
     Intermediate: "bg-[#B65F1A]/12 text-[#8F4A13]",
     "Intermediate to expert": "bg-[#8F4A13]/12 text-[#7A3D0F]",
     Advanced: "bg-[#9B2C2C]/10 text-[#8A2626]",
-    "Longboard friendly": "bg-[#0B3A75]/10 text-[#0B3A75]",
+    "Longboard friendly": "bg-[#F6E9CE] text-[#8A5E00]",
   };
 
   return (

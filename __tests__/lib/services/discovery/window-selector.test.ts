@@ -1,7 +1,7 @@
 /**
  * Unit tests for Window Selector Service
  *
- * Tests the selectBestWindow, capEndTimeToTimeSlot, and scoreForecastWindow functions
+ * Tests the selectBestWindow and capEndTimeToTimeSlot functions
  * that select optimal surf windows from forecast data.
  */
 
@@ -10,7 +10,7 @@ import type { EnhancedForecastEntity } from '@/types/forecast';
 import { toForecastForScoring } from '@/lib/scoring';
 import { getConditionBoardPick } from '@/lib/scoring/board-pick';
 import { scoreWindowForSelection } from '@/lib/services/discovery/window-selector/window-scorer';
-import { getScoringEngine } from '@/lib/services/discovery/window-selector/scoring-engine-singleton';
+import { getDiscoveryScoringEngine } from '@/lib/domains/scoring';
 
 // Mock beaches
 const mockBeach: Partial<Beach> = {
@@ -75,14 +75,6 @@ function createForecast(overrides: Partial<EnhancedForecastEntity>): EnhancedFor
   } as EnhancedForecastEntity;
 }
 
-// Mock user preferences
-const mockUserPrefs = {
-  wave_min_ft: 3,
-  wave_max_ft: 6,
-  wave_period_min_s: 10,
-  wave_period_max_s: 16,
-};
-
 // Mock the timezone utility
 jest.mock('@/lib/utils/timezone-utils.server', () => ({
   getTimezoneFromCoords: jest.fn(() => 'America/Los_Angeles'),
@@ -93,121 +85,12 @@ import {
   selectBestWindow,
   selectBestWindows,
   capEndTimeToTimeSlot,
-  scoreForecastWindow,
   scoreWindowWithComposite,
   scoreWindowConditionDetails,
   scoreWindowConditionScore,
 } from '@/lib/services/discovery/window-selector';
 
-describe('scoreForecastWindow', () => {
-  it('should return base score for calm conditions without user prefs', () => {
-    const forecast = createForecast({
-      wave_height: '4',
-      wave_period: '12s',
-      wind_speed: '5',
-      tide_height: '3.5',
-    });
-
-    const score = scoreForecastWindow(
-      forecast,
-      mockBeach as Beach,
-      null
-    );
-
-    // Without user prefs:
-    // - Wave 4ft in 2-6 range: 20 points
-    // - Period 12s >= 12: 20 points
-    // - Wind 5mph with offshore direction <= 15mph: 20 points (with beach prefs)
-    // - Tide 3.5ft in 2-5 range: 15 points
-    expect(score).toBeGreaterThanOrEqual(60);
-  });
-
-  it('should boost score for matching user wave preferences', () => {
-    const forecast = createForecast({
-      wave_height: '4',
-      wave_period: '12s',
-    });
-
-    const scoreWithPrefs = scoreForecastWindow(
-      forecast,
-      mockBeach as Beach,
-      mockUserPrefs as any
-    );
-
-    const scoreWithoutPrefs = scoreForecastWindow(
-      forecast,
-      mockBeach as Beach,
-      null
-    );
-
-    // With user prefs matching: 25 points for wave height (vs 20)
-    // With user prefs matching: 20 points for period (vs 20)
-    expect(scoreWithPrefs).toBeGreaterThanOrEqual(scoreWithoutPrefs);
-  });
-
-  it('should penalize onshore wind (opposite of offshore)', () => {
-    // Create forecast with onshore wind (opposite of offshore)
-    const onshoreWind = createForecast({
-      wind_direction: 'SW',
-      wind_direction_deg: 225, // Opposite of NE (45)
-      wind_speed: '15',
-    });
-
-    const offshoreWind = createForecast({
-      wind_direction: 'NE',
-      wind_direction_deg: 45, // Matches offshore
-      wind_speed: '10',
-    });
-
-    const onshoreScore = scoreForecastWindow(
-      onshoreWind,
-      mockBeach as Beach,
-      null
-    );
-
-    const offshoreScore = scoreForecastWindow(
-      offshoreWind,
-      mockBeach as Beach,
-      null
-    );
-
-    expect(offshoreScore).toBeGreaterThan(onshoreScore);
-  });
-
-  it('should give default tide score when beach has no tide preferences', () => {
-    const forecast = createForecast({
-      tide_height: '3.5',
-    });
-
-    const score = scoreForecastWindow(
-      forecast,
-      mockBeachNoPrefs as Beach,
-      null
-    );
-
-    // Should still get a reasonable score with default tide points (8)
-    expect(score).toBeGreaterThan(0);
-  });
-
-  it('should handle missing forecast values gracefully', () => {
-    const forecast = createForecast({
-      wave_height: null as any,
-      wave_period: null as any,
-      wind_speed: null as any,
-      wind_direction: null,
-      tide_height: null as any,
-    });
-
-    // Should not throw
-    const score = scoreForecastWindow(
-      forecast,
-      mockBeach as Beach,
-      null
-    );
-
-    expect(typeof score).toBe('number');
-  });
-
+describe('window selection scoring', () => {
   it('should expose composite reasons separately from the native condition score', () => {
     const forecast = createForecast({
       wave_height: '2',
@@ -253,7 +136,7 @@ describe('scoreForecastWindow', () => {
 
   it('runs the composite engine once per selection score', () => {
     const forecast = createForecast({});
-    const scoreSpy = jest.spyOn(getScoringEngine(), 'score');
+    const scoreSpy = jest.spyOn(getDiscoveryScoringEngine(), 'score');
     const fullBeach = {
       ...mockBeach,
       break_type: null,
@@ -268,7 +151,7 @@ describe('scoreForecastWindow', () => {
 
   it('does not force a minimal threshold-only beach through the composite adapter', () => {
     const forecast = createForecast({});
-    const scoreSpy = jest.spyOn(getScoringEngine(), 'score');
+    const scoreSpy = jest.spyOn(getDiscoveryScoringEngine(), 'score');
 
     const details = scoreWindowConditionDetails(forecast, {
       id: 'minimal-beach',

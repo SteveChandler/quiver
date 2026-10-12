@@ -1,13 +1,4 @@
-import {
-  getTransformedStorageUrl,
-  getTransformedUrl,
-  isTransformableStorageUrl,
-  isSupabaseStorageUrl,
-  getProxiedImageUrl,
-  isExternalImageUrl,
-  IMAGE_TRANSFORM_PRESETS,
-  type ImageTransformPreset,
-} from "@/lib/utils/image-utils";
+import { getTransformedStorageUrl, getTransformedUrl, isSupabaseStorageUrl, getProxiedImageUrl, isExternalImageUrl, IMAGE_TRANSFORM_PRESETS, type ImageTransformPreset } from "@/lib/utils/image-utils";
 import { getOptimizedImageUrl } from "@/lib/image-proxy";
 
 describe("Image Transformation Utils", () => {
@@ -50,31 +41,6 @@ describe("Image Transformation Utils", () => {
     });
   });
 
-  describe("isTransformableStorageUrl", () => {
-    it("should return true for transformable .supabase.co URLs", () => {
-      expect(isTransformableStorageUrl(SUPABASE_CO_URL)).toBe(true);
-    });
-
-    it("should return true for transformable .supabase.in URLs", () => {
-      expect(isTransformableStorageUrl(SUPABASE_IN_URL)).toBe(true);
-    });
-
-    it("should return false for already-transformed URLs", () => {
-      expect(isTransformableStorageUrl(ALREADY_TRANSFORMED_URL)).toBe(false);
-    });
-
-    it("should return false for non-Supabase URLs", () => {
-      expect(isTransformableStorageUrl(EXTERNAL_URL)).toBe(false);
-    });
-
-    it("should return false for null", () => {
-      expect(isTransformableStorageUrl(null)).toBe(false);
-    });
-
-    it("should return false for undefined", () => {
-      expect(isTransformableStorageUrl(undefined)).toBe(false);
-    });
-  });
 
   describe("getTransformedStorageUrl", () => {
     it("should transform .supabase.co storage URLs", () => {

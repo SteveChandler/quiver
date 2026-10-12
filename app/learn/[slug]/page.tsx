@@ -267,7 +267,7 @@ export default async function LearnArticlePage({ params }: Props) {
 
                   {index % 2 === 1 && section.keyTakeaway && (
                     <blockquote className="notebook rot-1 my-10">
-                      <p className="font-handwritten text-2xl leading-tight text-[#11100D]">
+                      <p className="text-lg font-semibold leading-snug text-[#11100D]">
                         {section.keyTakeaway}
                       </p>
                     </blockquote>

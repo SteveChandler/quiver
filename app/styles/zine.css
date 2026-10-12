@@ -11,7 +11,7 @@
   --paper-shadow: #E5D4B3;
   --paper-deep: #D9C49C;
   --stamp-red: #B91C1C;
-  --stamp-blue: #0B3A75;
+  --kicker-ink: #8A5E00;
   --tape: #C8A46B;
   --tape-light: #DCC18B;
   --warning-black: #0A0A08;
@@ -30,11 +30,11 @@
   --zine-torn-inset: 20px;
 
   /* font stacks — first family is the next/font variable, then design fallbacks */
-  --f-rough: var(--font-zine-display), 'Bowlby One', 'Big Shoulders Stencil', var(--font-heading), 'Space Grotesk', sans-serif;
-  --f-stencil: var(--font-zine-display), 'Bowlby One', var(--font-heading), 'Space Grotesk', sans-serif;
+  --f-rough: var(--font-zine-display), var(--font-heading), 'Space Grotesk', sans-serif;
+  --f-stencil: var(--font-zine-display), var(--font-heading), 'Space Grotesk', sans-serif;
   --f-mono: var(--font-mono), 'Space Mono', 'Special Elite', ui-monospace, monospace;
-  --f-marker: var(--font-zine-marker), 'Permanent Marker', var(--font-handwritten), 'Caveat', cursive;
-  --f-hand: var(--font-handwritten), 'Caveat', var(--font-zine-marker), 'Permanent Marker', cursive;
+  /* Native sets only Space Grotesk, Space Mono, DM Sans and Inter, so the
+     zine has no handwritten or marker face. */
   --f-body: var(--font-sans), 'DM Sans', system-ui, sans-serif;
 
   font-family: var(--f-body);
@@ -44,11 +44,13 @@
 }
 
 /* ─── Twilight backdrop with subtle vignette ────────────── */
+/* Deep Twilight, the colour every native screen sits on, so paper moves
+   from the web page into the app without the stage changing under it. */
 .zine-tab .zine-stage {
   position: relative;
   background:
     radial-gradient(ellipse at top, rgba(60, 70, 160, 0.35), transparent 60%),
-    linear-gradient(180deg, var(--q-bg-1) 0%, var(--q-bg-0) 60%, #06070F 100%);
+    var(--q-twilight);
   padding: 32px 0 48px;
   overflow: hidden;
   isolation: isolate;
@@ -130,7 +132,10 @@
   mix-blend-mode: multiply;
   opacity: 0.55;
 }
-.zine-tab .zine-paper > * { position: relative; z-index: 1; }
+/* Lifts content above the grain overlays. Zero specificity: children stay
+   containing blocks, but a sticker's own `absolute` utility still places it
+   where its author put it. */
+:where(.zine-tab .zine-paper) > * { position: relative; z-index: 1; }
 
 /* ─── Universal: torn paper module ───────────────────────── */
 :where(.zine-tab) .torn {
@@ -198,9 +203,9 @@
 /* ─── Stamps & badges ───────────────────────────────────── */
 .zine-tab .stamp-circle {
   width: 130px; height: 130px;
-  border: 4px solid var(--stamp-blue);
+  border: 4px solid var(--kicker-ink);
   border-radius: 50%;
-  color: var(--stamp-blue);
+  color: var(--kicker-ink);
   display: flex; align-items: center; justify-content: center;
   flex-direction: column;
   font-family: var(--f-stencil);
@@ -212,13 +217,12 @@
   font-size: 18px;
   position: relative;
   filter: url(#zine-rough-edge);
-  transform: rotate(-8deg);
   background: rgba(244, 235, 216, 0.6);
 }
 .zine-tab .stamp-circle::before {
   content: "";
   position: absolute; inset: 6px;
-  border: 2px solid var(--stamp-blue);
+  border: 2px solid var(--kicker-ink);
   border-radius: 50%;
   opacity: 0.6;
 }
@@ -260,7 +264,7 @@
   width: 38px; height: 38px;
   border: 2.5px solid var(--ink);
   border-radius: 50%;
-  font-family: var(--f-marker);
+  font-family: var(--f-rough);
   font-weight: 700;
   font-size: 18px;
   filter: url(#zine-rough-edge);
@@ -358,11 +362,14 @@
   overflow: hidden;
 }
 .zine-tab .polaroid .cap {
-  font-family: var(--f-hand);
-  font-size: 22px;
+  font-family: var(--f-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
   color: var(--ink);
-  margin-top: 6px;
-  line-height: 1.05;
+  margin-top: 10px;
+  line-height: 1.3;
   text-align: center;
 }
 /* Polaroid beside a tall display headline: goes portrait so it rises to the top
@@ -415,22 +422,12 @@
   color: var(--ink);
 }
 
-/* helper rotations */
-.zine-tab .rot-1 { transform: rotate(-0.6deg); }
-.zine-tab .rot-2 { transform: rotate(1deg); }
-.zine-tab .rot-3 { transform: rotate(-1.4deg); }
-.zine-tab .rot-4 { transform: rotate(2deg); }
-.zine-tab .rot-neg { transform: rotate(-2.2deg); }
-
-@media (max-width: 900px) {
-  .zine-tab .rot-1,
-  .zine-tab .rot-2,
-  .zine-tab .rot-3,
-  .zine-tab .rot-4,
-  .zine-tab .rot-neg {
-    transform: none;
-  }
-}
+/* helper rotations: cards sit square, so these are no-ops kept for markup */
+.zine-tab .rot-1,
+.zine-tab .rot-2,
+.zine-tab .rot-3,
+.zine-tab .rot-4,
+.zine-tab .rot-neg { transform: none; }
 
 /* ─── Mobile (<= 640px) ─────────────────────────────────── */
 @media (max-width: 640px) {
@@ -458,7 +455,6 @@
   }
   .zine-tab .stamp-circle .lg { font-size: 26px; }
   .zine-tab .label-black { font-size: 13px; padding: 6px 10px; }
-  .zine-tab .polaroid .cap { font-size: 18px; }
 }
 
 /* ─── Display type on zine headings ──────────────────────── */
@@ -486,14 +482,6 @@
 
 /* ─── Reduced motion ─────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
-  .zine-tab .rot-1,
-  .zine-tab .rot-2,
-  .zine-tab .rot-3,
-  .zine-tab .rot-4,
-  .zine-tab .rot-neg,
-  .zine-tab .stamp-circle {
-    transform: none;
-  }
   .zine-tab .zine-developing {
     animation: none;
   }
@@ -515,7 +503,7 @@
 .zine-tab .zine-h1-suffix {
   display: block;
   margin-top: 0.32em;
-  color: var(--stamp-blue);
+  color: var(--kicker-ink);
   font-family: var(--f-stencil);
   font-size: clamp(17px, 2.4vw, 28px);
   letter-spacing: 0.055em;
@@ -551,7 +539,7 @@
 .zine-page .zine-tabs-slot [role="tab"] {
   background: transparent !important;
   color: #11100D !important;
-  font-family: var(--font-zine-display), 'Bowlby One', sans-serif !important;
+  font-family: var(--font-zine-display), 'Space Grotesk', sans-serif !important;
   font-weight: 400 !important;
   font-size: 13px !important;
   letter-spacing: 0.06em;
@@ -588,11 +576,11 @@
 .zine-page .zine-tabs-slot [data-zine-directions] {
   height: 100%;
   justify-content: center;
-  background: #0B3A75 !important;
+  background: #11100D !important;
   color: #F4EBD8 !important;
   border-bottom: none !important;
   box-shadow: none !important;
-  font-family: var(--font-zine-display), 'Bowlby One', sans-serif !important;
+  font-family: var(--font-zine-display), 'Space Grotesk', sans-serif !important;
   font-size: 14px !important;
   font-weight: 400 !important;
   letter-spacing: 0.05em;
@@ -600,8 +588,9 @@
 }
 
 .zine-page .zine-tabs-slot [data-zine-directions]:hover {
-  background: #0A2F5E !important;
+  background: #11100D !important;
   color: #F4EBD8 !important;
+  opacity: 0.88;
 }
 
 .zine-page .zine-tabs-slot [data-zine-directions]:disabled {
@@ -628,10 +617,10 @@ body:has(.zine-page) {
    Forecast tab now lives inside the cream zine paper, so the
    muted-foreground header copy ("11-Day Outlook" / "Tap a day to
    view details") becomes nearly invisible. Promote the header
-   to zine typography (Bowlby ink stencil) and darken the hint.
+   to zine typography (bold display ink) and darken the hint.
    ─────────────────────────────────────────────────────────── */
 .zine-page .zine-tabs-slot section h2 {
-  font-family: var(--font-zine-display), 'Bowlby One', sans-serif !important;
+  font-family: var(--font-zine-display), 'Space Grotesk', sans-serif !important;
   font-weight: 400 !important;
   font-size: 14px !important;
   letter-spacing: 0.06em !important;
@@ -641,7 +630,7 @@ body:has(.zine-page) {
 }
 
 /* The install CTA is a self-contained card, not a tab section heading. The rule
-   above crushes its h2 to 14px uppercase Bowlby One - the same size as its own
+   above crushes its h2 to 14px uppercase display type - the same size as its own
    body copy - leaving the card with no hierarchy on beach detail. Utilities
    cannot beat those !important declarations, so reset them here. */
 .zine-page .zine-tabs-slot section.install-cta h2.install-cta-heading {
@@ -799,7 +788,7 @@ body:has(.zine-page) {
    navy so it doesn't disappear into the sticky-bar shadow.
    ─────────────────────────────────────────────────────────── */
 .zine-page .zine-tabs-slot [data-day-card] button {
-  font-family: var(--font-zine-display), 'Bowlby One', sans-serif;
+  font-family: var(--font-zine-display), 'Space Grotesk', sans-serif;
   font-weight: 400;
   letter-spacing: 0.02em;
   border-width: 2.5px !important;
@@ -895,7 +884,7 @@ body:has(.zine-page) {
 .zine-page .zine-tabs-slot .text-\[\#FFA559\],
 .zine-page .zine-tabs-slot .text-\[\#8DC8F5\],
 .zine-page .zine-tabs-slot .text-\[\#FDCA7B\] {
-  color: #0B3A75 !important;
+  color: #8A5E00 !important;
 }
 
 /* Primary stat card icon-circle backgrounds + borders were
@@ -904,12 +893,12 @@ body:has(.zine-page) {
 .zine-page .zine-tabs-slot .bg-\[rgba\(247\,142\,66\,0\.1\)\],
 .zine-page .zine-tabs-slot .bg-\[rgba\(108\,180\,238\,0\.1\)\],
 .zine-page .zine-tabs-slot .bg-\[rgba\(253\,184\,75\,0\.1\)\] {
-  background-color: rgba(11, 58, 117, 0.08) !important;
+  background-color: #F6E9CE !important;
 }
 .zine-page .zine-tabs-slot .border-\[rgba\(247\,142\,66\,0\.15\)\],
 .zine-page .zine-tabs-slot .border-\[rgba\(108\,180\,238\,0\.15\)\],
 .zine-page .zine-tabs-slot .border-\[rgba\(253\,184\,75\,0\.15\)\] {
-  border-color: rgba(11, 58, 117, 0.25) !important;
+  border-color: rgba(138, 94, 0, 0.25) !important;
 }
 
 /* Forecast sub-tabs list (Today / Tides / Conditions) — was
@@ -956,8 +945,8 @@ body:has(.zine-page) {
 }
 .zine-page .zine-tabs-slot [data-testid="tide-conditions-card"] .from-blue-50\/80,
 .zine-page .zine-tabs-slot [data-testid="tide-conditions-card"] .to-indigo-50\/80 {
-  --tw-gradient-from: #0B3A75 !important;
-  --tw-gradient-to: #0B3A75 !important;
+  --tw-gradient-from: #11100D !important;
+  --tw-gradient-to: #11100D !important;
 }
 .zine-page .zine-tabs-slot [data-testid="tide-conditions-card"] .text-gray-800 {
   color: #F4EBD8 !important;
@@ -973,13 +962,13 @@ body:has(.zine-page) {
    already flattens; we override the deep-color stops here. */
 .zine-page .zine-tabs-slot .from-blue-600,
 .zine-page .zine-tabs-slot .to-cyan-500 {
-  --tw-gradient-from: #0B3A75 !important;
-  --tw-gradient-to: #0B3A75 !important;
+  --tw-gradient-from: #11100D !important;
+  --tw-gradient-to: #11100D !important;
 }
 .zine-page .zine-tabs-slot .from-blue-600.to-cyan-500,
 .zine-page .zine-tabs-slot [class*="from-blue-600"][class*="to-cyan-500"] {
   background-image: none !important;
-  background-color: #0B3A75 !important;
+  background-color: #11100D !important;
   color: #F4EBD8 !important;
   border: 2.5px solid #11100D !important;
   box-shadow: 3px 4px 0 rgba(17, 16, 13, 0.35) !important;
@@ -1018,7 +1007,7 @@ body:has(.zine-page) {
 .zine-page .zine-tabs-slot [data-tier="hero"].bg-card .text-blue-700,
 .zine-page .zine-tabs-slot [data-tier="hero"].bg-card .text-blue-600,
 .zine-page .zine-tabs-slot [data-tier="hero"].bg-card .text-blue-400 {
-  color: #0B3A75 !important;
+  color: #8A5E00 !important;
 }
 .zine-page .zine-tabs-slot [data-tier="hero"].bg-card .text-gray-600 {
   color: #4B4030 !important;
@@ -1031,22 +1020,22 @@ body:has(.zine-page) {
 .zine-page .zine-tabs-slot [data-tier="hero"].bg-card .border-blue-200\/60,
 .zine-page .zine-tabs-slot [data-tier="hero"].bg-card .border-gray-200\/40,
 .zine-page .zine-tabs-slot [data-tier="hero"].bg-card .border-gray-200\/60 {
-  border-color: rgba(11, 58, 117, 0.28) !important;
+  border-color: rgba(138, 94, 0, 0.28) !important;
 }
 .zine-page .zine-tabs-slot [data-tier="hero"].bg-card .rounded-2xl.border-blue-200\/60 {
-  background: rgba(11, 58, 117, 0.08) !important;
-  border-color: #0B3A75 !important;
+  background: #F6E9CE !important;
+  border-color: #11100D !important;
 }
 .zine-page .zine-tabs-slot [data-tier="hero"].bg-card .rounded-2xl.border-blue-200\/60 .text-blue-900 {
   color: #11100D !important;
 }
 .zine-page .zine-tabs-slot [data-tier="hero"].bg-card .rounded-2xl.border-blue-200\/60 .text-blue-700,
 .zine-page .zine-tabs-slot [data-tier="hero"].bg-card .rounded-2xl.border-blue-200\/60 .text-blue-600 {
-  color: #0A2F5E !important;
+  color: #11100D !important;
 }
 .zine-page .zine-tabs-slot [data-tier="hero"].bg-card .rounded-xl.border-gray-200\/40 {
-  background-color: rgba(11, 58, 117, 0.08) !important;
-  border-color: #0B3A75 !important;
+  background-color: #F6E9CE !important;
+  border-color: #11100D !important;
 }
 .zine-page .zine-tabs-slot [data-tier="hero"].bg-card .rounded-xl.border-gray-200\/40 .text-gray-700 {
   color: #11100D !important;
@@ -1063,13 +1052,13 @@ body:has(.zine-page) {
 }
 .zine-page .zine-tabs-slot #intel-section .text-blue-600,
 .zine-page .zine-tabs-slot #intel-section .text-blue-700 {
-  color: #0B3A75 !important;
+  color: #8A5E00 !important;
 }
 .zine-page .zine-tabs-slot #intel-section .border-blue-200 {
-  border-color: #0B3A75 !important;
+  border-color: #11100D !important;
 }
 .zine-page .zine-tabs-slot #intel-section .hover\:bg-blue-50:hover {
-  background-color: rgba(11, 58, 117, 0.08) !important;
+  background-color: #F6E9CE !important;
 }
 
 /* Recent Sessions cards reuse the global social SessionCard, whose muted
@@ -1084,12 +1073,12 @@ body:has(.zine-page) {
 }
 .zine-page .zine-tabs-slot .session-card-hover .bg-muted\/30,
 .zine-page .zine-tabs-slot .session-card-hover .bg-muted\/50 {
-  background-color: rgba(11, 58, 117, 0.08) !important;
-  border-color: rgba(11, 58, 117, 0.25) !important;
+  background-color: #F6E9CE !important;
+  border-color: rgba(138, 94, 0, 0.25) !important;
   color: #11100D !important;
 }
 .zine-page .zine-tabs-slot .session-card-hover .text-blue-500 {
-  color: #0B3A75 !important;
+  color: #8A5E00 !important;
 }
 .zine-page .zine-tabs-slot .session-card-hover .text-orange-500 {
   color: #9E5010 !important;
@@ -1124,10 +1113,10 @@ body:has(.zine-page) {
   color: #4B4030 !important;
 }
 .zine-page .zine-tabs-slot [data-testid="conditions-explore-more-links"] .bg-blue-50 {
-  background-color: rgba(11, 58, 117, 0.08) !important;
+  background-color: #F6E9CE !important;
 }
 .zine-page .zine-tabs-slot [data-testid="conditions-explore-more-links"] .text-blue-600 {
-  color: #0B3A75 !important;
+  color: #8A5E00 !important;
 }
 
 /* Misc legacy backgrounds still appearing inside the forecast
@@ -1160,7 +1149,7 @@ body:has(.zine-page) {
 }
 
 .profile-zine-tabs .text-info {
-  color: #0B3A75 !important;
+  color: #8A5E00 !important;
 }
 
 .theme-retro-dark [role="tablist"] .profile-zine-tab-trigger[data-state="active"] {
@@ -1191,7 +1180,7 @@ body:has(.zine-page) {
 }
 
 .theme-retro-dark .profile-zine-tabs .text-info {
-  color: #0B3A75 !important;
+  color: #8A5E00 !important;
 }
 
 /* Cam frame inside the zine hero — let CamsSection's inner

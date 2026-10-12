@@ -5,18 +5,7 @@
  * and landing page conditions snapshot.
  */
 
-import {
-  createEmptyRegionalSummary,
-  getCachedRegionalForecastPageData,
-  getHubRegionalSummary,
-  getRegionalSummaries,
-  getRegionalSummary,
-  getBestRegionToday,
-  getBestRegionForUser,
-  getClosestRegion,
-  getTopBeachesRightNow,
-  type TopBeachEntry,
-} from "@/lib/utils/forecast-hub-utils";
+import { createEmptyRegionalSummary, getCachedRegionalForecastPageData, getHubRegionalSummary, getRegionalSummaries, getRegionalSummary, getBestRegionToday, getClosestRegion, getTopBeachesRightNow, type TopBeachEntry } from "@/lib/utils/forecast-hub-utils";
 import type { RegionalForecastSummary } from "@/lib/utils/regional-forecast-utils";
 import type { ForecastRegion } from "@/lib/data/forecast-regions";
 import type { Beach } from "@/types/database";
@@ -1260,96 +1249,6 @@ describe("forecast-hub-utils", () => {
     });
   });
 
-  describe("getBestRegionForUser", () => {
-    beforeEach(() => {
-      // Reset distance mock for these tests
-      (calculateDistanceInMiles as jest.Mock).mockReset();
-    });
-
-    it("returns closest region (not highest-scoring) when coords provided", () => {
-      // Region 1: closer but lower score, Region 2: farther but higher score
-      (calculateDistanceInMiles as jest.Mock).mockImplementation(
-        (_from: any, to: any) => {
-          if (to.lat === mockRegion1.centerLat) return 20; // closer
-          if (to.lat === mockRegion2.centerLat) return 50; // farther
-          return 999;
-        }
-      );
-
-      const summaries = {
-        "test-region-1": createMockRegionalSummary(mockRegion1, 60), // lower score
-        "test-region-2": createMockRegionalSummary(mockRegion2, 90), // higher score
-      };
-
-      const result = getBestRegionForUser(summaries, {
-        lat: 33.0,
-        lon: -117.0,
-      });
-
-      expect(result).not.toBeNull();
-      // Should pick region 1 (closer) not region 2 (higher score)
-      expect(result!.region.slug).toBe("test-region-1");
-      expect(result!.isLocationPersonalized).toBe(true);
-    });
-
-    it("skips closest region if it has no summary data", () => {
-      (calculateDistanceInMiles as jest.Mock).mockImplementation(
-        (_from: any, to: any) => {
-          if (to.lat === mockRegion1.centerLat) return 20; // closer
-          if (to.lat === mockRegion2.centerLat) return 50; // farther
-          return 999;
-        }
-      );
-
-      // Only region 2 has summary data
-      const summaries = {
-        "test-region-2": createMockRegionalSummary(mockRegion2, 85),
-      };
-
-      const result = getBestRegionForUser(summaries, {
-        lat: 33.0,
-        lon: -117.0,
-      });
-
-      expect(result).not.toBeNull();
-      // Should fall to region 2 since region 1 has no summary
-      expect(result!.region.slug).toBe("test-region-2");
-      expect(result!.isLocationPersonalized).toBe(true);
-    });
-
-    it("falls back to global best when no coords provided", () => {
-      const summaries = {
-        "test-region-1": createMockRegionalSummary(mockRegion1, 60),
-        "test-region-2": createMockRegionalSummary(mockRegion2, 90),
-      };
-
-      const result = getBestRegionForUser(summaries, null);
-
-      expect(result).not.toBeNull();
-      // Should pick highest-scoring region globally
-      expect(result!.region.slug).toBe("test-region-2");
-      expect(result!.isLocationPersonalized).toBe(false);
-    });
-
-    it("falls back to global best when no regions within range", () => {
-      // All regions beyond 300 miles
-      (calculateDistanceInMiles as jest.Mock).mockReturnValue(500);
-
-      const summaries = {
-        "test-region-1": createMockRegionalSummary(mockRegion1, 60),
-        "test-region-2": createMockRegionalSummary(mockRegion2, 90),
-      };
-
-      const result = getBestRegionForUser(summaries, {
-        lat: 40.0,
-        lon: -74.0,
-      });
-
-      expect(result).not.toBeNull();
-      expect(result!.region.slug).toBe("test-region-2");
-      expect(result!.isLocationPersonalized).toBe(false);
-    });
-  });
 
   describe("getClosestRegion", () => {
     beforeEach(() => {

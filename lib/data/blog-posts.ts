@@ -419,10 +419,3 @@ export function getLatestBlogModifiedDate(): string {
 export function getBlogPost(slug: string): BlogPost | null {
   return blogPosts.find((post) => post.slug === slug) ?? null;
 }
-
-export function getNextBlogPost(slug: string): BlogPost | null {
-  const posts = getAllBlogPosts();
-  const index = posts.findIndex((post) => post.slug === slug);
-  if (index === -1 || posts.length < 2) return null;
-  return posts[(index + 1) % posts.length];
-}

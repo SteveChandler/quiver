@@ -91,12 +91,6 @@ function isCalm(speed: string): boolean {
   return speed.trimStart().startsWith('0');
 }
 
-/** Extracts the leading number from a speed string (e.g. "10 mph" → 10). */
-function parseSpeed(speed: string): number {
-  const match = speed.match(/\d+(\.\d+)?/);
-  return match ? parseFloat(match[0]) : 0;
-}
-
 // ============================================================================
 // Swell clause
 // ============================================================================

@@ -1,6 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { after, NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { linkExperimentEligibility } from '@/lib/experiments/assignments';
+import {
+  captureAlertCreatedEvents,
+  type AlertCreatedEvent,
+} from '@/lib/analytics/alert-created-server';
 
 const OAUTH_PROVIDERS = new Set(['apple', 'google']);
 const OAUTH_LINK_TIMEOUT_MS = 1_000;
@@ -129,6 +133,7 @@ export async function GET(request: NextRequest) {
   let firstCaptureBeachId: string | null = null;
   let firstCapturePresetType: string | null = null;
   let captureBeachIds: string[] = [];
+  let capturedAlerts: AlertCreatedEvent[] = [];
   if (supabase) {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
@@ -154,6 +159,21 @@ export async function GET(request: NextRequest) {
           captureBeachIds = captures
             .map((c: { beach_id: string }) => c.beach_id)
             .filter(Boolean);
+          capturedAlerts = captures.map(
+            (c: {
+              capture_id?: string;
+              beach_id: string;
+              preset_type?: string | null;
+            }) => ({
+              captureId: c.capture_id ?? null,
+              beachId: c.beach_id,
+              presetType: c.preset_type ?? null,
+              source: 'anon_capture' as const,
+              platform: 'web' as const,
+              // Settled after the response, once the user's rule total is known.
+              isFirstAlert: false,
+            }),
+          );
         }
       }
 
@@ -213,6 +233,32 @@ export async function GET(request: NextRequest) {
           captureCount,
         );
         finalRedirect = captureTarget;
+
+        const alertEvents = capturedAlerts;
+        const alertSupabase = supabase;
+        const alertUserId = user.id;
+        after(async () => {
+          try {
+            // finalize_anon_alert_capture already inserted the rules, so the
+            // user had no earlier alert only when every rule they own came
+            // from it.
+            const { count } = await alertSupabase
+              .from('alert_rules')
+              .select('id', { count: 'exact', head: true })
+              .eq('user_id', alertUserId);
+            const hadEarlierAlerts = (count ?? 0) > alertEvents.length;
+            await captureAlertCreatedEvents({
+              supabase: alertSupabase,
+              userId: alertUserId,
+              events: alertEvents.map((event, index) => ({
+                ...event,
+                isFirstAlert: !hadEarlierAlerts && index === 0,
+              })),
+            });
+          } catch (error) {
+            console.error('[Auth Callback] alert_created capture failed:', error);
+          }
+        });
       }
 
       // Invite tokens are intentionally preserved here. /invite/consume is the

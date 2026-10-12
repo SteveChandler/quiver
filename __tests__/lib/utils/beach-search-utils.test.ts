@@ -1,7 +1,5 @@
 import {
-  searchBeachesByName,
   searchBeachesMultiple,
-  searchBeachWithForecast,
 } from "@/lib/utils/beach-search-utils";
 import { normalizeSearchText } from "@/lib/utils/text-normalization";
 import { beachesSearchFixture } from "../../fixtures/beach-search-fixtures";
@@ -122,72 +120,4 @@ describe("beach-search-utils", () => {
     });
   });
 
-  describe("searchBeachesByName", () => {
-    it("returns the best match (or null)", async () => {
-      getBeachesMock.mockResolvedValue({
-        success: true,
-        data: beachesSearchFixture,
-        error: null,
-      });
-
-      await expect(searchBeachesByName("scripps")).resolves.toMatchObject({
-        name: "Scripps Pier",
-      });
-    });
-
-    it("returns null when no matches", async () => {
-      getBeachesMock.mockResolvedValue({
-        success: true,
-        data: [],
-        error: null,
-      });
-
-      await expect(searchBeachesByName("does not exist")).resolves.toBeNull();
-    });
-  });
-
-  describe("searchBeachWithForecast (no-beach-found path)", () => {
-    const originalFetch = globalThis.fetch;
-
-    beforeAll(() => {
-      globalThis.fetch = (jest.fn(() => {
-        throw new Error("fetch should not be called in no-beach-found tests");
-      }) as unknown) as typeof fetch;
-    });
-
-    afterAll(() => {
-      globalThis.fetch = originalFetch;
-    });
-
-    it("returns structured error + metadata for out-of-area searches", async () => {
-      getBeachesMock.mockResolvedValue({
-        success: true,
-        data: [],
-        error: null,
-      });
-
-      const result = await searchBeachWithForecast("bali");
-
-      expect(result.success).toBe(false);
-      expect(result.error).toContain('No beach found matching "bali"');
-      expect(result.searchMetadata.isOutOfAreaSearch).toBe(true);
-      expect(result.searchMetadata.suggestedMessage).toContain("Bali, Indonesia");
-    });
-
-    it("returns structured error with no out-of-area metadata when not detected", async () => {
-      getBeachesMock.mockResolvedValue({
-        success: true,
-        data: [],
-        error: null,
-      });
-
-      const result = await searchBeachWithForecast("totally unknown place");
-
-      expect(result.success).toBe(false);
-      expect(result.searchMetadata.isOutOfAreaSearch).toBe(false);
-      expect(result.searchMetadata.suggestedMessage).toBeUndefined();
-      expect(result.searchMetadata.detectedLocation).toBeUndefined();
-    });
-  });
 });
-

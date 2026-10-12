@@ -75,7 +75,7 @@ export function DownloadView({ platform }: DownloadViewProps): ReactElement {
   return (
     <div
       data-testid="download-view"
-      className="min-h-screen bg-[#0D1020]"
+      className="min-h-screen bg-[#252D6B]"
     >
       <ZineSurface
         sectionLabel="Download"
@@ -91,7 +91,7 @@ export function DownloadView({ platform }: DownloadViewProps): ReactElement {
             <h1 className="zine-h1 mt-3 max-w-3xl text-[#11100D]">
               Get Quiver for your phone.
             </h1>
-            <p className="mt-4 max-w-2xl font-mono text-sm leading-relaxed text-[#11100D]/80 sm:text-base">
+            <p className="mt-4 max-w-2xl font-sans text-[15px] leading-relaxed text-[#11100D]/80 sm:text-base">
               Free to start. Live on iPhone now — and the Android beta is open
               through Google Play closed testing.
             </p>
@@ -114,7 +114,6 @@ export function DownloadView({ platform }: DownloadViewProps): ReactElement {
             <PhoneShot
               src="/images/app-screenshots/surf-call.png"
               alt="Quiver iPhone surf forecast app"
-              className="-rotate-2"
               priority
             />
           </div>
@@ -133,7 +132,6 @@ export function DownloadView({ platform }: DownloadViewProps): ReactElement {
             <article
               key={chapter.title}
               className="torn relative bg-[#F4EBD8] p-5 shadow-[2px_4px_0_rgba(0,0,0,0.18)]"
-              style={{ transform: `rotate(${index % 2 === 0 ? -0.8 : 0.8}deg)` }}
             >
               <QuiverSticker
                 sticker={chapter.sticker}
@@ -145,10 +143,10 @@ export function DownloadView({ platform }: DownloadViewProps): ReactElement {
                 alt={chapter.imageAlt}
                 className="max-w-[190px]"
               />
-              <h2 className="mt-5 font-[var(--font-zine-display)] text-xl uppercase leading-tight text-[#11100D]">
+              <h2 className="mt-5 font-[family-name:var(--font-zine-display)] text-xl uppercase leading-tight text-[#11100D]">
                 {chapter.title}
               </h2>
-              <p className="mt-2 font-mono text-sm leading-relaxed text-[#11100D]/80">
+              <p className="mt-2 font-sans text-[15px] leading-relaxed text-[#11100D]/80">
                 {chapter.body}
               </p>
             </article>
@@ -165,19 +163,19 @@ export function DownloadView({ platform }: DownloadViewProps): ReactElement {
       >
         <div className="grid gap-5 md:grid-cols-2">
           <div className="notebook bg-[#F4EBD8] p-6 shadow-[2px_4px_0_rgba(0,0,0,0.18)]">
-            <h2 className="font-[var(--font-zine-display)] text-2xl uppercase text-[#11100D]">
+            <h2 className="font-[family-name:var(--font-zine-display)] text-2xl uppercase text-[#11100D]">
               iPhone
             </h2>
-            <p className="mt-2 font-mono text-sm leading-relaxed text-[#11100D]/80">
+            <p className="mt-2 font-sans text-[15px] leading-relaxed text-[#11100D]/80">
               Live in the App Store with forecasts, favorites, and session
               logging.
             </p>
           </div>
           <div className="notebook bg-[#F4EBD8] p-6 shadow-[2px_4px_0_rgba(0,0,0,0.18)]">
-            <h2 className="font-[var(--font-zine-display)] text-2xl uppercase text-[#11100D]">
+            <h2 className="font-[family-name:var(--font-zine-display)] text-2xl uppercase text-[#11100D]">
               Android
             </h2>
-            <p className="mt-2 font-mono text-sm leading-relaxed text-[#11100D]/80">
+            <p className="mt-2 font-sans text-[15px] leading-relaxed text-[#11100D]/80">
               The Android beta is open through Google Play closed testing. Join
               the tester group, opt in, then install for personalized surf
               decisions, saved spots, alerts, and session logging.

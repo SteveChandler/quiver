@@ -102,20 +102,6 @@ function buildStationInfoUrl(stationId: string): string {
 }
 
 /**
- * Create an AbortSignal with timeout if supported
- */
-function createTimeoutSignal(timeoutMs: number): AbortSignal | undefined {
-  if (
-    typeof AbortSignal !== "undefined" &&
-    "timeout" in AbortSignal &&
-    typeof AbortSignal.timeout === "function"
-  ) {
-    return AbortSignal.timeout(timeoutMs);
-  }
-  return undefined;
-}
-
-/**
  * Fetch tide predictions (high/low tides) from CO-OPS API
  *
  * @param stationId - CO-OPS station ID
@@ -201,13 +187,12 @@ async function fetchCurrentWaterLevel(
 ): Promise<number | null> {
   try {
     const url = buildWaterLevelUrl(stationId);
-    const timeoutSignal = createTimeoutSignal(OPTIONAL_REQUEST_TIMEOUT_MS);
 
     const response = await fetch(url, {
       headers: {
         "User-Agent": USER_AGENT,
       },
-      ...(timeoutSignal ? { signal: timeoutSignal } : {}),
+      signal: AbortSignal.timeout(OPTIONAL_REQUEST_TIMEOUT_MS),
     });
 
     if (!response.ok) {
@@ -243,13 +228,12 @@ export async function fetchWaterTemperature(
 ): Promise<{ tempC: number; observedAt: string } | null> {
   try {
     const url = buildWaterTemperatureUrl(stationId);
-    const timeoutSignal = createTimeoutSignal(OPTIONAL_REQUEST_TIMEOUT_MS);
 
     const response = await fetch(url, {
       headers: {
         "User-Agent": USER_AGENT,
       },
-      ...(timeoutSignal ? { signal: timeoutSignal } : {}),
+      signal: AbortSignal.timeout(OPTIONAL_REQUEST_TIMEOUT_MS),
     });
 
     if (!response.ok) {
@@ -293,13 +277,12 @@ async function fetchStationInfo(
 ): Promise<StationInfo | null> {
   try {
     const url = buildStationInfoUrl(stationId);
-    const timeoutSignal = createTimeoutSignal(OPTIONAL_REQUEST_TIMEOUT_MS);
 
     const response = await fetch(url, {
       headers: {
         "User-Agent": USER_AGENT,
       },
-      ...(timeoutSignal ? { signal: timeoutSignal } : {}),
+      signal: AbortSignal.timeout(OPTIONAL_REQUEST_TIMEOUT_MS),
     });
 
     if (!response.ok) {

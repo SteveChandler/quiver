@@ -33,7 +33,7 @@ export type BeachType =
 /**
  * Wind exposure pattern types
  */
-export type WindExposurePattern =
+type WindExposurePattern =
   | 'uniform' // All directions equally exposed (~1.0)
   | 'directional_shelter' // Strong shelter from specific directions
   | 'asymmetric' // Different exposure on different sides
@@ -41,7 +41,7 @@ export type WindExposurePattern =
 /**
  * Swell access pattern types
  */
-export type SwellAccessPattern =
+type SwellAccessPattern =
   | 'full' // Open to all swell directions
   | 'narrow_window' // Limited swell window (bay, cove)
   | 'wrap_dependent' // Relies on refraction around headlands
@@ -376,7 +376,7 @@ export function checkSymmetrySanity(factors: number[], maxStdDev = 0.1): boolean
  * @param factors Array of 72 factors
  * @returns Summary statistics
  */
-export interface FactorStats {
+interface FactorStats {
   mean: number
   stdDev: number
   min: number

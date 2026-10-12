@@ -37,6 +37,12 @@ export type PublicForecastReportFacts = Pick<
   (typeof REPORT_FACT_KEYS)[number]
 >;
 
+/**
+ * The general call: computed without a user, so it is the same for every
+ * surfer. Native shows this to guests as "General forecast".
+ */
+export type PublicGeneralCall = Pick<SurfCallResult, "verdict" | "score">;
+
 export type PublicForecastContextFacts = Pick<
   ForecastRecommendationContext,
   (typeof CONTEXT_FACT_KEYS)[number]
@@ -53,6 +59,13 @@ export function selectPublicForecastReportFacts(
   report: SurfCallResult | null,
 ): PublicForecastReportFacts | null {
   return report ? pick(report, REPORT_FACT_KEYS) : null;
+}
+
+/** Only pass a report computed without a user (`getSpotSurfReportPublic`). */
+export function selectPublicGeneralCall(
+  report: SurfCallResult | null,
+): PublicGeneralCall | null {
+  return report?.verdict ? { verdict: report.verdict, score: report.score } : null;
 }
 
 export function selectPublicForecastContextFacts(

@@ -1,3 +1,4 @@
+import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
 /**
  * Forecast Builder
  *
@@ -15,7 +16,6 @@ import { isForecastHandoffBlendEnabled } from "@/lib/flags/forecast-handoff-blen
 import { calculateConfidenceScore } from "./confidence-scorer";
 import {
   toFaceHeightFeetDecomposedWithDebug,
-  METERS_TO_FEET,
   type WaveHeightDebugInfo,
 } from "@/lib/utils/wave-formatters";
 import {
@@ -68,11 +68,6 @@ import {
 } from "./trusted-forecast-persistence";
 import type { TrustedForecastServingProjectionStore } from "./trusted-forecast-current-projection";
 import {
-  buildGfsWaveShadowRows,
-  logGfsWaveShadowRows,
-  type GfsWaveShadowForecast,
-} from "@/lib/services/noaa-wavewatch/gfs-wave-shadow";
-import {
   computeV5Shadow,
   getActiveCalibration,
 } from "./calibration-v5";
@@ -93,6 +88,7 @@ import {
   TOTAL_FORECASTS,
   type EnhancedForecastEntity,
   type EnhancedForecastWithRawData,
+  type WaterTempSource,
   type CDIPBuoyData,
 } from "@/types/forecast";
 import type { NowcastAnchor } from "@/lib/services/observations/nowcast-anchor.types";
@@ -276,8 +272,6 @@ export interface ForecastInputs {
   heightOffset?: BeachHeightOffsetRow | null;
   /** Optional active temporary feedback calibration, loaded once per beach. */
   feedbackCalibrationCandidate?: FeedbackHeightCalibrationCandidate | null;
-  /** Optional report-only GFS-Wave issue-time source shadow data. */
-  gfsWaveData?: GfsWaveShadowForecast | null;
   /** Test/smoke override for the build anchor; production defaults to now. */
   buildAnchorAt?: Date;
   /**
@@ -473,7 +467,6 @@ export class ForecastBuilder {
       southOcSanoShadowZoneSnapshot,
       heightOffset,
       feedbackCalibrationCandidate,
-      gfsWaveData,
       buildAnchorAt,
     } = inputs;
     const forecasts: EnhancedForecastWithRawData[] = [];
@@ -504,7 +497,6 @@ export class ForecastBuilder {
     // during the row loop; consumed only after the loop, so a trusted decision
     // always sees the complete local day.
     const trustedSlotBuffer: TrustedSlotRecord[] = [];
-    const gfsWaveForecastTimes: Date[] = [];
     const handoffBlendEnabled = isForecastHandoffBlendEnabled();
     const handoffBlendState = createForecastHandoffBlendState();
     const calibrationCoverage: CalibrationCoverage = {
@@ -541,7 +533,6 @@ export class ForecastBuilder {
       const forecastTime = new Date(
         firstSlotMs + i * FORECAST_CONSTANTS.INTERVAL_HOURS * 60 * 60 * 1000
       );
-      gfsWaveForecastTimes.push(forecastTime);
 
       // Get data for this time point
       const wavePoint = this.getWaveDataForTime(waveData, forecastTime);
@@ -667,24 +658,6 @@ export class ForecastBuilder {
         log.warn("Snapshot dispatch threw (caught, non-blocking)", {
           err: String(err),
         });
-      }
-    }
-
-    if (gfsWaveData) {
-      const gfsRows = buildGfsWaveShadowRows({
-        beachId: beach.id,
-        generatedAt: now,
-        forecastTimes: gfsWaveForecastTimes,
-        shadow: gfsWaveData,
-      });
-      if (gfsRows.length > 0) {
-        try {
-          await logGfsWaveShadowRows(gfsRows);
-        } catch (err) {
-          log.warn("GFS-Wave shadow dispatch threw (caught, non-blocking)", {
-            err: String(err),
-          });
-        }
       }
     }
 
@@ -1361,10 +1334,12 @@ export class ForecastBuilder {
       snapshotIndex,
     });
 
+    const windSpeed = this.getWindSpeed(weatherPoint);
     const sourceSelection = waveHeightResult.debug.source?.startsWith('model_')
       ? wavePoint?.source_selection : undefined;
     const effectiveConfidence = sourceSelection?.disagreement
       ? Math.min(confidenceScore, 40) : confidenceScore;
+    const waterTemperature = this.getWaterTemperature(buoyData, beach, forecastTime, ioosWaterTempC, coopsWaterTempC);
     return {
       id: `forecast-${beach.id}-${forecastTime.getTime()}`,
       forecast_date: dateString,
@@ -1412,13 +1387,14 @@ export class ForecastBuilder {
         : {}),
 
       // Water temperature
-      water_temp: this.getWaterTemperature(buoyData, beach, forecastTime, ioosWaterTempC, coopsWaterTempC),
+      water_temp: waterTemperature.value,
 
-      // Wind data
-      wind_speed: this.getWindSpeed(weatherPoint),
+      // Wind data. Missing NWS wind stays null; NWS leaves direction blank
+      // when calm, so "0 mph" with no direction is a real reading.
+      wind_speed: windSpeed,
       wind_direction: this.getWindDirection(weatherPoint),
-      wind_direction_deg: cardinalToDegrees(weatherPoint?.windDirection || "SW"),
-      wind_source: weatherPoint?.windSpeed ? 'NWS' : null,
+      wind_direction_deg: cardinalToDegrees(weatherPoint?.windDirection),
+      wind_source: windSpeed != null ? 'NWS' : null,
 
       // Tide information
       tide_status: tideInfo.status,
@@ -1441,6 +1417,7 @@ export class ForecastBuilder {
 
       // Raw forecast metadata
       raw_forecast: {
+        water_temp_source: waterTemperature.source,
         ...this.buildRawForecast({
           dataSources,
           useCDIPData,
@@ -2074,35 +2051,35 @@ export class ForecastBuilder {
     forecastTime: Date,
     ioosWaterTempC: number | null,
     coopsWaterTempC: number | null
-  ): string | null {
+  ): { value: string | null; source: WaterTempSource } {
     // Priority 1: IOOS observed water temperature (most geographically accurate)
     if (ioosWaterTempC != null && isFinite(ioosWaterTempC)) {
       const tempF = (ioosWaterTempC * 9) / 5 + 32;
-      return formatWaterTemp(tempF);
+      return { value: formatWaterTemp(tempF), source: "ioos" };
     }
 
     // Priority 2: CO-OPS observed water temperature
     if (coopsWaterTempC != null && isFinite(coopsWaterTempC)) {
       const tempF = (coopsWaterTempC * 9) / 5 + 32;
-      return formatWaterTemp(tempF);
+      return { value: formatWaterTemp(tempF), source: "coops" };
     }
 
     // Priority 3: NDBC buoy water temperature (currently dead code — buoyData always null)
     if (buoyData?.water_temperature != null && isFinite(buoyData.water_temperature)) {
-      return formatWaterTemp((buoyData.water_temperature * 9) / 5 + 32);
+      return { value: formatWaterTemp((buoyData.water_temperature * 9) / 5 + 32), source: "ndbc" };
     }
 
     // Priority 4: Latitude-based estimation
-    return this.estimateWaterTemperature(beach.lat ?? 0, forecastTime);
+    return { value: this.estimateWaterTemperature(beach.lat ?? 0, forecastTime), source: "latitude" };
   }
 
   private getWindSpeed(weatherPoint: WeatherPeriod | null): string | null {
-    if (!weatherPoint) return "10 mph";
+    if (!weatherPoint) return null;
     return this.extractWindSpeed(weatherPoint.windSpeed);
   }
 
   private getWindDirection(weatherPoint: WeatherPeriod | null): string | null {
-    return weatherPoint?.windDirection || "SW";
+    return weatherPoint?.windDirection?.trim() || null;
   }
 
   private getAirTemperature(weatherPoint: WeatherPeriod | null, beach: Beach, forecastTime: Date): string | null {
@@ -2117,7 +2094,7 @@ export class ForecastBuilder {
    */
 
   private metersToFeet(meters: number): string {
-    const feet = meters * 3.28084;
+    const feet = meters * METERS_TO_FEET;
     if (feet < 1) {
       return `${Math.round(feet * 10) / 10} ft`;
     }
@@ -2125,10 +2102,10 @@ export class ForecastBuilder {
     return `${rounded} ft`;
   }
 
-  private extractWindSpeed(windSpeedStr: string): string {
-    if (!windSpeedStr) return "10 mph";
+  private extractWindSpeed(windSpeedStr: string | null | undefined): string | null {
+    if (!windSpeedStr) return null;
     const match = windSpeedStr.match(/(\d+)/);
-    return match ? `${match[1]} mph` : "10 mph";
+    return match ? `${match[1]} mph` : null;
   }
 
   private estimateWaterTemperature(lat: number, date: Date): string {

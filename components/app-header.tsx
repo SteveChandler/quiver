@@ -19,7 +19,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useRoutePathname } from "@/hooks/use-route-pathname";
 import { preserveQueryParams } from "@/lib/utils/navigation-utils";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -63,7 +64,7 @@ function isBeachContextPath(pathname: string): boolean {
 
 export function AppHeader() {
   const { user, isLoading: authLoading, signOut } = useAuth();
-  const pathname = usePathname();
+  const pathname = useRoutePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -234,7 +235,8 @@ export function AppHeader() {
               className="h-7 w-7 rounded-md shadow-sm"
               aria-hidden="true"
             />
-            <div className="text-xl font-bold text-[#F78E42] transition-colors duration-300 group-hover:text-[#FFAA63]">
+            {/* Native's header wordmark: Space Grotesk Bold caps, tracked, in cream. */}
+            <div className="font-heading text-xl font-bold uppercase tracking-[0.1em] text-[#F5EEDC] transition-colors duration-300 group-hover:text-white">
               Quiver
             </div>
           </Link>

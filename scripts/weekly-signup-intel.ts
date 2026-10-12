@@ -15,7 +15,7 @@
  * Usage: npx tsx scripts/weekly-signup-intel.ts [--days 7] [--date YYYY-MM-DD]
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { config } from "dotenv";
+import { config } from "./load-env.mjs";
 import fs from "node:fs";
 import path from "node:path";
 

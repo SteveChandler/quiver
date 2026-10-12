@@ -245,6 +245,22 @@ describe("major swell notification contract", () => {
     })).toThrow();
   });
 
+  it.each(["2026-08-02T15:00:00.000Z", "2026-08-02T08:00:00-07:00"])("preserves an option's ISO instant %s", (forecast_at) => {
+    const beaches = [
+      { beach_id: base.beach_id, beach_name: base.beach_name, rank: 1 },
+      { beach_id: "22222222-2222-4222-8222-222222222222", beach_name: "Scripps", rank: 2, forecast_at },
+    ];
+    expect(parseMajorSwellNotificationPayload({ ...base, ...physicalEvent, awareness_signal: "forecast_trend",
+      official_evidence_refs: [], enforcement: null, beaches }).beaches).toEqual(beaches);
+  });
+
+  it.each(["not-an-instant", "2026-08-02", "", null])("rejects an invalid option forecast_at: %s", (forecast_at) => {
+    expect(() => parseMajorSwellNotificationPayload({ ...base, ...physicalEvent, awareness_signal: "forecast_trend",
+      official_evidence_refs: [], enforcement: null,
+      beaches: [{ beach_id: base.beach_id, beach_name: base.beach_name, rank: 2, forecast_at }],
+    })).toThrow();
+  });
+
   it("rejects a versioned payload instead of adapting it as legacy", () => {
     expect(() => parseMajorSwellNotificationPayload({
       ...base,

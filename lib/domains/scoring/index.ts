@@ -18,22 +18,18 @@ export type {
 
 
 // Engine
-export { ScoringEngine, createScoringEngine, scoreWithPlugins } from './scoring-engine';
+export { ScoringEngine } from './scoring-engine';
 
 // Scorers
-export {
-  baseConditionsScorer,
-  swellAlignmentScorer,
-  swellInterferenceScorer,
-  windQualityScorer,
-  tideFitScorer,
-  tideDirectionScorer,
-  detectSetupRisk,
-  LOW_TIDE_HEAVY_SWELL_WARNING,
-  setupRiskScorer,
-  windowStabilityScorer,
-  trendPreferenceScorer,
-} from './scorers';
+export { baseConditionsScorer } from './scorers/base-conditions-scorer';
+export { swellAlignmentScorer } from './scorers/swell-alignment-scorer';
+export { swellInterferenceScorer } from './scorers/swell-interference-scorer';
+export { windQualityScorer } from './scorers/wind-quality-scorer';
+export { tideFitScorer } from './scorers/tide-fit-scorer';
+export { tideDirectionScorer } from './scorers/tide-direction-scorer';
+export { detectSetupRisk, LOW_TIDE_HEAVY_SWELL_WARNING, setupRiskScorer } from './scorers/setup-risk-scorer';
+export { windowStabilityScorer } from './scorers/window-stability-scorer';
+export { trendPreferenceScorer } from './scorers/trend-preference-scorer';
 
 // Condition character classifier (qualitative category + label)
 export type {
@@ -45,6 +41,7 @@ export { getConditionCharacter } from './condition-character';
 // Discovery adapter (backwards compatibility with surf-discovery-service)
 export {
   createDiscoveryScoringEngine,
+  getDiscoveryScoringEngine,
   beachToSpotProfile,
   forecastToSnapshot,
   compositeToDetailedScore,

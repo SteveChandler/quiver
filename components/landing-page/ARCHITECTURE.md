@@ -738,7 +738,7 @@ export async function updateBeaches() {
 vercel analytics
 
 # Run Lighthouse CI
-npm run lighthouse:ci
+npx -y @lhci/cli@0.15.1 autorun
 ```
 
 ## Related Documentation

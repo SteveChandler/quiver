@@ -195,20 +195,20 @@ describe("/[intent]/[city] effective ISR window", () => {
     await expect(effectiveWindow(intent, city)).resolves.toBe(3600);
   });
 
-  // Live recommendations ("refresh every 30 minutes") and water-quality holds
-  // are evaluated at render; keep their current 15-minute window.
+  // Live recommendations ("refresh hourly") and water-quality holds are
+  // evaluated at render. They moved from 15 minutes to hourly in Oct 2026.
   it.each([
     ["longboard", "test-harbor"],
     ["least-crowded", "test-harbor"],
-  ])("keeps the 15-minute window for live recommendations on /%s/%s", async (intent, city) => {
-    await expect(effectiveWindow(intent, city)).resolves.toBe(900);
+  ])("regenerates live recommendations on /%s/%s hourly", async (intent, city) => {
+    await expect(effectiveWindow(intent, city)).resolves.toBe(3600);
     expect(getIntentForecastSummary).toHaveBeenCalled();
   });
 
-  it("keeps the 15-minute window when a tide page falls back to live recommendations", async () => {
+  it("stays hourly when a tide page falls back to live recommendations", async () => {
     (getCityTideDataExpanded as jest.Mock).mockResolvedValue(null);
 
-    await expect(effectiveWindow("tide", "test-harbor")).resolves.toBe(900);
+    await expect(effectiveWindow("tide", "test-harbor")).resolves.toBe(3600);
     expect(getIntentForecastSummary).toHaveBeenCalled();
   });
 });

@@ -145,7 +145,8 @@ describe('toForecastForScoring', () => {
 
     expect(result.waveHeight).toBe(0);
     expect(result.wavePeriod).toBe(0);
-    expect(result.windSpeed).toBe(0);
+    // Missing wind is unknown, not calm.
+    expect(result.windSpeed).toBeNull();
     expect(result.tideHeight).toBe(0);
   });
 

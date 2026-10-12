@@ -1,3 +1,5 @@
+import { setTimeout as sleep } from "node:timers/promises";
+import { chunk as splitIntoChunks } from "@/lib/utils/chunk";
 import {
   createErrorResponse,
   createSuccessResponse,
@@ -24,6 +26,8 @@ import {
 } from "@/lib/services/tides/model-tides";
 import { fanOutTidePointsToBeaches } from "../../../../../lib/services/tide-forecast-batch-utils";
 import SunCalc from "suncalc";
+import { getLocalDateString, resolveBeachTimezone } from "@/lib/utils/timezone-utils";
+import { localDateTimeToUTC } from "@/lib/utils/forecast-time-resolver";
 import { withObservedCron } from "@/lib/cron/observability";
 import { withCronOutcome } from "@/lib/cron/outcome";
 
@@ -63,7 +67,7 @@ function getCronDeadlineMs(): { deadlineMs: number; timeBudgetMs: number; safety
   return { deadlineMs: Date.now() + timeBudgetMs, timeBudgetMs, safetyMarginMs };
 }
 
-type BeachRow = { id: string; name: string; lat: number; lon: number; country?: string | null };
+type BeachRow = { id: string; name: string; lat: number; lon: number; country?: string | null; timezone?: string | null };
 type TideStationMeta = { id: string; name: string; lat: number; lon: number };
 type TidePoint = {
   ts: string;
@@ -72,15 +76,6 @@ type TidePoint = {
   source: string;
 };
 type TideGroupFailure = "no_predictions" | "upsert_failed" | "time_budget" | "error";
-
-function chunkArray<T>(items: T[], chunkSize: number): T[][] {
-  if (chunkSize <= 0) return [items];
-  const out: T[][] = [];
-  for (let i = 0; i < items.length; i += chunkSize) {
-    out.push(items.slice(i, i + chunkSize));
-  }
-  return out;
-}
 
 function getSupabaseProjectRef(): string | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -142,7 +137,7 @@ async function _GET(request: Request): Promise<Response> {
         ? // Backfill mode: fetch a single nested tide row so we can detect "no tide rows" without N+1 queries.
           // Note: we only need any tide row, not the full set.
           "id, name, lat, lon, country, tide_forecasts(ts)"
-        : "id, name, lat, lon, country"
+        : "id, name, lat, lon, country, timezone"
     );
 
     query = query.not("lat", "is", null).not("lon", "is", null);
@@ -191,6 +186,7 @@ async function _GET(request: Request): Promise<Response> {
       lat: b.lat,
       lon: b.lon,
       country: b.country ?? null,
+      timezone: b.timezone ?? null,
     }));
 
     const targetBeachesForTides: BeachRow[] = tidesBackfillMissing
@@ -238,7 +234,7 @@ async function _GET(request: Request): Promise<Response> {
         // The beach/time index bounds database work; output pagination alone does not.
         const checkedBeaches = new Set<string>();
         marineCoverage.freshnessCoverage.expectedCoverage = args.beaches.length;
-        for (const batch of chunkArray(args.beaches, 25)) {
+        for (const batch of splitIntoChunks(args.beaches, 25)) {
           if (shouldStop()) {
             rejectMarine("freshness_budget_exhausted");
             break;
@@ -399,7 +395,7 @@ async function _GET(request: Request): Promise<Response> {
         });
       }
 
-      const batches = chunkArray(
+      const batches = splitIntoChunks(
         // If both marine + sun are requested, run marine selection set (it’s likely superset during recovery).
         runMarine ? selectedMarineBeaches : selectedSunBeaches,
         BATCH_SIZE
@@ -592,14 +588,17 @@ async function _GET(request: Request): Promise<Response> {
             if (runSun) {
               // Sun times computed locally - populate 7 days for buffer
               try {
-                const today = new Date();
+                const tz = resolveBeachTimezone(b.timezone);
+                const today = getLocalDateString(new Date(), tz);
                 for (let i = 0; i < 7; i++) {
-                  const d = new Date(today);
-                  d.setDate(today.getDate() + i);
-                  const times = SunCalc.getTimes(d, b.lat, b.lon);
+                  const d = new Date(`${today}T00:00:00Z`);
+                  d.setUTCDate(d.getUTCDate() + i);
+                  const localDate = d.toISOString().split("T")[0];
+                  const times = SunCalc.getTimes(localDateTimeToUTC(localDate, "12:00:00", tz), b.lat, b.lon);
                   const row = {
                     beach_id: b.id,
-                    date: d.toISOString().split("T")[0],
+                    // date is the beach-local calendar day.
+                    date: localDate,
                     sunrise_utc: times.sunrise?.toISOString() ?? null,
                     sunset_utc: times.sunset?.toISOString() ?? null,
                     source: "computed",
@@ -647,7 +646,7 @@ async function _GET(request: Request): Promise<Response> {
             });
             break;
           }
-          await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
+          await sleep(BATCH_DELAY_MS);
         }
       }
     }
@@ -829,7 +828,7 @@ async function _GET(request: Request): Promise<Response> {
           if (!rows.length) return "no_predictions";
 
           let upsertFailed = false;
-          for (const chunk of chunkArray(rows, 1000)) {
+          for (const chunk of splitIntoChunks(rows, 1000)) {
             if (shouldStop()) {
               console.warn("[Forecast Refresh] Stopping early due to time budget (before tide upsert)", {
                 stationId,
@@ -950,7 +949,7 @@ async function _GET(request: Request): Promise<Response> {
                 tide_phase: null,
                 source: MODEL_TIDE_SOURCE,
               }));
-              for (const chunk of chunkArray(rows, 1000)) {
+              for (const chunk of splitIntoChunks(rows, 1000)) {
                 if (shouldStop()) {
                   failure = "time_budget";
                   break;

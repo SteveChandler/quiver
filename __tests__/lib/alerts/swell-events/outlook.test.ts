@@ -12,8 +12,17 @@ import {
   type PulseRegionCandidate,
 } from "@/lib/alerts/swell-events";
 import { NOW, TIMEZONE, beachSwellEvent, dayRows, localDate, localIso, swellBeach, type PartitionSpec } from "@/__tests__/helpers/swell-events";
+import { tracksSwellSize } from "@/lib/alerts/swell-events/detector";
 
 const beach = swellBeach();
+
+describe("tracksSwellSize", () => {
+  it("uses a symmetric size ratio", () => {
+    expect(tracksSwellSize({ peakFaceHeightFt: 3.6 }, { peakFaceHeightFt: 3.2 })).toBe(true);
+    expect(tracksSwellSize({ peakFaceHeightFt: 3.6 }, { peakFaceHeightFt: 2.3 })).toBe(false);
+    expect(tracksSwellSize({ peakFaceHeightFt: 2.3 }, { peakFaceHeightFt: 3.6 })).toBe(false);
+  });
+});
 
 /** One primary partition per local day; offsets start two days back so a baseline exists. */
 function series(heights: number[], periodS: number = 12, direction: number = 270): SwellEventForecastRow[] {

@@ -5,24 +5,15 @@
  * - DeadlineTracker: msRemaining, shouldStop, hasTimeForDelay, isDeadlineConfigured
  * - loadBatchConfig() / loadCdipBatchConfig(): env var parsing, defaults
  * - processBeachesInBatches(): batch splitting, deadline early-stop, delay, error handling
- * - createBeachProcessor(): factory returns correct function, error catching
  */
 
 import type { Beach } from "@/types/database";
-import {
-  DeadlineTracker,
-  loadBatchConfig,
-  loadCdipBatchConfig,
-  getRefreshSelectionWindowHours,
-  processBeachesInBatches,
-  createBeachProcessor,
-} from "@/lib/services/forecast/batch-beach-processor";
+import { DeadlineTracker, loadBatchConfig, loadCdipBatchConfig, getRefreshSelectionWindowHours, processBeachesInBatches } from "@/lib/services/forecast/batch-beach-processor";
 import type {
   BatchProcessConfig,
   BeachProcessResult,
 } from "@/lib/services/forecast/batch-beach-processor";
 import {
-  expectConsoleErrors,
   expectConsoleWarnings,
 } from "@/__tests__/setup/test-utils";
 
@@ -145,6 +136,11 @@ describe("loadBatchConfig", () => {
   beforeEach(() => {
     jest.resetModules();
     process.env = { ...originalEnv };
+    delete process.env.FORECAST_BATCH_SIZE;
+    delete process.env.FORECAST_BATCH_DELAY_MS;
+    delete process.env.FORECAST_MAX_BEACHES_PER_RUN;
+    delete process.env.FORECAST_FRESHNESS_WINDOW_HOURS;
+    delete process.env.FORECAST_REFRESH_LEAD_HOURS;
   });
 
   afterAll(() => {
@@ -152,12 +148,6 @@ describe("loadBatchConfig", () => {
   });
 
   it("returns default values when env vars are not set", () => {
-    delete process.env.FORECAST_BATCH_SIZE;
-    delete process.env.FORECAST_BATCH_DELAY_MS;
-    delete process.env.FORECAST_MAX_BEACHES_PER_RUN;
-    delete process.env.FORECAST_FRESHNESS_WINDOW_HOURS;
-    delete process.env.FORECAST_REFRESH_LEAD_HOURS;
-
     const config = loadBatchConfig();
     expect(config.batchSize).toBe(3);
     expect(config.batchDelayMs).toBe(1000);
@@ -577,111 +567,5 @@ describe("processBeachesInBatches", () => {
 
     expect(result.summary?.remainingMs).toEqual(expect.any(Number));
     expect(result.summary?.remainingMs).toBeGreaterThan(0);
-  });
-});
-
-// ─── createBeachProcessor ─────────────────────────────────────────────────────
-
-describe("createBeachProcessor", () => {
-  it("returns a function", () => {
-    const processor = createBeachProcessor(
-      jest.fn(),
-      jest.fn()
-    );
-    expect(typeof processor).toBe("function");
-  });
-
-  it("calls generateForecast and storeForecast with the beach", async () => {
-    const beach = makeBeach("b1", "Test Beach");
-    const forecasts = [{ id: "f1" }];
-
-    const generateForecast = jest.fn().mockResolvedValue(forecasts);
-    const storeForecast = jest.fn().mockResolvedValue({ success: true });
-
-    const processor = createBeachProcessor(generateForecast, storeForecast);
-    const result = await processor(beach);
-
-    expect(generateForecast).toHaveBeenCalledWith(beach);
-    expect(storeForecast).toHaveBeenCalledWith(beach, forecasts);
-    expect(result).toEqual({ beach: "Test Beach", success: true, error: undefined });
-  });
-
-  it("returns success: false when storeForecast fails", async () => {
-    const beach = makeBeach("b1", "Fail Beach");
-
-    const generateForecast = jest.fn().mockResolvedValue([]);
-    const storeForecast = jest.fn().mockResolvedValue({ success: false, error: "DB error" });
-
-    const processor = createBeachProcessor(generateForecast, storeForecast);
-    const result = await processor(beach);
-
-    // createBeachProcessor calls console.warn when store fails
-    expectConsoleWarnings([/Fail Beach: store failed/]);
-
-    expect(result.success).toBe(false);
-    expect(result.error).toBe("DB error");
-    expect(result.beach).toBe("Fail Beach");
-  });
-
-  it("catches thrown errors and returns failure result", async () => {
-    const beach = makeBeach("b1", "Error Beach");
-
-    const generateForecast = jest.fn().mockRejectedValue(new Error("Network timeout"));
-    const storeForecast = jest.fn();
-
-    const processor = createBeachProcessor(generateForecast, storeForecast);
-    const result = await processor(beach);
-
-    // createBeachProcessor calls console.error on caught exceptions
-    expectConsoleErrors([/Error Beach: Network timeout/]);
-
-    expect(result.success).toBe(false);
-    expect(result.error).toBe("Network timeout");
-    expect(result.beach).toBe("Error Beach");
-    expect(storeForecast).not.toHaveBeenCalled();
-  });
-
-  it("catches non-Error thrown values", async () => {
-    const beach = makeBeach("b1", "String Error Beach");
-
-    const generateForecast = jest.fn().mockRejectedValue("plain string error");
-    const storeForecast = jest.fn();
-
-    const processor = createBeachProcessor(generateForecast, storeForecast);
-    const result = await processor(beach);
-
-    // createBeachProcessor calls console.error on caught exceptions
-    expectConsoleErrors([/String Error Beach: plain string error/]);
-
-    expect(result.success).toBe(false);
-    expect(result.error).toBe("plain string error");
-  });
-
-  it("can be used directly with processBeachesInBatches", async () => {
-    const beaches = [makeBeach("1", "A"), makeBeach("2", "B")];
-    const forecasts = [{ id: "f1" }];
-
-    const generateForecast = jest.fn().mockResolvedValue(forecasts);
-    const storeForecast = jest.fn().mockResolvedValue({ success: true });
-
-    const processBeach = createBeachProcessor(generateForecast, storeForecast);
-
-    const result = await processBeachesInBatches({
-      beaches,
-      config: {
-        batchSize: 2,
-        batchDelayMs: 0,
-        maxBeachesPerRun: 10,
-        freshnessWindowHours: 12,
-        refreshLeadHours: 4,
-      },
-      deadlineTracker: new DeadlineTracker(),
-      processBeach,
-    });
-
-    expect(result.success).toBe(true);
-    expect(result.summary?.successful).toBe(2);
-    expect(generateForecast).toHaveBeenCalledTimes(2);
-    expect(storeForecast).toHaveBeenCalledTimes(2);
   });
 });

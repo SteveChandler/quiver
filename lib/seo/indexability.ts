@@ -20,10 +20,6 @@ interface BeachIndexabilityInput {
   bestConditionsProse?: string | null;
 }
 
-interface BeachEditorialRecord extends Omit<BeachIndexabilityInput, "seoSources"> {
-  editorial_sources?: EditorialSource[] | string | null;
-}
-
 export interface BeachEditorialDatabaseRecord {
   seo_indexable?: boolean | null;
   editorial_reviewed_at?: string | null;
@@ -183,7 +179,7 @@ function hasBeachSubstantiveContent(
   );
 }
 
-export function evaluateBeachEditorialQuality(
+function evaluateBeachEditorialQuality(
   input: BeachIndexabilityInput,
 ): EditorialQualityResult {
   const rejected = Boolean(
@@ -209,7 +205,7 @@ export function evaluateBeachEditorialQuality(
   return { approved: true, rejected: false, reason: null };
 }
 
-export function evaluateCityEditorialQuality(
+function evaluateCityEditorialQuality(
   input: CityIntentEditorialInput | null,
   expectedIntent: string | null,
 ): EditorialQualityResult {
@@ -356,6 +352,7 @@ export function isDataBackedCityIntent(
 /**
  * Tide and water-temp city pages answer a question with a current number, so they
  * earn indexability from that number rather than from the editorial review queue.
+ * Existing GSC protection survives missing water-temperature readings.
  * An explicit editorial rejection still wins - a human pulling a page must not be
  * overridden by the presence of data.
  */
@@ -373,43 +370,20 @@ export function evaluateCityDataIntentIndexability(
     return { indexable: false, reason: "insufficient-data" };
   }
 
+  const performanceProtected = isGscPerformanceProtected(normalizeSeoPath(canonicalPath));
+  if (canonicalPath.startsWith("/water-temp/") && performanceProtected) {
+    return { indexable: true, reason: "gsc-protected" };
+  }
+
   if (!availability.hasIntentData) {
     return { indexable: false, reason: "forecast-missing" };
   }
 
-  if (isGscPerformanceProtected(normalizeSeoPath(canonicalPath))) {
+  if (performanceProtected) {
     return { indexable: true, reason: "gsc-protected" };
   }
 
   return { indexable: true, reason: "forecast-approved" };
-}
-
-function isBeachEligibleForIndexing(
-  beach: BeachEditorialRecord,
-  canonicalPath = "/",
-): boolean {
-  return evaluateBeachIndexability(
-    {
-      seoIndexable: beach.seoIndexable,
-      seoReviewedAt: beach.seoReviewedAt,
-      seoSources: parseEditorialSources(beach.editorial_sources),
-      description: beach.description,
-      crowdTips: beach.crowdTips,
-      waveTips: beach.waveTips,
-      bestConditionsProse: beach.bestConditionsProse,
-    },
-    canonicalPath,
-  ).indexable;
-}
-
-function isBeachDatabaseRecordEligible(
-  beach: BeachEditorialDatabaseRecord,
-  canonicalPath = "/",
-): boolean {
-  return evaluateBeachIndexability(
-    toBeachEditorialInput(beach),
-    canonicalPath,
-  ).indexable;
 }
 
 export function applyIndexabilityToMetadata<T extends Metadata>(

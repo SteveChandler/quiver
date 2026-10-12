@@ -2,13 +2,7 @@
  * Tests for Wind Classification Utilities
  */
 
-import {
-  classifyWindDirection,
-  getWindScore,
-  OFFSHORE_DIRECTIONS,
-  LIGHT_WIND_KEYWORDS,
-  WIND_SCORE,
-} from "@/lib/utils/wind-classification";
+import { classifyWindDirection, OFFSHORE_DIRECTIONS, LIGHT_WIND_KEYWORDS, WIND_SCORE } from "@/lib/utils/wind-classification";
 
 describe("classifyWindDirection", () => {
   describe("offshore directions", () => {
@@ -155,19 +149,6 @@ describe("classifyWindDirection", () => {
   });
 });
 
-describe("getWindScore", () => {
-  it("should return 25 for offshore", () => {
-    expect(getWindScore("offshore")).toBe(25);
-  });
-
-  it("should return 15 for light", () => {
-    expect(getWindScore("light")).toBe(15);
-  });
-
-  it("should return 0 for onshore", () => {
-    expect(getWindScore("onshore")).toBe(0);
-  });
-});
 
 describe("constants", () => {
   it("OFFSHORE_DIRECTIONS should include se", () => {

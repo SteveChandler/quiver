@@ -36,25 +36,6 @@ interface CityContentInput {
 }
 
 /**
- * Generate both summary and FAQ in one pass, avoiding duplicate countValues calls.
- */
-export function generateCityContent(input: CityContentInput): {
-  summary: string;
-  faqs: FAQItem[];
-} {
-  const { cityName, stateName, stateSlug, stats, beaches, editorialBeachData } = input;
-
-  // Shared computation — used by both summary and FAQ
-  const skillCounts = countValues(beaches.map((b) => b.skill_level));
-  const regional = getRegionalData(stateSlug);
-
-  return {
-    summary: buildSummary({ cityName, stateName, stats, beaches, skillCounts, regional }),
-    faqs: buildFAQ({ cityName, stateSlug, stats, beaches, skillCounts, regional, editorialBeachData }),
-  };
-}
-
-/**
  * Generate rich content (with internal links) for both summary and FAQ.
  *
  * Beach names in the summary and FAQ answers are converted to links

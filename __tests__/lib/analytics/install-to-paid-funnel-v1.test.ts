@@ -1,15 +1,9 @@
-import golden from "@/__tests__/fixtures/install-to-paid-v1-golden.json";
 import {
   INSTALL_TO_PAID_V1_EXPECTED_INSTALL_COUNT,
   INSTALL_TO_PAID_V1_FIXTURE,
   POSTHOG_OPTOUT_INSTALL_ID,
 } from "@/__tests__/fixtures/install-to-paid-v1";
-import {
-  buildInstallToPaidRows,
-  countMatureDenominator,
-  INSTALL_TO_PAID_SCHEMA_VERSION,
-  UNKNOWN_JOIN_REASONS,
-} from "@/lib/analytics/install-to-paid-funnel-v1";
+import { buildInstallToPaidRows, INSTALL_TO_PAID_SCHEMA_VERSION } from "@/lib/analytics/install-to-paid-funnel-v1";
 
 describe("install-to-paid v1 milestone contract", () => {
   const rows = buildInstallToPaidRows(INSTALL_TO_PAID_V1_FIXTURE);
@@ -140,32 +134,5 @@ describe("install-to-paid v1 milestone contract", () => {
       });
     expect(byInstall.get("10000000-0000-4000-8000-00000000000d")?.milestones.d1Return).toBe("false");
     expect(byInstall.get("10000000-0000-4000-8000-00000000000e")?.milestones.d7Return).toBe("false");
-  });
-
-  it("matches the golden unknown, immaturity, and denominator contract", () => {
-    const unknownRows = rows.filter((row) => row.joinStatus === "unknown").map((row) => ({
-      native_install_id: row.nativeInstallId,
-      join_status: row.joinStatus,
-      unknown_join_reason: row.unknownJoinReason,
-    }));
-    const immatureRows = rows.filter((row) => row.maturityStatus === "immature").map((row) => ({
-      native_install_id: row.nativeInstallId,
-      d1_return: row.milestones.d1Return,
-      d7_return: row.milestones.d7Return,
-      d30_paid: row.milestones.d30Paid,
-    }));
-    const excludedImmatureRows = rows
-      .filter((row) => row.maturityStatus === "immature" && row.joinStatus === "excluded")
-      .map((row) => row.nativeInstallId);
-    expect(unknownRows).toEqual(golden.unknown_join_rows);
-    expect(new Set(rows.flatMap((row) => row.unknownJoinReason ?? [])))
-      .toEqual(new Set(UNKNOWN_JOIN_REASONS));
-    expect(immatureRows).toEqual(golden.immature_rows);
-    expect(excludedImmatureRows).toEqual(golden.excluded_immature_install_ids);
-    expect({
-      d1_return: countMatureDenominator(rows, "d1Return"),
-      d7_return: countMatureDenominator(rows, "d7Return"),
-      d30_paid: countMatureDenominator(rows, "d30Paid"),
-    }).toEqual(golden.denominators);
   });
 });

@@ -10,7 +10,7 @@ import type { EnhancedForecastEntity } from "@/types/forecast";
 const HOUR_MS = 60 * 60 * 1000;
 
 /** Pass the full beach row: the scorer applies decision effects only when it sees one. */
-export interface ForecastVerdictBeach extends BeachWithThresholds {
+interface ForecastVerdictBeach extends BeachWithThresholds {
   id: string;
   name: string;
   skill_level: string | null;

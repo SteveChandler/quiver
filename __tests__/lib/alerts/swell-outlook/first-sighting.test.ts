@@ -10,6 +10,68 @@ import {
 import { OUTLOOK_HOME_BEACH_ID as HOME, outlookSwell } from "@/__tests__/helpers/outlook-swell";
 
 const OTHER = "ffffffff-0000-4000-8000-000000000002";
+const OPTIONS = [
+  { beachId: OTHER, beachName: "Scripps", relation: "favorite" as const, faceHeightFt: { min: 3, max: 4 } },
+  { beachId: "ffffffff-0000-4000-8000-000000000003", beachName: "Del Mar", relation: "nearby" as const, faceHeightFt: { min: 2, max: 3 } },
+];
+
+it("puts the lead and two options in both the first-sighting text and ranked tap data", () => {
+  const args = { swell: outlookSwell(), timezone: "America/Los_Angeles" };
+  const baseline = buildFirstSightingPayload(args);
+  const payload = buildFirstSightingPayload({ ...args, swell: outlookSwell({ options: OPTIONS }) });
+  expect(payload.beaches).toEqual([
+    { beach_id: HOME, beach_name: "Blacks Beach", rank: 1 },
+    { beach_id: OTHER, beach_name: "Scripps", rank: 2, forecast_at: args.swell.peakAt },
+    { beach_id: OPTIONS[1].beachId, beach_name: "Del Mar", rank: 3, forecast_at: args.swell.peakAt },
+  ]);
+  expect(payload.body).toBe("WNW swell from the North Pacific, 14s. Peaks Monday morning. Sets up to 4.5 ft at Blacks Beach. "
+    + "Also: Scripps up to 4 ft, Del Mar up to 3 ft. Showing at 3 nearby breaks.");
+  expect(payload).toEqual({ ...baseline, beaches: payload.beaches, body: payload.body });
+});
+
+it("keeps the entire legacy payload byte-identical with absent or empty options", () => {
+  const args = { swell: outlookSwell({ fit: { status: "in_range", boards: ["longboard"] } }), timezone: "America/Los_Angeles" };
+  const baseline = buildFirstSightingPayload(args);
+  expect(baseline).toEqual({
+    schema_version: "major-swell-notification.v1", beach_id: HOME, beach_name: "Blacks Beach",
+    awareness_severity: "significant", would_suppress_cohorts: ["beginner", "intermediate", "unknown"],
+    title: "WNW swell Mon, sets to 4.5 ft",
+    body: "WNW swell from the North Pacific, 14s. Peaks Monday morning. Sets up to 4.5 ft at Blacks Beach. "
+      + "Good size for your longboard. Showing at 3 nearby breaks.",
+    beaches: [{ beach_id: HOME, beach_name: "Blacks Beach", rank: 1 }],
+    event_key: `${HOME}:NW:2026-09-21:p`, title_id: "s31", kind: "coming",
+    share_url: `https://www.quiversurf.app/app/swell/${HOME}%3ANW%3A2026-09-21%3Ap?k=coming&t=s31`,
+    event_start_date: "2026-09-21", peak_date: "2026-09-21", peak_height_ft: 4, peak_period_s: 14,
+    forecast_at: "2026-09-21T15:00:00.000Z", awareness_mode: "shadow", automation_enabled: false,
+    enforcement: null, awareness_signal: "forecast_trend", official_evidence_refs: [],
+  });
+  const empty = buildFirstSightingPayload({ ...args, swell: { ...args.swell, options: [] } });
+  expect(JSON.stringify(empty)).toBe(JSON.stringify(baseline));
+});
+
+it.each([undefined, {
+  state: "recommended" as const,
+  window: { start: "2026-09-21T17:00:00.000Z", end: "2026-09-21T19:00:00.000Z", localDate: "2026-09-21",
+    timezone: "America/Los_Angeles", faceHeightFt: { min: 3, max: 4 } },
+  reasons: [],
+}])("drops board, then alternatives, before hazard and core facts at 300 characters with window %j", (surfWindow) => {
+  const timezone = "America/Los_Angeles";
+  const core = "WNW swell from the North Pacific, 14s. Peaks Monday morning. Sets up to 4.5 ft at .";
+  const also = "Also: Scripps up to 4 ft, Del Mar up to 3 ft.";
+  const hazard = "NWS high surf advisory in effect.";
+  const window = surfWindow ? " Best window Mon 10 AM–12 PM." : "";
+  const nameLength = FIRST_SIGHTING_BODY_MAX_CHARS - `${core}${window} ${also} ${hazard}`.length;
+  for (const extra of [0, 1]) {
+    const name = "A".repeat(nameLength + extra);
+    const swell = outlookSwell({ beach: { id: HOME, name }, beachCount: 1, options: OPTIONS,
+      fit: { status: "in_range", boards: ["longboard"] } });
+    const body = renderFirstSightingBody({ swell, timezone, hazard: "high_surf", surfWindow });
+    expect(body).toBe(core.replace("at .", `at ${name}.`) + window + (extra === 0 ? ` ${also}` : "") + ` ${hazard}`);
+    expect(body.length).toBeLessThanOrEqual(FIRST_SIGHTING_BODY_MAX_CHARS);
+    expect(body).not.toContain("longboard");
+    expect(body).toHaveLength(extra === 0 ? FIRST_SIGHTING_BODY_MAX_CHARS : FIRST_SIGHTING_BODY_MAX_CHARS - also.length);
+  }
+});
 
 describe("selectFirstSightingCandidates", () => {
   it("keeps only forecast swells that are in range, same size earliest peak first", () => {
@@ -133,4 +195,54 @@ describe("renderFirstSightingBody", () => {
     expect(body).not.toContain("nearby breaks");
     expect(body).toContain(`Sets up to 4.5 ft at ${"A".repeat(150)}.`);
   });
+});
+
+describe('tide-aware first-sighting copy and payload', () => {
+  const surfWindow = {
+    state: 'recommended' as const,
+    window: { start: '2026-10-08T17:00:00.000Z', end: '2026-10-08T19:00:00.000Z', localDate: '2026-10-08',
+      timezone: 'America/Los_Angeles', faceHeightFt: { min: 3, max: 4 } },
+    reasons: ['high_tide_outside_preference', 'better_tide_after_peak'],
+  };
+
+  it('adds a beach-local window and fixed tide sentence while preserving existing fields', () => {
+    const args = { swell: outlookSwell(), timezone: 'Pacific/Honolulu' };
+    const baseline = buildFirstSightingPayload(args);
+    const payload = buildFirstSightingPayload({ ...args, surfWindow });
+    expect(payload.body).toContain('Best window Thu 10 AM–12 PM.');
+    expect(payload.body).toContain('Swell peaks at high tide; go as it drops.');
+    expect(payload.body.length).toBeLessThanOrEqual(300);
+    expect(payload.surf_window).toEqual({ state: 'recommended', start: surfWindow.window.start, end: surfWindow.window.end,
+      local_date: '2026-10-08', timezone: 'America/Los_Angeles', reasons: surfWindow.reasons });
+    const { body: _body, surf_window: _window, ...existing } = payload;
+    const { body: _baselineBody, ...baselineFields } = baseline;
+    expect(existing).toEqual(baselineFields);
+  });
+
+  it.each(['no_suitable_window', 'insufficient_tide_evidence'] as const)('keeps the body unchanged for %s', (state) => {
+    const args = { swell: outlookSwell(), timezone: 'America/Los_Angeles' };
+    const baseline = buildFirstSightingPayload(args);
+    const payload = buildFirstSightingPayload({ ...args, surfWindow: { state, window: null, reasons: ['tide_data_unavailable'] } });
+    expect(payload.body).toBe(baseline.body);
+    expect(payload.surf_window).toMatchObject({ state, start: null, end: null, local_date: null, timezone: null });
+  });
+
+  it('drops lower-priority copy to retain the window within the body budget', () => {
+    const payload = buildFirstSightingPayload({ swell: outlookSwell({ source: 'southern_hemisphere',
+      fit: { status: 'in_range', boards: ['longboard'] },
+      sizeByOrientation: { westFacing: { min: 4, max: 6 }, southFacing: { min: 3, max: 5 } } }),
+      timezone: 'America/Los_Angeles', hazard: 'high_rip_current', surfWindow });
+    expect(payload.body).toContain('Best window Thu 10 AM–12 PM.');
+    expect(payload.body.length).toBeLessThanOrEqual(FIRST_SIGHTING_BODY_MAX_CHARS);
+  });
+});
+
+
+it('retains the window within 300 characters with a long beach name', () => {
+  const payload = buildFirstSightingPayload({ swell: outlookSwell({ source: 'southern_hemisphere',
+    beach: { id: HOME, name: 'A'.repeat(180) }, arrivalAt: '2026-10-06T16:00:00.000Z', peakAt: '2026-10-08T22:00:00.000Z' }), timezone: 'America/Los_Angeles', hazard: 'high_surf',
+    surfWindow: { state: 'recommended', window: { start: '2026-10-08T17:00:00.000Z', end: '2026-10-08T19:00:00.000Z',
+      localDate: '2026-10-08', timezone: 'America/Los_Angeles', faceHeightFt: { min: 3, max: 4 } }, reasons: [] } });
+  expect(payload.body).toContain('Best window Thu 10 AM–12 PM.');
+  expect(payload.body.length).toBeLessThanOrEqual(300);
 });

@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
-import { TideChartEnhanced } from "@/components/forecast/tide-chart-enhanced";
+import { TideChart } from "@/components/forecast/tide-chart-recharts";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import { useEmbedImpression } from "@/hooks/use-embed-impression";
 
@@ -79,18 +79,14 @@ export function EmbedTideWidget({
               </div>
             }
           >
-            <TideChartEnhanced
-              forecasts={forecasts}
-              windowHours={windowHours}
-              compact
-              compactLayout
-              showDiagnostics={false}
-              showNextExtreme={false}
-              showHourlyTable={false}
-              showWarnings={false}
-              showVerifiedBadge={false}
-              className="h-full"
-            />
+            <div className="space-y-4">
+              <TideChart
+                forecasts={forecasts}
+                windowHours={windowHours}
+                compact
+                className="h-full"
+              />
+            </div>
           </Suspense>
         )}
       </div>

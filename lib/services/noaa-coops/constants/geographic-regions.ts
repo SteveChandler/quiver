@@ -20,14 +20,24 @@ export const GEOGRAPHIC_STATIONS: RegionBounds[] = [
     name: "Hawaii (Honolulu)",
   },
 
-  // Southern California - San Diego
+  // San Diego Bay near Broadway
+  {
+    latMin: 32.7,
+    latMax: 32.74,
+    lonMin: -117.19,
+    lonMax: -117.1,
+    stationId: "9410170",
+    name: "San Diego Bay",
+  },
+
+  // Southern California - San Diego open coast
   {
     latMin: 32.5,
     latMax: 33.0,
     lonMin: -117.5,
     lonMax: -117.0,
-    stationId: "9410170",
-    name: "San Diego",
+    stationId: "9410230",
+    name: "La Jolla (San Diego coast)",
   },
 
   // Southern California - North County

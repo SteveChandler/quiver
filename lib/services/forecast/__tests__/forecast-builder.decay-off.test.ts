@@ -36,7 +36,6 @@ jest.mock("@/lib/utils/wave-formatters", () => {
   const actual = jest.requireActual("@/lib/utils/unit-conversions");
   return {
     toFaceHeightFeet: jest.fn(() => "3 ft"),
-    toFaceHeightFeetDecomposed: jest.fn(() => "3 ft"),
     toFaceHeightFeetDecomposedWithDebug: jest.fn(() => ({
       value: "3 ft",
       debug: {

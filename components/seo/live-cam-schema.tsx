@@ -1,3 +1,4 @@
+import { JsonLd } from "@/components/seo/funnel/JsonLd";
 interface LiveCamSchemaProps {
   beachName: string;
   cameraUrl: string;
@@ -43,9 +44,6 @@ export function LiveCamSchema({
   };
 
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
-    />
+    <JsonLd data={data} />
   );
 }

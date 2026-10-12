@@ -10,7 +10,7 @@ import { HomeHeroMedia } from "./home-hero-media";
 
 const INK = "#11100D";
 const CREAM = "#F4EBD8";
-const STAMP_BLUE = "#0B3A75";
+const STAMP_BLUE = "#8A5E00";
 
 /**
  * Tier colours over the dark media band, matching the native verdict band:
@@ -114,7 +114,7 @@ export function HomeCallPlate({
           <p
             className="m-0 text-[30px] sm:text-[40px]"
             style={{
-              fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+              fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
               lineHeight: 0.95,
               letterSpacing: "-0.01em",
               textTransform: "uppercase",
@@ -156,7 +156,7 @@ export function HomeCallPlate({
               <h1
                 className="zine-display m-0 text-[44px] sm:text-[56px]"
                 style={{
-                  fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+                  fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
                   lineHeight: 0.9,
                   letterSpacing: "-0.02em",
                   textTransform: "uppercase",
@@ -204,25 +204,20 @@ export function HomeCallPlate({
         </div>
       </HomeHeroMedia>
 
-      {/* The local's read, as a margin note rather than a second headline. */}
+      {/* The local's read, set in body type under the call (native has no
+          handwritten face). */}
       {greeting && (
         <p
           className="m-0 mt-4 max-w-[560px]"
           style={{
-            fontFamily: "var(--font-handwritten), cursive",
-            fontSize: 19,
-            lineHeight: 1.25,
-            color: INK,
-            opacity: 0.82,
+            fontFamily: "var(--font-sans), sans-serif",
+            fontSize: 17,
+            lineHeight: 1.45,
+            fontWeight: 500,
+            color: "#4A463C",
           }}
         >
-          <span aria-hidden style={{ color: STAMP_BLUE, marginRight: 4 }}>
-            &ldquo;
-          </span>
           {greeting}
-          <span aria-hidden style={{ color: STAMP_BLUE, marginLeft: 2 }}>
-            &rdquo;
-          </span>
         </p>
       )}
 
@@ -316,7 +311,7 @@ function ConditionStrip({
             aria-label={"ariaLabel" in c ? c.ariaLabel : undefined}
             data-testid={"testId" in c ? c.testId : undefined}
             style={{
-              fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+              fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
               fontWeight: 900,
               lineHeight: 1.05,
               color: c.color,

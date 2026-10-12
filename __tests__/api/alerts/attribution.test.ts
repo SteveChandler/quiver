@@ -79,10 +79,11 @@ jest.mock("@/lib/middleware/api-wrappers", () => ({
   createSuccessResponse: jest.fn((data: unknown) =>
     Response.json({ success: true, data }),
   ),
-  withProtection: jest.fn((handler) => (request: Request) => handler(request, {
+  withAuth: jest.fn((handler) => (request: Request) => handler(request, {
     user: { id: USER_ID },
     supabase: mockUserClient,
   })),
+  withRateLimit: jest.fn((handler) => handler),
   withNoStore: jest.fn((handler) => handler),
 }));
 

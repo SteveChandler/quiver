@@ -1,3 +1,4 @@
+import { JsonLd } from "@/components/seo/funnel/JsonLd";
 import { FES2022_CITATION, MODEL_TIDE_SOURCE } from "@/lib/services/tides/model-tides";
 
 interface TideDatasetSchemaProps {
@@ -101,10 +102,7 @@ export function TideDatasetSchema({
   }
 
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
-    />
+    <JsonLd data={data} />
   );
 }
 

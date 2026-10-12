@@ -31,10 +31,6 @@ const customJestConfig = {
     "/__tests__/fixtures/",
     "<rootDir>/__tests__/helpers/",
     "/__fixtures__/",
-    // Example-only test docs (not part of the suite)
-    "<rootDir>/components/session/wizard/__tests__/",
-    // Shared helper modules imported by tests are not suites themselves
-    "<rootDir>/__tests__/helpers/",
     "<rootDir>/__tests__/performance/helpers/",
   ],
   // jest-haste-map scans __mocks__ regardless of testPathIgnorePatterns;
@@ -48,10 +44,6 @@ const customJestConfig = {
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/$1",
     "^@neaps/tide-predictor$": "<rootDir>/node_modules/@neaps/tide-predictor/dist/index.js",
-    // Mock Supabase entirely for problematic component tests
-    "^@/lib/supabase/client$": "<rootDir>/__tests__/setup/mock-supabase.ts",
-    "^@/lib/supabase/server$": "<rootDir>/__tests__/setup/mock-supabase.ts",
-    "^@/lib/supabase$": "<rootDir>/__tests__/setup/mock-supabase.ts",
     // Mock the realtime module specifically
     "^@supabase/realtime-js$": "<rootDir>/__tests__/setup/mock-supabase.ts",
     // Mock canvas module that jsdom tries to require

@@ -1,3 +1,4 @@
+import { JsonLd } from "@/components/seo/funnel/JsonLd";
 interface WaterTempDatasetSchemaProps {
   cityOrBeachName: string;
   state?: string;
@@ -82,10 +83,7 @@ export function WaterTempDatasetSchema({
   }
 
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
-    />
+    <JsonLd data={data} />
   );
 }
 

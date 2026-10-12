@@ -1,4 +1,4 @@
-import { config } from 'dotenv';
+import { config } from '../load-env.mjs';
 import path from 'node:path';
 
 config({ path: path.resolve(process.cwd(), '.env') });
@@ -21,7 +21,7 @@ export type UsageGate = {
   source: 'web' | 'native' | 'shared';
 };
 
-export type UsageCoverageRow = UsageGate & {
+type UsageCoverageRow = UsageGate & {
   observedRank: number | null;
   observedWeight: number;
   status: CoverageStatus;

@@ -9,10 +9,6 @@ import type { FirstTouchPlatform } from "@/lib/analytics/web-context";
 
 interface QuiverFieldGuideLandingProps {
   platform: FirstTouchPlatform;
-  /** Defaults ON upstream and only tags analytics cohort; this does not gate
-   * whether the field-guide landing renders. Roll back by reverting deploy, not
-   * flipping APP_FIRST_LANDING_ENABLED. */
-  appFirst?: boolean;
 }
 
 export function QuiverFieldGuideLanding({
@@ -21,7 +17,7 @@ export function QuiverFieldGuideLanding({
   return (
     <div
       data-testid="quiver-field-guide-landing"
-      className="bg-[#0D1020]"
+      className="bg-[#252D6B]"
     >
       <FieldGuideHero platform={platform} />
       <FieldGuideWalkthrough />

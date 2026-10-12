@@ -10,6 +10,7 @@
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { gunzipSync } from "node:zlib";
 
 import { buildSurfClimatologyDataset, type SourceSeries } from "@/lib/climatology/build-dataset";
@@ -24,10 +25,6 @@ const CACHE_DIR = ".cache/climatology";
 const DATASET_DIR = "lib/data/surf-climatology";
 const CSV_DIR = "public/data/surf-climatology";
 const USER_AGENT = "QuiverSurf/1.0 (https://www.quiversurf.app; surf-climatology)";
-
-async function delay(ms: number): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 async function fetchCached(url: string, cacheName: string): Promise<Buffer | null> {
   const path = join(CACHE_DIR, cacheName);

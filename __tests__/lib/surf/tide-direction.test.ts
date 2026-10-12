@@ -1,38 +1,5 @@
-import { getDirectionMultiplier, getTideAlert } from "@/lib/surf/tide-direction";
+import { getTideAlert } from "@/lib/surf/tide-direction";
 
-describe("getDirectionMultiplier", () => {
-  it("returns 1.0 when beach preference is null", () => {
-    expect(getDirectionMultiplier(null, "rising")).toBe(1.0);
-  });
-
-  it("returns 1.0 when beach preference is 'either'", () => {
-    expect(getDirectionMultiplier("either", "rising")).toBe(1.0);
-    expect(getDirectionMultiplier("either", "falling")).toBe(1.0);
-  });
-
-  it("returns 1.0 when direction matches preference", () => {
-    expect(getDirectionMultiplier("rising", "rising")).toBe(1.0);
-    expect(getDirectionMultiplier("falling", "falling")).toBe(1.0);
-  });
-
-  it("returns 0.7 when direction mismatches preference", () => {
-    expect(getDirectionMultiplier("rising", "falling")).toBe(0.7);
-    expect(getDirectionMultiplier("falling", "rising")).toBe(0.7);
-  });
-
-  it("returns 0.85 for slack preference when not slack", () => {
-    expect(getDirectionMultiplier("slack", "rising")).toBe(0.85);
-    expect(getDirectionMultiplier("slack", "falling")).toBe(0.85);
-  });
-
-  it("returns 1.0 for slack preference when slack", () => {
-    expect(getDirectionMultiplier("slack", "slack")).toBe(1.0);
-  });
-
-  it("returns 1.0 when current direction is null", () => {
-    expect(getDirectionMultiplier("rising", null)).toBe(1.0);
-  });
-});
 
 describe("getTideAlert", () => {
   it("returns neutral status for null preference", () => {

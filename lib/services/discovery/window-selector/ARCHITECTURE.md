@@ -17,7 +17,6 @@ window-selector/
 ├── peak-finder.ts                # Sub-hour peak interpolation
 ├── window-refiner.ts             # Boundary refinement logic
 ├── window-scorer.ts              # Forecast scoring functions
-├── scoring-engine-singleton.ts   # Lazy-initialized scoring engine
 └── window-selector-core.ts       # Main selectBestWindow algorithm
 ```
 
@@ -98,11 +97,6 @@ Boundary refinement:
 Scoring functions:
 - `scoreForecastWindow()` - Calculate base score for a forecast
 - `scoreWindowWithEngine()` - Score using unified scoring engine
-
-### `scoring-engine-singleton.ts`
-Lazy-loaded scoring engine:
-- `getScoringEngine()` - Get or create singleton
-- `resetScoringEngine()` - Reset for testing
 
 ### `window-selector-core.ts`
 Main algorithm (~825 lines):

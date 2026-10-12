@@ -4,9 +4,8 @@ import { useAuth } from "@/context/auth-context";
 import { useEffect, useRef, useState, type ReactElement } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
-import { PerformanceUtils } from "@/lib/utils/performance-utils";
 import { hasSupabaseAuthCookie } from "@/lib/utils/supabase-cookie-utils";
-import { BODY_CLASSES, PERFORMANCE_TIMING } from "@/lib/constants/css-classes";
+import { BODY_CLASSES } from "@/lib/constants/css-classes";
 import { Navbar } from "@/components/landing-page/navbar";
 import { QuiverFieldGuideLanding } from "@/components/landing-page/field-guide/quiver-field-guide-landing";
 import { HomeZineLoading } from "@/components/oracle/zine/home-zine-states";
@@ -60,12 +59,10 @@ const OracleHomeScreenDynamic = dynamic(
  */
 interface AuthAwareLandingWrapperProps {
   initialPlatform?: FirstTouchPlatform;
-  appFirst?: boolean;
 }
 
 export function AuthAwareLandingWrapper({
   initialPlatform = "desktop",
-  appFirst = true,
 }: AuthAwareLandingWrapperProps = {}): ReactElement {
   const { user, isLoading } = useAuth();
   const router = useRouter();
@@ -112,18 +109,6 @@ export function AuthAwareLandingWrapper({
     router.replace(cleanUrl);
   };
 
-  // Initialize performance monitoring
-  useEffect(() => {
-    PerformanceUtils.trackWebVitals();
-    PerformanceUtils.preloadCriticalResources();
-
-    if (process.env.NODE_ENV === "development") {
-      setTimeout(() => {
-        PerformanceUtils.monitorMemoryUsage();
-      }, PERFORMANCE_TIMING.MEMORY_MONITOR_DELAY_MS);
-    }
-  }, []);
-
   // Note: body.authenticated class management moved to AuthBodyClassManager in providers.tsx
   // This ensures the SSR beach section is hidden on ALL routes, not just the landing page
 
@@ -161,7 +146,6 @@ export function AuthAwareLandingWrapper({
       <main role="main">
         <QuiverFieldGuideLanding
           platform={platform}
-          appFirst={appFirst}
         />
       </main>
 

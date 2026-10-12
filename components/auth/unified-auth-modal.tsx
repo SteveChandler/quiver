@@ -2,9 +2,9 @@
 
 import * as React from "react";
 import { useState, useEffect, useRef } from "react";
-import type { User } from "@supabase/supabase-js";
 import { useAuth } from "@/context/auth-context";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { useRoutePathname } from "@/hooks/use-route-pathname";
 import { resolveConfirmNext } from "@/lib/auth/confirm-utils";
 import {
   Dialog,
@@ -28,7 +28,6 @@ import {
 import {
   trackAuthModalOpened,
   trackAuthModalClosedWithoutAction,
-  trackAuthMethodSelected,
   trackAuthProviderSelected,
   trackLoginStarted,
   trackLoginSuccess,
@@ -82,13 +81,9 @@ interface UnifiedAuthModalProps {
   isOpen: boolean;
   /** Callback when modal is closed */
   onClose: () => void;
-  /** Optional callback on successful authentication */
-  onSuccess?: (user: User) => void;
 
   /** Modal mode: login, signup, or auto-detect */
   mode: "login" | "signup" | "auto";
-  /** Initial view to show (defaults to 'providers') */
-  initialView?: "providers" | "email-password" | "magic-link";
 
   /** Explicit return path after auth */
   returnTo?: string;
@@ -98,15 +93,10 @@ interface UnifiedAuthModalProps {
   modalContext?: string;
 
   /** UI customization */
-  dismissible?: boolean;
   showCloseButton?: boolean;
   /** Contextual title/description override for the modal */
   contextMessage?: { title?: string; description?: string };
 
-  /** Feature flags */
-  enableMagicLink?: boolean;
-  enablePassword?: boolean;
-  enableOAuth?: boolean;
 }
 
 /**
@@ -126,28 +116,22 @@ type AuthView =
 export function UnifiedAuthModal({
   isOpen,
   onClose,
-  onSuccess,
   mode,
-  initialView = "providers",
   returnTo,
   source = "unknown",
   modalContext,
-  dismissible = true,
   showCloseButton = true,
   contextMessage,
-  enableMagicLink = true,
-  enablePassword = true,
-  enableOAuth = true,
 }: UnifiedAuthModalProps) {
   const { signIn, signUp, user } = useAuth();
   const router = useRouter();
-  const pathname = usePathname();
+  const pathname = useRoutePathname();
 
   const initialMode: "login" | "signup" =
     mode === "signup" ? "signup" : "login";
 
   // View and form state
-  const [view, setView] = useState<AuthView>(initialView);
+  const [view, setView] = useState<AuthView>("providers");
   const [activeMode, setActiveMode] = useState<"login" | "signup">(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -267,7 +251,7 @@ export function UnifiedAuthModal({
     if (isOpen) {
       authActionTakenRef.current = false;
     } else {
-      setView(initialView);
+      setView("providers");
       setActiveMode(initialMode);
       setEmail("");
       setPassword("");
@@ -276,7 +260,7 @@ export function UnifiedAuthModal({
       setError(null);
       setLoading(false);
     }
-  }, [isOpen, initialView, initialMode]);
+  }, [isOpen, initialMode]);
 
   /**
    * Handle Apple Sign-In
@@ -287,7 +271,6 @@ export function UnifiedAuthModal({
     setError(null);
 
     authActionTakenRef.current = true;
-    trackAuthMethodSelected({ method: "apple", mode: activeMode });
     trackAuthProviderSelected({ provider: "apple", mode: activeMode, source });
     if (activeMode === "signup") {
       signupFlowRef.current = trackSignupStarted("apple", {
@@ -343,7 +326,6 @@ export function UnifiedAuthModal({
     setError(null);
 
     authActionTakenRef.current = true;
-    trackAuthMethodSelected({ method: "google", mode: activeMode });
     trackAuthProviderSelected({ provider: "google", mode: activeMode, source });
     if (activeMode === "signup") {
       signupFlowRef.current = trackSignupStarted("google", {
@@ -403,7 +385,6 @@ export function UnifiedAuthModal({
     setError(null);
 
     authActionTakenRef.current = true;
-    trackAuthMethodSelected({ method: "magic_link", mode: "login" });
     trackAuthProviderSelected({ provider: "email", mode: "login", source, email_method: "magic_link" });
     trackLoginStarted("magic_link");
 
@@ -446,7 +427,6 @@ export function UnifiedAuthModal({
 
     setLoading(true);
     authActionTakenRef.current = true;
-    trackAuthMethodSelected({ method: "password", mode: activeMode });
     trackAuthProviderSelected({ provider: "email", mode: activeMode, source, email_method: "password" });
     if (!user) {
       // Emit the mode-specific event so dashboards don't have to filter by
@@ -584,9 +564,9 @@ export function UnifiedAuthModal({
         return (
           <AuthProviders
             mode={activeMode}
-            enableOAuth={enableOAuth}
-            enablePassword={enablePassword}
-            enableMagicLink={enableMagicLink}
+            enableOAuth={true}
+            enablePassword={true}
+            enableMagicLink={true}
             loading={loading}
             onAppleClick={process.env.NEXT_PUBLIC_APPLE_CLIENT_ID ? handleAppleSignIn : undefined}
             onGoogleClick={handleGoogleOAuth}
@@ -646,11 +626,9 @@ export function UnifiedAuthModal({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={dismissible ? handleClose : undefined}>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent
         className="sm:max-w-md"
-        onInteractOutside={(e) => !dismissible && e.preventDefault()}
-        onEscapeKeyDown={(e) => !dismissible && e.preventDefault()}
       >
         <DialogHeader>
           <DialogTitle>

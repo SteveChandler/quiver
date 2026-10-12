@@ -1,8 +1,4 @@
-import {
-  mergeResolvedSpotPhotos,
-  wilsonLowerBound,
-  type ResolvedSpotPhoto,
-} from "@/lib/community-photos";
+import { mergeResolvedSpotPhotos, type ResolvedSpotPhoto } from "@/lib/community-photos";
 
 function community(
   id: string,
@@ -27,7 +23,7 @@ function community(
       profileId: null,
     },
     community: {
-      voteScore: wilsonLowerBound(upvotes, downvotes),
+      voteScore: upvotes - downvotes,
       upvotes,
       downvotes,
       viewerVote: null,
@@ -41,11 +37,6 @@ function community(
 }
 
 describe("community photo ranking", () => {
-  it("returns zero below five votes and the Wilson 95% lower bound otherwise", () => {
-    expect(wilsonLowerBound(4, 0)).toBe(0);
-    expect(wilsonLowerBound(5, 0)).toBeCloseTo(0.5655, 3);
-    expect(wilsonLowerBound(8, 2)).toBeCloseTo(0.4902, 3);
-  });
 
   it("orders eligible photos by pin, score, total votes, then UUID without recency", () => {
     const lowerId = "10000000-0000-4000-8000-000000000001";

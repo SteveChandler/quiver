@@ -9,13 +9,6 @@ import { QuiverSticker, ZineSurface } from "@/components/zine";
 export const dynamic = "force-dynamic";
 
 async function fetchItems(viewerUserId: string | null): Promise<RoadmapItem[]> {
-  // DEV-ONLY preview path: when NEXT_PUBLIC_ROADMAP_MOCK=1, return seeded mock
-  // data so the page renders before migrations are applied to prod. Revert
-  // before shipping — see DEV_ROADMAP_MOCK comment in .env.local.
-  if (process.env.NEXT_PUBLIC_ROADMAP_MOCK === "1") {
-    return getMockRoadmapItems();
-  }
-
   const service = createSupabaseServiceRoleClient();
   const { data } = await service
     .from("roadmap_items_with_vote_count")
@@ -39,53 +32,6 @@ async function fetchItems(viewerUserId: string | null): Promise<RoadmapItem[]> {
   })) as RoadmapItem[];
 }
 
-function getMockRoadmapItems(): RoadmapItem[] {
-  const now = "2026-04-24T00:00:00Z";
-  const mk = (
-    id: string,
-    title: string,
-    description: string,
-    category: RoadmapItem["category"],
-    status: RoadmapItem["status"],
-    vote_count: number,
-    extras: Partial<RoadmapItem> = {},
-  ): RoadmapItem => ({
-    id,
-    title,
-    description,
-    category,
-    status,
-    eta_label: null,
-    founder_reply: null,
-    shipped_at: null,
-    created_at: now,
-    updated_at: now,
-    vote_count,
-    viewer_has_voted: false,
-    ...extras,
-  });
-  return [
-    mk("ip-1", "More beaches with diorama videos", "Shipping ~10 new beach diorama videos per week. Veo's daily quota is the pacing limit, not the queue.", "forecasts", "in_progress", 34, { eta_label: "Rolling weekly" }),
-    mk("ip-2", "Friends feed + invite deep links", "Segmented Friends / Nearby / Roadmap feed, working invite share-links, and the follow-you notifications surface.", "community", "in_progress", 22, { eta_label: "This month" }),
-    mk("uc-1", "Auto-log sessions from your watch", "Wave count, paddle distance, ride distance from the wrist. HealthKit's Surfing workout is the fast path; full IMU wave detection is the ambitious version.", "logging", "under_consideration", 47, { founder_reply: "Strong interest here. Evaluating HealthKit vs a custom workout as the v1 path — HealthKit ships faster but IMU unlocks the wave-count dream. Will post when we lock the scope." }),
-    mk("uc-2", "Apple Watch forecast glance", "Quick-check your favorite beaches from the wrist — complications, today's call, tide curve. No session tracking in v1.", "forecasts", "under_consideration", 31),
-    mk("uc-3", "Restore deleted sessions", "Undo an accidental delete. Sessions are already soft-deleted server-side; this exposes the button and a recent-deletions view.", "logging", "under_consideration", 18),
-    mk("uc-4", "Offline session save", "Log a session on spotty LTE and have it sync when you're back in range. No lost sessions.", "logging", "under_consideration", 14),
-    mk("uc-5", "In-app explainers (period, tide, wind)", "Tap any stat on a forecast for a plain-English explanation. Built for first-day beginners who haven't learned to read a swell map yet.", "forecasts", "under_consideration", 9),
-    mk("uc-6", "Discipline-aware match scoring", "Longboarders score well on small long-period days; foilers on bumpy light-wind days. Your discipline should shape your match, not just your skill.", "forecasts", "under_consideration", 7),
-    mk("uc-7", "International buoy coverage", "Close the Australia / UK / East Coast US buoy gaps so forecasts work outside the Pacific.", "forecasts", "under_consideration", 5),
-    mk("uc-8", "Crew group chat", "A small space to coordinate with the 3-5 people you actually surf with. Not a public forum — just your people.", "community", "under_consideration", 3),
-    mk("sh-1", "Custom user-created spots", "Long-press the map or use the Add Spot button to save any break — secret reef, local wedge, anywhere.", "logging", "shipped", 0, { shipped_at: "2026-04-24T00:00:00Z" }),
-    mk("sh-2", "Map-center placement mode", "Drag the map to position the pin exactly where you want it.", "logging", "shipped", 0, { shipped_at: "2026-04-24T00:00:00Z" }),
-    mk("sh-3", "Pre-sunset hero dead zone fix", "The home hero no longer goes blank in the window before sunset on the same day.", "forecasts", "shipped", 0, { shipped_at: "2026-04-23T00:00:00Z" }),
-    mk("sh-4", "Similarity redesign", "Match scoring now finds your sweet spot AND penalizes the conditions you actively avoid, not just a single weighted average.", "forecasts", "shipped", 0, { shipped_at: "2026-04-21T00:00:00Z" }),
-    mk("sh-5", "ml_skipped signal in forecasts", "Per-row flag tells you whether a forecast value came from the ML model or the physical taper.", "forecasts", "shipped", 0, { shipped_at: "2026-04-20T00:00:00Z" }),
-    mk("sh-6", "Post-signup activation fixes", "Confirmation email + callback flow now work reliably.", "other", "shipped", 0, { shipped_at: "2026-04-19T00:00:00Z" }),
-    mk("sh-7", "Native home hero discovery gate", "Home screen loader waits for discovery resolution before picking a hero.", "forecasts", "shipped", 0, { shipped_at: "2026-04-17T00:00:00Z" }),
-    mk("sh-8", "Regime-aware model training", "Training now weights conditions by regime (swell vs. windswell vs. mix).", "forecasts", "shipped", 0, { shipped_at: "2026-04-15T00:00:00Z" }),
-  ];
-}
-
 function groupByStatus(items: RoadmapItem[]): Record<RoadmapStatus, RoadmapItem[]> {
   const groups: Record<RoadmapStatus, RoadmapItem[]> = {
     under_consideration: [],
@@ -101,7 +47,7 @@ function RoadmapDivider({ label }: { label: string }) {
   return (
     <div
       aria-hidden="true"
-      className="my-8 flex items-center gap-2 overflow-hidden font-[var(--font-mono)] text-[10px] uppercase tracking-[0.4em] text-[#11100D]/45"
+      className="my-8 flex items-center gap-2 overflow-hidden font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.4em] text-[#11100D]/45"
     >
       <span className="shrink-0 text-[#F78E42]">{"//"}</span>
       <span className="shrink-0">{label}</span>
@@ -154,7 +100,7 @@ export default async function RoadmapPage() {
               className="absolute -top-8 right-4 hidden w-36 rotate-6 opacity-85 sm:block"
             />
             <p className="label-black mb-5">Public roadmap</p>
-            <p className="mb-3 font-[var(--font-mono)] text-[11px] uppercase tracking-[0.24em] text-[#B56A2B]">
+            <p className="mb-3 font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.24em] text-[#B56A2B]">
               {`// Quiver roadmap // ${nowLabel}`}
             </p>
             <h1 className="zine-h1 font-black uppercase leading-[0.88] tracking-normal text-[#11100D]">
@@ -166,7 +112,7 @@ export default async function RoadmapPage() {
               Building in the open. Vote on what ships next, or drop a request
               if you&apos;ve got one we haven&apos;t thought of.
             </p>
-            <div className="mt-7 flex flex-wrap gap-x-5 gap-y-2 font-[var(--font-mono)] text-[11px] uppercase tracking-[0.14em] text-[#11100D]/65">
+            <div className="mt-7 flex flex-wrap gap-x-5 gap-y-2 font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.14em] text-[#11100D]/65">
               <span>{items.length} ideas</span>
               <span aria-hidden>/</span>
               <span>{grouped.shipped.length} shipped</span>
@@ -202,7 +148,7 @@ export default async function RoadmapPage() {
           <div className="grid gap-5 md:grid-cols-[0.9fr_1.1fr] md:items-center">
             <div>
               <p className="typewriter mb-2">How this works</p>
-              <h2 className="font-[var(--font-zine-display)] text-3xl font-black uppercase leading-none text-[#11100D] sm:text-4xl">
+              <h2 className="font-[family-name:var(--font-zine-display)] text-3xl font-black uppercase leading-none text-[#11100D] sm:text-4xl">
                 The surf app gets shaped in public.
               </h2>
             </div>
@@ -243,7 +189,7 @@ export default async function RoadmapPage() {
           />
           {grouped.declined.length > 0 && (
             <details className="mt-10">
-              <summary className="cursor-pointer font-[var(--font-mono)] text-xs uppercase tracking-widest text-[#11100D]/55 hover:text-[#11100D]">
+              <summary className="cursor-pointer font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-[#11100D]/55 hover:text-[#11100D]">
                 {grouped.declined.length} passed, see why
               </summary>
               <div className="mt-4">

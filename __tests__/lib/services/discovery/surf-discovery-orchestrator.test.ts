@@ -351,7 +351,7 @@ jest.mock('@/lib/logger', () => ({
 jest.mock('@/lib/domains/scoring', () => ({
   // Engine stub: score() returns a CompositeScore-like with .total used by
   // computeWindowSlotScores. .skip = false so the helper doesn't short-circuit.
-  createDiscoveryScoringEngine: jest.fn(() => ({
+  getDiscoveryScoringEngine: jest.fn(() => ({
     score: jest.fn(() => ({
       total: 70,
       subscores: new Map(),
@@ -914,6 +914,25 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     // Verify it's sorted to the end due to low score
     const lastRec = result.recommendations[result.recommendations.length - 1];
     expect(lastRec.beach.id).toBe('beach-2');
+  });
+
+  test('drops distance friction for beaches inside the surfer\'s drive range', async () => {
+    const { scoreBeachWithEngine } = require('@/lib/domains/scoring');
+    const penaltyFor = (beachId: string): number | undefined => scoreBeachWithEngine.mock.calls
+      .filter(([, beach, , options]: [unknown, Beach, unknown, unknown]) => beach.id === beachId && options !== undefined)
+      .map(([, , , options]: [unknown, unknown, unknown, { distancePenalty: number }]) => options.distancePenalty)
+      .at(-1);
+
+    await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation, maxResults: 5 });
+    expect(penaltyFor('beach-3')).toBeLessThan(0);
+
+    scoreBeachWithEngine.mockClear();
+    await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation, maxResults: 5, driveRadiusMiles: 45 });
+    expect(penaltyFor('beach-3')).toBe(0);
+
+    scoreBeachWithEngine.mockClear();
+    await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation, maxResults: 5, driveRadiusMiles: 5 });
+    expect(penaltyFor('beach-3')).toBeLessThan(0);
   });
 
   test('handles empty favorites gracefully', async () => {
@@ -3414,7 +3433,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       createSupabaseServiceRoleClient: jest.fn(() => ({ from: mockSupabaseFrom, rpc: mockSupabaseRpc })),
     }));
     jest.doMock('@/lib/domains/scoring', () => ({
-      createDiscoveryScoringEngine: jest.fn(() => ({
+  getDiscoveryScoringEngine: jest.fn(() => ({
         score: jest.fn(() => ({
           total: 70,
           subscores: new Map(),
@@ -3614,7 +3633,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       createSupabaseServiceRoleClient: jest.fn(() => ({ from: mockSupabaseFrom, rpc: mockSupabaseRpc })),
     }));
     jest.doMock('@/lib/domains/scoring', () => ({
-      createDiscoveryScoringEngine: jest.fn(() => ({
+  getDiscoveryScoringEngine: jest.fn(() => ({
         score: jest.fn(() => ({
           total: 70,
           subscores: new Map(),
@@ -3809,7 +3828,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       }, rpc: mockSupabaseRpc })),
     }));
     jest.doMock('@/lib/domains/scoring', () => ({
-      createDiscoveryScoringEngine: jest.fn(() => ({
+  getDiscoveryScoringEngine: jest.fn(() => ({
         score: jest.fn(() => ({
           total: 70,
           subscores: new Map(),
@@ -3987,7 +4006,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       createSupabaseServiceRoleClient: jest.fn(() => ({ from: mockSupabaseFrom, rpc: mockSupabaseRpc })),
     }));
     jest.doMock('@/lib/domains/scoring', () => ({
-      createDiscoveryScoringEngine: jest.fn(() => ({
+  getDiscoveryScoringEngine: jest.fn(() => ({
         score: jest.fn(() => ({
           total: 70,
           subscores: new Map(),
@@ -4161,7 +4180,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       createSupabaseServiceRoleClient: jest.fn(() => ({ from: mockSupabaseFrom, rpc: mockSupabaseRpc })),
     }));
     jest.doMock('@/lib/domains/scoring', () => ({
-      createDiscoveryScoringEngine: jest.fn(() => ({
+  getDiscoveryScoringEngine: jest.fn(() => ({
         score: jest.fn(() => ({
           total: 70,
           subscores: new Map(),

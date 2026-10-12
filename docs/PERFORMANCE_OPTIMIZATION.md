@@ -106,9 +106,7 @@ After:  Server → Render → Stream → Hydrate Islands → Interactive
 2. **Analyze Bundle Composition**
 
    ```bash
-   ANALYZE=true yarn build
-   # Or
-   npx @next/bundle-analyzer
+   yarn build --experimental-analyze
    ```
 
 3. **Profile Runtime Performance**
@@ -208,8 +206,7 @@ After:  Server → Render → Stream → Hydrate Islands → Interactive
 
    ```bash
    # Identify large packages
-   yarn dead:knip
-   npx webpack-bundle-analyzer
+   yarn deadcode
 
    # Example: Replace framer-motion with CSS
    npm uninstall framer-motion
@@ -504,8 +501,6 @@ npx lighthouse https://yoursite.com --view
 # CI/CD -- not a repo dependency, always run via npx
 npx -y @lhci/cli@0.15.1 autorun
 
-# or, from this repo (same pinned version)
-yarn lighthouse:ci
 ```
 
 **2. WebPageTest**
@@ -542,7 +537,7 @@ vercel analytics
 ### Pre-Optimization
 
 - [ ] Baseline metrics recorded (Lighthouse, WebPageTest)
-- [ ] Bundle analyzed (webpack-bundle-analyzer)
+- [ ] Bundle analyzed
 - [ ] Performance profile captured (Chrome DevTools)
 - [ ] Critical path identified (Network waterfall)
 - [ ] Prioritized optimization targets defined
@@ -562,7 +557,7 @@ vercel analytics
 - [ ] Lazy loading for non-critical components
 - [ ] Code-splitting by route
 - [ ] Tree-shaking enabled (default in Next.js)
-- [ ] Unused dependencies removed (`yarn dead:knip`)
+- [ ] Unused dependencies removed (`yarn deadcode`)
 
 ### Resource Optimization
 
@@ -708,12 +703,12 @@ export default async function Page() {
 
 **Lighthouse**
 
-- CLI: `npx lighthouse <url>` (`lighthouse` is a devDependency of this repo)
+- CLI: `npx lighthouse <url>`
 - Chrome DevTools: Lighthouse tab
 - CI/CD: `@lhci/cli`, pinned to 0.15.1. Deliberately **not** a devDependency
   here -- its bundled Puppeteer chain pulled a vulnerable `extract-zip` with no
   patched release (GHSA-jmr9-qjv8-65gv). `.github/workflows/lighthouse-ci.yml`
-  installs it globally, and `yarn lighthouse:ci` runs it via npx. Do not add it
+  installs it globally. Do not add it
   back to `package.json`.
 
 **WebPageTest**
@@ -740,14 +735,13 @@ export default async function Page() {
 **Bundle Analyzer**
 
 ```bash
-ANALYZE=true yarn build
-npx @next/bundle-analyzer
+yarn build --experimental-analyze
 ```
 
 **Dependency Check**
 
 ```bash
-yarn dead:knip
+yarn deadcode
 npm outdated
 ```
 

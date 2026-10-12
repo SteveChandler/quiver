@@ -26,7 +26,6 @@ import {
   createPublicReadClient,
   createSupabaseServiceRoleClient,
 } from "@/lib/supabase/server";
-import { isFreeGrowthPhaseEnabled } from "@/lib/flags/free-growth-phase";
 
 const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
@@ -122,7 +121,6 @@ export default async function BeachDetailBySlugPage(
           beachTimezone={beachTimezone}
           amenities={amenities}
           waterQuality={waterQuality}
-          freeGrowthPhaseEnabled={isFreeGrowthPhaseEnabled()}
         />
 
         {/* SSR sections below tabs for SEO crawlability */}

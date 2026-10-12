@@ -9,18 +9,7 @@ jest.mock("posthog-js", () => ({
 }));
 
 import posthog from "posthog-js";
-import {
-  _resetPostHogClientForTesting,
-  applyClientPostHogTrackingStorageEvent,
-  captureClientPostHogEvent,
-  captureClientPostHogEventAfterConsent,
-  captureQueuedClientPostHogSignup,
-  flushQueuedClientPostHogEvents,
-  identifyPostHogUser,
-  initPostHog,
-  queueClientPostHogSignup,
-  setClientPostHogTrackingAllowed,
-} from "@/lib/posthog-client";
+import { applyClientPostHogTrackingStorageEvent, captureClientPostHogEvent, captureClientPostHogEventAfterConsent, captureQueuedClientPostHogSignup, flushQueuedClientPostHogEvents, identifyPostHogUser, initPostHog, queueClientPostHogSignup, setClientPostHogTrackingAllowed, _resetPostHogClientForTesting } from "@/lib/posthog-client";
 
 describe("posthog-client", () => {
   const originalToken = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;

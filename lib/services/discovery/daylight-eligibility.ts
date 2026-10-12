@@ -139,7 +139,7 @@ export interface LightInterval {
   end: Date;
 }
 
-export interface LightMetadata {
+interface LightMetadata {
   firstLight: string;
   lastLight: string;
   isDark: boolean;

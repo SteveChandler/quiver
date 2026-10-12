@@ -56,11 +56,12 @@ describe("TodaySurfCall", () => {
       />,
     );
 
-    expect(screen.getByText("WORTH A SURF")).toBeInTheDocument();
+    expect(screen.getByText("Worth a surf")).toBeInTheDocument();
+    expect(screen.queryByText("WORTH A SURF")).not.toBeInTheDocument();
     expect(screen.queryByText("PADDLE OUT")).not.toBeInTheDocument();
   });
 
-  it("keeps BEST AT window copy for YES and uses the contrast-checked dark teal", () => {
+  it("keeps BEST AT window copy for YES and sets the call in native's teal ink", () => {
     render(
       <TodaySurfCall
         beach={createMockBeach({ name: "Marine Street Beach" })}
@@ -82,6 +83,47 @@ describe("TodaySurfCall", () => {
     );
 
     expect(screen.getByText(/BEST AT 7:00 AM/i)).toBeInTheDocument();
-    expect(screen.getByText("YES")).toHaveStyle({ color: "#006B5F" });
+    expect(screen.getByText("GOOD")).toHaveStyle({ color: "#06765F" });
+    expect(screen.getByText("Worth a surf")).toBeInTheDocument();
+  });
+
+  it("never shows the internal verdict as copy", () => {
+    render(
+      <TodaySurfCall
+        beach={createMockBeach({ name: "Seaside Reef" })}
+        surfCallReport={{
+          verdict: "MAYBE",
+          score: 58,
+          bestWindowStart: null,
+          bestWindowEnd: null,
+          whySentence: "Soft but rideable.",
+          updatedAt: "2026-05-21T18:32:00.000Z",
+        } as any}
+      />,
+    );
+
+    expect(screen.getByText("FAIR")).toHaveStyle({ color: "#8A5E00" });
+    expect(screen.getByText("Worth a look")).toBeInTheDocument();
+    expect(screen.queryByText("MAYBE")).not.toBeInTheDocument();
+  });
+
+  it("calls a skip day MEH in full ink", () => {
+    render(
+      <TodaySurfCall
+        beach={createMockBeach({ name: "Seaside Reef" })}
+        surfCallReport={{
+          verdict: "NO",
+          score: 22,
+          bestWindowStart: null,
+          bestWindowEnd: null,
+          whySentence: "Flat.",
+          updatedAt: "2026-05-21T18:32:00.000Z",
+        } as any}
+      />,
+    );
+
+    expect(screen.getByText("MEH")).toHaveStyle({ color: "#11100D" });
+    expect(screen.getByText("Skip it")).toBeInTheDocument();
+    expect(screen.queryByText("NO")).not.toBeInTheDocument();
   });
 });

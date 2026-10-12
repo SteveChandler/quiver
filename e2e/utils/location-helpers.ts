@@ -36,24 +36,6 @@ export async function navigateToLocation(
 }
 
 /**
- * Navigate to a location using the location identifier
- *
- * @param page - Playwright page object
- * @param location - Location identifier object
- */
-export async function navigateToLocationByIdentifier(
-  page: Page,
-  location: LocationIdentifier
-): Promise<void> {
-  await navigateToLocation(
-    page,
-    location.city,
-    location.state,
-    location.country
-  );
-}
-
-/**
  * Wait for location page to finish loading
  *
  * @param page - Playwright page object
@@ -87,7 +69,7 @@ export async function waitForLocationPageLoad(
  * @param page - Playwright page object
  * @returns Array of beach card elements
  */
-export async function getBeachCards(page: Page) {
+async function getBeachCards(page: Page) {
   return await page.locator(LOCATION_PAGE_SELECTORS.beachCard).all();
 }
 
@@ -157,27 +139,6 @@ export async function verifyBeachRanking(
       .textContent();
     expect(beachName?.toLowerCase()).toContain(expectedOrder[i].toLowerCase());
   }
-}
-
-/**
- * Check if map has correct number of markers
- *
- * @param page - Playwright page object
- * @param expectedCount - Expected number of map markers
- */
-export async function checkMapMarkers(
-  page: Page,
-  expectedCount: number
-): Promise<void> {
-  await page.waitForSelector(LOCATION_PAGE_SELECTORS.locationMap, {
-    state: "visible",
-    timeout: LOCATION_PAGE_TIMEOUTS.mapLoad,
-  });
-
-  const markers = await page
-    .locator(LOCATION_PAGE_SELECTORS.mapMarker)
-    .count();
-  expect(markers).toBe(expectedCount);
 }
 
 /**
@@ -264,7 +225,7 @@ export async function clickBreadcrumbSegment(
  * @param page - Playwright page object
  * @returns Array of rank numbers
  */
-export async function getBeachRanks(page: Page): Promise<number[]> {
+async function getBeachRanks(page: Page): Promise<number[]> {
   const rankElements = await page
     .locator(LOCATION_PAGE_SELECTORS.beachRank)
     .all();
@@ -303,29 +264,6 @@ export async function getRankingBadges(page: Page): Promise<string[]> {
     .locator(LOCATION_PAGE_SELECTORS.rankingBadge)
     .allTextContents();
   return badges.filter((badge) => badge.trim() !== "");
-}
-
-/**
- * Verify page has correct meta tags for SEO
- *
- * @param page - Playwright page object
- * @param expectedTitle - Expected page title (partial match)
- * @param expectedDescription - Expected meta description (partial match)
- */
-export async function verifyPageMetaTags(
-  page: Page,
-  expectedTitle: string,
-  expectedDescription?: string
-): Promise<void> {
-  const title = await page.title();
-  expect(title).toContain(expectedTitle);
-
-  if (expectedDescription) {
-    const metaDescription = await page
-      .locator('meta[name="description"]')
-      .getAttribute("content");
-    expect(metaDescription).toContain(expectedDescription);
-  }
 }
 
 /**
@@ -438,40 +376,4 @@ export function getLocationFromUrl(page: Page): {
   }
 
   return null;
-}
-
-/**
- * Verify responsive layout at different viewports
- *
- * @param page - Playwright page object
- * @param viewport - Viewport size object
- */
-export async function setViewportAndVerify(
-  page: Page,
-  viewport: { width: number; height: number }
-): Promise<void> {
-  await page.setViewportSize(viewport);
-  // eslint-disable-next-line playwright/no-wait-for-timeout -- allow CSS layout reflow after viewport resize
-  await page.waitForTimeout(500);
-
-  // Verify key elements are still visible
-  await expect(page.locator("h1")).toBeVisible();
-}
-
-/**
- * Check for console errors during page load
- *
- * @param page - Playwright page object
- * @returns Array of console error messages
- */
-export async function getConsoleErrors(page: Page): Promise<string[]> {
-  const errors: string[] = [];
-
-  page.on("console", (message) => {
-    if (message.type() === "error") {
-      errors.push(message.text());
-    }
-  });
-
-  return errors;
 }

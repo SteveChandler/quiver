@@ -50,7 +50,7 @@ export default function SwellOriginFetch() {
         const x = ((i * 96 + phase) % (w + 96)) - 48;
         ctx.beginPath();
         ctx.lineWidth = 3;
-        ctx.strokeStyle = "rgba(11,58,117,0.8)";
+        ctx.strokeStyle = "rgba(138, 94, 0, 0.8)";
         for (let y = -4; y <= h + 4; y += 8) ctx[y <= -4 ? "moveTo" : "lineTo"](x + Math.sin(y * 0.04) * 2, y);
         ctx.stroke();
       }

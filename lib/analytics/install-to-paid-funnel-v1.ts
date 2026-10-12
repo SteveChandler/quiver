@@ -64,7 +64,7 @@ const EXCLUDED_PROFILE_IDS = new Set<string>([
   "c15c2ab3-275c-49d1-ac4f-dcc493db0653",
 ]);
 
-export const UNKNOWN_JOIN_REASONS = [
+const UNKNOWN_JOIN_REASONS = [
   "first_open_never_linked",
   "posthog_person_not_merged",
   "missing_or_ineligible_profile",
@@ -435,11 +435,4 @@ export function buildInstallToPaidRows(input: InstallToPaidInput): InstallToPaid
       sourceFreshness: input.sourceFreshness,
     };
   });
-}
-
-export function countMatureDenominator(
-  rows: InstallToPaidRow[],
-  milestone: keyof InstallMilestones,
-): number {
-  return rows.filter((row) => ["true", "false"].includes(row.milestones[milestone])).length;
 }

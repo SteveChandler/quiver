@@ -10,7 +10,6 @@ import type { IntelPostWithUser, IntelPostTag } from "@/types/database";
 jest.mock("@/actions/intel-actions", () => ({
   getNearbyIntelPosts: jest.fn(),
   getPublicIntelPosts: jest.fn(),
-  getAllIntelPosts: jest.fn(),
 }));
 
 // Mock the auth context

@@ -1,3 +1,4 @@
+import { JsonLd } from "@/components/seo/funnel/JsonLd";
 /**
  * Surfboard Volume Calculator Tool
  *
@@ -82,10 +83,7 @@ export default function BoardCalculatorPage() {
           },
         ]}
       />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+      <JsonLd data={{
             "@context": "https://schema.org",
             "@type": "WebApplication",
             name: "Quiver Surfboard Volume Calculator",
@@ -100,9 +98,7 @@ export default function BoardCalculatorPage() {
               name: "Quiver",
               url: SITE_URL,
             },
-          }),
-        }}
-      />
+          }} />
 
       <div className="min-h-screen" style={{ background: "#0F1535" }}>
         <ToolHero

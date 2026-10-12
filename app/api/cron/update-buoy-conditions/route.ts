@@ -1,3 +1,5 @@
+import { setTimeout as sleep } from "node:timers/promises";
+import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
 import {
   createErrorResponse,
   createSuccessResponse,
@@ -91,7 +93,7 @@ async function _GET(request: Request): Promise<Response> {
               .from("buoys")
               .update({
                 wave_height: observation.wave_height_m
-                  ? observation.wave_height_m * 3.28084 // Convert meters to feet
+                  ? observation.wave_height_m * METERS_TO_FEET // Convert meters to feet
                   : null,
                 wave_period: observation.wave_period_s,
                 wind_speed: observation.wind_speed_ms
@@ -134,7 +136,7 @@ async function _GET(request: Request): Promise<Response> {
 
       // Small delay between batches to be nice to NDBC
       if (i + batchSize < buoys.length) {
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        await sleep(500);
       }
     }
 

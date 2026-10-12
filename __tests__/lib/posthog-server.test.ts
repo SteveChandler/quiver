@@ -19,10 +19,7 @@ jest.mock("posthog-node", () => ({
   PostHog: mockPostHogClass,
 }));
 
-import {
-  _resetPostHogServerClientForTesting,
-  capturePostHogEvent,
-} from "@/lib/posthog-server";
+import { capturePostHogEvent, _resetPostHogServerClientForTesting } from "@/lib/posthog-server";
 
 describe("posthog-server", () => {
   const originalToken = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
@@ -83,6 +80,32 @@ describe("posthog-server", () => {
       },
     });
     expect(mockFlush).toHaveBeenCalledTimes(2);
+  });
+
+  it("passes through an explicit timestamp and uuid for idempotent events", async () => {
+    const timestamp = new Date("2026-10-08T12:00:00.000Z");
+
+    await capturePostHogEvent({
+      distinctId: "user-123",
+      event: "trial_started",
+      timestamp,
+      uuid: "30000000-0000-4000-8000-000000000001",
+    });
+
+    expect(mockCapture).toHaveBeenCalledWith(
+      expect.objectContaining({
+        timestamp,
+        uuid: "30000000-0000-4000-8000-000000000001",
+      }),
+    );
+  });
+
+  it("omits timestamp and uuid when they are not provided", async () => {
+    await capturePostHogEvent({ distinctId: "user-123", event: "invite_consumed" });
+
+    const payload = mockCapture.mock.calls[0][0];
+    expect(payload).not.toHaveProperty("timestamp");
+    expect(payload).not.toHaveProperty("uuid");
   });
 
   it("swallows capture failures", async () => {

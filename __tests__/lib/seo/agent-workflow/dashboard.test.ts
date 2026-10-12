@@ -1,13 +1,4 @@
-import {
-  createEmptyDashboard,
-  findDuplicateTargetKeywords,
-  findKeywordCannibalization,
-  mergeStatus,
-  normalizeSeoPath,
-  parseSeoDashboard,
-  upsertSeoEntry,
-} from "@/lib/seo/agent-workflow/dashboard";
-import type { SeoDashboardEntry } from "@/lib/seo/agent-workflow/types";
+import { mergeStatus, normalizeSeoPath, parseSeoDashboard } from "@/lib/seo/agent-workflow/dashboard";
 
 const NOW = "2026-05-17T12:00:00.000Z";
 
@@ -37,37 +28,4 @@ describe("SEO workflow dashboard", () => {
     expect(mergeStatus("covered", "refresh-needed")).toBe("refresh-needed");
     expect(mergeStatus("refresh-needed", "covered")).toBe("refresh-needed");
   });
-
-  it("finds duplicate keywords and cannibalizing entries", () => {
-    let dashboard = createEmptyDashboard(NOW);
-    dashboard = upsertSeoEntry(dashboard, entry("/learn/a", "surf forecast"), NOW);
-    dashboard = upsertSeoEntry(dashboard, entry("/learn/b", "Surf   Forecast"), NOW);
-
-    const duplicates = findDuplicateTargetKeywords(dashboard);
-    const cannibalization = findKeywordCannibalization(
-      dashboard,
-      "surf forecast",
-      "/learn/a",
-    );
-
-    expect(duplicates.get("surf forecast")).toHaveLength(2);
-    expect(cannibalization.map((item) => item.canonicalPath)).toEqual(["/learn/b"]);
-  });
 });
-
-function entry(canonicalPath: string, targetKeyword: string): SeoDashboardEntry {
-  return {
-    id: `entry-${canonicalPath}`,
-    canonicalPath,
-    pageType: "learn",
-    targetKeyword,
-    status: "covered",
-    cluster: {
-      primaryKeyword: targetKeyword,
-      secondarySemantics: [],
-      intendedHeadings: [],
-      linkedUrls: [],
-    },
-    recommendations: [],
-  };
-}

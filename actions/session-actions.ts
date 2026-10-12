@@ -3,9 +3,7 @@
 import { createSupabaseServerClient, createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import {
   withAuthenticatedAction,
-  withServerAction,
 } from "@/lib/server-action-utils";
-import { trackFallback } from "@/lib/monitoring/fallback-tracker";
 import { emitSessionCreatedEvent } from "@/lib/analytics/session-created";
 import { computeUserPreferences } from "@/lib/services/preference-learning-service";
 import type {
@@ -182,98 +180,6 @@ export async function addFeaturedPhotoToSession<T extends { id: string; featured
   if (!session) return session;
   const [enriched] = await addFeaturedPhotoToSessions(supabase, [session]);
   return enriched ?? session;
-}
-
-export async function getUserSessions(userId: string, limit?: number) {
-  return withServerAction(async () => {
-    const supabase = await createSupabaseServerClient();
-
-    try {
-      let query = supabase
-        .from("sessions")
-        .select(
-          `
-          *,
-          session_date:arrival_time,
-          beach:beaches(*),
-          board:boards(*),
-          ${PROFILE_PUBLIC_SESSION_RELATION_SELECT}
-        `
-        )
-        .eq("user_id", userId)
-        .order("arrival_time", { ascending: false });
-
-      if (limit) {
-        query = query.limit(limit);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      const sessions = (data || []) as unknown as SessionWithDetails[];
-      return await addFeaturedPhotoToSessions(supabase, sessions);
-    } catch (e) {
-      // Enhanced fallback: manually resolve beach relationships when joins fail
-      trackFallback({ domain: 'sessions', field: 'join_enrichment', fallbackValue: 'manual-resolution', context: { userId } });
-      let basic = supabase
-        .from("sessions")
-        .select("*")
-        .eq("user_id", userId)
-        .order("arrival_time", { ascending: false });
-      if (limit) basic = basic.limit(limit);
-      const { data: basicData } = await basic;
-      
-      // Manually resolve beach data for each session
-      const enhancedSessions = await Promise.all(
-        (basicData || []).map(async (session) => {
-          let beach = null;
-          
-          // Try to fetch beach data if beach_id exists
-          if (session.beach_id) {
-            try {
-              const { data: beachData } = await supabase
-                .from("beaches")
-                .select("*")
-                .eq("id", session.beach_id)
-                .single();
-              beach = beachData;
-            } catch (beachError) {
-              // Beach fetch failed, continue with null
-            }
-          }
-          
-          // Try to fetch user data if user_id exists
-          let user: { full_name: string | null; avatar_url: string | null } = { full_name: "Anonymous Surfer", avatar_url: null };
-          if (session.user_id) {
-            try {
-              const { data: userData } = await supabase
-                .from("profiles")
-                .select("full_name, avatar_url")
-                .eq("id", session.user_id)
-                .single();
-              if (userData) {
-                user = userData;
-              }
-            } catch (userError) {
-              // User fetch failed, continue with default
-            }
-          }
-
-          return {
-            ...session,
-            session_date: session.arrival_time ?? null,
-            beach,
-            board: null,
-            user,
-          };
-        })
-      );
-      
-      return (await addFeaturedPhotoToSessions(
-        supabase,
-        enhancedSessions as SessionWithDetails[]
-      )) as SessionWithDetails[];
-    }
-  });
 }
 
 /**

@@ -25,7 +25,6 @@ beforeEach(() => {
     refreshSession: jest.fn(),
   } as any);
   
-  mockBeachActions.getFavoriteBeaches.mockResolvedValue({ success: true, data: [] });
   mockBeachActions.removeFavoriteBeach.mockResolvedValue({ success: true });
   mockBeachActions.reorderFavoriteBeaches.mockResolvedValue({ success: true });
 });

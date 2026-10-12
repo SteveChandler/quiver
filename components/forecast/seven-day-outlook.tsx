@@ -93,7 +93,7 @@ export function SevenDayOutlook({
           className={
             isZine
               ? "mb-4 font-display text-3xl font-black uppercase leading-tight text-[#11100D]"
-              : "mb-4 font-[var(--font-heading)] text-2xl font-bold text-white"
+              : "mb-4 font-[family-name:var(--font-heading)] text-2xl font-bold text-white"
           }
         >
           7-Day Region Outlook
@@ -142,7 +142,7 @@ export function SevenDayOutlook({
         className={
           isZine
             ? "label-black mb-5 font-display text-2xl font-black uppercase leading-tight"
-            : "mb-4 font-[var(--font-heading)] text-2xl font-bold text-white"
+            : "mb-4 font-[family-name:var(--font-heading)] text-2xl font-bold text-white"
         }
       >
         7-Day Region Outlook
@@ -205,7 +205,7 @@ export function SevenDayOutlook({
               {/* Day + date */}
               <div className="w-20 shrink-0 sm:w-24">
                 <div
-                  className={`font-[var(--font-heading)] text-sm font-semibold uppercase tracking-wide ${isZine ? "text-[#11100D]" : "text-white"}`}
+                  className={`font-[family-name:var(--font-heading)] text-sm font-semibold uppercase tracking-wide ${isZine ? "text-[#11100D]" : "text-white"}`}
                 >
                   {day.dayOfWeek.slice(0, 3)}
                 </div>
@@ -237,7 +237,7 @@ export function SevenDayOutlook({
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
                   <span
-                    className={`font-[var(--font-heading)] text-base font-semibold ${isZine ? "text-[#11100D]" : "text-white"}`}
+                    className={`font-[family-name:var(--font-heading)] text-base font-semibold ${isZine ? "text-[#11100D]" : "text-white"}`}
                   >
                     {waves}
                   </span>

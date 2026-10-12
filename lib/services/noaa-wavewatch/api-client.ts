@@ -30,7 +30,7 @@ interface OpenMeteoFetchBaseOptions {
   signal?: AbortSignal;
 }
 
-export type OpenMeteoFetchOptions = OpenMeteoFetchBaseOptions &
+type OpenMeteoFetchOptions = OpenMeteoFetchBaseOptions &
   (
     | {
         timeformat?: "iso8601";
@@ -266,7 +266,7 @@ export async function fetchOpenMeteoData(
   } catch (error) {
     if (
       options.signal?.aborted ||
-      (error instanceof Error && error.name === "AbortError")
+      (error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError"))
     ) {
       log.debug("Open-Meteo fetch aborted");
       return null;

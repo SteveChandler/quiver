@@ -48,19 +48,20 @@ async function mockDatabaseRpc(name: string, args: Record<string, unknown> = {})
 function databaseHttp(url: URL, init?: RequestInit): Response {
   if (new Headers(init?.headers).get('authorization') !== 'Bearer fixture-service') throw new Error('Expected service-role transport');
   const table = url.pathname.slice('/rest/v1/'.length);
-  if (!['revenuecat_provider_events', 'user_entitlements', 'cron_runs'].includes(table)) throw new Error(`Unexpected table: ${table}`);
-  const key = table === 'cron_runs' ? 'id' : table === 'user_entitlements' ? 'user_id' : 'provider_event_id';
+  if (!['revenuecat_provider_events', 'user_entitlements', 'cron_runs', 'profiles'].includes(table)) throw new Error(`Unexpected table: ${table}`);
+  const key = table === 'cron_runs' || table === 'profiles' ? 'id' : table === 'user_entitlements' ? 'user_id' : 'provider_event_id';
   const filter = url.searchParams.get(key);
   const where = filter?.startsWith('eq.') ? `${key}=${literal(filter.slice(3))}` : '';
   const method = init?.method ?? 'GET';
   const json = (value: unknown, status = 200): Response => new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } });
   if (method === 'GET' && where) {
     const projection = url.searchParams.get('select');
-    const expected = table === 'user_entitlements' ? 'is_pro,is_trialing,expires_at,product_id' : 'processed_at';
+    const expected = table === 'user_entitlements' ? 'is_pro,is_trialing,expires_at,product_id' : table === 'profiles' ? 'allow_implicit_tracking' : 'processed_at';
     if (projection !== expected) throw new Error('Unexpected database projection');
     const rows = sql(`SET ROLE service_role; SELECT coalesce(jsonb_agg(to_jsonb(t)),'[]') FROM (SELECT ${projection} FROM ${table} WHERE ${where}) t`);
     return json(JSON.parse(rows));
   }
+  if (table === 'profiles') throw new Error(`Unexpected database operation: ${method}`);
   const body = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>;
   const columns = Object.keys(body);
   if (!columns.length || columns.some(column => !/^[a-z_]+$/.test(column))) throw new Error('Invalid write columns');

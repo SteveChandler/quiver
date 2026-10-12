@@ -6,7 +6,6 @@ export { DataErrorBoundary } from './DataErrorBoundary';
 export { FormErrorBoundary } from './FormErrorBoundary';
 
 // Fallback UI
-export { ErrorFallback } from './ErrorFallback';
 
 ;
 
@@ -18,6 +17,5 @@ export { ErrorFallback } from './ErrorFallback';
 ;
 
 
-export { logErrorBoundary } from './utils/error-logger';
 
 // Types

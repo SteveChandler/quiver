@@ -9,6 +9,8 @@ on:
       - '__tests__/app/api/trial-feedback/**'
       - '__tests__/lib/trial-feedback/**'
       - '__tests__/integration/trial-feedback*'
+      - 'app/api/webhooks/revenuecat/**'
+      - 'lib/analytics/revenuecat-funnel-events.ts'
       - 'scripts/test-email-lifecycle.sh'
       - 'app/api/email/**'
       - 'app/api/cron/email-*/**'

@@ -20,7 +20,6 @@ interface ZineNearbySpotsProps {
   sourceBeachLon?: number | null;
 }
 
-const ROTATIONS = ["rotate(-1.4deg)", "rotate(0.9deg)", "rotate(-0.6deg)", "rotate(1.2deg)"];
 
 /**
  * Cream-paper styled Nearby Surf Spots — replaces the legacy dark-theme
@@ -66,7 +65,7 @@ export function ZineNearbySpots({
         <div className="flex items-end gap-3">
           <h2
             style={{
-              fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+              fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
               fontWeight: 400,
               fontSize: 36,
               color: "#11100D",
@@ -81,11 +80,12 @@ export function ZineNearbySpots({
           <span
             className="hidden md:inline-block"
             style={{
-              fontFamily: "var(--font-handwritten), cursive",
-              fontSize: 24,
-              color: "#11100D",
+              fontFamily: "var(--font-mono), monospace",
+              fontSize: 11,
+              color: "#4A463C",
               fontWeight: 700,
-              transform: "rotate(-2deg)",
+              letterSpacing: "0.16em",
+              textTransform: "uppercase",
               lineHeight: 1,
               alignSelf: "flex-end",
               marginBottom: 4,
@@ -102,7 +102,7 @@ export function ZineNearbySpots({
             fontSize: 12,
             letterSpacing: "0.12em",
             textTransform: "uppercase",
-            color: "#0B3A75",
+            color: "#8A5E00",
             fontWeight: 700,
             textDecoration: "underline",
             textUnderlineOffset: 4,
@@ -118,7 +118,6 @@ export function ZineNearbySpots({
             key={beach.id}
             beach={beach}
             index={i}
-            rotation={ROTATIONS[i % ROTATIONS.length]}
           />
         ))}
       </div>
@@ -129,11 +128,9 @@ export function ZineNearbySpots({
 function NearbyCard({
   beach,
   index,
-  rotation,
 }: {
   beach: EnrichedNearbyBeach;
   index: number;
-  rotation: string;
 }) {
   const href = getBeachHrefSafe({
     id: beach.id,
@@ -153,7 +150,6 @@ function NearbyCard({
       prefetch={false}
       onClick={() => trackNearbyBeachClick(beach.name, index + 1, beach.score ?? 0)}
       className="block group"
-      style={{ transform: rotation, transformOrigin: "center" }}
     >
       <article
         style={{
@@ -176,7 +172,7 @@ function NearbyCard({
         <div className="mt-3 flex flex-col flex-1">
           <h3
             style={{
-              fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+              fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
               fontWeight: 400,
               fontSize: 18,
               color: "#11100D",
@@ -215,11 +211,11 @@ function NearbyCard({
             <div
               className="mt-1"
               style={{
-                fontFamily: "var(--font-handwritten), cursive",
-                fontSize: 16,
-                color: "#11100D",
-                fontWeight: 600,
-                lineHeight: 1.15,
+                fontFamily: "var(--font-sans), sans-serif",
+                fontSize: 14,
+                color: "#4A463C",
+                fontWeight: 500,
+                lineHeight: 1.3,
               }}
             >
               {location}
@@ -230,16 +226,15 @@ function NearbyCard({
             <div
               className="mt-2.5 inline-flex items-center gap-1.5 self-start"
               style={{
-                background: "#0B3A75",
+                background: "#8A5E00",
                 color: "#F4EBD8",
                 padding: "3px 10px",
-                fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+                fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
                 fontWeight: 400,
                 fontSize: 13,
                 letterSpacing: "0.04em",
                 border: "2px solid #11100D",
                 boxShadow: "2px 2px 0 rgba(17,16,13,0.5)",
-                transform: "rotate(-1.5deg)",
               }}
             >
               <DoodleStar size={11} color="#F4EBD8" filled />

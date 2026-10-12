@@ -70,13 +70,6 @@ export interface ForecastConditionDrivers {
   tide: string | null;
 }
 
-type ForecastContextSource =
-  | "notification"
-  | "home"
-  | "beach-detail"
-  | "match-card"
-  | "surf-call";
-
 interface BuildForecastRecommendationContextArgs {
   beach: Beach;
   forecasts: EnhancedForecastEntity[];
@@ -499,62 +492,4 @@ export function buildForecastRecommendationContext({
   }
 
   return null;
-}
-
-function logForecastRecommendationContext(args: {
-  source: ForecastContextSource;
-  beachId?: string | null;
-  beachName?: string | null;
-  context: ForecastRecommendationContext | null | undefined;
-  enabled?: boolean;
-}): void {
-  const isOceanBeachPier = args.beachName?.toLowerCase() === "ocean beach pier";
-  if (!args.enabled && !isOceanBeachPier) return;
-  if (!args.context) return;
-
-  console.log("[forecast-context]", {
-    beachId: args.beachId ?? args.context.beachId,
-    beachName: args.beachName ?? null,
-    localDate: args.context.localDate,
-    source: args.source,
-    selectedRowTime: args.context.selectedRowTime,
-    selectedWindowStart: args.context.startTime,
-    selectedWindowEnd: args.context.endTime,
-    waveHeight: args.context.waveHeight,
-    period: args.context.swellPeriod,
-    windSpeed: args.context.windSpeed,
-    windDirection: args.context.windDirection,
-    score: args.context.score,
-    resolverUsed: args.context.resolverUsed,
-  });
-}
-
-function logForecastDisplayContext(args: {
-  component: ForecastContextSource;
-  beachId?: string | null;
-  beachName?: string | null;
-  context: ForecastRecommendationContext | null | undefined;
-  enabled?: boolean;
-}): void {
-  const isOceanBeachPier = args.beachName?.toLowerCase() === "ocean beach pier";
-  if (!args.enabled && !isOceanBeachPier) return;
-  if (!args.context) return;
-
-  console.log("[forecast-display-context]", {
-    beachId: args.beachId ?? args.context.beachId,
-    beachName: args.beachName ?? null,
-    localDate: args.context.localDate,
-    component: args.component,
-    contextType: args.context.contextType,
-    selectedTime: args.context.selectedRowTime,
-    selectedWindowStart: args.context.selectedWindowStart,
-    selectedWindowEnd: args.context.selectedWindowEnd,
-    waveHeightFt: args.context.waveHeightFt,
-    waveHeightRangeLabel: args.context.waveHeightRangeLabel,
-    periodSec: args.context.periodSec,
-    swellDirection: args.context.swellDirection,
-    windSpeedMph: parseAverageNumber(args.context.windSpeed),
-    windDirection: args.context.windDirection,
-    source: args.context.source,
-  });
 }

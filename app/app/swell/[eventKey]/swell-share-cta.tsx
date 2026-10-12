@@ -36,7 +36,7 @@ const STORE_HANDOFF_PARAMS: HandoffParams = {
 };
 
 const PRIMARY_CLASS =
-  "inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-md bg-[#F78E42] px-5 py-3 text-lg font-black text-[#11100D] transition hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#101436]";
+  "inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-full bg-[#F78E42] px-5 py-3 text-lg font-black text-[#11100D] transition hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#101436]";
 const SECONDARY_CLASS =
   "inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-md border border-white/25 bg-white/10 px-5 py-3 text-base font-black text-white transition hover:border-[#FDB84B]/70 hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#101436]";
 

@@ -47,6 +47,20 @@ describe("useHomeDiscoveryRequestMetrics", () => {
     });
   });
 
+  it("records a home load when randomUUID is unavailable", () => {
+    const randomUUID = crypto.randomUUID;
+    Object.defineProperty(crypto, "randomUUID", { value: undefined });
+    try {
+      const { result } = renderHook(() => useHomeDiscoveryRequestMetrics());
+      act(() => result.current.recordRequest("primary"));
+      expect(capturePostHogEventMock.mock.calls[0][1]?.home_load_id).toMatch(
+        /^[a-z0-9]+-[a-z0-9]+$/,
+      );
+    } finally {
+      Object.defineProperty(crypto, "randomUUID", { value: randomUUID });
+    }
+  });
+
   it("reports time to call against the request that produced it", () => {
     const nowSpy = jest.spyOn(Date, "now").mockReturnValue(1_000);
     const { result } = renderHook(() => useHomeDiscoveryRequestMetrics());

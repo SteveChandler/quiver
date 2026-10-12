@@ -1,3 +1,4 @@
+import { setTimeout as sleep } from "node:timers/promises";
 import { NextRequest } from 'next/server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { computeUserPreferences } from '@/lib/services/preference-learning-service';
@@ -205,7 +206,7 @@ async function _GET(request: Request): Promise<Response> {
 
       // Add delay between batches (except first batch)
       if (batchIndex > 0) {
-        await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
+        await sleep(BATCH_DELAY_MS);
       }
 
       console.log(

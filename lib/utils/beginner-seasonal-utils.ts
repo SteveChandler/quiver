@@ -1,3 +1,4 @@
+import { clamp } from "@/lib/utils/clamp";
 /**
  * Beginner Seasonal Utilities
  *
@@ -86,9 +87,6 @@ const CLIMATE_WAVE_PATTERNS: Record<ClimateZone, Record<string, string>> = {
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-function clamp(value: number, min = 0, max = 100): number {
-  return Math.min(max, Math.max(min, value));
-}
 
 function mode<T>(arr: T[]): T {
   const counts = new Map<T, number>();
@@ -147,7 +145,7 @@ export function computeBeginnerMonthScore(monthData: MonthlyData): number {
   const crowd = crowdScore(monthData.crowdLevel);
 
   const raw = 0.4 * wave + 0.35 * temp + 0.15 * crowd + 0.1 * 50;
-  return clamp(Math.round(raw));
+  return clamp(Math.round(raw), 0, 100);
 }
 
 /**
@@ -276,7 +274,9 @@ function buildTier2Seasons(stateSlug: string): BeginnerSeasonData[] {
     const tempScore = waterTempComfortScore(Math.round(avgTemp));
     const crowdVal = crowdScore(crowdLevel);
     const beginnerScore = clamp(
-      Math.round(0.4 * waveScore + 0.35 * tempScore + 0.15 * crowdVal + 0.1 * 50)
+      Math.round(0.4 * waveScore + 0.35 * tempScore + 0.15 * crowdVal + 0.1 * 50),
+      0,
+      100
     );
 
     const { tier, color } = scoreToTier(beginnerScore);

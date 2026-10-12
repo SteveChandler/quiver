@@ -581,27 +581,3 @@ export async function checkForecastHealth(): Promise<ForecastHealthMetrics> {
     ]);
   }
 }
-
-async function getBeachForecastCoverage(beachId: string): Promise<number> {
-  const supabase = createSupabaseServiceRoleClient();
-  
-  const today = new Date().toISOString().split('T')[0];
-  const futureDate = new Date(Date.now() + MONITORING_CONFIG.MIN_FORECAST_DAYS * 24 * 60 * 60 * 1000)
-    .toISOString()
-    .split('T')[0];
-  const futureDateNextDay = new Date(new Date(futureDate + 'T00:00:00Z').getTime() + 86400000).toISOString().split('T')[0];
-
-  const result = await supabase
-    .from('enhanced_forecasts')
-    .select('forecast_at', { count: 'exact', head: true })
-    .eq('beach_id', beachId)
-    .gte('forecast_at', `${today}T00:00:00Z`)
-    .lt('forecast_at', `${futureDateNextDay}T00:00:00Z`);
-  
-  if (result.error) {
-    console.error('Failed to get beach forecast coverage:', result.error);
-    return 0;
-  }
-  
-  return result.count ?? 0;
-}

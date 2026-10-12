@@ -393,7 +393,7 @@ describe("TideConditionsCard", () => {
       // Find the header section by looking for the element containing the title
       const header = screen.getByText("Best Tide Conditions").closest("header");
 
-      expect(header).toHaveClass("bg-[#0B3A75]", "border-b-2");
+      expect(header).toHaveClass("bg-[#11100D]", "border-b-2");
     });
 
     it("should render CardContent with proper spacing", () => {

@@ -2,7 +2,7 @@ import { after, NextRequest, NextResponse } from "next/server";
 
 import { recordSwellOpen } from "@/lib/alerts/swell-outlook/state";
 import { isSwellOutlookEnabled, isSwellOutlookUserAllowed } from "@/lib/flags/swell-outlook";
-import { withAuth, withProtection } from "@/lib/middleware/api-wrappers";
+import { withAuth, withRateLimit } from "@/lib/middleware/api-wrappers";
 import type { RouteContext } from "@/lib/middleware/api-wrappers/types";
 import {
   buildSwellCard,
@@ -91,6 +91,4 @@ async function swellEventHandler(
   }
 }
 
-export const GET = withProtection(swellEventHandler, {
-  rateLimit: { key: "public-default" },
-});
+export const GET = withRateLimit(swellEventHandler, { key: "public-default" });

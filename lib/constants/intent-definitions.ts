@@ -82,9 +82,6 @@ export const INTENTS_BY_GROUP = {
 export const isConditionsIntent = (key: IntentKey): boolean =>
   INTENTS_BY_GROUP.conditions.some(i => i.key === key);
 
-const isStyleIntent = (key: IntentKey): boolean =>
-  INTENTS_BY_GROUP.style.some(i => i.key === key);
-
 // URL builders - single source of truth
 export const buildStateIntentUrl = (intent: IntentKey, stateSlug: string): string =>
   `/${intent}/${stateSlug}`;

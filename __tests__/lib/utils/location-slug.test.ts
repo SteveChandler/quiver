@@ -5,14 +5,7 @@
  * and location data normalization functions.
  */
 
-import {
-  generateLocationSlug,
-  buildLocationUrl,
-  parseLocationFromSlug,
-  buildBreadcrumbSegments,
-  normalizeCountry,
-  normalizeState,
-} from "@/lib/utils/location-slug";
+import { generateLocationSlug, buildLocationUrl, parseLocationFromSlug, normalizeCountry, normalizeState } from "@/lib/utils/location-slug";
 
 describe("Location Slug Utilities", () => {
   describe("generateLocationSlug", () => {
@@ -171,73 +164,6 @@ describe("Location Slug Utilities", () => {
     });
   });
 
-  describe("buildBreadcrumbSegments", () => {
-    it("should build correct breadcrumb array for USA location", () => {
-      const segments = buildBreadcrumbSegments("La Jolla", "CA", "USA");
-
-      expect(segments).toHaveLength(2); // State + City (Country omitted for USA)
-      expect(segments[0]).toEqual({
-        label: "CA",
-        url: "/beaches/usa/ca",
-      });
-      expect(segments[1]).toEqual({
-        label: "La Jolla",
-        url: "/beaches/usa/ca/la-jolla",
-      });
-    });
-
-    it("should include country segment for non-USA locations", () => {
-      const segments = buildBreadcrumbSegments(
-        "Ensenada",
-        "Baja California",
-        "Mexico"
-      );
-
-      expect(segments).toHaveLength(3); // Country + State + City
-      expect(segments[0]).toEqual({
-        label: "Mexico",
-        url: "/beaches/mexico",
-      });
-      expect(segments[1]).toEqual({
-        label: "Baja California",
-        url: "/beaches/mexico/baja-california",
-      });
-      expect(segments[2]).toEqual({
-        label: "Ensenada",
-        url: "/beaches/mexico/baja-california/ensenada",
-      });
-    });
-
-    it("should default to USA when no country provided", () => {
-      const segments = buildBreadcrumbSegments("La Jolla", "CA");
-
-      expect(segments).toHaveLength(2);
-      expect(segments[0].url).toContain("/beaches/usa/");
-    });
-
-    it("should handle missing city", () => {
-      const segments = buildBreadcrumbSegments(null, "CA", "USA");
-
-      expect(segments).toHaveLength(1); // Only state
-      expect(segments[0]).toEqual({
-        label: "CA",
-        url: "/beaches/usa/ca",
-      });
-    });
-
-    it("should handle missing state", () => {
-      const segments = buildBreadcrumbSegments("La Jolla", null, "USA");
-
-      // City segment will have incomplete URL but is still included
-      expect(segments.length).toBeGreaterThanOrEqual(0);
-    });
-
-    it("should handle all missing data", () => {
-      const segments = buildBreadcrumbSegments(null, null, null);
-
-      expect(segments).toEqual([]);
-    });
-  });
 
   describe("normalizeCountry", () => {
     it("should normalize USA variations", () => {

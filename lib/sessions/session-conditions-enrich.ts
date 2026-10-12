@@ -31,7 +31,7 @@ const SNAPSHOT_AFTER_ARRIVAL_MS = 30 * 60 * 1000;
 const DEFAULT_BATCH_SIZE = 200;
 const CONCURRENCY = 4;
 
-export const SESSION_CONDITIONS_COLUMNS = [
+const SESSION_CONDITIONS_COLUMNS = [
   "swell_period_s",
   "swell_direction_deg",
   "swell_height_ft",
@@ -90,7 +90,7 @@ export interface SessionConditionsStore {
   updateSession(id: string, patch: SessionPatch): Promise<boolean>;
 }
 
-export interface EnrichSummary {
+interface EnrichSummary {
   selected: number;
   updated: number;
   conditionsFilled: number;
@@ -109,7 +109,7 @@ export interface EnrichSummary {
   nextSince: string | null;
 }
 
-export interface EnrichOptions {
+interface EnrichOptions {
   mode: "live" | "backfill";
   /** Backfill only: the oldest arrival to consider. */
   since?: Date;

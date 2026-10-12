@@ -203,7 +203,7 @@ Wait for upstream updates from `@ducanh2912/next-pwa` or Google Workbox team.
 ### Quarterly
 
 - [ ] Major dependency updates (React, Next.js, Supabase)
-- [ ] Review and prune unused dependencies: `npm run dead:deps`
+- [ ] Review and prune unused dependencies: `yarn deadcode`
 - [ ] Evaluate new tooling/libraries
 
 ### Annual

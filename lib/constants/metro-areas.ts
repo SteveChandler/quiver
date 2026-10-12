@@ -106,13 +106,6 @@ const METRO_AREAS: Record<string, MetroAreaConfig> = {
 export { METRO_AREAS };
 
 /**
- * Get all metro areas as an array
- */
-function getAllMetroAreas(): MetroAreaConfig[] {
-  return Object.values(METRO_AREAS);
-}
-
-/**
  * Check if a city slug corresponds to a metro area
  *
  * @param citySlug - The city slug from URL params (e.g., "san-diego", "la-jolla")

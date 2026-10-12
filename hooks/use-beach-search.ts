@@ -42,6 +42,11 @@ export function useBeachSearch() {
     error: null,
   });
   const [hasLoadedAllBeaches, setHasLoadedAllBeaches] = useState(false);
+  // The last nearby result, kept apart from the catalogue a search loads into `beaches`.
+  // An empty query browses this set, so no path back from a search (backspace, Clear all,
+  // a late catalogue response) renders hundreds of markers and their forecast batches.
+  // null until a nearby set has loaded.
+  const [nearbyBeaches, setNearbyBeaches] = useState<Beach[] | null>(null);
 
   // State for beaches near the selected beach (not user location)
   const [selectedBeachNearby, setSelectedBeachNearby] = useState<Beach[]>([]);
@@ -195,14 +200,26 @@ export function useBeachSearch() {
 
   // Update filtered beaches when inputs change
   useEffect(() => {
+    const hasSearchQuery = state.searchQuery.trim().length > 0;
+    // Clearing a search while a nearby reload is pending keeps the search results up
+    // until the new set lands, rather than flashing the previous area's beaches.
+    // The reload resets `hasLoadedAllBeaches` when it lands, which re-runs this
+    // effect against the nearby set.
+    if (
+      !hasSearchQuery &&
+      hasLoadedAllBeaches &&
+      nearbyPresentationSnapshotRef.current !== null
+    ) {
+      return;
+    }
+
     const filtered = applyFiltersAndSearch(
       state.searchQuery,
-      beaches || [],
+      hasSearchQuery || nearbyBeaches === null ? beaches || [] : nearbyBeaches,
       state.activeRegion,
       state.filters
     );
 
-    const hasSearchQuery = state.searchQuery.trim().length > 0;
     presentationGenerationRef.current += 1;
     filteredBeachesRef.current = filtered;
     const resultsQuery = state.searchQuery.trim();
@@ -231,7 +248,7 @@ export function useBeachSearch() {
         selectedBeach: nextSelection,
       };
     });
-  }, [beaches, state.searchQuery, state.activeRegion, state.filters, applyFiltersAndSearch]);
+  }, [beaches, nearbyBeaches, hasLoadedAllBeaches, state.searchQuery, state.activeRegion, state.filters, applyFiltersAndSearch]);
 
   // Load all beaches function - defined before useEffect to avoid hoisting issues
   const loadBeaches = useCallback(async () => {
@@ -337,6 +354,7 @@ export function useBeachSearch() {
             loading: false,
             error: null,
           });
+          setNearbyBeaches(sortedBeaches);
           setHasLoadedAllBeaches(false);
 
           filteredBeachesRef.current = sortedBeaches;
@@ -354,6 +372,7 @@ export function useBeachSearch() {
             loading: false,
             error: null,
           });
+          setNearbyBeaches([]);
           setHasLoadedAllBeaches(false);
 
           filteredBeachesRef.current = [];

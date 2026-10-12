@@ -163,7 +163,7 @@ export const AndroidBetaLeadSchema = z.object({
 
 type AndroidBetaLeadInput = z.infer<typeof AndroidBetaLeadSchema>;
 
-export const IntelReportSchema = z.object({
+const IntelReportSchema = z.object({
   reason: z.string()
     .max(500, 'Reason cannot exceed 500 characters')
     .trim()

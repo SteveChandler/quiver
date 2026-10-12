@@ -81,7 +81,7 @@ function buildSeoActionCandidates(recommendations: SeoRecommendation[]): ActionC
 
   return [...grouped.entries()]
     .map(([canonicalPath, group]) => buildSeoActionCandidate(canonicalPath, group))
-    .filter(isDefined);
+    .filter((value) => value !== null && value !== undefined);
 }
 
 function buildSeoActionCandidate(
@@ -184,7 +184,7 @@ function buildCompetitorActionCandidates(
       competitor?.runId,
     ),
   ]
-    .filter(isDefined);
+    .filter((value) => value !== null && value !== undefined);
 }
 
 function buildCompetitorActionCandidate(delta: CompetitorDelta): ActionCandidate | null {
@@ -252,7 +252,7 @@ function buildComparisonSignalCandidates(
         score: PRIORITY_SCORE.high + 45,
       };
     })
-    .filter(isDefined);
+    .filter((value) => value !== null && value !== undefined);
 }
 
 function isCompletedComparisonResponse(competitor: string, runId: string | undefined): boolean {
@@ -439,8 +439,4 @@ function extractRelevantPrice(summary: string): string | null {
   }
 
   return summary.match(/\$[0-9]+(?:\.[0-9]{2})?/)?.[0] ?? null;
-}
-
-function isDefined<T>(value: T | null | undefined): value is T {
-  return value !== null && value !== undefined;
 }

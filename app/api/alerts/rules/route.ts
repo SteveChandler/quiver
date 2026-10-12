@@ -10,7 +10,6 @@ import {
 } from "@/lib/middleware/api-wrappers";
 import {
   CAPS,
-  FREE_GROWTH_WATCHED_LIMIT,
   canCreateRule,
   getUserEntitlement,
   type Tier,
@@ -22,11 +21,15 @@ import {
   type PersonalizationEligibilityResult,
   type PersonalizationResultCode,
 } from "@/lib/personalization/eligibility";
-import { isFreeGrowthPhaseEnabled } from "@/lib/flags/free-growth-phase";
+import {
+  resolveRequestPlatform,
+  scheduleAlertCreatedEvents,
+} from "@/lib/analytics/alert-created-server";
 
 interface AlertRulesEntitlementSignal {
   tier: Tier;
-  freeGrowthPhase: boolean;
+  /** Always false; kept because installed native builds read it. */
+  freeGrowthPhase: false;
   freeWatchLimit: number;
   freeRuleLimit: number;
   premiumRuleLimit: number;
@@ -35,19 +38,11 @@ interface AlertRulesEntitlementSignal {
 function buildAlertRulesEntitlementSignal(
   tier: Tier,
 ): AlertRulesEntitlementSignal {
-  const freeGrowthPhase = isFreeGrowthPhaseEnabled();
-  const freeWatchLimit = freeGrowthPhase
-    ? FREE_GROWTH_WATCHED_LIMIT
-    : CAPS.free.beaches;
-  const freeRuleLimit = freeGrowthPhase
-    ? FREE_GROWTH_WATCHED_LIMIT
-    : CAPS.free.totalRules;
-
   return {
     tier,
-    freeGrowthPhase,
-    freeWatchLimit,
-    freeRuleLimit,
+    freeGrowthPhase: false,
+    freeWatchLimit: CAPS.free.beaches,
+    freeRuleLimit: CAPS.free.totalRules,
     premiumRuleLimit: CAPS.premium.totalRules,
   };
 }
@@ -309,6 +304,23 @@ export const POST = withAuth(
       }
     }
     if (insertError) throw insertError;
+
+    scheduleAlertCreatedEvents({
+      supabase,
+      userId: user.id,
+      events: [
+        {
+          ruleId: rule.id,
+          beachId: beach_id,
+          presetType: rule.preset_type ?? null,
+          source: "rules_api",
+          platform: resolveRequestPlatform(request),
+          isFirstAlert: existingRuleCount === 0,
+          notifyEmail: rule.notify_email,
+          notifyPush: rule.notify_push,
+        },
+      ],
+    });
 
     return createSuccessResponse(rule, 201);
   },

@@ -1,5 +1,6 @@
 import { scoreLabel, type ScoreLabel } from "@/lib/utils/score-color-utils";
 import type { CanonicalDecisionVerdict } from "@/lib/recommendations/canonical-decision/types";
+import type { SurfCallVerdict } from "@/lib/utils/surf-call-logic";
 
 /** Plain calls, no exclamation marks. EPIC only shows once rare days exist (EPIC_LABEL_ENABLED). */
 const SCORE_ACTION_PHRASES: Record<ScoreLabel, string> = {
@@ -70,3 +71,42 @@ export function getCanonicalVerdictCall(
 
   return { label, action: phrases[label] };
 }
+
+const SURF_CALL_TO_CANONICAL: Record<SurfCallVerdict, CanonicalDecisionVerdict> = {
+  YES: "go",
+  MAYBE: "maybe",
+  NO: "no",
+};
+
+/**
+ * The call for a surf report's internal YES / MAYBE / NO verdict. Those values
+ * are the decision model, never copy: render this label and phrase instead.
+ */
+export function getSurfCallVerdictCall(
+  verdict: SurfCallVerdict,
+  score: number | null | undefined,
+  tense: SurfCallTense = "now",
+): ScoreCall {
+  return getCanonicalVerdictCall(SURF_CALL_TO_CANONICAL[verdict], score, tense);
+}
+
+/**
+ * Call type on cream paper, in native's ink tokens (`tealInk`, `goldInk`,
+ * `ink`). The bright teal and gold fail contrast as type on paper.
+ */
+export const SCORE_LABEL_INK: Record<ScoreLabel, string> = {
+  EPIC: "#06765F",
+  GOOD: "#06765F",
+  FAIR: "#8A5E00",
+  RIDEABLE: "#8A5E00",
+  MEH: "#11100D",
+};
+
+/** Paper wash behind a call, as native's call caption (`paperTeal`, `paperGold`, `paper`). */
+export const SCORE_LABEL_PAPER_WASH: Record<ScoreLabel, string> = {
+  EPIC: "#E6EAD4",
+  GOOD: "#E6EAD4",
+  FAIR: "#F6E9CE",
+  RIDEABLE: "#F6E9CE",
+  MEH: "#F4EBD8",
+};

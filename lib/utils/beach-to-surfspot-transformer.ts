@@ -127,30 +127,3 @@ export function transformBeachesToSurfSpots(
 ): SurfSpot[] {
   return beaches.map(transformBeachToSurfSpot);
 }
-
-/**
- * Validate coordinates before transformation.
- * Logs a warning in development if coordinates are missing or invalid.
- */
-export function validateBeachCoordinates(
-  beach: BeachWithMetrics,
-  context: string = "transformer"
-): boolean {
-  const isValid =
-    beach.lat !== null &&
-    beach.lon !== null &&
-    !isNaN(beach.lat) &&
-    !isNaN(beach.lon) &&
-    beach.lat >= -90 &&
-    beach.lat <= 90 &&
-    beach.lon >= -180 &&
-    beach.lon <= 180;
-
-  if (!isValid && process.env.NODE_ENV === "development") {
-    console.warn(
-      `[${context}] Invalid coordinates for beach "${beach.name}": lat=${beach.lat}, lon=${beach.lon}`
-    );
-  }
-
-  return isValid;
-}

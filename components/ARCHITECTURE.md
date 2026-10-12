@@ -464,7 +464,6 @@ For details, see [`/components/oracle/ARCHITECTURE.md`](/components/oracle/ARCHI
 
 #### Utility Components
 
-- **`section-wrapper.tsx`** - Consistent section layout
 - **`feature-card.tsx`** - Individual feature display
 - **`index.ts`** - Clean component exports
 
@@ -521,7 +520,7 @@ For details, see [`/components/oracle/ARCHITECTURE.md`](/components/oracle/ARCHI
 #### Data Flow
 
 - **Canonical Field**: `profiles.home_beach_id` (FK to beaches.id)
-- **API Endpoint**: `/api/me/profile` returns `{ id, home_beach_id }`
+- **API Endpoint**: `/api/profile` returns the current profile, including `id` and `home_beach_id`
 - **Update Action**: `updateProfile({ home_beach_id })` via profile actions
 - **Cache Invalidation**: `revalidateTag("profile")` after updates
 

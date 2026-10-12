@@ -18,7 +18,7 @@ import { parseSignupContextV2 } from '@/lib/analytics/acquisition-context';
 
 export const dynamic = 'force-dynamic';
 
-import { isValidUUID } from '@/lib/utils/validation';
+import { isUuid } from '@/lib/utils/validation';
 
 interface LinkAnonymousEventsResult {
   linked: number;
@@ -59,7 +59,7 @@ export const POST = withAuth(async (request, { user }) => {
   const body = await request.json();
   const { sessionId, signupContext } = body;
 
-  if (!sessionId || typeof sessionId !== 'string' || !isValidUUID(sessionId)) {
+  if (!sessionId || typeof sessionId !== 'string' || !isUuid(sessionId)) {
     return createErrorResponse('Invalid or missing sessionId', undefined, 400);
   }
 

@@ -2,7 +2,8 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { useRoutePathname } from "@/hooks/use-route-pathname";
 import { Home, Map, BookOpen, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTrackEvent } from "@/hooks/use-track-event";
@@ -46,7 +47,7 @@ const navItems: NavItem[] = [
  * ```
  */
 export function BottomNav() {
-  const pathname = usePathname();
+  const pathname = useRoutePathname();
   const searchParams = useSearchParams();
   const { track } = useTrackEvent();
 

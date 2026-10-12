@@ -475,7 +475,7 @@ Refs: #issue-number
 
 ```bash
 # Analyze bundle
-ANALYZE=true yarn build
+yarn build --experimental-analyze
 
 # Opens visualization in browser
 ```
@@ -484,7 +484,7 @@ ANALYZE=true yarn build
 
 ```bash
 # Lighthouse
-yarn lighthouse
+npx -y @lhci/cli@0.15.1 autorun
 
 # Or use Chrome DevTools
 ```

@@ -1,7 +1,7 @@
+import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
 import { angleDifference } from "@/lib/domains/shared";
 import { cardinalToDegrees } from "@/lib/services/forecast/forecast-transformer";
 
-const METERS_TO_FEET = 3.28084;
 
 export type DisplaySwellRow = {
   data_source?: string | null;

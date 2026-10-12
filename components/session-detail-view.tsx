@@ -230,7 +230,7 @@ export function SessionDetailView({ id, sharedPreview = null }: SessionDetailVie
                   source="session_share"
                   surface="session_detail_fallback"
                   placement="primary_app_store"
-                  className="inline-flex h-10 w-full items-center justify-center rounded-md bg-[#F78E42] px-4 py-2 text-sm font-medium text-[#252D6B] transition-colors hover:bg-[#D06C2E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+                  className="inline-flex h-10 w-full items-center justify-center rounded-full bg-[#F78E42] px-4 py-2 text-sm font-medium text-[#252D6B] transition-colors hover:bg-[#D06C2E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
                   desktopClassName="w-full"
                   desktopShowEmailForm
                   iosLabel="Get Quiver"

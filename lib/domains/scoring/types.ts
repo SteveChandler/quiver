@@ -117,29 +117,7 @@ export interface CompositeScore {
   readonly effects?: readonly ScoringDecisionEffect[];
 }
 
-/**
- * Configuration for the scoring engine.
- */
-export interface ScoringEngineConfig {
-  /** Minimum score to not be classified as 'skip' */
-  readonly minScoreThreshold: number;
-
-  /** Score thresholds for quality classification */
-  readonly qualityThresholds: {
-    readonly perfect: number;
-    readonly excellent: number;
-    readonly good: number;
-    readonly fair: number;
-  };
-
-  /** Maximum reasons to include in output */
-  readonly maxReasons: number;
-}
-
-/**
- * Default scoring engine configuration.
- */
-export const DEFAULT_SCORING_CONFIG: ScoringEngineConfig = {
+export const DEFAULT_SCORING_CONFIG = {
   minScoreThreshold: 40,
   qualityThresholds: {
     perfect: 85,
@@ -148,7 +126,7 @@ export const DEFAULT_SCORING_CONFIG: ScoringEngineConfig = {
     fair: 40,
   },
   maxReasons: 5,
-};
+} as const;
 
 /**
  * Scorer weights as defined in the plan.

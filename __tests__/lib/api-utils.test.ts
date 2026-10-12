@@ -1,13 +1,4 @@
-import {
-  createAuthError,
-  createSuccessResponse,
-  createValidationError,
-  handleApiError,
-  validateRequiredParams,
-  checkRequiredEnvVars,
-  withSecurityHeaders,
-  DEFAULT_SECURITY_HEADERS,
-} from "@/lib/api-utils";
+import { createAuthError, createSuccessResponse, createValidationError, handleApiError, validateRequiredParams } from "@/lib/api-utils";
 
 // Mock NextResponse.json to avoid environment-specific Response implementation
 jest.mock("next/server", () => {
@@ -82,21 +73,5 @@ describe("api-utils", () => {
     expect(validateRequiredParams({ a: 1 }, ["a"])).toBeNull();
     const msg = validateRequiredParams({ a: 1 }, ["a", "b"]);
     expect(msg).toContain("b");
-  });
-
-  test("checkRequiredEnvVars validates env presence", () => {
-    const varName = "TEST_ENV_VAR_API_UTILS";
-    delete (process.env as any)[varName];
-    expect(checkRequiredEnvVars([varName])).toContain(varName);
-    (process.env as any)[varName] = "1";
-    expect(checkRequiredEnvVars([varName])).toBeNull();
-  });
-
-  test("withSecurityHeaders applies defaults", async () => {
-    const res = createSuccessResponse({ ok: true });
-    const withHeaders = withSecurityHeaders(res);
-    Object.entries(DEFAULT_SECURITY_HEADERS).forEach(([k, v]) => {
-      expect(withHeaders.headers.get(k)).toBe(v);
-    });
   });
 });

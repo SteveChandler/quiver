@@ -81,7 +81,7 @@ export interface ApprovedRuntimePhoto {
   runtimeAssetPath: string;
 }
 
-export interface CandidateReportInput {
+interface CandidateReportInput {
   generatedAt: string;
   sourceLabel: string;
   targetPath: string;

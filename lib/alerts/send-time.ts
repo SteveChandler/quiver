@@ -1,6 +1,7 @@
 import { localDateTimeToUTC } from "@/lib/utils/forecast-time-resolver";
 import { getLocalDateString, getLocalHour } from "@/lib/utils/timezone-utils";
 
+/** @public Stored profile preference also written by Quiver Native. */
 export type DailyCallTime =
   | "05:00"
   | "05:30"
@@ -11,6 +12,7 @@ export type DailyCallTime =
   | "08:00"
   | "sunrise";
 
+/** @public Allowed stored daily call times shared with native settings. */
 export const DAILY_CALL_TIMES = [
   "05:00",
   "05:30",
@@ -22,6 +24,7 @@ export const DAILY_CALL_TIMES = [
   "sunrise",
 ] as const satisfies readonly DailyCallTime[];
 
+/** @public Default for the stored daily call time preference. */
 export const DEFAULT_DAILY_CALL_TIME: DailyCallTime = "06:00";
 
 export function parseDailyCallTime(value: unknown): DailyCallTime {
