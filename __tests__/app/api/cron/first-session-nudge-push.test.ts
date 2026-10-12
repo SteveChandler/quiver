@@ -11,7 +11,7 @@
  * - No device token skipped (NOT logged)
  * - Each of the 5 cohorts resolves to the correct title/body
  * - Multi-device fan-out: one log row, N push deliveries
- * - Firing cohort + failing confidence lookup falls back to free_home
+ * - High-confidence home cohort + failing confidence lookup falls back to free_home
  */
 
 jest.mock("@/lib/cron/outcome", () => ({
@@ -449,8 +449,8 @@ describe("First-Session-Nudge Push Cron", () => {
         entitlement?: { is_pro: boolean; is_trialing: boolean } | null;
         beachName?: string;
         beachTimezone?: string | null;
-        firingScore?: number | null;
-        firingForecastAt?: string | null;
+        confidenceScore?: number | null;
+        confidenceForecastAt?: string | null;
       } = {},
     ) => {
       const {
@@ -458,8 +458,8 @@ describe("First-Session-Nudge Push Cron", () => {
         entitlement = null,
         beachName,
         beachTimezone = "America/Los_Angeles",
-        firingScore,
-        firingForecastAt = "2026-06-20T16:00:00.000Z",
+        confidenceScore,
+        confidenceForecastAt = "2026-06-20T16:00:00.000Z",
       } = overrides;
       seedWindow("profiles", [
         {
@@ -483,12 +483,12 @@ describe("First-Session-Nudge Push Cron", () => {
           { id: home_beach_id, name: beachName, timezone: beachTimezone },
         ]);
       }
-      if (firingScore !== undefined) {
+      if (confidenceScore !== undefined) {
         seedMaybeSingle(
           "enhanced_forecasts",
-          firingScore === null
+          confidenceScore === null
             ? null
-            : { confidence_score: firingScore, forecast_at: firingForecastAt },
+            : { confidence_score: confidenceScore, forecast_at: confidenceForecastAt },
         );
       }
     };
@@ -549,15 +549,15 @@ describe("First-Session-Nudge Push Cron", () => {
       expect(call.payload.beach_id).toBeNull();
     });
 
-    it("free_home_firing → 'Good window at your home break' when confidence>=70", async () => {
+    it("high-confidence home cohort prompts session logging and preserves analytics when confidence>=70", async () => {
       jest.useFakeTimers().setSystemTime(new Date("2026-07-17T17:00:00.000Z"));
       setupBase("u-fhf", {
         home_beach_id: "11111111-1111-4111-8111-111111111111",
         entitlement: { is_pro: false, is_trialing: false },
         beachName: "Blacks",
         beachTimezone: "America/Los_Angeles",
-        firingScore: 82,
-        firingForecastAt: "2026-07-17T16:00:00.000Z",
+        confidenceScore: 82,
+        confidenceForecastAt: "2026-07-17T16:00:00.000Z",
       });
 
       const response = await GET(
@@ -567,10 +567,14 @@ describe("First-Session-Nudge Push Cron", () => {
 
       expect(data.data.summary.cohorts.free_home_firing).toBe(1);
       const call = mockEnqueueNotification.mock.calls[0][0];
-      expect(call.payload.title).toBe("Good window at your home break");
+      expect(call.type).toBe("log_session_nudge");
+      expect(call.payload.cohort).toBe("free_home_firing");
+      expect(call.payload.title).toBe("Out at your home break today?");
       expect(call.payload.body).toBe(
-        "Check today's forecast, and log a session if you paddle out.",
+        "Log the session when you're back. It takes a few seconds.",
       );
+      expect(call.payload.title.length).toBeLessThanOrEqual(40);
+      expect(call.payload.body.length).toBeLessThanOrEqual(150);
       expect(call.payload.beach_id).toBeNull();
       expect(call.payload.policy_context).toEqual({
         kind: "positive_session_recommendation",
@@ -589,15 +593,15 @@ describe("First-Session-Nudge Push Cron", () => {
       );
     });
 
-    it("suppresses firing copy at producer time when the current hold blocks it", async () => {
+    it("suppresses high-confidence home copy at producer time when the current hold blocks it", async () => {
       jest.useFakeTimers().setSystemTime(new Date("2026-07-17T17:00:00.000Z"));
       setupBase("u-held", {
         home_beach_id: "11111111-1111-4111-8111-111111111111",
         entitlement: { is_pro: false, is_trialing: false },
         beachName: "Blacks",
         beachTimezone: "America/Los_Angeles",
-        firingScore: 82,
-        firingForecastAt: "2026-07-17T16:00:00.000Z",
+        confidenceScore: 82,
+        confidenceForecastAt: "2026-07-17T16:00:00.000Z",
       });
       mockResolveNotificationMajorEventHold.mockResolvedValue({
         status: "suppressed",
@@ -616,13 +620,13 @@ describe("First-Session-Nudge Push Cron", () => {
       expect(mockInsert).not.toHaveBeenCalled();
     });
 
-    it("falls back to non-firing copy when the beach timezone is missing", async () => {
+    it("falls back to default home copy when the beach timezone is missing", async () => {
       setupBase("u-no-tz", {
         home_beach_id: "11111111-1111-4111-8111-111111111111",
         entitlement: { is_pro: false, is_trialing: false },
         beachName: "Blacks",
         beachTimezone: null,
-        firingScore: 82,
+        confidenceScore: 82,
       });
 
       await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
@@ -640,8 +644,8 @@ describe("First-Session-Nudge Push Cron", () => {
         entitlement: { is_pro: false, is_trialing: false },
         beachName: "Blacks",
         beachTimezone: "America/Los_Angeles",
-        firingScore: 82,
-        firingForecastAt: "2026-06-20T09:00:00.000Z",
+        confidenceScore: 82,
+        confidenceForecastAt: "2026-06-20T09:00:00.000Z",
       });
 
       const response = await GET(
@@ -665,7 +669,7 @@ describe("First-Session-Nudge Push Cron", () => {
         home_beach_id: "beach-3",
         entitlement: null, // no row at all = free
         beachName: "Trestles",
-        firingScore: null, // no firing row
+        confidenceScore: null, // no high-confidence row
       });
 
       const response = await GET(

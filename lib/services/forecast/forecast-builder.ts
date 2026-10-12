@@ -88,6 +88,7 @@ import {
   TOTAL_FORECASTS,
   type EnhancedForecastEntity,
   type EnhancedForecastWithRawData,
+  type WaterTempSource,
   type CDIPBuoyData,
 } from "@/types/forecast";
 import type { NowcastAnchor } from "@/lib/services/observations/nowcast-anchor.types";
@@ -1333,10 +1334,12 @@ export class ForecastBuilder {
       snapshotIndex,
     });
 
+    const windSpeed = this.getWindSpeed(weatherPoint);
     const sourceSelection = waveHeightResult.debug.source?.startsWith('model_')
       ? wavePoint?.source_selection : undefined;
     const effectiveConfidence = sourceSelection?.disagreement
       ? Math.min(confidenceScore, 40) : confidenceScore;
+    const waterTemperature = this.getWaterTemperature(buoyData, beach, forecastTime, ioosWaterTempC, coopsWaterTempC);
     return {
       id: `forecast-${beach.id}-${forecastTime.getTime()}`,
       forecast_date: dateString,
@@ -1384,13 +1387,14 @@ export class ForecastBuilder {
         : {}),
 
       // Water temperature
-      water_temp: this.getWaterTemperature(buoyData, beach, forecastTime, ioosWaterTempC, coopsWaterTempC),
+      water_temp: waterTemperature.value,
 
-      // Wind data
-      wind_speed: this.getWindSpeed(weatherPoint),
+      // Wind data. Missing NWS wind stays null; NWS leaves direction blank
+      // when calm, so "0 mph" with no direction is a real reading.
+      wind_speed: windSpeed,
       wind_direction: this.getWindDirection(weatherPoint),
-      wind_direction_deg: cardinalToDegrees(weatherPoint?.windDirection || "SW"),
-      wind_source: weatherPoint?.windSpeed ? 'NWS' : null,
+      wind_direction_deg: cardinalToDegrees(weatherPoint?.windDirection),
+      wind_source: windSpeed != null ? 'NWS' : null,
 
       // Tide information
       tide_status: tideInfo.status,
@@ -1413,6 +1417,7 @@ export class ForecastBuilder {
 
       // Raw forecast metadata
       raw_forecast: {
+        water_temp_source: waterTemperature.source,
         ...this.buildRawForecast({
           dataSources,
           useCDIPData,
@@ -2046,35 +2051,35 @@ export class ForecastBuilder {
     forecastTime: Date,
     ioosWaterTempC: number | null,
     coopsWaterTempC: number | null
-  ): string | null {
+  ): { value: string | null; source: WaterTempSource } {
     // Priority 1: IOOS observed water temperature (most geographically accurate)
     if (ioosWaterTempC != null && isFinite(ioosWaterTempC)) {
       const tempF = (ioosWaterTempC * 9) / 5 + 32;
-      return formatWaterTemp(tempF);
+      return { value: formatWaterTemp(tempF), source: "ioos" };
     }
 
     // Priority 2: CO-OPS observed water temperature
     if (coopsWaterTempC != null && isFinite(coopsWaterTempC)) {
       const tempF = (coopsWaterTempC * 9) / 5 + 32;
-      return formatWaterTemp(tempF);
+      return { value: formatWaterTemp(tempF), source: "coops" };
     }
 
     // Priority 3: NDBC buoy water temperature (currently dead code — buoyData always null)
     if (buoyData?.water_temperature != null && isFinite(buoyData.water_temperature)) {
-      return formatWaterTemp((buoyData.water_temperature * 9) / 5 + 32);
+      return { value: formatWaterTemp((buoyData.water_temperature * 9) / 5 + 32), source: "ndbc" };
     }
 
     // Priority 4: Latitude-based estimation
-    return this.estimateWaterTemperature(beach.lat ?? 0, forecastTime);
+    return { value: this.estimateWaterTemperature(beach.lat ?? 0, forecastTime), source: "latitude" };
   }
 
   private getWindSpeed(weatherPoint: WeatherPeriod | null): string | null {
-    if (!weatherPoint) return "10 mph";
+    if (!weatherPoint) return null;
     return this.extractWindSpeed(weatherPoint.windSpeed);
   }
 
   private getWindDirection(weatherPoint: WeatherPeriod | null): string | null {
-    return weatherPoint?.windDirection || "SW";
+    return weatherPoint?.windDirection?.trim() || null;
   }
 
   private getAirTemperature(weatherPoint: WeatherPeriod | null, beach: Beach, forecastTime: Date): string | null {
@@ -2097,10 +2102,10 @@ export class ForecastBuilder {
     return `${rounded} ft`;
   }
 
-  private extractWindSpeed(windSpeedStr: string): string {
-    if (!windSpeedStr) return "10 mph";
+  private extractWindSpeed(windSpeedStr: string | null | undefined): string | null {
+    if (!windSpeedStr) return null;
     const match = windSpeedStr.match(/(\d+)/);
-    return match ? `${match[1]} mph` : "10 mph";
+    return match ? `${match[1]} mph` : null;
   }
 
   private estimateWaterTemperature(lat: number, date: Date): string {

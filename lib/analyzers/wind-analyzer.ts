@@ -1,4 +1,3 @@
-import { degreeToCardinal } from "@/lib/utils/geo-utils";
 /**
  * Wind Analysis Module
  * Extracted from morning-intel-utils.ts as part of Phase 7.2.3 refactoring
@@ -19,11 +18,22 @@ import type {
 } from "@/types/morning-intel";
 import { formatWindSpeed } from "@/lib/formatters/surf-data";
 import { normalizeAngle } from "@/lib/domains/shared/angle-utils";
+import { parseWindSpeedOrNull } from "@/lib/utils/number-parsing";
+import { degreeToCardinal } from "@/lib/utils/geo-utils";
 
 export { normalizeAngle };
 
 // Ocean Beach, San Diego faces approximately WSW (260-270°)
 const OB_SHORE_NORMAL = 270; // degrees
+
+const UNKNOWN_WIND: WindMetrics = {
+  // WindMetrics requires numbers; N/A marks these as sentinels, not measured zero or north.
+  speed: 0,
+  direction: 0,
+  cardinal: "N/A",
+  offshore: false,
+  description: "N/A",
+};
 
 /**
  * Calculate if wind is offshore relative to beach orientation
@@ -50,13 +60,7 @@ export function windAt(
   timezone: string
 ): WindMetrics {
   if (forecasts.length === 0) {
-    return {
-      speed: 0,
-      direction: 0,
-      cardinal: "N/A",
-      offshore: false,
-      description: "N/A",
-    };
+    return UNKNOWN_WIND;
   }
 
   // Find forecast closest to target time
@@ -84,13 +88,17 @@ export function windAt(
     }
   }
 
-  const windSpeed = closestForecast.wind_speed || 0;
-  const windDir = closestForecast.wind_direction || 0;
-  const offshore = calculateOnOffshore(windDir, OB_SHORE_NORMAL);
+  const windSpeed = parseWindSpeedOrNull(closestForecast.wind_speed);
+  if (windSpeed === null) return UNKNOWN_WIND;
+  const windDir = closestForecast.wind_direction;
+  const hasDirection = windDir != null && Number.isFinite(windDir);
+  const offshore = hasDirection && calculateOnOffshore(windDir, OB_SHORE_NORMAL);
 
   let description = "N/A";
   if (windSpeed === 0) {
     description = "calm";
+  } else if (!hasDirection) {
+    description = `${formatWindSpeed(windSpeed)} wind`;
   } else if (offshore) {
     description = windSpeed < 5 ? "light offshore" : "offshore";
   } else {
@@ -106,8 +114,8 @@ export function windAt(
 
   return {
     speed: Math.round(windSpeed),
-    direction: Math.round(windDir),
-    cardinal: degreeToCardinal(windDir),
+    direction: hasDirection ? Math.round(windDir) : 0,
+    cardinal: hasDirection ? degreeToCardinal(windDir) : "N/A",
     offshore,
     description,
   };
@@ -120,25 +128,29 @@ export function analyzeWindConditions(
   wind: WindMetrics,
   beach: BeachPreferences
 ): ConditionEvaluation {
+  if (wind.description === "N/A") {
+    return { status: "acceptable", emoji: "⚠️", message: "Wind unknown" };
+  }
   // If no wind offshore preference defined, evaluate based on general conditions
-  if (!beach.windOffshoreDeg) {
+  if (!beach.windOffshoreDeg || wind.cardinal === "N/A") {
+    const direction = wind.cardinal === "N/A" ? "" : ` ${wind.cardinal}`;
     if (wind.speed < 5) {
       return {
         status: "optimal",
         emoji: "✅",
-        message: `Light winds (${formatWindSpeed(wind.speed)} ${wind.cardinal})`,
+        message: `Light winds (${formatWindSpeed(wind.speed)}${direction})`,
       };
     } else if (wind.speed < 10) {
       return {
         status: "acceptable",
         emoji: "⚠️",
-        message: `Moderate winds (${formatWindSpeed(wind.speed)} ${wind.cardinal})`,
+        message: `Moderate winds (${formatWindSpeed(wind.speed)}${direction})`,
       };
     } else {
       return {
         status: "poor",
         emoji: "❌",
-        message: `Strong winds (${formatWindSpeed(wind.speed)} ${wind.cardinal})`,
+        message: `Strong winds (${formatWindSpeed(wind.speed)}${direction})`,
       };
     }
   }

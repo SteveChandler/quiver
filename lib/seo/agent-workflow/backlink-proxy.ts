@@ -79,7 +79,7 @@ export function discoverManualBacklinkExports(
         return null;
       }
     })
-    .filter(isDefined);
+    .filter((value) => value !== null && value !== undefined);
 }
 
 export function parseOutreachStatuses(markdown: string): Array<{ target: string; status: string }> {
@@ -444,10 +444,6 @@ function booleanFieldValue(value: unknown): boolean | undefined {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
-}
-
-function isDefined<T>(value: T | null | undefined): value is T {
-  return value !== null && value !== undefined;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

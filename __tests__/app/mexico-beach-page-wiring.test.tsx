@@ -31,9 +31,6 @@ jest.mock("@/lib/utils/timezone-utils.server", () => ({
 jest.mock("@/lib/utils/nearby-beach-enrichment", () => ({
   enrichBeachesWithConditions: jest.fn().mockResolvedValue([]),
 }));
-jest.mock("@/lib/flags/free-growth-phase", () => ({
-  isFreeGrowthPhaseEnabled: jest.fn().mockReturnValue(false),
-}));
 jest.mock("@/app/beach/[slug]/beach-detail-client", () => ({
   BeachDetailClient: (props: Record<string, unknown>) => {
     mockBeachDetailProps = props;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { usePathname } from "next/navigation";
+import { useRoutePathname } from "@/hooks/use-route-pathname";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -108,7 +108,11 @@ interface BestSurfWindowProps {
   beachName: string;
   beachTimezone?: string | null;
   forecasts?: EnhancedForecastEntity[];
+  /** True until the forecast fetch settles; empty `forecasts` then means "not loaded", not "none". */
+  forecastsLoading?: boolean;
   surfCall?: SurfCallResult | null;
+  /** True while the surf decision that becomes `surfCall` is still being fetched. */
+  surfCallLoading?: boolean;
   surfCallIsTomorrow?: boolean;
 
   // ---- NEW optional props for Condition Intelligence ----
@@ -165,12 +169,12 @@ function ContextChip({
   className?: string;
 }) {
   const variantClasses: Record<typeof variant, string> = {
-    gold: "bg-amber-100/80 text-amber-800 border border-amber-300/60 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700/40",
-    up: "bg-emerald-100/80 text-emerald-800 border border-emerald-300/60 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700/40",
-    down: "bg-rose-100/80 text-rose-800 border border-rose-300/60 dark:bg-rose-900/30 dark:text-rose-300 dark:border-rose-700/40",
-    stable: "bg-gray-100/80 text-gray-700 border border-gray-300/60 dark:bg-gray-800/40 dark:text-gray-300 dark:border-gray-600/40",
-    swell: "bg-blue-100/80 text-blue-800 border border-blue-300/60 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700/40",
-    neutral: "bg-gray-100/60 text-gray-600 border border-gray-200/60 dark:bg-gray-800/30 dark:text-gray-400 dark:border-gray-700/40",
+    gold: "bg-[#F6E9CE] text-[#7A4B00] border border-[#8A5E00]/40",
+    up: "bg-emerald-100/80 text-emerald-800 border border-emerald-300/60",
+    down: "bg-rose-100/80 text-rose-800 border border-rose-300/60",
+    stable: "bg-[#F0E5CC] text-[#4B4030] border border-[#11100D]/25",
+    swell: "bg-[#F6E9CE] text-[#11100D] border border-[#8A5E00]/40",
+    neutral: "bg-[#F0E5CC] text-[#4B4030] border border-[#11100D]/20",
   };
 
   return (
@@ -192,13 +196,13 @@ function ContextChip({
  */
 function SecondaryWindowChip({ window: w }: { window: ConditionWindow }) {
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-blue-100/50 bg-blue-50/30 dark:border-blue-800/30 dark:bg-blue-900/10 px-3 py-2 text-xs">
-      <Clock className="h-3.5 w-3.5 shrink-0 text-blue-500" aria-hidden="true" />
-      <span className="font-semibold text-blue-800 dark:text-blue-300">
+    <div className="flex items-center gap-2 rounded-lg border border-[#11100D]/25 bg-[#F6E9CE] px-3 py-2 text-xs">
+      <Clock className="h-3.5 w-3.5 shrink-0 text-[#8A5E00]" aria-hidden="true" />
+      <span className="font-semibold text-[#11100D]">
         {formatISOTime(w.start)}–{formatISOTime(w.end)}
       </span>
       {w.character && (
-        <span className="font-mono text-blue-600/70 dark:text-blue-400/70 truncate">
+        <span className="font-mono text-[#4B4030] truncate">
           {w.character.label}
         </span>
       )}
@@ -215,13 +219,15 @@ export function BestSurfWindow({
   beachName,
   beachTimezone,
   forecasts,
+  forecastsLoading = false,
   surfCall,
+  surfCallLoading = false,
   surfCallIsTomorrow,
   windows,
   boardPick,
   relativeContext,
 }: BestSurfWindowProps) {
-  const pathname = usePathname();
+  const pathname = useRoutePathname();
   const [shareOpen, setShareOpen] = useState(false);
 
   // Build UTM-tagged share URL once so it can be passed as a prop to ShareSheet
@@ -271,13 +277,13 @@ export function BestSurfWindow({
   ) => {
     switch (quality) {
       case "perfect":
-        return { label: "Offshore", color: "text-green-600", bg: "bg-green-100" };
+        return { label: "Offshore", color: "text-green-800", bg: "bg-green-100" };
       case "acceptable":
-        return { label: "Light/Variable", color: "text-blue-600", bg: "bg-blue-100" };
+        return { label: "Light/Variable", color: "text-[#11100D]", bg: "bg-[#F6E9CE]" };
       case "cross":
-        return { label: "Cross-shore", color: "text-yellow-600", bg: "bg-yellow-100" };
+        return { label: "Cross-shore", color: "text-yellow-800", bg: "bg-yellow-100" };
       case "onshore":
-        return { label: "Onshore", color: "text-orange-600", bg: "bg-orange-100" };
+        return { label: "Onshore", color: "text-orange-800", bg: "bg-orange-100" };
       default:
         return null;
     }
@@ -307,7 +313,12 @@ export function BestSurfWindow({
     return await data.intel.getDaily(beachId, forecastDate);
   }, [beachId, forecastDate]);
 
-  const { data: intel, loading, error } = useDataFetcher(fetchIntel);
+  // The unified card replaces everything below, so its intel fetch would be wasted.
+  const {
+    data: intel,
+    loading,
+    error,
+  } = useDataFetcher(fetchIntel, { skip: Boolean(surfCall) });
   const fallbackWaveHeightLabel = useMemo(
     () => formatIntelWaveHeightLabel(intel?.surf_min_ft, intel?.surf_max_ft),
     [intel?.surf_min_ft, intel?.surf_max_ft]
@@ -464,8 +475,10 @@ export function BestSurfWindow({
     );
   }
 
-  // Loading state
-  if (loading) {
+  // Loading state. Every card below is interim while the surf decision is in
+  // flight, and the forecast-derived fallbacks are only meaningful once
+  // forecasts have landed, so neither may paint as an empty state.
+  if (loading || surfCallLoading || (forecastsLoading && !intel)) {
     return (
       <Card className="rounded-3xl border-blue-100/60">
         <CardContent className="p-6 space-y-4">
@@ -490,7 +503,7 @@ export function BestSurfWindow({
           <CardHeader className="pb-3">
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1">
-                <CardTitle className="text-xl font-bold text-blue-900">
+                <CardTitle className="text-xl font-bold text-[#11100D]">
                   Best Surf Window Today
                 </CardTitle>
                 <p className="text-xs text-muted-foreground mt-1">
@@ -503,17 +516,17 @@ export function BestSurfWindow({
             <div className="bg-gradient-to-br from-green-50/80 to-blue-50/50 rounded-xl p-4 border border-green-200/60">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <Clock className="h-5 w-5 text-green-600" />
+                  <Clock className="h-5 w-5 text-[#136E35]" />
                   <h4 className="font-semibold text-green-900">
                     Most Favorable Window
                   </h4>
                 </div>
               </div>
-              <p className="text-2xl font-bold text-green-600 mb-1">
+              <p className="text-2xl font-bold text-[#136E35] mb-1">
                 {formatTime(bestWindowFromForecasts.startTime)} -{" "}
                 {formatTime(bestWindowFromForecasts.endTime)}
               </p>
-              <p className="text-sm text-gray-700">
+              <p className="text-sm text-[#4B4030]">
                 {bestWindowFromForecasts.description} •{" "}
                 {bestWindowFromForecasts.conditions}
               </p>
@@ -553,7 +566,7 @@ export function BestSurfWindow({
     return (
       <Card className="rounded-3xl border-yellow-100/60 bg-yellow-50/50">
         <CardContent className="p-6 flex items-start gap-3">
-          <AlertCircle className="h-5 w-5 text-amber-700 mt-0.5 flex-shrink-0" />
+          <AlertCircle className="h-5 w-5 text-amber-900 mt-0.5 flex-shrink-0" />
           <div className="flex-1">
             <p className="text-sm text-amber-900 font-semibold mb-1">
               Surf intel not available yet
@@ -587,7 +600,7 @@ export function BestSurfWindow({
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1">
-            <CardTitle className="text-xl font-bold text-blue-900">
+            <CardTitle className="text-xl font-bold text-[#11100D]">
               Best Surf Window Today
             </CardTitle>
             <p className="text-xs text-muted-foreground mt-1">
@@ -613,8 +626,8 @@ export function BestSurfWindow({
             windowStatus.status === "current"
               ? "bg-green-100/50 border border-green-200"
               : windowStatus.status === "passed"
-              ? "bg-gray-100/50 border border-gray-200"
-              : "bg-blue-100/50"
+              ? "bg-[#F0E5CC] border border-[#11100D]/25"
+              : "bg-[#F6E9CE]"
           }`}
         >
           <div className="flex items-center justify-between mb-2">
@@ -622,19 +635,17 @@ export function BestSurfWindow({
               <Clock
                 className={`h-5 w-5 ${
                   windowStatus.status === "current"
-                    ? "text-green-600"
+                    ? "text-[#136E35]"
                     : windowStatus.status === "passed"
-                    ? "text-gray-600"
-                    : "text-blue-600"
+                    ? "text-[#4B4030]"
+                    : "text-[#8A5E00]"
                 }`}
               />
               <h4
                 className={`font-semibold ${
                   windowStatus.status === "current"
                     ? "text-green-900"
-                    : windowStatus.status === "passed"
-                    ? "text-gray-900"
-                    : "text-blue-900"
+                    : "text-[#11100D]"
                 }`}
               >
                 {windowStatus.status === "current"
@@ -649,9 +660,7 @@ export function BestSurfWindow({
                 className={`text-xs font-medium px-2 py-1 rounded ${
                   windowStatus.status === "current"
                     ? "bg-green-200 text-green-800"
-                    : windowStatus.status === "passed"
-                    ? "bg-gray-200 text-gray-700"
-                    : "bg-blue-200 text-blue-800"
+                    : "bg-[#11100D]/10 text-[#11100D]"
                 }`}
               >
                 {windowStatus.message}
@@ -664,10 +673,10 @@ export function BestSurfWindow({
             <p
               className={`text-2xl font-bold ${
                 windowStatus.status === "current"
-                  ? "text-green-600"
+                  ? "text-[#136E35]"
                   : windowStatus.status === "passed"
-                  ? "text-gray-600"
-                  : "text-blue-600"
+                  ? "text-[#4B4030]"
+                  : "text-[#11100D]"
               }`}
             >
               {formatTime(intel.best_window_start)} -{" "}
@@ -677,10 +686,10 @@ export function BestSurfWindow({
             <p
               className={`text-lg font-medium ${
                 windowStatus.status === "current"
-                  ? "text-green-600"
+                  ? "text-[#136E35]"
                   : windowStatus.status === "passed"
-                  ? "text-gray-600"
-                  : "text-blue-600"
+                  ? "text-[#4B4030]"
+                  : "text-[#11100D]"
               }`}
             >
               {intel.best_window_description ||
@@ -694,10 +703,8 @@ export function BestSurfWindow({
               <p
                 className={`text-sm mt-1 ${
                   windowStatus.status === "current"
-                    ? "text-green-700"
-                    : windowStatus.status === "passed"
-                    ? "text-gray-600"
-                    : "text-blue-700"
+                    ? "text-green-800"
+                    : "text-[#4B4030]"
                 }`}
               >
                 {intel.best_window_description}
@@ -736,34 +743,34 @@ export function BestSurfWindow({
         {windowStatus.status === "passed" && nextWindow && (
           <div className="bg-gradient-to-br from-green-50/80 to-blue-50/50 rounded-xl p-4 border border-green-200/60">
             <div className="flex items-center gap-2 mb-2">
-              <ChevronRight className="h-5 w-5 text-green-600" />
+              <ChevronRight className="h-5 w-5 text-[#136E35]" />
               <h4 className="font-semibold text-green-900">
                 Next Favorable Window Today
               </h4>
             </div>
             {nextWindow.startTime && nextWindow.endTime ? (
               <>
-                <p className="text-2xl font-bold text-green-600 mb-1">
+                <p className="text-2xl font-bold text-[#136E35] mb-1">
                   {formatTime(nextWindow.startTime)} -{" "}
                   {formatTime(nextWindow.endTime)}
                 </p>
-                <p className="text-sm text-gray-700">
+                <p className="text-sm text-[#4B4030]">
                   {nextWindow.description} • {nextWindow.conditions}
                 </p>
               </>
             ) : (
-              <p className="text-sm text-gray-700">{nextWindow.description}</p>
+              <p className="text-sm text-[#4B4030]">{nextWindow.description}</p>
             )}
           </div>
         )}
 
         {/* Show current conditions if window has passed and no next window */}
         {windowStatus.status === "passed" && !nextWindow && (
-          <div className="bg-blue-50/50 rounded-xl p-3 border border-blue-100/50">
-            <h4 className="font-semibold text-blue-900 mb-2 text-sm">
+          <div className="bg-[#F6E9CE] rounded-xl p-3 border border-[#11100D]/25">
+            <h4 className="font-semibold text-[#11100D] mb-2 text-sm">
               Current Conditions
             </h4>
-            <p className="text-sm text-gray-700">
+            <p className="text-sm text-[#4B4030]">
               Right now: {currentWaveHeightLabel ?? "unknown surf"},{" "}
               {intel.wind_speed_mph} mph {intel.wind_direction_text} (
               {intel.wind_quality}). Check tomorrow&apos;s forecast for next
@@ -775,14 +782,14 @@ export function BestSurfWindow({
         {/* Conditions Grid - 2x2 on mobile, 4 cols on desktop */}
         <div className="grid grid-cols-2 gap-3">
           {/* Surf */}
-          <div className="bg-white/80 rounded-xl p-3 border border-blue-100">
+          <div className="bg-[#F6E9CE] rounded-xl p-3 border border-[#11100D]/30">
             <div className="flex items-center gap-2 mb-1">
-              <Waves className="h-4 w-4 text-sky-500" />
-              <span className="text-xs font-medium text-sky-500">
+              <Waves className="h-4 w-4 text-[#4B4030]" />
+              <span className="text-xs font-medium text-[#4B4030]">
                 Surf
               </span>
             </div>
-            <p className="font-semibold text-gray-900">
+            <p className="font-semibold text-[#11100D]">
               {surfGridWaveHeightLabel ?? "—"}
             </p>
             <p className="text-xs text-muted-foreground truncate">
@@ -791,14 +798,14 @@ export function BestSurfWindow({
           </div>
 
           {/* Wind */}
-          <div className="bg-white/80 rounded-xl p-3 border border-blue-100">
+          <div className="bg-[#F6E9CE] rounded-xl p-3 border border-[#11100D]/30">
             <div className="flex items-center gap-2 mb-1">
-              <Wind className="h-4 w-4 text-blue-500" />
+              <Wind className="h-4 w-4 text-[#4B4030]" />
               <span className="text-xs font-medium text-muted-foreground">
                 Wind
               </span>
             </div>
-            <p className="font-semibold text-gray-900">
+            <p className="font-semibold text-[#11100D]">
               {intel.wind_speed_mph} mph {intel.wind_direction_text}
             </p>
             <p className="text-xs text-muted-foreground truncate">
@@ -807,14 +814,14 @@ export function BestSurfWindow({
           </div>
 
           {/* Tide */}
-          <div className="bg-white/80 rounded-xl p-3 border border-blue-100">
+          <div className="bg-[#F6E9CE] rounded-xl p-3 border border-[#11100D]/30">
             <div className="flex items-center gap-2 mb-1">
-              <TrendingUp className="h-4 w-4 text-sky-500" />
-              <span className="text-xs font-medium text-sky-500">
+              <TrendingUp className="h-4 w-4 text-[#4B4030]" />
+              <span className="text-xs font-medium text-[#4B4030]">
                 Tide
               </span>
             </div>
-            <p className="font-semibold text-gray-900">
+            <p className="font-semibold text-[#11100D]">
               {intel.tide_height_ft} ft @ {formatTime(intel.tide_time)}
             </p>
             {intel.tide_optimal_range && (
@@ -825,13 +832,13 @@ export function BestSurfWindow({
           </div>
 
           {/* Confidence */}
-          <div className="bg-white/80 rounded-xl p-3 border border-blue-100">
+          <div className="bg-[#F6E9CE] rounded-xl p-3 border border-[#11100D]/30">
             <div className="flex items-center gap-2 mb-1">
               <span className="text-xs font-medium text-muted-foreground">
                 Confidence
               </span>
             </div>
-            <p className="font-semibold text-gray-900">{intel.confidence}</p>
+            <p className="font-semibold text-[#11100D]">{intel.confidence}</p>
             {intel.conditions_score !== null &&
               intel.conditions_score !== undefined && (
                 <p className="text-xs text-muted-foreground">
@@ -843,8 +850,8 @@ export function BestSurfWindow({
 
         {/* Recommendation - Why this window is best */}
         {intel.recommendation && (
-          <div className="bg-blue-50/50 rounded-xl p-3 border border-blue-100/50">
-            <p className="text-sm text-gray-700 leading-relaxed">
+          <div className="bg-[#F6E9CE] rounded-xl p-3 border border-[#11100D]/25">
+            <p className="text-sm text-[#11100D] leading-relaxed">
               {intel.recommendation}
             </p>
           </div>
@@ -906,25 +913,25 @@ function ConditionIntelligenceSection({
       >
         <div className="flex items-start justify-between gap-2 mb-2">
           <div className="flex items-center gap-2">
-            <Clock className="h-5 w-5 text-blue-600 shrink-0" aria-hidden="true" />
-            <h4 className="font-semibold text-blue-900 dark:text-blue-100">
+            <Clock className="h-5 w-5 text-[#8A5E00] shrink-0" aria-hidden="true" />
+            <h4 className="font-semibold text-[#11100D]">
               Best Window
             </h4>
           </div>
           {(primaryWindow.peakScore ?? primaryWindow.avgScore) > 0 && (
-            <span className="shrink-0 text-xs font-bold tabular-nums px-2 py-0.5 rounded-full bg-blue-100/80 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200">
+            <span className="shrink-0 text-xs font-bold tabular-nums px-2 py-0.5 rounded-full bg-[#F6E9CE] text-[#11100D] border border-[#11100D]/30">
               {Math.round(primaryWindow.peakScore ?? primaryWindow.avgScore)}
             </span>
           )}
         </div>
 
-        <p className="text-2xl font-bold text-blue-700 dark:text-blue-300 mb-1">
+        <p className="text-2xl font-bold text-[#11100D] mb-1">
           {formatISOTime(primaryWindow.start)}–{formatISOTime(primaryWindow.end)}
         </p>
 
         {/* Character label — the "sticker" descriptor */}
         {primaryWindow.character && (
-          <p className="font-mono text-sm text-blue-600/80 dark:text-blue-400/80 mb-2 leading-snug">
+          <p className="font-mono text-sm text-[#4B4030] mb-2 leading-snug">
             {primaryWindow.character.label}
           </p>
         )}
@@ -934,7 +941,7 @@ function ConditionIntelligenceSection({
           <ul className="flex flex-wrap gap-1.5" aria-label="What's working">
             {primaryWindow.reasons.map((r) => (
               <li key={r}>
-                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-100/60 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-[#F6E9CE] text-[#11100D]">
                   {r}
                 </span>
               </li>
@@ -944,13 +951,13 @@ function ConditionIntelligenceSection({
 
         {/* Board pick — inline call-out */}
         {boardPick && (
-          <div className="mt-3 flex items-center gap-2 rounded-lg border border-amber-200/60 bg-amber-50/60 dark:border-amber-800/40 dark:bg-amber-900/10 px-3 py-2">
+          <div className="mt-3 flex items-center gap-2 rounded-lg border border-[#8A5E00]/40 bg-[#F6E9CE] px-3 py-2">
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-amber-900 dark:text-amber-200 truncate">
+              <p className="text-sm font-semibold text-[#11100D] truncate">
                 Grab your {boardPick.boardName}
               </p>
               {boardPick.reason && (
-                <p className="text-xs text-amber-700/80 dark:text-amber-400/80 truncate">
+                <p className="text-xs text-[#4B4030] truncate">
                   {boardPick.reason}
                 </p>
               )}
@@ -1038,7 +1045,7 @@ function MagicHourSection({
     <div className="bg-gradient-to-br from-purple-50/80 to-indigo-50/50 rounded-xl p-4 border border-purple-200/60">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-purple-600" />
+          <Sparkles className="h-5 w-5 text-purple-800" />
           <h4 className="font-semibold text-purple-900">Magic Hour</h4>
         </div>
         {magicHour.confidence > 0.8 && (
@@ -1050,8 +1057,8 @@ function MagicHourSection({
 
       {magicHour.windowStart && magicHour.windowEnd && (
         <div className="mb-2">
-          <p className="text-sm text-purple-700 font-medium">Best Window</p>
-          <p className="text-xl font-bold text-purple-600">
+          <p className="text-sm text-purple-800 font-medium">Best Window</p>
+          <p className="text-xl font-bold text-purple-800">
             {magicHour.windowStart} - {magicHour.windowEnd}
           </p>
         </div>
@@ -1059,8 +1066,8 @@ function MagicHourSection({
 
       {magicHour.peakTime && (
         <div className="mb-3">
-          <p className="text-sm text-purple-700 font-medium">Peak Conditions</p>
-          <p className="text-lg font-bold text-purple-600">
+          <p className="text-sm text-purple-800 font-medium">Peak Conditions</p>
+          <p className="text-lg font-bold text-purple-800">
             {formatPeakTime(magicHour.peakTime)}
           </p>
         </div>
@@ -1077,12 +1084,12 @@ function MagicHourSection({
           </span>
         )}
         {magicHour.swellMatch && (
-          <span className="text-xs font-medium px-2 py-1 rounded bg-blue-100 text-blue-600">
+          <span className="text-xs font-medium px-2 py-1 rounded bg-[#F6E9CE] text-[#11100D]">
             Swell aligned
           </span>
         )}
         {magicHour.tideInRange && (
-          <span className="text-xs font-medium px-2 py-1 rounded bg-teal-100 text-teal-600">
+          <span className="text-xs font-medium px-2 py-1 rounded bg-teal-100 text-teal-800">
             Optimal tide
           </span>
         )}
@@ -1095,8 +1102,8 @@ function MagicHourLoadingState() {
   return (
     <div className="bg-purple-50/50 rounded-xl p-3 border border-purple-100/50">
       <div className="flex items-center gap-2">
-        <Sparkles className="h-4 w-4 text-purple-400 motion-safe:animate-pulse" />
-        <span className="text-sm text-purple-600">Calculating peak time...</span>
+        <Sparkles className="h-4 w-4 text-purple-800 motion-safe:animate-pulse" />
+        <span className="text-sm text-purple-800">Calculating peak time...</span>
       </div>
     </div>
   );

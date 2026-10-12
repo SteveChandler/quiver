@@ -14,6 +14,7 @@
 import { GET } from "@/app/api/cron/trial-ending-push-deliver/route";
 import { NextRequest } from "next/server";
 import { readFileSync } from "fs";
+import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 
 jest.mock("@/lib/cron/outcome", () => ({
   withCronOutcome: jest.fn(
@@ -76,6 +77,7 @@ const tableState: Record<
 > = {};
 
 const mockInsert = jest.fn();
+const mockSelect = jest.fn();
 
 function buildQuery(table: string) {
   const row = tableState[table] ?? {};
@@ -84,7 +86,10 @@ function buildQuery(table: string) {
     error: row.select?.error ?? null,
   };
   const builder: Record<string, unknown> = {};
-  builder.select = jest.fn(() => builder);
+  builder.select = jest.fn((columns: string) => {
+    mockSelect(table, columns);
+    return builder;
+  });
   builder.eq = jest.fn(() => builder);
   builder.gte = jest.fn(() => builder);
   builder.lte = jest.fn(() => Promise.resolve(resolved));
@@ -321,9 +326,7 @@ describe("Trial-Ending Push Cron", () => {
 
   describe("Happy path (Phase 3e: enqueues via notifications pipeline)", () => {
     it("enqueues a trial_ending event and writes one log row per candidate", async () => {
-      const trialEndsAt = new Date(
-        Date.now() + 2 * 24 * 60 * 60 * 1000,
-      ).toISOString();
+      const trialEndsAt = "2026-10-11T07:30:00.000Z";
       seed("user_entitlements", [
         { user_id: "u-4", trial_ends_at: trialEndsAt },
       ]);
@@ -356,7 +359,8 @@ describe("Trial-Ending Push Cron", () => {
           recipientUserId: "u-4",
           dedupeKey: `trial_ending:u-4:${trialEndsAt}`,
           payload: expect.objectContaining({
-            title: "Trial ends in 2 days",
+            title: "Your trial ends Sunday",
+            body: "Keep your board picks and alerts for up to 10 beaches, or cancel anytime in your phone's subscription settings.",
             trial_ends_at: trialEndsAt,
           }),
         }),
@@ -370,6 +374,36 @@ describe("Trial-Ending Push Cron", () => {
         trial_ends_at: trialEndsAt,
         meta: { device_count: 1, method: "enqueued_via_pipeline" },
       });
+    });
+
+    it.each([
+      ["Pacific/Honolulu", "2026-10-11T07:30:00.000Z", "Saturday"],
+      ["America/New_York", "2026-10-11T03:30:00.000Z", "Saturday"],
+      ["America/Los_Angeles", "2026-10-11T03:30:00.000Z", "Saturday"],
+      [null, "2026-10-11T03:30:00.000Z", "Saturday"],
+      [undefined, "2026-10-11T03:30:00.000Z", "Saturday"],
+      ["Invalid/Timezone", "2026-10-11T03:30:00.000Z", "Saturday"],
+      ["America/Los_Angeles", "2026-11-01T06:30:00.000Z", "Saturday"],
+      ["America/Los_Angeles", "2026-11-01T09:30:00.000Z", "Sunday"],
+      ["America/Los_Angeles", "2026-10-14T12:00:00.000Z", "Wednesday"],
+    ])("uses timezone %s for trial end %s (%s)", async (timezone, trialEndsAt, weekday) => {
+      seed("user_entitlements", [{ user_id: "u-tz", trial_ends_at: trialEndsAt }]);
+      seed("trial_ending_push_log", []);
+      seed("profiles", [{ id: "u-tz", notif_push_enabled: true, timezone }]);
+      seed("user_devices", [{ user_id: "u-tz", device_token: "tok-tz" }]);
+
+      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
+      if (timezone === "Invalid/Timezone") {
+        expectConsoleWarnings([/Invalid profile timezone: Invalid\/Timezone/]);
+      }
+      expect(response.status).toBe(200);
+      expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
+      const { payload } = mockEnqueueNotification.mock.calls[0][0];
+      expect(payload.title).toBe(`Your trial ends ${weekday}`);
+      expect(payload.title.length).toBeLessThanOrEqual(40);
+      expect(payload.body).toBe("Keep your board picks and alerts for up to 10 beaches, or cancel anytime in your phone's subscription settings.");
+      expect(payload.body.length).toBeLessThanOrEqual(150);
+      expect(mockSelect).toHaveBeenCalledWith("profiles", "id, notif_push_enabled, timezone");
     });
 
     it("logs once per user even when the user has multiple device tokens", async () => {

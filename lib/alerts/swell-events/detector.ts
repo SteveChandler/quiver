@@ -189,6 +189,14 @@ export function tracksSwellComponent(previous: SwellComponentShape, next: SwellC
     && Math.abs(previous.periodS - next.periodS) <= SWELL_EVENT_THRESHOLDS.trackPeriodS;
 }
 
+export function tracksSwellSize(
+  previous: Pick<BeachSwellEvent, "peakFaceHeightFt">,
+  next: Pick<BeachSwellEvent, "peakFaceHeightFt">,
+): boolean {
+  return previous.peakFaceHeightFt <= next.peakFaceHeightFt * SWELL_EVENT_THRESHOLDS.trackSizeRatio
+    && next.peakFaceHeightFt <= previous.peakFaceHeightFt * SWELL_EVENT_THRESHOLDS.trackSizeRatio;
+}
+
 function addLocalDays(localDate: string, days: number): string {
   const date = new Date(`${localDate}T00:00:00.000Z`);
   date.setUTCDate(date.getUTCDate() + days);

@@ -34,7 +34,7 @@ export function LifecycleEmail(props: LifecycleEmailProps): React.ReactElement {
         </ol> : props.paragraphs.map((paragraph, index) => <p key={paragraph} style={{ color: PAPER_INK, fontFamily: FONT_BODY, fontSize: 16, lineHeight: 1.55, margin: index === props.paragraphs.length - 1 ? 0 : "0 0 16px" }}>{paragraph}</p>)}
       </PaperPanel>
       <div style={{ margin: "24px 0 20px", textAlign: "center" }}><CTAButton href={props.ctaHref}>{props.ctaLabel}</CTAButton></div>
-      <p style={{ fontFamily: FONT_BODY, color: MUTED, fontSize: 14, textAlign: "center", margin: "0 0 16px" }}>— Steven, founder of Quiver</p>
+      <p style={{ fontFamily: FONT_BODY, color: MUTED, fontSize: 14, textAlign: "center", margin: "0 0 16px" }}>Steve, Quiver</p>
       <StickerStrip />
     </td></tr>
     <Footer>

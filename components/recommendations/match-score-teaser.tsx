@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { usePathname } from "next/navigation";
+import { useRoutePathname } from "@/hooks/use-route-pathname";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { useAuth } from "@/context/auth-context";
 import {
@@ -31,7 +31,7 @@ export function MatchScoreTeaser({
 }: MatchScoreTeaserProps) {
   const { user } = useAuth();
   const [showAuth, setShowAuth] = useState(false);
-  const pathname = usePathname();
+  const pathname = useRoutePathname();
   const hasTrackedView = useRef(false);
 
   // Track view once per beach for unauthenticated users.

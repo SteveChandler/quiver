@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 
-export const LIFECYCLE_CAMPAIGN = process.env.TRIAL_FEEDBACK_ENABLED === "true" ? "startup-lifecycle-v2" : "startup-lifecycle-v1";
-export const LIFECYCLE_VERSION = process.env.TRIAL_FEEDBACK_ENABLED === "true" ? 2 : 1;
+export const LIFECYCLE_CAMPAIGN = process.env.TRIAL_FEEDBACK_ENABLED === "true" ? "startup-lifecycle-v3" : "startup-lifecycle-v1";
+export const LIFECYCLE_VERSION = process.env.TRIAL_FEEDBACK_ENABLED === "true" ? 3 : 1;
 export const lifecycleJobSchema = z.enum(["welcome", "activation", "progress", "friction", "trial_support", "routine", "offer_ready", "trial_feedback"]);
 export type LifecycleJob = z.infer<typeof lifecycleJobSchema>;
 export const lifecycleDecisionSchema = z.object({

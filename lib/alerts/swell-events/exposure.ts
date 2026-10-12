@@ -13,6 +13,7 @@ export const SWELL_EVENT_THRESHOLDS = {
   exposureTaperDeg: 20,
   trackDirectionDeg: 45,
   trackPeriodS: 3,
+  trackSizeRatio: 1.5,
   daylightStartHour: 6,
   daylightEndHour: 19,
   maxHorizonDays: 9,

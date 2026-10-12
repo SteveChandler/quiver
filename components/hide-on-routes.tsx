@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { useRoutePathname } from "@/hooks/use-route-pathname";
 
 /**
  * Client-side gate that hides children on specified routes.
@@ -19,7 +19,7 @@ export function HideOnRoutes({
   exact?: string[];
   prefixes?: string[];
 }) {
-  const pathname = usePathname();
+  const pathname = useRoutePathname();
   if (exact?.includes(pathname)) return null;
   if (prefixes?.some((p) => pathname.startsWith(p))) return null;
   return <>{children}</>;

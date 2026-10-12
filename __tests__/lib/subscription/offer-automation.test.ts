@@ -44,3 +44,12 @@ it.each(['app_store','play_store','stripe','rc_billing'])('retains independent c
  await refreshLifecycleUserEligibility(user_id);
  expect(mockRpc).toHaveBeenLastCalledWith('record_lifecycle_provider_snapshot',{p_user_id:user_id,p_active:true,p_trial:{product_id:'pro',expires_at:expiry,store,will_renew:false,billing_issue:false}});
 });
+
+it('drains the entitlement queue in batches until it runs short', async () => {
+  const full = Array.from({ length: 24 }, (_, i) => `11111111-1111-4111-8111-${String(i).padStart(12, '0')}`);
+  const batches = [full, full, [user_id]];
+  mockRpc.mockImplementation(async name => name === 'lifecycle_entitlement_queue' ? batches.shift() ?? [] : null);
+  mockRead.mockResolvedValue({ entitlements: {}, subscriptions: {} });
+  expect(await refreshLifecycleEligibility()).toEqual({ checked: 49, failed: 0 });
+  expect(mockRpc.mock.calls.filter(([name]) => name === 'lifecycle_entitlement_queue')).toHaveLength(3);
+});

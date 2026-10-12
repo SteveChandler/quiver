@@ -1,11 +1,7 @@
 import type { Metadata } from "next";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { getUserMetadata } from "@/actions/profile-actions";
-import UserProfileClient from "@/app/user/[id]/user-profile-client";
-
-export default function PublicProfileAliasPage() {
-  return <UserProfileClient />;
-}
+export { default } from "@/app/user/[id]/page";
 
 interface ProfileShareMetadataInput {
   full_name: string | null;
@@ -23,9 +19,9 @@ export function buildProfileShareMetadata(
       ? `See ${userName}'s surf profile on Quiver.`
       : "See this surfer's sessions and profile on Quiver.",
     path: `/profile/${profileId}`,
-    image: "/quiver-app-icon.png",
-    imageWidth: 1024,
-    imageHeight: 1024,
+    image: "/images/hero/quiver-landing-hero-social.jpg",
+    imageWidth: 1200,
+    imageHeight: 630,
   });
 }
 

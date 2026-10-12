@@ -15,13 +15,14 @@ import { isUuid } from "@/lib/utils/validation";
  * Cohort branching (5-way):
  *   - Trialing + home beach             → "Unlock your Quiver"
  *   - Trialing + no home beach          → "Set your home break"
- *   - Free + home + conditions>=70      → "Good window at your home break"
- *   - Free + home                       → "How was this week?"
+ *   - Free + home + data confidence>=70 → "Out at your home break today?"
+ *   - Free + home                       → "Start your surf log"
  *   - Free + no home                    → "Been out this week?"
  *
- * "Conditions>=70" = first hourly row today at the user's home beach with
- * `confidence_score >= 70` via `v_enhanced_forecast_latest` → enhanced_forecasts
- * join. Lookup failure falls back to the non-firing "Free + home" cohort.
+ * Data confidence is forecast reliability, not surf quality. The first
+ * enhanced_forecasts row today with `confidence_score >= 70` selects the
+ * high-confidence home cohort if it is daytime. Lookup failure falls back
+ * to "Free + home".
  *
  * Idempotency: composite PK on activation_push_log(user_id, nudge_type) —
  * re-runs never double-push. Log row is written ONLY on successful send, so
@@ -84,13 +85,15 @@ const SIGNUP_MAX_DAYS = 8;
 // Session-count cap — anyone at 3+ sessions has already established habit.
 const SESSION_COUNT_THRESHOLD = 3;
 
-// Conditions>=70 threshold for the "firing" cohort branch.
-const CONDITIONS_FIRING_THRESHOLD = 70;
+// Forecast-data confidence threshold; this does not measure surf quality.
+const FORECAST_CONFIDENCE_THRESHOLD = 70;
+// Retain the serialized cohort value for analytics and notification safety checks.
+const HIGH_CONFIDENCE_HOME_COHORT = "free_home_firing";
 
 type CohortKey =
   | "trialing_home"
   | "trialing_no_home"
-  | "free_home_firing"
+  | typeof HIGH_CONFIDENCE_HOME_COHORT
   | "free_home"
   | "free_no_home";
 
@@ -123,7 +126,7 @@ interface ResolvedCohort {
   policy_context?: PositiveRecommendationPolicyContext;
 }
 
-interface FiringConfidence {
+interface ForecastConfidence {
   confidenceScore: number;
   policyContext: PositiveRecommendationPolicyContext;
 }
@@ -171,11 +174,11 @@ async function recordFirstSessionPushOutcome(result: {
 // Cohort resolution
 // ============================================================================
 
-async function fetchFiringConfidence(
+async function fetchForecastConfidence(
   supabase: ReturnType<typeof createSupabaseServiceRoleClient>,
   beachId: string,
   timezone?: string | null,
-): Promise<FiringConfidence | null> {
+): Promise<ForecastConfidence | null> {
   if (!isValidIanaTimezone(timezone) || !isUuid(beachId)) return null;
   const beachTimezone = timezone;
 
@@ -192,7 +195,7 @@ async function fetchFiringConfidence(
       .eq("beach_id", beachId)
       .gte("forecast_at", start)
       .lt("forecast_at", end)
-      .gte("confidence_score", CONDITIONS_FIRING_THRESHOLD)
+      .gte("confidence_score", FORECAST_CONFIDENCE_THRESHOLD)
       .order("forecast_at", { ascending: true })
       .limit(1)
       .maybeSingle();
@@ -322,19 +325,19 @@ async function resolveCohort(
     };
   }
 
-  const confidence = await fetchFiringConfidence(
+  const confidence = await fetchForecastConfidence(
     supabase,
     candidate.home_beach_id,
     beach.timezone,
   );
   if (
     confidence !== null &&
-    confidence.confidenceScore >= CONDITIONS_FIRING_THRESHOLD
+    confidence.confidenceScore >= FORECAST_CONFIDENCE_THRESHOLD
   ) {
     return {
-      cohort: "free_home_firing",
-      title: "Good window at your home break",
-      body: "Check today's forecast, and log a session if you paddle out.",
+      cohort: HIGH_CONFIDENCE_HOME_COHORT,
+      title: "Out at your home break today?",
+      body: "Log the session when you're back. It takes a few seconds.",
       beach_id: null,
       beach_name: beachName,
       confidence_score: confidence.confidenceScore,
@@ -388,7 +391,7 @@ async function _GET(request: Request): Promise<Response> {
       cohorts: {
         trialing_home: 0,
         trialing_no_home: 0,
-        free_home_firing: 0,
+        [HIGH_CONFIDENCE_HOME_COHORT]: 0,
         free_home: 0,
         free_no_home: 0,
       },
@@ -691,7 +694,7 @@ async function _GET(request: Request): Promise<Response> {
             beachConfidenceScore: resolved.confidence_score,
           }),
         };
-        if (resolved.cohort === "free_home_firing") {
+        if (resolved.cohort === HIGH_CONFIDENCE_HOME_COHORT) {
           const holdDecision = await resolveNotificationMajorEventHold({
             eventId: `first-session:${candidate.user_id}:${NUDGE_TYPE}`,
             type: "log_session_nudge",

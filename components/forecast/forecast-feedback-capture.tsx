@@ -2,7 +2,7 @@
 
 import { useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useRoutePathname } from "@/hooks/use-route-pathname";
 import { Check, Loader2, Send, TrendingDown, TrendingUp } from "lucide-react";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
@@ -200,7 +200,7 @@ export function ForecastFeedbackCapture({
   forecastTimeLabel,
   freshnessLabel,
 }: ForecastFeedbackCaptureProps) {
-  const pathname = usePathname();
+  const pathname = useRoutePathname();
   const { track } = useTrackEvent();
   const [selectedValue, setSelectedValue] = useState<FeedbackValue | null>(
     null,

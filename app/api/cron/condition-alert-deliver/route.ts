@@ -91,6 +91,7 @@ const QUEUE_MARK_REASONS = [
   "major_event_hold",
   "contact_policy_hold",
   "canonical_safety_rejected",
+  "canonical_decision:verdict_no",
   "shadow_withheld",
   "delivery_disabled",
   "allowlist_excluded",
@@ -1032,8 +1033,7 @@ export async function GET(request: Request): Promise<NextResponse> {
         );
 
         // 4. Resolve active operator holds and record the canonical decision
-        // for shadow observability. The user's matched rules remain the
-        // delivery candidates regardless of verdict or skill eligibility.
+        // for shadow observability before applying delivery gates.
         const deliverableItems: QueueItemWithMeta[] = [];
         const itemsByUser = Map.groupBy(scoreEligibleItems, (item) => item.user_id);
 
@@ -1092,7 +1092,6 @@ export async function GET(request: Request): Promise<NextResponse> {
           const unheldItems = userItems.filter(
             (item) => !heldCandidateIds.has(canonicalAlertCandidateId(item)),
           );
-          deliverableItems.push(...unheldItems);
 
           for (const item of heldItems) {
             for (const channel of enabledChannels(item)) {
@@ -1112,6 +1111,27 @@ export async function GET(request: Request): Promise<NextResponse> {
             }
           }
           await markQueueItemsConsumed(heldItems, "major_event_hold");
+
+          const verdictNoItems = forecastDeliveryEnabled && decision.verdict === "no"
+            ? unheldItems.filter((item) => {
+                const reason = item.conditions_snapshot.beginner_window_reason;
+                return typeof reason !== "string" || reason.trim().length === 0;
+              })
+            : [];
+          for (const item of verdictNoItems) {
+            for (const channel of enabledChannels(item)) {
+              await recordAttempt({
+                queueId: item.id,
+                ruleId: item.rule_id,
+                userId,
+                channel,
+                status: "skipped_disabled",
+                skipReason: "canonical_decision:verdict_no",
+              });
+            }
+          }
+          await markQueueItemsConsumed(verdictNoItems, "canonical_decision:verdict_no");
+          deliverableItems.push(...unheldItems.filter((item) => !verdictNoItems.includes(item)));
         }
 
         const payloads = consolidateQueueItems(deliverableItems);

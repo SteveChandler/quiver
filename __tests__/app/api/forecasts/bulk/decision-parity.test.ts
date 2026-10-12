@@ -165,7 +165,7 @@ it.each(
       data.boards = [];
       data.personalization = null;
     }
-    mockRpc.mockResolvedValue({ data, error: null });
+    mockRpc.mockReturnValue(query(data));
     const response = await bulkForecastHandler(
       createMockRequest(
         "GET",
@@ -209,7 +209,7 @@ it.each(["2026-09-23T10:00:00Z", "2026-09-23T06:00:00Z"])(
     mockFrom.mockReturnValue(query([forecast(1, at)]));
     const data = rpcData(1, at);
     data.personalization = null; // Darkness is metadata, not a verdict veto.
-    mockRpc.mockResolvedValue({ data, error: null });
+    mockRpc.mockReturnValue(query(data));
     const response = await bulkForecastHandler(
       createMockRequest(
         "GET",
@@ -289,7 +289,7 @@ it.each(
 );
 
 it("sends each bulk slot's data_source and wave_period_om, omitting them when the row has none", async () => {
-  mockRpc.mockResolvedValue({ data: rpcData(1, NOW.toISOString()), error: null });
+  mockRpc.mockReturnValue(query(rpcData(1, NOW.toISOString())));
   const openMeteo = { ...forecast(1), data_source: "OPEN_METEO", wave_period: "5s", wave_period_om: 9.9 } as EnhancedForecastEntity;
   await fetchBulkDecisionContext(id(800), [id(1), id(2)], [openMeteo, forecast(2)], NOW, NOW);
   const slots = mockRpc.mock.calls[mockRpc.mock.calls.length - 1][1].p_slots;
@@ -310,7 +310,7 @@ it.each([
 ] as const)(
   "uses the shared interval daylight boundary at %s",
   async (at, allowed) => {
-    mockRpc.mockResolvedValue({ data: rpcData(1, at), error: null });
+    mockRpc.mockReturnValue(query(rpcData(1, at)));
     const context = await fetchBulkDecisionContext(
       id(800),
       [id(1)],
@@ -341,7 +341,7 @@ it("applies loaded water-quality holds with no network reads", async () => {
   (data.water_quality as Record<string, unknown>).water_quality_held_beaches = [
     { beach_id: id(1) },
   ];
-  mockRpc.mockResolvedValue({ data, error: null });
+  mockRpc.mockReturnValue(query(data));
   const context = await fetchBulkDecisionContext(
     id(800),
     [id(1)],
@@ -374,7 +374,7 @@ it("withholds only County-covered beaches from the bulk snapshot when the County
   Object.assign(orangeCounty, { lat: 33.655, lon: -118.004 });
   (data.water_quality as Record<string, Array<Record<string, unknown>>>).county_beach_advisory_runs[0].fetched_at =
     new Date(NOW.getTime() - 3 * 3600000).toISOString();
-  mockRpc.mockResolvedValue({ data, error: null });
+  mockRpc.mockReturnValue(query(data));
   const context = await fetchBulkDecisionContext(
     id(800),
     [id(1), id(2)],
@@ -404,10 +404,7 @@ it.each([false, true])(
   "shares one context RPC across current and hourly conditions (timeline only: %s)",
   async (only) => {
     mockFrom.mockReturnValue(query([forecast(1)]));
-    mockRpc.mockResolvedValue({
-      data: rpcData(1, NOW.toISOString()),
-      error: null,
-    });
+    mockRpc.mockReturnValue(query(rpcData(1, NOW.toISOString())));
     const response = await bulkForecastHandler(
       createMockRequest(
         "GET",
@@ -457,7 +454,7 @@ it("ignores learned matches for expired paid access", async () => {
   (
     data.personalization as { entitlement: Record<string, unknown> }
   ).entitlement.expires_at = "2026-09-01T00:00:00Z";
-  mockRpc.mockResolvedValue({ data, error: null });
+  mockRpc.mockReturnValue(query(data));
   const context = await fetchBulkDecisionContext(
     id(800),
     [id(1)],
@@ -492,7 +489,7 @@ it.each([false, true])('feature-detects board history with one RPC (present: %s)
   const data = rpcData(1, NOW.toISOString());
   const board = { id: id(500), name: 'Twin pin', board_type: 'thruster', sessions: [] };
   if (hasHistory) (data.personalization as Record<string, unknown>).boards = [board];
-  mockRpc.mockResolvedValue({ data, error: null });
+  mockRpc.mockReturnValue(query(data));
   const context = await fetchBulkDecisionContext(id(800), [id(1)], [forecast(1)], NOW, NOW);
   expect(context.boards).toEqual(hasHistory ? [board] : []);
   expect(mockRpc).toHaveBeenCalledTimes(1);

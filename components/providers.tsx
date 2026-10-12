@@ -1,6 +1,5 @@
 "use client";
 
-import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { AuthProvider, useAuth } from "@/context/auth-context";
 import { ProfileProvider } from "@/context/profile-context";
@@ -10,6 +9,7 @@ import { AnalyticsLoader } from "@/components/analytics/analytics-loader";
 import { PostHogProvider } from "@/components/analytics/posthog-provider";
 import dynamic from "next/dynamic";
 import { ChunkErrorHandler } from "@/components/chunk-error-handler";
+import { useRoutePathname } from "@/hooks/use-route-pathname";
 
 // Google One Tap — dynamically imported, SSR disabled (requires browser APIs)
 const GoogleOneTap = dynamic(
@@ -137,7 +137,7 @@ function AuthOverlays() {
 }
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
+  const pathname = useRoutePathname();
   const isLandingPage = pathname === "/";
   const isWelcomePage = pathname === "/welcome";
   const isEmbedRoute = pathname.startsWith("/embed");

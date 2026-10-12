@@ -23,8 +23,8 @@ export interface SwellComponent {
  * Wind state at a point in time.
  */
 export interface WindState {
-  /** Wind speed in mph */
-  readonly speedMph: number;
+  /** Wind speed in mph; null when the forecast has no wind (unknown, not calm) */
+  readonly speedMph: number | null;
   /** Wind direction in degrees (0-360, direction wind comes FROM) */
   readonly directionDeg: number | null;
 }

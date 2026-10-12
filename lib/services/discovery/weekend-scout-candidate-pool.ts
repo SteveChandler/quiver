@@ -1,8 +1,10 @@
 import "server-only";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { capNearbyPool, loadUserPool } from "@/lib/alerts/user-pool";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { calculateDistanceInMiles } from "@/lib/utils/distance-utils";
-import type { Beach } from "@/types/database";
+import type { Beach, Database } from "@/types/database";
 
 const METERS_PER_MILE = 1609.344;
 const MAX_RADIUS_MILES = 100;
@@ -294,5 +296,71 @@ export async function buildWeekendScoutCandidatePool(
     filteredOutCount: hydratedCandidates.length - candidates.length,
     incomplete,
     wasTruncated: incomplete,
+  };
+}
+
+type WeekScoutFilter = NonNullable<BuildWeekendScoutCandidatePoolOptions["filters"]>[number];
+
+
+interface BuildDriveRangeCandidatePoolOptions {
+  anchor: { lat: number; lon: number };
+  homeBeachId: string | null;
+  maxDriveMinutes: number | null;
+  filters?: readonly WeekScoutFilter[];
+}
+
+interface DriveRangeCandidatePoolDependencies {
+  loadPool: typeof loadUserPool;
+  supabase: SupabaseClient<Database>;
+}
+
+interface DriveRangeCandidatePool {
+  candidates: Array<{ beach: Beach; distanceMiles: number | null }>;
+  enumeratedCount: number;
+  filteredOutCount: number;
+  /** Nearby beaches in range left out past the nearest-beach cap. */
+  cappedCount: number;
+  /** Distance to the farthest nearby beach kept; null when nothing was capped. */
+  farthestNearbyMiles: number | null;
+}
+
+/**
+ * Home's drive-range scope. It is the Daily Call's own pool (home, saved and
+ * custom spots inside the range, plus every eligible beach in it, same country)
+ * so the two surfaces choose among the same beaches, narrowed by the surfer's
+ * Week Scout filters.
+ */
+export async function buildDriveRangeCandidatePool(
+  userId: string,
+  options: BuildDriveRangeCandidatePoolOptions,
+  dependencies?: DriveRangeCandidatePoolDependencies,
+): Promise<DriveRangeCandidatePool> {
+  const deps = dependencies ?? {
+    loadPool: loadUserPool,
+    supabase: createSupabaseServiceRoleClient(),
+  };
+  const pool = await deps.loadPool({
+    supabase: deps.supabase,
+    userId,
+    homeBeachId: options.homeBeachId,
+    location: options.anchor,
+    maxDriveMinutes: options.maxDriveMinutes,
+  });
+  const scope: BuildWeekendScoutCandidatePoolOptions = {
+    userLocation: options.anchor,
+    radiusMiles: MAX_RADIUS_MILES,
+    filters: options.filters,
+    nearbyLocation: options.anchor,
+  };
+  const matching = pool.filter(({ beach, distanceMiles }) => (
+    matchesScope({ beach, distanceMiles: distanceMiles ?? 0 }, scope)
+  ));
+  const capped = capNearbyPool(matching);
+  return {
+    candidates: capped.pool.map(({ beach, distanceMiles }) => ({ beach, distanceMiles })),
+    enumeratedCount: pool.length,
+    filteredOutCount: pool.length - matching.length,
+    cappedCount: capped.cappedCount,
+    farthestNearbyMiles: capped.farthestNearbyMiles,
   };
 }

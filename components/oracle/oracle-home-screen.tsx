@@ -807,7 +807,7 @@ export function OracleHomeScreen() {
   // gates that hold discovery off (profileLoading, geoLoading) have settled.
   // Without this, fresh authenticated users see a "We couldn't find any surf
   // spots" card flash before discovery even runs, because useSurfDiscovery is
-  // gated by `enabled: !!profile && !geoLoading` — when those are still
+  // gated by profile and initial location readiness — when those are still
   // pending, discoveryLoading is false AND discovery is null.
   // ------------------------------------------------------------------
   const hasDefinitiveDiscoveryAnswer =

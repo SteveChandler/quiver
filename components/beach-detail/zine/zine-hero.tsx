@@ -1,11 +1,10 @@
-import type { ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 import type { Beach } from "@/types/database";
 import type { BeachSources } from "@/hooks/use-beach-detail-data";
 import type { ZineBeachPhoto } from "./types";
-import { PhotoAttribution } from "@/components/photos/photo-attribution";
+import { ZineHeroMedia } from "./zine-hero-media";
 import { buildCamEmbed } from "@/lib/media/cam-embed";
 import { CamsSection } from "@/components/beach-detail/cams-section";
-import { getOptimizedImageUrl } from "@/lib/image-proxy";
 import {
   SaltyEyebrow,
   SkillBars,
@@ -38,7 +37,7 @@ export function ZineHero({
   summarySlot,
   forecastSlot,
   children,
-}: ZineHeroProps) {
+}: ZineHeroProps): ReactElement {
   const skill = (beach.skill_level || "All").toUpperCase();
   const breakType = (beach.break_type || "Spot").toUpperCase();
   const rating = typeof beach.average_rating === "number" ? beach.average_rating.toFixed(1) : null;
@@ -96,8 +95,12 @@ export function ZineHero({
           </p>
         )}
 
-        <HeroMediaPanel
-          beachPhoto={beachPhoto}
+        <ZineHeroMedia
+          photoUrl={beachPhoto?.image_url}
+          attributionKind={beachPhoto?.attribution?.kind}
+          attributionName={beachPhoto?.attribution?.displayName}
+          attributionProfileId={beachPhoto?.attribution?.profileId}
+          attributionHtml={beachPhoto?.attribution_html}
           sources={sources}
           hasLiveCam={hasLiveCam}
           beachName={beach.name}
@@ -247,97 +250,6 @@ function ReviewCircle({ count }: { count: number }) {
         {count > 999 ? "999+" : count}
       </div>
       <span style={{ fontFamily: "var(--font-mono), monospace", fontSize: 9, letterSpacing: "0.16em", textTransform: "uppercase", fontWeight: 700 }}>REVIEWS</span>
-    </div>
-  );
-}
-
-/**
- * Native Beach Detail's media panel: real place imagery under the beach name,
- * in a comic panel (3 pt ink outline, large sticker corners, hard ink drop,
- * ink halftone on the right half). No tilt and no tape. Falls back from the
- * beach photo to its diorama, then a stored cam still (labelled as a still,
- * when no live stream exists), then the spot map, so it never shows an empty
- * placeholder. A live cam embed stays in the collapsed section below.
- */
-function HeroMediaPanel({
-  beachPhoto,
-  sources,
-  hasLiveCam,
-  beachName,
-  locationName,
-  lat,
-  lon,
-  aspectDeg,
-  breakType,
-  features,
-}: {
-  beachPhoto?: ZineBeachPhoto | null;
-  sources?: BeachSources | null;
-  hasLiveCam: boolean;
-  beachName: string;
-  locationName: string;
-  lat?: number | null;
-  lon?: number | null;
-  aspectDeg?: number | null;
-  breakType?: string | null;
-  features?: string[] | null;
-}) {
-  const photoUrl = beachPhoto?.image_url ?? sources?.diorama_url ?? null;
-  const showsCamStill = !photoUrl && !hasLiveCam && !!sources?.cam_thumbnail_url;
-  const showsBeachPhoto = !!beachPhoto?.image_url;
-
-  return (
-    <div className="mb-2 mr-2 mt-5" data-testid="zine-hero-media">
-      <div
-        className="relative overflow-hidden"
-        style={{
-          border: "3px solid #11100D",
-          borderRadius: "16px 6px 18px 8px",
-          boxShadow: "8px 8px 0 #11100D",
-          background: "#11100D",
-        }}
-      >
-        {photoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element -- matches HalftonePhoto: the image proxy already sizes the photo, and cover-fit needs no Next image wrapper
-          <img
-            src={getOptimizedImageUrl(photoUrl)}
-            alt={`${beachName}, ${locationName}`}
-            className="block h-[240px] w-full object-cover sm:h-[320px] md:h-[380px]"
-          />
-        ) : showsCamStill ? (
-          <CamsSection sources={sources!} variant="hero" beachName={beachName} />
-        ) : (
-          <MapDoodle
-            height={320}
-            beachName={beachName}
-            locationName={locationName}
-            lat={lat}
-            lon={lon}
-            aspectDeg={aspectDeg}
-            breakType={breakType}
-            features={features}
-          />
-        )}
-        {/* Native's panel halftone sits on drawn panels only; over a photo it
-            reads as a seam down the middle. */}
-        {!photoUrl && !showsCamStill ? (
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-y-0 left-1/2 right-0"
-            style={{
-              backgroundImage: "radial-gradient(rgba(17,16,13,0.07) 1.1px, transparent 1.3px)",
-              backgroundSize: "6px 6px",
-            }}
-          />
-        ) : null}
-        {showsBeachPhoto && (beachPhoto!.attribution || beachPhoto!.attribution_html) ? (
-          <PhotoAttribution
-            attribution={beachPhoto!.attribution ?? null}
-            attributionHtml={beachPhoto!.attribution_html}
-            className="absolute bottom-2 right-2 z-20 max-w-[70%] truncate bg-[#11100D]/75 px-2 py-1 font-mono text-[10px] text-[#F4EBD8] underline-offset-2 hover:underline"
-          />
-        ) : null}
-      </div>
     </div>
   );
 }

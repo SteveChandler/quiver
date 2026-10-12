@@ -15,11 +15,11 @@ import { cn } from "@/lib/utils";
 
 const TREND_TAG_STYLES: Record<TrendTag, { bg: string; text: string }> = {
   "Winds Dropping": { bg: "bg-green-100", text: "text-green-700" },
-  "Winds Building": { bg: "bg-orange-100", text: "text-orange-700" },
+  "Winds Building": { bg: "bg-orange-100", text: "text-orange-800" },
   "Winds Cleaning Up": { bg: "bg-emerald-100", text: "text-emerald-700" },
-  "Tide Filling In": { bg: "bg-blue-100", text: "text-blue-700" },
-  "Tide Draining": { bg: "bg-cyan-100", text: "text-cyan-700" },
-  "Clean Swell": { bg: "bg-purple-100", text: "text-purple-700" },
+  "Tide Filling In": { bg: "bg-[#F6E9CE]", text: "text-[#11100D]" },
+  "Tide Draining": { bg: "bg-cyan-100", text: "text-cyan-900" },
+  "Clean Swell": { bg: "bg-purple-100", text: "text-purple-800" },
 };
 
 // ------------------------------------------------------------------
@@ -57,12 +57,12 @@ function getCharacterLabelColor(category: ConditionCharacterCategory): string {
 type ContextChipVariant = "gold" | "up" | "down" | "stable" | "swell" | "neutral";
 
 const CONTEXT_CHIP_VARIANT_CLASSES: Record<ContextChipVariant, string> = {
-  gold: "bg-amber-100/80 text-amber-800 border border-amber-300/60 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700/40",
-  up: "bg-emerald-100/80 text-emerald-800 border border-emerald-300/60 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700/40",
-  down: "bg-rose-100/80 text-rose-800 border border-rose-300/60 dark:bg-rose-900/30 dark:text-rose-300 dark:border-rose-700/40",
-  stable: "bg-gray-100/80 text-gray-700 border border-gray-300/60 dark:bg-gray-800/40 dark:text-gray-300 dark:border-gray-600/40",
-  swell: "bg-blue-100/80 text-blue-800 border border-blue-300/60 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700/40",
-  neutral: "bg-gray-100/60 text-gray-600 border border-gray-200/60 dark:bg-gray-800/30 dark:text-gray-400 dark:border-gray-700/40",
+  gold: "bg-[#F6E9CE] text-[#7A4B00] border border-[#8A5E00]/40",
+  up: "bg-emerald-100/80 text-emerald-800 border border-emerald-300/60",
+  down: "bg-rose-100/80 text-rose-800 border border-rose-300/60",
+  stable: "bg-[#F0E5CC] text-[#4B4030] border border-[#11100D]/25",
+  swell: "bg-[#F6E9CE] text-[#11100D] border border-[#8A5E00]/40",
+  neutral: "bg-[#F0E5CC] text-[#4B4030] border border-[#11100D]/20",
 };
 
 function ContextChip({
@@ -302,7 +302,7 @@ export function UnifiedSurfCard({
             <Clock className="h-5 w-5 text-blue-600" />
             <h4 className="font-semibold text-blue-900">Window</h4>
             {surfCall.shortWindow && (
-              <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+              <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-900">
                 Short window
               </span>
             )}
@@ -329,13 +329,13 @@ export function UnifiedSurfCard({
 
         {/* Board pick — subtle callout, only when available */}
         {boardPick && (
-          <div className="flex items-center gap-2 rounded-lg border border-amber-200/60 bg-amber-50/60 dark:border-amber-800/40 dark:bg-amber-900/10 px-3 py-2">
+          <div className="flex items-center gap-2 rounded-lg border border-[#8A5E00]/40 bg-[#F6E9CE] px-3 py-2">
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-amber-900 dark:text-amber-200 truncate">
+              <p className="text-sm font-semibold text-[#11100D] truncate">
                 Grab your {boardPick.boardName}
               </p>
               {boardPick.reason && (
-                <p className="text-xs text-amber-700/80 dark:text-amber-400/80 truncate">
+                <p className="text-xs text-[#4B4030] truncate">
                   {boardPick.reason}
                 </p>
               )}
@@ -405,10 +405,10 @@ export function UnifiedSurfCard({
         </div>
 
         {cautions.length > 0 && (
-          <div className="rounded-xl border border-amber-200/70 bg-amber-50/80 p-3 dark:border-amber-800/40 dark:bg-amber-900/10">
+          <div className="rounded-xl border border-[#8A5E00]/40 bg-[#F6E9CE] p-3">
             <div className="flex items-start gap-2">
-              <AlertCircle className="h-4 w-4 text-amber-700 dark:text-amber-300 mt-0.5 flex-shrink-0" />
-              <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+              <AlertCircle className="h-4 w-4 text-[#8A5E00] mt-0.5 flex-shrink-0" />
+              <p className="text-sm font-medium text-[#11100D]">
                 {cautions[0]}
               </p>
             </div>
@@ -436,7 +436,7 @@ export function UnifiedSurfCard({
         {surfCall.lowForecastConfidence && (
           <div className="bg-yellow-50/50 rounded-xl p-3 border border-yellow-100/50">
             <div className="flex items-center gap-2">
-              <AlertCircle className="h-4 w-4 text-amber-700" />
+              <AlertCircle className="h-4 w-4 text-amber-900" />
               <p className="text-xs text-amber-900 font-semibold">
                 Low Confidence - Forecast data may be less reliable
               </p>

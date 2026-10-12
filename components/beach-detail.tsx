@@ -11,7 +11,8 @@ import {
   type ReactNode,
 } from "react";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useRoutePathname } from "@/hooks/use-route-pathname";
 import { AlertTriangle, Waves, Thermometer, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -240,7 +241,6 @@ interface BeachDetailProps {
   heroForecastSlot?: ReactNode;
   beforeTabsContent?: ReactNode;
   afterTabsContent?: ReactNode;
-  freeGrowthPhaseEnabled?: boolean;
   personalizationData?: {
     score:
       | import("@/lib/services/personalized-scoring-service").PersonalizedScore
@@ -273,13 +273,12 @@ function BeachDetailContent({
   heroForecastSlot,
   beforeTabsContent,
   afterTabsContent,
-  freeGrowthPhaseEnabled = false,
   personalizationData,
   onPersonalizationRequest,
 }: BeachDetailProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const pathname = usePathname();
+  const pathname = useRoutePathname();
   const { user } = useAuth();
 
   // US beach pages have 3-segment paths starting with a 2-letter state code (e.g., /ca/san-diego/ocean-beach-pier).
@@ -416,6 +415,7 @@ function BeachDetailContent({
     forecastCached,
     sources,
     loading,
+    forecastsLoading,
     errors,
     refetch,
   } = useBeachDetailData({
@@ -934,7 +934,6 @@ function BeachDetailContent({
         refreshKey={alertRulesRefreshKey}
         onOpenAlerts={handleOpenAlerts}
         className="shrink-0"
-        freeGrowthPhaseEnabled={freeGrowthPhaseEnabled}
       />
       <Button
         variant="ghost"
@@ -1035,6 +1034,7 @@ function BeachDetailContent({
                   beach={beach}
                   beachTimezone={beachTimezone}
                   forecasts={forecasts || []}
+                  forecastsLoading={forecastsLoading}
                   currentForecast={currentForecast}
                   forecastMetadata={forecastMetadata}
                   surfCall={surfCallReport}
@@ -1161,7 +1161,6 @@ function BeachDetailContent({
           open={alertCreationOpen}
           onOpenChange={setAlertCreationOpen}
           onRuleCreated={() => setAlertRulesRefreshKey((key) => key + 1)}
-          freeGrowthPhaseEnabled={freeGrowthPhaseEnabled}
         />
       )}
 

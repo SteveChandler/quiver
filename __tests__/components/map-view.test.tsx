@@ -23,6 +23,7 @@ let mockProfileLoading = true;
 let mockFilteredBeaches: Beach[] = [];
 let mockResultsQuery = "";
 let mockSearchQuery = "";
+let mockFilters = { beginnerFriendly: false, breakTypes: new Set<string>() };
 const mockCustomSpots = [
   {
     id: "spot-1",
@@ -74,7 +75,7 @@ jest.mock("@/hooks/use-beach-search", () => ({
     loading: mockBeachLoading,
     searchQuery: mockSearchQuery,
     selectedBeach: null,
-    filters: { beginnerFriendly: false, breakTypes: new Set<string>() },
+    filters: mockFilters,
     loadBeaches: jest.fn(),
     loadNearbyBeaches: mockLoadNearbyBeaches,
     setSearchQuery: mockSetSearchQuery,
@@ -156,6 +157,7 @@ describe("MapView", () => {
     mockFilteredBeaches = [];
     mockResultsQuery = "";
     mockSearchQuery = "";
+    mockFilters = { beginnerFriendly: false, breakTypes: new Set<string>() };
     lastMapContentProps = {};
     try {
       window.localStorage.clear();
@@ -390,6 +392,188 @@ describe("MapView", () => {
     expect(lastMapContentProps.cameraCommand).toBe(initialCommand);
     expect(mockLoadNearbyBeaches).toHaveBeenCalledTimes(1);
     expect(mockLoadNearbyBeaches).toHaveBeenCalledWith(21.29, -157.86, { background: true });
+  });
+
+  describe("clearing the toolbar search", () => {
+    const terramar = {
+      id: "terramar",
+      name: "Terramar",
+      lat: 33.0839,
+      lon: -117.3137,
+    } as Beach;
+
+    it("reloads nearby beaches in the background around the searched camera centre", async () => {
+      const user = userEvent.setup();
+      mockSearchParams = new URLSearchParams("search=terramar");
+      mockSearchQuery = "terramar";
+      mockResultsQuery = "terramar";
+      mockFilteredBeaches = [terramar];
+      render(<MapView />);
+      await waitFor(() => {
+        expect(lastMapContentProps.cameraCommand).toMatchObject({
+          source: "search",
+          center: { lat: terramar.lat, lon: terramar.lon },
+        });
+      });
+      mockLoadNearbyBeaches.mockClear();
+
+      await user.click(screen.getByRole("button", { name: "Clear map search" }));
+
+      expect(mockRouterReplace).toHaveBeenCalledWith("/map", { scroll: false });
+      expect(mockLoadNearbyBeaches).toHaveBeenCalledTimes(1);
+      expect(mockLoadNearbyBeaches).toHaveBeenCalledWith(
+        terramar.lat,
+        terramar.lon,
+        { background: true },
+      );
+      expect(mockGetUserLocation).not.toHaveBeenCalled();
+    });
+
+    it("anchors on the search camera command rather than an older pan", async () => {
+      const user = userEvent.setup();
+      const { rerender } = render(<MapView />);
+      act(() =>
+        (lastMapContentProps.onUserCameraInteraction as (interaction: {
+          action: "pan";
+          center: { lat: number; lon: number };
+          phase: "end";
+        }) => void)({
+          action: "pan",
+          center: { lat: 21.29, lon: -157.86 },
+          phase: "end",
+        }),
+      );
+
+      mockSearchQuery = "terramar";
+      mockResultsQuery = "terramar";
+      mockFilteredBeaches = [terramar];
+      rerender(<MapView />);
+      await waitFor(() => {
+        expect(lastMapContentProps.cameraCommand).toMatchObject({ source: "search" });
+      });
+      mockLoadNearbyBeaches.mockClear();
+
+      await user.click(screen.getByRole("button", { name: "Clear map search" }));
+
+      expect(mockLoadNearbyBeaches).toHaveBeenCalledWith(
+        terramar.lat,
+        terramar.lon,
+        { background: true },
+      );
+    });
+
+    it("uses the explored centre after the user pans following a search", async () => {
+      const user = userEvent.setup();
+      mockSearchQuery = "terramar";
+      mockResultsQuery = "terramar";
+      mockFilteredBeaches = [terramar];
+      render(<MapView />);
+      await waitFor(() => {
+        expect(lastMapContentProps.cameraCommand).toMatchObject({ source: "search" });
+      });
+      act(() =>
+        (lastMapContentProps.onUserCameraInteraction as (interaction: {
+          action: "pan";
+          center: { lat: number; lon: number };
+          phase: "end";
+        }) => void)({
+          action: "pan",
+          center: { lat: 33.2, lon: -117.4 },
+          phase: "end",
+        }),
+      );
+      mockLoadNearbyBeaches.mockClear();
+
+      await user.click(screen.getByRole("button", { name: "Clear map search" }));
+
+      expect(mockLoadNearbyBeaches).toHaveBeenCalledWith(33.2, -117.4, {
+        background: true,
+      });
+    });
+
+    it("reloads nearby beaches in the background when the search input is emptied", async () => {
+      const user = userEvent.setup();
+      mockSearchQuery = "terramar";
+      mockResultsQuery = "terramar";
+      mockFilteredBeaches = [terramar];
+      render(<MapView />);
+      await waitFor(() => {
+        expect(lastMapContentProps.cameraCommand).toMatchObject({ source: "search" });
+      });
+      mockLoadNearbyBeaches.mockClear();
+
+      await user.clear(screen.getByRole("combobox", { name: "Search beaches, spots, or cities" }));
+
+      expect(mockSetSearchQuery).toHaveBeenLastCalledWith("");
+      expect(mockLoadNearbyBeaches).toHaveBeenCalledTimes(1);
+      expect(mockLoadNearbyBeaches).toHaveBeenCalledWith(terramar.lat, terramar.lon, {
+        background: true,
+      });
+    });
+
+    it("does not reload nearby beaches while the search still has text", async () => {
+      const user = userEvent.setup();
+      mockSearchQuery = "terramar";
+      mockResultsQuery = "terramar";
+      mockFilteredBeaches = [terramar];
+      render(<MapView />);
+      mockLoadNearbyBeaches.mockClear();
+
+      await user.type(screen.getByRole("combobox", { name: "Search beaches, spots, or cities" }), "{backspace}");
+
+      expect(mockSetSearchQuery).toHaveBeenLastCalledWith("terrama");
+      expect(mockLoadNearbyBeaches).not.toHaveBeenCalled();
+    });
+
+    it("reloads nearby beaches in the background when Clear all drops an active search", async () => {
+      const user = userEvent.setup();
+      mockSearchParams = new URLSearchParams("search=terramar");
+      mockSearchQuery = "terramar";
+      mockResultsQuery = "terramar";
+      mockFilteredBeaches = [terramar];
+      render(<MapView />);
+      await waitFor(() => {
+        expect(lastMapContentProps.cameraCommand).toMatchObject({ source: "search" });
+      });
+      mockLoadNearbyBeaches.mockClear();
+
+      await user.click(screen.getByRole("button", { name: "Filters" }));
+      await user.click(await screen.findByTestId("map-clear-all"));
+
+      expect(mockRouterReplace).toHaveBeenCalledWith("/map", { scroll: false });
+      expect(mockLoadNearbyBeaches).toHaveBeenCalledTimes(1);
+      expect(mockLoadNearbyBeaches).toHaveBeenCalledWith(terramar.lat, terramar.lon, {
+        background: true,
+      });
+    });
+
+    it("keeps the loaded beaches when Clear all only drops filters", async () => {
+      const user = userEvent.setup();
+      mockFilters = { beginnerFriendly: true, breakTypes: new Set<string>(["reef"]) };
+      render(<MapView />);
+      mockLoadNearbyBeaches.mockClear();
+
+      await user.click(screen.getByRole("button", { name: "Filters" }));
+      await user.click(await screen.findByTestId("map-clear-all"));
+
+      expect(mockLoadNearbyBeaches).not.toHaveBeenCalled();
+    });
+
+    it("falls back to the user location only when the map has no view centre", async () => {
+      const user = userEvent.setup();
+      mockSearchQuery = "zzz";
+      mockResultsQuery = "zzz";
+      mockFilteredBeaches = [];
+      render(<MapView />);
+      expect(lastMapContentProps.cameraCommand).toBeNull();
+      mockLoadNearbyBeaches.mockClear();
+
+      await user.click(screen.getByRole("button", { name: "Clear map search" }));
+
+      expect(mockLoadNearbyBeaches).toHaveBeenCalledWith(32.7702, -117.2525, {
+        background: true,
+      });
+    });
   });
 
   it("shows the field guide trigger but keeps the panel collapsed on the live map", () => {

@@ -31,6 +31,7 @@ const WIND_DISPLAY: Record<
   offshore: { label: "Offshore", color: "text-[#0B6B3A]", icon: true },
   light: { label: "Light Wind", color: "text-[#8A5E00]", icon: false },
   onshore: { label: "Onshore", color: "text-[#C46A24]", icon: false },
+  unknown: { label: "Wind Unknown", color: "text-[#5F5646]", icon: false },
 };
 
 export function BestDayHero({ bestDay, otherGoodDays, isUserSelected, isPersonalized }: BestDayHeroProps) {

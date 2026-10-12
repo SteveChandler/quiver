@@ -24,18 +24,24 @@ export async function refreshLifecycleUserEligibility(userId: string, fetchImpl:
 
 export async function refreshLifecycleEligibility(fetchImpl: typeof fetch = fetch): Promise<{ checked: number; failed: number }> {
   await lifecycleRpc("refresh_lifecycle_enrollment");
-  const users = z.array(z.uuid()).max(24).parse(await lifecycleRpc("lifecycle_entitlement_queue"));
-  let failed = 0;
-  for (let offset = 0; offset < users.length; offset += 3) {
-    const results = await Promise.allSettled(users.slice(offset, offset + 3).map(async userId => {
-      await refreshLifecycleUserEligibility(userId, fetchImpl);
-    }));
-    for (const result of results) if (result.status === "rejected") {
-      failed++;
-      Sentry.captureException(result.reason, { tags: { component: "email-entitlement-refresh" } });
+  let checked = 0, failed = 0;
+  // ponytail: one 24-user batch per hourly run covered ~144 users inside the 6h
+  // validity window, so most of a larger audience was always held as stale. Drain
+  // up to 8 batches (~1,150 users per 6h); raise the cap or the validity if enrollment outgrows it.
+  for (let batch = 0; batch < 8; batch++) {
+    const users = z.array(z.uuid()).max(24).parse(await lifecycleRpc("lifecycle_entitlement_queue"));
+    for (let offset = 0; offset < users.length; offset += 3) {
+      const results = await Promise.allSettled(users.slice(offset, offset + 3).map(async userId => {
+        await refreshLifecycleUserEligibility(userId, fetchImpl);
+      }));
+      for (const result of results) if (result.status === "rejected") {
+        failed++;
+        Sentry.captureException(result.reason, { tags: { component: "email-entitlement-refresh" } });
+      } else checked++;
     }
+    if (users.length < 24) break;
   }
-  return { checked: users.length - failed, failed };
+  return { checked, failed };
 }
 
 export async function runProOfferAutomation(fetchImpl: typeof fetch = fetch): Promise<{ checked: number; unresolved: number; attempted: number; enrolled: number }> {
