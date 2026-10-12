@@ -51,6 +51,7 @@ const CASES: OutcomeWiringCase[] = [
     legitimatelyZero: true,
   },
   { name: "NOAA buoy reference sync", route: "sync-buoys", unit: "buoys_synced" },
+  { name: "rainfall runoff", route: "rainfall-runoff", unit: "rainfall_readings_written" },
   {
     name: "session conditions enrich",
     route: "session-conditions-enrich",
