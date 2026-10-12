@@ -101,7 +101,9 @@ export async function fetchBulkDecisionContext(
   forecasts: EnhancedForecastEntity[],
   start: Date,
   end: Date,
+  signal?: AbortSignal,
 ): Promise<BulkDecisionContext> {
+  signal?.throwIfAborted();
   const slots = [
     ...new Map(
       forecasts.map((forecast) => [
@@ -110,7 +112,7 @@ export async function fetchBulkDecisionContext(
       ]),
     ).values(),
   ];
-  const { data, error } = await (
+  const query = (
     createSupabaseServiceRoleClient() as SupabaseClient
   ).rpc("get_bulk_forecast_decision_context", {
     p_user_id: userId,
@@ -119,6 +121,8 @@ export async function fetchBulkDecisionContext(
     p_start: new Date(start.getTime() - 86_400_000).toISOString().slice(0, 10),
     p_end: new Date(end.getTime() + 86_400_000).toISOString().slice(0, 10),
   });
+  const { data, error } = await (signal ? query.abortSignal(signal) : query);
+  signal?.throwIfAborted();
   if (error || !data)
     throw new Error(
       `Failed to load bulk decision context: ${error?.message ?? "missing context"}`,

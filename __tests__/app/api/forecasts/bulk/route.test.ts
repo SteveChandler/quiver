@@ -153,7 +153,7 @@ type BeachRow = {
 let mockContextBeaches: unknown[] = [];
 let mockContextError: { message: string } | null = null;
 let mockProfileSkill: string | null = null;
-const mockContextRpc = jest.fn(async () => ({
+const mockContextRpc = jest.fn(() => queryChain({
   data: { beaches: mockContextBeaches, profile: { experience_level: mockProfileSkill }, boards: [], sun_times: [], personalization: null, water_quality: {} },
   error: mockContextError,
 }));
@@ -465,6 +465,7 @@ function queryChain<T>(result: QueryResult<T>) {
     lt: jest.fn(),
     not: jest.fn(),
     order: jest.fn(),
+    abortSignal: jest.fn().mockReturnThis(),
     limit: jest.fn(),
     range: jest.fn((from: number, to: number) => {
       rangeFrom = from;
