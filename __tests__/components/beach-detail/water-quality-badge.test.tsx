@@ -43,6 +43,18 @@ it("keeps historical sample details and source attribution behind the toggle", (
   expect(screen.queryByText("30-day exceedances:")).not.toBeInTheDocument();
 });
 
+it("names a County general advisory as rain runoff, not elevated bacteria", () => {
+  render(<WaterQualityBadge waterQuality={{ ...sample, status: "advisory",
+    county_advisory_status: "advisory", county_advisory_kind: "general",
+    county_checked_at: "2026-10-12T18:00:00Z" }} />);
+  const toggle = screen.getByRole("button", { name: /Rain Advisory/ });
+  fireEvent.click(toggle);
+  expect(screen.getByText(/runoff after rain/i)).toHaveTextContent(/storm drains and river mouths/);
+  expect(screen.getByText(/runoff after rain/i)).toHaveTextContent(/check again in 72 hours/);
+  expect(screen.queryByText(/elevated bacteria/i)).not.toBeInTheDocument();
+  expect(screen.getByRole("link", { name: /County of San Diego/ })).toHaveAttribute("href", "https://www.sdbeachinfo.com/");
+});
+
 it("labels a rainfall notice as a precaution with its gauges, not a sample result", () => {
   render(<WaterQualityBadge waterQuality={{ ...sample,
     status_reason: "Runoff after rain: 0.38 in fell nearby in the last 72 hours. Avoid those areas and check again in 72 hours.",
@@ -53,4 +65,12 @@ it("labels a rainfall notice as a precaution with its gauges, not a sample resul
   expect(screen.getByText(/KLGB, KSNA/)).toHaveTextContent("This is a precaution, not a water sample.");
   expect(screen.queryByText("Reason:")).not.toBeInTheDocument();
   expect(screen.queryByText("Water Quality: Good")).not.toBeInTheDocument();
+});
+
+it("lets a County general advisory outrank a rainfall notice", () => {
+  render(<WaterQualityBadge waterQuality={{ ...sample, status: "advisory",
+    county_advisory_status: "advisory", county_advisory_kind: "general", county_checked_at: "2026-10-12T18:00:00Z",
+    rain_runoff: { total_in: 0.38, window_end: "2026-10-12T14:00:00Z", stations: ["KSAN"] } }} />);
+  expect(screen.getByRole("button", { name: /Rain Advisory/ })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /Rain runoff advisory/ })).not.toBeInTheDocument();
 });

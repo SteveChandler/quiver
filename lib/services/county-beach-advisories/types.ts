@@ -28,6 +28,13 @@ export const COUNTY_MAX_CONSECUTIVE_FAILURES = 3;
 export const COUNTY_BASE_BACKOFF_MS = 30 * 60 * 1000;
 export const COUNTY_MAX_MATCH_DISTANCE_METERS = 500;
 /**
+ * The feed carries no flag for a County general (rain) advisory; its sites
+ * arrive as ordinary advisories. Completed runs Aug 16 - Oct 11 2026 never
+ * listed more than 13 sampled advisory sites; the Oct 11 rain advisory listed
+ * 86. A run at or above this count is treated as a county-wide advisory.
+ */
+export const COUNTY_GENERAL_ADVISORY_MIN_SITES = 30;
+/**
  * The coast the County DEHQ feed samples, Tijuana Sloughs to Trestles. When the
  * feed is stale only beaches inside it lose their water-quality status. Checked
  * 2026-10-02: all 18 beaches the feed has ever matched fall inside; San Clemente

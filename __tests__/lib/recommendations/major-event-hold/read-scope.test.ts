@@ -60,7 +60,7 @@ function recordingClient(options: {
       warning_count: 0,
     }],
     county_beach_advisories: [],
-    beaches: [],
+    beaches: [{ id: COUNTY_COVERED, lat: 32.8567, lon: -117.2575 }],
   };
 
   const client = {
@@ -81,11 +81,14 @@ function recordingClient(options: {
           ): Promise<T1 | T2> => {
             executions[table] = (executions[table] ?? 0) + 1;
             const custom = options.respond?.(table, executions[table]);
-            const rows = defaults[table] as Array<{ beach_id?: string }>;
+            const rows = defaults[table] as Array<{ beach_id?: string; id?: string }>;
             const result = custom ?? {
               data: beachIds === null
                 ? rows
-                : rows.filter((row) => row.beach_id !== undefined && beachIds!.includes(row.beach_id)),
+                : rows.filter((row) => {
+                  const key = row.beach_id ?? row.id;
+                  return key !== undefined && beachIds!.includes(key);
+                }),
               error: null,
             };
             return Promise.resolve(result).then(onfulfilled, onrejected);

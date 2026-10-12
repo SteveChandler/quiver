@@ -4,11 +4,11 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { currentWaterQuality } from "@/lib/services/water-quality/current-status";
+import { insideCountyFeed, readBeachPoints } from "@/lib/services/water-quality/county-coverage";
 
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import {
   COUNTY_ADVISORY_TYPES,
-  COUNTY_FEED_COVERAGE_BOUNDS,
   COUNTY_MAX_FUTURE_SKEW_MS,
   COUNTY_FEED_SOURCE_IDENTIFIER,
   COUNTY_MAX_STALENESS_MS,
@@ -28,6 +28,16 @@ export const CHRONICALLY_IMPACTED_WATER_QUALITY_BEACH_IDS = [
   "94f1010b-c71f-4025-bda1-c26ed9467c85", // Silver Strand State Beach
   "b29821f9-c91a-486f-981b-7085c6d86b68", // Coronado North Jetty
   "84d3468b-c1ec-46ad-8621-d8507e5f167a", // Hotel Del Coronado
+] as const;
+
+/**
+ * Beaches whose current County projection may hold them in recommendations.
+ * Display surfaces show County notices on every covered beach; holds keep this
+ * pre-2026-10 scope until Steven decides whether held beaches should be warned
+ * rather than hidden. Live County holds (ingest-matched sites) are unaffected.
+ */
+const COUNTY_PROJECTION_HOLD_BEACH_IDS = [
+  "d291411d-d331-4bf1-ad1a-302da3c69de0", // La Jolla Shores
 ] as const;
 
 /** Leave room for the owner-curated hold set before ranking truncates results. */
@@ -365,12 +375,6 @@ function readQualityRows(
   });
 }
 
-const beachCoordinatesSchema = z.object({
-  id: z.string().transform((value) => value.toLowerCase()),
-  lat: z.number().nullable(),
-  lon: z.number().nullable(),
-});
-
 /**
  * Beaches the County feed covers, among those requested. A beach without
  * coordinates counts as covered so it fails closed. Null when the read fails.
@@ -379,39 +383,9 @@ async function countyCoveredBeachIds(
   client: WaterQualityHoldClient,
   beachIds: readonly string[],
 ): Promise<string[] | null> {
-  const located = new Map<string, { lat: number | null; lon: number | null }>();
-  for (let offset = 0; offset < beachIds.length; offset += 100) {
-    const chunk = beachIds.slice(offset, offset + 100);
-    const result = await memoizedWaterQualityRead(
-      client,
-      `beaches|id, lat, lon|${chunk.join(",")}`,
-      () => client.from("beaches").select("id, lat, lon").in("id", chunk),
-    );
-    if ((result.error !== null && result.error !== undefined) || !Array.isArray(result.data)) {
-      console.error("[water-quality-hold:county-coverage-error]", {
-        beachCount: beachIds.length,
-        error:
-          typeof result.error === "object" &&
-          result.error !== null &&
-          "message" in result.error &&
-          typeof result.error.message === "string"
-            ? result.error.message
-            : String(result.error ?? "invalid response shape"),
-      });
-      return null;
-    }
-    for (const row of result.data) {
-      const parsed = beachCoordinatesSchema.safeParse(row);
-      if (parsed.success) located.set(parsed.data.id, parsed.data);
-    }
-  }
-  const bounds = COUNTY_FEED_COVERAGE_BOUNDS;
-  return beachIds.filter((beachId) => {
-    const point = located.get(beachId);
-    if (!point || point.lat === null || point.lon === null) return true;
-    return point.lat >= bounds.minLat && point.lat <= bounds.maxLat &&
-      point.lon >= bounds.minLon && point.lon <= bounds.maxLon;
-  });
+  const points = await readBeachPoints(client, beachIds, "[water-quality-hold:county-coverage-error]");
+  if (points === null) return null;
+  return beachIds.filter((beachId) => insideCountyFeed(points.get(beachId)));
 }
 
 /**
@@ -539,7 +513,7 @@ export async function resolveWaterQualityHolds(
     }
 
     const [effectiveRows, liveResolution] = await Promise.all([
-      currentWaterQuality([...rowsByBeachId.values()], client, now),
+      currentWaterQuality([...rowsByBeachId.values()], client, now, { onlyBeachIds: COUNTY_PROJECTION_HOLD_BEACH_IDS }),
       resolveCountyLiveHolds(client, requestedBeachIds, now),
     ]);
     const countyHeld = new Set(effectiveRows

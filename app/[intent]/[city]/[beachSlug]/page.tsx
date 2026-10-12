@@ -15,7 +15,7 @@ import { ContentPageAppHandoffCta } from "@/components/app-store/content-page-ap
 
 import type { Metadata } from "next";
 import { buildPageMetadata, buildDynamicBeachMetadata } from "@/lib/seo/meta";
-import { currentWaterQuality } from "@/lib/services/water-quality/current-status";
+import { currentWaterQuality, unsampledWaterQualityRow } from "@/lib/services/water-quality/current-status";
 import { withRainfallNotice } from "@/lib/services/water-quality/rainfall-runoff-read";
 import {
   buildBeachUrl,
@@ -193,7 +193,8 @@ export default async function GenericBeachDetailPage(props: PageProps) {
             .select("*")
             .eq("beach_id", beach.id)
             .maybeSingle();
-          return data ? (await withRainfallNotice(await currentWaterQuality([data]), [beach]))[0] as WaterQuality : null;
+          // An unsampled beach can still carry a County or rainfall notice; the badge hides a bare unknown.
+          return (await withRainfallNotice(await currentWaterQuality([data ?? unsampledWaterQualityRow(beach.id)]), [beach]))[0] as WaterQuality;
         } catch {
           // Gracefully degrade if the table doesn't exist yet
           return null;
