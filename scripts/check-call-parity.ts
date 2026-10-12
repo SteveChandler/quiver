@@ -161,9 +161,11 @@ async function main(): Promise<void> {
     const { generateWeekScoutForecast } = await import("@/lib/services/discovery/week-scout");
     const { selectDayCall } = await import("@/lib/recommendations/day-call");
     const { createSupabaseServiceRoleClient } = await import("@/lib/supabase/server");
-    const { loadUserPool } = await import("@/lib/alerts/user-pool");
-    const { scopeAlertPoolCandidates } = await import("@/lib/services/discovery/weekend-scout-candidate-pool");
-    const { resolveLocationAnchor } = await import("@/lib/alerts/location-freshness");
+    const { capNearbyPool, loadUserPool } = await import("@/lib/alerts/user-pool");
+    const { buildDriveRangeCandidatePool } = await import("@/lib/services/discovery/weekend-scout-candidate-pool");
+    const { DAILY_CALL_LOCATION_FIX_MAX_AGE_HOURS, resolveLocationAnchor } = await import("@/lib/alerts/location-freshness");
+    const { getWeekScoutLocation, resolveWeekScoutScopeAnchor } = await import("@/lib/services/discovery/week-scout-scope");
+    const { isWeekScoutSwellsEnabled, isWeekScoutSwellsUserAllowed } = await import("@/lib/flags/week-scout-swells");
     const { getLocalDateString, resolveBeachTimezone } = await import("@/lib/utils/timezone-utils");
     const { localDateTimeToUTC } = await import("@/lib/utils/forecast-time-resolver");
     const { getDaylightWindow } = await import("@/lib/alerts/sunrise");
@@ -175,16 +177,19 @@ async function main(): Promise<void> {
 
     const fixtureHome = { lat: 3, lon: 4 };
     const fixtureLocation = { lat: 1, lon: 2, captured_at: "2026-10-10T16:00:00Z" };
-    const fixtureCall = resolveLocationAnchor(fixtureLocation, new Date("2026-10-11T13:00:00Z"), fixtureHome);
+    const fixtureCall = resolveLocationAnchor(fixtureLocation, new Date("2026-10-11T13:00:00Z"), fixtureHome, DAILY_CALL_LOCATION_FIX_MAX_AGE_HOURS);
     const fixtureNow = resolveLocationAnchor(fixtureLocation, new Date("2026-10-11T19:00:00Z"), fixtureHome);
     const fixtureEvening = resolveLocationAnchor(fixtureLocation, new Date("2026-10-12T00:00:00Z"), fixtureHome);
-    assert.equal(fixtureCall.source, "location");
+    assert.equal(fixtureCall.source, "home");
+    assert.equal(resolveLocationAnchor(fixtureLocation, new Date("2026-10-11T13:00:00Z"), fixtureHome).source, "location");
+    assert.equal(getWeekScoutLocation(fixtureLocation, Date.parse("2026-10-10T16:15:00Z")), undefined);
+    assert.deepEqual(getWeekScoutLocation(fixtureLocation, Date.parse("2026-10-10T16:14:59Z")), { lat: 1, lon: 2 });
     assert.equal(fixtureNow.source, "home");
-    assert.equal(sameAnchor(fixtureCall, fixtureEvening), false);
+    assert.equal(sameAnchor(fixtureCall, fixtureEvening), true);
     assert.equal(sameAnchor(fixtureNow, fixtureEvening), true);
     assert.equal(sameAnchor(fixtureCall, { source: "location", anchor: { lat: 3, lon: 2 } }), false);
     assert.equal(sameAnchor(fixtureCall, { source: "location", anchor: { lat: 1, lon: 4 } }), false);
-    assert.equal(sameAnchor(fixtureCall, { ...fixtureCall, source: "home" }), false);
+    assert.equal(sameAnchor(fixtureCall, { ...fixtureCall, source: "location" }), false);
     assert.equal(sameAnchor({ anchor: null, source: "none" }, { anchor: null, source: "none" }), true);
 
     // Libraries may catch fetch errors and degrade; a latched violation must still stop the CLI.
@@ -201,7 +206,7 @@ async function main(): Promise<void> {
     const client = createSupabaseServiceRoleClient();
     const profile = (await read("loadDailyCallProfiles", () => loadDailyCallProfiles(client, [args.userId])))[0];
     if (!profile) throw new Error(`No active profile found for ${args.userId}`);
-    const anchorAtNow = resolveLocationAnchor(profile.location, realNow, profile.homeBeach);
+    const anchorAtNow = resolveLocationAnchor(profile.location, realNow, profile.homeBeach, DAILY_CALL_LOCATION_FIX_MAX_AGE_HOURS);
     const timezone = resolveBeachTimezone(profile.timezone ?? profile.homeBeach?.timezone
       ?? (anchorAtNow.source === "location" ? profile.location?.timezone : null));
     const today = getLocalDateString(realNow, timezone);
@@ -217,10 +222,10 @@ async function main(): Promise<void> {
       : getDaylightWindow(lat, lon, localDateTimeToUTC(date, "12:00:00", timezone)).sunrise;
     const at = resolveSendInstant({ pref: parseDailyCallTime(profile.dailyCallTime), localDate: date, timezone, sunrise });
     const eveningAt = localDateTimeToUTC(date, `${String(SWELL_ALERT_SEND_HOUR).padStart(2, "0")}:00:00`, timezone);
-    const anchorAtCall = resolveLocationAnchor(profile.location, at, profile.homeBeach);
+    const anchorAtCall = resolveLocationAnchor(profile.location, at, profile.homeBeach, DAILY_CALL_LOCATION_FIX_MAX_AGE_HOURS);
     const anchorAtEvening = resolveLocationAnchor(profile.location, eveningAt, profile.homeBeach);
     const reuseCallPool = sameAnchor(anchorAtCall, anchorAtEvening);
-    const anchorLabel = ({ anchor, source }: LocationAnchor): string => {
+    const anchorLabel = ({ anchor, source }: { anchor: LocationAnchor["anchor"]; source: string }): string => {
       const home = profile.homeBeach;
       const miles = anchor && home?.lat != null && home.lon != null
         ? calculateDistanceInMiles(anchor, { lat: home.lat, lon: home.lon }).toFixed(2) : "n/a";
@@ -231,26 +236,22 @@ async function main(): Promise<void> {
     console.log(`max_drive_minutes: ${profile.maxDriveMinutes ?? "null"}; radius: ${driveRadiusMiles(profile.maxDriveMinutes)} miles`);
     console.log(`Home beach: ${profile.homeBeach ? `${profile.homeBeach.name} (${profile.homeBeach.id})` : "none"}`);
     console.log(`Location snapshot: ${profile.location?.captured_at ?? "none"}; age: ${ageHours === null ? "none" : `${ageHours.toFixed(2)} hours`}`);
-    console.log(`Anchor at realNow (${local(realNow)}): ${anchorLabel(anchorAtNow)}`);
+    console.log(`Daily Call anchor at realNow (${local(realNow)}): ${anchorLabel(anchorAtNow)}`);
     console.log(`Anchor at Daily Call at (${local(at)}): ${anchorLabel(anchorAtCall)}`);
     console.log(`Anchor at eveningAt (${local(eveningAt)}): ${anchorLabel(anchorAtEvening)}`);
     console.log(`preferred_session_time: ${sessionTime ?? "none"}`);
     console.log(`Daily Call at: ${local(at)} (${at.toISOString()}); preference: ${profile.dailyCallTime ?? "default"}`);
     console.log("Home device filters are not readable here; no filters applied.");
 
-    const pool = await read(`loadUserPool at ${at.toISOString()}`, () => loadUserPool({
+    const fullCallPool = await read(`loadUserPool at ${at.toISOString()}`, () => loadUserPool({
       supabase: client, userId: profile.id, homeBeachId: profile.homeBeachId,
       location: anchorAtCall.anchor, maxDriveMinutes: profile.maxDriveMinutes,
     }));
-    const scopedIds = anchorAtCall.anchor ? scopeAlertPoolCandidates(pool, {
-      anchor: anchorAtCall.anchor, filters: undefined, nearbyLocation: anchorAtCall.anchor,
-    })
-      .candidates.map(({ beach }) => beach.id) : [];
-    const scopedSet = new Set(scopedIds);
-    console.log(`Pool for D at ${local(at)}: ${pool.length} beaches; Home scoped pool: ${scopedIds.length}`);
+    const { pool } = capNearbyPool(fullCallPool);
+    console.log(`Daily Call pool for D at ${local(at)}: ${pool.length} beaches (${fullCallPool.length} before cap)`);
     for (const { beach, relation } of pool) {
       const miles = anchorAtCall.anchor ? calculateDistanceInMiles(anchorAtCall.anchor, { lat: beach.lat, lon: beach.lon }).toFixed(2) : "n/a";
-      console.log(`  ${beach.name} (${beach.id}); ${relation}; ${miles} miles${scopedSet.has(beach.id) ? "" : " [DROPPED by Home scoping]"}`);
+      console.log(`  ${beach.name} (${beach.id}); ${relation}; ${miles} miles`);
     }
 
     const beachNames = new Map(pool.map(({ beach }) => [beach.id, beach.name]));
@@ -263,20 +264,32 @@ async function main(): Promise<void> {
       console.log(`${label}: generatedAt=${response?.generatedAt ?? "n/a"}; at=${now.toISOString()} (forecast rows can have refreshed since at)`);
       console.log(`  bestWindowId=${day?.bestWindowId ?? "null"}; sessionDecision.selection.candidateId=${sessionId ?? "null"}; session window local date=${sessionDate ?? "none"}`);
       if (!pick) {
-        console.log(`  ${!response ? "Home alert pool unavailable: no location/home anchor" : !day ? `${dayDate} outside response days` : `no open pick; exclusions=${day.exclusionReasons.join(", ") || "none"}`}`);
+        console.log(`  ${!response ? "Home complete-radius scope unavailable: no location/home anchor" : !day ? `${dayDate} outside response days` : `no open pick; exclusions=${day.exclusionReasons.join(", ") || "none"}`}`);
         return null;
       }
       console.log(`  ${beachName(pick.beachId)} (${pick.beachId}); ${local(pick.displayWindowStart)} – ${local(pick.displayWindowEnd)}; personalVerdict=${pick.personalVerdict ?? "missing"}; personalLabel=${pick.personalLabel ?? "missing"}; conditionScore=${pick.conditionScore}`);
       return { beachId: pick.beachId, start: pick.displayWindowStart, end: pick.displayWindowEnd };
     };
-    const loadHomeAt = async (candidateBeachIds: string[], anchor: LocationAnchor["anchor"], poolAt: Date): Promise<CanonicalWeekScoutResponse | null> => {
-      if (!anchor) return null;
+    const loadHomeAt = async (poolAt: Date): Promise<CanonicalWeekScoutResponse | null> => {
+      const resolved = await read(`Home anchor at ${poolAt.toISOString()}`, () => resolveWeekScoutScopeAnchor(
+        client, null, getWeekScoutLocation(profile.location, poolAt.getTime()), profile.homeBeachId,
+      ));
+      if (!resolved) return null;
+      const homePool = await read(`Home pool at ${poolAt.toISOString()}`, () => buildDriveRangeCandidatePool(profile.id, {
+        anchor: resolved.anchor, homeBeachId: profile.homeBeachId,
+        maxDriveMinutes: profile.maxDriveMinutes, filters: undefined,
+      }, { loadPool: loadUserPool, supabase: client }));
+      for (const { beach } of homePool.candidates) beachNames.set(beach.id, beach.name);
+      console.log(`Home anchor at ${local(poolAt)}: ${anchorLabel(resolved)}; pool: ${homePool.candidates.length} beaches; capped: ${homePool.cappedCount}`);
       return read(`Home -> generateWeekScoutForecast (7 days; pool at ${poolAt.toISOString()})`, () => generateWeekScoutForecast(profile.id, {
-        candidateBeachIds, localTimezone: timezone, startLocalDate: today, dayCount: 7,
-        userLocation: anchor, ...(sessionTime ? { sessionTime } : {}),
+        candidateBeachIds: homePool.candidates.map(({ beach }) => beach.id),
+        localTimezone: timezone, startLocalDate: today, dayCount: 7,
+        userLocation: resolved.anchor, ...(sessionTime ? { sessionTime } : {}),
+        driveRadiusMiles: driveRadiusMiles(profile.maxDriveMinutes), requirePerRowFreshness: true,
+        ...(isWeekScoutSwellsEnabled() && isWeekScoutSwellsUserAllowed(profile.id) ? { includeSwells: true } : {}),
       }));
     };
-    const home = await loadHomeAt(scopedIds, anchorAtCall.anchor, at);
+    const home = await loadHomeAt(at);
     const homePick = showScout(`Home for ${date} (7-day request starts ${today}; pool at ${local(at)})`, home, date, at);
     const cronScout = await read("Crons -> rankDayWithWeekScout (1 day)", () => rankDayWithWeekScout({
       userId: profile.id, poolBeachIds: pool.map(({ beach }) => beach.id), timezone,
@@ -313,25 +326,22 @@ async function main(): Promise<void> {
       dailyResults.push({ pick: payload ? { beachId: payload.beach_id, start: payload.window_start, end: payload.window_end } : null, reason });
     }
 
-    const eveningPool = reuseCallPool ? pool : await read(`loadUserPool at ${eveningAt.toISOString()}`, () => loadUserPool({
+    const eveningPool = reuseCallPool ? fullCallPool : await read(`loadUserPool at ${eveningAt.toISOString()}`, () => loadUserPool({
       supabase: client, userId: profile.id, homeBeachId: profile.homeBeachId,
       location: anchorAtEvening.anchor, maxDriveMinutes: profile.maxDriveMinutes,
     }));
-    const eveningScopedIds = reuseCallPool ? scopedIds : anchorAtEvening.anchor ? scopeAlertPoolCandidates(eveningPool, {
-      anchor: anchorAtEvening.anchor, filters: undefined, nearbyLocation: anchorAtEvening.anchor,
-    }).candidates.map(({ beach }) => beach.id) : [];
-    const callPoolIds = new Set(pool.map(({ beach }) => beach.id));
+    const callPoolIds = new Set(fullCallPool.map(({ beach }) => beach.id));
     const eveningPoolIds = new Set(eveningPool.map(({ beach }) => beach.id));
     const added = eveningPool.filter(({ beach }) => !callPoolIds.has(beach.id));
-    const removed = pool.filter(({ beach }) => !eveningPoolIds.has(beach.id));
-    console.log(`Pool for D+1 comparison at ${local(eveningAt)}: ${eveningPool.length} beaches; Home scoped pool: ${eveningScopedIds.length}${reuseCallPool ? "; reused D pool (identical anchor and source)" : ""}`);
+    const removed = fullCallPool.filter(({ beach }) => !eveningPoolIds.has(beach.id));
+    console.log(`Pool for D+1 comparison at ${local(eveningAt)}: ${eveningPool.length} beaches${reuseCallPool ? "; reused uncapped D pool (identical anchor and source)" : ""}`);
     if (added.length || removed.length) {
       console.log(`Evening pool changes from D: ${added.length} added; ${removed.length} removed`);
       for (const { beach } of added) console.log(`  + ${beach.name} (${beach.id})`);
       for (const { beach } of removed) console.log(`  - ${beach.name} (${beach.id})`);
     }
     for (const { beach } of eveningPool) beachNames.set(beach.id, beach.name);
-    const eveningHome = reuseCallPool ? home : await loadHomeAt(eveningScopedIds, anchorAtEvening.anchor, eveningAt);
+    const eveningHome = await loadHomeAt(eveningAt);
     console.log(`Swell evening at: ${local(eveningAt)} (${eveningAt.toISOString()}); target D+1: ${tomorrowDate}`);
     const swellProfile = (await read("loadSwellAlertProfiles", () => loadSwellAlertProfiles(client, eveningAt, [args.userId])))[0];
     const swellLeads: Array<CallPick | null> = [];
@@ -347,7 +357,7 @@ async function main(): Promise<void> {
       }
       swellLeads.push(ordered[0] ? { beachId: ordered[0].beach.id, start: "", end: "" } : null);
     }
-    const homeTomorrow = showScout(`Home tomorrow card for ${tomorrowDate} (pool at ${local(eveningAt)}${reuseCallPool ? "; reused D request" : ""})`, eveningHome, tomorrowDate, eveningAt);
+    const homeTomorrow = showScout(`Home tomorrow card for ${tomorrowDate} (pool at ${local(eveningAt)})`, eveningHome, tomorrowDate, eveningAt);
     const homeReason = (response: CanonicalWeekScoutResponse | null, dayDate: string): string => !response ? "no location/home anchor"
       : !response.days.some((day) => day.localDate === dayDate) ? `${dayDate} outside Home's 7 days` : "no open Home pick";
     for (const [index, flag] of ["off", "on"].entries()) {
