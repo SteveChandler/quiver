@@ -24,7 +24,6 @@ interface BeachAlertCtaProps {
   compact?: boolean;
   className?: string;
   refreshKey?: number;
-  freeGrowthPhaseEnabled?: boolean;
   /** Called when the user clicks to open the alert creation/management flow */
   onOpenAlerts?: () => void;
 }
@@ -35,7 +34,6 @@ export function BeachAlertCta({
   compact,
   className,
   refreshKey,
-  freeGrowthPhaseEnabled = false,
   onOpenAlerts,
 }: BeachAlertCtaProps) {
   const { user } = useAuth();
@@ -44,7 +42,6 @@ export function BeachAlertCta({
   const pathname = useRoutePathname();
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const previousRefreshKey = useRef(refreshKey);
-  const freeGrowthImpressionKey = useRef<string | null>(null);
 
   // Fetch alert rules only for authenticated users — filter by beach_id client-side
   const fetchRules = useCallback(async (): Promise<AlertRule[]> => {
@@ -80,9 +77,7 @@ export function BeachAlertCta({
   const hasAlerts = ruleCount != null && ruleCount > 0;
   // Don't flash "no alerts" while rules are still loading
   const showAlertCount = !rulesLoading && ruleCount != null;
-  const inactiveHelperCopy = freeGrowthPhaseEnabled
-    ? "Watch this spot, free. Track up to 3 breaks and we'll call the window."
-    : "Notify me when conditions are ideal";
+  const inactiveHelperCopy = "Notify me when conditions are ideal";
 
   // Deferred action: after sign-in, open alert flow if pending action matches
   useEffect(() => {
@@ -105,41 +100,7 @@ export function BeachAlertCta({
     void refetch();
   }, [user, refreshKey, invalidateCache, refetch]);
 
-  useEffect(() => {
-    if (!freeGrowthPhaseEnabled || hasAlerts) return;
-    if (user && !showAlertCount) return;
-
-    const impressionKey = `${user?.id ?? "anon"}:${beachId}`;
-    if (freeGrowthImpressionKey.current === impressionKey) return;
-    freeGrowthImpressionKey.current = impressionKey;
-
-    void track("free_growth_education_impression", {
-      beachId,
-      metadata: {
-        surface: "beach_detail_alert_cta",
-        audience: user ? "authenticated" : "anonymous",
-      },
-    });
-  }, [
-    beachId,
-    freeGrowthPhaseEnabled,
-    hasAlerts,
-    showAlertCount,
-    track,
-    user,
-  ]);
-
   function handleClick() {
-    if (freeGrowthPhaseEnabled && !hasAlerts) {
-      void track("free_growth_education_cta_tapped", {
-        beachId,
-        metadata: {
-          surface: "beach_detail_alert_cta",
-          audience: user ? "authenticated" : "anonymous",
-        },
-      });
-    }
-
     if (!user) {
       trackSignupCtaClick({
         source: "beach-alert-cta",
@@ -177,9 +138,7 @@ export function BeachAlertCta({
           aria-label={
             hasAlerts
               ? `Alerts active (${ruleCount})`
-              : freeGrowthPhaseEnabled
-                ? "Watch this spot, free"
-                : "Set up alerts"
+              : "Set up alerts"
           }
           className={cn(
             "group relative h-9 w-[96px] shrink-0 overflow-visible rounded-none border-0 bg-transparent px-0 text-[#11100D] shadow-none hover:bg-transparent focus-visible:ring-2 focus-visible:ring-[#F78E42]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-[0.98] min-[1100px]:h-10 min-[1100px]:w-[132px]",
@@ -229,9 +188,7 @@ export function BeachAlertCta({
           aria-label={
             hasAlerts
               ? `Manage alerts (${ruleCount} active)`
-              : freeGrowthPhaseEnabled
-                ? "Watch this spot, free"
-                : "Get alerts"
+              : "Get alerts"
           }
           className={`h-12 w-full px-6 text-base font-semibold rounded-md active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/50 transition-[color,background-color,border-color,box-shadow,transform,opacity] border-2 ${
             showAlertCount && hasAlerts
@@ -254,7 +211,7 @@ export function BeachAlertCta({
               </span>
             </span>
           ) : (
-            freeGrowthPhaseEnabled ? "Watch this spot" : "Get alerts"
+            "Get alerts"
           )}
         </Button>
         <p className="text-xs text-gray-400 text-center">

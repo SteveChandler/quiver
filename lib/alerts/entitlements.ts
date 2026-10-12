@@ -4,7 +4,6 @@ import {
   PERSONALIZATION_LOCKED,
   type PersonalizationResultCode,
 } from "@/lib/personalization/eligibility";
-import { isFreeGrowthPhaseEnabled } from "@/lib/flags/free-growth-phase";
 
 export type Tier = "free" | "premium";
 
@@ -12,8 +11,6 @@ export const CAPS = {
   free: { beaches: 1, rulesPerBeach: 3, totalRules: 3 },
   premium: { beaches: 10, rulesPerBeach: 5, totalRules: 50 },
 } as const;
-
-export const FREE_GROWTH_WATCHED_LIMIT = 3;
 
 const FREE_PRESETS: PresetType[] = ["mellow_session"];
 
@@ -138,17 +135,9 @@ interface CanCreateRuleResult {
 
 export function canCreateRule(input: CanCreateRuleInput): CanCreateRuleResult {
   const caps = CAPS[input.tier];
-  const freeGrowthPhaseEnabled = isFreeGrowthPhaseEnabled();
-  const ruleCap =
-    input.tier === "free" && freeGrowthPhaseEnabled
-      ? FREE_GROWTH_WATCHED_LIMIT
-      : caps.totalRules;
+  const ruleCap = caps.totalRules;
 
-  if (
-    input.tier === "free" &&
-    !freeGrowthPhaseEnabled &&
-    input.targetBeachId !== input.homeBeachId
-  ) {
+  if (input.tier === "free" && input.targetBeachId !== input.homeBeachId) {
     return {
       allowed: false,
       code: PERSONALIZATION_LOCKED,

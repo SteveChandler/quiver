@@ -18,7 +18,6 @@ import { buildBeachUrl, regionToSlug, cityToSlug } from "@/lib/utils/beach-url-u
 import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
 import type { Beach } from "@/types/database";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
-import { isFreeGrowthPhaseEnabled } from "@/lib/flags/free-growth-phase";
 import { BeachProseSummary } from "@/components/beach-detail/beach-prose-summary";
 import {
   applyIndexabilityToMetadata,
@@ -200,7 +199,6 @@ export default async function MexicoBeachDetailPage(props: PageProps) {
           surfCallReport={surfCallReport}
           surfCallIsTomorrow={surfCallIsTomorrow}
           beachPhoto={beachPhoto}
-          freeGrowthPhaseEnabled={isFreeGrowthPhaseEnabled()}
         />
 
         {/* SSR sections below tabs for SEO crawlability */}

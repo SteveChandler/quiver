@@ -4,7 +4,6 @@ import type {
   SurfDiscoveryRecommendation,
   SurfDiscoveryResponse,
 } from "@/types/personalization";
-import { isFreeGrowthPhaseEnabled } from "@/lib/flags/free-growth-phase";
 
 const IMPLICIT_ONLY_REASON_PATTERNS: RegExp[] = [
   /surfing patterns/i,
@@ -140,11 +139,7 @@ export function gateSurfDiscoveryResponse(
   discovery: SurfDiscoveryResponse,
   entitlement: SurfDiscoveryEntitlement
 ): SurfDiscoveryResponse {
-  if (
-    !entitlement.hasPaidAccess &&
-    isBestSpotGateEnabled() &&
-    !isFreeGrowthPhaseEnabled()
-  ) {
+  if (!entitlement.hasPaidAccess && isBestSpotGateEnabled()) {
     return {
       ...discovery,
       entitlement,
