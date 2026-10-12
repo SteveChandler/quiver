@@ -130,4 +130,30 @@ describe('windChopCeiling: onshore-blown big swell', () => {
     expect(composite.subscores.get('windQuality')).toBeGreaterThanOrEqual(35);
     expect(windChopCeiling(input, composite.subscores)).toBeNull();
   });
+
+  it('still requires poor windQuality when the caller ignores it for the small-wave branch', () => {
+    const chop = windChopCeiling(
+      inputFor({ wind_speed: '13 mph' }),
+      new Map([['windQuality', 51]]),
+      { ignoreWindQuality: true },
+    );
+    expect(chop).toBeNull();
+  });
+
+  it('takes the lower ceiling when the small-wave branch also fires', () => {
+    const chop = windChopCeiling(
+      inputFor({ wave_height: '2 ft', wave_period: '7s', wind_speed: '16 mph' }),
+      new Map([['windQuality', 10]]),
+    );
+    expect(chop?.ceiling).toBe(39);
+  });
+
+  it('does not print a rounded-up speed under the 54 tier', () => {
+    const chop = windChopCeiling(
+      inputFor({ wind_speed: '14.6 mph' }),
+      new Map([['windQuality', 30]]),
+    );
+    expect(chop?.ceiling).toBe(54);
+    expect(chop?.reason).toBe('Textured onshore wind (14 mph) caps score at 54');
+  });
 });

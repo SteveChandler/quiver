@@ -102,11 +102,13 @@ function onshoreBlownSwellCeiling(
     return null;
   }
 
-  const ceiling =
-    windSpeed >= BLOWN_SWELL_STRONG_MPH ? BLOWN_SWELL_STRONG_CEILING : BLOWN_SWELL_CEILING;
+  const strong = windSpeed >= BLOWN_SWELL_STRONG_MPH;
+  const ceiling = strong ? BLOWN_SWELL_STRONG_CEILING : BLOWN_SWELL_CEILING;
+  const surface = strong ? 'Choppy' : 'Textured';
   const label = direction === 'sideshore' ? 'side-shore' : 'onshore';
+  // Floor, not round: 14.6 mph must not print as 15 under the 54 tier.
   return {
     ceiling,
-    reason: `Choppy ${label} wind (${Math.round(windSpeed)} mph) caps score at ${ceiling}`,
+    reason: `${surface} ${label} wind (${Math.floor(windSpeed)} mph) caps score at ${ceiling}`,
   };
 }
