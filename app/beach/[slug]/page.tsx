@@ -7,7 +7,7 @@ import { NearbyBeachesEnriched } from "@/components/beach-detail/nearby-spots-en
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
 import { RelatedGuidesSection } from "@/components/beach-detail/related-guides-section";
 import type { Metadata } from "next";
-import { currentWaterQuality } from "@/lib/services/water-quality/current-status";
+import { currentWaterQuality, unsampledWaterQualityRow } from "@/lib/services/water-quality/current-status";
 import {
   buildPageMetadata,
   buildDynamicBeachMetadata,
@@ -82,8 +82,8 @@ export default async function BeachDetailBySlugPage(
           .maybeSingle(),
       ]);
       amenities = amenitiesResult.data as BeachAmenities | null;
-      waterQuality = waterQualityResult.data
-        ? (await currentWaterQuality([waterQualityResult.data]))[0] as WaterQuality : null;
+      // An unsampled beach can still carry a County notice; the badge hides a bare unknown.
+      waterQuality = (await currentWaterQuality([waterQualityResult.data ?? unsampledWaterQualityRow(beach.id)]))[0] as WaterQuality;
     } catch {
       // Gracefully degrade if tables don't exist yet
     }

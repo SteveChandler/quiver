@@ -45,7 +45,7 @@ import type {
   PersonalizedForecastWindow,
 } from '@/types/personalization';
 import type { ConditionBadge } from '@/types/personalization';
-import { currentWaterQuality, type CountyStatusMetadata } from "@/lib/services/water-quality/current-status";
+import { currentWaterQuality, unsampledWaterQualityRow, type CountyStatusMetadata } from "@/lib/services/water-quality/current-status";
 import { waterQualityWarning } from "@/lib/constants/water-quality";
 import {
   scoreBeachWithEngine,
@@ -1862,7 +1862,12 @@ async function discoverSurfSpotsInner(
   endStage('context');
 
   const wqMap = new Map<string, { status: string; kind: CountyStatusMetadata['county_advisory_kind'] }>();
-  for (const row of await currentWaterQuality(wqResult.data ?? [])) {
+  const sampledWq = wqResult.data ?? [];
+  const sampledWqIds = new Set(sampledWq.map((row) => row.beach_id));
+  // Unsampled beaches still need County status (a rain advisory covers them too).
+  const wqRows = [...sampledWq, ...candidateBeachIds
+    .filter((beachId) => !sampledWqIds.has(beachId)).map(unsampledWaterQualityRow)];
+  for (const row of await currentWaterQuality(wqRows)) {
     wqMap.set(row.beach_id, { status: row.status, kind: row.county_advisory_kind });
   }
 

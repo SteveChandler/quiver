@@ -1,5 +1,5 @@
 /** @jest-environment node */
-import { currentWaterQuality, projectCurrentWaterQuality } from "@/lib/services/water-quality/current-status";
+import { currentWaterQuality, projectCurrentWaterQuality, unsampledWaterQualityRow } from "@/lib/services/water-quality/current-status";
 import { resolveWaterQualityHolds, type WaterQualityHoldClient } from "@/lib/recommendations/major-event-hold/water-quality";
 import { processWaterQualityAlerts } from "@/lib/services/water-quality/water-quality-alerts-service";
 import { enqueueNotification } from "@/lib/notifications/enqueue";
@@ -33,12 +33,13 @@ const notice = { beach_id: null, source_site_identifier: "FM-080", advisory_type
 const crystalPierNotice = { beach_id: crystalPier, source_site_identifier: "32.794500,-117.256200",
   advisory_type: "advisory", county_latitude: 32.7945, county_longitude: -117.2562 };
 
-function project(rows: Parameters<typeof projectCurrentWaterQuality>[0], overrides: Partial<Parameters<typeof projectCurrentWaterQuality>[1]> = {}) {
+type ProjectionRow = Parameters<typeof projectCurrentWaterQuality>[0][number];
+function project(rows: readonly ProjectionRow[], overrides: Partial<Parameters<typeof projectCurrentWaterQuality>[1]> = {}): ReturnType<typeof projectCurrentWaterQuality<ProjectionRow>> {
   return projectCurrentWaterQuality(rows, { run, notices: [], owners: [], points, now, ...overrides });
 }
 
 /** A rain-day run: the County lists far more sites than it ever samples at once. */
-function generalAdvisory(extra: Array<typeof notice> = []) {
+function generalAdvisory(extra: Array<typeof notice> = []): { run: typeof run; notices: Array<typeof notice> } {
   const filler = Array.from({ length: COUNTY_GENERAL_ADVISORY_MIN_SITES }, (_, i) => ({
     ...notice, source_site_identifier: `bay-${i}`, county_latitude: 32.7, county_longitude: -117.2 }));
   const notices = [...filler, ...extra];
@@ -153,8 +154,8 @@ describe("current county water-quality contract", () => {
 
   it("matches a beach without coordinates only by its assigned notices", () => {
     const unlocated = new Map(points).set(id, { lat: null, lon: null });
-    expect(project([row], { points: unlocated, run: { ...run, advisory_count: 1 }, notices: [notice] })[0].county_advisory_status).toBe("clear");
-    expect(project([row], { points: unlocated, run: { ...run, advisory_count: 1 },
+    expect(project([row], { points: unlocated, onlyBeachIds: [id], run: { ...run, advisory_count: 1 }, notices: [notice] })[0].county_advisory_status).toBe("clear");
+    expect(project([row], { points: unlocated, onlyBeachIds: [id], run: { ...run, advisory_count: 1 },
       notices: [{ ...notice, beach_id: id }] })[0].county_advisory_status).toBe("advisory");
   });
 
@@ -179,6 +180,27 @@ describe("current county water-quality contract", () => {
       ...notice, source_site_identifier: `bay-${i}`, county_latitude: 32.7, county_longitude: -117.2 }));
     expect(project([{ ...row, beach_id: blacks }], { run: { ...run, advisory_count: notices.length }, notices })[0])
       .toMatchObject({ status: "unknown", county_advisory_status: "clear" });
+  });
+
+  it("shows County notices on owner-held beaches but never a County clear", () => {
+    expect(project([{ ...row, status: "good" }], { owners: [{ beach_id: id }], run: { ...run, closure_count: 1 },
+      notices: [{ ...notice, advisory_type: "closure" }] })[0]).toMatchObject({ status: "closure", county_advisory_status: "closure" });
+  });
+
+  it("does not cover an unlocated beach unless a caller lists it explicitly", () => {
+    const unlocated = new Map(points).set(other, { lat: null, lon: null });
+    const { run: rainRun, notices } = generalAdvisory();
+    const uncovered = { ...row, beach_id: other, status: "good" };
+    expect(project([uncovered], { points: unlocated, run: rainRun, notices })).toEqual([uncovered]);
+    expect(project([uncovered], { points: new Map(), run: rainRun, notices })).toEqual([uncovered]);
+    expect(project([uncovered], { points: unlocated, run: rainRun, notices, onlyBeachIds: [other] })[0].county_advisory_kind).toBe("general");
+  });
+
+  it("projects onto an unsampled placeholder row", () => {
+    const { run: rainRun, notices } = generalAdvisory();
+    expect(project([unsampledWaterQualityRow(blacks)], { run: rainRun, notices })[0]).toMatchObject({
+      beach_id: blacks, status: "advisory", county_advisory_kind: "general", total_samples_30d: 0, latest_sample_date: null });
+    expect(unsampledWaterQualityRow(other)).toMatchObject({ status: "unknown", total_samples_30d: 0 });
   });
 
   it("preserves manual holds and uncovered beaches", () => {

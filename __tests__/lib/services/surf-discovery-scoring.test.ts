@@ -598,6 +598,10 @@ describe("discoverSurfSpots scoring behavior", () => {
 
     const result = await discoverSurfSpots("user-1", { userLocation: defaultUserLocation, maxResults: 1 });
     assertHasRecommendation(result, consoleErrorSpy.mock.calls);
+    // beach-1 has no sample row; it still goes through the County projection.
+    expect(jest.mocked(currentWaterQuality).mock.calls[0][0]).toEqual([
+      expect.objectContaining({ beach_id: "beach-1", status: "unknown", total_samples_30d: 0 }),
+    ]);
     const waterWarnings = result.recommendations[0].warnings.filter((w: string) => /water|rain/i.test(w));
     expect(waterWarnings).toHaveLength(1);
     expect(waterWarnings[0]).toMatch(wording);

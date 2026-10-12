@@ -61,9 +61,27 @@ function coveredIds(
   points: ReadonlyMap<string, BeachPoint>,
   onlyBeachIds?: readonly string[],
 ): Set<string> {
-  const allowed = onlyBeachIds ? new Set(onlyBeachIds.map((beachId) => beachId.toLowerCase())) : null;
-  return new Set(rows.map((row) => row.beach_id.toLowerCase())
-    .filter((beachId) => (!allowed || allowed.has(beachId)) && insideCountyFeed(points.get(beachId))));
+  if (onlyBeachIds) {
+    // An explicit list is an opt-in: an unlocated beach on it fails closed.
+    const allowed = new Set(onlyBeachIds.map((beachId) => beachId.toLowerCase()));
+    return new Set(rows.map((row) => row.beach_id.toLowerCase())
+      .filter((beachId) => allowed.has(beachId) && insideCountyFeed(points.get(beachId))));
+  }
+  // Otherwise County coverage needs coordinates, so an unlocated beach elsewhere
+  // never shows San Diego County status.
+  return new Set(rows.map((row) => row.beach_id.toLowerCase()).filter((beachId) => {
+    const point = points.get(beachId);
+    return point?.lat != null && point.lon != null && insideCountyFeed(point);
+  }));
+}
+
+/** A beach_water_quality-shaped row for a beach with no samples, so County status can still apply. */
+export function unsampledWaterQualityRow(beachId: string): {
+  beach_id: string; status: "unknown"; latest_enterococcus: null; latest_fecal_coliform: null;
+  latest_sample_date: null; exceedance_count_30d: 0; total_samples_30d: 0; status_reason: null; status_changed_at: null;
+} {
+  return { beach_id: beachId, status: "unknown", latest_enterococcus: null, latest_fecal_coliform: null,
+    latest_sample_date: null, exceedance_count_30d: 0, total_samples_30d: 0, status_reason: null, status_changed_at: null };
 }
 
 function unavailable<T extends SampleQualityRow>(rows: readonly T[], covered: ReadonlySet<string>): Array<T & CountyStatusMetadata> {
@@ -99,7 +117,7 @@ export function projectCurrentWaterQuality<T extends SampleQualityRow>(
   const held = new Set(parsedOwners.data.map((row) => row.beach_id.toLowerCase()));
   return rows.map((row) => {
     const id = row.beach_id.toLowerCase();
-    if (!covered.has(id) || held.has(id)) return row;
+    if (!covered.has(id)) return row;
     const point = points.get(id);
     // Ingest assigns each County site only to its nearest beach, so a second
     // beach within the radius (Pacific Beach next to Crystal Pier) is matched here.
@@ -109,6 +127,8 @@ export function projectCurrentWaterQuality<T extends SampleQualityRow>(
           <= COUNTY_MAX_MATCH_DISTANCE_METERS));
     const status = local.some((notice) => notice.advisory_type === "closure") ? "closure"
       : local.length > 0 || general ? "advisory" : "clear";
+    // An owner hold marks chronic contamination; a County clear must not read as clean water there.
+    if (status === "clear" && held.has(id)) return row;
     const kind = status === "clear" ? undefined
       : status === "advisory" && general ? "general" as const : "site" as const;
     return { ...row, county_advisory_status: status,
