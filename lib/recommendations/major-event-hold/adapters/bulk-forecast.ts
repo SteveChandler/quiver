@@ -43,7 +43,7 @@ export type SanitizedBulkForecastResponse<
   >;
   recommendationAvailability: RecommendationAvailability;
   // Why each withheld beach has no rating, so clients can tell a held beach
-  // from one with no data. Beaches withheld by a whole-response clear are absent.
+  // from one with no data. Beaches never bound to a candidate are absent.
   recommendationHolds: Record<string, RecommendationHoldReasonCode>;
 };
 
@@ -158,6 +158,31 @@ function validateBulkBindings(
   };
 }
 
+// Why each withheld bound beach has no rating. A decision that does not state
+// its own explicit reason reads as unverified rather than being dropped.
+function holdReasonsByBeach(
+  bindings: readonly BulkForecastCandidateBinding[],
+  decisions: readonly MajorEventHoldCandidateDecision[],
+  isWithheld: (candidateId: string) => boolean,
+): Record<string, RecommendationHoldReasonCode> {
+  const decisionByCandidateId = new Map(
+    decisions.map((decision) => [decision?.candidateId, decision]),
+  );
+  const holds: Record<string, RecommendationHoldReasonCode> = {};
+  for (const { beachId, candidate } of bindings) {
+    if (!isWithheld(candidate.candidateId)) continue;
+    const decision = decisionByCandidateId.get(candidate.candidateId);
+    const reasonCode = decision?.evaluation?.reasonCode;
+    holds[beachId] =
+      decision?.evaluation?.outcome === "explicit_none" &&
+      reasonCode !== undefined &&
+      reasonCode === decision.recommendationAvailability?.reasonCode
+        ? reasonCode
+        : "hold_state_unavailable";
+  }
+  return holds;
+}
+
 export function sanitizeBulkForecastForMajorEventHold<
   TResponse extends BulkForecastResponseLike,
 >(
@@ -203,26 +228,24 @@ export function sanitizeBulkForecastForMajorEventHold<
       ...(response.recommendedBoards ? { recommendedBoards: Object.fromEntries(Object.entries(response.recommendedBoards).map(([id, value]) => [id, recommendationLabels[id] == null ? null : value])) } : {}),
       ...(response.personalAdjustmentReasons ? { personalAdjustmentReasons: Object.fromEntries(Object.entries(response.personalAdjustmentReasons).map(([id, value]) => [id, recommendationLabels[id] == null ? null : value])) } : {}),
       recommendationAvailability: boundary.recommendationAvailability,
-      recommendationHolds: {},
+      // Every bound beach is withheld here; unmatched bindings name nothing.
+      recommendationHolds:
+        validated === null
+          ? {}
+          : holdReasonsByBeach(bindings, decisions, () => true),
     };
   }
 
-  // The boundary validated every decision, so each blocked candidate has one
-  // with an explicit reason code.
-  const reasonByCandidateId = new Map(
-    decisions.map((decision) => [
-      decision.candidateId,
-      decision.evaluation.reasonCode,
-    ]),
+  const recommendationHolds = holdReasonsByBeach(
+    bindings,
+    decisions,
+    (candidateId) => boundary.blockedCandidateIds.has(candidateId),
   );
-  const recommendationHolds: Record<string, RecommendationHoldReasonCode> = {};
   for (const binding of bindings) {
     const shouldClear = boundary.blockedCandidateIds.has(
       binding.candidate.candidateId,
     );
     if (!shouldClear) continue;
-    const reasonCode = reasonByCandidateId.get(binding.candidate.candidateId);
-    if (reasonCode) recommendationHolds[binding.beachId] = reasonCode;
     delete conditionScores[binding.beachId];
     if (
       Object.prototype.hasOwnProperty.call(

@@ -2364,7 +2364,7 @@ describe("major-event hold adapters", () => {
     });
   });
 
-  it("bulk forecast reports no per-beach holds for allows or a whole-response clear", () => {
+  it("bulk forecast reports no per-beach holds for shadow and ordinary allows", () => {
     const allowed = sanitizeBulkForecastForMajorEventHold(
       deepFreeze(structuredClone(bulkForecastFixture())),
       bulkBindings(),
@@ -2372,18 +2372,53 @@ describe("major-event hold adapters", () => {
       [shadowAllowDecision("bulk-primary"), decision("bulk-included", "allow")],
     );
     expect(allowed.recommendationHolds).toEqual({});
+  });
 
+  it("bulk forecast keeps a water-quality reason through a whole-response clear", () => {
     const cleared = sanitizeBulkForecastForMajorEventHold(
       deepFreeze(structuredClone(bulkForecastFixture())),
       bulkBindings(),
       bulkCandidates(),
-      [decision("bulk-primary", "unavailable"), decision("bulk-included", "unavailable")],
+      [waterQualityDecision("bulk-primary"), decision("bulk-included", "unavailable")],
     );
+
     expect(cleared.recommendationAvailability).toMatchObject({
       state: "none",
       reasonCode: "hold_state_unavailable",
     });
+    expect(cleared.conditionScores).toEqual({});
+    expect(cleared.recommendationHolds).toEqual({
+      [PRIMARY_BEACH_ID]: "water_quality_hold",
+      [INCLUDED_BEACH_ID]: "hold_state_unavailable",
+    });
+  });
+
+  it("bulk forecast names nothing when bindings do not match the response", () => {
+    const cleared = sanitizeBulkForecastForMajorEventHold(
+      deepFreeze(structuredClone(bulkForecastFixture())),
+      [bulkBindings()[0]],
+      [bulkCandidates()[0]],
+      [waterQualityDecision("bulk-primary")],
+    );
+
     expect(cleared.recommendationHolds).toEqual({});
+  });
+
+  it("bulk forecast leaves an unbound unscored beach out of the holds", () => {
+    const routeResponse = bulkForecastFixture();
+    Reflect.deleteProperty(routeResponse.conditionScores, INCLUDED_BEACH_ID);
+    routeResponse.conditionSummaries[INCLUDED_BEACH_ID] = "UNKNOWN";
+
+    const result = sanitizeBulkForecastForMajorEventHold(
+      deepFreeze(structuredClone(routeResponse)),
+      [bulkBindings()[0]],
+      [bulkCandidates()[0]],
+      [waterQualityDecision("bulk-primary")],
+    );
+
+    expect(result.recommendationHolds).toEqual({
+      [PRIMARY_BEACH_ID]: "water_quality_hold",
+    });
   });
 
   it.each([

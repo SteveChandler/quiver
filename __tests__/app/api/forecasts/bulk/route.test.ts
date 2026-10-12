@@ -2323,7 +2323,9 @@ describe("/api/forecasts/bulk", () => {
       state: "none",
       reasonCode: "hold_state_unavailable",
     });
-    expect(body.data.recommendationHolds).toEqual({});
+    expect(body.data.recommendationHolds).toEqual({
+      [BOUND_BEACH_ID]: "hold_state_unavailable",
+    });
   });
 
   it("names the water-quality hold on a held beach and keeps its wave height", async () => {
