@@ -43,9 +43,9 @@ const METERS_PER_MILE = 1609.344;
  * 1.44 s, 60 1.77 s, 99 2.49 s. The Daily Call uses the same cap so it and
  * Home choose from the same beaches.
  */
-export const NEARBY_POOL_CAP = 50;
+const NEARBY_POOL_CAP = 50;
 
-export interface CappedPool {
+interface CappedPool {
   pool: PoolBeach[];
   /** Nearby beaches in range left out past the cap. */
   cappedCount: number;
