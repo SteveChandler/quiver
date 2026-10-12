@@ -76,7 +76,7 @@ export function extractAhrefsAeoSummary(raw: unknown): {
         domainRating: numberValue(row["domain rating"]) ?? undefined,
       };
     })
-    .filter(isDefined)
+    .filter((value) => value !== null)
     .sort((a, b) => b.links - a.links || (b.domainRating ?? 0) - (a.domainRating ?? 0))
     .slice(0, 8);
 
@@ -434,10 +434,6 @@ function stringValue(value: unknown): string {
 
 function numberValue(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
-}
-
-function isDefined<T>(value: T | null): value is T {
-  return value !== null;
 }
 
 function parseIntCell(value: string | undefined): number | null {

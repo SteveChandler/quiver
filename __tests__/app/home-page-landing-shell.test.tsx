@@ -9,18 +9,8 @@ jest.mock("next/headers", () => ({
 }));
 
 jest.mock("@/components/landing-page/auth-aware-landing-wrapper", () => ({
-  AuthAwareLandingWrapper: ({
-    initialPlatform,
-    appFirst,
-  }: {
-    initialPlatform?: string;
-    appFirst?: boolean;
-  }) => (
-    <div
-      data-testid="auth-aware-wrapper"
-      data-platform={initialPlatform}
-      data-app-first={String(appFirst)}
-    />
+  AuthAwareLandingWrapper: ({ initialPlatform }: { initialPlatform?: string }) => (
+    <div data-testid="auth-aware-wrapper" data-platform={initialPlatform} />
   ),
 }));
 
@@ -33,10 +23,9 @@ import Home from "@/app/page";
 const IPHONE_UA =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1";
 
-describe("home page app-first landing shell", () => {
+describe("home page landing shell", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    delete process.env.APP_FIRST_LANDING_ENABLED;
   });
 
   it("keeps the SSR beach section and never reads request headers", () => {
@@ -48,22 +37,9 @@ describe("home page app-first landing shell", () => {
 
     render(Home());
 
-    expect(screen.getByTestId("auth-aware-wrapper")).toHaveAttribute(
-      "data-app-first",
-      "true",
-    );
+    expect(screen.getByTestId("auth-aware-wrapper")).toBeInTheDocument();
     expect(screen.getByTestId("landing-ssr-section")).toBeInTheDocument();
     expect(mockHeadersGet).not.toHaveBeenCalled();
   });
 
-  it("passes the rollback flag state into the client wrapper", () => {
-    process.env.APP_FIRST_LANDING_ENABLED = "false";
-
-    render(Home());
-
-    expect(screen.getByTestId("auth-aware-wrapper")).toHaveAttribute(
-      "data-app-first",
-      "false",
-    );
-  });
 });

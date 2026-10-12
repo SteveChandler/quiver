@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 
 import {
   buildDataForSeoExport,
@@ -345,7 +346,7 @@ async function fetchAppSearchRankings(
         }
       }));
 
-      return batchRankings.filter(isDefined);
+      return batchRankings.filter((value) => value !== null && value !== undefined);
     } catch (error) {
       if (error instanceof DeadlineExceededError) throw error;
       for (const context of contextBatch) {
@@ -731,10 +732,6 @@ async function requestDataForSeo(
   throw lastError instanceof Error ? lastError : new Error("DataForSEO request failed");
 }
 
-function isDefined<T>(value: T | null | undefined): value is T {
-  return value !== null && value !== undefined;
-}
-
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -746,10 +743,6 @@ function shouldRetryDataForSeoError(error: unknown): boolean {
     message.includes("aborted") ||
     message.includes("fetch failed") ||
     message.includes("network");
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function dataForSeoMessage(raw: unknown): string {
