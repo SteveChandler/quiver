@@ -42,3 +42,15 @@ it("keeps historical sample details and source attribution behind the toggle", (
   expect(toggle).toHaveAttribute("aria-expanded", "false");
   expect(screen.queryByText("30-day exceedances:")).not.toBeInTheDocument();
 });
+
+it("names a County general advisory as rain runoff, not elevated bacteria", () => {
+  render(<WaterQualityBadge waterQuality={{ ...sample, status: "advisory",
+    county_advisory_status: "advisory", county_advisory_kind: "general",
+    county_checked_at: "2026-10-12T18:00:00Z" }} />);
+  const toggle = screen.getByRole("button", { name: /Rain Advisory/ });
+  fireEvent.click(toggle);
+  expect(screen.getByText(/runoff after rain/i)).toHaveTextContent(/storm drains and river mouths/);
+  expect(screen.getByText(/runoff after rain/i)).toHaveTextContent(/check again in 72 hours/);
+  expect(screen.queryByText(/elevated bacteria/i)).not.toBeInTheDocument();
+  expect(screen.getByRole("link", { name: /County of San Diego/ })).toHaveAttribute("href", "https://www.sdbeachinfo.com/");
+});

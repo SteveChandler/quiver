@@ -63,3 +63,19 @@ export function isCurrentWaterQualitySample(sampleDate: unknown, now: number = D
   const age = now - sampledAt;
   return Number.isFinite(age) && age >= 0 && age < 7 * 24 * 60 * 60 * 1000;
 }
+
+/**
+ * Discovery warning for a beach's current water-quality status. A County
+ * general advisory follows rain and is not a sample result, so it never says
+ * "elevated bacteria".
+ */
+export function waterQualityWarning(
+  status: string | undefined,
+  countyAdvisoryKind: "general" | "site" | undefined,
+): string | null {
+  if (status === WQ_STATUS.CLOSURE) return "Water quality closure — health advisory active";
+  if (status !== WQ_STATUS.ADVISORY) return null;
+  return countyAdvisoryKind === "general"
+    ? "County rain advisory — runoff after rain; avoid storm drains and river mouths, check again in 72 hours"
+    : "Water quality advisory — elevated bacteria levels";
+}
