@@ -21,18 +21,8 @@ jest.mock("@/components/oracle/oracle-home-screen", () => ({
 jest.mock(
   "@/components/landing-page/field-guide/quiver-field-guide-landing",
   () => ({
-    QuiverFieldGuideLanding: ({
-      platform,
-      appFirst,
-    }: {
-      platform?: string;
-      appFirst?: boolean;
-    }) => (
-      <div
-        data-testid="quiver-field-guide-landing"
-        data-platform={platform}
-        data-app-first={String(appFirst)}
-      />
+    QuiverFieldGuideLanding: ({ platform }: { platform?: string }) => (
+      <div data-testid="quiver-field-guide-landing" data-platform={platform} />
     ),
   }),
 );
@@ -245,7 +235,7 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
     });
 
     try {
-      render(<AuthAwareLandingWrapper appFirst />);
+      render(<AuthAwareLandingWrapper />);
 
       expect(screen.getByTestId("quiver-field-guide-landing")).toHaveAttribute(
         "data-platform",
@@ -257,10 +247,6 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
         configurable: true,
       });
     }
-    expect(screen.getByTestId("quiver-field-guide-landing")).toHaveAttribute(
-      "data-app-first",
-      "true",
-    );
   });
 
   it("renders HomeScreen immediately for authenticated users", async () => {

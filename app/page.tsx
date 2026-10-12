@@ -15,7 +15,6 @@ import type { Metadata } from "next";
 import { AuthAwareLandingWrapper } from "@/components/landing-page/auth-aware-landing-wrapper";
 import { LandingPageSSRSection } from "@/components/landing-page/landing-page-ssr-section";
 import { buildAppHandoffUrl } from "@/lib/constants/app-handoff";
-import { isAppFirstLandingEnabled } from "@/lib/flags/app-first-landing";
 
 // ISR: Revalidate every 10 minutes (aligns with featured beaches cache)
 export const revalidate = 600;
@@ -64,7 +63,6 @@ export const metadata: Metadata = {
 };
 
 export default function Home(): ReactElement {
-  const appFirst = isAppFirstLandingEnabled();
 
   return (
     <>
@@ -75,7 +73,7 @@ export default function Home(): ReactElement {
             the page — including the server-side beach fetch below. The value
             only decorates analytics query params on the download links, so
             resolving it after mount costs nothing visible. */}
-        <AuthAwareLandingWrapper appFirst={appFirst} />
+        <AuthAwareLandingWrapper />
       </Suspense>
       <LandingPageSSRSection />
     </>

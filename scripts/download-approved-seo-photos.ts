@@ -2,6 +2,7 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, extname, resolve } from "node:path";
 import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
+import { setTimeout as delay } from "node:timers/promises";
 
 import {
   parseApprovedRuntimePhotos,
@@ -18,12 +19,6 @@ const DEFAULT_MANIFEST_PATH = "scripts/data/socal-beginner-approved-photos.json"
 const TARGET_WIDTH = 1600;
 const TARGET_HEIGHT = 1200;
 const DOWNLOAD_ATTEMPTS = 4;
-
-async function delay(milliseconds: number): Promise<void> {
-  await new Promise((resolvePromise) => {
-    setTimeout(resolvePromise, milliseconds);
-  });
-}
 
 function parseArgs(argv: string[]): CliOptions {
   const args = new Map<string, string>();
