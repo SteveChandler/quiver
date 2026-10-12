@@ -45,7 +45,8 @@ import type {
   PersonalizedForecastWindow,
 } from '@/types/personalization';
 import type { ConditionBadge } from '@/types/personalization';
-import { currentWaterQuality } from "@/lib/services/water-quality/current-status";
+import { currentWaterQuality, unsampledWaterQualityRow, type CountyStatusMetadata } from "@/lib/services/water-quality/current-status";
+import { waterQualityWarning } from "@/lib/constants/water-quality";
 import { withRainfallNotice } from "@/lib/services/water-quality/rainfall-runoff-read";
 import {
   scoreBeachWithEngine,
@@ -1859,12 +1860,15 @@ async function discoverSurfSpotsInner(
   const breakBehaviorRowsByBeach = groupBreakBehaviorRowsByBeach(breakBehaviorRows);
   endStage('context');
 
-  const wqMap = new Map<string, string>();
-  const rainRunoffBeachIds = new Set<string>();
-  const currentWqRows = await currentWaterQuality(wqResult.data ?? []);
+  const wqMap = new Map<string, { status: string; kind: CountyStatusMetadata['county_advisory_kind']; rainRunoff: boolean }>();
+  const sampledWq = wqResult.data ?? [];
+  const sampledWqIds = new Set(sampledWq.map((row) => row.beach_id));
+  // Unsampled beaches still need County status (a rain advisory covers them too).
+  const wqRows = [...sampledWq, ...candidateBeachIds
+    .filter((beachId) => !sampledWqIds.has(beachId)).map(unsampledWaterQualityRow)];
+  const currentWqRows = await currentWaterQuality(wqRows);
   for (const row of await withRainfallNotice(currentWqRows, beachForecasts.map(({ beach }) => beach))) {
-    wqMap.set(row.beach_id, row.status);
-    if (row.rain_runoff) rainRunoffBeachIds.add(row.beach_id);
+    wqMap.set(row.beach_id, { status: row.status, kind: row.county_advisory_kind, rainRunoff: Boolean(row.rain_runoff) });
   }
 
   // 3. Score each beach with detailed breakdown
@@ -2102,7 +2106,9 @@ async function discoverSurfSpotsInner(
     });
 
     // Apply water quality override after scoring
-    const wqStatus = wqMap.get(beach.id);
+    const wq = wqMap.get(beach.id);
+    const wqStatus = wq?.status;
+    const wqWarning = waterQualityWarning(wqStatus, wq?.kind, wq?.rainRunoff);
     if (wqStatus === 'closure') {
       // Score to 0 and demote to 'fair' (lowest non-skip tier) so the beach
       // sorts last but still surfaces with a clear health warning.
@@ -2111,11 +2117,9 @@ async function discoverSurfSpotsInner(
       // health-closed beach sorting above open ones on its ranking value.
       detailedScore.rankingTotal = 0;
       detailedScore.matchQuality = 'fair';
-      detailedScore.warnings = ['Water quality closure — health advisory active'];
-    } else if (wqStatus === 'advisory' && rainRunoffBeachIds.has(beach.id)) {
-      detailedScore.warnings.push('Rain runoff advisory — avoid storm drains and river mouths for 72 hours');
-    } else if (wqStatus === 'advisory') {
-      detailedScore.warnings.push('Water quality advisory — elevated bacteria levels');
+      detailedScore.warnings = wqWarning ? [wqWarning] : [];
+    } else if (wqWarning) {
+      detailedScore.warnings.push(wqWarning);
     }
 
     const behaviorAggregate = aggregateBreakBehaviorSessions(
@@ -2235,9 +2239,9 @@ async function discoverSurfSpotsInner(
         customDetailedScore.total = 0;
         customDetailedScore.rankingTotal = 0;
         customDetailedScore.matchQuality = 'fair';
-        customDetailedScore.warnings = ['Water quality closure — health advisory active'];
-      } else if (wqStatus === 'advisory') {
-        customDetailedScore.warnings.push('Water quality advisory — elevated bacteria levels');
+        customDetailedScore.warnings = wqWarning ? [wqWarning] : [];
+      } else if (wqWarning) {
+        customDetailedScore.warnings.push(wqWarning);
       }
 
       const customDistinction = computeWindowDistinctionReason(

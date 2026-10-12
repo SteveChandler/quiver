@@ -79,13 +79,16 @@ export function WaterQualityBadge({ waterQuality, beachState }: WaterQualityBadg
     return null;
   }
 
+  // Rainfall is a fallback precaution; any County status outranks it.
+  const rainRunoff = waterQuality.county_advisory_status ? undefined : waterQuality.rain_runoff;
   const config = waterQuality.county_advisory_status === "clear" || waterQuality.county_advisory_status === "unavailable"
     ? { ...STATUS_CONFIG.advisory, label: waterQuality.county_advisory_status === "clear" ? "No current county advisory" : "County status unavailable", icon: Droplets,
         iconColor: "text-ink", badgeStyle: "border-ink/20 bg-paper-shadow/40" }
-    : waterQuality.rain_runoff
-      ? { ...STATUS_CONFIG.advisory, label: "Rain runoff advisory" }
-      : STATUS_CONFIG[waterQuality.status as keyof typeof STATUS_CONFIG];
-  const rainRunoff = waterQuality.county_advisory_status ? undefined : waterQuality.rain_runoff;
+    : waterQuality.county_advisory_kind === "general" && waterQuality.status === "advisory"
+      ? { ...STATUS_CONFIG.advisory, label: "Rain Advisory" }
+      : rainRunoff
+        ? { ...STATUS_CONFIG.advisory, label: "Rain runoff advisory" }
+        : STATUS_CONFIG[waterQuality.status as keyof typeof STATUS_CONFIG];
   const StatusIcon = config.icon;
 
   const formattedSampleDate = waterQuality.latest_sample_date
@@ -130,6 +133,9 @@ export function WaterQualityBadge({ waterQuality, beachState }: WaterQualityBadg
               <a href="https://www.sdbeachinfo.com/" target="_blank" rel="noopener noreferrer" className="underline">
                 County of San Diego: current advisory status
               </a>
+              {waterQuality.county_advisory_kind === "general" && waterQuality.status === "advisory" && (
+                <p>The County has a general advisory in effect for runoff after rain. Avoid storm drains and river mouths, and check again in 72 hours.</p>
+              )}
               <p>{waterQuality.county_checked_at ? `Checked ${new Date(waterQuality.county_checked_at).toLocaleString()}. No advisory does not guarantee safe water.` : "Current county status could not be verified. Check the county before entering the water."}</p>
             </div>
           )}
