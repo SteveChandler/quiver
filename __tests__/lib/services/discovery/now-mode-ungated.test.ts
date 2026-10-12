@@ -56,6 +56,14 @@ const mockState = {
  * for its table. Discovery only reads from these tables, so per-table fixtures
  * are enough — the assertions here are about window selection, not queries.
  */
+// PostgREST builders expose .abortSignal(); the bulk route calls it on rpc() results.
+function abortable<A extends unknown[], R>(fn: (...args: A) => Promise<R>) {
+  return jest.fn((...args: A) => {
+    const result = fn(...args);
+    return Object.assign(result, { abortSignal: () => result });
+  });
+}
+
 function makeQuery(rows: unknown[]): unknown {
   let single = false;
   const chain: unknown = new Proxy(
@@ -100,7 +108,7 @@ jest.mock('@/lib/supabase/server', () => ({
       }
       return makeQuery([]);
     }),
-    rpc: jest.fn(async (name: string, args: { p_slots?: Array<{ beach_id: string; forecast_at: string }> }) => {
+    rpc: abortable(async (name: string, args: { p_slots?: Array<{ beach_id: string; forecast_at: string }> }) => {
       const personalization = { entitlement: { is_pro: true }, matches: (args.p_slots ?? []).map((slot) => ({
         ...slot, result: { state: 'ready', score: 6.4, label: 'FAIR', confidence: 'high', sessions_in_profile: 39, reason_bullets: ['Similar conditions'] },
       })) };
