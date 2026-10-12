@@ -46,6 +46,7 @@ import type {
 } from '@/types/personalization';
 import type { ConditionBadge } from '@/types/personalization';
 import { currentWaterQuality } from "@/lib/services/water-quality/current-status";
+import { withRainfallNotice } from "@/lib/services/water-quality/rainfall-runoff-read";
 import {
   scoreBeachWithEngine,
   beachToSpotProfile,
@@ -1861,8 +1862,11 @@ async function discoverSurfSpotsInner(
   endStage('context');
 
   const wqMap = new Map<string, string>();
-  for (const row of await currentWaterQuality(wqResult.data ?? [])) {
+  const rainRunoffBeachIds = new Set<string>();
+  const currentWqRows = await currentWaterQuality(wqResult.data ?? []);
+  for (const row of await withRainfallNotice(currentWqRows, beachForecasts.map(({ beach }) => beach))) {
     wqMap.set(row.beach_id, row.status);
+    if (row.rain_runoff) rainRunoffBeachIds.add(row.beach_id);
   }
 
   // 3. Score each beach with detailed breakdown
@@ -2110,6 +2114,8 @@ async function discoverSurfSpotsInner(
       detailedScore.rankingTotal = 0;
       detailedScore.matchQuality = 'fair';
       detailedScore.warnings = ['Water quality closure — health advisory active'];
+    } else if (wqStatus === 'advisory' && rainRunoffBeachIds.has(beach.id)) {
+      detailedScore.warnings.push('Rain runoff advisory — avoid storm drains and river mouths for 72 hours');
     } else if (wqStatus === 'advisory') {
       detailedScore.warnings.push('Water quality advisory — elevated bacteria levels');
     }

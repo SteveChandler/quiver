@@ -16,6 +16,7 @@ import { ContentPageAppHandoffCta } from "@/components/app-store/content-page-ap
 import type { Metadata } from "next";
 import { buildPageMetadata, buildDynamicBeachMetadata } from "@/lib/seo/meta";
 import { currentWaterQuality } from "@/lib/services/water-quality/current-status";
+import { withRainfallNotice } from "@/lib/services/water-quality/rainfall-runoff-read";
 import {
   buildBeachUrl,
   buildHiCityUrlForBeach,
@@ -192,7 +193,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
             .select("*")
             .eq("beach_id", beach.id)
             .maybeSingle();
-          return data ? (await currentWaterQuality([data]))[0] as WaterQuality : null;
+          return data ? (await withRainfallNotice(await currentWaterQuality([data]), [beach]))[0] as WaterQuality : null;
         } catch {
           // Gracefully degrade if the table doesn't exist yet
           return null;
