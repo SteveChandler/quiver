@@ -155,6 +155,9 @@ type HourlyTimelineWindowParseResult =
  *       [beachId]: { periodSeconds, directionDeg, heightFt, source }
  *     },
  *     recommendationLabels: { [beachId]: "Worth it" | "Maybe" | "Skip" | null }
+ *     recommendationHolds: {
+ *       [beachId]: "water_quality_hold" | "major_event_hold" | "hold_state_unavailable"
+ *     }
  *   }
  * }
  */

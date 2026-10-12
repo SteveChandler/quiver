@@ -588,6 +588,7 @@ describe("GET /api/forecasts/bulk", () => {
           reasonCode: "hold_state_unavailable",
           holdEpoch: "hold-state-unavailable",
         },
+        recommendationHolds: {},
       });
     }
     expect(mockSupabaseClient.from).not.toHaveBeenCalled();
