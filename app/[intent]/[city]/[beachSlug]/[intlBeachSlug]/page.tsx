@@ -19,7 +19,6 @@ import {
 import { notFound } from "next/navigation";
 import type { Beach } from "@/types/database";
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
-import { isFreeGrowthPhaseEnabled } from "@/lib/flags/free-growth-phase";
 import { getSpotSurfReportPublic } from "@/lib/services/spot-surf-report-service";
 import { evaluateBeachForecastIndexability, applyIndexabilityToMetadata } from "@/lib/seo/indexability";
 import { isDataStale } from "@/lib/utils/forecast-client-utils";
@@ -247,7 +246,6 @@ export default async function InternationalBeachDetailPage(props: PageProps) {
                 returnTo={beachUrl}
               />
             }
-            freeGrowthPhaseEnabled={isFreeGrowthPhaseEnabled()}
             /* Server-rendered inside the zine paper above the tabs — see the
                canonical US route for why this is not inside the forecast tab. */
             afterTabsContent={

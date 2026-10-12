@@ -34,7 +34,6 @@ interface BeachDetailClientProps {
   heroForecastSlot?: ReactNode;
   beforeTabsContent?: ReactNode;
   afterTabsContent?: ReactNode;
-  freeGrowthPhaseEnabled?: boolean;
 }
 
 export function BeachDetailClient({
@@ -54,7 +53,6 @@ export function BeachDetailClient({
   heroForecastSlot,
   beforeTabsContent,
   afterTabsContent,
-  freeGrowthPhaseEnabled,
 }: BeachDetailClientProps) {
   const { user } = useAuth();
   const authenticatedForecastDecision = useAuthenticatedForecastDecision();
@@ -231,7 +229,6 @@ export function BeachDetailClient({
         heroForecastSlot={heroForecastSlot}
         beforeTabsContent={beforeTabsContent}
         afterTabsContent={afterTabsContent}
-        freeGrowthPhaseEnabled={freeGrowthPhaseEnabled}
         personalizationData={personalizationData}
         onPersonalizationRequest={(forecast, baseScore) => {
           // BeachDetail will call this when it has forecast data and wants personalization

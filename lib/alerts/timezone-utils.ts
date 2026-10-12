@@ -1,47 +1,31 @@
+import { fromZonedTime } from "date-fns-tz";
 import { getLocalDateFormatter, getLocalHourFormatter } from "@/lib/services/discovery/window-selector/time-slot-utils";
+
+/** The calendar date after `localDate` (YYYY-MM-DD), advanced in UTC so DST cannot shift it. */
+function nextCalendarDate(localDate: string): string {
+  const next = new Date(`${localDate}T00:00:00Z`);
+  next.setUTCDate(next.getUTCDate() + 1);
+  return next.toISOString().slice(0, 10);
+}
 
 export function getUpcomingSurfDate(now: Date, timezone: string): string {
   const localDate = getLocalDateFormatter(timezone).format(now);
   const localHour = Number(getLocalHourFormatter(timezone).format(now)) % 24;
-  if (localHour < 16) return localDate;
-
-  // Advance the calendar date, so DST cannot shift the chosen surf day.
-  const tomorrow = new Date(`${localDate}T00:00:00Z`);
-  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
-  return tomorrow.toISOString().slice(0, 10);
+  return localHour < 16 ? localDate : nextCalendarDate(localDate);
 }
 
 /**
- * Get UTC timestamps for the start and end of a local date in a given timezone.
- * E.g., "2026-04-01" in "America/Los_Angeles" -> 2026-04-01T07:00:00Z to 2026-04-02T06:59:59Z (PDT)
+ * UTC timestamps for the start and end of a local calendar date in a timezone.
+ * E.g. "2026-04-01" in "America/Los_Angeles" -> 2026-04-01T07:00:00Z to 2026-04-02T06:59:59Z (PDT).
+ * The end is the last second before the next local midnight, so a DST day is 23 or 25 hours.
+ * A local midnight that does not exist (zones that spring forward at 00:00) resolves to the
+ * pre-transition offset, as date-fns-tz does.
  */
 export function getUtcDayBounds(
   localDate: string,
   timezone: string
 ): { start: string; end: string } {
-  // Use noon UTC as a stable reference point to derive the timezone offset.
-  // At noon UTC, we check what the local hour is in the target timezone.
-  const noonUtc = new Date(`${localDate}T12:00:00Z`);
-
-  const localNoonStr = noonUtc.toLocaleString("en-US", {
-    timeZone: timezone,
-    hour: "numeric",
-    hour12: false,
-  });
-  const localNoonHour = parseInt(localNoonStr, 10);
-
-  // offset = localHour - utcHour (e.g., PDT: 12 local when 19 UTC -> offset = -7)
-  const offsetHours = localNoonHour - 12;
-
-  // Midnight local = 00:00 local = (00:00 - offset) in UTC
-  const startUtc = new Date(`${localDate}T00:00:00Z`);
-  startUtc.setUTCHours(-offsetHours, 0, 0, 0);
-
-  // End of day = start + 24h - 1s
-  const endUtc = new Date(startUtc.getTime() + 24 * 60 * 60 * 1000 - 1000);
-
-  return {
-    start: startUtc.toISOString(),
-    end: endUtc.toISOString(),
-  };
+  const start = fromZonedTime(`${localDate}T00:00:00`, timezone);
+  const end = fromZonedTime(`${nextCalendarDate(localDate)}T00:00:00`, timezone);
+  return { start: start.toISOString(), end: new Date(end.getTime() - 1000).toISOString() };
 }

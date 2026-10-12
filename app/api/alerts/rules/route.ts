@@ -10,7 +10,6 @@ import {
 } from "@/lib/middleware/api-wrappers";
 import {
   CAPS,
-  FREE_GROWTH_WATCHED_LIMIT,
   canCreateRule,
   getUserEntitlement,
   type Tier,
@@ -22,7 +21,6 @@ import {
   type PersonalizationEligibilityResult,
   type PersonalizationResultCode,
 } from "@/lib/personalization/eligibility";
-import { isFreeGrowthPhaseEnabled } from "@/lib/flags/free-growth-phase";
 import {
   resolveRequestPlatform,
   scheduleAlertCreatedEvents,
@@ -30,7 +28,8 @@ import {
 
 interface AlertRulesEntitlementSignal {
   tier: Tier;
-  freeGrowthPhase: boolean;
+  /** Always false; kept because installed native builds read it. */
+  freeGrowthPhase: false;
   freeWatchLimit: number;
   freeRuleLimit: number;
   premiumRuleLimit: number;
@@ -39,19 +38,11 @@ interface AlertRulesEntitlementSignal {
 function buildAlertRulesEntitlementSignal(
   tier: Tier,
 ): AlertRulesEntitlementSignal {
-  const freeGrowthPhase = isFreeGrowthPhaseEnabled();
-  const freeWatchLimit = freeGrowthPhase
-    ? FREE_GROWTH_WATCHED_LIMIT
-    : CAPS.free.beaches;
-  const freeRuleLimit = freeGrowthPhase
-    ? FREE_GROWTH_WATCHED_LIMIT
-    : CAPS.free.totalRules;
-
   return {
     tier,
-    freeGrowthPhase,
-    freeWatchLimit,
-    freeRuleLimit,
+    freeGrowthPhase: false,
+    freeWatchLimit: CAPS.free.beaches,
+    freeRuleLimit: CAPS.free.totalRules,
     premiumRuleLimit: CAPS.premium.totalRules,
   };
 }
