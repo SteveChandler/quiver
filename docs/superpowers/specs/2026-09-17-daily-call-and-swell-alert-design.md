@@ -53,6 +53,8 @@ A refined window shorter than 60 minutes is discarded. If a beach has no tide cu
 
 **Ranking.** Physical score, then personal fit (skill, board quiver, onboarding size preference; session history only when ≥5 rated sessions with snapshots), then D3 tie order. Take the top window; if none, silent.
 
+> **2026-10-11:** As built, personal fit is always 0 (`buildCandidates` sets `personalFit: 0`), and this ranker can name a different beach from Home's Week Scout pick. `docs/superpowers/specs/2026-10-11-one-surf-call-ranking-design.md` replaces this ranking with Week Scout's, behind `CALL_SHARED_RANKING_ENABLED`.
+
 **Evaluation time.** Everything is evaluated at the user's send time against the latest forecast, so the call reflects the morning model run. There is no earlier planning pass.
 
 **Edge cases.** Window already open at send time: send, worded live. Window closing within 30 minutes of send time: skip it, take the next go window or stay silent.
