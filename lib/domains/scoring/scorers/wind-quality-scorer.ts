@@ -86,7 +86,7 @@ const WAVE_HEIGHT_PENALTY_MAX = 1.5;
 // Direction classification
 // ============================================================================
 
-type WindDirectionClass = 'offshore' | 'sideshore' | 'onshore';
+export type WindDirectionClass = 'offshore' | 'sideshore' | 'onshore';
 
 /**
  * Classify wind direction relative to the spot's offshore vector.
@@ -95,7 +95,7 @@ type WindDirectionClass = 'offshore' | 'sideshore' | 'onshore';
  * - Within tolerance + CROSS_SHORE_EXTENSION_DEG => sideshore.
  * - Else => onshore.
  */
-function classifyDirection(
+export function classifyDirection(
   windDirectionDeg: number,
   offshoreDeg: number,
   offshoreToleranceDeg: number
