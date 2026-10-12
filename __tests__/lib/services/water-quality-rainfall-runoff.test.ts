@@ -128,8 +128,8 @@ describe("applyRainfallNotice", () => {
     }
   });
 
-  it("ignores a reading older than 30 hours", () => {
-    const stale = new Date(now.getTime() - 31 * 3600_000);
+  it("ignores a reading older than 7 hours", () => {
+    const stale = new Date(now.getTime() - 8 * 3600_000);
     expect(applyRainfallNotice(base, reading(1.2, stale), now)).toBe(base);
   });
 
@@ -198,7 +198,7 @@ describe("withRainfallNotice", () => {
   const pacific = { id: "b2", lat: 32.797, lon: -117.257 };
 
   it("applies the latest reading for each beach's cluster", async () => {
-    const older = reading(0.05, new Date(windowEnd.getTime() - 24 * 3600_000));
+    const older = reading(0.05, new Date(windowEnd.getTime() - 3 * 3600_000));
     const rows = [{ beach_id: "b1", status: "good" }, { beach_id: "b2", status: "good" }];
     const out = await withRainfallNotice(rows, [huntington, pacific], client([reading(0.38), older]) as never, now);
     expect(out[0].status).toBe("advisory");
@@ -209,6 +209,7 @@ describe("withRainfallNotice", () => {
     const rows = [{ beach_id: "b1", status: "good" }];
     const out = await withRainfallNotice(rows, [huntington], client([], { message: "down" }) as never, now);
     expect(out).toEqual(rows);
+    expectConsoleWarnings([/readings unavailable/]);
   });
 
   it("skips the read when no beach is in a rain cluster", async () => {

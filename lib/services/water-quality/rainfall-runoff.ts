@@ -3,8 +3,8 @@ import { COUNTY_FEED_COVERAGE_BOUNDS } from "@/lib/services/county-beach-advisor
 // Validation and station choices: docs/water-quality/2026-10-12-rainfall-source-validation.md
 export const RAIN_RUNOFF_THRESHOLD_IN = 0.2;
 const RAIN_WINDOW_HOURS = 72;
-/** A daily job plus slack; an older reading says nothing about the last 72 h. */
-export const RAIN_READING_MAX_AGE_MS = 30 * 60 * 60 * 1000;
+/** The job runs every 3 h; this tolerates one missed run before the notice lapses. */
+export const RAIN_READING_MAX_AGE_MS = 7 * 60 * 60 * 1000;
 const MIN_STATION_HOURS = RAIN_WINDOW_HOURS - 6;
 const MAX_CLUSTER_DISTANCE_KM = 40;
 const HOUR_MS = 60 * 60 * 1000;

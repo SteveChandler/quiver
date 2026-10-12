@@ -116,7 +116,7 @@
     },
     {
       "path": "/api/cron/rainfall-runoff",
-      "schedule": "0 14 * * *"
+      "schedule": "0 */3 * * *"
     },
     {
       "path": "/api/cron/week-scout-canary",

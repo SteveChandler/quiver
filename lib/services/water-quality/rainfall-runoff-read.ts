@@ -57,7 +57,10 @@ export async function withRainfallNotice<T extends { beach_id: string; status: s
       .select("cluster_id, window_end, total_in, station_totals")
       .gte("window_end", new Date(now.getTime() - RAIN_READING_MAX_AGE_MS).toISOString())
       .order("window_end", { ascending: false });
-    if (error || !Array.isArray(data)) return [...rows];
+    if (error || !Array.isArray(data)) {
+      console.warn("[rainfall-runoff] readings unavailable", error);
+      return [...rows];
+    }
     const latest = new Map<string, RainfallReading>();
     for (const raw of data) {
       const reading = parseReading(raw);
@@ -67,7 +70,8 @@ export async function withRainfallNotice<T extends { beach_id: string; status: s
       const cluster = clusterByBeach.get(row.beach_id);
       return cluster ? applyRainfallNotice(row, latest.get(cluster), now) : row;
     });
-  } catch {
+  } catch (error) {
+    console.warn("[rainfall-runoff] readings read failed", error);
     return [...rows];
   }
 }

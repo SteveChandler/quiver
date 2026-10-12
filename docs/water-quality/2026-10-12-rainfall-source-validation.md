@@ -77,3 +77,7 @@ Beaches inside the County of San Diego feed's coverage bounds get no rain notice
 - One storm. Re-check after the next rain with the spot check in the release pool.
 - Gauges are volunteer CoCoRaHS reports with 7 am observation days, so ASOS windows were aligned to 7 am PDT.
 - Raw data and scripts were kept out of the repo. Reproduce with the IEM `asos.py` request for `p01i` and `metar` and the CoCoRaHS daily CSV export.
+
+## Cadence
+
+The brief asked for a daily job. A once-daily run would lag new rain by up to 24 hours and keep a notice up to 30 hours past its 72-hour window. The job runs every 3 hours instead, about 64 small AWC requests a day, and a reading older than 7 hours is ignored.

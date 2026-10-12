@@ -13,7 +13,8 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 180; // 8 sequential AWC requests, 10 s timeout, one retry each
 
 const ROUTE = "/api/cron/rainfall-runoff";
-const SCHEDULE = "0 14 * * *";
+const SCHEDULE = "0 */3 * * *";
+const RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 
 async function _GET(request: Request): Promise<Response> {
   if (!validateCronRequest(request)) {
@@ -35,6 +36,10 @@ async function _GET(request: Request): Promise<Response> {
           const { error } = await supabase.from(RAINFALL_READINGS_TABLE as never)
             .upsert(readings as never, { onConflict: "cluster_id,window_end" });
           if (error) throw new Error(`rainfall_runoff_readings upsert failed: ${error.message}`);
+          // Only the latest few hours are ever read; keep a week for spot checks.
+          const { error: pruneError } = await supabase.from(RAINFALL_READINGS_TABLE as never).delete()
+            .lt("window_end", new Date(Date.now() - RETENTION_MS).toISOString());
+          if (pruneError) console.warn("[rainfall-runoff] retention prune failed", pruneError.message);
         },
       }),
     );
