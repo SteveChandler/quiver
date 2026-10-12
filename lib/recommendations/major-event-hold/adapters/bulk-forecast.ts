@@ -2,6 +2,7 @@ import type {
   MajorEventHoldCandidate,
   MajorEventHoldCandidateDecision,
   RecommendationAvailability,
+  RecommendationHoldReasonCode,
 } from "../types";
 import {
   resolveMajorEventHoldBoundary,
@@ -41,6 +42,9 @@ export type SanitizedBulkForecastResponse<
     RecommendationLabel | null | undefined
   >;
   recommendationAvailability: RecommendationAvailability;
+  // Why each withheld beach has no rating, so clients can tell a held beach
+  // from one with no data. Beaches withheld by a whole-response clear are absent.
+  recommendationHolds: Record<string, RecommendationHoldReasonCode>;
 };
 
 export interface ScoredForecastSlotBinding {
@@ -199,14 +203,26 @@ export function sanitizeBulkForecastForMajorEventHold<
       ...(response.recommendedBoards ? { recommendedBoards: Object.fromEntries(Object.entries(response.recommendedBoards).map(([id, value]) => [id, recommendationLabels[id] == null ? null : value])) } : {}),
       ...(response.personalAdjustmentReasons ? { personalAdjustmentReasons: Object.fromEntries(Object.entries(response.personalAdjustmentReasons).map(([id, value]) => [id, recommendationLabels[id] == null ? null : value])) } : {}),
       recommendationAvailability: boundary.recommendationAvailability,
+      recommendationHolds: {},
     };
   }
 
+  // The boundary validated every decision, so each blocked candidate has one
+  // with an explicit reason code.
+  const reasonByCandidateId = new Map(
+    decisions.map((decision) => [
+      decision.candidateId,
+      decision.evaluation.reasonCode,
+    ]),
+  );
+  const recommendationHolds: Record<string, RecommendationHoldReasonCode> = {};
   for (const binding of bindings) {
     const shouldClear = boundary.blockedCandidateIds.has(
       binding.candidate.candidateId,
     );
     if (!shouldClear) continue;
+    const reasonCode = reasonByCandidateId.get(binding.candidate.candidateId);
+    if (reasonCode) recommendationHolds[binding.beachId] = reasonCode;
     delete conditionScores[binding.beachId];
     if (
       Object.prototype.hasOwnProperty.call(
@@ -236,6 +252,7 @@ export function sanitizeBulkForecastForMajorEventHold<
     ...(response.recommendedBoards ? { recommendedBoards: Object.fromEntries(Object.entries(response.recommendedBoards).map(([id, value]) => [id, recommendationLabels[id] == null ? null : value])) } : {}),
     ...(response.personalAdjustmentReasons ? { personalAdjustmentReasons: Object.fromEntries(Object.entries(response.personalAdjustmentReasons).map(([id, value]) => [id, recommendationLabels[id] == null ? null : value])) } : {}),
     recommendationAvailability: boundary.recommendationAvailability,
+    recommendationHolds,
   };
 }
 

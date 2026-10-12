@@ -717,6 +717,7 @@ describe("/api/forecasts/bulk", () => {
           reasonCode: "hold_state_unavailable",
           holdEpoch: "hold-state-unavailable",
         },
+        recommendationHolds: {},
       });
     }
     expect(mockSupabaseClient.from).not.toHaveBeenCalled();
@@ -1286,6 +1287,7 @@ describe("/api/forecasts/bulk", () => {
         reasonCode: "hold_state_unavailable",
         holdEpoch: "hold-state-unavailable",
       },
+      recommendationHolds: {},
     });
   });
 
@@ -2281,6 +2283,9 @@ describe("/api/forecasts/bulk", () => {
       state: "none",
       reasonCode: "major_event_hold",
     });
+    expect(body.data.recommendationHolds).toEqual({
+      [BOUND_BEACH_ID]: "major_event_hold",
+    });
     expect(JSON.stringify(body)).not.toMatch(
       /internal-hold-id|holdIds|evaluation/,
     );
@@ -2318,6 +2323,51 @@ describe("/api/forecasts/bulk", () => {
       state: "none",
       reasonCode: "hold_state_unavailable",
     });
+    expect(body.data.recommendationHolds).toEqual({});
+  });
+
+  it("names the water-quality hold on a held beach and keeps its wave height", async () => {
+    const row = forecastRow(BOUND_BEACH_ID, "2.5", -1);
+    mockBulkQueries({
+      forecastRows: [row],
+      beachRows: [beachRow(BOUND_BEACH_ID)],
+    });
+    mockEvaluateMajorEventHoldCandidates.mockImplementationOnce(
+      ({ candidates }: { candidates: Array<{ candidateId: string }> }) =>
+        Promise.resolve(
+          candidates.map(({ candidateId }) => ({
+            candidateId,
+            evaluation: {
+              outcome: "explicit_none",
+              reasonCode: "water_quality_hold",
+              holdIds: ["water-quality:internal-hold-id"],
+              holdEpoch: "water-quality-epoch",
+            },
+            recommendationAvailability: {
+              state: "none",
+              reasonCode: "water_quality_hold",
+              holdEpoch: "water-quality-epoch",
+            },
+          })),
+        ),
+    );
+
+    const response = await GET(
+      createMockRequest(
+        "GET",
+        `http://localhost:3000/api/forecasts/bulk?beachIds=${BOUND_BEACH_ID}`,
+        { headers: { "x-forwarded-for": "203.0.113.242" } },
+      ),
+    );
+    const body = await expectSuccessResponse<any>(response, 200);
+
+    expect(body.data.forecasts).toEqual({ [BOUND_BEACH_ID]: 2.5 });
+    expect(body.data.conditionScores).toEqual({});
+    expect(body.data.recommendationLabels).toEqual({ [BOUND_BEACH_ID]: null });
+    expect(body.data.recommendationHolds).toEqual({
+      [BOUND_BEACH_ID]: "water_quality_hold",
+    });
+    expect(JSON.stringify(body)).not.toMatch(/internal-hold-id|holdIds/);
   });
 
   it("keeps wave-height data when condition scoring fails", async () => {

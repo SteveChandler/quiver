@@ -81,6 +81,25 @@ function decision(
   };
 }
 
+function waterQualityDecision(
+  candidateId: string,
+): MajorEventHoldCandidateDecision {
+  return {
+    candidateId,
+    evaluation: {
+      outcome: "explicit_none",
+      reasonCode: "water_quality_hold",
+      holdIds: ["water-quality:advisory-1"],
+      holdEpoch: EPOCH,
+    },
+    recommendationAvailability: {
+      state: "none",
+      reasonCode: "water_quality_hold",
+      holdEpoch: EPOCH,
+    },
+  };
+}
+
 function shadowAllowDecision(
   candidateId: string,
 ): MajorEventHoldCandidateDecision {
@@ -2285,6 +2304,86 @@ describe("major-event hold adapters", () => {
     expect(result.conditionScores).toEqual(input.conditionScores);
     expect(result.conditionSummaries).toEqual(input.conditionSummaries);
     expect(bulkPhysicalSnapshot(result)).toEqual(bulkPhysicalSnapshot(input));
+  });
+
+  it("bulk forecast names the water-quality hold behind each withheld beach", () => {
+    const input = deepFreeze(structuredClone(bulkForecastFixture()));
+
+    const result = sanitizeBulkForecastForMajorEventHold(
+      input,
+      bulkBindings(),
+      bulkCandidates(),
+      [waterQualityDecision("bulk-primary"), decision("bulk-included", "allow")],
+    );
+
+    expect(result.recommendationAvailability).toEqual({
+      state: "available",
+      holdEpoch: EPOCH,
+    });
+    expect(result.recommendationHolds).toEqual({
+      [PRIMARY_BEACH_ID]: "water_quality_hold",
+    });
+    expect(result.conditionScores).toEqual({ [INCLUDED_BEACH_ID]: 75 });
+    expect(result.recommendationLabels[PRIMARY_BEACH_ID]).toBeNull();
+    expect(bulkPhysicalSnapshot(result)).toEqual(bulkPhysicalSnapshot(input));
+  });
+
+  it("bulk forecast names each hold reason when every beach is withheld", () => {
+    const input = deepFreeze(structuredClone(bulkForecastFixture()));
+
+    const result = sanitizeBulkForecastForMajorEventHold(
+      input,
+      bulkBindings(),
+      bulkCandidates(),
+      [waterQualityDecision("bulk-primary"), decision("bulk-included", "blocked")],
+    );
+
+    expect(result.recommendationAvailability).toMatchObject({
+      state: "none",
+      reasonCode: "major_event_hold",
+    });
+    expect(result.recommendationHolds).toEqual({
+      [PRIMARY_BEACH_ID]: "water_quality_hold",
+      [INCLUDED_BEACH_ID]: "major_event_hold",
+    });
+    expect(result.conditionScores).toEqual({});
+  });
+
+  it("bulk forecast reports an unverified beach beside an allowed one", () => {
+    const input = deepFreeze(structuredClone(bulkForecastFixture()));
+
+    const result = sanitizeBulkForecastForMajorEventHold(
+      input,
+      bulkBindings(),
+      bulkCandidates(),
+      [decision("bulk-primary", "unavailable"), decision("bulk-included", "allow")],
+    );
+
+    expect(result.recommendationHolds).toEqual({
+      [PRIMARY_BEACH_ID]: "hold_state_unavailable",
+    });
+  });
+
+  it("bulk forecast reports no per-beach holds for allows or a whole-response clear", () => {
+    const allowed = sanitizeBulkForecastForMajorEventHold(
+      deepFreeze(structuredClone(bulkForecastFixture())),
+      bulkBindings(),
+      bulkCandidates(),
+      [shadowAllowDecision("bulk-primary"), decision("bulk-included", "allow")],
+    );
+    expect(allowed.recommendationHolds).toEqual({});
+
+    const cleared = sanitizeBulkForecastForMajorEventHold(
+      deepFreeze(structuredClone(bulkForecastFixture())),
+      bulkBindings(),
+      bulkCandidates(),
+      [decision("bulk-primary", "unavailable"), decision("bulk-included", "unavailable")],
+    );
+    expect(cleared.recommendationAvailability).toMatchObject({
+      state: "none",
+      reasonCode: "hold_state_unavailable",
+    });
+    expect(cleared.recommendationHolds).toEqual({});
   });
 
   it.each([
