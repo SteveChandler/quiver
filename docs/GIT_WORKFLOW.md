@@ -43,7 +43,7 @@ branch. Otherwise, rely on local verification and the `main` preview after merge
 
 - Finish and validate a coherent batch on its feature branch before merging to `main`.
 - Use `preview/**` only when a deployed preview is needed; normal feature branches run local checks and CI.
-- Promote the reviewed batch to `prod` once. Avoid repeated staging/production pushes for small follow-up edits.
+- Promote to `prod` once a day through the daily release pool (below). Avoid repeated staging/production pushes for small follow-up edits.
 - Keep `VERCEL_GIT_PREVIOUS_SHA` available to the ignored-build check so a docs-only head cannot hide runtime changes earlier in the batch. Missing history builds conservatively.
 - A redeploy of the last successful commit has no source diff, so the ignored-build check also builds when `VERCEL_GIT_PREVIOUS_SHA` equals `VERCEL_GIT_COMMIT_SHA`. An environment-variable-only change is therefore deployed with `vercel redeploy https://www.quiversurf.app --target production`.
 - Check `yarn test:unit --runInBand --runTestsByPath __tests__/config/vercel-config.test.js` when changing deployment filters.
@@ -60,7 +60,9 @@ git push origin prod
 
 Or create a PR from `main → prod` and merge it (CI will gate this — see below).
 
-**Frequency:** Promote every 2–3 features. Don't let 10+ unshipped commits accumulate on `main`.
+**Frequency: once a day, as a pool (since Oct 10 2026).** Every prod deploy is a paid build and starts on-demand pages with empty ISR and CDN caches. Work stops at `main`; don't open per-feature prod PRs. Every evening (~6 PM PT) one release PR ships everything on `main` that `prod` lacks (`git cherry origin/prod origin/main`), after Steven approves it.
+
+The pool file is `/Users/stevenchandler/Desktop/dev/.quiver/ops/RELEASE-POOL.md`, kept outside the repo. It lists **holds** (merged changes that must not ship yet, with the condition that releases them) and **release steps** (migrations, env vars, flag flips). Add a line there when a merged change needs either. The release is run by the `quiver-daily-release` skill and scheduled task in Steven's Claude setup. Outages, security, data loss, and broken sign-in, payments or push use the hotfix flow below instead of waiting.
 
 ## Hotfix Process
 

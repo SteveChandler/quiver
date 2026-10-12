@@ -10,6 +10,7 @@ import { headers } from "next/headers";
 import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
 import { getTideMetaData } from "@/lib/seo/tide-meta-data";
 import { getWaterTempMetaData } from "@/lib/seo/water-temp-meta-data";
+import { isGscPerformanceProtected } from "@/lib/seo/gsc-performance-protection";
 import { getBeachBySlugOrId } from "@/lib/utils/beach-lookup-utils";
 import { renderBeachSubPage } from "@/lib/utils/beach-sub-page-utils";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
@@ -50,6 +51,13 @@ jest.mock("@/lib/seo/water-temp-meta-data", () => ({
   getWaterTempMetaData: jest.fn(),
 }));
 
+jest.mock("@/lib/seo/gsc-performance-protection", () => ({
+  ...jest.requireActual("@/lib/seo/gsc-performance-protection"),
+  isGscPerformanceProtected: jest.fn(
+    jest.requireActual("@/lib/seo/gsc-performance-protection").isGscPerformanceProtected,
+  ),
+}));
+
 jest.mock("@/lib/utils/nearby-beach-enrichment", () => ({
   enrichBeachesWithConditions: jest.fn(),
 }));
@@ -72,6 +80,9 @@ const beach = {
 describe("renderBeachSubPage static rendering", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.mocked(isGscPerformanceProtected).mockImplementation(
+      jest.requireActual("@/lib/seo/gsc-performance-protection").isGscPerformanceProtected,
+    );
     (getBeachBySlugOrId as jest.MockedFunction<typeof getBeachBySlugOrId>)
       .mockResolvedValue(beach);
     (getNearbyBeaches as jest.MockedFunction<typeof getNearbyBeaches>)
@@ -92,6 +103,24 @@ describe("renderBeachSubPage static rendering", () => {
         typeof enrichBeachesWithConditions
       >
     ).mockResolvedValue([]);
+  });
+
+  it.each([
+    [true, null, true],
+    [false, null, false],
+    [true, 67, false],
+  ])("shows the no-reading line only when protected (%s) and no reading (%s)", async (protectedPage, tempF, showLine) => {
+    jest.mocked(getBeachBySlugOrId).mockResolvedValue({ ...beach, slug: "huntington-state-beach", name: "Huntington State Beach", city: "Huntington Beach" });
+    const beachPath = "/ca/huntington-beach/huntington-state-beach";
+    expect(isGscPerformanceProtected(`${beachPath}/water-temp`)).toBe(true);
+    if (!protectedPage) jest.mocked(isGscPerformanceProtected).mockReturnValue(false);
+    jest.mocked(getWaterTempMetaData).mockResolvedValue({ tempF, wetsuitRec: tempF === null ? null : "3/2mm fullsuit" });
+
+    const page = await renderBeachSubPage({ beachSlug: "huntington-state-beach", pageType: "water-temp", beachPath }) as PageTreeElement;
+
+    expect(getPageChildren(page).some((child) =>
+      child.type === "p" && (child.props as { children?: ReactNode }).children === "No live water temperature reading right now. Check back for the next update.",
+    )).toBe(showLine);
   });
 
   it("never reads request headers", async () => {

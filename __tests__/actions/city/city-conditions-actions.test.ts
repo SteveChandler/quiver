@@ -95,7 +95,7 @@ describe("city best-right-now water-quality policy", () => {
   });
 });
 
-it("keeps the source timestamp stable across regeneration and preserves forecast TTL", async () => {
+it("keeps the source timestamp stable across regeneration and leaves the window to the page", async () => {
   jest.useFakeTimers();
   try {
     const chain = mockChain;
@@ -111,7 +111,8 @@ it("keeps the source timestamp stable across regeneration and preserves forecast
     expect(await getCitySurfReport("San Diego", "CA")).toEqual(first);
     expect(first?.updatedAt).toBe("2026-09-15T12:00:00.000Z");
     const { unstable_cache } = await import("next/cache");
-    expect(unstable_cache).toHaveBeenLastCalledWith(expect.any(Function), expect.any(Array), expect.objectContaining({revalidate: 900}));
+    // A cache window here would lower the /beaches city hub's ISR window to it.
+    expect(unstable_cache).not.toHaveBeenCalled();
   } finally { jest.useRealTimers(); }
 });
 

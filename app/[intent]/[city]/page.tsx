@@ -84,6 +84,7 @@ import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { WaterTempDatasetSchema } from "@/components/seo/water-temp-dataset-schema";
 import { getSeoFunnelPageByIntentRoute } from "@/lib/seo/funnel-pages";
 import { getCityEditorialContent } from "@/actions/city/city-editorial-actions";
+import { isGscPerformanceProtected } from "@/lib/seo/gsc-performance-protection";
 import {
   applyIndexabilityToMetadata,
   evaluateCityDataIntentIndexability,
@@ -101,9 +102,11 @@ export const revalidate = 3600;
 // Next.js lowers this page's revalidate to the shortest unstable_cache window a
 // render reads, so the beach-list window is the page window. Tide, water-temp,
 // and sun-time renders show no live recommendation and keep the declared hour.
-// Live recommendations apply water-quality holds at render and keep 15 minutes.
+// Live recommendations apply water-quality holds at render. They were 15
+// minutes until Oct 2026; nearly all traffic here is crawlers, so Steven moved
+// them to hourly, accepting up to an hour before a new closure drops off.
 const BEACH_METADATA_WINDOW_SECONDS = 3600;
-const LIVE_RECOMMENDATION_WINDOW_SECONDS = 900;
+const LIVE_RECOMMENDATION_WINDOW_SECONDS = 3600;
 
 /**
  * Try to resolve a city slug with automatic state suffix detection.
@@ -337,7 +340,7 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
     cityMetadata,
     {
       tideData: tideDataForMeta ? { nextTideType: tideDataForMeta.nextTideType, nextTideTime: tideDataForMeta.nextTideTime, nextTideHeight: tideDataForMeta.nextTideHeight } : null,
-      waterTempData: waterTempDataForMeta ? { currentTemp: waterTempDataForMeta.currentTemp } : null,
+      waterTempData: waterTempDataForMeta ? { currentTemp: waterTempDataForMeta.currentTemp, source: waterTempDataForMeta.source } : null,
     }
   );
 
@@ -382,11 +385,12 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
     "usa",
     params.intent as SurfIntentSlug,
   );
+  const canonicalPath = `/${params.intent}/${canonicalCitySlug}`;
+  const protectedWaterTemp = params.intent === "water-temp" && isGscPerformanceProtected(canonicalPath);
   const dataRich =
     hasMatchingBeaches &&
-    intentDataAvailability !== "missing" &&
+    (intentDataAvailability !== "missing" || protectedWaterTemp) &&
     !excludedCityIntents.includes(params.intent as IntentKey);
-  const canonicalPath = `/${params.intent}/${canonicalCitySlug}`;
   const decision = isDataBackedCityIntent(params.intent)
     ? evaluateCityDataIntentIndexability(
         toCityEditorialInput(cityEditorial),
@@ -593,7 +597,7 @@ export default async function IntentPage(props: IntentPageParams) {
   // Database-driven city resolution with automatic state suffix detection (parallel lookup)
   // This handles cases where sitemap has "/beginner/nags-head-nc" but user accesses "/beginner/nags-head"
   // NOTE: We serve content directly instead of redirecting to avoid redirect chains that Google flags
-  const { cityMetadata } = await resolveCityWithStateSuffix(params.city);
+  const { cityMetadata, resolvedSlug: canonicalCitySlug } = await resolveCityWithStateSuffix(params.city);
 
   if (!cityMetadata) {
     return notFound();
@@ -776,7 +780,7 @@ export default async function IntentPage(props: IntentPageParams) {
     // If expanded data available, render dedicated water-temp page
     if (expandedWaterTempData) {
       const waterTempPageContent = buildIntentPageContent("water-temp", cityMetadata, {
-        waterTempData: { currentTemp: expandedWaterTempData.currentTemp },
+        waterTempData: { currentTemp: expandedWaterTempData.currentTemp, source: expandedWaterTempData.source },
       });
       const waterTempBeaches = waterTempBeachesResult.success && waterTempBeachesResult.data
         ? waterTempBeachesResult.data
@@ -1048,6 +1052,7 @@ export default async function IntentPage(props: IntentPageParams) {
   // Extract intent-specific data from Promise.all result
   const tideData: CityTideData | null = params.intent === "tide" ? intentData as CityTideData | null : null;
   const waterTempData: CityWaterTempData | null = params.intent === "water-temp" ? intentData as CityWaterTempData | null : null;
+  const protectedWaterTemp = params.intent === "water-temp" && isGscPerformanceProtected(`/water-temp/${canonicalCitySlug}`);
 
   if (!beachesResult.success || !beachesResult.data || beachesResult.data.length === 0) {
     // least-crowded with no light/moderate beaches should 404, not show empty state
@@ -1062,6 +1067,9 @@ export default async function IntentPage(props: IntentPageParams) {
               {definition.heading({ cityName: cityMetadata.cityName })}
             </h1>
           </header>
+          {protectedWaterTemp && !waterTempData && (
+            <WaterTempOverviewSection data={null} isGscProtected />
+          )}
           <IntentEmptyState
             intentLabel={definition.label}
             locationName={cityMetadata.cityName}
@@ -1209,7 +1217,7 @@ export default async function IntentPage(props: IntentPageParams) {
 
             <div className="space-y-2 mt-6">
               <p className="text-base text-gray-700">
-                Recommendations refresh every 30 minutes based on tide, wind,
+                Recommendations refresh hourly based on tide, wind,
                 and crowd telemetry from Quiver.
               </p>
               <p className="text-base text-gray-700">
@@ -1229,7 +1237,7 @@ export default async function IntentPage(props: IntentPageParams) {
         {/* Intent-specific live data sections */}
         {params.intent === "tide" && <TideOverviewSection data={tideData} />}
         {params.intent === "water-temp" && (
-          <WaterTempOverviewSection data={waterTempData} />
+          <WaterTempOverviewSection data={waterTempData} isGscProtected={protectedWaterTemp} />
         )}
 
         <div className="space-y-12">

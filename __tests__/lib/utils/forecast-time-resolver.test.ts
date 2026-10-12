@@ -43,6 +43,93 @@ describe("localDateTimeToUTC", () => {
   });
 });
 
+/**
+ * The uncached algorithm as it was before memoisation. The cache must be
+ * indistinguishable from it, including around DST transitions.
+ */
+function referenceLocalDateTimeToUTC(dateStr: string, timeStr: string, tz: string): Date {
+  const naiveUtc = new Date(`${dateStr}T${timeStr}Z`);
+  const utcRepr = naiveUtc.toLocaleString("en-US", { timeZone: "UTC" });
+  const localRepr = naiveUtc.toLocaleString("en-US", { timeZone: tz });
+  const offsetMs = new Date(utcRepr).getTime() - new Date(localRepr).getTime();
+  return new Date(naiveUtc.getTime() + offsetMs);
+}
+
+const PARITY_ZONES = [
+  "America/Los_Angeles",
+  "Pacific/Honolulu",
+  "America/Puerto_Rico",
+  "America/New_York",
+  "UTC",
+] as const;
+
+describe("localDateTimeToUTC memoisation", () => {
+  it("matches the uncached algorithm for every light bound across a year in each zone", () => {
+    for (const tz of PARITY_ZONES) {
+      for (let day = 0; day < 365; day += 1) {
+        const date = new Date(Date.UTC(2026, 0, 1 + day)).toISOString().slice(0, 10);
+        for (const time of ["06:00:00", "18:00:00"]) {
+          expect(localDateTimeToUTC(date, time, tz).getTime()).toBe(
+            referenceLocalDateTimeToUTC(date, time, tz).getTime(),
+          );
+        }
+      }
+    }
+  });
+
+  it.each([
+    ["2026-03-08", "01:00:00"],
+    ["2026-03-08", "01:59:00"],
+    ["2026-03-08", "02:00:00"],
+    ["2026-03-08", "02:30:00"],
+    ["2026-03-08", "03:00:00"],
+    ["2026-11-01", "00:00:00"],
+    ["2026-11-01", "01:00:00"],
+    ["2026-11-01", "01:30:00"],
+    ["2026-11-01", "02:00:00"],
+  ])("matches the uncached algorithm at the DST edge %s %s, on first and repeat calls", (date, time) => {
+    const expected = referenceLocalDateTimeToUTC(date, time, "America/Los_Angeles").getTime();
+    expect(localDateTimeToUTC(date, time, "America/Los_Angeles").getTime()).toBe(expected);
+    expect(localDateTimeToUTC(date, time, "America/Los_Angeles").getTime()).toBe(expected);
+  });
+
+  it("does not recompute an instant it already resolved", () => {
+    localDateTimeToUTC("2031-05-05", "06:00:00", "America/Los_Angeles");
+    const spy = jest.spyOn(Date.prototype, "toLocaleString");
+    try {
+      localDateTimeToUTC("2031-05-05", "06:00:00", "America/Los_Angeles");
+      expect(spy).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("hands out a fresh Date each call so a caller's mutation cannot leak into the next", () => {
+    const first = localDateTimeToUTC("2031-06-06", "18:00:00", "America/Los_Angeles");
+    const original = first.getTime();
+    first.setUTCFullYear(1999);
+    expect(localDateTimeToUTC("2031-06-06", "18:00:00", "America/Los_Angeles").getTime()).toBe(original);
+  });
+
+  it("keeps throwing for an invalid timezone instead of caching a result", () => {
+    expect(() => localDateTimeToUTC("2026-01-13", "15:00:00", "Not/AZone")).toThrow(RangeError);
+    expect(() => localDateTimeToUTC("2026-01-13", "15:00:00", "Not/AZone")).toThrow(RangeError);
+  });
+
+  it("stays correct after the cache fills and is cleared", () => {
+    const dates: string[] = [];
+    for (let day = 0; day < 5100; day += 1) {
+      dates.push(new Date(Date.UTC(2000, 0, 1 + day)).toISOString().slice(0, 10));
+    }
+    for (const date of dates) localDateTimeToUTC(date, "06:00:00", "America/Los_Angeles");
+    for (const date of [dates[0], dates[2500], dates[5099]]) {
+      expect(localDateTimeToUTC(date, "06:00:00", "America/Los_Angeles").getTime()).toBe(
+        referenceLocalDateTimeToUTC(date, "06:00:00", "America/Los_Angeles").getTime(),
+      );
+    }
+  });
+});
+
 describe("resolveForecastTime", () => {
   // -------------------------------------------------------------------
   // Case 1: Proper UTC
@@ -217,5 +304,44 @@ describe("resolveForecastTime", () => {
       const result = resolveForecastTime(forecast, "America/Los_Angeles");
       expect(result.toISOString()).toBe("2026-03-13T15:00:00.000Z");
     });
+  });
+});
+
+describe("resolveForecastTime parity with uncached formatting", () => {
+  function referenceResolve(forecast: EnhancedForecastEntity, tz: string): Date {
+    const at = new Date(forecast.forecast_at);
+    const forecastHour = parseInt(String(forecast.forecast_time).split(":")[0], 10);
+    const localHour = parseInt(
+      new Intl.DateTimeFormat("en-US", { hour: "numeric", hour12: false, timeZone: tz }).format(at),
+      10,
+    );
+    if (localHour === forecastHour || at.getUTCHours() === forecastHour) return at;
+    return referenceLocalDateTimeToUTC(String(forecast.forecast_date), String(forecast.forecast_time), tz);
+  }
+
+  it("resolves proper-UTC, UTC-hour and local-as-UTC rows exactly as before", () => {
+    for (const tz of PARITY_ZONES) {
+      for (let hour = 0; hour < 72; hour += 1) {
+        const at = new Date(Date.UTC(2026, 2, 7, hour));
+        const iso = at.toISOString();
+        const localParts = new Intl.DateTimeFormat("en-CA", {
+          timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit",
+          hour: "2-digit", hour12: false,
+        }).formatToParts(at);
+        const part = (type: string): string => localParts.find((p) => p.type === type)?.value ?? "00";
+        const conventions = [
+          // proper UTC: forecast_time is the local wall clock
+          { forecast_date: `${part("year")}-${part("month")}-${part("day")}`, forecast_time: `${part("hour") === "24" ? "00" : part("hour")}:00:00` },
+          // forecast_time holds the UTC hour
+          { forecast_date: iso.slice(0, 10), forecast_time: `${String(at.getUTCHours()).padStart(2, "0")}:00:00` },
+          // legacy: forecast_at encodes local time with a Z suffix
+          { forecast_date: iso.slice(0, 10), forecast_time: `${String((hour + 5) % 24).padStart(2, "0")}:00:00` },
+        ];
+        for (const convention of conventions) {
+          const forecast = makeForecast({ forecast_at: iso, ...convention });
+          expect(resolveForecastTime(forecast, tz).getTime()).toBe(referenceResolve(forecast, tz).getTime());
+        }
+      }
+    }
   });
 });

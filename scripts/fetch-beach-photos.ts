@@ -15,6 +15,7 @@ OPENVERSE_API_URL=https://api.openverse.org/v1/images/
 */
 
 import "./load-default-env.mjs";
+import { setTimeout as delay } from "node:timers/promises";
 import { createClient } from "@supabase/supabase-js";
 import pLimit from "p-limit";
 import { requirePhotoReview } from "./lib/beach-photo-review";
@@ -287,7 +288,7 @@ async function fetchOpenverse(beach: Beach, limit = LIMIT): Promise<PhotoRecord[
 
     if (res.status === 429) {
       console.warn(`Rate limited by Openverse for ${beach.name}, retrying in ${backoffMs}ms...`);
-      await new Promise((resolve) => setTimeout(resolve, backoffMs));
+      await delay(backoffMs);
       backoffMs *= 2;
       retries--;
       continue;
@@ -422,7 +423,7 @@ async function main() {
         console.log(`Saved ${seen.size} photos for ${beach.name}.`);
 
         // Add delay between beaches to respect rate limits
-        await new Promise((resolve) => setTimeout(resolve, 800));
+        await delay(800);
       } catch (err) {
         console.error(`Error on ${beach.name}:`, err);
       }

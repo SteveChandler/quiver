@@ -16,6 +16,7 @@ jest.mock('@/lib/middleware/api-wrappers', () => {
 
 const mockGenerateWeekScoutForecast = jest.fn();
 const mockBuildWeekendScoutCandidatePool = jest.fn();
+const mockBuildDriveRangeCandidatePool = jest.fn();
 jest.mock(
   '@/lib/services/discovery/week-scout',
   () => ({
@@ -24,6 +25,7 @@ jest.mock(
 );
 jest.mock('@/lib/services/discovery/weekend-scout-candidate-pool', () => ({
   buildWeekendScoutCandidatePool: (...args: unknown[]) => mockBuildWeekendScoutCandidatePool(...args),
+  buildDriveRangeCandidatePool: (...args: unknown[]) => mockBuildDriveRangeCandidatePool(...args),
 }));
 
 import { NextRequest } from 'next/server';
@@ -64,7 +66,20 @@ describe('POST /api/surf/week-scout', () => {
     delete process.env.WEEK_SCOUT_SWELLS_USER_ALLOWLIST;
     mockGenerateWeekScoutForecast.mockResolvedValue(WEEK_SCOUT_CONTRACT_FIXTURE);
     mockBuildWeekendScoutCandidatePool.mockResolvedValue({ candidates: [], incomplete: false });
+    mockBuildDriveRangeCandidatePool.mockResolvedValue({
+      candidates: [], enumeratedCount: 0, filteredOutCount: 0, cappedCount: 0, farthestNearbyMiles: null,
+    });
   });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  function tables(rows: Record<string, unknown>) {
+    return jest.fn((table: string) => ({
+      select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: rows[table] ?? null, error: null }) }) }),
+    }));
+  }
 
   it('deduplicates candidate IDs and returns the exact private no-store response', async () => {
     const response = await callRoute({
@@ -212,14 +227,9 @@ describe('POST /api/surf/week-scout', () => {
     [null, 100],
     [60, 30],
   ])('uses the profile drive range (%p min) as the complete-radius scope without a map', async (maxDriveMinutes, expectedMiles) => {
-    const from = jest.fn((table: string) => {
-      if (table === 'user_location_snapshots') {
-        return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { lat: 32, lon: -118, captured_at: new Date().toISOString() }, error: null }) }) }) };
-      }
-      return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { max_drive_minutes: maxDriveMinutes }, error: null }) }) }) };
-    });
-    mockBuildWeekendScoutCandidatePool.mockResolvedValueOnce({
-      candidates: [], enumeratedCount: 0, hydratedCount: 0, filteredOutCount: 0, incomplete: false,
+    const from = tables({
+      user_location_snapshots: { lat: 32, lon: -118, captured_at: new Date().toISOString() },
+      profiles: { max_drive_minutes: maxDriveMinutes, home_beach_id: 'home-beach' },
     });
 
     const response = await callRoute({
@@ -228,8 +238,349 @@ describe('POST /api/surf/week-scout', () => {
     }, { from });
 
     expect(response.status).toBe(200);
-    expect(mockBuildWeekendScoutCandidatePool).toHaveBeenCalledWith('user-week-scout', expect.objectContaining({
-      radiusMiles: expectedMiles,
+    expect(mockBuildWeekendScoutCandidatePool).not.toHaveBeenCalled();
+    expect(mockBuildDriveRangeCandidatePool).toHaveBeenCalledWith('user-week-scout', {
+      anchor: { lat: 32, lon: -118 },
+      homeBeachId: 'home-beach',
+      maxDriveMinutes,
+      filters: undefined,
+    });
+    expect(mockGenerateWeekScoutForecast).toHaveBeenCalledWith('user-week-scout', expect.objectContaining({
+      userLocation: { lat: 32, lon: -118 },
+      driveRadiusMiles: expectedMiles,
+    }));
+    const scope = (await response.json()).data.coverage.scope;
+    expect(scope).toEqual(expect.objectContaining({ radiusMiles: expectedMiles, anchor: 'location' }));
+  });
+
+  it('ranks the drive-range scope from the Daily Call pool, with saved spots and distances', async () => {
+    const from = tables({
+      user_location_snapshots: { lat: 32.767, lon: -117.188, captured_at: new Date().toISOString() },
+      profiles: { max_drive_minutes: 90, home_beach_id: 'home-beach' },
+    });
+    mockBuildDriveRangeCandidatePool.mockResolvedValueOnce({
+      candidates: [
+        { beach: { id: BEACH_A, name: 'Pacific Beach', slug: 'pacific-beach', lat: 32.797, lon: -117.258, timezone: 'America/Los_Angeles' }, distanceMiles: 4.6 },
+        { beach: { id: BEACH_B, name: 'Oceanside Harbor', slug: 'oceanside-harbor', lat: 33.204, lon: -117.394, timezone: 'America/Los_Angeles' }, distanceMiles: 32.5 },
+      ],
+      enumeratedCount: 3,
+      filteredOutCount: 1,
+      cappedCount: 0,
+      farthestNearbyMiles: null,
+    });
+
+    const response = await callRoute({
+      candidateScope: { kind: 'complete-radius', filters: ['beach'], mapBounds: null },
+      localTimezone: 'America/Los_Angeles', startLocalDate: '2026-07-15', dayCount: 7,
+    }, { from });
+    const { data } = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(mockBuildDriveRangeCandidatePool).toHaveBeenCalledWith('user-week-scout', expect.objectContaining({
+      filters: ['beach'],
+    }));
+    expect(mockGenerateWeekScoutForecast).toHaveBeenCalledWith('user-week-scout', expect.objectContaining({
+      candidateBeachIds: [BEACH_A, BEACH_B],
+      driveRadiusMiles: 45,
+    }));
+    expect(data.candidateBeaches.map(({ beachId, distanceMiles }: { beachId: string; distanceMiles: number }) => (
+      [beachId, Math.round(distanceMiles)]
+    ))).toEqual([[BEACH_A, 5], [BEACH_B, 33]]);
+    expect(data.coverage.scope.candidates).toEqual({ enumerated: 3, hydrated: 3, filteredOut: 1, capped: 0 });
+  });
+
+  it('reports the distance actually covered when the nearest-beach cap bites', async () => {
+    const from = tables({
+      user_location_snapshots: { lat: 33.985, lon: -118.473, captured_at: new Date().toISOString() },
+      profiles: { max_drive_minutes: null },
+    });
+    mockBuildDriveRangeCandidatePool.mockResolvedValueOnce({
+      candidates: [], enumeratedCount: 99, filteredOutCount: 0, cappedCount: 49, farthestNearbyMiles: 51.2,
+    });
+
+    const response = await callRoute({
+      candidateScope: { kind: 'complete-radius' },
+      localTimezone: 'America/Los_Angeles', startLocalDate: '2026-07-15', dayCount: 7,
+    }, { from });
+    const scope = (await response.json()).data.coverage.scope;
+
+    expect(scope.radiusMiles).toBe(100);
+    expect(scope.coveredMiles).toBe(51.2);
+    expect(scope.candidates).toEqual({ enumerated: 99, hydrated: 99, filteredOut: 0, capped: 49 });
+    expect(mockGenerateWeekScoutForecast).toHaveBeenCalledWith('user-week-scout', expect.objectContaining({
+      driveRadiusMiles: 100,
+    }));
+  });
+
+  it('anchors the drive-range scope on the home beach when the location snapshot is not fresh', async () => {
+    const from = tables({
+      user_location_snapshots: { lat: 33.13, lon: -117.33, captured_at: new Date(Date.now() - 60 * 60 * 1000).toISOString() },
+      profiles: { max_drive_minutes: 90, home_beach_id: 'home-beach' },
+      beaches: { lat: 32.747, lon: -117.254 },
+    });
+
+    const response = await callRoute({
+      candidateScope: { kind: 'complete-radius' },
+      localTimezone: 'America/Los_Angeles', startLocalDate: '2026-07-15', dayCount: 7,
+    }, { from });
+
+    expect(response.status).toBe(200);
+    expect(mockBuildDriveRangeCandidatePool).toHaveBeenCalledWith('user-week-scout', expect.objectContaining({
+      anchor: { lat: 32.747, lon: -117.254 },
+    }));
+    expect(mockGenerateWeekScoutForecast).toHaveBeenCalledWith('user-week-scout', expect.objectContaining({
+      userLocation: { lat: 32.747, lon: -117.254 },
+    }));
+    expect((await response.json()).data.coverage.scope.anchor).toBe('home');
+  });
+
+  it('centres the drive-range scope on a searched origin instead of the phone', async () => {
+    const from = tables({
+      user_location_snapshots: { lat: 32.767, lon: -117.188, captured_at: new Date().toISOString() },
+      profiles: { max_drive_minutes: 90, home_beach_id: 'home-beach' },
+    });
+
+    const response = await callRoute({
+      candidateScope: { kind: 'complete-radius', mapBounds: null, origin: { lat: 36.96, lon: -122.02 } },
+      localTimezone: 'America/Los_Angeles', startLocalDate: '2026-07-15', dayCount: 7,
+    }, { from });
+
+    expect(response.status).toBe(200);
+    expect(mockBuildDriveRangeCandidatePool).toHaveBeenCalledWith('user-week-scout', expect.objectContaining({
+      anchor: { lat: 36.96, lon: -122.02 },
+    }));
+    expect(mockGenerateWeekScoutForecast).toHaveBeenCalledWith('user-week-scout', expect.objectContaining({
+      userLocation: { lat: 36.96, lon: -122.02 },
+    }));
+    expect((await response.json()).data.coverage.scope.anchor).toBe('origin');
+  });
+
+  it('rejects an origin outside valid coordinates', async () => {
+    const response = await callRoute({
+      candidateScope: { kind: 'complete-radius', origin: { lat: 91, lon: 0 } },
+      localTimezone: 'America/Los_Angeles', startLocalDate: '2026-07-15', dayCount: 7,
+    }, {
+      from: tables({
+        user_location_snapshots: { lat: 32.767, lon: -117.188, captured_at: new Date().toISOString() },
+        profiles: { max_drive_minutes: 90 },
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(mockGenerateWeekScoutForecast).not.toHaveBeenCalled();
+  });
+
+  it('rejects the drive-range scope with neither a fresh location nor a home beach', async () => {
+    const from = tables({ profiles: { max_drive_minutes: 90, home_beach_id: null } });
+
+    const response = await callRoute({
+      candidateScope: { kind: 'complete-radius' },
+      localTimezone: 'America/Los_Angeles', startLocalDate: '2026-07-15', dayCount: 7,
+    }, { from });
+
+    expect(response.status).toBe(400);
+    expect(mockBuildDriveRangeCandidatePool).not.toHaveBeenCalled();
+    expect(mockGenerateWeekScoutForecast).not.toHaveBeenCalled();
+  });
+
+  it('bounds installed-app candidate IDs to the drive-range pool', async () => {
+    const anchor = { lat: 32.767, lon: -117.188 };
+    const from = tables({
+      profiles: { max_drive_minutes: 90, home_beach_id: 'home-beach' },
+      user_location_snapshots: { ...anchor, captured_at: new Date().toISOString() },
+    });
+    mockBuildDriveRangeCandidatePool.mockResolvedValueOnce({
+      candidates: [{ beach: { id: BEACH_A }, distanceMiles: 4.6 }],
+    });
+
+    const response = await callRoute({
+      candidateBeachIds: [BEACH_A, BEACH_B], localTimezone: 'America/Los_Angeles', startLocalDate: '2026-07-15', dayCount: 7,
+    }, { from });
+
+    expect(response.status).toBe(200);
+    expect(mockBuildDriveRangeCandidatePool).toHaveBeenCalledWith('user-week-scout', {
+      anchor,
+      homeBeachId: 'home-beach',
+      maxDriveMinutes: 90,
+      filters: undefined,
+    });
+    expect(mockGenerateWeekScoutForecast).toHaveBeenCalledWith('user-week-scout', expect.objectContaining({
+      candidateBeachIds: [BEACH_A],
+      driveRadiusMiles: 45,
+      userLocation: anchor,
+    }));
+  });
+
+  it('keeps the K-40 candidate and excludes Ocean Beach Pier from a Baja drive-range pool', async () => {
+    const elMorroK38 = { id: BEACH_A, lat: 32.23, lon: -116.93 };
+    const oceanBeachPier = { id: BEACH_B, lat: 32.7494, lon: -117.2516 };
+    const anchor = { lat: 32.2, lon: -116.9 };
+    const from = tables({
+      profiles: { max_drive_minutes: 90 },
+      user_location_snapshots: { ...anchor, captured_at: new Date().toISOString() },
+    });
+    mockBuildDriveRangeCandidatePool.mockResolvedValueOnce({
+      candidates: [{ beach: elMorroK38, distanceMiles: 3 }],
+    });
+
+    const response = await callRoute({
+      candidateBeachIds: [oceanBeachPier.id, elMorroK38.id],
+      localTimezone: 'America/Tijuana', startLocalDate: '2026-07-15', dayCount: 7,
+    }, { from });
+
+    expect(response.status).toBe(200);
+    expect(mockBuildDriveRangeCandidatePool).toHaveBeenCalledWith('user-week-scout', {
+      anchor,
+      homeBeachId: null,
+      maxDriveMinutes: 90,
+      filters: undefined,
+    });
+    expect(mockGenerateWeekScoutForecast).toHaveBeenCalledWith('user-week-scout', expect.objectContaining({
+      candidateBeachIds: [elMorroK38.id],
+      driveRadiusMiles: 45,
+      userLocation: anchor,
+    }));
+  });
+
+  it('uses the home beach as the installed-app pool anchor when the snapshot is stale', async () => {
+    const anchor = { lat: 32.2, lon: -116.9 };
+    const from = tables({
+      profiles: { max_drive_minutes: 90, home_beach_id: 'home-beach' },
+      user_location_snapshots: { lat: 32.7494, lon: -117.2516, captured_at: new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString() },
+      beaches: anchor,
+    });
+    mockBuildDriveRangeCandidatePool.mockResolvedValueOnce({
+      candidates: [{ beach: { id: BEACH_A }, distanceMiles: 3 }],
+    });
+
+    const response = await callRoute({
+      candidateBeachIds: [BEACH_A, BEACH_B], localTimezone: 'America/Tijuana', startLocalDate: '2026-07-15', dayCount: 7,
+    }, { from });
+
+    expect(response.status).toBe(200);
+    expect(mockBuildDriveRangeCandidatePool).toHaveBeenCalledWith('user-week-scout', {
+      anchor,
+      homeBeachId: 'home-beach',
+      maxDriveMinutes: 90,
+      filters: undefined,
+    });
+    expect(mockGenerateWeekScoutForecast).toHaveBeenCalledWith('user-week-scout', expect.objectContaining({
+      candidateBeachIds: [BEACH_A],
+      userLocation: anchor,
+    }));
+  });
+
+  it('keeps installed-app candidate IDs unchanged without a snapshot or home beach', async () => {
+    const from = tables({ profiles: { max_drive_minutes: 90, home_beach_id: null } });
+
+    const response = await callRoute({
+      candidateBeachIds: [BEACH_B, BEACH_A], localTimezone: 'America/Los_Angeles', startLocalDate: '2026-07-15', dayCount: 7,
+    }, { from });
+
+    expect(response.status).toBe(200);
+    expect(mockBuildDriveRangeCandidatePool).not.toHaveBeenCalled();
+    expect(mockGenerateWeekScoutForecast).toHaveBeenCalledWith('user-week-scout', {
+      candidateBeachIds: [BEACH_B, BEACH_A],
+      localTimezone: 'America/Los_Angeles', startLocalDate: '2026-07-15', dayCount: 7,
+      driveRadiusMiles: 45,
+    });
+    expect((await response.json()).data).not.toHaveProperty('coverage');
+  });
+
+  it.each([
+    ['home beach', 0],
+    ['candidate pool', 1],
+  ] as const)('preserves installed-app scoring when the %s lookup fails', async (failedLookup, expectedPoolLookups) => {
+    const lookupError = new Error('Lookup unavailable');
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const from = jest.fn((table: string) => ({
+      select: () => ({ eq: () => ({ maybeSingle: async () => ({
+        data: table === 'profiles'
+          ? { max_drive_minutes: 90, home_beach_id: 'home-beach' }
+          : table === 'beaches' ? { lat: 32.2, lon: -116.9 } : null,
+        error: table === 'beaches' && failedLookup === 'home beach' ? lookupError : null,
+      }) }) }),
+    }));
+    if (failedLookup === 'candidate pool') {
+      mockBuildDriveRangeCandidatePool.mockRejectedValueOnce(lookupError);
+    }
+
+    const response = await callRoute({
+      candidateBeachIds: [BEACH_B, BEACH_A], localTimezone: 'America/Tijuana', startLocalDate: '2026-07-15', dayCount: 7,
+    }, { from });
+
+    expect(response.status).toBe(200);
+    expect(mockGenerateWeekScoutForecast).toHaveBeenCalledWith('user-week-scout', {
+      candidateBeachIds: [BEACH_B, BEACH_A],
+      localTimezone: 'America/Tijuana', startLocalDate: '2026-07-15', dayCount: 7,
+      driveRadiusMiles: 45,
+    });
+    expect(consoleError).toHaveBeenCalledWith('Failed to bound legacy Week Scout candidates', expect.any(Error));
+    expect(mockBuildDriveRangeCandidatePool).toHaveBeenCalledTimes(expectedPoolLookups);
+  });
+
+  it('skips installed-app bounding when the profile read fails', async () => {
+    const anchor = { lat: 32.2, lon: -116.9 };
+    const from = jest.fn((table: string) => ({
+      select: () => ({ eq: () => ({ maybeSingle: async () => ({
+        data: table === 'profiles' ? null : { ...anchor, captured_at: new Date().toISOString() },
+        error: table === 'profiles' ? { message: 'Profile unavailable' } : null,
+      }) }) }),
+    }));
+
+    const response = await callRoute({
+      candidateBeachIds: [BEACH_B, BEACH_A], localTimezone: 'America/Tijuana', startLocalDate: '2026-07-15', dayCount: 7,
+    }, { from });
+
+    expect(response.status).toBe(200);
+    expect(mockBuildDriveRangeCandidatePool).not.toHaveBeenCalled();
+    expect(from).not.toHaveBeenCalledWith('beaches');
+    expect(mockGenerateWeekScoutForecast).toHaveBeenCalledWith('user-week-scout', {
+      candidateBeachIds: [BEACH_B, BEACH_A],
+      localTimezone: 'America/Tijuana', startLocalDate: '2026-07-15', dayCount: 7,
+      userLocation: anchor,
+    });
+  });
+
+  it('keeps installed-app candidate IDs when the drive-range pool is empty', async () => {
+    const anchor = { lat: 32.2, lon: -116.9 };
+    const from = tables({
+      profiles: { max_drive_minutes: 90 },
+      user_location_snapshots: { ...anchor, captured_at: new Date().toISOString() },
+    });
+    mockBuildDriveRangeCandidatePool.mockResolvedValueOnce({ candidates: [] });
+
+    const response = await callRoute({
+      candidateBeachIds: [BEACH_B, BEACH_A], localTimezone: 'America/Tijuana', startLocalDate: '2026-07-15', dayCount: 7,
+    }, { from });
+
+    expect(response.status).toBe(200);
+    expect(mockBuildDriveRangeCandidatePool).toHaveBeenCalledTimes(1);
+    expect(mockGenerateWeekScoutForecast).toHaveBeenCalledWith('user-week-scout', expect.objectContaining({
+      candidateBeachIds: [BEACH_B, BEACH_A],
+      driveRadiusMiles: 45,
+      userLocation: anchor,
+    }));
+  });
+
+  it('scores in-range pool candidates when no installed-app ID intersects the pool', async () => {
+    const anchor = { lat: 32.2, lon: -116.9 };
+    const from = tables({
+      profiles: { max_drive_minutes: 90 },
+      user_location_snapshots: { ...anchor, captured_at: new Date().toISOString() },
+    });
+    mockBuildDriveRangeCandidatePool.mockResolvedValueOnce({
+      candidates: [{ beach: { id: BEACH_A }, distanceMiles: 3 }],
+    });
+
+    const response = await callRoute({
+      candidateBeachIds: [BEACH_B], localTimezone: 'America/Tijuana', startLocalDate: '2026-07-15', dayCount: 7,
+    }, { from });
+
+    expect(response.status).toBe(200);
+    expect(mockGenerateWeekScoutForecast).toHaveBeenCalledWith('user-week-scout', expect.objectContaining({
+      candidateBeachIds: [BEACH_A],
+      userLocation: anchor,
     }));
   });
 

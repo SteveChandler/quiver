@@ -5,7 +5,7 @@ import { useAuth } from "@/context/auth-context";
 import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
-import { usePathname } from "next/navigation";
+import { useRoutePathname } from "@/hooks/use-route-pathname";
 import {
   trackPartialGateViewed,
   trackPartialGateSignupClick,
@@ -35,7 +35,7 @@ export function PartialContentGate({
   className = "",
 }: PartialContentGateProps) {
   const { user, isLoading } = useAuth();
-  const pathname = usePathname();
+  const pathname = useRoutePathname();
   const hasTrackedView = useRef(false);
   const gateRef = useRef<HTMLDivElement>(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);

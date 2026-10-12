@@ -352,6 +352,7 @@ export function isDataBackedCityIntent(
 /**
  * Tide and water-temp city pages answer a question with a current number, so they
  * earn indexability from that number rather than from the editorial review queue.
+ * Existing GSC protection survives missing water-temperature readings.
  * An explicit editorial rejection still wins - a human pulling a page must not be
  * overridden by the presence of data.
  */
@@ -369,11 +370,16 @@ export function evaluateCityDataIntentIndexability(
     return { indexable: false, reason: "insufficient-data" };
   }
 
+  const performanceProtected = isGscPerformanceProtected(normalizeSeoPath(canonicalPath));
+  if (canonicalPath.startsWith("/water-temp/") && performanceProtected) {
+    return { indexable: true, reason: "gsc-protected" };
+  }
+
   if (!availability.hasIntentData) {
     return { indexable: false, reason: "forecast-missing" };
   }
 
-  if (isGscPerformanceProtected(normalizeSeoPath(canonicalPath))) {
+  if (performanceProtected) {
     return { indexable: true, reason: "gsc-protected" };
   }
 

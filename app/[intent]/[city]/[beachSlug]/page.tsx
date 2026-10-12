@@ -12,7 +12,6 @@ import { StickyInstallAsk } from "@/components/app-store/sticky-install-ask";
 import { HideWhenInstallBarOwns } from "@/components/app-store/install-bar-owned-slot";
 import { BeachDetailInstallCta } from "@/components/app-store/beach-detail-install-cta";
 import { ContentPageAppHandoffCta } from "@/components/app-store/content-page-app-handoff-cta";
-import { isFreeGrowthPhaseEnabled } from "@/lib/flags/free-growth-phase";
 
 import type { Metadata } from "next";
 import { buildPageMetadata, buildDynamicBeachMetadata } from "@/lib/seo/meta";
@@ -328,7 +327,6 @@ export default async function GenericBeachDetailPage(props: PageProps) {
                 returnTo={returnTo}
               />
             }
-            freeGrowthPhaseEnabled={isFreeGrowthPhaseEnabled()}
             afterTabsContent={
               <div className="pt-2">
                 <PublicForecastHourly

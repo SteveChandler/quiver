@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { usePathname } from "next/navigation";
+import { useRoutePathname } from "@/hooks/use-route-pathname";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -227,7 +227,7 @@ export function BestSurfWindow({
   boardPick,
   relativeContext,
 }: BestSurfWindowProps) {
-  const pathname = usePathname();
+  const pathname = useRoutePathname();
   const [shareOpen, setShareOpen] = useState(false);
 
   // Build UTM-tagged share URL once so it can be passed as a prop to ShareSheet

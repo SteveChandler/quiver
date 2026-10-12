@@ -481,6 +481,7 @@ describe("surf push budget integration", () => {
       enqueue,
       markAlertEnqueued: async () => undefined,
       recordForecast: async () => ({ inserted: true }),
+      resolveHeldBeaches: async () => new Map(),
     };
 
     const swellSummary = await runSwellAlertCron({
@@ -564,6 +565,7 @@ describe("surf push budget integration", () => {
         body: "Offshore until the wind turns.",
         fallback: false,
       }),
+      resolveHeldBeaches: async () => new Map(),
       enqueue: async (args) => enqueue(args),
     };
 

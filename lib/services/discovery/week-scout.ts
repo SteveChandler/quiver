@@ -59,7 +59,7 @@ import { rankBeaches } from '@/lib/recommendations/selection';
 import type { WaterQualityHoldResolution } from '@/lib/recommendations/major-event-hold/water-quality';
 import type { MajorEventHoldCandidate } from '@/lib/recommendations/major-event-hold/types';
 import {
-  calculateDistancePenalty,
+  calculateDriveRangeDistancePenalty,
   compareDiscoveryRecommendations,
   WORTH_THE_DRIVE_DISTANCE_MILES,
   WORTH_THE_DRIVE_REASON,
@@ -126,6 +126,8 @@ export interface WeekScoutRequest {
   startLocalDate: string;
   dayCount: 7;
   userLocation?: Coordinates;
+  /** The surfer's drive range; beaches inside it carry no distance friction. */
+  driveRadiusMiles?: number;
   /** Complete-radius routes opt into row-level source freshness enforcement. */
   requirePerRowFreshness?: boolean;
   /** profiles.preferred_session_time; the session pick stays inside it when any window does. */
@@ -735,6 +737,7 @@ function buildDraftWindow(args: {
 function rankDrafts(
   drafts: DraftWindow[],
   deps: WeekScoutServiceDependencies,
+  driveRadiusMiles: number | undefined,
 ): WeekScoutWindowResponse[] {
   if (drafts.length === 0) return [];
 
@@ -751,7 +754,7 @@ function rankDrafts(
       ...draft.response,
       rankingScore: (
         scoreById.get(draft.response.id) ?? draft.recommendation.score
-      ) + calculateDistancePenalty(draft.recommendation.distanceMiles),
+      ) + calculateDriveRangeDistancePenalty(draft.recommendation.distanceMiles, driveRadiusMiles),
     }))
     .sort((left, right) =>
       compareWeekScoutWindows(left, right, distanceOf(left.id), distanceOf(right.id)));
@@ -1010,6 +1013,11 @@ async function generateWeekScoutForecastInternal(
     { length: request.dayCount },
     (_, index) => addLocalDays(request.startLocalDate, index),
   );
+  const sunDates = [
+    addLocalDays(request.startLocalDate, -1),
+    ...localDates,
+    addLocalDays(localDates[localDates.length - 1], 1),
+  ];
   // Canonical order breaks exact ties consistently before shared-setup ranking.
   const requestedEligibleCount = new Set(request.candidateBeachIds).size;
   const beaches = [...await deps.fetchBeaches(request.candidateBeachIds)]
@@ -1020,7 +1028,7 @@ async function generateWeekScoutForecastInternal(
     : deps.fetchForecasts(beaches, 24 * (request.dayCount + 1));
   const [forecastsByBeach, sunTimes, personalizationContext, userSkillLevel, boardClasses] = await Promise.all([
     forecastRequest,
-    deps.fetchSunTimes(beachIds, localDates),
+    deps.fetchSunTimes(beachIds, sunDates),
     deps.fetchRankingContext(userId),
     deps.fetchSkill(userId),
     deps.fetchBoardClasses?.(userId) ?? Promise.resolve([]),
@@ -1119,7 +1127,7 @@ async function generateWeekScoutForecastInternal(
         }, userSkillLevel);
         draft.response.verdict = label === 'Worth it' ? 'worth_it' : label === 'Maybe' ? 'maybe' : 'skip';
       }
-      return rankDrafts(drafts, deps);
+      return rankDrafts(drafts, deps, request.driveRadiusMiles);
     });
     const best = windows
       .filter((candidate) => (

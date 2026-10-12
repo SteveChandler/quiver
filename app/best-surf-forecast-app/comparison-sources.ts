@@ -7,58 +7,29 @@ export interface ComparisonSourceLink {
 }
 
 export const COMPARISON_SOURCE_REVIEW = {
-  lastVerified: "2026-09-06",
+  lastVerified: "2026-10-11",
   reviewedBy: "Quiver editorial team",
   // Pricing and product features change often enough to warrant review every two months.
   freshnessThresholdDays: 60,
 } as const;
 
+// Quiver's own facts and the public data behind its forecasts only: this page
+// does not name or link to other surf apps (Steven, 2026-10-11).
 export const COMPARISON_SOURCE_LINKS: readonly ComparisonSourceLink[] = [
   {
     label: "Quiver App Store listing",
     href: `${IOS_APP_STORE_WEB_REDIRECT_PATH}&source=best_surf_forecast_app&surface=comparison&placement=source_link`,
     note:
-      "Quiver iPhone listing with session logging and Pro monthly, annual, and lifetime in-app purchases; Pro features include similarity alerts, board recommendations, and offline mode.",
-  },
-  {
-    label: "Surfline upgrade page",
-    href: "https://www.surfline.com/upgrade",
-    note:
-      "Premium and Premium+ plan positioning, 16-day forecasts, live cams, and annual pricing.",
-  },
-  {
-    label: "Surfline free vs Premium support",
-    href:
-      "https://support.surfline.com/hc/en-us/articles/32996023385243-What-do-I-get-as-a-free-vs-Premium-user",
-    note:
-      "Free, Premium, Premium with Ads, and Premium+ feature differences.",
-  },
-  {
-    label: "LazySurfer vs Quiver comparison",
-    href: "https://lazysurfer.app/compare/quiver.html",
-    note:
-      "LazySurfer pricing, cross-platform availability, and personalization framing.",
-  },
-  {
-    label: "Surf-Forecast.com app page",
-    href: "https://www.surf-forecast.com/pages/app-store",
-    note:
-      "Global spot coverage, maps, alerts, tide timing, hourly forecasts, and 16-day planning.",
-  },
-  {
-    label: "Surf Captain FAQ",
-    href: "https://surfcaptain.com/faq",
-    note:
-      "Free 5-day forecasts with ads and Surf Captain Pro 16-day forecast pricing.",
-  },
-  {
-    label: "Windy surfing guide",
-    href: "https://windy.app/guide/mini-guide-to-surfing.html",
-    note: "Wind, swell, tide, and map-reading education for surf forecasting.",
+      "Quiver iPhone listing: free download; Pro in-app purchases $4.99 monthly, $39.99 annual, and $119.99 lifetime. Pro features include similarity alerts, board recommendations, and offline mode.",
   },
   {
     label: "NOAA NDBC",
     href: "https://www.ndbc.noaa.gov/observations.shtml",
     note: "Free buoy observations and historical observations.",
+  },
+  {
+    label: "CDIP buoy network",
+    href: "https://cdip.ucsd.edu/",
+    note: "Coastal wave buoys used for swell observations where one is close enough to a break.",
   },
 ];

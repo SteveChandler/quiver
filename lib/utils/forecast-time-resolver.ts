@@ -17,7 +17,19 @@
  * @module lib/utils/forecast-time-resolver
  */
 
+import { getLocalHourFormatter } from '@/lib/services/discovery/window-selector/time-slot-utils';
 import type { EnhancedForecastEntity } from '@/types/forecast';
+
+// The conversion below builds two Intl formatters per call and is a pure
+// function of its arguments, yet one bulk or regional request asks for the same
+// few instants (each local day's 06:00 and 18:00 light bounds) thousands of
+// times. Remembering the instant keeps the result identical and cut about two
+// thirds of the CPU in local profiles of the 240 h bulk timeline and the
+// regional forecast data load. Keys grow by a few per local day per timezone,
+// so the map is cleared rather than left to grow for the life of a long-lived
+// instance.
+const MAX_CACHED_LOCAL_INSTANTS = 5000;
+const localInstantMsByKey = new Map<string, number>();
 
 /**
  * Convert a local date/time string in a given timezone to a UTC Date.
@@ -27,6 +39,22 @@ import type { EnhancedForecastEntity } from '@/types/forecast';
  * offset at that approximate time.
  */
 export function localDateTimeToUTC(dateStr: string, timeStr: string, tz: string): Date {
+  const key = `${tz}|${dateStr}T${timeStr}`;
+  const cachedMs = localInstantMsByKey.get(key);
+  // Hand out a fresh Date each time: callers keep it as an interval bound.
+  if (cachedMs !== undefined) return new Date(cachedMs);
+
+  // An invalid timezone throws here, before anything is cached.
+  const resolved = computeLocalDateTimeToUTC(dateStr, timeStr, tz);
+  const resolvedMs = resolved.getTime();
+  if (Number.isFinite(resolvedMs)) {
+    if (localInstantMsByKey.size >= MAX_CACHED_LOCAL_INSTANTS) localInstantMsByKey.clear();
+    localInstantMsByKey.set(key, resolvedMs);
+  }
+  return resolved;
+}
+
+function computeLocalDateTimeToUTC(dateStr: string, timeStr: string, tz: string): Date {
   // Create a naive Date treating the local time as if it were UTC
   const naiveUtc = new Date(`${dateStr}T${timeStr}Z`);
 
@@ -62,11 +90,7 @@ export function resolveForecastTime(
     // and see if the local hour matches forecast_time
     try {
       const localHourOfForecastAt = parseInt(
-        new Intl.DateTimeFormat("en-US", {
-          hour: "numeric",
-          hour12: false,
-          timeZone: beachTz,
-        }).format(forecastAtDate),
+        getLocalHourFormatter(beachTz).format(forecastAtDate),
         10
       );
 

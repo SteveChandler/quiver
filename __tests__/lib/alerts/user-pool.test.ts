@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { loadUserPool } from "@/lib/alerts/user-pool";
+import { capNearbyPool, loadUserPool, type PoolBeach } from "@/lib/alerts/user-pool";
 import type { Beach, Database } from "@/types/database";
 
 interface Store {
@@ -8,6 +8,7 @@ interface Store {
   nearby: Array<{ id: string; distance_meters: number; total_count: number }>;
   customSpots?: Array<{ id: string; nearest_beach_id: string | null }>;
   forecasts?: Array<{ beach_id: string }>;
+  exclusions?: Array<{ beach_id: string }>;
 }
 
 function makeBeach(id: string, slug = id, country: string | null = "USA"): Beach {
@@ -46,6 +47,7 @@ function makeSupabase(store: Store): SupabaseClient<Database> {
       if (table === "beaches") return chain(store.beaches);
       if (table === "custom_spots") return chain(store.customSpots ?? []);
       if (table === "enhanced_forecasts") return chain(store.forecasts ?? []);
+      if (table === "user_beach_exclusions") return chain(store.exclusions ?? []);
       throw new Error(`Unexpected table: ${table}`);
     }),
     rpc: jest.fn(() => Promise.resolve({ data: store.nearby, error: null })),
@@ -352,6 +354,107 @@ describe("user pool", () => {
     });
 
     expect(result.map(({ beach }) => beach.id)).toEqual([valid.id]);
+  });
+
+  describe("drive range", () => {
+    const sanDiego = { lat: 32.767, lon: -117.188 };
+    const located = (id: string, lat: number, lon: number): Beach =>
+      ({ ...makeBeach(id), lat, lon }) as Beach;
+    const pacificBeach = located("pacific-beach", 32.797, -117.258);
+    const alaMoana = located("ala-moana-bowls", 21.281, -157.844);
+    const farHome = located("far-home", 21.27, -157.82);
+    const farCustomAnchor = located("far-custom-anchor", 33.47, -117.72);
+
+    function store(): Store {
+      return {
+        favorites: [
+          { beach_id: pacificBeach.id, custom_spot_id: null },
+          { beach_id: alaMoana.id, custom_spot_id: null },
+          { beach_id: null, custom_spot_id: "far-custom" },
+        ],
+        customSpots: [{ id: "far-custom", nearest_beach_id: farCustomAnchor.id }],
+        forecasts: [{ beach_id: farCustomAnchor.id }],
+        beaches: [pacificBeach, alaMoana, farHome, farCustomAnchor],
+        nearby: [],
+      };
+    }
+
+    it("drops home, saved and custom beaches outside the range of the anchor", async () => {
+      const result = await loadUserPool({
+        supabase: makeSupabase(store()),
+        userId: "user-1",
+        homeBeachId: farHome.id,
+        location: sanDiego,
+        maxDriveMinutes: 90,
+      });
+
+      expect(result.map(({ beach, relation }) => [beach.id, relation])).toEqual([
+        [pacificBeach.id, "favorite"],
+      ]);
+      expect(result[0].distanceMiles).toBeCloseTo(4.6, 1);
+    });
+
+    it("keeps every saved spot when there is no anchor to measure from", async () => {
+      const result = await loadUserPool({
+        supabase: makeSupabase(store()),
+        userId: "user-1",
+        homeBeachId: farHome.id,
+        location: null,
+        maxDriveMinutes: 90,
+      });
+
+      expect(result.map(({ beach }) => beach.id)).toEqual([
+        farHome.id, pacificBeach.id, alaMoana.id, farCustomAnchor.id,
+      ]);
+      expect(result.every(({ distanceMiles }) => distanceMiles === null)).toBe(true);
+    });
+  });
+
+  it("leaves out home and saved beaches the surfer excluded or that cannot be recommended", async () => {
+    const keep = makeBeach("keep");
+    const excluded = makeBeach("excluded-home");
+    const privateBeach = { ...makeBeach("private"), is_private: true } as Beach;
+    const ineligible = { ...makeBeach("ineligible"), recommendation_eligible: false } as Beach;
+    const deleted = { ...makeBeach("deleted"), deleted_at: "2026-10-01T00:00:00Z" } as Beach;
+    const supabase = makeSupabase({
+      favorites: [keep, privateBeach, ineligible, deleted].map((beach) => ({ beach_id: beach.id, custom_spot_id: null })),
+      beaches: [keep, excluded, privateBeach, ineligible, deleted],
+      nearby: [],
+      exclusions: [{ beach_id: excluded.id }],
+    });
+
+    const result = await loadUserPool({
+      supabase,
+      userId: "user-1",
+      homeBeachId: excluded.id,
+      location: null,
+      maxDriveMinutes: null,
+    });
+
+    expect(result.map(({ beach }) => beach.id)).toEqual([keep.id]);
+  });
+
+  describe("capNearbyPool", () => {
+    const entry = (id: string, relation: PoolBeach["relation"], distanceMiles: number | null): PoolBeach =>
+      ({ beach: makeBeach(id), relation, distanceMiles });
+
+    it("keeps the nearest nearby beaches and every home, saved and custom spot", () => {
+      const pool = [
+        entry("far", "nearby", 30), entry("home", "home", 40), entry("near", "nearby", 5),
+        entry("saved", "favorite", 44), entry("mid", "nearby", 12), entry("custom", "custom", 41),
+      ];
+
+      const capped = capNearbyPool(pool, 2);
+
+      expect(capped.pool.map(({ beach }) => beach.id)).toEqual(["home", "near", "saved", "mid", "custom"]);
+      expect(capped).toEqual(expect.objectContaining({ cappedCount: 1, farthestNearbyMiles: 12 }));
+    });
+
+    it("leaves a pool under the cap untouched", () => {
+      const pool = [entry("a", "nearby", 1), entry("b", "favorite", 2)];
+
+      expect(capNearbyPool(pool, 2)).toEqual({ pool, cappedCount: 0, farthestNearbyMiles: null });
+    });
   });
 
   it("includes only custom spots whose forecast anchor has fresh forecasts", async () => {

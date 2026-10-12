@@ -2,13 +2,23 @@
  * @jest-environment node
  */
 
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/database";
 import titlePool from "@/lib/notifications/copy/surf-titles.v1.json";
 import {
+  loadSwellAlertProfiles,
+  orderSwellCandidatesForTomorrow,
   runSwellAlertCron,
   type SwellAlertDeps,
   type SwellAlertPoolEvaluation,
   type SwellAlertProfile,
 } from "@/lib/cron/swell-alert-runner";
+import type { RankDay } from "@/lib/cron/daily-call-runner";
+import type {
+  CanonicalWeekScoutResponse,
+  WeekScoutDayResponse,
+  WeekScoutWindowResponse,
+} from "@/lib/services/discovery/week-scout";
 import { beachSwellEvent } from "@/__tests__/helpers/swell-events";
 
 const NOW = new Date("2026-09-18T00:00:00.000Z");
@@ -88,6 +98,7 @@ function dependencies(
     enqueue: jest.fn(async () => ({ enqueued: true as const, eventId: "event-1" })),
     markAlertEnqueued: jest.fn(async () => undefined),
     recordForecast: jest.fn(async () => ({ inserted: true })),
+    resolveHeldBeaches: jest.fn(async () => new Map()),
     ...overrides,
   };
 }
@@ -327,6 +338,35 @@ describe("runSwellAlertCron go rule and verification record", () => {
   });
 });
 
+describe("held beaches on the legacy swell path", () => {
+  it("leads with the best clear beach and never names a held one", async () => {
+    const blacks = "11111111-1111-4111-8111-111111111111";
+    const deps = dependencies({
+      resolveHeldBeaches: jest.fn(async ({ candidates }) => new Map(candidates
+        .filter((candidate) => candidate.beachId === blacks)
+        .map((candidate) => [candidate.candidateId, "water_quality_hold" as const]))),
+    });
+
+    const result = await runSwellAlertCron({ now: NOW, deps });
+
+    expect(deps.resolveHeldBeaches).toHaveBeenCalledWith(expect.objectContaining({
+      profileExperience: "advanced",
+      asOf: NOW,
+    }));
+    expect(result.sent).toBe(1);
+    expect(result.skippedCounts.held_water_quality_hold).toBe(1);
+    const payload = jest.mocked(deps.enqueue).mock.calls[0][0].payload as {
+      beach_id: string;
+      beaches: Array<{ beach_id: string; rank: number }>;
+    };
+    expect(payload.beach_id).toBe("22222222-2222-4222-8222-222222222222");
+    expect(payload.beaches.map(({ beach_id }) => beach_id)).toEqual([
+      "22222222-2222-4222-8222-222222222222",
+      "33333333-3333-4333-8333-333333333333",
+    ]);
+  });
+});
+
 describe("Daily Call ownership on the legacy swell path", () => {
   const originalEnv = { ...process.env };
   beforeEach(() => {
@@ -356,5 +396,253 @@ describe("Daily Call ownership on the legacy swell path", () => {
     const summary = await runSwellAlertCron({ now: NOW, deps });
     expect(summary.sent).toBe(1);
     expect(deps.enqueue).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("swell alert shared ranking", () => {
+  function rankingResponse(beachId: string, rankedBeachIds: string[]): CanonicalWeekScoutResponse {
+    const pick = {
+      id: "tomorrow-pick",
+      beachId,
+      start: "2026-09-18T15:00:00.000Z",
+      end: "2026-09-18T18:00:00.000Z",
+      displayWindowStart: "2026-09-18T15:00:00.000Z",
+      displayWindowEnd: "2026-09-18T18:00:00.000Z",
+      conditionScore: 85,
+      rankedSpots: rankedBeachIds.map((id) => ({ beachId: id })),
+    } as WeekScoutWindowResponse;
+    const day: WeekScoutDayResponse = {
+      localDate: "2026-09-18",
+      bestWindowId: pick.id,
+      bestDayWindow: pick,
+      windows: [pick],
+      exclusionReasons: [],
+    };
+    return { days: [day] } as CanonicalWeekScoutResponse;
+  }
+
+  function sharedEvaluation(): SwellAlertPoolEvaluation {
+    const pool = evaluation();
+    return { ...pool, poolBeachIds: pool.candidates.map(({ beach }) => beach.id), anchor: profile().location };
+  }
+
+  function payload(deps: SwellAlertDeps): {
+    beach_id: string;
+    body: string;
+    beaches: Array<{ beach_id: string; rank: number }>;
+  } {
+    return jest.mocked(deps.enqueue).mock.calls[0][0].payload as ReturnType<typeof payload>;
+  }
+
+  it.each([13, 23, 24, 25])("passes the swell runner's 24-hour anchor for a %s-hour fix", async (ageHours) => {
+    const homeBeach = { lat: 32.89, lon: -117.25, timezone: "America/Los_Angeles" };
+    const location = { lat: 33.15, lon: -117.35, timezone: "America/Los_Angeles",
+      captured_at: new Date(NOW.getTime() - ageHours * 3_600_000).toISOString() };
+    const select = jest.fn(() => ({ is: async () => ({ data: [{
+      id: USER_ID, home_beach_id: profile().homeBeachId, home_beach: homeBeach,
+      user_location_snapshots: [location], preferred_session_time: "morning",
+    }], error: null }) }));
+    const client = { from: jest.fn(() => ({ select })) } as unknown as SupabaseClient<Database>;
+    const [loaded] = await loadSwellAlertProfiles(client, NOW);
+    const anchor = ageHours <= 24 ? { lat: location.lat, lon: location.lon } : { lat: homeBeach.lat, lon: homeBeach.lon };
+    expect(loaded.location).toEqual(anchor);
+    expect(loaded.anchorSource).toBe(ageHours <= 24 ? "location" : "home");
+    const pool = { ...sharedEvaluation(), anchor: loaded.location };
+    const rankDay = jest.fn(async () => rankingResponse(pool.candidates[2].beach.id, []));
+    await orderSwellCandidatesForTomorrow({ profile: loaded, evaluation: pool, now: NOW, rankDay, usesSharedRanking: () => true });
+    expect(rankDay).toHaveBeenCalledWith(expect.objectContaining({ anchor, sessionTime: "morning" }));
+    expect(select).toHaveBeenCalledWith(expect.stringContaining("preferred_session_time"));
+  });
+
+  it("ranks the evaluation's supplied pool IDs, including beaches with no swell event", async () => {
+    const pool = sharedEvaluation();
+    pool.poolBeachIds = [...pool.poolBeachIds!, ...Array.from({ length: 60 }, (_, index) => `no-event-${index}`)];
+    const rankDay = jest.fn(async () => rankingResponse("no-event-59", []));
+    const ordered = await orderSwellCandidatesForTomorrow({
+      profile: profile(), evaluation: pool, now: NOW, rankDay, usesSharedRanking: () => true,
+    });
+    expect(rankDay).toHaveBeenCalledWith(expect.objectContaining({ poolBeachIds: pool.poolBeachIds }));
+    expect(ordered).toEqual(pool.candidates);
+  });
+
+  it("withholds the shared lead and held chips through main's push resolver", async () => {
+    const pool = sharedEvaluation();
+    const [clear, picked, heldOption] = pool.candidates;
+    const resolveHeldBeaches = jest.fn<ReturnType<SwellAlertDeps["resolveHeldBeaches"]>,
+      Parameters<SwellAlertDeps["resolveHeldBeaches"]>>(async ({ candidates }) => new Map(candidates
+        .filter((value) => value.beachId !== clear.beach.id)
+        .map((value) => [value.candidateId, "water_quality_hold" as const])));
+    const deps = dependencies({
+      evaluatePool: jest.fn(async () => pool), usesSharedRanking: () => true,
+      rankDay: jest.fn(async () => rankingResponse(picked.beach.id, [heldOption.beach.id, clear.beach.id])),
+      resolveHeldBeaches,
+    });
+    const result = await runSwellAlertCron({ now: NOW, deps });
+    expect(result).toMatchObject({ sent: 1, errors: 0, skippedCounts: { held_water_quality_hold: 2 } });
+    expect(resolveHeldBeaches).toHaveBeenCalledWith({
+      candidates: [picked, heldOption, clear].map((candidate, index) => ({
+        candidateId: `swell:${index}`, beachId: candidate.beach.id,
+        startsAt: candidate.event.peakAt,
+        endsAt: new Date(Date.parse(candidate.event.peakAt) + 3_600_000).toISOString(),
+      })),
+      profileExperience: "advanced", asOf: NOW,
+    });
+    expect(payload(deps).beach_id).toBe(clear.beach.id);
+    expect(payload(deps).beaches).toEqual([{ beach_id: clear.beach.id, beach_name: clear.beach.name, rank: 1 }]);
+    expect(payload(deps).body).not.toContain(picked.beach.name);
+    expect(payload(deps).body).not.toContain(heldOption.beach.name);
+  });
+
+  it("leads with the pick instead of the peak-score winner throughout the alert", async () => {
+    const pool = sharedEvaluation();
+    const [highest, picked, third] = pool.candidates;
+    const rankDay = jest.fn<ReturnType<RankDay>, Parameters<RankDay>>(async () => (
+      rankingResponse(picked.beach.id, [third.beach.id, highest.beach.id])
+    ));
+    const deps = dependencies({
+      evaluatePool: jest.fn(async () => pool),
+      loadProfiles: jest.fn(async () => [profile({ preferredSessionTime: "morning" })]),
+      usesSharedRanking: () => true,
+      rankDay,
+    });
+
+    const result = await runSwellAlertCron({ now: NOW, deps });
+
+    expect(result.sent).toBe(1);
+    expect(result.candidates).toBe(3);
+    expect(rankDay).toHaveBeenCalledTimes(1);
+    expect(rankDay).toHaveBeenCalledWith({
+      userId: USER_ID, poolBeachIds: pool.poolBeachIds, timezone: "America/Los_Angeles",
+      localDate: "2026-09-18", sessionTime: "morning", anchor: pool.anchor, driveRadiusMiles: 22.5,
+    });
+    expect(payload(deps).beach_id).toBe(picked.beach.id);
+    expect(payload(deps).beaches).toEqual([picked, third, highest].map((candidate, index) => ({
+      beach_id: candidate.beach.id, beach_name: candidate.beach.name, rank: index + 1,
+    })));
+    expect(payload(deps).body).toContain("Your call: Scripps.");
+    expect(deps.insertAlert).toHaveBeenCalledWith(expect.objectContaining({
+      leadBeachId: picked.beach.id, eventKey: picked.event.eventKey,
+    }));
+    expect(deps.recordForecast).toHaveBeenCalledWith(expect.objectContaining({ beachId: picked.beach.id }));
+  });
+
+  it("uses ranked spots when the pick has no swell, then preserves peak-score order", async () => {
+    const pool = sharedEvaluation();
+    const [highest, second, third] = pool.candidates;
+    pool.candidates = [second, third, highest];
+    const deps = dependencies({
+      evaluatePool: jest.fn(async () => pool),
+      usesSharedRanking: () => true,
+      rankDay: jest.fn(async () => rankingResponse("no-swell-pick", ["no-swell-spot", third.beach.id])),
+    });
+
+    const result = await runSwellAlertCron({ now: NOW, deps });
+
+    expect(result.sent).toBe(1);
+    expect(payload(deps).beach_id).toBe(third.beach.id);
+    expect(payload(deps).beaches.map(({ beach_id }) => beach_id)).toEqual([
+      third.beach.id, highest.beach.id, second.beach.id,
+    ]);
+  });
+
+  it("warns once with the user and still sends in peak-score order when ranking fails", async () => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    const pool = sharedEvaluation();
+    const failure = new Error("ranking unavailable");
+    const rankDay = jest.fn(async () => { throw failure; });
+    const deps = dependencies({
+      evaluatePool: jest.fn(async () => pool), usesSharedRanking: () => true, rankDay,
+    });
+    try {
+      const result = await runSwellAlertCron({ now: NOW, deps });
+
+      expect(result.sent).toBe(1);
+      expect(result.errors).toBe(0);
+      expect(rankDay).toHaveBeenCalledTimes(1);
+      expect(payload(deps).beaches.map(({ beach_id }) => beach_id)).toEqual(pool.poolBeachIds);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining(USER_ID), failure);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("never ranks when the flag dependency is off", async () => {
+    const pool = sharedEvaluation();
+    const rankDay = jest.fn(async () => rankingResponse(pool.candidates[2].beach.id, []));
+    const deps = dependencies({
+      evaluatePool: jest.fn(async () => pool), usesSharedRanking: () => false, rankDay,
+    });
+
+    const result = await runSwellAlertCron({ now: NOW, deps });
+
+    expect(result.sent).toBe(1);
+    expect(rankDay).not.toHaveBeenCalled();
+    expect(payload(deps).beaches.map(({ beach_id }) => beach_id)).toEqual(pool.poolBeachIds);
+  });
+
+  it("defaults to the real flag and never ranks when CALL_SHARED_RANKING_ENABLED is unset", async () => {
+    const enabledBefore = process.env.CALL_SHARED_RANKING_ENABLED;
+    delete process.env.CALL_SHARED_RANKING_ENABLED;
+    const pool = sharedEvaluation();
+    const rankDay = jest.fn(async () => rankingResponse(pool.candidates[2].beach.id, []));
+    const deps = dependencies({ evaluatePool: jest.fn(async () => pool), rankDay });
+    try {
+      const result = await runSwellAlertCron({ now: NOW, deps });
+
+      expect(result.sent).toBe(1);
+      expect(rankDay).not.toHaveBeenCalled();
+      expect(payload(deps).beaches.map(({ beach_id }) => beach_id)).toEqual(pool.poolBeachIds);
+    } finally {
+      if (enabledBefore === undefined) delete process.env.CALL_SHARED_RANKING_ENABLED;
+      else process.env.CALL_SHARED_RANKING_ENABLED = enabledBefore;
+    }
+  });
+
+  it.each(["missing day", "null pick"])("keeps peak-score order with a %s", async (kind) => {
+    const pool = sharedEvaluation();
+    const response = rankingResponse(pool.candidates[2].beach.id, []);
+    if (kind === "missing day") response.days = [];
+    else response.days[0].bestWindowId = null;
+    const rankDay = jest.fn(async () => response);
+
+    const ordered = await orderSwellCandidatesForTomorrow({
+      profile: profile(), evaluation: pool, now: NOW, rankDay, usesSharedRanking: () => true,
+    });
+
+    expect(rankDay).toHaveBeenCalledTimes(1);
+    expect(ordered).toEqual(pool.candidates);
+  });
+
+  it.each([undefined, []])("never ranks without pool IDs (%s)", async (poolBeachIds) => {
+    const pool = { ...evaluation(), poolBeachIds };
+    const rankDay = jest.fn(async () => rankingResponse(pool.candidates[2].beach.id, []));
+
+    const ordered = await orderSwellCandidatesForTomorrow({
+      profile: profile(), evaluation: pool, now: NOW, rankDay, usesSharedRanking: () => true,
+    });
+
+    expect(rankDay).not.toHaveBeenCalled();
+    expect(ordered).toEqual(pool.candidates);
+  });
+
+  it("preserves tomorrow filtering and beach-ID ties and passes null for missing preferences and anchor", async () => {
+    const pool = sharedEvaluation();
+    delete pool.anchor;
+    const [first, second, third] = pool.candidates;
+    pool.candidates = [
+      { ...third, arrivalDate: "2026-09-19" },
+      { ...second, arrivalDate: "2026-09-19", peakDate: "2026-09-18", peakScore: first.peakScore },
+      first,
+    ];
+    const rankDay = jest.fn(async () => rankingResponse("no-swell-pick", []));
+
+    const ordered = await orderSwellCandidatesForTomorrow({
+      profile: profile(), evaluation: pool, now: NOW, rankDay, usesSharedRanking: () => true,
+    });
+
+    expect(ordered.map(({ beach }) => beach.id)).toEqual([first.beach.id, second.beach.id]);
+    expect(rankDay).toHaveBeenCalledWith(expect.objectContaining({ sessionTime: null, anchor: null }));
+    expect(pool.candidates).toHaveLength(3);
   });
 });

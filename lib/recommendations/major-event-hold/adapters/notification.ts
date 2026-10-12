@@ -20,6 +20,11 @@ const POSITIVE_NOTIFICATION_TYPES = new Set([
   "home_morning_call",
   "weekend_window",
 ]);
+// Daily Call and swell pushes recommend a lead beach plus up to two
+// alternatives that Quiver chose. Like forecast_alert, their producers clear
+// holds when they pick beaches, so delivery re-checks every named beach rather
+// than requiring a canonical decision for one exact window.
+const MULTI_BEACH_NOTIFICATION_TYPES = new Set(["daily_call", "swell_watch"]);
 // A water-quality alert is an explicit safety warning for the beach the user
 // configured, not a Quiver recommendation. Naming that beach is intentional.
 const USER_CONFIGURED_SAFETY_NOTIFICATION_TYPES = new Set(["water_quality"]);
@@ -90,6 +95,7 @@ function isPositiveNotification(type: string, payload: unknown): boolean {
     return !isRecord(payload) || payload.verdict !== "NO";
   }
   if (POSITIVE_NOTIFICATION_TYPES.has(type)) return true;
+  if (MULTI_BEACH_NOTIFICATION_TYPES.has(type)) return true;
   if (
     isRecord(payload) &&
     isPositivePolicyContext(payload.policy_context)
@@ -271,6 +277,87 @@ function candidatesFromForecastMatches(
   });
 }
 
+interface NamedBeachWindow {
+  beachId: unknown;
+  startsAt: unknown;
+  endsAt: unknown;
+}
+
+function forecastSlot(beachId: unknown, forecastAt: string): NamedBeachWindow {
+  const startsAtMs = Date.parse(forecastAt);
+  return {
+    beachId,
+    startsAt: forecastAt,
+    endsAt: Number.isFinite(startsAtMs)
+      ? new Date(startsAtMs + FORECAST_SLOT_DURATION_MS).toISOString()
+      : null,
+  };
+}
+
+function swellLeadWindow(payload: Record<string, unknown>): NamedBeachWindow {
+  const surfWindow = payload.surf_window;
+  if (
+    isRecord(surfWindow) &&
+    surfWindow.state === "recommended" &&
+    typeof surfWindow.start === "string" &&
+    typeof surfWindow.end === "string"
+  ) {
+    return { beachId: payload.beach_id, startsAt: surfWindow.start, endsAt: surfWindow.end };
+  }
+  if (typeof payload.forecast_at === "string") {
+    return forecastSlot(payload.beach_id, payload.forecast_at);
+  }
+  // An official-advisory swell notice has no forecast instant; its beach is
+  // still checked for a water-quality hold, as candidateFromBeachId does.
+  return {
+    beachId: payload.beach_id,
+    startsAt: "1970-01-01T00:00:00.000Z",
+    endsAt: "1970-01-01T01:00:00.000Z",
+  };
+}
+
+function namedBeachWindows(
+  type: string,
+  payload: Record<string, unknown>,
+): NamedBeachWindow[] {
+  if (type === "daily_call") {
+    const options = Array.isArray(payload.options) ? payload.options : [];
+    return [payload, ...options].map((value) => ({
+      beachId: isRecord(value) ? value.beach_id : null,
+      startsAt: isRecord(value) ? value.window_start : null,
+      endsAt: isRecord(value) ? value.window_end : null,
+    }));
+  }
+
+  const lead = swellLeadWindow(payload);
+  const alternatives = (Array.isArray(payload.beaches) ? payload.beaches : [])
+    .filter((value) => !isRecord(value) || value.beach_id !== payload.beach_id)
+    .map((value) => {
+      if (!isRecord(value)) return { beachId: null, startsAt: null, endsAt: null };
+      return typeof value.forecast_at === "string"
+        ? forecastSlot(value.beach_id, value.forecast_at)
+        : { beachId: value.beach_id, startsAt: lead.startsAt, endsAt: lead.endsAt };
+    });
+  return [lead, ...alternatives];
+}
+
+function candidatesForNamedBeaches(
+  candidateId: string,
+  type: string,
+  payload: Record<string, unknown>,
+): Array<MajorEventHoldCandidate | null> {
+  return namedBeachWindows(type, payload).map((window, index) =>
+    parseMajorEventHoldCandidate({
+      candidateId:
+        index === 0
+          ? candidateId
+          : boundedCandidateId(`${candidateId}:beach:${index}`),
+      beachId: window.beachId,
+      startsAt: window.startsAt,
+      endsAt: window.endsAt,
+    }));
+}
+
 function policyContextMatchesPayload(
   type: string,
   candidate: MajorEventHoldCandidate,
@@ -311,6 +398,9 @@ function buildNotificationMajorEventHoldCandidate(
 
   if (input.type === "water_quality") {
     return candidateFromBeachId(candidateId, input.payload);
+  }
+  if (MULTI_BEACH_NOTIFICATION_TYPES.has(input.type)) {
+    return candidatesForNamedBeaches(candidateId, input.type, input.payload)[0];
   }
 
   if (input.type === "log_session_nudge") {
@@ -376,6 +466,15 @@ function buildNotificationMajorEventHoldCandidates(
   >,
 ): Array<MajorEventHoldCandidate | null> {
   const primaryCandidate = buildNotificationMajorEventHoldCandidate(input);
+  if (MULTI_BEACH_NOTIFICATION_TYPES.has(input.type)) {
+    if (primaryCandidate === null || !isRecord(input.payload)) return [null];
+    const named = candidatesForNamedBeaches(
+      primaryCandidate.candidateId,
+      input.type,
+      input.payload,
+    );
+    return named.some((candidate) => candidate === null) ? [null] : named;
+  }
   if (
     input.type !== "forecast_alert" ||
     !isRecord(input.payload) ||
@@ -559,6 +658,19 @@ export async function resolveNotificationMajorEventHold(
         : "major_event_hold",
       blockedCandidate ?? candidate,
     );
+  }
+  if (mode !== "enforce") {
+    // Water-quality holds apply in every mode, as they do on the in-app
+    // surfaces; MAJOR_EVENT_HOLD_MODE stages only the major-event rollout.
+    // An unknown hold state still delivers here: a skipped push is never
+    // retried, so a stale County feed must not silently drop it.
+    const heldForWaterQuality = validCandidates.find((value) =>
+      decisions.some((decision) =>
+        decision.candidateId === value.candidateId
+        && decision.evaluation.reasonCode === "water_quality_hold"));
+    if (heldForWaterQuality) {
+      return suppressed("water_quality_hold", heldForWaterQuality);
+    }
   }
   if (boundary.allowedCandidateIds.size === validCandidates.length) {
     return { status: "allowed", candidate };

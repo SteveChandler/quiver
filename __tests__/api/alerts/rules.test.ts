@@ -82,7 +82,6 @@ jest.mock("@/lib/alerts/entitlements", () => ({
     free: { beaches: 1, rulesPerBeach: 3, totalRules: 3 },
     premium: { beaches: 10, rulesPerBeach: 5, totalRules: 50 },
   },
-  FREE_GROWTH_WATCHED_LIMIT: 3,
   getUserEntitlement: jest.fn(async () => mockUserEntitlementTier),
   // Always allow — we test the new guards here, not entitlement gating.
   canCreateRule: jest.fn(() => ({ allowed: true })),
@@ -378,21 +377,10 @@ beforeEach(() => {
 // GET /api/alerts/rules
 // ============================================================================
 
-describe("GET /api/alerts/rules — free-growth entitlement signal", () => {
-  const originalFreeGrowthPhase = process.env.FREE_GROWTH_PHASE;
-
-  afterEach(() => {
-    if (originalFreeGrowthPhase === undefined) {
-      delete process.env.FREE_GROWTH_PHASE;
-    } else {
-      process.env.FREE_GROWTH_PHASE = originalFreeGrowthPhase;
-    }
-  });
-
-  it("returns rules as data and phase-on free watch metadata as sidecar entitlement", async () => {
-    process.env.FREE_GROWTH_PHASE = "true";
-    mockUserEntitlementTier = "free";
+describe("GET /api/alerts/rules — entitlement signal", () => {
+  it("returns rules as data and the free limits as a sidecar entitlement", async () => {
     mockExistingRules = [userRule()];
+    mockUserEntitlementTier = "free";
 
     const res = await GET(makeReq());
     const json = await res.json();
@@ -400,15 +388,14 @@ describe("GET /api/alerts/rules — free-growth entitlement signal", () => {
     expect(json.data).toHaveLength(1);
     expect(json.entitlement).toEqual({
       tier: "free",
-      freeGrowthPhase: true,
-      freeWatchLimit: 3,
+      freeGrowthPhase: false,
+      freeWatchLimit: 1,
       freeRuleLimit: 3,
       premiumRuleLimit: 50,
     });
   });
 
-  it("keeps the current one-beach free limit when the phase flag is off", async () => {
-    delete process.env.FREE_GROWTH_PHASE;
+  it("reports the same free limits to premium users", async () => {
     mockUserEntitlementTier = "premium";
 
     const res = await GET(makeReq());
