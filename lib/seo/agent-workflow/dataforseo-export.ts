@@ -81,6 +81,35 @@ export function buildMissingDataForSeoExport(
   };
 }
 
+export interface ReusableDataForSeoExport {
+  path: string;
+  data: DataForSeoExportInput;
+}
+
+// DataForSEO is bought at most once a week: the newest export with rows inside the window is reused.
+// A run that hit HTTP 402 everywhere has no rows and cost nothing, so it never blocks the next pull.
+export function selectReusableDataForSeoExport(
+  candidates: Array<{ path: string; data: unknown }>,
+  now: Date,
+  maxAgeHours: number,
+): ReusableDataForSeoExport | null {
+  let best: ReusableDataForSeoExport | null = null;
+  for (const candidate of candidates) {
+    const data = candidate.data as Partial<DataForSeoExportInput> | null;
+    const pulledAt = Date.parse(data?.generatedAt ?? "");
+    if (!data || !Number.isFinite(pulledAt)) continue;
+    const ageHours = (now.getTime() - pulledAt) / 3_600_000;
+    if (ageHours < 0 || ageHours >= maxAgeHours) continue;
+    const hasRows = [data.googleRankings, data.keywordMetrics, data.asoRankings, data.competitorKeywords]
+      .some((rows) => Array.isArray(rows) && rows.length > 0);
+    if (!hasRows) continue;
+    if (!best || pulledAt > Date.parse(best.data.generatedAt)) {
+      best = { path: candidate.path, data: data as DataForSeoExportInput };
+    }
+  }
+  return best;
+}
+
 export function buildDataForSeoExport(
   generatedAt: string,
   input: {
