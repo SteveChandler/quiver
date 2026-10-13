@@ -22,6 +22,18 @@ beach photos in `public/images/seo-dioramas/README.md`.
 | `learn-wetsuit-walk.webp` | `/learn/how-does-water-temperature-affect-surfing` | Surf Enthusiasts | Chris Hunkeler | CC BY-SA 2.0 | https://www.flickr.com/photos/14913305@N00/25710415542 |
 | `learn-surf-check-from-the-bluff.webp` | `/learn/how-to-read-surf-conditions` | Surfers watching the waves from a cliff | donjd2 | CC BY 2.0 | https://www.flickr.com/photos/28156071@N00/8323018224 |
 
+## Sourced 2026-10-13 (Openverse → Flickr, Creative Commons)
+
+Same method as above: licence checked on each Flickr source page, native size
+(1000–1024px wide), WebP q82, no crop, no upscale.
+
+| File | Guide | Title | Creator | Licence | Source |
+| --- | --- | --- | --- | --- | --- |
+| `learn-carlsbad-state-beach-learner.webp` | `/learn/beginner-breaks-carlsbad` | Carlsbad State Beach California | Steve Ginn (oldsport500) | CC0 1.0 | https://www.flickr.com/photos/135553449@N08/27427022086 |
+| `learn-small-beach-break-peaks.webp` | `/learn/beginner-breaks-carlsbad` | Tamarack Beach | surfcrs | CC BY 2.0 | https://www.flickr.com/photos/31487723@N00/3976300684 |
+| `learn-south-ponto-minus-tide.webp` | `/learn/beginner-breaks-carlsbad` | South Ponto Beach, Carlsbad February 9th 2013 | Tim Buss | CC BY 2.0 | https://www.flickr.com/photos/30492852@N00/8459272345 |
+| `learn-south-carlsbad-lineup.webp` | `/learn/beginner-breaks-carlsbad` | surfers, South Carlsbad State Beach | bossco | CC BY-SA 2.0 | https://www.flickr.com/photos/43521640@N00/45185467662 |
+
 ## Reassigned from elsewhere in `public/` (2026-09-02)
 
 | File | Guide | Provenance |

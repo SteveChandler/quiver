@@ -85,6 +85,12 @@ const expectedLearnMetadata = [
     description:
       "Wind speed, duration, and fetch decide wave size. How a storm's energy becomes a swell that crosses an ocean, and why every forecast starts with the wind.",
   },
+  {
+    slug: "beginner-breaks-carlsbad",
+    title: "Beginner Surf Spots in Carlsbad: Tamarack to Ponto",
+    description:
+      "Where beginners surf in Carlsbad: Tamarack, Carlsbad State Beach, and Ponto, the tide and wind each one needs, and when to wait for a smaller day.",
+  },
 ];
 
 describe("learn article SEO metadata", () => {
