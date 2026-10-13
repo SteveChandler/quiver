@@ -3285,6 +3285,7 @@ export const learnArticles: LearnArticle[] = [
       "south carlsbad state beach surf",
       "carlsbad surf report",
       "carlsbad water temp",
+      "surf lessons carlsbad",
       "beginner surf spots north county san diego",
     ],
     sections: [
@@ -3380,9 +3381,9 @@ export const learnArticles: LearnArticle[] = [
           "Mornings often have the lightest wind and the smoothest surface before the sea breeze arrives, but swell size and tide matter more than the clock. Look for the smallest, cleanest window in the hourly forecast, then confirm it from shore.",
       },
       {
-        question: "Can you surf in Carlsbad after it rains?",
+        question: "Where is the best place to surf in Carlsbad?",
         answer:
-          "Wait. The County of San Diego advises avoiding ocean contact for 72 hours after rain, and Carlsbad's lagoon mouths carry runoff onto the beaches. Check the current advisory before going in.",
+          "It depends on the swell and your level. For beginners, Tamarack and the open stretches of Carlsbad State Beach and Ponto are the usual picks on small days. The jetty peaks and Ponto's main peaks suit experienced surfers. After rain, wait 72 hours, as the County of San Diego advises.",
       },
     ],
     relatedLinks: [
