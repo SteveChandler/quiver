@@ -1,6 +1,7 @@
 import { getLocalDateFormatter } from "@/lib/services/discovery/window-selector/time-slot-utils";
 import { recommendBoard, type RecommendedBoard } from "@/lib/scoring/personal-board";
 import { conditionLabelForVerdict, recommendationLabelForVerdict } from "@/lib/recommendations/canonical-decision/engine";
+import type { CanonicalDecisionReasonCode } from "@/lib/recommendations/canonical-decision/types";
 import { lightMetadata } from "@/lib/services/discovery/daylight-eligibility";
 import { fetchBulkDecisionContext, bulkSessionDecision, bulkRecommendationLabel, type BulkDecisionContext } from '@/lib/services/forecast/bulk-decision-context';
 import { resolveWaterQualityHolds } from '@/lib/recommendations/major-event-hold/water-quality';
@@ -155,6 +156,7 @@ type HourlyTimelineWindowParseResult =
  *       [beachId]: { periodSeconds, directionDeg, heightFt, source }
  *     },
  *     recommendationLabels: { [beachId]: "Worth it" | "Maybe" | "Skip" | null }
+ *     safetyReasons: { [beachId]: CanonicalDecisionReasonCode | null } // set when the verdict is a safety override
  *     recommendationHolds: {
  *       [beachId]: "water_quality_hold" | "major_event_hold" | "hold_state_unavailable"
  *     }
@@ -936,6 +938,7 @@ export async function bulkForecastHandler(
     );
     const recommendedBoards: Record<string, RecommendedBoard | null> = {};
     const personalAdjustmentReasons: Record<string, string | null> = {};
+    const safetyReasons: Record<string, CanonicalDecisionReasonCode | null> = {};
     const conditionLabels: Record<string, string> = {};
     const verdicts: Record<string, "go" | "maybe" | "no"> = {};
     const lightByBeach: Record<string, ReturnType<typeof lightMetadata>> = {};
@@ -1057,6 +1060,8 @@ export async function bulkForecastHandler(
             : null;
           recommendationLabelMap[beach.id] = decision ? recommendationLabelForVerdict(decision.verdict) : null;
           personalAdjustmentReasons[beach.id] = decision?.personalAdjustmentReason ?? null;
+          // Why a "no" is a safety override, not poor waves; the surf call carries the same decision.
+          safetyReasons[beach.id] = decision?.decisionBasis === "safety_override" ? decision.reasonCode : null;
           const label = recommendationLabelMap[beach.id];
           verdicts[beach.id] = label === "Worth it" ? "go" : label === "Maybe" ? "maybe" : "no";
           conditionLabels[beach.id] = conditionLabelForVerdict(verdicts[beach.id], score);
@@ -1101,6 +1106,7 @@ export async function bulkForecastHandler(
       isCalibrated: isCalibratedMap,
       recommendedBoards,
       personalAdjustmentReasons,
+      safetyReasons,
       conditionLabels,
       verdicts,
       lightByBeach,
