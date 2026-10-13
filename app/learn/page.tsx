@@ -119,6 +119,7 @@ const CATEGORIES: {
     sticker: "spotLocation",
     slugs: [
       "beginner-breaks-san-diego",
+      "beginner-breaks-carlsbad",
       "beginner-breaks-orange-county",
       "beginner-breaks-santa-cruz",
     ],
