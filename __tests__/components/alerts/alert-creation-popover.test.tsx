@@ -39,19 +39,6 @@ const beach = {
   max_wind_onshore_mph: null,
 };
 
-function renderPopover(freeGrowthPhaseEnabled: boolean) {
-  return render(
-    <AlertCreationPopover
-      beachId="beach-1"
-      beachName="Swamis"
-      beach={beach}
-      open
-      onOpenChange={jest.fn()}
-      freeGrowthPhaseEnabled={freeGrowthPhaseEnabled}
-    />,
-  );
-}
-
 describe("AlertCreationPopover", () => {
   beforeEach(() => {
     mockTrack.mockClear();
@@ -60,33 +47,6 @@ describe("AlertCreationPopover", () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
-  });
-
-  it("shows free-growth copy only when the phase flag prop is on", () => {
-    const { rerender } = renderPopover(false);
-
-    expect(
-      screen.queryByText(
-        "Watch this spot, free. Track up to 3 breaks and we'll call the window.",
-      ),
-    ).not.toBeInTheDocument();
-
-    rerender(
-      <AlertCreationPopover
-        beachId="beach-1"
-        beachName="Swamis"
-        beach={beach}
-        open
-        onOpenChange={jest.fn()}
-        freeGrowthPhaseEnabled
-      />,
-    );
-
-    expect(
-      screen.getByText(
-        "Watch this spot, free. Track up to 3 breaks and we'll call the window.",
-      ),
-    ).toBeInTheDocument();
   });
 
   it("tracks alert creation and watched spot creation after preset save", async () => {
@@ -104,7 +64,6 @@ describe("AlertCreationPopover", () => {
         open
         onOpenChange={jest.fn()}
         onRuleCreated={onRuleCreated}
-        freeGrowthPhaseEnabled
       />,
     );
 

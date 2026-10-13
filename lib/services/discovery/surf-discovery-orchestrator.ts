@@ -1,4 +1,4 @@
-import { clamp as clampScoreRange } from "@/lib/utils/clamp";
+import { clamp } from "@/lib/utils/clamp";
 /**
  * Surf Discovery Orchestrator
  *
@@ -45,7 +45,9 @@ import type {
   PersonalizedForecastWindow,
 } from '@/types/personalization';
 import type { ConditionBadge } from '@/types/personalization';
-import { currentWaterQuality } from "@/lib/services/water-quality/current-status";
+import { currentWaterQuality, unsampledWaterQualityRow, type CountyStatusMetadata } from "@/lib/services/water-quality/current-status";
+import { waterQualityWarning } from "@/lib/constants/water-quality";
+import { withRainfallNotice } from "@/lib/services/water-quality/rainfall-runoff-read";
 import {
   scoreBeachWithEngine,
   beachToSpotProfile,
@@ -122,7 +124,6 @@ import {
   type RecommendationV2SourceState,
 } from '@/lib/services/discovery/recommendations-v2';
 import { buildRecommendationEvidence } from '@/lib/services/discovery/recommendation-evidence';
-import { FEATURE_HERO_WINDOW_SCORE } from '@/lib/constants/feature-flags';
 import type { ScoringEngine } from '@/lib/domains/scoring';
 import { resolveWavePunchiness } from '@/lib/domains/spot-profile/wave-punchiness';
 import { boardStyleFit } from './board-style-fit';
@@ -549,11 +550,6 @@ function emptyResponse(
   };
 }
 
-function clamp(value: number, min: number, max: number): number {
-  if (!Number.isFinite(value)) return min;
-  return Math.max(min, Math.min(max, value));
-}
-
 function deriveRecommendationV2SourceState(
   rec: SurfDiscoveryRecommendation,
   usingStaleData: boolean,
@@ -634,7 +630,7 @@ function toRecommendationV2Candidate(
       end: rec.window.end,
       timezone: rec.window.timezone,
     },
-    conditionScore: clampScoreRange(conditionScore, 0, 100),
+    conditionScore: clamp(conditionScore, 0, 100),
     personalMatchScore: clamp(personalMatchScore, 0, 10),
     overallScore: clamp(rec.score, 0, 100),
     label,
@@ -1191,7 +1187,7 @@ interface DiscoveryDisplayScore {
  * UI and the verdict thresholds both assume.
  */
 export function toDisplayConditionScore(conditionScore: number): number {
-  return clampScoreRange(conditionScore, 0, 100);
+  return clamp(conditionScore, 0, 100);
 }
 
 /**
@@ -1811,7 +1807,8 @@ async function discoverSurfSpotsInner(
   // CRITICAL: Always include today and next 2 days in UTC format
   // This fixes a bug where forecast_date values might not include today's date
   // when viewing in a timezone ahead of UTC (e.g., Hawaii beaches viewed in the afternoon).
-  // The sun_times table stores dates in UTC, so we need to ensure we query for:
+  // sun_times dates are beach-local; before this fix, rows west of ~37.5°W
+  // were labelled one day late, which this padding tolerates. Query for:
   // - Yesterday (in case of timezone edge cases)
   // - Today
   // - Tomorrow
@@ -1863,9 +1860,15 @@ async function discoverSurfSpotsInner(
   const breakBehaviorRowsByBeach = groupBreakBehaviorRowsByBeach(breakBehaviorRows);
   endStage('context');
 
-  const wqMap = new Map<string, string>();
-  for (const row of await currentWaterQuality(wqResult.data ?? [])) {
-    wqMap.set(row.beach_id, row.status);
+  const wqMap = new Map<string, { status: string; kind: CountyStatusMetadata['county_advisory_kind']; rainRunoff: boolean }>();
+  const sampledWq = wqResult.data ?? [];
+  const sampledWqIds = new Set(sampledWq.map((row) => row.beach_id));
+  // Unsampled beaches still need County status (a rain advisory covers them too).
+  const wqRows = [...sampledWq, ...candidateBeachIds
+    .filter((beachId) => !sampledWqIds.has(beachId)).map(unsampledWaterQualityRow)];
+  const currentWqRows = await currentWaterQuality(wqRows);
+  for (const row of await withRainfallNotice(currentWqRows, beachForecasts.map(({ beach }) => beach))) {
+    wqMap.set(row.beach_id, { status: row.status, kind: row.county_advisory_kind, rainRunoff: Boolean(row.rain_runoff) });
   }
 
   // 3. Score each beach with detailed breakdown
@@ -2103,7 +2106,9 @@ async function discoverSurfSpotsInner(
     });
 
     // Apply water quality override after scoring
-    const wqStatus = wqMap.get(beach.id);
+    const wq = wqMap.get(beach.id);
+    const wqStatus = wq?.status;
+    const wqWarning = waterQualityWarning(wqStatus, wq?.kind, wq?.rainRunoff);
     if (wqStatus === 'closure') {
       // Score to 0 and demote to 'fair' (lowest non-skip tier) so the beach
       // sorts last but still surfaces with a clear health warning.
@@ -2112,9 +2117,9 @@ async function discoverSurfSpotsInner(
       // health-closed beach sorting above open ones on its ranking value.
       detailedScore.rankingTotal = 0;
       detailedScore.matchQuality = 'fair';
-      detailedScore.warnings = ['Water quality closure — health advisory active'];
-    } else if (wqStatus === 'advisory') {
-      detailedScore.warnings.push('Water quality advisory — elevated bacteria levels');
+      detailedScore.warnings = wqWarning ? [wqWarning] : [];
+    } else if (wqWarning) {
+      detailedScore.warnings.push(wqWarning);
     }
 
     const behaviorAggregate = aggregateBreakBehaviorSessions(
@@ -2234,9 +2239,9 @@ async function discoverSurfSpotsInner(
         customDetailedScore.total = 0;
         customDetailedScore.rankingTotal = 0;
         customDetailedScore.matchQuality = 'fair';
-        customDetailedScore.warnings = ['Water quality closure — health advisory active'];
-      } else if (wqStatus === 'advisory') {
-        customDetailedScore.warnings.push('Water quality advisory — elevated bacteria levels');
+        customDetailedScore.warnings = wqWarning ? [wqWarning] : [];
+      } else if (wqWarning) {
+        customDetailedScore.warnings.push(wqWarning);
       }
 
       const customDistinction = computeWindowDistinctionReason(
@@ -2414,18 +2419,12 @@ async function discoverSurfSpotsInner(
     );
   }
 
-  // Run rerank ALWAYS (cheap pure compute) so diagnostics are complete.
-  // The flag below decides which array becomes the response; diagnostics
-  // emit either way. Single source of truth: this orchestrator is the only
-  // call site for `logHeroRankingDiagnostic`.
-  const { reranked, diagnostics } = rerankHero(merged);
+  // The rerank is diagnostics only: the response keeps the engine-sorted
+  // slice. This orchestrator is the only call site for `logHeroRankingDiagnostic`.
+  const { diagnostics } = rerankHero(merged);
   diagnostics.forEach(logHeroRankingDiagnostic);
 
-  // Flag-gated behavior: when off (default), return the engine-sorted slice
-  // verbatim. When on, return the hero-lifted slice (only [0] moves;
-  // remaining order is preserved).
-  const rankedSlice = FEATURE_HERO_WINDOW_SCORE ? reranked : merged;
-  const finalSlice = applyWorthTheDriveReasons(rankedSlice);
+  const finalSlice = applyWorthTheDriveReasons(merged);
   const finalSliceKeys = new Set(finalSlice.map((rec) => recommendationKey(rec)));
   const includedSlice = safeRecsScored.filter((rec) => {
     if ((rec.kind ?? 'beach') === 'beach') {

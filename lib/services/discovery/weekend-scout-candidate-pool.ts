@@ -314,7 +314,7 @@ interface DriveRangeCandidatePoolDependencies {
   supabase: SupabaseClient<Database>;
 }
 
-export interface DriveRangeCandidatePool {
+interface DriveRangeCandidatePool {
   candidates: Array<{ beach: Beach; distanceMiles: number | null }>;
   enumeratedCount: number;
   filteredOutCount: number;

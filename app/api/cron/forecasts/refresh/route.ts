@@ -26,6 +26,8 @@ import {
 } from "@/lib/services/tides/model-tides";
 import { fanOutTidePointsToBeaches } from "../../../../../lib/services/tide-forecast-batch-utils";
 import SunCalc from "suncalc";
+import { getLocalDateString, resolveBeachTimezone } from "@/lib/utils/timezone-utils";
+import { localDateTimeToUTC } from "@/lib/utils/forecast-time-resolver";
 import { withObservedCron } from "@/lib/cron/observability";
 import { withCronOutcome } from "@/lib/cron/outcome";
 
@@ -65,7 +67,7 @@ function getCronDeadlineMs(): { deadlineMs: number; timeBudgetMs: number; safety
   return { deadlineMs: Date.now() + timeBudgetMs, timeBudgetMs, safetyMarginMs };
 }
 
-type BeachRow = { id: string; name: string; lat: number; lon: number; country?: string | null };
+type BeachRow = { id: string; name: string; lat: number; lon: number; country?: string | null; timezone?: string | null };
 type TideStationMeta = { id: string; name: string; lat: number; lon: number };
 type TidePoint = {
   ts: string;
@@ -135,7 +137,7 @@ async function _GET(request: Request): Promise<Response> {
         ? // Backfill mode: fetch a single nested tide row so we can detect "no tide rows" without N+1 queries.
           // Note: we only need any tide row, not the full set.
           "id, name, lat, lon, country, tide_forecasts(ts)"
-        : "id, name, lat, lon, country"
+        : "id, name, lat, lon, country, timezone"
     );
 
     query = query.not("lat", "is", null).not("lon", "is", null);
@@ -184,6 +186,7 @@ async function _GET(request: Request): Promise<Response> {
       lat: b.lat,
       lon: b.lon,
       country: b.country ?? null,
+      timezone: b.timezone ?? null,
     }));
 
     const targetBeachesForTides: BeachRow[] = tidesBackfillMissing
@@ -585,14 +588,17 @@ async function _GET(request: Request): Promise<Response> {
             if (runSun) {
               // Sun times computed locally - populate 7 days for buffer
               try {
-                const today = new Date();
+                const tz = resolveBeachTimezone(b.timezone);
+                const today = getLocalDateString(new Date(), tz);
                 for (let i = 0; i < 7; i++) {
-                  const d = new Date(today);
-                  d.setDate(today.getDate() + i);
-                  const times = SunCalc.getTimes(d, b.lat, b.lon);
+                  const d = new Date(`${today}T00:00:00Z`);
+                  d.setUTCDate(d.getUTCDate() + i);
+                  const localDate = d.toISOString().split("T")[0];
+                  const times = SunCalc.getTimes(localDateTimeToUTC(localDate, "12:00:00", tz), b.lat, b.lon);
                   const row = {
                     beach_id: b.id,
-                    date: d.toISOString().split("T")[0],
+                    // date is the beach-local calendar day.
+                    date: localDate,
                     sunrise_utc: times.sunrise?.toISOString() ?? null,
                     sunset_utc: times.sunset?.toISOString() ?? null,
                     source: "computed",

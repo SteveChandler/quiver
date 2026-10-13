@@ -7,10 +7,29 @@ jest.mock("@/lib/alerts/sunrise", () => {
   return { ...actual, getDaylightWindow: jest.fn(actual.getDaylightWindow) };
 });
 
+jest.mock("@/lib/alerts/window-refiner", () => {
+  const actual = jest.requireActual("@/lib/alerts/window-refiner");
+  return { ...actual, refineWindow: jest.fn(actual.refineWindow) };
+});
+
+jest.mock("@/lib/alerts/canonical-forecast-verdict", () => {
+  const actual = jest.requireActual("@/lib/alerts/canonical-forecast-verdict");
+  return { ...actual, evaluateForecastVerdict: jest.fn(actual.evaluateForecastVerdict) };
+});
+
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadUserPool, type PoolBeach } from "@/lib/alerts/user-pool";
 import * as sunrise from "@/lib/alerts/sunrise";
 import type { ForecastVerdict } from "@/lib/alerts/canonical-forecast-verdict";
+import { evaluateForecastVerdict } from "@/lib/alerts/canonical-forecast-verdict";
+import { refineWindow } from "@/lib/alerts/window-refiner";
+import { buildCanonicalSessionDecision } from "@/lib/recommendations/canonical-decision";
+import { persistableSessionDecision } from "@/lib/recommendations/canonical-decision/contract";
+import type {
+  CanonicalWeekScoutResponse,
+  WeekScoutDayResponse,
+  WeekScoutWindowResponse,
+} from "@/lib/services/discovery/week-scout";
 import {
   buildComparisonLine,
   groupGoForecasts,
@@ -19,6 +38,7 @@ import {
   type DailyCallCandidate,
   type DailyCallDeps,
   type DailyCallProfile,
+  type DailyCallRankingDeps,
 } from "@/lib/cron/daily-call-runner";
 import { selectTitle as realSelectTitle } from "@/lib/notifications/copy/select-title";
 import { resolveNotificationMajorEventHold } from "@/lib/recommendations/major-event-hold/adapters/notification";
@@ -163,6 +183,512 @@ function deps(
 }
 
 const supabase = {} as SupabaseClient<Database>;
+
+describe("shared ranking (flag on)", () => {
+  const enabledBefore = process.env.CALL_SHARED_RANKING_ENABLED;
+  const allowlistBefore = process.env.CALL_SHARED_RANKING_USER_ALLOWLIST;
+  const verdict = jest.mocked(evaluateForecastVerdict);
+  const refiner = jest.mocked(refineWindow);
+
+  function window(
+    beachId: string,
+    overrides: Partial<WeekScoutWindowResponse> = {},
+  ): WeekScoutWindowResponse {
+    return {
+      id: `window-${beachId}`,
+      beachId,
+      start: "2026-09-16T14:00:00.000Z",
+      end: "2026-09-16T19:00:00.000Z",
+      displayWindowStart: "2026-09-16T16:23:00.000Z",
+      displayWindowEnd: "2026-09-16T18:41:00.000Z",
+      peakTime: "2026-09-16T17:00:00.000Z",
+      conditionScore: 82,
+      personalVerdict: "go",
+      isBeachDayBest: true,
+      rankedSpots: [],
+      ...overrides,
+    } as WeekScoutWindowResponse;
+  }
+
+  function day(windows: WeekScoutWindowResponse[]): WeekScoutDayResponse {
+    return {
+      localDate: "2026-09-16",
+      windows,
+      bestWindowId: windows[0]?.id ?? null,
+      bestDayWindow: windows[0] ?? null,
+      exclusionReasons: [],
+    };
+  }
+
+  function sharedDeps(
+    scoutDay = day([window(blacksId)]),
+    overrides: Partial<DailyCallDeps & DailyCallRankingDeps> = {},
+  ): DailyCallDeps & DailyCallRankingDeps {
+    return {
+      ...deps(),
+      loadPool: jest.fn(async () => [home, favorite].map((entry) => ({
+        ...entry, beach: { ...entry.beach, lat: 32.89, lon: -117.25 },
+      }))),
+      selectTitle: jest.fn(realSelectTitle),
+      usesSharedRanking: () => true,
+      rankDay: jest.fn(async () => ({ days: [scoutDay] }) as CanonicalWeekScoutResponse),
+      loadBeachDay: jest.fn(async ({ beach }) => ({
+        forecasts: [sourceForecast(beach.id)],
+        tideSamples: null,
+      })),
+      ...overrides,
+    };
+  }
+
+  beforeEach(() => {
+    verdict.mockImplementation((args) => {
+      const decision = buildCanonicalSessionDecision({
+        anchorTime: args.now.toISOString(),
+        scope: {
+          kind: "plan_next_session",
+          windowStart: args.forecast.forecast_at,
+          windowEnd: new Date(Date.parse(args.forecast.forecast_at) + 3_600_000).toISOString(),
+          timezone: args.timezone,
+        },
+        profileExperience: "advanced",
+        recommendationAvailability: {
+          state: "available",
+          holdEpoch: "daily-call",
+          resolutionAsOf: args.now.toISOString(),
+        },
+        candidates: [{
+          candidateId: `daily-call:${args.forecast.id}`,
+          beachId: args.beach.id,
+          beachName: args.beach.name,
+          beachSkillLevel: "intermediate",
+          windowStart: args.forecast.forecast_at,
+          windowEnd: new Date(Date.parse(args.forecast.forecast_at) + 3_600_000).toISOString(),
+          timezone: args.timezone,
+          forecastId: args.forecast.id,
+          forecastAt: args.forecast.forecast_at,
+          waveHeight: args.forecast.wave_height,
+          utilityScore: 90,
+          recommendationLabel: "Worth it",
+        }],
+      });
+      return { forecast: args.forecast, verdict: decision.verdict, score: 90, decision };
+    });
+    refiner.mockReturnValue(null);
+  });
+
+  afterEach(() => {
+    verdict.mockReset().mockImplementation(
+      jest.requireActual("@/lib/alerts/canonical-forecast-verdict").evaluateForecastVerdict,
+    );
+    refiner.mockReset().mockImplementation(
+      jest.requireActual("@/lib/alerts/window-refiner").refineWindow,
+    );
+    if (enabledBefore === undefined) delete process.env.CALL_SHARED_RANKING_ENABLED;
+    else process.env.CALL_SHARED_RANKING_ENABLED = enabledBefore;
+    if (allowlistBefore === undefined) delete process.env.CALL_SHARED_RANKING_USER_ALLOWLIST;
+    else process.env.CALL_SHARED_RANKING_USER_ALLOWLIST = allowlistBefore;
+  });
+
+  it("uses the shared pick and display pair when the old ranker picks another beach", async () => {
+    const pick = window(blacksId);
+    const mocked = sharedDeps(day([pick]));
+    const shared = await runDailyCallCron({ now, supabase, deps: mocked });
+    expect(shared).toMatchObject({ sent: 1, errors: 0 });
+    expect(mocked.buildCandidates).not.toHaveBeenCalled();
+    expect(mocked.enqueue).toHaveBeenCalledWith(expect.objectContaining({
+      payload: expect.objectContaining({
+        beach_id: blacksId,
+        beach_name: "Blacks",
+        window_start: pick.displayWindowStart,
+        window_end: pick.displayWindowEnd,
+        window_local: "9:23–11:41 AM",
+        title: expect.stringContaining("Blacks"),
+        drivers: [],
+        comparison: null,
+      }),
+    }), supabase);
+
+    const legacy = sharedDeps(day([pick]), {
+      buildCandidates: mocked.buildCandidates,
+      usesSharedRanking: () => false,
+    });
+    const flagOff = await runDailyCallCron({ now, supabase, deps: legacy });
+    expect(flagOff).toMatchObject({ sent: 1, errors: 0 });
+    expect(legacy.enqueue).toHaveBeenCalledWith(expect.objectContaining({
+      payload: expect.objectContaining({
+        beach_id: ospreyId,
+        window_start: "2026-09-16T15:00:00.000Z",
+        window_end: "2026-09-16T16:40:00.000Z",
+      }),
+    }), supabase);
+    expect(legacy.rankDay).not.toHaveBeenCalled();
+    expect(legacy.loadBeachDay).not.toHaveBeenCalled();
+  });
+
+  it.each(["maybe", undefined] as const)("stays silent for personal verdict %s", async (personalVerdict) => {
+    const mocked = sharedDeps(day([window(blacksId, { personalVerdict })]));
+    const result = await runDailyCallCron({ now, supabase, deps: mocked });
+    expect(result).toMatchObject({ sent: 0, silent: 1, errors: 0, skippedCounts: { no_go_window: 1 } });
+    expect(mocked.loadBeachDay).not.toHaveBeenCalled();
+    expect(mocked.enqueue).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { label: "held day", scoutDay: { ...day([]), exclusionReasons: ["major_event_hold"] } as WeekScoutDayResponse, skip: "no_clear_window" },
+    { label: "held nomination", scoutDay: { ...day([window(blacksId)]), bestWindowId: null,
+      exclusionReasons: ["major_event_hold"] } as WeekScoutDayResponse, skip: "no_clear_window" },
+    { label: "no go windows", scoutDay: day([]), skip: "no_go_window" },
+    { label: "missing forecasts", scoutDay: { ...day([]), exclusionReasons: ["no_forecasts"] } as WeekScoutDayResponse, skip: "no_forecast" },
+  ])("stays silent for a $label", async ({ scoutDay, skip }) => {
+    const mocked = sharedDeps(scoutDay);
+    const result = await runDailyCallCron({ now, supabase, deps: mocked });
+    expect(result).toMatchObject({ sent: 0, silent: 1, errors: 0, skippedCounts: { [skip]: 1 } });
+    expect(mocked.loadBeachDay).not.toHaveBeenCalled();
+    expect(mocked.enqueue).not.toHaveBeenCalled();
+  });
+
+  it("counts a missing day as no_forecast", async () => {
+    const mocked = sharedDeps(undefined, {
+      rankDay: jest.fn(async () => ({ days: [] }) as unknown as CanonicalWeekScoutResponse),
+    });
+    const result = await runDailyCallCron({ now, supabase, deps: mocked });
+    expect(result).toMatchObject({ silent: 1, errors: 0, skippedCounts: { no_forecast: 1 } });
+    expect(mocked.enqueue).not.toHaveBeenCalled();
+  });
+
+  it("falls back when the nominated display window closes inside 30 minutes", async () => {
+    const closing = window(blacksId, { displayWindowEnd: "2026-09-16T13:20:00.000Z",
+      displayWindowStart: "2026-09-16T12:00:00.000Z", conditionScore: 99 });
+    const next = window(ospreyId);
+    const mocked = sharedDeps(day([closing, next]));
+    const result = await runDailyCallCron({ now, supabase, deps: mocked });
+    expect(result).toMatchObject({ sent: 1, errors: 0 });
+    expect(mocked.enqueue).toHaveBeenCalledWith(expect.objectContaining({
+      payload: expect.objectContaining({
+        beach_id: ospreyId, window_start: next.displayWindowStart, window_end: next.displayWindowEnd,
+      }),
+    }), supabase);
+  });
+
+  it("stays silent when every display window closes inside 30 minutes", async () => {
+    const mocked = sharedDeps(day([window(blacksId, {
+      displayWindowStart: "2026-09-16T12:00:00.000Z", displayWindowEnd: "2026-09-16T13:20:00.000Z",
+    })]));
+    const result = await runDailyCallCron({ now, supabase, deps: mocked });
+    expect(result).toMatchObject({ silent: 1, errors: 0, skippedCounts: { no_go_window: 1 } });
+    expect(mocked.enqueue).not.toHaveBeenCalled();
+  });
+
+  it("keeps drivers within 15 minutes inclusive without moving the shared edges", async () => {
+    const pick = window(blacksId);
+    const startDriver = { kind: "tide" as const, edge: "start" as const,
+      at: "2026-09-16T16:08:00.000Z", approximate: true, label: "rising tide" };
+    const endDriver = { kind: "wind" as const, edge: "end" as const,
+      at: "2026-09-16T18:56:00.001Z", approximate: true, label: "wind turns" };
+    refiner.mockImplementationOnce((args) => {
+      expect(args.coarse).toEqual({ start: pick.displayWindowStart, end: pick.displayWindowEnd });
+      expect(args.verdictAt(args.forecasts[0])).toBe("go");
+      expect(args).toMatchObject({ tideSamples: [{ at: pick.peakTime, heightFt: 3 }],
+        daylight: { sunrise: expect.any(String), sunset: expect.any(String) } });
+      return { start: startDriver.at, end: endDriver.at, minutes: 168, drivers: [startDriver, endDriver] };
+    });
+    const mocked = sharedDeps(day([pick]), {
+      loadBeachDay: jest.fn(async () => ({
+        forecasts: [sourceForecast(blacksId)], tideSamples: [{ at: pick.peakTime, heightFt: 3 }],
+      })),
+    });
+    const result = await runDailyCallCron({ now, supabase, deps: mocked });
+    expect(result).toMatchObject({ sent: 1, errors: 0 });
+    expect(refiner).toHaveBeenCalledTimes(1);
+    expect(mocked.enqueue).toHaveBeenCalledWith(expect.objectContaining({
+      payload: expect.objectContaining({
+        drivers: [startDriver], window_start: pick.displayWindowStart, window_end: pick.displayWindowEnd,
+      }),
+    }), supabase);
+  });
+
+  it("uses go options with day-best windows, home first, then ranked saved spots, at most two", async () => {
+    const lead = poolBeach("30000000-0000-4000-8000-000000000001", "Nearby", "nearby");
+    const custom = poolBeach("30000000-0000-4000-8000-000000000002", "Custom", "custom");
+    const maybe = poolBeach("30000000-0000-4000-8000-000000000003", "Maybe", "favorite");
+    const noWindow = poolBeach("30000000-0000-4000-8000-000000000004", "No window", "favorite");
+    const pick = window(lead.beach.id, { rankedSpots: [
+      { beachId: lead.beach.id, personalVerdict: "go" },
+      { beachId: maybe.beach.id, personalVerdict: "maybe" },
+      { beachId: noWindow.beach.id, personalVerdict: "go" },
+      { beachId: "outside-pool", personalVerdict: "go" },
+      { beachId: custom.beach.id, personalVerdict: "go" },
+      { beachId: ospreyId, personalVerdict: "go" },
+      { beachId: blacksId, personalVerdict: "go" },
+    ] as WeekScoutWindowResponse["rankedSpots"] });
+    const homeWindow = window(blacksId, { conditionScore: 55, displayWindowStart: "2026-09-16T15:00:00.000Z",
+      displayWindowEnd: "2026-09-16T17:00:00.000Z" });
+    const customWindow = window(custom.beach.id, { conditionScore: 65, displayWindowStart: "2026-09-16T18:00:00.000Z",
+      displayWindowEnd: "2026-09-16T20:00:00.000Z" });
+    const mocked = sharedDeps(day([pick, homeWindow, customWindow, window(ospreyId, { conditionScore: 99 }), window(maybe.beach.id),
+      window(noWindow.beach.id, { isBeachDayBest: false })]), {
+      loadPool: jest.fn(async () => [lead, home, favorite, custom, maybe, noWindow].map((entry) => ({
+        ...entry, beach: { ...entry.beach, lat: 32.89, lon: -117.25 },
+      }))),
+      loadBeachDay: jest.fn(async ({ beach }) => ({
+        forecasts: beach.id === custom.beach.id ? [] : [sourceForecast(beach.id)],
+        tideSamples: null,
+      })),
+    });
+    const result = await runDailyCallCron({ now, supabase, deps: mocked });
+    expect(result).toMatchObject({ sent: 1, errors: 0 });
+    const payload = (mocked.enqueue as jest.Mock).mock.calls[0][0].payload;
+    expect(payload.options).toEqual([
+      expect.objectContaining({ beach_id: blacksId, relation: "home", wave_height_ft: 3,
+        window_start: homeWindow.displayWindowStart, window_end: homeWindow.displayWindowEnd }),
+      expect.objectContaining({ beach_id: custom.beach.id, relation: "custom", wave_height_ft: null,
+        window_start: customWindow.displayWindowStart, window_end: customWindow.displayWindowEnd }),
+    ]);
+    expect(payload.comparison).toBe("Rated higher than Blacks today");
+  });
+
+  it("builds the decision and payload from the forecast nearest the pick's peak", async () => {
+    const pick = window(blacksId);
+    const nearest = sourceForecast(blacksId, { id: "nearest", forecast_at: "2026-09-16T18:00:00.000Z", wave_height: "4" });
+    const mocked = sharedDeps(day([pick]), {
+      loadBeachDay: jest.fn(async () => ({ forecasts: [sourceForecast(blacksId), nearest], tideSamples: null })),
+    });
+    const result = await runDailyCallCron({ now, supabase, deps: mocked });
+    expect(result).toMatchObject({ sent: 1, errors: 0 });
+    const evaluation = verdict.mock.results[verdict.mock.results.length - 1].value as ForecastVerdict;
+    expect(evaluation.forecast).toBe(nearest);
+    expect(mocked.enqueue).toHaveBeenCalledWith(expect.objectContaining({
+      payload: expect.objectContaining({
+        wave_height_ft: 4, decision_id: evaluation.decision.decisionId,
+        session_decision: persistableSessionDecision(evaluation.decision),
+      }),
+    }), supabase);
+    expect(verdict).toHaveBeenLastCalledWith({
+      forecast: nearest, beach: expect.objectContaining(home.beach), experienceLevel: "advanced",
+      timezone: profile.timezone, now, candidateIdPrefix: "daily-call",
+    });
+  });
+
+  it("fills two unheld options when the top option is held", async () => {
+    const lead = poolBeach("30000000-0000-4000-8000-000000000001", "Lead", "nearby");
+    const custom = poolBeach("30000000-0000-4000-8000-000000000002", "Custom", "custom");
+    const nearby = poolBeach("30000000-0000-4000-8000-000000000003", "Nearby", "nearby");
+    const pick = window(lead.beach.id, { rankedSpots: [nearby, custom, favorite, home].map((entry) => ({
+      beachId: entry.beach.id, personalVerdict: "go",
+    })) as WeekScoutWindowResponse["rankedSpots"] });
+    const homeWindow = window(blacksId);
+    const customWindow = window(custom.beach.id);
+    const savedWindow = window(ospreyId);
+    const nearbyWindow = window(nearby.beach.id);
+    const mocked = sharedDeps(day([pick, homeWindow, customWindow, savedWindow, nearbyWindow]), {
+      loadPool: jest.fn(async () => [lead, home, favorite, custom, nearby].map((entry) => ({
+        ...entry, beach: { ...entry.beach, lat: 32.89, lon: -117.25 },
+      }))),
+      resolveHeldBeaches: jest.fn(async ({ candidates }) => new Map(candidates
+        .filter((value) => value.beachId === blacksId)
+        .map((value) => [value.candidateId, "water_quality_hold" as const]))),
+    });
+
+    const result = await runDailyCallCron({ now, supabase, deps: mocked });
+
+    expect(result).toMatchObject({ sent: 1, errors: 0, skippedCounts: { held_water_quality_hold: 1 } });
+    const payload = (mocked.enqueue as jest.Mock).mock.calls[0][0].payload;
+    expect(payload.options).toEqual([
+      expect.objectContaining({ beach_id: custom.beach.id, relation: "custom" }),
+      expect.objectContaining({ beach_id: ospreyId, relation: "favorite" }),
+    ]);
+    expect(payload.comparison).toBeNull();
+    expect(mocked.resolveHeldBeaches).toHaveBeenCalledWith({
+      candidates: [pick, homeWindow, customWindow, savedWindow, nearbyWindow].map((value, index) => ({
+        candidateId: `daily-call:${index}`, beachId: value.beachId,
+        startsAt: value.displayWindowStart, endsAt: value.displayWindowEnd,
+      })),
+      profileExperience: profile.experienceLevel, asOf: now,
+    });
+    expect(jest.mocked(mocked.loadBeachDay).mock.calls.map(([args]) => args.beach.id))
+      .toEqual([lead.beach.id, custom.beach.id, ospreyId]);
+  });
+
+  it("loads both options and a separate home comparison concurrently without changing their order", async () => {
+    const lead = poolBeach("30000000-0000-4000-8000-000000000001", "Lead", "nearby");
+    const custom = poolBeach("30000000-0000-4000-8000-000000000002", "Custom", "custom");
+    const pick = window(lead.beach.id, { rankedSpots: [custom, favorite].map((entry) => ({
+      beachId: entry.beach.id, personalVerdict: "go",
+    })) as WeekScoutWindowResponse["rankedSpots"] });
+    const reads: string[] = [];
+    const mocked = sharedDeps(day([pick, window(custom.beach.id), window(ospreyId), window(blacksId)]), {
+      loadPool: jest.fn(async () => [lead, home, favorite, custom].map((entry) => ({
+        ...entry, beach: { ...entry.beach, lat: 32.89, lon: -117.25 },
+      }))),
+      loadBeachDay: jest.fn(async ({ beach }) => {
+        reads.push(beach.id);
+        const data = { forecasts: [sourceForecast(beach.id)], tideSamples: null };
+        if (beach.id === lead.beach.id) return data;
+        await Promise.resolve();
+        expect(reads).toEqual([lead.beach.id, custom.beach.id, ospreyId, blacksId]);
+        // Complete the first option last to pin Promise.all's ordering.
+        if (beach.id === custom.beach.id) await Promise.resolve();
+        return data;
+      }),
+    });
+
+    const result = await runDailyCallCron({ now, supabase, deps: mocked });
+
+    expect(result).toMatchObject({ sent: 1, errors: 0 });
+    const payload = (mocked.enqueue as jest.Mock).mock.calls[0][0].payload;
+    expect(payload.options).toEqual([
+      expect.objectContaining({ beach_id: custom.beach.id, relation: "custom" }),
+      expect.objectContaining({ beach_id: ospreyId, relation: "favorite" }),
+    ]);
+    expect(payload.comparison).toBe("Rated higher than Blacks today");
+    expect(mocked.loadBeachDay).toHaveBeenCalledTimes(4);
+  });
+
+  it("counts ranking_verdict_mismatch when the nearest row is not canonically go", async () => {
+    const nearest = sourceForecast(blacksId, { id: "nearest", forecast_at: "2026-09-16T18:00:00.000Z" });
+    verdict.mockReturnValue({ forecast: nearest, verdict: "maybe" } as ForecastVerdict);
+    const mocked = sharedDeps(undefined, {
+      loadBeachDay: jest.fn(async () => ({
+        forecasts: [sourceForecast(blacksId), nearest], tideSamples: null,
+      })),
+    });
+    const result = await runDailyCallCron({ now, supabase, deps: mocked });
+    expect(result).toMatchObject({ sent: 0, silent: 1, errors: 0,
+      skippedCounts: { ranking_verdict_mismatch: 1 } });
+    expect(mocked.enqueue).not.toHaveBeenCalled();
+    expect(verdict).toHaveBeenLastCalledWith(expect.objectContaining({ forecast: nearest }));
+  });
+
+  it("counts a pick outside the pool", async () => {
+    const mocked = sharedDeps(day([window("outside-pool")]));
+    const result = await runDailyCallCron({ now, supabase, deps: mocked });
+    expect(result).toMatchObject({ silent: 1, errors: 0, skippedCounts: { ranking_beach_not_in_pool: 1 } });
+    expect(mocked.loadBeachDay).not.toHaveBeenCalled();
+    expect(mocked.enqueue).not.toHaveBeenCalled();
+  });
+
+  it("counts missing winner forecast rows", async () => {
+    const mocked = sharedDeps(undefined, {
+      loadBeachDay: jest.fn(async () => ({ forecasts: [], tideSamples: null })),
+    });
+    const result = await runDailyCallCron({ now, supabase, deps: mocked });
+    expect(result).toMatchObject({ silent: 1, errors: 0, skippedCounts: { no_forecast: 1 } });
+    expect(mocked.enqueue).not.toHaveBeenCalled();
+  });
+
+  it("passes the session preference and resolved pool anchor to ranking", async () => {
+    const location = { lat: 21.28, lon: -157.83, timezone: "Pacific/Honolulu", captured_at: now.toISOString() };
+    const mocked = sharedDeps(undefined, {
+      loadProfiles: jest.fn(async () => [{ ...profile, preferredSessionTime: "morning" as const, location }]),
+    });
+    await runDailyCallCron({ now, supabase, deps: mocked });
+    expect(mocked.rankDay).toHaveBeenCalledWith({
+      userId, poolBeachIds: [blacksId, ospreyId], timezone: profile.timezone, localDate: "2026-09-16",
+      sessionTime: "morning", anchor: { lat: location.lat, lon: location.lon }, driveRadiusMiles: 100,
+    });
+  });
+
+  it.each(["major_event_hold", "water_quality_hold", "hold_state_unavailable"] as const)(
+    "stays silent when the shared pick is held: %s", async (reason) => {
+      const pick = window(blacksId);
+      const mocked = sharedDeps(day([pick, window(ospreyId)]), {
+        resolveHeldBeaches: jest.fn(async ({ candidates }) => new Map(
+          candidates.filter((value) => value.beachId === blacksId).map((value) => [value.candidateId, reason]),
+        )),
+      });
+      const result = await runDailyCallCron({ now, supabase, deps: mocked });
+      expect(result).toMatchObject({ sent: 0, silent: 1, errors: 0,
+        skippedCounts: { [`held_${reason}`]: 1, no_clear_window: 1, no_go_window: 0 } });
+      expect(mocked.resolveHeldBeaches).toHaveBeenCalledWith({
+        candidates: [{ candidateId: "daily-call:0", beachId: blacksId,
+          startsAt: pick.displayWindowStart, endsAt: pick.displayWindowEnd }],
+        profileExperience: profile.experienceLevel, asOf: now,
+      });
+      expect(mocked.enqueue).not.toHaveBeenCalled();
+      expect(mocked.loadBeachDay).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([true, false])("drops a held home comparison and options (home option: %s)", async (homeOption) => {
+    const lead = poolBeach("30000000-0000-4000-8000-000000000001", "Nearby", "nearby");
+    const pick = window(lead.beach.id, { rankedSpots: [
+      ...(homeOption ? [{ beachId: blacksId, personalVerdict: "go" }] : []),
+      { beachId: ospreyId, personalVerdict: "go" },
+    ] as WeekScoutWindowResponse["rankedSpots"] });
+    const homeWindow = window(blacksId);
+    const savedWindow = window(ospreyId);
+    const mocked = sharedDeps(day([pick, homeWindow, savedWindow]), {
+      loadPool: jest.fn(async () => [lead, home, favorite].map((entry) => ({
+        ...entry, beach: { ...entry.beach, lat: 32.89, lon: -117.25 },
+      }))),
+      resolveHeldBeaches: jest.fn(async ({ candidates }) => new Map(candidates
+        .filter((value) => value.beachId !== lead.beach.id)
+        .map((value) => [value.candidateId, "water_quality_hold" as const]))),
+    });
+    const result = await runDailyCallCron({ now, supabase, deps: mocked });
+    expect(result).toMatchObject({ sent: 1, errors: 0, skippedCounts: { held_water_quality_hold: 2 } });
+    expect(mocked.resolveHeldBeaches).toHaveBeenCalledWith({
+      candidates: expect.arrayContaining([pick, homeWindow, savedWindow].map((value) => ({
+        candidateId: expect.any(String), beachId: value.beachId,
+        startsAt: value.displayWindowStart, endsAt: value.displayWindowEnd,
+      }))),
+      profileExperience: profile.experienceLevel, asOf: now,
+    });
+    const payload = (mocked.enqueue as jest.Mock).mock.calls[0][0].payload;
+    expect(payload).toMatchObject({ beach_id: lead.beach.id, comparison: null });
+    expect(payload).not.toHaveProperty("options");
+    expect(payload.title).not.toContain("Blacks");
+    expect(payload.reason).not.toContain("Blacks");
+  });
+
+  it("passes the same capped pool to both ranking paths", async () => {
+    const nearby = Array.from({ length: 60 }, (_, index) => ({
+      ...poolBeach(`40000000-0000-4000-8000-${String(index).padStart(12, "0")}`, `Nearby ${index}`, "nearby"),
+      distanceMiles: 60 - index,
+    }));
+    const custom = poolBeach("30000000-0000-4000-8000-000000000001", "Custom", "custom");
+    const loadPool = jest.fn(async () => [home, favorite, custom, ...nearby].map((entry) => ({
+      ...entry, beach: { ...entry.beach, lat: 32.89, lon: -117.25 },
+    })));
+    const shared = sharedDeps(undefined, { loadPool });
+    const legacy = sharedDeps(undefined, { loadPool, usesSharedRanking: () => false });
+    expect(await runDailyCallCron({ now, supabase, deps: shared })).toMatchObject({ sent: 1, errors: 0 });
+    expect(await runDailyCallCron({ now, supabase, deps: legacy })).toMatchObject({ sent: 1, errors: 0 });
+    const expected = [home, favorite, custom, ...nearby.slice(10)].map((entry) => entry.beach.id);
+    expect(jest.mocked(shared.rankDay).mock.calls[0][0].poolBeachIds).toEqual(expected);
+    expect(jest.mocked(legacy.buildCandidates).mock.calls[0][0].pool.map((entry) => entry.beach.id)).toEqual(expected);
+  });
+
+  it.each([11, 12, 13, 25])("uses the Daily Call's 12-hour anchor for a %s-hour fix", async (ageHours) => {
+    const homeBeach = { ...home.beach, lat: 32.89, lon: -117.25 };
+    const location = { lat: 33.15, lon: -117.35, timezone: profile.timezone!,
+      captured_at: new Date(now.getTime() - ageHours * 3_600_000).toISOString() };
+    const mocked = sharedDeps(undefined, {
+      loadProfiles: jest.fn(async () => [{ ...profile, homeBeach, location, maxDriveMinutes: 90 }]),
+    });
+    await runDailyCallCron({ now, supabase, deps: mocked });
+    const anchor = ageHours <= 12 ? { lat: location.lat, lon: location.lon } : { lat: homeBeach.lat, lon: homeBeach.lon };
+    expect(mocked.loadPool).toHaveBeenCalledWith(expect.objectContaining({ location: anchor }));
+    expect(mocked.rankDay).toHaveBeenCalledWith(expect.objectContaining({ anchor, driveRadiusMiles: 45 }));
+  });
+
+  it("uses the default flag and allowlist gate", async () => {
+    const { usesSharedRanking: _usesSharedRanking, ...mocked } = sharedDeps();
+    delete process.env.CALL_SHARED_RANKING_ENABLED;
+    process.env.CALL_SHARED_RANKING_USER_ALLOWLIST = userId;
+    await runDailyCallCron({ now, supabase, deps: mocked });
+    expect(mocked.rankDay).not.toHaveBeenCalled();
+    expect(mocked.loadBeachDay).not.toHaveBeenCalled();
+    process.env.CALL_SHARED_RANKING_ENABLED = "true";
+    process.env.CALL_SHARED_RANKING_USER_ALLOWLIST = "another-user";
+    await runDailyCallCron({ now, supabase, deps: mocked });
+    expect(mocked.rankDay).not.toHaveBeenCalled();
+    process.env.CALL_SHARED_RANKING_USER_ALLOWLIST = ` ${userId} `;
+    const result = await runDailyCallCron({ now, supabase, deps: mocked });
+    expect(result).toMatchObject({ sent: 1, errors: 0 });
+    expect(mocked.rankDay).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe("daily call alternatives", () => {
   const nearby = poolBeach("30000000-0000-4000-8000-000000000001", "K-40", "nearby");

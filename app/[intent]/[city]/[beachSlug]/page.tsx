@@ -12,11 +12,11 @@ import { StickyInstallAsk } from "@/components/app-store/sticky-install-ask";
 import { HideWhenInstallBarOwns } from "@/components/app-store/install-bar-owned-slot";
 import { BeachDetailInstallCta } from "@/components/app-store/beach-detail-install-cta";
 import { ContentPageAppHandoffCta } from "@/components/app-store/content-page-app-handoff-cta";
-import { isFreeGrowthPhaseEnabled } from "@/lib/flags/free-growth-phase";
 
 import type { Metadata } from "next";
 import { buildPageMetadata, buildDynamicBeachMetadata } from "@/lib/seo/meta";
-import { currentWaterQuality } from "@/lib/services/water-quality/current-status";
+import { currentWaterQuality, unsampledWaterQualityRow } from "@/lib/services/water-quality/current-status";
+import { withRainfallNotice } from "@/lib/services/water-quality/rainfall-runoff-read";
 import {
   buildBeachUrl,
   buildHiCityUrlForBeach,
@@ -193,7 +193,8 @@ export default async function GenericBeachDetailPage(props: PageProps) {
             .select("*")
             .eq("beach_id", beach.id)
             .maybeSingle();
-          return data ? (await currentWaterQuality([data]))[0] as WaterQuality : null;
+          // An unsampled beach can still carry a County or rainfall notice; the badge hides a bare unknown.
+          return (await withRainfallNotice(await currentWaterQuality([data ?? unsampledWaterQualityRow(beach.id)]), [beach]))[0] as WaterQuality;
         } catch {
           // Gracefully degrade if the table doesn't exist yet
           return null;
@@ -328,7 +329,6 @@ export default async function GenericBeachDetailPage(props: PageProps) {
                 returnTo={returnTo}
               />
             }
-            freeGrowthPhaseEnabled={isFreeGrowthPhaseEnabled()}
             afterTabsContent={
               <div className="pt-2">
                 <PublicForecastHourly

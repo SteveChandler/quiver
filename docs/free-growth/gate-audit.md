@@ -1,5 +1,7 @@
 # Free-Growth Gate Audit
 
+> **2026-10-12:** `FREE_GROWTH_PHASE` was never set on any Vercel environment and was deleted in SteveChandler/quiver#1056, together with the 3-rule free cap and the "Watch this spot" copy it gated. The decisions below are historical; re-implement without a flag if the softening is wanted.
+
 Plan: `/Users/stevenchandler/Desktop/dev/plans/038-free-growth-gate-audit.md`
 
 Native mirror inventory was readable from `../quiver-native`; no native source was edited.

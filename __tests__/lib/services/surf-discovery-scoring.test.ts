@@ -9,6 +9,12 @@
 
 import { discoverSurfSpots } from "@/lib/services/surf-discovery-service";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import { currentWaterQuality } from "@/lib/services/water-quality/current-status";
+
+jest.mock("@/lib/services/water-quality/current-status", () => {
+  const actual = jest.requireActual("@/lib/services/water-quality/current-status");
+  return { ...actual, currentWaterQuality: jest.fn(actual.currentWaterQuality) };
+});
 
 jest.mock("@/lib/utils/forecast-service-utils", () => ({
   getFreshForecastFromCache: jest.fn(),
@@ -570,6 +576,35 @@ describe("discoverSurfSpots scoring behavior", () => {
       .map((r: any) => r?.value)
       .filter(Boolean);
     expect(clients.some((c: any) => typeof c.rpc === "function")).toBe(true);
+  });
+
+  it.each([
+    ["general", /County rain advisory/],
+    ["site", /elevated bacteria levels/],
+  ] as const)("warns with the County %s advisory wording", async (kind, wording) => {
+    const { getBatchFreshForecastsFromCache } = require("@/lib/utils/forecast-service-utils");
+    jest.mocked(currentWaterQuality).mockImplementationOnce(async () => [
+      { beach_id: "beach-1", status: "advisory", county_advisory_status: "advisory", county_advisory_kind: kind },
+    ]);
+    (getBatchFreshForecastsFromCache as jest.Mock).mockResolvedValue(
+      new Map([
+        ["beach-1", {
+          beachId: "beach-1",
+          forecasts: [mkForecast("2025-01-20T13:00:00Z", { wave_height: "3", confidence_score: 90 })],
+          metadata: { cached: true, stale: false, missing: false, reason: null },
+        }],
+      ])
+    );
+
+    const result = await discoverSurfSpots("user-1", { userLocation: defaultUserLocation, maxResults: 1 });
+    assertHasRecommendation(result, consoleErrorSpy.mock.calls);
+    // beach-1 has no sample row; it still goes through the County projection.
+    expect(jest.mocked(currentWaterQuality).mock.calls[0][0]).toEqual([
+      expect.objectContaining({ beach_id: "beach-1", status: "unknown", total_samples_30d: 0 }),
+    ]);
+    const waterWarnings = result.recommendations[0].warnings.filter((w: string) => /water|rain/i.test(w));
+    expect(waterWarnings).toHaveLength(1);
+    expect(waterWarnings[0]).toMatch(wording);
   });
 
   it("gives high score to advanced user when waves are 8ft", async () => {

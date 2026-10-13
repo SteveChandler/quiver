@@ -7,7 +7,8 @@ import { NearbyBeachesEnriched } from "@/components/beach-detail/nearby-spots-en
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
 import { RelatedGuidesSection } from "@/components/beach-detail/related-guides-section";
 import type { Metadata } from "next";
-import { currentWaterQuality } from "@/lib/services/water-quality/current-status";
+import { currentWaterQuality, unsampledWaterQualityRow } from "@/lib/services/water-quality/current-status";
+import { withRainfallNotice } from "@/lib/services/water-quality/rainfall-runoff-read";
 import {
   buildPageMetadata,
   buildDynamicBeachMetadata,
@@ -26,7 +27,6 @@ import {
   createPublicReadClient,
   createSupabaseServiceRoleClient,
 } from "@/lib/supabase/server";
-import { isFreeGrowthPhaseEnabled } from "@/lib/flags/free-growth-phase";
 
 const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
@@ -83,8 +83,8 @@ export default async function BeachDetailBySlugPage(
           .maybeSingle(),
       ]);
       amenities = amenitiesResult.data as BeachAmenities | null;
-      waterQuality = waterQualityResult.data
-        ? (await currentWaterQuality([waterQualityResult.data]))[0] as WaterQuality : null;
+      // An unsampled beach can still carry a County or rainfall notice; the badge hides a bare unknown.
+      waterQuality = (await withRainfallNotice(await currentWaterQuality([waterQualityResult.data ?? unsampledWaterQualityRow(beach.id)]), [beach]))[0] as WaterQuality;
     } catch {
       // Gracefully degrade if tables don't exist yet
     }
@@ -122,7 +122,6 @@ export default async function BeachDetailBySlugPage(
           beachTimezone={beachTimezone}
           amenities={amenities}
           waterQuality={waterQuality}
-          freeGrowthPhaseEnabled={isFreeGrowthPhaseEnabled()}
         />
 
         {/* SSR sections below tabs for SEO crawlability */}

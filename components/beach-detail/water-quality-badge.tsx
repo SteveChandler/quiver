@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { CountyStatusMetadata } from "@/lib/services/water-quality/current-status";
+import type { RainRunoffMetadata } from "@/lib/services/water-quality/rainfall-runoff";
 import {
   Card,
   CardContent,
@@ -31,6 +32,8 @@ export interface WaterQuality extends CountyStatusMetadata {
   total_samples_30d: number;
   status_reason: string | null;
   status_changed_at: string | null;
+  /** Precautionary notice from 72 h airport rainfall; set only where no County status exists. */
+  rain_runoff?: RainRunoffMetadata;
 }
 
 interface WaterQualityBadgeProps {
@@ -76,10 +79,16 @@ export function WaterQualityBadge({ waterQuality, beachState }: WaterQualityBadg
     return null;
   }
 
+  // Rainfall is a fallback precaution; any County status outranks it.
+  const rainRunoff = waterQuality.county_advisory_status ? undefined : waterQuality.rain_runoff;
   const config = waterQuality.county_advisory_status === "clear" || waterQuality.county_advisory_status === "unavailable"
     ? { ...STATUS_CONFIG.advisory, label: waterQuality.county_advisory_status === "clear" ? "No current county advisory" : "County status unavailable", icon: Droplets,
         iconColor: "text-ink", badgeStyle: "border-ink/20 bg-paper-shadow/40" }
-    : STATUS_CONFIG[waterQuality.status as keyof typeof STATUS_CONFIG];
+    : waterQuality.county_advisory_kind === "general" && waterQuality.status === "advisory"
+      ? { ...STATUS_CONFIG.advisory, label: "Rain Advisory" }
+      : rainRunoff
+        ? { ...STATUS_CONFIG.advisory, label: "Rain runoff advisory" }
+        : STATUS_CONFIG[waterQuality.status as keyof typeof STATUS_CONFIG];
   const StatusIcon = config.icon;
 
   const formattedSampleDate = waterQuality.latest_sample_date
@@ -124,7 +133,19 @@ export function WaterQualityBadge({ waterQuality, beachState }: WaterQualityBadg
               <a href="https://www.sdbeachinfo.com/" target="_blank" rel="noopener noreferrer" className="underline">
                 County of San Diego: current advisory status
               </a>
+              {waterQuality.county_advisory_kind === "general" && waterQuality.status === "advisory" && (
+                <p>The County has a general advisory in effect for runoff after rain. Avoid storm drains and river mouths, and check again in 72 hours.</p>
+              )}
               <p>{waterQuality.county_checked_at ? `Checked ${new Date(waterQuality.county_checked_at).toLocaleString()}. No advisory does not guarantee safe water.` : "Current county status could not be verified. Check the county before entering the water."}</p>
+            </div>
+          )}
+          {rainRunoff && (
+            <div>
+              <p>{waterQuality.status_reason}</p>
+              <p className="mt-1 text-xs">
+                Measured at airport rain gauges ({rainRunoff.stations.join(", ")}) for the 72 hours to{" "}
+                {new Date(rainRunoff.window_end).toLocaleString()}. This is a precaution, not a water sample.
+              </p>
             </div>
           )}
           {/* Sample date */}
@@ -164,7 +185,7 @@ export function WaterQualityBadge({ waterQuality, beachState }: WaterQualityBadg
           )}
 
           {/* Status reason */}
-          {!waterQuality.county_advisory_status && waterQuality.status_reason && (
+          {!waterQuality.county_advisory_status && !rainRunoff && waterQuality.status_reason && (
             <div>
               <span className="font-medium text-ink">Reason: </span>
               {waterQuality.status_reason}

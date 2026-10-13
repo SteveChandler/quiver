@@ -2,7 +2,10 @@
  * @jest-environment node
  */
 
-jest.mock("@/lib/alerts/user-pool", () => ({ loadUserPool: jest.fn() }));
+jest.mock("@/lib/alerts/user-pool", () => ({
+  ...jest.requireActual("@/lib/alerts/user-pool"),
+  loadUserPool: jest.fn(),
+}));
 // Board reads are not under test here; keep them off the recorded query fake.
 jest.mock("@/lib/alerts/entitlements", () => ({ getUserEntitlement: jest.fn(async () => "free") }));
 jest.mock("@/lib/services/discovery/surf-discovery-orchestrator", () => ({
