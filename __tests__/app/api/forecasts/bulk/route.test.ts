@@ -1264,7 +1264,7 @@ describe("/api/forecasts/bulk", () => {
     );
 
     expect(data.data).toEqual({
-      recommendedBoards: {}, personalAdjustmentReasons: {}, conditionLabels: {}, verdicts: {}, lightByBeach: {},
+      recommendedBoards: {}, personalAdjustmentReasons: {}, safetyReasons: {}, conditionLabels: {}, verdicts: {}, lightByBeach: {},
       forecasts: {},
       displayForecasts: {},
       todayHeadlines: {},
