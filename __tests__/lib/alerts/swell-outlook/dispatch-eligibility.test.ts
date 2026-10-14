@@ -1,7 +1,7 @@
 /** @jest-environment node */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolveSwellDispatchEligibility } from "@/lib/alerts/swell-outlook/dispatch-eligibility";
-import type { Database } from "@/types/database.generated";
+import type { Database } from "@/types/database";
 
 const NOW = new Date("2026-10-14T18:00:00.000Z");
 const HAWAII = { lat: 21.28, lon: -157.83 };
@@ -34,6 +34,30 @@ const resolve = (supabase: SupabaseClient<Database>, override: Record<string, un
   resolveSwellDispatchEligibility({ supabase, userId: "user-1", payload: { ...payload, ...override }, now: NOW });
 
 describe("swell dispatch eligibility", () => {
+  it("starts the profile and lead-beach reads before either completes", async () => {
+    const started: string[] = [];
+    let releaseProfile!: () => void;
+    const profileRead = new Promise((resolveProfile) => {
+      releaseProfile = () => resolveProfile({ data: { max_drive_minutes: 60,
+        user_location_snapshots: [{ ...HAWAII, captured_at: NOW.toISOString() }], home_beach: SOCAL }, error: null });
+    });
+    const supabase = { from: jest.fn((table: string) => {
+      const query = { select: jest.fn(), eq: jest.fn(), maybeSingle: jest.fn() };
+      query.select.mockReturnValue(query);
+      query.eq.mockReturnValue(query);
+      query.maybeSingle.mockImplementation(() => {
+        started.push(table);
+        return table === "profiles" ? profileRead : Promise.resolve({ data: { ...HAWAII, deleted_at: null }, error: null });
+      });
+      return query;
+    }) } as unknown as SupabaseClient<Database>;
+    const decision = resolve(supabase);
+    const readsBeforeProfileCompleted = [...started];
+    releaseProfile();
+    expect(await decision).toEqual({ allowed: true });
+    expect(readsBeforeProfileCompleted).toEqual(["profiles", "beaches"]);
+  });
+
   it("uses a fresh Hawaii fix instead of the SoCal home beach", async () => {
     expect(await resolve(client())).toEqual({ allowed: true });
     expect(await resolve(client({ beach: { ...SOCAL, deleted_at: null } })))

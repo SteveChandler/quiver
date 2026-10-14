@@ -1133,6 +1133,15 @@ async function sendFollowups(
   now: Date,
   gate?: EngagementGate,
 ): Promise<void> {
+  const radiusKm = driveRadiusMiles(profile.maxDriveMinutes) * 1.609344;
+  let distanceKmByBeach: ReadonlyMap<string, number> | null = null;
+  if (gate && states.length > 0 && deps.loadBeachDistancesKm) {
+    try {
+      distanceKmByBeach = await deps.loadBeachDistancesKm(profile, [...new Set(states.map((state) => state.beachId))]);
+    } catch (error) {
+      console.warn(`[swell-alert] Follow-up distance lookup failed for ${profile.id}:`, error);
+    }
+  }
   for (const state of states) {
     summary.followupsEvaluated += 1;
     try {
@@ -1151,6 +1160,17 @@ async function sendFollowups(
       if (!isSwellFollowupWindowOpen(told, now, profile.timezone)) {
         increment(summary, "followup_window_closed");
         continue;
+      }
+      if (gate) {
+        const distanceKm = distanceKmByBeach?.get(state.beachId);
+        if (distanceKm === undefined || !Number.isFinite(distanceKm)) {
+          increment(summary, "followup_distance_unavailable");
+          continue;
+        }
+        if (distanceKm > radiusKm) {
+          increment(summary, "followup_out_of_range");
+          continue;
+        }
       }
 
       const pinned = await deps.evaluatePinned(profile, state, now);

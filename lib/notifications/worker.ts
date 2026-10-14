@@ -593,6 +593,15 @@ async function processOne(
   );
   let surfAlertRejected = false;
   let terminalCancellationReason: string | null = null;
+  let swellEligibility: ReturnType<SwellDispatchEligibilityResolver> | undefined;
+  const getSwellEligibility = (): ReturnType<SwellDispatchEligibilityResolver> => {
+    swellEligibility ??= Promise.resolve().then(() => resolveSwellEligibility({
+      supabase, userId: event.recipient_user_id, payload: event.payload, now,
+    })).catch((): Awaited<ReturnType<SwellDispatchEligibilityResolver>> => ({
+      allowed: false, reasonCode: "revalidation_unavailable",
+    }));
+    return swellEligibility;
+  };
 
   for (const channel of def.channels) {
     const prior = attemptsByChannel.get(channel) ?? [];
@@ -625,7 +634,7 @@ async function processOne(
       summary.presentation_compatibility,
       surfAlertSlot,
       resolveMajorEventHold,
-      resolveSwellEligibility,
+      getSwellEligibility,
       majorEventHoldAsOf,
     );
     const { status } = decision;
@@ -695,7 +704,7 @@ async function processOne(
       surfAlertRejected = true;
       break;
     }
-    if (decision.cancelEventReason && (!hasSentDelivery || event.type === "swell_watch")) {
+    if (decision.cancelEventReason && !hasSentDelivery) {
       terminalCancellationReason = decision.cancelEventReason;
       break;
     }
@@ -854,7 +863,7 @@ async function processChannel(
   presentationCompatibility: Record<string, number>,
   surfAlertSlot: SurfAlertSlot | null,
   resolveMajorEventHold: NotificationMajorEventHoldResolver,
-  resolveSwellEligibility: SwellDispatchEligibilityResolver,
+  getSwellEligibility: () => ReturnType<SwellDispatchEligibilityResolver>,
   majorEventHoldAsOf: Date | undefined,
 ): Promise<ChannelDecision> {
   if (
@@ -1000,12 +1009,7 @@ async function processChannel(
   }
 
   if (event.type === "swell_watch") {
-    let decision: Awaited<ReturnType<SwellDispatchEligibilityResolver>>;
-    try {
-      decision = await resolveSwellEligibility({ supabase, userId: event.recipient_user_id, payload: event.payload, now });
-    } catch {
-      decision = { allowed: false, reasonCode: "revalidation_unavailable" };
-    }
+    const decision = await getSwellEligibility();
     if (!decision.allowed) {
       return channelDecision("skipped_disabled", {
         providerResponse: { audit_code: "swell_dispatch_revalidation", reason_code: decision.reasonCode },

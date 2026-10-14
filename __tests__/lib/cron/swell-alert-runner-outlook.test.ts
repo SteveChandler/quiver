@@ -84,7 +84,8 @@ function makeDeps(overrides: Record<string, unknown> = {}): SwellOutlookDeps & R
     hasFirstSightingAlert: jest.fn(async () => false),
     assessSwellRarity: jest.fn(async () => false),
     loadFirstSightingHazard: jest.fn(async () => null),
-    loadBeachDistancesKm: jest.fn(async () => new Map<string, number>()),
+    loadBeachDistancesKm: jest.fn(async (_profile: SwellAlertProfile, beachIds: readonly string[]) =>
+      new Map(beachIds.map((beachId) => [beachId, 0]))),
     ...overrides,
   } as never as SwellOutlookDeps & Record<string, jest.Mock>;
 }
@@ -444,6 +445,52 @@ describe("swell alert cron: outlook send boundaries", () => {
     await runSwellAlertCron({ now: MORNING, deps });
     expect(deps.evaluatePinned).toHaveBeenCalledTimes(1);
     expect(deps.enqueue).toHaveBeenCalledWith(expect.objectContaining({ payload: expect.objectContaining({ beach_id: HOME, kind: "bigger", anchor_source: "location" }) }));
+  });
+
+  it.each([
+    [5000, "followup_out_of_range"],
+    [undefined, "followup_distance_unavailable"],
+    [NaN, "followup_distance_unavailable"],
+  ] as const)("does not evaluate, claim or record a follow-up at distance %s km", async (distance, reason) => {
+    const deps = makeDeps({
+      loadProfiles: jest.fn(async () => [profile({ location: { lat: 21.28, lon: -157.83 }, maxDriveMinutes: 60 })]),
+      loadFollowupStates: jest.fn(async () => [pinnedState()]),
+      loadBeachDistancesKm: jest.fn(async () => distance === undefined ? new Map() : new Map([[HOME, distance]])),
+      evaluatePinned: jest.fn(async () => biggerPinned()), loadOutlook: jest.fn(async () => []),
+    });
+    const summary = await runSwellAlertCron({ now: MORNING, deps });
+    expect(summary.skippedCounts[reason]).toBe(1);
+    expect(deps.loadBeachDistancesKm).toHaveBeenCalledWith(expect.objectContaining({
+      location: { lat: 21.28, lon: -157.83 }, maxDriveMinutes: 60,
+    }), [HOME]);
+    expect(deps.evaluatePinned).not.toHaveBeenCalled();
+    expect(deps.claimFollowup).not.toHaveBeenCalled();
+    expect(deps.enqueue).not.toHaveBeenCalled();
+    expect(deps.saveEngagement).not.toHaveBeenCalled();
+  });
+
+  it("counts a failed follow-up distance read without advancing told or engagement state", async () => {
+    jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    const deps = makeDeps({ loadFollowupStates: jest.fn(async () => [pinnedState()]),
+      loadBeachDistancesKm: jest.fn(async () => { throw new Error("distance lookup failed"); }),
+      evaluatePinned: jest.fn(async () => biggerPinned()), loadOutlook: jest.fn(async () => []) });
+    const summary = await runSwellAlertCron({ now: MORNING, deps });
+    expect(summary.skippedCounts.followup_distance_unavailable).toBe(1);
+    expect(deps.evaluatePinned).not.toHaveBeenCalled();
+    expect(deps.claimFollowup).not.toHaveBeenCalled();
+    expect(deps.enqueue).not.toHaveBeenCalled();
+    expect(deps.saveEngagement).not.toHaveBeenCalled();
+  });
+
+  it("sends an in-range follow-up at the drive-radius boundary", async () => {
+    const deps = makeDeps({ loadFollowupStates: jest.fn(async () => [pinnedState()]),
+      loadBeachDistancesKm: jest.fn(async () => new Map([[HOME, 36.21024]])),
+      evaluatePinned: jest.fn(async () => biggerPinned()), loadOutlook: jest.fn(async () => []) });
+    const summary = await runSwellAlertCron({ now: MORNING, deps });
+    expect(summary.sentByKind.bigger).toBe(1);
+    expect(deps.claimFollowup).toHaveBeenCalledTimes(1);
+    expect(deps.enqueue).toHaveBeenCalledTimes(1);
+    expect(savedState(deps).lastSentAt).toBe(MORNING.toISOString());
   });
 
   it.each([6, 21])("sends at the inclusive %i local-hour boundary", async (hour) => {

@@ -822,6 +822,23 @@ describe("swell_watch dispatch revalidation", () => {
     expect(state.attempts[0].provider_response).toEqual({ audit_code: "swell_dispatch_revalidation", reason_code: "revalidation_unavailable" });
   });
 
+  it("resolves once and shares the decision between push and in-app", async () => {
+    const state = swellState();
+    const resolver = jest.fn()
+      .mockResolvedValueOnce({ allowed: true })
+      .mockResolvedValue({ allowed: false, reasonCode: "out_of_range" });
+    const fcm = { sendEach: jest.fn(async () => ({ successCount: 1, failureCount: 0, responses: [{ success: true }] })) };
+    const summary = await processPendingEvents(buildMockSupabase(state) as never, {
+      now: NOON_PT, fcm: fcm as never, resolveSwellDispatchEligibility: resolver,
+    });
+    expect(resolver).toHaveBeenCalledTimes(1);
+    expect(summary.by_status.sent).toBe(2);
+    expect(state.attempts.map(({ channel, status }) => ({ channel, status }))).toEqual([
+      { channel: "push", status: "sent" }, { channel: "in_app", status: "sent" },
+    ]);
+    expect(state.events[0].status).toBe("processed");
+  });
+
   it("delivers an eligible swell and calls the resolver again after quiet hours", async () => {
     const state = swellState();
     const resolver = jest.fn(async () => ({ allowed: true as const }));
@@ -840,7 +857,7 @@ describe("swell_watch dispatch revalidation", () => {
     expect(fcm.sendEach).toHaveBeenCalledTimes(1);
   });
 
-  it("suppresses a swell that becomes ineligible during a quiet-hours deferral", async () => {
+  it("keeps delivery accounting when the deferred push becomes ineligible after in-app delivery", async () => {
     const state = swellState();
     const resolver = jest.fn()
       .mockResolvedValueOnce({ allowed: true })
@@ -854,6 +871,29 @@ describe("swell_watch dispatch revalidation", () => {
     });
     expect(resolver).toHaveBeenCalledTimes(2);
     expect(summary.by_status.skipped_disabled).toBe(1);
+    expect(state.attempts).toContainEqual(expect.objectContaining({ channel: "in_app", status: "sent" }));
+    expect(state.attempts).toContainEqual(expect.objectContaining({ channel: "push", status: "skipped_disabled",
+      provider_response: { audit_code: "swell_dispatch_revalidation", reason_code: "out_of_range" } }));
+    expect(state.events[0]).toMatchObject({ status: "processed", cancel_reason: null });
+    expect(fcm.sendEach).not.toHaveBeenCalled();
+  });
+
+  it("cancels an ineligible deferred swell when neither channel was delivered", async () => {
+    const state = swellState();
+    state.profiles.set("user-recipient", buildProfile({ notif_inapp_enabled: false }));
+    const resolver = jest.fn(async () => ({ allowed: false as const, reasonCode: "out_of_range" as const }));
+    const fcm = { sendEach: jest.fn() };
+    await processPendingEvents(buildMockSupabase(state) as never, {
+      now: new Date("2026-04-29T08:00:00Z"), fcm: fcm as never, resolveSwellDispatchEligibility: resolver,
+    });
+    expect(resolver).not.toHaveBeenCalled();
+    expect(state.attempts.some(({ status }) => status === "sent")).toBe(false);
+    await processPendingEvents(buildMockSupabase(state) as never, {
+      now: NOON_PT, fcm: fcm as never, resolveSwellDispatchEligibility: resolver,
+    });
+    expect(resolver).toHaveBeenCalledTimes(1);
+    expect(state.attempts).toContainEqual(expect.objectContaining({ channel: "push", status: "skipped_disabled",
+      provider_response: { audit_code: "swell_dispatch_revalidation", reason_code: "out_of_range" } }));
     expect(state.events[0]).toMatchObject({ status: "cancelled", cancel_reason: "swell_dispatch_revalidation" });
     expect(fcm.sendEach).not.toHaveBeenCalled();
   });
