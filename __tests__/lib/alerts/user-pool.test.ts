@@ -22,10 +22,6 @@ function makeSupabase(store: Store): SupabaseClient<Database> {
     const passthrough = (): Record<string, unknown> => query;
     query.select = passthrough;
     query.eq = passthrough;
-    query.not = (column: string): Record<string, unknown> => {
-      result = result.filter((row) => (row as Record<string, unknown>)[column] !== null);
-      return query;
-    };
     query.is = passthrough;
     query.order = passthrough;
     query.gte = passthrough;
@@ -157,7 +153,7 @@ describe("user pool", () => {
     ]);
   });
 
-  it("ignores custom favorites in the alert pool while retaining curated favorites", async () => {
+  it("preserves Mexican favorites and custom anchors even when also nearby", async () => {
     const home = makeBeach("home");
     const favorite = makeBeach("favorite", "favorite", "Mexico");
     const custom = makeBeach("custom-anchor", "custom-anchor", "Mexico");
@@ -190,26 +186,9 @@ describe("user pool", () => {
     expect(result.map(({ beach, relation }) => [beach.id, relation])).toEqual([
       [home.id, "home"],
       [favorite.id, "favorite"],
+      [custom.id, "custom"],
       [local.id, "nearby"],
     ]);
-    const withoutCustom = await loadUserPool({
-      supabase: makeSupabase({
-        favorites: [{ beach_id: favorite.id, custom_spot_id: null }],
-        beaches: [home, favorite, custom, nearby, local],
-        nearby: [
-          ...[favorite, custom, nearby].map((beach) => ({
-            id: beach.id, distance_meters: 1000, total_count: 4,
-          })),
-          { id: local.id, distance_meters: 500, total_count: 4 },
-        ],
-      }),
-      userId: "user-1",
-      homeBeachId: home.id,
-      location: { lat: 32.8, lon: -117.2 },
-      maxDriveMinutes: 90,
-    });
-    expect(result).toEqual(withoutCustom);
-    expect(supabase.from).not.toHaveBeenCalledWith("custom_spots");
   });
 
   it.each(["missing-home", "unknown-country"])(
@@ -400,7 +379,7 @@ describe("user pool", () => {
       };
     }
 
-    it("drops home and saved beaches outside the range of the anchor", async () => {
+    it("drops home, saved and custom beaches outside the range of the anchor", async () => {
       const result = await loadUserPool({
         supabase: makeSupabase(store()),
         userId: "user-1",
@@ -415,7 +394,7 @@ describe("user pool", () => {
       expect(result[0].distanceMiles).toBeCloseTo(4.6, 1);
     });
 
-    it("keeps every curated favorite when there is no anchor to measure from", async () => {
+    it("keeps every saved spot when there is no anchor to measure from", async () => {
       const result = await loadUserPool({
         supabase: makeSupabase(store()),
         userId: "user-1",
@@ -425,7 +404,7 @@ describe("user pool", () => {
       });
 
       expect(result.map(({ beach }) => beach.id)).toEqual([
-        farHome.id, pacificBeach.id, alaMoana.id,
+        farHome.id, pacificBeach.id, alaMoana.id, farCustomAnchor.id,
       ]);
       expect(result.every(({ distanceMiles }) => distanceMiles === null)).toBe(true);
     });
@@ -459,15 +438,15 @@ describe("user pool", () => {
     const entry = (id: string, relation: PoolBeach["relation"], distanceMiles: number | null): PoolBeach =>
       ({ beach: makeBeach(id), relation, distanceMiles });
 
-    it("keeps the nearest nearby beaches and every home and saved beach", () => {
+    it("keeps the nearest nearby beaches and every home, saved and custom spot", () => {
       const pool = [
         entry("far", "nearby", 30), entry("home", "home", 40), entry("near", "nearby", 5),
-        entry("saved", "favorite", 44), entry("mid", "nearby", 12),
+        entry("saved", "favorite", 44), entry("mid", "nearby", 12), entry("custom", "custom", 41),
       ];
 
       const capped = capNearbyPool(pool, 2);
 
-      expect(capped.pool.map(({ beach }) => beach.id)).toEqual(["home", "near", "saved", "mid"]);
+      expect(capped.pool.map(({ beach }) => beach.id)).toEqual(["home", "near", "saved", "mid", "custom"]);
       expect(capped).toEqual(expect.objectContaining({ cappedCount: 1, farthestNearbyMiles: 12 }));
     });
 
@@ -478,7 +457,7 @@ describe("user pool", () => {
     });
   });
 
-  it("does not turn a custom favorite's forecast anchor into an alert beach", async () => {
+  it("includes only custom spots whose forecast anchor has fresh forecasts", async () => {
     const freshAnchor = makeBeach("fresh-anchor");
     const staleAnchor = makeBeach("stale-anchor");
     const supabase = makeSupabase({
@@ -503,7 +482,8 @@ describe("user pool", () => {
       maxDriveMinutes: null,
     });
 
-    expect(result).toEqual([]);
-    expect(supabase.from).not.toHaveBeenCalledWith("custom_spots");
+    expect(result.map(({ beach, relation }) => [beach.id, relation])).toEqual([
+      [freshAnchor.id, "custom"],
+    ]);
   });
 });
