@@ -21,6 +21,7 @@ import type {
   CanonicalSessionDecision,
 } from "./types";
 import type { ScoringDecisionEffect } from "@/lib/domains/scoring/types";
+import type { CandidateRejection } from "@/types/personalization";
 import {
   CANONICAL_SESSION_DECISION_ENGINE_VERSION,
   CANONICAL_SESSION_DECISION_SCHEMA_VERSION,
@@ -92,6 +93,30 @@ function candidateSafetyReasons(
     reasons.push("wave_height_exceeds_skill");
   }
   return reasons;
+}
+
+function safetyCandidateRejection(
+  candidate: CanonicalDecisionCandidate | undefined,
+  reasonCode: CanonicalDecisionReasonCode,
+  skill: CanonicalDecisionSkill,
+): CandidateRejection | null {
+  if (!candidate) return null;
+  if (reasonCode === 'water_quality_closure') {
+    return { gate: 'water_quality_closure', observed: { status: 'closure' }, allowed: { status: 'open' } };
+  }
+  if (reasonCode === 'beach_skill_exceeds_user') {
+    return { gate: 'skill_gate', observed: { skill: String(candidate.beachSkillLevel) }, allowed: { skill } };
+  }
+  if (reasonCode === 'wave_height_exceeds_skill') {
+    const height = parseWaveHeightRangeFt(typeof candidate.waveHeight === 'string' ? candidate.waveHeight : null);
+    const range = SKILL_WAVE_RANGES[skill === 'unknown' ? 'beginner' : skill].acceptable;
+    return {
+      gate: 'skill_gate',
+      observed: height ? { waveHeightFt: height.max } : undefined,
+      allowed: { minimumWaveHeightFt: range.min, maximumWaveHeightFt: range.max, skill },
+    };
+  }
+  return null;
 }
 
 function physicalVerdictForCandidate(
@@ -223,6 +248,9 @@ function decisionId(input: BuildCanonicalSessionDecisionInput): string {
       resolutionAsOf: input.recommendationAvailability.resolutionAsOf ?? null,
       expiresAt: input.recommendationAvailability.expiresAt ?? null,
     },
+    ...(input.candidates.length === 0 && input.candidateRejection
+      ? { candidateRejection: input.candidateRejection }
+      : {}),
     candidates: [...input.candidates]
       .map((candidate) => ({
         candidateId: candidate.candidateId,
@@ -429,6 +457,11 @@ export function buildCanonicalSessionDecision(
     decisionBasis,
     decisionBasisV2,
     reasonCode,
+    candidateRejection: hasNoCandidates
+      ? input.candidateRejection ?? null
+      : noSafeCandidate
+        ? safetyCandidateRejection(candidateEvaluations.find(({ reasons }) => reasons.includes(reasonCode))?.candidate, reasonCode, skill)
+        : null,
     ...(selected && !safetyOverride && verdict !== physicalVerdictForCandidate(selected)
       ? { personalAdjustmentReason: VERDICT_RANK[verdict] > VERDICT_RANK[physicalVerdictForCandidate(selected)]
         ? "personal_adjusted_up" as const : "personal_adjusted_down" as const } : {}),

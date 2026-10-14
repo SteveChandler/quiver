@@ -19,6 +19,7 @@ import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import {
   TIME_SLOT_RANGES,
+  type CandidateRejection,
   type PersonalizedForecastWindow,
   type TimeSlot,
 } from '@/types/personalization';
@@ -351,6 +352,7 @@ function buildResult(
 }
 
 interface NormalizedWindowSelectorOptions {
+  onRejection?: (rejection: CandidateRejection) => void;
   forecasts: EnhancedForecastEntity[];
   beach: Beach;
   userPrefs: Awaited<ReturnType<typeof getUserSurfPreferences>> | null;
@@ -404,6 +406,7 @@ function normalizeWindowSelectorOptions(
 
   return {
     forecasts: optionsOrForecasts.forecasts,
+    onRejection: optionsOrForecasts.onRejection,
     beach: optionsOrForecasts.beach,
     userPrefs: optionsOrForecasts.userPrefs,
     horizonHours: optionsOrForecasts.horizonHours,
@@ -614,6 +617,7 @@ export function selectBestWindows(
     rideabilityBand: actualRideabilityBand,
     boardClasses: actualBoardClasses,
     userSkillLevel: actualUserSkillLevel,
+    onRejection,
   } = normalizeWindowSelectorOptions(
     optionsOrForecasts,
     beach,
@@ -631,6 +635,7 @@ export function selectBestWindows(
   }
 
   if (forecasts.length === 0) {
+    onRejection?.({ gate: 'forecast_rows', observed: { count: 0 } });
     log.debug(`[selectBestWindows] ${actualBeach.name}: No forecasts provided`);
     return [];
   }
@@ -666,6 +671,7 @@ export function selectBestWindows(
     actualUserSkillLevel
   );
   if (scoredForecasts.length === 0) {
+    onRejection?.({ gate: 'past_forecast', observed: { count: forecasts.length } });
     log.debug(`[selectBestWindows] ${actualBeach.name}: No scored forecasts after filtering past times`);
     return [];
   }
@@ -684,6 +690,7 @@ export function selectBestWindows(
     beachTz,
   );
   if (filteredForecasts.length === 0) {
+    onRejection?.({ gate: 'time_slot', observed: { count: scoredForecasts.length }, detail: actualTimeSlot });
     log.debug(`[selectBestWindows] ${actualBeach.name}: No forecasts after time slot filter (slot=${actualTimeSlot || 'any'})`);
     return [];
   }
@@ -691,6 +698,10 @@ export function selectBestWindows(
   log.debug(`[selectBestWindows] ${actualBeach.name}: ${filteredForecasts.length} forecasts to evaluate, isMorning=${isMorning}`);
 
   const candidateWindows: RankedCandidateWindow[] = [];
+  let lastRejection: CandidateRejection | null = null;
+  const reject = (rejection: CandidateRejection): void => {
+    lastRejection = rejection;
+  };
 
   for (let i = 0; i < filteredForecasts.length; i++) {
     const {
@@ -708,6 +719,7 @@ export function selectBestWindows(
       : 0;
 
     if (startSelectionScore < effectiveThreshold) {
+      reject({ gate: 'score_floor', observed: { score: startSelectionScore }, allowed: { minimumScore: effectiveThreshold } });
       log.debug(`[selectBestWindow] ${actualBeach.name}: Forecast ${i} selectionScore=${startSelectionScore} < threshold=${effectiveThreshold}, skipping`);
       continue;
     }
@@ -715,7 +727,10 @@ export function selectBestWindows(
     // Horizon constraint
     const rawHoursAhead = (startTime.getTime() - actualNow.getTime()) / (1000 * 60 * 60);
     const hoursAhead = Math.max(0, rawHoursAhead);
-    if (actualHorizonHours && hoursAhead > actualHorizonHours) continue;
+    if (actualHorizonHours && hoursAhead > actualHorizonHours) {
+      reject({ gate: 'horizon', observed: { hoursAhead }, allowed: { maximumHoursAhead: actualHorizonHours } });
+      continue;
+    }
 
     let effectiveStartTime = startTime;
 
@@ -772,6 +787,7 @@ export function selectBestWindows(
     }
 
     if (skipThisForecast) {
+      reject({ gate: 'time_slot', detail: actualTimeSlot });
       continue;
     }
 
@@ -794,6 +810,7 @@ export function selectBestWindows(
 
     const lit = clampToUsableLight(effectiveStartTime, endTime, beachTz, sunTimes);
     if (!lit) {
+      reject({ gate: 'daylight', observed: { count: filteredForecasts.length } });
       log.debug(`[selectBestWindow] ${actualBeach.name}: Forecast ${i} window does not overlap usable light`);
       continue;
     }
@@ -803,6 +820,7 @@ export function selectBestWindows(
     // Validate minimum session length
     const durationHours = (endTime.getTime() - effectiveStartTime.getTime()) / (1000 * 60 * 60);
     if (durationHours < MIN_SESSION_HOURS) {
+      reject({ gate: 'session_duration', observed: { durationHours }, allowed: { minimumDurationHours: MIN_SESSION_HOURS } });
       log.debug(`[selectBestWindow] ${actualBeach.name}: Forecast ${i} session too short (${durationHours.toFixed(1)}h < ${MIN_SESSION_HOURS}h)`);
       continue;
     }
@@ -846,7 +864,8 @@ export function selectBestWindows(
       beachTz,
       isMorning,
       getLocalDateStrForBeach,
-      actualBeach.name // Pass beach name for logging
+      actualBeach.name, // Pass beach name for logging
+      reject,
     );
     if (fallbackWindow) {
       candidateWindows.push({
@@ -857,6 +876,7 @@ export function selectBestWindows(
   }
 
   if (candidateWindows.length === 0) {
+    onRejection?.(lastRejection ?? { gate: 'daylight', observed: { count: filteredForecasts.length } });
     log.debug(`[selectBestWindows] ${actualBeach.name}: Both main loop and fallback returned null - NO WINDOW SELECTED`);
     return [];
   }
@@ -894,6 +914,7 @@ export function selectBestWindows(
     if (nonOverlappingWindows.length >= windowLimit) break;
   }
 
+  if (nonOverlappingWindows.length === 0) onRejection?.({ gate: 'daylight', observed: { count: filteredForecasts.length } });
   return nonOverlappingWindows;
 }
 
@@ -909,7 +930,8 @@ function selectFallbackWindow(
   beachTz: string,
   isMorning: boolean,
   getLocalDateStrForBeach: (d: Date) => string,
-  beachName?: string // For debug logging
+  beachName?: string, // For debug logging
+  reject?: (rejection: CandidateRejection) => void,
 ): CandidateWindow | null {
   const logPrefix = beachName ? `[selectFallbackWindow] ${beachName}` : '[selectFallbackWindow]';
   const daylightForecasts = filteredForecasts.filter(({ forecastTime }, index) => {
@@ -940,6 +962,7 @@ function selectFallbackWindow(
   });
 
   if (daylightForecasts.length === 0) {
+    reject?.({ gate: 'daylight', observed: { count: filteredForecasts.length } });
     log.debug(`${logPrefix}: No daylight forecasts available after filtering ${filteredForecasts.length} input forecasts`);
     return null;
   }
@@ -988,6 +1011,7 @@ function selectFallbackWindow(
     : daylightForecasts;
 
   if (inHorizonForecasts.length === 0) {
+    reject?.({ gate: 'horizon', observed: { hoursAhead: Math.max(0, (daylightForecasts[0].forecastTime.getTime() - now.getTime()) / 3_600_000) }, allowed: { maximumHoursAhead: horizonHours } });
     log.debug(`${logPrefix}: No daylight forecasts within horizon of ${horizonHours}h (${daylightForecasts.length} daylight forecasts beyond it)`);
     return null;
   }
@@ -1004,12 +1028,16 @@ function selectFallbackWindow(
   endTime = capEndTimeToTimeSlot(effectiveStartTime, endTime, timeSlot, beachTz);
 
   const lit = clampToUsableLight(effectiveStartTime, endTime, beachTz, sunTimes);
-  if (!lit) return null;
+  if (!lit) {
+    reject?.({ gate: 'daylight', observed: { count: inHorizonForecasts.length } });
+    return null;
+  }
   effectiveStartTime = lit.start;
   endTime = lit.end;
 
   const durationHours = (endTime.getTime() - effectiveStartTime.getTime()) / (1000 * 60 * 60);
   if (durationHours < MIN_SESSION_HOURS) {
+    reject?.({ gate: 'session_duration', observed: { durationHours }, allowed: { minimumDurationHours: MIN_SESSION_HOURS } });
     log.debug(`${logPrefix}: Fallback session too short (${durationHours.toFixed(1)}h < ${MIN_SESSION_HOURS}h), start=${effectiveStartTime.toISOString()}, end=${endTime.toISOString()}`);
     return null;
   }

@@ -776,14 +776,17 @@ describe('selectBestWindows', () => {
   });
 
   it('should return an empty array for no candidates', () => {
+    const onRejection = jest.fn();
     const windows = selectBestWindows({
       forecasts: [],
       beach: mockBeach as Beach,
       userPrefs: null,
       now: fixedNow,
+      onRejection,
     });
 
     expect(windows).toEqual([]);
+    expect(onRejection).toHaveBeenCalledWith({ gate: 'forecast_rows', observed: { count: 0 } });
   });
 
   it('should use injected now instead of wall-clock time', () => {
@@ -3051,6 +3054,7 @@ describe('selectBestWindows fallback horizon constraint', () => {
   });
 
   it('returns no window when every daylight slot is beyond the horizon', () => {
+    const onRejection = jest.fn();
     const forecasts = [
       betterDaylightForecast('2024-01-17T18:00:00Z'), // ~61h ahead
       betterDaylightForecast('2024-01-18T18:00:00Z'), // ~85h ahead
@@ -3062,8 +3066,24 @@ describe('selectBestWindows fallback horizon constraint', () => {
       userPrefs: null,
       now: nightNow,
       horizonHours: 24,
+      onRejection,
     });
 
     expect(windows).toHaveLength(0);
+    expect(onRejection).toHaveBeenCalledWith(expect.objectContaining({ gate: 'horizon', allowed: { maximumHoursAhead: 24 } }));
+  });
+
+  it('records the daylight gate when every remaining row is overnight', () => {
+    const onRejection = jest.fn();
+    const windows = selectBestWindows({
+      forecasts: [createForecast({ forecast_at: '2024-01-15T10:00:00Z', forecast_date: '2024-01-15', forecast_time: '02:00' })],
+      beach: mockBeach as Beach,
+      userPrefs: null,
+      now: nightNow,
+      onRejection,
+    });
+
+    expect(windows).toHaveLength(0);
+    expect(onRejection).toHaveBeenCalledWith({ gate: 'daylight', observed: { count: 1 } });
   });
 });

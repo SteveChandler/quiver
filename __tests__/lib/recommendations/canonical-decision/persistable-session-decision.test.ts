@@ -1,12 +1,13 @@
 import { persistableSessionDecision } from "@/lib/recommendations/canonical-decision/contract";
 
 describe("persistableSessionDecision", () => {
-  it("drops the display-only conditionLabel so strict older readers accept the payload", () => {
-    const decision = { decisionId: "a".repeat(64), verdict: "go", conditionLabel: "EPIC" };
+  it("drops display-only fields so strict older readers accept the payload", () => {
+    const decision = { decisionId: "a".repeat(64), verdict: "go", conditionLabel: "EPIC", candidateRejection: { gate: 'daylight' } };
     const persisted = persistableSessionDecision(decision);
 
     expect(persisted).toEqual({ decisionId: "a".repeat(64), verdict: "go" });
     expect("conditionLabel" in (persisted as object)).toBe(false);
+    expect("candidateRejection" in (persisted as object)).toBe(false);
     expect(decision.conditionLabel).toBe("EPIC");
   });
 

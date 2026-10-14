@@ -85,6 +85,11 @@ export async function resolveCanonicalSessionDecisionContext(
     recommendations: rankedDecisionRecommendations.map(
       ({ recommendation }) => recommendation,
     ),
+    candidateRejection: input.candidateBeachIds?.length === 1
+      ? rankedDecisionRecommendations.length === 0 && decisionRecommendations.length > 0
+        ? { gate: 'water_quality_closure', observed: { status: 'closure' }, allowed: { status: 'open' } }
+        : discovery.candidateRejections?.[input.candidateBeachIds[0]] ?? null
+      : null,
   });
 
   return { decision, discovery };
