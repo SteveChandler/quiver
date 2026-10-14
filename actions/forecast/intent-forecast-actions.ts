@@ -20,6 +20,8 @@ import { sanitizeIntentForecastForMajorEventHold } from "@/lib/recommendations/m
 import { evaluateMajorEventHoldCandidates } from "@/lib/recommendations/major-event-hold/service";
 import type { RecommendationAvailability } from "@/lib/recommendations/major-event-hold/types";
 import { rankBeaches, selectBeach } from "@/lib/recommendations/selection";
+import { communityPhotoTargetKey, getResolvedSpotPhotoMap } from "@/lib/community-photos";
+import { getOptimizedImageUrl } from "@/lib/image-proxy";
 
 type SupabaseClient = Awaited<ReturnType<typeof createSupabaseServiceRoleClient>>;
 
@@ -120,10 +122,13 @@ export type CityIntentDataAvailability = "available" | "missing" | "unknown";
  * Per-beach water temperature for comparison table
  */
 export interface BeachWaterTemp {
+  beachId?: string;
   beachName: string;
   beachSlug: string | null;
   tempF: number;
   wetsuitThickness: string;
+  /** Beach photo for the comparison card; null when the beach has none. */
+  photoUrl?: string | null;
 }
 
 /**
@@ -410,11 +415,33 @@ function formatDayLabel(date: Date, today: Date, timeZone: string): string {
  * Find a representative beach for a city, with state fallback.
  * Centralizes the repeated pattern of query-with-state → fallback-without-state.
  */
+type RepresentativeBeach = { id: string; name: string; timezone: string | null };
+
+// A water-quality hold hides one beach, not the city: when the first beach is held,
+// represent the city with the next unheld one.
+const REPRESENTATIVE_CANDIDATE_LIMIT = 50;
+
+async function nextUnheldBeach(
+  supabase: SupabaseClient,
+  cityName: string,
+  state: string | null,
+): Promise<RepresentativeBeach | null> {
+  let query = supabase.from("beaches").select("id, name, timezone").ilike("city", cityName);
+  if (state) query = query.ilike("state", state);
+  const { data, error } = await query.order("name", { ascending: true }).limit(REPRESENTATIVE_CANDIDATE_LIMIT);
+  if (error) throw error;
+  if (!data || data.length === 0) return null;
+  const unheld = await rankBeaches(data as RepresentativeBeach[], {
+    compare: (a, b) => a.name.localeCompare(b.name),
+  });
+  return unheld[0] ?? null;
+}
+
 async function findRepresentativeBeach(
   supabase: SupabaseClient,
   cityName: string,
   state: string,
-): Promise<{ id: string; name: string; timezone: string | null } | null> {
+): Promise<RepresentativeBeach | null> {
   const { data } = await supabase
     .from("beaches")
     .select("id, name, timezone")
@@ -424,7 +451,7 @@ async function findRepresentativeBeach(
     .limit(1)
     .single();
 
-  if (data) return selectBeach(data);
+  if (data) return (await selectBeach(data)) ?? nextUnheldBeach(supabase, cityName, state).catch(() => null);
 
   const { data: alt } = await supabase
     .from("beaches")
@@ -434,14 +461,14 @@ async function findRepresentativeBeach(
     .limit(1)
     .single();
 
-  return alt ? selectBeach(alt) : null;
+  return alt ? ((await selectBeach(alt)) ?? nextUnheldBeach(supabase, cityName, null).catch(() => null)) : null;
 }
 
 async function findRepresentativeBeachStrict(
   supabase: SupabaseClient,
   cityName: string,
   state: string,
-): Promise<{ id: string; name: string; timezone: string | null } | null> {
+): Promise<RepresentativeBeach | null> {
   const { data, error } = await supabase
     .from("beaches")
     .select("id, name, timezone")
@@ -452,7 +479,7 @@ async function findRepresentativeBeachStrict(
     .maybeSingle();
 
   if (error) throw error;
-  if (data) return selectBeach(data);
+  if (data) return (await selectBeach(data)) ?? nextUnheldBeach(supabase, cityName, state);
 
   const { data: alt, error: altError } = await supabase
     .from("beaches")
@@ -463,7 +490,7 @@ async function findRepresentativeBeachStrict(
     .maybeSingle();
 
   if (altError) throw altError;
-  return alt ? selectBeach(alt) : null;
+  return alt ? ((await selectBeach(alt)) ?? nextUnheldBeach(supabase, cityName, null)) : null;
 }
 
 async function fetchCityTideRowsForAvailability(
@@ -910,6 +937,34 @@ async function fetchMonthlyWaterTempAverages(
   }
 }
 
+function firstBeachPhotoUrl(rows: unknown): string | null {
+  if (!Array.isArray(rows)) return null;
+  const row = rows.find((photo: { image_url?: unknown }) => typeof photo?.image_url === "string");
+  return row ? getOptimizedImageUrl(row.image_url) : null;
+}
+
+// Same photo precedence as the beginner cards: resolved curated/community photo, then beach_photos.
+async function attachBeachPhotos(beachTemps: BeachWaterTemp[]): Promise<void> {
+  const ids = beachTemps.map((beach) => beach.beachId).filter((id): id is string => Boolean(id));
+  if (ids.length === 0) return;
+  try {
+    const photoMap = await getResolvedSpotPhotoMap({
+      targets: ids.map((id) => ({ type: "beach" as const, id })),
+      limitPerTarget: 1,
+    });
+    for (const beach of beachTemps) {
+      if (!beach.beachId) continue;
+      const photo = photoMap.get(communityPhotoTargetKey({ type: "beach", id: beach.beachId }))?.[0];
+      const rawUrl = photo?.thumbUrl ?? photo?.imageUrl ?? null;
+      if (rawUrl) beach.photoUrl = getOptimizedImageUrl(rawUrl);
+    }
+  } catch (error) {
+    console.error("[getCityWaterTempExpanded] Photo resolver error:", {
+      message: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+}
+
 /**
  * Get expanded water temperature data for the dedicated water-temp page.
  * Includes per-beach comparison and monthly averages.
@@ -942,7 +997,8 @@ export async function getCityWaterTempExpanded(
           name,
           slug,
           city,
-          state
+          state,
+          beach_photos!left ( image_url )
         )
       `)
       .ilike("beaches.city", cityName)
@@ -967,13 +1023,17 @@ export async function getCityWaterTempExpanded(
         const beach = row.beaches as any;
         const rec = getWetsuitRecommendation(tempF);
         beachTemps.push({
+          beachId: row.beach_id,
           beachName: beach.name,
           beachSlug: beach.slug ?? null,
           tempF,
           wetsuitThickness: rec.thickness,
+          photoUrl: firstBeachPhotoUrl(beach.beach_photos),
         });
       }
     }
+
+    await attachBeachPhotos(beachTemps);
 
     // Sort beachTemps by temp descending (warmest first)
     beachTemps.sort((a, b) => b.tempF - a.tempF);
