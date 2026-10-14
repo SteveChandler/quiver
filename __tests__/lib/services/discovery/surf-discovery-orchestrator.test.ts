@@ -4293,6 +4293,110 @@ describe('discoverSurfSpots - Evening included beach fallback', () => {
     jest.useRealTimers();
   });
 
+  test.each([
+    { gate: 'score_floor', observed: { score: 32 }, allowed: { minimumScore: 40 } },
+    { gate: 'horizon', observed: { hoursAhead: 25 }, allowed: { maximumHoursAhead: 24 } },
+    { gate: 'daylight', observed: { count: 2 } },
+    { gate: 'session_duration', observed: { durationHours: 0.5 }, allowed: { minimumDurationHours: 1 } },
+  ])('preserves the included beach %s selector rejection', async (rejection) => {
+    const windowSelector = selectBestWindows as jest.Mock;
+    windowSelector.mockImplementation(({ onRejection }: { onRejection: (value: typeof rejection) => void }) => {
+      onRejection(rejection);
+      return [];
+    });
+
+    const result = await discoverSurfSpots('evening-fallback-user', {
+      userLocation,
+      candidatePoolLimit: 1,
+      includeBeachIds: ['beach-1'],
+    });
+
+    expect(result.candidateRejections?.['beach-1']).toEqual(rejection);
+    expect(result.recommendations).toHaveLength(0);
+  });
+
+  test.each(['advisory', 'closure'])('records a ranked beach held under a water-quality %s', async (status) => {
+    jest.resetModules();
+    const rankBeaches = jest.fn(async (_items: unknown[], options: { onWaterQualityResolution: (resolution: unknown) => void }) => {
+      options.onWaterQualityResolution({
+        state: 'resolved', heldBeachIds: ['beach-1'],
+        waterQualityStatusByBeachId: { 'beach-1': status }, epoch: 'test',
+      });
+      return [];
+    });
+    jest.doMock('@/lib/recommendations/selection', () => ({ rankBeaches }));
+    const forecast = mockState.forecastBatchResponse.successful[0].forecasts[0];
+    const window = {
+      start: new Date('2026-04-24T20:00:00.000Z'),
+      end: new Date('2026-04-24T23:00:00.000Z'),
+      tide: 'Rising', wind: '5 mph W', waveHeight: '3-4 ft', wavePeriod: '13s',
+      dataSource: 'CDIP', confidence: 88, timezone: 'UTC', sourceForecast: forecast, score: 70,
+    };
+    jest.doMock('@/lib/services/discovery/window-selector', () => ({
+      selectBestWindow: jest.fn(() => window),
+      selectBestWindows: jest.fn(() => [window]),
+      scoreWindowConditionScore: jest.fn(() => 70),
+      getLocalDateStr: jest.fn((date: Date) => date.toISOString().split('T')[0]),
+      getLocalHour: jest.fn((date: Date) => date.getUTCHours()),
+      MIN_SESSION_HOURS: 1,
+      FORECAST_WINDOW_DURATION_MINUTES: 30,
+      PAST_WINDOW_TOLERANCE_MINUTES: 15,
+    }));
+    const { discoverSurfSpots: freshDiscover } = require('@/lib/services/discovery/surf-discovery-orchestrator');
+    const result = await freshDiscover('evening-fallback-user', {
+        userLocation,
+        candidatePoolLimit: 1,
+        includeBeachIds: ['beach-1'],
+    });
+
+    expect(rankBeaches).toHaveBeenCalled();
+    expect(result.candidateRejections?.['beach-1']).toEqual({
+      gate: 'water_quality_hold', observed: { status }, allowed: { status: 'open' },
+    });
+    expect(result.recommendations).toHaveLength(0);
+  });
+
+  test('records a requested beach absent from the candidate pool', async () => {
+    mockState.candidatePoolResponse.candidates = [];
+    mockState.includedBeachRows = [];
+
+    const result = await discoverSurfSpots('evening-fallback-user', {
+      userLocation,
+      candidatePoolLimit: 1,
+      includeBeachIds: ['beach-1'],
+    });
+
+    expect(result.candidateRejections?.['beach-1']).toEqual({ gate: 'candidate_pool', observed: { count: 0 } });
+  });
+
+  test('records an included beach whose location is unavailable', async () => {
+    const result = await discoverSurfSpots('evening-fallback-user', {
+      includeBeachIds: ['beach-1'],
+    });
+
+    expect(result.candidateRejections?.['beach-1']).toEqual({
+      gate: 'candidate_pool',
+      observed: { count: 0 },
+      detail: 'Beach location unavailable',
+    });
+  });
+
+  test('records a scoped hour without a matching forecast row', async () => {
+    const forecastAt = '2026-04-27T14:00:00.000Z';
+    const result = await discoverSurfSpots('evening-fallback-user', {
+      userLocation,
+      candidatePoolLimit: 1,
+      includeBeachIds: ['beach-1'],
+      forecastAt,
+    });
+
+    expect(result.candidateRejections?.['beach-1']).toEqual({
+      gate: 'forecast_alignment',
+      observed: { forecastAt },
+      allowed: { maximumDeltaMinutes: 90 },
+    });
+  });
+
   test('keeps an included beach eligible when evening rows give way to tomorrow morning', async () => {
     const windowSelector = selectBestWindows as jest.Mock;
     const forecasts = mockState.forecastBatchResponse.successful[0].forecasts;

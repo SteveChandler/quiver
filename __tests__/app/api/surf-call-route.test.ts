@@ -594,7 +594,7 @@ describe("GET /api/surf/call", () => {
     expect(body.data.report.verdict).toBe("NO");
     expect(body.data.report.score).toBeNull();
     expect(body.data.report.whySentence).toBe(
-      "No personalized surf candidate was available for this call.",
+      "No personalized forecast window was available for Ocean Beach Pier.",
     );
     expect(body.data.forecastAlignment).toEqual({
       requestedForecastAt: forecastAt,
@@ -714,6 +714,7 @@ describe("GET /api/surf/call", () => {
       verdict: "no",
       decisionBasis: "safety_override",
       reasonCode: "water_quality_closure",
+      candidateRejection: { gate: 'water_quality_hold', observed: { status: 'closure' }, allowed: { status: 'open' } },
       selection: null,
     };
     canonicalContext.discovery.recommendationAvailability = {
@@ -739,7 +740,7 @@ describe("GET /api/surf/call", () => {
       verdict: "NO",
       bestWindowStart: null,
       bestWindowEnd: null,
-      whySentence: "Water quality is closed at this spot.",
+      whySentence: "Water quality is closed at Ocean Beach Pier; an open status is required.",
     });
     expect(body.data.sessionDecision).toMatchObject({
       verdict: "no",
@@ -747,6 +748,88 @@ describe("GET /api/surf/call", () => {
       reasonCode: "water_quality_closure",
       selection: null,
     });
+  });
+
+  it('explains candidate loss without presenting the public window as a personal selection', async () => {
+    const beachId = '11111111-1111-4111-8111-111111111111';
+    canonicalContext.decision = {
+      ...canonicalContext.decision,
+      verdict: 'no',
+      decisionBasis: 'safety_override',
+      reasonCode: 'no_candidates',
+      candidateRejection: { gate: 'daylight', observed: { count: 2 } },
+      selection: null,
+    };
+    mockBeachQuery({ id: beachId, name: 'Ocean Beach Pier', slug: 'ocean-beach-pier', lat: 32.75, lon: -117.25, timezone: 'America/Los_Angeles', deleted_at: null });
+
+    const response = await GET(new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}`));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data.sessionDecision.candidateRejection).toEqual({ gate: 'daylight', observed: { count: 2 } });
+    expect(body.data.candidateRejection).toEqual({ gate: 'daylight', observed: { count: 2 } });
+    expect(body.data.report).toMatchObject({ verdict: 'NO', bestWindowStart: null, bestWindowEnd: null, score: null });
+    expect(body.data.report.whySentence).toContain('No forecast hours for Ocean Beach Pier fall in daylight');
+    expect(body.data.report.whySentence).not.toMatch(/unsafe|safe surf window|8:00|8:30/i);
+    expect(body.data.objectiveWindow).toEqual({ start: '2026-05-08T22:30:00.000Z', end: '2026-05-09T01:30:00.000Z' });
+  });
+
+  it.each(['no_candidates', 'water_quality_closure'])('names an advisory for %s without calling the beach closed', async (reasonCode) => {
+    const beachId = '11111111-1111-4111-8111-111111111111';
+    canonicalContext.decision = {
+      ...canonicalContext.decision,
+      verdict: 'no', decisionBasis: 'safety_override', reasonCode,
+      candidateRejection: { gate: 'water_quality_hold', observed: { status: 'advisory' }, allowed: { status: 'open' } },
+      selection: null,
+    };
+    mockBeachQuery({ id: beachId, name: 'Ocean Beach Pier', slug: 'ocean-beach-pier', lat: 32.75, lon: -117.25, timezone: 'America/Los_Angeles', deleted_at: null });
+
+    const response = await GET(new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}`));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data.report.whySentence).toBe('Water quality is under an advisory at Ocean Beach Pier; an open status is required.');
+    expect(body.data.report.whySentence).not.toContain('closed');
+    expect(body.data.sessionDecision.reasonCode).toBe(reasonCode);
+  });
+
+  it('states the observed wave height and the profile skill range', async () => {
+    const beachId = '11111111-1111-4111-8111-111111111111';
+    canonicalContext.decision = {
+      ...canonicalContext.decision,
+      verdict: 'no',
+      decisionBasis: 'safety_override',
+      reasonCode: 'wave_height_exceeds_skill',
+      candidateRejection: { gate: 'skill_gate', observed: { waveHeightFt: 7.2 }, allowed: { skill: 'intermediate', minimumWaveHeightFt: 1, maximumWaveHeightFt: 6 } },
+      selection: null,
+    };
+    mockBeachQuery({ id: beachId, name: 'Ocean Beach Pier', slug: 'ocean-beach-pier', lat: 32.75, lon: -117.25, timezone: 'America/Los_Angeles', deleted_at: null });
+
+    const response = await GET(new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}`));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data.report.whySentence).toBe('Forecast 7.2 ft exceeds the intermediate safety range of 1-6 ft.');
+    expect(body.data.report.bestWindowStart).toBeNull();
+  });
+
+  it('names the beginner safety range applied for unknown skill', async () => {
+    const beachId = '11111111-1111-4111-8111-111111111111';
+    canonicalContext.decision = {
+      ...canonicalContext.decision,
+      verdict: 'no', decisionBasis: 'safety_override', reasonCode: 'wave_height_exceeds_skill',
+      skillEligibility: { skill: 'unknown', state: 'insufficient_safety_data', reasonCodes: ['unknown_skill'] },
+      candidateRejection: { gate: 'skill_gate', observed: { waveHeightFt: 6 }, allowed: { skill: 'beginner', minimumWaveHeightFt: 0.5, maximumWaveHeightFt: 4 } },
+      selection: null,
+    };
+    mockBeachQuery({ id: beachId, name: 'Ocean Beach Pier', slug: 'ocean-beach-pier', lat: 32.75, lon: -117.25, timezone: 'America/Los_Angeles', deleted_at: null });
+
+    const response = await GET(new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}`));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data.report.whySentence).toBe('Forecast 6 ft exceeds the beginner safety range of 0.5-4 ft applied when skill is unknown.');
+    expect(body.data.report.whySentence).not.toContain('your beginner');
   });
 
   it("uses a valid boardClass as exact-window explanation context", async () => {
