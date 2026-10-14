@@ -34,6 +34,7 @@ interface CliOptions {
   start: string;
   end: string;
   asOf: string;
+  trialWindowDays: number;
   outputJson: string | null;
   outputCsv: string | null;
   outputMd: string | null;
@@ -99,6 +100,12 @@ export function parseCliArgs(argv: string[], now: Date = new Date()): CliOptions
   const tzArg = flagValue(argv, "--tz");
   const daysArg = flagValue(argv, "--days");
   const days = daysArg === null ? 30 : Number(daysArg);
+  const trialWindowArg = flagValue(argv, "--trial-window-days");
+  const trialWindowDays = trialWindowArg === null ? 7 : Number(trialWindowArg);
+  if ((argv.includes("--trial-window-days") && trialWindowArg === null)
+    || !Number.isSafeInteger(trialWindowDays) || trialWindowDays < 1) {
+    throw new Error("--trial-window-days must be a positive integer");
+  }
   const localDates = (!startArg && !endArg) || (Boolean(tzArg)
     && (!startArg || /^\d{4}-\d{2}-\d{2}$/.test(startArg))
     && (!endArg || /^\d{4}-\d{2}-\d{2}$/.test(endArg)));
@@ -123,6 +130,7 @@ export function parseCliArgs(argv: string[], now: Date = new Date()): CliOptions
     start,
     end,
     asOf,
+    trialWindowDays,
     outputJson: flagValue(argv, "--output-json"),
     outputCsv: flagValue(argv, "--output-csv"),
     outputMd: flagValue(argv, "--output-md"),
@@ -152,12 +160,26 @@ async function readAll<T>(fetchPage: (from: number, to: number) => PromiseLike<{
 function postHogEvents(): string[] {
   return [
     "native_app_first_open",
+    "native_install_attribution_joined",
     "home_viewed",
     "home_hero_forecast_viewed",
     "paywall_opened",
     "onboarding_paywall_viewed",
     ...MEANINGFUL_ACTIVITY_EVENTS,
   ].filter((value, index, all) => all.indexOf(value) === index);
+}
+
+function parsePostHogProperties(value: unknown): Record<string, unknown> | undefined {
+  let parsed = value;
+  if (typeof value === "string") {
+    try {
+      parsed = JSON.parse(value) as unknown;
+    } catch {
+      return undefined;
+    }
+  }
+  return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+    ? parsed as Record<string, unknown> : undefined;
 }
 
 export function parsePostHogRows(payload: PostHogPayload): InstallBehaviorEvent[] {
@@ -170,9 +192,7 @@ export function parsePostHogRows(payload: PostHogPayload): InstallBehaviorEvent[
       distinctId: distinctId as string,
       personId: personId as string,
       nativeInstallId: typeof nativeInstallId === "string" ? nativeInstallId : null,
-      properties: properties && typeof properties === "object" && !Array.isArray(properties)
-        ? properties as Record<string, unknown>
-        : {},
+      properties: parsePostHogProperties(properties),
     }];
   });
 }
@@ -393,7 +413,7 @@ export function aggregatesToMarkdown(aggregates: InstallToPaidAggregates): strin
   const lines = [
     "# Install-to-paid funnel", "",
     `Window: ${aggregates.window.startDate} to ${aggregates.window.endDate} (end exclusive, ${aggregates.window.timeZone}); as of ${aggregates.asOf}.`,
-    "Unit: native install. Rates use true / (true + false); unknown and immature are separate. Verified trial requires a RevenueCat trial purchase within 30 days and matures at 30 days. ASC downloads are aggregate only.",
+    `Unit: native install. Known-join rate uses true / (true + false); lower bound counts unknown as no. Excluded, immature, and not applicable installs are outside both denominators. Verified trial requires a RevenueCat trial purchase within ${aggregates.maturityHours.verifiedTrial / 24} days and matures at that deadline. ASC downloads are aggregate only.`,
     "",
   ];
   const addGroup = (title: string, group: InstallToPaidAggregates["overall"]): void => {
@@ -401,13 +421,13 @@ export function aggregatesToMarkdown(aggregates: InstallToPaidAggregates): strin
       `Installs n=${group.installs}; eligible signup installs n=${group.eligibleInstalls}; joins exact n=${group.joinStatus.exact}, unknown n=${group.joinStatus.unknown}, excluded n=${group.joinStatus.excluded}.`,
       `Excluded: ${Object.entries(group.excluded).map(([reason, n]) => `${reason} n=${n}`).join(", ") || "none n=0"}.`,
       `Unknown joins: ${Object.entries(group.unknownJoinReason).map(([reason, n]) => `${reason} n=${n}`).join(", ") || "none n=0"}.`,
-      "", "| Stage | True n | False n | Unknown n | Immature n | Rate | Unknown share |",
-      "| --- | ---: | ---: | ---: | ---: | --- | --- |");
+      "", "| Stage | True n | False n | Unknown n | Immature n | Not applicable n | known-join rate | lower bound (unknown counted as no) | Unknown share |",
+      "| --- | ---: | ---: | ---: | ---: | ---: | --- | --- | --- |");
     for (const [key, label] of STAGE_LABELS) {
       const stage = group.stages[key];
       const fraction = (value: { numerator: number; denominator: number; rate: number | null }): string =>
-        `${value.numerator}/${value.denominator} (${value.rate === null ? "n/a" : `${(value.rate * 100).toFixed(1)}%`})`;
-      lines.push(`| ${label} | ${stage.true} | ${stage.false} | ${stage.unknown} | ${stage.immature} | ${fraction(stage.rate)} | ${fraction(stage.unknownShare)} |`);
+        `n=${value.numerator}/${value.denominator} (${value.rate === null ? "n/a" : `${(value.rate * 100).toFixed(1)}%`})`;
+      lines.push(`| ${label} | ${stage.true} | ${stage.false} | ${stage.unknown} | ${stage.immature} | ${stage.notApplicable} | ${fraction(stage.rate)} | ${fraction(stage.lowerBoundRate)} | ${fraction(stage.unknownShare)} |`);
     }
     lines.push("");
   };
@@ -445,13 +465,15 @@ export async function main(): Promise<void> {
     },
   };
   const rows = buildInstallToPaidRows(input);
-  const dimensions = buildInstallDimensions(input, rows);
+  const dimensions = buildInstallDimensions(input, rows, { trialWindowDays: options.trialWindowDays });
   const ascAggregateDownloads = {
     joinPolicy: "aggregate_only_never_person_joined" as const,
     rows: readAscAggregate(options.ascJson),
   };
   const aggregates = buildInstallToPaidAggregates(rows, dimensions, {
     asOf: options.asOf,
+    trialWindowDays: options.trialWindowDays,
+    revenueCatEvents: input.revenueCatEvents,
     window: options.window,
     sourceFreshness: {
       ...input.sourceFreshness,

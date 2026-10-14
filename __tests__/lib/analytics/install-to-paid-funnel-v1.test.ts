@@ -7,6 +7,7 @@ import {
 import {
   buildInstallDimensions, buildInstallToPaidAggregates, buildInstallToPaidRows,
   INSTALL_TO_PAID_SCHEMA_VERSION, INSTALL_TO_PAID_AGGREGATES_SCHEMA_VERSION,
+  type InstallToPaidInput, type InstallToPaidAggregates,
 } from "@/lib/analytics/install-to-paid-funnel-v1";
 
 describe("install-to-paid v1 milestone contract", () => {
@@ -143,6 +144,17 @@ describe("install-to-paid v1 milestone contract", () => {
 
 describe("install-to-paid cohort aggregates", () => {
   const input = INSTALL_TO_PAID_AGGREGATE_FIXTURE;
+  function reportFor(cohort: InstallToPaidInput, trialWindowDays = 7): InstallToPaidAggregates {
+    const cohortRows = buildInstallToPaidRows(cohort);
+    return buildInstallToPaidAggregates(cohortRows,
+      buildInstallDimensions(cohort, cohortRows, { trialWindowDays }), {
+        asOf: cohort.asOf, trialWindowDays, revenueCatEvents: cohort.revenueCatEvents,
+        window: { startDate: "2026-01-01", endDate: "2026-02-15",
+          start: "2026-01-01T00:00:00.000Z", end: "2026-02-15T00:00:00.000Z",
+          timeZone: "America/Los_Angeles" },
+        sourceFreshness: cohort.sourceFreshness,
+      });
+  }
   const rows = buildInstallToPaidRows(input);
   const dimensions = buildInstallDimensions(input, rows);
   const aggregates = buildInstallToPaidAggregates(rows, dimensions, {
@@ -151,6 +163,7 @@ describe("install-to-paid cohort aggregates", () => {
       start: "2026-01-01T00:00:00.000Z", end: "2026-02-15T00:00:00.000Z",
       timeZone: "America/Los_Angeles" },
     sourceFreshness: input.sourceFreshness,
+    revenueCatEvents: input.revenueCatEvents,
   });
 
   it("counts each anchored install and each qualifying conversion once", () => {
@@ -159,7 +172,7 @@ describe("install-to-paid cohort aggregates", () => {
     expect(aggregates.overall.stages.nativeInstall.true).toBe(5);
     expect(aggregates.overall.stages.paywallViewed.true).toBe(1);
     expect(aggregates.overall.stages.verifiedTrial.true).toBe(1);
-    expect(aggregates.overall.stages.verifiedTrial.unknown).toBe(2);
+    expect(aggregates.overall.stages.verifiedTrial.unknown).toBe(1);
     expect(aggregates.ascDownloads).toEqual({
       joinPolicy: "aggregate_only_never_person_joined", downloads: null,
     });
@@ -170,6 +183,118 @@ describe("install-to-paid cohort aggregates", () => {
       trialProductId: "app.quiversurf.surf.pro.annual",
     });
     expect(dimensions["10000000-0000-4000-8000-000000000004"].paywallSource).toBe("none");
+  });
+
+  it("counts reinstall signup as not applicable and reports a lower bound for unknown joins", () => {
+    expect(aggregates.overall.stages.signup).toMatchObject({
+      true: 3, false: 0, unknown: 1, notApplicable: 1,
+      rate: { numerator: 3, denominator: 3, rate: 1 },
+      lowerBoundRate: { numerator: 3, denominator: 4, rate: 0.75 },
+    });
+  });
+
+  it("keeps excluded installs out of every stage and every rate in all breakdowns", () => {
+    const eligibleRow = rows[0];
+    const excludedRows = ["founder_or_maestro", "test_email", "bot", "emulator", "test"]
+      .map((reason, index) => ({ ...eligibleRow, nativeInstallId: `excluded-${index}`,
+        joinStatus: "excluded" as const, exclusionReason: reason, excludedFromInstallToSignup: true }));
+    const report = buildInstallToPaidAggregates([...rows, ...excludedRows], dimensions, {
+      asOf: input.asOf, window: aggregates.window, sourceFreshness: input.sourceFreshness,
+      revenueCatEvents: input.revenueCatEvents,
+    });
+    expect(report.overall.installs).toBe(rows.length + excludedRows.length);
+    expect(report.overall.excluded).toEqual({ founder_or_maestro: 1, test_email: 1, bot: 1, emulator: 1, test: 1 });
+    expect(report.overall.stages).toEqual(aggregates.overall.stages);
+    for (const groups of [report.cohortWeeks, ...Object.values(report.breakdowns)]) {
+      for (const stage of Object.keys(report.overall.stages) as Array<keyof typeof report.overall.stages>) {
+        const total = groups.reduce((sum, group) => {
+          const count = group.stages[stage];
+          return sum + count.true + count.false + count.unknown + count.immature + count.notApplicable;
+        }, 0);
+        expect(total).toBe(rows.length);
+      }
+    }
+    const originalRows = buildInstallToPaidRows(INSTALL_TO_PAID_V1_FIXTURE);
+    const eligibleRows = originalRows.filter((row) => row.joinStatus !== "excluded");
+    const originalReport = reportFor(INSTALL_TO_PAID_V1_FIXTURE);
+    const eligibleReport = buildInstallToPaidAggregates(eligibleRows,
+      buildInstallDimensions(INSTALL_TO_PAID_V1_FIXTURE, eligibleRows), {
+        asOf: INSTALL_TO_PAID_V1_FIXTURE.asOf, window: aggregates.window,
+        sourceFreshness: input.sourceFreshness,
+        revenueCatEvents: INSTALL_TO_PAID_V1_FIXTURE.revenueCatEvents,
+      });
+    expect(originalReport.overall.excluded.emulator).toBe(2);
+    expect(originalReport.overall.stages).toEqual(eligibleReport.overall.stages);
+  });
+
+  it("joins acquisition by install ID or person span and falls back to attribution outcomes", () => {
+    const anchor = input.behaviorEvents[0];
+    const reinstall = input.behaviorEvents.find((event) => event.nativeInstallId === "10000000-0000-4000-8000-000000000004")!;
+    const cohort = { ...input, behaviorEvents: [anchor, reinstall,
+      { ...anchor, event: "native_install_attribution_joined", personId: "changed-person",
+        timestamp: "2026-01-02T00:00:00.000Z", properties: { acquisition_source: "campaign" } },
+      { ...reinstall, event: "native_install_attribution_joined", nativeInstallId: null,
+        timestamp: "2026-01-06T00:00:00.000Z", properties: { install_attribution_outcome: "unavailable" } },
+      { ...reinstall, event: "native_install_attribution_joined", nativeInstallId: "another-install",
+        timestamp: "2026-01-05T00:01:00.000Z", properties: { acquisition_source: "wrong" } },
+    ] };
+    const result = buildInstallDimensions(cohort);
+    expect(result[anchor.nativeInstallId!].acquisitionSource).toBe("campaign");
+    expect(result[reinstall.nativeInstallId!].acquisitionSource).toBe("outcome:unavailable");
+    const fallbackOnly = buildInstallDimensions({ ...cohort,
+      behaviorEvents: cohort.behaviorEvents.filter((event) => event.personId !== "changed-person") });
+    expect(fallbackOnly[anchor.nativeInstallId!].acquisitionSource).toBe("outcome:joined");
+    expect(fallbackOnly[reinstall.nativeInstallId!].acquisitionSource).toBe("outcome:unavailable");
+    const withoutJoin = buildInstallDimensions({ ...cohort, behaviorEvents: [anchor] });
+    expect(withoutJoin[anchor.nativeInstallId!].acquisitionSource).toBe("outcome:joined");
+  });
+
+  it("uses the first in-window production trial even when the row's first trial predates install", () => {
+    const anchor = input.behaviorEvents[0];
+    const trial = input.revenueCatEvents[0];
+    const cohort: InstallToPaidInput = { ...input, asOf: "2026-01-11T00:00:00.000Z",
+      behaviorEvents: input.behaviorEvents.filter((event) => event.personId === anchor.personId
+        && event.nativeInstallId !== "10000000-0000-4000-8000-000000000004"),
+      revenueCatEvents: [
+        { ...trial, providerEventId: "before-install", eventTimestamp: "2025-12-30T00:00:00.000Z" },
+        { ...trial, providerEventId: "sandbox", eventTimestamp: "2026-01-02T00:00:00.000Z", environment: "SANDBOX" },
+        { ...trial, providerEventId: "renewal", eventTimestamp: "2026-01-01T01:00:00.000Z", eventType: "RENEWAL" },
+        { ...trial, providerEventId: "non-trial", eventTimestamp: "2026-01-01T01:00:00.000Z", periodType: "NORMAL" },
+        { ...trial, providerEventId: "valid", eventTimestamp: "2026-01-03T00:00:00.000Z", productId: "pro.monthly" },
+        { ...trial, providerEventId: "late", eventTimestamp: "2026-01-09T00:00:00.000Z" },
+      ],
+    };
+    expect(buildInstallToPaidRows(cohort)[0].firstQualifiedAt.verified_trial).toBe("2025-12-30T00:00:00.000Z");
+    const report = reportFor(cohort);
+    expect(report.maturityHours.verifiedTrial).toBe(168);
+    expect(report.overall.stages.verifiedTrial).toMatchObject({ true: 1, immature: 0 });
+    expect(report.breakdowns.trialPlan.map((group) => group.value)).toEqual(["monthly"]);
+    expect(buildInstallDimensions(cohort)[anchor.nativeInstallId!].trialPlan).toBe("monthly");
+    const longerWindow = reportFor(cohort, 14);
+    expect(longerWindow.maturityHours.verifiedTrial).toBe(336);
+    expect(longerWindow.overall.stages.verifiedTrial).toMatchObject({ immature: 1, rate: { denominator: 0 } });
+    expect(longerWindow.breakdowns.trialPlan.map((group) => group.value)).toEqual(["none"]);
+    expect(buildInstallDimensions(cohort, undefined, { trialWindowDays: 14 })[anchor.nativeInstallId!].trialPlan).toBe("none");
+    expect(longerWindow.overall.stages.d30Paid.immature).toBe(1);
+    const lateOnly = { ...cohort, revenueCatEvents: cohort.revenueCatEvents.filter((event) => event.providerEventId !== "valid") };
+    expect(reportFor(lateOnly).overall.stages.verifiedTrial.false).toBe(1);
+    expect(reportFor(lateOnly).breakdowns.trialPlan[0].value).toBe("none");
+    expect(reportFor({ ...lateOnly, asOf: "2026-01-16T00:00:00.000Z" }, 14).overall.stages.verifiedTrial.true).toBe(1);
+    const atDeadline = { ...cohort, revenueCatEvents: [{ ...trial, eventTimestamp: "2026-01-08T00:00:00.000Z" }] };
+    expect(reportFor(atDeadline).overall.stages.verifiedTrial.false).toBe(1);
+  });
+
+  it("keeps duplicate trial plans at none when overlapping reinstall windows share one purchase", () => {
+    const cohort = { ...input, behaviorEvents: input.behaviorEvents.map((event) =>
+      event.nativeInstallId === "10000000-0000-4000-8000-000000000004"
+        ? { ...event, timestamp: "2026-01-02T00:00:00.000Z" } : event),
+      revenueCatEvents: [{ ...input.revenueCatEvents[0], eventTimestamp: "2026-01-03T00:00:00.000Z" }],
+    };
+    const report = reportFor(cohort);
+    expect(report.overall.stages.verifiedTrial.true).toBe(1);
+    const result = buildInstallDimensions(cohort);
+    expect(result["10000000-0000-4000-8000-000000000004"].trialPlan).toBe("none");
+    expect(report.breakdowns.trialPlan.find((group) => group.value === "annual")?.installs).toBe(1);
   });
 
   it("keeps immature installs out of denominators and missing joins out of false", () => {

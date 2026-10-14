@@ -43,11 +43,26 @@ describe("install-to-paid report", () => {
         asOf: INSTALL_TO_PAID_V1_FIXTURE.asOf,
         window: options.window,
         sourceFreshness: INSTALL_TO_PAID_V1_FIXTURE.sourceFreshness,
+        revenueCatEvents: INSTALL_TO_PAID_V1_FIXTURE.revenueCatEvents,
       });
     const markdown = aggregatesToMarkdown(report);
     expect(markdown).toContain("| Verified trial |");
     expect(markdown).toContain("## platform: unknown");
     expect(markdown).toContain("unknown n=");
+    expect(markdown).toContain("known-join rate");
+    expect(markdown).toContain("lower bound (unknown counted as no)");
+    expect(markdown).toContain("Not applicable n");
+    expect(markdown).toContain("within 7 days");
+    expect(markdown).toContain("| Signup | 10 | 0 | 4 | 0 | 1 | n=10/10 (100.0%) | n=10/14 (71.4%) | n=4/14 (28.6%) |");
+  });
+
+  it("validates a configurable trial window with a seven-day default", () => {
+    expect(parseCliArgs([]).trialWindowDays).toBe(7);
+    expect(parseCliArgs(["--trial-window-days", "14"]).trialWindowDays).toBe(14);
+    for (const value of ["0", "-1", "1.5", "bad"]) {
+      expect(() => parseCliArgs(["--trial-window-days", value])).toThrow("--trial-window-days");
+    }
+    expect(() => parseCliArgs(["--trial-window-days"])).toThrow("--trial-window-days");
   });
 
   it("uses --days for the default Los Angeles complete-day window", () => {
@@ -106,6 +121,7 @@ describe("install-to-paid report", () => {
     );
     expect(queries[0]).toContain("ORDER BY timestamp ASC, uuid ASC");
     expect(queries[0]).toContain("LIMIT 1000");
+    expect(queries[0]).toContain("'native_install_attribution_joined'");
     expect(queries[0]).not.toContain("OFFSET");
     expect(queries[0]).toContain("timestamp >= toDateTime('2026-01-01T00:00:00.000Z')");
     expect(queries[0]).toContain("timestamp < toDateTime('2026-01-02T00:00:00.000Z')");
@@ -132,6 +148,30 @@ describe("install-to-paid report", () => {
       nativeInstallId: "10000000-0000-4000-8000-000000000001",
     })]);
   });
+
+  it("preserves string-encoded HogQL properties for dimensions and exclusions", () => {
+    const properties = { platform: "native-ios", install_attribution_outcome: "organic",
+      onboarding_variant: "A", is_emulator: true };
+    const events = parsePostHogRows({ results: [[
+      "native_app_first_open", "2026-01-01T00:00:00Z", "anonymous-id", "person-id",
+      "10000000-0000-4000-8000-000000000001", JSON.stringify(properties),
+    ]] });
+    expect(events[0].properties).toEqual(properties);
+    const input = { ...INSTALL_TO_PAID_V1_FIXTURE, behaviorEvents: events, installLinks: [] };
+    expect(buildInstallDimensions(input)[events[0].nativeInstallId!]).toMatchObject({
+      platform: "ios", acquisitionSource: "outcome:organic",
+    });
+    expect(buildInstallToPaidRows(input)[0].exclusionReason).toBe("emulator");
+  });
+
+  it.each(["not json", "[]", "null", "42", "\"text\"", [], null])(
+    "ignores invalid or non-object properties: %p", (properties) => {
+      expect(parsePostHogRows({ results: [[
+        "native_app_first_open", "2026-01-01T00:00:00Z", "anonymous-id", "person-id",
+        "10000000-0000-4000-8000-000000000001", properties,
+      ]] })[0].properties).toBeUndefined();
+    },
+  );
 
   it("uses historical profile bounds and unique Supabase pagination tie-breakers", () => {
     const source = readFileSync(

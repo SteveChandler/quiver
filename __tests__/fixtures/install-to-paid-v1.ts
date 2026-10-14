@@ -180,8 +180,11 @@ export const INSTALL_TO_PAID_AGGREGATE_FIXTURE: InstallToPaidInput = {
   asOf: "2026-02-15T00:00:00.000Z",
   behaviorEvents: [
     event("happy", "native_app_first_open", "2026-01-01T00:00:00.000Z", {
-      platform: "native-ios", acquisition_source: "app_store", acquisition_surface: "search",
+      platform: "native-ios", install_attribution_outcome: "joined", acquisition_surface: "search",
     }),
+    { ...event("happy", "native_install_attribution_joined", "2026-01-01T00:00:30.000Z", {
+      acquisition_source: "app_store", install_attribution_outcome: "joined",
+    }), nativeInstallId: INSTALLS.happy },
     event("happy", "home_viewed", "2026-01-01T00:01:00.000Z", {
       experiment: "onboarding_monetization_v1", onboarding_variant: "A",
     }),
