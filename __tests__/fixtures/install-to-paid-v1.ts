@@ -175,3 +175,43 @@ export const INSTALL_TO_PAID_V1_FIXTURE: InstallToPaidInput = {
 
 export const INSTALL_TO_PAID_V1_EXPECTED_INSTALL_COUNT = 17;
 export const POSTHOG_OPTOUT_INSTALL_ID = "10000000-0000-4000-8000-00000000000c";
+
+export const INSTALL_TO_PAID_AGGREGATE_FIXTURE: InstallToPaidInput = {
+  asOf: "2026-02-15T00:00:00.000Z",
+  behaviorEvents: [
+    event("happy", "native_app_first_open", "2026-01-01T00:00:00.000Z", {
+      platform: "native-ios", install_attribution_outcome: "joined", acquisition_surface: "search",
+    }),
+    { ...event("happy", "native_install_attribution_joined", "2026-01-01T00:00:30.000Z", {
+      acquisition_source: "app_store", install_attribution_outcome: "joined",
+    }), nativeInstallId: INSTALLS.happy },
+    event("happy", "home_viewed", "2026-01-01T00:01:00.000Z", {
+      experiment: "onboarding_monetization_v1", onboarding_variant: "A",
+    }),
+    event("happy", "paywall_opened", "2026-01-01T00:02:00.000Z", { source: "onboarding" }),
+    event("happy", "paywall_opened", "2026-01-01T00:03:00.000Z", { source: "home" }),
+    event("reinstall", "native_app_first_open", "2026-01-05T00:00:00.000Z", { platform: "android" }, USERS.happy),
+    event("unlinked", "native_app_first_open", "2026-01-01T00:00:00.000Z", {}, "anonymous"),
+    event("d1EndOnly", "native_app_first_open", "2026-02-13T18:00:00.000Z"),
+    event("immature", "native_app_first_open", "2026-02-05T00:00:00.000Z", {}, USERS.immature),
+  ].map((item) => item.event === "native_app_first_open" && item.nativeInstallId === INSTALLS.reinstall
+    ? { ...item, personId: "person-happy" } : item),
+  installLinks: [
+    { nativeInstallId: INSTALLS.happy, userId: USERS.happy },
+    { nativeInstallId: INSTALLS.reinstall, userId: USERS.happy },
+    { nativeInstallId: INSTALLS.immature, userId: USERS.immature },
+    { nativeInstallId: INSTALLS.d1EndOnly, userId: USERS.d1EndOnly },
+  ],
+  profiles: [profile("happy"), profile("immature", "2026-02-05T01:00:00.000Z"),
+    profile("d1EndOnly", "2026-02-13T19:00:00.000Z")],
+  revenueCatEvents: [
+    rcEvent("happy", "trial-first", "INITIAL_PURCHASE", "2026-01-01T02:00:00.000Z", {
+      periodType: "TRIAL", productId: "app.quiversurf.surf.pro.annual",
+    }),
+    rcEvent("happy", "trial-second", "INITIAL_PURCHASE", "2026-01-02T02:00:00.000Z", {
+      periodType: "TRIAL", productId: "app.quiversurf.surf.pro.monthly",
+    }),
+  ],
+  failedWebhooks: [],
+  sourceFreshness: INSTALL_TO_PAID_V1_FIXTURE.sourceFreshness,
+};
