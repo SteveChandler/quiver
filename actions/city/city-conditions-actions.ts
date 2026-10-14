@@ -1,5 +1,6 @@
 "use server";
 
+import { cache } from "react";
 import { createPublicReadClient } from "@/lib/supabase/server";
 import { rankBeaches } from "@/lib/recommendations/selection";
 import { WATER_QUALITY_HOLD_PREFETCH_BUFFER } from "@/lib/recommendations/major-event-hold/water-quality";
@@ -126,7 +127,10 @@ function describeWind(windSpeed: string | null): string | null {
 async function fetchCitySurfReport(
   cityName: string,
   stateSlug: string,
+  acceptedBeachIds?: string[],
 ): Promise<CitySurfReportSummary | null> {
+  if (acceptedBeachIds?.length === 0) return null;
+
   try {
     const supabase = createPublicReadClient();
 
@@ -143,7 +147,7 @@ async function fetchCitySurfReport(
 
     // Query enhanced_forecasts joined with beaches for the given city/state.
     // We select the most recent forecast per beach for today.
-    const { data: forecasts, error } = await supabase
+    let query = supabase
       .from("enhanced_forecasts")
       .select(
         `
@@ -163,7 +167,13 @@ async function fetchCitySurfReport(
         )
       `,
       )
-      .ilike("beaches.state", stateSlug)
+      .ilike("beaches.state", stateSlug);
+
+    if (acceptedBeachIds) {
+      query = query.in("beach_id", acceptedBeachIds);
+    }
+
+    const { data: forecasts, error } = await query
       .gte("forecast_at", recentStart.toISOString())
       .lt("forecast_at", tomorrowStart.toISOString())
       .order("forecast_at", { ascending: false })
@@ -303,6 +313,23 @@ async function fetchCitySurfReport(
 export async function getCitySurfReport(
   cityName: string,
   stateSlug: string,
+  acceptedBeachIds?: string[],
+  islandSlug?: string,
 ): Promise<CitySurfReportSummary | null> {
-  return fetchCitySurfReport(cityName, stateSlug);
+  const beachIdsKey = acceptedBeachIds ? [...acceptedBeachIds].sort().join(",") : null;
+  return getCachedCitySurfReport(cityName, stateSlug, islandSlug ?? null, beachIdsKey);
 }
+
+const getCachedCitySurfReport = cache(async (
+  cityName: string,
+  stateSlug: string,
+  islandSlug: string | null,
+  beachIdsKey: string | null,
+): Promise<CitySurfReportSummary | null> => {
+  if (islandSlug && beachIdsKey === null) return null;
+  return fetchCitySurfReport(
+    cityName,
+    stateSlug,
+    beachIdsKey === null ? undefined : beachIdsKey ? beachIdsKey.split(",") : [],
+  );
+});

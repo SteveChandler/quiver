@@ -71,6 +71,19 @@ describe("City Editorial Actions", () => {
   });
 
   describe("getCityEditorialContent", () => {
+    it("does not reuse city-wide Waimea editorial on an island page", async () => {
+      mockSupabaseClient.rpc.mockResolvedValue(mockRpcNotFoundResponse);
+
+      const result = await getCityEditorialContent(
+        "waimea-kauai", "hi", "usa", null, false,
+      );
+
+      expect(result).toBeNull();
+      expect(mockSupabaseClient.rpc.mock.calls.every(
+        ([, args]) => args.p_city === "waimea-kauai",
+      )).toBe(true);
+    });
+
     describe("Success Cases", () => {
       it("should fetch San Diego editorial content successfully", async () => {
         mockSupabaseClient.rpc.mockResolvedValue(mockRpcSuccessResponse);
