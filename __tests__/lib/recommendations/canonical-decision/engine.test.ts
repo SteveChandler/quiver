@@ -86,7 +86,7 @@ describe("canonical session decision engine", () => {
     [{ gate: 'session_duration', observed: { durationHours: 0.5 }, allowed: { minimumDurationHours: 1 } }],
     [{ gate: 'window_selection', observed: { count: 2 } }],
     [{ gate: 'saved_spot_eligibility', observed: { status: 'Maybe' }, allowed: { status: 'Worth it' } }],
-    [{ gate: 'water_quality_closure', observed: { status: 'closure' }, allowed: { status: 'open' } }],
+    [{ gate: 'water_quality_hold', observed: { status: 'advisory' }, allowed: { status: 'open' } }],
     [{ gate: 'skill_gate', observed: { skill: 'advanced' }, allowed: { skill: 'intermediate' } }],
     [{ gate: 'ranking', observed: { count: 3 } }],
   ])('preserves a %j discovery rejection without changing no_candidates', (candidateRejection) => {
@@ -101,7 +101,7 @@ describe("canonical session decision engine", () => {
   it.each([
     ['wave_height_exceeds_skill', { waveHeight: '7.2 ft' }, { gate: 'skill_gate', observed: { waveHeightFt: 7.2 }, allowed: { minimumWaveHeightFt: 1, maximumWaveHeightFt: 6, skill: 'intermediate' } }],
     ['beach_skill_exceeds_user', { beachSkillLevel: 'advanced' }, { gate: 'skill_gate', observed: { skill: 'advanced' }, allowed: { skill: 'intermediate' } }],
-    ['water_quality_closure', { safetyOverrideReasons: ['water_quality_closure'] }, { gate: 'water_quality_closure', observed: { status: 'closure' }, allowed: { status: 'open' } }],
+    ['water_quality_closure', { safetyOverrideReasons: ['water_quality_closure'] }, { gate: 'water_quality_hold', observed: { status: 'closure' }, allowed: { status: 'open' } }],
   ])('records observed and allowed values for %s', (reasonCode, candidateOverrides, rejection) => {
     const { buildCanonicalSessionDecision } = loadEngine();
     const decision = buildCanonicalSessionDecision(input([candidate(candidateOverrides as Partial<TestCandidate>)])) as {
@@ -110,6 +110,28 @@ describe("canonical session decision engine", () => {
     expect(decision.reasonCode).toBe(reasonCode);
     expect(decision.candidateRejection).toEqual(rejection);
   });
+  it('keeps the decision id stable when display-only rejection evidence changes', () => {
+    const { buildCanonicalSessionDecision } = loadEngine();
+    const withoutRejection = buildCanonicalSessionDecision(input([])) as { decisionId: string };
+    const withRejection = buildCanonicalSessionDecision(input([], {
+      candidateRejection: { gate: 'daylight', observed: { count: 2 } },
+    })) as { decisionId: string };
+    expect(withRejection.decisionId).toBe(withoutRejection.decisionId);
+  });
+
+  it('labels the beginner safety limit applied for an unknown skill', () => {
+    const { buildCanonicalSessionDecision } = loadEngine();
+    const decision = buildCanonicalSessionDecision(input([candidate({ waveHeight: '5-6 ft' })], {
+      profileExperience: undefined,
+    })) as { reasonCode: string; candidateRejection: unknown };
+    expect(decision.reasonCode).toBe('wave_height_exceeds_skill');
+    expect(decision.candidateRejection).toEqual({
+      gate: 'skill_gate',
+      observed: { waveHeightFt: 6 },
+      allowed: { minimumWaveHeightFt: 0.5, maximumWaveHeightFt: 4, skill: 'beginner' },
+    });
+  });
+
   it("keeps the objective call while withholding personal fit for unknown skill", () => {
     const { buildCanonicalSessionDecision } = loadEngine();
     const decision = buildCanonicalSessionDecision(

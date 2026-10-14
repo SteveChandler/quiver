@@ -59,7 +59,7 @@ const candidateRejectionSchema = z.object({
   gate: z.enum([
     'candidate_pool', 'forecast_rows', 'forecast_alignment', 'past_forecast',
     'time_slot', 'score_floor', 'horizon', 'daylight', 'session_duration',
-    'window_selection', 'water_quality_closure', 'saved_spot_eligibility',
+    'window_selection', 'water_quality_hold', 'saved_spot_eligibility',
     'skill_gate', 'ranking',
   ]),
   observed: z.object({

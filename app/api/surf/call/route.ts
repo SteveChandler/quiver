@@ -36,7 +36,6 @@ import {
   type SurfCallForecastAlignment,
 } from '@/lib/services/discovery/forecast-alignment';
 import { retryAfterSeconds } from '@/lib/utils/retry-after';
-import { formatWaveHeightDecimal, formatWaveHeightRangeString } from '@/lib/utils/wave-formatters';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 15;
@@ -197,9 +196,11 @@ function appendBoardNote(whySentence: string, boardNote: string | null): string 
 
 function safetyReason(decision: CanonicalSessionDecision, beachName: string): string {
   const rejection = decision.candidateRejection;
-  const waterQualityStatus = rejection?.observed?.status === 'closure'
-    ? 'closed'
-    : rejection?.observed?.status ?? 'closed';
+  const waterQualityReason = rejection?.observed?.status === 'advisory'
+    ? `Water quality is under an advisory at ${beachName}; an open status is required.`
+    : rejection?.observed?.status === 'closure' || decision.reasonCode === 'water_quality_closure'
+      ? `Water quality is closed at ${beachName}; an open status is required.`
+      : `Water quality is on hold at ${beachName}; an open status is required.`;
   if (decision.reasonCode === 'no_candidates' && rejection) {
     switch (rejection.gate) {
       case 'forecast_rows':
@@ -218,8 +219,8 @@ function safetyReason(decision: CanonicalSessionDecision, beachName: string): st
         return `The ${rejection.observed?.durationHours?.toFixed(1) ?? 'available'}-hour window for ${beachName} is shorter than the ${rejection.allowed?.minimumDurationHours ?? 1}-hour minimum.`;
       case 'window_selection':
         return `No forecast window for ${beachName} passed window selection.`;
-      case 'water_quality_closure':
-        return `Water quality is ${waterQualityStatus} at ${beachName}; an open status is required.`;
+      case 'water_quality_hold':
+        return waterQualityReason;
       case 'candidate_pool':
         return rejection.detail === 'Beach location unavailable'
           ? `Location data for ${beachName} is unavailable.`
@@ -236,16 +237,19 @@ function safetyReason(decision: CanonicalSessionDecision, beachName: string): st
   }
   switch (decision.reasonCode) {
     case 'water_quality_closure':
-      return `Water quality is ${waterQualityStatus} at ${beachName}; an open status is required.`;
+      return waterQualityReason;
     case 'major_event_hold':
       return 'Major-event conditions are unresolved.';
     case 'beach_skill_exceeds_user':
       return `This break requires ${rejection?.observed?.skill ?? 'a higher skill level'}; your profile is ${rejection?.allowed?.skill ?? decision.skillEligibility.skill}.`;
     case 'wave_height_exceeds_skill':
       if (rejection?.observed?.waveHeightFt !== undefined && rejection.allowed?.minimumWaveHeightFt !== undefined && rejection.allowed.maximumWaveHeightFt !== undefined) {
-        const observed = formatWaveHeightDecimal(rejection.observed.waveHeightFt).replace(/ft$/, ' ft');
-        const range = formatWaveHeightRangeString(rejection.allowed.minimumWaveHeightFt, rejection.allowed.maximumWaveHeightFt).replace(/ft$/, ' ft');
-        return `Forecast ${observed} is above your ${rejection.allowed.skill ?? decision.skillEligibility?.skill ?? 'profile'} range of ${range}.`;
+        const observed = `${rejection.observed.waveHeightFt} ft`;
+        const range = `${rejection.allowed.minimumWaveHeightFt}-${rejection.allowed.maximumWaveHeightFt} ft`;
+        const appliedSkill = rejection.allowed.skill ?? 'profile';
+        return decision.skillEligibility?.skill === 'unknown'
+          ? `Forecast ${observed} exceeds the ${appliedSkill} safety range of ${range} applied when skill is unknown.`
+          : `Forecast ${observed} exceeds the ${appliedSkill} safety range of ${range}.`;
       }
       return 'Forecast wave height exceeds your profile range.';
     case 'missing_beach_skill':

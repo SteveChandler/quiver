@@ -71,6 +71,8 @@ import {
 } from '@/lib/scoring/native-condition-score';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { rankBeaches } from '@/lib/recommendations/selection';
+import { waterQualityCandidateRejection } from '@/lib/recommendations/major-event-hold/candidate-rejection';
+import type { WaterQualityHoldResolution } from '@/lib/recommendations/major-event-hold/water-quality';
 import { isBoardPicksFreeEnabled } from '@/lib/flags/board-picks-free';
 
 // Import from other discovery modules
@@ -2408,6 +2410,7 @@ async function discoverSurfSpotsInner(
   const allRecsScored = collapseWindowCandidates(
     similarityResult.recommendations,
   );
+  let waterQualityResolution: WaterQualityHoldResolution | null = null;
   const rankedRecommendations = await rankBeaches(
     allRecsScored.map((recommendation, index) => ({
       id: recommendation.beach.id,
@@ -2420,6 +2423,7 @@ async function discoverSurfSpotsInner(
           left.recommendation,
           right.recommendation,
         ) || left.index - right.index,
+      onWaterQualityResolution: (resolution) => { waterQualityResolution = resolution; },
     },
   );
   endStage('ranking');
@@ -2431,7 +2435,8 @@ async function discoverSurfSpotsInner(
   for (const beachId of requestedIncludeBeachIds) {
     if (candidateRejections[beachId] || !allRecsScored.some((rec) => rec.beach.id === beachId)) continue;
     if (!rankedRecommendations.some(({ recommendation }) => recommendation.beach.id === beachId)) {
-      candidateRejections[beachId] = { gate: 'water_quality_closure', observed: { status: 'closure' }, allowed: { status: 'open' } };
+      candidateRejections[beachId] = waterQualityCandidateRejection(waterQualityResolution, beachId)
+        ?? { gate: 'window_selection' };
     } else if (!safeRecsScored.some((rec) => rec.beach.id === beachId)) {
       candidateRejections[beachId] = { gate: 'saved_spot_eligibility', observed: { status: allRecsScored.find((rec) => rec.beach.id === beachId)?.recommendationLabel ?? 'unknown' }, allowed: { status: 'Worth it' } };
     }

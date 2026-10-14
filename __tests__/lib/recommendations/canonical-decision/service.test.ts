@@ -38,10 +38,16 @@ function discoveryRecommendation(): Record<string, unknown> {
 }
 
 describe("canonical session decision service", () => {
-  it('records a requested beach removed by water-quality ranking', async () => {
+  it.each(['advisory', 'closure'])('records the %s status of a requested beach removed by water-quality ranking', async (status) => {
     const { resolveCanonicalSessionDecisionContext } = loadService();
     const { rankBeaches } = jest.requireMock('@/lib/recommendations/selection') as { rankBeaches: jest.Mock };
-    rankBeaches.mockResolvedValueOnce([]);
+    rankBeaches.mockImplementationOnce(async (_beaches: unknown[], options: { onWaterQualityResolution: (resolution: unknown) => void }) => {
+      options.onWaterQualityResolution({
+        state: 'resolved', heldBeachIds: ['shores'],
+        waterQualityStatusByBeachId: { shores: status }, epoch: 'water-quality-test',
+      });
+      return [];
+    });
     const discoverSurfSpots = jest.fn().mockResolvedValue({
       recommendations: [discoveryRecommendation()],
       recommendationAvailability: { state: 'available', holdEpoch: 'test' },
@@ -58,10 +64,29 @@ describe("canonical session decision service", () => {
 
     expect(result.decision.reasonCode).toBe('no_candidates');
     expect(result.decision.candidateRejection).toEqual({
-      gate: 'water_quality_closure',
-      observed: { status: 'closure' },
+      gate: 'water_quality_hold',
+      observed: { status },
       allowed: { status: 'open' },
     });
+  });
+
+  it('does not infer a closure if ranking supplies no hold evidence', async () => {
+    const { resolveCanonicalSessionDecisionContext } = loadService();
+    const { rankBeaches } = jest.requireMock('@/lib/recommendations/selection') as { rankBeaches: jest.Mock };
+    rankBeaches.mockResolvedValueOnce([]);
+    const discoverSurfSpots = jest.fn().mockResolvedValue({
+      recommendations: [discoveryRecommendation()],
+      recommendationAvailability: { state: 'available', holdEpoch: 'test' },
+    });
+
+    const result = await resolveCanonicalSessionDecisionContext({
+      userId: 'user-1', profileExperience: 'intermediate', anchorTime: '2026-07-22T18:00:00.000Z',
+      scope: { kind: 'plan_next_session', windowStart: '2026-07-22T18:00:00.000Z', windowEnd: '2026-07-23T18:00:00.000Z', timezone: 'America/Los_Angeles' },
+      candidateBeachIds: ['shores'],
+      discoveryOptions: { userLocation: { lat: 32.83, lon: -117.27 }, includeBeachIds: ['shores'] },
+    }, { discoverSurfSpots }) as { decision: { candidateRejection: unknown } };
+
+    expect(result.decision.candidateRejection).toEqual({ gate: 'window_selection' });
   });
 
   it('passes an included beach rejection into the canonical no-candidates decision', async () => {

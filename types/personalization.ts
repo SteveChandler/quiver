@@ -61,7 +61,7 @@ export interface CandidateRejection {
     | 'daylight'
     | 'session_duration'
     | 'window_selection'
-    | 'water_quality_closure'
+    | 'water_quality_hold'
     | 'saved_spot_eligibility'
     | 'skill_gate'
     | 'ranking';
