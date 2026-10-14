@@ -39,6 +39,7 @@ export async function getCityEditorialContent(
   stateSlug: string = "ca",
   countrySlug: string = "usa",
   intent: CityEditorialIntent = null,
+  allowBaseCityFallback: boolean = true,
 ): Promise<CityEditorialContent | null> {
   const supabase = createPublicReadClient();
 
@@ -73,7 +74,7 @@ export async function getCityEditorialContent(
   }
 
   // HI island-suffixed city slugs (Waimea-only to start): fallback to base city slug
-  if (!data && stateSlug?.toLowerCase() === "hi") {
+  if (!data && allowBaseCityFallback && stateSlug?.toLowerCase() === "hi") {
     const parsed = parseHiIslandCitySlug(citySlug);
     if (parsed.islandSlug && parsed.baseCitySlug && parsed.baseCitySlug !== citySlug) {
       const retry = await fetchEditorial(parsed.baseCitySlug);
