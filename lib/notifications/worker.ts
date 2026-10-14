@@ -101,6 +101,10 @@ import {
   type ResolveNotificationMajorEventHoldInput,
 } from "@/lib/recommendations/major-event-hold/adapters/notification";
 import { resolveNotificationPresentationCompatibility } from "./build-compatibility";
+import {
+  resolveSwellDispatchEligibility,
+  type SwellDispatchEligibilityResolver,
+} from "@/lib/alerts/swell-outlook/dispatch-eligibility";
 
 type ServiceClient = SupabaseClient<Database>;
 type FcmMessaging = fbMessaging.Messaging | null;
@@ -190,6 +194,7 @@ interface ProcessOptions {
   fcm?: FcmMessaging;
   /** Override the last-mile safety resolver for deterministic tests. */
   resolveMajorEventHold?: NotificationMajorEventHoldResolver;
+  resolveSwellDispatchEligibility?: SwellDispatchEligibilityResolver;
 }
 
 type NotificationMajorEventHoldResolver = (
@@ -346,6 +351,7 @@ export async function processPendingEvents(
   const fcm = opts.fcm !== undefined ? opts.fcm : getFirebaseAdminMessaging();
   const resolveMajorEventHold =
     opts.resolveMajorEventHold ?? resolveNotificationMajorEventHold;
+  const resolveSwellEligibility = opts.resolveSwellDispatchEligibility ?? resolveSwellDispatchEligibility;
   const majorEventHoldAsOf = opts.now;
 
   const summary: ProcessSummary = {
@@ -415,6 +421,7 @@ export async function processPendingEvents(
         summary,
         claimToken,
         resolveMajorEventHold,
+        resolveSwellEligibility,
         majorEventHoldAsOf,
       );
       tallyOutcome(summary, result.outcome);
@@ -491,6 +498,7 @@ async function processOne(
   summary: ProcessSummary,
   claimToken: string,
   resolveMajorEventHold: NotificationMajorEventHoldResolver,
+  resolveSwellEligibility: SwellDispatchEligibilityResolver,
   majorEventHoldAsOf: Date | undefined,
 ): Promise<ProcessOneResult> {
   if (!isKnownNotificationType(event.type)) {
@@ -617,6 +625,7 @@ async function processOne(
       summary.presentation_compatibility,
       surfAlertSlot,
       resolveMajorEventHold,
+      resolveSwellEligibility,
       majorEventHoldAsOf,
     );
     const { status } = decision;
@@ -686,7 +695,7 @@ async function processOne(
       surfAlertRejected = true;
       break;
     }
-    if (decision.cancelEventReason && !hasSentDelivery) {
+    if (decision.cancelEventReason && (!hasSentDelivery || event.type === "swell_watch")) {
       terminalCancellationReason = decision.cancelEventReason;
       break;
     }
@@ -845,6 +854,7 @@ async function processChannel(
   presentationCompatibility: Record<string, number>,
   surfAlertSlot: SurfAlertSlot | null,
   resolveMajorEventHold: NotificationMajorEventHoldResolver,
+  resolveSwellEligibility: SwellDispatchEligibilityResolver,
   majorEventHoldAsOf: Date | undefined,
 ): Promise<ChannelDecision> {
   if (
@@ -986,6 +996,21 @@ async function processChannel(
           return channelDecision("skipped_cooldown");
         }
       }
+    }
+  }
+
+  if (event.type === "swell_watch") {
+    let decision: Awaited<ReturnType<SwellDispatchEligibilityResolver>>;
+    try {
+      decision = await resolveSwellEligibility({ supabase, userId: event.recipient_user_id, payload: event.payload, now });
+    } catch {
+      decision = { allowed: false, reasonCode: "revalidation_unavailable" };
+    }
+    if (!decision.allowed) {
+      return channelDecision("skipped_disabled", {
+        providerResponse: { audit_code: "swell_dispatch_revalidation", reason_code: decision.reasonCode },
+        cancelEventReason: "swell_dispatch_revalidation",
+      });
     }
   }
 

@@ -52,7 +52,6 @@ import { isDailyCallEnabled, isDailyCallUserAllowed } from "@/lib/flags/daily-ca
 import { isSharedCallRankingEnabled, isSharedCallRankingUserAllowed } from "@/lib/flags/shared-call-ranking";
 import { isSwellAlertEnabled, isSwellAlertUserAllowed } from "@/lib/flags/swell-alert";
 import { isSwellFollowupEnabled, isSwellFollowupUserAllowed } from "@/lib/flags/swell-followup";
-import { resolveEntitlement, type Tier } from "@/lib/alerts/entitlements";
 import { SWELL_FOLLOWUP_THRESHOLDS } from "@/lib/alerts/swell-followup/change-detection";
 import {
   decideSend,
@@ -264,7 +263,6 @@ export interface SwellOutlookDeps {
   saveEngagement: (userId: string, transition: SwellOutlookStateTransition) => Promise<void>;
   hasFirstSightingAlert: (userId: string, eventKeys: string[]) => Promise<boolean>;
   assessSwellRarity: (profile: SwellAlertProfile, swell: OutlookSwell, now: Date) => Promise<boolean>;
-  getTier: (userId: string) => Promise<Tier>;
   loadFirstSightingWindow?: (profile: SwellAlertProfile, swell: OutlookSwell, now: Date) => Promise<TideAwareWindowResult>;
   /** Official hazard at the lead beach for the push text; null when none or the lookup fails. */
   loadFirstSightingHazard?: (beachId: string, timezone: string, now: Date) => Promise<FirstSightingHazard | null>;
@@ -968,16 +966,6 @@ async function loadSwellRarityAssessor(
   };
 }
 
-async function getOutlookTier(client: ServiceClient, userId: string): Promise<Tier> {
-  const { data, error } = await client
-    .from("user_entitlements")
-    .select("is_pro, is_trialing, billing_issue, expires_at")
-    .eq("user_id", userId)
-    .maybeSingle();
-  if (error) throw new Error(`Failed to load outlook entitlement: ${error.message}`);
-  return resolveEntitlement(userId, data);
-}
-
 function defaultDependencies(args: {
   now: Date;
   supabase?: ServiceClient;
@@ -1101,8 +1089,6 @@ function defaultDependencies(args: {
         }
         return (await assessor)(swell);
       }),
-    getTier: args.deps?.getTier
-      ?? ((userId) => getOutlookTier(getClient(), userId)),
     loadFirstSightingWindow: args.deps?.loadFirstSightingWindow
       ?? ((profile, swell, now) => loadFirstSightingWindow(getClient(), firstSightingTideCache, profile, swell, now)),
     loadFirstSightingHazard: args.deps?.loadFirstSightingHazard
@@ -1264,6 +1250,7 @@ async function sendFollowups(
 
       const payload = parseMajorSwellNotificationPayload({
         schema_version: MAJOR_SWELL_NOTIFICATION_SCHEMA_VERSION,
+        ...(profile.anchorSource ? { anchor_source: profile.anchorSource } : {}),
         beach_id: pinned.beach.id,
         ...(pinned.beach.slug ? { beach_slug: pinned.beach.slug } : {}),
         beach_name: pinned.beach.name,
@@ -1350,7 +1337,7 @@ function isOutlookRecipient(deps: RunnerDeps, userId: string): deps is OutlookRu
   return deps.isOutlookEnabled?.() === true
     && deps.isOutlookUserAllowed?.(userId) === true
     && Boolean(deps.loadOutlook && deps.loadEngagement && deps.saveEngagement
-      && deps.hasFirstSightingAlert && deps.assessSwellRarity && deps.getTier);
+      && deps.hasFirstSightingAlert && deps.assessSwellRarity);
 }
 
 async function loadFirstSightingWindow(
@@ -1386,7 +1373,6 @@ async function sendFirstSighting(
   now: Date,
   followupEnabled: boolean,
   gate: EngagementGate,
-  tier: Tier,
 ): Promise<void> {
   const hour = getLocalHour(now, profile.timezone);
   if (hour < SWELL_FOLLOWUP_THRESHOLDS.earliestLocalHour || hour > SWELL_FOLLOWUP_THRESHOLDS.latestLocalHour) {
@@ -1404,8 +1390,6 @@ async function sendFirstSighting(
     });
   const candidates = selectFirstSightingCandidates({
     swells,
-    homeBeachId: profile.homeBeachId,
-    tier,
     distanceKmByBeach,
   });
 
@@ -1480,8 +1464,8 @@ async function sendFirstSighting(
       return !optionHold;
     });
     const told: OutlookSwell = { ...swell, ...(options ? { options } : {}) };
-    const payload = { ...buildFirstSightingPayload({ swell: told, timezone: profile.timezone, hazard, surfWindow }),
-      anchor_source: profile.anchorSource };
+    const payload = buildFirstSightingPayload({ swell: told, timezone: profile.timezone, hazard, surfWindow,
+      anchorSource: profile.anchorSource });
     let claimDenied: FirstSightingClaimSkipReason = "event_exists";
     const alert = await deps.insertAlert({
       userId: profile.id,
@@ -1562,20 +1546,20 @@ async function runOutlookUser(
   now: Date,
   followupEnabled: boolean,
 ): Promise<void> {
+  if (profile.anchorSource === "none") {
+    increment(summary, "skipped_no_location_anchor");
+    return;
+  }
   let gate: EngagementGate | undefined;
   try {
     const loaded = await deps.loadEngagement(profile.id);
     const state = loaded ?? EMPTY_SWELL_OUTLOOK_USER_STATE;
     const settled = settle(state, now);
     gate = { state: settled, dirty: settled !== state, sends: [] };
-    const tier = await deps.getTier(profile.id);
-    const eligiblePins = tier === "free"
-      ? pinnedStates.filter((pin) => profile.homeBeachId !== null && pin.beachId === profile.homeBeachId)
-      : pinnedStates;
-    if (followupEnabled && eligiblePins.length > 0 && deps.isFollowupUserAllowed(profile.id)) {
-      await sendFollowups(deps, summary, profile, eligiblePins, now, gate);
+    if (followupEnabled && pinnedStates.length > 0 && deps.isFollowupUserAllowed(profile.id)) {
+      await sendFollowups(deps, summary, profile, pinnedStates, now, gate);
     }
-    await sendFirstSighting(deps, summary, profile, now, followupEnabled, gate, tier);
+    await sendFirstSighting(deps, summary, profile, now, followupEnabled, gate);
   } catch (error) {
     console.error(`[swell-alert] Error processing outlook user ${profile.id}:`, error);
     summary.errors += 1;
