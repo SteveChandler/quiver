@@ -28,6 +28,7 @@ import {
   getRecommendationLabelGated,
 } from '@/lib/services/discovery/response-formatter';
 import type { CompositeScore } from '@/lib/domains/scoring';
+import { classifyWindRelation, WIND_SPEED_GLASSY_MPH } from '@/lib/utils/wind-relation';
 
 // ============================================================================
 // Types
@@ -173,13 +174,8 @@ const SKILL_LEVEL_MINIMUMS: Record<string, number> = {
 };
 
 // Wind speed thresholds (in mph)
-const WIND_SPEED_GLASSY = 5;
 const WIND_SPEED_LIGHT_MAX = 10;
 const WIND_SPEED_MODERATE_MAX = 18;
-
-// Wind direction classification (in degrees)
-const WIND_DIRECTION_OFFSHORE_MAX = 45;
-const WIND_DIRECTION_CROSSSHORE_MIN = 135;
 
 // Window duration thresholds (in minutes)
 export const MINIMUM_VIABLE_WINDOW_MINUTES = 30;
@@ -284,7 +280,7 @@ function getWindowWind(
   const avgSpeed = speeds.reduce((a, b) => a + b, 0) / speeds.length;
 
   // Glassy check
-  if (maxSpeed < WIND_SPEED_GLASSY) {
+  if (maxSpeed < WIND_SPEED_GLASSY_MPH) {
     return { description: 'glassy', speed: `${maxSpeed} mph`, compass: null, type: 'glassy' };
   }
 
@@ -305,14 +301,7 @@ function getWindowWind(
 
   if (offshoreDeg != null && dirDegs.length > 0) {
     const avgDirDeg = dirDegs.reduce((a, b) => a + b, 0) / dirDegs.length;
-    let angleDiff = Math.abs(avgDirDeg - offshoreDeg) % 360;
-    if (angleDiff > 180) angleDiff = 360 - angleDiff;
-
-    windType = angleDiff <= WIND_DIRECTION_OFFSHORE_MAX
-      ? 'offshore'
-      : angleDiff >= WIND_DIRECTION_CROSSSHORE_MIN
-        ? 'onshore'
-        : 'cross-shore';
+    windType = classifyWindRelation(avgDirDeg, offshoreDeg);
   }
 
   // Build description string
