@@ -557,15 +557,7 @@ test.describe("HI island-specific city pages (Waimea)", () => {
     // Wait for the page to load (h1 is always present on location pages)
     await page.waitForSelector("h1", { state: "visible", timeout: 20_000 });
 
-    // The page may use editorial layout (with "Featured Beaches" heading in
-    // CityMapView) or standard layout (with beach-card list). Either way,
-    // wait for beach content to be present.
-    await page.waitForSelector('[data-testid="beach-card"], [data-testid="surf-spot-card"]', {
-      state: "attached",
-      timeout: 10_000,
-    }).catch(() => {
-      // Editorial layout may render spots differently; page load is sufficient
-    });
+    await expect(page.getByText("Kekaha / Pakala (Infinities)").first()).toBeVisible();
 
     // Big Island Waimea should NOT appear on the Kauai page
     await expect(page.getByText(/hapuna beach/i)).toHaveCount(0);

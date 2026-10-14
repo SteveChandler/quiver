@@ -6,18 +6,27 @@ const mockChain = {
   from: jest.fn(),
   select: jest.fn(),
   ilike: jest.fn(),
+  in: jest.fn(),
   gte: jest.fn(),
   lt: jest.fn(),
   order: jest.fn(),
   limit: jest.fn(),
   then: undefined as unknown,
 };
+const mockCacheKeys: unknown[][] = [];
 const mockRankBeaches = jest.fn(async (beaches: Array<{ id: string }>) =>
   beaches.filter((beach) => beach.id !== "held-beach"),
 );
 
 jest.mock("next/cache", () => ({
   unstable_cache: jest.fn((fn: () => unknown) => fn),
+}));
+jest.mock("react", () => ({
+  ...jest.requireActual("react"),
+  cache: (fn: (...args: unknown[]) => unknown) => (...args: unknown[]) => {
+    mockCacheKeys.push(args);
+    return fn(...args);
+  },
 }));
 jest.mock("@/lib/supabase/server", () => ({
   createPublicReadClient: jest.fn(() => mockChain),
@@ -34,6 +43,7 @@ describe("city best-right-now water-quality policy", () => {
     mockChain.from.mockReturnValue(mockChain);
     mockChain.select.mockReturnValue(mockChain);
     mockChain.ilike.mockReturnValue(mockChain);
+    mockChain.in.mockReturnValue(mockChain);
     mockChain.gte.mockReturnValue(mockChain);
     mockChain.lt.mockReturnValue(mockChain);
     mockChain.order.mockReturnValue(mockChain);
@@ -92,6 +102,53 @@ describe("city best-right-now water-quality policy", () => {
     await getCitySurfReport("San Diego", "CA");
 
     expect(mockChain.limit).toHaveBeenCalledWith(205);
+  });
+
+  it("keeps the existing unscoped query for a non-island city", async () => {
+    const report = await getCitySurfReport("San Diego", "CA");
+
+    expect(report?.beaches.map((beach) => beach.beachId)).toEqual(["safe-beach"]);
+    expect(mockChain.in).not.toHaveBeenCalled();
+  });
+
+  it("queries only accepted Kauai beach IDs and keys request caching by island", async () => {
+    const rows = [
+      { id: "kauai-beach", name: "Kekaha / Pakala (Infinities)" },
+      { id: "big-island-beach", name: "Hapuna Beach (Kohala)" },
+    ];
+    mockChain.then = (resolve: (value: unknown) => unknown) =>
+      resolve({
+        data: rows.map(({ id, name }) => ({
+          beach_id: id,
+          forecast_at: "2026-10-14T10:00:00Z",
+          updated_at: "2026-10-14T08:00:00Z",
+          wave_height: "3 ft",
+          wave_period: "10 s",
+          wind_speed: "5 mph",
+          wind_direction: "W",
+          beaches: { id, name, slug: id, city: "Waimea", state: "HI" },
+        })).filter((row) => {
+          const acceptedIds = mockChain.in.mock.lastCall?.[1] as string[] | undefined;
+          return acceptedIds?.includes(row.beach_id);
+        }),
+        error: null,
+      });
+
+    const kauai = await getCitySurfReport("Waimea", "HI", ["kauai-beach"], "kauai");
+    expect(kauai?.beaches.map((beach) => beach.beachName)).toEqual([
+      "Kekaha / Pakala (Infinities)",
+    ]);
+    expect(mockChain.in).toHaveBeenLastCalledWith("beach_id", ["kauai-beach"]);
+
+    const bigIsland = await getCitySurfReport("Waimea", "HI", ["big-island-beach"], "big-island");
+    expect(bigIsland?.beaches.map((beach) => beach.beachName)).toEqual([
+      "Hapuna Beach (Kohala)",
+    ]);
+    expect(mockCacheKeys.slice(-2).map((key) => key[2])).toEqual(["kauai", "big-island"]);
+    expect(mockCacheKeys.slice(-2).map((key) => key[3])).toEqual([
+      "kauai-beach",
+      "big-island-beach",
+    ]);
   });
 });
 

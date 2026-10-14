@@ -5,17 +5,21 @@ import { getStateSurfProfile } from "@/lib/data/monthly-surf-data";
 export const getBestTimeToSurfUrl = cache(async function getBestTimeToSurfUrl(
   citySlug: string,
   cityName: string,
-  state: string
+  state: string,
+  acceptedBeachIds?: string[],
 ): Promise<string | undefined> {
+  if (acceptedBeachIds?.length === 0) return undefined;
   const supabase = await createSupabaseServerClient();
 
-  const { count: bestMonthsCount, error: bestMonthsError } = await supabase
+  let bestMonthsQuery = supabase
     .from("beaches")
     .select("id", { count: "exact", head: true })
     .eq("city", cityName)
     .eq("state", state)
     .not("best_months", "is", null)
     .or("is_private.is.null,is_private.eq.false");
+  if (acceptedBeachIds) bestMonthsQuery = bestMonthsQuery.in("id", acceptedBeachIds);
+  const { count: bestMonthsCount, error: bestMonthsError } = await bestMonthsQuery;
 
   if (bestMonthsError) {
     console.warn("[getBestTimeToSurfUrl] Query failed:", bestMonthsError.message);
@@ -30,12 +34,14 @@ export const getBestTimeToSurfUrl = cache(async function getBestTimeToSurfUrl(
     return undefined;
   }
 
-  const { count: cityBeachCount, error: cityBeachError } = await supabase
+  let cityBeachQuery = supabase
     .from("beaches")
     .select("id", { count: "exact", head: true })
     .eq("city", cityName)
     .eq("state", state)
     .or("is_private.is.null,is_private.eq.false");
+  if (acceptedBeachIds) cityBeachQuery = cityBeachQuery.in("id", acceptedBeachIds);
+  const { count: cityBeachCount, error: cityBeachError } = await cityBeachQuery;
 
   if (cityBeachError) {
     console.warn("[getBestTimeToSurfUrl] Query failed:", cityBeachError.message);
