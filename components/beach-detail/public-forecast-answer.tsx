@@ -12,6 +12,8 @@ import { useAuthenticatedForecastDecision } from "@/components/beach-detail/auth
 import { ForecastDecisionLoginLink } from "@/components/beach-detail/forecast-decision-login-link";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import { getSurfCallVerdictCall, SCORE_LABEL_INK } from "@/components/forecast/score-band-call";
+import { CARDINAL_TO_DEGREES } from "@/lib/domains/shared/angle-utils";
+import { classifyWindRelation, WIND_SPEED_GLASSY_MPH } from "@/lib/utils/wind-relation";
 import type {
   PublicForecastContextFacts,
   PublicForecastReportFacts,
@@ -74,6 +76,38 @@ function buildSwell(
   const heightLabel = height ? `${height}` : null;
   const periodLabel = period ? `@ ${period}` : null;
   return joinParts([heightLabel, periodLabel, direction]);
+}
+
+function topMph(speed: string | null | undefined): number | null {
+  if (!speed) return null;
+  if (/calm/i.test(speed)) return 0;
+  const values = speed.match(/\d+(?:\.\d+)?/g)?.map(Number);
+  return values?.length ? Math.round(Math.max(...values)) : null;
+}
+
+// Speed, direction and relation come from one source: the selected row, or the
+// call's window when there is no row wind. Mixing them printed the row's
+// "0 mph SW" with the window's "onshore". 0 mph reads "Calm", as on native.
+function buildWind(
+  report: PublicForecastReportFacts | null,
+  context: PublicForecastContextFacts | null,
+  offshoreDeg: number | null | undefined,
+): string | null {
+  if (!context?.windSpeed && !context?.windDirection) {
+    if (topMph(report?.windSpeed) === 0) return "Calm";
+    return joinParts([report?.windSpeed, report?.windCompass, report?.windType]);
+  }
+
+  const mph = topMph(context.windSpeed);
+  if (mph === 0) return "Calm";
+  const windFromDeg = context.windDirection
+    ? CARDINAL_TO_DEGREES[context.windDirection.trim().toLowerCase()]
+    : undefined;
+  const relation =
+    mph != null && mph >= WIND_SPEED_GLASSY_MPH && windFromDeg != null && offshoreDeg != null
+      ? classifyWindRelation(windFromDeg, offshoreDeg)
+      : null;
+  return joinParts([context.windSpeed, context.windDirection, relation]);
 }
 
 function sourceLabel(source: string): string {
@@ -168,11 +202,7 @@ export function PublicForecastAnswer({
     context?.secondarySwellPeriod,
     context?.secondarySwellDirection,
   );
-  const wind = joinParts([
-    context?.windSpeed ?? report?.windSpeed,
-    context?.windDirection ?? report?.windCompass,
-    report?.windType,
-  ]);
+  const wind = buildWind(report, context, beach.wind_offshore_deg);
   // Native's tide read: phase first, then the height, e.g. "Rising · 3.2 ft".
   const tideParts = [
     report?.tidePhase
