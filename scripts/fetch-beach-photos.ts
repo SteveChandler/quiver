@@ -19,7 +19,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { createClient } from "@supabase/supabase-js";
 import pLimit from "p-limit";
 import { requirePhotoReview } from "./lib/beach-photo-review";
-import { findPhotoPlaceConflict, type PlaceCatalogEntry } from "./lib/beach-photo-place-guard";
+import { findPhotoPlaceConflict, type PlaceCatalogEntry } from "@/lib/photos/place-guard";
 
 type Beach = {
   id: string;
