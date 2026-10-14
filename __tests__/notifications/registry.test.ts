@@ -501,6 +501,118 @@ describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () =>
     });
   });
 
+  it.each([
+    ["recommended window", "recommended", "2026-08-02T14:00:00.000Z", "2026-08-02T16:00:00.000Z", true],
+    ["no suitable window", "no_suitable_window", null, null, false],
+    ["insufficient tide evidence", "insufficient_tide_evidence", null, null, false],
+    ["recommended without start", "recommended", null, "2026-08-02T16:00:00.000Z", false],
+    ["recommended without end", "recommended", "2026-08-02T14:00:00.000Z", null, false],
+    ["payload without surf_window", null, null, null, false],
+  ] as const)("adds a beach destination only for a complete %s", (_case, state, start, end, hasDestination) => {
+    const def = NOTIFICATION_REGISTRY.swell_watch;
+    const surfWindow = state === null ? undefined : {
+      state,
+      start,
+      end,
+      local_date: "2026-08-02",
+      timezone: "America/Los_Angeles",
+      reasons: [],
+    };
+    const payload = def.validatePayload!({
+      schema_version: "major-swell-notification.v1",
+      beach_id: "11111111-1111-4111-8111-111111111111",
+      beach_slug: "blacks",
+      beach_name: "Black's Beach",
+      event_start_date: "2026-08-01",
+      peak_date: "2026-08-02",
+      peak_height_ft: 8,
+      peak_period_s: 16,
+      forecast_at: "2026-08-02T15:00:00.000Z",
+      awareness_mode: "shadow",
+      automation_enabled: false,
+      awareness_signal: "forecast_trend",
+      awareness_severity: "major",
+      official_evidence_refs: [],
+      would_suppress_cohorts: ["beginner", "intermediate", "unknown"],
+      enforcement: null,
+      title: "Major swell incoming",
+      body: "Advanced conditions are approaching.",
+      event_key: "swell-1",
+      kind: "coming",
+      ...(surfWindow ? { surf_window: surfWindow } : {}),
+    });
+
+    expect(def.buildPushPayload!(payload)).toEqual({
+      iosSound: "quiver-alert.wav",
+      androidChannelId: "quiver-alerts-v1",
+      title: payload.title,
+      body: payload.body,
+      data: {
+        type: "swell_watch",
+        beach_id: payload.beach_id,
+        beach_slug: payload.beach_slug,
+        forecast_at: payload.forecast_at,
+        ...(surfWindow ? { surf_window: JSON.stringify(surfWindow) } : {}),
+        ...(hasDestination ? { destination: "beach" } : {}),
+        peak_date: payload.peak_date,
+        event_key: payload.event_key,
+        peak_height_ft: payload.peak_height_ft,
+        peak_period_s: payload.peak_period_s,
+        kind: payload.kind,
+        awareness_signal: payload.awareness_signal,
+        awareness_severity: payload.awareness_severity,
+      },
+    });
+    expect(def.buildInAppPayload!(payload)).toEqual({
+      type: "swell_watch",
+      data: {
+        beach_id: payload.beach_id,
+        beach_slug: payload.beach_slug,
+        beach_name: payload.beach_name,
+        event_start_date: payload.event_start_date,
+        peak_date: payload.peak_date,
+        peak_height_ft: payload.peak_height_ft,
+        peak_period_s: payload.peak_period_s,
+        forecast_at: payload.forecast_at,
+        ...(surfWindow ? { surf_window: surfWindow } : {}),
+        ...(hasDestination ? { destination: "beach" } : {}),
+        awareness_signal: payload.awareness_signal,
+        awareness_severity: payload.awareness_severity,
+        title: payload.title,
+        body: payload.body,
+        event_key: payload.event_key,
+        kind: payload.kind,
+      },
+    });
+  });
+
+  it("keeps legacy swell payloads on the existing destination", () => {
+    const def = NOTIFICATION_REGISTRY.swell_watch;
+    const payload = def.validatePayload!({
+      beach_id: "11111111-1111-4111-8111-111111111111",
+      beach_name: "Black's Beach",
+      event_start_date: "2026-08-01",
+      peak_date: "2026-08-02",
+      peak_height_ft: 8,
+      peak_period_s: 16,
+      forecast_at: "2026-08-02T15:00:00.000Z",
+      awareness_mode: "shadow",
+      awareness_signal: "forecast_trend",
+      awareness_severity: "major",
+      title: "Major swell incoming",
+      body: "Advanced conditions are approaching.",
+    });
+
+    for (const data of [
+      def.buildPushPayload!(payload).data,
+      def.buildInAppPayload!(payload).data,
+    ]) {
+      expect(data).not.toHaveProperty("destination");
+      expect(data).not.toHaveProperty("surf_window");
+      expect(data.forecast_at).toBe(payload.forecast_at);
+    }
+  });
+
   it("does not expose major-swell evidence or hold proof to clients", () => {
     const payload = NOTIFICATION_REGISTRY.swell_watch.validatePayload!({
       schema_version: "major-swell-notification.v1",
