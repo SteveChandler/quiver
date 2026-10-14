@@ -937,26 +937,27 @@ async function fetchMonthlyWaterTempAverages(
   }
 }
 
-function firstBeachPhotoUrl(rows: unknown): string | null {
-  if (!Array.isArray(rows)) return null;
-  const row = rows.find((photo: { image_url?: unknown }) => typeof photo?.image_url === "string");
-  return row ? getOptimizedImageUrl(row.image_url) : null;
-}
-
 // Same photo precedence as the beginner cards: resolved curated/community photo, then beach_photos.
-async function attachBeachPhotos(beachTemps: BeachWaterTemp[]): Promise<void> {
+async function attachBeachPhotos(supabase: SupabaseClient, beachTemps: BeachWaterTemp[]): Promise<void> {
   const ids = beachTemps.map((beach) => beach.beachId).filter((id): id is string => Boolean(id));
   if (ids.length === 0) return;
   try {
-    const photoMap = await getResolvedSpotPhotoMap({
-      targets: ids.map((id) => ({ type: "beach" as const, id })),
-      limitPerTarget: 1,
-    });
+    const [photoMap, { data: storedPhotos }] = await Promise.all([
+      getResolvedSpotPhotoMap({
+        targets: ids.map((id) => ({ type: "beach" as const, id })),
+        limitPerTarget: 1,
+      }),
+      supabase.from("beach_photos").select("beach_id, image_url").in("beach_id", ids),
+    ]);
+    const storedByBeach = new Map<string, string>();
+    for (const row of (storedPhotos ?? []) as Array<{ beach_id: string; image_url: string | null }>) {
+      if (row.image_url && !storedByBeach.has(row.beach_id)) storedByBeach.set(row.beach_id, row.image_url);
+    }
     for (const beach of beachTemps) {
       if (!beach.beachId) continue;
       const photo = photoMap.get(communityPhotoTargetKey({ type: "beach", id: beach.beachId }))?.[0];
-      const rawUrl = photo?.thumbUrl ?? photo?.imageUrl ?? null;
-      if (rawUrl) beach.photoUrl = getOptimizedImageUrl(rawUrl);
+      const rawUrl = photo?.thumbUrl ?? photo?.imageUrl ?? storedByBeach.get(beach.beachId) ?? null;
+      beach.photoUrl = rawUrl ? getOptimizedImageUrl(rawUrl) : null;
     }
   } catch (error) {
     console.error("[getCityWaterTempExpanded] Photo resolver error:", {
@@ -980,7 +981,8 @@ export async function getCityWaterTempExpanded(
     ]);
     if (!baseData) return null;
 
-    const wetsuitRec = getWetsuitRecommendation(baseData.currentTemp);
+    // Recommend from the rounded reading the page displays, so the label and suit always agree.
+    const wetsuitRec = getWetsuitRecommendation(Math.round(baseData.currentTemp));
 
     // Fetch per-beach temps: get all beaches in city with today's water_temp
     const today = new Date().toISOString().split("T")[0];
@@ -997,8 +999,7 @@ export async function getCityWaterTempExpanded(
           name,
           slug,
           city,
-          state,
-          beach_photos!left ( image_url )
+          state
         )
       `)
       .ilike("beaches.city", cityName)
@@ -1021,22 +1022,28 @@ export async function getCityWaterTempExpanded(
         if (tempF === null) continue;
 
         const beach = row.beaches as any;
-        const rec = getWetsuitRecommendation(tempF);
+        const rec = getWetsuitRecommendation(Math.round(tempF));
         beachTemps.push({
           beachId: row.beach_id,
           beachName: beach.name,
           beachSlug: beach.slug ?? null,
           tempF,
           wetsuitThickness: rec.thickness,
-          photoUrl: firstBeachPhotoUrl(beach.beach_photos),
         });
       }
     }
 
-    await attachBeachPhotos(beachTemps);
+    // Water-quality-held beaches are hidden elsewhere; don't feature them here either.
+    const unheldIds = new Set(
+      (await rankBeaches(beachTemps.map((beach) => ({ id: beach.beachId as string })), { compare: () => 0 }))
+        .map((beach) => beach.id),
+    );
+    const visibleBeachTemps = beachTemps.filter((beach) => unheldIds.has(beach.beachId as string));
 
-    // Sort beachTemps by temp descending (warmest first)
-    beachTemps.sort((a, b) => b.tempF - a.tempF);
+    await attachBeachPhotos(supabase, visibleBeachTemps);
+
+    // Sort by temp descending (warmest first)
+    visibleBeachTemps.sort((a, b) => b.tempF - a.tempF);
 
     // Attempt monthly averages from historical data
     const monthlyAverages = await fetchMonthlyWaterTempAverages(supabase, cityName, state);
@@ -1048,7 +1055,7 @@ export async function getCityWaterTempExpanded(
         description: wetsuitRec.description,
         extras: wetsuitRec.extras,
       },
-      beachTemps,
+      beachTemps: visibleBeachTemps,
       monthlyAverages,
     };
   } catch (error) {
