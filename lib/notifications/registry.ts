@@ -726,6 +726,11 @@ export const NOTIFICATION_REGISTRY = {
         ...(p.beach_slug ? { beach_slug: p.beach_slug } : {}),
         ...(p.forecast_at ? { forecast_at: p.forecast_at } : {}),
         ...(p.surf_window ? { surf_window: JSON.stringify(p.surf_window) } : {}),
+        ...(p.surf_window?.state === "recommended" &&
+        p.surf_window.start &&
+        p.surf_window.end
+          ? { destination: "beach" }
+          : {}),
         ...(p.peak_date ? { peak_date: p.peak_date } : {}),
         ...(p.beaches ? { beaches: JSON.stringify(p.beaches) } : {}),
         ...(p.event_key ? { event_key: p.event_key } : {}),
@@ -753,6 +758,11 @@ export const NOTIFICATION_REGISTRY = {
         peak_period_s: p.peak_period_s,
         forecast_at: p.forecast_at,
         ...(p.surf_window ? { surf_window: p.surf_window } : {}),
+        ...(p.surf_window?.state === "recommended" &&
+        p.surf_window.start &&
+        p.surf_window.end
+          ? { destination: "beach" }
+          : {}),
         awareness_signal: p.awareness_signal,
         awareness_severity: p.awareness_severity,
         title: p.title,
