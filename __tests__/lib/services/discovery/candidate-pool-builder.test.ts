@@ -87,7 +87,10 @@ jest.mock('@/lib/supabase/server', () => ({
                 if (table === 'favorite_beaches') {
                   // The favourites query is awaited directly (no terminal
                   // method), so the builder must be thenable here.
-                  return Promise.resolve(mockState.favoritesResponse);
+                  return {
+                    not: jest.fn((_field: string, _operator: string, _value: unknown) =>
+                      Promise.resolve(mockState.favoritesResponse)),
+                  };
                 }
 
                 // For beaches table
