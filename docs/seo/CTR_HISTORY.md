@@ -416,3 +416,16 @@ measurement window is undisturbed.
 - Monitor only: indexed `/mexico/.../tides` count in GSC, Dataset
   structured-data warnings, and impressions on the 50 pages. There is no CTR
   baseline because the pages were `noindex`.
+
+## 2026-10-14 La Jolla surf-report consolidation
+
+Two pages carried the same "La Jolla Surf Report Today" title: `/best-time-to-surf/la-jolla` (since 2026-08-23) and `/surf-report/la-jolla-today` (since 2026-08-25). Both sat around position 10 for the human queries.
+
+GSC baseline, 2026-09-14 to 2026-10-11:
+
+| Page | Impressions | Clicks | Avg position | Notes |
+| --- | ---: | ---: | ---: | --- |
+| `/best-time-to-surf/la-jolla` | 6,151 | 4 | 7.9 | 81% anonymized; 722 impressions from date-stamped machine queries ("+la jolla surf report today september 24 2026 swell wind tide"); 427 human-looking impressions at positions 10-12. Daily impressions fell from ~1,500 to ~50 on 2026-09-25. |
+| `/surf-report/la-jolla-today` | 2,349 | 3 | 9.1 | 938 human-looking impressions; "la jolla shores surf report today" at 7.3-7.7. |
+
+Change: removed the La Jolla title/description override, so the best-time page uses the standard "Best La Jolla surf window today: tide & wind" copy. The existing "Open today's La Jolla surf report" handoff links stay. Both pages are on `ctr-watchlist.json` until 2026-11-12. Measure position for "la jolla surf report" and "la jolla shores surf report" on `/surf-report/la-jolla-today`, not CTR on the best-time page.

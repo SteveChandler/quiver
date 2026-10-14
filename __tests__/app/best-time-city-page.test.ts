@@ -185,22 +185,12 @@ describe("best-time city SEO page", () => {
     );
   });
 
-  it("matches La Jolla metadata to its dominant surf-report query family", () => {
+  it("leaves the surf-report title to /surf-report/la-jolla-today", () => {
     const copy = buildBestTimeMetadataCopy("La Jolla");
-    const renderedTitle = `${copy.title} | Quiver`;
 
-    expect(renderedTitle.length).toBeLessThanOrEqual(60);
-    expect(copy.description.length).toBeGreaterThanOrEqual(150);
-    expect(copy.description.length).toBeLessThanOrEqual(160);
-    expect(copy.title).toBe(
-      "La Jolla Surf Report Today: Tide, Wind & Swell",
-    );
-    expect(copy.description).toBe(
-      "La Jolla surf report today: see the best tide and wind window, live wave height and swell, plus current conditions at Shores, Scripps, and Tourmaline.",
-    );
-    expect(copy.h1).toBe(
-      "Best La Jolla surf window today: tide and conditions",
-    );
+    expect(copy.title).toBe("Best La Jolla surf window today: tide & wind");
+    expect(copy.title.toLowerCase()).not.toContain("surf report");
+    expect(copy.description.toLowerCase()).not.toContain("surf report");
   });
 
   it.each(["FL", "NC"])("links a state-qualified Atlantic Beach guide to its city hub in %s", (state) => {
