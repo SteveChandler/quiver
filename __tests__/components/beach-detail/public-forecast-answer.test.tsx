@@ -36,6 +36,7 @@ const beach = {
   city: "Oceanside",
   state: "CA",
   timezone: "America/Los_Angeles",
+  wind_offshore_deg: 90,
 } as Beach;
 
 const nearbyBeaches = [
@@ -249,6 +250,80 @@ describe("PublicForecastAnswer", () => {
 
     expect(screen.queryByText(label)).not.toBeInTheDocument();
     expect(screen.queryByText(/no clean window|check current|refresh|check the app/i)).not.toBeInTheDocument();
+  });
+
+  describe("Wind cell", () => {
+    // Blacks on 2026-10-13: the 11 AM row read 0 mph SW while the call's
+    // window read "0–10 mph SW onshore". The cell showed "0 mph SW onshore".
+    const windowReport = {
+      ...report,
+      windSpeed: "0–10 mph",
+      windCompass: "SW",
+      windType: "onshore",
+    } as SurfCallResult;
+
+    function windCell(): HTMLElement | null {
+      return screen.getByText("Wind").parentElement?.querySelector("dd") ?? null;
+    }
+
+    it("says Calm for a 0 mph row and drops the direction and relation, like native", () => {
+      renderAnswer({
+        answerReport: windowReport,
+        answerContext: { ...context, windSpeed: "0 mph", windDirection: "SW" },
+      });
+
+      expect(windCell()).toHaveTextContent(/^Calm$/);
+    });
+
+    it("names no offshore or onshore relation below the 5 mph glassy line", () => {
+      renderAnswer({
+        answerReport: windowReport,
+        answerContext: { ...context, windSpeed: "3 mph", windDirection: "SW" },
+      });
+
+      expect(windCell()).toHaveTextContent(/^3 mph SW$/);
+    });
+
+    it("derives the relation from the row's own direction, not the window's", () => {
+      renderAnswer({
+        answerReport: { ...windowReport, windType: "offshore" } as SurfCallResult,
+        answerContext: { ...context, windSpeed: "12 mph", windDirection: "SW" },
+      });
+
+      expect(windCell()).toHaveTextContent(/^12 mph SW onshore$/);
+    });
+
+    it("shows speed and direction without a relation when the beach has no offshore bearing", () => {
+      renderAnswer({
+        answerBeach: { ...beach, wind_offshore_deg: null },
+        answerContext: { ...context, windSpeed: "12 mph", windDirection: "E" },
+      });
+
+      expect(windCell()).toHaveTextContent(/^12 mph E$/);
+    });
+
+    it("keeps the call's window wind together when there is no row wind", () => {
+      renderAnswer({
+        answerReport: windowReport,
+        answerContext: { ...context, windSpeed: null, windDirection: null },
+      });
+
+      expect(windCell()).toHaveTextContent(/^0–10 mph SW onshore$/);
+    });
+
+    it("says Calm when the call's whole window is 0 mph", () => {
+      renderAnswer({
+        answerReport: {
+          ...report,
+          windSpeed: "0 mph",
+          windCompass: null,
+          windType: "glassy",
+        } as SurfCallResult,
+        answerContext: { ...context, windSpeed: null, windDirection: null },
+      });
+
+      expect(windCell()).toHaveTextContent(/^Calm$/);
+    });
   });
 
   it("uses the stored beach timezone and distinguishes today from tomorrow", () => {
