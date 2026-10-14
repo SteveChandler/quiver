@@ -65,6 +65,7 @@ import { GET } from "@/app/api/alerts/activity/route";
 
 describe("GET /api/alerts/activity", () => {
   const nowMs = Date.parse("2026-05-26T12:00:00.000Z");
+  const originalTideFlag = process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -75,7 +76,42 @@ describe("GET /api/alerts/activity", () => {
   });
 
   afterEach(() => {
+    jest.useRealTimers();
+    if (originalTideFlag === undefined) delete process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED;
+    else process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED = originalTideFlag;
     jest.restoreAllMocks();
+  });
+
+  it.each([
+    ["recommended", { state: "recommended", start: "2026-05-26T17:00:00.000Z", end: "2026-05-26T19:00:00.000Z" }, true],
+    ["no suitable window", { state: "no_suitable_window", start: null, end: null }, false],
+    ["malformed", { state: "recommended", start: "tomorrow", end: "2026-05-26T19:00:00.000Z" }, false],
+    ["legacy", undefined, false],
+  ])("maps swell activity with %s surf window", async (_name, surfWindow, recommended) => {
+    process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED = "true";
+    notificationRows = [{ id: "swell-1", type: "swell_watch", created_at: "2026-05-26T06:00:00.000Z", read_at: null,
+      data: { beach_id: "beach-1", title: "Swell", body: "Building", forecast_at: "2026-05-26T14:00:00.000Z",
+        ...(surfWindow ? { surf_window: surfWindow } : {}) } }];
+
+    const response = await GET(new NextRequest("http://localhost:3000/api/alerts/activity"));
+    const item = (await response.json()).data.activity[0];
+    expect(item.forecast_at).toBe("2026-05-26T14:00:00.000Z");
+    expect([item.window_start, item.window_end]).toEqual(recommended
+      ? ["2026-05-26T17:00:00.000Z", "2026-05-26T19:00:00.000Z"] : [null, null]);
+    expect(item).not.toHaveProperty("surf_window");
+  });
+
+  it("keeps the activity API byte-identical with the flag off, including stored windows", async () => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-05-26T12:00:00.000Z"));
+    process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED = "false";
+    const row = { id: "swell-1", type: "swell_watch", created_at: "2026-05-26T06:00:00.000Z", read_at: null,
+      data: { beach_id: "beach-1", title: "Swell", body: "Building", forecast_at: "2026-05-26T14:00:00.000Z" } };
+    notificationRows = [row];
+    const baseline = await (await GET(new NextRequest("http://localhost:3000/api/alerts/activity"))).text();
+    notificationRows = [{ ...row, data: { ...row.data, surf_window: { state: "recommended",
+      start: "2026-05-26T17:00:00.000Z", end: "2026-05-26T19:00:00.000Z" } } }];
+    const withStoredWindow = await (await GET(new NextRequest("http://localhost:3000/api/alerts/activity"))).text();
+    expect(withStoredWindow).toBe(baseline);
   });
 
   it("reads recent alert notifications with a clamped 7-day window", async () => {

@@ -68,6 +68,22 @@ function shortWeekday(iso: string, timezone: string): string {
   return new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: timezone }).format(new Date(iso));
 }
 
+export function bestWindowSentence(window: NonNullable<TideAwareWindowResult['window']>): string {
+  const { start, end, timezone } = window;
+  return `Best window ${shortWeekday(start, timezone)} ${formatWindowLabel(start, end, timezone)}.`;
+}
+
+export function surfWindowPayload(result: TideAwareWindowResult): NonNullable<MajorSwellNotificationPayload['surf_window']> {
+  return {
+    state: result.state,
+    start: result.window?.start ?? null,
+    end: result.window?.end ?? null,
+    local_date: result.window?.localDate ?? null,
+    timezone: result.window?.timezone ?? null,
+    reasons: result.reasons as NonNullable<MajorSwellNotificationPayload['surf_window']>['reasons'],
+  };
+}
+
 /** "Tue-Fri" from arrival to fade; a swell with no fade time is named by its arrival and peak days. */
 function daySpan(swell: OutlookSwell, timezone: string): string {
   const start = swell.arrivalAt ?? swell.peakAt;
@@ -123,9 +139,7 @@ export function renderFirstSightingBody(args: {
     { text: `Sets up to ${formatNumber(swell.faceHeightFt.max)} ft at ${swell.beach.name}${args.anchorSource === 'home' ? ', near home' : ''}.`, priority: 0 },
   ];
   if (recommendedWindow) {
-    const { start, end, timezone: beachTimezone } = recommendedWindow;
-    const day = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: beachTimezone }).format(new Date(start));
-    sentences.push({ text: `Best window ${day} ${formatWindowLabel(start, end, beachTimezone)}.`, priority: 0 });
+    sentences.push({ text: bestWindowSentence(recommendedWindow), priority: 0 });
     const reasons = args.surfWindow?.reasons ?? [];
     if (reasons.includes('better_tide_before_peak') || reasons.includes('better_tide_after_peak')) {
       const high = reasons.includes('high_tide_outside_preference');
@@ -196,14 +210,7 @@ export function buildFirstSightingPayload(args: {
     enforcement: null,
     title: renderFirstSightingTitle(swell, timezone),
     body,
-    ...(args.surfWindow ? { surf_window: {
-      state: args.surfWindow.state,
-      start: args.surfWindow.window?.start ?? null,
-      end: args.surfWindow.window?.end ?? null,
-      local_date: args.surfWindow.window?.localDate ?? null,
-      timezone: args.surfWindow.window?.timezone ?? null,
-      reasons: args.surfWindow.reasons,
-    } } : {}),
+    ...(args.surfWindow ? { surf_window: surfWindowPayload(args.surfWindow) } : {}),
     beaches: [
       { beach_id: swell.beach.id, beach_name: swell.beach.name, rank: 1 },
       ...(swell.options ?? []).map((option, index) => ({

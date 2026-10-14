@@ -4,6 +4,9 @@ jest.mock('@/lib/services/discovery/window-selector', () => {
   return { ...actual, selectBestWindows: jest.fn(actual.selectBestWindows) };
 });
 import { findTideAwareWindow } from '@/lib/alerts/surf-window/tide-aware-window';
+import { isTideReasonEligibleBeach, UNVERIFIED_TIDE_BAND_BEACH_IDS } from '@/lib/alerts/surf-window/unverified-tide-bands';
+import { renderFirstSightingBody } from '@/lib/alerts/swell-outlook/first-sighting';
+import { outlookSwell } from '@/__tests__/helpers/outlook-swell';
 import { getDaylightWindow } from '@/lib/alerts/sunrise';
 import { capToBestWindow, refineWindow } from '@/lib/alerts/window-refiner';
 import * as windowSelector from '@/lib/services/discovery/window-selector';
@@ -217,6 +220,42 @@ it('uses the same curve differently for a mid/high tide beach', () => {
   expect(result.state).toBe('recommended');
   expect(Date.parse(result.window!.start)).toBeLessThan(Date.parse(at(10)));
   expect(result.reasons).toEqual([]);
+});
+
+it('uses the 7 AM high-tide peak differently for verified and unverified bands', () => {
+  expect(UNVERIFIED_TIDE_BAND_BEACH_IDS.size).toBe(66);
+  const rows = forecasts.map((row, hour) => ({ ...row, wave_height: hour === 12 ? '0 ft' : row.wave_height,
+    tide_height: hour >= 10 && hour <= 12 ? '2' : '5' }));
+  const curve = [...rows.map((row) => ({ at: row.forecast_at, heightFt: Number(row.tide_height) })),
+    { at: at(0, '2026-10-09'), heightFt: 5 }];
+  const curated = { ...beach, id: '11111111-1111-4111-8111-111111111111' };
+  const args = { ...input, beach: curated, forecasts: rows, tideSamples: curve,
+    verdictFor: (row: EnhancedForecastEntity): ForecastVerdict => verdictFor(row, curated),
+    isTideReasonEligible: isTideReasonEligibleBeach };
+  expect(isTideReasonEligibleBeach(curated)).toBe(true);
+  const verified = findTideAwareWindow(args);
+  expect(verified).toMatchObject({ state: 'recommended', window: { start: at(10), end: at(12) },
+    reasons: ['high_tide_outside_preference', 'better_tide_after_peak'] });
+  expect(verified.window?.start).not.toBe(at(7));
+
+  const unverified = { ...curated, id: '1f8660f2-891d-4f79-8f16-cad8ebd59c79',
+    preferred_tide_ft_min: 2, preferred_tide_ft_max: 4 };
+  expect(isTideReasonEligibleBeach(unverified)).toBe(false);
+  const excluded = findTideAwareWindow({ ...args, beach: unverified,
+    verdictFor: (row) => verdictFor(row, unverified) });
+  expect(excluded.state).toBe('recommended');
+  expect(excluded.reasons).toEqual([]);
+  expect(findTideAwareWindow({ ...args, beach: unverified, tideSamples: null,
+    verdictFor: (row) => verdictFor(row, unverified) }).state).toBe('recommended');
+  expect(findTideAwareWindow({ ...args, tideSamples: null }).state).toBe('insufficient_tide_evidence');
+  expect(renderFirstSightingBody({ swell: outlookSwell(), timezone, hazard: null, surfWindow: excluded }))
+    .not.toMatch(/Swell peaks at (high|low) tide/);
+
+  const midHigh = { ...curated, preferred_tide_ft_min: 3, preferred_tide_ft_max: 6 };
+  const midHighResult = findTideAwareWindow({ ...args, beach: midHigh,
+    verdictFor: (row) => verdictFor(row, midHigh) });
+  expect(midHighResult.state).toBe('recommended');
+  expect(Date.parse(midHighResult.window!.start)).toBeLessThan(Date.parse(at(10)));
 });
 
 it.each(['dark', 'faded', 'wind'])('rejects better tide when usable conditions do not overlap: %s', (cause) => {

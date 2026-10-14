@@ -22,6 +22,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Beach, Database } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import * as tideWindow from "@/lib/alerts/surf-window/tide-aware-window";
+import { isTideReasonEligibleBeach } from "@/lib/alerts/surf-window/unverified-tide-bands";
 import * as verdicts from "@/lib/alerts/canonical-forecast-verdict";
 import * as pools from "@/lib/alerts/user-pool";
 import * as states from "@/lib/alerts/swell-outlook/state";
@@ -846,10 +847,10 @@ describe('swell first-sighting tide-window flag', () => {
   it('includes the computed window when enabled', async () => {
     process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED = 'true';
     const compute = jest.fn(async () => surfWindow);
-    const deps = makeDeps({ loadFirstSightingWindow: compute });
+    const deps = makeDeps({ loadSurfWindow: compute });
     const summary = await runSwellAlertCron({ now: MORNING, deps });
     expect(summary.sent).toBe(1);
-    expect(compute).toHaveBeenCalledWith(profile(), outlookSwell(), MORNING);
+    expect(compute).toHaveBeenCalledWith(profile(), { beachId: HOME, arrivalAt: outlookSwell().arrivalAt, peakAt: outlookSwell().peakAt, fadeAt: outlookSwell().fadeAt }, MORNING);
     const payload = deps.enqueue.mock.calls[0][0].payload;
     expect(payload.surf_window).toMatchObject({ state: 'recommended', local_date: '2026-10-08', timezone: 'America/Los_Angeles' });
     expect(payload.body).toContain('Best window Thu 10 AM–12 PM.');
@@ -861,7 +862,7 @@ describe('swell first-sighting tide-window flag', () => {
     process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED = 'true';
     const resolveHeldBeaches = jest.fn(async ({ candidates }: { candidates: Array<{ candidateId: string }> }) =>
       new Map(candidates.map((candidate) => [candidate.candidateId, 'major_event_hold'])));
-    const deps = makeDeps({ loadFirstSightingWindow: jest.fn(async () => surfWindow), resolveHeldBeaches });
+    const deps = makeDeps({ loadSurfWindow: jest.fn(async () => surfWindow), resolveHeldBeaches });
 
     const summary = await runSwellAlertCron({ now: MORNING, deps });
 
@@ -876,7 +877,7 @@ describe('swell first-sighting tide-window flag', () => {
     if (flag === undefined) delete process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED;
     else process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED = flag;
     const compute = jest.fn(async () => surfWindow);
-    const deps = makeDeps({ loadFirstSightingWindow: compute });
+    const deps = makeDeps({ loadSurfWindow: compute });
     await runSwellAlertCron({ now: MORNING, deps });
     const baseline = makeDeps();
     await runSwellAlertCron({ now: MORNING, deps: baseline });
@@ -887,7 +888,7 @@ describe('swell first-sighting tide-window flag', () => {
   it('still sends the unchanged push when window computation throws', async () => {
     process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED = 'true';
     const warning = jest.spyOn(console, 'warn').mockImplementation(() => {});
-    const deps = makeDeps({ loadFirstSightingWindow: jest.fn(() => { throw new Error('window failed'); }) });
+    const deps = makeDeps({ loadSurfWindow: jest.fn(() => { throw new Error('window failed'); }) });
     const summary = await runSwellAlertCron({ now: MORNING, deps });
     expect(summary.sent).toBe(1);
     expect(warning).toHaveBeenCalledWith(expect.stringContaining('window'), expect.any(Error));
@@ -909,7 +910,7 @@ it('waits for a macrotask window result before building the first-sighting paylo
           timezone: 'America/Los_Angeles', faceHeightFt: { min: 3, max: 4 } },
         reasons: ['high_tide_outside_preference', 'better_tide_after_peak'] };
     });
-    const deps = makeDeps({ loadFirstSightingWindow: loadWindow });
+    const deps = makeDeps({ loadSurfWindow: loadWindow });
     const summary = await runSwellAlertCron({ now: MORNING, deps });
     expect(summary.sent).toBe(1);
     expect(loadWindow).toHaveBeenCalledTimes(1);
@@ -964,7 +965,8 @@ it.each(['recommended', 'throws'])('handles the lead-beach window in the default
       loadFirstSightingHazard: jest.fn(() => hazard) });
     const summary = await runSwellAlertCron({ now: MORNING, supabase: { from } as unknown as SupabaseClient<Database>, deps });
     expect(summary.sent).toBe(1);
-    expect(find).toHaveBeenCalledWith(expect.objectContaining({ timezone: 'America/Los_Angeles', skillLevel: 'advanced', beach: spot }));
+    expect(find).toHaveBeenCalledWith(expect.objectContaining({ timezone: 'America/Los_Angeles', skillLevel: 'advanced', beach: spot,
+      isTideReasonEligible: isTideReasonEligibleBeach }));
     const failureCalls = [[expect.stringContaining('window computation failed'), expect.any(Error)]];
     expect(warning.mock.calls).toEqual(outcome === 'throws' ? failureCalls : []);
     expect(verdict.mock.calls.map(([args]) => ({ timezone: args.timezone, experienceLevel: args.experienceLevel })))

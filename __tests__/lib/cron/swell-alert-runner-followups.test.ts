@@ -9,7 +9,14 @@ import {
   type SwellAlertPoolEvaluation,
   type SwellAlertProfile,
   type SwellFollowupDeps,
+  type SwellOutlookDeps,
 } from "@/lib/cron/swell-alert-runner";
+import { findTideAwareWindow } from "@/lib/alerts/surf-window/tide-aware-window";
+import { isTideReasonEligibleBeach } from "@/lib/alerts/surf-window/unverified-tide-bands";
+import type { ForecastVerdict } from "@/lib/alerts/canonical-forecast-verdict";
+import type { Beach } from "@/types/database";
+import type { EnhancedForecastEntity } from "@/types/forecast";
+import snapshot from "@/__tests__/fixtures/grandview-crossing-swells-20260911.json";
 import type { SwellFollowupState } from "@/lib/alerts/swell-followup/state";
 import { getSwellCardHeadline } from "@/lib/notifications/copy/swell-card-headline";
 import { NOTIFICATION_REGISTRY } from "@/lib/notifications/registry";
@@ -26,7 +33,7 @@ const SEND_HOUR = new Date("2026-09-18T00:00:00.000Z");
 const TOLD_PEAK = "2026-09-20T15:00:00.000Z";
 const FIRST_ALERT_AT = "2026-09-18T00:00:00.000Z";
 
-type Deps = SwellAlertDeps & SwellFollowupDeps;
+type Deps = SwellAlertDeps & SwellFollowupDeps & Partial<SwellOutlookDeps>;
 
 function profile(overrides: Partial<SwellAlertProfile> = {}): SwellAlertProfile {
   return {
@@ -458,6 +465,116 @@ describe("swell follow-ups", () => {
 
     expect(result.errors).toBe(1);
     expect(result.evaluated).toBe(1);
+  });
+});
+
+describe("tide-aware follow-up revisions", () => {
+  const previousFlag = process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED;
+  const localAt = (hour: number): string => new Date(Date.parse("2026-09-20T07:00:00.000Z") + hour * 3_600_000).toISOString();
+  const window = { state: "recommended" as const,
+    window: { start: localAt(10), end: localAt(12), localDate: "2026-09-20",
+      timezone: "America/Los_Angeles", faceHeightFt: { min: 3, max: 4 } },
+    reasons: ["high_tide_outside_preference", "better_tide_after_peak"] };
+
+  afterEach(() => {
+    if (previousFlag === undefined) delete process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED;
+    else process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED = previousFlag;
+    jest.restoreAllMocks();
+  });
+
+  it("revises the pinned swell to a 10 AM–noon window after a 7 AM high-tide peak", async () => {
+    process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED = "true";
+    const beach = { ...snapshot.beach, id: BEACH_ID, timezone: "America/Los_Angeles",
+      preferred_tide_ft_min: 0, preferred_tide_ft_max: 3 } as unknown as Beach;
+    const forecasts = Array.from({ length: 24 }, (_, hour) => ({ ...snapshot.forecast,
+      id: `hour-${hour}`, forecast_at: localAt(hour), wave_height: hour === 12 ? "0 ft" : hour < 10 ? "5-6 ft" : "3-4 ft",
+      wind_speed: "3 mph", tide_height: hour >= 10 && hour <= 12 ? "2" : "5" } as EnhancedForecastEntity));
+    const tideSamples = [...forecasts.map((row) => ({ at: row.forecast_at, heightFt: Number(row.tide_height) })),
+      { at: "2026-09-21T07:00:00.000Z", heightFt: 5 }];
+    const loadSurfWindow = jest.fn(async (_profile: SwellAlertProfile, event: { beachId: string; arrivalAt: string | null;
+      peakAt: string; fadeAt: string | null }, now: Date) => findTideAwareWindow({ beach, forecasts, tideSamples,
+      arrivalAt: event.arrivalAt, peakAt: event.peakAt, fadeAt: event.fadeAt, timezone: beach.timezone!, now,
+      skillLevel: "advanced", isTideReasonEligible: isTideReasonEligibleBeach,
+      verdictFor: (row): ForecastVerdict => ({ forecast: row, score: row.wave_height === "5-6 ft" ? 95 : 85,
+        verdict: row.wave_height === "0 ft" || Number(row.tide_height) > 3 ? "no" : "go" } as ForecastVerdict) }));
+    const deps = dependencies({ loadSurfWindow,
+      evaluatePinned: jest.fn(async () => pinned({ arrivalAt: localAt(5), peakAt: localAt(7),
+        fadeAt: localAt(20), peakFaceHeightFt: 7 })) });
+
+    const result = await runSwellAlertCron({ now: MORNING, deps });
+
+    expect(result.sentByKind).toEqual({ bigger: 1 });
+    expect(loadSurfWindow).toHaveBeenCalledWith(profile(), { beachId: BEACH_ID,
+      arrivalAt: localAt(5), peakAt: localAt(7), fadeAt: localAt(20) }, MORNING);
+    expect(enqueuedPayload(deps).surf_window).toEqual({ state: "recommended", start: localAt(10), end: localAt(12),
+      local_date: "2026-09-20", timezone: "America/Los_Angeles",
+      reasons: ["high_tide_outside_preference", "better_tide_after_peak"] });
+    expect(enqueuedPayload(deps).surf_window).not.toMatchObject({ start: localAt(7) });
+    expect(enqueuedPayload(deps).body).toContain("Best window Sun 10 AM–12 PM.");
+    expect(enqueuedPayload(deps).forecast_at).toBe(localAt(7));
+    const push = NOTIFICATION_REGISTRY.swell_watch.buildPushPayload!(
+      NOTIFICATION_REGISTRY.swell_watch.validatePayload!(enqueuedPayload(deps)),
+    );
+    expect(JSON.parse(push.data.surf_window as string)).toEqual(enqueuedPayload(deps).surf_window);
+    expect(jest.mocked(deps.resolveHeldBeaches).mock.calls[0][0].candidates[0]).toEqual({
+      candidateId: "followup", beachId: BEACH_ID, startsAt: localAt(10), endsAt: localAt(12),
+    });
+    expect(enqueuedPayload(deps).event_key).toBe(EVENT_KEY);
+    expect(jest.mocked(deps.enqueue).mock.calls[0][0].dedupeKey).toBe(`swell_watch:${USER_ID}:${EVENT_KEY}:bigger`);
+    expect(deps.insertAlert).not.toHaveBeenCalled();
+  });
+
+  it("keeps the flag-off follow-up payload byte-identical", async () => {
+    process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED = "false";
+    const loadSurfWindow = jest.fn(async () => window);
+    const deps = dependencies({ loadSurfWindow });
+    await runSwellAlertCron({ now: MORNING, deps });
+    const baseline = dependencies();
+    await runSwellAlertCron({ now: MORNING, deps: baseline });
+    expect(JSON.stringify(enqueuedPayload(deps))).toBe(JSON.stringify(enqueuedPayload(baseline)));
+    expect(loadSurfWindow).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { kind: "smaller", now: MORNING, state: pinnedState({ lastFaceHeightFt: 9, serious: true }), event: { peakFaceHeightFt: 6 } },
+    { kind: "moved", now: MORNING, state: pinnedState(), event: { peakAt: "2026-09-21T15:00:00.000Z" } },
+    { kind: "arrived", now: new Date("2026-09-20T14:00:00.000Z"), state: pinnedState(), event: { peakFaceHeightFt: 5 } },
+  ] as const)("adds a window to a $kind follow-up", async ({ kind, now, state, event }) => {
+    process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED = "true";
+    const loadSurfWindow = jest.fn(async () => window);
+    const deps = dependencies({ loadSurfWindow,
+      loadFollowupStates: jest.fn(async () => [state]),
+      evaluatePinned: jest.fn(async () => pinned(event)) });
+    const result = await runSwellAlertCron({ now, deps });
+    expect(result.sentByKind).toEqual({ [kind]: 1 });
+    expect(loadSurfWindow).toHaveBeenCalledTimes(1);
+    expect(enqueuedPayload(deps).surf_window).toMatchObject({ state: "recommended", start: localAt(10), end: localAt(12) });
+    expect(enqueuedPayload(deps).kind).toBe(kind);
+  });
+
+  it("sends without a window when computation fails, and never computes one for dropped swells", async () => {
+    process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED = "true";
+    const warning = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    const loadSurfWindow = jest.fn(async () => { throw new Error("window failed"); });
+    const failed = dependencies({ loadSurfWindow });
+    await runSwellAlertCron({ now: MORNING, deps: failed });
+    expect(enqueuedPayload(failed)).not.toHaveProperty("surf_window");
+    expect(warning).toHaveBeenCalledWith(expect.stringContaining("Follow-up window computation failed"), expect.any(Error));
+    const dropped = dependencies({ loadSurfWindow, evaluatePinned: jest.fn(async () => pinned(null)) });
+    await runSwellAlertCron({ now: MORNING, deps: dropped });
+    expect(enqueuedPayload(dropped)).not.toHaveProperty("surf_window");
+    expect(loadSurfWindow).toHaveBeenCalledTimes(1);
+  });
+
+  it("retains the payload window when its sentence would exceed 300 characters", async () => {
+    process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED = "true";
+    const deps = dependencies({ loadSurfWindow: jest.fn(async () => window),
+      evaluatePinned: jest.fn(async () => pinned({ peakFaceHeightFt: 7 }, {
+        beach: { id: BEACH_ID, name: "Very Long Beach Name ".repeat(20), shortName: null, slug: "long-beach", state: "CA" },
+      })) });
+    await runSwellAlertCron({ now: MORNING, deps });
+    expect(enqueuedPayload(deps).surf_window).toMatchObject({ start: localAt(10), end: localAt(12) });
+    expect(enqueuedPayload(deps).body).not.toContain("Best window");
   });
 });
 

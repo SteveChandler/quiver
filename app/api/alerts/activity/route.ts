@@ -1,10 +1,12 @@
 import { NextRequest } from "next/server";
+import { z } from "zod";
 
 import {
   createSuccessResponse,
   withAuth,
   type AuthenticatedContext,
 } from "@/lib/middleware/api-wrappers";
+import { isSwellOutlookTideWindowEnabled } from "@/lib/flags/swell-outlook";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,6 +21,7 @@ const ALERT_TYPES = [
 const DEFAULT_DAYS = 7;
 const MAX_DAYS = 7;
 const MAX_ROWS = 100;
+const instantSchema = z.string().datetime({ offset: true });
 
 type AlertType = (typeof ALERT_TYPES)[number];
 
@@ -213,6 +216,14 @@ function normalizeActivityItem(row: NotificationRow): AlertActivityItem {
             ? stringFromData({}, match, ["window_end", "windowEnd"])
             : null;
 
+  const surfWindow = row.type === "swell_watch" && isSwellOutlookTideWindowEnabled() && isRecord(data.surf_window)
+    ? data.surf_window : null;
+  const surfStart = surfWindow?.state === "recommended" ? instantSchema.safeParse(surfWindow.start) : null;
+  const surfEnd = surfWindow?.state === "recommended" ? instantSchema.safeParse(surfWindow.end) : null;
+  const recommendedWindow = surfStart?.success && surfEnd?.success
+    && Date.parse(surfStart.data) < Date.parse(surfEnd.data)
+    ? { start: surfStart.data, end: surfEnd.data } : null;
+
   const watched = row.type === "watched_call_update";
   return {
     id: row.id,
@@ -224,8 +235,8 @@ function normalizeActivityItem(row: NotificationRow): AlertActivityItem {
     beach_name: beachName,
     forecast_at: forecastAt,
     alert_date: stringFromData(data, null, ["alert_date", "alertDate"]),
-    window_start: watched ? nonEmptyString(data.window_start) : windowStart,
-    window_end: watched ? nonEmptyString(data.window_end) : windowEnd,
+    window_start: watched ? nonEmptyString(data.window_start) : recommendedWindow?.start ?? windowStart,
+    window_end: watched ? nonEmptyString(data.window_end) : recommendedWindow?.end ?? windowEnd,
     reason,
     window_label: canonical.state === "no" ? null : stringFromData(data, match, [
       "window_label",
