@@ -1,3 +1,5 @@
+import { selectTideSeries, type TideForecastSelectionRow } from "./tide-forecast-selection";
+
 type TidePoint = {
   ts: string;
   tide_height_m: number;
@@ -69,4 +71,42 @@ export function fanOutTidePointsToBeaches(params: {
   }
 
   return rows;
+}
+
+export function tideRowRange(rows: readonly { ts: string }[]): { firstTs: string; lastTs: string } {
+  if (!rows.length) throw new Error("Tide row range requires rows");
+  return {
+    firstTs: rows.reduce((first, row) => row.ts < first ? row.ts : first, rows[0].ts),
+    lastTs: rows.reduce((last, row) => row.ts > last ? row.ts : last, rows[0].ts),
+  };
+}
+
+export function excludeFallbackAtDirectHours<T extends { beach_id: string; ts: string; source: string }>(
+  rows: readonly T[],
+  directRows: readonly { beach_id: string; ts: string }[],
+): T[] {
+  const directKeys = new Set(directRows.map((row) => `${row.beach_id}\0${Date.parse(row.ts)}`));
+  return rows.filter((row) => row.source !== "noaa_hilo_interpolated" || !directKeys.has(`${row.beach_id}\0${Date.parse(row.ts)}`));
+}
+
+export type TideIntegrityRow = TideForecastSelectionRow & {
+  beach_id: string;
+  source: string;
+  station_id: string | null;
+  created_at: string;
+};
+
+export function tideCleanupRows<T extends TideIntegrityRow>(rows: readonly T[]): T[] {
+  const byBeach = new Map<string, T[]>();
+  for (const row of rows) {
+    const beachRows = byBeach.get(row.beach_id) ?? [];
+    beachRows.push(row);
+    byBeach.set(row.beach_id, beachRows);
+  }
+  const discarded: T[] = [];
+  for (const beachRows of byBeach.values()) {
+    const selected = new Set(selectTideSeries(beachRows));
+    discarded.push(...beachRows.filter((row) => !selected.has(row)));
+  }
+  return discarded;
 }
