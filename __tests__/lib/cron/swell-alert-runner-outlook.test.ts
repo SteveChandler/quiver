@@ -491,6 +491,17 @@ describe("swell alert cron: outlook send boundaries", () => {
     expect(deps.evaluatePinned).not.toHaveBeenCalled();
     expect(deps.loadOutlook).not.toHaveBeenCalled();
     expect(deps.enqueue).not.toHaveBeenCalled();
+    expect(deps.closeFollowupState).not.toHaveBeenCalled();
+  });
+
+  it("still closes an away user's pin once its swell has passed", async () => {
+    const deps = makeDeps({ loadProfiles: jest.fn(async () => [profile({ anchorSource: "home", awayFromHome: true })]),
+      loadFollowupStates: jest.fn(async () => [pinnedState()]) });
+    const summary = await runSwellAlertCron({ now: new Date("2026-09-23T15:00:00.000Z"), deps });
+    expect(summary.skippedCounts).toMatchObject({ away_from_home: 1, followup_expired: 1 });
+    expect(deps.closeFollowupState).toHaveBeenCalledWith(pinnedState(), "passed", expect.any(Date));
+    expect(deps.evaluatePinned).not.toHaveBeenCalled();
+    expect(deps.enqueue).not.toHaveBeenCalled();
   });
 
   it("sends an in-range follow-up at the drive-radius boundary", async () => {

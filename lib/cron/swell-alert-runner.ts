@@ -1349,6 +1349,26 @@ async function sendFollowups(
   }
 }
 
+/** An away surfer gets no follow-ups, but pins for swells that have passed still close. */
+async function closeExpiredFollowups(
+  deps: RunnerDeps,
+  summary: SwellAlertRunSummary,
+  profile: SwellAlertProfile,
+  states: readonly SwellFollowupState[],
+  now: Date,
+): Promise<void> {
+  for (const state of states) {
+    if (!isSwellFollowupExpired({ peakAt: state.lastPeakAt }, now)) continue;
+    try {
+      await deps.closeFollowupState(state, "passed", now);
+      increment(summary, "followup_expired");
+    } catch (error) {
+      console.error(`[swell-alert] Error on follow-up ${state.eventKey} for ${profile.id}:`, error);
+      summary.errors += 1;
+    }
+  }
+}
+
 function laterInstant(left: string | null, right: string | null): string | null {
   if (left === null) return right;
   if (right === null) return left;
@@ -1705,6 +1725,8 @@ export async function runSwellAlertCron(args: {
     // Home-beach swells are for a place the surfer is not; say nothing rather than send them.
     if (profile.awayFromHome) {
       increment(summary, "away_from_home");
+      const pinnedStates = followupStates.get(profile.id);
+      if (pinnedStates) await closeExpiredFollowups(deps, summary, profile, pinnedStates, args.now);
       continue;
     }
     if (isOutlookRecipient(deps, profile.id)) {
