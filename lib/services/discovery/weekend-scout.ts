@@ -113,7 +113,8 @@ function defaultDependencies(now: Date): WeekendScoutDependencies {
         supabase
           .from('favorite_beaches')
           .select('beach_id')
-          .eq('user_id', userId),
+          .eq('user_id', userId)
+          .not('beach_id', 'is', null),
       ]);
       if (profileResult.error) {
         throw new Error(`Failed to load Weekend Scout profile: ${profileResult.error.message}`);

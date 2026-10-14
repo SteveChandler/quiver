@@ -1212,7 +1212,7 @@ describe("daily call location freshness", () => {
       const builder: Record<string, unknown> = {};
       let ids: string[] = [];
       builder.select = (fields: string) => { select(fields); return builder; };
-      builder.order = builder.eq = () => builder;
+      builder.order = builder.eq = builder.not = () => builder;
       builder.in = (_column: string, values: string[]) => { ids = values; return builder; };
       builder.is = () => builder;
       builder.then = (resolve: (value: unknown) => void) => resolve({ data: table === "profiles"

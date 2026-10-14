@@ -27,6 +27,7 @@ import { useAuth } from "@/context/auth-context";
 import Link from "next/link";
 import { toast } from "sonner";
 import type { Beach } from "@/types/database";
+import type { SavedSpotTarget } from "@/types/saved-spot";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { beachNavigation } from "@/lib/navigation-utils";
 import { getBeachLocation } from "@/lib/utils/beach-card-utils";
@@ -35,7 +36,7 @@ import { AlertCreationPopover } from "@/components/alerts/alert-creation-popover
 
 export function FavoriteBeaches() {
   const { user } = useAuth();
-  const [beaches, setBeaches] = useState<Beach[]>([]);
+  const [targets, setTargets] = useState<SavedSpotTarget[]>([]);
   const [loading, setLoading] = useState(true);
   const [removing, setRemoving] = useState<string | null>(null);
   const [savingOrder, setSavingOrder] = useState(false);
@@ -47,19 +48,19 @@ export function FavoriteBeaches() {
 
   // Standard data fetching pattern
   const fetchFavorites = useCallback(async () => {
-    if (!user?.id) return [] as Beach[];
+    if (!user?.id) return [] as SavedSpotTarget[];
     try {
       const res = await fetch("/api/beaches/favorites", {
         method: "GET",
         headers: { Accept: "application/json" },
         cache: "no-store",
       });
-      if (!res.ok) return [] as Beach[];
+      if (!res.ok) return [] as SavedSpotTarget[];
       const json = await res.json();
-      return (json?.data?.beaches || []) as Beach[];
+      return (json?.data?.targets || []) as SavedSpotTarget[];
     } catch (e) {
       console.error("FavoriteBeaches: failed to fetch favorites via API", e);
-      return [] as Beach[];
+      return [] as SavedSpotTarget[];
     }
   }, [user?.id]);
 
@@ -68,12 +69,12 @@ export function FavoriteBeaches() {
     {
       immediate: true,
       skip: !user,
-      initialData: [] as Beach[],
+      initialData: [] as SavedSpotTarget[],
     },
   );
 
   useEffect(() => {
-    setBeaches(favorites || []);
+    setTargets(favorites || []);
     setLoading(favLoading);
   }, [favorites, favLoading]);
 
@@ -110,7 +111,11 @@ export function FavoriteBeaches() {
     try {
       const result = await removeFavoriteBeach(user.id, beach.id);
       if (result.success) {
-        setBeaches((prev) => prev.filter((b) => b.id !== beach.id));
+        setTargets((prev) =>
+          prev.filter((target) =>
+            target.kind !== "beach" || target.beach.id !== beach.id,
+          ),
+        );
         toast("Beach removed", { description: "Beach removed from favorites." });
       } else {
         toast.error("Error", { description: "Failed to remove beach from favorites." });
@@ -124,7 +129,7 @@ export function FavoriteBeaches() {
   };
 
   const moveBeach = (index: number, direction: -1 | 1) => {
-    setBeaches((prev) => {
+    setTargets((prev) => {
       const next = prev.slice();
       const target = index + direction;
       if (target < 0 || target >= next.length) return prev;
@@ -138,7 +143,9 @@ export function FavoriteBeaches() {
     if (!user) return;
     setSavingOrder(true);
     try {
-      const orderedIds = beaches.map((b) => b.id);
+      const orderedIds = targets.flatMap((target) =>
+        target.kind === "beach" ? [target.beach.id] : [],
+      );
       const result = await reorderFavoriteBeaches(orderedIds);
       if (result?.success) {
         toast("Order saved", { description: "Favorites updated." });
@@ -152,6 +159,8 @@ export function FavoriteBeaches() {
     }
   };
 
+  const canReorder = targets.every((target) => target.kind === "beach");
+
   if (loading) {
     return (
       <div className="flex justify-center py-8">
@@ -160,10 +169,10 @@ export function FavoriteBeaches() {
     );
   }
 
-  if (beaches.length === 0) {
+  if (targets.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
-        <p>You don&apos;t have any favorite beaches yet.</p>
+        <p>You don&apos;t have any saved spots yet.</p>
         <Button variant="link" asChild>
           <Link href="/map">Explore beaches</Link>
         </Button>
@@ -174,22 +183,46 @@ export function FavoriteBeaches() {
   return (
     <>
       <div className="space-y-4">
-        <div className="flex justify-end">
-          <Button
-            onClick={saveOrder}
-            disabled={savingOrder}
-            variant="secondary"
-            size="sm"
-          >
-            {savingOrder ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              "Save Order"
-            )}
-          </Button>
-        </div>
-        {beaches.map((beach, idx) => (
-          <Card key={beach.id} className="overflow-hidden">
+        {canReorder && (
+          <div className="flex justify-end">
+            <Button
+              onClick={saveOrder}
+              disabled={savingOrder}
+              variant="secondary"
+              size="sm"
+            >
+              {savingOrder ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "Save Order"
+              )}
+            </Button>
+          </div>
+        )}
+        {targets.map((target, idx) => {
+          if (target.kind === "custom_spot") {
+            return (
+              <Card
+                key={`custom-${target.customSpot.id}`}
+                className="overflow-hidden border-[#11100D]/30 bg-[#F4EBD8] text-[#11100D]"
+              >
+                <CardHeader className="pb-2">
+                  <CardDescription className="font-heading text-xs font-bold uppercase tracking-wide text-[#8A5E00]">
+                    Custom spot
+                  </CardDescription>
+                  <CardTitle className="text-lg">{target.customSpot.name}</CardTitle>
+                </CardHeader>
+                <CardFooter className="pt-2">
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href={`/custom-spots/${target.customSpot.id}`}>View Details</Link>
+                  </Button>
+                </CardFooter>
+              </Card>
+            );
+          }
+
+          const beach = target.beach;
+          return <Card key={`beach-${beach.id}`} className="overflow-hidden">
             <CardHeader className="pb-2">
               <CardTitle className="text-lg">{beach.name}</CardTitle>
               <CardDescription className="flex items-center">
@@ -261,7 +294,7 @@ export function FavoriteBeaches() {
               )}
             </CardContent>
             <CardFooter className="flex justify-between items-center gap-2 pt-2">
-              <div className="flex items-center gap-2">
+              {canReorder && <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
@@ -274,11 +307,11 @@ export function FavoriteBeaches() {
                   variant="outline"
                   size="sm"
                   onClick={() => moveBeach(idx, 1)}
-                  disabled={idx === beaches.length - 1}
+                  disabled={idx === targets.length - 1}
                 >
                   Move Down
                 </Button>
-              </div>
+              </div>}
               <Button variant="outline" size="sm" asChild>
                 <Link href={beachNavigation.toBeachDetail(beach)}>
                   View Details
@@ -297,8 +330,8 @@ export function FavoriteBeaches() {
                 )}
               </Button>
             </CardFooter>
-          </Card>
-        ))}
+          </Card>;
+        })}
       </div>
       {addAlertBeach && (
         <AlertCreationPopover

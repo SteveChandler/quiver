@@ -51,7 +51,7 @@ describe("FavoriteBeaches empty state", () => {
     // Wait for loading to finish and empty state to render
     await waitFor(
       () => {
-        expect(screen.getByText("You don't have any favorite beaches yet.")).toBeInTheDocument();
+        expect(screen.getByText("You don't have any saved spots yet.")).toBeInTheDocument();
       },
       { timeout: 5000 }
     );
@@ -60,5 +60,33 @@ describe("FavoriteBeaches empty state", () => {
       name: /explore beaches/i,
     });
     expect(exploreLink).toHaveAttribute("href", "/map");
+  });
+});
+
+describe("FavoriteBeaches saved targets", () => {
+  it("shows a custom spot on the profile list without beach alert or ordering controls", async () => {
+    const fetchMock = jest.fn(async (input: string) => ({
+      ok: true,
+      json: async () => input === "/api/beaches/favorites"
+        ? { data: { targets: [{ kind: "custom_spot", rank: 1, nearestBeachId: null,
+            customSpot: { id: "spot-1", name: "My Reef", lat: 33, lon: -118, break_type: "reef", nearest_beach_id: null } }] } }
+        : { data: [] },
+    }));
+    const originalFetch = global.fetch;
+    global.fetch = fetchMock as unknown as typeof fetch;
+    try {
+      render(<FavoriteBeaches />);
+      expect(await screen.findByText("My Reef")).toBeInTheDocument();
+      expect(screen.getByText("Custom spot")).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "View Details" })).toHaveAttribute("href", "/custom-spots/spot-1");
+      expect(screen.queryByText("No alerts set")).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Manage" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /home/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Save Order" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Move Up" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Remove" })).not.toBeInTheDocument();
+    } finally {
+      global.fetch = originalFetch;
+    }
   });
 });
