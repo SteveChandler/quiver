@@ -224,6 +224,12 @@ export default function AdminPhotosPage() {
       return;
     }
     toast.success(approved ? "Photo approved" : "Photo unapproved");
+    const placeConflict = result.data?.placeConflict;
+    if (placeConflict) {
+      toast.warning(
+        `Its title names ${placeConflict}, not ${photo.metadata.beachName || "this beach"}. Unapprove it if it shows somewhere else.`
+      );
+    }
     refetchBeach();
   };
 
@@ -236,7 +242,12 @@ export default function AdminPhotosPage() {
       return;
     }
 
-    const { success, failed, errors } = result.data || { success: 0, failed: 0, errors: [] };
+    const { success, failed, errors, warnings } = result.data || {
+      success: 0,
+      failed: 0,
+      errors: [],
+      warnings: [],
+    };
 
     if (failed > 0) {
       toast.error(
@@ -246,6 +257,18 @@ export default function AdminPhotosPage() {
       );
     } else {
       toast.success(`Approved ${success} photo${success !== 1 ? "s" : ""}`);
+    }
+
+    if (warnings.length > 0) {
+      const named = warnings
+        .slice(0, 3)
+        .map((warning) => `"${warning.title}" names ${warning.conflict}`)
+        .join("; ");
+      toast.warning(
+        `${warnings.length} approved photo${warnings.length !== 1 ? "s name" : " names"} another place: ${named}${
+          warnings.length > 3 ? "; …" : ""
+        }. Unapprove any that show somewhere else.`
+      );
     }
 
     refetchBeach();

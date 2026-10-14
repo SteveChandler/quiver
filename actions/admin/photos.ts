@@ -12,6 +12,10 @@ import { recordAdminEvent } from "@/lib/logging/admin-audit";
 import type { AdminUser } from "@/lib/auth/admin";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
+import {
+  findPhotoPlaceConflict,
+  type PlaceCatalogEntry,
+} from "@/lib/photos/place-guard";
 
 /** Context provided to admin actions */
 type AdminContext = {
@@ -34,6 +38,45 @@ function jsonRecord(value: unknown): JsonRecord {
 
 function stringOrNull(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+const PLACE_COLUMNS = "name, city, state, region, lat, lon";
+
+/** A photo approved despite naming another place in its title. */
+interface PlaceConflictWarning {
+  id: string;
+  title: string | null;
+  conflict: string;
+}
+
+// The check only warns, so a catalog that fails to load skips it rather than
+// blocking approval.
+async function loadPlaceCatalog(
+  supabaseAdmin: SupabaseClient<Database>
+): Promise<PlaceCatalogEntry[] | null> {
+  const { data, error } = await supabaseAdmin
+    .from("beaches")
+    .select(PLACE_COLUMNS)
+    .is("deleted_at", null)
+    .limit(3000);
+
+  if (error) {
+    console.warn(`Beach photo place check skipped: ${error.message}`);
+    return null;
+  }
+
+  return (data as PlaceCatalogEntry[] | null) ?? [];
+}
+
+// Keyword sources attached a Venice Beach photo to Blacks Beach; flag a title
+// that names somewhere other than the photo's beach.
+function photoPlaceConflict(
+  photo: { title: string | null; beaches: unknown },
+  catalog: PlaceCatalogEntry[] | null
+): string | null {
+  const beach = firstRelation(photo.beaches as PlaceCatalogEntry | PlaceCatalogEntry[] | null);
+  if (!catalog || !beach) return null;
+  return findPhotoPlaceConflict(photo.title, beach, catalog);
 }
 
 // ================================================
@@ -806,14 +849,16 @@ export const bulkApproveBeachPhotos = withAdminActionAndUser(
       success: 0,
       failed: 0,
       errors: [] as Array<{ id: string; error: string }>,
+      warnings: [] as PlaceConflictWarning[],
     };
+    let catalog: Promise<PlaceCatalogEntry[] | null> | undefined;
 
     for (const photoId of photoIds) {
       try {
         // Get photo details for audit log
         const { data: photo } = await supabaseAdmin
           .from("beach_photos")
-          .select("title, source, beach_id, deleted_at, beaches(name)")
+          .select(`title, source, beach_id, deleted_at, beaches(${PLACE_COLUMNS})`)
           .eq("id", photoId)
           .single();
 
@@ -829,6 +874,9 @@ export const bulkApproveBeachPhotos = withAdminActionAndUser(
           continue;
         }
 
+        catalog ??= loadPlaceCatalog(supabaseAdmin);
+        const placeConflict = photoPlaceConflict(photo, await catalog);
+
         // Approve the photo
         const { error: dbError } = await supabaseAdmin
           .from("beach_photos")
@@ -841,6 +889,10 @@ export const bulkApproveBeachPhotos = withAdminActionAndUser(
           continue;
         }
 
+        if (placeConflict) {
+          results.warnings.push({ id: photoId, title: photo.title, conflict: placeConflict });
+        }
+
         // Log the action
         await recordAdminEvent(user.id, "photo", "approve", {
           entityId: photoId,
@@ -851,6 +903,7 @@ export const bulkApproveBeachPhotos = withAdminActionAndUser(
             beach_id: photo.beach_id,
             beach_name: (photo as any)?.beaches?.name,
             bulk_operation: true,
+            place_conflict: placeConflict,
           },
         });
 
@@ -876,9 +929,14 @@ export const toggleBeachPhotoApproval = withAdminActionAndUser(
     // Get photo details for audit log
     const { data: photo } = await supabaseAdmin
       .from("beach_photos")
-      .select("title, source, beach_id, beaches(name)")
+      .select(`title, source, beach_id, beaches(${PLACE_COLUMNS})`)
       .eq("id", photoId)
       .single();
+
+    const placeConflict =
+      approved && photo
+        ? photoPlaceConflict(photo, await loadPlaceCatalog(supabaseAdmin))
+        : null;
 
     // Update approval status
     const { error } = await supabaseAdmin
@@ -900,10 +958,11 @@ export const toggleBeachPhotoApproval = withAdminActionAndUser(
         beach_id: photo?.beach_id,
         beach_name: (photo as any)?.beaches?.name,
         approved,
+        place_conflict: placeConflict,
       },
     });
 
-    return { success: true };
+    return { success: true, placeConflict };
   }
 );
 
