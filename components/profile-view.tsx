@@ -614,7 +614,7 @@ function ProfileViewContent() {
                   >
                     <div className="flex justify-between items-center mb-6">
                       <h3 className="font-heading text-xl font-semibold text-[#11100D]">
-                        Favorite Beaches
+                        Saved Spots
                       </h3>
                       <Button
                         data-testid="add-beach-button"

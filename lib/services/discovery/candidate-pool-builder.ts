@@ -135,7 +135,7 @@ async function fetchPoolUserContext(
       .select('experience_level, surf_styles, home_beach_id')
       .eq('id', userId)
       .maybeSingle(),
-    supabase.from('favorite_beaches').select('beach_id').eq('user_id', userId),
+    supabase.from('favorite_beaches').select('beach_id').eq('user_id', userId).not('beach_id', 'is', null),
   ]);
 
   if (profileResult.error) {

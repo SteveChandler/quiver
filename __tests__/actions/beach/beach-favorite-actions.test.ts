@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import {
   removeFavoriteBeach,
+  reorderFavoriteBeaches,
 } from '@/actions/beach/beach-favorite-actions';
 
 jest.mock('@/lib/supabase/server');
@@ -16,6 +17,7 @@ function makeSupabaseFake(options: {
   updateShouldFail?: boolean;
   authUserId?: string;
   favoritesRows?: any[];
+  orderedRows?: Array<{ beach_id: string | null; custom_spot_id: string | null; rank: number | null }>;
 }) {
   const insertCalls: any[] = [];
   const upsertCalls: Array<{ payload: any; options: any }> = [];
@@ -33,7 +35,7 @@ function makeSupabaseFake(options: {
   };
   const selectRankChain = {
     eq: jest.fn((_col: string, _val: any) =>
-      Promise.resolve({ data: (options.ranks || []).map((rank) => ({ rank })), error: null })
+      Promise.resolve({ data: options.orderedRows ?? (options.ranks || []).map((rank) => ({ rank })), error: null })
     ),
   };
   const selectFavoritesChain = {
@@ -118,6 +120,121 @@ describe('beach-favorite-actions', () => {
     expect(deleteEqCalls).toEqual([
       { col: 'user_id', val: 'u1' },
       { col: 'beach_id', val: 'b2' },
+    ]);
+  });
+
+  it('reorders curated beaches using only their existing rank slots', async () => {
+    const { supabase, updateCalls } = makeSupabaseFake({
+      authUserId: 'u1',
+      orderedRows: [
+        { beach_id: 'b1', custom_spot_id: null, rank: 1 },
+        { beach_id: null, custom_spot_id: 's1', rank: 2 },
+        { beach_id: 'b2', custom_spot_id: null, rank: 3 },
+        { beach_id: null, custom_spot_id: 's2', rank: 4 },
+        { beach_id: 'b3', custom_spot_id: null, rank: 5 },
+      ],
+    });
+    mockCreate.mockResolvedValue(supabase);
+
+    const res = await reorderFavoriteBeaches(['b3', 'b1', 'b2']);
+
+    expect(res.success).toBe(true);
+    expect(updateCalls).toEqual([
+      { payload: { rank: 1 }, eqCalls: [{ col: 'user_id', val: 'u1' }, { col: 'beach_id', val: 'b3' }] },
+      { payload: { rank: 3 }, eqCalls: [{ col: 'user_id', val: 'u1' }, { col: 'beach_id', val: 'b1' }] },
+      { payload: { rank: 5 }, eqCalls: [{ col: 'user_id', val: 'u1' }, { col: 'beach_id', val: 'b2' }] },
+    ]);
+  });
+
+  it.each([
+    { name: 'null', ranks: [null, null] },
+    { name: 'duplicate', ranks: [4, 4] },
+    { name: 'distinct non-contiguous', ranks: [4, 9] },
+  ])('rewrites $name ranks to 1..N when there are no custom spots', async ({ ranks }) => {
+    const { supabase, updateCalls } = makeSupabaseFake({
+      authUserId: 'u1',
+      orderedRows: [
+        { beach_id: 'b1', custom_spot_id: null, rank: ranks[0] },
+        { beach_id: 'b2', custom_spot_id: null, rank: ranks[1] },
+      ],
+    });
+    mockCreate.mockResolvedValue(supabase);
+
+    const res = await reorderFavoriteBeaches(['b2', 'b1']);
+
+    expect(res.success).toBe(true);
+    expect(updateCalls).toEqual([
+      { payload: { rank: 1 }, eqCalls: [{ col: 'user_id', val: 'u1' }, { col: 'beach_id', val: 'b2' }] },
+      { payload: { rank: 2 }, eqCalls: [{ col: 'user_id', val: 'u1' }, { col: 'beach_id', val: 'b1' }] },
+    ]);
+  });
+
+  it.each([
+    { name: 'null', ranks: [null, 8, null] },
+    { name: 'duplicate', ranks: [8, 8, 9] },
+  ])('uses the lowest unused positive ranks for $name curated ranks with custom spots', async ({ ranks }) => {
+    const { supabase, updateCalls } = makeSupabaseFake({
+      authUserId: 'u1',
+      orderedRows: [
+        { beach_id: 'b1', custom_spot_id: null, rank: ranks[0] },
+        { beach_id: null, custom_spot_id: 's1', rank: 1 },
+        { beach_id: 'b2', custom_spot_id: null, rank: ranks[1] },
+        { beach_id: null, custom_spot_id: 's2', rank: 3 },
+        { beach_id: 'b3', custom_spot_id: null, rank: ranks[2] },
+        { beach_id: null, custom_spot_id: 's3', rank: null },
+      ],
+    });
+    mockCreate.mockResolvedValue(supabase);
+
+    const res = await reorderFavoriteBeaches(['b3', 'b1', 'b2']);
+
+    expect(res.success).toBe(true);
+    expect(updateCalls).toEqual([
+      { payload: { rank: 2 }, eqCalls: [{ col: 'user_id', val: 'u1' }, { col: 'beach_id', val: 'b3' }] },
+      { payload: { rank: 4 }, eqCalls: [{ col: 'user_id', val: 'u1' }, { col: 'beach_id', val: 'b1' }] },
+      { payload: { rank: 5 }, eqCalls: [{ col: 'user_id', val: 'u1' }, { col: 'beach_id', val: 'b2' }] },
+    ]);
+  });
+
+  it.each([
+    { name: 'omitted', ids: ['b1'] },
+    { name: 'duplicate', ids: ['b1', 'b1'] },
+    { name: 'foreign', ids: ['b1', 'other-user-beach'] },
+    { name: 'custom spot', ids: ['b1', 's1'] },
+  ])('rejects $name ids without writing ranks', async ({ ids }) => {
+    const { supabase, updateCalls } = makeSupabaseFake({
+      authUserId: 'u1',
+      orderedRows: [
+        { beach_id: 'b1', custom_spot_id: null, rank: 1 },
+        { beach_id: null, custom_spot_id: 's1', rank: 2 },
+        { beach_id: 'b2', custom_spot_id: null, rank: 3 },
+      ],
+    });
+    mockCreate.mockResolvedValue(supabase);
+
+    const res = await reorderFavoriteBeaches(ids);
+
+    expect(res.success).toBe(false);
+    expect(updateCalls).toHaveLength(0);
+  });
+
+  it('uses unused ranks when an existing curated rank collides with a custom spot', async () => {
+    const { supabase, updateCalls } = makeSupabaseFake({
+      authUserId: 'u1',
+      orderedRows: [
+        { beach_id: 'b1', custom_spot_id: null, rank: 1 },
+        { beach_id: null, custom_spot_id: 's1', rank: 2 },
+        { beach_id: 'b2', custom_spot_id: null, rank: 2 },
+      ],
+    });
+    mockCreate.mockResolvedValue(supabase);
+
+    const res = await reorderFavoriteBeaches(['b2', 'b1']);
+
+    expect(res.success).toBe(true);
+    expect(updateCalls).toEqual([
+      { payload: { rank: 1 }, eqCalls: [{ col: 'user_id', val: 'u1' }, { col: 'beach_id', val: 'b2' }] },
+      { payload: { rank: 3 }, eqCalls: [{ col: 'user_id', val: 'u1' }, { col: 'beach_id', val: 'b1' }] },
     ]);
   });
 

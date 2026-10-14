@@ -27,6 +27,7 @@ import { useAuth } from "@/context/auth-context";
 import Link from "next/link";
 import { toast } from "sonner";
 import type { Beach } from "@/types/database";
+import type { SavedSpotTarget } from "@/types/saved-spot";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { beachNavigation } from "@/lib/navigation-utils";
 import { getBeachLocation } from "@/lib/utils/beach-card-utils";
@@ -35,7 +36,7 @@ import { AlertCreationPopover } from "@/components/alerts/alert-creation-popover
 
 export function FavoriteBeaches() {
   const { user } = useAuth();
-  const [beaches, setBeaches] = useState<Beach[]>([]);
+  const [targets, setTargets] = useState<SavedSpotTarget[]>([]);
   const [loading, setLoading] = useState(true);
   const [removing, setRemoving] = useState<string | null>(null);
   const [savingOrder, setSavingOrder] = useState(false);
@@ -47,19 +48,26 @@ export function FavoriteBeaches() {
 
   // Standard data fetching pattern
   const fetchFavorites = useCallback(async () => {
-    if (!user?.id) return [] as Beach[];
+    if (!user?.id) return [] as SavedSpotTarget[];
     try {
       const res = await fetch("/api/beaches/favorites", {
         method: "GET",
         headers: { Accept: "application/json" },
         cache: "no-store",
       });
-      if (!res.ok) return [] as Beach[];
+      if (!res.ok) return [] as SavedSpotTarget[];
       const json = await res.json();
-      return (json?.data?.beaches || []) as Beach[];
+      if (Array.isArray(json?.data?.targets)) {
+        return json.data.targets as SavedSpotTarget[];
+      }
+      return ((json?.data?.beaches || []) as Beach[]).map((beach) => ({
+        kind: "beach" as const,
+        beach,
+        rank: null,
+      }));
     } catch (e) {
       console.error("FavoriteBeaches: failed to fetch favorites via API", e);
-      return [] as Beach[];
+      return [] as SavedSpotTarget[];
     }
   }, [user?.id]);
 
@@ -68,12 +76,12 @@ export function FavoriteBeaches() {
     {
       immediate: true,
       skip: !user,
-      initialData: [] as Beach[],
+      initialData: [] as SavedSpotTarget[],
     },
   );
 
   useEffect(() => {
-    setBeaches(favorites || []);
+    setTargets(favorites || []);
     setLoading(favLoading);
   }, [favorites, favLoading]);
 
@@ -110,7 +118,11 @@ export function FavoriteBeaches() {
     try {
       const result = await removeFavoriteBeach(user.id, beach.id);
       if (result.success) {
-        setBeaches((prev) => prev.filter((b) => b.id !== beach.id));
+        setTargets((prev) =>
+          prev.filter((target) =>
+            target.kind !== "beach" || target.beach.id !== beach.id,
+          ),
+        );
         toast("Beach removed", { description: "Beach removed from favorites." });
       } else {
         toast.error("Error", { description: "Failed to remove beach from favorites." });
@@ -124,12 +136,13 @@ export function FavoriteBeaches() {
   };
 
   const moveBeach = (index: number, direction: -1 | 1) => {
-    setBeaches((prev) => {
+    setTargets((prev) => {
       const next = prev.slice();
-      const target = index + direction;
-      if (target < 0 || target >= next.length) return prev;
-      const [item] = next.splice(index, 1);
-      next.splice(target, 0, item);
+      const target = direction === -1
+        ? next.findLastIndex((item, itemIndex) => itemIndex < index && item.kind === "beach")
+        : next.findIndex((item, itemIndex) => itemIndex > index && item.kind === "beach");
+      if (target < 0) return prev;
+      [next[index], next[target]] = [next[target], next[index]];
       return next;
     });
   };
@@ -138,7 +151,9 @@ export function FavoriteBeaches() {
     if (!user) return;
     setSavingOrder(true);
     try {
-      const orderedIds = beaches.map((b) => b.id);
+      const orderedIds = targets.flatMap((target) =>
+        target.kind === "beach" ? [target.beach.id] : [],
+      );
       const result = await reorderFavoriteBeaches(orderedIds);
       if (result?.success) {
         toast("Order saved", { description: "Favorites updated." });
@@ -152,6 +167,8 @@ export function FavoriteBeaches() {
     }
   };
 
+  const curatedCount = targets.filter((target) => target.kind === "beach").length;
+
   if (loading) {
     return (
       <div className="flex justify-center py-8">
@@ -160,10 +177,10 @@ export function FavoriteBeaches() {
     );
   }
 
-  if (beaches.length === 0) {
+  if (targets.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
-        <p>You don&apos;t have any favorite beaches yet.</p>
+        <p>You don&apos;t have any saved spots yet.</p>
         <Button variant="link" asChild>
           <Link href="/map">Explore beaches</Link>
         </Button>
@@ -174,22 +191,47 @@ export function FavoriteBeaches() {
   return (
     <>
       <div className="space-y-4">
-        <div className="flex justify-end">
-          <Button
-            onClick={saveOrder}
-            disabled={savingOrder}
-            variant="secondary"
-            size="sm"
-          >
-            {savingOrder ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              "Save Order"
-            )}
-          </Button>
-        </div>
-        {beaches.map((beach, idx) => (
-          <Card key={beach.id} className="overflow-hidden">
+        {curatedCount > 0 && (
+          <div className="flex justify-end">
+            <Button
+              onClick={saveOrder}
+              disabled={savingOrder}
+              variant="secondary"
+              size="sm"
+            >
+              {savingOrder ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "Save Order"
+              )}
+            </Button>
+          </div>
+        )}
+        {targets.map((target, idx) => {
+          if (target.kind === "custom_spot") {
+            return (
+              <Card
+                key={`custom-${target.customSpot.id}`}
+                className="overflow-hidden border-ink/30 bg-paper text-ink"
+              >
+                <CardHeader className="pb-2">
+                  <CardDescription className="font-heading text-xs font-bold uppercase tracking-wide text-kicker-ink">
+                    Custom spot
+                  </CardDescription>
+                  <CardTitle className="text-lg">{target.customSpot.name}</CardTitle>
+                </CardHeader>
+                <CardFooter className="pt-2">
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href={`/custom-spots/${target.customSpot.id}`}>View Details</Link>
+                  </Button>
+                </CardFooter>
+              </Card>
+            );
+          }
+
+          const beach = target.beach;
+          const curatedIndex = targets.slice(0, idx).filter((item) => item.kind === "beach").length;
+          return <Card key={`beach-${beach.id}`} className="overflow-hidden">
             <CardHeader className="pb-2">
               <CardTitle className="text-lg">{beach.name}</CardTitle>
               <CardDescription className="flex items-center">
@@ -266,7 +308,7 @@ export function FavoriteBeaches() {
                   variant="outline"
                   size="sm"
                   onClick={() => moveBeach(idx, -1)}
-                  disabled={idx === 0}
+                  disabled={curatedIndex === 0}
                 >
                   Move Up
                 </Button>
@@ -274,7 +316,7 @@ export function FavoriteBeaches() {
                   variant="outline"
                   size="sm"
                   onClick={() => moveBeach(idx, 1)}
-                  disabled={idx === beaches.length - 1}
+                  disabled={curatedIndex === curatedCount - 1}
                 >
                   Move Down
                 </Button>
@@ -297,8 +339,8 @@ export function FavoriteBeaches() {
                 )}
               </Button>
             </CardFooter>
-          </Card>
-        ))}
+          </Card>;
+        })}
       </div>
       {addAlertBeach && (
         <AlertCreationPopover
