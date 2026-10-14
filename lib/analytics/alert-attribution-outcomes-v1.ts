@@ -59,7 +59,7 @@ function chunks<T>(items: T[], size = 200): T[][] {
   return result;
 }
 function max(rows: Array<string | null | undefined>): string | null {
-  return rows.filter((value): value is string => !!value).sort().at(-1) ?? null;
+  return rows.filter((value): value is string => !!value).sort((a, b) => Date.parse(a) - Date.parse(b)).at(-1) ?? null;
 }
 function capable(channel: Channel, type: string): boolean {
   return channel === "email" ? type === "conditions_alert"
@@ -71,6 +71,8 @@ export function deriveSentAlertInstances(
   pushIdentities: Array<{ id: string; recipient_user_id: string; type: string; created_at?: string }>,
   emailSends: EmailSendRow[],
 ): SentAlertInstance[] {
+  const windowStart = Date.parse(window.start);
+  const windowEnd = Date.parse(window.end);
   const push = new Map(pushIdentities.map((row) => [row.id, row]));
   const email = new Map(emailSends.filter((row) => row.message_instance_id).map((row) => [row.message_instance_id, row]));
   const grouped = new Map<string, AlertLedgerRow[]>();
@@ -82,10 +84,10 @@ export function deriveSentAlertInstances(
   const instances: SentAlertInstance[] = [];
   for (const rowsForId of grouped.values()) {
     const sentRows = rowsForId.filter((row) => row.status === "sent")
-      .sort((a, b) => a.attempted_at.localeCompare(b.attempted_at) || a.id.localeCompare(b.id));
+      .sort((a, b) => Date.parse(a.attempted_at) - Date.parse(b.attempted_at) || a.id.localeCompare(b.id));
     const first = sentRows[0];
     if (!first) continue;
-    if (first.attempted_at < window.start || first.attempted_at >= window.end) continue;
+    if (Date.parse(first.attempted_at) < windowStart || Date.parse(first.attempted_at) >= windowEnd) continue;
     const id = first.message_instance_id!;
     const recipientIds = unique(rowsForId.map((row) => row.user_id));
     const identity = first.channel === "push" ? push.get(id) : email.get(id);
@@ -101,7 +103,7 @@ export function deriveSentAlertInstances(
       identityCreatedAt: first.channel === "push" ? push.get(id)?.created_at : undefined,
     });
   }
-  return instances.sort((a, b) => a.sentAt.localeCompare(b.sentAt) || a.channel.localeCompare(b.channel) || a.messageInstanceId.localeCompare(b.messageInstanceId));
+  return instances.sort((a, b) => Date.parse(a.sentAt) - Date.parse(b.sentAt) || a.channel.localeCompare(b.channel) || a.messageInstanceId.localeCompare(b.messageInstanceId));
 }
 
 export async function loadSentAlertInstances(client: ReadOnlySupabase, window: Window, ledgerRows?: AlertLedgerRow[]): Promise<SentAlertInstance[]> {
@@ -142,6 +144,8 @@ function stageFor(instance: SentAlertInstance, events: PushUserEventRow[], asOf:
 
 export function buildAlertAttributionOutcomesReport(input: AlertAttributionInput) {
   const asOf = Date.parse(input.asOf);
+  const windowStart = Date.parse(input.window.start);
+  const windowEnd = Date.parse(input.window.end);
   const ttlFloor = new Date(asOf - 90 * DAY_MS).toISOString();
   const excluded: Record<string, number> = {};
   const exclusion = (userId: string): ProfileExclusionReason | null => {
@@ -159,7 +163,7 @@ export function buildAlertAttributionOutcomesReport(input: AlertAttributionInput
   const nullUsers = new Map<string, Set<string>>();
   const skips: Record<string, number> = {};
   const failures: Record<string, number> = {};
-  for (const row of input.ledger.filter((item) => item.attempted_at >= input.window.start && item.attempted_at < input.window.end)) {
+  for (const row of input.ledger.filter((item) => Date.parse(item.attempted_at) >= windowStart && Date.parse(item.attempted_at) < windowEnd)) {
     const channel = ledger[row.channel] ??= {};
     const item = channel[row.status] ??= { rows: 0, distinctUsers: 0 };
     item.rows += 1;
@@ -186,7 +190,7 @@ export function buildAlertAttributionOutcomesReport(input: AlertAttributionInput
   const pushFinalOutcome: Record<string, number> = {};
   const sentIds = new Set([...input.instances.map((item) => item.messageInstanceId), ...input.knownSentMessageIds]);
   const stageRows = input.userEvents.filter((row) => STAGES.includes(row.event_type as typeof STAGES[number]));
-  const orphanStages = stageRows.filter((row) => row.created_at >= input.window.start && row.created_at <= new Date(Date.parse(input.window.end) + 7 * DAY_MS).toISOString() &&
+  const orphanStages = stageRows.filter((row) => Date.parse(row.created_at) >= windowStart && Date.parse(row.created_at) <= windowEnd + 7 * DAY_MS &&
     (!eventMid(row) || !sentIds.has(eventMid(row)!))).length;
   const channelMismatch = stageRows.filter((row) => eligible.some((item) => item.messageInstanceId === eventMid(row) && item.recipientId === row.user_id && row.metadata?.delivery_channel !== item.channel)).length;
   let interactions = 0; let missing = 0;
@@ -206,7 +210,7 @@ export function buildAlertAttributionOutcomesReport(input: AlertAttributionInput
     const mature7 = send + 7 * DAY_MS <= asOf;
     const stages = stageFor(item, stageRows, asOf);
     const has = (name: string, limit = send + 7 * DAY_MS): boolean => stages.some((row) => row.event_type === name && Date.parse(row.created_at) <= limit);
-    const returns = stages.filter((row) => row.event_type === "alert_app_returned").sort((a, b) => a.created_at.localeCompare(b.created_at));
+    const returns = stages.filter((row) => row.event_type === "alert_app_returned").sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at) || a.id.localeCompare(b.id));
     const returned = returns.length > 0;
     state.set(key, { returned, returnAt: returns[0]?.created_at ?? null, mature: mature7 });
     if (item.channel === "push") {
@@ -298,12 +302,12 @@ export function buildAlertAttributionOutcomesReport(input: AlertAttributionInput
     if (!group.every((item) => state.get(`${item.channel}:${item.messageInstanceId}`)?.mature)) continue;
     matureOccasions += 1;
     const first = group.map((item) => ({ channel: item.channel, at: state.get(`${item.channel}:${item.messageInstanceId}`)?.returnAt }))
-      .filter((item): item is { channel: Channel; at: string } => !!item.at).sort((a, b) => a.at.localeCompare(b.at) || a.channel.localeCompare(b.channel))[0];
+      .filter((item): item is { channel: Channel; at: string } => !!item.at).sort((a, b) => Date.parse(a.at) - Date.parse(b.at) || a.channel.localeCompare(b.channel))[0];
     if (first) { returnedOccasions += 1; returnsByFirstChannel[first.channel] += 1; }
   }
   return {
     schemaVersion: ALERT_ATTRIBUTION_OUTCOMES_SCHEMA_VERSION, window: input.window, asOf: input.asOf,
-    ttlFloor, windowBeforeTtlFloor: input.window.start < ttlFloor, openHorizonHours: input.openHorizonHours,
+    ttlFloor, windowBeforeTtlFloor: windowStart < Date.parse(ttlFloor), openHorizonHours: input.openHorizonHours,
     sourceFreshness: {
       alert_delivery_attempts: max(input.ledger.map((row) => row.attempted_at)),
       notification_events: max(input.instances.map((row) => row.channel === "push" ? row.identityCreatedAt : null)),

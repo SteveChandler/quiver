@@ -119,4 +119,71 @@ describe("alert attribution outcomes v1", () => {
     data.userEvents = [event("stage", "u", "alert_app_returned", send, { message_instance_id: "older", delivery_channel: "push" })];
     expect(buildAlertAttributionOutcomesReport(data).orphanStages).toBe(0);
   });
+
+  it("includes +00:00 rows exactly at window start and excludes sends at window end", () => {
+    const data = input();
+    data.window = {
+      startDate: "2026-10-07", endDate: "2026-10-08", timeZone: "America/Los_Angeles",
+      start: "2026-10-07T07:00:00.000Z", end: "2026-10-08T07:00:00.000Z",
+    };
+    data.asOf = "2026-10-17T00:00:00.000Z";
+    data.ledger = [
+      { ...ledger("at-start", "p", "push"), attempted_at: "2026-10-07T07:00:00+00:00" },
+      { ...ledger("before-start", "before", "push"), attempted_at: "2026-10-07T06:59:59.999Z" },
+      { ...ledger("at-end", "after", "push"), attempted_at: "2026-10-08T07:00:00+00:00" },
+    ];
+    data.instances = deriveSentAlertInstances(data.ledger, data.window,
+      ["p", "before", "after"].map((id) => ({ id, type: "forecast_alert", recipient_user_id: "u" })), []);
+    data.exclusions = new Map([["u", null]]);
+    data.userEvents = [
+      event("start", "u", "alert_app_returned", "2026-10-07T07:00:00+00:00", { message_instance_id: "orphan", delivery_channel: "push" }),
+      event("before", "u", "alert_app_returned", "2026-10-07T06:59:59.999Z", { message_instance_id: "orphan", delivery_channel: "push" }),
+      event("last", "u", "alert_app_returned", "2026-10-15T07:00:00+00:00", { message_instance_id: "orphan", delivery_channel: "push" }),
+      event("after", "u", "alert_app_returned", "2026-10-15T07:00:00.001Z", { message_instance_id: "orphan", delivery_channel: "push" }),
+    ];
+    expect(data.instances.map((instance) => instance.messageInstanceId)).toEqual(["p"]);
+    const report = buildAlertAttributionOutcomesReport(data);
+    expect(report.sentInstances).toBe(1);
+    expect(report.ledger.byChannelStatus.push.sent).toEqual({ rows: 1, distinctUsers: 1 });
+    expect(report.orphanStages).toBe(2);
+  });
+
+  it("orders send anchors, instances, and freshness by instant across timezone formats", () => {
+    const data = input();
+    data.ledger = [
+      { ...ledger("first", "p", "push"), attempted_at: "2026-01-01T02:00:00+01:00" },
+      { ...ledger("retry", "p", "push"), attempted_at: "2026-01-01T01:00:00.500Z" },
+      { ...ledger("next", "q", "push"), attempted_at: "2026-01-01T01:30:00.000Z" },
+    ];
+    resolve(data, { p: "forecast_alert", q: "forecast_alert" });
+    data.exclusions = new Map([["u", null]]);
+    expect(data.instances.map((instance) => instance.messageInstanceId)).toEqual(["p", "q"]);
+    expect(data.instances[0].sentAt).toBe("2026-01-01T02:00:00+01:00");
+    expect(buildAlertAttributionOutcomesReport(data).sourceFreshness.alert_delivery_attempts).toBe("2026-01-01T01:30:00.000Z");
+  });
+
+  it("assigns the first returning channel using instants across timezone formats", () => {
+    const data = input();
+    data.ledger = [ledger("push", "p", "push"), ledger("email", "e", "email")];
+    data.emailSends = [email("e")];
+    resolve(data, { p: "forecast_alert" });
+    data.exclusions = new Map([["u", null]]);
+    data.userEvents = [
+      event("push-first", "u", "alert_app_returned", "2026-01-01T03:00:00+01:00", { message_instance_id: "p", delivery_channel: "push" }),
+      event("push-later", "u", "alert_app_returned", "2026-01-01T02:30:00.000Z", { message_instance_id: "p", delivery_channel: "push" }),
+      event("email", "u", "alert_app_returned", "2026-01-01T02:15:00.000Z", { message_instance_id: "e", delivery_channel: "email" }),
+    ];
+    const report = buildAlertAttributionOutcomesReport(data);
+    expect(report.returnsByFirstChannel).toEqual({ push: 1, email: 0 });
+    expect(report.sourceFreshness.user_events).toBe("2026-01-01T02:30:00.000Z");
+  });
+
+  it("does not flag a window at the TTL floor when timestamp formats differ", () => {
+    const data = input();
+    data.window = { ...window, start: "2026-01-01T00:00:00+00:00" };
+    data.asOf = "2026-04-01T00:00:00.000Z";
+    const report = buildAlertAttributionOutcomesReport(data);
+    expect(report.ttlFloor).toBe(start);
+    expect(report.windowBeforeTtlFloor).toBe(false);
+  });
 });
