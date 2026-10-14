@@ -502,10 +502,12 @@ describe("surf push budget integration", () => {
       }),
     };
     const allowHold = async () => ({ status: "allowed" as const, candidate: null });
+    const allowSwellDispatchEligibility = async () => ({ allowed: true as const });
     await processPendingEvents(client as never, {
       now: SWELL_TICK,
       fcm: fcm as never,
       resolveMajorEventHold: allowHold,
+      resolveSwellDispatchEligibility: allowSwellDispatchEligibility,
     });
     expect(state.pushes).toHaveLength(1);
     expect(state.pushes[0].data?.type).toBe("swell_watch");
@@ -582,6 +584,7 @@ describe("surf push budget integration", () => {
       now: MORNING_TICK,
       fcm: fcm as never,
       resolveMajorEventHold: allowHold,
+      resolveSwellDispatchEligibility: allowSwellDispatchEligibility,
     });
 
     state.now = SECOND_MORNING_TICK;
