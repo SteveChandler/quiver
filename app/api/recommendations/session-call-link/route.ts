@@ -18,10 +18,12 @@ type SessionCallLinkClient = {
     select: (columns: string) => {
       eq: (column: string, value: string) => {
         eq: (column: string, value: string) => {
-          is: (column: string, value: null) => PromiseLike<{
-            data: { id: string; call_id: string | null } | null;
-            error: { message: string } | null;
-          }>;
+          is: (column: string, value: null) => {
+            maybeSingle: () => PromiseLike<{
+              data: { id: string; call_id: string | null } | null;
+              error: { message: string } | null;
+            }>;
+          };
         };
       };
     };
@@ -65,7 +67,8 @@ export const POST = withNoStore(
         .select("id,call_id")
         .eq("id", sessionId)
         .eq("user_id", user.id)
-        .is("deleted_at", null);
+        .is("deleted_at", null)
+        .maybeSingle();
 
       if (sessionError) {
         return NextResponse.json(
