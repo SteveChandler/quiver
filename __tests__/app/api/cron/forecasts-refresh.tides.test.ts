@@ -58,7 +58,7 @@ jest.mock("@/lib/services/tides/model-tides", () => ({
 const mockSupabaseFrom = jest.fn();
 
 type DeleteCall = {
-  options: { count: "exact" };
+  options?: { count: "exact" };
   filters: Array<[string, string, string | string[]]>;
 };
 
@@ -67,12 +67,12 @@ function tideForecastsMock(
   result: { error: { message: string } | null; count: number | null } = { error: null, count: 0 },
 ): { upsert: jest.Mock; delete: jest.Mock; deleteCalls: DeleteCall[] } {
   const deleteCalls: DeleteCall[] = [];
-  const deleteTides = jest.fn((options: { count: "exact" }) => {
+  const deleteTides = jest.fn((options?: { count: "exact" }) => {
     const filters: DeleteCall["filters"] = [];
     const builder: any = {
       then: (resolve: any, reject: any) => Promise.resolve(result).then(resolve, reject),
     };
-    for (const method of ["in", "neq", "gte", "lte"]) {
+    for (const method of ["in", "neq", "eq", "is", "gte", "lte", "lt"]) {
       builder[method] = (column: string, value: string | string[]) => {
         filters.push([method, column, value]);
         return builder;
@@ -81,17 +81,82 @@ function tideForecastsMock(
     deleteCalls.push({ options, filters });
     return builder;
   });
-  return { upsert, delete: deleteTides, deleteCalls };
+  return { upsert, delete: deleteTides, deleteCalls, select: () => thenable({ data: [], error: null }) } as any;
 }
 
 function thenable(result: unknown) {
   const builder: any = {
     then: (resolve: any, reject: any) => Promise.resolve(result).then(resolve, reject),
   };
-  for (const method of ["select", "not", "eq", "order", "limit", "in", "gte", "lte"]) {
+  for (const method of ["select", "not", "eq", "order", "limit", "in", "gte", "lte", "range", "maybeSingle", "is"]) {
     builder[method] = () => builder;
   }
   return builder;
+}
+
+type StoredTide = {
+  beach_id: string; ts: string; source: string; station_id: string;
+  created_at: string; tide_height_m: number; tide_phase: string | null;
+};
+
+function installTideStore(beachId = "beach-a", afterUpsert?: (rows: StoredTide[]) => void, previousPending: string[] = []) {
+  const rows: StoredTide[] = [];
+  const deletes: Array<Array<[string, string, any]>> = [];
+  const upsertBatches: StoredTide[][] = [];
+  mockSupabaseFrom.mockImplementation((table: string) => {
+    if (table === "beaches") return thenable({ data: [{ id: beachId, name: "Beach", lat: 32.86, lon: -117.26, tide_forecasts: [] }], error: null });
+    if (table === "cron_runs") return thenable({ data: { summary: { result: { tideIngest: { reconcilePendingBeachIds: previousPending } } } }, error: null });
+    if (table === "v_tide_forecast_latest") return thenable({ data: [{ beach_id: beachId, created_at: new Date().toISOString() }], error: null });
+    if (table !== "tide_forecasts") return { upsert: jest.fn(async () => ({ error: null })) };
+    return {
+      upsert: jest.fn(async (batch: StoredTide[]) => {
+        upsertBatches.push(batch);
+        for (const row of batch) {
+          const index = rows.findIndex((current) => current.beach_id === row.beach_id && current.ts === row.ts && current.source === row.source);
+          if (index >= 0) rows.splice(index, 1);
+          rows.push(row);
+        }
+        afterUpsert?.(rows);
+        return { error: null };
+      }),
+      select: () => makeQuery("select"),
+      delete: () => makeQuery("delete"),
+    };
+
+    function makeQuery(action: "select" | "delete") {
+      const filters: Array<[string, string, any]> = [];
+      let range: [number, number] | null = null;
+      const query: any = {
+        then: (resolve: any, reject: any) => {
+          const matches = rows.filter((row) => filters.every(([method, column, value]) => {
+            const actual = row[column as keyof StoredTide];
+            if (method === "eq") return actual === value;
+            if (method === "neq") return actual !== value;
+            if (method === "is") return actual === value;
+            if (method === "in") return value.includes(actual);
+            if (method === "gte") return String(actual) >= value;
+            if (method === "lte") return String(actual) <= value;
+            if (method === "lt") return String(actual) < value;
+            return true;
+          }));
+          if (action === "delete") {
+            deletes.push(filters);
+            for (const row of matches) rows.splice(rows.indexOf(row), 1);
+          }
+          return Promise.resolve(action === "select"
+            ? { data: (range ? matches.slice(range[0], range[1] + 1) : matches).map(({ beach_id, ts }) => ({ beach_id, ts })), error: null }
+            : { error: null, count: matches.length }).then(resolve, reject);
+        },
+        order: () => query,
+        range: (start: number, end: number) => { range = [start, end]; return query; },
+      };
+      for (const method of ["in", "eq", "neq", "is", "gte", "lte", "lt"]) query[method] = (column: string, value: any) => {
+        filters.push([method, column, value]); return query;
+      };
+      return query;
+    }
+  });
+  return { rows, deletes, upsertBatches };
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -255,7 +320,7 @@ describe("/api/cron/forecasts/refresh (tides)", () => {
 
     // 2 beaches * 2 tide points
     expect(json.data.totals.tides).toBe(4);
-    expect(tideForecasts.deleteCalls).toHaveLength(1);
+    expect(tideForecasts.deleteCalls).toHaveLength(3);
     expect(tideForecasts.deleteCalls[0].filters[0]).toEqual(["in", "beach_id", ["beach-a", "beach-b"]]);
   });
 
@@ -292,16 +357,18 @@ describe("/api/cron/forecasts/refresh (tides)", () => {
 
       const { json } = await runTideRefresh("tidesBackfillMissing=1");
 
-      expect(tideForecasts.deleteCalls).toEqual([{
+      expect(tideForecasts.deleteCalls[0]).toEqual({
         options: { count: "exact" },
         filters: [
           ["in", "beach_id", ["beach-a", "beach-b"]],
           ["neq", "station_id", stationId],
           ["gte", "ts", firstTs],
           ["lte", "ts", lastTs],
+          ["lt", "created_at", expect.any(String)],
         ],
-      }]);
-      expect(json.data.tideIngest.supersededRows).toBe(7);
+      });
+      expect(tideForecasts.deleteCalls[1].filters[1]).toEqual(["is", "station_id", null]);
+      expect(json.data.tideIngest.supersededRows).toBe(14);
       expect(json.data.tideIngest.supersedeErrors).toBe(0);
     });
 
@@ -402,6 +469,7 @@ describe("/api/cron/forecasts/refresh (tides)", () => {
             error: null,
           });
         }
+        if (table === "cron_runs") return thenable({ data: null, error: null });
         if (table === "tide_forecasts") return tideForecasts;
         return { upsert: jest.fn(async () => ({ error: null })) };
       });
@@ -443,7 +511,7 @@ describe("/api/cron/forecasts/refresh (tides)", () => {
       expect(failureReason).toBe("tide coverage under 7 days for 1 beach");
     });
 
-    it("keeps a written beach covered when superseding fails", async () => {
+    it("reports incomplete reconciliation when superseding fails", async () => {
       mockGetNearestTideStation.mockResolvedValue({ id: "9410230", name: "La Jolla", lat: 32.867, lon: -117.257 });
       mockFetchHourlyTidePredictions.mockResolvedValue(hourlyPoints(2));
       const tideForecasts = tideForecastsMock(jest.fn(async () => ({ error: null })), {
@@ -455,6 +523,7 @@ describe("/api/cron/forecasts/refresh (tides)", () => {
           data: [{ beach_id: "beach-a", created_at: new Date(Date.now() - 25 * DAY_MS).toISOString() }],
           error: null,
         });
+        if (table === "cron_runs") return thenable({ data: null, error: null });
         if (table === "tide_forecasts") return tideForecasts;
         return { upsert: jest.fn(async () => ({ error: null })) };
       });
@@ -462,13 +531,15 @@ describe("/api/cron/forecasts/refresh (tides)", () => {
       const { json, failureReason } = await runTideRefresh("source=tide");
 
       expectConsoleWarnings([/Tide supersede failed.*9410230.*delete timed out/]);
-      expect(tideForecasts.deleteCalls).toHaveLength(1);
-      expect(json.data.tideIngest.supersedeErrors).toBe(1);
-      expect(json.data.tideIngest.beachIdsBelowMinCoverage).toEqual([]);
-      expect(failureReason).toBeNull();
+      expect(tideForecasts.deleteCalls).toHaveLength(2);
+      expect(json.data.tideIngest.supersedeErrors).toBe(2);
+      expect(json.data.tideIngest.failedStations).toEqual([{ stationId: "9410230", beaches: 1, reason: "reconcile_incomplete" }]);
+      expect(json.data.tideIngest.reconcilePendingBeachIds).toEqual(["beach-a"]);
+      expect(json.data.tideIngest.beachIdsBelowMinCoverage).toEqual(["beach-a"]);
+      expect(failureReason).toBe("tide coverage under 7 days for 1 beach");
     });
 
-    it("preserves both sources at the fallback station while targeting other stations", async () => {
+    it("selects direct hours before writing fallback rows", async () => {
       const stationId = "9410230";
       mockGetNearestTideStation.mockResolvedValue({ id: stationId, name: "La Jolla", lat: 32.867, lon: -117.257 });
       mockFetchHourlyTidePredictions.mockRejectedValue(new Error("hourly unavailable"));
@@ -491,7 +562,7 @@ describe("/api/cron/forecasts/refresh (tides)", () => {
       expect(upsertTides.mock.calls[0][0]).toEqual(expect.arrayContaining([
         expect.objectContaining({ station_id: stationId, source: "noaa_hilo_interpolated" }),
       ]));
-      expect(tideForecasts.deleteCalls).toHaveLength(1);
+      expect(tideForecasts.deleteCalls).toHaveLength(2);
       expect(tideForecasts.deleteCalls[0].filters[1]).toEqual(["neq", "station_id", stationId]);
     });
 
@@ -502,7 +573,7 @@ describe("/api/cron/forecasts/refresh (tides)", () => {
       const upsertTides = jest.fn(async () => ({ error: null }));
       mockSupabaseFrom.mockImplementation((table: string) => {
         if (table === "beaches") return thenable({ data: [{ id: "model-beach", name: "Model", lat: 23, lon: -110, tide_forecasts: [] }], error: null });
-        if (table === "tide_forecasts") return { upsert: upsertTides };
+        if (table === "tide_forecasts") return tideForecastsMock(upsertTides);
         return { upsert: jest.fn(async () => ({ error: null })) };
       });
 
@@ -549,6 +620,202 @@ describe("/api/cron/forecasts/refresh (tides)", () => {
 
       expect(json.data.tideIngest).toEqual(expect.objectContaining({ beachesWithoutStation: 1, beachesWithoutTideSource: 1, modelBeachesWritten: 0, beachesBelowMinCoverage: 0 }));
       expect(failureReason).toBeNull();
+    });
+  });
+
+  describe("cross-refresh reconciliation", () => {
+    beforeEach(() => {
+      jest.resetModules();
+      jest.useFakeTimers().setSystemTime(new Date("2026-10-14T00:00:00.000Z"));
+      mockGetNearestTideStation.mockReset();
+      mockFetchHourlyTidePredictions.mockReset();
+      mockFetchCOOPSData.mockReset();
+      mockGetBeachModelTides.mockReset().mockReturnValue(null);
+      mockPredictHourlyModelTides.mockReset().mockImplementation(() => hourlyPoints(3));
+      mockSupabaseFrom.mockReset();
+    });
+
+    afterEach(() => jest.useRealTimers());
+
+    const station = (id: string) => ({ id, name: id, lat: 32.86, lon: -117.26 });
+    const fallback = () => {
+      mockFetchHourlyTidePredictions.mockRejectedValue(new Error("hourly unavailable"));
+      mockFetchCOOPSData.mockResolvedValue({ tides: [
+        { time: Date.now() / 1000 - 3600, height: 1 },
+        { time: Date.now() / 1000 + 86400, height: 2 },
+      ] });
+    };
+
+    it("removes old fallback rows after a direct refresh of the same station", async () => {
+      const store = installTideStore();
+      mockGetNearestTideStation.mockResolvedValue(station("S1"));
+      fallback();
+      await runTideRefresh("tidesBackfillMissing=1");
+      expectConsoleWarnings([/NOAA hourly tide fetch failed/]);
+      const fallbackHours = new Set(store.rows.map((row) => row.ts));
+      expect(fallbackHours.size).toBeGreaterThan(3);
+      jest.setSystemTime(new Date(Date.now() + 60_000));
+      mockFetchHourlyTidePredictions.mockResolvedValue(hourlyPoints(3));
+      await runTideRefresh("tidesBackfillMissing=1");
+      const directHours = new Set(store.rows.filter((row) => row.source === "noaa").map((row) => row.ts));
+      expect(directHours.size).toBe(3);
+      expect(store.rows.filter((row) => directHours.has(row.ts) && row.source === "noaa_hilo_interpolated")).toEqual([]);
+      const sortedHours = [...directHours].sort();
+      expect(store.deletes).toHaveLength(5);
+      expect(store.deletes[4]).toEqual([
+        ["in", "beach_id", ["beach-a"]],
+        ["eq", "station_id", "S1"],
+        ["eq", "source", "noaa_hilo_interpolated"],
+        ["gte", "ts", sortedHours[0]],
+        ["lte", "ts", sortedHours[2]],
+        ["lt", "created_at", "2026-10-14T00:01:00.000Z"],
+      ]);
+    });
+
+    it("keeps older direct hours and excludes them from a later fallback batch", async () => {
+      const store = installTideStore();
+      mockGetNearestTideStation.mockResolvedValue(station("S1"));
+      mockFetchHourlyTidePredictions.mockResolvedValue(hourlyPoints(3));
+      await runTideRefresh("tidesBackfillMissing=1");
+      const directHours = new Set(store.rows.map((row) => row.ts));
+      jest.setSystemTime(new Date(Date.now() + 60_000));
+      fallback();
+      await runTideRefresh("tidesBackfillMissing=1");
+      expectConsoleWarnings([/NOAA hourly tide fetch failed/]);
+      expect(store.upsertBatches[1].every((row) => !directHours.has(row.ts))).toBe(true);
+      expect(store.rows.filter((row) => row.source === "noaa")).toHaveLength(3);
+      expect(store.rows.some((row) => row.source === "noaa_hilo_interpolated")).toBe(true);
+    });
+
+    it("reports a fallback reconciliation select error before upsert", async () => {
+      mockGetNearestTideStation.mockResolvedValue(station("S1"));
+      fallback();
+      const tides = tideForecastsMock(jest.fn(async () => ({ error: null }))) as any;
+      tides.select = () => thenable({ data: null, error: { message: "select failed" } });
+      mockSupabaseFrom.mockImplementation((table: string) => {
+        if (table === "beaches") return thenable({ data: [{ id: "beach-a", name: "Beach", lat: 32.86, lon: -117.26, tide_forecasts: [] }], error: null });
+        if (table === "tide_forecasts") return tides;
+        return { upsert: jest.fn(async () => ({ error: null })) };
+      });
+      const { json } = await runTideRefresh("tidesBackfillMissing=1");
+      expectConsoleWarnings([/NOAA hourly tide fetch failed/, /Tide reconciliation select failed/]);
+      expect(tides.upsert).not.toHaveBeenCalled();
+      expect(json.data.tideIngest.failedStations).toEqual([{ stationId: "S1", beaches: 1, reason: "reconcile_incomplete" }]);
+    });
+
+    it("keeps a contiguous new-station series after a partial station overlap", async () => {
+      const store = installTideStore();
+      mockGetNearestTideStation.mockResolvedValueOnce(station("S1")).mockResolvedValueOnce(station("S2"));
+      fallback();
+      await runTideRefresh("tidesBackfillMissing=1");
+      expectConsoleWarnings([/NOAA hourly tide fetch failed/]);
+      jest.setSystemTime(new Date(Date.now() + 60_000));
+      mockFetchHourlyTidePredictions.mockResolvedValue(hourlyPoints(3));
+      await runTideRefresh("tidesBackfillMissing=1");
+      const { selectTideSeries } = require("@/lib/services/tide-forecast-selection");
+      const selected = selectTideSeries(store.rows) as StoredTide[];
+      expect(selected.map((row) => row.station_id)).toEqual(["S2", "S2", "S2"]);
+      expect(selected.map((row) => Date.parse(row.ts))).toEqual(selected.map((row, index) => Date.parse(selected[0].ts) + index * 3_600_000));
+      expect(store.rows.filter((row) => row.station_id === "S1" && selected.some((current) => current.ts === row.ts))).toEqual([]);
+    });
+
+    it.each(["model-to-station", "station-to-model"])("reconciles %s transitions", async (direction) => {
+      const store = installTideStore();
+      let useModel = direction === "model-to-station";
+      mockGetNearestTideStation.mockImplementation(async () => useModel ? null : station("S1"));
+      mockGetBeachModelTides.mockReturnValue({ beachId: "beach-a", model: "FES2022", constituents: [] });
+      mockFetchHourlyTidePredictions.mockResolvedValue(hourlyPoints(3));
+      await runTideRefresh("tidesBackfillMissing=1");
+      useModel = !useModel;
+      jest.setSystemTime(new Date(Date.now() + 60_000));
+      await runTideRefresh("tidesBackfillMissing=1");
+      expect(new Set(store.rows.map((row) => row.station_id))).toEqual(new Set([useModel ? "FES2022" : "S1"]));
+    });
+
+    it("marks a post-upsert budget stop as reconciliation incomplete", async () => {
+      const store = installTideStore("beach-a", () => jest.setSystemTime(new Date(Date.now() + 2_000)));
+      mockGetNearestTideStation.mockResolvedValue(station("S1"));
+      mockFetchHourlyTidePredictions.mockResolvedValue(hourlyPoints(3));
+      process.env.FORECAST_CRON_TIME_BUDGET_MS = "1000";
+      try {
+        const { json } = await runTideRefresh("tidesBackfillMissing=1");
+        expect(store.deletes).toHaveLength(0);
+        expect(json.data.tideIngest.failedStations).toEqual([{ stationId: "S1", beaches: 1, reason: "reconcile_incomplete" }]);
+        expect(json.data.tideIngest.reconcilePendingBeachIds).toEqual(["beach-a"]);
+      } finally {
+        delete process.env.FORECAST_CRON_TIME_BUDGET_MS;
+      }
+    });
+
+    it("keeps a partial upsert pending when the retry fails before writing", async () => {
+      mockGetNearestTideStation.mockResolvedValue(station("S1"));
+      mockFetchHourlyTidePredictions.mockResolvedValue(hourlyPoints(1001));
+      const upsert = jest.fn()
+        .mockResolvedValueOnce({ error: null })
+        .mockResolvedValue({ error: { message: "statement timeout" } });
+      const tides = tideForecastsMock(upsert);
+      mockSupabaseFrom.mockImplementation((table: string) => {
+        if (table === "beaches") return thenable({ data: [{ id: "beach-a", name: "Beach", lat: 32.86, lon: -117.26 }], error: null });
+        if (table === "v_tide_forecast_latest") return thenable({ data: [{ beach_id: "beach-a", created_at: new Date(Date.now() - 2 * DAY_MS).toISOString() }], error: null });
+        if (table === "cron_runs") return thenable({ data: null, error: null });
+        if (table === "tide_forecasts") return tides;
+        return { upsert: jest.fn(async () => ({ error: null })) };
+      });
+
+      const { json, failureReason } = await runTideRefresh("source=tide");
+
+      expectConsoleWarnings([/Tide upsert failed/]);
+      expect(upsert).toHaveBeenCalledTimes(4);
+      expect(tides.deleteCalls).toHaveLength(0);
+      expect(json.data.totals.tides).toBe(1000);
+      expect(json.data.tideIngest.failedStations).toEqual([{ stationId: "S1", beaches: 1, reason: "upsert_failed" }]);
+      expect(json.data.tideIngest.reconcilePendingBeachIds).toEqual(["beach-a"]);
+      expect(failureReason).toBeNull();
+    });
+
+    it("continues tide ingest when the previous pending lookup fails", async () => {
+      mockGetNearestTideStation.mockResolvedValue(station("S1"));
+      mockFetchHourlyTidePredictions.mockResolvedValue(hourlyPoints(3));
+      const tides = tideForecastsMock(jest.fn(async () => ({ error: null })));
+      mockSupabaseFrom.mockImplementation((table: string) => {
+        if (table === "beaches") return thenable({ data: [{ id: "beach-a", name: "Beach", lat: 32.86, lon: -117.26 }], error: null });
+        if (table === "v_tide_forecast_latest") return thenable({ data: [{ beach_id: "beach-a", created_at: new Date(Date.now() - 2 * DAY_MS).toISOString() }], error: null });
+        if (table === "cron_runs") return thenable({ data: null, error: { message: "read timed out" } });
+        if (table === "tide_forecasts") return tides;
+        return { upsert: jest.fn(async () => ({ error: null })) };
+      });
+
+      const { json, failureReason } = await runTideRefresh("source=tide");
+
+      expectConsoleWarnings([/Pending tide reconciliation lookup failed/]);
+      expect(tides.upsert).toHaveBeenCalledTimes(1);
+      expect(json.data.tideIngest.reconcilePendingBeachIds).toEqual([]);
+      expect(failureReason).toBeNull();
+    });
+
+    it("reselects a fresh beach carried from a previous incomplete run", async () => {
+      const store = installTideStore("beach-a", undefined, ["beach-a"]);
+      mockGetNearestTideStation.mockResolvedValue(station("S1"));
+      mockFetchHourlyTidePredictions.mockResolvedValue(hourlyPoints(3));
+      const { json } = await runTideRefresh("source=tide");
+      expect(store.upsertBatches).toHaveLength(1);
+      expect(json.data.tideIngest.reconcilePendingBeachIds).toEqual([]);
+    });
+
+    it("does not delete rows written by a newer overlapping run", async () => {
+      let inserted = false;
+      const store = installTideStore("beach-a", (rows) => {
+        if (inserted) return;
+        inserted = true;
+        rows.push({ ...rows[0], source: "noaa_hilo_interpolated", station_id: "S2", created_at: new Date(Date.now() + 60_000).toISOString() });
+        rows.push({ ...rows[1], source: "noaa_hilo_interpolated", station_id: "S1", created_at: new Date(Date.now() + 60_000).toISOString() });
+      });
+      mockGetNearestTideStation.mockResolvedValue(station("S1"));
+      mockFetchHourlyTidePredictions.mockResolvedValue(hourlyPoints(3));
+      await runTideRefresh("tidesBackfillMissing=1");
+      expect(store.rows.some((row) => row.station_id === "S2")).toBe(true);
+      expect(store.rows.some((row) => row.station_id === "S1" && row.source === "noaa_hilo_interpolated")).toBe(true);
+      expect(store.deletes[0]).toContainEqual(["lt", "created_at", "2026-10-14T00:00:00.000Z"]);
     });
   });
 });
