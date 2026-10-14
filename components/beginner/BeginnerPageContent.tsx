@@ -65,7 +65,7 @@ export function BeginnerPageContent({
   const heroImageUrl = beaches.find((beach) => beach.photoUrl)?.photoUrl ?? null;
 
   return (
-    <div className="bg-gradient-to-b from-white via-gray-50/30 to-white">
+    <div className="seo-paper-page">
       <BreadcrumbStructuredData
         items={[
           { name: "Quiver", url: `${baseUrl}/` },

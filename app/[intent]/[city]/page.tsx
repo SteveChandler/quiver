@@ -79,6 +79,9 @@ import {
   getBeginnerCityEditorial,
 } from "@/actions/beginner/beginner-actions";
 import { BeginnerPageContent } from "@/components/beginner/BeginnerPageContent";
+
+// Metadata and the page body must count the same beginner list; cache dedupes the lookup per request.
+const getBeginnerBeachesForPage = cache(getBeginnerBeachesWithEditorial);
 import { getBestTimeToSurfUrl } from "@/lib/utils/best-time-to-surf-utils";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { WaterTempDatasetSchema } from "@/components/seo/water-temp-dataset-schema";
@@ -322,8 +325,12 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
   // For tide/water-temp intents, fetch live data to inject into meta description
   let tideDataForMeta: CityTideData | null = null;
   let waterTempDataForMeta: CityWaterTempData | null = null;
+  let beginnerSpotNamesForMeta: string[] | null = null;
   let intentDataAvailability: CityIntentDataAvailability = "available";
-  if (params.intent === "tide") {
+  if (params.intent === "beginner") {
+    const beginnerBeaches = await getBeginnerBeachesForPage(params.city, cityMetadata.state.toLowerCase());
+    beginnerSpotNamesForMeta = beginnerBeaches.map((beach) => beach.name);
+  } else if (params.intent === "tide") {
     tideDataForMeta = await getCityTideData(cityMetadata.cityName, cityMetadata.state);
     intentDataAvailability = tideDataForMeta
       ? "available"
@@ -341,6 +348,7 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
     {
       tideData: tideDataForMeta ? { nextTideType: tideDataForMeta.nextTideType, nextTideTime: tideDataForMeta.nextTideTime, nextTideHeight: tideDataForMeta.nextTideHeight } : null,
       waterTempData: waterTempDataForMeta ? { currentTemp: waterTempDataForMeta.currentTemp, source: waterTempDataForMeta.source } : null,
+      beginnerSpotNames: beginnerSpotNamesForMeta,
     }
   );
 
@@ -611,7 +619,7 @@ export default async function IntentPage(props: IntentPageParams) {
     const [conditionsData, beaches, cityEditorial, reviewedEditorial, bestTimeToSurfUrl, excludeIntents] =
       await Promise.all([
         getBeginnerConditionsData(params.city, stateSlugLower),
-        getBeginnerBeachesWithEditorial(params.city, stateSlugLower),
+        getBeginnerBeachesForPage(params.city, stateSlugLower),
         getBeginnerCityEditorial(params.city, stateSlugLower),
         getCityEditorialContent(cityToSlug(cityMetadata.cityName), stateSlugLower, "usa", "beginner"),
         getBestTimeToSurfUrl(params.city, cityMetadata.cityName, cityMetadata.state),
