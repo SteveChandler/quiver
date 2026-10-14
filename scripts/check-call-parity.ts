@@ -238,7 +238,7 @@ async function main(): Promise<void> {
     console.log(`Location snapshot: ${profile.location?.captured_at ?? "none"}; age: ${ageHours === null ? "none" : `${ageHours.toFixed(2)} hours`}`);
     console.log(`Daily Call anchor at realNow (${local(realNow)}): ${anchorLabel(anchorAtNow)}`);
     console.log(`Anchor at Daily Call at (${local(at)}): ${anchorLabel(anchorAtCall)}`);
-    if (anchorAtCall.source === "home" && isAwayFromHome(profile.location, at, profile.homeBeach, driveRadiusMiles(profile.maxDriveMinutes))) {
+    if (anchorAtCall.source === "home" && isAwayFromHome(profile.location, at, profile.homeBeach)) {
       console.log("Daily Call: silent (away_from_home)");
     }
     console.log(`Anchor at eveningAt (${local(eveningAt)}): ${anchorLabel(anchorAtEvening)}`);

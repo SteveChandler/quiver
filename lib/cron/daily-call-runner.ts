@@ -845,19 +845,14 @@ export async function runDailyCallCron(args: {
         continue;
       }
       const alertDate = getLocalDateString(args.now, timezone);
-      if (await deps.alreadySentToday(profile.id, alertDate)) {
-        increment(summary, "already_sent_today");
-        continue;
-      }
       // Home-beach picks are for a place the surfer is not; say nothing rather than send them.
-      if (source === "home" && isAwayFromHome(
-        loadedProfile.location,
-        args.now,
-        profile.homeBeach,
-        driveRadiusMiles(profile.maxDriveMinutes),
-      )) {
+      if (source === "home" && isAwayFromHome(loadedProfile.location, args.now, profile.homeBeach)) {
         increment(summary, "away_from_home");
         summary.silent += 1;
+        continue;
+      }
+      if (await deps.alreadySentToday(profile.id, alertDate)) {
+        increment(summary, "already_sent_today");
         continue;
       }
       // The same nearest-beach cap as Home's Week Scout, so the two choose from one list.

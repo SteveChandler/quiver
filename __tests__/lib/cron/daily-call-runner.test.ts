@@ -1255,11 +1255,12 @@ describe("daily call location freshness", () => {
     expect(injected.enqueue).not.toHaveBeenCalled();
   });
 
-  it("still calls the home beach when a stale fix is inside the drive range", async () => {
-    const location = { lat: 32.8, lon: -117.24, timezone: "America/Los_Angeles",
+  it("still calls the home beach when a stale fix is inland of it, beyond a short drive range", async () => {
+    // Poway is ~22 miles from OB Pier; a 30-minute range is 15 miles.
+    const location = { lat: 32.96, lon: -117.04, timezone: "America/Los_Angeles",
       captured_at: new Date(now.getTime() - 20 * 3_600_000).toISOString() };
     const homeBeach = { ...home.beach, lat: 32.75, lon: -117.25 };
-    const injected = deps({ loadProfiles: async () => [{ ...profile, maxDriveMinutes: 90, homeBeach, location }] });
+    const injected = deps({ loadProfiles: async () => [{ ...profile, maxDriveMinutes: 30, homeBeach, location }] });
 
     const result = await runDailyCallCron({ now, supabase, deps: injected });
 
@@ -1284,6 +1285,25 @@ describe("daily call location freshness", () => {
 
     expect(result.skippedCounts[skip]).toBe(1);
     expect(result.skippedCounts.away_from_home).toBe(0);
+  });
+
+  it("times a sunrise call from a trusted fix, not the home beach", async () => {
+    const daylight = jest.mocked(sunrise.getDaylightWindow);
+    daylight.mockClear();
+    const runNow = new Date("2026-10-14T11:30:00Z");
+    const location = { lat: 39.96, lon: -75.17, timezone: "America/New_York",
+      captured_at: new Date(runNow.getTime() - 3_600_000).toISOString() };
+    const injected = deps({
+      loadProfiles: async () => [{ ...profile, dailyCallTime: "sunrise",
+        homeBeach: { ...home.beach, lat: 32.75, lon: -117.25 }, location }],
+      loadPool: jest.fn(async () => []),
+    });
+    const { getSunrise: _getSunrise, resolveTimezone: _resolveTimezone, ...overrides } = injected;
+
+    await runDailyCallCron({ now: runNow, supabase, deps: overrides });
+
+    expect(daylight).toHaveBeenCalledWith(39.96, -75.17, runNow);
+    expect(daylight).not.toHaveBeenCalledWith(32.75, -117.25, expect.anything());
   });
 
   it("ranks the 50 nearest beaches plus every saved spot in range", async () => {

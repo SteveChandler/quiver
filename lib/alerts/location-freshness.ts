@@ -1,3 +1,4 @@
+import { MAX_DRIVE_RADIUS_MILES } from "@/lib/profile/drive-range";
 import { calculateDistanceInMiles } from "@/lib/utils/distance-utils";
 
 export const LOCATION_FIX_MAX_AGE_HOURS = 24;
@@ -44,14 +45,15 @@ export function resolveLocationAnchor(
 }
 
 /**
- * True when a recent fix puts the surfer outside their home drive range, so
- * home-beach picks would be for a place they are not.
+ * True when a recent fix puts the surfer farther from home than any drive
+ * range, so home-beach picks would be for a place they are not. The fixed
+ * 100-mile line, not the profile's drive radius, keeps a surfer who lives
+ * inland of their home beach from counting as away.
  */
 export function isAwayFromHome(
   snapshot: LocationSnapshot | null | undefined,
   now: Date,
   homeBeach: { lat: number | null; lon: number | null } | null | undefined,
-  radiusMiles: number,
   maxAgeHours: number = AWAY_FROM_HOME_FIX_MAX_AGE_HOURS,
 ): boolean {
   if (!snapshot || homeBeach?.lat == null || homeBeach.lon == null) return false;
@@ -61,5 +63,5 @@ export function isAwayFromHome(
   return calculateDistanceInMiles(
     { lat: snapshot.lat, lon: snapshot.lon },
     { lat: homeBeach.lat, lon: homeBeach.lon },
-  ) > radiusMiles;
+  ) > MAX_DRIVE_RADIUS_MILES;
 }
