@@ -2,9 +2,15 @@
   "pages": [
     {
       "canonicalPath": "/best-time-to-surf/la-jolla",
-      "label": "La Jolla best-time page",
-      "monitorUntil": "2026-09-07",
-      "reason": "The August 23 exact-query snippet treatment needs one complete 15-day GSC window before another rewrite."
+      "label": "La Jolla best-time page (position)",
+      "monitorUntil": "2026-11-12",
+      "reason": "October 14 dropped the 'surf report today' title so /surf-report/la-jolla-today owns that query family; measure position, not CTR. Baseline Sep 14-Oct 11: 6,151 imp / 4 clicks / pos 7.9, but impressions fell from ~1,500/day to ~50/day on Sep 25 and most were anonymized or date-stamped machine queries; human queries ranked 10-12."
+    },
+    {
+      "canonicalPath": "/surf-report/la-jolla-today",
+      "label": "La Jolla surf-report owner (position)",
+      "monitorUntil": "2026-11-12",
+      "reason": "Sole owner of 'la jolla (shores) surf report' after October 14; success is avg position moving from ~10 into the top 5. Baseline Sep 14-Oct 11: 2,349 imp / 3 clicks / pos 9.1."
     },
     {
       "canonicalPath": "/best-time-to-surf/newport-beach",
