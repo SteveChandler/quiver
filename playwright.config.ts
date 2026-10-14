@@ -136,12 +136,7 @@ export default defineConfig({
         'e2e/prod-readonly/guest-*.spec.ts',
         'e2e/email-core-loop/**',
       ],
-      use: {
-        ...devices['Desktop Chrome'],
-        storageState: process.env.SKIP_AUTH_SETUP === 'true'
-          ? { cookies: [], origins: [] }
-          : 'e2e/.auth/state.json',
-      },
+      use: { ...devices['Desktop Chrome'], storageState: 'e2e/.auth/state.json' },
     },
   ],
   webServer: shouldStartLocalWebServer
@@ -149,7 +144,7 @@ export default defineConfig({
         command: `env -u E2E_PROD_READ_URL -u E2E_PROD_READ_KEY VERCEL_ENV=preview PLAYWRIGHT_TEST=true NEXT_PUBLIC_PLAYWRIGHT_TEST=true NEXT_PUBLIC_E2E_DISABLE_EMAIL_SENDS=true NEXT_PUBLIC_E2E_DISABLE_AUTH_REFRESH=true NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN= NEXT_PUBLIC_POSTHOG_HOST= POSTHOG_HOST=${localCronSecretEnv} MONITORING_MIN_FORECAST_COVERAGE=0.2 NEXT_FONT_GOOGLE_MOCKED_RESPONSES="${nextFontGoogleMockPath}" E2E_PORT=${localWebServerPort} yarn e2e:serve`,
         // Use a deterministic health endpoint for readiness checks (homepage can legitimately error in dev)
         url: `${defaultBaseURL}/api/health`,
-        reuseExistingServer: true,
+        reuseExistingServer: false,
         timeout: 240_000,
       }
     : undefined,
