@@ -87,11 +87,19 @@ function sqlString(value: string): string {
   return `'${value.replace(/'/g, "''")}'`;
 }
 
-export function buildWebStickyHogQL(options: WebStickyCliOptions, offset: number): string {
-  if (!Number.isSafeInteger(offset) || offset < 0) throw new Error("offset must be nonnegative");
+interface WebStickyCursor {
+  timestamp: string;
+  uuid: string;
+}
+
+export function buildWebStickyHogQL(options: WebStickyCliOptions, cursor: WebStickyCursor | null = null): string {
   const tz = sqlString(options.window.timeZone);
   const start = sqlString(options.window.start.toISOString());
   const end = sqlString(options.window.end.toISOString());
+  const cursorTimestamp = cursor ? `toDateTime64(${sqlString(cursor.timestamp)}, 6, 'UTC')` : "";
+  const cursorClause = cursor
+    ? `AND (timestamp > ${cursorTimestamp} OR (timestamp = ${cursorTimestamp} AND toString(uuid) > ${sqlString(cursor.uuid)}))`
+    : "";
   return `
     SELECT toString(person_id) AS person_id,
       properties.$session_id AS session_id,
@@ -127,8 +135,9 @@ export function buildWebStickyHogQL(options: WebStickyCliOptions, offset: number
       AND ${hogqlInternalPersonExclusion()}
       AND timestamp >= toDateTime(${start})
       AND timestamp < toDateTime(${end})
-    ORDER BY person_id, timestamp, uuid
-    LIMIT ${PAGE_SIZE} OFFSET ${offset}
+      ${cursorClause}
+    ORDER BY timestamp, uuid
+    LIMIT ${PAGE_SIZE}
   `.trim();
 }
 
@@ -159,10 +168,14 @@ export async function loadWebStickyRows(
   queryRunner: typeof runHogQL = runHogQL,
 ): Promise<WebStickyEventRow[]> {
   const rows: WebStickyEventRow[] = [];
-  for (let offset = 0; ; offset += PAGE_SIZE) {
-    const result = await queryRunner(buildWebStickyHogQL(options, offset));
+  let cursor: WebStickyCursor | null = null;
+  for (;;) {
+    const result = await queryRunner(buildWebStickyHogQL(options, cursor));
     rows.push(...parseWebStickyRows(result.results));
     if (result.results.length < PAGE_SIZE) return rows;
+    const lastRow = result.results.at(-1)!;
+    // Keep PostHog's microseconds; JavaScript Date normalization truncates them.
+    cursor = { timestamp: lastRow[3] as string, uuid: lastRow[8] as string };
   }
 }
 

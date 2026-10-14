@@ -30,8 +30,8 @@ describe("web sticky loop report runner", () => {
 
   it("always queries only eligible production web events with bounds and deterministic pagination", () => {
     const options = parseCliArgs([], now);
-    for (const offset of [0, 10000, 20000]) {
-      const query = buildWebStickyHogQL(options, offset);
+    for (const cursor of [null, { timestamp: "2026-10-01T12:00:00.123456Z", uuid: "uuid-09999" }]) {
+      const query = buildWebStickyHogQL(options, cursor);
       expect(query).toContain("event = 'page_view'");
       expect(query).not.toContain("'$pageview'");
       expect(query).toContain("properties.$lib = 'web'");
@@ -44,8 +44,9 @@ describe("web sticky loop report runner", () => {
       expect(query).toContain(`timestamp >= toDateTime('${options.window.start.toISOString()}')`);
       expect(query).toContain(`timestamp < toDateTime('${options.window.end.toISOString()}')`);
       expect(query).toContain("toString(toDate(toTimeZone(timestamp, 'America/Los_Angeles'))) AS d");
-      expect(query).toContain("ORDER BY person_id, timestamp, uuid");
-      expect(query).toContain(`LIMIT 10000 OFFSET ${offset}`);
+      expect(query).toContain("ORDER BY timestamp, uuid");
+      expect(query).toContain("LIMIT 10000");
+      expect(query).not.toContain("OFFSET");
       expect(query).not.toContain("SETTINGS");
     }
   });
@@ -60,13 +61,21 @@ describe("web sticky loop report runner", () => {
   it("keeps requesting bounded pages until a short page", async () => {
     const options = parseCliArgs([], now);
     const page = Array.from({ length: 10000 }, (_, index) => [
-      `person-${index}`, "session", "2026-10-01", "2026-10-01T12:00:00Z", "map", "map", false, "page_view", `uuid-${index}`,
+      `person-${index}`, "session", "2026-10-01", "2026-10-01T12:00:00.123456Z", "map", "map", false, "page_view", `uuid-${String(index).padStart(5, "0")}`,
     ]);
-    const runner = jest.fn().mockResolvedValueOnce({ columns: [], results: page }).mockResolvedValueOnce({ columns: [], results: [] });
+    const lastPage = [["person-10000", "session", "2026-10-01", "2026-10-01T12:00:00.123456Z", "map", "map", false, "page_view", "uuid-10000"]];
+    const runner = jest.fn().mockResolvedValueOnce({ columns: [], results: page }).mockResolvedValueOnce({ columns: [], results: lastPage });
     const rows = await loadWebStickyRows(options, runner);
-    expect(rows).toHaveLength(10000);
+    expect(rows).toHaveLength(10001);
     expect(runner).toHaveBeenCalledTimes(2);
-    expect(runner.mock.calls[1][0]).toContain("LIMIT 10000 OFFSET 10000");
+    expect(runner.mock.calls[0][0]).not.toContain("timestamp > toDateTime64");
+    expect(runner.mock.calls[1][0]).toContain("timestamp > toDateTime64('2026-10-01T12:00:00.123456Z', 6, 'UTC')");
+    expect(runner.mock.calls[1][0]).toContain("timestamp = toDateTime64('2026-10-01T12:00:00.123456Z', 6, 'UTC') AND toString(uuid) > 'uuid-09999'");
+    for (const [query] of runner.mock.calls) {
+      expect(query).toContain("ORDER BY timestamp, uuid");
+      expect(query).toContain("LIMIT 10000");
+      expect(query).not.toContain("OFFSET");
+    }
   });
 
   it("writes JSON and a source-backed Markdown summary without querying production", async () => {

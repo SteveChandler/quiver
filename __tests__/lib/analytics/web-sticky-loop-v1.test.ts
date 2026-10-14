@@ -58,6 +58,7 @@ describe("web sticky loop v1", () => {
       row("b", "2026-10-02T10:01:00Z", "home"),
     ];
     const segment = build(rows).segments.anonymous;
+    expect(build([...rows].reverse())).toEqual(build(rows));
     expect(Object.values(segment.loopPrefixes).map((value) => value.numerator)).toEqual([1, 1, 1, 1]);
     expect(segment.loopPrefixes.home_map.denominator).toBe(2);
     expect(segment.topTransitions.find((value) => value.from === "map" && value.to === "map")).toBeUndefined();
