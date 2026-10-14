@@ -1,4 +1,9 @@
-import { resolveLocationAnchor, type LocationAnchor, type LocationSnapshot } from "@/lib/alerts/location-freshness";
+import {
+  isAwayFromHome,
+  resolveLocationAnchor,
+  type LocationAnchor,
+  type LocationSnapshot,
+} from "@/lib/alerts/location-freshness";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { evaluateForecastVerdict, type ForecastVerdict } from "@/lib/alerts/canonical-forecast-verdict";
@@ -146,6 +151,8 @@ export interface SwellAlertProfile {
   homeBeachId: string | null;
   location: { lat: number; lon: number } | null;
   anchorSource?: LocationAnchor["source"];
+  /** The anchor fell back to home, but a fix from the last 72 h is over 100 mi from it. */
+  awayFromHome?: boolean;
   maxDriveMinutes: number | null;
   experienceLevel: string | null;
   preferredSessionTime?: SessionTime | null;
@@ -434,6 +441,7 @@ async function loadProfiles(
       homeBeachId: row.home_beach_id,
       location: anchor,
       anchorSource: source,
+      awayFromHome: source === "home" && isAwayFromHome(joined, now, row.home_beach),
       maxDriveMinutes: row.max_drive_minutes,
       experienceLevel: row.experience_level,
       preferredSessionTime: parseSessionTime(row.preferred_session_time),
@@ -1692,6 +1700,11 @@ export async function runSwellAlertCron(args: {
     }
     if (!deps.isUserAllowed(profile.id)) {
       increment(summary, "not_allowed");
+      continue;
+    }
+    // Home-beach swells are for a place the surfer is not; say nothing rather than send them.
+    if (profile.awayFromHome) {
+      increment(summary, "away_from_home");
       continue;
     }
     if (isOutlookRecipient(deps, profile.id)) {

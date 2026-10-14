@@ -482,6 +482,17 @@ describe("swell alert cron: outlook send boundaries", () => {
     expect(deps.saveEngagement).not.toHaveBeenCalled();
   });
 
+  it("skips an away-from-home outlook user before follow-ups or engagement reads", async () => {
+    const deps = makeDeps({ loadProfiles: jest.fn(async () => [profile({ anchorSource: "home", awayFromHome: true })]),
+      loadFollowupStates: jest.fn(async () => [pinnedState()]) });
+    const summary = await runSwellAlertCron({ now: MORNING, deps });
+    expect(summary.skippedCounts.away_from_home).toBe(1);
+    expect(deps.loadEngagement).not.toHaveBeenCalled();
+    expect(deps.evaluatePinned).not.toHaveBeenCalled();
+    expect(deps.loadOutlook).not.toHaveBeenCalled();
+    expect(deps.enqueue).not.toHaveBeenCalled();
+  });
+
   it("sends an in-range follow-up at the drive-radius boundary", async () => {
     const deps = makeDeps({ loadFollowupStates: jest.fn(async () => [pinnedState()]),
       loadBeachDistancesKm: jest.fn(async () => new Map([[HOME, 36.21024]])),
@@ -526,7 +537,7 @@ describe("swell alert cron: default outlook adapters", () => {
   });
   afterEach(() => jest.restoreAllMocks());
 
-  it.each([72, 1])("uses one resolved anchor for a %s-hour fix in pools and first-sighting distances", async (ageHours) => {
+  it.each([73, 1])("uses one resolved anchor for a %s-hour fix in pools and first-sighting distances", async (ageHours) => {
     const nearbyId = "ffffffff-0000-4000-8000-000000000002";
     const hawaiiId = "ffffffff-0000-4000-8000-000000000003";
     const hawaii = outlookSwell({ id: "hawaii-swell", beach: { id: hawaiiId, name: "Waikiki" } });
@@ -552,21 +563,21 @@ describe("swell alert cron: default outlook adapters", () => {
       loadProfiles: undefined, loadBeachDistancesKm: undefined };
     const result = await runSwellAlertCron({ now: MORNING, supabase: client, deps: dependencies });
     expect(result.sentByKind.coming).toBe(1);
-    expect(mocked.enqueue).toHaveBeenCalledWith(expect.objectContaining({ payload: expect.objectContaining({ anchor_source: ageHours === 72 ? "home" : "location", beach_id: ageHours === 72 ? nearbyId : hawaiiId }) }));
+    expect(mocked.enqueue).toHaveBeenCalledWith(expect.objectContaining({ payload: expect.objectContaining({ anchor_source: ageHours === 73 ? "home" : "location", beach_id: ageHours === 73 ? nearbyId : hawaiiId }) }));
     const body = mocked.enqueue.mock.calls[0][0].payload.body as string;
-    expect(body.includes("near home")).toBe(ageHours === 72);
+    expect(body.includes("near home")).toBe(ageHours === 73);
     expect(from).not.toHaveBeenCalledWith("user_location_snapshots");
     expect(select).toHaveBeenCalledWith(expect.stringContaining("captured_at"));
     expect(select).toHaveBeenCalledWith(expect.stringContaining("notif_forecast_alerts"));
     expect(loadOutlook.mock.calls[0][0].notifForecastAlerts).toBe(true);
     const loaded = loadOutlook.mock.calls[0][0];
-    const expectedAnchor = ageHours === 72 ? { lat: home_beach.lat, lon: home_beach.lon } : { lat: 21.28, lon: -157.83 };
+    const expectedAnchor = ageHours === 73 ? { lat: home_beach.lat, lon: home_beach.lon } : { lat: 21.28, lon: -157.83 };
     expect(loaded.location).toEqual(expectedAnchor);
 
     jest.mocked(pools.loadUserPool).mockResolvedValue([]);
     const eveningDeps = { ...makeDeps(), loadProfiles: async () => [loaded], evaluatePool: undefined,
       isOutlookEnabled: () => false };
-    await runSwellAlertCron({ now: ageHours === 72 ? EVENING : new Date("2026-09-18T03:00:00Z"), supabase: client, deps: eveningDeps });
+    await runSwellAlertCron({ now: ageHours === 73 ? EVENING : new Date("2026-09-18T03:00:00Z"), supabase: client, deps: eveningDeps });
     expect(pools.loadUserPool).toHaveBeenLastCalledWith(expect.objectContaining({ location: expectedAnchor }));
     jest.mocked(pools.loadUserPool).mockClear();
     const rarityDeps = { ...makeDeps(), loadProfiles: async () => [loaded], assessSwellRarity: undefined,

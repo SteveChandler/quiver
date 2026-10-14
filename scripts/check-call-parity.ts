@@ -350,16 +350,22 @@ async function main(): Promise<void> {
     const swellProfile = (await read("loadSwellAlertProfiles", () => loadSwellAlertProfiles(client, eveningAt, [args.userId])))[0];
     const swellLeads: Array<CallPick | null> = [];
     if (!swellProfile) throw new Error(`No active swell profile found for ${args.userId}`);
-    const evaluation = await read("evaluateSwellAlertPool", () => evaluateSwellAlertPool(client, swellProfile, eveningAt));
-    for (const shared of [false, true]) {
-      const ordered = await read(`orderSwellCandidatesForTomorrow (flag ${shared ? "on" : "off"})`, () => orderSwellCandidatesForTomorrow({
-        profile: swellProfile, evaluation, now: eveningAt, rankDay: rankDayWithWeekScout, usesSharedRanking: () => shared,
-      }));
-      console.log(`Swell flag ${shared ? "on" : "off"} (pool at ${local(eveningAt)}): ${ordered.length ? "top three" : "no swell event for D+1"}`);
-      for (const candidate of ordered.slice(0, 3)) {
-        console.log(`  ${candidate.beach.name} (${candidate.beach.id}); peakScore=${candidate.peakScore}; peakDate=${candidate.peakDate}`);
+    const swellSilentReason = swellProfile.awayFromHome ? "away_from_home" : "no swell event for D+1";
+    if (swellProfile.awayFromHome) {
+      console.log("Swell evening: silent (away_from_home)");
+      swellLeads.push(null, null);
+    } else {
+      const evaluation = await read("evaluateSwellAlertPool", () => evaluateSwellAlertPool(client, swellProfile, eveningAt));
+      for (const shared of [false, true]) {
+        const ordered = await read(`orderSwellCandidatesForTomorrow (flag ${shared ? "on" : "off"})`, () => orderSwellCandidatesForTomorrow({
+          profile: swellProfile, evaluation, now: eveningAt, rankDay: rankDayWithWeekScout, usesSharedRanking: () => shared,
+        }));
+        console.log(`Swell flag ${shared ? "on" : "off"} (pool at ${local(eveningAt)}): ${ordered.length ? "top three" : "no swell event for D+1"}`);
+        for (const candidate of ordered.slice(0, 3)) {
+          console.log(`  ${candidate.beach.name} (${candidate.beach.id}); peakScore=${candidate.peakScore}; peakDate=${candidate.peakDate}`);
+        }
+        swellLeads.push(ordered[0] ? { beachId: ordered[0].beach.id, start: "", end: "" } : null);
       }
-      swellLeads.push(ordered[0] ? { beachId: ordered[0].beach.id, start: "", end: "" } : null);
     }
     const homeTomorrow = showScout(`Home tomorrow card for ${tomorrowDate} (pool at ${local(eveningAt)})`, eveningHome, tomorrowDate, eveningAt);
     const homeReason = (response: CanonicalWeekScoutResponse | null, dayDate: string): string => !response ? "no location/home anchor"
@@ -371,7 +377,7 @@ async function main(): Promise<void> {
     compareCalls("Crons' 1-day pick vs Home D", cronPick, homePick, !cronPick ? "no open 1-day pick" : homeReason(home, date), true);
     for (const [index, flag] of ["off", "on"].entries()) {
       compareCalls(`Swell lead (flag ${flag}) vs Home D+1`, swellLeads[index], homeTomorrow,
-        !swellLeads[index] ? "silent: no swell event for D+1" : homeReason(eveningHome, tomorrowDate), false);
+        !swellLeads[index] ? `silent: ${swellSilentReason}` : homeReason(eveningHome, tomorrowDate), false);
     }
   } catch (error) {
     const failure = violation ?? error;
