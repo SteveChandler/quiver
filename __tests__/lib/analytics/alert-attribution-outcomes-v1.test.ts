@@ -51,13 +51,18 @@ describe("alert attribution outcomes v1", () => {
     expect(report.byChannelType.email).toEqual({});
   });
 
-  it("never treats provider opens or clicks as email interaction or return", () => {
+  it.each(["", "email."])("counts provider opens and clicks with prefix '%s' without attributing a return", (prefix) => {
     const data = input(); data.ledger = [ledger("a", "e", "email")]; data.emailSends = [email("e")];
-    data.emailDeliveryEvents = [{ id: 1, email_send_log_id: null, resend_message_id: "provider-1", event_type: "opened", event_at: send }];
+    data.emailDeliveryEvents = [
+      { id: 1, email_send_log_id: null, resend_message_id: "provider-1", event_type: `${prefix}opened`, event_at: send },
+      { id: 2, email_send_log_id: 1, resend_message_id: "provider-1", event_type: `${prefix}clicked`, event_at: send },
+      { id: 3, email_send_log_id: 1, resend_message_id: "provider-1", event_type: `${prefix}delivered`, event_at: send },
+    ];
     data.emailClickEvents = [{ id: 2, email_send_log_id: null, resend_message_id: "provider-1", clicked_at: send }];
     resolve(data); data.exclusions = new Map([["u", null]]);
     const report = buildAlertAttributionOutcomesReport(data);
     expect(report.rawProviderOpens.events).toBe(1); expect(report.rawProviderClicks.events).toBe(1);
+    expect(report.rawProviderClicks.deliveryEvents).toBe(1);
     expect(report.byChannelType.email.conditions_alert.interaction.numerator).toBe(0);
     expect(report.byChannelType.email.conditions_alert.attributedReturnRate.numerator).toBe(0);
   });

@@ -223,9 +223,9 @@ export function buildAlertAttributionOutcomesReport(input: AlertAttributionInput
       const email = emailByMid.get(item.messageInstanceId);
       if (email) {
         const providerMatches = (row: EmailProviderRow): boolean => row.email_send_log_id === email.id || (!!email.resend_message_id && row.resend_message_id === email.resend_message_id);
-        rawProviderOpens.events += input.emailDeliveryEvents.filter((row) => providerMatches(row) && row.event_type === "opened").length;
+        rawProviderOpens.events += input.emailDeliveryEvents.filter((row) => providerMatches(row) && row.event_type?.replace(/^email\./, "") === "opened").length;
         rawProviderClicks.events += input.emailClickEvents.filter(providerMatches).length;
-        rawProviderClicks.deliveryEvents += input.emailDeliveryEvents.filter((row) => providerMatches(row) && row.event_type === "clicked").length;
+        rawProviderClicks.deliveryEvents += input.emailDeliveryEvents.filter((row) => providerMatches(row) && row.event_type?.replace(/^email\./, "") === "clicked").length;
         rawProviderOpens.legacyLogFields += Number(!!email.opened_at);
         rawProviderClicks.legacyLogFields += Number(!!email.clicked_at);
       }
