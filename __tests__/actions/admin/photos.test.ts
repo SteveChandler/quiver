@@ -552,6 +552,37 @@ describe("admin photos actions", () => {
     );
   });
 
+  test("bulkApproveBeachPhotos still approves when the catalog load throws", async () => {
+    const { getCurrentUser } = await import("@/lib/auth/admin");
+    const { createSupabaseServiceRoleClient } = await import("@/lib/supabase/server");
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+
+    (getCurrentUser as jest.Mock).mockResolvedValue({ id: "admin-1" });
+
+    const photo = { title: VENICE_TITLE, source: "openverse", beach_id: "b1", deleted_at: null, beaches: BLACKS_BEACH };
+    const catalogQuery = createThenableQuery<any[]>({ data: PLACE_CATALOG, error: null });
+    (catalogQuery.limit as jest.Mock).mockImplementation(() => {
+      throw new Error("fetch failed");
+    });
+
+    (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue({
+      from: routeFrom(
+        catalogQuery,
+        createThenableQuery<any>({ data: photo, error: null }),
+        createThenableQuery<any>({ data: null, error: null }),
+        createThenableQuery<any>({ data: photo, error: null }),
+        createThenableQuery<any>({ data: null, error: null })
+      ),
+    });
+
+    const { bulkApproveBeachPhotos } = await import("@/actions/admin/photos");
+    const res = await bulkApproveBeachPhotos(["p1", "p2"]);
+
+    expect(res.data).toEqual({ success: 2, failed: 0, errors: [], warnings: [] });
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("fetch failed"));
+    warn.mockRestore();
+  });
+
   test("bulkApproveBeachPhotos skips deleted photos", async () => {
     const { getCurrentUser } = await import("@/lib/auth/admin");
     const { createSupabaseServiceRoleClient } = await import("@/lib/supabase/server");

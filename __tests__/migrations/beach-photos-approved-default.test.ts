@@ -60,12 +60,13 @@ describe("beach_photos migration inserts", () => {
     .filter((filename) => filename.endsWith(".sql"))
     .flatMap((filename) => {
       const sql = stripSqlComments(readFileSync(join(migrationsDir, filename), "utf8"));
-      return [...sql.matchAll(/insert\s+into\s+(?:public\.)?beach_photos\s*\(([^)]*)\)/gi)].map(
-        (match) => ({
-          filename,
-          columns: match[1].split(",").map((column) => column.trim().toLowerCase()),
-        })
-      );
+      return [
+        ...sql.matchAll(/insert\s+into\s+(?:"?public"?\.)?"?beach_photos"?(?!\w)\s*(\(([^)]*)\))?/gi),
+      ].map((match) => ({
+        filename,
+        // An insert without a column list cannot be checked; it fails below.
+        columns: (match[2] ?? "").split(",").map((column) => column.trim().replace(/"/g, "").toLowerCase()),
+      }));
     });
 
   it("finds the curated inserts", () => {

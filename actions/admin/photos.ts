@@ -54,18 +54,20 @@ interface PlaceConflictWarning {
 async function loadPlaceCatalog(
   supabaseAdmin: SupabaseClient<Database>
 ): Promise<PlaceCatalogEntry[] | null> {
-  const { data, error } = await supabaseAdmin
-    .from("beaches")
-    .select(PLACE_COLUMNS)
-    .is("deleted_at", null)
-    .limit(3000);
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("beaches")
+      .select(PLACE_COLUMNS)
+      .is("deleted_at", null)
+      .limit(3000);
 
-  if (error) {
-    console.warn(`Beach photo place check skipped: ${error.message}`);
+    if (error) throw new Error(error.message);
+    return (data as PlaceCatalogEntry[] | null) ?? [];
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`Beach photo place check skipped: ${message}`);
     return null;
   }
-
-  return (data as PlaceCatalogEntry[] | null) ?? [];
 }
 
 // Keyword sources attached a Venice Beach photo to Blacks Beach; flag a title
