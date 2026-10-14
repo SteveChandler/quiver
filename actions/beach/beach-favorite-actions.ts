@@ -55,17 +55,26 @@ export const reorderFavoriteBeaches = makeAuthenticatedAction(
       throw new Error("Invalid beach ids in ordering");
     }
 
-    const ranks = curated.map((row) => row.rank);
+    const customRows = rows.filter((row) => row.custom_spot_id !== null);
     const customRanks = new Set(
-      rows.filter((row) => row.custom_spot_id !== null).map((row) => row.rank),
+      customRows.flatMap((row) => row.rank === null ? [] : [row.rank]),
     );
-    if (
-      ranks.some((rank) => rank === null || customRanks.has(rank)) ||
-      new Set(ranks).size !== ranks.length
-    ) {
-      throw new Error("Favorite ranks must be distinct before reordering");
+    let ranks: number[] = curated.flatMap((row) => row.rank === null ? [] : [row.rank]);
+    const canPreserveSlots = customRows.length > 0 &&
+      ranks.length === curated.length &&
+      new Set(ranks).size === ranks.length &&
+      ranks.every((rank) => !customRanks.has(rank));
+
+    if (canPreserveSlots) {
+      ranks.sort((a, b) => a - b);
+    } else {
+      ranks = [];
+      let nextRank = 1;
+      for (let i = 0; i < beachIdsInOrder.length; i++) {
+        while (customRanks.has(nextRank)) nextRank++;
+        ranks.push(nextRank++);
+      }
     }
-    ranks.sort((a, b) => a! - b!);
 
     for (let i = 0; i < beachIdsInOrder.length; i++) {
       const beachId = beachIdsInOrder[i];
