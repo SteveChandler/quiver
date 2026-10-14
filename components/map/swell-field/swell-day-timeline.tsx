@@ -5,7 +5,10 @@ import { Pause, Play } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent, ReactElement, ReactNode } from "react";
 import type { TimelineDaySegment } from "@/components/map/hourly-swell-timeline";
-import { formatTimelineBubble } from "@/components/map/hourly-swell-timeline";
+import {
+  formatTimelineBubble,
+  getPlaybackVisualFrameMs,
+} from "@/components/map/hourly-swell-timeline";
 import {
   SWELL_MAP_CTA_CLASS,
   SWELL_MAP_LEGEND_SURFACE,
@@ -38,22 +41,10 @@ const deltaByKey: Record<string, number> = {
   ArrowRight: 1,
   ArrowUp: 1,
 };
-export const PLAYBACK_TARGET_DURATION_MS = 18_000;
 const DEFAULT_PLAYBACK_VISUAL_FRAME_MS = 500;
-const MIN_PLAYBACK_VISUAL_FRAME_MS = 50;
-const MAX_PLAYBACK_VISUAL_FRAME_MS = 750;
 const FIELD_UPDATE_INTERVAL_MS = 100;
 // "Mon 17" at 12px bold uppercase plus padding; below this a band shows the date number only.
 const FULL_DAY_LABEL_MIN_PX = 64;
-
-export function getPlaybackVisualFrameMs(timestampCount: number): number {
-  const frameCount = Math.max(1, Math.floor(timestampCount) - 1);
-  const targetFrameMs = PLAYBACK_TARGET_DURATION_MS / frameCount;
-  return Math.min(
-    MAX_PLAYBACK_VISUAL_FRAME_MS,
-    Math.max(MIN_PLAYBACK_VISUAL_FRAME_MS, targetFrameMs),
-  );
-}
 
 export function advancePlaybackPosition(
   current: number,
@@ -373,11 +364,17 @@ export function SwellDayTimeline({
 
     const animate = (frameTime: number): void => {
       if (lastFrameTime != null) {
-        const next = advancePlaybackPosition(
-          visualIndexRef.current,
-          frameTime - lastFrameTime,
-          maxIndexRef.current,
-          visualFrameMs,
+        // The controller owns the committed frame (and the time label); the thumb and
+        // field only animate toward the next frame, never past it.
+        const committedIndex = controlledIndexRef.current;
+        const next = Math.max(
+          committedIndex,
+          advancePlaybackPosition(
+            visualIndexRef.current,
+            frameTime - lastFrameTime,
+            Math.min(maxIndexRef.current, committedIndex + 1),
+            visualFrameMs,
+          ),
         );
         visualIndexRef.current = next;
         setVisualIndex(next);
