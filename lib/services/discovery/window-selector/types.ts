@@ -8,7 +8,7 @@
 
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
-import type { TimeSlot } from '@/types/personalization';
+import type { CandidateRejection, TimeSlot } from '@/types/personalization';
 import type { getUserSurfPreferences } from '@/lib/services/preference-learning-service';
 import type { BoardClass, RideabilityBand } from '@/lib/domains/rideability';
 import type { SkillLevel } from '@/lib/domains/user-preferences/skill-level';
@@ -17,6 +17,7 @@ import type { SkillLevel } from '@/lib/domains/user-preferences/skill-level';
  * Options for the window selector algorithm.
  */
 export interface WindowSelectorOptions {
+  onRejection?: (rejection: CandidateRejection) => void;
   forecasts: EnhancedForecastEntity[];
   beach: Beach;
   userPrefs: Awaited<ReturnType<typeof getUserSurfPreferences>> | null;

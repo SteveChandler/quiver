@@ -121,6 +121,7 @@ export function buildCanonicalDecisionFromSurfDiscovery(
     profileExperience: input.profileExperience,
     recommendationAvailability: input.recommendationAvailability,
     candidates: input.recommendations.map(toCanonicalCandidate),
+    candidateRejection: input.candidateRejection,
   });
 }
 
