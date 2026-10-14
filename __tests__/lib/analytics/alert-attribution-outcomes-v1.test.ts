@@ -41,6 +41,38 @@ describe("alert attribution outcomes v1", () => {
     expect(report.byChannelType.push.forecast_alert.sentInstances).toBe(1);
   });
 
+  it("separates failed-status contact holds while preserving raw status counts", () => {
+    const data = input();
+    const reasons = ["quiet_hours", "ineligible_or_suppressed", "contact_cap", "contact_cooldown_or_unknown", "disabled"];
+    data.ledger = [
+      ...reasons.map((reason) => ({
+        ...ledger(reason, null, "email", "u", "failed_provider"), skip_reason: `Contact held: ${reason}`,
+      })),
+      { ...ledger("retry", null, "email", "u", "failed_provider"), skip_reason: "Contact held:   quiet_hours  " },
+      { ...ledger("internal-hold", null, "email", "u", "failed_internal"), skip_reason: "Contact held:disabled" },
+      { ...ledger("push-hold", null, "push", "u", "failed_internal"), skip_reason: "Contact held: disabled" },
+      ledger("real-provider-failure", null, "email", "u", "failed_provider"),
+      { ...ledger("real-internal-failure", null, "push", "u", "failed_internal"), skip_reason: "Provider error: Contact held: disabled" },
+      { ...ledger("skip", null, "email", "u", "skipped_disabled"), skip_reason: "Contact held: disabled" },
+    ];
+    const report = buildAlertAttributionOutcomesReport(data);
+    expect(report.ledger.byChannelStatus).toEqual({
+      email: {
+        failed_provider: { rows: 7, distinctUsers: 1 },
+        failed_internal: { rows: 1, distinctUsers: 1 },
+        skipped_disabled: { rows: 1, distinctUsers: 1 },
+      },
+      push: { failed_internal: { rows: 2, distinctUsers: 1 } },
+    });
+    expect(report.ledger.deliberateHolds).toEqual({
+      "email:quiet_hours": 2, "email:ineligible_or_suppressed": 1, "email:contact_cap": 1,
+      "email:contact_cooldown_or_unknown": 1, "email:disabled": 2, "push:disabled": 1,
+    });
+    expect(report.ledger.mislabelledHoldRows).toBe(8);
+    expect(report.ledger.failures).toEqual({ "email:failed_provider": 1, "push:failed_internal": 1 });
+    expect(report.ledger.skips).toEqual({ "email:skipped_disabled": 1 });
+  });
+
   it("flags unmatched push and email identities and excludes them from typed attribution", () => {
     const data = input(); data.ledger = [ledger("a", "p", "push"), ledger("b", "e", "email")];
     resolve(data); data.exclusions = new Map([["u", null]]);

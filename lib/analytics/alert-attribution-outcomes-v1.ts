@@ -5,6 +5,7 @@ import { localDate, selectAllPages, type ProfileExclusionReason, type ReadOnlySu
 const ALERT_ATTRIBUTION_OUTCOMES_SCHEMA_VERSION = "alert_attribution_outcomes.v1" as const;
 const DAY_MS = 86_400_000;
 const HOUR_MS = 3_600_000;
+const CONTACT_HOLD_PREFIX = "Contact held:";
 const STAGES = ["alert_message_activated", "alert_app_returned", "alert_return_to_decision", "alert_decision_action"] as const;
 type Channel = "push" | "email";
 type Rate = { numerator: number; denominator: number; rate: number | null };
@@ -163,6 +164,8 @@ export function buildAlertAttributionOutcomesReport(input: AlertAttributionInput
   const nullUsers = new Map<string, Set<string>>();
   const skips: Record<string, number> = {};
   const failures: Record<string, number> = {};
+  const deliberateHolds: Record<string, number> = {};
+  let mislabelledHoldRows = 0;
   for (const row of input.ledger.filter((item) => Date.parse(item.attempted_at) >= windowStart && Date.parse(item.attempted_at) < windowEnd)) {
     const channel = ledger[row.channel] ??= {};
     const item = channel[row.status] ??= { rows: 0, distinctUsers: 0 };
@@ -177,7 +180,14 @@ export function buildAlertAttributionOutcomesReport(input: AlertAttributionInput
       set.add(row.user_id); nullUsers.set(row.channel, set); value.distinctUsers = set.size;
     }
     if (row.status.startsWith("skipped_") || row.status === "shadow_withheld") skips[key] = (skips[key] ?? 0) + 1;
-    if (row.status.startsWith("failed_")) failures[key] = (failures[key] ?? 0) + 1;
+    if (!row.status.startsWith("failed_")) continue;
+    if (row.skip_reason?.startsWith(CONTACT_HOLD_PREFIX)) {
+      const holdKey = `${row.channel}:${row.skip_reason.slice(CONTACT_HOLD_PREFIX.length).trim()}`;
+      deliberateHolds[holdKey] = (deliberateHolds[holdKey] ?? 0) + 1;
+      mislabelledHoldRows += 1;
+      continue;
+    }
+    failures[key] = (failures[key] ?? 0) + 1;
   }
   const unmatchedDelivery: Record<Channel, Rate> = { push: rate(0, 0), email: rate(0, 0) };
   const byChannelType: Record<Channel, Record<string, TypeOutcome>> = { push: {}, email: {} };
@@ -318,7 +328,7 @@ export function buildAlertAttributionOutcomesReport(input: AlertAttributionInput
       email_click_events: max(input.emailClickEvents.map((row) => row.clicked_at)),
       user_devices: max(input.devices.map((row) => row.updated_at)),
     },
-    excluded, ledger: { byChannelStatus: ledger, sentWithoutIdentity, skips, failures },
+    excluded, ledger: { byChannelStatus: ledger, sentWithoutIdentity, skips, failures, deliberateHolds, mislabelledHoldRows },
     sentInstances: eligible.length, identityConflict: input.instances.filter((item) => item.identityConflict).length,
     unmatchedDelivery, deliveryCapability, notAttributableByConstruction, byChannelType,
     missingAttribution: rate(missing, interactions), orphanStages, channelMismatch,
