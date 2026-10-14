@@ -424,7 +424,7 @@ describe("maskFieldToWater", () => {
   it("masks a mostly-land viewport when the basemap is queryable", () => {
     const field = makeWideField();
     const cache = new Map<string, boolean>();
-    const probe = jest.fn(() => [{ layer: "road" }]);
+    const probe = jest.fn(() => true);
     const map: WaterMaskMap = {
       areTilesLoaded: () => true,
       project: ([lon]) => ({ x: lon * 10, y: 100 }),
@@ -438,6 +438,13 @@ describe("maskFieldToWater", () => {
 
     expect(applied).toBe(true);
     expect(probe).toHaveBeenCalledTimes(1);
+    expect(probe).toHaveBeenCalledWith([
+      { x: 20, y: 100 },
+      { x: 90, y: 100 },
+      { x: 170, y: 100 },
+      { x: 240, y: 100 },
+      { x: 320, y: 100 },
+    ]);
     expect(field.cells.slice(0, 2).every((cell) => cell.speed === 0.5)).toBe(true);
     expect(field.cells.slice(2).every((cell) => cell.speed === 0 && cell.alpha === 0)).toBe(true);
     expect(cache.get("0:0")).toBe(true);
@@ -452,7 +459,7 @@ describe("maskFieldToWater", () => {
       areTilesLoaded: () => true,
       project: ([lon]) => ({ x: lon * 10, y: 100 }),
       queryRenderedFeatures: () => [],
-      probeRenderedBasemapFeatures: () => [{ layer: "road" }],
+      probeRenderedBasemapFeatures: () => true,
     };
 
     const applied = maskFieldToWater(field, map, {
@@ -471,7 +478,7 @@ describe("maskFieldToWater", () => {
       areTilesLoaded: () => true,
       project: ([lon]) => ({ x: lon * 10, y: 100 }),
       queryRenderedFeatures: () => [],
-      probeRenderedBasemapFeatures: () => [],
+      probeRenderedBasemapFeatures: () => false,
     };
 
     const applied = maskFieldToWater(field, map, {
@@ -486,7 +493,7 @@ describe("maskFieldToWater", () => {
   it("does not cache land when tiles are not loaded", () => {
     const field = makeWideField();
     const cache = new Map<string, boolean>();
-    const probe = jest.fn(() => [{ layer: "road" }]);
+    const probe = jest.fn(() => true);
     const map: WaterMaskMap = {
       areTilesLoaded: () => false,
       project: ([lon]) => ({ x: lon * 10, y: 100 }),
@@ -532,7 +539,7 @@ describe("maskFieldToWater", () => {
       areTilesLoaded: () => true,
       project: ([lon]) => ({ x: lon * 10, y: 100 }),
       queryRenderedFeatures: ([x]) => (x < 300 ? [{}] : []),
-      probeRenderedBasemapFeatures: () => [{ layer: "water" }],
+      probeRenderedBasemapFeatures: () => true,
     };
 
     const applied = maskFieldToWater(field, map, {

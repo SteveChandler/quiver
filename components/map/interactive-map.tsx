@@ -95,6 +95,7 @@ import {
   type FlowComponentId,
   type FlowField,
   type FlowFieldGrid,
+  type ScreenPoint,
   type WaterMaskMap,
 } from "@/components/map/swell-field/field-sampler";
 import { embedTimelineArrayPositionForHourOffset } from "@/components/map/embed-map-timeline";
@@ -1948,12 +1949,28 @@ export function InteractiveMap({
     const basemapLayerIds = styleLayers
       .filter((layer) => "source" in layer && typeof layer.source === "string" && waterSources.has(layer.source))
       .map((layer) => layer.id);
+    const canvas = map.getCanvas();
     const maskMap: WaterMaskMap = {
       areTilesLoaded: () => map.areTilesLoaded(),
       project: (lngLat) => map.project(lngLat),
       queryRenderedFeatures: (point, options) => map.queryRenderedFeatures(point, options),
       ...(basemapLayerIds.length > 0 && {
-        probeRenderedBasemapFeatures: () => map.queryRenderedFeatures({ layers: basemapLayerIds }),
+        probeRenderedBasemapFeatures: (candidatePoints: ScreenPoint[]): boolean => {
+          const { clientWidth: width, clientHeight: height } = canvas;
+          const gridPoints = [
+            { x: width / 2, y: height / 2 },
+            { x: width / 4, y: height / 4 },
+            { x: width * 3 / 4, y: height / 4 },
+            { x: width / 4, y: height * 3 / 4 },
+            { x: width * 3 / 4, y: height * 3 / 4 },
+          ];
+          for (const point of [...candidatePoints.slice(0, 5), ...gridPoints]) {
+            if (map.queryRenderedFeatures([point.x, point.y], { layers: basemapLayerIds }).length > 0) {
+              return true;
+            }
+          }
+          return false;
+        },
       }),
     };
     const zoomBucket = Math.floor(map.getZoom());
@@ -1963,7 +1980,6 @@ export function InteractiveMap({
     ) {
       waterMaskCacheRef.current = { zoomBucket, verdicts: new Map() };
     }
-    const canvas = map.getCanvas();
     let needsRetry = false;
     for (const component of maskable) {
       const field = flowFieldsRef.current[component];

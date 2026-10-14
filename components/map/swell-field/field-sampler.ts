@@ -120,7 +120,7 @@ export interface WaterMaskMap {
     point: [number, number],
     options: { layers: string[] }
   ): unknown[];
-  probeRenderedBasemapFeatures?: () => unknown[];
+  probeRenderedBasemapFeatures?: (candidatePoints: ScreenPoint[]) => boolean;
 }
 
 interface WaterMaskOptions {
@@ -153,7 +153,7 @@ export function maskFieldToWater(
 ): boolean {
   if (options.waterLayerIds.length === 0) return true;
   const tilesLoaded = map.areTilesLoaded?.() ?? true;
-  const pendingLandCells: FlowField["cells"] = [];
+  const pendingLandCells: Array<{ cell: FlowField["cells"][number]; point: ScreenPoint }> = [];
   let queriedCellCount = 0;
   let waterHitCount = 0;
   let queryFailed = false;
@@ -191,7 +191,7 @@ export function maskFieldToWater(
       });
       queriedCellCount += 1;
       if (!hits || hits.length === 0) {
-        pendingLandCells.push(cell);
+        pendingLandCells.push({ cell, point: pt });
       } else {
         waterHitCount += 1;
         options.waterMaskCache?.set(cacheKey, true);
@@ -212,7 +212,11 @@ export function maskFieldToWater(
   let basemapQueryable = false;
   if (probe && hasProbe && tilesLoaded) {
     try {
-      basemapQueryable = probe().length > 0;
+      const candidateCount = Math.min(5, pendingLandCells.length);
+      const candidatePoints = Array.from({ length: candidateCount }, (_, index) =>
+        pendingLandCells[Math.floor(index * pendingLandCells.length / candidateCount)].point,
+      );
+      basemapQueryable = probe(candidatePoints);
     } catch {
       queryFailed = true;
     }
@@ -221,7 +225,7 @@ export function maskFieldToWater(
     return !hasProbe && pendingLandCells.length === 0 && !queryFailed && tilesLoaded;
   }
   const trustedLandVerdicts = tilesLoaded && !queryFailed && (hasProbe ? basemapQueryable : true);
-  for (const cell of pendingLandCells) {
+  for (const { cell } of pendingLandCells) {
     if (trustedLandVerdicts) {
       const cellKey = `${cell.lon}:${cell.lat}`;
       options.waterMaskCache?.set(
