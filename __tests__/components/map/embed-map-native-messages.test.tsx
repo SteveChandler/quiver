@@ -1,4 +1,4 @@
-import { act, render } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { EmbedMapClient } from "@/app/embed/map/embed-map-client";
 
 interface MapProps {
@@ -9,6 +9,7 @@ interface MapProps {
 let mockMapProps: MapProps;
 const mockSearchParams = new URLSearchParams("timeline=hourly");
 jest.mock("next/navigation", () => ({ useSearchParams: () => mockSearchParams }));
+jest.mock("@/hooks/use-custom-spots", () => ({ useCustomSpots: () => ({ customSpots: [] }) }));
 jest.mock("next/dynamic", () => () => (props: MapProps) => {
   mockMapProps = props;
   return null;
@@ -64,5 +65,23 @@ describe("native map message delivery", () => {
     render(<EmbedMapClient />);
     send("setLayer", { layerId: "wind" });
     expect(mockMapProps.swellLayerId).toBe("s1");
+  });
+
+  it("omits the Conditions panel in a browser embed and shows particle colours only for All", () => {
+    delete window.ReactNativeWebView;
+    render(<EmbedMapClient />);
+
+    expect(screen.queryByLabelText("Conditions legend")).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Particle colours" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "All" }));
+    const key = screen.getByRole("group", { name: "Particle colours" });
+    expect(within(key).getByText("Swell")).toBeInTheDocument();
+    expect(within(key).getByText("Swell 2")).toBeInTheDocument();
+    expect(within(key).getByText("Wind")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Conditions legend")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "None" }));
+    expect(screen.queryByRole("group", { name: "Particle colours" })).not.toBeInTheDocument();
   });
 });
