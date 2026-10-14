@@ -1,9 +1,13 @@
 import {
   INSTALL_TO_PAID_V1_EXPECTED_INSTALL_COUNT,
   INSTALL_TO_PAID_V1_FIXTURE,
+  INSTALL_TO_PAID_AGGREGATE_FIXTURE,
   POSTHOG_OPTOUT_INSTALL_ID,
 } from "@/__tests__/fixtures/install-to-paid-v1";
-import { buildInstallToPaidRows, INSTALL_TO_PAID_SCHEMA_VERSION } from "@/lib/analytics/install-to-paid-funnel-v1";
+import {
+  buildInstallDimensions, buildInstallToPaidAggregates, buildInstallToPaidRows,
+  INSTALL_TO_PAID_SCHEMA_VERSION, INSTALL_TO_PAID_AGGREGATES_SCHEMA_VERSION,
+} from "@/lib/analytics/install-to-paid-funnel-v1";
 
 describe("install-to-paid v1 milestone contract", () => {
   const rows = buildInstallToPaidRows(INSTALL_TO_PAID_V1_FIXTURE);
@@ -134,5 +138,76 @@ describe("install-to-paid v1 milestone contract", () => {
       });
     expect(byInstall.get("10000000-0000-4000-8000-00000000000d")?.milestones.d1Return).toBe("false");
     expect(byInstall.get("10000000-0000-4000-8000-00000000000e")?.milestones.d7Return).toBe("false");
+  });
+});
+
+describe("install-to-paid cohort aggregates", () => {
+  const input = INSTALL_TO_PAID_AGGREGATE_FIXTURE;
+  const rows = buildInstallToPaidRows(input);
+  const dimensions = buildInstallDimensions(input, rows);
+  const aggregates = buildInstallToPaidAggregates(rows, dimensions, {
+    asOf: input.asOf,
+    window: { startDate: "2026-01-01", endDate: "2026-02-15",
+      start: "2026-01-01T00:00:00.000Z", end: "2026-02-15T00:00:00.000Z",
+      timeZone: "America/Los_Angeles" },
+    sourceFreshness: input.sourceFreshness,
+  });
+
+  it("counts each anchored install and each qualifying conversion once", () => {
+    expect(aggregates.schemaVersion).toBe(INSTALL_TO_PAID_AGGREGATES_SCHEMA_VERSION);
+    expect(aggregates.overall.installs).toBe(5);
+    expect(aggregates.overall.stages.nativeInstall.true).toBe(5);
+    expect(aggregates.overall.stages.paywallViewed.true).toBe(1);
+    expect(aggregates.overall.stages.verifiedTrial.true).toBe(1);
+    expect(aggregates.overall.stages.verifiedTrial.unknown).toBe(2);
+    expect(aggregates.ascDownloads).toEqual({
+      joinPolicy: "aggregate_only_never_person_joined", downloads: null,
+    });
+    expect(aggregates.overall.unknownJoinReason.reinstall_existing_account).toBe(1);
+    expect(dimensions["10000000-0000-4000-8000-000000000001"]).toMatchObject({
+      platform: "ios", acquisitionSource: "app_store", acquisitionSurface: "search",
+      experimentVariant: "A", paywallSource: "onboarding", trialPlan: "annual",
+      trialProductId: "app.quiversurf.surf.pro.annual",
+    });
+    expect(dimensions["10000000-0000-4000-8000-000000000004"].paywallSource).toBe("none");
+  });
+
+  it("keeps immature installs out of denominators and missing joins out of false", () => {
+    expect(aggregates.overall.stages.d1Return.immature).toBe(1);
+    expect(aggregates.overall.stages.d1Return.rate.denominator).toBe(3);
+    expect(aggregates.overall.stages.d1Return.unknown).toBe(1);
+    expect(aggregates.overall.stages.d1Return.unknownShare).toMatchObject({
+      numerator: 1, denominator: 4,
+    });
+    expect(aggregates.overall.stages.d7Return.immature).toBe(1);
+    expect(aggregates.overall.stages.d30Paid.immature).toBe(2);
+    const tenDayCohort = aggregates.cohortWeeks.find((group) => group.value === "2026-02-02");
+    expect(tenDayCohort?.stages.d7Return).toMatchObject({ false: 1, immature: 0 });
+    expect(tenDayCohort?.stages.d30Paid).toMatchObject({ immature: 1, rate: { denominator: 0 } });
+    const thirtyHourCohort = aggregates.cohortWeeks.find((group) => group.value === "2026-02-09");
+    expect(thirtyHourCohort?.stages.d1Return).toMatchObject({ immature: 1, rate: { denominator: 0 } });
+    expect(aggregates.overall.joinStatus.unknown).toBe(1);
+    expect(aggregates.overall.unknownJoinReason.first_open_never_linked).toBe(1);
+    expect(dimensions["10000000-0000-4000-8000-000000000002"]).toMatchObject({
+      platform: "unknown", acquisitionSource: "unknown", experimentVariant: "unknown",
+      paywallSource: "none", trialPlan: "none",
+    });
+    expect(aggregates.breakdowns.platformByExperimentVariant
+      .find((group) => group.value === "ios × A")?.installs).toBe(1);
+  });
+
+  it("uses shared internal exclusions without changing the emitted reason", () => {
+    for (const userId of ["73040cff-afe9-4fa0-a874-2016203fc015", "610a5745-1fac-429c-8f5a-8d085783a5ea"]) {
+      const installId = userId;
+      const excludedRows = buildInstallToPaidRows({
+        ...input,
+        behaviorEvents: [{ event: "native_app_first_open", timestamp: "2026-01-01T00:00:00.000Z",
+          distinctId: userId, personId: userId, nativeInstallId: installId, properties: {} }],
+        installLinks: [{ nativeInstallId: installId, userId }],
+        profiles: userId.startsWith("610a5745") ? [] : [{ ...input.profiles[0], id: userId }],
+        revenueCatEvents: [],
+      });
+      expect(excludedRows[0]).toMatchObject({ joinStatus: "excluded", exclusionReason: "founder_or_maestro" });
+    }
   });
 });

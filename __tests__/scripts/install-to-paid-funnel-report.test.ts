@@ -5,8 +5,10 @@ import {
   parseCliArgs,
   parsePostHogRows,
   rowsToCsv,
+  createReportClient,
+  aggregatesToMarkdown,
 } from "@/scripts/install-to-paid-funnel-report";
-import { buildInstallToPaidRows } from "@/lib/analytics/install-to-paid-funnel-v1";
+import { buildInstallToPaidRows, buildInstallDimensions, buildInstallToPaidAggregates } from "@/lib/analytics/install-to-paid-funnel-v1";
 import { INSTALL_TO_PAID_V1_FIXTURE } from "@/__tests__/fixtures/install-to-paid-v1";
 
 describe("install-to-paid report", () => {
@@ -26,6 +28,54 @@ describe("install-to-paid report", () => {
       "--start", "2026-01-01T00:00:00",
       "--end", "2026-02-01T00:00:00Z",
     ])).toThrow("--start must include UTC");
+  });
+
+  it("resolves local complete days and markdown output", () => {
+    const options = parseCliArgs(["--start", "2026-01-01", "--end", "2026-01-08",
+      "--tz", "America/Los_Angeles", "--output-md", "report.md"]);
+    expect(options).toMatchObject({
+      start: "2026-01-01T08:00:00.000Z", end: "2026-01-08T08:00:00.000Z",
+      outputMd: "report.md", window: { timeZone: "America/Los_Angeles" },
+    });
+    const rows = buildInstallToPaidRows(INSTALL_TO_PAID_V1_FIXTURE);
+    const report = buildInstallToPaidAggregates(rows,
+      buildInstallDimensions(INSTALL_TO_PAID_V1_FIXTURE, rows), {
+        asOf: INSTALL_TO_PAID_V1_FIXTURE.asOf,
+        window: options.window,
+        sourceFreshness: INSTALL_TO_PAID_V1_FIXTURE.sourceFreshness,
+      });
+    const markdown = aggregatesToMarkdown(report);
+    expect(markdown).toContain("| Verified trial |");
+    expect(markdown).toContain("## platform: unknown");
+    expect(markdown).toContain("unknown n=");
+  });
+
+  it("uses --days for the default Los Angeles complete-day window", () => {
+    expect(parseCliArgs(["--days", "7"], new Date("2026-02-15T18:00:00.000Z")))
+      .toMatchObject({
+        start: "2026-02-08T08:00:00.000Z", end: "2026-02-15T08:00:00.000Z",
+        window: { startDate: "2026-02-08", endDate: "2026-02-15",
+          timeZone: "America/Los_Angeles" },
+      });
+  });
+
+  it("creates a read-only Supabase client whose writes throw", () => {
+    const oldUrl = process.env.SUPABASE_URL;
+    const oldKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const oldPublicUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    try {
+      process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
+      process.env.SUPABASE_SERVICE_ROLE_KEY = "test-key";
+      const client = createReportClient();
+      expect(typeof client.from("profiles").select).toBe("function");
+      expect(() => (client.from("profiles") as any).insert({ id: "x" })).toThrow("read-only");
+      expect(() => (client as any).rpc("write")).toThrow("read-only");
+    } finally {
+      if (oldUrl === undefined) delete process.env.SUPABASE_URL; else process.env.SUPABASE_URL = oldUrl;
+      if (oldKey === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY; else process.env.SUPABASE_SERVICE_ROLE_KEY = oldKey;
+      if (oldPublicUrl === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+      else process.env.NEXT_PUBLIC_SUPABASE_URL = oldPublicUrl;
+    }
   });
 
   it("keyset-pages HogQL by timestamp and UUID and bounds first opens to the cohort", async () => {
@@ -49,9 +99,6 @@ describe("install-to-paid report", () => {
       start: "2026-01-01T00:00:00.000Z",
       end: "2026-01-02T00:00:00.000Z",
       asOf: "2026-01-02T00:00:00.000Z",
-      outputJson: null,
-      outputCsv: null,
-      ascJson: null,
     })).resolves.toHaveLength(1000);
 
     const queries = fetchMock.mock.calls.map(([, init]) =>
