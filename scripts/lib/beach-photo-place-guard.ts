@@ -11,6 +11,8 @@
  * its region.
  */
 
+import { haversineKm } from "@/lib/climatology/geo";
+
 export interface PlaceCatalogEntry {
   name: string;
   city?: string | null;
@@ -49,14 +51,17 @@ const STATE_CODES: Record<string, string> = {
   "Baja California Sur": "BCS",
 };
 
+// "LA" in a title is Los Angeles far more often than Louisiana.
 const POSTAL_CODES = new Set(
-  Object.values(STATE_CODES).filter((code) => code.length === 2),
+  Object.values(STATE_CODES).filter((code) => code.length === 2 && code !== "LA"),
 );
 
+// A state name counts only where it closes a place ("..., California, USA",
+// "California-06419"), not in "Washington Street" or "Virginia Lee".
 const STATE_NAME_PATTERN = new RegExp(
   `\\b(${Object.keys(STATE_CODES)
     .sort((a, b) => b.length - a.length)
-    .join("|")})\\b`,
+    .join("|")})\\b(?=\\s*(?:$|[,;:)\\-]|USA\\b))`,
   "g",
 );
 
@@ -162,13 +167,27 @@ function distanceKm(
   b: { lat?: number | null; lon?: number | null },
 ): number | null {
   if (a.lat == null || a.lon == null || b.lat == null || b.lon == null) return null;
-  const rad = Math.PI / 180;
-  const dLat = (b.lat - a.lat) * rad;
-  const dLon = (b.lon - a.lon) * rad;
-  const h =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLon / 2) ** 2;
-  return 2 * 6371 * Math.asin(Math.sqrt(h));
+  return haversineKm({ lat: a.lat, lon: a.lon }, { lat: b.lat, lon: b.lon });
+}
+
+interface Gazetteer {
+  places: Map<string, Place[]>;
+  phrasesLongestFirst: string[];
+}
+
+// photos:fetch checks every result against the same catalog.
+const gazetteerCache = new WeakMap<readonly PlaceCatalogEntry[], Gazetteer>();
+
+function gazetteerFor(catalog: readonly PlaceCatalogEntry[]): Gazetteer {
+  const cached = gazetteerCache.get(catalog);
+  if (cached) return cached;
+  const places = buildGazetteer(catalog);
+  const gazetteer = {
+    places,
+    phrasesLongestFirst: [...places.keys()].sort((a, b) => b.length - a.length),
+  };
+  gazetteerCache.set(catalog, gazetteer);
+  return gazetteer;
 }
 
 export function findPhotoPlaceConflict(
@@ -194,17 +213,16 @@ export function findPhotoPlaceConflict(
 
   // Longest first, masking each match, so "Del Mar" inside "Corona del Mar"
   // is read once, as Corona del Mar.
-  const gazetteer = buildGazetteer(catalog);
-  const phrases = [...gazetteer.keys()].sort((a, b) => b.length - a.length);
+  const { places, phrasesLongestFirst } = gazetteerFor(catalog);
   const matched = new Set<string>();
   let text = ` ${normalize(title)} `;
-  for (const phrase of phrases) {
+  for (const phrase of phrasesLongestFirst) {
     const needle = ` ${phrase} `;
     if (!text.includes(needle)) continue;
     text = text.split(needle).join(" | ");
     matched.add(phrase);
     if (ownNames.some((own) => containsPhrase(own, phrase))) continue;
-    if (gazetteer.get(phrase)?.some(isHome)) continue;
+    if (places.get(phrase)?.some(isHome)) continue;
     return phrase;
   }
 

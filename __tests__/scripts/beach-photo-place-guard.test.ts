@@ -169,6 +169,21 @@ describe("findPhotoPlaceConflict", () => {
     ).toBe("mn");
   });
 
+  it("reads ', LA' as Los Angeles, not Louisiana", () => {
+    expect(
+      findPhotoPlaceConflict("Sunset at Venice, LA", target("Venice Beach"), catalog),
+    ).toBeNull();
+  });
+
+  it("does not read a street or person named after a state as that state", () => {
+    expect(
+      findPhotoPlaceConflict("Washington Street lifeguard tower", target("Blacks Beach"), catalog),
+    ).toBeNull();
+    expect(
+      findPhotoPlaceConflict("California-06419 - Beach Side of Bridge", target("Long Beach"), catalog),
+    ).toBe("california");
+  });
+
   it("still rejects a foreign beach without a catalog", () => {
     expect(
       findPhotoPlaceConflict(
