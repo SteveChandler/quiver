@@ -27,8 +27,10 @@ CREATE POLICY community_photo_terms_acceptances_insert_own ON public.community_p
   WITH CHECK (user_id = (SELECT auth.uid()));
 
 -- Client acceptances are immutable; account deletion removes them through the profile cascade.
+-- Clients may insert only user_id and terms_version, so accepted_at is always the server's now().
 REVOKE ALL ON public.community_photo_terms_acceptances FROM PUBLIC, anon, authenticated;
-GRANT SELECT, INSERT ON public.community_photo_terms_acceptances TO authenticated;
+GRANT SELECT ON public.community_photo_terms_acceptances TO authenticated;
+GRANT INSERT (user_id, terms_version) ON public.community_photo_terms_acceptances TO authenticated;
 GRANT ALL ON public.community_photo_terms_acceptances TO service_role;
 
 COMMIT;

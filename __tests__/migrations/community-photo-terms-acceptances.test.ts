@@ -31,7 +31,8 @@ describe("community photo terms acceptances migration", () => {
     expect(migration).toMatch(/CREATE POLICY community_photo_terms_acceptances_insert_own[\s\S]*FOR INSERT TO authenticated\s+WITH CHECK \(user_id = \(SELECT auth\.uid\(\)\)\)/);
     expect(migration).not.toMatch(/FOR (?:UPDATE|DELETE) TO authenticated/);
     expect(migration).toMatch(/REVOKE ALL ON public\.community_photo_terms_acceptances FROM PUBLIC, anon, authenticated/);
-    expect(migration).toMatch(/GRANT SELECT, INSERT ON public\.community_photo_terms_acceptances TO authenticated/);
+    expect(migration).toMatch(/GRANT SELECT ON public\.community_photo_terms_acceptances TO authenticated/);
+    expect(migration).toMatch(/GRANT INSERT \(user_id, terms_version\) ON public\.community_photo_terms_acceptances TO authenticated/);
     expect(migration).toMatch(/GRANT ALL ON public\.community_photo_terms_acceptances TO service_role/);
     expect(migration).not.toMatch(/GRANT [^;]*(?:UPDATE|DELETE)[^;]* TO authenticated/);
   });
