@@ -120,12 +120,22 @@ describe("buildIntentPageContent", () => {
     it("keeps long estimated descriptions within the existing truncation limit", () => {
       const content = buildIntentPageContent("water-temp", {
         ...mockMetadata,
-        beaches: [{ name: "A Very Long Beach Name That Extends The Description Past Its Limit", slug: "long-beach", skillLevel: "beginner" }],
+        cityName: "A Very Long City Name That Pushes The Water Temperature Description Past Its Limit",
       }, { waterTempData: { currentTemp: 62, source: "latitude" } });
 
       expect(content.metaDescription.length).toBeLessThanOrEqual(160);
       expect(content.metaDescription).toMatch(/\.\.\.$/);
       expect(content.metaDescription).not.toContain("buoy");
+    });
+
+    it("answers whether the water is cold from the live reading", () => {
+      const content = buildIntentPageContent("water-temp", { ...mockMetadata, cityName: "San Diego" }, {
+        waterTempData: { currentTemp: 64.4, source: "coops" },
+      });
+
+      expect(content.metaDescription).toBe(
+        "San Diego water temperature today is 64°F, so it's cool. Wetsuit guide, per-beach temps & surf report links. Updated hourly with observed station data."
+      );
     });
 
     it("keeps the no-reading description free of buoy claims", () => {

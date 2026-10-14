@@ -11,6 +11,7 @@ import type { SurfIntentSlug } from "@/lib/data/surf-spots";
 import { getClimateZone } from "@/lib/seo/regional-surf-data";
 import { truncateTitleForSEO } from "@/lib/seo/meta";
 import { truncateMetaDescription } from "@/lib/utils/seo-utils";
+import { describeWaterFeel } from "@/lib/utils/wetsuit-utils";
 
 export interface IntentPageContent {
   title: string;
@@ -184,7 +185,7 @@ function getIntentTemplates(
       intro: waterTempIntro,
       metaDescription: truncateMetaDescription(
         roundedWaterTemp != null
-          ? `${cityName} water temperature today is ${roundedWaterTemp}°F. Wetsuit guide, seasonal ocean temps, and surf report links for ${topSpotNames}. ${waterTempFreshnessSuffix}`
+          ? `${cityName} water temperature today is ${roundedWaterTemp}°F, so it's ${describeWaterFeel(roundedWaterTemp)}. Wetsuit guide, per-beach temps & surf report links. ${waterTempFreshnessSuffix}`
           : `Current ${cityName} water temperature, wetsuit guide, seasonal ocean temps, and surf report links for ${totalBeaches} surf ${spotNoun(totalBeaches)} including ${topSpotNames}. ${waterTempFreshnessSuffix}`
       ),
     },
