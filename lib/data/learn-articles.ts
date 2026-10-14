@@ -33,6 +33,11 @@ export interface LearnArticle {
     };
     /** Optional interactive figure rendered above this section's prose */
     figureKey?: FigureKey;
+    /** Optional Quiver TikTok video rendered below this section's prose */
+    video?: {
+      tiktokId: string;
+      title: string;
+    };
   }[];
   faqs: {
     question: string;
@@ -2368,7 +2373,7 @@ export const learnArticles: LearnArticle[] = [
       "Wind speed, duration, and fetch decide wave size. How a storm's energy becomes a swell that crosses an ocean, and why every forecast starts with the wind.",
     readingTimeMin: 2,
     datePublished: "2026-03-30",
-    dateModified: "2026-09-02",
+    dateModified: "2026-10-13",
     heroImage: "/images/seo-dioramas/surf-cams/hawaii/hawaii-misty-lineup-photo.webp",
     thumbnailImage: "/images/seo-dioramas/surf-cams/hawaii/hawaii-misty-lineup-photo.webp",
     keywords: [
@@ -2378,14 +2383,17 @@ export const learnArticles: LearnArticle[] = [
       "wave generation",
       "fetch wind waves",
       "how swells form",
+      "what causes ocean waves",
+      "are ocean waves caused by wind",
+      "what creates waves in the ocean",
     ],
     sections: [
       {
         id: "answer",
         heading: "The Short Answer",
-        content: `<p>Wind transfers energy to the ocean surface through friction. Three factors determine wave size: <strong>wind speed</strong>, <strong>wind duration</strong> (how long it blows), and <strong>fetch</strong> (the uninterrupted distance wind blows over open water). Stronger wind + longer duration + greater fetch = bigger waves. Once formed, waves organize into <strong>swells</strong> that travel thousands of miles across ocean basins — a North Pacific storm can send swell to Hawaii in 2-3 days and California in 4-5 days. NOAA's WaveWatch III models this entire process globally every 6 hours.</p>`,
+        content: `<p><strong>Most ocean waves are caused by wind</strong>, including every wave you surf. NOAA lists two other causes: the gravitational pull of the Moon and Sun makes tides, which are extremely long waves, and earthquakes, landslides, or volcanic eruptions can set off tsunamis. Neither is surf.</p><p>Wind transfers energy to the ocean surface through friction. Three factors determine wave size: <strong>wind speed</strong>, <strong>wind duration</strong> (how long it blows), and <strong>fetch</strong> (the uninterrupted distance wind blows over open water). Stronger wind + longer duration + greater fetch = bigger waves. Once formed, waves organize into <strong>swells</strong> that travel thousands of miles across ocean basins — a North Pacific storm can send swell to Hawaii in 2-3 days and California in 4-5 days. NOAA's WaveWatch III models this entire process globally every 6 hours.</p>`,
         keyTakeaway:
-          "Waves form from wind friction on the ocean. Speed, duration, and fetch determine size. Swells then travel thousands of miles to coastlines.",
+          "Wind causes the waves you surf; tides and tsunamis are waves too, from gravity and earthquakes. Wind speed, duration, and fetch set the size.",
         image: {
           src: "/images/hero/hero-5-aerial-ocean.webp",
           alt: "Aerial view of open ocean swell lines traveling toward shore",
@@ -2396,6 +2404,10 @@ export const learnArticles: LearnArticle[] = [
         id: "detail",
         heading: "From Storm to Swell: The Formation Process",
         content: `<p>Inside a storm at sea, wind creates <strong>chaotic, short-period waves</strong> in all directions — called a "wind sea." As this energy radiates outward from the storm center, it undergoes <strong>dispersion</strong>: longer-period waves travel faster than shorter ones. Over hundreds or thousands of miles, the chaos sorts itself into organized bands of energy grouped by period — this is a <strong>swell</strong>.</p><p>Short-period energy (5-8 seconds) dissipates fastest through friction with the ocean surface. Long-period energy (12-20 seconds) loses very little and can cross entire ocean basins. A major Southern Ocean storm near Antarctica generates waves that arrive at California, Hawaii, and Japan as clean 16-18 second ground swell 7-10 days later. The <strong>fetch</strong> in the Southern Ocean is enormous — wind can blow uninterrupted for thousands of miles — which is why it produces the world's most powerful swells.</p>`,
+        video: {
+          tiktokId: "7678790284171398430",
+          title: "Understanding tides at your local break",
+        },
         keyTakeaway:
           "Storm wind creates chaotic waves that sort by period over distance. Long-period energy crosses ocean basins; short-period energy dissipates through friction.",
       },
@@ -2408,6 +2420,11 @@ export const learnArticles: LearnArticle[] = [
       },
     ],
     faqs: [
+      {
+        question: "Are ocean waves caused by wind?",
+        answer:
+          "Most are. Wind blowing across the water builds the waves and swells that reach beaches. Tides are long waves driven by the Moon's and Sun's gravity, and tsunamis come from earthquakes, landslides, or eruptions.",
+      },
       {
         question: "What is fetch and why does it matter?",
         answer:
