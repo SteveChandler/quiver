@@ -1,12 +1,11 @@
 import { NextRequest } from "next/server";
-import { z } from "zod";
 
 import {
   createSuccessResponse,
   withAuth,
   type AuthenticatedContext,
 } from "@/lib/middleware/api-wrappers";
-import { isSwellOutlookTideWindowEnabled } from "@/lib/flags/swell-outlook";
+import { majorSwellSurfWindowSchema } from "@/lib/notifications/types/major-swell";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,7 +20,6 @@ const ALERT_TYPES = [
 const DEFAULT_DAYS = 7;
 const MAX_DAYS = 7;
 const MAX_ROWS = 100;
-const instantSchema = z.string().datetime({ offset: true });
 
 type AlertType = (typeof ALERT_TYPES)[number];
 
@@ -216,13 +214,11 @@ function normalizeActivityItem(row: NotificationRow): AlertActivityItem {
             ? stringFromData({}, match, ["window_end", "windowEnd"])
             : null;
 
-  const surfWindow = row.type === "swell_watch" && isSwellOutlookTideWindowEnabled() && isRecord(data.surf_window)
-    ? data.surf_window : null;
-  const surfStart = surfWindow?.state === "recommended" ? instantSchema.safeParse(surfWindow.start) : null;
-  const surfEnd = surfWindow?.state === "recommended" ? instantSchema.safeParse(surfWindow.end) : null;
-  const recommendedWindow = surfStart?.success && surfEnd?.success
-    && Date.parse(surfStart.data) < Date.parse(surfEnd.data)
-    ? { start: surfStart.data, end: surfEnd.data } : null;
+  const surfWindow = row.type === "swell_watch" ? majorSwellSurfWindowSchema.safeParse(data.surf_window) : null;
+  const recommendedWindow = surfWindow?.success && surfWindow.data.state === "recommended"
+    && surfWindow.data.start !== null && surfWindow.data.end !== null
+    && Date.parse(surfWindow.data.start) < Date.parse(surfWindow.data.end)
+    ? surfWindow.data : null;
 
   const watched = row.type === "watched_call_update";
   return {

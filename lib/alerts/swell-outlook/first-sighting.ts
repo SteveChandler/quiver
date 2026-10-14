@@ -4,6 +4,7 @@ import type { LocationAnchor } from '@/lib/alerts/location-freshness';
 import { buildSwellShareUrl, getSwellCardHeadline } from '@/lib/notifications/copy/swell-card-headline';
 import {
   MAJOR_SWELL_NOTIFICATION_SCHEMA_VERSION,
+  majorSwellSurfWindowReasonSchema,
   parseMajorSwellNotificationPayload,
   type MajorSwellNotificationPayload,
 } from '@/lib/notifications/types/major-swell';
@@ -73,6 +74,15 @@ export function bestWindowSentence(window: NonNullable<TideAwareWindowResult['wi
   return `Best window ${shortWeekday(start, timezone)} ${formatWindowLabel(start, end, timezone)}.`;
 }
 
+export function tideReasonSentence(reasons: readonly string[]): string | null {
+  if (!reasons.includes('better_tide_before_peak') && !reasons.includes('better_tide_after_peak')) return null;
+  const high = reasons.includes('high_tide_outside_preference');
+  const before = reasons.includes('better_tide_before_peak');
+  return high
+    ? before ? 'Swell peaks at high tide; go before it fills in.' : 'Swell peaks at high tide; go as it drops.'
+    : before ? 'Swell peaks at low tide; go before it drops.' : 'Swell peaks at low tide; go as it fills in.';
+}
+
 export function surfWindowPayload(result: TideAwareWindowResult): NonNullable<MajorSwellNotificationPayload['surf_window']> {
   return {
     state: result.state,
@@ -80,7 +90,10 @@ export function surfWindowPayload(result: TideAwareWindowResult): NonNullable<Ma
     end: result.window?.end ?? null,
     local_date: result.window?.localDate ?? null,
     timezone: result.window?.timezone ?? null,
-    reasons: result.reasons as NonNullable<MajorSwellNotificationPayload['surf_window']>['reasons'],
+    reasons: result.reasons.flatMap((reason) => {
+      const parsed = majorSwellSurfWindowReasonSchema.safeParse(reason);
+      return parsed.success ? [parsed.data] : [];
+    }),
   };
 }
 
@@ -140,15 +153,8 @@ export function renderFirstSightingBody(args: {
   ];
   if (recommendedWindow) {
     sentences.push({ text: bestWindowSentence(recommendedWindow), priority: 0 });
-    const reasons = args.surfWindow?.reasons ?? [];
-    if (reasons.includes('better_tide_before_peak') || reasons.includes('better_tide_after_peak')) {
-      const high = reasons.includes('high_tide_outside_preference');
-      const before = reasons.includes('better_tide_before_peak');
-      const text = high
-        ? before ? 'Swell peaks at high tide; go before it fills in.' : 'Swell peaks at high tide; go as it drops.'
-        : before ? 'Swell peaks at low tide; go before it drops.' : 'Swell peaks at low tide; go as it fills in.';
-      sentences.push({ text, priority: 1 });
-    }
+    const tideSentence = tideReasonSentence(args.surfWindow?.reasons ?? []);
+    if (tideSentence) sentences.push({ text: tideSentence, priority: 1 });
   }
   const orientation = orientationSentence(swell);
   if (orientation) sentences.push({ text: orientation, priority: 2 });

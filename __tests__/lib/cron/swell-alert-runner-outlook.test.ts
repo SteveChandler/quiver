@@ -844,13 +844,32 @@ describe('swell first-sighting tide-window flag', () => {
       timezone: 'America/Los_Angeles', faceHeightFt: { min: 3, max: 4 } },
     reasons: ['high_tide_outside_preference', 'better_tide_after_peak'] };
 
+  it('does no window I/O for a follow-up denied by the engagement gate', async () => {
+    process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED = 'true';
+    const loadSurfWindow = jest.fn(async () => surfWindow);
+    const deps = makeDeps({ loadSurfWindow,
+      loadEngagement: jest.fn(async () => engagement({ consecutiveUnanswered: 3,
+        lastSentAt: hoursAgo(120), pausedSince: hoursAgo(72) })),
+      loadFollowupStates: jest.fn(async () => [pinnedState()]),
+      evaluatePinned: jest.fn(async () => biggerPinned()),
+      loadOutlook: jest.fn(async () => []),
+    });
+    const summary = await runSwellAlertCron({ now: MORNING, deps });
+    expect(summary.skippedCounts.skipped_unengaged).toBe(1);
+    expect(deps.evaluatePinned).toHaveBeenCalledTimes(1);
+    expect(loadSurfWindow).not.toHaveBeenCalled();
+    expect(deps.resolveHeldBeaches).not.toHaveBeenCalled();
+    expect(deps.claimFollowup).not.toHaveBeenCalled();
+    expect(deps.enqueue).not.toHaveBeenCalled();
+  });
+
   it('includes the computed window when enabled', async () => {
     process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED = 'true';
     const compute = jest.fn(async () => surfWindow);
     const deps = makeDeps({ loadSurfWindow: compute });
     const summary = await runSwellAlertCron({ now: MORNING, deps });
     expect(summary.sent).toBe(1);
-    expect(compute).toHaveBeenCalledWith(profile(), { beachId: HOME, arrivalAt: outlookSwell().arrivalAt, peakAt: outlookSwell().peakAt, fadeAt: outlookSwell().fadeAt }, MORNING);
+    expect(compute).toHaveBeenCalledWith(profile(), { beachId: HOME, arrivalAt: outlookSwell().arrivalAt, peakAt: outlookSwell().peakAt, fadeAt: null }, MORNING);
     const payload = deps.enqueue.mock.calls[0][0].payload;
     expect(payload.surf_window).toMatchObject({ state: 'recommended', local_date: '2026-10-08', timezone: 'America/Los_Angeles' });
     expect(payload.body).toContain('Best window Thu 10 AM–12 PM.');

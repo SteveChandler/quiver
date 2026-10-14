@@ -74,6 +74,6 @@ export const UNVERIFIED_TIDE_BAND_BEACH_IDS: ReadonlySet<string> = new Set([
 ]);
 
 export function isTideReasonEligibleBeach(beach: Beach): boolean {
-  return createSpotProfile(beach).tidePreferences.explicitRange
+  return createSpotProfile(beach).tidePreferences.explicitRange === true
     && !UNVERIFIED_TIDE_BAND_BEACH_IDS.has(beach.id);
 }

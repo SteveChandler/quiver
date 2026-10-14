@@ -510,7 +510,8 @@ describe("tide-aware follow-up revisions", () => {
       local_date: "2026-09-20", timezone: "America/Los_Angeles",
       reasons: ["high_tide_outside_preference", "better_tide_after_peak"] });
     expect(enqueuedPayload(deps).surf_window).not.toMatchObject({ start: localAt(7) });
-    expect(enqueuedPayload(deps).body).toContain("Best window Sun 10 AM–12 PM.");
+    expect(enqueuedPayload(deps).body).toContain("Best window Sun 10 AM–12 PM. Swell peaks at high tide; go as it drops.");
+    expect((enqueuedPayload(deps).body as string).length).toBeLessThanOrEqual(300);
     expect(enqueuedPayload(deps).forecast_at).toBe(localAt(7));
     const push = NOTIFICATION_REGISTRY.swell_watch.buildPushPayload!(
       NOTIFICATION_REGISTRY.swell_watch.validatePayload!(enqueuedPayload(deps)),
@@ -575,6 +576,36 @@ describe("tide-aware follow-up revisions", () => {
     await runSwellAlertCron({ now: MORNING, deps });
     expect(enqueuedPayload(deps).surf_window).toMatchObject({ start: localAt(10), end: localAt(12) });
     expect(enqueuedPayload(deps).body).not.toContain("Best window");
+    expect(enqueuedPayload(deps).body).not.toContain("Swell peaks at high tide");
+  });
+
+  it("drops the tide reason before dropping a window sentence at the body limit", async () => {
+    const evaluatePinned = jest.fn(async () => pinned({ peakFaceHeightFt: 7 }, {
+      beach: { id: BEACH_ID, name: "B".repeat(180), shortName: null, slug: "long-beach", state: "CA" },
+    }));
+    process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED = "false";
+    const baseline = dependencies({ evaluatePinned });
+    await runSwellAlertCron({ now: MORNING, deps: baseline });
+    const baseBody = enqueuedPayload(baseline).body as string;
+    const withWindow = `${baseBody} Best window Sun 10 AM–12 PM.`;
+    expect(withWindow.length).toBeLessThanOrEqual(300);
+    expect(`${withWindow} Swell peaks at high tide; go as it drops.`.length).toBeGreaterThan(300);
+
+    process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED = "true";
+    const deps = dependencies({ evaluatePinned, loadSurfWindow: jest.fn(async () => window) });
+    await runSwellAlertCron({ now: MORNING, deps });
+    expect(enqueuedPayload(deps).body).toBe(withWindow);
+    expect(enqueuedPayload(deps).surf_window).toMatchObject({ start: localAt(10), end: localAt(12) });
+  });
+
+  it("sends the follow-up while dropping an unknown future window reason", async () => {
+    process.env.SWELL_OUTLOOK_TIDE_WINDOW_ENABLED = "true";
+    const deps = dependencies({ loadSurfWindow: jest.fn(async () => ({ ...window,
+      reasons: [...window.reasons, "future_reason"] })) });
+    const result = await runSwellAlertCron({ now: MORNING, deps });
+    expect(result.sentByKind).toEqual({ bigger: 1 });
+    expect(result.errors).toBe(0);
+    expect(enqueuedPayload(deps).surf_window).toMatchObject({ reasons: window.reasons });
   });
 });
 

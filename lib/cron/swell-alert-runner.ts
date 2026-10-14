@@ -72,6 +72,7 @@ import {
   firstSightingFaceHeightFt,
   selectFirstSightingCandidates,
   surfWindowPayload,
+  tideReasonSentence,
   type FirstSightingHazard,
 } from "@/lib/alerts/swell-outlook/first-sighting";
 import {
@@ -1221,6 +1222,14 @@ async function sendFollowups(
         continue;
       }
 
+      if (gate) {
+        const decision = decideSend(gate.state, now, "followup", false);
+        if (!decision.ok) {
+          increment(summary, decision.reason);
+          continue;
+        }
+      }
+
       // A dropped swell has no current numbers, so the push restates what was last told.
       const shown = kind !== "dropped" && event
         ? {
@@ -1302,8 +1311,14 @@ async function sendFollowups(
         continue;
       }
       const windowSentence = recommended ? bestWindowSentence(recommended) : null;
-      const body = windowSentence && baseBody.length + 1 + windowSentence.length <= FIRST_SIGHTING_BODY_MAX_CHARS
-        ? `${baseBody} ${windowSentence}` : baseBody;
+      let body = baseBody;
+      if (windowSentence && body.length + 1 + windowSentence.length <= FIRST_SIGHTING_BODY_MAX_CHARS) {
+        body = `${body} ${windowSentence}`;
+        const reasonSentence = tideReasonSentence(surfWindow?.reasons ?? []);
+        if (reasonSentence && body.length + 1 + reasonSentence.length <= FIRST_SIGHTING_BODY_MAX_CHARS) {
+          body = `${body} ${reasonSentence}`;
+        }
+      }
 
       const payload = parseMajorSwellNotificationPayload({
         schema_version: MAJOR_SWELL_NOTIFICATION_SCHEMA_VERSION,
@@ -1334,14 +1349,6 @@ async function sendFollowups(
         previous_peak_height_ft: state.lastFaceHeightFt,
         previous_peak_date: previousPeakDate,
       });
-
-      if (gate) {
-        const decision = decideSend(gate.state, now, "followup", false);
-        if (!decision.ok) {
-          increment(summary, decision.reason);
-          continue;
-        }
-      }
 
       const claimed = await deps.claimFollowup(state, {
         ...shown,
@@ -1505,7 +1512,7 @@ async function sendFirstSighting(
 
     const windowPromise = Promise.resolve().then(() =>
       isSwellOutlookTideWindowEnabled() ? deps.loadSurfWindow?.(profile, {
-        beachId: swell.beach.id, arrivalAt: swell.arrivalAt, peakAt: swell.peakAt, fadeAt: swell.fadeAt,
+        beachId: swell.beach.id, arrivalAt: swell.arrivalAt, peakAt: swell.peakAt, fadeAt: swell.fadeAt ?? null,
       }, now) : undefined,
     ).catch((error: unknown) => {
       console.warn(`[swell-alert] First-sighting window computation failed for ${swell.beach.id}:`, error);

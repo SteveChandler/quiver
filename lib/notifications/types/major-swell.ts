@@ -4,6 +4,19 @@ export const MAJOR_SWELL_NOTIFICATION_SCHEMA_VERSION =
   "major-swell-notification.v1" as const;
 
 const instantSchema = z.string().datetime({ offset: true });
+export const majorSwellSurfWindowReasonSchema = z.enum([
+  "high_tide_outside_preference", "low_tide_outside_preference",
+  "better_tide_before_peak", "better_tide_after_peak",
+  "tide_data_unavailable", "no_overlap_with_usable_swell",
+]);
+export const majorSwellSurfWindowSchema = z.object({
+  state: z.enum(["recommended", "no_suitable_window", "insufficient_tide_evidence"]),
+  start: instantSchema.nullable(),
+  end: instantSchema.nullable(),
+  local_date: z.string().date().nullable(),
+  timezone: z.string().min(1).nullable(),
+  reasons: z.array(majorSwellSurfWindowReasonSchema),
+}).strict();
 const cohortsSchema = z.array(
   z.enum(["beginner", "intermediate", "unknown"]),
 );
@@ -30,18 +43,7 @@ const baseSchema = z.object({
   title: z.string().min(1),
   body: z.string().min(1),
   beaches: z.array(rankedBeachSchema).min(1).max(3).optional(),
-  surf_window: z.object({
-    state: z.enum(["recommended", "no_suitable_window", "insufficient_tide_evidence"]),
-    start: instantSchema.nullable(),
-    end: instantSchema.nullable(),
-    local_date: z.string().date().nullable(),
-    timezone: z.string().min(1).nullable(),
-    reasons: z.array(z.enum([
-      "high_tide_outside_preference", "low_tide_outside_preference",
-      "better_tide_before_peak", "better_tide_after_peak",
-      "tide_data_unavailable", "no_overlap_with_usable_swell",
-    ])),
-  }).strict().optional(),
+  surf_window: majorSwellSurfWindowSchema.optional(),
   rarity: z.string().min(1).optional(),
   event_key: z.string().min(1).optional(),
   title_id: z.string().min(1).optional(),
