@@ -1,5 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { capNearbyPool, loadUserPool, type PoolBeach } from "@/lib/alerts/user-pool";
+import { resolveLocationAnchor } from "@/lib/alerts/location-freshness";
+import { selectFirstSightingCandidates } from "@/lib/alerts/swell-outlook/first-sighting";
+import { outlookSwell } from "@/__tests__/helpers/outlook-swell";
 import type { Beach, Database } from "@/types/database";
 
 interface Store {
@@ -364,6 +367,25 @@ describe("user pool", () => {
     const alaMoana = located("ala-moana-bowls", 21.281, -157.844);
     const farHome = located("far-home", 21.27, -157.82);
     const farCustomAnchor = located("far-custom-anchor", 33.47, -117.72);
+
+    it("does not let a SoCal favorite widen reach from a fresh Hawaii fix", async () => {
+      const hawaii = located("hawaii", 21.281, -157.844);
+      const socalFavorite = located("socal-favorite", 32.797, -117.258);
+      const socalHome = located("socal-home", 32.767, -117.188);
+      const now = new Date("2026-10-14T18:00:00.000Z");
+      const { anchor, source } = resolveLocationAnchor(
+        { lat: 21.28, lon: -157.83, captured_at: now.toISOString() }, now, sanDiego,
+      );
+      const pool = await loadUserPool({
+        supabase: makeSupabase({ favorites: [{ beach_id: socalFavorite.id, custom_spot_id: null }],
+          beaches: [hawaii, socalFavorite, socalHome], nearby: [{ id: hawaii.id, distance_meters: 1200, total_count: 1 }] }),
+        userId: "user-1", homeBeachId: socalHome.id, location: anchor, maxDriveMinutes: 60,
+      });
+      expect(source).toBe("location");
+      expect(pool.map(({ beach }) => beach.id)).toEqual([hawaii.id]);
+      expect(selectFirstSightingCandidates({ swells: pool.map(({ beach }) =>
+        outlookSwell({ beach: { id: beach.id, name: beach.name } })) }).map((swell) => swell.beach.id)).toEqual([hawaii.id]);
+    });
 
     function store(): Store {
       return {

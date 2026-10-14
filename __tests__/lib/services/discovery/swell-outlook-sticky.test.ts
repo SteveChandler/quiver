@@ -250,7 +250,6 @@ describe("peak-day carry", () => {
     });
     expect(selectFirstSightingCandidates({
       swells: [{ ...kept, fit: { status: "in_range", boards: [] } }],
-      homeBeachId: BEACH_ID, tier: "premium",
     })).toEqual([]);
   });
 

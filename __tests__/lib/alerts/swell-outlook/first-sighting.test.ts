@@ -87,7 +87,7 @@ describe("selectFirstSightingCandidates", () => {
       outlookSwell({ id: "unknown", fit: { status: "unknown", boards: [] } }),
       outlookSwell({ id: "noperiod", periodS: null }),
     ];
-    expect(selectFirstSightingCandidates({ swells, homeBeachId: HOME, tier: "premium" }).map((swell) => swell.id)).toEqual(["early", "late"]);
+    expect(selectFirstSightingCandidates({ swells }).map((swell) => swell.id)).toEqual(["early", "late"]);
   });
 
   it("picks the biggest swell first, and the closest beach when sizes tie", () => {
@@ -99,15 +99,33 @@ describe("selectFirstSightingCandidates", () => {
       outlookSwell({ id: "big-near", faceHeightFt: { min: 4, max: 5.5 }, beach: near, peakAt: "2026-09-26T15:00:00.000Z" }),
     ];
     const distanceKmByBeach = new Map([[near.id, 12], [far.id, 140]]);
-    expect(selectFirstSightingCandidates({ swells, homeBeachId: HOME, tier: "premium", distanceKmByBeach }).map((swell) => swell.id))
+    expect(selectFirstSightingCandidates({ swells, distanceKmByBeach }).map((swell) => swell.id))
       .toEqual(["big-near", "big-far", "small-early"]);
   });
 
-  it("limits free users to swells sized at the home beach", () => {
+  it("keeps an eligible non-home swell", () => {
     const swells = [outlookSwell({ id: "home" }), outlookSwell({ id: "other", beach: { id: OTHER, name: "Elsewhere" } })];
-    expect(selectFirstSightingCandidates({ swells, homeBeachId: HOME, tier: "free" }).map((swell) => swell.id)).toEqual(["home"]);
-    expect(selectFirstSightingCandidates({ swells, homeBeachId: null, tier: "free" })).toEqual([]);
+    expect(selectFirstSightingCandidates({ swells }).map((swell) => swell.id)).toEqual(["home", "other"]);
   });
+});
+
+it.each([
+  ["home", ", near home"],
+  ["location", ""],
+] as const)("labels the %s anchor inside the first-sighting payload", (anchorSource, suffix) => {
+  const payload = buildFirstSightingPayload({ swell: outlookSwell(), timezone: "America/Los_Angeles", anchorSource });
+  expect(payload.anchor_source).toBe(anchorSource);
+  expect(payload.body).toContain(`Sets up to 4.5 ft at Blacks Beach${suffix}.`);
+});
+
+it("keeps the home label when optional sentences are trimmed", () => {
+  const body = renderFirstSightingBody({
+    swell: outlookSwell({ beach: { id: HOME, name: `Blacks ${"Beach ".repeat(25)}` }, options: OPTIONS }),
+    timezone: "America/Los_Angeles", hazard: "high_surf", anchorSource: "home",
+  });
+  expect(body).toContain(", near home.");
+  expect(body).not.toContain("Also:");
+  expect(body.length).toBeLessThanOrEqual(FIRST_SIGHTING_BODY_MAX_CHARS);
 });
 
 describe("buildFirstSightingPayload", () => {
