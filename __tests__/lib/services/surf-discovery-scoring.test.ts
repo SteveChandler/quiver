@@ -111,6 +111,7 @@ jest.mock("@/lib/supabase/server", () => {
             return {
               eq() {
                 return {
+                  not: async () => ({ data: state.favoritesData, error: null }),
                   order() {
                     return {
                       order: async () => ({ data: state.favoritesData, error: null }),

@@ -32,7 +32,6 @@ export const removeFavoriteBeach = makeAuthenticatedAction(
   }
 );
 
-// Reorder favorites (assign ranks 1..N in provided order)
 export const reorderFavoriteBeaches = makeAuthenticatedAction(
   async (user, supabase, beachIdsInOrder: string[]) => {
     if (!Array.isArray(beachIdsInOrder)) {
@@ -41,19 +40,38 @@ export const reorderFavoriteBeaches = makeAuthenticatedAction(
 
     const { data: existing, error: fetchErr } = await supabase
       .from("favorite_beaches")
-      .select("beach_id")
+      .select("beach_id, custom_spot_id, rank")
       .eq("user_id", user.id);
     if (fetchErr) throw fetchErr;
 
-    const validSet = new Set((existing || []).map((r: any) => r.beach_id));
-    const invalid = beachIdsInOrder.find((b) => !validSet.has(b));
-    if (invalid) throw new Error("Invalid beach id in ordering");
+    const rows = existing ?? [];
+    const curated = rows.filter((row) => row.beach_id !== null);
+    const validSet = new Set(curated.map((row) => row.beach_id));
+    if (
+      beachIdsInOrder.length !== curated.length ||
+      new Set(beachIdsInOrder).size !== curated.length ||
+      beachIdsInOrder.some((id) => !validSet.has(id))
+    ) {
+      throw new Error("Invalid beach ids in ordering");
+    }
+
+    const ranks = curated.map((row) => row.rank);
+    const customRanks = new Set(
+      rows.filter((row) => row.custom_spot_id !== null).map((row) => row.rank),
+    );
+    if (
+      ranks.some((rank) => rank === null || customRanks.has(rank)) ||
+      new Set(ranks).size !== ranks.length
+    ) {
+      throw new Error("Favorite ranks must be distinct before reordering");
+    }
+    ranks.sort((a, b) => a! - b!);
 
     for (let i = 0; i < beachIdsInOrder.length; i++) {
       const beachId = beachIdsInOrder[i];
       const { error } = await supabase
         .from("favorite_beaches")
-        .update({ rank: i + 1 })
+        .update({ rank: ranks[i] })
         .eq("user_id", user.id)
         .eq("beach_id", beachId);
       if (error) throw error;

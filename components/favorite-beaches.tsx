@@ -57,7 +57,14 @@ export function FavoriteBeaches() {
       });
       if (!res.ok) return [] as SavedSpotTarget[];
       const json = await res.json();
-      return (json?.data?.targets || []) as SavedSpotTarget[];
+      if (Array.isArray(json?.data?.targets)) {
+        return json.data.targets as SavedSpotTarget[];
+      }
+      return ((json?.data?.beaches || []) as Beach[]).map((beach) => ({
+        kind: "beach" as const,
+        beach,
+        rank: null,
+      }));
     } catch (e) {
       console.error("FavoriteBeaches: failed to fetch favorites via API", e);
       return [] as SavedSpotTarget[];
@@ -131,10 +138,11 @@ export function FavoriteBeaches() {
   const moveBeach = (index: number, direction: -1 | 1) => {
     setTargets((prev) => {
       const next = prev.slice();
-      const target = index + direction;
-      if (target < 0 || target >= next.length) return prev;
-      const [item] = next.splice(index, 1);
-      next.splice(target, 0, item);
+      const target = direction === -1
+        ? next.findLastIndex((item, itemIndex) => itemIndex < index && item.kind === "beach")
+        : next.findIndex((item, itemIndex) => itemIndex > index && item.kind === "beach");
+      if (target < 0) return prev;
+      [next[index], next[target]] = [next[target], next[index]];
       return next;
     });
   };
@@ -159,7 +167,7 @@ export function FavoriteBeaches() {
     }
   };
 
-  const canReorder = targets.every((target) => target.kind === "beach");
+  const curatedCount = targets.filter((target) => target.kind === "beach").length;
 
   if (loading) {
     return (
@@ -183,7 +191,7 @@ export function FavoriteBeaches() {
   return (
     <>
       <div className="space-y-4">
-        {canReorder && (
+        {curatedCount > 0 && (
           <div className="flex justify-end">
             <Button
               onClick={saveOrder}
@@ -204,10 +212,10 @@ export function FavoriteBeaches() {
             return (
               <Card
                 key={`custom-${target.customSpot.id}`}
-                className="overflow-hidden border-[#11100D]/30 bg-[#F4EBD8] text-[#11100D]"
+                className="overflow-hidden border-ink/30 bg-paper text-ink"
               >
                 <CardHeader className="pb-2">
-                  <CardDescription className="font-heading text-xs font-bold uppercase tracking-wide text-[#8A5E00]">
+                  <CardDescription className="font-heading text-xs font-bold uppercase tracking-wide text-kicker-ink">
                     Custom spot
                   </CardDescription>
                   <CardTitle className="text-lg">{target.customSpot.name}</CardTitle>
@@ -222,6 +230,7 @@ export function FavoriteBeaches() {
           }
 
           const beach = target.beach;
+          const curatedIndex = targets.slice(0, idx).filter((item) => item.kind === "beach").length;
           return <Card key={`beach-${beach.id}`} className="overflow-hidden">
             <CardHeader className="pb-2">
               <CardTitle className="text-lg">{beach.name}</CardTitle>
@@ -294,12 +303,12 @@ export function FavoriteBeaches() {
               )}
             </CardContent>
             <CardFooter className="flex justify-between items-center gap-2 pt-2">
-              {canReorder && <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => moveBeach(idx, -1)}
-                  disabled={idx === 0}
+                  disabled={curatedIndex === 0}
                 >
                   Move Up
                 </Button>
@@ -307,11 +316,11 @@ export function FavoriteBeaches() {
                   variant="outline"
                   size="sm"
                   onClick={() => moveBeach(idx, 1)}
-                  disabled={idx === targets.length - 1}
+                  disabled={curatedIndex === curatedCount - 1}
                 >
                   Move Down
                 </Button>
-              </div>}
+              </div>
               <Button variant="outline" size="sm" asChild>
                 <Link href={beachNavigation.toBeachDetail(beach)}>
                   View Details
