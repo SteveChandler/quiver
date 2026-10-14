@@ -1,5 +1,5 @@
 /** @jest-environment node */
-import { resolveLocationAnchor } from "@/lib/alerts/location-freshness";
+import { isAwayFromHome, resolveLocationAnchor } from "@/lib/alerts/location-freshness";
 
 const now = new Date("2026-10-10T13:08:00Z");
 const home = { lat: 32.89, lon: -117.25 };
@@ -28,5 +28,27 @@ describe("resolveLocationAnchor", () => {
   });
   it("does not anchor on missing home coordinates", () => {
     expect(resolveLocationAnchor(null, now, { lat: null, lon: null })).toEqual({ anchor: null, source: "none" });
+  });
+});
+
+describe("isAwayFromHome", () => {
+  const philly = { lat: 39.96, lon: -75.17, captured_at: "2026-10-09T13:08:00Z" };
+
+  it("flags a fix outside the drive radius from the last 72 hours", () => {
+    expect(isAwayFromHome(philly, now, home, 90)).toBe(true);
+    expect(isAwayFromHome({ ...philly, captured_at: "2026-10-07T13:08:00Z" }, now, home, 90)).toBe(true);
+  });
+  it("ignores a fix older than 72 hours, from the future, or unparseable", () => {
+    expect(isAwayFromHome({ ...philly, captured_at: "2026-10-07T13:07:59Z" }, now, home, 90)).toBe(false);
+    expect(isAwayFromHome({ ...philly, captured_at: "2026-10-10T14:08:00Z" }, now, home, 90)).toBe(false);
+    expect(isAwayFromHome({ ...philly, captured_at: "invalid" }, now, home, 90)).toBe(false);
+  });
+  it("keeps a fix inside the radius at home", () => {
+    expect(isAwayFromHome({ ...philly, lat: 32.8, lon: -117.24 }, now, home, 90)).toBe(false);
+  });
+  it("needs a fix and home coordinates", () => {
+    expect(isAwayFromHome(null, now, home, 90)).toBe(false);
+    expect(isAwayFromHome(philly, now, null, 90)).toBe(false);
+    expect(isAwayFromHome(philly, now, { lat: null, lon: null }, 90)).toBe(false);
   });
 });
