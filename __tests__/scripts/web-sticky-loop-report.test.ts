@@ -1,14 +1,21 @@
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import * as reportGuards from "@/lib/analytics/report-guards";
 import {
   buildWebStickyHogQL,
   loadWebStickyRows,
+  loadWebStickyProfileExclusions,
   main,
   parseCliArgs,
   parseWebStickyRows,
   renderWebStickyMarkdown,
 } from "@/scripts/web-sticky-loop-report";
+
+jest.mock("@/lib/analytics/report-guards", () => ({
+  ...jest.requireActual("@/lib/analytics/report-guards"),
+  createReadOnlySupabaseFromEnv: jest.fn(),
+}));
 
 describe("web sticky loop report runner", () => {
   const now = new Date("2026-10-14T18:00:00.000Z");
@@ -33,6 +40,7 @@ describe("web sticky loop report runner", () => {
     for (const cursor of [null, { timestamp: "2026-10-01T12:00:00.123456Z", uuid: "uuid-09999" }]) {
       const query = buildWebStickyHogQL(options, cursor);
       expect(query).toContain("event = 'page_view'");
+      expect(query).toContain("toString(uuid) AS uuid,\n      distinct_id");
       expect(query).not.toContain("'$pageview'");
       expect(query).toContain("properties.$lib = 'web'");
       expect(query).toContain("properties.environment = 'production'");
@@ -52,7 +60,8 @@ describe("web sticky loop report runner", () => {
   });
 
   it("parses source rows and rejects malformed results", () => {
-    const parsed = parseWebStickyRows([["person", "session", "2026-10-01", "2026-10-01T12:00:00Z", "home", "landing-page", true, "page_view", "uuid"]]);
+    const parsed = parseWebStickyRows([["person", "session", "2026-10-01", "2026-10-01T12:00:00Z", "home", "landing-page", true, "page_view", "uuid", "cookie-person"]]);
+    expect(parsed[0].distinctId).toBe("cookie-person");
     expect(parsed[0].identified).toBe(true);
     expect(parsed[0].timestamp).toBe("2026-10-01T12:00:00.000Z");
     expect(() => parseWebStickyRows([["person"]])).toThrow("Invalid PostHog row");
@@ -61,9 +70,9 @@ describe("web sticky loop report runner", () => {
   it("keeps requesting bounded pages until a short page", async () => {
     const options = parseCliArgs([], now);
     const page = Array.from({ length: 10000 }, (_, index) => [
-      `person-${index}`, "session", "2026-10-01", "2026-10-01T12:00:00.123456Z", "map", "map", false, "page_view", `uuid-${String(index).padStart(5, "0")}`,
+      `person-${index}`, "session", "2026-10-01", "2026-10-01T12:00:00.123456Z", "map", "map", false, "page_view", `uuid-${String(index).padStart(5, "0")}`, `cookie-${index}`,
     ]);
-    const lastPage = [["person-10000", "session", "2026-10-01", "2026-10-01T12:00:00.123456Z", "map", "map", false, "page_view", "uuid-10000"]];
+    const lastPage = [["person-10000", "session", "2026-10-01", "2026-10-01T12:00:00.123456Z", "map", "map", false, "page_view", "uuid-10000", "cookie-10000"]];
     const runner = jest.fn().mockResolvedValueOnce({ columns: [], results: page }).mockResolvedValueOnce({ columns: [], results: lastPage });
     const rows = await loadWebStickyRows(options, runner);
     expect(rows).toHaveLength(10001);
@@ -78,13 +87,41 @@ describe("web sticky loop report runner", () => {
     }
   });
 
+  it("looks up only identified UUID distinct IDs using the guarded read-only client", async () => {
+    const mockId = "11111111-1111-4111-8111-111111111111";
+    const missingId = "22222222-2222-4222-8222-222222222222";
+    const anonymousId = "33333333-3333-4333-8333-333333333333";
+    const rows = parseWebStickyRows([
+      ["mock", "s", "2026-10-01", "2026-10-01T12:00:00Z", "home", "home", true, "page_view", "u1", mockId],
+      ["mock", "s", "2026-10-01", "2026-10-01T12:01:00Z", "map", "map", true, "page_view", "u2", mockId],
+      ["missing", "s", "2026-10-01", "2026-10-01T12:00:00Z", "home", "home", true, "page_view", "u3", missingId],
+      ["cookie", "s", "2026-10-01", "2026-10-01T12:00:00Z", "home", "home", true, "page_view", "u4", "not-a-uuid"],
+      ["anonymous", "s", "2026-10-01", "2026-10-01T12:00:00Z", "landing", "landing-page", false, "page_view", "u5", anonymousId],
+    ]);
+    const lookup = jest.fn().mockResolvedValue({ data: [{ id: mockId, is_mock: true }], error: null });
+    const select = jest.fn(() => ({ in: lookup }));
+    const from = jest.fn(() => ({ select }));
+    const client = reportGuards.readOnlySupabase({ from });
+    const factory = jest.mocked(reportGuards.createReadOnlySupabaseFromEnv).mockReturnValue(client);
+    try {
+      const exclusions = await loadWebStickyProfileExclusions(rows);
+      expect(factory).toHaveBeenCalledTimes(1);
+      expect(from).toHaveBeenCalledWith("profiles");
+      expect(select).toHaveBeenCalledWith("id,deleted_at,is_mock,is_system_account,analytics_is_real_user");
+      expect(lookup).toHaveBeenCalledWith("id", [mockId, missingId]);
+      expect(exclusions).toEqual(new Map([[mockId, "mock_profile"], [missingId, "missing_profile"]]));
+    } finally {
+      factory.mockReset();
+    }
+  });
+
   it("writes JSON and a source-backed Markdown summary without querying production", async () => {
     const directory = mkdtempSync(join(tmpdir(), "web-sticky-loop-"));
     try {
       const jsonPath = join(directory, "report.json");
       const mdPath = join(directory, "report.md");
       const loader = jest.fn(async () => parseWebStickyRows([[
-        "person", "session", "2026-10-01", "2026-10-01T12:00:00Z", "map", "map", false, "page_view", "uuid",
+        "person", "session", "2026-10-01", "2026-10-01T12:00:00Z", "map", "map", false, "page_view", "uuid", "cookie-person",
       ]]));
       const report = await main(["--days", "28", "--output-json", jsonPath, "--output-md", mdPath], now, loader);
       expect(loader).toHaveBeenCalledTimes(1);

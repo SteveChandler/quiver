@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import type { ProfileExclusionReason } from "./report-guards";
 
 export const WEB_STICKY_LOOP_SCHEMA_VERSION = "web_sticky_loop.v1" as const;
 
@@ -14,6 +15,7 @@ const UTILITY_SURFACES = ["water-temp", "tide", "tools-page"] as const;
 
 export interface WebStickyEventRow {
   personId: string;
+  distinctId: string;
   sessionId: string | null;
   localDate: string;
   timestamp: string;
@@ -76,7 +78,13 @@ export interface WebStickyLoopReport {
   window: WebStickyWindow;
   definitions: { powerDays: number; personUnit: string; sessionUnit: string; sequenceUnit: string };
   sourceFreshness: Record<WebStickyEventRow["event"], string | null>;
-  excluded: { bot: { count: null; reason: string }; emulator: { count: null; reason: string }; internal: { count: null; reason: string } };
+  excluded: {
+    bot: { count: null; reason: string };
+    emulator: { count: null; reason: string };
+    internal: { count: null; reason: string };
+    profile: { persons: number; byReason: Partial<Record<Exclude<ProfileExclusionReason, "missing_profile">, number>> };
+  };
+  identifiedWithoutProfile: number;
   anonymousHeavy: { people: number };
   segments: { anonymous: SegmentMetrics; identified: SegmentMetrics };
   powerUsers: PowerUserMetrics[];
@@ -87,6 +95,7 @@ interface BuildWebStickyLoopInput {
   window: WebStickyWindow;
   asOf: string;
   powerDays?: number;
+  profileExclusions: ReadonlyMap<string, ProfileExclusionReason | null>;
 }
 
 function rate(numerator: number, denominator: number): Rate {
@@ -270,8 +279,23 @@ export function buildWebStickyLoopReport(input: BuildWebStickyLoopInput): WebSti
   const anonymous: WebStickyEventRow[] = [];
   const identified: WebStickyEventRow[] = [];
   const powerUsers: PowerUserMetrics[] = [];
+  const excludedProfile: WebStickyLoopReport["excluded"]["profile"] = { persons: 0, byReason: {} };
   let anonymousHeavy = 0;
+  let identifiedWithoutProfile = 0;
   for (const [personId, personRows] of byPerson) {
+    const reasons = new Set<Exclude<ProfileExclusionReason, "missing_profile">>();
+    let withoutProfile = false;
+    for (const row of personRows) {
+      const reason = input.profileExclusions.get(row.distinctId.toLowerCase());
+      if (reason === "missing_profile") withoutProfile = true;
+      else if (reason) reasons.add(reason);
+    }
+    if (reasons.size > 0) {
+      excludedProfile.persons += 1;
+      for (const reason of reasons) excludedProfile.byReason[reason] = (excludedProfile.byReason[reason] ?? 0) + 1;
+      continue;
+    }
+    if (withoutProfile && personRows.some((row) => row.identified)) identifiedWithoutProfile += 1;
     const activeDays = new Set(personRows.filter((row) => row.event === "page_view").map((row) => row.localDate)).size;
     if (!personRows.some((row) => row.identified)) {
       anonymous.push(...personRows);
@@ -298,7 +322,9 @@ export function buildWebStickyLoopReport(input: BuildWebStickyLoopInput): WebSti
       bot: { count: null, reason: "Filtered at ingest for mirrored page_view and by HogQL bot predicate; excluded population is not available from eligible rows" },
       emulator: { count: null, reason: "Filtered by HogQL emulator predicate; excluded population is not available from eligible rows" },
       internal: { count: null, reason: "Filtered by PostHog internal cohort and known profile IDs; excluded population is not available from eligible rows" },
+      profile: excludedProfile,
     },
+    identifiedWithoutProfile,
     anonymousHeavy: { people: anonymousHeavy },
     segments: { anonymous: segmentMetrics(anonymous), identified: segmentMetrics(identified) },
     powerUsers,

@@ -6,10 +6,13 @@ import { config } from "./load-env.mjs";
 import {
   HOGQL_NOT_BOT,
   HOGQL_NOT_EMULATOR,
+  createReadOnlySupabaseFromEnv,
   hogqlInternalPersonExclusion,
+  loadProfileExclusions,
   resolveCompleteDayWindow,
   runHogQL,
   type ReportWindow,
+  type ProfileExclusionReason,
 } from "../lib/analytics/report-guards";
 import {
   buildWebStickyLoopReport,
@@ -24,6 +27,7 @@ config({ path: ".env.local" });
 config();
 
 const PAGE_SIZE = 10000;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ALLOWED_EVENTS = new Set(["page_view", "nearby_beaches_viewed", "app_handoff_view", "signup_cta_view"]);
 const ALLOWED_FAMILIES = new Set<string>([...WEB_FAMILIES, "app_handoff", "signup_cta"]);
 
@@ -124,7 +128,8 @@ export function buildWebStickyHogQL(options: WebStickyCliOptions, cursor: WebSti
       properties.surface AS surface,
       coalesce(properties.$is_identified, false) AS ident,
       event,
-      toString(uuid) AS uuid
+      toString(uuid) AS uuid,
+      distinct_id
     FROM events
     WHERE (event = 'page_view' OR event IN ('nearby_beaches_viewed', 'app_handoff_view', 'signup_cta_view'))
       AND properties.$lib = 'web'
@@ -143,14 +148,16 @@ export function buildWebStickyHogQL(options: WebStickyCliOptions, cursor: WebSti
 
 export function parseWebStickyRows(results: unknown[][]): WebStickyEventRow[] {
   return results.map((row, index) => {
-    const [personId, sessionId, localDate, timestamp, family, surface, identified, event, uuid] = row;
+    const [personId, sessionId, localDate, timestamp, family, surface, identified, event, uuid, distinctId] = row;
     if (typeof personId !== "string" || !personId || typeof localDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(localDate)
       || typeof timestamp !== "string" || Number.isNaN(Date.parse(timestamp)) || typeof family !== "string" || !ALLOWED_FAMILIES.has(family)
-      || typeof event !== "string" || !ALLOWED_EVENTS.has(event) || typeof uuid !== "string" || !uuid) {
+      || typeof event !== "string" || !ALLOWED_EVENTS.has(event) || typeof uuid !== "string" || !uuid
+      || typeof distinctId !== "string" || !distinctId) {
       throw new Error(`Invalid PostHog row at index ${index}`);
     }
     return {
       personId,
+      distinctId,
       sessionId: typeof sessionId === "string" && sessionId ? sessionId : null,
       localDate,
       timestamp: new Date(timestamp).toISOString(),
@@ -179,6 +186,13 @@ export async function loadWebStickyRows(
   }
 }
 
+export async function loadWebStickyProfileExclusions(rows: WebStickyEventRow[]): Promise<Map<string, ProfileExclusionReason | null>> {
+  const ids = new Set(rows.filter((row) => row.identified && UUID_PATTERN.test(row.distinctId))
+    .map((row) => row.distinctId.toLowerCase()));
+  if (ids.size === 0) return new Map();
+  return loadProfileExclusions(createReadOnlySupabaseFromEnv(), ids);
+}
+
 function markdownRate(value: { numerator: number; denominator: number; rate: number | null }): string {
   return `${value.numerator}/${value.denominator} (${value.rate === null ? "n/a" : `${(100 * value.rate).toFixed(1)}%`})`;
 }
@@ -190,6 +204,7 @@ export function renderWebStickyMarkdown(report: WebStickyLoopReport): string {
     "", `Unit: ${report.definitions.personUnit}. Sessions: ${report.definitions.sessionUnit}.`,
     `Power users: identified people with at least ${report.definitions.powerDays} page-view days; excluded from the identified aggregate.`,
     `Exclusions: bot count unavailable (${report.excluded.bot.reason}); emulator count unavailable (${report.excluded.emulator.reason}); internal count unavailable (${report.excluded.internal.reason}).`,
+    `Profile exclusions: ${report.excluded.profile.persons} persons; reasons ${Object.entries(report.excluded.profile.byReason).map(([reason, count]) => `${reason} ${count}`).join(", ") || "none"}. Identified without profile: ${report.identifiedWithoutProfile}.`,
     `Anonymous heavy people: ${report.anonymousHeavy.people}. Identified power users: ${report.powerUsers.length}.`,
   ];
   for (const [segmentName, segment] of Object.entries(report.segments)) {
@@ -236,6 +251,7 @@ export async function main(
 ): Promise<WebStickyLoopReport> {
   const options = parseCliArgs(argv, now);
   const rows = await loader(options);
+  const profileExclusions = await loadWebStickyProfileExclusions(rows);
   const window: WebStickyWindow = {
     startDate: options.window.startDate,
     endDate: options.window.endDate,
@@ -243,7 +259,7 @@ export async function main(
     end: options.window.end.toISOString(),
     timeZone: options.window.timeZone,
   };
-  const report = buildWebStickyLoopReport({ rows, window, asOf: options.asOf, powerDays: options.powerDays });
+  const report = buildWebStickyLoopReport({ rows, window, asOf: options.asOf, powerDays: options.powerDays, profileExclusions });
   const json = `${JSON.stringify(report, null, 2)}\n`;
   if (options.outputJson) writeOutput(options.outputJson, json);
   else process.stdout.write(json);

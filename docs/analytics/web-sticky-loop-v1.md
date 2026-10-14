@@ -20,6 +20,8 @@ Identified persons with at least `--power-days` distinct local days of `page_vie
 
 Bot events are filtered at `/api/events` ingest for the mirror and again by `HOGQL_NOT_BOT`. Emulators are filtered by `HOGQL_NOT_EMULATOR`. Internal persons are removed through `hogqlInternalPersonExclusion()` (cohort and known IDs). Because every data query applies those predicates, excluded population counts cannot be derived from eligible rows; the `excluded` block records each reason with `count: null` rather than silently implying zero. The readout does not capture SDK `$pageview`, off-site or native behavior, events blocked by consent or tracking settings, tab dwell, conversion completion, or activity outside the window. It makes no cross-device identity repair or causal claim about downstream navigation.
 
+UUID-shaped `events.distinct_id` values on identified events are joined exactly to Supabase `profiles.id` through the guarded read-only profile lookup. The current profile snapshot excludes internal, deleted, mock, system, and explicitly non-real profiles before segmentation. If any looked-up ID belongs to an excluded profile, all rows for its PostHog person are removed, including anonymous rows and power-user activity. `excluded.profile.persons` counts removed persons; `byReason` counts distinct persons per reason and can overlap when a person has multiple excluded IDs. A missing profile is retained and counted once per surviving person in `identifiedWithoutProfile`, including retained power users. Profile flags reflect the lookup time, not a historical snapshot at `asOf`.
+
 ## Run
 
 ```bash
@@ -27,4 +29,4 @@ source ~/.nvm/nvm.sh && nvm use 22
 node --import tsx scripts/web-sticky-loop-report.ts --days 28 --tz America/Los_Angeles --output-json /tmp/web-sticky-loop.json --output-md /tmp/web-sticky-loop.md
 ```
 
-For a fixed window, use `--start YYYY-MM-DD --end YYYY-MM-DD` instead of `--days`. The runner uses read-only `runHogQL()` queries and never writes to production. Without `--output-json`, it prints the JSON report to stdout.
+For a fixed window, use `--start YYYY-MM-DD --end YYYY-MM-DD` instead of `--days`. The runner uses read-only `runHogQL()` queries and `createReadOnlySupabaseFromEnv()` profile reads and never writes to production. Without `--output-json`, it prints the JSON report to stdout.
