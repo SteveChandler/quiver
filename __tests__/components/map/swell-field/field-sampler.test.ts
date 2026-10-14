@@ -408,6 +408,142 @@ describe("maskFieldToWater", () => {
       { lon: -117.1, lat: 32.7, vx: 1, vy: 0, speed: 0.5, alpha: 0.6 }, // will project on-screen
     ],
   });
+  const makeWideField = (): FlowField => ({
+    cols: 40,
+    rows: 1,
+    cells: Array.from({ length: 40 }, (_, lon) => ({
+      lon,
+      lat: 0,
+      vx: 1,
+      vy: 0,
+      speed: 0.5,
+      alpha: 0.6,
+    })),
+  });
+
+  it("masks a mostly-land viewport when the basemap is queryable", () => {
+    const field = makeWideField();
+    const cache = new Map<string, boolean>();
+    const probe = jest.fn(() => [{ layer: "road" }]);
+    const map: WaterMaskMap = {
+      areTilesLoaded: () => true,
+      project: ([lon]) => ({ x: lon * 10, y: 100 }),
+      queryRenderedFeatures: ([x]) => (x < 20 ? [{}] : []),
+      probeRenderedBasemapFeatures: probe,
+    };
+
+    const applied = maskFieldToWater(field, map, {
+      width: 800, height: 600, waterLayerIds: ["water"], waterMaskCache: cache,
+    });
+
+    expect(applied).toBe(true);
+    expect(probe).toHaveBeenCalledTimes(1);
+    expect(field.cells.slice(0, 2).every((cell) => cell.speed === 0.5)).toBe(true);
+    expect(field.cells.slice(2).every((cell) => cell.speed === 0 && cell.alpha === 0)).toBe(true);
+    expect(cache.get("0:0")).toBe(true);
+    expect(cache.get("1:0")).toBe(true);
+    expect([...cache.values()].filter((isWater) => !isWater)).toHaveLength(38);
+  });
+
+  it("masks a fully inland viewport when non-water basemap features are queryable", () => {
+    const field = makeWideField();
+    const cache = new Map<string, boolean>();
+    const map: WaterMaskMap = {
+      areTilesLoaded: () => true,
+      project: ([lon]) => ({ x: lon * 10, y: 100 }),
+      queryRenderedFeatures: () => [],
+      probeRenderedBasemapFeatures: () => [{ layer: "road" }],
+    };
+
+    const applied = maskFieldToWater(field, map, {
+      width: 800, height: 600, waterLayerIds: ["water"], waterMaskCache: cache,
+    });
+
+    expect(applied).toBe(true);
+    expect(field.cells.every((cell) => cell.speed === 0 && cell.alpha === 0)).toBe(true);
+    expect([...cache.values()]).toEqual(Array(40).fill(false));
+  });
+
+  it("defers a pass when layer ids exist but no basemap features are queryable", () => {
+    const field = makeWideField();
+    const cache = new Map<string, boolean>();
+    const map: WaterMaskMap = {
+      areTilesLoaded: () => true,
+      project: ([lon]) => ({ x: lon * 10, y: 100 }),
+      queryRenderedFeatures: () => [],
+      probeRenderedBasemapFeatures: () => [],
+    };
+
+    const applied = maskFieldToWater(field, map, {
+      width: 800, height: 600, waterLayerIds: ["water"], waterMaskCache: cache,
+    });
+
+    expect(applied).toBe(false);
+    expect(field.cells.every((cell) => cell.speed === 0.5 && cell.alpha === 0.6)).toBe(true);
+    expect(cache.size).toBe(0);
+  });
+
+  it("does not cache land when tiles are not loaded", () => {
+    const field = makeWideField();
+    const cache = new Map<string, boolean>();
+    const probe = jest.fn(() => [{ layer: "road" }]);
+    const map: WaterMaskMap = {
+      areTilesLoaded: () => false,
+      project: ([lon]) => ({ x: lon * 10, y: 100 }),
+      queryRenderedFeatures: ([x]) => (x < 200 ? [{}] : []),
+      probeRenderedBasemapFeatures: probe,
+    };
+
+    const applied = maskFieldToWater(field, map, {
+      width: 800, height: 600, waterLayerIds: ["water"], waterMaskCache: cache,
+    });
+
+    expect(applied).toBe(false);
+    expect(probe).not.toHaveBeenCalled();
+    expect(field.cells.slice(20).every((cell) => cell.speed === 0)).toBe(true);
+    expect([...cache.values()]).toEqual(Array(20).fill(true));
+  });
+
+  it("retries without caching land when the basemap probe throws", () => {
+    const field = makeWideField();
+    const cache = new Map<string, boolean>();
+    const map: WaterMaskMap = {
+      areTilesLoaded: () => true,
+      project: ([lon]) => ({ x: lon * 10, y: 100 }),
+      queryRenderedFeatures: ([x]) => (x < 200 ? [{}] : []),
+      probeRenderedBasemapFeatures: () => {
+        throw new Error("style not ready");
+      },
+    };
+
+    const applied = maskFieldToWater(field, map, {
+      width: 800, height: 600, waterLayerIds: ["water"], waterMaskCache: cache,
+    });
+
+    expect(applied).toBe(false);
+    expect(field.cells.slice(20).every((cell) => cell.speed === 0)).toBe(true);
+    expect([...cache.values()]).toEqual(Array(20).fill(true));
+  });
+
+  it("preserves coastal water cells and masks land after a queryable pass", () => {
+    const field = makeWideField();
+    const cache = new Map<string, boolean>();
+    const map: WaterMaskMap = {
+      areTilesLoaded: () => true,
+      project: ([lon]) => ({ x: lon * 10, y: 100 }),
+      queryRenderedFeatures: ([x]) => (x < 300 ? [{}] : []),
+      probeRenderedBasemapFeatures: () => [{ layer: "water" }],
+    };
+
+    const applied = maskFieldToWater(field, map, {
+      width: 800, height: 600, waterLayerIds: ["water"], waterMaskCache: cache,
+    });
+
+    expect(applied).toBe(true);
+    expect(field.cells.slice(0, 30).every((cell) => cell.speed === 0.5)).toBe(true);
+    expect(field.cells.slice(30).every((cell) => cell.speed === 0 && cell.alpha === 0)).toBe(true);
+    expect([...cache.values()].filter((isWater) => !isWater)).toHaveLength(10);
+  });
 
   it("zeroes in-viewport cells with no water feature (land), leaves water cells", () => {
     const field = makeField();

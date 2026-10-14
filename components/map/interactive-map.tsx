@@ -95,6 +95,7 @@ import {
   type FlowComponentId,
   type FlowField,
   type FlowFieldGrid,
+  type WaterMaskMap,
 } from "@/components/map/swell-field/field-sampler";
 import { embedTimelineArrayPositionForHourOffset } from "@/components/map/embed-map-timeline";
 import {
@@ -1924,9 +1925,11 @@ export function InteractiveMap({
     const maskable = waterMaskableFlowComponents(components);
     if (maskable.length === 0) return;
     let waterLayerIds: string[] = [];
+    let styleLayers: ReturnType<mapboxgl.Map["getStyle"]>["layers"] = [];
     try {
       const style = map.getStyle();
-      waterLayerIds = detectWaterLayerIds(style?.layers ?? []);
+      styleLayers = style?.layers ?? [];
+      waterLayerIds = detectWaterLayerIds(styleLayers);
     } catch {
       waterMaskOwedRef.current = true;
       return; // can't read the style yet → leave the field intact and retry
@@ -1936,6 +1939,23 @@ export function InteractiveMap({
       waterMaskOwedRef.current = false;
       return;
     }
+    const waterSources = new Set<string>();
+    for (const layer of styleLayers) {
+      if (waterLayerIds.includes(layer.id) && "source" in layer && typeof layer.source === "string") {
+        waterSources.add(layer.source);
+      }
+    }
+    const basemapLayerIds = styleLayers
+      .filter((layer) => "source" in layer && typeof layer.source === "string" && waterSources.has(layer.source))
+      .map((layer) => layer.id);
+    const maskMap: WaterMaskMap = {
+      areTilesLoaded: () => map.areTilesLoaded(),
+      project: (lngLat) => map.project(lngLat),
+      queryRenderedFeatures: (point, options) => map.queryRenderedFeatures(point, options),
+      ...(basemapLayerIds.length > 0 && {
+        probeRenderedBasemapFeatures: () => map.queryRenderedFeatures({ layers: basemapLayerIds }),
+      }),
+    };
     const zoomBucket = Math.floor(map.getZoom());
     if (
       waterMaskCacheRef.current?.zoomBucket !== zoomBucket ||
@@ -1950,7 +1970,7 @@ export function InteractiveMap({
       if (field.cells.length === 0) continue;
       const applied = maskFieldToWater(
         field,
-        map as unknown as Parameters<typeof maskFieldToWater>[1],
+        maskMap,
         {
           width: canvas.clientWidth,
           height: canvas.clientHeight,

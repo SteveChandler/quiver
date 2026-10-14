@@ -120,6 +120,7 @@ export interface WaterMaskMap {
     point: [number, number],
     options: { layers: string[] }
   ): unknown[];
+  probeRenderedBasemapFeatures?: () => unknown[];
 }
 
 interface WaterMaskOptions {
@@ -200,17 +201,28 @@ export function maskFieldToWater(
       queryFailed = true;
     }
   }
-  // Some Mapbox styles temporarily expose layer ids before their rendered
-  // features are queryable. Treat an all-negative pass as untrusted; otherwise
-  // one cached load can irreversibly erase the complete coastal flow field.
+  // Layer ids can appear before their vector features are queryable. A loaded
+  // same-source feature proves land misses are real, even with little water in view.
+  // Without that proof, keep the ratio guard so an early pass cannot erase the coast.
   const minimumTrustedWaterHits = queriedCellCount >= 12
     ? Math.max(2, Math.ceil(queriedCellCount * 0.1))
     : 1;
-  if (waterHitCount < minimumTrustedWaterHits) {
-    return pendingLandCells.length === 0 && !queryFailed && tilesLoaded;
+  const probe = map.probeRenderedBasemapFeatures;
+  const hasProbe = typeof probe === "function" && typeof map.areTilesLoaded === "function";
+  let basemapQueryable = false;
+  if (probe && hasProbe && tilesLoaded) {
+    try {
+      basemapQueryable = probe().length > 0;
+    } catch {
+      queryFailed = true;
+    }
   }
+  if (!basemapQueryable && waterHitCount < minimumTrustedWaterHits) {
+    return !hasProbe && pendingLandCells.length === 0 && !queryFailed && tilesLoaded;
+  }
+  const trustedLandVerdicts = tilesLoaded && !queryFailed && (hasProbe ? basemapQueryable : true);
   for (const cell of pendingLandCells) {
-    if (tilesLoaded) {
+    if (trustedLandVerdicts) {
       const cellKey = `${cell.lon}:${cell.lat}`;
       options.waterMaskCache?.set(
         options.zoomBucket === undefined
@@ -224,7 +236,7 @@ export function maskFieldToWater(
     cell.vx = 0;
     cell.vy = 0;
   }
-  return tilesLoaded && !queryFailed;
+  return trustedLandVerdicts;
 }
 
 interface GeoBounds {

@@ -23,8 +23,8 @@ let mockAutoLoadMap = true;
 let mockMapBoundsAvailable = true;
 let mockMapBounds = { west: -117.3, south: 32.7, east: -117.2, north: 32.8 };
 let mockTilesLoaded = true;
-let mockStyleLayers: Array<{ id: string }> = [];
-const mockQueryRenderedFeatures = jest.fn((): unknown[] => [{}]);
+let mockStyleLayers: Array<{ id: string; source?: string }> = [];
+const mockQueryRenderedFeatures = jest.fn((_query?: unknown): unknown[] => [{}]);
 const mockProject = jest.fn((_lngLat: [number, number]) => ({ x: 400, y: 300 }));
 
 jest.mock("mapbox-gl", () => ({
@@ -1977,6 +1977,56 @@ describe("InteractiveMap", () => {
     fire("data");
     expect(mockQueryRenderedFeatures).toHaveBeenCalledTimes(queriesAfterRecovery);
     jest.useRealTimers();
+  });
+
+  it("probes only layers from the water source before trusting inland misses", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    mockStyleLayers = [
+      { id: "water", source: "composite" },
+      { id: "road", source: "composite" },
+      { id: "other", source: "other-source" },
+    ];
+    mockQueryRenderedFeatures.mockImplementation((query) =>
+      Array.isArray(query) ? [] : [{ layer: "road" }],
+    );
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: {
+          forecasts: {},
+          swellPartitions: {
+            "san-diego": {
+              s1Dir: 250,
+              s1PeriodS: 13,
+              s1HeightFt: 3,
+              s2Dir: null,
+              s2PeriodS: null,
+              s2HeightFt: null,
+              windDir: null,
+              windMph: null,
+            },
+          },
+        },
+      }),
+    }) as unknown as typeof fetch;
+
+    render(
+      <InteractiveMap
+        beaches={[{
+          id: "san-diego",
+          name: "San Diego",
+          lat: 32.75,
+          lon: -117.25,
+        } as import("@/types/database").Beach]}
+        showSwellField
+        swellLayerId="s1"
+      />,
+    );
+
+    await waitFor(() => {
+      expect(mockQueryRenderedFeatures).toHaveBeenCalledWith({ layers: ["water", "road"] });
+    });
   });
 
   it("reuses cached cell verdicts across moveend and queries only missing cells", async () => {
