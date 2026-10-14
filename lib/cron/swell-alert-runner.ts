@@ -66,9 +66,13 @@ import {
   type SwellSendKind,
 } from "@/lib/alerts/swell-outlook/engagement";
 import {
+  bestWindowSentence,
   buildFirstSightingPayload,
+  FIRST_SIGHTING_BODY_MAX_CHARS,
   firstSightingFaceHeightFt,
   selectFirstSightingCandidates,
+  surfWindowPayload,
+  tideReasonSentence,
   type FirstSightingHazard,
 } from "@/lib/alerts/swell-outlook/first-sighting";
 import {
@@ -79,6 +83,7 @@ import {
   saveSwellOutlookUserState,
 } from "@/lib/alerts/swell-outlook/state";
 import { findTideAwareWindow, type TideAwareWindowResult } from "@/lib/alerts/surf-window/tide-aware-window";
+import { isTideReasonEligibleBeach } from "@/lib/alerts/surf-window/unverified-tide-bands";
 import { isSwellOutlookEnabled, isSwellOutlookUserAllowed, isSwellOutlookTideWindowEnabled } from "@/lib/flags/swell-outlook";
 import { loadSwellOutlookForUser } from "@/lib/services/discovery/swell-outlook-loader";
 import type { OutlookSwell, StoredOutlookList } from "@/lib/services/discovery/swell-outlook-types";
@@ -270,11 +275,18 @@ export interface SwellOutlookDeps {
   saveEngagement: (userId: string, transition: SwellOutlookStateTransition) => Promise<void>;
   hasFirstSightingAlert: (userId: string, eventKeys: string[]) => Promise<boolean>;
   assessSwellRarity: (profile: SwellAlertProfile, swell: OutlookSwell, now: Date) => Promise<boolean>;
-  loadFirstSightingWindow?: (profile: SwellAlertProfile, swell: OutlookSwell, now: Date) => Promise<TideAwareWindowResult>;
+  loadSurfWindow?: (profile: SwellAlertProfile, event: SwellWindowEvent, now: Date) => Promise<TideAwareWindowResult>;
   /** Official hazard at the lead beach for the push text; null when none or the lookup fails. */
   loadFirstSightingHazard?: (beachId: string, timezone: string, now: Date) => Promise<FirstSightingHazard | null>;
   /** Km from the resolved location or home anchor, to each beach; empty when neither is known. */
   loadBeachDistancesKm?: (profile: SwellAlertProfile, beachIds: readonly string[]) => Promise<ReadonlyMap<string, number>>;
+}
+
+interface SwellWindowEvent {
+  beachId: string;
+  arrivalAt: string | null;
+  peakAt: string;
+  fadeAt: string | null;
 }
 
 type RunnerDeps = SwellAlertDeps & SwellFollowupDeps & Partial<SwellOutlookDeps>
@@ -1097,8 +1109,8 @@ function defaultDependencies(args: {
         }
         return (await assessor)(swell);
       }),
-    loadFirstSightingWindow: args.deps?.loadFirstSightingWindow
-      ?? ((profile, swell, now) => loadFirstSightingWindow(getClient(), firstSightingTideCache, profile, swell, now)),
+    loadSurfWindow: args.deps?.loadSurfWindow
+      ?? ((profile, event, now) => loadSurfWindow(getClient(), firstSightingTideCache, profile, event, now)),
     loadFirstSightingHazard: args.deps?.loadFirstSightingHazard
       ?? ((beachId, timezone, now) => loadFirstSightingHazard(getClient(), beachId, timezone, now)),
     loadBeachDistancesKm: args.deps?.loadBeachDistancesKm
@@ -1186,6 +1198,7 @@ async function sendFollowups(
         increment(summary, "followup_no_forecast");
         continue;
       }
+      const pinnedBeach = pinned.beach;
       const event = pinned.event;
       const kind = detectSwellFollowupKind({
         told,
@@ -1209,6 +1222,14 @@ async function sendFollowups(
         continue;
       }
 
+      if (gate) {
+        const decision = decideSend(gate.state, now, "followup", false);
+        if (!decision.ok) {
+          increment(summary, decision.reason);
+          continue;
+        }
+      }
+
       // A dropped swell has no current numbers, so the push restates what was last told.
       const shown = kind !== "dropped" && event
         ? {
@@ -1225,8 +1246,22 @@ async function sendFollowups(
             periodS: state.lastPeriodS,
             directionDeg: state.lastDirectionDeg,
           };
+      const surfWindow = kind !== "dropped" && isSwellOutlookTideWindowEnabled()
+        ? await Promise.resolve().then(() => deps.loadSurfWindow?.(profile, {
+          beachId: pinnedBeach.id,
+          arrivalAt: shown.arrivalAt,
+          peakAt: shown.peakAt,
+          fadeAt: event?.fadeAt ?? null,
+        }, now)).catch((error: unknown) => {
+          console.warn(`[swell-alert] Follow-up window computation failed for ${pinnedBeach.id}:`, error);
+          return undefined;
+        })
+        : undefined;
+      const recommended = surfWindow?.state === "recommended" ? surfWindow.window : null;
       const held = await deps.resolveHeldBeaches({
-        candidates: [forecastSlotCandidate("followup", pinned.beach.id, shown.peakAt)],
+        candidates: [recommended
+          ? { candidateId: "followup", beachId: pinned.beach.id, startsAt: recommended.start, endsAt: recommended.end }
+          : forecastSlotCandidate("followup", pinned.beach.id, shown.peakAt)],
         profileExperience: profile.experienceLevel,
         asOf: now,
       });
@@ -1258,7 +1293,7 @@ async function sendFollowups(
         peakDayLabel,
         serious,
       });
-      const body = renderSwellFollowupBody({
+      const baseBody = renderSwellFollowupBody({
         kind,
         titleId: headline.titleId,
         vars: {
@@ -1271,9 +1306,18 @@ async function sendFollowups(
           prev_day: weekday(previousPeakDate),
         },
       });
-      if (!body) {
+      if (!baseBody) {
         increment(summary, "followup_no_copy");
         continue;
+      }
+      const windowSentence = recommended ? bestWindowSentence(recommended) : null;
+      let body = baseBody;
+      if (windowSentence && body.length + 1 + windowSentence.length <= FIRST_SIGHTING_BODY_MAX_CHARS) {
+        body = `${body} ${windowSentence}`;
+        const reasonSentence = tideReasonSentence(surfWindow?.reasons ?? []);
+        if (reasonSentence && body.length + 1 + reasonSentence.length <= FIRST_SIGHTING_BODY_MAX_CHARS) {
+          body = `${body} ${reasonSentence}`;
+        }
       }
 
       const payload = parseMajorSwellNotificationPayload({
@@ -1296,6 +1340,7 @@ async function sendFollowups(
         enforcement: null,
         title: headline.headline,
         body,
+        ...(surfWindow ? { surf_window: surfWindowPayload(surfWindow) } : {}),
         beaches: [{ beach_id: pinned.beach.id, beach_name: beachName, rank: 1 }],
         event_key: state.eventKey,
         title_id: headline.titleId,
@@ -1304,14 +1349,6 @@ async function sendFollowups(
         previous_peak_height_ft: state.lastFaceHeightFt,
         previous_peak_date: previousPeakDate,
       });
-
-      if (gate) {
-        const decision = decideSend(gate.state, now, "followup", false);
-        if (!decision.ok) {
-          increment(summary, decision.reason);
-          continue;
-        }
-      }
 
       const claimed = await deps.claimFollowup(state, {
         ...shown,
@@ -1388,18 +1425,18 @@ function isOutlookRecipient(deps: RunnerDeps, userId: string): deps is OutlookRu
       && deps.hasFirstSightingAlert && deps.assessSwellRarity);
 }
 
-async function loadFirstSightingWindow(
+async function loadSurfWindow(
   client: ServiceClient,
   tideCache: TideCache,
   profile: SwellAlertProfile,
-  swell: OutlookSwell,
+  event: SwellWindowEvent,
   now: Date,
 ): Promise<TideAwareWindowResult> {
-  const { data: beach, error } = await client.from("beaches").select("*").eq("id", swell.beach.id).maybeSingle();
+  const { data: beach, error } = await client.from("beaches").select("*").eq("id", event.beachId).maybeSingle();
   if (error) throw new Error(`Failed to load surf-window beach: ${error.message}`);
-  if (!beach) throw new Error(`Surf-window beach ${swell.beach.id} unavailable`);
+  if (!beach) throw new Error(`Surf-window beach ${event.beachId} unavailable`);
   const timezone = resolveBeachTimezone(beach.timezone);
-  const arrivalAt = swell.arrivalAt ?? swell.peakAt;
+  const arrivalAt = event.arrivalAt ?? event.peakAt;
   const startDate = getLocalDateString(new Date(arrivalAt), timezone);
   const endDate = addCivilDays(startDate, 3);
   const start = localDateTimeToUTC(startDate, "02:00:00", timezone);
@@ -1409,9 +1446,9 @@ async function loadFirstSightingWindow(
     loadTideSamples(client, tideCache, beach.id, start.toISOString(), end.toISOString()),
   ]);
   const verdictFor = makeVerdictFor({ ...profile, timezone }, now);
-  return findTideAwareWindow({ beach, forecasts, tideSamples, arrivalAt, peakAt: swell.peakAt,
-    fadeAt: swell.fadeAt ?? null, timezone, now, skillLevel: profile.experienceLevel,
-    verdictFor: (row) => verdictFor(row, beach) });
+  return findTideAwareWindow({ beach, forecasts, tideSamples, arrivalAt, peakAt: event.peakAt,
+    fadeAt: event.fadeAt, timezone, now, skillLevel: profile.experienceLevel,
+    verdictFor: (row) => verdictFor(row, beach), isTideReasonEligible: isTideReasonEligibleBeach });
 }
 
 async function sendFirstSighting(
@@ -1474,7 +1511,9 @@ async function sendFirstSighting(
     }
 
     const windowPromise = Promise.resolve().then(() =>
-      isSwellOutlookTideWindowEnabled() ? deps.loadFirstSightingWindow?.(profile, swell, now) : undefined,
+      isSwellOutlookTideWindowEnabled() ? deps.loadSurfWindow?.(profile, {
+        beachId: swell.beach.id, arrivalAt: swell.arrivalAt, peakAt: swell.peakAt, fadeAt: swell.fadeAt ?? null,
+      }, now) : undefined,
     ).catch((error: unknown) => {
       console.warn(`[swell-alert] First-sighting window computation failed for ${swell.beach.id}:`, error);
       return undefined;

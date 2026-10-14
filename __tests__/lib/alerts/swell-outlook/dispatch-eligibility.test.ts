@@ -85,6 +85,15 @@ describe("swell dispatch eligibility", () => {
       .toEqual({ allowed: true });
   });
 
+  it("expires a revised follow-up window after its peak and before its queued push dispatches", async () => {
+    expect(await resolve(client(), { kind: "bigger", forecast_at: "2026-10-14T16:00:00.000Z",
+      surf_window: { state: "recommended", start: "2026-10-14T14:00:00.000Z", end: "2026-10-14T17:00:00.000Z" } }))
+      .toEqual({ allowed: false, reasonCode: "window_expired" });
+    expect(await resolve(client(), { kind: "moved", forecast_at: "2026-10-14T16:00:00.000Z",
+      surf_window: { state: "recommended", start: "2026-10-14T18:00:00.000Z", end: "2026-10-14T20:00:00.000Z" } }))
+      .toEqual({ allowed: true });
+  });
+
   it.each([undefined, "coming", "bigger", "smaller", "moved"])("passes a %s forecast only while future", async (kind) => {
     expect(await resolve(client(), { kind, forecast_at: "2026-10-14T17:00:00.000Z" }))
       .toEqual({ allowed: false, reasonCode: "forecast_passed" });

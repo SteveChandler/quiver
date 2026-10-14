@@ -6,6 +6,7 @@ import {
   firstSightingFaceHeightFt,
   renderFirstSightingBody,
   selectFirstSightingCandidates,
+  tideReasonSentence,
 } from "@/lib/alerts/swell-outlook/first-sighting";
 import { OUTLOOK_HOME_BEACH_ID as HOME, outlookSwell } from "@/__tests__/helpers/outlook-swell";
 
@@ -222,6 +223,27 @@ describe('tide-aware first-sighting copy and payload', () => {
       timezone: 'America/Los_Angeles', faceHeightFt: { min: 3, max: 4 } },
     reasons: ['high_tide_outside_preference', 'better_tide_after_peak'],
   };
+
+  it.each([
+    [['high_tide_outside_preference', 'better_tide_before_peak'], 'Swell peaks at high tide; go before it fills in.'],
+    [['high_tide_outside_preference', 'better_tide_after_peak'], 'Swell peaks at high tide; go as it drops.'],
+    [['low_tide_outside_preference', 'better_tide_before_peak'], 'Swell peaks at low tide; go before it drops.'],
+    [['low_tide_outside_preference', 'better_tide_after_peak'], 'Swell peaks at low tide; go as it fills in.'],
+  ] as const)('preserves the tide sentence for %j', (reasons, sentence) => {
+    expect(tideReasonSentence(reasons)).toBe(sentence);
+    expect(renderFirstSightingBody({ swell: outlookSwell(), timezone: 'America/Los_Angeles', hazard: null,
+      surfWindow: { ...surfWindow, reasons: [...reasons] } })).toContain(sentence);
+  });
+
+  it('omits tide copy without a validated before/after reason', () => {
+    expect(tideReasonSentence(['high_tide_outside_preference', 'future_reason'])).toBeNull();
+  });
+
+  it('drops unknown future reasons before parsing the notification payload', () => {
+    const payload = buildFirstSightingPayload({ swell: outlookSwell(), timezone: 'America/Los_Angeles',
+      surfWindow: { ...surfWindow, reasons: [...surfWindow.reasons, 'future_reason'] } });
+    expect(payload.surf_window?.reasons).toEqual(surfWindow.reasons);
+  });
 
   it('adds a beach-local window and fixed tide sentence while preserving existing fields', () => {
     const args = { swell: outlookSwell(), timezone: 'Pacific/Honolulu' };
