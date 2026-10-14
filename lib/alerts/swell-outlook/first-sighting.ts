@@ -1,6 +1,6 @@
 import type { TideAwareWindowResult } from '@/lib/alerts/surf-window/tide-aware-window';
 import { formatWindowLabel } from '@/lib/notifications/copy/daily-call-copy';
-import type { Tier } from '@/lib/alerts/entitlements';
+import type { LocationAnchor } from '@/lib/alerts/location-freshness';
 import { buildSwellShareUrl, getSwellCardHeadline } from '@/lib/notifications/copy/swell-card-headline';
 import {
   MAJOR_SWELL_NOTIFICATION_SCHEMA_VERSION,
@@ -25,15 +25,12 @@ const HAZARD_SENTENCES: Record<FirstSightingHazard, string> = {
 /** Listed for the first time and in range for this user, biggest first; sticky and arrived entries never push. */
 export function selectFirstSightingCandidates(args: {
   swells: readonly OutlookSwell[];
-  homeBeachId: string | null;
-  tier: Tier;
   /** Distance from the user's last location (or home beach) to each beach; closer wins a size tie. */
   distanceKmByBeach?: ReadonlyMap<string, number>;
 }): OutlookSwell[] {
   const distance = (swell: OutlookSwell): number => args.distanceKmByBeach?.get(swell.beach.id) ?? Number.POSITIVE_INFINITY;
   return args.swells
     .filter((swell) => swell.status === 'forecast' && swell.firstSightingEligible !== false && swell.fit.status === 'in_range' && swell.periodS !== null)
-    .filter((swell) => args.tier !== 'free' || (args.homeBeachId !== null && swell.beach.id === args.homeBeachId))
     .sort((left, right) => (right.faceHeightFt.max - left.faceHeightFt.max)
       || (distance(left) - distance(right))
       || (Date.parse(left.peakAt) - Date.parse(right.peakAt)));
@@ -115,6 +112,7 @@ export function renderFirstSightingBody(args: {
   timezone: string;
   hazard: FirstSightingHazard | null;
   surfWindow?: TideAwareWindowResult;
+  anchorSource?: LocationAnchor['source'];
 }): string {
   const { swell, timezone, hazard } = args;
   const recommendedWindow = args.surfWindow?.state === 'recommended' ? args.surfWindow.window : null;
@@ -122,7 +120,7 @@ export function renderFirstSightingBody(args: {
   const sentences: Array<{ text: string; priority: number }> = [
     { text: `${swell.directionLabel} swell${sourcePhrase(swell)}${period}.`, priority: 0 },
     { text: timingSentence(swell, timezone), priority: recommendedWindow ? 2 : 0 },
-    { text: `Sets up to ${formatNumber(swell.faceHeightFt.max)} ft at ${swell.beach.name}.`, priority: 0 },
+    { text: `Sets up to ${formatNumber(swell.faceHeightFt.max)} ft at ${swell.beach.name}${args.anchorSource === 'home' ? ', near home' : ''}.`, priority: 0 },
   ];
   if (recommendedWindow) {
     const { start, end, timezone: beachTimezone } = recommendedWindow;
@@ -164,6 +162,7 @@ export function buildFirstSightingPayload(args: {
   timezone: string;
   hazard?: FirstSightingHazard | null;
   surfWindow?: TideAwareWindowResult;
+  anchorSource?: LocationAnchor['source'];
 }): MajorSwellNotificationPayload {
   const { swell, timezone } = args;
   const faceHeightFt = firstSightingFaceHeightFt(swell);
@@ -177,9 +176,10 @@ export function buildFirstSightingPayload(args: {
     peakDayLabel,
     serious,
   });
-  const body = renderFirstSightingBody({ swell, timezone, hazard: args.hazard ?? null, surfWindow: args.surfWindow });
+  const body = renderFirstSightingBody({ swell, timezone, hazard: args.hazard ?? null, surfWindow: args.surfWindow, anchorSource: args.anchorSource });
   return parseMajorSwellNotificationPayload({
     schema_version: MAJOR_SWELL_NOTIFICATION_SCHEMA_VERSION,
+    ...(args.anchorSource ? { anchor_source: args.anchorSource } : {}),
     beach_id: swell.beach.id,
     beach_name: swell.beach.name,
     event_start_date: getLocalDateString(new Date(swell.arrivalAt ?? swell.peakAt), timezone),

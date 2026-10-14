@@ -35,6 +35,7 @@ import { beachSwellEvent } from "@/__tests__/helpers/swell-events";
 import { OUTLOOK_HOME_BEACH_ID as HOME, outlookSwell } from "@/__tests__/helpers/outlook-swell";
 import { resolveNotificationMajorEventHold } from "@/lib/recommendations/major-event-hold/adapters/notification";
 import type { MajorEventHoldCandidate } from "@/lib/recommendations/major-event-hold/types";
+import { canCreateRule } from "@/lib/alerts/entitlements";
 
 const USER = "73040cff-afe9-4fa0-a874-2016203fc015";
 /** Friday 2026-09-18, 10:00 PDT: inside the 6-21 window, not the 17:00 evening-before hour. */
@@ -82,9 +83,9 @@ function makeDeps(overrides: Record<string, unknown> = {}): SwellOutlookDeps & R
     saveEngagement: jest.fn(async () => undefined),
     hasFirstSightingAlert: jest.fn(async () => false),
     assessSwellRarity: jest.fn(async () => false),
-    getTier: jest.fn(async () => "premium" as const),
     loadFirstSightingHazard: jest.fn(async () => null),
-    loadBeachDistancesKm: jest.fn(async () => new Map<string, number>()),
+    loadBeachDistancesKm: jest.fn(async (_profile: SwellAlertProfile, beachIds: readonly string[]) =>
+      new Map(beachIds.map((beachId) => [beachId, 0]))),
     ...overrides,
   } as never as SwellOutlookDeps & Record<string, jest.Mock>;
 }
@@ -206,11 +207,30 @@ describe("swell alert cron: outlook users", () => {
     expect(deps.loadOutlook).not.toHaveBeenCalled();
   });
 
-  it("limits a free user to swells sized at the home beach", async () => {
-    const other = outlookSwell({ id: "other", beach: { id: "ffffffff-0000-4000-8000-000000000002", name: "Elsewhere" } });
-    const deps = makeDeps({ getTier: jest.fn(async () => "free"), loadOutlook: jest.fn(async () => [other]) });
+  it("sends a non-home first sighting to a free user without changing condition-rule eligibility", async () => {
+    const other = outlookSwell({ id: "other", eventKey: "ffffffff-0000-4000-8000-000000000002:NW:2026-09-21",
+      notable: true, beach: { id: "ffffffff-0000-4000-8000-000000000002", name: "Elsewhere" } });
+    expect(canCreateRule({ tier: "free", homeBeachId: HOME, targetBeachId: other.beach.id,
+      existingRuleCount: 0, existingBeachCount: 1, isExistingBeach: false, presetType: null }).allowed).toBe(false);
+    const deps = makeDeps({ loadOutlook: jest.fn(async () => [other]) });
     await runSwellAlertCron({ now: MORNING, deps: deps as never });
-    expect(deps.enqueue).not.toHaveBeenCalled();
+    expect(deps.enqueue).toHaveBeenCalledWith(expect.objectContaining({ payload: expect.objectContaining({ beach_id: other.beach.id }) }));
+    expect(deps.saveFirstTold).toHaveBeenCalledWith(expect.objectContaining({ beachId: other.beach.id, eventKey: other.eventKey }));
+    const pin: SwellFollowupState = { ...pinnedState(), beachId: other.beach.id, eventKey: other.eventKey,
+      lastPeakAt: other.peakAt, lastArrivalAt: other.arrivalAt!, lastFaceHeightFt: 4,
+      lastToldAt: MORNING.toISOString() };
+    const followup = makeDeps({ loadFollowupStates: jest.fn(async () => [pin]), loadOutlook: jest.fn(async () => []),
+      evaluatePinned: jest.fn(async () => ({
+        beach: { id: other.beach.id, name: other.beach.name, shortName: null, slug: null, state: "CA" },
+        forecastAvailable: true,
+        event: beachSwellEvent({ beachId: other.beach.id, eventKey: other.eventKey, peakFaceHeightFt: 8,
+          periodS: 16, directionDeg: 300, peakAt: other.peakAt }),
+        previous: { event: { peakAt: other.peakAt, faceHeightFt: 8, exposure: 1 } },
+      })) });
+    await runSwellAlertCron({ now: new Date(MORNING.getTime() + 25 * 3_600_000), deps: followup });
+    expect(followup.enqueue).toHaveBeenCalledWith(expect.objectContaining({ payload: expect.objectContaining({
+      beach_id: other.beach.id, kind: "bigger",
+    }) }));
   });
 
   it("pins only notable swells for follow-ups", async () => {
@@ -417,14 +437,60 @@ describe("swell alert cron: outlook send boundaries", () => {
   beforeEach(() => jest.spyOn(console, "error").mockImplementation(() => {}));
   afterEach(() => jest.restoreAllMocks());
 
-  it("limits a downgraded free user's follow-ups to the home beach too", async () => {
-    const deps = makeDeps({ getTier: jest.fn(async () => "free"),
-      loadProfiles: jest.fn(async () => [profile({ homeBeachId: "ffffffff-0000-4000-8000-000000000002" })]),
+  it("sends a follow-up for a non-home pin", async () => {
+    const deps = makeDeps({
+      loadProfiles: jest.fn(async () => [profile({ homeBeachId: "ffffffff-0000-4000-8000-000000000002", anchorSource: "location" })]),
       loadFollowupStates: jest.fn(async () => [pinnedState()]),
       evaluatePinned: jest.fn(async () => biggerPinned()), loadOutlook: jest.fn(async () => []) });
     await runSwellAlertCron({ now: MORNING, deps });
+    expect(deps.evaluatePinned).toHaveBeenCalledTimes(1);
+    expect(deps.enqueue).toHaveBeenCalledWith(expect.objectContaining({ payload: expect.objectContaining({ beach_id: HOME, kind: "bigger", anchor_source: "location" }) }));
+  });
+
+  it.each([
+    [5000, "followup_out_of_range"],
+    [undefined, "followup_distance_unavailable"],
+    [NaN, "followup_distance_unavailable"],
+  ] as const)("does not evaluate, claim or record a follow-up at distance %s km", async (distance, reason) => {
+    const deps = makeDeps({
+      loadProfiles: jest.fn(async () => [profile({ location: { lat: 21.28, lon: -157.83 }, maxDriveMinutes: 60 })]),
+      loadFollowupStates: jest.fn(async () => [pinnedState()]),
+      loadBeachDistancesKm: jest.fn(async () => distance === undefined ? new Map() : new Map([[HOME, distance]])),
+      evaluatePinned: jest.fn(async () => biggerPinned()), loadOutlook: jest.fn(async () => []),
+    });
+    const summary = await runSwellAlertCron({ now: MORNING, deps });
+    expect(summary.skippedCounts[reason]).toBe(1);
+    expect(deps.loadBeachDistancesKm).toHaveBeenCalledWith(expect.objectContaining({
+      location: { lat: 21.28, lon: -157.83 }, maxDriveMinutes: 60,
+    }), [HOME]);
     expect(deps.evaluatePinned).not.toHaveBeenCalled();
+    expect(deps.claimFollowup).not.toHaveBeenCalled();
     expect(deps.enqueue).not.toHaveBeenCalled();
+    expect(deps.saveEngagement).not.toHaveBeenCalled();
+  });
+
+  it("counts a failed follow-up distance read without advancing told or engagement state", async () => {
+    jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    const deps = makeDeps({ loadFollowupStates: jest.fn(async () => [pinnedState()]),
+      loadBeachDistancesKm: jest.fn(async () => { throw new Error("distance lookup failed"); }),
+      evaluatePinned: jest.fn(async () => biggerPinned()), loadOutlook: jest.fn(async () => []) });
+    const summary = await runSwellAlertCron({ now: MORNING, deps });
+    expect(summary.skippedCounts.followup_distance_unavailable).toBe(1);
+    expect(deps.evaluatePinned).not.toHaveBeenCalled();
+    expect(deps.claimFollowup).not.toHaveBeenCalled();
+    expect(deps.enqueue).not.toHaveBeenCalled();
+    expect(deps.saveEngagement).not.toHaveBeenCalled();
+  });
+
+  it("sends an in-range follow-up at the drive-radius boundary", async () => {
+    const deps = makeDeps({ loadFollowupStates: jest.fn(async () => [pinnedState()]),
+      loadBeachDistancesKm: jest.fn(async () => new Map([[HOME, 36.21024]])),
+      evaluatePinned: jest.fn(async () => biggerPinned()), loadOutlook: jest.fn(async () => []) });
+    const summary = await runSwellAlertCron({ now: MORNING, deps });
+    expect(summary.sentByKind.bigger).toBe(1);
+    expect(deps.claimFollowup).toHaveBeenCalledTimes(1);
+    expect(deps.enqueue).toHaveBeenCalledTimes(1);
+    expect(savedState(deps).lastSentAt).toBe(MORNING.toISOString());
   });
 
   it.each([6, 21])("sends at the inclusive %i local-hour boundary", async (hour) => {
@@ -487,6 +553,8 @@ describe("swell alert cron: default outlook adapters", () => {
     const result = await runSwellAlertCron({ now: MORNING, supabase: client, deps: dependencies });
     expect(result.sentByKind.coming).toBe(1);
     expect(mocked.enqueue).toHaveBeenCalledWith(expect.objectContaining({ payload: expect.objectContaining({ anchor_source: ageHours === 72 ? "home" : "location", beach_id: ageHours === 72 ? nearbyId : hawaiiId }) }));
+    const body = mocked.enqueue.mock.calls[0][0].payload.body as string;
+    expect(body.includes("near home")).toBe(ageHours === 72);
     expect(from).not.toHaveBeenCalledWith("user_location_snapshots");
     expect(select).toHaveBeenCalledWith(expect.stringContaining("captured_at"));
     expect(select).toHaveBeenCalledWith(expect.stringContaining("notif_forecast_alerts"));
@@ -674,28 +742,13 @@ describe("swell alert cron: exception candidate search", () => {
     expect(deps.assessSwellRarity).not.toHaveBeenCalled();
   });
 
-  it.each([
-    ["null data", null], ["premium-looking data", { is_pro: true, is_trialing: false, expires_at: null }],
-  ])("skips an outlook user on a returned tier error with %s", async (_name, data) => {
-    const query: Record<string, jest.Mock> = {};
-    for (const method of ["select", "eq"]) query[method] = jest.fn(() => query);
-    query.maybeSingle = jest.fn(async () => ({ data, error: { message: "entitlements unavailable" } }));
-    const from = jest.fn(() => query);
-    const deps = makeDeps({ getTier: undefined, loadFollowupStates: jest.fn(async () => [pinnedState()]),
-      evaluatePinned: jest.fn(async () => biggerPinned()), loadOutlook: jest.fn(async () => [early,
-        outlookSwell({ beach: { id: "ffffffff-0000-4000-8000-000000000002", name: "Elsewhere" } })]) });
-    const summary = await runSwellAlertCron({ now: MORNING, supabase: { from } as unknown as SupabaseClient<Database>, deps });
-    expect(summary.errors).toBe(1);
+  it("counts a missing location anchor and sends neither first sightings nor follow-ups", async () => {
+    const deps = makeDeps({ loadProfiles: jest.fn(async () => [profile({ homeBeachId: null, location: null, anchorSource: "none" })]),
+      loadFollowupStates: jest.fn(async () => [pinnedState()]), evaluatePinned: jest.fn(async () => biggerPinned()) });
+    const summary = await runSwellAlertCron({ now: MORNING, deps });
+    expect(summary.skippedCounts.skipped_no_location_anchor).toBe(1);
     expect(deps.loadOutlook).not.toHaveBeenCalled();
     expect(deps.evaluatePinned).not.toHaveBeenCalled();
-    expect(deps.enqueue).not.toHaveBeenCalled();
-  });
-
-  it("isolates a rejected tier lookup and sends nothing to that user", async () => {
-    const deps = makeDeps({ getTier: jest.fn(async () => { throw new Error("network failure"); }) });
-    const summary = await runSwellAlertCron({ now: MORNING, deps });
-    expect(summary.errors).toBe(1);
-    expect(deps.loadOutlook).not.toHaveBeenCalled();
     expect(deps.enqueue).not.toHaveBeenCalled();
   });
 });
@@ -704,8 +757,8 @@ describe("swell alert cron: exception eligibility filters", () => {
   beforeEach(() => jest.spyOn(console, "error").mockImplementation(() => {}));
   afterEach(() => jest.restoreAllMocks());
 
-  it("keeps a free user's exception inside forecast, in-range, home-beach filters", async () => {
-    const deps = makeDeps({ getTier: jest.fn(async () => "free"),
+  it("keeps an exception inside forecast and in-range filters", async () => {
+    const deps = makeDeps({
       loadEngagement: jest.fn(async () => engagement({ consecutiveUnanswered: 3,
         lastSentAt: hoursAgo(408), pausedSince: hoursAgo(360) })),
       assessSwellRarity: jest.fn(async () => true),
@@ -719,8 +772,8 @@ describe("swell alert cron: exception eligibility filters", () => {
     const summary = await runSwellAlertCron({ now: MORNING, deps });
     expect(summary.sent).toBe(1);
     expect(deps.assessSwellRarity).toHaveBeenCalledTimes(1);
-    expect(deps.assessSwellRarity).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ id: "home" }), MORNING);
-    expect(deps.insertAlert).toHaveBeenCalledWith(expect.objectContaining({ eventKey: "home", leadBeachId: HOME }));
+    expect(deps.assessSwellRarity).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ id: "other" }), MORNING);
+    expect(deps.insertAlert).toHaveBeenCalledWith(expect.objectContaining({ eventKey: "other", leadBeachId: "ffffffff-0000-4000-8000-000000000002" }));
   });
 
   it("does not assess or send an exception outside send hours", async () => {
@@ -746,9 +799,9 @@ describe("swell alert cron: exception eligibility filters", () => {
     expect(deps.saveEngagement).not.toHaveBeenCalled();
   });
 
-  it("continues processing other users after an entitlement rejection", async () => {
+  it("continues processing other users after an outlook read failure", async () => {
     const deps = makeDeps({ loadProfiles: jest.fn(async () => [profile(), profile({ id: "second-user" })]),
-      getTier: jest.fn().mockRejectedValueOnce(new Error("network failure")).mockResolvedValue("free") });
+      loadOutlook: jest.fn().mockRejectedValueOnce(new Error("network failure")).mockResolvedValue([outlookSwell()]) });
     const summary = await runSwellAlertCron({ now: MORNING, deps });
     expect(summary.errors).toBe(1);
     expect(summary.sent).toBe(1);

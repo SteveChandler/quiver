@@ -257,7 +257,7 @@ describe("pinned swell follow-ups on the real detector", () => {
     const first = await run(client({ forecasts, states: [] }), oct6, {
       isOutlookEnabled: () => true, isOutlookUserAllowed: () => true,
       loadOutlook: async () => swells, loadEngagement: async () => null, saveEngagement: async () => undefined,
-      getTier: async () => "premium", hasFirstSightingAlert: async () => false,
+      hasFirstSightingAlert: async () => false,
       insertAlert: async () => ({ id: "first-alert" }), markAlertEnqueued: async () => undefined,
       loadFirstSightingHazard: async () => null, loadBeachDistancesKm: async () => new Map(), saveFirstTold,
     });
