@@ -11,7 +11,7 @@ import {
 import { PUSH_DECISION_EVENTS, type PushAttemptRow, type PushUserEventRow, type UserDeviceRow } from "../lib/analytics/push-telemetry-v1";
 import {
   createReadOnlySupabaseFromEnv, loadProfileExclusions, resolveCompleteDayWindow,
-  selectAllPages, type ReadOnlySupabase,
+  selectAllPages, USER_EVENT_USER_CHUNK_SIZE, type ReadOnlySupabase,
 } from "../lib/analytics/report-guards";
 import { loadPushOpens } from "./push-telemetry-report";
 
@@ -116,11 +116,13 @@ export async function loadAlertAttributionInput(client: ReadOnlySupabase, option
   }
   const events = [...stageRows];
   const eventTypes = unique(["native_open_from_email", ...MEANINGFUL_ACTIVITY_EVENTS, ...PUSH_DECISION_EVENTS]);
-  for (const ids of chunks(userIds)) {
+  for (const ids of chunks(userIds, USER_EVENT_USER_CHUNK_SIZE)) {
     events.push(...await selectAllPages<PushUserEventRow>(() => client.from("user_events")
       .select(USER_EVENT_COLUMNS).in("user_id", ids).in("event_type", eventTypes)
-      .gte("created_at", window.start).lt("created_at", end).order("created_at").order("id")));
+      .gte("created_at", window.start).lt("created_at", end)
+      .order("user_id").order("created_at", { ascending: false }).order("id")));
   }
+  events.sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at) || a.id.localeCompare(b.id));
   const pushOpens = await loadPushOpens(client, { start: window.start,
     end: new Date(Math.min(Date.parse(asOf) + 1, Date.parse(window.end) + openHorizonHours * HOUR_MS)).toISOString() });
   const devices: UserDeviceRow[] = [];

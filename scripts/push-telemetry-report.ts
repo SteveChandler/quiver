@@ -5,7 +5,7 @@ import { dirname, resolve } from "node:path";
 import { config } from "./load-env.mjs";
 import {
   createReadOnlySupabaseFromEnv, loadProfileExclusions, resolveCompleteDayWindow,
-  selectAllPages, type ReadOnlySupabase,
+  selectAllPages, USER_EVENT_USER_CHUNK_SIZE, type ReadOnlySupabase,
 } from "../lib/analytics/report-guards";
 import { MEANINGFUL_ACTIVITY_EVENTS } from "../lib/analytics/install-to-paid-funnel-v1";
 import {
@@ -150,11 +150,11 @@ export async function loadPushTelemetryInput(client: ReadOnlySupabase, options: 
   const eventEnd = new Date(Math.min(Date.parse(asOf) + 1,
     Date.parse(window.end) + options.openHorizonHours * HOUR_MS + options.decisionHorizonMinutes * MINUTE_MS)).toISOString();
   const userEvents: PushUserEventRow[] = [];
-  for (const ids of chunks(recipientIds)) {
+  for (const ids of chunks(recipientIds, USER_EVENT_USER_CHUNK_SIZE)) {
     userEvents.push(...await selectAllPages<PushUserEventRow>(() => client.from("user_events")
       .select(userEventColumns).in("user_id", ids).in("event_type", USER_EVENT_TYPES)
       .gte("created_at", eventStart).lt("created_at", eventEnd)
-      .order("created_at").order("id")));
+      .order("user_id").order("created_at", { ascending: false }).order("id")));
   }
   const orphanCandidateOpens = await loadPushOpens(client, {
     start: window.start,
@@ -165,7 +165,7 @@ export async function loadPushTelemetryInput(client: ReadOnlySupabase, options: 
   for (const open of orphanCandidateOpens) {
     if (!seenUserEventIds.has(open.id)) userEvents.push(open);
   }
-  userEvents.sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id));
+  userEvents.sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at) || a.id.localeCompare(b.id));
   const knownPushAttemptIds = new Set<string>(attempts.map((row) => row.notification_event_id));
   for (const ids of chunks(unique(orphanCandidateOpens.map(pushId)))) {
     const rows = await selectAllPages<Pick<PushAttemptRow, "id" | "notification_event_id" | "created_at">>(() =>

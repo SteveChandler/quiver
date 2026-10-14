@@ -8,6 +8,8 @@ export const INTERNAL_ANALYTICS_PROFILE_IDS: ReadonlyMap<string, string> = new M
 ]);
 
 export const POSTHOG_INTERNAL_COHORT_ID = 309795;
+// Larger per-user event batches can exceed PostgREST's 8-second statement timeout.
+export const USER_EVENT_USER_CHUNK_SIZE = 25;
 
 export interface ReportProfile {
   id: string;
