@@ -382,8 +382,8 @@ async function _GET(request: Request): Promise<Response> {
       const { data: previous, error } = await supabase.from("cron_runs").select("summary")
         .in("job", ["/api/cron/forecasts/refresh?source=all", "/api/cron/forecasts/refresh?source=tide"])
         .order("started_at", { ascending: false }).limit(1).maybeSingle();
-      if (error) throw error;
-      const summary = previous?.summary;
+      if (error) console.warn("[Forecast Refresh] Pending tide reconciliation lookup failed", error);
+      const summary = error ? null : previous?.summary;
       const result = summary && typeof summary === "object" && !Array.isArray(summary) ? summary.result : null;
       const tideSummary = result && typeof result === "object" && !Array.isArray(result) ? result.tideIngest : null;
       const pending = tideSummary && typeof tideSummary === "object" && !Array.isArray(tideSummary)
@@ -870,7 +870,13 @@ async function _GET(request: Request): Promise<Response> {
               totals.tides += chunk.length;
             }
           }
-          if (upsertFailed) return "upsert_failed";
+          if (upsertFailed) {
+            if (wroteRows) {
+              beachIds.forEach((beachId) => reconcilePendingBeachIds.add(beachId));
+              return "reconcile_incomplete";
+            }
+            return "upsert_failed";
+          }
           if (shouldStop()) return wroteRows ? "reconcile_incomplete" : "time_budget";
 
           const supersede = await supabase.from("tide_forecasts")
@@ -897,19 +903,15 @@ async function _GET(request: Request): Promise<Response> {
           if (shouldStop()) return "reconcile_incomplete";
 
           if (rows[0]?.source === "noaa") {
-            const writtenHours = [...new Set(rows.map((row) => row.ts))];
-            for (const hours of splitIntoChunks(writtenHours, 100)) {
-              if (shouldStop()) return "reconcile_incomplete";
-              const { error } = await supabase.from("tide_forecasts")
-                .delete()
-                .in("beach_id", beachIds).eq("station_id", stationId)
-                .eq("source", "noaa_hilo_interpolated")
-                .in("ts", hours).gte("ts", firstTs).lte("ts", lastTs)
-                .lt("created_at", refreshedAt);
-              if (error) {
-                console.warn("[Forecast Refresh] Tide fallback reconciliation failed", { stationId, error });
-                return "reconcile_incomplete";
-              }
+            const { error } = await supabase.from("tide_forecasts")
+              .delete()
+              .in("beach_id", beachIds).eq("station_id", stationId)
+              .eq("source", "noaa_hilo_interpolated")
+              .gte("ts", firstTs).lte("ts", lastTs)
+              .lt("created_at", refreshedAt);
+            if (error) {
+              console.warn("[Forecast Refresh] Tide fallback reconciliation failed", { stationId, error });
+              return "reconcile_incomplete";
             }
           }
           return null;
@@ -1105,9 +1107,6 @@ async function _GET(request: Request): Promise<Response> {
           if (marineIncomplete()) {
             const reasons = Object.keys(marineCoverage.rejectionCounts);
             return `marine refresh failed: ${reasons.length ? reasons.join(", ") : "beaches left unattempted"}`;
-          }
-          if (runTide && tideIngest.reconcilePendingBeachIds.length > 0) {
-            return `tide reconciliation incomplete for ${tideIngest.reconcilePendingBeachIds.length} beach(es)`;
           }
           const lapsing = tideIngest.beachesBelowMinCoverage;
           if (runTide && lapsing > 0) {

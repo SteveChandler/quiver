@@ -536,7 +536,7 @@ describe("/api/cron/forecasts/refresh (tides)", () => {
       expect(json.data.tideIngest.failedStations).toEqual([{ stationId: "9410230", beaches: 1, reason: "reconcile_incomplete" }]);
       expect(json.data.tideIngest.reconcilePendingBeachIds).toEqual(["beach-a"]);
       expect(json.data.tideIngest.beachIdsBelowMinCoverage).toEqual(["beach-a"]);
-      expect(failureReason).toContain("tide reconciliation incomplete");
+      expect(failureReason).toBe("tide coverage under 7 days for 1 beach");
     });
 
     it("selects direct hours before writing fallback rows", async () => {
@@ -660,6 +660,16 @@ describe("/api/cron/forecasts/refresh (tides)", () => {
       const directHours = new Set(store.rows.filter((row) => row.source === "noaa").map((row) => row.ts));
       expect(directHours.size).toBe(3);
       expect(store.rows.filter((row) => directHours.has(row.ts) && row.source === "noaa_hilo_interpolated")).toEqual([]);
+      const sortedHours = [...directHours].sort();
+      expect(store.deletes).toHaveLength(5);
+      expect(store.deletes[4]).toEqual([
+        ["in", "beach_id", ["beach-a"]],
+        ["eq", "station_id", "S1"],
+        ["eq", "source", "noaa_hilo_interpolated"],
+        ["gte", "ts", sortedHours[0]],
+        ["lte", "ts", sortedHours[2]],
+        ["lt", "created_at", "2026-10-14T00:01:00.000Z"],
+      ]);
     });
 
     it("keeps older direct hours and excludes them from a later fallback batch", async () => {
@@ -735,6 +745,52 @@ describe("/api/cron/forecasts/refresh (tides)", () => {
       } finally {
         delete process.env.FORECAST_CRON_TIME_BUDGET_MS;
       }
+    });
+
+    it("keeps a partial upsert pending when the retry fails before writing", async () => {
+      mockGetNearestTideStation.mockResolvedValue(station("S1"));
+      mockFetchHourlyTidePredictions.mockResolvedValue(hourlyPoints(1001));
+      const upsert = jest.fn()
+        .mockResolvedValueOnce({ error: null })
+        .mockResolvedValue({ error: { message: "statement timeout" } });
+      const tides = tideForecastsMock(upsert);
+      mockSupabaseFrom.mockImplementation((table: string) => {
+        if (table === "beaches") return thenable({ data: [{ id: "beach-a", name: "Beach", lat: 32.86, lon: -117.26 }], error: null });
+        if (table === "v_tide_forecast_latest") return thenable({ data: [{ beach_id: "beach-a", created_at: new Date(Date.now() - 2 * DAY_MS).toISOString() }], error: null });
+        if (table === "cron_runs") return thenable({ data: null, error: null });
+        if (table === "tide_forecasts") return tides;
+        return { upsert: jest.fn(async () => ({ error: null })) };
+      });
+
+      const { json, failureReason } = await runTideRefresh("source=tide");
+
+      expectConsoleWarnings([/Tide upsert failed/]);
+      expect(upsert).toHaveBeenCalledTimes(4);
+      expect(tides.deleteCalls).toHaveLength(0);
+      expect(json.data.totals.tides).toBe(1000);
+      expect(json.data.tideIngest.failedStations).toEqual([{ stationId: "S1", beaches: 1, reason: "upsert_failed" }]);
+      expect(json.data.tideIngest.reconcilePendingBeachIds).toEqual(["beach-a"]);
+      expect(failureReason).toBeNull();
+    });
+
+    it("continues tide ingest when the previous pending lookup fails", async () => {
+      mockGetNearestTideStation.mockResolvedValue(station("S1"));
+      mockFetchHourlyTidePredictions.mockResolvedValue(hourlyPoints(3));
+      const tides = tideForecastsMock(jest.fn(async () => ({ error: null })));
+      mockSupabaseFrom.mockImplementation((table: string) => {
+        if (table === "beaches") return thenable({ data: [{ id: "beach-a", name: "Beach", lat: 32.86, lon: -117.26 }], error: null });
+        if (table === "v_tide_forecast_latest") return thenable({ data: [{ beach_id: "beach-a", created_at: new Date(Date.now() - 2 * DAY_MS).toISOString() }], error: null });
+        if (table === "cron_runs") return thenable({ data: null, error: { message: "read timed out" } });
+        if (table === "tide_forecasts") return tides;
+        return { upsert: jest.fn(async () => ({ error: null })) };
+      });
+
+      const { json, failureReason } = await runTideRefresh("source=tide");
+
+      expectConsoleWarnings([/Pending tide reconciliation lookup failed/]);
+      expect(tides.upsert).toHaveBeenCalledTimes(1);
+      expect(json.data.tideIngest.reconcilePendingBeachIds).toEqual([]);
+      expect(failureReason).toBeNull();
     });
 
     it("reselects a fresh beach carried from a previous incomplete run", async () => {

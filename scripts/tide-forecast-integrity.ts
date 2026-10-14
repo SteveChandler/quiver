@@ -2,6 +2,8 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { config as loadEnv } from "./load-env.mjs";
 import path from "node:path";
 import { tideCleanupRows, type TideIntegrityRow } from "../lib/services/tide-forecast-batch-utils";
+import { getNearestTideStation } from "../lib/services/noaa-tide-service";
+import { getBeachModelTides } from "../lib/services/tides/model-tides";
 
 loadEnv({ path: path.resolve(process.cwd(), ".env") });
 loadEnv({ path: path.resolve(process.cwd(), ".env.local"), override: true });
@@ -59,13 +61,25 @@ export async function fetchTideWindow(client: SupabaseClient, from: string, to: 
 export async function fetchTideBeachIds(client: SupabaseClient): Promise<{ allIds: string[]; selectedIds: string[] }> {
   const allIds: string[] = [];
   const selectedIds: string[] = [];
+  const stationByCoordinates = new Map<string, boolean>();
   for (let offset = 0; ; offset += PAGE_SIZE) {
     const { data, error } = await client.from("beaches").select("id,lat,lon")
       .order("id").range(offset, offset + PAGE_SIZE - 1);
     if (error || !data) throw new Error(`Beach page ${offset}: ${error?.message ?? "no data"}`);
     for (const row of data) {
       allIds.push(row.id);
-      if (row.lat !== null && row.lon !== null) selectedIds.push(row.id);
+      if (row.lat === null || row.lon === null) continue;
+      if (getBeachModelTides(row.id)) {
+        selectedIds.push(row.id);
+        continue;
+      }
+      const coordinates = `${row.lat},${row.lon}`;
+      let hasStation = stationByCoordinates.get(coordinates);
+      if (hasStation === undefined) {
+        hasStation = Boolean(await getNearestTideStation(row.lat, row.lon));
+        stationByCoordinates.set(coordinates, hasStation);
+      }
+      if (hasStation) selectedIds.push(row.id);
     }
     if (data.length < PAGE_SIZE) break;
   }

@@ -110,3 +110,25 @@ export function tideCleanupRows<T extends TideIntegrityRow>(rows: readonly T[]):
   }
   return discarded;
 }
+
+export function tideCleanupDeleteBatches(
+  rows: readonly Pick<TideIntegrityRow, "beach_id" | "ts" | "source" | "created_at">[],
+): Array<{ beachId: string; source: string; createdAt: string; hours: string[] }> {
+  const groups = new Map<string, { beachId: string; source: string; createdAt: string; hours: string[] }>();
+  for (const row of rows) {
+    const key = JSON.stringify([row.beach_id, row.source, row.created_at]);
+    let group = groups.get(key);
+    if (!group) {
+      group = { beachId: row.beach_id, source: row.source, createdAt: row.created_at, hours: [] };
+      groups.set(key, group);
+    }
+    group.hours.push(row.ts);
+  }
+  return [...groups.values()].flatMap(({ beachId, source, createdAt, hours }) => {
+    const batches = [];
+    for (let offset = 0; offset < hours.length; offset += 100) {
+      batches.push({ beachId, source, createdAt, hours: hours.slice(offset, offset + 100) });
+    }
+    return batches;
+  });
+}

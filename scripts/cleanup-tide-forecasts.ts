@@ -4,6 +4,7 @@
  * are regenerable predictions.
  */
 import { fetchTideBeachIds, fetchTideWindow, parseWindow, printTideReport, summarizeTideWindow, tideReportClient } from "./tide-forecast-integrity";
+import { tideCleanupDeleteBatches } from "../lib/services/tide-forecast-batch-utils";
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
@@ -23,13 +24,11 @@ async function main(): Promise<void> {
   if (!args.includes("--apply")) return;
   const confirm = args.find((arg) => arg.startsWith("--confirm="))?.split("=")[1];
   if (confirm !== String(deleteRows.length)) throw new Error(`--apply requires --confirm=${deleteRows.length}`);
-  for (let offset = 0; offset < deleteRows.length; offset += 25) {
-    for (const row of deleteRows.slice(offset, offset + 25)) {
-      const { error } = await client.from("tide_forecasts").delete()
-        .eq("beach_id", row.beach_id).eq("ts", row.ts).eq("source", row.source)
-        .eq("created_at", row.created_at);
-      if (error) throw new Error(`Delete ${row.beach_id} ${row.ts} ${row.source}: ${error.message}`);
-    }
+  for (const batch of tideCleanupDeleteBatches(deleteRows)) {
+    const { error } = await client.from("tide_forecasts").delete()
+      .eq("beach_id", batch.beachId).eq("source", batch.source)
+      .eq("created_at", batch.createdAt).in("ts", batch.hours);
+    if (error) throw new Error(`Delete ${batch.beachId} ${batch.source} ${batch.createdAt}: ${error.message}`);
   }
   console.log("Actual after:");
   printTideReport(summarizeTideWindow(await fetchTideWindow(client, from, to, allIds), selectedIds, from, to), from, to);
