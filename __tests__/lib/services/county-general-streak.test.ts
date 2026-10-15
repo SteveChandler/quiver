@@ -3,6 +3,7 @@ import { resolveCountyGeneralAdvisory } from "@/lib/services/county-beach-adviso
 import type { WaterQualityHoldClient } from "@/lib/recommendations/major-event-hold/water-quality";
 import { resolveWaterQualityHolds } from "@/lib/recommendations/major-event-hold/water-quality";
 import { currentWaterQuality } from "@/lib/services/water-quality/current-status";
+import { runRainfallRunoffIngest } from "@/lib/services/water-quality/rainfall-runoff-ingest";
 
 const source = "county-san-diego-dehq-sdbeachinfo";
 const baseline = { id: "11111111-1111-4111-8111-111111111111", fetched_at: "2026-10-11T13:30:43Z", advisory_count: 7, status: "completed", source_identifier: source };
@@ -93,6 +94,23 @@ describe("County general advisory streak", () => {
 
   it("keeps the advisory active on a San Diego rain query error", async () => {
     const result = await resolveCountyGeneralAdvisory(clientFor([baseline, first, latest], sites, false, withRain([dryReading("2026-10-14T14:00:43Z")]), true), latest, new Date("2026-10-14T14:00:43Z"));
+    expect(result).toMatchObject({ expired: false, streakStartedAt: first.fetched_at, rainState: "unknown" });
+  });
+
+  it("keeps the advisory active when an ingested San Diego station has only 30 reporting hours", async () => {
+    const now = new Date("2026-10-14T20:30:00Z");
+    const ingest = await runRainfallRunoffIngest({
+      now,
+      fetchMetars: async (icao) => Array.from({ length: icao === "KCRQ" ? 30 : 72 }, (_, hour) => ({
+        icaoId: icao, metarType: "METAR", precip: null, rawOb: `METAR ${icao} AO2`,
+        reportTime: new Date(now.getTime() - hour * 3600_000 - 9 * 60_000).toISOString(),
+      })),
+      writeReadings: async () => undefined,
+    });
+    const reading = ingest.readings.find((row) => row.cluster_id === "san_diego");
+    expect(reading).toEqual({ cluster_id: "san_diego", window_end: now.toISOString(), total_in: 0,
+      station_totals: { KSAN: 0, KNZY: 0 } });
+    const result = await resolveCountyGeneralAdvisory(clientFor([baseline, first, latest], sites, false, withRain([reading])), latest, now);
     expect(result).toMatchObject({ expired: false, streakStartedAt: first.fetched_at, rainState: "unknown" });
   });
 

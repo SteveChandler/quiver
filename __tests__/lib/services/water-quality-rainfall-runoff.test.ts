@@ -173,6 +173,21 @@ describe("runRainfallRunoffIngest", () => {
       station_totals: { KSAN: 0, KCRQ: 0.23, KNZY: 0 } });
   });
 
+  it.each([30, 65, 66])("requires 66 reporting hours for County station totals (KCRQ: %s)", async (hours) => {
+    const result = await runRainfallRunoffIngest({
+      now: windowEnd,
+      fetchMetars: async (icao) => hourly(icao, icao === "KLGB" ? { 4: 0.12 } : {},
+        icao === "KCRQ" ? hours : icao === "KNZY" ? 66 : icao === "KLGB" ? 30 : 72),
+      writeReadings: async () => undefined,
+    });
+    expect(result.readings.find((row) => row.cluster_id === "san_diego")).toEqual({
+      cluster_id: "san_diego", window_end: windowEnd.toISOString(), total_in: 0,
+      station_totals: hours >= 66 ? { KSAN: 0, KCRQ: 0, KNZY: 0 } : { KSAN: 0, KNZY: 0 },
+    });
+    expect(result.readings.find((row) => row.cluster_id === "huntington_newport")?.station_totals)
+      .toEqual({ KLGB: 0.12, KSNA: 0 });
+  });
+
   it("retries a station once after a failed request", async () => {
     const calls = new Map<string, number>();
     const rows: Array<{ cluster_id: string; total_in: number }> = [];

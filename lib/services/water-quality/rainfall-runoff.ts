@@ -5,7 +5,7 @@ export const RAIN_RUNOFF_THRESHOLD_IN = 0.2;
 const RAIN_WINDOW_HOURS = 72;
 /** The job runs every 3 h; this tolerates one missed run before the notice lapses. */
 export const RAIN_READING_MAX_AGE_MS = 7 * 60 * 60 * 1000;
-const MIN_STATION_HOURS = RAIN_WINDOW_HOURS - 6;
+export const MIN_STATION_HOURS = RAIN_WINDOW_HOURS - 6;
 const MAX_CLUSTER_DISTANCE_KM = 40;
 const HOUR_MS = 60 * 60 * 1000;
 
