@@ -233,6 +233,22 @@ describe("selectTitle", () => {
     expect([...selected.title].length).toBe(TITLE_MAX_CHARS);
   });
 
+  it("hard-truncates instead of dropping the beach for a 38-code-point window", () => {
+    const selected = selectTitle({
+      pool: "daily",
+      tags: ["generic"],
+      userId: "user-1",
+      eventKey: "2026-10-10",
+      recentTitleIds: titlePool.daily.map((entry) => entry.id),
+      recentFilmCount: 0,
+      vars: { ...vars, beach: "Blacks", window: "A".repeat(38) },
+    });
+
+    expect(selected.id).toBe("fallback");
+    expect(selected.title).toBe(`Blacks ${"A".repeat(32)}…`);
+    expect([...selected.title].length).toBeLessThanOrEqual(TITLE_MAX_CHARS);
+  });
+
   it("hard-truncates an oversized swell fallback", () => {
     const rendered = `Swell peaks ${"A".repeat(45)}`;
     const selected = selectTitle(swellArgs({

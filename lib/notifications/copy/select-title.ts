@@ -97,7 +97,7 @@ function fallbackTitle(pool: Pool, vars: TitleVars): string {
   }
 
   const beachChars = TITLE_MAX_CHARS - titleLength(vars.window) - 2;
-  if (beachChars >= 0) {
+  if (beachChars > 0) {
     const shortenedBeach = [...beach].slice(0, beachChars).join("").trimEnd();
     const withWindow = `${shortenedBeach}… ${vars.window}`;
     if (titleLength(withWindow) <= TITLE_MAX_CHARS) return withWindow;
