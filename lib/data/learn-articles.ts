@@ -1533,9 +1533,9 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "answer",
         heading: "The Short Answer",
-        content: `<p>The standard recommendation from the <strong>Surfrider Foundation</strong> and public health agencies is wait <strong>72 hours</strong> after rain before surfing near urban areas. Storm drains flush bacteria (fecal coliform, Enterococcus), chemicals, oil, pesticides, and debris into the ocean. A Surfrider study found <strong>12 extra illness cases per 1,000 surfers</strong> exposed to wet-weather runoff. Risk varies by location, rainfall intensity, and proximity to storm drain outfalls and river mouths.</p>`,
+        content: `<p>The standard recommendation from the <strong>Surfrider Foundation</strong> and public health agencies is wait <strong>72 hours</strong> after the last rain before surfing near urban areas. Storm drains flush bacteria (fecal coliform, Enterococcus), chemicals, oil, pesticides, and debris into the ocean. A Surfrider study found <strong>12 extra illness cases per 1,000 surfers</strong> exposed to wet-weather runoff. Risk varies by location, rainfall intensity, and proximity to storm drain outfalls and river mouths.</p>`,
         keyTakeaway:
-          "Wait 72 hours after rain near urban areas. Storm drains flush bacteria and chemicals. Risk increases near river mouths and storm drain outfalls.",
+          "Wait 72 hours after the last rain near urban areas. Storm drains flush bacteria and chemicals. Risk increases near river mouths and storm drain outfalls.",
       },
       {
         id: "surfing-while-raining",
@@ -1554,7 +1554,7 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "practical",
         heading: "What This Means for Your Session",
-        content: `<p>After rain, <strong>avoid breaks near storm drains, river mouths, and harbors for 72 hours</strong>. Check local water quality reports — Heal the Bay (California) and Surfrider publish near-real-time beach grades. If you must surf sooner, choose an <strong>open-coast break far from runoff sources</strong> with good water circulation. Avoid getting water in your mouth, eyes, and open cuts. Shower immediately after. Ear plugs reduce ear infection risk. If you develop <strong>fever, gastrointestinal symptoms, or ear/sinus infection</strong> within 72 hours of surfing post-rain, see a doctor and mention ocean exposure.</p>`,
+        content: `<p>After rain, <strong>avoid breaks near storm drains, river mouths, and harbors until 72 hours after rain stops</strong>. Check local water quality reports — Heal the Bay (California) and Surfrider publish near-real-time beach grades. If you must surf sooner, choose an <strong>open-coast break far from runoff sources</strong> with good water circulation. Avoid getting water in your mouth, eyes, and open cuts. Shower immediately after. Ear plugs reduce ear infection risk. If you develop <strong>fever, gastrointestinal symptoms, or ear/sinus infection</strong> within 72 hours of surfing post-rain, see a doctor and mention ocean exposure.</p>`,
         keyTakeaway:
           "Check Heal the Bay or Surfrider water quality reports. Choose open-coast breaks far from drains. Shower immediately after surfing post-rain.",
       },
@@ -1563,7 +1563,7 @@ export const learnArticles: LearnArticle[] = [
       {
         question: "Is the 72-hour rule always necessary?",
         answer:
-          "It depends on location. Open coastline far from rivers clears in 24-48 hours. Near river mouths or harbors, 72 hours is the minimum. After major storms, some areas like the Tijuana River zone can stay contaminated for a week or more.",
+          "It depends on location. Open coastline far from rivers clears in 24-48 hours. Near river mouths or harbors, 72 hours after rain stops is the minimum. After major storms, some areas like the Tijuana River zone can stay contaminated for a week or more.",
       },
       {
         question: "Can rain actually improve surf conditions?",
@@ -3353,9 +3353,9 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "water-safety",
         heading: "Water Temperature, Rip Currents, and Rain",
-        content: `<p>Carlsbad water is cold enough for a wetsuit most of the year, with the coldest water in winter and spring and the warmest in late summer. Check today's reading on <a href="/water-temp/carlsbad">Carlsbad water temperature</a> and pick thickness from that, using the <a href="/learn/what-wetsuit-thickness-do-i-need">wetsuit thickness guide</a>.</p><p>Every Carlsbad beach break can form <a href="/learn/what-is-a-rip-current">rip currents</a>, especially near the jetties and where sandbars have gaps. Look for darker, calmer channels between breaking waves, ask the lifeguards where to practice, and stay near a staffed tower when one is open. After rain, the County of San Diego issues a general advisory to avoid ocean contact for 72 hours, and the lagoon mouths carry runoff to the beach. Read <a href="/learn/is-it-safe-to-surf-after-rain">surfing after rain</a> before you go.</p>`,
+        content: `<p>Carlsbad water is cold enough for a wetsuit most of the year, with the coldest water in winter and spring and the warmest in late summer. Check today's reading on <a href="/water-temp/carlsbad">Carlsbad water temperature</a> and pick thickness from that, using the <a href="/learn/what-wetsuit-thickness-do-i-need">wetsuit thickness guide</a>.</p><p>Every Carlsbad beach break can form <a href="/learn/what-is-a-rip-current">rip currents</a>, especially near the jetties and where sandbars have gaps. Look for darker, calmer channels between breaking waves, ask the lifeguards where to practice, and stay near a staffed tower when one is open. After rain, the County of San Diego issues a general advisory to avoid ocean contact until at least 72 hours after the last rain, and the lagoon mouths carry runoff to the beach. Read <a href="/learn/is-it-safe-to-surf-after-rain">surfing after rain</a> before you go.</p>`,
         keyTakeaway:
-          "Wear a wetsuit sized for today's water, practice near a staffed tower away from rips and jetties, and stay out for 72 hours after rain.",
+          "Wear a wetsuit sized for today's water, practice near a staffed tower away from rips and jetties, and stay out until at least 72 hours after the last rain.",
       },
       {
         id: "lineup",
@@ -3399,7 +3399,7 @@ export const learnArticles: LearnArticle[] = [
       {
         question: "Can you surf in Carlsbad after it rains?",
         answer:
-          "Wait. The County of San Diego advises avoiding ocean contact for 72 hours after rain, and Carlsbad's lagoon mouths carry runoff onto the beaches. Check the current advisory before going in.",
+          "Wait. The County of San Diego advises avoiding ocean contact until at least 72 hours after the last rain, and Carlsbad's lagoon mouths carry runoff onto the beaches. Check the current advisory before going in.",
       },
     ],
     relatedLinks: [

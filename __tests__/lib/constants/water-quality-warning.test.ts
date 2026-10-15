@@ -12,7 +12,7 @@ describe("waterQualityWarning", () => {
   });
 
   it("uses the rainfall wording only where no County status exists", () => {
-    expect(waterQualityWarning("advisory", undefined, true)).toBe("Rain runoff advisory — avoid storm drains and river mouths for 72 hours");
+    expect(waterQualityWarning("advisory", undefined, true)).toBe("Rain runoff advisory — avoid storm drains and river mouths until 72 hours after rain stops");
     expect(waterQualityWarning("advisory", "general", true)).toMatch(/^County rain advisory/);
     expect(waterQualityWarning("advisory", "site", true)).toBe("Water quality advisory — elevated bacteria levels");
   });
