@@ -106,7 +106,7 @@ describe("applyRainfallNotice", () => {
     expect(out.status).toBe("advisory");
     expect(out.status_reason).toMatch(/storm drains/);
     expect(out.status_reason).toMatch(/river mouths/);
-    expect(out.status_reason).toMatch(/72 hours/);
+    expect(out.status_reason).toContain("Avoid those areas until 72 hours after the rain stops.");
     expect(out.rain_runoff).toEqual({ total_in: 0.2, window_end: windowEnd.toISOString(), stations: ["KLGB", "KSNA"] });
   });
 
@@ -155,6 +155,37 @@ describe("runRainfallRunoffIngest", () => {
     expect(rows).toContainEqual(expect.objectContaining({
       cluster_id: "huntington_newport", total_in: 0.38, window_end: windowEnd.toISOString(),
     }));
+  });
+
+  it("writes San Diego rainfall from KSAN, KCRQ and KNZY for County advisory expiry", async () => {
+    const fetched: string[] = [];
+    const rows: RainfallReading[] = [];
+    await runRainfallRunoffIngest({
+      now: windowEnd,
+      fetchMetars: async (icao) => {
+        fetched.push(icao);
+        return hourly(icao, icao === "KCRQ" ? { 4: 0.23 } : {});
+      },
+      writeReadings: async (readings) => { rows.push(...readings); },
+    });
+    expect(fetched.filter((icao) => ["KSAN", "KCRQ", "KNZY"].includes(icao))).toEqual(["KSAN", "KCRQ", "KNZY"]);
+    expect(rows).toContainEqual({ cluster_id: "san_diego", window_end: windowEnd.toISOString(), total_in: 0.23,
+      station_totals: { KSAN: 0, KCRQ: 0.23, KNZY: 0 } });
+  });
+
+  it.each([30, 65, 66])("requires 66 reporting hours for County station totals (KCRQ: %s)", async (hours) => {
+    const result = await runRainfallRunoffIngest({
+      now: windowEnd,
+      fetchMetars: async (icao) => hourly(icao, icao === "KLGB" ? { 4: 0.12 } : {},
+        icao === "KCRQ" ? hours : icao === "KNZY" ? 66 : icao === "KLGB" ? 30 : 72),
+      writeReadings: async () => undefined,
+    });
+    expect(result.readings.find((row) => row.cluster_id === "san_diego")).toEqual({
+      cluster_id: "san_diego", window_end: windowEnd.toISOString(), total_in: 0,
+      station_totals: hours >= 66 ? { KSAN: 0, KCRQ: 0, KNZY: 0 } : { KSAN: 0, KNZY: 0 },
+    });
+    expect(result.readings.find((row) => row.cluster_id === "huntington_newport")?.station_totals)
+      .toEqual({ KLGB: 0.12, KSNA: 0 });
   });
 
   it("retries a station once after a failed request", async () => {
@@ -213,7 +244,7 @@ describe("withRainfallNotice", () => {
   });
 
   it("skips the read when no beach is in a rain cluster", async () => {
-    const c = client([reading(1)]);
+    const c = client([{ ...reading(1), cluster_id: "san_diego" }]);
     await withRainfallNotice([{ beach_id: "b2", status: "good" }], [pacific], c as never, now);
     expect(c.from).not.toHaveBeenCalled();
   });

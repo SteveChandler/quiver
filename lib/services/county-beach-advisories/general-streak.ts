@@ -3,10 +3,12 @@ import "server-only";
 import { z } from "zod";
 import {
   supportsCountyAdvisoryQuery,
+  supportsCountyRainQuery,
   supportsCountyStreakQuery,
   type WaterQualityHoldClient,
 } from "@/lib/recommendations/major-event-hold/water-quality";
 import { memoizedWaterQualityRead } from "@/lib/recommendations/major-event-hold/read-scope";
+import { COUNTY_RAIN_CLUSTER, RAIN_READING_MAX_AGE_MS } from "@/lib/services/water-quality/rainfall-runoff";
 import {
   COUNTY_FEED_SOURCE_IDENTIFIER,
   COUNTY_GENERAL_ADVISORY_MIN_SITES,
@@ -18,10 +20,12 @@ export interface CountyGeneralAdvisory {
   expired: boolean;
   streakStartedAt: string | null;
   siteIdentifiers: ReadonlySet<string> | null;
+  rainState: "dry" | "wet" | "unknown" | null;
 }
 
 const runColumns = "id, fetched_at, advisory_count";
 const siteColumns = "source_site_identifier, advisory_type";
+const rainColumns = "window_end, total_in, station_totals";
 const runSchema = z.object({
   id: z.string().uuid(),
   fetched_at: z.string().datetime({ offset: true }),
@@ -31,10 +35,44 @@ const noticeSchema = z.object({
   source_site_identifier: z.string().min(1),
   advisory_type: z.enum(["advisory", "closure", "warning"]),
 });
+const rainSchema = z.object({
+  window_end: z.string().datetime({ offset: true }),
+  total_in: z.coerce.number().finite().nonnegative(),
+  station_totals: z.record(z.string(), z.coerce.number().finite().nonnegative()),
+});
 
 const unknownGeneral: CountyGeneralAdvisory = {
-  general: true, expired: false, streakStartedAt: null, siteIdentifiers: null,
+  general: true, expired: false, streakStartedAt: null, siteIdentifiers: null, rainState: null,
 };
+
+async function readSanDiegoRainState(
+  client: WaterQualityHoldClient,
+  now: Date,
+): Promise<"dry" | "wet" | "unknown"> {
+  try {
+    const query: unknown = client.from("rainfall_runoff_readings").select(rainColumns);
+    if (!supportsCountyRainQuery(query)) return "unknown";
+    const cutoff = new Date(now.getTime() - RAIN_READING_MAX_AGE_MS).toISOString();
+    const { data, error } = await memoizedWaterQualityRead(
+      client,
+      `county-general|rain|${COUNTY_RAIN_CLUSTER.id}|${cutoff}`,
+      () => query.eq("cluster_id", COUNTY_RAIN_CLUSTER.id)
+        .gte("window_end", cutoff)
+        .order("window_end", { ascending: false }).limit(1),
+    );
+    if (error || !Array.isArray(data) || data.length !== 1) return "unknown";
+    const parsed = rainSchema.safeParse(data[0]);
+    if (!parsed.success) return "unknown";
+    const { window_end, total_in, station_totals } = parsed.data;
+    const end = Date.parse(window_end);
+    if (end < now.getTime() - RAIN_READING_MAX_AGE_MS || end > now.getTime()) return "unknown";
+    if (!COUNTY_RAIN_CLUSTER.stations.every((station) => Object.hasOwn(station_totals, station))) return "unknown";
+    return total_in === 0 && COUNTY_RAIN_CLUSTER.stations.every((station) => station_totals[station] === 0)
+      ? "dry" : "wet";
+  } catch {
+    return "unknown";
+  }
+}
 
 /**
  * A streak contains consecutive completed general runs; failed/started runs are
@@ -49,7 +87,7 @@ export async function resolveCountyGeneralAdvisory(
   now: Date,
 ): Promise<CountyGeneralAdvisory> {
   if (latestRun.advisory_count < COUNTY_GENERAL_ADVISORY_MIN_SITES) {
-    return { general: false, expired: false, streakStartedAt: null, siteIdentifiers: null };
+    return { general: false, expired: false, streakStartedAt: null, siteIdentifiers: null, rainState: null };
   }
 
   try {
@@ -98,11 +136,15 @@ export async function resolveCountyGeneralAdvisory(
       .map((notice) => notice.source_site_identifier);
     if (advisorySites.length !== baseline.data.advisory_count
       || new Set(advisorySites).size !== advisorySites.length) return unknownGeneral;
+    const elapsed = now.getTime() - Date.parse(first.data.fetched_at);
+    const rainState = elapsed >= COUNTY_GENERAL_ADVISORY_TTL_MS
+      ? await readSanDiegoRainState(client, now) : null;
     return {
       general: true,
-      expired: now.getTime() - Date.parse(first.data.fetched_at) >= COUNTY_GENERAL_ADVISORY_TTL_MS,
+      expired: elapsed >= COUNTY_GENERAL_ADVISORY_TTL_MS && rainState === "dry",
       streakStartedAt: first.data.fetched_at,
       siteIdentifiers: new Set(advisorySites),
+      rainState,
     };
   } catch {
     return unknownGeneral;

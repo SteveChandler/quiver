@@ -173,7 +173,7 @@ describe("current county water-quality contract", () => {
   it("removes an expired general-only status while preserving site advisories and owner holds", () => {
     const { run: rainRun, notices } = generalAdvisory([{ ...notice, source_site_identifier: "shipwrecks", beach_id: blacks,
       county_latitude: 32.887, county_longitude: -117.252 }]);
-    const resolvedGeneral = { general: true, expired: true, streakStartedAt: "2026-09-01T03:00:00Z",
+    const resolvedGeneral = { general: true, expired: true, streakStartedAt: "2026-09-01T03:00:00Z", rainState: "dry" as const,
       siteIdentifiers: new Set(["shipwrecks"]) };
     const [shores, site] = project([{ ...row, status: "good" }, { ...row, beach_id: blacks }],
       { run: rainRun, notices, generalAdvisory: resolvedGeneral });

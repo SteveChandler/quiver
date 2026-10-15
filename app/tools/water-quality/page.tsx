@@ -55,7 +55,7 @@ const FAQ_ITEMS = [
   {
     question: "Is it safe to surf after rain?",
     answer:
-      "After rain, bacteria levels typically spike 24–72 hours near storm drains and river mouths as runoff washes pollutants into the ocean. We recommend avoiding contact for at least 72 hours after significant rain near urban beaches.",
+      "After rain, bacteria levels typically spike 24–72 hours near storm drains and river mouths as runoff washes pollutants into the ocean. We recommend avoiding contact until at least 72 hours after the last significant rain near urban beaches.",
   },
   {
     question: "What bacteria levels are unsafe for surfing?",
@@ -364,7 +364,7 @@ export default async function WaterQualityPage({ searchParams }: PageProps) {
                   <p className="text-xs text-blue-300">
                     Bacteria levels typically spike 24–72 hours after rain,
                     especially near storm drains and river mouths. Avoid surfing
-                    near these areas for 72 hours after significant rainfall.
+                    near these areas until 72 hours after significant rainfall stops.
                   </p>
                 </div>
               </div>

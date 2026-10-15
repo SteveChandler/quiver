@@ -1,5 +1,7 @@
 import {
-  RAIN_CLUSTERS,
+  COUNTY_RAIN_CLUSTER,
+  INGEST_RAIN_CLUSTERS,
+  MIN_STATION_HOURS,
   RAIN_STATIONS,
   clusterRainfall,
   stationRainfall,
@@ -53,7 +55,7 @@ export async function runRainfallRunoffIngest(deps: RainfallIngestDeps): Promise
 
   const readings: RainfallReading[] = [];
   const skipped: string[] = [];
-  for (const cluster of RAIN_CLUSTERS) {
+  for (const cluster of INGEST_RAIN_CLUSTERS) {
     const stations = Object.fromEntries(cluster.stations
       .filter((icao) => perStation.has(icao))
       .map((icao) => [icao, perStation.get(icao) as StationRainfall]));
@@ -63,7 +65,10 @@ export async function runRainfallRunoffIngest(deps: RainfallIngestDeps): Promise
       cluster_id: cluster.id,
       window_end: windowEnd.toISOString(),
       total_in: total,
-      station_totals: Object.fromEntries(Object.entries(stations).map(([icao, s]) => [icao, s.total_in])),
+      // An incomplete County station must not count as dry when clearing the advisory.
+      station_totals: Object.fromEntries(Object.entries(stations)
+        .filter(([, s]) => cluster.id !== COUNTY_RAIN_CLUSTER.id || s.hours >= MIN_STATION_HOURS)
+        .map(([icao, s]) => [icao, s.total_in])),
     });
   }
   if (readings.length) await deps.writeReadings(readings);
