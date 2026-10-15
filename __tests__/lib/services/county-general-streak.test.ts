@@ -70,10 +70,21 @@ describe("County general advisory streak", () => {
   });
 
   it.each([
+    { label: "zero total and stations", total: "0.00", stations: { KSAN: "0.00", KCRQ: "0.00", KNZY: "0.00" }, rainState: "dry", expired: true },
+    { label: "nonzero total", total: "0.12", stations: { KSAN: 0, KCRQ: 0, KNZY: 0 }, rainState: "wet", expired: false },
+    { label: "nonzero station", total: "0.00", stations: { KSAN: "0.12", KCRQ: "0.00", KNZY: "0.00" }, rainState: "wet", expired: false },
+  ])("coerces numeric rain strings with $label", async ({ total, stations, rainState, expired }) => {
+    const now = new Date("2026-10-14T20:30:43Z");
+    const reading = { ...dryReading(now.toISOString()), total_in: total, station_totals: stations };
+    const result = await resolveCountyGeneralAdvisory(clientFor([baseline, first, latest], sites, false, withRain([reading])), latest, now);
+    expect(result).toMatchObject({ expired, rainState, streakStartedAt: first.fetched_at });
+  });
+
+  it.each([
     ["missing", [], "unknown"],
     ["stale", [dryReading("2026-10-14T07:00:42Z")], "unknown"],
     ["missing station", [{ ...dryReading("2026-10-14T14:00:43Z"), station_totals: { KSAN: 0, KCRQ: 0 } }], "unknown"],
-    ["malformed total", [{ ...dryReading("2026-10-14T14:00:43Z"), total_in: "0" }], "unknown"],
+    ["malformed total", [{ ...dryReading("2026-10-14T14:00:43Z"), total_in: "not-a-number" }], "unknown"],
     ["nonzero station", [{ ...dryReading("2026-10-14T14:00:43Z"), station_totals: { KSAN: 0, KCRQ: 0.01, KNZY: 0 } }], "wet"],
   ])("keeps the advisory active on %s San Diego rain data", async (_case, readings, rainState) => {
     const result = await resolveCountyGeneralAdvisory(clientFor([baseline, first, latest], sites, false, withRain(readings)), latest, new Date("2026-10-14T14:00:43Z"));

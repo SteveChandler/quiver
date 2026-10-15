@@ -37,8 +37,8 @@ const noticeSchema = z.object({
 });
 const rainSchema = z.object({
   window_end: z.string().datetime({ offset: true }),
-  total_in: z.number().finite().nonnegative(),
-  station_totals: z.record(z.string(), z.number().finite().nonnegative()),
+  total_in: z.coerce.number().finite().nonnegative(),
+  station_totals: z.record(z.string(), z.coerce.number().finite().nonnegative()),
 });
 
 const unknownGeneral: CountyGeneralAdvisory = {
