@@ -5,6 +5,7 @@ import { selectFirstSightingCandidates } from "@/lib/alerts/swell-outlook/first-
 import { outlookSwell } from "@/__tests__/helpers/outlook-swell";
 import type { Beach, Database } from "@/types/database";
 import beginnerPoolReplay from "@/__tests__/fixtures/daily-call-beginner-pool-20261013.json";
+import { beachSkillVetoReason } from "@/lib/recommendations/canonical-decision";
 
 interface Store {
   favorites: Array<{ beach_id: string | null; custom_spot_id: string | null }>;
@@ -486,6 +487,32 @@ describe("user pool", () => {
       const nearestOnlyNames = capNearbyPool(replayPool).pool.map(({ beach }) => beach.name);
       expect(nearestOnlyNames).not.toContain("72nd Place");
       expect(nearestOnlyNames).not.toContain("Torrance Beach (RAT Beach)");
+    });
+
+    it("keeps beginner-intermediate replay beaches eligible and preserves saved spots after the cap", () => {
+      const experienceLevel = "beginner";
+      const capped = capNearbyPool(replayPool, { cap: 50, experienceLevel });
+      const keptNames = capped.pool.map(({ beach }) => beach.name);
+
+      for (const name of ["Tourmaline Beach", "Pacific Beach", "San Elijo State Beach"]) {
+        const entry = replayPool.find(({ beach }) => beach.name === name);
+        expect(entry?.beach.name).toBe(name);
+        expect(beachSkillVetoReason(entry?.beach.skill_level, experienceLevel)).toBeNull();
+      }
+
+      expect(keptNames).toEqual(expect.arrayContaining([
+        "72nd Place", "Torrance Beach (RAT Beach)",
+      ]));
+      expect(capped.pool.filter(({ relation }) => relation !== "nearby").map(({ beach }) => beach.name))
+        .toEqual(replayPool.filter(({ relation }) => relation !== "nearby").map(({ beach }) => beach.name));
+
+      const isBeginnerEligible = ({ beach }: PoolBeach): boolean =>
+        beach.skill_level === "beginner" || beach.skill_level === "beginner-intermediate";
+      const savedEligibleCount = replayPool.filter((entry) => entry.relation !== "nearby" && isBeginnerEligible(entry)).length;
+      const nearbyEligibleCount = replayPool.filter((entry) => entry.relation === "nearby" && isBeginnerEligible(entry)).length;
+      const expectedEligibleCount = savedEligibleCount + Math.min(50, nearbyEligibleCount);
+      expect(capped.pool.filter(({ beach }) => beachSkillVetoReason(beach.skill_level, experienceLevel) === null))
+        .toHaveLength(expectedEligibleCount);
     });
 
     it("keeps distance order and ties within each skill group while capping nearby beaches at 50", () => {

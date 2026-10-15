@@ -55,7 +55,7 @@ import {
   getDiscoveryScoringEngine,
 } from '@/lib/domains/scoring';
 import type { SkillLevel } from '@/lib/domains/user-preferences';
-import { parseSkillLevel, getSkillLevelOrDefault, SKILL_WAVE_RANGES } from '@/lib/domains/user-preferences';
+import { parseBeachSkillRequirement, getSkillLevelOrDefault, SKILL_WAVE_RANGES } from '@/lib/domains/user-preferences/skill-level';
 import { normalizeBoardClass, type BoardClass } from '@/lib/domains/rideability';
 import { formatWaveHeightRangeString } from '@/lib/utils/wave-formatters';
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
@@ -500,7 +500,7 @@ export function generatePrimaryReason(
   if (!userSkillLevel) return null;
 
   const waveHeight = parseFloat(String(forecast.wave_height ?? '0'));
-  const beachSkill = parseSkillLevel(beach.skill_level);
+  const beachSkill = parseBeachSkillRequirement(beach.skill_level);
   const userSkill = getSkillLevelOrDefault(userSkillLevel);
   const userRanges = SKILL_WAVE_RANGES[userSkill];
 

@@ -77,7 +77,10 @@ function input(
 
 describe("canonical session decision engine", () => {
   it.each([
-    ["beginner-intermediate", "beginner", "beach_skill_exceeds_user"],
+    ["beginner-intermediate", "beginner", null],
+    ["lower-intermediate", "beginner", "beach_skill_exceeds_user"],
+    ["intermediate", "beginner", "beach_skill_exceeds_user"],
+    ["upper-intermediate", "beginner", "beach_skill_exceeds_user"],
     ["beginner", "beginner", null],
     [null, null, "missing_beach_skill"],
     ["advanced", null, null],
@@ -141,6 +144,21 @@ describe("canonical session decision engine", () => {
       observed: { waveHeightFt: 6 },
       allowed: { minimumWaveHeightFt: 0.5, maximumWaveHeightFt: 4, skill: 'beginner' },
     });
+  });
+
+  it('vetoes a beginner at a beginner-intermediate beach when waves exceed the beginner range', () => {
+    const { buildCanonicalSessionDecision } = loadEngine();
+    const decision = buildCanonicalSessionDecision(input([
+      candidate({ beachSkillLevel: 'beginner-intermediate', waveHeight: '4-5 ft' }),
+    ], { profileExperience: 'beginner' })) as {
+      verdict: string;
+      reasonCode: string;
+      skillEligibility: { reasonCodes: string[] };
+    };
+
+    expect(decision.verdict).toBe('no');
+    expect(decision.reasonCode).toBe('wave_height_exceeds_skill');
+    expect(decision.skillEligibility.reasonCodes).toEqual(['wave_height_exceeds_skill']);
   });
 
   it("keeps the objective call while withholding personal fit for unknown skill", () => {
@@ -898,7 +916,7 @@ describe("canonical session decision engine", () => {
 
   it.each([
     ["all", "beginner"],
-    ["beginner-intermediate", "intermediate"],
+    ["beginner-intermediate", "beginner"],
     ["lower-intermediate", "intermediate"],
     ["intermediate-advanced", "advanced"],
     ["upper-intermediate", "intermediate"],
