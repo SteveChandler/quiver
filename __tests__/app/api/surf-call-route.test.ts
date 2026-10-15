@@ -278,6 +278,29 @@ describe("GET /api/surf/call", () => {
     expect(mockResolveWaterQualityHolds).toHaveBeenCalledTimes(1);
   });
 
+  it("returns the live County closure for an owner-held beach", async () => {
+    const beachId = "9e94759c-d531-4e5c-9bc2-d022acea9dcd";
+    const checkedAt = "2026-10-15T20:00:00Z";
+    canonicalContext.discovery.recommendations = [];
+    canonicalContext.decision.selection = null;
+    canonicalContext.waterQualityResolution = {
+      state: "resolved", heldBeachIds: [beachId],
+      waterQualityStatusByBeachId: { [beachId]: "closure" },
+      waterQualityEvidenceByBeachId: { [beachId]: { source: "county", countyKind: "site", checkedAt } },
+      epoch: "owner-held-county-closure",
+    };
+    mockBeachQuery({ id: beachId, name: "Imperial Beach", slug: "imperial-beach", lat: 32.58, lon: -117.13,
+      timezone: "America/Los_Angeles", deleted_at: null });
+
+    const response = await GET(new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}`));
+
+    expect(response.status).toBe(200);
+    expect((await response.json()).data.waterQuality).toEqual({
+      status: "closure", source: "county", countyKind: "site", checkedAt,
+    });
+    expect(mockResolveWaterQualityHolds).not.toHaveBeenCalled();
+  });
+
   it("reads the requested beach when no forecast candidate produced a hold resolution", async () => {
     const beachId = "11111111-1111-4111-8111-111111111111";
     canonicalContext.discovery.recommendations = [];

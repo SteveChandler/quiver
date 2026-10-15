@@ -456,6 +456,47 @@ describe("water-quality recommendation holds", () => {
     expect(resolution.unverifiedBeachIds ?? []).toEqual([]);
     expect((client.from as jest.Mock).mock.calls.map(([table]) => table)).not.toContain("beaches");
   });
+
+  it("uses live County closure evidence for an owner-held beach", async () => {
+    const beachId = CHRONICALLY_IMPACTED_WATER_QUALITY_BEACH_IDS[0];
+    const checkedAt = "2026-10-15T20:00:00Z";
+    const result = await resolveWaterQualityHolds([candidate(beachId)], {
+      now: new Date("2026-10-15T20:30:00Z"),
+      client: clientFor({
+        ownerRows: [{ beach_id: beachId }],
+        qualityRows: [{ beach_id: beachId, status: "advisory", total_samples_30d: 8, latest_sample_date: "2026-09-01" }],
+        liveRunRows: [{ id: "44444444-4444-4444-8444-444444444444", fetched_at: checkedAt,
+          status: "completed", advisory_count: 0, source_identifier: "county-san-diego-dehq-sdbeachinfo" }],
+        liveRows: [{ beach_id: beachId, advisory_type: "closure", source_site_identifier: "imperial-beach" }],
+      }),
+    });
+
+    expect(result.state).toBe("resolved");
+    expect(result.heldBeachIds).toEqual([beachId]);
+    expect(result.waterQualityStatusByBeachId).toEqual({ [beachId]: "closure" });
+    expect(result.waterQualityEvidenceByBeachId).toEqual({
+      [beachId]: { source: "county", countyKind: "site", checkedAt },
+    });
+  });
+
+  it("retains an owner-held beach's stale sample advisory status without a County notice", async () => {
+    const beachId = CHRONICALLY_IMPACTED_WATER_QUALITY_BEACH_IDS[0];
+    const result = await resolveWaterQualityHolds([candidate(beachId)], {
+      now: new Date("2026-10-15T20:30:00Z"),
+      client: clientFor({
+        ownerRows: [{ beach_id: beachId }],
+        qualityRows: [{ beach_id: beachId, status: "advisory", total_samples_30d: 8, latest_sample_date: "2026-09-01" }],
+        liveRunRows: [{ id: "44444444-4444-4444-8444-444444444444", fetched_at: "2026-10-15T20:00:00Z",
+          status: "completed", advisory_count: 0, source_identifier: "county-san-diego-dehq-sdbeachinfo" }],
+        liveRows: [],
+      }),
+    });
+
+    expect(result.state).toBe("resolved");
+    expect(result.heldBeachIds).toEqual([beachId]);
+    expect(result.waterQualityStatusByBeachId).toEqual({ [beachId]: "advisory" });
+    expect(result.waterQualityEvidenceByBeachId).toEqual({ [beachId]: { source: "hold" } });
+  });
 });
 
  test("preserves the actual sample date and distinguishes live county evidence", async () => {

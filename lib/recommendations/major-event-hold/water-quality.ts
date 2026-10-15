@@ -553,8 +553,7 @@ export async function resolveWaterQualityHolds(
       if (ownerHeldBeachIds.has(beachId)) {
         evidence[beachId] = { source: "hold" };
         heldBeachIds.push(beachId);
-        if ((row?.status === "advisory" || row?.status === "closure")
-          && (countyHeld.has(beachId) || isCurrentWaterQualitySample(row.latest_sample_date, now.getTime()))) {
+        if (row?.status === "advisory" || row?.status === "closure") {
           waterQualityStatusByBeachId[beachId] = row.status;
         }
         snapshot.push(`${beachId}:owner-hold`);
@@ -596,7 +595,7 @@ export async function resolveWaterQualityHolds(
         liveResolution.waterQualityStatusByBeachId,
       )) {
         if (status === "closure" || waterQualityStatusByBeachId[beachId] !== "closure") {
-          if (!ownerHeldBeachIds.has(beachId)) evidence[beachId] = liveResolution.evidence[beachId];
+          evidence[beachId] = liveResolution.evidence[beachId];
         }
         waterQualityStatusByBeachId[beachId] =
           moreSevereWaterQualityStatus(
