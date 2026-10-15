@@ -997,51 +997,6 @@ body:has(.zine-page) {
   border-color: rgba(17, 16, 13, 0.3) !important;
 }
 
-/* Forecast "Best Time" surf-call card — this card is styled for the
-   dark app shell by default, so its explicit blue/gray utilities wash
-   out when rendered on cream zine paper. */
-.zine-page .zine-tabs-slot [data-tier="hero"].bg-card .text-blue-900,
-.zine-page .zine-tabs-slot [data-tier="hero"].bg-card .text-gray-700 {
-  color: #11100D !important;
-}
-.zine-page .zine-tabs-slot [data-tier="hero"].bg-card .text-blue-700,
-.zine-page .zine-tabs-slot [data-tier="hero"].bg-card .text-blue-600,
-.zine-page .zine-tabs-slot [data-tier="hero"].bg-card .text-blue-400 {
-  color: #8A5E00 !important;
-}
-.zine-page .zine-tabs-slot [data-tier="hero"].bg-card .text-gray-600 {
-  color: #4B4030 !important;
-}
-.zine-page .zine-tabs-slot [data-tier="hero"].bg-card .bg-white\/80,
-.zine-page .zine-tabs-slot [data-tier="hero"].bg-card .bg-blue-50\/50 {
-  background-color: rgba(244, 235, 216, 0.9) !important;
-}
-.zine-page .zine-tabs-slot [data-tier="hero"].bg-card .border-blue-100\/60,
-.zine-page .zine-tabs-slot [data-tier="hero"].bg-card .border-blue-200\/60,
-.zine-page .zine-tabs-slot [data-tier="hero"].bg-card .border-gray-200\/40,
-.zine-page .zine-tabs-slot [data-tier="hero"].bg-card .border-gray-200\/60 {
-  border-color: rgba(138, 94, 0, 0.28) !important;
-}
-.zine-page .zine-tabs-slot [data-tier="hero"].bg-card .rounded-2xl.border-blue-200\/60 {
-  background: #F6E9CE !important;
-  border-color: #11100D !important;
-}
-.zine-page .zine-tabs-slot [data-tier="hero"].bg-card .rounded-2xl.border-blue-200\/60 .text-blue-900 {
-  color: #11100D !important;
-}
-.zine-page .zine-tabs-slot [data-tier="hero"].bg-card .rounded-2xl.border-blue-200\/60 .text-blue-700,
-.zine-page .zine-tabs-slot [data-tier="hero"].bg-card .rounded-2xl.border-blue-200\/60 .text-blue-600 {
-  color: #11100D !important;
-}
-.zine-page .zine-tabs-slot [data-tier="hero"].bg-card .rounded-xl.border-gray-200\/40 {
-  background-color: #F6E9CE !important;
-  border-color: #11100D !important;
-}
-.zine-page .zine-tabs-slot [data-tier="hero"].bg-card .rounded-xl.border-gray-200\/40 .text-gray-700 {
-  color: #11100D !important;
-  opacity: 1;
-}
-
 /* Local Intel empty state — global retro-dark text utilities make
    gray/blue copy too pale on the cream zine card. */
 .zine-page .zine-tabs-slot #intel-section .text-gray-900 {
