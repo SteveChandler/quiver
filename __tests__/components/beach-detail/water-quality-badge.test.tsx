@@ -21,7 +21,12 @@ it.each(["clear", "advisory", "closure", "unavailable"] as const)(
     expect(toggle).toHaveClass("text-ink");
     expect(toggle).toHaveClass(county === "advisory" || county === "closure" ? "border-destructive/40" : "border-ink/20");
     fireEvent.click(toggle);
-    expect(screen.getByRole("link", { name: /County of San Diego/ })).toHaveAttribute("href", "https://www.sdbeachinfo.com/");
+    expect(screen.queryByRole("link", { name: /County of San Diego/ })).not.toBeInTheDocument();
+    if (county === "advisory" || county === "closure") {
+      expect(screen.getByText(new RegExp(`San Diego County ${county} · checked`))).toBeInTheDocument();
+    } else {
+      expect(screen.queryByText(/San Diego County .* checked/)).not.toBeInTheDocument();
+    }
     expect(screen.queryByText(/220|Enterococcus|Fecal Coliform|Latest sample|30-day exceedances|CEDEN/)).not.toBeInTheDocument();
     expect(screen.queryByText("No current county advisory") !== null).toBe(county === "clear");
     expect(screen.queryByText("County status unavailable") !== null).toBe(county === "unavailable");
@@ -49,10 +54,14 @@ it("names a County general advisory as rain runoff, not elevated bacteria", () =
     county_checked_at: "2026-10-12T18:00:00Z" }} />);
   const toggle = screen.getByRole("button", { name: /Rain Advisory/ });
   fireEvent.click(toggle);
-  expect(screen.getByText(/runoff after rain/i)).toHaveTextContent(/storm drains and river mouths/);
-  expect(screen.getByText(/runoff after rain/i)).toHaveTextContent(/check again in 72 hours/);
+  expect(screen.getByText("County rain advisory · runoff after rain")).toBeInTheDocument();
   expect(screen.queryByText(/elevated bacteria/i)).not.toBeInTheDocument();
-  expect(screen.getByRole("link", { name: /County of San Diego/ })).toHaveAttribute("href", "https://www.sdbeachinfo.com/");
+  expect(screen.queryByRole("link", { name: /County of San Diego/ })).not.toBeInTheDocument();
+});
+
+it("renders nothing after a general-only County advisory expires", () => {
+  const { container } = render(<WaterQualityBadge waterQuality={{ ...sample, status: "unknown" }} />);
+  expect(container).toBeEmptyDOMElement();
 });
 
 it("labels a rainfall notice as a precaution with its gauges, not a sample result", () => {

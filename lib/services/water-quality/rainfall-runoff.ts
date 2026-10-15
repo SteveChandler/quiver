@@ -105,7 +105,7 @@ export function clusterRainfall(stations: Readonly<Record<string, StationRainfal
 function rainRunoffReason(totalIn: number): string {
   return `Runoff after rain: ${totalIn.toFixed(2)} in fell nearby in the last 72 hours. `
     + "Bacteria levels typically rise near storm drains, creeks and river mouths after rain. "
-    + "Avoid those areas and check again in 72 hours.";
+    + "Avoid those areas for 72 hours.";
 }
 
 interface NoticeRow {

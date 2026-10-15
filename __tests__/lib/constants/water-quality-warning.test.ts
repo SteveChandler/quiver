@@ -3,9 +3,7 @@ import { waterQualityWarning } from "@/lib/constants/water-quality";
 describe("waterQualityWarning", () => {
   it("names a County general advisory as rain runoff", () => {
     const warning = waterQualityWarning("advisory", "general");
-    expect(warning).toMatch(/rain/i);
-    expect(warning).toMatch(/storm drains and river mouths/);
-    expect(warning).toMatch(/72 hours/);
+    expect(warning).toBe("County rain advisory — runoff after rain");
     expect(warning).not.toMatch(/elevated bacteria/);
   });
 
