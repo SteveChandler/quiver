@@ -317,7 +317,7 @@ describe('POST /api/surf/week-scout', () => {
       user_location_snapshots: { lat: 39.88, lon: -75.24, captured_at: new Date().toISOString() },
       profiles: { max_drive_minutes: 90 },
     });
-    const nearestBeach = { id: BEACH_A, name: '1st Street Jetty', slug: '1st-street-jetty', distanceMiles: 54.7 };
+    const nearestBeach = { id: BEACH_A, name: '1st Street Jetty', slug: '1st-street-jetty', lat: 39.281, lon: -74.567, distanceMiles: 54.7 };
     mockBuildDriveRangeCandidatePool.mockResolvedValueOnce({
       candidates: [], enumeratedCount: 4, filteredOutCount: 0, cappedCount: 0, farthestNearbyMiles: null,
       widenedFromMiles: 45, nearestBeach,

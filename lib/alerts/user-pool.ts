@@ -241,6 +241,8 @@ export interface NearestBeach {
   id: string;
   name: string;
   slug: string;
+  lat: number;
+  lon: number;
   distanceMiles: number;
 }
 
@@ -273,7 +275,7 @@ export async function findNearestBeach({
     if (!beach.slug || !isRecommendable(beach) || excludedIds.has(beach.id)) continue;
     const distanceMiles = distanceFromAnchor(location, beach);
     if (distanceMiles === null || (nearest && nearest.distanceMiles <= distanceMiles)) continue;
-    nearest = { id: beach.id, name: beach.name, slug: beach.slug, distanceMiles };
+    nearest = { id: beach.id, name: beach.name, slug: beach.slug, lat: beach.lat, lon: beach.lon, distanceMiles };
   }
   return nearest;
 }

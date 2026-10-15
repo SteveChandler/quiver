@@ -527,7 +527,7 @@ describe("findNearestBeach", () => {
 
     const nearest = await findNearestBeach({ supabase, userId: "user-1", location: denver });
 
-    expect(nearest).toEqual(expect.objectContaining({ id: "pb", slug: "pb" }));
+    expect(nearest).toEqual(expect.objectContaining({ id: "pb", slug: "pb", lat: 32.8, lon: -117.25 }));
     expect(nearest!.distanceMiles).toBeGreaterThan(800);
   });
 

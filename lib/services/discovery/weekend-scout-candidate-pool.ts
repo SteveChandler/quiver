@@ -372,7 +372,7 @@ export async function buildDriveRangeCandidatePool(
       .filter((entry): entry is PoolBeach & { distanceMiles: number } => entry.distanceMiles !== null && Boolean(entry.beach.slug))
       .sort((left, right) => left.distanceMiles - right.distanceMiles)[0];
     nearestBeach = closest
-      ? { id: closest.beach.id, name: closest.beach.name, slug: closest.beach.slug!, distanceMiles: closest.distanceMiles }
+      ? { id: closest.beach.id, name: closest.beach.name, slug: closest.beach.slug!, lat: closest.beach.lat, lon: closest.beach.lon, distanceMiles: closest.distanceMiles }
       : await (deps.findNearest ?? findNearestBeach)({ supabase: deps.supabase, userId, location: options.anchor }) ?? undefined;
   }
   const scope: BuildWeekendScoutCandidatePoolOptions = {

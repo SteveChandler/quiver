@@ -159,7 +159,7 @@ async function weekScoutHandler(
   let scopeAnchor: 'origin' | 'location' | 'home' | null = null;
   let scopeCoveredMiles: number | null = null;
   let scopeWidenedFromMiles: number | null = null;
-  let scopeNearestBeach: { id: string; name: string; slug: string; distanceMiles: number } | null = null;
+  let scopeNearestBeach: { id: string; name: string; slug: string; lat: number; lon: number; distanceMiles: number } | null = null;
   let rankingLocation = userLocation;
   let candidateBeaches: Array<{ beachId: string; beachName: string; beachSlugOrRef: string; distanceMiles: number | null; timezone: string | null; lat: number; lon: number }> | undefined;
   if (completeRadiusScope?.kind === 'complete-radius' && !completeRadiusScope.mapBounds) {

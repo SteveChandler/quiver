@@ -333,13 +333,13 @@ describe("buildDriveRangeCandidatePool", () => {
     expect(loadPool).toHaveBeenNthCalledWith(2, expect.objectContaining({ maxDriveMinutes: null }));
     expect(result.candidates.map(({ beach: { id } }) => id)).toEqual(["ac", "jetty"]);
     expect(result.widenedFromMiles).toBe(45);
-    expect(result.nearestBeach).toEqual({ id: "jetty", name: "jetty", slug: "jetty", distanceMiles: 54.7 });
+    expect(result.nearestBeach).toEqual({ id: "jetty", name: "jetty", slug: "jetty", lat: 39.28, lon: -74.57, distanceMiles: 54.7 });
     expect(findNearest).not.toHaveBeenCalled();
   });
 
   it("names the nearest beach at any distance when even 100 miles is empty", async () => {
     const loadPool = jest.fn().mockResolvedValue([]);
-    const nearest = { id: "bolsa", name: "Bolsa Chica", slug: "bolsa-chica", distanceMiles: 830 };
+    const nearest = { id: "bolsa", name: "Bolsa Chica", slug: "bolsa-chica", lat: 33.71, lon: -118.06, distanceMiles: 830 };
     const findNearest = jest.fn().mockResolvedValue(nearest);
 
     const result = await buildDriveRangeCandidatePool("user-1", {
