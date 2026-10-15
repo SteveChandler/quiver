@@ -1,7 +1,8 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { capNearbyPool, loadUserPool } from "@/lib/alerts/user-pool";
+import { capNearbyPool, findNearestBeach, loadUserPool, type NearestBeach, type PoolBeach } from "@/lib/alerts/user-pool";
+import { driveRadiusMiles, MAX_DRIVE_RADIUS_MILES } from "@/lib/profile/drive-range";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { calculateDistanceInMiles } from "@/lib/utils/distance-utils";
 import type { Beach, Database } from "@/types/database";
@@ -311,6 +312,7 @@ interface BuildDriveRangeCandidatePoolOptions {
 
 interface DriveRangeCandidatePoolDependencies {
   loadPool: typeof loadUserPool;
+  findNearest?: typeof findNearestBeach;
   supabase: SupabaseClient<Database>;
 }
 
@@ -322,6 +324,10 @@ interface DriveRangeCandidatePool {
   cappedCount: number;
   /** Distance to the farthest nearby beach kept; null when nothing was capped. */
   farthestNearbyMiles: number | null;
+  /** The surfer's drive radius when it held no beach and the scope widened to the 100-mile maximum. */
+  widenedFromMiles?: number;
+  /** The closest beach at any distance, set only when the drive range held none. */
+  nearestBeach?: NearestBeach;
 }
 
 /**
@@ -339,13 +345,34 @@ export async function buildDriveRangeCandidatePool(
     loadPool: loadUserPool,
     supabase: createSupabaseServiceRoleClient(),
   };
-  const pool = await deps.loadPool({
+  const load = (maxDriveMinutes: number | null) => deps.loadPool({
     supabase: deps.supabase,
     userId,
     homeBeachId: options.homeBeachId,
     location: options.anchor,
-    maxDriveMinutes: options.maxDriveMinutes,
+    maxDriveMinutes,
   });
+  let pool = await load(options.maxDriveMinutes);
+  // A drive range with no beach in it (a surfer in Philadelphia on a 90-minute
+  // range) would leave Home blank; show the nearest surf within the maximum
+  // range instead. Filters that empty a non-empty range do not widen it.
+  const requestedRadiusMiles = driveRadiusMiles(options.maxDriveMinutes);
+  let widenedFromMiles: number | undefined;
+  const rangeWasEmpty = pool.length === 0;
+  if (rangeWasEmpty && requestedRadiusMiles < MAX_DRIVE_RADIUS_MILES) {
+    pool = await load(null);
+    if (pool.length > 0) widenedFromMiles = requestedRadiusMiles;
+  }
+  // Past the maximum range there is still a nearest beach to scout from.
+  let nearestBeach: NearestBeach | undefined;
+  if (rangeWasEmpty) {
+    const closest = pool
+      .filter((entry): entry is PoolBeach & { distanceMiles: number } => entry.distanceMiles !== null && Boolean(entry.beach.slug))
+      .sort((left, right) => left.distanceMiles - right.distanceMiles)[0];
+    nearestBeach = closest
+      ? { id: closest.beach.id, name: closest.beach.name, slug: closest.beach.slug!, distanceMiles: closest.distanceMiles }
+      : await (deps.findNearest ?? findNearestBeach)({ supabase: deps.supabase, userId, location: options.anchor }) ?? undefined;
+  }
   const scope: BuildWeekendScoutCandidatePoolOptions = {
     userLocation: options.anchor,
     radiusMiles: MAX_RADIUS_MILES,
@@ -362,5 +389,7 @@ export async function buildDriveRangeCandidatePool(
     filteredOutCount: pool.length - matching.length,
     cappedCount: capped.cappedCount,
     farthestNearbyMiles: capped.farthestNearbyMiles,
+    ...(widenedFromMiles !== undefined ? { widenedFromMiles } : {}),
+    ...(nearestBeach ? { nearestBeach } : {}),
   };
 }

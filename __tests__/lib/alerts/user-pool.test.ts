@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { capNearbyPool, loadUserPool, type PoolBeach } from "@/lib/alerts/user-pool";
+import { capNearbyPool, findNearestBeach, loadUserPool, type PoolBeach } from "@/lib/alerts/user-pool";
 import { resolveLocationAnchor } from "@/lib/alerts/location-freshness";
 import { selectFirstSightingCandidates } from "@/lib/alerts/swell-outlook/first-sighting";
 import { outlookSwell } from "@/__tests__/helpers/outlook-swell";
@@ -507,5 +507,32 @@ describe("user pool", () => {
     expect(result.map(({ beach, relation }) => [beach.id, relation])).toEqual([
       [freshAnchor.id, "custom"],
     ]);
+  });
+});
+
+describe("findNearestBeach", () => {
+  const denver = { lat: 39.74, lon: -104.99 };
+  const at = (id: string, lat: number, lon: number, extra: Partial<Beach> = {}): Beach =>
+    ({ ...makeBeach(id), lat, lon, deleted_at: null, is_private: false, ...extra } as Beach);
+
+  it("returns the closest recommendable beach at any distance", async () => {
+    const supabase = makeSupabase({ favorites: [], nearby: [], beaches: [
+      at("bolsa", 33.71, -118.06),
+      at("pb", 32.8, -117.25),
+      at("private", 39.7, -105.0, { is_private: true }),
+      at("hidden", 39.7, -105.0, { recommendation_eligible: false } as Partial<Beach>),
+      at("excluded", 39.75, -105.0),
+      at("noslug", 39.76, -105.0, { slug: null } as unknown as Partial<Beach>),
+    ], exclusions: [{ beach_id: "excluded" }] });
+
+    const nearest = await findNearestBeach({ supabase, userId: "user-1", location: denver });
+
+    expect(nearest).toEqual(expect.objectContaining({ id: "pb", slug: "pb" }));
+    expect(nearest!.distanceMiles).toBeGreaterThan(800);
+  });
+
+  it("returns null when no beach qualifies", async () => {
+    const supabase = makeSupabase({ favorites: [], nearby: [], beaches: [] });
+    await expect(findNearestBeach({ supabase, userId: "user-1", location: denver })).resolves.toBeNull();
   });
 });

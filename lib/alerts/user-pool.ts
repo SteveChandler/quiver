@@ -237,6 +237,47 @@ export async function loadUserPool({
   });
 }
 
+export interface NearestBeach {
+  id: string;
+  name: string;
+  slug: string;
+  distanceMiles: number;
+}
+
+/**
+ * The closest recommendable beach at any distance, for a surfer with nothing
+ * in range. It scans every beach (~570), so call it only when the pool is empty.
+ */
+export async function findNearestBeach({
+  supabase,
+  userId,
+  location,
+}: {
+  supabase: SupabaseClient<Database>;
+  userId: string;
+  location: { lat: number; lon: number };
+}): Promise<NearestBeach | null> {
+  const [beachesResult, exclusionsResult] = await Promise.all([
+    supabase
+      .from("beaches")
+      .select("*")
+      .is("deleted_at", null),
+    supabase.from("user_beach_exclusions").select("beach_id").eq("user_id", userId),
+  ]);
+  if (beachesResult.error) throw new Error(`Failed to load beaches: ${beachesResult.error.message}`);
+  if (exclusionsResult.error) throw new Error(`Failed to load beach exclusions: ${exclusionsResult.error.message}`);
+  const excludedIds = new Set(((exclusionsResult.data ?? []) as Array<{ beach_id: string | null }>)
+    .map((row) => row.beach_id));
+  let nearest: NearestBeach | null = null;
+  for (const beach of (beachesResult.data ?? []) as Beach[]) {
+    if (!beach.slug || !isRecommendable(beach) || excludedIds.has(beach.id)) continue;
+    const distanceMiles = distanceFromAnchor(location, beach);
+    if (distanceMiles === null || (nearest && nearest.distanceMiles <= distanceMiles)) continue;
+    nearest = { id: beach.id, name: beach.name, slug: beach.slug, distanceMiles };
+  }
+  return nearest;
+}
+
 function isRecommendable(beach: Beach): boolean {
   const flags = beach as Beach & { recommendation_eligible?: boolean | null };
   return beach.deleted_at == null && beach.is_private !== true && flags.recommendation_eligible !== false;

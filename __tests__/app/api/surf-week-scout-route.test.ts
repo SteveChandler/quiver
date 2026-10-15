@@ -312,6 +312,31 @@ describe('POST /api/surf/week-scout', () => {
     }));
   });
 
+  it('reports a widened scope and the nearest beach while ranking with the surfer\'s own range', async () => {
+    const from = tables({
+      user_location_snapshots: { lat: 39.88, lon: -75.24, captured_at: new Date().toISOString() },
+      profiles: { max_drive_minutes: 90 },
+    });
+    const nearestBeach = { id: BEACH_A, name: '1st Street Jetty', slug: '1st-street-jetty', distanceMiles: 54.7 };
+    mockBuildDriveRangeCandidatePool.mockResolvedValueOnce({
+      candidates: [], enumeratedCount: 4, filteredOutCount: 0, cappedCount: 0, farthestNearbyMiles: null,
+      widenedFromMiles: 45, nearestBeach,
+    });
+
+    const response = await callRoute({
+      candidateScope: { kind: 'complete-radius' },
+      localTimezone: 'America/New_York', startLocalDate: '2026-10-15', dayCount: 7,
+    }, { from });
+    const scope = (await response.json()).data.coverage.scope;
+
+    expect(scope.radiusMiles).toBe(100);
+    expect(scope.widenedFromMiles).toBe(45);
+    expect(scope.nearestBeach).toEqual(nearestBeach);
+    expect(mockGenerateWeekScoutForecast).toHaveBeenCalledWith('user-week-scout', expect.objectContaining({
+      driveRadiusMiles: 45,
+    }));
+  });
+
   it('anchors the drive-range scope on the home beach when the location snapshot is not fresh', async () => {
     const from = tables({
       user_location_snapshots: { lat: 33.13, lon: -117.33, captured_at: new Date(Date.now() - 60 * 60 * 1000).toISOString() },
