@@ -27,7 +27,12 @@ export const RAIN_CLUSTERS: readonly RainCluster[] = [
   { id: "laguna_san_clemente", label: "Laguna to San Clemente", lat: 33.48, lon: -117.7, stations: ["KSNA", "KNFG"] },
 ];
 
-export const RAIN_STATIONS: readonly string[] = [...new Set(RAIN_CLUSTERS.flatMap((c) => c.stations))];
+export const COUNTY_RAIN_CLUSTER: RainCluster = {
+  id: "san_diego", label: "San Diego County coast", lat: 32.88, lon: -117.23,
+  stations: ["KSAN", "KCRQ", "KNZY"],
+};
+export const INGEST_RAIN_CLUSTERS: readonly RainCluster[] = [...RAIN_CLUSTERS, COUNTY_RAIN_CLUSTER];
+export const RAIN_STATIONS: readonly string[] = [...new Set(INGEST_RAIN_CLUSTERS.flatMap((c) => c.stations))];
 
 export interface AwcMetar {
   icaoId: string;
@@ -105,7 +110,7 @@ export function clusterRainfall(stations: Readonly<Record<string, StationRainfal
 function rainRunoffReason(totalIn: number): string {
   return `Runoff after rain: ${totalIn.toFixed(2)} in fell nearby in the last 72 hours. `
     + "Bacteria levels typically rise near storm drains, creeks and river mouths after rain. "
-    + "Avoid those areas for 72 hours.";
+    + "Avoid those areas until 72 hours after the rain stops.";
 }
 
 interface NoticeRow {

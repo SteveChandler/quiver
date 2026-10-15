@@ -1,5 +1,5 @@
 import {
-  RAIN_CLUSTERS,
+  INGEST_RAIN_CLUSTERS,
   RAIN_STATIONS,
   clusterRainfall,
   stationRainfall,
@@ -53,7 +53,7 @@ export async function runRainfallRunoffIngest(deps: RainfallIngestDeps): Promise
 
   const readings: RainfallReading[] = [];
   const skipped: string[] = [];
-  for (const cluster of RAIN_CLUSTERS) {
+  for (const cluster of INGEST_RAIN_CLUSTERS) {
     const stations = Object.fromEntries(cluster.stations
       .filter((icao) => perStation.has(icao))
       .map((icao) => [icao, perStation.get(icao) as StationRainfall]));

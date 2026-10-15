@@ -10,7 +10,7 @@ import { RAINFALL_READINGS_TABLE } from "@/lib/services/water-quality/rainfall-r
 export const revalidate = 0;
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 180; // 8 sequential AWC requests, 10 s timeout, one retry each
+export const maxDuration = 300; // 11 sequential AWC requests, 10 s timeout, one retry each
 
 const ROUTE = "/api/cron/rainfall-runoff";
 const SCHEDULE = "0 */3 * * *";
@@ -56,5 +56,5 @@ async function _GET(request: Request): Promise<Response> {
 export const GET = withObservedCron(ROUTE, _GET, {
   slug: "rainfall-runoff",
   schedule: SCHEDULE,
-  maxRuntimeMinutes: 3,
+  maxRuntimeMinutes: 5,
 });

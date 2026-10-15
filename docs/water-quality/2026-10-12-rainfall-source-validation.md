@@ -72,6 +72,10 @@ A station missing more than 6 of the 72 routine hours is dropped from its cluste
 
 Beaches inside the County of San Diego feed's coverage bounds get no rain notice. The County's own advisories cover them.
 
+### San Diego cluster (County general-advisory extension)
+
+The ingest also records a separate `san_diego` cluster from KSAN, KCRQ and KNZY. It never drives the beach rainfall overlay. A County general advisory remains active for at least 72 hours after its streak starts and continues until a fresh San Diego reading shows zero measurable rain at all three stations across the rolling 72-hour window. Missing or stale readings keep the advisory active.
+
 ## Limits
 
 - One storm. Re-check after the next rain with the spot check in the release pool.
@@ -80,4 +84,4 @@ Beaches inside the County of San Diego feed's coverage bounds get no rain notice
 
 ## Cadence
 
-The brief asked for a daily job. A once-daily run would lag new rain by up to 24 hours and keep a notice up to 30 hours past its 72-hour window. The job runs every 3 hours instead, about 64 small AWC requests a day, and a reading older than 7 hours is ignored.
+The brief asked for a daily job. A once-daily run would lag new rain by up to 24 hours and keep a notice up to 30 hours past its 72-hour window. The job runs every 3 hours instead, about 88 small AWC requests a day across 11 stations, and a reading older than 7 hours is ignored.

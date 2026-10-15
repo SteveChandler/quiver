@@ -137,6 +137,18 @@ export function supportsCountyAdvisoryQuery(value: unknown): value is WaterQuali
   return typeof query.eq === "function" && typeof query.then === "function";
 }
 
+interface CountyRainQuery extends WaterQualityQuery {
+  eq: (column: string, value: string) => CountyRainQuery;
+  gte: (column: string, value: string) => CountyRainQuery;
+  order: (column: string, options?: { ascending?: boolean }) => CountyRainQuery;
+  limit: (count: number) => CountyRainQuery;
+}
+
+export function supportsCountyRainQuery(value: unknown): value is CountyRainQuery {
+  if (!supportsCountyRunQuery(value)) return false;
+  return typeof (value as Partial<CountyRainQuery>).gte === "function";
+}
+
 function hasErrorCode(error: unknown, code: string): boolean {
   return (
     typeof error === "object" &&
@@ -153,6 +165,7 @@ export interface WaterQualityHoldClient {
       | "water_quality_held_beaches"
       | "county_beach_advisory_runs"
       | "county_beach_advisories"
+      | "rainfall_runoff_readings"
       | "beaches",
   ): {
     select(columns: string): WaterQualityQuery;
@@ -377,7 +390,7 @@ async function resolveCountyLiveHolds(
 
   const generalSnapshot = !generalAdvisory.general ? "county-general:dormant"
     : generalAdvisory.streakStartedAt === null ? "county-general:unknown"
-      : `county-general:${generalAdvisory.expired ? "expired" : "active"}:${generalAdvisory.streakStartedAt}`;
+      : `county-general:${generalAdvisory.expired ? "expired" : "active"}:${generalAdvisory.streakStartedAt}:rain-${generalAdvisory.rainState ?? "null"}`;
   return {
     state: "resolved",
     heldBeachIds: [...new Set(heldBeachIds)],
