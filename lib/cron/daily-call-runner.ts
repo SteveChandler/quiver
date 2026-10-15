@@ -978,6 +978,11 @@ export async function runDailyCallCron(args: {
       } else {
         increment(summary, "enqueue_failed");
         summary.errors += 1;
+        console.error("[daily-call] enqueue failed", {
+          userId: profile.id,
+          reason: enqueueResult.reason,
+          message: enqueueResult.message,
+        });
       }
     } catch (error) {
       console.error(`[daily-call] Error processing ${profile.id}:`, error);

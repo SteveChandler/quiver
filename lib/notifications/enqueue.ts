@@ -93,6 +93,11 @@ export async function enqueueNotification(
           : err instanceof Error
             ? err.message
             : "payload validation failed";
+      console.error("[notifications/enqueue] invalid payload:", {
+        type: args.type,
+        recipientUserId: args.recipientUserId,
+        message,
+      });
       return {
         enqueued: false,
         reason: "invalid_payload",
