@@ -4,6 +4,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { currentWaterQuality } from "@/lib/services/water-quality/current-status";
+import { resolveCountyGeneralAdvisory } from "@/lib/services/county-beach-advisories/general-streak";
 import { insideCountyFeed, readBeachPoints } from "@/lib/services/water-quality/county-coverage";
 
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
@@ -68,7 +69,7 @@ const WATER_QUALITY_SELECT = [
   "status_reason",
 ].join(", ");
 const MISSING_TABLE_ERROR_CODE = "42P01";
-const COUNTY_LIVE_RUN_SELECT = "id, fetched_at, status, source_identifier";
+const COUNTY_LIVE_RUN_SELECT = "id, fetched_at, status, source_identifier, advisory_count";
 // Same columns as the current-status projection so one request reads a run's
 // notices once; this resolver validates only the fields it uses.
 const COUNTY_ADVISORY_SELECT =
@@ -147,6 +148,8 @@ export interface WaterQualityHoldClient {
 export interface WaterQualityEvidence {
   source: "sample" | "county" | "hold";
   sampleDate?: string;
+  countyKind?: "general" | "site";
+  checkedAt?: string;
 }
 
 export interface WaterQualityHoldResolution {
@@ -207,6 +210,7 @@ interface CountyLiveHoldResolution {
   state: "resolved" | "unresolved";
   heldBeachIds: string[];
   waterQualityStatusByBeachId: Record<string, WaterQualityHoldStatus>;
+  evidence: Record<string, WaterQualityEvidence>;
   snapshot: string[];
 }
 
@@ -218,6 +222,7 @@ function emptyCountyResolution(
     state,
     heldBeachIds: [],
     waterQualityStatusByBeachId: {},
+    evidence: {},
     snapshot: [snapshot],
   };
 }
@@ -284,6 +289,9 @@ async function resolveCountyLiveHolds(
     return emptyCountyResolution("resolved", "county-live:client-unavailable");
   }
   const runId = (run as { id: string }).id;
+  const generalAdvisory = await resolveCountyGeneralAdvisory(client, run as {
+    id: string; fetched_at: string; advisory_count: number;
+  }, now);
   const { data: advisoryData, error: advisoryError } = await memoizedWaterQualityRead(
     client,
     `county_beach_advisories|${COUNTY_ADVISORY_SELECT}|${runId}`,
@@ -308,6 +316,7 @@ async function resolveCountyLiveHolds(
     string,
     WaterQualityHoldStatus
   > = {};
+  const evidence: Record<string, WaterQualityEvidence> = {};
   for (const row of advisoryData) {
     if (typeof row !== "object" || row === null) {
       return emptyCountyResolution(
@@ -332,9 +341,17 @@ async function resolveCountyLiveHolds(
       );
     }
     if (typeof value.beach_id === "string") {
+      const siteAdvisory = value.advisory_type === "advisory"
+        && generalAdvisory.siteIdentifiers?.has(value.source_site_identifier) === true;
+      if (generalAdvisory.expired && value.advisory_type !== "closure" && !siteAdvisory) continue;
       const normalizedBeachId = value.beach_id.toLowerCase();
       if (requested.has(normalizedBeachId)) {
         heldBeachIds.push(normalizedBeachId);
+        const countyKind = value.advisory_type === "closure" || siteAdvisory || !generalAdvisory.general
+          ? "site" as const : "general" as const;
+        if (value.advisory_type === "closure" || evidence[normalizedBeachId]?.countyKind !== "site") {
+          evidence[normalizedBeachId] = { source: "county", countyKind, checkedAt: (run as { fetched_at: string }).fetched_at };
+        }
         waterQualityStatusByBeachId[normalizedBeachId] =
           moreSevereWaterQualityStatus(
             waterQualityStatusByBeachId[normalizedBeachId],
@@ -348,8 +365,10 @@ async function resolveCountyLiveHolds(
     state: "resolved",
     heldBeachIds: [...new Set(heldBeachIds)],
     waterQualityStatusByBeachId,
+    evidence,
     snapshot: [
       `county-live:fresh:${(run as { fetched_at: string }).fetched_at}`,
+      `county-general:${generalAdvisory.expired ? "expired" : "active"}:${generalAdvisory.streakStartedAt ?? "unknown"}`,
       `county-live:held:${[...new Set(heldBeachIds)].sort().join(",")}`,
     ],
   };
@@ -534,7 +553,8 @@ export async function resolveWaterQualityHolds(
       if (ownerHeldBeachIds.has(beachId)) {
         evidence[beachId] = { source: "hold" };
         heldBeachIds.push(beachId);
-        if (row?.status === "advisory" || row?.status === "closure") {
+        if ((row?.status === "advisory" || row?.status === "closure")
+          && (countyHeld.has(beachId) || isCurrentWaterQualitySample(row.latest_sample_date, now.getTime()))) {
           waterQualityStatusByBeachId[beachId] = row.status;
         }
         snapshot.push(`${beachId}:owner-hold`);
@@ -559,7 +579,10 @@ export async function resolveWaterQualityHolds(
       }
 
       if (row.status === "advisory" || row.status === "closure") {
-        evidence[beachId] = countyHeld.has(beachId) ? { source: "county" }
+        evidence[beachId] = countyHeld.has(beachId) ? { source: "county",
+          ...(row.county_advisory_kind === "site" || row.county_advisory_kind === "general"
+            ? { countyKind: row.county_advisory_kind } : {}),
+          ...(typeof row.county_checked_at === "string" ? { checkedAt: row.county_checked_at } : {}) }
           : { source: "sample", ...(typeof row.latest_sample_date === "string" ? { sampleDate: row.latest_sample_date } : {}) };
         heldBeachIds.push(beachId);
         waterQualityStatusByBeachId[beachId] = row.status;
@@ -573,7 +596,7 @@ export async function resolveWaterQualityHolds(
         liveResolution.waterQualityStatusByBeachId,
       )) {
         if (status === "closure" || waterQualityStatusByBeachId[beachId] !== "closure") {
-          evidence[beachId] = { source: "county" };
+          if (!ownerHeldBeachIds.has(beachId)) evidence[beachId] = liveResolution.evidence[beachId];
         }
         waterQualityStatusByBeachId[beachId] =
           moreSevereWaterQualityStatus(

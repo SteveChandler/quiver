@@ -58,6 +58,7 @@ function clientFor(args: {
                         id: "44444444-4444-4444-8444-444444444444",
                         fetched_at: new Date().toISOString(),
                         status: "completed",
+                        advisory_count: 0,
                         source_identifier: "county-san-diego-dehq-sdbeachinfo",
                       },
                     ],
@@ -460,7 +461,7 @@ describe("water-quality recommendation holds", () => {
  test("preserves the actual sample date and distinguishes live county evidence", async () => {
   const sampleDate = new Date().toISOString();
   const result = await resolveWaterQualityHolds([candidate(BEACH_A), candidate(BEACH_B)], { client: clientFor({ qualityRows: [{ beach_id: BEACH_A, status: "advisory", total_samples_30d: 8, latest_sample_date: sampleDate }], liveRows: [{ beach_id: BEACH_B, advisory_type: "advisory", source_site_identifier: "site-b" }] }) });
-  expect(result.waterQualityEvidenceByBeachId).toEqual({ [BEACH_A]: { source: "sample", sampleDate }, [BEACH_B]: { source: "county" } });
+  expect(result.waterQualityEvidenceByBeachId).toMatchObject({ [BEACH_A]: { source: "sample", sampleDate }, [BEACH_B]: { source: "county", countyKind: "site", checkedAt: expect.any(String) } });
   expect(result.heldBeachIds).toEqual([BEACH_A, BEACH_B]);
 });
 
@@ -475,6 +476,6 @@ describe("water-quality recommendation holds", () => {
     }),
   });
   expect(result.heldBeachIds).toEqual([BEACH_B, BEACH_C]);
-  expect(result.waterQualityEvidenceByBeachId).toEqual({ [BEACH_A]: { source: "sample", sampleDate: latest_sample_date }, [BEACH_B]: { source: "county" }, [BEACH_C]: { source: "hold" } });
+  expect(result.waterQualityEvidenceByBeachId).toMatchObject({ [BEACH_A]: { source: "sample", sampleDate: latest_sample_date }, [BEACH_B]: { source: "county", countyKind: "site", checkedAt: expect.any(String) }, [BEACH_C]: { source: "hold" } });
   expect(result.waterQualityStatusByBeachId).not.toHaveProperty(BEACH_A);
 });
