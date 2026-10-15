@@ -77,9 +77,30 @@ describe('POST /api/surf/week-scout', () => {
 
   function tables(rows: Record<string, unknown>) {
     return jest.fn((table: string) => ({
-      select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: rows[table] ?? null, error: null }) }) }),
+      select: jest.fn(() => ({ eq: () => ({ maybeSingle: async () => ({ data: rows[table] ?? null, error: null }) }) })),
     }));
   }
+
+  it.each([
+    ["complete-radius", "beginner"],
+    ["legacy", "beginner"],
+    ["complete-radius", null],
+    ["legacy", null],
+  ])("passes the %p pool path raw profile experience %p", async (scope, experienceLevel) => {
+    const from = tables({
+      profiles: { max_drive_minutes: null, experience_level: experienceLevel },
+      user_location_snapshots: { lat: 32, lon: -118, captured_at: new Date().toISOString() },
+    });
+    const response = await callRoute({
+      ...(scope === "complete-radius" ? { candidateScope: "complete-radius" } : { candidateBeachIds: [BEACH_A] }),
+      localTimezone: "America/Los_Angeles", startLocalDate: "2026-07-15", dayCount: 7,
+    }, { from });
+
+    expect(response.status).toBe(200);
+    const profileQuery = from.mock.results[from.mock.calls.findIndex(([table]) => table === "profiles")].value;
+    expect(profileQuery.select).toHaveBeenCalledWith(expect.stringContaining("experience_level"));
+    expect(mockBuildDriveRangeCandidatePool).toHaveBeenCalledWith("user-week-scout", expect.objectContaining({ experienceLevel }));
+  });
 
   it('deduplicates candidate IDs and returns the exact private no-store response', async () => {
     const response = await callRoute({
@@ -243,6 +264,7 @@ describe('POST /api/surf/week-scout', () => {
       anchor: { lat: 32, lon: -118 },
       homeBeachId: 'home-beach',
       maxDriveMinutes,
+      experienceLevel: null,
       filters: undefined,
     });
     expect(mockGenerateWeekScoutForecast).toHaveBeenCalledWith('user-week-scout', expect.objectContaining({
@@ -427,6 +449,7 @@ describe('POST /api/surf/week-scout', () => {
       anchor,
       homeBeachId: 'home-beach',
       maxDriveMinutes: 90,
+      experienceLevel: null,
       filters: undefined,
       widenEmptyRange: false,
     });
@@ -459,6 +482,7 @@ describe('POST /api/surf/week-scout', () => {
       anchor,
       homeBeachId: null,
       maxDriveMinutes: 90,
+      experienceLevel: null,
       filters: undefined,
       widenEmptyRange: false,
     });
@@ -489,6 +513,7 @@ describe('POST /api/surf/week-scout', () => {
       anchor,
       homeBeachId: 'home-beach',
       maxDriveMinutes: 90,
+      experienceLevel: null,
       filters: undefined,
       widenEmptyRange: false,
     });

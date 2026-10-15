@@ -1,4 +1,4 @@
-export { buildCanonicalSessionDecision, candidateHasSafetyVeto } from "./engine";
+export { beachSkillVetoReason, buildCanonicalSessionDecision, candidateHasSafetyVeto } from "./engine";
 export { buildCanonicalDecisionFromSurfDiscovery } from "./discovery-adapter";
 export {
   resolveCanonicalSessionDecisionContext,

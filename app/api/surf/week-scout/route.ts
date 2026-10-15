@@ -178,6 +178,7 @@ async function weekScoutHandler(
       anchor,
       homeBeachId,
       maxDriveMinutes: profile?.max_drive_minutes ?? null,
+      experienceLevel: profile?.experience_level ?? null,
       filters: completeRadiusScope.filters,
     });
     candidateBeachIds = pool.candidates.map((candidate) => candidate.beach.id);
@@ -192,7 +193,7 @@ async function weekScoutHandler(
       filteredOut: pool.filteredOutCount,
       capped: pool.cappedCount,
     };
-    // Past the nearest-beach cap the scout covers less than the whole range;
+    // Past the nearby cap the scout covers less than the whole range;
     // report the distance it actually reached so "within N miles" stays true.
     scopeCoveredMiles = typeof pool.farthestNearbyMiles === 'number' && Number.isFinite(pool.farthestNearbyMiles)
       ? Math.min(scopeRadiusMiles, pool.farthestNearbyMiles)
@@ -269,6 +270,7 @@ async function weekScoutHandler(
           anchor,
           homeBeachId,
           maxDriveMinutes: profile?.max_drive_minutes ?? null,
+          experienceLevel: profile?.experience_level ?? null,
           filters: undefined,
           widenEmptyRange: false,
         });
@@ -330,13 +332,13 @@ async function readWeekScoutProfile(
   supabase: AuthenticatedContext['supabase'],
   userId: string,
 ): Promise<{
-  profile: { max_drive_minutes?: number | null; preferred_session_time?: string | null; home_beach_id?: string | null } | null;
+  profile: { max_drive_minutes?: number | null; preferred_session_time?: string | null; home_beach_id?: string | null; experience_level?: string | null } | null;
   error: string | null;
 }> {
   try {
     const result = await supabase
       .from('profiles')
-      .select('max_drive_minutes, preferred_session_time, home_beach_id')
+      .select('max_drive_minutes, preferred_session_time, home_beach_id, experience_level')
       .eq('id', userId)
       .maybeSingle();
     return result.error ? { profile: null, error: result.error.message } : { profile: result.data, error: null };

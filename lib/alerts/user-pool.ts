@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Beach, Database } from "@/types/database";
 import { driveRadiusMiles } from "@/lib/profile/drive-range";
 import { calculateDistanceInMiles } from "@/lib/utils/distance-utils";
+import { beachSkillVetoReason } from "@/lib/recommendations/canonical-decision";
 
 export type PoolRelation = "home" | "favorite" | "custom" | "nearby";
 
@@ -37,11 +38,11 @@ interface CustomSpotRow {
 const METERS_PER_MILE = 1609.344;
 
 /**
- * How many nearby beaches a ranking scores, nearest first; home, saved and
- * custom spots in range are always kept on top. Measured 2026-10-11 against
- * production data (Week Scout, LA, 100-mile range): 30 beaches 1.07 s, 50
- * 1.44 s, 60 1.77 s, 99 2.49 s. The Daily Call uses the same cap so it and
- * Home choose from the same beaches.
+ * How many nearby beaches a ranking scores. With experience supplied,
+ * skill-eligible beaches rank first, then nearest; home, saved and custom
+ * spots in range are always kept. Measured 2026-10-11 against production data
+ * (Week Scout, LA, 100-mile range): 30 beaches 1.07 s, 50 1.44 s, 60 1.77 s,
+ * 99 2.49 s. The Daily Call uses the same cap size.
  */
 const NEARBY_POOL_CAP = 50;
 
@@ -53,16 +54,35 @@ interface CappedPool {
   farthestNearbyMiles: number | null;
 }
 
-export function capNearbyPool(pool: PoolBeach[], cap: number = NEARBY_POOL_CAP): CappedPool {
+/** Eligible nearby beaches rank first when experience is supplied; distance breaks ties. */
+export function capNearbyPool(
+  pool: PoolBeach[],
+  options: { cap?: number; experienceLevel?: unknown } = {},
+): CappedPool {
+  const { cap = NEARBY_POOL_CAP, experienceLevel } = options;
+  const rankBySkill = "experienceLevel" in options;
   const nearby = pool
     .filter(({ relation }) => relation === "nearby")
-    .sort((left, right) => (left.distanceMiles ?? 0) - (right.distanceMiles ?? 0));
+    .map((entry) => ({
+      entry,
+      hasSkillVeto: rankBySkill && beachSkillVetoReason(entry.beach.skill_level, experienceLevel) !== null,
+    }))
+    .sort((left, right) => {
+      if (left.hasSkillVeto !== right.hasSkillVeto) return Number(left.hasSkillVeto) - Number(right.hasSkillVeto);
+      return (left.entry.distanceMiles ?? 0) - (right.entry.distanceMiles ?? 0);
+    });
   if (nearby.length <= cap) return { pool, cappedCount: 0, farthestNearbyMiles: null };
-  const kept = new Set(nearby.slice(0, cap));
+  const keptNearby = nearby.slice(0, cap).map(({ entry }) => entry);
+  const kept = new Set(keptNearby);
   return {
     pool: pool.filter((entry) => entry.relation !== "nearby" || kept.has(entry)),
     cappedCount: nearby.length - cap,
-    farthestNearbyMiles: nearby[cap - 1]?.distanceMiles ?? null,
+    farthestNearbyMiles: keptNearby.reduce<number | null>(
+      (farthest, { distanceMiles }) => distanceMiles === null
+        ? farthest
+        : Math.max(farthest ?? -Infinity, distanceMiles),
+      null,
+    ),
   };
 }
 const FORECAST_MAX_AGE_MS = 24 * 60 * 60 * 1000;

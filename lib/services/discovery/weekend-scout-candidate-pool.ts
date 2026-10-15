@@ -307,6 +307,7 @@ interface BuildDriveRangeCandidatePoolOptions {
   anchor: { lat: number; lon: number };
   homeBeachId: string | null;
   maxDriveMinutes: number | null;
+  experienceLevel?: unknown;
   filters?: readonly WeekScoutFilter[];
   /** Widen an empty drive range to 100 miles and name the nearest beach (Home/Explore scope). */
   widenEmptyRange?: boolean;
@@ -322,7 +323,7 @@ interface DriveRangeCandidatePool {
   candidates: Array<{ beach: Beach; distanceMiles: number | null }>;
   enumeratedCount: number;
   filteredOutCount: number;
-  /** Nearby beaches in range left out past the nearest-beach cap. */
+  /** Nearby beaches in range left out past the cap. */
   cappedCount: number;
   /** Distance to the farthest nearby beach kept; null when nothing was capped. */
   farthestNearbyMiles: number | null;
@@ -335,8 +336,8 @@ interface DriveRangeCandidatePool {
 /**
  * Home's drive-range scope. It is the Daily Call's own pool (home, saved and
  * custom spots inside the range, plus every eligible beach in it, same country)
- * so the two surfaces choose among the same beaches, narrowed by the surfer's
- * Week Scout filters.
+ * with the same skill-first nearby cap, so the two surfaces choose among the
+ * same beaches (#1037), narrowed by the surfer's Week Scout filters.
  */
 export async function buildDriveRangeCandidatePool(
   userId: string,
@@ -384,7 +385,9 @@ export async function buildDriveRangeCandidatePool(
   const matching = pool.filter(({ beach, distanceMiles }) => (
     matchesScope({ beach, distanceMiles: distanceMiles ?? 0 }, scope)
   ));
-  const capped = capNearbyPool(matching);
+  const capped = capNearbyPool(matching, "experienceLevel" in options
+    ? { experienceLevel: options.experienceLevel }
+    : {});
   return {
     candidates: capped.pool.map(({ beach, distanceMiles }) => ({ beach, distanceMiles })),
     enumeratedCount: pool.length,
