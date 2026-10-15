@@ -290,7 +290,7 @@ export default async function WaterQualityPage({ searchParams }: PageProps) {
                   {wq.county_advisory_status ? (
                     <p className="text-sm text-slate-300">
                       <a href="https://www.sdbeachinfo.com/" className="underline">Check current County of San Diego advisories</a>.
-                      {wq.county_checked_at ? ` Checked ${new Date(wq.county_checked_at).toLocaleString("en-US", { timeZone: "America/Los_Angeles" })} Pacific. No advisory does not guarantee safe water.` : " Current status could not be verified. Check before entering the water."}
+                      {wq.county_checked_at ? ` Checked ${new Date(wq.county_checked_at).toLocaleString("en-US", { timeZone: "America/Los_Angeles" })} Pacific.` : " Current status could not be verified. Check before entering the water."}
                     </p>
                   ) : <StatusMessage
                     status={wq.status}

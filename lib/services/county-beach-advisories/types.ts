@@ -34,6 +34,8 @@ export const COUNTY_MAX_MATCH_DISTANCE_METERS = 500;
  * 86. A run at or above this count is treated as a county-wide advisory.
  */
 export const COUNTY_GENERAL_ADVISORY_MIN_SITES = 30;
+/** County general rain-runoff advisories expire 72 hours after the current streak begins. */
+export const COUNTY_GENERAL_ADVISORY_TTL_MS = 72 * 60 * 60 * 1000;
 /**
  * The coast the County DEHQ feed samples, Tijuana Sloughs to Trestles. When the
  * feed is stale only beaches inside it lose their water-quality status. Checked

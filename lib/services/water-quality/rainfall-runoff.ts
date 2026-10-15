@@ -105,13 +105,14 @@ export function clusterRainfall(stations: Readonly<Record<string, StationRainfal
 function rainRunoffReason(totalIn: number): string {
   return `Runoff after rain: ${totalIn.toFixed(2)} in fell nearby in the last 72 hours. `
     + "Bacteria levels typically rise near storm drains, creeks and river mouths after rain. "
-    + "Avoid those areas and check again in 72 hours.";
+    + "Avoid those areas for 72 hours.";
 }
 
 interface NoticeRow {
   status: string;
   status_reason?: string | null;
   county_advisory_status?: string;
+  county_general_expired?: boolean;
 }
 
 /**
@@ -123,7 +124,7 @@ export function applyRainfallNotice<T extends NoticeRow>(
   reading: RainfallReading | null | undefined,
   now: Date = new Date(),
 ): T & { rain_runoff?: RainRunoffMetadata } {
-  if (!reading || row.county_advisory_status) return row;
+  if (!reading || row.county_advisory_status || row.county_general_expired) return row;
   if (row.status === "advisory" || row.status === "closure") return row;
   if (!(reading.total_in >= RAIN_RUNOFF_THRESHOLD_IN)) return row;
   const age = now.getTime() - Date.parse(reading.window_end);

@@ -2,9 +2,13 @@
  * @jest-environment node
  */
 
+import { createHash } from "node:crypto";
+
 import {
   CHRONICALLY_IMPACTED_WATER_QUALITY_BEACH_IDS,
   resolveWaterQualityHolds,
+  supportsCountyRunQuery,
+  supportsCountyStreakQuery,
   type WaterQualityHoldClient,
 } from "@/lib/recommendations/major-event-hold/water-quality";
 import * as currentStatus from "@/lib/services/water-quality/current-status";
@@ -58,6 +62,7 @@ function clientFor(args: {
                         id: "44444444-4444-4444-8444-444444444444",
                         fetched_at: new Date().toISOString(),
                         status: "completed",
+                        advisory_count: 0,
                         source_identifier: "county-san-diego-dehq-sdbeachinfo",
                       },
                     ],
@@ -92,6 +97,27 @@ function clientFor(args: {
 }
 
 describe("water-quality recommendation holds", () => {
+  it("keeps run-query clients usable when they cannot answer streak queries", () => {
+    const query = clientFor({}).from("county_beach_advisory_runs").select("id");
+    expect(supportsCountyRunQuery(query)).toBe(true);
+    expect(supportsCountyStreakQuery(query)).toBe(false);
+  });
+
+  it.each([
+    [0, "county-general:dormant"],
+    [86, "county-general:unknown"],
+  ])("distinguishes the County general snapshot for advisory_count=%i", async (advisoryCount, generalSnapshot) => {
+    const checkedAt = "2026-10-15T20:00:00Z";
+    const result = await resolveWaterQualityHolds([candidate(BEACH_A)], {
+      now: new Date("2026-10-15T20:30:00Z"),
+      client: clientFor({ liveRunRows: [{ id: "44444444-4444-4444-8444-444444444444", fetched_at: checkedAt,
+        status: "completed", advisory_count: advisoryCount, source_identifier: "county-san-diego-dehq-sdbeachinfo" }] }),
+    });
+    const snapshot = [`${BEACH_A}:fallback:allow`, `county-live:fresh:${checkedAt}`, generalSnapshot, "county-live:held:"];
+    expect(result.state).toBe("resolved");
+    expect(result.epoch).toBe(createHash("sha256").update(`water-quality:v2|${snapshot.sort().join("|")}`).digest("hex"));
+  });
+
   it.each([false, true])("bounds catalog queries and preserves failure status (failed batch: %s)", async (failBatch) => {
     const ids = Array.from({ length: 250 }, (_, i) => `aaaaaaaa-aaaa-4aaa-8aaa-${String(i).padStart(12, "0")}`);
     const client = clientFor({});
@@ -455,12 +481,53 @@ describe("water-quality recommendation holds", () => {
     expect(resolution.unverifiedBeachIds ?? []).toEqual([]);
     expect((client.from as jest.Mock).mock.calls.map(([table]) => table)).not.toContain("beaches");
   });
+
+  it("uses live County closure evidence for an owner-held beach", async () => {
+    const beachId = CHRONICALLY_IMPACTED_WATER_QUALITY_BEACH_IDS[0];
+    const checkedAt = "2026-10-15T20:00:00Z";
+    const result = await resolveWaterQualityHolds([candidate(beachId)], {
+      now: new Date("2026-10-15T20:30:00Z"),
+      client: clientFor({
+        ownerRows: [{ beach_id: beachId }],
+        qualityRows: [{ beach_id: beachId, status: "advisory", total_samples_30d: 8, latest_sample_date: "2026-09-01" }],
+        liveRunRows: [{ id: "44444444-4444-4444-8444-444444444444", fetched_at: checkedAt,
+          status: "completed", advisory_count: 0, source_identifier: "county-san-diego-dehq-sdbeachinfo" }],
+        liveRows: [{ beach_id: beachId, advisory_type: "closure", source_site_identifier: "imperial-beach" }],
+      }),
+    });
+
+    expect(result.state).toBe("resolved");
+    expect(result.heldBeachIds).toEqual([beachId]);
+    expect(result.waterQualityStatusByBeachId).toEqual({ [beachId]: "closure" });
+    expect(result.waterQualityEvidenceByBeachId).toEqual({
+      [beachId]: { source: "county", countyKind: "site", checkedAt },
+    });
+  });
+
+  it("retains an owner-held beach's stale sample advisory status without a County notice", async () => {
+    const beachId = CHRONICALLY_IMPACTED_WATER_QUALITY_BEACH_IDS[0];
+    const result = await resolveWaterQualityHolds([candidate(beachId)], {
+      now: new Date("2026-10-15T20:30:00Z"),
+      client: clientFor({
+        ownerRows: [{ beach_id: beachId }],
+        qualityRows: [{ beach_id: beachId, status: "advisory", total_samples_30d: 8, latest_sample_date: "2026-09-01" }],
+        liveRunRows: [{ id: "44444444-4444-4444-8444-444444444444", fetched_at: "2026-10-15T20:00:00Z",
+          status: "completed", advisory_count: 0, source_identifier: "county-san-diego-dehq-sdbeachinfo" }],
+        liveRows: [],
+      }),
+    });
+
+    expect(result.state).toBe("resolved");
+    expect(result.heldBeachIds).toEqual([beachId]);
+    expect(result.waterQualityStatusByBeachId).toEqual({ [beachId]: "advisory" });
+    expect(result.waterQualityEvidenceByBeachId).toEqual({ [beachId]: { source: "hold" } });
+  });
 });
 
  test("preserves the actual sample date and distinguishes live county evidence", async () => {
   const sampleDate = new Date().toISOString();
   const result = await resolveWaterQualityHolds([candidate(BEACH_A), candidate(BEACH_B)], { client: clientFor({ qualityRows: [{ beach_id: BEACH_A, status: "advisory", total_samples_30d: 8, latest_sample_date: sampleDate }], liveRows: [{ beach_id: BEACH_B, advisory_type: "advisory", source_site_identifier: "site-b" }] }) });
-  expect(result.waterQualityEvidenceByBeachId).toEqual({ [BEACH_A]: { source: "sample", sampleDate }, [BEACH_B]: { source: "county" } });
+  expect(result.waterQualityEvidenceByBeachId).toMatchObject({ [BEACH_A]: { source: "sample", sampleDate }, [BEACH_B]: { source: "county", countyKind: "site", checkedAt: expect.any(String) } });
   expect(result.heldBeachIds).toEqual([BEACH_A, BEACH_B]);
 });
 
@@ -475,6 +542,6 @@ describe("water-quality recommendation holds", () => {
     }),
   });
   expect(result.heldBeachIds).toEqual([BEACH_B, BEACH_C]);
-  expect(result.waterQualityEvidenceByBeachId).toEqual({ [BEACH_A]: { source: "sample", sampleDate: latest_sample_date }, [BEACH_B]: { source: "county" }, [BEACH_C]: { source: "hold" } });
+  expect(result.waterQualityEvidenceByBeachId).toMatchObject({ [BEACH_A]: { source: "sample", sampleDate: latest_sample_date }, [BEACH_B]: { source: "county", countyKind: "site", checkedAt: expect.any(String) }, [BEACH_C]: { source: "hold" } });
   expect(result.waterQualityStatusByBeachId).not.toHaveProperty(BEACH_A);
 });

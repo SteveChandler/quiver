@@ -39,7 +39,8 @@ function project(rows: readonly ProjectionRow[], overrides: Partial<Parameters<t
 }
 
 /** A rain-day run: the County lists far more sites than it ever samples at once. */
-function generalAdvisory(extra: Array<typeof notice> = []): { run: typeof run; notices: Array<typeof notice> } {
+type TestNotice = Omit<typeof notice, "beach_id"> & { beach_id: string | null };
+function generalAdvisory(extra: TestNotice[] = []): { run: typeof run; notices: TestNotice[] } {
   const filler = Array.from({ length: COUNTY_GENERAL_ADVISORY_MIN_SITES }, (_, i) => ({
     ...notice, source_site_identifier: `bay-${i}`, county_latitude: 32.7, county_longitude: -117.2 }));
   const notices = [...filler, ...extra];
@@ -167,6 +168,21 @@ describe("current county water-quality contract", () => {
     expect(shores).toMatchObject({ status: "advisory", county_advisory_status: "advisory", county_advisory_kind: "general" });
     expect(blacksRow).toMatchObject({ status: "advisory", county_advisory_status: "advisory", county_advisory_kind: "general" });
     expect(uncovered).toEqual({ ...row, beach_id: other, status: "good" });
+  });
+
+  it("removes an expired general-only status while preserving site advisories and owner holds", () => {
+    const { run: rainRun, notices } = generalAdvisory([{ ...notice, source_site_identifier: "shipwrecks", beach_id: blacks,
+      county_latitude: 32.887, county_longitude: -117.252 }]);
+    const resolvedGeneral = { general: true, expired: true, streakStartedAt: "2026-09-01T03:00:00Z",
+      siteIdentifiers: new Set(["shipwrecks"]) };
+    const [shores, site] = project([{ ...row, status: "good" }, { ...row, beach_id: blacks }],
+      { run: rainRun, notices, generalAdvisory: resolvedGeneral });
+    expect(shores).toMatchObject({ status: "unknown", county_general_expired: true });
+    expect(shores).not.toHaveProperty("county_advisory_status");
+    expect(shores).not.toHaveProperty("county_advisory_kind");
+    expect(site).toMatchObject({ status: "advisory", county_advisory_status: "advisory", county_advisory_kind: "site" });
+    expect(project([{ ...row, status: "good" }], { run: rainRun, notices, generalAdvisory: resolvedGeneral,
+      owners: [{ beach_id: id }] })[0]).toEqual({ ...row, status: "good" });
   });
 
   it("keeps a local closure above a general advisory", () => {

@@ -128,16 +128,13 @@ export function WaterQualityBadge({ waterQuality, beachState }: WaterQualityBadg
 
       {expanded && (
         <CardContent className="space-y-3 pt-4 text-sm text-ink">
-          {waterQuality.county_advisory_status && (
-            <div>
-              <a href="https://www.sdbeachinfo.com/" target="_blank" rel="noopener noreferrer" className="underline">
-                County of San Diego: current advisory status
-              </a>
-              {waterQuality.county_advisory_kind === "general" && waterQuality.status === "advisory" && (
-                <p>The County has a general advisory in effect for runoff after rain. Avoid storm drains and river mouths, and check again in 72 hours.</p>
-              )}
-              <p>{waterQuality.county_checked_at ? `Checked ${new Date(waterQuality.county_checked_at).toLocaleString()}. No advisory does not guarantee safe water.` : "Current county status could not be verified. Check the county before entering the water."}</p>
-            </div>
+          {waterQuality.county_advisory_status === "advisory" && (
+            <p>{waterQuality.county_advisory_kind === "general"
+              ? "County rain advisory · runoff after rain"
+              : `San Diego County advisory${waterQuality.county_checked_at ? ` · checked ${new Date(waterQuality.county_checked_at).toLocaleString()}` : ""}`}</p>
+          )}
+          {waterQuality.county_advisory_status === "closure" && (
+            <p>{`San Diego County closure${waterQuality.county_checked_at ? ` · checked ${new Date(waterQuality.county_checked_at).toLocaleString()}` : ""}`}</p>
           )}
           {rainRunoff && (
             <div>
