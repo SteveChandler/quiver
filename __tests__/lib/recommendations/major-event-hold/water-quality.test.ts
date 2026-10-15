@@ -2,9 +2,13 @@
  * @jest-environment node
  */
 
+import { createHash } from "node:crypto";
+
 import {
   CHRONICALLY_IMPACTED_WATER_QUALITY_BEACH_IDS,
   resolveWaterQualityHolds,
+  supportsCountyRunQuery,
+  supportsCountyStreakQuery,
   type WaterQualityHoldClient,
 } from "@/lib/recommendations/major-event-hold/water-quality";
 import * as currentStatus from "@/lib/services/water-quality/current-status";
@@ -93,6 +97,27 @@ function clientFor(args: {
 }
 
 describe("water-quality recommendation holds", () => {
+  it("keeps run-query clients usable when they cannot answer streak queries", () => {
+    const query = clientFor({}).from("county_beach_advisory_runs").select("id");
+    expect(supportsCountyRunQuery(query)).toBe(true);
+    expect(supportsCountyStreakQuery(query)).toBe(false);
+  });
+
+  it.each([
+    [0, "county-general:dormant"],
+    [86, "county-general:unknown"],
+  ])("distinguishes the County general snapshot for advisory_count=%i", async (advisoryCount, generalSnapshot) => {
+    const checkedAt = "2026-10-15T20:00:00Z";
+    const result = await resolveWaterQualityHolds([candidate(BEACH_A)], {
+      now: new Date("2026-10-15T20:30:00Z"),
+      client: clientFor({ liveRunRows: [{ id: "44444444-4444-4444-8444-444444444444", fetched_at: checkedAt,
+        status: "completed", advisory_count: advisoryCount, source_identifier: "county-san-diego-dehq-sdbeachinfo" }] }),
+    });
+    const snapshot = [`${BEACH_A}:fallback:allow`, `county-live:fresh:${checkedAt}`, generalSnapshot, "county-live:held:"];
+    expect(result.state).toBe("resolved");
+    expect(result.epoch).toBe(createHash("sha256").update(`water-quality:v2|${snapshot.sort().join("|")}`).digest("hex"));
+  });
+
   it.each([false, true])("bounds catalog queries and preserves failure status (failed batch: %s)", async (failBatch) => {
     const ids = Array.from({ length: 250 }, (_, i) => `aaaaaaaa-aaaa-4aaa-8aaa-${String(i).padStart(12, "0")}`);
     const client = clientFor({});

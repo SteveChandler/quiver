@@ -87,6 +87,7 @@ function surfCallWaterQuality(
   resolution: WaterQualityHoldResolution,
   beachId: string,
 ): SurfCallWaterQuality {
+  beachId = beachId.toLowerCase();
   if (resolution.state !== 'resolved' || !resolution.heldBeachIds.includes(beachId)) return null;
   const evidence = resolution.waterQualityEvidenceByBeachId?.[beachId];
   const status = resolution.waterQualityStatusByBeachId[beachId] ?? 'hold';
@@ -514,6 +515,16 @@ async function surfCallHandler(
         now: anchor,
       })
     : null;
+  const waterQualityPromise = resolveWaterQualityHolds([{
+    candidateId: `surf-call:${beachId}`,
+    beachId,
+    startsAt: scopeStart.toISOString(),
+    endsAt: scopeEnd.toISOString(),
+  }]).then((resolution) => surfCallWaterQuality(resolution, beachId))
+    .catch((error: unknown) => {
+      console.error('[surf-call:water-quality-error]', error);
+      return null;
+    });
   let canonicalContext;
   try {
     canonicalContext = await resolveCanonicalSessionDecisionContext({
@@ -545,18 +556,7 @@ async function surfCallHandler(
     return retryableDiscoveryResponse(error);
   }
   const sessionDecision = canonicalContext.decision;
-  let waterQuality: SurfCallWaterQuality = null;
-  try {
-    const resolution = canonicalContext.waterQualityResolution ?? await resolveWaterQualityHolds([{
-      candidateId: `surf-call:${beachId}`,
-      beachId,
-      startsAt: scopeStart.toISOString(),
-      endsAt: scopeEnd.toISOString(),
-    }]);
-    waterQuality = surfCallWaterQuality(resolution, beachId);
-  } catch (error) {
-    console.error('[surf-call:water-quality-error]', error);
-  }
+  const waterQuality = await waterQualityPromise;
   const recommendations = [
     ...canonicalContext.discovery.recommendations,
     ...(canonicalContext.discovery.includedRecommendations ?? []),

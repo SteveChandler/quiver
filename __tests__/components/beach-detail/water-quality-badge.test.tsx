@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { WaterQualityBadge, type WaterQuality } from "@/components/beach-detail/water-quality-badge";
+import { applyRainfallNotice } from "@/lib/services/water-quality/rainfall-runoff";
 
 const sample: WaterQuality = {
   beach_id: "d291411d-d331-4bf1-ad1a-302da3c69de0", status: "advisory",
@@ -59,8 +60,17 @@ it("names a County general advisory as rain runoff, not elevated bacteria", () =
   expect(screen.queryByRole("link", { name: /County of San Diego/ })).not.toBeInTheDocument();
 });
 
-it("renders nothing after a general-only County advisory expires", () => {
-  const { container } = render(<WaterQualityBadge waterQuality={{ ...sample, status: "unknown" }} />);
+it("keeps an expired general-only County advisory hidden despite fresh wet rainfall", () => {
+  const now = new Date("2026-10-14T20:30:43Z");
+  const expired: WaterQuality = { ...sample, status: "unknown", county_general_expired: true };
+  const overlaid = applyRainfallNotice(expired, {
+    cluster_id: "laguna_san_clemente", window_end: now.toISOString(), total_in: 1.2,
+    station_totals: { KNFG: 1.2 },
+  }, now);
+  expect(overlaid).toBe(expired);
+  expect(overlaid.status).toBe("unknown");
+  expect(overlaid).not.toHaveProperty("rain_runoff");
+  const { container } = render(<WaterQualityBadge waterQuality={overlaid} />);
   expect(container).toBeEmptyDOMElement();
 });
 

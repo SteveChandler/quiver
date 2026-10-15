@@ -112,6 +112,7 @@ interface NoticeRow {
   status: string;
   status_reason?: string | null;
   county_advisory_status?: string;
+  county_general_expired?: boolean;
 }
 
 /**
@@ -123,7 +124,7 @@ export function applyRainfallNotice<T extends NoticeRow>(
   reading: RainfallReading | null | undefined,
   now: Date = new Date(),
 ): T & { rain_runoff?: RainRunoffMetadata } {
-  if (!reading || row.county_advisory_status) return row;
+  if (!reading || row.county_advisory_status || row.county_general_expired) return row;
   if (row.status === "advisory" || row.status === "closure") return row;
   if (!(reading.total_in >= RAIN_RUNOFF_THRESHOLD_IN)) return row;
   const age = now.getTime() - Date.parse(reading.window_end);

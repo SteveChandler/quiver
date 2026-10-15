@@ -177,7 +177,7 @@ describe("current county water-quality contract", () => {
       siteIdentifiers: new Set(["shipwrecks"]) };
     const [shores, site] = project([{ ...row, status: "good" }, { ...row, beach_id: blacks }],
       { run: rainRun, notices, generalAdvisory: resolvedGeneral });
-    expect(shores).toMatchObject({ status: "unknown" });
+    expect(shores).toMatchObject({ status: "unknown", county_general_expired: true });
     expect(shores).not.toHaveProperty("county_advisory_status");
     expect(shores).not.toHaveProperty("county_advisory_kind");
     expect(site).toMatchObject({ status: "advisory", county_advisory_status: "advisory", county_advisory_kind: "site" });

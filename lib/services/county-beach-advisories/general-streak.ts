@@ -1,7 +1,11 @@
 import "server-only";
 
 import { z } from "zod";
-import type { WaterQualityHoldClient } from "@/lib/recommendations/major-event-hold/water-quality";
+import {
+  supportsCountyAdvisoryQuery,
+  supportsCountyStreakQuery,
+  type WaterQualityHoldClient,
+} from "@/lib/recommendations/major-event-hold/water-quality";
 import { memoizedWaterQualityRead } from "@/lib/recommendations/major-event-hold/read-scope";
 import {
   COUNTY_FEED_SOURCE_IDENTIFIER,
@@ -32,28 +36,12 @@ const unknownGeneral: CountyGeneralAdvisory = {
   general: true, expired: false, streakStartedAt: null, siteIdentifiers: null,
 };
 
-interface RunQuery {
-  eq: (column: string, value: string) => RunQuery;
-  lt: (column: string, value: string | number) => RunQuery;
-  gt: (column: string, value: string) => RunQuery;
-  order: (column: string, options: { ascending: boolean }) => RunQuery;
-  limit: (count: number) => RunQuery;
-  then: <TResult1 = { data: unknown; error: unknown }, TResult2 = never>(
-    onfulfilled?: ((value: { data: unknown; error: unknown }) => TResult1 | PromiseLike<TResult1>) | null,
-    onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
-  ) => PromiseLike<TResult1 | TResult2>;
-}
-
-function supportsRunQuery(query: unknown): query is RunQuery {
-  if (!query || typeof query !== "object") return false;
-  const value = query as Record<string, unknown>;
-  return ["eq", "lt", "gt", "order", "limit", "then"].every((key) => typeof value[key] === "function");
-}
-
 /**
  * A streak contains consecutive completed general runs; failed/started runs are
  * ignored and a completed sub-threshold run resets it. Missing history or a
  * failed read keeps every current advisory active, as before.
+ * The feed has no flag to distinguish site advisories first listed during a
+ * streak; those are treated as general and expire with it.
  */
 export async function resolveCountyGeneralAdvisory(
   client: WaterQualityHoldClient,
@@ -66,13 +54,12 @@ export async function resolveCountyGeneralAdvisory(
 
   try {
     if (!runSchema.safeParse(latestRun).success || !Number.isFinite(now.getTime())) return unknownGeneral;
-    const baselineQuery = client.from("county_beach_advisory_runs").select(runColumns);
-    if (!supportsRunQuery(baselineQuery)) return unknownGeneral;
-    const baselineRunQuery: RunQuery = baselineQuery;
+    const baselineQuery: unknown = client.from("county_beach_advisory_runs").select(runColumns);
+    if (!supportsCountyStreakQuery(baselineQuery)) return unknownGeneral;
     const baselineResult = await memoizedWaterQualityRead(
       client,
       `county-general|baseline|${COUNTY_FEED_SOURCE_IDENTIFIER}|${latestRun.fetched_at}`,
-      () => baselineRunQuery.eq("source_identifier", COUNTY_FEED_SOURCE_IDENTIFIER)
+      () => baselineQuery.eq("source_identifier", COUNTY_FEED_SOURCE_IDENTIFIER)
         .eq("status", "completed")
         .lt("fetched_at", latestRun.fetched_at)
         .lt("advisory_count", COUNTY_GENERAL_ADVISORY_MIN_SITES)
@@ -83,13 +70,12 @@ export async function resolveCountyGeneralAdvisory(
     if (!baseline.success || baseline.data.advisory_count >= COUNTY_GENERAL_ADVISORY_MIN_SITES
       || Date.parse(baseline.data.fetched_at) >= Date.parse(latestRun.fetched_at)) return unknownGeneral;
 
-    const firstQuery = client.from("county_beach_advisory_runs").select(runColumns);
-    if (!supportsRunQuery(firstQuery)) return unknownGeneral;
-    const firstRunQuery: RunQuery = firstQuery;
+    const firstQuery: unknown = client.from("county_beach_advisory_runs").select(runColumns);
+    if (!supportsCountyStreakQuery(firstQuery)) return unknownGeneral;
     const firstResult = await memoizedWaterQualityRead(
       client,
       `county-general|first|${COUNTY_FEED_SOURCE_IDENTIFIER}|${baseline.data.fetched_at}`,
-      () => firstRunQuery.eq("source_identifier", COUNTY_FEED_SOURCE_IDENTIFIER)
+      () => firstQuery.eq("source_identifier", COUNTY_FEED_SOURCE_IDENTIFIER)
         .eq("status", "completed")
         .gt("fetched_at", baseline.data.fetched_at)
         .order("fetched_at", { ascending: true }).limit(1),
@@ -99,8 +85,8 @@ export async function resolveCountyGeneralAdvisory(
     if (!first.success || first.data.advisory_count < COUNTY_GENERAL_ADVISORY_MIN_SITES
       || Date.parse(first.data.fetched_at) > Date.parse(latestRun.fetched_at)) return unknownGeneral;
 
-    const siteQuery = client.from("county_beach_advisories").select(siteColumns);
-    if (!siteQuery || typeof siteQuery.eq !== "function" || typeof siteQuery.then !== "function") return unknownGeneral;
+    const siteQuery: unknown = client.from("county_beach_advisories").select(siteColumns);
+    if (!supportsCountyAdvisoryQuery(siteQuery)) return unknownGeneral;
     const sitesResult = await memoizedWaterQualityRead(
       client,
       `county-general|baseline-sites|${baseline.data.id}`,

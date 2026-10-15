@@ -35,7 +35,6 @@ interface CanonicalSessionDecisionServiceDependencies {
 interface CanonicalSessionDecisionContext {
   decision: CanonicalSessionDecision;
   discovery: SurfDiscoveryResponse;
-  waterQualityResolution: WaterQualityHoldResolution | null;
 }
 
 export async function resolveCanonicalSessionDecisionContext(
@@ -98,5 +97,5 @@ export async function resolveCanonicalSessionDecisionContext(
       : null,
   });
 
-  return { decision, discovery, waterQualityResolution };
+  return { decision, discovery };
 }

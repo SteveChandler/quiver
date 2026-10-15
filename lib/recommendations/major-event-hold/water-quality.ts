@@ -106,7 +106,7 @@ interface WaterQualityQuery {
   ): PromiseLike<TResult1 | TResult2>;
 }
 
-function supportsCountyRunQuery(value: unknown): value is WaterQualityQuery {
+export function supportsCountyRunQuery(value: unknown): value is WaterQualityQuery {
   if (typeof value !== "object" || value === null) return false;
   const query = value as Partial<WaterQualityQuery>;
   return (
@@ -117,7 +117,21 @@ function supportsCountyRunQuery(value: unknown): value is WaterQualityQuery {
   );
 }
 
-function supportsCountyAdvisoryQuery(value: unknown): value is WaterQualityQuery {
+interface CountyStreakQuery extends WaterQualityQuery {
+  eq: (column: string, value: string) => CountyStreakQuery;
+  lt: (column: string, value: string | number) => CountyStreakQuery;
+  gt: (column: string, value: string) => CountyStreakQuery;
+  order: (column: string, options?: { ascending?: boolean }) => CountyStreakQuery;
+  limit: (count: number) => CountyStreakQuery;
+}
+
+export function supportsCountyStreakQuery(value: unknown): value is CountyStreakQuery {
+  if (!supportsCountyRunQuery(value)) return false;
+  const query = value as Partial<CountyStreakQuery>;
+  return typeof query.lt === "function" && typeof query.gt === "function";
+}
+
+export function supportsCountyAdvisoryQuery(value: unknown): value is WaterQualityQuery {
   if (typeof value !== "object" || value === null) return false;
   const query = value as Partial<WaterQualityQuery>;
   return typeof query.eq === "function" && typeof query.then === "function";
@@ -361,6 +375,9 @@ async function resolveCountyLiveHolds(
     }
   }
 
+  const generalSnapshot = !generalAdvisory.general ? "county-general:dormant"
+    : generalAdvisory.streakStartedAt === null ? "county-general:unknown"
+      : `county-general:${generalAdvisory.expired ? "expired" : "active"}:${generalAdvisory.streakStartedAt}`;
   return {
     state: "resolved",
     heldBeachIds: [...new Set(heldBeachIds)],
@@ -368,7 +385,7 @@ async function resolveCountyLiveHolds(
     evidence,
     snapshot: [
       `county-live:fresh:${(run as { fetched_at: string }).fetched_at}`,
-      `county-general:${generalAdvisory.expired ? "expired" : "active"}:${generalAdvisory.streakStartedAt ?? "unknown"}`,
+      generalSnapshot,
       `county-live:held:${[...new Set(heldBeachIds)].sort().join(",")}`,
     ],
   };

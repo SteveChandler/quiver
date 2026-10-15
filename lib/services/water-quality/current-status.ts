@@ -44,6 +44,8 @@ export interface CountyStatusMetadata {
   /** "general" = the County's county-wide advisory (after rain), not a sampled site. */
   county_advisory_kind?: "general" | "site";
   county_checked_at?: string;
+  /** Internal County coverage marker that suppresses rainfall fallback after general expiry. */
+  county_general_expired?: boolean;
 }
 
 export interface CountyProjectionInput {
@@ -139,7 +141,7 @@ export function projectCurrentWaterQuality<T extends SampleQualityRow>(
     // An owner hold marks chronic contamination, so a County clear is not applied there:
     // the beach keeps its prior sample display until the hold question is settled.
     if ((status === "clear" || status === "expired") && held.has(id)) return row;
-    if (status === "expired") return { ...row, status: "unknown" };
+    if (status === "expired") return { ...row, status: "unknown", county_general_expired: true };
     const kind = status === "clear" ? undefined
       : status === "advisory" && general && !siteAdvisory ? "general" as const : "site" as const;
     return { ...row, county_advisory_status: status,
