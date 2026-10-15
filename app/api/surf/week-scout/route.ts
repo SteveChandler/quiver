@@ -158,6 +158,8 @@ async function weekScoutHandler(
   let scopeCandidateCounts: { enumerated: number; hydrated: number; filteredOut: number; capped?: number } | null = null;
   let scopeAnchor: 'origin' | 'location' | 'home' | null = null;
   let scopeCoveredMiles: number | null = null;
+  let scopeWidenedFromMiles: number | null = null;
+  let scopeNearestBeach: { id: string; name: string; slug: string; lat: number; lon: number; distanceMiles: number } | null = null;
   let rankingLocation = userLocation;
   let candidateBeaches: Array<{ beachId: string; beachName: string; beachSlugOrRef: string; distanceMiles: number | null; timezone: string | null; lat: number; lon: number }> | undefined;
   if (completeRadiusScope?.kind === 'complete-radius' && !completeRadiusScope.mapBounds) {
@@ -179,6 +181,11 @@ async function weekScoutHandler(
       filters: completeRadiusScope.filters,
     });
     candidateBeachIds = pool.candidates.map((candidate) => candidate.beach.id);
+    if (pool.widenedFromMiles !== undefined) {
+      scopeWidenedFromMiles = pool.widenedFromMiles;
+      scopeRadiusMiles = MAX_RADIUS_MILES;
+    }
+    scopeNearestBeach = pool.nearestBeach ?? null;
     scopeCandidateCounts = {
       enumerated: pool.enumeratedCount,
       hydrated: pool.enumeratedCount,
@@ -263,6 +270,7 @@ async function weekScoutHandler(
           homeBeachId,
           maxDriveMinutes: profile?.max_drive_minutes ?? null,
           filters: undefined,
+          widenEmptyRange: false,
         });
         const poolIds = pool.candidates.map((candidate) => candidate.beach.id);
         const allowedIds = new Set(poolIds);
@@ -301,6 +309,8 @@ async function weekScoutHandler(
           mapBounded: completeRadiusScope.mapBounds !== null && completeRadiusScope.mapBounds !== undefined,
           ...(scopeAnchor ? { anchor: scopeAnchor } : {}),
           ...(scopeCoveredMiles !== null ? { coveredMiles: scopeCoveredMiles } : {}),
+          ...(scopeWidenedFromMiles !== null ? { widenedFromMiles: scopeWidenedFromMiles } : {}),
+          ...(scopeNearestBeach ? { nearestBeach: scopeNearestBeach } : {}),
           candidates: scopeCandidateCounts ?? { enumerated: 0, hydrated: 0, filteredOut: 0 },
         },
         freshness: { state: 'unknown' as const },

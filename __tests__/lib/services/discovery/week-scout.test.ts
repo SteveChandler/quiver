@@ -1528,6 +1528,26 @@ describe('generateWeekScoutForecast', () => {
     });
   });
 
+  it('reports a week with no beaches as available, not as unreadable holds', async () => {
+    mockEvaluateMajorEventHoldCandidates.mockClear();
+
+    const response = await generateWeekScoutForecast(
+      'user-week-scout',
+      {
+        candidateBeachIds: [],
+        localTimezone: 'Pacific/Honolulu',
+        startLocalDate: '2026-07-31',
+        dayCount: 7,
+      },
+      { ...dependencies(), fetchBeaches: jest.fn(async () => []), fetchForecasts: jest.fn(async () => new Map()) },
+    );
+
+    expect(response.days.every((day) => day.windows.length === 0)).toBe(true);
+    expect(mockEvaluateMajorEventHoldCandidates).not.toHaveBeenCalled();
+    expect(response.recommendationAvailability).toEqual({ state: 'available', holdEpoch: 'no-candidates' });
+    expect(response.sessionDecision?.reasonCode).not.toBe('hold_state_unavailable');
+  });
+
   it('fails malformed hold decisions closed without dropping physical windows', async () => {
     mockEvaluateMajorEventHoldCandidates.mockResolvedValueOnce([]);
 
