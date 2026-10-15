@@ -471,7 +471,7 @@ describe("user pool", () => {
     }));
 
     it("keeps the distant beginner beaches from the production replay without dropping saved spots", () => {
-      const capped = capNearbyPool(replayPool, 50, "beginner");
+      const capped = capNearbyPool(replayPool, { cap: 50, experienceLevel: "beginner" });
       const keptNames = capped.pool.map(({ beach }) => beach.name);
 
       expect(capped.pool.filter(({ relation }) => relation === "nearby")).toHaveLength(50);
@@ -498,14 +498,14 @@ describe("user pool", () => {
         { ...entry("eligible-tie-first", "nearby", 70), beach: { ...makeBeach("eligible-tie-first"), skill_level: "beginner" } },
         { ...entry("eligible-tie-second", "nearby", 70), beach: { ...makeBeach("eligible-tie-second"), skill_level: "beginner" } },
       ];
-      const capped = capNearbyPool([...nearby, ...eligible], 50, "beginner");
+      const capped = capNearbyPool([...nearby, ...eligible], { cap: 50, experienceLevel: "beginner" });
 
       expect(capped.pool.filter(({ relation }) => relation === "nearby")).toHaveLength(50);
       expect(capped.pool.map(({ beach }) => beach.id)).toEqual([
         ...nearby.slice(0, 47).map(({ beach }) => beach.id),
         ...eligible.map(({ beach }) => beach.id),
       ]);
-      expect(capNearbyPool([...nearby, ...eligible], 2, "beginner").pool.map(({ beach }) => beach.id))
+      expect(capNearbyPool([...nearby, ...eligible], { cap: 2, experienceLevel: "beginner" }).pool.map(({ beach }) => beach.id))
         .toEqual(["eligible-tie-first", "eligible-tie-second"]);
       expect(capped.farthestNearbyMiles).toBe(90);
     });
@@ -519,21 +519,21 @@ describe("user pool", () => {
         })),
       ];
 
-      const capped = capNearbyPool(nearby, 50, "advanced");
+      const capped = capNearbyPool(nearby, { cap: 50, experienceLevel: "advanced" });
 
       expect(capped.pool.map(({ beach }) => beach.id))
         .toEqual(Array.from({ length: 50 }, (_, index) => `advanced-${index}`));
       expect(capped.farthestNearbyMiles).toBe(51);
     });
 
-    it("ranks a missing beach skill last when profile experience is unknown", () => {
+    it.each([null, undefined, "unknown"])("ranks a missing beach skill last for unknown experience %p", (experienceLevel) => {
       const pool = [
         { ...entry("missing", "nearby", 1), beach: { ...makeBeach("missing"), skill_level: null } },
         { ...entry("advanced", "nearby", 2), beach: { ...makeBeach("advanced"), skill_level: "advanced" } },
       ];
 
-      expect(capNearbyPool(pool, 1, null).pool.map(({ beach }) => beach.id)).toEqual(["advanced"]);
-      expect(capNearbyPool(pool, 1).pool.map(({ beach }) => beach.id)).toEqual(["missing"]);
+      expect(capNearbyPool(pool, { cap: 1, experienceLevel }).pool.map(({ beach }) => beach.id)).toEqual(["advanced"]);
+      expect(capNearbyPool(pool, { cap: 1 }).pool.map(({ beach }) => beach.id)).toEqual(["missing"]);
     });
 
     it("keeps the nearest nearby beaches and every home, saved and custom spot", () => {
@@ -542,7 +542,7 @@ describe("user pool", () => {
         entry("saved", "favorite", 44), entry("mid", "nearby", 12), entry("custom", "custom", 41),
       ];
 
-      const capped = capNearbyPool(pool, 2);
+      const capped = capNearbyPool(pool, { cap: 2 });
 
       expect(capped.pool.map(({ beach }) => beach.id)).toEqual(["home", "near", "saved", "mid", "custom"]);
       expect(capped).toEqual(expect.objectContaining({ cappedCount: 1, farthestNearbyMiles: 12 }));
@@ -551,7 +551,7 @@ describe("user pool", () => {
     it("leaves a pool under the cap untouched", () => {
       const pool = [entry("a", "nearby", 1), entry("b", "favorite", 2)];
 
-      expect(capNearbyPool(pool, 2)).toEqual({ pool, cappedCount: 0, farthestNearbyMiles: null });
+      expect(capNearbyPool(pool, { cap: 2 })).toEqual({ pool, cappedCount: 0, farthestNearbyMiles: null });
     });
   });
 

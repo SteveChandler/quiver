@@ -57,22 +57,22 @@ interface CappedPool {
 /** Eligible nearby beaches rank first when experience is supplied; distance breaks ties. */
 export function capNearbyPool(
   pool: PoolBeach[],
-  cap: number = NEARBY_POOL_CAP,
-  experienceLevel?: unknown,
+  options: { cap?: number; experienceLevel?: unknown } = {},
 ): CappedPool {
-  const rankBySkill = arguments.length >= 3;
+  const { cap = NEARBY_POOL_CAP, experienceLevel } = options;
+  const rankBySkill = "experienceLevel" in options;
   const nearby = pool
     .filter(({ relation }) => relation === "nearby")
+    .map((entry) => ({
+      entry,
+      hasSkillVeto: rankBySkill && beachSkillVetoReason(entry.beach.skill_level, experienceLevel) !== null,
+    }))
     .sort((left, right) => {
-      if (rankBySkill) {
-        const leftVeto = beachSkillVetoReason(left.beach.skill_level, experienceLevel) !== null;
-        const rightVeto = beachSkillVetoReason(right.beach.skill_level, experienceLevel) !== null;
-        if (leftVeto !== rightVeto) return Number(leftVeto) - Number(rightVeto);
-      }
-      return (left.distanceMiles ?? 0) - (right.distanceMiles ?? 0);
+      if (left.hasSkillVeto !== right.hasSkillVeto) return Number(left.hasSkillVeto) - Number(right.hasSkillVeto);
+      return (left.entry.distanceMiles ?? 0) - (right.entry.distanceMiles ?? 0);
     });
   if (nearby.length <= cap) return { pool, cappedCount: 0, farthestNearbyMiles: null };
-  const keptNearby = nearby.slice(0, cap);
+  const keptNearby = nearby.slice(0, cap).map(({ entry }) => entry);
   const kept = new Set(keptNearby);
   return {
     pool: pool.filter((entry) => entry.relation !== "nearby" || kept.has(entry)),

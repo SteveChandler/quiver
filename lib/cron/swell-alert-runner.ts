@@ -748,7 +748,7 @@ async function evaluatePool(
 
   return {
     history,
-    poolBeachIds: capNearbyPool(pool, undefined, profile.experienceLevel).pool.map(({ beach }) => beach.id),
+    poolBeachIds: capNearbyPool(pool, { experienceLevel: profile.experienceLevel }).pool.map(({ beach }) => beach.id),
     anchor: profile.location,
     candidates: candidates.filter(
       (candidate): candidate is SwellAlertCandidate => candidate !== null,

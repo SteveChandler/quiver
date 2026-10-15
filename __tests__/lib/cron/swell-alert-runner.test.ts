@@ -534,7 +534,7 @@ describe("swell alert shared ranking", () => {
       relation: "nearby",
       distanceMiles: 51,
     };
-    pool.poolBeachIds = capNearbyPool([...nearby, beginner], 50, "beginner")
+    pool.poolBeachIds = capNearbyPool([...nearby, beginner], { cap: 50, experienceLevel: "beginner" })
       .pool.map(({ beach }) => beach.id);
     const rankDay = jest.fn(async () => rankingResponse(beginner.beach.id, []));
 
