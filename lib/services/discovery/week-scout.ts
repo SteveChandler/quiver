@@ -1180,9 +1180,9 @@ async function generateWeekScoutForecastInternal(
     candidateFingerprint: hash([...beachIds].sort()),
     days,
   };
-  // No windows before the safety filter means no beach had a forecast to rank,
-  // not that the holds could not be read.
-  const hadWindows = response.days.some((day) => day.windows.length > 0);
+  // With no beach in scope there is nothing to hold; beaches without fresh
+  // windows still go through the fail-closed boundary below.
+  const noBeachesInScope = beachIds.length === 0;
   let waterQualityResolution: WaterQualityHoldResolution | undefined;
   const safeWindows = await rankBeaches(
     response.days.flatMap((day) => day.windows).map((window) => ({
@@ -1240,7 +1240,7 @@ async function generateWeekScoutForecastInternal(
   );
   // The hold boundary fails closed on an empty list, which read as "can't
   // confirm beach safety" for a surfer with no beach in range.
-  let heldResponse: MajorEventHoldWeekScoutResponse = !hadWindows
+  let heldResponse: MajorEventHoldWeekScoutResponse = noBeachesInScope
     ? { ...response, recommendationAvailability: { state: "available", holdEpoch: "no-candidates" } }
     : sanitizeWeekScoutForMajorEventHold(
       response,

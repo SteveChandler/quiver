@@ -260,7 +260,7 @@ export async function findNearestBeach({
   const [beachesResult, exclusionsResult] = await Promise.all([
     supabase
       .from("beaches")
-      .select("*")
+      .select("id, name, slug, lat, lon, deleted_at, is_private")
       .is("deleted_at", null),
     supabase.from("user_beach_exclusions").select("beach_id").eq("user_id", userId),
   ]);
@@ -269,7 +269,7 @@ export async function findNearestBeach({
   const excludedIds = new Set(((exclusionsResult.data ?? []) as Array<{ beach_id: string | null }>)
     .map((row) => row.beach_id));
   let nearest: NearestBeach | null = null;
-  for (const beach of (beachesResult.data ?? []) as Beach[]) {
+  for (const beach of (beachesResult.data ?? []) as unknown as Beach[]) {
     if (!beach.slug || !isRecommendable(beach) || excludedIds.has(beach.id)) continue;
     const distanceMiles = distanceFromAnchor(location, beach);
     if (distanceMiles === null || (nearest && nearest.distanceMiles <= distanceMiles)) continue;

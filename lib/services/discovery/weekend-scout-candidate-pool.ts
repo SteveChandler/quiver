@@ -308,6 +308,8 @@ interface BuildDriveRangeCandidatePoolOptions {
   homeBeachId: string | null;
   maxDriveMinutes: number | null;
   filters?: readonly WeekScoutFilter[];
+  /** Widen an empty drive range to 100 miles and name the nearest beach (Home/Explore scope). */
+  widenEmptyRange?: boolean;
 }
 
 interface DriveRangeCandidatePoolDependencies {
@@ -358,7 +360,7 @@ export async function buildDriveRangeCandidatePool(
   // range instead. Filters that empty a non-empty range do not widen it.
   const requestedRadiusMiles = driveRadiusMiles(options.maxDriveMinutes);
   let widenedFromMiles: number | undefined;
-  const rangeWasEmpty = pool.length === 0;
+  const rangeWasEmpty = pool.length === 0 && options.widenEmptyRange !== false;
   if (rangeWasEmpty && requestedRadiusMiles < MAX_DRIVE_RADIUS_MILES) {
     pool = await load(null);
     if (pool.length > 0) widenedFromMiles = requestedRadiusMiles;

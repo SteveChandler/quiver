@@ -428,6 +428,7 @@ describe('POST /api/surf/week-scout', () => {
       homeBeachId: 'home-beach',
       maxDriveMinutes: 90,
       filters: undefined,
+      widenEmptyRange: false,
     });
     expect(mockGenerateWeekScoutForecast).toHaveBeenCalledWith('user-week-scout', expect.objectContaining({
       candidateBeachIds: [BEACH_A],
@@ -459,6 +460,7 @@ describe('POST /api/surf/week-scout', () => {
       homeBeachId: null,
       maxDriveMinutes: 90,
       filters: undefined,
+      widenEmptyRange: false,
     });
     expect(mockGenerateWeekScoutForecast).toHaveBeenCalledWith('user-week-scout', expect.objectContaining({
       candidateBeachIds: [elMorroK38.id],
@@ -488,6 +490,7 @@ describe('POST /api/surf/week-scout', () => {
       homeBeachId: 'home-beach',
       maxDriveMinutes: 90,
       filters: undefined,
+      widenEmptyRange: false,
     });
     expect(mockGenerateWeekScoutForecast).toHaveBeenCalledWith('user-week-scout', expect.objectContaining({
       candidateBeachIds: [BEACH_A],

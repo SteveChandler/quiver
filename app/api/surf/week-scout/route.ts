@@ -270,6 +270,7 @@ async function weekScoutHandler(
           homeBeachId,
           maxDriveMinutes: profile?.max_drive_minutes ?? null,
           filters: undefined,
+          widenEmptyRange: false,
         });
         const poolIds = pool.candidates.map((candidate) => candidate.beach.id);
         const allowedIds = new Set(poolIds);

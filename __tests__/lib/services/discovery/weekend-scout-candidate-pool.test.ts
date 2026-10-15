@@ -351,6 +351,33 @@ describe("buildDriveRangeCandidatePool", () => {
     expect(result.nearestBeach).toEqual(nearest);
   });
 
+  it("goes straight to the nearest beach when a No-limit range is empty", async () => {
+    const loadPool = jest.fn().mockResolvedValue([]);
+    const findNearest = jest.fn().mockResolvedValue(null);
+
+    const result = await buildDriveRangeCandidatePool("user-1", {
+      anchor, homeBeachId: null, maxDriveMinutes: null,
+    }, { loadPool, findNearest, supabase: {} as never });
+
+    expect(loadPool).toHaveBeenCalledTimes(1);
+    expect(findNearest).toHaveBeenCalledTimes(1);
+    expect(result.widenedFromMiles).toBeUndefined();
+    expect(result.nearestBeach).toBeUndefined();
+  });
+
+  it("leaves an empty range alone when the caller opts out of widening", async () => {
+    const loadPool = jest.fn().mockResolvedValue([]);
+    const findNearest = jest.fn();
+
+    const result = await buildDriveRangeCandidatePool("user-1", {
+      anchor, homeBeachId: null, maxDriveMinutes: 90, widenEmptyRange: false,
+    }, { loadPool, findNearest, supabase: {} as never });
+
+    expect(loadPool).toHaveBeenCalledTimes(1);
+    expect(findNearest).not.toHaveBeenCalled();
+    expect(result.candidates).toEqual([]);
+  });
+
   it("does not widen a range that has beaches, even when filters empty it", async () => {
     const loadPool = jest.fn().mockResolvedValue([
       { beach: beach("reef", { lat: 32.8, lon: -117.25, break_type: "reef" } as Partial<Beach>), relation: "nearby", distanceMiles: 5 },
