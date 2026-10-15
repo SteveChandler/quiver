@@ -659,6 +659,31 @@ describe("shared ranking (flag on)", () => {
     expect(jest.mocked(legacy.buildCandidates).mock.calls[0][0].pool.map((entry) => entry.beach.id)).toEqual(expected);
   });
 
+  it("passes a beginner's distant eligible beach into shared ranking", async () => {
+    const nearby = Array.from({ length: 50 }, (_, index) => {
+      const entry = poolBeach(`40000000-0000-4000-8000-${String(index).padStart(12, "0")}`, `Intermediate ${index}`, "nearby");
+      return { ...entry, beach: { ...entry.beach, skill_level: "intermediate" }, distanceMiles: index + 1 };
+    });
+    const beginnerEntry = poolBeach("40000000-0000-4000-8000-000000000051", "Beginner Beach", "nearby");
+    const beginner = {
+      ...beginnerEntry,
+      beach: { ...beginnerEntry.beach, skill_level: "beginner" },
+      distanceMiles: 51,
+    };
+    const mocked = sharedDeps(day([window(beginner.beach.id)]), {
+      loadProfiles: jest.fn(async () => [{ ...profile, experienceLevel: "beginner" }]),
+      loadPool: jest.fn(async () => [home, favorite, ...nearby, beginner].map((entry) => ({
+        ...entry, beach: { ...entry.beach, lat: 32.89, lon: -117.25 },
+      }))),
+    });
+
+    const result = await runDailyCallCron({ now, supabase, deps: mocked });
+
+    expect(result).toMatchObject({ sent: 1, errors: 0 });
+    expect(jest.mocked(mocked.rankDay).mock.calls[0][0].poolBeachIds).toContain(beginner.beach.id);
+    expect((mocked.enqueue as jest.Mock).mock.calls[0][0].payload.beach_id).toBe(beginner.beach.id);
+  });
+
   it.each([11, 12, 13, 25])("uses the Daily Call's 12-hour anchor for a %s-hour fix", async (ageHours) => {
     const homeBeach = { ...home.beach, lat: 32.89, lon: -117.25 };
     const location = { lat: 33.15, lon: -117.35, timezone: profile.timezone!,

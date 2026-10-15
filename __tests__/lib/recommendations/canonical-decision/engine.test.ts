@@ -2,6 +2,8 @@ import type { ScoringDecisionEffect } from '@/lib/domains/scoring/types';
 
 type CanonicalDecisionModule = {
   buildCanonicalSessionDecision: (input: unknown) => unknown;
+  beachSkillVetoReason: (beachSkillLevel: unknown, profileExperience: unknown) =>
+    "missing_beach_skill" | "beach_skill_exceeds_user" | null;
 };
 
 interface TestCandidate {
@@ -74,6 +76,15 @@ function input(
 }
 
 describe("canonical session decision engine", () => {
+  it.each([
+    ["beginner-intermediate", "beginner", "beach_skill_exceeds_user"],
+    ["beginner", "beginner", null],
+    [null, null, "missing_beach_skill"],
+    ["advanced", null, null],
+  ] as const)("returns the beach skill veto for %s and %s", (beachSkill, experience, expected) => {
+    expect(loadEngine().beachSkillVetoReason(beachSkill, experience)).toBe(expected);
+  });
+
   it.each([
     [{ gate: 'candidate_pool', observed: { count: 0 } }],
     [{ gate: 'forecast_rows', observed: { count: 0 } }],

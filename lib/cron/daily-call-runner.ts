@@ -855,14 +855,14 @@ export async function runDailyCallCron(args: {
         increment(summary, "already_sent_today");
         continue;
       }
-      // The same nearest-beach cap as Home's Week Scout, so the two choose from one list.
+      // Keep skill-eligible nearby beaches ahead of the distance cap.
       const { pool } = capNearbyPool(await deps.loadPool({
         supabase,
         userId: profile.id,
         homeBeachId: profile.homeBeachId,
         location: anchor,
         maxDriveMinutes: profile.maxDriveMinutes,
-      }));
+      }), undefined, profile.experienceLevel);
       if (pool.length === 0) {
         increment(summary, "no_pool");
         summary.silent += 1;

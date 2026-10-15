@@ -3,6 +3,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { capNearbyPool, type PoolBeach } from "@/lib/alerts/user-pool";
 import type { Database } from "@/types/database";
 import titlePool from "@/lib/notifications/copy/surf-titles.v1.json";
 import {
@@ -519,6 +520,31 @@ describe("swell alert shared ranking", () => {
     });
     expect(rankDay).toHaveBeenCalledWith(expect.objectContaining({ poolBeachIds: pool.poolBeachIds }));
     expect(ordered).toEqual(pool.candidates);
+  });
+
+  it("passes a distant beginner beach through the capped pool IDs", async () => {
+    const pool = sharedEvaluation();
+    const nearby: PoolBeach[] = Array.from({ length: 50 }, (_, index) => ({
+      beach: { id: `near-${index}`, skill_level: "intermediate" } as PoolBeach["beach"],
+      relation: "nearby",
+      distanceMiles: index + 1,
+    }));
+    const beginner: PoolBeach = {
+      beach: { id: "beginner-far", skill_level: "beginner" } as PoolBeach["beach"],
+      relation: "nearby",
+      distanceMiles: 51,
+    };
+    pool.poolBeachIds = capNearbyPool([...nearby, beginner], 50, "beginner")
+      .pool.map(({ beach }) => beach.id);
+    const rankDay = jest.fn(async () => rankingResponse(beginner.beach.id, []));
+
+    await orderSwellCandidatesForTomorrow({
+      profile: profile({ experienceLevel: "beginner" }), evaluation: pool, now: NOW,
+      rankDay, usesSharedRanking: () => true,
+    });
+
+    expect(pool.poolBeachIds).toContain(beginner.beach.id);
+    expect(rankDay).toHaveBeenCalledWith(expect.objectContaining({ poolBeachIds: pool.poolBeachIds }));
   });
 
   it("withholds the shared lead and held chips through main's push resolver", async () => {
