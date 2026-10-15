@@ -77,7 +77,7 @@ export function waterQualityWarning(
   if (status === WQ_STATUS.CLOSURE) return "Water quality closure — health advisory active";
   if (status !== WQ_STATUS.ADVISORY) return null;
   if (countyAdvisoryKind === "general") {
-    return "County rain advisory — runoff after rain; avoid storm drains and river mouths, check again in 72 hours";
+    return "County rain advisory — runoff after rain";
   }
   // The rainfall notice applies only where no County status exists.
   if (rainRunoff && !countyAdvisoryKind) return "Rain runoff advisory — avoid storm drains and river mouths for 72 hours";

@@ -28,6 +28,7 @@ import { checkBoardFit } from '@/lib/domains/scoring/discovery-adapter';
 import type { BoardClass, SkillLevel } from '@/lib/domains/user-preferences';
 import type { RecommendationAvailability } from '@/lib/recommendations/major-event-hold/types';
 import { runWithWaterQualityReadScope } from '@/lib/recommendations/major-event-hold/read-scope';
+import { resolveWaterQualityHolds, type WaterQualityHoldResolution } from '@/lib/recommendations/major-event-hold/water-quality';
 import { resolveScopedRecommendationAvailability } from '@/lib/services/discovery/discovery-availability';
 import { loadNowRecommendation } from '@/lib/services/discovery/now-recommendation';
 import {
@@ -47,6 +48,7 @@ const QuerySchema = z.object({
 });
 
 type CanonicalSurfCallResponse = SpotSurfReportResult & {
+  waterQuality: SurfCallWaterQuality;
   sessionDecision: CanonicalSessionDecision;
   candidateRejection: CanonicalSessionDecision['candidateRejection'];
   forecastAlignment?: SurfCallForecastAlignment;
@@ -72,6 +74,30 @@ type CanonicalSurfCallResponse = SpotSurfReportResult & {
    */
   nowRecommendation?: SurfDiscoveryRecommendation | null;
 };
+
+type SurfCallWaterQuality = {
+  status: 'advisory' | 'closure' | 'hold';
+  source: 'county' | 'sample' | 'hold';
+  countyKind?: 'general' | 'site';
+  checkedAt?: string;
+  sampleDate?: string;
+} | null;
+
+function surfCallWaterQuality(
+  resolution: WaterQualityHoldResolution,
+  beachId: string,
+): SurfCallWaterQuality {
+  beachId = beachId.toLowerCase();
+  if (resolution.state !== 'resolved' || !resolution.heldBeachIds.includes(beachId)) return null;
+  const evidence = resolution.waterQualityEvidenceByBeachId?.[beachId];
+  const status = resolution.waterQualityStatusByBeachId[beachId] ?? 'hold';
+  if (evidence?.source === 'county') return { status, source: 'county',
+    ...(evidence.countyKind ? { countyKind: evidence.countyKind } : {}),
+    ...(evidence.checkedAt ? { checkedAt: evidence.checkedAt } : {}) };
+  if (evidence?.source === 'sample') return { status, source: 'sample',
+    ...(evidence.sampleDate ? { sampleDate: evidence.sampleDate } : {}) };
+  return { status, source: 'hold' };
+}
 
 type RecommendationGateBeach = Beach & {
   recommendation_eligible?: boolean;
@@ -274,7 +300,7 @@ function buildCanonicalSurfCall(
   profileExperience: SkillLevel | null,
   boardClass: BoardClass | null,
   recommendationAvailability: RecommendationAvailability,
-): CanonicalSurfCallResponse {
+): Omit<CanonicalSurfCallResponse, 'waterQuality'> {
   const selection = decision.selection;
   const selectedRecommendation = selection
     ? recommendations.find(
@@ -380,6 +406,8 @@ function buildCanonicalSurfCall(
  * recommendation (`data.nowRecommendation`), the same object Home's
  * `/api/surf/discover?mode=now` returns, so Beach Detail grades "now" from the
  * producer Home labels with.
+ * `data.waterQuality` is the requested beach's resolved water-quality hold,
+ * including County kind/check time or sample date; null means no resolved hold.
  *
  * Authentication: optional; anonymous requests receive the general surf call
  * Rate limit: surf-call for authenticated requests, public-default by IP for anonymous requests
@@ -487,6 +515,16 @@ async function surfCallHandler(
         now: anchor,
       })
     : null;
+  const waterQualityPromise = resolveWaterQualityHolds([{
+    candidateId: `surf-call:${beachId}`,
+    beachId,
+    startsAt: scopeStart.toISOString(),
+    endsAt: scopeEnd.toISOString(),
+  }]).then((resolution) => surfCallWaterQuality(resolution, beachId))
+    .catch((error: unknown) => {
+      console.error('[surf-call:water-quality-error]', error);
+      return null;
+    });
   let canonicalContext;
   try {
     canonicalContext = await resolveCanonicalSessionDecisionContext({
@@ -518,6 +556,7 @@ async function surfCallHandler(
     return retryableDiscoveryResponse(error);
   }
   const sessionDecision = canonicalContext.decision;
+  const waterQuality = await waterQualityPromise;
   const recommendations = [
     ...canonicalContext.discovery.recommendations,
     ...(canonicalContext.discovery.includedRecommendations ?? []),
@@ -544,6 +583,7 @@ async function surfCallHandler(
       boardClass,
       recommendationAvailability,
     ),
+    waterQuality,
     ...(nowRecommendationResult
       ? { nowRecommendation: nowRecommendationResult.recommendation }
       : {}),
