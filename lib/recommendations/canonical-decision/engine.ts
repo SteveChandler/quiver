@@ -72,6 +72,21 @@ function waveHeightSafetyEvidence(
   };
 }
 
+export function beachSkillVetoReason(
+  beachSkillLevel: unknown,
+  profileExperience: unknown,
+): "missing_beach_skill" | "beach_skill_exceeds_user" | null {
+  const beachSkill = parseBeachSkillRequirement(
+    typeof beachSkillLevel === "string" ? beachSkillLevel : null,
+  );
+  if (beachSkill === null) return "missing_beach_skill";
+  const skill = canonicalSkill(profileExperience);
+  if (skill !== "unknown" && SKILL_ORDER[beachSkill] > SKILL_ORDER[skill]) {
+    return "beach_skill_exceeds_user";
+  }
+  return null;
+}
+
 function candidateSafetyReasons(
   candidate: CanonicalDecisionCandidate,
   skill: CanonicalDecisionSkill,
@@ -82,19 +97,8 @@ function candidateSafetyReasons(
   if (!isValidCandidate(candidate)) {
     reasons.push("invalid_candidate");
   }
-  const beachSkill = parseBeachSkillRequirement(
-    typeof candidate.beachSkillLevel === "string"
-      ? candidate.beachSkillLevel
-      : null,
-  );
-  if (beachSkill === null) {
-    reasons.push("missing_beach_skill");
-  } else if (
-    skill !== "unknown" &&
-    SKILL_ORDER[beachSkill] > SKILL_ORDER[skill]
-  ) {
-    reasons.push("beach_skill_exceeds_user");
-  }
+  const beachSkillReason = beachSkillVetoReason(candidate.beachSkillLevel, skill);
+  if (beachSkillReason) reasons.push(beachSkillReason);
   const waveHeight = waveHeightSafetyEvidence(candidate, skill);
   if (waveHeight.height === null || waveHeight.height.min <= 0) {
     reasons.push("missing_wave_height");
