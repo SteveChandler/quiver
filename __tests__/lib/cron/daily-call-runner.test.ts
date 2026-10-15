@@ -797,6 +797,32 @@ describe("daily call alternatives", () => {
 });
 
 describe("runDailyCallCron", () => {
+  it("logs the reason and message when enqueue fails", async () => {
+    const consoleError = jest.spyOn(console, "error").mockImplementation(() => {});
+    const mocked = deps({
+      enqueue: jest.fn(async () => ({
+        enqueued: false as const,
+        reason: "invalid_payload" as const,
+        message: "title: too long",
+      })),
+    });
+
+    try {
+      const summary = await runDailyCallCron({ now, supabase, deps: mocked });
+
+      expect(summary.sent).toBe(0);
+      expect(summary.skippedCounts.enqueue_failed).toBe(1);
+      expect(summary.errors).toBe(1);
+      expect(consoleError).toHaveBeenCalledWith("[daily-call] enqueue failed", {
+        userId,
+        reason: "invalid_payload",
+        message: "title: too long",
+      });
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
   it("sends the best go window with comparison and local window copy", async () => {
     const mocked = deps();
 

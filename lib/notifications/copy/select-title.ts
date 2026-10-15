@@ -74,15 +74,36 @@ function titleLength(title: string): number {
   return [...title].length;
 }
 
+function truncateTitle(title: string): string {
+  return `${[...title].slice(0, TITLE_MAX_CHARS - 1).join("")}…`;
+}
+
 function hashIndex(value: string, length: number): number {
   return createHash("sha256").update(value).digest().readUInt32BE(0) % length;
 }
 
 function fallbackTitle(pool: Pool, vars: TitleVars): string {
-  return renderTemplate(
+  const rendered = renderTemplate(
     pool === "daily" ? "{beach} {window}" : "Swell peaks {peak_day}",
     vars,
   );
+  if (titleLength(rendered) <= TITLE_MAX_CHARS) return rendered;
+  if (pool === "swell") return truncateTitle(rendered);
+
+  const beach = vars.beach.replace(/\s+\([^()]*\)\s*$/, "");
+  const withoutParenthetical = `${beach} ${vars.window}`;
+  if (titleLength(withoutParenthetical) <= TITLE_MAX_CHARS) {
+    return withoutParenthetical;
+  }
+
+  const beachChars = TITLE_MAX_CHARS - titleLength(vars.window) - 2;
+  if (beachChars >= 0) {
+    const shortenedBeach = [...beach].slice(0, beachChars).join("").trimEnd();
+    const withWindow = `${shortenedBeach}… ${vars.window}`;
+    if (titleLength(withWindow) <= TITLE_MAX_CHARS) return withWindow;
+  }
+
+  return truncateTitle(rendered);
 }
 
 export function selectTitle(args: SelectTitleArgs): SelectedTitle {

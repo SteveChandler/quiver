@@ -3,6 +3,7 @@
  */
 
 import titlePool from "@/lib/notifications/copy/surf-titles.v1.json";
+import { formatWindowLabel } from "@/lib/notifications/copy/daily-call-copy";
 import {
   renderTemplate,
   selectTitle,
@@ -10,6 +11,7 @@ import {
   type SelectTitleArgs,
   type TitleVars,
 } from "@/lib/notifications/copy/select-title";
+import { dailyCallPayloadSchema } from "@/lib/notifications/types/daily-call";
 
 const vars: TitleVars = {
   beach: "Blacks",
@@ -138,6 +140,108 @@ describe("selectTitle", () => {
 
     expect(selected.title).toBe("A Very Long Approved Beach Name 6–8 AM");
     expect(selected.fallback).toBe(true);
+  });
+
+  it("keeps the reported Daily Call window in a schema-valid fallback title", () => {
+    const selected = selectTitle({
+      pool: "daily",
+      tags: ["generic", "not-home"],
+      userId: "bcacdc51-b01b-4702-ac0b-fb492c0a926a",
+      eventKey: "2026-10-10",
+      recentTitleIds: [],
+      recentFilmCount: 0,
+      vars: {
+        beach: "Torrance Beach (RAT Beach)",
+        home_beach: "Tourmaline",
+        window: "10 AM–12:10 PM",
+        lead: "",
+        swell: "2-3 ft",
+        wind: "light wind",
+        limit: "Wind picks up at 2 PM.",
+      },
+    });
+
+    expect(selected.id).toBe("fallback");
+    expect(selected.title).toBe("Torrance Beach 10 AM–12:10 PM");
+    expect([...selected.title].length).toBeLessThanOrEqual(TITLE_MAX_CHARS);
+    expect(selected.title).toContain("10 AM–12:10 PM");
+    expect(dailyCallPayloadSchema.shape.title.safeParse(selected.title).success).toBe(true);
+  });
+
+  it("caps fallback titles across real formatted window labels", () => {
+    const recentTitleIds = titlePool.daily.map((entry) => entry.id);
+    const timezone = "America/Los_Angeles";
+
+    for (let hour = 5; hour <= 14; hour += 1) {
+      for (const startMinute of [0, 15, 47, 58]) {
+        for (let duration = 1; duration <= 4; duration += 1) {
+          for (const endMinute of [0, 20, 25, 40]) {
+            const start = new Date(Date.UTC(2026, 9, 10, hour + 7, startMinute));
+            const end = new Date(Date.UTC(2026, 9, 10, hour + duration + 7, endMinute));
+            const window = formatWindowLabel(start.toISOString(), end.toISOString(), timezone);
+
+            for (const beach of ["Torrance Beach (RAT Beach)", "A".repeat(45)]) {
+              const selected = selectTitle({
+                pool: "daily",
+                tags: ["generic", "not-home"],
+                userId: "user-1",
+                eventKey: "2026-10-10",
+                recentTitleIds,
+                recentFilmCount: 0,
+                vars: { ...vars, beach, window },
+              });
+
+              expect(selected.id).toBe("fallback");
+              expect([...selected.title].length).toBeLessThanOrEqual(TITLE_MAX_CHARS);
+            }
+          }
+        }
+      }
+    }
+  });
+
+  it("truncates a long beach without parentheses while keeping the full window", () => {
+    const window = "10 AM–12:10 PM";
+    const selected = selectTitle({
+      pool: "daily",
+      tags: ["generic"],
+      userId: "user-1",
+      eventKey: "2026-10-10",
+      recentTitleIds: titlePool.daily.map((entry) => entry.id),
+      recentFilmCount: 0,
+      vars: { ...vars, beach: "A".repeat(45), window },
+    });
+
+    expect(selected.title).toBe(`${"A".repeat(TITLE_MAX_CHARS - [...window].length - 2)}… ${window}`);
+    expect([...selected.title].length).toBe(TITLE_MAX_CHARS);
+    expect(selected.title).toContain(window);
+  });
+
+  it("hard-truncates a daily fallback when the window alone cannot fit", () => {
+    const window = "A".repeat(TITLE_MAX_CHARS);
+    const selected = selectTitle({
+      pool: "daily",
+      tags: ["generic"],
+      userId: "user-1",
+      eventKey: "2026-10-10",
+      recentTitleIds: titlePool.daily.map((entry) => entry.id),
+      recentFilmCount: 0,
+      vars: { ...vars, beach: "Blacks", window },
+    });
+
+    expect(selected.title).toBe(`Blacks ${"A".repeat(TITLE_MAX_CHARS - 8)}…`);
+    expect([...selected.title].length).toBe(TITLE_MAX_CHARS);
+  });
+
+  it("hard-truncates an oversized swell fallback", () => {
+    const rendered = `Swell peaks ${"A".repeat(45)}`;
+    const selected = selectTitle(swellArgs({
+      recentTitleIds: titlePool.swell.map((entry) => entry.id),
+      vars: { ...vars, peak_day: "A".repeat(45) },
+    }));
+
+    expect(selected.title).toBe(`${[...rendered].slice(0, TITLE_MAX_CHARS - 1).join("")}…`);
+    expect([...selected.title].length).toBe(TITLE_MAX_CHARS);
   });
 });
 
