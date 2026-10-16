@@ -81,6 +81,21 @@ describe("lib/constants/content invariants", () => {
     expect(email).toMatch(/@/);
   });
 
+  test.each(["PostHog", "RevenueCat", "Expo", "AdServices"])(
+    "PRIVACY_CONTENT discloses %s in both vendor lists",
+    (vendor) => {
+      const locations = PRIVACY_CONTENT.sections
+        .find((section) => section.id === "international-transfers")
+        ?.content.find((item) => item.subtitle === "Service Provider Locations");
+      const thirdParties = PRIVACY_CONTENT.sections
+        .find((section) => section.id === "data-collection-methods")
+        ?.content.find((item) => item.subtitle === "Third Parties or Public Sources");
+
+      expect(locations?.details).toContain(vendor);
+      expect(thirdParties?.details).toContain(vendor);
+    },
+  );
+
   test("FEATURES_EXTENDED_CONTENT has required hero with non-empty content", () => {
     expect(typeof FEATURES_EXTENDED_CONTENT.hero.title).toBe("string");
     expect(FEATURES_EXTENDED_CONTENT.hero.title.length).toBeGreaterThan(0);

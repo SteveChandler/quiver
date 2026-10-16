@@ -221,7 +221,7 @@ export const PRIVACY_CONTENT = {
         {
           subtitle: "Third Parties or Public Sources",
           details:
-            "We receive personal data from analytics providers (Google), advertising networks, payment processors (Stripe), social media networks (Facebook, Google), and data brokers or aggregators.",
+            "We receive personal data from analytics providers (Google, PostHog), advertising networks, payment processors (Stripe), subscription management providers (RevenueCat), app update and push token delivery providers (Expo), install attribution providers (Apple AdServices), social media networks (Facebook, Google), and data brokers or aggregators.",
         },
         {
           subtitle: "Connected Devices/Accounts",
@@ -332,7 +332,7 @@ export const PRIVACY_CONTENT = {
         {
           subtitle: "Service Provider Locations",
           details:
-            "Our service providers operate globally: Supabase (EU/US), Google Analytics (global), Vercel (global), Stripe (global), Sentry (global, error tracking and crash diagnostics), Mapbox (global, mapping and satellite imagery), and Firebase Cloud Messaging (global, push notifications). All transfers comply with applicable data protection laws and this Privacy Policy.",
+            "Our service providers operate globally: Supabase (EU/US), Google Analytics (global), Vercel (global), Stripe (global), Sentry (global, error tracking and crash diagnostics), Mapbox (global, mapping and satellite imagery), Firebase Cloud Messaging (global, push notifications), PostHog (global/US, product analytics and session replay), RevenueCat (global, subscription management), Expo (global, app updates and push token delivery), and Apple AdServices (iOS install attribution). All transfers comply with applicable data protection laws and this Privacy Policy.",
         },
       ],
     },
