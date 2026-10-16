@@ -424,8 +424,11 @@ function forecastsServingWindow(
     Date.parse(left.forecast_at) - Date.parse(right.forecast_at));
   return sorted.filter((forecast, index) => {
     const at = Date.parse(forecast.forecast_at);
-    const coverageEnd = sorted[index + 1]
-      ? Date.parse(sorted[index + 1].forecast_at) : at + GRID_MS;
+    // Missing grid rows leave a gap rather than extending the previous forecast.
+    const coverageEnd = Math.min(
+      at + GRID_MS,
+      sorted[index + 1] ? Date.parse(sorted[index + 1].forecast_at) : at + GRID_MS,
+    );
     return coverageEnd > liveStart && at < windowEnd;
   });
 }
@@ -557,7 +560,7 @@ export async function buildCandidates(
       const last = group[group.length - 1];
       const coarse = {
         start: new Date(first.forecast.forecast_at).toISOString(),
-        end: new Date(Date.parse(last.forecast.forecast_at) + GRID_MS).toISOString(),
+        end: new Date(Date.parse(last.forecast.forecast_at) + HOUR_MS).toISOString(),
       };
       const daylight = getDaylightWindow(pool.beach.lat, pool.beach.lon, new Date(coarse.start));
       const refined = refineWindow({
