@@ -342,7 +342,7 @@ function weekday(dateKey: string): string {
 }
 
 function personalCall(beachName: string, lead: SwellAlertCandidate, timezone: string): string {
-  const timing = lead.window ? windowCopy(lead.window, getLocalDateString(new Date(lead.event.peakAt), timezone), timezone) : null;
+  const timing = lead.window ? windowCopy(lead.window, getLocalDateString(new Date(lead.window.start), timezone), timezone) : null;
   const board = lead.boardName ? `, grab your ${lead.boardName}` : "";
   return timing
     ? `Your call: ${beachName} ${timing.when}${board}. ${timing.limit}`
