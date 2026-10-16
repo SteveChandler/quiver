@@ -412,40 +412,22 @@ function evaluateForecast(
   });
 }
 
-function forecastStartsInWindow(
-  forecast: EnhancedForecastEntity,
-  window: RefinedWindow,
-): boolean {
-  const at = Date.parse(forecast.forecast_at);
-  return at >= Date.parse(window.start) && at < Date.parse(window.end);
-}
-
-function isLiveWindowForecast(
-  forecast: EnhancedForecastEntity,
+function forecastsServingWindow(
+  forecasts: EnhancedForecastEntity[],
   window: RefinedWindow,
   now: Date,
-): boolean {
-  const at = Date.parse(forecast.forecast_at);
-  return at < Date.parse(window.end) && at + HOUR_MS > now.getTime()
-    && Date.parse(window.end) > now.getTime();
-}
-
-function bestWindowEvaluation(
-  evaluations: ForecastVerdict[],
-  window: RefinedWindow,
-  now: Date,
-): ForecastVerdict | undefined {
-  const best = evaluations.filter((evaluation) => evaluation.verdict === "go"
-    && forecastStartsInWindow(evaluation.forecast, window)
-    && isLiveWindowForecast(evaluation.forecast, window, now))
-    .sort((left, right) => right.score - left.score)[0];
-  if (best) return best;
-
-  const inEffect = evaluations.filter((evaluation) =>
-    Date.parse(evaluation.forecast.forecast_at) <= Date.parse(window.start))
-    .sort((left, right) => Date.parse(right.forecast.forecast_at) - Date.parse(left.forecast.forecast_at))[0];
-  return inEffect?.verdict === "go" && isLiveWindowForecast(inEffect.forecast, window, now)
-    ? inEffect : undefined;
+): EnhancedForecastEntity[] {
+  const windowEnd = Date.parse(window.end);
+  if (windowEnd <= now.getTime()) return [];
+  const liveStart = Math.max(now.getTime(), Date.parse(window.start));
+  const sorted = [...forecasts].sort((left, right) =>
+    Date.parse(left.forecast_at) - Date.parse(right.forecast_at));
+  return sorted.filter((forecast, index) => {
+    const at = Date.parse(forecast.forecast_at);
+    const coverageEnd = sorted[index + 1]
+      ? Date.parse(sorted[index + 1].forecast_at) : at + GRID_MS;
+    return coverageEnd > liveStart && at < windowEnd;
+  });
 }
 
 function decisionForWindow(
@@ -575,7 +557,7 @@ export async function buildCandidates(
       const last = group[group.length - 1];
       const coarse = {
         start: new Date(first.forecast.forecast_at).toISOString(),
-        end: new Date(Date.parse(last.forecast.forecast_at) + HOUR_MS).toISOString(),
+        end: new Date(Date.parse(last.forecast.forecast_at) + GRID_MS).toISOString(),
       };
       const daylight = getDaylightWindow(pool.beach.lat, pool.beach.lon, new Date(coarse.start));
       const refined = refineWindow({
@@ -599,7 +581,9 @@ export async function buildCandidates(
         userSkillLevel: args.profile.experienceLevel,
       })[0];
       const window = capToBestWindow(refined, selected);
-      const best = bestWindowEvaluation(evaluations, window, args.now);
+      const serving = forecastsServingWindow(beachForecasts, window, args.now);
+      const best = evaluations.filter((value) => value.verdict === "go" && serving.includes(value.forecast))
+        .sort((left, right) => right.score - left.score)[0];
       if (!best) {
         noInWindowRowCount += 1;
         continue;
@@ -628,6 +612,7 @@ function candidateFromRankedWindow(
   window: WeekScoutWindowResponse,
   forecasts: EnhancedForecastEntity[],
   timezone: string,
+  now: Date,
 ): DailyCallCandidate & { sourceForecast: EnhancedForecastEntity | undefined; timezone: string } {
   const peakMs = Date.parse(window.peakTime);
   const displayWindow: RefinedWindow = {
@@ -636,8 +621,8 @@ function candidateFromRankedWindow(
     minutes: (Date.parse(window.displayWindowEnd) - Date.parse(window.displayWindowStart)) / 60_000,
     drivers: [],
   };
-  const inWindow = forecasts.filter((forecast) => forecastStartsInWindow(forecast, displayWindow));
-  const sourceForecast = [...(inWindow.length > 0 ? inWindow : forecasts)]
+  const serving = forecastsServingWindow(forecasts, displayWindow, now);
+  const sourceForecast = [...(serving.length > 0 ? serving : forecasts)]
     .sort((left, right) =>
       Math.abs(Date.parse(left.forecast_at) - peakMs) - Math.abs(Date.parse(right.forecast_at) - peakMs))[0];
   return {
@@ -717,7 +702,7 @@ async function buildSharedCall(
     beach: entry.beach, timezone, localDate: alertDate,
   });
   if (forecasts.length === 0) return { skip: "no_forecast", heldReasons };
-  const winner = candidateFromRankedWindow(entry, pick, forecasts, timezone);
+  const winner = candidateFromRankedWindow(entry, pick, forecasts, timezone, now);
   const evaluations = forecasts.map((forecast) => evaluateForecast(profile, entry, forecast, timezone, now));
   const verdictById = new Map(evaluations.map((value) => [value.forecast.id, value.verdict]));
   const daylight = getDaylightWindow(entry.beach.lat, entry.beach.lon, new Date(winner.window.start));
@@ -731,15 +716,14 @@ async function buildSharedCall(
   });
   winner.window.drivers = refined?.drivers.filter((driver) =>
     Math.abs(Date.parse(driver.at) - Date.parse(winner.window[driver.edge])) <= 15 * 60_000) ?? [];
-  const evaluation = bestWindowEvaluation(evaluations, winner.window, now);
-  if (!evaluation) {
-    const hasLiveWindowRow = forecasts.some((forecast) => forecastStartsInWindow(forecast, winner.window)
-      && isLiveWindowForecast(forecast, winner.window, now));
-    return { skip: hasLiveWindowRow ? "ranking_verdict_mismatch" : "no_in_window_row", heldReasons };
-  }
+  const serving = forecastsServingWindow(forecasts, winner.window, now);
+  const evaluation = evaluations.filter((value) => value.verdict === "go" && serving.includes(value.forecast))
+    .sort((left, right) => right.score - left.score)[0];
+  if (!evaluation) return { skip: "no_in_window_row", heldReasons };
   const decision = decisionForWindow(profile, entry, evaluation, winner.window, timezone, now);
   if (decision.verdict !== "go") return { skip: "ranking_verdict_mismatch", heldReasons };
   winner.sourceForecast = evaluation.forecast;
+  winner.physicalScore = evaluation.score;
   winner.decisionId = decision.decisionId;
   winner.sessionDecision = decision;
 
@@ -750,7 +734,7 @@ async function buildSharedCall(
     : [];
   const candidates = await Promise.all([...clearOptions, ...homeComparison].map(async ({ pool, window }) => {
     const { forecasts } = await deps.loadBeachDay({ beach: pool.beach, timezone, localDate: alertDate });
-    return candidateFromRankedWindow(pool, window, forecasts, timezone);
+    return candidateFromRankedWindow(pool, window, forecasts, timezone, now);
   }));
   const options = candidates.slice(0, clearOptions.length);
   const home = candidates.find((candidate) => candidate.pool.beach.id === profile.homeBeachId) ?? null;
@@ -984,7 +968,6 @@ export async function runDailyCallCron(args: {
           alertDate,
           now: args.now,
         });
-        summary.skippedCounts.no_in_window_row += built.noInWindowRowCount ?? 0;
         if (!built.hadForecasts) {
           increment(summary, "no_forecast");
           summary.silent += 1;
@@ -1019,8 +1002,9 @@ export async function runDailyCallCron(args: {
           // Distinguishes surf the app withholds from a day with nothing surfable.
           if (built.candidates.some((candidate) => heldReason(candidate))) {
             increment(summary, "no_clear_window");
-          } else if (built.candidates.length > 0 || !built.noInWindowRowCount) {
-            increment(summary, "no_go_window");
+          } else {
+            increment(summary, built.candidates.length === 0 && built.noInWindowRowCount
+              ? "no_in_window_row" : "no_go_window");
           }
           summary.silent += 1;
           continue;
