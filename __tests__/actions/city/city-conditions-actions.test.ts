@@ -88,6 +88,107 @@ describe("city best-right-now water-quality policy", () => {
       });
   });
 
+  it("filters the city in SQL while retaining the JavaScript city guard", async () => {
+    const result = await getCitySurfReport("Elsewhere", "CA");
+
+    expect(mockChain.ilike).toHaveBeenCalledWith("beaches.state", "CA");
+    expect(mockChain.ilike).toHaveBeenCalledWith("beaches.city", "Elsewhere");
+    expect(result).toBeNull();
+  });
+
+  it("escapes literal city wildcards and backslashes for ILIKE", async () => {
+    await getCitySurfReport("Coast_100%\\Village", "CA");
+
+    expect(mockChain.ilike).toHaveBeenCalledWith("beaches.city", "Coast\\_100\\%\\\\Village");
+  });
+
+  it("queries only the current nine-hour window when forecasts exist", async () => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-10-16T12:00:00Z"));
+    try {
+      const result = await getCitySurfReport("San Diego", "CA");
+
+      expect(result?.bestBeach?.beachId).toBe("safe-beach");
+      expect(mockChain.gte).toHaveBeenCalledWith("forecast_at", "2026-10-16T06:00:00.000Z");
+      expect(mockChain.lt).toHaveBeenCalledWith("forecast_at", "2026-10-16T15:00:00.000Z");
+      expect(mockChain.from).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("widens an empty narrow query to the old three-day window with the same city and beach IDs", async () => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-10-16T12:00:00Z"));
+    mockChain.limit.mockResolvedValueOnce({ data: [], error: null });
+    try {
+      const result = await getCitySurfReport("San Diego", "CA", ["safe-beach"]);
+
+      expect(result?.bestBeach?.beachId).toBe("safe-beach");
+      expect(mockChain.from).toHaveBeenCalledTimes(2);
+      expect(mockChain.gte.mock.calls).toEqual([
+        ["forecast_at", "2026-10-16T06:00:00.000Z"],
+        ["forecast_at", "2026-10-13T12:00:00.000Z"],
+      ]);
+      expect(mockChain.lt.mock.calls).toEqual([
+        ["forecast_at", "2026-10-16T15:00:00.000Z"],
+        ["forecast_at", "2026-10-17T00:00:00.000Z"],
+      ]);
+      expect(mockChain.ilike.mock.calls).toEqual([
+        ["beaches.state", "CA"], ["beaches.city", "San Diego"],
+        ["beaches.state", "CA"], ["beaches.city", "San Diego"],
+      ]);
+      expect(mockChain.in.mock.calls).toEqual([
+        ["beach_id", ["safe-beach"]], ["beach_id", ["safe-beach"]],
+      ]);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("returns null when both windows are empty", async () => {
+    mockChain.limit.mockResolvedValue({ data: [], error: null });
+
+    expect(await getCitySurfReport("San Diego", "CA")).toBeNull();
+    expect(mockChain.from).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    ["SQLSTATE", { code: "57014", message: "canceling statement" }],
+    ["message", { message: "canceling statement due to statement timeout" }],
+  ])("returns null on a returned %s timeout without widening the query", async (_kind, error) => {
+    mockChain.limit.mockResolvedValueOnce({ data: null, error });
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const log = jest.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      expect(await getCitySurfReport("San Diego", "CA")).toBeNull();
+      expect(mockChain.from).toHaveBeenCalledTimes(1);
+      expect(warn).toHaveBeenCalledWith(
+        "[getCitySurfReport] Forecast query timed out:",
+        expect.objectContaining({ message: expect.stringContaining(error.message) }),
+      );
+      expect(log).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+      log.mockRestore();
+    }
+  });
+
+  it("returns null for a thrown SQLSTATE timeout", async () => {
+    mockChain.limit.mockRejectedValueOnce({ code: "57014", message: "canceling statement" });
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const log = jest.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      expect(await getCitySurfReport("San Diego", "CA")).toBeNull();
+      expect(warn).toHaveBeenCalledWith(
+        "[getCitySurfReport] Forecast query timed out:",
+        { message: "canceling statement (57014)" },
+      );
+      expect(log).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+      log.mockRestore();
+    }
+  });
+
   it("removes a held beach before selecting the city best-right-now beach", async () => {
     const result = await getCitySurfReport("San Diego", "CA");
 
