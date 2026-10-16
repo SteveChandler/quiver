@@ -901,6 +901,7 @@ async function evaluatePinned(
       shortName: beach.short_name,
       slug: beach.slug,
       state: beach.state,
+      timezone: beach.timezone,
     },
     forecastAvailable: forecasts.some((row) => Date.parse(row.forecast_at) > now.getTime()),
     event,
@@ -1277,7 +1278,9 @@ async function sendFollowups(
       const peakDate = getLocalDateString(new Date(shown.peakAt), profile.timezone);
       const previousPeakDate = getLocalDateString(new Date(state.lastPeakAt), profile.timezone);
       const beachName = pinned.beach.shortName ?? pinned.beach.name;
-      const peakDayLabel = weekday(peakDate);
+      const beachTimezone = resolveBeachTimezone(pinnedBeach.timezone);
+      const peakDayLabel = weekday(getLocalDateString(new Date(shown.peakAt), beachTimezone));
+      const previousPeakDayLabel = weekday(getLocalDateString(new Date(state.lastPeakAt), beachTimezone));
       const picked = pickSwellFollowupHeadline({
         kind,
         eventKey: state.eventKey,
@@ -1303,9 +1306,9 @@ async function sendFollowups(
           size: `${formatNumber(shown.faceHeightFt)}ft`,
           period: `${formatNumber(shown.periodS)}s`,
           day: peakDayLabel,
-          part: peakPart(shown.peakAt, profile.timezone),
+          part: peakPart(shown.peakAt, beachTimezone),
           prev_size: `${formatNumber(state.lastFaceHeightFt)}ft`,
-          prev_day: weekday(previousPeakDate),
+          prev_day: previousPeakDayLabel,
         },
       });
       if (!baseBody) {
