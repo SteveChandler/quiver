@@ -40,7 +40,7 @@ function loud(copies: string[]): string[] {
 
 const VARS = {
   beach: "Blacks",
-  window: "6–8 AM",
+  window: "6 to 8 AM",
   lead: "",
   swell: "4–5 ft at 14s SW",
   wind: "offshore wind",

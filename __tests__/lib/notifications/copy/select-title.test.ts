@@ -32,7 +32,7 @@ const vars: TitleVars = {
   high_time: "8:15",
   turn_time: "9:00",
   home_beach: "OB",
-  window: "6–8 AM",
+  window: "6 to 8 AM",
   lead: "",
   swell: "4–5 ft at 14s SW",
   limit: "Best before the wind picks up around 8 AM.",
@@ -138,7 +138,7 @@ describe("selectTitle", () => {
       },
     });
 
-    expect(selected.title).toBe("A Very Long Approved Beach Name 6–8 AM");
+    expect(selected.title).toBe("A Very Long Approved Beach Na… 6 to 8 AM");
     expect(selected.fallback).toBe(true);
   });
 
@@ -153,7 +153,7 @@ describe("selectTitle", () => {
       vars: {
         beach: "Torrance Beach (RAT Beach)",
         home_beach: "Tourmaline",
-        window: "10 AM–12:10 PM",
+        window: "10 AM to 12:10 PM",
         lead: "",
         swell: "2-3 ft",
         wind: "light wind",
@@ -162,9 +162,9 @@ describe("selectTitle", () => {
     });
 
     expect(selected.id).toBe("fallback");
-    expect(selected.title).toBe("Torrance Beach 10 AM–12:10 PM");
+    expect(selected.title).toBe("Torrance Beach 10 AM to 12:10 PM");
     expect([...selected.title].length).toBeLessThanOrEqual(TITLE_MAX_CHARS);
-    expect(selected.title).toContain("10 AM–12:10 PM");
+    expect(selected.title).toContain("10 AM to 12:10 PM");
     expect(dailyCallPayloadSchema.shape.title.safeParse(selected.title).success).toBe(true);
   });
 
@@ -201,7 +201,7 @@ describe("selectTitle", () => {
   });
 
   it("truncates a long beach without parentheses while keeping the full window", () => {
-    const window = "10 AM–12:10 PM";
+    const window = "10 AM to 12:10 PM";
     const selected = selectTitle({
       pool: "daily",
       tags: ["generic"],
@@ -284,5 +284,38 @@ describe("surf title pool", () => {
         TITLE_MAX_CHARS,
       );
     }
+  });
+});
+
+
+describe("dash-free Daily Call titles", () => {
+  it.each([
+    ["2026-10-17T15:00:00Z", "2026-10-17T16:00:00Z"],
+    ["2026-10-17T15:00:00Z", "2026-10-17T17:00:00Z"],
+    ["2026-10-17T18:00:00Z", "2026-10-17T20:00:00Z"],
+    ["2026-10-17T13:54:00Z", "2026-10-17T16:00:00Z"],
+  ])("keeps every template and fallback dash-free for %s to %s", (start, end) => {
+    const window = formatWindowLabel(start, end, "America/Los_Angeles");
+    for (const entry of titlePool.daily) {
+      const selected = selectTitle({ pool: "daily", tags: entry.tags, userId: "user-1", eventKey: "2026-10-17",
+        recentTitleIds: titlePool.daily.filter(({ id }) => id !== entry.id).map(({ id }) => id),
+        recentFilmCount: 0, vars: { ...vars, beach: "Torrey Pines", window } });
+      expect(selected.title).not.toMatch(/—|–| - /);
+      expect([...selected.title].length).toBeLessThanOrEqual(40);
+    }
+    const selected = selectTitle({ pool: "daily", tags: [], userId: "user-1", eventKey: "2026-10-17",
+      recentTitleIds: [], recentFilmCount: 0, vars: { ...vars, beach: "A".repeat(45), window } });
+    expect(selected.title).toBe(`${"A".repeat(40 - [...window].length - 2)}… ${window}`);
+    expect([...selected.title]).toHaveLength(40);
+    expect(selected.title).not.toMatch(/—|–| - /);
+  });
+});
+
+
+describe("beach punctuation in push titles", () => {
+  it("removes beach dashes before checking title length", () => {
+    const selected = selectTitle({ pool: "daily", tags: [], userId: "user-1", eventKey: "2026-10-17",
+      recentTitleIds: [], recentFilmCount: 0, vars: { ...vars, beach: "Waikiki – Canoes", window: "8 to 10 AM" } });
+    expect(selected.title).toBe("Waikiki Canoes 8 to 10 AM");
   });
 });

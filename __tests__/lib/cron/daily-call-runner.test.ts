@@ -185,7 +185,7 @@ function deps(
     loadRecentTitleIds: jest.fn(async () => []),
     selectTitle: jest.fn(() => ({
       id: "d05",
-      title: "Wind stays polite. Osprey 8:00–9:40",
+      title: "Wind stays polite. Osprey 8:00 to 9:40",
       body: "Offshore through ~9:40, then it turns.",
       fallback: false,
     })),
@@ -1434,8 +1434,8 @@ describe("runDailyCallCron", () => {
     const enqueueArgs = jest.mocked(mocked.enqueue).mock.calls[0][0];
     const payload = parseDailyCallPayload(enqueueArgs.payload);
     const push = NOTIFICATION_REGISTRY.daily_call.buildPushPayload!(payload);
-    expect(push.title).toContain("8–11 AM");
-    expect(push.title).not.toContain("11 AM–2 PM");
+    expect(push.title).toContain("8 to 11 AM");
+    expect(push.title).not.toContain("11 AM to 2 PM");
     expect(enqueueArgs.dedupeKey).toBe(`daily_call:${userId}:2026-10-11`);
     expect(payload).toMatchObject({
       alert_date: "2026-10-11", window_start: start, window_end: end, window_local: "8–~11 AM",
@@ -1470,7 +1470,7 @@ describe("runDailyCallCron", () => {
     expect(summary).toMatchObject({ sent: 1, errors: 0 });
     const payload = parseDailyCallPayload(jest.mocked(mocked.enqueue).mock.calls[0][0].payload);
     expect(payload.window_local).toBe("8–~11 AM");
-    expect(payload.title).toContain("8–11 AM");
+    expect(payload.title).toContain("8 to 11 AM");
     expect(payload.reason).toContain("around 11 AM.");
   });
 
@@ -1518,7 +1518,7 @@ describe("runDailyCallCron", () => {
         dedupeKey: `daily_call:${userId}:2026-09-16`,
         payload: expect.objectContaining({
           beach_id: ospreyId,
-          title: "Wind stays polite. Osprey 8:00–9:40",
+          title: "Wind stays polite. Osprey 8:00 to 9:40",
           comparison: "Rated higher than Blacks today",
           window_local: "8–~9:40 AM",
         }),
@@ -1554,7 +1554,7 @@ describe("runDailyCallCron", () => {
   it("adds the live tag when the winning window is already open", async () => {
     const selectTitle = jest.fn(() => ({
       id: "d07",
-      title: "Offshore's on. Osprey 5:30–7:30",
+      title: "Offshore's on. Osprey 5:30 to 7:30",
       body: "It's already clean.",
       fallback: false,
     }));
@@ -1846,7 +1846,7 @@ describe("daily call copy on the real title pool", () => {
   it("keeps the title's hook, reads 12-hour time, and never claims home missed the tide", async () => {
     const payload = await send([go(torrey, torreyForecast, 82)]);
 
-    expect(payload.title).toMatch(/^\S.*\. Torrey Pines 8–11 AM$/);
+    expect(payload.title).toMatch(/^\S.*\. Torrey Pines 8 to 11 AM$/);
     expect([...payload.title].length).toBeLessThanOrEqual(40);
     expect(payload.reason).toBe("4–5 ft at 15s WSW with light wind. Best before the tide drops around 11 AM.");
     expect(payload.reason).not.toMatch(/Ocean Beach Pier|misses/);

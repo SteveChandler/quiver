@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 import titlePool from "./surf-titles.v1.json";
+import { pushTitle } from "./push-title";
 
 export type Pool = "daily" | "swell";
 
@@ -83,23 +84,24 @@ function hashIndex(value: string, length: number): number {
 }
 
 function fallbackTitle(pool: Pool, vars: TitleVars): string {
-  const rendered = renderTemplate(
+  const rendered = pushTitle(renderTemplate(
     pool === "daily" ? "{beach} {window}" : "Swell peaks {peak_day}",
     vars,
-  );
+  ));
   if (titleLength(rendered) <= TITLE_MAX_CHARS) return rendered;
   if (pool === "swell") return truncateTitle(rendered);
 
-  const beach = vars.beach.replace(/\s+\([^()]*\)\s*$/, "");
-  const withoutParenthetical = `${beach} ${vars.window}`;
+  const beach = pushTitle(vars.beach).replace(/\s+\([^()]*\)\s*$/, "");
+  const window = pushTitle(vars.window);
+  const withoutParenthetical = `${beach} ${window}`;
   if (titleLength(withoutParenthetical) <= TITLE_MAX_CHARS) {
     return withoutParenthetical;
   }
 
-  const beachChars = TITLE_MAX_CHARS - titleLength(vars.window) - 2;
+  const beachChars = TITLE_MAX_CHARS - titleLength(window) - 2;
   if (beachChars > 0) {
     const shortenedBeach = [...beach].slice(0, beachChars).join("").trimEnd();
-    const withWindow = `${shortenedBeach}… ${vars.window}`;
+    const withWindow = `${shortenedBeach}… ${window}`;
     if (titleLength(withWindow) <= TITLE_MAX_CHARS) return withWindow;
   }
 
@@ -143,7 +145,7 @@ export function selectTitle(args: SelectTitleArgs): SelectedTitle {
     };
   }
 
-  const renderedTitle = renderTemplate(selected.title, args.vars);
+  const renderedTitle = pushTitle(renderTemplate(selected.title, args.vars));
   if (titleLength(renderedTitle) <= TITLE_MAX_CHARS) {
     return {
       id: selected.id,
@@ -156,7 +158,7 @@ export function selectTitle(args: SelectTitleArgs): SelectedTitle {
   const shortest = candidates
     .map((entry) => ({
       entry,
-      title: renderTemplate(entry.title, args.vars),
+      title: pushTitle(renderTemplate(entry.title, args.vars)),
     }))
     .filter(({ title }) => titleLength(title) <= TITLE_MAX_CHARS)
     .sort((left, right) => titleLength(left.title) - titleLength(right.title))[0];

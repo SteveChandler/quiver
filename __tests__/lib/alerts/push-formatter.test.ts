@@ -30,8 +30,8 @@ describe("formatPushNotification", () => {
     const result = formatPushNotification([makeMatch()]);
     expect(result.title).not.toBe("Conditions lining up today");
     expect(result.title).toContain("Blacks Beach");
-    // 7-10 AM PDT for the 14:00-17:00Z window, with an en-dash + shared meridiem.
-    expect(result.title).toContain("7–10 AM");
+    // 7-10 AM PDT for the 14:00-17:00Z window, with a shared meridiem.
+    expect(result.title).toContain("7 to 10 AM");
   });
 
   it("single-match title carries a quality word from best_score", () => {
@@ -48,7 +48,7 @@ describe("formatPushNotification", () => {
     );
     const no = formatPushNotification([makeMatch({ best_score: 0.92 })], "no");
 
-    expect(maybe.title).toContain("Worth a look");
+    expect(maybe.title).toContain("Decent shot");
     expect(maybe.title).not.toMatch(/Lined up|Worth a surf/);
     expect(no.title).toContain("Not ideal");
     expect(no.title).not.toMatch(/Lined up|Worth a surf/);
@@ -141,7 +141,7 @@ describe("formatPushNotification", () => {
       }),
     ]);
 
-    expect(result.title).toBe("Beginner-friendly — Mission Beach, 7–10 AM");
+    expect(result.title).toBe("Beginner friendly at Mission Beach, 7 to 10 AM");
     expect(result.title).not.toContain("Worth a surf");
     expect(result.body).toContain("1-2ft @ 14s");
   });
@@ -160,7 +160,7 @@ describe("formatPushNotification", () => {
       "go",
     );
 
-    expect(result.title).toContain("Beginner-friendly");
+    expect(result.title).toContain("Beginner friendly");
     expect(result.title).not.toContain("Worth a surf");
   });
 
@@ -298,7 +298,51 @@ describe("formatPushNotification", () => {
   it("keeps a range for windows longer than an hour", () => {
     const match = makeMatch({ window_start: "2026-10-01T14:00:00Z", window_end: "2026-10-01T16:00:00Z", best_hour: "2026-10-01T15:00:00Z" });
     const { title, body } = formatPushNotification([match]);
-    expect(title).toMatch(/, 7–9 AM$/);
+    expect(title).toMatch(/, 7 to 9 AM$/);
     expect(body).toMatch(/^Blacks Beach 7 AM-9 AM — /);
   });
+});
+
+
+describe("dash-free condition titles", () => {
+  it.each([
+    ["mavericks", "Could be fun"],
+    ["scripps", "Fair shot"],
+    ["beach-blacks", "Decent shot"],
+  ])("uses the FAIR phrase for %s", (beachId, phrase) => {
+    const match = makeMatch({ beach_id: beachId, beach_name: "Scripps", best_hour: "2026-10-17T16:00:00Z",
+      window_start: "2026-10-17T15:00:00Z", window_end: "2026-10-17T17:00:00Z" });
+    expect(formatPushNotification([match], "maybe").title).toBe(`${phrase} at Scripps, 8 to 10 AM`);
+  });
+
+  it("uses window start when best hour is absent", () => {
+    expect(formatPushNotification([makeMatch({ beach_id: "beach-blacks", best_hour: undefined,
+      window_start: "2026-10-17T15:00:00Z" })], "maybe").title).toContain("Decent shot at");
+  });
+
+  it.each([
+    ["2026-10-17T15:00:00Z", "2026-10-17T16:00:00Z", "around 8 AM"],
+    ["2026-10-17T15:00:00Z", "2026-10-17T17:00:00Z", "8 to 10 AM"],
+    ["2026-10-17T18:00:00Z", "2026-10-17T21:00:00Z", "11 AM to 2 PM"],
+  ])("has no title dashes for %s to %s", (start, end, label) => {
+    for (const decision of [undefined, "go", "maybe", "no"] as const) {
+      for (const beginner of [false, true]) {
+        const match = makeMatch({ window_start: start, window_end: end,
+          conditions_snapshot: { beginner_window_reason: beginner ? "small waves" : "" } });
+        const single = formatPushNotification([match], decision);
+        expect(single.title).toContain(label);
+        expect(single.title).not.toMatch(/—|–| - /);
+        expect(formatPushNotification([match, makeMatch({ beach_id: "b2" })], decision).title).not.toMatch(/—|–| - /);
+      }
+    }
+  });
+});
+
+
+it.each(["Waikiki – Canoes", "Waikiki — Canoes", "Waikiki - Canoes"])("keeps %s punctuation in the body only", (beach_name) => {
+  const match = makeMatch({ beach_name });
+  const single = formatPushNotification([match]);
+  expect(single.title).toContain("at Waikiki Canoes,");
+  expect(single.body).toContain(beach_name);
+  expect(formatPushNotification([match, makeMatch({ best_score: 0.2 })]).title).toBe("Waikiki Canoes + 1 more break today");
 });

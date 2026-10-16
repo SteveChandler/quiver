@@ -65,7 +65,7 @@ export async function SurfDecisionCard({ decision }: SurfDecisionCardProps) {
   // its call, as native does.
   const call =
     hasLiveData && report?.verdict
-      ? getSurfCallVerdictCall(report.verdict, report.score)
+      ? getSurfCallVerdictCall(report.verdict, report.score, "now", { beachId: beach?.id, instantIso: report.bestWindowStart ?? report.peakTime })
       : null;
   const bestWindow = hasLiveData
     ? formatTimeRangeInTimezone(

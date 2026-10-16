@@ -112,7 +112,10 @@ function BeachConditionRow({
   regionSlug: string;
   showScores: boolean;
 }) {
-  const scoreCall = getScoreCall(beach.currentScore);
+  const scoreCall = getScoreCall(beach.currentScore, {
+    beachId: beach.beachId,
+    instantIso: beach.currentWindowStart,
+  });
 
   return (
     <TableRow
@@ -204,7 +207,10 @@ function BeachConditionCard({
   regionSlug: string;
   showScores: boolean;
 }) {
-  const scoreCall = getScoreCall(beach.currentScore);
+  const scoreCall = getScoreCall(beach.currentScore, {
+    beachId: beach.beachId,
+    instantIso: beach.currentWindowStart,
+  });
 
   return (
     <ScrollReveal variant="fadeUp" delay={index * 75}>

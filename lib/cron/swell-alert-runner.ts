@@ -822,6 +822,7 @@ function windowCopy(window: RefinedWindow, peakDate: string, timezone: string): 
     window.drivers.find((driver) => driver.edge === side)?.approximate ?? false;
   return {
     when: `${weekday(peakDate)} ${formatWindowLabel(window.start, window.end, timezone, {
+      forBody: true,
       approximateStart: edge("start"),
       approximateEnd: edge("end"),
     })}`,

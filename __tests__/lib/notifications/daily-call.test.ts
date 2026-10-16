@@ -37,7 +37,7 @@ const validPayload = {
   wind_label: "Light offshore",
   tide_label: "Rising to a 9:52 high",
   reason: "Offshore through ~9:40, then it turns.",
-  title: "Wind stays polite. Blacks 7:15–9:40",
+  title: "Wind stays polite. Blacks 7:15 to 9:40",
   title_id: "daily-wind-1",
   comparison: null,
   swell_event_key: null,
