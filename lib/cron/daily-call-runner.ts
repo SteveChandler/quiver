@@ -406,7 +406,7 @@ function evaluateForecast(
     forecast,
     beach: pool.beach,
     experienceLevel: profile.experienceLevel,
-    timezone,
+    timezone: resolveBeachTimezone(pool.beach.timezone || timezone),
     now,
     candidateIdPrefix: "daily-call",
   });
@@ -447,9 +447,10 @@ function decisionForWindow(
   now: Date,
 ): CanonicalSessionDecision {
   const selection = evaluation.decision.selection;
+  const beachTimezone = resolveBeachTimezone(pool.beach.timezone || timezone);
   const decision = buildCanonicalSessionDecision({
     anchorTime: now.toISOString(),
-    scope: { kind: "plan_next_session", windowStart: window.start, windowEnd: window.end, timezone },
+    scope: { kind: "plan_next_session", windowStart: window.start, windowEnd: window.end, timezone: beachTimezone },
     profileExperience: profile.experienceLevel,
     recommendationAvailability: {
       state: "available",
@@ -463,7 +464,7 @@ function decisionForWindow(
       beachSkillLevel: pool.beach.skill_level,
       windowStart: window.start,
       windowEnd: window.end,
-      timezone,
+      timezone: beachTimezone,
       forecastId: evaluation.forecast.id,
       forecastAt: evaluation.forecast.forecast_at,
       waveHeight: evaluation.forecast.wave_height,
@@ -526,14 +527,31 @@ export async function loadTideSamples(
   return samples;
 }
 
+function beachDayRange(
+  beach: Beach,
+  localDate: string,
+  userTimezone: string,
+): { start: string; end: string } {
+  const timezone = resolveBeachTimezone(beach.timezone || userTimezone);
+  return {
+    start: localDateTimeToUTC(localDate, "05:00:00", timezone).toISOString(),
+    end: localDateTimeToUTC(localDate, "20:00:00", timezone).toISOString(),
+  };
+}
+
 export async function buildCandidates(
   supabase: SupabaseClient<Database>,
   tideCache: TideCache,
   args: BuildCandidatesArgs,
 ): Promise<CandidateBuildResult> {
+  if (args.pool.length === 0) return { candidates: [], hadForecasts: false, noInWindowRowCount: 0 };
   const beachIds = args.pool.map((value) => value.beach.id);
-  const start = localDateTimeToUTC(args.alertDate, "05:00:00", args.timezone).toISOString();
-  const end = localDateTimeToUTC(args.alertDate, "20:00:00", args.timezone).toISOString();
+  const beachDays = args.pool.map((pool) => ({
+    pool,
+    ...beachDayRange(pool.beach, args.alertDate, args.timezone),
+  }));
+  const start = new Date(Math.min(...beachDays.map((day) => Date.parse(day.start)))).toISOString();
+  const end = new Date(Math.max(...beachDays.map((day) => Date.parse(day.end)))).toISOString();
   const { data, error } = await supabase
     .from("enhanced_forecasts")
     .select("*")
@@ -545,10 +563,15 @@ export async function buildCandidates(
   const forecasts = (data ?? []) as EnhancedForecastEntity[];
   const candidates: EvaluatedCandidate[] = [];
   let noInWindowRowCount = 0;
+  let hadForecasts = false;
 
-  for (const pool of args.pool) {
-    const beachForecasts = forecasts.filter((row) => row.beach_id === pool.beach.id);
+  for (const { pool, start, end } of beachDays) {
+    const startMs = Date.parse(start);
+    const endMs = Date.parse(end);
+    const beachForecasts = forecasts.filter((row) => row.beach_id === pool.beach.id
+      && Date.parse(row.forecast_at) >= startMs && Date.parse(row.forecast_at) < endMs);
     if (beachForecasts.length === 0) continue;
+    hadForecasts = true;
     const evaluations = beachForecasts.map((forecast) =>
       evaluateForecast(args.profile, pool, forecast, args.timezone, args.now));
     const verdictById = new Map(evaluations.map((value) => [value.forecast.id, value.verdict]));
@@ -608,12 +631,12 @@ export async function buildCandidates(
         decisionId: decision.decisionId,
         sessionDecision: decision,
         sourceForecast: best.forecast,
-        timezone: args.timezone,
+        timezone: resolveBeachTimezone(pool.beach.timezone || args.timezone),
       });
     }
   }
 
-  return { candidates, hadForecasts: forecasts.length > 0, noInWindowRowCount };
+  return { candidates, hadForecasts, noInWindowRowCount };
 }
 
 function candidateFromRankedWindow(
@@ -825,8 +848,7 @@ function defaultDeps(
     rankDay: rankDayWithWeekScout,
     usesSharedRanking: (userId) => isSharedCallRankingEnabled() && isSharedCallRankingUserAllowed(userId),
     loadBeachDay: async ({ beach, timezone, localDate }) => {
-      const start = localDateTimeToUTC(localDate, "05:00:00", timezone).toISOString();
-      const end = localDateTimeToUTC(localDate, "20:00:00", timezone).toISOString();
+      const { start, end } = beachDayRange(beach, localDate, timezone);
       const { data, error } = await supabase
         .from("enhanced_forecasts")
         .select("*")
