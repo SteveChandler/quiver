@@ -1,4 +1,6 @@
 /** @jest-environment node */
+import { NextRequest } from 'next/server';
+import { GET as renderSessionImage } from '@/app/api/og/session/route';
 import { generateMetadata } from '@/app/sessions/[id]/page';
 import { buildSessionShareImageUrl } from '@/lib/share/session-share';
 import type { SessionWithDetails } from '@/types/database';
@@ -62,4 +64,24 @@ test('keeps inaccessible sessions generic instead of bypassing RLS', async () =>
   const metadata = await generateMetadata({ params: Promise.resolve({ id: 'private-session' }) });
   expect(metadata.openGraph?.title).toBe('Surf Session');
   expect(metadata.description).not.toContain('Alex');
+});
+
+
+let mockRenderedSize: { width: number; height: number };
+jest.mock('next/og', () => ({
+  ImageResponse: jest.fn((_element, options) => {
+    mockRenderedSize = { width: options.width, height: options.height };
+    return new Response(new Uint8Array(require('node:fs').readFileSync('public/og-image.png')));
+  }),
+}));
+
+test('declares the dimensions actually rendered by the session OG route', async () => {
+  const metadata = await generateMetadata({ params: Promise.resolve({ id: session.id }) });
+  const images = metadata.openGraph?.images;
+  if (!Array.isArray(images) || !images[0] || typeof images[0] !== 'object' || !('url' in images[0])) {
+    throw new Error('Expected a session OG image descriptor');
+  }
+  await renderSessionImage(new NextRequest(String(images[0].url)));
+  expect(mockRenderedSize).toEqual({ width: 1080, height: 1920 });
+  expect(images[0]).toMatchObject(mockRenderedSize);
 });

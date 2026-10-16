@@ -120,6 +120,8 @@ export async function generateMetadata(
         description,
         path: `/sessions/${params.id}`,
         image: `${buildSessionShareImageUrl(session as unknown as SessionWithDetails)}&format=jpeg`,
+        imageWidth: 1080,
+        imageHeight: 1920,
       });
     }
   } catch (error) {
