@@ -173,6 +173,7 @@ export interface SwellAlertCandidate {
     shortName: string | null;
     slug: string | null;
     state: string | null;
+    timezone?: string | null;
   };
   /** Detected swell event with its resolved (cross-run) key. */
   event: BeachSwellEvent;
@@ -341,7 +342,7 @@ function weekday(dateKey: string): string {
 }
 
 function personalCall(beachName: string, lead: SwellAlertCandidate, timezone: string): string {
-  const timing = lead.window ? windowCopy(lead.window, lead.peakDate, timezone) : null;
+  const timing = lead.window ? windowCopy(lead.window, getLocalDateString(new Date(lead.event.peakAt), timezone), timezone) : null;
   const board = lead.boardName ? `, grab your ${lead.boardName}` : "";
   return timing
     ? `Your call: ${beachName} ${timing.when}${board}. ${timing.limit}`
@@ -732,6 +733,7 @@ async function evaluatePool(
         shortName: beach.short_name,
         slug: beach.slug,
         state: beach.state,
+        timezone: beach.timezone,
       },
       ...best,
       serious: best.event.peakFaceHeightFt >= 8 || officialAdvisories.some(
@@ -1840,9 +1842,12 @@ export async function runSwellAlertCron(args: {
       }));
       const beachNames = rankedBeaches.map(({ beach_name }) => beach_name);
       const direction = lead.event.directionLabel;
+      const beachTimezone = resolveBeachTimezone(lead.beach.timezone);
+      const beachPeakDate = getLocalDateString(new Date(lead.event.peakAt), beachTimezone);
+      const peakDayLabel = weekday(beachPeakDate);
       const selected = selectTitle({
         pool: "swell",
-        tags: buildTags(lead, rarity.kind, rarity.historyDays),
+        tags: buildTags({ ...lead, peakDate: beachPeakDate }, rarity.kind, rarity.historyDays),
         userId: profile.id,
         eventKey,
         recentTitleIds: state.recentTitleIds,
@@ -1854,10 +1859,10 @@ export async function runSwellAlertCron(args: {
           dir: direction,
           size: `${formatNumber(lead.event.peakFaceHeightFt)}ft`,
           period: `${formatNumber(lead.event.periodS)}s`,
-          peak_day: weekday(lead.peakDate),
-          peak_part: peakPart(lead.event.peakAt, profile.timezone),
+          peak_day: peakDayLabel,
+          peak_part: peakPart(lead.event.peakAt, beachTimezone),
           rarity: rarity.rarityLine,
-          call: personalCall(beachNames[0], lead, profile.timezone),
+          call: personalCall(beachNames[0], lead, beachTimezone),
         },
       });
       const body = lead.hazard ? `${selected.body} ${HAZARD_LINES[lead.hazard]}` : selected.body;
@@ -1868,7 +1873,7 @@ export async function runSwellAlertCron(args: {
         kind: "coming",
         eventKey,
         beachName: beachNames[0],
-        peakDayLabel: weekday(lead.peakDate),
+        peakDayLabel,
         serious: lead.serious,
       });
       const title = headline.titleId === selected.id ? headline.headline : selected.title;
