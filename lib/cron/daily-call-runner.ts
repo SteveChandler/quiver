@@ -108,6 +108,7 @@ export interface DailyCallProfile {
 interface CandidateBuildResult {
   candidates: DailyCallCandidate[];
   hadForecasts: boolean;
+  noInWindowRowCount?: number;
 }
 
 interface BuildCandidatesArgs {
@@ -195,6 +196,7 @@ function skippedCounts(): Record<string, number> {
     allowlist: 0,
     no_pool: 0,
     no_forecast: 0,
+    no_in_window_row: 0,
     ranking_beach_not_in_pool: 0,
     ranking_verdict_mismatch: 0,
     not_send_hour: 0,
@@ -409,14 +411,22 @@ function evaluateForecast(
   });
 }
 
+function forecastStartsInWindow(
+  forecast: EnhancedForecastEntity,
+  window: RefinedWindow,
+): boolean {
+  const at = Date.parse(forecast.forecast_at);
+  return at >= Date.parse(window.start) && at < Date.parse(window.end);
+}
+
 function isLiveWindowForecast(
   forecast: EnhancedForecastEntity,
   window: RefinedWindow,
   now: Date,
 ): boolean {
   const at = Date.parse(forecast.forecast_at);
-  return at >= Date.parse(window.start) && at < Date.parse(window.end)
-    && at + HOUR_MS > now.getTime();
+  return at < Date.parse(window.end) && at + HOUR_MS > now.getTime()
+    && Date.parse(window.end) > now.getTime();
 }
 
 function bestWindowEvaluation(
@@ -424,9 +434,17 @@ function bestWindowEvaluation(
   window: RefinedWindow,
   now: Date,
 ): ForecastVerdict | undefined {
-  return evaluations.filter((evaluation) => evaluation.verdict === "go"
+  const best = evaluations.filter((evaluation) => evaluation.verdict === "go"
+    && forecastStartsInWindow(evaluation.forecast, window)
     && isLiveWindowForecast(evaluation.forecast, window, now))
     .sort((left, right) => right.score - left.score)[0];
+  if (best) return best;
+
+  const inEffect = evaluations.filter((evaluation) =>
+    Date.parse(evaluation.forecast.forecast_at) <= Date.parse(window.start))
+    .sort((left, right) => Date.parse(right.forecast.forecast_at) - Date.parse(left.forecast.forecast_at))[0];
+  return inEffect?.verdict === "go" && isLiveWindowForecast(inEffect.forecast, window, now)
+    ? inEffect : undefined;
 }
 
 function decisionForWindow(
@@ -459,6 +477,7 @@ function decisionForWindow(
       forecastAt: evaluation.forecast.forecast_at,
       waveHeight: evaluation.forecast.wave_height,
       utilityScore: evaluation.score,
+      recommendationLabel: selection?.evidence.recommendationLabel ?? undefined,
       personalMatch: selection?.evidence.personalMatch,
       effects: selection?.evidence.effects,
     }],
@@ -534,6 +553,7 @@ export async function buildCandidates(
   if (error) throw new Error(`Failed to load daily-call forecasts: ${error.message}`);
   const forecasts = (data ?? []) as EnhancedForecastEntity[];
   const candidates: EvaluatedCandidate[] = [];
+  let noInWindowRowCount = 0;
 
   for (const pool of args.pool) {
     const beachForecasts = forecasts.filter((row) => row.beach_id === pool.beach.id);
@@ -578,8 +598,11 @@ export async function buildCandidates(
         userSkillLevel: args.profile.experienceLevel,
       })[0];
       const window = capToBestWindow(refined, selected);
-      const best = bestWindowEvaluation(group, window, args.now);
-      if (!best) continue;
+      const best = bestWindowEvaluation(evaluations, window, args.now);
+      if (!best) {
+        noInWindowRowCount += 1;
+        continue;
+      }
       const decision = decisionForWindow(args.profile, pool, best, window, args.timezone, args.now);
       if (decision.verdict !== "go") continue;
       candidates.push({
@@ -596,7 +619,7 @@ export async function buildCandidates(
     }
   }
 
-  return { candidates, hadForecasts: forecasts.length > 0 };
+  return { candidates, hadForecasts: forecasts.length > 0, noInWindowRowCount };
 }
 
 function candidateFromRankedWindow(
@@ -604,7 +627,6 @@ function candidateFromRankedWindow(
   window: WeekScoutWindowResponse,
   forecasts: EnhancedForecastEntity[],
   timezone: string,
-  now: Date,
 ): DailyCallCandidate & { sourceForecast: EnhancedForecastEntity | undefined; timezone: string } {
   const peakMs = Date.parse(window.peakTime);
   const displayWindow: RefinedWindow = {
@@ -613,7 +635,8 @@ function candidateFromRankedWindow(
     minutes: (Date.parse(window.displayWindowEnd) - Date.parse(window.displayWindowStart)) / 60_000,
     drivers: [],
   };
-  const sourceForecast = forecasts.filter((forecast) => isLiveWindowForecast(forecast, displayWindow, now))
+  const inWindow = forecasts.filter((forecast) => forecastStartsInWindow(forecast, displayWindow));
+  const sourceForecast = [...(inWindow.length > 0 ? inWindow : forecasts)]
     .sort((left, right) =>
       Math.abs(Date.parse(left.forecast_at) - peakMs) - Math.abs(Date.parse(right.forecast_at) - peakMs))[0];
   return {
@@ -692,8 +715,8 @@ async function buildSharedCall(
   const { forecasts, tideSamples } = await deps.loadBeachDay({
     beach: entry.beach, timezone, localDate: alertDate,
   });
-  const winner = candidateFromRankedWindow(entry, pick, forecasts, timezone, now);
-  if (!winner.sourceForecast) return { skip: "no_forecast", heldReasons };
+  if (forecasts.length === 0) return { skip: "no_forecast", heldReasons };
+  const winner = candidateFromRankedWindow(entry, pick, forecasts, timezone);
   const evaluations = forecasts.map((forecast) => evaluateForecast(profile, entry, forecast, timezone, now));
   const verdictById = new Map(evaluations.map((value) => [value.forecast.id, value.verdict]));
   const daylight = getDaylightWindow(entry.beach.lat, entry.beach.lon, new Date(winner.window.start));
@@ -708,7 +731,11 @@ async function buildSharedCall(
   winner.window.drivers = refined?.drivers.filter((driver) =>
     Math.abs(Date.parse(driver.at) - Date.parse(winner.window[driver.edge])) <= 15 * 60_000) ?? [];
   const evaluation = bestWindowEvaluation(evaluations, winner.window, now);
-  if (!evaluation) return { skip: "ranking_verdict_mismatch", heldReasons };
+  if (!evaluation) {
+    const hasLiveWindowRow = forecasts.some((forecast) => forecastStartsInWindow(forecast, winner.window)
+      && isLiveWindowForecast(forecast, winner.window, now));
+    return { skip: hasLiveWindowRow ? "ranking_verdict_mismatch" : "no_in_window_row", heldReasons };
+  }
   const decision = decisionForWindow(profile, entry, evaluation, winner.window, timezone, now);
   if (decision.verdict !== "go") return { skip: "ranking_verdict_mismatch", heldReasons };
   winner.sourceForecast = evaluation.forecast;
@@ -722,7 +749,7 @@ async function buildSharedCall(
     : [];
   const candidates = await Promise.all([...clearOptions, ...homeComparison].map(async ({ pool, window }) => {
     const { forecasts } = await deps.loadBeachDay({ beach: pool.beach, timezone, localDate: alertDate });
-    return candidateFromRankedWindow(pool, window, forecasts, timezone, now);
+    return candidateFromRankedWindow(pool, window, forecasts, timezone);
   }));
   const options = candidates.slice(0, clearOptions.length);
   const home = candidates.find((candidate) => candidate.pool.beach.id === profile.homeBeachId) ?? null;
@@ -956,6 +983,7 @@ export async function runDailyCallCron(args: {
           alertDate,
           now: args.now,
         });
+        summary.skippedCounts.no_in_window_row += built.noInWindowRowCount ?? 0;
         if (!built.hadForecasts) {
           increment(summary, "no_forecast");
           summary.silent += 1;
@@ -988,7 +1016,11 @@ export async function runDailyCallCron(args: {
         winner = eligible[0];
         if (!winner) {
           // Distinguishes surf the app withholds from a day with nothing surfable.
-          increment(summary, built.candidates.some((candidate) => heldReason(candidate)) ? "no_clear_window" : "no_go_window");
+          if (built.candidates.some((candidate) => heldReason(candidate))) {
+            increment(summary, "no_clear_window");
+          } else if (built.candidates.length > 0 || !built.noInWindowRowCount) {
+            increment(summary, "no_go_window");
+          }
           summary.silent += 1;
           continue;
         }
