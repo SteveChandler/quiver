@@ -222,11 +222,11 @@ describe("/app/spot/[slug] handoff page", () => {
     );
     expect(
       screen.getByRole("link", { name: /continue on web/i }),
-    ).toHaveAttribute("href", "/beach/ocean-beach");
+    ).toHaveAttribute("href", "/beach/ocean-beach?window=window-1");
     expect(screen.queryByText(/window-1/i)).not.toBeInTheDocument();
   });
 
-  it("preserves exact context on the installed-app retry without changing the web fallback", async () => {
+  it("preserves exact context on the app retry and the requested window on web", async () => {
     const context = JSON.stringify({
       v: 1,
       beachId: "11111111-1111-4111-8111-111111111111",
@@ -269,7 +269,7 @@ describe("/app/spot/[slug] handoff page", () => {
     );
     expect(screen.getByRole("link", { name: /continue on web/i })).toHaveAttribute(
       "href",
-      "/beach/ocean-beach",
+      "/beach/ocean-beach?window=2026-08-25T14%3A00%3A00.000Z",
     );
   });
 
@@ -384,6 +384,31 @@ describe("/app/spot/[slug] handoff page", () => {
         screen.getByText(/after it installs, tap the message again/i),
       ).toBeInTheDocument();
       expect(screen.queryByText(/already installed/i)).not.toBeInTheDocument();
+    });
+
+    it("preserves the requested window and crew invite across continuation links", async () => {
+      requestAs(IPHONE_UA);
+      render(await AppSpotHandoffPage({
+        params: Promise.resolve({ slug: 'scripps' }),
+        searchParams: Promise.resolve({
+          window: ['2026-10-16T21:00:00+00:00', 'ignored-window'],
+          sid: SHARE_ID,
+          invite: ['crew+token/=', 'ignored-invite'],
+        }),
+      }));
+      const webUrl = new URL(screen.getByRole('link', { name: /continue on web/i }).getAttribute('href')!, 'https://www.quiversurf.app');
+      expect(webUrl.pathname).toBe('/beach/scripps');
+      expect(webUrl.searchParams.get('window')).toBe('2026-10-16T21:00:00+00:00');
+      const appUrl = new URL(screen.getByRole('link', { name: /^open in quiver$/i }).getAttribute('href')!);
+      expect(appUrl.searchParams.get('window')).toBe('2026-10-16T21:00:00+00:00');
+      expect(appUrl.searchParams.get('sid')).toBe(SHARE_ID);
+      expect(appUrl.searchParams.get('invite')).toBe('crew+token/=');
+      expect(appUrl.searchParams.get('o')).toBe('1');
+    });
+
+    it("keeps a clean web fallback when no window was requested", async () => {
+      render(await AppSpotHandoffPage({ params: Promise.resolve({ slug: 'scripps' }) }));
+      expect(screen.getByRole('link', { name: /continue on web/i })).toHaveAttribute('href', '/beach/scripps');
     });
 
     it("drops a malformed share id from the Open in Quiver link", async () => {
