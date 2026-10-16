@@ -71,7 +71,7 @@ function shortWeekday(iso: string, timezone: string): string {
 
 export function bestWindowSentence(window: NonNullable<TideAwareWindowResult['window']>): string {
   const { start, end, timezone } = window;
-  return `Best window ${shortWeekday(start, timezone)} ${formatWindowLabel(start, end, timezone)}.`;
+  return `Best window ${shortWeekday(start, timezone)} ${formatWindowLabel(start, end, timezone, { forBody: true })}.`;
 }
 
 export function tideReasonSentence(reasons: readonly string[]): string | null {

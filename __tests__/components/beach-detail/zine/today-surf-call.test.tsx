@@ -103,7 +103,7 @@ describe("TodaySurfCall", () => {
     );
 
     expect(screen.getByText("FAIR")).toHaveStyle({ color: "#8A5E00" });
-    expect(screen.getByText("Worth a look")).toBeInTheDocument();
+    expect(screen.getByText("Could be fun")).toBeInTheDocument();
     expect(screen.queryByText("MAYBE")).not.toBeInTheDocument();
   });
 
@@ -126,4 +126,14 @@ describe("TodaySurfCall", () => {
     expect(screen.getByText("Skip it")).toBeInTheDocument();
     expect(screen.queryByText("NO")).not.toBeInTheDocument();
   });
+});
+
+
+it("rotates FAIR from the selected beach and surf window", () => {
+  render(<TodaySurfCall
+    beach={createMockBeach({ id: "beach-blacks" })}
+    surfCallReport={{ verdict: "MAYBE", score: 60, bestWindowStart: "2026-10-17T15:00:00Z" } as any}
+  />);
+  expect(screen.getByText("FAIR")).toBeInTheDocument();
+  expect(screen.getByText("Decent shot")).toBeInTheDocument();
 });

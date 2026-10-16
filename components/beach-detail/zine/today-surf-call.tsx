@@ -69,6 +69,7 @@ export function TodaySurfCall({
     verdict,
     surfCallReport?.score,
     isTomorrow ? "upcoming" : "now",
+    { beachId: beach.id, instantIso: tierSlice?.bestWindowStart ?? surfCallReport.bestWindowStart ?? surfCallReport.peakTime },
   );
   const color = SCORE_LABEL_INK[call.label];
 

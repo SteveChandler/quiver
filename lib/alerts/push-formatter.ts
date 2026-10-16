@@ -1,3 +1,5 @@
+import { pushTitle } from "@/lib/notifications/copy/push-title";
+import { fairActionPhrase } from "@/lib/utils/fair-action-phrase";
 import type { MatchingWindow } from "./types";
 import {
   formatWaveHeightRange,
@@ -66,15 +68,15 @@ export function formatPushNotification(
     // a universal quality claim. Keep the actual wave range in the body and
     // avoid overselling a 1–2 ft window on the lock screen.
     const titleLabel = isBeginnerWindow
-      ? "Beginner-friendly"
+      ? "Beginner friendly"
       : decision === "go"
         ? "Worth a surf"
         : decision === "no"
           ? "Not ideal"
           : decision === "maybe"
-            ? "Worth a look"
+            ? fairActionPhrase(topMatch.beach_id, topMatch.best_hour ?? topMatch.window_start)
             : qualityWord(topMatch.best_score);
-    const title = `${titleLabel} — ${topMatch.beach_name}, ${timeWindow}`;
+    const title = pushTitle(`${titleLabel} at ${topMatch.beach_name}, ${timeWindow}`);
 
     // Match the email's units + rounding so push and email don't disagree.
     // wind_speed is knots (per ForecastHour), wave_period prefers the total-
@@ -134,7 +136,7 @@ export function formatPushNotification(
       : [...matches].sort((a, b) => b.best_score - a.best_score);
   const best = sorted[0];
   const others = sorted.length - 1;
-  const title = `${best.beach_name} + ${others} more break${others === 1 ? "" : "s"} today`;
+  const title = pushTitle(`${best.beach_name} + ${others} more break${others === 1 ? "" : "s"} today`);
 
   const showCount = Math.min(sorted.length, 2);
   const parts: string[] = [];
@@ -173,7 +175,7 @@ function formatAround(start: string, timezone: string): string {
 }
 
 /**
- * Title window: en-dash, meridiem collapsed when shared ("7–9 AM"), so the
+ * Title window: "to", meridiem collapsed when shared ("7 to 9 AM"), so the
  * lock-screen line reads tight. Body uses formatTimeRange (hyphen, full).
  */
 function formatTitleWindow(
@@ -200,9 +202,9 @@ function formatTitleWindow(
   const endMeridiem = endParts.find((p) => p.type === "dayPeriod")?.value ?? "";
 
   if (startMeridiem && startMeridiem === endMeridiem) {
-    return `${startHour}–${endHour} ${endMeridiem}`;
+    return `${startHour} to ${endHour} ${endMeridiem}`;
   }
-  return `${startHour} ${startMeridiem}–${endHour} ${endMeridiem}`.trim();
+  return `${startHour} ${startMeridiem} to ${endHour} ${endMeridiem}`.trim();
 }
 
 function formatTimeRange(start: string, end: string, timezone: string): string {
