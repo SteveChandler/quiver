@@ -264,9 +264,10 @@ function windLabel(forecast: { wind_speed?: unknown; wind_direction?: string | n
 }
 
 function windowLabel(candidate: DailyCallCandidate, timezone: string): string {
+  const windowTimezone = resolveBeachTimezone(candidate.pool.beach.timezone || timezone);
   const startDriver = candidate.window.drivers.find((driver) => driver.edge === "start");
   const endDriver = candidate.window.drivers.find((driver) => driver.edge === "end");
-  return formatWindowLabel(candidate.window.start, candidate.window.end, timezone, {
+  return formatWindowLabel(candidate.window.start, candidate.window.end, windowTimezone, {
     approximateStart: startDriver?.approximate ?? false,
     approximateEnd: endDriver?.approximate ?? false,
   });
@@ -1045,10 +1046,11 @@ export async function runDailyCallCron(args: {
         new Date(args.now.getTime() - 30 * 24 * HOUR_MS),
       );
       const comparison = buildComparisonLine(winner, home);
-      const vars = titleVars(winner, profile, timezone, comparison);
+      const windowTimezone = resolveBeachTimezone(winner.pool.beach.timezone || timezone);
+      const vars = titleVars(winner, profile, windowTimezone, comparison);
       const title = deps.selectTitle({
         pool: "daily",
-        tags: titleTags(winner, profile.homeBeachId, timezone, args.now, swellEventKey),
+        tags: titleTags(winner, profile.homeBeachId, windowTimezone, args.now, swellEventKey),
         userId: profile.id,
         eventKey: alertDate,
         recentTitleIds,
