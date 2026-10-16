@@ -11,13 +11,10 @@
  * StandardLayout (data-driven cities).
  */
 
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import {
   getLocationPageData,
 } from "@/actions/beach/beach-location-list-actions";
-import {
-  parseLocationFromSlug,
-} from "@/lib/utils/location-slug";
 import {
   getBeachHrefSafe,
   isValidCountrySlug,
@@ -57,11 +54,7 @@ export default async function LocationPage(props: LocationPageProps) {
     params.country
   );
 
-  if (!response.success || !response.data) {
-    if (response.error === "CITY_EXISTS_NO_DATA") {
-      const cityName = parseLocationFromSlug(params.city);
-      redirect(`/map?search=${encodeURIComponent(cityName)}`);
-    }
+  if (!response.success || !response.data || response.data.beaches.length === 0) {
     notFound();
   }
 
