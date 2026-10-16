@@ -585,8 +585,9 @@ export async function buildCandidates(
       })[0];
       const window = capToBestWindow(refined, selected);
       const serving = forecastsServingWindow(beachForecasts, window, args.now);
-      const best = evaluations.filter((value) => value.verdict === "go" && serving.includes(value.forecast))
-        .sort((left, right) => right.score - left.score)[0];
+      const goServing = evaluations.filter((value) => value.verdict === "go" && serving.includes(value.forecast));
+      const preferred = goServing.find((value) => value.forecast.id === selected?.sourceForecast?.id);
+      const best = preferred ?? goServing.sort((left, right) => right.score - left.score)[0];
       if (!best) {
         noInWindowRowCount += 1;
         continue;
@@ -596,7 +597,7 @@ export async function buildCandidates(
       candidates.push({
         pool,
         window,
-        physicalScore: best.score,
+        physicalScore: preferred && selected ? selected.score ?? best.score : best.score,
         personalFit: 0,
         verdict: "go",
         decisionId: decision.decisionId,
@@ -723,6 +724,9 @@ async function buildSharedCall(
   const evaluation = evaluations.filter((value) => value.verdict === "go" && serving.includes(value.forecast))
     .sort((left, right) => right.score - left.score)[0];
   if (!evaluation) return { skip: "no_in_window_row", heldReasons };
+  const peakMs = Date.parse(pick.peakTime);
+  const peak = serving.findLast((forecast) => Date.parse(forecast.forecast_at) <= peakMs) ?? serving[0];
+  if (verdictById.get(peak.id) !== "go") return { skip: "ranking_verdict_mismatch", heldReasons };
   const decision = decisionForWindow(profile, entry, evaluation, winner.window, timezone, now);
   if (decision.verdict !== "go") return { skip: "ranking_verdict_mismatch", heldReasons };
   winner.sourceForecast = evaluation.forecast;

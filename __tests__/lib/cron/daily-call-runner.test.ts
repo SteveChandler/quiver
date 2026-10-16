@@ -257,12 +257,12 @@ describe("daily call advertised window decisions", () => {
     );
   });
 
-  it("judges the highest-scoring serving row and persists the advertised window through its end", async () => {
+  it("keeps the selector score and persists its serving row through the advertised window end", async () => {
     const built = await build();
     expect(built.candidates).toHaveLength(1);
     const selected = built.candidates[0];
     expect(selected).toMatchObject({
-      sourceForecast: { forecast_at: at(5) }, physicalScore: 84,
+      sourceForecast: { forecast_at: at(5) }, physicalScore: 99,
     });
     expect(Date.parse(selected.window.start)).toBeGreaterThanOrEqual(Date.parse(sunriseAt));
     const mocked = deps({
@@ -293,12 +293,50 @@ describe("daily call advertised window decisions", () => {
     expect(built).toMatchObject({ candidates: [], noInWindowRowCount: 1 });
   });
 
-  it("prefers the highest score among the rows inside the advertised window", async () => {
+  it("keeps the selector's 08:00 row and score for a healthy 08:00–12:00 window", async () => {
+    const forecasts = [
+      { ...rows[1], confidence_score: 75, wave_height: "3" },
+      { ...rows[2], confidence_score: 85, wave_height: "5" },
+    ];
     jest.mocked(selectBestWindows).mockReturnValueOnce([{
-      start: new Date(at(8)), end: new Date(at(12)),
+      start: new Date(at(8)), end: new Date(at(12)), score: 75, sourceForecast: forecasts[0],
     } as ReturnType<typeof selectBestWindows>[number]]);
-    const built = await build([rows[0], rows[1], { ...rows[2], confidence_score: 80 }]);
-    expect(built.candidates[0]).toMatchObject({ sourceForecast: { forecast_at: at(11) }, physicalScore: 80 });
+    const built = await build(forecasts);
+    expect(built.candidates).toHaveLength(1);
+    expect(built.candidates[0]).toMatchObject({
+      window: { start: at(8), end: at(12) },
+      sourceForecast: { forecast_at: at(8), wave_height: "3" }, physicalScore: 75,
+      sessionDecision: {
+        expiresAt: at(12),
+        selection: { forecastRef: { forecastAt: at(8) }, evidence: { conditionScore: 75 } },
+      },
+    });
+    const alternative = candidate({ pool: favorite, start: at(8), end: at(12), physicalScore: 80 });
+    expect(rankCandidates([...built.candidates, alternative], blacksId)[0]).toBe(alternative);
+    const mocked = deps({
+      loadPool: async () => [beach], buildCandidates: async () => built, selectTitle: jest.fn(realSelectTitle),
+    });
+    const result = await runDailyCallCron({ now: runNow, supabase, deps: mocked });
+    expect(result).toMatchObject({ sent: 1, errors: 0 });
+    expect(jest.mocked(mocked.enqueue).mock.calls[0][0].payload).toMatchObject({
+      wave_height_ft: 3,
+      session_decision: { selection: { forecastRef: { forecastAt: at(8) } } },
+    });
+  });
+
+  it("rejects a default-path window inside the missing 08:00 grid interval", async () => {
+    jest.mocked(refineWindow)
+      .mockReturnValueOnce({ start: at(8), end: at(10), minutes: 120, drivers: [] })
+      .mockReturnValueOnce(null);
+    jest.mocked(selectBestWindows).mockReturnValueOnce([{
+      start: new Date(at(8)), end: new Date(at(10)), score: 84, sourceForecast: rows[0],
+    } as ReturnType<typeof selectBestWindows>[number]]);
+    const built = await build([rows[0], rows[2]]);
+    expect(built.candidates).toEqual([]);
+    const mocked = deps({ loadPool: async () => [beach], buildCandidates: async () => built });
+    const result = await runDailyCallCron({ now: runNow, supabase, deps: mocked });
+    expect(result).toMatchObject({ sent: 0, silent: 1, errors: 0 });
+    expect(mocked.enqueue).not.toHaveBeenCalled();
   });
 
   it.each([6, 8])("uses the best serving decision with shared ranking at %s AM", async (hour) => {
@@ -767,33 +805,28 @@ describe("shared ranking (flag on)", () => {
     expect(payload.comparison).toBe("Rated higher than Blacks today");
   });
 
-  it("builds the decision and payload from the highest-scoring serving row", async () => {
-    const pick = window(blacksId);
-    const nearest = sourceForecast(blacksId, { id: "nearest", forecast_at: "2026-09-16T18:00:00.000Z", wave_height: "4" });
+  it("builds the decision from the best serving row even when the go peak row scores lower", async () => {
+    const pick = window(blacksId, { peakTime: "2026-09-16T18:00:00.000Z" });
+    const earlier = gridForecast(blacksId, 8, "5");
+    const peak = gridForecast(blacksId, 11, "3");
     const evaluate = verdict.getMockImplementation()!;
-    verdict.mockImplementation((args) => ({ ...evaluate(args), score: args.forecast.id === "nearest" ? 95 : 80 }));
+    verdict.mockImplementation((args) => ({ ...evaluate(args), score: args.forecast.id === peak.id ? 75 : 85 }));
     const mocked = sharedDeps(day([pick]), {
-      loadBeachDay: jest.fn(async () => ({ forecasts: [sourceForecast(blacksId), nearest], tideSamples: null })),
+      loadBeachDay: async () => ({ forecasts: [earlier, peak], tideSamples: null }),
     });
-    const result = await runDailyCallCron({ now, supabase, deps: mocked });
+    const result = await runDailyCallCron({ now: new Date("2026-09-16T13:08:00.000Z"), supabase, deps: mocked });
     expect(result).toMatchObject({ sent: 1, errors: 0 });
-    const evaluation = verdict.mock.results[verdict.mock.results.length - 1].value as ForecastVerdict;
-    expect(evaluation.forecast).toBe(nearest);
-    expect(mocked.enqueue).toHaveBeenCalledWith(expect.objectContaining({
-      payload: expect.objectContaining({
-        wave_height_ft: 4,
-        session_decision: expect.objectContaining({
-          verdict: "go", expiresAt: pick.displayWindowEnd,
-          scope: { ...evaluation.decision.scope, windowStart: pick.displayWindowStart, windowEnd: pick.displayWindowEnd },
-          selection: expect.objectContaining({
-            forecastRef: evaluation.decision.selection!.forecastRef, evidence: expect.objectContaining({ conditionScore: 95 }),
-          }),
-        }),
-      }),
-    }), supabase);
+    expect(jest.mocked(mocked.enqueue).mock.calls[0][0].payload).toMatchObject({
+      wave_height_ft: 5,
+      session_decision: {
+        verdict: "go", expiresAt: pick.displayWindowEnd,
+        scope: { windowStart: pick.displayWindowStart, windowEnd: pick.displayWindowEnd },
+        selection: { forecastRef: { forecastAt: earlier.forecast_at }, evidence: { conditionScore: 85 } },
+      },
+    });
     expect(verdict).toHaveBeenLastCalledWith({
-      forecast: nearest, beach: expect.objectContaining(home.beach), experienceLevel: "advanced",
-      timezone: profile.timezone, now, candidateIdPrefix: "daily-call",
+      forecast: peak, beach: expect.objectContaining(home.beach), experienceLevel: "advanced",
+      timezone: profile.timezone, now: new Date("2026-09-16T13:08:00.000Z"), candidateIdPrefix: "daily-call",
     });
   });
 
@@ -870,6 +903,48 @@ describe("shared ranking (flag on)", () => {
     ]);
     expect(payload.comparison).toBe("Rated higher than Blacks today");
     expect(mocked.loadBeachDay).toHaveBeenCalledTimes(4);
+  });
+
+  it("counts ranking_verdict_mismatch when the nearest row is not canonically go", async () => {
+    const pick = window(blacksId, { peakTime: "2026-09-16T18:00:00.000Z" });
+    const evaluate = verdict.getMockImplementation()!;
+    verdict.mockImplementation((args) => ({
+      ...evaluate(args),
+      score: args.forecast.forecast_time === "08:00:00" ? 84 : 10,
+      verdict: args.forecast.forecast_time === "08:00:00" ? "go" : "no",
+    }));
+    const mocked = sharedDeps(day([pick]), {
+      loadBeachDay: async () => ({ forecasts: [8, 11].map((hour) => gridForecast(blacksId, hour)), tideSamples: null }),
+    });
+    const result = await runDailyCallCron({ now: new Date("2026-09-16T13:08:00.000Z"), supabase, deps: mocked });
+    expect(result).toMatchObject({
+      sent: 0, silent: 1, errors: 0,
+      skippedCounts: { ranking_verdict_mismatch: 1, no_in_window_row: 0 },
+    });
+    expect(mocked.enqueue).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { peak: "18:00", goHour: "11:00:00", judgedAt: "18:00" },
+    { peak: "17:45", goHour: "08:00:00", judgedAt: "15:00" },
+  ])("sends with a go row in effect at peak $peak and a non-go non-peak serving row", async ({ peak, goHour, judgedAt }) => {
+    const pick = window(blacksId, { peakTime: `2026-09-16T${peak}:00.000Z` });
+    const evaluate = verdict.getMockImplementation()!;
+    verdict.mockImplementation((args) => ({
+      ...evaluate(args), score: args.forecast.forecast_time === goHour ? 84 : 10,
+      verdict: args.forecast.forecast_time === goHour ? "go" : "no",
+    }));
+    const mocked = sharedDeps(day([pick]), {
+      loadBeachDay: async () => ({ forecasts: [8, 11].map((hour) => gridForecast(blacksId, hour)), tideSamples: null }),
+    });
+    const result = await runDailyCallCron({ now: new Date("2026-09-16T13:08:00.000Z"), supabase, deps: mocked });
+    expect(result).toMatchObject({ sent: 1, errors: 0, skippedCounts: { ranking_verdict_mismatch: 0 } });
+    expect(jest.mocked(mocked.enqueue).mock.calls[0][0].payload).toMatchObject({
+      session_decision: {
+        expiresAt: pick.displayWindowEnd,
+        selection: { forecastRef: { forecastAt: `2026-09-16T${judgedAt}:00.000Z` }, evidence: { conditionScore: 84 } },
+      },
+    });
   });
 
   it("counts no_in_window_row when all serving rows are non-go", async () => {
