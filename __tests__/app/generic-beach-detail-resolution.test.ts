@@ -5,6 +5,10 @@
 import GenericBeachDetailPage, {
   generateMetadata,
 } from "@/app/[intent]/[city]/[beachSlug]/page";
+import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
+import { createPublicReadClient, createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import type { BeachAmenities } from "@/types/amenities";
+import type { WaterQuality } from "@/components/beach-detail/water-quality-badge";
 import { getBeachesBySlug } from "@/actions/beach/beach-query-actions";
 import { getSpotSurfReportPublic } from "@/lib/services/spot-surf-report-service";
 import {
@@ -78,7 +82,7 @@ jest.mock("@/lib/utils/timezone-utils.server", () => ({
 // Dropping them would let this suite pass while the crawlable answer block
 // silently vanished from the initial HTML — the exact thing it guards.
 jest.mock("@/app/beach/[slug]/beach-detail-client", () => ({
-  BeachDetailClient: ({
+  BeachDetailClient: jest.fn(({
     beach,
     heroHeadingLevel = "h1",
     beforeTabsContent,
@@ -90,6 +94,8 @@ jest.mock("@/app/beach/[slug]/beach-detail-client", () => ({
     beforeTabsContent?: React.ReactNode;
     afterTabsContent?: React.ReactNode;
     heroForecastSlot?: React.ReactNode;
+    amenities?: BeachAmenities | null;
+    waterQuality?: WaterQuality | null;
   }) => {
     const React = jest.requireActual("react");
     return React.createElement(
@@ -100,7 +106,7 @@ jest.mock("@/app/beach/[slug]/beach-detail-client", () => ({
       beforeTabsContent ?? null,
       afterTabsContent ?? null,
     );
-  },
+  }),
 }));
 
 // Client CTAs inside afterTabsContent; they call useRouter/useState.
@@ -359,6 +365,101 @@ describe("GenericBeachDetailPage slug resolution", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (getForecastIndexabilityForBeaches as jest.Mock).mockResolvedValue(new Map());
+  });
+
+  it.each([
+    ["County closure", 32.8567, -117.2575, "Water Quality Alert"],
+    ["rainfall", 33.48, -117.7, "Rain runoff advisory"],
+  ] as const)("preserves the independent %s notice when the sample query errors", async (notice, lat, lon, label) => {
+    const beach = makeBeach({
+      id: "d291411d-d331-4bf1-ad1a-302da3c69de0", lat, lon,
+    });
+    (getBeachesBySlug as jest.Mock).mockResolvedValue({ success: true, data: [beach] });
+    const now = new Date().toISOString();
+    const tables: Record<string, unknown> = {
+      beaches: [{ id: beach.id, lat, lon }],
+      county_beach_advisory_runs: [{
+        id: "44444444-4444-4444-8444-444444444444", status: "completed",
+        source_identifier: "county-san-diego-dehq-sdbeachinfo", fetched_at: now,
+        advisory_count: 0, closure_count: 1, warning_count: 0,
+      }],
+      county_beach_advisories: [{
+        beach_id: beach.id, source_site_identifier: "FM-080", advisory_type: "closure",
+        county_latitude: lat, county_longitude: lon,
+      }],
+      water_quality_held_beaches: [],
+      rainfall_runoff_readings: [{
+        cluster_id: "laguna_san_clemente", window_end: now,
+        total_in: 0.4, station_totals: { KSNA: 0.4, KNFG: 0.3 },
+      }],
+    };
+    const client = { from: jest.fn((table: string) => {
+      const result = { data: tables[table] ?? null, error: null };
+      return {
+        select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(),
+        in: jest.fn().mockReturnThis(), gte: jest.fn().mockReturnThis(),
+        order: jest.fn().mockReturnThis(), limit: jest.fn().mockReturnThis(),
+        maybeSingle: jest.fn().mockResolvedValue(result),
+        then: (resolve: (value: typeof result) => unknown): Promise<unknown> => Promise.resolve(result).then(resolve),
+      };
+    }) };
+    const sampleQuery = {
+      select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(),
+      maybeSingle: jest.fn().mockResolvedValue({ data: null, error: { message: "Sample query failed" } }),
+    };
+    (createPublicReadClient as jest.Mock).mockReturnValueOnce({ from: jest.fn(() => sampleQuery) });
+    const factory = createSupabaseServiceRoleClient as jest.Mock;
+    const original = factory.getMockImplementation();
+    factory.mockReturnValue(client);
+    const log = jest.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const page = await GenericBeachDetailPage({
+        params: Promise.resolve({ intent: "ca", city: "dana-point", beachSlug: "lower-trestles" }),
+      });
+      const html = renderToStaticMarkup(page);
+
+      expect(html).toContain("Current water notice");
+      expect(html).toContain(label);
+      expect(jest.mocked(BeachDetailClient).mock.calls[0][0].waterQuality).toMatchObject({
+        beach_id: beach.id, total_samples_30d: 0, latest_sample_date: null,
+        ...(notice === "County closure"
+          ? { status: "closure", county_advisory_status: "closure" }
+          : { status: "advisory", rain_runoff: { total_in: 0.4 } }),
+      });
+      expect(notFound).not.toHaveBeenCalled();
+      expect(log).toHaveBeenCalledWith(
+        "[GenericBeachDetailPage] Optional section unavailable:",
+        { section: "waterQuality.sample", message: "Sample query failed" },
+      );
+    } finally {
+      factory.mockImplementation(original);
+      log.mockRestore();
+    }
+  });
+
+  it("keeps amenities null when its query returns an error", async () => {
+    (getBeachesBySlug as jest.Mock).mockResolvedValue({ success: true, data: [makeBeach({})] });
+    (createSupabaseServiceRoleClient as jest.Mock).mockReturnValueOnce({
+      from: jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(),
+        maybeSingle: jest.fn().mockResolvedValue({ data: null, error: { message: "Amenities query failed" } }),
+      }),
+    });
+    const log = jest.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const page = await GenericBeachDetailPage({
+        params: Promise.resolve({ intent: "ca", city: "dana-point", beachSlug: "lower-trestles" }),
+      });
+      expect(renderToStaticMarkup(page)).toContain("Test Beach");
+      expect(jest.mocked(BeachDetailClient).mock.calls[0][0].amenities).toBeNull();
+      expect(notFound).not.toHaveBeenCalled();
+      expect(log).toHaveBeenCalledWith(
+        "[GenericBeachDetailPage] Optional section unavailable:",
+        { section: "amenities", message: "Amenities query failed" },
+      );
+    } finally {
+      log.mockRestore();
+    }
   });
 
   it.each([

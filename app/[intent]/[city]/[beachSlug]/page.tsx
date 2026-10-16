@@ -195,7 +195,12 @@ export default async function GenericBeachDetailPage(props: PageProps) {
         .select("*")
         .eq("beach_id", beach.id)
         .maybeSingle();
-      if (error) throw error;
+      if (error) {
+        console.error("[GenericBeachDetailPage] Optional section unavailable:", {
+          section: "waterQuality.sample",
+          message: describeThrownError(error),
+        });
+      }
       // An unsampled beach can still carry a County or rainfall notice; the badge hides a bare unknown.
       return (await withRainfallNotice(await currentWaterQuality([data ?? unsampledWaterQualityRow(beach.id)]), [beach]))[0] as WaterQuality;
     }),
