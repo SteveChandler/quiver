@@ -17,6 +17,15 @@ jest.mock("@/lib/alerts/canonical-forecast-verdict", () => {
   return { ...actual, evaluateForecastVerdict: jest.fn(actual.evaluateForecastVerdict) };
 });
 
+jest.mock("@/lib/services/discovery/window-selector", () => {
+  const actual = jest.requireActual("@/lib/services/discovery/window-selector");
+  return {
+    __esModule: true,
+    ...actual,
+    scoreWindowConditionScore: jest.fn(actual.scoreWindowConditionScore),
+  };
+});
+
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadUserPool, type PoolBeach } from "@/lib/alerts/user-pool";
 import * as sunrise from "@/lib/alerts/sunrise";
@@ -24,13 +33,13 @@ import type { ForecastVerdict } from "@/lib/alerts/canonical-forecast-verdict";
 import { evaluateForecastVerdict } from "@/lib/alerts/canonical-forecast-verdict";
 import { refineWindow } from "@/lib/alerts/window-refiner";
 import { buildCanonicalSessionDecision } from "@/lib/recommendations/canonical-decision";
-import { persistableSessionDecision } from "@/lib/recommendations/canonical-decision/contract";
 import type {
   CanonicalWeekScoutResponse,
   WeekScoutDayResponse,
   WeekScoutWindowResponse,
 } from "@/lib/services/discovery/week-scout";
 import {
+  buildCandidates,
   buildComparisonLine,
   groupGoForecasts,
   rankCandidates,
@@ -40,6 +49,9 @@ import {
   type DailyCallProfile,
   type DailyCallRankingDeps,
 } from "@/lib/cron/daily-call-runner";
+import { scoreWindowConditionScore, selectBestWindows } from "@/lib/services/discovery/window-selector";
+import * as windowSelector from "@/lib/services/discovery/window-selector";
+import { TideCache } from "@/lib/services/noaa-coops/tide-cache";
 import { selectTitle as realSelectTitle } from "@/lib/notifications/copy/select-title";
 import { resolveNotificationMajorEventHold } from "@/lib/recommendations/major-event-hold/adapters/notification";
 import type { MajorEventHoldCandidate } from "@/lib/recommendations/major-event-hold/types";
@@ -65,6 +77,7 @@ function poolBeach(
       short_name: name,
       slug: name.toLowerCase(),
       timezone: "America/Los_Angeles",
+      skill_level: "intermediate",
     } as PoolBeach["beach"],
     relation,
     distanceMiles: relation === "nearby" ? 4 : null,
@@ -184,11 +197,354 @@ function deps(
 
 const supabase = {} as SupabaseClient<Database>;
 
+describe("daily call advertised window decisions", () => {
+  let restoreSelector: () => void;
+  const runNow = new Date("2026-10-15T13:08:00.000Z");
+  const sunriseAt = "2026-10-15T13:54:00.000Z";
+  const at = (hour: number): string => new Date(Date.UTC(2026, 9, 15, hour + 7)).toISOString();
+  const beach = { ...home, beach: { ...home.beach, lat: 32.89, lon: -117.25, skill_level: "intermediate" } };
+  const rows = [5, 8, 11].map((hour) => sourceForecast(blacksId, {
+    id: `hour-${hour}`,
+    forecast_at: at(hour),
+    forecast_date: "2026-10-15",
+    forecast_time: `${String(hour).padStart(2, "0")}:00:00`,
+    wave_height: hour === 5 ? "4" : "3",
+    confidence_score: hour === 5 ? 84 : 70,
+  }));
+
+  async function build(forecasts = rows, asOf = runNow): ReturnType<typeof buildCandidates> {
+    const client = {
+      from: jest.fn((table: string) => {
+        const query = {
+          select: () => query, in: () => query, eq: () => query,
+          gte: () => query, lt: () => query,
+          order: async () => ({ data: table === "enhanced_forecasts" ? forecasts : [], error: null }),
+        };
+        return query;
+      }),
+    } as unknown as SupabaseClient<Database>;
+    return buildCandidates(client, new TideCache(), {
+      profile, pool: [beach], timezone: "America/Los_Angeles", alertDate: "2026-10-15", now: asOf,
+    });
+  }
+
+  beforeEach(() => {
+    jest.mocked(sunrise.getDaylightWindow).mockReturnValue({
+      sunrise: new Date(sunriseAt), sunset: new Date(at(18)),
+    });
+    jest.mocked(scoreWindowConditionScore).mockImplementation((forecast) => forecast.confidence_score ?? 0);
+    // Keep the selector's cap separate from the canonical row scores.
+    const selector = jest.spyOn(windowSelector, "selectBestWindows");
+    restoreSelector = () => selector.mockRestore();
+    selector.mockReturnValue([{
+      start: new Date(sunriseAt), end: new Date(at(9)), score: 99, sourceForecast: rows[0],
+    } as ReturnType<typeof selectBestWindows>[number]]);
+  });
+
+  afterEach(() => {
+    jest.mocked(sunrise.getDaylightWindow).mockReset().mockImplementation(
+      jest.requireActual("@/lib/alerts/sunrise").getDaylightWindow,
+    );
+    jest.mocked(scoreWindowConditionScore).mockReset().mockImplementation(
+      jest.requireActual("@/lib/services/discovery/window-selector").scoreWindowConditionScore,
+    );
+    restoreSelector();
+    jest.mocked(refineWindow).mockReset().mockImplementation(
+      jest.requireActual("@/lib/alerts/window-refiner").refineWindow,
+    );
+    jest.mocked(evaluateForecastVerdict).mockReset().mockImplementation(
+      jest.requireActual("@/lib/alerts/canonical-forecast-verdict").evaluateForecastVerdict,
+    );
+  });
+
+  it("keeps the selector score and persists its serving row through the advertised window end", async () => {
+    const built = await build();
+    expect(built.candidates).toHaveLength(1);
+    const selected = built.candidates[0];
+    expect(selected).toMatchObject({
+      sourceForecast: { forecast_at: at(5) }, physicalScore: 99,
+    });
+    expect(Date.parse(selected.window.start)).toBeGreaterThanOrEqual(Date.parse(sunriseAt));
+    const mocked = deps({
+      loadPool: async () => [beach], buildCandidates: async () => built,
+      selectTitle: jest.fn(realSelectTitle),
+    });
+    const result = await runDailyCallCron({ now: runNow, supabase, deps: mocked });
+    expect(result).toMatchObject({ sent: 1, errors: 0 });
+    const payload = jest.mocked(mocked.enqueue).mock.calls[0][0].payload!;
+    const decision = payload.session_decision as ForecastVerdict["decision"];
+    expect(payload).toMatchObject({ window_local: "6:54–9 AM", wave_height_ft: 4, decision_id: decision.decisionId });
+    expect(selected.window).toMatchObject({ start: sunriseAt, end: at(9) });
+    expect(decision).toMatchObject({
+      verdict: "go", createdAt: runNow.toISOString(),
+      scope: { windowStart: selected.window.start, windowEnd: selected.window.end },
+      selection: {
+        windowStart: selected.window.start, windowEnd: selected.window.end,
+        forecastRef: { forecastAt: at(5), forecastId: "hour-5" }, evidence: { conditionScore: 84 },
+      },
+    });
+    expect(Date.parse(decision.expiresAt)).toBeGreaterThanOrEqual(Date.parse(payload.window_end as string));
+    expect(Date.parse(decision.expiresAt)).toBeGreaterThan(Date.parse(decision.createdAt));
+    expect(parseDailyCallPayload(payload)).not.toBeNull();
+  });
+
+  it("skips a window at its end even when a row still has grid coverage", async () => {
+    const built = await build(rows, new Date(at(9)));
+    expect(built).toMatchObject({ candidates: [], noInWindowRowCount: 1 });
+  });
+
+  it("keeps the selector's 08:00 row and score for a healthy 08:00–12:00 window", async () => {
+    const forecasts = [
+      { ...rows[1], confidence_score: 75, wave_height: "3" },
+      { ...rows[2], confidence_score: 85, wave_height: "5" },
+    ];
+    jest.mocked(selectBestWindows).mockReturnValueOnce([{
+      start: new Date(at(8)), end: new Date(at(12)), score: 75, sourceForecast: forecasts[0],
+    } as ReturnType<typeof selectBestWindows>[number]]);
+    const built = await build(forecasts);
+    expect(built.candidates).toHaveLength(1);
+    expect(built.candidates[0]).toMatchObject({
+      window: { start: at(8), end: at(12) },
+      sourceForecast: { forecast_at: at(8), wave_height: "3" }, physicalScore: 75,
+      sessionDecision: {
+        expiresAt: at(12),
+        selection: { forecastRef: { forecastAt: at(8) }, evidence: { conditionScore: 75 } },
+      },
+    });
+    const alternative = candidate({ pool: favorite, start: at(8), end: at(12), physicalScore: 80 });
+    expect(rankCandidates([...built.candidates, alternative], blacksId)[0]).toBe(alternative);
+    const mocked = deps({
+      loadPool: async () => [beach], buildCandidates: async () => built, selectTitle: jest.fn(realSelectTitle),
+    });
+    const result = await runDailyCallCron({ now: runNow, supabase, deps: mocked });
+    expect(result).toMatchObject({ sent: 1, errors: 0 });
+    expect(jest.mocked(mocked.enqueue).mock.calls[0][0].payload).toMatchObject({
+      wave_height_ft: 3,
+      session_decision: { selection: { forecastRef: { forecastAt: at(8) } } },
+    });
+  });
+
+  it("rejects a default-path window inside the missing 08:00 grid interval", async () => {
+    jest.mocked(refineWindow)
+      .mockReturnValueOnce({ start: at(8), end: at(10), minutes: 120, drivers: [] })
+      .mockReturnValueOnce(null);
+    jest.mocked(selectBestWindows).mockReturnValueOnce([{
+      start: new Date(at(8)), end: new Date(at(10)), score: 84, sourceForecast: rows[0],
+    } as ReturnType<typeof selectBestWindows>[number]]);
+    const built = await build([rows[0], rows[2]]);
+    expect(built.candidates).toEqual([]);
+    const mocked = deps({ loadPool: async () => [beach], buildCandidates: async () => built });
+    const result = await runDailyCallCron({ now: runNow, supabase, deps: mocked });
+    expect(result).toMatchObject({ sent: 0, silent: 1, errors: 0 });
+    expect(mocked.enqueue).not.toHaveBeenCalled();
+  });
+
+  it.each([6, 8])("uses the best serving decision with shared ranking at %s AM", async (hour) => {
+    const asOf = hour === 6 ? runNow : new Date(at(hour));
+    const pick = {
+      id: "shared-pick", beachId: blacksId, start: at(5), end: at(10),
+      displayWindowStart: sunriseAt, displayWindowEnd: at(10), peakTime: at(5),
+      conditionScore: 84, personalVerdict: "go", isBeachDayBest: true, rankedSpots: [],
+    } as unknown as WeekScoutWindowResponse;
+    const mocked: DailyCallDeps & DailyCallRankingDeps = {
+      ...deps({
+        loadProfiles: async () => [{ ...profile, dailyCallTime: `${String(hour).padStart(2, "0")}:00` }],
+        loadPool: async () => [beach], selectTitle: jest.fn(realSelectTitle),
+      }),
+      usesSharedRanking: () => true,
+      rankDay: async () => ({ days: [{
+        localDate: "2026-10-15", windows: [pick], bestWindowId: pick.id,
+        bestDayWindow: pick, exclusionReasons: [],
+      }] }) as unknown as CanonicalWeekScoutResponse,
+      loadBeachDay: async () => ({ forecasts: rows, tideSamples: null }),
+    };
+    const result = await runDailyCallCron({ now: asOf, supabase, deps: mocked });
+    expect(result).toMatchObject({ sent: 1, errors: 0 });
+    const payload = jest.mocked(mocked.enqueue).mock.calls[0][0].payload!;
+    const decision = payload.session_decision as ForecastVerdict["decision"];
+    expect(decision).toMatchObject({
+      verdict: "go", expiresAt: at(10), createdAt: asOf.toISOString(),
+      scope: { windowStart: sunriseAt, windowEnd: at(10) },
+      selection: { forecastRef: { forecastAt: at(hour === 6 ? 5 : 8) }, evidence: { conditionScore: hour === 6 ? 84 : 70 } },
+    });
+    expect(payload).toMatchObject({ wave_height_ft: hour === 6 ? 4 : 3, decision_id: decision.decisionId });
+  });
+
+  it("gives the decision the advertised lifetime even when the judged row is still upcoming", async () => {
+    const selected = (await build(rows.slice(1))).candidates[0];
+    const decision = selected.sessionDecision as ForecastVerdict["decision"];
+    expect(Date.parse(decision.expiresAt)).toBeGreaterThanOrEqual(Date.parse(selected.window.end));
+  });
+
+  it("judges only rows inside the final cap, ignoring the selector's source outside it", async () => {
+    jest.mocked(selectBestWindows).mockReturnValueOnce([{
+      start: new Date(at(8)), end: new Date(at(9)), score: 99, sourceForecast: rows[0],
+    } as ReturnType<typeof selectBestWindows>[number]]);
+    const built = await build([rows[0], rows[1], { ...rows[2], confidence_score: 90 }]);
+    expect(built.candidates).toHaveLength(1);
+    expect(built.candidates[0]).toMatchObject({
+      window: { start: at(8), end: at(9) },
+      sourceForecast: { forecast_at: at(8) }, physicalScore: 70,
+    });
+  });
+
+  it.each([6, 7])("matches main: a lone 05:00 go row has no candidate or send at %s:08", async (hour) => {
+    const asOf = new Date(Date.parse(at(hour)) + 8 * 60_000);
+    const built = await build(rows.slice(0, 1), asOf);
+    expect(built).toMatchObject({ candidates: [], hadForecasts: true, noInWindowRowCount: 0 });
+    const mocked = deps({
+      loadProfiles: async () => [{ ...profile, dailyCallTime: `${String(hour).padStart(2, "0")}:00` }],
+      loadPool: async () => [beach], buildCandidates: async () => built,
+    });
+    const result = await runDailyCallCron({ now: asOf, supabase, deps: mocked });
+    expect(result).toMatchObject({ sent: 0, silent: 1, errors: 0 });
+    expect(mocked.enqueue).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { hour: 8, nextNoHour: 11 },
+    { hour: 14, nextNoHour: null },
+  ])("real selector preserves main's one-hour advertised window starting at $hour:00", async ({ hour, nextNoHour }) => {
+    restoreSelector();
+    expect(jest.isMockFunction(selectBestWindows)).toBe(false);
+    const goRow = sourceForecast(blacksId, {
+      id: `go-${hour}`, forecast_at: at(hour), forecast_time: `${hour}:00:00`,
+      forecast_date: "2026-10-15", confidence_score: 84,
+    });
+    const forecasts = nextNoHour === null ? [goRow] : [goRow, sourceForecast(blacksId, {
+      ...goRow, id: `no-${nextNoHour}`, forecast_at: at(nextNoHour), forecast_time: `${nextNoHour}:00:00`,
+      confidence_score: 0,
+    })];
+    const built = await build(forecasts);
+    expect(built.candidates).toHaveLength(1);
+    expect(built.candidates[0]).toMatchObject({
+      window: { start: at(hour), end: at(hour + 1), minutes: 60, drivers: [] },
+      sourceForecast: { id: goRow.id },
+      sessionDecision: { expiresAt: at(hour + 1) },
+    });
+    expect(jest.mocked(evaluateForecastVerdict).mock.results.map((result) => result.value.verdict))
+      .toEqual(nextNoHour === null ? ["go"] : ["go", "no"]);
+    const mocked = deps({ loadPool: async () => [beach], buildCandidates: async () => built });
+    const result = await runDailyCallCron({ now: runNow, supabase, deps: mocked });
+    expect(result).toMatchObject({ sent: 1, errors: 0 });
+    expect(jest.mocked(mocked.enqueue).mock.calls[0][0].payload).toMatchObject({
+      window_start: at(hour), window_end: at(hour + 1), drivers: [],
+    });
+  });
+
+  it.each([
+    { label: "05:00/08:00 group capped at 08:00", hour: 6, forecasts: rows.slice(0, 2), endHour: 8, judgedHour: 5, score: 84 },
+    { label: "future start with better 05:00 coverage", hour: 6, forecasts: rows, endHour: 9, judgedHour: 5, score: 84 },
+    { label: "future start with better 08:00 coverage", hour: 6, forecasts: [rows[0], { ...rows[1], confidence_score: 95 }, rows[2]], endHour: 9, judgedHour: 8, score: 95 },
+  ])("sends using step coverage: $label", async ({ hour, forecasts, endHour, judgedHour, score }) => {
+    const asOf = new Date(Date.parse(at(hour)) + 8 * 60_000);
+    jest.mocked(selectBestWindows).mockReturnValueOnce([{
+      start: new Date(sunriseAt), end: new Date(at(endHour)),
+    } as ReturnType<typeof selectBestWindows>[number]]);
+    const built = await build(forecasts, asOf);
+    expect(built.candidates).toHaveLength(1);
+    expect(built.candidates[0]).toMatchObject({
+      window: { start: sunriseAt, end: at(endHour) },
+      sourceForecast: { forecast_at: at(judgedHour) }, physicalScore: score,
+    });
+    const mocked = deps({
+      loadProfiles: async () => [{ ...profile, dailyCallTime: `${String(hour).padStart(2, "0")}:00` }],
+      loadPool: async () => [beach], buildCandidates: async () => built,
+      selectTitle: jest.fn(realSelectTitle),
+    });
+    const result = await runDailyCallCron({ now: asOf, supabase, deps: mocked });
+    expect(result).toMatchObject({ sent: 1, errors: 0, skippedCounts: { no_in_window_row: 0 } });
+    const payload = jest.mocked(mocked.enqueue).mock.calls[0][0].payload!;
+    const decision = payload.session_decision as ForecastVerdict["decision"];
+    expect(decision).toMatchObject({
+      createdAt: asOf.toISOString(), expiresAt: at(endHour),
+      scope: { windowStart: sunriseAt, windowEnd: at(endHour) },
+      selection: { forecastRef: { forecastAt: at(judgedHour) }, evidence: { conditionScore: score } },
+    });
+    expect(Date.parse(decision.expiresAt)).toBeGreaterThan(Date.parse(decision.createdAt));
+  });
+
+  it("skips when only a non-go row serves the capped window", async () => {
+    const actual = jest.requireActual("@/lib/alerts/canonical-forecast-verdict");
+    jest.mocked(evaluateForecastVerdict).mockImplementation((args) => ({
+      ...actual.evaluateForecastVerdict(args),
+      verdict: args.forecast.forecast_at === at(8) ? "no" : "go",
+    }));
+    jest.mocked(refineWindow).mockReturnValueOnce({ start: at(8), end: at(9), minutes: 60, drivers: [] });
+    const built = await build(rows.slice(0, 2));
+    expect(built).toMatchObject({ candidates: [], noInWindowRowCount: 1 });
+    const mocked = deps({ buildCandidates: async () => built });
+    const result = await runDailyCallCron({ now: runNow, supabase, deps: mocked });
+    expect(result).toMatchObject({ sent: 0, silent: 1, errors: 0, skippedCounts: { no_in_window_row: 1 } });
+    expect(mocked.enqueue).not.toHaveBeenCalled();
+  });
+
+  it("counts two unservable built windows once for one user", async () => {
+    const actual = jest.requireActual("@/lib/alerts/canonical-forecast-verdict");
+    jest.mocked(evaluateForecastVerdict).mockImplementation((args) => ({
+      ...actual.evaluateForecastVerdict(args),
+      verdict: args.forecast.forecast_at === at(8) ? "no" : "go",
+    }));
+    jest.mocked(refineWindow)
+      .mockReturnValueOnce({ start: at(8), end: at(9), minutes: 60, drivers: [] })
+      .mockReturnValueOnce({ start: at(9), end: at(10), minutes: 60, drivers: [] });
+    const built = await build();
+    expect(built).toMatchObject({ candidates: [], noInWindowRowCount: 2 });
+    const mocked = deps({ buildCandidates: async () => built });
+    const result = await runDailyCallCron({ now: runNow, supabase, deps: mocked });
+    expect(result).toMatchObject({ sent: 0, silent: 1, errors: 0, skippedCounts: { no_in_window_row: 1 } });
+    expect(mocked.enqueue).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])("counts unservable windows once per unsent user (send available: %s)", async (sendAvailable) => {
+    const mocked = deps({ buildCandidates: async () => ({
+      candidates: sendAvailable ? [candidate({ pool: home, start: at(8), end: at(9) })] : [],
+      hadForecasts: true, noInWindowRowCount: 2,
+    }) });
+    const result = await runDailyCallCron({ now: runNow, supabase, deps: mocked });
+    expect(result).toMatchObject({
+      sent: sendAvailable ? 1 : 0, silent: sendAvailable ? 0 : 1, errors: 0,
+      skippedCounts: { no_in_window_row: sendAvailable ? 0 : 1 },
+    });
+  });
+
+  it("rejects a window that ended even if its last row still has coverage", async () => {
+    jest.mocked(selectBestWindows).mockReturnValueOnce([{
+      start: new Date(sunriseAt), end: new Date("2026-10-15T15:30:00.000Z"),
+    } as ReturnType<typeof selectBestWindows>[number]]);
+    const built = await build(rows, new Date("2026-10-15T15:45:00.000Z"));
+    expect(built).toMatchObject({ candidates: [], noInWindowRowCount: 1 });
+  });
+
+  it("preserves a gated recommendation label when rebuilding the window decision", async () => {
+    const actual = jest.requireActual("@/lib/alerts/canonical-forecast-verdict");
+    jest.mocked(evaluateForecastVerdict).mockImplementation((args) => {
+      const evaluation: ForecastVerdict = actual.evaluateForecastVerdict(args);
+      if (evaluation.decision.selection) evaluation.decision.selection.evidence.recommendationLabel = "Maybe";
+      return evaluation;
+    });
+    expect((await build()).candidates).toEqual([]);
+  });
+});
+
 describe("shared ranking (flag on)", () => {
   const enabledBefore = process.env.CALL_SHARED_RANKING_ENABLED;
   const allowlistBefore = process.env.CALL_SHARED_RANKING_USER_ALLOWLIST;
   const verdict = jest.mocked(evaluateForecastVerdict);
   const refiner = jest.mocked(refineWindow);
+
+  function sharedForecast(beachId: string, overrides: Partial<EnhancedForecastEntity> = {}): EnhancedForecastEntity {
+    return sourceForecast(beachId, { forecast_at: "2026-09-16T17:00:00.000Z", ...overrides });
+  }
+
+  function gridForecast(beachId: string, hour: number, waveHeight = "3"): EnhancedForecastEntity {
+    return sourceForecast(beachId, {
+      id: `${beachId}-${hour}`,
+      forecast_at: new Date(Date.UTC(2026, 8, 16, hour + 7)).toISOString(),
+      forecast_time: `${String(hour).padStart(2, "0")}:00:00`,
+      wave_height: waveHeight,
+    });
+  }
 
   function window(
     beachId: string,
@@ -233,7 +589,7 @@ describe("shared ranking (flag on)", () => {
       usesSharedRanking: () => true,
       rankDay: jest.fn(async () => ({ days: [scoutDay] }) as CanonicalWeekScoutResponse),
       loadBeachDay: jest.fn(async ({ beach }) => ({
-        forecasts: [sourceForecast(beach.id)],
+        forecasts: [sharedForecast(beach.id)],
         tideSamples: null,
       })),
       ...overrides,
@@ -394,7 +750,7 @@ describe("shared ranking (flag on)", () => {
     });
     const mocked = sharedDeps(day([pick]), {
       loadBeachDay: jest.fn(async () => ({
-        forecasts: [sourceForecast(blacksId)], tideSamples: [{ at: pick.peakTime, heightFt: 3 }],
+        forecasts: [sharedForecast(blacksId)], tideSamples: [{ at: pick.peakTime, heightFt: 3 }],
       })),
     });
     const result = await runDailyCallCron({ now, supabase, deps: mocked });
@@ -431,7 +787,9 @@ describe("shared ranking (flag on)", () => {
         ...entry, beach: { ...entry.beach, lat: 32.89, lon: -117.25 },
       }))),
       loadBeachDay: jest.fn(async ({ beach }) => ({
-        forecasts: beach.id === custom.beach.id ? [] : [sourceForecast(beach.id)],
+        forecasts: beach.id === custom.beach.id ? [] : [sharedForecast(beach.id, {
+          forecast_at: beach.id === blacksId ? "2026-09-16T16:00:00.000Z" : "2026-09-16T17:00:00.000Z",
+        })],
         tideSamples: null,
       })),
     });
@@ -447,25 +805,28 @@ describe("shared ranking (flag on)", () => {
     expect(payload.comparison).toBe("Rated higher than Blacks today");
   });
 
-  it("builds the decision and payload from the forecast nearest the pick's peak", async () => {
-    const pick = window(blacksId);
-    const nearest = sourceForecast(blacksId, { id: "nearest", forecast_at: "2026-09-16T18:00:00.000Z", wave_height: "4" });
+  it("builds the decision from the best serving row even when the go peak row scores lower", async () => {
+    const pick = window(blacksId, { peakTime: "2026-09-16T18:00:00.000Z" });
+    const earlier = gridForecast(blacksId, 8, "5");
+    const peak = gridForecast(blacksId, 11, "3");
+    const evaluate = verdict.getMockImplementation()!;
+    verdict.mockImplementation((args) => ({ ...evaluate(args), score: args.forecast.id === peak.id ? 75 : 85 }));
     const mocked = sharedDeps(day([pick]), {
-      loadBeachDay: jest.fn(async () => ({ forecasts: [sourceForecast(blacksId), nearest], tideSamples: null })),
+      loadBeachDay: async () => ({ forecasts: [earlier, peak], tideSamples: null }),
     });
-    const result = await runDailyCallCron({ now, supabase, deps: mocked });
+    const result = await runDailyCallCron({ now: new Date("2026-09-16T13:08:00.000Z"), supabase, deps: mocked });
     expect(result).toMatchObject({ sent: 1, errors: 0 });
-    const evaluation = verdict.mock.results[verdict.mock.results.length - 1].value as ForecastVerdict;
-    expect(evaluation.forecast).toBe(nearest);
-    expect(mocked.enqueue).toHaveBeenCalledWith(expect.objectContaining({
-      payload: expect.objectContaining({
-        wave_height_ft: 4, decision_id: evaluation.decision.decisionId,
-        session_decision: persistableSessionDecision(evaluation.decision),
-      }),
-    }), supabase);
+    expect(jest.mocked(mocked.enqueue).mock.calls[0][0].payload).toMatchObject({
+      wave_height_ft: 5,
+      session_decision: {
+        verdict: "go", expiresAt: pick.displayWindowEnd,
+        scope: { windowStart: pick.displayWindowStart, windowEnd: pick.displayWindowEnd },
+        selection: { forecastRef: { forecastAt: earlier.forecast_at }, evidence: { conditionScore: 85 } },
+      },
+    });
     expect(verdict).toHaveBeenLastCalledWith({
-      forecast: nearest, beach: expect.objectContaining(home.beach), experienceLevel: "advanced",
-      timezone: profile.timezone, now, candidateIdPrefix: "daily-call",
+      forecast: peak, beach: expect.objectContaining(home.beach), experienceLevel: "advanced",
+      timezone: profile.timezone, now: new Date("2026-09-16T13:08:00.000Z"), candidateIdPrefix: "daily-call",
     });
   });
 
@@ -522,7 +883,7 @@ describe("shared ranking (flag on)", () => {
       }))),
       loadBeachDay: jest.fn(async ({ beach }) => {
         reads.push(beach.id);
-        const data = { forecasts: [sourceForecast(beach.id)], tideSamples: null };
+        const data = { forecasts: [sharedForecast(beach.id)], tideSamples: null };
         if (beach.id === lead.beach.id) return data;
         await Promise.resolve();
         expect(reads).toEqual([lead.beach.id, custom.beach.id, ospreyId, blacksId]);
@@ -544,7 +905,125 @@ describe("shared ranking (flag on)", () => {
     expect(mocked.loadBeachDay).toHaveBeenCalledTimes(4);
   });
 
+  it.each([
+    { label: "69/75/0 scores at 08:00/11:00/14:00 with a 10:30 peak", peak: "17:30", hours: [8, 11, 14], sent: 1 },
+    { label: "equal distances with the go row first", peak: "16:30", hours: [11, 8, 14], sent: 1 },
+    { label: "equal distances with the maybe row first", peak: "16:30", hours: [8, 11, 14], sent: 0 },
+  ])("$label uses main's nearest-row peak gate", async ({ peak, hours, sent }) => {
+    const pick = window(blacksId, { peakTime: `2026-09-16T${peak}:00.000Z` });
+    const scores: Record<string, number> = { "08:00:00": 69, "11:00:00": 75, "14:00:00": 0 };
+    const evaluate = verdict.getMockImplementation()!;
+    verdict.mockImplementation((args) => {
+      const score = scores[args.forecast.forecast_time] ?? 0;
+      return { ...evaluate(args), score, verdict: score >= 70 ? "go" : score > 0 ? "maybe" : "no" };
+    });
+    const mocked = sharedDeps(day([pick]), {
+      loadBeachDay: async () => ({ forecasts: hours.map((hour) => gridForecast(blacksId, hour)), tideSamples: null }),
+    });
+    const result = await runDailyCallCron({ now: new Date("2026-09-16T13:08:00.000Z"), supabase, deps: mocked });
+    expect(result).toMatchObject({
+      sent, silent: 1 - sent, errors: 0,
+      skippedCounts: { ranking_verdict_mismatch: 1 - sent, no_in_window_row: 0 },
+    });
+    const payloads = jest.mocked(mocked.enqueue).mock.calls.map(([args]) => args.payload);
+    const expectedPayload = expect.objectContaining({
+      window_start: pick.displayWindowStart, window_end: pick.displayWindowEnd,
+      session_decision: expect.objectContaining({
+        verdict: "go", expiresAt: pick.displayWindowEnd,
+        selection: expect.objectContaining({
+          forecastRef: expect.objectContaining({ forecastAt: "2026-09-16T18:00:00.000Z" }),
+          evidence: expect.objectContaining({ conditionScore: 75 }),
+        }),
+      }),
+    });
+    expect(payloads).toEqual(sent ? [expectedPayload] : []);
+  });
+
   it("counts ranking_verdict_mismatch when the nearest row is not canonically go", async () => {
+    const pick = window(blacksId, { peakTime: "2026-09-16T18:00:00.000Z" });
+    const evaluate = verdict.getMockImplementation()!;
+    verdict.mockImplementation((args) => ({
+      ...evaluate(args),
+      score: args.forecast.forecast_time === "08:00:00" ? 84 : 10,
+      verdict: args.forecast.forecast_time === "08:00:00" ? "go" : "no",
+    }));
+    const mocked = sharedDeps(day([pick]), {
+      loadBeachDay: async () => ({ forecasts: [8, 11].map((hour) => gridForecast(blacksId, hour)), tideSamples: null }),
+    });
+    const result = await runDailyCallCron({ now: new Date("2026-09-16T13:08:00.000Z"), supabase, deps: mocked });
+    expect(result).toMatchObject({
+      sent: 0, silent: 1, errors: 0,
+      skippedCounts: { ranking_verdict_mismatch: 1, no_in_window_row: 0 },
+    });
+    expect(mocked.enqueue).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { peak: "18:00", goHour: "11:00:00", judgedAt: "18:00" },
+    { peak: "16:25", goHour: "08:00:00", judgedAt: "15:00" },
+  ])("sends with a go row nearest peak $peak and a non-go non-peak serving row", async ({ peak, goHour, judgedAt }) => {
+    const pick = window(blacksId, { peakTime: `2026-09-16T${peak}:00.000Z` });
+    const evaluate = verdict.getMockImplementation()!;
+    verdict.mockImplementation((args) => ({
+      ...evaluate(args), score: args.forecast.forecast_time === goHour ? 84 : 10,
+      verdict: args.forecast.forecast_time === goHour ? "go" : "no",
+    }));
+    const mocked = sharedDeps(day([pick]), {
+      loadBeachDay: async () => ({ forecasts: [8, 11].map((hour) => gridForecast(blacksId, hour)), tideSamples: null }),
+    });
+    const result = await runDailyCallCron({ now: new Date("2026-09-16T13:08:00.000Z"), supabase, deps: mocked });
+    expect(result).toMatchObject({ sent: 1, errors: 0, skippedCounts: { ranking_verdict_mismatch: 0 } });
+    expect(jest.mocked(mocked.enqueue).mock.calls[0][0].payload).toMatchObject({
+      session_decision: {
+        expiresAt: pick.displayWindowEnd,
+        selection: { forecastRef: { forecastAt: `2026-09-16T${judgedAt}:00.000Z` }, evidence: { conditionScore: 84 } },
+      },
+    });
+  });
+
+  it("rejects a 10:45 peak nearest the 11:00 non-go row when the 08:00 row is missing", async () => {
+    const pick = window(blacksId, {
+      displayWindowStart: "2026-09-16T14:00:00.000Z", displayWindowEnd: "2026-09-16T18:00:00.000Z",
+      peakTime: "2026-09-16T17:45:00.000Z",
+    });
+    const evaluate = verdict.getMockImplementation()!;
+    verdict.mockImplementation((args) => ({
+      ...evaluate(args), score: args.forecast.forecast_time === "11:00:00" ? 10 : 84,
+      verdict: args.forecast.forecast_time === "11:00:00" ? "no" : "go",
+    }));
+    const mocked = sharedDeps(day([pick]), {
+      loadBeachDay: async () => ({ forecasts: [5, 11].map((hour) => gridForecast(blacksId, hour)), tideSamples: null }),
+    });
+    const result = await runDailyCallCron({ now: new Date("2026-09-16T13:08:00.000Z"), supabase, deps: mocked });
+    expect(result).toMatchObject({
+      sent: 0, silent: 1, errors: 0,
+      skippedCounts: { ranking_verdict_mismatch: 1, no_in_window_row: 0 },
+    });
+    expect(mocked.enqueue).not.toHaveBeenCalled();
+  });
+
+  it("sends when the 08:00 go row is nearest a 09:00 peak in a 07:00–11:00 window", async () => {
+    const pick = window(blacksId, {
+      displayWindowStart: "2026-09-16T14:00:00.000Z", displayWindowEnd: "2026-09-16T18:00:00.000Z",
+      peakTime: "2026-09-16T16:00:00.000Z",
+    });
+    const evaluate = verdict.getMockImplementation()!;
+    verdict.mockImplementation((args) => ({
+      ...evaluate(args), score: args.forecast.forecast_time === "11:00:00" ? 10 : 84,
+      verdict: args.forecast.forecast_time === "11:00:00" ? "no" : "go",
+    }));
+    const mocked = sharedDeps(day([pick]), {
+      loadBeachDay: async () => ({ forecasts: [5, 8, 11].map((hour) => gridForecast(blacksId, hour)), tideSamples: null }),
+    });
+    const result = await runDailyCallCron({ now: new Date("2026-09-16T13:08:00.000Z"), supabase, deps: mocked });
+    expect(result).toMatchObject({ sent: 1, errors: 0, skippedCounts: { ranking_verdict_mismatch: 0 } });
+    expect(jest.mocked(mocked.enqueue).mock.calls[0][0].payload).toMatchObject({
+      window_start: pick.displayWindowStart, window_end: pick.displayWindowEnd,
+      session_decision: { verdict: "go", expiresAt: pick.displayWindowEnd },
+    });
+  });
+
+  it("counts no_in_window_row when all serving rows are non-go", async () => {
     const nearest = sourceForecast(blacksId, { id: "nearest", forecast_at: "2026-09-16T18:00:00.000Z" });
     verdict.mockReturnValue({ forecast: nearest, verdict: "maybe" } as ForecastVerdict);
     const mocked = sharedDeps(undefined, {
@@ -554,7 +1033,7 @@ describe("shared ranking (flag on)", () => {
     });
     const result = await runDailyCallCron({ now, supabase, deps: mocked });
     expect(result).toMatchObject({ sent: 0, silent: 1, errors: 0,
-      skippedCounts: { ranking_verdict_mismatch: 1 } });
+      skippedCounts: { no_in_window_row: 1 } });
     expect(mocked.enqueue).not.toHaveBeenCalled();
     expect(verdict).toHaveBeenLastCalledWith(expect.objectContaining({ forecast: nearest }));
   });
@@ -574,6 +1053,109 @@ describe("shared ranking (flag on)", () => {
     const result = await runDailyCallCron({ now, supabase, deps: mocked });
     expect(result).toMatchObject({ silent: 1, errors: 0, skippedCounts: { no_forecast: 1 } });
     expect(mocked.enqueue).not.toHaveBeenCalled();
+  });
+
+  it("uses the in-effect go row for a shared 150-minute band between grid rows", async () => {
+    const pick = window(blacksId, {
+      displayWindowStart: "2026-09-16T15:15:00.000Z", displayWindowEnd: "2026-09-16T17:45:00.000Z",
+      peakTime: "2026-09-16T15:30:00.000Z",
+    });
+    const mocked = sharedDeps(day([pick]), {
+      loadBeachDay: async () => ({ forecasts: [5, 8, 11].map((hour) => gridForecast(blacksId, hour)), tideSamples: null }),
+    });
+    const result = await runDailyCallCron({ now, supabase, deps: mocked });
+    expect(result).toMatchObject({ sent: 1, errors: 0, skippedCounts: { no_in_window_row: 0, no_forecast: 0 } });
+    expect(jest.mocked(mocked.enqueue).mock.calls[0][0].payload).toMatchObject({
+      window_start: pick.displayWindowStart, window_end: pick.displayWindowEnd,
+      session_decision: {
+        expiresAt: pick.displayWindowEnd,
+        selection: { forecastRef: { forecastAt: "2026-09-16T15:00:00.000Z" } },
+      },
+    });
+  });
+
+  it("does not bridge the missing 08:00 row between 05:00 and 11:00 in shared ranking", async () => {
+    const pick = window(blacksId, {
+      displayWindowStart: "2026-09-16T15:00:00.000Z", displayWindowEnd: "2026-09-16T17:00:00.000Z",
+    });
+    const mocked = sharedDeps(day([pick]), {
+      loadBeachDay: async () => ({ forecasts: [5, 11].map((hour) => gridForecast(blacksId, hour)), tideSamples: null }),
+    });
+    const result = await runDailyCallCron({ now: new Date("2026-09-16T13:08:00.000Z"), supabase, deps: mocked });
+    expect(result).toMatchObject({
+      sent: 0, silent: 1, errors: 0, skippedCounts: { no_in_window_row: 1 },
+    });
+    expect(mocked.enqueue).not.toHaveBeenCalled();
+  });
+
+  it.each([6, 7])("shared dawn window uses 05:00 coverage at %s:08", async (hour) => {
+    const pick = window(blacksId, {
+      displayWindowStart: "2026-09-16T13:54:00.000Z", displayWindowEnd: "2026-09-16T15:00:00.000Z",
+      peakTime: "2026-09-16T14:00:00.000Z",
+    });
+    const mocked = sharedDeps(day([pick]), {
+      loadProfiles: async () => [{ ...profile, dailyCallTime: `${String(hour).padStart(2, "0")}:00` }],
+      loadBeachDay: async () => ({ forecasts: [gridForecast(blacksId, 5)], tideSamples: null }),
+    });
+    const asOf = new Date(Date.UTC(2026, 8, 16, hour + 7, 8));
+    const result = await runDailyCallCron({ now: asOf, supabase, deps: mocked });
+    expect(result).toMatchObject({ sent: 1, errors: 0, skippedCounts: { no_in_window_row: 0 } });
+    const payload = jest.mocked(mocked.enqueue).mock.calls[0][0].payload!;
+    const decision = payload.session_decision as ForecastVerdict["decision"];
+    expect(decision).toMatchObject({
+      createdAt: asOf.toISOString(), expiresAt: pick.displayWindowEnd,
+      scope: { windowStart: pick.displayWindowStart, windowEnd: pick.displayWindowEnd },
+      selection: { forecastRef: { forecastAt: "2026-09-16T12:00:00.000Z" } },
+    });
+    expect(Date.parse(decision.expiresAt)).toBeGreaterThan(Date.parse(decision.createdAt));
+  });
+
+  it("skips the shared dawn window after its advertised end", async () => {
+    const pick = window(blacksId, {
+      displayWindowStart: "2026-09-16T13:54:00.000Z", displayWindowEnd: "2026-09-16T15:00:00.000Z",
+    });
+    const mocked = sharedDeps(day([pick]), {
+      loadProfiles: async () => [{ ...profile, dailyCallTime: "08:00" }],
+      loadBeachDay: async () => ({ forecasts: [gridForecast(blacksId, 5)], tideSamples: null }),
+    });
+    const result = await runDailyCallCron({ now: new Date("2026-09-16T15:08:00.000Z"), supabase, deps: mocked });
+    expect(result).toMatchObject({ sent: 0, silent: 1, errors: 0 });
+    expect(mocked.enqueue).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { label: "no row in the band", start: "15:15", end: "17:45", peak: "15:30", height: 3 },
+    { label: "a serving pre-window row nearest the excluded end row", start: "13:54", end: "15:00", peak: "14:55", height: 4 },
+  ])("keeps option heights and the home comparison with $label", async ({ start, end, peak, height }) => {
+    const lead = poolBeach("30000000-0000-4000-8000-000000000001", "Lead", "nearby");
+    const pick = window(lead.beach.id, {
+      rankedSpots: [{ beachId: ospreyId, personalVerdict: "go" }] as WeekScoutWindowResponse["rankedSpots"],
+    });
+    const option = window(ospreyId, {
+      displayWindowStart: `2026-09-16T${start}:00.000Z`, displayWindowEnd: `2026-09-16T${end}:00.000Z`,
+      peakTime: `2026-09-16T${peak}:00.000Z`,
+    });
+    const homeWindow = window(blacksId, {
+      displayWindowStart: "2026-09-16T13:54:00.000Z", displayWindowEnd: "2026-09-16T15:00:00.000Z",
+      peakTime: "2026-09-16T14:55:00.000Z", conditionScore: 55,
+    });
+    const mocked = sharedDeps(day([pick, option, homeWindow]), {
+      loadPool: async () => [lead, favorite, home].map((entry) => ({
+        ...entry, beach: { ...entry.beach, lat: 32.89, lon: -117.25 },
+      })),
+      loadBeachDay: async ({ beach }) => ({
+        forecasts: beach.id === lead.beach.id ? [gridForecast(beach.id, 11, "5")]
+          : [5, 8, 11].map((hour) => gridForecast(beach.id, hour,
+            beach.id === blacksId ? (hour === 5 ? "2" : "7") : hour === 5 ? "4" : "3")),
+        tideSamples: null,
+      }),
+    });
+    const result = await runDailyCallCron({ now, supabase, deps: mocked });
+    expect(result).toMatchObject({ sent: 1, errors: 0 });
+    expect(jest.mocked(mocked.enqueue).mock.calls[0][0].payload).toMatchObject({
+      comparison: "Bigger than Blacks today",
+      options: [{ beach_id: ospreyId, wave_height_ft: height }],
+    });
   });
 
   it("passes the session preference and resolved pool anchor to ranking", async () => {
