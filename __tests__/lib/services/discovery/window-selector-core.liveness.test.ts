@@ -56,6 +56,23 @@ describe('window selector forecast row liveness', () => {
     expect(morningWindow(['05:00', '08:00', '11:00'], '11:20')).toBeNull();
   });
 
+  it('caps a five-hour gap at three hours plus tolerance in both liveness checks', () => {
+    const times = ['03:00', '08:00', '13:00'];
+    const args = {
+      forecasts: times.map(forecastAt),
+      beachTz: beach.timezone!,
+      sunTimes: {
+        sunrises: [localTime('06:00')],
+        sunsets: [localTime('12:00')],
+      },
+    };
+
+    expect(morningWindow(times, '11:15')?.start).toEqual(localTime('08:00'));
+    expect(morningWindow(times, '11:16')).toBeNull();
+    expect(hasUsableTodayForecastForFallback({ ...args, now: localTime('11:15') })).toBe(true);
+    expect(hasUsableTodayForecastForFallback({ ...args, now: localTime('11:16') })).toBe(false);
+  });
+
   it.each(['08:46', '09:15'])('keeps an hourly row through the next hour plus tolerance at %s', (now) => {
     expect(morningWindow(['07:00', '08:00', '09:00'], now)?.start).toEqual(localTime('08:00'));
   });

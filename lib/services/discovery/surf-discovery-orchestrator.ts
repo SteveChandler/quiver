@@ -937,8 +937,12 @@ export function hasUsableTodayForecastForFallback(args: {
   const medianGapMs = gaps.length === 0
     ? minimumSpacingMs
     : gaps.length % 2 === 0 ? (gaps[middle - 1] + gaps[middle]) / 2 : gaps[middle];
-  const spacingMs = Math.min(3 * 60 * 60 * 1000, Math.max(minimumSpacingMs, medianGapMs));
-  const rowEnds = new Map(times.map((time, index) => [time, times[index + 1] ?? time + spacingMs]));
+  const maximumSpacingMs = 3 * 60 * 60 * 1000;
+  const spacingMs = Math.min(maximumSpacingMs, Math.max(minimumSpacingMs, medianGapMs));
+  const rowEnds = new Map(times.map((time, index) => [
+    time,
+    Math.min(times[index + 1] ?? time + spacingMs, time + maximumSpacingMs),
+  ]));
   const usableCutoffMs = args.now.getTime() - PAST_WINDOW_TOLERANCE_MINUTES * 60 * 1000;
 
   return rows.some(({ forecast, forecastTime }) => {
