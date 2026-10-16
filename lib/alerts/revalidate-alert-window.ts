@@ -1,3 +1,4 @@
+import { evaluateConditions } from "@/lib/alerts/condition-evaluator";
 import { filterToDaylight } from "@/lib/alerts/sunrise";
 import { findMatchingWindows, type FoundWindow } from "@/lib/alerts/window-finder";
 import { selectActionableAlertWindow } from "@/lib/alerts/actionable-window-selector";
@@ -31,6 +32,7 @@ interface SelectFreshAlertWindowInput {
   forecastRows: EnhancedForecastAlertRow[];
   beach: AlertRevalidationBeachMeta;
   now?: Date;
+  diagnosticAt?: string;
   /** Match on hourly rows (ALERT_HOURLY_WINDOWS); the caller resolves the flag for the rule's owner. */
   hourly?: boolean;
   tideSamples?: AlertTideSample[] | null;
@@ -50,29 +52,86 @@ export function prepareAlertForecastHours(
   return { daylight: filterToDaylight(hours, beach.lat, beach.lon), maxWaveByForecastAt };
 }
 
-export function selectFreshAlertWindow({
+export function selectFreshAlertWindow(input: SelectFreshAlertWindowInput): FoundWindow | null {
+  return selectFreshAlertWindowWithDiagnostics(input).window;
+}
+
+export function selectFreshAlertWindowWithDiagnostics({
   conditions,
   forecastRows,
   beach,
   now = new Date(),
+  diagnosticAt,
   hourly = false,
   tideSamples = null,
-}: SelectFreshAlertWindowInput): FoundWindow | null {
-  if (forecastRows.length === 0) return null;
+}: SelectFreshAlertWindowInput): { window: FoundWindow | null; diagnostic?: string } {
+  if (forecastRows.length === 0) return { window: null, diagnostic: "no_forecasts" };
 
   const { daylight, maxWaveByForecastAt } = prepareAlertForecastHours(forecastRows, beach, { hourly, tideSamples });
-  if (daylight.length === 0) return null;
+  if (daylight.length === 0) return { window: null, diagnostic: "no_daylight_forecasts" };
 
   const allWindows = findMatchingWindows(conditions, daylight, beach);
-  if (allWindows.length === 0) return null;
+  if (allWindows.length === 0) {
+    // Describe the hour nearest the queued best hour, rather than implying every hour failed identically.
+    const targetMs = diagnosticAt ? Date.parse(diagnosticAt) : now.getTime();
+    const sample = daylight.reduce((nearest, hour) =>
+      Math.abs(Date.parse(hour.forecast_at) - targetMs) < Math.abs(Date.parse(nearest.forecast_at) - targetMs)
+        ? hour : nearest
+    );
+    const failures = describeFailedConditions(conditions, sample, beach);
+    return { window: null, diagnostic: `forecast_at=${sample.forecast_at};${failures.join(";")}` };
+  }
 
   const minRideable = getMinRideable(beach as unknown as Beach);
   const windows = allWindows.filter((window) =>
     isViableWindow(window, daylight, maxWaveByForecastAt, minRideable)
   );
-  if (windows.length === 0) return null;
+  if (windows.length === 0) return { window: null, diagnostic: "no_viable_window" };
 
-  return selectActionableAlertWindow(windows, now);
+  const window = selectActionableAlertWindow(windows, now);
+  return window ? { window } : { window: null, diagnostic: "no_actionable_window" };
+}
+
+function describeFailedConditions(
+  conditions: AlertConditions,
+  forecast: ForecastHour,
+  beach: AlertRevalidationBeachMeta,
+): string[] {
+  const failures: string[] = [];
+  const bounds: Array<{
+    key: keyof AlertConditions;
+    field: string;
+    actual: number | null;
+    bound: "min" | "max";
+  }> = [
+    { key: "swell_height_min", field: "wave_height", actual: forecast.wave_height, bound: "min" },
+    { key: "swell_height_max", field: "wave_height", actual: forecast.wave_height, bound: "max" },
+    { key: "swell_period_min", field: "wave_period", actual: forecast.wave_period ?? forecast.swell_1_period, bound: "min" },
+    { key: "wind_speed_max_kt", field: "wind_speed_kt", actual: forecast.wind_speed, bound: "max" },
+    { key: "tide_height_min_ft", field: "tide_height_ft", actual: forecast.tide_height, bound: "min" },
+    { key: "tide_height_max_ft", field: "tide_height_ft", actual: forecast.tide_height, bound: "max" },
+  ];
+  for (const { key, field, actual, bound } of bounds) {
+    const expected = conditions[key];
+    if (expected == null || evaluateConditions({ [key]: expected }, forecast, beach)) continue;
+    const comparison = actual == null ? ":missing;expected " : bound === "min" ? "<" : ">";
+    failures.push(`${field}=${actual}${comparison}${bound} ${expected}`);
+  }
+
+  const groups: Array<{ keys: Array<keyof AlertConditions>; actual: Record<string, unknown> }> = [
+    { keys: ["swell_direction_min_deg", "swell_direction_max_deg"], actual: { swell_1_direction: forecast.swell_1_direction } },
+    { keys: ["wind_direction"], actual: { wind_direction_deg: forecast.wind_direction_deg } },
+    { keys: ["tide_direction"], actual: { tide_status: forecast.tide_status } },
+    { keys: ["avoid_tide_statuses"], actual: { tide_status: forecast.tide_status } },
+    { keys: ["local_time_start", "local_time_end"], actual: { forecast_at: forecast.forecast_at, timezone: beach.timezone } },
+    { keys: ["days_of_week"], actual: { forecast_at: forecast.forecast_at, timezone: beach.timezone } },
+  ];
+  for (const { keys, actual } of groups) {
+    const rule = Object.fromEntries(keys.map((key) => [key, conditions[key]]));
+    if (evaluateConditions(rule, forecast, beach)) continue;
+    failures.push(`${JSON.stringify(actual)} fails ${JSON.stringify(rule)}`);
+  }
+  return failures;
 }
 
 export function parseEnhancedForecastHour(row: EnhancedForecastAlertRow): ForecastHour {
