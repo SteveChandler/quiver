@@ -35,16 +35,6 @@ import { withCronOutcome } from "@/lib/cron/outcome";
 import { ConsolidatedAlertEmail } from "@/lib/mailer/templates/ConsolidatedAlertEmail";
 import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 import { readFileSync } from "fs";
-import * as alertWindowRevalidation from "@/lib/alerts/revalidate-alert-window";
-
-// Keep real revalidation for route coverage; allow an ended result to exercise the post-refresh expiry guard.
-jest.mock("@/lib/alerts/revalidate-alert-window", () => {
-  const actual = jest.requireActual("@/lib/alerts/revalidate-alert-window");
-  return {
-    ...actual,
-    selectFreshAlertWindowWithDiagnostics: jest.fn(actual.selectFreshAlertWindowWithDiagnostics),
-  };
-});
 
 // ---- Mock API wrappers ----
 jest.mock("@/lib/middleware/api-wrappers", () => ({
@@ -1464,31 +1454,29 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
   });
 
-  it("records window_ended for each enabled channel when the refreshed window ends exactly now", async () => {
+  it.each([
+    {
+      label: "window_ended_unrevalidated when fresh forecast rows are unavailable",
+      hasFreshRows: false,
+      skipReason: "window_ended_unrevalidated:window_end=2026-04-26T17:00:00Z",
+    },
+    {
+      label: "no_matching_window:no_actionable_window when the only fresh matching window already passed",
+      hasFreshRows: true,
+      skipReason: "no_matching_window:no_actionable_window",
+    },
+  ])("records $label for each enabled channel", async ({ hasFreshRows, skipReason }) => {
     seedQueueRow({
+      window_end: "2026-04-26T17:00:00Z",
       alert_rules: { name: "Test rule", notify_email: true, notify_push: true, conditions: { swell_height_min: 1 } },
       beaches: { name: "Test Beach", lat: 32.77, lon: -117.25, timezone: "America/Los_Angeles" },
     });
     seedProfile();
-    store.forecastRows.push({ forecast_at: "2026-04-26T16:00:00Z", wave_height: "3 ft" });
-    const freshSelection = jest.spyOn(alertWindowRevalidation, "selectFreshAlertWindowWithDiagnostics")
-      .mockReturnValueOnce({ window: {
-        window_start: "2026-04-26T16:00:00Z",
-        window_end: "2026-04-26T17:00:00Z",
-        best_hour: "2026-04-26T16:00:00Z",
-        best_score: 0.8,
-        conditions_snapshot: { wave_height: 3 },
-      } });
-
-    let res: Response;
-    try {
-      res = await GET(makeRequest());
-      expect(freshSelection).toHaveBeenCalledTimes(1);
-    } finally {
-      freshSelection.mockImplementation(
-        jest.requireActual("@/lib/alerts/revalidate-alert-window").selectFreshAlertWindowWithDiagnostics,
-      );
+    if (hasFreshRows) {
+      store.forecastRows.push({ forecast_at: "2026-04-26T15:00:00Z", wave_height: "3 ft" });
     }
+
+    const res = await GET(makeRequest());
     const body = await res.json();
 
     expect(res.status).toBe(200);
@@ -1499,7 +1487,7 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
       user_id: USER_A,
       channel,
       status: "skipped_stale_forecast",
-      skip_reason: "window_ended:window_end=2026-04-26T17:00:00Z",
+      skip_reason: skipReason,
     })));
     expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
     expect(mockEmailsSend).not.toHaveBeenCalled();
@@ -1509,7 +1497,7 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
   it.each([
     { fresh: { wave_height: "0.7 ft" }, failedCondition: "wave_height=0.7<min 1.5" },
     { fresh: { wave_height: "4.1 ft" }, failedCondition: "wave_height=4.1>max 4" },
-    { fresh: { wave_height: null }, failedCondition: "wave_height=null:missing;expected min 1.5" },
+    { fresh: { wave_height: null }, failedCondition: "wave_height=missing,expected min 1.5" },
     { fresh: { wave_height: "3 ft", wind_speed: "12 kt" }, failedCondition: "wind_speed_kt=12>max 8" },
   ])("fresh forecast revalidation records no_matching_window with $failedCondition", async ({ fresh, failedCondition }) => {
     process.env.ALERTS_DELIVERY_ENABLED = "true";
@@ -2239,7 +2227,7 @@ describe("condition-alert-deliver — email quiet-hours guard", () => {
     expect(store.attemptInserts).toEqual([
       expect.objectContaining({
         queue_id: QUEUE_1, channel: "email", status: "skipped_stale_forecast",
-        skip_reason: expect.stringMatching(/^window_ended:window_end=2026-04-26T18:00:00Z/),
+        skip_reason: expect.stringMatching(/^window_ended_unrevalidated:window_end=2026-04-26T18:00:00Z/),
       }),
     ]);
     expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);

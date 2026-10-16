@@ -114,8 +114,8 @@ function describeFailedConditions(
   for (const { key, field, actual, bound } of bounds) {
     const expected = conditions[key];
     if (expected == null || evaluateConditions({ [key]: expected }, forecast, beach)) continue;
-    const comparison = actual == null ? ":missing;expected " : bound === "min" ? "<" : ">";
-    failures.push(`${field}=${actual}${comparison}${bound} ${expected}`);
+    const comparison = actual == null ? ",expected " : bound === "min" ? "<" : ">";
+    failures.push(`${field}=${actual ?? "missing"}${comparison}${bound} ${expected}`);
   }
 
   const groups: Array<{ keys: Array<keyof AlertConditions>; actual: Record<string, unknown> }> = [

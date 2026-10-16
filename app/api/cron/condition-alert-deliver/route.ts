@@ -949,7 +949,7 @@ export async function GET(request: Request): Promise<NextResponse> {
             staleItems.push({
               item,
               skipReason: refreshed
-                ? `window_ended:window_end=${refreshed.window_end}`
+                ? `window_ended_unrevalidated:window_end=${refreshed.window_end}`
                 : `no_matching_window${diagnostic ? `:${diagnostic}` : ""}`,
             });
           }
