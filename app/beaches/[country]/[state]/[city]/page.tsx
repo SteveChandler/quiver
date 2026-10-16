@@ -54,7 +54,7 @@ export default async function LocationPage(props: LocationPageProps) {
     params.country
   );
 
-  if (!response.success || !response.data || response.data.beaches.length === 0) {
+  if (!response.success || !response.data) {
     notFound();
   }
 

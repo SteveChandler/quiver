@@ -74,24 +74,6 @@ describe("city pages without beach data", () => {
     },
   );
 
-  it("also returns 404 for a successful response with no beaches", async () => {
-    (getLocationPageData as jest.Mock).mockResolvedValue({
-      success: true,
-      data: {
-        location: { city: "Oceanside", state: "CA", country: "USA" },
-        beaches: [],
-        stats: {},
-      },
-    });
-
-    await expect(LocationPage(props)).rejects.toMatchObject({
-      digest: "NEXT_HTTP_ERROR_FALLBACK;404",
-    });
-    expect(notFound).toHaveBeenCalledTimes(1);
-    expect(redirect).not.toHaveBeenCalled();
-    expect(getTopCitiesInState).not.toHaveBeenCalled();
-  });
-
   it("still renders a city with beaches when its optional surf report is unavailable", async () => {
     (getLocationPageData as jest.Mock).mockResolvedValue({
       success: true,
