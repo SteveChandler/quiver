@@ -9,7 +9,7 @@ let mockCapturedImageElement: unknown = null;
 jest.mock("next/og", () => ({
   ImageResponse: jest.fn((element: unknown) => {
     mockCapturedImageElement = element;
-    return new Response("mock-png", {
+    return new Response(new Uint8Array(require("node:fs").readFileSync("public/og-image.png")), {
       headers: { "content-type": "image/png" },
     });
   }),
