@@ -18,7 +18,7 @@ import { clamp } from "@/lib/utils/clamp";
  */
 
 import {
-  clampToUsableLight,
+  clampToLiveUsableLight,
   forecastRowIntervalEnd,
   forecastRowLiveEnds,
   isDaylightInterval,
@@ -939,8 +939,7 @@ export function hasUsableTodayForecastForFallback(args: {
     const rowEnd = getForecastRowEnd(forecast, args.forecasts, args.beachTz);
     if (!isDaylightInterval(forecastTime, rowEnd, args.beachTz, args.sunTimes)) return false;
     const windowEnd = new Date(forecastTime.getTime() + MAX_WINDOW_HOURS * 60 * 60 * 1000);
-    const lit = clampToUsableLight(forecastTime, windowEnd, args.beachTz, args.sunTimes);
-    return lit !== null && lit.end.getTime() > usableCutoffMs;
+    return clampToLiveUsableLight(forecastTime, windowEnd, args.beachTz, args.now, args.sunTimes) !== null;
   });
 }
 

@@ -1,6 +1,6 @@
 import { localDateTimeToUTC } from '@/lib/utils/forecast-time-resolver';
 import { getLocalDateStr } from './window-selector/time-slot-utils';
-import { FORECAST_WINDOW_DURATION_MINUTES } from './window-selector/constants';
+import { FORECAST_WINDOW_DURATION_MINUTES, PAST_WINDOW_TOLERANCE_MINUTES } from './window-selector/constants';
 
 export interface BeachSunTimes {
   sunrises: Date[];
@@ -133,6 +133,19 @@ export function clampToUsableLight(
   }
 
   return null;
+}
+
+/** Use the light-clipped end for expiry, both before selection and after refinement. */
+export function clampToLiveUsableLight(
+  start: Date,
+  end: Date,
+  timezone: string,
+  now: Date,
+  sunTimes?: BeachSunTimes,
+): UsableLightInterval | null {
+  const lit = clampToUsableLight(start, end, timezone, sunTimes);
+  const cutoffMs = now.getTime() - PAST_WINDOW_TOLERANCE_MINUTES * 60 * 1000;
+  return lit && lit.end.getTime() > cutoffMs ? lit : null;
 }
 
 export function nextFirstLight(

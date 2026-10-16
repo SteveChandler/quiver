@@ -1,6 +1,6 @@
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
-import { selectBestWindow } from '@/lib/services/discovery/window-selector/window-selector-core';
+import { selectBestWindow, selectBestWindows } from '@/lib/services/discovery/window-selector/window-selector-core';
 import { hasUsableTodayForecastForFallback } from '@/lib/services/discovery/surf-discovery-orchestrator';
 import * as windowRefiner from '@/lib/services/discovery/window-selector/window-refiner';
 import * as windowScorer from '@/lib/services/discovery/window-selector/window-scorer';
@@ -78,7 +78,7 @@ describe('window selector forecast row liveness', () => {
     }
   });
 
-  it('also rejects an expired window chosen by the below-threshold fallback', () => {
+  it('excludes an expired below-threshold fallback before refinement', () => {
     const score = jest.mocked(windowScorer.scoreWindowForSelection).mockReturnValue(10);
     const refinement = jest.mocked(windowRefiner.applySubHourRefinement).mockClear();
 
@@ -93,10 +93,44 @@ describe('window selector forecast row liveness', () => {
           sunsets: [localTime('18:30')],
         }]]),
       })).toBeNull();
-      expect(refinement).toHaveBeenCalledWith(
-        expect.objectContaining({ score: 10, usedTideBoundaries: false }),
-        expect.any(Array), expect.any(Array), expect.any(Array), expect.any(Array), beach, beach.timezone,
-      );
+      expect(refinement).not.toHaveBeenCalled();
+    } finally {
+      score.mockImplementation(jest.requireActual('@/lib/services/discovery/window-selector/window-scorer').scoreWindowForSelection);
+    }
+  });
+
+  it('returns tomorrow when equal below-threshold rows today expired at last light at 19:10', () => {
+    const now = localTime('19:10');
+    const tomorrowTime = (time: string): Date => new Date(`2026-10-17T${time}:00-07:00`);
+    const todayForecasts = ['11:00', '14:00', '17:00'].map(forecastAt);
+    const tomorrowForecasts = ['08:00', '11:00'].map((time) => ({
+      ...forecastAt(time),
+      forecast_at: tomorrowTime(time).toISOString(),
+    }));
+    const sunTimes = {
+      sunrises: [localTime('06:30'), tomorrowTime('06:30')],
+      sunsets: [localTime('18:30'), tomorrowTime('18:30')],
+    };
+    const score = jest.mocked(windowScorer.scoreWindowForSelection).mockReturnValue(10);
+
+    try {
+      const windows = selectBestWindows({
+        forecasts: [...todayForecasts, ...tomorrowForecasts],
+        beach,
+        userPrefs: null,
+        now,
+        sunTimesCache: new Map([[beach.id, sunTimes]]),
+      });
+
+      expect(windows).toHaveLength(1);
+      expect(windows[0].start).toEqual(tomorrowTime('08:00'));
+      expect(windows[0].sourceForecast).toEqual(tomorrowForecasts[0]);
+      expect(hasUsableTodayForecastForFallback({
+        forecasts: todayForecasts,
+        beachTz: beach.timezone!,
+        sunTimes,
+        now,
+      })).toBe(false);
     } finally {
       score.mockImplementation(jest.requireActual('@/lib/services/discovery/window-selector/window-scorer').scoreWindowForSelection);
     }

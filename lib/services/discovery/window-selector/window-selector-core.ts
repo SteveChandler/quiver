@@ -30,6 +30,7 @@ import { resolveBeachTimezone } from '@/lib/utils/timezone-utils';
 import { createContextLogger } from '@/lib/logger';
 import { resolveForecastTime } from '@/lib/utils/forecast-time-resolver';
 import {
+  clampToLiveUsableLight,
   clampToUsableLight,
   forecastRowIntervalEnd,
   forecastRowLiveEnds,
@@ -906,9 +907,8 @@ export function selectBestWindows(
         beachTz
       );
 
-      const lit = clampToUsableLight(refinedTimes.start, refinedTimes.end, beachTz, sunTimes);
-      const cutoffMs = actualNow.getTime() - PAST_WINDOW_TOLERANCE_MINUTES * 60 * 1000;
-      if (!lit || lit.end.getTime() <= cutoffMs) return [];
+      const lit = clampToLiveUsableLight(refinedTimes.start, refinedTimes.end, beachTz, actualNow, sunTimes);
+      if (!lit) return [];
       return [{ ...candidateWindow, start: lit.start, end: lit.end }];
     })
     .flat()
@@ -964,12 +964,16 @@ function selectFallbackWindow(
       }
     }
 
-    return isDaylightInterval(
+    if (!isDaylightInterval(
       forecastTime,
       forecastRowIntervalEnd(forecastTime, filteredForecasts[index + 1]?.forecastTime),
       beachTz,
       sunTimes,
-    );
+    )) return false;
+
+    const windowEnd = new Date(forecastTime.getTime() + MAX_WINDOW_HOURS * 60 * 60 * 1000);
+    const cappedEnd = capEndTimeToTimeSlot(forecastTime, windowEnd, timeSlot, beachTz);
+    return clampToLiveUsableLight(forecastTime, cappedEnd, beachTz, now, sunTimes) !== null;
   });
 
   if (daylightForecasts.length === 0) {

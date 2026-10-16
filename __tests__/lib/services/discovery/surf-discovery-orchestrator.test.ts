@@ -4128,10 +4128,10 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
 
   test('wider dead zone with stale-cache: pre-sunset row exceeds the three-hour cap, gate must still open', async () => {
     // The 11am row is capped at 2pm even though the next row is at 8pm.
-    // At 17:52 PDT it is expired and 8pm is after last light, so tomorrow must be tried.
+    // At 14:20 PDT it is expired; an uncapped 4h window would still keep the gate closed.
     const { selectBestWindow: mockSelectBestWindow } = require('@/lib/services/discovery/window-selector');
 
-    const now = new Date('2026-04-25T00:52:00Z'); // 17:52 PDT 2026-04-24
+    const now = new Date('2026-04-24T21:20:00Z'); // 14:20 PDT 2026-04-24
     const sunset = new Date('2026-04-25T02:30:00Z'); // 19:30 PDT 2026-04-24
     jest.useFakeTimers().setSystemTime(now);
 
