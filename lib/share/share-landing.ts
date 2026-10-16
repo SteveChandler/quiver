@@ -66,7 +66,7 @@ export async function loadShareLandingMetadata(
   dependencies: ShareLandingDependencies = {},
 ): Promise<ForecastWindowShareMetadata> {
   const metadata = await loadForecastWindowShareMetadata(input);
-  if (!metadata.isFallback || metadata.forecastAt) return metadata;
+  if (!metadata.isFallback || metadata.forecastAt || metadata.windowLabel) return metadata;
 
   try {
     const beach = await (dependencies.loadBeach ?? defaultLoadBeach)(

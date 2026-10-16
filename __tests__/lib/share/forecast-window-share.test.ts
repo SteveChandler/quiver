@@ -177,7 +177,7 @@ describe("forecast-window-share", () => {
     expect(dayBefore.title).toBe("Server Beach Wed 9:15 AM is lining up");
   });
 
-  it("falls back without touching the database once a shared window has passed", async () => {
+  it("keeps local time without loading forecasts once a shared window has passed", async () => {
     const dependencies = {
       ...shareDependencies(),
       now: () => new Date("2026-06-03T17:16:00.000Z"),
@@ -187,8 +187,8 @@ describe("forecast-window-share", () => {
 
     expect(metadata.isFallback).toBe(true);
     expect(metadata.forecastAt).toBeNull();
-    expect(metadata.title).toBe("Open Quiver Surf Window");
-    expect(dependencies.loadBeach).not.toHaveBeenCalled();
+    expect(metadata.title).toBe('Server Beach surf forecast for Wed 3 Jun, 9:15 AM');
+    expect(dependencies.loadBeach).toHaveBeenCalledWith('server-beach');
     expect(dependencies.loadForecast).not.toHaveBeenCalled();
   });
 
@@ -224,9 +224,9 @@ describe("forecast-window-share", () => {
       slug: "fake-ready-beach",
     });
 
-    expect(metadata.title).toBe("Open Quiver Surf Window");
+    expect(metadata.title).toBe("Fake Ready Beach surf forecast for Wed 3 Jun, 4:15 PM UTC");
     expect(metadata.forecastAt).toBeNull();
-    expect(metadata.windowLabel).toBeNull();
+    expect(metadata.windowLabel).toBe("Wed 3 Jun, 4:15 PM UTC");
     expect(JSON.stringify(metadata)).not.toMatch(
       /lining up|Fake ready window|99 ft|Perfect query conditions/i,
     );
@@ -304,4 +304,42 @@ describe("forecast-window-share", () => {
     expect(path).toContain("window=2026-06-03T16%3A15%3A00.000Z");
     expect(path).not.toMatch(/label=|conditions=|utm_/);
   });
+});
+
+
+describe('unmatched requested windows', () => {
+  it.each(['missing row', 'different interval', 'different beach', 'forecast error'])(
+    'keeps the requested local date and time with neutral copy for %s', async scenario => {
+      const dependencies = shareDependencies({ forecast: null });
+      if (scenario === 'different interval') dependencies.loadForecast.mockResolvedValue({ ...forecast, forecast_at: '2026-06-03T17:15:00Z' });
+      if (scenario === 'different beach') dependencies.loadForecast.mockResolvedValue({ ...forecast, beach_id: 'another-beach' });
+      if (scenario === 'forecast error') dependencies.loadForecast.mockRejectedValue(new Error('offline'));
+      const metadata = await loadWith(dependencies);
+      expect(metadata.title).toBe('Server Beach surf forecast for Wed 3 Jun, 9:15 AM');
+      expect(metadata.description).toContain(metadata.title);
+      expect(metadata.windowLabel).toBe('Wed 3 Jun, 9:15 AM');
+      expect(metadata.isFallback).toBe(true);
+      expect(metadata.forecastAt).toBeNull();
+      expect(metadata.waveHeight).toBe('Forecast window');
+      expect(metadata.conditionRow).toBe('');
+      expect(JSON.stringify(metadata)).not.toMatch(/lining up|ready|99 ft|perfect/i);
+      expect(dependencies.evaluateHoldCandidates).not.toHaveBeenCalled();
+    },
+  );
+
+  it('uses the beach local day across a UTC date boundary', async () => {
+    const metadata = await loadWith(shareDependencies({ forecast: null }), {
+      window: '2026-06-04T01:00:00Z',
+    });
+    expect(metadata.title).toBe('Server Beach surf forecast for Wed 3 Jun, 6 PM');
+  });
+});
+
+
+test.each([null, 'Invalid/Zone'])('labels UTC explicitly when the beach timezone is %s', async timezone => {
+  const dependencies = shareDependencies({ forecast: null, beach: { ...beach, timezone } as never });
+  const metadata = await loadWith(dependencies);
+  expect(metadata.title).toBe('Server Beach surf forecast for Wed 3 Jun, 4:15 PM UTC');
+  expect(metadata.isFallback).toBe(true);
+  expect(metadata.forecastAt).toBeNull();
 });

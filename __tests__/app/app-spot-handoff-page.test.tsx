@@ -329,6 +329,22 @@ describe("/app/spot/[slug] handoff page", () => {
       );
     });
 
+    it("preserves neutral requested-window copy when no ranked window matched", async () => {
+      const title = 'Scripps surf forecast for Fri 16 Oct, 2 PM';
+      mockLoadForecastWindowShareMetadata.mockResolvedValue(neutralMetadata({
+        slug: 'scripps', beachName: 'Scripps', title,
+        description: `${title}. Check the latest forecast.`, windowLabel: 'Fri 16 Oct, 2 PM',
+      }));
+      mockGetBeachBySlugOrId.mockResolvedValue({ name: 'Scripps', slug: 'scripps' });
+      const metadata = await generateMetadata({
+        params: Promise.resolve({ slug: 'scripps' }),
+        searchParams: Promise.resolve({ window: '2026-10-16T21:00:00Z' }),
+      });
+      expect(metadata.title).toBe(title);
+      expect(metadata.description).toContain('Fri 16 Oct, 2 PM');
+      expect(mockGetBeachBySlugOrId).not.toHaveBeenCalled();
+    });
+
     it("does not replace a resolved window card with the beach card", async () => {
       mockLoadForecastWindowShareMetadata.mockResolvedValue(positiveMetadata());
       mockGetBeachBySlugOrId.mockResolvedValue({
