@@ -730,14 +730,9 @@ async function buildSharedCall(
     .sort((left, right) => right.score - left.score)[0];
   if (!evaluation) return { skip: "no_in_window_row", heldReasons };
   const peakMs = Date.parse(pick.peakTime);
-  const sorted = [...forecasts].sort((left, right) =>
-    Date.parse(left.forecast_at) - Date.parse(right.forecast_at));
-  const peakIndex = sorted.findLastIndex((forecast) =>
-    serving.includes(forecast) && Date.parse(forecast.forecast_at) <= peakMs);
-  const peak = sorted[peakIndex];
-  if (!peak || forecastCoverageEnd(peak, sorted[peakIndex + 1]) <= peakMs || verdictById.get(peak.id) !== "go") {
-    return { skip: "ranking_verdict_mismatch", heldReasons };
-  }
+  const peak = [...forecasts].sort((left, right) =>
+    Math.abs(Date.parse(left.forecast_at) - peakMs) - Math.abs(Date.parse(right.forecast_at) - peakMs))[0];
+  if (verdictById.get(peak.id) !== "go") return { skip: "ranking_verdict_mismatch", heldReasons };
   const decision = decisionForWindow(profile, entry, evaluation, winner.window, timezone, now);
   if (decision.verdict !== "go") return { skip: "ranking_verdict_mismatch", heldReasons };
   winner.sourceForecast = evaluation.forecast;

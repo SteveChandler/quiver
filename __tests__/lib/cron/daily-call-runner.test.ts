@@ -343,7 +343,7 @@ describe("daily call advertised window decisions", () => {
     const asOf = hour === 6 ? runNow : new Date(at(hour));
     const pick = {
       id: "shared-pick", beachId: blacksId, start: at(5), end: at(10),
-      displayWindowStart: sunriseAt, displayWindowEnd: at(10), peakTime: at(8),
+      displayWindowStart: sunriseAt, displayWindowEnd: at(10), peakTime: at(5),
       conditionScore: 84, personalVerdict: "go", isBeachDayBest: true, rankedSpots: [],
     } as unknown as WeekScoutWindowResponse;
     const mocked: DailyCallDeps & DailyCallRankingDeps = {
@@ -905,6 +905,40 @@ describe("shared ranking (flag on)", () => {
     expect(mocked.loadBeachDay).toHaveBeenCalledTimes(4);
   });
 
+  it.each([
+    { label: "69/75/0 scores at 08:00/11:00/14:00 with a 10:30 peak", peak: "17:30", hours: [8, 11, 14], sent: 1 },
+    { label: "equal distances with the go row first", peak: "16:30", hours: [11, 8, 14], sent: 1 },
+    { label: "equal distances with the maybe row first", peak: "16:30", hours: [8, 11, 14], sent: 0 },
+  ])("$label uses main's nearest-row peak gate", async ({ peak, hours, sent }) => {
+    const pick = window(blacksId, { peakTime: `2026-09-16T${peak}:00.000Z` });
+    const scores: Record<string, number> = { "08:00:00": 69, "11:00:00": 75, "14:00:00": 0 };
+    const evaluate = verdict.getMockImplementation()!;
+    verdict.mockImplementation((args) => {
+      const score = scores[args.forecast.forecast_time] ?? 0;
+      return { ...evaluate(args), score, verdict: score >= 70 ? "go" : score > 0 ? "maybe" : "no" };
+    });
+    const mocked = sharedDeps(day([pick]), {
+      loadBeachDay: async () => ({ forecasts: hours.map((hour) => gridForecast(blacksId, hour)), tideSamples: null }),
+    });
+    const result = await runDailyCallCron({ now: new Date("2026-09-16T13:08:00.000Z"), supabase, deps: mocked });
+    expect(result).toMatchObject({
+      sent, silent: 1 - sent, errors: 0,
+      skippedCounts: { ranking_verdict_mismatch: 1 - sent, no_in_window_row: 0 },
+    });
+    const payloads = jest.mocked(mocked.enqueue).mock.calls.map(([args]) => args.payload);
+    const expectedPayload = expect.objectContaining({
+      window_start: pick.displayWindowStart, window_end: pick.displayWindowEnd,
+      session_decision: expect.objectContaining({
+        verdict: "go", expiresAt: pick.displayWindowEnd,
+        selection: expect.objectContaining({
+          forecastRef: expect.objectContaining({ forecastAt: "2026-09-16T18:00:00.000Z" }),
+          evidence: expect.objectContaining({ conditionScore: 75 }),
+        }),
+      }),
+    });
+    expect(payloads).toEqual(sent ? [expectedPayload] : []);
+  });
+
   it("counts ranking_verdict_mismatch when the nearest row is not canonically go", async () => {
     const pick = window(blacksId, { peakTime: "2026-09-16T18:00:00.000Z" });
     const evaluate = verdict.getMockImplementation()!;
@@ -926,8 +960,8 @@ describe("shared ranking (flag on)", () => {
 
   it.each([
     { peak: "18:00", goHour: "11:00:00", judgedAt: "18:00" },
-    { peak: "17:45", goHour: "08:00:00", judgedAt: "15:00" },
-  ])("sends with a go row in effect at peak $peak and a non-go non-peak serving row", async ({ peak, goHour, judgedAt }) => {
+    { peak: "16:25", goHour: "08:00:00", judgedAt: "15:00" },
+  ])("sends with a go row nearest peak $peak and a non-go non-peak serving row", async ({ peak, goHour, judgedAt }) => {
     const pick = window(blacksId, { peakTime: `2026-09-16T${peak}:00.000Z` });
     const evaluate = verdict.getMockImplementation()!;
     verdict.mockImplementation((args) => ({
@@ -947,7 +981,7 @@ describe("shared ranking (flag on)", () => {
     });
   });
 
-  it("rejects an uncovered 10:45 peak in a 07:00–11:00 window with the 08:00 row missing", async () => {
+  it("rejects a 10:45 peak nearest the 11:00 non-go row when the 08:00 row is missing", async () => {
     const pick = window(blacksId, {
       displayWindowStart: "2026-09-16T14:00:00.000Z", displayWindowEnd: "2026-09-16T18:00:00.000Z",
       peakTime: "2026-09-16T17:45:00.000Z",
@@ -968,10 +1002,10 @@ describe("shared ranking (flag on)", () => {
     expect(mocked.enqueue).not.toHaveBeenCalled();
   });
 
-  it("sends when the 08:00 go row covers the 10:45 peak in a 07:00–11:00 window", async () => {
+  it("sends when the 08:00 go row is nearest a 09:00 peak in a 07:00–11:00 window", async () => {
     const pick = window(blacksId, {
       displayWindowStart: "2026-09-16T14:00:00.000Z", displayWindowEnd: "2026-09-16T18:00:00.000Z",
-      peakTime: "2026-09-16T17:45:00.000Z",
+      peakTime: "2026-09-16T16:00:00.000Z",
     });
     const evaluate = verdict.getMockImplementation()!;
     verdict.mockImplementation((args) => ({
@@ -1095,7 +1129,6 @@ describe("shared ranking (flag on)", () => {
   ])("keeps option heights and the home comparison with $label", async ({ start, end, peak, height }) => {
     const lead = poolBeach("30000000-0000-4000-8000-000000000001", "Lead", "nearby");
     const pick = window(lead.beach.id, {
-      peakTime: "2026-09-16T18:00:00.000Z",
       rankedSpots: [{ beachId: ospreyId, personalVerdict: "go" }] as WeekScoutWindowResponse["rankedSpots"],
     });
     const option = window(ospreyId, {
