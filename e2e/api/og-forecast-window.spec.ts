@@ -5,26 +5,29 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { readJpegDimensions } from '../utils/jpeg-dimensions';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 const OG_FORECAST_WINDOW_ENDPOINT = `${BASE_URL}/api/og/forecast-window`;
 const VALID_WINDOW = '2026-06-03T14%3A30%3A00.000Z';
 
 test.describe('Forecast Window OG Image API Contract', () => {
-  test('returns a 1200x630 PNG for a valid slug and window', async ({ request }) => {
+  test('returns a 1200x630 JPEG for a valid slug and window', async ({ request }) => {
     const response = await request.get(
       `${OG_FORECAST_WINDOW_ENDPOINT}?slug=la-jolla-shores&window=${VALID_WINDOW}`,
     );
 
     expect(response.status()).toBe(200);
-    expect(response.headers()['content-type']).toContain('image/png');
+    expect(response.headers()['content-type']).toContain('image/jpeg');
     const body = await response.body();
     expect(body.length).toBeGreaterThan(1000);
-    expect(body.readUInt32BE(16)).toBe(1200);
-    expect(body.readUInt32BE(20)).toBe(630);
+    expect(body.length).toBeLessThan(300000);
+    const { width, height } = readJpegDimensions(body);
+    expect(width).toBe(1200);
+    expect(height).toBe(630);
   });
 
-  test('returns fallback PNGs for missing, malformed, and unknown inputs', async ({ request }) => {
+  test('returns fallback JPEGs for missing, malformed, and unknown inputs', async ({ request }) => {
     const paths = [
       OG_FORECAST_WINDOW_ENDPOINT,
       `${OG_FORECAST_WINDOW_ENDPOINT}?slug=la-jolla-shores&window=opaque-window`,
@@ -35,11 +38,13 @@ test.describe('Forecast Window OG Image API Contract', () => {
       const response = await request.get(path);
 
       expect(response.status()).toBe(200);
-      expect(response.headers()['content-type']).toContain('image/png');
+      expect(response.headers()['content-type']).toContain('image/jpeg');
       const body = await response.body();
       expect(body.length).toBeGreaterThan(1000);
-      expect(body.readUInt32BE(16)).toBe(1200);
-      expect(body.readUInt32BE(20)).toBe(630);
+      expect(body.length).toBeLessThan(300000);
+      const { width, height } = readJpegDimensions(body);
+      expect(width).toBe(1200);
+      expect(height).toBe(630);
     }
   });
 

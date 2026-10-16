@@ -1,3 +1,4 @@
+import { jpegResponse } from "@/lib/seo/og-image";
 import { ImageResponse } from "next/og";
 import { type NextRequest } from "next/server";
 
@@ -451,10 +452,10 @@ function SessionShareCard({
   );
 }
 
-export async function GET(request: NextRequest): Promise<ImageResponse> {
+export async function GET(request: NextRequest): Promise<Response> {
+  const { searchParams } = new URL(request.url);
+  const useJpeg = searchParams.get("format") === "jpeg";
   try {
-    const { searchParams } = new URL(request.url);
-
     const beach = truncate(searchParams.get("beach") || "Your surf session", 38);
     const rating = truncate(searchParams.get("rating") || "Good", 18);
     const size = truncate(searchParams.get("size") || "Waist-Chest", 24);
@@ -506,8 +507,9 @@ export async function GET(request: NextRequest): Promise<ImageResponse> {
       "Cache-Control",
       "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800",
     );
-    return response;
+    return useJpeg ? await jpegResponse(response) : response;
   } catch {
-    return renderFallback();
+    const fallback = renderFallback();
+    return useJpeg ? jpegResponse(fallback) : fallback;
   }
 }

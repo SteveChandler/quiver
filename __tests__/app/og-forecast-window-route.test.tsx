@@ -10,7 +10,7 @@ jest.mock("next/og", () => ({
   ImageResponse: jest.fn((element: unknown, options: Record<string, unknown>) => {
     mockCapturedImageElement = element;
     mockCapturedImageOptions = options;
-    return new Response("mock-png", {
+    return new Response(new Uint8Array(require("node:fs").readFileSync("public/og-image.png")), {
       status: 200,
       headers: { "content-type": "image/png" },
     });
@@ -138,7 +138,7 @@ describe("/api/og/forecast-window route", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(response.headers.get("content-type")).toBe("image/png");
+    expect(response.headers.get("content-type")).toBe("image/jpeg");
     expect(response.headers.get("cache-control")).toBe("no-store");
     expect(route.runtime).toBe("nodejs");
     expect(route.dynamic).toBe("force-dynamic");
@@ -370,7 +370,7 @@ describe("/api/og/forecast-window route", () => {
       );
 
       expect(response.status).toBe(200);
-      expect(response.headers.get("content-type")).toBe("image/png");
+      expect(response.headers.get("content-type")).toBe("image/jpeg");
       expect(response.headers.get("cache-control")).toBe("no-store");
       expect(mockCapturedImageOptions).toEqual({
         width: 1200,
@@ -399,7 +399,7 @@ describe("/api/og/forecast-window route", () => {
 
     const renderedText = collectText(mockCapturedImageElement).join(" ");
     expect(response.status).toBe(200);
-    expect(response.headers.get("content-type")).toBe("image/png");
+    expect(response.headers.get("content-type")).toBe("image/jpeg");
     expect(response.headers.get("cache-control")).toBe("no-store");
     expect(renderedText).toContain("SURF FORECAST");
     expect(renderedText).toContain("QUIVER");

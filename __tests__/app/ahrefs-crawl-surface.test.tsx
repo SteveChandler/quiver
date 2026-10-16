@@ -28,8 +28,8 @@ describe("Ahrefs crawl surfaces", () => {
 
   it("includes a real image in the roadmap's Open Graph override", () => {
     expect(metadata.openGraph?.images).toEqual(expect.arrayContaining([
-      expect.objectContaining({ url: "/og-image.png", width: 1200, height: 630 }),
+      expect.objectContaining({ url: "/og-image.jpg", width: 1200, height: 630 }),
     ]));
-    expect(readFileSync(join(process.cwd(), "public/og-image.png")).length).toBeGreaterThan(0);
+    expect(readFileSync(join(process.cwd(), "public/og-image.jpg")).length).toBeGreaterThan(0);
   });
 });
