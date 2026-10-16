@@ -98,14 +98,13 @@ function fallbackTitle(pool: Pool, vars: TitleVars): string {
     return withoutParenthetical;
   }
 
-  const beachChars = TITLE_MAX_CHARS - titleLength(window) - 2;
-  if (beachChars > 0) {
-    const shortenedBeach = [...beach].slice(0, beachChars).join("").trimEnd();
-    const withWindow = `${shortenedBeach}… ${window}`;
-    if (titleLength(withWindow) <= TITLE_MAX_CHARS) return withWindow;
-  }
+  const beachChars = Math.max(0, TITLE_MAX_CHARS - titleLength(window) - 2);
+  const words = beach.split(/\s+/);
+  while (titleLength(words.join(" ")) > beachChars) words.pop();
+  const withWindow = `${words.join(" ")}… ${window}`;
+  if (titleLength(withWindow) <= TITLE_MAX_CHARS) return withWindow;
 
-  return truncateTitle(rendered);
+  return titleLength(window) <= TITLE_MAX_CHARS ? window : truncateTitle(window);
 }
 
 export function selectTitle(args: SelectTitleArgs): SelectedTitle {

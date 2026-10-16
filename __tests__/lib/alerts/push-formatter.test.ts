@@ -317,7 +317,8 @@ describe("dash-free condition titles", () => {
 
   it("uses window start when best hour is absent", () => {
     expect(formatPushNotification([makeMatch({ beach_id: "beach-blacks", best_hour: undefined,
-      window_start: "2026-10-17T15:00:00Z" })], "maybe").title).toContain("Decent shot at");
+      window_start: "2026-10-18T15:00:00Z", window_end: "2026-10-18T17:00:00Z" })], "maybe").title)
+      .toBe("Could be fun at Blacks Beach, 8 to 10 AM");
   });
 
   it.each([

@@ -138,7 +138,7 @@ describe("selectTitle", () => {
       },
     });
 
-    expect(selected.title).toBe("A Very Long Approved Beach Na… 6 to 8 AM");
+    expect(selected.title).toBe("A Very Long Approved Beach… 6 to 8 AM");
     expect(selected.fallback).toBe(true);
   });
 
@@ -200,7 +200,7 @@ describe("selectTitle", () => {
     }
   });
 
-  it("truncates a long beach without parentheses while keeping the full window", () => {
+  it("omits an overlong single word rather than cutting it while keeping the full window", () => {
     const window = "10 AM to 12:10 PM";
     const selected = selectTitle({
       pool: "daily",
@@ -212,12 +212,12 @@ describe("selectTitle", () => {
       vars: { ...vars, beach: "A".repeat(45), window },
     });
 
-    expect(selected.title).toBe(`${"A".repeat(TITLE_MAX_CHARS - [...window].length - 2)}… ${window}`);
-    expect([...selected.title].length).toBe(TITLE_MAX_CHARS);
+    expect(selected.title).toBe(`… ${window}`);
+    expect([...selected.title].length).toBeLessThanOrEqual(TITLE_MAX_CHARS);
     expect(selected.title).toContain(window);
   });
 
-  it("hard-truncates a daily fallback when the window alone cannot fit", () => {
+  it("omits the beach when the window alone fills the title cap", () => {
     const window = "A".repeat(TITLE_MAX_CHARS);
     const selected = selectTitle({
       pool: "daily",
@@ -229,11 +229,11 @@ describe("selectTitle", () => {
       vars: { ...vars, beach: "Blacks", window },
     });
 
-    expect(selected.title).toBe(`Blacks ${"A".repeat(TITLE_MAX_CHARS - 8)}…`);
+    expect(selected.title).toBe(window);
     expect([...selected.title].length).toBe(TITLE_MAX_CHARS);
   });
 
-  it("hard-truncates instead of dropping the beach for a 38-code-point window", () => {
+  it("preserves a 38-code-point window with an ellipsis instead of cutting beach words", () => {
     const selected = selectTitle({
       pool: "daily",
       tags: ["generic"],
@@ -245,7 +245,7 @@ describe("selectTitle", () => {
     });
 
     expect(selected.id).toBe("fallback");
-    expect(selected.title).toBe(`Blacks ${"A".repeat(32)}…`);
+    expect(selected.title).toBe(`… ${"A".repeat(38)}`);
     expect([...selected.title].length).toBeLessThanOrEqual(TITLE_MAX_CHARS);
   });
 
@@ -305,8 +305,8 @@ describe("dash-free Daily Call titles", () => {
     }
     const selected = selectTitle({ pool: "daily", tags: [], userId: "user-1", eventKey: "2026-10-17",
       recentTitleIds: [], recentFilmCount: 0, vars: { ...vars, beach: "A".repeat(45), window } });
-    expect(selected.title).toBe(`${"A".repeat(40 - [...window].length - 2)}… ${window}`);
-    expect([...selected.title]).toHaveLength(40);
+    expect(selected.title).toBe(`… ${window}`);
+    expect([...selected.title].length).toBeLessThanOrEqual(40);
     expect(selected.title).not.toMatch(/—|–| - /);
   });
 });
@@ -317,5 +317,45 @@ describe("beach punctuation in push titles", () => {
     const selected = selectTitle({ pool: "daily", tags: [], userId: "user-1", eventKey: "2026-10-17",
       recentTitleIds: [], recentFilmCount: 0, vars: { ...vars, beach: "Waikiki – Canoes", window: "8 to 10 AM" } });
     expect(selected.title).toBe("Waikiki Canoes 8 to 10 AM");
+  });
+});
+
+
+describe("Daily Call beach word boundaries", () => {
+  it.each([
+    [29, "A Very Long Approved Bay Cove", "A Very Long Approved Bay Cove 8 to 10 AM"],
+    [32, "A Very Long Approved Sandy Beach", "A Very Long Approved Sandy… 8 to 10 AM"],
+    [36, "A Very Long Approved Shoreline Beach", "A Very Long Approved… 8 to 10 AM"],
+  ])("keeps whole words for a %i-character beach name", (length, beach, title) => {
+    expect([...beach]).toHaveLength(length);
+    const selected = selectTitle(swellArgs({
+      pool: "daily", tags: ["generic"], vars: { ...vars, beach, window: "8 to 10 AM" },
+    }));
+    expect(selected).toMatchObject({ id: "fallback", title, fallback: true });
+    expect([...selected.title].length).toBeLessThanOrEqual(40);
+  });
+
+  it("preserves a complete beach word and window at exactly 40 characters", () => {
+    const selected = selectTitle(swellArgs({
+      pool: "daily", tags: [],
+      vars: { ...vars, beach: "A Very Long Approved Coastal Beach Name", window: "8 to 10 AM" },
+    }));
+    expect(selected.title).toBe("A Very Long Approved Coastal… 8 to 10 AM");
+    expect([...selected.title]).toHaveLength(40);
+  });
+
+  it("uses a shorter fitting template for Huntington Beach Pier before falling back to plain", () => {
+    const selected = selectTitle(swellArgs({
+      pool: "daily", tags: ["swell-day"], eventKey: "event-2",
+      vars: { ...vars, beach: "Huntington Beach Pier", window: "8 AM" },
+    }));
+    expect(selected).toMatchObject({ id: "d34", title: "Swell day. Huntington Beach Pier 8 AM", fallback: false });
+  });
+
+  it("keeps Huntington Beach Pier whole in the plain form when no template fits", () => {
+    const selected = selectTitle(swellArgs({
+      pool: "daily", tags: ["swell-day"], vars: { ...vars, beach: "Huntington Beach Pier", window: "8 to 10 AM" },
+    }));
+    expect(selected).toMatchObject({ id: "fallback", title: "Huntington Beach Pier 8 to 10 AM", fallback: true });
   });
 });
