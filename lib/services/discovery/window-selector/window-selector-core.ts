@@ -49,6 +49,7 @@ import {
   MIN_SCORE_THRESHOLD,
   MIN_SCORE_THRESHOLD_MORNING,
   MAX_WINDOW_HOURS,
+  FORECAST_WINDOW_DURATION_MINUTES,
   PAST_WINDOW_TOLERANCE_MINUTES,
   MORNING_CUTOFF_HOUR,
   TODAY_BONUS_POINTS,
@@ -74,6 +75,7 @@ const log = createContextLogger('WindowSelector');
 
 /** Dawn patrol starts at first light (isDaylightInterval) and ends here, local time. */
 const DAWN_PATROL_END_HOUR = TIME_SLOT_RANGES['dawn-patrol'].endHour;
+type RowLiveness = NonNullable<WindowSelectorOptions['rowLiveness']>;
 
 // ============================================================================
 // Helper Functions
@@ -91,7 +93,8 @@ function prepareForecasts(
   todayDateStr: string,
   rideabilityBand: RideabilityBand | null,
   boardClasses: readonly BoardClass[],
-  userSkillLevel?: SkillLevel | string | null
+  userSkillLevel: SkillLevel | string | null,
+  rowLiveness: RowLiveness,
 ): ScoredForecast[] {
   const scoredForecasts = forecasts
     .map((forecast) => {
@@ -135,15 +138,23 @@ function prepareForecasts(
         localHourStr,
       };
     })
+    .filter(({ forecastTime }) => {
+      if (rowLiveness === 'until-next-row') return true;
+      // Only show windows that are still in progress or just ended.
+      const windowDurationMs = FORECAST_WINDOW_DURATION_MINUTES * 60 * 1000;
+      const toleranceMs = PAST_WINDOW_TOLERANCE_MINUTES * 60 * 1000;
+      const windowEndTime = new Date(forecastTime.getTime() + windowDurationMs);
+      const cutoffTime = new Date(now.getTime() - toleranceMs);
+      return windowEndTime >= cutoffTime;
+    })
     .sort((a, b) => a.forecastTime.getTime() - b.forecastTime.getTime());
 
-  // Derive cadence before filtering so elapsed rows still inform the final row.
+  if (rowLiveness === 'default') return scoredForecasts;
+  // Cadence must include elapsed rows, before daypart or liveness filtering.
   const rowEnds = forecastRowLiveEnds(scoredForecasts.map(({ forecastTime }) => forecastTime.getTime()));
-  const cutoffMs = now.getTime() - PAST_WINDOW_TOLERANCE_MINUTES * 60 * 1000;
-
-  return scoredForecasts.filter(({ forecastTime }) =>
-    (rowEnds.get(forecastTime.getTime()) ?? -Infinity) >= cutoffMs
-  );
+  return scoredForecasts.filter(({ forecastTime }) => (
+    (rowEnds.get(forecastTime.getTime()) ?? -Infinity) > now.getTime()
+  ));
 }
 
 /**
@@ -186,6 +197,11 @@ function filterByTimeSlot(
   });
 }
 
+function isExtendedRow(start: Date, now: Date, rowLiveness: RowLiveness): boolean {
+  const defaultLifetimeMs = (FORECAST_WINDOW_DURATION_MINUTES + PAST_WINDOW_TOLERANCE_MINUTES) * 60_000;
+  return rowLiveness === 'until-next-row' && start.getTime() + defaultLifetimeMs < now.getTime();
+}
+
 /**
  * Calculate the adjusted score for ranking windows.
  */
@@ -195,7 +211,8 @@ function calculateAdjustedScore(
   now: Date,
   isToday: boolean,
   isMorning: boolean,
-  beachTz: string
+  beachTz: string,
+  rowLiveness: RowLiveness,
 ): number {
   const rawHoursAhead = (startTime.getTime() - now.getTime()) / (1000 * 60 * 60);
   const hoursAhead = Math.max(0, rawHoursAhead);
@@ -206,11 +223,14 @@ function calculateAdjustedScore(
 
   // Start-soon bonus
   let soonBonus = 0;
-  if (hoursAhead <= 2) soonBonus = SOON_BONUS_2HR;
-  else if (hoursAhead <= 4) soonBonus = SOON_BONUS_4HR;
+  // Rows retained solely for coverage must not outrank a full upcoming session.
+  if (!isExtendedRow(startTime, now, rowLiveness)) {
+    if (hoursAhead <= 2) soonBonus = SOON_BONUS_2HR;
+    else if (hoursAhead <= 4) soonBonus = SOON_BONUS_4HR;
+  }
 
   // Underway bonus
-  const underwayBonus = rawHoursAhead < 0 ? UNDERWAY_BONUS : 0;
+  const underwayBonus = rawHoursAhead < 0 && !isExtendedRow(startTime, now, rowLiveness) ? UNDERWAY_BONUS : 0;
 
   // Morning priority
   const todayBonus = (isMorning && isToday) ? TODAY_BONUS_POINTS : 0;
@@ -363,6 +383,7 @@ interface NormalizedWindowSelectorOptions {
   timeSlot: TimeSlot | undefined;
   now: Date;
   maxWindows: number;
+  rowLiveness: RowLiveness;
   rideabilityBand: RideabilityBand | null;
   boardClasses: readonly BoardClass[];
   userSkillLevel: SkillLevel | string | null;
@@ -400,6 +421,7 @@ function normalizeWindowSelectorOptions(
       timeSlot,
       now: now ?? new Date(),
       maxWindows: maxWindows ?? DEFAULT_MAX_WINDOWS,
+      rowLiveness: 'default',
       rideabilityBand: null,
       boardClasses: [],
       userSkillLevel: null,
@@ -416,6 +438,7 @@ function normalizeWindowSelectorOptions(
     timeSlot: optionsOrForecasts.timeSlot,
     now: optionsOrForecasts.now ?? new Date(),
     maxWindows: optionsOrForecasts.maxWindows ?? DEFAULT_MAX_WINDOWS,
+    rowLiveness: optionsOrForecasts.rowLiveness ?? 'default',
     rideabilityBand: optionsOrForecasts.rideabilityBand ?? null,
     boardClasses: optionsOrForecasts.boardClasses ?? [],
     userSkillLevel: optionsOrForecasts.userSkillLevel ?? null,
@@ -608,6 +631,16 @@ export function selectBestWindows(
   now?: Date,
   maxWindows?: number
 ): PersonalizedForecastWindow[] {
+  const normalizedOptions = normalizeWindowSelectorOptions(
+    optionsOrForecasts,
+    beach,
+    userPrefs,
+    horizonHours,
+    sunTimesCache,
+    timeSlot,
+    now,
+    maxWindows,
+  );
   const {
     forecasts,
     beach: actualBeach,
@@ -616,20 +649,12 @@ export function selectBestWindows(
     timeSlot: actualTimeSlot,
     now: actualNow,
     maxWindows: actualMaxWindows,
+    rowLiveness,
     rideabilityBand: actualRideabilityBand,
     boardClasses: actualBoardClasses,
     userSkillLevel: actualUserSkillLevel,
     onRejection,
-  } = normalizeWindowSelectorOptions(
-    optionsOrForecasts,
-    beach,
-    userPrefs,
-    horizonHours,
-    sunTimesCache,
-    timeSlot,
-    now,
-    maxWindows
-  );
+  } = normalizedOptions;
 
   const windowLimit = Math.max(0, Math.floor(actualMaxWindows));
   if (windowLimit === 0) {
@@ -671,7 +696,8 @@ export function selectBestWindows(
     todayDateStr,
     actualRideabilityBand,
     actualBoardClasses,
-    actualUserSkillLevel
+    actualUserSkillLevel,
+    rowLiveness,
   );
   if (scoredForecasts.length === 0) {
     onRejection?.({ gate: 'past_forecast', observed: { count: forecasts.length } });
@@ -683,6 +709,11 @@ export function selectBestWindows(
   const sunTimes = actualSunTimesCache?.get(actualBeach.id);
   const sunsets = sunTimes?.sunsets || [];
   const sunrises = sunTimes?.sunrises || [];
+  const clampWindow = (start: Date, end: Date): ReturnType<typeof clampToUsableLight> => (
+    rowLiveness === 'until-next-row'
+      ? clampToLiveUsableLight(start, end, beachTz, actualNow, sunTimes)
+      : clampToUsableLight(start, end, beachTz, sunTimes)
+  );
 
   // Filter by time slot
   const filteredForecasts = filterByTimeSlot(
@@ -818,7 +849,7 @@ export function selectBestWindows(
       endTime = capEndTimeToTimeSlot(effectiveStartTime, endTime, actualTimeSlot, beachTz);
     }
 
-    const lit = clampToUsableLight(effectiveStartTime, endTime, beachTz, sunTimes);
+    const lit = clampWindow(effectiveStartTime, endTime);
     if (!lit) {
       reject({ gate: 'daylight', observed: { count: filteredForecasts.length } });
       log.debug(`[selectBestWindow] ${actualBeach.name}: Forecast ${i} window does not overlap usable light`);
@@ -842,7 +873,8 @@ export function selectBestWindows(
       actualNow,
       isToday,
       isMorning,
-      beachTz
+      beachTz,
+      rowLiveness,
     );
 
     candidateWindows.push({
@@ -876,6 +908,8 @@ export function selectBestWindows(
       getLocalDateStrForBeach,
       actualBeach.name, // Pass beach name for logging
       reject,
+      rowLiveness,
+      rowLiveness === 'until-next-row' ? clampWindow : undefined,
     );
     if (fallbackWindow) {
       candidateWindows.push({
@@ -891,6 +925,7 @@ export function selectBestWindows(
     return [];
   }
 
+  const expiredForecasts = new Set<EnhancedForecastEntity>();
   const refinedWindows = candidateWindows
     .sort(compareRankedWindows)
     .map((candidateWindow) => {
@@ -907,14 +942,25 @@ export function selectBestWindows(
         beachTz
       );
 
-      const lit = clampToLiveUsableLight(refinedTimes.start, refinedTimes.end, beachTz, actualNow, sunTimes);
-      if (!lit) return [];
+      const lit = clampWindow(refinedTimes.start, refinedTimes.end);
+      if (!lit) {
+        expiredForecasts.add(candidateWindow.forecast);
+        return [];
+      }
       return [{ ...candidateWindow, start: lit.start, end: lit.end }];
     })
     .flat()
     .map((candidateWindow) =>
       buildResult(candidateWindow, filteredForecasts, actualBeach, beachTz, actualNow)
     );
+
+  // Refinement can expire all above-threshold candidates and hide a live fallback.
+  if (rowLiveness === 'until-next-row' && refinedWindows.length === 0 && expiredForecasts.size > 0) {
+    return selectBestWindows({
+      ...normalizedOptions,
+      forecasts: forecasts.filter((forecast) => !expiredForecasts.has(forecast)),
+    });
+  }
 
   const nonOverlappingWindows: PersonalizedForecastWindow[] = [];
   for (const candidateWindow of refinedWindows) {
@@ -943,6 +989,8 @@ function selectFallbackWindow(
   getLocalDateStrForBeach: (d: Date) => string,
   beachName?: string, // For debug logging
   reject?: (rejection: CandidateRejection) => void,
+  rowLiveness: RowLiveness = 'default',
+  clampWindow?: (start: Date, end: Date) => ReturnType<typeof clampToUsableLight>,
 ): CandidateWindow | null {
   const logPrefix = beachName ? `[selectFallbackWindow] ${beachName}` : '[selectFallbackWindow]';
   const daylightForecasts = filteredForecasts.filter(({ forecastTime }, index) => {
@@ -964,16 +1012,20 @@ function selectFallbackWindow(
       }
     }
 
-    if (!isDaylightInterval(
+    const isLit = isDaylightInterval(
       forecastTime,
       forecastRowIntervalEnd(forecastTime, filteredForecasts[index + 1]?.forecastTime),
       beachTz,
       sunTimes,
-    )) return false;
-
-    const windowEnd = new Date(forecastTime.getTime() + MAX_WINDOW_HOURS * 60 * 60 * 1000);
-    const cappedEnd = capEndTimeToTimeSlot(forecastTime, windowEnd, timeSlot, beachTz);
-    return clampToLiveUsableLight(forecastTime, cappedEnd, beachTz, now, sunTimes) !== null;
+    );
+    if (!isLit || !clampWindow) return isLit;
+    const end = capEndTimeToTimeSlot(
+      forecastTime,
+      new Date(forecastTime.getTime() + MAX_WINDOW_HOURS * 3_600_000),
+      timeSlot,
+      beachTz,
+    );
+    return clampWindow(forecastTime, end) !== null;
   });
 
   if (daylightForecasts.length === 0) {
@@ -990,10 +1042,12 @@ function selectFallbackWindow(
     const hoursAhead = Math.max(0, rawHoursAhead);
 
     let soonBonus = 0;
-    if (hoursAhead <= 2) soonBonus = SOON_BONUS_2HR;
-    else if (hoursAhead <= 4) soonBonus = SOON_BONUS_4HR;
+    if (!isExtendedRow(f.forecastTime, now, rowLiveness)) {
+      if (hoursAhead <= 2) soonBonus = SOON_BONUS_2HR;
+      else if (hoursAhead <= 4) soonBonus = SOON_BONUS_4HR;
+    }
 
-    const underwayBonus = rawHoursAhead < 0 ? UNDERWAY_BONUS : 0;
+    const underwayBonus = rawHoursAhead < 0 && !isExtendedRow(f.forecastTime, now, rowLiveness) ? UNDERWAY_BONUS : 0;
 
     let bonus = 0;
     if (isMorning && f.isToday) {

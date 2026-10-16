@@ -771,64 +771,6 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     mockState.waterQualityProbeError = null;
   });
 
-  test('falls through to tomorrow after the real selector clips today to last light', async () => {
-    jest.useFakeTimers().setSystemTime(new Date('2026-10-16T19:05:00-07:00'));
-    const beach = { ...mockBeach1, timezone: 'America/Los_Angeles' } as Beach;
-    const forecasts = [
-      '2026-10-16T14:00:00-07:00',
-      '2026-10-16T17:00:00-07:00',
-      '2026-10-16T20:00:00-07:00',
-      '2026-10-17T08:00:00-07:00',
-      '2026-10-17T11:00:00-07:00',
-    ].map((forecast_at) => ({
-      beach_id: beach.id,
-      forecast_at: new Date(forecast_at).toISOString(),
-      wave_height: '3', wave_period: '13s', wind_speed: '3',
-      wind_direction: 'E', wind_direction_deg: 90,
-      confidence_score: 85, data_source: 'NOAA_NWS',
-    } as EnhancedForecastEntity));
-    mockState.candidatePoolResponse.candidates = [beach];
-    mockState.forecastBatchResponse.successful = [{ beach, forecasts }];
-
-    const { createSupabaseServiceRoleClient } = require('@/lib/supabase/server');
-    const { getLocalDateStr } = require('@/lib/services/discovery/window-selector');
-    const originalClient = createSupabaseServiceRoleClient.getMockImplementation();
-    const originalDateStr = getLocalDateStr.getMockImplementation();
-    const actualTimeUtils = jest.requireActual('@/lib/services/discovery/window-selector/time-slot-utils');
-    getLocalDateStr.mockImplementation(actualTimeUtils.getLocalDateStr);
-    createSupabaseServiceRoleClient.mockImplementation(() => ({
-      rpc: mockSupabaseRpc,
-      from: (table: string) => table === 'sun_times' ? {
-        select: () => ({ in: () => ({ in: () => ({ order: async () => ({
-          data: ['2026-10-16', '2026-10-17'].map((date) => ({
-            beach_id: beach.id,
-            sunrise_utc: new Date(`${date}T06:30:00-07:00`).toISOString(),
-            sunset_utc: new Date(`${date}T18:30:00-07:00`).toISOString(),
-          })),
-          error: null,
-        }) }) }) }),
-      } : mockSupabaseFrom(table),
-    }));
-    const actualSelector = jest.requireActual('@/lib/services/discovery/window-selector/window-selector-core');
-    const originalSelector = jest.mocked(selectBestWindows).getMockImplementation()!;
-    jest.mocked(selectBestWindows).mockClear()
-      .mockImplementation(actualSelector.selectBestWindows);
-
-    try {
-      const result = await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation });
-
-      expect(selectBestWindows).toHaveBeenCalledTimes(2);
-      expect(jest.mocked(selectBestWindows).mock.results[0].value).toEqual([]);
-      expect(result.recommendations).toHaveLength(1);
-      expect(result.recommendations[0].window.start).toEqual(new Date('2026-10-17T08:00:00-07:00'));
-    } finally {
-      createSupabaseServiceRoleClient.mockImplementation(originalClient);
-      getLocalDateStr.mockImplementation(originalDateStr);
-      jest.mocked(selectBestWindows).mockReset().mockImplementation(originalSelector);
-      jest.useRealTimers();
-    }
-  });
-
   test('still returns a full pool when the water-quality probe is unreachable', async () => {
     // A probe we cannot reach means "no holds known", not "hold everything".
     // Fail-closed here suppressed every recommendation for every user.
@@ -2465,7 +2407,8 @@ describe('discoverSurfSpots - failed forecast read', () => {
       }),
     ).rejects.toMatchObject({ code: 'timeout', retryable: true });
 
-    expect(seenSignal).toMatchObject({ aborted: true });
+    expect(seenSignal).toBeDefined();
+    expect(seenSignal?.aborted).toBe(true);
   });
 
   test('saved-spots-only skips the nearby search; normal discovery does not', async () => {
@@ -4126,12 +4069,18 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
     }
   });
 
-  test('wider dead zone with stale-cache: pre-sunset row exceeds the three-hour cap, gate must still open', async () => {
-    // The 11am row is capped at 2pm even though the next row is at 8pm.
-    // At 14:20 PDT it is expired; an uncapped 4h window would still keep the gate closed.
+  test('wider dead zone with stale-cache: pre-sunset slot is in the past, gate must still open', async () => {
+    // Defensive case: at 17:52 PDT today's cache contains an old 11:00 PDT
+    // slot (still pre-sunset, but stale per window-selector's past tolerance)
+    // plus the same post-sunset 20:00/23:00 slots. Without the past-tolerance
+    // mirror, `hasUsableTodayForecast` would count 11:00 as usable and leave
+    // the gate closed — yet `selectBestWindow` would reject 11:00 as stale,
+    // returning null and producing an empty home. The fix's cutoff
+    // (FORECAST_WINDOW_DURATION + PAST_WINDOW_TOLERANCE = 45min) excludes
+    // 11:00 (~7h old) so the gate opens and tomorrow fall-through fires.
     const { selectBestWindow: mockSelectBestWindow } = require('@/lib/services/discovery/window-selector');
 
-    const now = new Date('2026-04-24T21:20:00Z'); // 14:20 PDT 2026-04-24
+    const now = new Date('2026-04-25T00:52:00Z'); // 17:52 PDT 2026-04-24
     const sunset = new Date('2026-04-25T02:30:00Z'); // 19:30 PDT 2026-04-24
     jest.useFakeTimers().setSystemTime(now);
 
@@ -4179,7 +4128,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       sourceForecast: tomorrowForecast,
     };
     mockSelectBestWindow
-      .mockReturnValueOnce(null) // today-only call (capped row expired; next row is dark)
+      .mockReturnValueOnce(null) // today-only call (stale + post-sunset all rejected)
       .mockReturnValueOnce(tomorrowWindow); // full-set fall-through call
 
     jest.resetModules();

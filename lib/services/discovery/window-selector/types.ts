@@ -26,6 +26,7 @@ export interface WindowSelectorOptions {
   timeSlot?: TimeSlot;
   now?: Date;
   maxWindows?: number;
+  rowLiveness?: 'default' | 'until-next-row';
   rideabilityBand?: RideabilityBand | null;
   boardClasses?: readonly BoardClass[];
   userSkillLevel?: SkillLevel | string | null;

@@ -1,6 +1,6 @@
 import { localDateTimeToUTC } from '@/lib/utils/forecast-time-resolver';
 import { getLocalDateStr } from './window-selector/time-slot-utils';
-import { FORECAST_WINDOW_DURATION_MINUTES, PAST_WINDOW_TOLERANCE_MINUTES } from './window-selector/constants';
+import { FORECAST_WINDOW_DURATION_MINUTES } from './window-selector/constants';
 
 export interface BeachSunTimes {
   sunrises: Date[];
@@ -15,7 +15,6 @@ interface UsableLightInterval {
 const FIRST_LIGHT_BEFORE_SUNRISE_MS = 30 * 60_000;
 const LAST_LIGHT_AFTER_SUNSET_MS = 20 * 60_000;
 const FORECAST_ROW_FALLBACK_DURATION_MS = 60 * 60_000;
-// Selector liveness caps at 3h; Home Now's IMMEDIATE_FORECAST_BUCKET_MAX_HOURS (4) differs by design.
 const MAX_FORECAST_ROW_GAP_MS = 3 * 60 * 60_000;
 
 /** Derive row liveness for one beach before filtering elapsed rows or dayparts. */
@@ -144,8 +143,7 @@ export function clampToLiveUsableLight(
   sunTimes?: BeachSunTimes,
 ): UsableLightInterval | null {
   const lit = clampToUsableLight(start, end, timezone, sunTimes);
-  const cutoffMs = now.getTime() - PAST_WINDOW_TOLERANCE_MINUTES * 60 * 1000;
-  return lit && lit.end.getTime() > cutoffMs ? lit : null;
+  return lit && lit.end.getTime() > now.getTime() ? lit : null;
 }
 
 export function nextFirstLight(

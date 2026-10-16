@@ -327,6 +327,32 @@ describe('generateWeekScoutForecast', () => {
     expect(deps.fetchMatchEvidence).toHaveBeenCalledTimes(1);
   });
 
+  it('opts into row liveness so the 08:00 morning bucket remains open at 09:16', async () => {
+    const deps = dependencies();
+    deps.now = new Date('2026-07-31T19:16:00.000Z'); // 09:16 Honolulu
+    const rows = ['15:00', '18:00'].map((time) => (
+      forecast(BEACH_A, `2026-07-31T${time}:00.000Z`)
+    ));
+    deps.fetchBeaches = jest.fn(async () => [beach(BEACH_A, 'Ala Moana')]);
+    deps.fetchForecasts = jest.fn(async () => new Map([[BEACH_A, rows]]));
+    const actual = jest.requireActual('@/lib/services/discovery/window-selector/window-selector-core');
+    const selector = jest.fn((options: WindowSelectorOptions) => actual.selectBestWindows(options));
+    deps.selectBestWindows = selector as unknown as WeekScoutServiceDependencies['selectBestWindows'];
+
+    const response = await generateWeekScoutForecastForDays('user-week-scout', {
+      candidateBeachIds: [BEACH_A], localTimezone: 'Pacific/Honolulu',
+      startLocalDate: '2026-07-31', dayCount: 1,
+    }, deps);
+
+    const morning = response.days[0].windows.find(({ bucket }) => bucket === 'morning');
+    expect(morning).toMatchObject({ bucket: 'morning', start: rows[1].forecast_at });
+    expect(new Date(morning!.end).getTime()).toBeGreaterThan(deps.now.getTime());
+    expect(new Date(morning!.displayWindowEnd).getTime()).toBeGreaterThan(deps.now.getTime());
+    expect(selector).toHaveBeenCalledWith(expect.objectContaining({
+      rowLiveness: 'until-next-row', now: deps.now,
+    }));
+  });
+
   it('reuses canonical scoring for a two-day weekend request', async () => {
     const response = await generateWeekScoutForecastForDays(
       'user-week-scout',
