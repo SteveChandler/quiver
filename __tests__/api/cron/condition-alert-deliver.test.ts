@@ -1265,13 +1265,17 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     expectQueueReasonTotals(body);
   });
 
-  it("suppresses a queued alert whose best score is below the floor", async () => {
+  it.each([
+    { notifyEmail: true, notifyPush: false, channels: ["email"] },
+    { notifyEmail: false, notifyPush: true, channels: ["push"] },
+    { notifyEmail: true, notifyPush: true, channels: ["email", "push"] },
+  ])("records below-floor attempts for enabled channels $channels", async ({ notifyEmail, notifyPush, channels }) => {
     seedQueueRow({
       best_score: 0.09,
       alert_rules: {
         name: "Pipes low-score rule",
-        notify_email: true,
-        notify_push: false,
+        notify_email: notifyEmail,
+        notify_push: notifyPush,
       },
     });
     seedProfile({ notif_email_enabled: true, notif_push_enabled: false });
@@ -1284,7 +1288,14 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     expect(body.queue_marked_by_reason.delivered).toBe(0);
     expect(mockEmailsSend).not.toHaveBeenCalled();
     expect(mockEnqueueNotification).not.toHaveBeenCalled();
-    expect(store.attemptInserts).toHaveLength(0);
+    expect(store.attemptInserts).toEqual(channels.map((channel) => ({
+      queue_id: QUEUE_1,
+      rule_id: RULE_1,
+      user_id: USER_A,
+      channel,
+      status: "skipped_disabled",
+      skip_reason: "below_score_floor:score=0.09<floor 0.3",
+    })));
     expect(store.deliveryInserts).toHaveLength(0);
     expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
   });
@@ -1443,7 +1454,52 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
   });
 
-  it("fresh forecast revalidation skips stale queued alerts that no longer match", async () => {
+  it.each([
+    {
+      label: "window_ended_unrevalidated when fresh forecast rows are unavailable",
+      hasFreshRows: false,
+      skipReason: "window_ended_unrevalidated:window_end=2026-04-26T17:00:00Z",
+    },
+    {
+      label: "no_matching_window:no_actionable_window when the only fresh matching window already passed",
+      hasFreshRows: true,
+      skipReason: "no_matching_window:no_actionable_window",
+    },
+  ])("records $label for each enabled channel", async ({ hasFreshRows, skipReason }) => {
+    seedQueueRow({
+      window_end: "2026-04-26T17:00:00Z",
+      alert_rules: { name: "Test rule", notify_email: true, notify_push: true, conditions: { swell_height_min: 1 } },
+      beaches: { name: "Test Beach", lat: 32.77, lon: -117.25, timezone: "America/Los_Angeles" },
+    });
+    seedProfile();
+    if (hasFreshRows) {
+      store.forecastRows.push({ forecast_at: "2026-04-26T15:00:00Z", wave_height: "3 ft" });
+    }
+
+    const res = await GET(makeRequest());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body).toMatchObject({ skippedStale: 1, queue_marked_by_reason: { stale: 1 } });
+    expect(store.attemptInserts).toEqual(["email", "push"].map((channel) => ({
+      queue_id: QUEUE_1,
+      rule_id: RULE_1,
+      user_id: USER_A,
+      channel,
+      status: "skipped_stale_forecast",
+      skip_reason: skipReason,
+    })));
+    expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
+    expect(mockEmailsSend).not.toHaveBeenCalled();
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { fresh: { wave_height: "0.7 ft" }, failedCondition: "wave_height=0.7<min 1.5" },
+    { fresh: { wave_height: "4.1 ft" }, failedCondition: "wave_height=4.1>max 4" },
+    { fresh: { wave_height: null }, failedCondition: "wave_height=missing,expected min 1.5" },
+    { fresh: { wave_height: "3 ft", wind_speed: "12 kt" }, failedCondition: "wind_speed_kt=12>max 8" },
+  ])("fresh forecast revalidation records no_matching_window with $failedCondition", async ({ fresh, failedCondition }) => {
     process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     seedQueueRow({
@@ -1479,7 +1535,6 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     seedProfile({ notif_email_enabled: true, notif_push_enabled: false });
     store.forecastRows.push({
       forecast_at: "2026-04-26T15:00:00Z",
-      wave_height: "0.7 ft",
       wave_period: "8s",
       wave_direction: "W",
       swell_1_period: "8s",
@@ -1488,6 +1543,7 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
       wind_direction_deg: 225,
       tide_height: "2.8",
       tide_status: "Falling",
+      ...fresh,
     });
 
     const res = await GET(makeRequest());
@@ -1509,8 +1565,10 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
         rule_id: RULE_1,
         channel: "email",
         status: "skipped_stale_forecast",
+        skip_reason: expect.stringContaining(failedCondition),
       }),
     ]);
+    expect(store.attemptInserts[0].skip_reason).toMatch(/^no_matching_window:forecast_at=2026-04-26T15:00:00Z;/);
     expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
     expectQueueReasonTotals(body);
   });
@@ -2169,7 +2227,7 @@ describe("condition-alert-deliver — email quiet-hours guard", () => {
     expect(store.attemptInserts).toEqual([
       expect.objectContaining({
         queue_id: QUEUE_1, channel: "email", status: "skipped_stale_forecast",
-        skip_reason: expect.stringContaining("window expired"),
+        skip_reason: expect.stringMatching(/^window_ended_unrevalidated:window_end=2026-04-26T18:00:00Z/),
       }),
     ]);
     expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
