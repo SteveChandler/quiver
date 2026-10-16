@@ -92,7 +92,7 @@ function prepareForecasts(
   boardClasses: readonly BoardClass[],
   userSkillLevel?: SkillLevel | string | null
 ): ScoredForecast[] {
-  return forecasts
+  const scoredForecasts = forecasts
     .map((forecast) => {
       // Interpret forecast_date + forecast_time as LOCAL time in the beach timezone.
       // This avoids UTC boundary bugs where forecast_time stores local hours.
@@ -134,15 +134,25 @@ function prepareForecasts(
         localHourStr,
       };
     })
-    .filter(({ forecastTime }) => {
-      // Only show windows that are still in progress or just ended.
-      const windowDurationMs = FORECAST_WINDOW_DURATION_MINUTES * 60 * 1000;
-      const toleranceMs = PAST_WINDOW_TOLERANCE_MINUTES * 60 * 1000;
-      const windowEndTime = new Date(forecastTime.getTime() + windowDurationMs);
-      const cutoffTime = new Date(now.getTime() - toleranceMs);
-      return windowEndTime >= cutoffTime;
-    })
     .sort((a, b) => a.forecastTime.getTime() - b.forecastTime.getTime());
+
+  // Derive cadence before filtering so elapsed rows still inform the final row.
+  const times = [...new Set(scoredForecasts.map(({ forecastTime }) => forecastTime.getTime()))]
+    .filter(Number.isFinite)
+    .sort((a, b) => a - b);
+  const gaps = times.slice(1).map((time, index) => time - times[index]).sort((a, b) => a - b);
+  const middle = Math.floor(gaps.length / 2);
+  const minimumSpacingMs = FORECAST_WINDOW_DURATION_MINUTES * 60 * 1000;
+  const medianGapMs = gaps.length === 0
+    ? minimumSpacingMs
+    : gaps.length % 2 === 0 ? (gaps[middle - 1] + gaps[middle]) / 2 : gaps[middle];
+  const spacingMs = Math.min(3 * 60 * 60 * 1000, Math.max(minimumSpacingMs, medianGapMs));
+  const rowEnds = new Map(times.map((time, index) => [time, times[index + 1] ?? time + spacingMs]));
+  const cutoffMs = now.getTime() - PAST_WINDOW_TOLERANCE_MINUTES * 60 * 1000;
+
+  return scoredForecasts.filter(({ forecastTime }) =>
+    (rowEnds.get(forecastTime.getTime()) ?? -Infinity) >= cutoffMs
+  );
 }
 
 /**

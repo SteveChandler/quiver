@@ -50,8 +50,8 @@ export const MAX_WINDOW_HOURS = 4;
 // ============================================================================
 
 /**
- * Duration of each forecast window in minutes.
- * Forecasts represent 30-minute prediction windows.
+ * Minimum/default row spacing in minutes when cadence cannot be observed.
+ * Row liveness otherwise follows the next row or the derived forecast cadence.
  */
 export const FORECAST_WINDOW_DURATION_MINUTES = 30;
 

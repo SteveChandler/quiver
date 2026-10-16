@@ -2407,8 +2407,7 @@ describe('discoverSurfSpots - failed forecast read', () => {
       }),
     ).rejects.toMatchObject({ code: 'timeout', retryable: true });
 
-    expect(seenSignal).toBeDefined();
-    expect(seenSignal?.aborted).toBe(true);
+    expect(seenSignal).toMatchObject({ aborted: true });
   });
 
   test('saved-spots-only skips the nearby search; normal discovery does not', async () => {
@@ -4069,15 +4068,9 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
     }
   });
 
-  test('wider dead zone with stale-cache: pre-sunset slot is in the past, gate must still open', async () => {
-    // Defensive case: at 17:52 PDT today's cache contains an old 11:00 PDT
-    // slot (still pre-sunset, but stale per window-selector's past tolerance)
-    // plus the same post-sunset 20:00/23:00 slots. Without the past-tolerance
-    // mirror, `hasUsableTodayForecast` would count 11:00 as usable and leave
-    // the gate closed — yet `selectBestWindow` would reject 11:00 as stale,
-    // returning null and producing an empty home. The fix's cutoff
-    // (FORECAST_WINDOW_DURATION + PAST_WINDOW_TOLERANCE = 45min) excludes
-    // 11:00 (~7h old) so the gate opens and tomorrow fall-through fires.
+  test('wider dead zone with stale-cache: final pre-sunset row is expired, gate must still open', async () => {
+    // With no later row today, the final 11am row uses the default spacing.
+    // At 17:52 PDT it is expired, so the mirror must allow tomorrow's fallback.
     const { selectBestWindow: mockSelectBestWindow } = require('@/lib/services/discovery/window-selector');
 
     const now = new Date('2026-04-25T00:52:00Z'); // 17:52 PDT 2026-04-24
@@ -4085,7 +4078,6 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
     jest.useFakeTimers().setSystemTime(now);
 
     const stalePreSunsetIso = '2026-04-24T18:00:00.000Z'; // 11:00 PDT today (stale)
-    const todayPostSunsetIso = '2026-04-25T03:00:00.000Z'; // 20:00 PDT today
     const tomorrowDawnIso = '2026-04-25T14:00:00.000Z'; // ~07:00 PDT next morning
 
     const stalePreSunset: Partial<EnhancedForecastEntity> = {
@@ -4093,14 +4085,6 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       forecast_at: stalePreSunsetIso,
       forecast_date: stalePreSunsetIso.split('T')[0],
       forecast_time: '11:00:00',
-      wave_height: '2.0', wave_period: '12s', wind_speed: '6',
-      wind_direction_deg: 270, tide_status: 'Rising', data_source: 'CDIP',
-    };
-    const todayPostSunset: Partial<EnhancedForecastEntity> = {
-      beach_id: 'beach-1',
-      forecast_at: todayPostSunsetIso,
-      forecast_date: todayPostSunsetIso.split('T')[0],
-      forecast_time: '20:00:00',
       wave_height: '2.0', wave_period: '12s', wind_speed: '6',
       wind_direction_deg: 270, tide_status: 'Rising', data_source: 'CDIP',
     };
@@ -4114,7 +4098,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
     };
 
     mockState.forecastBatchResponse = {
-      successful: [{ beach: mockBeach1, forecasts: [stalePreSunset, todayPostSunset, tomorrowForecast] }],
+      successful: [{ beach: mockBeach1, forecasts: [stalePreSunset, tomorrowForecast] }],
       failed: [],
       staleCount: 0,
     };
@@ -4128,7 +4112,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       sourceForecast: tomorrowForecast,
     };
     mockSelectBestWindow
-      .mockReturnValueOnce(null) // today-only call (stale + post-sunset all rejected)
+      .mockReturnValueOnce(null) // today-only call (final row expired)
       .mockReturnValueOnce(tomorrowWindow); // full-set fall-through call
 
     jest.resetModules();

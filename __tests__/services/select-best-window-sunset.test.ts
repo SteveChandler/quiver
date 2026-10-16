@@ -389,14 +389,14 @@ describe('selectBestWindow with lookback (current window)', () => {
     expect(result!.start).toEqual(new Date('2026-01-13T17:00:00Z'));
   });
 
-  it('excludes window that started more than 3 hours ago', () => {
+  it('keeps a sparse row live until the next forecast plus tolerance', () => {
     // Set "now" to 1pm PT = 21:00 UTC
     jest.setSystemTime(new Date('2026-01-13T21:00:00Z'));
 
     const forecasts = [
       createMockForecast({
         forecast_date: '2026-01-13',
-        forecast_time: '09:00:00', // 9am PT, 4 hours ago - should be excluded
+        forecast_time: '09:00:00', // Still represents conditions until the 2pm row
       }),
       createMockForecast({
         forecast_date: '2026-01-13',
@@ -408,9 +408,8 @@ describe('selectBestWindow with lookback (current window)', () => {
     const result = selectBestWindow(forecasts, beach, null, 24);
 
     expect(result).not.toBeNull();
-    // Should select 2pm (the 9am is too old)
-    // 2pm PST = 22:00 UTC
-    expect(result!.start).toEqual(new Date('2026-01-13T22:00:00Z'));
+    // The next row is at 2pm, so the underway 9am row is still live at 1pm.
+    expect(result!.start).toEqual(new Date('2026-01-13T17:00:00Z'));
   });
 
   it('does not give bonus to past-start windows via negative decay', () => {

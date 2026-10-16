@@ -923,13 +923,26 @@ export function hasUsableTodayForecastForFallback(args: {
   sunTimes?: { sunrises: Date[]; sunsets: Date[] };
   now: Date;
 }): boolean {
-  const pastToleranceMs =
-    (FORECAST_WINDOW_DURATION_MINUTES + PAST_WINDOW_TOLERANCE_MINUTES) * 60 * 1000;
-  const usableCutoffMs = args.now.getTime() - pastToleranceMs;
+  // Match the selector's per-beach cadence, including when only the final row remains.
+  const rows = args.forecasts.map((forecast) => ({
+    forecast,
+    forecastTime: resolveForecastTime(forecast, args.beachTz),
+  }));
+  const times = [...new Set(rows.map(({ forecastTime }) => forecastTime.getTime()))]
+    .filter(Number.isFinite)
+    .sort((a, b) => a - b);
+  const gaps = times.slice(1).map((time, index) => time - times[index]).sort((a, b) => a - b);
+  const middle = Math.floor(gaps.length / 2);
+  const minimumSpacingMs = FORECAST_WINDOW_DURATION_MINUTES * 60 * 1000;
+  const medianGapMs = gaps.length === 0
+    ? minimumSpacingMs
+    : gaps.length % 2 === 0 ? (gaps[middle - 1] + gaps[middle]) / 2 : gaps[middle];
+  const spacingMs = Math.min(3 * 60 * 60 * 1000, Math.max(minimumSpacingMs, medianGapMs));
+  const rowEnds = new Map(times.map((time, index) => [time, times[index + 1] ?? time + spacingMs]));
+  const usableCutoffMs = args.now.getTime() - PAST_WINDOW_TOLERANCE_MINUTES * 60 * 1000;
 
-  return args.forecasts.some((forecast) => {
-    const forecastTime = resolveForecastTime(forecast, args.beachTz);
-    if (!Number.isFinite(forecastTime.getTime()) || forecastTime.getTime() < usableCutoffMs) {
+  return rows.some(({ forecast, forecastTime }) => {
+    if ((rowEnds.get(forecastTime.getTime()) ?? -Infinity) < usableCutoffMs) {
       return false;
     }
     const rowEnd = getForecastRowEnd(forecast, args.forecasts, args.beachTz);
