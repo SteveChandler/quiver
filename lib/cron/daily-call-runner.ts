@@ -412,6 +412,15 @@ function evaluateForecast(
   });
 }
 
+function forecastCoverageEnd(
+  forecast: EnhancedForecastEntity,
+  nextForecast: EnhancedForecastEntity | undefined,
+): number {
+  // Missing grid rows leave a gap rather than extending the previous forecast.
+  const gridEnd = Date.parse(forecast.forecast_at) + GRID_MS;
+  return Math.min(gridEnd, nextForecast ? Date.parse(nextForecast.forecast_at) : gridEnd);
+}
+
 function forecastsServingWindow(
   forecasts: EnhancedForecastEntity[],
   window: RefinedWindow,
@@ -424,11 +433,7 @@ function forecastsServingWindow(
     Date.parse(left.forecast_at) - Date.parse(right.forecast_at));
   return sorted.filter((forecast, index) => {
     const at = Date.parse(forecast.forecast_at);
-    // Missing grid rows leave a gap rather than extending the previous forecast.
-    const coverageEnd = Math.min(
-      at + GRID_MS,
-      sorted[index + 1] ? Date.parse(sorted[index + 1].forecast_at) : at + GRID_MS,
-    );
+    const coverageEnd = forecastCoverageEnd(forecast, sorted[index + 1]);
     return coverageEnd > liveStart && at < windowEnd;
   });
 }
@@ -725,8 +730,14 @@ async function buildSharedCall(
     .sort((left, right) => right.score - left.score)[0];
   if (!evaluation) return { skip: "no_in_window_row", heldReasons };
   const peakMs = Date.parse(pick.peakTime);
-  const peak = serving.findLast((forecast) => Date.parse(forecast.forecast_at) <= peakMs) ?? serving[0];
-  if (verdictById.get(peak.id) !== "go") return { skip: "ranking_verdict_mismatch", heldReasons };
+  const sorted = [...forecasts].sort((left, right) =>
+    Date.parse(left.forecast_at) - Date.parse(right.forecast_at));
+  const peakIndex = sorted.findLastIndex((forecast) =>
+    serving.includes(forecast) && Date.parse(forecast.forecast_at) <= peakMs);
+  const peak = sorted[peakIndex];
+  if (!peak || forecastCoverageEnd(peak, sorted[peakIndex + 1]) <= peakMs || verdictById.get(peak.id) !== "go") {
+    return { skip: "ranking_verdict_mismatch", heldReasons };
+  }
   const decision = decisionForWindow(profile, entry, evaluation, winner.window, timezone, now);
   if (decision.verdict !== "go") return { skip: "ranking_verdict_mismatch", heldReasons };
   winner.sourceForecast = evaluation.forecast;

@@ -343,7 +343,7 @@ describe("daily call advertised window decisions", () => {
     const asOf = hour === 6 ? runNow : new Date(at(hour));
     const pick = {
       id: "shared-pick", beachId: blacksId, start: at(5), end: at(10),
-      displayWindowStart: sunriseAt, displayWindowEnd: at(10), peakTime: at(5),
+      displayWindowStart: sunriseAt, displayWindowEnd: at(10), peakTime: at(8),
       conditionScore: 84, personalVerdict: "go", isBeachDayBest: true, rankedSpots: [],
     } as unknown as WeekScoutWindowResponse;
     const mocked: DailyCallDeps & DailyCallRankingDeps = {
@@ -947,6 +947,48 @@ describe("shared ranking (flag on)", () => {
     });
   });
 
+  it("rejects an uncovered 10:45 peak in a 07:00–11:00 window with the 08:00 row missing", async () => {
+    const pick = window(blacksId, {
+      displayWindowStart: "2026-09-16T14:00:00.000Z", displayWindowEnd: "2026-09-16T18:00:00.000Z",
+      peakTime: "2026-09-16T17:45:00.000Z",
+    });
+    const evaluate = verdict.getMockImplementation()!;
+    verdict.mockImplementation((args) => ({
+      ...evaluate(args), score: args.forecast.forecast_time === "11:00:00" ? 10 : 84,
+      verdict: args.forecast.forecast_time === "11:00:00" ? "no" : "go",
+    }));
+    const mocked = sharedDeps(day([pick]), {
+      loadBeachDay: async () => ({ forecasts: [5, 11].map((hour) => gridForecast(blacksId, hour)), tideSamples: null }),
+    });
+    const result = await runDailyCallCron({ now: new Date("2026-09-16T13:08:00.000Z"), supabase, deps: mocked });
+    expect(result).toMatchObject({
+      sent: 0, silent: 1, errors: 0,
+      skippedCounts: { ranking_verdict_mismatch: 1, no_in_window_row: 0 },
+    });
+    expect(mocked.enqueue).not.toHaveBeenCalled();
+  });
+
+  it("sends when the 08:00 go row covers the 10:45 peak in a 07:00–11:00 window", async () => {
+    const pick = window(blacksId, {
+      displayWindowStart: "2026-09-16T14:00:00.000Z", displayWindowEnd: "2026-09-16T18:00:00.000Z",
+      peakTime: "2026-09-16T17:45:00.000Z",
+    });
+    const evaluate = verdict.getMockImplementation()!;
+    verdict.mockImplementation((args) => ({
+      ...evaluate(args), score: args.forecast.forecast_time === "11:00:00" ? 10 : 84,
+      verdict: args.forecast.forecast_time === "11:00:00" ? "no" : "go",
+    }));
+    const mocked = sharedDeps(day([pick]), {
+      loadBeachDay: async () => ({ forecasts: [5, 8, 11].map((hour) => gridForecast(blacksId, hour)), tideSamples: null }),
+    });
+    const result = await runDailyCallCron({ now: new Date("2026-09-16T13:08:00.000Z"), supabase, deps: mocked });
+    expect(result).toMatchObject({ sent: 1, errors: 0, skippedCounts: { ranking_verdict_mismatch: 0 } });
+    expect(jest.mocked(mocked.enqueue).mock.calls[0][0].payload).toMatchObject({
+      window_start: pick.displayWindowStart, window_end: pick.displayWindowEnd,
+      session_decision: { verdict: "go", expiresAt: pick.displayWindowEnd },
+    });
+  });
+
   it("counts no_in_window_row when all serving rows are non-go", async () => {
     const nearest = sourceForecast(blacksId, { id: "nearest", forecast_at: "2026-09-16T18:00:00.000Z" });
     verdict.mockReturnValue({ forecast: nearest, verdict: "maybe" } as ForecastVerdict);
@@ -1015,6 +1057,7 @@ describe("shared ranking (flag on)", () => {
   it.each([6, 7])("shared dawn window uses 05:00 coverage at %s:08", async (hour) => {
     const pick = window(blacksId, {
       displayWindowStart: "2026-09-16T13:54:00.000Z", displayWindowEnd: "2026-09-16T15:00:00.000Z",
+      peakTime: "2026-09-16T14:00:00.000Z",
     });
     const mocked = sharedDeps(day([pick]), {
       loadProfiles: async () => [{ ...profile, dailyCallTime: `${String(hour).padStart(2, "0")}:00` }],
@@ -1052,6 +1095,7 @@ describe("shared ranking (flag on)", () => {
   ])("keeps option heights and the home comparison with $label", async ({ start, end, peak, height }) => {
     const lead = poolBeach("30000000-0000-4000-8000-000000000001", "Lead", "nearby");
     const pick = window(lead.beach.id, {
+      peakTime: "2026-09-16T18:00:00.000Z",
       rankedSpots: [{ beachId: ospreyId, personalVerdict: "go" }] as WeekScoutWindowResponse["rankedSpots"],
     });
     const option = window(ospreyId, {
