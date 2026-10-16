@@ -253,6 +253,8 @@ for (const viewport of [{ width: 1400, height: 1000 }, { width: 390, height: 844
     });
     if (viewport.width === 390) test("native embed opens a sourced conditions card on one tap", async ({ page }) => {
       await page.goto("/embed/map?lat=32.728&lon=-117.258&zoom=13&timeline=hourly");
+      await expect(page.getByRole("button", { name: "All" })).toBeVisible();
+      await expect(page.getByLabel("Conditions legend")).toHaveCount(0);
       await page.waitForFunction(() => Boolean((window as any).__quiverMapInstance?.getLayer("quiver-swell-field")));
       for (const active of [false, true]) {
         await page.evaluate((active) => window.postMessage({ type: "setActive", payload: { active } }, "*"), active);
@@ -269,6 +271,17 @@ for (const viewport of [{ width: 1400, height: 1000 }, { width: 390, height: 844
       await page.screenshot({ path: ".planning/evidence/map-polish/native-embed.png" });
       await card.locator("[data-callout-name]").click();
       await expect(card).toHaveCount(0);
+    });
+    if (viewport.width === 390) test("keeps the All colour key clear of the forecast scrubber at 375px", async ({ page }) => {
+      await page.setViewportSize({ width: 375, height: 844 });
+      await page.goto("/embed/map?layer=combined");
+      const key = page.getByRole("group", { name: "Particle colours" });
+      const scrubber = page.getByRole("group", { name: "Forecast scrubber" });
+      await expect(key).toBeVisible();
+      await expect(scrubber).toBeVisible();
+      const keyBox = await key.boundingBox();
+      const scrubberBox = await scrubber.boundingBox();
+      expect(keyBox!.y + keyBox!.height).toBeLessThan(scrubberBox!.y);
     });
     test("keeps selection and time aligned, clips land, and allows coastal travel", async ({ page }) => {
       const response = await page.goto("/map?search=Osprey%20Point");

@@ -1,4 +1,6 @@
 import {
+  describeWaterFeel,
+  formatWetsuitPhrase,
   getWetsuitRecommendation,
   parseWaterTempF,
   formatWaterTemp,
@@ -162,5 +164,26 @@ describe("formatWaterTemp", () => {
   it("rounds decimal temperatures", () => {
     expect(formatWaterTemp(65.4)).toBe("65°F");
     expect(formatWaterTemp(65.6)).toBe("66°F");
+  });
+});
+
+describe("describeWaterFeel", () => {
+  it.each([
+    [75, "warm"],
+    [72, "warm"],
+    [68, "mild"],
+    [64, "cool"],
+    [58, "cool"],
+    [57, "cold"],
+  ] as const)("calls %s°F %s, on the wetsuit bands", (tempF, feel) => {
+    expect(describeWaterFeel(tempF)).toBe(feel);
+  });
+});
+
+describe("formatWetsuitPhrase", () => {
+  it("reads naturally mid-sentence", () => {
+    expect(formatWetsuitPhrase(getWetsuitRecommendation(75))).toBe("boardshorts");
+    expect(formatWetsuitPhrase(getWetsuitRecommendation(68))).toBe("a spring suit (2mm)");
+    expect(formatWetsuitPhrase(getWetsuitRecommendation(64))).toBe("a 3/2mm fullsuit");
   });
 });

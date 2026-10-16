@@ -1,3 +1,5 @@
+import { findPhotoPlaceConflict } from "./beach-photo-place-guard";
+
 export interface BeachPhotoTarget {
   slug: string;
   name: string;
@@ -260,6 +262,7 @@ export function candidateFromOpenverseResult(
   const licenseUrl = result.license_url ?? null;
   const title = result.title ?? null;
   if (hasLowValueSeoTitle(title)) return null;
+  if (findPhotoPlaceConflict(title, target)) return null;
 
   return {
     targetSlug: target.slug,

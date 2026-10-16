@@ -49,6 +49,45 @@ export const TIME_SLOT_RANGES: Record<TimeSlot, { startHour: number; endHour: nu
 
 export type SurfDiscoveryMode = 'best-window' | 'now';
 
+export interface CandidateRejection {
+  gate:
+    | 'candidate_pool'
+    | 'forecast_rows'
+    | 'forecast_alignment'
+    | 'past_forecast'
+    | 'time_slot'
+    | 'score_floor'
+    | 'horizon'
+    | 'daylight'
+    | 'session_duration'
+    | 'window_selection'
+    | 'water_quality_hold'
+    | 'saved_spot_eligibility'
+    | 'skill_gate'
+    | 'ranking';
+  observed?: {
+    count?: number;
+    score?: number;
+    hoursAhead?: number;
+    durationHours?: number;
+    waveHeightFt?: number;
+    status?: string;
+    skill?: string;
+    forecastAt?: string;
+  };
+  allowed?: {
+    minimumScore?: number;
+    maximumHoursAhead?: number;
+    maximumDeltaMinutes?: number;
+    minimumDurationHours?: number;
+    minimumWaveHeightFt?: number;
+    maximumWaveHeightFt?: number;
+    status?: string;
+    skill?: string;
+  };
+  detail?: string;
+}
+
 /**
  * Optimal surf window within a forecast period
  * 
@@ -407,6 +446,8 @@ export interface SurfDiscoveryRecommendation {
  * Surf discovery response with multiple ranked recommendations
  */
 export interface SurfDiscoveryResponse {
+  /** Why an explicitly included beach produced no recommendation. */
+  candidateRejections?: Record<string, CandidateRejection>;
   emptyReason?: "no_recommendable_saved_window_72h";
   firstLight?: string;
   lastLight?: string;

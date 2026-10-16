@@ -403,6 +403,7 @@ export async function getLocationPageData(
           location,
           stats: locationStats,
           beaches: rankedBeaches,
+          islandSlug: hiParsed?.islandSlug ?? undefined,
         };
 
         return result;

@@ -10,6 +10,20 @@ export interface TimelineDaySegment {
 const dateTimeFormatterByTimezone = new Map<string, Intl.DateTimeFormat>();
 const HOUR_MS = 60 * 60 * 1000;
 const MAX_CALENDAR_HORIZON_HOURS = 14 * 24;
+export const PLAYBACK_TARGET_DURATION_MS = 18_000;
+const MIN_PLAYBACK_FRAME_MS = 50;
+const MAX_PLAYBACK_FRAME_MS = 750;
+
+// Shared by the playback controller (committed frames) and the timeline view (thumb
+// animation) so the time label and the visible thumb advance on the same clock.
+export function getPlaybackVisualFrameMs(timestampCount: number): number {
+  const frameCount = Math.max(1, Math.floor(timestampCount) - 1);
+  const targetFrameMs = PLAYBACK_TARGET_DURATION_MS / frameCount;
+  return Math.min(
+    MAX_PLAYBACK_FRAME_MS,
+    Math.max(MIN_PLAYBACK_FRAME_MS, targetFrameMs),
+  );
+}
 
 function getDateTimeFormatter(timezone: string): Intl.DateTimeFormat {
   const cached = dateTimeFormatterByTimezone.get(timezone);

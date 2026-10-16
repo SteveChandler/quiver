@@ -1,5 +1,6 @@
 import {
   DAILY_CALL_LOCATION_FIX_MAX_AGE_HOURS,
+  isAwayFromHome,
   resolveLocationAnchor,
   type LocationAnchor,
   type LocationSnapshot,
@@ -201,6 +202,7 @@ function skippedCounts(): Record<string, number> {
     held_water_quality_hold: 0,
     held_hold_state_unavailable: 0,
     no_clear_window: 0,
+    away_from_home: 0,
   };
 }
 
@@ -711,12 +713,14 @@ function defaultDeps(
     isEnabled: isDailyCallEnabled,
     isUserAllowed: isDailyCallUserAllowed,
     loadProfiles,
+    // A trusted fix sets the clock too: a surfer in Philadelphia gets a 6 AM call
+    // at 6 AM Eastern, not 6 AM at their Pacific home.
     resolveTimezone: (profile) => resolveBeachTimezone(
-      profile.timezone ?? profile.homeBeach?.timezone ?? profile.location?.timezone,
+      profile.location?.timezone ?? profile.timezone ?? profile.homeBeach?.timezone,
     ),
     getSunrise: (profile, now) => {
-      const lat = profile.homeBeach?.lat ?? profile.location?.lat;
-      const lon = profile.homeBeach?.lon ?? profile.location?.lon;
+      const lat = profile.location?.lat ?? profile.homeBeach?.lat;
+      const lon = profile.location?.lon ?? profile.homeBeach?.lon;
       return lat == null || lon == null ? null : getDaylightWindow(lat, lon, now).sunrise;
     },
     loadPool: loadUserPool,
@@ -836,18 +840,24 @@ export async function runDailyCallCron(args: {
         continue;
       }
       const alertDate = getLocalDateString(args.now, timezone);
+      // Home-beach picks are for a place the surfer is not; say nothing rather than send them.
+      if (source === "home" && isAwayFromHome(loadedProfile.location, args.now, profile.homeBeach)) {
+        increment(summary, "away_from_home");
+        summary.silent += 1;
+        continue;
+      }
       if (await deps.alreadySentToday(profile.id, alertDate)) {
         increment(summary, "already_sent_today");
         continue;
       }
-      // The same nearest-beach cap as Home's Week Scout, so the two choose from one list.
+      // The same skill-first cap as Home's Week Scout, so the two choose from one list.
       const { pool } = capNearbyPool(await deps.loadPool({
         supabase,
         userId: profile.id,
         homeBeachId: profile.homeBeachId,
         location: anchor,
         maxDriveMinutes: profile.maxDriveMinutes,
-      }));
+      }), { experienceLevel: profile.experienceLevel });
       if (pool.length === 0) {
         increment(summary, "no_pool");
         summary.silent += 1;
@@ -963,6 +973,11 @@ export async function runDailyCallCron(args: {
       } else {
         increment(summary, "enqueue_failed");
         summary.errors += 1;
+        console.error("[daily-call] enqueue failed", {
+          userId: profile.id,
+          reason: enqueueResult.reason,
+          message: enqueueResult.message,
+        });
       }
     } catch (error) {
       console.error(`[daily-call] Error processing ${profile.id}:`, error);

@@ -368,7 +368,8 @@ async function _GET(request: Request): Promise<Response> {
     const { data: favorites, error: favoritesError } = await supabase
       .from("favorite_beaches")
       .select("user_id, beach_id, rank")
-      .in("user_id", activeUserIds);
+      .in("user_id", activeUserIds)
+      .not("beach_id", "is", null);
 
     if (favoritesError) {
       throw new Error(`Failed to query favorite_beaches: ${favoritesError.message}`);

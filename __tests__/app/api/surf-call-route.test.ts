@@ -63,6 +63,10 @@ jest.mock("@/lib/domains/scoring/discovery-adapter", () => {
 });
 
 const mockResolveCanonicalSessionDecisionContext = jest.fn();
+const mockResolveWaterQualityHolds = jest.fn();
+jest.mock("@/lib/recommendations/major-event-hold/water-quality", () => ({
+  resolveWaterQualityHolds: (...args: unknown[]) => mockResolveWaterQualityHolds(...args),
+}));
 jest.mock("@/lib/recommendations/canonical-decision", () => ({
   resolveCanonicalSessionDecisionContext: (...args: unknown[]) =>
     mockResolveCanonicalSessionDecisionContext(...args),
@@ -165,6 +169,7 @@ describe("GET /api/surf/call", () => {
     mockRequestUser = mockUser;
     mockInvalidCredentials = false;
     mockGetProfileExperienceLevel.mockResolvedValue("intermediate");
+    mockResolveWaterQualityHolds.mockResolvedValue({ state: "resolved", heldBeachIds: [], waterQualityStatusByBeachId: {}, epoch: "empty" });
     const decision = {
       schemaVersion: "canonical-session-decision.v1",
       engineVersion: "rules.v1",
@@ -242,6 +247,150 @@ describe("GET /api/surf/call", () => {
     mockResolveCanonicalSessionDecisionContext.mockResolvedValue(
       canonicalContext,
     );
+  });
+
+  it.each([
+    ["site advisory", "advisory", { source: "county", countyKind: "site", checkedAt: "2026-10-14T20:00:43Z" }],
+    ["closure", "closure", { source: "county", countyKind: "site", checkedAt: "2026-10-14T20:00:43Z" }],
+    ["owner hold", undefined, { source: "hold" }],
+  ])("exposes a held %s independent of the forecast candidate", async (_label, status, evidence) => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    canonicalContext.discovery.recommendations = [];
+    canonicalContext.decision.selection = null;
+    mockResolveWaterQualityHolds.mockResolvedValueOnce({
+      state: "resolved", heldBeachIds: [beachId],
+      waterQualityStatusByBeachId: status ? { [beachId]: status } : {},
+      waterQualityEvidenceByBeachId: { [beachId]: evidence }, epoch: "held",
+    });
+    mockBeachQuery({ id: beachId, name: "Ocean Beach Pier", slug: "ocean-beach-pier", lat: 32.75, lon: -117.25, timezone: "America/Los_Angeles", deleted_at: null });
+    const response = await GET(new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}`));
+    expect(response.status).toBe(200);
+    expect((await response.json()).data.waterQuality).toEqual({ status: status ?? "hold", ...evidence });
+    expect(mockResolveWaterQualityHolds).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns null for an unheld or unresolved beach", async () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    mockBeachQuery({ id: beachId, name: "Ocean Beach Pier", slug: "ocean-beach-pier", lat: 32.75, lon: -117.25, timezone: "America/Los_Angeles", deleted_at: null });
+    const response = await GET(new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}`));
+    expect((await response.json()).data.waterQuality).toBeNull();
+    expect(mockResolveWaterQualityHolds).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns the live County closure for an owner-held beach", async () => {
+    const beachId = "9e94759c-d531-4e5c-9bc2-d022acea9dcd";
+    const checkedAt = "2026-10-15T20:00:00Z";
+    canonicalContext.discovery.recommendations = [];
+    canonicalContext.decision.selection = null;
+    mockResolveWaterQualityHolds.mockResolvedValueOnce({
+      state: "resolved", heldBeachIds: [beachId],
+      waterQualityStatusByBeachId: { [beachId]: "closure" },
+      waterQualityEvidenceByBeachId: { [beachId]: { source: "county", countyKind: "site", checkedAt } },
+      epoch: "owner-held-county-closure",
+    });
+    mockBeachQuery({ id: beachId, name: "Imperial Beach", slug: "imperial-beach", lat: 32.58, lon: -117.13,
+      timezone: "America/Los_Angeles", deleted_at: null });
+
+    const response = await GET(new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}`));
+
+    expect(response.status).toBe(200);
+    expect((await response.json()).data.waterQuality).toEqual({
+      status: "closure", source: "county", countyKind: "site", checkedAt,
+    });
+    expect(mockResolveWaterQualityHolds).toHaveBeenCalledTimes(1);
+  });
+
+  it("reads the requested beach when no forecast candidate produced a hold resolution", async () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    canonicalContext.discovery.recommendations = [];
+    canonicalContext.decision.selection = null;
+    mockResolveWaterQualityHolds.mockResolvedValueOnce({ state: "resolved", heldBeachIds: [beachId],
+      waterQualityStatusByBeachId: { [beachId]: "closure" },
+      waterQualityEvidenceByBeachId: { [beachId]: { source: "county", countyKind: "site", checkedAt: "2026-10-14T20:00:43Z" } }, epoch: "held" });
+    mockBeachQuery({ id: beachId, name: "Ocean Beach Pier", slug: "ocean-beach-pier", lat: 32.75, lon: -117.25, timezone: "America/Los_Angeles", deleted_at: null });
+    const response = await GET(new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}`));
+    expect(response.status).toBe(200);
+    expect((await response.json()).data.waterQuality).toEqual({ status: "closure", source: "county", countyKind: "site", checkedAt: "2026-10-14T20:00:43Z" });
+    expect(mockResolveWaterQualityHolds).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns null for an unresolved hold read", async () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    mockResolveWaterQualityHolds.mockResolvedValueOnce({ state: "unresolved", heldBeachIds: [beachId], waterQualityStatusByBeachId: { [beachId]: "advisory" }, epoch: "unknown" });
+    mockBeachQuery({ id: beachId, name: "Ocean Beach Pier", slug: "ocean-beach-pier", lat: 32.75, lon: -117.25, timezone: "America/Los_Angeles", deleted_at: null });
+    const response = await GET(new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}`));
+    expect((await response.json()).data.waterQuality).toBeNull();
+  });
+
+  it("looks up an uppercase beachId in normalized hold evidence", async () => {
+    const beachId = "9e94759c-d531-4e5c-9bc2-d022acea9dcd";
+    const checkedAt = "2026-10-15T20:00:00Z";
+    mockResolveWaterQualityHolds.mockResolvedValueOnce({ state: "resolved", heldBeachIds: [beachId],
+      waterQualityStatusByBeachId: { [beachId]: "closure" },
+      waterQualityEvidenceByBeachId: { [beachId]: { source: "county", countyKind: "site", checkedAt } }, epoch: "held" });
+    mockBeachQuery({ id: beachId, name: "Imperial Beach", slug: "imperial-beach", lat: 32.58, lon: -117.13,
+      timezone: "America/Los_Angeles", deleted_at: null });
+
+    const response = await GET(new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId.toUpperCase()}`));
+
+    expect(response.status).toBe(200);
+    expect((await response.json()).data.waterQuality).toEqual({ status: "closure", source: "county", countyKind: "site", checkedAt });
+  });
+
+  it("starts the direct hold read before the canonical decision finishes", async () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    let finishCanonical!: (value: typeof canonicalContext) => void;
+    let markStarted!: () => void;
+    const started = new Promise<void>((resolve) => { markStarted = resolve; });
+    const canonical = new Promise<typeof canonicalContext>((resolve) => { finishCanonical = resolve; });
+    mockResolveCanonicalSessionDecisionContext.mockImplementationOnce(() => {
+      markStarted();
+      return canonical;
+    });
+    mockBeachQuery({ id: beachId, name: "Ocean Beach Pier", slug: "ocean-beach-pier", lat: 32.75, lon: -117.25,
+      timezone: "America/Los_Angeles", deleted_at: null });
+
+    const responsePromise = GET(new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}`));
+    await started;
+    const directReadCount = mockResolveWaterQualityHolds.mock.calls.length;
+    finishCanonical(canonicalContext);
+    const response = await responsePromise;
+
+    expect(directReadCount).toBe(1);
+    expect(response.status).toBe(200);
+  });
+
+  it("handles a late hold rejection after the canonical decision fails", async () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    const consoleError = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    let rejectHold!: (error: Error) => void;
+    const hold = new Promise<never>((_resolve, reject) => { rejectHold = reject; });
+    const holdError = new Error("late hold failure");
+    mockResolveWaterQualityHolds.mockReturnValueOnce(hold);
+    mockResolveCanonicalSessionDecisionContext.mockRejectedValueOnce(new Error("canonical failure"));
+    mockBeachQuery({ id: beachId, name: "Ocean Beach Pier", slug: "ocean-beach-pier", lat: 32.75, lon: -117.25,
+      timezone: "America/Los_Angeles", deleted_at: null });
+
+    try {
+      const response = await GET(new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}`));
+      rejectHold(holdError);
+      await hold.catch(() => undefined);
+      expect(response.status).toBe(503);
+      expect(consoleError).toHaveBeenCalledWith("[surf-call:water-quality-error]", holdError);
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  it("keeps the surf call successful when the hold read throws", async () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    const consoleError = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    mockResolveWaterQualityHolds.mockRejectedValueOnce(new Error("hold read failed"));
+    mockBeachQuery({ id: beachId, name: "Ocean Beach Pier", slug: "ocean-beach-pier", lat: 32.75, lon: -117.25, timezone: "America/Los_Angeles", deleted_at: null });
+    const response = await GET(new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}`));
+    expect(response.status).toBe(200);
+    expect((await response.json()).data.waterQuality).toBeNull();
+    consoleError.mockRestore();
   });
 
   it("returns the general surf call to anonymous viewers without entitlements", async () => {
@@ -594,7 +743,7 @@ describe("GET /api/surf/call", () => {
     expect(body.data.report.verdict).toBe("NO");
     expect(body.data.report.score).toBeNull();
     expect(body.data.report.whySentence).toBe(
-      "No personalized surf candidate was available for this call.",
+      "No personalized forecast window was available for Ocean Beach Pier.",
     );
     expect(body.data.forecastAlignment).toEqual({
       requestedForecastAt: forecastAt,
@@ -714,6 +863,7 @@ describe("GET /api/surf/call", () => {
       verdict: "no",
       decisionBasis: "safety_override",
       reasonCode: "water_quality_closure",
+      candidateRejection: { gate: 'water_quality_hold', observed: { status: 'closure' }, allowed: { status: 'open' } },
       selection: null,
     };
     canonicalContext.discovery.recommendationAvailability = {
@@ -739,7 +889,7 @@ describe("GET /api/surf/call", () => {
       verdict: "NO",
       bestWindowStart: null,
       bestWindowEnd: null,
-      whySentence: "Water quality is closed at this spot.",
+      whySentence: "Water quality is closed at Ocean Beach Pier; an open status is required.",
     });
     expect(body.data.sessionDecision).toMatchObject({
       verdict: "no",
@@ -747,6 +897,88 @@ describe("GET /api/surf/call", () => {
       reasonCode: "water_quality_closure",
       selection: null,
     });
+  });
+
+  it('explains candidate loss without presenting the public window as a personal selection', async () => {
+    const beachId = '11111111-1111-4111-8111-111111111111';
+    canonicalContext.decision = {
+      ...canonicalContext.decision,
+      verdict: 'no',
+      decisionBasis: 'safety_override',
+      reasonCode: 'no_candidates',
+      candidateRejection: { gate: 'daylight', observed: { count: 2 } },
+      selection: null,
+    };
+    mockBeachQuery({ id: beachId, name: 'Ocean Beach Pier', slug: 'ocean-beach-pier', lat: 32.75, lon: -117.25, timezone: 'America/Los_Angeles', deleted_at: null });
+
+    const response = await GET(new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}`));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data.sessionDecision.candidateRejection).toEqual({ gate: 'daylight', observed: { count: 2 } });
+    expect(body.data.candidateRejection).toEqual({ gate: 'daylight', observed: { count: 2 } });
+    expect(body.data.report).toMatchObject({ verdict: 'NO', bestWindowStart: null, bestWindowEnd: null, score: null });
+    expect(body.data.report.whySentence).toContain('No forecast hours for Ocean Beach Pier fall in daylight');
+    expect(body.data.report.whySentence).not.toMatch(/unsafe|safe surf window|8:00|8:30/i);
+    expect(body.data.objectiveWindow).toEqual({ start: '2026-05-08T22:30:00.000Z', end: '2026-05-09T01:30:00.000Z' });
+  });
+
+  it.each(['no_candidates', 'water_quality_closure'])('names an advisory for %s without calling the beach closed', async (reasonCode) => {
+    const beachId = '11111111-1111-4111-8111-111111111111';
+    canonicalContext.decision = {
+      ...canonicalContext.decision,
+      verdict: 'no', decisionBasis: 'safety_override', reasonCode,
+      candidateRejection: { gate: 'water_quality_hold', observed: { status: 'advisory' }, allowed: { status: 'open' } },
+      selection: null,
+    };
+    mockBeachQuery({ id: beachId, name: 'Ocean Beach Pier', slug: 'ocean-beach-pier', lat: 32.75, lon: -117.25, timezone: 'America/Los_Angeles', deleted_at: null });
+
+    const response = await GET(new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}`));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data.report.whySentence).toBe('Water quality is under an advisory at Ocean Beach Pier; an open status is required.');
+    expect(body.data.report.whySentence).not.toContain('closed');
+    expect(body.data.sessionDecision.reasonCode).toBe(reasonCode);
+  });
+
+  it('states the observed wave height and the profile skill range', async () => {
+    const beachId = '11111111-1111-4111-8111-111111111111';
+    canonicalContext.decision = {
+      ...canonicalContext.decision,
+      verdict: 'no',
+      decisionBasis: 'safety_override',
+      reasonCode: 'wave_height_exceeds_skill',
+      candidateRejection: { gate: 'skill_gate', observed: { waveHeightFt: 7.2 }, allowed: { skill: 'intermediate', minimumWaveHeightFt: 1, maximumWaveHeightFt: 6 } },
+      selection: null,
+    };
+    mockBeachQuery({ id: beachId, name: 'Ocean Beach Pier', slug: 'ocean-beach-pier', lat: 32.75, lon: -117.25, timezone: 'America/Los_Angeles', deleted_at: null });
+
+    const response = await GET(new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}`));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data.report.whySentence).toBe('Forecast 7.2 ft exceeds the intermediate safety range of 1-6 ft.');
+    expect(body.data.report.bestWindowStart).toBeNull();
+  });
+
+  it('names the beginner safety range applied for unknown skill', async () => {
+    const beachId = '11111111-1111-4111-8111-111111111111';
+    canonicalContext.decision = {
+      ...canonicalContext.decision,
+      verdict: 'no', decisionBasis: 'safety_override', reasonCode: 'wave_height_exceeds_skill',
+      skillEligibility: { skill: 'unknown', state: 'insufficient_safety_data', reasonCodes: ['unknown_skill'] },
+      candidateRejection: { gate: 'skill_gate', observed: { waveHeightFt: 6 }, allowed: { skill: 'beginner', minimumWaveHeightFt: 0.5, maximumWaveHeightFt: 4 } },
+      selection: null,
+    };
+    mockBeachQuery({ id: beachId, name: 'Ocean Beach Pier', slug: 'ocean-beach-pier', lat: 32.75, lon: -117.25, timezone: 'America/Los_Angeles', deleted_at: null });
+
+    const response = await GET(new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}`));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data.report.whySentence).toBe('Forecast 6 ft exceeds the beginner safety range of 0.5-4 ft applied when skill is unknown.');
+    expect(body.data.report.whySentence).not.toContain('your beginner');
   });
 
   it("uses a valid boardClass as exact-window explanation context", async () => {
@@ -803,6 +1035,10 @@ describe("GET /api/surf/call", () => {
     });
     const holdClient = {};
     const load = jest.fn(async () => ({ data: [], error: null }));
+    mockResolveWaterQualityHolds.mockImplementation(async () => {
+      await memoizedWaterQualityRead(holdClient, "held", load);
+      return { state: "resolved", heldBeachIds: [], waterQualityStatusByBeachId: {}, epoch: "empty" };
+    });
     mockResolveCanonicalSessionDecisionContext.mockImplementation(async () => {
       // Discovery and the canonical decision each read the hold tables.
       await memoizedWaterQualityRead(holdClient, "held", load);

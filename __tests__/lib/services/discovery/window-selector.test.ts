@@ -10,6 +10,7 @@ import type { EnhancedForecastEntity } from '@/types/forecast';
 import { toForecastForScoring } from '@/lib/scoring';
 import { getConditionBoardPick } from '@/lib/scoring/board-pick';
 import { scoreWindowForSelection } from '@/lib/services/discovery/window-selector/window-scorer';
+import { moreInformativeRejection } from '@/lib/services/discovery/window-selector/rejection-evidence';
 import { getDiscoveryScoringEngine } from '@/lib/domains/scoring';
 
 // Mock beaches
@@ -89,6 +90,24 @@ import {
   scoreWindowConditionDetails,
   scoreWindowConditionScore,
 } from '@/lib/services/discovery/window-selector';
+
+describe('window rejection evidence', () => {
+  it('keeps the highest rejected score with its own threshold', () => {
+    const first = { gate: 'score_floor' as const, observed: { score: 31 }, allowed: { minimumScore: 50 } };
+    const best = { gate: 'score_floor' as const, observed: { score: 39 }, allowed: { minimumScore: 40 } };
+    const last = { gate: 'score_floor' as const, observed: { score: 35 }, allowed: { minimumScore: 50 } };
+
+    expect(moreInformativeRejection(moreInformativeRejection(moreInformativeRejection(null, first), best), last)).toEqual(best);
+  });
+
+  it('prefers the gate furthest reached regardless of row order', () => {
+    const daylight = { gate: 'daylight' as const, observed: { count: 2 } };
+    const horizon = { gate: 'horizon' as const, observed: { hoursAhead: 32 }, allowed: { maximumHoursAhead: 24 } };
+
+    expect(moreInformativeRejection(daylight, horizon)).toEqual(daylight);
+    expect(moreInformativeRejection(horizon, daylight)).toEqual(daylight);
+  });
+});
 
 describe('window selection scoring', () => {
   it('should expose composite reasons separately from the native condition score', () => {
@@ -776,14 +795,32 @@ describe('selectBestWindows', () => {
   });
 
   it('should return an empty array for no candidates', () => {
+    const onRejection = jest.fn();
     const windows = selectBestWindows({
       forecasts: [],
       beach: mockBeach as Beach,
       userPrefs: null,
       now: fixedNow,
+      onRejection,
     });
 
     expect(windows).toEqual([]);
+    expect(onRejection).toHaveBeenCalledWith({ gate: 'forecast_rows', observed: { count: 0 } });
+  });
+
+  it('uses window selection when no gate was evaluated', () => {
+    const onRejection = jest.fn();
+    const windows = selectBestWindows({
+      forecasts: [createForecast({})],
+      beach: mockBeach as Beach,
+      userPrefs: null,
+      now: fixedNow,
+      maxWindows: 0,
+      onRejection,
+    });
+
+    expect(windows).toEqual([]);
+    expect(onRejection).toHaveBeenCalledWith({ gate: 'window_selection' });
   });
 
   it('should use injected now instead of wall-clock time', () => {
@@ -3051,6 +3088,7 @@ describe('selectBestWindows fallback horizon constraint', () => {
   });
 
   it('returns no window when every daylight slot is beyond the horizon', () => {
+    const onRejection = jest.fn();
     const forecasts = [
       betterDaylightForecast('2024-01-17T18:00:00Z'), // ~61h ahead
       betterDaylightForecast('2024-01-18T18:00:00Z'), // ~85h ahead
@@ -3062,8 +3100,44 @@ describe('selectBestWindows fallback horizon constraint', () => {
       userPrefs: null,
       now: nightNow,
       horizonHours: 24,
+      onRejection,
     });
 
     expect(windows).toHaveLength(0);
+    expect(onRejection).toHaveBeenCalledWith(expect.objectContaining({ gate: 'horizon', allowed: { maximumHoursAhead: 24 } }));
+  });
+
+  it('records the daylight gate when every remaining row is overnight', () => {
+    const onRejection = jest.fn();
+    const windows = selectBestWindows({
+      forecasts: [createForecast({ forecast_at: '2024-01-15T10:00:00Z', forecast_date: '2024-01-15', forecast_time: '02:00' })],
+      beach: mockBeach as Beach,
+      userPrefs: null,
+      now: nightNow,
+      onRejection,
+    });
+
+    expect(windows).toHaveLength(0);
+    expect(onRejection).toHaveBeenCalledWith({ gate: 'daylight', observed: { count: 1 } });
+  });
+
+  it('keeps a later gate reached by an earlier row when another row ends at the horizon gate', () => {
+    const onRejection = jest.fn();
+    const forecasts = [
+      betterDaylightForecast('2024-01-15T10:00:00Z'), // 02:00 PT, within horizon but dark
+      betterDaylightForecast('2024-01-17T18:00:00Z'), // daylight beyond horizon
+    ];
+
+    const windows = selectBestWindows({
+      forecasts,
+      beach: mockBeach as Beach,
+      userPrefs: null,
+      now: nightNow,
+      horizonHours: 24,
+      onRejection,
+    });
+
+    expect(windows).toHaveLength(0);
+    expect(onRejection).toHaveBeenCalledWith({ gate: 'daylight', observed: { count: 2 } });
   });
 });

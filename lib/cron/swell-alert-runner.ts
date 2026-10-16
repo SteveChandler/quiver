@@ -1,4 +1,9 @@
-import { resolveLocationAnchor, type LocationAnchor, type LocationSnapshot } from "@/lib/alerts/location-freshness";
+import {
+  isAwayFromHome,
+  resolveLocationAnchor,
+  type LocationAnchor,
+  type LocationSnapshot,
+} from "@/lib/alerts/location-freshness";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { evaluateForecastVerdict, type ForecastVerdict } from "@/lib/alerts/canonical-forecast-verdict";
@@ -52,7 +57,6 @@ import { isDailyCallEnabled, isDailyCallUserAllowed } from "@/lib/flags/daily-ca
 import { isSharedCallRankingEnabled, isSharedCallRankingUserAllowed } from "@/lib/flags/shared-call-ranking";
 import { isSwellAlertEnabled, isSwellAlertUserAllowed } from "@/lib/flags/swell-alert";
 import { isSwellFollowupEnabled, isSwellFollowupUserAllowed } from "@/lib/flags/swell-followup";
-import { resolveEntitlement, type Tier } from "@/lib/alerts/entitlements";
 import { SWELL_FOLLOWUP_THRESHOLDS } from "@/lib/alerts/swell-followup/change-detection";
 import {
   decideSend,
@@ -62,9 +66,13 @@ import {
   type SwellSendKind,
 } from "@/lib/alerts/swell-outlook/engagement";
 import {
+  bestWindowSentence,
   buildFirstSightingPayload,
+  FIRST_SIGHTING_BODY_MAX_CHARS,
   firstSightingFaceHeightFt,
   selectFirstSightingCandidates,
+  surfWindowPayload,
+  tideReasonSentence,
   type FirstSightingHazard,
 } from "@/lib/alerts/swell-outlook/first-sighting";
 import {
@@ -75,6 +83,7 @@ import {
   saveSwellOutlookUserState,
 } from "@/lib/alerts/swell-outlook/state";
 import { findTideAwareWindow, type TideAwareWindowResult } from "@/lib/alerts/surf-window/tide-aware-window";
+import { isTideReasonEligibleBeach } from "@/lib/alerts/surf-window/unverified-tide-bands";
 import { isSwellOutlookEnabled, isSwellOutlookUserAllowed, isSwellOutlookTideWindowEnabled } from "@/lib/flags/swell-outlook";
 import { loadSwellOutlookForUser } from "@/lib/services/discovery/swell-outlook-loader";
 import type { OutlookSwell, StoredOutlookList } from "@/lib/services/discovery/swell-outlook-types";
@@ -147,6 +156,8 @@ export interface SwellAlertProfile {
   homeBeachId: string | null;
   location: { lat: number; lon: number } | null;
   anchorSource?: LocationAnchor["source"];
+  /** The anchor fell back to home, but a fix from the last 72 h is over 100 mi from it. */
+  awayFromHome?: boolean;
   maxDriveMinutes: number | null;
   experienceLevel: string | null;
   preferredSessionTime?: SessionTime | null;
@@ -264,12 +275,18 @@ export interface SwellOutlookDeps {
   saveEngagement: (userId: string, transition: SwellOutlookStateTransition) => Promise<void>;
   hasFirstSightingAlert: (userId: string, eventKeys: string[]) => Promise<boolean>;
   assessSwellRarity: (profile: SwellAlertProfile, swell: OutlookSwell, now: Date) => Promise<boolean>;
-  getTier: (userId: string) => Promise<Tier>;
-  loadFirstSightingWindow?: (profile: SwellAlertProfile, swell: OutlookSwell, now: Date) => Promise<TideAwareWindowResult>;
+  loadSurfWindow?: (profile: SwellAlertProfile, event: SwellWindowEvent, now: Date) => Promise<TideAwareWindowResult>;
   /** Official hazard at the lead beach for the push text; null when none or the lookup fails. */
   loadFirstSightingHazard?: (beachId: string, timezone: string, now: Date) => Promise<FirstSightingHazard | null>;
   /** Km from the resolved location or home anchor, to each beach; empty when neither is known. */
   loadBeachDistancesKm?: (profile: SwellAlertProfile, beachIds: readonly string[]) => Promise<ReadonlyMap<string, number>>;
+}
+
+interface SwellWindowEvent {
+  beachId: string;
+  arrivalAt: string | null;
+  peakAt: string;
+  fadeAt: string | null;
 }
 
 type RunnerDeps = SwellAlertDeps & SwellFollowupDeps & Partial<SwellOutlookDeps>
@@ -436,6 +453,7 @@ async function loadProfiles(
       homeBeachId: row.home_beach_id,
       location: anchor,
       anchorSource: source,
+      awayFromHome: source === "home" && isAwayFromHome(joined, now, row.home_beach),
       maxDriveMinutes: row.max_drive_minutes,
       experienceLevel: row.experience_level,
       preferredSessionTime: parseSessionTime(row.preferred_session_time),
@@ -730,7 +748,7 @@ async function evaluatePool(
 
   return {
     history,
-    poolBeachIds: capNearbyPool(pool).pool.map(({ beach }) => beach.id),
+    poolBeachIds: capNearbyPool(pool, { experienceLevel: profile.experienceLevel }).pool.map(({ beach }) => beach.id),
     anchor: profile.location,
     candidates: candidates.filter(
       (candidate): candidate is SwellAlertCandidate => candidate !== null,
@@ -968,16 +986,6 @@ async function loadSwellRarityAssessor(
   };
 }
 
-async function getOutlookTier(client: ServiceClient, userId: string): Promise<Tier> {
-  const { data, error } = await client
-    .from("user_entitlements")
-    .select("is_pro, is_trialing, billing_issue, expires_at")
-    .eq("user_id", userId)
-    .maybeSingle();
-  if (error) throw new Error(`Failed to load outlook entitlement: ${error.message}`);
-  return resolveEntitlement(userId, data);
-}
-
 function defaultDependencies(args: {
   now: Date;
   supabase?: ServiceClient;
@@ -1101,10 +1109,8 @@ function defaultDependencies(args: {
         }
         return (await assessor)(swell);
       }),
-    getTier: args.deps?.getTier
-      ?? ((userId) => getOutlookTier(getClient(), userId)),
-    loadFirstSightingWindow: args.deps?.loadFirstSightingWindow
-      ?? ((profile, swell, now) => loadFirstSightingWindow(getClient(), firstSightingTideCache, profile, swell, now)),
+    loadSurfWindow: args.deps?.loadSurfWindow
+      ?? ((profile, event, now) => loadSurfWindow(getClient(), firstSightingTideCache, profile, event, now)),
     loadFirstSightingHazard: args.deps?.loadFirstSightingHazard
       ?? ((beachId, timezone, now) => loadFirstSightingHazard(getClient(), beachId, timezone, now)),
     loadBeachDistancesKm: args.deps?.loadBeachDistancesKm
@@ -1147,6 +1153,15 @@ async function sendFollowups(
   now: Date,
   gate?: EngagementGate,
 ): Promise<void> {
+  const radiusKm = driveRadiusMiles(profile.maxDriveMinutes) * 1.609344;
+  let distanceKmByBeach: ReadonlyMap<string, number> | null = null;
+  if (gate && states.length > 0 && deps.loadBeachDistancesKm) {
+    try {
+      distanceKmByBeach = await deps.loadBeachDistancesKm(profile, [...new Set(states.map((state) => state.beachId))]);
+    } catch (error) {
+      console.warn(`[swell-alert] Follow-up distance lookup failed for ${profile.id}:`, error);
+    }
+  }
   for (const state of states) {
     summary.followupsEvaluated += 1;
     try {
@@ -1166,12 +1181,24 @@ async function sendFollowups(
         increment(summary, "followup_window_closed");
         continue;
       }
+      if (gate) {
+        const distanceKm = distanceKmByBeach?.get(state.beachId);
+        if (distanceKm === undefined || !Number.isFinite(distanceKm)) {
+          increment(summary, "followup_distance_unavailable");
+          continue;
+        }
+        if (distanceKm > radiusKm) {
+          increment(summary, "followup_out_of_range");
+          continue;
+        }
+      }
 
       const pinned = await deps.evaluatePinned(profile, state, now);
       if (!pinned.beach || !pinned.forecastAvailable) {
         increment(summary, "followup_no_forecast");
         continue;
       }
+      const pinnedBeach = pinned.beach;
       const event = pinned.event;
       const kind = detectSwellFollowupKind({
         told,
@@ -1195,6 +1222,14 @@ async function sendFollowups(
         continue;
       }
 
+      if (gate) {
+        const decision = decideSend(gate.state, now, "followup", false);
+        if (!decision.ok) {
+          increment(summary, decision.reason);
+          continue;
+        }
+      }
+
       // A dropped swell has no current numbers, so the push restates what was last told.
       const shown = kind !== "dropped" && event
         ? {
@@ -1211,8 +1246,22 @@ async function sendFollowups(
             periodS: state.lastPeriodS,
             directionDeg: state.lastDirectionDeg,
           };
+      const surfWindow = kind !== "dropped" && isSwellOutlookTideWindowEnabled()
+        ? await Promise.resolve().then(() => deps.loadSurfWindow?.(profile, {
+          beachId: pinnedBeach.id,
+          arrivalAt: shown.arrivalAt,
+          peakAt: shown.peakAt,
+          fadeAt: event?.fadeAt ?? null,
+        }, now)).catch((error: unknown) => {
+          console.warn(`[swell-alert] Follow-up window computation failed for ${pinnedBeach.id}:`, error);
+          return undefined;
+        })
+        : undefined;
+      const recommended = surfWindow?.state === "recommended" ? surfWindow.window : null;
       const held = await deps.resolveHeldBeaches({
-        candidates: [forecastSlotCandidate("followup", pinned.beach.id, shown.peakAt)],
+        candidates: [recommended
+          ? { candidateId: "followup", beachId: pinned.beach.id, startsAt: recommended.start, endsAt: recommended.end }
+          : forecastSlotCandidate("followup", pinned.beach.id, shown.peakAt)],
         profileExperience: profile.experienceLevel,
         asOf: now,
       });
@@ -1244,7 +1293,7 @@ async function sendFollowups(
         peakDayLabel,
         serious,
       });
-      const body = renderSwellFollowupBody({
+      const baseBody = renderSwellFollowupBody({
         kind,
         titleId: headline.titleId,
         vars: {
@@ -1257,13 +1306,23 @@ async function sendFollowups(
           prev_day: weekday(previousPeakDate),
         },
       });
-      if (!body) {
+      if (!baseBody) {
         increment(summary, "followup_no_copy");
         continue;
+      }
+      const windowSentence = recommended ? bestWindowSentence(recommended) : null;
+      let body = baseBody;
+      if (windowSentence && body.length + 1 + windowSentence.length <= FIRST_SIGHTING_BODY_MAX_CHARS) {
+        body = `${body} ${windowSentence}`;
+        const reasonSentence = tideReasonSentence(surfWindow?.reasons ?? []);
+        if (reasonSentence && body.length + 1 + reasonSentence.length <= FIRST_SIGHTING_BODY_MAX_CHARS) {
+          body = `${body} ${reasonSentence}`;
+        }
       }
 
       const payload = parseMajorSwellNotificationPayload({
         schema_version: MAJOR_SWELL_NOTIFICATION_SCHEMA_VERSION,
+        ...(profile.anchorSource ? { anchor_source: profile.anchorSource } : {}),
         beach_id: pinned.beach.id,
         ...(pinned.beach.slug ? { beach_slug: pinned.beach.slug } : {}),
         beach_name: pinned.beach.name,
@@ -1281,6 +1340,7 @@ async function sendFollowups(
         enforcement: null,
         title: headline.headline,
         body,
+        ...(surfWindow ? { surf_window: surfWindowPayload(surfWindow) } : {}),
         beaches: [{ beach_id: pinned.beach.id, beach_name: beachName, rank: 1 }],
         event_key: state.eventKey,
         title_id: headline.titleId,
@@ -1289,14 +1349,6 @@ async function sendFollowups(
         previous_peak_height_ft: state.lastFaceHeightFt,
         previous_peak_date: previousPeakDate,
       });
-
-      if (gate) {
-        const decision = decideSend(gate.state, now, "followup", false);
-        if (!decision.ok) {
-          increment(summary, decision.reason);
-          continue;
-        }
-      }
 
       const claimed = await deps.claimFollowup(state, {
         ...shown,
@@ -1334,6 +1386,26 @@ async function sendFollowups(
   }
 }
 
+/** An away surfer gets no follow-ups, but pins for swells that have passed still close. */
+async function closeExpiredFollowups(
+  deps: RunnerDeps,
+  summary: SwellAlertRunSummary,
+  profile: SwellAlertProfile,
+  states: readonly SwellFollowupState[],
+  now: Date,
+): Promise<void> {
+  for (const state of states) {
+    if (!isSwellFollowupExpired({ peakAt: state.lastPeakAt }, now)) continue;
+    try {
+      await deps.closeFollowupState(state, "passed", now);
+      increment(summary, "followup_expired");
+    } catch (error) {
+      console.error(`[swell-alert] Error on follow-up ${state.eventKey} for ${profile.id}:`, error);
+      summary.errors += 1;
+    }
+  }
+}
+
 function laterInstant(left: string | null, right: string | null): string | null {
   if (left === null) return right;
   if (right === null) return left;
@@ -1350,21 +1422,21 @@ function isOutlookRecipient(deps: RunnerDeps, userId: string): deps is OutlookRu
   return deps.isOutlookEnabled?.() === true
     && deps.isOutlookUserAllowed?.(userId) === true
     && Boolean(deps.loadOutlook && deps.loadEngagement && deps.saveEngagement
-      && deps.hasFirstSightingAlert && deps.assessSwellRarity && deps.getTier);
+      && deps.hasFirstSightingAlert && deps.assessSwellRarity);
 }
 
-async function loadFirstSightingWindow(
+async function loadSurfWindow(
   client: ServiceClient,
   tideCache: TideCache,
   profile: SwellAlertProfile,
-  swell: OutlookSwell,
+  event: SwellWindowEvent,
   now: Date,
 ): Promise<TideAwareWindowResult> {
-  const { data: beach, error } = await client.from("beaches").select("*").eq("id", swell.beach.id).maybeSingle();
+  const { data: beach, error } = await client.from("beaches").select("*").eq("id", event.beachId).maybeSingle();
   if (error) throw new Error(`Failed to load surf-window beach: ${error.message}`);
-  if (!beach) throw new Error(`Surf-window beach ${swell.beach.id} unavailable`);
+  if (!beach) throw new Error(`Surf-window beach ${event.beachId} unavailable`);
   const timezone = resolveBeachTimezone(beach.timezone);
-  const arrivalAt = swell.arrivalAt ?? swell.peakAt;
+  const arrivalAt = event.arrivalAt ?? event.peakAt;
   const startDate = getLocalDateString(new Date(arrivalAt), timezone);
   const endDate = addCivilDays(startDate, 3);
   const start = localDateTimeToUTC(startDate, "02:00:00", timezone);
@@ -1374,9 +1446,9 @@ async function loadFirstSightingWindow(
     loadTideSamples(client, tideCache, beach.id, start.toISOString(), end.toISOString()),
   ]);
   const verdictFor = makeVerdictFor({ ...profile, timezone }, now);
-  return findTideAwareWindow({ beach, forecasts, tideSamples, arrivalAt, peakAt: swell.peakAt,
-    fadeAt: swell.fadeAt ?? null, timezone, now, skillLevel: profile.experienceLevel,
-    verdictFor: (row) => verdictFor(row, beach) });
+  return findTideAwareWindow({ beach, forecasts, tideSamples, arrivalAt, peakAt: event.peakAt,
+    fadeAt: event.fadeAt, timezone, now, skillLevel: profile.experienceLevel,
+    verdictFor: (row) => verdictFor(row, beach), isTideReasonEligible: isTideReasonEligibleBeach });
 }
 
 async function sendFirstSighting(
@@ -1386,7 +1458,6 @@ async function sendFirstSighting(
   now: Date,
   followupEnabled: boolean,
   gate: EngagementGate,
-  tier: Tier,
 ): Promise<void> {
   const hour = getLocalHour(now, profile.timezone);
   if (hour < SWELL_FOLLOWUP_THRESHOLDS.earliestLocalHour || hour > SWELL_FOLLOWUP_THRESHOLDS.latestLocalHour) {
@@ -1404,8 +1475,6 @@ async function sendFirstSighting(
     });
   const candidates = selectFirstSightingCandidates({
     swells,
-    homeBeachId: profile.homeBeachId,
-    tier,
     distanceKmByBeach,
   });
 
@@ -1442,7 +1511,9 @@ async function sendFirstSighting(
     }
 
     const windowPromise = Promise.resolve().then(() =>
-      isSwellOutlookTideWindowEnabled() ? deps.loadFirstSightingWindow?.(profile, swell, now) : undefined,
+      isSwellOutlookTideWindowEnabled() ? deps.loadSurfWindow?.(profile, {
+        beachId: swell.beach.id, arrivalAt: swell.arrivalAt, peakAt: swell.peakAt, fadeAt: swell.fadeAt ?? null,
+      }, now) : undefined,
     ).catch((error: unknown) => {
       console.warn(`[swell-alert] First-sighting window computation failed for ${swell.beach.id}:`, error);
       return undefined;
@@ -1480,8 +1551,8 @@ async function sendFirstSighting(
       return !optionHold;
     });
     const told: OutlookSwell = { ...swell, ...(options ? { options } : {}) };
-    const payload = { ...buildFirstSightingPayload({ swell: told, timezone: profile.timezone, hazard, surfWindow }),
-      anchor_source: profile.anchorSource };
+    const payload = buildFirstSightingPayload({ swell: told, timezone: profile.timezone, hazard, surfWindow,
+      anchorSource: profile.anchorSource });
     let claimDenied: FirstSightingClaimSkipReason = "event_exists";
     const alert = await deps.insertAlert({
       userId: profile.id,
@@ -1562,20 +1633,20 @@ async function runOutlookUser(
   now: Date,
   followupEnabled: boolean,
 ): Promise<void> {
+  if (profile.anchorSource === "none") {
+    increment(summary, "skipped_no_location_anchor");
+    return;
+  }
   let gate: EngagementGate | undefined;
   try {
     const loaded = await deps.loadEngagement(profile.id);
     const state = loaded ?? EMPTY_SWELL_OUTLOOK_USER_STATE;
     const settled = settle(state, now);
     gate = { state: settled, dirty: settled !== state, sends: [] };
-    const tier = await deps.getTier(profile.id);
-    const eligiblePins = tier === "free"
-      ? pinnedStates.filter((pin) => profile.homeBeachId !== null && pin.beachId === profile.homeBeachId)
-      : pinnedStates;
-    if (followupEnabled && eligiblePins.length > 0 && deps.isFollowupUserAllowed(profile.id)) {
-      await sendFollowups(deps, summary, profile, eligiblePins, now, gate);
+    if (followupEnabled && pinnedStates.length > 0 && deps.isFollowupUserAllowed(profile.id)) {
+      await sendFollowups(deps, summary, profile, pinnedStates, now, gate);
     }
-    await sendFirstSighting(deps, summary, profile, now, followupEnabled, gate, tier);
+    await sendFirstSighting(deps, summary, profile, now, followupEnabled, gate);
   } catch (error) {
     console.error(`[swell-alert] Error processing outlook user ${profile.id}:`, error);
     summary.errors += 1;
@@ -1688,6 +1759,13 @@ export async function runSwellAlertCron(args: {
     }
     if (!deps.isUserAllowed(profile.id)) {
       increment(summary, "not_allowed");
+      continue;
+    }
+    // Home-beach swells are for a place the surfer is not; say nothing rather than send them.
+    if (profile.awayFromHome) {
+      increment(summary, "away_from_home");
+      const pinnedStates = followupStates.get(profile.id);
+      if (pinnedStates) await closeExpiredFollowups(deps, summary, profile, pinnedStates, args.now);
       continue;
     }
     if (isOutlookRecipient(deps, profile.id)) {

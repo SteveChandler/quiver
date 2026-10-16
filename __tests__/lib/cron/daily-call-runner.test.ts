@@ -659,6 +659,31 @@ describe("shared ranking (flag on)", () => {
     expect(jest.mocked(legacy.buildCandidates).mock.calls[0][0].pool.map((entry) => entry.beach.id)).toEqual(expected);
   });
 
+  it("passes a beginner's distant eligible beach into shared ranking", async () => {
+    const nearby = Array.from({ length: 50 }, (_, index) => {
+      const entry = poolBeach(`40000000-0000-4000-8000-${String(index).padStart(12, "0")}`, `Intermediate ${index}`, "nearby");
+      return { ...entry, beach: { ...entry.beach, skill_level: "intermediate" }, distanceMiles: index + 1 };
+    });
+    const beginnerEntry = poolBeach("40000000-0000-4000-8000-000000000051", "Beginner Beach", "nearby");
+    const beginner = {
+      ...beginnerEntry,
+      beach: { ...beginnerEntry.beach, skill_level: "beginner" },
+      distanceMiles: 51,
+    };
+    const mocked = sharedDeps(day([window(beginner.beach.id)]), {
+      loadProfiles: jest.fn(async () => [{ ...profile, experienceLevel: "beginner" }]),
+      loadPool: jest.fn(async () => [home, favorite, ...nearby, beginner].map((entry) => ({
+        ...entry, beach: { ...entry.beach, lat: 32.89, lon: -117.25 },
+      }))),
+    });
+
+    const result = await runDailyCallCron({ now, supabase, deps: mocked });
+
+    expect(result).toMatchObject({ sent: 1, errors: 0 });
+    expect(jest.mocked(mocked.rankDay).mock.calls[0][0].poolBeachIds).toContain(beginner.beach.id);
+    expect((mocked.enqueue as jest.Mock).mock.calls[0][0].payload.beach_id).toBe(beginner.beach.id);
+  });
+
   it.each([11, 12, 13, 25])("uses the Daily Call's 12-hour anchor for a %s-hour fix", async (ageHours) => {
     const homeBeach = { ...home.beach, lat: 32.89, lon: -117.25 };
     const location = { lat: 33.15, lon: -117.35, timezone: profile.timezone!,
@@ -797,6 +822,32 @@ describe("daily call alternatives", () => {
 });
 
 describe("runDailyCallCron", () => {
+  it("logs the reason and message when enqueue fails", async () => {
+    const consoleError = jest.spyOn(console, "error").mockImplementation(() => {});
+    const mocked = deps({
+      enqueue: jest.fn(async () => ({
+        enqueued: false as const,
+        reason: "invalid_payload" as const,
+        message: "title: too long",
+      })),
+    });
+
+    try {
+      const summary = await runDailyCallCron({ now, supabase, deps: mocked });
+
+      expect(summary.sent).toBe(0);
+      expect(summary.skippedCounts.enqueue_failed).toBe(1);
+      expect(summary.errors).toBe(1);
+      expect(consoleError).toHaveBeenCalledWith("[daily-call] enqueue failed", {
+        userId,
+        reason: "invalid_payload",
+        message: "title: too long",
+      });
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
   it("sends the best go window with comparison and local window copy", async () => {
     const mocked = deps();
 
@@ -1181,8 +1232,9 @@ describe("daily call copy on the real title pool", () => {
 
 
 describe("daily call location freshness", () => {
-  it.each([72, 21, 1])("resolves a %s-hour Honolulu fix before pool selection and timezone fallback", async (ageHours) => {
-    // The morning call trusts a fix from the last 12 hours; older ones fall back to the home beach.
+  it.each([96, 1])("resolves a %s-hour Honolulu fix before pool selection and timezone fallback", async (ageHours) => {
+    // The morning call trusts a fix from the last 12 hours; older ones fall back to the home beach,
+    // and past three days a far fix no longer says the surfer is away.
     const stale = ageHours > 12;
     const runNow = stale ? now : new Date("2026-09-16T16:00:00Z");
     const homeBeach = { ...home.beach, lat: 32.89, lon: -117.25 };
@@ -1198,7 +1250,7 @@ describe("daily call location freshness", () => {
       const builder: Record<string, unknown> = {};
       let ids: string[] = [];
       builder.select = (fields: string) => { select(fields); return builder; };
-      builder.order = builder.eq = () => builder;
+      builder.order = builder.eq = builder.not = () => builder;
       builder.in = (_column: string, values: string[]) => { ids = values; return builder; };
       builder.is = () => builder;
       builder.then = (resolve: (value: unknown) => void) => resolve({ data: table === "profiles"
@@ -1225,6 +1277,71 @@ describe("daily call location freshness", () => {
     }) }), client);
     expect(select).toHaveBeenCalledWith("user_id, lat, lon, timezone, captured_at");
     expect(rpc).toHaveBeenCalledWith("get_weekend_scout_candidates", expect.objectContaining({ input_lat: stale ? homeBeach.lat : location.lat }));
+  });
+
+  it.each([12.02, 21, 72])("stays silent when a %s-hour fix puts the surfer outside the home drive range", async (ageHours) => {
+    const location = { lat: 39.96, lon: -75.17, timezone: "America/New_York",
+      captured_at: new Date(now.getTime() - ageHours * 3_600_000).toISOString() };
+    const injected = deps({ loadProfiles: async () => [{ ...profile, maxDriveMinutes: 90,
+      homeBeach: { ...home.beach, lat: 32.75, lon: -117.25 }, location }] });
+
+    const result = await runDailyCallCron({ now, supabase, deps: injected });
+
+    expect(result.skippedCounts.away_from_home).toBe(1);
+    expect(result.silent).toBe(1);
+    expect(injected.loadPool).not.toHaveBeenCalled();
+    expect(injected.enqueue).not.toHaveBeenCalled();
+  });
+
+  it("still calls the home beach when a stale fix is inland of it, beyond a short drive range", async () => {
+    // Poway is ~22 miles from OB Pier; a 30-minute range is 15 miles.
+    const location = { lat: 32.96, lon: -117.04, timezone: "America/Los_Angeles",
+      captured_at: new Date(now.getTime() - 20 * 3_600_000).toISOString() };
+    const homeBeach = { ...home.beach, lat: 32.75, lon: -117.25 };
+    const injected = deps({ loadProfiles: async () => [{ ...profile, maxDriveMinutes: 30, homeBeach, location }] });
+
+    const result = await runDailyCallCron({ now, supabase, deps: injected });
+
+    expect(result.sent).toBe(1);
+    expect(injected.loadPool).toHaveBeenCalledWith(expect.objectContaining({ location: { lat: 32.75, lon: -117.25 } }));
+  });
+
+  it.each([
+    ["2026-10-14T10:08:00Z", "no_pool"],
+    ["2026-10-14T13:08:00Z", "not_send_hour"],
+  ])("sends at 6 AM where a trusted fix is, not at the profile's 6 AM (%s)", async (at, skip) => {
+    const runNow = new Date(at);
+    const location = { lat: 39.96, lon: -75.17, timezone: "America/New_York",
+      captured_at: new Date(Date.parse("2026-10-14T10:08:00Z") - 9 * 3_600_000).toISOString() };
+    const injected = deps({
+      loadProfiles: async () => [{ ...profile, homeBeach: { ...home.beach, lat: 32.75, lon: -117.25 }, location }],
+      loadPool: jest.fn(async () => []),
+    });
+    const { resolveTimezone: _resolveTimezone, ...overrides } = injected;
+
+    const result = await runDailyCallCron({ now: runNow, supabase, deps: overrides });
+
+    expect(result.skippedCounts[skip]).toBe(1);
+    expect(result.skippedCounts.away_from_home).toBe(0);
+  });
+
+  it("times a sunrise call from a trusted fix, not the home beach", async () => {
+    const daylight = jest.mocked(sunrise.getDaylightWindow);
+    daylight.mockClear();
+    const runNow = new Date("2026-10-14T11:30:00Z");
+    const location = { lat: 39.96, lon: -75.17, timezone: "America/New_York",
+      captured_at: new Date(runNow.getTime() - 3_600_000).toISOString() };
+    const injected = deps({
+      loadProfiles: async () => [{ ...profile, dailyCallTime: "sunrise",
+        homeBeach: { ...home.beach, lat: 32.75, lon: -117.25 }, location }],
+      loadPool: jest.fn(async () => []),
+    });
+    const { getSunrise: _getSunrise, resolveTimezone: _resolveTimezone, ...overrides } = injected;
+
+    await runDailyCallCron({ now: runNow, supabase, deps: overrides });
+
+    expect(daylight).toHaveBeenCalledWith(39.96, -75.17, runNow);
+    expect(daylight).not.toHaveBeenCalledWith(32.75, -117.25, expect.anything());
   });
 
   it("ranks the 50 nearest beaches plus every saved spot in range", async () => {

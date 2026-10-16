@@ -245,10 +245,11 @@ export async function generateMetadata(props: LocationPageProps) {
     };
 
     const cityEditorial = await getCityEditorialContent(
-      cityToSlug(location.city),
+      response.data.islandSlug ? params.city : cityToSlug(location.city),
       params.state,
       params.country,
       null,
+      !response.data.islandSlug,
     );
     const decision = evaluateCityEditorialIndexability(
       toCityEditorialInput(cityEditorial),

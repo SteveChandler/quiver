@@ -95,6 +95,9 @@ export interface LocationPageData {
 
   /** Ranked list of beaches in this location */
   beaches: BeachWithMetrics[];
+
+  /** Present when the ranked beaches were filtered to a Hawaii island. */
+  islandSlug?: string;
 }
 
 /**

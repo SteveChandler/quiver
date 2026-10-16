@@ -152,12 +152,39 @@ describe("enqueueNotification", () => {
       payload: {},
     });
 
-    expect(result.enqueued).toBe(false);
-    if (result.enqueued === false) {
-      expect(result.reason).toBe("invalid_payload");
-      expect(result.message).toMatch(/session_id/);
-    }
+    expect(result).toEqual({
+      enqueued: false,
+      reason: "invalid_payload",
+      message: expect.stringContaining("session_id"),
+    });
     expect(mockFrom).not.toHaveBeenCalled();
+    expectConsoleErrors([/notifications\/enqueue.*invalid payload/]);
+  });
+
+  it("logs the type, recipient and validation message for an invalid payload", async () => {
+    const consoleError = jest.spyOn(console, "error").mockImplementation(() => {});
+
+    try {
+      const result = await enqueueNotification({
+        type: "like",
+        recipientUserId: "user-A",
+        payload: {},
+      });
+
+      expect(result).toEqual({
+        enqueued: false,
+        reason: "invalid_payload",
+        message: expect.stringContaining("session_id"),
+      });
+      expect(consoleError).toHaveBeenCalledWith("[notifications/enqueue] invalid payload:", {
+        type: "like",
+        recipientUserId: "user-A",
+        message: expect.stringContaining("session_id"),
+      });
+      expect(mockFrom).not.toHaveBeenCalled();
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 
   it("rejects malformed water_quality status enum (Phase 5e)", async () => {
@@ -175,11 +202,13 @@ describe("enqueueNotification", () => {
       },
     });
 
-    expect(result.enqueued).toBe(false);
-    if (result.enqueued === false) {
-      expect(result.reason).toBe("invalid_payload");
-    }
+    expect(result).toEqual({
+      enqueued: false,
+      reason: "invalid_payload",
+      message: expect.stringContaining("status"),
+    });
     expect(mockFrom).not.toHaveBeenCalled();
+    expectConsoleErrors([/notifications\/enqueue.*invalid payload/]);
   });
 
   it("accepts valid payloads through validatePayload and inserts unchanged (Phase 5e)", async () => {

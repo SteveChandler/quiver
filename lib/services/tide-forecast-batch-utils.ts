@@ -1,3 +1,5 @@
+import { selectTideSeries, type TideForecastSelectionRow } from "./tide-forecast-selection";
+
 type TidePoint = {
   ts: string;
   tide_height_m: number;
@@ -69,4 +71,64 @@ export function fanOutTidePointsToBeaches(params: {
   }
 
   return rows;
+}
+
+export function tideRowRange(rows: readonly { ts: string }[]): { firstTs: string; lastTs: string } {
+  if (!rows.length) throw new Error("Tide row range requires rows");
+  return {
+    firstTs: rows.reduce((first, row) => row.ts < first ? row.ts : first, rows[0].ts),
+    lastTs: rows.reduce((last, row) => row.ts > last ? row.ts : last, rows[0].ts),
+  };
+}
+
+export function excludeFallbackAtDirectHours<T extends { beach_id: string; ts: string; source: string }>(
+  rows: readonly T[],
+  directRows: readonly { beach_id: string; ts: string }[],
+): T[] {
+  const directKeys = new Set(directRows.map((row) => `${row.beach_id}\0${Date.parse(row.ts)}`));
+  return rows.filter((row) => row.source !== "noaa_hilo_interpolated" || !directKeys.has(`${row.beach_id}\0${Date.parse(row.ts)}`));
+}
+
+export type TideIntegrityRow = TideForecastSelectionRow & {
+  beach_id: string;
+  source: string;
+  station_id: string | null;
+  created_at: string;
+};
+
+export function tideCleanupRows<T extends TideIntegrityRow>(rows: readonly T[]): T[] {
+  const byBeach = new Map<string, T[]>();
+  for (const row of rows) {
+    const beachRows = byBeach.get(row.beach_id) ?? [];
+    beachRows.push(row);
+    byBeach.set(row.beach_id, beachRows);
+  }
+  const discarded: T[] = [];
+  for (const beachRows of byBeach.values()) {
+    const selected = new Set(selectTideSeries(beachRows));
+    discarded.push(...beachRows.filter((row) => !selected.has(row)));
+  }
+  return discarded;
+}
+
+export function tideCleanupDeleteBatches(
+  rows: readonly Pick<TideIntegrityRow, "beach_id" | "ts" | "source" | "created_at">[],
+): Array<{ beachId: string; source: string; createdAt: string; hours: string[] }> {
+  const groups = new Map<string, { beachId: string; source: string; createdAt: string; hours: string[] }>();
+  for (const row of rows) {
+    const key = JSON.stringify([row.beach_id, row.source, row.created_at]);
+    let group = groups.get(key);
+    if (!group) {
+      group = { beachId: row.beach_id, source: row.source, createdAt: row.created_at, hours: [] };
+      groups.set(key, group);
+    }
+    group.hours.push(row.ts);
+  }
+  return [...groups.values()].flatMap(({ beachId, source, createdAt, hours }) => {
+    const batches = [];
+    for (let offset = 0; offset < hours.length; offset += 100) {
+      batches.push({ beachId, source, createdAt, hours: hours.slice(offset, offset + 100) });
+    }
+    return batches;
+  });
 }

@@ -74,7 +74,7 @@ interface TableState {
 }
 
 interface Filter {
-  op: "eq" | "lte" | "gte" | "lt" | "in" | "is";
+  op: "eq" | "lte" | "gte" | "lt" | "in" | "is" | "not";
   column: string;
   value: unknown;
 }
@@ -106,6 +106,7 @@ function applyFilters(
       if (filter.op === "in") {
         return Array.isArray(filter.value) && filter.value.includes(value);
       }
+      if (filter.op === "not") return value !== null;
       return value === filter.value;
     })
   );
@@ -143,6 +144,10 @@ function buildQuery(table: string) {
   });
   builder.is = jest.fn((column: string, value: unknown) => {
     filters.push({ op: "is", column, value });
+    return builder;
+  });
+  builder.not = jest.fn((column: string, _operator: string, value: unknown) => {
+    filters.push({ op: "not", column, value });
     return builder;
   });
   builder.order = jest.fn((column: string) => {
@@ -333,6 +338,7 @@ describe("forecast-feedback-nudge cron", () => {
     ]);
     seed("favorite_beaches", [
       { user_id: "u-fav", beach_id: "b-fav", rank: 1 },
+      { user_id: "u-fav", beach_id: null, custom_spot_id: "custom-spot", rank: 2 },
     ]);
     seed("streak_reminder_log", [
       {

@@ -21,6 +21,7 @@ import type {
   CanonicalSessionDecision,
 } from "./types";
 import type { ScoringDecisionEffect } from "@/lib/domains/scoring/types";
+import type { CandidateRejection } from "@/types/personalization";
 import {
   CANONICAL_SESSION_DECISION_ENGINE_VERSION,
   CANONICAL_SESSION_DECISION_SCHEMA_VERSION,
@@ -55,6 +56,37 @@ function isValidCandidate(candidate: CanonicalDecisionCandidate): boolean {
   );
 }
 
+function waveHeightSafetyEvidence(
+  candidate: CanonicalDecisionCandidate,
+  skill: CanonicalDecisionSkill,
+): {
+  height: ReturnType<typeof parseWaveHeightRangeFt>;
+  acceptable: { min: number; max: number };
+  appliedSkill: Exclude<CanonicalDecisionSkill, 'unknown'>;
+} {
+  const appliedSkill = skill === 'unknown' ? 'beginner' : skill;
+  return {
+    height: parseWaveHeightRangeFt(typeof candidate.waveHeight === 'string' ? candidate.waveHeight : null),
+    acceptable: SKILL_WAVE_RANGES[appliedSkill].acceptable,
+    appliedSkill,
+  };
+}
+
+export function beachSkillVetoReason(
+  beachSkillLevel: unknown,
+  profileExperience: unknown,
+): "missing_beach_skill" | "beach_skill_exceeds_user" | null {
+  const beachSkill = parseBeachSkillRequirement(
+    typeof beachSkillLevel === "string" ? beachSkillLevel : null,
+  );
+  if (beachSkill === null) return "missing_beach_skill";
+  const skill = canonicalSkill(profileExperience);
+  if (skill !== "unknown" && SKILL_ORDER[beachSkill] > SKILL_ORDER[skill]) {
+    return "beach_skill_exceeds_user";
+  }
+  return null;
+}
+
 function candidateSafetyReasons(
   candidate: CanonicalDecisionCandidate,
   skill: CanonicalDecisionSkill,
@@ -65,33 +97,38 @@ function candidateSafetyReasons(
   if (!isValidCandidate(candidate)) {
     reasons.push("invalid_candidate");
   }
-  const beachSkill = parseBeachSkillRequirement(
-    typeof candidate.beachSkillLevel === "string"
-      ? candidate.beachSkillLevel
-      : null,
-  );
-  if (beachSkill === null) {
-    reasons.push("missing_beach_skill");
-  } else if (
-    skill !== "unknown" &&
-    SKILL_ORDER[beachSkill] > SKILL_ORDER[skill]
-  ) {
-    reasons.push("beach_skill_exceeds_user");
-  }
-  const range = parseWaveHeightRangeFt(
-    typeof candidate.waveHeight === "string" ? candidate.waveHeight : null,
-  );
-  if (range === null || range.min <= 0) {
+  const beachSkillReason = beachSkillVetoReason(candidate.beachSkillLevel, skill);
+  if (beachSkillReason) reasons.push(beachSkillReason);
+  const waveHeight = waveHeightSafetyEvidence(candidate, skill);
+  if (waveHeight.height === null || waveHeight.height.min <= 0) {
     reasons.push("missing_wave_height");
-  } else if (
-    range.max >
-    SKILL_WAVE_RANGES[
-      skill === "unknown" ? "beginner" : skill
-    ].acceptable.max
-  ) {
+  } else if (waveHeight.height.max > waveHeight.acceptable.max) {
     reasons.push("wave_height_exceeds_skill");
   }
   return reasons;
+}
+
+function safetyCandidateRejection(
+  candidate: CanonicalDecisionCandidate | undefined,
+  reasonCode: CanonicalDecisionReasonCode,
+  skill: CanonicalDecisionSkill,
+): CandidateRejection | null {
+  if (!candidate) return null;
+  if (reasonCode === 'water_quality_closure') {
+    return { gate: 'water_quality_hold', observed: { status: 'closure' }, allowed: { status: 'open' } };
+  }
+  if (reasonCode === 'beach_skill_exceeds_user') {
+    return { gate: 'skill_gate', observed: { skill: String(candidate.beachSkillLevel) }, allowed: { skill } };
+  }
+  if (reasonCode === 'wave_height_exceeds_skill') {
+    const { height, acceptable, appliedSkill } = waveHeightSafetyEvidence(candidate, skill);
+    return {
+      gate: 'skill_gate',
+      observed: height ? { waveHeightFt: height.max } : undefined,
+      allowed: { minimumWaveHeightFt: acceptable.min, maximumWaveHeightFt: acceptable.max, skill: appliedSkill },
+    };
+  }
+  return null;
 }
 
 function physicalVerdictForCandidate(
@@ -429,6 +466,11 @@ export function buildCanonicalSessionDecision(
     decisionBasis,
     decisionBasisV2,
     reasonCode,
+    candidateRejection: hasNoCandidates
+      ? input.candidateRejection ?? null
+      : noSafeCandidate
+        ? safetyCandidateRejection(candidateEvaluations.find(({ reasons }) => reasons.includes(reasonCode))?.candidate, reasonCode, skill)
+        : null,
     ...(selected && !safetyOverride && verdict !== physicalVerdictForCandidate(selected)
       ? { personalAdjustmentReason: VERDICT_RANK[verdict] > VERDICT_RANK[physicalVerdictForCandidate(selected)]
         ? "personal_adjusted_up" as const : "personal_adjusted_down" as const } : {}),

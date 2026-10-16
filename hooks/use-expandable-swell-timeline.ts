@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { HourlySwellTimeline, SwellPartition } from "@/lib/domains/conditions/map-forecast";
 import {
   formatTimelineBubble,
+  getPlaybackVisualFrameMs,
   mergeHourlyTimeline,
   segmentTimelineDays,
   type TimelineDaySegment,
@@ -11,7 +12,6 @@ import {
 
 const CHUNK_HOURS = 48;
 const PREFETCH_REMAINING_FRAMES = 6;
-const PLAYBACK_TICK_MS = 500;
 const REDUCED_MOTION_PLAYBACK_TICK_MS = 1000;
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -319,12 +319,16 @@ export function useExpandableSwellTimeline({
     void requestMore();
   }, [error, index, initialTimelineKey, requestMore, scopeKey]);
 
+  // The controller always commits whole real frames, paced like the timeline view so a
+  // full horizon plays in PLAYBACK_TARGET_DURATION_MS. Presentation code may animate
+  // between commits when motion is allowed; reduced motion advances one hour per second.
+  const playbackTickMs = reducedMotion
+    ? REDUCED_MOTION_PLAYBACK_TICK_MS
+    : getPlaybackVisualFrameMs(timeline?.timestamps.length ?? 0);
+
   useEffect(() => {
     if (!isPlaying) return;
 
-    // The controller always commits whole real frames. Presentation code may animate
-    // between commits when motion is allowed; reduced motion advances one hour per second.
-    const tickMs = reducedMotion ? REDUCED_MOTION_PLAYBACK_TICK_MS : PLAYBACK_TICK_MS;
     const activeTimestampMs = parseTimestamp(
       timelineRef.current?.timestamps[indexRef.current],
     );
@@ -375,10 +379,10 @@ export function useExpandableSwellTimeline({
       if (!current.hasMore && loadedEndTime != null && nextForecastTime >= loadedEndTime) {
         setPlayingState(false);
       }
-    }, tickMs);
+    }, playbackTickMs);
 
     return () => window.clearInterval(interval);
-  }, [isPlaying, reducedMotion]);
+  }, [isPlaying, playbackTickMs]);
 
   const retry = useCallback(() => {
     void requestMore(lastRequestedHoursRef.current);

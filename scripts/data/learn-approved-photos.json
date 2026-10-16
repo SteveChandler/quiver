@@ -89,5 +89,57 @@
     "licenseStatus": "defensible",
     "usageNotes": "Reading conditions guide hero/thumbnail: three surfers on a bluff watching the swell before paddling out. Verified the CC licence on the Flickr source page on 2026-09-02; stored at native resolution, no crop, no upscale.",
     "runtimeAssetPath": "public/images/learn/learn-surf-check-from-the-bluff.webp"
+  },
+  {
+    "slug": "beginner-breaks-carlsbad",
+    "name": "learn-carlsbad-state-beach-learner",
+    "imageUrl": "https://live.staticflickr.com/7378/27427022086_8490e73a5c_b.jpg",
+    "sourceUrl": "https://www.flickr.com/photos/135553449@N08/27427022086",
+    "title": "Carlsbad State Beach California",
+    "creator": "Steve Ginn (oldsport500)",
+    "licenseCode": "CC0 1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "licenseStatus": "defensible",
+    "usageNotes": "Carlsbad beginner guide hero/thumbnail: a learner riding whitewater on a soft-top at Carlsbad State Beach. Verified the licence on the Flickr source page on 2026-10-13; stored at native resolution, no crop, no upscale.",
+    "runtimeAssetPath": "public/images/learn/learn-carlsbad-state-beach-learner.webp"
+  },
+  {
+    "slug": "beginner-breaks-carlsbad",
+    "name": "learn-small-beach-break-peaks",
+    "imageUrl": "https://live.staticflickr.com/2630/3976300684_858b549f84_b.jpg",
+    "sourceUrl": "https://www.flickr.com/photos/31487723@N00/3976300684",
+    "title": "Tamarack Beach",
+    "creator": "surfcrs",
+    "licenseCode": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "licenseStatus": "defensible",
+    "usageNotes": "Carlsbad guide Tamarack section image: two surfers on small peeling beach-break waves. The photographer's caption is unsure the location is Tamarack, so the alt text does not name the beach. Verified the licence on the Flickr source page on 2026-10-13; stored at native resolution, no crop, no upscale.",
+    "runtimeAssetPath": "public/images/learn/learn-small-beach-break-peaks.webp"
+  },
+  {
+    "slug": "beginner-breaks-carlsbad",
+    "name": "learn-south-ponto-minus-tide",
+    "imageUrl": "https://live.staticflickr.com/8529/8459272345_f5393c877c_b.jpg",
+    "sourceUrl": "https://www.flickr.com/photos/30492852@N00/8459272345",
+    "title": "South Ponto Beach, Carlsbad February 9th 2013",
+    "creator": "Tim Buss",
+    "licenseCode": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "licenseStatus": "defensible",
+    "usageNotes": "Carlsbad guide Ponto section image: South Ponto at a minus tide (photographer's caption gives -1.3 ft). The frame carries the photographer's own copyright watermark, kept as attribution. Verified the licence on the Flickr source page on 2026-10-13; stored at native resolution, no crop, no upscale.",
+    "runtimeAssetPath": "public/images/learn/learn-south-ponto-minus-tide.webp"
+  },
+  {
+    "slug": "beginner-breaks-carlsbad",
+    "name": "learn-south-carlsbad-lineup",
+    "imageUrl": "https://live.staticflickr.com/1978/45185467662_622fa463dc_b.jpg",
+    "sourceUrl": "https://www.flickr.com/photos/43521640@N00/45185467662",
+    "title": "surfers, South Carlsbad State Beach",
+    "creator": "bossco",
+    "licenseCode": "CC BY-SA 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0/",
+    "licenseStatus": "defensible",
+    "usageNotes": "Carlsbad guide crowds section image: a busy lineup at South Carlsbad State Beach. Verified the licence on the Flickr source page on 2026-10-13; stored at native resolution, no crop, no upscale.",
+    "runtimeAssetPath": "public/images/learn/learn-south-carlsbad-lineup.webp"
   }
 ]

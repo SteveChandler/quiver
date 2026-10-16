@@ -3,6 +3,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { capNearbyPool, type PoolBeach } from "@/lib/alerts/user-pool";
 import type { Database } from "@/types/database";
 import titlePool from "@/lib/notifications/copy/surf-titles.v1.json";
 import {
@@ -399,6 +400,62 @@ describe("Daily Call ownership on the legacy swell path", () => {
   });
 });
 
+describe("swell alerts away from home", () => {
+  const homeBeach = { lat: 32.749, lon: -117.255, timezone: "America/Los_Angeles" };
+  const philadelphia = { lat: 39.95, lon: -75.17, timezone: "America/New_York" };
+  const carlsbad = { lat: 33.15, lon: -117.35, timezone: "America/Los_Angeles" };
+
+  async function loadWithFix(fix: { lat: number; lon: number; timezone: string }, ageHours: number): Promise<SwellAlertProfile> {
+    const row = {
+      id: USER_ID, timezone: "America/Los_Angeles", home_beach_id: profile().homeBeachId, home_beach: homeBeach,
+      max_drive_minutes: 45, experience_level: "advanced",
+      notif_push_enabled: true, notif_swell_alerts: true, notif_forecast_alerts: false,
+      user_location_snapshots: [{ ...fix, captured_at: new Date(NOW.getTime() - ageHours * 3_600_000).toISOString() }],
+    };
+    const select = jest.fn(() => ({ is: async () => ({ data: [row], error: null }) }));
+    const client = { from: jest.fn(() => ({ select })) } as unknown as SupabaseClient<Database>;
+    const [loaded] = await loadSwellAlertProfiles(client, NOW);
+    return loaded;
+  }
+
+  it("skips a traveler whose stale fix is far from home before any per-user I/O", async () => {
+    const loaded = await loadWithFix(philadelphia, 48);
+    expect(loaded.anchorSource).toBe("home");
+    const deps = dependencies({ loadProfiles: jest.fn(async () => [loaded]) });
+    const summary = await runSwellAlertCron({ now: NOW, deps });
+    expect(summary.skippedCounts.away_from_home).toBe(1);
+    expect(deps.evaluatePool).not.toHaveBeenCalled();
+    expect(deps.loadAlertState).not.toHaveBeenCalled();
+    expect(deps.enqueue).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["a stale fix within 100 miles", carlsbad, 48],
+    ["a far fix older than 72 hours", philadelphia, 73],
+  ])("still ranks around home for %s", async (_label, fix, ageHours) => {
+    const loaded = await loadWithFix(fix, ageHours);
+    expect(loaded).toEqual(expect.objectContaining({
+      anchorSource: "home", awayFromHome: false, location: { lat: homeBeach.lat, lon: homeBeach.lon },
+    }));
+    const deps = dependencies({ loadProfiles: jest.fn(async () => [loaded]) });
+    const summary = await runSwellAlertCron({ now: NOW, deps });
+    expect(summary.skippedCounts.away_from_home).toBeUndefined();
+    expect(deps.evaluatePool).toHaveBeenCalledWith(loaded, NOW);
+    expect(summary.sent).toBe(1);
+  });
+
+  it("anchors on a fresh far fix instead of skipping", async () => {
+    const loaded = await loadWithFix(philadelphia, 2);
+    expect(loaded).toEqual(expect.objectContaining({
+      anchorSource: "location", awayFromHome: false, location: { lat: philadelphia.lat, lon: philadelphia.lon },
+    }));
+    const deps = dependencies({ loadProfiles: jest.fn(async () => [loaded]) });
+    const summary = await runSwellAlertCron({ now: NOW, deps });
+    expect(summary.skippedCounts.away_from_home).toBeUndefined();
+    expect(deps.evaluatePool).toHaveBeenCalledWith(loaded, NOW);
+  });
+});
+
 describe("swell alert shared ranking", () => {
   function rankingResponse(beachId: string, rankedBeachIds: string[]): CanonicalWeekScoutResponse {
     const pick = {
@@ -463,6 +520,31 @@ describe("swell alert shared ranking", () => {
     });
     expect(rankDay).toHaveBeenCalledWith(expect.objectContaining({ poolBeachIds: pool.poolBeachIds }));
     expect(ordered).toEqual(pool.candidates);
+  });
+
+  it("passes a distant beginner beach through the capped pool IDs", async () => {
+    const pool = sharedEvaluation();
+    const nearby: PoolBeach[] = Array.from({ length: 50 }, (_, index) => ({
+      beach: { id: `near-${index}`, skill_level: "intermediate" } as PoolBeach["beach"],
+      relation: "nearby",
+      distanceMiles: index + 1,
+    }));
+    const beginner: PoolBeach = {
+      beach: { id: "beginner-far", skill_level: "beginner" } as PoolBeach["beach"],
+      relation: "nearby",
+      distanceMiles: 51,
+    };
+    pool.poolBeachIds = capNearbyPool([...nearby, beginner], { cap: 50, experienceLevel: "beginner" })
+      .pool.map(({ beach }) => beach.id);
+    const rankDay = jest.fn(async () => rankingResponse(beginner.beach.id, []));
+
+    await orderSwellCandidatesForTomorrow({
+      profile: profile({ experienceLevel: "beginner" }), evaluation: pool, now: NOW,
+      rankDay, usesSharedRanking: () => true,
+    });
+
+    expect(pool.poolBeachIds).toContain(beginner.beach.id);
+    expect(rankDay).toHaveBeenCalledWith(expect.objectContaining({ poolBeachIds: pool.poolBeachIds }));
   });
 
   it("withholds the shared lead and held chips through main's push resolver", async () => {

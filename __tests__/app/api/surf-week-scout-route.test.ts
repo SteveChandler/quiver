@@ -77,9 +77,30 @@ describe('POST /api/surf/week-scout', () => {
 
   function tables(rows: Record<string, unknown>) {
     return jest.fn((table: string) => ({
-      select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: rows[table] ?? null, error: null }) }) }),
+      select: jest.fn(() => ({ eq: () => ({ maybeSingle: async () => ({ data: rows[table] ?? null, error: null }) }) })),
     }));
   }
+
+  it.each([
+    ["complete-radius", "beginner"],
+    ["legacy", "beginner"],
+    ["complete-radius", null],
+    ["legacy", null],
+  ])("passes the %p pool path raw profile experience %p", async (scope, experienceLevel) => {
+    const from = tables({
+      profiles: { max_drive_minutes: null, experience_level: experienceLevel },
+      user_location_snapshots: { lat: 32, lon: -118, captured_at: new Date().toISOString() },
+    });
+    const response = await callRoute({
+      ...(scope === "complete-radius" ? { candidateScope: "complete-radius" } : { candidateBeachIds: [BEACH_A] }),
+      localTimezone: "America/Los_Angeles", startLocalDate: "2026-07-15", dayCount: 7,
+    }, { from });
+
+    expect(response.status).toBe(200);
+    const profileQuery = from.mock.results[from.mock.calls.findIndex(([table]) => table === "profiles")].value;
+    expect(profileQuery.select).toHaveBeenCalledWith(expect.stringContaining("experience_level"));
+    expect(mockBuildDriveRangeCandidatePool).toHaveBeenCalledWith("user-week-scout", expect.objectContaining({ experienceLevel }));
+  });
 
   it('deduplicates candidate IDs and returns the exact private no-store response', async () => {
     const response = await callRoute({
@@ -243,6 +264,7 @@ describe('POST /api/surf/week-scout', () => {
       anchor: { lat: 32, lon: -118 },
       homeBeachId: 'home-beach',
       maxDriveMinutes,
+      experienceLevel: null,
       filters: undefined,
     });
     expect(mockGenerateWeekScoutForecast).toHaveBeenCalledWith('user-week-scout', expect.objectContaining({
@@ -309,6 +331,31 @@ describe('POST /api/surf/week-scout', () => {
     expect(scope.candidates).toEqual({ enumerated: 99, hydrated: 99, filteredOut: 0, capped: 49 });
     expect(mockGenerateWeekScoutForecast).toHaveBeenCalledWith('user-week-scout', expect.objectContaining({
       driveRadiusMiles: 100,
+    }));
+  });
+
+  it('reports a widened scope and the nearest beach while ranking with the surfer\'s own range', async () => {
+    const from = tables({
+      user_location_snapshots: { lat: 39.88, lon: -75.24, captured_at: new Date().toISOString() },
+      profiles: { max_drive_minutes: 90 },
+    });
+    const nearestBeach = { id: BEACH_A, name: '1st Street Jetty', slug: '1st-street-jetty', lat: 39.281, lon: -74.567, distanceMiles: 54.7 };
+    mockBuildDriveRangeCandidatePool.mockResolvedValueOnce({
+      candidates: [], enumeratedCount: 4, filteredOutCount: 0, cappedCount: 0, farthestNearbyMiles: null,
+      widenedFromMiles: 45, nearestBeach,
+    });
+
+    const response = await callRoute({
+      candidateScope: { kind: 'complete-radius' },
+      localTimezone: 'America/New_York', startLocalDate: '2026-10-15', dayCount: 7,
+    }, { from });
+    const scope = (await response.json()).data.coverage.scope;
+
+    expect(scope.radiusMiles).toBe(100);
+    expect(scope.widenedFromMiles).toBe(45);
+    expect(scope.nearestBeach).toEqual(nearestBeach);
+    expect(mockGenerateWeekScoutForecast).toHaveBeenCalledWith('user-week-scout', expect.objectContaining({
+      driveRadiusMiles: 45,
     }));
   });
 
@@ -402,7 +449,9 @@ describe('POST /api/surf/week-scout', () => {
       anchor,
       homeBeachId: 'home-beach',
       maxDriveMinutes: 90,
+      experienceLevel: null,
       filters: undefined,
+      widenEmptyRange: false,
     });
     expect(mockGenerateWeekScoutForecast).toHaveBeenCalledWith('user-week-scout', expect.objectContaining({
       candidateBeachIds: [BEACH_A],
@@ -433,7 +482,9 @@ describe('POST /api/surf/week-scout', () => {
       anchor,
       homeBeachId: null,
       maxDriveMinutes: 90,
+      experienceLevel: null,
       filters: undefined,
+      widenEmptyRange: false,
     });
     expect(mockGenerateWeekScoutForecast).toHaveBeenCalledWith('user-week-scout', expect.objectContaining({
       candidateBeachIds: [elMorroK38.id],
@@ -462,7 +513,9 @@ describe('POST /api/surf/week-scout', () => {
       anchor,
       homeBeachId: 'home-beach',
       maxDriveMinutes: 90,
+      experienceLevel: null,
       filters: undefined,
+      widenEmptyRange: false,
     });
     expect(mockGenerateWeekScoutForecast).toHaveBeenCalledWith('user-week-scout', expect.objectContaining({
       candidateBeachIds: [BEACH_A],

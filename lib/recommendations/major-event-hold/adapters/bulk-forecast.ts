@@ -21,6 +21,7 @@ export interface BulkForecastResponseLike {
   verdicts?: Readonly<Record<string, "go" | "maybe" | "no" | null>>;
   conditionLabels?: Readonly<Record<string, string | null>>;
   personalAdjustmentReasons?: Readonly<Record<string, string | null>>;
+  safetyReasons?: Readonly<Record<string, string | null>>;
   recommendedBoards?: Readonly<Record<string, unknown>>;
   conditionScores: Readonly<Record<string, number | undefined>>;
   conditionSummaries: Readonly<Record<string, string | undefined>>;
@@ -227,6 +228,7 @@ export function sanitizeBulkForecastForMajorEventHold<
       ...(response.conditionLabels ? { conditionLabels: Object.fromEntries(Object.entries(response.conditionLabels).map(([id, value]) => [id, recommendationLabels[id] == null ? null : value])) } : {}),
       ...(response.recommendedBoards ? { recommendedBoards: Object.fromEntries(Object.entries(response.recommendedBoards).map(([id, value]) => [id, recommendationLabels[id] == null ? null : value])) } : {}),
       ...(response.personalAdjustmentReasons ? { personalAdjustmentReasons: Object.fromEntries(Object.entries(response.personalAdjustmentReasons).map(([id, value]) => [id, recommendationLabels[id] == null ? null : value])) } : {}),
+      ...(response.safetyReasons ? { safetyReasons: Object.fromEntries(Object.entries(response.safetyReasons).map(([id, value]) => [id, recommendationLabels[id] == null ? null : value])) } : {}),
       recommendationAvailability: boundary.recommendationAvailability,
       // Every bound beach is withheld here; unmatched bindings name nothing.
       recommendationHolds:
@@ -274,6 +276,7 @@ export function sanitizeBulkForecastForMajorEventHold<
     ...(response.conditionLabels ? { conditionLabels: Object.fromEntries(Object.entries(response.conditionLabels).map(([id, value]) => [id, recommendationLabels[id] == null ? null : value])) } : {}),
     ...(response.recommendedBoards ? { recommendedBoards: Object.fromEntries(Object.entries(response.recommendedBoards).map(([id, value]) => [id, recommendationLabels[id] == null ? null : value])) } : {}),
     ...(response.personalAdjustmentReasons ? { personalAdjustmentReasons: Object.fromEntries(Object.entries(response.personalAdjustmentReasons).map(([id, value]) => [id, recommendationLabels[id] == null ? null : value])) } : {}),
+    ...(response.safetyReasons ? { safetyReasons: Object.fromEntries(Object.entries(response.safetyReasons).map(([id, value]) => [id, recommendationLabels[id] == null ? null : value])) } : {}),
     recommendationAvailability: boundary.recommendationAvailability,
     recommendationHolds,
   };

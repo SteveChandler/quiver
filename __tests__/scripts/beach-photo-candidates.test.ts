@@ -226,6 +226,21 @@ describe("SEO beach photo candidate pipeline", () => {
     expect(candidate).toBeNull();
   });
 
+  it("drops a photo whose title names another beach", () => {
+    const candidate = candidateFromOpenverseResult(
+      { slug: "blacks", name: "Blacks Beach", city: "San Diego", state: "CA" },
+      {
+        id: "0f94dd30-50ed-44b4-8c0e-cb0e8da6e4ab",
+        url: "https://live.staticflickr.com/venice.jpg",
+        title: "Surfer in Venice Beach - Los Angeles, United States - Sport photography",
+        license: "by",
+        license_version: "2.0",
+      },
+    );
+
+    expect(candidate).toBeNull();
+  });
+
   it("formats a manual-review report with source and license links", () => {
     const targets = [
       {

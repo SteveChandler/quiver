@@ -7,7 +7,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type mapboxgl from "mapbox-gl";
 import type { Beach } from "@/types/database";
 import type { HourlySwellTimeline } from "@/lib/domains/conditions/map-forecast";
-import type { SwellLayerId } from "@/components/map/swell-map-theme";
+import {
+  SWELL_FIELD_PARTICLE_COLOR,
+  SWELL_FIELD_PARTICLE_COLOR_DARK_STAGE,
+  type SwellLayerId,
+} from "@/components/map/swell-map-theme";
 import type { MapSpotConditions } from "@/components/map/interactive-map";
 import {
   parseEmbedMapCommand,
@@ -153,6 +157,9 @@ function restoredForecastIndex(
 export function EmbedMapClient() {
   const searchParams = useSearchParams();
   const swellFieldStage = embedMapStage(searchParams.get("stage"));
+  const particleColors = swellFieldStage === "dark"
+    ? SWELL_FIELD_PARTICLE_COLOR_DARK_STAGE
+    : SWELL_FIELD_PARTICLE_COLOR;
   const mapChromeTopOffsetPx = embedMapChromeTopOffsetPx(searchParams.get("chromeTop"));
   const isHourlyTimeline = searchParams.get("timeline") === "hourly";
   const timelineTimezone = useMemo(
@@ -654,7 +661,7 @@ export function EmbedMapClient() {
       />
       {!isPlacementActive && (
         <div
-          className="pointer-events-none absolute z-10 flex select-none flex-col items-start gap-2"
+          className="embed-layer-controls pointer-events-none absolute z-10 flex select-none flex-col items-start gap-2"
           style={{
             bottom: "calc(env(safe-area-inset-bottom, 0px) + 16px)",
             left: "calc(env(safe-area-inset-left, 0px) + 16px)",
@@ -727,62 +734,55 @@ export function EmbedMapClient() {
             </div>
           )}
 
-          {showWebChrome && (
-          <div
-            aria-label="Conditions legend"
-            style={{
-              background: "rgba(13, 16, 32, 0.78)",
-              backdropFilter: "blur(12px)",
-              WebkitBackdropFilter: "blur(12px)",
-              border: "1px solid rgba(244, 235, 216, 0.18)",
-              borderRadius: "14px",
-              boxShadow: "0 10px 30px rgba(0, 0, 0, 0.38)",
-              padding: "11px 13px 9px",
-            }}
-          >
+          {showWebChrome && !fieldHidden && layerId === "combined" && (
             <div
+              role="group"
+              aria-label="Particle colours"
               style={{
-                color: "rgba(244, 235, 216, 0.6)",
-                fontSize: "10px",
-                fontWeight: 700,
-                letterSpacing: "0.09em",
-                textTransform: "uppercase",
-                marginBottom: "8px",
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                background: "rgba(13, 16, 32, 0.78)",
+                backdropFilter: "blur(12px)",
+                WebkitBackdropFilter: "blur(12px)",
+                border: "1px solid rgba(244, 235, 216, 0.18)",
+                borderRadius: "10px",
+                boxShadow: "0 10px 30px rgba(0, 0, 0, 0.38)",
+                padding: "7px 9px",
               }}
             >
-              Conditions
+              {[
+                { label: "Swell", color: particleColors.s1 },
+                { label: "Swell 2", color: particleColors.s2 },
+                { label: "Wind", color: particleColors.wind },
+              ].map((item) => (
+                <div
+                  key={item.label}
+                  style={{ display: "flex", alignItems: "center", gap: "5px" }}
+                >
+                  <span
+                    aria-hidden
+                    style={{
+                      width: "10px",
+                      height: "10px",
+                      borderRadius: "9999px",
+                      background: item.color,
+                      border: "1px solid rgba(244, 235, 216, 0.75)",
+                    }}
+                  />
+                  <span style={{ color: "#F4EBD8", fontSize: "11px", fontWeight: 600, lineHeight: 1 }}>
+                    {item.label}
+                  </span>
+                </div>
+              ))}
             </div>
-            {[
-              { label: "Swell", color: "#F78E42" },
-              { label: "Swell 2", color: "#7AC74F" },
-              { label: "Wind", color: "#00D4AA" },
-            ].map((item) => (
-              <div
-                key={item.label}
-                style={{ display: "flex", alignItems: "center", gap: "9px", padding: "3px 0" }}
-              >
-                <span
-                  aria-hidden
-                  style={{
-                    width: "11px",
-                    height: "11px",
-                    borderRadius: "9999px",
-                    background: item.color,
-                    boxShadow: `0 0 0 2px rgba(244, 235, 216, 0.14), 0 0 9px ${item.color}66`,
-                  }}
-                />
-                <span style={{ color: "#F4EBD8", fontSize: "12.5px", fontWeight: 600, lineHeight: 1 }}>
-                  {item.label}
-                </span>
-              </div>
-            ))}
-          </div>
           )}
         </div>
       )}
       {showWebChrome && !isPlacementActive && !fieldHidden && (
         <>
           <style>{`
+            @media (max-width: 1100px) { .embed-layer-controls { transform: translateY(-96px); } }
             .embed-time-slider { -webkit-appearance:none; appearance:none; height:6px; border-radius:9999px; outline:none; cursor:pointer; }
             .embed-time-slider::-webkit-slider-runnable-track { height:6px; border-radius:9999px; background:transparent; }
             .embed-time-slider::-moz-range-track { height:6px; border-radius:9999px; background:transparent; }
@@ -793,6 +793,8 @@ export function EmbedMapClient() {
 
           {/* Timeline scrubber with play */}
           <div
+            role="group"
+            aria-label="Forecast scrubber"
             className="pointer-events-auto absolute z-10 select-none"
             style={{
               bottom: "calc(env(safe-area-inset-bottom, 0px) + 16px)",
