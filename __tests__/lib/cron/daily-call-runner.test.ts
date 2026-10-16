@@ -822,6 +822,76 @@ describe("daily call alternatives", () => {
 });
 
 describe("runDailyCallCron", () => {
+  it("prints beach-local windows while scheduling on the user clock", async () => {
+    const waikiki = poolBeach("30000000-0000-4000-8000-000000000004", "Waikiki – Canoes", "nearby");
+    waikiki.beach.timezone = "Pacific/Honolulu";
+    const hawaiiFavorite = { ...favorite, beach: { ...favorite.beach, timezone: "Pacific/Honolulu" } };
+    const start = "2026-10-11T18:00:00.000Z";
+    const end = "2026-10-11T21:00:00.000Z";
+    const mocked = deps({
+      loadPool: async () => [waikiki, home, hawaiiFavorite],
+      buildCandidates: jest.fn(async () => ({
+        candidates: [
+          candidate({ pool: waikiki, start, end, physicalScore: 90 }),
+          candidate({ pool: home, start, end, physicalScore: 80 }),
+          candidate({ pool: hawaiiFavorite, start, end, physicalScore: 70 }),
+        ],
+        hadForecasts: true,
+      })),
+      selectTitle: jest.fn(realSelectTitle),
+    });
+    const { resolveTimezone: _resolveTimezone, ...injected } = mocked;
+
+    const summary = await runDailyCallCron({ now: new Date("2026-10-11T13:00:00.000Z"), supabase, deps: injected });
+
+    expect(summary).toMatchObject({ sent: 1, errors: 0 });
+    expect(mocked.buildCandidates).toHaveBeenCalledWith(expect.objectContaining({
+      timezone: "America/Los_Angeles", alertDate: "2026-10-11",
+    }));
+    expect(mocked.alreadySentToday).toHaveBeenCalledWith(userId, "2026-10-11");
+    const enqueueArgs = jest.mocked(mocked.enqueue).mock.calls[0][0];
+    const payload = parseDailyCallPayload(enqueueArgs.payload);
+    const push = NOTIFICATION_REGISTRY.daily_call.buildPushPayload!(payload);
+    expect(push.title).toContain("8–11 AM");
+    expect(push.title).not.toContain("11 AM–2 PM");
+    expect(enqueueArgs.dedupeKey).toBe(`daily_call:${userId}:2026-10-11`);
+    expect(payload).toMatchObject({
+      alert_date: "2026-10-11", window_start: start, window_end: end, window_local: "8–~11 AM",
+      options: [
+        { beach_id: home.beach.id, window_local: "11 AM–~2 PM" },
+        { beach_id: hawaiiFavorite.beach.id, window_local: "8–~11 AM" },
+      ],
+    });
+    expect(push.body).toContain("Best before the wind picks up around 11 AM.");
+    expect(push.body).toContain("Also: Blacks 11 AM–~2 PM, Osprey 8–~11 AM.");
+    expect(payload.reason).not.toContain("around 2 PM");
+  });
+
+  it.each([null, ""])("falls back to the user clock when the beach timezone is %s", async (timezone) => {
+    // Exercise missing data despite the generated type requiring a timezone.
+    const beach = { ...favorite, beach: { ...favorite.beach, timezone } as PoolBeach["beach"] };
+    const mocked = deps({
+      loadProfiles: async () => [{ ...profile, timezone: "Pacific/Honolulu" }],
+      loadPool: async () => [beach],
+      buildCandidates: async () => ({
+        candidates: [candidate({
+          pool: beach, start: "2026-10-11T18:00:00.000Z", end: "2026-10-11T21:00:00.000Z",
+        })],
+        hadForecasts: true,
+      }),
+      selectTitle: realSelectTitle,
+    });
+    const { resolveTimezone: _resolveTimezone, ...injected } = mocked;
+
+    const summary = await runDailyCallCron({ now: new Date("2026-10-11T16:00:00.000Z"), supabase, deps: injected });
+
+    expect(summary).toMatchObject({ sent: 1, errors: 0 });
+    const payload = parseDailyCallPayload(jest.mocked(mocked.enqueue).mock.calls[0][0].payload);
+    expect(payload.window_local).toBe("8–~11 AM");
+    expect(payload.title).toContain("8–11 AM");
+    expect(payload.reason).toContain("around 11 AM.");
+  });
+
   it("logs the reason and message when enqueue fails", async () => {
     const consoleError = jest.spyOn(console, "error").mockImplementation(() => {});
     const mocked = deps({
@@ -1256,6 +1326,7 @@ describe("daily call location freshness", () => {
     const user = { ...profile, timezone: null, homeBeach: { ...homeBeach, timezone: null }, location };
     const sanDiego = poolBeach("30000000-0000-4000-8000-000000000003", "La Jolla", "nearby");
     const honolulu = poolBeach("30000000-0000-4000-8000-000000000004", "Waikiki", "nearby");
+    honolulu.beach.timezone = "Pacific/Honolulu";
     const nearby = stale ? sanDiego : honolulu;
     const rpc = jest.fn(async (_name: string, input: { input_lat: number }) => ({ data: [{ id: input.input_lat === homeBeach.lat ? sanDiego.beach.id : honolulu.beach.id, distance_meters: 1000 }], error: null }));
     const select = jest.fn();

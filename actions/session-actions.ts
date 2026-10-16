@@ -208,7 +208,7 @@ export async function getSessionMetadata(sessionId: string) {
         notes,
         description,
         board:boards(name),
-        user:profiles!sessions_user_id_fkey(full_name, username),
+        user:profiles!sessions_user_id_profiles_fkey(full_name, display_name),
         beach:beaches(name)
       `
       )
