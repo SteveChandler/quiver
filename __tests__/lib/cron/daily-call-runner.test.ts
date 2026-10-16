@@ -197,6 +197,178 @@ function deps(
 
 const supabase = {} as SupabaseClient<Database>;
 
+describe("daily call beach-local forecast days", () => {
+  const alertDate = "2026-09-16";
+  const hawaii = { ...favorite, beach: { ...favorite.beach, timezone: "Pacific/Honolulu", lat: 21.28, lon: -157.83 } };
+  const pacificStart = "2026-09-16T12:00:00.000Z";
+  const pacificEnd = "2026-09-17T03:00:00.000Z";
+  const hawaiiStart = "2026-09-16T15:00:00.000Z";
+  const hawaiiEnd = "2026-09-17T06:00:00.000Z";
+
+  interface ForecastQuery {
+    table: string;
+    select: () => ForecastQuery;
+    in: () => ForecastQuery;
+    eq: jest.Mock<ForecastQuery, [string, string]>;
+    gte: jest.Mock<ForecastQuery, [string, string]>;
+    lt: jest.Mock<ForecastQuery, [string, string]>;
+    order: () => Promise<{ data: EnhancedForecastEntity[]; error: null }>;
+  }
+
+  function forecastClient(rows: EnhancedForecastEntity[]) {
+    const queries: ForecastQuery[] = [];
+    const from = jest.fn((table: string) => {
+      let beachId: string | undefined;
+      let start = -Infinity;
+      let end = Infinity;
+      const query: ForecastQuery = {
+        table,
+        select: () => query,
+        in: () => query,
+        eq: jest.fn((_column: string, value: string) => { beachId = value; return query; }),
+        gte: jest.fn((_column: string, value: string) => { start = Date.parse(value); return query; }),
+        lt: jest.fn((_column: string, value: string) => { end = Date.parse(value); return query; }),
+        order: async () => ({
+          data: table === "enhanced_forecasts" ? rows.filter((row) =>
+            (!beachId || row.beach_id === beachId)
+            && Date.parse(row.forecast_at) >= start && Date.parse(row.forecast_at) < end) : [],
+          error: null,
+        }),
+      };
+      queries.push(query);
+      return query;
+    });
+    return { client: { from } as unknown as SupabaseClient<Database>, queries, from };
+  }
+
+  function row(beachId: string, id: string, at: string): EnhancedForecastEntity {
+    return sourceForecast(beachId, { id, forecast_at: at, confidence_score: 90 });
+  }
+
+  beforeEach(() => {
+    jest.mocked(evaluateForecastVerdict).mockClear();
+    jest.mocked(scoreWindowConditionScore).mockReturnValue(90);
+    jest.mocked(sunrise.getDaylightWindow).mockReturnValue({
+      sunrise: new Date(pacificStart), sunset: new Date(hawaiiEnd),
+    });
+    jest.spyOn(windowSelector, "selectBestWindows").mockImplementation((input: EnhancedForecastEntity[] | { forecasts: EnhancedForecastEntity[] }) => {
+      const forecasts = Array.isArray(input) ? input : input.forecasts;
+      return [{
+        start: new Date(forecasts[0].forecast_at),
+        end: new Date(Date.parse(forecasts[0].forecast_at) + 3_600_000),
+        score: 90, sourceForecast: forecasts[0],
+      } as ReturnType<typeof selectBestWindows>[number]];
+    });
+  });
+
+  afterEach(() => {
+    jest.mocked(windowSelector.selectBestWindows).mockRestore();
+    jest.mocked(scoreWindowConditionScore).mockReset().mockImplementation(
+      jest.requireActual("@/lib/services/discovery/window-selector").scoreWindowConditionScore,
+    );
+    jest.mocked(sunrise.getDaylightWindow).mockReset().mockImplementation(
+      jest.requireActual("@/lib/alerts/sunrise").getDaylightWindow,
+    );
+  });
+
+  async function build(rows: EnhancedForecastEntity[], pool: PoolBeach[] = [hawaii], asOf = now) {
+    const mock = forecastClient(rows);
+    const result = await buildCandidates(mock.client, new TideCache(), {
+      profile, pool, timezone: "America/Los_Angeles", alertDate, now: asOf,
+    });
+    return { ...mock, result };
+  }
+
+  it("loads an 18:00 HST go row and uses the beach zone for its verdict and decision", async () => {
+    const evening = row(ospreyId, "hawaii-evening", "2026-09-17T04:00:00.000Z");
+    const { result } = await build([evening]);
+    expect(result.candidates).toHaveLength(1);
+    expect(result.candidates[0].sessionDecision).toMatchObject({
+      scope: { timezone: "Pacific/Honolulu" },
+      selection: { timezone: "Pacific/Honolulu", forecastRef: { forecastId: evening.id } },
+    });
+    expect(evaluateForecastVerdict).toHaveBeenCalledWith(expect.objectContaining({
+      forecast: evening, timezone: "Pacific/Honolulu",
+    }));
+  });
+
+  it("does not judge a 03:00 HST row even before that row has passed", async () => {
+    const { result } = await build([row(ospreyId, "hawaii-early", "2026-09-16T13:00:00.000Z")], [hawaii],
+      new Date("2026-09-16T12:00:00.000Z"));
+    expect(result).toMatchObject({ candidates: [], hadForecasts: false });
+    expect(evaluateForecastVerdict).not.toHaveBeenCalled();
+  });
+
+  it("queries the mixed-zone union once and judges only rows in each beach's own [05:00,20:00) day", async () => {
+    const rows = [
+      row(blacksId, "pacific-start", pacificStart),
+      row(ospreyId, "hawaii-early", "2026-09-16T13:00:00.000Z"),
+      row(ospreyId, "hawaii-start", hawaiiStart),
+      row(blacksId, "pacific-end", pacificEnd),
+      row(ospreyId, "hawaii-evening", "2026-09-17T04:00:00.000Z"),
+      row(ospreyId, "hawaii-end", hawaiiEnd),
+    ];
+    const { queries, from, result } = await build(rows, [home, hawaii], new Date(pacificStart));
+    const forecastQueries = queries.filter(({ table }) => table === "enhanced_forecasts");
+    expect(forecastQueries).toHaveLength(1);
+    expect(forecastQueries[0].gte).toHaveBeenCalledWith("forecast_at", pacificStart);
+    expect(forecastQueries[0].lt).toHaveBeenCalledWith("forecast_at", hawaiiEnd);
+    expect(jest.mocked(evaluateForecastVerdict).mock.calls.map(([args]) => args.forecast.id))
+      .toEqual(["pacific-start", "hawaii-start", "hawaii-evening"]);
+    expect(result.candidates).toHaveLength(3);
+    expect(from.mock.calls.filter(([table]) => table === "tide_forecasts")).toHaveLength(2);
+    for (const [beachId, start, end] of [[blacksId, pacificStart, pacificEnd], [ospreyId, hawaiiStart, hawaiiEnd]]) {
+      const tides = queries.find((query) => query.table === "tide_forecasts" && query.eq.mock.calls[0][1] === beachId)!;
+      expect(tides.gte).toHaveBeenCalledWith("ts", start);
+      expect(tides.lt).toHaveBeenCalledWith("ts", end);
+    }
+  });
+
+  it.each(["America/Los_Angeles", null, ""])("preserves exact same-zone bounds and results (beach zone %s)", async (timezone) => {
+    const pool = [home, { ...favorite, beach: { ...favorite.beach, timezone } as PoolBeach["beach"] }];
+    const rows = [row(blacksId, "home-day", hawaiiStart), row(ospreyId, "favorite-day", hawaiiStart)];
+    const { queries, result } = await build(rows, pool);
+    expect(queries[0].gte).toHaveBeenCalledWith("forecast_at", pacificStart);
+    expect(queries[0].lt).toHaveBeenCalledWith("forecast_at", pacificEnd);
+    expect(result.candidates.map((value) => value.pool.beach.id)).toEqual([blacksId, ospreyId]);
+    expect(jest.mocked(evaluateForecastVerdict).mock.calls.map(([args]) => args.timezone))
+      .toEqual(["America/Los_Angeles", "America/Los_Angeles"]);
+  });
+
+  it("loads the beach-local forecast and tide bounds through the default shared-ranking loader", async () => {
+    const evening = row(ospreyId, "shared-evening", "2026-09-17T04:00:00.000Z");
+    const { client, queries } = forecastClient([evening]);
+    const pick = {
+      id: "hawaii-window", beachId: ospreyId, personalVerdict: "go", isBeachDayBest: true,
+      start: evening.forecast_at, end: "2026-09-17T05:00:00.000Z",
+      displayWindowStart: evening.forecast_at, displayWindowEnd: "2026-09-17T05:00:00.000Z",
+      peakTime: evening.forecast_at, conditionScore: 90, rankedSpots: [],
+    } as unknown as WeekScoutWindowResponse;
+    const injected = {
+      ...deps({ loadPool: async () => [hawaii] }),
+      usesSharedRanking: () => true,
+      rankDay: jest.fn(async () => ({ days: [{ localDate: alertDate, windows: [pick], bestDayWindow: pick }] }) as CanonicalWeekScoutResponse),
+    };
+    const result = await runDailyCallCron({ now, supabase: client, deps: injected });
+    expect(result).toMatchObject({ sent: 1, errors: 0 });
+    expect(jest.mocked(injected.enqueue).mock.calls[0][0].payload).toMatchObject({
+      session_decision: {
+        scope: { timezone: "Pacific/Honolulu" },
+        selection: { timezone: "Pacific/Honolulu", forecastRef: { forecastId: evening.id } },
+      },
+    });
+    for (const query of queries) {
+      const column = query.table === "enhanced_forecasts" ? "forecast_at" : "ts";
+      expect(query.gte).toHaveBeenCalledWith(column, hawaiiStart);
+      expect(query.lt).toHaveBeenCalledWith(column, hawaiiEnd);
+    }
+    expect(queries.map(({ table }) => table)).toEqual(["enhanced_forecasts", "tide_forecasts"]);
+    expect(evaluateForecastVerdict).toHaveBeenCalledWith(expect.objectContaining({ timezone: "Pacific/Honolulu" }));
+    expect(injected.alreadySentToday).toHaveBeenCalledWith(userId, alertDate);
+    expect(injected.rankDay).toHaveBeenCalledWith(expect.objectContaining({ timezone: "America/Los_Angeles", localDate: alertDate }));
+  });
+});
+
 describe("daily call advertised window decisions", () => {
   let restoreSelector: () => void;
   const runNow = new Date("2026-10-15T13:08:00.000Z");
