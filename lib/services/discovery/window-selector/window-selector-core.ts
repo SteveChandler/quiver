@@ -32,6 +32,7 @@ import { resolveForecastTime } from '@/lib/utils/forecast-time-resolver';
 import {
   clampToUsableLight,
   forecastRowIntervalEnd,
+  forecastRowLiveEnds,
   isDaylightInterval,
   usableLightIntervalForDate,
 } from '../daylight-eligibility';
@@ -47,7 +48,6 @@ import {
   MIN_SCORE_THRESHOLD,
   MIN_SCORE_THRESHOLD_MORNING,
   MAX_WINDOW_HOURS,
-  FORECAST_WINDOW_DURATION_MINUTES,
   PAST_WINDOW_TOLERANCE_MINUTES,
   MORNING_CUTOFF_HOUR,
   TODAY_BONUS_POINTS,
@@ -137,21 +137,7 @@ function prepareForecasts(
     .sort((a, b) => a.forecastTime.getTime() - b.forecastTime.getTime());
 
   // Derive cadence before filtering so elapsed rows still inform the final row.
-  const times = [...new Set(scoredForecasts.map(({ forecastTime }) => forecastTime.getTime()))]
-    .filter(Number.isFinite)
-    .sort((a, b) => a - b);
-  const gaps = times.slice(1).map((time, index) => time - times[index]).sort((a, b) => a - b);
-  const middle = Math.floor(gaps.length / 2);
-  const minimumSpacingMs = FORECAST_WINDOW_DURATION_MINUTES * 60 * 1000;
-  const medianGapMs = gaps.length === 0
-    ? minimumSpacingMs
-    : gaps.length % 2 === 0 ? (gaps[middle - 1] + gaps[middle]) / 2 : gaps[middle];
-  const maximumSpacingMs = 3 * 60 * 60 * 1000;
-  const spacingMs = Math.min(maximumSpacingMs, Math.max(minimumSpacingMs, medianGapMs));
-  const rowEnds = new Map(times.map((time, index) => [
-    time,
-    Math.min(times[index + 1] ?? time + spacingMs, time + maximumSpacingMs),
-  ]));
+  const rowEnds = forecastRowLiveEnds(scoredForecasts.map(({ forecastTime }) => forecastTime.getTime()));
   const cutoffMs = now.getTime() - PAST_WINDOW_TOLERANCE_MINUTES * 60 * 1000;
 
   return scoredForecasts.filter(({ forecastTime }) =>
@@ -921,7 +907,9 @@ export function selectBestWindows(
       );
 
       const lit = clampToUsableLight(refinedTimes.start, refinedTimes.end, beachTz, sunTimes);
-      return lit ? [{ ...candidateWindow, start: lit.start, end: lit.end }] : [];
+      const cutoffMs = actualNow.getTime() - PAST_WINDOW_TOLERANCE_MINUTES * 60 * 1000;
+      if (!lit || lit.end.getTime() <= cutoffMs) return [];
+      return [{ ...candidateWindow, start: lit.start, end: lit.end }];
     })
     .flat()
     .map((candidateWindow) =>

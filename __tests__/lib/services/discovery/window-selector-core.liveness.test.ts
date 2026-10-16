@@ -2,6 +2,18 @@ import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import { selectBestWindow } from '@/lib/services/discovery/window-selector/window-selector-core';
 import { hasUsableTodayForecastForFallback } from '@/lib/services/discovery/surf-discovery-orchestrator';
+import * as windowRefiner from '@/lib/services/discovery/window-selector/window-refiner';
+import * as windowScorer from '@/lib/services/discovery/window-selector/window-scorer';
+
+jest.mock('@/lib/services/discovery/window-selector/window-refiner', () => {
+  const actual = jest.requireActual('@/lib/services/discovery/window-selector/window-refiner');
+  return { ...actual, applySubHourRefinement: jest.fn(actual.applySubHourRefinement) };
+});
+
+jest.mock('@/lib/services/discovery/window-selector/window-scorer', () => {
+  const actual = jest.requireActual('@/lib/services/discovery/window-selector/window-scorer');
+  return { ...actual, scoreWindowForSelection: jest.fn(actual.scoreWindowForSelection) };
+});
 
 const beach = {
   id: 'liveness-beach',
@@ -43,6 +55,75 @@ function morningWindow(times: string[], now: string): ReturnType<typeof selectBe
 }
 
 describe('window selector forecast row liveness', () => {
+  it('checks the final end after refinement moves an otherwise open window into the past', () => {
+    const refinement = jest.mocked(windowRefiner.applySubHourRefinement).mockClear().mockReturnValue({
+      start: localTime('17:00'),
+      end: localTime('18:00'),
+    });
+
+    try {
+      expect(selectBestWindow({
+        forecasts: ['11:00', '14:00', '17:00'].map(forecastAt),
+        beach,
+        userPrefs: null,
+        now: localTime('18:30'),
+        sunTimesCache: new Map([[beach.id, {
+          sunrises: [localTime('06:30')],
+          sunsets: [localTime('20:00')],
+        }]]),
+      })).toBeNull();
+      expect(refinement).toHaveBeenCalledTimes(1);
+    } finally {
+      refinement.mockImplementation(jest.requireActual('@/lib/services/discovery/window-selector/window-refiner').applySubHourRefinement);
+    }
+  });
+
+  it('also rejects an expired window chosen by the below-threshold fallback', () => {
+    const score = jest.mocked(windowScorer.scoreWindowForSelection).mockReturnValue(10);
+    const refinement = jest.mocked(windowRefiner.applySubHourRefinement).mockClear();
+
+    try {
+      expect(selectBestWindow({
+        forecasts: ['14:00', '17:00', '20:00'].map(forecastAt),
+        beach,
+        userPrefs: null,
+        now: localTime('19:05'),
+        sunTimesCache: new Map([[beach.id, {
+          sunrises: [localTime('06:30')],
+          sunsets: [localTime('18:30')],
+        }]]),
+      })).toBeNull();
+      expect(refinement).toHaveBeenCalledWith(
+        expect.objectContaining({ score: 10, usedTideBoundaries: false }),
+        expect.any(Array), expect.any(Array), expect.any(Array), expect.any(Array), beach, beach.timezone,
+      );
+    } finally {
+      score.mockImplementation(jest.requireActual('@/lib/services/discovery/window-selector/window-scorer').scoreWindowForSelection);
+    }
+  });
+
+  it.each(['19:05', '19:30', '20:10'])('rejects a window closed by last light at %s in both paths', (now) => {
+    const forecasts = ['14:00', '17:00', '20:00'].map(forecastAt);
+    const sunTimes = {
+      sunrises: [localTime('06:30')],
+      sunsets: [localTime('18:30')],
+    };
+
+    expect(selectBestWindow({
+      forecasts,
+      beach,
+      userPrefs: null,
+      now: localTime(now),
+      sunTimesCache: new Map([[beach.id, sunTimes]]),
+    })).toBeNull();
+    expect(hasUsableTodayForecastForFallback({
+      forecasts,
+      beachTz: beach.timezone!,
+      sunTimes,
+      now: localTime(now),
+    })).toBe(false);
+  });
+
   it('keeps the 08:00 three-hourly row available for a morning window at 09:16', () => {
     const window = morningWindow(['05:00', '08:00', '11:00'], '09:16');
 
@@ -67,7 +148,7 @@ describe('window selector forecast row liveness', () => {
       },
     };
 
-    expect(morningWindow(times, '11:15')?.start).toEqual(localTime('08:00'));
+    expect(morningWindow(times, '11:14')?.start).toEqual(localTime('08:00'));
     expect(morningWindow(times, '11:16')).toBeNull();
     expect(hasUsableTodayForecastForFallback({ ...args, now: localTime('11:15') })).toBe(true);
     expect(hasUsableTodayForecastForFallback({ ...args, now: localTime('11:16') })).toBe(false);

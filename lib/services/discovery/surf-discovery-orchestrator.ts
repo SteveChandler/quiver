@@ -18,7 +18,9 @@ import { clamp } from "@/lib/utils/clamp";
  */
 
 import {
+  clampToUsableLight,
   forecastRowIntervalEnd,
+  forecastRowLiveEnds,
   isDaylightInterval,
   nextFirstLight,
   currentHourRowStart,
@@ -94,10 +96,9 @@ import {
   getLocalDateStr,
   getLocalHour,
   MIN_SESSION_HOURS,
-  FORECAST_WINDOW_DURATION_MINUTES,
-  PAST_WINDOW_TOLERANCE_MINUTES,
   scoreWindowConditionScore,
 } from './window-selector';
+import { MAX_WINDOW_HOURS, PAST_WINDOW_TOLERANCE_MINUTES } from './window-selector/constants';
 import { scoreWindowConditionDetails } from './window-selector/window-scorer';
 import {
   enrichWithPhotos,
@@ -928,21 +929,7 @@ export function hasUsableTodayForecastForFallback(args: {
     forecast,
     forecastTime: resolveForecastTime(forecast, args.beachTz),
   }));
-  const times = [...new Set(rows.map(({ forecastTime }) => forecastTime.getTime()))]
-    .filter(Number.isFinite)
-    .sort((a, b) => a - b);
-  const gaps = times.slice(1).map((time, index) => time - times[index]).sort((a, b) => a - b);
-  const middle = Math.floor(gaps.length / 2);
-  const minimumSpacingMs = FORECAST_WINDOW_DURATION_MINUTES * 60 * 1000;
-  const medianGapMs = gaps.length === 0
-    ? minimumSpacingMs
-    : gaps.length % 2 === 0 ? (gaps[middle - 1] + gaps[middle]) / 2 : gaps[middle];
-  const maximumSpacingMs = 3 * 60 * 60 * 1000;
-  const spacingMs = Math.min(maximumSpacingMs, Math.max(minimumSpacingMs, medianGapMs));
-  const rowEnds = new Map(times.map((time, index) => [
-    time,
-    Math.min(times[index + 1] ?? time + spacingMs, time + maximumSpacingMs),
-  ]));
+  const rowEnds = forecastRowLiveEnds(rows.map(({ forecastTime }) => forecastTime.getTime()));
   const usableCutoffMs = args.now.getTime() - PAST_WINDOW_TOLERANCE_MINUTES * 60 * 1000;
 
   return rows.some(({ forecast, forecastTime }) => {
@@ -950,7 +937,10 @@ export function hasUsableTodayForecastForFallback(args: {
       return false;
     }
     const rowEnd = getForecastRowEnd(forecast, args.forecasts, args.beachTz);
-    return isDaylightInterval(forecastTime, rowEnd, args.beachTz, args.sunTimes);
+    if (!isDaylightInterval(forecastTime, rowEnd, args.beachTz, args.sunTimes)) return false;
+    const windowEnd = new Date(forecastTime.getTime() + MAX_WINDOW_HOURS * 60 * 60 * 1000);
+    const lit = clampToUsableLight(forecastTime, windowEnd, args.beachTz, args.sunTimes);
+    return lit !== null && lit.end.getTime() > usableCutoffMs;
   });
 }
 
@@ -1983,8 +1973,8 @@ async function discoverSurfSpotsInner(
     // slots are 20:00/23:00 (both post-sunset). Detect that case explicitly
     // by checking whether any cached today forecast is still pre-sunset AND
     // not yet stale per the window selector's own past-tolerance filter
-    // (window-selector-core.ts:103-110). Mirroring that filter keeps this
-    // gate aligned with what selectBestWindow actually accepts.
+    // (forecastRowLiveEnds in daylight-eligibility.ts), with usable-light
+    // clipping so the gate agrees with the selector after last light.
     const hasUsableTodayForecast = hasUsableTodayForecastForFallback({
       forecasts: todayForecasts,
       beachTz,

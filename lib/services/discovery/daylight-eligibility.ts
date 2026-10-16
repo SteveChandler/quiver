@@ -1,5 +1,6 @@
 import { localDateTimeToUTC } from '@/lib/utils/forecast-time-resolver';
 import { getLocalDateStr } from './window-selector/time-slot-utils';
+import { FORECAST_WINDOW_DURATION_MINUTES } from './window-selector/constants';
 
 export interface BeachSunTimes {
   sunrises: Date[];
@@ -14,7 +15,24 @@ interface UsableLightInterval {
 const FIRST_LIGHT_BEFORE_SUNRISE_MS = 30 * 60_000;
 const LAST_LIGHT_AFTER_SUNSET_MS = 20 * 60_000;
 const FORECAST_ROW_FALLBACK_DURATION_MS = 60 * 60_000;
+// Selector liveness caps at 3h; Home Now's IMMEDIATE_FORECAST_BUCKET_MAX_HOURS (4) differs by design.
 const MAX_FORECAST_ROW_GAP_MS = 3 * 60 * 60_000;
+
+/** Derive row liveness for one beach before filtering elapsed rows or dayparts. */
+export function forecastRowLiveEnds(rowTimes: readonly number[]): Map<number, number> {
+  const times = [...new Set(rowTimes)].filter(Number.isFinite).sort((a, b) => a - b);
+  const gaps = times.slice(1).map((time, index) => time - times[index]).sort((a, b) => a - b);
+  const middle = Math.floor(gaps.length / 2);
+  const minimumSpacingMs = FORECAST_WINDOW_DURATION_MINUTES * 60 * 1000;
+  const medianGapMs = gaps.length === 0
+    ? minimumSpacingMs
+    : gaps.length % 2 === 0 ? (gaps[middle - 1] + gaps[middle]) / 2 : gaps[middle];
+  const spacingMs = Math.min(MAX_FORECAST_ROW_GAP_MS, Math.max(minimumSpacingMs, medianGapMs));
+  return new Map(times.map((time, index) => [
+    time,
+    Math.min(times[index + 1] ?? time + spacingMs, time + MAX_FORECAST_ROW_GAP_MS),
+  ]));
+}
 
 export function forecastRowIntervalEnd(start: Date, nextStart?: Date): Date {
   if (nextStart) {
