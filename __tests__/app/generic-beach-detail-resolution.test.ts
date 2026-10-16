@@ -11,6 +11,11 @@ import {
   getForecastIndexabilityForBeaches,
   type ForecastIndexabilitySnapshot,
 } from "@/lib/seo/forecast-indexability";
+import { isValidElement, type ReactNode } from "react";
+import { getWaterTempMetaData } from "@/lib/seo/water-temp-meta-data";
+import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
+import { getSpotFeaturedPhoto } from "@/actions/spot/spot-data-actions";
+import { getBeachCameraUrl } from "@/actions/beach/cam-actions";
 import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
 import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 import type { Beach } from "@/types/database";
@@ -185,7 +190,13 @@ jest.mock("@/lib/supabase/server", () => ({
       maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
     }),
   }),
-  createSupabaseServiceRoleClient: jest.fn().mockReturnValue({}),
+  createSupabaseServiceRoleClient: jest.fn().mockReturnValue({
+    from: jest.fn().mockReturnValue({
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
+    }),
+  }),
   createPublicReadClient: jest.fn().mockReturnValue({
     from: jest.fn().mockReturnValue({
       select: jest.fn().mockReturnThis(),
@@ -348,6 +359,78 @@ describe("GenericBeachDetailPage slug resolution", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (getForecastIndexabilityForBeaches as jest.Mock).mockResolvedValue(new Map());
+  });
+
+  it.each([
+    ["forecast", getSpotSurfReportPublic],
+    ["photo", getSpotFeaturedPhoto],
+    ["camera", getBeachCameraUrl],
+    ["nearby", getNearbyBeaches],
+  ] as const)("renders the beach when the %s loader throws", async (section, loader) => {
+    (getBeachesBySlug as jest.Mock).mockResolvedValue({
+      success: true,
+      data: [makeBeach({ name: "Test Beach" })],
+    });
+    (loader as jest.Mock).mockRejectedValueOnce(new Error("Optional loader failed"));
+    const log = jest.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const page = await GenericBeachDetailPage({
+        params: Promise.resolve({ intent: "ca", city: "dana-point", beachSlug: "lower-trestles" }),
+      });
+
+      expect(renderToStaticMarkup(page)).toContain("Test Beach");
+      expect(notFound).not.toHaveBeenCalled();
+      expect(log).toHaveBeenCalledWith(
+        "[GenericBeachDetailPage] Optional section unavailable:",
+        { section, message: "Optional loader failed" },
+      );
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  it.each([
+    ["guides", "DeferredRelatedGuidesSection", getWaterTempMetaData],
+    ["nearbyConditions", "DeferredZineNearbySpots", enrichBeachesWithConditions],
+  ] as const)("omits the deferred %s section when its loader throws", async (section, componentName, loader) => {
+    (getBeachesBySlug as jest.Mock).mockResolvedValue({
+      success: true,
+      data: [makeBeach({ name: "Test Beach" })],
+    });
+    const page = await GenericBeachDetailPage({
+      params: Promise.resolve({ intent: "ca", city: "dana-point", beachSlug: "lower-trestles" }),
+    });
+    (loader as jest.Mock).mockRejectedValueOnce(new Error("Deferred loader failed"));
+    const log = jest.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      // Invoke the actual deferred server component: static markup only renders
+      // its Suspense fallback and cannot prove the asynchronous failure is caught.
+      const pending: unknown[] = [page];
+      let sectionResult: ReactNode = undefined;
+      while (pending.length > 0) {
+        const node = pending.pop();
+        if (Array.isArray(node)) {
+          pending.push(...node);
+          continue;
+        }
+        if (!isValidElement<Record<string, unknown>>(node)) continue;
+        if (typeof node.type === "function" && node.type.name === componentName) {
+          const render = node.type as (props: Record<string, unknown>) => Promise<ReactNode>;
+          sectionResult = await render(node.props);
+          break;
+        }
+        pending.push(...Object.values(node.props));
+      }
+      expect(sectionResult).toBeNull();
+      expect(renderToStaticMarkup(page)).toContain("Test Beach");
+      expect(notFound).not.toHaveBeenCalled();
+      expect(log).toHaveBeenCalledWith(
+        "[GenericBeachDetailPage] Optional section unavailable:",
+        { section, message: "Deferred loader failed" },
+      );
+    } finally {
+      log.mockRestore();
+    }
   });
 
   it("returns a true 404 (NEXT_NOT_FOUND) when no beaches match the slug", async () => {
