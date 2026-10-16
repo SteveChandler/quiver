@@ -261,6 +261,7 @@ function windowLabel(candidate: DailyCallCandidate, timezone: string): string {
   const startDriver = candidate.window.drivers.find((driver) => driver.edge === "start");
   const endDriver = candidate.window.drivers.find((driver) => driver.edge === "end");
   return formatWindowLabel(candidate.window.start, candidate.window.end, windowTimezone, {
+    forBody: true,
     approximateStart: startDriver?.approximate ?? false,
     approximateEnd: endDriver?.approximate ?? false,
   });

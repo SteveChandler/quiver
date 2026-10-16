@@ -31,6 +31,7 @@ import type {
   NotificationTypeDef,
 } from "./types";
 import { isHighConfidenceNotification } from "./relevance";
+import { pushTitle } from "./copy/push-title";
 import {
   parseMajorSwellNotificationPayload,
   type MajorSwellNotificationPayload,
@@ -855,7 +856,7 @@ export const NOTIFICATION_REGISTRY = {
       return {
         title:
           highConfidence && p.beach_name
-            ? `Surfed ${p.beach_name} today?`
+            ? pushTitle(`Surfed ${p.beach_name} today?`)
             : "Catch a session today?",
         body: highConfidence
           ? "Log it in one tap."
@@ -966,7 +967,7 @@ export const NOTIFICATION_REGISTRY = {
         body = "Water quality status updated.";
       }
       return {
-        title,
+        title: pushTitle(title),
         body,
         data: {
           type: "water_quality",
