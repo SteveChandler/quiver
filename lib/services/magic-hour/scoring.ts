@@ -19,6 +19,38 @@ import { DEFAULT_WEIGHTS, WINDOW_HALF_SIZE_MS } from "./constants";
 import { circularAngleDiff } from "./direction-utils";
 import { isSwellInWindow, checkWindOffshore, isTideInRange } from "./condition-checkers";
 import { formatTime } from "./interpolation";
+import { resolveWindOrientation } from "@/lib/domains/shared/wind-orientation";
+
+/** At or below this the wind is a real calm: direction no longer matters. */
+const CALM_WIND_MPH = 3;
+
+interface SlotWind {
+  /** Null when the wind is unknown: it then takes no part in the score. */
+  score: number | null;
+  quality: OptimalWindow["windQuality"];
+}
+
+const UNKNOWN_WIND: SlotWind = { score: null, quality: null };
+
+/**
+ * Unknown = no speed, or a breeze whose direction or beach orientation is
+ * missing. Unknown wind is left out of the score rather than guessed.
+ */
+function assessWind(slot: ForecastSlot, beach: BeachMetadata): SlotWind {
+  const speed = slot.wind_speed_mph;
+  if (speed === null || !Number.isFinite(speed)) return UNKNOWN_WIND;
+
+  const { offshoreDeg, toleranceDeg } = resolveWindOrientation(beach);
+  const dir = slot.wind_direction_deg;
+  if (dir === null || offshoreDeg === null) {
+    return speed <= CALM_WIND_MPH ? { score: 1, quality: null } : UNKNOWN_WIND;
+  }
+
+  return {
+    score: calculateWindScore(dir, offshoreDeg, toleranceDeg),
+    quality: checkWindOffshore(dir, offshoreDeg, toleranceDeg).quality,
+  };
+}
 
 /**
  * Finds the weighted peak across all forecast slots using multi-metric scoring.
@@ -50,8 +82,11 @@ export function findWeightedPeak(
   let bestSlot: ForecastSlot | null = null;
   let bestScore = -Infinity;
 
+  const totalWeight = weights.tide + weights.wind + weights.swell;
+
   for (const slot of slots) {
     let score = 0;
+    let usedWeight = 0;
 
     // Tide score (0-1)
     const tideScore = calculateTideScore(
@@ -60,14 +95,14 @@ export function findWeightedPeak(
       beach.preferred_tide_ft_max
     );
     score += tideScore * weights.tide;
+    usedWeight += weights.tide;
 
-    // Wind score (0-1)
-    const windScore = calculateWindScore(
-      slot.wind_direction_deg,
-      beach.wind_offshore_deg,
-      beach.wind_offshore_tol_deg
-    );
-    score += windScore * weights.wind;
+    // Wind score (0-1); skipped when unknown so it cannot move the result
+    const windScore = assessWind(slot, beach).score;
+    if (windScore !== null) {
+      score += windScore * weights.wind;
+      usedWeight += weights.wind;
+    }
 
     // Swell score (0-1)
     const swellScore = calculateSwellScore(
@@ -76,6 +111,10 @@ export function findWeightedPeak(
       beach.swell_window_halfwidth_deg
     );
     score += swellScore * weights.swell;
+    usedWeight += weights.swell;
+
+    // Renormalise so a slot without wind stays on the same scale as the rest.
+    if (usedWeight < totalWeight) score = usedWeight > 0 ? (score * totalWeight) / usedWeight : 0;
 
     if (score > bestScore) {
       bestScore = score;
@@ -99,17 +138,7 @@ export function findWeightedPeak(
         )
       : true;
 
-  // An unknown direction gets no wind-quality label.
-  const windQuality =
-    bestSlot.wind_direction_deg === null
-      ? null
-      : beach.wind_offshore_deg !== null && beach.wind_offshore_tol_deg !== null
-        ? checkWindOffshore(
-            bestSlot.wind_direction_deg,
-            beach.wind_offshore_deg,
-            beach.wind_offshore_tol_deg
-          ).quality
-        : "acceptable";
+  const windQuality = assessWind(bestSlot, beach).quality;
 
   const tideInRange = isTideInRange(
     bestSlot.tide_height_ft,
@@ -150,20 +179,17 @@ export function calculateTideScore(
   return Math.max(0, 1 - diff / range);
 }
 
-// Unknown direction sits halfway between onshore (0.1) and offshore (1).
-const UNKNOWN_WIND_SCORE = 0.55;
-
 /**
  * Calculates wind score (0-1) based on offshore quality.
+ * Null when the direction or the beach orientation is missing.
  * @internal Exported for testing
  */
 export function calculateWindScore(
   windDir: number | null,
   offshoreDeg: number | null,
   toleranceDeg: number | null
-): number {
-  if (offshoreDeg === null || toleranceDeg === null) return 0.7; // No preference = acceptable
-  if (windDir === null) return UNKNOWN_WIND_SCORE;
+): number | null {
+  if (windDir === null || offshoreDeg === null || toleranceDeg === null) return null;
 
   const diff = circularAngleDiff(windDir, offshoreDeg);
 

@@ -231,7 +231,7 @@ export function createEmptyRegionalSummary(
     avgWaveHeight: 0,
     waveRange: [0, 0] as [number, number],
     dominantWindDirection: "",
-    windConditions: "onshore" as const,
+    windConditions: "unknown" as const,
     bestTimeSlot: "morning" as const,
     topBeaches: [],
     beachesWithGoodConditions: 0,

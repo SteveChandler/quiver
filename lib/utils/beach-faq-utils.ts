@@ -2,6 +2,10 @@ import type { Beach } from '@/types/database';
 import { formatMonthRange } from '@/lib/utils/date-time';
 import { degreeToCardinal } from '@/lib/utils/geo-utils';
 import { degreeWindowToCardinal } from '@/lib/utils/direction-utils';
+import {
+  resolveOffshoreDeg,
+  resolveOffshoreToleranceDeg,
+} from '@/lib/domains/shared/wind-orientation';
 
 export interface FAQItem {
   question: string;
@@ -11,7 +15,7 @@ export interface FAQItem {
 export function generateBeachFAQ(beach: Beach): FAQItem[] {
   const name = beach.name;
 
-  return [
+  const items: Array<FAQItem | null> = [
     generateBeginnerFAQ(name, beach),
     generateTideFAQ(name, beach),
     generateBestTimeFAQ(name, beach),
@@ -20,6 +24,7 @@ export function generateBeachFAQ(beach: Beach): FAQItem[] {
     generateWindDirectionFAQ(name, beach),
     generateBestMonthsFAQ(name, beach),
   ];
+  return items.filter((item): item is FAQItem => item !== null);
 }
 
 function generateBeginnerFAQ(name: string, beach: Beach): FAQItem {
@@ -134,9 +139,9 @@ function generateSwellFAQ(name: string, beach: Beach): FAQItem {
     const max = beach.swell_window_max_deg!;
     let answer = `${name} picks up swells from ${degreeToCardinal(min)} to ${degreeToCardinal(max)} (${min}°-${max}°).`;
 
-    if (beach.wind_offshore_deg != null) {
-      const deg = beach.wind_offshore_deg;
-      answer += ` Offshore winds blow from ${degreeToCardinal(deg)} (${deg}°).`;
+    const offshoreDeg = resolveOffshoreDeg(beach);
+    if (offshoreDeg != null) {
+      answer += ` Offshore winds blow from ${degreeToCardinal(offshoreDeg)} (${offshoreDeg}°).`;
     }
 
     return { question, answer };
@@ -148,33 +153,32 @@ function generateSwellFAQ(name: string, beach: Beach): FAQItem {
   };
 }
 
-function generateWindDirectionFAQ(name: string, beach: Beach): FAQItem {
+/** Null when the beach has no orientation: a generic "offshore is best" answer would be a guess. */
+function generateWindDirectionFAQ(name: string, beach: Beach): FAQItem | null {
   const question = `What is the best wind direction for ${name}?`;
 
-  if (beach.wind_offshore_deg != null && beach.wind_offshore_tol_deg != null) {
-    const cardinal = degreeWindowToCardinal(
-      beach.wind_offshore_deg - beach.wind_offshore_tol_deg,
-      beach.wind_offshore_deg + beach.wind_offshore_tol_deg,
-    );
-    if (cardinal) {
-      return {
-        question,
-        answer: `Offshore winds at ${name} blow from the ${cardinal} (${beach.wind_offshore_deg}° ±${beach.wind_offshore_tol_deg}°). These clean up the wave face and create the best conditions.`,
-      };
-    }
-  }
+  const offshoreDeg = resolveOffshoreDeg(beach);
+  if (offshoreDeg == null) return null;
 
-  if (beach.wind_offshore_deg != null) {
-    const cardinal = degreeToCardinal(beach.wind_offshore_deg);
+  // A stored bearing without a stored tolerance keeps its original, simpler wording.
+  if (beach.wind_offshore_deg != null && beach.wind_offshore_tol_deg == null) {
     return {
       question,
-      answer: `The best wind at ${name} is offshore from the ${cardinal} (${beach.wind_offshore_deg}°).`,
+      answer: `The best wind at ${name} is offshore from the ${degreeToCardinal(offshoreDeg)} (${offshoreDeg}°).`,
     };
   }
 
+  const tolerance = resolveOffshoreToleranceDeg(beach);
+  const cardinal = degreeWindowToCardinal(offshoreDeg - tolerance, offshoreDeg + tolerance);
+  if (!cardinal) {
+    return {
+      question,
+      answer: `The best wind at ${name} is offshore from the ${degreeToCardinal(offshoreDeg)} (${offshoreDeg}°).`,
+    };
+  }
   return {
     question,
-    answer: `The ideal wind direction at ${name} depends on the coastline orientation. Generally, offshore winds that blow from land toward the ocean produce the cleanest conditions.`,
+    answer: `Offshore winds at ${name} blow from the ${cardinal} (${offshoreDeg}° ±${tolerance}°). These clean up the wave face and create the best conditions.`,
   };
 }
 

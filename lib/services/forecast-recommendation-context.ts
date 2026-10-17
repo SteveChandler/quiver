@@ -9,6 +9,8 @@ import {
   resolveDisplaySwell,
   type DisplaySwellWindow,
 } from "@/lib/domains/conditions/display-swell";
+import { resolveOffshoreDeg } from "@/lib/domains/shared/wind-orientation";
+import { getDirectionDegrees } from "@/lib/utils/number-parsing";
 import { designateCurrentRow } from "@/lib/services/current-conditions/current-row";
 
 export type ForecastRecommendationType =
@@ -200,9 +202,25 @@ function formatRange(start: Date, end: Date, timezone: string): string {
   return `${startLabel}-${endLabel}`;
 }
 
-function describeWind(windSpeed: string | null | undefined): string | null {
+/** At or below this the wind is calm whatever its direction or the beach's orientation. */
+const CALM_WIND_MPH = 3;
+
+/**
+ * Quality word for the wind. Above a calm it needs the wind direction and the
+ * beach orientation; without them a speed-only "clean" or "blown out" would be
+ * a guess about how the wind meets the beach.
+ */
+function describeWind(
+  windSpeed: string | null | undefined,
+  windDirection: string | null | undefined,
+  beach: Beach,
+): string | null {
   const mph = parseNumber(windSpeed);
   if (mph == null) return null;
+  if (mph > CALM_WIND_MPH) {
+    const hasDirection = getDirectionDegrees(null, windDirection) != null;
+    if (!hasDirection || resolveOffshoreDeg(beach) == null) return null;
+  }
   if (mph <= 6) return "clean";
   if (mph <= 12) return "manageable";
   if (mph <= 18) return "textured";
@@ -215,16 +233,25 @@ function buildConditionDrivers({
   swellPeriod,
   swellDirection,
   sourceForecast,
+  beach,
 }: {
   wave: string | null;
   waveRange: string | null;
   swellPeriod: string | null;
   swellDirection: string | null;
   sourceForecast: EnhancedForecastEntity | null;
+  beach: Beach;
 }): ForecastConditionDrivers {
-  const wind = [sourceForecast?.wind_speed, sourceForecast?.wind_direction, describeWind(sourceForecast?.wind_speed)]
-    .filter(Boolean)
-    .join(" ") || null;
+  const hasWindSpeed = parseNumber(sourceForecast?.wind_speed) != null;
+  const wind = hasWindSpeed
+    ? [
+        sourceForecast?.wind_speed,
+        sourceForecast?.wind_direction,
+        describeWind(sourceForecast?.wind_speed, sourceForecast?.wind_direction, beach),
+      ]
+        .filter(Boolean)
+        .join(" ") || null
+    : null;
   const tide = [sourceForecast?.tide_height, sourceForecast?.tide_status?.toLowerCase()]
     .filter(Boolean)
     .join(" ") || null;
@@ -449,6 +476,7 @@ export function buildForecastRecommendationContext({
         swellPeriod,
         swellDirection,
         sourceForecast: selectedForecast ?? sourceForecast,
+        beach,
       }),
     };
   }

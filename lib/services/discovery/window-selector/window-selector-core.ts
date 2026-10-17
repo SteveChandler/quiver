@@ -301,6 +301,17 @@ function applySunsetCap(
 }
 
 /**
+ * Plain wind reading for display: speed first, direction only alongside it.
+ * Empty when the speed is unknown, because wind is then not shown at all.
+ */
+function formatWindForWindow(forecast: EnhancedForecastEntity): string {
+  const speed = forecast.wind_speed?.trim();
+  if (!speed) return '';
+  const direction = forecast.wind_direction?.trim();
+  return direction ? `${speed} ${direction}` : speed;
+}
+
+/**
  * Build the final PersonalizedForecastWindow result.
  */
 function buildResult(
@@ -339,7 +350,7 @@ function buildResult(
     start: bestWindow.start,
     end: bestWindow.end,
     tide: peakForecast.forecast.tide_status || 'Unknown',
-    wind: `${peakForecast.forecast.wind_speed} ${peakForecast.forecast.wind_direction}`,
+    wind: formatWindForWindow(peakForecast.forecast),
     waveHeight: peakForecast.forecast.wave_height || 'Unknown',
     wavePeriod: peakForecast.forecast.wave_period || 'Unknown',
     dataSource: peakForecast.forecast.data_source || 'FALLBACK',

@@ -270,19 +270,19 @@ describe("beginner actions", () => {
     });
   });
 
-  it("does not promote missing wind telemetry to great learner conditions", async () => {
+  it("treats missing wind telemetry as neutral: the other inputs decide the rating", async () => {
     beaches.push(makeBeach({}));
     forecasts.push(makeForecast({ wind_speed: null }));
 
     const result = await getBeginnerConditionsData("huntington-beach", "ca");
 
-    expect(result.badge?.status).toBe("fair");
+    expect(result.badge?.status).toBe("great");
     expect(result.badge?.wind).toBe("Wind unavailable");
     expect(result.rightNow?.metrics.wind).toMatchObject({
       value: "Wind unavailable",
       label: "Wind unavailable",
       status: "caution",
     });
-    expect(result.rightNow?.beginnerVerdict.rating).toBe("acceptable");
+    expect(result.rightNow?.beginnerVerdict.rating).toBe("ideal");
   });
 });

@@ -782,3 +782,87 @@ describe("aggregateRegionalForecast — current-conditions reference instant", (
     expect(summary.beachConditions[0].currentScore).toBeGreaterThan(0);
   });
 });
+
+describe("aggregateRegionalForecast — day wind conditions follow each beach's own orientation", () => {
+  const today = futureDateString(0);
+  // beach-1 faces west, so offshore is east (90). beach-2 faces east, so offshore is west (270).
+  const westFacing = { ...mockBeaches[0], aspect_deg: 270, wind_offshore_deg: null } as unknown as Beach;
+  const eastFacing = { ...mockBeaches[1], aspect_deg: 90, wind_offshore_deg: null } as unknown as Beach;
+  const noOrientation = { ...mockBeaches[2], aspect_deg: null, wind_offshore_deg: null } as unknown as Beach;
+
+  function summarize(
+    beaches: Beach[],
+    rows: Array<[string, Partial<EnhancedForecastEntity>]>
+  ) {
+    const forecastMap = new Map<string, EnhancedForecastEntity[]>();
+    for (const [beachId, overrides] of rows) {
+      forecastMap.set(beachId, [
+        ...(forecastMap.get(beachId) ?? []),
+        createMockForecast(beachId, today, "12:00", overrides),
+      ]);
+    }
+    return aggregateRegionalForecast(mockRegion, beaches, forecastMap, {
+      now: new Date(`${today}T05:00:00Z`),
+    }).days[0];
+  }
+
+  it("calls an east wind offshore on a west-facing beach and onshore on an east-facing one", () => {
+    const east = { wind_speed: "12 mph", wind_direction: "E" };
+    expect(summarize([westFacing], [["beach-1", east]]).windConditions).toBe("offshore");
+    expect(summarize([eastFacing], [["beach-2", east]]).windConditions).toBe("onshore");
+  });
+
+  it("calls a west wind onshore on a west-facing beach and offshore on an east-facing one", () => {
+    const west = { wind_speed: "12 mph", wind_direction: "W" };
+    expect(summarize([westFacing], [["beach-1", west]]).windConditions).toBe("onshore");
+    expect(summarize([eastFacing], [["beach-2", west]]).windConditions).toBe("offshore");
+  });
+
+  it("classifies each beach against its own orientation before taking the majority", () => {
+    const day = summarize(
+      [westFacing, eastFacing],
+      [
+        ["beach-1", { wind_speed: "12 mph", wind_direction: "E" }],
+        ["beach-2", { wind_speed: "12 mph", wind_direction: "W" }],
+      ]
+    );
+    expect(day.windConditions).toBe("offshore");
+  });
+
+  it("is unknown, not onshore, when the beach has no orientation and the wind is a real breeze", () => {
+    const day = summarize([noOrientation], [["beach-3", { wind_speed: "12 mph", wind_direction: "E" }]]);
+    expect(day.windConditions).toBe("unknown");
+    expect(day.bestTimeSlot).toBe("morning");
+  });
+
+  it("is unknown when the speed is missing, even with a direction and an orientation", () => {
+    const day = summarize([westFacing], [["beach-1", { wind_speed: null, wind_direction: "E" }]]);
+    expect(day.windConditions).toBe("unknown");
+    expect(day.dominantWindDirection).toBe("");
+  });
+
+  it("is unknown when the speed is above 3 mph and the direction is missing", () => {
+    const day = summarize([westFacing], [["beach-1", { wind_speed: "9 mph", wind_direction: null }]]);
+    expect(day.windConditions).toBe("unknown");
+  });
+
+  it("keeps a real calm light whatever the orientation", () => {
+    expect(
+      summarize([noOrientation], [["beach-3", { wind_speed: "0 mph", wind_direction: null }]]).windConditions
+    ).toBe("light");
+    expect(
+      summarize([noOrientation], [["beach-3", { wind_speed: "2 mph", wind_direction: "E" }]]).windConditions
+    ).toBe("light");
+  });
+
+  it("ignores unclassifiable beaches when others can be classified", () => {
+    const day = summarize(
+      [westFacing, noOrientation],
+      [
+        ["beach-1", { wind_speed: "12 mph", wind_direction: "E" }],
+        ["beach-3", { wind_speed: "12 mph", wind_direction: "W" }],
+      ]
+    );
+    expect(day.windConditions).toBe("offshore");
+  });
+});

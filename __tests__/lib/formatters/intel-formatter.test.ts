@@ -605,6 +605,22 @@ describe("IntelFormatter", () => {
       expect(markdown).toContain("Ocean Beach");
       expect(markdown).toContain("**Notes:** Standard morning conditions");
     });
+
+    test("shows a plain reading for unknown wind and nothing without a speed", () => {
+      const base = { spotName: "Atlantic City", date: "2025-10-26", time: "06:00",
+        surf: { min: 3, max: 5, dominant: "Chest-high" },
+        tide: { height: 3.2, direction: "slack", nextEvent: null },
+        swells: { primary: null, secondary: null },
+        bestWindow: "N/A", confidence: "Low", notes: "", payload: {} } as unknown as MorningIntelData;
+      const noRelation = renderIntelMarkdown({ ...base,
+        wind: { speed: 12, direction: 0, cardinal: "N/A", offshore: false, description: "12 mph wind", relation: null } });
+      expect(noRelation).toContain("- **Wind:** 12 mph\n");
+      expect(noRelation).not.toMatch(/offshore|onshore|cross-shore/);
+
+      const noSpeed = renderIntelMarkdown({ ...base,
+        wind: { speed: 0, direction: 0, cardinal: "N/A", offshore: false, description: "N/A", relation: null } });
+      expect(noSpeed).not.toContain("**Wind:**");
+    });
   });
 
   describe("singleton instance", () => {
