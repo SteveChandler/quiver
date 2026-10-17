@@ -637,7 +637,7 @@ export function SessionDetailView({ id, sharedPreview = null }: SessionDetailVie
           </div>
         </div>
 
-        <SessionWavesSection sessionId={id} />
+        {user?.id === session.user_id && <SessionWavesSection sessionId={id} />}
 
         {/* Forecast Comparison */}
         {session.forecast_snapshot && (() => {

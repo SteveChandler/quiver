@@ -1,5 +1,9 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import mapboxgl from "mapbox-gl";
+import { SessionDetailView } from "@/components/session-detail-view";
+import { SessionRideMap } from "@/components/sessions/waves/session-ride-map";
 import { SessionWavesSection } from "@/components/sessions/waves/session-waves-section";
+import { SpeedTimeline } from "@/components/sessions/waves/speed-timeline";
 import type { SessionWavesResponse } from "@/lib/sessions/waves/waves-api-types";
 
 const mockTrack = jest.fn();
@@ -7,6 +11,30 @@ const mockRemove = jest.fn();
 const mockAddSource = jest.fn();
 const mockAddLayer = jest.fn();
 const mockFitBounds = jest.fn();
+const mockSetData = jest.fn();
+const mockViewer = { id: "owner" };
+let mockDelayMapLoad = false;
+let mockLoadCallbacks: (() => void)[] = [];
+
+jest.mock("next/dynamic", () => {
+  const React = jest.requireActual("react");
+  return jest.fn((loader) => {
+    const Lazy = React.lazy(loader);
+    return function DynamicComponent(props: Record<string, unknown>) {
+      return React.createElement(React.Suspense, { fallback: null }, React.createElement(Lazy, props));
+    };
+  });
+});
+
+jest.mock("@/context/auth-context", () => ({
+  useAuth: () => ({ user: mockViewer, isLoading: false }),
+}));
+jest.mock("next/navigation", () => ({ useRouter: () => ({ push: jest.fn() }) }));
+jest.mock("@/components/session-comments", () => ({ SessionComments: () => null }));
+jest.mock("@/components/map-image", () => ({ MapImage: () => null }));
+jest.mock("@/lib/utils/session-utils", () => ({ getSessionMapImageUrl: () => "/session-map.jpg" }));
+jest.mock("@/components/share", () => ({ ShareSheet: () => null }));
+jest.mock("@/components/media/session-photo-gallery", () => ({ __esModule: true, default: () => null }));
 
 jest.mock("@/hooks/use-track-event", () => ({
   useTrackEvent: () => ({ track: mockTrack }),
@@ -18,12 +46,17 @@ jest.mock("mapbox-gl", () => ({
     accessToken: "",
     Map: jest.fn(() => ({
       on: jest.fn((event, callback) => {
-        if (event === "load") callback();
+        if (event !== "load") return;
+        if (mockDelayMapLoad) mockLoadCallbacks.push(callback);
+        else callback();
       }),
       addSource: mockAddSource,
       addLayer: mockAddLayer,
       fitBounds: mockFitBounds,
       remove: mockRemove,
+      getSource: jest.fn(() => mockAddSource.mock.calls.some(([id]) => id === "session-waves")
+        ? { setData: mockSetData }
+        : undefined),
     })),
     LngLatBounds: jest.fn(() => ({ extend: jest.fn().mockReturnThis() })),
   },
@@ -85,6 +118,10 @@ describe("SessionWavesSection", () => {
     mockAddSource.mockClear();
     mockAddLayer.mockClear();
     mockFitBounds.mockClear();
+    mockSetData.mockClear();
+    jest.mocked(mapboxgl.Map).mockClear();
+    mockDelayMapLoad = false;
+    mockLoadCallbacks = [];
   });
 
   afterAll(() => {
@@ -163,6 +200,120 @@ describe("SessionWavesSection", () => {
       expect.objectContaining({ method: "PATCH", body: JSON.stringify({ userWaveCount: 5 }) }),
     ));
     expect(await screen.findByText("You: 5 · Quiver found 2")).toBeInTheDocument();
+  });
+
+  it("preserves a completed wave toggle when an earlier count save finishes last", async () => {
+    let resolveCount!: (response: Response) => void;
+    let resolveWave!: (response: Response) => void;
+    fetchMock.mockImplementation((url: string, options?: RequestInit) => {
+      if (options?.method !== "PATCH") return Promise.resolve(envelope(fixture));
+      return new Promise<Response>((resolve) => {
+        if (url.endsWith("/w1")) resolveWave = resolve;
+        else resolveCount = resolve;
+      });
+    });
+    render(<SessionWavesSection sessionId="s1" />);
+    const count = await screen.findByRole("spinbutton", { name: "How many did you catch?" });
+    fireEvent.change(count, { target: { value: "5" } });
+    fireEvent.blur(count);
+    fireEvent.click(screen.getByRole("button", { name: "Not a wave" }));
+
+    await act(async () => resolveWave(envelope({ summary: { ...fixture.summary, detectedWaveCount: 1 } })));
+    expect(screen.getByRole("button", { name: "Undo" })).toBeInTheDocument();
+    await act(async () => resolveCount(envelope({ summary: { ...fixture.summary, waveCount: 5, userWaveCount: 5, detectedWaveCount: 1 } })));
+
+    expect(screen.getByRole("button", { name: "Undo" })).toBeInTheDocument();
+    expect(screen.getByText("You: 5 · Quiver found 1")).toBeInTheDocument();
+  });
+
+  it.each(["250", "5.5"])("reverts invalid count %s and explains the range", async (value) => {
+    render(<SessionWavesSection sessionId="s1" />);
+    const count = await screen.findByRole("spinbutton", { name: "How many did you catch?" });
+    fireEvent.change(count, { target: { value } });
+    fireEvent.blur(count);
+
+    expect(count).toHaveValue(3);
+    expect(screen.getByText("Enter a whole number from 0 to 200.")).toHaveAttribute("aria-live", "polite");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["count", "wave"])("reports a failed %s PATCH without changing saved values", async (kind) => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    fetchMock.mockImplementation((_url: string, options?: RequestInit) => Promise.resolve(
+      options?.method === "PATCH" ? { ok: false, status: 500 } : envelope(fixture),
+    ));
+    try {
+      render(<SessionWavesSection sessionId="s1" />);
+      const count = await screen.findByRole("spinbutton", { name: "How many did you catch?" });
+      if (kind === "count") {
+        fireEvent.change(count, { target: { value: "5" } });
+        fireEvent.blur(count);
+      } else {
+        fireEvent.click(screen.getByRole("button", { name: "Not a wave" }));
+      }
+
+      expect(await screen.findByText("Couldn't save. Try again.")).toHaveAttribute("aria-live", "polite");
+      expect(count).toHaveValue(3);
+      expect(screen.getByRole("button", { name: "Not a wave" })).toBeInTheDocument();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("updates the wave source without recreating or refitting the map", () => {
+    const { rerender, unmount } = render(<SessionRideMap track={fixture.track} waves={fixture.waves} />);
+    mockSetData.mockClear();
+    rerender(<SessionRideMap track={fixture.track} waves={[{ ...fixture.waves[0], excluded: true }]} />);
+
+    expect(mapboxgl.Map).toHaveBeenCalledTimes(1);
+    expect(mockRemove).not.toHaveBeenCalled();
+    expect(mockFitBounds).toHaveBeenCalledTimes(1);
+    expect(mockSetData).toHaveBeenCalledWith({ type: "FeatureCollection", features: [] });
+    unmount();
+    expect(mockRemove).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses the latest wave exclusions when the map finishes loading", () => {
+    mockDelayMapLoad = true;
+    const { rerender } = render(<SessionRideMap track={fixture.track} waves={fixture.waves} />);
+    rerender(<SessionRideMap track={fixture.track} waves={[{ ...fixture.waves[0], excluded: true }]} />);
+    act(() => mockLoadCallbacks.forEach((load) => load()));
+
+    expect(mapboxgl.Map).toHaveBeenCalledTimes(1);
+    expect(mockAddSource).toHaveBeenCalledWith("session-waves", {
+      type: "geojson", data: { type: "FeatureCollection", features: [] },
+    });
+  });
+
+  it("keeps long speed timelines compact with a fixed stroke width", () => {
+    const speedSeries = Array.from({ length: 150_000 }, (_, index) => ({
+      t: new Date(Date.parse(fixture.waves[0].startedAt) + index * 1000).toISOString(),
+      mps: index % 5,
+    }));
+    render(<SpeedTimeline speedSeries={speedSeries} waves={fixture.waves} />);
+    const chart = screen.getByRole("img", { name: "Speed timeline" });
+    expect(chart).toHaveClass("h-24", "max-h-32");
+    expect(chart).toHaveAttribute("preserveAspectRatio", "none");
+    expect(chart.querySelector("path")).toHaveAttribute("vector-effect", "non-scaling-stroke");
+  });
+
+  it.each([
+    { ownerId: "owner", expectedCount: 1 },
+    { ownerId: "another-user", expectedCount: 0 },
+  ])("loads waves on the session page only for its owner ($ownerId)", async ({ ownerId, expectedCount }) => {
+    fetchMock.mockImplementation((url: string) => {
+      if (url === "/api/sessions/s1") return Promise.resolve(envelope({ session: {
+        id: "s1", user_id: ownerId, beach: null, beach_name: "Test Beach", rating: 4,
+        arrival_time: fixture.waves[0].startedAt, forecast_snapshot: null,
+      } }));
+      if (url.endsWith("/photos")) return Promise.resolve(envelope([]));
+      return Promise.resolve(envelope(fixture));
+    });
+    render(<SessionDetailView id="s1" />);
+    expect(await screen.findByText("Session Details")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryAllByText("Your rides")).toHaveLength(expectedCount));
+    const waveRequests = fetchMock.mock.calls.filter(([url]) => url === "/api/v1/sessions/s1/waves");
+    expect(waveRequests).toHaveLength(expectedCount);
   });
 
   it("draws the track and non-excluded waves without map motion when requested", async () => {

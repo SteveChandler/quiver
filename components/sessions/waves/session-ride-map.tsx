@@ -9,8 +9,25 @@ interface SessionRideMapProps {
   waves: SessionWave[];
 }
 
+function waveFeatures(waves: SessionWave[]): GeoJSON.FeatureCollection<GeoJSON.LineString> {
+  return {
+    type: "FeatureCollection",
+    features: waves.filter((wave) => !wave.excluded).map((wave) => ({
+      type: "Feature",
+      properties: { id: wave.id },
+      geometry: {
+        type: "LineString",
+        coordinates: [[wave.start.lon, wave.start.lat], [wave.end.lon, wave.end.lat]],
+      },
+    })),
+  };
+}
+
 export function SessionRideMap({ track, waves }: SessionRideMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<mapboxgl.Map | null>(null);
+  const wavesRef = useRef(waves);
+  wavesRef.current = waves;
 
   useEffect(() => {
     const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
@@ -33,6 +50,7 @@ export function SessionRideMap({ track, waves }: SessionRideMapProps) {
       return;
     }
 
+    mapRef.current = map;
     map.on("load", () => {
       map.addSource("session-track", { type: "geojson", data: { type: "Feature", properties: {}, geometry: track } });
       map.addLayer({
@@ -42,20 +60,9 @@ export function SessionRideMap({ track, waves }: SessionRideMapProps) {
         paint: { "line-color": ink, "line-opacity": 0.5, "line-width": 3 },
       });
 
-      const activeWaves = waves.filter((wave) => !wave.excluded);
       map.addSource("session-waves", {
         type: "geojson",
-        data: {
-          type: "FeatureCollection",
-          features: activeWaves.map((wave) => ({
-            type: "Feature" as const,
-            properties: { id: wave.id },
-            geometry: {
-              type: "LineString" as const,
-              coordinates: [[wave.start.lon, wave.start.lat], [wave.end.lon, wave.end.lat]],
-            },
-          })),
-        },
+        data: waveFeatures(wavesRef.current),
       });
       map.addLayer({
         id: "session-waves",
@@ -70,8 +77,16 @@ export function SessionRideMap({ track, waves }: SessionRideMapProps) {
       map.fitBounds(bounds, { padding: 28, maxZoom: 16, duration: reducedMotion ? 0 : 500 });
     });
 
-    return () => map.remove();
-  }, [track, waves]);
+    return () => {
+      mapRef.current = null;
+      map.remove();
+    };
+  }, [track]);
+
+  useEffect(() => {
+    const source = mapRef.current?.getSource("session-waves") as mapboxgl.GeoJSONSource | undefined;
+    source?.setData(waveFeatures(waves));
+  }, [waves]);
 
   if (!process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN) return null;
 

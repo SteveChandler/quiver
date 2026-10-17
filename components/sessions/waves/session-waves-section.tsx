@@ -1,13 +1,18 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { ZineSurface } from "@/components/zine";
 import { useSessionWaves } from "@/hooks/use-session-waves";
 import { useTrackEvent } from "@/hooks/use-track-event";
 import type { SessionWavesResponse } from "@/lib/sessions/waves/waves-api-types";
 import type { WavesSummary } from "@/lib/sessions/waves/waves-summary";
-import { SessionRideMap } from "./session-ride-map";
 import { SpeedTimeline } from "./speed-timeline";
+
+const SessionRideMap = dynamic(
+  () => import("./session-ride-map").then((module) => ({ default: module.SessionRideMap })),
+  { ssr: false },
+);
 
 interface SessionWavesSectionProps {
   sessionId: string;
@@ -39,6 +44,7 @@ export function SessionWavesSection({ sessionId }: SessionWavesSectionProps) {
   const [draftCount, setDraftCount] = useState<string | null>(null);
   const [savingWaveId, setSavingWaveId] = useState<string | null>(null);
   const [savingCount, setSavingCount] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const response = local?.sessionId === sessionId ? local.response : data;
 
   useEffect(() => {
@@ -54,22 +60,27 @@ export function SessionWavesSection({ sessionId }: SessionWavesSectionProps) {
 
   async function toggleWave(waveId: string, excluded: boolean): Promise<void> {
     if (!response) return;
+    setSaveError(null);
     setSavingWaveId(waveId);
     try {
       const nextSummary = await patchSummary(
         `/api/v1/sessions/${encodeURIComponent(sessionId)}/waves/${encodeURIComponent(waveId)}`,
         { excluded: !excluded },
       );
-      setLocal({
-        sessionId,
-        response: {
-          ...response,
-          summary: nextSummary,
-          waves: response.waves.map((wave) => wave.id === waveId ? { ...wave, excluded: !excluded } : wave),
-        },
+      setLocal((previous) => {
+        const latest = previous?.sessionId === sessionId ? previous.response : response;
+        return {
+          sessionId,
+          response: {
+            ...latest,
+            summary: nextSummary,
+            waves: latest.waves.map((wave) => wave.id === waveId ? { ...wave, excluded: !excluded } : wave),
+          },
+        };
       });
     } catch (error) {
       console.warn("Unable to update session wave:", error);
+      setSaveError("Couldn't save. Try again.");
     } finally {
       setSavingWaveId(null);
     }
@@ -79,7 +90,12 @@ export function SessionWavesSection({ sessionId }: SessionWavesSectionProps) {
     if (!response || draftCount === null || savingCount) return;
     const trimmed = draftCount.trim();
     const value = trimmed === "" ? null : Number(trimmed);
-    if (value !== null && (!Number.isInteger(value) || value < 0 || value > 200)) return;
+    if (value !== null && (!Number.isInteger(value) || value < 0 || value > 200)) {
+      setDraftCount(null);
+      setSaveError("Enter a whole number from 0 to 200.");
+      return;
+    }
+    setSaveError(null);
     if (value === summary.userWaveCount) {
       setDraftCount(null);
       return;
@@ -91,10 +107,18 @@ export function SessionWavesSection({ sessionId }: SessionWavesSectionProps) {
         `/api/v1/sessions/${encodeURIComponent(sessionId)}/waves`,
         { userWaveCount: value },
       );
-      setLocal({ sessionId, response: { ...response, summary: nextSummary } });
+      setLocal((previous) => ({
+        sessionId,
+        response: {
+          ...(previous?.sessionId === sessionId ? previous.response : response),
+          summary: nextSummary,
+        },
+      }));
       setDraftCount(null);
     } catch (error) {
       console.warn("Unable to save session wave count:", error);
+      setDraftCount(null);
+      setSaveError("Couldn't save. Try again.");
     } finally {
       setSavingCount(false);
     }
@@ -176,11 +200,15 @@ export function SessionWavesSection({ sessionId }: SessionWavesSectionProps) {
           step={1}
           value={countValue}
           disabled={savingCount}
-          onChange={(event) => setDraftCount(event.target.value)}
+          onChange={(event) => {
+            setDraftCount(event.target.value);
+            setSaveError(null);
+          }}
           onBlur={() => void saveCount()}
           className="w-24 rounded-lg border-2 border-ink bg-white px-3 py-2 font-mono text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
         />
       </div>
+      <p aria-live="polite" className="text-sm text-ink">{saveError}</p>
     </ZineSurface>
   );
 }
