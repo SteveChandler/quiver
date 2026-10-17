@@ -25,7 +25,7 @@ import { degreeToCardinal } from "@/lib/utils/geo-utils";
 export { normalizeAngle };
 
 /** At or below this speed the wind reads as calm whatever its direction. */
-const CALM_MPH = 3;
+export const CALM_MPH = 3;
 /** Within this many degrees of straight onshore counts as onshore. */
 const ONSHORE_CONE_DEG = 45;
 

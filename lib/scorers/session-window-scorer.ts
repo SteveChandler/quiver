@@ -10,7 +10,7 @@
  * to reduce cyclomatic complexity and improve maintainability.
  */
 
-import { calculateOnOffshore } from "@/lib/analyzers/wind-analyzer";
+import { CALM_MPH, calculateOnOffshore } from "@/lib/analyzers/wind-analyzer";
 import {
   DAYLIGHT_END_HOUR,
   DAYLIGHT_START_HOUR,
@@ -22,8 +22,6 @@ const OFFSHORE_STRONG_SCORE = 40;
 const OFFSHORE_MODERATE_SCORE = 30;
 const LIGHT_WIND_SCORE = 20;
 const MODERATE_WIND_SCORE = 10;
-// Below this a wind is calm from any direction, so it can be judged without one.
-const CALM_WIND_MPH = 3;
 
 const PERIOD_EXCELLENT_SCORE = 30;
 const PERIOD_GOOD_SCORE = 20;
@@ -89,7 +87,8 @@ function knownWind(
   if (speed === null) return null;
   const direction = knownOrNull(forecast.wind_direction);
   if (direction === null || offshoreDeg === null) {
-    return speed <= CALM_WIND_MPH ? { speed, isOffshore: false } : null;
+    // Calm from any direction can be judged without one.
+    return speed <= CALM_MPH ? { speed, isOffshore: false } : null;
   }
   return { speed, isOffshore: calculateOnOffshore(direction, offshoreDeg) };
 }

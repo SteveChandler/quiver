@@ -1,6 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createContextLogger } from "@/lib/logger";
-import { parseWindSpeed } from "@/lib/utils/forecast-parsing";
 import type { RecommendedBoard } from "@/lib/scoring/personal-board";
 import {
   BETA_ACCESS_NOT_ENABLED,
@@ -225,7 +224,8 @@ function reasonFactsFor(
 
 /** Wind clause for the generated reasons; none when the forecast has no wind speed. */
 function windClause(forecast: MatchScoreForecastInput, lead: string): string {
-  return parseWindSpeed(forecast.windSpeed) == null ? "" : `${lead} ${forecast.windSpeed} mph wind`;
+  const known = Number.isFinite(Number.parseFloat(forecast.windSpeed ?? ""));
+  return known ? `${lead} ${forecast.windSpeed} mph wind` : "";
 }
 
 function starterReasons(
