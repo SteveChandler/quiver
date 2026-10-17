@@ -403,6 +403,45 @@ describe('generateWeekScoutForecast', () => {
     },
   );
 
+  it.each(['Pacific/Honolulu', 'America/Los_Angeles'].flatMap((timezone) => (
+    [[70, 70, 47, 47, 47], [65, 65, 45, 45, 45]].map((scores) => ({ timezone, scores }))
+  )))('keeps the real future-day morning winner recommendable for $scores in $timezone', async ({ timezone, scores }) => {
+    const date = '2026-10-18';
+    const time = (value: string, day = date): Date => localDateTimeToUTC(day, `${value}:00`, timezone);
+    const deps = dependencies();
+    deps.now = time('09:16', '2026-10-16');
+    const candidateBeach = { ...beach(BEACH_A, 'Future Beach'), timezone };
+    const rows = ['05:00', '08:00', '11:00', '14:00', '17:00'].map((value, index) => {
+      const score = scores[index];
+      return {
+        ...forecast(BEACH_A, time(value).toISOString()),
+        wave_height: String(1 + (score - (score >= 52 ? 52 : 7)) / 18),
+        wave_period: score >= 52 ? '13s' : '0s', wind_speed: score >= 52 ? '0' : '14',
+        tide_height: null, tide_status: null,
+      };
+    });
+    expect(rows.map((row) => scoreWindowForSelection(row, candidateBeach))).toEqual(scores);
+    deps.fetchBeaches = jest.fn(async () => [candidateBeach]);
+    deps.fetchForecasts = jest.fn(async () => new Map([[BEACH_A, rows]]));
+    deps.fetchSunTimes = jest.fn(async () => new Map([[BEACH_A, {
+      sunrises: [time('06:40')], sunsets: [time('18:20')],
+    }]]));
+    deps.selectBestWindows = jest.requireActual('@/lib/services/discovery/window-selector/window-selector-core').selectBestWindows;
+    deps.scoreWindowCondition = (row, candidate, skill, boards) => (
+      scoreWindowForSelection(row, candidate, null, skill, boards)
+    );
+    const response = await generateWeekScoutForecastForDays('user-week-scout', {
+      candidateBeachIds: [BEACH_A], localTimezone: timezone, startLocalDate: date, dayCount: 1,
+    }, deps);
+    const day = response.days[0];
+    expect(day.windows).toEqual([expect.objectContaining({
+      bucket: 'morning', start: time('06:10').toISOString(), isBeachDayBest: true,
+    })]);
+    expect(day.bestWindowId).toBe(day.windows[0].id);
+    expect(day.windows[0].verdict).not.toBe('skip');
+    expect(day.exclusionReasons).toEqual([]);
+  });
+
   it('reuses canonical scoring for a two-day weekend request', async () => {
     const response = await generateWeekScoutForecastForDays(
       'user-week-scout',

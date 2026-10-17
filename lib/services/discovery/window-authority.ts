@@ -233,14 +233,17 @@ export function selectBeachDayWindows(
     };
   }
 
+  const daySelectorOptions: WindowSelectorOptions = { ...selectorOptions, forecasts: dayRows };
   if (options.rowLiveness === 'until-next-row') {
+    daySelectorOptions.now ??= new Date();
+    daySelectorOptions.forecastPreparationCache = new Map();
     const ranks = new Map<PersonalizedForecastWindow, WindowSelectionRank>();
     const windows: PersonalizedForecastWindow[] = [];
     for (const daypart of Object.keys(dayparts) as WindowDaypart[]) {
       const window = selectWindows({
-        ...selectorOptions,
-        forecasts: dayRows,
+        ...daySelectorOptions,
         maxWindows: 1,
+        disableBelowFloorFallback: true,
         // Keep the full grid for cadence, peak and boundary interpolation.
         acceptWindowStart: (start) => daypartForTime(start, timezone) === daypart,
         onWindowRanked: (candidate, rank) => {
@@ -253,19 +256,21 @@ export function selectBeachDayWindows(
       dayparts[daypart] = displayed;
       windows.push(window);
     }
-    windows.sort((a, b) => {
-      const aRank = ranks.get(a);
-      const bRank = ranks.get(b);
-      return aRank && bRank ? compareRankedWindows(aRank, bRank) : 0;
-    });
-    const best = windows[0];
-    const bestDaypart = best ? daypartForTime(best.start, timezone) : null;
-    return { bestDayWindow: bestDaypart ? dayparts[bestDaypart] : null, dayparts };
+    if (windows.length > 0) {
+      windows.sort((a, b) => {
+        const aRank = ranks.get(a);
+        const bRank = ranks.get(b);
+        return aRank && bRank ? compareRankedWindows(aRank, bRank) : 0;
+      });
+      const bestDaypart = daypartForTime(windows[0].start, timezone);
+      return { bestDayWindow: bestDaypart ? dayparts[bestDaypart] : null, dayparts };
+    }
+    // Match full-day selection: fallback is available only if no daypart qualifies.
+    daySelectorOptions.disableBelowFloorFallback = false;
   }
 
   const rankedWindows = selectWindows({
-    ...selectorOptions,
-    forecasts: dayRows,
+    ...daySelectorOptions,
     maxWindows: WINDOW_AUTHORITY_MAX_WINDOWS,
   }).map((window) => withDisplayWindow(
     window,
@@ -273,7 +278,9 @@ export function selectBeachDayWindows(
   ));
 
   for (const window of rankedWindows) {
-    const daypart = daypartForTime(window.peakTime, timezone);
+    const daypart = daypartForTime(
+      options.rowLiveness === 'until-next-row' ? window.start : window.peakTime, timezone,
+    );
     if (daypart && !dayparts[daypart]) dayparts[daypart] = window;
   }
 

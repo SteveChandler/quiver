@@ -22,16 +22,16 @@ const clocks = ['07:55', '08:05', '08:50', '09:16', '10:30', '11:30', '12:30', '
 
 describe.each(['Pacific/Honolulu', 'America/Los_Angeles'])('Week Scout dayparts in %s', (timezone) => {
   const localDate = '2026-10-16';
-  const time = (value: string): Date => localDateTimeToUTC(localDate, `${value}:00`, timezone);
+  const time = (value: string, date = localDate): Date => localDateTimeToUTC(date, `${value}:00`, timezone);
   const beach = { id: 'daypart-beach', name: 'Daypart Beach', timezone } as Beach;
 
   // Real native scoring: wave fit supplies the variable points, without tides
   // that would replace score-driven session bounds with tide-driven bounds.
-  function rows(hours: string[], scores: number[]): EnhancedForecastEntity[] {
+  function rows(hours: string[], scores: number[], date = localDate): EnhancedForecastEntity[] {
     return hours.map((value, index) => {
       const score = scores[index];
       const row = {
-        id: `row-${value}`, beach_id: beach.id, forecast_at: time(value).toISOString(),
+        id: `row-${value}`, beach_id: beach.id, forecast_at: time(value, date).toISOString(),
         wave_height: score === 0 ? '0' : String(1 + (score - (score >= 52 ? 52 : 7)) / 18),
         wave_period: score >= 52 ? '13s' : '0s',
         wind_speed: score >= 52 ? '0' : '14', wind_direction: 'E',
@@ -42,11 +42,11 @@ describe.each(['Pacific/Honolulu', 'America/Los_Angeles'])('Week Scout dayparts 
     });
   }
 
-  function options(profile: typeof profiles[number], now: string): WindowSelectorOptions & { localDate: string } {
+  function options(profile: typeof profiles[number], now: string, date = localDate): WindowSelectorOptions & { localDate: string } {
     return {
-      beach, forecasts: rows(profile.hours, profile.scores), userPrefs: null, localDate,
+      beach, forecasts: rows(profile.hours, profile.scores, date), userPrefs: null, localDate: date,
       now: time(now), sunTimesCache: new Map([[beach.id, {
-        sunrises: [time('06:30')], sunsets: [time('18:30')],
+        sunrises: [time('06:30', date)], sunsets: [time('18:30', date)],
       }]]),
     };
   }
@@ -64,10 +64,22 @@ describe.each(['Pacific/Honolulu', 'America/Los_Angeles'])('Week Scout dayparts 
     },
   );
 
-  it.each([0, 3])('keeps both midday and evening at 12:30 (profile %s)', (profile) => {
-    const result = selectBeachDayWindows({ ...options(profiles[profile], '12:30'), rowLiveness: 'until-next-row' });
+  it('keeps both flat-score midday and evening at 12:30', () => {
+    const result = selectBeachDayWindows({ ...options(profiles[0], '12:30'), rowLiveness: 'until-next-row' });
     expect(result.dayparts.midday).toMatchObject({ start: time('11:00') });
     expect(result.dayparts.evening).toMatchObject({ start: time('14:00'), end: time('18:00') });
+  });
+
+  it('does not extend a short above-floor evening candidate via fallback when midday qualifies', () => {
+    const args = options(profiles[3], '12:30');
+    // Main has no other candidate and falls back to 14:00–18:00. The extended
+    // 11:00 candidate is live in Week Scout, so whole-day fallback is suppressed.
+    expect(selectBeachDayWindows(args).dayparts.evening)
+      .toMatchObject({ start: time('14:00'), end: time('18:00') });
+    const result = selectBeachDayWindows({ ...args, rowLiveness: 'until-next-row' });
+    expect(result.dayparts.midday).toMatchObject({ start: time('11:00'), end: time('14:30') });
+    expect(result.dayparts.evening).toBeNull();
+    expect(result.bestDayWindow).toBe(result.dayparts.midday);
   });
 
   it('retains a morning session on the hourly noon-peak grid at 09:16', () => {
@@ -126,15 +138,58 @@ describe.each(['Pacific/Honolulu', 'America/Los_Angeles'])('Week Scout dayparts 
     );
   });
 
-  it('selects a below-floor morning fallback without borrowing midday and keeps the selector ranking', () => {
+  it('does not populate below-floor morning or score-10 evening slots when midday qualifies', () => {
     const result = selectBeachDayWindows({
-      ...options({ name: 'fallback', hours: threeHourly, scores: [0, 30, 70, 40] }, '09:16'),
+      ...options({ name: 'fallback', hours: threeHourly, scores: [0, 30, 70, 10] }, '09:16'),
       rowLiveness: 'until-next-row',
     });
-    expect(result.dayparts.morning).toMatchObject({ start: time('08:00'), end: time('12:00') });
+    expect(result.dayparts.morning).toBeNull();
     expect(result.dayparts.midday).toMatchObject({ start: time('11:00') });
-    expect(result.dayparts.evening).toMatchObject({ start: time('14:00') });
+    expect(result.dayparts.evening).toBeNull();
     expect(result.bestDayWindow).toBe(result.dayparts.midday);
+  });
+
+  it.each([
+    { date: '2026-10-18', scores: [70, 70, 47, 47, 47], sunrise: '06:40', start: '06:10' },
+    { date: '2026-10-18', scores: [65, 65, 45, 45, 45], sunrise: '06:30', start: '06:00' },
+    { date: '2026-10-17', scores: [60, 60, 45, 45, 45], sunrise: '06:30', start: '06:00' },
+    { date: '2026-10-17', scores: [0, 0, 49, 70, 70], sunrise: '06:30', start: '14:00' },
+  ].flatMap((profile) => ['09:16', '14:10'].map((now) => ({ ...profile, now }))))(
+    'keeps the real future-day winner for $scores on $date at $now', ({ date, scores, sunrise, start, now }) => {
+      const args = options({ name: 'future', hours: [...threeHourly, '17:00'], scores }, now, date);
+      args.sunTimesCache = new Map([[beach.id, {
+        sunrises: [time(sunrise, date)], sunsets: [time('18:30', date)],
+      }]]);
+      const main = selectBeachDayWindows(args);
+      expect(main.bestDayWindow).toMatchObject({ start: time(start, date) });
+      const result = selectBeachDayWindows({ ...args, rowLiveness: 'until-next-row' });
+      expect(result.bestDayWindow).toEqual(main.bestDayWindow);
+      expect(Object.values(result.dayparts).filter((window) => window !== null)).toEqual([result.bestDayWindow]);
+      expect(result.dayparts[daypartForTime(time(start, date), timezone)!]).toBe(result.bestDayWindow);
+    },
+  );
+
+  it.each([10, 30, 47])('falls back once for the whole day when all rows are below the floor (score %s)', (score) => {
+    const args = options({ name: 'all below', hours: [...threeHourly, '17:00'], scores: Array(5).fill(score) }, '09:16', '2026-10-18');
+    const main = selectBeachDayWindows(args);
+    expect(main.bestDayWindow).not.toBeNull();
+    expect(selectBeachDayWindows({ ...args, rowLiveness: 'until-next-row' })).toEqual(main);
+  });
+
+  it('records the cross-daypart overlap on the real flat-score fixture relative to main', () => {
+    const args = options(profiles[0], '07:55');
+    const main = selectBeachDayWindows(args);
+    const result = selectBeachDayWindows({ ...args, rowLiveness: 'until-next-row' });
+    const overlaps = (windows: typeof main.dayparts): boolean => {
+      const selected = Object.values(windows).filter((window) => window !== null);
+      return selected.some((window, index) => selected.slice(index + 1).some((other) => (
+        window.start < other.end && other.start < window.end
+      )));
+    };
+    expect(overlaps(main.dayparts)).toBe(false);
+    expect(overlaps(result.dayparts)).toBe(true);
+    expect(result.dayparts.morning).toMatchObject({ start: time('08:00'), end: time('12:00') });
+    expect(result.dayparts.midday).toMatchObject({ start: time('11:00'), end: time('15:00') });
   });
 
   it('ignores candidate-scoping hooks in default mode', () => {
@@ -143,6 +198,16 @@ describe.each(['Pacific/Honolulu', 'America/Los_Angeles'])('Week Scout dayparts 
     expect(selectBestWindows({ ...args, acceptWindowStart: () => false, onWindowRanked }))
       .toEqual(selectBestWindows(args));
     expect(onWindowRanked).not.toHaveBeenCalled();
+  });
+
+  it('keeps default fallback enabled even when internal Week Scout options are supplied', () => {
+    const args = options({ name: 'below floor', hours: threeHourly, scores: [30, 30, 30, 30] }, '07:55');
+    const expected = selectBestWindows(args);
+    expect(expected).toHaveLength(1);
+    expect(selectBestWindows({ ...args, disableBelowFloorFallback: true, forecastPreparationCache: new Map() }))
+      .toEqual(expected);
+    expect(selectBestWindows({ ...args, rowLiveness: 'until-next-row', disableBelowFloorFallback: true }))
+      .toEqual([]);
   });
 
   it.each([

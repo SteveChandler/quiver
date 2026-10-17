@@ -153,3 +153,37 @@ it('keeps Home authority and the orchestrator fallback gate on default liveness'
     now: args.now,
   })).toBe(false);
 });
+
+it('prepares each row once and refines only its own daypart during Week Scout selection', () => {
+  const score = jest.mocked(windowScorer.scoreWindowForSelection).mockImplementation(
+    jest.requireActual('@/lib/services/discovery/window-selector/window-scorer').scoreWindowForSelection,
+  ).mockClear();
+  const args = options(['05:00', '08:00', '11:00', '14:00'], '09:16');
+  const result = selectBeachDayWindows({ ...args, localDate: '2026-10-16' });
+  expect(Object.values(result.dayparts).filter((window) => window !== null)).toHaveLength(3);
+  expect(score).toHaveBeenCalledTimes(args.forecasts.length);
+  expect(jest.mocked(windowRefiner.applySubHourRefinement).mock.calls.map(([candidate]) => candidate.start))
+    .toEqual(['08:00', '11:00', '14:00'].map((time) => localTime(time)));
+});
+
+it('reuses preparation for the single whole-day fallback after all three scoped calls are empty', () => {
+  const score = jest.mocked(windowScorer.scoreWindowForSelection).mockImplementation(
+    jest.requireActual('@/lib/services/discovery/window-selector/window-scorer').scoreWindowForSelection,
+  ).mockClear();
+  const args = options(['05:00', '08:00', '11:00', '14:00'], '09:16');
+  args.forecasts = args.forecasts.map((row) => ({
+    ...row, wave_height: String(1 + 3 / 18), wave_period: '0s', wind_speed: '14',
+  }));
+  const selectWindows = jest.fn((selectorOptions: WindowSelectorOptions) => selectBestWindows(selectorOptions));
+  const result = selectBeachDayWindows({
+    ...args, localDate: '2026-10-16',
+    selectWindows: selectWindows as unknown as typeof selectBestWindows,
+  });
+  expect(score).toHaveBeenCalledTimes(args.forecasts.length);
+  expect(selectWindows).toHaveBeenCalledTimes(4);
+  expect(selectWindows.mock.calls.slice(0, 3).map(([call]) => call.disableBelowFloorFallback)).toEqual([true, true, true]);
+  expect(selectWindows.mock.calls[3][0]).toMatchObject({ maxWindows: 6, disableBelowFloorFallback: false });
+  expect(selectWindows.mock.calls[3][0]).not.toHaveProperty('acceptWindowStart');
+  expect(Object.values(result.dayparts).filter((window) => window !== null)).toEqual([result.bestDayWindow]);
+  expect(result.bestDayWindow).toEqual(expect.objectContaining(selectBestWindows(args)[0]));
+});

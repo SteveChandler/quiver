@@ -396,6 +396,8 @@ interface NormalizedWindowSelectorOptions {
   maxWindows: number;
   rowLiveness: RowLiveness;
   acceptWindowStart?: WindowSelectorOptions['acceptWindowStart'];
+  disableBelowFloorFallback: boolean;
+  forecastPreparationCache?: WindowSelectorOptions['forecastPreparationCache'];
   onWindowRanked?: WindowSelectorOptions['onWindowRanked'];
   rideabilityBand: RideabilityBand | null;
   boardClasses: readonly BoardClass[];
@@ -435,6 +437,7 @@ function normalizeWindowSelectorOptions(
       now: now ?? new Date(),
       maxWindows: maxWindows ?? DEFAULT_MAX_WINDOWS,
       rowLiveness: 'default',
+      disableBelowFloorFallback: false,
       rideabilityBand: null,
       boardClasses: [],
       userSkillLevel: null,
@@ -453,6 +456,8 @@ function normalizeWindowSelectorOptions(
     maxWindows: optionsOrForecasts.maxWindows ?? DEFAULT_MAX_WINDOWS,
     rowLiveness: optionsOrForecasts.rowLiveness ?? 'default',
     acceptWindowStart: optionsOrForecasts.rowLiveness === 'until-next-row' ? optionsOrForecasts.acceptWindowStart : undefined,
+    disableBelowFloorFallback: optionsOrForecasts.rowLiveness === 'until-next-row' && optionsOrForecasts.disableBelowFloorFallback === true,
+    forecastPreparationCache: optionsOrForecasts.rowLiveness === 'until-next-row' ? optionsOrForecasts.forecastPreparationCache : undefined,
     onWindowRanked: optionsOrForecasts.rowLiveness === 'until-next-row' ? optionsOrForecasts.onWindowRanked : undefined,
     rideabilityBand: optionsOrForecasts.rideabilityBand ?? null,
     boardClasses: optionsOrForecasts.boardClasses ?? [],
@@ -666,6 +671,8 @@ export function selectBestWindows(
     maxWindows: actualMaxWindows,
     rowLiveness,
     acceptWindowStart,
+    disableBelowFloorFallback,
+    forecastPreparationCache,
     onWindowRanked,
     rideabilityBand: actualRideabilityBand,
     boardClasses: actualBoardClasses,
@@ -705,7 +712,7 @@ export function selectBestWindows(
   }
 
   // Score and prepare forecasts
-  const scoredForecasts = prepareForecasts(
+  const scoredForecasts = forecastPreparationCache?.get(forecasts) ?? prepareForecasts(
     forecasts,
     actualBeach,
     beachTz,
@@ -716,6 +723,7 @@ export function selectBestWindows(
     actualUserSkillLevel,
     rowLiveness,
   );
+  forecastPreparationCache?.set(forecasts, scoredForecasts);
   if (scoredForecasts.length === 0) {
     onRejection?.({ gate: 'past_forecast', observed: { count: forecasts.length } });
     log.debug(`[selectBestWindows] ${actualBeach.name}: No scored forecasts after filtering past times`);
@@ -918,9 +926,14 @@ export function selectBestWindows(
   }
 
   if (acceptWindowStart) {
-    candidateWindows = candidateWindows.filter((candidate) => (
-      acceptWindowStart(refineCandidate(candidate).start)
-    ));
+    candidateWindows = candidateWindows.filter((candidate) => {
+      // Refinement scans forward within an hour. Keep boundary-adjacent rows,
+      // but avoid refining candidates that cannot reach the requested daypart.
+      if (!acceptWindowStart(candidate.start)
+        && (candidate.usedTideBoundaries
+          || !acceptWindowStart(new Date(candidate.start.getTime() + 3_600_000)))) return false;
+      return acceptWindowStart(refineCandidate(candidate).start);
+    });
   }
 
   // Log main loop result
@@ -931,7 +944,7 @@ export function selectBestWindows(
   }
 
   // Fallback: if no forecasts passed threshold, use the best available anyway
-  if (candidateWindows.length === 0 && filteredForecasts.length > 0) {
+  if (!disableBelowFloorFallback && candidateWindows.length === 0 && filteredForecasts.length > 0) {
     const fallbackWindow = selectFallbackWindow(
       filteredForecasts,
       sunTimes,

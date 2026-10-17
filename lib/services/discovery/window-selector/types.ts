@@ -29,6 +29,9 @@ export interface WindowSelectorOptions {
   rowLiveness?: 'default' | 'until-next-row';
   /** Week Scout candidate scope; other rows remain available for refinement. */
   acceptWindowStart?: (start: Date) => boolean;
+  disableBelowFloorFallback?: boolean;
+  /** Reuse only within one immutable beach/day/preferences/clock context. */
+  forecastPreparationCache?: Map<EnhancedForecastEntity[], ScoredForecast[]>;
   onWindowRanked?: (window: PersonalizedForecastWindow, rank: WindowSelectionRank) => void;
   rideabilityBand?: RideabilityBand | null;
   boardClasses?: readonly BoardClass[];
