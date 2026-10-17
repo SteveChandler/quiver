@@ -20,7 +20,13 @@ const RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 
 type Client = ReturnType<typeof createSupabaseServiceRoleClient>;
 type Track = { session_id: string; import_id: string | null; storage_path: string };
-type SessionImport = { id: string; session_id: string | null; storage_path: string };
+type SessionImport = {
+  id: string;
+  session_id: string | null;
+  storage_path: string;
+  purge_requested_at: string | null;
+  sessions: { deleted_at: string | null } | null;
+};
 type PurgeResult = { purgedTracks: number; purgedImports: number; errors: number };
 
 function checkedRows<T>(data: T[] | null, error: { message: string } | null, label: string): T[] {
@@ -32,6 +38,8 @@ async function selectTracks(client: Client, cutoff: string): Promise<Track[]> {
   const requested = await client.from("session_tracks")
     .select("session_id,import_id,storage_path")
     .not("purge_requested_at", "is", null)
+    .order("purge_requested_at", { ascending: true, nullsFirst: false })
+    .order("created_at", { ascending: true, nullsFirst: false })
     .limit(BATCH_SIZE);
   const tracks = checkedRows(requested.data, requested.error, "requested tracks") as Track[];
   if (tracks.length === BATCH_SIZE) return tracks;
@@ -39,6 +47,8 @@ async function selectTracks(client: Client, cutoff: string): Promise<Track[]> {
   const expired = await client.from("session_tracks")
     .select("session_id,import_id,storage_path,sessions!inner(deleted_at)")
     .lt("sessions.deleted_at", cutoff)
+    .order("purge_requested_at", { ascending: true, nullsFirst: false })
+    .order("created_at", { ascending: true, nullsFirst: false })
     .limit(BATCH_SIZE - tracks.length);
   const seen = new Set(tracks.map((track) => track.session_id));
   for (const track of checkedRows(expired.data, expired.error, "expired tracks") as Track[]) {
@@ -49,16 +59,20 @@ async function selectTracks(client: Client, cutoff: string): Promise<Track[]> {
 
 async function selectImports(client: Client, cutoff: string): Promise<SessionImport[]> {
   const requested = await client.from("session_imports")
-    .select("id,session_id,storage_path")
+    .select("id,session_id,storage_path,purge_requested_at,sessions(deleted_at)")
     .not("purge_requested_at", "is", null)
+    .order("purge_requested_at", { ascending: true, nullsFirst: false })
+    .order("created_at", { ascending: true, nullsFirst: false })
     .limit(BATCH_SIZE);
   const imports = checkedRows(requested.data, requested.error, "requested imports") as SessionImport[];
   if (imports.length === BATCH_SIZE) return imports;
 
   const expired = await client.from("session_imports")
-    .select("id,session_id,storage_path")
+    .select("id,session_id,storage_path,purge_requested_at,sessions(deleted_at)")
     .in("status", ["uploaded", "failed", "needs_beach"])
     .lt("created_at", cutoff)
+    .order("purge_requested_at", { ascending: true, nullsFirst: false })
+    .order("created_at", { ascending: true, nullsFirst: false })
     .limit(BATCH_SIZE - imports.length);
   const seen = new Set(imports.map((row) => row.id));
   for (const row of checkedRows(expired.data, expired.error, "expired imports") as SessionImport[]) {
@@ -71,8 +85,10 @@ async function selectImports(client: Client, cutoff: string): Promise<SessionImp
   if (imports.length === BATCH_SIZE) return imports;
   // A failed final import delete can outlive its track row; the deleted session keeps it retryable.
   const orphaned = await client.from("session_imports")
-    .select("id,session_id,storage_path,sessions!inner(deleted_at)")
+    .select("id,session_id,storage_path,purge_requested_at,sessions!inner(deleted_at)")
     .lt("sessions.deleted_at", cutoff)
+    .order("purge_requested_at", { ascending: true, nullsFirst: false })
+    .order("created_at", { ascending: true, nullsFirst: false })
     .limit(BATCH_SIZE - imports.length);
   for (const row of checkedRows(orphaned.data, orphaned.error, "imports of deleted sessions") as SessionImport[]) {
     if (!seen.has(row.id)) imports.push(row);
@@ -96,29 +112,35 @@ async function deleteImport(client: Client, importId: string): Promise<void> {
   if (error) throw error;
 }
 
-async function purgeTrack(client: Client, track: Track, result: PurgeResult): Promise<void> {
+async function purgeTrack(client: Client, track: Track, result: PurgeResult): Promise<boolean> {
   try {
-    let importPath: string | null = null;
+    let linkedImport: Pick<SessionImport, "id" | "session_id" | "storage_path"> | undefined;
+    let sharedImportPath: string | undefined;
     if (track.import_id) {
       const lookup = await client.from("session_imports")
         .select("id,session_id,storage_path")
         .eq("id", track.import_id)
         .limit(1);
-      importPath = checkedRows(lookup.data, lookup.error, "linked import")[0]?.storage_path ?? null;
+      const row = checkedRows(lookup.data, lookup.error, "linked import")[0];
+      if (row && (row.session_id === null || row.session_id === track.session_id)) linkedImport = row;
+      else sharedImportPath = row?.storage_path;
     }
-    await removeStorage(client, track.storage_path);
-    if (importPath && importPath !== track.storage_path) await removeStorage(client, importPath);
+    // A reimport can transfer the same object to another session that still needs it.
+    if (track.storage_path !== sharedImportPath) await removeStorage(client, track.storage_path);
+    if (linkedImport && linkedImport.storage_path !== track.storage_path) await removeStorage(client, linkedImport.storage_path);
     await deleteRows(client, "session_waves", track.session_id);
     await deleteRows(client, "session_wave_corrections", track.session_id);
     await deleteRows(client, "session_tracks", track.session_id);
     result.purgedTracks += 1;
-    if (track.import_id) {
-      await deleteImport(client, track.import_id);
+    if (linkedImport) {
+      await deleteImport(client, linkedImport.id);
       result.purgedImports += 1;
     }
+    return true;
   } catch (error) {
     result.errors += 1;
     console.error("[session-tracks-purge] track failed:", track.session_id, error);
+    return false;
   }
 }
 
@@ -127,26 +149,34 @@ async function purgeImport(
   row: SessionImport,
   result: PurgeResult,
   attemptedTrackIds: Set<string>,
+  cutoff: string,
 ): Promise<void> {
   try {
-    const lookup = await client.from("session_tracks")
-      .select("session_id,import_id,storage_path")
-      .eq("import_id", row.id)
-      .limit(1);
-    const linkedTrack = checkedRows(lookup.data, lookup.error, "linked track")[0];
-    if (linkedTrack) {
+    let linkedTrack: Track | undefined;
+    if (row.session_id) {
+      const lookup = await client.from("session_tracks")
+        .select("session_id,import_id,storage_path")
+        .eq("session_id", row.session_id)
+        .limit(1);
+      linkedTrack = checkedRows(lookup.data, lookup.error, "linked track")[0];
+    }
+    const deletedAt = row.sessions?.deleted_at;
+    const trackIsDue = row.purge_requested_at !== null
+      || (deletedAt != null && Date.parse(deletedAt) < Date.parse(cutoff));
+    if (linkedTrack && trackIsDue) {
       if (attemptedTrackIds.has(linkedTrack.session_id) || attemptedTrackIds.size >= BATCH_SIZE) return;
       attemptedTrackIds.add(linkedTrack.session_id);
-      await purgeTrack(client, linkedTrack, result);
+      const importIsLinked = linkedTrack.import_id === row.id;
+      if (!importIsLinked && row.storage_path !== linkedTrack.storage_path) await removeStorage(client, row.storage_path);
+      const purged = await purgeTrack(client, linkedTrack, result);
+      if (!purged || importIsLinked) return;
+      await deleteImport(client, row.id);
+      result.purgedImports += 1;
       return;
     }
 
-    await removeStorage(client, row.storage_path);
-    if (row.session_id) {
-      await deleteRows(client, "session_waves", row.session_id);
-      await deleteRows(client, "session_wave_corrections", row.session_id);
-      await deleteRows(client, "session_tracks", row.session_id);
-    }
+    // An expired upload can share its object with a live track that must remain intact.
+    if (row.storage_path !== linkedTrack?.storage_path) await removeStorage(client, row.storage_path);
     await deleteImport(client, row.id);
     result.purgedImports += 1;
   } catch (error) {
@@ -163,7 +193,7 @@ async function runPurge(client: Client, now: Date): Promise<PurgeResult> {
   for (const track of tracks) await purgeTrack(client, track, result);
 
   const imports = await selectImports(client, cutoff);
-  for (const row of imports) await purgeImport(client, row, result, attemptedTrackIds);
+  for (const row of imports) await purgeImport(client, row, result, attemptedTrackIds, cutoff);
   return result;
 }
 
