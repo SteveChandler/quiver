@@ -55,7 +55,7 @@ jest.mock("@/components/session-comments", () => ({
 }));
 
 jest.mock("@/components/sessions/waves/session-waves-section", () => ({
-  SessionWavesSection: () => null,
+  SessionWavesSection: () => <div data-testid="session-waves">Waves</div>,
 }));
 
 jest.mock("@/components/session/forecast-comparison", () => ({
@@ -109,6 +109,16 @@ describe("SessionDetailView (gating)", () => {
       "href",
       "/download",
     );
+  });
+
+  it.each([undefined, false, true])("mounts waves only for an owner with has_track=%s", async (has_track) => {
+    (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-1" }, isLoading: false });
+    global.fetch = jest.fn().mockResolvedValueOnce({ ok: true, json: async () => ({ data: { session: {
+      id: "session-1", user_id: "user-1", beach_name: "Test Beach", arrival_time: "2026-08-13T08:00:00Z", has_track,
+    } } }) }).mockResolvedValueOnce({ ok: true, json: async () => ({ data: [] }) });
+    render(<SessionDetailView id="session-1" />);
+    await screen.findByRole("button", { name: "Delete session" });
+    expect(screen.queryByTestId("session-waves") !== null).toBe(has_track === true);
   });
 
   it("gives the destructive session action an accessible name", async () => {

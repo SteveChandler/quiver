@@ -6,6 +6,7 @@ import { ZineSurface } from "@/components/zine";
 import { useSessionWaves } from "@/hooks/use-session-waves";
 import { useTrackEvent } from "@/hooks/use-track-event";
 import type { SessionWavesResponse } from "@/lib/sessions/waves/waves-api-types";
+import { COUNT_MIN_CONFIDENCE } from "@/lib/sessions/wave-detection/constants";
 import type { WavesSummary } from "@/lib/sessions/waves/waves-summary";
 import { SpeedTimeline } from "./speed-timeline";
 
@@ -56,6 +57,7 @@ export function SessionWavesSection({ sessionId }: SessionWavesSectionProps) {
   if (!response) return null;
 
   const { summary, waves } = response;
+  const countedWaves = waves.filter((wave) => wave.counted && !wave.excluded);
   const countValue = draftCount ?? (summary.userWaveCount?.toString() ?? "");
 
   async function toggleWave(waveId: string, excluded: boolean): Promise<void> {
@@ -74,7 +76,7 @@ export function SessionWavesSection({ sessionId }: SessionWavesSectionProps) {
           response: {
             ...latest,
             summary: nextSummary,
-            waves: latest.waves.map((wave) => wave.id === waveId ? { ...wave, excluded: !excluded } : wave),
+            waves: latest.waves.map((wave) => wave.id === waveId ? { ...wave, excluded: !excluded, counted: excluded && wave.confidence >= COUNT_MIN_CONFIDENCE } : wave),
           },
         };
       });
@@ -169,22 +171,22 @@ export function SessionWavesSection({ sessionId }: SessionWavesSectionProps) {
         <ol className="mt-3 space-y-2">
           {waves.map((wave) => (
             <li key={wave.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-ink/20 bg-white/60 p-3">
-              <div className={wave.excluded ? "text-ink/50" : "text-ink"}>
-                <p className="font-semibold">Wave {wave.index} · {new Date(wave.startedAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</p>
+              <div className={wave.counted ? "text-ink" : "text-ink/60"}>
+                <p className="font-semibold">{wave.counted ? `Wave ${countedWaves.findIndex((ride) => ride.id === wave.id) + 1}` : wave.excluded && wave.confidence >= COUNT_MIN_CONFIDENCE ? "Excluded wave" : "Maybe a wave"} · {new Date(wave.startedAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</p>
                 <p className="text-sm">
                   {Math.round(wave.durationS)} s · {Math.round(wave.distanceM)} m
                   {summary.speedReliable && wave.maxSpeedMps !== null && ` · ${formatSpeed(wave.maxSpeedMps)}`}
                   {wave.tideFt !== null && ` · ${wave.tideFt.toFixed(1)} ft`}
                 </p>
               </div>
-              <button
+              {(wave.counted || (wave.excluded && wave.confidence >= COUNT_MIN_CONFIDENCE)) && <button
                 type="button"
                 disabled={savingWaveId !== null}
                 onClick={() => void toggleWave(wave.id, wave.excluded)}
                 className="rounded-full border-2 border-ink px-3 py-1 text-sm font-semibold text-ink hover:bg-q-orange focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:opacity-50"
               >
                 {wave.excluded ? "Undo" : "Not a wave"}
-              </button>
+              </button>}
             </li>
           ))}
         </ol>

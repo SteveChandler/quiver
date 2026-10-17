@@ -123,7 +123,7 @@ it("returns the native waves contract with corrections, override count, track an
     success: true, data: {
       summary: { waveCount: 4, detectedWaveCount: 0, userWaveCount: 4, speedReliable: false, detectionVersion: "wd-1.0.0" },
       waves: [{ id: waveId, index: 1, startedAt: start, endedAt: end, durationS: 20, distanceM: 42,
-        maxSpeedMps: null, avgSpeedMps: null, headingDeg: 270, confidence: 0.9, excluded: true,
+        maxSpeedMps: null, avgSpeedMps: null, headingDeg: 270, confidence: 0.9, excluded: true, counted: false,
         tideFt: 2.4, start: { lat: 34, lon: -119 }, end: { lat: 34.001, lon: -119.001 } }],
       track: track.track_geojson, speedSeries: track.speed_series, recordedBy: "Garmin",
     },
@@ -261,4 +261,15 @@ it("redetects from the stored file for an admin and returns the counted waves", 
   expect(mockReadTrackFile).toHaveBeenCalledWith(expect.any(Uint8Array), "track.fit", expect.any(Date));
   expect(mockLoadBeach).toHaveBeenCalledWith(expect.anything(), beachId);
   expect(mockPersistDetection).toHaveBeenCalledWith(expect.anything(), sessionId, userId, expect.anything(), expect.anything(), { id: beachId });
+});
+
+it.each([[0.49, false], [0.5, true], [0.9, true]])("marks confidence %s counted=%s", async (confidence, counted) => {
+  rows.session_waves = [{ ...wave, confidence }];
+  rows.session_wave_corrections = [];
+  const response = await GET(request("GET"), context);
+  expect(response.status).toBe(200);
+  expect((await response.json()).data).toMatchObject({
+    waves: [{ confidence, counted, excluded: false }],
+    summary: { detectedWaveCount: counted ? 1 : 0 },
+  });
 });

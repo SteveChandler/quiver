@@ -12,7 +12,7 @@ interface SessionRideMapProps {
 function waveFeatures(waves: SessionWave[]): GeoJSON.FeatureCollection<GeoJSON.LineString> {
   return {
     type: "FeatureCollection",
-    features: waves.filter((wave) => !wave.excluded).map((wave) => ({
+    features: waves.filter((wave) => wave.counted && !wave.excluded).map((wave) => ({
       type: "Feature",
       properties: { id: wave.id },
       geometry: {

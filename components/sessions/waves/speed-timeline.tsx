@@ -30,7 +30,7 @@ export function SpeedTimeline({ speedSeries, waves }: SpeedTimelineProps) {
 
   return (
     <svg viewBox="0 0 300 100" preserveAspectRatio="none" role="img" aria-label="Speed timeline" className="h-24 max-h-32 w-full rounded-lg bg-paper-deep/40">
-      {waves.filter((wave) => !wave.excluded).map((wave) => {
+      {waves.filter((wave) => wave.counted && !wave.excluded).map((wave) => {
         const left = Math.max(10, x(Date.parse(wave.startedAt)));
         const right = Math.min(290, x(Date.parse(wave.endedAt)));
         return <rect key={wave.id} x={left} y="0" width={Math.max(0, right - left)} height="100" fill="var(--q-orange)" opacity="0.2" />;

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { createErrorResponse, createSuccessResponse } from "@/lib/api-utils";
 import { isSessionImportsUserAllowed } from "@/lib/flags/session-imports";
 import { withAuth, withNoStore, withRateLimit } from "@/lib/middleware/api-wrappers";
+import { COUNT_MIN_CONFIDENCE } from "@/lib/sessions/wave-detection/constants";
 import { WAVE_DETECTION_VERSION } from "@/lib/sessions/wave-detection/detect-waves";
 import { tideFtAtWaves } from "@/lib/sessions/waves/wave-tides";
 import type { SessionWave, SessionWavesResponse } from "@/lib/sessions/waves/waves-api-types";
@@ -57,6 +58,7 @@ export const GET = withNoStore(withRateLimit(withAuth(async (_request, { user, s
     ...wave,
     maxSpeedMps: track.speed_reliable ? wave.maxSpeedMps : null,
     avgSpeedMps: track.speed_reliable ? wave.avgSpeedMps : null,
+    counted: wave.confidence >= COUNT_MIN_CONFIDENCE && !isExcluded(wave, corrections),
     excluded: isExcluded(wave, corrections), tideFt: tideFt.get(wave.id) ?? null,
   }));
   const data: SessionWavesResponse = {

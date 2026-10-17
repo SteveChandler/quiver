@@ -94,7 +94,7 @@ interface SessionDetailViewProps {
 export function SessionDetailView({ id, sharedPreview = null }: SessionDetailViewProps) {
   const router = useRouter();
   const { user, isLoading } = useAuth();
-  const [session, setSession] = useState<SessionWithDetails | null>(null);
+  const [session, setSession] = useState<(SessionWithDetails & { has_track?: boolean }) | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -637,7 +637,7 @@ export function SessionDetailView({ id, sharedPreview = null }: SessionDetailVie
           </div>
         </div>
 
-        {user?.id === session.user_id && <SessionWavesSection sessionId={id} />}
+        {user?.id === session.user_id && session.has_track && <SessionWavesSection sessionId={id} />}
 
         {/* Forecast Comparison */}
         {session.forecast_snapshot && (() => {

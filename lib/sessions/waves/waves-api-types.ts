@@ -12,6 +12,7 @@ export type SessionWave = {
   headingDeg: number | null;
   confidence: number;
   excluded: boolean;
+  counted: boolean;
   tideFt: number | null;
   start: { lat: number; lon: number };
   end: { lat: number; lon: number };

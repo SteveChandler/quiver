@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import mapboxgl from "mapbox-gl";
 import { SessionDetailView } from "@/components/session-detail-view";
 import { SessionRideMap } from "@/components/sessions/waves/session-ride-map";
@@ -77,7 +77,7 @@ const fixture: SessionWavesResponse = {
   },
   waves: [{
     id: "w1",
-    index: 1,
+    index: 0,
     startedAt: "2026-10-17T14:00:00.000Z",
     endedAt: "2026-10-17T14:00:24.000Z",
     durationS: 24,
@@ -87,6 +87,7 @@ const fixture: SessionWavesResponse = {
     headingDeg: 180,
     confidence: 0.9,
     excluded: false,
+    counted: true,
     tideFt: 2.1,
     start: { lat: 32.7, lon: -117.2 },
     end: { lat: 32.701, lon: -117.201 },
@@ -127,6 +128,49 @@ describe("SessionWavesSection", () => {
   afterAll(() => {
     if (originalToken === undefined) delete process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
     else process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN = originalToken;
+  });
+
+  it("numbers counted rides and keeps low-confidence candidates read-only", async () => {
+    const waves = [
+      { ...fixture.waves[0], id: "maybe", index: 0, confidence: 0.4, counted: false },
+      { ...fixture.waves[0], id: "first", index: 1 },
+      { ...fixture.waves[0], id: "excluded", index: 2, counted: false, excluded: true },
+      { ...fixture.waves[0], id: "second", index: 3 },
+    ];
+    fetchMock.mockResolvedValue(envelope({ ...fixture, waves }));
+    render(<SessionWavesSection sessionId="s1" />);
+    const maybe = await screen.findByText(/^Maybe a wave/);
+    expect(within(maybe.closest("li")!).queryByRole("button")).not.toBeInTheDocument();
+    expect(screen.getByText(/^Wave 1 ·/)).toBeInTheDocument();
+    expect(screen.getByText(/^Wave 2 ·/)).toBeInTheDocument();
+    expect(screen.queryByText(/^Wave [03] ·/)).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Not a wave" })).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Undo" })).toBeInTheDocument();
+  });
+
+  it("draws and shades only counted, non-excluded candidates", () => {
+    const waves = [
+      fixture.waves[0],
+      { ...fixture.waves[0], id: "maybe", counted: false, confidence: 0.4 },
+      { ...fixture.waves[0], id: "excluded", excluded: true },
+    ];
+    render(<SessionRideMap track={fixture.track} waves={waves} />);
+    const source = mockAddSource.mock.calls.find(([id]) => id === "session-waves")![1];
+    expect(source.data.features.map((feature: { properties: { id: string } }) => feature.properties.id)).toEqual(["w1"]);
+    render(<SpeedTimeline speedSeries={fixture.speedSeries} waves={waves} />);
+    expect(screen.getByLabelText("Speed timeline").querySelectorAll("rect")).toHaveLength(1);
+  });
+
+  it("restores a counted ride and its shading when undoing an exclusion", async () => {
+    const excluded = { ...fixture, waves: [{ ...fixture.waves[0], excluded: true, counted: false }] };
+    fetchMock.mockImplementation((_url: string, options?: RequestInit) => Promise.resolve(envelope(
+      options?.method === "PATCH" ? { summary: fixture.summary } : excluded,
+    )));
+    render(<SessionWavesSection sessionId="s1" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
+    await screen.findByRole("button", { name: "Not a wave" });
+    expect(screen.getByText(/^Wave 1 ·/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Speed timeline").querySelectorAll("rect")).toHaveLength(1);
   });
 
   it("renders summary tiles and records the view once", async () => {
@@ -303,7 +347,7 @@ describe("SessionWavesSection", () => {
   ])("loads waves on the session page only for its owner ($ownerId)", async ({ ownerId, expectedCount }) => {
     fetchMock.mockImplementation((url: string) => {
       if (url === "/api/sessions/s1") return Promise.resolve(envelope({ session: {
-        id: "s1", user_id: ownerId, beach: null, beach_name: "Test Beach", rating: 4,
+        id: "s1", user_id: ownerId, has_track: true, beach: null, beach_name: "Test Beach", rating: 4,
         arrival_time: fixture.waves[0].startedAt, forecast_snapshot: null,
       } }));
       if (url.endsWith("/photos")) return Promise.resolve(envelope([]));

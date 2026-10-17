@@ -183,6 +183,15 @@ describe("owner session import metadata", () => {
     process.env.SESSION_IMPORTS_USER_ALLOWLIST = ownerId;
   });
 
+  it.each(["flag off", "not allowlisted"])("does not query tracks for an owner with %s", async (state) => {
+    if (state === "flag off") delete process.env.SESSION_IMPORTS_ENABLED;
+    else process.env.SESSION_IMPORTS_USER_ALLOWLIST = "";
+    mockQueries();
+    const body = await expectSuccessResponse<{ sessionImportsEnabled: boolean }>(await getSessions());
+    expect(body.data.sessionImportsEnabled).toBe(false);
+    expect(mockSupabaseClient.from).not.toHaveBeenCalledWith("session_tracks");
+  });
+
   it("adds track status per owner session and exposes the owner flag", async () => {
     const queries = mockQueries();
 

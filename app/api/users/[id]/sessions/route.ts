@@ -15,7 +15,7 @@ async function addOwnerTrackStatus<T extends { id: string }>(
   userId: string,
   isOwn: boolean,
 ): Promise<(T & { has_track?: boolean })[]> {
-  if (!isOwn || sessions.length === 0) return sessions;
+  if (!isOwn || !isSessionImportsUserAllowed(userId) || sessions.length === 0) return sessions;
 
   try {
     const { data, error } = await supabase
