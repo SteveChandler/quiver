@@ -38,7 +38,7 @@ import {
   usableLightIntervalForDate,
 } from '../daylight-eligibility';
 
-import type { WindowSelectorOptions, CandidateWindow, ScoredForecast } from './types';
+import type { WindowSelectorOptions, CandidateWindow, ScoredForecast, WindowSelectionRank } from './types';
 import {
   TIME_DECAY_PER_HOUR,
   MAX_TIME_DECAY_HOURS,
@@ -395,6 +395,8 @@ interface NormalizedWindowSelectorOptions {
   now: Date;
   maxWindows: number;
   rowLiveness: RowLiveness;
+  acceptWindowStart?: WindowSelectorOptions['acceptWindowStart'];
+  onWindowRanked?: WindowSelectorOptions['onWindowRanked'];
   rideabilityBand: RideabilityBand | null;
   boardClasses: readonly BoardClass[];
   userSkillLevel: SkillLevel | string | null;
@@ -450,15 +452,17 @@ function normalizeWindowSelectorOptions(
     now: optionsOrForecasts.now ?? new Date(),
     maxWindows: optionsOrForecasts.maxWindows ?? DEFAULT_MAX_WINDOWS,
     rowLiveness: optionsOrForecasts.rowLiveness ?? 'default',
+    acceptWindowStart: optionsOrForecasts.rowLiveness === 'until-next-row' ? optionsOrForecasts.acceptWindowStart : undefined,
+    onWindowRanked: optionsOrForecasts.rowLiveness === 'until-next-row' ? optionsOrForecasts.onWindowRanked : undefined,
     rideabilityBand: optionsOrForecasts.rideabilityBand ?? null,
     boardClasses: optionsOrForecasts.boardClasses ?? [],
     userSkillLevel: optionsOrForecasts.userSkillLevel ?? null,
   };
 }
 
-function compareRankedWindows(
-  a: RankedCandidateWindow,
-  b: RankedCandidateWindow
+export function compareRankedWindows(
+  a: WindowSelectionRank,
+  b: WindowSelectionRank
 ): number {
   const adjustedScoreDelta = b.adjustedScore - a.adjustedScore;
   if (adjustedScoreDelta !== 0) return adjustedScoreDelta;
@@ -661,6 +665,8 @@ export function selectBestWindows(
     now: actualNow,
     maxWindows: actualMaxWindows,
     rowLiveness,
+    acceptWindowStart,
+    onWindowRanked,
     rideabilityBand: actualRideabilityBand,
     boardClasses: actualBoardClasses,
     userSkillLevel: actualUserSkillLevel,
@@ -742,7 +748,19 @@ export function selectBestWindows(
 
   log.debug(`[selectBestWindows] ${actualBeach.name}: ${filteredForecasts.length} forecasts to evaluate, isMorning=${isMorning}`);
 
-  const candidateWindows: RankedCandidateWindow[] = [];
+  let candidateWindows: RankedCandidateWindow[] = [];
+  const refinements = new Map<CandidateWindow, ReturnType<typeof applySubHourRefinement>>();
+  const refineCandidate = (candidate: CandidateWindow): ReturnType<typeof applySubHourRefinement> => {
+    const cached = refinements.get(candidate);
+    if (cached) return cached;
+    const refined = applySubHourRefinement(
+      candidate,
+      filteredForecasts.map((row) => ({ ...row, score: getSelectionScore(row) })),
+      forecasts, sunsets, sunrises, actualBeach, beachTz,
+    );
+    refinements.set(candidate, refined);
+    return refined;
+  };
   let decisiveRejection: CandidateRejection | null = null;
   const reject = (rejection: CandidateRejection): void => {
     decisiveRejection = moreInformativeRejection(decisiveRejection, rejection);
@@ -899,6 +917,12 @@ export function selectBestWindows(
     });
   }
 
+  if (acceptWindowStart) {
+    candidateWindows = candidateWindows.filter((candidate) => (
+      acceptWindowStart(refineCandidate(candidate).start)
+    ));
+  }
+
   // Log main loop result
   if (candidateWindows.length > 0) {
     log.debug(`[selectBestWindows] ${actualBeach.name}: Main loop found ${candidateWindows.length} candidate windows`);
@@ -921,6 +945,7 @@ export function selectBestWindows(
       reject,
       rowLiveness,
       rowLiveness === 'until-next-row' ? clampWindow : undefined,
+      acceptWindowStart,
     );
     if (fallbackWindow) {
       candidateWindows.push({
@@ -940,30 +965,22 @@ export function selectBestWindows(
   const refinedWindows = candidateWindows
     .sort(compareRankedWindows)
     .map((candidateWindow) => {
-      const refinedTimes = applySubHourRefinement(
-        candidateWindow,
-        filteredForecasts.map((scoredForecast) => ({
-          ...scoredForecast,
-          score: getSelectionScore(scoredForecast),
-        })),
-        forecasts,
-        sunsets,
-        sunrises,
-        actualBeach,
-        beachTz
-      );
+      const refinedTimes = refineCandidate(candidateWindow);
 
       const lit = clampWindow(refinedTimes.start, refinedTimes.end);
       if (!lit) {
         expiredForecasts.add(candidateWindow.forecast);
         return [];
       }
-      return [{ ...candidateWindow, start: lit.start, end: lit.end }];
+      if (acceptWindowStart && !acceptWindowStart(lit.start)) return [];
+      const result = buildResult(
+        { ...candidateWindow, start: lit.start, end: lit.end },
+        filteredForecasts, actualBeach, beachTz, actualNow,
+      );
+      onWindowRanked?.(result, candidateWindow);
+      return [result];
     })
-    .flat()
-    .map((candidateWindow) =>
-      buildResult(candidateWindow, filteredForecasts, actualBeach, beachTz, actualNow)
-    );
+    .flat();
 
   // Refinement can expire all above-threshold candidates and hide a live fallback.
   if (rowLiveness === 'until-next-row' && refinedWindows.length === 0 && expiredForecasts.size > 0) {
@@ -1002,6 +1019,7 @@ function selectFallbackWindow(
   reject?: (rejection: CandidateRejection) => void,
   rowLiveness: RowLiveness = 'default',
   clampWindow?: (start: Date, end: Date) => ReturnType<typeof clampToUsableLight>,
+  acceptWindowStart?: WindowSelectorOptions['acceptWindowStart'],
 ): CandidateWindow | null {
   const logPrefix = beachName ? `[selectFallbackWindow] ${beachName}` : '[selectFallbackWindow]';
   const daylightForecasts = filteredForecasts.filter(({ forecastTime }, index) => {
@@ -1036,7 +1054,8 @@ function selectFallbackWindow(
       timeSlot,
       beachTz,
     );
-    return clampWindow(forecastTime, end) !== null;
+    const lit = clampWindow(forecastTime, end);
+    return lit !== null && (!acceptWindowStart || acceptWindowStart(lit.start));
   });
 
   if (daylightForecasts.length === 0) {
