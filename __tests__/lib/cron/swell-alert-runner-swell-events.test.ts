@@ -159,6 +159,36 @@ describe("swell alert runner on the swell-events detector", () => {
     expect(payload?.body).toMatch(/peak:? Saturday afternoon/i);
   });
 
+  it("starts the peak-day window from the 04:00 row in effect at the 05:00 day start after the fall-back", async () => {
+    // 17:00 PST on Tuesday 2026-11-03. The UTC-aligned grid is 04:00, 07:00, 10:00 ... local.
+    const novNow = new Date("2026-11-04T01:00:00.000Z");
+    const forecasts: EnhancedForecastEntity[] = [];
+    for (let day = 25; day <= 44; day += 1) {
+      for (let hour = 0; hour < 24; hour += 3) {
+        const forecastAt = new Date(Date.UTC(2026, 9, day, hour));
+        const localDate = new Date(forecastAt.getTime() - 8 * 3_600_000).toISOString().slice(0, 10);
+        const height = localDate === "2026-11-04" ? 4 : localDate === "2026-11-05" ? 5 : 1.5;
+        forecasts.push({
+          id: forecastAt.toISOString(), beach_id: BEACH_ID, forecast_at: forecastAt.toISOString(), confidence_score: 90,
+          swell_1_height: `${height} ft`, swell_1_period: "16s", swell_1_direction: "270",
+          swell_2_height: null, swell_2_period: null, swell_2_direction: null,
+        } as EnhancedForecastEntity);
+      }
+    }
+    jest.mocked(evaluateForecastVerdict).mockImplementation(({ forecast }) => {
+      const go = forecast.forecast_at >= "2026-11-04T08:00:00.000Z";
+      return { forecast, score: go ? 80 : 40, verdict: go ? "go" : "no", decision: {} as CanonicalSessionDecision };
+    });
+    const runDeps = deps();
+    const result = await runSwellAlertCron({
+      now: novNow, supabase: client(forecasts, { data: [], error: null }), deps: runDeps,
+    });
+    expect(result.sent).toBe(1);
+    const payload = jest.mocked(runDeps.enqueue!).mock.calls[0][0].payload;
+    // Sunrise, not the 07:00 row, starts the window: the 04:00 row is in effect until then.
+    expect(payload?.body).toMatch(/Thursday 6:\d\d–8 AM/);
+  });
+
   it("ranks the nearest 50 nearby beaches plus home/saved/custom while detecting swells over the full pool", async () => {
     const nearby: PoolBeach[] = Array.from({ length: 60 }, (_, index) => ({
       beach: createMockBeach({ ...beach,
