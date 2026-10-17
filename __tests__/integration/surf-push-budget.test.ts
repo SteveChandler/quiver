@@ -553,6 +553,7 @@ describe("surf push budget integration", () => {
       buildCandidates: async () => ({
         candidates: [dailyCandidate()],
         hadForecasts: true,
+        noInWindowRowCount: 0,
       }),
       alreadySentToday: async (userId, alertDate) => state.events.some((event) =>
         event.recipient_user_id === userId &&
