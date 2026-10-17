@@ -140,7 +140,26 @@ export async function processImport(
       throw new ImportNotFoundError();
     }
 
-    const wasCompleted = imported.status === "completed";
+    let wasCompleted = imported.status === "completed";
+    const duplicate = async (sessionId: string | null): Promise<ProcessImportResult> => {
+      try {
+        await updateImport({ status: "failed", error: "duplicate" });
+      } catch (error) {
+        console.warn("[session_import] failed to record duplicate:", error);
+      }
+      try {
+        const { data: references, error: referenceError } = await serviceClient.from("session_tracks")
+          .select("session_id").eq("storage_path", imported.storage_path).limit(1);
+        checkError(referenceError);
+        if (references?.length === 0) {
+          const { error } = await serviceClient.storage.from("session-tracks").remove([imported.storage_path]);
+          checkError(error);
+        }
+      } catch (error) {
+        console.warn("[session_import] failed to clean up duplicate object:", error);
+      }
+      return { status: "duplicate", sessionId };
+    };
 
     const { data: object, error: downloadError } = await serviceClient.storage
       .from("session-tracks").download(imported.storage_path);
@@ -168,39 +187,57 @@ export async function processImport(
     }
     const beach = resolution.beach;
     if (!beach) throw new Error("Import beach not found");
-    const { data: linkedSession, error: linkedError } = imported.session_id
+    const { data: previous, error: shaError } = await serviceClient.from("session_imports")
+      .select("id, status, session_id").eq("user_id", userId).eq("sha256", sha256).maybeSingle();
+    checkError(shaError);
+    const { data: ownLinkedSession, error: linkedError } = imported.session_id
       ? await userClient.from("sessions").select("id").eq("id", imported.session_id)
         .eq("user_id", userId).is("deleted_at", null).maybeSingle()
       : { data: null, error: null };
     checkError(linkedError);
+    let linkedSession = ownLinkedSession;
     const { data: linkedTrack, error: linkedTrackError } = linkedSession
-      ? await userClient.from("session_tracks").select("*").eq("session_id", linkedSession.id).maybeSingle()
+      ? await userClient.from("session_tracks")
+        .select("session_id, import_id, user_arrival_time, user_duration_minutes, user_wave_count")
+        .eq("session_id", linkedSession.id).maybeSingle()
       : { data: null, error: null };
     checkError(linkedTrackError);
+    if (!linkedSession && previous && previous.id !== importId && previous.session_id) {
+      const { data: previousSession, error: sessionError } = await userClient.from("sessions")
+        .select("id, source").eq("id", previous.session_id).eq("user_id", userId)
+        .is("deleted_at", null).maybeSingle();
+      checkError(sessionError);
+      if (previousSession) {
+        const { data: previousTrack, error: trackError } = await userClient.from("session_tracks")
+          .select("session_id, import_id, user_arrival_time, user_duration_minutes, user_wave_count")
+          .eq("session_id", previousSession.id).maybeSingle();
+        checkError(trackError);
+        if (!previousTrack && previousSession.source === "file_import") {
+          linkedSession = previousSession;
+          wasCompleted = previous.status === "completed";
+          await updateImport({ session_id: previousSession.id });
+        } else if (previous.status === "completed") {
+          return duplicate(previousSession.id);
+        }
+      }
+    }
     const target = linkedSession
       ? { sessionId: linkedSession.id, hasTrack: linkedTrack !== null, trackImportId: linkedTrack?.import_id ?? null }
       : await findAttachTarget(userClient, userId, beach, summary.inWaterStart);
     if (target?.hasTrack && target.trackImportId !== importId) {
-      return { status: "duplicate", sessionId: target.sessionId };
+      return duplicate(target.sessionId);
     }
     const { data: existingTrack, error: existingTrackError } = target?.hasTrack && !linkedTrack
-      ? await userClient.from("session_tracks").select("*").eq("session_id", target.sessionId).maybeSingle()
+      ? await userClient.from("session_tracks")
+        .select("session_id, import_id, user_arrival_time, user_duration_minutes, user_wave_count")
+        .eq("session_id", target.sessionId).maybeSingle()
       : { data: linkedTrack, error: null };
     checkError(existingTrackError);
     const attached = existingTrack
       ? existingTrack.user_arrival_time != null || existingTrack.user_duration_minutes != null
       : target !== null && !linkedSession;
 
-    const { data: previous, error: shaError } = await serviceClient.from("session_imports")
-      .select("id, status, session_id").eq("user_id", userId).eq("sha256", sha256).maybeSingle();
-    checkError(shaError);
     if (previous && previous.id !== importId) {
-      if (previous.status === "completed" && previous.session_id) {
-        const { data: liveSession, error: sessionError } = await userClient.from("sessions")
-          .select("id").eq("id", previous.session_id).eq("user_id", userId).is("deleted_at", null).maybeSingle();
-        checkError(sessionError);
-        if (liveSession) return { status: "duplicate", sessionId: liveSession.id };
-      }
       // The unique SHA belongs to the new attempt; retain the old import's session link.
       const { error } = await serviceClient.from("session_imports").update({ sha256: null })
         .eq("id", previous.id).eq("user_id", userId);
@@ -216,22 +253,19 @@ export async function processImport(
         const { data: liveSession, error: sessionError } = await userClient.from("sessions")
           .select("id").eq("id", winner.session_id).eq("user_id", userId).is("deleted_at", null).maybeSingle();
         checkError(sessionError);
-        if (liveSession) return { status: "duplicate", sessionId: liveSession.id };
+        if (liveSession) return duplicate(liveSession.id);
       }
-      return { status: "duplicate", sessionId: null };
+      return duplicate(null);
     }
     checkError(claimError);
 
     const timing = { arrival_time: summary.inWaterStart, duration_minutes: Math.round((endMs - startMs) / 60000) };
+    let sessionTimingUpdate: (typeof timing & { status?: "completed" }) | null = null;
     let sessionId: string;
     let userArrivalTime: string | null = null;
     let userDurationMinutes: number | null = null;
     if (target && !attached) {
       sessionId = target.sessionId;
-    } else if (target && existingTrack) {
-      sessionId = target.sessionId;
-      userArrivalTime = existingTrack.user_arrival_time;
-      userDurationMinutes = existingTrack.user_duration_minutes;
     } else if (target) {
       const { data: session, error } = await userClient.from("sessions")
         .select("id, arrival_time, duration_minutes, status").eq("id", target.sessionId)
@@ -239,12 +273,9 @@ export async function processImport(
       checkError(error);
       if (!session) throw new Error("Attach session not found");
       sessionId = session.id;
-      userArrivalTime = session.arrival_time;
-      userDurationMinutes = session.duration_minutes;
-      const { error: updateError } = await userClient.from("sessions")
-        .update({ ...timing, ...(session.status === "planned" ? { status: "completed" } : {}) })
-        .eq("id", sessionId).eq("user_id", userId).is("deleted_at", null);
-      checkError(updateError);
+      userArrivalTime = existingTrack ? existingTrack.user_arrival_time : session.arrival_time;
+      userDurationMinutes = existingTrack ? existingTrack.user_duration_minutes : session.duration_minutes;
+      sessionTimingUpdate = { ...timing, ...(session.status === "planned" ? { status: "completed" } : {}) };
     } else {
       const { data: session, error } = await userClient.from("sessions").insert({
         user_id: userId, status: "completed", is_public: false, source: "file_import",
@@ -265,6 +296,11 @@ export async function processImport(
         sessionId, userId, importId, storagePath: imported.storage_path, format: track.meta.format,
         sha256, track, summary: persistedSummary, userArrivalTime, userDurationMinutes, timingFromTrack: true,
       });
+    }
+    if (sessionTimingUpdate) {
+      const { error } = await userClient.from("sessions").update(sessionTimingUpdate)
+        .eq("id", sessionId).eq("user_id", userId).is("deleted_at", null);
+      checkError(error);
     }
     if (summary.waterTempC !== null) {
       const { error } = await userClient.from("sessions").update({

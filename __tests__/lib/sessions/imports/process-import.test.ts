@@ -44,13 +44,15 @@ let bytes: Uint8Array;
 let nearby: Row[];
 let rpcError: unknown;
 let download: jest.Mock;
+let remove: jest.Mock;
+let selections: Array<{ table: string; columns: string | undefined }>;
 let queryFailure: (mutation: Mutation) => unknown;
 
 function client(name: string): SupabaseClient {
   return {
     storage: { from: jest.fn((bucket: string) => {
       expect(bucket).toBe("session-tracks");
-      return { download };
+      return { download, remove };
     }) },
     rpc: jest.fn(async () => ({ data: nearby, error: rpcError })),
     from: (table: string) => {
@@ -59,7 +61,8 @@ function client(name: string): SupabaseClient {
       const filters: ((row: Row) => boolean)[] = [];
       let single = false;
       const query: any = {
-        select: () => query,
+        select: (columns?: string) => { selections.push({ table, columns }); return query; },
+        limit: () => query,
         insert: (value: Row | Row[]) => { operation = "insert"; payload = value; return query; },
         update: (value: Row) => { operation = "update"; payload = value; return query; },
         delete: () => { operation = "delete"; return query; },
@@ -99,6 +102,8 @@ beforeEach(() => {
   nearby = [beach];
   rpcError = null;
   mutations = [];
+  selections = [];
+  remove = jest.fn(async () => ({ data: [], error: null }));
   queryFailure = () => null;
   rows = {
     session_imports: [{ id: importId, user_id: userId, storage_path: "import-1/user-1/watch.fit", original_filename: "watch.fit", status: "uploaded" }],
@@ -382,4 +387,114 @@ it.each(["unlinked", "missing", "deleted"])("returns a null-session duplicate im
   expect(inserts("sessions")).toHaveLength(0);
   expect(inserts("session_tracks")).toHaveLength(0);
   expect(inserts("session_waves")).toHaveLength(0);
+});
+
+
+it.each(["session_waves", "session_tracks", "session_timing", "completed"])("preserves the original attach timing across a %s failure and retry", async (point) => {
+  const summary = summarizeTrack(readTrackFile(bytes, "watch.fit", now));
+  const arrival = new Date(Date.parse(summary.inWaterStart) - 3600000).toISOString();
+  rows.sessions.push({ id: "attached", user_id: userId, beach_id: beach.id, arrival_time: arrival, duration_minutes: 90, status: "planned" });
+  let failed = false;
+  queryFailure = mutation => {
+    const matches = point === "session_timing"
+      ? mutation.table === "sessions" && mutation.operation === "update" && mutation.payload?.arrival_time !== undefined
+      : point === "completed"
+        ? mutation.table === "session_imports" && mutation.payload?.status === "completed"
+        : mutation.table === point && mutation.operation === "insert";
+    if (!failed && matches) { failed = true; return { message: "retry attach" }; }
+    return null;
+  };
+  await expect(processImport(deps, importId, userId)).rejects.toThrow("retry attach");
+  if (point === "session_timing") {
+    expect(rows.session_tracks).toHaveLength(1);
+    expect(rows.sessions[0]).toMatchObject({ arrival_time: arrival, duration_minutes: 90, status: "planned" });
+  }
+  expect(await processImport(deps, importId, userId)).toMatchObject({ status: "completed", attached: true, sessionId: "attached" });
+  expect(rows.session_tracks).toHaveLength(1);
+  expect(rows.session_tracks[0]).toMatchObject({ import_id: importId, user_arrival_time: arrival, user_duration_minutes: 90 });
+  expect(rows.sessions[0]).toMatchObject({ arrival_time: summary.inWaterStart, status: "completed" });
+  expect(inserts("user_events")).toHaveLength(0);
+  const insertIndex = mutations.findIndex(mutation => mutation.table === "session_tracks" && mutation.operation === "insert");
+  const timingIndex = mutations.findIndex(mutation => mutation.table === "sessions" && mutation.payload?.arrival_time !== undefined);
+  expect(insertIndex).toBeLessThan(timingIndex);
+});
+
+it.each(["session_waves", "session_tracks"])("adopts the prior file-import orphan on a fresh web retry after %s failure", async (point) => {
+  let failed = false;
+  queryFailure = mutation => {
+    if (!failed && mutation.table === point && mutation.operation === "insert") {
+      failed = true;
+      return { message: "web attempt failed" };
+    }
+    return null;
+  };
+  await expect(processImport(deps, importId, userId)).rejects.toThrow("web attempt failed");
+  const orphanId = rows.session_imports[0].session_id;
+  rows.session_imports.push({ id: "retry", user_id: userId, storage_path: "retry/user-1/watch.fit", original_filename: "watch.fit", status: "uploaded" });
+  expect(await processImport(deps, "retry", userId)).toMatchObject({ status: "completed", sessionId: orphanId, attached: false });
+  expect(rows.session_imports[0]).toMatchObject({ sha256: null, session_id: orphanId });
+  expect(rows.session_imports[1]).toMatchObject({ sha256: createHash("sha256").update(bytes).digest("hex"), session_id: orphanId });
+  expect(inserts("sessions")).toHaveLength(1);
+  expect(rows.session_tracks).toHaveLength(1);
+  expect(rows.session_tracks[0]).toMatchObject({ import_id: "retry", user_arrival_time: null, user_duration_minutes: null });
+  expect(rows.user_events.filter(row => row.event_type === "session_created")).toHaveLength(1);
+  expect(await processImport(deps, "retry", userId)).toMatchObject({ status: "completed", attached: false });
+  expect(rows.user_events.filter(row => row.event_type === "session_created")).toHaveLength(1);
+});
+
+it.each(["attach target", "completed SHA", "SHA collision"])("marks the duplicate failed and removes its unreferenced object: %s", async (path) => {
+  const sha256 = createHash("sha256").update(bytes).digest("hex");
+  if (path === "attach target") {
+    rows.sessions.push({ id: "winner", user_id: userId, beach_id: beach.id, arrival_time: summarizeTrack(readTrackFile(bytes, "watch.fit", now)).inWaterStart });
+    rows.session_tracks.push({ session_id: "winner", import_id: "winning-import", storage_path: "winner/user-1/watch.fit" });
+  } else if (path === "completed SHA") {
+    rows.sessions.push({ id: "winner", user_id: userId, arrival_time: "2020-01-01T00:00:00Z" });
+    rows.session_imports.push({ id: "winning-import", user_id: userId, sha256, status: "completed", session_id: "winner" });
+  } else {
+    let collided = false;
+    queryFailure = mutation => {
+      if (!collided && mutation.table === "session_imports" && mutation.payload?.sha256) {
+        collided = true;
+        rows.session_imports.push({ id: "winning-import", user_id: userId, sha256, status: "uploaded", session_id: null });
+        return { code: "23505", message: "sha claimed" };
+      }
+      return null;
+    };
+  }
+  expect(await processImport(deps, importId, userId)).toEqual({ status: "duplicate", sessionId: path === "SHA collision" ? null : "winner" });
+  expect(rows.session_imports[0]).toMatchObject({ status: "failed", error: "duplicate" });
+  expect(remove).toHaveBeenCalledWith(["import-1/user-1/watch.fit"]);
+  expect(inserts("sessions")).toHaveLength(0);
+});
+
+it("keeps a duplicate object referenced by a track", async () => {
+  rows.sessions.push({ id: "winner", user_id: userId, beach_id: beach.id, arrival_time: summarizeTrack(readTrackFile(bytes, "watch.fit", now)).inWaterStart });
+  rows.session_tracks.push({ session_id: "winner", import_id: "winning-import", storage_path: "import-1/user-1/watch.fit" });
+  expect(await processImport(deps, importId, userId)).toEqual({ status: "duplicate", sessionId: "winner" });
+  expect(rows.session_imports[0]).toMatchObject({ status: "failed", error: "duplicate" });
+  expect(remove).not.toHaveBeenCalled();
+});
+
+it.each(["returned", "thrown", "reference lookup"])("preserves the duplicate result on cleanup failure: %s", async (point) => {
+  rows.sessions.push({ id: "winner", user_id: userId, beach_id: beach.id, arrival_time: summarizeTrack(readTrackFile(bytes, "watch.fit", now)).inWaterStart });
+  rows.session_tracks.push({ session_id: "winner", import_id: "winning-import" });
+  if (point === "returned") remove.mockResolvedValue({ data: null, error: { message: "storage down" } });
+  else if (point === "thrown") remove.mockRejectedValue(new Error("storage down"));
+  else queryFailure = mutation => mutation.client === "service" && mutation.table === "session_tracks" ? { message: "reference lookup failed" } : null;
+  const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+  try {
+    expect(await processImport(deps, importId, userId)).toEqual({ status: "duplicate", sessionId: "winner" });
+    expect(rows.session_imports[0]).toMatchObject({ status: "failed", error: "duplicate" });
+    expect(warn).toHaveBeenCalledWith(expect.any(String), expect.anything());
+    if (point === "reference lookup") expect(remove).not.toHaveBeenCalled();
+  } finally { warn.mockRestore(); }
+});
+
+it("loads only the track fields needed to resume an import", async () => {
+  await processImport(deps, importId, userId);
+  selections = [];
+  await processImport(deps, importId, userId);
+  expect(selections.filter(query => query.table === "session_tracks").map(query => query.columns)).toEqual([
+    "session_id, import_id, user_arrival_time, user_duration_minutes, user_wave_count",
+  ]);
 });
