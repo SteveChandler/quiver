@@ -62,8 +62,9 @@ export function findPeakRowWithinWindow(
   const windowClosed = now.getTime() >= windowEnd.getTime();
 
   // When the window is still open AND `now` is already past windowStart,
-  // only consider forecasts at-or-after `now`. This prevents picking a
-  // peak hour that has already elapsed as the "best time to go."
+  // only consider forecasts at-or-after `now` (unless started rows are
+  // still live). This prevents picking a peak hour that has already
+  // elapsed as the "best time to go."
   const effectiveStart =
     !startedRowsEligible && !windowClosed && now.getTime() > windowStart.getTime() ? now : windowStart;
 

@@ -412,6 +412,7 @@ describe('generateWeekScoutForecast', () => {
       { name: '3-hourly morning peak', hours: ['05:00', '08:00', '11:00', '14:00'], scores: [0, 90, 70, 70] },
       { name: 'hourly, display crosses midday', hours: hourly, scores: [30, 30, 30, 30, 80, 70, 75, 85, 40, 40, 40, 40, 40] },
       { name: 'live midday row beats the next one', hours: ['07:00', '09:00', '10:00', '12:00'], scores: [80, 80, 70, 30] },
+      { name: 'next midday row beats the live one', hours: ['07:00', '09:00', '10:00', '12:00'], scores: [80, 80, 30, 70] },
     ];
     // Native `windowHasClosed` (canonical-week-scout.ts): a slot closes at its display end.
     const appReadsClosed = (window: { displayWindowEnd: string; end: string }, now: Date): boolean => (
@@ -504,6 +505,12 @@ describe('generateWeekScoutForecast', () => {
       }
       // The band holds still while the same row stays live.
       expect(bands[1]).toEqual(bands[0]);
+    });
+
+    it('still grades midday from the 12:00 row at 10:20 when it beats the live 10:00 row', async () => {
+      const { response } = await generate(profiles[3], '10:20');
+      const midday = response.days[0].windows.find(({ bucket }) => bucket === 'midday');
+      expect(midday).toMatchObject({ conditionScore: 70, peakTime: time('12:00').toISOString() });
     });
   });
 
