@@ -28,6 +28,7 @@ import type { EnhancedForecastEntity } from '@/types/forecast';
 // regional forecast data load. Keys grow by a few per local day per timezone,
 // so the map is cleared rather than left to grow for the life of a long-lived
 // instance.
+const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_CACHED_LOCAL_INSTANTS = 5000;
 const localInstantMsByKey = new Map<string, number>();
 
@@ -35,8 +36,8 @@ const localInstantMsByKey = new Map<string, number>();
  * Convert a local date/time string in a given timezone to a UTC Date.
  *
  * `forecast_time` stores LOCAL time (e.g., "15:00:00" means 3pm Pacific),
- * so we find the corresponding UTC timestamp by calculating the timezone
- * offset at that approximate time.
+ * so we find the corresponding UTC timestamp using the timezone offset in
+ * effect at that instant (not at the wall time read as UTC).
  */
 export function localDateTimeToUTC(dateStr: string, timeStr: string, tz: string): Date {
   const key = `${tz}|${dateStr}T${timeStr}`;
@@ -54,21 +55,58 @@ export function localDateTimeToUTC(dateStr: string, timeStr: string, tz: string)
   return resolved;
 }
 
+const offsetFormatterByTz = new Map<string, Intl.DateTimeFormat>();
+
+function offsetFormatter(tz: string): Intl.DateTimeFormat {
+  const cached = offsetFormatterByTz.get(tz);
+  if (cached) return cached;
+  // An invalid timezone throws a RangeError here, before anything is cached.
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "numeric",
+    second: "numeric",
+  });
+  offsetFormatterByTz.set(tz, formatter);
+  return formatter;
+}
+
+/** UTC offset of `tz` at the instant `ms`, in ms (PST is -8 h). */
+function utcOffsetMsAt(ms: number, tz: string): number {
+  const wall: Record<string, number> = {};
+  for (const part of offsetFormatter(tz).formatToParts(new Date(ms))) {
+    if (part.type !== "literal") wall[part.type] = Number(part.value);
+  }
+  const wallAsUtc = Date.UTC(wall.year, wall.month - 1, wall.day, wall.hour, wall.minute, wall.second);
+  return wallAsUtc - Math.floor(ms / 1000) * 1000;
+}
+
 function computeLocalDateTimeToUTC(dateStr: string, timeStr: string, tz: string): Date {
-  // Create a naive Date treating the local time as if it were UTC
-  const naiveUtc = new Date(`${dateStr}T${timeStr}Z`);
+  offsetFormatter(tz);
+  const wallAsUtcMs = Date.parse(`${dateStr}T${timeStr}Z`);
+  if (!Number.isFinite(wallAsUtcMs)) return new Date(NaN);
 
-  // Determine the timezone offset at this approximate time:
-  // Compare the UTC representation vs the local representation of the same instant
-  const utcRepr = naiveUtc.toLocaleString("en-US", { timeZone: "UTC" });
-  const localRepr = naiveUtc.toLocaleString("en-US", { timeZone: tz });
-  const utcDate = new Date(utcRepr);
-  const localDate = new Date(localRepr);
-  const offsetMs = utcDate.getTime() - localDate.getTime();
+  // The offset must be the one in effect at the resulting instant, not at the
+  // wall time read as UTC: on a DST-change day those two instants straddle the
+  // transition. Zones change offset at most once within a day either side, so
+  // the two offsets around the wall time are the only candidates.
+  const offsetBefore = utcOffsetMsAt(wallAsUtcMs - DAY_MS, tz);
+  const offsetAfter = utcOffsetMsAt(wallAsUtcMs + DAY_MS, tz);
+  if (offsetBefore === offsetAfter) return new Date(wallAsUtcMs - offsetBefore);
+  const candidates = Array.from(new Set([offsetBefore, offsetAfter]))
+    .map((offset) => ({ offset, instant: wallAsUtcMs - offset }))
+    .filter(({ offset, instant }) => utcOffsetMsAt(instant, tz) === offset)
+    .sort((left, right) => left.instant - right.instant);
 
-  // Shift by the offset: if tz is PST (UTC-8), offsetMs = +8h,
-  // so naiveUtc + 8h converts "15:00 local" → "23:00 UTC"
-  return new Date(naiveUtc.getTime() + offsetMs);
+  // Ambiguous wall time (clocks fell back): the first occurrence. Missing wall
+  // time (clocks sprang forward): read it with the pre-transition offset, which
+  // lands just after the gap, like Temporal's "compatible" mode.
+  const resolvedMs = candidates[0]?.instant ?? wallAsUtcMs - offsetBefore;
+  return new Date(resolvedMs);
 }
 
 /**

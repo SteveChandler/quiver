@@ -527,12 +527,23 @@ function beachDayRange(
   beach: Beach,
   localDate: string,
   userTimezone: string,
-): { start: string; end: string } {
+): { start: string; end: string; forecastStart: string } {
   const timezone = resolveBeachTimezone(beach.timezone || userTimezone);
+  const start = localDateTimeToUTC(localDate, "05:00:00", timezone);
   return {
-    start: localDateTimeToUTC(localDate, "05:00:00", timezone).toISOString(),
+    start: start.toISOString(),
     end: localDateTimeToUTC(localDate, "20:00:00", timezone).toISOString(),
+    // The grid is UTC-aligned, so in Pacific standard time the row in effect at
+    // 05:00 is stamped 04:00. Load it; forecastsServingWindow and the daylight
+    // clip decide whether it serves a window.
+    forecastStart: new Date(start.getTime() - GRID_MS).toISOString(),
   };
+}
+
+/** A row belongs to the day when its grid step overlaps [start, end). */
+export function rowServesDay(row: EnhancedForecastEntity, startMs: number, endMs: number): boolean {
+  const at = Date.parse(row.forecast_at);
+  return at < endMs && at + GRID_MS > startMs;
 }
 
 export async function buildCandidates(
@@ -546,7 +557,7 @@ export async function buildCandidates(
     pool,
     ...beachDayRange(pool.beach, args.alertDate, args.timezone),
   }));
-  const start = new Date(Math.min(...beachDays.map((day) => Date.parse(day.start)))).toISOString();
+  const start = new Date(Math.min(...beachDays.map((day) => Date.parse(day.forecastStart)))).toISOString();
   const end = new Date(Math.max(...beachDays.map((day) => Date.parse(day.end)))).toISOString();
   const { data, error } = await supabase
     .from("enhanced_forecasts")
@@ -565,7 +576,7 @@ export async function buildCandidates(
     const startMs = Date.parse(start);
     const endMs = Date.parse(end);
     const beachForecasts = forecasts.filter((row) => row.beach_id === pool.beach.id
-      && Date.parse(row.forecast_at) >= startMs && Date.parse(row.forecast_at) < endMs);
+      && rowServesDay(row, startMs, endMs));
     if (beachForecasts.length === 0) continue;
     hadForecasts = true;
     const evaluations = beachForecasts.map((forecast) =>
@@ -844,17 +855,18 @@ function defaultDeps(
     rankDay: rankDayWithWeekScout,
     usesSharedRanking: (userId) => isSharedCallRankingEnabled() && isSharedCallRankingUserAllowed(userId),
     loadBeachDay: async ({ beach, timezone, localDate }) => {
-      const { start, end } = beachDayRange(beach, localDate, timezone);
+      const { start, end, forecastStart } = beachDayRange(beach, localDate, timezone);
       const { data, error } = await supabase
         .from("enhanced_forecasts")
         .select("*")
         .eq("beach_id", beach.id)
-        .gte("forecast_at", start)
+        .gte("forecast_at", forecastStart)
         .lt("forecast_at", end)
         .order("forecast_at", { ascending: true });
       if (error) throw new Error(`Failed to load daily-call forecasts: ${error.message}`);
       return {
-        forecasts: (data ?? []) as EnhancedForecastEntity[],
+        forecasts: ((data ?? []) as EnhancedForecastEntity[])
+          .filter((row) => rowServesDay(row, Date.parse(start), Date.parse(end))),
         tideSamples: await loadTideSamples(supabase, tideCache, beach.id, start, end),
       };
     },
