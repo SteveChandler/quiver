@@ -44,7 +44,7 @@ import {
 import { getUserEntitlement } from "@/lib/alerts/entitlements";
 import { getDaylightWindow } from "@/lib/alerts/sunrise";
 import { capToBestWindow, refineWindow, type RefinedWindow } from "@/lib/alerts/window-refiner";
-import { groupGoForecasts, loadTideSamples, rankDayWithWeekScout, type RankDay } from "@/lib/cron/daily-call-runner";
+import { groupGoForecasts, loadTideSamples, rankDayWithWeekScout, rowServesDay, type RankDay } from "@/lib/cron/daily-call-runner";
 import { driveRadiusMiles } from "@/lib/profile/drive-range";
 import { capNearbyPool, loadUserPool } from "@/lib/alerts/user-pool";
 import {
@@ -691,11 +691,12 @@ async function evaluatePool(
     const sorted = events.sort((left, right) => right.peakScore - left.peakScore)[0];
     if (!sorted) return null;
     const { peakForecast, ...best } = sorted;
+    const beachTimezone = resolveBeachTimezone(beach.timezone);
     const window = await peakDayWindow({
       client, tideCache, beach, peakForecast,
       forecasts: beachForecasts,
-      peakDate: best.peakDate,
-      timezone: profile.timezone,
+      peakDate: getLocalDateString(new Date(best.event.peakAt), beachTimezone),
+      timezone: beachTimezone,
       now,
       experienceLevel: profile.experienceLevel,
       verdictFor,
@@ -774,10 +775,8 @@ async function peakDayWindow(args: {
   // The daily call's day: 05:00–20:00 local, so daylight resolves to this date.
   const dayStart = localDateTimeToUTC(args.peakDate, "05:00:00", args.timezone).toISOString();
   const dayEnd = localDateTimeToUTC(args.peakDate, "20:00:00", args.timezone).toISOString();
-  const dayRows = args.forecasts.filter((row) => {
-    const at = new Date(row.forecast_at).toISOString();
-    return at >= dayStart && at < dayEnd;
-  });
+  // Includes the grid row in effect at 05:00, which can be stamped 04:00.
+  const dayRows = args.forecasts.filter((row) => rowServesDay(row, Date.parse(dayStart), Date.parse(dayEnd)));
   const verdicts = dayRows.map((row) => args.verdictFor(row, args.beach));
   const groups = groupGoForecasts(verdicts);
   const strongest = (group: ForecastVerdict[]): number => Math.max(...group.map(({ score }) => score));
