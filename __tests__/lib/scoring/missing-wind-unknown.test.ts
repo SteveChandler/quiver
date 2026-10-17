@@ -3,8 +3,9 @@
  *
  * Missing wind is unknown, not calm. Forecast rows now store null wind when
  * the source has none (e.g. no NWS point for Mexican beaches), so every
- * consumer must score a null speed at its neutral midpoint, never as glassy,
- * and must never fabricate a direction. A real calm (0 mph, no direction,
+ * consumer must leave a null speed neutral (out of the score, or at its
+ * midpoint where a number is required), never glassy, and must never
+ * fabricate a direction. A real calm (0 mph, no direction,
  * which is how NWS reports calm) still scores as calm on speed alone.
  */
 
@@ -223,10 +224,10 @@ describe('condition character', () => {
       composite,
     );
 
-  it('does not call a small day glassy when the wind is unknown', () => {
+  it('neither calls a small day glassy nor downgrades it when the wind is unknown', () => {
     const character = smallDay(null);
-    expect(character.category).not.toBe('small-clean');
-    expect(character.label).not.toMatch(/glassy/i);
+    expect(character).toEqual({ category: 'small-clean', label: 'Small but surfable' });
+    expect(character.label).not.toMatch(/glassy|wind|clean/i);
   });
 
   it('still calls a calm small day clean', () => {

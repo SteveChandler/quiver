@@ -9,7 +9,21 @@
  */
 
 import { createSpotProfile } from '@/lib/domains/spot-profile/spot-profile';
-import { windQualityScorer } from '@/lib/domains/scoring';
+import {
+  ScoringEngine,
+  baseConditionsScorer,
+  getConditionCharacter,
+  setupRiskScorer,
+  swellAlignmentScorer,
+  swellInterferenceScorer,
+  tideDirectionScorer,
+  tideFitScorer,
+  trendPreferenceScorer,
+  windQualityScorer,
+  windowStabilityScorer,
+} from '@/lib/domains/scoring';
+import { createDiscoveryScoringEngine } from '@/lib/domains/scoring/discovery-adapter';
+import { scoreNativeConditionBreakdown } from '@/lib/scoring/native-condition-score';
 import { resolveWindDirection } from '@/lib/alerts/degree-utils';
 import { buildSurfWindowRecommendations } from '@/lib/recommendations/surf-window-recommendations';
 import {
@@ -161,39 +175,105 @@ describe('east-facing beach with no stored offshore', () => {
   });
 });
 
+const WIND_WORDS = /wind|offshore|onshore|cross-shore|side-shore|sideshore|glassy|textured|choppy|blown|clean/i;
+
+/** The discovery engine with the wind scorer removed: "wind direction excluded". */
+const ENGINE_WITHOUT_WIND = new ScoringEngine().registerAll([
+  baseConditionsScorer,
+  swellAlignmentScorer,
+  swellInterferenceScorer,
+  tideFitScorer,
+  tideDirectionScorer,
+  setupRiskScorer,
+  windowStabilityScorer,
+  trendPreferenceScorer,
+]);
+
+function engineInput(b: Beach, wind: { speedMph: number | null; directionDeg: number | null }): ScorerInput {
+  return {
+    profile: createSpotProfile(b),
+    snapshot: createSnapshot({ wind, waveHeight: 3, wavePeriod: 11 }),
+    window: null,
+    preferences: null,
+  };
+}
+
 describe('beach with no orientation data', () => {
-  it('scoring is neutral, never offshore', () => {
+  it('the wind scorer sits out: weight 0, no reasons, no warnings, no skip', () => {
     expect(createSpotProfile(NO_DATA).windThresholds.offshoreDeg).toBeNull();
-    for (const dir of [0, EAST, 180, WEST]) {
-      const result = scoreWind(NO_DATA, dir);
-      expect(result.score).toBe(50);
-      expect(result.reasons.join(' ')).not.toMatch(/offshore/i);
-      expect(result.warnings).toContain('Beach wind orientation unknown');
+    for (const [dir, speed] of [[0, 10], [EAST, 10], [WEST, 18], [EAST, 35]]) {
+      const result = scoreWind(NO_DATA, dir, speed);
+      expect(result.weight).toBe(0);
+      expect(result.reasons).toEqual([]);
+      expect(result.warnings).toEqual([]);
+      expect(result.skip).toBe(false);
     }
   });
 
-  it('scoring still lets wind speed count, by the lenient cutoffs', () => {
-    expect(scoreWind(NO_DATA, EAST, 25).score).toBe(20);
-    const gale = scoreWind(NO_DATA, EAST, 35);
-    expect(gale.skip).toBe(true);
-    expect(gale.skipReason).toBe('Blown out (35 mph)');
+  it('scores exactly as if wind were excluded, at any wind', () => {
+    const excluded = ENGINE_WITHOUT_WIND.score(engineInput(NO_DATA, { speedMph: 10, directionDeg: EAST }));
+    for (const [dir, speed] of [[EAST, 10], [WEST, 25], [0, 40]]) {
+      const composite = createDiscoveryScoringEngine().score(engineInput(NO_DATA, { speedMph: speed, directionDeg: dir }));
+      expect(composite.total).toBe(excluded.total);
+      expect(composite.subscores.has('windQuality')).toBe(false);
+      expect([...composite.reasons, ...composite.warnings].join(' ')).not.toMatch(WIND_WORDS);
+    }
+  });
+
+  it('the condition label says nothing about wind', () => {
+    for (const waveHeight of [1.5, 3, 6]) {
+      const input = { ...engineInput(NO_DATA, { speedMph: 20, directionDeg: EAST }), snapshot: createSnapshot({ wind: { speedMph: 20, directionDeg: EAST }, waveHeight, wavePeriod: 11 }) };
+      const composite = createDiscoveryScoringEngine().score(input);
+      expect(getConditionCharacter(input.snapshot, input.profile, composite).label).not.toMatch(WIND_WORDS);
+    }
   });
 
   it('alerts cannot match any wind direction', () => {
     expect(resolveWindDirection(EAST, null, null, null)).toBeNull();
   });
 
-  it('recommendations report the relation as unknown', () => {
+  it('recommendations report no relation and show only the wind reading', () => {
     expect(recWindQuality(NO_DATA, EAST)).toBe('unknown');
+    const rec = buildSurfWindowRecommendations({ beach: NO_DATA, forecasts: [forecastRow(EAST)] }, { now: NOW }).recommendations[0];
+    expect(rec.wind.summary).toBe('12 X');
+    expect([...rec.positives, ...rec.watchouts].join(' ')).not.toMatch(/offshore|onshore|cross-shore|side-shore|glassy|textured|choppy|blown/i);
   });
 
-  it('the embed colours the wind as neutral cross-shore, not offshore', () => {
-    expect(embedClass(NO_DATA, EAST)).toBe('cross-shore');
+  it('the embed colours the wind as unknown, implying no relation', () => {
+    expect(embedClass(NO_DATA, EAST)).toBe('unknown');
   });
 
   it('board pick does not read an east wind as offshore or onshore', () => {
     expect(boardPick(NO_DATA, EAST)).toBe('mid-length');
     expect(boardPick(NO_DATA, WEST)).toBe('mid-length');
+  });
+});
+
+describe('forecast row with missing wind', () => {
+  const STORED = beach({ wind_offshore_deg: WEST, aspect_deg: EAST });
+
+  it('missing direction scores like a beach with no orientation, and like wind excluded', () => {
+    const noDirection = createDiscoveryScoringEngine().score(engineInput(STORED, { speedMph: 18, directionDeg: null }));
+    const excluded = ENGINE_WITHOUT_WIND.score(engineInput(STORED, { speedMph: 18, directionDeg: null }));
+    expect(noDirection.total).toBe(excluded.total);
+    expect([...noDirection.reasons, ...noDirection.warnings].join(' ')).not.toMatch(WIND_WORDS);
+  });
+
+  it('missing speed scores like wind excluded and says nothing', () => {
+    const noSpeed = createDiscoveryScoringEngine().score(engineInput(STORED, { speedMph: null, directionDeg: EAST }));
+    const excluded = ENGINE_WITHOUT_WIND.score(engineInput(STORED, { speedMph: null, directionDeg: EAST }));
+    expect(noSpeed.total).toBe(excluded.total);
+    expect([...noSpeed.reasons, ...noSpeed.warnings].join(' ')).not.toMatch(WIND_WORDS);
+  });
+
+  it('the native score rescales without the wind points instead of half-crediting them', () => {
+    const inputs = { waveHeightFt: 3, periodSec: 13, windSpeedMph: null, tideHeightFt: 2.5, tideStatus: 'rising' };
+    const noWind = scoreNativeConditionBreakdown(inputs, 'intermediate');
+    const { waveFit, period, tide } = noWind.components;
+    expect(noWind.score).toBe(Math.round(((waveFit + period + tide) * 100) / 75));
+    // The contract keeps a finite wind number that native turns into no text (between 8 and 18).
+    expect(noWind.components.wind).toBeGreaterThan(8);
+    expect(noWind.components.wind).toBeLessThan(18);
   });
 });
 
