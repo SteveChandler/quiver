@@ -58,6 +58,25 @@ export interface OutlookSwell {
   history: Array<{ runDate: string; peakAt: string; faceHeightFt: number; periodS: number | null }>;
 }
 
+export interface OutlookDaySwell {
+  heightFt: number;
+  periodS: number | null;
+  directionDeg: number;
+  directionLabel: string;
+}
+
+/** One local day at the outlook beach, straight from the surf forecast (not from swell events). */
+export interface OutlookDay {
+  /** YYYY-MM-DD in the outlook beach's zone. */
+  date: string;
+  /** Daylight surf range; null when the day has no daylight rows. */
+  surfFt: FaceHeightRangeFt | null;
+  /** Best daylight hour's 0-100 condition score, same scorer as Week Scout windows. */
+  score: number | null;
+  /** That best hour's swell components, biggest first as stored. */
+  swells: OutlookDaySwell[];
+}
+
 export interface SwellOutlookResponse {
   anchorSource?: LocationAnchor["source"];
   generatedAt: string;
@@ -65,6 +84,8 @@ export interface SwellOutlookResponse {
   horizonDays: number;
   homeBeach: { id: string; name: string } | null;
   swells: OutlookSwell[];
+  /** Absent when the outlook has no beach or its forecast read failed. */
+  days?: OutlookDay[];
 }
 
 /** The list as it was returned for one snapshot run; sticky tracking compares against the previous one. */

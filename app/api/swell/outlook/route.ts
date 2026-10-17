@@ -24,6 +24,7 @@ async function outlookHandler(_request: NextRequest, { user }: AuthenticatedCont
     userId: user.id,
     now: new Date(),
     recordOpen: true,
+    includeDays: true,
   });
   return NextResponse.json(outlook);
 }
