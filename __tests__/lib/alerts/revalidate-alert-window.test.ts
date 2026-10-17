@@ -1,9 +1,12 @@
 import {
   parseEnhancedForecastHour,
-  selectFreshAlertWindow,
+  selectFreshAlertWindowWithDiagnostics,
 } from "@/lib/alerts/revalidate-alert-window";
 import type { AlertConditions } from "@/lib/alerts/types";
 import type { AlertRevalidationBeachMeta } from "@/lib/alerts/payload-builder";
+
+const selectFreshAlertWindow = (input: Parameters<typeof selectFreshAlertWindowWithDiagnostics>[0]) =>
+  selectFreshAlertWindowWithDiagnostics(input).window;
 
 const missionBeach: AlertRevalidationBeachMeta = {
   id: "mission-beach-id",

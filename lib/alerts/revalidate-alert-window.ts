@@ -52,10 +52,6 @@ export function prepareAlertForecastHours(
   return { daylight: filterToDaylight(hours, beach.lat, beach.lon), maxWaveByForecastAt };
 }
 
-export function selectFreshAlertWindow(input: SelectFreshAlertWindowInput): FoundWindow | null {
-  return selectFreshAlertWindowWithDiagnostics(input).window;
-}
-
 export function selectFreshAlertWindowWithDiagnostics({
   conditions,
   forecastRows,
@@ -98,27 +94,11 @@ function describeFailedConditions(
   beach: AlertRevalidationBeachMeta,
 ): string[] {
   const failures: string[] = [];
-  const bounds: Array<{
-    key: keyof AlertConditions;
-    field: string;
-    actual: number | null;
-    bound: "min" | "max";
-  }> = [
-    { key: "swell_height_min", field: "wave_height", actual: forecast.wave_height, bound: "min" },
-    { key: "swell_height_max", field: "wave_height", actual: forecast.wave_height, bound: "max" },
-    { key: "swell_period_min", field: "wave_period", actual: forecast.wave_period ?? forecast.swell_1_period, bound: "min" },
-    { key: "wind_speed_max_kt", field: "wind_speed_kt", actual: forecast.wind_speed, bound: "max" },
-    { key: "tide_height_min_ft", field: "tide_height_ft", actual: forecast.tide_height, bound: "min" },
-    { key: "tide_height_max_ft", field: "tide_height_ft", actual: forecast.tide_height, bound: "max" },
-  ];
-  for (const { key, field, actual, bound } of bounds) {
-    const expected = conditions[key];
-    if (expected == null || evaluateConditions({ [key]: expected }, forecast, beach)) continue;
-    const comparison = actual == null ? ",expected " : bound === "min" ? "<" : ">";
-    failures.push(`${field}=${actual ?? "missing"}${comparison}${bound} ${expected}`);
-  }
-
   const groups: Array<{ keys: Array<keyof AlertConditions>; actual: Record<string, unknown> }> = [
+    { keys: ["swell_height_min", "swell_height_max"], actual: { wave_height: forecast.wave_height } },
+    { keys: ["swell_period_min"], actual: { wave_period: forecast.wave_period ?? forecast.swell_1_period } },
+    { keys: ["wind_speed_max_kt"], actual: { wind_speed_kt: forecast.wind_speed } },
+    { keys: ["tide_height_min_ft", "tide_height_max_ft"], actual: { tide_height_ft: forecast.tide_height } },
     { keys: ["swell_direction_min_deg", "swell_direction_max_deg"], actual: { swell_1_direction: forecast.swell_1_direction } },
     { keys: ["wind_direction"], actual: { wind_direction_deg: forecast.wind_direction_deg } },
     { keys: ["tide_direction"], actual: { tide_status: forecast.tide_status } },

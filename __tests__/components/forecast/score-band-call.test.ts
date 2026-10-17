@@ -1,4 +1,5 @@
-import { getCanonicalVerdictCall, getScoreCall, getSurfCallVerdictCall, fairActionPhrase, FAIR_ACTION_PHRASES } from "@/components/forecast/score-band-call";
+import { getCanonicalVerdictCall, getScoreCall, getSurfCallVerdictCall } from "@/components/forecast/score-band-call";
+import { fairActionPhrase, FAIR_ACTION_PHRASES } from "@/lib/utils/fair-action-phrase";
 
 describe("getCanonicalVerdictCall", () => {
   it("keeps the tier inside the verdict's band so the label never contradicts the call", () => {
@@ -45,7 +46,7 @@ describe("FAIR phrase parity", () => {
   });
 
   it.each(parity)("matches $beachId at $instantIso", ({ beachId, instantIso, phrase }) => {
-    expect(fairActionPhrase(beachId, instantIso)).toBe(phrase);
+    expect(fairActionPhrase({ beachId, instantIso })).toBe(phrase);
     const identity = { beachId, instantIso };
     expect(getScoreCall(60, identity)).toEqual({ label: "FAIR", action: phrase });
     expect(getCanonicalVerdictCall("maybe", 60, "upcoming", identity).action).toBe(phrase);
@@ -56,10 +57,10 @@ describe("FAIR phrase parity", () => {
     const random = jest.spyOn(Math, "random").mockImplementation(() => { throw new Error("random phrase"); });
     try {
       for (let repeat = 0; repeat < 3; repeat += 1) {
-        expect(fairActionPhrase("beach-blacks", "2026-10-18T00:00:00Z")).toBe("Decent shot");
-        expect(fairActionPhrase("beach-blacks", "2026-10-17T17:00:00-07:00")).toBe("Decent shot");
-        expect(fairActionPhrase("beach-blacks", "2026-10-18T10:59:59.999Z")).toBe("Decent shot");
-        expect(fairActionPhrase("beach-blacks", "2026-10-18T11:00:00Z")).toBe("Could be fun");
+        expect(fairActionPhrase({ beachId: "beach-blacks", instantIso: "2026-10-18T00:00:00Z" })).toBe("Decent shot");
+        expect(fairActionPhrase({ beachId: "beach-blacks", instantIso: "2026-10-17T17:00:00-07:00" })).toBe("Decent shot");
+        expect(fairActionPhrase({ beachId: "beach-blacks", instantIso: "2026-10-18T10:59:59.999Z" })).toBe("Decent shot");
+        expect(fairActionPhrase({ beachId: "beach-blacks", instantIso: "2026-10-18T11:00:00Z" })).toBe("Could be fun");
       }
     } finally {
       random.mockRestore();
@@ -67,7 +68,7 @@ describe("FAIR phrase parity", () => {
   });
 
   it("hashes UTF-8 bytes, including non-ASCII beach ids", () => {
-    expect(fairActionPhrase("海🌊", "2026-10-17T15:00:00Z")).toBe("Decent shot");
+    expect(fairActionPhrase({ beachId: "海🌊", instantIso: "2026-10-17T15:00:00Z" })).toBe("Decent shot");
   });
 
   it("uses the first phrase when identity is absent", () => {

@@ -6,8 +6,8 @@ export interface FairActionIdentity {
 }
 
 /** The surf day rolls over at 11 UTC, after the overnight windows close. */
-export function fairActionPhrase(beachId: string, instantIso: string): string {
-  const instantMs = Date.parse(instantIso);
+export function fairActionPhrase({ beachId, instantIso }: FairActionIdentity = {}): string {
+  const instantMs = Date.parse(instantIso ?? "");
   if (!beachId || !Number.isFinite(instantMs)) return FAIR_ACTION_PHRASES[0];
 
   const surfDate = new Date(instantMs - 11 * 60 * 60 * 1000).toISOString().slice(0, 10);
