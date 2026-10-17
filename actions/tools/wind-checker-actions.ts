@@ -1,6 +1,7 @@
 "use server";
 
 import { createPublicReadClient } from "@/lib/supabase/server";
+import { resolveWindOrientation } from "@/lib/domains/shared/wind-orientation";
 import {
   fetchHourlyWind,
   type OpenMeteoWindPoint,
@@ -71,22 +72,16 @@ export async function getWindCheckerData(
   const beach = beachResult.data;
   const wind = await fetchHourlyWind(beach.lat, beach.lon);
 
-  // Derive offshore angle from aspect if DB doesn't have it
-  // aspect_deg = direction the beach faces (the direction waves come FROM)
-  // offshore = opposite of aspect (wind blowing away from shore)
-  let offshoreToUse = beach.wind_offshore_deg;
-  if (offshoreToUse == null && beach.aspect_deg != null) {
-    offshoreToUse = (beach.aspect_deg + 180) % 360;
-  }
-
-  const hasOrientationData = offshoreToUse != null;
+  const { offshoreDeg, toleranceDeg } = resolveWindOrientation(beach);
+  const hasOrientationData = offshoreDeg != null;
 
   return {
     success: true,
     data: {
       beach: {
         ...beach,
-        wind_offshore_deg: offshoreToUse,
+        wind_offshore_deg: offshoreDeg,
+        wind_offshore_tol_deg: hasOrientationData ? toleranceDeg : null,
       },
       wind,
       hasOrientationData,

@@ -47,6 +47,7 @@ import { TideChartSection } from "@/components/beach-detail/tide-chart-section";
 import { useAuth } from "@/context/auth-context";
 import { useOptionalProfileContext } from "@/context/profile-context";
 import { ForecastFeedbackCapture } from "@/components/forecast/forecast-feedback-capture";
+import { resolveOffshoreDeg } from "@/lib/domains/shared/wind-orientation";
 
 const ConditionsOverview = dynamic(
   () =>
@@ -586,6 +587,7 @@ export function ForecastTab({
             beachId={beach.id}
             beachName={beach.name}
             beachTimezone={beachTimezone}
+            offshoreDeg={resolveOffshoreDeg(beach)}
             forecasts={todaysForecasts}
             surfCall={surfCall}
             surfCallLoading={surfCallLoading}

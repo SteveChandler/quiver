@@ -333,11 +333,21 @@ describe('morning intel session window', () => {
     tide_height: null,
   });
 
-  it('scores a missing speed at the midpoint without claiming light or offshore wind', () => {
-    // Wind is the only scored factor here: neutral 20 meets the 20-point floor.
+  const withSwell = (
+    base: ReturnType<typeof slot>,
+    wave_period: number,
+    tide_height: number,
+  ) => ({ ...base, wave_period, tide_height });
+
+  it('leaves a missing speed out of the score: nothing else good means no window', () => {
     const window = findNextBestWindow([slot('12:00', null, null)], now, 270);
+    expect(window?.startTime).toBeNull();
+  });
+
+  it('makes no wind claim for a missing speed', () => {
+    const window = findNextBestWindow([withSwell(slot('12:00', null, null), 12, 3)], now, 270);
     expect(window?.startTime).toBe('12:00');
-    expect(window?.conditions).toBe('Wind unknown');
+    expect(window?.conditions).toBe('Quality swell');
   });
 
   it('does not rank an unknown wind above light offshore', () => {
@@ -349,6 +359,27 @@ describe('morning intel session window', () => {
     const window = findNextBestWindow([slot('12:00', 0, null)], now, 270);
     expect(window?.startTime).toBe('12:00');
     expect(window?.conditions).toMatch(/^Light winds/);
+  });
+
+  it('does not penalise a breeze with no direction against a known calm offshore hour', () => {
+    // 12:00 has the better swell and tide; its wind can't be judged, so swell and tide decide.
+    const window = findNextBestWindow(
+      [withSwell(slot('12:00', 12, null), 12, 3), withSwell(slot('13:00', 3, 270), 10, 0)],
+      now,
+      270,
+    );
+    expect(window?.startTime).toBe('12:00');
+    expect(window?.conditions).toBe('Quality swell');
+  });
+
+  it('treats a breeze at a beach with no orientation as unknown, never as offshore', () => {
+    const window = findNextBestWindow([withSwell(slot('12:00', 6, 270), 12, 3)], now, null);
+    expect(window?.conditions).toBe('Quality swell');
+  });
+
+  it('judges wind against the offshore bearing it is given', () => {
+    const window = findNextBestWindow([withSwell(slot('12:00', 6, 90), 12, 3)], now, 90);
+    expect(window?.conditions).toBe('Clean offshore winds, quality swell');
   });
 });
 

@@ -224,7 +224,7 @@ describe('findNextBestWindow', () => {
       ];
 
       const currentTime = new Date('2025-10-26T09:00:00');
-      const result = findNextBestWindow(forecasts, currentTime);
+      const result = findNextBestWindow(forecasts, currentTime, 270);
 
       expect(result).not.toBeNull();
       // Should pick the offshore window (270° gets +30 points vs 90° gets +10 points)

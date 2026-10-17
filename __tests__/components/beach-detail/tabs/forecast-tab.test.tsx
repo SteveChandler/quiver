@@ -22,6 +22,7 @@ jest.mock("@/components/beach-detail/best-surf-window", () => ({
       data-testid="best-surf-window"
       data-surf-call-loading={String(props.surfCallLoading)}
       data-forecasts-loading={String(props.forecastsLoading)}
+      data-offshore-deg={String(props.offshoreDeg)}
     />
   ),
 }));
@@ -368,6 +369,16 @@ describe("ForecastTab", () => {
       render(<ForecastTab {...defaultProps} />);
 
       expect(screen.getByTestId("best-surf-window")).toBeInTheDocument();
+    });
+
+    it.each([
+      [{ wind_offshore_deg: null, aspect_deg: 270 }, "90"],
+      [{ wind_offshore_deg: null, aspect_deg: null }, "null"],
+    ])("gives BestSurfWindow the resolved offshore bearing (%o)", (orientation, expected) => {
+      mockUseAuth.mockReturnValue({ user: { id: "u1" } });
+      render(<ForecastTab {...defaultProps} beach={{ ...mockBeach, ...orientation } as Beach} />);
+
+      expect(screen.getByTestId("best-surf-window")).toHaveAttribute("data-offshore-deg", expected);
     });
 
     describe("loading flags for BestSurfWindow", () => {
