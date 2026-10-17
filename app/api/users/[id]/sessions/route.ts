@@ -7,6 +7,32 @@ import {
   type OptionalAuthContext,
 } from "@/lib/middleware/api-wrappers";
 import { addFeaturedPhotoToSessions } from "@/actions/session-actions";
+import { isSessionImportsUserAllowed } from "@/lib/flags/session-imports";
+
+async function addOwnerTrackStatus<T extends { id: string }>(
+  supabase: OptionalAuthContext["supabase"],
+  sessions: T[],
+  userId: string,
+  isOwn: boolean,
+): Promise<(T & { has_track?: boolean })[]> {
+  if (!isOwn || sessions.length === 0) return sessions;
+
+  const { data, error } = await supabase
+    .from("session_tracks")
+    .select("session_id")
+    .eq("user_id", userId)
+    .in("session_id", sessions.map((session) => session.id));
+  if (error) {
+    // Keep the existing session list available until the tracks migration is applied.
+    if (error.code === "42P01" || error.code === "PGRST205") {
+      return sessions.map((session) => ({ ...session, has_track: false }));
+    }
+    throw error;
+  }
+
+  const trackedIds = new Set((data ?? []).map((track) => track.session_id));
+  return sessions.map((session) => ({ ...session, has_track: trackedIds.has(session.id) }));
+}
 
 function parseLimit(url: URL, defaultValue = 5, max = 20) {
   const raw = url.searchParams.get("limit");
@@ -194,20 +220,28 @@ async function handler(
       }),
     );
 
+    const sessionsWithTracks = await addOwnerTrackStatus(supabase, enhancedSessions, targetUserId, isOwn);
     const sessionsWithPhotos = await addFeaturedPhotoToSessions(
       supabase,
-      enhancedSessions,
+      sessionsWithTracks,
     );
 
-    return createSuccessResponse({ sessions: sessionsWithPhotos });
+    return createSuccessResponse({
+      sessions: sessionsWithPhotos,
+      ...(isOwn ? { sessionImportsEnabled: isSessionImportsUserAllowed(targetUserId) } : {}),
+    });
   }
 
+  const sessionsWithTracks = await addOwnerTrackStatus(supabase, data || [], targetUserId, isOwn);
   const sessionsWithPhotos = await addFeaturedPhotoToSessions(
     supabase,
-    data || [],
+    sessionsWithTracks,
   );
 
-  return createSuccessResponse({ sessions: sessionsWithPhotos });
+  return createSuccessResponse({
+    sessions: sessionsWithPhotos,
+    ...(isOwn ? { sessionImportsEnabled: isSessionImportsUserAllowed(targetUserId) } : {}),
+  });
 }
 
 export const GET = withAuth(handler, {
