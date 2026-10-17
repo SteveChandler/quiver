@@ -3,8 +3,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { EXCLUDE_SYNTHETIC_ROWS_FILTER } from '@/lib/alerts/swell-events/forecast-rows';
 import type { BoardClass } from '@/lib/domains/rideability';
 import type { SkillLevel } from '@/lib/domains/user-preferences';
-import { DAYLIGHT_END_HOUR, DAYLIGHT_START_HOUR } from '@/lib/services/magic-hour/constants';
-import { getLocalDateStr, getLocalHour } from '@/lib/services/discovery/window-selector/time-slot-utils';
+import { forecastRowIntervalEnd, isDaylightInterval, type BeachSunTimes } from '@/lib/services/discovery/daylight-eligibility';
+import { getLocalDateStr } from '@/lib/services/discovery/window-selector/time-slot-utils';
 import { scoreWindowConditionScore } from '@/lib/services/discovery/window-selector/window-scorer';
 import { getDirectionDegrees, parseWaveHeightRange, parseWavePeriod } from '@/lib/utils/number-parsing';
 import { resolveBeachTimezone } from '@/lib/utils/timezone-utils';
@@ -14,6 +14,7 @@ import type { EnhancedForecastEntity } from '@/types/forecast';
 import type { OutlookDay, OutlookDaySwell } from './swell-outlook-types';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const READ_TIMEOUT_MS = 3000;
 const SWELL_SLOTS = [
   ['swell_1_height', 'swell_1_period', 'swell_1_direction'],
   ['swell_2_height', 'swell_2_period', 'swell_2_direction'],
@@ -33,7 +34,9 @@ export async function loadOutlookDayRows(
     .or(EXCLUDE_SYNTHETIC_ROWS_FILTER)
     .gte('forecast_at', from.toISOString())
     .lt('forecast_at', to.toISOString())
-    .order('forecast_at', { ascending: true });
+    .order('forecast_at', { ascending: true })
+    // A slow read must not hold up the outlook; the bars fall back to the swell events.
+    .abortSignal(AbortSignal.timeout(READ_TIMEOUT_MS));
   if (error) throw new Error(`Failed to load outlook day rows: ${error.message}`);
   return (data ?? []) as unknown as EnhancedForecastEntity[];
 }
@@ -49,47 +52,56 @@ function swellsOf(row: EnhancedForecastEntity): OutlookDaySwell[] {
   });
 }
 
+type ScoredRow = { row: EnhancedForecastEntity; end: Date; height: { min: number; max: number } };
+
 /**
- * One entry per local day for the outlook beach: the daylight surf range, the best daylight hour's
- * score (same scorer as Week Scout windows) and that hour's swell mix. A day without daylight rows is null-sized.
+ * One entry per local day for the outlook beach: the surf range over the day's usable light, the best lit hour's
+ * score (the Week Scout window scorer) and that hour's swell mix. Today's score only weighs hours not yet over,
+ * like Week Scout. Undefined when no day has data, so the app falls back to the swell events.
  */
 export function buildOutlookDays(input: {
   rows: readonly EnhancedForecastEntity[];
   beach: Beach;
   now: Date;
   horizonDays: number;
+  /** Null when the surfer's preferences could not be read: days then carry no score. */
   skillLevel: SkillLevel | null;
-  boardClasses: readonly BoardClass[];
-}): OutlookDay[] {
+  boardClasses: readonly BoardClass[] | null;
+  sunTimes?: BeachSunTimes;
+}): OutlookDay[] | undefined {
   const timezone = resolveBeachTimezone(input.beach.timezone);
-  const byDate = new Map<string, EnhancedForecastEntity[]>();
-  for (const row of input.rows) {
-    const at = new Date(row.forecast_at);
-    const hour = getLocalHour(at, timezone);
-    if (hour == null || hour < DAYLIGHT_START_HOUR || hour >= DAYLIGHT_END_HOUR) continue;
-    const date = getLocalDateStr(at, timezone);
-    byDate.set(date, [...(byDate.get(date) ?? []), row]);
-  }
+  const sorted = [...input.rows].sort((left, right) => Date.parse(left.forecast_at) - Date.parse(right.forecast_at));
+  const byDate = new Map<string, ScoredRow[]>();
+  sorted.forEach((row, index) => {
+    const start = new Date(row.forecast_at);
+    const next = sorted[index + 1] ? new Date(sorted[index + 1].forecast_at) : undefined;
+    const end = forecastRowIntervalEnd(start, next);
+    const height = parseWaveHeightRange(row.wave_height);
+    if (!height || !isDaylightInterval(start, end, timezone, input.sunTimes)) return;
+    const date = getLocalDateStr(start, timezone);
+    byDate.set(date, [...(byDate.get(date) ?? []), { row, end, height }]);
+  });
 
   const today = getLocalDateStr(input.now, timezone);
-  return Array.from({ length: input.horizonDays }, (_, offset) => {
+  const days = Array.from({ length: input.horizonDays }, (_, offset): OutlookDay => {
     // Calendar arithmetic on the local date, so a DST change can't skip or repeat a day.
     const date = new Date(Date.parse(`${today}T00:00:00Z`) + offset * DAY_MS).toISOString().slice(0, 10);
     const rows = byDate.get(date) ?? [];
-    const heights = rows.map((row) => parseWaveHeightRange(row.wave_height)).filter((h): h is { min: number; max: number } => h !== null);
-    if (heights.length === 0) return { date, surfFt: null, score: null, swells: [] };
+    if (rows.length === 0) return { date, surfFt: null, score: null, swells: [] };
+    const live = offset === 0 ? rows.filter(({ end }) => end > input.now) : rows;
     let best: { row: EnhancedForecastEntity; score: number } | null = null;
-    for (const row of rows) {
-      const score = scoreWindowConditionScore(row, input.beach, input.skillLevel, null, input.boardClasses);
+    for (const { row } of live.length > 0 ? live : rows) {
+      const score = scoreWindowConditionScore(row, input.beach, input.skillLevel, null, input.boardClasses ?? []);
       if (!best || score > best.score) best = { row, score };
     }
     return {
       date,
-      surfFt: { min: Math.min(...heights.map((h) => h.min)), max: Math.max(...heights.map((h) => h.max)) },
-      score: best ? Math.round(best.score) : null,
+      surfFt: { min: Math.min(...rows.map(({ height }) => height.min)), max: Math.max(...rows.map(({ height }) => height.max)) },
+      score: best && input.boardClasses !== null ? Math.round(best.score) : null,
       swells: best ? swellsOf(best.row) : [],
     };
   });
+  return days.some((day) => day.surfFt) ? days : undefined;
 }
 
 export function outlookDayRowsWindow(now: Date): { from: Date; to: Date } {

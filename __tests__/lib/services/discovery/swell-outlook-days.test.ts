@@ -38,18 +38,29 @@ describe("buildOutlookDays", () => {
       boardClasses: [],
     });
 
-    expect(days.map((day) => day.date)).toEqual([
+    expect(days!.map((day) => day.date)).toEqual([
       "2026-10-17", "2026-10-18", "2026-10-19", "2026-10-20", "2026-10-21",
       "2026-10-22", "2026-10-23", "2026-10-24", "2026-10-25",
     ]);
-    expect(days[0].surfFt).toEqual({ min: 2, max: 3 });
-    expect(days[0].score).toEqual(expect.any(Number));
-    expect(days[0].swells).toEqual([
+    expect(days![0].surfFt).toEqual({ min: 2, max: 3 });
+    expect(days![0].score).toEqual(expect.any(Number));
+    expect(days![0].swells).toEqual([
       { heightFt: 2, periodS: 13, directionDeg: 202.5, directionLabel: "SSW" },
       { heightFt: 0.7, periodS: 12, directionDeg: 270, directionLabel: "W" },
     ]);
-    expect(days[1]).toEqual({ date: "2026-10-18", surfFt: null, score: null, swells: [] });
-    expect(days[8].surfFt).toEqual({ min: 2.6, max: 2.6 });
-    expect(days[8].swells[0]).toMatchObject({ heightFt: 2.4, directionLabel: "SW" });
+    expect(days![1]).toEqual({ date: "2026-10-18", surfFt: null, score: null, swells: [] });
+    expect(days![8].surfFt).toEqual({ min: 2.6, max: 2.6 });
+    expect(days![8].swells[0]).toMatchObject({ heightFt: 2.4, directionLabel: "SW" });
+  });
+
+  it("weighs only today's hours not yet over, gives no score without the surfer's preferences, and is undefined with no data", () => {
+    const base = { beach, horizonDays: 9, skillLevel: "intermediate" as const, boardClasses: [] };
+    const rows = [row("2026-10-17T15:00:00Z", "2 ft"), row("2026-10-17T21:00:00Z", "3 ft", ["2.9 ft", "15s", "SW"])];
+    const evening = buildOutlookDays({ ...base, rows, now: new Date("2026-10-17T22:30:00Z") });
+    expect(evening![0].surfFt).toEqual({ min: 2, max: 3 });
+    expect(evening![0].swells[0]).toMatchObject({ directionLabel: "SW" });
+
+    expect(buildOutlookDays({ ...base, rows, now: NOW, boardClasses: null })![0].score).toBeNull();
+    expect(buildOutlookDays({ ...base, rows: [], now: NOW })).toBeUndefined();
   });
 });

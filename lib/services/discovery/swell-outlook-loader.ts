@@ -23,6 +23,7 @@ import type { Database } from '@/types/database';
 import type { StoredOutlookList } from './swell-outlook-types';
 import { getActiveStorms, type ActiveStorm } from './nhc-storms';
 import { buildOutlookDays, loadOutlookDayRows, outlookDayRowsWindow } from './swell-outlook-days';
+import { getBatchSunTimes } from './surf-discovery-orchestrator';
 import { SWELL_OUTLOOK_HORIZON_DAYS, buildSwellOutlook, resolveOutlookRunDate, type SwellOutlookResponse } from './swell-outlook';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -37,6 +38,7 @@ export interface SwellOutlookLoaderDeps {
   loadSnapshots: typeof loadRecentSwellSnapshots;
   loadForecasts: typeof loadSwellForecastRows;
   loadDayRows: typeof loadOutlookDayRows;
+  loadSunTimes: typeof getBatchSunTimes;
   getStorms: () => Promise<ActiveStorm[]>;
 }
 
@@ -45,6 +47,7 @@ const DEFAULT_DEPS: SwellOutlookLoaderDeps = {
   loadSnapshots: loadRecentSwellSnapshots,
   loadForecasts: loadSwellForecastRows,
   loadDayRows: loadOutlookDayRows,
+  loadSunTimes: getBatchSunTimes,
   getStorms: getActiveStorms,
 };
 
@@ -129,6 +132,8 @@ export async function loadSwellOutlookForUser(args: {
   userId: string;
   now: Date;
   recordOpen: boolean;
+  /** The app's week bars; the cron only needs the swell list, so it leaves this off. */
+  includeDays?: boolean;
   onList?: (list: StoredOutlookList) => void;
   deps?: Partial<SwellOutlookLoaderDeps>;
 }): Promise<SwellOutlookResponse> {
@@ -187,17 +192,23 @@ export async function loadSwellOutlookForUser(args: {
 
   response.anchorSource = profile.anchorSource;
 
-  const dayBeach = pool.find(({ beach }) => beach.id === response.homeBeach?.id)?.beach;
+  const dayBeach = args.includeDays ? pool.find(({ beach }) => beach.id === response.homeBeach?.id)?.beach : undefined;
   if (dayBeach) {
     try {
       const { from, to } = outlookDayRowsWindow(now);
+      const dates = Array.from({ length: 11 }, (_, offset) => new Date(from.getTime() + offset * DAY_MS).toISOString().slice(0, 10));
+      const [rows, sunTimes] = await Promise.all([
+        deps.loadDayRows(client, dayBeach.id, from, to),
+        deps.loadSunTimes([dayBeach.id], dates).catch(() => new Map()),
+      ]);
       response.days = buildOutlookDays({
-        rows: await deps.loadDayRows(client, dayBeach.id, from, to),
+        rows,
         beach: dayBeach,
         now,
         horizonDays: SWELL_OUTLOOK_HORIZON_DAYS,
         skillLevel,
-        boardClasses: boardClasses ?? [],
+        boardClasses,
+        sunTimes: sunTimes.get(dayBeach.id),
       });
     } catch (error) {
       // The week bars fall back to the swell events without days.

@@ -129,6 +129,7 @@ function deps(overrides: Partial<SwellOutlookLoaderDeps> = {}): SwellOutlookLoad
     loadSnapshots: jest.fn(async (_client, _ids, _since, version) => (version === SWELL_OUTLOOK_PULSE_DETECTOR_VERSION ? [pulse()] : [])),
     loadForecasts: jest.fn(async () => new Map<string, SwellEventForecastRow[]>()),
     loadDayRows: jest.fn(async () => []),
+    loadSunTimes: jest.fn(async () => new Map()),
     getStorms: jest.fn(async () => []),
     ...overrides,
   };
@@ -174,13 +175,19 @@ describe("loadSwellOutlookForUser", () => {
 
   it("adds one forecast day per horizon day for the outlook beach, and leaves days out when that read fails", async () => {
     const client = fakeClient({ profile: PROFILE, boards: [] });
-    const loadDayRows = jest.fn(async () => []);
-    const response = await loadSwellOutlookForUser({ client: client.client, userId: USER, now: NOW, recordOpen: false, deps: deps({ loadDayRows }) });
+    const row = { forecast_at: new Date(NOW.getTime() + 2 * 3_600_000).toISOString(), wave_height: "3 ft", swell_1_height: "2.6 ft", swell_1_period: "14s", swell_1_direction: "SSW" };
+    const loadDayRows = jest.fn(async () => [row] as never);
+    const response = await loadSwellOutlookForUser({ client: client.client, userId: USER, now: NOW, recordOpen: false, includeDays: true, deps: deps({ loadDayRows }) });
     expect(loadDayRows).toHaveBeenCalledWith(client.client, HOME, expect.any(Date), expect.any(Date));
     expect(response.days).toHaveLength(9);
 
+    const cron = deps({ loadDayRows: jest.fn(async () => [row] as never) });
+    const withoutDays = await loadSwellOutlookForUser({ client: fakeClient({ profile: PROFILE, boards: [] }).client, userId: USER, now: NOW, recordOpen: false, deps: cron });
+    expect(cron.loadDayRows).not.toHaveBeenCalled();
+    expect(withoutDays.days).toBeUndefined();
+
     const failed = await loadSwellOutlookForUser({
-      client: fakeClient({ profile: PROFILE, boards: [] }).client, userId: USER, now: NOW, recordOpen: false,
+      client: fakeClient({ profile: PROFILE, boards: [] }).client, userId: USER, now: NOW, recordOpen: false, includeDays: true,
       deps: deps({ loadDayRows: jest.fn(async () => { throw new Error("down"); }) }),
     });
     expect(failed.days).toBeUndefined();
