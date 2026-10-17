@@ -39,7 +39,7 @@ it("gives Home and the Daily Call the same beginner pool from the production rep
   const supabase = {} as SupabaseClient<Database>;
   const loadPool = jest.fn<ReturnType<DailyCallDeps["loadPool"]>, Parameters<DailyCallDeps["loadPool"]>>(async () => pool);
   const buildCandidates = jest.fn<ReturnType<DailyCallDeps["buildCandidates"]>, Parameters<DailyCallDeps["buildCandidates"]>>(
-    async () => ({ candidates: [], hadForecasts: false }),
+    async () => ({ candidates: [], hadForecasts: false, noInWindowRowCount: 0 }),
   );
 
   const homePool = await buildDriveRangeCandidatePool(profile.id, {

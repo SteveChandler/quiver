@@ -74,7 +74,7 @@ export function formatPushNotification(
         : decision === "no"
           ? "Not ideal"
           : decision === "maybe"
-            ? fairActionPhrase(topMatch.beach_id, topMatch.best_hour ?? topMatch.window_start)
+            ? fairActionPhrase({ beachId: topMatch.beach_id, instantIso: topMatch.best_hour ?? topMatch.window_start })
             : qualityWord(topMatch.best_score);
     const title = pushTitle(`${titleLabel} at ${topMatch.beach_name}, ${timeWindow}`);
 

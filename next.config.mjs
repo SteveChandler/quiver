@@ -374,6 +374,7 @@ const nextConfig = {
 
   async redirects() {
     return [
+      { source: "/auth", destination: "/auth/sign-in", permanent: false },
       {
         source: "/tiktok",
         destination: "/pbsc?utm_source=tiktok&utm_medium=bio",
