@@ -81,9 +81,14 @@ describe("lib/constants/content invariants", () => {
     expect(email).toMatch(/@/);
   });
 
-  test.each(["PostHog", "RevenueCat", "Expo", "AdServices"])(
-    "PRIVACY_CONTENT discloses %s in both vendor lists",
-    (vendor) => {
+  test.each([
+    ["PostHog", false],
+    ["RevenueCat", true],
+    ["Expo", true],
+    ["AdServices", true],
+  ])(
+    "PRIVACY_CONTENT discloses %s as a service provider",
+    (vendor, isSource) => {
       const locations = PRIVACY_CONTENT.sections
         .find((section) => section.id === "international-transfers")
         ?.content.find((item) => item.subtitle === "Service Provider Locations");
@@ -92,7 +97,9 @@ describe("lib/constants/content invariants", () => {
         ?.content.find((item) => item.subtitle === "Third Parties or Public Sources");
 
       expect(locations?.details).toContain(vendor);
-      expect(thirdParties?.details).toContain(vendor);
+      // ponytail: PostHog receives our data; it is not a source of personal data about users.
+      if (isSource) expect(thirdParties?.details).toContain(vendor);
+      else expect(thirdParties?.details).not.toContain(vendor);
     },
   );
 

@@ -57,9 +57,9 @@ export const PRIVACY_CONTENT = {
   hero: {
     title: "Privacy Policy",
     subtitle: "How we protect and handle your data",
-    lastUpdated: "July 25, 2026",
+    lastUpdated: "October 16, 2026",
     effectiveDate:
-      "This policy is effective as of July 25, 2026. We will notify you of any material changes by email or through our app.",
+      "This policy is effective as of October 16, 2026. We will notify you of any material changes by email or through our app.",
   },
   overview: {
     title: "Welcome to Quiver's Privacy Policy",
@@ -221,7 +221,7 @@ export const PRIVACY_CONTENT = {
         {
           subtitle: "Third Parties or Public Sources",
           details:
-            "We receive personal data from analytics providers (Google, PostHog), advertising networks, payment processors (Stripe), subscription management providers (RevenueCat), app update and push token delivery providers (Expo), install attribution providers (Apple AdServices), social media networks (Facebook, Google), and data brokers or aggregators.",
+            "We receive personal data from analytics providers (Google), advertising networks, payment processors (Stripe), subscription management providers (RevenueCat), app update and push token delivery providers (Expo), install attribution providers (Apple AdServices), social media networks (Facebook, Google), and data brokers or aggregators.",
         },
         {
           subtitle: "Connected Devices/Accounts",
