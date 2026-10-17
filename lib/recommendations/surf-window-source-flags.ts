@@ -1,4 +1,5 @@
 import type { Beach } from "@/types/database";
+import { resolveOffshoreDeg } from "@/lib/domains/shared/wind-orientation";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { SurfWindowSourceFlags } from "@/types/session-intelligence";
 
@@ -55,7 +56,7 @@ function hasBuoyEvidence(
 function hasLocalSpotIntel(beach: Beach | null | undefined): boolean {
   if (!beach) return false;
   return Boolean(
-    beach.wind_offshore_deg != null ||
+    resolveOffshoreDeg(beach) != null ||
       beach.preferred_tide_ft_min != null ||
       beach.preferred_tide_ft_max != null ||
       beach.swell_window_center_deg != null ||

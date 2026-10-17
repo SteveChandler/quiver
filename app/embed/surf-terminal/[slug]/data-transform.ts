@@ -6,15 +6,31 @@
  */
 
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import {
+  resolveWindOrientation,
+  type WindOrientationSource,
+} from "@/lib/domains/shared/wind-orientation";
 
 // ---------------------------------------------------------------------------
 // Public types
 // ---------------------------------------------------------------------------
 
 export interface BeachChartConfig {
-  windOffshoreDeg: number;
+  /** Null when the beach has no orientation data; wind is then drawn as cross-shore. */
+  windOffshoreDeg: number | null;
   windOffshoreTolDeg: number;
   timezone: string;
+}
+
+export function buildBeachChartConfig(
+  beach: WindOrientationSource & { timezone?: string | null },
+): BeachChartConfig {
+  const { offshoreDeg, toleranceDeg } = resolveWindOrientation(beach);
+  return {
+    windOffshoreDeg: offshoreDeg,
+    windOffshoreTolDeg: toleranceDeg,
+    timezone: beach.timezone ?? "America/Los_Angeles",
+  };
 }
 
 export interface ChartDataPoint {
@@ -287,7 +303,7 @@ export function transformForecastsToChartData(
     if (ws != null) {
       let classification: "offshore" | "onshore" | "cross-shore" =
         "cross-shore";
-      if (fc.wind_direction_deg != null) {
+      if (fc.wind_direction_deg != null && config.windOffshoreDeg != null) {
         classification = classifyWindDirection(
           fc.wind_direction_deg,
           config.windOffshoreDeg,

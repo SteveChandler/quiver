@@ -1,4 +1,5 @@
 import { isWithinArc, resolveWindDirection } from "@/lib/alerts/degree-utils";
+import { resolveOffshoreToleranceDeg } from "@/lib/domains/shared/wind-orientation";
 import { parseSwellDirectionToDegrees } from "@/lib/alerts/forecast-parsers";
 import { getDaylightWindow } from "@/lib/alerts/sunrise";
 import { MAX_WINDOW_HOURS } from "@/lib/services/discovery/window-selector/constants";
@@ -286,7 +287,7 @@ function windDriver(
     pair.before.wind_direction_deg ?? null,
     pair.after.wind_direction_deg ?? null,
     beach.aspect_deg,
-    beach.wind_offshore_tol_deg ?? 45,
+    resolveOffshoreToleranceDeg(beach),
   );
   const at = interpolateTime(pair, 0, 1, crossing ?? 0.5);
   return driver("wind", edge, roundDate(at), true, "offshore till the wind turns");

@@ -286,6 +286,20 @@ export const windQualityScorer: ScorerPlugin = {
       };
     }
 
+    // No offshore bearing or facing direction => same neutral midpoint as an
+    // unknown wind direction. Never assume a compass default.
+    if (windThresholds.offshoreDeg === null) {
+      return {
+        name: 'windQuality',
+        score: 50,
+        weight: SCORER_WEIGHTS.windQuality,
+        reasons: [],
+        warnings: ['Beach wind orientation unknown'],
+        skip: false,
+        skipReason: null,
+      };
+    }
+
     const direction = classifyDirection(
       windDirection,
       windThresholds.offshoreDeg,

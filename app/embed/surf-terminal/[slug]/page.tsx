@@ -3,6 +3,7 @@ import { getBeachBySlugOrId } from "@/lib/utils/beach-lookup-utils";
 import { getFreshForecastFromCache } from "@/lib/utils/forecast-server-utils";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import { SurfTerminal } from "./surf-terminal";
+import { buildBeachChartConfig } from "./data-transform";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
 export const revalidate = 300; // 5-minute ISR caching
@@ -35,9 +36,7 @@ export default async function SurfTerminalPage({
   }
 
   // 3. Extract beach config
-  const windOffshoreDeg = beach.wind_offshore_deg ?? 90;
-  const windOffshoreTolDeg = beach.wind_offshore_tol_deg ?? 45;
-  const timezone = beach.timezone ?? "America/Los_Angeles";
+  const { windOffshoreDeg, windOffshoreTolDeg, timezone } = buildBeachChartConfig(beach);
 
   // 4. Parse query params
   const validTheme = theme === "light" ? "light" : "dark";
