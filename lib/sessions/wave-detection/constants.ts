@@ -1,0 +1,11 @@
+export const MAX_FIX_JUMP_MPS = 12;
+export const GAP_S = 5;
+export const RIDE_START_MPS = 1.9; // Spec starting value: 2.5; retains sustained rides with flattened peaks.
+export const RIDE_START_HOLD_S = 3;
+export const RIDE_END_MPS = 1.5;
+export const RIDE_END_HOLD_S = 2;
+export const RIDE_KEEP_PEAK_MPS = 3.6;
+export const RIDE_KEEP_DURATION_S = 6;
+export const SHOREWARD_TOLERANCE_DEG = 100;
+export const OFF_SHOREWARD_FACTOR = 0.3;
+export const COUNT_MIN_CONFIDENCE = 0.5;
