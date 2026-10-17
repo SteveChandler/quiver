@@ -132,6 +132,7 @@ function isWindOnshoreForCharacter(
 ): boolean {
   if (windSpeed === null || windDirection === null) return false;
   const { offshoreDeg, offshoreToleranceDeg } = profile.windThresholds;
+  if (offshoreDeg === null) return false;
   const onshoreDir = (offshoreDeg + 180) % 360;
   return (
     windSpeed > 0 &&

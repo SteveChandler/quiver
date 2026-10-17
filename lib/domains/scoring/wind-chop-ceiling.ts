@@ -40,6 +40,8 @@ function smallShortPeriodCeiling(
   const { snapshot, profile } = input;
   const windQuality = subscores.get('windQuality');
   const windDirection = snapshot.wind.directionDeg;
+  const { offshoreDeg, offshoreToleranceDeg } = profile.windThresholds;
+  if (offshoreDeg === null) return null;
   if (!Number.isFinite(snapshot.waveHeight) || snapshot.waveHeight > SMALL_WAVE_MAX_FT) {
     return null;
   }
@@ -59,10 +61,9 @@ function smallShortPeriodCeiling(
   ) {
     return null;
   }
-  const onshoreDeg = normalizeAngle(profile.windThresholds.offshoreDeg + 180);
+  const onshoreDeg = normalizeAngle(offshoreDeg + 180);
   const isOnshore =
-    angleDifference(windDirection, onshoreDeg) <=
-    profile.windThresholds.offshoreToleranceDeg;
+    angleDifference(windDirection, onshoreDeg) <= offshoreToleranceDeg;
 
   if (!isOnshore) {
     return null;
@@ -81,6 +82,8 @@ function onshoreBlownSwellCeiling(
   subscores: ReadonlyMap<string, number>,
 ): WindChopCeiling | null {
   const { snapshot, profile } = input;
+  const { offshoreDeg, offshoreToleranceDeg } = profile.windThresholds;
+  if (offshoreDeg === null) return null;
   const windQuality = subscores.get('windQuality');
   if (windQuality == null || !Number.isFinite(windQuality) || windQuality >= POOR_WIND_QUALITY_MAX) {
     return null;
@@ -93,11 +96,7 @@ function onshoreBlownSwellCeiling(
   if (windDirection == null || !Number.isFinite(windDirection)) {
     return null;
   }
-  const direction = classifyDirection(
-    windDirection,
-    profile.windThresholds.offshoreDeg,
-    profile.windThresholds.offshoreToleranceDeg,
-  );
+  const direction = classifyDirection(windDirection, offshoreDeg, offshoreToleranceDeg);
   if (direction === 'offshore') {
     return null;
   }

@@ -43,7 +43,7 @@ interface SurfTerminalProps {
   beachUrl: string;
   slug: string;
   forecasts: EnhancedForecastEntity[];
-  windOffshoreDeg: number;
+  windOffshoreDeg: number | null;
   windOffshoreTolDeg: number;
   timezone: string;
   theme: "dark" | "light";

@@ -72,9 +72,16 @@ describe('direction scoring window scorer', () => {
     expect(enabled.components.windQuality).not.toBeUndefined();
   });
 
-  it('keeps wind quality neutral when offshore direction is missing', () => {
-    const result = scoreWindowConditionDetails(forecast({ wind_direction: 'N', wind_speed: '8 mph' }), beach({ wind_offshore_deg: null }), 'intermediate', null, []);
+  it('keeps wind quality neutral when offshore and facing direction are both missing', () => {
+    const result = scoreWindowConditionDetails(forecast({ wind_direction: 'N', wind_speed: '8 mph' }), beach({ wind_offshore_deg: null, aspect_deg: null }), 'intermediate', null, []);
     expect(result.components.windQuality).toBe(result.components.wind);
+  });
+
+  it('derives offshore from the facing direction when offshore is missing', () => {
+    const derived = scoreWindowConditionDetails(forecast({ wind_direction: 'W', wind_speed: '8 mph' }), beach({ wind_offshore_deg: null, wind_offshore_tol_deg: null, aspect_deg: 270 }), 'intermediate', null, []);
+    const stored = scoreWindowConditionDetails(forecast({ wind_direction: 'W', wind_speed: '8 mph' }), beach({ wind_offshore_deg: 90, wind_offshore_tol_deg: 30, aspect_deg: 270 }), 'intermediate', null, []);
+    expect(derived.components.windQuality).toBe(stored.components.windQuality);
+    expect(derived.components.windQuality).toBeLessThan(derived.components.wind);
   });
 });
 

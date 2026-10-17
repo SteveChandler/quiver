@@ -58,6 +58,8 @@ function beach(id: string, name: string): Beach {
     is_private: false,
     skill_level: 'intermediate',
     timezone: 'Pacific/Honolulu',
+    // Explicit: scoring no longer assumes an east offshore for beaches without orientation.
+    wind_offshore_deg: 90,
   } as Beach;
 }
 
