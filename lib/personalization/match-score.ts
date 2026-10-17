@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createContextLogger } from "@/lib/logger";
+import { parseWindSpeed } from "@/lib/utils/forecast-parsing";
 import type { RecommendedBoard } from "@/lib/scoring/personal-board";
 import {
   BETA_ACCESS_NOT_ENABLED,
@@ -68,8 +69,8 @@ interface MatchScoreForecastInput {
   beachId: string;
   waveHeight: string;
   wavePeriod: string;
-  windSpeed: string;
-  windDirection: string;
+  windSpeed: string | null;
+  windDirection: string | null;
   tideHeight: string;
 }
 
@@ -222,13 +223,18 @@ function reasonFactsFor(
   return facts;
 }
 
+/** Wind clause for the generated reasons; none when the forecast has no wind speed. */
+function windClause(forecast: MatchScoreForecastInput, lead: string): string {
+  return parseWindSpeed(forecast.windSpeed) == null ? "" : `${lead} ${forecast.windSpeed} mph wind`;
+}
+
 function starterReasons(
   forecast: MatchScoreForecastInput,
   body: string,
 ): string[] {
   return [
     body,
-    `Current window: ${forecast.waveHeight} ft, ${forecast.wavePeriod}s period, ${forecast.windSpeed} mph wind.`,
+    `Current window: ${forecast.waveHeight} ft, ${forecast.wavePeriod}s period${windClause(forecast, ",")}.`,
     "Rate sessions after you surf so Quiver can learn what works for you.",
   ];
 }
@@ -243,7 +249,7 @@ function learnedReasons(
     (reason) => reason && !hasDebugCopy(reason),
   );
   const generated = [
-    `This window sits around ${forecast.waveHeight} ft at ${forecast.wavePeriod}s with ${forecast.windSpeed} mph wind.`,
+    `This window sits around ${forecast.waveHeight} ft at ${forecast.wavePeriod}s${windClause(forecast, " with")}.`,
     boardPick
       ? boardPick.reason
       : `Tide near ${forecast.tideHeight} ft keeps this tied to the current window, not a generic beach score.`,

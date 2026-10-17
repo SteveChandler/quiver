@@ -548,7 +548,7 @@ describe("BestSurfWindow", () => {
         conditions: "Moderate winds",
       });
 
-      render(<BestSurfWindow {...defaultProps} forecasts={mockForecasts} />);
+      render(<BestSurfWindow {...defaultProps} forecasts={mockForecasts} offshoreDeg={90} />);
 
       expect(
         screen.getByText(/Next Favorable Window Today/i)
@@ -561,9 +561,38 @@ describe("BestSurfWindow", () => {
           }),
         ]),
         expect.any(Date),
-        270,
+        90,
         "America/Los_Angeles",
       );
+    });
+
+    it("judges no wind direction when the beach has no orientation, and leaves a blank conditions clause out", () => {
+      mockGetWindowStatus.mockReturnValue({
+        status: "passed",
+        message: "Window has passed",
+      });
+      mockUseDataFetcher.mockReturnValue({
+        data: mockIntel,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+      mockFindNextBestWindow.mockReturnValue({
+        startTime: "14:00:00",
+        endTime: "16:00:00",
+        description: "Good conditions",
+        conditions: "",
+      });
+
+      render(<BestSurfWindow {...defaultProps} forecasts={mockForecasts} />);
+
+      expect(mockFindNextBestWindow).toHaveBeenCalledWith(
+        expect.any(Array),
+        expect.any(Date),
+        null,
+        "America/Los_Angeles",
+      );
+      expect(screen.getByText("Good conditions")).toBeInTheDocument();
     });
 
     it("should show current conditions when window passed and no next window", () => {
