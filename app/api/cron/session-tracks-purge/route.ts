@@ -27,20 +27,21 @@ type SessionImport = {
   purge_requested_at: string | null;
   sessions: { deleted_at: string | null } | null;
 };
-type PurgeResult = { purgedTracks: number; purgedImports: number; errors: number };
+type PurgeResult = { purgedTracks: number; purgedImports: number; errors: number; skipped?: string };
 
 function checkedRows<T>(data: T[] | null, error: { message: string } | null, label: string): T[] {
   if (error || !data) throw new Error(`Failed to select ${label}: ${error?.message ?? "missing data"}`);
   return data;
 }
 
-async function selectTracks(client: Client, cutoff: string): Promise<Track[]> {
+async function selectTracks(client: Client, cutoff: string): Promise<Track[] | null> {
   const requested = await client.from("session_tracks")
     .select("session_id,import_id,storage_path")
     .not("purge_requested_at", "is", null)
     .order("purge_requested_at", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: true, nullsFirst: false })
     .limit(BATCH_SIZE);
+  if (requested.error && ["PGRST205", "42P01"].includes(requested.error.code)) return null;
   const tracks = checkedRows(requested.data, requested.error, "requested tracks") as Track[];
   if (tracks.length === BATCH_SIZE) return tracks;
 
@@ -91,6 +92,20 @@ async function selectImports(client: Client, cutoff: string): Promise<SessionImp
     .order("created_at", { ascending: true, nullsFirst: false })
     .limit(BATCH_SIZE - imports.length);
   for (const row of checkedRows(orphaned.data, orphaned.error, "imports of deleted sessions") as SessionImport[]) {
+    if (!seen.has(row.id)) {
+      imports.push(row);
+      seen.add(row.id);
+    }
+  }
+  if (imports.length === BATCH_SIZE) return imports;
+  const detached = await client.from("session_imports")
+    .select("id,session_id,storage_path,purge_requested_at,sessions(deleted_at)")
+    .eq("status", "completed")
+    .is("session_id", null)
+    .order("purge_requested_at", { ascending: true, nullsFirst: false })
+    .order("created_at", { ascending: true, nullsFirst: false })
+    .limit(BATCH_SIZE - imports.length);
+  for (const row of checkedRows(detached.data, detached.error, "imports of hard-deleted sessions") as SessionImport[]) {
     if (!seen.has(row.id)) imports.push(row);
   }
   return imports;
@@ -201,6 +216,7 @@ async function runPurge(client: Client, now: Date): Promise<PurgeResult> {
   const result: PurgeResult = { purgedTracks: 0, purgedImports: 0, errors: 0 };
   const cutoff = new Date(now.getTime() - RETENTION_MS).toISOString();
   const tracks = await selectTracks(client, cutoff);
+  if (tracks === null) return { ...result, skipped: "session waves tables not present" };
   const attemptedTrackIds = new Set(tracks.map((track) => track.session_id));
   for (const track of tracks) await purgeTrack(client, track, result);
 
@@ -222,7 +238,7 @@ async function _GET(request: Request): Promise<Response> {
         expectedMin: 1,
         getProduced: (value: PurgeResult) => value.purgedTracks + value.purgedImports,
         legitimatelyZero: (value: PurgeResult) => value.errors === 0
-          ? { reason: "No session tracks or imports are due for purge" }
+          ? { reason: value.skipped ?? "No session tracks or imports are due for purge" }
           : undefined,
         failureReason: (value: PurgeResult) => value.errors > 0 ? `${value.errors} purge errors` : null,
       },

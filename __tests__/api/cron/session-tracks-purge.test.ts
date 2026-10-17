@@ -22,6 +22,8 @@ const mockRemove = jest.fn(async (paths: string[]) => {
   mockEvents.push(`storage:${paths[0]}`);
   return { data: [], error: null as { message: string } | null };
 });
+let mockSelectError: { code: string; message: string } | null = null;
+const mockOutcome = jest.fn((_options: unknown, run: () => Promise<unknown>) => run());
 const mockValidateCronRequest = jest.fn(() => true);
 
 function mockQuery(table: Table) {
@@ -37,6 +39,7 @@ function mockQuery(table: Table) {
       filters.push((row) => row[column] === value);
       return query;
     },
+    is: (column: string, value: null) => { filters.push((row) => row[column] === value); return query; },
     not: (column: string, _operator: string, _value: null) => {
       filters.push((row) => row[column] !== null);
       return query;
@@ -59,7 +62,8 @@ function mockQuery(table: Table) {
       return query;
     },
     limit: (value: number) => { max = value; return query; },
-    then: (resolve: (value: { data: object[] | null; error: null }) => unknown) => {
+    then: (resolve: (value: { data: object[] | null; error: { code: string; message: string } | null }) => unknown) => {
+      if (mockSelectError) { const error = mockSelectError; mockSelectError = null; return Promise.resolve(resolve({ data: null, error })); }
       const matching = mockRows[table].filter((row) => filters.every((filter) => filter(row)));
       if (action === "delete") {
         mockEvents.push(`delete:${table}:${matching.map((row) => row.session_id ?? row.id).join(",")}`);
@@ -98,7 +102,7 @@ const mockClient = {
 };
 
 jest.mock("@/lib/cron/observability", () => ({ withObservedCron: (_route: string, handler: unknown) => handler }));
-jest.mock("@/lib/cron/outcome", () => ({ withCronOutcome: (_options: unknown, run: () => Promise<unknown>) => run() }));
+jest.mock("@/lib/cron/outcome", () => ({ withCronOutcome: (...args: Parameters<typeof mockOutcome>) => mockOutcome(...args) }));
 jest.mock("@/lib/middleware/api-wrappers", () => ({
   validateCronRequest: mockValidateCronRequest,
   createSuccessResponse: (data: unknown) => Response.json({ success: true, data }),
@@ -131,6 +135,7 @@ describe("session tracks purge cron", () => {
     jest.useFakeTimers().setSystemTime(NOW);
     for (const table of Object.keys(mockRows) as Table[]) mockRows[table] = [];
     for (const key of Object.keys(mockSessions)) delete mockSessions[key];
+    mockSelectError = null;
     mockEvents.length = 0;
     mockSelections.length = 0;
     mockRemove.mockImplementation(async (paths: string[]) => {
@@ -141,6 +146,31 @@ describe("session tracks purge cron", () => {
   });
 
   afterEach(() => jest.useRealTimers());
+
+  it("immediately purges completed imports detached by hard deletion", async () => {
+    addImport("hard-deleted", "completed", NOW.toISOString());
+    const result = await run();
+    expect(result.status).toBe(200);
+    expect(result.body.data.result).toEqual({ purgedTracks: 0, purgedImports: 1, errors: 0 });
+    expect(mockRows.session_imports).toHaveLength(0);
+    expect(mockEvents).toEqual(["storage:hard-deleted.fit", "delete:session_imports:hard-deleted"]);
+  });
+
+  it.each(["PGRST205", "42P01"])("cleanly skips missing tables (%s)", async (code) => {
+    mockSelectError = { code, message: "missing table" };
+    const result = await run();
+    expect(result.status).toBe(200);
+    const options = mockOutcome.mock.calls[0][0] as { legitimatelyZero: (value: unknown) => unknown };
+    expect(options.legitimatelyZero(result.body.data.result)).toEqual({ reason: "session waves tables not present" });
+    expect(mockSelections).toHaveLength(0);
+    expect(mockEvents).toHaveLength(0);
+  });
+
+  it("does not hide other select failures", async () => {
+    mockSelectError = { code: "42501", message: "permission denied" };
+    expect((await run()).status).toBe(500);
+    expectConsoleErrors([/\[session-tracks-purge\] cron error:/]);
+  });
 
   it("purges a track 31 days after session deletion in storage-first order", async () => {
     mockRows.session_tracks.push(track("old", null, "import-old"));
@@ -376,7 +406,7 @@ describe("session tracks purge cron", () => {
 
   it("orders every batch selector by purge request with nulls last, then creation time", async () => {
     await run();
-    expect(mockSelections).toHaveLength(5);
+    expect(mockSelections).toHaveLength(6);
     for (const selection of mockSelections) {
       expect(selection.orders).toEqual([
         { column: "purge_requested_at", ascending: true, nullsFirst: false },

@@ -38,10 +38,20 @@ describe("session conditions enrich cron", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.SESSION_CONDITIONS_ENRICH_ENABLED = "true";
+    process.env.SESSION_IMPORTS_ENABLED = "true";
     require("@/lib/middleware/api-wrappers").validateCronRequest.mockReturnValue(true);
     (enrichSessionConditions as jest.Mock).mockResolvedValue(SUMMARY);
   });
   afterEach(() => { process.env = { ...original }; });
+
+  it.each(["", "?mode=backfill&retryNone=1"])("preserves legacy enrichment when imports are disabled: %s", async (query) => {
+    delete process.env.SESSION_IMPORTS_ENABLED;
+    expect((await GET(request(query))).status).toBe(200);
+    const options = (enrichSessionConditions as jest.Mock).mock.calls[0][1];
+    expect(options.hindcast).toBeUndefined();
+    expect(options.retryNone).toBeUndefined();
+    expect(options.mode).toBe(query ? "backfill" : "live");
+  });
 
   it("rejects a request without the cron secret", async () => {
     require("@/lib/middleware/api-wrappers").validateCronRequest.mockReturnValue(false);

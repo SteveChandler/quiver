@@ -7,6 +7,7 @@ import {
 import { withObservedCron } from "@/lib/cron/observability";
 import { withCronOutcome } from "@/lib/cron/outcome";
 import { isSessionConditionsEnrichEnabled } from "@/lib/flags/session-conditions-enrich";
+import { isSessionImportsEnabled } from "@/lib/flags/session-imports";
 import { fetchOpenMeteoHindcastDay } from "@/lib/services/open-meteo-hindcast";
 import {
   createSupabaseSessionConditionsStore,
@@ -43,6 +44,7 @@ async function _GET(request: Request): Promise<Response> {
       return createSuccessResponse({ skipped: "SESSION_CONDITIONS_ENRICH_ENABLED is not true" });
     }
 
+    const importsEnabled = isSessionImportsEnabled();
     const params = new URL(request.url).searchParams;
     const mode = params.get("mode") === "backfill" ? "backfill" : "live";
     let since: Date | undefined;
@@ -75,8 +77,8 @@ async function _GET(request: Request): Promise<Response> {
         mode,
         since,
         now: new Date(),
-        hindcast: { fetchDay: fetchOpenMeteoHindcastDay },
-        ...(mode === "backfill" && params.get("retryNone") === "1" ? { retryNone: true } : {}),
+        ...(importsEnabled ? { hindcast: { fetchDay: fetchOpenMeteoHindcastDay } } : {}),
+        ...(importsEnabled && mode === "backfill" && params.get("retryNone") === "1" ? { retryNone: true } : {}),
       }),
     );
 

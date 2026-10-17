@@ -9,6 +9,7 @@ type OutcomeWiringCase = {
 };
 
 const CASES: OutcomeWiringCase[] = [
+  { name: "session tracks purge", route: "session-tracks-purge", unit: "session_track_rows_purged", legitimatelyZero: true },
   { name: "CCC import", route: "ccc-sync", unit: "ccc_locations_written" },
   { name: "CCC match", route: "ccc-sync", unit: "beach_matches_written" },
   { name: "county advisories", route: "county-beach-advisories", unit: "advisories_synced" },
