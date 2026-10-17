@@ -99,6 +99,7 @@ interface EnrichSummary {
   conditionsFilled: number;
   nearshoreFilled: number;
   unavailable: number;
+  hindcastUnavailable: number;
   unmapped: number;
   /** MOP hasn't published the hour yet; retried next run. */
   pending: number;
@@ -261,6 +262,7 @@ export async function enrichSessionConditions(
     conditionsFilled: 0,
     nearshoreFilled: 0,
     unavailable: 0,
+    hindcastUnavailable: 0,
     unmapped: 0,
     pending: 0,
     unwritable: 0,
@@ -291,9 +293,12 @@ export async function enrichSessionConditions(
     try {
       if (session.conditions_source === null || (options.mode === "backfill" && options.retryNone && session.conditions_source === "none")) {
         const resolved = await resolveConditions(store, session, beach, options.hindcast, hindcastDays);
-        if (!resolved || (session.conditions_source === "none" && resolved.conditions_source === "none")) return;
-        patch = conditionsPatch(session, resolved);
-        if (resolved.conditions_source !== "none") summary.conditionsFilled += 1;
+        if (resolved && !(session.conditions_source === "none" && resolved.conditions_source === "none")) {
+          patch = conditionsPatch(session, resolved);
+          if (resolved.conditions_source !== "none") summary.conditionsFilled += 1;
+        } else {
+          summary.hindcastUnavailable += 1;
+        }
       }
 
       if (session.nearshore_source === null) {

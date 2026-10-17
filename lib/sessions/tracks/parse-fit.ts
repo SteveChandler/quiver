@@ -1,4 +1,4 @@
-import FitParser, { type ParsedFit } from "fit-file-parser";
+import FitParser, { getFitGarminProductDisplayName, type ParsedFit } from "fit-file-parser";
 import type { NormalizedTrack, TrackSample } from "./types";
 import { TrackFileError } from "./types";
 
@@ -18,9 +18,12 @@ function timestamp(value: unknown): string | null {
 }
 
 function recordedBy(data: ParsedFit): string | null {
-  const device = data.device_infos?.find((item) => item.product_name || item.product);
-  const product = device?.product_name ?? device?.product;
-  const creator = product == null ? null : `Garmin ${String(product)}`;
+  const device = data.device_infos?.find((item) => String(item.device_index) === "creator")
+    ?? data.device_infos?.[0];
+  const isGarmin = device?.manufacturer === "garmin";
+  const product = (isGarmin ? getFitGarminProductDisplayName(Number(device.product)) : null)
+    ?? device?.product_name ?? device?.product;
+  const creator = product == null ? null : `${isGarmin ? "Garmin " : ""}${String(product)}`;
   const hasDawnPatrol = data.developer_data_ids?.some((item) => {
     const id = item.application_id;
     return Array.isArray(id) && id.every((byte): byte is number => typeof byte === "number")

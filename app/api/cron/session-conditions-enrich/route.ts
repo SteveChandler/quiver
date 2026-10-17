@@ -62,11 +62,10 @@ async function _GET(request: Request): Promise<Response> {
         getProduced: (value) => value.updated,
         legitimatelyZero: (value) => {
           if (value.selected === 0) return { reason: "No logged sessions are waiting for conditions" };
-          // Orphaned sessions are re-selected until they age out of the live window, and a pending MOP hour
-          // retries next run; neither is a failure.
-          if (value.errors === 0 && value.selected <= value.unwritable + value.pending) {
+          // Orphaned sessions, pending MOP hours, and unavailable hindcasts retry on later runs.
+          if (value.errors === 0 && value.selected <= value.unwritable + value.pending + value.hindcastUnavailable) {
             return {
-              reason: `Only sessions that cannot be filled yet: ${value.unwritable} unwritable, ${value.pending} awaiting the MOP hour`,
+              reason: `Only sessions that cannot be filled yet: ${value.unwritable} unwritable, ${value.pending} awaiting the MOP hour, ${value.hindcastUnavailable} hindcast unavailable`,
             };
           }
           return undefined;

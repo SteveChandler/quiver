@@ -29,7 +29,7 @@ jest.mock("@/lib/sessions/session-conditions-enrich", () => ({
   enrichSessionConditions: jest.fn(),
 }));
 
-const SUMMARY = { selected: 3, updated: 3, conditionsFilled: 3, nearshoreFilled: 2, unavailable: 0, unmapped: 1, errors: 0 };
+const SUMMARY = { selected: 3, updated: 3, conditionsFilled: 3, nearshoreFilled: 2, unavailable: 0, hindcastUnavailable: 0, unmapped: 1, errors: 0 };
 const request = (query = "") => new Request(`https://www.quiversurf.app/api/cron/session-conditions-enrich${query}`);
 
 describe("session conditions enrich cron", () => {
@@ -81,6 +81,17 @@ describe("session conditions enrich cron", () => {
     expect(options.legitimatelyZero(idle)).toEqual({ reason: expect.stringContaining("20 unwritable") });
     expect(options.legitimatelyZero({ ...idle, errors: 1 })).toBeUndefined();
     expect(options.legitimatelyZero({ ...idle, selected: 22 })).toBeUndefined();
+  });
+
+  it("treats unavailable hindcasts as a legitimate zero while preserving error detection", async () => {
+    await GET(request());
+    const [options] = (withCronOutcome as jest.Mock).mock.calls[0];
+    const idle = { ...SUMMARY, updated: 0, conditionsFilled: 0, nearshoreFilled: 0, unwritable: 0, pending: 0, hindcastUnavailable: 3 };
+
+    expect(options.legitimatelyZero(idle)).toEqual({ reason: expect.stringContaining("3 hindcast unavailable") });
+    expect(options.legitimatelyZero({ ...idle, unwritable: 1, pending: 1, hindcastUnavailable: 1 })).toEqual({ reason: expect.any(String) });
+    expect(options.legitimatelyZero({ ...idle, errors: 1 })).toBeUndefined();
+    expect(options.legitimatelyZero({ ...idle, selected: 4 })).toBeUndefined();
   });
 
   it("runs backfill from the requested date", async () => {

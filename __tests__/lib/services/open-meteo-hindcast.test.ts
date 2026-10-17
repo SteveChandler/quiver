@@ -1,8 +1,11 @@
 import { fetchOpenMeteoHindcastDay, hindcastToConditionsRow } from "@/lib/services/open-meteo-hindcast";
+import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 
 const times = Array.from({ length: 24 }, (_, hour) => `2026-10-02T${String(hour).padStart(2, "0")}:00`);
 
 describe("fetchOpenMeteoHindcastDay", () => {
+  afterEach(() => jest.restoreAllMocks());
+
   it("joins 24 UTC marine and wind hours and maps the forecast row units", async () => {
     const fetchImpl = jest.fn(async (url: string, _init: RequestInit) => {
       if (new URL(url).hostname === "marine-api.open-meteo.com") {
@@ -34,8 +37,24 @@ describe("fetchOpenMeteoHindcastDay", () => {
   });
 
   it("returns null on a failed response", async () => {
+    const warn = jest.spyOn(console, "warn");
     const fetchImpl = jest.fn(async () => ({ ok: false, status: 500 }));
     await expect(fetchOpenMeteoHindcastDay(32.7, -117.2, "2026-10-02", fetchImpl as unknown as typeof fetch)).resolves.toBeNull();
+    expectConsoleWarnings([/\[open-meteo-hindcast\] HTTP failure/]);
+    expect(warn).toHaveBeenCalledWith("[open-meteo-hindcast] HTTP failure", { marineStatus: 500, windStatus: 500 });
+  });
+
+  it.each(["network", "parse"])("warns and returns null on a %s failure", async (failure) => {
+    const warn = jest.spyOn(console, "warn");
+    const error = new Error("Upstream request failed");
+    const fetchImpl = jest.fn(async () => {
+      if (failure === "network") throw error;
+      return { ok: true, json: async () => { throw error; } };
+    });
+
+    await expect(fetchOpenMeteoHindcastDay(32.7, -117.2, "2026-10-02", fetchImpl as unknown as typeof fetch)).resolves.toBeNull();
+    expectConsoleWarnings([/\[open-meteo-hindcast\] Request or parse failure/]);
+    expect(warn).toHaveBeenCalledWith("[open-meteo-hindcast] Request or parse failure", error);
   });
 
   it("returns null when both hourly arrays are missing", async () => {

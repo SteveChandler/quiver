@@ -48,7 +48,10 @@ export async function fetchOpenMeteoHindcastDay(
       fetchImpl(marine.toString(), { signal: AbortSignal.timeout(10_000) }),
       fetchImpl(wind.toString(), { signal: AbortSignal.timeout(10_000) }),
     ]);
-    if (!marineResponse.ok || !windResponse.ok) return null;
+    if (!marineResponse.ok || !windResponse.ok) {
+      console.warn("[open-meteo-hindcast] HTTP failure", { marineStatus: marineResponse.status, windStatus: windResponse.status });
+      return null;
+    }
     const [marineJson, windJson] = await Promise.all([marineResponse.json(), windResponse.json()]);
     const marineHourly: Hourly | undefined = marineJson?.hourly;
     const windHourly: Hourly | undefined = windJson?.hourly;
@@ -80,7 +83,8 @@ export async function fetchOpenMeteoHindcastDay(
       hours.set(at, existing);
     }
     return hours.size ? [...hours.values()].sort((a, b) => a.at.localeCompare(b.at)) : null;
-  } catch {
+  } catch (error) {
+    console.warn("[open-meteo-hindcast] Request or parse failure", error);
     return null;
   }
 }

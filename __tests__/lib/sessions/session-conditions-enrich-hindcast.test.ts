@@ -10,10 +10,10 @@ const session = (id: string, conditions_source: string | null = null): PendingSe
   wind_speed_mph: null, wind_direction: null, wind_direction_deg: null,
 });
 
-function storeFor(sessions: PendingSession[]): SessionConditionsStore {
+function storeFor(sessions: PendingSession[], mopPointId: string | null = null): SessionConditionsStore {
   return {
     listPendingSessions: jest.fn(async () => sessions),
-    loadBeaches: jest.fn(async () => new Map([["b1", { id: "b1", lat: 32.7, lon: -117.2, mop_point_id: null, swell_window_center_deg: 275, swell_window_halfwidth_deg: 30 }]])),
+    loadBeaches: jest.fn(async () => new Map([["b1", { id: "b1", lat: 32.7, lon: -117.2, mop_point_id: mopPointId, swell_window_center_deg: 275, swell_window_halfwidth_deg: 30 }]])),
     loadForecastRows: jest.fn(async () => []),
     loadSnapshot: jest.fn(async () => null),
     updateSession: jest.fn(async () => true),
@@ -40,7 +40,41 @@ describe("hindcast conditions enrichment", () => {
     const fetchDay = jest.fn(async () => result);
     const summary = await enrichSessionConditions(store, { mode: "live", now, hindcast: { fetchDay } });
     expect(store.updateSession).not.toHaveBeenCalled();
-    expect(summary).toMatchObject({ updated: 0, conditionsFilled: 0 });
+    expect(summary).toMatchObject({ updated: 0, conditionsFilled: 0, hindcastUnavailable: 1 });
+  });
+
+  it.each([
+    { source: null, useHindcast: true },
+    { source: "none", useHindcast: true },
+    { source: "none", useHindcast: false },
+  ])("fills independent nearshore conditions when conditions remain unavailable: %j", async ({ source, useHindcast }) => {
+    const store = storeFor([{ ...session("s1", source), nearshore_source: null }], "D0505");
+    const mop = {
+      fetchMopHour: jest.fn(async () => ({
+        pointId: "D0505", observedAt: hour.at, hsM: 1.2, tpS: 14, dpDeg: 275, dmDeg: null, swellbandTmS: null,
+      })),
+      fetchMopFocusRatio: jest.fn(async () => 1.05),
+    };
+    const summary = await enrichSessionConditions(store, {
+      mode: "backfill", now, retryNone: true, mop,
+      ...(useHindcast ? { hindcast: { fetchDay: jest.fn(async () => null) } } : {}),
+    });
+
+    expect(store.updateSession).toHaveBeenCalledTimes(1);
+    const patch = jest.mocked(store.updateSession).mock.calls[0][1];
+    expect(patch).toMatchObject({ nearshore_source: "cdip_mop_nowcast", nearshore_point_id: "D0505", nearshore_hs_m: 1.2 });
+    expect(patch).not.toHaveProperty("conditions_source");
+    expect(Object.keys(patch).every((key) => key.startsWith("nearshore_"))).toBe(true);
+    expect(summary).toMatchObject({ updated: 1, conditionsFilled: 0, nearshoreFilled: 1 });
+  });
+
+  it("counts each unavailable session even when its failed beach-day is cached", async () => {
+    const store = storeFor([session("s1"), session("s2")]);
+    const fetchDay = jest.fn(async () => null);
+    const summary = await enrichSessionConditions(store, { mode: "live", now, hindcast: { fetchDay } });
+    expect(fetchDay).toHaveBeenCalledTimes(1);
+    expect(store.updateSession).not.toHaveBeenCalled();
+    expect(summary).toMatchObject({ selected: 2, updated: 0, hindcastUnavailable: 2, errors: 0 });
   });
 
   it("fetches a beach-day only once across concurrent sessions", async () => {
