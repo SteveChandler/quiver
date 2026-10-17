@@ -242,7 +242,11 @@ export function selectBeachDayWindows(
   ));
 
   for (const window of rankedWindows) {
-    const daypart = daypartForTime(window.peakTime, timezone);
+    // Week Scout keeps an open window in the daypart where its display band opens.
+    const daypart = daypartForTime(
+      options.rowLiveness === 'until-next-row' ? window.displayWindowStart : window.peakTime,
+      timezone,
+    );
     if (daypart && !dayparts[daypart]) dayparts[daypart] = window;
   }
 

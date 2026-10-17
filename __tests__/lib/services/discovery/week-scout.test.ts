@@ -16,6 +16,10 @@ jest.mock('@/lib/supabase/server', () => ({
     })),
   })),
 }));
+jest.mock('@/lib/services/discovery/window-selector/window-scorer', () => {
+  const actual = jest.requireActual('@/lib/services/discovery/window-selector/window-scorer');
+  return { ...actual, scoreWindowForSelection: jest.fn(actual.scoreWindowForSelection) };
+});
 
 import {
   generateWeekScoutForecast,
@@ -44,6 +48,7 @@ import { calculateDistanceInMiles } from '@/lib/utils/distance-utils';
 import { deriveDisplayWindow } from '@/lib/services/discovery/window-authority';
 import type { WindowSelectorOptions } from '@/lib/services/discovery/window-selector/types';
 import { localDateTimeToUTC } from '@/lib/utils/forecast-time-resolver';
+import * as windowScorer from '@/lib/services/discovery/window-selector/window-scorer';
 
 const BEACH_A = '11111111-1111-4111-8111-111111111111';
 const BEACH_B = '22222222-2222-4222-8222-222222222222';
@@ -354,6 +359,52 @@ describe('generateWeekScoutForecast', () => {
       rowLiveness: 'until-next-row', now: deps.now,
     }));
   });
+
+  it.each(['Pacific/Honolulu', 'America/Los_Angeles'])(
+    'returns an available, started morning slot at 09:16 with the full row grid in %s',
+    async (timezone) => {
+      const localDate = '2026-10-16';
+      const time = (value: string): Date => localDateTimeToUTC(localDate, `${value}:00`, timezone);
+      const deps = dependencies();
+      deps.now = time('09:16');
+      const rows = ['05:00', '08:00', '11:00', '14:00'].map((value) => (
+        forecast(BEACH_A, time(value).toISOString())
+      ));
+      deps.fetchBeaches = jest.fn(async () => [{ ...beach(BEACH_A, 'Morning Beach'), timezone }]);
+      deps.fetchForecasts = jest.fn(async () => new Map([[BEACH_A, rows]]));
+      deps.fetchSunTimes = jest.fn(async () => new Map([[BEACH_A, {
+        sunrises: [time('06:30')], sunsets: [time('18:30')],
+      }]]));
+      const actual = jest.requireActual('@/lib/services/discovery/window-selector/window-selector-core');
+      deps.selectBestWindows = actual.selectBestWindows;
+      const scoring = jest.mocked(windowScorer.scoreWindowForSelection).mockImplementation((row) => (
+        row === rows[0] ? 0 : row === rows[1] ? 90 : 70
+      ));
+
+      try {
+        const response = await generateWeekScoutForecastForDays('user-week-scout', {
+          candidateBeachIds: [BEACH_A], localTimezone: timezone,
+          startLocalDate: localDate, dayCount: 1,
+        }, deps);
+        const morning = response.days[0].windows.filter(({ bucket }) => bucket === 'morning');
+
+        expect(morning).toHaveLength(1);
+        expect(morning[0]).toMatchObject({
+          start: time('08:00').toISOString(), end: time('12:00').toISOString(),
+          peakTime: time('11:00').toISOString(), rankingScore: 82,
+        });
+        expect(Date.parse(morning[0].start)).toBeLessThan(deps.now.getTime());
+        expect(Date.parse(morning[0].end)).toBeGreaterThan(deps.now.getTime());
+        expect(Date.parse(morning[0].displayWindowEnd)).toBeGreaterThan(deps.now.getTime());
+        expect(response.recommendationAvailability).toMatchObject({ state: 'available' });
+        expect(response.coverage?.days[0].buckets.find(({ bucket }) => bucket === 'morning'))
+          .toMatchObject({ evaluated: 1, noWindow: 0, missing: 0 });
+        expect(response.days[0].windows.filter(({ bucket }) => bucket === 'midday')).toHaveLength(0);
+      } finally {
+        scoring.mockImplementation(jest.requireActual('@/lib/services/discovery/window-selector/window-scorer').scoreWindowForSelection);
+      }
+    },
+  );
 
   it('reuses canonical scoring for a two-day weekend request', async () => {
     const response = await generateWeekScoutForecastForDays(
