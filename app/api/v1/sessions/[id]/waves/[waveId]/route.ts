@@ -4,7 +4,7 @@ import { createErrorResponse, createSuccessResponse } from "@/lib/api-utils";
 import { isSessionImportsUserAllowed } from "@/lib/flags/session-imports";
 import { withAuth, withNoStore, withRateLimit } from "@/lib/middleware/api-wrappers";
 import { WAVE_DETECTION_VERSION } from "@/lib/sessions/wave-detection/detect-waves";
-import { buildWavesSummary, type Correction, type StoredWave } from "@/lib/sessions/waves/waves-summary";
+import { buildWavesSummary, isExcluded, type Correction, type StoredWave } from "@/lib/sessions/waves/waves-summary";
 import { createServiceRoleClient } from "@/lib/supabase";
 
 export const runtime = "nodejs";
@@ -34,19 +34,25 @@ export const PATCH = withNoStore(withRateLimit(withAuth(async (request, { user, 
   const { data: rows, error: wavesError } = await supabase.from("session_waves")
     .select("*").eq("session_id", session.id).eq("is_current", true).order("wave_index");
   if (wavesError) throw new Error(wavesError.message);
-  const target = rows?.find(row => row.id === params.waveId);
+  const waves: StoredWave[] = (rows ?? []).map(row => ({
+    id: row.id, index: row.wave_index, startedAt: row.started_at, endedAt: row.ended_at,
+    durationS: row.duration_s, distanceM: row.distance_m, maxSpeedMps: row.max_speed_mps,
+    avgSpeedMps: row.avg_speed_mps, headingDeg: row.heading_deg, confidence: row.confidence,
+    start: { lat: row.start_lat, lon: row.start_lon }, end: { lat: row.end_lat, lon: row.end_lon },
+  }));
+  const target = waves.find(wave => wave.id === params.waveId);
   if (!target) return createErrorResponse("not_found", undefined, 404);
 
   const { data: correctionRows, error: correctionsError } = await supabase.from("session_wave_corrections")
     .select("started_at, ended_at").eq("session_id", session.id).eq("action", "exclude");
   if (correctionsError) throw new Error(correctionsError.message);
 
-  const waveSpan: Correction = { startedAt: target.started_at, endedAt: target.ended_at };
+  const waveSpan: Correction = { startedAt: target.startedAt, endedAt: target.endedAt };
   let corrections: Correction[] = (correctionRows ?? []).map(row => ({ startedAt: row.started_at, endedAt: row.ended_at }));
-  if (parsed.data.excluded) {
+  if (parsed.data.excluded && !isExcluded(target, corrections)) {
     const { error } = await supabase.from("session_wave_corrections").insert({
       id: randomUUID(), session_id: session.id, user_id: user.id, action: "exclude",
-      started_at: target.started_at, ended_at: target.ended_at,
+      started_at: target.startedAt, ended_at: target.endedAt,
     });
     if (error) throw new Error(error.message);
     corrections = [...corrections, waveSpan];
@@ -55,23 +61,17 @@ export const PATCH = withNoStore(withRateLimit(withAuth(async (request, { user, 
       metadata: { session_id: session.id, wave_id: target.id },
     });
     if (eventError) console.warn("[session waves] Exclusion event failed:", eventError);
-  } else {
+  } else if (!parsed.data.excluded) {
     const { error } = await supabase.from("session_wave_corrections").delete()
       .eq("session_id", session.id).eq("user_id", user.id)
-      .lt("started_at", target.ended_at).gt("ended_at", target.started_at);
+      .lt("started_at", target.endedAt).gt("ended_at", target.startedAt);
     if (error) throw new Error(error.message);
-    const targetStart = Date.parse(target.started_at);
-    const targetEnd = Date.parse(target.ended_at);
+    const targetStart = Date.parse(target.startedAt);
+    const targetEnd = Date.parse(target.endedAt);
     corrections = corrections.filter(correction =>
       Date.parse(correction.startedAt) >= targetEnd || Date.parse(correction.endedAt) <= targetStart);
   }
 
-  const waves: StoredWave[] = (rows ?? []).map(row => ({
-    id: row.id, index: row.wave_index, startedAt: row.started_at, endedAt: row.ended_at,
-    durationS: row.duration_s, distanceM: row.distance_m, maxSpeedMps: row.max_speed_mps,
-    avgSpeedMps: row.avg_speed_mps, headingDeg: row.heading_deg, confidence: row.confidence,
-    start: { lat: row.start_lat, lon: row.start_lon }, end: { lat: row.end_lat, lon: row.end_lon },
-  }));
   const summary = buildWavesSummary(waves, corrections, {
     gpsCoverage: track.gps_coverage, speedReliable: track.speed_reliable, userWaveCount: track.user_wave_count,
   }, rows?.[0]?.detection_version ?? WAVE_DETECTION_VERSION);

@@ -185,11 +185,17 @@ it("rejects an invalid user wave count without writing", async () => {
   expect(mockServiceFrom).not.toHaveBeenCalled();
 });
 
-it("forbids redetection for a non-admin", async () => {
+it("forbids redetection when only the editable profile and user metadata claim admin", async () => {
+  rows.profiles = { is_admin: true };
+  mockAuth.mockResolvedValue({
+    data: { user: { id: userId, app_metadata: {}, user_metadata: { is_admin: true, role: "admin" } } },
+    error: null,
+  });
   const response = await redetect(request("POST"), context);
   expect(response.status).toBe(403);
   expect(await response.json()).toMatchObject({ success: false, error: "forbidden" });
   expect(mockDownload).not.toHaveBeenCalled();
+  expect(mockPersistDetection).not.toHaveBeenCalled();
 });
 
 it("updates the user count, emits an event and returns the new summary", async () => {
@@ -211,6 +217,7 @@ it("clears the user count override with null", async () => {
 });
 
 it("inserts an exclusion correction with a UUID and emits an event", async () => {
+  rows.session_wave_corrections = [];
   const response = await patchWave(request("PATCH", { excluded: true }), context);
   expect(response.status).toBe(200);
   expect(await response.json()).toMatchObject({ success: true, data: { summary: { detectedWaveCount: 0 } } });
@@ -219,6 +226,21 @@ it("inserts an exclusion correction with a UUID and emits an event", async () =>
     action: "exclude", started_at: start, ended_at: end,
   }));
   expect(queries.user_events[0].insert).toHaveBeenCalledWith(expect.objectContaining({ event_type: "session_wave_excluded" }));
+});
+
+it.each([
+  ["fully", end],
+  ["half", "2026-10-17T12:00:10Z"],
+])("skips duplicate corrections and events for a wave already %s excluded", async (_coverage, correctionEnd) => {
+  rows.session_wave_corrections = [{ started_at: start, ended_at: correctionEnd, action: "exclude" }];
+  const response = await patchWave(request("PATCH", { excluded: true }), context);
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ success: true, data: { summary: { detectedWaveCount: 0 } } });
+  for (const query of queries.session_wave_corrections) {
+    expect(query.insert).not.toHaveBeenCalled();
+    expect(query.delete).not.toHaveBeenCalled();
+  }
+  expect(mockServiceFrom).not.toHaveBeenCalledWith("user_events");
 });
 
 it("deletes overlapping corrections when restoring a wave", async () => {
@@ -231,7 +253,7 @@ it("deletes overlapping corrections when restoring a wave", async () => {
 });
 
 it("redetects from the stored file for an admin and returns the counted waves", async () => {
-  rows.profiles = { is_admin: true };
+  mockAuth.mockResolvedValue({ data: { user: { id: userId, app_metadata: { is_admin: true } } }, error: null });
   const response = await redetect(request("POST"), context);
   expect(response.status).toBe(200);
   expect(await response.json()).toMatchObject({ success: true, data: { detectionVersion: "wd-1.0.0", waveCount: 1 } });

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { createErrorResponse, createSuccessResponse } from "@/lib/api-utils";
+import { isAdmin, type AdminUser } from "@/lib/auth/admin";
 import { isSessionImportsUserAllowed } from "@/lib/flags/session-imports";
 import { withAuth, withNoStore, withRateLimit } from "@/lib/middleware/api-wrappers";
 import { persistDetection } from "@/lib/sessions/imports/process-import";
@@ -22,10 +23,7 @@ export const POST = withNoStore(withRateLimit(withAuth(async (_request, { user, 
   if (sessionError) throw new Error(sessionError.message);
   if (!session || session.user_id !== user.id || session.deleted_at) return createErrorResponse("not_found", undefined, 404);
 
-  const { data: profile, error: profileError } = await supabase.from("profiles")
-    .select("is_admin").eq("id", user.id).maybeSingle();
-  if (profileError) throw new Error(profileError.message);
-  if (profile?.is_admin !== true) return createErrorResponse("forbidden", undefined, 403);
+  if (!isAdmin(user as AdminUser)) return createErrorResponse("forbidden", undefined, 403);
 
   const { data: stored, error: trackError } = await supabase.from("session_tracks")
     .select("storage_path").eq("session_id", session.id).eq("user_id", user.id).maybeSingle();
