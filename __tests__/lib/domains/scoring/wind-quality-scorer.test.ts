@@ -124,6 +124,12 @@ describe('Wind Quality Scorer', () => {
       expect(result.warnings).toEqual([]);
       expect(result.skip).toBe(false);
     });
+
+    it('treats a non-finite speed as unknown, not blown out', () => {
+      const result = windQualityScorer.score(createInput({ wind: { speedMph: Number.NaN, directionDeg: 90 } }));
+      expect(result.weight).toBe(0);
+      expect(result.skip).toBe(false);
+    });
   });
 
   describe('scorer metadata', () => {

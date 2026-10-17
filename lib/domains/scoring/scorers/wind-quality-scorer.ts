@@ -281,7 +281,7 @@ export const windQualityScorer: ScorerPlugin = {
 
     // Wind we can't judge (see isWindQualityUnknown) sits out of the score.
     // A missing wind is not a calm one, so speed is checked before glassy.
-    if (windSpeed === null) return excludedWindResult();
+    if (windSpeed === null || !Number.isFinite(windSpeed)) return excludedWindResult();
 
     // Glassy short-circuit (any direction, including null).
     if (windSpeed <= GLASSY_MPH) {
