@@ -62,6 +62,7 @@ import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
 import { isFutureDayInTimezone } from '@/lib/utils/condition-tier-utils';
 import { resolveForecastTime } from '@/lib/utils/forecast-time-resolver';
 import { parseWindSpeedOrNull } from '@/lib/utils/number-parsing';
+import { angleDifference, resolveOffshoreDeg } from '@/lib/domains/shared';
 import {
   type BoardForPick,
 } from '@/lib/scoring';
@@ -322,17 +323,15 @@ export function generateConditionBadges(
   const windSpeed = parseWindSpeedOrNull(forecast.wind_speed);
   const windDirection = forecast.wind_direction_deg ?? null;
   const wavePeriod = parseFloat(forecast.wave_period?.replace('s', '') || '0');
-  const offshoreDir = beach.wind_offshore_deg ?? 90;
+  const offshoreDir = resolveOffshoreDeg(beach);
 
   // Glass: wind < 5 mph. Unknown wind earns no wind badge.
   if (windSpeed !== null && windSpeed < 5) {
     badges.push({ label: 'Glass', contribution: subscores.windAlignment });
   }
   // Light Offshore: offshore direction AND < 10 mph
-  else if (windSpeed !== null && windDirection !== null && windSpeed < 10) {
-    const angleDiff = Math.abs(windDirection - offshoreDir) % 360;
-    const isOffshore = angleDiff <= 45 || angleDiff >= 315;
-    if (isOffshore) {
+  else if (windSpeed !== null && windDirection !== null && offshoreDir !== null && windSpeed < 10) {
+    if (angleDifference(windDirection, offshoreDir) <= 45) {
       badges.push({ label: 'Light Offshore', contribution: subscores.windAlignment });
     }
   }

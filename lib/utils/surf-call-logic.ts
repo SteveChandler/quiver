@@ -29,6 +29,7 @@ import {
 } from '@/lib/services/discovery/response-formatter';
 import type { CompositeScore } from '@/lib/domains/scoring';
 import { classifyWindRelation, WIND_SPEED_GLASSY_MPH } from '@/lib/utils/wind-relation';
+import { resolveOffshoreDeg } from '@/lib/domains/shared/wind-orientation';
 
 // ============================================================================
 // Types
@@ -204,10 +205,6 @@ interface BeachWithBreakType {
   break_type?: string | null;
 }
 
-interface BeachWithWindData {
-  wind_offshore_deg?: number | null;
-}
-
 
 // ============================================================================
 // Helpers
@@ -295,8 +292,7 @@ function getWindowWind(
     : null;
 
   // Wind type: use average direction degrees vs beach offshore
-  const beachWithWind = beach as Beach & BeachWithWindData;
-  const offshoreDeg = beachWithWind.wind_offshore_deg;
+  const offshoreDeg = resolveOffshoreDeg(beach);
   let windType: string | null = null;
 
   if (offshoreDeg != null && dirDegs.length > 0) {

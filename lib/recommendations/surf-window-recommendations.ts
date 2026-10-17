@@ -7,6 +7,8 @@ import {
   getDirectionDegrees,
 } from "@/lib/services/discovery/window-selector";
 import { scoreNativeForecastSlot } from "@/lib/scoring/native-condition-score";
+import { angleDifference } from "@/lib/domains/shared/angle-utils";
+import { resolveWindOrientation } from "@/lib/domains/shared/wind-orientation";
 import { buildSurfWindowLinks } from "@/lib/recommendations/surf-window-links";
 import {
   buildSurfWindowDataNotes,
@@ -160,14 +162,11 @@ function windQuality(row: EnhancedForecastEntity, beach: Beach): SurfWindowWindQ
   const speed = parseNumber(row.wind_speed);
   const direction = getDirectionDegrees(row.wind_direction_deg, row.wind_direction);
   if (direction == null) return speed != null && speed <= 8 ? "variable" : "unknown";
-  if (beach.wind_offshore_deg == null) return speed != null && speed <= 8 ? "variable" : "unknown";
+  const { offshoreDeg, toleranceDeg } = resolveWindOrientation(beach);
+  if (offshoreDeg == null) return speed != null && speed <= 8 ? "variable" : "unknown";
 
-  const tolerance = beach.wind_offshore_tol_deg ?? 35;
-  const diff = Math.min(
-    Math.abs(direction - beach.wind_offshore_deg),
-    360 - Math.abs(direction - beach.wind_offshore_deg)
-  );
-  if (diff <= tolerance) return "offshore";
+  const diff = angleDifference(direction, offshoreDeg);
+  if (diff <= toleranceDeg) return "offshore";
   if (diff <= 90) return "cross-shore";
   return "onshore";
 }

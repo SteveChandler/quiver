@@ -9,13 +9,11 @@
  */
 
 import type { ForecastForScoring, BeachWithThresholds } from './types';
-import { angleDifference } from '@/lib/domains/shared';
+import { angleDifference, resolveOffshoreDeg } from '@/lib/domains/shared';
 import { normalizeBoardClass, type BoardClass } from '@/lib/domains/rideability';
 
 // Threshold for "onshore" wind detection (degrees from onshore direction)
 const ONSHORE_TOLERANCE_DEG = 60;
-// Default offshore direction used if beach not provided
-const DEFAULT_OFFSHORE_DEG = 90;
 // Wind speed above which conditions are considered choppy (onshore)
 const CHOPPY_WIND_SPEED_MPH = 10;
 const POWER_DAY_MIN_HEIGHT_FT = 3;
@@ -70,7 +68,8 @@ function isChoppy(
   if (forecast.windSpeed <= 5) return false; // Light wind is always clean
   if (forecast.windDirection == null) return false; // Unknown direction — assume clean
 
-  const offshoreDir = beach?.wind_offshore_deg ?? DEFAULT_OFFSHORE_DEG;
+  const offshoreDir = resolveOffshoreDeg(beach);
+  if (offshoreDir == null) return false; // Unknown orientation — no chop evidence
   const onshoreDir = (offshoreDir + 180) % 360;
 
   const isOnshore = angleDifference(forecast.windDirection, onshoreDir) <= ONSHORE_TOLERANCE_DEG;

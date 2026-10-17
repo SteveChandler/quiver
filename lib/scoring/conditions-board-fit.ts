@@ -10,6 +10,7 @@ import { normalizeBoardClass, type BoardClass } from '@/lib/domains/rideability'
 import type { SkillLevel } from '@/lib/domains/user-preferences/skill-level';
 import { parseWaveHeightMidpointFt } from '@/lib/alerts/forecast-parsers';
 import { getDirectionDegrees } from '@/lib/utils/number-parsing';
+import { resolveOffshoreDeg } from '@/lib/domains/shared/wind-orientation';
 
 interface ClassFitRow {
   /** Effective face height (ft) the class fits best. */
@@ -66,6 +67,7 @@ interface FitForecast {
 
 interface FitBeach {
   wind_offshore_deg?: number | null;
+  aspect_deg?: number | null;
   preferred_tide_ft_min?: number | null;
   preferred_tide_ft_max?: number | null;
   break_type?: string | null;
@@ -120,7 +122,7 @@ export function fitConditions(row: FitForecast, beach: FitBeach, interference: n
     periodSec: seaPeriodSec(row),
     windMph: numeric(row.wind_speed),
     windDirDeg: getDirectionDegrees(row.wind_direction_deg ?? null, row.wind_direction ?? null),
-    offshoreDeg: beach.wind_offshore_deg ?? null,
+    offshoreDeg: resolveOffshoreDeg(beach),
     tideFt,
     // Where the tide is heading over the next hour or so; the session rides the coming water.
     tideSoonFt: tideFt === null ? null : tideFt + drift,

@@ -286,6 +286,29 @@ export const windQualityScorer: ScorerPlugin = {
       };
     }
 
+    // No offshore bearing or facing direction: never assume a compass default.
+    // Score at most the neutral midpoint, but still let speed count using the
+    // lenient (offshore) cutoffs, since the wind could be blowing offshore.
+    if (windThresholds.offshoreDeg === null) {
+      const { tier, multiplier } = resolveTier(windSpeed, 'offshore');
+      if (tier === 'blownOut') {
+        return createSkipResult(
+          'windQuality',
+          `Blown out (${Math.round(windSpeed)} mph)`,
+          SCORER_WEIGHTS.windQuality
+        );
+      }
+      return {
+        name: 'windQuality',
+        score: Math.min(50, Math.round(multiplier * 100)),
+        weight: SCORER_WEIGHTS.windQuality,
+        reasons: [],
+        warnings: ['Beach wind orientation unknown'],
+        skip: false,
+        skipReason: null,
+      };
+    }
+
     const direction = classifyDirection(
       windDirection,
       windThresholds.offshoreDeg,
