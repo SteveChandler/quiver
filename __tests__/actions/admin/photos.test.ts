@@ -17,6 +17,36 @@ jest.mock("@/lib/logging/admin-audit", () => ({
   recordAdminEvent: jest.fn().mockResolvedValue({ success: true }),
 }));
 
+const BLACKS_BEACH = {
+  name: "Blacks Beach",
+  city: "San Diego",
+  state: "CA",
+  region: "San Diego",
+  lat: 32.889,
+  lon: -117.253,
+};
+
+const PLACE_CATALOG = [
+  BLACKS_BEACH,
+  {
+    name: "Venice Beach",
+    city: "Los Angeles",
+    state: "CA",
+    region: "Los Angeles",
+    lat: 33.985,
+    lon: -118.473,
+  },
+];
+
+const VENICE_TITLE = "Surfer in Venice Beach - Los Angeles, United States - Sport photography";
+
+// `from("beaches")` serves the place catalog; every other table takes the
+// queued queries in call order.
+function routeFrom(catalog: unknown, ...queries: unknown[]) {
+  const queue = [...queries];
+  return jest.fn((table: string) => (table === "beaches" ? catalog : queue.shift()));
+}
+
 describe("admin photos actions", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -327,25 +357,113 @@ describe("admin photos actions", () => {
     (getCurrentUser as jest.Mock).mockResolvedValue({ id: "admin-1" });
 
     const fetchQuery = createThenableQuery<any>({
-      data: { title: "T", source: "S", beach_id: "b1", beaches: { name: "B" } },
+      data: { title: "Blacks Beach at sunset", source: "S", beach_id: "b1", beaches: BLACKS_BEACH },
       error: null,
     });
+    const catalogQuery = createThenableQuery<any[]>({ data: PLACE_CATALOG, error: null });
     const updateQuery = createThenableQuery<any>({ data: null, error: null });
 
     (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue({
-      from: jest.fn().mockImplementationOnce(() => fetchQuery).mockImplementationOnce(() => updateQuery),
+      from: routeFrom(catalogQuery, fetchQuery, updateQuery),
     });
 
     const { toggleBeachPhotoApproval } = await import("@/actions/admin/photos");
     const res = await toggleBeachPhotoApproval("p1", true);
 
     expect(res.success).toBe(true);
+    expect(res.data).toEqual({ success: true, placeConflict: null });
+    expect(updateQuery.update).toHaveBeenCalledWith({ approved: true });
     expect(recordAdminEvent).toHaveBeenCalledWith(
       "admin-1",
       "photo",
       "approve",
       expect.objectContaining({ entityId: "p1" })
     );
+  });
+
+  test("toggleBeachPhotoApproval approves but warns when the title names another place", async () => {
+    const { getCurrentUser } = await import("@/lib/auth/admin");
+    const { createSupabaseServiceRoleClient } = await import("@/lib/supabase/server");
+    const { recordAdminEvent } = await import("@/lib/logging/admin-audit");
+
+    (getCurrentUser as jest.Mock).mockResolvedValue({ id: "admin-1" });
+
+    const fetchQuery = createThenableQuery<any>({
+      data: { title: VENICE_TITLE, source: "openverse", beach_id: "b1", beaches: BLACKS_BEACH },
+      error: null,
+    });
+    const catalogQuery = createThenableQuery<any[]>({ data: PLACE_CATALOG, error: null });
+    const updateQuery = createThenableQuery<any>({ data: null, error: null });
+
+    (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue({
+      from: routeFrom(catalogQuery, fetchQuery, updateQuery),
+    });
+
+    const { toggleBeachPhotoApproval } = await import("@/actions/admin/photos");
+    const res = await toggleBeachPhotoApproval("p1", true);
+
+    expect(res.success).toBe(true);
+    expect(res.data).toEqual({ success: true, placeConflict: "venice beach" });
+    expect(updateQuery.update).toHaveBeenCalledWith({ approved: true });
+    expect(catalogQuery.is).toHaveBeenCalledWith("deleted_at", null);
+    expect(recordAdminEvent).toHaveBeenCalledWith(
+      "admin-1",
+      "photo",
+      "approve",
+      expect.objectContaining({
+        payloadSummary: expect.objectContaining({ place_conflict: "venice beach" }),
+      })
+    );
+  });
+
+  test("toggleBeachPhotoApproval skips the place check when unapproving", async () => {
+    const { getCurrentUser } = await import("@/lib/auth/admin");
+    const { createSupabaseServiceRoleClient } = await import("@/lib/supabase/server");
+
+    (getCurrentUser as jest.Mock).mockResolvedValue({ id: "admin-1" });
+
+    const fetchQuery = createThenableQuery<any>({
+      data: { title: VENICE_TITLE, source: "openverse", beach_id: "b1", beaches: BLACKS_BEACH },
+      error: null,
+    });
+    const updateQuery = createThenableQuery<any>({ data: null, error: null });
+    const from = routeFrom(undefined, fetchQuery, updateQuery);
+
+    (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue({ from });
+
+    const { toggleBeachPhotoApproval } = await import("@/actions/admin/photos");
+    const res = await toggleBeachPhotoApproval("p1", false);
+
+    expect(res.data).toEqual({ success: true, placeConflict: null });
+    expect(updateQuery.update).toHaveBeenCalledWith({ approved: false });
+    expect(from).not.toHaveBeenCalledWith("beaches");
+  });
+
+  test("toggleBeachPhotoApproval still approves when the place catalog fails to load", async () => {
+    const { getCurrentUser } = await import("@/lib/auth/admin");
+    const { createSupabaseServiceRoleClient } = await import("@/lib/supabase/server");
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+
+    (getCurrentUser as jest.Mock).mockResolvedValue({ id: "admin-1" });
+
+    const fetchQuery = createThenableQuery<any>({
+      data: { title: VENICE_TITLE, source: "openverse", beach_id: "b1", beaches: BLACKS_BEACH },
+      error: null,
+    });
+    const catalogQuery = createThenableQuery<any[]>({ data: null, error: { message: "timeout" } });
+    const updateQuery = createThenableQuery<any>({ data: null, error: null });
+
+    (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue({
+      from: routeFrom(catalogQuery, fetchQuery, updateQuery),
+    });
+
+    const { toggleBeachPhotoApproval } = await import("@/actions/admin/photos");
+    const res = await toggleBeachPhotoApproval("p1", true);
+
+    expect(res.data).toEqual({ success: true, placeConflict: null });
+    expect(updateQuery.update).toHaveBeenCalledWith({ approved: true });
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("timeout"));
+    warn.mockRestore();
   });
 
   test("bulkApproveBeachPhotos approves photos and tracks failures", async () => {
@@ -361,13 +479,10 @@ describe("admin photos actions", () => {
       error: null,
     });
     const updateOk = createThenableQuery<any>({ data: null, error: null });
+    const catalogQuery = createThenableQuery<any[]>({ data: PLACE_CATALOG, error: null });
 
     (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue({
-      from: jest
-        .fn()
-        .mockImplementationOnce(() => fetchMissing)
-        .mockImplementationOnce(() => fetchOk)
-        .mockImplementationOnce(() => updateOk),
+      from: routeFrom(catalogQuery, fetchMissing, fetchOk, updateOk),
     });
 
     const { bulkApproveBeachPhotos } = await import("@/actions/admin/photos");
@@ -379,6 +494,7 @@ describe("admin photos actions", () => {
         success: 1,
         failed: 1,
         errors: [{ id: "p-missing", error: "Photo not found" }],
+        warnings: [],
       })
     );
     expect(recordAdminEvent).toHaveBeenCalledWith(
@@ -392,6 +508,81 @@ describe("admin photos actions", () => {
     );
   });
 
+  test("bulkApproveBeachPhotos warns on photos whose title names another place", async () => {
+    const { getCurrentUser } = await import("@/lib/auth/admin");
+    const { createSupabaseServiceRoleClient } = await import("@/lib/supabase/server");
+    const { recordAdminEvent } = await import("@/lib/logging/admin-audit");
+
+    (getCurrentUser as jest.Mock).mockResolvedValue({ id: "admin-1" });
+
+    const fetchVenice = createThenableQuery<any>({
+      data: { title: VENICE_TITLE, source: "openverse", beach_id: "b1", deleted_at: null, beaches: BLACKS_BEACH },
+      error: null,
+    });
+    const updateVenice = createThenableQuery<any>({ data: null, error: null });
+    const fetchBlacks = createThenableQuery<any>({
+      data: { title: "Blacks Beach cliffs", source: "openverse", beach_id: "b1", deleted_at: null, beaches: BLACKS_BEACH },
+      error: null,
+    });
+    const updateBlacks = createThenableQuery<any>({ data: null, error: null });
+    const catalogQuery = createThenableQuery<any[]>({ data: PLACE_CATALOG, error: null });
+    const from = routeFrom(catalogQuery, fetchVenice, updateVenice, fetchBlacks, updateBlacks);
+
+    (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue({ from });
+
+    const { bulkApproveBeachPhotos } = await import("@/actions/admin/photos");
+    const res = await bulkApproveBeachPhotos(["p-venice", "p-blacks"]);
+
+    expect(res.data).toEqual({
+      success: 2,
+      failed: 0,
+      errors: [],
+      warnings: [{ id: "p-venice", title: VENICE_TITLE, conflict: "venice beach" }],
+    });
+    expect(updateVenice.update).toHaveBeenCalledWith({ approved: true });
+    expect(from.mock.calls.filter(([table]) => table === "beaches")).toHaveLength(1);
+    expect(recordAdminEvent).toHaveBeenCalledWith(
+      "admin-1",
+      "photo",
+      "approve",
+      expect.objectContaining({
+        entityId: "p-venice",
+        payloadSummary: expect.objectContaining({ place_conflict: "venice beach" }),
+      })
+    );
+  });
+
+  test("bulkApproveBeachPhotos still approves when the catalog load throws", async () => {
+    const { getCurrentUser } = await import("@/lib/auth/admin");
+    const { createSupabaseServiceRoleClient } = await import("@/lib/supabase/server");
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+
+    (getCurrentUser as jest.Mock).mockResolvedValue({ id: "admin-1" });
+
+    const photo = { title: VENICE_TITLE, source: "openverse", beach_id: "b1", deleted_at: null, beaches: BLACKS_BEACH };
+    const catalogQuery = createThenableQuery<any[]>({ data: PLACE_CATALOG, error: null });
+    (catalogQuery.limit as jest.Mock).mockImplementation(() => {
+      throw new Error("fetch failed");
+    });
+
+    (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue({
+      from: routeFrom(
+        catalogQuery,
+        createThenableQuery<any>({ data: photo, error: null }),
+        createThenableQuery<any>({ data: null, error: null }),
+        createThenableQuery<any>({ data: photo, error: null }),
+        createThenableQuery<any>({ data: null, error: null })
+      ),
+    });
+
+    const { bulkApproveBeachPhotos } = await import("@/actions/admin/photos");
+    const res = await bulkApproveBeachPhotos(["p1", "p2"]);
+
+    expect(res.data).toEqual({ success: 2, failed: 0, errors: [], warnings: [] });
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("fetch failed"));
+    warn.mockRestore();
+  });
+
   test("bulkApproveBeachPhotos skips deleted photos", async () => {
     const { getCurrentUser } = await import("@/lib/auth/admin");
     const { createSupabaseServiceRoleClient } = await import("@/lib/supabase/server");
@@ -403,9 +594,9 @@ describe("admin photos actions", () => {
       error: null,
     });
 
-    (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue({
-      from: jest.fn().mockImplementationOnce(() => fetchDeleted),
-    });
+    const from = routeFrom(undefined, fetchDeleted);
+
+    (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue({ from });
 
     const { bulkApproveBeachPhotos } = await import("@/actions/admin/photos");
     const res = await bulkApproveBeachPhotos(["p-deleted"]);
@@ -418,6 +609,7 @@ describe("admin photos actions", () => {
         errors: [{ id: "p-deleted", error: "Photo is deleted" }],
       })
     );
+    expect(from).not.toHaveBeenCalledWith("beaches");
   });
 
   test("bulkApproveBeachPhotos tracks DB update errors", async () => {
@@ -435,11 +627,10 @@ describe("admin photos actions", () => {
       error: { message: "DB constraint violation" },
     });
 
+    const catalogQuery = createThenableQuery<any[]>({ data: PLACE_CATALOG, error: null });
+
     (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue({
-      from: jest
-        .fn()
-        .mockImplementationOnce(() => fetchOk)
-        .mockImplementationOnce(() => updateFail),
+      from: routeFrom(catalogQuery, fetchOk, updateFail),
     });
 
     const { bulkApproveBeachPhotos } = await import("@/actions/admin/photos");
@@ -469,7 +660,7 @@ describe("admin photos actions", () => {
     const res = await bulkApproveBeachPhotos([]);
 
     expect(res.success).toBe(true);
-    expect(res.data).toEqual({ success: 0, failed: 0, errors: [] });
+    expect(res.data).toEqual({ success: 0, failed: 0, errors: [], warnings: [] });
   });
 
   test("getPhotoStats returns counts with nulls handled as 0", async () => {

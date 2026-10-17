@@ -1,7 +1,7 @@
 import {
   findPhotoPlaceConflict,
   type PlaceCatalogEntry,
-} from "@/scripts/lib/beach-photo-place-guard";
+} from "@/lib/photos/place-guard";
 
 const catalog: PlaceCatalogEntry[] = [
   { name: "Blacks Beach", city: "San Diego", state: "CA", region: "San Diego" },

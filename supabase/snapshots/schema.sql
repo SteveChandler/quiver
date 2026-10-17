@@ -19210,7 +19210,7 @@ CREATE TABLE IF NOT EXISTS "public"."beach_photos" (
     "license_url" "text",
     "attribution_html" "text",
     "fetched_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "approved" boolean DEFAULT true NOT NULL,
+    "approved" boolean DEFAULT false NOT NULL,
     "deleted_at" timestamp with time zone,
     CONSTRAINT "beach_photos_source_check" CHECK (("source" = ANY (ARRAY['openverse'::"text", 'flickr'::"text", 'unsplash'::"text", 'pexels'::"text", 'wikimedia'::"text", 'user'::"text", 'google_places'::"text"])))
 );
@@ -19230,8 +19230,7 @@ COMMENT ON COLUMN "public"."beach_photos"."image_url" IS 'URL to beach photo. Fo
 
 
 
-COMMENT ON COLUMN "public"."beach_photos"."approved" IS 'Moderation flag. Only approved=true photos appear in public beach listings.
-        Admins can toggle this to moderate user-submitted beach photos.';
+COMMENT ON COLUMN "public"."beach_photos"."approved" IS 'Moderation flag. Only approved=true photos appear in public beach listings. Defaults to false so a writer that omits it lands in admin review; curated inserts set true explicitly.';
 
 
 
