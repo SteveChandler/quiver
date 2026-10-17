@@ -1,6 +1,7 @@
 export const MAX_FIX_JUMP_MPS = 12;
 export const GAP_S = 5;
 export const RIDE_START_MPS = 1.9; // Spec starting value: 2.5; retains sustained rides with flattened peaks.
+export const RIDE_METRIC_ONSET_FRACTION = 0.5; // Trims paddle-in; spec onset 2.5 m/s ≈ 0.52 × the OB peak.
 export const RIDE_START_HOLD_S = 3;
 export const RIDE_END_MPS = 1.5;
 export const RIDE_END_HOLD_S = 2;

@@ -6,6 +6,7 @@ import { summarizeTrack, type TrackSummary } from "@/lib/sessions/tracks/summari
 import type { NormalizedTrack, TrackSample } from "@/lib/sessions/tracks/types";
 import { detectWaves, WAVE_DETECTION_VERSION, type DetectedWave, type DetectionBeach } from "@/lib/sessions/wave-detection/detect-waves";
 import { COUNT_MIN_CONFIDENCE } from "@/lib/sessions/wave-detection/constants";
+import { performance } from "node:perf_hooks";
 
 const START = Date.parse("2026-10-17T12:00:00.000Z");
 const RIDE_STARTS = [180, 600, 1000, 1500];
@@ -28,6 +29,22 @@ function syntheticTrack(): NormalizedTrack {
 
 function fullSpan(track: NormalizedTrack): TrackSummary {
   return { ...summarizeTrack(track), inWaterStart: track.meta.startedAt, inWaterEnd: track.meta.endedAt };
+}
+
+function rampTrack(peakSeconds: number, tailSeconds: number = 0): NormalizedTrack {
+  const track = syntheticTrack();
+  let lat = 33;
+  let lon = -117;
+  track.samples = track.samples.map((sample, second) => {
+    const paddleIn = second >= 180 && second < 188;
+    const peak = second >= 188 && second < 188 + peakSeconds;
+    const tail = second >= 188 + peakSeconds && second < 188 + peakSeconds + tailSeconds;
+    const speedMps = peak ? 6 : paddleIn || tail ? 2 : 0.3;
+    if (paddleIn) lon += speedMps / (111_194.9266 * Math.cos(lat * Math.PI / 180));
+    else lat += speedMps / 111_194.9266;
+    return { ...sample, lat, lon, speedMps, cadence: paddleIn ? 30 : 0 };
+  });
+  return track;
 }
 
 describe("detectWaves", () => {
@@ -152,6 +169,81 @@ describe("detectWaves", () => {
     const waves = detectWaves(track, fullSpan(track), BEACH);
     expect(waves).toHaveLength(4);
     expect(waves.every((wave) => wave.maxSpeedMps === 4.5)).toBe(true);
+  });
+
+  it.each([1001, 1003, 1005])("preserves the whole ride after rejecting a teleport at second %i", (second) => {
+    const track = syntheticTrack();
+    track.samples[second] = { ...track.samples[second], lat: 35 };
+    const waves = detectWaves(track, fullSpan(track), BEACH);
+    expect(waves).toHaveLength(4);
+    expect(Math.abs(Date.parse(waves[2].startedAt) - Date.parse(time(1000)))).toBeLessThanOrEqual(2000);
+    expect(Math.abs(Date.parse(waves[2].endedAt) - Date.parse(time(1008)))).toBeLessThanOrEqual(2000);
+    expect(waves[2].distanceM).toBeGreaterThan(25);
+    expect(waves[2].distanceM).toBeLessThan(40);
+  });
+
+  it("trims paddle-in from every ride metric and uses cadence before the trimmed start", () => {
+    const track = rampTrack(6, 2);
+    const waves = detectWaves(track, fullSpan(track), BEACH);
+    expect(waves).toHaveLength(1);
+    expect(waves[0]).toMatchObject({
+      startedAt: time(188), endedAt: time(195), durationS: 7,
+      start: { lat: track.samples[188].lat, lon: track.samples[188].lon },
+      end: { lat: track.samples[195].lat, lon: track.samples[195].lon },
+      maxSpeedMps: 6, confidence: 1,
+    });
+    expect(waves[0].distanceM).toBeCloseTo(34, 2);
+    expect(waves[0].avgSpeedMps).toBeCloseTo(34 / 7);
+    expect(waves[0].headingDeg).toBeCloseTo(0);
+  });
+
+  it("does not earn the duration confidence bonus from paddle-in", () => {
+    const track = rampTrack(4);
+    const waves = detectWaves(track, fullSpan(track), BEACH);
+    expect(waves).toHaveLength(1);
+    expect(waves[0]).toMatchObject({ startedAt: time(188), endedAt: time(191), durationS: 3,
+      maxSpeedMps: 6, confidence: 0.8 });
+  });
+
+  it("includes the 10-second cadence boundary and the ride's last cadence sample", () => {
+    const track = rampTrack(4);
+    track.samples = track.samples.map((sample, second) => ({ ...sample,
+      cadence: second === 178 ? 11 : second >= 188 && second <= 191 ? 0 : null }));
+    const summary = fullSpan(track);
+    const waves = detectWaves(track, summary, BEACH);
+    expect(waves).toHaveLength(1);
+    expect(waves[0].confidence).toBe(0.8);
+    track.samples[191].cadence = 30;
+    const stillPaddling = detectWaves(track, summary, BEACH);
+    expect(stillPaddling).toHaveLength(1);
+    expect(stillPaddling[0].confidence).toBe(0.7);
+  });
+
+  it.each([[180, 0.9], [0, 0.27]])("rounds persisted confidence with swell-window bearing %i", (window, confidence) => {
+    const track = syntheticTrack();
+    track.samples = track.samples.map((sample) => ({ ...sample, cadence: null }));
+    const waves = detectWaves(track, fullSpan(track), { ...BEACH, swellWindowCenterDeg: window });
+    expect(waves).toHaveLength(4);
+    for (const wave of waves) expect(wave.confidence).toBe(confidence);
+  });
+
+  it("processes 20k samples and over 2,000 candidate bursts in under 1,500 ms", () => {
+    const track = syntheticTrack();
+    let lat = 33;
+    track.samples = Array.from({ length: 20_000 }, (_, second) => {
+      const riding = second % 9 < 4;
+      const speedMps = riding ? 4.5 : 0.3;
+      lat += speedMps / 111_194.9266;
+      return { t: time(second), lat, lon: -117, speedMps, cadence: riding ? 0 : 30,
+        hr: null, tempC: null };
+    });
+    track.meta.endedAt = time(19_999);
+    const summary = fullSpan(track);
+    const started = performance.now();
+    const waves = detectWaves(track, summary, BEACH);
+    const elapsedMs = performance.now() - started;
+    expect(waves).toHaveLength(2222);
+    expect(elapsedMs).toBeLessThan(1500);
   });
 
   it("uses the swell-window bearing even when the beach bearing disagrees", () => {

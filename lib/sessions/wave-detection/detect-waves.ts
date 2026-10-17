@@ -3,7 +3,7 @@ import { angleDiffDeg, bearingDeg, haversineM } from "../tracks/track-geometry";
 import type { NormalizedTrack, TrackSample } from "../tracks/types";
 import {
   GAP_S, MAX_FIX_JUMP_MPS, OFF_SHOREWARD_FACTOR, RIDE_END_HOLD_S, RIDE_END_MPS,
-  RIDE_KEEP_DURATION_S, RIDE_KEEP_PEAK_MPS, RIDE_START_HOLD_S, RIDE_START_MPS,
+  RIDE_KEEP_DURATION_S, RIDE_KEEP_PEAK_MPS, RIDE_METRIC_ONSET_FRACTION, RIDE_START_HOLD_S, RIDE_START_MPS,
   SHOREWARD_TOLERANCE_DEG,
 } from "./constants";
 
@@ -24,25 +24,26 @@ export type DetectedWave = {
   confidence: number;
 };
 export type DetectionBeach = Point & { swellWindowCenterDeg: number | null };
-type Fix = TrackSample & Point & { time: number };
+type TimedSample = TrackSample & { time: number };
+type Fix = TimedSample & Point;
+type CadenceSeries = { times: number[]; sums: number[]; counts: number[] };
 
-function fixSegments(samples: TrackSample[]): Fix[][] {
+function fixSegments(samples: TimedSample[]): Fix[][] {
   const segments: Fix[][] = [];
   let segment: Fix[] = [];
   let previous: Fix | undefined;
   for (const sample of samples) {
     if (sample.lat === null || sample.lon === null) continue;
-    const fix: Fix = { ...sample, lat: sample.lat, lon: sample.lon, time: Date.parse(sample.t) };
+    const fix: Fix = { ...sample, lat: sample.lat, lon: sample.lon };
     const elapsedS = previous ? (fix.time - previous.time) / 1000 : 0;
     if (previous && elapsedS <= 0) continue;
-    const jump = previous && haversineM(previous, fix) / elapsedS > MAX_FIX_JUMP_MPS;
-    if (previous && (elapsedS > GAP_S || jump)) {
+    if (previous && haversineM(previous, fix) / elapsedS > MAX_FIX_JUMP_MPS) continue;
+    if (previous && elapsedS > GAP_S) {
       if (segment.length) segments.push(segment);
       segment = [];
     }
     previous = fix;
-    // A bad fix cannot seed a ride; the following fix must also pass the jump check.
-    if (!jump) segment.push(fix);
+    segment.push(fix);
   }
   if (segment.length) segments.push(segment);
   return segments;
@@ -58,26 +59,54 @@ function smoothedSpeeds(fixes: Fix[]): number[] {
     .sort((a, b) => a - b)[1]);
 }
 
-function averageCadence(samples: TrackSample[]): number | null {
-  const values = samples.flatMap((sample) => sample.cadence === null ? [] : [sample.cadence]);
-  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+function cadenceSeries(samples: TimedSample[]): CadenceSeries {
+  const series: CadenceSeries = { times: [], sums: [0], counts: [0] };
+  for (const sample of samples) {
+    const index = series.times.length;
+    series.times.push(sample.time);
+    series.sums.push(series.sums[index] + (sample.cadence ?? 0));
+    series.counts.push(series.counts[index] + (sample.cadence === null ? 0 : 1));
+  }
+  return series;
+}
+
+function timeIndex(times: number[], boundary: number, afterEqual: boolean = false): number {
+  let low = 0;
+  let high = times.length;
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (times[middle] < boundary || (afterEqual && times[middle] === boundary)) low = middle + 1;
+    else high = middle;
+  }
+  return low;
+}
+
+function averageCadence(series: CadenceSeries, start: number, end: number, includeEnd: boolean = false): number | null {
+  const first = timeIndex(series.times, start);
+  const last = timeIndex(series.times, end, includeEnd);
+  const count = series.counts[last] - series.counts[first];
+  return count ? (series.sums[last] - series.sums[first]) / count : null;
 }
 
 function candidate(
-  fixes: Fix[], speeds: number[], samples: TrackSample[], summary: TrackSummary, shoreward: number,
+  fixes: Fix[], speeds: number[], cadence: CadenceSeries, summary: TrackSummary, shoreward: number,
 ): Omit<DetectedWave, "index"> | null {
-  const first = fixes[0];
   const last = fixes[fixes.length - 1];
-  const durationS = (last.time - first.time) / 1000;
-  if (durationS <= 0 || first.time < Date.parse(summary.inWaterStart)
+  if (fixes[0].time < Date.parse(summary.inWaterStart)
     || last.time > Date.parse(summary.inWaterEnd)) return null;
 
   const peak = speeds.reduce((maximum, speed) => Math.max(maximum, speed), 0);
+  const onset = Math.max(RIDE_START_MPS, RIDE_METRIC_ONSET_FRACTION * peak);
+  const firstIndex = speeds.findIndex((speed) => speed >= onset);
+  if (firstIndex < 0) return null;
+  const first = fixes[firstIndex];
+  const durationS = (last.time - first.time) / 1000;
+  if (durationS <= 0) return null;
   // Swim-mode smoothing can flatten peaks, so sustained rides also qualify.
   if (peak < RIDE_KEEP_PEAK_MPS && durationS < RIDE_KEEP_DURATION_S) return null;
   let distanceM = 0;
   let speedIntegral = 0;
-  for (let index = 1; index < fixes.length; index += 1) {
+  for (let index = firstIndex + 1; index < fixes.length; index += 1) {
     distanceM += haversineM(fixes[index - 1], fixes[index]);
     speedIntegral += speeds[index] * (fixes[index].time - fixes[index - 1].time) / 1000;
   }
@@ -88,14 +117,8 @@ function candidate(
   const headingDeg = haversineM(start, end) > 0 ? bearingDeg(start, end) : null;
   let confidence = 0.7;
   if (peak >= RIDE_KEEP_PEAK_MPS && durationS >= RIDE_KEEP_DURATION_S) confidence += 0.2;
-  const before = averageCadence(samples.filter((sample) => {
-    const time = Date.parse(sample.t);
-    return time >= first.time - 10_000 && time < first.time;
-  }));
-  const during = averageCadence(samples.filter((sample) => {
-    const time = Date.parse(sample.t);
-    return time >= first.time && time <= last.time;
-  }));
+  const before = averageCadence(cadence, first.time - 10_000, first.time);
+  const during = averageCadence(cadence, first.time, last.time, true);
   if (before !== null && before > 10 && during !== null && during <= 5) confidence += 0.1;
   if (headingDeg === null || angleDiffDeg(headingDeg, shoreward) > SHOREWARD_TOLERANCE_DEG) {
     confidence *= OFF_SHOREWARD_FACTOR;
@@ -104,7 +127,7 @@ function candidate(
     startedAt: first.t, endedAt: last.t, durationS, distanceM,
     maxSpeedMps: summary.speedReliable ? peak : null,
     avgSpeedMps: summary.speedReliable ? speedIntegral / durationS : null,
-    start, end, headingDeg, confidence: Math.max(0, Math.min(1, confidence)),
+    start, end, headingDeg, confidence: Math.round(Math.max(0, Math.min(1, confidence)) * 1000) / 1000,
   };
 }
 
@@ -112,7 +135,9 @@ export function detectWaves(track: NormalizedTrack, summary: TrackSummary, beach
   const shoreward = beach.swellWindowCenterDeg === null
     ? bearingDeg(summary.centroid, beach)
     : (beach.swellWindowCenterDeg + 180) % 360;
-  const samples = [...track.samples].sort((a, b) => Date.parse(a.t) - Date.parse(b.t));
+  const samples = track.samples.map((sample) => ({ ...sample, time: Date.parse(sample.t) }))
+    .sort((a, b) => a.time - b.time);
+  const cadence = cadenceSeries(samples);
   const waves: DetectedWave[] = [];
   for (const fixes of fixSegments(samples)) {
     const speeds = smoothedSpeeds(fixes);
@@ -121,7 +146,7 @@ export function detectWaves(track: NormalizedTrack, summary: TrackSummary, beach
     let lowStart: number | null = null;
     const finish = (end: number): void => {
       if (active && start !== null) {
-        const wave = candidate(fixes.slice(start, end + 1), speeds.slice(start, end + 1), samples, summary, shoreward);
+        const wave = candidate(fixes.slice(start, end + 1), speeds.slice(start, end + 1), cadence, summary, shoreward);
         if (wave) waves.push({ index: waves.length, ...wave });
       }
       start = null;
