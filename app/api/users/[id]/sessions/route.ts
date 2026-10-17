@@ -17,21 +17,20 @@ async function addOwnerTrackStatus<T extends { id: string }>(
 ): Promise<(T & { has_track?: boolean })[]> {
   if (!isOwn || sessions.length === 0) return sessions;
 
-  const { data, error } = await supabase
-    .from("session_tracks")
-    .select("session_id")
-    .eq("user_id", userId)
-    .in("session_id", sessions.map((session) => session.id));
-  if (error) {
-    // Keep the existing session list available until the tracks migration is applied.
-    if (error.code === "42P01" || error.code === "PGRST205") {
-      return sessions.map((session) => ({ ...session, has_track: false }));
-    }
-    throw error;
-  }
+  try {
+    const { data, error } = await supabase
+      .from("session_tracks")
+      .select("session_id")
+      .eq("user_id", userId)
+      .in("session_id", sessions.map((session) => session.id));
+    if (error) throw error;
 
-  const trackedIds = new Set((data ?? []).map((track) => track.session_id));
-  return sessions.map((session) => ({ ...session, has_track: trackedIds.has(session.id) }));
+    const trackedIds = new Set((data ?? []).map((track) => track.session_id));
+    return sessions.map((session) => ({ ...session, has_track: trackedIds.has(session.id) }));
+  } catch (error) {
+    console.error("Failed to fetch session tracks for enrichment:", error);
+    return sessions.map((session) => ({ ...session, has_track: false }));
+  }
 }
 
 function parseLimit(url: URL, defaultValue = 5, max = 20) {

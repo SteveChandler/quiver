@@ -67,7 +67,7 @@ export function UploadSurfButton({ enabled }: UploadSurfButtonProps): ReactEleme
           {state.phase === "needs_beach" ? (
             <ImportBeachPicker candidates={state.candidates ?? []} onChoose={chooseBeach} />
           ) : null}
-          {state.phase === "error" ? (
+          {state.error ? (
             <div role="alert" className="text-sm text-[#B91C1C]">
               <p>{state.error}</p>
               {state.duplicateSessionId ? (

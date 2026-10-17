@@ -127,6 +127,83 @@ describe("UploadSurfButton", () => {
     expect(push).not.toHaveBeenCalled();
   });
 
+  it("rejects files over 10 MiB before creating an import", async () => {
+    global.fetch = jest.fn();
+    const oversizedFile = file();
+    Object.defineProperty(oversizedFile, "size", { value: 10 * 1024 * 1024 + 1 });
+
+    render(<UploadSurfButton enabled />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Upload a surf (FIT or GPX)" }));
+    await user.upload(screen.getByLabelText("Surf file"), oversizedFile);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("This file is over 10 MB. Export just the one activity and try again.");
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(upload).not.toHaveBeenCalled();
+  });
+
+  it("shows friendly copy for a storage upload failure", async () => {
+    global.fetch = jest.fn().mockResolvedValueOnce(envelope({ importId: "import-5", uploadPath: "import-5/user-1/surf.gpx" }, 201));
+    upload.mockResolvedValueOnce({ error: new Error("StorageApiError: row violates storage policy") });
+
+    render(<UploadSurfButton enabled />);
+    await selectFile();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not import this surf. Try again.");
+    expect(screen.queryByText(/StorageApiError/)).not.toBeInTheDocument();
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it("shows friendly copy for a non-JSON 500 response", async () => {
+    global.fetch = jest.fn().mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      json: jest.fn().mockRejectedValue(new SyntaxError("Unexpected token '<'")),
+    });
+
+    render(<UploadSurfButton enabled />);
+    await selectFile();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not import this surf. Try again.");
+    expect(screen.queryByText(/Unexpected token/)).not.toBeInTheDocument();
+    expect(upload).not.toHaveBeenCalled();
+  });
+
+  it("shows friendly copy for a fetch network failure", async () => {
+    global.fetch = jest.fn().mockRejectedValueOnce(new TypeError("Failed to fetch"));
+
+    render(<UploadSurfButton enabled />);
+    await selectFile();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not import this surf. Try again.");
+    expect(screen.queryByText("Failed to fetch")).not.toBeInTheDocument();
+    expect(upload).not.toHaveBeenCalled();
+  });
+
+  it("keeps the beach choices after a failed selection and retries without re-uploading", async () => {
+    const fetchMock = jest.fn()
+      .mockResolvedValueOnce(envelope({ importId: "import-6", uploadPath: "import-6/user-1/surf.gpx" }, 201))
+      .mockResolvedValueOnce(envelope({ status: "needs_beach", importId: "import-6", candidates: [{ id: "pipes", name: "Pipes", lat: 1, lon: 2, swellWindowCenterDeg: null }] }, 202))
+      .mockResolvedValueOnce(errorEnvelope("internal_error", 500))
+      .mockResolvedValueOnce(envelope({ status: "completed", sessionId: "session-6", attached: false, summary: { waveCount: 3 } }))
+      .mockResolvedValueOnce(envelope({ session: { beach_name: "Pipes" } }));
+    global.fetch = fetchMock;
+
+    render(<UploadSurfButton enabled />);
+    await selectFile();
+    await userEvent.click(await screen.findByRole("button", { name: "Pipes" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not import this surf. Try again.");
+    await userEvent.click(screen.getByRole("button", { name: "Pipes" }));
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/sessions/session-6"));
+    expect(upload).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenNthCalledWith(4, "/api/v1/session-imports/import-6/beach", expect.objectContaining({
+      method: "POST", body: JSON.stringify({ beachId: "pipes" }),
+    }));
+  });
+
   it("is absent when disabled", () => {
     render(<UploadSurfButton enabled={false} />);
     expect(screen.queryByRole("button", { name: "Upload a surf (FIT or GPX)" })).not.toBeInTheDocument();

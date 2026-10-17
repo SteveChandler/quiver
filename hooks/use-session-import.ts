@@ -33,6 +33,19 @@ const ERROR_COPY: Record<string, string> = {
   corrupt: "We couldn't read this file. Try exporting it again.",
   duplicate: "You've already uploaded this surf",
 };
+const GENERIC_ERROR_COPY = "Could not import this surf. Try again.";
+const MAX_IMPORT_BYTES = 10 * 1024 * 1024;
+
+class SessionImportError extends Error {
+  constructor(code?: string, readonly sessionId?: string) {
+    super(code && Object.prototype.hasOwnProperty.call(ERROR_COPY, code) ? ERROR_COPY[code] : GENERIC_ERROR_COPY);
+  }
+}
+
+function importFailure(cause: unknown): Pick<ImportState, "error" | "duplicateSessionId"> {
+  if (!(cause instanceof SessionImportError)) return { error: GENERIC_ERROR_COPY };
+  return { error: cause.message, duplicateSessionId: cause.sessionId };
+}
 
 function contentTypeFor(filename: string): string {
   const extension = filename.split(".").pop()?.toLowerCase();
@@ -48,12 +61,13 @@ async function postImport<T>(url: string, body?: Record<string, string>): Promis
     body: body ? JSON.stringify(body) : undefined,
     cache: "no-store",
   });
-  const result = await response.json() as ApiEnvelope<T>;
-  if (!response.ok || !result.success) {
-    const failure = result as Extract<ApiEnvelope<T>, { success: false }>;
-    const error = new Error(ERROR_COPY[failure.error] ?? "Could not import this surf. Try again.");
-    Object.assign(error, { code: failure.error, sessionId: failure.details?.sessionId });
-    throw error;
+  const result = await response.json().catch(() => null) as ApiEnvelope<T> | null;
+  if (!response.ok || !result?.success) {
+    const failure = result?.success === false ? result : null;
+    const sessionId = failure?.error === "duplicate" && typeof failure.details?.sessionId === "string"
+      ? failure.details.sessionId
+      : undefined;
+    throw new SessionImportError(failure?.error, sessionId);
   }
   return result.data;
 }
@@ -94,16 +108,12 @@ export function useSessionImport(): {
     });
   }, []);
 
-  const fail = useCallback((cause: unknown): void => {
-    const error = cause instanceof Error ? cause : new Error("Could not import this surf. Try again.");
-    setState({
-      phase: "error",
-      error: error.message,
-      duplicateSessionId: "sessionId" in error && typeof error.sessionId === "string" ? error.sessionId : undefined,
-    });
-  }, []);
-
   const start = useCallback(async (file: File): Promise<void> => {
+    if (file.size > MAX_IMPORT_BYTES) {
+      setState({ phase: "error", error: "This file is over 10 MB. Export just the one activity and try again." });
+      return;
+    }
+
     const extension = file.name.split(".").pop()?.toLowerCase();
     if (!extension || !["fit", "gpx", "zip"].includes(extension)) {
       setState({ phase: "error", error: ERROR_COPY.unsupported_format });
@@ -126,13 +136,14 @@ export function useSessionImport(): {
       const result = await postImport<ImportResult>(`/api/v1/session-imports/${encodeURIComponent(created.importId)}/process`);
       await finish(result);
     } catch (error) {
-      fail(error);
+      setState({ phase: "error", ...importFailure(error) });
     }
-  }, [fail, finish]);
+  }, [finish]);
 
   const chooseBeach = useCallback(async (beachId: string): Promise<void> => {
     const importId = importIdRef.current;
     if (!importId) return;
+    const candidates = state.candidates ?? [];
     setState({ phase: "processing" });
     try {
       const result = await postImport<ImportResult>(
@@ -140,9 +151,9 @@ export function useSessionImport(): {
       );
       await finish(result);
     } catch (error) {
-      fail(error);
+      setState({ phase: "needs_beach", candidates, ...importFailure(error) });
     }
-  }, [fail, finish]);
+  }, [finish, state.candidates]);
 
   return { start, state, chooseBeach };
 }
