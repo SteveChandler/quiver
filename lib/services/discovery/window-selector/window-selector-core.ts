@@ -340,7 +340,8 @@ function buildResult(
   filteredForecasts: ScoredForecast[],
   beach: Beach,
   beachTz: string,
-  now: Date
+  now: Date,
+  peakSearchEnd: Date | null = null,
 ): PersonalizedForecastWindow {
   const peakCandidates = filteredForecasts.map((scoredForecast) => ({
     forecastTime: scoredForecast.forecastTime,
@@ -348,20 +349,31 @@ function buildResult(
       getSelectionScore(scoredForecast) +
       getPeakTimeTideAdjustment(scoredForecast.forecast, beach),
   }));
+  const peakEnd = peakSearchEnd && bestWindow.start < peakSearchEnd && peakSearchEnd < bestWindow.end
+    ? peakSearchEnd
+    : bestWindow.end;
+  const peakRows = peakEnd === bestWindow.end
+    ? filteredForecasts
+    : filteredForecasts.filter(({ forecastTime }) => forecastTime < peakEnd);
 
   // Pass `now` through so findPeakWithinWindow can clamp past peaks to the
   // current time — a still-open window must never report a best time that
   // has already elapsed. See peak-finder.ts for the full rationale.
-  const peakTime = findPeakWithinWindow(
+  const foundPeak = findPeakWithinWindow(
     bestWindow.start,
-    bestWindow.end,
+    peakEnd,
     peakCandidates,
     now
   );
+  // Interpolation can lean past either edge. A limited peak stays inside its part of the
+  // window, strictly before peakEnd: that instant already belongs to the next daypart.
+  const peakTime = peakEnd === bestWindow.end
+    ? foundPeak
+    : new Date(Math.min(Math.max(foundPeak.getTime(), bestWindow.start.getTime()), peakEnd.getTime() - 1));
 
   // Tide boundaries can move the window hours past its original candidate.
   // Keep the returned conditions and score on the row the peak will open.
-  const peakForecast = filteredForecasts.reduce((closest, candidate) => (
+  const peakForecast = (peakRows.length > 0 ? peakRows : filteredForecasts).reduce((closest, candidate) => (
     Math.abs(candidate.forecastTime.getTime() - peakTime.getTime())
       < Math.abs(closest.forecastTime.getTime() - peakTime.getTime())
       ? candidate : closest
@@ -396,6 +408,7 @@ interface NormalizedWindowSelectorOptions {
   maxWindows: number;
   rowLiveness: RowLiveness;
   acceptWindowStart?: WindowSelectorOptions['acceptWindowStart'];
+  peakSearchEnd?: WindowSelectorOptions['peakSearchEnd'];
   disableBelowFloorFallback: boolean;
   forecastPreparationCache?: WindowSelectorOptions['forecastPreparationCache'];
   onWindowRanked?: WindowSelectorOptions['onWindowRanked'];
@@ -456,6 +469,7 @@ function normalizeWindowSelectorOptions(
     maxWindows: optionsOrForecasts.maxWindows ?? DEFAULT_MAX_WINDOWS,
     rowLiveness: optionsOrForecasts.rowLiveness ?? 'default',
     acceptWindowStart: optionsOrForecasts.rowLiveness === 'until-next-row' ? optionsOrForecasts.acceptWindowStart : undefined,
+    peakSearchEnd: optionsOrForecasts.rowLiveness === 'until-next-row' ? optionsOrForecasts.peakSearchEnd : undefined,
     disableBelowFloorFallback: optionsOrForecasts.rowLiveness === 'until-next-row' && optionsOrForecasts.disableBelowFloorFallback === true,
     forecastPreparationCache: optionsOrForecasts.rowLiveness === 'until-next-row' ? optionsOrForecasts.forecastPreparationCache : undefined,
     onWindowRanked: optionsOrForecasts.rowLiveness === 'until-next-row' ? optionsOrForecasts.onWindowRanked : undefined,
@@ -671,6 +685,7 @@ export function selectBestWindows(
     maxWindows: actualMaxWindows,
     rowLiveness,
     acceptWindowStart,
+    peakSearchEnd,
     disableBelowFloorFallback,
     forecastPreparationCache,
     onWindowRanked,
@@ -988,7 +1003,7 @@ export function selectBestWindows(
       if (acceptWindowStart && !acceptWindowStart(lit.start)) return [];
       const result = buildResult(
         { ...candidateWindow, start: lit.start, end: lit.end },
-        filteredForecasts, actualBeach, beachTz, actualNow,
+        filteredForecasts, actualBeach, beachTz, actualNow, peakSearchEnd?.(lit.start) ?? null,
       );
       onWindowRanked?.(result, candidateWindow);
       return [result];
