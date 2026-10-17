@@ -96,6 +96,7 @@ function computeLocalDateTimeToUTC(dateStr: string, timeStr: string, tz: string)
   // the two offsets around the wall time are the only candidates.
   const offsetBefore = utcOffsetMsAt(wallAsUtcMs - DAY_MS, tz);
   const offsetAfter = utcOffsetMsAt(wallAsUtcMs + DAY_MS, tz);
+  if (offsetBefore === offsetAfter) return new Date(wallAsUtcMs - offsetBefore);
   const candidates = Array.from(new Set([offsetBefore, offsetAfter]))
     .map((offset) => ({ offset, instant: wallAsUtcMs - offset }))
     .filter(({ offset, instant }) => utcOffsetMsAt(instant, tz) === offset)

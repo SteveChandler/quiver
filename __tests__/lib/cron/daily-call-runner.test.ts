@@ -457,7 +457,7 @@ describe("daily call dawn row on the Pacific standard grid", () => {
       const { result } = await build(rows);
       expect(result.candidates).toHaveLength(1);
       expect(result.candidates[0].window).toMatchObject({ start: sunriseAt, end: at(8) });
-      expect(result.candidates[0].sourceForecast.id).toBe("pst-04");
+      expect(result.candidates[0]).toMatchObject({ sourceForecast: { id: "pst-04" } });
     } finally {
       selector.mockRestore();
     }
@@ -493,7 +493,7 @@ describe("daily call dawn row on the Pacific standard grid", () => {
     const { result } = await build([forecast(4, 0), forecast(7, 84), forecast(10, 0)]);
     expect(result.candidates).toHaveLength(1);
     expect(result.candidates[0].window.start).toBe(at(7));
-    expect(result.candidates[0].sourceForecast.id).toBe("pst-07");
+    expect(result.candidates[0]).toMatchObject({ sourceForecast: { id: "pst-07" } });
   });
 });
 
