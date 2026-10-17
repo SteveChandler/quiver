@@ -88,6 +88,7 @@ Tide schedule processing:
 ### `peak-finder.ts`
 Sub-hour interpolation:
 - `findPeakWithinWindow()` - Find best moment within a window using minute-level interpolation
+- `findPeakRowWithinWindow()` - Same, plus the row the peak came from; `startedRowsEligible` lets a still-live started row compete (until-next-row)
 
 ### `window-refiner.ts`
 Boundary refinement:

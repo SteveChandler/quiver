@@ -37,16 +37,36 @@ export function findPeakWithinWindow(
   forecasts: Array<{ forecastTime: Date; score: number }>,
   now: Date = new Date()
 ): Date {
+  return findPeakRowWithinWindow(windowStart, windowEnd, forecasts, now).peakTime;
+}
+
+/**
+ * {@link findPeakWithinWindow}, plus the forecast row the peak was found on
+ * (`null` when the window has no rows).
+ *
+ * `startedRowsEligible` is for callers whose rows stay live until the next row
+ * and who have already dropped dead ones: a row that started before `now` is
+ * still on, so it competes for the peak. The returned time is still clamped
+ * to `now`.
+ */
+export function findPeakRowWithinWindow(
+  windowStart: Date,
+  windowEnd: Date,
+  forecasts: Array<{ forecastTime: Date; score: number }>,
+  now: Date,
+  { startedRowsEligible = false }: { startedRowsEligible?: boolean } = {},
+): { peakTime: Date; rowTime: Date | null } {
   // "Window still open" means now has not yet reached windowEnd. When the
   // window has entirely passed we fall back to the legacy behavior and
   // ignore `now` — the caller is already dealing with stale data.
   const windowClosed = now.getTime() >= windowEnd.getTime();
 
   // When the window is still open AND `now` is already past windowStart,
-  // only consider forecasts at-or-after `now`. This prevents picking a
-  // peak hour that has already elapsed as the "best time to go."
+  // only consider forecasts at-or-after `now` (unless started rows are
+  // still live). This prevents picking a peak hour that has already
+  // elapsed as the "best time to go."
   const effectiveStart =
-    !windowClosed && now.getTime() > windowStart.getTime() ? now : windowStart;
+    !startedRowsEligible && !windowClosed && now.getTime() > windowStart.getTime() ? now : windowStart;
 
   // Find forecasts within the effective window (exclusive end boundary).
   // The window end may be a hard stop (sunset cap), so forecasts AT
@@ -59,9 +79,9 @@ export function findPeakWithinWindow(
     // Only an active window can use `now`; future and closed windows use a
     // midpoint so the reported peak always belongs to the window.
     if (now.getTime() >= windowStart.getTime() && !windowClosed) {
-      return new Date(now.getTime());
+      return { peakTime: new Date(now.getTime()), rowTime: null };
     }
-    return new Date((windowStart.getTime() + windowEnd.getTime()) / 2);
+    return { peakTime: new Date((windowStart.getTime() + windowEnd.getTime()) / 2), rowTime: null };
   }
 
   // Find the highest scoring forecast within the window
@@ -73,11 +93,11 @@ export function findPeakWithinWindow(
   // interpolation toward a past neighbor can shift the reported peakTime
   // backward past `now`, which would recreate the same bug this function
   // is guarding against.
-  const clampToNow = (candidate: Date): Date => {
+  const clampToNow = (candidate: Date): { peakTime: Date; rowTime: Date } => {
     if (!windowClosed && candidate.getTime() < now.getTime()) {
-      return new Date(now.getTime());
+      return { peakTime: new Date(now.getTime()), rowTime: peak.forecastTime };
     }
-    return candidate;
+    return { peakTime: candidate, rowTime: peak.forecastTime };
   };
 
   // Find peak's position in the full forecast array for interpolation context
