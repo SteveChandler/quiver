@@ -128,6 +128,7 @@ function deps(overrides: Partial<SwellOutlookLoaderDeps> = {}): SwellOutlookLoad
     loadPool: jest.fn(async () => [{ beach: homeBeach, relation: "home" as const, distanceMiles: null }]),
     loadSnapshots: jest.fn(async (_client, _ids, _since, version) => (version === SWELL_OUTLOOK_PULSE_DETECTOR_VERSION ? [pulse()] : [])),
     loadForecasts: jest.fn(async () => new Map<string, SwellEventForecastRow[]>()),
+    loadDayRows: jest.fn(async () => []),
     getStorms: jest.fn(async () => []),
     ...overrides,
   };
@@ -169,6 +170,21 @@ describe("loadSwellOutlookForUser", () => {
     expect(outlookState.saveSwellOutlookLists).not.toHaveBeenCalled();
     expect(client.updates).toEqual([]);
     expect(client.upserts).toEqual([]);
+  });
+
+  it("adds one forecast day per horizon day for the outlook beach, and leaves days out when that read fails", async () => {
+    const client = fakeClient({ profile: PROFILE, boards: [] });
+    const loadDayRows = jest.fn(async () => []);
+    const response = await loadSwellOutlookForUser({ client: client.client, userId: USER, now: NOW, recordOpen: false, deps: deps({ loadDayRows }) });
+    expect(loadDayRows).toHaveBeenCalledWith(client.client, HOME, expect.any(Date), expect.any(Date));
+    expect(response.days).toHaveLength(9);
+
+    const failed = await loadSwellOutlookForUser({
+      client: fakeClient({ profile: PROFILE, boards: [] }).client, userId: USER, now: NOW, recordOpen: false,
+      deps: deps({ loadDayRows: jest.fn(async () => { throw new Error("down"); }) }),
+    });
+    expect(failed.days).toBeUndefined();
+    expect(failed.homeBeach).not.toBeNull();
   });
 
   it("does not hand degraded lists to cron persistence", async () => {

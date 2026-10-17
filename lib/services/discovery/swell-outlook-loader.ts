@@ -22,6 +22,7 @@ import type { Database } from '@/types/database';
 
 import type { StoredOutlookList } from './swell-outlook-types';
 import { getActiveStorms, type ActiveStorm } from './nhc-storms';
+import { buildOutlookDays, loadOutlookDayRows, outlookDayRowsWindow } from './swell-outlook-days';
 import { SWELL_OUTLOOK_HORIZON_DAYS, buildSwellOutlook, resolveOutlookRunDate, type SwellOutlookResponse } from './swell-outlook';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -35,6 +36,7 @@ export interface SwellOutlookLoaderDeps {
   loadPool: typeof loadUserPool;
   loadSnapshots: typeof loadRecentSwellSnapshots;
   loadForecasts: typeof loadSwellForecastRows;
+  loadDayRows: typeof loadOutlookDayRows;
   getStorms: () => Promise<ActiveStorm[]>;
 }
 
@@ -42,6 +44,7 @@ const DEFAULT_DEPS: SwellOutlookLoaderDeps = {
   loadPool: loadUserPool,
   loadSnapshots: loadRecentSwellSnapshots,
   loadForecasts: loadSwellForecastRows,
+  loadDayRows: loadOutlookDayRows,
   getStorms: getActiveStorms,
 };
 
@@ -183,6 +186,24 @@ export async function loadSwellOutlookForUser(args: {
   });
 
   response.anchorSource = profile.anchorSource;
+
+  const dayBeach = pool.find(({ beach }) => beach.id === response.homeBeach?.id)?.beach;
+  if (dayBeach) {
+    try {
+      const { from, to } = outlookDayRowsWindow(now);
+      response.days = buildOutlookDays({
+        rows: await deps.loadDayRows(client, dayBeach.id, from, to),
+        beach: dayBeach,
+        now,
+        horizonDays: SWELL_OUTLOOK_HORIZON_DAYS,
+        skillLevel,
+        boardClasses: boardClasses ?? [],
+      });
+    } catch (error) {
+      // The week bars fall back to the swell events without days.
+      console.warn('[swell-outlook] day rows failed', error instanceof Error ? error.message : String(error));
+    }
+  }
 
   if (skillLevel === null) {
     // Carried entries may retain fit from an earlier successful preference read.
