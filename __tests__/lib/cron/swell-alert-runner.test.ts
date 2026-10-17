@@ -198,6 +198,111 @@ describe("runSwellAlertCron", () => {
     expect(deps.markAlertEnqueued).toHaveBeenCalledWith("alert-1", "event-1");
   });
 
+  it("describes a Hawaii peak in the beach's afternoon for a Pacific-profile user", async () => {
+    const pool = evaluation();
+    const beach = { ...pool.candidates[0].beach, state: "HI", timezone: "Pacific/Honolulu" };
+    pool.candidates[0] = {
+      ...pool.candidates[0],
+      beach,
+      event: { ...pool.candidates[0].event, peakAt: "2026-09-19T00:00:00.000Z" },
+      peakDate: "2026-09-18",
+    };
+    const deps = dependencies({ evaluatePool: jest.fn(async () => pool) });
+
+    const result = await runSwellAlertCron({ now: NOW, deps });
+
+    expect(result.sent).toBe(1);
+    const payload = jest.mocked(deps.enqueue).mock.calls[0][0].payload;
+    expect(payload?.body).toMatch(/peak:? Friday afternoon/i);
+  });
+
+  it("uses the beach's day and window hours while retaining the user-zone state date", async () => {
+    const pool = evaluation();
+    const beach = { ...pool.candidates[0].beach, state: "HI", timezone: "Pacific/Honolulu" };
+    pool.candidates[0] = {
+      ...pool.candidates[0],
+      beach,
+      event: { ...pool.candidates[0].event, peakAt: "2026-09-19T08:00:00.000Z" },
+      peakDate: "2026-09-19",
+      window: {
+        start: "2026-09-19T06:00:00.000Z",
+        end: "2026-09-19T09:00:00.000Z",
+        minutes: 180,
+        drivers: [{ kind: "wind", edge: "end", at: "2026-09-19T10:00:00.000Z", approximate: false, label: "onshore" }],
+      },
+    };
+    const deps = dependencies({ evaluatePool: jest.fn(async () => pool) });
+
+    const result = await runSwellAlertCron({ now: NOW, deps });
+
+    expect(result.sent).toBe(1);
+    const payload = jest.mocked(deps.enqueue).mock.calls[0][0].payload;
+    expect(payload?.body).toContain("Your call: Blacks Friday 8–11 PM. Best before the wind picks up around 12 AM.");
+    expect(payload?.body).toMatch(/peak:? Friday evening/i);
+    expect(payload?.peak_date).toBe("2026-09-19");
+    expect(deps.insertAlert).toHaveBeenCalledWith(expect.objectContaining({ peakDate: "2026-09-19" }));
+  });
+
+  it("labels a Saturday Hawaii session separately from a Friday evening peak for a New York user", async () => {
+    const pool = evaluation();
+    const beach = { ...pool.candidates[0].beach, state: "HI", timezone: "Pacific/Honolulu" };
+    pool.candidates[0] = {
+      ...pool.candidates[0],
+      beach,
+      event: { ...pool.candidates[0].event, peakAt: "2026-09-19T04:00:00.000Z" },
+      peakDate: "2026-09-19",
+      window: {
+        start: "2026-09-19T16:20:00.000Z",
+        end: "2026-09-19T20:00:00.000Z",
+        minutes: 220,
+        drivers: [],
+      },
+    };
+    const deps = dependencies({
+      loadProfiles: jest.fn(async () => [profile({ timezone: "America/New_York" })]),
+      evaluatePool: jest.fn(async () => pool),
+    });
+
+    const result = await runSwellAlertCron({ now: new Date("2026-09-17T21:00:00.000Z"), deps });
+
+    expect(result.sent).toBe(1);
+    const payload = jest.mocked(deps.enqueue).mock.calls[0][0].payload;
+    expect(payload?.body).toContain("Your call: Blacks Saturday 6:20–10 AM.");
+    expect(payload?.body).toMatch(/peak:? Friday evening/i);
+    expect(payload?.peak_date).toBe("2026-09-19");
+  });
+
+  it("selects weekday title copy for a Friday beach peak whose user-zone date is Saturday", async () => {
+    const pool = evaluation();
+    const beach = { ...pool.candidates[0].beach, state: "HI", timezone: "Pacific/Honolulu" };
+    pool.candidates[0] = {
+      ...pool.candidates[0],
+      beach,
+      event: { ...pool.candidates[0].event, peakAt: "2026-09-19T04:00:00.000Z" },
+      peakDate: "2026-09-19",
+    };
+    const availableTitleIds = new Set(["s17", "s23"]);
+    const deps = dependencies({
+      loadProfiles: jest.fn(async () => [profile({ timezone: "America/New_York" })]),
+      evaluatePool: jest.fn(async () => pool),
+      loadAlertState: jest.fn(async () => ({
+        eventExists: false,
+        lastAlertAt: null,
+        recentTitleIds: titlePool.swell.filter(({ id }) => !availableTitleIds.has(id)).map(({ id }) => id),
+        recentFilmCount: 0,
+      })),
+    });
+
+    const result = await runSwellAlertCron({ now: new Date("2026-09-17T21:00:00.000Z"), deps });
+
+    expect(result.sent).toBe(1);
+    expect(jest.mocked(deps.enqueue).mock.calls[0][0].payload).toMatchObject({
+      title_id: "s23",
+      title: "A good workday at Blacks",
+      peak_date: "2026-09-19",
+    });
+  });
+
   it("skips users before their local 17:00 send hour", async () => {
     const deps = dependencies();
     const result = await runSwellAlertCron({

@@ -138,6 +138,27 @@ afterEach(() => {
 });
 
 describe("swell alert runner on the swell-events detector", () => {
+  it("preserves the pool beach's timezone through detection and push copy", async () => {
+    const hawaiiBeach = { ...beach, state: "HI", timezone: "Pacific/Honolulu" };
+    jest.mocked(loadUserPool).mockResolvedValue([{ beach: hawaiiBeach, relation: "home", distanceMiles: null }]);
+    const peakAt = "2026-09-20T01:00:00.000Z";
+    const forecasts = SWELL_TOMORROW.map((forecast) => forecast.forecast_at === peakAt
+      ? { ...forecast, swell_1_height: "5.1 ft" }
+      : forecast);
+    const runDeps = deps();
+
+    const result = await runSwellAlertCron({
+      now: NOW,
+      supabase: client(forecasts, { data: [], error: null }),
+      deps: runDeps,
+    });
+
+    expect(result.sent).toBe(1);
+    const payload = jest.mocked(runDeps.enqueue!).mock.calls[0][0].payload;
+    expect(payload?.forecast_at).toBe(peakAt);
+    expect(payload?.body).toMatch(/peak:? Saturday afternoon/i);
+  });
+
   it("ranks the nearest 50 nearby beaches plus home/saved/custom while detecting swells over the full pool", async () => {
     const nearby: PoolBeach[] = Array.from({ length: 60 }, (_, index) => ({
       beach: createMockBeach({ ...beach,

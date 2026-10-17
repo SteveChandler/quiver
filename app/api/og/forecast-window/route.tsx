@@ -1,3 +1,4 @@
+import { jpegResponse } from "@/lib/seo/og-image";
 import { ImageResponse } from "next/og";
 import { NextRequest } from "next/server";
 
@@ -13,9 +14,9 @@ export const revalidate = 0;
 
 const CREAM = "#F5EEDC";
 
-function noStore(response: ImageResponse): ImageResponse {
+async function noStore(response: ImageResponse): Promise<Response> {
   response.headers.set("Cache-Control", "no-store");
-  return response;
+  return jpegResponse(response);
 }
 
 function getBeachNameFontSize(beachName: string): number {
@@ -29,7 +30,7 @@ function renderForecastWindowPoster(
   heroSrc: string,
   appIconSrc: string,
   spaceGroteskData: ArrayBuffer | null,
-): ImageResponse {
+): Promise<Response> {
   const location = (
     metadata.locationLabel?.trim() || "SURF FORECAST"
   ).toUpperCase();
@@ -291,7 +292,7 @@ async function loadSpaceGroteskData(
   }
 }
 
-export async function GET(request: NextRequest): Promise<ImageResponse> {
+export async function GET(request: NextRequest): Promise<Response> {
   const requestUrl = new URL(request.url);
   const assetBaseUrl =
     process.env.NODE_ENV === "production"
@@ -316,14 +317,14 @@ export async function GET(request: NextRequest): Promise<ImageResponse> {
       window: windowValue,
     });
 
-    return renderForecastWindowPoster(
+    return await renderForecastWindowPoster(
       metadata,
       heroSrc,
       appIconSrc,
       spaceGroteskData,
     );
   } catch {
-    return renderForecastWindowPoster(
+    return await renderForecastWindowPoster(
       buildForecastWindowShareMetadata({
         slug: "quiver",
         window: null,

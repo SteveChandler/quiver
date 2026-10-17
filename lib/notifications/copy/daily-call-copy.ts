@@ -58,20 +58,21 @@ export function formatClock12(iso: string, timezone: string): string {
   return `${clockText(parts)} ${parts.meridiem}`;
 }
 
-/** "8–11 AM", "11 AM–2 PM", "6:39–~7:45 AM" (a tilde marks an estimated edge). */
+/** "8 to 11 AM", "11 AM to 2 PM", "6:39 to ~7:45 AM" (a tilde marks an estimated edge). */
 export function formatWindowLabel(
   startIso: string,
   endIso: string,
   timezone: string,
-  options: { approximateStart?: boolean; approximateEnd?: boolean } = {},
+  options: { approximateStart?: boolean; approximateEnd?: boolean; forBody?: boolean } = {},
 ): string {
   const start = clockParts(startIso, timezone);
   const end = clockParts(endIso, timezone);
   const startText = `${options.approximateStart ? "~" : ""}${clockText(start)}`;
   const endText = `${options.approximateEnd ? "~" : ""}${clockText(end)}`;
+  const separator = options.forBody ? "–" : " to ";
   return start.meridiem === end.meridiem
-    ? `${startText}–${endText} ${end.meridiem}`
-    : `${startText} ${start.meridiem}–${endText} ${end.meridiem}`;
+    ? `${startText}${separator}${endText} ${end.meridiem}`
+    : `${startText} ${start.meridiem}${separator}${endText} ${end.meridiem}`;
 }
 
 /** "4–5 ft at 15s WSW", the same height range the app shows. */
