@@ -2,13 +2,15 @@
 jest.mock("next/server", () => require("@/__tests__/setup/mock-next-server"));
 jest.mock("server-only", () => ({}));
 const mockFrom = jest.fn();
+const mockSignedUpload = jest.fn();
+const mockStorageFrom = jest.fn(() => ({ createSignedUploadUrl: mockSignedUpload }));
 const mockServiceFrom = jest.fn();
 const mockAuth = jest.fn();
 const mockProcess = jest.fn();
 jest.mock("@/lib/supabase/server", () => ({ createSupabaseServerClient: () => ({ from: mockFrom, auth: { getUser: mockAuth } }) }));
 jest.mock("@/lib/supabase", () => ({
   ...jest.requireActual("@/lib/supabase"),
-  createServiceRoleClient: () => ({ from: mockServiceFrom }),
+  createServiceRoleClient: () => ({ from: mockServiceFrom, storage: { from: mockStorageFrom } }),
 }));
 jest.mock("@/lib/middleware/api-wrappers/rate-limit-wrapper", () => ({ withRateLimit: (handler: unknown) => handler }));
 jest.mock("@/lib/sessions/imports/process-import", () => ({
@@ -52,6 +54,7 @@ beforeEach(() => {
     query.single.mockImplementation(get);
     return query;
   });
+  mockSignedUpload.mockResolvedValue({ data: { token: "upload-token" }, error: null });
   insert = jest.fn().mockResolvedValue({ error: null });
   mockServiceFrom.mockReturnValue({ insert });
   mockProcess.mockResolvedValue({ status: "completed", sessionId: "session-1", attached: false, summary: { waveCount: 3 } });
@@ -85,6 +88,10 @@ it("creates a server-generated UUID using the service client and preserves the e
   const body = await response.json();
   expect(response.status).toBe(201);
   expect(body.success).toBe(true);
+  expect(body.data.uploadToken).toBe("upload-token");
+  expect(mockStorageFrom).toHaveBeenCalledWith("session-tracks");
+  expect(mockSignedUpload).toHaveBeenCalledWith(body.data.uploadPath);
+  expect(insert.mock.invocationCallOrder[0]).toBeLessThan(mockSignedUpload.mock.invocationCallOrder[0]);
   expect(body.data.importId).toMatch(/^[0-9a-f-]{36}$/);
   const safe = body.data.uploadPath.split("/")[2];
   expect(safe.length).toBeLessThanOrEqual(100);
@@ -200,4 +207,24 @@ it.each([processFile, chooseBeach])("maps a concurrent duplicate with no session
   const response = await handler(request({ beachId }), context);
   expect(response.status).toBe(409);
   expect(await response.json()).toMatchObject({ success: false, error: "duplicate", details: { sessionId: null } });
+});
+
+it("returns a real failure when signed upload creation fails", async () => {
+  const errorLog = jest.spyOn(console, "error").mockImplementation(() => {});
+  mockSignedUpload.mockResolvedValueOnce({ data: null, error: { message: "signing failed" } });
+  try {
+    const response = await create(request({ filename: "surf.fit" }), context);
+    expect(response.status).toBe(500);
+    expect((await response.json()).success).toBe(false);
+    expect(insert).toHaveBeenCalledTimes(1);
+  } finally { errorLog.mockRestore(); }
+});
+
+it("does not issue an upload token if the import insert fails", async () => {
+  const errorLog = jest.spyOn(console, "error").mockImplementation(() => {});
+  insert.mockResolvedValueOnce({ error: { message: "insert failed" } });
+  try {
+    expect((await create(request({ filename: "surf.fit" }), context)).status).toBe(500);
+    expect(mockSignedUpload).not.toHaveBeenCalled();
+  } finally { errorLog.mockRestore(); }
 });

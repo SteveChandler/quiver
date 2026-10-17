@@ -264,10 +264,6 @@ ON CONFLICT (id) DO UPDATE SET public = false, file_size_limit = 10485760,
   allowed_mime_types = ARRAY['application/octet-stream', 'application/gpx+xml', 'text/xml', 'application/xml', 'application/zip', 'application/x-zip-compressed'];
 
 DROP POLICY IF EXISTS "Users can upload their own session tracks" ON storage.objects;
-CREATE POLICY "Users can upload their own session tracks" ON storage.objects
-FOR INSERT TO authenticated WITH CHECK (
-  bucket_id = 'session-tracks' AND (storage.foldername(name))[2] = (select auth.uid())::text
-);
 DROP POLICY IF EXISTS "Users can read their own session tracks" ON storage.objects;
 CREATE POLICY "Users can read their own session tracks" ON storage.objects
 FOR SELECT TO authenticated USING (

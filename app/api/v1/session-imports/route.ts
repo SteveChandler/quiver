@@ -23,9 +23,12 @@ export const POST = withNoStore(withRateLimit(withAuth(async (request, { user })
   if (!parsed.success) return createErrorResponse("invalid_filename", undefined, 400);
   const importId = randomUUID();
   const uploadPath = `${importId}/${user.id}/${safeFilename(parsed.data.filename)}`;
-  const { error } = await createServiceRoleClient().from("session_imports").insert({
+  const service = createServiceRoleClient();
+  const { error } = await service.from("session_imports").insert({
     id: importId, user_id: user.id, storage_path: uploadPath, original_filename: parsed.data.filename,
   });
   if (error) throw new Error(error.message);
-  return createSuccessResponse({ importId, uploadPath }, 201);
+  const { data: upload, error: uploadError } = await service.storage.from("session-tracks").createSignedUploadUrl(uploadPath);
+  if (uploadError || !upload) throw new Error(uploadError?.message ?? "Failed to sign upload");
+  return createSuccessResponse({ importId, uploadPath, uploadToken: upload.token }, 201);
 }, { errorMessage: "Failed to create session import" }), "authenticated-default"));

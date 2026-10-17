@@ -122,13 +122,12 @@ export function useSessionImport(): {
 
     setState({ phase: "uploading" });
     try {
-      const created = await postImport<{ importId: string; uploadPath: string }>(
+      const created = await postImport<{ importId: string; uploadPath: string; uploadToken: string }>(
         "/api/v1/session-imports", { filename: file.name },
       );
       importIdRef.current = created.importId;
-      const { error } = await createClient().storage.from("session-tracks").upload(created.uploadPath, file, {
+      const { error } = await createClient().storage.from("session-tracks").uploadToSignedUrl(created.uploadPath, created.uploadToken, file, {
         contentType: contentTypeFor(file.name),
-        upsert: false,
       });
       if (error) throw error;
 

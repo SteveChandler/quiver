@@ -12,7 +12,7 @@ const mockUseDataFetcher = jest.fn();
 jest.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 jest.mock("sonner", () => ({ toast: { success: (...args: unknown[]) => successToast(...args) } }));
 jest.mock("@/lib/supabase/client", () => ({
-  createClient: () => ({ storage: { from: () => ({ upload }) } }),
+  createClient: () => ({ storage: { from: () => ({ uploadToSignedUrl: upload }) } }),
 }));
 jest.mock("@/context/auth-context", () => ({
   useAuth: () => ({ user: { id: "user-1" }, isLoading: false }),
@@ -58,7 +58,7 @@ beforeEach(() => {
 describe("UploadSurfButton", () => {
   it("uploads to session-tracks and navigates after processing", async () => {
     const fetchMock = jest.fn()
-      .mockResolvedValueOnce(envelope({ importId: "import-1", uploadPath: "import-1/user-1/surf.gpx" }, 201))
+      .mockResolvedValueOnce(envelope({ importId: "import-1", uploadToken: "upload-token", uploadPath: "import-1/user-1/surf.gpx" }, 201))
       .mockResolvedValueOnce(envelope({ status: "completed", sessionId: "session-1", attached: true, summary: { waveCount: 4 } }))
       .mockResolvedValueOnce(envelope({ session: { beach_name: "Pipes", arrival_time: "2026-10-17T12:00:00" } }));
     global.fetch = fetchMock;
@@ -67,8 +67,8 @@ describe("UploadSurfButton", () => {
     await selectFile();
 
     await waitFor(() => expect(push).toHaveBeenCalledWith("/sessions/session-1"));
-    expect(upload).toHaveBeenCalledWith("import-1/user-1/surf.gpx", expect.any(File), {
-      contentType: "application/gpx+xml", upsert: false,
+    expect(upload).toHaveBeenCalledWith("import-1/user-1/surf.gpx", "upload-token", expect.any(File), {
+      contentType: "application/gpx+xml",
     });
     expect(successToast).toHaveBeenCalledWith("Added 4 waves to your Oct 17 session at Pipes");
     expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/v1/session-imports", expect.objectContaining({
@@ -79,7 +79,7 @@ describe("UploadSurfButton", () => {
 
   it("shows candidate beaches, then posts the chosen beach", async () => {
     const fetchMock = jest.fn()
-      .mockResolvedValueOnce(envelope({ importId: "import-2", uploadPath: "import-2/user-1/surf.fit" }, 201))
+      .mockResolvedValueOnce(envelope({ importId: "import-2", uploadToken: "upload-token", uploadPath: "import-2/user-1/surf.fit" }, 201))
       .mockResolvedValueOnce(envelope({ status: "needs_beach", importId: "import-2", candidates: [{ id: "pipes", name: "Pipes", lat: 1, lon: 2, swellWindowCenterDeg: null }] }, 202))
       .mockResolvedValueOnce(envelope({ status: "completed", sessionId: "session-2", attached: false, summary: { waveCount: 2 } }))
       .mockResolvedValueOnce(envelope({ session: { beach_name: "Pipes", arrival_time: "2026-10-17T12:00:00" } }));
@@ -91,8 +91,8 @@ describe("UploadSurfButton", () => {
     await userEvent.click(screen.getByRole("button", { name: "Pipes" }));
 
     await waitFor(() => expect(push).toHaveBeenCalledWith("/sessions/session-2"));
-    expect(upload).toHaveBeenCalledWith("import-2/user-1/surf.fit", expect.any(File), {
-      contentType: "application/octet-stream", upsert: false,
+    expect(upload).toHaveBeenCalledWith("import-2/user-1/surf.fit", "upload-token", expect.any(File), {
+      contentType: "application/octet-stream",
     });
     expect(fetchMock).toHaveBeenNthCalledWith(3, "/api/v1/session-imports/import-2/beach", expect.objectContaining({
       method: "POST", body: JSON.stringify({ beachId: "pipes" }),
@@ -102,21 +102,21 @@ describe("UploadSurfButton", () => {
 
   it("shows the no GPS error", async () => {
     global.fetch = jest.fn()
-      .mockResolvedValueOnce(envelope({ importId: "import-3", uploadPath: "import-3/user-1/surf.zip" }, 201))
+      .mockResolvedValueOnce(envelope({ importId: "import-3", uploadToken: "upload-token", uploadPath: "import-3/user-1/surf.zip" }, 201))
       .mockResolvedValueOnce(errorEnvelope("no_gps", 422));
 
     render(<UploadSurfButton enabled />);
     await selectFile("surf.zip");
     expect(await screen.findByText("This file has no GPS track.")).toBeInTheDocument();
-    expect(upload).toHaveBeenCalledWith("import-3/user-1/surf.zip", expect.any(File), {
-      contentType: "application/zip", upsert: false,
+    expect(upload).toHaveBeenCalledWith("import-3/user-1/surf.zip", "upload-token", expect.any(File), {
+      contentType: "application/zip",
     });
     expect(push).not.toHaveBeenCalled();
   });
 
   it("links to the existing session on a duplicate", async () => {
     global.fetch = jest.fn()
-      .mockResolvedValueOnce(envelope({ importId: "import-4", uploadPath: "import-4/user-1/surf.fit" }, 201))
+      .mockResolvedValueOnce(envelope({ importId: "import-4", uploadToken: "upload-token", uploadPath: "import-4/user-1/surf.fit" }, 201))
       .mockResolvedValueOnce(errorEnvelope("duplicate", 409, { sessionId: "existing-session" }));
 
     render(<UploadSurfButton enabled />);
@@ -143,7 +143,7 @@ describe("UploadSurfButton", () => {
   });
 
   it("shows friendly copy for a storage upload failure", async () => {
-    global.fetch = jest.fn().mockResolvedValueOnce(envelope({ importId: "import-5", uploadPath: "import-5/user-1/surf.gpx" }, 201));
+    global.fetch = jest.fn().mockResolvedValueOnce(envelope({ importId: "import-5", uploadToken: "upload-token", uploadPath: "import-5/user-1/surf.gpx" }, 201));
     upload.mockResolvedValueOnce({ error: new Error("StorageApiError: row violates storage policy") });
 
     render(<UploadSurfButton enabled />);
@@ -183,7 +183,7 @@ describe("UploadSurfButton", () => {
 
   it("keeps the beach choices after a failed selection and retries without re-uploading", async () => {
     const fetchMock = jest.fn()
-      .mockResolvedValueOnce(envelope({ importId: "import-6", uploadPath: "import-6/user-1/surf.gpx" }, 201))
+      .mockResolvedValueOnce(envelope({ importId: "import-6", uploadToken: "upload-token", uploadPath: "import-6/user-1/surf.gpx" }, 201))
       .mockResolvedValueOnce(envelope({ status: "needs_beach", importId: "import-6", candidates: [{ id: "pipes", name: "Pipes", lat: 1, lon: 2, swellWindowCenterDeg: null }] }, 202))
       .mockResolvedValueOnce(errorEnvelope("internal_error", 500))
       .mockResolvedValueOnce(envelope({ status: "completed", sessionId: "session-6", attached: false, summary: { waveCount: 3 } }))

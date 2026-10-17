@@ -7,6 +7,13 @@ const migration = readFileSync(
 );
 
 describe("session waves trigger migration", () => {
+  it("requires the core tables before replacing any functions", () => {
+    const preamble = migration.slice(0, migration.indexOf("CREATE OR REPLACE FUNCTION"));
+    expect(preamble).toContain("to_regclass('public.session_tracks') IS NULL");
+    expect(preamble).toContain("to_regclass('public.session_imports') IS NULL");
+    expect(preamble).toContain("RAISE EXCEPTION 'apply 20261018090000_session_waves_core.sql first'");
+  });
+
   it("defines the historical file import cutoff", () => {
     expect(migration).toMatch(/^BEGIN;$/m);
     expect(migration.trimEnd()).toMatch(/COMMIT;$/);
@@ -50,6 +57,7 @@ describe("session waves trigger migration", () => {
     expect(migration).toMatch(/CREATE OR REPLACE FUNCTION public\.delete_user_account\(p_user_id uuid\)/i);
     expect(migration).toMatch(/UPDATE public\.session_tracks SET purge_requested_at = now\(\) WHERE user_id = p_user_id AND purge_requested_at IS NULL;/);
     expect(migration).toMatch(/UPDATE public\.session_imports SET purge_requested_at = now\(\) WHERE user_id = p_user_id AND purge_requested_at IS NULL;/);
+    expect(migration).toContain("DELETE FROM public.session_waves WHERE user_id = p_user_id;");
     expect(migration).toMatch(/DELETE FROM public\.session_wave_corrections WHERE user_id = p_user_id;/);
     expect(migration).toMatch(/PERFORM public\.erase_regional_recommendation_hold_operator_v1\(p_user_id\)/);
   });

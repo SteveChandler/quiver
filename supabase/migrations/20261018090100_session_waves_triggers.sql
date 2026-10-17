@@ -1,5 +1,12 @@
 BEGIN;
 
+DO $$
+BEGIN
+  IF to_regclass('public.session_tracks') IS NULL OR to_regclass('public.session_imports') IS NULL THEN
+    RAISE EXCEPTION 'apply 20261018090000_session_waves_core.sql first';
+  END IF;
+END $$;
+
 CREATE OR REPLACE FUNCTION public.is_historical_file_import(p_source text, p_arrival timestamptz, p_duration_minutes int, p_as_of timestamptz DEFAULT now())
 RETURNS boolean
 LANGUAGE sql STABLE SET search_path = public, pg_temp AS $$
@@ -123,6 +130,7 @@ BEGIN
   UPDATE public.session_tracks SET purge_requested_at = now() WHERE user_id = p_user_id AND purge_requested_at IS NULL;
   UPDATE public.session_imports SET purge_requested_at = now() WHERE user_id = p_user_id AND purge_requested_at IS NULL;
   DELETE FROM public.session_wave_corrections WHERE user_id = p_user_id;
+  DELETE FROM public.session_waves WHERE user_id = p_user_id;
 
   UPDATE comments
   SET content = '[deleted]',

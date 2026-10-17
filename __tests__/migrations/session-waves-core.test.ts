@@ -58,6 +58,13 @@ describe("session waves core migration", () => {
     expect(sql).toContain("revoke insert (user_id, storage_path, original_filename) on public.session_imports from public, anon, authenticated;");
   });
 
+  it("removes direct storage uploads while preserving owner reads", () => {
+    const sql = normalizedSql();
+    expect(sql).toContain('drop policy if exists "users can upload their own session tracks" on storage.objects;');
+    expect(sql).not.toContain('create policy "users can upload their own session tracks"');
+    expect(sql).toContain('create policy "users can read their own session tracks"');
+  });
+
   it("requires the correction owner to own its session for insert and delete", () => {
     const sql = normalizedSql();
 
@@ -110,7 +117,7 @@ describe("session waves core migration", () => {
     const sql = normalizedSql();
 
     const policies = [...sql.matchAll(/create policy ("[^"]+"|\w+) on ([\w.]+)/g)];
-    expect(policies).toHaveLength(8);
+    expect(policies).toHaveLength(7);
     for (const match of policies) {
       expect(sql).toContain(`drop policy if exists ${match[1]} on ${match[2]};`);
     }
@@ -122,7 +129,7 @@ describe("session waves core migration", () => {
     );
 
     const storagePolicies = [...sql.matchAll(/create policy "users can (?:upload|read) their own session tracks"[^;]+;/g)];
-    expect(storagePolicies).toHaveLength(2);
+    expect(storagePolicies).toHaveLength(1);
     for (const match of storagePolicies) {
       expect(match[0]).toContain("(storage.foldername(name))[2] = (select auth.uid())::text");
     }
