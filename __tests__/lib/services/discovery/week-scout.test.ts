@@ -411,6 +411,7 @@ describe('generateWeekScoutForecast', () => {
     const profiles = [
       { name: '3-hourly morning peak', hours: ['05:00', '08:00', '11:00', '14:00'], scores: [0, 90, 70, 70] },
       { name: 'hourly, display crosses midday', hours: hourly, scores: [30, 30, 30, 30, 80, 70, 75, 85, 40, 40, 40, 40, 40] },
+      { name: 'live midday row beats the next one', hours: ['07:00', '09:00', '10:00', '12:00'], scores: [80, 80, 70, 30] },
     ];
     // Native `windowHasClosed` (canonical-week-scout.ts): a slot closes at its display end.
     const appReadsClosed = (window: { displayWindowEnd: string; end: string }, now: Date): boolean => (
@@ -486,6 +487,23 @@ describe('generateWeekScoutForecast', () => {
       expect(morning).toMatchObject({ start: time('09:00').toISOString(), conditionScore: 80 });
       expect(Date.parse(morning!.displayWindowStart)).toBeLessThan(time('10:00').getTime());
       expect(Date.parse(morning!.displayWindowEnd)).toBeLessThanOrEqual(Date.parse(midday!.displayWindowStart));
+    });
+
+    it('grades an underway midday session from the live 10:00 row, not the later 12:00 row', async () => {
+      const bands = [];
+      for (const clock of ['10:20', '11:30']) {
+        const now = time(clock);
+        const { response } = await generate(profiles[2], clock);
+        const midday = response.days[0].windows.find(({ bucket }) => bucket === 'midday');
+        expect({ clock, ...midday }).toMatchObject({ clock, start: time('10:00').toISOString(), conditionScore: 70 });
+        expect(Date.parse(midday!.peakTime)).toBeGreaterThanOrEqual(now.getTime());
+        // Underway: the card reads "Now until …", not "Starts 10:45".
+        expect(Date.parse(midday!.displayWindowStart)).toBeLessThanOrEqual(now.getTime());
+        expect(Date.parse(midday!.displayWindowEnd)).toBeGreaterThan(now.getTime());
+        bands.push([midday!.displayWindowStart, midday!.displayWindowEnd]);
+      }
+      // The band holds still while the same row stays live.
+      expect(bands[1]).toEqual(bands[0]);
     });
   });
 
