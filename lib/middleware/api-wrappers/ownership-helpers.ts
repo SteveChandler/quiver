@@ -16,6 +16,14 @@ type OwnershipResult =
   | { ok: true }
   | { error: NextResponse };
 
+type Tables = Database["public"]["Tables"];
+type OwnedResourceTable = {
+  [Name in keyof Tables]: Tables[Name]["Row"] extends {
+    id: string;
+    user_id: string | null;
+  } ? Name : never;
+}[keyof Tables];
+
 /**
  * Checks if a user owns a resource by querying the database.
  *
@@ -46,7 +54,7 @@ type OwnershipResult =
  */
 export async function requireOwnership(
   supabase: SupabaseClient<Database>,
-  table: keyof Database["public"]["Tables"],
+  table: OwnedResourceTable,
   resourceId: string,
   userId: string,
   resourceName: string = "Resource"
