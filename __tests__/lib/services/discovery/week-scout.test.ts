@@ -44,6 +44,7 @@ import { calculateDistanceInMiles } from '@/lib/utils/distance-utils';
 import { deriveDisplayWindow } from '@/lib/services/discovery/window-authority';
 import type { WindowSelectorOptions } from '@/lib/services/discovery/window-selector/types';
 import { localDateTimeToUTC } from '@/lib/utils/forecast-time-resolver';
+import { scoreWindowForSelection } from '@/lib/services/discovery/window-selector/window-scorer';
 
 const BEACH_A = '11111111-1111-4111-8111-111111111111';
 const BEACH_B = '22222222-2222-4222-8222-222222222222';
@@ -325,6 +326,118 @@ describe('generateWeekScoutForecast', () => {
     expect(window.conditionScore).toBe(score);
     expect(window.rankingScore).toBe(82);
     expect(deps.fetchMatchEvidence).toHaveBeenCalledTimes(1);
+  });
+
+  it('opts into row liveness so the 08:00 morning bucket remains open at 09:16', async () => {
+    const deps = dependencies();
+    deps.now = new Date('2026-07-31T19:16:00.000Z'); // 09:16 Honolulu
+    const rows = ['15:00', '18:00'].map((time) => (
+      forecast(BEACH_A, `2026-07-31T${time}:00.000Z`)
+    ));
+    deps.fetchBeaches = jest.fn(async () => [beach(BEACH_A, 'Ala Moana')]);
+    deps.fetchForecasts = jest.fn(async () => new Map([[BEACH_A, rows]]));
+    const actual = jest.requireActual('@/lib/services/discovery/window-selector/window-selector-core');
+    const selector = jest.fn((options: WindowSelectorOptions) => actual.selectBestWindows(options));
+    deps.selectBestWindows = selector as unknown as WeekScoutServiceDependencies['selectBestWindows'];
+
+    const response = await generateWeekScoutForecastForDays('user-week-scout', {
+      candidateBeachIds: [BEACH_A], localTimezone: 'Pacific/Honolulu',
+      startLocalDate: '2026-07-31', dayCount: 1,
+    }, deps);
+
+    const morning = response.days[0].windows.find(({ bucket }) => bucket === 'morning');
+    expect(morning).toMatchObject({ bucket: 'morning', start: rows[1].forecast_at });
+    expect(new Date(morning!.end).getTime()).toBeGreaterThan(deps.now.getTime());
+    expect(new Date(morning!.displayWindowEnd).getTime()).toBeGreaterThan(deps.now.getTime());
+    expect(selector).toHaveBeenCalledWith(expect.objectContaining({
+      rowLiveness: 'until-next-row', now: deps.now,
+    }));
+  });
+
+  it.each(['Pacific/Honolulu', 'America/Los_Angeles'].flatMap((timezone) => (
+    [[70, 70, 70, 70], [0, 70, 70, 70], [0, 90, 70, 70]].map((scores) => ({ timezone, scores }))
+  )))(
+    'returns populated, live morning and midday slots at 09:16 in $timezone with scores $scores',
+    async ({ timezone, scores }) => {
+      const localDate = '2026-10-16';
+      const time = (value: string): Date => localDateTimeToUTC(localDate, `${value}:00`, timezone);
+      const deps = dependencies();
+      deps.now = time('09:16');
+      const candidateBeach = { ...beach(BEACH_A, 'Morning Beach'), timezone };
+      const rows = ['05:00', '08:00', '11:00', '14:00'].map((value, index) => ({
+        ...forecast(BEACH_A, time(value).toISOString()),
+        wave_height: scores[index] === 0 ? '0' : String(1 + (scores[index] - 52) / 18),
+        wave_period: '13s', wind_speed: '0', tide_height: null, tide_status: null,
+      }));
+      expect(rows.map((row) => scoreWindowForSelection(row, candidateBeach))).toEqual(scores);
+      deps.fetchBeaches = jest.fn(async () => [candidateBeach]);
+      deps.fetchForecasts = jest.fn(async () => new Map([[BEACH_A, rows]]));
+      deps.fetchSunTimes = jest.fn(async () => new Map([[BEACH_A, {
+        sunrises: [time('06:30')], sunsets: [time('18:30')],
+      }]]));
+      deps.selectBestWindows = jest.requireActual('@/lib/services/discovery/window-selector/window-selector-core').selectBestWindows;
+      deps.scoreWindowCondition = (row, candidate, skill, boards) => (
+        scoreWindowForSelection(row, candidate, null, skill, boards)
+      );
+
+      const response = await generateWeekScoutForecastForDays('user-week-scout', {
+        candidateBeachIds: [BEACH_A], localTimezone: timezone,
+        startLocalDate: localDate, dayCount: 1,
+      }, deps);
+      const morning = response.days[0].windows.filter(({ bucket }) => bucket === 'morning');
+      expect(morning).toHaveLength(1);
+      expect(morning[0]).toMatchObject({
+        start: time('08:00').toISOString(), end: time('12:00').toISOString(),
+        peakTime: time('11:00').toISOString(), rankingScore: 82,
+      });
+      expect(Date.parse(morning[0].start)).toBeLessThan(deps.now.getTime());
+      expect(Date.parse(morning[0].end)).toBeGreaterThan(deps.now.getTime());
+      expect(Date.parse(morning[0].displayWindowEnd)).toBeGreaterThan(deps.now.getTime());
+      expect(response.recommendationAvailability).toMatchObject({ state: 'available' });
+      expect(response.coverage?.days[0].buckets.find(({ bucket }) => bucket === 'morning'))
+        .toMatchObject({ evaluated: 1, noWindow: 0, missing: 0 });
+      expect(response.days[0].windows.filter(({ bucket }) => bucket === 'midday'))
+        .toEqual([expect.objectContaining({ start: time('11:00').toISOString() })]);
+    },
+  );
+
+  it.each(['Pacific/Honolulu', 'America/Los_Angeles'].flatMap((timezone) => (
+    [[70, 70, 47, 47, 47], [65, 65, 45, 45, 45]].map((scores) => ({ timezone, scores }))
+  )))('keeps the real future-day morning winner recommendable for $scores in $timezone', async ({ timezone, scores }) => {
+    const date = '2026-10-18';
+    const time = (value: string, day = date): Date => localDateTimeToUTC(day, `${value}:00`, timezone);
+    const deps = dependencies();
+    deps.now = time('09:16', '2026-10-16');
+    const candidateBeach = { ...beach(BEACH_A, 'Future Beach'), timezone };
+    const rows = ['05:00', '08:00', '11:00', '14:00', '17:00'].map((value, index) => {
+      const score = scores[index];
+      return {
+        ...forecast(BEACH_A, time(value).toISOString()),
+        wave_height: String(1 + (score - (score >= 52 ? 52 : 7)) / 18),
+        wave_period: score >= 52 ? '13s' : '0s', wind_speed: score >= 52 ? '0' : '14',
+        tide_height: null, tide_status: null,
+      };
+    });
+    expect(rows.map((row) => scoreWindowForSelection(row, candidateBeach))).toEqual(scores);
+    deps.fetchBeaches = jest.fn(async () => [candidateBeach]);
+    deps.fetchForecasts = jest.fn(async () => new Map([[BEACH_A, rows]]));
+    deps.fetchSunTimes = jest.fn(async () => new Map([[BEACH_A, {
+      sunrises: [time('06:40')], sunsets: [time('18:20')],
+    }]]));
+    deps.selectBestWindows = jest.requireActual('@/lib/services/discovery/window-selector/window-selector-core').selectBestWindows;
+    deps.scoreWindowCondition = (row, candidate, skill, boards) => (
+      scoreWindowForSelection(row, candidate, null, skill, boards)
+    );
+    const response = await generateWeekScoutForecastForDays('user-week-scout', {
+      candidateBeachIds: [BEACH_A], localTimezone: timezone, startLocalDate: date, dayCount: 1,
+    }, deps);
+    const day = response.days[0];
+    expect(day.windows).toEqual([expect.objectContaining({
+      bucket: 'morning', start: time('06:10').toISOString(), isBeachDayBest: true,
+    })]);
+    expect(day.bestWindowId).toBe(day.windows[0].id);
+    expect(day.windows[0].verdict).not.toBe('skip');
+    expect(day.exclusionReasons).toEqual([]);
   });
 
   it('reuses canonical scoring for a two-day weekend request', async () => {
@@ -747,7 +860,7 @@ describe('generateWeekScoutForecast', () => {
       && day.exclusionReasons[0] === 'no_forecasts'
     ))).toBe(true);
 
-    expect(deps.selectBestWindows).toHaveBeenCalledTimes(2);
+    expect(deps.selectBestWindows).toHaveBeenCalledTimes(6);
     expect((deps.selectBestWindows as jest.Mock).mock.calls.every(
       ([options]: [WindowSelectorOptions]) => options.forecasts.length === 3,
     )).toBe(true);
@@ -786,7 +899,7 @@ describe('generateWeekScoutForecast', () => {
       dayCount: 1,
     }, deps);
 
-    expect(deps.selectBestWindows).toHaveBeenCalledTimes(1);
+    expect(deps.selectBestWindows).toHaveBeenCalledTimes(3);
     const day = response.days[0];
     const morning = day.windows.find(({ bucket }) => bucket === 'morning');
     const evening = day.windows.find(({ bucket }) => bucket === 'evening');
