@@ -479,3 +479,82 @@ describe('Magic Hour Finder Service', () => {
     });
   });
 });
+
+describe('Magic Hour unknown wind is neutral', () => {
+  const beach: BeachMetadata = {
+    id: 'wind-beach',
+    name: 'Wind Beach',
+    slug: 'wind-beach',
+    skill_level: null,
+    swell_window_center_deg: null,
+    swell_window_halfwidth_deg: null,
+    wind_offshore_deg: 90,
+    wind_offshore_tol_deg: 20,
+    preferred_tide_ft_min: 2,
+    preferred_tide_ft_max: 4,
+  };
+  // Tide 2.5 ft is half-way out of the 2-4 ft range: tide score 0.5, swell score 1.
+  const slot = (windSpeed: number | null, windDir: number | null, tide = 2.5): ForecastSlot => ({
+    forecast_date: '2025-01-07',
+    forecast_time: '09:00:00',
+    local_time: new Date('2025-01-07T09:00:00Z'),
+    tide_height_ft: tide,
+    wind_speed_mph: windSpeed,
+    wind_direction_deg: windDir,
+    wave_height_ft: 4,
+    wave_period_s: 12,
+    wave_direction_deg: 270,
+  });
+  const withoutWind = (0.4 * 0.5 + 0.25 * 1) / (0.4 + 0.25);
+
+  it('returns no score for a wind it cannot judge', () => {
+    expect(calculateWindScore(null, 90, 20)).toBeNull();
+    expect(calculateWindScore(90, null, 20)).toBeNull();
+    expect(calculateWindScore(90, 90, 20)).toBe(1);
+  });
+
+  it.each([
+    ['missing speed', null, 90, beach],
+    ['missing direction', 12, null, beach],
+    ['missing orientation', 12, 90, { ...beach, wind_offshore_deg: null }],
+  ])('leaves wind out of the confidence and the label for %s', (_label, speed, dir, b) => {
+    const result = findWeightedPeak([slot(speed, dir)], b)!;
+    expect(result.windQuality).toBeNull();
+    expect(result.confidence).toBeCloseTo(withoutWind, 10);
+  });
+
+  it('is not lower than a known-offshore wind on the parts wind does not touch', () => {
+    const unknown = findWeightedPeak([slot(null, null)], beach)!;
+    const offshore = findWeightedPeak([slot(10, 90)], beach)!;
+    expect(unknown.confidence).toBeGreaterThanOrEqual(withoutWind - 1e-12);
+    expect(offshore.windQuality).toBe('perfect');
+    expect(offshore.confidence).toBeCloseTo(0.4 * 0.5 + 0.35 + 0.25, 10);
+  });
+
+  it('does not pick a slot because its wind is unknown over a better known slot', () => {
+    const slots = [
+      { ...slot(null, null, 3), local_time: new Date('2025-01-07T09:00:00Z') },
+      { ...slot(10, 90, 3), local_time: new Date('2025-01-07T12:00:00Z') },
+    ];
+    // Both score 1 on tide and swell; known perfect wind ties, first wins.
+    expect(findWeightedPeak(slots, beach)!.confidence).toBeCloseTo(1, 10);
+  });
+
+  it('resolves an aspect-only beach through the shared orientation rule', () => {
+    const aspectOnly = { ...beach, wind_offshore_deg: null, wind_offshore_tol_deg: null, aspect_deg: 270 };
+    expect(findWeightedPeak([slot(10, 90)], aspectOnly)!.windQuality).toBe('perfect');
+    expect(findWeightedPeak([slot(10, 270)], aspectOnly)!.windQuality).toBe('onshore');
+  });
+
+  it('keeps a real calm as known without inventing a direction label', () => {
+    const result = findWeightedPeak([slot(2, null)], beach)!;
+    expect(result.windQuality).toBeNull();
+    expect(result.confidence).toBeCloseTo(0.4 * 0.5 + 0.35 + 0.25, 10);
+  });
+
+  it('keeps known onshore wind lowering the result', () => {
+    const onshore = findWeightedPeak([slot(10, 270)], beach)!;
+    expect(onshore.windQuality).toBe('onshore');
+    expect(onshore.confidence).toBeCloseTo(0.4 * 0.5 + 0.35 * 0.1 + 0.25, 10);
+  });
+});

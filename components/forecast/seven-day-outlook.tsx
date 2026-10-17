@@ -23,7 +23,7 @@ interface SevenDayOutlookProps {
 }
 
 function daySubtitle(
-  windConditions: "offshore" | "light" | "onshore",
+  windConditions: "offshore" | "light" | "onshore" | "unknown",
   score: number,
 ): string {
   if (scoreLabel(score) === "EPIC")
@@ -39,6 +39,15 @@ function daySubtitle(
   return windConditions === "onshore"
     ? "Call it a no."
     : "Marginal — longboard day.";
+}
+
+function windLabel(
+  windConditions: "offshore" | "light" | "onshore" | "unknown",
+): string | null {
+  if (windConditions === "offshore") return "offshore";
+  if (windConditions === "light") return "light wind";
+  if (windConditions === "onshore") return "onshore";
+  return null;
 }
 
 function trendIcon(
@@ -241,15 +250,13 @@ export function SevenDayOutlook({
                   >
                     {waves}
                   </span>
-                  <span
-                    className={`font-mono text-xs uppercase tracking-wide ${isZine ? "text-[#11100D]/65" : "text-white/55"}`}
-                  >
-                    {day.windConditions === "offshore"
-                      ? "offshore"
-                      : day.windConditions === "light"
-                        ? "light wind"
-                        : "onshore"}
-                  </span>
+                  {windLabel(day.windConditions) ? (
+                    <span
+                      className={`font-mono text-xs uppercase tracking-wide ${isZine ? "text-[#11100D]/65" : "text-white/55"}`}
+                    >
+                      {windLabel(day.windConditions)}
+                    </span>
+                  ) : null}
                 </div>
                 {recommendationsAvailable ? (
                   <div

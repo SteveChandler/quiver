@@ -21,6 +21,7 @@ const REGION: ForecastRegion = {
 
 function makeSummary(
   availability: "available" | "none" = "available",
+  firstDayWind: "offshore" | "light" | "onshore" | "unknown" = "offshore",
 ): RegionalForecastSummary {
   const days = [
     {
@@ -31,7 +32,7 @@ function makeSummary(
       avgWaveHeight: 3.5,
       waveRange: [3, 4] as [number, number],
       dominantWindDirection: "E",
-      windConditions: "offshore" as const,
+      windConditions: firstDayWind,
       dominantTideStatus: "Rising",
       bestTimeSlot: "dawn-patrol" as const,
       topBeaches: [],
@@ -150,5 +151,30 @@ describe("SevenDayOutlook", () => {
     ).not.toBeInTheDocument();
     expect(screen.getByText(/rising tide/i)).toBeVisible();
     expect(screen.getByText(/falling tide/i)).toBeVisible();
+  });
+
+  it("shows no wind label and no onshore copy for a day with unknown wind", () => {
+    render(
+      <SevenDayOutlook
+        summary={makeSummary("available", "unknown")}
+        regionName={REGION.name}
+        variant="zine"
+      />,
+    );
+
+    const row = screen.getByTestId("outlook-day-0");
+    expect(row.textContent ?? "").not.toMatch(/onshore|offshore|light wind|wind-chopped|call it a no/i);
+  });
+
+  it("still labels a known onshore day", () => {
+    render(
+      <SevenDayOutlook
+        summary={makeSummary("available", "onshore")}
+        regionName={REGION.name}
+        variant="zine"
+      />,
+    );
+
+    expect(screen.getByTestId("outlook-day-0").textContent ?? "").toMatch(/onshore/i);
   });
 });

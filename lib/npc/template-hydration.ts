@@ -7,6 +7,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/database';
 import { describeTimeOfDay } from './posting-windows';
 import { parseWaterTemp } from './forecast-formatter';
+import { parseWindSpeedOrNull } from '@/lib/utils/number-parsing';
 
 interface SurfConditions {
   waveHeight: number | null;
@@ -62,7 +63,8 @@ export async function fetchSurfConditions(
   return {
     waveHeight: parseFloat(String(forecast?.wave_height || 0)) || null,
     wavePeriod: parseFloat(String(forecast?.wave_period || 0)) || null,
-    windSpeed: parseFloat(String(forecast?.wind_speed || 0)) || null,
+    // A real 0 mph is calm; a missing reading is unknown. Keep them apart.
+    windSpeed: parseWindSpeedOrNull(forecast?.wind_speed),
     windDirection: forecast?.wind_direction || null,
     tideHeight: parseFloat(String(forecast?.tide_height || '')) || null,
     tideStatus: forecast?.tide_status || null,
@@ -99,14 +101,15 @@ function describePeriod(period: number | null): string {
  * Describe wind conditions
  */
 function describeWind(speed: number | null, direction: string | null): string {
-  if (!speed || speed <= 2) return 'glassy conditions';
+  if (speed === null) return 'conditions as they come';
+  if (speed <= 2) return 'glassy conditions';
   const rounded = Math.round(speed);
   let intensity: string;
   if (rounded <= 6) intensity = 'light';
   else if (rounded <= 12) intensity = 'moderate';
   else intensity = 'breezy';
-  const dir = direction?.toUpperCase() || '';
-  return `${intensity} ${dir} winds around ${rounded}kts`.trim();
+  const dir = direction?.trim().toUpperCase();
+  return [intensity, dir, `winds around ${rounded}kts`].filter(Boolean).join(' ');
 }
 
 /**

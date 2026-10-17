@@ -49,14 +49,13 @@ export function ConditionsOverview({
     () => enrichDaySummaries(
       horizonDaySummaries,
       forecasts,
-      beach.wind_offshore_deg,
+      beach,
       beachTimezone ?? beach.timezone,
     ),
     [
       horizonDaySummaries,
       forecasts,
-      beach.wind_offshore_deg,
-      beach.timezone,
+      beach,
       beachTimezone,
     ]
   );

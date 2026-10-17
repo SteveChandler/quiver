@@ -174,7 +174,8 @@ describe("ConditionsOverview", () => {
     expect(mockEnrichDaySummaries).toHaveBeenCalledWith(
       [],
       mockForecasts,
-      undefined,
+      // The beach itself, so aspect-only beaches resolve their orientation.
+      beach,
       "America/Los_Angeles",
     );
   });
