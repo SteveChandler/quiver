@@ -22,6 +22,7 @@ import { trackPublicPageView } from "@/lib/analytics";
 import { PublicContentGate } from "@/components/ui/public-content-gate";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { QuiverSticker, ZineSurface } from "@/components/zine";
+import { UploadSurfButton } from "@/components/sessions/import/upload-surf-button";
 
 type SessionFeedItem = {
   id: string;
@@ -37,6 +38,13 @@ type SessionFeedItem = {
   rating?: number | null;
   authorName?: string | null;
   authorAvatar?: string | null;
+  hasTrack?: boolean;
+};
+
+type SessionListData = {
+  sessions: SessionFeedItem[];
+  sessionImportsEnabled: boolean;
+  forUserId: string | null;
 };
 
 function getSessionCreatedDateLabel(session: SessionFeedItem): string | null {
@@ -71,7 +79,7 @@ export default function SessionsPage(): ReactElement {
     }
   }, [user, isLoading]);
 
-  const fetchSessions = useCallback(async (): Promise<SessionFeedItem[]> => {
+  const fetchSessions = useCallback(async (): Promise<SessionListData> => {
     // Guests should see public sessions immediately, even while auth is initializing.
     // Authenticated users should see their own sessions using the existing API.
     const endpoint = user?.id
@@ -96,7 +104,7 @@ export default function SessionsPage(): ReactElement {
           ? json.sessions
           : [];
 
-    return rawItems.map((s: any): SessionFeedItem => {
+    const sessions = rawItems.map((s: any): SessionFeedItem => {
       const beachName =
         s?.beachName ||
         s?.beach_name ||
@@ -130,8 +138,14 @@ export default function SessionsPage(): ReactElement {
         rating: typeof s?.rating === "number" ? s.rating : null,
         authorName,
         authorAvatar,
+        hasTrack: s?.has_track === true,
       };
     });
+    return {
+      sessions,
+      sessionImportsEnabled: Boolean(user?.id && json?.data?.sessionImportsEnabled === true),
+      forUserId: user?.id ?? null,
+    };
   }, [user?.id]);
 
   const {
@@ -139,9 +153,18 @@ export default function SessionsPage(): ReactElement {
     loading: sessionsLoading,
     error: sessionsError,
     retry: retrySessions,
-  } = useDataFetcher(fetchSessions, { immediate: true, initialData: [] });
+  } = useDataFetcher(fetchSessions, {
+    immediate: true,
+    initialData: { sessions: [], sessionImportsEnabled: false, forUserId: null },
+  });
 
-  const sessions = useMemo(() => sessionsData ?? [], [sessionsData]);
+  const sessions = useMemo(
+    () => Array.isArray(sessionsData) ? sessionsData : sessionsData?.sessions ?? [],
+    [sessionsData],
+  );
+  const sessionImportsEnabled = !Array.isArray(sessionsData)
+    && sessionsData?.forUserId === user?.id
+    && sessionsData?.sessionImportsEnabled === true;
   const showIdentity = Boolean(user);
   const gatedContent = useMemo(() => {
     if (sessionsLoading && sessions.length === 0) {
@@ -310,6 +333,12 @@ export default function SessionsPage(): ReactElement {
                         {formatSessionValue(session.waveQuality)}
                       </span>
                     ) : null}
+                    {showIdentity && session.hasTrack ? (
+                      <span className="inline-flex items-center gap-1 border-2 border-[#11100D] bg-[#F4EBD8] px-3 py-1">
+                        <Waves className="h-3.5 w-3.5" aria-hidden />
+                        Waves
+                      </span>
+                    ) : null}
                     <span className="ml-auto inline-flex items-center gap-1 text-[#B56A2B] transition-colors group-hover:text-[#11100D]">
                       Open log
                       <ArrowRight className="h-3.5 w-3.5" aria-hidden />
@@ -385,16 +414,19 @@ export default function SessionsPage(): ReactElement {
 
         {/* Floating Log Session button for authenticated users */}
         {user && !isLoading && (
-          <Link href="/sessions/new?mode=log">
-            <Button
-              size="lg"
-              className="fixed bottom-24 right-4 z-50 h-14 rounded-full border-2 border-[#11100D] bg-[#F78E42] px-6 font-heading font-bold text-[#11100D] shadow-[3px_4px_0_rgba(17,16,13,0.35)] hover:bg-[#F78E42]/90 md:bottom-8 md:right-8"
-              data-testid="log-session-btn"
-            >
-              <Plus className="mr-2 h-5 w-5" aria-hidden />
-              Log Session
-            </Button>
-          </Link>
+          <>
+            {sessionImportsEnabled ? <UploadSurfButton enabled /> : null}
+            <Link href="/sessions/new?mode=log">
+              <Button
+                size="lg"
+                className="fixed bottom-24 right-4 z-50 h-14 rounded-full border-2 border-[#11100D] bg-[#F78E42] px-6 font-heading font-bold text-[#11100D] shadow-[3px_4px_0_rgba(17,16,13,0.35)] hover:bg-[#F78E42]/90 md:bottom-8 md:right-8"
+                data-testid="log-session-btn"
+              >
+                <Plus className="mr-2 h-5 w-5" aria-hidden />
+                Log Session
+              </Button>
+            </Link>
+          </>
         )}
 
         {/* Call to action */}
