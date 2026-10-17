@@ -2,10 +2,11 @@
 
 import { redirect } from "next/navigation";
 import ForecastPage from "@/app/app/forecast/page";
-import AuthPage from "@/app/auth/page";
 import BeachPage from "@/app/beach/page";
 import InvitePage from "@/app/invite/page";
+import nextConfig from "@/next.config.mjs";
 
+jest.mock("@ducanh2912/next-pwa", () => ({ __esModule: true, default: () => (config: unknown) => config }));
 jest.mock("next/navigation", () => ({
   redirect: jest.fn((target: string) => {
     throw new Error(`NEXT_REDIRECT:${target}`);
@@ -46,31 +47,18 @@ describe("app-link web fallbacks", () => {
   });
 
   it.each([
-    [{}, "/auth/sign-in"],
-    [
-      {
-        next: "/beach/scripps?tab=forecast",
-        redirectTo: "/profile",
-        redirect: "/map",
-        tag: ["a", "b"],
-        absent: undefined,
-      },
-      "/auth/sign-in?next=%2Fbeach%2Fscripps%3Ftab%3Dforecast&redirectTo=%2Fprofile&redirect=%2Fmap&tag=a&tag=b",
-    ],
-  ])("redirects auth query %j to %s", async (searchParams, target) => {
-    await expect(
-      AuthPage({ searchParams: Promise.resolve(searchParams) }),
-    ).rejects.toThrow(`NEXT_REDIRECT:${target}`);
-    expect(redirect).toHaveBeenCalledTimes(1);
-    expect(redirect).toHaveBeenCalledWith(target);
-  });
-
-  it.each([
     ["/beach", BeachPage, "/map"],
     ["/invite", InvitePage, "/download"],
   ])("redirects %s to its web fallback", (_path, Page, target) => {
     expect(() => Page()).toThrow(`NEXT_REDIRECT:${target}`);
     expect(redirect).toHaveBeenCalledTimes(1);
     expect(redirect).toHaveBeenCalledWith(target);
+  });
+
+  it("redirects /auth to sign-in from next.config, ahead of any other matching rule", async () => {
+    const redirects = await nextConfig.redirects!();
+    const index = redirects.findIndex((rule: { source: string }) => rule.source === "/auth");
+    expect(redirects[index]).toEqual({ source: "/auth", destination: "/auth/sign-in", permanent: false });
+    expect(redirects.slice(0, index).some((rule: { source: string }) => new RegExp(`^${rule.source}$`).test("/auth"))).toBe(false);
   });
 });

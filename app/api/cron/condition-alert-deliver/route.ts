@@ -56,7 +56,7 @@ import {
   resolveNotificationTimezone,
 } from "@/lib/notifications/quiet-hours";
 import {
-  selectFreshAlertWindowWithDiagnostics,
+  selectFreshAlertWindow,
   type EnhancedForecastAlertRow,
 } from "@/lib/alerts/revalidate-alert-window";
 import { loadAlertTideSamples, type AlertTideClient } from "@/lib/alerts/alert-tide-samples";
@@ -504,7 +504,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     const tideSamples = hourly
       ? await loadAlertTideSamples(supabase as unknown as AlertTideClient, item.beach_id, start, end)
       : null;
-    const { window: freshWindow, diagnostic } = selectFreshAlertWindowWithDiagnostics({
+    const { window: freshWindow, diagnostic } = selectFreshAlertWindow({
       conditions: item.conditions,
       forecastRows: forecastRows as EnhancedForecastAlertRow[],
       beach: item.beach_meta,

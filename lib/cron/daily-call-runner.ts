@@ -108,7 +108,7 @@ export interface DailyCallProfile {
 interface CandidateBuildResult {
   candidates: DailyCallCandidate[];
   hadForecasts: boolean;
-  noInWindowRowCount?: number;
+  noInWindowRowCount: number;
 }
 
 interface BuildCandidatesArgs {
@@ -408,15 +408,6 @@ function evaluateForecast(
   });
 }
 
-function forecastCoverageEnd(
-  forecast: EnhancedForecastEntity,
-  nextForecast: EnhancedForecastEntity | undefined,
-): number {
-  // Missing grid rows leave a gap rather than extending the previous forecast.
-  const gridEnd = Date.parse(forecast.forecast_at) + GRID_MS;
-  return Math.min(gridEnd, nextForecast ? Date.parse(nextForecast.forecast_at) : gridEnd);
-}
-
 function forecastsServingWindow(
   forecasts: EnhancedForecastEntity[],
   window: RefinedWindow,
@@ -429,7 +420,10 @@ function forecastsServingWindow(
     Date.parse(left.forecast_at) - Date.parse(right.forecast_at));
   return sorted.filter((forecast, index) => {
     const at = Date.parse(forecast.forecast_at);
-    const coverageEnd = forecastCoverageEnd(forecast, sorted[index + 1]);
+    // Missing grid rows leave a gap rather than extending the previous forecast.
+    const gridEnd = at + GRID_MS;
+    const next = sorted[index + 1];
+    const coverageEnd = Math.min(gridEnd, next ? Date.parse(next.forecast_at) : gridEnd);
     return coverageEnd > liveStart && at < windowEnd;
   });
 }
@@ -1046,7 +1040,7 @@ export async function runDailyCallCron(args: {
           if (built.candidates.some((candidate) => heldReason(candidate))) {
             increment(summary, "no_clear_window");
           } else {
-            increment(summary, built.candidates.length === 0 && built.noInWindowRowCount
+            increment(summary, built.candidates.length === 0 && built.noInWindowRowCount > 0
               ? "no_in_window_row" : "no_go_window");
           }
           summary.silent += 1;
