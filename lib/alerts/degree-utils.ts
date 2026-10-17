@@ -50,7 +50,8 @@ export function resolveWindDirection(
     return "offshore";
   }
 
-  if (aspectDeg != null && angularDistance(windDeg, aspectDeg) <= tolerance) {
+  const onshore = aspectDeg ?? normalizeAngle(offshore + 180);
+  if (angularDistance(windDeg, onshore) <= tolerance) {
     return "onshore";
   }
 

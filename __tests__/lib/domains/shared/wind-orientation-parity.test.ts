@@ -172,6 +172,13 @@ describe('beach with no orientation data', () => {
     }
   });
 
+  it('scoring still lets wind speed count, by the lenient cutoffs', () => {
+    expect(scoreWind(NO_DATA, EAST, 25).score).toBe(20);
+    const gale = scoreWind(NO_DATA, EAST, 35);
+    expect(gale.skip).toBe(true);
+    expect(gale.skipReason).toBe('Blown out (35 mph)');
+  });
+
   it('alerts cannot match any wind direction', () => {
     expect(resolveWindDirection(EAST, null, null, null)).toBeNull();
   });
@@ -187,6 +194,15 @@ describe('beach with no orientation data', () => {
   it('board pick does not read an east wind as offshore or onshore', () => {
     expect(boardPick(NO_DATA, EAST)).toBe('mid-length');
     expect(boardPick(NO_DATA, WEST)).toBe('mid-length');
+  });
+});
+
+describe('stored offshore with no facing direction', () => {
+  it('alerts read the opposite of offshore as onshore, like scoring', () => {
+    expect(resolveWindDirection(WEST, EAST, null, null)).toBe('onshore');
+    expect(resolveWindDirection(0, EAST, null, null)).toBe('cross-shore');
+    const STORED_ONLY = beach({ wind_offshore_deg: EAST });
+    expect(scoreWind(STORED_ONLY, WEST).warnings).toContain('Onshore wind');
   });
 });
 
