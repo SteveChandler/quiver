@@ -388,7 +388,8 @@ describe('generateWeekScoutForecast', () => {
       expect(morning).toHaveLength(1);
       expect(morning[0]).toMatchObject({
         start: time('08:00').toISOString(), end: time('12:00').toISOString(),
-        peakTime: time('11:00').toISOString(), rankingScore: 82,
+        peakTime: time('09:16').toISOString(), rankingScore: 82,
+        displayWindowStart: time('08:00').toISOString(), displayWindowEnd: time('10:30').toISOString(),
       });
       expect(Date.parse(morning[0].start)).toBeLessThan(deps.now.getTime());
       expect(Date.parse(morning[0].end)).toBeGreaterThan(deps.now.getTime());
@@ -400,6 +401,91 @@ describe('generateWeekScoutForecast', () => {
         .toEqual([expect.objectContaining({ start: time('11:00').toISOString() })]);
     },
   );
+
+  describe.each(['Pacific/Honolulu', 'America/Los_Angeles'])('slot time and conditions in %s', (timezone) => {
+    const localDate = '2026-10-16';
+    const time = (value: string): Date => localDateTimeToUTC(localDate, `${value}:00`, timezone);
+    const hourly = Array.from({ length: 13 }, (_, i) => `${String(i + 5).padStart(2, '0')}:00`);
+    const profiles = [
+      { name: '3-hourly morning peak', hours: ['05:00', '08:00', '11:00', '14:00'], scores: [0, 90, 70, 70] },
+      { name: 'hourly, display crosses midday', hours: hourly, scores: [30, 30, 30, 30, 80, 70, 75, 85, 40, 40, 40, 40, 40] },
+    ];
+    // Native `windowHasClosed` (canonical-week-scout.ts): a slot closes at its display end.
+    const appReadsClosed = (window: { displayWindowEnd: string; end: string }, now: Date): boolean => (
+      Date.parse(window.displayWindowEnd ?? window.end) <= now.getTime()
+    );
+
+    async function generate(profile: typeof profiles[number], now: string) {
+      const deps = dependencies();
+      deps.now = time(now);
+      const candidateBeach = { ...beach(BEACH_A, 'Slot Beach'), timezone };
+      const rows = profile.hours.map((value, index) => {
+        const score = profile.scores[index];
+        return {
+          ...forecast(BEACH_A, time(value).toISOString()),
+          wave_height: score === 0 ? '0' : String(1 + (score - (score >= 52 ? 52 : 7)) / 18),
+          wave_period: score >= 52 ? '13s' : '0s', wind_speed: score >= 52 ? '0' : '14',
+          tide_height: null, tide_status: null,
+        };
+      });
+      expect(rows.map((row) => scoreWindowForSelection(row, candidateBeach))).toEqual(profile.scores);
+      deps.fetchBeaches = jest.fn(async () => [candidateBeach]);
+      deps.fetchForecasts = jest.fn(async () => new Map([[BEACH_A, rows]]));
+      deps.fetchSunTimes = jest.fn(async () => new Map([[BEACH_A, {
+        sunrises: [time('06:30')], sunsets: [time('18:30')],
+      }]]));
+      deps.selectBestWindows = jest.requireActual('@/lib/services/discovery/window-selector/window-selector-core').selectBestWindows;
+      deps.scoreWindowCondition = (row, candidate, skill, boards) => (
+        scoreWindowForSelection(row, candidate, null, skill, boards)
+      );
+      const response = await generateWeekScoutForecastForDays('user-week-scout', {
+        candidateBeachIds: [BEACH_A], localTimezone: timezone, startLocalDate: localDate, dayCount: 1,
+      }, deps);
+      return { response, deps };
+    }
+
+    it.each(profiles.flatMap((profile) => (
+      ['07:55', '08:20', '09:16', '09:59', '10:15', '10:45', '12:30'].map((now) => ({ profile, now }))
+    )))('shows each slot with its own daypart hours and conditions: $profile.name at $now', async ({ profile, now }) => {
+      const { response, deps } = await generate(profile, now);
+      for (const window of response.days[0].windows) {
+        const daypart = (iso: string): string => {
+          const hour = getLocalHour(new Date(iso), timezone)!;
+          return hour < 10 ? 'morning' : hour < 14 ? 'midday' : 'evening';
+        };
+        expect({ bucket: window.bucket, start: daypart(window.start) })
+          .toEqual({ bucket: window.bucket, start: window.bucket });
+        // The time a slot names starts inside the slot, and its conditions come from inside it.
+        expect({ bucket: window.bucket, displayStart: daypart(window.displayWindowStart) })
+          .toEqual({ bucket: window.bucket, displayStart: window.bucket });
+        expect({ bucket: window.bucket, peak: daypart(window.peakTime) })
+          .toEqual({ bucket: window.bucket, peak: window.bucket });
+        expect(Date.parse(window.peakTime)).toBeGreaterThanOrEqual(Date.parse(window.displayWindowStart));
+        expect(Date.parse(window.peakTime)).toBeLessThanOrEqual(Date.parse(window.displayWindowEnd));
+        // The server never sends a window the app already reads as passed.
+        expect(appReadsClosed(window, deps.now)).toBe(false);
+      }
+    });
+
+    it('grades the open 08:00 morning window from the 08:00 row at 09:16, not the 11:00 midday row', async () => {
+      const { response } = await generate(profiles[0], '09:16');
+      const morning = response.days[0].windows.find(({ bucket }) => bucket === 'morning');
+      const midday = response.days[0].windows.find(({ bucket }) => bucket === 'midday');
+      expect(morning).toMatchObject({ start: time('08:00').toISOString(), conditionScore: 90 });
+      expect(Date.parse(morning!.displayWindowStart)).toBeLessThanOrEqual(time('09:16').getTime());
+      expect(Date.parse(morning!.displayWindowEnd)).toBeGreaterThan(time('09:16').getTime());
+      expect(midday).toMatchObject({ start: time('11:00').toISOString(), conditionScore: 70 });
+    });
+
+    it('keeps the hourly 09:00 morning session on morning hours instead of 10:15–12:45', async () => {
+      const { response } = await generate(profiles[1], '08:20');
+      const morning = response.days[0].windows.find(({ bucket }) => bucket === 'morning');
+      const midday = response.days[0].windows.find(({ bucket }) => bucket === 'midday');
+      expect(morning).toMatchObject({ start: time('09:00').toISOString(), conditionScore: 80 });
+      expect(Date.parse(morning!.displayWindowStart)).toBeLessThan(time('10:00').getTime());
+      expect(Date.parse(morning!.displayWindowEnd)).toBeLessThanOrEqual(Date.parse(midday!.displayWindowStart));
+    });
+  });
 
   it.each(['Pacific/Honolulu', 'America/Los_Angeles'].flatMap((timezone) => (
     [[70, 70, 47, 47, 47], [65, 65, 45, 45, 45]].map((scores) => ({ timezone, scores }))
