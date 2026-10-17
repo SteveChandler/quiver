@@ -1,4 +1,5 @@
 import { getLocalDateString, resolveBeachTimezone } from '@/lib/utils/timezone-utils';
+import { localDateTimeToUTC } from '@/lib/utils/forecast-time-resolver';
 import type { PersonalizedForecastWindow } from '@/types/personalization';
 import { usableLightIntervalForDate, type BeachSunTimes } from './daylight-eligibility';
 
@@ -205,6 +206,33 @@ export function daypartForTime(time: Date, timezone: string): WindowDaypart | nu
   return hour === null ? null : daypartForLocalHour(hour);
 }
 
+/** Local end of the daypart `start` falls in; evening runs to the end of the day. */
+function daypartEnd(start: Date, timezone: string): Date | null {
+  const daypart = daypartForTime(start, timezone);
+  if (daypart !== 'morning' && daypart !== 'midday') return null;
+  return localDateTimeToUTC(
+    getLocalDateStr(start, timezone),
+    daypart === 'morning' ? '10:00:00' : '14:00:00',
+    timezone,
+  );
+}
+
+/**
+ * A peak clamped to the request instant slides a peak-centred band with the
+ * clock. While the band from the window's own start still covers now, show
+ * that one: it holds still, as the call endpoint's row-anchored band does.
+ */
+function withLiveDisplayWindow(
+  window: PersonalizedForecastWindow,
+  now: Date,
+  sunTimes?: BeachSunTimes,
+): AuthoritativeWindow {
+  const displayed = withDisplayWindow(window, sunTimes);
+  if (window.peakTime?.getTime() !== now.getTime()) return displayed;
+  const anchored = withDisplayWindow(window, sunTimes, { ...window, peakTime: window.start });
+  return anchored.displayWindowStart <= now && now < anchored.displayWindowEnd ? anchored : displayed;
+}
+
 export function selectBeachDayWindows(
   options: Omit<WindowSelectorOptions, 'maxWindows'> & {
     localDate: string;
@@ -235,8 +263,13 @@ export function selectBeachDayWindows(
 
   const daySelectorOptions: WindowSelectorOptions = { ...selectorOptions, forecasts: dayRows };
   if (options.rowLiveness === 'until-next-row') {
-    daySelectorOptions.now ??= new Date();
+    const now = daySelectorOptions.now ??= new Date();
     daySelectorOptions.forecastPreparationCache = new Map();
+    // A window is bucketed by its start, so its peak, conditions and display
+    // band stay in that daypart: a Morning slot never names midday hours.
+    daySelectorOptions.peakSearchEnd = (start) => daypartEnd(start, timezone);
+    // The app closes a slot at its display end; never send one it reads as passed.
+    const isOpen = (window: AuthoritativeWindow): boolean => window.displayWindowEnd > now;
     const ranks = new Map<PersonalizedForecastWindow, WindowSelectionRank>();
     const windows: PersonalizedForecastWindow[] = [];
     for (const daypart of Object.keys(dayparts) as WindowDaypart[]) {
@@ -252,7 +285,8 @@ export function selectBeachDayWindows(
         },
       }).find((candidate) => daypartForTime(candidate.start, timezone) === daypart);
       if (!window) continue;
-      const displayed = withDisplayWindow(window, options.sunTimesCache?.get(options.beach.id));
+      const displayed = withLiveDisplayWindow(window, now, options.sunTimesCache?.get(options.beach.id));
+      if (!isOpen(displayed)) continue;
       dayparts[daypart] = displayed;
       windows.push(window);
     }
@@ -272,9 +306,12 @@ export function selectBeachDayWindows(
   const rankedWindows = selectWindows({
     ...daySelectorOptions,
     maxWindows: WINDOW_AUTHORITY_MAX_WINDOWS,
-  }).map((window) => withDisplayWindow(
-    window,
-    options.sunTimesCache?.get(options.beach.id),
+  }).map((window) => (
+    options.rowLiveness === 'until-next-row'
+      ? withLiveDisplayWindow(window, daySelectorOptions.now!, options.sunTimesCache?.get(options.beach.id))
+      : withDisplayWindow(window, options.sunTimesCache?.get(options.beach.id))
+  )).filter((window) => (
+    options.rowLiveness !== 'until-next-row' || window.displayWindowEnd > daySelectorOptions.now!
   ));
 
   for (const window of rankedWindows) {

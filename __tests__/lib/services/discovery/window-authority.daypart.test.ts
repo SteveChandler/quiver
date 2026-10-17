@@ -54,15 +54,26 @@ describe.each(['Pacific/Honolulu', 'America/Los_Angeles'])('Week Scout dayparts 
   beforeEach(() => { jest.useFakeTimers(); jest.setSystemTime(time('09:16')); });
   afterEach(() => { jest.useRealTimers(); });
 
-  it.each([0, 1].flatMap((profile) => ['08:50', '09:16', '10:30'].map((now) => ({ profile, now }))))(
+  it.each([0, 1].flatMap((profile) => ['08:50', '09:16', '10:29'].map((now) => ({ profile, now }))))(
     'selects flat profile $profile independently at $now', ({ profile, now }) => {
       const result = selectBeachDayWindows({ ...options(profiles[profile], now), rowLiveness: 'until-next-row' });
-      expect(result.dayparts.morning).toMatchObject({ start: time('08:00'), end: time('12:00') });
+      expect(result.dayparts.morning).toMatchObject({
+        start: time('08:00'), end: time('12:00'),
+        displayWindowStart: time('08:00'), displayWindowEnd: time('10:30'),
+      });
       expect(result.dayparts.midday).toMatchObject({ start: time('11:00'), end: time('15:00') });
       expect(result.dayparts.evening).toMatchObject({ start: time('14:00'), end: time('18:00') });
       expect(result.bestDayWindow).toBe(result.dayparts.midday);
     },
   );
+
+  it.each([0, 1])('drops flat profile %s morning once its 08:00–10:30 band has ended', (profile) => {
+    const result = selectBeachDayWindows({ ...options(profiles[profile], '10:30'), rowLiveness: 'until-next-row' });
+    expect(result.dayparts.morning).toBeNull();
+    expect(result.dayparts.midday).toMatchObject({ start: time('11:00'), end: time('15:00') });
+    expect(result.dayparts.evening).toMatchObject({ start: time('14:00'), end: time('18:00') });
+    expect(result.bestDayWindow).toBe(result.dayparts.midday);
+  });
 
   it('keeps both flat-score midday and evening at 12:30', () => {
     const result = selectBeachDayWindows({ ...options(profiles[0], '12:30'), rowLiveness: 'until-next-row' });
@@ -88,19 +99,28 @@ describe.each(['Pacific/Honolulu', 'America/Los_Angeles'])('Week Scout dayparts 
   });
 
   it.each(['07:55', '08:05', '08:50', '09:16'])(
-    'buckets the 09:00–12:45 raw session in morning despite its 10:15 display start at %s', (now) => {
+    'shows the 09:00–12:45 morning session on morning hours from the 09:00 row at %s', (now) => {
       const result = selectBeachDayWindows({ ...options(profiles[5], now), rowLiveness: 'until-next-row' });
       expect(result.dayparts.morning).toMatchObject({
-        start: time('09:00'), end: time('12:45'), peakTime: new Date(time('11:40').getTime() + 54_545),
-        displayWindowStart: time('10:15'), displayWindowEnd: time('12:45'),
+        start: time('09:00'), end: time('12:45'), peakTime: time(now === '09:16' ? '09:16' : '09:20'),
+        displayWindowStart: time('09:00'), displayWindowEnd: time('11:30'),
+        sourceForecast: expect.objectContaining({ forecast_at: time('09:00').toISOString() }),
+      });
+      expect(result.dayparts.midday).toMatchObject({
+        start: time('12:00'), displayWindowStart: time('12:00'),
+        sourceForecast: expect.objectContaining({ forecast_at: time('12:00').toISOString() }),
       });
     },
   );
 
   it.each(['07:55', '08:05', '09:16'])('keeps the 08:00 peak-profile window in morning at %s', (now) => {
     const result = selectBeachDayWindows({ ...options(profiles[2], now), rowLiveness: 'until-next-row' });
-    expect(result.dayparts.morning).toMatchObject({ start: time('08:00'), end: time('12:00') });
-    expect(result.dayparts.morning!.peakTime).toEqual(time(now === '07:55' ? '08:30' : '11:00'));
+    expect(result.dayparts.morning).toMatchObject({
+      start: time('08:00'), end: time('12:00'),
+      displayWindowStart: time('08:00'), displayWindowEnd: time('10:30'),
+      sourceForecast: expect.objectContaining({ forecast_at: time('08:00').toISOString() }),
+    });
+    expect(result.dayparts.morning!.peakTime).toEqual(time(now === '07:55' ? '08:30' : now));
     expect(result.bestDayWindow).toBe(result.dayparts.morning);
     expect(result.dayparts.midday).toMatchObject({ start: time('11:00') });
   });
