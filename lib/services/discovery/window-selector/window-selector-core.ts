@@ -66,7 +66,7 @@ import {
   getLocalHour,
 } from './time-slot-utils';
 import { calculateTideDrivenBoundaries } from './tide-boundary-calculator';
-import { findPeakWithinWindow } from './peak-finder';
+import { findPeakRowWithinWindow } from './peak-finder';
 import { applySubHourRefinement } from './window-refiner';
 import { scoreWindowConditionScore, scoreWindowForSelection } from './window-scorer';
 import { moreInformativeRejection } from './rejection-evidence';
@@ -342,6 +342,7 @@ function buildResult(
   beachTz: string,
   now: Date,
   peakSearchEnd: Date | null = null,
+  rowLiveness: RowLiveness = 'default',
 ): PersonalizedForecastWindow {
   const peakCandidates = filteredForecasts.map((scoredForecast) => ({
     forecastTime: scoredForecast.forecastTime,
@@ -356,14 +357,17 @@ function buildResult(
     ? filteredForecasts
     : filteredForecasts.filter(({ forecastTime }) => forecastTime < peakEnd);
 
-  // Pass `now` through so findPeakWithinWindow can clamp past peaks to the
+  // Pass `now` through so the peak finder can clamp past peaks to the
   // current time — a still-open window must never report a best time that
   // has already elapsed. See peak-finder.ts for the full rationale.
-  const foundPeak = findPeakWithinWindow(
+  // Until-next-row keeps only live rows, so the row under way at `now` can
+  // still be the best one left; the peak time stays clamped to `now`.
+  const { peakTime: foundPeak, rowTime: peakRowTime } = findPeakRowWithinWindow(
     bestWindow.start,
     peakEnd,
     peakCandidates,
-    now
+    now,
+    { startedRowsEligible: rowLiveness === 'until-next-row' },
   );
   // Interpolation can lean past either edge. A limited peak stays inside its part of the
   // window, strictly before peakEnd: that instant already belongs to the next daypart.
@@ -373,7 +377,12 @@ function buildResult(
 
   // Tide boundaries can move the window hours past its original candidate.
   // Keep the returned conditions and score on the row the peak will open.
-  const peakForecast = (peakRows.length > 0 ? peakRows : filteredForecasts).reduce((closest, candidate) => (
+  // A peak clamped to `now` can sit nearer the next row than its own, so
+  // until-next-row grades from the row the peak was found on.
+  const foundRow = rowLiveness === 'until-next-row' && peakRowTime
+    ? peakRows.find(({ forecastTime }) => forecastTime.getTime() === peakRowTime.getTime())
+    : undefined;
+  const peakForecast = foundRow ?? (peakRows.length > 0 ? peakRows : filteredForecasts).reduce((closest, candidate) => (
     Math.abs(candidate.forecastTime.getTime() - peakTime.getTime())
       < Math.abs(closest.forecastTime.getTime() - peakTime.getTime())
       ? candidate : closest
@@ -1003,7 +1012,7 @@ export function selectBestWindows(
       if (acceptWindowStart && !acceptWindowStart(lit.start)) return [];
       const result = buildResult(
         { ...candidateWindow, start: lit.start, end: lit.end },
-        filteredForecasts, actualBeach, beachTz, actualNow, peakSearchEnd?.(lit.start) ?? null,
+        filteredForecasts, actualBeach, beachTz, actualNow, peakSearchEnd?.(lit.start) ?? null, rowLiveness,
       );
       onWindowRanked?.(result, candidateWindow);
       return [result];
