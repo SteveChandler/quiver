@@ -119,13 +119,12 @@ export function analyzeConditions(
   const windEval = analyzeWindConditions(forecast.wind, beach);
   const tideEval = analyzeTideConditions(forecast.tide.height, beach);
 
-  // Calculate score: optimal = 3.33 points, acceptable = 1.67 points, poor = 0 points
+  // Calculate score: optimal = 3.33 points, acceptable = 1.67 points, poor = 0 points.
+  // An excluded (unknown) factor sits out and the rest are scaled back to 10.
   const scoreMap = { optimal: 3.33, acceptable: 1.67, poor: 0 };
-  const score = Math.round(
-    scoreMap[swellEval.status] +
-      scoreMap[windEval.status] +
-      scoreMap[tideEval.status]
-  );
+  const counted = [swellEval, windEval, tideEval].filter((e) => !e.excluded);
+  const points = counted.reduce((sum, e) => sum + scoreMap[e.status], 0);
+  const score = counted.length === 0 ? 0 : Math.round((points * 3) / counted.length);
 
   return {
     score: Math.min(10, score),
@@ -185,11 +184,16 @@ export function getConservativeRecommendation(
     };
   }
 
-  const statuses: Array<{ key: "swell" | "wind" | "tide"; status: ConditionEvaluation["status"] }> = [
-    { key: "swell", status: conditions.swell.status },
-    { key: "wind", status: conditions.wind.status },
-    { key: "tide", status: conditions.tide.status },
-  ];
+  const statuses = ([
+    { key: "swell", evaluation: conditions.swell },
+    { key: "wind", evaluation: conditions.wind },
+    { key: "tide", evaluation: conditions.tide },
+  ] as const)
+    .filter(({ evaluation }) => !evaluation.excluded)
+    .map(({ key, evaluation }): { key: "swell" | "wind" | "tide"; status: ConditionEvaluation["status"] } => ({
+      key,
+      status: evaluation.status,
+    }));
 
   const poor = statuses.filter((s) => s.status === "poor").map((s) => humanizeFactorName(s.key));
   const acceptable = statuses

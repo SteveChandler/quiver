@@ -119,7 +119,7 @@ describe("GET /api/swell/outlook", () => {
     const response = await call("user-1", { Authorization: "Bearer native-token" });
     expect(response.status).toBe(200);
     expect(mockBearerClient).toHaveBeenCalledWith("native-token");
-    expect(mockLoad).toHaveBeenCalledWith({ client: { marker: "service" }, userId: "user-1", now: expect.any(Date), recordOpen: true });
+    expect(mockLoad).toHaveBeenCalledWith({ client: { marker: "service" }, userId: "user-1", now: expect.any(Date), recordOpen: true, includeDays: true });
   });
 
   it("returns an uncached 500 if required outlook data cannot load", async () => {

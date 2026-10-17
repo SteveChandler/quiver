@@ -37,6 +37,7 @@ import type { ConditionsSnapshot } from '../conditions/types';
 import type { SpotProfile } from '../spot-profile/types';
 import type { CompositeScore } from './types';
 import { angleDifference } from '../shared';
+import { isWindQualityUnknown } from './scorers/wind-quality-scorer';
 
 /**
  * Condition character categories (mirrors legacy `lib/scoring/types.ts`).
@@ -126,12 +127,13 @@ function calculateSwellDirectionFit(
  * which is narrower than the wind-quality scorer's three-tier classification.
  */
 function isWindOnshoreForCharacter(
-  windSpeed: number,
+  windSpeed: number | null,
   windDirection: number | null,
   profile: SpotProfile
 ): boolean {
-  if (windDirection === null) return false;
+  if (windSpeed === null || windDirection === null) return false;
   const { offshoreDeg, offshoreToleranceDeg } = profile.windThresholds;
+  if (offshoreDeg === null) return false;
   const onshoreDir = (offshoreDeg + 180) % 360;
   return (
     windSpeed > 0 &&
@@ -165,6 +167,8 @@ export function getConditionCharacter(
   const windDirection = snapshot.wind.directionDeg;
 
   const isOnshore = isWindOnshoreForCharacter(windSpeed, windDirection, profile);
+  // Unknown wind is neutral and unspoken: no wind words, no wind-driven downgrade.
+  const windUnknown = isWindQualityUnknown(snapshot, profile);
 
   // 1. Skip conditions — read the composite's skip reason directly. The
   //    `windQualityScorer` (post-PR 4) raises `skip` only at the Blown-out
@@ -175,6 +179,7 @@ export function getConditionCharacter(
   //    common cause; downstream callers display the composite's actual
   //    skipReason when more detail is needed.
   if (composite.skipReason) {
+    if (windUnknown) return { category: 'skip', label: 'Skip — conditions not favorable' };
     const lower = composite.skipReason.toLowerCase();
     const label = lower.includes('onshore')
       ? 'Onshore wind — conditions blown out'
@@ -191,7 +196,7 @@ export function getConditionCharacter(
   if (waveHeight < 2) {
     // Small-weak: short period wind chop (checked early, like legacy)
     if (wavePeriod < 8) {
-      if (isOnshore && windSpeed > 5) {
+      if (isOnshore && windSpeed !== null && windSpeed > 5) {
         return { category: 'small-weak', label: 'Small & choppy — onshore wind' };
       }
       return { category: 'small-weak', label: 'Weak swell — minimal energy' };
@@ -221,13 +226,18 @@ export function getConditionCharacter(
       }
     }
 
-    // Small-clean: light wind, not onshore (8s+ period)
-    if (windSpeed <= 5 && !isOnshore) {
+    // Unknown wind neither blocks nor earns "clean": a neutral small day.
+    if (windUnknown) {
+      return { category: 'small-clean', label: 'Small but surfable' };
+    }
+
+    // Small-clean: light wind, not onshore (8s+ period).
+    if (windSpeed !== null && windSpeed <= 5 && !isOnshore) {
       return { category: 'small-clean', label: 'Small & clean — glassy conditions' };
     }
 
     // Small-weak: onshore wind (8-11s period)
-    if (isOnshore && windSpeed > 5) {
+    if (isOnshore && windSpeed !== null && windSpeed > 5) {
       return { category: 'small-weak', label: 'Small & choppy — onshore wind' };
     }
 
@@ -240,8 +250,13 @@ export function getConditionCharacter(
   const tideFit = composite.subscores.get('tideFit') ?? 0;
 
   if (waveHeight < 5) {
-    const windIsGood = windQuality >= WIND_QUALITY_GOOD_THRESHOLD;
     const tideIsGood = tideFit >= TIDE_FIT_GOOD_THRESHOLD;
+    if (windUnknown) {
+      return tideIsGood && wavePeriod >= 10
+        ? { category: 'medium-clean', label: 'Lined up — good swell and tide' }
+        : { category: 'medium-mixed', label: 'Decent — some quality in the mix' };
+    }
+    const windIsGood = windQuality >= WIND_QUALITY_GOOD_THRESHOLD;
     if (windIsGood && tideIsGood && wavePeriod >= 10) {
       return { category: 'medium-clean', label: 'Lined up — clean wind, good tide' };
     }
@@ -255,6 +270,11 @@ export function getConditionCharacter(
   }
 
   // 5. Large waves (5ft+)
+  if (windUnknown) {
+    return wavePeriod >= 10
+      ? { category: 'large-clean', label: 'Big groundswell — experts only' }
+      : { category: 'large-rough', label: 'Big surf — experts only' };
+  }
   const windIsClean = windQuality >= WIND_QUALITY_CLEAN_THRESHOLD;
   if (windIsClean && wavePeriod >= 10) {
     return { category: 'large-clean', label: 'Big and clean — groundswell, light wind' };

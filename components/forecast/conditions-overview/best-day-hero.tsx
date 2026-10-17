@@ -24,9 +24,10 @@ interface BestDayHeroProps {
   isPersonalized?: boolean;
 }
 
+/** Unknown wind has no entry on purpose: nothing is shown for it. */
 const WIND_DISPLAY: Record<
   string,
-  { label: string; color: string; icon: boolean }
+  { label: string; color: string; icon: boolean } | undefined
 > = {
   offshore: { label: "Offshore", color: "text-[#0B6B3A]", icon: true },
   light: { label: "Light Wind", color: "text-[#8A5E00]", icon: false },
@@ -34,7 +35,7 @@ const WIND_DISPLAY: Record<
 };
 
 export function BestDayHero({ bestDay, otherGoodDays, isUserSelected, isPersonalized }: BestDayHeroProps) {
-  const wind = WIND_DISPLAY[bestDay.windConditions] ?? WIND_DISPLAY.onshore;
+  const wind = WIND_DISPLAY[bestDay.windConditions];
 
   return (
     <div className="space-y-4">
@@ -79,10 +80,12 @@ export function BestDayHero({ bestDay, otherGoodDays, isUserSelected, isPersonal
                   )}
                 </span>
 
-                <span className={cn("inline-flex items-center gap-1", wind.color)}>
-                  {wind.icon && <Wind className="h-4 w-4" />}
-                  {wind.label}
-                </span>
+                {wind && (
+                  <span className={cn("inline-flex items-center gap-1", wind.color)}>
+                    {wind.icon && <Wind className="h-4 w-4" />}
+                    {wind.label}
+                  </span>
+                )}
 
                 {bestDay.bestTimeSlot && (
                   <span className="inline-flex items-center gap-1">
@@ -118,7 +121,7 @@ export function BestDayHero({ bestDay, otherGoodDays, isUserSelected, isPersonal
           className="grid grid-cols-2 gap-3 lg:grid-cols-4"
         >
           {otherGoodDays.slice(0, 4).map((day) => {
-            const dayWind = WIND_DISPLAY[day.windConditions] ?? WIND_DISPLAY.onshore;
+            const dayWind = WIND_DISPLAY[day.windConditions];
             return (
               <div
                 key={day.fullDate}
@@ -135,14 +138,18 @@ export function BestDayHero({ bestDay, otherGoodDays, isUserSelected, isPersonal
 
                 <p className="text-xs font-semibold text-[#5F5646]">
                   {formatWaveRange([day.minHeight, day.maxHeight], "integer")}
-                  {" - "}
-                  <span
-                    className={cn(
-                      dayWind.color,
-                    )}
-                  >
-                    {dayWind.label}
-                  </span>
+                  {dayWind && (
+                    <>
+                      {" - "}
+                      <span
+                        className={cn(
+                          dayWind.color,
+                        )}
+                      >
+                        {dayWind.label}
+                      </span>
+                    </>
+                  )}
                 </p>
               </div>
             );

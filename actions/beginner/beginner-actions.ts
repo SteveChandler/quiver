@@ -292,9 +292,9 @@ function formatWaveHeight(waveHeight: string | null): string {
 function formatWind(
   windSpeed: string | null,
   windDirection: string | null,
-): string {
-  if (!windSpeed) return "Wind unavailable";
-  const speed = parseWindSpeed(windSpeed, 0);
+): string | null {
+  const speed = parseWindSpeedOrNull(windSpeed);
+  if (speed == null) return null;
   const dir = windDirection ? windDirection.trim() : "";
   if (speed === 0) return "Calm";
   const dirLabel = dir ? ` ${dir.toLowerCase()}` : "";
@@ -386,18 +386,12 @@ function applyBeginnerWindowMetric(
 function getWindMetric(
   windSpeed: string | null,
   windDirection: string | null,
-): ConditionMetric {
-  if (!windSpeed) {
-    return {
-      value: "Wind unavailable",
-      label: "Wind unavailable",
-      status: "caution",
-    };
-  }
-
-  const speed = parseWindSpeed(windSpeed, 0);
+): ConditionMetric | undefined {
+  const speed = parseWindSpeedOrNull(windSpeed);
   const value = formatWind(windSpeed, windDirection);
-  if (speed < 8) return { value, label: "Clean conditions", status: "good" };
+  if (speed == null || value == null) return undefined;
+  // Speed alone can't say the surface is clean; that needs direction and beach orientation.
+  if (speed < 8) return { value, label: "Light wind", status: "good" };
   if (speed <= 15) return { value, label: "Moderate chop", status: "caution" };
   return { value, label: "Choppy - not ideal", status: "warning" };
 }
@@ -453,13 +447,18 @@ function getTideMetric(
 
 function generateSummary(
   waveStatus: MetricStatus,
-  windStatus: MetricStatus,
+  windStatus: MetricStatus | null,
   crowdStatus: MetricStatus,
   tideStatus: MetricStatus,
 ): string {
-  const statuses = [waveStatus, windStatus, crowdStatus, tideStatus];
+  // Missing wind (null) is left out: it neither blocks nor earns "clean".
+  const statuses = [waveStatus, windStatus, crowdStatus, tideStatus].filter(
+    (s): s is MetricStatus => s !== null,
+  );
   if (statuses.every((s) => s === "good"))
-    return "Small, clean, early, and low-to-mid tide - a strong learner window";
+    return windStatus === null
+      ? "Small, early, and low-to-mid tide - a strong learner window"
+      : "Small, clean, early, and low-to-mid tide - a strong learner window";
   if (statuses.includes("warning"))
     return "Consider waiting for conditions to improve";
   return "Decent learner setup, but check the details before paddling out";
@@ -535,7 +534,7 @@ export async function getBeginnerConditionsData(
       forecast.wind_speed,
       forecast.wind_direction,
     );
-    const windMetric = beginnerWindow.applies
+    const windMetric = rawWindMetric && beginnerWindow.applies
       ? applyBeginnerWindowMetric(
           rawWindMetric,
           beginnerWindow.statuses.wind,
@@ -561,7 +560,7 @@ export async function getBeginnerConditionsData(
       spotSlug: beach.slug ?? "",
       metrics: {
         waveHeight: waveHeightMetric,
-        wind: windMetric,
+        ...(windMetric ? { wind: windMetric } : {}),
         waterTemp: waterTempMetric,
         tide: tideMetric,
         crowd: crowdMetric,
@@ -579,12 +578,16 @@ export async function getBeginnerConditionsData(
               ? beginnerWindow.labels.wave
               : waveHeightMetric.label,
           },
-          {
-            factor: "Wind",
-            detail: beginnerWindow.applies
-              ? beginnerWindow.labels.wind
-              : windMetric.label,
-          },
+          ...(windMetric
+            ? [
+                {
+                  factor: "Wind" as const,
+                  detail: beginnerWindow.applies
+                    ? beginnerWindow.labels.wind
+                    : windMetric.label,
+                },
+              ]
+            : []),
           {
             factor: "Tide",
             detail: beginnerWindow.applies
@@ -601,7 +604,7 @@ export async function getBeginnerConditionsData(
       },
       summary: generateSummary(
         waveHeightMetric.status,
-        windMetric.status,
+        windMetric?.status ?? null,
         crowdMetric.status,
         tideMetric.status,
       ),

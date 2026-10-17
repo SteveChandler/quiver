@@ -1071,6 +1071,7 @@ async function generateWeekScoutForecastInternal(
         boardClasses,
         localDate,
         selectWindows: deps.selectBestWindows,
+        rowLiveness: 'until-next-row',
       }),
     ])),
   ]));

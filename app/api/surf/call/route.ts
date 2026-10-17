@@ -443,7 +443,7 @@ async function surfCallHandler(
       'id, name, slug, lat, lon, city, state, country, region, ' +
       'timezone, break_type, skill_level, cdip_station, cdip_eligible, ' +
       'recommendation_eligible, ' +
-      'wind_offshore_deg, wind_offshore_tol_deg, ' +
+      'wind_offshore_deg, wind_offshore_tol_deg, aspect_deg, ' +
       'wind_cross_shore_ok_kt, wind_onshore_bad_kt, ' +
       'max_wind_onshore_mph, max_wind_any_mph, ' +
       'swell_window_min_deg, swell_window_max_deg, ' +

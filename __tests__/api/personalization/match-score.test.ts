@@ -159,6 +159,56 @@ describe("GET /api/personalization/match-score", () => {
     });
   });
 
+  // Native sends String(null) = "null" when the forecast has no wind.
+  it.each([
+    ["missing", "", null, null],
+    ["empty", "&wind_speed=&wind_direction=", "", ""],
+    ["\"null\"", "&wind_speed=null&wind_direction=null", "null", "null"],
+  ])("scores the board pick with unknown wind when wind is %s, never sending the RPC a 0 for it", async (
+    _shape, windParams, rpcWindSpeed, rpcWindDirection,
+  ) => {
+    rpc.mockResolvedValue({ data: { state: "learned", score: 8.4, sessions_in_profile: 15, reason_bullets: [] }, error: null });
+
+    await GET(new NextRequest(
+      `https://www.quiversurf.app/api/personalization/match-score?beach_id=beach-1&wave_height=3&wave_period=12&tide_height=3${windParams}`,
+    ));
+
+    expect(mockRecommendBoard.mock.calls[0][1]).toMatchObject({
+      wind_speed: null, wind_direction: null, wind_direction_deg: null,
+    });
+    // compute_user_match_scores reads NULL, "" and "null" wind as missing (half a miss); "0" would be glassy, due north.
+    expect(rpc).toHaveBeenLastCalledWith("compute_user_match_score", expect.objectContaining({
+      p_wind_speed: rpcWindSpeed, p_wind_direction: rpcWindDirection,
+    }));
+  });
+
+  it.each([
+    ["learned", { state: "ready", score: 8.4, sessions_in_profile: 5, reason_bullets: [] }],
+    ["starter", { state: "starter", score: 7.1, session_count: 2, sessions_needed: 3, body: "Starter read." }],
+  ])("shows no wind in the %s reasons when the forecast has none", async (_state, data) => {
+    rpc.mockResolvedValue({ data, error: null });
+    const url = (wind: string) =>
+      `https://www.quiversurf.app/api/personalization/match-score?beach_id=beach-1&wave_height=3&wave_period=12&tide_height=3${wind}`;
+
+    const missing = await (await GET(new NextRequest(url("&wind_speed=null")))).json();
+    const known = await (await GET(new NextRequest(url("&wind_speed=4")))).json();
+
+    expect(missing.data.reason_bullets.join(" ")).not.toMatch(/\bwind\b/i);
+    expect(known.data.reason_bullets.join(" ")).toMatch(/4 mph wind/);
+  });
+
+  it("keeps calm as 0 mph with no direction for the board pick", async () => {
+    rpc.mockResolvedValue({ data: { state: "learned", score: 8.4, sessions_in_profile: 15, reason_bullets: [] }, error: null });
+
+    await GET(new NextRequest(
+      "https://www.quiversurf.app/api/personalization/match-score?beach_id=beach-1&wave_height=3&wave_period=12&tide_height=3&wind_speed=0&wind_direction=null",
+    ));
+
+    expect(mockRecommendBoard.mock.calls[0][1]).toMatchObject({
+      wind_speed: "0", wind_direction: null, wind_direction_deg: null,
+    });
+  });
+
   it("keeps a learned response successful when board loading rejects", async () => {
     mockFetchUserBoardContext.mockRejectedValue(new Error("board read failed"));
     rpc.mockResolvedValue({ data: { state: "learned", score: 8.4, sessions_in_profile: 15,

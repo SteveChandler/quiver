@@ -81,6 +81,28 @@ describe("lib/constants/content invariants", () => {
     expect(email).toMatch(/@/);
   });
 
+  test.each([
+    ["PostHog", false],
+    ["RevenueCat", true],
+    ["Expo", true],
+    ["AdServices", true],
+  ])(
+    "PRIVACY_CONTENT discloses %s as a service provider",
+    (vendor, isSource) => {
+      const locations = PRIVACY_CONTENT.sections
+        .find((section) => section.id === "international-transfers")
+        ?.content.find((item) => item.subtitle === "Service Provider Locations");
+      const thirdParties = PRIVACY_CONTENT.sections
+        .find((section) => section.id === "data-collection-methods")
+        ?.content.find((item) => item.subtitle === "Third Parties or Public Sources");
+
+      expect(locations?.details).toContain(vendor);
+      // ponytail: PostHog receives our data; it is not a source of personal data about users.
+      if (isSource) expect(thirdParties?.details).toContain(vendor);
+      else expect(thirdParties?.details).not.toContain(vendor);
+    },
+  );
+
   test("FEATURES_EXTENDED_CONTENT has required hero with non-empty content", () => {
     expect(typeof FEATURES_EXTENDED_CONTENT.hero.title).toBe("string");
     expect(FEATURES_EXTENDED_CONTENT.hero.title.length).toBeGreaterThan(0);

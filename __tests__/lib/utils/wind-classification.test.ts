@@ -2,34 +2,25 @@
  * Tests for Wind Classification Utilities
  */
 
-import { classifyWindDirection, OFFSHORE_DIRECTIONS, LIGHT_WIND_KEYWORDS, WIND_SCORE } from "@/lib/utils/wind-classification";
+import { classifyWindDirection, LIGHT_WIND_KEYWORDS, WIND_SCORE } from "@/lib/utils/wind-classification";
 
 describe("classifyWindDirection", () => {
-  describe("offshore directions", () => {
-    it.each(["E", "NE", "SE", "ENE", "ESE", "offshore"])(
-      'should classify "%s" as offshore',
+  describe("without a beach orientation", () => {
+    it.each(["E", "NE", "SE", "ENE", "e", "offshore", "E (offshore)", "W", "SW", "Onshore", "W (onshore)", ""])(
+      'returns unknown for "%s" (no California fallback, no default onshore)',
       (dir) => {
-        expect(classifyWindDirection(dir)).toBe("offshore");
+        expect(classifyWindDirection(dir)).toBe("unknown");
+        expect(classifyWindDirection(dir, null)).toBe("unknown");
+        expect(classifyWindDirection(dir, undefined)).toBe("unknown");
+        expect(classifyWindDirection(dir, Number.NaN)).toBe("unknown");
       }
     );
+  });
 
-    it.each(["e", "ne", "se", "ene", "ese"])(
-      'should be case-insensitive for "%s"',
-      (dir) => {
-        expect(classifyWindDirection(dir)).toBe("offshore");
-      }
-    );
-
-    it.each(["E (offshore)", "NE (offshore)", "Strong offshore"])(
-      'should classify composite label "%s" as offshore',
-      (dir) => {
-        expect(classifyWindDirection(dir)).toBe("offshore");
-      }
-    );
-
-    it("should handle leading/trailing whitespace", () => {
-      expect(classifyWindDirection("  E  ")).toBe("offshore");
-      expect(classifyWindDirection(" NE ")).toBe("offshore");
+  describe("east-facing beach (aspect 90 -> offshore 270)", () => {
+    it("west wind is offshore and east wind is onshore", () => {
+      expect(classifyWindDirection("W", 270)).toBe("offshore");
+      expect(classifyWindDirection("E", 270)).toBe("onshore");
     });
   });
 
@@ -45,15 +36,6 @@ describe("classifyWindDirection", () => {
       'should classify composite label "%s" as light',
       (dir) => {
         expect(classifyWindDirection(dir)).toBe("light");
-      }
-    );
-  });
-
-  describe("onshore directions", () => {
-    it.each(["W", "SW", "S", "NW", "WNW", "SSW", "W (onshore)", "Onshore"])(
-      'should classify "%s" as onshore',
-      (dir) => {
-        expect(classifyWindDirection(dir)).toBe("onshore");
       }
     );
   });
@@ -109,52 +91,32 @@ describe("classifyWindDirection", () => {
       expect(classifyWindDirection("offshore", 270)).toBe("offshore");
     });
 
-    it("falls back to onshore for unparseable direction with windOffshoreDeg", () => {
-      expect(classifyWindDirection("unknown", 270)).toBe("onshore");
+    it("returns unknown for an unparseable direction even with windOffshoreDeg", () => {
+      expect(classifyWindDirection("unknown", 270)).toBe("unknown");
     });
 
-    it("without windOffshoreDeg uses legacy CA-centric logic", () => {
-      // E is offshore in legacy mode (California assumption)
-      expect(classifyWindDirection("E")).toBe("offshore");
-      // E is offshore when windOffshoreDeg is null
-      expect(classifyWindDirection("E", null)).toBe("offshore");
-      // E is offshore when windOffshoreDeg is undefined
-      expect(classifyWindDirection("E", undefined)).toBe("offshore");
+    it("keeps an explicit onshore keyword when the direction has no cardinal", () => {
+      expect(classifyWindDirection("onshore", 270)).toBe("onshore");
     });
   });
 
   describe("edge cases", () => {
-    it("should classify empty string as onshore", () => {
-      expect(classifyWindDirection("")).toBe("onshore");
+    it("classifies an empty string as unknown, not onshore", () => {
+      expect(classifyWindDirection("", 270)).toBe("unknown");
     });
 
-    it("should not false-positive on 'onshore' containing 'e'", () => {
-      // This was the original bug — includes("e") matched "onshore"
-      expect(classifyWindDirection("onshore")).toBe("onshore");
+    it("does not read 'west' or 'severe' as a cardinal", () => {
+      expect(classifyWindDirection("west", 270)).toBe("unknown");
+      expect(classifyWindDirection("severe", 270)).toBe("unknown");
     });
 
-    it("should not false-positive on 'west' containing 'e'", () => {
-      expect(classifyWindDirection("west")).toBe("onshore");
-    });
-
-    it("should not false-positive on 'severe' containing 'e'", () => {
-      expect(classifyWindDirection("severe")).toBe("onshore");
-    });
-
-    it("should not false-positive on 'northeast' as offshore", () => {
-      // "northeast" contains "e" but is not an exact match for "e", "ne", etc.
-      // However it does NOT contain "offshore" — should be onshore
-      expect(classifyWindDirection("northeast")).toBe("onshore");
+    it("does not read 'northeast' as an exact NE", () => {
+      expect(classifyWindDirection("northeast", 270)).toBe("unknown");
     });
   });
 });
 
-
 describe("constants", () => {
-  it("OFFSHORE_DIRECTIONS should include se", () => {
-    expect(OFFSHORE_DIRECTIONS.has("se")).toBe(true);
-  });
-
   it("LIGHT_WIND_KEYWORDS should include glassy", () => {
     expect(LIGHT_WIND_KEYWORDS).toContain("glassy");
   });

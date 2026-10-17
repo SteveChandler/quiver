@@ -17,6 +17,7 @@ import {
 } from '@/lib/domains/rideability';
 import { classifyWindQuality } from '@/lib/utils/wind-quality';
 import { alignmentFactor } from '@/lib/utils/wave-height-transformer';
+import { parseWindSpeedOrNull } from '@/lib/utils/number-parsing';
 
 interface NativeSkillThresholds {
   waveMinFt: number;
@@ -28,7 +29,8 @@ interface NativeSkillThresholds {
 
 interface NativeScoreInputs {
   waveHeightFt: number;
-  windSpeedMph: number;
+  /** Null when the forecast has no wind: left out of the score, not scored as calm. */
+  windSpeedMph: number | null;
   periodSec: number;
   tideHeightFt: number | null;
   tideStatus: string | null;
@@ -60,6 +62,13 @@ export interface NativeScoredForecast {
   forecast: EnhancedForecastEntity;
   score: number;
 }
+
+const NATIVE_MAX_WIND_POINTS = 25;
+// Reported for unknown wind so the `wind` component stays a number; the score
+// itself leaves unknown wind out and rescales, so it neither helps nor hurts.
+const NATIVE_UNKNOWN_WIND_POINTS = NATIVE_MAX_WIND_POINTS / 2;
+const NATIVE_BASE_MAX_POINTS = 100;
+const NATIVE_DIRECTION_MAX_POINTS = 115;
 
 const NATIVE_MAX_WIND_MPH: Record<SkillLevel, number> = {
   beginner: 12,
@@ -128,7 +137,7 @@ export function nativeScoreInputsFromForecast(
 ): NativeScoreInputs {
   return {
     waveHeightFt: parseMaxWaveHeightFt(forecast.wave_height),
-    windSpeedMph: parseFirstNumber(forecast.wind_speed),
+    windSpeedMph: parseWindSpeedOrNull(forecast.wind_speed),
     periodSec: parseFirstNumber(forecast.swell_1_period ?? forecast.wave_period),
     tideHeightFt: parseSignedNumber(forecast.tide_height),
     tideStatus: forecast.tide_status ?? null,
@@ -209,7 +218,9 @@ function scoreNativeConditionBreakdownForBand(
       : periodSec > 0
         ? Math.min(18, (periodSec / 13) * 18)
         : 0;
-  const windScore = Math.max(0, 25 * (1 - windSpeedMph / thresholds.maxWindMph));
+  const windScore = windSpeedMph === null
+    ? NATIVE_UNKNOWN_WIND_POINTS
+    : Math.max(0, NATIVE_MAX_WIND_POINTS * (1 - windSpeedMph / thresholds.maxWindMph));
 
   let tideScore = 7;
   if (tideHeightFt != null) {
@@ -223,13 +234,17 @@ function scoreNativeConditionBreakdownForBand(
   if (tideStatus.includes("high") || tideStatus.includes("low")) tideScore -= 1;
   tideScore = Math.max(0, Math.min(10, tideScore));
 
+  // Direction cannot judge a wind whose strength is unknown.
   const windQuality = direction
-    ? windScore * windQualityMultiplier(direction)
+    ? windSpeedMph === null ? windScore : windScore * windQualityMultiplier(direction)
     : undefined;
   const swellAlignment = direction
     ? 15 * swellAlignmentFactor(periodSec, direction)
     : undefined;
-  const effectiveWindScore = windQuality ?? windScore;
+  const windKnown = windSpeedMph !== null;
+  const effectiveWindScore = windKnown ? (windQuality ?? windScore) : 0;
+  const maxPoints = (direction ? NATIVE_DIRECTION_MAX_POINTS : NATIVE_BASE_MAX_POINTS)
+    - (windKnown ? 0 : NATIVE_MAX_WIND_POINTS);
   const components = {
     waveFit: waveScore,
     period: energyScore,
@@ -239,11 +254,9 @@ function scoreNativeConditionBreakdownForBand(
   };
 
   if (!isOutOfBand) {
-    const rawScore = direction
-      ? waveScore + energyScore + effectiveWindScore + tideScore + (swellAlignment ?? 0)
-      : waveScore + energyScore + windScore + tideScore;
+    const rawScore = waveScore + energyScore + effectiveWindScore + tideScore + (swellAlignment ?? 0);
     return {
-      score: direction ? Math.round((rawScore * 100) / 115) : Math.round(rawScore),
+      score: Math.round((rawScore * 100) / maxPoints),
       components,
       outOfBand: false,
     };
@@ -253,12 +266,8 @@ function scoreNativeConditionBreakdownForBand(
     ? (waveHeightFt - thresholds.waveMaxFt) / thresholds.waveMaxFt
     : (thresholds.waveMinFt - waveHeightFt) / Math.max(thresholds.waveMinFt, 0.5);
   const attenuation = Math.max(0, 1 - relativeDistance / 0.75);
-  const nonWaveScore = direction
-    ? energyScore + effectiveWindScore + tideScore + (swellAlignment ?? 0)
-    : energyScore + windScore + tideScore;
-  const attenuatedScore = direction
-    ? (nonWaveScore * attenuation * 100) / 115
-    : nonWaveScore * attenuation;
+  const nonWaveScore = energyScore + effectiveWindScore + tideScore + (swellAlignment ?? 0);
+  const attenuatedScore = (nonWaveScore * attenuation * 100) / maxPoints;
 
   return {
     score: Math.round(Math.min(OUT_OF_BAND_SCORE_CEILING, attenuatedScore)),

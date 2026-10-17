@@ -486,7 +486,10 @@ function determineStartReason(
   }
 
   // Check what improved
-  const windImproved = current.windSpeed < previous.windSpeed;
+  const windImproved =
+    current.windSpeed !== null &&
+    previous.windSpeed !== null &&
+    current.windSpeed < previous.windSpeed;
   const tideImproved = didTideEnterRange(previous.tideHeight, current.tideHeight);
 
   if (tideImproved) {
@@ -529,7 +532,11 @@ function determineEndReason(
   }
 
   // Check what degraded
-  const windWorsened = next.windSpeed > current.windSpeed && next.windSpeed > 15;
+  const windWorsened =
+    next.windSpeed !== null &&
+    current.windSpeed !== null &&
+    next.windSpeed > current.windSpeed &&
+    next.windSpeed > 15;
   const tideTooHigh = next.tideHeight > 5;
   const tideTooLow = next.tideHeight < 2;
 

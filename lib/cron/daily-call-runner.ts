@@ -108,7 +108,7 @@ export interface DailyCallProfile {
 interface CandidateBuildResult {
   candidates: DailyCallCandidate[];
   hadForecasts: boolean;
-  noInWindowRowCount?: number;
+  noInWindowRowCount: number;
 }
 
 interface BuildCandidatesArgs {
@@ -256,6 +256,13 @@ function numberValue(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+/** A missing wind is unknown, never "0mph". */
+function windLabel(forecast: { wind_speed?: unknown; wind_direction?: string | null } | undefined): string {
+  const speed = Number.parseFloat(String(forecast?.wind_speed ?? ""));
+  if (!Number.isFinite(speed)) return "Wind unknown";
+  return forecast?.wind_direction ? `${speed}mph ${forecast.wind_direction}` : `${speed}mph`;
+}
+
 function windowLabel(candidate: DailyCallCandidate, timezone: string): string {
   const windowTimezone = resolveBeachTimezone(candidate.pool.beach.timezone || timezone);
   const startDriver = candidate.window.drivers.find((driver) => driver.edge === "start");
@@ -359,9 +366,7 @@ function buildPayload(args: {
     wave_height_ft: numberValue(forecast?.wave_height),
     wave_period_s: numberValue(forecast?.wave_period),
     swell_dir: forecast?.wave_direction ?? forecast?.swell_1_direction ?? "unknown",
-    wind_label: forecast?.wind_direction
-      ? `${numberValue(forecast.wind_speed)}mph ${forecast.wind_direction}`
-      : `${numberValue(forecast?.wind_speed)}mph`,
+    wind_label: windLabel(forecast),
     tide_label: forecast?.tide_status ?? "Unknown tide",
     reason: args.title.body || fallbackReason(args.vars),
     title: args.title.title,
@@ -408,15 +413,6 @@ function evaluateForecast(
   });
 }
 
-function forecastCoverageEnd(
-  forecast: EnhancedForecastEntity,
-  nextForecast: EnhancedForecastEntity | undefined,
-): number {
-  // Missing grid rows leave a gap rather than extending the previous forecast.
-  const gridEnd = Date.parse(forecast.forecast_at) + GRID_MS;
-  return Math.min(gridEnd, nextForecast ? Date.parse(nextForecast.forecast_at) : gridEnd);
-}
-
 function forecastsServingWindow(
   forecasts: EnhancedForecastEntity[],
   window: RefinedWindow,
@@ -429,7 +425,10 @@ function forecastsServingWindow(
     Date.parse(left.forecast_at) - Date.parse(right.forecast_at));
   return sorted.filter((forecast, index) => {
     const at = Date.parse(forecast.forecast_at);
-    const coverageEnd = forecastCoverageEnd(forecast, sorted[index + 1]);
+    // Missing grid rows leave a gap rather than extending the previous forecast.
+    const gridEnd = at + GRID_MS;
+    const next = sorted[index + 1];
+    const coverageEnd = Math.min(gridEnd, next ? Date.parse(next.forecast_at) : gridEnd);
     return coverageEnd > liveStart && at < windowEnd;
   });
 }
@@ -527,12 +526,23 @@ function beachDayRange(
   beach: Beach,
   localDate: string,
   userTimezone: string,
-): { start: string; end: string } {
+): { start: string; end: string; forecastStart: string } {
   const timezone = resolveBeachTimezone(beach.timezone || userTimezone);
+  const start = localDateTimeToUTC(localDate, "05:00:00", timezone);
   return {
-    start: localDateTimeToUTC(localDate, "05:00:00", timezone).toISOString(),
+    start: start.toISOString(),
     end: localDateTimeToUTC(localDate, "20:00:00", timezone).toISOString(),
+    // The grid is UTC-aligned, so in Pacific standard time the row in effect at
+    // 05:00 is stamped 04:00. Load it; forecastsServingWindow and the daylight
+    // clip decide whether it serves a window.
+    forecastStart: new Date(start.getTime() - GRID_MS).toISOString(),
   };
+}
+
+/** A row belongs to the day when its grid step overlaps [start, end). */
+export function rowServesDay(row: EnhancedForecastEntity, startMs: number, endMs: number): boolean {
+  const at = Date.parse(row.forecast_at);
+  return at < endMs && at + GRID_MS > startMs;
 }
 
 export async function buildCandidates(
@@ -546,7 +556,7 @@ export async function buildCandidates(
     pool,
     ...beachDayRange(pool.beach, args.alertDate, args.timezone),
   }));
-  const start = new Date(Math.min(...beachDays.map((day) => Date.parse(day.start)))).toISOString();
+  const start = new Date(Math.min(...beachDays.map((day) => Date.parse(day.forecastStart)))).toISOString();
   const end = new Date(Math.max(...beachDays.map((day) => Date.parse(day.end)))).toISOString();
   const { data, error } = await supabase
     .from("enhanced_forecasts")
@@ -565,7 +575,7 @@ export async function buildCandidates(
     const startMs = Date.parse(start);
     const endMs = Date.parse(end);
     const beachForecasts = forecasts.filter((row) => row.beach_id === pool.beach.id
-      && Date.parse(row.forecast_at) >= startMs && Date.parse(row.forecast_at) < endMs);
+      && rowServesDay(row, startMs, endMs));
     if (beachForecasts.length === 0) continue;
     hadForecasts = true;
     const evaluations = beachForecasts.map((forecast) =>
@@ -844,17 +854,18 @@ function defaultDeps(
     rankDay: rankDayWithWeekScout,
     usesSharedRanking: (userId) => isSharedCallRankingEnabled() && isSharedCallRankingUserAllowed(userId),
     loadBeachDay: async ({ beach, timezone, localDate }) => {
-      const { start, end } = beachDayRange(beach, localDate, timezone);
+      const { start, end, forecastStart } = beachDayRange(beach, localDate, timezone);
       const { data, error } = await supabase
         .from("enhanced_forecasts")
         .select("*")
         .eq("beach_id", beach.id)
-        .gte("forecast_at", start)
+        .gte("forecast_at", forecastStart)
         .lt("forecast_at", end)
         .order("forecast_at", { ascending: true });
       if (error) throw new Error(`Failed to load daily-call forecasts: ${error.message}`);
       return {
-        forecasts: (data ?? []) as EnhancedForecastEntity[],
+        forecasts: ((data ?? []) as EnhancedForecastEntity[])
+          .filter((row) => rowServesDay(row, Date.parse(start), Date.parse(end))),
         tideSamples: await loadTideSamples(supabase, tideCache, beach.id, start, end),
       };
     },
@@ -1034,7 +1045,7 @@ export async function runDailyCallCron(args: {
           if (built.candidates.some((candidate) => heldReason(candidate))) {
             increment(summary, "no_clear_window");
           } else {
-            increment(summary, built.candidates.length === 0 && built.noInWindowRowCount
+            increment(summary, built.candidates.length === 0 && built.noInWindowRowCount > 0
               ? "no_in_window_row" : "no_go_window");
           }
           summary.silent += 1;

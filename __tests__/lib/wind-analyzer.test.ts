@@ -13,9 +13,15 @@ import {
   analyzeWindConditions,
   calculateOnOffshore,
   normalizeAngle,
+  isWindUnknown,
   windAt,
 } from "@/lib/analyzers/wind-analyzer";
 import type { BeachPreferences, WindMetrics } from "@/types/morning-intel";
+
+// East-facing beach: offshore blows from the west. Keeps the original 270° fixtures meaningful.
+const EAST_FACING = { offshoreDeg: 270, toleranceDeg: 45 };
+// West-facing beach (Ocean Beach SD): offshore blows from the east.
+const WEST_FACING = { offshoreDeg: 90, toleranceDeg: 30 };
 
 describe("wind-analyzer", () => {
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -79,7 +85,7 @@ describe("wind-analyzer", () => {
         },
       ];
 
-      const result = windAt("10:00", forecasts, tz);
+      const result = windAt("10:00", forecasts, tz, EAST_FACING);
       expect(result.speed).toBe(4); // rounded
       expect(result.direction).toBe(270); // rounded
       expect(result.offshore).toBe(true);
@@ -114,7 +120,8 @@ describe("wind-analyzer", () => {
             wind_direction: 90,
           },
         ],
-        tz
+        tz,
+        EAST_FACING
       );
       expect(onshore.description).toBe("onshore");
 
@@ -128,7 +135,8 @@ describe("wind-analyzer", () => {
             wind_direction: 0,
           },
         ],
-        tz
+        tz,
+        EAST_FACING
       );
       expect(cross.description).toBe("cross-shore");
 
@@ -142,9 +150,38 @@ describe("wind-analyzer", () => {
             wind_direction: 90,
           },
         ],
-        tz
+        tz,
+        EAST_FACING
       );
       expect(lightOnshore.description).toBe("light onshore");
+    });
+
+    const row = (speed: number | null, direction: number | null) => [
+      { forecast_date: TODAY, forecast_time: "08:00", wind_speed: speed, wind_direction: direction },
+    ];
+
+    test("judges wind against the beach, not a fixed shore normal", () => {
+      setNowLocal(`${TODAY}T12:00:00`);
+      // West wind at a west-facing beach is onshore; east wind is offshore.
+      expect(windAt("08:00", row(10, 270), tz, WEST_FACING)).toMatchObject({ relation: "onshore", offshore: false });
+      expect(windAt("08:00", row(10, 90), tz, WEST_FACING)).toMatchObject({ relation: "offshore", offshore: true });
+      expect(windAt("08:00", row(10, 125), tz, WEST_FACING).relation).toBe("cross-shore");
+    });
+
+    test("names no relation without a beach orientation", () => {
+      setNowLocal(`${TODAY}T12:00:00`);
+      for (const orientation of [null, { offshoreDeg: null, toleranceDeg: 30 }]) {
+        const wind = windAt("08:00", row(10, 270), tz, orientation);
+        expect(wind).toMatchObject({ relation: null, offshore: false, description: "10 mph wind" });
+        expect(isWindUnknown(wind)).toBe(true);
+      }
+    });
+
+    test("treats missing direction as unknown unless calm", () => {
+      setNowLocal(`${TODAY}T12:00:00`);
+      expect(isWindUnknown(windAt("08:00", row(10, null), tz, WEST_FACING))).toBe(true);
+      expect(isWindUnknown(windAt("08:00", row(2, null), tz, WEST_FACING))).toBe(false);
+      expect(isWindUnknown(windAt("08:00", row(null, 90), tz, WEST_FACING))).toBe(true);
     });
   });
 
@@ -155,9 +192,10 @@ describe("wind-analyzer", () => {
       cardinal: "N",
       offshore: false,
       description: "calm",
+      relation: null,
     };
 
-    test("evaluates general wind conditions when no offshore preference is defined", () => {
+    test("calm wind with no relation reads light", () => {
       const beach: BeachPreferences = { name: "No Prefs Beach" };
 
       expect(analyzeWindConditions({ ...windBase, speed: 3, cardinal: "E" }, beach))
@@ -166,20 +204,22 @@ describe("wind-analyzer", () => {
           emoji: "✅",
           message: "Light winds (3 mph E)",
         });
+    });
 
-      expect(analyzeWindConditions({ ...windBase, speed: 7, cardinal: "E" }, beach))
-        .toEqual({
+    test("leaves wind it can't judge out, with nothing to show", () => {
+      const beach: BeachPreferences = { name: "No Prefs Beach" };
+      for (const wind of [
+        { ...windBase, speed: 7, cardinal: "E", description: "7 mph wind" },
+        { ...windBase, speed: 12, cardinal: "N/A", description: "12 mph wind" },
+        { ...windBase, cardinal: "N/A", description: "N/A" },
+      ]) {
+        expect(analyzeWindConditions(wind, beach)).toEqual({
           status: "acceptable",
           emoji: "⚠️",
-          message: "Moderate winds (7 mph E)",
+          message: "",
+          excluded: true,
         });
-
-      expect(analyzeWindConditions({ ...windBase, speed: 12, cardinal: "E" }, beach))
-        .toEqual({
-          status: "poor",
-          emoji: "❌",
-          message: "Strong winds (12 mph E)",
-        });
+      }
     });
 
     test("uses beach offshore preference + tolerance and speed thresholds", () => {
@@ -190,36 +230,36 @@ describe("wind-analyzer", () => {
       };
 
       const optimal = analyzeWindConditions(
-        { ...windBase, speed: 5, direction: 280, cardinal: "W", description: "offshore" },
+        { ...windBase, speed: 5, direction: 280, cardinal: "W", description: "offshore", relation: "offshore" },
         beach
       );
       expect(optimal.status).toBe("optimal");
 
       const acceptable = analyzeWindConditions(
-        { ...windBase, speed: 12, direction: 280, cardinal: "W", description: "offshore" },
+        { ...windBase, speed: 12, direction: 280, cardinal: "W", description: "offshore", relation: "offshore" },
         beach
       );
       expect(acceptable.status).toBe("acceptable");
 
       const poor = analyzeWindConditions(
-        { ...windBase, speed: 12, direction: 90, cardinal: "E", description: "onshore" },
+        { ...windBase, speed: 12, direction: 90, cardinal: "E", description: "onshore", relation: "onshore" },
         beach
       );
       expect(poor.status).toBe("poor");
     });
 
     test("respects custom tolerance when determining offshore", () => {
-      const beach: BeachPreferences = {
-        name: "Tight Tol Beach",
-        windOffshoreDeg: 270,
-        windOffshoreTol: 10,
-      };
-
-      const result = analyzeWindConditions(
-        { ...windBase, speed: 12, direction: 285, cardinal: "WNW", description: "cross-shore" },
-        beach
+      setNowLocal(`${TODAY}T12:00:00`);
+      const beach: BeachPreferences = { name: "Tight Tol Beach", windOffshoreDeg: 270, windOffshoreTol: 10 };
+      const wind = windAt(
+        "08:00",
+        [{ forecast_date: TODAY, forecast_time: "08:00", wind_speed: 12, wind_direction: 285 }],
+        tz,
+        { offshoreDeg: 270, toleranceDeg: 10 }
       );
-      expect(result.status).toBe("poor");
+
+      expect(wind.relation).toBe("cross-shore");
+      expect(analyzeWindConditions(wind, beach).status).toBe("poor");
     });
   });
 });

@@ -121,6 +121,15 @@ describe("BestDayHero", () => {
     expect(screen.getByText("Onshore")).toBeInTheDocument();
   });
 
+  it("shows no wind label for unknown wind, in the hero or the other-days list", () => {
+    const bestDay = createMockDay({ windConditions: "unknown" });
+    const other = createMockDay({ windConditions: "unknown", fullDate: "2026-02-12", dayName: "Wed" });
+    render(<BestDayHero bestDay={bestDay} otherGoodDays={[other]} />);
+
+    expect(document.body.textContent ?? "").not.toMatch(/onshore|offshore|wind unknown|light wind/i);
+    expect(screen.queryByTestId("wind-icon")).not.toBeInTheDocument();
+  });
+
   it("displays best time slot capitalized", () => {
     const bestDay = createMockDay({ bestTimeSlot: "morning" });
     render(<BestDayHero bestDay={bestDay} otherGoodDays={[]} />);

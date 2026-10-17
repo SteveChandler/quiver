@@ -8,7 +8,7 @@
 
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
-import type { CandidateRejection, TimeSlot } from '@/types/personalization';
+import type { CandidateRejection, PersonalizedForecastWindow, TimeSlot } from '@/types/personalization';
 import type { getUserSurfPreferences } from '@/lib/services/preference-learning-service';
 import type { BoardClass, RideabilityBand } from '@/lib/domains/rideability';
 import type { SkillLevel } from '@/lib/domains/user-preferences/skill-level';
@@ -26,6 +26,15 @@ export interface WindowSelectorOptions {
   timeSlot?: TimeSlot;
   now?: Date;
   maxWindows?: number;
+  rowLiveness?: 'default' | 'until-next-row';
+  /** Week Scout candidate scope; other rows remain available for refinement. */
+  acceptWindowStart?: (start: Date) => boolean;
+  /** Week Scout: latest peak for a window starting at `start`, so a slot's conditions come from inside it. */
+  peakSearchEnd?: (start: Date) => Date | null;
+  disableBelowFloorFallback?: boolean;
+  /** Reuse only within one immutable beach/day/preferences/clock context. */
+  forecastPreparationCache?: Map<EnhancedForecastEntity[], ScoredForecast[]>;
+  onWindowRanked?: (window: PersonalizedForecastWindow, rank: WindowSelectionRank) => void;
   rideabilityBand?: RideabilityBand | null;
   boardClasses?: readonly BoardClass[];
   userSkillLevel?: SkillLevel | string | null;
@@ -53,4 +62,11 @@ export interface ScoredForecast {
   selectionScore?: number;
   isToday: boolean;
   localHourStr: string;
+}
+
+export interface WindowSelectionRank {
+  adjustedScore: number;
+  score: number;
+  start: Date;
+  forecast: EnhancedForecastEntity;
 }

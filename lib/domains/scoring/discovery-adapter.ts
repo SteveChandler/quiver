@@ -15,7 +15,7 @@ import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import type { DetailedScore } from '@/types/personalization';
 import type { ScorerInput, CompositeScore } from './types';
-import { getDirectionDegrees } from '@/lib/utils/number-parsing';
+import { getDirectionDegrees, parseWindSpeedOrNull } from '@/lib/utils/number-parsing';
 import { trackFallback } from '@/lib/monitoring/fallback-tracker';
 import { resolveConfidence } from '@/lib/monitoring/fallback-helpers';
 import type { SpotProfile } from '../spot-profile/types';
@@ -101,7 +101,7 @@ export function forecastToSnapshot(
   const waveHeight = parseFloat(forecast.wave_height || '0');
   const storedWavePeriod = parseFloat(forecast.wave_period?.replace('s', '') || '0');
 
-  const windSpeed = parseFloat(forecast.wind_speed || '0');
+  const windSpeed = parseWindSpeedOrNull(forecast.wind_speed);
   const windDirection = getDirectionDegrees(
     forecast.wind_direction_deg,
     forecast.wind_direction
@@ -219,7 +219,8 @@ export function compositeToDetailedScore(
   // Skip results are disqualified beaches where subscores are intentionally
   // absent for scorers that did not run (early exit by design).
   if (!composite.skipReason) {
-    for (const key of ['baseConditions', 'windQuality', 'tideFit'] as const) {
+    // windQuality is absent by design when the wind can't be judged (weight 0).
+    for (const key of ['baseConditions', 'tideFit'] as const) {
       if (!composite.subscores.has(key)) trackFallback({ domain: 'discovery', field: `subscore_${key}`, fallbackValue: 50 });
     }
   }
@@ -233,6 +234,7 @@ export function compositeToDetailedScore(
     affinityBonus,
     personalizationBonus: 0,
     distancePenalty,
+    ...(!composite.skipReason && !composite.subscores.has('windQuality') ? { windUnknown: true } : {}),
   };
 
   // Adjust total with affinity and distance

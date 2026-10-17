@@ -22,6 +22,7 @@ import {
 } from "@/lib/scoring/native-condition-score";
 import { getRideabilityBand } from "@/lib/domains/rideability";
 import { getDirectionDegrees } from "./direction-utils";
+import { resolveWindOrientation } from "@/lib/domains/shared/wind-orientation";
 import { getDiscoveryScoringEngine } from "@/lib/domains/scoring";
 import { isDirectionScoringEnabledForBeach } from "@/lib/flags/direction-scoring";
 import { windChopCeiling } from "@/lib/domains/scoring/wind-chop-ceiling";
@@ -87,6 +88,7 @@ export function directionInput(
   directionScoringEnabledOverride?: boolean,
 ): NativeDirectionScoreInput | undefined {
   if (!(directionScoringEnabledOverride ?? isDirectionScoringEnabledForBeach(beach))) return undefined;
+  const orientation = resolveWindOrientation(beach);
   return {
     windDirectionDeg: getDirectionDegrees(
       forecast.wind_direction_deg,
@@ -96,8 +98,8 @@ export function directionInput(
       forecast.swell_1_direction ?? forecast.wave_direction,
       null,
     ),
-    offshoreDeg: beach.wind_offshore_deg ?? null,
-    offshoreToleranceDeg: beach.wind_offshore_tol_deg ?? 45,
+    offshoreDeg: orientation.offshoreDeg,
+    offshoreToleranceDeg: orientation.toleranceDeg,
     windowCenterDeg: beach.swell_window_center_deg ?? null,
     windowHalfwidthDeg: beach.swell_window_halfwidth_deg ?? null,
   };

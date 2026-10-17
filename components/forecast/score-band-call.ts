@@ -7,8 +7,6 @@ import { scoreLabel, type ScoreLabel } from "@/lib/utils/score-color-utils";
 import type { CanonicalDecisionVerdict } from "@/lib/recommendations/canonical-decision/types";
 import type { SurfCallVerdict } from "@/lib/utils/surf-call-logic";
 
-export { FAIR_ACTION_PHRASES, fairActionPhrase } from "@/lib/utils/fair-action-phrase";
-
 /** Plain calls, no exclamation marks. EPIC only shows once rare days exist (EPIC_LABEL_ENABLED). */
 const SCORE_ACTION_PHRASES: Record<ScoreLabel, string> = {
   EPIC: "Rare one, go",
@@ -36,15 +34,18 @@ interface ScoreCall {
   action: string;
 }
 
+function actionFor(
+  label: ScoreLabel,
+  phrases: Record<ScoreLabel, string>,
+  identity?: FairActionIdentity,
+): string {
+  return label === "FAIR" ? fairActionPhrase(identity) : phrases[label];
+}
+
 /** Build the user-facing score call from the canonical score-band utility. */
 export function getScoreCall(score: number, identity?: FairActionIdentity): ScoreCall {
   const label = scoreLabel(score);
-  return {
-    label,
-    action: label === "FAIR"
-      ? fairActionPhrase(identity?.beachId ?? "", identity?.instantIso ?? "")
-      : SCORE_ACTION_PHRASES[label],
-  };
+  return { label, action: actionFor(label, SCORE_ACTION_PHRASES, identity) };
 }
 
 /** Score range each canonical verdict may occupy, so a label never contradicts its call. */
@@ -82,12 +83,7 @@ export function getCanonicalVerdictCall(
       : VERDICT_FALLBACK_BAND[verdict];
   const phrases = tense === "upcoming" ? UPCOMING_ACTION_PHRASES : SCORE_ACTION_PHRASES;
 
-  return {
-    label,
-    action: label === "FAIR"
-      ? fairActionPhrase(identity?.beachId ?? "", identity?.instantIso ?? "")
-      : phrases[label],
-  };
+  return { label, action: actionFor(label, phrases, identity) };
 }
 
 const SURF_CALL_TO_CANONICAL: Record<SurfCallVerdict, CanonicalDecisionVerdict> = {
