@@ -193,3 +193,11 @@ it.each([processFile, chooseBeach])("returns not_found for a mismatched import s
   expect(await response.json()).toMatchObject({ success: false, error: "not_found" });
   expect(download).not.toHaveBeenCalled();
 });
+
+it.each([processFile, chooseBeach])("maps a concurrent duplicate with no session to 409 and explicit null details", async handler => {
+  imported!.status = "needs_beach";
+  mockProcess.mockResolvedValue({ status: "duplicate", sessionId: null });
+  const response = await handler(request({ beachId }), context);
+  expect(response.status).toBe(409);
+  expect(await response.json()).toMatchObject({ success: false, error: "duplicate", details: { sessionId: null } });
+});

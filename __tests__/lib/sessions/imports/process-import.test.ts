@@ -360,3 +360,26 @@ it("resolves a concurrent SHA unique violation to the winning live session", asy
   expect(inserts("sessions")).toHaveLength(0);
   expect(inserts("session_tracks")).toHaveLength(0);
 });
+
+it.each(["unlinked", "missing", "deleted"])("returns a null-session duplicate immediately when the SHA winner is %s", async state => {
+  let collided = false;
+  let winnerReads = 0;
+  queryFailure = mutation => {
+    if (collided && mutation.table === "session_imports" && mutation.operation === "select") winnerReads += 1;
+    if (!collided && mutation.table === "session_imports" && mutation.payload?.sha256) {
+      collided = true;
+      rows.session_imports.push({
+        id: "winner", user_id: userId, sha256: mutation.payload.sha256, status: "uploaded",
+        session_id: state === "unlinked" ? null : "winning-session",
+      });
+      if (state === "deleted") rows.sessions.push({ id: "winning-session", user_id: userId, deleted_at: "2026-10-20T17:00:00Z" });
+      return { code: "23505", message: "duplicate key value violates unique constraint" };
+    }
+    return null;
+  };
+  expect(await processImport(deps, importId, userId)).toEqual({ status: "duplicate", sessionId: null });
+  expect(winnerReads).toBe(1);
+  expect(inserts("sessions")).toHaveLength(0);
+  expect(inserts("session_tracks")).toHaveLength(0);
+  expect(inserts("session_waves")).toHaveLength(0);
+});

@@ -14,7 +14,7 @@ import { loadImportBeach, resolveImportBeach, type ImportBeach } from "./resolve
 export type ProcessImportResult =
   | { status: "completed"; sessionId: string; attached: boolean; summary: WavesSummary }
   | { status: "needs_beach"; importId: string; candidates: ImportBeach[] }
-  | { status: "duplicate"; sessionId: string };
+  | { status: "duplicate"; sessionId: string | null };
 
 export class ImportNotFoundError extends Error {
   constructor() {
@@ -218,6 +218,7 @@ export async function processImport(
         checkError(sessionError);
         if (liveSession) return { status: "duplicate", sessionId: liveSession.id };
       }
+      return { status: "duplicate", sessionId: null };
     }
     checkError(claimError);
 
