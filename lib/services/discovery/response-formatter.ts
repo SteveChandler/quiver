@@ -129,7 +129,10 @@ export function generateDiscoverySummary(
 
   const warningSuffix = preferredSizeWarning ? ` ${preferredSizeWarning}.` : '';
 
-  return `${matchDesc} at ${beach.name} - ${window.waveHeight} with ${window.wind}.${warningSuffix}`;
+  const wind = window.wind?.trim();
+  const windClause = wind && wind.toLowerCase() !== 'unknown' ? ` with ${wind}` : '';
+
+  return `${matchDesc} at ${beach.name} - ${window.waveHeight}${windClause}.${warningSuffix}`;
 }
 
 // ============================================================================

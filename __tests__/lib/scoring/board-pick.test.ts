@@ -184,7 +184,7 @@ describe('getConditionBoardPick', () => {
       ];
       const forecast = makeForecast(2.5, 12, 270); // Onshore, choppy
 
-      const result = getConditionBoardPick(forecast, boards);
+      const result = getConditionBoardPick(forecast, boards, makeBeach('standard'));
 
       expect(result).not.toBeNull();
       expect(result!.boardType).toBe('fish');
@@ -197,7 +197,7 @@ describe('getConditionBoardPick', () => {
       ];
       const forecast = makeForecast(1.5, 12, 270); // Onshore, choppy
 
-      const result = getConditionBoardPick(forecast, boards);
+      const result = getConditionBoardPick(forecast, boards, makeBeach('standard'));
 
       expect(result).not.toBeNull();
       expect(result!.boardType).toBe('longboard');

@@ -889,6 +889,8 @@ export function OracleHomeScreen() {
         <div className="min-w-0 space-y-8">
           <HomeCallPlate
             beachName={beachName}
+            beachId={selectedCandidate?.beachId ?? heroBeach?.id}
+            instantIso={selectedCandidate?.windowStart ?? window?.start?.toISOString()}
             lat={heroBeach?.lat ?? null}
             lon={heroBeach?.lon ?? null}
             photoUrl={oracle.heroPhotoUrl}

@@ -32,6 +32,8 @@ export interface WindMetrics {
   cardinal: string; // e.g., "ENE"
   offshore: boolean;
   description: string; // e.g., "offshore", "light onshore", "strong cross-shore"
+  /** Relation to this beach; null when the direction or the beach orientation is unknown. */
+  relation?: "offshore" | "onshore" | "cross-shore" | null;
 }
 
 export interface BeachPreferences {
@@ -54,6 +56,8 @@ export interface ConditionEvaluation {
   status: "optimal" | "acceptable" | "poor";
   emoji: "✅" | "⚠️" | "❌";
   message: string;
+  /** Unknown factor: left out of the score and the recommendation, and not shown. */
+  excluded?: true;
 }
 
 export interface ConditionsAnalysis {

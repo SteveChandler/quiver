@@ -1280,4 +1280,12 @@ describe("forecast-hub-utils", () => {
       expect(result).toBeNull();
     });
   });
+
+  describe("createEmptyRegionalSummary", () => {
+    it("reports the placeholder best day's wind as unknown, never onshore", () => {
+      const { bestDay } = createEmptyRegionalSummary(mockRegion1);
+      expect(bestDay.windConditions).toBe("unknown");
+      expect(bestDay.dominantWindDirection).toBe("");
+    });
+  });
 });

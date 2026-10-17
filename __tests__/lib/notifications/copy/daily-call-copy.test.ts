@@ -34,10 +34,10 @@ describe("daily call copy", () => {
   });
 
   it("writes a compact window and marks approximate edges", () => {
-    expect(formatWindowLabel("2026-09-24T15:00:00.000Z", "2026-09-24T18:00:00.000Z", TZ)).toBe("8–11 AM");
-    expect(formatWindowLabel("2026-09-24T18:00:00.000Z", "2026-09-24T21:00:00.000Z", TZ)).toBe("11 AM–2 PM");
+    expect(formatWindowLabel("2026-09-24T15:00:00.000Z", "2026-09-24T18:00:00.000Z", TZ)).toBe("8 to 11 AM");
+    expect(formatWindowLabel("2026-09-24T18:00:00.000Z", "2026-09-24T21:00:00.000Z", TZ)).toBe("11 AM to 2 PM");
     expect(formatWindowLabel("2026-09-24T13:39:00.000Z", "2026-09-24T14:45:00.000Z", TZ, { approximateEnd: true }))
-      .toBe("6:39–~7:45 AM");
+      .toBe("6:39 to ~7:45 AM");
   });
 
   it("describes swell like the app: a height range, period and direction", () => {

@@ -467,6 +467,7 @@ export function BestSurfWindow({
     return (
       <UnifiedSurfCard
         surfCall={surfCall}
+        beachId={beachId}
         beachTimezone={beachTimezone}
         beachName={beachName}
         beachSlug={pathname?.split("/").pop() || undefined}

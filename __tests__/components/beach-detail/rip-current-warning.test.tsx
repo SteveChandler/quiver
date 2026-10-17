@@ -35,15 +35,21 @@ it.each([
 
 it.each([
   [{ data: null, error: { message: "source unavailable" } }, "Rip-current update unavailable"],
-  [{ data: null, error: null }, "Rip-current report unavailable"],
   [{ data: { ...live.risk, risk_level: "invalid" }, error: null }, "Rip-current update unavailable"],
   [{ data: { ...live.risk, fetched_at: "invalid" }, error: null }, "Rip-current update unavailable"],
   [{ data: { ...live.risk, valid_date: "2026-09-08" }, error: null }, "Rip-current update unavailable"],
-])("does not turn a failed, missing or mismatched report into reassurance", async (response, label) => {
+])("does not turn a failed or mismatched report into reassurance", async (response, label) => {
   query.maybeSingle.mockResolvedValue(response);
   render(<RipCurrentWarning {...props} />);
   expect(await screen.findByText(label)).toBeVisible();
   expect(screen.queryByText(/Low|High rip-current risk/)).toBeNull();
+});
+
+it("renders nothing when the beach has no report for the date", async () => {
+  query.maybeSingle.mockResolvedValue({ data: null, error: null });
+  render(<RipCurrentWarning {...props} />);
+  await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
+  expect(screen.queryByRole("complementary", { name: "Rip-current conditions" })).toBeNull();
 });
 
 it("discards late results from a previous selected date", async () => {

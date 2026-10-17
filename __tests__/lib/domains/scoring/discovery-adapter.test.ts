@@ -77,7 +77,8 @@ describe('Discovery Adapter', () => {
 
       // Should use defaults
       expect(profile.swellWindow).toMatchObject({ minDeg: 0, maxDeg: 360 });
-      expect(profile.windThresholds.offshoreDeg).toBe(90);
+      // No offshore and no facing direction: unknown, never an east default.
+      expect(profile.windThresholds.offshoreDeg).toBeNull();
     });
   });
 

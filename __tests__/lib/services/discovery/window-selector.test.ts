@@ -3141,3 +3141,40 @@ describe('selectBestWindows fallback horizon constraint', () => {
     expect(onRejection).toHaveBeenCalledWith({ gate: 'daylight', observed: { count: 2 } });
   });
 });
+
+describe('selectBestWindow wind string', () => {
+  const fixedNow = new Date('2024-01-15T16:00:00Z');
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(fixedNow);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  const windOf = (overrides: Partial<EnhancedForecastEntity>): string | undefined =>
+    selectBestWindow(
+      [createForecast({ wave_height: '3', wave_period: '12s', ...overrides })],
+      mockBeach as Beach,
+      null,
+    )?.wind;
+
+  it('builds speed and direction when both exist', () => {
+    expect(windOf({ wind_speed: '12 mph', wind_direction: 'NE' })).toBe('12 mph NE');
+  });
+
+  it('keeps a plain speed when the direction is missing', () => {
+    expect(windOf({ wind_speed: '12 mph', wind_direction: null, wind_direction_deg: null })).toBe('12 mph');
+  });
+
+  it('never prints null for a missing speed and direction', () => {
+    const wind = windOf({ wind_speed: null, wind_direction: null, wind_direction_deg: null });
+    expect(wind).toBe('');
+  });
+
+  it('shows no wind at all when the speed is unknown, even with a direction', () => {
+    expect(windOf({ wind_speed: null, wind_direction: 'NE' })).toBe('');
+  });
+});

@@ -115,12 +115,20 @@ describe('Wind Quality Scorer', () => {
   });
 
   describe('unknown wind direction', () => {
-    it('should return moderate score when wind direction unknown', () => {
+    it('leaves unknown direction out of the score and says nothing', () => {
       const input = createInput({ wind: { speedMph: 8, directionDeg: null } });
       const result = windQualityScorer.score(input);
 
-      expect(result.score).toBe(50);
-      expect(result.warnings).toContain('Wind direction unknown');
+      expect(result.weight).toBe(0);
+      expect(result.reasons).toEqual([]);
+      expect(result.warnings).toEqual([]);
+      expect(result.skip).toBe(false);
+    });
+
+    it('treats a non-finite speed as unknown, not blown out', () => {
+      const result = windQualityScorer.score(createInput({ wind: { speedMph: Number.NaN, directionDeg: 90 } }));
+      expect(result.weight).toBe(0);
+      expect(result.skip).toBe(false);
     });
   });
 

@@ -6,15 +6,31 @@
  */
 
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import {
+  resolveWindOrientation,
+  type WindOrientationSource,
+} from "@/lib/domains/shared/wind-orientation";
 
 // ---------------------------------------------------------------------------
 // Public types
 // ---------------------------------------------------------------------------
 
 export interface BeachChartConfig {
-  windOffshoreDeg: number;
+  /** Null when the beach has no orientation data; wind is then drawn as unknown. */
+  windOffshoreDeg: number | null;
   windOffshoreTolDeg: number;
   timezone: string;
+}
+
+export function buildBeachChartConfig(
+  beach: WindOrientationSource & { timezone?: string | null },
+): BeachChartConfig {
+  const { offshoreDeg, toleranceDeg } = resolveWindOrientation(beach);
+  return {
+    windOffshoreDeg: offshoreDeg,
+    windOffshoreTolDeg: toleranceDeg,
+    timezone: beach.timezone ?? "America/Los_Angeles",
+  };
 }
 
 export interface ChartDataPoint {
@@ -43,6 +59,7 @@ export const WIND_COLORS = {
   offshore: "#22c55e", // green
   onshore: "#ef4444", // red
   "cross-shore": "#eab308", // yellow
+  unknown: "#94a3b8", // slate: no direction or beach orientation, no relation implied
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -285,9 +302,8 @@ export function transformForecastsToChartData(
     // Wind speed + color
     const ws = parseNumericValue(fc.wind_speed);
     if (ws != null) {
-      let classification: "offshore" | "onshore" | "cross-shore" =
-        "cross-shore";
-      if (fc.wind_direction_deg != null) {
+      let classification: keyof typeof WIND_COLORS = "unknown";
+      if (fc.wind_direction_deg != null && config.windOffshoreDeg != null) {
         classification = classifyWindDirection(
           fc.wind_direction_deg,
           config.windOffshoreDeg,

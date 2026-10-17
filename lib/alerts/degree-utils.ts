@@ -1,4 +1,5 @@
 import { normalizeAngle } from "@/lib/domains/shared/angle-utils";
+import { resolveWindOrientation } from "@/lib/domains/shared/wind-orientation";
 
 export { normalizeAngle };
 
@@ -29,7 +30,8 @@ export function isWithinArc(
 
 /**
  * Classify wind direction relative to a beach's orientation.
- * Returns null if beach metadata is insufficient.
+ * Offshore falls back to the opposite of the facing direction; returns null
+ * when the beach has neither.
  */
 export function resolveWindDirection(
   windDeg: number,
@@ -37,15 +39,19 @@ export function resolveWindDirection(
   offshoreTolDeg: number | null,
   aspectDeg: number | null
 ): "offshore" | "onshore" | "cross-shore" | null {
-  if (offshoreDeg == null) return null;
+  const { offshoreDeg: offshore, toleranceDeg: tolerance } = resolveWindOrientation({
+    wind_offshore_deg: offshoreDeg,
+    wind_offshore_tol_deg: offshoreTolDeg,
+    aspect_deg: aspectDeg,
+  });
+  if (offshore == null) return null;
 
-  const tolerance = offshoreTolDeg ?? 45;
-
-  if (angularDistance(windDeg, offshoreDeg) <= tolerance) {
+  if (angularDistance(windDeg, offshore) <= tolerance) {
     return "offshore";
   }
 
-  if (aspectDeg != null && angularDistance(windDeg, aspectDeg) <= tolerance) {
+  const onshore = aspectDeg ?? normalizeAngle(offshore + 180);
+  if (angularDistance(windDeg, onshore) <= tolerance) {
     return "onshore";
   }
 

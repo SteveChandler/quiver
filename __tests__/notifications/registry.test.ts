@@ -855,3 +855,34 @@ describe("NOTIFICATION_REGISTRY — Phase 5i admin types", () => {
     expect(def.quietHours.mode).toBe("bypass");
   });
 });
+
+
+describe("registry beach title separators", () => {
+  it("cleans a forecast feedback beach name without changing notification data", () => {
+    const def = NOTIFICATION_REGISTRY.forecast_feedback_nudge;
+    const payload = def.validatePayload!({
+      beach_id: "beach-1", beach_name: "Cardiff-by-the-Sea - - North", relevance_confidence: "high",
+    });
+    const push = def.buildPushPayload!(payload);
+    expect(push.title).toBe("Surfed Cardiff-by-the-Sea North today?");
+    expect(push.body).toBe("Log it in one tap.");
+    expect(push.data.beach_id).toBe("beach-1");
+  });
+
+  it.each([
+    ["closure", "advisory", "Beach closed"],
+    ["advisory", "good", "Water advisory"],
+    ["good", "closure", "All clear"],
+    ["unknown", "unknown", "Water update"],
+  ] as const)("cleans the beach name in %s water-quality titles", (status, previous_status, prefix) => {
+    const def = NOTIFICATION_REGISTRY.water_quality;
+    const payload = def.validatePayload!({
+      beach_id: "beach-1", beach_slug: "cardiff", beach_name: "Cardiff-by-the-Sea — North",
+      status, previous_status, status_changed_at: "2026-10-18T15:00:00Z",
+    });
+    const push = def.buildPushPayload!(payload);
+    expect(push.title).toBe(`${prefix}: Cardiff-by-the-Sea North`);
+    expect(push.data).toMatchObject({ beach_id: "beach-1", beach_slug: "cardiff", status });
+    expect(def.buildInAppPayload!(payload).data?.beach_name).toBe("Cardiff-by-the-Sea — North");
+  });
+});

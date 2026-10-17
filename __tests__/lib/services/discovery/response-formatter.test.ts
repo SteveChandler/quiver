@@ -488,3 +488,12 @@ describe('FALLBACK_IMAGE_BY_NAME', () => {
     expect(FALLBACK_IMAGE_BY_NAME["Ocean Beach"]).toBeDefined();
   });
 });
+
+describe('generateDiscoverySummary without wind', () => {
+  it.each(['', 'Unknown'])('leaves the wind clause out for %j', (wind) => {
+    const summary = generateDiscoverySummary(mockBeach, { ...mockWindow, wind }, createDetailedScore({}));
+
+    expect(summary).not.toMatch(/with|Unknown|null/);
+    expect(summary).toContain('4-5 ft.');
+  });
+});

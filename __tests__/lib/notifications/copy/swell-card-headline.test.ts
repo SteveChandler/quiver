@@ -336,3 +336,14 @@ describe("push title selection is unchanged", () => {
     );
   });
 });
+
+
+it.each(SWELL_KINDS)("keeps %s push titles dash-free even for a punctuated beach name", (kind) => {
+  const args = { kind, eventKey: EVENT_KEY, beachName: "Waikiki – Canoes", peakDayLabel: "Saturday" };
+  for (const entry of kind === "coming" ? titlePool.swell : followupPool[kind]) {
+    const { headline } = getSwellCardHeadline({ ...args, titleId: entry.id, serious: entry.tags.includes("serious") });
+    expect(headline).not.toMatch(/—|–| - /);
+  }
+  expect(getSwellCardHeadline({ ...args, titleId: "s41", kind: "coming" }).headline)
+    .toBe("Cancel your plans. Waikiki Canoes, Saturday.");
+});

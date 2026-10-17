@@ -219,7 +219,8 @@ export function compositeToDetailedScore(
   // Skip results are disqualified beaches where subscores are intentionally
   // absent for scorers that did not run (early exit by design).
   if (!composite.skipReason) {
-    for (const key of ['baseConditions', 'windQuality', 'tideFit'] as const) {
+    // windQuality is absent by design when the wind can't be judged (weight 0).
+    for (const key of ['baseConditions', 'tideFit'] as const) {
       if (!composite.subscores.has(key)) trackFallback({ domain: 'discovery', field: `subscore_${key}`, fallbackValue: 50 });
     }
   }
@@ -233,6 +234,7 @@ export function compositeToDetailedScore(
     affinityBonus,
     personalizationBonus: 0,
     distancePenalty,
+    ...(!composite.skipReason && !composite.subscores.has('windQuality') ? { windUnknown: true } : {}),
   };
 
   // Adjust total with affinity and distance

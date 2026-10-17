@@ -36,8 +36,8 @@ export interface HeroWindowScoreInput {
   windowDurationHours: number;
   /** 0-100. Mean of tideFit across slots, scaled to 100. */
   tideFitAcrossWindow: number;
-  /** 0-100. Mean of windAlignment across slots, scaled to 100. */
-  windQualityScore: number;
+  /** 0-100. Mean of windAlignment across slots, scaled to 100; null when the wind is unknown. */
+  windQualityScore: number | null;
 }
 
 const WEIGHTS = {
@@ -63,7 +63,9 @@ export function computeHeroWindowScore(input: HeroWindowScoreInput): number {
     WEIGHTS.persistence * persistence +
     WEIGHTS.duration * duration +
     WEIGHTS.tideFit * input.tideFitAcrossWindow +
-    WEIGHTS.windQuality * input.windQualityScore;
+    WEIGHTS.windQuality * (input.windQualityScore ?? 0);
 
-  return Math.max(0, Math.min(100, total));
+  // Unknown wind sits out: rescale the other terms to the full 0-100 range.
+  const scaled = input.windQualityScore === null ? total / (1 - WEIGHTS.windQuality) : total;
+  return Math.max(0, Math.min(100, scaled));
 }

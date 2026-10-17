@@ -8,7 +8,17 @@ import type {
   SurfMetrics,
   MorningIntelData,
   ForecastSlice,
+  WindMetrics,
 } from "@/types/morning-intel";
+import { isWindUnknown } from "@/lib/analyzers/wind-analyzer";
+
+/** Plain reading when the wind can't be judged; nothing at all without a speed. */
+function windLine(wind: WindMetrics): string {
+  if (wind.description === "N/A") return "";
+  const direction = wind.cardinal === "N/A" ? "" : ` ${wind.cardinal} (${wind.direction}°)`;
+  const relation = isWindUnknown(wind) ? "" : ` — ${wind.description}`;
+  return `- **Wind:** ${wind.speed} mph${direction}${relation}\n`;
+}
 
 /**
  * IntelFormatter - Responsible for formatting surf data for display
@@ -116,8 +126,8 @@ export class IntelFormatter {
       conditionsSection = `
 📊 **CONDITIONS SCORE: ${conditions.score}/10**
 
-${conditions.swell.emoji} **Swell Direction:** ${conditions.swell.message}
-${conditions.wind.emoji} **Wind:** ${conditions.wind.message}
+${conditions.swell.emoji} **Swell Direction:** ${conditions.swell.message}${conditions.wind.excluded ? "" : `
+${conditions.wind.emoji} **Wind:** ${conditions.wind.message}`}
 ${conditions.tide.emoji} **Tide:** ${conditions.tide.message}`;
 
       if (beachPreferences.skillLevel) {
@@ -138,8 +148,7 @@ ${conditionsSection}
 - **Swell:**
   - Primary: ${primarySwell}
   - Secondary: ${secondarySwell}
-- **Wind:** ${wind.speed} mph ${wind.cardinal} (${wind.direction}°) — ${wind.description}
-- **Best Window:** ${bestWindow}
+${windLine(wind)}- **Best Window:** ${bestWindow}
 - **Confidence:** ${confidence}
 
 **Notes:** ${notes || "Standard morning conditions"}`;

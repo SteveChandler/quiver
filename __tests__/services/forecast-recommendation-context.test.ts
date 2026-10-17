@@ -102,7 +102,7 @@ describe("buildForecastRecommendationContext", () => {
     };
 
     const context = buildForecastRecommendationContext({
-      beach: beach(),
+      beach: beach({ wind_offshore_deg: 90 }),
       forecasts: [
         row({ forecast_at: "2026-05-08T21:00:00.000Z", wave_height: "1.1 ft", wave_period: "8s", wind_speed: "10 mph" }),
         sourceForecast,
@@ -364,7 +364,7 @@ describe("buildForecastRecommendationContext", () => {
     };
 
     const context = buildForecastRecommendationContext({
-      beach: beach(),
+      beach: beach({ wind_offshore_deg: 90 }),
       forecasts: [sourceForecast],
       window,
       now: new Date("2026-05-08T13:00:00.000Z"),
@@ -520,6 +520,60 @@ describe('September 4 selected-window contract', () => {
       sourceDataUpdatedAt: null,
       score: 72,
       confidence: 80,
+    });
+  });
+
+  describe("conditionDrivers.wind without a known wind relation", () => {
+    const bestWindow = (speed: string | null, direction: string | null, b: Beach) => {
+      const sourceForecast = row({
+        forecast_at: "2026-05-08T23:00:00.000Z",
+        wave_height: "2.7 ft",
+        wind_speed: speed,
+        wind_direction: direction,
+      });
+      const window: PersonalizedForecastWindow = {
+        start: new Date("2026-05-08T22:30:00.000Z"),
+        end: new Date("2026-05-09T01:30:00.000Z"),
+        tide: "Falling",
+        wind: "",
+        waveHeight: "2.7 ft",
+        wavePeriod: "9s",
+        dataSource: "CDIP",
+        confidence: 88,
+        timezone: "America/Los_Angeles",
+        score: 84,
+        peakTime: new Date("2026-05-08T23:00:00.000Z"),
+        sourceForecast,
+      };
+      return buildForecastRecommendationContext({
+        beach: b,
+        forecasts: [sourceForecast],
+        window,
+        now: new Date("2026-05-08T13:00:00.000Z"),
+      })?.conditionDrivers?.wind;
+    };
+
+    it("adds a quality word when the direction and the beach orientation are known", () => {
+      expect(bestWindow("5 mph", "W", beach({ wind_offshore_deg: 90 }))).toBe("5 mph W clean");
+      expect(bestWindow("14 mph", "W", beach({ aspect_deg: 90 } as Partial<Beach>))).toBe("14 mph W textured");
+    });
+
+    it("reads a plain speed and direction, with no quality word, when the beach has no orientation", () => {
+      expect(bestWindow("5 mph", "W", beach())).toBe("5 mph W");
+      expect(bestWindow("22 mph", "E", beach())).toBe("22 mph E");
+    });
+
+    it("reads a plain speed, with no quality word, when the direction is missing", () => {
+      expect(bestWindow("9 mph", null, beach({ wind_offshore_deg: 90 }))).toBe("9 mph");
+    });
+
+    it("keeps calm as clean without an orientation or direction", () => {
+      expect(bestWindow("2 mph", null, beach())).toBe("2 mph clean");
+      expect(bestWindow("0 mph", null, beach())).toBe("0 mph clean");
+    });
+
+    it("omits the wind entirely when the speed is missing, even with a direction", () => {
+      expect(bestWindow(null, "W", beach({ wind_offshore_deg: 90 }))).toBeNull();
     });
   });
 });
