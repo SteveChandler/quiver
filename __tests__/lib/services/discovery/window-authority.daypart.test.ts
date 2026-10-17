@@ -239,6 +239,21 @@ describe.each(['Pacific/Honolulu', 'America/Los_Angeles'])('Week Scout dayparts 
     expect(selectBeachDayWindows({ ...args, rowLiveness: 'until-next-row' }).bestDayWindow?.start).toEqual(time(winner));
   });
 
+  it.each(['08:05', '09:16', '10:29', '10:45', '12:30'])(
+    'keeps the whole-day below-floor fallback on its own daypart and open band at %s', (now) => {
+      const profile = { name: 'below floor', hours: hourly, scores: [30, 35, 40, 45, 40, 35, 30, 35, 40, 45, 40, 35, 30] };
+      const result = selectBeachDayWindows({ ...options(profile, now), rowLiveness: 'until-next-row' });
+      const windows = Object.entries(result.dayparts).filter(([, window]) => window !== null);
+      expect(windows.length).toBeGreaterThan(0);
+      for (const [bucket, window] of windows) {
+        expect(daypartForTime(window!.start, timezone)).toBe(bucket);
+        expect(daypartForTime(window!.displayWindowStart, timezone)).toBe(bucket);
+        expect(daypartForTime(window!.peakTime, timezone)).toBe(bucket);
+        expect(window!.displayWindowEnd.getTime()).toBeGreaterThan(time(now).getTime());
+      }
+    },
+  );
+
   it('expires the 08:00 row across a five-hour gap at 11:30 without a dawn-patrol cap', () => {
     const args = options({ name: 'gap', hours: ['03:00', '08:00', '13:00'], scores: [0, 90, 50] }, '11:30');
     expect(selectBestWindows({ ...args, rowLiveness: 'until-next-row' })[0]?.start).toEqual(time('13:00'));

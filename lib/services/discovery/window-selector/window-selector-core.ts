@@ -365,7 +365,8 @@ function buildResult(
     peakCandidates,
     now
   );
-  // Interpolation can lean past either edge; a limited peak stays inside its part of the window.
+  // Interpolation can lean past either edge. A limited peak stays inside its part of the
+  // window, strictly before peakEnd: that instant already belongs to the next daypart.
   const peakTime = peakEnd === bestWindow.end
     ? foundPeak
     : new Date(Math.min(Math.max(foundPeak.getTime(), bestWindow.start.getTime()), peakEnd.getTime() - 1));

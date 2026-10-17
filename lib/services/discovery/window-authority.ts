@@ -262,14 +262,18 @@ export function selectBeachDayWindows(
   }
 
   const daySelectorOptions: WindowSelectorOptions = { ...selectorOptions, forecasts: dayRows };
+  const sunTimes = options.sunTimesCache?.get(options.beach.id);
+  const liveNow = options.rowLiveness === 'until-next-row' ? (daySelectorOptions.now ??= new Date()) : null;
+  const display = (window: PersonalizedForecastWindow): AuthoritativeWindow => (
+    liveNow ? withLiveDisplayWindow(window, liveNow, sunTimes) : withDisplayWindow(window, sunTimes)
+  );
+  // The app closes a slot at its display end; never send one it reads as passed.
+  const isOpen = (window: AuthoritativeWindow): boolean => !liveNow || window.displayWindowEnd > liveNow;
   if (options.rowLiveness === 'until-next-row') {
-    const now = daySelectorOptions.now ??= new Date();
     daySelectorOptions.forecastPreparationCache = new Map();
     // A window is bucketed by its start, so its peak, conditions and display
     // band stay in that daypart: a Morning slot never names midday hours.
     daySelectorOptions.peakSearchEnd = (start) => daypartEnd(start, timezone);
-    // The app closes a slot at its display end; never send one it reads as passed.
-    const isOpen = (window: AuthoritativeWindow): boolean => window.displayWindowEnd > now;
     const ranks = new Map<PersonalizedForecastWindow, WindowSelectionRank>();
     const windows: PersonalizedForecastWindow[] = [];
     for (const daypart of Object.keys(dayparts) as WindowDaypart[]) {
@@ -285,7 +289,7 @@ export function selectBeachDayWindows(
         },
       }).find((candidate) => daypartForTime(candidate.start, timezone) === daypart);
       if (!window) continue;
-      const displayed = withLiveDisplayWindow(window, now, options.sunTimesCache?.get(options.beach.id));
+      const displayed = display(window);
       if (!isOpen(displayed)) continue;
       dayparts[daypart] = displayed;
       windows.push(window);
@@ -306,13 +310,7 @@ export function selectBeachDayWindows(
   const rankedWindows = selectWindows({
     ...daySelectorOptions,
     maxWindows: WINDOW_AUTHORITY_MAX_WINDOWS,
-  }).map((window) => (
-    options.rowLiveness === 'until-next-row'
-      ? withLiveDisplayWindow(window, daySelectorOptions.now!, options.sunTimesCache?.get(options.beach.id))
-      : withDisplayWindow(window, options.sunTimesCache?.get(options.beach.id))
-  )).filter((window) => (
-    options.rowLiveness !== 'until-next-row' || window.displayWindowEnd > daySelectorOptions.now!
-  ));
+  }).map(display).filter(isOpen);
 
   for (const window of rankedWindows) {
     const daypart = daypartForTime(
