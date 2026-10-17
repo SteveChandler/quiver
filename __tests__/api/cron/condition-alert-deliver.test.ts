@@ -1495,10 +1495,10 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
   });
 
   it.each([
-    { fresh: { wave_height: "0.7 ft" }, failedCondition: '{"wave_height":0.7} fails {"swell_height_min":1.5,"swell_height_max":4}' },
-    { fresh: { wave_height: "4.1 ft" }, failedCondition: '{"wave_height":4.1} fails {"swell_height_min":1.5,"swell_height_max":4}' },
-    { fresh: { wave_height: null }, failedCondition: '{"wave_height":null} fails {"swell_height_min":1.5,"swell_height_max":4}' },
-    { fresh: { wave_height: "3 ft", wind_speed: "12 kt" }, failedCondition: '{"wind_speed_kt":12} fails {"wind_speed_max_kt":8}' },
+    { fresh: { wave_height: "0.7 ft" }, failedCondition: "wave_height=0.7<min 1.5" },
+    { fresh: { wave_height: "4.1 ft" }, failedCondition: "wave_height=4.1>max 4" },
+    { fresh: { wave_height: null }, failedCondition: "wave_height=missing,expected min 1.5" },
+    { fresh: { wave_height: "3 ft", wind_speed: "12 kt" }, failedCondition: "wind_speed_kt=12>max 8" },
   ])("fresh forecast revalidation records no_matching_window with $failedCondition", async ({ fresh, failedCondition }) => {
     process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";

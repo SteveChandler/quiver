@@ -1,12 +1,9 @@
 import {
   parseEnhancedForecastHour,
-  selectFreshAlertWindowWithDiagnostics,
+  selectFreshAlertWindow,
 } from "@/lib/alerts/revalidate-alert-window";
 import type { AlertConditions } from "@/lib/alerts/types";
 import type { AlertRevalidationBeachMeta } from "@/lib/alerts/payload-builder";
-
-const selectFreshAlertWindow = (input: Parameters<typeof selectFreshAlertWindowWithDiagnostics>[0]) =>
-  selectFreshAlertWindowWithDiagnostics(input).window;
 
 const missionBeach: AlertRevalidationBeachMeta = {
   id: "mission-beach-id",
@@ -35,7 +32,7 @@ const mellow: AlertConditions = {
 
 describe("selectFreshAlertWindow", () => {
   it("selects the current matching hour from refreshed forecast rows", () => {
-    const window = selectFreshAlertWindow({
+    const { window } = selectFreshAlertWindow({
       conditions: mellow,
       beach: missionBeach,
       now: new Date("2026-05-13T14:00:00Z"),
@@ -79,7 +76,7 @@ describe("selectFreshAlertWindow", () => {
   });
 
   it("returns null when refreshed forecasts no longer match", () => {
-    const window = selectFreshAlertWindow({
+    const { window } = selectFreshAlertWindow({
       conditions: mellow,
       beach: missionBeach,
       now: new Date("2026-05-13T14:00:00Z"),
@@ -150,12 +147,12 @@ const before = new Date("2026-10-01T12:30:00Z"); // 05:30 PDT, when the push wou
 
 describe("hourly alert windows (Blacks 2026-10-01)", () => {
   it("keeps today's one-hour window with the flag off", () => {
-    const w = selectFreshAlertWindow({ conditions: watchBlacks, forecastRows: blacksRows, beach: blacksBeach, now: before });
+    const { window: w } = selectFreshAlertWindow({ conditions: watchBlacks, forecastRows: blacksRows, beach: blacksBeach, now: before });
     expect([w?.window_start, w?.window_end]).toEqual(["2026-10-01T15:00:00+00:00", "2026-10-01T16:00:00.000Z"]);
   });
 
   it("finds the real 7–9 AM stretch on hourly rows with NOAA tide", () => {
-    const w = selectFreshAlertWindow({
+    const { window: w } = selectFreshAlertWindow({
       conditions: watchBlacks, forecastRows: blacksRows, beach: blacksBeach, now: before,
       hourly: true, tideSamples: blacksNoaa,
     });
@@ -167,7 +164,7 @@ describe("hourly alert windows (Blacks 2026-10-01)", () => {
 
 describe("hourly alert windows: final review fixes", () => {
   it("still delivers the dawn window at the first deliver tick after sunrise (Blacks 07:00)", () => {
-    const w = selectFreshAlertWindow({
+    const { window: w } = selectFreshAlertWindow({
       conditions: watchBlacks, forecastRows: blacksRows, beach: blacksBeach,
       now: new Date("2026-10-01T14:00:05Z"), hourly: true, tideSamples: blacksNoaa,
     });
@@ -183,6 +180,6 @@ describe("hourly alert windows: final review fixes", () => {
     ];
     const conditions: AlertConditions = { swell_height_min: 0.5, wind_speed_max_kt: 8 };
     // 14–16Z matches on 1 ft (Mission Beach needs 1.5 ft); the 3 ft hour at 16Z fails on wind.
-    expect(selectFreshAlertWindow({ conditions, forecastRows: rows, beach: missionBeach, now: new Date("2026-06-20T12:00:00Z"), hourly: true })).toBeNull();
+    expect(selectFreshAlertWindow({ conditions, forecastRows: rows, beach: missionBeach, now: new Date("2026-06-20T12:00:00Z"), hourly: true }).window).toBeNull();
   });
 });

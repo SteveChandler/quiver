@@ -4,7 +4,9 @@ import { redirect } from "next/navigation";
 import ForecastPage from "@/app/app/forecast/page";
 import BeachPage from "@/app/beach/page";
 import InvitePage from "@/app/invite/page";
+import nextConfig from "@/next.config.mjs";
 
+jest.mock("@ducanh2912/next-pwa", () => ({ __esModule: true, default: () => (config: unknown) => config }));
 jest.mock("next/navigation", () => ({
   redirect: jest.fn((target: string) => {
     throw new Error(`NEXT_REDIRECT:${target}`);
@@ -51,5 +53,12 @@ describe("app-link web fallbacks", () => {
     expect(() => Page()).toThrow(`NEXT_REDIRECT:${target}`);
     expect(redirect).toHaveBeenCalledTimes(1);
     expect(redirect).toHaveBeenCalledWith(target);
+  });
+
+  it("redirects /auth to sign-in from next.config, ahead of any other matching rule", async () => {
+    const redirects = await nextConfig.redirects!();
+    const index = redirects.findIndex((rule: { source: string }) => rule.source === "/auth");
+    expect(redirects[index]).toEqual({ source: "/auth", destination: "/auth/sign-in", permanent: false });
+    expect(redirects.slice(0, index).some((rule: { source: string }) => new RegExp(`^${rule.source}$`).test("/auth"))).toBe(false);
   });
 });
