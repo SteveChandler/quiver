@@ -120,11 +120,12 @@ describe("findAttachTarget", () => {
       session("same", "2026-10-17T11:40:00.000Z", beach.id, beach.lat, beach.lon),
       session("near", "2026-10-17T12:05:00.000Z", "beach-2", 32.81, -117.2),
       session("far", "2026-10-17T12:01:00.000Z", "beach-3", 33.0, -117.2),
-    ], { session_id: "near" });
+    ], { session_id: "near", import_id: "import-1" });
 
     await expect(findAttachTarget(mock.client, "user-1", beach, start)).resolves.toEqual({
       sessionId: "near",
       hasTrack: true,
+      trackImportId: "import-1",
     });
     expect(mock.sessionEq).toHaveBeenCalledWith("user_id", "user-1");
     expect(mock.is).toHaveBeenCalledWith("deleted_at", null);
@@ -145,6 +146,7 @@ describe("findAttachTarget", () => {
     await expect(findAttachTarget(mock.client, "user-1", beach, start)).resolves.toEqual({
       sessionId: "live",
       hasTrack: false,
+      trackImportId: null,
     });
     expect(mock.trackEq).toHaveBeenCalledWith("session_id", "live");
   });

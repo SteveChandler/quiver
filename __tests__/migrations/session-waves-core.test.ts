@@ -51,13 +51,11 @@ describe("session waves core migration", () => {
     }
   });
 
-  it("limits client imports to uploaded rows with server-managed fields unset", () => {
+  it("removes direct client import inserts, including existing column grants", () => {
     const sql = normalizedSql();
-    const policy = sql.match(/create policy session_imports_insert_own\b[^;]+;/)?.[0];
-
-    expect(policy).toContain(
-      "with check (user_id = (select auth.uid()) and status = 'uploaded' and session_id is null and summary is null and error is null and purge_requested_at is null and sha256 is null)",
-    );
+    expect(sql).toContain("drop policy if exists session_imports_insert_own on public.session_imports;");
+    expect(sql).not.toMatch(/create policy session_imports_insert_own\b/);
+    expect(sql).toContain("revoke insert (user_id, storage_path, original_filename) on public.session_imports from public, anon, authenticated;");
   });
 
   it("requires the correction owner to own its session for insert and delete", () => {
@@ -77,7 +75,7 @@ describe("session waves core migration", () => {
   it("revokes default client access and grants only the required operations", () => {
     const sql = normalizedSql();
     const clientGrants: Record<string, string[]> = {
-      session_imports: ["select", "insert (user_id, storage_path, original_filename)"],
+      session_imports: ["select"],
       session_tracks: ["select"],
       session_waves: ["select"],
       session_wave_corrections: ["select", "insert, delete"],
@@ -112,7 +110,7 @@ describe("session waves core migration", () => {
     const sql = normalizedSql();
 
     const policies = [...sql.matchAll(/create policy ("[^"]+"|\w+) on ([\w.]+)/g)];
-    expect(policies).toHaveLength(9);
+    expect(policies).toHaveLength(8);
     for (const match of policies) {
       expect(sql).toContain(`drop policy if exists ${match[1]} on ${match[2]};`);
     }

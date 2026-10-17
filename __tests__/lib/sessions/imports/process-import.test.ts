@@ -44,6 +44,7 @@ let bytes: Uint8Array;
 let nearby: Row[];
 let rpcError: unknown;
 let download: jest.Mock;
+let queryFailure: (mutation: Mutation) => unknown;
 
 function client(name: string): SupabaseClient {
   return {
@@ -71,6 +72,8 @@ function client(name: string): SupabaseClient {
         single: () => { single = true; return query; },
         maybeSingle: () => { single = true; return query; },
         then: (resolve: (value: unknown) => unknown) => {
+          const failure = queryFailure({ client: name, table, operation, payload });
+          if (failure) return Promise.resolve({ data: null, error: failure }).then(resolve);
           rows[table] ??= [];
           let matched = rows[table].filter(row => filters.every(filter => filter(row)));
           if (operation !== "select") mutations.push({ client: name, table, operation, payload });
@@ -96,6 +99,7 @@ beforeEach(() => {
   nearby = [beach];
   rpcError = null;
   mutations = [];
+  queryFailure = () => null;
   rows = {
     session_imports: [{ id: importId, user_id: userId, storage_path: "import-1/user-1/watch.fit", original_filename: "watch.fit", status: "uploaded" }],
     beaches: [{ ...beach, swell_window_center_deg: beach.swellWindowCenterDeg }],
@@ -237,10 +241,122 @@ it("returns duplicate when the same file is uploaded and processed twice", async
   expect(inserts("session_tracks")).toHaveLength(1);
 });
 
-it("returns duplicate when replaying a completed import whose live session timing was edited", async () => {
+it("resumes its own live session without a track even after its timing was edited", async () => {
   const sha256 = createHash("sha256").update(bytes).digest("hex");
   Object.assign(rows.session_imports[0], { status: "completed", sha256, session_id: "edited-session" });
   rows.sessions.push({ id: "edited-session", user_id: userId, arrival_time: "2020-01-01T00:00:00Z", deleted_at: null });
-  expect(await processImport(deps, importId, userId)).toEqual({ status: "duplicate", sessionId: "edited-session" });
+  expect(await processImport(deps, importId, userId)).toMatchObject({ status: "completed", sessionId: "edited-session", attached: false });
   expect(inserts("sessions")).toHaveLength(0);
+});
+
+
+it.each(["other/user-1/watch.fit", "import-1/other/watch.fit", "import-1/user-1-other/watch.fit"])("rejects storage outside this import and owner: %s", async storagePath => {
+  rows.session_imports[0].storage_path = storagePath;
+  await expect(processImport(deps, importId, userId)).rejects.toThrow("Import not found");
+  expect(download).not.toHaveBeenCalled();
+  expect(mutations).toHaveLength(0);
+});
+
+it.each(["session_waves", "session_tracks"])("resumes its new session after %s insertion fails", async table => {
+  let failed = false;
+  queryFailure = mutation => {
+    if (!failed && mutation.table === table && mutation.operation === "insert") {
+      failed = true;
+      return { message: "temporary persistence failure" };
+    }
+    return null;
+  };
+  await expect(processImport(deps, importId, userId)).rejects.toThrow("temporary persistence failure");
+  expect(rows.session_imports[0]).toMatchObject({ session_id: "new-sessions", status: "uploaded" });
+  expect(inserts("user_events")).toHaveLength(0);
+  expect(await processImport(deps, importId, userId)).toMatchObject({ status: "completed", attached: false, sessionId: "new-sessions" });
+  expect(inserts("sessions")).toHaveLength(1);
+  expect(rows.session_tracks).toHaveLength(1);
+  expect(rows.session_tracks[0]).toMatchObject({ user_arrival_time: null, user_duration_minutes: null });
+  expect(rows.session_imports[0].status).toBe("completed");
+  expect(rows.user_events.filter(row => row.event_type === "session_created")).toHaveLength(1);
+});
+
+it.each(["water_temp", "completed"])("finishes an existing own track after the %s update fails", async point => {
+  let failed = false;
+  queryFailure = mutation => {
+    const matches = point === "water_temp"
+      ? mutation.table === "sessions" && mutation.payload?.water_temp !== undefined
+      : mutation.table === "session_imports" && mutation.payload?.status === "completed";
+    if (!failed && mutation.operation === "update" && matches) {
+      failed = true;
+      return { message: "temporary finalization failure" };
+    }
+    return null;
+  };
+  await expect(processImport(deps, importId, userId)).rejects.toThrow("temporary finalization failure");
+  expect(rows.session_tracks).toHaveLength(1);
+  expect(rows.session_imports[0]).toMatchObject({ session_id: "new-sessions", status: "uploaded" });
+  const waveIds = rows.session_waves.map(row => row.id);
+  expect(await processImport(deps, importId, userId)).toMatchObject({ status: "completed", attached: false, sessionId: "new-sessions" });
+  expect(inserts("sessions")).toHaveLength(1);
+  expect(inserts("session_tracks")).toHaveLength(1);
+  expect(rows.session_waves.map(row => row.id)).toEqual(waveIds);
+  expect(rows.session_tracks[0]).toMatchObject({ user_arrival_time: null, user_duration_minutes: null });
+  expect(rows.sessions[0]).toMatchObject({ water_temp: expect.any(Number), water_temp_source: "watch" });
+  expect(rows.user_events.filter(row => row.event_type === "session_created")).toHaveLength(1);
+  expect(await processImport(deps, importId, userId)).toMatchObject({ status: "completed", attached: false });
+  expect(rows.user_events.filter(row => row.event_type === "session_created")).toHaveLength(1);
+});
+
+it("finishes a track attached to a pre-existing session without emitting session_created", async () => {
+  const arrival = summarizeTrack(readTrackFile(bytes, "watch.fit", now)).inWaterStart;
+  rows.sessions.push({ id: "attached", user_id: userId, beach_id: beach.id, arrival_time: arrival, duration_minutes: 90, status: "completed" });
+  let failed = false;
+  queryFailure = mutation => {
+    if (!failed && mutation.table === "session_imports" && mutation.payload?.status === "completed") {
+      failed = true;
+      return { message: "completion failed" };
+    }
+    return null;
+  };
+  await expect(processImport(deps, importId, userId)).rejects.toThrow("completion failed");
+  expect(await processImport(deps, importId, userId)).toMatchObject({ status: "completed", sessionId: "attached", attached: true });
+  expect(rows.session_tracks[0]).toMatchObject({ user_arrival_time: arrival, user_duration_minutes: 90 });
+  expect(inserts("session_tracks")).toHaveLength(1);
+  expect(inserts("sessions")).toHaveLength(0);
+  expect(inserts("user_events")).toHaveLength(0);
+});
+
+it.each(["returned", "thrown"])("preserves the no_gps TrackFileError when failure bookkeeping errors are %s", async mode => {
+  bytes = fixtureBytes(false);
+  const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+  const attempted: string[] = [];
+  queryFailure = mutation => {
+    if ((mutation.table === "session_imports" && mutation.payload?.status === "failed") || mutation.table === "user_events") {
+      attempted.push(mutation.table);
+      if (mode === "thrown") throw new Error("bookkeeping failed");
+      return { message: "bookkeeping failed" };
+    }
+    return null;
+  };
+  try {
+    await expect(processImport(deps, importId, userId)).rejects.toMatchObject({ name: "TrackFileError", code: "no_gps" });
+    expect(attempted).toEqual(["session_imports", "user_events"]);
+    expect(warn).toHaveBeenCalledTimes(2);
+    expect(inserts("sessions")).toHaveLength(0);
+  } finally {
+    warn.mockRestore();
+  }
+});
+
+it("resolves a concurrent SHA unique violation to the winning live session", async () => {
+  let collided = false;
+  queryFailure = mutation => {
+    if (!collided && mutation.table === "session_imports" && mutation.payload?.sha256) {
+      collided = true;
+      rows.session_imports.push({ id: "winner", user_id: userId, sha256: mutation.payload.sha256, status: "uploaded", session_id: "winning-session" });
+      rows.sessions.push({ id: "winning-session", user_id: userId, deleted_at: null });
+      return { code: "23505", message: "duplicate key value violates unique constraint" };
+    }
+    return null;
+  };
+  expect(await processImport(deps, importId, userId)).toEqual({ status: "duplicate", sessionId: "winning-session" });
+  expect(inserts("sessions")).toHaveLength(0);
+  expect(inserts("session_tracks")).toHaveLength(0);
 });

@@ -10,7 +10,7 @@ export async function findAttachTarget(
   userId: string,
   beach: ImportBeach,
   inWaterStart: string
-): Promise<{ sessionId: string; hasTrack: boolean } | null> {
+): Promise<{ sessionId: string; hasTrack: boolean; trackImportId: string | null } | null> {
   const startMs = Date.parse(inWaterStart);
   const { data: sessions, error: sessionsError } = await supabase
     .from("sessions")
@@ -36,10 +36,10 @@ export async function findAttachTarget(
 
   const { data: track, error: trackError } = await supabase
     .from("session_tracks")
-    .select("session_id")
+    .select("session_id, import_id")
     .eq("session_id", closest.id)
     .maybeSingle();
   if (trackError) throw trackError;
 
-  return { sessionId: closest.id, hasTrack: track != null };
+  return { sessionId: closest.id, hasTrack: track != null, trackImportId: track?.import_id ?? null };
 }

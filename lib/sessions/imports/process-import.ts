@@ -16,6 +16,13 @@ export type ProcessImportResult =
   | { status: "needs_beach"; importId: string; candidates: ImportBeach[] }
   | { status: "duplicate"; sessionId: string };
 
+export class ImportNotFoundError extends Error {
+  constructor() {
+    super("Import not found");
+    this.name = "ImportNotFoundError";
+  }
+}
+
 type TrackInsert = {
   sessionId: string;
   userId: string;
@@ -128,7 +135,12 @@ export async function processImport(
     const { data: imported, error: importError } = await serviceClient.from("session_imports")
       .select("*").eq("id", importId).eq("user_id", userId).single();
     checkError(importError);
-    if (!imported || imported.user_id !== userId) throw new Error("Import not found");
+    if (!imported || imported.user_id !== userId
+      || !imported.storage_path.startsWith(`${importId}/${userId}/`)) {
+      throw new ImportNotFoundError();
+    }
+
+    const wasCompleted = imported.status === "completed";
 
     const { data: object, error: downloadError } = await serviceClient.storage
       .from("session-tracks").download(imported.storage_path);
@@ -156,13 +168,33 @@ export async function processImport(
     }
     const beach = resolution.beach;
     if (!beach) throw new Error("Import beach not found");
-    const target = await findAttachTarget(userClient, userId, beach, summary.inWaterStart);
-    if (target?.hasTrack) return { status: "duplicate", sessionId: target.sessionId };
+    const { data: linkedSession, error: linkedError } = imported.session_id
+      ? await userClient.from("sessions").select("id").eq("id", imported.session_id)
+        .eq("user_id", userId).is("deleted_at", null).maybeSingle()
+      : { data: null, error: null };
+    checkError(linkedError);
+    const { data: linkedTrack, error: linkedTrackError } = linkedSession
+      ? await userClient.from("session_tracks").select("*").eq("session_id", linkedSession.id).maybeSingle()
+      : { data: null, error: null };
+    checkError(linkedTrackError);
+    const target = linkedSession
+      ? { sessionId: linkedSession.id, hasTrack: linkedTrack !== null, trackImportId: linkedTrack?.import_id ?? null }
+      : await findAttachTarget(userClient, userId, beach, summary.inWaterStart);
+    if (target?.hasTrack && target.trackImportId !== importId) {
+      return { status: "duplicate", sessionId: target.sessionId };
+    }
+    const { data: existingTrack, error: existingTrackError } = target?.hasTrack && !linkedTrack
+      ? await userClient.from("session_tracks").select("*").eq("session_id", target.sessionId).maybeSingle()
+      : { data: linkedTrack, error: null };
+    checkError(existingTrackError);
+    const attached = existingTrack
+      ? existingTrack.user_arrival_time != null || existingTrack.user_duration_minutes != null
+      : target !== null && !linkedSession;
 
     const { data: previous, error: shaError } = await serviceClient.from("session_imports")
       .select("id, status, session_id").eq("user_id", userId).eq("sha256", sha256).maybeSingle();
     checkError(shaError);
-    if (previous) {
+    if (previous && previous.id !== importId) {
       if (previous.status === "completed" && previous.session_id) {
         const { data: liveSession, error: sessionError } = await userClient.from("sessions")
           .select("id").eq("id", previous.session_id).eq("user_id", userId).is("deleted_at", null).maybeSingle();
@@ -174,13 +206,32 @@ export async function processImport(
         .eq("id", previous.id).eq("user_id", userId);
       checkError(error);
     }
-    await updateImport({ sha256 });
+    const { error: claimError } = await serviceClient.from("session_imports").update({ sha256 })
+      .eq("id", importId).eq("user_id", userId);
+    if (claimError?.code === "23505") {
+      const { data: winner, error: winnerError } = await serviceClient.from("session_imports")
+        .select("session_id").eq("user_id", userId).eq("sha256", sha256).maybeSingle();
+      checkError(winnerError);
+      if (winner?.session_id) {
+        const { data: liveSession, error: sessionError } = await userClient.from("sessions")
+          .select("id").eq("id", winner.session_id).eq("user_id", userId).is("deleted_at", null).maybeSingle();
+        checkError(sessionError);
+        if (liveSession) return { status: "duplicate", sessionId: liveSession.id };
+      }
+    }
+    checkError(claimError);
 
     const timing = { arrival_time: summary.inWaterStart, duration_minutes: Math.round((endMs - startMs) / 60000) };
     let sessionId: string;
     let userArrivalTime: string | null = null;
     let userDurationMinutes: number | null = null;
-    if (target) {
+    if (target && !attached) {
+      sessionId = target.sessionId;
+    } else if (target && existingTrack) {
+      sessionId = target.sessionId;
+      userArrivalTime = existingTrack.user_arrival_time;
+      userDurationMinutes = existingTrack.user_duration_minutes;
+    } else if (target) {
       const { data: session, error } = await userClient.from("sessions")
         .select("id, arrival_time, duration_minutes, status").eq("id", target.sessionId)
         .eq("user_id", userId).is("deleted_at", null).single();
@@ -201,14 +252,19 @@ export async function processImport(
       checkError(error);
       if (!session) throw new Error("Session insert returned no session");
       sessionId = session.id;
+      await updateImport({ session_id: sessionId });
     }
 
-    const waves = await persistDetection(serviceClient, sessionId, userId, track, summary, beach);
-    const persistedSummary = summarizeTrack(track, waves.map(wave => ({ start: wave.startedAt, end: wave.endedAt })));
-    await insertSessionTrack(serviceClient, {
-      sessionId, userId, importId, storagePath: imported.storage_path, format: track.meta.format,
-      sha256, track, summary: persistedSummary, userArrivalTime, userDurationMinutes, timingFromTrack: true,
-    });
+    const waves = existingTrack
+      ? detectWaves(track, summary, beach)
+      : await persistDetection(serviceClient, sessionId, userId, track, summary, beach);
+    if (!existingTrack) {
+      const persistedSummary = summarizeTrack(track, waves.map(wave => ({ start: wave.startedAt, end: wave.endedAt })));
+      await insertSessionTrack(serviceClient, {
+        sessionId, userId, importId, storagePath: imported.storage_path, format: track.meta.format,
+        sha256, track, summary: persistedSummary, userArrivalTime, userDurationMinutes, timingFromTrack: true,
+      });
+    }
     if (summary.waterTempC !== null) {
       const { error } = await userClient.from("sessions").update({
         water_temp: Math.round(summary.waterTempC * 9 / 5 + 32), water_temp_source: "watch",
@@ -217,11 +273,11 @@ export async function processImport(
     }
     const wavesSummary = buildWavesSummary(
       waves.map(wave => ({ ...wave, id: String(wave.index) })), [],
-      { gpsCoverage: summary.gpsCoverage, speedReliable: summary.speedReliable, userWaveCount: null },
+      { gpsCoverage: summary.gpsCoverage, speedReliable: summary.speedReliable, userWaveCount: existingTrack?.user_wave_count ?? null },
       WAVE_DETECTION_VERSION,
     );
     await updateImport({ status: "completed", session_id: sessionId, summary: wavesSummary, error: null });
-    if (!target) {
+    if (!attached && !wasCompleted) {
       await emitSessionCreatedEvent(userClient, {
         session: { id: sessionId, beach_id: beach.id }, userId,
         source: "web-file-import", surface: "web-file-import",
@@ -232,14 +288,23 @@ export async function processImport(
         },
       });
     }
-    return { status: "completed", sessionId, attached: target !== null, summary: wavesSummary };
+    return { status: "completed", sessionId, attached, summary: wavesSummary };
   } catch (error) {
     if (error instanceof TrackFileError) {
-      await updateImport({ status: "failed", error: error.code });
-      const { error: eventError } = await serviceClient.from("user_events").insert({
-        user_id: userId, event_type: "session_import_failed", metadata: { code: error.code },
-      });
-      checkError(eventError);
+      try {
+        await updateImport({ status: "failed", error: error.code });
+      } catch (failure) {
+        console.warn("[session_import] failed to record import error:", failure);
+      }
+      try {
+        const { error: eventError } = await serviceClient.from("user_events").insert({
+          user_id: userId, event_type: "session_import_failed", metadata: { code: error.code },
+        });
+        checkError(eventError);
+      } catch (failure) {
+        console.warn("[session_import] failed to record failure event:", failure);
+      }
+      throw error;
     }
     throw asError(error);
   }

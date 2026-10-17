@@ -103,16 +103,6 @@ DROP POLICY IF EXISTS session_imports_select_own ON public.session_imports;
 CREATE POLICY session_imports_select_own ON public.session_imports
   FOR SELECT TO authenticated USING (user_id = (select auth.uid()));
 DROP POLICY IF EXISTS session_imports_insert_own ON public.session_imports;
-CREATE POLICY session_imports_insert_own ON public.session_imports
-  FOR INSERT TO authenticated WITH CHECK (
-    user_id = (select auth.uid())
-    AND status = 'uploaded'
-    AND session_id IS NULL
-    AND summary IS NULL
-    AND error IS NULL
-    AND purge_requested_at IS NULL
-    AND sha256 IS NULL
-  );
 
 DROP POLICY IF EXISTS session_tracks_select_own ON public.session_tracks;
 CREATE POLICY session_tracks_select_own ON public.session_tracks
@@ -148,12 +138,13 @@ CREATE POLICY session_wave_corrections_delete_own ON public.session_wave_correct
 
 -- Table grants also protect operations such as TRUNCATE that bypass RLS.
 REVOKE ALL ON public.session_imports FROM PUBLIC, anon, authenticated;
+-- Table-level revokes leave existing column grants intact on re-application.
+REVOKE INSERT (user_id, storage_path, original_filename) ON public.session_imports FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON public.session_tracks FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON public.session_waves FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON public.session_wave_corrections FROM PUBLIC, anon, authenticated;
 
 GRANT SELECT ON public.session_imports TO authenticated;
-GRANT INSERT (user_id, storage_path, original_filename) ON public.session_imports TO authenticated;
 GRANT SELECT ON public.session_tracks TO authenticated;
 GRANT SELECT ON public.session_waves TO authenticated;
 GRANT SELECT ON public.session_wave_corrections TO authenticated;

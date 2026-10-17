@@ -11,12 +11,15 @@ jest.mock("@/lib/supabase", () => ({
   createServiceRoleClient: () => ({ from: mockServiceFrom }),
 }));
 jest.mock("@/lib/middleware/api-wrappers/rate-limit-wrapper", () => ({ withRateLimit: (handler: unknown) => handler }));
-jest.mock("@/lib/sessions/imports/process-import", () => ({ processImport: (...args: unknown[]) => mockProcess(...args) }));
+jest.mock("@/lib/sessions/imports/process-import", () => ({
+  ...jest.requireActual("@/lib/sessions/imports/process-import"),
+  processImport: (...args: unknown[]) => mockProcess(...args),
+}));
 
 import { NextRequest } from "next/server";
 import { POST as create } from "@/app/api/v1/session-imports/route";
-import { POST as processFile } from "@/app/api/v1/session-imports/[id]/process/route";
-import { POST as chooseBeach } from "@/app/api/v1/session-imports/[id]/beach/route";
+import { POST as processFile, maxDuration as processDuration } from "@/app/api/v1/session-imports/[id]/process/route";
+import { POST as chooseBeach, maxDuration as beachDuration } from "@/app/api/v1/session-imports/[id]/beach/route";
 import { TrackFileError } from "@/lib/sessions/tracks/types";
 
 const userId = "987fcdeb-51a2-43c1-a123-456789abcdef";
@@ -167,4 +170,26 @@ it("maps a raw Postgrest failure to a real 500", async () => {
   } finally {
     errorLog.mockRestore();
   }
+});
+
+
+it("allows 60 seconds for both processing routes", () => {
+  expect(processDuration).toBe(60);
+  expect(beachDuration).toBe(60);
+});
+
+it.each([processFile, chooseBeach])("returns not_found for a mismatched import storage path", async handler => {
+  imported!.status = "needs_beach";
+  // Use the real pipeline's rejection so the route proves the domain-error mapping.
+  const { processImport: actualProcess } = jest.requireActual("@/lib/sessions/imports/process-import");
+  const importedRow = { ...imported, storage_path: `${id}/someone-else/watch.fit` };
+  const download = jest.fn();
+  const lookup: any = { select: () => lookup, eq: () => lookup, single: async () => ({ data: importedRow, error: null }) };
+  mockProcess.mockImplementation(() => actualProcess({ userClient: {}, serviceClient: {
+    from: () => lookup, storage: { from: () => ({ download }) },
+  }, now: new Date() }, id, userId));
+  const response = await handler(request({ beachId }), context);
+  expect(response.status).toBe(404);
+  expect(await response.json()).toMatchObject({ success: false, error: "not_found" });
+  expect(download).not.toHaveBeenCalled();
 });
