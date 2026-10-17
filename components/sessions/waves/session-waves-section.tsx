@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { ZineSurface } from "@/components/zine";
 import { useSessionWaves } from "@/hooks/use-session-waves";
@@ -48,6 +48,14 @@ export function SessionWavesSection({ sessionId }: SessionWavesSectionProps) {
   const [saveError, setSaveError] = useState<string | null>(null);
   const response = local?.sessionId === sessionId ? local.response : data;
 
+  const waveOrdinals = useMemo(() => {
+    const ordinals = new Map<string, number>();
+    for (const wave of response?.waves ?? []) {
+      if (wave.counted && !wave.excluded) ordinals.set(wave.id, ordinals.size + 1);
+    }
+    return ordinals;
+  }, [response?.waves]);
+
   useEffect(() => {
     if (!data || trackedRef.current) return;
     trackedRef.current = true;
@@ -57,7 +65,6 @@ export function SessionWavesSection({ sessionId }: SessionWavesSectionProps) {
   if (!response) return null;
 
   const { summary, waves } = response;
-  const countedWaves = waves.filter((wave) => wave.counted && !wave.excluded);
   const countValue = draftCount ?? (summary.userWaveCount?.toString() ?? "");
 
   async function toggleWave(waveId: string, excluded: boolean): Promise<void> {
@@ -172,7 +179,7 @@ export function SessionWavesSection({ sessionId }: SessionWavesSectionProps) {
           {waves.map((wave) => (
             <li key={wave.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-ink/20 bg-white/60 p-3">
               <div className={wave.counted ? "text-ink" : "text-ink/60"}>
-                <p className="font-semibold">{wave.counted ? `Wave ${countedWaves.findIndex((ride) => ride.id === wave.id) + 1}` : wave.excluded && wave.confidence >= COUNT_MIN_CONFIDENCE ? "Excluded wave" : "Maybe a wave"} · {new Date(wave.startedAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</p>
+                <p className="font-semibold">{wave.counted ? `Wave ${waveOrdinals.get(wave.id)}` : wave.excluded && wave.confidence >= COUNT_MIN_CONFIDENCE ? "Excluded wave" : "Maybe a wave"} · {new Date(wave.startedAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</p>
                 <p className="text-sm">
                   {Math.round(wave.durationS)} s · {Math.round(wave.distanceM)} m
                   {summary.speedReliable && wave.maxSpeedMps !== null && ` · ${formatSpeed(wave.maxSpeedMps)}`}
