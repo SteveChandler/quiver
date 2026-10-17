@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { DisplaySwellWindow } from "@/lib/domains/conditions/display-swell";
+import { fetchOpenMeteoHindcastDay, hindcastToConditionsRow } from "@/lib/services/open-meteo-hindcast";
 import {
   fetchMopFocusRatio,
   fetchMopHour,
@@ -11,7 +12,6 @@ import {
   resolveSessionConditions,
   type SessionConditions,
   type SessionConditionsRow,
-  type SessionConditionsSource,
 } from "./session-conditions";
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -30,6 +30,7 @@ const FORECAST_LOOKBACK_MS = 3 * HOUR_MS;
 const SNAPSHOT_AFTER_ARRIVAL_MS = 30 * 60 * 1000;
 const DEFAULT_BATCH_SIZE = 200;
 const CONCURRENCY = 4;
+type HindcastDay = Awaited<ReturnType<typeof fetchOpenMeteoHindcastDay>>;
 
 const SESSION_CONDITIONS_COLUMNS = [
   "swell_period_s",
@@ -62,6 +63,8 @@ export interface PendingSession {
 
 export interface EnrichBeach {
   id: string;
+  lat?: number | null;
+  lon?: number | null;
   mop_point_id: string | null;
   swell_window_center_deg: number | null;
   swell_window_halfwidth_deg: number | null;
@@ -79,15 +82,15 @@ export class SessionConditionsStoreError extends Error {
 
 export type PendingSessionsQuery =
   | { kind: "live"; recentSinceIso: string; arrivalToIso: string; limit: number }
-  | { kind: "backfill"; arrivalFromIso: string; arrivalToIso: string; limit: number };
+  | { kind: "backfill"; arrivalFromIso: string; arrivalToIso: string; limit: number; retryNone?: boolean };
 
 export interface SessionConditionsStore {
   listPendingSessions(query: PendingSessionsQuery): Promise<PendingSession[]>;
   loadBeaches(ids: string[]): Promise<Map<string, EnrichBeach>>;
   loadForecastRows(beachId: string, fromIso: string, toIso: string): Promise<SessionConditionsRow[]>;
   loadSnapshot(sessionId: string): Promise<SessionConditionsRow | null>;
-  /** Writes only where every patched column is still null; false when a guard stopped it. */
-  updateSession(id: string, patch: SessionPatch): Promise<boolean>;
+  /** Guards patched columns against concurrent writes; retryNone may replace only a current 'none' source. */
+  updateSession(id: string, patch: SessionPatch, options?: { retryNone?: boolean }): Promise<boolean>;
 }
 
 interface EnrichSummary {
@@ -115,6 +118,8 @@ interface EnrichOptions {
   since?: Date;
   now: Date;
   batchSize?: number;
+  hindcast?: { fetchDay: typeof fetchOpenMeteoHindcastDay };
+  retryNone?: boolean;
   mop?: {
     fetchMopHour: (pointId: string, at: Date) => Promise<MopHour | null>;
     fetchMopFocusRatio: (pointId: string, at: Date) => Promise<number | null>;
@@ -173,7 +178,9 @@ async function resolveConditions(
   store: SessionConditionsStore,
   session: PendingSession,
   beach: EnrichBeach | undefined,
-): Promise<SessionConditions> {
+  hindcast: EnrichOptions["hindcast"],
+  hindcastDays: Map<string, Promise<HindcastDay>>,
+): Promise<SessionConditions | null> {
   const arrivalMs = Date.parse(session.arrival_time);
   const window = beachWindow(beach);
   const rows = await store.loadForecastRows(
@@ -186,10 +193,27 @@ async function resolveConditions(
 
   // enhanced_forecasts keeps about a week; older sessions fall back to the row their snapshot froze.
   const snapshot = await store.loadSnapshot(session.id);
-  const source: SessionConditionsSource = "snapshot_backfill";
-  return snapshot && snapshotFits(snapshot, arrivalMs)
-    ? resolveSessionConditions(snapshot, window, source)
-    : resolveSessionConditions(null, window, source);
+  if (snapshot && snapshotFits(snapshot, arrivalMs)) {
+    return resolveSessionConditions(snapshot, window, "snapshot_backfill");
+  }
+  if (!hindcast) return resolveSessionConditions(null, window, "snapshot_backfill");
+  const lat = beach?.lat;
+  const lon = beach?.lon;
+  if (typeof lat !== "number" || typeof lon !== "number") return null;
+
+  const dateUtc = session.arrival_time.slice(0, 10);
+  const key = `${session.beach_id}:${dateUtc}`;
+  let day = hindcastDays.get(key);
+  if (!day) {
+    day = Promise.resolve().then(() => hindcast.fetchDay(lat, lon, dateUtc)).catch(() => null);
+    hindcastDays.set(key, day);
+  }
+  const hours = await day;
+  if (!hours) return null;
+  const atOrBefore = pickForecastRowAtOrBefore(hours.map((hour) => ({ ...hour, forecast_at: hour.at })), session.arrival_time);
+  if (!atOrBefore) return null;
+  const resolved = resolveSessionConditions(hindcastToConditionsRow(atOrBefore), window, "hindcast_open_meteo");
+  return resolved.conditions_source === "none" ? null : resolved;
 }
 
 function nearshoreFields(hour: MopHour, focusRatio: number | null, source: string): SessionPatch {
@@ -227,6 +251,7 @@ export async function enrichSessionConditions(
   options: EnrichOptions,
 ): Promise<EnrichSummary> {
   const mop = options.mop ?? { fetchMopHour, fetchMopFocusRatio };
+  const hindcastDays = new Map<string, Promise<HindcastDay>>();
   const nowMs = options.now.getTime();
   const limit = options.batchSize ?? DEFAULT_BATCH_SIZE;
   const arrivalToIso = new Date(nowMs - MOP_PUBLISH_LAG_MS).toISOString();
@@ -245,7 +270,13 @@ export async function enrichSessionConditions(
 
   const sessions = await store.listPendingSessions(
     options.mode === "backfill"
-      ? { kind: "backfill", arrivalFromIso: (options.since ?? new Date(0)).toISOString(), arrivalToIso, limit }
+      ? {
+        kind: "backfill",
+        arrivalFromIso: (options.since ?? new Date(0)).toISOString(),
+        arrivalToIso,
+        limit,
+        ...(options.retryNone ? { retryNone: true } : {}),
+      }
       : { kind: "live", recentSinceIso: new Date(nowMs - LIVE_LOOKBACK_MS).toISOString(), arrivalToIso, limit },
   );
   summary.selected = sessions.length;
@@ -258,8 +289,9 @@ export async function enrichSessionConditions(
     const beach = beaches.get(session.beach_id);
     let patch: SessionPatch = {};
     try {
-      if (session.conditions_source === null) {
-        const resolved = await resolveConditions(store, session, beach);
+      if (session.conditions_source === null || (options.mode === "backfill" && options.retryNone && session.conditions_source === "none")) {
+        const resolved = await resolveConditions(store, session, beach, options.hindcast, hindcastDays);
+        if (!resolved || (session.conditions_source === "none" && resolved.conditions_source === "none")) return;
         patch = conditionsPatch(session, resolved);
         if (resolved.conditions_source !== "none") summary.conditionsFilled += 1;
       }
@@ -298,7 +330,12 @@ export async function enrichSessionConditions(
         }
       }
 
-      if (Object.keys(patch).length > 0 && (await store.updateSession(session.id, patch))) summary.updated += 1;
+      if (Object.keys(patch).length > 0) {
+        const update = session.conditions_source === "none"
+          ? store.updateSession(session.id, patch, { retryNone: true })
+          : store.updateSession(session.id, patch);
+        if (await update) summary.updated += 1;
+      }
     } catch (error) {
       if (error instanceof SessionConditionsStoreError && error.code === FOREIGN_KEY_VIOLATION) {
         summary.unwritable += 1;
@@ -350,15 +387,17 @@ function unwrap<T>(result: { data: T | null; error: { message?: string; code?: s
 export function createSupabaseSessionConditionsStore(supabase: SupabaseClient): SessionConditionsStore {
   return {
     async listPendingSessions(query) {
-      const pending = () =>
+      const pending = (retryNone = false) =>
         supabase
           .from("sessions")
           .select(PENDING_SESSION_COLUMNS)
           .is("deleted_at", null)
-          .or("conditions_source.is.null,nearshore_source.is.null")
+          .or(retryNone
+            ? "conditions_source.is.null,conditions_source.eq.none,nearshore_source.is.null"
+            : "conditions_source.is.null,nearshore_source.is.null")
           .not("beach_id", "is", null);
       if (query.kind === "backfill") {
-        const result = await pending()
+        const result = await pending(query.retryNone)
           .gte("arrival_time", query.arrivalFromIso)
           .lte("arrival_time", query.arrivalToIso)
           .order("arrival_time", { ascending: true })
@@ -392,7 +431,7 @@ export function createSupabaseSessionConditionsStore(supabase: SupabaseClient): 
     async loadBeaches(ids) {
       const result = await supabase
         .from("beaches")
-        .select("id, mop_point_id, swell_window_center_deg, swell_window_halfwidth_deg")
+        .select("id, lat, lon, mop_point_id, swell_window_center_deg, swell_window_halfwidth_deg")
         .in("id", ids);
       const rows = (unwrap(result, "beaches") ?? []) as unknown as EnrichBeach[];
       return new Map(rows.map((beach) => [beach.id, beach]));
@@ -415,11 +454,17 @@ export function createSupabaseSessionConditionsStore(supabase: SupabaseClient): 
       const row = unwrap(result, "forecast snapshot") as { forecast_snapshot: SessionConditionsRow | null } | null;
       return row?.forecast_snapshot ?? null;
     },
-    async updateSession(id, patch) {
+    async updateSession(id, patch, options) {
       let query = supabase.from("sessions").update(patch).eq("id", id);
       for (const column of Object.keys(patch)) {
         // The marker is NOT NULL; the job only raises it on wind it fills, so guard on false.
-        query = column === "conditions_wind_filled" ? query.eq(column, false) : query.is(column, null);
+        if (column === "conditions_wind_filled") {
+          query = query.eq(column, false);
+        } else if (column === "conditions_source" && options?.retryNone) {
+          query = query.eq(column, "none");
+        } else {
+          query = query.is(column, null);
+        }
       }
       const result = await query.select("id");
       const rows = unwrap(result, "session update") as Array<{ id: string }> | null;

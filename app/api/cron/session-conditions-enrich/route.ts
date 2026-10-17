@@ -7,6 +7,7 @@ import {
 import { withObservedCron } from "@/lib/cron/observability";
 import { withCronOutcome } from "@/lib/cron/outcome";
 import { isSessionConditionsEnrichEnabled } from "@/lib/flags/session-conditions-enrich";
+import { fetchOpenMeteoHindcastDay } from "@/lib/services/open-meteo-hindcast";
 import {
   createSupabaseSessionConditionsStore,
   enrichSessionConditions,
@@ -25,10 +26,11 @@ const DEFAULT_BACKFILL_SINCE = "2024-01-01T00:00:00Z";
  * GET /api/cron/session-conditions-enrich
  *
  * Hourly at :20 (CDIP MOP's nowcast lands about an hour behind): gives logged sessions the swell and wind
- * of the forecast row at or before paddle-out, and the MOP nearshore hour for mapped California beaches.
- * Fills nulls only. Live runs take sessions logged, moved or surfed in the last 72 h (the migration queues
+ * of the forecast row at or before paddle-out, falling back to Open-Meteo hindcast when needed, and the
+ * MOP nearshore hour for mapped California beaches. Live runs take sessions logged, moved or surfed in the last 72 h (the migration queues
  * every existing session, so those are filled in the first runs). `?mode=backfill&since=YYYY-MM-DD` walks
  * older leftovers; pass the response's `result.nextSince` as the next `since` until it comes back null.
+ * Backfill `?retryNone=1` also retries sessions previously marked with no conditions.
  *
  * Auth: Authorization: Bearer <CRON_SECRET>. Gated by SESSION_CONDITIONS_ENRICH_ENABLED=true.
  */
@@ -70,7 +72,13 @@ async function _GET(request: Request): Promise<Response> {
           return undefined;
         },
       },
-      () => enrichSessionConditions(store, { mode, since, now: new Date() }),
+      () => enrichSessionConditions(store, {
+        mode,
+        since,
+        now: new Date(),
+        hindcast: { fetchDay: fetchOpenMeteoHindcastDay },
+        ...(mode === "backfill" && params.get("retryNone") === "1" ? { retryNone: true } : {}),
+      }),
     );
 
     console.log("[session-conditions] complete:", JSON.stringify({ mode, ...result }));

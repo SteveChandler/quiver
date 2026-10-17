@@ -5,6 +5,7 @@ import { readFileSync } from "fs";
 import { GET } from "@/app/api/cron/session-conditions-enrich/route";
 import { withCronOutcome } from "@/lib/cron/outcome";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { fetchOpenMeteoHindcastDay } from "@/lib/services/open-meteo-hindcast";
 import {
   createSupabaseSessionConditionsStore,
   enrichSessionConditions,
@@ -61,7 +62,7 @@ describe("session conditions enrich cron", () => {
     const response = await GET(request());
     expect(response.status).toBe(200);
     expect(createSupabaseSessionConditionsStore).toHaveBeenCalledWith({ client: true });
-    expect(enrichSessionConditions).toHaveBeenCalledWith({ store: true }, { mode: "live", since: undefined, now: expect.any(Date) });
+    expect(enrichSessionConditions).toHaveBeenCalledWith({ store: true }, { mode: "live", since: undefined, now: expect.any(Date), hindcast: { fetchDay: fetchOpenMeteoHindcastDay } });
     const [options] = (withCronOutcome as jest.Mock).mock.calls[0];
     expect(options).toMatchObject({ job: "/api/cron/session-conditions-enrich", unit: "sessions_enriched", expectedMin: 1 });
     expect(options.getProduced(SUMMARY)).toBe(3);
@@ -86,7 +87,20 @@ describe("session conditions enrich cron", () => {
     await GET(request("?mode=backfill&since=2025-04-01"));
     expect(enrichSessionConditions).toHaveBeenCalledWith(
       { store: true },
-      { mode: "backfill", since: new Date("2025-04-01T00:00:00Z"), now: expect.any(Date) },
+      { mode: "backfill", since: new Date("2025-04-01T00:00:00Z"), now: expect.any(Date), hindcast: { fetchDay: fetchOpenMeteoHindcastDay } },
+    );
+  });
+
+  it("opts into retrying none sessions only for backfill", async () => {
+    await GET(request("?mode=backfill&retryNone=1"));
+    expect(enrichSessionConditions).toHaveBeenCalledWith(
+      { store: true },
+      expect.objectContaining({ mode: "backfill", retryNone: true, hindcast: { fetchDay: fetchOpenMeteoHindcastDay } }),
+    );
+    await GET(request("?retryNone=1"));
+    expect(enrichSessionConditions).toHaveBeenLastCalledWith(
+      { store: true },
+      expect.not.objectContaining({ retryNone: true }),
     );
   });
 
