@@ -1,5 +1,6 @@
 import { haversineM } from "./track-geometry";
 import type { NormalizedTrack, TrackSample } from "./types";
+import { TrackFileError } from "./types";
 
 type Fix = TrackSample & { lat: number; lon: number };
 type Window = { start: string; end: string };
@@ -57,7 +58,7 @@ function speedSeries(fixes: Fix[]): { t: string; mps: number }[] {
 
 export function summarizeTrack(track: NormalizedTrack, keepWindows: Window[] = []): TrackSummary {
   const fixes = track.samples.filter(isFix).sort((a, b) => Date.parse(a.t) - Date.parse(b.t));
-  if (fixes.length === 0) throw new Error("This file has no GPS track");
+  if (fixes.length === 0) throw new TrackFileError("no_gps", "This file has no GPS track");
 
   const first = fixes[0];
   const last = fixes[fixes.length - 1];
@@ -81,6 +82,7 @@ export function summarizeTrack(track: NormalizedTrack, keepWindows: Window[] = [
     .filter((fix) => Date.parse(fix.t) >= midpoint && fix.tempC !== null)
     .map((fix) => fix.tempC as number);
 
+  // Full-track fix-to-fix gaps include dropouts outside the in-water span (OB: 110 s vs 77 s).
   let maxGapS = 0;
   for (let index = 1; index < fixes.length; index += 1) {
     maxGapS = Math.max(maxGapS, (Date.parse(fixes[index].t) - Date.parse(fixes[index - 1].t)) / 1000);
@@ -109,7 +111,7 @@ export function summarizeTrack(track: NormalizedTrack, keepWindows: Window[] = [
       lon: median(centroidFixes.map((fix) => fix.lon)),
     },
     gpsCoverage: coveredSeconds.size / totalSeconds,
-    maxGapS,
+    maxGapS: Math.ceil(maxGapS),
     sampleCount: track.samples.length,
     waterTempC: temperatures.length ? median(temperatures) : null,
     speedReliable: !(track.meta.sport === "swimming" && track.meta.subSport === "open_water"),

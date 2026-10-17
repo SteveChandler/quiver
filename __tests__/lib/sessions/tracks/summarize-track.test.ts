@@ -5,6 +5,7 @@ import cardiffFixture from "@/__tests__/fixtures/session-tracks/cardiff-2026-10-
 import { summarizeTrack } from "@/lib/sessions/tracks/summarize-track";
 import { angleDiffDeg, bearingDeg, haversineM } from "@/lib/sessions/tracks/track-geometry";
 import type { NormalizedTrack, TrackSample } from "@/lib/sessions/tracks/types";
+import { TrackFileError } from "@/lib/sessions/tracks/types";
 
 const START = Date.parse("2026-10-17T12:00:00.000Z");
 
@@ -43,6 +44,34 @@ describe("summarizeTrack", () => {
 
   it("marks Cardiff open-water swimming speed as unreliable", () => {
     expect(summarizeTrack(cardiffFixture.track as NormalizedTrack).speedReliable).toBe(false);
+  });
+
+  it("rounds a sub-second GPX gap up to whole seconds for storage", () => {
+    const input = track([sample(0, 37, -122), sample(0.25, 37.001, -122),
+      sample(59.45, 37.0011, -122), sample(60, 37, -122)]);
+    input.meta.format = "gpx";
+    expect(summarizeTrack(input).maxGapS).toBe(60);
+  });
+
+  it("throws a no_gps TrackFileError when every sample lacks a position", () => {
+    const input = track([sample(0, null, null), sample(1, null, null)]);
+    expect(() => summarizeTrack(input)).toThrow(TrackFileError);
+    expect(() => summarizeTrack(input)).toThrow(expect.objectContaining({
+      code: "no_gps", message: "This file has no GPS track",
+    }));
+  });
+
+  it("trims the first and last 180 seconds of a long span before taking the centroid", () => {
+    const input = track([sample(0, 37, -122), sample(10, 37.001, -122.001),
+      sample(20, 37.001, -122.001), sample(30, 37.001, -122.001),
+      sample(200, 37.003, -122.003), sample(400, 37.005, -122.005),
+      sample(600, 37.001, -122.001), sample(610, 37.001, -122.001),
+      sample(620, 37, -122)]);
+    const summary = summarizeTrack(input);
+    expect(summary.inWaterStart).toBe(input.samples[1].t);
+    expect(summary.inWaterEnd).toBe(input.samples[7].t);
+    expect(summary.centroid.lat).toBeCloseTo(37.004, 6);
+    expect(summary.centroid.lon).toBeCloseTo(-122.004, 6);
   });
 
   it("starts after the sand point when both ends are on the same sand point", () => {
