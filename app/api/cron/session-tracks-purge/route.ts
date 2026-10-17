@@ -175,8 +175,20 @@ async function purgeImport(
       return;
     }
 
-    // An expired upload can share its object with a live track that must remain intact.
-    if (row.storage_path !== linkedTrack?.storage_path) await removeStorage(client, row.storage_path);
+    // Track insertion can finish before the import's session_id is written.
+    const importReferences = await client.from("session_tracks")
+      .select("session_id")
+      .eq("import_id", row.id)
+      .limit(1);
+    if (checkedRows(importReferences.data, importReferences.error, "import track references").length > 0) return;
+
+    const pathReferences = await client.from("session_tracks")
+      .select("session_id")
+      .eq("storage_path", row.storage_path)
+      .limit(1);
+    if (checkedRows(pathReferences.data, pathReferences.error, "storage track references").length === 0) {
+      await removeStorage(client, row.storage_path);
+    }
     await deleteImport(client, row.id);
     result.purgedImports += 1;
   } catch (error) {

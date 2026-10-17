@@ -198,20 +198,28 @@ describe("session tracks purge cron", () => {
     expect(mockRows.session_imports.map((row) => row.id)).toEqual(["recent-upload"]);
   });
 
-  it.each(["uploaded", "failed", "needs_beach"])("keeps a live session's track and waves when its linked %s import expires", async (status) => {
+  it.each([
+    { status: "uploaded", sessionId: "live" },
+    { status: "uploaded", sessionId: null },
+    { status: "failed", sessionId: "live" },
+    { status: "failed", sessionId: null },
+    { status: "needs_beach", sessionId: "live" },
+    { status: "needs_beach", sessionId: null },
+  ])("keeps a live track's linked $status import with session_id $sessionId", async ({ status, sessionId }) => {
     const liveTrack = track("live", null, "stale-import");
     mockRows.session_tracks.push(liveTrack);
     mockRows.session_waves.push({ id: "live-wave", session_id: "live" });
     mockRows.session_wave_corrections.push({ id: "live-correction", session_id: "live" });
     mockSessions.live = null;
-    addImport("stale-import", status, old, null, "live");
+    addImport("stale-import", status, old, null, sessionId);
 
     const result = await run();
-    expect(result.body.data.result).toEqual({ purgedTracks: 0, purgedImports: 1, errors: 0 });
-    expect(mockRows.session_tracks).toEqual([{ ...liveTrack, import_id: null }]);
+    expect(result.body.data.result).toEqual({ purgedTracks: 0, purgedImports: 0, errors: 0 });
+    expect(mockRows.session_tracks).toEqual([liveTrack]);
+    expect(mockRows.session_imports.map((row) => row.id)).toEqual(["stale-import"]);
     expect(mockRows.session_waves).toEqual([{ id: "live-wave", session_id: "live" }]);
     expect(mockRows.session_wave_corrections).toEqual([{ id: "live-correction", session_id: "live" }]);
-    expect(mockRemove.mock.calls).toEqual([[["stale-import.fit"]]]);
+    expect(mockRemove).not.toHaveBeenCalled();
   });
 
   it("keeps live session data when a stale failed duplicate import references that session", async () => {
@@ -228,18 +236,34 @@ describe("session tracks purge cron", () => {
     expect(mockRemove.mock.calls).toEqual([[["duplicate.fit"]]]);
   });
 
-  it("keeps the live track object when an expired import shares its storage path", async () => {
+  it.each(["live", null])("keeps an unfinished uploaded import sharing its live track's object with session_id %s", async (sessionId) => {
     const liveTrack = track("live", null, "stale-import");
     liveTrack.storage_path = "stale-import.fit";
     mockRows.session_tracks.push(liveTrack);
     mockRows.session_waves.push({ id: "live-wave", session_id: "live" });
     mockSessions.live = null;
-    addImport("stale-import", "failed", old, null, "live");
+    addImport("stale-import", "uploaded", old, null, sessionId);
+
+    const result = await run();
+    expect(result.body.data.result).toEqual({ purgedTracks: 0, purgedImports: 0, errors: 0 });
+    expect(mockRows.session_tracks).toEqual([liveTrack]);
+    expect(mockRows.session_waves).toEqual([{ id: "live-wave", session_id: "live" }]);
+    expect(mockRows.session_imports.map((row) => row.id)).toEqual(["stale-import"]);
+    expect(mockRemove).not.toHaveBeenCalled();
+  });
+
+  it.each(["live", null])("deletes only the expired import row when a track shares its path but not its import_id, with session_id %s", async (sessionId) => {
+    const liveTrack = track("live", null, "original-import");
+    liveTrack.storage_path = "duplicate.fit";
+    mockRows.session_tracks.push(liveTrack);
+    mockRows.session_waves.push({ id: "live-wave", session_id: "live" });
+    mockSessions.live = null;
+    addImport("duplicate", "uploaded", old, null, sessionId);
 
     const result = await run();
     expect(result.body.data.result).toEqual({ purgedTracks: 0, purgedImports: 1, errors: 0 });
-    expect(mockRows.session_tracks).toHaveLength(1);
-    expect(mockRows.session_waves).toHaveLength(1);
+    expect(mockRows.session_tracks).toEqual([liveTrack]);
+    expect(mockRows.session_waves).toEqual([{ id: "live-wave", session_id: "live" }]);
     expect(mockRows.session_imports).toHaveLength(0);
     expect(mockRemove).not.toHaveBeenCalled();
   });
