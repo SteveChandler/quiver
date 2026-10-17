@@ -37,7 +37,7 @@ function fixSegments(samples: TimedSample[]): Fix[][] {
     const fix: Fix = { ...sample, lat: sample.lat, lon: sample.lon };
     const elapsedS = previous ? (fix.time - previous.time) / 1000 : 0;
     if (previous && elapsedS <= 0) continue;
-    if (previous && haversineM(previous, fix) / elapsedS > MAX_FIX_JUMP_MPS) continue;
+    if (previous && elapsedS <= GAP_S && haversineM(previous, fix) / elapsedS > MAX_FIX_JUMP_MPS) continue;
     if (previous && elapsedS > GAP_S) {
       if (segment.length) segments.push(segment);
       segment = [];

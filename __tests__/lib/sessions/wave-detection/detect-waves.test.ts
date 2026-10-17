@@ -182,6 +182,17 @@ describe("detectWaves", () => {
     expect(waves[2].distanceM).toBeLessThan(40);
   });
 
+  it.each([5500, 110_000])("recovers after the first fix is displaced by %i meters", (distanceM) => {
+    const track = syntheticTrack();
+    track.samples[0] = { ...track.samples[0], lat: track.samples[0].lat! + distanceM / 111_194.9266 };
+    const waves = detectWaves(track, fullSpan(track), BEACH);
+    expect(waves).toHaveLength(4);
+    waves.forEach((wave, index) => {
+      expect(Math.abs(Date.parse(wave.startedAt) - Date.parse(time(RIDE_STARTS[index])))).toBeLessThanOrEqual(2000);
+      expect(Math.abs(Date.parse(wave.endedAt) - Date.parse(time(RIDE_STARTS[index] + 8)))).toBeLessThanOrEqual(2000);
+    });
+  });
+
   it("trims paddle-in from every ride metric and uses cadence before the trimmed start", () => {
     const track = rampTrack(6, 2);
     const waves = detectWaves(track, fullSpan(track), BEACH);
