@@ -30,13 +30,15 @@ import { resolveBeachTimezone } from '@/lib/utils/timezone-utils';
 import { createContextLogger } from '@/lib/logger';
 import { resolveForecastTime } from '@/lib/utils/forecast-time-resolver';
 import {
+  clampToLiveUsableLight,
   clampToUsableLight,
   forecastRowIntervalEnd,
+  forecastRowLiveEnds,
   isDaylightInterval,
   usableLightIntervalForDate,
 } from '../daylight-eligibility';
 
-import type { WindowSelectorOptions, CandidateWindow, ScoredForecast } from './types';
+import type { WindowSelectorOptions, CandidateWindow, ScoredForecast, WindowSelectionRank } from './types';
 import {
   TIME_DECAY_PER_HOUR,
   MAX_TIME_DECAY_HOURS,
@@ -64,7 +66,7 @@ import {
   getLocalHour,
 } from './time-slot-utils';
 import { calculateTideDrivenBoundaries } from './tide-boundary-calculator';
-import { findPeakWithinWindow } from './peak-finder';
+import { findPeakRowWithinWindow } from './peak-finder';
 import { applySubHourRefinement } from './window-refiner';
 import { scoreWindowConditionScore, scoreWindowForSelection } from './window-scorer';
 import { moreInformativeRejection } from './rejection-evidence';
@@ -73,6 +75,7 @@ const log = createContextLogger('WindowSelector');
 
 /** Dawn patrol starts at first light (isDaylightInterval) and ends here, local time. */
 const DAWN_PATROL_END_HOUR = TIME_SLOT_RANGES['dawn-patrol'].endHour;
+type RowLiveness = NonNullable<WindowSelectorOptions['rowLiveness']>;
 
 // ============================================================================
 // Helper Functions
@@ -90,9 +93,10 @@ function prepareForecasts(
   todayDateStr: string,
   rideabilityBand: RideabilityBand | null,
   boardClasses: readonly BoardClass[],
-  userSkillLevel?: SkillLevel | string | null
+  userSkillLevel: SkillLevel | string | null,
+  rowLiveness: RowLiveness,
 ): ScoredForecast[] {
-  return forecasts
+  const scoredForecasts = forecasts
     .map((forecast) => {
       // Interpret forecast_date + forecast_time as LOCAL time in the beach timezone.
       // This avoids UTC boundary bugs where forecast_time stores local hours.
@@ -135,6 +139,7 @@ function prepareForecasts(
       };
     })
     .filter(({ forecastTime }) => {
+      if (rowLiveness === 'until-next-row') return true;
       // Only show windows that are still in progress or just ended.
       const windowDurationMs = FORECAST_WINDOW_DURATION_MINUTES * 60 * 1000;
       const toleranceMs = PAST_WINDOW_TOLERANCE_MINUTES * 60 * 1000;
@@ -143,6 +148,13 @@ function prepareForecasts(
       return windowEndTime >= cutoffTime;
     })
     .sort((a, b) => a.forecastTime.getTime() - b.forecastTime.getTime());
+
+  if (rowLiveness === 'default') return scoredForecasts;
+  // Cadence must include elapsed rows, before daypart or liveness filtering.
+  const rowEnds = forecastRowLiveEnds(scoredForecasts.map(({ forecastTime }) => forecastTime.getTime()));
+  return scoredForecasts.filter(({ forecastTime }) => (
+    (rowEnds.get(forecastTime.getTime()) ?? -Infinity) > now.getTime()
+  ));
 }
 
 /**
@@ -185,6 +197,11 @@ function filterByTimeSlot(
   });
 }
 
+function isExtendedRow(start: Date, now: Date, rowLiveness: RowLiveness): boolean {
+  const defaultLifetimeMs = (FORECAST_WINDOW_DURATION_MINUTES + PAST_WINDOW_TOLERANCE_MINUTES) * 60_000;
+  return rowLiveness === 'until-next-row' && start.getTime() + defaultLifetimeMs < now.getTime();
+}
+
 /**
  * Calculate the adjusted score for ranking windows.
  */
@@ -194,7 +211,8 @@ function calculateAdjustedScore(
   now: Date,
   isToday: boolean,
   isMorning: boolean,
-  beachTz: string
+  beachTz: string,
+  rowLiveness: RowLiveness,
 ): number {
   const rawHoursAhead = (startTime.getTime() - now.getTime()) / (1000 * 60 * 60);
   const hoursAhead = Math.max(0, rawHoursAhead);
@@ -205,11 +223,14 @@ function calculateAdjustedScore(
 
   // Start-soon bonus
   let soonBonus = 0;
-  if (hoursAhead <= 2) soonBonus = SOON_BONUS_2HR;
-  else if (hoursAhead <= 4) soonBonus = SOON_BONUS_4HR;
+  // Rows retained solely for coverage must not outrank a full upcoming session.
+  if (!isExtendedRow(startTime, now, rowLiveness)) {
+    if (hoursAhead <= 2) soonBonus = SOON_BONUS_2HR;
+    else if (hoursAhead <= 4) soonBonus = SOON_BONUS_4HR;
+  }
 
   // Underway bonus
-  const underwayBonus = rawHoursAhead < 0 ? UNDERWAY_BONUS : 0;
+  const underwayBonus = rawHoursAhead < 0 && !isExtendedRow(startTime, now, rowLiveness) ? UNDERWAY_BONUS : 0;
 
   // Morning priority
   const todayBonus = (isMorning && isToday) ? TODAY_BONUS_POINTS : 0;
@@ -301,6 +322,17 @@ function applySunsetCap(
 }
 
 /**
+ * Plain wind reading for display: speed first, direction only alongside it.
+ * Empty when the speed is unknown, because wind is then not shown at all.
+ */
+function formatWindForWindow(forecast: EnhancedForecastEntity): string {
+  const speed = forecast.wind_speed?.trim();
+  if (!speed) return '';
+  const direction = forecast.wind_direction?.trim();
+  return direction ? `${speed} ${direction}` : speed;
+}
+
+/**
  * Build the final PersonalizedForecastWindow result.
  */
 function buildResult(
@@ -308,7 +340,9 @@ function buildResult(
   filteredForecasts: ScoredForecast[],
   beach: Beach,
   beachTz: string,
-  now: Date
+  now: Date,
+  peakSearchEnd: Date | null = null,
+  rowLiveness: RowLiveness = 'default',
 ): PersonalizedForecastWindow {
   const peakCandidates = filteredForecasts.map((scoredForecast) => ({
     forecastTime: scoredForecast.forecastTime,
@@ -316,20 +350,39 @@ function buildResult(
       getSelectionScore(scoredForecast) +
       getPeakTimeTideAdjustment(scoredForecast.forecast, beach),
   }));
+  const peakEnd = peakSearchEnd && bestWindow.start < peakSearchEnd && peakSearchEnd < bestWindow.end
+    ? peakSearchEnd
+    : bestWindow.end;
+  const peakRows = peakEnd === bestWindow.end
+    ? filteredForecasts
+    : filteredForecasts.filter(({ forecastTime }) => forecastTime < peakEnd);
 
-  // Pass `now` through so findPeakWithinWindow can clamp past peaks to the
+  // Pass `now` through so the peak finder can clamp past peaks to the
   // current time — a still-open window must never report a best time that
   // has already elapsed. See peak-finder.ts for the full rationale.
-  const peakTime = findPeakWithinWindow(
+  // Until-next-row keeps only live rows, so the row under way at `now` can
+  // still be the best one left; the peak time stays clamped to `now`.
+  const { peakTime: foundPeak, rowTime: peakRowTime } = findPeakRowWithinWindow(
     bestWindow.start,
-    bestWindow.end,
+    peakEnd,
     peakCandidates,
-    now
+    now,
+    { startedRowsEligible: rowLiveness === 'until-next-row' },
   );
+  // Interpolation can lean past either edge. A limited peak stays inside its part of the
+  // window, strictly before peakEnd: that instant already belongs to the next daypart.
+  const peakTime = peakEnd === bestWindow.end
+    ? foundPeak
+    : new Date(Math.min(Math.max(foundPeak.getTime(), bestWindow.start.getTime()), peakEnd.getTime() - 1));
 
   // Tide boundaries can move the window hours past its original candidate.
   // Keep the returned conditions and score on the row the peak will open.
-  const peakForecast = filteredForecasts.reduce((closest, candidate) => (
+  // A peak clamped to `now` can sit nearer the next row than its own, so
+  // until-next-row grades from the row the peak was found on.
+  const foundRow = rowLiveness === 'until-next-row' && peakRowTime
+    ? peakRows.find(({ forecastTime }) => forecastTime.getTime() === peakRowTime.getTime())
+    : undefined;
+  const peakForecast = foundRow ?? (peakRows.length > 0 ? peakRows : filteredForecasts).reduce((closest, candidate) => (
     Math.abs(candidate.forecastTime.getTime() - peakTime.getTime())
       < Math.abs(closest.forecastTime.getTime() - peakTime.getTime())
       ? candidate : closest
@@ -339,7 +392,7 @@ function buildResult(
     start: bestWindow.start,
     end: bestWindow.end,
     tide: peakForecast.forecast.tide_status || 'Unknown',
-    wind: `${peakForecast.forecast.wind_speed} ${peakForecast.forecast.wind_direction}`,
+    wind: formatWindForWindow(peakForecast.forecast),
     waveHeight: peakForecast.forecast.wave_height || 'Unknown',
     wavePeriod: peakForecast.forecast.wave_period || 'Unknown',
     dataSource: peakForecast.forecast.data_source || 'FALLBACK',
@@ -362,6 +415,12 @@ interface NormalizedWindowSelectorOptions {
   timeSlot: TimeSlot | undefined;
   now: Date;
   maxWindows: number;
+  rowLiveness: RowLiveness;
+  acceptWindowStart?: WindowSelectorOptions['acceptWindowStart'];
+  peakSearchEnd?: WindowSelectorOptions['peakSearchEnd'];
+  disableBelowFloorFallback: boolean;
+  forecastPreparationCache?: WindowSelectorOptions['forecastPreparationCache'];
+  onWindowRanked?: WindowSelectorOptions['onWindowRanked'];
   rideabilityBand: RideabilityBand | null;
   boardClasses: readonly BoardClass[];
   userSkillLevel: SkillLevel | string | null;
@@ -399,6 +458,8 @@ function normalizeWindowSelectorOptions(
       timeSlot,
       now: now ?? new Date(),
       maxWindows: maxWindows ?? DEFAULT_MAX_WINDOWS,
+      rowLiveness: 'default',
+      disableBelowFloorFallback: false,
       rideabilityBand: null,
       boardClasses: [],
       userSkillLevel: null,
@@ -415,15 +476,21 @@ function normalizeWindowSelectorOptions(
     timeSlot: optionsOrForecasts.timeSlot,
     now: optionsOrForecasts.now ?? new Date(),
     maxWindows: optionsOrForecasts.maxWindows ?? DEFAULT_MAX_WINDOWS,
+    rowLiveness: optionsOrForecasts.rowLiveness ?? 'default',
+    acceptWindowStart: optionsOrForecasts.rowLiveness === 'until-next-row' ? optionsOrForecasts.acceptWindowStart : undefined,
+    peakSearchEnd: optionsOrForecasts.rowLiveness === 'until-next-row' ? optionsOrForecasts.peakSearchEnd : undefined,
+    disableBelowFloorFallback: optionsOrForecasts.rowLiveness === 'until-next-row' && optionsOrForecasts.disableBelowFloorFallback === true,
+    forecastPreparationCache: optionsOrForecasts.rowLiveness === 'until-next-row' ? optionsOrForecasts.forecastPreparationCache : undefined,
+    onWindowRanked: optionsOrForecasts.rowLiveness === 'until-next-row' ? optionsOrForecasts.onWindowRanked : undefined,
     rideabilityBand: optionsOrForecasts.rideabilityBand ?? null,
     boardClasses: optionsOrForecasts.boardClasses ?? [],
     userSkillLevel: optionsOrForecasts.userSkillLevel ?? null,
   };
 }
 
-function compareRankedWindows(
-  a: RankedCandidateWindow,
-  b: RankedCandidateWindow
+export function compareRankedWindows(
+  a: WindowSelectionRank,
+  b: WindowSelectionRank
 ): number {
   const adjustedScoreDelta = b.adjustedScore - a.adjustedScore;
   if (adjustedScoreDelta !== 0) return adjustedScoreDelta;
@@ -607,6 +674,16 @@ export function selectBestWindows(
   now?: Date,
   maxWindows?: number
 ): PersonalizedForecastWindow[] {
+  const normalizedOptions = normalizeWindowSelectorOptions(
+    optionsOrForecasts,
+    beach,
+    userPrefs,
+    horizonHours,
+    sunTimesCache,
+    timeSlot,
+    now,
+    maxWindows,
+  );
   const {
     forecasts,
     beach: actualBeach,
@@ -615,20 +692,17 @@ export function selectBestWindows(
     timeSlot: actualTimeSlot,
     now: actualNow,
     maxWindows: actualMaxWindows,
+    rowLiveness,
+    acceptWindowStart,
+    peakSearchEnd,
+    disableBelowFloorFallback,
+    forecastPreparationCache,
+    onWindowRanked,
     rideabilityBand: actualRideabilityBand,
     boardClasses: actualBoardClasses,
     userSkillLevel: actualUserSkillLevel,
     onRejection,
-  } = normalizeWindowSelectorOptions(
-    optionsOrForecasts,
-    beach,
-    userPrefs,
-    horizonHours,
-    sunTimesCache,
-    timeSlot,
-    now,
-    maxWindows
-  );
+  } = normalizedOptions;
 
   const windowLimit = Math.max(0, Math.floor(actualMaxWindows));
   if (windowLimit === 0) {
@@ -662,7 +736,7 @@ export function selectBestWindows(
   }
 
   // Score and prepare forecasts
-  const scoredForecasts = prepareForecasts(
+  const scoredForecasts = forecastPreparationCache?.get(forecasts) ?? prepareForecasts(
     forecasts,
     actualBeach,
     beachTz,
@@ -670,8 +744,10 @@ export function selectBestWindows(
     todayDateStr,
     actualRideabilityBand,
     actualBoardClasses,
-    actualUserSkillLevel
+    actualUserSkillLevel,
+    rowLiveness,
   );
+  forecastPreparationCache?.set(forecasts, scoredForecasts);
   if (scoredForecasts.length === 0) {
     onRejection?.({ gate: 'past_forecast', observed: { count: forecasts.length } });
     log.debug(`[selectBestWindows] ${actualBeach.name}: No scored forecasts after filtering past times`);
@@ -682,6 +758,11 @@ export function selectBestWindows(
   const sunTimes = actualSunTimesCache?.get(actualBeach.id);
   const sunsets = sunTimes?.sunsets || [];
   const sunrises = sunTimes?.sunrises || [];
+  const clampWindow = (start: Date, end: Date): ReturnType<typeof clampToUsableLight> => (
+    rowLiveness === 'until-next-row'
+      ? clampToLiveUsableLight(start, end, beachTz, actualNow, sunTimes)
+      : clampToUsableLight(start, end, beachTz, sunTimes)
+  );
 
   // Filter by time slot
   const filteredForecasts = filterByTimeSlot(
@@ -699,7 +780,19 @@ export function selectBestWindows(
 
   log.debug(`[selectBestWindows] ${actualBeach.name}: ${filteredForecasts.length} forecasts to evaluate, isMorning=${isMorning}`);
 
-  const candidateWindows: RankedCandidateWindow[] = [];
+  let candidateWindows: RankedCandidateWindow[] = [];
+  const refinements = new Map<CandidateWindow, ReturnType<typeof applySubHourRefinement>>();
+  const refineCandidate = (candidate: CandidateWindow): ReturnType<typeof applySubHourRefinement> => {
+    const cached = refinements.get(candidate);
+    if (cached) return cached;
+    const refined = applySubHourRefinement(
+      candidate,
+      filteredForecasts.map((row) => ({ ...row, score: getSelectionScore(row) })),
+      forecasts, sunsets, sunrises, actualBeach, beachTz,
+    );
+    refinements.set(candidate, refined);
+    return refined;
+  };
   let decisiveRejection: CandidateRejection | null = null;
   const reject = (rejection: CandidateRejection): void => {
     decisiveRejection = moreInformativeRejection(decisiveRejection, rejection);
@@ -817,7 +910,7 @@ export function selectBestWindows(
       endTime = capEndTimeToTimeSlot(effectiveStartTime, endTime, actualTimeSlot, beachTz);
     }
 
-    const lit = clampToUsableLight(effectiveStartTime, endTime, beachTz, sunTimes);
+    const lit = clampWindow(effectiveStartTime, endTime);
     if (!lit) {
       reject({ gate: 'daylight', observed: { count: filteredForecasts.length } });
       log.debug(`[selectBestWindow] ${actualBeach.name}: Forecast ${i} window does not overlap usable light`);
@@ -841,7 +934,8 @@ export function selectBestWindows(
       actualNow,
       isToday,
       isMorning,
-      beachTz
+      beachTz,
+      rowLiveness,
     );
 
     candidateWindows.push({
@@ -855,6 +949,17 @@ export function selectBestWindows(
     });
   }
 
+  if (acceptWindowStart) {
+    candidateWindows = candidateWindows.filter((candidate) => {
+      // Refinement scans forward within an hour. Keep boundary-adjacent rows,
+      // but avoid refining candidates that cannot reach the requested daypart.
+      if (!acceptWindowStart(candidate.start)
+        && (candidate.usedTideBoundaries
+          || !acceptWindowStart(new Date(candidate.start.getTime() + 3_600_000)))) return false;
+      return acceptWindowStart(refineCandidate(candidate).start);
+    });
+  }
+
   // Log main loop result
   if (candidateWindows.length > 0) {
     log.debug(`[selectBestWindows] ${actualBeach.name}: Main loop found ${candidateWindows.length} candidate windows`);
@@ -863,7 +968,7 @@ export function selectBestWindows(
   }
 
   // Fallback: if no forecasts passed threshold, use the best available anyway
-  if (candidateWindows.length === 0 && filteredForecasts.length > 0) {
+  if (!disableBelowFloorFallback && candidateWindows.length === 0 && filteredForecasts.length > 0) {
     const fallbackWindow = selectFallbackWindow(
       filteredForecasts,
       sunTimes,
@@ -875,6 +980,9 @@ export function selectBestWindows(
       getLocalDateStrForBeach,
       actualBeach.name, // Pass beach name for logging
       reject,
+      rowLiveness,
+      rowLiveness === 'until-next-row' ? clampWindow : undefined,
+      acceptWindowStart,
     );
     if (fallbackWindow) {
       candidateWindows.push({
@@ -890,29 +998,34 @@ export function selectBestWindows(
     return [];
   }
 
+  const expiredForecasts = new Set<EnhancedForecastEntity>();
   const refinedWindows = candidateWindows
     .sort(compareRankedWindows)
     .map((candidateWindow) => {
-      const refinedTimes = applySubHourRefinement(
-        candidateWindow,
-        filteredForecasts.map((scoredForecast) => ({
-          ...scoredForecast,
-          score: getSelectionScore(scoredForecast),
-        })),
-        forecasts,
-        sunsets,
-        sunrises,
-        actualBeach,
-        beachTz
-      );
+      const refinedTimes = refineCandidate(candidateWindow);
 
-      const lit = clampToUsableLight(refinedTimes.start, refinedTimes.end, beachTz, sunTimes);
-      return lit ? [{ ...candidateWindow, start: lit.start, end: lit.end }] : [];
+      const lit = clampWindow(refinedTimes.start, refinedTimes.end);
+      if (!lit) {
+        expiredForecasts.add(candidateWindow.forecast);
+        return [];
+      }
+      if (acceptWindowStart && !acceptWindowStart(lit.start)) return [];
+      const result = buildResult(
+        { ...candidateWindow, start: lit.start, end: lit.end },
+        filteredForecasts, actualBeach, beachTz, actualNow, peakSearchEnd?.(lit.start) ?? null, rowLiveness,
+      );
+      onWindowRanked?.(result, candidateWindow);
+      return [result];
     })
-    .flat()
-    .map((candidateWindow) =>
-      buildResult(candidateWindow, filteredForecasts, actualBeach, beachTz, actualNow)
-    );
+    .flat();
+
+  // Refinement can expire all above-threshold candidates and hide a live fallback.
+  if (rowLiveness === 'until-next-row' && refinedWindows.length === 0 && expiredForecasts.size > 0) {
+    return selectBestWindows({
+      ...normalizedOptions,
+      forecasts: forecasts.filter((forecast) => !expiredForecasts.has(forecast)),
+    });
+  }
 
   const nonOverlappingWindows: PersonalizedForecastWindow[] = [];
   for (const candidateWindow of refinedWindows) {
@@ -941,6 +1054,9 @@ function selectFallbackWindow(
   getLocalDateStrForBeach: (d: Date) => string,
   beachName?: string, // For debug logging
   reject?: (rejection: CandidateRejection) => void,
+  rowLiveness: RowLiveness = 'default',
+  clampWindow?: (start: Date, end: Date) => ReturnType<typeof clampToUsableLight>,
+  acceptWindowStart?: WindowSelectorOptions['acceptWindowStart'],
 ): CandidateWindow | null {
   const logPrefix = beachName ? `[selectFallbackWindow] ${beachName}` : '[selectFallbackWindow]';
   const daylightForecasts = filteredForecasts.filter(({ forecastTime }, index) => {
@@ -962,12 +1078,21 @@ function selectFallbackWindow(
       }
     }
 
-    return isDaylightInterval(
+    const isLit = isDaylightInterval(
       forecastTime,
       forecastRowIntervalEnd(forecastTime, filteredForecasts[index + 1]?.forecastTime),
       beachTz,
       sunTimes,
     );
+    if (!isLit || !clampWindow) return isLit;
+    const end = capEndTimeToTimeSlot(
+      forecastTime,
+      new Date(forecastTime.getTime() + MAX_WINDOW_HOURS * 3_600_000),
+      timeSlot,
+      beachTz,
+    );
+    const lit = clampWindow(forecastTime, end);
+    return lit !== null && (!acceptWindowStart || acceptWindowStart(lit.start));
   });
 
   if (daylightForecasts.length === 0) {
@@ -984,10 +1109,12 @@ function selectFallbackWindow(
     const hoursAhead = Math.max(0, rawHoursAhead);
 
     let soonBonus = 0;
-    if (hoursAhead <= 2) soonBonus = SOON_BONUS_2HR;
-    else if (hoursAhead <= 4) soonBonus = SOON_BONUS_4HR;
+    if (!isExtendedRow(f.forecastTime, now, rowLiveness)) {
+      if (hoursAhead <= 2) soonBonus = SOON_BONUS_2HR;
+      else if (hoursAhead <= 4) soonBonus = SOON_BONUS_4HR;
+    }
 
-    const underwayBonus = rawHoursAhead < 0 ? UNDERWAY_BONUS : 0;
+    const underwayBonus = rawHoursAhead < 0 && !isExtendedRow(f.forecastTime, now, rowLiveness) ? UNDERWAY_BONUS : 0;
 
     let bonus = 0;
     if (isMorning && f.isToday) {

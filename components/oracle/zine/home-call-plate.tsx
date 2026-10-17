@@ -31,6 +31,8 @@ function sentenceCase(label: string): string {
 
 interface HomeCallPlateProps {
   beachName: string;
+  beachId?: string | null;
+  instantIso?: string | null;
   lat: number | null;
   lon: number | null;
   /** A real photo of the beach, or null when only stock imagery exists. */
@@ -66,6 +68,8 @@ interface HomeCallPlateProps {
 
 export function HomeCallPlate({
   beachName,
+  beachId,
+  instantIso,
   lat,
   lon,
   photoUrl,
@@ -89,7 +93,7 @@ export function HomeCallPlate({
   driveContext,
 }: HomeCallPlateProps) {
   const call = verdict
-    ? getCanonicalVerdictCall(verdict, score, isUpcoming ? "upcoming" : "now")
+    ? getCanonicalVerdictCall(verdict, score, isUpcoming ? "upcoming" : "now", { beachId, instantIso })
     : null;
   const labelWord = call ? sentenceCase(call.label) : "—";
   // The one place the page states when to go.

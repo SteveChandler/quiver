@@ -475,12 +475,15 @@ export function confidenceHeuristic(
     "swell_direction",
   ];
 
+  // Missing wind is neutral: it neither counts against nor toward completeness.
+  const optionalFields = new Set<keyof ForecastSlice["forecasts"][0]>(["wind_speed", "wind_direction"]);
+
   forecasts.forEach((f) => {
     requiredFields.forEach((field) => {
+      const present = f[field] !== null && f[field] !== undefined;
+      if (!present && optionalFields.has(field)) return;
       totalFields++;
-      if (f[field] !== null && f[field] !== undefined) {
-        presentFields++;
-      }
+      if (present) presentFields++;
     });
   });
 

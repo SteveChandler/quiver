@@ -97,6 +97,7 @@ interface UnifiedSurfCardProps {
   surfCall: SurfCallResult;
   beachTimezone?: string | null;
   beachName: string;
+  beachId?: string;
   beachSlug?: string;
   isTomorrow?: boolean;
   /**
@@ -125,6 +126,7 @@ export function UnifiedSurfCard({
   surfCall,
   beachTimezone,
   beachName,
+  beachId,
   beachSlug,
   isTomorrow,
   character,
@@ -274,7 +276,10 @@ export function UnifiedSurfCard({
   );
   const windowEnd = formatTimeInTimezone(surfCall.bestWindowEnd, beachTimezone);
   const peakTimeCasual = formatTimeCasual(surfCall.peakTime, beachTimezone);
-  const verdictCall = getSurfCallVerdictCall(surfCall.verdict, surfCall.score);
+  const verdictCall = getSurfCallVerdictCall(surfCall.verdict, surfCall.score, "now", {
+    beachId,
+    instantIso: surfCall.bestWindowStart ?? surfCall.peakTime,
+  });
   const hasWaves = Boolean(compactSummary.waveHeightHeadline);
   const hasWind = Boolean(compactSummary.windSummary);
   const hasTide = Boolean(compactSummary.tideSummary);

@@ -950,7 +950,7 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     expect(mockEmailsSend).toHaveBeenCalledTimes(1);
     expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
     expect(mockEnqueueNotification.mock.calls[0][0].payload).toMatchObject({
-      title: expect.stringContaining("Beginner-friendly"),
+      title: expect.stringContaining("Beginner friendly"),
       session_decision: expect.objectContaining({ verdict: "no" }),
     });
     expect(store.attemptInserts).toContainEqual(expect.objectContaining({

@@ -45,6 +45,7 @@ export function RipCurrentWarning({ beachId, localDate, timezone }: {
   });
 
   if (loading) return <p role="status" className="mt-4 text-sm">Checking rip currents…</p>;
+  if (!risk && !error) return null;
   if (risk?.risk_level === "low") return null;
 
   return (
@@ -52,7 +53,7 @@ export function RipCurrentWarning({ beachId, localDate, timezone }: {
       <p className="font-bold">
         {risk
           ? `${risk.risk_level === "high" ? "High" : "Moderate"} rip-current risk`
-          : error ? "Rip-current update unavailable" : "Rip-current report unavailable"}
+          : "Rip-current update unavailable"}
       </p>
       <p>Check with a lifeguard before entering the water.</p>
       {risk && (

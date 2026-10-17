@@ -40,9 +40,11 @@ function CustomTooltip({
       <p className="text-[#5F5646]">
         Waves: {formatWaveRange([day.minHeight, day.maxHeight], "integer")}
       </p>
-      <p className="text-[#5F5646]">
-        Wind: {capitalize(day.windConditions)}
-      </p>
+      {day.windConditions !== "unknown" && (
+        <p className="text-[#5F5646]">
+          Wind: {capitalize(day.windConditions)}
+        </p>
+      )}
       {day.bestTimeSlot && (
         <p className="text-[#5F5646]">
           Best time: {capitalize(day.bestTimeSlot)}

@@ -44,7 +44,7 @@ import {
 import { getUserEntitlement } from "@/lib/alerts/entitlements";
 import { getDaylightWindow } from "@/lib/alerts/sunrise";
 import { capToBestWindow, refineWindow, type RefinedWindow } from "@/lib/alerts/window-refiner";
-import { groupGoForecasts, loadTideSamples, rankDayWithWeekScout, type RankDay } from "@/lib/cron/daily-call-runner";
+import { groupGoForecasts, loadTideSamples, rankDayWithWeekScout, rowServesDay, type RankDay } from "@/lib/cron/daily-call-runner";
 import { driveRadiusMiles } from "@/lib/profile/drive-range";
 import { capNearbyPool, loadUserPool } from "@/lib/alerts/user-pool";
 import {
@@ -173,6 +173,7 @@ export interface SwellAlertCandidate {
     shortName: string | null;
     slug: string | null;
     state: string | null;
+    timezone?: string | null;
   };
   /** Detected swell event with its resolved (cross-run) key. */
   event: BeachSwellEvent;
@@ -341,7 +342,7 @@ function weekday(dateKey: string): string {
 }
 
 function personalCall(beachName: string, lead: SwellAlertCandidate, timezone: string): string {
-  const timing = lead.window ? windowCopy(lead.window, lead.peakDate, timezone) : null;
+  const timing = lead.window ? windowCopy(lead.window, getLocalDateString(new Date(lead.window.start), timezone), timezone) : null;
   const board = lead.boardName ? `, grab your ${lead.boardName}` : "";
   return timing
     ? `Your call: ${beachName} ${timing.when}${board}. ${timing.limit}`
@@ -690,11 +691,12 @@ async function evaluatePool(
     const sorted = events.sort((left, right) => right.peakScore - left.peakScore)[0];
     if (!sorted) return null;
     const { peakForecast, ...best } = sorted;
+    const beachTimezone = resolveBeachTimezone(beach.timezone);
     const window = await peakDayWindow({
       client, tideCache, beach, peakForecast,
       forecasts: beachForecasts,
-      peakDate: best.peakDate,
-      timezone: profile.timezone,
+      peakDate: getLocalDateString(new Date(best.event.peakAt), beachTimezone),
+      timezone: beachTimezone,
       now,
       experienceLevel: profile.experienceLevel,
       verdictFor,
@@ -732,6 +734,7 @@ async function evaluatePool(
         shortName: beach.short_name,
         slug: beach.slug,
         state: beach.state,
+        timezone: beach.timezone,
       },
       ...best,
       serious: best.event.peakFaceHeightFt >= 8 || officialAdvisories.some(
@@ -772,10 +775,8 @@ async function peakDayWindow(args: {
   // The daily call's day: 05:00–20:00 local, so daylight resolves to this date.
   const dayStart = localDateTimeToUTC(args.peakDate, "05:00:00", args.timezone).toISOString();
   const dayEnd = localDateTimeToUTC(args.peakDate, "20:00:00", args.timezone).toISOString();
-  const dayRows = args.forecasts.filter((row) => {
-    const at = new Date(row.forecast_at).toISOString();
-    return at >= dayStart && at < dayEnd;
-  });
+  // Includes the grid row in effect at 05:00, which can be stamped 04:00.
+  const dayRows = args.forecasts.filter((row) => rowServesDay(row, Date.parse(dayStart), Date.parse(dayEnd)));
   const verdicts = dayRows.map((row) => args.verdictFor(row, args.beach));
   const groups = groupGoForecasts(verdicts);
   const strongest = (group: ForecastVerdict[]): number => Math.max(...group.map(({ score }) => score));
@@ -822,6 +823,7 @@ function windowCopy(window: RefinedWindow, peakDate: string, timezone: string): 
     window.drivers.find((driver) => driver.edge === side)?.approximate ?? false;
   return {
     when: `${weekday(peakDate)} ${formatWindowLabel(window.start, window.end, timezone, {
+      forBody: true,
       approximateStart: edge("start"),
       approximateEnd: edge("end"),
     })}`,
@@ -899,6 +901,7 @@ async function evaluatePinned(
       shortName: beach.short_name,
       slug: beach.slug,
       state: beach.state,
+      timezone: beach.timezone,
     },
     forecastAvailable: forecasts.some((row) => Date.parse(row.forecast_at) > now.getTime()),
     event,
@@ -1275,7 +1278,9 @@ async function sendFollowups(
       const peakDate = getLocalDateString(new Date(shown.peakAt), profile.timezone);
       const previousPeakDate = getLocalDateString(new Date(state.lastPeakAt), profile.timezone);
       const beachName = pinned.beach.shortName ?? pinned.beach.name;
-      const peakDayLabel = weekday(peakDate);
+      const beachTimezone = resolveBeachTimezone(pinnedBeach.timezone);
+      const peakDayLabel = weekday(getLocalDateString(new Date(shown.peakAt), beachTimezone));
+      const previousPeakDayLabel = weekday(getLocalDateString(new Date(state.lastPeakAt), beachTimezone));
       const picked = pickSwellFollowupHeadline({
         kind,
         eventKey: state.eventKey,
@@ -1301,9 +1306,9 @@ async function sendFollowups(
           size: `${formatNumber(shown.faceHeightFt)}ft`,
           period: `${formatNumber(shown.periodS)}s`,
           day: peakDayLabel,
-          part: peakPart(shown.peakAt, profile.timezone),
+          part: peakPart(shown.peakAt, beachTimezone),
           prev_size: `${formatNumber(state.lastFaceHeightFt)}ft`,
-          prev_day: weekday(previousPeakDate),
+          prev_day: previousPeakDayLabel,
         },
       });
       if (!baseBody) {
@@ -1840,9 +1845,12 @@ export async function runSwellAlertCron(args: {
       }));
       const beachNames = rankedBeaches.map(({ beach_name }) => beach_name);
       const direction = lead.event.directionLabel;
+      const beachTimezone = resolveBeachTimezone(lead.beach.timezone);
+      const beachPeakDate = getLocalDateString(new Date(lead.event.peakAt), beachTimezone);
+      const peakDayLabel = weekday(beachPeakDate);
       const selected = selectTitle({
         pool: "swell",
-        tags: buildTags(lead, rarity.kind, rarity.historyDays),
+        tags: buildTags({ ...lead, peakDate: beachPeakDate }, rarity.kind, rarity.historyDays),
         userId: profile.id,
         eventKey,
         recentTitleIds: state.recentTitleIds,
@@ -1854,10 +1862,10 @@ export async function runSwellAlertCron(args: {
           dir: direction,
           size: `${formatNumber(lead.event.peakFaceHeightFt)}ft`,
           period: `${formatNumber(lead.event.periodS)}s`,
-          peak_day: weekday(lead.peakDate),
-          peak_part: peakPart(lead.event.peakAt, profile.timezone),
+          peak_day: peakDayLabel,
+          peak_part: peakPart(lead.event.peakAt, beachTimezone),
           rarity: rarity.rarityLine,
-          call: personalCall(beachNames[0], lead, profile.timezone),
+          call: personalCall(beachNames[0], lead, beachTimezone),
         },
       });
       const body = lead.hazard ? `${selected.body} ${HAZARD_LINES[lead.hazard]}` : selected.body;
@@ -1868,7 +1876,7 @@ export async function runSwellAlertCron(args: {
         kind: "coming",
         eventKey,
         beachName: beachNames[0],
-        peakDayLabel: weekday(lead.peakDate),
+        peakDayLabel,
         serious: lead.serious,
       });
       const title = headline.titleId === selected.id ? headline.headline : selected.title;

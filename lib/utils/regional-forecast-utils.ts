@@ -16,7 +16,12 @@ import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { SurfWindowRecommendation } from "@/types/session-intelligence";
 import type { RecommendationAvailability } from "@/lib/recommendations/major-event-hold/types";
 import { getWaveSizeDescription } from "@/lib/utils/wave-formatters";
-import { classifyWindDirection } from "@/lib/utils/wind-classification";
+import {
+  classifyWindDirection,
+  type WindClassification,
+} from "@/lib/utils/wind-classification";
+import { resolveOffshoreDeg } from "@/lib/domains/shared/wind-orientation";
+import { parseWindSpeedOrNull } from "@/lib/utils/number-parsing";
 import { scoreNativeForecastDay } from "@/lib/scoring/native-condition-score";
 import { DEFAULT_TIMEZONE } from "@/lib/utils/timezone-constants";
 
@@ -57,6 +62,28 @@ function resolveRegionTimezone(beaches: Beach[]): string {
     }
   }
   return resolved;
+}
+
+/** At or below this the wind is calm whatever its direction; matches the scorer. */
+const CALM_WIND_MPH = 3;
+
+/**
+ * Wind relation for one forecast row against its own beach's orientation.
+ * Missing speed, or a real breeze with no readable direction or beach
+ * orientation, is "unknown" — never a guessed onshore.
+ */
+function classifyForecastWind(
+  forecast: EnhancedForecastEntity,
+  beach: Beach | undefined,
+): WindClassification {
+  const speed = parseWindSpeedOrNull(forecast.wind_speed);
+  if (speed === null) return "unknown";
+  const direction = forecast.wind_direction?.trim();
+  if (direction) {
+    const classification = classifyWindDirection(direction, resolveOffshoreDeg(beach));
+    if (classification !== "unknown") return classification;
+  }
+  return speed <= CALM_WIND_MPH ? "light" : "unknown";
 }
 
 interface ForecastInterval {
@@ -117,10 +144,10 @@ export interface DaySummary {
   avgWaveHeight: number;
   /** Range of wave heights [min, max] in feet */
   waveRange: [number, number];
-  /** Most common wind direction across beaches */
+  /** Most common wind direction across beaches; empty when no beach has a wind reading */
   dominantWindDirection: string;
-  /** Overall wind conditions for the region */
-  windConditions: "offshore" | "light" | "onshore";
+  /** Overall wind conditions for the region; "unknown" when no beach has a usable reading and orientation. */
+  windConditions: WindClassification;
   /** Most common objective tide status across the region. */
   dominantTideStatus?: string | null;
   /** Best time window to surf this day */
@@ -574,8 +601,11 @@ export function aggregateRegionalForecast(
     const avgWaveHeight =
       allHeights.length > 0 ? allHeights.reduce((a, b) => a + b, 0) / allHeights.length : 0;
 
-    // Determine dominant wind direction
-    const windDirections = allForecasts
+    // Determine dominant wind direction from rows that carry a wind reading
+    const windedForecasts = allForecasts.filter(
+      (f) => parseWindSpeedOrNull(f.wind_speed) !== null,
+    );
+    const windDirections = windedForecasts
       .map((f) => f.wind_direction)
       .filter((d) => d != null) as string[];
     const windCounts = new Map<string, number>();
@@ -583,18 +613,27 @@ export function aggregateRegionalForecast(
       windCounts.set(dir, (windCounts.get(dir) || 0) + 1);
     }
     const dominantWindDirection =
-      Array.from(windCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || "Variable";
+      Array.from(windCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ||
+      (windedForecasts.length > 0 ? "Variable" : "");
 
-    // Determine wind conditions using shared classification
-    const windClassifications = windDirections.map((d) => classifyWindDirection(d));
+    // Classify each row against its own beach, then take the majority of the
+    // rows that could be classified. Unclassifiable rows sit out the vote.
+    const windClassifications = Array.from(beachForecasts.entries())
+      .flatMap(([beachId, rows]) => {
+        const rowBeach = beaches.find((b) => b.id === beachId);
+        return rows.map((row) => classifyForecastWind(row, rowBeach));
+      })
+      .filter((classification) => classification !== "unknown");
     const offshoreCount = windClassifications.filter((c) => c === "offshore").length;
     const lightCount = windClassifications.filter((c) => c === "light").length;
-    const windConditions: "offshore" | "light" | "onshore" =
-      offshoreCount > windDirections.length / 2
-        ? "offshore"
-        : lightCount > windDirections.length / 2
-          ? "light"
-          : "onshore";
+    const windConditions: WindClassification =
+      windClassifications.length === 0
+        ? "unknown"
+        : offshoreCount > windClassifications.length / 2
+          ? "offshore"
+          : lightCount > windClassifications.length / 2
+            ? "light"
+            : "onshore";
 
     const tideStatuses = allForecasts
       .map((forecast) => forecast.tide_status)
@@ -666,7 +705,7 @@ export function aggregateRegionalForecast(
     avgWaveHeight: 0,
     waveRange: [0, 0] as [number, number],
     dominantWindDirection: "",
-    windConditions: "onshore" as const,
+    windConditions: "unknown" as const,
     dominantTideStatus: null,
     bestTimeSlot: "morning" as const,
     topBeaches: [],

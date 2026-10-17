@@ -174,6 +174,22 @@ describe("BestDaysSection — analytics wiring", () => {
     trackBestConditionsClick = tracking.trackBestConditionsClick;
   });
 
+  it("shows no wind stat, label or 'Variable' when the day's wind is unknown", () => {
+    const unknownWindDay = makeDaySummary({ windConditions: "unknown", dominantWindDirection: "" });
+
+    render(
+      <BestDaysSection
+        days={[unknownWindDay, ...SECONDARY_DAYS.map((d) => ({ ...d, windConditions: "unknown" as const }))]}
+        bestDay={unknownWindDay}
+        regionName={REGION_NAME}
+      />
+    );
+
+    const text = document.body.textContent ?? "";
+    expect(text).not.toMatch(/onshore|offshore|variable|Direction/i);
+    expect(screen.queryByText("Wind")).not.toBeInTheDocument();
+  });
+
   it("does not render immediate-action copy for a future weekly best day", () => {
     const futureBestDay = makeDaySummary({ score: 97 });
 

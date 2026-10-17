@@ -13,7 +13,7 @@
  * `now` when no future forecasts remain inside an open window.
  */
 
-import { findPeakWithinWindow } from '@/lib/services/discovery/window-selector/peak-finder';
+import { findPeakRowWithinWindow, findPeakWithinWindow } from '@/lib/services/discovery/window-selector/peak-finder';
 
 // Build hourly forecasts anchored around a base time.
 // `scores` is an array of { hourOffset, score } where hourOffset is hours
@@ -198,5 +198,42 @@ describe('findPeakWithinWindow', () => {
     const result = findPeakWithinWindow(windowStart, windowEnd, forecasts);
     expect(result).toBeInstanceOf(Date);
     expect(Number.isNaN(result.getTime())).toBe(false);
+  });
+});
+
+describe('findPeakRowWithinWindow with startedRowsEligible', () => {
+  const base = new Date('2026-10-16T17:00:00Z');
+  const at = (minutes: number): Date => new Date(base.getTime() + minutes * 60 * 1000);
+  const windowEnd = at(240);
+
+  it('lets the row under way win and clamps the peak to now', () => {
+    const forecasts = makeForecasts(base, [{ hourOffset: 0, score: 70 }, { hourOffset: 2, score: 30 }]);
+    const now = at(20);
+    expect(findPeakRowWithinWindow(base, windowEnd, forecasts, now, { startedRowsEligible: true }))
+      .toEqual({ peakTime: now, rowTime: base });
+    // Default eligibility still skips the started row.
+    expect(findPeakRowWithinWindow(base, windowEnd, forecasts, now))
+      .toEqual({ peakTime: at(120), rowTime: at(120) });
+  });
+
+  it('keeps a better future row as the peak', () => {
+    const forecasts = makeForecasts(base, [{ hourOffset: 0, score: 30 }, { hourOffset: 2, score: 70 }]);
+    expect(findPeakRowWithinWindow(base, windowEnd, forecasts, at(20), { startedRowsEligible: true }))
+      .toEqual({ peakTime: at(120), rowTime: at(120) });
+  });
+
+  it('reports the future row when interpolation pulls its peak back to now', () => {
+    const forecasts = makeForecasts(base, [
+      { hourOffset: 0, score: 80 }, { hourOffset: 1, score: 90 }, { hourOffset: 2, score: 40 },
+    ]);
+    const now = at(50);
+    expect(findPeakRowWithinWindow(base, windowEnd, forecasts, now, { startedRowsEligible: true }))
+      .toEqual({ peakTime: now, rowTime: at(60) });
+  });
+
+  it('never considers a started row before the window start', () => {
+    const forecasts = makeForecasts(base, [{ hourOffset: 0, score: 90 }, { hourOffset: 2, score: 30 }]);
+    expect(findPeakRowWithinWindow(at(60), windowEnd, forecasts, at(80), { startedRowsEligible: true }))
+      .toEqual({ peakTime: at(120), rowTime: at(120) });
   });
 });

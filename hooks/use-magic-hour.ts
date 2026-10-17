@@ -97,6 +97,7 @@ async function fetchBeachMetadata(beachId: string): Promise<BeachMetadata> {
       swell_window_halfwidth_deg,
       wind_offshore_deg,
       wind_offshore_tol_deg,
+      aspect_deg,
       preferred_tide_ft_min,
       preferred_tide_ft_max
     `
@@ -121,6 +122,7 @@ async function fetchBeachMetadata(beachId: string): Promise<BeachMetadata> {
     swell_window_halfwidth_deg: data.swell_window_halfwidth_deg,
     wind_offshore_deg: data.wind_offshore_deg,
     wind_offshore_tol_deg: data.wind_offshore_tol_deg,
+    aspect_deg: data.aspect_deg,
     preferred_tide_ft_min: data.preferred_tide_ft_min,
     preferred_tide_ft_max: data.preferred_tide_ft_max,
   };

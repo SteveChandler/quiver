@@ -54,10 +54,10 @@ describe("enrichDaySummaries", () => {
         forecast_at: "2026-02-10T09:00Z",
         forecast_date: "2026-02-10",
         forecast_time: "09:00",
-        wind_direction: "E", // Offshore for California west coast
+        wind_direction: "E", // Offshore for a west-facing beach
       });
 
-      const result = enrichDaySummaries([day], [forecast]);
+      const result = enrichDaySummaries([day], [forecast], 90);
 
       expect(result[0].windConditions).toBe("offshore");
     });
@@ -82,12 +82,57 @@ describe("enrichDaySummaries", () => {
         forecast_at: "2026-02-10T09:00Z",
         forecast_date: "2026-02-10",
         forecast_time: "09:00",
-        wind_direction: "W", // Onshore for California west coast
+        wind_direction: "W", // Onshore for a west-facing beach
       });
 
-      const result = enrichDaySummaries([day], [forecast]);
+      const result = enrichDaySummaries([day], [forecast], 90);
 
       expect(result[0].windConditions).toBe("onshore");
+    });
+
+    describe("beach orientation", () => {
+      const day = makeDaySummary({ fullDate: "2026-02-10", bestTime: "09:00" });
+      const at = (overrides: Partial<EnhancedForecastEntity>) =>
+        makeForecast({
+          forecast_at: "2026-02-10T09:00Z",
+          forecast_date: "2026-02-10",
+          forecast_time: "09:00",
+          ...overrides,
+        });
+
+      it("is unknown, not offshore or onshore, when the beach has no orientation", () => {
+        for (const direction of ["E", "W"]) {
+          const forecast = at({ wind_speed: "12 mph", wind_direction: direction });
+          expect(enrichDaySummaries([day], [forecast])[0].windConditions).toBe("unknown");
+          expect(enrichDaySummaries([day], [forecast], {})[0].windConditions).toBe("unknown");
+          expect(enrichDaySummaries([day], [forecast], null)[0].windConditions).toBe("unknown");
+        }
+      });
+
+      it("uses aspect_deg + 180 for an east-facing beach with no stored offshore bearing", () => {
+        const eastFacing = { aspect_deg: 90, wind_offshore_deg: null };
+        const west = at({ wind_speed: "12 mph", wind_direction: "W" });
+        const east = at({ wind_speed: "12 mph", wind_direction: "E" });
+        expect(enrichDaySummaries([day], [west], eastFacing)[0].windConditions).toBe("offshore");
+        expect(enrichDaySummaries([day], [east], eastFacing)[0].windConditions).toBe("onshore");
+      });
+
+      it("prefers a stored wind_offshore_deg over the aspect", () => {
+        const beach = { aspect_deg: 90, wind_offshore_deg: 90 };
+        const east = at({ wind_speed: "12 mph", wind_direction: "E" });
+        expect(enrichDaySummaries([day], [east], beach)[0].windConditions).toBe("offshore");
+      });
+
+      it("still reports light wind with no orientation because it names no relation", () => {
+        const calm = at({ wind_speed: "2 mph", wind_direction: "E" });
+        expect(enrichDaySummaries([day], [calm])[0].windConditions).toBe("light");
+      });
+
+      it("is unknown for a day with no forecast rows, never onshore", () => {
+        const result = enrichDaySummaries([day], [], 90);
+        expect(result[0].windConditions).toBe("unknown");
+        expect(result[0].windSpeed).toBeNull();
+      });
     });
 
     it("handles empty wind direction as unknown", () => {
@@ -99,7 +144,7 @@ describe("enrichDaySummaries", () => {
         wind_direction: "",
       });
 
-      const result = enrichDaySummaries([day], [forecast]);
+      const result = enrichDaySummaries([day], [forecast], 90);
 
       expect(result[0].windConditions).toBe("unknown");
     });
@@ -114,7 +159,7 @@ describe("enrichDaySummaries", () => {
         forecast_time: "06:00",
       });
 
-      const result = enrichDaySummaries([day], [forecast]);
+      const result = enrichDaySummaries([day], [forecast], 90);
 
       expect(result[0].bestTimeSlot).toBe("dawn-patrol");
     });
@@ -127,7 +172,7 @@ describe("enrichDaySummaries", () => {
         forecast_time: "08:00",
       });
 
-      const result = enrichDaySummaries([day], [forecast]);
+      const result = enrichDaySummaries([day], [forecast], 90);
 
       expect(result[0].bestTimeSlot).toBe("morning");
     });
@@ -140,7 +185,7 @@ describe("enrichDaySummaries", () => {
         forecast_time: "12:00",
       });
 
-      const result = enrichDaySummaries([day], [forecast]);
+      const result = enrichDaySummaries([day], [forecast], 90);
 
       expect(result[0].bestTimeSlot).toBe("midday");
     });
@@ -153,7 +198,7 @@ describe("enrichDaySummaries", () => {
         forecast_time: "14:00",
       });
 
-      const result = enrichDaySummaries([day], [forecast]);
+      const result = enrichDaySummaries([day], [forecast], 90);
 
       expect(result[0].bestTimeSlot).toBe("afternoon");
     });
@@ -166,7 +211,7 @@ describe("enrichDaySummaries", () => {
         forecast_time: "17:00",
       });
 
-      const result = enrichDaySummaries([day], [forecast]);
+      const result = enrichDaySummaries([day], [forecast], 90);
 
       expect(result[0].bestTimeSlot).toBe("evening");
     });
@@ -179,7 +224,7 @@ describe("enrichDaySummaries", () => {
         forecast_time: "07:00",
       });
 
-      const result = enrichDaySummaries([day], [forecast]);
+      const result = enrichDaySummaries([day], [forecast], 90);
 
       expect(result[0].bestTimeSlot).toBe("morning");
     });
@@ -192,7 +237,7 @@ describe("enrichDaySummaries", () => {
         forecast_time: "10:00",
       });
 
-      const result = enrichDaySummaries([day], [forecast]);
+      const result = enrichDaySummaries([day], [forecast], 90);
 
       expect(result[0].bestTimeSlot).toBe("midday");
     });
@@ -263,7 +308,7 @@ describe("enrichDaySummaries", () => {
 
       const result = enrichDaySummaries([day], [forecast]);
 
-      expect(result[0].windConditions).toBe("onshore");
+      expect(result[0].windConditions).toBe("unknown");
       expect(result[0].windSpeed).toBeNull();
       expect(result[0].bestTimeSlot).toBe("morning");
     });
@@ -283,7 +328,7 @@ describe("enrichDaySummaries", () => {
 
       const result = enrichDaySummaries([day], [forecast]);
 
-      expect(result[0].windConditions).toBe("onshore");
+      expect(result[0].windConditions).toBe("unknown");
       expect(result[0].windSpeed).toBeNull();
       expect(result[0].bestTimeSlot).toBe("morning");
     });
@@ -296,7 +341,7 @@ describe("enrichDaySummaries", () => {
 
       const result = enrichDaySummaries([day], []);
 
-      expect(result[0].windConditions).toBe("onshore");
+      expect(result[0].windConditions).toBe("unknown");
       expect(result[0].windSpeed).toBeNull();
       expect(result[0].bestTimeSlot).toBe("morning");
     });
@@ -312,7 +357,7 @@ describe("enrichDaySummaries", () => {
         wind_speed: "12 mph",
       });
 
-      const result = enrichDaySummaries([day], [forecast]);
+      const result = enrichDaySummaries([day], [forecast], 90);
 
       expect(result[0].windSpeed).toBe("12 mph");
     });
@@ -326,7 +371,7 @@ describe("enrichDaySummaries", () => {
         wind_speed: null,
       });
 
-      const result = enrichDaySummaries([day], [forecast]);
+      const result = enrichDaySummaries([day], [forecast], 90);
 
       expect(result[0].windSpeed).toBeNull();
     });
@@ -359,7 +404,7 @@ describe("enrichDaySummaries", () => {
         }),
       ];
 
-      const result = enrichDaySummaries([day], forecasts);
+      const result = enrichDaySummaries([day], forecasts, 90);
 
       expect(result[0].windConditions).toBe("offshore"); // E wind
     });
@@ -390,7 +435,7 @@ describe("enrichDaySummaries", () => {
         }),
       ];
 
-      const result = enrichDaySummaries([day], forecasts);
+      const result = enrichDaySummaries([day], forecasts, 90);
 
       // 08:00 is closer to 09:00 (1 hour diff) than 06:00 (2 hours diff)
       expect(result[0].windConditions).toBe("offshore"); // E wind from 09:00 forecast
@@ -417,7 +462,7 @@ describe("enrichDaySummaries", () => {
         }),
       ];
 
-      const result = enrichDaySummaries([day], forecasts);
+      const result = enrichDaySummaries([day], forecasts, 90);
 
       // Both 07:00 and 11:00 are 2 hours away, should select first (07:00)
       expect(result[0].windConditions).toBe("onshore"); // W wind
@@ -432,7 +477,7 @@ describe("enrichDaySummaries", () => {
         wind_direction: "E",
       });
 
-      const result = enrichDaySummaries([day], [forecast]);
+      const result = enrichDaySummaries([day], [forecast], 90);
 
       // Should default to hour 12 when forecast_time is missing
       expect(result[0].windConditions).toBe("offshore");
@@ -462,7 +507,7 @@ describe("enrichDaySummaries", () => {
         }),
       ];
 
-      const result = enrichDaySummaries(days, forecasts);
+      const result = enrichDaySummaries(days, forecasts, 90);
 
       expect(result).toHaveLength(2);
       expect(result[0].windConditions).toBe("offshore");
@@ -495,11 +540,11 @@ describe("enrichDaySummaries", () => {
         }),
       ];
 
-      const result = enrichDaySummaries(days, forecasts);
+      const result = enrichDaySummaries(days, forecasts, 90);
 
       expect(result).toHaveLength(3);
       expect(result[0].windConditions).toBe("offshore");
-      expect(result[1].windConditions).toBe("onshore"); // Fallback
+      expect(result[1].windConditions).toBe("unknown"); // Fallback
       expect(result[1].windSpeed).toBeNull(); // Fallback
       expect(result[1].bestTimeSlot).toBe("morning"); // Fallback
       expect(result[2].windConditions).toBe("onshore");
@@ -517,7 +562,7 @@ describe("enrichDaySummaries", () => {
         wind_speed: "3 mph",
       });
 
-      const result = enrichDaySummaries([day], [forecast]);
+      const result = enrichDaySummaries([day], [forecast], 90);
 
       expect(result[0].windConditions).toBe("light");
     });
@@ -532,7 +577,7 @@ describe("enrichDaySummaries", () => {
         wind_speed: "5 mph",
       });
 
-      const result = enrichDaySummaries([day], [forecast]);
+      const result = enrichDaySummaries([day], [forecast], 90);
 
       expect(result[0].windConditions).toBe("light");
     });
@@ -547,7 +592,7 @@ describe("enrichDaySummaries", () => {
         wind_speed: "8 mph",
       });
 
-      const result = enrichDaySummaries([day], [forecast]);
+      const result = enrichDaySummaries([day], [forecast], 90);
 
       expect(result[0].windConditions).toBe("onshore");
     });
@@ -562,7 +607,7 @@ describe("enrichDaySummaries", () => {
         wind_speed: "0 mph",
       });
 
-      const result = enrichDaySummaries([day], [forecast]);
+      const result = enrichDaySummaries([day], [forecast], 90);
 
       expect(result[0].windConditions).toBe("light");
     });
@@ -577,7 +622,7 @@ describe("enrichDaySummaries", () => {
         wind_speed: null,
       });
 
-      const result = enrichDaySummaries([day], [forecast]);
+      const result = enrichDaySummaries([day], [forecast], 90);
 
       expect(result[0].windConditions).toBe("unknown");
     });
@@ -592,7 +637,7 @@ describe("enrichDaySummaries", () => {
         wind_speed: "10 mph",
       });
 
-      const result = enrichDaySummaries([day], [forecast]);
+      const result = enrichDaySummaries([day], [forecast], 90);
 
       expect(result[0].windConditions).toBe("offshore");
     });
@@ -642,7 +687,7 @@ describe("enrichDaySummaries", () => {
       expect(result[0].windConditions).toBe("offshore");
     });
 
-    it("without windOffshoreDeg, E wind is still offshore (backward compat)", () => {
+    it("without windOffshoreDeg, E wind is unknown (no California default)", () => {
       const day = makeDaySummary({ fullDate: "2026-02-10", bestTime: "09:00" });
       const forecast = makeForecast({
         forecast_at: "2026-02-10T09:00Z",
@@ -653,7 +698,7 @@ describe("enrichDaySummaries", () => {
 
       const result = enrichDaySummaries([day], [forecast]);
 
-      expect(result[0].windConditions).toBe("offshore");
+      expect(result[0].windConditions).toBe("unknown");
     });
   });
 
@@ -683,7 +728,7 @@ describe("enrichDaySummaries", () => {
         forecast_time: "09:00",
       });
 
-      const result = enrichDaySummaries([day], [forecast]);
+      const result = enrichDaySummaries([day], [forecast], 90);
 
       expect(result[0].date).toBe("Feb 10");
       expect(result[0].dayName).toBe("Mon");
@@ -708,7 +753,7 @@ describe("enrichDaySummaries", () => {
       const result = enrichDaySummaries([day], [forecast]);
 
       // Should use fallback since forecast_date is null
-      expect(result[0].windConditions).toBe("onshore");
+      expect(result[0].windConditions).toBe("unknown");
       expect(result[0].windSpeed).toBeNull();
       expect(result[0].bestTimeSlot).toBe("morning");
     });
@@ -734,7 +779,7 @@ describe("enrichDaySummaries", () => {
         }),
       ];
 
-      const result = enrichDaySummaries([day], forecasts);
+      const result = enrichDaySummaries([day], forecasts, 90);
 
       // Should select first matching forecast
       expect(result[0].windConditions).toBe("offshore"); // E wind

@@ -78,11 +78,12 @@ function headlineForScore(_peakScore: number, regionName: string): string {
 }
 
 function windDescriptor(
-  conditions: "offshore" | "light" | "onshore"
-): string {
+  conditions: "offshore" | "light" | "onshore" | "unknown"
+): string | null {
   if (conditions === "offshore") return "light offshore";
   if (conditions === "light") return "light winds";
-  return "onshore wind";
+  if (conditions === "onshore") return "onshore wind";
+  return null;
 }
 
 function trendVerb(firstScore: number, lastScore: number): string {
@@ -139,7 +140,7 @@ function computeHeadlineAngle(
     peakScore: peakDay.score,
     peakDay: dayName,
     peakWaveRange: `${setHeight} (${size})`,
-    peakWindDescriptor: `${timing}, ${wind}`,
+    peakWindDescriptor: wind ? `${timing}, ${wind}` : timing,
     whyLine: whyFragments.join(", "),
   };
 }
@@ -429,12 +430,19 @@ export function RegionalCallHero({
               <span className="font-semibold text-white">
                 {angle.peakDay} {angle.peakWindDescriptor.split(", ")[0]}
               </span>
-              , {angle.peakWaveRange}, {angle.peakWindDescriptor.split(", ")[1]}.
+              , {angle.peakWaveRange}
+              {angle.peakWindDescriptor.split(", ")[1]
+                ? `, ${angle.peakWindDescriptor.split(", ")[1]}`
+                : ""}
+              .
             </p>
           ) : objectiveDay ? (
             <p className="mt-4 text-lg text-white/85 sm:text-xl">
               {objectiveDay.dayOfWeek} conditions:{" "}
-              {formatWaveHeightRange(objectiveDay.avgWaveHeight)}, {windDescriptor(objectiveDay.windConditions)} wind,{" "}
+              {formatWaveHeightRange(objectiveDay.avgWaveHeight)},{" "}
+              {windDescriptor(objectiveDay.windConditions)
+                ? `${windDescriptor(objectiveDay.windConditions)} wind, `
+                : ""}
               {objectiveDay.dominantTideStatus
                 ? `${objectiveDay.dominantTideStatus} tide`
                 : "tide status pending"}

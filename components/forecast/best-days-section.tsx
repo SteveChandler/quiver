@@ -71,11 +71,12 @@ interface BestDayCardProps {
 }
 
 /**
- * Get wind condition icon and label
+ * Get wind condition icon and label; null when the wind is unknown so the
+ * card shows no wind at all rather than a guessed label.
  */
 function getWindInfo(
   windConditions: DaySummary["windConditions"]
-): { icon: React.ReactNode; label: string } {
+): { icon: React.ReactNode; label: string } | null {
   switch (windConditions) {
     case "offshore":
       return {
@@ -93,10 +94,7 @@ function getWindInfo(
         label: "Onshore",
       };
     default:
-      return {
-        icon: <Wind className="h-4 w-4 text-muted-foreground" />,
-        label: "Variable",
-      };
+      return null;
   }
 }
 
@@ -246,24 +244,28 @@ function BestDayCard({
                 value={formatWaveRange(day.waveRange)}
                 delay={200}
               />
-              <ConditionStat
-                icon={windInfo.icon}
-                label="Wind"
-                value={windInfo.label}
-                delay={300}
-              />
+              {windInfo && (
+                <ConditionStat
+                  icon={windInfo.icon}
+                  label="Wind"
+                  value={windInfo.label}
+                  delay={300}
+                />
+              )}
               <ConditionStat
                 icon={timeSlotInfo.icon}
                 label="Best Time"
                 value={timeSlotInfo.label}
                 delay={400}
               />
-              <ConditionStat
-                icon={<Wind className="h-5 w-5 text-[#11100D]/70" />}
-                label="Direction"
-                value={day.dominantWindDirection}
-                delay={500}
-              />
+              {day.dominantWindDirection && (
+                <ConditionStat
+                  icon={<Wind className="h-5 w-5 text-[#11100D]/70" />}
+                  label="Direction"
+                  value={day.dominantWindDirection}
+                  delay={500}
+                />
+              )}
             </div>
           </div>
         </div>
@@ -307,10 +309,12 @@ function BestDayCard({
                   <Waves className="h-3 w-3 text-[#8A5E00]" />
                   {formatWaveRange(day.waveRange)}
                 </span>
-                <span className="flex items-center gap-1">
-                  {windInfo.icon}
-                  {windInfo.label}
-                </span>
+                {windInfo && (
+                  <span className="flex items-center gap-1">
+                    {windInfo.icon}
+                    {windInfo.label}
+                  </span>
+                )}
               </div>
             </div>
           </div>

@@ -233,6 +233,8 @@ export interface DetailedScore {
     periodEnergyScore: number;
     /** Wind alignment with beach's optimal direction (0-20 points) */
     windAlignment: number;
+    /** True when the wind couldn't be judged: windAlignment is a placeholder, not evidence. */
+    windUnknown?: boolean;
     /** Tide fit to beach's preferred range (0-15 points) */
     tideFit: number;
     /** Bonus for familiar beaches (0-15 points) */
