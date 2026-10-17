@@ -277,12 +277,37 @@ describe("beginner actions", () => {
     const result = await getBeginnerConditionsData("huntington-beach", "ca");
 
     expect(result.badge?.status).toBe("great");
-    expect(result.badge?.wind).toBe("Wind unavailable");
-    expect(result.rightNow?.metrics.wind).toMatchObject({
-      value: "Wind unavailable",
-      label: "Wind unavailable",
-      status: "caution",
-    });
+    expect(result.badge?.wind).toBeNull();
+    expect(result.rightNow?.metrics.wind).toBeUndefined();
     expect(result.rightNow?.beginnerVerdict.rating).toBe("ideal");
+    expect(result.rightNow?.beginnerVerdict.reasons.map((r) => r.factor)).not.toContain("Wind");
+  });
+
+  describe("summary with an early weekday crowd", () => {
+    beforeEach(() => {
+      jest.useFakeTimers({ now: new Date(2026, 4, 20, 7, 0) });
+    });
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it("lets the other inputs make a strong learner window without claiming clean wind", async () => {
+      beaches.push(makeBeach({}));
+      forecasts.push(makeForecast({ wind_speed: null }));
+
+      const result = await getBeginnerConditionsData("huntington-beach", "ca");
+
+      expect(result.rightNow?.summary).toMatch(/strong learner window/);
+      expect(result.rightNow?.summary).not.toMatch(/clean/i);
+    });
+
+    it("keeps the clean wording when a light wind is known", async () => {
+      beaches.push(makeBeach({}));
+      forecasts.push(makeForecast({}));
+
+      const result = await getBeginnerConditionsData("huntington-beach", "ca");
+
+      expect(result.rightNow?.summary).toBe("Small, clean, early, and low-to-mid tide - a strong learner window");
+    });
   });
 });

@@ -29,16 +29,18 @@ export const GET = withAuth(
       return createValidationError("forecast_at must be a valid timestamp");
     }
     const forecastAt = requestedForecastAt ? new Date(requestedForecastAt).toISOString() : new Date().toISOString();
-    const windDirection = searchParams.get("wind_direction") ?? "0";
+    // A missing wind is neutral in compute_user_match_scores only when it reaches SQL as NULL/""/"null";
+    // "0" would score it as glassy from due north.
+    const windDirection = searchParams.get("wind_direction");
     const waveHeight = searchParams.get("wave_height") ?? "0";
     const wavePeriod = searchParams.get("wave_period") ?? "0";
-    const windSpeed = searchParams.get("wind_speed") ?? "0";
+    const windSpeed = searchParams.get("wind_speed");
     const tideHeight = searchParams.get("tide_height") ?? "0";
     // Optional and additive: installed clients omit them and the board pick compares wave_period as before.
     const dataSource = searchParams.get("data_source");
     const wavePeriodOm = Number.parseFloat(searchParams.get("wave_period_om") ?? "");
     // The board pick scores wind in TypeScript, so missing wind stays unknown there.
-    // Native sends String(null) = "null". The RPC inputs above stay as sent.
+    // Native sends String(null) = "null"; the RPC parses that as missing too.
     const boardWindSpeed = knownParam(searchParams.get("wind_speed"));
     const boardWindDirection = knownParam(searchParams.get("wind_direction"));
 

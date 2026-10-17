@@ -10,7 +10,7 @@
  * to reduce cyclomatic complexity and improve maintainability.
  */
 
-import { calculateOnOffshore } from "@/lib/analyzers/wind-analyzer";
+import { CALM_MPH, calculateOnOffshore } from "@/lib/analyzers/wind-analyzer";
 import {
   DAYLIGHT_END_HOUR,
   DAYLIGHT_START_HOUR,
@@ -22,8 +22,6 @@ const OFFSHORE_STRONG_SCORE = 40;
 const OFFSHORE_MODERATE_SCORE = 30;
 const LIGHT_WIND_SCORE = 20;
 const MODERATE_WIND_SCORE = 10;
-// Unknown wind sits halfway between no wind points (0) and the best (offshore + light).
-const UNKNOWN_WIND_SCORE = OFFSHORE_STRONG_SCORE / 2;
 
 const PERIOD_EXCELLENT_SCORE = 30;
 const PERIOD_GOOD_SCORE = 20;
@@ -34,6 +32,10 @@ const TIDE_ACCEPTABLE_SCORE = 10;
 
 const MORNING_BONUS = 10;
 const AFTERNOON_BONUS = 5;
+
+/** Unknown wind drops its 40 points and the rest rescale to the same 100-point max. */
+const NON_WIND_MAX_SCORE = PERIOD_EXCELLENT_SCORE + TIDE_OPTIMAL_SCORE + MORNING_BONUS;
+const MAX_SCORE = OFFSHORE_STRONG_SCORE + NON_WIND_MAX_SCORE;
 
 const MINIMUM_QUALITY_SCORE = 20;
 const QUALITY_THRESHOLD = 0.75; // 75% of best score
@@ -71,6 +73,24 @@ interface ForecastData {
 /** Missing or unparseable wind is unknown, never 0. */
 function knownOrNull(value: number | null): number | null {
   return value !== null && Number.isFinite(value) ? value : null;
+}
+
+/**
+ * Wind we can judge: a speed, and either calm or a direction plus the beach's
+ * offshore bearing. Anything else stays out of the score and the copy.
+ */
+function knownWind(
+  forecast: ForecastData,
+  offshoreDeg: number | null
+): { speed: number; isOffshore: boolean } | null {
+  const speed = knownOrNull(forecast.wind_speed);
+  if (speed === null) return null;
+  const direction = knownOrNull(forecast.wind_direction);
+  if (direction === null || offshoreDeg === null) {
+    // Calm from any direction can be judged without one.
+    return speed <= CALM_MPH ? { speed, isOffshore: false } : null;
+  }
+  return { speed, isOffshore: calculateOnOffshore(direction, offshoreDeg) };
 }
 
 function padTimePart(value: number): string {
@@ -137,7 +157,7 @@ interface SessionWindow {
  * - Time (max 10): Early morning and late afternoon bonus
  * 
  * @param forecast - Forecast data point
- * @param beachAspect - Beach aspect in degrees (e.g., 270 for WSW)
+ * @param offshoreDeg - Direction offshore wind blows from; null when unknown
  * @returns Score from 0-100
  * 
  * @example
@@ -148,28 +168,24 @@ interface SessionWindow {
  *   wave_period: 12,
  *   tide_height: 3.5,
  *   forecast_time: '08:00'
- * }, 270);
+ * }, 90);
  * // Returns: ~90 (offshore, light wind, long period, mid-tide, morning)
  * ```
  */
 function scoreForecast(
   forecast: ForecastData,
-  beachAspect: number,
+  offshoreDeg: number | null,
   beachTimezone?: string
 ): number {
   let score = 0;
   
-  // Wind scoring (most important factor). Unknown speed is neutral; a real
-  // 0 mph is calm. Without a direction, wind is scored on speed alone.
-  const windSpeed = knownOrNull(forecast.wind_speed);
-  const windDir = knownOrNull(forecast.wind_direction);
-  const isOffshore = windDir !== null && calculateOnOffshore(windDir, beachAspect);
-
-  if (windSpeed === null) score += UNKNOWN_WIND_SCORE;
-  else if (isOffshore && windSpeed < 5) score += OFFSHORE_STRONG_SCORE;
-  else if (isOffshore && windSpeed < 10) score += OFFSHORE_MODERATE_SCORE;
-  else if (windSpeed < 5) score += LIGHT_WIND_SCORE;
-  else if (windSpeed < 10) score += MODERATE_WIND_SCORE;
+  // Wind scoring (most important factor). A real 0 mph is calm; unknown wind
+  // is left out and the other factors rescale below.
+  const wind = knownWind(forecast, offshoreDeg);
+  if (wind?.isOffshore && wind.speed < 5) score += OFFSHORE_STRONG_SCORE;
+  else if (wind?.isOffshore && wind.speed < 10) score += OFFSHORE_MODERATE_SCORE;
+  else if (wind && wind.speed < 5) score += LIGHT_WIND_SCORE;
+  else if (wind && wind.speed < 10) score += MODERATE_WIND_SCORE;
 
   // Period scoring (swell quality)
   const period = forecast.wave_period || forecast.swell_1_period || 0;
@@ -191,7 +207,7 @@ function scoreForecast(
   if (hour >= 6 && hour <= 9) score += MORNING_BONUS;
   else if (hour >= 16 && hour <= 18) score += AFTERNOON_BONUS;
 
-  return score;
+  return wind ? score : (score * MAX_SCORE) / NON_WIND_MAX_SCORE;
 }
 
 /**
@@ -281,34 +297,27 @@ function extendWindow(
  * 
  * @param forecast - Best forecast data
  * @param score - Forecast score
- * @param beachAspect - Beach aspect in degrees
+ * @param offshoreDeg - Direction offshore wind blows from; null when unknown
  * @returns Description and conditions text
  */
 function buildWindowDescription(
   forecast: ForecastData,
   score: number,
-  beachAspect: number
+  offshoreDeg: number | null
 ): { description: string; conditions: string } {
-  const wind = knownOrNull(forecast.wind_speed);
-  const windDir = knownOrNull(forecast.wind_direction);
-  const isOffshore = windDir !== null && calculateOnOffshore(windDir, beachAspect);
+  const wind = knownWind(forecast, offshoreDeg);
   const period = forecast.wave_period || forecast.swell_1_period || 0;
 
-  // Build conditions text; unknown wind makes no wind claim.
-  let conditions = "";
-  if (wind === null) {
-    conditions = "Wind unknown";
-  } else if (isOffshore && wind < 8) {
-    conditions = "Clean offshore winds";
-  } else if (wind < 5) {
-    conditions = "Light winds";
-  } else {
-    conditions = "Moderate conditions";
-  }
+  // Build conditions text; unknown wind makes no wind claim at all.
+  const parts: string[] = [];
+  if (wind?.isOffshore && wind.speed < 8) parts.push("Clean offshore winds");
+  else if (wind && wind.speed < 5) parts.push("Light winds");
+  else if (wind) parts.push("Moderate conditions");
 
-  if (period >= 10) {
-    conditions += ", quality swell";
-  }
+  if (period >= 10) parts.push("quality swell");
+
+  const joined = parts.join(", ");
+  const conditions = joined.charAt(0).toUpperCase() + joined.slice(1);
 
   // Build description
   const description = score >= 50 ? "Excellent conditions" : "Good conditions";
@@ -328,19 +337,19 @@ function buildWindowDescription(
  * 
  * @param forecasts - Array of forecast data points
  * @param currentTime - Current time
- * @param beachAspect - Beach aspect in degrees (default 270 = WSW)
+ * @param offshoreDeg - Direction offshore wind blows from (resolveOffshoreDeg); null when the beach has no orientation
  * @returns Session window or null if no good window found
  * 
  * @example
  * ```typescript
- * const window = findNextBestWindow(forecasts, new Date(), 270);
+ * const window = findNextBestWindow(forecasts, new Date(), 90);
  * // Returns: { startTime: '08:00', endTime: '10:00', description: 'Excellent conditions', conditions: 'Clean offshore winds, quality swell' }
  * ```
  */
 export function findNextBestWindow(
   forecasts: ForecastData[],
   currentTime: Date,
-  beachAspect: number = 270, // Default: Ocean Beach, San Diego (WSW)
+  offshoreDeg: number | null = null,
   beachTimezone: string | undefined = undefined
 ): SessionWindow | null {
   if (forecasts.length === 0) {
@@ -393,7 +402,7 @@ export function findNextBestWindow(
   // Score each forecast
   const scoredForecasts: ScoredForecast[] = futureForecasts.map((f) => ({
     forecast: f,
-    score: scoreForecast(f, beachAspect, beachTimezone),
+    score: scoreForecast(f, offshoreDeg, beachTimezone),
   }));
 
   // Find best forecast
@@ -422,7 +431,7 @@ export function findNextBestWindow(
   }
 
   // Build description
-  const { description, conditions } = buildWindowDescription(best.forecast, best.score, beachAspect);
+  const { description, conditions } = buildWindowDescription(best.forecast, best.score, offshoreDeg);
 
   return {
     startTime,

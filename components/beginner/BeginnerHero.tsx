@@ -64,8 +64,9 @@ export function BeginnerHero({
                     {conditionsBadge.statusLabel}
                   </p>
                   <p className="text-xs text-[#11100D]">
-                    {conditionsBadge.waveHeight} &middot; {conditionsBadge.wind}{" "}
-                    &middot; {conditionsBadge.waterTemp}
+                    {[conditionsBadge.waveHeight, conditionsBadge.wind, conditionsBadge.waterTemp]
+                      .filter(Boolean)
+                      .join(" \u00B7 ")}
                   </p>
                   <p className="text-xs text-[#655C4C]">
                     Based on conditions at {conditionsBadge.spotName}

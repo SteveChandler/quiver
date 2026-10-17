@@ -107,6 +107,8 @@ interface BestSurfWindowProps {
   beachId: string;
   beachName: string;
   beachTimezone?: string | null;
+  /** Direction offshore wind blows from (resolveOffshoreDeg); null leaves wind out of the forecast window. */
+  offshoreDeg?: number | null;
   forecasts?: EnhancedForecastEntity[];
   /** True until the forecast fetch settles; empty `forecasts` then means "not loaded", not "none". */
   forecastsLoading?: boolean;
@@ -218,6 +220,7 @@ export function BestSurfWindow({
   beachId,
   beachName,
   beachTimezone,
+  offshoreDeg = null,
   forecasts,
   forecastsLoading = false,
   surfCall,
@@ -365,11 +368,11 @@ export function BestSurfWindow({
     const computed = findNextBestWindow(
       mappedForecasts,
       new Date(),
-      270,
+      offshoreDeg,
       resolveBeachTimezone(beachTimezone)
     );
     return computed;
-  }, [mappedForecasts, beachTimezone]);
+  }, [mappedForecasts, offshoreDeg, beachTimezone]);
 
   // ----------------------------------------------------------------
   // Condition Intelligence: Primary + secondary windows
@@ -528,8 +531,9 @@ export function BestSurfWindow({
                 {formatTime(bestWindowFromForecasts.endTime)}
               </p>
               <p className="text-sm text-[#4B4030]">
-                {bestWindowFromForecasts.description} •{" "}
-                {bestWindowFromForecasts.conditions}
+                {[bestWindowFromForecasts.description, bestWindowFromForecasts.conditions]
+                  .filter(Boolean)
+                  .join(" • ")}
               </p>
             </div>
 
@@ -756,7 +760,7 @@ export function BestSurfWindow({
                   {formatTime(nextWindow.endTime)}
                 </p>
                 <p className="text-sm text-[#4B4030]">
-                  {nextWindow.description} • {nextWindow.conditions}
+                  {[nextWindow.description, nextWindow.conditions].filter(Boolean).join(" • ")}
                 </p>
               </>
             ) : (
