@@ -52,11 +52,7 @@ export function prepareAlertForecastHours(
   return { daylight: filterToDaylight(hours, beach.lat, beach.lon), maxWaveByForecastAt };
 }
 
-export function selectFreshAlertWindow(input: SelectFreshAlertWindowInput): FoundWindow | null {
-  return selectFreshAlertWindowWithDiagnostics(input).window;
-}
-
-export function selectFreshAlertWindowWithDiagnostics({
+export function selectFreshAlertWindow({
   conditions,
   forecastRows,
   beach,

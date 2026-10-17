@@ -179,6 +179,7 @@ function deps(
         candidate({ pool: favorite, physicalScore: 82 }),
       ],
       hadForecasts: true,
+      noInWindowRowCount: 0,
     })),
     alreadySentToday: jest.fn(async () => false),
     loadSwellEventKey: jest.fn(async () => null),
@@ -1605,7 +1606,7 @@ describe("daily call alternatives", () => {
 
   async function send(candidates: DailyCallCandidate[]) {
     const mocked = deps({
-      buildCandidates: jest.fn(async () => ({ candidates, hadForecasts: true })),
+      buildCandidates: jest.fn(async () => ({ candidates, hadForecasts: true, noInWindowRowCount: 0 })),
       selectTitle: jest.fn(realSelectTitle),
     });
     const summary = await runDailyCallCron({ now, supabase, deps: mocked });
@@ -1719,6 +1720,7 @@ describe("runDailyCallCron", () => {
           candidate({ pool: hawaiiFavorite, start, end, physicalScore: 70 }),
         ],
         hadForecasts: true,
+        noInWindowRowCount: 0,
       })),
       selectTitle: jest.fn(realSelectTitle),
     });
@@ -1760,6 +1762,7 @@ describe("runDailyCallCron", () => {
           pool: beach, start: "2026-10-11T18:00:00.000Z", end: "2026-10-11T21:00:00.000Z",
         })],
         hadForecasts: true,
+        noInWindowRowCount: 0,
       }),
       selectTitle: realSelectTitle,
     });
@@ -1829,7 +1832,7 @@ describe("runDailyCallCron", () => {
 
   it("stays silent when every beach is maybe", async () => {
     const mocked = deps({
-      buildCandidates: jest.fn(async () => ({ candidates: [], hadForecasts: true })),
+      buildCandidates: jest.fn(async () => ({ candidates: [], hadForecasts: true, noInWindowRowCount: 0 })),
     });
 
     const summary = await runDailyCallCron({ now, supabase, deps: mocked });
@@ -1866,6 +1869,7 @@ describe("runDailyCallCron", () => {
           end: "2026-09-16T14:30:00.000Z",
         })],
         hadForecasts: true,
+        noInWindowRowCount: 0,
       })),
       selectTitle,
     });
@@ -1906,6 +1910,7 @@ describe("runDailyCallCron", () => {
       buildCandidates: jest.fn(async () => ({
         candidates: [closing, later],
         hadForecasts: true,
+        noInWindowRowCount: 0,
       })),
     });
 
@@ -1938,6 +1943,7 @@ describe("daily call holds", () => {
       buildCandidates: jest.fn(async () => ({
         candidates: [homeCandidate, candidate({ pool: favorite, physicalScore: 82 })],
         hadForecasts: true,
+        noInWindowRowCount: 0,
       })),
     });
 
@@ -1963,6 +1969,7 @@ describe("daily call holds", () => {
           candidate({ pool: home, physicalScore: 55 }),
         ],
         hadForecasts: true,
+        noInWindowRowCount: 0,
       })),
       resolveHeldBeaches: holding([nearby.beach.id, custom.beach.id]),
     });
@@ -1996,6 +2003,7 @@ describe("daily call holds", () => {
           candidate({ pool: home, physicalScore: 55 }),
         ],
         hadForecasts: true,
+        noInWindowRowCount: 0,
       })),
     });
     await runDailyCallCron({ now, supabase, deps: mocked });
@@ -2136,7 +2144,7 @@ describe("daily call copy on the real title pool", () => {
     const mocked = deps({
       loadProfiles: jest.fn(async () => [sendProfile]),
       loadPool: jest.fn(async () => [obPier, torrey]),
-      buildCandidates: jest.fn(async () => ({ candidates, hadForecasts: true })),
+      buildCandidates: jest.fn(async () => ({ candidates, hadForecasts: true, noInWindowRowCount: 0 })),
       selectTitle: realSelectTitle,
     });
     await runDailyCallCron({ now: sept24, supabase, deps: mocked });
@@ -2184,7 +2192,7 @@ describe("daily call copy on the real title pool", () => {
     const mocked = deps({
       loadProfiles: jest.fn(async () => [{ ...obProfile, homeBeachId: null, homeBeach: null }]),
       loadPool: jest.fn(async () => [torrey]),
-      buildCandidates: jest.fn(async () => ({ candidates: [go(torrey, torreyForecast, 82)], hadForecasts: true })),
+      buildCandidates: jest.fn(async () => ({ candidates: [go(torrey, torreyForecast, 82)], hadForecasts: true, noInWindowRowCount: 0 })),
       selectTitle,
     });
     await runDailyCallCron({ now: sept24, supabase, deps: mocked });
@@ -2227,7 +2235,7 @@ describe("daily call location freshness", () => {
     } } as unknown as SupabaseClient<Database>;
     const overrides = deps({
       loadPool: jest.fn(loadUserPool),
-      buildCandidates: jest.fn(async ({ pool }: Parameters<DailyCallDeps["buildCandidates"]>[0]) => ({ candidates: pool.filter((entry) => entry.relation === "nearby").map((entry) => candidate({ pool: entry, end: "2026-09-16T18:40:00.000Z" })), hadForecasts: true })),
+      buildCandidates: jest.fn(async ({ pool }: Parameters<DailyCallDeps["buildCandidates"]>[0]) => ({ candidates: pool.filter((entry) => entry.relation === "nearby").map((entry) => candidate({ pool: entry, end: "2026-09-16T18:40:00.000Z" })), hadForecasts: true, noInWindowRowCount: 0 })),
       getSunrise: jest.fn(() => null),
     });
     const { resolveTimezone: _resolveTimezone, loadProfiles: _loadProfiles, ...injected } = overrides;
