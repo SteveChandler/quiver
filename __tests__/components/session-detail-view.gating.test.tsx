@@ -54,6 +54,10 @@ jest.mock("@/components/session-comments", () => ({
   SessionComments: () => null,
 }));
 
+jest.mock("@/components/sessions/waves/session-waves-section", () => ({
+  SessionWavesSection: () => null,
+}));
+
 jest.mock("@/components/session/forecast-comparison", () => ({
   ForecastComparison: () => null,
 }));
