@@ -8,7 +8,7 @@ export type ImportBeach = {
   swellWindowCenterDeg: number | null;
 };
 
-export type BeachResolution =
+type BeachResolution =
   | { status: "resolved"; beach: ImportBeach }
   | { status: "needs_beach"; candidates: ImportBeach[] };
 

@@ -11,7 +11,7 @@ import { buildWavesSummary, type WavesSummary } from "../waves/waves-summary";
 import { findAttachTarget } from "./find-attach-target";
 import { loadImportBeach, resolveImportBeach, type ImportBeach } from "./resolve-import-beach";
 
-export type ProcessImportResult =
+type ProcessImportResult =
   | { status: "completed"; sessionId: string; attached: boolean; summary: WavesSummary }
   | { status: "needs_beach"; importId: string; candidates: ImportBeach[] }
   | { status: "duplicate"; sessionId: string | null };
@@ -49,7 +49,7 @@ function checkError(error: unknown): void {
   if (error) throw asError(error);
 }
 
-export async function insertSessionTrack(serviceClient: SupabaseClient, row: TrackInsert): Promise<void> {
+async function insertSessionTrack(serviceClient: SupabaseClient, row: TrackInsert): Promise<void> {
   const { track, summary } = row;
   const { error } = await serviceClient.from("session_tracks").insert({
     session_id: row.sessionId,
