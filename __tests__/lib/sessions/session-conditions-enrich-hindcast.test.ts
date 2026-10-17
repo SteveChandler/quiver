@@ -21,6 +21,18 @@ function storeFor(sessions: PendingSession[], mopPointId: string | null = null):
 }
 
 describe("hindcast conditions enrichment", () => {
+  it.each([{ lat: null, lon: -117.2 }, { lat: 32.7, lon: null }, { lat: null, lon: null }])("marks sessions terminal when the beach lacks coordinates: %j", async (coordinates) => {
+    const store = storeFor([session("s1")]);
+    jest.mocked(store.loadBeaches).mockResolvedValue(new Map([["b1", {
+      id: "b1", ...coordinates, mop_point_id: null, swell_window_center_deg: 275, swell_window_halfwidth_deg: 30,
+    }]]));
+    const fetchDay = jest.fn(async () => [hour]);
+    const result = await enrichSessionConditions(store, { mode: "live", now, hindcast: { fetchDay } });
+    expect(fetchDay).not.toHaveBeenCalled();
+    expect(store.updateSession).toHaveBeenCalledWith("s1", expect.objectContaining({ conditions_source: "none" }));
+    expect(result).toMatchObject({ updated: 1, conditionsFilled: 0, hindcastUnavailable: 0, errors: 0 });
+  });
+
   it("fills swell and wind from the arrival hour", async () => {
     const store = storeFor([session("s1")]);
     const fetchDay = jest.fn(async () => [hour]);

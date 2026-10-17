@@ -1131,6 +1131,27 @@ describe("GET /api/sessions/[id] track availability", () => {
   const originalEnv = { ...process.env };
   afterEach(() => { process.env = { ...originalEnv }; });
 
+  it.each(["returned", "thrown"])("returns the session with has_track false when track lookup errors are %s", async (mode) => {
+    jest.clearAllMocks();
+    process.env.SESSION_IMPORTS_ENABLED = "true";
+    process.env.SESSION_IMPORTS_USER_ALLOWLIST = ownerId;
+    mockAuthGetUser.mockResolvedValue({ data: { user: { id: ownerId } }, error: null });
+    const session = { id: sessionId, user_id: ownerId, forecast_snapshot: [], image_url: "photo.jpg" };
+    const sessionQuery = { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), single: jest.fn().mockResolvedValue({ data: session, error: null }) };
+    const error = new Error("track lookup unavailable");
+    const trackQuery = { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), maybeSingle: jest.fn() };
+    if (mode === "returned") trackQuery.maybeSingle.mockResolvedValue({ data: null, error });
+    else trackQuery.maybeSingle.mockRejectedValue(error);
+    mockFrom.mockImplementation((table: string) => table === "session_tracks" ? trackQuery : sessionQuery);
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      const response = await GET(new NextRequest(`http://localhost/api/sessions/${sessionId}`), { params: { id: sessionId } });
+      expect(response.status).toBe(200);
+      expect((await response.json()).data.session).toMatchObject({ id: sessionId, has_track: false });
+      expect(warn).toHaveBeenCalledWith(expect.any(String), error);
+    } finally { warn.mockRestore(); }
+  });
+
   it.each([
     [false, false, true, false],
     [true, false, true, false],

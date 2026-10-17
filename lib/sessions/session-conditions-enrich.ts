@@ -200,7 +200,9 @@ async function resolveConditions(
   if (!hindcast) return resolveSessionConditions(null, window, "snapshot_backfill");
   const lat = beach?.lat;
   const lon = beach?.lon;
-  if (typeof lat !== "number" || typeof lon !== "number") return null;
+  if (typeof lat !== "number" || typeof lon !== "number") {
+    return resolveSessionConditions(null, window, "snapshot_backfill");
+  }
 
   const dateUtc = session.arrival_time.slice(0, 10);
   const key = `${session.beach_id}:${dateUtc}`;

@@ -256,14 +256,18 @@ export const GET = withAuth(
 
     let hasTrack = false;
     if (data.user_id === user.id && isSessionImportsUserAllowed(user.id)) {
-      const { data: track, error: trackError } = await supabase
-        .from("session_tracks")
-        .select("session_id")
-        .eq("session_id", sessionId)
-        .eq("user_id", user.id)
-        .maybeSingle();
-      if (trackError) throw trackError;
-      hasTrack = track !== null;
+      try {
+        const { data: track, error: trackError } = await supabase
+          .from("session_tracks")
+          .select("session_id")
+          .eq("session_id", sessionId)
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (trackError) throw trackError;
+        hasTrack = track !== null;
+      } catch (trackError) {
+        console.warn("Failed to fetch session track status:", trackError);
+      }
     }
 
     // Transform the forecast_snapshot array to a single object (it's 1:1 relationship)
