@@ -48,6 +48,7 @@ import { buildSessionShareSheetData } from "@/lib/share/session-share";
 import { getWaveTypeLabel } from "@/components/ui/wave-type-selector";
 import { formatSessionTideSnapshot } from "@/lib/services/session-tide-snapshot";
 import { NativeAppFunnelCta } from "@/components/app-store/native-app-funnel-cta";
+import { SessionWavesSection } from "@/components/sessions/waves/session-waves-section";
 import {
   getFirstTouchPlatform,
   type FirstTouchPlatform,
@@ -635,6 +636,8 @@ export function SessionDetailView({ id, sharedPreview = null }: SessionDetailVie
             )}
           </div>
         </div>
+
+        <SessionWavesSection sessionId={id} />
 
         {/* Forecast Comparison */}
         {session.forecast_snapshot && (() => {
