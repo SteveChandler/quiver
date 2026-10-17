@@ -528,7 +528,7 @@ describe("transformForecastsToChartData", () => {
     expect(result.waveHeight[0].time).toBe(expectedFakeUtcSeconds);
   });
 
-  it("wind speed point without wind_direction_deg defaults to cross-shore color", () => {
+  it("wind speed point without wind_direction_deg uses the unknown color", () => {
     const forecasts = [
       makeForecast({
         forecast_at: "2026-02-18T13:00:00Z",
@@ -539,7 +539,7 @@ describe("transformForecastsToChartData", () => {
 
     const result = transformForecastsToChartData(forecasts, DEFAULT_CONFIG, 48);
     expect(result.windSpeed).toHaveLength(1);
-    expect(result.windSpeed[0].color).toBe(WIND_COLORS["cross-shore"]);
+    expect(result.windSpeed[0].color).toBe(WIND_COLORS.unknown);
   });
 
   it("handles a full realistic forecast set", () => {

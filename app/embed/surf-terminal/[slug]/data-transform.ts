@@ -16,7 +16,7 @@ import {
 // ---------------------------------------------------------------------------
 
 export interface BeachChartConfig {
-  /** Null when the beach has no orientation data; wind is then drawn as cross-shore. */
+  /** Null when the beach has no orientation data; wind is then drawn as unknown. */
   windOffshoreDeg: number | null;
   windOffshoreTolDeg: number;
   timezone: string;
@@ -59,6 +59,7 @@ export const WIND_COLORS = {
   offshore: "#22c55e", // green
   onshore: "#ef4444", // red
   "cross-shore": "#eab308", // yellow
+  unknown: "#94a3b8", // slate: no direction or beach orientation, no relation implied
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -301,8 +302,7 @@ export function transformForecastsToChartData(
     // Wind speed + color
     const ws = parseNumericValue(fc.wind_speed);
     if (ws != null) {
-      let classification: "offshore" | "onshore" | "cross-shore" =
-        "cross-shore";
+      let classification: keyof typeof WIND_COLORS = "unknown";
       if (fc.wind_direction_deg != null && config.windOffshoreDeg != null) {
         classification = classifyWindDirection(
           fc.wind_direction_deg,

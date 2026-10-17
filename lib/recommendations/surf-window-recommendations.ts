@@ -161,9 +161,10 @@ function tideTrend(row: EnhancedForecastEntity): SurfWindowTideTrend {
 function windQuality(row: EnhancedForecastEntity, beach: Beach): SurfWindowWindQuality {
   const speed = parseNumber(row.wind_speed);
   const direction = getDirectionDegrees(row.wind_direction_deg, row.wind_direction);
-  if (direction == null) return speed != null && speed <= 8 ? "variable" : "unknown";
+  // No direction or no beach orientation: no relation is claimed or shown.
+  if (direction == null) return "unknown";
   const { offshoreDeg, toleranceDeg } = resolveWindOrientation(beach);
-  if (offshoreDeg == null) return speed != null && speed <= 8 ? "variable" : "unknown";
+  if (offshoreDeg == null) return "unknown";
 
   const diff = angleDifference(direction, offshoreDeg);
   if (diff <= toleranceDeg) return "offshore";
@@ -195,10 +196,12 @@ function windSummary(
 ): SurfWindowRecommendation["wind"] {
   const speed = row.wind_speed ?? null;
   const direction = row.wind_direction ?? null;
-  const summary =
-    speed || direction
-      ? `${[speed, direction].filter(Boolean).join(" ")} (${quality})`
-      : "Wind data is sparse";
+  const reading = [speed, direction].filter(Boolean).join(" ");
+  const summary = !reading
+    ? "Wind data is sparse"
+    : quality === "unknown"
+      ? reading
+      : `${reading} (${quality})`;
 
   return {
     speed,
