@@ -62,6 +62,19 @@ async function selectImports(client: Client, cutoff: string): Promise<SessionImp
     .limit(BATCH_SIZE - imports.length);
   const seen = new Set(imports.map((row) => row.id));
   for (const row of checkedRows(expired.data, expired.error, "expired imports") as SessionImport[]) {
+    if (!seen.has(row.id)) {
+      imports.push(row);
+      seen.add(row.id);
+    }
+  }
+
+  if (imports.length === BATCH_SIZE) return imports;
+  // A failed final import delete can outlive its track row; the deleted session keeps it retryable.
+  const orphaned = await client.from("session_imports")
+    .select("id,session_id,storage_path,sessions!inner(deleted_at)")
+    .lt("sessions.deleted_at", cutoff)
+    .limit(BATCH_SIZE - imports.length);
+  for (const row of checkedRows(orphaned.data, orphaned.error, "imports of deleted sessions") as SessionImport[]) {
     if (!seen.has(row.id)) imports.push(row);
   }
   return imports;

@@ -168,6 +168,14 @@ describe("session tracks purge cron", () => {
     expect(mockRows.session_imports.map((row) => row.id)).toEqual(["recent-upload"]);
   });
 
+  it("retries a completed import left after its deleted session track was removed", async () => {
+    addImport("orphan-completed", "completed", recent, null, "deleted-session");
+    mockSessions["deleted-session"] = old;
+    const result = await run();
+    expect(result.body.data.result).toEqual({ purgedTracks: 0, purgedImports: 1, errors: 0 });
+    expect(mockRows.session_imports).toHaveLength(0);
+  });
+
   it("purges a linked track when only its import has a purge request", async () => {
     mockRows.session_tracks.push(track("linked", null, "linked-import"));
     addImport("linked-import", "completed", recent, NOW.toISOString(), "linked");
