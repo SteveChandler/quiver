@@ -6,6 +6,14 @@ const migrationPath = path.join(
   "supabase/migrations/20261018090000_session_waves_core.sql",
 );
 
+function normalizedSql(): string {
+  return readFileSync(migrationPath, "utf8")
+    .replace(/\s+/g, " ")
+    .replace(/\(\s+/g, "(")
+    .replace(/\s+\)/g, ")")
+    .toLowerCase();
+}
+
 describe("session waves core migration", () => {
   it("creates owner-protected import, track, wave, and correction tables", () => {
     const sql = readFileSync(migrationPath, "utf8");
@@ -16,7 +24,9 @@ describe("session waves core migration", () => {
       "session_waves",
       "session_wave_corrections",
     ]) {
-      expect(sql).toMatch(new RegExp(`CREATE TABLE public\\.${table}\\b`, "i"));
+      expect(sql).toMatch(
+        new RegExp(`CREATE TABLE IF NOT EXISTS public\\.${table}\\b`, "i"),
+      );
       expect(sql).toMatch(
         new RegExp(`ALTER TABLE public\\.${table} ENABLE ROW LEVEL SECURITY`, "i"),
       );
@@ -38,6 +48,85 @@ describe("session waves core migration", () => {
       "session-tracks",
     ]) {
       expect(sql).toContain(`'${value}'`);
+    }
+  });
+
+  it("limits client imports to uploaded rows with server-managed fields unset", () => {
+    const sql = normalizedSql();
+    const policy = sql.match(/create policy session_imports_insert_own\b[^;]+;/)?.[0];
+
+    expect(policy).toContain(
+      "with check (user_id = (select auth.uid()) and status = 'uploaded' and session_id is null and summary is null and error is null and purge_requested_at is null and sha256 is null)",
+    );
+  });
+
+  it("requires the correction owner to own its session for insert and delete", () => {
+    const sql = normalizedSql();
+
+    for (const [policy, clause] of [
+      ["session_wave_corrections_insert_own", "with check"],
+      ["session_wave_corrections_delete_own", "using"],
+    ]) {
+      const definition = sql.match(new RegExp(`create policy ${policy}\\b[^;]+;`))?.[0];
+      expect(definition).toContain(
+        `${clause} (user_id = (select auth.uid()) and exists (select 1 from public.sessions s where s.id = session_wave_corrections.session_id and s.user_id = (select auth.uid())))`,
+      );
+    }
+  });
+
+  it("revokes default client access and grants only the required operations", () => {
+    const sql = normalizedSql();
+    const clientGrants: Record<string, string[]> = {
+      session_imports: ["select", "insert (user_id, storage_path, original_filename)"],
+      session_tracks: ["select"],
+      session_waves: ["select"],
+      session_wave_corrections: ["select", "insert, delete"],
+    };
+
+    for (const [table, grants] of Object.entries(clientGrants)) {
+      expect(sql).toContain(`revoke all on public.${table} from public, anon, authenticated;`);
+      expect(sql).toContain(`grant all on public.${table} to service_role;`);
+      const actual = [...sql.matchAll(/\bgrant ([^;]+?) on public\.(\w+) to authenticated;/g)]
+        .filter((match) => match[2] === table)
+        .map((match) => match[1]);
+      expect(actual).toEqual(grants);
+    }
+  });
+
+  it("indexes correction sessions, import sessions, track imports, and track owners", () => {
+    const sql = normalizedSql();
+
+    for (const [table, column] of [
+      ["session_wave_corrections", "session_id"],
+      ["session_imports", "session_id"],
+      ["session_tracks", "import_id"],
+      ["session_tracks", "user_id"],
+    ]) {
+      expect(sql).toMatch(
+        new RegExp(`create index if not exists \\w+ on public\\.${table} \\(${column}\\)`),
+      );
+    }
+  });
+
+  it("can recreate policies, indexes, the provenance column, and the updated-at trigger", () => {
+    const sql = normalizedSql();
+
+    const policies = [...sql.matchAll(/create policy ("[^"]+"|\w+) on ([\w.]+)/g)];
+    expect(policies).toHaveLength(9);
+    for (const match of policies) {
+      expect(sql).toContain(`drop policy if exists ${match[1]} on ${match[2]};`);
+    }
+    expect(sql).toContain("create index if not exists session_waves_current_session_idx");
+    expect(sql).toContain("add column if not exists water_temp_source");
+    expect(sql).toContain("drop trigger if exists set_session_imports_updated_at on public.session_imports;");
+    expect(sql).toContain(
+      "create trigger set_session_imports_updated_at before update on public.session_imports for each row execute function public.set_updated_at();",
+    );
+
+    const storagePolicies = [...sql.matchAll(/create policy "users can (?:upload|read) their own session tracks"[^;]+;/g)];
+    expect(storagePolicies).toHaveLength(2);
+    for (const match of storagePolicies) {
+      expect(match[0]).toContain("(storage.foldername(name))[2] = (select auth.uid())::text");
     }
   });
 });

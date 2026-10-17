@@ -1,7 +1,7 @@
 BEGIN;
 
 -- Imported track files and derived wave data remain private to their owner.
-CREATE TABLE public.session_imports (
+CREATE TABLE IF NOT EXISTS public.session_imports (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES auth.users ON DELETE CASCADE,
   storage_path text NOT NULL,
@@ -17,7 +17,7 @@ CREATE TABLE public.session_imports (
   UNIQUE (user_id, sha256)
 );
 
-CREATE TABLE public.session_tracks (
+CREATE TABLE IF NOT EXISTS public.session_tracks (
   session_id uuid PRIMARY KEY REFERENCES public.sessions ON DELETE CASCADE,
   user_id uuid NOT NULL,
   import_id uuid REFERENCES public.session_imports ON DELETE SET NULL,
@@ -44,7 +44,7 @@ CREATE TABLE public.session_tracks (
   created_at timestamptz DEFAULT now()
 );
 
-CREATE TABLE public.session_waves (
+CREATE TABLE IF NOT EXISTS public.session_waves (
   id uuid PRIMARY KEY,
   session_id uuid NOT NULL REFERENCES public.sessions ON DELETE CASCADE,
   user_id uuid NOT NULL,
@@ -67,10 +67,10 @@ CREATE TABLE public.session_waves (
   UNIQUE (session_id, detection_version, wave_index)
 );
 
-CREATE INDEX session_waves_current_session_idx
+CREATE INDEX IF NOT EXISTS session_waves_current_session_idx
   ON public.session_waves (session_id) WHERE is_current;
 
-CREATE TABLE public.session_wave_corrections (
+CREATE TABLE IF NOT EXISTS public.session_wave_corrections (
   id uuid PRIMARY KEY,
   session_id uuid NOT NULL REFERENCES public.sessions ON DELETE CASCADE,
   user_id uuid NOT NULL,
@@ -80,36 +80,98 @@ CREATE TABLE public.session_wave_corrections (
   created_at timestamptz DEFAULT now()
 );
 
+CREATE INDEX IF NOT EXISTS session_wave_corrections_session_id_idx
+  ON public.session_wave_corrections (session_id);
+CREATE INDEX IF NOT EXISTS session_imports_session_id_idx
+  ON public.session_imports (session_id);
+CREATE INDEX IF NOT EXISTS session_tracks_import_id_idx
+  ON public.session_tracks (import_id);
+CREATE INDEX IF NOT EXISTS session_tracks_user_id_idx
+  ON public.session_tracks (user_id);
+
+DROP TRIGGER IF EXISTS set_session_imports_updated_at ON public.session_imports;
+CREATE TRIGGER set_session_imports_updated_at
+  BEFORE UPDATE ON public.session_imports
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
 ALTER TABLE public.session_imports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.session_tracks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.session_waves ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.session_wave_corrections ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS session_imports_select_own ON public.session_imports;
 CREATE POLICY session_imports_select_own ON public.session_imports
   FOR SELECT TO authenticated USING (user_id = (select auth.uid()));
+DROP POLICY IF EXISTS session_imports_insert_own ON public.session_imports;
 CREATE POLICY session_imports_insert_own ON public.session_imports
-  FOR INSERT TO authenticated WITH CHECK (user_id = (select auth.uid()));
+  FOR INSERT TO authenticated WITH CHECK (
+    user_id = (select auth.uid())
+    AND status = 'uploaded'
+    AND session_id IS NULL
+    AND summary IS NULL
+    AND error IS NULL
+    AND purge_requested_at IS NULL
+    AND sha256 IS NULL
+  );
 
+DROP POLICY IF EXISTS session_tracks_select_own ON public.session_tracks;
 CREATE POLICY session_tracks_select_own ON public.session_tracks
   FOR SELECT TO authenticated USING (user_id = (select auth.uid()));
 
+DROP POLICY IF EXISTS session_waves_select_own ON public.session_waves;
 CREATE POLICY session_waves_select_own ON public.session_waves
   FOR SELECT TO authenticated USING (user_id = (select auth.uid()));
 
+DROP POLICY IF EXISTS session_wave_corrections_select_own ON public.session_wave_corrections;
 CREATE POLICY session_wave_corrections_select_own ON public.session_wave_corrections
   FOR SELECT TO authenticated USING (user_id = (select auth.uid()));
+DROP POLICY IF EXISTS session_wave_corrections_insert_own ON public.session_wave_corrections;
 CREATE POLICY session_wave_corrections_insert_own ON public.session_wave_corrections
-  FOR INSERT TO authenticated WITH CHECK (user_id = (select auth.uid()));
+  FOR INSERT TO authenticated WITH CHECK (
+    user_id = (select auth.uid())
+    AND EXISTS (
+      SELECT 1 FROM public.sessions s
+      WHERE s.id = session_wave_corrections.session_id
+        AND s.user_id = (select auth.uid())
+    )
+  );
+DROP POLICY IF EXISTS session_wave_corrections_delete_own ON public.session_wave_corrections;
 CREATE POLICY session_wave_corrections_delete_own ON public.session_wave_corrections
-  FOR DELETE TO authenticated USING (user_id = (select auth.uid()));
+  FOR DELETE TO authenticated USING (
+    user_id = (select auth.uid())
+    AND EXISTS (
+      SELECT 1 FROM public.sessions s
+      WHERE s.id = session_wave_corrections.session_id
+        AND s.user_id = (select auth.uid())
+    )
+  );
+
+-- Table grants also protect operations such as TRUNCATE that bypass RLS.
+REVOKE ALL ON public.session_imports FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON public.session_tracks FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON public.session_waves FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON public.session_wave_corrections FROM PUBLIC, anon, authenticated;
+
+GRANT SELECT ON public.session_imports TO authenticated;
+GRANT INSERT (user_id, storage_path, original_filename) ON public.session_imports TO authenticated;
+GRANT SELECT ON public.session_tracks TO authenticated;
+GRANT SELECT ON public.session_waves TO authenticated;
+GRANT SELECT ON public.session_wave_corrections TO authenticated;
+GRANT INSERT, DELETE ON public.session_wave_corrections TO authenticated;
+
+GRANT ALL ON public.session_imports TO service_role;
+GRANT ALL ON public.session_tracks TO service_role;
+GRANT ALL ON public.session_waves TO service_role;
+GRANT ALL ON public.session_wave_corrections TO service_role;
 
 ALTER TABLE public.sessions
-  ADD COLUMN water_temp_source text CHECK (water_temp_source IN ('user', 'watch'));
+  ADD COLUMN IF NOT EXISTS water_temp_source text CHECK (water_temp_source IN ('user', 'watch'));
 
 -- Preserve all source values already accepted by the live CHECK.
 DO $$
 DECLARE
   current_check text;
+  -- string_to_array keeps __tests__/api/events-allowlist-db-sync.test.ts from parsing file_import as an event.
   candidate_sources text[] := string_to_array('file_import', ',');
   missing_sources text[];
 BEGIN
@@ -210,13 +272,15 @@ VALUES (
 ON CONFLICT (id) DO UPDATE SET public = false, file_size_limit = 10485760,
   allowed_mime_types = ARRAY['application/octet-stream', 'application/gpx+xml', 'text/xml', 'application/xml', 'application/zip', 'application/x-zip-compressed'];
 
+DROP POLICY IF EXISTS "Users can upload their own session tracks" ON storage.objects;
 CREATE POLICY "Users can upload their own session tracks" ON storage.objects
 FOR INSERT TO authenticated WITH CHECK (
-  bucket_id = 'session-tracks' AND (storage.foldername(name))[2] = auth.uid()::text
+  bucket_id = 'session-tracks' AND (storage.foldername(name))[2] = (select auth.uid())::text
 );
+DROP POLICY IF EXISTS "Users can read their own session tracks" ON storage.objects;
 CREATE POLICY "Users can read their own session tracks" ON storage.objects
 FOR SELECT TO authenticated USING (
-  bucket_id = 'session-tracks' AND (storage.foldername(name))[2] = auth.uid()::text
+  bucket_id = 'session-tracks' AND (storage.foldername(name))[2] = (select auth.uid())::text
 );
 
 NOTIFY pgrst, 'reload schema';
