@@ -234,6 +234,7 @@ export function compositeToDetailedScore(
     affinityBonus,
     personalizationBonus: 0,
     distancePenalty,
+    ...(!composite.skipReason && !composite.subscores.has('windQuality') ? { windUnknown: true } : {}),
   };
 
   // Adjust total with affinity and distance

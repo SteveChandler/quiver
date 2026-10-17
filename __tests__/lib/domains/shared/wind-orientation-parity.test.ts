@@ -22,7 +22,7 @@ import {
   windQualityScorer,
   windowStabilityScorer,
 } from '@/lib/domains/scoring';
-import { createDiscoveryScoringEngine } from '@/lib/domains/scoring/discovery-adapter';
+import { compositeToDetailedScore, createDiscoveryScoringEngine } from '@/lib/domains/scoring/discovery-adapter';
 import { scoreNativeConditionBreakdown } from '@/lib/scoring/native-condition-score';
 import { resolveWindDirection } from '@/lib/alerts/degree-utils';
 import { buildSurfWindowRecommendations } from '@/lib/recommendations/surf-window-recommendations';
@@ -218,6 +218,13 @@ describe('beach with no orientation data', () => {
       expect(composite.subscores.has('windQuality')).toBe(false);
       expect([...composite.reasons, ...composite.warnings].join(' ')).not.toMatch(WIND_WORDS);
     }
+  });
+
+  it('flags the wind as unknown for ranking, so its placeholder is not evidence', () => {
+    const unknown = createDiscoveryScoringEngine().score(engineInput(NO_DATA, { speedMph: 12, directionDeg: EAST }));
+    expect(compositeToDetailedScore(unknown).subscores.windUnknown).toBe(true);
+    const known = createDiscoveryScoringEngine().score(engineInput(EAST_FACING, { speedMph: 12, directionDeg: WEST }));
+    expect(compositeToDetailedScore(known).subscores.windUnknown).toBeUndefined();
   });
 
   it('the condition label says nothing about wind', () => {

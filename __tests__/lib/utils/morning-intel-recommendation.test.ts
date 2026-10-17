@@ -1,5 +1,5 @@
 import { describe, it, expect } from "@jest/globals";
-import { getConservativeRecommendation } from "@/lib/utils/morning-intel-utils";
+import { analyzeConditions, confidenceHeuristic, getConservativeRecommendation } from "@/lib/utils/morning-intel-utils";
 import type { ConditionsAnalysis, ConditionEvaluation } from "@/types/morning-intel";
 
 function evalFor(status: ConditionEvaluation["status"]): ConditionEvaluation {
@@ -49,11 +49,39 @@ describe("getConservativeRecommendation", () => {
   });
 });
 
+describe("unknown wind is neutral", () => {
+  const excludedWind: ConditionEvaluation = { status: "acceptable", emoji: "⚠️", message: "", excluded: true };
 
+  it("leaves excluded wind out of the recommendation", () => {
+    const rec = getConservativeRecommendation({ ...makeConditions("optimal", "optimal", "optimal"), wind: excludedWind });
+    expect(rec).toMatchObject({ decision: "worth_it", reasons: ["all factors line up"] });
 
+    const maybe = getConservativeRecommendation({ ...makeConditions("optimal", "optimal", "acceptable"), wind: excludedWind });
+    expect(maybe.reasons).toEqual(["tide"]);
+  });
 
+  it("scales the score from the factors it knows", () => {
+    const beach = { name: "No orientation" };
+    const unknown = analyzeConditions(
+      {
+        swellDirection: null,
+        wind: { speed: 12, direction: 0, cardinal: "N/A", offshore: false, description: "12 mph wind", relation: null },
+        tide: { height: 3, direction: "rising" } as never,
+      },
+      beach
+    );
+    expect(unknown.wind.excluded).toBe(true);
+    // Swell + tide only, scaled back to 10: same as two factors' average over three slots.
+    const known = [unknown.swell, unknown.tide].map((e) => ({ optimal: 3.33, acceptable: 1.67, poor: 0 })[e.status]);
+    expect(unknown.score).toBe(Math.round(((known[0] + known[1]) * 3) / 2));
+  });
 
-
-
-
-
+  it("missing wind fields do not lower confidence", () => {
+    const row = { wave_height: 3, wave_period: 12, swell_height: 3, swell_period: 12, swell_direction: 270 };
+    const withWind = [{ ...row, wind_speed: 5, wind_direction: 90 }] as never;
+    const withoutWind = [{ ...row, wind_speed: null, wind_direction: null }] as never;
+    const tides = [{}] as never;
+    expect(confidenceHeuristic(withWind, tides)).toBe("High");
+    expect(confidenceHeuristic(withoutWind, tides)).toBe("High");
+  });
+});

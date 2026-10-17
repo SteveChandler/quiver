@@ -79,15 +79,16 @@ describe('wind analyzer', () => {
     for (const speed of [null, Number.NaN, Number.POSITIVE_INFINITY]) {
       const wind = windAt('12:00', row(speed, null), 'UTC');
       expect(wind).toMatchObject({ cardinal: 'N/A', offshore: false, description: 'N/A' });
-      expect(analyzeWindConditions(wind, { name: 'Test Beach', windOffshoreDeg: 270 }).message)
-        .toBe('Wind unknown');
+      // Unknown wind sits out of the verdict and shows nothing.
+      expect(analyzeWindConditions(wind, { name: 'Test Beach', windOffshoreDeg: 270 }))
+        .toMatchObject({ message: '', excluded: true });
     }
     const directionless = windAt('12:00', row(8, null), 'UTC');
     expect(directionless).toMatchObject({
       cardinal: 'N/A', offshore: false, description: '8 mph wind',
     });
-    expect(analyzeWindConditions(directionless, { name: 'Test Beach', windOffshoreDeg: 270 }).message)
-      .toBe('Moderate winds (8 mph)');
+    expect(analyzeWindConditions(directionless, { name: 'Test Beach', windOffshoreDeg: 270 }))
+      .toMatchObject({ message: '', excluded: true });
   });
 
   it('keeps a real calm with no direction calm', () => {
@@ -299,8 +300,8 @@ describe('magic hour', () => {
     timezone: 'UTC',
   };
 
-  it('scores a missing direction at the 0.55 midpoint with no wind quality label', () => {
-    expect(calculateWindScore(null, 0, 30)).toBe(0.55);
+  it('leaves a missing direction out of the score with no wind quality label', () => {
+    expect(calculateWindScore(null, 0, 30)).toBeNull();
 
     const result = findMagicHour(
       [{
@@ -314,8 +315,8 @@ describe('magic hour', () => {
     );
     expect(result.found).toBe(true);
     expect(result.windQuality).toBeNull();
-    // tide 1 * 0.4 + wind 0.55 * 0.35 + swell 1 * 0.25
-    expect(result.confidence).toBeCloseTo(0.8425, 6);
+    // Wind is excluded and the weights renormalised: tide 1 and swell 1 give a full match.
+    expect(result.confidence).toBeCloseTo(1, 6);
   });
 });
 

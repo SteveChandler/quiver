@@ -25,6 +25,11 @@ import {
   analyzeConditions,
   getConservativeRecommendation,
 } from "@/lib/utils/morning-intel-utils";
+import { isWindUnknown } from "@/lib/analyzers/wind-analyzer";
+import {
+  resolveOffshoreToleranceDeg,
+  type WindOrientation,
+} from "@/lib/domains/shared/wind-orientation";
 import { scoreNativeConditionInputs } from "@/lib/scoring/native-condition-score";
 import {
   getBatchSunTimes,
@@ -306,17 +311,25 @@ export class IntelGenerationService {
     };
   }
 
+  private windOrientation(beachPrefs: BeachPreferences | null): WindOrientation {
+    return {
+      offshoreDeg: beachPrefs?.windOffshoreDeg ?? null,
+      toleranceDeg: resolveOffshoreToleranceDeg({ wind_offshore_tol_deg: beachPrefs?.windOffshoreTol }),
+    };
+  }
+
   private formatBestWindow(
     window: AuthoritativeWindow | null,
     fullDayForecasts: ForecastSlice["forecasts"],
-    timezone: string
+    timezone: string,
+    orientation: WindOrientation
   ): string {
     if (!window) return "Variable conditions; check throughout the morning";
 
     const startTime = formatInTimeZone(window.displayWindowStart, timezone, "HH:mm");
     const endTime = formatInTimeZone(window.displayWindowEnd, timezone, "HH:mm");
     const peakTime = formatInTimeZone(window.peakTime, timezone, "HH:mm");
-    const wind = windAt(peakTime, fullDayForecasts, timezone);
+    const wind = windAt(peakTime, fullDayForecasts, timezone, orientation);
     const windNote = wind.offshore ? "; cleaner before onshores" : "";
 
     return `${startTime}–${endTime}${windNote}`;
@@ -341,11 +354,13 @@ export class IntelGenerationService {
     const surf = deriveSurfRange(slice.forecasts);
     const tide = recommendTideWindow(slice.forecasts, beachPrefs);
     const swells = primarySecondarySwell(slice.forecasts);
-    const wind = windAt(targetTime, slice.forecasts, timezone);
+    const orientation = this.windOrientation(beachPrefs);
+    const wind = windAt(targetTime, slice.forecasts, timezone, orientation);
     const bestWindow = this.formatBestWindow(
       bestDayWindow,
       fullDayForecasts,
-      timezone
+      timezone,
+      orientation
     );
     const confidence = confidenceHeuristic(slice.forecasts, slice.tides);
 
@@ -389,8 +404,13 @@ export class IntelGenerationService {
     }
 
     // Data completeness (same model as scripts/morningIntel.ts)
+    // Missing wind fields are left out, matching confidenceHeuristic.
+    const missingWindFields = slice.forecasts.reduce(
+      (n, f) => n + (f.wind_speed ? 0 : 1) + (f.wind_direction ? 0 : 1),
+      0,
+    );
     const totalPossibleFields =
-      slice.forecasts.length * 7 + (slice.tides.length > 0 ? 10 : 0);
+      slice.forecasts.length * 7 - missingWindFields + (slice.tides.length > 0 ? 10 : 0);
     let presentFields = slice.tides.length > 0 ? 10 : 0;
 
     slice.forecasts.forEach((f) => {
@@ -509,12 +529,10 @@ export class IntelGenerationService {
     // This provides fallback text like "N/A" or "Variable conditions..."
     const windowDescription = !windowMatch || (windowStart === null && windowEnd === null) ? intel.bestWindow : null;
 
-    // Determine wind quality from offshore boolean and description
-    const windQuality = intel.wind.offshore
-      ? "offshore"
-      : intel.wind.description.toLowerCase().includes("onshore")
-      ? "onshore"
-      : "cross-shore";
+    // Unknown wind stores no relation, speed or words (and scores as left out).
+    const windUnknown = isWindUnknown(intel.wind);
+    const hasWindSpeed = intel.wind.description !== "N/A";
+    const hasWindDirection = intel.wind.cardinal !== "N/A";
 
     // Compute the same 0-100 condition score shown on web/native forecast views.
     let unifiedScore: number | null = null;
@@ -523,7 +541,7 @@ export class IntelGenerationService {
       const wavePeriod = intel.swells.primary?.period ?? 0;
       unifiedScore = scoreNativeConditionInputs({
         waveHeightFt: waveHeight,
-        windSpeedMph: intel.wind.speed,
+        windSpeedMph: hasWindSpeed ? intel.wind.speed : null,
         periodSec: wavePeriod,
         tideHeightFt: intel.tide.height,
         tideStatus: intel.tide.direction ?? null,
@@ -559,11 +577,11 @@ export class IntelGenerationService {
           next_tide_height_ft: intel.tide.nextEvent?.height || null,
 
           // Wind
-          wind_speed_mph: intel.wind.speed,
-          wind_direction_deg: intel.wind.direction,
-          wind_direction_text: intel.wind.cardinal,
-          wind_quality: windQuality,
-          wind_description: intel.wind.description,
+          wind_speed_mph: hasWindSpeed ? intel.wind.speed : null,
+          wind_direction_deg: hasWindDirection ? intel.wind.direction : null,
+          wind_direction_text: hasWindDirection ? intel.wind.cardinal : null,
+          wind_quality: windUnknown ? null : intel.wind.relation ?? null,
+          wind_description: hasWindSpeed ? intel.wind.description : null,
 
           // Swells
           primary_swell_height_ft: intel.swells.primary?.height || null,

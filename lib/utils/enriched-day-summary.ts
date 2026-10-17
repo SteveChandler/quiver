@@ -18,6 +18,10 @@ import {
 import { extractForecastDate } from "@/lib/utils/forecast-at-adapter";
 import { getLocalHour } from "@/lib/utils/timezone-utils";
 import { parseWindSpeedOrNull } from "@/lib/utils/number-parsing";
+import {
+  resolveOffshoreDeg,
+  type WindOrientationSource,
+} from "@/lib/domains/shared/wind-orientation";
 
 export type TimeSlot =
   | "dawn-patrol"
@@ -27,7 +31,7 @@ export type TimeSlot =
   | "evening";
 
 export interface EnrichedDaySummary extends DaySummary {
-  windConditions: WindClassification | "unknown";
+  windConditions: WindClassification;
   bestTimeSlot: TimeSlot | null;
   windSpeed: string | null;
 }
@@ -52,12 +56,20 @@ function deriveTimeSlot(hour: number): TimeSlot | null {
   return "evening";
 }
 
+/**
+ * `beachOrFixedOffshoreDeg` is the beach (resolved via the shared orientation
+ * rule, so aspect-only beaches work) or an already-resolved offshore bearing.
+ */
 export function enrichDaySummaries(
   days: DaySummary[],
   forecasts: EnhancedForecastEntity[],
-  windOffshoreDeg?: number | null,
+  beachOrFixedOffshoreDeg?: WindOrientationSource | number | null,
   beachTimezone?: string | null,
 ): EnrichedDaySummary[] {
+  const windOffshoreDeg =
+    typeof beachOrFixedOffshoreDeg === "number"
+      ? beachOrFixedOffshoreDeg
+      : resolveOffshoreDeg(beachOrFixedOffshoreDeg);
   const timezone = beachTimezone || "UTC";
   const byDate = new Map<string, EnhancedForecastEntity[]>();
   for (const f of forecasts) {
@@ -75,7 +87,7 @@ export function enrichDaySummaries(
     if (!dayForecasts || !day.bestTime) {
       return {
         ...day,
-        windConditions: "onshore" as const,
+        windConditions: "unknown" as const,
         windSpeed: null,
         bestTimeSlot: "morning" as const,
       };

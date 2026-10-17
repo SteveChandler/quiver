@@ -1515,15 +1515,18 @@ function selectImmediateWindow(
   const end = bucket.end;
   if (end.getTime() <= now.getTime()) return { window: null, afterDark: false };
 
-  const wind = [bucket.forecast.wind_speed, bucket.forecast.wind_direction]
-    .filter((part) => part != null && String(part).trim().length > 0)
-    .join(' ');
+  // Plain reading only, and none without a speed: unknown wind is not shown.
+  const wind = bucket.forecast.wind_speed?.trim()
+    ? [bucket.forecast.wind_speed, bucket.forecast.wind_direction]
+        .filter((part) => part != null && String(part).trim().length > 0)
+        .join(' ')
+    : '';
 
   return { window: {
     start: bucket.start,
     end,
     tide: bucket.forecast.tide_status || 'Unknown',
-    wind: wind || 'Unknown',
+    wind,
     waveHeight: bucket.forecast.wave_height || 'Unknown',
     wavePeriod: bucket.forecast.wave_period || 'Unknown',
     dataSource: bucket.forecast.data_source || 'FALLBACK',

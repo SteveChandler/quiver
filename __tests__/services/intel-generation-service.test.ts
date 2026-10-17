@@ -19,6 +19,7 @@ jest.mock("@/lib/services/discovery", () => ({
 }));
 
 jest.mock("@/lib/analyzers/wind-analyzer", () => ({
+  isWindUnknown: jest.requireActual("@/lib/analyzers/wind-analyzer").isWindUnknown,
   calculateOnOffshore: jest.fn(() => false),
   analyzeWindConditions: jest.fn(() => ({
     status: "optimal",
@@ -31,6 +32,7 @@ jest.mock("@/lib/analyzers/wind-analyzer", () => ({
     cardinal: "W",
     offshore: false,
     description: "light winds",
+    relation: null,
   })),
 }));
 
@@ -221,6 +223,31 @@ describe("IntelGenerationService", () => {
         onConflict: "beach_id,forecast_date,generation_time",
         ignoreDuplicates: false,
       }
+    );
+  });
+
+  it("stores no wind speed, relation or words when the wind is unknown", async () => {
+    const { windAt } = jest.requireMock("@/lib/analyzers/wind-analyzer") as { windAt: jest.Mock };
+    windAt.mockReturnValueOnce({
+      speed: 0, direction: 0, cardinal: "N/A", offshore: false, description: "N/A", relation: null,
+    });
+    mockSelectBeachDayWindows.mockReturnValue(authorityResult(null));
+    const service = new IntelGenerationService(
+      "https://example.supabase.co",
+      "service-role-key"
+    );
+    const intel = await service.generateIntel("beach-1", "06:00", "America/Los_Angeles");
+    await service.saveIntel("beach-1", intel!, "06:00", "America/Los_Angeles");
+
+    expect(intelQuery.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        wind_speed_mph: null,
+        wind_direction_deg: null,
+        wind_direction_text: null,
+        wind_quality: null,
+        wind_description: null,
+      }),
+      expect.anything()
     );
   });
 
