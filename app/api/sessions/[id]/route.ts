@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import { isSessionImportsUserAllowed } from "@/lib/flags/session-imports";
 import { z } from "zod";
 import { parseAndValidateJson } from "@/lib/validation/middleware";
 import { addFeaturedPhotoToSession } from "@/actions/session-actions";
@@ -253,9 +254,26 @@ export const GET = withAuth(
 
     if (error) throw error;
 
+    let hasTrack = false;
+    if (data.user_id === user.id && isSessionImportsUserAllowed(user.id)) {
+      try {
+        const { data: track, error: trackError } = await supabase
+          .from("session_tracks")
+          .select("session_id")
+          .eq("session_id", sessionId)
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (trackError) throw trackError;
+        hasTrack = track !== null;
+      } catch (trackError) {
+        console.warn("Failed to fetch session track status:", trackError);
+      }
+    }
+
     // Transform the forecast_snapshot array to a single object (it's 1:1 relationship)
     const sessionWithSnapshot = {
       ...data,
+      has_track: hasTrack,
       forecast_snapshot: Array.isArray(data.forecast_snapshot) && data.forecast_snapshot.length > 0
         ? data.forecast_snapshot[0]
         : null,
