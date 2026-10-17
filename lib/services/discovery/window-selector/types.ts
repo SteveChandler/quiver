@@ -29,6 +29,8 @@ export interface WindowSelectorOptions {
   rowLiveness?: 'default' | 'until-next-row';
   /** Week Scout candidate scope; other rows remain available for refinement. */
   acceptWindowStart?: (start: Date) => boolean;
+  /** Week Scout: latest peak for a window starting at `start`, so a slot's conditions come from inside it. */
+  peakSearchEnd?: (start: Date) => Date | null;
   disableBelowFloorFallback?: boolean;
   /** Reuse only within one immutable beach/day/preferences/clock context. */
   forecastPreparationCache?: Map<EnhancedForecastEntity[], ScoredForecast[]>;
