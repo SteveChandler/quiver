@@ -5,7 +5,7 @@ import type { Session } from "@/types/database";
 
 export const SESSION_CREATED_EVENT = "session_created" as const;
 
-type SessionCreatedSource = "web-session-form" | "web-conditions-report";
+type SessionCreatedSource = "web-session-form" | "web-conditions-report" | "web-file-import";
 type SessionCreatedSurface =
   | "sessions/new"
   | "conditions-report"
@@ -30,6 +30,7 @@ interface EmitSessionCreatedEventInput {
   session: Pick<Session, "id" | "beach_id"> & {
     recommendation_id?: string | null;
   };
+  metadata?: Record<string, unknown>;
   source: SessionCreatedSource;
   surface: SessionCreatedSurface;
   userId: string;
@@ -96,7 +97,7 @@ async function getIsFirstSession(
 
 export async function emitSessionCreatedEvent(
   supabase: SessionCreatedClient,
-  { session, source, surface, userId }: EmitSessionCreatedEventInput
+  { session, source, surface, userId, metadata }: EmitSessionCreatedEventInput
 ): Promise<void> {
   try {
     const profile = await fetchProfileAnalyticsFlags(supabase, userId);
@@ -109,6 +110,7 @@ export async function emitSessionCreatedEvent(
       event_type: SESSION_CREATED_EVENT,
       beach_id: beachId,
       metadata: {
+        ...metadata,
         source,
         surface,
         is_first_session: isFirstSession,
