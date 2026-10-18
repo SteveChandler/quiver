@@ -1,4 +1,5 @@
 import { COUNTY_FEED_COVERAGE_BOUNDS } from "@/lib/services/county-beach-advisories/types";
+import type { RainAdvisoryEvent } from "./rain-advisory-events";
 
 // Validation and station choices: docs/water-quality/2026-10-12-rainfall-source-validation.md
 export const RAIN_RUNOFF_THRESHOLD_IN = 0.2;
@@ -46,6 +47,7 @@ export interface AwcMetar {
 export interface StationRainfall {
   total_in: number;
   hours: number;
+  last_rain_at: string | null;
 }
 
 export interface RainfallReading {
@@ -56,9 +58,12 @@ export interface RainfallReading {
 }
 
 export interface RainRunoffMetadata {
-  total_in: number;
-  window_end: string;
+  total_in?: number;
+  window_end?: string;
   stations: string[];
+  started_at?: string;
+  last_rain_at?: string | null;
+  expires_at?: string;
 }
 
 function km(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -87,7 +92,7 @@ export function rainClusterFor(lat: number | null | undefined, lon: number | nul
 /** Routine reports only: a SPECI repeats the running total since the last routine report. */
 export function stationRainfall(metars: readonly AwcMetar[], windowEnd: Date): StationRainfall {
   const end = windowEnd.getTime();
-  const byHour = new Map<number, number>();
+  const byHour = new Map<number, { precip: number; time: string }>();
   for (const metar of metars) {
     if (metar.metarType !== "METAR") continue;
     const t = Date.parse(metar.reportTime);
@@ -95,11 +100,15 @@ export function stationRainfall(metars: readonly AwcMetar[], windowEnd: Date): S
     if (/\bPNO\b/.test(metar.rawOb)) continue;
     // AWC encodes a trace as 0.005 in; a run of trace hours would add up to a phantom notice.
     const precip = metar.precip ?? 0;
-    byHour.set(Math.floor((end - t) / HOUR_MS), precip >= 0.01 ? precip : 0);
+    byHour.set(Math.floor((end - t) / HOUR_MS), { precip: precip >= 0.01 ? precip : 0, time: metar.reportTime });
   }
   let total = 0;
-  for (const value of byHour.values()) total += value;
-  return { total_in: round2(total), hours: byHour.size };
+  let lastRainAt: string | null = null;
+  for (const value of byHour.values()) {
+    total += value.precip;
+    if (value.precip > 0 && (lastRainAt === null || Date.parse(value.time) > Date.parse(lastRainAt))) lastRainAt = value.time;
+  }
+  return { total_in: round2(total), hours: byHour.size, last_rain_at: lastRainAt };
 }
 
 export function clusterRainfall(stations: Readonly<Record<string, StationRainfall>>): number | null {
@@ -139,5 +148,29 @@ export function applyRainfallNotice<T extends NoticeRow>(
     status: "advisory",
     status_reason: rainRunoffReason(reading.total_in),
     rain_runoff: { total_in: reading.total_in, window_end: reading.window_end, stations: Object.keys(reading.station_totals) },
+  };
+}
+
+/** Stored event status drives display; recommendation holds do not read this notice. */
+export function applyRainAdvisoryNotice<T extends NoticeRow>(
+  row: T,
+  event: RainAdvisoryEvent | null | undefined,
+): T & { rain_runoff?: RainRunoffMetadata } {
+  if (!event || event.status !== "active" || event.source !== "metar_runoff"
+    || row.county_advisory_status || row.county_general_expired) return row;
+  if (row.status === "advisory" || row.status === "closure") return row;
+  const metar = event.sources.metar;
+  const details = metar && typeof metar === "object" && !Array.isArray(metar)
+    ? metar as Record<string, unknown> : {};
+  return {
+    ...row,
+    status: "advisory",
+    status_reason: "Runoff after rain nearby. Bacteria levels typically rise near storm drains, creeks and river mouths after rain. Avoid those areas until 72 hours after the rain stops.",
+    rain_runoff: {
+      started_at: event.started_at, last_rain_at: event.last_rain_at, expires_at: event.expires_at,
+      stations: Array.isArray(details.stations) ? details.stations.filter((value): value is string => typeof value === "string") : [],
+      ...(typeof details.total_in === "number" ? { total_in: details.total_in } : {}),
+      ...(typeof details.window_end === "string" ? { window_end: details.window_end } : {}),
+    },
   };
 }

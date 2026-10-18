@@ -9,6 +9,7 @@ import {
   type RainfallReading,
   type StationRainfall,
 } from "./rainfall-runoff";
+import type { MetarRainSignal } from "./rain-advisory-events";
 
 interface RainfallIngestDeps {
   fetchMetars: (icao: string) => Promise<AwcMetar[]>;
@@ -20,6 +21,7 @@ interface RainfallIngestResult {
   written: number;
   skipped: string[];
   readings: RainfallReading[];
+  signals: MetarRainSignal[];
 }
 
 const AWC_URL = "https://aviationweather.gov/api/data/metar";
@@ -55,11 +57,24 @@ export async function runRainfallRunoffIngest(deps: RainfallIngestDeps): Promise
 
   const readings: RainfallReading[] = [];
   const skipped: string[] = [];
+  const signals: MetarRainSignal[] = [];
   for (const cluster of INGEST_RAIN_CLUSTERS) {
     const stations = Object.fromEntries(cluster.stations
       .filter((icao) => perStation.has(icao))
       .map((icao) => [icao, perStation.get(icao) as StationRainfall]));
     const total = clusterRainfall(stations);
+    if (Object.keys(stations).length > 0) {
+      const rainTimes = Object.values(stations).map((station) => station.last_rain_at).filter((time): time is string => time !== null);
+      signals.push({ region: cluster.id, windowEnd: windowEnd.toISOString(), totalIn: total,
+        lastRainAt: rainTimes.length ? rainTimes.reduce((a, b) => Date.parse(a) > Date.parse(b) ? a : b) : null,
+        dryConfirmed: cluster.stations.every((icao) => {
+          const station = perStation.get(icao);
+          return station !== undefined && station.hours >= MIN_STATION_HOURS
+            && station.total_in === 0 && station.last_rain_at === null;
+        }),
+        stations: Object.keys(stations),
+      });
+    }
     if (total === null) { skipped.push(cluster.id); continue; }
     readings.push({
       cluster_id: cluster.id,
@@ -72,5 +87,5 @@ export async function runRainfallRunoffIngest(deps: RainfallIngestDeps): Promise
     });
   }
   if (readings.length) await deps.writeReadings(readings);
-  return { written: readings.length, skipped, readings };
+  return { written: readings.length, skipped, readings, signals };
 }

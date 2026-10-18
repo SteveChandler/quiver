@@ -10,10 +10,11 @@ const baseline = { id: "11111111-1111-4111-8111-111111111111", fetched_at: "2026
 const first = { ...baseline, id: "22222222-2222-4222-8222-222222222222", fetched_at: "2026-10-11T14:00:43Z", advisory_count: 86 };
 const latest = { ...first, id: "33333333-3333-4333-8333-333333333333", fetched_at: "2026-10-14T20:00:43Z", closure_count: 10, warning_count: 0 };
 
-function clientFor(runs: unknown[], notices: unknown[] = [], fail = false, extras: Record<string, unknown[]> = {}, rainError = false): WaterQualityHoldClient {
+function clientFor(runs: unknown[], notices: unknown[] = [], fail = false, extras: Record<string, unknown[]> = {}, rainError = false, eventError = false): WaterQualityHoldClient {
   return { from: jest.fn((table: string) => {
     let rows = table === "county_beach_advisory_runs" ? runs : table === "county_beach_advisories" ? notices : extras[table] ?? [];
-    const result = () => ({ data: rows, error: fail || (rainError && table === "rainfall_runoff_readings") ? new Error("read failed") : null });
+    const result = () => ({ data: rows, error: fail || (rainError && table === "rainfall_runoff_readings")
+      || (eventError && table === "rain_advisory_events") ? new Error("read failed") : null });
     let query: {
       select: jest.Mock; eq: jest.Mock; lt: jest.Mock; gt: jest.Mock; gte: jest.Mock;
       order: jest.Mock; limit: jest.Mock; in: jest.Mock;
@@ -42,11 +43,14 @@ const sites = [
 const dryReading = (windowEnd: string) => ({ cluster_id: "san_diego", window_end: windowEnd, total_in: 0,
   station_totals: { KSAN: 0, KCRQ: 0, KNZY: 0 } });
 const withRain = (reading: unknown[]) => ({ rainfall_runoff_readings: reading });
+const storedEvent = { id: "99999999-9999-4999-8999-999999999999", region: "san_diego", source: "county_general",
+  status: "active", started_at: first.fetched_at, last_rain_at: null, expires_at: "2026-10-14T14:00:43Z",
+  ended_at: null, end_reason: null, sources: {}, created_at: first.fetched_at, updated_at: first.fetched_at };
 
 describe("County general advisory streak", () => {
   it("does no reads for a dormant run", async () => {
     const client = clientFor([]);
-    expect(await resolveCountyGeneralAdvisory(client, { ...latest, advisory_count: 7 }, new Date())).toEqual({ general: false, expired: false, streakStartedAt: null, siteIdentifiers: null, rainState: null });
+    expect(await resolveCountyGeneralAdvisory(client, { ...latest, advisory_count: 7 }, new Date())).toEqual({ general: false, expired: false, streakStartedAt: null, siteIdentifiers: null, rainState: null, event: null });
     expect(client.from).not.toHaveBeenCalled();
   });
 
@@ -97,6 +101,30 @@ describe("County general advisory streak", () => {
     expect(result).toMatchObject({ expired: false, streakStartedAt: first.fetched_at, rainState: "unknown" });
   });
 
+  it("uses an active event even when a dry reading would expire inference", async () => {
+    const client = clientFor([baseline, first, latest], sites, false, {
+      ...withRain([dryReading("2026-10-14T20:00:43Z")]), rain_advisory_events: [storedEvent],
+    });
+    const result = await resolveCountyGeneralAdvisory(client, latest, new Date("2026-10-14T20:00:43Z"));
+    expect(result).toMatchObject({ expired: false, rainState: null, event: { id: storedEvent.id, status: "active" } });
+    expect((client.from as jest.Mock).mock.calls.some(([table]) => table === "rainfall_runoff_readings")).toBe(false);
+  });
+
+  it("honors an ended event for the current streak and falls back for an older event or read error", async () => {
+    const now = new Date("2026-10-14T20:00:43Z");
+    const dry = withRain([dryReading(now.toISOString())]);
+    const ended = { ...storedEvent, status: "ended", ended_at: now.toISOString(), end_reason: "dry_72h" };
+    expect(await resolveCountyGeneralAdvisory(clientFor([baseline, first, latest], sites, false,
+      { ...dry, rain_advisory_events: [ended] }), latest, now))
+      .toMatchObject({ expired: true, rainState: null, event: { status: "ended" } });
+    expect(await resolveCountyGeneralAdvisory(clientFor([baseline, first, latest], sites, false,
+      { ...dry, rain_advisory_events: [{ ...ended, started_at: baseline.fetched_at }] }), latest, now))
+      .toMatchObject({ expired: true, rainState: "dry", event: null });
+    expect(await resolveCountyGeneralAdvisory(clientFor([baseline, first, latest], sites, false,
+      { ...dry, rain_advisory_events: [storedEvent] }, false, true), latest, now))
+      .toMatchObject({ expired: true, rainState: "dry", event: null });
+  });
+
   it("keeps the advisory active when an ingested San Diego station has only 30 reporting hours", async () => {
     const now = new Date("2026-10-14T20:30:00Z");
     const ingest = await runRainfallRunoffIngest({
@@ -126,7 +154,7 @@ describe("County general advisory streak", () => {
   it("keeps every advisory active on a baseline error or missing baseline", async () => {
     for (const client of [clientFor([baseline, first, latest], sites, true), clientFor([first, latest], sites),
       clientFor([baseline, first, latest], sites.slice(0, 1))]) {
-      expect(await resolveCountyGeneralAdvisory(client, latest, new Date("2026-10-15T00:00:00Z"))).toEqual({ general: true, expired: false, streakStartedAt: null, siteIdentifiers: null, rainState: null });
+      expect(await resolveCountyGeneralAdvisory(client, latest, new Date("2026-10-15T00:00:00Z"))).toEqual({ general: true, expired: false, streakStartedAt: null, siteIdentifiers: null, rainState: null, event: null });
     }
   });
 });
@@ -135,7 +163,7 @@ const shores = "d291411d-d331-4bf1-ad1a-302da3c69de0";
 const shipwrecks = "5e8d07ff-786c-4b7e-ab19-53d2b3774e23";
 const closedBeach = "55555555-5555-4555-8555-555555555555";
 
-function regressionClient(run: typeof latest, rainEnd: string | null = "2026-10-14T20:30:43Z", wet = false): WaterQualityHoldClient {
+function regressionClient(run: typeof latest, rainEnd: string | null = "2026-10-14T20:30:43Z", wet = false, event?: unknown): WaterQualityHoldClient {
   const advisory = (index: number) => ({ run_id: run.id, advisory_type: "advisory", source_site_identifier: index === 0 ? "shipwrecks" : `general-${index}`,
     beach_id: index === 0 ? shipwrecks : index === 7 ? shores : null,
     county_latitude: index === 0 ? 33.05 : index === 7 ? 32.857 : 32.65,
@@ -150,6 +178,7 @@ function regressionClient(run: typeof latest, rainEnd: string | null = "2026-10-
     beaches: [{ id: shores, lat: 32.857, lon: -117.257 }, { id: shipwrecks, lat: 33.05, lon: -117.29 }, { id: closedBeach, lat: 32.8, lon: -117.25 }],
     beach_water_quality: [shores, shipwrecks, closedBeach].map((beach_id) => ({ beach_id, status: "unknown", total_samples_30d: 0, latest_sample_date: null })),
     rainfall_runoff_readings: rainEnd ? [{ ...dryReading(rainEnd), ...(wet ? { total_in: 0.01, station_totals: { KSAN: 0, KCRQ: 0.01, KNZY: 0 } } : {}) }] : [],
+    rain_advisory_events: event ? [event] : [],
   });
 }
 
@@ -170,7 +199,25 @@ it.each([
   expect(resolution.heldBeachIds).toEqual(generalActive ? [shipwrecks, closedBeach, shores].sort() : [shipwrecks, closedBeach].sort());
   expect(resolution.waterQualityEvidenceByBeachId?.[shipwrecks]).toMatchObject({ source: "county", countyKind: "site", checkedAt: run.fetched_at });
   expect(resolution.waterQualityEvidenceByBeachId?.[closedBeach]).toMatchObject({ source: "county", countyKind: "site", checkedAt: run.fetched_at });
-  if (generalActive) expect(resolution.waterQualityEvidenceByBeachId?.[shores]).toMatchObject({ source: "county", countyKind: "general" });
+  expect(resolution.waterQualityEvidenceByBeachId?.[shores]?.countyKind).toBe(generalActive ? "general" : undefined);
+});
+
+it("uses the active County event for live and projected hold evidence and its epoch", async () => {
+  const now = new Date("2026-10-14T20:30:43Z");
+  const candidates = [{ candidateId: shores, beachId: shores, startsAt: now.toISOString(),
+    endsAt: new Date(now.getTime() + 3600000).toISOString() }];
+  const firstEvent = { ...storedEvent, expires_at: "2026-10-16T00:00:00Z" };
+  const client = regressionClient(latest, now.toISOString(), false, firstEvent);
+  const resolution = await resolveWaterQualityHolds(candidates, { client, now });
+  expect(resolution.heldBeachIds).toContain(shores);
+  expect(resolution.waterQualityEvidenceByBeachId?.[shores]).toMatchObject({ source: "county", countyKind: "general",
+    rainAdvisory: { startedAt: firstEvent.started_at, expiresAt: firstEvent.expires_at } });
+  const projected = await currentWaterQuality([{ beach_id: shores, status: "unknown", total_samples_30d: 0 }], client, now);
+  expect(projected[0].county_rain_advisory?.expires_at).toBe(firstEvent.expires_at);
+  const changed = await resolveWaterQualityHolds(candidates, {
+    client: regressionClient(latest, now.toISOString(), false, { ...firstEvent, expires_at: "2026-10-17T00:00:00Z" }), now,
+  });
+  expect(changed.epoch).not.toBe(resolution.epoch);
 });
 
 it("changes the hold epoch at the 72-hour boundary without a new County run", async () => {

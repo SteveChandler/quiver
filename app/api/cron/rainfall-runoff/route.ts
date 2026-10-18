@@ -6,6 +6,7 @@ import { withCronOutcome } from "@/lib/cron/outcome";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { fetchAwcMetars, runRainfallRunoffIngest } from "@/lib/services/water-quality/rainfall-runoff-ingest";
 import { RAINFALL_READINGS_TABLE } from "@/lib/services/water-quality/rainfall-runoff-read";
+import { syncMetarRainAdvisories } from "@/lib/services/water-quality/rain-advisory-events-sync";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -43,7 +44,10 @@ async function _GET(request: Request): Promise<Response> {
         },
       }),
     );
-    return NextResponse.json({ success: true, data: result });
+    const rainAdvisory = await syncMetarRainAdvisories(supabase, result.signals, new Date());
+    if (rainAdvisory.status === "table_missing") console.warn("[rainfall-runoff] rain advisory events table missing");
+    else if (rainAdvisory.status === "error") console.error("[rainfall-runoff] rain advisory sync failed", rainAdvisory.error);
+    return NextResponse.json({ success: true, data: { ...result, rainAdvisory } });
   } catch (error) {
     console.error("[rainfall-runoff] cron failed", error);
     return NextResponse.json(
