@@ -137,6 +137,18 @@ export const RATE_LIMITS = {
     burstLimit: 50,
   }),
 
+  "watch-link-code": relaxForE2E({
+    requestsPerMinute: 6,
+    requestsPerHour: 30,
+    burstLimit: 3,
+  }),
+
+  "watch-link-confirm": relaxForE2E({
+    requestsPerMinute: 10,
+    requestsPerHour: 20,
+    burstLimit: 3,
+  }),
+
   /**
    * Account Recovery - CRITICAL
    *
@@ -284,6 +296,10 @@ const RATE_LIMIT_MESSAGES = {
     "API rate limit exceeded. Please wait before making more requests.",
   "authenticated-default":
     "API rate limit exceeded. Please reduce request frequency.",
+  "watch-link-code":
+    "Too many watch link requests. Please wait before trying again.",
+  "watch-link-confirm":
+    "Too many watch link attempts. Please wait before trying again.",
   "account-recovery":
     "Too many account recovery attempts. Please wait before trying again.",
   "surf-discovery":
