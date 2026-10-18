@@ -22,12 +22,10 @@ jest.mock("@/lib/supabase/server", () => ({
     from: jest.fn(() => ({
       upsert: upsertMock.mockReturnValue({ data: [], error: null }),
       select: selectMock.mockImplementation(() => {
-        const query = {
-          eq: jest.fn(() => query),
-          neq: jest.fn(() => query),
-          gte: jest.fn(() => query),
+        const query: Record<string, jest.Mock> = {
           lte: jest.fn(async () => existingRowsResult),
         };
+        for (const method of ["eq", "neq", "gte"]) query[method] = jest.fn(() => query);
         return query;
       }),
       delete: jest.fn(() => ({

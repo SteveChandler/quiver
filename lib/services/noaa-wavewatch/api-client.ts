@@ -190,7 +190,8 @@ export function constructGridUrl(pointData: NOAAWavePoint): string | null {
 
 // Open-Meteo failures seen in prod are short network blips ("fetch failed"),
 // so a couple of quick retries usually recover before the caller falls back.
-const OPEN_METEO_RETRY_DELAYS_MS = [1_000, 2_000];
+// Kept short: the sync cron runs beaches in sequential batches under a deadline.
+const OPEN_METEO_RETRY_DELAYS_MS = [500, 1_500];
 
 function isRetryableStatus(status: number): boolean {
   return status === 429 || status >= 500;
@@ -201,6 +202,19 @@ function isAbortError(error: unknown, signal?: AbortSignal): boolean {
     signal?.aborted === true ||
     (error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError"))
   );
+}
+
+function abortableDelay(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    if (signal?.aborted) return resolve();
+    const timer = setTimeout(done, ms);
+    function done(): void {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", done);
+      resolve();
+    }
+    signal?.addEventListener("abort", done, { once: true });
+  });
 }
 
 /**
@@ -224,12 +238,14 @@ async function fetchOpenMeteoWithRetry(
         return response;
       }
       log.warn(`Open-Meteo returned ${response.status}; retrying in ${delayMs}ms`);
+      // Release the connection before retrying.
+      await response.body?.cancel().catch(() => undefined);
     } catch (error) {
       if (isAbortError(error, signal)) throw error;
       if (delayMs === undefined) throw error;
       log.warn(`Open-Meteo fetch failed (${String(error)}); retrying in ${delayMs}ms`);
     }
-    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    await abortableDelay(delayMs, signal);
     if (signal?.aborted) return null;
   }
 }

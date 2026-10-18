@@ -121,6 +121,29 @@ describe("fetchOpenMeteoData", () => {
       expect(data).toBeNull();
     });
 
+    it("stops waiting and returns null when aborted during backoff", async () => {
+      const controller = new AbortController();
+      fetchMock.mockRejectedValue(new TypeError("fetch failed"));
+
+      const pending = fetchOpenMeteoData(23.0, -109.7, 8, { signal: controller.signal });
+      await jest.advanceTimersByTimeAsync(0);
+      controller.abort();
+
+      expect(await pending).toBeNull();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("cancels the body of a retried error response", async () => {
+      const cancel = jest.fn(async () => undefined);
+      fetchMock
+        .mockResolvedValueOnce({ ok: false, status: 502, statusText: "Bad Gateway", body: { cancel } })
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ hourly: { time: [] } }) });
+
+      await runWithTimers(fetchOpenMeteoData(23.0, -109.7, 8));
+
+      expect(cancel).toHaveBeenCalledTimes(1);
+    });
+
     it("does not retry once the caller aborts", async () => {
       const controller = new AbortController();
       fetchMock.mockImplementation(async () => {
