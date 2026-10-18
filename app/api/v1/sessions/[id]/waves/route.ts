@@ -1,12 +1,12 @@
 import { z } from "zod";
 import { createErrorResponse, createSuccessResponse } from "@/lib/api-utils";
-import { isSessionImportsUserAllowed } from "@/lib/flags/session-imports";
 import { withAuth, withNoStore, withRateLimit } from "@/lib/middleware/api-wrappers";
 import { COUNT_MIN_CONFIDENCE } from "@/lib/sessions/wave-detection/constants";
 import { WAVE_DETECTION_VERSION } from "@/lib/sessions/wave-detection/detect-waves";
 import { tideFtAtWaves } from "@/lib/sessions/waves/wave-tides";
 import type { SessionWave, SessionWavesResponse } from "@/lib/sessions/waves/waves-api-types";
 import { buildWavesSummary, isExcluded, type StoredWave } from "@/lib/sessions/waves/waves-summary";
+import { canViewSessionWaves } from "@/lib/sessions/waves/waves-access";
 import { createServiceRoleClient } from "@/lib/supabase";
 
 export const runtime = "nodejs";
@@ -15,7 +15,7 @@ const countRequest = z.object({ userWaveCount: z.number().int().min(0).max(200).
 
 export const GET = withNoStore(withRateLimit(withAuth(async (_request, { user, supabase, params }) => {
   if (!z.uuid().safeParse(params.id).success) return createErrorResponse("invalid_request", undefined, 400);
-  if (!isSessionImportsUserAllowed(user.id)) return createErrorResponse("not_found", undefined, 404);
+  if (!canViewSessionWaves(user.id)) return createErrorResponse("not_found", undefined, 404);
 
   const { data: session, error: sessionError } = await supabase.from("sessions")
     .select("id, user_id, beach_id, deleted_at").eq("id", params.id).eq("user_id", user.id)
@@ -72,7 +72,7 @@ export const GET = withNoStore(withRateLimit(withAuth(async (_request, { user, s
 
 export const PATCH = withNoStore(withRateLimit(withAuth(async (request, { user, supabase, params }) => {
   if (!z.uuid().safeParse(params.id).success) return createErrorResponse("invalid_request", undefined, 400);
-  if (!isSessionImportsUserAllowed(user.id)) return createErrorResponse("not_found", undefined, 404);
+  if (!canViewSessionWaves(user.id)) return createErrorResponse("not_found", undefined, 404);
   const parsed = countRequest.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return createErrorResponse("invalid_request", undefined, 400);
 

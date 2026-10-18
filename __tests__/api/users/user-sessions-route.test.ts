@@ -181,6 +181,8 @@ describe("owner session import metadata", () => {
     mockAuthenticatedUser(mockSupabaseClient, createMockUser({ id: ownerId }));
     process.env.SESSION_IMPORTS_ENABLED = "true";
     process.env.SESSION_IMPORTS_USER_ALLOWLIST = ownerId;
+    delete process.env.GARMIN_WATCH_ENABLED;
+    delete process.env.GARMIN_WATCH_USER_ALLOWLIST;
   });
 
   it.each(["flag off", "not allowlisted"])("does not query tracks for an owner with %s", async (state) => {
@@ -205,6 +207,22 @@ describe("owner session import metadata", () => {
     expect(queries.session_tracks.eq).toHaveBeenCalledWith("user_id", ownerId);
     expect(queries.session_tracks.in).toHaveBeenCalledWith("session_id", ["session-1", "session-2"]);
     expect(mockSupabaseClient.from.mock.calls.filter(([table]) => table === "session_tracks")).toHaveLength(1);
+  });
+
+  it("adds owner track status for a garmin-only user without enabling imports", async () => {
+    process.env.SESSION_IMPORTS_ENABLED = "false";
+    process.env.GARMIN_WATCH_ENABLED = "true";
+    process.env.GARMIN_WATCH_USER_ALLOWLIST = ownerId;
+    const queries = mockQueries();
+
+    const body = await expectSuccessResponse<{ sessions: Record<string, unknown>[]; sessionImportsEnabled: boolean }>(await getSessions());
+
+    expect(body.data.sessionImportsEnabled).toBe(false);
+    expect(body.data.sessions).toEqual([
+      expect.objectContaining({ id: "session-1", has_track: true }),
+      expect.objectContaining({ id: "session-2", has_track: false }),
+    ]);
+    expect(queries.session_tracks.eq).toHaveBeenCalledWith("user_id", ownerId);
   });
 
   it("omits track status and the flag for a non-owner", async () => {

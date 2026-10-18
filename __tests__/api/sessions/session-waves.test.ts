@@ -87,12 +87,19 @@ function request(method: string, body?: unknown): NextRequest {
   });
 }
 
-const savedEnv = { enabled: process.env.SESSION_IMPORTS_ENABLED, allowed: process.env.SESSION_IMPORTS_USER_ALLOWLIST };
+const savedEnv = {
+  enabled: process.env.SESSION_IMPORTS_ENABLED,
+  allowed: process.env.SESSION_IMPORTS_USER_ALLOWLIST,
+  garminEnabled: process.env.GARMIN_WATCH_ENABLED,
+  garminAllowed: process.env.GARMIN_WATCH_USER_ALLOWLIST,
+};
 beforeEach(() => {
   jest.clearAllMocks();
   for (const key of Object.keys(queries)) delete queries[key];
   process.env.SESSION_IMPORTS_ENABLED = "true";
   process.env.SESSION_IMPORTS_USER_ALLOWLIST = userId;
+  delete process.env.GARMIN_WATCH_ENABLED;
+  delete process.env.GARMIN_WATCH_USER_ALLOWLIST;
   rows.sessions = { id: sessionId, user_id: userId, deleted_at: null, beach_id: beachId };
   rows.session_tracks = { ...track };
   rows.session_waves = [wave];
@@ -114,6 +121,52 @@ afterAll(() => {
   else process.env.SESSION_IMPORTS_ENABLED = savedEnv.enabled;
   if (savedEnv.allowed === undefined) delete process.env.SESSION_IMPORTS_USER_ALLOWLIST;
   else process.env.SESSION_IMPORTS_USER_ALLOWLIST = savedEnv.allowed;
+  if (savedEnv.garminEnabled === undefined) delete process.env.GARMIN_WATCH_ENABLED;
+  else process.env.GARMIN_WATCH_ENABLED = savedEnv.garminEnabled;
+  if (savedEnv.garminAllowed === undefined) delete process.env.GARMIN_WATCH_USER_ALLOWLIST;
+  else process.env.GARMIN_WATCH_USER_ALLOWLIST = savedEnv.garminAllowed;
+});
+
+it("returns waves for an owner allowed only by the garmin watch flag", async () => {
+  process.env.SESSION_IMPORTS_ENABLED = "false";
+  process.env.GARMIN_WATCH_ENABLED = "true";
+  process.env.GARMIN_WATCH_USER_ALLOWLIST = userId;
+
+  const response = await GET(request("GET"), context);
+
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ success: true, data: { waves: [{ id: waveId }] } });
+  expect(queries.session_tracks[0].eq).toHaveBeenCalledWith("user_id", userId);
+});
+
+it("lets a garmin-only owner update the wave count and a correction", async () => {
+  process.env.SESSION_IMPORTS_ENABLED = "false";
+  process.env.GARMIN_WATCH_ENABLED = "true";
+  process.env.GARMIN_WATCH_USER_ALLOWLIST = userId;
+  rows.session_wave_corrections = [];
+
+  const countResponse = await patchCount(request("PATCH", { userWaveCount: 2 }), context);
+  const correctionResponse = await patchWave(request("PATCH", { excluded: true }), context);
+
+  expect(countResponse.status).toBe(200);
+  expect(correctionResponse.status).toBe(200);
+  expect(queries.session_tracks.find(q => q.update.mock.calls.length)?.update).toHaveBeenCalledWith({ user_wave_count: 2 });
+  expect(queries.session_wave_corrections.find(q => q.insert.mock.calls.length)?.insert).toHaveBeenCalledWith(
+    expect.objectContaining({ session_id: sessionId, user_id: userId, action: "exclude" }),
+  );
+});
+
+it("lets a garmin-only admin redetect an owned session", async () => {
+  process.env.SESSION_IMPORTS_ENABLED = "false";
+  process.env.GARMIN_WATCH_ENABLED = "true";
+  process.env.GARMIN_WATCH_USER_ALLOWLIST = userId;
+  mockAuth.mockResolvedValue({ data: { user: { id: userId, app_metadata: { is_admin: true } } }, error: null });
+
+  const response = await redetect(request("POST"), context);
+
+  expect(response.status).toBe(200);
+  expect(mockDownload).toHaveBeenCalledWith("track.fit");
+  expect(mockPersistDetection).toHaveBeenCalled();
 });
 
 it("returns the native waves contract with corrections, override count, track and unreliable speeds", async () => {

@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { createErrorResponse, createSuccessResponse } from "@/lib/api-utils";
 import { isAdmin, type AdminUser } from "@/lib/auth/admin";
-import { isSessionImportsUserAllowed } from "@/lib/flags/session-imports";
 import { withAuth, withNoStore, withRateLimit } from "@/lib/middleware/api-wrappers";
 import { persistDetection } from "@/lib/sessions/imports/process-import";
 import { loadImportBeach } from "@/lib/sessions/imports/resolve-import-beach";
@@ -9,13 +8,14 @@ import { readTrackFile } from "@/lib/sessions/tracks/read-track-file";
 import { summarizeTrack } from "@/lib/sessions/tracks/summarize-track";
 import { COUNT_MIN_CONFIDENCE } from "@/lib/sessions/wave-detection/constants";
 import { WAVE_DETECTION_VERSION } from "@/lib/sessions/wave-detection/detect-waves";
+import { canViewSessionWaves } from "@/lib/sessions/waves/waves-access";
 import { createServiceRoleClient } from "@/lib/supabase";
 
 export const runtime = "nodejs";
 
 export const POST = withNoStore(withRateLimit(withAuth(async (_request, { user, supabase, params }) => {
   if (!z.uuid().safeParse(params.id).success) return createErrorResponse("invalid_request", undefined, 400);
-  if (!isSessionImportsUserAllowed(user.id)) return createErrorResponse("not_found", undefined, 404);
+  if (!canViewSessionWaves(user.id)) return createErrorResponse("not_found", undefined, 404);
 
   const { data: session, error: sessionError } = await supabase.from("sessions")
     .select("id, user_id, beach_id, deleted_at").eq("id", params.id).eq("user_id", user.id)

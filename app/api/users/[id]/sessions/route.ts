@@ -8,6 +8,7 @@ import {
 } from "@/lib/middleware/api-wrappers";
 import { addFeaturedPhotoToSessions } from "@/actions/session-actions";
 import { isSessionImportsUserAllowed } from "@/lib/flags/session-imports";
+import { canViewSessionWaves } from "@/lib/sessions/waves/waves-access";
 
 async function addOwnerTrackStatus<T extends { id: string }>(
   supabase: OptionalAuthContext["supabase"],
@@ -15,7 +16,7 @@ async function addOwnerTrackStatus<T extends { id: string }>(
   userId: string,
   isOwn: boolean,
 ): Promise<(T & { has_track?: boolean })[]> {
-  if (!isOwn || !isSessionImportsUserAllowed(userId) || sessions.length === 0) return sessions;
+  if (!isOwn || !canViewSessionWaves(userId) || sessions.length === 0) return sessions;
 
   try {
     const { data, error } = await supabase

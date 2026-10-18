@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { createErrorResponse, createSuccessResponse } from "@/lib/api-utils";
-import { isSessionImportsUserAllowed } from "@/lib/flags/session-imports";
 import { withAuth, withNoStore, withRateLimit } from "@/lib/middleware/api-wrappers";
 import { WAVE_DETECTION_VERSION } from "@/lib/sessions/wave-detection/detect-waves";
 import { buildWavesSummary, isExcluded, type Correction, type StoredWave } from "@/lib/sessions/waves/waves-summary";
+import { canViewSessionWaves } from "@/lib/sessions/waves/waves-access";
 import { createServiceRoleClient } from "@/lib/supabase";
 
 export const runtime = "nodejs";
@@ -15,7 +15,7 @@ export const PATCH = withNoStore(withRateLimit(withAuth(async (request, { user, 
   if (!z.uuid().safeParse(params.id).success || !z.uuid().safeParse(params.waveId).success) {
     return createErrorResponse("invalid_request", undefined, 400);
   }
-  if (!isSessionImportsUserAllowed(user.id)) return createErrorResponse("not_found", undefined, 404);
+  if (!canViewSessionWaves(user.id)) return createErrorResponse("not_found", undefined, 404);
   const parsed = correctionRequest.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return createErrorResponse("invalid_request", undefined, 400);
 

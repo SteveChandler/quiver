@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { isSessionImportsUserAllowed } from "@/lib/flags/session-imports";
+import { canViewSessionWaves } from "@/lib/sessions/waves/waves-access";
 import { z } from "zod";
 import { parseAndValidateJson } from "@/lib/validation/middleware";
 import { addFeaturedPhotoToSession } from "@/actions/session-actions";
@@ -255,7 +255,7 @@ export const GET = withAuth(
     if (error) throw error;
 
     let hasTrack = false;
-    if (data.user_id === user.id && isSessionImportsUserAllowed(user.id)) {
+    if (data.user_id === user.id && canViewSessionWaves(user.id)) {
       try {
         const { data: track, error: trackError } = await supabase
           .from("session_tracks")
