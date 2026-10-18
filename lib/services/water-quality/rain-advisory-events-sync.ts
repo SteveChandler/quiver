@@ -158,7 +158,9 @@ export async function syncCountyRainAdvisory(
     const general = run.advisory_count >= COUNTY_GENERAL_ADVISORY_MIN_SITES;
     if (!general && !active) return result;
     const latest = general && !active ? await readEvent(client, COUNTY_RAIN_CLUSTER.id, false) : active;
-    const streak = general ? await resolveCountyGeneralAdvisory(client as unknown as WaterQualityHoldClient, run, now) : null;
+    // Only an open needs the streak start; an active event stays as it is while the County lists.
+    const streak = general && !active
+      ? await resolveCountyGeneralAdvisory(client as unknown as WaterQualityHoldClient, run, now) : null;
     const needsRain = general && !active && latest?.status === "ended" && !!streak?.streakStartedAt
       && Date.parse(latest.started_at) >= Date.parse(streak.streakStartedAt);
     const sanDiegoRainAt = needsRain ? await latestSanDiegoRainAt(client, now) : null;
