@@ -1,4 +1,5 @@
 import { fetchOpenMeteoData, fetchNOAAPointData } from "@/lib/services/noaa-wavewatch/api-client";
+import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 
 describe("fetchOpenMeteoData", () => {
   const originalFetch = global.fetch;
@@ -63,5 +64,76 @@ describe("fetchOpenMeteoData", () => {
     expect(fetchMock.mock.calls[0]?.[1]).toEqual(
       expect.objectContaining({ signal: controller.signal }),
     );
+  });
+  describe("retries", () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+      expectConsoleWarnings([/Open-Meteo (fetch failed|returned \d+).*; retrying/]);
+    });
+
+    async function runWithTimers<T>(promise: Promise<T>): Promise<T> {
+      await jest.runAllTimersAsync();
+      return promise;
+    }
+
+    it("retries a network failure and returns the recovered data", async () => {
+      fetchMock
+        .mockRejectedValueOnce(new TypeError("fetch failed"))
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ hourly: { time: ["t0"] } }) });
+
+      const data = await runWithTimers(fetchOpenMeteoData(23.0, -109.7, 8));
+
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(data).toEqual({ hourly: { time: ["t0"] } });
+    });
+
+    it("retries 5xx and 429 responses", async () => {
+      fetchMock
+        .mockResolvedValueOnce({ ok: false, status: 503, statusText: "Unavailable" })
+        .mockResolvedValueOnce({ ok: false, status: 429, statusText: "Too Many Requests" })
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ hourly: { time: ["t0"] } }) });
+
+      const data = await runWithTimers(fetchOpenMeteoData(23.0, -109.7, 8));
+
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+      expect(data).toEqual({ hourly: { time: ["t0"] } });
+    });
+
+    it("gives up after three attempts and returns null", async () => {
+      fetchMock.mockRejectedValue(new TypeError("fetch failed"));
+
+      const data = await runWithTimers(fetchOpenMeteoData(23.0, -109.7, 8));
+
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+      expect(data).toBeNull();
+    });
+
+    it("does not retry a 4xx response", async () => {
+      fetchMock.mockResolvedValue({ ok: false, status: 400, statusText: "Bad Request" });
+
+      const data = await runWithTimers(fetchOpenMeteoData(23.0, -109.7, 8));
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(data).toBeNull();
+    });
+
+    it("does not retry once the caller aborts", async () => {
+      const controller = new AbortController();
+      fetchMock.mockImplementation(async () => {
+        controller.abort();
+        throw Object.assign(new Error("aborted"), { name: "AbortError" });
+      });
+
+      const data = await runWithTimers(
+        fetchOpenMeteoData(23.0, -109.7, 8, { signal: controller.signal }),
+      );
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(data).toBeNull();
+    });
   });
 });

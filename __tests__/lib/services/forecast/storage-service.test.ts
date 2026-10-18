@@ -9,12 +9,27 @@
 // Track delete calls to verify throttling
 const deleteMock = jest.fn();
 const upsertMock = jest.fn();
+// Result of the existing-real-rows lookup made before FALLBACK rows are written
+const existingRowsResult: { data: Array<{ forecast_at: string }> | null; error: { message: string } | null } = {
+  data: [],
+  error: null,
+};
+const selectMock = jest.fn();
 
 // Mock Supabase client
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: jest.fn(async () => ({
     from: jest.fn(() => ({
       upsert: upsertMock.mockReturnValue({ data: [], error: null }),
+      select: selectMock.mockImplementation(() => {
+        const query = {
+          eq: jest.fn(() => query),
+          neq: jest.fn(() => query),
+          gte: jest.fn(() => query),
+          lte: jest.fn(async () => existingRowsResult),
+        };
+        return query;
+      }),
       delete: jest.fn(() => ({
         eq: jest.fn(() => ({
           lt: deleteMock.mockReturnValue({ error: null, count: 0 }),
@@ -25,6 +40,7 @@ jest.mock("@/lib/supabase/server", () => ({
 }));
 
 import { ForecastStorageService } from "@/lib/services/forecast/storage-service";
+import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
@@ -60,6 +76,8 @@ describe("ForecastStorageService", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    existingRowsResult.data = [];
+    existingRowsResult.error = null;
     // Reset the static throttle map between tests
     // @ts-expect-error - accessing private static for testing
     ForecastStorageService.lastCleanupTime = new Map();
@@ -192,6 +210,70 @@ describe("ForecastStorageService", () => {
         expect.any(Array),
         { onConflict: "beach_id,forecast_at" }
       );
+    });
+  });
+  describe("FALLBACK rows never overwrite real forecasts", () => {
+    const fallbackAt = (forecastAt: string) =>
+      ({
+        ...mockForecast,
+        id: `fb-${forecastAt}`,
+        forecast_at: forecastAt,
+        data_source: "FALLBACK",
+        wave_height: "9-12 ft",
+      }) as unknown as EnhancedForecastEntity;
+
+    const upsertedTimes = () =>
+      (upsertMock.mock.calls[0]?.[0] ?? []).map((row: { forecast_at: string }) => row.forecast_at);
+
+    it("skips FALLBACK slots that already hold a real forecast and writes the rest", async () => {
+      existingRowsResult.data = [{ forecast_at: "2026-10-18T18:00:00+00:00" }];
+
+      await service.storeEnhancedForecasts(mockBeach, [
+        fallbackAt("2026-10-18T18:00:00.000Z"),
+        fallbackAt("2026-10-18T21:00:00.000Z"),
+      ]);
+
+      expect(upsertedTimes()).toEqual(["2026-10-18T21:00:00.000Z"]);
+      expectConsoleWarnings([/Kept 1 real forecast slots/]);
+    });
+
+    it("still writes real rows over existing rows", async () => {
+      existingRowsResult.data = [{ forecast_at: "2026-10-18T18:00:00+00:00" }];
+      const real = {
+        ...mockForecast,
+        forecast_at: "2026-10-18T18:00:00.000Z",
+        data_source: "OPEN_METEO",
+      } as unknown as EnhancedForecastEntity;
+
+      await service.storeEnhancedForecasts(mockBeach, [real]);
+
+      expect(selectMock).not.toHaveBeenCalled();
+      expect(upsertedTimes()).toEqual(["2026-10-18T18:00:00.000Z"]);
+    });
+
+    it("writes FALLBACK rows when no real forecast exists for the slot", async () => {
+      await service.storeEnhancedForecasts(mockBeach, [fallbackAt("2026-10-30T00:00:00.000Z")]);
+
+      expect(selectMock).toHaveBeenCalledWith("forecast_at");
+      expect(upsertedTimes()).toEqual(["2026-10-30T00:00:00.000Z"]);
+    });
+
+    it("skips FALLBACK rows when the lookup fails, but keeps real rows", async () => {
+      existingRowsResult.error = { message: "statement timeout" };
+      const real = {
+        ...mockForecast,
+        forecast_at: "2026-10-18T15:00:00.000Z",
+        data_source: "OPEN_METEO",
+      } as unknown as EnhancedForecastEntity;
+
+      const result = await service.storeEnhancedForecasts(mockBeach, [
+        real,
+        fallbackAt("2026-10-18T18:00:00.000Z"),
+      ]);
+
+      expect(result.success).toBe(true);
+      expect(upsertedTimes()).toEqual(["2026-10-18T15:00:00.000Z"]);
+      expectConsoleWarnings([/Could not check existing forecasts/]);
     });
   });
 });
