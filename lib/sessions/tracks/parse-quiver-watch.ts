@@ -58,7 +58,7 @@ export function parseQuiverWatch(json: unknown): NormalizedTrack {
         || !isNullableInteger(dlat) || !isNullableInteger(dlon)
         || (dlat === null) !== (dlon === null)
         || !isNullableInteger(speedCms) || (speedCms !== null && speedCms < 0)
-        || !isNullableInteger(hr) || (hr !== null && hr < 0)
+        || !isNullableInteger(hr) || (hr !== null && (hr < 0 || hr > 255))
         || !isNullableInteger(tempDeci)) {
         corrupt("Invalid Quiver watch row values");
       }

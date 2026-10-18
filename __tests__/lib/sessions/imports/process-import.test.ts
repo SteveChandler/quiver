@@ -56,6 +56,7 @@ let rpcError: unknown;
 let download: jest.Mock;
 let remove: jest.Mock;
 let selections: Array<{ table: string; columns: string | undefined }>;
+let accesses: Array<{ table: string; operation: string; equalities: [string, unknown][]; owners: unknown[] }>;
 let queryFailure: (mutation: Mutation) => unknown;
 
 function client(name: string): SupabaseClient {
@@ -69,6 +70,7 @@ function client(name: string): SupabaseClient {
       let operation = "select";
       let payload: Row | Row[];
       const filters: ((row: Row) => boolean)[] = [];
+      const equalities: [string, unknown][] = [];
       let single = false;
       const query: any = {
         select: (columns?: string) => { selections.push({ table, columns }); return query; },
@@ -76,7 +78,7 @@ function client(name: string): SupabaseClient {
         insert: (value: Row | Row[]) => { operation = "insert"; payload = value; return query; },
         update: (value: Row) => { operation = "update"; payload = value; return query; },
         delete: () => { operation = "delete"; return query; },
-        eq: (key: string, value: unknown) => { filters.push(row => row[key] === value); return query; },
+        eq: (key: string, value: unknown) => { equalities.push([key, value]); filters.push(row => row[key] === value); return query; },
         neq: (key: string, value: unknown) => { filters.push(row => row[key] !== value); return query; },
         is: (key: string, value: unknown) => { filters.push(row => (row[key] ?? null) === value); return query; },
         gte: (key: string, value: string) => { filters.push(row => row[key] >= value); return query; },
@@ -89,6 +91,7 @@ function client(name: string): SupabaseClient {
           if (failure) return Promise.resolve({ data: null, error: failure }).then(resolve);
           rows[table] ??= [];
           let matched = rows[table].filter(row => filters.every(filter => filter(row)));
+          accesses.push({ table, operation, equalities: [...equalities], owners: operation === "insert" ? [] : matched.map(row => row.user_id) });
           if (operation !== "select") mutations.push({ client: name, table, operation, payload });
           if (operation === "insert") {
             matched = (Array.isArray(payload) ? payload : [payload]).map(row => ({ id: table === "sessions" && sessionInsertCount++ > 0 ? `new-sessions-${sessionInsertCount}` : `new-${table}`, ...row }));
@@ -114,6 +117,7 @@ beforeEach(() => {
   mutations = [];
   sessionInsertCount = 0;
   selections = [];
+  accesses = [];
   remove = jest.fn(async () => ({ data: [], error: null }));
   queryFailure = () => null;
   rows = {
@@ -745,4 +749,54 @@ it("uses one detection for watch visibility, persistence and the returned wave c
   expect(result).toMatchObject({ status: "completed", summary: { waveCount: 1 } });
   expect(rows.sessions[0].is_public).toBe(true);
   expect(rows.session_waves).toHaveLength(1);
+});
+
+
+it("isolates a watch import from another user's matching SHA, attach candidate, track and waves with one service client", async () => {
+  const track = useWatch();
+  deps.userClient = deps.serviceClient;
+  const otherUserId = "user-2";
+  const otherSessionId = "user-2-session";
+  const otherImportId = "user-2-import";
+  rows.sessions.push({
+    id: otherSessionId, user_id: otherUserId, beach_id: beach.id,
+    arrival_time: summarizeTrack(track).inWaterStart, duration_minutes: 90,
+    source: "garmin_watch", status: "completed", rating: 5, water_temp: 65,
+  });
+  rows.session_imports.push({
+    id: otherImportId, user_id: otherUserId, origin: "garmin_watch", status: "completed",
+    session_id: otherSessionId, sha256: createHash("sha256").update(bytes).digest("hex"),
+    storage_path: `${otherImportId}/${otherUserId}/watch.json`, original_filename: "watch.json",
+  });
+  rows.session_tracks.push({ id: "user-2-track", user_id: otherUserId, session_id: otherSessionId, import_id: otherImportId });
+  rows.session_waves.push(
+    { id: "user-2-wave-current", user_id: otherUserId, session_id: otherSessionId, detection_version: WAVE_DETECTION_VERSION, is_current: true },
+    { id: "user-2-wave-old", user_id: otherUserId, session_id: otherSessionId, detection_version: "previous-version", is_current: true },
+  );
+  const ownedTables = ["sessions", "session_imports", "session_tracks", "session_waves"];
+  const otherRowsBefore = ownedTables.map(table => structuredClone(rows[table].filter(row => row.user_id === otherUserId)));
+
+  expect(deps.userClient).toBe(deps.serviceClient);
+  const result = await processImport(deps, importId, userId);
+  expect(result).toMatchObject({ status: "completed", attached: false, sessionId: "new-sessions" });
+  expect(inserts("sessions")).toHaveLength(1);
+  expect(inserts("sessions")[0]).toMatchObject({ client: "service", payload: { user_id: userId, source: "garmin_watch" } });
+  expect(rows.session_imports[0]).toMatchObject({ status: "completed", session_id: "new-sessions" });
+  expect(rows.session_tracks.filter(row => row.user_id === userId)).toEqual([
+    expect.objectContaining({ session_id: "new-sessions", import_id: importId }),
+  ]);
+  expect(rows.session_waves.filter(row => row.user_id === userId).length).toBeGreaterThan(0);
+  expect(ownedTables.map(table => rows[table].filter(row => row.user_id === otherUserId))).toEqual(otherRowsBefore);
+  const privateAccesses = accesses.filter(access => ownedTables.includes(access.table));
+  expect(privateAccesses.length).toBeGreaterThan(0);
+  for (const access of privateAccesses) {
+    expect(access.owners).not.toContain(otherUserId);
+    expect(access.equalities.map(([, value]) => value)).not.toEqual(expect.arrayContaining([otherSessionId]));
+    expect(access.equalities.map(([, value]) => value)).not.toEqual(expect.arrayContaining([otherImportId]));
+    expect(access.equalities).not.toContainEqual(["user_id", otherUserId]);
+  }
+  for (const mutation of mutations.filter(value => ownedTables.includes(value.table) && value.operation === "insert")) {
+    const inserted = Array.isArray(mutation.payload) ? mutation.payload : [mutation.payload];
+    expect(inserted.every(row => row.user_id === userId && row.session_id !== otherSessionId && row.import_id !== otherImportId)).toBe(true);
+  }
 });

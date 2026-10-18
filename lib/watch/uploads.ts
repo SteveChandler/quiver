@@ -29,9 +29,10 @@ const chunkSchema = z.object({
   lon0: integer.nullable(),
   rows: z.array(z.tuple([
     integer.min(0), integer.nullable(), integer.nullable(),
-    integer.nullable(), integer.nullable(), integer.nullable(),
-  ])).min(1).max(600),
-});
+    integer.min(0).nullable(), integer.min(0).max(255).nullable(), integer.nullable(),
+  ]).refine(row => (row[1] === null) === (row[2] === null))).min(1).max(300),
+}).refine(chunk => (chunk.lat0 === null) === (chunk.lon0 === null))
+  .refine(chunk => chunk.rows[0]?.[0] === 0);
 const surfIdSchema = z.string().uuid();
 const indexSchema = z.string().regex(/^\d+$/).transform(Number).pipe(integer.min(0).max(999));
 type Upload = Database["public"]["Tables"]["watch_uploads"]["Row"];
@@ -72,6 +73,13 @@ export async function uploadWatchChunk(request: NextRequest, ctx: WatchContext):
     return createErrorResponse("invalid_index", undefined, 400);
   }
   if (upload.import_id) return createSuccessResponse({ received: index.data });
+
+  if (header) {
+    const { data: device, error } = await ctx.service.from("watch_devices").select("device_name")
+      .eq("id", ctx.deviceId).eq("user_id", ctx.userId).maybeSingle();
+    checkError(error);
+    if (device?.device_name?.trim()) header.deviceName = device.device_name;
+  }
 
   const { error: storageError } = await ctx.service.storage.from("session-tracks").upload(
     `${id.data}/${ctx.userId}/chunks/${index.data}.json`, JSON.stringify(body.data),
@@ -135,17 +143,22 @@ async function existingImport(ctx: WatchContext, upload: Upload): Promise<Respon
   return processWatchImport(ctx, upload, imported.id);
 }
 
-async function assembleChunks(ctx: WatchContext, upload: Upload): Promise<string> {
+async function assembleChunks(ctx: WatchContext, upload: Upload): Promise<{ file: string } | { missing: number }> {
   const chunks = [];
   for (let index = 0; index < upload.chunk_count!; index++) {
     const { data, error } = await ctx.service.storage.from("session-tracks")
       .download(`${upload.id}/${ctx.userId}/chunks/${index}.json`);
+    if (!data && (!error
+      || ("statusCode" in error && error.statusCode === "404")
+      || ("status" in error && error.status === 404))) {
+      return { missing: index };
+    }
     checkError(error);
     if (!data) throw new Error("Watch chunk object not found");
     const { t0, lat0, lon0, rows } = chunkSchema.parse(JSON.parse(await data.text()));
     chunks.push({ t0, lat0, lon0, rows });
   }
-  return JSON.stringify({ quiverWatch: 1, header: upload.header, chunks });
+  return { file: JSON.stringify({ quiverWatch: 1, header: upload.header, chunks }) };
 }
 
 export async function completeWatchUpload(request: NextRequest, ctx: WatchContext): Promise<Response> {
@@ -166,8 +179,15 @@ export async function completeWatchUpload(request: NextRequest, ctx: WatchContex
   const importId = randomUUID();
   const storagePath = `${importId}/${ctx.userId}/samples.json`;
   const assembled = await assembleChunks(ctx, upload);
+  if ("missing" in assembled) {
+    const { error } = await ctx.service.from("watch_uploads").update({
+      received_chunks: upload.received_chunks.filter(index => index !== assembled.missing),
+    }).eq("id", id.data).eq("user_id", ctx.userId).is("import_id", null);
+    checkError(error);
+    return createErrorResponse("missing_chunks", { missing: [assembled.missing] }, 409);
+  }
   const bucket = ctx.service.storage.from("session-tracks");
-  const { error: storageError } = await bucket.upload(storagePath, assembled, {
+  const { error: storageError } = await bucket.upload(storagePath, assembled.file, {
     contentType: "application/octet-stream", upsert: true,
   });
   checkError(storageError);

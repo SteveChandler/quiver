@@ -20,6 +20,7 @@ import { POST as chunk } from "@/app/api/v1/watch/uploads/[surfId]/chunks/[index
 import { POST as complete, maxDuration } from "@/app/api/v1/watch/uploads/[surfId]/complete/route";
 import { parseQuiverWatch } from "@/lib/sessions/tracks/parse-quiver-watch";
 import { TrackFileError } from "@/lib/sessions/tracks/types";
+import { hashSecret } from "@/lib/watch/device-token";
 
 const userId = "987fcdeb-51a2-43c1-a123-456789abcdef";
 const surfId = "123e4567-e89b-42d3-a456-426614174000";
@@ -90,13 +91,9 @@ beforeEach(() => {
   jest.clearAllMocks();
   process.env.GARMIN_WATCH_ENABLED = "true";
   process.env.GARMIN_WATCH_USER_ALLOWLIST = userId;
-  tables = { watch_devices: [{ id: deviceId, user_id: userId, revoked_at: null, last_seen_at: new Date().toISOString() }], watch_uploads: [], session_imports: [] };
+  tables = { watch_devices: [{ id: deviceId, user_id: userId, token_hash: hashSecret("watch-token"), device_name: null, revoked_at: null, last_seen_at: new Date().toISOString() }], watch_uploads: [], session_imports: [] };
   objects = new Map(); operations = []; loseClaim = false; dbFailure = null;
-  mockFrom.mockImplementation((table: string) => {
-    const builder = query(table);
-    if (table === "watch_devices") builder.eq.mockImplementation(() => builder);
-    return builder;
-  });
+  mockFrom.mockImplementation(query);
   mockUpload.mockImplementation(async (path: string, body: string | Uint8Array) => {
     objects.set(path, typeof body === "string" ? body : Buffer.from(body).toString("utf8"));
     return { data: { path }, error: null };
@@ -163,8 +160,8 @@ it.each<{ rows: unknown }>([
   expect((await chunk(request({ ...payload, header, rows }), context())).status).toBe(400);
   expect(mockUpload).not.toHaveBeenCalled();
 });
-it("accepts 600 rows and nullable fields", async () => {
-  const rows = Array.from({ length: 600 }, () => [0, null, null, null, null, null]);
+it("accepts 300 rows and nullable fields", async () => {
+  const rows = Array.from({ length: 300 }, () => [0, null, null, null, null, null]);
   expect((await chunk(request({ ...payload, header, lat0: null, lon0: null, rows }), context())).status).toBe(200);
 });
 it("rejects an index outside a known chunk count", async () => {
@@ -386,5 +383,138 @@ it("cleans up the assembled object when the import insert fails", async () => {
     expect(mockRemove).toHaveBeenCalledWith([samplesPath]);
     expect(objects.has(samplesPath)).toBe(false);
     expect(objects.has(`${surfId}/${userId}/chunks/0.json`)).toBe(true);
+  } finally { errorLog.mockRestore(); }
+});
+
+it("restarts a split surf from chunk zero and assembles four replacement chunks", async () => {
+  const originalHeader = { ...header, chunkCount: 3 };
+  const originals = Array.from({ length: 3 }, (_, index) => ({ ...payload, t0: payload.t0 + index * 10 }));
+  const originalSamples = parseQuiverWatch({ quiverWatch: 1, header: originalHeader, chunks: originals }).samples;
+  for (let index = 0; index < 3; index++) {
+    const body = { ...originals[index], ...(index === 0 ? { header: originalHeader } : {}) };
+    expect((await chunk(request(body), context(String(index)))).status).toBe(200);
+  }
+  const replacementHeader = { ...header, chunkCount: 4 };
+  const replacements = [
+    originals[0],
+    { ...originals[1], rows: [payload.rows[0]] },
+    { ...originals[1], t0: originals[1].t0 + 1, lat0: payload.lat0 + 10, lon0: payload.lon0 + 20, rows: [[0, 0, 0, 200, null, null]] },
+    originals[2],
+  ];
+  const createsBeforeRestart = operations.filter(op => op.table === "watch_uploads" && op.kind === "upsert").length;
+  expect((await chunk(request({ ...replacements[0], header: replacementHeader }), context())).status).toBe(200);
+  expect(tables.watch_uploads).toHaveLength(1);
+  expect(tables.watch_uploads[0]).toMatchObject({ header: replacementHeader, chunk_count: 4, received_chunks: [0, 1, 2] });
+  expect(operations.filter(op => op.table === "watch_uploads" && op.kind === "upsert")).toHaveLength(createsBeforeRestart);
+  expect(operations.filter(op => op.table === "watch_uploads" && op.kind === "update").at(-1)?.values)
+    .toMatchObject({ header: replacementHeader, chunk_count: 4, received_chunks: [0, 1, 2] });
+  for (let index = 1; index < 4; index++) {
+    expect((await chunk(request(replacements[index]), context(String(index)))).status).toBe(200);
+  }
+  const response = await complete(request({ chunkCount: 4 }), context());
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ data: { status: "completed", sessionId: "session-1" } });
+  const assembled = JSON.parse(objects.get(tables.session_imports[0].storage_path)!);
+  expect(assembled).toEqual({ quiverWatch: 1, header: replacementHeader, chunks: replacements });
+  const parsed = parseQuiverWatch(assembled);
+  expect(parsed.samples).toHaveLength(6);
+  expect(parsed.samples).toEqual(originalSamples);
+});
+
+it.each([301, 600])("rejects %i-row chunks before storing them", async count => {
+  const rows = Array.from({ length: count }, () => [0, 0, 0, null, null, null]);
+  const response = await chunk(request({ ...payload, header, rows }), context());
+  expect(response.status).toBe(400);
+  expect(mockUpload).not.toHaveBeenCalled();
+  expect(tables.watch_uploads).toHaveLength(0);
+});
+
+it.each<{ label: string; change: Record<string, unknown> }>([
+  { label: "nonzero first dt", change: { rows: [[1, 0, 0, 100, 80, 180]] } },
+  { label: "latitude-only origin", change: { lon0: null } },
+  { label: "longitude-only origin", change: { lat0: null } },
+  { label: "unpaired fix deltas", change: { rows: [[0, null, 0, 100, 80, 180]] } },
+  { label: "negative speed", change: { rows: [[0, 0, 0, -1, 80, 180]] } },
+  { label: "negative heart rate", change: { rows: [[0, 0, 0, 100, -1, 180]] } },
+  { label: "heart rate above 255", change: { rows: [[0, 0, 0, 100, 256, 180]] } },
+])("rejects parser-incompatible $label at ingest", async ({ change }) => {
+  expect((await chunk(request({ ...payload, header, ...change }), context())).status).toBe(400);
+  expect(mockUpload).not.toHaveBeenCalled();
+  expect(tables.watch_uploads).toHaveLength(0);
+});
+it.each([0, 255])("accepts heart rate boundary %i", async hr => {
+  const rows = [[0, 0, 0, 0, hr, 180]];
+  expect((await chunk(request({ ...payload, header, rows }), context())).status).toBe(200);
+});
+
+it.each(["Forerunner 165", null, "", "  "])("stores the linked friendly device name when available: %j", async deviceName => {
+  tables.watch_devices[0].device_name = deviceName;
+  const expectedName = deviceName?.trim() ? deviceName : header.deviceName;
+  await uploadAll();
+  expect(tables.watch_uploads[0].header.deviceName).toBe(expectedName);
+  const storedChunk = JSON.parse(objects.get(`${surfId}/${userId}/chunks/0.json`)!);
+  expect(storedChunk.header.deviceName).toBe(expectedName);
+  expect((await complete(request(), context())).status).toBe(200);
+  const assembled = JSON.parse(objects.get(tables.session_imports[0].storage_path)!);
+  expect(parseQuiverWatch(assembled).meta.recordedBy).toBe(`Quiver for Garmin · ${expectedName}`);
+});
+
+it.each([false, true])("requests a missing stored chunk for re-upload (storage 404: %s)", async storageError => {
+  await uploadAll();
+  objects.delete(`${surfId}/${userId}/chunks/1.json`);
+  const downloadObject = mockDownload.getMockImplementation()!;
+  mockDownload.mockImplementation(async (path: string) => {
+    if (!objects.has(path) && storageError) return { data: null, error: { message: "Object not found", statusCode: "404" } };
+    return downloadObject(path);
+  });
+  const errorLog = jest.spyOn(console, "error").mockImplementation(() => {});
+  try {
+    const response = await complete(request(), context());
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ error: "missing_chunks", details: { missing: [1] } });
+    expect(tables.watch_uploads[0].received_chunks).toEqual([0]);
+    expect(tables.session_imports).toHaveLength(0);
+    expect(mockProcess).not.toHaveBeenCalled();
+    expect((await chunk(request({ ...payload, t0: payload.t0 + 300 }), context("1"))).status).toBe(200);
+    expect((await complete(request(), context())).status).toBe(200);
+  } finally { errorLog.mockRestore(); }
+});
+it("preserves the received indices on a transient storage download error", async () => {
+  await uploadAll();
+  mockDownload.mockResolvedValueOnce({ data: null, error: { message: "Storage temporarily unavailable", statusCode: "503" } });
+  const errorLog = jest.spyOn(console, "error").mockImplementation(() => {});
+  try {
+    expect((await complete(request(), context())).status).toBe(500);
+    expect(tables.watch_uploads[0].received_chunks).toEqual([0, 1]);
+    expect(mockProcess).not.toHaveBeenCalled();
+  } finally { errorLog.mockRestore(); }
+});
+
+it("maps a TrackFileError from a stale rerun to final failed", async () => {
+  tables.watch_uploads.push({ id: surfId, user_id: userId, import_id: "import", received_chunks: [0, 1] });
+  tables.session_imports.push({ id: "import", user_id: userId, status: "uploaded", created_at: new Date(Date.now() - 91_000).toISOString() });
+  mockProcess.mockRejectedValueOnce(new TrackFileError("no_gps", "No GPS"));
+  const response = await complete(request(), context());
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ data: { status: "failed", sessionId: null } });
+  expect(mockProcess).toHaveBeenCalledWith(expect.anything(), "import", userId);
+  expect(tables.session_imports).toHaveLength(1);
+});
+it("keeps a stale import retryable after an unexpected rerun failure", async () => {
+  const imported = { id: "import", user_id: userId, status: "uploaded", created_at: new Date(Date.now() - 91_000).toISOString() };
+  tables.watch_uploads.push({ id: surfId, user_id: userId, import_id: imported.id, received_chunks: [0, 1] });
+  tables.session_imports.push(imported);
+  const beforeFailure = { ...imported };
+  mockProcess.mockRejectedValueOnce(new Error("Temporary processing failure"));
+  const errorLog = jest.spyOn(console, "error").mockImplementation(() => {});
+  try {
+    expect((await complete(request(), context())).status).toBe(500);
+    expect(tables.session_imports[0]).toEqual(beforeFailure);
+    expect(tables.watch_uploads[0].import_id).toBe("import");
+    expect(mockRemove).not.toHaveBeenCalled();
+    expect((await complete(request(), context())).status).toBe(200);
+    expect(mockProcess).toHaveBeenCalledTimes(2);
+    expect(mockProcess.mock.calls.map(call => call.slice(1))).toEqual([["import", userId], ["import", userId]]);
+    expect(tables.session_imports).toHaveLength(1);
   } finally { errorLog.mockRestore(); }
 });

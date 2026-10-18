@@ -105,4 +105,17 @@ describe("quiver_watch track format", () => {
     expect(file.chunks[0].lat0).toBeNull();
     expect(() => parseQuiverWatch(file)).toThrow(expect.objectContaining({ code: "no_gps" }));
   });
+
+  it.each([256, 32768])("rejects heart rate %i as corrupt before persistence", hr => {
+    const file = structuredClone(watchFile);
+    file.chunks[0].rows[0][4] = hr;
+    expect(() => parseQuiverWatch(file)).toThrow(expect.objectContaining({ code: "corrupt" }));
+  });
+
+  it.each([0, 255])("accepts heart rate boundary %i", hr => {
+    const file = structuredClone(watchFile);
+    file.chunks[0].rows[0][4] = hr;
+    expect(parseQuiverWatch(file).samples[0].hr).toBe(hr);
+  });
+
 });
