@@ -351,6 +351,10 @@ export function SessionDetailView({ id, sharedPreview = null }: SessionDetailVie
     ? RIP_RISK_LABELS[ripCurrentRisk] ?? ripCurrentRisk
     : null;
 
+  const waterTempIsSessionMedian = session.water_temp_source != null
+    ? session.water_temp_source === "watch"
+    : waveRecording?.sessionId === id && waveRecording.recordedWith?.startsWith("Quiver for Garmin");
+
   return (
     <div className="flex-1 flex flex-col">
       <header className="sticky top-0 z-10 bg-background border-b">
@@ -542,7 +546,7 @@ export function SessionDetailView({ id, sharedPreview = null }: SessionDetailVie
                 <CardContent className="p-4 flex items-center gap-3">
                   <Thermometer className="h-6 w-6 text-primary" />
                   <div>
-                    <p className="text-sm text-muted-foreground">Water Temp{waveRecording?.sessionId === id && waveRecording.recordedWith?.startsWith("Quiver for Garmin") ? " (session median)" : ""}</p>
+                    <p className="text-sm text-muted-foreground">Water Temp{waterTempIsSessionMedian ? " (session median)" : ""}</p>
                     <p className="font-medium">{session.water_temp}</p>
                   </div>
                 </CardContent>

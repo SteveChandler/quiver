@@ -6,6 +6,7 @@ import { ZineSurface } from "@/components/zine";
 import { ImportBeachPicker } from "@/components/sessions/import/import-beach-picker";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import type { ImportBeach } from "@/lib/sessions/imports/resolve-import-beach";
+import { importErrorCopy } from "./import-error-copy";
 
 type SessionImport = {
   id: string;
@@ -54,12 +55,20 @@ export function ImportBeachPage({ importId }: ImportBeachPageProps): ReactElemen
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ beachId }), cache: "no-store",
       });
+      const result = await response.json().catch(() => null);
       if (response.status === 409) {
+        if (result?.error === "duplicate" && typeof result.details?.sessionId === "string" && result.details.sessionId) {
+          setCompletedSessionId(result.details.sessionId);
+          return;
+        }
+        await refetch();
+        return;
+      }
+      if (response.status === 422) {
         await refetch();
         return;
       }
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const result = await response.json();
       if (result?.success !== true) throw new Error("Invalid beach response");
       if (result.data?.status === "completed" && typeof result.data.sessionId === "string") {
         setCompletedSessionId(result.data.sessionId);
@@ -76,7 +85,7 @@ export function ImportBeachPage({ importId }: ImportBeachPageProps): ReactElemen
   const sessionId = completedSessionId ?? data?.sessionId;
   const startedAt = data?.startedAt ? new Date(data.startedAt) : null;
   const dateLabel = startedAt && !Number.isNaN(startedAt.getTime())
-    ? startedAt.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/Los_Angeles" })
+    ? startedAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })
     : "recent";
 
   return (
@@ -90,7 +99,7 @@ export function ImportBeachPage({ importId }: ImportBeachPageProps): ReactElemen
         {saving && <p role="status" className="text-sm text-ink">Saving beach…</p>}
         {saveError && <p role="alert" className="text-sm text-ink">{saveError}</p>}
       </div>}
-      {data?.status === "failed" && !sessionId && <p role="alert" className="text-ink">{data.reason || "This surf couldn't be imported."}</p>}
+      {data?.status === "failed" && !sessionId && <p role="alert" className="text-ink">{importErrorCopy(data.reason)}</p>}
       {data?.status === "uploaded" && <p role="status" className="text-ink">This surf is still being processed.</p>}
     </ZineSurface>
   );

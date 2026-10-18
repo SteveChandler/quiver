@@ -6,8 +6,19 @@ import { ZineSurface } from "@/components/zine";
 import { Button } from "@/components/ui/button";
 import { GarminLinkConfirm } from "./garmin-link-confirm";
 import { useWatchDevices } from "@/hooks/use-watch-devices";
+import { importErrorCopy } from "./import-error-copy";
 
 interface GarminWatchSectionProps { isOwner: boolean }
+
+function deviceDate(value: string | null, includeTime = false): string {
+  if (!value) return "Not synced yet";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Unknown";
+  const options: Intl.DateTimeFormatOptions = { month: "short", day: "numeric", year: "numeric" };
+  return includeTime
+    ? date.toLocaleString("en-US", { ...options, hour: "numeric", minute: "2-digit" })
+    : date.toLocaleDateString("en-US", options);
+}
 
 export function GarminWatchSection({ isOwner }: GarminWatchSectionProps): ReactElement | null {
   const { data, refresh } = useWatchDevices(isOwner);
@@ -38,6 +49,8 @@ export function GarminWatchSection({ isOwner }: GarminWatchSectionProps): ReactE
           {data.devices.map((device) => <li key={device.id} className="rounded-lg border border-ink/20 bg-white/60 p-4">
             <p className="font-semibold text-ink">{device.name}</p>
             {device.partNumber && <p className="font-mono text-xs text-ink/70">{device.partNumber}</p>}
+            <p className="mt-2 text-sm text-ink/70">Linked: {deviceDate(device.linkedAt)}</p>
+            <p className="text-sm text-ink/70">Last sync: {deviceDate(device.lastSeenAt, true)}</p>
             {confirmId === device.id ? <div className="mt-3 flex flex-wrap items-center gap-2">
               <p className="w-full text-sm text-ink">Unlink this watch from your account?</p>
               <Button type="button" onClick={() => void unlink(device.id)}>Confirm unlink</Button>
@@ -49,11 +62,11 @@ export function GarminWatchSection({ isOwner }: GarminWatchSectionProps): ReactE
         {data.problems.length > 0 && <div className="space-y-2">
           <h3 className="font-heading text-lg font-semibold text-ink">Surfs needing attention</h3>
           <ul className="space-y-2">{data.problems.map((problem) => <li key={problem.importId} className="text-sm text-ink">
-            {problem.status === "needs_beach" ? <Link href={`/sessions/imports/${encodeURIComponent(problem.importId)}`} className="font-semibold underline">Pick a beach for this surf</Link> : <p>{problem.reason || "A surf couldn't be imported."}</p>}
+            {problem.status === "needs_beach" ? <Link href={`/sessions/imports/${encodeURIComponent(problem.importId)}`} className="font-semibold underline">Pick a beach for this surf</Link> : <p>{importErrorCopy(problem.reason)}</p>}
           </li>)}</ul>
         </div>}
       </ZineSurface>
-      <GarminLinkConfirm initialCode={null} onLinked={refresh} />
+      <GarminLinkConfirm initialCode={null} onLinked={refresh} headingLevel={3} />
     </div>
   );
 }

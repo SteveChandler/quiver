@@ -193,13 +193,33 @@ describe("SessionWavesSection", () => {
     } }));
     render(<SessionWavesSection sessionId="s1" />);
 
-    expect(await screen.findByText("About 2.4 km paddled")).toBeInTheDocument();
+    expect(await screen.findByText("About 1.5 mi paddled")).toBeInTheDocument();
     expect(screen.getByText("♥ avg 121 · max 158")).toBeInTheDocument();
     expect(screen.getByText("Sets about every 11 min")).toBeInTheDocument();
     expect(screen.getByText("Quiver for Garmin · Forerunner 965")).toBeInTheDocument();
+    for (const [label, value] of [
+      ["Paddling", "About 1.5 mi paddled"],
+      ["Heart rate", "♥ avg 121 · max 158"],
+      ["Set rhythm", "Sets about every 11 min"],
+      ["Recorded with", "Quiver for Garmin · Forerunner 965"],
+    ]) {
+      expect(screen.getByText(label).nextElementSibling).toHaveTextContent(value);
+    }
   });
 
-  it("does not add watch stats to a file-import summary", async () => {
+  it("shows stats and the recorded device for a FIT file import", async () => {
+    fetchMock.mockResolvedValue(envelope({ ...fixture, summary: {
+      ...fixture.summary, paddleDistanceM: 2400, heartRateAvg: 121, heartRateMax: 158,
+      setIntervalMin: 11, recordedWith: "Garmin Forerunner 965",
+    } }));
+    render(<SessionWavesSection sessionId="s1" />);
+    expect(await screen.findByText("About 1.5 mi paddled")).toBeInTheDocument();
+    expect(screen.getByText("♥ avg 121 · max 158")).toBeInTheDocument();
+    expect(screen.getByText("Garmin Forerunner 965")).toBeInTheDocument();
+    expect(screen.queryByText(/session median/)).not.toBeInTheDocument();
+  });
+
+  it("omits absent optional stats", async () => {
     fetchMock.mockResolvedValue(envelope({ ...fixture, summary: {
       ...fixture.summary, paddleDistanceM: null, heartRateAvg: null, heartRateMax: null,
       setIntervalMin: null, recordedWith: null,
@@ -207,6 +227,19 @@ describe("SessionWavesSection", () => {
     render(<SessionWavesSection sessionId="s1" />);
     await screen.findByText("You: 3 · Quiver found 2");
     expect(screen.queryByText(/paddled|♥ avg|Sets about|Quiver for Garmin/)).not.toBeInTheDocument();
+  });
+
+  it.each([0, 160])("hides paddling distances under 0.1 mi (%s m)", async (paddleDistanceM) => {
+    fetchMock.mockResolvedValue(envelope({ ...fixture, summary: { ...fixture.summary, paddleDistanceM } }));
+    render(<SessionWavesSection sessionId="s1" />);
+    await screen.findByText("You: 3 · Quiver found 2");
+    expect(screen.queryByText(/paddled/)).not.toBeInTheDocument();
+  });
+
+  it("shows a paddling distance at the 0.1 mi threshold", async () => {
+    fetchMock.mockResolvedValue(envelope({ ...fixture, summary: { ...fixture.summary, paddleDistanceM: 160.9344 } }));
+    render(<SessionWavesSection sessionId="s1" />);
+    expect(await screen.findByText("About 0.1 mi paddled")).toBeInTheDocument();
   });
 
   it("hides unreliable speed measurements and timeline", async () => {
@@ -384,20 +417,25 @@ describe("SessionWavesSection", () => {
   });
 
   it.each([
-    { recordedWith: "Quiver for Garmin · Forerunner 965", label: "Water Temp (session median)" },
-    { recordedWith: null, label: "Water Temp" },
-  ])("labels the existing water temperature tile for $recordedWith", async ({ recordedWith, label }) => {
+    { recordedWith: "Quiver for Garmin · Forerunner 965", source: undefined, label: "Water Temp (session median)" },
+    { recordedWith: "Garmin Forerunner 965", source: undefined, label: "Water Temp" },
+    { recordedWith: null, source: "watch", label: "Water Temp (session median)" },
+    { recordedWith: "Quiver for Garmin · Forerunner 965", source: "manual", label: "Water Temp" },
+  ])("labels the water temperature tile for $recordedWith / $source", async ({ recordedWith, source, label }) => {
     fetchMock.mockImplementation((url: string) => {
       if (url === "/api/sessions/s1") return Promise.resolve(envelope({ session: {
         id: "s1", user_id: "owner", has_track: true, beach: null, beach_name: "Test Beach", rating: 4,
-        arrival_time: fixture.waves[0].startedAt, water_temp: "65°F", forecast_snapshot: null,
+        arrival_time: fixture.waves[0].startedAt, water_temp: "65°F", water_temp_source: source, forecast_snapshot: null,
       } }));
       if (url.endsWith("/photos")) return Promise.resolve(envelope([]));
-      return Promise.resolve(envelope({ ...fixture, summary: { ...fixture.summary, recordedWith } }));
+      return Promise.resolve(envelope({ ...fixture, summary: { ...fixture.summary, recordedWith,
+        paddleDistanceM: 2400, heartRateAvg: 121, heartRateMax: 158 } }));
     });
     render(<SessionDetailView id="s1" />);
     expect(await screen.findByText(label)).toBeInTheDocument();
     expect(screen.getByText("65°F")).toBeInTheDocument();
+    await screen.findByText("About 1.5 mi paddled");
+    expect(screen.queryAllByText("Water Temp (session median)")).toHaveLength(label === "Water Temp" ? 0 : 1);
   });
 
   it("draws the track and non-excluded waves without map motion when requested", async () => {

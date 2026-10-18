@@ -214,19 +214,33 @@ it("returns 410 for an expired unconfirmed code and 404 when confirming it", asy
   const expired = await poll(get(link.linkId, link.pollSecret), context(link.linkId));
   expect(expired.status).toBe(410);
   expect(await expired.json()).toMatchObject({ error: "expired" });
-  expect((await confirm(post(), context(link.code))).status).toBe(404);
+  const confirmation = await confirm(post(), context(link.code));
+  expect(confirmation.status).toBe(404);
+  expect(await confirmation.json()).toMatchObject({ success: false, error: "not_found" });
 });
 
-it("returns 404 for unknown or disallowed codes and 409 for a second confirmation", async () => {
-  expect((await confirm(post(), context("123456"))).status).toBe(404);
+it("distinguishes unknown codes from unavailable access and returns 409 for a second confirmation", async () => {
+  const unknown = await confirm(post(), context("123456"));
+  expect(unknown.status).toBe(404);
+  expect(await unknown.json()).toMatchObject({ success: false, error: "not_found" });
   const link = await created();
   process.env.GARMIN_WATCH_USER_ALLOWLIST = "";
-  expect((await confirm(post(), context(link.code))).status).toBe(404);
+  const unavailable = await confirm(post(), context(link.code));
+  expect(unavailable.status).toBe(404);
+  expect(await unavailable.json()).toMatchObject({ success: false, error: "unavailable" });
   process.env.GARMIN_WATCH_USER_ALLOWLIST = userId;
   expect((await confirm(post(), context(link.code))).status).toBe(200);
   const again = await confirm(post(), context(link.code));
   expect(again.status).toBe(409);
   expect(await again.json()).toMatchObject({ error: "already_confirmed" });
+});
+
+it("returns unavailable before querying a code when the Garmin flag is disabled", async () => {
+  process.env.GARMIN_WATCH_ENABLED = "false";
+  const response = await confirm(post(), context("482913"));
+  expect(response.status).toBe(404);
+  expect(await response.json()).toMatchObject({ success: false, error: "unavailable" });
+  expect(mockFrom).not.toHaveBeenCalled();
 });
 
 it("relinks the same device row and clears revocation and the old token", async () => {

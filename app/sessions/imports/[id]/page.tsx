@@ -4,7 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { ImportBeachPage } from "@/components/garmin/import-beach-page";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Finish surf import | Quiver", robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: "Finish surf import", robots: { index: false, follow: false } };
 
 type SearchParams = Record<string, string | string[] | undefined>;
 

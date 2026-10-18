@@ -7,7 +7,10 @@ import { deviceNameForPartNumber } from "@/lib/watch/link-codes";
 export const runtime = "nodejs";
 
 export const POST = withNoStore(withRateLimit(withAuth(async (_request, { user, params }) => {
-  if (!isGarminWatchUserAllowed(user.id) || !/^\d{6}$/.test(params.id)) {
+  if (!isGarminWatchUserAllowed(user.id)) {
+    return createErrorResponse("unavailable", undefined, 404);
+  }
+  if (!/^\d{6}$/.test(params.id)) {
     return createErrorResponse("not_found", undefined, 404);
   }
 

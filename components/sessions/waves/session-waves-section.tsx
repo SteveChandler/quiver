@@ -72,6 +72,7 @@ export function SessionWavesSection({ sessionId, onRecordedWith }: SessionWavesS
 
   const { summary, waves } = response;
   const countValue = draftCount ?? (summary.userWaveCount?.toString() ?? "");
+  const paddleDistanceMi = summary.paddleDistanceM == null ? null : summary.paddleDistanceM / 1609.344;
 
   async function toggleWave(waveId: string, excluded: boolean): Promise<void> {
     if (!response) return;
@@ -168,24 +169,28 @@ export function SessionWavesSection({ sessionId, onRecordedWith }: SessionWavesS
             <p className="font-mono text-lg font-bold text-ink">{summary.topSpeedMps === null ? "—" : formatSpeed(summary.topSpeedMps)}</p>
           </div>
         )}
-        {summary.paddleDistanceM != null && (
+        {paddleDistanceMi != null && paddleDistanceMi >= 0.1 && (
           <div className="rounded-lg border border-ink/20 bg-white/60 p-4">
-            <p className="font-mono text-lg font-bold text-ink">About {(summary.paddleDistanceM / 1000).toFixed(1)} km paddled</p>
+            <p className="text-sm text-ink/70">Paddling</p>
+            <p className="font-mono text-lg font-bold text-ink">About {paddleDistanceMi.toFixed(1)} mi paddled</p>
           </div>
         )}
         {summary.heartRateAvg != null && summary.heartRateMax != null && (
           <div className="rounded-lg border border-ink/20 bg-white/60 p-4">
+            <p className="text-sm text-ink/70">Heart rate</p>
             <p className="font-mono text-lg font-bold text-ink">♥ avg {summary.heartRateAvg} · max {summary.heartRateMax}</p>
           </div>
         )}
         {summary.setIntervalMin != null && (
           <div className="rounded-lg border border-ink/20 bg-white/60 p-4">
+            <p className="text-sm text-ink/70">Set rhythm</p>
             <p className="font-mono text-lg font-bold text-ink">Sets about every {summary.setIntervalMin} min</p>
           </div>
         )}
         {summary.recordedWith != null && (
           <div className="rounded-lg border border-ink/20 bg-white/60 p-4">
-            <p className="font-mono text-sm font-semibold text-ink">{summary.recordedWith}</p>
+            <p className="text-sm text-ink/70">Recorded with</p>
+            <p className="font-mono text-lg font-bold text-ink">{summary.recordedWith}</p>
           </div>
         )}
       </div>

@@ -4,7 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { GarminLinkConfirm } from "@/components/garmin/garmin-link-confirm";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Link Garmin watch | Quiver", robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: "Link Garmin watch", robots: { index: false, follow: false } };
 
 type SearchParams = Record<string, string | string[] | undefined>;
 

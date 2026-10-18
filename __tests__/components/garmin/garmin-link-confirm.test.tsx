@@ -7,10 +7,10 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 jest.mock("next/navigation", () => ({ redirect: jest.fn(() => { throw new Error("redirected"); }) }));
 jest.mock("@/lib/supabase/server", () => ({ createSupabaseServerClient: jest.fn() }));
 
-const envelope = (status: number, data?: unknown): Response => ({
+const envelope = (status: number, data?: unknown, error = status === 409 ? "already_confirmed" : "not_found"): Response => ({
   ok: status >= 200 && status < 300,
   status,
-  json: async () => status < 300 ? { success: true, data } : { success: false, error: status === 409 ? "already_confirmed" : "not_found" },
+  json: async () => status < 300 ? { success: true, data } : { success: false, error },
 } as Response);
 
 describe("GarminLinkConfirm", () => {
@@ -48,13 +48,28 @@ describe("GarminLinkConfirm", () => {
   });
 
   it.each([
-    [404, "Garmin watches aren't available yet"],
-    [409, "That code expired. Start again on your watch."],
-  ])("shows the appropriate state for HTTP %s", async (status, message) => {
-    fetchMock.mockResolvedValue(envelope(status));
+    [404, "not_found", "That code expired. Start again on your watch."],
+    [404, "unavailable", "Garmin watches aren't available yet"],
+    [409, "already_confirmed", "That code expired. Start again on your watch."],
+  ])("shows the appropriate state for HTTP %s %s", async (status, error, message) => {
+    fetchMock.mockResolvedValue(envelope(status, undefined, error));
     render(<GarminLinkConfirm initialCode="482913" />);
     fireEvent.click(screen.getByRole("button", { name: "Link watch" }));
     expect(await screen.findByText(message)).toBeInTheDocument();
+  });
+
+  it("sanitizes the initial code to at most six digits", () => {
+    render(<GarminLinkConfirm initialCode="abc482-91399" />);
+    expect(screen.getByRole("textbox", { name: "Six-digit watch code" })).toHaveValue("482913");
+    expect(screen.getByRole("button", { name: "Link watch" })).toBeEnabled();
+  });
+
+  it("explains an incomplete initial code and prevents submitting it", () => {
+    render(<GarminLinkConfirm initialCode="ab12-3" />);
+    expect(screen.getByRole("textbox", { name: "Six-digit watch code" })).toHaveValue("123");
+    expect(screen.getByText("Enter the six-digit code shown on your watch.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Link watch" })).toBeDisabled();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
 
@@ -64,4 +79,5 @@ it("keeps the watch code and other query parameters through the signed-out redir
   expect(redirect).toHaveBeenCalledWith("/auth/sign-in?redirectTo=%2Fsessions%2Fgarmin-link%3Fcode%3D482913%26source%3Dwatch");
   expect(dynamic).toBe("force-dynamic");
   expect(metadata.robots).toEqual({ index: false, follow: false });
+  expect(metadata.title).toBe("Link Garmin watch");
 });
