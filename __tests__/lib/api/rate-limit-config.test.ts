@@ -49,6 +49,17 @@ describe('recommendation rate-limit configuration', () => {
     expect(RATE_LIMITS['surf-call']).not.toBe(RATE_LIMITS['surf-discovery']);
   });
 
+  it.each([
+    ['watch-link-code', 6, 30, 3],
+    ['watch-link-confirm', 10, 20, 3],
+    ['watch-link-poll', 30, 400, 30],
+  ])('configures the dedicated production %s bucket', (key, requestsPerMinute, requestsPerHour, burstLimit) => {
+    jest.resetModules();
+    setNodeEnv('production');
+    const { RATE_LIMITS } = require('@/lib/api/rate-limit-config');
+    expect(RATE_LIMITS[key]).toEqual({ requestsPerMinute, requestsPerHour, burstLimit });
+  });
+
   it('lets forecast-bulk reach its per-minute budget in 10-second bursts', () => {
     jest.resetModules();
     setNodeEnv('production');

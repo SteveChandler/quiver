@@ -25,7 +25,11 @@ export const GET = withNoStore(withErrorHandler(withRateLimit(async (request, co
   }
   if (!link.confirmed_at) return createSuccessResponse({ status: "pending" });
   if (link.claimed_at) return createSuccessResponse({ status: "claimed" });
-  if (!link.device_id || !link.user_id) throw new Error("Confirmed watch link has no device");
+  if (!link.device_id || !link.user_id) return createErrorResponse("expired", undefined, 410);
+  const { data: availableDevice, error: deviceError } = await service.from("watch_devices")
+    .select("id").eq("id", link.device_id).eq("user_id", link.user_id).is("revoked_at", null).maybeSingle();
+  if (deviceError) throw deviceError;
+  if (!availableDevice) return createErrorResponse("expired", undefined, 410);
 
   const claimedAt = new Date().toISOString();
   const { data: claimed, error: claimError } = await service.from("watch_link_codes")
@@ -47,4 +51,4 @@ export const GET = withNoStore(withErrorHandler(withRateLimit(async (request, co
     if (rollbackError) console.warn("[garmin link] Claim rollback failed:", rollbackError);
     throw claimFailure;
   }
-}, "public-default"), { errorMessage: "Failed to poll watch link code" }));
+}, "watch-link-poll"), { errorMessage: "Failed to poll watch link code" }));

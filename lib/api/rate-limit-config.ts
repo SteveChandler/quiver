@@ -149,6 +149,12 @@ export const RATE_LIMITS = {
     burstLimit: 3,
   }),
 
+  "watch-link-poll": relaxForE2E({
+    requestsPerMinute: 30,
+    requestsPerHour: 400,
+    burstLimit: 30,
+  }),
+
   /**
    * Account Recovery - CRITICAL
    *
@@ -300,6 +306,8 @@ const RATE_LIMIT_MESSAGES = {
     "Too many watch link requests. Please wait before trying again.",
   "watch-link-confirm":
     "Too many watch link attempts. Please wait before trying again.",
+  "watch-link-poll":
+    "Too many watch link status requests. Please wait before trying again.",
   "account-recovery":
     "Too many account recovery attempts. Please wait before trying again.",
   "surf-discovery":

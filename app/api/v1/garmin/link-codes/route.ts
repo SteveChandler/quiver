@@ -19,6 +19,13 @@ export const POST = withNoStore(withErrorHandler(withRateLimit(async (request) =
   if (!parsed.success) return createErrorResponse("invalid_request", undefined, 400);
 
   const service = createServiceRoleClient();
+  try {
+    const { error } = await service.from("watch_link_codes").delete()
+      .is("confirmed_at", null).lt("expires_at", new Date(Date.now() - 86_400_000).toISOString());
+    if (error) console.warn("[garmin link] Retention cleanup failed:", error);
+  } catch (error) {
+    console.warn("[garmin link] Retention cleanup failed:", error);
+  }
   for (let attempt = 0; attempt < 5; attempt++) {
     const code = randomInt(0, 1_000_000).toString().padStart(6, "0");
     const now = new Date();
