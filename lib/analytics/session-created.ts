@@ -5,7 +5,7 @@ import type { Session } from "@/types/database";
 
 export const SESSION_CREATED_EVENT = "session_created" as const;
 
-type SessionCreatedSource = "web-session-form" | "web-conditions-report" | "web-file-import";
+type SessionCreatedSource = "web-session-form" | "web-conditions-report" | "web-file-import" | "garmin-watch";
 type SessionCreatedSurface =
   | "sessions/new"
   | "conditions-report"

@@ -5,13 +5,15 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { emitSessionCreatedEvent } from "@/lib/analytics/session-created";
 import { readTrackFile } from "../tracks/read-track-file";
 import { summarizeTrack, type TrackSummary } from "../tracks/summarize-track";
+import { heartRateStats, paddleDistanceM } from "../tracks/track-stats";
+import { COUNT_MIN_CONFIDENCE } from "../wave-detection/constants";
 import { TrackFileError, type NormalizedTrack } from "../tracks/types";
 import { detectWaves, WAVE_DETECTION_VERSION, type DetectedWave } from "../wave-detection/detect-waves";
 import { buildWavesSummary, type WavesSummary } from "../waves/waves-summary";
 import { findAttachTarget } from "./find-attach-target";
 import { loadImportBeach, resolveImportBeach, type ImportBeach } from "./resolve-import-beach";
 
-type ProcessImportResult =
+export type ProcessImportResult =
   | { status: "completed"; sessionId: string; attached: boolean; summary: WavesSummary }
   | { status: "needs_beach"; importId: string; candidates: ImportBeach[] }
   | { status: "duplicate"; sessionId: string | null };
@@ -35,6 +37,10 @@ type TrackInsert = {
   userArrivalTime: string | null;
   userDurationMinutes: number | null;
   timingFromTrack: boolean;
+  paddleDistanceM: number;
+  hrAvg: number | null;
+  hrMax: number | null;
+  sourceDevice: string | null;
 };
 
 function asError(error: unknown): Error {
@@ -73,6 +79,10 @@ async function insertSessionTrack(serviceClient: SupabaseClient, row: TrackInser
     user_arrival_time: row.userArrivalTime,
     user_duration_minutes: row.userDurationMinutes,
     timing_from_track: row.timingFromTrack,
+    paddle_distance_m: row.paddleDistanceM,
+    hr_avg: row.hrAvg,
+    hr_max: row.hrMax,
+    source_device: row.sourceDevice,
   });
   checkError(error);
 }
@@ -84,8 +94,9 @@ export async function persistDetection(
   track: NormalizedTrack,
   summary: TrackSummary,
   beach: ImportBeach,
+  precomputedWaves?: DetectedWave[],
 ): Promise<DetectedWave[]> {
-  const waves = detectWaves(track, summary, beach);
+  const waves = precomputedWaves ?? detectWaves(track, summary, beach);
   const { error: deleteError } = await serviceClient.from("session_waves").delete()
     .eq("session_id", sessionId).eq("detection_version", WAVE_DETECTION_VERSION);
   checkError(deleteError);
@@ -140,6 +151,7 @@ export async function processImport(
       throw new ImportNotFoundError();
     }
 
+    const isWatch = imported.origin === "garmin_watch";
     let wasCompleted = imported.status === "completed";
     const duplicate = async (sessionId: string | null): Promise<ProcessImportResult> => {
       try {
@@ -170,12 +182,21 @@ export async function processImport(
     if (bytes.byteLength > 10485760) throw new TrackFileError("corrupt", "Track file exceeds the 10 MiB size limit");
     const sha256 = createHash("sha256").update(bytes).digest("hex");
     const track = readTrackFile(bytes, imported.original_filename ?? imported.storage_path, now);
+    if ((!isWatch && track.meta.format === "quiver_watch")
+      || (isWatch && track.meta.format !== "quiver_watch")) {
+      throw new TrackFileError("unsupported_format", "The track format does not match the import origin");
+    }
     const summary = summarizeTrack(track);
     const startMs = Date.parse(summary.inWaterStart);
     const endMs = Date.parse(summary.inWaterEnd);
     if (!Number.isFinite(startMs) || !Number.isFinite(endMs)
       || startMs < Date.parse("2015-01-01T00:00:00Z") || startMs > now.getTime() || endMs < startMs) {
       throw new TrackFileError("bad_time", "The track has an implausible in-water time");
+    }
+
+    const spanS = (endMs - startMs) / 1000;
+    if (isWatch && spanS < 300) {
+      throw new TrackFileError("too_short", "This track is too short to be a surf.");
     }
 
     const resolution = beachOverride
@@ -212,7 +233,7 @@ export async function processImport(
           .select("session_id, import_id, user_arrival_time, user_duration_minutes, user_wave_count")
           .eq("session_id", previousSession.id).maybeSingle();
         checkError(trackError);
-        if (!previousTrack && previousSession.source === "file_import") {
+        if (!previousTrack && (previousSession.source === "file_import" || previousSession.source === "garmin_watch")) {
           linkedSession = previousSession;
           wasCompleted = previous.status === "completed";
           await updateImport({ session_id: previousSession.id });
@@ -221,17 +242,19 @@ export async function processImport(
         }
       }
     }
-    const target = linkedSession
+    let target = linkedSession
       ? { sessionId: linkedSession.id, hasTrack: linkedTrack !== null, trackImportId: linkedTrack?.import_id ?? null }
       : await findAttachTarget(userClient, userId, beach, summary.inWaterStart);
     if (target?.hasTrack && target.trackImportId !== importId) {
-      return duplicate(target.sessionId);
+      if (!isWatch) return duplicate(target.sessionId);
+      // SHA matches were handled above; a nearby watch surf can be a separate session.
+      target = null;
     }
     const { data: existingTrack, error: existingTrackError } = target?.hasTrack && !linkedTrack
       ? await userClient.from("session_tracks")
         .select("session_id, import_id, user_arrival_time, user_duration_minutes, user_wave_count")
         .eq("session_id", target.sessionId).maybeSingle()
-      : { data: linkedTrack, error: null };
+      : { data: target ? linkedTrack : null, error: null };
     checkError(existingTrackError);
     const attached = existingTrack
       ? existingTrack.user_arrival_time != null || existingTrack.user_duration_minutes != null
@@ -259,6 +282,7 @@ export async function processImport(
     }
     checkError(claimError);
 
+    const watchWaves = isWatch ? detectWaves(track, summary, beach) : null;
     const timing = { arrival_time: summary.inWaterStart, duration_minutes: Math.round((endMs - startMs) / 60000) };
     let sessionTimingUpdate: (typeof timing & { status?: "completed" }) | null = null;
     let sessionId: string;
@@ -278,7 +302,10 @@ export async function processImport(
       sessionTimingUpdate = { ...timing, ...(session.status === "planned" ? { status: "completed" } : {}) };
     } else {
       const { data: session, error } = await userClient.from("sessions").insert({
-        user_id: userId, status: "completed", is_public: false, source: "file_import",
+        user_id: userId, status: "completed",
+        is_public: isWatch && spanS >= 600 && watchWaves!.some(wave => wave.confidence >= COUNT_MIN_CONFIDENCE),
+        source: isWatch ? "garmin_watch" : "file_import",
+        ...(isWatch ? { rating: track.extras?.rating ?? null } : {}),
         ...timing, beach_id: beach.id, beach_name: beach.name,
       }).select("id").single();
       checkError(error);
@@ -288,18 +315,28 @@ export async function processImport(
     }
 
     const waves = existingTrack
-      ? detectWaves(track, summary, beach)
-      : await persistDetection(serviceClient, sessionId, userId, track, summary, beach);
+      ? watchWaves ?? detectWaves(track, summary, beach)
+      : await persistDetection(serviceClient, sessionId, userId, track, summary, beach, watchWaves ?? undefined);
     if (!existingTrack) {
       const persistedSummary = summarizeTrack(track, waves.map(wave => ({ start: wave.startedAt, end: wave.endedAt })));
+      const rideWindows = waves.filter(wave => wave.confidence >= COUNT_MIN_CONFIDENCE)
+        .map(wave => ({ start: wave.startedAt, end: wave.endedAt }));
+      const hr = heartRateStats(track, summary);
       await insertSessionTrack(serviceClient, {
         sessionId, userId, importId, storagePath: imported.storage_path, format: track.meta.format,
         sha256, track, summary: persistedSummary, userArrivalTime, userDurationMinutes, timingFromTrack: true,
+        paddleDistanceM: paddleDistanceM(track, summary, rideWindows), hrAvg: hr?.avg ?? null, hrMax: hr?.max ?? null,
+        sourceDevice: isWatch ? track.extras?.deviceName ?? null : null,
       });
     }
     if (sessionTimingUpdate) {
       const { error } = await userClient.from("sessions").update(sessionTimingUpdate)
         .eq("id", sessionId).eq("user_id", userId).is("deleted_at", null);
+      checkError(error);
+    }
+    if (isWatch && attached && track.extras?.rating != null) {
+      const { error } = await userClient.from("sessions").update({ rating: track.extras.rating })
+        .eq("id", sessionId).eq("user_id", userId).is("deleted_at", null).is("rating", null);
       checkError(error);
     }
     if (summary.waterTempC !== null) {
@@ -317,9 +354,10 @@ export async function processImport(
     if (!attached && !wasCompleted) {
       await emitSessionCreatedEvent(userClient, {
         session: { id: sessionId, beach_id: beach.id }, userId,
-        source: "web-file-import", surface: "web-file-import",
+        source: isWatch ? "garmin-watch" : "web-file-import",
+        surface: isWatch ? "garmin-watch" : "web-file-import",
         metadata: {
-          is_historical: startMs + timing.duration_minutes * 60000 < now.getTime() - 48 * 3600000,
+          is_historical: !isWatch && startMs + timing.duration_minutes * 60000 < now.getTime() - 48 * 3600000,
           wave_count: wavesSummary.waveCount, gps_coverage: summary.gpsCoverage, format: track.meta.format,
           recorded_by_family: track.meta.recordedBy?.split(/\s+/)[0] ?? "unknown",
         },

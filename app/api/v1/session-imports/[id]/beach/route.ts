@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { createErrorResponse, createSuccessResponse, handleApiError } from "@/lib/api-utils";
-import { isSessionImportsUserAllowed } from "@/lib/flags/session-imports";
+import { canViewSessionWaves } from "@/lib/sessions/waves/waves-access";
 import { withAuth, withNoStore, withRateLimit } from "@/lib/middleware/api-wrappers";
 import { ImportNotFoundError, processImport } from "@/lib/sessions/imports/process-import";
 import { TrackFileError } from "@/lib/sessions/tracks/types";
@@ -11,7 +11,7 @@ export const maxDuration = 60;
 const schema = z.object({ beachId: z.uuid() });
 
 export const POST = withNoStore(withRateLimit(withAuth(async (request, { user, supabase, params }) => {
-  if (!isSessionImportsUserAllowed(user.id) || !z.uuid().safeParse(params.id).success) {
+  if (!canViewSessionWaves(user.id) || !z.uuid().safeParse(params.id).success) {
     return createErrorResponse("not_found", undefined, 404);
   }
   const { data: imported, error } = await supabase.from("session_imports")
