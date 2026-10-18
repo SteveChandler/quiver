@@ -413,8 +413,9 @@ describe("session tracks purge cron", () => {
 
   it("orders every batch selector by purge request with nulls last, then creation time", async () => {
     await run();
-    expect(mockSelections).toHaveLength(8);
-    for (const selection of mockSelections) {
+    const selections = mockSelections.filter(selection => selection.table !== "watch_link_codes");
+    expect(selections).toHaveLength(8);
+    for (const selection of selections) {
       expect(selection.orders).toEqual([
         { column: "purge_requested_at", ascending: true, nullsFirst: false },
         { column: "created_at", ascending: true, nullsFirst: false },
@@ -467,6 +468,30 @@ describe("session tracks purge cron", () => {
     expect((await run()).body.data.result).toMatchObject({ purgedUploads: 100, errors: 0 });
     expect(mockRows.watch_uploads.map(row => row.id)).toEqual(["surf-99", "surf-100"]);
     expect(mockList).toHaveBeenNthCalledWith(1, "requested/owner/chunks", expect.anything());
+  });
+
+  it("leaves the upload retryable after twenty pages when storage removal makes no progress", async () => {
+    mockRows.watch_uploads = [{ id: "surf", user_id: "owner", created_at: old, purge_requested_at: null }];
+    const page = Array.from({ length: 100 }, (_, i) => ({ name: `${i}.json` }));
+    for (let i = 0; i < 21; i++) mockList.mockResolvedValueOnce({ data: page, error: null });
+    expect((await run()).body.data.result).toMatchObject({ purgedUploads: 0, errors: 0 });
+    expect(mockList).toHaveBeenCalledTimes(20);
+    expect(mockRemove).toHaveBeenCalledTimes(20);
+    expect(mockRows.watch_uploads.map(row => row.id)).toEqual(["surf"]);
+    expect(mockEvents).not.toContain("delete:watch_uploads:surf");
+    expect((await run()).body.data.result).toMatchObject({ purgedUploads: 1, errors: 0 });
+    expect(mockRows.watch_uploads).toHaveLength(0);
+  });
+
+  it("bounds confirmed and expired link-code deletion to one hundred ids each", async () => {
+    mockRows.watch_link_codes = Array.from({ length: 105 }, (_, i) => [
+      { id: `confirmed-${i}`, confirmed_at: old, expires_at: old },
+      { id: `expired-${i}`, confirmed_at: null, expires_at: old },
+    ]).flat();
+    expect((await run()).body.data.result).toMatchObject({ purgedLinkCodes: 200, errors: 0 });
+    expect(mockRows.watch_link_codes).toHaveLength(10);
+    expect((await run()).body.data.result).toMatchObject({ purgedLinkCodes: 10, errors: 0 });
+    expect(mockRows.watch_link_codes).toHaveLength(0);
   });
 
   it.each(["list", "remove"])("retains upload rows when storage %s fails and retries later", async failure => {

@@ -16,6 +16,7 @@ export const maxDuration = 300;
 const ROUTE = "/api/cron/session-tracks-purge";
 const BUCKET = "session-tracks";
 const BATCH_SIZE = 100;
+const MAX_CHUNK_PAGES = 20;
 const RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 
 type Client = ReturnType<typeof createSupabaseServiceRoleClient>;
@@ -234,15 +235,23 @@ async function purgeWatchUploads(client: Client, now: Date, result: PurgeResult)
   for (const upload of uploads) {
     try {
       const prefix = `${upload.id}/${upload.user_id}/chunks`;
-      while (true) {
+      let chunksRemoved = false;
+      for (let page = 0; page < MAX_CHUNK_PAGES; page += 1) {
         // Removing a page shifts the remaining objects back to offset zero.
         const listed = await bucket.list(prefix, { limit: BATCH_SIZE, offset: 0, sortBy: { column: "name", order: "asc" } });
         const objects = checkedRows(listed.data, listed.error, "watch chunks");
-        if (objects.length === 0) break;
+        if (objects.length === 0) {
+          chunksRemoved = true;
+          break;
+        }
         const { error } = await bucket.remove(objects.map(object => `${prefix}/${object.name}`));
         if (error) throw error;
-        if (objects.length < BATCH_SIZE) break;
+        if (objects.length < BATCH_SIZE) {
+          chunksRemoved = true;
+          break;
+        }
       }
+      if (!chunksRemoved) continue;
       const { error } = await client.from("watch_uploads").delete().eq("id", upload.id).eq("user_id", upload.user_id);
       if (error) throw error;
       result.purgedUploads += 1;
@@ -252,12 +261,25 @@ async function purgeWatchUploads(client: Client, now: Date, result: PurgeResult)
     }
   }
 
-  const confirmed = await client.from("watch_link_codes").delete()
-    .lt("confirmed_at", new Date(now.getTime() - RETENTION_MS).toISOString()).select("id");
-  result.purgedLinkCodes += checkedRows(confirmed.data, confirmed.error, "confirmed watch link codes").length;
-  const expired = await client.from("watch_link_codes").delete().is("confirmed_at", null)
-    .lt("expires_at", new Date(now.getTime() - 86400000).toISOString()).select("id");
-  result.purgedLinkCodes += checkedRows(expired.data, expired.error, "expired watch link codes").length;
+  const confirmedCutoff = new Date(now.getTime() - RETENTION_MS).toISOString();
+  const confirmed = await client.from("watch_link_codes").select("id")
+    .lt("confirmed_at", confirmedCutoff).order("confirmed_at").limit(BATCH_SIZE);
+  const confirmedIds = checkedRows(confirmed.data, confirmed.error, "confirmed watch link codes").map(row => row.id);
+  if (confirmedIds.length) {
+    const deleted = await client.from("watch_link_codes").delete().in("id", confirmedIds)
+      .lt("confirmed_at", confirmedCutoff).select("id");
+    result.purgedLinkCodes += checkedRows(deleted.data, deleted.error, "deleted confirmed watch link codes").length;
+  }
+
+  const expiredCutoff = new Date(now.getTime() - 86400000).toISOString();
+  const expired = await client.from("watch_link_codes").select("id").is("confirmed_at", null)
+    .lt("expires_at", expiredCutoff).order("expires_at").limit(BATCH_SIZE);
+  const expiredIds = checkedRows(expired.data, expired.error, "expired watch link codes").map(row => row.id);
+  if (expiredIds.length) {
+    const deleted = await client.from("watch_link_codes").delete().in("id", expiredIds).is("confirmed_at", null)
+      .lt("expires_at", expiredCutoff).select("id");
+    result.purgedLinkCodes += checkedRows(deleted.data, deleted.error, "deleted expired watch link codes").length;
+  }
 }
 
 async function runPurge(client: Client, now: Date): Promise<PurgeResult> {
