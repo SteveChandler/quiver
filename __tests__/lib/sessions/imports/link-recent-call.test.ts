@@ -8,7 +8,7 @@ const arrivalTime = "2026-10-18T12:00:00Z";
 const input = { userId: "user-1", sessionId: "session-1", beachId: "beach-1", arrivalTime };
 type Row = Record<string, any>;
 
-function service(events: Row[], session: Row, failTable?: string): SupabaseClient {
+function service(events: Row[], session: Row, failTable?: string, otherSessions: Row[] = []): SupabaseClient {
   return { from: (table: string) => {
     let mode = "select";
     let update: Row = {};
@@ -16,6 +16,8 @@ function service(events: Row[], session: Row, failTable?: string): SupabaseClien
     const query: any = {
       select: () => query,
       eq: (key: string, value: unknown) => { predicates.push(row => row[key] === value); return query; },
+      neq: (key: string, value: unknown) => { predicates.push(row => row[key] !== value); return query; },
+      in: (key: string, values: unknown[]) => { predicates.push(row => values.includes(row[key])); return query; },
       is: (key: string, value: unknown) => { predicates.push(row => (row[key] ?? null) === value); return query; },
       gte: (key: string, value: string) => { predicates.push(row => row[key] >= value); return query; },
       lte: (key: string, value: string) => { predicates.push(row => row[key] <= value); return query; },
@@ -28,7 +30,7 @@ function service(events: Row[], session: Row, failTable?: string): SupabaseClien
       },
       then: (resolve: (value: unknown) => void) => {
         if (table === failTable) return Promise.resolve({ data: null, error: { message: "db failed" } }).then(resolve);
-        const rows = (table === "user_events" ? events : [session]).filter(row => predicates.every(test => test(row)));
+        const rows = (table === "user_events" ? events : [session, ...otherSessions]).filter(row => predicates.every(test => test(row)));
         if (mode === "update") rows.forEach(row => Object.assign(row, update));
         return Promise.resolve({ data: rows, error: null }).then(resolve);
       },
@@ -42,7 +44,7 @@ const exposure = (callId: string, createdAt: string, forecastAt: string, beachId
   metadata: { call_id: callId, forecast_at: forecastAt, is_personal: true },
 });
 
-it("links the newest qualifying exposure and ignores wrong beach, age, and forecast offset", async () => {
+it("links the nearest forecast instead of the newest exposure and ignores wrong beach, age, and forecast offset", async () => {
   const session = { id: "session-1", user_id: "user-1", call_id: null };
   const events = [
     exposure("wrong-beach", "2026-10-18T11:55:00Z", arrivalTime, "beach-2"),
@@ -51,8 +53,39 @@ it("links the newest qualifying exposure and ignores wrong beach, age, and forec
     exposure("older-valid", "2026-10-18T09:00:00Z", arrivalTime),
     exposure("too-old", "2026-10-16T23:00:00Z", arrivalTime),
   ];
-  expect(await linkRecentCall(service(events, session), input)).toBe("newest-valid");
-  expect(session.call_id).toBe("newest-valid");
+  expect(await linkRecentCall(service(events, session), input)).toBe("older-valid");
+  expect(session.call_id).toBe("older-valid");
+});
+
+it("skips a call linked to another session of the same user", async () => {
+  const session = { id: "session-1", user_id: "user-1", call_id: null };
+  const events = [
+    exposure("used", "2026-10-18T11:30:00Z", arrivalTime),
+    exposure("available", "2026-10-18T11:00:00Z", "2026-10-18T13:00:00Z"),
+  ];
+  const otherSessions = [
+    { id: "session-2", user_id: "user-1", call_id: "used" },
+    { id: "other-user-session", user_id: "user-2", call_id: "available" },
+  ];
+  expect(await linkRecentCall(service(events, session, undefined, otherSessions), input)).toBe("available");
+  expect(session.call_id).toBe("available");
+  expect(otherSessions[0].call_id).toBe("used");
+});
+
+it("ignores non-personal exposures and exposures created after arrival", async () => {
+  const session = { id: "session-1", user_id: "user-1", call_id: null };
+  const nonPersonal = exposure("non-personal", "2026-10-18T11:00:00Z", arrivalTime);
+  nonPersonal.metadata.is_personal = false;
+  const events = [exposure("future", "2026-10-18T12:00:01Z", arrivalTime), nonPersonal];
+  expect(await linkRecentCall(service(events, session), input)).toBeNull();
+  expect(session.call_id).toBeNull();
+});
+
+it.each(["2026-10-18T09:00:00Z", "2026-10-18T15:00:00Z"])("includes exact 36-hour exposure and 3-hour forecast boundaries (%s)", async forecastAt => {
+  const session = { id: "session-1", user_id: "user-1", call_id: null };
+  const events = [exposure("boundary", "2026-10-17T00:00:00.000Z", forecastAt)];
+  expect(await linkRecentCall(service(events, session), input)).toBe("boundary");
+  expect(session.call_id).toBe("boundary");
 });
 
 it("preserves an existing session call", async () => {

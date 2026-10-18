@@ -19,6 +19,7 @@ export async function linkRecentCall(service: SupabaseClient, input: LinkInput):
       .order("created_at", { ascending: false });
     if (error) throw error;
 
+    const candidates: Array<{ callId: string; distanceMs: number }> = [];
     for (const event of events ?? []) {
       const metadata = event.metadata;
       if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) continue;
@@ -27,15 +28,26 @@ export async function linkRecentCall(service: SupabaseClient, input: LinkInput):
       const forecastAt = typeof metadata.forecast_at === "string" ? metadata.forecast_at
         : typeof metadata.selected_forecast_at === "string" ? metadata.selected_forecast_at : null;
       if (!callId || !forecastAt || !Number.isFinite(Date.parse(forecastAt))) continue;
-      if (Math.abs(Date.parse(forecastAt) - arrivalMs) > 3 * 60 * 60 * 1000) continue;
-
-      const { data: updated, error: updateError } = await service.from("sessions")
-        .update({ call_id: callId }).eq("id", input.sessionId).eq("user_id", input.userId)
-        .is("deleted_at", null).is("call_id", null).select("call_id").maybeSingle();
-      if (updateError) throw updateError;
-      return updated?.call_id ?? null;
+      const distanceMs = Math.abs(Date.parse(forecastAt) - arrivalMs);
+      if (distanceMs > 3 * 60 * 60 * 1000) continue;
+      candidates.push({ callId, distanceMs });
     }
-    return null;
+    if (!candidates.length) return null;
+
+    const { data: linkedSessions, error: linkedError } = await service.from("sessions")
+      .select("call_id").eq("user_id", input.userId).neq("id", input.sessionId)
+      .in("call_id", [...new Set(candidates.map(candidate => candidate.callId))]);
+    if (linkedError) throw linkedError;
+    const linkedCalls = new Set((linkedSessions ?? []).map(session => session.call_id));
+    const candidate = candidates.sort((a, b) => a.distanceMs - b.distanceMs)
+      .find(call => !linkedCalls.has(call.callId));
+    if (!candidate) return null;
+
+    const { data: updated, error: updateError } = await service.from("sessions")
+      .update({ call_id: candidate.callId }).eq("id", input.sessionId).eq("user_id", input.userId)
+      .is("deleted_at", null).is("call_id", null).select("call_id").maybeSingle();
+    if (updateError) throw updateError;
+    return updated?.call_id ?? null;
   } catch (error) {
     console.warn("[session_import] failed to link recent call:", error);
     return null;

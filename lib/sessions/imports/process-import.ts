@@ -287,20 +287,22 @@ export async function processImport(
     const timing = { arrival_time: summary.inWaterStart, duration_minutes: Math.round((endMs - startMs) / 60000) };
     let sessionTimingUpdate: (typeof timing & { status?: "completed" }) | null = null;
     let sessionId: string;
+    let sessionBeachId: string | null = beach.id;
     let userArrivalTime: string | null = null;
     let userDurationMinutes: number | null = null;
-    if (target && !attached) {
-      sessionId = target.sessionId;
-    } else if (target) {
+    if (target) {
       const { data: session, error } = await userClient.from("sessions")
-        .select("id, arrival_time, duration_minutes, status").eq("id", target.sessionId)
+        .select("id, beach_id, arrival_time, duration_minutes, status").eq("id", target.sessionId)
         .eq("user_id", userId).is("deleted_at", null).single();
       checkError(error);
       if (!session) throw new Error("Attach session not found");
       sessionId = session.id;
-      userArrivalTime = existingTrack ? existingTrack.user_arrival_time : session.arrival_time;
-      userDurationMinutes = existingTrack ? existingTrack.user_duration_minutes : session.duration_minutes;
-      sessionTimingUpdate = { ...timing, ...(session.status === "planned" ? { status: "completed" } : {}) };
+      sessionBeachId = session.beach_id;
+      if (attached) {
+        userArrivalTime = existingTrack ? existingTrack.user_arrival_time : session.arrival_time;
+        userDurationMinutes = existingTrack ? existingTrack.user_duration_minutes : session.duration_minutes;
+        sessionTimingUpdate = { ...timing, ...(session.status === "planned" ? { status: "completed" } : {}) };
+      }
     } else {
       const { data: session, error } = await userClient.from("sessions").insert({
         user_id: userId, status: "completed",
@@ -345,8 +347,8 @@ export async function processImport(
         .eq("id", sessionId).eq("user_id", userId).is("deleted_at", null).is("wave_height_ft", null);
       checkError(error);
     }
-    if (isWatch) {
-      await linkRecentCall(serviceClient, { userId, sessionId, beachId: beach.id, arrivalTime: timing.arrival_time });
+    if (isWatch && sessionBeachId) {
+      await linkRecentCall(serviceClient, { userId, sessionId, beachId: sessionBeachId, arrivalTime: timing.arrival_time });
     }
     if (summary.waterTempC !== null) {
       const { error } = await userClient.from("sessions").update({
