@@ -34,7 +34,7 @@ export function withWatchAuth(
       if (error) throw error;
       if (!device) return createErrorResponse("unauthorized", undefined, 401);
       if (!isGarminWatchUserAllowed(device.user_id)) {
-        return createErrorResponse("not_found", undefined, 404);
+        return createErrorResponse("unavailable", undefined, 503);
       }
 
       const now = Date.now();

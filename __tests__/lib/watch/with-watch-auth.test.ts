@@ -101,11 +101,12 @@ it.each(["Bearer", "bearer"])("accepts %s and passes the device, user, service c
   expect(query.update).not.toHaveBeenCalled();
 });
 
-it("hides devices whose user is not allowlisted", async () => {
-  process.env.GARMIN_WATCH_USER_ALLOWLIST = "someone-else";
+it.each(["flag off", "not allowlisted"])("keeps valid watch uploads retryable when %s", async state => {
+  if (state === "flag off") process.env.GARMIN_WATCH_ENABLED = "false";
+  else process.env.GARMIN_WATCH_USER_ALLOWLIST = "someone-else";
   const response = await route(request(`Bearer ${token}`), context);
-  expect(response.status).toBe(404);
-  expect(await response.json()).toMatchObject({ success: false, error: "not_found" });
+  expect(response.status).toBe(503);
+  expect(await response.json()).toMatchObject({ success: false, error: "unavailable" });
   expect(handler).not.toHaveBeenCalled();
   expect(query.update).not.toHaveBeenCalled();
 });
