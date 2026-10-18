@@ -10,6 +10,7 @@ import {
 } from "@/lib/services/water-quality/rainfall-runoff";
 import { runRainfallRunoffIngest } from "@/lib/services/water-quality/rainfall-runoff-ingest";
 import { withRainfallNotice } from "@/lib/services/water-quality/rainfall-runoff-read";
+import { rainAdvisoryEventSchema } from "@/lib/services/water-quality/rain-advisory-events";
 import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 
 const windowEnd = new Date("2026-10-12T18:00:00Z");
@@ -53,7 +54,7 @@ describe("rainClusterFor", () => {
 describe("stationRainfall", () => {
   it("sums routine reports inside the 72 h window", () => {
     const result = stationRainfall(hourly("KLGB", { 0: 0.05, 10: 0.23, 71: 0.02 }), windowEnd);
-    expect(result).toEqual({ total_in: 0.3, hours: 72 });
+    expect(result).toEqual({ total_in: 0.3, hours: 72, last_rain_at: hourly("KLGB")[0].reportTime });
   });
 
   it("ignores SPECI reports, which repeat the running hourly total", () => {
@@ -80,21 +81,30 @@ describe("stationRainfall", () => {
 
   it("counts a corrected report for the same hour once", () => {
     const metars = [...hourly("KLGB", { 3: 0.1 }), { ...hourly("KLGB", { 3: 0.1 })[3], rawOb: "METAR KLGB COR AO2" }];
-    expect(stationRainfall(metars, windowEnd)).toEqual({ total_in: 0.1, hours: 72 });
+    expect(stationRainfall(metars, windowEnd)).toEqual({ total_in: 0.1, hours: 72, last_rain_at: metars[3].reportTime });
+  });
+
+  it("takes last rain only from counted routine non-trace, non-PNO reports", () => {
+    const metars = hourly("KLGB", { 0: 0.005, 1: 0.12, 2: 0.3 }).map((m, i) =>
+      i === 2 ? { ...m, rawOb: `${m.rawOb} PNO` } : m);
+    metars.push({ ...hourly("KLGB", { 0: 0.5 })[0], metarType: "SPECI" });
+    expect(stationRainfall(metars, windowEnd)).toMatchObject({ total_in: 0.12,
+      last_rain_at: metars[1].reportTime });
+    expect(stationRainfall(hourly("KLGB", { 0: 0.005 }), windowEnd).last_rain_at).toBeNull();
   });
 });
 
 describe("clusterRainfall", () => {
   it("uses the wetter station", () => {
-    expect(clusterRainfall({ KLGB: { total_in: 0.38, hours: 72 }, KSNA: { total_in: 0.17, hours: 72 } })).toBe(0.38);
+    expect(clusterRainfall({ KLGB: { total_in: 0.38, hours: 72, last_rain_at: null }, KSNA: { total_in: 0.17, hours: 72, last_rain_at: null } })).toBe(0.38);
   });
 
   it("drops a station missing more than 6 hours", () => {
-    expect(clusterRainfall({ KLGB: { total_in: 0.38, hours: 60 }, KSNA: { total_in: 0.17, hours: 70 } })).toBe(0.17);
+    expect(clusterRainfall({ KLGB: { total_in: 0.38, hours: 60, last_rain_at: null }, KSNA: { total_in: 0.17, hours: 70, last_rain_at: null } })).toBe(0.17);
   });
 
   it("returns null when no station is usable", () => {
-    expect(clusterRainfall({ KLGB: { total_in: 0.38, hours: 20 } })).toBeNull();
+    expect(clusterRainfall({ KLGB: { total_in: 0.38, hours: 20, last_rain_at: null } })).toBeNull();
   });
 });
 
@@ -214,16 +224,43 @@ describe("runRainfallRunoffIngest", () => {
     expect(result.skipped).toContain("santa_barbara");
     expectConsoleWarnings([/KSBA unavailable/]);
   });
+
+  it("does not confirm dry when a cluster station is missing or under the hours floor", async () => {
+    const missing = await runRainfallRunoffIngest({ now: windowEnd,
+      fetchMetars: async (icao) => { if (icao === "KCRQ") throw new Error("offline"); return hourly(icao); },
+      writeReadings: async () => undefined });
+    expect(missing.signals.find((signal) => signal.region === "san_diego")).toMatchObject({ dryConfirmed: false, totalIn: 0 });
+    expectConsoleWarnings([/KCRQ unavailable/]);
+    const short = await runRainfallRunoffIngest({ now: windowEnd,
+      fetchMetars: async (icao) => hourly(icao, {}, icao === "KCRQ" ? 30 : 72),
+      writeReadings: async () => undefined });
+    expect(short.signals.find((signal) => signal.region === "san_diego")).toMatchObject({ dryConfirmed: false, totalIn: 0 });
+  });
+
+  it("lets the usable stations confirm dry outside San Diego, but any fetched rain blocks it", async () => {
+    const gappy = await runRainfallRunoffIngest({ now: windowEnd,
+      fetchMetars: async (icao) => hourly(icao, {}, icao === "KNFG" ? 30 : 72),
+      writeReadings: async () => undefined });
+    expect(gappy.signals.find((signal) => signal.region === "laguna_san_clemente")).toMatchObject({ dryConfirmed: true });
+    const wetGap = await runRainfallRunoffIngest({ now: windowEnd,
+      fetchMetars: async (icao) => hourly(icao, icao === "KNFG" ? { 2: 0.05 } : {}, icao === "KNFG" ? 30 : 72),
+      writeReadings: async () => undefined });
+    expect(wetGap.signals.find((signal) => signal.region === "laguna_san_clemente")).toMatchObject({ dryConfirmed: false });
+  });
 });
 
 describe("withRainfallNotice", () => {
-  function client(readings: unknown[], error: unknown = null) {
-    interface Query { select: jest.Mock; gte: jest.Mock; order: jest.Mock; then: (resolve: (v: unknown) => unknown) => Promise<unknown> }
-    const query: Query = {
-      select: jest.fn(() => query), gte: jest.fn(() => query), order: jest.fn(() => query),
-      then: (resolve: (v: unknown) => unknown) => Promise.resolve({ data: readings, error }).then(resolve),
-    };
-    return { from: jest.fn(() => query) };
+  function client(readings: unknown[], error: unknown = null, events: unknown[] | null = null) {
+    return { from: jest.fn((table: string) => {
+      interface Query { select: jest.Mock; eq: jest.Mock; gte: jest.Mock; order: jest.Mock; then: (resolve: (v: unknown) => unknown) => Promise<unknown> }
+      const query: Query = {
+        select: jest.fn(() => query), eq: jest.fn(() => query), gte: jest.fn(() => query), order: jest.fn(() => query),
+        then: (resolve: (v: unknown) => unknown) => Promise.resolve(table === "rain_advisory_events"
+          ? { data: events, error: events === null ? { code: "42P01" } : null }
+          : { data: readings, error }).then(resolve),
+      };
+      return query;
+    }) };
   }
   const huntington = { id: "b1", lat: 33.655, lon: -118.005 };
   const pacific = { id: "b2", lat: 32.797, lon: -117.257 };
@@ -237,10 +274,29 @@ describe("withRainfallNotice", () => {
   });
 
   it("returns rows unchanged when the read fails", async () => {
-    const rows = [{ beach_id: "b1", status: "good" }];
+    const rows = [{ beach_id: "b1", status: "good", status_reason: null as string | null }];
     const out = await withRainfallNotice(rows, [huntington], client([], { message: "down" }) as never, now);
     expect(out).toEqual(rows);
     expectConsoleWarnings([/readings unavailable/]);
+  });
+
+  it("uses active stored events, and suppresses wet readings when the event table has none", async () => {
+    const stored = rainAdvisoryEventSchema.parse({ id: "99999999-9999-4999-8999-999999999999",
+      region: "huntington_newport", source: "metar_runoff", status: "active",
+      started_at: "2026-10-12T10:00:00Z", last_rain_at: "2026-10-12T12:00:00Z",
+      expires_at: "2026-10-15T12:00:00Z", ended_at: null, end_reason: null,
+      sources: { metar: { stations: ["KLGB", "KSNA"], total_in: 0.38, window_end: windowEnd.toISOString() } },
+      created_at: "2026-10-12T10:00:00Z", updated_at: "2026-10-12T12:00:00Z" });
+    const rows = [{ beach_id: "b1", status: "good", status_reason: null as string | null }];
+    const active = await withRainfallNotice(rows, [huntington], client([reading(0.38)], null, [stored]) as never, now);
+    expect(active[0]).toMatchObject({ status: "advisory", rain_runoff: {
+      started_at: stored.started_at, last_rain_at: stored.last_rain_at, expires_at: stored.expires_at } });
+    expect(active[0].status_reason).not.toMatch(/0\.38|last 72 hours/);
+    expect(await withRainfallNotice(rows, [huntington], client([reading(0.38)], null, []) as never, now)).toEqual(rows);
+    const pastExpiry = { ...stored, started_at: "2026-10-09T19:00:00Z",
+      last_rain_at: "2026-10-09T18:00:00Z", expires_at: "2026-10-12T18:00:00Z" };
+    expect((await withRainfallNotice(rows, [huntington], client([], null, [pastExpiry]) as never, now))[0].status)
+      .toBe("advisory");
   });
 
   it("skips the read when no beach is in a rain cluster", async () => {

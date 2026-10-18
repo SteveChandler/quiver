@@ -170,11 +170,22 @@ describe("current county water-quality contract", () => {
     expect(uncovered).toEqual({ ...row, beach_id: other, status: "good" });
   });
 
+  it("projects active County event times only onto general advisory rows", () => {
+    const { run: rainRun, notices } = generalAdvisory();
+    const event = { id: "99999999-9999-4999-8999-999999999999", status: "active" as const,
+      startedAt: "2026-09-03T00:00:00Z", lastRainAt: null, expiresAt: "2026-09-06T00:00:00Z" };
+    const [general] = project([{ ...row, status: "good" }], { run: rainRun, notices,
+      generalAdvisory: { general: true, expired: false, streakStartedAt: event.startedAt,
+        siteIdentifiers: new Set<string>(), rainState: null, event } });
+    expect(general.county_rain_advisory).toEqual({ started_at: event.startedAt,
+      last_rain_at: null, expires_at: event.expiresAt });
+  });
+
   it("removes an expired general-only status while preserving site advisories and owner holds", () => {
     const { run: rainRun, notices } = generalAdvisory([{ ...notice, source_site_identifier: "shipwrecks", beach_id: blacks,
       county_latitude: 32.887, county_longitude: -117.252 }]);
     const resolvedGeneral = { general: true, expired: true, streakStartedAt: "2026-09-01T03:00:00Z", rainState: "dry" as const,
-      siteIdentifiers: new Set(["shipwrecks"]) };
+      siteIdentifiers: new Set(["shipwrecks"]), event: null };
     const [shores, site] = project([{ ...row, status: "good" }, { ...row, beach_id: blacks }],
       { run: rainRun, notices, generalAdvisory: resolvedGeneral });
     expect(shores).toMatchObject({ status: "unknown", county_general_expired: true });

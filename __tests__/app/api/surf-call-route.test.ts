@@ -269,6 +269,19 @@ describe("GET /api/surf/call", () => {
     expect(mockResolveWaterQualityHolds).toHaveBeenCalledTimes(1);
   });
 
+  it("adds rain timing only to County general hold evidence", async () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    const rainAdvisory = { startedAt: "2026-10-12T18:00:00Z", lastRainAt: null,
+      expiresAt: "2026-10-15T18:00:00Z" };
+    mockBeachQuery({ id: beachId, name: "Ocean Beach Pier", slug: "ocean-beach-pier",
+      lat: 32.75, lon: -117.25, timezone: "America/Los_Angeles", deleted_at: null });
+    mockResolveWaterQualityHolds.mockResolvedValueOnce({ state: "resolved", heldBeachIds: [beachId],
+      waterQualityStatusByBeachId: { [beachId]: "advisory" }, epoch: "rain",
+      waterQualityEvidenceByBeachId: { [beachId]: { source: "county", countyKind: "general", rainAdvisory } } });
+    const response = await GET(new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}`));
+    expect((await response.json()).data.waterQuality).toMatchObject({ source: "county", countyKind: "general", rainAdvisory });
+  });
+
   it("returns null for an unheld or unresolved beach", async () => {
     const beachId = "11111111-1111-4111-8111-111111111111";
     mockBeachQuery({ id: beachId, name: "Ocean Beach Pier", slug: "ocean-beach-pier", lat: 32.75, lon: -117.25, timezone: "America/Los_Angeles", deleted_at: null });

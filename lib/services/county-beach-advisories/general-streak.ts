@@ -4,11 +4,14 @@ import { z } from "zod";
 import {
   supportsCountyAdvisoryQuery,
   supportsCountyRainQuery,
+  supportsCountyRunQuery,
   supportsCountyStreakQuery,
   type WaterQualityHoldClient,
 } from "@/lib/recommendations/major-event-hold/water-quality";
 import { memoizedWaterQualityRead } from "@/lib/recommendations/major-event-hold/read-scope";
 import { COUNTY_RAIN_CLUSTER, RAIN_READING_MAX_AGE_MS } from "@/lib/services/water-quality/rainfall-runoff";
+import { RAIN_ADVISORY_EVENTS_TABLE, rainAdvisoryEventSchema } from "@/lib/services/water-quality/rain-advisory-events";
+import type { RainAdvisoryEvent } from "@/lib/services/water-quality/rain-advisory-events";
 import {
   COUNTY_FEED_SOURCE_IDENTIFIER,
   COUNTY_GENERAL_ADVISORY_MIN_SITES,
@@ -21,6 +24,7 @@ export interface CountyGeneralAdvisory {
   streakStartedAt: string | null;
   siteIdentifiers: ReadonlySet<string> | null;
   rainState: "dry" | "wet" | "unknown" | null;
+  event: { id: string; status: "active" | "ended"; startedAt: string; lastRainAt: string | null; expiresAt: string } | null;
 }
 
 const runColumns = "id, fetched_at, advisory_count";
@@ -42,8 +46,25 @@ const rainSchema = z.object({
 });
 
 const unknownGeneral: CountyGeneralAdvisory = {
-  general: true, expired: false, streakStartedAt: null, siteIdentifiers: null, rainState: null,
+  general: true, expired: false, streakStartedAt: null, siteIdentifiers: null, rainState: null, event: null,
 };
+
+async function latestSanDiegoEvent(client: WaterQualityHoldClient): Promise<RainAdvisoryEvent | null> {
+  try {
+    const query: unknown = client.from(RAIN_ADVISORY_EVENTS_TABLE).select("*");
+    if (!supportsCountyRunQuery(query)) return null;
+    const { data, error } = await memoizedWaterQualityRead(
+      client,
+      "county-general|rain-event|san_diego|latest",
+      () => query.eq("region", COUNTY_RAIN_CLUSTER.id).order("started_at", { ascending: false }).limit(1),
+    );
+    if (error || !Array.isArray(data) || !data[0]) return null;
+    const parsed = rainAdvisoryEventSchema.safeParse(data[0]);
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
 
 async function readSanDiegoRainState(
   client: WaterQualityHoldClient,
@@ -87,7 +108,7 @@ export async function resolveCountyGeneralAdvisory(
   now: Date,
 ): Promise<CountyGeneralAdvisory> {
   if (latestRun.advisory_count < COUNTY_GENERAL_ADVISORY_MIN_SITES) {
-    return { general: false, expired: false, streakStartedAt: null, siteIdentifiers: null, rainState: null };
+    return { general: false, expired: false, streakStartedAt: null, siteIdentifiers: null, rainState: null, event: null };
   }
 
   try {
@@ -136,6 +157,17 @@ export async function resolveCountyGeneralAdvisory(
       .map((notice) => notice.source_site_identifier);
     if (advisorySites.length !== baseline.data.advisory_count
       || new Set(advisorySites).size !== advisorySites.length) return unknownGeneral;
+    const eventRow = await latestSanDiegoEvent(client);
+    const event = eventRow ? { id: eventRow.id, status: eventRow.status,
+      startedAt: eventRow.started_at, lastRainAt: eventRow.last_rain_at, expiresAt: eventRow.expires_at } : null;
+    if (eventRow?.status === "active") {
+      return { general: true, expired: false, streakStartedAt: first.data.fetched_at,
+        siteIdentifiers: new Set(advisorySites), rainState: null, event };
+    }
+    if (eventRow?.status === "ended" && Date.parse(eventRow.started_at) >= Date.parse(first.data.fetched_at)) {
+      return { general: true, expired: true, streakStartedAt: first.data.fetched_at,
+        siteIdentifiers: new Set(advisorySites), rainState: null, event };
+    }
     const elapsed = now.getTime() - Date.parse(first.data.fetched_at);
     const rainState = elapsed >= COUNTY_GENERAL_ADVISORY_TTL_MS
       ? await readSanDiegoRainState(client, now) : null;
@@ -145,6 +177,7 @@ export async function resolveCountyGeneralAdvisory(
       streakStartedAt: first.data.fetched_at,
       siteIdentifiers: new Set(advisorySites),
       rainState,
+      event: null,
     };
   } catch {
     return unknownGeneral;
