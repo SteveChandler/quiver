@@ -50,6 +50,7 @@ import { cn } from "@/lib/utils";
 
 import { FeedHighlight } from "@/components/profile/FeedHighlight";
 import { SetHomeBreakCta } from "@/components/profile/set-home-break-cta";
+import { GarminWatchSection } from "@/components/garmin/garmin-watch-section";
 
 const PROFILE_TAB_BASE_CLASS =
   "profile-zine-tab-trigger min-h-12 rounded-sm border font-heading text-xs font-bold uppercase transition-colors sm:text-sm";
@@ -655,6 +656,7 @@ function ProfileViewContent() {
                     >
                       <SurfProfileSection />
                     </Suspense>
+                    {user?.id === profile?.id && <GarminWatchSection isOwner />}
                     <Suspense
                       fallback={<ProfileTabLoadingSkeleton type="Removed photos" />}
                     >

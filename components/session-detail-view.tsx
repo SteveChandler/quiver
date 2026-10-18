@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -103,6 +103,11 @@ export function SessionDetailView({ id, sharedPreview = null }: SessionDetailVie
     useState<FirstTouchPlatform>("desktop");
   const [sessionPhotos, setSessionPhotos] = useState<SessionPhoto[]>([]);
   const [photosLoading, setPhotosLoading] = useState(false);
+  const [waveRecording, setWaveRecording] = useState<{ sessionId: string; recordedWith: string | null } | null>(null);
+  const handleRecordedWith = useCallback((recordedWith: string | null): void => {
+    setWaveRecording((previous) => previous?.sessionId === id && previous.recordedWith === recordedWith
+      ? previous : { sessionId: id, recordedWith });
+  }, [id]);
 
   useEffect(() => {
     setNativeCtaPlatform(getFirstTouchPlatform());
@@ -537,7 +542,7 @@ export function SessionDetailView({ id, sharedPreview = null }: SessionDetailVie
                 <CardContent className="p-4 flex items-center gap-3">
                   <Thermometer className="h-6 w-6 text-primary" />
                   <div>
-                    <p className="text-sm text-muted-foreground">Water Temp</p>
+                    <p className="text-sm text-muted-foreground">Water Temp{waveRecording?.sessionId === id && waveRecording.recordedWith?.startsWith("Quiver for Garmin") ? " (session median)" : ""}</p>
                     <p className="font-medium">{session.water_temp}</p>
                   </div>
                 </CardContent>
@@ -637,7 +642,7 @@ export function SessionDetailView({ id, sharedPreview = null }: SessionDetailVie
           </div>
         </div>
 
-        {user?.id === session.user_id && session.has_track && <SessionWavesSection sessionId={id} />}
+        {user?.id === session.user_id && session.has_track && <SessionWavesSection sessionId={id} onRecordedWith={handleRecordedWith} />}
 
         {/* Forecast Comparison */}
         {session.forecast_snapshot && (() => {

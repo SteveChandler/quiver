@@ -285,6 +285,9 @@ export default function PrivacyPage() {
             <p className="mt-2 text-sm leading-relaxed text-[#11100D]/72 sm:text-base">
               {annexes.surfSessions.intro}
             </p>
+            <p className="mt-3 text-sm leading-relaxed text-[#11100D]/72 sm:text-base">
+              Garmin watch surfs may include a GPS track, heart rate, water temperature, device model, and an app-specific device ID. We store this watch data privately; GPS tracks are visible only to the account owner.
+            </p>
             <div className="mt-5 space-y-6">
               {annexes.surfSessions.sections.map((section, index) => (
                 <div key={index}>

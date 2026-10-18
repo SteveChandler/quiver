@@ -17,6 +17,7 @@ const SessionRideMap = dynamic(
 
 interface SessionWavesSectionProps {
   sessionId: string;
+  onRecordedWith?: (recordedWith: string | null) => void;
 }
 
 function formatSpeed(mps: number): string {
@@ -37,7 +38,7 @@ async function patchSummary(url: string, body: object): Promise<WavesSummary> {
   return envelope.data.summary as WavesSummary;
 }
 
-export function SessionWavesSection({ sessionId }: SessionWavesSectionProps) {
+export function SessionWavesSection({ sessionId, onRecordedWith }: SessionWavesSectionProps) {
   const { data } = useSessionWaves(sessionId);
   const { track } = useTrackEvent();
   const trackedRef = useRef(false);
@@ -61,6 +62,11 @@ export function SessionWavesSection({ sessionId }: SessionWavesSectionProps) {
     trackedRef.current = true;
     void track("session_waves_viewed", { metadata: { session_id: sessionId } });
   }, [data, sessionId, track]);
+
+  useEffect(() => {
+    if (!response) return;
+    onRecordedWith?.(response.summary.recordedWith ?? null);
+  }, [response, onRecordedWith]);
 
   if (!response) return null;
 
@@ -160,6 +166,26 @@ export function SessionWavesSection({ sessionId }: SessionWavesSectionProps) {
           <div className="rounded-lg border border-ink/20 bg-white/60 p-4">
             <p className="text-sm text-ink/70">Top speed</p>
             <p className="font-mono text-lg font-bold text-ink">{summary.topSpeedMps === null ? "—" : formatSpeed(summary.topSpeedMps)}</p>
+          </div>
+        )}
+        {summary.paddleDistanceM != null && (
+          <div className="rounded-lg border border-ink/20 bg-white/60 p-4">
+            <p className="font-mono text-lg font-bold text-ink">About {(summary.paddleDistanceM / 1000).toFixed(1)} km paddled</p>
+          </div>
+        )}
+        {summary.heartRateAvg != null && summary.heartRateMax != null && (
+          <div className="rounded-lg border border-ink/20 bg-white/60 p-4">
+            <p className="font-mono text-lg font-bold text-ink">♥ avg {summary.heartRateAvg} · max {summary.heartRateMax}</p>
+          </div>
+        )}
+        {summary.setIntervalMin != null && (
+          <div className="rounded-lg border border-ink/20 bg-white/60 p-4">
+            <p className="font-mono text-lg font-bold text-ink">Sets about every {summary.setIntervalMin} min</p>
+          </div>
+        )}
+        {summary.recordedWith != null && (
+          <div className="rounded-lg border border-ink/20 bg-white/60 p-4">
+            <p className="font-mono text-sm font-semibold text-ink">{summary.recordedWith}</p>
           </div>
         )}
       </div>
