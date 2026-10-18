@@ -92,10 +92,13 @@ async function recipients(client: ReadClient, beaches: readonly Beach[]): Promis
   return profiles;
 }
 
-async function priorStartRecipients(client: ReadClient, eventId: string, profiles: readonly Profile[]): Promise<Set<string>> {
+/** Users already enqueued for this event phase (the dedupe key exists). */
+async function enqueuedRecipients(
+  client: ReadClient, eventId: string, phase: "start" | "end", profiles: readonly Profile[],
+): Promise<Set<string>> {
   const users = new Set<string>();
   for (const group of chunks(profiles)) {
-    const keys = group.map((profile) => `rain_advisory:${eventId}:start:${profile.id}`);
+    const keys = group.map((profile) => `rain_advisory:${eventId}:${phase}:${profile.id}`);
     const found = await rows(client.from("notification_events").select("recipient_user_id, dedupe_key")
       .eq("type", "water_quality").in("dedupe_key", keys));
     const expected = new Set(keys);
@@ -104,7 +107,7 @@ async function priorStartRecipients(client: ReadClient, eventId: string, profile
       const row = raw as { recipient_user_id?: unknown; dedupe_key?: unknown };
       if (typeof row.recipient_user_id === "string" && typeof row.dedupe_key === "string"
         && expected.has(row.dedupe_key)
-        && row.dedupe_key === `rain_advisory:${eventId}:start:${row.recipient_user_id}`) {
+        && row.dedupe_key === `rain_advisory:${eventId}:${phase}:${row.recipient_user_id}`) {
         users.add(row.recipient_user_id);
       }
     }
@@ -129,8 +132,11 @@ async function safeEndBeachIds(
   const byId = new Map(qualityRows.map((row) => [row.beach_id, row]));
   const projected = await currentWaterQuality(ids.map((id) => byId.get(id) ?? unsampledWaterQualityRow(id)),
     supabase as unknown as WaterQualityHoldClient, now);
-  if (event.region === "san_diego" && projected.some((row) => !row.county_advisory_status
-    || row.county_advisory_status === "unavailable")) {
+  // Owner-held rows come back untouched, and an expired general advisory marks
+  // rows county_general_expired; any other row without County status means the
+  // County projection did not apply, so no San Diego beach can be called clear.
+  if (event.region === "san_diego" && projected.some((row) => !held.has(row.beach_id)
+    && !row.county_advisory_status && !row.county_general_expired)) {
     throw new Error("County water-quality status unavailable");
   }
   const safe = new Set<string>();
@@ -170,9 +176,14 @@ export async function processRainAdvisoryPushes(
         try {
           const beaches = await regionBeaches(client, event);
           if (beaches.length === 0) continue;
-          const profiles = await recipients(client, beaches);
+          // The crons tick every 30 min for 24 h; skip users this phase already reached
+          // instead of re-inserting into the dedupe index each tick.
+          const eligible = await recipients(client, beaches);
+          const done = await enqueuedRecipients(client, event.id, phase, eligible);
+          const profiles = eligible.filter((profile) => !done.has(profile.id));
+          if (profiles.length === 0) continue;
           const beachById = new Map(beaches.map((beach) => [beach.id, beach]));
-          const startRecipients = phase === "end" ? await priorStartRecipients(client, event.id, profiles) : null;
+          const startRecipients = phase === "end" ? await enqueuedRecipients(client, event.id, "start", profiles) : null;
           const safeBeaches = phase === "end" && startRecipients!.size > 0
             ? await safeEndBeachIds(client, supabase, event, beaches, now) : null;
           for (const profile of profiles) {

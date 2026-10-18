@@ -96,9 +96,10 @@ it("enqueues one start per eligible home beach user and dedupes the next tick", 
   const first = await processRainAdvisoryPushes(client, now);
   const second = await processRainAdvisoryPushes(client, now);
   expect(first).toMatchObject({ status: "ok", started: { enqueued: 2, duplicates: 0 } });
-  expect(second).toMatchObject({ status: "ok", started: { enqueued: 0, duplicates: 2 } });
+  // The second tick finds both dedupe keys and enqueues nothing.
+  expect(second).toMatchObject({ status: "ok", started: { enqueued: 0, duplicates: 0 } });
   expect(jest.mocked(enqueueNotification).mock.calls.map(([args]) => args.recipientUserId)).toEqual([
-    "user-a", "user-b", "user-a", "user-b",
+    "user-a", "user-b",
   ]);
   expect(jest.mocked(enqueueNotification).mock.calls[0][0]).toMatchObject({
     type: "water_quality", dedupeKey: `rain_advisory:${eventId}:start:user-a`,
@@ -121,12 +122,23 @@ it("sends an all-clear only to users with a start, once", async () => {
   const first = await processRainAdvisoryPushes(client, now);
   const second = await processRainAdvisoryPushes(client, now);
   expect(first).toMatchObject({ status: "ok", ended: { enqueued: 1, duplicates: 0 } });
-  expect(second).toMatchObject({ status: "ok", ended: { enqueued: 0, duplicates: 1 } });
-  expect(jest.mocked(enqueueNotification).mock.calls.map(([args]) => args.recipientUserId)).toEqual(["user-a", "user-a"]);
+  expect(second).toMatchObject({ status: "ok", ended: { enqueued: 0, duplicates: 0 } });
+  expect(jest.mocked(enqueueNotification).mock.calls.map(([args]) => args.recipientUserId)).toEqual(["user-a"]);
   expect(jest.mocked(enqueueNotification).mock.calls[0][0]).toMatchObject({
     dedupeKey: `rain_advisory:${eventId}:end:user-a`,
     payload: { status: "good", previous_status: "advisory", rain_advisory: { phase: "end", end_reason: "dry_72h" } },
   });
+});
+
+it("sends San Diego all-clears while the County still lists the expired streak", async () => {
+  const ended = { ...baseEvent, status: "ended", ended_at: "2026-10-18T11:30:00Z", end_reason: "dry_72h" };
+  // After a dry end the projection marks general rows expired (no County status) and
+  // returns owner-held rows untouched; neither means the County read failed.
+  jest.mocked(currentWaterQuality).mockImplementation(async (rows) => rows.map((row) =>
+    row.beach_id === beachA ? { ...row } : { ...row, status: "unknown", county_general_expired: true }));
+  const { client } = fakeClient({ events: [ended], starts: ["user-a", "user-b"], held: [beachA] });
+  expect(await processRainAdvisoryPushes(client, now)).toMatchObject({ status: "ok", ended: { enqueued: 1 }, errors: [] });
+  expect(jest.mocked(enqueueNotification).mock.calls.map(([args]) => args.recipientUserId)).toEqual(["user-b"]);
 });
 
 it.each(["closure", "advisory"])("suppresses all-clear for County %s", async (status) => {
