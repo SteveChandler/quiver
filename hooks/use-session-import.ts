@@ -1,5 +1,6 @@
 "use client";
 
+import { importErrorCopy } from "@/components/garmin/import-error-copy";
 import { useCallback, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { ImportBeach } from "@/lib/sessions/imports/resolve-import-beach";
@@ -26,20 +27,12 @@ type ApiEnvelope<T> =
   | { success: true; data: T }
   | { success: false; error: string; details?: { sessionId?: string } };
 
-const ERROR_COPY: Record<string, string> = {
-  no_gps: "This file has no GPS track.",
-  too_short: "This track is too short to be a surf.",
-  bad_time: "This file's date looks wrong.",
-  unsupported_format: "Upload a .fit, .gpx or Garmin .zip file.",
-  corrupt: "We couldn't read this file. Try exporting it again.",
-  duplicate: "You've already uploaded this surf",
-};
 const GENERIC_ERROR_COPY = "Could not import this surf. Try again.";
 const MAX_IMPORT_BYTES = 10 * 1024 * 1024;
 
 class SessionImportError extends Error {
   constructor(code?: string, readonly sessionId?: string) {
-    super(code && Object.prototype.hasOwnProperty.call(ERROR_COPY, code) ? ERROR_COPY[code] : GENERIC_ERROR_COPY);
+    super(importErrorCopy(code, GENERIC_ERROR_COPY));
   }
 }
 
@@ -117,7 +110,7 @@ export function useSessionImport(): {
 
     const extension = file.name.split(".").pop()?.toLowerCase();
     if (!extension || !["fit", "gpx", "zip"].includes(extension)) {
-      setState({ phase: "error", error: ERROR_COPY.unsupported_format });
+      setState({ phase: "error", error: importErrorCopy("unsupported_format") });
       return;
     }
 

@@ -351,9 +351,7 @@ export function SessionDetailView({ id, sharedPreview = null }: SessionDetailVie
     ? RIP_RISK_LABELS[ripCurrentRisk] ?? ripCurrentRisk
     : null;
 
-  const waterTempIsSessionMedian = session.water_temp_source != null
-    ? session.water_temp_source === "watch"
-    : waveRecording?.sessionId === id && waveRecording.recordedWith?.startsWith("Quiver for Garmin");
+  const waterTempIsSessionMedian = waveRecording?.sessionId === id && waveRecording.recordedWith?.startsWith("Quiver for Garmin");
 
   return (
     <div className="flex-1 flex flex-col">

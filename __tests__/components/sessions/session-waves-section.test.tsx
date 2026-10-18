@@ -417,15 +417,14 @@ describe("SessionWavesSection", () => {
   });
 
   it.each([
-    { recordedWith: "Quiver for Garmin · Forerunner 965", source: undefined, label: "Water Temp (session median)" },
-    { recordedWith: "Garmin Forerunner 965", source: undefined, label: "Water Temp" },
-    { recordedWith: null, source: "watch", label: "Water Temp (session median)" },
-    { recordedWith: "Quiver for Garmin · Forerunner 965", source: "manual", label: "Water Temp" },
-  ])("labels the water temperature tile for $recordedWith / $source", async ({ recordedWith, source, label }) => {
+    { recordedWith: "Quiver for Garmin · Forerunner 965", label: "Water Temp (session median)" },
+    { recordedWith: "Garmin Forerunner 965", label: "Water Temp" },
+    { recordedWith: null, label: "Water Temp" },
+  ])("labels the water temperature tile for $recordedWith", async ({ recordedWith, label }) => {
     fetchMock.mockImplementation((url: string) => {
       if (url === "/api/sessions/s1") return Promise.resolve(envelope({ session: {
         id: "s1", user_id: "owner", has_track: true, beach: null, beach_name: "Test Beach", rating: 4,
-        arrival_time: fixture.waves[0].startedAt, water_temp: "65°F", water_temp_source: source, forecast_snapshot: null,
+        arrival_time: fixture.waves[0].startedAt, water_temp: "65°F", forecast_snapshot: null,
       } }));
       if (url.endsWith("/photos")) return Promise.resolve(envelope([]));
       return Promise.resolve(envelope({ ...fixture, summary: { ...fixture.summary, recordedWith,

@@ -25,7 +25,8 @@ export const GET = withNoStore(withRateLimit(withAuth(async (_request, { user, s
     .order("created_at", { ascending: false }).limit(50);
   if (importsError) throw importsError;
 
-  const ids = (imports ?? []).filter(row => !startedAt(row.summary)).map(row => row.id);
+  const problems = (imports ?? []).filter(row => row.error !== "duplicate");
+  const ids = problems.filter(row => !startedAt(row.summary)).map(row => row.id);
   const headers = new Map<string, string>();
   if (ids.length) {
     const { data: uploads, error: uploadsError } = await supabase.from("watch_uploads")
@@ -45,7 +46,7 @@ export const GET = withNoStore(withRateLimit(withAuth(async (_request, { user, s
       partNumber: device.device_part_number ?? "", linkedAt: device.created_at ?? "",
       lastSeenAt: device.last_seen_at,
     })),
-    problems: (imports ?? []).map(imported => ({
+    problems: problems.map(imported => ({
       importId: imported.id, status: imported.status, startedAt: startedAt(imported.summary) ?? headers.get(imported.id) ?? null,
       reason: imported.error,
     })),

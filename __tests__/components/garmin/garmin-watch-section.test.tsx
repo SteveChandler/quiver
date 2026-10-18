@@ -81,6 +81,9 @@ describe("GarminWatchSection", () => {
   });
 
   it.each([
+    ["no_gps", "This surf has no GPS track."],
+    ["bad_time", "This surf's date looks wrong."],
+    ["corrupt", "We couldn't read this surf. Try importing it again."],
     ["too_short", "This track is too short to be a surf."],
     ["duplicate", "You've already uploaded this surf."],
     ["unknown_internal_code", "This surf couldn't be imported."],

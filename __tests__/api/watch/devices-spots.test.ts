@@ -199,3 +199,17 @@ it("returns 404 for a non-UUID device id", async () => {
   expect(mockUserFrom).not.toHaveBeenCalled();
   expect(mockServiceFrom).not.toHaveBeenCalled();
 });
+
+it("omits duplicate imports from problems and header lookups", async () => {
+  rows.watch_devices = [];
+  rows.session_imports = [
+    { id: "duplicate-import", status: "failed", error: "duplicate", summary: null },
+    { id: "failed-import", status: "failed", error: "no_gps", summary: null },
+    { id: "needs-beach", status: "needs_beach", error: null, summary: { startedAt: "2026-10-18T12:00:00Z" } },
+  ];
+  const response = await devices(request("/api/v1/watch/devices"), context);
+  expect(response.status).toBe(200);
+  const body = await response.json();
+  expect(body.data.problems.map((row: { importId: string }) => row.importId)).toEqual(["failed-import", "needs-beach"]);
+  expect(userQueries.watch_uploads[0].in).toHaveBeenCalledWith("import_id", ["failed-import"]);
+});
