@@ -38,7 +38,6 @@ let events: Row[];
 let eventError: boolean;
 let deviceUpdateNoRow: boolean;
 let deviceUpsertError: boolean;
-let retentionCleanupError: boolean;
 let afterCodeRead: (() => Promise<void>) | null;
 let beforeDeviceUpsert: (() => void | Promise<void>) | null;
 let nextId: number;
@@ -78,9 +77,6 @@ function databaseQuery(table: string): Record<string, jest.Mock> {
       return { data: found ? { ...found } : null, error: null };
     }
     if (action === "delete") {
-      if (retentionCleanupError && !query.eq.mock.calls.some(([key]) => key === "code")) {
-        return { data: null, error: { message: "cleanup unavailable" } };
-      }
       for (let i = rows.length - 1; i >= 0; i--) if (filters.every(filter => filter(rows[i]))) rows.splice(i, 1);
       return { data: null, error: null };
     }
@@ -127,7 +123,6 @@ beforeEach(() => {
   eventError = false;
   deviceUpdateNoRow = false;
   deviceUpsertError = false;
-  retentionCleanupError = false;
   afterCodeRead = null;
   beforeDeviceUpsert = null;
   nextId = 0;
@@ -444,7 +439,7 @@ it.each(["missing", "revoked"])("expires a confirmed link whose device is %s bef
   expect(codes[0].claimed_at).toBeNull();
 });
 
-it("cleans all unconfirmed codes older than one day while preserving newer and confirmed codes", async () => {
+it("leaves unrelated expired codes to the purge cron and scopes collision cleanup to the selected code", async () => {
   const old = new Date(Date.now() - 2 * 86_400_000).toISOString();
   codes.push(
     { id: "stale", code: "123456", confirmed_at: null, expires_at: old },
@@ -452,14 +447,9 @@ it("cleans all unconfirmed codes older than one day while preserving newer and c
     { id: "confirmed", code: "123458", confirmed_at: old, expires_at: old },
   );
   const link = await created();
-  expect(codes.map(row => row.id).sort()).toEqual(["recent", "confirmed", link.linkId].sort());
-});
-
-it("warns and still creates a link if retention cleanup fails", async () => {
-  retentionCleanupError = true;
-  const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
-  try {
-    await created();
-    expect(warn).toHaveBeenCalled();
-  } finally { warn.mockRestore(); }
+  expect(codes.map(row => row.id).sort()).toEqual(["stale", "recent", "confirmed", link.linkId].sort());
+  const deletions = mockFrom.mock.results.map(result => result.value as Record<string, jest.Mock>)
+    .filter(query => query.delete.mock.calls.length > 0);
+  expect(deletions).toHaveLength(1);
+  expect(deletions[0].eq).toHaveBeenCalledWith("code", "482913");
 });
