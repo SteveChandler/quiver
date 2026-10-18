@@ -6,7 +6,7 @@ import { readFileSync } from "fs";
 import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
 
 type Row = Record<string, string | null>;
-type Table = "session_tracks" | "session_imports" | "session_waves" | "session_wave_corrections";
+type Table = "session_tracks" | "session_imports" | "session_waves" | "session_wave_corrections" | "watch_uploads" | "watch_link_codes";
 type Order = { column: string; ascending: boolean; nullsFirst: boolean };
 
 const mockRows: Record<Table, Row[]> = {
@@ -14,7 +14,11 @@ const mockRows: Record<Table, Row[]> = {
   session_imports: [],
   session_waves: [],
   session_wave_corrections: [],
+  watch_uploads: [],
+  watch_link_codes: [],
 };
+const mockList = jest.fn();
+let mockMissingWatchTables = false;
 const mockSessions: Record<string, string | null> = {};
 const mockEvents: string[] = [];
 const mockSelections: Array<{ table: Table; orders: Order[] }> = [];
@@ -63,10 +67,11 @@ function mockQuery(table: Table) {
     },
     limit: (value: number) => { max = value; return query; },
     then: (resolve: (value: { data: object[] | null; error: { code: string; message: string } | null }) => unknown) => {
+      if (mockMissingWatchTables && table.startsWith("watch_")) return Promise.resolve(resolve({ data: null, error: { code: "42P01", message: "missing table" } }));
       if (mockSelectError) { const error = mockSelectError; mockSelectError = null; return Promise.resolve(resolve({ data: null, error })); }
       const matching = mockRows[table].filter((row) => filters.every((filter) => filter(row)));
       if (action === "delete") {
-        mockEvents.push(`delete:${table}:${matching.map((row) => row.session_id ?? row.id).join(",")}`);
+        if (table !== "watch_link_codes" || matching.length > 0) mockEvents.push(`delete:${table}:${matching.map((row) => row.session_id ?? row.id).join(",")}`);
         mockRows[table] = mockRows[table].filter((row) => !matching.includes(row));
         if (table === "session_imports") {
           for (const track of mockRows.session_tracks) {
@@ -98,7 +103,7 @@ function mockQuery(table: Table) {
 
 const mockClient = {
   from: (table: Table) => mockQuery(table),
-  storage: { from: (_bucket: string) => ({ remove: mockRemove }) },
+  storage: { from: (_bucket: string) => ({ remove: mockRemove, list: mockList }) },
 };
 
 jest.mock("@/lib/cron/observability", () => ({ withObservedCron: (_route: string, handler: unknown) => handler }));
@@ -136,9 +141,11 @@ describe("session tracks purge cron", () => {
     for (const table of Object.keys(mockRows) as Table[]) mockRows[table] = [];
     for (const key of Object.keys(mockSessions)) delete mockSessions[key];
     mockSelectError = null;
+    mockMissingWatchTables = false;
+    mockList.mockReset().mockResolvedValue({ data: [], error: null });
     mockEvents.length = 0;
     mockSelections.length = 0;
-    mockRemove.mockImplementation(async (paths: string[]) => {
+    mockRemove.mockReset().mockImplementation(async (paths: string[]) => {
       mockEvents.push(`storage:${paths[0]}`);
       return { data: [], error: null };
     });
@@ -151,7 +158,7 @@ describe("session tracks purge cron", () => {
     addImport("hard-deleted", "completed", NOW.toISOString());
     const result = await run();
     expect(result.status).toBe(200);
-    expect(result.body.data.result).toEqual({ purgedTracks: 0, purgedImports: 1, errors: 0 });
+    expect(result.body.data.result).toEqual({ purgedUploads: 0, purgedLinkCodes: 0, purgedTracks: 0, purgedImports: 1, errors: 0 });
     expect(mockRows.session_imports).toHaveLength(0);
     expect(mockEvents).toEqual(["storage:hard-deleted.fit", "delete:session_imports:hard-deleted"]);
   });
@@ -181,7 +188,7 @@ describe("session tracks purge cron", () => {
 
     const result = await run();
     expect(result.status).toBe(200);
-    expect(result.body.data.result).toEqual({ purgedTracks: 1, purgedImports: 1, errors: 0 });
+    expect(result.body.data.result).toEqual({ purgedUploads: 0, purgedLinkCodes: 0, purgedTracks: 1, purgedImports: 1, errors: 0 });
     expect(mockEvents.slice(0, 5)).toEqual([
       "storage:old.fit", "storage:import-old.fit", "delete:session_waves:old",
       "delete:session_wave_corrections:old", "delete:session_tracks:old",
@@ -193,7 +200,7 @@ describe("session tracks purge cron", () => {
     mockRows.session_tracks.push(track("recent"));
     mockSessions.recent = recent;
     const result = await run();
-    expect(result.body.data.result).toEqual({ purgedTracks: 0, purgedImports: 0, errors: 0 });
+    expect(result.body.data.result).toEqual({ purgedUploads: 0, purgedLinkCodes: 0, purgedTracks: 0, purgedImports: 0, errors: 0 });
     expect(mockRows.session_tracks).toHaveLength(1);
     expect(mockRemove).not.toHaveBeenCalled();
   });
@@ -202,7 +209,7 @@ describe("session tracks purge cron", () => {
     mockRows.session_tracks.push(track("requested", NOW.toISOString()));
     addImport("requested-import", "completed", recent, NOW.toISOString());
     const result = await run();
-    expect(result.body.data.result).toEqual({ purgedTracks: 1, purgedImports: 1, errors: 0 });
+    expect(result.body.data.result).toEqual({ purgedUploads: 0, purgedLinkCodes: 0, purgedTracks: 1, purgedImports: 1, errors: 0 });
     expect(mockRemove).toHaveBeenCalledWith(["requested.fit"]);
     expect(mockRemove).toHaveBeenCalledWith(["requested-import.fit"]);
   });
@@ -215,7 +222,7 @@ describe("session tracks purge cron", () => {
     });
     const result = await run();
     expectConsoleErrors([/\[session-tracks-purge\] track failed: failed/]);
-    expect(result.body.data.result).toEqual({ purgedTracks: 0, purgedImports: 0, errors: 1 });
+    expect(result.body.data.result).toEqual({ purgedUploads: 0, purgedLinkCodes: 0, purgedTracks: 0, purgedImports: 0, errors: 1 });
     expect(mockRows.session_tracks).toHaveLength(1);
     expect(mockEvents).toEqual(["storage:failed.fit"]);
   });
@@ -224,7 +231,7 @@ describe("session tracks purge cron", () => {
     addImport("old-upload", "uploaded", old);
     addImport("recent-upload", "uploaded", recent);
     const result = await run();
-    expect(result.body.data.result).toEqual({ purgedTracks: 0, purgedImports: 1, errors: 0 });
+    expect(result.body.data.result).toEqual({ purgedUploads: 0, purgedLinkCodes: 0, purgedTracks: 0, purgedImports: 1, errors: 0 });
     expect(mockRows.session_imports.map((row) => row.id)).toEqual(["recent-upload"]);
   });
 
@@ -244,7 +251,7 @@ describe("session tracks purge cron", () => {
     addImport("stale-import", status, old, null, sessionId);
 
     const result = await run();
-    expect(result.body.data.result).toEqual({ purgedTracks: 0, purgedImports: 0, errors: 0 });
+    expect(result.body.data.result).toEqual({ purgedUploads: 0, purgedLinkCodes: 0, purgedTracks: 0, purgedImports: 0, errors: 0 });
     expect(mockRows.session_tracks).toEqual([liveTrack]);
     expect(mockRows.session_imports.map((row) => row.id)).toEqual(["stale-import"]);
     expect(mockRows.session_waves).toEqual([{ id: "live-wave", session_id: "live" }]);
@@ -260,7 +267,7 @@ describe("session tracks purge cron", () => {
     addImport("duplicate", "failed", old, null, "live");
 
     const result = await run();
-    expect(result.body.data.result).toEqual({ purgedTracks: 0, purgedImports: 1, errors: 0 });
+    expect(result.body.data.result).toEqual({ purgedUploads: 0, purgedLinkCodes: 0, purgedTracks: 0, purgedImports: 1, errors: 0 });
     expect(mockRows.session_tracks).toEqual([liveTrack]);
     expect(mockRows.session_waves).toEqual([{ id: "live-wave", session_id: "live" }]);
     expect(mockRemove.mock.calls).toEqual([[["duplicate.fit"]]]);
@@ -275,7 +282,7 @@ describe("session tracks purge cron", () => {
     addImport("stale-import", "uploaded", old, null, sessionId);
 
     const result = await run();
-    expect(result.body.data.result).toEqual({ purgedTracks: 0, purgedImports: 0, errors: 0 });
+    expect(result.body.data.result).toEqual({ purgedUploads: 0, purgedLinkCodes: 0, purgedTracks: 0, purgedImports: 0, errors: 0 });
     expect(mockRows.session_tracks).toEqual([liveTrack]);
     expect(mockRows.session_waves).toEqual([{ id: "live-wave", session_id: "live" }]);
     expect(mockRows.session_imports.map((row) => row.id)).toEqual(["stale-import"]);
@@ -291,7 +298,7 @@ describe("session tracks purge cron", () => {
     addImport("duplicate", "uploaded", old, null, sessionId);
 
     const result = await run();
-    expect(result.body.data.result).toEqual({ purgedTracks: 0, purgedImports: 1, errors: 0 });
+    expect(result.body.data.result).toEqual({ purgedUploads: 0, purgedLinkCodes: 0, purgedTracks: 0, purgedImports: 1, errors: 0 });
     expect(mockRows.session_tracks).toEqual([liveTrack]);
     expect(mockRows.session_waves).toEqual([{ id: "live-wave", session_id: "live" }]);
     expect(mockRows.session_imports).toHaveLength(0);
@@ -302,7 +309,7 @@ describe("session tracks purge cron", () => {
     addImport("completed", "completed", old, null, "live");
     mockSessions.live = null;
     const result = await run();
-    expect(result.body.data.result).toEqual({ purgedTracks: 0, purgedImports: 0, errors: 0 });
+    expect(result.body.data.result).toEqual({ purgedUploads: 0, purgedLinkCodes: 0, purgedTracks: 0, purgedImports: 0, errors: 0 });
     expect(mockRows.session_imports.map((row) => row.id)).toEqual(["completed"]);
     expect(mockRemove).not.toHaveBeenCalled();
   });
@@ -314,7 +321,7 @@ describe("session tracks purge cron", () => {
     addImport("reassigned", "completed", old, null, "live");
 
     const result = await run();
-    expect(result.body.data.result).toEqual({ purgedTracks: 1, purgedImports: 0, errors: 0 });
+    expect(result.body.data.result).toEqual({ purgedUploads: 0, purgedLinkCodes: 0, purgedTracks: 1, purgedImports: 0, errors: 0 });
     expect(mockRows.session_imports.map((row) => row.id)).toEqual(["reassigned"]);
     expect(mockRemove.mock.calls).toEqual([[["deleted.fit"]]]);
   });
@@ -328,7 +335,7 @@ describe("session tracks purge cron", () => {
     addImport("reassigned", "completed", old, null, "live");
 
     const result = await run();
-    expect(result.body.data.result).toEqual({ purgedTracks: 1, purgedImports: 0, errors: 0 });
+    expect(result.body.data.result).toEqual({ purgedUploads: 0, purgedLinkCodes: 0, purgedTracks: 1, purgedImports: 0, errors: 0 });
     expect(mockRows.session_tracks).toHaveLength(0);
     expect(mockRows.session_imports.map((row) => row.id)).toEqual(["reassigned"]);
     expect(mockRemove).not.toHaveBeenCalled();
@@ -339,7 +346,7 @@ describe("session tracks purge cron", () => {
     mockSessions.deleted = old;
     addImport("unassigned", "completed", recent);
     const result = await run();
-    expect(result.body.data.result).toEqual({ purgedTracks: 1, purgedImports: 1, errors: 0 });
+    expect(result.body.data.result).toEqual({ purgedUploads: 0, purgedLinkCodes: 0, purgedTracks: 1, purgedImports: 1, errors: 0 });
     expect(mockRows.session_imports).toHaveLength(0);
   });
 
@@ -347,7 +354,7 @@ describe("session tracks purge cron", () => {
     addImport("orphan-completed", "completed", recent, null, "deleted-session");
     mockSessions["deleted-session"] = old;
     const result = await run();
-    expect(result.body.data.result).toEqual({ purgedTracks: 0, purgedImports: 1, errors: 0 });
+    expect(result.body.data.result).toEqual({ purgedUploads: 0, purgedLinkCodes: 0, purgedTracks: 0, purgedImports: 1, errors: 0 });
     expect(mockRows.session_imports).toHaveLength(0);
   });
 
@@ -355,7 +362,7 @@ describe("session tracks purge cron", () => {
     mockRows.session_tracks.push(track("linked", null, "linked-import"));
     addImport("linked-import", "completed", recent, NOW.toISOString(), "linked");
     const result = await run();
-    expect(result.body.data.result).toEqual({ purgedTracks: 1, purgedImports: 1, errors: 0 });
+    expect(result.body.data.result).toEqual({ purgedUploads: 0, purgedLinkCodes: 0, purgedTracks: 1, purgedImports: 1, errors: 0 });
     expect(mockEvents.slice(0, 2)).toEqual(["storage:linked.fit", "storage:linked-import.fit"]);
     expect(mockRows.session_tracks).toHaveLength(0);
     expect(mockRows.session_imports).toHaveLength(0);
@@ -365,7 +372,7 @@ describe("session tracks purge cron", () => {
     mockRows.session_tracks.push(track("requested-session"));
     addImport("requested-import", "completed", recent, NOW.toISOString(), "requested-session");
     const result = await run();
-    expect(result.body.data.result).toEqual({ purgedTracks: 1, purgedImports: 1, errors: 0 });
+    expect(result.body.data.result).toEqual({ purgedUploads: 0, purgedLinkCodes: 0, purgedTracks: 1, purgedImports: 1, errors: 0 });
     expect(mockRows.session_tracks).toHaveLength(0);
     expect(mockRows.session_imports).toHaveLength(0);
     expect(mockRemove).toHaveBeenCalledWith(["requested-session.fit"]);
@@ -382,7 +389,7 @@ describe("session tracks purge cron", () => {
 
     const result = await run();
     expectConsoleErrors([/\[session-tracks-purge\] track failed: requested-session/]);
-    expect(result.body.data.result).toEqual({ purgedTracks: 0, purgedImports: 0, errors: 1 });
+    expect(result.body.data.result).toEqual({ purgedUploads: 0, purgedLinkCodes: 0, purgedTracks: 0, purgedImports: 0, errors: 1 });
     expect(mockRows.session_tracks).toHaveLength(1);
     expect(mockRows.session_imports).toHaveLength(1);
     expect(mockEvents.filter((event) => event.startsWith("delete:"))).toEqual([]);
@@ -397,7 +404,7 @@ describe("session tracks purge cron", () => {
     addImport("waiting-import", "completed", old, null, "waiting");
 
     const result = await run();
-    expect(result.body.data.result).toEqual({ purgedTracks: 100, purgedImports: 0, errors: 0 });
+    expect(result.body.data.result).toEqual({ purgedUploads: 0, purgedLinkCodes: 0, purgedTracks: 100, purgedImports: 0, errors: 0 });
     expect(mockRows.session_tracks.map((row) => row.session_id)).toEqual(["waiting"]);
     expect(mockRows.session_imports.map((row) => row.id)).toEqual(["waiting-import"]);
     expect(mockRemove).not.toHaveBeenCalledWith(["waiting.fit"]);
@@ -406,7 +413,7 @@ describe("session tracks purge cron", () => {
 
   it("orders every batch selector by purge request with nulls last, then creation time", async () => {
     await run();
-    expect(mockSelections).toHaveLength(6);
+    expect(mockSelections).toHaveLength(8);
     for (const selection of mockSelections) {
       expect(selection.orders).toEqual([
         { column: "purge_requested_at", ascending: true, nullsFirst: false },
@@ -422,9 +429,81 @@ describe("session tracks purge cron", () => {
       addImport(`import-${index}`, "failed", createdAt);
     }
     const result = await run();
-    expect(result.body.data.result).toEqual({ purgedTracks: 100, purgedImports: 100, errors: 0 });
+    expect(result.body.data.result).toEqual({ purgedUploads: 0, purgedLinkCodes: 0, purgedTracks: 100, purgedImports: 100, errors: 0 });
     expect(mockRows.session_tracks.map((row) => row.session_id)).toEqual(["track-0"]);
     expect(mockRows.session_imports.map((row) => row.id)).toEqual(["import-0"]);
+  });
+
+  it("purges requested uploads immediately and all uploads older than seven days, preserving recent rows and samples", async () => {
+    const sevenDays = new Date(NOW.getTime() - 7 * 86400000).toISOString();
+    mockRows.watch_uploads = [
+      { id: "requested", user_id: "owner", created_at: NOW.toISOString(), purge_requested_at: NOW.toISOString(), import_id: null },
+      { id: "abandoned", user_id: "owner", created_at: old, purge_requested_at: null, import_id: null },
+      { id: "completed", user_id: "owner", created_at: old, purge_requested_at: null, import_id: "kept-import" },
+      { id: "recent", user_id: "owner", created_at: sevenDays, purge_requested_at: null, import_id: null },
+    ];
+    addImport("kept-import", "completed", old, null, "live-session");
+    const firstPage = Array.from({ length: 100 }, (_, i) => ({ name: `${i}.json` }));
+    mockList.mockResolvedValueOnce({ data: firstPage, error: null })
+      .mockResolvedValueOnce({ data: [{ name: "100.json" }], error: null });
+    const result = await run();
+    expect(result.status).toBe(200);
+    expect(result.body.data.result).toMatchObject({ purgedUploads: 3, errors: 0 });
+    expect(mockRows.watch_uploads.map(row => row.id)).toEqual(["recent"]);
+    expect(mockRows.session_imports.map(row => row.id)).toEqual(["kept-import"]);
+    expect(mockList).toHaveBeenNthCalledWith(1, "requested/owner/chunks", { limit: 100, offset: 0, sortBy: { column: "name", order: "asc" } });
+    expect(mockList).toHaveBeenNthCalledWith(2, "requested/owner/chunks", expect.objectContaining({ offset: 0 }));
+    expect(mockRemove).toHaveBeenNthCalledWith(1, firstPage.map(row => `requested/owner/chunks/${row.name}`));
+    expect(mockRemove).toHaveBeenNthCalledWith(2, ["requested/owner/chunks/100.json"]);
+    expect(mockEvents.indexOf("storage:requested/owner/chunks/100.json")).toBeLessThan(mockEvents.indexOf("delete:watch_uploads:requested"));
+    expect(mockRemove).not.toHaveBeenCalledWith(expect.arrayContaining(["kept-import.fit"]));
+  });
+
+  it("caps watch upload work at 100 rows and prioritizes deletion requests", async () => {
+    mockRows.watch_uploads = Array.from({ length: 101 }, (_, index) => ({
+      id: `surf-${index}`, user_id: "owner", created_at: old, purge_requested_at: null,
+    }));
+    mockRows.watch_uploads.push({ id: "requested", user_id: "owner", created_at: NOW.toISOString(), purge_requested_at: NOW.toISOString() });
+    expect((await run()).body.data.result).toMatchObject({ purgedUploads: 100, errors: 0 });
+    expect(mockRows.watch_uploads.map(row => row.id)).toEqual(["surf-99", "surf-100"]);
+    expect(mockList).toHaveBeenNthCalledWith(1, "requested/owner/chunks", expect.anything());
+  });
+
+  it.each(["list", "remove"])("retains upload rows when storage %s fails and retries later", async failure => {
+    mockRows.watch_uploads = [{ id: "surf", user_id: "owner", created_at: old, purge_requested_at: null }];
+    mockList.mockResolvedValue({ data: [{ name: "0.json" }], error: null });
+    if (failure === "list") mockList.mockResolvedValueOnce({ data: null, error: { message: "storage down" } });
+    else mockRemove.mockResolvedValueOnce({ data: [], error: { message: "storage down" } });
+    const errorLog = jest.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      expect((await run()).body.data.result).toMatchObject({ purgedUploads: 0, errors: 1 });
+      expect(mockRows.watch_uploads).toHaveLength(1);
+      expect((await run()).body.data.result).toMatchObject({ purgedUploads: 1, errors: 0 });
+      expect(mockRows.watch_uploads).toHaveLength(0);
+    } finally { errorLog.mockRestore(); }
+  });
+
+  it("expires confirmed link codes after 30 days and unconfirmed codes a day after expiry", async () => {
+    const dayAgo = new Date(NOW.getTime() - 86400000).toISOString();
+    const monthAgo = new Date(NOW.getTime() - 30 * 86400000).toISOString();
+    mockRows.watch_link_codes = [
+      { id: "old-confirmed", confirmed_at: old, expires_at: old },
+      { id: "old-unconfirmed", confirmed_at: null, expires_at: old },
+      { id: "recent-confirmed", confirmed_at: monthAgo, expires_at: old },
+      { id: "recent-expired", confirmed_at: null, expires_at: dayAgo },
+      { id: "active", confirmed_at: null, expires_at: new Date(NOW.getTime() + 60000).toISOString() },
+    ];
+    expect((await run()).body.data.result).toMatchObject({ purgedLinkCodes: 2, errors: 0 });
+    expect(mockRows.watch_link_codes.map(row => row.id)).toEqual(["recent-confirmed", "recent-expired", "active"]);
+  });
+
+  it("still purges file imports while watch tables are not present", async () => {
+    mockMissingWatchTables = true;
+    addImport("expired", "failed", old);
+    const result = await run();
+    expect(result.status).toBe(200);
+    expect(result.body.data.result).toMatchObject({ purgedImports: 1, purgedUploads: 0, errors: 0, skipped: "watch tables not present" });
+    expect(mockList).not.toHaveBeenCalled();
   });
 
   it("rejects unauthenticated requests", async () => {

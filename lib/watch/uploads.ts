@@ -6,6 +6,7 @@ import { enqueueNotification } from "@/lib/notifications/enqueue";
 import { parseQuiverWatch } from "@/lib/sessions/tracks/parse-quiver-watch";
 import { TrackFileError } from "@/lib/sessions/tracks/types";
 import { findTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { createErrorResponse, createSuccessResponse } from "@/lib/api-utils";
@@ -49,6 +50,22 @@ async function loadUpload(ctx: WatchContext, surfId: string): Promise<Upload | n
     .eq("id", surfId).eq("user_id", ctx.userId).maybeSingle();
   checkError(error);
   return data;
+}
+
+// Local contract for the unapplied migration; regenerate DB types after rollout validation.
+type WatchRpcDatabase = Database & {
+  public: { Functions: { watch_upload_mark_chunks: {
+    Args: { p_id: string; p_user_id: string; p_add: number[]; p_remove: number[] };
+    Returns: number[];
+  } } };
+};
+
+async function markChunks(ctx: WatchContext, surfId: string, add: number[], remove: number[]): Promise<void> {
+  const service = ctx.service as SupabaseClient<WatchRpcDatabase>;
+  const { error } = await service.rpc("watch_upload_mark_chunks", {
+    p_id: surfId, p_user_id: ctx.userId, p_add: add, p_remove: remove,
+  });
+  checkError(error);
 }
 
 export async function uploadWatchChunk(request: NextRequest, ctx: WatchContext): Promise<Response> {
@@ -103,11 +120,13 @@ export async function uploadWatchChunk(request: NextRequest, ctx: WatchContext):
     { contentType: "application/octet-stream", upsert: true },
   );
   checkError(storageError);
-  const { error } = await ctx.service.from("watch_uploads").update({
-    ...(header ? { header, chunk_count: header.chunkCount } : {}),
-    received_chunks: [...new Set([...upload.received_chunks, index.data])].sort((a, b) => a - b),
-  }).eq("id", id.data).eq("user_id", ctx.userId).is("import_id", null);
-  checkError(error);
+  if (header) {
+    const { error } = await ctx.service.from("watch_uploads").update({
+      header, chunk_count: header.chunkCount,
+    }).eq("id", id.data).eq("user_id", ctx.userId).is("import_id", null);
+    checkError(error);
+  }
+  await markChunks(ctx, id.data, [index.data], []);
   return createSuccessResponse({ received: index.data });
 }
 
@@ -258,10 +277,7 @@ export async function completeWatchUpload(request: NextRequest, ctx: WatchContex
   const storagePath = `${importId}/${ctx.userId}/samples.json`;
   const assembled = await assembleChunks(ctx, upload);
   if ("missing" in assembled) {
-    const { error } = await ctx.service.from("watch_uploads").update({
-      received_chunks: upload.received_chunks.filter(index => index !== assembled.missing),
-    }).eq("id", id.data).eq("user_id", ctx.userId).is("import_id", null);
-    checkError(error);
+    await markChunks(ctx, id.data, [], [assembled.missing]);
     return createErrorResponse("missing_chunks", { missing: [assembled.missing] }, 409);
   }
   const bucket = ctx.service.storage.from("session-tracks");

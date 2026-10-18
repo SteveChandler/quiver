@@ -6,7 +6,8 @@ const mockUpload = jest.fn();
 const mockDownload = jest.fn();
 const mockRemove = jest.fn();
 const mockStorageFrom = jest.fn(() => ({ upload: mockUpload, download: mockDownload, remove: mockRemove }));
-const mockService = { from: mockFrom, storage: { from: mockStorageFrom } };
+const mockRpc = jest.fn();
+const mockService = { rpc: mockRpc, from: mockFrom, storage: { from: mockStorageFrom } };
 const mockProcess = jest.fn();
 const mockEnqueue = jest.fn();
 jest.mock("@/lib/notifications/enqueue", () => ({ enqueueNotification: (...args: unknown[]) => mockEnqueue(...args) }));
@@ -96,6 +97,13 @@ beforeEach(() => {
   tables = { watch_devices: [{ id: deviceId, user_id: userId, token_hash: hashSecret("watch-token"), device_name: null, revoked_at: null, last_seen_at: new Date().toISOString() }], watch_uploads: [], session_imports: [], sessions: [{ id: "session-1", user_id: userId, beach_name: "Scripps", custom_spot_id: null, deleted_at: null }], custom_spots: [] };
   objects = new Map(); operations = []; loseClaim = false; dbFailure = null;
   mockFrom.mockImplementation(query);
+  mockRpc.mockImplementation(async (_name: string, args: { p_id: string; p_user_id: string; p_add: number[]; p_remove: number[] }) => {
+    const row = tables.watch_uploads.find(row => row.id === args.p_id && row.user_id === args.p_user_id && row.import_id === null);
+    if (!row) return { data: null, error: null };
+    row.received_chunks = [...new Set<number>([...row.received_chunks, ...args.p_add])]
+      .filter(index => !args.p_remove.includes(index)).sort((a, b) => a - b);
+    return { data: row.received_chunks, error: null };
+  });
   mockUpload.mockImplementation(async (path: string, body: string | Uint8Array) => {
     objects.set(path, typeof body === "string" ? body : Buffer.from(body).toString("utf8"));
     return { data: { path }, error: null };
@@ -510,7 +518,8 @@ it("restarts a split surf from chunk zero and assembles four replacement chunks"
   expect(tables.watch_uploads[0]).toMatchObject({ header: replacementHeader, chunk_count: 4, received_chunks: [0, 1, 2] });
   expect(operations.filter(op => op.table === "watch_uploads" && op.kind === "upsert")).toHaveLength(createsBeforeRestart);
   expect(operations.filter(op => op.table === "watch_uploads" && op.kind === "update").at(-1)?.values)
-    .toMatchObject({ header: replacementHeader, chunk_count: 4, received_chunks: [0, 1, 2] });
+    .toEqual({ header: replacementHeader, chunk_count: 4 });
+  expect(mockRpc).toHaveBeenLastCalledWith("watch_upload_mark_chunks", { p_id: surfId, p_user_id: userId, p_add: [0], p_remove: [] });
   for (let index = 1; index < 4; index++) {
     expect((await chunk(request(replacements[index]), context(String(index)))).status).toBe(200);
   }
@@ -576,6 +585,7 @@ it.each([false, true])("requests a missing stored chunk for re-upload (storage 4
     expect(response.status).toBe(409);
     expect(await response.json()).toMatchObject({ error: "missing_chunks", details: { missing: [1] } });
     expect(tables.watch_uploads[0].received_chunks).toEqual([0]);
+    expect(mockRpc).toHaveBeenLastCalledWith("watch_upload_mark_chunks", { p_id: surfId, p_user_id: userId, p_add: [], p_remove: [1] });
     expect(tables.session_imports).toHaveLength(0);
     expect(mockProcess).not.toHaveBeenCalled();
     expect((await chunk(request({ ...payload, t0: payload.t0 + 300 }), context("1"))).status).toBe(200);
@@ -676,4 +686,24 @@ it("enqueues exactly one ready push when a stale uploaded import finishes and is
     payload: { session_id: "session-1", beach_name: "Scripps", wave_count: 2 },
     dedupeKey: "watch_session:stale-import:completed",
   }, mockService);
+});
+
+it("preserves another acknowledgement arriving after the upload snapshot was read", async () => {
+  await chunk(request({ ...payload, header: { ...header, chunkCount: 3 } }), context());
+  mockUpload.mockImplementationOnce(async () => {
+    tables.watch_uploads[0].received_chunks = [0, 2];
+    return { error: null };
+  });
+  expect((await chunk(request(payload), context("1"))).status).toBe(200);
+  expect(tables.watch_uploads[0].received_chunks).toEqual([0, 1, 2]);
+  expect(mockRpc).toHaveBeenLastCalledWith("watch_upload_mark_chunks", { p_id: surfId, p_user_id: userId, p_add: [1], p_remove: [] });
+});
+
+it("returns a retryable failure when the acknowledgement RPC fails", async () => {
+  const errorLog = jest.spyOn(console, "error").mockImplementation(() => {});
+  mockRpc.mockResolvedValueOnce({ data: null, error: { message: "ack failed" } });
+  try {
+    expect((await chunk(request({ ...payload, header }), context())).status).toBe(500);
+    expect(tables.watch_uploads[0].received_chunks).toEqual([]);
+  } finally { errorLog.mockRestore(); }
 });

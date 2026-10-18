@@ -27,7 +27,7 @@ type SessionImport = {
   purge_requested_at: string | null;
   sessions: { deleted_at: string | null } | null;
 };
-type PurgeResult = { purgedTracks: number; purgedImports: number; errors: number; skipped?: string };
+type PurgeResult = { purgedTracks: number; purgedImports: number; purgedUploads: number; purgedLinkCodes: number; errors: number; skipped?: string };
 
 function checkedRows<T>(data: T[] | null, error: { message: string } | null, label: string): T[] {
   if (error || !data) throw new Error(`Failed to select ${label}: ${error?.message ?? "missing data"}`);
@@ -212,8 +212,56 @@ async function purgeImport(
   }
 }
 
+async function purgeWatchUploads(client: Client, now: Date, result: PurgeResult): Promise<void> {
+  const requested = await client.from("watch_uploads").select("id,user_id")
+    .not("purge_requested_at", "is", null)
+    .order("purge_requested_at", { ascending: true, nullsFirst: false }).order("created_at", { ascending: true, nullsFirst: false }).limit(BATCH_SIZE);
+  if (requested.error && ["PGRST205", "42P01"].includes(requested.error.code)) {
+    result.skipped = "watch tables not present";
+    return;
+  }
+  const uploads = checkedRows(requested.data, requested.error, "requested watch uploads");
+  if (uploads.length < BATCH_SIZE) {
+    // Completed uploads retain only staging chunks; samples belong to session_imports.
+    const expired = await client.from("watch_uploads").select("id,user_id")
+      .is("purge_requested_at", null)
+      .lt("created_at", new Date(now.getTime() - 7 * 86400000).toISOString())
+      .order("purge_requested_at", { ascending: true, nullsFirst: false })
+      .order("created_at", { ascending: true, nullsFirst: false }).limit(BATCH_SIZE - uploads.length);
+    uploads.push(...checkedRows(expired.data, expired.error, "expired watch uploads"));
+  }
+  const bucket = client.storage.from(BUCKET);
+  for (const upload of uploads) {
+    try {
+      const prefix = `${upload.id}/${upload.user_id}/chunks`;
+      while (true) {
+        // Removing a page shifts the remaining objects back to offset zero.
+        const listed = await bucket.list(prefix, { limit: BATCH_SIZE, offset: 0, sortBy: { column: "name", order: "asc" } });
+        const objects = checkedRows(listed.data, listed.error, "watch chunks");
+        if (objects.length === 0) break;
+        const { error } = await bucket.remove(objects.map(object => `${prefix}/${object.name}`));
+        if (error) throw error;
+        if (objects.length < BATCH_SIZE) break;
+      }
+      const { error } = await client.from("watch_uploads").delete().eq("id", upload.id).eq("user_id", upload.user_id);
+      if (error) throw error;
+      result.purgedUploads += 1;
+    } catch (error) {
+      result.errors += 1;
+      console.error("[session-tracks-purge] watch upload failed:", upload.id, error);
+    }
+  }
+
+  const confirmed = await client.from("watch_link_codes").delete()
+    .lt("confirmed_at", new Date(now.getTime() - RETENTION_MS).toISOString()).select("id");
+  result.purgedLinkCodes += checkedRows(confirmed.data, confirmed.error, "confirmed watch link codes").length;
+  const expired = await client.from("watch_link_codes").delete().is("confirmed_at", null)
+    .lt("expires_at", new Date(now.getTime() - 86400000).toISOString()).select("id");
+  result.purgedLinkCodes += checkedRows(expired.data, expired.error, "expired watch link codes").length;
+}
+
 async function runPurge(client: Client, now: Date): Promise<PurgeResult> {
-  const result: PurgeResult = { purgedTracks: 0, purgedImports: 0, errors: 0 };
+  const result: PurgeResult = { purgedTracks: 0, purgedImports: 0, purgedUploads: 0, purgedLinkCodes: 0, errors: 0 };
   const cutoff = new Date(now.getTime() - RETENTION_MS).toISOString();
   const tracks = await selectTracks(client, cutoff);
   if (tracks === null) return { ...result, skipped: "session waves tables not present" };
@@ -222,6 +270,7 @@ async function runPurge(client: Client, now: Date): Promise<PurgeResult> {
 
   const imports = await selectImports(client, cutoff);
   for (const row of imports) await purgeImport(client, row, result, attemptedTrackIds, cutoff);
+  await purgeWatchUploads(client, now, result);
   return result;
 }
 
@@ -236,7 +285,7 @@ async function _GET(request: Request): Promise<Response> {
         job: ROUTE,
         unit: "session_track_rows_purged",
         expectedMin: 1,
-        getProduced: (value: PurgeResult) => value.purgedTracks + value.purgedImports,
+        getProduced: (value: PurgeResult) => value.purgedTracks + value.purgedImports + value.purgedUploads + value.purgedLinkCodes,
         legitimatelyZero: (value: PurgeResult) => value.errors === 0
           ? { reason: value.skipped ?? "No session tracks or imports are due for purge" }
           : undefined,

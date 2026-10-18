@@ -5,6 +5,9 @@ BEGIN
   IF to_regclass('public.session_tracks') IS NULL OR to_regclass('public.session_imports') IS NULL THEN
     RAISE EXCEPTION 'apply 20261018090000_session_waves_core.sql first';
   END IF;
+  IF to_regproc('public.is_historical_file_import') IS NULL THEN
+    RAISE EXCEPTION 'apply 20261018090100_session_waves_triggers.sql first';
+  END IF;
 END $$;
 
 DO $$
@@ -95,6 +98,29 @@ CREATE TABLE IF NOT EXISTS public.watch_uploads (
   updated_at timestamptz DEFAULT now()
 );
 
+ALTER TABLE public.watch_uploads ADD COLUMN IF NOT EXISTS purge_requested_at timestamptz;
+
+CREATE OR REPLACE FUNCTION public.watch_upload_mark_chunks(
+  p_id uuid, p_user_id uuid, p_add int[], p_remove int[]
+)
+RETURNS int[]
+LANGUAGE sql
+SECURITY INVOKER
+SET search_path = public
+AS $$
+  UPDATE public.watch_uploads
+  SET received_chunks = ARRAY(
+    SELECT DISTINCT chunk
+    FROM unnest(received_chunks || p_add) AS chunk
+    WHERE NOT (chunk = ANY (p_remove))
+    ORDER BY chunk
+  )
+  WHERE id = p_id AND user_id = p_user_id AND import_id IS NULL
+  RETURNING received_chunks;
+$$;
+REVOKE ALL ON FUNCTION public.watch_upload_mark_chunks(uuid, uuid, int[], int[]) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.watch_upload_mark_chunks(uuid, uuid, int[], int[]) TO service_role;
+
 DROP TRIGGER IF EXISTS set_watch_uploads_updated_at ON public.watch_uploads;
 CREATE TRIGGER set_watch_uploads_updated_at
   BEFORE UPDATE ON public.watch_uploads
@@ -180,10 +206,11 @@ BEGIN
   IF missing_events IS NOT NULL THEN
     ALTER TABLE public.user_events DROP CONSTRAINT user_events_event_type_check;
     EXECUTE format(
-      'ALTER TABLE public.user_events ADD CONSTRAINT user_events_event_type_check CHECK ((%s) OR event_type = ANY (%L::text[]))',
+      'ALTER TABLE public.user_events ADD CONSTRAINT user_events_event_type_check CHECK ((%s) OR event_type = ANY (%L::text[])) NOT VALID',
       current_check,
       missing_events
     );
+    ALTER TABLE public.user_events VALIDATE CONSTRAINT user_events_event_type_check;
   END IF;
 END $$;
 
@@ -216,6 +243,7 @@ BEGIN
 
   UPDATE public.session_tracks SET purge_requested_at = now() WHERE user_id = p_user_id AND purge_requested_at IS NULL;
   UPDATE public.session_imports SET purge_requested_at = now() WHERE user_id = p_user_id AND purge_requested_at IS NULL;
+  UPDATE public.watch_uploads SET purge_requested_at = now() WHERE user_id = p_user_id AND purge_requested_at IS NULL;
   UPDATE public.watch_devices SET revoked_at = now(), token_hash = NULL WHERE user_id = p_user_id AND revoked_at IS NULL;
   DELETE FROM public.watch_link_codes WHERE user_id = p_user_id;
   DELETE FROM public.session_wave_corrections WHERE user_id = p_user_id;

@@ -14,6 +14,9 @@ describe("Garmin watch migration", () => {
     );
     expect(sql).toContain("to_regclass('public.session_imports')");
     expect(sql).toContain("apply 20261018090000_session_waves_core.sql first");
+    expect(sql).toContain("to_regproc('public.is_historical_file_import') IS NULL");
+    expect(sql).toContain("apply 20261018090100_session_waves_triggers.sql first");
+    expect(sql.indexOf("to_regproc('public.is_historical_file_import')")).toBeLessThan(sql.indexOf("ALTER TABLE"));
     expect(sql.trimEnd().endsWith("COMMIT;")).toBe(true);
   });
 
@@ -60,6 +63,29 @@ describe("Garmin watch migration", () => {
       "device_name", "app_version", "created_at", "last_seen_at", "revoked_at",
     ]);
     expect(sql).not.toMatch(/GRANT (?:SELECT|ALL) ON public\.watch_devices TO authenticated/);
+  });
+
+  it("atomically merges chunk acknowledgements with owner and completion guards", () => {
+    const fn = sql.match(/CREATE OR REPLACE FUNCTION public.watch_upload_mark_chunks[\s\S]*?\$\$;/)?.[0];
+    expect(fn).toEqual(expect.any(String));
+    expect(fn).toMatch(/RETURNS int\[\]/);
+    expect(fn).toMatch(/SECURITY INVOKER[\s\S]*SET search_path = public/);
+    expect(fn).toMatch(/UPDATE public.watch_uploads[\s\S]*SET received_chunks = ARRAY/);
+    expect(fn).toMatch(/SELECT DISTINCT chunk[\s\S]*unnest\(received_chunks \|\| p_add\)/);
+    expect(fn).toMatch(/NOT \(chunk = ANY \(p_remove\)\)[\s\S]*ORDER BY chunk/);
+    expect(fn).toMatch(/WHERE id = p_id AND user_id = p_user_id AND import_id IS NULL[\s\S]*RETURNING received_chunks/);
+    expect(sql).toContain("REVOKE ALL ON FUNCTION public.watch_upload_mark_chunks(uuid, uuid, int[], int[]) FROM PUBLIC, anon, authenticated;");
+    expect(sql).toContain("GRANT EXECUTE ON FUNCTION public.watch_upload_mark_chunks(uuid, uuid, int[], int[]) TO service_role;");
+  });
+
+  it("marks staged watch uploads for account-deletion purge", () => {
+    expect(sql).toContain("ALTER TABLE public.watch_uploads ADD COLUMN IF NOT EXISTS purge_requested_at timestamptz;");
+    expect(sql).toContain("UPDATE public.watch_uploads SET purge_requested_at = now() WHERE user_id = p_user_id AND purge_requested_at IS NULL;");
+  });
+
+  it("adds the events check without an immediate validation scan", () => {
+    expect(sql).toMatch(/ADD CONSTRAINT user_events_event_type_check CHECK .* NOT VALID'/);
+    expect(sql).toContain("ALTER TABLE public.user_events VALIDATE CONSTRAINT user_events_event_type_check;");
   });
 
   it("revokes devices and removes link codes during account deletion", () => {
