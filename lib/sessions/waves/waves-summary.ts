@@ -15,7 +15,26 @@ export type WavesSummary = {
   lowCoverage: boolean;
   speedReliable: boolean;
   detectionVersion: string;
+  paddleDistanceM?: number | null;
+  heartRateAvg?: number | null;
+  heartRateMax?: number | null;
+  setIntervalMin?: number | null;
+  recordedWith?: string | null;
 };
+
+export function trackSummaryExtras(
+  source: string | null,
+  track: { paddle_distance_m: number | null; hr_avg: number | null; hr_max: number | null;
+    recorded_by: string | null; source_device: string | null },
+): Pick<WavesSummary, "paddleDistanceM" | "heartRateAvg" | "heartRateMax" | "recordedWith"> {
+  return {
+    paddleDistanceM: track.paddle_distance_m,
+    heartRateAvg: track.hr_avg,
+    heartRateMax: track.hr_max,
+    recordedWith: source === "garmin_watch"
+      ? `Quiver for Garmin · ${track.source_device ?? "Garmin watch"}` : track.recorded_by,
+  };
+}
 
 export function isExcluded(wave: StoredWave, corrections: Correction[]): boolean {
   const start = Date.parse(wave.startedAt);
@@ -39,10 +58,33 @@ export function isExcluded(wave: StoredWave, corrections: Correction[]): boolean
   return coveredMs * 2 >= end - start;
 }
 
+export function setIntervalMin(waves: (StoredWave & { counted?: boolean; excluded?: boolean })[], corrections: Correction[]): number | null {
+  const starts = waves
+    .filter(wave => wave.counted !== false && wave.excluded !== true
+      && wave.confidence >= COUNT_MIN_CONFIDENCE && !isExcluded(wave, corrections))
+    .map(wave => Date.parse(wave.startedAt))
+    .filter(Number.isFinite)
+    .sort((a, b) => a - b);
+  const sets: number[] = [];
+  let previous: number | null = null;
+  for (const start of starts) {
+    // Chaining treats rides every 60–80 seconds as continuous action, rather than misleading two-minute sets.
+    if (previous === null || start - previous > 90_000) sets.push(start);
+    previous = start;
+  }
+  if (sets.length < 3) return null;
+  const gaps = sets.slice(1).map((start, index) => start - sets[index]).sort((a, b) => a - b);
+  const middle = Math.floor(gaps.length / 2);
+  const median = gaps.length % 2 ? gaps[middle] : (gaps[middle - 1] + gaps[middle]) / 2;
+  return Math.round(median / 60_000);
+}
+
 export function buildWavesSummary(
   waves: StoredWave[],
   corrections: Correction[],
-  track: { gpsCoverage: number; speedReliable: boolean; userWaveCount: number | null },
+  track: { gpsCoverage: number; speedReliable: boolean; userWaveCount: number | null;
+    paddleDistanceM?: number | null; heartRateAvg?: number | null; heartRateMax?: number | null;
+    recordedWith?: string | null },
   version: string,
 ): WavesSummary {
   const counted = waves.filter((wave) => wave.confidence >= COUNT_MIN_CONFIDENCE && !isExcluded(wave, corrections));
@@ -60,5 +102,10 @@ export function buildWavesSummary(
     lowCoverage: track.gpsCoverage < 0.5,
     speedReliable: track.speedReliable,
     detectionVersion: version,
+    paddleDistanceM: track.paddleDistanceM ?? null,
+    heartRateAvg: track.heartRateAvg ?? null,
+    heartRateMax: track.heartRateMax ?? null,
+    setIntervalMin: setIntervalMin(waves, corrections),
+    recordedWith: track.recordedWith ?? null,
   };
 }

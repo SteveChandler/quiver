@@ -35,14 +35,17 @@ This plan is kept in `quiver` next to the spec. Executors work in a `quiver-nati
   - Do not touch `app.config.js` or `config/app-link-contract.json`.
 - **API** (quiver server plan; envelope `{ success, data }`):
   ```
-  POST   /api/v1/garmin/link-codes/{code}/confirm    → 200 data {linked:true, deviceName}; 404 "not_found" (unknown/expired); 409 "already_confirmed"
+  POST   /api/v1/garmin/link-codes/{code}/confirm    → 200 data {linked:true, deviceName}; 404 "not_found" (unknown/expired); 404 "unavailable" (flag/allowlist off → "Garmin watches aren't available yet"); 409 "already_confirmed"
   GET    /api/v1/watch/devices                       → 200 data {devices:[{id,name,partNumber,linkedAt,lastSeenAt}], problems:[{importId,startedAt,status:"failed"|"needs_beach",reason:string|null}]}
   DELETE /api/v1/watch/devices/{id}                  → 200 data {unlinked:true}
   GET    /api/v1/session-imports/{id}                → 200 data {id,status,origin,startedAt:string|null,candidates:ImportBeach[],sessionId:string|null}
   POST   /api/v1/session-imports/{id}/beach {beachId} → part 1 contract (200 completed / 409 not_needs_beach / …)
   ```
   `ImportBeach = { id, name, lat, lon, swellWindowCenterDeg }`.
-- **Waves summary additions** (nullable): `paddleDistanceM`, `heartRateAvg`, `heartRateMax`, `setIntervalMin`, `recordedWith`.
+- **Waves summary additions** (nullable): `paddleDistanceM`, `heartRateAvg`, `heartRateMax`, `setIntervalMin`, `recordedWith`. These stats also show for FIT/GPX imports when present (R9); do not restrict them to watch-origin imports.
+- **Push data:** keep `type` and the identifier fields when routing:
+  - `watch_session_ready`: `{type:"watch_session_ready", session_id, url:"/sessions/{session_id}", deeplink:"quiver://sessions/{session_id}"}`.
+  - `watch_session_needs_beach`: `{type:"watch_session_needs_beach", import_id, url:"/sessions/imports/{import_id}", deeplink:"quiver://sessions/imports/{import_id}"}`.
 - **Copy:**
   - "Link this Garmin watch?"
   - "Pick the beach for your {Mon D} surf"

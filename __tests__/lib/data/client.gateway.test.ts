@@ -68,6 +68,50 @@ describe("client data gateway", () => {
     });
   });
 
+  it("shares session requests and cached metadata across legacy and metadata callers", async () => {
+    let finish!: (response: Response) => void;
+    const fetchWithAuthRetry = jest.fn(() => new Promise<Response>(resolve => { finish = resolve; }));
+    const { data } = await loadClientGateway(fetchWithAuthRetry);
+    const legacy = data.users.sessions.list("user-1", 5);
+    const metadata = data.users.sessions.list("user-1", 5, { includeMetadata: true });
+    expect(fetchWithAuthRetry).toHaveBeenCalledTimes(1);
+    const result = { sessions: [{ id: "surf-1" }], sessionImportsEnabled: false, garminWatchEnabled: true };
+    finish(jsonResponse({ success: true, data: result }));
+    await expect(legacy).resolves.toEqual(result.sessions);
+    await expect(metadata).resolves.toEqual(result);
+    await expect(data.users.sessions.list("user-1", 5, { includeMetadata: true })).resolves.toEqual(result);
+    await expect(data.users.sessions.list("user-1", 5)).resolves.toEqual(result.sessions);
+    expect(fetchWithAuthRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it("keys session metadata by user and limit and expires it after thirty seconds", async () => {
+    const clock = jest.spyOn(Date, "now").mockReturnValue(1000);
+    const fetchWithAuthRetry = jest.fn().mockResolvedValue(jsonResponse({ success: true, data: { sessions: [] } }));
+    try {
+      const { data } = await loadClientGateway(fetchWithAuthRetry);
+      await expect(data.users.sessions.list("user-1", 5, { includeMetadata: true })).resolves.toEqual({
+        sessions: [], sessionImportsEnabled: false, garminWatchEnabled: false,
+      });
+      await data.users.sessions.list("user-1", 20, { includeMetadata: true });
+      await data.users.sessions.list("user-2", 5, { includeMetadata: true });
+      await data.users.sessions.list("user-1", 5, { includeMetadata: true });
+      expect(fetchWithAuthRetry).toHaveBeenCalledTimes(3);
+      clock.mockReturnValue(31000);
+      await data.users.sessions.list("user-1", 5, { includeMetadata: true });
+      expect(fetchWithAuthRetry).toHaveBeenCalledTimes(4);
+    } finally { clock.mockRestore(); }
+  });
+
+  it("clears failed session requests so a retry can load metadata", async () => {
+    const fetchWithAuthRetry = jest.fn()
+      .mockResolvedValueOnce(jsonResponse({ success: false }, 500))
+      .mockResolvedValueOnce(jsonResponse({ success: true, data: { sessions: [], garminWatchEnabled: true } }));
+    const { data } = await loadClientGateway(fetchWithAuthRetry);
+    await expect(data.users.sessions.list("user-1", 5, { includeMetadata: true })).rejects.toThrow("Failed to load user sessions: 500");
+    await expect(data.users.sessions.list("user-1", 5, { includeMetadata: true })).resolves.toMatchObject({ garminWatchEnabled: true });
+    expect(fetchWithAuthRetry).toHaveBeenCalledTimes(2);
+  });
+
   it("always refreshes hold-aware daily intel instead of replaying a cached positive", async () => {
     const availableIntel = {
       beach_id: "beach-1",

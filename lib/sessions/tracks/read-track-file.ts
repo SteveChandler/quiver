@@ -1,6 +1,7 @@
 import { unzipSync } from "fflate";
 import { parseFit } from "./parse-fit";
 import { parseGpx } from "./parse-gpx";
+import { parseQuiverWatch } from "./parse-quiver-watch";
 import type { NormalizedTrack } from "./types";
 import { TrackFileError } from "./types";
 
@@ -42,11 +43,26 @@ export function readTrackFile(bytes: Uint8Array, filename: string, now: Date = n
   if (source.length >= 12 && source[8] === 0x2e && source[9] === 0x46 && source[10] === 0x49 && source[11] === 0x54) {
     track = parseFit(source);
   } else {
-    const prefix = new TextDecoder().decode(source.subarray(0, 512));
-    if (!/<gpx(?:\s|>)/i.test(prefix)) {
-      throw new TrackFileError("unsupported_format", `Unsupported track format: ${filename}`);
+    const firstNonSpace = source.find((byte) => byte !== 0x20 && (byte < 0x09 || byte > 0x0d));
+    if (firstNonSpace === 0x7b) {
+      let json: unknown;
+      try {
+        json = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(source));
+      } catch {
+        throw new TrackFileError("corrupt", "Could not decode the JSON track file");
+      }
+      if (typeof json === "object" && json !== null && "quiverWatch" in json && json.quiverWatch === 1) {
+        track = parseQuiverWatch(json);
+      } else {
+        throw new TrackFileError("unsupported_format", `Unsupported track format: ${filename}`);
+      }
+    } else {
+      const prefix = new TextDecoder().decode(source.subarray(0, 512));
+      if (!/<gpx(?:\s|>)/i.test(prefix)) {
+        throw new TrackFileError("unsupported_format", `Unsupported track format: ${filename}`);
+      }
+      track = parseGpx(source);
     }
-    track = parseGpx(source);
   }
 
   const startedAt = Date.parse(track.meta.startedAt);

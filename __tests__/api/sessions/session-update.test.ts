@@ -1129,7 +1129,29 @@ describe("GET /api/sessions/[id] track availability", () => {
   const ownerId = "987fcdeb-51a2-43c1-a123-456789abcdef";
   const sessionId = "123e4567-e89b-12d3-a456-426614174000";
   const originalEnv = { ...process.env };
+  beforeEach(() => {
+    delete process.env.GARMIN_WATCH_ENABLED;
+    delete process.env.GARMIN_WATCH_USER_ALLOWLIST;
+  });
   afterEach(() => { process.env = { ...originalEnv }; });
+
+  it("returns has_track for a garmin-only owner", async () => {
+    jest.clearAllMocks();
+    process.env.SESSION_IMPORTS_ENABLED = "false";
+    process.env.GARMIN_WATCH_ENABLED = "true";
+    process.env.GARMIN_WATCH_USER_ALLOWLIST = ownerId;
+    mockAuthGetUser.mockResolvedValue({ data: { user: { id: ownerId } }, error: null });
+    const session = { id: sessionId, user_id: ownerId, forecast_snapshot: [], image_url: "photo.jpg" };
+    const sessionQuery = { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), single: jest.fn().mockResolvedValue({ data: session, error: null }) };
+    const trackQuery = { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), maybeSingle: jest.fn().mockResolvedValue({ data: { session_id: sessionId }, error: null }) };
+    mockFrom.mockImplementation((table: string) => table === "session_tracks" ? trackQuery : sessionQuery);
+
+    const response = await GET(new NextRequest(`http://localhost/api/sessions/${sessionId}`), { params: { id: sessionId } });
+
+    expect(response.status).toBe(200);
+    expect((await response.json()).data.session.has_track).toBe(true);
+    expect(trackQuery.eq).toHaveBeenCalledWith("user_id", ownerId);
+  });
 
   it.each(["returned", "thrown"])("returns the session with has_track false when track lookup errors are %s", async (mode) => {
     jest.clearAllMocks();
@@ -1169,9 +1191,9 @@ describe("GET /api/sessions/[id] track availability", () => {
     const response = await GET(new NextRequest(`http://localhost/api/sessions/${sessionId}`), { params: { id: sessionId } });
     expect(response.status).toBe(200);
     expect((await response.json()).data.session.has_track).toBe(expected);
-    if (enabled && allowed) {
-      expect(trackQuery.eq).toHaveBeenCalledWith("user_id", ownerId);
-      expect(trackQuery.eq).toHaveBeenCalledWith("session_id", sessionId);
-    } else expect(mockFrom).not.toHaveBeenCalledWith("session_tracks");
+    const expectedTrackFilters = enabled && allowed
+      ? [["session_id", sessionId], ["user_id", ownerId]]
+      : [];
+    expect(trackQuery.eq.mock.calls).toEqual(expectedTrackFilters);
   });
 });

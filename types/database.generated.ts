@@ -9668,8 +9668,10 @@ export type Database = {
       session_imports: {
         Row: {
           created_at: string | null
+          device_id: string | null
           error: string | null
           id: string
+          origin: string
           original_filename: string | null
           purge_requested_at: string | null
           session_id: string | null
@@ -9682,8 +9684,10 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          device_id?: string | null
           error?: string | null
           id?: string
+          origin?: string
           original_filename?: string | null
           purge_requested_at?: string | null
           session_id?: string | null
@@ -9696,8 +9700,10 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          device_id?: string | null
           error?: string | null
           id?: string
+          origin?: string
           original_filename?: string | null
           purge_requested_at?: string | null
           session_id?: string | null
@@ -9709,6 +9715,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "session_imports_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "watch_devices"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "session_imports_session_id_fkey"
             columns: ["session_id"]
@@ -10482,13 +10495,17 @@ export type Database = {
           ended_at: string
           format: string
           gps_coverage: number
+          hr_avg: number | null
+          hr_max: number | null
           import_id: string | null
           max_gap_s: number
+          paddle_distance_m: number | null
           purge_requested_at: string | null
           recorded_by: string | null
           sample_count: number
           session_id: string
           sha256: string
+          source_device: string | null
           speed_reliable: boolean
           speed_series: Json
           sport: string | null
@@ -10508,13 +10525,17 @@ export type Database = {
           ended_at: string
           format: string
           gps_coverage: number
+          hr_avg?: number | null
+          hr_max?: number | null
           import_id?: string | null
           max_gap_s: number
+          paddle_distance_m?: number | null
           purge_requested_at?: string | null
           recorded_by?: string | null
           sample_count: number
           session_id: string
           sha256: string
+          source_device?: string | null
           speed_reliable?: boolean
           speed_series: Json
           sport?: string | null
@@ -10534,13 +10555,17 @@ export type Database = {
           ended_at?: string
           format?: string
           gps_coverage?: number
+          hr_avg?: number | null
+          hr_max?: number | null
           import_id?: string | null
           max_gap_s?: number
+          paddle_distance_m?: number | null
           purge_requested_at?: string | null
           recorded_by?: string | null
           sample_count?: number
           session_id?: string
           sha256?: string
+          source_device?: string | null
           speed_reliable?: boolean
           speed_series?: Json
           sport?: string | null
@@ -14499,6 +14524,177 @@ tide_forecasts: {
           },
         ]
       }
+      watch_devices: {
+        Row: {
+          app_version: string | null
+          created_at: string | null
+          device_name: string | null
+          device_part_number: string | null
+          device_uid: string
+          id: string
+          last_seen_at: string | null
+          platform: string
+          revoked_at: string | null
+          token_hash: string | null
+          user_id: string
+        }
+        Insert: {
+          app_version?: string | null
+          created_at?: string | null
+          device_name?: string | null
+          device_part_number?: string | null
+          device_uid: string
+          id?: string
+          last_seen_at?: string | null
+          platform?: string
+          revoked_at?: string | null
+          token_hash?: string | null
+          user_id: string
+        }
+        Update: {
+          app_version?: string | null
+          created_at?: string | null
+          device_name?: string | null
+          device_part_number?: string | null
+          device_uid?: string
+          id?: string
+          last_seen_at?: string | null
+          platform?: string
+          revoked_at?: string | null
+          token_hash?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "watch_devices_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      watch_link_codes: {
+        Row: {
+          app_version: string | null
+          claimed_at: string | null
+          code: string
+          confirmed_at: string | null
+          created_at: string | null
+          device_id: string | null
+          device_part_number: string | null
+          device_uid: string
+          expires_at: string
+          id: string
+          poll_secret_hash: string
+          user_id: string | null
+        }
+        Insert: {
+          app_version?: string | null
+          claimed_at?: string | null
+          code: string
+          confirmed_at?: string | null
+          created_at?: string | null
+          device_id?: string | null
+          device_part_number?: string | null
+          device_uid: string
+          expires_at: string
+          id?: string
+          poll_secret_hash: string
+          user_id?: string | null
+        }
+        Update: {
+          app_version?: string | null
+          claimed_at?: string | null
+          code?: string
+          confirmed_at?: string | null
+          created_at?: string | null
+          device_id?: string | null
+          device_part_number?: string | null
+          device_uid?: string
+          expires_at?: string
+          id?: string
+          poll_secret_hash?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "watch_link_codes_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "watch_devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "watch_link_codes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      watch_uploads: {
+        Row: {
+          chunk_count: number | null
+          created_at: string | null
+          device_id: string
+          header: Json | null
+          id: string
+          import_id: string | null
+          purge_requested_at: string | null
+          received_chunks: number[]
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          chunk_count?: number | null
+          created_at?: string | null
+          device_id: string
+          header?: Json | null
+          id: string
+          import_id?: string | null
+          purge_requested_at?: string | null
+          received_chunks?: number[]
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          chunk_count?: number | null
+          created_at?: string | null
+          device_id?: string
+          header?: Json | null
+          id?: string
+          import_id?: string | null
+          purge_requested_at?: string | null
+          received_chunks?: number[]
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "watch_uploads_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "watch_devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "watch_uploads_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "session_imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "watch_uploads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       water_quality_held_beaches: {
         Row: {
           beach_id: string
@@ -18254,6 +18450,15 @@ is_admin_user: { Args: never; Returns: boolean }
           vote: string
           vote_score: number
         }[]
+      }
+      watch_upload_mark_chunks: {
+        Args: {
+          p_add: number[]
+          p_id: string
+          p_remove: number[]
+          p_user_id: string
+        }
+        Returns: number[] | null
       }
     }
     Enums: {

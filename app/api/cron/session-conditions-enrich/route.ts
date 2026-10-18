@@ -7,6 +7,7 @@ import {
 import { withObservedCron } from "@/lib/cron/observability";
 import { withCronOutcome } from "@/lib/cron/outcome";
 import { isSessionConditionsEnrichEnabled } from "@/lib/flags/session-conditions-enrich";
+import { isGarminWatchEnabled } from "@/lib/flags/garmin-watch";
 import { isSessionImportsEnabled } from "@/lib/flags/session-imports";
 import { fetchOpenMeteoHindcastDay } from "@/lib/services/open-meteo-hindcast";
 import {
@@ -44,7 +45,7 @@ async function _GET(request: Request): Promise<Response> {
       return createSuccessResponse({ skipped: "SESSION_CONDITIONS_ENRICH_ENABLED is not true" });
     }
 
-    const importsEnabled = isSessionImportsEnabled();
+    const importsEnabled = isSessionImportsEnabled() || isGarminWatchEnabled();
     const params = new URL(request.url).searchParams;
     const mode = params.get("mode") === "backfill" ? "backfill" : "live";
     let since: Date | undefined;
