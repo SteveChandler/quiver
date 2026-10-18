@@ -427,3 +427,19 @@ This task is verification only. Store submission is Steven's step.
   - A 15-minute walk near a beach becomes a *private* session (no counted wave), never a public one.
 - [ ] **Step 5: Export the store build.** Run `monkeyc -e -r -f monkey.jungle -o bin/quiver.iq -y ~/.garmin/quiver_developer_key.der`. Keep `bin/quiver.iq` for Steven's beta upload.
 - [ ] **Step 6:** Commit the README changes with `docs: sideload and store export steps`.
+
+
+### Task 11: "How big was it?" (Oct 18 addendum)
+
+**Files:**
+- Create: `source/ui/SizeView.mc`
+- Modify: `source/ui/Delegates.mc` (Rate → Size → Saved), `source/record/Recorder.mc` (`save(rating, waveHeightFt)`), `source/store/SurfStore.mc` (`finish` stores `"waveHeightFt"`), `source/net/Uploader.mc` (wire header `waveHeightFt`), `resources/strings/strings.xml`
+- Test: `source/test/RecorderTest.mc`, `source/test/UploaderTest.mc`, a SizeView/delegate test
+
+**Interfaces:**
+- Chips (label → stored value): 1-2 ft → 1.5, 2-3 ft → 2.5, 3-4 ft → 3.5, 4-6 ft → 5, 6-8 ft → 7, 8+ ft → 8.5. Starts with nothing selected; Up/Down moves (first press lands on 3-4 ft); Start saves the selection or null if none; Back saves null. No forecast hint, ever.
+- Header `"waveHeightFt"` is a Float from the list or null; the uploader sends it on chunk 0.
+
+- [ ] Step 1: failing tests (each chip stores its value; untouched Start and Back store null; header carries the value; an older queued surf without the key uploads null).
+- [ ] Step 2: run, expect FAIL. Step 3: implement, same look as Rate. Step 4: run, expect PASS; screenshot Size on fr165, fenix5plus, venu3.
+- [ ] Step 5: commit `feat: ask how big it was after the rating`.

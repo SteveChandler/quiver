@@ -346,3 +346,22 @@ Unit tests cover the set grouping, paddle distance and gap bridging.
 3. **Sign in to the Connect IQ SDK Manager** (installed Oct 18) so the SDK and device files download.
 4. **Before store submission:** the Quiver Garmin developer account and the privacy-page wording.
 5. **At release:** approve the new migration on the shared database, the server flag, and the native OTA.
+
+## Addendum (Oct 18): forecast validation from watch surfs
+
+Steven asked that watch surfs feed forecast validation like a surf logged in the app. A watch session already gets conditions (enrich cron, forecast snapshot, tide), rating, water temperature, waves and rides. It lacked the observations that validation needs: observed wave size (`sessions.wave_height_ft`, the ground truth for calibration and the forecast-accuracy harness), the forecast verdict (`sessions.forecast_accuracy`) and the link to the call the surfer saw (`sessions.call_id`).
+
+**Watch: "How big was it?"** A new screen right after the rating.
+- Six non-overlapping size chips, the app's own values (`quiver-native/src/lib/wave-height-chips.ts`): 1-2 ft → 1.5, 2-3 → 2.5, 3-4 → 3.5, 4-6 → 5, 6-8 → 7, 8+ → 8.5. The app's overlapping 3-5 chip is left out on the wrist.
+- No preselection and no forecast hint: the list starts unselected, Up/Down picks, Start saves, Back skips (null). This keeps the value an observation, never an echo of the forecast.
+- Feet on every watch (surf size is called in feet everywhere Quiver shows it).
+- The header gains `waveHeightFt: 1.5 | 2.5 | 3.5 | 5 | 7 | 8.5 | null`. The server rejects any other value.
+
+**Server.**
+- New watch sessions store `wave_height_ft` from the header. A watch surf that attaches to an existing session fills `wave_height_ft` only when it is empty.
+- Watch sessions link the call the surfer saw: the newest `board_pick_exposed` event for that user and beach in the 36 h before the surf whose `forecast_at` is within 3 h of the surf start sets `sessions.call_id` (same rule the app uses, `findRecentCall`). Only when `call_id` is empty.
+- `PATCH /api/sessions/{id}` accepts `forecast_accuracy` (`accurate | somewhat | inaccurate | null`) so the app can record the verdict after the fact.
+
+**App (quiver-native).**
+- Tapping the "Your surf is in Quiver" push opens that session (native plan Task 3 routing).
+- On the owner's watch session, a "Confirm your surf" card asks "Was the forecast right?" (accurate / somewhat / off), offers the conditions chips (glassy / clean / choppy / blown out) and crowd, and shows the size chips **preselected only from the watch's own answer, never from the forecast**. It saves through `PATCH /api/sessions/{id}` and hides once `forecast_accuracy` is set.

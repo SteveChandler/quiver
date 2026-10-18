@@ -29,7 +29,7 @@ describe("quiver_watch track format", () => {
       startedAt: original.meta.startedAt,
       endedAt: original.meta.endedAt,
     });
-    expect(track.extras).toEqual({ rating: 4, deviceName: "Forerunner 165" });
+    expect(track.extras).toEqual({ rating: 4, deviceName: "Forerunner 165", waveHeightFt: null });
     for (let index = 0; index < original.samples.length; index += 1) {
       const expected = original.samples[index];
       const actual = track.samples[index];
@@ -45,6 +45,16 @@ describe("quiver_watch track format", () => {
       expect(actual.tempC).toBe(expected.tempC);
       expect(actual.cadence).toBeNull();
     }
+  });
+
+  it.each([1.5, 2.5, 3.5, 5, 7, 8.5, null])("carries watch wave size %s", waveHeightFt => {
+    const file = { ...watchFile, header: { ...watchFile.header, waveHeightFt } };
+    expect(parseQuiverWatch(file).extras?.waveHeightFt).toBe(waveHeightFt);
+  });
+
+  it.each([3, 4])("rejects unsupported watch wave size %s", waveHeightFt => {
+    const file = { ...watchFile, header: { ...watchFile.header, waveHeightFt } };
+    expect(() => parseQuiverWatch(file)).toThrow(expect.objectContaining({ code: "corrupt" }));
   });
 
   it("keeps null-fix rows without replacing them with the previous fix", () => {
