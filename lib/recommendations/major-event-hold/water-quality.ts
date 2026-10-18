@@ -396,7 +396,7 @@ async function resolveCountyLiveHolds(
 
   const generalSnapshot = !generalAdvisory.general ? "county-general:dormant"
     : generalAdvisory.streakStartedAt === null ? "county-general:unknown"
-      : `county-general:${generalAdvisory.expired ? "expired" : "active"}:${generalAdvisory.streakStartedAt}:rain-${generalAdvisory.rainState ?? "null"}:event-${generalAdvisory.event?.id ?? "null"}-${generalAdvisory.event?.status ?? "null"}-${generalAdvisory.event?.expiresAt ?? "null"}`;
+      : `county-general:${generalAdvisory.expired ? "expired" : "active"}:${generalAdvisory.streakStartedAt}:rain-${generalAdvisory.rainState ?? "null"}:event-${generalAdvisory.event?.id ?? "null"}-${generalAdvisory.event?.status ?? "null"}`;
   return {
     state: "resolved",
     heldBeachIds: [...new Set(heldBeachIds)],

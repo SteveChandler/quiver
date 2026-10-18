@@ -236,6 +236,17 @@ describe("runRainfallRunoffIngest", () => {
       writeReadings: async () => undefined });
     expect(short.signals.find((signal) => signal.region === "san_diego")).toMatchObject({ dryConfirmed: false, totalIn: 0 });
   });
+
+  it("lets the usable stations confirm dry outside San Diego, but any fetched rain blocks it", async () => {
+    const gappy = await runRainfallRunoffIngest({ now: windowEnd,
+      fetchMetars: async (icao) => hourly(icao, {}, icao === "KNFG" ? 30 : 72),
+      writeReadings: async () => undefined });
+    expect(gappy.signals.find((signal) => signal.region === "laguna_san_clemente")).toMatchObject({ dryConfirmed: true });
+    const wetGap = await runRainfallRunoffIngest({ now: windowEnd,
+      fetchMetars: async (icao) => hourly(icao, icao === "KNFG" ? { 2: 0.05 } : {}, icao === "KNFG" ? 30 : 72),
+      writeReadings: async () => undefined });
+    expect(wetGap.signals.find((signal) => signal.region === "laguna_san_clemente")).toMatchObject({ dryConfirmed: false });
+  });
 });
 
 describe("withRainfallNotice", () => {

@@ -39,6 +39,22 @@ export async function fetchAwcMetars(icao: string): Promise<AwcMetar[]> {
   return body as AwcMetar[];
 }
 
+/**
+ * San Diego needs all three stations, as the County expiry always has. Elsewhere
+ * the usable stations decide, as the cluster total does, so one gappy station
+ * cannot pin an advisory up; any fetched station reporting rain still blocks.
+ */
+function dryConfirmed(
+  cluster: (typeof INGEST_RAIN_CLUSTERS)[number],
+  stations: Readonly<Record<string, StationRainfall>>,
+  anyRain: boolean,
+): boolean {
+  if (anyRain) return false;
+  const usable = Object.values(stations).filter((station) => station.hours >= MIN_STATION_HOURS);
+  if (cluster.id === COUNTY_RAIN_CLUSTER.id && usable.length !== cluster.stations.length) return false;
+  return usable.length > 0 && usable.every((station) => station.total_in === 0);
+}
+
 export async function runRainfallRunoffIngest(deps: RainfallIngestDeps): Promise<RainfallIngestResult> {
   const now = deps.now ?? new Date();
   const windowEnd = new Date(Math.floor(now.getTime() / 60_000) * 60_000);
@@ -67,11 +83,7 @@ export async function runRainfallRunoffIngest(deps: RainfallIngestDeps): Promise
       const rainTimes = Object.values(stations).map((station) => station.last_rain_at).filter((time): time is string => time !== null);
       signals.push({ region: cluster.id, windowEnd: windowEnd.toISOString(), totalIn: total,
         lastRainAt: rainTimes.length ? rainTimes.reduce((a, b) => Date.parse(a) > Date.parse(b) ? a : b) : null,
-        dryConfirmed: cluster.stations.every((icao) => {
-          const station = perStation.get(icao);
-          return station !== undefined && station.hours >= MIN_STATION_HOURS
-            && station.total_in === 0 && station.last_rain_at === null;
-        }),
+        dryConfirmed: dryConfirmed(cluster, stations, rainTimes.length > 0),
         stations: Object.keys(stations),
       });
     }

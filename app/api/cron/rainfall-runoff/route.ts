@@ -46,7 +46,11 @@ async function _GET(request: Request): Promise<Response> {
     );
     const rainAdvisory = await syncMetarRainAdvisories(supabase, result.signals, new Date());
     if (rainAdvisory.status === "table_missing") console.warn("[rainfall-runoff] rain advisory events table missing");
-    else if (rainAdvisory.status === "error") console.error("[rainfall-runoff] rain advisory sync failed", rainAdvisory.error);
+    if (rainAdvisory.status === "error") {
+      // Readers trust the stored events once the table exists, so a failed sync must page, not hide.
+      console.error("[rainfall-runoff] rain advisory sync failed", rainAdvisory.error);
+      return NextResponse.json({ success: false, error: "Rain advisory sync failed", data: { ...result, rainAdvisory } }, { status: 500 });
+    }
     return NextResponse.json({ success: true, data: { ...result, rainAdvisory } });
   } catch (error) {
     console.error("[rainfall-runoff] cron failed", error);

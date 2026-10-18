@@ -214,10 +214,16 @@ it("uses the active County event for live and projected hold evidence and its ep
     rainAdvisory: { startedAt: firstEvent.started_at, expiresAt: firstEvent.expires_at } });
   const projected = await currentWaterQuality([{ beach_id: shores, status: "unknown", total_samples_30d: 0 }], client, now);
   expect(projected[0].county_rain_advisory?.expires_at).toBe(firstEvent.expires_at);
-  const changed = await resolveWaterQualityHolds(candidates, {
+  // Rain extending the event changes no hold, so the epoch stays; ending it does.
+  const extended = await resolveWaterQualityHolds(candidates, {
     client: regressionClient(latest, now.toISOString(), false, { ...firstEvent, expires_at: "2026-10-17T00:00:00Z" }), now,
   });
-  expect(changed.epoch).not.toBe(resolution.epoch);
+  expect(extended.epoch).toBe(resolution.epoch);
+  const ended = await resolveWaterQualityHolds(candidates, {
+    client: regressionClient(latest, now.toISOString(), false, { ...firstEvent, status: "ended",
+      ended_at: "2026-10-14T20:00:00Z", end_reason: "dry_72h" }), now,
+  });
+  expect(ended.epoch).not.toBe(resolution.epoch);
 });
 
 it("changes the hold epoch at the 72-hour boundary without a new County run", async () => {

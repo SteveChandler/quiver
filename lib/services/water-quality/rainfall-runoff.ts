@@ -100,7 +100,11 @@ export function stationRainfall(metars: readonly AwcMetar[], windowEnd: Date): S
     if (/\bPNO\b/.test(metar.rawOb)) continue;
     // AWC encodes a trace as 0.005 in; a run of trace hours would add up to a phantom notice.
     const precip = metar.precip ?? 0;
-    byHour.set(Math.floor((end - t) / HOUR_MS), { precip: precip >= 0.01 ? precip : 0, time: metar.reportTime });
+    const hour = Math.floor((end - t) / HOUR_MS);
+    const previous = byHour.get(hour);
+    // Keep the later report in an hour so its time and precip stay paired regardless of response order.
+    if (previous && Date.parse(previous.time) > t) continue;
+    byHour.set(hour, { precip: precip >= 0.01 ? precip : 0, time: metar.reportTime });
   }
   let total = 0;
   let lastRainAt: string | null = null;
