@@ -2,7 +2,9 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 import { processImport, type ProcessImportResult } from "@/lib/sessions/imports/process-import";
+import { enqueueNotification } from "@/lib/notifications/enqueue";
 import { TrackFileError } from "@/lib/sessions/tracks/types";
+import { findTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { createErrorResponse, createSuccessResponse } from "@/lib/api-utils";
@@ -109,11 +111,72 @@ async function cleanChunks(ctx: WatchContext, upload: Upload): Promise<void> {
   }
 }
 
+const centroidSchema = z.object({ centroid: z.object({ lat: z.number(), lon: z.number() }) });
+
+async function enqueueWatchImportNotification(
+  ctx: WatchContext, upload: Upload, importId: string, result: ProcessImportResult,
+): Promise<void> {
+  if (result.status === "duplicate") return;
+
+  try {
+    if (result.status === "completed") {
+      const { data: session, error } = await ctx.service.from("sessions")
+        .select("beach_name, custom_spot_id").eq("id", result.sessionId)
+        .eq("user_id", ctx.userId).is("deleted_at", null).maybeSingle();
+      checkError(error);
+      let beachName = session?.beach_name?.trim();
+      if (session?.custom_spot_id) {
+        const { data: spot, error: spotError } = await ctx.service.from("custom_spots")
+          .select("name").eq("id", session.custom_spot_id).eq("user_id", ctx.userId).maybeSingle();
+        checkError(spotError);
+        beachName = spot?.name?.trim() || beachName;
+      }
+      if (!beachName) {
+        console.warn("[watch-upload] ready notification skipped: beach name unavailable", { importId });
+        return;
+      }
+      const enqueued = await enqueueNotification({
+        type: "watch_session_ready", recipientUserId: ctx.userId,
+        payload: { session_id: result.sessionId, beach_name: beachName, wave_count: result.summary.waveCount },
+        dedupeKey: `watch_session:${importId}:completed`,
+      }, ctx.service);
+      if (!enqueued.enqueued && enqueued.reason !== "duplicate") {
+        console.warn("[watch-upload] ready notification enqueue failed", { importId, reason: enqueued.reason });
+      }
+      return;
+    }
+
+    const { data: imported, error } = await ctx.service.from("session_imports")
+      .select("summary").eq("id", importId).eq("user_id", ctx.userId).maybeSingle();
+    checkError(error);
+    const centroid = centroidSchema.safeParse(imported?.summary);
+    const timezone = centroid.success
+      ? findTimezoneFromCoords(centroid.data.centroid.lat, centroid.data.centroid.lon) ?? "UTC"
+      : "UTC";
+    const startedAt = z.object({ startedAt: z.string().datetime({ offset: true }) }).safeParse(upload.header);
+    if (!startedAt.success) {
+      console.warn("[watch-upload] needs-beach notification skipped: start time unavailable", { importId });
+      return;
+    }
+    const enqueued = await enqueueNotification({
+      type: "watch_session_needs_beach", recipientUserId: ctx.userId,
+      payload: { import_id: importId, started_at: startedAt.data.startedAt, timezone },
+      dedupeKey: `watch_session:${importId}:needs_beach`,
+    }, ctx.service);
+    if (!enqueued.enqueued && enqueued.reason !== "duplicate") {
+      console.warn("[watch-upload] needs-beach notification enqueue failed", { importId, reason: enqueued.reason });
+    }
+  } catch (error) {
+    console.warn("[watch-upload] notification enqueue failed", { importId, error });
+  }
+}
+
 async function processWatchImport(ctx: WatchContext, upload: Upload, importId: string): Promise<Response> {
   let response: Response;
   try {
     const result = await processImport({ userClient: ctx.service, serviceClient: ctx.service, now: new Date() }, importId, ctx.userId);
     response = mappedResult(result);
+    await enqueueWatchImportNotification(ctx, upload, importId, result);
   } catch (error) {
     if (!(error instanceof TrackFileError)) throw error;
     response = createSuccessResponse({ status: "failed", sessionId: null });

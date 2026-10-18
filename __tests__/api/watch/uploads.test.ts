@@ -8,6 +8,8 @@ const mockRemove = jest.fn();
 const mockStorageFrom = jest.fn(() => ({ upload: mockUpload, download: mockDownload, remove: mockRemove }));
 const mockService = { from: mockFrom, storage: { from: mockStorageFrom } };
 const mockProcess = jest.fn();
+const mockEnqueue = jest.fn();
+jest.mock("@/lib/notifications/enqueue", () => ({ enqueueNotification: (...args: unknown[]) => mockEnqueue(...args) }));
 jest.mock("@/lib/supabase", () => ({
   ...jest.requireActual("@/lib/supabase"),
   createServiceRoleClient: () => mockService,
@@ -91,7 +93,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   process.env.GARMIN_WATCH_ENABLED = "true";
   process.env.GARMIN_WATCH_USER_ALLOWLIST = userId;
-  tables = { watch_devices: [{ id: deviceId, user_id: userId, token_hash: hashSecret("watch-token"), device_name: null, revoked_at: null, last_seen_at: new Date().toISOString() }], watch_uploads: [], session_imports: [] };
+  tables = { watch_devices: [{ id: deviceId, user_id: userId, token_hash: hashSecret("watch-token"), device_name: null, revoked_at: null, last_seen_at: new Date().toISOString() }], watch_uploads: [], session_imports: [], sessions: [{ id: "session-1", user_id: userId, beach_name: "Scripps", custom_spot_id: null, deleted_at: null }], custom_spots: [] };
   objects = new Map(); operations = []; loseClaim = false; dbFailure = null;
   mockFrom.mockImplementation(query);
   mockUpload.mockImplementation(async (path: string, body: string | Uint8Array) => {
@@ -105,8 +107,9 @@ beforeEach(() => {
   });
   mockProcess.mockImplementation(async (_deps: unknown, id: string) => {
     Object.assign(tables.session_imports.find(row => row.id === id)!, { status: "completed", session_id: "session-1" });
-    return { status: "completed", sessionId: "session-1", attached: false, summary: {} };
+    return { status: "completed", sessionId: "session-1", attached: false, summary: { waveCount: 2 } };
   });
+  mockEnqueue.mockResolvedValue({ enqueued: true, eventId: "event-1" });
 });
 
 afterAll(() => {
@@ -238,6 +241,100 @@ it("maps no_gps to final failed", async () => {
   expect(response.status).toBe(200);
   expect(await response.json()).toMatchObject({ data: { status: "failed", sessionId: null } });
 });
+
+it("enqueues a ready push once for a fresh completed import, including an attached session", async () => {
+  await uploadAll();
+  mockProcess.mockResolvedValueOnce({ status: "completed", sessionId: "session-1", attached: true, summary: { waveCount: 2 } });
+  const first = await complete(request(), context());
+  expect(first.status).toBe(200);
+  const importId = tables.session_imports[0].id;
+  expect(mockEnqueue).toHaveBeenCalledTimes(1);
+  expect(mockEnqueue).toHaveBeenCalledWith({
+    type: "watch_session_ready", recipientUserId: userId,
+    payload: { session_id: "session-1", beach_name: "Scripps", wave_count: 2 },
+    dedupeKey: `watch_session:${importId}:completed`,
+  }, mockService);
+  await complete(request(), context());
+  expect(mockEnqueue).toHaveBeenCalledTimes(1);
+});
+
+it("uses a custom spot name when the session has no beach name", async () => {
+  await uploadAll();
+  Object.assign(tables.sessions[0], { beach_name: null, custom_spot_id: "spot-1" });
+  tables.custom_spots.push({ id: "spot-1", user_id: userId, name: "My Secret Spot" });
+  mockProcess.mockResolvedValueOnce({ status: "completed", sessionId: "session-1", attached: false, summary: { waveCount: 1 } });
+  expect((await complete(request(), context())).status).toBe(200);
+  expect(mockEnqueue.mock.calls[0][0].payload).toEqual({ session_id: "session-1", beach_name: "My Secret Spot", wave_count: 1 });
+});
+
+it("skips a ready push when no beach or custom spot name resolves", async () => {
+  await uploadAll();
+  Object.assign(tables.sessions[0], { beach_name: null, custom_spot_id: null });
+  mockProcess.mockResolvedValueOnce({ status: "completed", sessionId: "session-1", attached: false, summary: { waveCount: 0 } });
+  const warning = jest.spyOn(console, "warn").mockImplementation(() => {});
+  try {
+    expect((await complete(request(), context())).status).toBe(200);
+    expect(mockEnqueue).not.toHaveBeenCalled();
+    expect(warning).toHaveBeenCalled();
+  } finally { warning.mockRestore(); }
+});
+
+it("enqueues needs-beach with the surf timezone and import id", async () => {
+  await uploadAll();
+  mockProcess.mockImplementationOnce(async (_deps: unknown, id: string) => {
+    Object.assign(tables.session_imports.find(row => row.id === id)!, {
+      status: "needs_beach", summary: { centroid: { lat: 32.7, lon: -117.2 } },
+    });
+    return { status: "needs_beach", importId: id, candidates: [] };
+  });
+  expect((await complete(request(), context())).status).toBe(200);
+  const importId = tables.session_imports[0].id;
+  expect(mockEnqueue).toHaveBeenCalledWith({
+    type: "watch_session_needs_beach", recipientUserId: userId,
+    payload: { import_id: importId, started_at: header.startedAt, timezone: "America/Los_Angeles" },
+    dedupeKey: `watch_session:${importId}:needs_beach`,
+  }, mockService);
+  await complete(request(), context());
+  expect(mockEnqueue).toHaveBeenCalledTimes(1);
+});
+
+it("falls back to UTC when the surf timezone cannot be resolved", async () => {
+  await uploadAll();
+  mockProcess.mockImplementationOnce(async (_deps: unknown, id: string) => {
+    Object.assign(tables.session_imports.find(row => row.id === id)!, { status: "needs_beach", summary: null });
+    return { status: "needs_beach", importId: id, candidates: [] };
+  });
+  expect((await complete(request(), context())).status).toBe(200);
+  expect(mockEnqueue.mock.calls[0][0].payload).toEqual({
+    import_id: tables.session_imports[0].id, started_at: header.startedAt, timezone: "UTC",
+  });
+});
+
+it("does not enqueue duplicate or failed process results", async () => {
+  await uploadAll();
+  mockProcess.mockResolvedValueOnce({ status: "duplicate", sessionId: "existing" });
+  expect((await complete(request(), context())).status).toBe(200);
+  expect(mockEnqueue).not.toHaveBeenCalled();
+  jest.clearAllMocks();
+  tables.watch_uploads = [];
+  await uploadAll();
+  mockProcess.mockRejectedValueOnce(new TrackFileError("no_gps", "No GPS"));
+  expect((await complete(request(), context())).status).toBe(200);
+  expect(mockEnqueue).not.toHaveBeenCalled();
+});
+
+it("keeps the complete response when enqueue throws", async () => {
+  await uploadAll();
+  mockProcess.mockResolvedValueOnce({ status: "completed", sessionId: "session-1", attached: false, summary: { waveCount: 1 } });
+  mockEnqueue.mockRejectedValueOnce(new Error("queue down"));
+  const warning = jest.spyOn(console, "warn").mockImplementation(() => {});
+  try {
+    const response = await complete(request(), context());
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ data: { status: "completed", sessionId: "session-1" } });
+    expect(warning).toHaveBeenCalled();
+  } finally { warning.mockRestore(); }
+});
 it.each([
   ["completed", null, "session-1", "completed"], ["needs_beach", null, null, "needs_beach"],
   ["failed", "duplicate", "existing", "duplicate"], ["failed", "corrupt", "ignored", "failed"],
@@ -314,7 +411,7 @@ it("returns processing to a retry while the first completion is still running", 
     started();
     await finishProcessing;
     Object.assign(tables.session_imports.find(row => row.id === id)!, { status: "completed", session_id: "session-1" });
-    return { status: "completed", sessionId: "session-1" };
+    return { status: "completed", sessionId: "session-1", attached: false, summary: { waveCount: 2 } };
   });
   const first = complete(request(), context());
   await processingStarted;

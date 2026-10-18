@@ -49,6 +49,18 @@ const likeSchema = z.object({
   beach_name: z.string().nullable().optional(),
 });
 
+const watchSessionReadySchema = z.object({
+  session_id: z.string().min(1),
+  beach_name: z.string().trim().min(1),
+  wave_count: z.number().int().nonnegative(),
+}).strict();
+
+const watchSessionNeedsBeachSchema = z.object({
+  import_id: z.string().min(1),
+  started_at: z.string().datetime({ offset: true }),
+  timezone: z.string().min(1).optional(),
+}).strict();
+
 // follow has no required fields; actor identity comes from BuildCtx.
 const followSchema = z.record(z.string(), z.unknown());
 
@@ -343,6 +355,10 @@ const SURF_ALERT_PUSH_PRESENTATION = {
 // ─── Payload shapes (what producers pass + what builders consume) ────────────
 
 type LikePayload = z.infer<typeof likeSchema>;
+
+type WatchSessionReadyPayload = z.infer<typeof watchSessionReadySchema>;
+
+type WatchSessionNeedsBeachPayload = z.infer<typeof watchSessionNeedsBeachSchema>;
 
 type FollowPayload = z.infer<typeof followSchema>;
 
@@ -847,6 +863,42 @@ export const NOTIFICATION_REGISTRY = {
       },
     }),
   } satisfies NotificationTypeDef<LogSessionNudgePayload>,
+
+  watch_session_ready: {
+    type: "watch_session_ready",
+    channels: ["push"],
+    prefs: {
+      master: { push: "notif_push_enabled" },
+      perType: {},
+    },
+    suppressSelfNotify: false,
+    quietHours: DEFAULT_QUIET,
+    validatePayload: (input) => watchSessionReadySchema.parse(input),
+    buildPushPayload: (p) => ({
+      title: "Your surf is in Quiver",
+      body: `${p.beach_name}: ${p.wave_count} ${p.wave_count === 1 ? "wave" : "waves"}`,
+      data: { type: "watch_session_ready", session_id: p.session_id },
+    }),
+  } satisfies NotificationTypeDef<WatchSessionReadyPayload>,
+
+  watch_session_needs_beach: {
+    type: "watch_session_needs_beach",
+    channels: ["push"],
+    prefs: {
+      master: { push: "notif_push_enabled" },
+      perType: {},
+    },
+    suppressSelfNotify: false,
+    quietHours: DEFAULT_QUIET,
+    validatePayload: (input) => watchSessionNeedsBeachSchema.parse(input),
+    buildPushPayload: (p) => ({
+      title: "Pick the beach for your surf",
+      body: `Your ${new Intl.DateTimeFormat("en-US", {
+        month: "short", day: "numeric", timeZone: p.timezone ?? "UTC",
+      }).format(new Date(p.started_at))} surf needs a beach before it can be saved`,
+      data: { type: "watch_session_needs_beach", import_id: p.import_id },
+    }),
+  } satisfies NotificationTypeDef<WatchSessionNeedsBeachPayload>,
 
   forecast_feedback_nudge: {
     type: "forecast_feedback_nudge",
