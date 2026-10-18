@@ -795,6 +795,45 @@ describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () =>
     expect(recovery.body).toMatch(/safe levels/i);
   });
 
+  it.each([
+    ["start", "county_general", null, "Rain advisory: Ocean Beach", "County of San Diego rain advisory. Runoff can raise bacteria for 72 h after rain."],
+    ["start", "metar_runoff", null, "Rain advisory: Ocean Beach", "Rain fell nearby. Runoff can raise bacteria near drains and creeks for 72 h."],
+    ["end", "county_general", "dry_72h", "All clear: Ocean Beach", "72 h since the last rain at Ocean Beach. The rain advisory has ended."],
+    ["end", "county_general", "county_lifted", "All clear: Ocean Beach", "The County lifted its rain advisory for Ocean Beach."],
+  ] as const)("water_quality rain copy %s %s %s", (phase, source, end_reason, title, body) => {
+    const definition = NOTIFICATION_REGISTRY.water_quality;
+    const parsed = definition.validatePayload!({
+      beach_id: "beach-1", beach_slug: "ocean-beach", beach_name: "Ocean Beach",
+      status: phase === "start" ? "advisory" : "good",
+      previous_status: phase === "start" ? null : "advisory",
+      status_changed_at: "2026-10-18T12:00:00Z",
+      rain_advisory: {
+        event_id: "11111111-1111-4111-8111-111111111111", phase, source, region: "san_diego",
+        started_at: "2026-10-15T12:00:00Z", last_rain_at: null,
+        expires_at: "2026-10-18T12:00:00Z", end_reason,
+      },
+    });
+    const push = definition.buildPushPayload!(parsed);
+    expect(push).toMatchObject({ title, body, data: {
+      type: "water_quality", beach_id: "beach-1", beach_slug: "ocean-beach",
+      status: phase === "start" ? "advisory" : "good", rain_advisory_phase: phase,
+    } });
+    expect(definition.buildInAppPayload!(parsed).data).toMatchObject({ rain_advisory: { phase, end_reason } });
+    expect(`${push.title} ${push.body}`).not.toMatch(/the call|\bAI\b/i);
+  });
+
+  it("keeps legacy water-quality payloads and copy", () => {
+    const definition = NOTIFICATION_REGISTRY.water_quality;
+    const parsed = definition.validatePayload!({ beach_id: "beach-1", beach_slug: "ocean-beach",
+      beach_name: "Ocean Beach", status: "advisory", previous_status: null,
+      status_changed_at: "2026-10-18T12:00:00Z" });
+    const push = definition.buildPushPayload!(parsed);
+    expect(push.title).toBe("Water advisory: Ocean Beach");
+    expect(push.body).toBe("Elevated bacteria. Check before paddling out.");
+    expect(push.data).not.toHaveProperty("rain_advisory_phase");
+    expect(definition.buildInAppPayload!(parsed).data).not.toHaveProperty("rain_advisory");
+  });
+
   it("daily_digest is fully disabled", () => {
     expect(NOTIFICATION_REGISTRY.daily_digest.channels).toEqual([]);
   });

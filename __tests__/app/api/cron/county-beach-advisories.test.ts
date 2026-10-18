@@ -34,6 +34,7 @@ jest.mock("@/lib/services/water-quality/rain-advisory-events-sync", () => ({
 
 describe("County advisory cron route", () => {
   beforeEach(() => {
+    delete process.env.RAIN_ADVISORY_PUSH_ENABLED;
     jest.clearAllMocks();
     (require("@/lib/middleware/api-wrappers").validateCronRequest as jest.Mock).mockReturnValue(true);
     (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue({});
@@ -90,7 +91,9 @@ describe("County advisory cron route", () => {
     (syncCountyRainAdvisory as jest.Mock).mockResolvedValue({ status: "table_missing" });
     const response = await GET(new Request("http://localhost/api/cron/county-beach-advisories"));
     expect(response.status).toBe(200);
-    expect((await response.json()).data.rainAdvisory).toEqual({ status: "table_missing" });
+    expect((await response.json()).data).toMatchObject({
+      rainAdvisory: { status: "table_missing" }, rainAdvisoryPush: { status: "disabled" },
+    });
     expect(syncCountyRainAdvisory).toHaveBeenCalledWith(expect.anything(), {
       id: "run-1", fetched_at: "2026-10-18T12:00:00Z", advisory_count: 0,
     }, expect.any(Date));
