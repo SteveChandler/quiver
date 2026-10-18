@@ -9,7 +9,7 @@ export type TrackSample = {
 };
 
 export type TrackMeta = {
-  format: "fit" | "gpx";
+  format: "fit" | "gpx" | "quiver_watch";
   sport: string | null;
   subSport: string | null;
   recordedBy: string | null;
@@ -17,7 +17,11 @@ export type TrackMeta = {
   endedAt: string;
 };
 
-export type NormalizedTrack = { meta: TrackMeta; samples: TrackSample[] };
+export type NormalizedTrack = {
+  meta: TrackMeta;
+  samples: TrackSample[];
+  extras?: { rating: number | null; deviceName: string | null };
+};
 
 export class TrackFileError extends Error {
   constructor(
