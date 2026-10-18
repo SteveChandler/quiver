@@ -232,18 +232,23 @@ async function existingImport(ctx: WatchContext, upload: Upload): Promise<Respon
 
 async function assembleChunks(ctx: WatchContext, upload: Upload): Promise<{ file: string } | { missing: number }> {
   const chunks = [];
-  for (let index = 0; index < upload.chunk_count!; index++) {
-    const { data, error } = await ctx.service.storage.from("session-tracks")
-      .download(`${upload.id}/${ctx.userId}/chunks/${index}.json`);
-    if (!data && (!error
-      || ("statusCode" in error && error.statusCode === "404")
-      || ("status" in error && error.status === 404))) {
-      return { missing: index };
+  const bucket = ctx.service.storage.from("session-tracks");
+  for (let start = 0; start < upload.chunk_count!; start += 10) {
+    const downloaded = await Promise.all(Array.from(
+      { length: Math.min(10, upload.chunk_count! - start) },
+      (_, offset) => bucket.download(`${upload.id}/${ctx.userId}/chunks/${start + offset}.json`),
+    ));
+    for (const [offset, { data, error }] of downloaded.entries()) {
+      if (!data && (!error
+        || ("statusCode" in error && error.statusCode === "404")
+        || ("status" in error && error.status === 404))) {
+        return { missing: start + offset };
+      }
+      checkError(error);
+      if (!data) throw new Error("Watch chunk object not found");
+      const { t0, lat0, lon0, rows } = chunkSchema.parse(JSON.parse(await data.text()));
+      chunks.push({ t0, lat0, lon0, rows });
     }
-    checkError(error);
-    if (!data) throw new Error("Watch chunk object not found");
-    const { t0, lat0, lon0, rows } = chunkSchema.parse(JSON.parse(await data.text()));
-    chunks.push({ t0, lat0, lon0, rows });
   }
   return { file: JSON.stringify({ quiverWatch: 1, header: upload.header, chunks }) };
 }
@@ -253,7 +258,11 @@ export async function completeWatchUpload(request: NextRequest, ctx: WatchContex
   const body = z.object({ chunkCount: chunkCountSchema }).safeParse(await request.json().catch(() => null));
   if (!id.success || !body.success) return createErrorResponse("invalid_upload", undefined, 400);
   const upload = await loadUpload(ctx, id.data);
-  if (!upload || upload.user_id !== ctx.userId) return createErrorResponse("not_found", undefined, 404);
+  if (!upload) {
+    const missing = Array.from({ length: body.data.chunkCount }, (_, index) => index);
+    return createErrorResponse("missing_chunks", { missing }, 409);
+  }
+  if (upload.user_id !== ctx.userId) return createErrorResponse("not_found", undefined, 404);
   if (upload.import_id) return existingImport(ctx, upload);
   if (upload.chunk_count !== null && upload.chunk_count !== body.data.chunkCount) {
     return createErrorResponse("invalid_chunk_count", undefined, 400);

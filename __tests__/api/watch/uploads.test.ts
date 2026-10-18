@@ -135,9 +135,12 @@ it("requires the header on chunk zero", async () => {
   expect(mockUpload).not.toHaveBeenCalled();
 });
 
-it.each([chunk, complete])("returns 404 for another user's surf without writes or processing", async handler => {
+it.each([
+  { handler: chunk, status: 404 },
+  { handler: complete, status: 409 },
+])("isolates another user's surf without writes or processing (status $status)", async ({ handler, status }) => {
   tables.watch_uploads.push({ id: surfId, user_id: "other", import_id: null });
-  expect((await handler(request({ ...payload, header, chunkCount: 2 }), context())).status).toBe(404);
+  expect((await handler(request({ ...payload, header, chunkCount: 2 }), context())).status).toBe(status);
   expect(mockUpload).not.toHaveBeenCalled(); expect(mockDownload).not.toHaveBeenCalled(); expect(mockRemove).not.toHaveBeenCalled();
   expect(mockProcess).not.toHaveBeenCalled();
   expect(tables.watch_uploads).toEqual([{ id: surfId, user_id: "other", import_id: null }]);
@@ -443,9 +446,16 @@ it("rejects a complete count inconsistent with the stored header", async () => {
   expect((await complete(request({ chunkCount: 1 }), context())).status).toBe(400);
   expect(mockProcess).not.toHaveBeenCalled();
 });
-it("returns 404 for an unknown surf on complete", async () => {
-  expect((await complete(request(), context())).status).toBe(404);
-  expect(mockUpload).not.toHaveBeenCalled(); expect(mockProcess).not.toHaveBeenCalled();
+it.each([1, 3, 1000])("requests every chunk of an unknown or purged surf (count %s)", async chunkCount => {
+  const response = await complete(request({ chunkCount }), context());
+  expect(response.status).toBe(409);
+  expect(await response.json()).toMatchObject({ success: false, error: "missing_chunks", details: {
+    missing: Array.from({ length: chunkCount }, (_, index) => index),
+  } });
+  expect(mockUpload).not.toHaveBeenCalled();
+  expect(mockDownload).not.toHaveBeenCalled();
+  expect(mockProcess).not.toHaveBeenCalled();
+  expect(tables.watch_uploads).toHaveLength(0);
 });
 it("does not overwrite completed chunks on watch retries", async () => {
   await uploadAll(); await complete(request(), context()); mockUpload.mockClear();
@@ -706,4 +716,55 @@ it("returns a retryable failure when the acknowledgement RPC fails", async () =>
     expect((await chunk(request({ ...payload, header }), context())).status).toBe(500);
     expect(tables.watch_uploads[0].received_chunks).toEqual([]);
   } finally { errorLog.mockRestore(); }
+});
+
+function seedLongUpload(count: number): Row[] {
+  const chunks = Array.from({ length: count }, (_, index) => ({ ...payload, t0: payload.t0 + index * 2 }));
+  tables.watch_uploads.push({ id: surfId, user_id: userId, device_id: deviceId,
+    header: { ...header, chunkCount: count }, chunk_count: count, import_id: null,
+    received_chunks: chunks.map((_, index) => index),
+  });
+  chunks.forEach((body, index) => objects.set(`${surfId}/${userId}/chunks/${index}.json`, JSON.stringify(body)));
+  return chunks;
+}
+
+it("downloads ten chunks concurrently per batch and assembles them in index order", async () => {
+  const chunks = seedLongUpload(22);
+  let active = 0;
+  let peak = 0;
+  const events: string[] = [];
+  mockDownload.mockImplementation(async (path: string) => {
+    const index = Number(path.split("/").at(-1)!.split(".")[0]);
+    active += 1;
+    peak = Math.max(peak, active);
+    events.push(`start:${index}`);
+    for (let tick = 0; tick < 10 - index % 10; tick++) await Promise.resolve();
+    active -= 1;
+    events.push(`end:${index}`);
+    return { data: new Blob([objects.get(path)!]), error: null };
+  });
+  expect((await complete(request({ chunkCount: 22 }), context())).status).toBe(200);
+  expect(peak).toBe(10);
+  expect(events.indexOf("end:9")).toBeLessThan(events.indexOf("end:0"));
+  expect(events.indexOf("start:10")).toBeGreaterThan(Math.max(...Array.from({ length: 10 }, (_, index) => events.indexOf(`end:${index}`))));
+  expect(events.indexOf("start:20")).toBeGreaterThan(Math.max(...Array.from({ length: 10 }, (_, index) => events.indexOf(`end:${index + 10}`))));
+  const assembled = JSON.parse(objects.get(tables.session_imports[0].storage_path)!);
+  expect(assembled.chunks).toEqual(chunks);
+  expect(mockDownload).toHaveBeenCalledTimes(22);
+});
+
+it.each([10, 21])("requests missing chunk %s from a later download batch", async missing => {
+  seedLongUpload(22);
+  objects.delete(`${surfId}/${userId}/chunks/${missing}.json`);
+  mockDownload.mockImplementation(async (path: string) => ({
+    data: objects.has(path) ? new Blob([objects.get(path)!]) : null,
+    error: objects.has(path) ? null : { statusCode: "404", message: "not found" },
+  }));
+  const response = await complete(request({ chunkCount: 22 }), context());
+  expect(response.status).toBe(409);
+  expect(await response.json()).toMatchObject({ error: "missing_chunks", details: { missing: [missing] } });
+  expect(mockRpc).toHaveBeenLastCalledWith("watch_upload_mark_chunks", { p_id: surfId, p_user_id: userId, p_add: [], p_remove: [missing] });
+  expect(mockDownload).toHaveBeenCalledTimes(missing === 10 ? 20 : 22);
+  expect(mockUpload).not.toHaveBeenCalled();
+  expect(mockProcess).not.toHaveBeenCalled();
 });
