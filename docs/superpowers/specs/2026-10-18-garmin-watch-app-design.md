@@ -215,9 +215,9 @@ All responses use the `createSuccessResponse` / `createErrorResponse` envelope.
 - **Flag:** linking and upload sit behind `GARMIN_WATCH_ENABLED` plus `GARMIN_WATCH_USER_ALLOWLIST` (the `lib/flags/session-imports.ts` pattern).
 - **Waves read API:** the waves read and correction routes (part 1) allow a user when *either* the imports flag or the watch flag allows them. Otherwise a watch user's "3 waves" push would open a session with the waves hidden.
 - **Release order** (each step needs Steven's approval):
-  1. Part 1's two migrations and flag.
-  2. Part 2's migration, which refuses to run without part 1's tables.
-  3. Server flags for Steven's accounts.
+  1. Apply part 1's migrations: `20261018090000_session_waves_core.sql`, then `20261018090100_session_waves_triggers.sql`. Keep both server flags off.
+  2. Apply part 2's `20261019090000_garmin_watch.sql`, which requires both part 1 migrations. All three migrations must be applied before EITHER flag is enabled: part 2's pipeline writes the new `session_tracks` columns on every import, including FIT/GPX.
+  3. Enable server flags for Steven's accounts only after all three migrations are applied.
   4. Private store beta.
   5. Public listing, with both flags opened to everyone at the same time.
 
@@ -334,7 +334,7 @@ Unit tests cover the set grouping, paddle distance and gap bridging.
 5. **The link URL lives under `/sessions/`** (`go.quiversurf.app/sessions/garmin-link`), so it opens the installed app on iOS and Android without a new native build.
 6. **Device identity:** the watch sends an app-scoped device ID, so two watches of the same model stay separate. The privacy line mentions it.
 7. **Water temperature:** the watch shows a live value. The session stores the server's whole-surf median, labelled "session median".
-8. **Waves read API:** opens to a user when either the imports flag or the watch flag allows them. Release order: part 1 → part 2 migration → Steven's accounts → store beta → public.
+8. **Waves read API:** opens to a user when either the imports flag or the watch flag allows them. Release order: part 1's two migrations → part 2's migration → enable either flag for Steven's accounts → store beta → public. All three migrations must precede EITHER flag because part 2's pipeline writes the new `session_tracks` columns on every import.
 9. **Paddle distance on the watch** counts GPS distance below 2.5 m/s; the server's figure excludes detected rides and is the one stored.
 10. **Store name** "Quiver: Surf Tracker"; free; every GPS watch at API 3.2+ that passes the simulator run and fits at least 3 two-hour surfs.
 11. **A separate private `quiver-garmin` repo** for the Monkey C app.
