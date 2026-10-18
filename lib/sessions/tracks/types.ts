@@ -25,7 +25,7 @@ export type NormalizedTrack = {
 
 export class TrackFileError extends Error {
   constructor(
-    public code: "unsupported_format" | "no_gps" | "bad_time" | "corrupt",
+    public code: "unsupported_format" | "no_gps" | "bad_time" | "corrupt" | "too_short",
     message: string
   ) {
     super(message);

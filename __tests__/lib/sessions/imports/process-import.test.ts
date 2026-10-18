@@ -4,9 +4,13 @@ jest.mock("server-only", () => ({}));
 import { createHash } from "node:crypto";
 import { FitBaseType, FitEncoder } from "fit-file-parser";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import watchFixture from "@/__tests__/fixtures/session-tracks/watch-ob-2026-10-17.json";
+import { encodeWatchTrack } from "../tracks/watch-encode";
+import type { NormalizedTrack } from "@/lib/sessions/tracks/types";
 import fixture from "@/__tests__/fixtures/session-tracks/ob-2026-10-17.json";
 import { processImport, persistDetection } from "@/lib/sessions/imports/process-import";
 import { readTrackFile } from "@/lib/sessions/tracks/read-track-file";
+import { haversineM } from "@/lib/sessions/tracks/track-geometry";
 import { summarizeTrack } from "@/lib/sessions/tracks/summarize-track";
 import { detectWaves, WAVE_DETECTION_VERSION } from "@/lib/sessions/wave-detection/detect-waves";
 
@@ -15,7 +19,7 @@ const importId = "import-1";
 const now = new Date("2026-10-20T18:00:00Z");
 const beach = { id: "beach-1", name: "OB", ...fixture.beach };
 
-function fixtureBytes(gps = true): Uint8Array {
+function fixtureBytes(gps = true, withHr = false): Uint8Array {
   const encoder = new FitEncoder();
   encoder.writeMessage(18, [
     { number: 253, size: 4, baseType: FitBaseType.Uint32, value: FitEncoder.toFitTimestamp(new Date(fixture.track.meta.endedAt)) },
@@ -30,6 +34,7 @@ function fixtureBytes(gps = true): Uint8Array {
         { number: 1, size: 4, baseType: FitBaseType.Sint32, value: Math.round(sample.lon * 2 ** 31 / 180) },
       ] : []),
       ...(sample.speedMps === null ? [] : [{ number: 6, size: 2, baseType: FitBaseType.Uint16, value: Math.round(sample.speedMps * 1000) }]),
+      ...(withHr && sample.hr !== null ? [{ number: 3, size: 1, baseType: FitBaseType.Uint8, value: sample.hr }] : []),
       ...(sample.tempC === null ? [] : [{ number: 13, size: 1, baseType: FitBaseType.Sint8, value: sample.tempC }]),
     ]);
   }
@@ -497,4 +502,141 @@ it("loads only the track fields needed to resume an import", async () => {
   expect(selections.filter(query => query.table === "session_tracks").map(query => query.columns)).toEqual([
     "session_id, import_id, user_arrival_time, user_duration_minutes, user_wave_count",
   ]);
+});
+
+
+function useWatch(track?: NormalizedTrack, rating: number | null = 3): NormalizedTrack {
+  const file = track ? encodeWatchTrack(track) : structuredClone(watchFixture);
+  file.header.rating = rating;
+  bytes = new TextEncoder().encode(JSON.stringify(file));
+  Object.assign(rows.session_imports[0], { origin: "garmin_watch", original_filename: "watch.json" });
+  return readTrackFile(bytes, "watch.json", now);
+}
+
+function watchSlice(seconds: number): NormalizedTrack {
+  const track = readTrackFile(new TextEncoder().encode(JSON.stringify(watchFixture)), "watch.json", now);
+  const start = Date.parse("2026-10-17T16:20:00Z");
+  const samples = track.samples.filter(sample => Date.parse(sample.t) >= start && Date.parse(sample.t) <= start + seconds * 1000);
+  return { ...track, samples, meta: { ...track.meta, startedAt: samples[0].t, endedAt: samples.at(-1)!.t } };
+}
+
+it("creates a public Garmin watch session with rating, stats, device and watch analytics", async () => {
+  const track = useWatch();
+  deps.userClient = deps.serviceClient;
+  const summary = summarizeTrack(track);
+  const hr = track.samples.filter(sample => sample.t >= summary.inWaterStart && sample.t <= summary.inWaterEnd && sample.hr !== null).map(sample => sample.hr!);
+  expect(await processImport(deps, importId, userId)).toMatchObject({ status: "completed", attached: false });
+  expect(rows.sessions[0]).toMatchObject({ source: "garmin_watch", is_public: true, rating: 3, status: "completed" });
+  expect(rows.session_tracks[0]).toMatchObject({
+    format: "quiver_watch", source_device: "Forerunner 165",
+    hr_avg: Math.round(hr.reduce((sum, value) => sum + value, 0) / hr.length), hr_max: Math.max(...hr),
+  });
+  expect(rows.session_tracks[0].paddle_distance_m).toBeGreaterThan(0);
+  expect(rows.user_events).toContainEqual(expect.objectContaining({ event_type: "session_created", metadata: expect.objectContaining({ source: "garmin-watch", surface: "garmin-watch" }) }));
+  const sessionIndex = mutations.findIndex(mutation => mutation.table === "sessions" && mutation.operation === "insert");
+  const waveIndex = mutations.findIndex(mutation => mutation.table === "session_waves" && mutation.operation === "insert");
+  expect(sessionIndex).toBeLessThan(waveIndex);
+});
+
+it("keeps a seven-minute fixture slice with no counted waves private", async () => {
+  const track = useWatch(watchSlice(420));
+  const summary = summarizeTrack(track);
+  const spanS = (Date.parse(summary.inWaterEnd) - Date.parse(summary.inWaterStart)) / 1000;
+  expect(spanS).toBeGreaterThanOrEqual(300);
+  expect(spanS).toBeLessThan(600);
+  expect(await processImport(deps, importId, userId)).toMatchObject({ status: "completed", summary: { waveCount: 0 } });
+  expect(rows.sessions[0]).toMatchObject({ source: "garmin_watch", is_public: false });
+});
+
+it.each(["file", "garmin_watch"])("fails a four-minute slice as too_short before persisting a session for %s", async origin => {
+  useWatch(watchSlice(240));
+  rows.session_imports[0].origin = origin;
+  await expect(processImport(deps, importId, userId)).rejects.toMatchObject({ code: "too_short" });
+  expect(rows.session_imports[0]).toMatchObject({ status: "failed", error: "too_short" });
+  expect(inserts("sessions")).toHaveLength(0);
+  expect(inserts("session_tracks")).toHaveLength(0);
+  expect(inserts("session_waves")).toHaveLength(0);
+  expect(rows.user_events).toContainEqual(expect.objectContaining({ event_type: "session_import_failed", metadata: { code: "too_short" } }));
+});
+
+it.each([null, 5])("fills only a null attachment rating and preserves source and visibility (rating %s)", async rating => {
+  const track = useWatch();
+  rows.sessions.push({ id: "attached", user_id: userId, beach_id: beach.id, arrival_time: summarizeTrack(track).inWaterStart, duration_minutes: 90, status: "planned", rating, source: "manual", is_public: false });
+  expect(await processImport(deps, importId, userId)).toMatchObject({ status: "completed", attached: true });
+  expect(rows.sessions[0]).toMatchObject({ rating: rating ?? 3, source: "manual", is_public: false, status: "completed" });
+  expect(inserts("sessions")).toHaveLength(0);
+  expect(inserts("user_events")).toHaveLength(0);
+});
+
+it("retains file-origin session behavior even when the track contains watch extras", async () => {
+  useWatch();
+  rows.session_imports[0].origin = "file";
+  await processImport(deps, importId, userId);
+  expect(rows.sessions[0]).toMatchObject({ source: "file_import", is_public: false });
+  expect(rows.sessions[0]).not.toHaveProperty("rating");
+  expect(rows.session_tracks[0]).toMatchObject({ source_device: null, hr_avg: expect.any(Number), hr_max: expect.any(Number) });
+  expect(rows.session_tracks[0].paddle_distance_m).toBeGreaterThan(0);
+  expect(rows.user_events[0].metadata).toMatchObject({ source: "web-file-import", surface: "web-file-import" });
+});
+
+it("stores null HR and source device for a file import without HR", async () => {
+  rows.session_imports[0].origin = "file";
+  await processImport(deps, importId, userId);
+  expect(rows.session_tracks[0]).toMatchObject({ hr_avg: null, hr_max: null, source_device: null });
+  expect(rows.session_tracks[0].paddle_distance_m).toBeGreaterThan(0);
+});
+
+
+function boundaryTrack(seconds: number, direction: number = 1): NormalizedTrack {
+  const start = Date.parse("2026-10-17T16:20:00Z");
+  const samples = Array.from({ length: seconds + 1 }, (_, index) => ({
+    t: new Date(start + index * 1000).toISOString(), lat: beach.lat,
+    lon: beach.lon + direction * Math.max(0, Math.min(10, index - 20)) * 0.00001,
+    speedMps: index >= 20 && index <= 30 ? 4 : 0, hr: null, tempC: null, cadence: null,
+  }));
+  return { meta: { format: "quiver_watch", sport: "surfing", subSport: null, recordedBy: null, startedAt: samples[0].t, endedAt: samples.at(-1)!.t }, samples };
+}
+
+it.each([300, 599, 600])("accepts a %s s in-water span and publishes only at 600 s with a counted wave", async seconds => {
+  const track = useWatch(boundaryTrack(seconds), null);
+  const summary = summarizeTrack(track);
+  expect((Date.parse(summary.inWaterEnd) - Date.parse(summary.inWaterStart)) / 1000).toBe(seconds);
+  expect(await processImport(deps, importId, userId)).toMatchObject({ status: "completed", summary: { waveCount: 1 } });
+  expect(rows.sessions[0]).toMatchObject({ is_public: seconds >= 600, rating: null });
+});
+
+it("does not publish or exclude paddling for low-confidence waves even in a ten-minute surf", async () => {
+  const track = useWatch(boundaryTrack(600, -1));
+  expect(await processImport(deps, importId, userId)).toMatchObject({ status: "completed", summary: { waveCount: 0 } });
+  expect(rows.session_waves.length).toBeGreaterThan(0);
+  expect(rows.sessions[0]).toMatchObject({ is_public: false });
+  const allDistance = track.samples.slice(1).reduce((sum, sample, index) => sum + haversineM(
+    { lat: track.samples[index].lat!, lon: track.samples[index].lon! }, { lat: sample.lat!, lon: sample.lon! },
+  ), 0);
+  expect(rows.session_tracks[0].paddle_distance_m).toBeCloseTo(allDistance, 5);
+});
+
+it("stores HR from FIT file imports", async () => {
+  bytes = fixtureBytes(true, true);
+  rows.session_imports[0].origin = "file";
+  await processImport(deps, importId, userId);
+  expect(rows.session_tracks[0]).toMatchObject({ hr_avg: expect.any(Number), hr_max: expect.any(Number), source_device: null });
+  expect(rows.session_tracks[0].hr_avg).toBeGreaterThan(0);
+  expect(rows.session_tracks[0].hr_max).toBeGreaterThanOrEqual(rows.session_tracks[0].hr_avg);
+});
+
+it("preserves a rating written concurrently while attaching a watch import", async () => {
+  const track = useWatch();
+  rows.sessions.push({ id: "attached", user_id: userId, beach_id: beach.id, arrival_time: summarizeTrack(track).inWaterStart, duration_minutes: 90, status: "completed", rating: null });
+  let attemptedRating = false;
+  queryFailure = mutation => {
+    if (mutation.table === "sessions" && mutation.operation === "update" && mutation.payload?.rating !== undefined) {
+      attemptedRating = true;
+      rows.sessions[0].rating = 5;
+    }
+    return null;
+  };
+  await processImport(deps, importId, userId);
+  expect(attemptedRating).toBe(true);
+  expect(rows.sessions[0].rating).toBe(5);
 });
