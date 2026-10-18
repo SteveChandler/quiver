@@ -132,6 +132,41 @@ describe("useSessionSubmission", () => {
     });
   });
 
+  it.each([
+    ["an untouched forecast prefill", { waveHeight: 3.1 }, true, false],
+    ["a height the surfer typed", { waveHeight: 4, waveHeightEdited: true }, false, true],
+    ["no wave height", {}, false, false],
+  ])(
+    "flags %s on the submit event for wave-height provenance",
+    async (_label, waveFields, prefilled, changed) => {
+      const { result } = renderHook(() =>
+        useSessionSubmission({
+          mode: "log",
+          user: { id: "user-123" },
+        })
+      );
+
+      await act(async () => {
+        await result.current.handleSessionComplete({
+          ...createSessionFormData(),
+          ...waveFields,
+        });
+      });
+
+      expect(mockTrackSupabase).toHaveBeenCalledWith(
+        "session_log_submit",
+        expect.objectContaining({
+          metadata: expect.objectContaining({
+            event_id: "session:session-123:submit:web:v1",
+            session_id: "session-123",
+            forecast_prefilled: prefilled,
+            forecast_height_changed: changed,
+          }),
+        })
+      );
+    }
+  );
+
   it("does not emit submit telemetry when the session save fails", async () => {
     mockCreateLoggedSession.mockResolvedValueOnce({
       success: false,
