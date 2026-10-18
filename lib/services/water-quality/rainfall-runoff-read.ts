@@ -57,7 +57,8 @@ async function readActiveEvents(client: ReadingsClient): Promise<Map<string, Rai
 
 /**
  * Display-path overlay for beach pages and discovery. Rain notices never
- * trigger recommendation holds.
+ * trigger recommendation holds. Rain pushes go only through
+ * processRainAdvisoryPushes behind RAIN_ADVISORY_PUSH_ENABLED.
  */
 export async function withRainfallNotice<T extends { beach_id: string; status: string; status_reason?: string | null; county_advisory_status?: string }>(
   rows: readonly T[],

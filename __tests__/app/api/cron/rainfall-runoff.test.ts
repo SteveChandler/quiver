@@ -22,6 +22,7 @@ jest.mock("@/lib/services/water-quality/rain-advisory-events-sync", () => ({
 }));
 
 it("still writes rainfall readings and returns 200 when event sync reports a missing table", async () => {
+  delete process.env.RAIN_ADVISORY_PUSH_ENABLED;
   (runRainfallRunoffIngest as jest.Mock).mockImplementation(async ({ writeReadings }) => {
     await writeReadings([{ cluster_id: "huntington_newport", window_end: "2026-10-18T12:00:00Z",
       total_in: 0.3, station_totals: { KLGB: 0.3 } }]);
@@ -33,6 +34,8 @@ it("still writes rainfall readings and returns 200 when event sync reports a mis
   expect(upsert).toHaveBeenCalledTimes(1);
   expect(prune).toHaveBeenCalledTimes(1);
   expect(syncMetarRainAdvisories).toHaveBeenCalledWith(expect.anything(), [{ region: "huntington_newport" }], expect.any(Date));
-  expect((await response.json()).data.rainAdvisory).toEqual({ status: "table_missing" });
+  expect((await response.json()).data).toMatchObject({
+    rainAdvisory: { status: "table_missing" }, rainAdvisoryPush: { status: "disabled" },
+  });
   expectConsoleWarnings([/rain advisory events table missing/]);
 });
