@@ -33,7 +33,8 @@ export const GET = withNoStore(withRateLimit(withAuth(async (_request, { user, s
   let startedAt = summary.startedAt;
   if (!startedAt && imported.origin === "garmin_watch") {
     const { data: upload, error: uploadError } = await supabase.from("watch_uploads")
-      .select("header").eq("import_id", imported.id).eq("user_id", user.id).maybeSingle();
+      .select("header").eq("import_id", imported.id).eq("user_id", user.id)
+      .order("created_at", { ascending: false }).limit(1).maybeSingle();
     if (uploadError) throw uploadError;
     startedAt = summaryData(upload?.header).startedAt;
   }

@@ -204,6 +204,26 @@ it("returns Garmin track metrics and the recorded-with label", async () => {
   expect(queries.sessions[0].select).toHaveBeenCalledWith(expect.stringContaining("source"));
 });
 
+it.each(["count", "exclude", "restore"])("preserves Garmin summary fields after a %s PATCH", async action => {
+  rows.sessions = { ...rows.sessions as object, source: "garmin_watch" };
+  rows.session_wave_corrections = action === "restore" ? [{ started_at: start, ended_at: end }] : [];
+  rows.session_waves = [0, 20, 600, 620, 1200, 1220, 1800, 1820].map((offset, index) => ({
+    ...wave, id: `${waveId.slice(0, -1)}${index + 1}`, wave_index: index + 1,
+    started_at: new Date(Date.parse(start) + offset * 1000).toISOString(),
+    ended_at: new Date(Date.parse(end) + offset * 1000).toISOString(),
+  }));
+  const response = action === "count"
+    ? await patchCount(request("PATCH", { userWaveCount: 3 }), context)
+    : await patchWave(request("PATCH", { excluded: action === "exclude" }), context);
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ data: { summary: {
+    paddleDistanceM: 1200, heartRateAvg: 118, heartRateMax: 156,
+    setIntervalMin: 10, recordedWith: "Quiver for Garmin · Forerunner 965",
+  } } });
+  expect(queries.sessions[0].select).toHaveBeenCalledWith(expect.stringContaining("source"));
+  expect(queries.session_tracks[0].select).toHaveBeenCalledWith(expect.stringContaining("source_device"));
+});
+
 it.each(["other owner", "soft deleted"])("returns 404 for %s", async reason => {
   rows.sessions = { ...rows.sessions as object, ...(reason === "other owner" ? { user_id: "other" } : { deleted_at: start }) };
   const response = await GET(request("GET"), context);

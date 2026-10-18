@@ -85,24 +85,36 @@ describe("buildWavesSummary", () => {
 });
 
 describe("setIntervalMin", () => {
-  it("groups rides within 90 seconds and rounds the median gap to minutes", () => {
-    const rides = [0, 30, 480, 500, 970, 1445].map((start, index) =>
+  it("groups in-set rides before computing the median gap", () => {
+    const rides = [0, 20, 40, 600, 620, 640, 1200, 1220, 1240, 1800, 1820, 1840].map((start, index) =>
       ({ ...wave(String(index + 1), start, 20), counted: true }));
-    expect(setIntervalMin(rides, [])).toBe(8);
+    expect(setIntervalMin(rides, [])).toBe(10);
   });
 
   it("requires at least three sets", () => {
     expect(setIntervalMin([wave("1", 0, 20), wave("2", 480, 20)], [])).toBeNull();
   });
 
-  it("ignores excluded and uncounted rides", () => {
-    const rides = [
-      { ...wave("1", 0, 20), counted: true },
-      { ...wave("2", 480, 20), counted: true },
-      { ...wave("3", 900, 20), counted: false },
-      { ...wave("4", 960, 20), counted: true },
-      { ...wave("5", 1200, 20), counted: true },
-    ];
-    expect(setIntervalMin(rides, [{ startedAt: time(1200), endedAt: time(1220) }])).toBe(8);
+  it("ignores an uncounted ride that would split a ten-minute gap", () => {
+    const rides = [0, 600, 900, 1200, 1800].map((start, index) =>
+      ({ ...wave(String(index + 1), start, 20), counted: start !== 900 }));
+    expect(setIntervalMin(rides, [])).toBe(10);
+  });
+
+  it("ignores an excluded ride that would split a ten-minute gap", () => {
+    const rides = [0, 600, 900, 1200, 1800].map((start, index) =>
+      ({ ...wave(String(index + 1), start, 20), excluded: start === 900 }));
+    expect(setIntervalMin(rides, [])).toBe(10);
+  });
+
+  it("ignores a corrected ride that would split a ten-minute gap", () => {
+    const rides = [0, 600, 900, 1200, 1800].map((start, index) => wave(String(index + 1), start, 20));
+    expect(setIntervalMin(rides, [{ startedAt: time(900), endedAt: time(920) }])).toBe(10);
+  });
+
+  it("chains each ride to the previous ride rather than the first ride in its set", () => {
+    const rides = [0, 80, 160, 240, 2000, 4000].map((start, index) => wave(String(index + 1), start, 20));
+    expect(setIntervalMin(rides, [])).toBe(33);
+    expect(setIntervalMin(rides.slice(0, 4), [])).toBeNull();
   });
 });

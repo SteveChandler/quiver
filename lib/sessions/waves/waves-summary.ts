@@ -22,6 +22,20 @@ export type WavesSummary = {
   recordedWith?: string | null;
 };
 
+export function trackSummaryExtras(
+  source: string | null,
+  track: { paddle_distance_m: number | null; hr_avg: number | null; hr_max: number | null;
+    recorded_by: string | null; source_device: string | null },
+): Pick<WavesSummary, "paddleDistanceM" | "heartRateAvg" | "heartRateMax" | "recordedWith"> {
+  return {
+    paddleDistanceM: track.paddle_distance_m,
+    heartRateAvg: track.hr_avg,
+    heartRateMax: track.hr_max,
+    recordedWith: source === "garmin_watch"
+      ? `Quiver for Garmin · ${track.source_device ?? "Garmin watch"}` : track.recorded_by,
+  };
+}
+
 export function isExcluded(wave: StoredWave, corrections: Correction[]): boolean {
   const start = Date.parse(wave.startedAt);
   const end = Date.parse(wave.endedAt);
@@ -54,6 +68,7 @@ export function setIntervalMin(waves: (StoredWave & { counted?: boolean; exclude
   const sets: number[] = [];
   let previous: number | null = null;
   for (const start of starts) {
+    // Chaining treats rides every 60–80 seconds as continuous action, rather than misleading two-minute sets.
     if (previous === null || start - previous > 90_000) sets.push(start);
     previous = start;
   }

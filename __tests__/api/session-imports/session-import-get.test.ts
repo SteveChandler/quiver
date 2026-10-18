@@ -35,9 +35,11 @@ beforeEach(() => {
   upload = null;
   mockResolve.mockResolvedValue({ status: "needs_beach", candidates: [{ id: "beach-1", name: "Beach", lat: 34, lon: -119 }] });
   mockFrom.mockImplementation((table: string) => {
-    const q: Record<string, jest.Mock> = { select: jest.fn(), eq: jest.fn(), maybeSingle: jest.fn() };
+    const q: Record<string, jest.Mock> = { select: jest.fn(), eq: jest.fn(), order: jest.fn(), limit: jest.fn(), maybeSingle: jest.fn() };
     q.select.mockReturnValue(q);
     q.eq.mockReturnValue(q);
+    q.order.mockReturnValue(q);
+    q.limit.mockReturnValue(q);
     q.maybeSingle.mockImplementation(async () => ({ data: table === "watch_uploads" ? upload : imported, error: null }));
     queries.push(q);
     return q;
@@ -82,6 +84,8 @@ it("uses a watch upload header when the stored summary has no start", async () =
   expect(response.status).toBe(200);
   expect(await response.json()).toMatchObject({ data: { startedAt: "2026-10-17T11:00:00Z", candidates: [] } });
   expect(mockFrom).toHaveBeenCalledWith("watch_uploads");
+  expect(queries[1].order).toHaveBeenCalledWith("created_at", { ascending: false });
+  expect(queries[1].limit).toHaveBeenCalledWith(1);
 });
 
 it("hides another user's import", async () => {
@@ -90,4 +94,26 @@ it("hides another user's import", async () => {
   expect(response.status).toBe(404);
   expect(await response.json()).toMatchObject({ success: false, error: "not_found" });
   expect(mockResolve).not.toHaveBeenCalled();
+});
+
+it("returns 404 when neither feature flag allows the user", async () => {
+  process.env.GARMIN_WATCH_ENABLED = "false";
+  const response = await GET(request(), context);
+  expect(response.status).toBe(404);
+  expect(await response.json()).toMatchObject({ success: false, error: "not_found" });
+  expect(mockFrom).not.toHaveBeenCalled();
+});
+
+it("allows imports-flag-only users", async () => {
+  process.env.GARMIN_WATCH_ENABLED = "false";
+  process.env.SESSION_IMPORTS_ENABLED = "true";
+  process.env.SESSION_IMPORTS_USER_ALLOWLIST = userId;
+  expect((await GET(request(), context)).status).toBe(200);
+});
+
+it("returns 404 for a non-UUID import id", async () => {
+  const response = await GET(request(), { params: Promise.resolve({ id: "bad" }) });
+  expect(response.status).toBe(404);
+  expect(await response.json()).toMatchObject({ success: false, error: "not_found" });
+  expect(mockFrom).not.toHaveBeenCalled();
 });

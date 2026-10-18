@@ -22,7 +22,7 @@ export const GET = withNoStore(withRateLimit(withAuth(async (_request, { user, s
     .select("id, user_id, device_id, status, origin, error, summary, session_id, created_at")
     .eq("user_id", user.id).eq("origin", "garmin_watch")
     .in("status", ["failed", "needs_beach"]).gte("created_at", since)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false }).limit(50);
   if (importsError) throw importsError;
 
   const ids = (imports ?? []).filter(row => !startedAt(row.summary)).map(row => row.id);
