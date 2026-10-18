@@ -99,7 +99,9 @@ async function enqueuedRecipients(
   const users = new Set<string>();
   for (const group of chunks(profiles)) {
     const keys = group.map((profile) => `rain_advisory:${eventId}:${phase}:${profile.id}`);
+    // Lead with recipient_user_id so the (recipient_user_id, type, dedupe_key) index serves the lookup.
     const found = await rows(client.from("notification_events").select("recipient_user_id, dedupe_key")
+      .in("recipient_user_id", group.map((profile) => profile.id))
       .eq("type", "water_quality").in("dedupe_key", keys));
     const expected = new Set(keys);
     for (const raw of found) {
@@ -188,12 +190,13 @@ export async function processRainAdvisoryPushes(
             ? await safeEndBeachIds(client, supabase, event, beaches, now) : null;
           for (const profile of profiles) {
             const beach = beachById.get(profile.home_beach_id!);
-            if (!beach || (startRecipients && !startRecipients.has(profile.id))
+            // The payload schema requires a slug for the deep link.
+            if (!beach || !beach.slug || (startRecipients && !startRecipients.has(profile.id))
               || (safeBeaches && !safeBeaches.has(beach.id))) { count.skipped++; continue; }
             const response = await enqueueNotification({
               type: "water_quality", recipientUserId: profile.id, entityType: "beach", entityId: beach.id,
               payload: {
-                beach_id: beach.id, beach_name: beach.name || "Your home beach", beach_slug: beach.slug || "",
+                beach_id: beach.id, beach_name: beach.name || "Your home beach", beach_slug: beach.slug,
                 status: phase === "start" ? "advisory" : "good",
                 previous_status: phase === "start" ? null : "advisory",
                 status_changed_at: phase === "start" ? event.started_at : event.ended_at!,
