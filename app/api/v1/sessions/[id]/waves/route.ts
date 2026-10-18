@@ -18,7 +18,7 @@ export const GET = withNoStore(withRateLimit(withAuth(async (_request, { user, s
   if (!canViewSessionWaves(user.id)) return createErrorResponse("not_found", undefined, 404);
 
   const { data: session, error: sessionError } = await supabase.from("sessions")
-    .select("id, user_id, beach_id, deleted_at").eq("id", params.id).eq("user_id", user.id)
+    .select("id, user_id, beach_id, deleted_at, source").eq("id", params.id).eq("user_id", user.id)
     .is("deleted_at", null).maybeSingle();
   if (sessionError) throw new Error(sessionError.message);
   if (!session || session.user_id !== user.id || session.deleted_at) return createErrorResponse("not_found", undefined, 404);
@@ -44,6 +44,9 @@ export const GET = withNoStore(withRateLimit(withAuth(async (_request, { user, s
   const corrections = (correctionRows ?? []).map(row => ({ startedAt: row.started_at, endedAt: row.ended_at }));
   const summary = buildWavesSummary(waves, corrections, {
     gpsCoverage: track.gps_coverage, speedReliable: track.speed_reliable, userWaveCount: track.user_wave_count,
+    paddleDistanceM: track.paddle_distance_m, heartRateAvg: track.hr_avg, heartRateMax: track.hr_max,
+    recordedWith: session.source === "garmin_watch"
+      ? `Quiver for Garmin · ${track.source_device ?? "Garmin watch"}` : track.recorded_by,
   }, rows?.[0]?.detection_version ?? WAVE_DETECTION_VERSION);
 
   let tideFt = new Map<string, number | null>();

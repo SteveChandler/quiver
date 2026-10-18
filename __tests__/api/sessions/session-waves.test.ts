@@ -52,6 +52,7 @@ const track = {
   gps_coverage: 0.8, speed_reliable: false, user_wave_count: 4,
   track_geojson: { type: "LineString", coordinates: [[-119, 34], [-119.001, 34.001]] },
   speed_series: [{ t: start, mps: 3 }], recorded_by: "Garmin",
+  paddle_distance_m: 1200, hr_avg: 118, hr_max: 156, source_device: "Forerunner 965",
 };
 
 type Table = "sessions" | "session_tracks" | "session_waves" | "session_wave_corrections" | "profiles" | "session_imports" | "user_events";
@@ -184,6 +185,23 @@ it("returns the native waves contract with corrections, override count, track an
   expect(queries.session_waves[0].eq).toHaveBeenCalledWith("is_current", true);
   expect(queries.session_waves[0].order).toHaveBeenCalledWith("wave_index");
   expect(response.headers.get("Cache-Control")).toContain("no-store");
+});
+
+it("returns Garmin track metrics and the recorded-with label", async () => {
+  rows.sessions = { ...rows.sessions as object, source: "garmin_watch" };
+  rows.session_wave_corrections = [];
+  rows.session_waves = [0, 480, 960].map((offset, index) => ({
+    ...wave, id: `${waveId.slice(0, -1)}${index + 1}`, wave_index: index + 1,
+    started_at: new Date(Date.parse(start) + offset * 1000).toISOString(),
+    ended_at: new Date(Date.parse(end) + offset * 1000).toISOString(),
+  }));
+  const response = await GET(request("GET"), context);
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ data: { summary: {
+    paddleDistanceM: 1200, heartRateAvg: 118, heartRateMax: 156,
+    setIntervalMin: 8, recordedWith: "Quiver for Garmin · Forerunner 965",
+  } } });
+  expect(queries.sessions[0].select).toHaveBeenCalledWith(expect.stringContaining("source"));
 });
 
 it.each(["other owner", "soft deleted"])("returns 404 for %s", async reason => {

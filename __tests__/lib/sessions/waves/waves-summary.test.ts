@@ -1,6 +1,6 @@
 /** @jest-environment node */
 
-import { buildWavesSummary, isExcluded, type StoredWave } from "@/lib/sessions/waves/waves-summary";
+import { buildWavesSummary, isExcluded, setIntervalMin, type StoredWave } from "@/lib/sessions/waves/waves-summary";
 
 const time = (second: number): string => new Date(Date.parse("2026-10-17T12:00:00Z") + second * 1000).toISOString();
 
@@ -50,6 +50,8 @@ describe("buildWavesSummary", () => {
       longestRideS: 30, longestRideM: 80, topSpeedMps: 8,
       gpsCoverage: 0.49, lowCoverage: true, speedReliable: true,
       detectionVersion: "wd-1.0.0",
+      paddleDistanceM: null, heartRateAvg: null, heartRateMax: null,
+      setIntervalMin: null, recordedWith: null,
     });
   });
 
@@ -61,6 +63,8 @@ describe("buildWavesSummary", () => {
       longestRideS: 30, longestRideM: 80, topSpeedMps: null,
       gpsCoverage: 0.5, lowCoverage: false, speedReliable: false,
       detectionVersion: "wd-1.0.0",
+      paddleDistanceM: null, heartRateAvg: null, heartRateMax: null,
+      setIntervalMin: null, recordedWith: null,
     });
   });
 
@@ -77,5 +81,28 @@ describe("buildWavesSummary", () => {
     expect(buildWavesSummary([wave("5", 0, 10, { confidence: 0.5 })], [], {
       gpsCoverage: 1, speedReliable: true, userWaveCount: null,
     }, "wd-1.0.0").detectedWaveCount).toBe(1);
+  });
+});
+
+describe("setIntervalMin", () => {
+  it("groups rides within 90 seconds and rounds the median gap to minutes", () => {
+    const rides = [0, 30, 480, 500, 970, 1445].map((start, index) =>
+      ({ ...wave(String(index + 1), start, 20), counted: true }));
+    expect(setIntervalMin(rides, [])).toBe(8);
+  });
+
+  it("requires at least three sets", () => {
+    expect(setIntervalMin([wave("1", 0, 20), wave("2", 480, 20)], [])).toBeNull();
+  });
+
+  it("ignores excluded and uncounted rides", () => {
+    const rides = [
+      { ...wave("1", 0, 20), counted: true },
+      { ...wave("2", 480, 20), counted: true },
+      { ...wave("3", 900, 20), counted: false },
+      { ...wave("4", 960, 20), counted: true },
+      { ...wave("5", 1200, 20), counted: true },
+    ];
+    expect(setIntervalMin(rides, [{ startedAt: time(1200), endedAt: time(1220) }])).toBe(8);
   });
 });
