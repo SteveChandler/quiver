@@ -24,9 +24,14 @@ const mockUpsert = jest.fn(() => Promise.resolve({ data: [], error: null }));
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: jest.fn(() => ({
     from: jest.fn(() => ({
-      select: jest.fn(() => ({
-        eq: jest.fn(() => Promise.resolve({ data: [], error: null })),
-      })),
+      select: jest.fn(() => {
+        // Awaitable after any filter, like a PostgREST builder
+        const query: Record<string, unknown> = {
+          then: (resolve: (value: unknown) => unknown) => resolve({ data: [], error: null }),
+        };
+        for (const method of ["eq", "neq", "gte", "lte"]) query[method] = jest.fn(() => query);
+        return query;
+      }),
       upsert: mockUpsert,
     })),
   })),
