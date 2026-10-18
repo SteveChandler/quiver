@@ -7,6 +7,7 @@ import { createServiceRoleClient } from "@/lib/supabase";
 import type { RouteHandler } from "@/lib/middleware/api-wrappers/types";
 import { hashSecret } from "./device-token";
 
+/** service is a service-role client; scope every query by ctx.userId/ctx.deviceId. */
 export type WatchContext = {
   deviceId: string;
   userId: string;
@@ -39,10 +40,17 @@ export function withWatchAuth(
       const now = Date.now();
       const lastSeen = device.last_seen_at ? Date.parse(device.last_seen_at) : NaN;
       if (!Number.isFinite(lastSeen) || lastSeen < now - 10 * 60 * 1000) {
-        const { error: updateError } = await service.from("watch_devices")
-          .update({ last_seen_at: new Date(now).toISOString() })
-          .eq("id", device.id);
-        if (updateError) throw updateError;
+        try {
+          const { error: updateError } = await service.from("watch_devices")
+            .update({ last_seen_at: new Date(now).toISOString() })
+            .eq("id", device.id);
+          if (updateError) throw updateError;
+        } catch (error) {
+          const message = error !== null && typeof error === "object" && "message" in error && typeof error.message === "string"
+            ? error.message
+            : "Unknown error";
+          console.warn("[watch-auth] last_seen_at update failed", message);
+        }
       }
 
       const params = context?.params ? await context.params : {};

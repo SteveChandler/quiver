@@ -71,6 +71,17 @@ it("rejects an unknown token", async () => {
   expect(handler).not.toHaveBeenCalled();
 });
 
+it("rejects an unknown token when the flag is unset and allowlist is empty", async () => {
+  delete process.env.GARMIN_WATCH_ENABLED;
+  process.env.GARMIN_WATCH_USER_ALLOWLIST = "";
+  row = null;
+  const response = await route(request(`Bearer ${token}`), context);
+  expect(response.status).toBe(401);
+  expect(await response.json()).toMatchObject({ success: false, error: "unauthorized" });
+  expect(handler).not.toHaveBeenCalled();
+  expect(query.update).not.toHaveBeenCalled();
+});
+
 it("rejects a revoked device before calling the handler", async () => {
   query.maybeSingle.mockImplementation(async () => ({ data: query.is.mock.calls.some(([field, value]) => field === "revoked_at" && value === null) ? null : row, error: null }));
   const response = await route(request(`Bearer ${token}`), context);
@@ -79,10 +90,11 @@ it("rejects a revoked device before calling the handler", async () => {
   expect(handler).not.toHaveBeenCalled();
 });
 
-it("passes an active device, user, service client and resolved params to the handler", async () => {
+it.each(["Bearer", "bearer"])("accepts %s and passes the device, user, service client and resolved params to the handler", async scheme => {
   row!.last_seen_at = "2026-10-18T11:55:00.000Z";
-  const response = await route(request(`Bearer ${token}`), context);
+  const response = await route(request(`${scheme} ${token}`), context);
   expect(response.status).toBe(200);
+  expect(mockServiceFrom).toHaveBeenCalledWith("watch_devices");
   expect(handler).toHaveBeenCalledWith(expect.any(NextRequest), {
     deviceId, userId, service: mockService, params: { id: "route-id" },
   });
@@ -110,4 +122,58 @@ it.each(["2026-10-18T11:50:00.000Z", "2026-10-18T11:59:00.000Z"])("skips fresh l
   row!.last_seen_at = lastSeenAt;
   expect((await route(request(`Bearer ${token}`), context)).status).toBe(200);
   expect(query.update).not.toHaveBeenCalled();
+});
+
+it.each(["returned", "rejected"])("continues after a %s last_seen_at update error and logs only its message", async failure => {
+  const update = jest.fn();
+  const message = "activity write failed";
+  if (failure === "returned") {
+    update.mockResolvedValue({ error: { message, details: `${token} ${hashSecret(token)}` } });
+  } else {
+    update.mockRejectedValue(new Error(message));
+  }
+  query.update.mockReturnValue({ eq: update });
+  const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+  const errorLog = jest.spyOn(console, "error").mockImplementation(() => {});
+  try {
+    const response = await route(request(`Bearer ${token}`), context);
+    expect(response.status).toBe(200);
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(query.update).toHaveBeenCalledWith({ last_seen_at: "2026-10-18T12:00:00.000Z" });
+    expect(update).toHaveBeenCalledWith("id", deviceId);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith("[watch-auth] last_seen_at update failed", message);
+    expect(errorLog).not.toHaveBeenCalled();
+  } finally {
+    warn.mockRestore();
+    errorLog.mockRestore();
+  }
+});
+
+it("returns 500 with errorMessage when the device lookup fails", async () => {
+  query.maybeSingle.mockResolvedValueOnce({ data: null, error: { message: "lookup failed" } });
+  const errorLog = jest.spyOn(console, "error").mockImplementation(() => {});
+  try {
+    const response = await route(request(`Bearer ${token}`), context);
+    expect(response.status).toBe(500);
+    expect(await response.json()).toMatchObject({ success: false, error: "Watch request failed" });
+    expect(handler).not.toHaveBeenCalled();
+    expect(query.update).not.toHaveBeenCalled();
+  } finally {
+    errorLog.mockRestore();
+  }
+});
+
+it("returns 500 with errorMessage when the handler throws", async () => {
+  row!.last_seen_at = "2026-10-18T11:55:00.000Z";
+  handler.mockRejectedValueOnce(new Error("handler failed"));
+  const errorLog = jest.spyOn(console, "error").mockImplementation(() => {});
+  try {
+    const response = await route(request(`Bearer ${token}`), context);
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(response.status).toBe(500);
+    expect(await response.json()).toMatchObject({ success: false, error: "Watch request failed" });
+  } finally {
+    errorLog.mockRestore();
+  }
 });
