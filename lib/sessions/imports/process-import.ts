@@ -94,8 +94,9 @@ export async function persistDetection(
   track: NormalizedTrack,
   summary: TrackSummary,
   beach: ImportBeach,
+  precomputedWaves?: DetectedWave[],
 ): Promise<DetectedWave[]> {
-  const waves = detectWaves(track, summary, beach);
+  const waves = precomputedWaves ?? detectWaves(track, summary, beach);
   const { error: deleteError } = await serviceClient.from("session_waves").delete()
     .eq("session_id", sessionId).eq("detection_version", WAVE_DETECTION_VERSION);
   checkError(deleteError);
@@ -181,6 +182,10 @@ export async function processImport(
     if (bytes.byteLength > 10485760) throw new TrackFileError("corrupt", "Track file exceeds the 10 MiB size limit");
     const sha256 = createHash("sha256").update(bytes).digest("hex");
     const track = readTrackFile(bytes, imported.original_filename ?? imported.storage_path, now);
+    if ((!isWatch && track.meta.format === "quiver_watch")
+      || (isWatch && track.meta.format !== "quiver_watch")) {
+      throw new TrackFileError("unsupported_format", "The track format does not match the import origin");
+    }
     const summary = summarizeTrack(track);
     const startMs = Date.parse(summary.inWaterStart);
     const endMs = Date.parse(summary.inWaterEnd);
@@ -228,7 +233,7 @@ export async function processImport(
           .select("session_id, import_id, user_arrival_time, user_duration_minutes, user_wave_count")
           .eq("session_id", previousSession.id).maybeSingle();
         checkError(trackError);
-        if (!previousTrack && previousSession.source === "file_import") {
+        if (!previousTrack && (previousSession.source === "file_import" || previousSession.source === "garmin_watch")) {
           linkedSession = previousSession;
           wasCompleted = previous.status === "completed";
           await updateImport({ session_id: previousSession.id });
@@ -237,17 +242,19 @@ export async function processImport(
         }
       }
     }
-    const target = linkedSession
+    let target = linkedSession
       ? { sessionId: linkedSession.id, hasTrack: linkedTrack !== null, trackImportId: linkedTrack?.import_id ?? null }
       : await findAttachTarget(userClient, userId, beach, summary.inWaterStart);
     if (target?.hasTrack && target.trackImportId !== importId) {
-      return duplicate(target.sessionId);
+      if (!isWatch) return duplicate(target.sessionId);
+      // SHA matches were handled above; a nearby watch surf can be a separate session.
+      target = null;
     }
     const { data: existingTrack, error: existingTrackError } = target?.hasTrack && !linkedTrack
       ? await userClient.from("session_tracks")
         .select("session_id, import_id, user_arrival_time, user_duration_minutes, user_wave_count")
         .eq("session_id", target.sessionId).maybeSingle()
-      : { data: linkedTrack, error: null };
+      : { data: target ? linkedTrack : null, error: null };
     checkError(existingTrackError);
     const attached = existingTrack
       ? existingTrack.user_arrival_time != null || existingTrack.user_duration_minutes != null
@@ -309,7 +316,7 @@ export async function processImport(
 
     const waves = existingTrack
       ? watchWaves ?? detectWaves(track, summary, beach)
-      : await persistDetection(serviceClient, sessionId, userId, track, summary, beach);
+      : await persistDetection(serviceClient, sessionId, userId, track, summary, beach, watchWaves ?? undefined);
     if (!existingTrack) {
       const persistedSummary = summarizeTrack(track, waves.map(wave => ({ start: wave.startedAt, end: wave.endedAt })));
       const rideWindows = waves.filter(wave => wave.confidence >= COUNT_MIN_CONFIDENCE)

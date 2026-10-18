@@ -40,3 +40,19 @@ it("returns null when there is no in-water HR", () => {
   const track = trackWith([sample(0, 0, 100), sample(10, 0), sample(20, 0)]);
   expect(heartRateStats(track, span(track, 10, 20))).toBeNull();
 });
+
+
+it("ignores nonpositive HR while averaging valid readings", () => {
+  const track = trackWith([sample(0, 0, 0), sample(10, 0, -1), sample(20, 0, 100), sample(30, 0, 120)]);
+  expect(heartRateStats(track, span(track, 0, 30))).toEqual({ avg: 110, max: 120 });
+});
+
+it("returns null when all in-water HR values are missing or nonpositive", () => {
+  const track = trackWith([sample(0, 0, 0), sample(10, 0, -1), sample(20, 0)]);
+  expect(heartRateStats(track, span(track, 0, 20))).toBeNull();
+});
+
+it("skips paddle segments with implied speeds above 12 m/s and keeps valid neighbors", () => {
+  const track = trackWith([sample(0, 0), sample(10, 0.001), sample(20, 0.01), sample(30, 0.011)]);
+  expect(paddleDistanceM(track, span(track, 0, 30), [])).toBeCloseTo(222.39, 2);
+});

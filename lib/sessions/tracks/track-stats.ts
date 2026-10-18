@@ -1,3 +1,4 @@
+import { MAX_FIX_JUMP_MPS } from "../wave-detection/constants";
 import { haversineM } from "./track-geometry";
 import type { TrackSummary } from "./summarize-track";
 import type { NormalizedTrack } from "./types";
@@ -24,7 +25,9 @@ export function paddleDistanceM(
     if (elapsed <= 0 || elapsed > 30_000) continue;
     // Keep ride boundaries in the sequence so a GPS gap cannot bridge across a ride.
     if (windows.some(window => previous.time < window.end && current.time > window.start)) continue;
-    distance += haversineM(previous, current);
+    const segmentDistance = haversineM(previous, current);
+    if (segmentDistance / (elapsed / 1000) > MAX_FIX_JUMP_MPS) continue;
+    distance += segmentDistance;
   }
   return distance;
 }
@@ -40,7 +43,7 @@ export function heartRateStats(
   let max = 0;
   for (const sample of track.samples) {
     const time = Date.parse(sample.t);
-    if (sample.hr === null || time < start || time > end) continue;
+    if (sample.hr === null || sample.hr <= 0 || time < start || time > end) continue;
     sum += sample.hr;
     count += 1;
     max = Math.max(max, sample.hr);

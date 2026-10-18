@@ -1,5 +1,9 @@
 /** @jest-environment node */
 jest.mock("server-only", () => ({}));
+jest.mock("@/lib/sessions/wave-detection/detect-waves", () => {
+  const actual = jest.requireActual("@/lib/sessions/wave-detection/detect-waves");
+  return { ...actual, detectWaves: jest.fn(actual.detectWaves) };
+});
 
 import { createHash } from "node:crypto";
 import { FitBaseType, FitEncoder } from "fit-file-parser";
@@ -45,6 +49,7 @@ type Row = Record<string, any>;
 type Mutation = { client: string; table: string; operation: string; payload: any };
 let rows: Record<string, Row[]>;
 let mutations: Mutation[];
+let sessionInsertCount: number;
 let bytes: Uint8Array;
 let nearby: Row[];
 let rpcError: unknown;
@@ -86,7 +91,7 @@ function client(name: string): SupabaseClient {
           let matched = rows[table].filter(row => filters.every(filter => filter(row)));
           if (operation !== "select") mutations.push({ client: name, table, operation, payload });
           if (operation === "insert") {
-            matched = (Array.isArray(payload) ? payload : [payload]).map(row => ({ id: `new-${table}`, ...row }));
+            matched = (Array.isArray(payload) ? payload : [payload]).map(row => ({ id: table === "sessions" && sessionInsertCount++ > 0 ? `new-sessions-${sessionInsertCount}` : `new-${table}`, ...row }));
             rows[table].push(...matched);
           }
           if (operation === "update") matched.forEach(row => Object.assign(row, payload));
@@ -107,6 +112,7 @@ beforeEach(() => {
   nearby = [beach];
   rpcError = null;
   mutations = [];
+  sessionInsertCount = 0;
   selections = [];
   remove = jest.fn(async () => ({ data: [], error: null }));
   queryFailure = () => null;
@@ -549,8 +555,14 @@ it("keeps a seven-minute fixture slice with no counted waves private", async () 
 });
 
 it.each(["file", "garmin_watch"])("fails a four-minute slice as too_short before persisting a session for %s", async origin => {
-  useWatch(watchSlice(240));
+  const track = useWatch(watchSlice(240));
   rows.session_imports[0].origin = origin;
+  if (origin === "file") {
+    const points = track.samples.filter(sample => sample.lat !== null && sample.lon !== null)
+      .map(sample => `<trkpt lat="${sample.lat}" lon="${sample.lon}"><time>${sample.t}</time></trkpt>`).join("");
+    bytes = new TextEncoder().encode(`<gpx><trk><trkseg>${points}</trkseg></trk></gpx>`);
+    rows.session_imports[0].original_filename = "short.gpx";
+  }
   await expect(processImport(deps, importId, userId)).rejects.toMatchObject({ code: "too_short" });
   expect(rows.session_imports[0]).toMatchObject({ status: "failed", error: "too_short" });
   expect(inserts("sessions")).toHaveLength(0);
@@ -568,15 +580,15 @@ it.each([null, 5])("fills only a null attachment rating and preserves source and
   expect(inserts("user_events")).toHaveLength(0);
 });
 
-it("retains file-origin session behavior even when the track contains watch extras", async () => {
+it("rejects a watch-format track uploaded through a file import before creating a session", async () => {
   useWatch();
   rows.session_imports[0].origin = "file";
-  await processImport(deps, importId, userId);
-  expect(rows.sessions[0]).toMatchObject({ source: "file_import", is_public: false });
-  expect(rows.sessions[0]).not.toHaveProperty("rating");
-  expect(rows.session_tracks[0]).toMatchObject({ source_device: null, hr_avg: expect.any(Number), hr_max: expect.any(Number) });
-  expect(rows.session_tracks[0].paddle_distance_m).toBeGreaterThan(0);
-  expect(rows.user_events[0].metadata).toMatchObject({ source: "web-file-import", surface: "web-file-import" });
+  rows.session_imports[0].original_filename = "spoofed.fit";
+  await expect(processImport(deps, importId, userId)).rejects.toMatchObject({ code: "unsupported_format" });
+  expect(rows.session_imports[0]).toMatchObject({ status: "failed", error: "unsupported_format" });
+  expect(inserts("sessions")).toHaveLength(0);
+  expect(inserts("session_tracks")).toHaveLength(0);
+  expect(inserts("session_waves")).toHaveLength(0);
 });
 
 it("stores null HR and source device for a file import without HR", async () => {
@@ -639,4 +651,98 @@ it("preserves a rating written concurrently while attaching a watch import", asy
   await processImport(deps, importId, userId);
   expect(attemptedRating).toBe(true);
   expect(rows.sessions[0].rating).toBe(5);
+});
+
+
+it("rejects a FIT track uploaded through a watch import before creating a session", async () => {
+  rows.session_imports[0].origin = "garmin_watch";
+  rows.session_imports[0].original_filename = "watch.json";
+  await expect(processImport(deps, importId, userId)).rejects.toMatchObject({ code: "unsupported_format" });
+  expect(rows.session_imports[0]).toMatchObject({ status: "failed", error: "unsupported_format" });
+  expect(inserts("sessions")).toHaveLength(0);
+  expect(inserts("session_tracks")).toHaveLength(0);
+  expect(inserts("session_waves")).toHaveLength(0);
+});
+
+it("keeps both sessions and tracks for different watch surfs at the same beach 60 minutes apart", async () => {
+  const firstTrack = useWatch(boundaryTrack(600));
+  const first = await processImport(deps, importId, userId);
+  expect(first).toMatchObject({ status: "completed", attached: false });
+  if (first.status !== "completed") throw new Error("Expected the first watch surf to complete");
+  const later = (value: string): string => new Date(Date.parse(value) + 60 * 60 * 1000).toISOString();
+  useWatch({
+    ...firstTrack,
+    meta: { ...firstTrack.meta, startedAt: later(firstTrack.meta.startedAt), endedAt: later(firstTrack.meta.endedAt) },
+    samples: firstTrack.samples.map(sample => ({ ...sample, t: later(sample.t) })),
+  });
+  rows.session_imports.push({ id: "split", user_id: userId, origin: "garmin_watch", storage_path: "split/user-1/watch.json", original_filename: "watch.json", status: "uploaded" });
+  const second = await processImport(deps, "split", userId);
+  expect(second).toMatchObject({ status: "completed", attached: false });
+  if (second.status !== "completed") throw new Error("Expected the second watch surf to complete");
+  expect(second.sessionId).not.toBe(first.sessionId);
+  expect(rows.sessions).toHaveLength(2);
+  expect(rows.session_tracks).toHaveLength(2);
+  expect(rows.session_tracks).toEqual(expect.arrayContaining([
+    expect.objectContaining({ session_id: first.sessionId, import_id: importId, storage_path: "import-1/user-1/watch.fit" }),
+    expect.objectContaining({ session_id: second.sessionId, import_id: "split", storage_path: "split/user-1/watch.json" }),
+  ]));
+  expect(rows.session_imports.map(row => row.status)).toEqual(["completed", "completed"]);
+  expect(rows.user_events.filter(row => row.event_type === "session_created")).toHaveLength(2);
+  expect(remove).not.toHaveBeenCalled();
+});
+
+it("still rejects identical watch bytes as a SHA duplicate", async () => {
+  useWatch(boundaryTrack(600));
+  const first = await processImport(deps, importId, userId);
+  if (first.status !== "completed") throw new Error("Expected the first watch surf to complete");
+  rows.session_imports.push({ id: "duplicate", user_id: userId, origin: "garmin_watch", storage_path: "duplicate/user-1/watch.json", original_filename: "watch.json", status: "uploaded" });
+  expect(await processImport(deps, "duplicate", userId)).toEqual({ status: "duplicate", sessionId: first.sessionId });
+  expect(rows.sessions).toHaveLength(1);
+  expect(rows.session_tracks).toHaveLength(1);
+  expect(remove).toHaveBeenCalledWith(["duplicate/user-1/watch.json"]);
+});
+
+it.each(["session_waves", "session_tracks"])("adopts a watch orphan on a fresh retry after %s failure", async table => {
+  useWatch(boundaryTrack(600));
+  let failed = false;
+  queryFailure = mutation => {
+    if (!failed && mutation.table === table && mutation.operation === "insert") {
+      failed = true;
+      return { message: "watch persistence failed" };
+    }
+    return null;
+  };
+  await expect(processImport(deps, importId, userId)).rejects.toThrow("watch persistence failed");
+  const orphanId = rows.session_imports[0].session_id;
+  rows.sessions[0].arrival_time = "2020-01-01T00:00:00Z";
+  rows.session_imports.push({ id: "retry", user_id: userId, origin: "garmin_watch", storage_path: "retry/user-1/watch.json", original_filename: "watch.json", status: "uploaded" });
+  expect(await processImport(deps, "retry", userId)).toMatchObject({ status: "completed", sessionId: orphanId, attached: false });
+  expect(rows.sessions).toHaveLength(1);
+  expect(rows.session_tracks).toHaveLength(1);
+  expect(rows.session_tracks[0]).toMatchObject({ session_id: orphanId, import_id: "retry", user_arrival_time: null, user_duration_minutes: null });
+  expect(rows.session_imports[0]).toMatchObject({ sha256: null, session_id: orphanId });
+  expect(rows.user_events.filter(row => row.event_type === "session_created")).toHaveLength(1);
+  expect(await processImport(deps, "retry", userId)).toMatchObject({ status: "completed", sessionId: orphanId, attached: false });
+  expect(rows.user_events.filter(row => row.event_type === "session_created")).toHaveLength(1);
+});
+
+it.each([false, true])("persists a supplied wave list without recomputing it (empty: %s)", async empty => {
+  const track = readTrackFile(bytes, "watch.fit", now);
+  const summary = summarizeTrack(track);
+  const precomputed = empty ? [] : detectWaves(track, summary, beach).slice(0, 1);
+  const callsBefore = jest.mocked(detectWaves).mock.calls.length;
+  expect(await persistDetection(deps.serviceClient, "s1", userId, track, summary, beach, precomputed)).toBe(precomputed);
+  expect(jest.mocked(detectWaves).mock.calls).toHaveLength(callsBefore);
+  expect(rows.session_waves).toHaveLength(precomputed.length);
+  expect(rows.session_waves.map(wave => wave.started_at)).toEqual(precomputed.map(wave => wave.startedAt));
+});
+
+it("uses one detection for watch visibility, persistence and the returned wave count", async () => {
+  useWatch(boundaryTrack(600));
+  const callsBefore = jest.mocked(detectWaves).mock.calls.length;
+  const result = await processImport(deps, importId, userId);
+  expect(jest.mocked(detectWaves).mock.calls).toHaveLength(callsBefore + 1);
+  expect(result).toMatchObject({ status: "completed", summary: { waveCount: 1 } });
+  expect(rows.sessions[0].is_public).toBe(true);
+  expect(rows.session_waves).toHaveLength(1);
 });
