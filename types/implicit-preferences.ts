@@ -103,6 +103,10 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   session_log_draft_progress: 0,
   session_log_submit: 0,
   session_created: 0,
+  session_import_failed: 0,
+  session_waves_viewed: 0,
+  session_wave_excluded: 0,
+  session_wave_count_reported: 0,
   session_share_opened_post_save: 0,
   session_share_closed_post_save: 0,
   // Onboarding/tour events

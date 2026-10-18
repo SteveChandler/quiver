@@ -55,6 +55,7 @@
     "scripts/seo/weekly-report.ts",
     "scripts/terrain/validate-golden-beaches.ts",
     // Workflow and script-driven tools.
+    "scripts/session-tracks/make-track-fixture.mjs",
     "scripts/swell-watch-provider-probe.mjs",
     "scripts/test-swell-watch-normalization.mjs",
     // Operator runbooks and repeatable maintenance tools.

@@ -5,6 +5,7 @@ import { readFileSync } from "fs";
 import { GET } from "@/app/api/cron/session-conditions-enrich/route";
 import { withCronOutcome } from "@/lib/cron/outcome";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { fetchOpenMeteoHindcastDay } from "@/lib/services/open-meteo-hindcast";
 import {
   createSupabaseSessionConditionsStore,
   enrichSessionConditions,
@@ -28,7 +29,7 @@ jest.mock("@/lib/sessions/session-conditions-enrich", () => ({
   enrichSessionConditions: jest.fn(),
 }));
 
-const SUMMARY = { selected: 3, updated: 3, conditionsFilled: 3, nearshoreFilled: 2, unavailable: 0, unmapped: 1, errors: 0 };
+const SUMMARY = { selected: 3, updated: 3, conditionsFilled: 3, nearshoreFilled: 2, unavailable: 0, hindcastUnavailable: 0, unmapped: 1, errors: 0 };
 const request = (query = "") => new Request(`https://www.quiversurf.app/api/cron/session-conditions-enrich${query}`);
 
 describe("session conditions enrich cron", () => {
@@ -37,10 +38,20 @@ describe("session conditions enrich cron", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.SESSION_CONDITIONS_ENRICH_ENABLED = "true";
+    process.env.SESSION_IMPORTS_ENABLED = "true";
     require("@/lib/middleware/api-wrappers").validateCronRequest.mockReturnValue(true);
     (enrichSessionConditions as jest.Mock).mockResolvedValue(SUMMARY);
   });
   afterEach(() => { process.env = { ...original }; });
+
+  it.each(["", "?mode=backfill&retryNone=1"])("preserves legacy enrichment when imports are disabled: %s", async (query) => {
+    delete process.env.SESSION_IMPORTS_ENABLED;
+    expect((await GET(request(query))).status).toBe(200);
+    const options = (enrichSessionConditions as jest.Mock).mock.calls[0][1];
+    expect(options.hindcast).toBeUndefined();
+    expect(options.retryNone).toBeUndefined();
+    expect(options.mode).toBe(query ? "backfill" : "live");
+  });
 
   it("rejects a request without the cron secret", async () => {
     require("@/lib/middleware/api-wrappers").validateCronRequest.mockReturnValue(false);
@@ -61,7 +72,7 @@ describe("session conditions enrich cron", () => {
     const response = await GET(request());
     expect(response.status).toBe(200);
     expect(createSupabaseSessionConditionsStore).toHaveBeenCalledWith({ client: true });
-    expect(enrichSessionConditions).toHaveBeenCalledWith({ store: true }, { mode: "live", since: undefined, now: expect.any(Date) });
+    expect(enrichSessionConditions).toHaveBeenCalledWith({ store: true }, { mode: "live", since: undefined, now: expect.any(Date), hindcast: { fetchDay: fetchOpenMeteoHindcastDay } });
     const [options] = (withCronOutcome as jest.Mock).mock.calls[0];
     expect(options).toMatchObject({ job: "/api/cron/session-conditions-enrich", unit: "sessions_enriched", expectedMin: 1 });
     expect(options.getProduced(SUMMARY)).toBe(3);
@@ -82,11 +93,35 @@ describe("session conditions enrich cron", () => {
     expect(options.legitimatelyZero({ ...idle, selected: 22 })).toBeUndefined();
   });
 
+  it("treats unavailable hindcasts as a legitimate zero while preserving error detection", async () => {
+    await GET(request());
+    const [options] = (withCronOutcome as jest.Mock).mock.calls[0];
+    const idle = { ...SUMMARY, updated: 0, conditionsFilled: 0, nearshoreFilled: 0, unwritable: 0, pending: 0, hindcastUnavailable: 3 };
+
+    expect(options.legitimatelyZero(idle)).toEqual({ reason: expect.stringContaining("3 hindcast unavailable") });
+    expect(options.legitimatelyZero({ ...idle, unwritable: 1, pending: 1, hindcastUnavailable: 1 })).toEqual({ reason: expect.any(String) });
+    expect(options.legitimatelyZero({ ...idle, errors: 1 })).toBeUndefined();
+    expect(options.legitimatelyZero({ ...idle, selected: 4 })).toBeUndefined();
+  });
+
   it("runs backfill from the requested date", async () => {
     await GET(request("?mode=backfill&since=2025-04-01"));
     expect(enrichSessionConditions).toHaveBeenCalledWith(
       { store: true },
-      { mode: "backfill", since: new Date("2025-04-01T00:00:00Z"), now: expect.any(Date) },
+      { mode: "backfill", since: new Date("2025-04-01T00:00:00Z"), now: expect.any(Date), hindcast: { fetchDay: fetchOpenMeteoHindcastDay } },
+    );
+  });
+
+  it("opts into retrying none sessions only for backfill", async () => {
+    await GET(request("?mode=backfill&retryNone=1"));
+    expect(enrichSessionConditions).toHaveBeenCalledWith(
+      { store: true },
+      expect.objectContaining({ mode: "backfill", retryNone: true, hindcast: { fetchDay: fetchOpenMeteoHindcastDay } }),
+    );
+    await GET(request("?retryNone=1"));
+    expect(enrichSessionConditions).toHaveBeenLastCalledWith(
+      { store: true },
+      expect.not.objectContaining({ retryNone: true }),
     );
   });
 

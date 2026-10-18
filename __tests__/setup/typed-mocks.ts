@@ -341,6 +341,7 @@ export function createMockSession(overrides: Partial<Session> = {}): Session {
     likes_count: 0,
     share_count: 0,
     water_temp: null,
+    water_temp_source: null,
     wave_height_ft: null,
     wave_quality: null,
     wind_direction: null,
