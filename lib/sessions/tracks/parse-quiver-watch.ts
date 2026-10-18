@@ -1,5 +1,5 @@
 import type { NormalizedTrack, TrackSample, WatchWaveHeightFt } from "./types";
-import { TrackFileError } from "./types";
+import { TrackFileError, WATCH_WAVE_HEIGHTS_FT } from "./types";
 
 type RecordValue = Record<string, unknown>;
 
@@ -23,10 +23,8 @@ function isValidTime(value: unknown): value is string {
   return typeof value === "string" && Number.isFinite(Date.parse(value));
 }
 
-const waveHeights: readonly WatchWaveHeightFt[] = [1.5, 2.5, 3.5, 5, 7, 8.5];
-
 function isWatchWaveHeightFt(value: unknown): value is WatchWaveHeightFt {
-  return typeof value === "number" && waveHeights.some(height => height === value);
+  return typeof value === "number" && WATCH_WAVE_HEIGHTS_FT.some(height => height === value);
 }
 
 export function parseQuiverWatch(json: unknown): NormalizedTrack {

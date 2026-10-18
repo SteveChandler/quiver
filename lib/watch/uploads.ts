@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { processImport, type ProcessImportResult } from "@/lib/sessions/imports/process-import";
 import { enqueueNotification } from "@/lib/notifications/enqueue";
 import { parseQuiverWatch } from "@/lib/sessions/tracks/parse-quiver-watch";
-import { TrackFileError } from "@/lib/sessions/tracks/types";
+import { TrackFileError, WATCH_WAVE_HEIGHTS_FT } from "@/lib/sessions/tracks/types";
 import { findTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import type { NextRequest } from "next/server";
 import { z } from "zod";
@@ -23,7 +23,7 @@ const headerSchema = z.object({
   deviceName: z.string(),
   appVersion: z.string(),
   rating: integer.min(1).max(5).nullable(),
-  waveHeightFt: z.union([z.literal(1.5), z.literal(2.5), z.literal(3.5), z.literal(5), z.literal(7), z.literal(8.5)]).nullable().optional(),
+  waveHeightFt: z.literal(WATCH_WAVE_HEIGHTS_FT).nullable().optional(),
   chunkCount: chunkCountSchema,
 });
 const chunkSchema = z.object({
