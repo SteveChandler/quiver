@@ -38,6 +38,35 @@ describe("PATCH /api/sessions/[id]", () => {
     jest.clearAllMocks();
   });
 
+  it.each(["accurate", "somewhat", "inaccurate", null])("stores forecast accuracy %s", async forecastAccuracy => {
+    mockAuthGetUser.mockResolvedValue({ data: { user: { id: validUserId } }, error: null });
+    const update = jest.fn();
+    const updateResult = { data: { id: validSessionId, forecast_accuracy: forecastAccuracy }, error: null };
+    const updateQuery: any = { eq: () => updateQuery, select: () => updateQuery, single: async () => updateResult };
+    update.mockReturnValue(updateQuery);
+    const ownershipQuery: any = { eq: () => ownershipQuery,
+      single: async () => ({ data: { id: validSessionId, user_id: validUserId }, error: null }) };
+    mockFrom.mockReturnValue({ select: () => ownershipQuery, update });
+    const request = new NextRequest(`http://localhost/api/sessions/${validSessionId}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ forecast_accuracy: forecastAccuracy }),
+    });
+    const response = await PATCH(request, { params: { id: validSessionId } });
+    expect(response.status).toBe(200);
+    expect(update).toHaveBeenCalledWith({ forecast_accuracy: forecastAccuracy });
+  });
+
+  it.each(["wrong", "accuratee", 3])("rejects forecast accuracy %s", async forecastAccuracy => {
+    mockAuthGetUser.mockResolvedValue({ data: { user: { id: validUserId } }, error: null });
+    const request = new NextRequest(`http://localhost/api/sessions/${validSessionId}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ forecast_accuracy: forecastAccuracy }),
+    });
+    const response = await PATCH(request, { params: { id: validSessionId } });
+    expect(response.status).toBe(400);
+    expect(mockFrom).not.toHaveBeenCalled();
+  });
+
   describe("Authentication", () => {
     it("requires authentication", async () => {
       mockAuthGetUser.mockResolvedValue({

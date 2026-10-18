@@ -208,3 +208,20 @@ This plan is kept in `quiver` next to the spec. Executors work in a `quiver-nati
 
   Screenshot both.
 - [ ] **Step 4:** Push, open a PR against native `main`, and note "OTA-eligible; flag off by default". No OTA without Steven's approval.
+
+
+### Task 7: Confirm your surf (Oct 18 addendum)
+
+**Files:**
+- Create: `src/components/session/confirm-watch-surf-card.tsx`
+- Modify: the session detail screen (owner view), the session update hook/API types (`forecast_accuracy`)
+- Test: `src/__tests__/confirm-watch-surf-card.test.tsx`
+
+**Interfaces:**
+- Shows only for the owner of a session with `source === 'garmin_watch'` and `forecast_accuracy == null`.
+- "Was the forecast right?" accurate / somewhat / off → `forecast_accuracy` `accurate | somewhat | inaccurate`; conditions chips (the session form's glassy / clean / choppy / blown out → `wave_characteristics`); crowd (the session form's crowd scale → `crowd_level`); size chips `WAVE_HEIGHT_CHIPS` preselected from the session's own `wave_height_ft` (the watch answer) and never from the forecast — no `chipValueForForecastFt` here.
+- Saves with one `PATCH /api/sessions/{id}`; hides after a successful save; no new endpoint.
+
+- [ ] Step 1: failing tests (hidden for non-owners, non-watch sessions and once answered; size preselect comes from the session not the forecast; one PATCH with exactly the touched fields).
+- [ ] Step 2: run, expect FAIL. Step 3: implement. Step 4: run, expect PASS; sim screenshot.
+- [ ] Step 5: commit `feat(garmin): confirm a watch surf's size and forecast`.

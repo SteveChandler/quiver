@@ -75,6 +75,7 @@ function client(name: string): SupabaseClient {
       const query: any = {
         select: (columns?: string) => { selections.push({ table, columns }); return query; },
         limit: () => query,
+        order: () => query,
         insert: (value: Row | Row[]) => { operation = "insert"; payload = value; return query; },
         update: (value: Row) => { operation = "update"; payload = value; return query; },
         delete: () => { operation = "delete"; return query; },
@@ -515,13 +516,98 @@ it("loads only the track fields needed to resume an import", async () => {
 });
 
 
-function useWatch(track?: NormalizedTrack, rating: number | null = 3): NormalizedTrack {
+function useWatch(track?: NormalizedTrack, rating: number | null = 3, waveHeightFt?: number | null): NormalizedTrack {
   const file = track ? encodeWatchTrack(track) : structuredClone(watchFixture);
   file.header.rating = rating;
+  if (waveHeightFt !== undefined) Object.assign(file.header, { waveHeightFt });
   bytes = new TextEncoder().encode(JSON.stringify(file));
   Object.assign(rows.session_imports[0], { origin: "garmin_watch", original_filename: "watch.json" });
   return readTrackFile(bytes, "watch.json", now);
 }
+
+it("stores the watch observation on a new session", async () => {
+  useWatch(undefined, 3, 3.5);
+  expect(await processImport(deps, importId, userId)).toMatchObject({ status: "completed" });
+  expect(rows.sessions[0].wave_height_ft).toBe(3.5);
+});
+
+it("links a recent exposed call for a new watch session", async () => {
+  const track = useWatch(undefined, 3, 3.5);
+  const arrivalTime = summarizeTrack(track).inWaterStart;
+  rows.user_events = [{ user_id: userId, beach_id: beach.id, event_type: "board_pick_exposed",
+    created_at: new Date(Date.parse(arrivalTime) - 3600000).toISOString(),
+    metadata: { is_personal: true, call_id: "call-1", forecast_at: arrivalTime } }];
+  expect(await processImport(deps, importId, userId)).toMatchObject({ status: "completed" });
+  expect(rows.sessions[0].call_id).toBe("call-1");
+});
+
+it("links a recent exposed call when a watch surf attaches", async () => {
+  const track = useWatch();
+  const arrivalTime = summarizeTrack(track).inWaterStart;
+  rows.sessions.push({ id: "attached", user_id: userId, beach_id: beach.id,
+    arrival_time: arrivalTime, duration_minutes: 90, status: "completed", call_id: null });
+  rows.user_events = [{ user_id: userId, beach_id: beach.id, event_type: "board_pick_exposed",
+    created_at: new Date(Date.parse(arrivalTime) - 3600000).toISOString(),
+    metadata: { is_personal: true, call_id: "call-2", selected_forecast_at: arrivalTime } }];
+  expect(await processImport(deps, importId, userId)).toMatchObject({ status: "completed", attached: true });
+  expect(rows.sessions[0].call_id).toBe("call-2");
+});
+
+it.each([false, true])("uses the existing session's beach for a watch call link (resuming: %s)", async resuming => {
+  const track = useWatch();
+  const arrivalTime = summarizeTrack(track).inWaterStart;
+  const sessionBeachId = "session-beach";
+  rows.sessions.push({ id: "attached", user_id: userId, beach_id: sessionBeachId,
+    beaches: { lat: beach.lat, lon: beach.lon },
+    arrival_time: arrivalTime, duration_minutes: 90, status: "completed", call_id: null });
+  rows.beaches.push({ ...rows.beaches[0], id: sessionBeachId });
+  if (resuming) rows.session_imports[0].session_id = "attached";
+  rows.user_events = [beach.id, sessionBeachId].map(beachId => ({
+    user_id: userId, beach_id: beachId, event_type: "board_pick_exposed",
+    created_at: new Date(Date.parse(arrivalTime) - 3600000).toISOString(),
+    metadata: { is_personal: true, call_id: `call-${beachId}`, forecast_at: arrivalTime },
+  }));
+  expect(await processImport(deps, importId, userId)).toMatchObject({ status: "completed", sessionId: "attached" });
+  expect(rows.sessions[0].call_id).toBe(`call-${sessionBeachId}`);
+  expect(selections).toContainEqual({ table: "sessions", columns: "id, beach_id, arrival_time, duration_minutes, status" });
+});
+
+it("skips the wave-height write and call link for a file import", async () => {
+  const track = readTrackFile(bytes, "watch.fit", now);
+  const arrivalTime = summarizeTrack(track).inWaterStart;
+  rows.sessions.push({ id: "attached", user_id: userId, beach_id: beach.id,
+    arrival_time: arrivalTime, duration_minutes: 90, status: "completed", wave_height_ft: null, call_id: null });
+  rows.user_events = [{ user_id: userId, beach_id: beach.id, event_type: "board_pick_exposed",
+    created_at: new Date(Date.parse(arrivalTime) - 3600000).toISOString(),
+    metadata: { is_personal: true, call_id: "file-call", forecast_at: arrivalTime } }];
+  expect(await processImport(deps, importId, userId)).toMatchObject({ status: "completed", attached: true });
+  expect(rows.sessions[0]).toMatchObject({ wave_height_ft: null, call_id: null });
+  expect(mutations.filter(mutation => mutation.table === "sessions" && mutation.payload.wave_height_ft !== undefined)).toHaveLength(0);
+  expect(accesses.filter(access => access.table === "user_events" && access.operation === "select")).toHaveLength(0);
+});
+
+it("completes a watch import when recent-call lookup fails", async () => {
+  useWatch();
+  queryFailure = mutation => mutation.table === "user_events" && mutation.operation === "select"
+    ? { message: "lookup failed" } : null;
+  const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+  try {
+    expect(await processImport(deps, importId, userId)).toMatchObject({ status: "completed" });
+    expect(rows.session_imports[0].status).toBe("completed");
+    expect(warn).toHaveBeenCalledWith("[session_import] failed to link recent call:", expect.anything());
+  } finally { warn.mockRestore(); }
+});
+
+it.each([null, 7])("fills only an empty attached wave height (existing %s)", async existing => {
+  const track = useWatch(undefined, 3, 3.5);
+  rows.sessions.push({ id: "attached", user_id: userId, beach_id: beach.id,
+    arrival_time: summarizeTrack(track).inWaterStart, duration_minutes: 90,
+    status: "completed", wave_height_ft: existing });
+  expect(await processImport(deps, importId, userId)).toMatchObject({ status: "completed", attached: true });
+  expect(rows.sessions[0].wave_height_ft).toBe(existing ?? 3.5);
+  expect(mutations.filter(mutation => mutation.table === "sessions" && mutation.operation === "update"
+    && mutation.payload.wave_height_ft !== undefined)).toHaveLength(1);
+});
 
 function watchSlice(seconds: number): NormalizedTrack {
   const track = readTrackFile(new TextEncoder().encode(JSON.stringify(watchFixture)), "watch.json", now);

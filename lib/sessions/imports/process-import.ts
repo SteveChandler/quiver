@@ -11,6 +11,7 @@ import { TrackFileError, type NormalizedTrack } from "../tracks/types";
 import { detectWaves, WAVE_DETECTION_VERSION, type DetectedWave } from "../wave-detection/detect-waves";
 import { buildWavesSummary, type WavesSummary } from "../waves/waves-summary";
 import { findAttachTarget } from "./find-attach-target";
+import { linkRecentCall } from "./link-recent-call";
 import { loadImportBeach, resolveImportBeach, type ImportBeach } from "./resolve-import-beach";
 
 export type ProcessImportResult =
@@ -286,26 +287,28 @@ export async function processImport(
     const timing = { arrival_time: summary.inWaterStart, duration_minutes: Math.round((endMs - startMs) / 60000) };
     let sessionTimingUpdate: (typeof timing & { status?: "completed" }) | null = null;
     let sessionId: string;
+    let sessionBeachId: string | null = beach.id;
     let userArrivalTime: string | null = null;
     let userDurationMinutes: number | null = null;
-    if (target && !attached) {
-      sessionId = target.sessionId;
-    } else if (target) {
+    if (target) {
       const { data: session, error } = await userClient.from("sessions")
-        .select("id, arrival_time, duration_minutes, status").eq("id", target.sessionId)
+        .select("id, beach_id, arrival_time, duration_minutes, status").eq("id", target.sessionId)
         .eq("user_id", userId).is("deleted_at", null).single();
       checkError(error);
       if (!session) throw new Error("Attach session not found");
       sessionId = session.id;
-      userArrivalTime = existingTrack ? existingTrack.user_arrival_time : session.arrival_time;
-      userDurationMinutes = existingTrack ? existingTrack.user_duration_minutes : session.duration_minutes;
-      sessionTimingUpdate = { ...timing, ...(session.status === "planned" ? { status: "completed" } : {}) };
+      sessionBeachId = session.beach_id;
+      if (attached) {
+        userArrivalTime = existingTrack ? existingTrack.user_arrival_time : session.arrival_time;
+        userDurationMinutes = existingTrack ? existingTrack.user_duration_minutes : session.duration_minutes;
+        sessionTimingUpdate = { ...timing, ...(session.status === "planned" ? { status: "completed" } : {}) };
+      }
     } else {
       const { data: session, error } = await userClient.from("sessions").insert({
         user_id: userId, status: "completed",
         is_public: isWatch && spanS >= 600 && watchWaves!.some(wave => wave.confidence >= COUNT_MIN_CONFIDENCE),
         source: isWatch ? "garmin_watch" : "file_import",
-        ...(isWatch ? { rating: track.extras?.rating ?? null } : {}),
+        ...(isWatch ? { rating: track.extras?.rating ?? null, wave_height_ft: track.extras?.waveHeightFt ?? null } : {}),
         ...timing, beach_id: beach.id, beach_name: beach.name,
       }).select("id").single();
       checkError(error);
@@ -338,6 +341,14 @@ export async function processImport(
       const { error } = await userClient.from("sessions").update({ rating: track.extras.rating })
         .eq("id", sessionId).eq("user_id", userId).is("deleted_at", null).is("rating", null);
       checkError(error);
+    }
+    if (isWatch && target && track.extras?.waveHeightFt != null) {
+      const { error } = await userClient.from("sessions").update({ wave_height_ft: track.extras.waveHeightFt })
+        .eq("id", sessionId).eq("user_id", userId).is("deleted_at", null).is("wave_height_ft", null);
+      checkError(error);
+    }
+    if (isWatch && sessionBeachId) {
+      await linkRecentCall(serviceClient, { userId, sessionId, beachId: sessionBeachId, arrivalTime: timing.arrival_time });
     }
     if (summary.waterTempC !== null) {
       const { error } = await userClient.from("sessions").update({

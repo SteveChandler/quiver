@@ -261,6 +261,7 @@
 - Produces:
   - **chunk route** (`withWatchAuth`):
     - Validation: zod for the contract chunk (`rows` ≤ 600, `index` 0..999, `surfId` a uuid); `header` required when `index === 0`.
+    - Validation errors: 400 `invalid_chunk` when the chunk fails validation; 400 `invalid_header` when the header fails validation.
     - Upserts `watch_uploads` (id = surfId, device, user; `header` and `chunk_count` from the chunk 0 header).
     - Writes `{surfId}/{userId}/chunks/{index}.json` to bucket `session-tracks` with `contentType: "application/octet-stream"` and `upsert: true`.
     - Adds the index to `received_chunks` if missing.
@@ -469,3 +470,21 @@
   Expected: all pass.
 - [ ] **Step 2:** Add one Release steps line: "#PR Garmin watch server ships dark — release step, Steven's approval: apply `20261019090000_garmin_watch.sql` after part 1's two migrations; set `GARMIN_WATCH_ENABLED=true` + `GARMIN_WATCH_USER_ALLOWLIST=<Steven's ids>`; then the store beta."
 - [ ] **Step 3:** Run `/code-review high` (the PR touches `supabase/migrations`), fix confirmed findings, push, open the PR, and enable Auto-fix and squash auto-merge.
+
+
+### Task 12: Forecast validation fields for watch surfs (Oct 18 addendum)
+
+**Files:**
+- Modify: `lib/watch/uploads.ts` (header schema), `lib/sessions/tracks/parse-quiver-watch.ts` (header + `extras.waveHeightFt`), `lib/sessions/tracks/types.ts`, `lib/sessions/imports/process-import.ts` (wave height + call link), `app/api/sessions/[id]/route.ts` (PATCH `forecast_accuracy`)
+- Create: `lib/sessions/imports/link-recent-call.ts`
+- Test: `__tests__/api/watch/uploads.test.ts`, `__tests__/lib/sessions/tracks/parse-quiver-watch.test.ts`, `__tests__/lib/sessions/imports/process-import.test.ts`, `__tests__/lib/sessions/imports/link-recent-call.test.ts`, the sessions PATCH route test
+
+**Interfaces:**
+- Header field `waveHeightFt: 1.5 | 2.5 | 3.5 | 5 | 7 | 8.5 | null`, optional for older watch builds (missing = null). Any other number → 400 `invalid_header` at ingest and `corrupt` in the parser.
+- `linkRecentCall(service, {userId, sessionId, beachId, arrivalTime}): Promise<string | null>` — newest `user_events.board_pick_exposed` for that user and beach created within 36 h before `arrivalTime` whose metadata `forecastAt` is within 3 h of `arrivalTime` (parse metadata the way `app/api/recommendations/pending-call-check/route.ts` does); sets `sessions.call_id` only where it is null; returns the call id or null. Best-effort: failures warn and never fail the import.
+- `processImport` (watch origin): new session inserts `wave_height_ft`; attached session updates `wave_height_ft` only where null; then `linkRecentCall` for both.
+- `PATCH /api/sessions/{id}`: `forecast_accuracy: z.enum(["accurate","somewhat","inaccurate"]).nullable().optional()` (matches `check_forecast_accuracy`).
+
+- [ ] Step 1: failing tests (header accepts each chip value and null/missing, rejects 4 and 3; parser carries `waveHeightFt`; new watch session stores it; attached session fills only an empty value; call link picks the right exposure — wrong beach, > 36 h old, forecastAt 4 h off and an already-linked session are all ignored; PATCH accepts and rejects accuracy values).
+- [ ] Step 2: run, expect FAIL. Step 3: implement. Step 4: run, expect PASS.
+- [ ] Step 5: commit `feat(garmin): wave size, call link and forecast verdict for watch surfs`.
