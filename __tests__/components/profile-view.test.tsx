@@ -8,10 +8,8 @@ import { data as gateway } from "@/lib/data/client";
 import type { UserSurfPreferences } from "@/lib/services/preference-learning-service";
 
 const mockSessionRows = jest.fn();
+const mockListSessions = jest.fn();
 let mockGarminEnabled: boolean | undefined;
-jest.mock("@/lib/fetch-with-auth-retry", () => ({
-  fetchWithAuthRetry: (...args: Parameters<typeof fetch>) => fetch(...args),
-}));
 
 // Mock dependencies
 jest.mock("@/context/auth-context");
@@ -26,6 +24,7 @@ import { track } from "@/lib/analytics";
 jest.mock("@/lib/data/client", () => ({
   data: {
     users: {
+      sessions: { list: (...args: unknown[]) => mockListSessions(...args) },
       profile: {
         get: jest.fn(),
       },
@@ -175,11 +174,11 @@ describe("ProfileView - Surf Style Card", () => {
     (gateway.users.profile.get as jest.Mock).mockResolvedValue(mockProfile);
     mockSessionRows.mockResolvedValue([]);
     mockGarminEnabled = false;
+    mockListSessions.mockImplementation(async () => ({
+      sessions: await mockSessionRows(), garminWatchEnabled: mockGarminEnabled,
+    }));
     global.fetch = jest.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
-      if (url.startsWith("/api/users/")) return {
-        ok: true, status: 200, json: async () => ({ success: true, data: { sessions: await mockSessionRows(), garminWatchEnabled: mockGarminEnabled } }),
-      } as Response;
       if (url === "/api/v1/watch/devices") return {
         ok: true, status: 200, json: async () => ({ success: true, data: { devices: [], problems: [] } }),
       } as Response;
@@ -195,7 +194,7 @@ describe("ProfileView - Surf Style Card", () => {
     render(<ProfileView />);
     await screen.findByTestId("surf-profile-section");
     await waitFor(() => expect(gateway.boards.list).toHaveBeenCalled());
-    expect(global.fetch).toHaveBeenCalledWith("/api/users/user-123/sessions?limit=5", expect.objectContaining({ cache: "no-store" }));
+    expect(mockListSessions).toHaveBeenCalledWith("user-123", 5, { includeMetadata: true });
     expect(screen.queryByRole("heading", { name: "Garmin watches" })).not.toBeInTheDocument();
     expect(global.fetch).not.toHaveBeenCalledWith("/api/v1/watch/devices", expect.anything());
   });

@@ -50,7 +50,6 @@ import { cn } from "@/lib/utils";
 
 import { FeedHighlight } from "@/components/profile/FeedHighlight";
 import { SetHomeBreakCta } from "@/components/profile/set-home-break-cta";
-import { fetchWithAuthRetry } from "@/lib/fetch-with-auth-retry";
 import { GarminWatchSection } from "@/components/garmin/garmin-watch-section";
 
 const PROFILE_TAB_BASE_CLASS =
@@ -152,14 +151,10 @@ function ProfileViewContent() {
     const profileData = await gateway.users.profile.get(user.id);
 
     setProfile(profileData as Profile);
-    const response = await fetchWithAuthRetry(
-      `/api/users/${encodeURIComponent(user.id)}/sessions?limit=${highlightSessionId ? 20 : 5}`,
-      { cache: "no-store" },
+    const result = await gateway.users.sessions.list(
+      user.id, highlightSessionId ? 20 : 5, { includeMetadata: true },
     );
-    if (!response.ok) throw new Error(`Failed to load user sessions: ${response.status}`);
-    const result = await response.json();
-    if (!result.success) throw new Error("Failed to load user sessions");
-    const userSessions: SessionWithDetails[] = result.data?.sessions ?? [];
+    const userSessions = result.sessions;
     setSessions(userSessions);
 
     // Fetch user boards
@@ -171,7 +166,7 @@ function ProfileViewContent() {
       sessions: userSessions,
       boards: userBoards,
       forUserId: user.id,
-      garminWatchEnabled: result.data?.garminWatchEnabled === true,
+      garminWatchEnabled: result.garminWatchEnabled,
     };
   }, [user, highlightSessionId]);
 
