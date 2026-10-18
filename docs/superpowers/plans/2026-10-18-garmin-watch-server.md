@@ -261,6 +261,7 @@
 - Produces:
   - **chunk route** (`withWatchAuth`):
     - Validation: zod for the contract chunk (`rows` ≤ 600, `index` 0..999, `surfId` a uuid); `header` required when `index === 0`.
+    - Validation errors: 400 `invalid_chunk` when the chunk fails validation; 400 `invalid_header` when the header fails validation.
     - Upserts `watch_uploads` (id = surfId, device, user; `header` and `chunk_count` from the chunk 0 header).
     - Writes `{surfId}/{userId}/chunks/{index}.json` to bucket `session-tracks` with `contentType: "application/octet-stream"` and `upsert: true`.
     - Adds the index to `received_chunks` if missing.
