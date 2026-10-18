@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { metadataCall } from "@/lib/recommendations/shown-call";
 
 type LinkInput = { userId: string; sessionId: string; beachId: string; arrivalTime: string };
 
@@ -16,21 +17,18 @@ export async function linkRecentCall(service: SupabaseClient, input: LinkInput):
       .eq("event_type", "board_pick_exposed")
       .gte("created_at", new Date(arrivalMs - 36 * 60 * 60 * 1000).toISOString())
       .lte("created_at", input.arrivalTime)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false }).limit(50);
     if (error) throw error;
 
     const candidates: Array<{ callId: string; distanceMs: number }> = [];
     for (const event of events ?? []) {
       const metadata = event.metadata;
       if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) continue;
-      if (metadata.is_personal !== true) continue;
-      const callId = typeof metadata.call_id === "string" ? metadata.call_id : null;
-      const forecastAt = typeof metadata.forecast_at === "string" ? metadata.forecast_at
-        : typeof metadata.selected_forecast_at === "string" ? metadata.selected_forecast_at : null;
-      if (!callId || !forecastAt || !Number.isFinite(Date.parse(forecastAt))) continue;
-      const distanceMs = Math.abs(Date.parse(forecastAt) - arrivalMs);
+      const call = metadataCall(event);
+      if (!call) continue;
+      const distanceMs = Math.abs(Date.parse(call.forecastAt) - arrivalMs);
       if (distanceMs > 3 * 60 * 60 * 1000) continue;
-      candidates.push({ callId, distanceMs });
+      candidates.push({ callId: call.callId, distanceMs });
     }
     if (!candidates.length) return null;
 

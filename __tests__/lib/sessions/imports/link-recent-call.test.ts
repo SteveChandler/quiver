@@ -12,6 +12,8 @@ function service(events: Row[], session: Row, failTable?: string, otherSessions:
   return { from: (table: string) => {
     let mode = "select";
     let update: Row = {};
+    let ordering: { key: string; ascending: boolean } | undefined;
+    let rowLimit: number | undefined;
     const predicates: Array<(row: Row) => boolean> = [];
     const query: any = {
       select: () => query,
@@ -21,8 +23,8 @@ function service(events: Row[], session: Row, failTable?: string, otherSessions:
       is: (key: string, value: unknown) => { predicates.push(row => (row[key] ?? null) === value); return query; },
       gte: (key: string, value: string) => { predicates.push(row => row[key] >= value); return query; },
       lte: (key: string, value: string) => { predicates.push(row => row[key] <= value); return query; },
-      order: () => query,
-      limit: () => query,
+      order: (key: string, options: { ascending: boolean }) => { ordering = { key, ...options }; return query; },
+      limit: (count: number) => { rowLimit = count; return query; },
       update: (values: Row) => { mode = "update"; update = values; return query; },
       maybeSingle: async () => {
         const result = await query;
@@ -30,7 +32,12 @@ function service(events: Row[], session: Row, failTable?: string, otherSessions:
       },
       then: (resolve: (value: unknown) => void) => {
         if (table === failTable) return Promise.resolve({ data: null, error: { message: "db failed" } }).then(resolve);
-        const rows = (table === "user_events" ? events : [session, ...otherSessions]).filter(row => predicates.every(test => test(row)));
+        let rows = (table === "user_events" ? events : [session, ...otherSessions]).filter(row => predicates.every(test => test(row)));
+        if (ordering) {
+          const { key, ascending } = ordering;
+          rows.sort((a, b) => String(a[key]).localeCompare(String(b[key])) * (ascending ? 1 : -1));
+        }
+        if (rowLimit !== undefined) rows = rows.slice(0, rowLimit);
         if (mode === "update") rows.forEach(row => Object.assign(row, update));
         return Promise.resolve({ data: rows, error: null }).then(resolve);
       },
@@ -42,6 +49,17 @@ function service(events: Row[], session: Row, failTable?: string, otherSessions:
 const exposure = (callId: string, createdAt: string, forecastAt: string, beachId = "beach-1"): Row => ({
   user_id: "user-1", beach_id: beachId, event_type: "board_pick_exposed", created_at: createdAt,
   metadata: { call_id: callId, forecast_at: forecastAt, is_personal: true },
+});
+
+it("only considers the 50 newest exposures even if an older forecast is nearer", async () => {
+  const session = { id: "session-1", user_id: "user-1", call_id: null };
+  const arrivalMs = Date.parse(arrivalTime);
+  const recent = Array.from({ length: 50 }, (_, index) => exposure(
+    `recent-${index}`, new Date(arrivalMs - (index + 1) * 60000).toISOString(), "2026-10-18T13:00:00Z",
+  ));
+  const oldest = exposure("outside-limit", new Date(arrivalMs - 51 * 60000).toISOString(), arrivalTime);
+  expect(await linkRecentCall(service([oldest, ...recent], session), input)).toBe("recent-0");
+  expect(session.call_id).toBe("recent-0");
 });
 
 it("links the nearest forecast instead of the newest exposure and ignores wrong beach, age, and forecast offset", async () => {
