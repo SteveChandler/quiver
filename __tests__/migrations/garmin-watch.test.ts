@@ -34,6 +34,34 @@ describe("Garmin watch migration", () => {
     }
   );
 
+  it.each([
+    ["watch_uploads", "device_id"],
+    ["watch_uploads", "user_id"],
+    ["watch_uploads", "import_id"],
+    ["watch_link_codes", "user_id"],
+    ["watch_link_codes", "device_id"],
+    ["session_imports", "device_id"],
+  ])("indexes the %s.%s foreign key idempotently", (table, column) => {
+    expect(sql).toMatch(
+      new RegExp(`CREATE INDEX IF NOT EXISTS \\w+\\s+ON public\\.${table} \\(${column}\\);`)
+    );
+  });
+
+  it("grants device reads without exposing token hashes, including on reapplication", () => {
+    expect(sql).toContain(
+      "REVOKE SELECT (token_hash) ON public.watch_devices FROM PUBLIC, anon, authenticated;"
+    );
+    const columnGrants = [...sql.matchAll(
+      /GRANT SELECT\s*\(([^)]+)\)\s+ON public\.watch_devices TO authenticated;/g
+    )];
+    expect(columnGrants).toHaveLength(1);
+    expect(columnGrants[0]?.[1].split(",").map(column => column.trim())).toEqual([
+      "id", "user_id", "platform", "device_uid", "device_part_number",
+      "device_name", "app_version", "created_at", "last_seen_at", "revoked_at",
+    ]);
+    expect(sql).not.toMatch(/GRANT (?:SELECT|ALL) ON public\.watch_devices TO authenticated/);
+  });
+
   it("revokes devices and removes link codes during account deletion", () => {
     expect(sql).toContain(
       "UPDATE public.watch_devices SET revoked_at = now(), token_hash = NULL WHERE user_id = p_user_id AND revoked_at IS NULL;"

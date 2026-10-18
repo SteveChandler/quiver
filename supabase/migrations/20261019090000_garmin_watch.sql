@@ -104,6 +104,19 @@ ALTER TABLE public.session_imports
   ADD COLUMN IF NOT EXISTS origin text NOT NULL DEFAULT 'file',
   ADD COLUMN IF NOT EXISTS device_id uuid REFERENCES public.watch_devices ON DELETE SET NULL;
 
+CREATE INDEX IF NOT EXISTS watch_uploads_device_id_idx
+  ON public.watch_uploads (device_id);
+CREATE INDEX IF NOT EXISTS watch_uploads_user_id_idx
+  ON public.watch_uploads (user_id);
+CREATE INDEX IF NOT EXISTS watch_uploads_import_id_idx
+  ON public.watch_uploads (import_id);
+CREATE INDEX IF NOT EXISTS watch_link_codes_user_id_idx
+  ON public.watch_link_codes (user_id);
+CREATE INDEX IF NOT EXISTS watch_link_codes_device_id_idx
+  ON public.watch_link_codes (device_id);
+CREATE INDEX IF NOT EXISTS session_imports_device_id_idx
+  ON public.session_imports (device_id);
+
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -128,9 +141,12 @@ CREATE POLICY watch_uploads_select_own ON public.watch_uploads
   FOR SELECT TO authenticated USING (user_id = (select auth.uid()));
 
 REVOKE ALL ON public.watch_devices FROM PUBLIC, anon, authenticated;
+-- Table-level revokes leave prior column grants intact on reapplication.
+REVOKE SELECT (token_hash) ON public.watch_devices FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON public.watch_link_codes FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON public.watch_uploads FROM PUBLIC, anon, authenticated;
-GRANT SELECT ON public.watch_devices TO authenticated;
+GRANT SELECT (id, user_id, platform, device_uid, device_part_number, device_name, app_version, created_at, last_seen_at, revoked_at)
+  ON public.watch_devices TO authenticated;
 GRANT SELECT ON public.watch_uploads TO authenticated;
 GRANT ALL ON public.watch_devices TO service_role;
 GRANT ALL ON public.watch_link_codes TO service_role;
