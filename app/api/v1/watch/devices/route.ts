@@ -1,14 +1,9 @@
 import { createErrorResponse, createSuccessResponse } from "@/lib/api-utils";
+import { importStartedAt } from "@/lib/sessions/imports/import-start-time";
 import { isGarminWatchUserAllowed } from "@/lib/flags/garmin-watch";
 import { withAuth, withNoStore, withRateLimit } from "@/lib/middleware/api-wrappers";
 
 export const runtime = "nodejs";
-
-function startedAt(summary: unknown): string | null {
-  if (!summary || typeof summary !== "object" || Array.isArray(summary)) return null;
-  const value = (summary as Record<string, unknown>).inWaterStart ?? (summary as Record<string, unknown>).startedAt;
-  return typeof value === "string" ? value : null;
-}
 
 export const GET = withNoStore(withRateLimit(withAuth(async (_request, { user, supabase }) => {
   if (!isGarminWatchUserAllowed(user.id)) return createErrorResponse("not_found", undefined, 404);
@@ -27,7 +22,7 @@ export const GET = withNoStore(withRateLimit(withAuth(async (_request, { user, s
   if (importsError) throw importsError;
 
   const problems = imports ?? [];
-  const ids = problems.filter(row => !startedAt(row.summary)).map(row => row.id);
+  const ids = problems.filter(row => !importStartedAt(row.summary)).map(row => row.id);
   const headers = new Map<string, string>();
   if (ids.length) {
     const { data: uploads, error: uploadsError } = await supabase.from("watch_uploads")
@@ -35,7 +30,7 @@ export const GET = withNoStore(withRateLimit(withAuth(async (_request, { user, s
     if (uploadsError) throw uploadsError;
     for (const upload of uploads ?? []) {
       if (upload.import_id) {
-        const value = startedAt(upload.header);
+        const value = importStartedAt(upload.header);
         if (value) headers.set(upload.import_id, value);
       }
     }
@@ -48,7 +43,7 @@ export const GET = withNoStore(withRateLimit(withAuth(async (_request, { user, s
       lastSeenAt: device.last_seen_at,
     })),
     problems: problems.map(imported => ({
-      importId: imported.id, status: imported.status, startedAt: startedAt(imported.summary) ?? headers.get(imported.id) ?? null,
+      importId: imported.id, status: imported.status, startedAt: importStartedAt(imported.summary) ?? headers.get(imported.id) ?? null,
       reason: imported.error,
     })),
   });

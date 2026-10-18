@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { createErrorResponse, createSuccessResponse } from "@/lib/api-utils";
 import { withAuth, withNoStore, withRateLimit } from "@/lib/middleware/api-wrappers";
+import { importStartedAt } from "@/lib/sessions/imports/import-start-time";
 import { resolveImportBeach, type ImportBeach } from "@/lib/sessions/imports/resolve-import-beach";
 import { canViewSessionWaves } from "@/lib/sessions/waves/waves-access";
 
@@ -9,8 +10,7 @@ export const runtime = "nodejs";
 function summaryData(summary: unknown): { startedAt: string | null; centroid: { lat: number; lon: number } | null } {
   if (!summary || typeof summary !== "object" || Array.isArray(summary)) return { startedAt: null, centroid: null };
   const value = summary as Record<string, unknown>;
-  const start = value.inWaterStart ?? value.startedAt;
-  const startedAt = typeof start === "string" ? start : null;
+  const startedAt = importStartedAt(summary);
   const point = value.centroid;
   if (!point || typeof point !== "object" || Array.isArray(point)) return { startedAt, centroid: null };
   const centroid = point as Record<string, unknown>;
@@ -36,7 +36,7 @@ export const GET = withNoStore(withRateLimit(withAuth(async (_request, { user, s
       .select("header").eq("import_id", imported.id).eq("user_id", user.id)
       .order("created_at", { ascending: false }).limit(1).maybeSingle();
     if (uploadError) throw uploadError;
-    startedAt = summaryData(upload?.header).startedAt;
+    startedAt = importStartedAt(upload?.header);
   }
   let candidates: ImportBeach[] = [];
   if (imported.status === "needs_beach" && summary.centroid) {
