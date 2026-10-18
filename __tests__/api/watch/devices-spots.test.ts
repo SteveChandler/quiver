@@ -27,14 +27,21 @@ const serviceQueries: Queries = {};
 let updatedDevice: { id: string } | null;
 
 function query(table: string, recorder: Queries): Record<string, jest.Mock> {
+  let max = Infinity;
+  let excludeDuplicates = false;
   const q: Record<string, jest.Mock> = {
-    select: jest.fn(), eq: jest.fn(), is: jest.fn(), in: jest.fn(), gte: jest.fn(), order: jest.fn(), limit: jest.fn(),
+    select: jest.fn(), eq: jest.fn(), is: jest.fn(), in: jest.fn(), gte: jest.fn(), order: jest.fn(), limit: jest.fn(), or: jest.fn(),
     maybeSingle: jest.fn(), update: jest.fn(), insert: jest.fn(), then: jest.fn(),
   };
   for (const method of ["select", "eq", "is", "in", "gte", "order", "limit"]) q[method].mockReturnValue(q);
   q.update.mockReturnValue(q);
+  q.limit.mockImplementation((limit: number) => { max = limit; return q; });
+  q.or.mockImplementation((filter: string) => { excludeDuplicates = filter === "error.is.null,error.neq.duplicate"; return q; });
   const result = (): { data: unknown; error: null } => ({
-    data: recorder === serviceQueries && q.update.mock.calls.length ? updatedDevice : rows[table], error: null,
+    data: recorder === serviceQueries && q.update.mock.calls.length ? updatedDevice
+      : table === "session_imports" && Array.isArray(rows[table])
+        ? (rows[table] as { error: string | null }[]).filter(row => !excludeDuplicates || row.error !== "duplicate").slice(0, max)
+        : rows[table], error: null,
   });
   q.maybeSingle.mockImplementation(async () => result());
   q.then.mockImplementation((resolve: (value: unknown) => void) => Promise.resolve(resolve(result())));
@@ -200,10 +207,10 @@ it("returns 404 for a non-UUID device id", async () => {
   expect(mockServiceFrom).not.toHaveBeenCalled();
 });
 
-it("omits duplicate imports from problems and header lookups", async () => {
+it("excludes duplicates before limiting problems, retaining real errors and needs-beach rows", async () => {
   rows.watch_devices = [];
   rows.session_imports = [
-    { id: "duplicate-import", status: "failed", error: "duplicate", summary: null },
+    ...Array.from({ length: 51 }, (_, i) => ({ id: `duplicate-${i}`, status: "failed", error: "duplicate", summary: null })),
     { id: "failed-import", status: "failed", error: "no_gps", summary: null },
     { id: "needs-beach", status: "needs_beach", error: null, summary: { startedAt: "2026-10-18T12:00:00Z" } },
   ];
@@ -212,4 +219,7 @@ it("omits duplicate imports from problems and header lookups", async () => {
   const body = await response.json();
   expect(body.data.problems.map((row: { importId: string }) => row.importId)).toEqual(["failed-import", "needs-beach"]);
   expect(userQueries.watch_uploads[0].in).toHaveBeenCalledWith("import_id", ["failed-import"]);
+  expect(userQueries.session_imports[0].or).toHaveBeenCalledWith("error.is.null,error.neq.duplicate");
+  expect(userQueries.session_imports[0].or.mock.invocationCallOrder[0])
+    .toBeLessThan(userQueries.session_imports[0].limit.mock.invocationCallOrder[0]);
 });

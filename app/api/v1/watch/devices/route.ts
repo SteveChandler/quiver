@@ -21,11 +21,12 @@ export const GET = withNoStore(withRateLimit(withAuth(async (_request, { user, s
   const { data: imports, error: importsError } = await supabase.from("session_imports")
     .select("id, user_id, device_id, status, origin, error, summary, session_id, created_at")
     .eq("user_id", user.id).eq("origin", "garmin_watch")
+    .or("error.is.null,error.neq.duplicate")
     .in("status", ["failed", "needs_beach"]).gte("created_at", since)
     .order("created_at", { ascending: false }).limit(50);
   if (importsError) throw importsError;
 
-  const problems = (imports ?? []).filter(row => row.error !== "duplicate");
+  const problems = imports ?? [];
   const ids = problems.filter(row => !startedAt(row.summary)).map(row => row.id);
   const headers = new Map<string, string>();
   if (ids.length) {
