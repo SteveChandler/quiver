@@ -877,7 +877,7 @@ export const NOTIFICATION_REGISTRY = {
     buildPushPayload: (p) => ({
       title: "Your surf is in Quiver",
       body: `${p.beach_name}: ${p.wave_count} ${p.wave_count === 1 ? "wave" : "waves"}`,
-      data: { type: "watch_session_ready", session_id: p.session_id },
+      data: { type: "watch_session_ready", session_id: p.session_id, url: `/sessions/${p.session_id}`, deeplink: `quiver://sessions/${p.session_id}` },
     }),
   } satisfies NotificationTypeDef<WatchSessionReadyPayload>,
 
@@ -903,7 +903,7 @@ export const NOTIFICATION_REGISTRY = {
       return {
         title: "Pick the beach for your surf",
         body: `Your ${dateFormatter.format(new Date(p.started_at))} surf needs a beach before it can be saved`,
-        data: { type: "watch_session_needs_beach", import_id: p.import_id },
+        data: { type: "watch_session_needs_beach", import_id: p.import_id, url: `/sessions/imports/${p.import_id}`, deeplink: `quiver://sessions/imports/${p.import_id}` },
       };
     },
   } satisfies NotificationTypeDef<WatchSessionNeedsBeachPayload>,
