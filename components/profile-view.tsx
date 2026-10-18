@@ -50,6 +50,7 @@ import { cn } from "@/lib/utils";
 
 import { FeedHighlight } from "@/components/profile/FeedHighlight";
 import { SetHomeBreakCta } from "@/components/profile/set-home-break-cta";
+import { fetchWithAuthRetry } from "@/lib/fetch-with-auth-retry";
 import { GarminWatchSection } from "@/components/garmin/garmin-watch-section";
 
 const PROFILE_TAB_BASE_CLASS =
@@ -151,11 +152,15 @@ function ProfileViewContent() {
     const profileData = await gateway.users.profile.get(user.id);
 
     setProfile(profileData as Profile);
-    const userSessions = await gateway.users.sessions.list(
-      user.id,
-      highlightSessionId ? 20 : 5
+    const response = await fetchWithAuthRetry(
+      `/api/users/${encodeURIComponent(user.id)}/sessions?limit=${highlightSessionId ? 20 : 5}`,
+      { cache: "no-store" },
     );
-    setSessions(userSessions as SessionWithDetails[]);
+    if (!response.ok) throw new Error(`Failed to load user sessions: ${response.status}`);
+    const result = await response.json();
+    if (!result.success) throw new Error("Failed to load user sessions");
+    const userSessions: SessionWithDetails[] = result.data?.sessions ?? [];
+    setSessions(userSessions);
 
     // Fetch user boards
     const userBoards = await gateway.boards.list();
@@ -165,10 +170,13 @@ function ProfileViewContent() {
       profile: profileData,
       sessions: userSessions,
       boards: userBoards,
+      forUserId: user.id,
+      garminWatchEnabled: result.data?.garminWatchEnabled === true,
     };
   }, [user, highlightSessionId]);
 
   const {
+    data: loadedData,
     loading: dataLoading,
     error: fetchError,
     refetch,
@@ -656,7 +664,7 @@ function ProfileViewContent() {
                     >
                       <SurfProfileSection />
                     </Suspense>
-                    {user?.id === profile?.id && <GarminWatchSection isOwner />}
+                    {user?.id === profile?.id && loadedData?.forUserId === user?.id && loadedData?.garminWatchEnabled && <GarminWatchSection isOwner />}
                     <Suspense
                       fallback={<ProfileTabLoadingSkeleton type="Removed photos" />}
                     >

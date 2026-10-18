@@ -7,6 +7,7 @@ import {
   type OptionalAuthContext,
 } from "@/lib/middleware/api-wrappers";
 import { addFeaturedPhotoToSessions } from "@/actions/session-actions";
+import { isGarminWatchUserAllowed } from "@/lib/flags/garmin-watch";
 import { isSessionImportsUserAllowed } from "@/lib/flags/session-imports";
 import { canViewSessionWaves } from "@/lib/sessions/waves/waves-access";
 
@@ -228,7 +229,7 @@ async function handler(
 
     return createSuccessResponse({
       sessions: sessionsWithPhotos,
-      ...(isOwn ? { sessionImportsEnabled: isSessionImportsUserAllowed(targetUserId) } : {}),
+      ...(isOwn ? { sessionImportsEnabled: isSessionImportsUserAllowed(targetUserId), garminWatchEnabled: isGarminWatchUserAllowed(targetUserId) } : {}),
     });
   }
 
@@ -240,7 +241,7 @@ async function handler(
 
   return createSuccessResponse({
     sessions: sessionsWithPhotos,
-    ...(isOwn ? { sessionImportsEnabled: isSessionImportsUserAllowed(targetUserId) } : {}),
+    ...(isOwn ? { sessionImportsEnabled: isSessionImportsUserAllowed(targetUserId), garminWatchEnabled: isGarminWatchUserAllowed(targetUserId) } : {}),
   });
 }
 

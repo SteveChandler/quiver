@@ -7,6 +7,12 @@ import { useUserPreferences } from "@/hooks/use-user-preferences";
 import { data as gateway } from "@/lib/data/client";
 import type { UserSurfPreferences } from "@/lib/services/preference-learning-service";
 
+const mockSessionRows = jest.fn();
+let mockGarminEnabled: boolean | undefined;
+jest.mock("@/lib/fetch-with-auth-retry", () => ({
+  fetchWithAuthRetry: (...args: Parameters<typeof fetch>) => fetch(...args),
+}));
+
 // Mock dependencies
 jest.mock("@/context/auth-context");
 jest.mock("@/hooks/use-user-preferences");
@@ -22,9 +28,6 @@ jest.mock("@/lib/data/client", () => ({
     users: {
       profile: {
         get: jest.fn(),
-      },
-      sessions: {
-        list: jest.fn(),
       },
     },
     boards: {
@@ -170,8 +173,40 @@ describe("ProfileView - Surf Style Card", () => {
     });
 
     (gateway.users.profile.get as jest.Mock).mockResolvedValue(mockProfile);
-    (gateway.users.sessions.list as jest.Mock).mockResolvedValue([]);
+    mockSessionRows.mockResolvedValue([]);
+    mockGarminEnabled = false;
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.startsWith("/api/users/")) return {
+        ok: true, status: 200, json: async () => ({ success: true, data: { sessions: await mockSessionRows(), garminWatchEnabled: mockGarminEnabled } }),
+      } as Response;
+      if (url === "/api/v1/watch/devices") return {
+        ok: true, status: 200, json: async () => ({ success: true, data: { devices: [], problems: [] } }),
+      } as Response;
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
     (gateway.boards.list as jest.Mock).mockResolvedValue([]);
+  });
+
+  it.each([false, undefined])("does not mount or fetch Garmin devices without server access: %s", async enabled => {
+    mockGarminEnabled = enabled;
+    mockSearchParamsGet = jest.fn((key: string) => key === "tab" ? "surf-profile" : null);
+    (useUserPreferences as jest.Mock).mockReturnValue({ data: null, loading: false, error: null });
+    render(<ProfileView />);
+    await screen.findByTestId("surf-profile-section");
+    await waitFor(() => expect(gateway.boards.list).toHaveBeenCalled());
+    expect(global.fetch).toHaveBeenCalledWith("/api/users/user-123/sessions?limit=5", expect.objectContaining({ cache: "no-store" }));
+    expect(screen.queryByRole("heading", { name: "Garmin watches" })).not.toBeInTheDocument();
+    expect(global.fetch).not.toHaveBeenCalledWith("/api/v1/watch/devices", expect.anything());
+  });
+
+  it("mounts and fetches Garmin devices when server access is true", async () => {
+    mockGarminEnabled = true;
+    mockSearchParamsGet = jest.fn((key: string) => key === "tab" ? "surf-profile" : null);
+    (useUserPreferences as jest.Mock).mockReturnValue({ data: null, loading: false, error: null });
+    render(<ProfileView />);
+    expect(await screen.findByRole("heading", { name: "Garmin watches" })).toBeInTheDocument();
+    expect(global.fetch).toHaveBeenCalledWith("/api/v1/watch/devices", expect.anything());
   });
 
   describe("High Confidence Surf Style", () => {
@@ -459,7 +494,7 @@ describe("ProfileView - Surf Style Card", () => {
         .fn()
         .mockReturnValue("highlight=session-abc&tab=sessions");
 
-      (gateway.users.sessions.list as jest.Mock).mockResolvedValue([
+      mockSessionRows.mockResolvedValue([
         {
           id: "session-abc",
           status: "completed",

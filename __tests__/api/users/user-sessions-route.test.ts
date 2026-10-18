@@ -209,6 +209,20 @@ describe("owner session import metadata", () => {
     expect(mockSupabaseClient.from.mock.calls.filter(([table]) => table === "session_tracks")).toHaveLength(1);
   });
 
+  it.each([
+    { enabled: "false", allowed: true, expected: false },
+    { enabled: "true", allowed: false, expected: false },
+    { enabled: "true", allowed: true, expected: true },
+  ])("reports the owner's Garmin access for $enabled / $allowed, including empty sessions", async ({ enabled, allowed, expected }) => {
+    process.env.GARMIN_WATCH_ENABLED = enabled;
+    process.env.GARMIN_WATCH_USER_ALLOWLIST = allowed ? ownerId : "";
+    for (const rows of [sessions, []]) {
+      mockQueries(rows);
+      const body = await expectSuccessResponse<{ garminWatchEnabled: boolean }>(await getSessions());
+      expect(body.data.garminWatchEnabled).toBe(expected);
+    }
+  });
+
   it("adds owner track status for a garmin-only user without enabling imports", async () => {
     process.env.SESSION_IMPORTS_ENABLED = "false";
     process.env.GARMIN_WATCH_ENABLED = "true";
@@ -232,6 +246,7 @@ describe("owner session import metadata", () => {
     const body = await expectSuccessResponse<{ sessions: Record<string, unknown>[] }>(await getSessions());
 
     expect(body.data).not.toHaveProperty("sessionImportsEnabled");
+    expect(body.data).not.toHaveProperty("garminWatchEnabled");
     expect(body.data.sessions).toHaveLength(2);
     body.data.sessions.forEach((session) => expect(session).not.toHaveProperty("has_track"));
     expect(queries.sessions.eq).toHaveBeenCalledWith("is_public", true);
@@ -272,7 +287,7 @@ describe("owner session import metadata", () => {
 
     const body = await expectSuccessResponse(await getSessions());
 
-    expect(body.data).toEqual({ sessions: [], sessionImportsEnabled: true });
+    expect(body.data).toEqual({ sessions: [], sessionImportsEnabled: true, garminWatchEnabled: false });
     expect(mockSupabaseClient.from).not.toHaveBeenCalledWith("session_tracks");
   });
 });
