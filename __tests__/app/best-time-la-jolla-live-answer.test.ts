@@ -83,8 +83,8 @@ describe("best-time La Jolla live answer copy", () => {
 
   it("describes the window with the window's conditions and labels current conditions as now", () => {
     const copy = buildBestTimeTodayAnswerCopy({
-      citySlug: "cocoa-beach",
-      cityName: "Cocoa Beach",
+      citySlug: "melbourne-beach",
+      cityName: "Melbourne Beach",
       currentMonthName: "September",
       currentMonthScore: 55,
       currentBestMonthCount: 1,
@@ -106,7 +106,7 @@ describe("best-time La Jolla live answer copy", () => {
     });
 
     expect(copy.todayAnswer).toBe(
-      "Cocoa Beach's best surf window today is 2:30 PM-3:30 PM, with rising tide, 12 mph wind, and 1.4 ft swell; tide in range, good swell angle. Check the live report before you drive.",
+      "Melbourne Beach's best surf window today is 2:30 PM-3:30 PM, with rising tide, 12 mph wind, and 1.4 ft swell; tide in range, good swell angle. Check the live report before you drive.",
     );
     expect(copy.surfReportCue).toBe(
       "Now: falling tide, 20 mph wind, and 1.2 ft swell. Confirm them in the live surf report first.",
