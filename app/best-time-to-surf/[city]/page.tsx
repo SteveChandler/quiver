@@ -97,11 +97,19 @@ interface BestTimeMetadataCopy {
 
 export function buildBestTimeMetadataCopy(
   cityName: string,
+  citySlug?: string,
 ): BestTimeMetadataCopy {
   const detailedTitle = `Best ${cityName} surf window today: tide & wind`;
   const compactTitle = `${cityName} surf window today: tide & wind`;
   const detailedDescription = `${cityName}'s best surf window today: check tide, wind, swell, and live conditions at nearby spots, plus seasonal patterns for planning your next session.`;
   const compactDescription = `${cityName}'s surf window today: check tide, wind, swell, and live spot conditions, plus seasonal patterns for planning your next session.`;
+
+  const override = citySlug ? BEST_TIME_CTR_OVERRIDES[citySlug] : undefined;
+  const metaDescriptionOverride =
+    override?.metaDescription &&
+    override.metaDescription.length <= BEST_TIME_META_DESCRIPTION_MAX_LENGTH
+      ? override.metaDescription
+      : undefined;
 
   return {
     title:
@@ -110,14 +118,16 @@ export function buildBestTimeMetadataCopy(
         ? detailedTitle
         : compactTitle,
     description:
-      detailedDescription.length <= BEST_TIME_META_DESCRIPTION_MAX_LENGTH
+      metaDescriptionOverride ??
+      (detailedDescription.length <= BEST_TIME_META_DESCRIPTION_MAX_LENGTH
         ? detailedDescription
-        : compactDescription,
+        : compactDescription),
     h1: `Best ${cityName} surf window today: tide and conditions`,
   };
 }
 
 interface BestTimeCtrOverride {
+  metaDescription?: string;
   answerPrefix: string;
   weekSuffix: string;
   surfReportCue: string;
@@ -125,6 +135,22 @@ interface BestTimeCtrOverride {
 }
 
 const BEST_TIME_CTR_OVERRIDES: Record<string, BestTimeCtrOverride> = {
+  "cocoa-beach": {
+    metaDescription:
+      "Check today's Cocoa Beach surf report: wave height, wind, tide and swell at Cocoa Beach Pier, plus the best months to surf for planning ahead.",
+    answerPrefix:
+      "For Cocoa Beach, read wave height, wind, tide, and swell at Cocoa Beach Pier first, then use the seasonal pattern to plan ahead.",
+    weekSuffix:
+      "Use this page for the seasonal pattern, and let the live Cocoa Beach Pier conditions decide today's session.",
+    surfReportCue:
+      "Open the Cocoa Beach Pier report for today's wave height, wind, tide, and swell before using this seasonal guide.",
+    surfReportStep: {
+      label: "Open today's Cocoa Beach Pier report",
+      href: "/fl/cocoa-beach/cocoa-beach-pier-cocoa-beach-fl",
+      description:
+        "Check Cocoa Beach Pier wave height, wind, tide, and swell before applying the seasonal guide.",
+    },
+  },
   "la-jolla": {
     answerPrefix:
       "For La Jolla, use Scripps Pier, Shores, and Tourmaline as the live proof points before trusting the seasonal pattern.",
@@ -405,7 +431,7 @@ export async function generateMetadata(props: PageParams): Promise<Metadata> {
   }
 
   const { cityName, stateName } = cityResult.data;
-  const metadataCopy = buildBestTimeMetadataCopy(cityName);
+  const metadataCopy = buildBestTimeMetadataCopy(cityName, citySlug);
 
   const metadata = buildPageMetadata({
     title: metadataCopy.title,
@@ -462,7 +488,7 @@ export default async function BestTimeToSurfPage(props: PageParams) {
   const cityHubHref = buildBestTimeCityHubHref(state, citySlug);
   const heroScene = getBestTimeSeoScene(citySlug);
   const sessionScene = getBestTimeSessionSeoScene(citySlug);
-  const metadataCopy = buildBestTimeMetadataCopy(cityName);
+  const metadataCopy = buildBestTimeMetadataCopy(cityName, citySlug);
 
   const [dataResult, excludeIntents, forecastBeachesResult, cityEditorial] = await Promise.all([
     getBestTimeToSurfData(cityName, state),
