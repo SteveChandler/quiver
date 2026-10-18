@@ -244,7 +244,10 @@ it("maps no_gps to final failed", async () => {
 
 it("enqueues a ready push once for a fresh completed import, including an attached session", async () => {
   await uploadAll();
-  mockProcess.mockResolvedValueOnce({ status: "completed", sessionId: "session-1", attached: true, summary: { waveCount: 2 } });
+  mockProcess.mockImplementationOnce(async (_deps: unknown, id: string) => {
+    Object.assign(tables.session_imports.find(row => row.id === id)!, { status: "completed", session_id: "session-1" });
+    return { status: "completed", sessionId: "session-1", attached: true, summary: { waveCount: 2 } };
+  });
   const first = await complete(request(), context());
   expect(first.status).toBe(200);
   const importId = tables.session_imports[0].id;
@@ -254,7 +257,10 @@ it("enqueues a ready push once for a fresh completed import, including an attach
     payload: { session_id: "session-1", beach_name: "Scripps", wave_count: 2 },
     dedupeKey: `watch_session:${importId}:completed`,
   }, mockService);
-  await complete(request(), context());
+  const replay = await complete(request(), context());
+  expect(replay.status).toBe(200);
+  expect(await replay.json()).toMatchObject({ data: { status: "completed", sessionId: "session-1" } });
+  expect(mockProcess).toHaveBeenCalledTimes(1);
   expect(mockEnqueue).toHaveBeenCalledTimes(1);
 });
 
@@ -614,4 +620,60 @@ it("keeps a stale import retryable after an unexpected rerun failure", async () 
     expect(mockProcess.mock.calls.map(call => call.slice(1))).toEqual([["import", userId], ["import", userId]]);
     expect(tables.session_imports).toHaveLength(1);
   } finally { errorLog.mockRestore(); }
+});
+
+
+it.each<{ label: string; change: Record<string, unknown> }>([
+  { label: "nonzero first-fix delta", change: { rows: [[0, 1, 0, 100, 80, 180]] } },
+  { label: "fix without an origin", change: { lat0: null, lon0: null } },
+  { label: "origin without any fix", change: { rows: [[0, null, null, 100, 80, 180]] } },
+  { label: "latitude accumulating past 90 degrees", change: { lat0: 90e7, rows: [[0, 0, 0, null, null, null], [1, 1, 0, null, null, null]] } },
+  { label: "latitude accumulating past -90 degrees", change: { lat0: -90e7, rows: [[0, 0, 0, null, null, null], [1, -1, 0, null, null, null]] } },
+  { label: "longitude accumulating past 180 degrees", change: { lon0: 180e7, rows: [[0, 0, 0, null, null, null], [1, 0, 1, null, null, null]] } },
+  { label: "longitude accumulating past -180 degrees", change: { lon0: -180e7, rows: [[0, 0, 0, null, null, null], [1, 0, -1, null, null, null]] } },
+  { label: "time accumulating past the Date limit", change: { t0: 8_640_000_000_000 } },
+])("rejects $label through the real parser before storage", async ({ change }) => {
+  const response = await chunk(request({ ...payload, header, ...change }), context());
+  expect(response.status).toBe(400);
+  expect(await response.json()).toMatchObject({ success: false, error: "invalid_chunk" });
+  expect(mockUpload).not.toHaveBeenCalled();
+  expect(tables.watch_uploads).toHaveLength(0);
+});
+
+it.each([false, true])("validates nonzero chunks with a stub or stored header (stored: %s)", async stored => {
+  if (stored) await chunk(request({ ...payload, header }), context());
+  mockUpload.mockClear();
+  const response = await chunk(request({ ...payload, rows: [[0, 1, 0, 100, 80, 180]] }), context("1"));
+  expect(response.status).toBe(400);
+  expect(await response.json()).toMatchObject({ error: "invalid_chunk" });
+  expect(mockUpload).not.toHaveBeenCalled();
+});
+
+it.each(["incoming", "stored", "stub"])("accepts a valid no-fix chunk using the %s header", async source => {
+  if (source === "stored") await chunk(request({ ...payload, header }), context());
+  const index = source === "incoming" ? "0" : "1";
+  const noFix = { t0: payload.t0, lat0: null, lon0: null, rows: [[0, null, null, 0, null, 180], [1, null, null, 0, null, 180]] };
+  const response = await chunk(request({ ...noFix, ...(source === "incoming" ? { header } : {}) }), context(index));
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ data: { received: Number(index) } });
+  expect(JSON.parse(objects.get(`${surfId}/${userId}/chunks/${index}.json`)!)).toMatchObject(noFix);
+});
+
+it("enqueues exactly one ready push when a stale uploaded import finishes and is replayed", async () => {
+  tables.watch_uploads.push({ id: surfId, user_id: userId, import_id: "stale-import", received_chunks: [0, 1], header });
+  tables.session_imports.push({ id: "stale-import", user_id: userId, status: "uploaded", created_at: new Date(Date.now() - 91_000).toISOString() });
+  const first = await complete(request(), context());
+  const replay = await complete(request(), context());
+  for (const response of [first, replay]) {
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ data: { status: "completed", sessionId: "session-1" } });
+  }
+  expect(mockProcess).toHaveBeenCalledTimes(1);
+  expect(mockProcess).toHaveBeenCalledWith(expect.anything(), "stale-import", userId);
+  expect(mockEnqueue).toHaveBeenCalledTimes(1);
+  expect(mockEnqueue).toHaveBeenCalledWith({
+    type: "watch_session_ready", recipientUserId: userId,
+    payload: { session_id: "session-1", beach_name: "Scripps", wave_count: 2 },
+    dedupeKey: "watch_session:stale-import:completed",
+  }, mockService);
 });

@@ -34,4 +34,31 @@ describe("watch session notifications", () => {
     const fallback = def.validatePayload!({ import_id: "import-2", started_at: "2026-10-19T02:00:00Z" });
     expect(def.buildPushPayload!(fallback).body).toBe("Your Oct 19 surf needs a beach before it can be saved");
   });
+
+  it.each([
+    { label: "extra keys", payload: { session_id: "session-1", beach_name: "Scripps", wave_count: 2, extra: true } },
+    { label: "fractional wave count", payload: { session_id: "session-1", beach_name: "Scripps", wave_count: 1.5 } },
+    { label: "blank beach name", payload: { session_id: "session-1", beach_name: "   ", wave_count: 2 } },
+  ])("rejects ready payloads with $label", ({ payload }) => {
+    expect(() => NOTIFICATION_REGISTRY.watch_session_ready.validatePayload!(payload)).toThrow();
+  });
+
+  it("rejects extra keys in needs-beach payloads", () => {
+    expect(() => NOTIFICATION_REGISTRY.watch_session_needs_beach.validatePayload!({
+      import_id: "import-1", started_at: "2026-10-19T02:00:00Z", timezone: "UTC", extra: true,
+    })).toThrow();
+  });
+
+  it("falls back to the UTC date for an invalid IANA timezone", () => {
+    const def = NOTIFICATION_REGISTRY.watch_session_needs_beach;
+    const payload = def.validatePayload!({
+      import_id: "import-1", started_at: "2026-10-19T02:00:00Z", timezone: "Not/A_Timezone",
+    });
+    expect(def.buildPushPayload!(payload)).toEqual({
+      title: "Pick the beach for your surf",
+      body: "Your Oct 19 surf needs a beach before it can be saved",
+      data: { type: "watch_session_needs_beach", import_id: "import-1" },
+    });
+  });
+
 });

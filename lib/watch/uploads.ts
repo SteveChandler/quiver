@@ -3,6 +3,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { processImport, type ProcessImportResult } from "@/lib/sessions/imports/process-import";
 import { enqueueNotification } from "@/lib/notifications/enqueue";
+import { parseQuiverWatch } from "@/lib/sessions/tracks/parse-quiver-watch";
 import { TrackFileError } from "@/lib/sessions/tracks/types";
 import { findTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import type { NextRequest } from "next/server";
@@ -62,6 +63,20 @@ export async function uploadWatchChunk(request: NextRequest, ctx: WatchContext):
 
   let upload = await loadUpload(ctx, id.data);
   if (upload && upload.user_id !== ctx.userId) return createErrorResponse("not_found", undefined, 404);
+  const storedHeader = headerSchema.safeParse(upload?.header);
+  const probeHeader = header ?? (storedHeader.success ? storedHeader.data : {
+    surfId: id.data, startedAt: "1970-01-01T00:00:00Z", endedAt: "1970-01-01T00:00:00Z",
+    sport: "surfing", partNumber: "", deviceName: "", appVersion: "", rating: null,
+  });
+  try {
+    // Probe one chunk so ingest shares the parser's coordinate and time validation.
+    parseQuiverWatch({ quiverWatch: 1, header: { ...probeHeader, chunkCount: 1 }, chunks: [body.data] });
+  } catch (error) {
+    if (error instanceof TrackFileError && error.code === "corrupt") {
+      return createErrorResponse("invalid_chunk", undefined, 400);
+    }
+    if (!(error instanceof TrackFileError && error.code === "no_gps")) throw error;
+  }
   if (!upload) {
     // Ignore conflicts so an existing UUID can never be reassigned to a different owner.
     const { error } = await ctx.service.from("watch_uploads").upsert({

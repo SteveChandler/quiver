@@ -891,13 +891,21 @@ export const NOTIFICATION_REGISTRY = {
     suppressSelfNotify: false,
     quietHours: DEFAULT_QUIET,
     validatePayload: (input) => watchSessionNeedsBeachSchema.parse(input),
-    buildPushPayload: (p) => ({
-      title: "Pick the beach for your surf",
-      body: `Your ${new Intl.DateTimeFormat("en-US", {
-        month: "short", day: "numeric", timeZone: p.timezone ?? "UTC",
-      }).format(new Date(p.started_at))} surf needs a beach before it can be saved`,
-      data: { type: "watch_session_needs_beach", import_id: p.import_id },
-    }),
+    buildPushPayload: (p) => {
+      let dateFormatter: Intl.DateTimeFormat;
+      try {
+        dateFormatter = new Intl.DateTimeFormat("en-US", {
+          month: "short", day: "numeric", timeZone: p.timezone ?? "UTC",
+        });
+      } catch {
+        dateFormatter = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+      }
+      return {
+        title: "Pick the beach for your surf",
+        body: `Your ${dateFormatter.format(new Date(p.started_at))} surf needs a beach before it can be saved`,
+        data: { type: "watch_session_needs_beach", import_id: p.import_id },
+      };
+    },
   } satisfies NotificationTypeDef<WatchSessionNeedsBeachPayload>,
 
   forecast_feedback_nudge: {
