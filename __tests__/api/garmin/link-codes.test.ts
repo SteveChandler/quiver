@@ -40,7 +40,7 @@ let deviceUpdateNoRow: boolean;
 let deviceUpsertError: boolean;
 let retentionCleanupError: boolean;
 let afterCodeRead: (() => Promise<void>) | null;
-let beforeDeviceUpsert: (() => void) | null;
+let beforeDeviceUpsert: (() => void | Promise<void>) | null;
 let nextId: number;
 const savedEnv = { enabled: process.env.GARMIN_WATCH_ENABLED, allowed: process.env.GARMIN_WATCH_USER_ALLOWLIST };
 
@@ -62,7 +62,6 @@ function databaseQuery(table: string): Record<string, jest.Mock> {
       return { data: inserted, error: null };
     }
     if (action === "upsert") {
-      beforeDeviceUpsert?.();
       if (deviceUpsertError) return { data: null, error: { message: "device unavailable" } };
       const existing = rows.find(row => row.user_id === value.user_id && row.device_uid === value.device_uid);
       if (existing) { Object.assign(existing, value); return { data: existing, error: null }; }
@@ -99,7 +98,10 @@ function databaseQuery(table: string): Record<string, jest.Mock> {
   query.upsert = jest.fn((row: Row) => { action = "upsert"; value = row; return query; });
   query.update = jest.fn((row: Row) => { action = "update"; value = row; return query; });
   query.delete = jest.fn(() => { action = "delete"; return query; });
-  query.single = jest.fn(async () => run());
+  query.single = jest.fn(async () => {
+    if (action === "upsert") await beforeDeviceUpsert?.();
+    return run();
+  });
   query.maybeSingle = jest.fn(async () => {
     const result = run();
     if (action === "select" && table === "watch_link_codes" && query.eq.mock.calls.some(([key]) => key === "code")) {
@@ -382,6 +384,39 @@ it("reverts confirmation ownership when the device upsert fails", async () => {
     deviceUpsertError = false;
     expect((await confirm(post(), context(link.code))).status).toBe(200);
   } finally { errorLog.mockRestore(); }
+});
+
+it("keeps polls pending while confirmation is binding the device, until expiry", async () => {
+  const link = await created();
+  const upserting = deferred();
+  const resume = deferred();
+  beforeDeviceUpsert = async () => { upserting.resolve(); await resume.promise; };
+  const confirming = confirm(post(), context(link.code));
+  await upserting.promise;
+  try {
+    expect(codes[0]).toMatchObject({ confirmed_at: expect.any(String), user_id: userId, device_id: null });
+    const pending = await poll(get(link.linkId, link.pollSecret), context(link.linkId));
+    expect(pending.status).toBe(200);
+    expect(await pending.json()).toMatchObject({ data: { status: "pending" } });
+    expect(codes[0].claimed_at).toBeNull();
+    codes[0].expires_at = new Date(Date.now() - 1000).toISOString();
+    const expired = await poll(get(link.linkId, link.pollSecret), context(link.linkId));
+    expect(expired.status).toBe(410);
+    expect(await expired.json()).toMatchObject({ error: "expired" });
+  } finally { resume.resolve(); await confirming; }
+});
+
+it("keeps a confirmed code with no owner pending until expiry", async () => {
+  const link = await created();
+  codes[0].confirmed_at = new Date().toISOString();
+  codes[0].device_id = deviceId;
+  const pending = await poll(get(link.linkId, link.pollSecret), context(link.linkId));
+  expect(pending.status).toBe(200);
+  expect(await pending.json()).toMatchObject({ data: { status: "pending" } });
+  codes[0].expires_at = new Date(Date.now() - 1000).toISOString();
+  const expired = await poll(get(link.linkId, link.pollSecret), context(link.linkId));
+  expect(expired.status).toBe(410);
+  expect(await expired.json()).toMatchObject({ error: "expired" });
 });
 
 it.each(["missing", "revoked"])("expires a confirmed link whose device is %s before claiming", async state => {

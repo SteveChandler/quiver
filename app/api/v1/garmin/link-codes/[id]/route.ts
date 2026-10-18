@@ -25,7 +25,10 @@ export const GET = withNoStore(withErrorHandler(withRateLimit(async (request, co
   }
   if (!link.confirmed_at) return createSuccessResponse({ status: "pending" });
   if (link.claimed_at) return createSuccessResponse({ status: "claimed" });
-  if (!link.device_id || !link.user_id) return createErrorResponse("expired", undefined, 410);
+  if (!link.device_id || !link.user_id) {
+    if (Date.parse(link.expires_at) <= Date.now()) return createErrorResponse("expired", undefined, 410);
+    return createSuccessResponse({ status: "pending" });
+  }
   const { data: availableDevice, error: deviceError } = await service.from("watch_devices")
     .select("id").eq("id", link.device_id).eq("user_id", link.user_id).is("revoked_at", null).maybeSingle();
   if (deviceError) throw deviceError;
