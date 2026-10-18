@@ -1,4 +1,4 @@
-import type { NormalizedTrack, TrackSample } from "./types";
+import type { NormalizedTrack, TrackSample, WatchWaveHeightFt } from "./types";
 import { TrackFileError } from "./types";
 
 type RecordValue = Record<string, unknown>;
@@ -23,6 +23,12 @@ function isValidTime(value: unknown): value is string {
   return typeof value === "string" && Number.isFinite(Date.parse(value));
 }
 
+const waveHeights: readonly WatchWaveHeightFt[] = [1.5, 2.5, 3.5, 5, 7, 8.5];
+
+function isWatchWaveHeightFt(value: unknown): value is WatchWaveHeightFt {
+  return typeof value === "number" && waveHeights.some(height => height === value);
+}
+
 export function parseQuiverWatch(json: unknown): NormalizedTrack {
   if (!isRecord(json) || json.quiverWatch !== 1 || !isRecord(json.header) || !Array.isArray(json.chunks)) {
     corrupt("Invalid Quiver watch file");
@@ -34,6 +40,7 @@ export function parseQuiverWatch(json: unknown): NormalizedTrack {
     || typeof header.partNumber !== "string" || typeof header.deviceName !== "string"
     || typeof header.appVersion !== "string"
     || !(header.rating === null || (isInteger(header.rating) && header.rating >= 1 && header.rating <= 5))
+    || !(header.waveHeightFt == null || isWatchWaveHeightFt(header.waveHeightFt))
     || !isInteger(header.chunkCount) || header.chunkCount < 1 || header.chunkCount !== chunks.length) {
     corrupt("Invalid Quiver watch header");
   }
@@ -103,6 +110,7 @@ export function parseQuiverWatch(json: unknown): NormalizedTrack {
       endedAt: new Date(header.endedAt).toISOString(),
     },
     samples,
-    extras: { rating: header.rating, deviceName: header.deviceName },
+    extras: { rating: header.rating, deviceName: header.deviceName,
+      waveHeightFt: isWatchWaveHeightFt(header.waveHeightFt) ? header.waveHeightFt : null },
   };
 }

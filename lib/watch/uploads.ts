@@ -23,6 +23,7 @@ const headerSchema = z.object({
   deviceName: z.string(),
   appVersion: z.string(),
   rating: integer.min(1).max(5).nullable(),
+  waveHeightFt: z.union([z.literal(1.5), z.literal(2.5), z.literal(3.5), z.literal(5), z.literal(7), z.literal(8.5)]).nullable().optional(),
   chunkCount: chunkCountSchema,
 });
 const chunkSchema = z.object({
@@ -61,7 +62,12 @@ async function markChunks(ctx: WatchContext, surfId: string, add: number[], remo
 export async function uploadWatchChunk(request: NextRequest, ctx: WatchContext): Promise<Response> {
   const id = surfIdSchema.safeParse(ctx.params.surfId);
   const index = indexSchema.safeParse(ctx.params.index);
-  const body = chunkSchema.safeParse(await request.json().catch(() => null));
+  const rawBody: unknown = await request.json().catch(() => null);
+  if (rawBody && typeof rawBody === "object" && "header" in rawBody
+    && !headerSchema.safeParse(rawBody.header).success) {
+    return createErrorResponse("invalid_header", undefined, 400);
+  }
+  const body = chunkSchema.safeParse(rawBody);
   if (!id.success || !index.success || !body.success) return createErrorResponse("invalid_chunk", undefined, 400);
   const { header } = body.data;
   if ((index.data === 0 && !header) || (header && (index.data !== 0 || header.surfId !== id.data))) {

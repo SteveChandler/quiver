@@ -47,6 +47,7 @@ const SessionUpdateSchema = z
     is_public: z.boolean().optional(),
     rating: z.number().int().min(0).max(5).optional(),
     wave_height_ft: z.number().min(0).max(100).nullable().optional(),
+    forecast_accuracy: z.enum(["accurate", "somewhat", "inaccurate"]).nullable().optional(),
     wave_characteristics: z
       .array(WaveCharacteristicSchema)
       .max(15)
@@ -159,6 +160,9 @@ export const PATCH = withAuth(
     if (validation.data.rating !== undefined) updatePayload.rating = validation.data.rating;
     if (validation.data.wave_height_ft !== undefined) {
       updatePayload.wave_height_ft = validation.data.wave_height_ft;
+    }
+    if (validation.data.forecast_accuracy !== undefined) {
+      updatePayload.forecast_accuracy = validation.data.forecast_accuracy;
     }
     if (validation.data.wave_characteristics !== undefined) {
       updatePayload.wave_characteristics = validation.data.wave_characteristics;

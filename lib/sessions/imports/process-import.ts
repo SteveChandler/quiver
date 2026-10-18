@@ -11,6 +11,7 @@ import { TrackFileError, type NormalizedTrack } from "../tracks/types";
 import { detectWaves, WAVE_DETECTION_VERSION, type DetectedWave } from "../wave-detection/detect-waves";
 import { buildWavesSummary, type WavesSummary } from "../waves/waves-summary";
 import { findAttachTarget } from "./find-attach-target";
+import { linkRecentCall } from "./link-recent-call";
 import { loadImportBeach, resolveImportBeach, type ImportBeach } from "./resolve-import-beach";
 
 export type ProcessImportResult =
@@ -305,7 +306,7 @@ export async function processImport(
         user_id: userId, status: "completed",
         is_public: isWatch && spanS >= 600 && watchWaves!.some(wave => wave.confidence >= COUNT_MIN_CONFIDENCE),
         source: isWatch ? "garmin_watch" : "file_import",
-        ...(isWatch ? { rating: track.extras?.rating ?? null } : {}),
+        ...(isWatch ? { rating: track.extras?.rating ?? null, wave_height_ft: track.extras?.waveHeightFt ?? null } : {}),
         ...timing, beach_id: beach.id, beach_name: beach.name,
       }).select("id").single();
       checkError(error);
@@ -338,6 +339,14 @@ export async function processImport(
       const { error } = await userClient.from("sessions").update({ rating: track.extras.rating })
         .eq("id", sessionId).eq("user_id", userId).is("deleted_at", null).is("rating", null);
       checkError(error);
+    }
+    if (isWatch && target && track.extras?.waveHeightFt != null) {
+      const { error } = await userClient.from("sessions").update({ wave_height_ft: track.extras.waveHeightFt })
+        .eq("id", sessionId).eq("user_id", userId).is("deleted_at", null).is("wave_height_ft", null);
+      checkError(error);
+    }
+    if (isWatch) {
+      await linkRecentCall(serviceClient, { userId, sessionId, beachId: beach.id, arrivalTime: timing.arrival_time });
     }
     if (summary.waterTempC !== null) {
       const { error } = await userClient.from("sessions").update({

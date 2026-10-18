@@ -32,6 +32,18 @@ const header = {
   surfId, startedAt: "2026-10-18T12:00:00Z", endedAt: "2026-10-18T12:10:00Z",
   sport: "surfing", partNumber: "006-B", deviceName: "Forerunner", appVersion: "1.0", rating: 4, chunkCount: 2,
 };
+it.each([1.5, 2.5, 3.5, 5, 7, 8.5, null, undefined])("accepts watch wave size %s", async waveHeightFt => {
+  const response = await chunk(request({ ...payload, header: { ...header, ...(waveHeightFt === undefined ? {} : { waveHeightFt }) } }), context());
+  expect(response.status).toBe(200);
+  expect(tables.watch_uploads[0].header.waveHeightFt).toBe(waveHeightFt === undefined ? undefined : waveHeightFt);
+});
+
+it.each([3, 4])("rejects unsupported watch wave size %s as invalid_header", async waveHeightFt => {
+  const response = await chunk(request({ ...payload, header: { ...header, waveHeightFt } }), context());
+  expect(response.status).toBe(400);
+  expect(await response.json()).toMatchObject({ error: "invalid_header" });
+  expect(tables.watch_uploads).toHaveLength(0);
+});
 const payload = { t0: 1792324800, lat0: 327000000, lon0: -1172000000, rows: [[0, 0, 0, 100, 80, 180], [1, 10, 20, 200, null, null]] };
 type Row = Record<string, any>;
 type Operation = { table: string; kind: string; values?: Row; filters: [string, unknown][] };
