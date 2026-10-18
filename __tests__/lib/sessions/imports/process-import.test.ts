@@ -558,21 +558,28 @@ it("keeps a seven-minute fixture slice with no counted waves private", async () 
   expect(rows.sessions[0]).toMatchObject({ source: "garmin_watch", is_public: false });
 });
 
-it.each(["file", "garmin_watch"])("fails a four-minute slice as too_short before persisting a session for %s", async origin => {
-  const track = useWatch(watchSlice(240));
-  rows.session_imports[0].origin = origin;
-  if (origin === "file") {
-    const points = track.samples.filter(sample => sample.lat !== null && sample.lon !== null)
-      .map(sample => `<trkpt lat="${sample.lat}" lon="${sample.lon}"><time>${sample.t}</time></trkpt>`).join("");
-    bytes = new TextEncoder().encode(`<gpx><trk><trkseg>${points}</trkseg></trk></gpx>`);
-    rows.session_imports[0].original_filename = "short.gpx";
-  }
+it("fails a four-minute Garmin slice as too_short before persisting a session", async () => {
+  useWatch(watchSlice(240));
   await expect(processImport(deps, importId, userId)).rejects.toMatchObject({ code: "too_short" });
   expect(rows.session_imports[0]).toMatchObject({ status: "failed", error: "too_short" });
   expect(inserts("sessions")).toHaveLength(0);
   expect(inserts("session_tracks")).toHaveLength(0);
   expect(inserts("session_waves")).toHaveLength(0);
   expect(rows.user_events).toContainEqual(expect.objectContaining({ event_type: "session_import_failed", metadata: { code: "too_short" } }));
+});
+
+it("preserves file-import behavior for a four-minute GPX track", async () => {
+  const track = watchSlice(240);
+  const points = track.samples.filter(sample => sample.lat !== null && sample.lon !== null)
+    .map(sample => `<trkpt lat="${sample.lat}" lon="${sample.lon}"><time>${sample.t}</time></trkpt>`).join("");
+  bytes = new TextEncoder().encode(`<gpx><trk><trkseg>${points}</trkseg></trk></gpx>`);
+  rows.session_imports[0].origin = "file";
+  rows.session_imports[0].original_filename = "short.gpx";
+  expect(await processImport(deps, importId, userId)).toMatchObject({ status: "completed" });
+  expect(rows.session_imports[0]).toMatchObject({ status: "completed", error: null });
+  expect(inserts("sessions")).toHaveLength(1);
+  expect(inserts("sessions")[0]).toMatchObject({ payload: { source: "file_import" } });
+  expect(inserts("session_tracks")).toHaveLength(1);
 });
 
 it.each([null, 5])("fills only a null attachment rating and preserves source and visibility (rating %s)", async rating => {

@@ -195,7 +195,7 @@ export async function processImport(
     }
 
     const spanS = (endMs - startMs) / 1000;
-    if (spanS < 300) {
+    if (isWatch && spanS < 300) {
       throw new TrackFileError("too_short", "This track is too short to be a surf.");
     }
 
