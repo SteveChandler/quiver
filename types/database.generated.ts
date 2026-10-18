@@ -14642,6 +14642,7 @@ tide_forecasts: {
           header: Json | null
           id: string
           import_id: string | null
+          purge_requested_at: string | null
           received_chunks: number[]
           updated_at: string | null
           user_id: string
@@ -14653,6 +14654,7 @@ tide_forecasts: {
           header?: Json | null
           id: string
           import_id?: string | null
+          purge_requested_at?: string | null
           received_chunks?: number[]
           updated_at?: string | null
           user_id: string
@@ -14664,6 +14666,7 @@ tide_forecasts: {
           header?: Json | null
           id?: string
           import_id?: string | null
+          purge_requested_at?: string | null
           received_chunks?: number[]
           updated_at?: string | null
           user_id?: string
@@ -18447,6 +18450,15 @@ is_admin_user: { Args: never; Returns: boolean }
           vote: string
           vote_score: number
         }[]
+      }
+      watch_upload_mark_chunks: {
+        Args: {
+          p_add: number[]
+          p_id: string
+          p_remove: number[]
+          p_user_id: string
+        }
+        Returns: number[] | null
       }
     }
     Enums: {

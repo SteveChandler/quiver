@@ -88,6 +88,19 @@ describe("Garmin watch migration", () => {
     expect(sql).toContain("ALTER TABLE public.user_events VALIDATE CONSTRAINT user_events_event_type_check;");
   });
 
+  it("represents the acknowledgement RPC and purge marker in generated types", () => {
+    const generated = readFileSync(join(process.cwd(), "types/database.generated.ts"), "utf8");
+    const upload = generated.match(/      watch_uploads: \{([\s\S]*?)        Relationships:/)?.[1];
+    expect(upload).toContain("purge_requested_at: string | null");
+    expect(upload?.match(/purge_requested_at\?: string \| null/g)).toHaveLength(2);
+    const fn = generated.match(/      watch_upload_mark_chunks: \{([\s\S]*?)\n      \}/)?.[1];
+    expect(fn).toContain("p_id: string");
+    expect(fn).toContain("p_user_id: string");
+    expect(fn).toContain("p_add: number[]");
+    expect(fn).toContain("p_remove: number[]");
+    expect(fn).toContain("Returns: number[] | null");
+  });
+
   it("revokes devices and removes link codes during account deletion", () => {
     expect(sql).toContain(
       "UPDATE public.watch_devices SET revoked_at = now(), token_hash = NULL WHERE user_id = p_user_id AND revoked_at IS NULL;"

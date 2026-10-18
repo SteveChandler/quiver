@@ -6,7 +6,6 @@ import { enqueueNotification } from "@/lib/notifications/enqueue";
 import { parseQuiverWatch } from "@/lib/sessions/tracks/parse-quiver-watch";
 import { TrackFileError } from "@/lib/sessions/tracks/types";
 import { findTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { createErrorResponse, createSuccessResponse } from "@/lib/api-utils";
@@ -52,17 +51,8 @@ async function loadUpload(ctx: WatchContext, surfId: string): Promise<Upload | n
   return data;
 }
 
-// Local contract for the unapplied migration; regenerate DB types after rollout validation.
-type WatchRpcDatabase = Database & {
-  public: { Functions: { watch_upload_mark_chunks: {
-    Args: { p_id: string; p_user_id: string; p_add: number[]; p_remove: number[] };
-    Returns: number[];
-  } } };
-};
-
 async function markChunks(ctx: WatchContext, surfId: string, add: number[], remove: number[]): Promise<void> {
-  const service = ctx.service as SupabaseClient<WatchRpcDatabase>;
-  const { error } = await service.rpc("watch_upload_mark_chunks", {
+  const { error } = await ctx.service.rpc("watch_upload_mark_chunks", {
     p_id: surfId, p_user_id: ctx.userId, p_add: add, p_remove: remove,
   });
   checkError(error);
