@@ -2094,6 +2094,33 @@ describe("processPendingEvents — happy path", () => {
 });
 
 describe("processPendingEvents — quiet hours", () => {
+  it("defers a rain advisory water-quality push at 23:00 local", async () => {
+    const state = emptyState();
+    state.events.push(buildEvent({
+      type: "water_quality", actor_user_id: null, entity_type: "beach",
+      entity_id: "11111111-1111-4111-8111-111111111111",
+      payload: {
+        beach_id: "11111111-1111-4111-8111-111111111111", beach_slug: "ocean-beach",
+        beach_name: "Ocean Beach", status: "advisory", previous_status: null,
+        status_changed_at: "2026-04-29T05:00:00Z",
+        rain_advisory: { event_id: "22222222-2222-4222-8222-222222222222", phase: "start",
+          source: "county_general", region: "san_diego", started_at: "2026-04-29T05:00:00Z",
+          last_rain_at: null, expires_at: "2026-05-02T05:00:00Z" },
+      },
+    }));
+    state.profiles.set("user-recipient", buildProfile({ timezone: "America/Los_Angeles" }));
+    state.devices.set("user-recipient", ["device-token-A"]);
+    const fakeFcm = { sendEach: jest.fn() };
+
+    const summary = await processPendingEvents(buildMockSupabase(state) as never,
+      { now: new Date("2026-04-29T06:00:00Z"), fcm: fakeFcm as never });
+
+    expect(summary.by_status.deferred_quiet_hours).toBe(1);
+    expect(summary.pending_after_run).toBe(1);
+    expect(state.events[0].status).toBe("pending");
+    expect(fakeFcm.sendEach).not.toHaveBeenCalled();
+  });
+
   it("quiet hours → push deferred_quiet_hours, event STAYS PENDING (retry next tick)", async () => {
     const state = emptyState();
     state.events.push(buildEvent());

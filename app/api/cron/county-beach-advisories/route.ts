@@ -10,6 +10,7 @@ import {
 } from "@/lib/services/county-beach-advisories";
 import { withCronOutcome } from "@/lib/cron/outcome";
 import { syncCountyRainAdvisory } from "@/lib/services/water-quality/rain-advisory-events-sync";
+import { processRainAdvisoryPushes } from "@/lib/services/water-quality/rain-advisory-push";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -76,12 +77,14 @@ async function _GET(request: Request): Promise<Response> {
     }
 
     if (result.status !== "ok") return NextResponse.json({ success: true, data: result });
-    const rainAdvisory = await syncCountyRainAdvisory(createSupabaseServiceRoleClient(), {
+    const supabase = createSupabaseServiceRoleClient();
+    const rainAdvisory = await syncCountyRainAdvisory(supabase, {
       id: result.runId, fetched_at: result.fetchedAt, advisory_count: result.summary.countsByType.advisory,
     }, new Date());
     if (rainAdvisory.status === "table_missing") console.warn("[county-advisory-ingest] rain advisory events table missing");
     else if (rainAdvisory.status === "error") console.error("[county-advisory-ingest] rain advisory sync failed", rainAdvisory.error);
-    return NextResponse.json({ success: true, data: { ...result, rainAdvisory } });
+    const rainAdvisoryPush = await processRainAdvisoryPushes(supabase);
+    return NextResponse.json({ success: true, data: { ...result, rainAdvisory, rainAdvisoryPush } });
   } catch (error) {
     console.error("[county-advisory-ingest] cron failed", error);
     return NextResponse.json(

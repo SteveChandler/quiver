@@ -241,6 +241,16 @@ const waterQualitySchema = z.object({
     .enum(["good", "advisory", "closure", "unknown"])
     .nullable(),
   status_changed_at: z.string().min(1),
+  rain_advisory: z.object({
+    event_id: z.string().uuid(),
+    phase: z.enum(["start", "end"]),
+    source: z.enum(["county_general", "metar_runoff"]),
+    region: z.string().min(1),
+    started_at: z.string().min(1),
+    last_rain_at: z.string().nullable(),
+    expires_at: z.string().min(1),
+    end_reason: z.enum(["dry_72h", "county_lifted"]).nullable().optional(),
+  }).optional(),
 });
 
 const dailyDigestSchema = z.object({
@@ -951,7 +961,17 @@ export const NOTIFICATION_REGISTRY = {
 
       let title: string;
       let body: string;
-      if (p.status === "closure") {
+      if (p.rain_advisory?.phase === "start") {
+        title = `Rain advisory: ${p.beach_name}`;
+        body = p.rain_advisory.source === "county_general"
+          ? "County of San Diego rain advisory. Runoff can raise bacteria for 72 h after rain."
+          : "Rain fell nearby. Runoff can raise bacteria near drains and creeks for 72 h.";
+      } else if (p.rain_advisory?.phase === "end") {
+        title = `All clear: ${p.beach_name}`;
+        body = p.rain_advisory.end_reason === "county_lifted"
+          ? `The County lifted its rain advisory for ${p.beach_name}.`
+          : `72 h since the last rain at ${p.beach_name}. The rain advisory has ended.`;
+      } else if (p.status === "closure") {
         title = `Beach closed: ${p.beach_name}`;
         body = "High bacteria levels. Don't enter the water.";
       } else if (p.status === "advisory") {
@@ -974,6 +994,7 @@ export const NOTIFICATION_REGISTRY = {
           beach_id: p.beach_id,
           beach_slug: p.beach_slug,
           status: p.status,
+          ...(p.rain_advisory ? { rain_advisory_phase: p.rain_advisory.phase } : {}),
         },
       };
     },
@@ -988,6 +1009,7 @@ export const NOTIFICATION_REGISTRY = {
         status: p.status,
         previous_status: p.previous_status,
         status_changed_at: p.status_changed_at,
+        ...(p.rain_advisory ? { rain_advisory: p.rain_advisory } : {}),
       },
     }),
   } satisfies NotificationTypeDef<WaterQualityPayload>,
