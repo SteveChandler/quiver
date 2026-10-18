@@ -42,7 +42,7 @@ describe("session wave height source migration", () => {
 
   it("reads provenance from the submit event in both arrival orders", () => {
     expect(executableSQL).toMatch(
-      /CREATE TRIGGER trigger_apply_session_wave_height_source\s+BEFORE INSERT ON public\.sessions/
+      /CREATE TRIGGER trigger_apply_session_wave_height_source\s+BEFORE INSERT OR UPDATE OF wave_height_ft ON public\.sessions/
     );
     expect(executableSQL).toMatch(
       /CREATE TRIGGER trigger_apply_submit_wave_height_source\s+AFTER INSERT ON public\.user_events\s+FOR EACH ROW\s+WHEN \(NEW\.event_type = 'session_log_submit'\)/

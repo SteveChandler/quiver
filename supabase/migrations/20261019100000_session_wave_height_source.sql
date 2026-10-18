@@ -12,11 +12,14 @@
 --   * BEFORE INSERT on sessions reads the submit event. 92 of 98 events land before
 --     the session row (native queues both and the event usually flushes first).
 --   * AFTER INSERT on user_events labels a session row that landed first.
+--   * A later change to wave_height_ft (the session-edit screen) makes it the surfer's.
 -- NULL means unknown (rows before 2026-07-20, sessions without a submit event) and stays
 -- in the truth set. Truth consumers exclude only 'forecast_prefill'.
 --
 -- Independent of the pending session-waves and Garmin migrations; apply on its own.
--- Holds an ACCESS EXCLUSIVE lock on sessions for the backfill (a few seconds); apply off-peak.
+-- The transaction holds an ACCESS EXCLUSIVE lock on sessions and a SHARE ROW EXCLUSIVE
+-- lock on user_events (new trigger) until COMMIT, so session saves and every analytics
+-- insert wait for the backfill and re-sync (seconds). Apply off-peak.
 -- Rollback: see the end of this file.
 
 BEGIN;
@@ -71,6 +74,18 @@ AS $$
 DECLARE
   submit_metadata jsonb;
 BEGIN
+  IF TG_OP = 'UPDATE' THEN
+    -- The snapshot trigger re-syncs truth after this, so an edited height counts again.
+    IF OLD.wave_height_source = 'forecast_prefill'
+      AND NEW.wave_height_source IS NOT DISTINCT FROM OLD.wave_height_source
+      AND NEW.wave_height_ft IS DISTINCT FROM OLD.wave_height_ft
+      AND NEW.wave_height_ft IS NOT NULL
+    THEN
+      NEW.wave_height_source := 'user';
+    END IF;
+    RETURN NEW;
+  END IF;
+
   IF NEW.wave_height_source IS NOT NULL OR NEW.wave_height_ft IS NULL THEN
     RETURN NEW;
   END IF;
@@ -101,7 +116,7 @@ $$;
 
 DROP TRIGGER IF EXISTS trigger_apply_session_wave_height_source ON public.sessions;
 CREATE TRIGGER trigger_apply_session_wave_height_source
-  BEFORE INSERT ON public.sessions
+  BEFORE INSERT OR UPDATE OF wave_height_ft ON public.sessions
   FOR EACH ROW
   EXECUTE FUNCTION public.apply_session_wave_height_source();
 
@@ -160,6 +175,7 @@ CREATE TRIGGER trigger_apply_submit_wave_height_source
   WHEN (NEW.event_type = 'session_log_submit')
   EXECUTE FUNCTION public.apply_submit_wave_height_source_to_session();
 
+REVOKE ALL ON FUNCTION public.session_wave_height_source_from_submit(jsonb) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.apply_session_wave_height_source() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.apply_submit_wave_height_source_to_session() FROM PUBLIC, anon, authenticated;
 

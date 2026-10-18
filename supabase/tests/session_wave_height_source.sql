@@ -234,6 +234,14 @@ INSERT INTO public.user_events (user_id, event_type, metadata)
 VALUES (fixture_id(1), 'session_log_start', submit_metadata(fixture_id(30), 'true', 'false'));
 SELECT expect_source(fixture_id(30), NULL, 'other event type');
 
+-- Editing a prefilled height makes it the surfer's and returns it to truth; a no-op
+-- write of the same height does not.
+UPDATE public.sessions SET wave_height_ft = 3 WHERE id = fixture_id(21);
+SELECT expect_source(fixture_id(21), 'forecast_prefill', 'same height rewritten');
+UPDATE public.sessions SET wave_height_ft = 6 WHERE id = fixture_id(22);
+SELECT expect_source(fixture_id(22), 'user', 'edited prefill');
+SELECT expect_candidate(fixture_id(22), 'weak', NULL, 'edited prefill');
+
 DO $$
 BEGIN
   BEGIN
@@ -247,7 +255,7 @@ $$;
 
 -- Applying the migration again is a no-op.
 \ir ../migrations/20261019100000_session_wave_height_source.sql
-SELECT expect_source(fixture_id(21), 'forecast_prefill', 'reapply');
+SELECT expect_source(fixture_id(12), 'forecast_prefill', 'reapply');
 SELECT expect_source(fixture_id(24), 'user', 'reapply');
 SELECT expect_candidate(fixture_id(24), 'weak', NULL, 'reapply');
 
