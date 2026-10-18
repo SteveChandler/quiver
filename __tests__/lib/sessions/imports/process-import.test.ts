@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import { FitBaseType, FitEncoder } from "fit-file-parser";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import watchFixture from "@/__tests__/fixtures/session-tracks/watch-ob-2026-10-17.json";
-import { encodeWatchTrack } from "../tracks/watch-encode";
+import { encodeWatchTrack } from "@/test-utils/session-tracks/watch-encode";
 import type { NormalizedTrack } from "@/lib/sessions/tracks/types";
 import fixture from "@/__tests__/fixtures/session-tracks/ob-2026-10-17.json";
 import { processImport, persistDetection } from "@/lib/sessions/imports/process-import";

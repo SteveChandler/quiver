@@ -5,9 +5,11 @@ import watchFixture from "@/__tests__/fixtures/session-tracks/watch-ob-2026-10-1
 import { parseQuiverWatch } from "@/lib/sessions/tracks/parse-quiver-watch";
 import { readTrackFile } from "@/lib/sessions/tracks/read-track-file";
 import type { NormalizedTrack } from "@/lib/sessions/tracks/types";
-import { encodeWatchTrack } from "./watch-encode";
+import { encodeWatchTrack } from "@/test-utils/session-tracks/watch-encode";
 
 const original = obFixture.track as unknown as NormalizedTrack;
+// Generated the committed watch fixture with JSON.stringify(encodeWatchTrack(original)) + "\n".
+// The input is the offset OB JSON fixture above, never the original FIT.
 const watchFile = encodeWatchTrack(original);
 
 describe("quiver_watch track format", () => {
