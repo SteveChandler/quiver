@@ -83,4 +83,22 @@ describe("ConditionsSection recommendation feedback", () => {
     expect(updateField).toHaveBeenCalledWith("waveHeight", 3);
     expect(updateField).toHaveBeenCalledWith("waveHeightEdited", true);
   });
+
+  it("marks a typed wave height as the surfer's own on ordinary logs", () => {
+    const updateField = jest.fn();
+
+    render(
+      <ConditionsSection
+        formState={{ ...baseState, waveHeight: 4 }}
+        updateField={updateField}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText("Wave Height (ft)"), {
+      target: { value: "3" },
+    });
+
+    expect(updateField).toHaveBeenCalledWith("waveHeight", 3);
+    expect(updateField).toHaveBeenCalledWith("waveHeightEdited", true);
+  });
 });

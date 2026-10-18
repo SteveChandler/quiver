@@ -785,6 +785,10 @@ export interface SessionLogMetadata {
   event_id?: string;
   /** Draft or saved session ID for native session-log telemetry */
   session_id?: string;
+  /** For session_log_submit: saved wave height is the form's untouched forecast estimate */
+  forecast_prefilled?: boolean;
+  /** For session_log_submit: the surfer set or changed the wave height */
+  forecast_height_changed?: boolean;
   /** Beach ID selected for the session (if already chosen) */
   beach_id?: string;
   /** For session_log_abandon: how the form exited */
