@@ -1065,9 +1065,8 @@ export async function bulkForecastHandler(
           const label = recommendationLabelMap[beach.id];
           verdicts[beach.id] = label === "Worth it" ? "go" : label === "Maybe" ? "maybe" : "no";
           // The decision's label already folds in the selected row's character (blown-out MAYBE reads MEH).
-          conditionLabels[beach.id] = decision
-            ? decision.conditionLabel
-            : conditionLabelForVerdict(verdicts[beach.id], score);
+          conditionLabels[beach.id] =
+            decision?.conditionLabel ?? conditionLabelForVerdict(verdicts[beach.id], score);
         } catch (error) {
           recommendationLabelMap[beach.id] = null;
           console.warn("Failed to resolve bulk forecast decision:", { beachId: beach.id, error });
