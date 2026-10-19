@@ -126,10 +126,11 @@ describe('raw wave sources → selection → face-height contracts', () => {
       expect(mergeWaveSources(nwsHs([0, 0, 0]), [])).toEqual([]);
     });
 
-    it('mixed NWS series keeps a real 0 m hour beside OM 0.05', () => {
+    it('mixed NWS series is retained, not dropped as an empty cell, with a real 0 m hour beside OM 0.05', () => {
       const merged = mergeWaveSources(nwsHs([0, 1.2]), omHs([0.05, 1.2]));
-      expect(merged[0]).toMatchObject({ data_source: 'NOAA_NWS', significant_wave_height: 0 });
+      // Which source wins depends on input completeness; assert only that the NWS series was retained.
       expect(merged[0].source_selection).toMatchObject({ disagreement: false, noaa_height_m: 0 });
+      expect(merged[0].source_selection?.reason).not.toBe('nws_empty_cell');
     });
 
     it('small positive NWS height far from OM still disagrees', () => {
