@@ -172,3 +172,26 @@ it.each([false, true])("refreshes promo eligibility before reservation; provider
  expect(mockSend).not.toHaveBeenCalled();
  expect(update).toHaveBeenCalledWith(expect.objectContaining(providerFails ? { status:"error", error_message:"provider unavailable" } : { status:"ok", error_message:null }));
 });
+
+it("evaluates candidates a few at a time so one hourly burst cannot hit the statement timeout", async () => {
+  process.env.EMAIL_LIFECYCLE_ENABLED = "true";
+  const users = Array.from({ length: 12 }, (_, i) => `11111111-1111-4111-8111-${String(i).padStart(12, "0")}`);
+  let inFlight = 0, peak = 0;
+  mockRpc.mockImplementation(async (name: string, args?: Record<string, string>): Promise<unknown> => {
+    if (name === "email_lifecycle_cohort") return users;
+    if (name === "reconcile_email_lifecycle") return { unknown_handoffs: 0, expired_reservations: 0 };
+    if (name === "evaluate_email_lifecycle") {
+      peak = Math.max(peak, ++inFlight);
+      await new Promise(resolve => setImmediate(resolve));
+      inFlight--;
+      return { user_id: args!.p_user_id, campaign_id: null, status: "held", reason: `r${users.indexOf(args!.p_user_id)}` };
+    }
+    if (name === "email_automation_health") return { due_unsent: 0, enrollment_pending: 0, approval_unavailable: 0 };
+    return null;
+  });
+  mockDb.mockResolvedValue({ from: () => ({ insert: () => ({ select: () => ({ single: async () => ({ data: { id: "run" }, error: null }) }) }), update: () => ({ eq: async () => ({ error: null }) }) }) });
+  const result = await runEmailLifecycle(false);
+  expect(peak).toBe(5);
+  // Decisions stay aligned with their users despite batching.
+  expect(result.reasons).toEqual(Object.fromEntries(users.map((_, i) => [`r${i}`, 1])));
+});
