@@ -5,7 +5,7 @@ import { buildPageMetadata } from "@/lib/seo/meta";
 import { getSessionMetadata } from "@/actions/session-actions";
 import { buildSessionShareImageUrl } from "@/lib/share/session-share";
 import type { SessionWithDetails } from "@/types/database";
-import { format } from "date-fns";
+import { format } from "date-fns/format";
 
 const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
@@ -18,10 +18,10 @@ async function getSharedSessionPreview(id: string) {
   const beach = session.beach as unknown as { name: string } | null;
   const user = session.user as unknown as {
     full_name: string;
-    username: string;
+    display_name: string;
   } | null;
   const beachName = beach?.name || session.beach_name || "Unknown Beach";
-  const userName = user?.full_name || user?.username || "A surfer";
+  const userName = user?.full_name || user?.display_name || "A surfer";
   const rating =
     typeof session.rating === "number" ? session.rating : Number(session.rating);
   const safeRating = Number.isFinite(rating) ? rating : null;
@@ -89,13 +89,13 @@ export async function generateMetadata(
       const beach = session.beach as unknown as { name: string } | null;
       const user = session.user as unknown as {
         full_name: string;
-        username: string;
+        display_name: string;
       } | null;
       const beachName = beach?.name || session.beach_name || "Unknown Beach";
-      const userName = user?.full_name || user?.username || "Surfer";
+      const userName = user?.full_name || user?.display_name || "Surfer";
       const ratingText = session.rating ? `${session.rating}-star` : "";
       const statusText =
-        session.status === "completed" ? "Surf Session" : "Planned Session";
+        session.status === "completed" ? "surf session" : "planned session";
       const dateText = session.arrival_time
         ? format(new Date(session.arrival_time), "MMM d, yyyy")
         : "";
@@ -103,7 +103,7 @@ export async function generateMetadata(
       // Build rich title and description
       const title =
         ratingText && dateText
-          ? `${userName}'s ${ratingText} ${statusText} at ${beachName} - ${dateText}`
+          ? `${userName}'s ${statusText} at ${beachName} - ${ratingText} - ${dateText}`
           : `${userName}'s ${statusText} at ${beachName}`;
 
       const description =
@@ -119,7 +119,9 @@ export async function generateMetadata(
         title,
         description,
         path: `/sessions/${params.id}`,
-        image: buildSessionShareImageUrl(session as unknown as SessionWithDetails),
+        image: `${buildSessionShareImageUrl(session as unknown as SessionWithDetails)}&format=jpeg`,
+        imageWidth: 1080,
+        imageHeight: 1920,
       });
     }
   } catch (error) {

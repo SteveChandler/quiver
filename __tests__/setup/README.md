@@ -295,7 +295,6 @@ mockForecastComponents();
 - `createResendMailerMock()` - Clean mock for the Resend mailer client
 - `createEmailLoggingMock()` - Mock for the email logging service
 - `createRateLimiterMock()` - Mock for the Resend rate limiter
-- `mockEmailFormatters()` - Shared mock for email formatter functions
 
 **Usage:**
 ```typescript

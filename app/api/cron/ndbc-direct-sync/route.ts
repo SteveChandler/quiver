@@ -1,3 +1,4 @@
+import { setTimeout as sleep } from "node:timers/promises";
 import {
   createErrorResponse,
   createSuccessResponse,
@@ -458,7 +459,7 @@ async function syncObservations(): Promise<ObservationSyncResult> {
 
       // Politeness delay between batches
       if (i + BATCH_SIZE < exclusiveStations.length) {
-        await delay(500);
+        await sleep(500);
       }
     }
   } catch (error) {
@@ -486,8 +487,4 @@ async function syncObservations(): Promise<ObservationSyncResult> {
 
   result.duration_ms = Date.now() - startTime;
   return result;
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }

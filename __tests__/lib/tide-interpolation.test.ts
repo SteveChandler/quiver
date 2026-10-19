@@ -2,15 +2,7 @@
  * Tests for tide height interpolation utility
  */
 
-import {
-  interpolateTideHeight,
-  interpolateTideHeightCosine,
-  findBracketingPoints,
-  normalizeTimestamp,
-  findTideThresholdCrossing,
-  calculateTideWindow,
-  findNearestTideExtremum,
-} from "@/lib/utils/tide-interpolation";
+import { interpolateTideHeight, normalizeTimestamp, findTideThresholdCrossing, calculateTideWindow } from "@/lib/utils/tide-interpolation";
 import type { TideScheduleEntry } from "@/types/forecast";
 
 describe("tide-interpolation", () => {
@@ -143,132 +135,13 @@ describe("tide-interpolation", () => {
     });
   });
 
-  describe("findBracketingPoints", () => {
-    const baseTime = new Date("2025-10-12T08:00:00Z");
 
-    const createDataPoints = () => [
-      { time: baseTime, height: 3.5 },
-      { time: new Date(baseTime.getTime() + 3 * 60 * 60 * 1000), height: 2.5 },
-      { time: new Date(baseTime.getTime() + 6 * 60 * 60 * 1000), height: 1.2 },
-    ];
-
-    it("should find correct bracketing points", () => {
-      const data = createDataPoints();
-      const testTime = new Date(baseTime.getTime() + 1.5 * 60 * 60 * 1000);
-      const result = findBracketingPoints(data, testTime);
-
-      expect(result).not.toBeNull();
-      expect(result!.before).toEqual(data[0]);
-      expect(result!.after).toEqual(data[1]);
-    });
-
-    it("should return null for insufficient data", () => {
-      const data = [{ time: baseTime, height: 3.5 }];
-      const result = findBracketingPoints(data, new Date());
-
-      expect(result).toBeNull();
-    });
-
-    it("should return null for empty data", () => {
-      const result = findBracketingPoints([], new Date());
-
-      expect(result).toBeNull();
-    });
-
-    it("should handle time at exact boundary", () => {
-      const data = createDataPoints();
-      const testTime = data[1].time;
-      const result = findBracketingPoints(data, testTime);
-
-      expect(result).not.toBeNull();
-      // When time is exactly on a boundary, it finds the bracketing points around it
-      expect(result!.before).toEqual(data[0]);
-      expect(result!.after).toEqual(data[1]);
-    });
-
-    it("should return null if time is outside range", () => {
-      const data = createDataPoints();
-      const beforeTime = new Date(baseTime.getTime() - 60 * 60 * 1000);
-      const result = findBracketingPoints(data, beforeTime);
-
-      expect(result).toBeNull();
-    });
-  });
-
-  describe("interpolateTideHeightCosine", () => {
-    it("should use cosine interpolation between tide events", () => {
-      // Low tide at 6:47am (1.2ft), High tide at 12:52pm (5.8ft)
-      const lowTide = { time: new Date("2026-01-17T14:47:00Z"), height: 1.2 }; // 6:47am PST
-      const highTide = { time: new Date("2026-01-17T20:52:00Z"), height: 5.8 }; // 12:52pm PST
-
-      // Midpoint should NOT be linear average (3.5), but cosine-based
-      // Actually at midpoint, cosine gives same as linear. Test at 25% point instead.
-      const quarterPoint = new Date("2026-01-17T16:18:15Z"); // 25% of the way
-      const quarterResult = interpolateTideHeightCosine(
-        [lowTide, highTide],
-        quarterPoint
-      );
-
-      // Linear would give: 1.2 + 4.6 * 0.25 = 2.35
-      // Cosine gives: 1.2 + 4.6 * (1 - cos(0.25 * π)) / 2 = 1.2 + 4.6 * 0.146 = 1.87
-      expect(quarterResult).toBeCloseTo(1.87, 1);
-    });
-
-    it("should handle falling tide correctly", () => {
-      // High tide at 6am (5.5ft), Low tide at 12pm (0.8ft)
-      const highTide = { time: new Date("2026-01-17T14:00:00Z"), height: 5.5 };
-      const lowTide = { time: new Date("2026-01-17T20:00:00Z"), height: 0.8 };
-
-      const quarterPoint = new Date("2026-01-17T15:30:00Z"); // 25% of the way
-      const result = interpolateTideHeightCosine([highTide, lowTide], quarterPoint);
-
-      // Cosine gives slower initial drop: 5.5 - 4.7 * 0.146 = 4.81
-      expect(result).toBeCloseTo(4.81, 1);
-    });
-  });
 
   describe("findTideThresholdCrossing", () => {
     // Low tide at 6:47am (1.2ft), High tide at 12:52pm (5.8ft)
     const lowTide = { time: new Date("2026-01-17T14:47:00Z"), height: 1.2 };
     const highTide = { time: new Date("2026-01-17T20:52:00Z"), height: 5.8 };
     const tideSchedule = [lowTide, highTide];
-
-    it("should find when rising tide crosses threshold", () => {
-      const result = findTideThresholdCrossing(
-        tideSchedule,
-        2.0, // Target height
-        "rising",
-        new Date("2026-01-17T14:00:00Z") // After this time
-      );
-
-      expect(result).not.toBeNull();
-      // Should be sometime between low and high tide
-      expect(result!.getTime()).toBeGreaterThan(lowTide.time.getTime());
-      expect(result!.getTime()).toBeLessThan(highTide.time.getTime());
-
-      // Verify the height at crossing time is approximately 2.0ft
-      const heightAtCrossing = interpolateTideHeightCosine(tideSchedule, result!);
-      expect(heightAtCrossing).toBeCloseTo(2.0, 1);
-    });
-
-    it("should find when falling tide crosses threshold", () => {
-      // High tide first, then low tide
-      const fallingSchedule = [
-        { time: new Date("2026-01-17T08:00:00Z"), height: 5.5 },
-        { time: new Date("2026-01-17T14:00:00Z"), height: 0.8 },
-      ];
-
-      const result = findTideThresholdCrossing(
-        fallingSchedule,
-        3.0, // Target height
-        "falling",
-        new Date("2026-01-17T07:00:00Z")
-      );
-
-      expect(result).not.toBeNull();
-      const heightAtCrossing = interpolateTideHeightCosine(fallingSchedule, result!);
-      expect(heightAtCrossing).toBeCloseTo(3.0, 1);
-    });
 
     it("should return null if threshold is never crossed", () => {
       const result = findTideThresholdCrossing(
@@ -395,37 +268,6 @@ describe("tide-interpolation", () => {
       { time: 1768683120, height: 5.8, type: "high" }, // 2026-01-17T20:52:00Z (12:52pm PST)
       { time: 1768707900, height: 0.5, type: "low" }, // 2026-01-18T03:45:00Z (7:45pm PST)
     ];
-
-    it("should calculate window for rising tide beach", () => {
-      const result = calculateTideWindow({
-        tideSchedule,
-        minHeight: 2.0,
-        maxHeight: 4.0,
-        preferredDirection: "rising",
-        afterTime: new Date("2026-01-17T14:00:00Z"), // 6am PST
-      });
-
-      expect(result).not.toBeNull();
-      expect(result!.start.getTime()).toBeGreaterThan(
-        new Date("2026-01-17T14:47:00Z").getTime()
-      );
-      expect(result!.end.getTime()).toBeLessThan(
-        new Date("2026-01-17T20:52:00Z").getTime()
-      );
-
-      // Verify heights at boundaries
-      const startHeight = interpolateTideHeightCosine(
-        tideSchedule.map((t) => ({ time: t.time * 1000, height: t.height })),
-        result!.start
-      );
-      const endHeight = interpolateTideHeightCosine(
-        tideSchedule.map((t) => ({ time: t.time * 1000, height: t.height })),
-        result!.end
-      );
-
-      expect(startHeight).toBeCloseTo(2.0, 1);
-      expect(endHeight).toBeCloseTo(4.0, 1);
-    });
 
     it("should calculate window for falling tide beach", () => {
       const result = calculateTideWindow({
@@ -642,66 +484,4 @@ describe("tide-interpolation", () => {
     });
   });
 
-  describe("findNearestTideExtremum", () => {
-    const tideSchedule: TideScheduleEntry[] = [
-      { time: 1768640400, height: 4.56, type: "high" }, // 2026-01-17T09:00:00Z
-      { time: 1768662000, height: 1.73, type: "low" },  // 2026-01-17T15:00:00Z
-      { time: 1768683600, height: 5.8, type: "high" },  // 2026-01-17T21:00:00Z
-      { time: 1768705200, height: 0.5, type: "low" },   // 2026-01-18T03:00:00Z
-    ];
-
-    it("should find the nearest extremum after given time", () => {
-      const result = findNearestTideExtremum(
-        tideSchedule,
-        new Date("2026-01-17T10:00:00Z")
-      );
-
-      expect(result).not.toBeNull();
-      expect(result!.type).toBe("low"); // Nearest after 10:00 is the low at 15:00
-      expect(result!.height).toBe(1.73);
-    });
-
-    it("should find preferred type if specified", () => {
-      const result = findNearestTideExtremum(
-        tideSchedule,
-        new Date("2026-01-17T10:00:00Z"),
-        "high" // Prefer high tide
-      );
-
-      expect(result).not.toBeNull();
-      expect(result!.type).toBe("high"); // Should skip the low and find high at 21:00
-      expect(result!.height).toBe(5.8);
-    });
-
-    it("should return null if no extremum after time", () => {
-      const result = findNearestTideExtremum(
-        tideSchedule,
-        new Date("2026-01-18T10:00:00Z") // After all entries
-      );
-
-      expect(result).toBeNull();
-    });
-
-    it("should return null for empty schedule", () => {
-      const result = findNearestTideExtremum(
-        [],
-        new Date("2026-01-17T10:00:00Z")
-      );
-
-      expect(result).toBeNull();
-    });
-
-    it("should fall back to nearest if preferred type not found", () => {
-      // Only have highs left after a certain time
-      const result = findNearestTideExtremum(
-        tideSchedule,
-        new Date("2026-01-17T16:00:00Z"),
-        "low" // Prefer low, but next low is at 03:00 next day
-      );
-
-      expect(result).not.toBeNull();
-      // Should find the low at 03:00
-      expect(result!.type).toBe("low");
-    });
   });
-});

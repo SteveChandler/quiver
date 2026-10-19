@@ -49,6 +49,45 @@ export const TIME_SLOT_RANGES: Record<TimeSlot, { startHour: number; endHour: nu
 
 export type SurfDiscoveryMode = 'best-window' | 'now';
 
+export interface CandidateRejection {
+  gate:
+    | 'candidate_pool'
+    | 'forecast_rows'
+    | 'forecast_alignment'
+    | 'past_forecast'
+    | 'time_slot'
+    | 'score_floor'
+    | 'horizon'
+    | 'daylight'
+    | 'session_duration'
+    | 'window_selection'
+    | 'water_quality_hold'
+    | 'saved_spot_eligibility'
+    | 'skill_gate'
+    | 'ranking';
+  observed?: {
+    count?: number;
+    score?: number;
+    hoursAhead?: number;
+    durationHours?: number;
+    waveHeightFt?: number;
+    status?: string;
+    skill?: string;
+    forecastAt?: string;
+  };
+  allowed?: {
+    minimumScore?: number;
+    maximumHoursAhead?: number;
+    maximumDeltaMinutes?: number;
+    minimumDurationHours?: number;
+    minimumWaveHeightFt?: number;
+    maximumWaveHeightFt?: number;
+    status?: string;
+    skill?: string;
+  };
+  detail?: string;
+}
+
 /**
  * Optimal surf window within a forecast period
  * 
@@ -194,6 +233,8 @@ export interface DetailedScore {
     periodEnergyScore: number;
     /** Wind alignment with beach's optimal direction (0-20 points) */
     windAlignment: number;
+    /** True when the wind couldn't be judged: windAlignment is a placeholder, not evidence. */
+    windUnknown?: boolean;
     /** Tide fit to beach's preferred range (0-15 points) */
     tideFit: number;
     /** Bonus for familiar beaches (0-15 points) */
@@ -329,8 +370,7 @@ export interface SurfDiscoveryRecommendation {
   matchQuality: 'perfect' | 'excellent' | 'good' | 'fair' | 'minimal';
   /**
    * Qualitative character of the conditions from the scoring engine.
-   * When present, can be passed to PersonalizedBadge and AnimatedScoreGauge
-   * for richer condition descriptions on beach cards.
+   * Qualitative character for condition descriptions on beach cards.
    */
   character?: {
     label: string;
@@ -408,6 +448,8 @@ export interface SurfDiscoveryRecommendation {
  * Surf discovery response with multiple ranked recommendations
  */
 export interface SurfDiscoveryResponse {
+  /** Why an explicitly included beach produced no recommendation. */
+  candidateRejections?: Record<string, CandidateRejection>;
   emptyReason?: "no_recommendable_saved_window_72h";
   firstLight?: string;
   lastLight?: string;
@@ -480,6 +522,8 @@ export interface SurfDiscoveryOptions {
   userLocation?: { lat: number; lon: number };
   /** Search radius in miles; omitted lets discovery expand from 25 to 100 as needed */
   radiusMiles?: number;
+  /** The surfer's saved drive range in miles; beaches inside it carry no distance friction. */
+  driveRadiusMiles?: number;
   /**
    * Hard cap for how far in the future a "best window" may start (in hours).
    * If provided, discovery will ignore forecast slots beyond this horizon when

@@ -16,7 +16,6 @@ import type {
   ScorerResult,
   CompositeScore,
   MatchQuality,
-  ScoringEngineConfig,
   ScoringDecisionEffect,
 } from "./types";
 import { DEFAULT_SCORING_CONFIG } from "./types";
@@ -28,12 +27,6 @@ import { windChopCeiling } from "./wind-chop-ceiling";
  */
 export class ScoringEngine {
   private readonly scorers: ScorerPlugin[] = [];
-  private readonly config: ScoringEngineConfig;
-
-  constructor(config: Partial<ScoringEngineConfig> = {}) {
-    this.config = { ...DEFAULT_SCORING_CONFIG, ...config };
-  }
-
   /**
    * Register a scorer plugin.
    * Returns this for chaining.
@@ -174,8 +167,8 @@ export class ScoringEngine {
       total,
       subscores,
       matchQuality,
-      reasons: this.dedupeAndLimit(allReasons, this.config.maxReasons),
-      warnings: this.dedupeAndLimit(allWarnings, this.config.maxReasons),
+      reasons: this.dedupeAndLimit(allReasons, DEFAULT_SCORING_CONFIG.maxReasons),
+      warnings: this.dedupeAndLimit(allWarnings, DEFAULT_SCORING_CONFIG.maxReasons),
       skipReason: null,
       confidence,
       effects: dedupeEffects(allEffects),
@@ -186,7 +179,7 @@ export class ScoringEngine {
    * Classify score into quality bucket.
    */
   private classifyScore(score: number): MatchQuality {
-    const { qualityThresholds } = this.config;
+    const { qualityThresholds } = DEFAULT_SCORING_CONFIG;
 
     if (score >= qualityThresholds.perfect) return "perfect";
     if (score >= qualityThresholds.excellent) return "excellent";
@@ -214,7 +207,7 @@ export class ScoringEngine {
       reasons: [],
       warnings: this.dedupeAndLimit(
         [reason, ...allWarnings],
-        this.config.maxReasons,
+        DEFAULT_SCORING_CONFIG.maxReasons,
       ),
       skipReason: reason,
       confidence: 0,
@@ -257,28 +250,4 @@ function dedupeEffects(
     seen.add(key);
     return true;
   });
-}
-
-/**
- * Creates a pre-configured scoring engine with all standard scorers.
- * This is the main factory function for creating scoring engines.
- */
-export function createScoringEngine(
-  config?: Partial<ScoringEngineConfig>,
-): ScoringEngine {
-  return new ScoringEngine(config);
-}
-
-/**
- * Convenience function to score with a one-off engine.
- * Useful for testing or simple use cases.
- */
-export function scoreWithPlugins(
-  input: ScorerInput,
-  plugins: ScorerPlugin[],
-  config?: Partial<ScoringEngineConfig>,
-): CompositeScore {
-  const engine = createScoringEngine(config);
-  engine.registerAll(plugins);
-  return engine.score(input);
 }

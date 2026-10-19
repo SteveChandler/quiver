@@ -11,7 +11,7 @@
  * Output: single JSON object to stdout (see .claude/commands/cam-health.md for schema)
  */
 
-import { config } from "dotenv";
+import { config } from "./load-env.mjs";
 import { createClient } from "@supabase/supabase-js";
 import pLimit from "p-limit";
 

@@ -1,3 +1,4 @@
+import { JsonLd } from "@/components/seo/funnel/JsonLd";
 /**
  * Breadcrumb Structured Data Component
  * Provides breadcrumb navigation schema for SEO
@@ -27,11 +28,6 @@ export function BreadcrumbStructuredData({
   };
 
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{
-        __html: JSON.stringify(schema),
-      }}
-    />
+    <JsonLd data={schema} />
   );
 }

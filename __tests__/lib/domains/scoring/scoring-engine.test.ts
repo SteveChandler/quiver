@@ -6,8 +6,6 @@
 
 import {
   ScoringEngine,
-  createScoringEngine,
-  scoreWithPlugins,
   baseConditionsScorer,
   windQualityScorer,
   tideFitScorer,
@@ -245,26 +243,9 @@ describe('Scoring Engine', () => {
     });
   });
 
-  describe('convenience functions', () => {
-    it('createScoringEngine should create empty engine', () => {
-      const engine = createScoringEngine();
-      expect(engine.getScorerNames()).toHaveLength(0);
-    });
-
-    it('scoreWithPlugins should score with provided plugins', () => {
-      const input = createInput();
-      const result = scoreWithPlugins(input, [
-        createMockScorer('test1', 80, 0.5),
-        createMockScorer('test2', 60, 0.5),
-      ]);
-
-      expect(result.total).toBe(70);
-    });
-  });
-
   describe('integration with real scorers', () => {
     it('should work with base conditions scorer', () => {
-      const engine = createScoringEngine();
+      const engine = new ScoringEngine();
       engine.register(baseConditionsScorer);
 
       const input = createInput({ waveHeight: 4, wavePeriod: 14 });
@@ -275,7 +256,7 @@ describe('Scoring Engine', () => {
     });
 
     it('should work with multiple real scorers', () => {
-      const engine = createScoringEngine();
+      const engine = new ScoringEngine();
       engine.registerAll([baseConditionsScorer, windQualityScorer, tideFitScorer]);
 
       const input = createInput({

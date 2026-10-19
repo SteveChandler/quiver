@@ -1,3 +1,5 @@
+import { degreeToCardinal } from "@/lib/utils/geo-utils";
+import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { RecommendationLabel } from "@/lib/scoring";
 import { scoreLabel } from "@/lib/utils/score-color-utils";
@@ -26,9 +28,7 @@ const COMPASS_16 = [
 
 export function degreesToCompass(degrees: number): string {
   if (!Number.isFinite(degrees)) return "—";
-  const normalized = ((degrees % 360) + 360) % 360;
-  const index = Math.round(normalized / 22.5) % 16;
-  return COMPASS_16[index];
+  return degreeToCardinal(degrees);
 }
 
 export function compassToDegrees(label: string): number | null {
@@ -134,7 +134,6 @@ export function interpolateSwellPartition(
 // swell_*_height columns store "<n> ft" (e.g. "2 ft") → already feet, no
 // meters→feet conversion. Number.parseFloat("2 ft") === 2.
 const SWELL_HEIGHT_IS_METERS = false;
-const METERS_TO_FEET = 3.28084;
 
 function parseFiniteFloat(value: string | number | null | undefined): number | null {
   if (value == null) return null;

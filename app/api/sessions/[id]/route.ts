@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import { canViewSessionWaves } from "@/lib/sessions/waves/waves-access";
 import { z } from "zod";
 import { parseAndValidateJson } from "@/lib/validation/middleware";
 import { addFeaturedPhotoToSession } from "@/actions/session-actions";
@@ -46,6 +47,7 @@ const SessionUpdateSchema = z
     is_public: z.boolean().optional(),
     rating: z.number().int().min(0).max(5).optional(),
     wave_height_ft: z.number().min(0).max(100).nullable().optional(),
+    forecast_accuracy: z.enum(["accurate", "somewhat", "inaccurate"]).nullable().optional(),
     wave_characteristics: z
       .array(WaveCharacteristicSchema)
       .max(15)
@@ -159,6 +161,9 @@ export const PATCH = withAuth(
     if (validation.data.wave_height_ft !== undefined) {
       updatePayload.wave_height_ft = validation.data.wave_height_ft;
     }
+    if (validation.data.forecast_accuracy !== undefined) {
+      updatePayload.forecast_accuracy = validation.data.forecast_accuracy;
+    }
     if (validation.data.wave_characteristics !== undefined) {
       updatePayload.wave_characteristics = validation.data.wave_characteristics;
       updatePayload.wave_quality = deriveWaveQuality(validation.data.wave_characteristics);
@@ -253,9 +258,26 @@ export const GET = withAuth(
 
     if (error) throw error;
 
+    let hasTrack = false;
+    if (data.user_id === user.id && canViewSessionWaves(user.id)) {
+      try {
+        const { data: track, error: trackError } = await supabase
+          .from("session_tracks")
+          .select("session_id")
+          .eq("session_id", sessionId)
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (trackError) throw trackError;
+        hasTrack = track !== null;
+      } catch (trackError) {
+        console.warn("Failed to fetch session track status:", trackError);
+      }
+    }
+
     // Transform the forecast_snapshot array to a single object (it's 1:1 relationship)
     const sessionWithSnapshot = {
       ...data,
+      has_track: hasTrack,
       forecast_snapshot: Array.isArray(data.forecast_snapshot) && data.forecast_snapshot.length > 0
         ? data.forecast_snapshot[0]
         : null,

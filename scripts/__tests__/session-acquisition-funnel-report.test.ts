@@ -3022,8 +3022,8 @@ describe("session acquisition funnel report", () => {
     expect(report.gaps.join("\n")).toContain("actors hit validation failures");
   });
 
-  it("retains retired wave-height failures from older builds without requiring them in the current form", () => {
-    expect(SESSION_FORM_VALIDATION_ERROR_CODES).not.toContain("wave_height_required");
+  it("counts wave-height failures, which the native form requires again", () => {
+    expect(SESSION_FORM_VALIDATION_ERROR_CODES).toContain("wave_height_required");
 
     const report = computeSessionAcquisitionReport({
       start: START,

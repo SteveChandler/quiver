@@ -3,11 +3,9 @@ import { mockSupabaseClient } from "./setup/mock-supabase";
 
 // Mock the action functions we'll test
 jest.mock("@/actions/board-actions");
-jest.mock("@/actions/beach/beach-favorite-actions");
 
 // Import the mocked functions
 import { getUserBoards } from "@/actions/board-actions";
-import { getFavoriteBeaches } from "@/actions/beach/beach-favorite-actions";
 
 beforeEach(() => {
   jest.clearAllMocks();

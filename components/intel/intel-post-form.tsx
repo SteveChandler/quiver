@@ -53,7 +53,7 @@ interface IntelPostFormProps {
   submitButtonLabel?: string;
 }
 
-export type IntelPostFormBeforeSubmitContext = {
+type IntelPostFormBeforeSubmitContext = {
   values: IntelPostFormData;
   location: { latitude: number; longitude: number };
   beachId?: string;

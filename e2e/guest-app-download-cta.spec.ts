@@ -19,6 +19,16 @@ test.describe("Guest landing → /download CTA", () => {
 
   test.beforeEach(async ({ page }) => {
     errorCapture = setupErrorDetection(page);
+    // This spec checks where the CTA goes, not landing media (the media budget
+    // spec owns that). On the single CI `next start` server, the hero video and a
+    // dozen first-time /_next/image optimizations can hold all six of Chromium's
+    // connections to the origin; the hydration chunks and the /download RSC
+    // request then queue behind them and time out. Aborted loads log
+    // net::ERR_FAILED, which error detection ignores.
+    await page.route(/\/(videos\/|_next\/image)/, (route) => route.abort());
+    await page.route("**/api/events", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: '{"success":true}' }),
+    );
   });
 
   test.afterEach(async ({ page }) => {
@@ -34,8 +44,10 @@ test.describe("Guest landing → /download CTA", () => {
 
     // The field-guide hero CTA — the link whose destination is /download
     // (the navbar/App Store CTAs go to apps.apple.com, not an internal route).
+    // The hero renders client-side (AuthAwareLandingWrapper bails out of SSR
+    // under Suspense), so allow for hydration like guest-app-handoff.spec.ts.
     const cta = page.locator('a[href^="/download"]').first();
-    await expect(cta).toBeVisible();
+    await expect(cta).toBeVisible({ timeout: 10000 });
 
     await cta.click();
 

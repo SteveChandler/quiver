@@ -594,9 +594,12 @@ export interface WaveHeightProvenance {
   };
 }
 
+export type WaterTempSource = "ioos" | "coops" | "ndbc" | "latitude";
+
 // Enhanced Forecast with Raw Data
 export interface EnhancedForecastWithRawData extends EnhancedForecastEntity {
   raw_forecast?: {
+    water_temp_source?: WaterTempSource;
     wave_source_selection?: WaveWatchData["source_selection"];
     offshore_swell_field_sources?: WaveWatchData["swell_field_sources"];
     cdip_data?: CDIPBuoyData | null;

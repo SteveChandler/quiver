@@ -118,16 +118,6 @@ export function getSandyBeginnerWindowProfile(
   };
 }
 
-export function isSandyBeginnerBeachMetadata(
-  beach: BeginnerBeachMetadata,
-): boolean {
-  const beginnerWindow = readBeginnerWindow(beach.preference_model);
-  if (!beginnerWindow) return false;
-
-  const fit = readString(beginnerWindow.beginner_fit)?.toLowerCase();
-  return fit === "primary" || fit === "conditional";
-}
-
 export function evaluateBeginnerWindow(
   input: BeginnerWindowInput,
 ): BeginnerWindowEvaluation {
@@ -180,7 +170,12 @@ export function evaluateBeginnerWindow(
     rating = "unknown";
   } else if (knownStatuses.includes("poor")) {
     rating = "poor";
-  } else if (Object.values(statuses).every((s) => s === "ideal")) {
+  } else if (
+    // A missing wind reading is neutral: it cannot make a window "ideal" or lose it that.
+    Object.entries(statuses).every(
+      ([factor, s]) => s === "ideal" || (factor === "wind" && s === "unknown"),
+    )
+  ) {
     rating = "ideal";
   } else {
     rating = "acceptable";

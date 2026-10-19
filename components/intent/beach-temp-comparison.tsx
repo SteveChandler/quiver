@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { Thermometer } from "lucide-react";
 import { cityToSlug } from "@/lib/utils/beach-url-utils";
@@ -13,7 +14,7 @@ interface BeachTempComparisonProps {
 
 /** Color-code temperature: cold blue to warm amber with paper-safe contrast. */
 function getTempColor(tempF: number): string {
-  if (tempF < 54) return "border-[#0B3A75]/25 text-[#0B3A75]";
+  if (tempF < 54) return "border-[#11100D]/25 text-[#8A5E00]";
   if (tempF < 62) return "border-[#08708A]/25 text-[#075E75]";
   if (tempF < 68) return "border-[#0F766E]/25 text-[#115E59]";
   if (tempF < 74) return "border-[#B65F1A]/25 text-[#8A4B12]";
@@ -46,7 +47,7 @@ export function BeachTempComparison({
         Current water temperatures at each surf spot. Temperatures can vary
         based on local conditions, currents, and depth.
       </p>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {beachTemps.map((beach) => {
           const colorClass = getTempColor(beach.tempF);
           const bgGradient = getTempBgGradient(beach.tempF);
@@ -56,22 +57,45 @@ export function BeachTempComparison({
 
           const content = (
             <div
-              className={`rounded-xl border p-4 shadow-sm bg-gradient-to-br ${bgGradient} ${colorClass} transition-colors`}
+              className={`overflow-hidden rounded-xl border-2 border-[#11100D]/80 bg-[#FBF6E8] shadow-[3px_3px_0_rgba(17,16,13,0.75)] ${colorClass}`}
             >
-              <div className="flex items-center justify-between">
-                <h3 className="font-medium text-[#11100D] text-sm truncate mr-2">
-                  {beach.beachName}
-                </h3>
-                <div className="flex items-center gap-1 shrink-0">
-                  <Thermometer className="h-4 w-4" />
-                  <span className="text-lg font-bold">
-                    {Math.round(beach.tempF)}°F
-                  </span>
-                </div>
+              <div className="relative aspect-[4/3] w-full">
+                {beach.photoUrl ? (
+                  <>
+                    <Image
+                      src={beach.photoUrl}
+                      alt={`${beach.beachName} surf break`}
+                      fill
+                      className="object-cover saturate-[0.85]"
+                      sizes="(min-width: 1024px) 400px, (min-width: 640px) 50vw, 100vw"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#11100D]/75 via-[#11100D]/10 to-transparent" />
+                  </>
+                ) : (
+                  <div className={`absolute inset-0 flex items-center justify-center bg-gradient-to-br ${bgGradient}`}>
+                    <Thermometer className="h-12 w-12 opacity-40" aria-hidden="true" />
+                  </div>
+                )}
+                <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full border-2 border-[#11100D] bg-[#FBF6E8] px-2.5 py-0.5 text-base font-black text-[#11100D]">
+                  <Thermometer className="h-4 w-4" aria-hidden="true" />
+                  {Math.round(beach.tempF)}°F
+                </span>
+                {beach.photoUrl ? (
+                  <h3 className="absolute inset-x-3 bottom-2 truncate font-display text-lg font-black uppercase text-white">
+                    {beach.beachName}
+                  </h3>
+                ) : null}
               </div>
-              <p className="text-xs mt-1 font-medium text-[#8A4B12]">
-                {beach.wetsuitThickness}
-              </p>
+              <div className="flex items-center justify-between gap-2 px-3 py-2">
+                {beach.photoUrl ? null : (
+                  <h3 className="truncate font-display text-base font-black uppercase text-[#11100D]">
+                    {beach.beachName}
+                  </h3>
+                )}
+                <p className="text-xs font-semibold text-[#8A4B12]">
+                  {beach.wetsuitThickness}
+                </p>
+              </div>
             </div>
           );
 
@@ -79,7 +103,7 @@ export function BeachTempComparison({
             <Link
               key={beach.beachName}
               href={href}
-              className="block hover:opacity-90 transition-opacity"
+              className="block transition-transform hover:-translate-y-0.5"
             >
               {content}
             </Link>

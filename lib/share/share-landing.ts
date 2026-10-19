@@ -3,7 +3,7 @@ import {
   type ForecastWindowShareMetadata,
 } from "@/lib/share/forecast-window-share";
 import { APP_HANDOFF_ORIGIN } from "@/lib/constants/app-handoff";
-import { isValidUUID } from "@/lib/utils/validation";
+import { isUuid } from "@/lib/utils/validation";
 
 const GO_HOST = new URL(APP_HANDOFF_ORIGIN).host;
 const BEACH_SLUG_PATTERN = /^[a-z0-9-]+$/;
@@ -22,7 +22,7 @@ interface ShareLandingDependencies {
 /** The share id is a random UUID minted by the sharer's app; anything else is dropped. */
 export function parseShareId(value: string | null | undefined): string | null {
   const trimmed = value?.trim();
-  if (!trimmed || !isValidUUID(trimmed)) return null;
+  if (!trimmed || !isUuid(trimmed)) return null;
   return trimmed.toLowerCase();
 }
 
@@ -39,14 +39,17 @@ export function buildOpenInQuiverUrl({
   slug,
   windowValue,
   shareId,
+  inviteToken,
 }: {
   slug: string;
   windowValue?: string | null;
   shareId?: string | null;
+  inviteToken?: string | null;
 }): string {
   const search = new URLSearchParams();
   if (windowValue) search.set("window", windowValue);
   if (shareId) search.set("sid", shareId);
+  if (inviteToken) search.set("invite", inviteToken);
   search.set("o", "1");
   return `${APP_HANDOFF_ORIGIN}/app/spot/${encodeURIComponent(slug)}?${search.toString()}`;
 }
@@ -66,7 +69,7 @@ export async function loadShareLandingMetadata(
   dependencies: ShareLandingDependencies = {},
 ): Promise<ForecastWindowShareMetadata> {
   const metadata = await loadForecastWindowShareMetadata(input);
-  if (!metadata.isFallback || metadata.forecastAt) return metadata;
+  if (!metadata.isFallback || metadata.forecastAt || metadata.windowLabel) return metadata;
 
   try {
     const beach = await (dependencies.loadBeach ?? defaultLoadBeach)(

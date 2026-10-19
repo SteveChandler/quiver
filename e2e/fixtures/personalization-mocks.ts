@@ -16,7 +16,6 @@
  *
  * API contracts mocked here:
  *   POST /api/beach/personalized-score
- *   GET  /api/surf/insights
  *   GET  /api/surf/discover
  *   GET  /api/surf/call
  *   GET  /api/beaches/favorites
@@ -32,7 +31,6 @@ import { Page } from "@playwright/test";
 
 const TEST_BEACH_ID = "907bfaa4-11db-4ebe-9762-440714850a0a";
 const TEST_BEACH_ID_2 = "a59d4065-8872-477b-ba28-0673b7eff7fb";
-const TEST_SESSION_ID = "session-uuid-1234-5678-abcd-ef0000000001";
 const GENERATED_AT = new Date().toISOString();
 
 // ---------------------------------------------------------------------------
@@ -57,57 +55,11 @@ export const MOCK_PERSONALIZED_SCORE = {
 };
 
 // ---------------------------------------------------------------------------
-// GET /api/surf/insights mock response
-// ---------------------------------------------------------------------------
-// Matches PersonalizedInsights interface from types/personalization.ts
-
-export const MOCK_INSIGHTS_READY = {
-  matchPercent: 87,
-  label: "Great" as const,
-  reasonBullets: [
-    "Wave height (3-5 ft) matches your preferred range",
-    "Light offshore wind conditions like your best sessions",
-    "You've rated similar conditions 4+ stars",
-  ],
-  similarSessions: [
-    {
-      id: TEST_SESSION_ID,
-      beachName: "Blacks Beach",
-      beachId: TEST_BEACH_ID,
-      sessionDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-      rating: 4,
-      waveHeight: 4,
-      wavePeriod: 12,
-      windSpeed: 8,
-      boardName: "Fish",
-      boardType: "fish",
-      similarityScore: 92,
-    },
-    {
-      id: "session-uuid-1234-5678-abcd-ef0000000002",
-      beachName: "Ocean Beach",
-      beachId: TEST_BEACH_ID_2,
-      sessionDate: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
-      rating: 5,
-      waveHeight: 3.5,
-      wavePeriod: 11,
-      windSpeed: 6,
-      boardName: "Fish",
-      boardType: "fish",
-      similarityScore: 85,
-    },
-  ],
-  boardTip: "Your Fish performed well in similar conditions — consider bringing it.",
-  sessionCount: 8,
-  state: "ready" as const,
-};
-
-// ---------------------------------------------------------------------------
 // GET /api/surf/discover mock response
 // ---------------------------------------------------------------------------
 // Matches SurfDiscoveryResponse interface from types/personalization.ts
 
-export const MOCK_DISCOVER_RESPONSE = {
+const MOCK_DISCOVER_RESPONSE = {
   recommendations: [
     {
       beach: {
@@ -236,7 +188,7 @@ export const MOCK_DISCOVER_RESPONSE = {
 // ---------------------------------------------------------------------------
 // Matches the response shape from app/api/surf/call/route.ts.
 
-export const MOCK_SURF_CALL_RESPONSE = {
+const MOCK_SURF_CALL_RESPONSE = {
   report: {
     verdict: "MAYBE" as const,
     score: 85,
@@ -264,7 +216,7 @@ export const MOCK_SURF_CALL_RESPONSE = {
 // Matches the shape from app/api/beaches/favorites/route.ts:
 //   createSuccessResponse({ beaches })
 
-export const MOCK_FAVORITES_RESPONSE = {
+const MOCK_FAVORITES_RESPONSE = {
   beaches: [
     {
       id: TEST_BEACH_ID,
@@ -276,18 +228,6 @@ export const MOCK_FAVORITES_RESPONSE = {
       center_lng: -117.2536,
     },
   ],
-};
-
-// ---------------------------------------------------------------------------
-// GET /api/auth/check-session mock response (authenticated)
-// ---------------------------------------------------------------------------
-
-export const MOCK_AUTH_SESSION_RESPONSE = {
-  hasSession: true,
-  sessionData: {
-    userId: "test-user-uuid-0000-0000-0000-000000000001",
-    email: "testuser@quivertest.local",
-  },
 };
 
 // ---------------------------------------------------------------------------
@@ -313,7 +253,6 @@ function successEnvelope(data: unknown): { success: true; data: unknown } {
  *
  * Routes registered:
  *   POST  /api/beach/personalized-score  (glob: ** prefix)
- *   GET   /api/surf/insights             (glob: ** prefix, ** suffix)
  *   GET   /api/surf/discover             (glob: ** prefix, ** suffix)
  *   GET   /api/surf/call                 (glob: ** prefix, ** suffix)
  *   GET   /api/beaches/favorites         (glob: ** prefix, ** suffix)
@@ -329,19 +268,6 @@ export async function setupPersonalizationMocks(page: Page): Promise<void> {
         status: 200,
         contentType: "application/json",
         body: JSON.stringify(successEnvelope(MOCK_PERSONALIZED_SCORE)),
-      });
-    } else {
-      await route.continue();
-    }
-  });
-
-  // GET /api/surf/insights (with any query params)
-  await page.route("**/api/surf/insights**", async (route) => {
-    if (route.request().method() === "GET") {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify(successEnvelope(MOCK_INSIGHTS_READY)),
       });
     } else {
       await route.continue();

@@ -185,21 +185,31 @@ describe("best-time city SEO page", () => {
     );
   });
 
-  it("matches La Jolla metadata to its dominant surf-report query family", () => {
+  it("leaves the surf-report title to /surf-report/la-jolla-today", () => {
     const copy = buildBestTimeMetadataCopy("La Jolla");
-    const renderedTitle = `${copy.title} | Quiver`;
 
-    expect(renderedTitle.length).toBeLessThanOrEqual(60);
-    expect(copy.description.length).toBeGreaterThanOrEqual(150);
+    expect(copy.title).toBe("Best La Jolla surf window today: tide & wind");
+    expect(copy.title.toLowerCase()).not.toContain("surf report");
+    expect(copy.description.toLowerCase()).not.toContain("surf report");
+  });
+
+  it("leads Cocoa Beach's description with today's report and keeps the title unchanged", () => {
+    const copy = buildBestTimeMetadataCopy("Cocoa Beach", "cocoa-beach");
+    const generic = buildBestTimeMetadataCopy("Cocoa Beach");
+
+    expect(copy.title).toBe(generic.title);
+    expect(copy.title.toLowerCase()).not.toContain("surf report");
     expect(copy.description.length).toBeLessThanOrEqual(160);
-    expect(copy.title).toBe(
-      "La Jolla Surf Report Today: Tide, Wind & Swell",
-    );
-    expect(copy.description).toBe(
-      "La Jolla surf report today: see the best tide and wind window, live wave height and swell, plus current conditions at Shores, Scripps, and Tourmaline.",
-    );
-    expect(copy.h1).toBe(
-      "Best La Jolla surf window today: tide and conditions",
+    expect(copy.description).toMatch(/^Check today's Cocoa Beach surf report/);
+    for (const term of ["wave height", "wind", "tide", "swell", "Cocoa Beach Pier"]) {
+      expect(copy.description).toContain(term);
+    }
+    expect(copy.description).not.toMatch(/\bAI\b|\bML\b|the call/i);
+  });
+
+  it("leaves other cities' descriptions on the generic copy", () => {
+    expect(buildBestTimeMetadataCopy("Malibu", "malibu").description).toBe(
+      buildBestTimeMetadataCopy("Malibu").description,
     );
   });
 
@@ -313,15 +323,6 @@ describe("best-time city SEO page", () => {
       spotHref: "/wa/westport/westport-jetty",
       state: "WA",
     },
-    {
-      cityName: "Cocoa Beach",
-      citySlug: "cocoa-beach",
-      stateSlug: "fl",
-      spotName: "Cocoa Beach Pier",
-      spotSlug: "cocoa-beach-pier",
-      spotHref: "/fl/cocoa-beach/cocoa-beach-pier",
-      state: "FL",
-    },
   ])(
     "builds Phase 18 live-condition handoff steps for $cityName",
     ({ cityName, citySlug, stateSlug, spotName, spotSlug, spotHref, state }) => {
@@ -422,6 +423,28 @@ describe("best-time city SEO page", () => {
       );
     },
   );
+
+  it("leads Cocoa Beach handoff with the Pier page without duplicating it", () => {
+    const steps = buildBestTimeLiveHandoffSteps({
+      cityName: "Cocoa Beach",
+      citySlug: "cocoa-beach",
+      path: "/best-time-to-surf/cocoa-beach",
+      stateSlug: "fl",
+      topBeaches: [
+        {
+          name: "Cocoa Beach Pier",
+          slug: "cocoa-beach-pier-cocoa-beach-fl",
+          city: "Cocoa Beach",
+          state: "FL",
+          country: "USA",
+        },
+      ],
+    });
+    const hrefs = steps.map((step) => step.href);
+
+    expect(hrefs[0]).toBe("/fl/cocoa-beach/cocoa-beach-pier-cocoa-beach-fl");
+    expect(new Set(hrefs).size).toBe(hrefs.length);
+  });
 
   it("keeps the best-time page source anchored to seasonal intent", () => {
     const source = readFileSync(

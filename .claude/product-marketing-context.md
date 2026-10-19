@@ -14,7 +14,7 @@
 |---------|-------------|
 | **ML-Powered Forecasts** | Real-time wave predictions using machine learning trained on local conditions |
 | **5,000+ Beach Pages** | Comprehensive coverage of US coastal surf spots with detailed conditions |
-| **Cross-Platform** | Available as PWA, native iOS, and Android apps |
+| **Cross-Platform** | Web app (PWA) and native iOS app are live; Android is in closed testing on Google Play (alpha track, invite-only testers) |
 | **Community Intelligence** | Crowd reports and session logs from local surfers |
 | **Free Forever** | Core features remain free; no premium paywall for forecasts |
 
@@ -155,7 +155,7 @@
 | **Coverage** | Global, premium spots | US-focused, comprehensive |
 | **Forecasts** | Human forecasters + ML | ML-powered, local training |
 | **Community** | Limited | Session logs, crowd reports |
-| **Mobile** | Native apps | PWA + native apps |
+| **Mobile** | Native app | PWA + native iOS app; Android is in closed testing on Google Play (alpha track, invite-only testers) |
 
 ### Messaging Angles
 

@@ -14,7 +14,7 @@ export const maxDuration = 300;
 
 const SENTRY_MONITOR = {
   slug: "daily-call",
-  schedule: "0 * * * *",
+  schedule: "8 * * * *",
   maxRuntimeMinutes: 5,
 };
 

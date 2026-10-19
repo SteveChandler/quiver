@@ -25,7 +25,7 @@ import type { SkillLevel } from "@/lib/domains/user-preferences/skill-level";
 import { getProfileExperienceLevel } from "@/lib/profile/skill-level";
 import { parseWaveHeight } from "@/lib/utils/forecast-parsing";
 import {
-  parseWindSpeed,
+  parseWindSpeedOrNull,
   parseWavePeriod,
   getDirectionDegrees,
 } from "@/lib/utils/number-parsing";
@@ -57,9 +57,11 @@ interface TimeSlot {
   forecastAt: string;
   surfHeight: { min: number; max: number };
   swells: SwellInfo[];
-  windSpeed: number;
+  /** Null when the forecast has no wind (unknown, not calm). */
+  windSpeed: number | null;
   windDirection: string;
-  windDirectionDeg: number;
+  /** Null when the source gave no direction (e.g. calm); never a default. */
+  windDirectionDeg: number | null;
   isOffshore: boolean;
   tideHeight: number;
   tideStatus: string;
@@ -237,14 +239,14 @@ export function scoreForecastSlots(
     const ww = parseSwell(forecast, "wind_wave");
     if (ww) swells.push(ww);
 
-    // Wind
-    const windSpeedMph = parseWindSpeed(forecast.wind_speed ?? null);
-    const windDirectionDeg =
-      getDirectionDegrees(
-        forecast.wind_direction_deg ?? null,
-        forecast.wind_direction ?? null
-      ) ?? 0;
-    const isOffshore = classifyWind(windDirectionDeg, beach.aspect_deg);
+    // Wind: unknown stays null, and only a known wind can be offshore.
+    const windSpeedMph = parseWindSpeedOrNull(forecast.wind_speed);
+    const windDirectionDeg = getDirectionDegrees(
+      forecast.wind_direction_deg ?? null,
+      forecast.wind_direction ?? null
+    );
+    const isOffshore =
+      windSpeedMph !== null && classifyWind(windDirectionDeg, beach.aspect_deg);
 
     // Tide
     const tideHeight = parseFloat(forecast.tide_height ?? "0") || 0;

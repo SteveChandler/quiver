@@ -50,7 +50,7 @@ export function TideStatusStrip({ dynamicTide }: TideStatusStripProps) {
       data-testid="tide-status-strip"
     >
       <div className="flex items-center gap-2">
-        <span className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-[#11100D] bg-[#0B3A75]">
+        <span className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-[#11100D] bg-[#11100D]">
           <DirectionIcon className="h-4 w-4 text-[#F4EBD8]" />
         </span>
         <span className="font-heading text-sm font-black uppercase text-[#11100D]">
@@ -58,7 +58,7 @@ export function TideStatusStrip({ dynamicTide }: TideStatusStripProps) {
         </span>
       </div>
       {nextTideInfo && (
-        <span className="text-right font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#0B3A75]">
+        <span className="text-right font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#8A5E00]">
           {nextTideInfo}
         </span>
       )}

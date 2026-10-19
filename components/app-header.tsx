@@ -19,7 +19,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useRoutePathname } from "@/hooks/use-route-pathname";
 import { preserveQueryParams } from "@/lib/utils/navigation-utils";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -63,7 +64,7 @@ function isBeachContextPath(pathname: string): boolean {
 
 export function AppHeader() {
   const { user, isLoading: authLoading, signOut } = useAuth();
-  const pathname = usePathname();
+  const pathname = useRoutePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -218,8 +219,12 @@ export function AppHeader() {
       >
         {/* Left side with logo - uses container padding */}
         <div className="flex items-center pl-2 md:pl-4 shrink-0">
+          {/* Signed-out header links render on every public page, so default
+              prefetching fires one proxy invocation per link per page view
+              (mostly crawlers). Signed-in users keep prefetch for app routes. */}
           <Link
             href={getPreservedHref("/")}
+            prefetch={user ? undefined : false}
             className="flex items-center space-x-2 group focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded"
           >
             <Image
@@ -230,7 +235,8 @@ export function AppHeader() {
               className="h-7 w-7 rounded-md shadow-sm"
               aria-hidden="true"
             />
-            <div className="text-xl font-bold text-[#F78E42] transition-colors duration-300 group-hover:text-[#FFAA63]">
+            {/* Native's header wordmark: Space Grotesk Bold caps, tracked, in cream. */}
+            <div className="font-heading text-xl font-bold uppercase tracking-[0.1em] text-[#F5EEDC] transition-colors duration-300 group-hover:text-white">
               Quiver
             </div>
           </Link>
@@ -242,6 +248,7 @@ export function AppHeader() {
                 <Link
                   key={item.name}
                   href={getPreservedHref(item.href)}
+                  prefetch={user ? undefined : false}
                   className={cn(
                     "text-sm font-medium transition-colors duration-200 hover:text-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded px-1",
                     isActiveRoute(item.href)

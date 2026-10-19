@@ -42,6 +42,7 @@ for migration in \
   20260924180000_isolate_swell_watch_feed_qualification; do
   run_file "$study_root/supabase/migrations/$migration.sql"
 done
+run_file "$study_root/__tests__/fixtures/swell-watch-study-clock.sql"
 run_file "$study_root/__tests__/fixtures/swell-watch-study-receipts.sql"
 run_file "$study_root/__tests__/fixtures/swell-watch-study-probe.sql"
 echo 'Swell Watch feed isolation PostgreSQL checks passed'

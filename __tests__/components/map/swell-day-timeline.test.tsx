@@ -1,11 +1,13 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import type { TimelineDaySegment } from "@/components/map/hourly-swell-timeline";
+import {
+  getPlaybackVisualFrameMs,
+  PLAYBACK_TARGET_DURATION_MS,
+  type TimelineDaySegment,
+} from "@/components/map/hourly-swell-timeline";
 import {
   advancePlaybackPosition,
   compactTimelineDayLabel,
   findAdjacentLocalDayIndex,
-  getPlaybackVisualFrameMs,
-  PLAYBACK_TARGET_DURATION_MS,
   timelineDayLabelClasses,
   timelineDayLabelWidthPercent,
   SwellDayTimeline,

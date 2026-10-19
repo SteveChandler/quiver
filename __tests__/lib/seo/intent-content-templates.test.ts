@@ -95,6 +95,88 @@ describe("buildIntentPageContent", () => {
 
       expect(content.title.toLowerCase()).toMatch(/water|temperature|temp/);
     });
+
+    it.each([
+      ["ndbc", "Updated hourly with live buoy data."],
+      ["ioos", "Updated hourly with observed station data."],
+      ["coops", "Updated hourly with observed station data."],
+      ["latitude", "Updated hourly."],
+      [null, "Updated hourly."],
+    ] as const)("uses a truthful freshness suffix for %s", (source, suffix) => {
+      const metadata: CityMetadata = {
+        ...mockMetadata,
+        cityName: "Hilo",
+        beaches: [{ name: "Bay", slug: "bay", skillLevel: "beginner" }],
+      };
+      const content = buildIntentPageContent("water-temp", metadata, {
+        waterTempData: { currentTemp: 75, source },
+      });
+
+      expect(content.metaDescription.endsWith(suffix)).toBe(true);
+      expect(content.metaDescription.includes("live buoy data")).toBe(source === "ndbc");
+      expect(content.metaDescription.length).toBeLessThanOrEqual(160);
+    });
+
+    it("keeps long estimated descriptions within the existing truncation limit", () => {
+      const content = buildIntentPageContent("water-temp", {
+        ...mockMetadata,
+        cityName: "A Very Long City Name That Pushes The Water Temperature Description Past Its Limit",
+      }, { waterTempData: { currentTemp: 62, source: "latitude" } });
+
+      expect(content.metaDescription.length).toBeLessThanOrEqual(160);
+      expect(content.metaDescription).toMatch(/\.\.\.$/);
+      expect(content.metaDescription).not.toContain("buoy");
+    });
+
+    it("answers whether the water is cold from the live reading", () => {
+      const content = buildIntentPageContent("water-temp", { ...mockMetadata, cityName: "San Diego" }, {
+        waterTempData: { currentTemp: 64.4, source: "coops" },
+      });
+
+      expect(content.metaDescription).toBe(
+        "San Diego water temperature today is 64°F, so it's cool. Wetsuit guide, per-beach temps & surf report links. Updated hourly with observed station data."
+      );
+    });
+
+    it("keeps the no-reading description free of buoy claims", () => {
+      const content = buildIntentPageContent("water-temp", {
+        ...mockMetadata,
+        cityName: "Hilo",
+        beaches: [{ name: "Bay", slug: "bay", skillLevel: "beginner" }],
+      });
+
+      expect(content.metaDescription).not.toContain("buoy");
+      expect(content.metaDescription.length).toBeLessThanOrEqual(160);
+    });
+  });
+
+  describe("beginner intent with the listed beginner beaches", () => {
+    it("counts and names the beaches the page lists, not the city totals", () => {
+      const content = buildIntentPageContent("beginner", { ...mockMetadata, beginnerCount: 2 }, {
+        beginnerSpotNames: ["Cowell's", "Capitola", "Pleasure Point"],
+      });
+
+      expect(content.title).toBe(`3 Best Beginner Surf Spots in Santa Cruz (${new Date().getFullYear()})`);
+      expect(content.metaDescription).toContain("3 beginner-friendly surf spots");
+      expect(content.metaDescription).toContain("Cowell's, Capitola, Pleasure Point");
+      expect(content.metaDescription).not.toContain("Steamer Lane");
+    });
+
+    it("names the single listed beach instead of claiming a count of spots", () => {
+      const content = buildIntentPageContent("beginner", { ...mockMetadata, cityName: "Carlsbad", beginnerCount: 2 }, {
+        beginnerSpotNames: ["Carlsbad State Beach"],
+      });
+
+      expect(content.title).toBe(`Beginner Surf in Carlsbad: Carlsbad State Beach (${new Date().getFullYear()})`);
+      expect(content.metaDescription).toMatch(/^1 beginner-friendly surf spot in Carlsbad/);
+      expect(content.metaDescription).toContain("crowd levels at Carlsbad State Beach.");
+    });
+
+    it("falls back to city metadata when no list is available", () => {
+      const content = buildIntentPageContent("beginner", mockMetadata, { beginnerSpotNames: [] });
+
+      expect(content.title).toContain("Best Beginner Surf Spots in Santa Cruz");
+    });
   });
 
   describe("longboard intent", () => {

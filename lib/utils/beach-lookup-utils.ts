@@ -32,7 +32,13 @@ function selectBestCandidate(candidates: Beach[]): Beach | null {
 export const getBeachBySlugOrId = cache(async (slug: string): Promise<Beach | null> => {
   // Try slug lookup first
   const bySlugResult = await getBeachesBySlugFromDb(slug);
-  const candidates = bySlugResult.success ? bySlugResult.data ?? [] : [];
+  // A failed query is not a missing beach. Returning null here made callers
+  // call notFound(), and ISR cached that 404 for real beaches until the next
+  // revalidation. Throwing keeps the last good page (or returns a 500).
+  if (!bySlugResult.success) {
+    throw new Error(`Beach lookup failed for slug "${slug}": ${bySlugResult.error ?? "unknown error"}`);
+  }
+  const candidates = bySlugResult.data ?? [];
 
   if (candidates.length > 0) {
     return selectBestCandidate(candidates);

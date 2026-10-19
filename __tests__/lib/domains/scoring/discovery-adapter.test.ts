@@ -32,6 +32,26 @@ function createForecast(overrides: Partial<EnhancedForecastEntity> = {}): Enhanc
 }
 
 describe('Discovery Adapter', () => {
+  it('constructs the shared engine lazily and only once', () => {
+    jest.isolateModules(() => {
+      const { ScoringEngine } = jest.requireActual<typeof import('@/lib/domains/scoring/scoring-engine')>(
+        '@/lib/domains/scoring/scoring-engine',
+      );
+      const register = jest.spyOn(ScoringEngine.prototype, 'registerAll');
+      try {
+        const { getDiscoveryScoringEngine } = jest.requireActual<typeof import('@/lib/domains/scoring')>(
+          '@/lib/domains/scoring',
+        );
+        expect(register).not.toHaveBeenCalled();
+        const engine = getDiscoveryScoringEngine();
+        expect(getDiscoveryScoringEngine()).toBe(engine);
+        expect(register).toHaveBeenCalledTimes(1);
+      } finally {
+        register.mockRestore();
+      }
+    });
+  });
+
   describe('beachToSpotProfile', () => {
     it('should convert Beach to SpotProfile', () => {
       const beach = createBeach();
@@ -57,7 +77,8 @@ describe('Discovery Adapter', () => {
 
       // Should use defaults
       expect(profile.swellWindow).toMatchObject({ minDeg: 0, maxDeg: 360 });
-      expect(profile.windThresholds.offshoreDeg).toBe(90);
+      // No offshore and no facing direction: unknown, never an east default.
+      expect(profile.windThresholds.offshoreDeg).toBeNull();
     });
   });
 

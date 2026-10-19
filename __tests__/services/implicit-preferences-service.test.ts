@@ -2,14 +2,7 @@
  * @jest-environment node
  */
 
-import {
-  getImplicitPreferences,
-  matchesInferredWaveRange,
-  matchesInferredBreakType,
-  isWithinTravelRadius,
-  isTopEngagedBeach,
-  calculateImplicitBonus,
-} from "@/lib/services/implicit-preferences-service";
+import { getImplicitPreferences, matchesInferredWaveRange, matchesInferredBreakType, isTopEngagedBeach, calculateImplicitBonus } from "@/lib/services/implicit-preferences-service";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 
 // Mock Supabase client
@@ -250,90 +243,6 @@ describe("Implicit Preferences Service", () => {
     });
   });
 
-  describe("isWithinTravelRadius", () => {
-    const mockPreferences = {
-      user_id: "user-123",
-      inferred_wave_min_ft: 3.0,
-      inferred_wave_max_ft: 8.0,
-      break_type_weights: {},
-      time_slot_weights: {},
-      location_centroid_lat: 32.7157,  // San Diego
-      location_centroid_lon: -117.1611,
-      typical_travel_radius_miles: 25.0,
-      top_engaged_beach_ids: [],
-      confidence: 0.5,
-      event_count: 10,
-      last_computed_at: "2026-01-25T00:00:00Z",
-      computed_from: null,
-      computed_to: null,
-    };
-
-    it("should return true when beach is within travel radius", () => {
-      // La Jolla (~10 miles from San Diego)
-      const result = isWithinTravelRadius(
-        32.8328,
-        -117.2713,
-        mockPreferences
-      );
-
-      expect(result).toBe(true);
-    });
-
-    it("should return true when beach is at edge of travel radius", () => {
-      // Oceanside (~20 miles from San Diego, within 25 mile radius)
-      const result = isWithinTravelRadius(
-        32.9108,
-        -117.3789,
-        mockPreferences
-      );
-
-      // This should be within the 25 mile radius
-      expect(result).toBe(true);
-    });
-
-    it("should return false when beach is outside travel radius", () => {
-      // San Francisco (~500 miles from San Diego)
-      const result = isWithinTravelRadius(
-        37.7749,
-        -122.4194,
-        mockPreferences
-      );
-
-      expect(result).toBe(false);
-    });
-
-    it("should return false when user location is not set", () => {
-      const noLocationPrefs = {
-        ...mockPreferences,
-        location_centroid_lat: null,
-        location_centroid_lon: null,
-      };
-
-      const result = isWithinTravelRadius(
-        32.8328,
-        -117.2713,
-        noLocationPrefs
-      );
-
-      expect(result).toBe(false);
-    });
-
-    it("should handle zero travel radius", () => {
-      const zeroRadiusPrefs = {
-        ...mockPreferences,
-        typical_travel_radius_miles: 0,
-      };
-
-      const result = isWithinTravelRadius(
-        32.7157,
-        -117.1611,
-        zeroRadiusPrefs
-      );
-
-      // Same location should still be within 0 radius
-      expect(result).toBe(true);
-    });
-  });
 
   describe("isTopEngagedBeach", () => {
     const mockPreferences = {

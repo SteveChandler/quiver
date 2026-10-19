@@ -156,7 +156,7 @@ function ScoreDisk({ score, compact = false }: { score: number; compact?: boolea
   return (
     <div
       className={cn(
-        "flex shrink-0 rotate-[1.5deg] flex-col items-center justify-center border border-[#F78E42]/35 bg-[#F78E42]/15 text-white shadow-[2px_3px_0_rgba(0,0,0,0.28)] motion-reduce:rotate-0",
+        "flex shrink-0 flex-col items-center justify-center border border-[#F78E42]/35 bg-[#F78E42]/15 text-white shadow-[2px_3px_0_rgba(0,0,0,0.28)]",
         compact
           ? "h-12 w-12 rounded-[16px_7px_18px_9px]"
           : "h-14 w-14 rounded-[18px_8px_20px_10px]"
@@ -290,7 +290,7 @@ function FeatureWindowPanel({
             <div className="flex flex-wrap items-center gap-2">
               <Badge
                 variant="outline"
-                className="rotate-[-1deg] rounded-[12px_4px_14px_6px] border-[#FDB84B]/35 bg-[#FDB84B]/12 font-mono text-[11px] font-bold text-[#FFE1A0] shadow-[2px_3px_0_rgba(0,0,0,0.22)] motion-reduce:rotate-0"
+                className="rounded-[12px_4px_14px_6px] border-[#FDB84B]/35 bg-[#FDB84B]/12 font-mono text-[11px] font-bold text-[#FFE1A0] shadow-[2px_3px_0_rgba(0,0,0,0.22)]"
               >
                 #{recommendation.rank}
               </Badge>
@@ -365,7 +365,7 @@ function FeatureWindowPanel({
             <Button
               asChild
               size="sm"
-              className="h-10 w-full rounded-[12px_4px_14px_6px] bg-[#F78E42] text-[#252D6B] shadow-[2px_3px_0_rgba(0,0,0,0.28)] hover:bg-[#F78E42]/90"
+              className="h-10 w-full rounded-full bg-[#F78E42] text-[#252D6B] shadow-[2px_3px_0_rgba(0,0,0,0.28)] hover:bg-[#F78E42]/90"
             >
               <a
                 href={webUrl}
@@ -496,7 +496,7 @@ function WindowCard({
           <div className="flex flex-wrap items-center gap-2">
             <Badge
               variant="outline"
-              className="rotate-[-1deg] rounded-[12px_4px_14px_6px] border-[#FDB84B]/35 bg-[#FDB84B]/12 font-mono text-[11px] font-bold text-[#FFE1A0] shadow-[2px_3px_0_rgba(0,0,0,0.22)] motion-reduce:rotate-0"
+              className="rounded-[12px_4px_14px_6px] border-[#FDB84B]/35 bg-[#FDB84B]/12 font-mono text-[11px] font-bold text-[#FFE1A0] shadow-[2px_3px_0_rgba(0,0,0,0.22)]"
             >
               #{recommendation.rank}
             </Badge>
@@ -578,7 +578,7 @@ function WindowCard({
           <Button
             asChild
             size="sm"
-            className="h-10 w-full rounded-[12px_4px_14px_6px] bg-[#F78E42] text-[#252D6B] shadow-[2px_3px_0_rgba(0,0,0,0.28)] hover:bg-[#F78E42]/90"
+            className="h-10 w-full rounded-full bg-[#F78E42] text-[#252D6B] shadow-[2px_3px_0_rgba(0,0,0,0.28)] hover:bg-[#F78E42]/90"
           >
             <a
               href={webUrl}
@@ -704,7 +704,7 @@ function CompactWindowRow({
               data-testid="surf-window-web-cta"
               aria-label={`View ${beach.name} forecast`}
               onClick={handleWebClick}
-              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-[12px_4px_14px_6px] bg-[#F78E42] px-3 text-sm font-semibold text-[#252D6B] shadow-[2px_3px_0_rgba(0,0,0,0.22)] hover:bg-[#F78E42]/90"
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-[#F78E42] px-3 text-sm font-semibold text-[#252D6B] shadow-[2px_3px_0_rgba(0,0,0,0.22)] hover:bg-[#F78E42]/90"
             >
               <span>View</span>
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -765,7 +765,7 @@ function ZineWindowEntry({
       <div className="flex flex-wrap items-center gap-3">
         <Badge variant="outline" className={cn("px-2.5 py-1 text-sm", paperVerdictClasses(recommendation.verdict))}>{recommendation.verdict}</Badge>
         {webUrl && (
-          <Button asChild size="sm" className="min-h-11 bg-[#F78E42] text-[#11100D] hover:bg-[#FDB84B]">
+          <Button asChild size="sm" className="rounded-full min-h-11 bg-[#F78E42] text-[#11100D] hover:bg-[#FDB84B]">
             <a href={webUrl} data-testid="surf-window-web-cta" aria-label={`View ${beach.name} window`} onClick={handleWebClick}>View this window <ArrowRight className="h-4 w-4" aria-hidden="true" /></a>
           </Button>
         )}

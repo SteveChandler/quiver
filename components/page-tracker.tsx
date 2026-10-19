@@ -10,7 +10,8 @@
  */
 
 import { useEffect, useRef } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { useRoutePathname } from "@/hooks/use-route-pathname";
 import type { ReadonlyURLSearchParams } from "next/navigation";
 import { useTrackEvent } from "@/hooks/use-track-event";
 import { getLaunchPageMetadata } from "@/lib/analytics/launch-campaign";
@@ -51,7 +52,7 @@ function getSharedSessionId(pathname: string): string | null {
 }
 
 export function PageTracker() {
-  const pathname = usePathname();
+  const pathname = useRoutePathname();
   const searchParams = useSearchParams();
   const { track } = useTrackEvent();
   const prevTrackingKey = useRef<string | null>(null);

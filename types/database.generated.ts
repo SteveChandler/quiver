@@ -9665,6 +9665,114 @@ export type Database = {
           },
         ]
       }
+      session_imports: {
+        Row: {
+          created_at: string | null
+          device_id: string | null
+          error: string | null
+          id: string
+          origin: string
+          original_filename: string | null
+          purge_requested_at: string | null
+          session_id: string | null
+          sha256: string | null
+          status: string
+          storage_path: string
+          summary: Json | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          device_id?: string | null
+          error?: string | null
+          id?: string
+          origin?: string
+          original_filename?: string | null
+          purge_requested_at?: string | null
+          session_id?: string | null
+          sha256?: string | null
+          status?: string
+          storage_path: string
+          summary?: Json | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          device_id?: string | null
+          error?: string | null
+          id?: string
+          origin?: string
+          original_filename?: string | null
+          purge_requested_at?: string | null
+          session_id?: string | null
+          sha256?: string | null
+          status?: string
+          storage_path?: string
+          summary?: Json | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_imports_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "watch_devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_imports_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "call_feedback_summary"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "session_imports_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "public_session_feed_eligibility"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "session_imports_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "recommendation_feedback_summary"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "session_imports_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "session_activation_report"
+            referencedColumns: ["first_session_id"]
+          },
+          {
+            foreignKeyName: "session_imports_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "session_activation_report"
+            referencedColumns: ["second_session_within_14d_id"]
+          },
+          {
+            foreignKeyName: "session_imports_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_imports_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       session_invitations: {
         Row: {
           created_at: string | null
@@ -10381,6 +10489,222 @@ export type Database = {
           },
         ]
       }
+      session_tracks: {
+        Row: {
+          created_at: string | null
+          ended_at: string
+          format: string
+          gps_coverage: number
+          hr_avg: number | null
+          hr_max: number | null
+          import_id: string | null
+          max_gap_s: number
+          paddle_distance_m: number | null
+          purge_requested_at: string | null
+          recorded_by: string | null
+          sample_count: number
+          session_id: string
+          sha256: string
+          source_device: string | null
+          speed_reliable: boolean
+          speed_series: Json
+          sport: string | null
+          started_at: string
+          storage_path: string
+          sub_sport: string | null
+          timing_from_track: boolean
+          track_geojson: Json
+          user_arrival_time: string | null
+          user_duration_minutes: number | null
+          user_id: string
+          user_wave_count: number | null
+          water_temp_c: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          ended_at: string
+          format: string
+          gps_coverage: number
+          hr_avg?: number | null
+          hr_max?: number | null
+          import_id?: string | null
+          max_gap_s: number
+          paddle_distance_m?: number | null
+          purge_requested_at?: string | null
+          recorded_by?: string | null
+          sample_count: number
+          session_id: string
+          sha256: string
+          source_device?: string | null
+          speed_reliable?: boolean
+          speed_series: Json
+          sport?: string | null
+          started_at: string
+          storage_path: string
+          sub_sport?: string | null
+          timing_from_track?: boolean
+          track_geojson: Json
+          user_arrival_time?: string | null
+          user_duration_minutes?: number | null
+          user_id: string
+          user_wave_count?: number | null
+          water_temp_c?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          ended_at?: string
+          format?: string
+          gps_coverage?: number
+          hr_avg?: number | null
+          hr_max?: number | null
+          import_id?: string | null
+          max_gap_s?: number
+          paddle_distance_m?: number | null
+          purge_requested_at?: string | null
+          recorded_by?: string | null
+          sample_count?: number
+          session_id?: string
+          sha256?: string
+          source_device?: string | null
+          speed_reliable?: boolean
+          speed_series?: Json
+          sport?: string | null
+          started_at?: string
+          storage_path?: string
+          sub_sport?: string | null
+          timing_from_track?: boolean
+          track_geojson?: Json
+          user_arrival_time?: string | null
+          user_duration_minutes?: number | null
+          user_id?: string
+          user_wave_count?: number | null
+          water_temp_c?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_tracks_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "session_imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_tracks_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "call_feedback_summary"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "session_tracks_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "public_session_feed_eligibility"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "session_tracks_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "recommendation_feedback_summary"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "session_tracks_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "session_activation_report"
+            referencedColumns: ["first_session_id"]
+          },
+          {
+            foreignKeyName: "session_tracks_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "session_activation_report"
+            referencedColumns: ["second_session_within_14d_id"]
+          },
+          {
+            foreignKeyName: "session_tracks_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      session_wave_corrections: {
+        Row: {
+          action: string
+          created_at: string | null
+          ended_at: string
+          id: string
+          session_id: string
+          started_at: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          ended_at: string
+          id: string
+          session_id: string
+          started_at: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          ended_at?: string
+          id?: string
+          session_id?: string
+          started_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_wave_corrections_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "call_feedback_summary"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "session_wave_corrections_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "public_session_feed_eligibility"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "session_wave_corrections_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "recommendation_feedback_summary"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "session_wave_corrections_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "session_activation_report"
+            referencedColumns: ["first_session_id"]
+          },
+          {
+            foreignKeyName: "session_wave_corrections_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "session_activation_report"
+            referencedColumns: ["second_session_within_14d_id"]
+          },
+          {
+            foreignKeyName: "session_wave_corrections_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       session_wave_observation_candidates: {
         Row: {
           beach_id: string | null
@@ -10517,6 +10841,115 @@ export type Database = {
           },
         ]
       }
+      session_waves: {
+        Row: {
+          avg_speed_mps: number | null
+          confidence: number
+          created_at: string | null
+          detection_version: string
+          distance_m: number
+          duration_s: number
+          end_lat: number
+          end_lon: number
+          ended_at: string
+          heading_deg: number | null
+          id: string
+          is_current: boolean
+          max_speed_mps: number | null
+          session_id: string
+          start_lat: number
+          start_lon: number
+          started_at: string
+          user_id: string
+          wave_index: number
+        }
+        Insert: {
+          avg_speed_mps?: number | null
+          confidence: number
+          created_at?: string | null
+          detection_version: string
+          distance_m: number
+          duration_s: number
+          end_lat: number
+          end_lon: number
+          ended_at: string
+          heading_deg?: number | null
+          id: string
+          is_current?: boolean
+          max_speed_mps?: number | null
+          session_id: string
+          start_lat: number
+          start_lon: number
+          started_at: string
+          user_id: string
+          wave_index: number
+        }
+        Update: {
+          avg_speed_mps?: number | null
+          confidence?: number
+          created_at?: string | null
+          detection_version?: string
+          distance_m?: number
+          duration_s?: number
+          end_lat?: number
+          end_lon?: number
+          ended_at?: string
+          heading_deg?: number | null
+          id?: string
+          is_current?: boolean
+          max_speed_mps?: number | null
+          session_id?: string
+          start_lat?: number
+          start_lon?: number
+          started_at?: string
+          user_id?: string
+          wave_index?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_waves_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "call_feedback_summary"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "session_waves_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "public_session_feed_eligibility"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "session_waves_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "recommendation_feedback_summary"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "session_waves_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "session_activation_report"
+            referencedColumns: ["first_session_id"]
+          },
+          {
+            foreignKeyName: "session_waves_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "session_activation_report"
+            referencedColumns: ["second_session_within_14d_id"]
+          },
+          {
+            foreignKeyName: "session_waves_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sessions: {
         Row: {
           arrival_time: string
@@ -10563,6 +10996,7 @@ export type Database = {
           tide_status_correct: boolean | null
           user_id: string
           water_temp: number | null
+          water_temp_source: string | null
           wave_characteristics: string[] | null
           wave_height_correct: boolean | null
           wave_height_ft: number | null
@@ -10615,6 +11049,7 @@ export type Database = {
           tide_status_correct?: boolean | null
           user_id: string
           water_temp?: number | null
+          water_temp_source?: string | null
           wave_characteristics?: string[] | null
           wave_height_correct?: boolean | null
           wave_height_ft?: number | null
@@ -10667,6 +11102,7 @@ export type Database = {
           tide_status_correct?: boolean | null
           user_id?: string
           water_temp?: number | null
+          water_temp_source?: string | null
           wave_characteristics?: string[] | null
           wave_height_correct?: boolean | null
           wave_height_ft?: number | null
@@ -14083,6 +14519,177 @@ tide_forecasts: {
             foreignKeyName: "user_xp_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: true
+            referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      watch_devices: {
+        Row: {
+          app_version: string | null
+          created_at: string | null
+          device_name: string | null
+          device_part_number: string | null
+          device_uid: string
+          id: string
+          last_seen_at: string | null
+          platform: string
+          revoked_at: string | null
+          token_hash: string | null
+          user_id: string
+        }
+        Insert: {
+          app_version?: string | null
+          created_at?: string | null
+          device_name?: string | null
+          device_part_number?: string | null
+          device_uid: string
+          id?: string
+          last_seen_at?: string | null
+          platform?: string
+          revoked_at?: string | null
+          token_hash?: string | null
+          user_id: string
+        }
+        Update: {
+          app_version?: string | null
+          created_at?: string | null
+          device_name?: string | null
+          device_part_number?: string | null
+          device_uid?: string
+          id?: string
+          last_seen_at?: string | null
+          platform?: string
+          revoked_at?: string | null
+          token_hash?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "watch_devices_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      watch_link_codes: {
+        Row: {
+          app_version: string | null
+          claimed_at: string | null
+          code: string
+          confirmed_at: string | null
+          created_at: string | null
+          device_id: string | null
+          device_part_number: string | null
+          device_uid: string
+          expires_at: string
+          id: string
+          poll_secret_hash: string
+          user_id: string | null
+        }
+        Insert: {
+          app_version?: string | null
+          claimed_at?: string | null
+          code: string
+          confirmed_at?: string | null
+          created_at?: string | null
+          device_id?: string | null
+          device_part_number?: string | null
+          device_uid: string
+          expires_at: string
+          id?: string
+          poll_secret_hash: string
+          user_id?: string | null
+        }
+        Update: {
+          app_version?: string | null
+          claimed_at?: string | null
+          code?: string
+          confirmed_at?: string | null
+          created_at?: string | null
+          device_id?: string | null
+          device_part_number?: string | null
+          device_uid?: string
+          expires_at?: string
+          id?: string
+          poll_secret_hash?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "watch_link_codes_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "watch_devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "watch_link_codes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      watch_uploads: {
+        Row: {
+          chunk_count: number | null
+          created_at: string | null
+          device_id: string
+          header: Json | null
+          id: string
+          import_id: string | null
+          purge_requested_at: string | null
+          received_chunks: number[]
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          chunk_count?: number | null
+          created_at?: string | null
+          device_id: string
+          header?: Json | null
+          id: string
+          import_id?: string | null
+          purge_requested_at?: string | null
+          received_chunks?: number[]
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          chunk_count?: number | null
+          created_at?: string | null
+          device_id?: string
+          header?: Json | null
+          id?: string
+          import_id?: string | null
+          purge_requested_at?: string | null
+          received_chunks?: number[]
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "watch_uploads_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "watch_devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "watch_uploads_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "session_imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "watch_uploads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "auth_apple_orphan_users"
             referencedColumns: ["user_id"]
           },
@@ -17843,6 +18450,15 @@ is_admin_user: { Args: never; Returns: boolean }
           vote: string
           vote_score: number
         }[]
+      }
+      watch_upload_mark_chunks: {
+        Args: {
+          p_add: number[]
+          p_id: string
+          p_remove: number[]
+          p_user_id: string
+        }
+        Returns: number[] | null
       }
     }
     Enums: {

@@ -2,11 +2,13 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database.generated";
 
 import type { SwellEventForecastRow } from "./detector";
+import { SYNTHETIC_FORECAST_DATA_SOURCE } from "./exposure";
 import { readAllPages } from "./paging";
 
 const SWELL_FORECAST_COLUMNS = [
   "beach_id",
   "forecast_at",
+  "data_source",
   "swell_1_height",
   "swell_1_period",
   "swell_1_direction",
@@ -15,6 +17,10 @@ const SWELL_FORECAST_COLUMNS = [
   "swell_2_direction",
 ].join(",");
 
+/** PostgREST `neq` drops NULL rows, so null data_source is kept explicitly. */
+export const EXCLUDE_SYNTHETIC_ROWS_FILTER =
+  `data_source.is.null,data_source.neq.${SYNTHETIC_FORECAST_DATA_SOURCE}`;
+
 /** Only the swell columns detection reads, grouped by beach. */
 export async function loadSwellForecastRows(
   supabase: SupabaseClient<Database>,
@@ -22,13 +28,13 @@ export async function loadSwellForecastRows(
   from: Date,
   to: Date,
 ): Promise<Map<string, SwellEventForecastRow[]>> {
-  const byBeach = new Map<string, SwellEventForecastRow[]>();
-  if (beachIds.length === 0) return byBeach;
+  if (beachIds.length === 0) return new Map();
   const rows = await readAllPages(async (offset, limit) => {
     const { data, error } = await supabase
       .from("enhanced_forecasts")
       .select(SWELL_FORECAST_COLUMNS)
       .in("beach_id", beachIds)
+      .or(EXCLUDE_SYNTHETIC_ROWS_FILTER)
       .gte("forecast_at", from.toISOString())
       .lt("forecast_at", to.toISOString())
       .order("beach_id", { ascending: true })
@@ -37,10 +43,5 @@ export async function loadSwellForecastRows(
     if (error) throw new Error(`Failed to load swell forecast rows: ${error.message}`);
     return (data ?? []) as unknown as Array<SwellEventForecastRow & { beach_id: string }>;
   });
-  for (const row of rows) {
-    const list = byBeach.get(row.beach_id) ?? [];
-    list.push(row);
-    byBeach.set(row.beach_id, list);
-  }
-  return byBeach;
+  return Map.groupBy(rows, (row) => row.beach_id);
 }

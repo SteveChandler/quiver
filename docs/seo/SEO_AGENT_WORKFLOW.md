@@ -62,6 +62,7 @@ The weekly report is the single home for the SEO workflow's deterministic report
 The weekly report must explicitly label its coverage boundaries without treating expected coverage limits as failures:
 
 - DataForSEO is the paid SERP/API source when `DATAFORSEO_LOGIN` and `DATAFORSEO_PASSWORD` are configured; otherwise no paid SERP API is configured.
+- DataForSEO is pulled at most once a week: `seo:export:dataforseo` reuses the newest `DATAFORSEO-EXPORT.json` with data from the last 6 days under the SEO audit root (`DATAFORSEO_MIN_PULL_INTERVAL_HOURS`, default 144) and marks it `reusedFrom`. `DATAFORSEO_REFRESH=true` forces a pull; scheduled runs never set it.
 - DataForSEO weekly live runs default to `watchlistMode=live`, which executes only `critical` watchlist keywords. Use `--watchlist-mode full` or `DATAFORSEO_WATCHLIST_MODE=full` for the larger manual run.
 - ASO checks can optionally overlay Apple Search Ads campaign keywords from `docs/seo/apple-search-ads-keywords.json` or `APPLE_SEARCH_ADS_KEYWORDS_PATH`. When present, those keywords are treated as `critical` weekly iOS checks.
 - No paid full backlink index is configured unless explicitly enabled. The report uses free/provided backlink sources: referrers, embeds, outreach tracker rows, and manual CSV/JSON imports.

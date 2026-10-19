@@ -187,14 +187,14 @@ export default async function UsaStatesIndexPage() {
             >
               <Link
                 href="/"
-                className="rounded-sm underline decoration-2 underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0B3A75]"
+                className="rounded-sm underline decoration-2 underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D]"
               >
                 Home
               </Link>
               <span aria-hidden>/</span>
               <Link
                 href="/beaches"
-                className="rounded-sm underline decoration-2 underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0B3A75]"
+                className="rounded-sm underline decoration-2 underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D]"
               >
                 Beaches
               </Link>
@@ -228,7 +228,7 @@ export default async function UsaStatesIndexPage() {
                   <Link
                     key={state.stateSlug}
                     href={`/beaches/usa/${state.stateSlug}`}
-                    className={`group block rounded-sm focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0B3A75] focus-visible:ring-offset-4 focus-visible:ring-offset-[#F4EBD8] ${CARD_ROTATIONS[index % CARD_ROTATIONS.length]}`}
+                    className={`group block rounded-sm focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#11100D] focus-visible:ring-offset-4 focus-visible:ring-offset-[#F4EBD8] ${CARD_ROTATIONS[index % CARD_ROTATIONS.length]}`}
                   >
                     <article className="torn h-full border-2 border-[#11100D] transition-transform group-hover:-translate-y-1">
                       <div className="grid grid-cols-[88px_minmax(0,1fr)] gap-4 sm:grid-cols-[96px_minmax(0,1fr)]">
@@ -276,7 +276,7 @@ export default async function UsaStatesIndexPage() {
                           <p className="mt-3 text-sm leading-relaxed text-[#11100D]/70">
                             Explore surf spots and ranked beaches across {state.stateName}.
                           </p>
-                          <span className="mt-4 inline-flex font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#0B3A75] group-hover:underline">
+                          <span className="mt-4 inline-flex font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#AA4918] group-hover:underline">
                             Open field guide →
                           </span>
                         </div>

@@ -22,7 +22,7 @@ import {
   completeCronCheckIn,
 } from "@/lib/monitoring/sentry-cron";
 
-export const MAX_DURATION_SECONDS = 300;
+const MAX_DURATION_SECONDS = 300;
 const DEFAULT_SAFETY_MARGIN_MS = 20_000;
 
 function getCronDeadlineMs(): {

@@ -75,16 +75,18 @@ export function WindCheckerClient({
   const currentWind = data?.wind[0] ?? null;
   const beach = data?.beach ?? null;
 
-  const windDir = currentWind?.wind_direction_deg ?? 0;
-  const windSpeed = currentWind?.wind_speed_mph ?? 0;
+  // Missing readings stay null: a 0 would claim calm wind from due north.
+  const windDir = currentWind?.wind_direction_deg ?? null;
+  const windSpeed = currentWind?.wind_speed_mph ?? null;
   const windCardinal = windDir != null ? degreesToCardinal(windDir) : "—";
 
   const offshoreQuality =
     beach?.wind_offshore_deg != null &&
     beach?.wind_offshore_tol_deg != null &&
-    currentWind?.wind_direction_deg != null
+    windDir != null &&
+    windSpeed != null
       ? classifyWindQuality(
-          currentWind.wind_direction_deg,
+          windDir,
           beach.wind_offshore_deg,
           beach.wind_offshore_tol_deg,
         )
@@ -93,8 +95,8 @@ export function WindCheckerClient({
   const bestWindows = useMemo(() => {
     if (
       !data?.wind?.length ||
-      !beach?.wind_offshore_deg ||
-      !beach?.wind_offshore_tol_deg
+      beach?.wind_offshore_deg == null ||
+      beach?.wind_offshore_tol_deg == null
     )
       return [];
     const hours = data.wind.slice(0, 24);
@@ -394,10 +396,10 @@ export function WindCheckerClient({
                       Wind quality
                     </p>
                     <p className="text-sm font-medium leading-snug">
-                      {offshoreQuality.verdict} at {Math.round(windSpeed)} mph
+                      {offshoreQuality.verdict} at {Math.round(windSpeed ?? 0)} mph
                     </p>
                   </div>
-                ) : (
+                ) : windSpeed != null ? (
                   <div
                     className="rounded-2xl border px-4 py-3 flex items-start gap-2"
                     style={{
@@ -410,12 +412,14 @@ export function WindCheckerClient({
                       aria-hidden="true"
                     />
                     <p className="text-sm text-[#B8C7E0]">
-                      Wind is {Math.round(windSpeed)} mph from the{" "}
-                      {windCardinal}. We don&apos;t have shore orientation data
-                      for this beach yet.
+                      Wind is {Math.round(windSpeed)} mph
+                      {windDir != null ? ` from the ${windCardinal}` : ""}.
+                      {data.hasOrientationData
+                        ? null
+                        : " We don\u2019t have shore orientation data for this beach yet."}
                     </p>
                   </div>
-                )}
+                ) : null}
               </div>
             </div>
 

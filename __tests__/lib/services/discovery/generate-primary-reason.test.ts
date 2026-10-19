@@ -40,6 +40,12 @@ describe('generatePrimaryReason', () => {
       expect(result).toBe('Conditions at PB Point match your experience level today');
     });
 
+    it('returns "match your experience" for beginner user at beginner-intermediate beach', () => {
+      const beach = makeBeach({ name: 'Tourmaline Beach', skill_level: 'beginner-intermediate' });
+      const result = generatePrimaryReason(beach, makeForecast('2'), 'beginner');
+      expect(result).toBe('Conditions at Tourmaline Beach match your experience level today');
+    });
+
     it('returns "match your experience" for advanced user at intermediate beach', () => {
       const beach = makeBeach({ skill_level: 'intermediate' });
       const result = generatePrimaryReason(beach, makeForecast('4'), 'advanced');
@@ -48,6 +54,15 @@ describe('generatePrimaryReason', () => {
   });
 
   describe('skill gap > 0, waves manageable', () => {
+    it.each([
+      ['lower-intermediate', 'intermediate'],
+      ['intermediate-advanced', 'advanced'],
+    ])('names a %s beach as an %s spot for a beginner', (skillLevel, label) => {
+      const beach = makeBeach({ skill_level: skillLevel });
+      const result = generatePrimaryReason(beach, makeForecast('2.5'), 'beginner');
+      expect(result).toBe(`PB Point is an ${label} spot, but today's 2.5ft conditions are manageable`);
+    });
+
     it('returns "manageable" when waves are within ideal range despite skill gap', () => {
       const beach = makeBeach({ skill_level: 'advanced' });
       // Beginner ideal max is 3ft

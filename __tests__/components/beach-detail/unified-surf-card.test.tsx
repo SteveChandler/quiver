@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { UnifiedSurfCard } from "@/components/beach-detail/unified-surf-card";
 import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
 
@@ -21,8 +21,8 @@ jest.mock("@/components/share/share-sheet", () => ({
 
 // Mock UI components - must include ALL named exports used by the component
 jest.mock("@/components/ui/card", () => ({
-  Card: ({ children, className }: any) => (
-    <div className={className} data-testid="surf-card">
+  Card: ({ children, className, ...props }: any) => (
+    <div className={className} data-testid="surf-card" {...props}>
       {children}
     </div>
   ),
@@ -40,6 +40,8 @@ jest.mock("@/components/ui/card", () => ({
 // Mock icons used by the component
 jest.mock("lucide-react", () => ({
   Clock: () => <svg data-testid="clock-icon" />,
+  ArrowUp: () => <svg data-testid="arrow-up-icon" aria-hidden="true" />,
+  ArrowDown: () => <svg data-testid="arrow-down-icon" aria-hidden="true" />,
   AlertCircle: () => <svg data-testid="alert-circle-icon" />,
   Share2: () => <svg data-testid="share2-icon" />,
   Waves: () => <svg data-testid="waves-icon" />,
@@ -186,8 +188,89 @@ describe("UnifiedSurfCard", () => {
 
       expect(screen.queryByText(/0\.5-5\.5/)).not.toBeInTheDocument();
       expect(screen.getByTestId("wave-height-display")).toHaveTextContent("3ft");
-      expect(screen.getByText("Wind Light offshore")).toBeInTheDocument();
-      expect(screen.getByText("Tide Rising")).toBeInTheDocument();
+      expect(screen.getByText("Wind")).toBeInTheDocument();
+      expect(screen.getByText("Light offshore")).toBeInTheDocument();
+      expect(screen.getByText("Tide")).toBeInTheDocument();
+      expect(screen.getByText("Rising")).toBeInTheDocument();
+    });
+
+    it("separates a matching wind quality from the wind value", () => {
+      const surfCall = createMockSurfCall({
+        windDescription: "N 12 mph (offshore)",
+        windType: "offshore",
+      });
+      render(<UnifiedSurfCard surfCall={surfCall} beachName="Test Beach" />);
+
+      expect(screen.getByText("N 12 mph")).toBeInTheDocument();
+      expect(screen.getByText("offshore").tagName).toBe("SPAN");
+      expect(screen.queryByText("(offshore)")).not.toBeInTheDocument();
+    });
+
+    it("keeps mismatched wind quality in the value", () => {
+      const surfCall = createMockSurfCall({
+        windDescription: "N 12 mph (offshore)",
+        windType: "onshore",
+      });
+      render(<UnifiedSurfCard surfCall={surfCall} beachName="Test Beach" />);
+
+      expect(screen.getByText("N 12 mph (offshore)")).toBeInTheDocument();
+      const windCell = screen.getByText("Wind").parentElement as HTMLElement;
+      expect(windCell.querySelector("span")).toBeNull();
+    });
+
+    it("keeps glassy wind as a plain value", () => {
+      const surfCall = createMockSurfCall({
+        windDescription: "glassy",
+        windType: "glassy",
+      });
+      render(<UnifiedSurfCard surfCall={surfCall} beachName="Test Beach" />);
+
+      expect(screen.getByText("glassy")).toBeInTheDocument();
+      const windCell = screen.getByText("Wind").parentElement as HTMLElement;
+      expect(windCell.querySelector("span")).toBeNull();
+    });
+
+    it("shows tide height with falling status and an arrow", () => {
+      const surfCall = createMockSurfCall({ tidePhase: "falling", tideHeight: "1.8ft" });
+      render(<UnifiedSurfCard surfCall={surfCall} beachName="Test Beach" />);
+
+      const tideCell = screen.getByText("Tide").parentElement as HTMLElement;
+      expect(within(tideCell).getByText("1.8ft")).toBeInTheDocument();
+      expect(within(tideCell).getByText("Falling")).toBeInTheDocument();
+      expect(within(tideCell).getByTestId("arrow-down-icon")).toBeInTheDocument();
+    });
+
+    it("shows high slack without a tide arrow", () => {
+      const surfCall = createMockSurfCall({ tidePhase: "high slack", tideHeight: "1.8ft" });
+      render(<UnifiedSurfCard surfCall={surfCall} beachName="Test Beach" />);
+
+      const tideCell = screen.getByText("Tide").parentElement as HTMLElement;
+      expect(within(tideCell).getByText("High slack")).toBeInTheDocument();
+      expect(tideCell.querySelector("svg")).toBeNull();
+    });
+
+    it("keeps the dash with the window start across line breaks", () => {
+      const { formatTimeInTimezone } = require("@/lib/utils/date-time");
+      formatTimeInTimezone.mockImplementation((dateStr: string) => {
+        if (dateStr === "2026-02-10T08:00:00") return "5:00 PM";
+        if (dateStr === "2026-02-10T11:00:00") return "6:37 PM";
+        return "6:00 AM";
+      });
+      render(<UnifiedSurfCard surfCall={createMockSurfCall()} beachName="Test Beach" />);
+
+      const start = screen.getByText((_, element) =>
+        element?.tagName === "SPAN" && element.textContent === "5:00 PM –"
+      );
+      const end = screen.getByText("6:37 PM");
+      expect(start.tagName).toBe("SPAN");
+      expect(start).toHaveClass("whitespace-nowrap");
+      expect(end.tagName).toBe("SPAN");
+      expect(end).toHaveClass("whitespace-nowrap");
+    });
+
+    it("does not use the animated hero tier on a YES card", () => {
+      render(<UnifiedSurfCard surfCall={createMockSurfCall()} beachName="Test Beach" />);
+      expect(screen.getByTestId("surf-card")).not.toHaveAttribute("data-tier");
     });
 
     it("shows whySentence for YES verdict", () => {
@@ -211,6 +294,10 @@ describe("UnifiedSurfCard", () => {
   });
 
   describe("NO Verdict", () => {
+    it("keeps the hero tier on a NO card", () => {
+      render(<UnifiedSurfCard surfCall={createMockSurfCall({ verdict: "NO" })} beachName="Test Beach" />);
+      expect(screen.getByTestId("surf-card")).toHaveAttribute("data-tier", "hero");
+    });
     it("shows 'No good surf window today' for NO verdict", () => {
       const surfCall = createMockSurfCall({
         verdict: "NO",

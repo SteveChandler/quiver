@@ -1,3 +1,6 @@
+import { JsonLd } from "@/components/seo/funnel/JsonLd";
+import { FES2022_CITATION, MODEL_TIDE_SOURCE } from "@/lib/services/tides/model-tides";
+
 interface TideDatasetSchemaProps {
   cityOrBeachName: string;
   state?: string;
@@ -8,6 +11,7 @@ interface TideDatasetSchemaProps {
   nextHighHeight?: number | null;
   nextLowTime?: string | null;
   nextLowHeight?: number | null;
+  source?: string | null;
 }
 
 export function TideDatasetSchema({
@@ -20,6 +24,7 @@ export function TideDatasetSchema({
   nextHighHeight,
   nextLowTime,
   nextLowHeight,
+  source,
 }: TideDatasetSchemaProps) {
   if (!cityOrBeachName || !url) return null;
 
@@ -81,15 +86,23 @@ export function TideDatasetSchema({
     license: "https://creativecommons.org/licenses/by/4.0/",
   };
 
+  if (source === MODEL_TIDE_SOURCE) {
+    data.description = `${data.description} Modelled from the FES2022 global tide model. Not for navigation.`;
+    data.creditText = FES2022_CITATION;
+    data.measurementTechnique = "Harmonic tide prediction from the FES2022 global ocean tide model";
+    data.isBasedOn = {
+      "@type": "Dataset",
+      name: "FES2022 Tide",
+      url: "https://www.aviso.altimetry.fr/en/data/products/auxiliary-products/global-tide-fes.html",
+    };
+  }
+
   if (variableMeasured.length > 0) {
     data.variableMeasured = variableMeasured;
   }
 
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
-    />
+    <JsonLd data={data} />
   );
 }
 

@@ -68,7 +68,6 @@ jest.mock("@/lib/utils/wave-formatters", () => {
   return {
     ...formatter,
     toFaceHeightFeet: jest.fn(() => mockWaveHeightValue),
-    toFaceHeightFeetDecomposed: jest.fn(() => mockWaveHeightValue),
     toFaceHeightFeetDecomposedWithDebug: jest.fn((params) => mockUseRealFormatter ? formatter.toFaceHeightFeetDecomposedWithDebug(params) : ({
       value: mockWaveHeightValue,
       debug: {

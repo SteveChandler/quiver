@@ -2,7 +2,19 @@
  * @jest-environment node
  */
 
-jest.mock("@/lib/alerts/user-pool", () => ({ loadUserPool: jest.fn() }));
+jest.mock("@/lib/alerts/user-pool", () => ({
+  ...jest.requireActual("@/lib/alerts/user-pool"),
+  loadUserPool: jest.fn(),
+}));
+// Board reads are not under test here; keep them off the recorded query fake.
+jest.mock("@/lib/alerts/entitlements", () => ({ getUserEntitlement: jest.fn(async () => "free") }));
+jest.mock("@/lib/services/discovery/surf-discovery-orchestrator", () => ({
+  fetchUserBoardContext: jest.fn(async () => ({ boardsForPicks: [] })),
+}));
+jest.mock("@/lib/cron/daily-call-runner", () => ({
+  ...jest.requireActual("@/lib/cron/daily-call-runner"),
+  loadTideSamples: jest.fn(async () => null),
+}));
 jest.mock("@/lib/recommendations/major-swell-awareness/official-advisory-adapter", () => ({
   loadOfficialSwellAdvisories: jest.fn(async () => []),
   loadNwsSwellAdvisories: jest.fn(async () => []),
@@ -14,13 +26,15 @@ jest.mock("@/lib/alerts/canonical-forecast-verdict", () => ({
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { evaluateForecastVerdict } from "@/lib/alerts/canonical-forecast-verdict";
-import { loadUserPool } from "@/lib/alerts/user-pool";
+import { loadUserPool, type PoolBeach } from "@/lib/alerts/user-pool";
 import { runSwellAlertCron, type SwellAlertDeps, type SwellAlertProfile } from "@/lib/cron/swell-alert-runner";
 import type { CanonicalSessionDecision } from "@/lib/recommendations/canonical-decision";
 import { createMockBeach } from "@/__tests__/setup/typed-mocks";
 import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 import type { Database } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import type { RankDay } from "@/lib/cron/daily-call-runner";
+import type { CanonicalWeekScoutResponse } from "@/lib/services/discovery/week-scout";
 
 // 17:00 PDT on Thursday 2026-09-17: the send hour. Tomorrow is 2026-09-18.
 const NOW = new Date("2026-09-18T00:00:00.000Z");
@@ -44,7 +58,7 @@ const profile: SwellAlertProfile = {
   maxDriveMinutes: null,
   experienceLevel: "advanced",
   notifPushEnabled: true,
-  notifSwellAlerts: true,
+  notifSwellAlerts: true, notifForecastAlerts: false,
 };
 
 /** Three-hourly W 16 s rows from 2026-09-08 through 2026-09-27 (PDT), sized per local date. */
@@ -73,7 +87,7 @@ function rows(heightFor: (localDate: string) => number): EnhancedForecastEntity[
 function client(forecasts: EnhancedForecastEntity[], snapshots: { data: unknown[] | null; error: unknown }) {
   const from = jest.fn((table: string) => {
     const chain: Record<string, unknown> = {};
-    for (const method of ["select", "in", "eq", "gte", "lt", "order"]) chain[method] = () => chain;
+    for (const method of ["select", "in", "or", "eq", "gte", "lt", "order"]) chain[method] = () => chain;
     chain.range = async (first: number, last: number) => {
       if (table === "swell_event_forecast_snapshots") {
         return first === 0 ? snapshots : { data: [], error: null };
@@ -95,6 +109,7 @@ function deps(): Partial<SwellAlertDeps> {
     enqueue: jest.fn(async () => ({ enqueued: true as const, eventId: "event-1" })),
     markAlertEnqueued: jest.fn(async () => undefined),
     recordForecast: jest.fn(async () => ({ inserted: true })),
+    resolveHeldBeaches: jest.fn(async () => new Map()),
   };
 }
 
@@ -123,6 +138,91 @@ afterEach(() => {
 });
 
 describe("swell alert runner on the swell-events detector", () => {
+  it("preserves the pool beach's timezone through detection and push copy", async () => {
+    const hawaiiBeach = { ...beach, state: "HI", timezone: "Pacific/Honolulu" };
+    jest.mocked(loadUserPool).mockResolvedValue([{ beach: hawaiiBeach, relation: "home", distanceMiles: null }]);
+    const peakAt = "2026-09-20T01:00:00.000Z";
+    const forecasts = SWELL_TOMORROW.map((forecast) => forecast.forecast_at === peakAt
+      ? { ...forecast, swell_1_height: "5.1 ft" }
+      : forecast);
+    const runDeps = deps();
+
+    const result = await runSwellAlertCron({
+      now: NOW,
+      supabase: client(forecasts, { data: [], error: null }),
+      deps: runDeps,
+    });
+
+    expect(result.sent).toBe(1);
+    const payload = jest.mocked(runDeps.enqueue!).mock.calls[0][0].payload;
+    expect(payload?.forecast_at).toBe(peakAt);
+    expect(payload?.body).toMatch(/peak:? Saturday afternoon/i);
+  });
+
+  it("starts the peak-day window from the 04:00 row in effect at the 05:00 day start after the fall-back", async () => {
+    // 17:00 PST on Tuesday 2026-11-03. The UTC-aligned grid is 04:00, 07:00, 10:00 ... local.
+    const novNow = new Date("2026-11-04T01:00:00.000Z");
+    const forecasts: EnhancedForecastEntity[] = [];
+    for (let day = 25; day <= 44; day += 1) {
+      for (let hour = 0; hour < 24; hour += 3) {
+        const forecastAt = new Date(Date.UTC(2026, 9, day, hour));
+        const localDate = new Date(forecastAt.getTime() - 8 * 3_600_000).toISOString().slice(0, 10);
+        const height = localDate === "2026-11-04" ? 4 : localDate === "2026-11-05" ? 5 : 1.5;
+        forecasts.push({
+          id: forecastAt.toISOString(), beach_id: BEACH_ID, forecast_at: forecastAt.toISOString(), confidence_score: 90,
+          swell_1_height: `${height} ft`, swell_1_period: "16s", swell_1_direction: "270",
+          swell_2_height: null, swell_2_period: null, swell_2_direction: null,
+        } as EnhancedForecastEntity);
+      }
+    }
+    jest.mocked(evaluateForecastVerdict).mockImplementation(({ forecast }) => {
+      const go = forecast.forecast_at >= "2026-11-04T08:00:00.000Z";
+      return { forecast, score: go ? 80 : 40, verdict: go ? "go" : "no", decision: {} as CanonicalSessionDecision };
+    });
+    const runDeps = deps();
+    const result = await runSwellAlertCron({
+      now: novNow, supabase: client(forecasts, { data: [], error: null }), deps: runDeps,
+    });
+    expect(result.sent).toBe(1);
+    const payload = jest.mocked(runDeps.enqueue!).mock.calls[0][0].payload;
+    // Sunrise, not the 07:00 row, starts the window: the 04:00 row is in effect until then.
+    expect(payload?.body).toMatch(/Thursday 6:\d\d–8 AM/);
+  });
+
+  it("ranks the nearest 50 nearby beaches plus home/saved/custom while detecting swells over the full pool", async () => {
+    const nearby: PoolBeach[] = Array.from({ length: 60 }, (_, index) => ({
+      beach: createMockBeach({ ...beach,
+        id: index === 0 ? BEACH_ID : `40000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+      }),
+      relation: "nearby",
+      distanceMiles: 60 - index,
+    }));
+    const preferred: PoolBeach[] = (["home", "favorite", "custom"] as const).map((relation, index) => ({
+      beach: createMockBeach({ ...beach, id: `50000000-0000-4000-8000-${String(index).padStart(12, "0")}` }),
+      relation,
+      distanceMiles: 80,
+    }));
+    jest.mocked(loadUserPool).mockResolvedValue([...nearby, ...preferred]);
+    const rankDay = jest.fn<ReturnType<RankDay>, Parameters<RankDay>>(async () => ({ days: [] }) as unknown as CanonicalWeekScoutResponse);
+    const runDeps = { ...deps(), usesSharedRanking: () => true, rankDay,
+      loadProfiles: async () => [{ ...profile, homeBeachId: preferred[0].beach.id }],
+    };
+
+    const result = await runSwellAlertCron({
+      now: NOW, supabase: client(SWELL_TOMORROW, { data: [PREVIOUS_RUN], error: null }), deps: runDeps,
+    });
+
+    expect(result).toMatchObject({ sent: 1, errors: 0, candidates: 1 });
+    expect(rankDay).toHaveBeenCalledTimes(1);
+    const rankedIds = rankDay.mock.calls[0][0].poolBeachIds;
+    expect(rankedIds).toEqual([...nearby.slice(10), ...preferred].map(({ beach }) => beach.id));
+    expect(rankedIds).toHaveLength(53);
+    expect(rankedIds).not.toContain(BEACH_ID);
+    expect(runDeps.enqueue).toHaveBeenCalledWith(expect.objectContaining({
+      payload: expect.objectContaining({ beach_id: BEACH_ID, event_key: PREVIOUS_RUN_KEY }),
+    }));
+  });
+
   it("alerts on tomorrow's swell under the key an earlier run gave it", async () => {
     const runDeps = deps();
     const result = await runSwellAlertCron({
@@ -133,6 +233,8 @@ describe("swell alert runner on the swell-events detector", () => {
 
     expect(result.sent).toBe(1);
     const payload = jest.mocked(runDeps.enqueue!).mock.calls[0][0].payload as Record<string, unknown>;
+    // Go all day: the best stretch, capped at four hours, not first light to dark.
+    expect(payload.body).toContain("Your call: Blacks Saturday 6:36–10 AM. Good until 10 AM.");
     expect(payload).toMatchObject({
       event_key: PREVIOUS_RUN_KEY,
       event_start_date: "2026-09-18",

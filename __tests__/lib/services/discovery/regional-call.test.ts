@@ -45,6 +45,7 @@ function mockRec(
     wind_speed?: string | null;
     wind_direction?: string | null;
     aspect_deg?: number | null;
+    wind_offshore_deg?: number | null;
   } = {}
 ): SurfDiscoveryRecommendation {
   const beachId = `beach-${++beachCounter}`;
@@ -57,7 +58,7 @@ function mockRec(
     city: 'Malibu',
     state: 'CA',
     is_private: false,
-    wind_offshore_deg: 270,
+    wind_offshore_deg: 'wind_offshore_deg' in overrides ? overrides.wind_offshore_deg : 270,
     wind_offshore_tol_deg: 30,
     preferred_tide_ft_min: 2,
     preferred_tide_ft_max: 5,
@@ -122,10 +123,71 @@ describe('generateRegionalCall', () => {
     const recs = [mockRec({ swell_1_direction: null, swell_1_period: null })];
     const result = generateRegionalCall(recs, {
       dawnWind: { speed: '0 mph', direction: '' },
-      middayWind: { speed: '10 mph', direction: 'SW' },
+      middayWind: { speed: '10 mph', direction: 'E' },
     });
     expect(result.toLowerCase()).toContain('glassy');
     expect(result.toLowerCase()).toContain('onshore');
+  });
+
+  describe('wind trend only claims what the hero beach orientation supports', () => {
+    const dawnCalm = { speed: '0 mph', direction: '' };
+
+    it('says onshore by midday for an east wind on an east-facing beach', () => {
+      // east-facing beach: aspect 90, no stored offshore bearing => offshore is west (270)
+      const eastFacing = [mockRec({ aspect_deg: 90, wind_offshore_deg: null })];
+      const onshore = generateRegionalCall(eastFacing, {
+        dawnWind: dawnCalm,
+        middayWind: { speed: '10 mph', direction: 'E' },
+      });
+      expect(onshore).toContain('Glassy at dawn, onshore by midday');
+    });
+
+    it('does not call a west wind onshore on an east-facing beach (it is offshore there)', () => {
+      const eastFacing = [mockRec({ aspect_deg: 90, wind_offshore_deg: null })];
+      const result = generateRegionalCall(eastFacing, {
+        dawnWind: dawnCalm,
+        middayWind: { speed: '10 mph', direction: 'W' },
+      });
+      expect(result.toLowerCase()).not.toContain('onshore');
+      expect(result.toLowerCase()).not.toContain('glassy');
+    });
+
+    it('drops the onshore claim when the hero beach has no orientation', () => {
+      const recs = [mockRec({ aspect_deg: null, wind_offshore_deg: null })];
+      const result = generateRegionalCall(recs, {
+        dawnWind: dawnCalm,
+        middayWind: { speed: '10 mph', direction: 'E' },
+      });
+      expect(result.toLowerCase()).not.toMatch(/onshore|offshore|glassy/);
+    });
+
+    it('drops the onshore claim when the midday direction is missing', () => {
+      const recs = [mockRec()];
+      const result = generateRegionalCall(recs, {
+        dawnWind: dawnCalm,
+        middayWind: { speed: '10 mph', direction: '' },
+      });
+      expect(result.toLowerCase()).not.toMatch(/onshore|offshore|glassy/);
+    });
+
+    it('drops the onshore claim when the midday direction is unreadable', () => {
+      const recs = [mockRec()];
+      const result = generateRegionalCall(recs, {
+        dawnWind: dawnCalm,
+        middayWind: { speed: '10 mph', direction: 'gusty' },
+      });
+      expect(result.toLowerCase()).not.toMatch(/onshore|offshore|glassy/);
+    });
+
+    it('keeps the plain calm phrase when the speed is known and no relation is needed', () => {
+      const recs = [mockRec({ wind_offshore_deg: null })];
+      expect(
+        generateRegionalCall(recs, {
+          dawnWind: dawnCalm,
+          middayWind: { speed: '0 mph', direction: '' },
+        })
+      ).toBe('Light winds');
+    });
   });
 
   it('returns flat-day fallback when no swell data', () => {
@@ -191,7 +253,7 @@ describe('generateRegionalCall', () => {
       ];
       const result = generateRegionalCall(recs, {
         dawnWind: { speed: '0 mph', direction: '' },
-        middayWind: { speed: '10 mph', direction: 'SW' },
+        middayWind: { speed: '10 mph', direction: 'E' },
       });
       expect(result).toContain('SSW 11s');
       expect(result).toContain('west-facing');

@@ -426,7 +426,7 @@ describe("surf push budget integration", () => {
       maxDriveMinutes: null,
       experienceLevel: "advanced",
       notifPushEnabled: true,
-      notifSwellAlerts: true,
+      notifSwellAlerts: true, notifForecastAlerts: false,
     };
     const swellDeps: SwellAlertDeps = {
       isEnabled: () => true,
@@ -481,6 +481,7 @@ describe("surf push budget integration", () => {
       enqueue,
       markAlertEnqueued: async () => undefined,
       recordForecast: async () => ({ inserted: true }),
+      resolveHeldBeaches: async () => new Map(),
     };
 
     const swellSummary = await runSwellAlertCron({
@@ -501,10 +502,12 @@ describe("surf push budget integration", () => {
       }),
     };
     const allowHold = async () => ({ status: "allowed" as const, candidate: null });
+    const allowSwellDispatchEligibility = async () => ({ allowed: true as const });
     await processPendingEvents(client as never, {
       now: SWELL_TICK,
       fcm: fcm as never,
       resolveMajorEventHold: allowHold,
+      resolveSwellDispatchEligibility: allowSwellDispatchEligibility,
     });
     expect(state.pushes).toHaveLength(1);
     expect(state.pushes[0].data?.type).toBe("swell_watch");
@@ -550,6 +553,7 @@ describe("surf push budget integration", () => {
       buildCandidates: async () => ({
         candidates: [dailyCandidate()],
         hadForecasts: true,
+        noInWindowRowCount: 0,
       }),
       alreadySentToday: async (userId, alertDate) => state.events.some((event) =>
         event.recipient_user_id === userId &&
@@ -564,6 +568,7 @@ describe("surf push budget integration", () => {
         body: "Offshore until the wind turns.",
         fallback: false,
       }),
+      resolveHeldBeaches: async () => new Map(),
       enqueue: async (args) => enqueue(args),
     };
 
@@ -580,6 +585,7 @@ describe("surf push budget integration", () => {
       now: MORNING_TICK,
       fcm: fcm as never,
       resolveMajorEventHold: allowHold,
+      resolveSwellDispatchEligibility: allowSwellDispatchEligibility,
     });
 
     state.now = SECOND_MORNING_TICK;

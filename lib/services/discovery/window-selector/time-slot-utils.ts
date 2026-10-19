@@ -176,31 +176,3 @@ export function getLocalHour(time: Date, beachTz: string): number | null {
     return null;
   }
 }
-
-/**
- * Check if a time falls within a time slot's hour range.
- *
- * @param time - The time to check
- * @param timeSlot - The time slot to check against
- * @param sunrises - Sunrise times for dynamic time slots
- * @param beachTz - IANA timezone string
- * @returns True if the time is within the slot's range
- */
-function isWithinTimeSlot(
-  time: Date,
-  timeSlot: TimeSlot | undefined,
-  sunrises: Date[],
-  beachTz: string
-): boolean {
-  if (!timeSlot || timeSlot === 'any') {
-    return true;
-  }
-
-  const localHour = getLocalHour(time, beachTz);
-  if (localHour === null) {
-    return false;
-  }
-
-  const slotRange = getTimeSlotRange(timeSlot, sunrises, time, beachTz);
-  return localHour >= slotRange.startHour && localHour < slotRange.endHour;
-}

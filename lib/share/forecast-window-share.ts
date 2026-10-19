@@ -1,3 +1,4 @@
+import { getLocalDateFormatter } from "@/lib/services/discovery/window-selector/time-slot-utils";
 import { normalizeForecastWindowParam } from "@/lib/utils/forecast-window-param";
 export { normalizeForecastWindowParam } from "@/lib/utils/forecast-window-param";
 import { resolveMajorEventHoldBoundary } from "@/lib/recommendations/major-event-hold/adapters/shared";
@@ -72,13 +73,6 @@ const FORECAST_SLOT_DURATION_MS = 60 * 60 * 1000;
 /** A chat link opened after its window has passed no longer says it is lining up. */
 const EXPIRED_WINDOW_GRACE_MS = 60 * 60 * 1000;
 
-function firstSearchValue(
-  value: string | string[] | null | undefined,
-): string | null {
-  if (Array.isArray(value)) return value[0] ?? null;
-  return value ?? null;
-}
-
 function cleanText(value: unknown): string | null {
   if (typeof value !== "string" && typeof value !== "number") return null;
   const trimmed = String(value)
@@ -119,7 +113,7 @@ function isValidTimeZone(value: unknown): value is string {
 }
 
 function calendarDay(date: Date, timeZone: string): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone }).format(date);
+  return getLocalDateFormatter(timeZone).format(date);
 }
 
 function formatForecastWindowLabel(
@@ -194,6 +188,32 @@ export function buildForecastWindowShareMetadata(
     }),
     appSpotPath: buildAppSpotPath(slug, requestedForecastAt),
     isFallback: true,
+  };
+}
+
+function buildRequestedWindowFallback(
+  fallback: ForecastWindowShareMetadata,
+  forecastAt: string,
+  beach?: ForecastWindowBeach | null,
+): ForecastWindowShareMetadata {
+  const beachName = cleanText(beach?.name) ?? fallback.beachName;
+  const timezone = isValidTimeZone(beach?.timezone) ? beach.timezone : "UTC";
+  const date = new Date(forecastAt);
+  const day = new Intl.DateTimeFormat("en-GB", {
+    weekday: "short", day: "numeric", month: "short", timeZone: timezone,
+  }).format(date).replace(",", "");
+  const time = new Intl.DateTimeFormat("en-US", {
+    hour: "numeric", minute: "2-digit", timeZone: timezone,
+  }).format(date).replace(":00", "");
+  const windowLabel = `${day}, ${time}${timezone === "UTC" ? " UTC" : ""}`;
+  const title = `${beachName} surf forecast for ${windowLabel}`;
+  return {
+    ...fallback,
+    beachName,
+    title,
+    description: `${title}. ${NEUTRAL_DESCRIPTION}`,
+    windowLabel,
+    locationLabel: beach ? locationFromBeach(beach) : null,
   };
 }
 
@@ -359,7 +379,7 @@ export async function loadForecastWindowShareMetadata(
 
   const now = (dependencies.now ?? (() => new Date()))();
   const expiresAfter = now.getTime() - EXPIRED_WINDOW_GRACE_MS;
-  if (Date.parse(requestedForecastAt) < expiresAfter) return fallback;
+  let requestedFallback = buildRequestedWindowFallback(fallback, requestedForecastAt);
 
   const loadBeach = dependencies.loadBeach ?? defaultLoadBeach;
   const loadForecast = dependencies.loadForecast ?? defaultLoadForecast;
@@ -368,7 +388,9 @@ export async function loadForecastWindowShareMetadata(
 
   try {
     const beach = await loadBeach(fallback.slug);
-    if (!beach) return fallback;
+    if (!beach) return requestedFallback;
+    requestedFallback = buildRequestedWindowFallback(fallback, requestedForecastAt, beach);
+    if (Date.parse(requestedForecastAt) < expiresAfter) return requestedFallback;
 
     const forecast = await loadForecast(beach.id, requestedForecastAt);
     const rowForecastAt = cleanText(forecast?.forecast_at);
@@ -379,7 +401,7 @@ export async function loadForecastWindowShareMetadata(
       rowBeachId !== beach.id ||
       Date.parse(rowForecastAt) !== Date.parse(requestedForecastAt)
     ) {
-      return fallback;
+      return requestedFallback;
     }
 
     const forecastAt = new Date(rowForecastAt).toISOString();
@@ -391,7 +413,7 @@ export async function loadForecastWindowShareMetadata(
         Date.parse(forecastAt) + FORECAST_SLOT_DURATION_MS,
       ).toISOString(),
     });
-    if (!candidate) return fallback;
+    if (!candidate) return requestedFallback;
 
     let recommendationAllowed = false;
     try {
@@ -424,6 +446,6 @@ export async function loadForecastWindowShareMetadata(
       now,
     });
   } catch {
-    return fallback;
+    return requestedFallback;
   }
 }

@@ -33,13 +33,3 @@ export class ForbiddenError extends Error {
     }
   }
 }
-
-/**
- * Get the appropriate error based on authentication status
- */
-function createAuthError(isAuthenticated: boolean): UnauthorizedError | ForbiddenError {
-  if (!isAuthenticated) {
-    return new UnauthorizedError();
-  }
-  return new ForbiddenError();
-}

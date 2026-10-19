@@ -1,12 +1,33 @@
+import {
+  DAILY_CALL_LOCATION_FIX_MAX_AGE_HOURS,
+  isAwayFromHome,
+  resolveLocationAnchor,
+  type LocationAnchor,
+  type LocationSnapshot,
+} from "@/lib/alerts/location-freshness";
+import { driveRadiusMiles } from "@/lib/profile/drive-range";
+import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
 import { persistableSessionDecision } from "@/lib/recommendations/canonical-decision/contract";
+import { buildCanonicalSessionDecision, type CanonicalSessionDecision } from "@/lib/recommendations/canonical-decision";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isDailyCallEnabled, isDailyCallUserAllowed } from "@/lib/flags/daily-call";
-import { loadUserPool, type PoolBeach } from "@/lib/alerts/user-pool";
+import { capNearbyPool, loadUserPool, type PoolBeach } from "@/lib/alerts/user-pool";
+import { resolveHeldPushBeaches, type ResolveHeldPushBeaches } from "@/lib/alerts/push-beach-holds";
+import { isSharedCallRankingEnabled, isSharedCallRankingUserAllowed } from "@/lib/flags/shared-call-ranking";
+import { selectDayCall } from "@/lib/recommendations/day-call";
+import { parseSessionTime, type SessionTime } from "@/lib/scoring/session-time-preference";
+import {
+  generateWeekScoutForecastForDays,
+  type CanonicalWeekScoutResponse,
+  type WeekScoutDayResponse,
+  type WeekScoutWindowResponse,
+} from "@/lib/services/discovery/week-scout";
 import {
   evaluateForecastVerdict,
   type ForecastVerdict,
 } from "@/lib/alerts/canonical-forecast-verdict";
 import {
+  capToBestWindow,
   refineWindow,
   type RefinedWindow,
 } from "@/lib/alerts/window-refiner";
@@ -47,6 +68,7 @@ import {
 
 const WINDOW_CLOSE_BUFFER_MS = 30 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
+const GRID_MS = 3 * HOUR_MS;
 
 export interface DailyCallCandidate {
   pool: PoolBeach;
@@ -58,7 +80,7 @@ export interface DailyCallCandidate {
   sessionDecision: unknown;
 }
 
-export interface DailyCallRunSummary {
+interface DailyCallRunSummary {
   evaluated: number;
   sent: number;
   silent: number;
@@ -76,13 +98,17 @@ export interface DailyCallProfile {
   notifForecastAlerts: boolean | null;
   experienceLevel: string | null;
   maxDriveMinutes: number | null;
-  location: { lat: number; lon: number; timezone: string } | null;
+  location: (LocationSnapshot & { timezone: string }) | null;
+  anchorSource?: LocationAnchor["source"];
+  preferredSessionTime?: SessionTime | null;
+  anchor?: { lat: number; lon: number } | null;
   homeBeach: Beach | null;
 }
 
 interface CandidateBuildResult {
   candidates: DailyCallCandidate[];
   hadForecasts: boolean;
+  noInWindowRowCount: number;
 }
 
 interface BuildCandidatesArgs {
@@ -107,6 +133,7 @@ export interface DailyCallDeps {
     maxDriveMinutes: number | null;
   }) => Promise<PoolBeach[]>;
   buildCandidates: (args: BuildCandidatesArgs) => Promise<CandidateBuildResult>;
+  resolveHeldBeaches: ResolveHeldPushBeaches;
   alreadySentToday: (userId: string, alertDate: string) => Promise<boolean>;
   loadSwellEventKey: (userId: string, alertDate: string) => Promise<string | null>;
   loadRecentTitleIds: (userId: string, since: Date) => Promise<string[]>;
@@ -115,6 +142,44 @@ export interface DailyCallDeps {
     args: EnqueueArgs,
     supabase: SupabaseClient<Database>,
   ) => Promise<EnqueueResult>;
+}
+
+export type RankDay = (args: {
+  userId: string;
+  poolBeachIds: string[];
+  driveRadiusMiles: number;
+  timezone: string;
+  localDate: string;
+  sessionTime: SessionTime | null;
+  anchor: { lat: number; lon: number } | null;
+}) => Promise<CanonicalWeekScoutResponse>;
+
+/** @public Shared entry point for the swell runner and parity script (plan Tasks 7–8). */
+export const rankDayWithWeekScout: RankDay = ({
+  userId, poolBeachIds, driveRadiusMiles, timezone, localDate, sessionTime, anchor,
+}) => generateWeekScoutForecastForDays(userId, {
+  candidateBeachIds: poolBeachIds,
+  driveRadiusMiles,
+  localTimezone: timezone,
+  startLocalDate: localDate,
+  dayCount: 1,
+  ...(sessionTime ? { sessionTime } : {}),
+  ...(anchor ? { userLocation: anchor } : {}),
+});
+
+export type LoadBeachDay = (args: {
+  beach: Beach;
+  timezone: string;
+  localDate: string;
+}) => Promise<{
+  forecasts: EnhancedForecastEntity[];
+  tideSamples: Array<{ at: string; heightFt: number }> | null;
+}>;
+
+export interface DailyCallRankingDeps {
+  rankDay: RankDay;
+  loadBeachDay: LoadBeachDay;
+  usesSharedRanking: (userId: string) => boolean;
 }
 
 interface EvaluatedCandidate extends DailyCallCandidate {
@@ -131,8 +196,16 @@ function skippedCounts(): Record<string, number> {
     allowlist: 0,
     no_pool: 0,
     no_forecast: 0,
+    no_in_window_row: 0,
+    ranking_beach_not_in_pool: 0,
+    ranking_verdict_mismatch: 0,
     not_send_hour: 0,
     enqueue_failed: 0,
+    held_major_event_hold: 0,
+    held_water_quality_hold: 0,
+    held_hold_state_unavailable: 0,
+    no_clear_window: 0,
+    away_from_home: 0,
   };
 }
 
@@ -140,7 +213,7 @@ function increment(summary: DailyCallRunSummary, key: string): void {
   summary.skippedCounts[key] = (summary.skippedCounts[key] ?? 0) + 1;
 }
 
-function relationRank(candidate: DailyCallCandidate, homeBeachId: string | null): number {
+function relationRank(candidate: Pick<DailyCallCandidate, "pool">, homeBeachId: string | null): number {
   if (candidate.pool.beach.id === homeBeachId) return 3;
   if (candidate.pool.relation === "favorite" || candidate.pool.relation === "custom") {
     return 2;
@@ -162,7 +235,7 @@ export function rankCandidates(
 
 /**
  * Why the winner beat the surfer's home beach, from both forecasts. Home is only
- * compared when it produced its own go window; otherwise nothing is claimed.
+ * compared when it produced its own window; otherwise nothing is claimed.
  */
 export function buildComparisonLine(
   winner: DailyCallCandidate,
@@ -183,10 +256,19 @@ function numberValue(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+/** A missing wind is unknown, never "0mph". */
+function windLabel(forecast: { wind_speed?: unknown; wind_direction?: string | null } | undefined): string {
+  const speed = Number.parseFloat(String(forecast?.wind_speed ?? ""));
+  if (!Number.isFinite(speed)) return "Wind unknown";
+  return forecast?.wind_direction ? `${speed}mph ${forecast.wind_direction}` : `${speed}mph`;
+}
+
 function windowLabel(candidate: DailyCallCandidate, timezone: string): string {
+  const windowTimezone = resolveBeachTimezone(candidate.pool.beach.timezone || timezone);
   const startDriver = candidate.window.drivers.find((driver) => driver.edge === "start");
   const endDriver = candidate.window.drivers.find((driver) => driver.edge === "end");
-  return formatWindowLabel(candidate.window.start, candidate.window.end, timezone, {
+  return formatWindowLabel(candidate.window.start, candidate.window.end, windowTimezone, {
+    forBody: true,
     approximateStart: startDriver?.approximate ?? false,
     approximateEnd: endDriver?.approximate ?? false,
   });
@@ -244,6 +326,7 @@ function fallbackReason(vars: Record<string, string>): string {
 
 function buildPayload(args: {
   candidate: DailyCallCandidate;
+  options: DailyCallCandidate[];
   profile: DailyCallProfile;
   timezone: string;
   alertDate: string;
@@ -256,6 +339,7 @@ function buildPayload(args: {
   const forecast = details?.sourceForecast;
   return {
     schema_version: DAILY_CALL_SCHEMA_VERSION,
+    anchor_source: args.profile.anchorSource,
     beach_id: args.candidate.pool.beach.id,
     beach_slug: args.candidate.pool.beach.slug,
     beach_name: args.candidate.pool.beach.short_name ?? args.candidate.pool.beach.name,
@@ -263,13 +347,26 @@ function buildPayload(args: {
     window_start: args.candidate.window.start,
     window_end: args.candidate.window.end,
     window_local: windowLabel(args.candidate, args.timezone),
+    ...(args.options.length > 0 ? {
+      options: args.options.map((option) => {
+        const height = Number.parseFloat(String(candidateDetails(option)?.sourceForecast.wave_height ?? ""));
+        return {
+          beach_id: option.pool.beach.id,
+          beach_slug: option.pool.beach.slug,
+          beach_name: option.pool.beach.short_name ?? option.pool.beach.name,
+          window_start: option.window.start,
+          window_end: option.window.end,
+          window_local: windowLabel(option, args.timezone),
+          wave_height_ft: Number.isFinite(height) ? height : null,
+          relation: option.pool.beach.id === args.profile.homeBeachId ? "home" : option.pool.relation,
+        };
+      }),
+    } : {}),
     drivers: args.candidate.window.drivers,
     wave_height_ft: numberValue(forecast?.wave_height),
     wave_period_s: numberValue(forecast?.wave_period),
     swell_dir: forecast?.wave_direction ?? forecast?.swell_1_direction ?? "unknown",
-    wind_label: forecast?.wind_direction
-      ? `${numberValue(forecast.wind_speed)}mph ${forecast.wind_direction}`
-      : `${numberValue(forecast?.wind_speed)}mph`,
+    wind_label: windLabel(forecast),
     tide_label: forecast?.tide_status ?? "Unknown tide",
     reason: args.title.body || fallbackReason(args.vars),
     title: args.title.title,
@@ -281,22 +378,20 @@ function buildPayload(args: {
   };
 }
 
-function groupGoForecasts(evaluations: ForecastVerdict[]): ForecastVerdict[][] {
+/**
+ * Runs of go rows. The forecast grid is 3-hourly, so consecutive go rows join
+ * across one grid step; a non-go row or a missing row ends the run.
+ */
+export function groupGoForecasts(evaluations: ForecastVerdict[]): ForecastVerdict[][] {
   const groups: ForecastVerdict[][] = [];
+  let previous: ForecastVerdict | null = null;
   for (const evaluation of evaluations) {
-    if (evaluation.verdict !== "go") continue;
-    const current = groups.at(-1);
-    const previous = current?.at(-1);
-    if (
-      current
-      &&
-      previous
-      && Date.parse(evaluation.forecast.forecast_at) - Date.parse(previous.forecast.forecast_at) <= HOUR_MS
-    ) {
-      current.push(evaluation);
-    } else {
-      groups.push([evaluation]);
-    }
+    const joins = previous?.verdict === "go"
+      && evaluation.verdict === "go"
+      && Date.parse(evaluation.forecast.forecast_at) - Date.parse(previous.forecast.forecast_at) <= GRID_MS;
+    if (joins) groups[groups.length - 1].push(evaluation);
+    else if (evaluation.verdict === "go") groups.push([evaluation]);
+    previous = evaluation;
   }
   return groups;
 }
@@ -312,10 +407,70 @@ function evaluateForecast(
     forecast,
     beach: pool.beach,
     experienceLevel: profile.experienceLevel,
-    timezone,
+    timezone: resolveBeachTimezone(pool.beach.timezone || timezone),
     now,
     candidateIdPrefix: "daily-call",
   });
+}
+
+function forecastsServingWindow(
+  forecasts: EnhancedForecastEntity[],
+  window: RefinedWindow,
+  now: Date,
+): EnhancedForecastEntity[] {
+  const windowEnd = Date.parse(window.end);
+  if (windowEnd <= now.getTime()) return [];
+  const liveStart = Math.max(now.getTime(), Date.parse(window.start));
+  const sorted = [...forecasts].sort((left, right) =>
+    Date.parse(left.forecast_at) - Date.parse(right.forecast_at));
+  return sorted.filter((forecast, index) => {
+    const at = Date.parse(forecast.forecast_at);
+    // Missing grid rows leave a gap rather than extending the previous forecast.
+    const gridEnd = at + GRID_MS;
+    const next = sorted[index + 1];
+    const coverageEnd = Math.min(gridEnd, next ? Date.parse(next.forecast_at) : gridEnd);
+    return coverageEnd > liveStart && at < windowEnd;
+  });
+}
+
+function decisionForWindow(
+  profile: DailyCallProfile,
+  pool: PoolBeach,
+  evaluation: ForecastVerdict,
+  window: RefinedWindow,
+  timezone: string,
+  now: Date,
+): CanonicalSessionDecision {
+  const selection = evaluation.decision.selection;
+  const beachTimezone = resolveBeachTimezone(pool.beach.timezone || timezone);
+  const decision = buildCanonicalSessionDecision({
+    anchorTime: now.toISOString(),
+    scope: { kind: "plan_next_session", windowStart: window.start, windowEnd: window.end, timezone: beachTimezone },
+    profileExperience: profile.experienceLevel,
+    recommendationAvailability: {
+      state: "available",
+      holdEpoch: evaluation.decision.holdEpoch,
+      resolutionAsOf: now.toISOString(),
+    },
+    candidates: [{
+      candidateId: selection?.candidateId ?? `daily-call:${pool.beach.id}:${evaluation.forecast.forecast_at}`,
+      beachId: pool.beach.id,
+      beachName: pool.beach.name,
+      beachSkillLevel: pool.beach.skill_level,
+      windowStart: window.start,
+      windowEnd: window.end,
+      timezone: beachTimezone,
+      forecastId: evaluation.forecast.id,
+      forecastAt: evaluation.forecast.forecast_at,
+      waveHeight: evaluation.forecast.wave_height,
+      utilityScore: evaluation.score,
+      recommendationLabel: selection?.evidence.recommendationLabel ?? undefined,
+      personalMatch: selection?.evidence.personalMatch,
+      effects: selection?.evidence.effects,
+    }],
+  });
+  // Daily Call persists a session-window decision, rather than a 15-minute row snapshot.
+  return { ...decision, expiresAt: window.end };
 }
 
 function cachedTideSamples(
@@ -330,7 +485,7 @@ function cachedTideSamples(
   }));
 }
 
-async function loadTideSamples(
+export async function loadTideSamples(
   supabase: SupabaseClient<Database>,
   cache: TideCache,
   beachId: string,
@@ -348,7 +503,7 @@ async function loadTideSamples(
     .order("ts", { ascending: true });
   if (error) throw new Error(`Failed to load tide forecasts for ${beachId}: ${error.message}`);
   const samples = selectTideSeries(data ?? []).flatMap((row) => {
-    const heightFt = row.tide_ft ?? (row.tide_height_m == null ? null : row.tide_height_m * 3.28084);
+    const heightFt = row.tide_ft ?? (row.tide_height_m == null ? null : row.tide_height_m * METERS_TO_FEET);
     return heightFt == null ? [] : [{ at: row.ts, heightFt }];
   });
   if (samples.length === 0) return null;
@@ -367,14 +522,42 @@ async function loadTideSamples(
   return samples;
 }
 
-async function buildCandidates(
+function beachDayRange(
+  beach: Beach,
+  localDate: string,
+  userTimezone: string,
+): { start: string; end: string; forecastStart: string } {
+  const timezone = resolveBeachTimezone(beach.timezone || userTimezone);
+  const start = localDateTimeToUTC(localDate, "05:00:00", timezone);
+  return {
+    start: start.toISOString(),
+    end: localDateTimeToUTC(localDate, "20:00:00", timezone).toISOString(),
+    // The grid is UTC-aligned, so in Pacific standard time the row in effect at
+    // 05:00 is stamped 04:00. Load it; forecastsServingWindow and the daylight
+    // clip decide whether it serves a window.
+    forecastStart: new Date(start.getTime() - GRID_MS).toISOString(),
+  };
+}
+
+/** A row belongs to the day when its grid step overlaps [start, end). */
+export function rowServesDay(row: EnhancedForecastEntity, startMs: number, endMs: number): boolean {
+  const at = Date.parse(row.forecast_at);
+  return at < endMs && at + GRID_MS > startMs;
+}
+
+export async function buildCandidates(
   supabase: SupabaseClient<Database>,
   tideCache: TideCache,
   args: BuildCandidatesArgs,
 ): Promise<CandidateBuildResult> {
+  if (args.pool.length === 0) return { candidates: [], hadForecasts: false, noInWindowRowCount: 0 };
   const beachIds = args.pool.map((value) => value.beach.id);
-  const start = localDateTimeToUTC(args.alertDate, "05:00:00", args.timezone).toISOString();
-  const end = localDateTimeToUTC(args.alertDate, "20:00:00", args.timezone).toISOString();
+  const beachDays = args.pool.map((pool) => ({
+    pool,
+    ...beachDayRange(pool.beach, args.alertDate, args.timezone),
+  }));
+  const start = new Date(Math.min(...beachDays.map((day) => Date.parse(day.forecastStart)))).toISOString();
+  const end = new Date(Math.max(...beachDays.map((day) => Date.parse(day.end)))).toISOString();
   const { data, error } = await supabase
     .from("enhanced_forecasts")
     .select("*")
@@ -385,10 +568,16 @@ async function buildCandidates(
   if (error) throw new Error(`Failed to load daily-call forecasts: ${error.message}`);
   const forecasts = (data ?? []) as EnhancedForecastEntity[];
   const candidates: EvaluatedCandidate[] = [];
+  let noInWindowRowCount = 0;
+  let hadForecasts = false;
 
-  for (const pool of args.pool) {
-    const beachForecasts = forecasts.filter((row) => row.beach_id === pool.beach.id);
+  for (const { pool, start, end } of beachDays) {
+    const startMs = Date.parse(start);
+    const endMs = Date.parse(end);
+    const beachForecasts = forecasts.filter((row) => row.beach_id === pool.beach.id
+      && rowServesDay(row, startMs, endMs));
     if (beachForecasts.length === 0) continue;
+    hadForecasts = true;
     const evaluations = beachForecasts.map((forecast) =>
       evaluateForecast(args.profile, pool, forecast, args.timezone, args.now));
     const verdictById = new Map(evaluations.map((value) => [value.forecast.id, value.verdict]));
@@ -428,43 +617,192 @@ async function buildCandidates(
         maxWindows: 1,
         userSkillLevel: args.profile.experienceLevel,
       })[0];
-      const best = [...group].sort((left, right) => right.score - left.score)[0];
-      const sourceForecast = selected?.sourceForecast ?? best.forecast;
+      const window = capToBestWindow(refined, selected);
+      const serving = forecastsServingWindow(beachForecasts, window, args.now);
+      const goServing = evaluations.filter((value) => value.verdict === "go" && serving.includes(value.forecast));
+      const preferred = goServing.find((value) => value.forecast.id === selected?.sourceForecast?.id);
+      const best = preferred ?? goServing.sort((left, right) => right.score - left.score)[0];
+      if (!best) {
+        noInWindowRowCount += 1;
+        continue;
+      }
+      const decision = decisionForWindow(args.profile, pool, best, window, args.timezone, args.now);
+      if (decision.verdict !== "go") continue;
       candidates.push({
         pool,
-        window: refined,
-        physicalScore: selected?.score ?? best.score,
+        window,
+        physicalScore: preferred && selected ? selected.score ?? best.score : best.score,
         personalFit: 0,
         verdict: "go",
-        decisionId: best.decision.decisionId,
-        sessionDecision: best.decision,
-        sourceForecast,
-        timezone: args.timezone,
+        decisionId: decision.decisionId,
+        sessionDecision: decision,
+        sourceForecast: best.forecast,
+        timezone: resolveBeachTimezone(pool.beach.timezone || args.timezone),
       });
     }
   }
 
-  return { candidates, hadForecasts: forecasts.length > 0 };
+  return { candidates, hadForecasts, noInWindowRowCount };
+}
+
+function candidateFromRankedWindow(
+  pool: PoolBeach,
+  window: WeekScoutWindowResponse,
+  forecasts: EnhancedForecastEntity[],
+  timezone: string,
+  now: Date,
+): DailyCallCandidate & { sourceForecast: EnhancedForecastEntity | undefined; timezone: string } {
+  const peakMs = Date.parse(window.peakTime);
+  const displayWindow: RefinedWindow = {
+    start: window.displayWindowStart,
+    end: window.displayWindowEnd,
+    minutes: (Date.parse(window.displayWindowEnd) - Date.parse(window.displayWindowStart)) / 60_000,
+    drivers: [],
+  };
+  const serving = forecastsServingWindow(forecasts, displayWindow, now);
+  const sourceForecast = [...(serving.length > 0 ? serving : forecasts)]
+    .sort((left, right) =>
+      Math.abs(Date.parse(left.forecast_at) - peakMs) - Math.abs(Date.parse(right.forecast_at) - peakMs))[0];
+  return {
+    pool,
+    window: displayWindow,
+    physicalScore: window.conditionScore,
+    personalFit: 0,
+    verdict: "go",
+    decisionId: "",
+    sessionDecision: null,
+    sourceForecast,
+    timezone,
+  };
+}
+
+async function buildSharedCall(
+  args: BuildCandidatesArgs,
+  deps: DailyCallRankingDeps & Pick<DailyCallDeps, "resolveHeldBeaches">,
+): Promise<{
+  winner: DailyCallCandidate;
+  options: DailyCallCandidate[];
+  home: DailyCallCandidate | null;
+  heldReasons: string[];
+} | { skip: string; heldReasons?: string[] }> {
+  const { profile, pool, timezone, alertDate, now } = args;
+  const response = await deps.rankDay({
+    userId: profile.id,
+    poolBeachIds: pool.map((entry) => entry.beach.id),
+    driveRadiusMiles: driveRadiusMiles(profile.maxDriveMinutes),
+    timezone,
+    localDate: alertDate,
+    sessionTime: profile.preferredSessionTime ?? null,
+    anchor: profile.anchor ?? null,
+  });
+  // The hold adapter widens scores; the personal and canonical go gates below still apply.
+  const day = response.days[0] as WeekScoutDayResponse | undefined;
+  if (!day) return { skip: "no_forecast" };
+  if (day.windows.length === 0) {
+    return { skip: day.exclusionReasons.includes("major_event_hold") ? "no_clear_window"
+      : day.exclusionReasons.includes("no_forecasts") ? "no_forecast" : "no_go_window" };
+  }
+  const pick = selectDayCall(day, now, { closeBufferMs: WINDOW_CLOSE_BUFFER_MS });
+  if (!pick || pick.personalVerdict !== "go") {
+    return { skip: day.exclusionReasons.includes("major_event_hold") ? "no_clear_window" : "no_go_window" };
+  }
+  const entry = pool.find((value) => value.beach.id === pick.beachId);
+  if (!entry) return { skip: "ranking_beach_not_in_pool" };
+
+  const alternatives = pick.rankedSpots.flatMap((spot) => {
+    if (spot.beachId === pick.beachId || spot.personalVerdict !== "go") return [];
+    const optionPool = pool.find((value) => value.beach.id === spot.beachId);
+    const window = day.windows.find((value) => value.beachId === spot.beachId && value.isBeachDayBest);
+    return optionPool && window ? [{ pool: optionPool, window }] : [];
+  }).sort((left, right) =>
+    relationRank(right, profile.homeBeachId) - relationRank(left, profile.homeBeachId));
+  const homePool = pool.find((value) => value.beach.id === profile.homeBeachId);
+  const homeWindow = homePool && profile.homeBeachId !== pick.beachId
+    ? day.windows.find((value) => value.beachId === profile.homeBeachId && value.isBeachDayBest)
+    : undefined;
+  const windows = [...new Set([pick, ...alternatives.map((option) => option.window), ...(homeWindow ? [homeWindow] : [])])];
+  const held = await deps.resolveHeldBeaches({
+    candidates: windows.map((window, index) => ({
+      candidateId: `daily-call:${index}`,
+      beachId: window.beachId,
+      startsAt: window.displayWindowStart,
+      endsAt: window.displayWindowEnd,
+    })),
+    profileExperience: profile.experienceLevel,
+    asOf: now,
+  });
+  const heldReason = (window: WeekScoutWindowResponse): string | undefined =>
+    held.get(`daily-call:${windows.indexOf(window)}`);
+  const heldReasons = [...held.values()];
+  if (heldReason(pick)) return { skip: "no_clear_window", heldReasons };
+
+  const { forecasts, tideSamples } = await deps.loadBeachDay({
+    beach: entry.beach, timezone, localDate: alertDate,
+  });
+  if (forecasts.length === 0) return { skip: "no_forecast", heldReasons };
+  const winner = candidateFromRankedWindow(entry, pick, forecasts, timezone, now);
+  const evaluations = forecasts.map((forecast) => evaluateForecast(profile, entry, forecast, timezone, now));
+  const verdictById = new Map(evaluations.map((value) => [value.forecast.id, value.verdict]));
+  const daylight = getDaylightWindow(entry.beach.lat, entry.beach.lon, new Date(winner.window.start));
+  const refined = refineWindow({
+    coarse: { start: winner.window.start, end: winner.window.end },
+    forecasts,
+    beach: entry.beach,
+    tideSamples,
+    daylight: { sunrise: daylight.sunrise.toISOString(), sunset: daylight.sunset.toISOString() },
+    verdictAt: (forecast) => verdictById.get(forecast.id) ?? "no",
+  });
+  winner.window.drivers = refined?.drivers.filter((driver) =>
+    Math.abs(Date.parse(driver.at) - Date.parse(winner.window[driver.edge])) <= 15 * 60_000) ?? [];
+  const serving = forecastsServingWindow(forecasts, winner.window, now);
+  const evaluation = evaluations.filter((value) => value.verdict === "go" && serving.includes(value.forecast))
+    .sort((left, right) => right.score - left.score)[0];
+  if (!evaluation) return { skip: "no_in_window_row", heldReasons };
+  const peakMs = Date.parse(pick.peakTime);
+  const peak = [...forecasts].sort((left, right) =>
+    Math.abs(Date.parse(left.forecast_at) - peakMs) - Math.abs(Date.parse(right.forecast_at) - peakMs))[0];
+  if (verdictById.get(peak.id) !== "go") return { skip: "ranking_verdict_mismatch", heldReasons };
+  const decision = decisionForWindow(profile, entry, evaluation, winner.window, timezone, now);
+  if (decision.verdict !== "go") return { skip: "ranking_verdict_mismatch", heldReasons };
+  winner.sourceForecast = evaluation.forecast;
+  winner.physicalScore = evaluation.score;
+  winner.decisionId = decision.decisionId;
+  winner.sessionDecision = decision;
+
+  const clearOptions = alternatives.filter((option) => !heldReason(option.window)).slice(0, 2);
+  const homeComparison = homePool && homeWindow && !heldReason(homeWindow)
+    && !clearOptions.some((option) => option.pool.beach.id === profile.homeBeachId)
+    ? [{ pool: homePool, window: homeWindow }]
+    : [];
+  const candidates = await Promise.all([...clearOptions, ...homeComparison].map(async ({ pool, window }) => {
+    const { forecasts } = await deps.loadBeachDay({ beach: pool.beach, timezone, localDate: alertDate });
+    return candidateFromRankedWindow(pool, window, forecasts, timezone, now);
+  }));
+  const options = candidates.slice(0, clearOptions.length);
+  const home = candidates.find((candidate) => candidate.pool.beach.id === profile.homeBeachId) ?? null;
+  return { winner, options, home, heldReasons };
 }
 
 async function loadProfiles(
   supabase: SupabaseClient<Database>,
+  userIds?: readonly string[],
 ): Promise<DailyCallProfile[]> {
-  const { data, error } = await supabase
+  const query = supabase
     .from("profiles")
-    .select("id, home_beach_id, timezone, daily_call_time, notif_push_enabled, notif_forecast_alerts, experience_level, max_drive_minutes")
+    .select("id, home_beach_id, timezone, daily_call_time, notif_push_enabled, notif_forecast_alerts, experience_level, max_drive_minutes, preferred_session_time")
     .is("deleted_at", null);
+  const { data, error } = await (userIds ? query.in("id", userIds) : query);
   if (error) throw new Error(`Failed to load daily-call profiles: ${error.message}`);
   const rows = data ?? [];
-  const userIds = rows.map((row) => row.id);
+  const loadedUserIds = rows.map((row) => row.id);
   const homeBeachIds = rows.flatMap((row) => row.home_beach_id ? [row.home_beach_id] : []);
   const [locationsResult, beachesResult] = await Promise.all([
-    userIds.length === 0
+    loadedUserIds.length === 0
       ? Promise.resolve({ data: [], error: null })
       : supabase
           .from("user_location_snapshots")
-          .select("user_id, lat, lon, timezone")
-          .in("user_id", userIds),
+          .select("user_id, lat, lon, timezone, captured_at")
+          .in("user_id", loadedUserIds),
     homeBeachIds.length === 0
       ? Promise.resolve({ data: [], error: null })
       : supabase.from("beaches").select("*").in("id", homeBeachIds),
@@ -486,29 +824,53 @@ async function loadProfiles(
     notifForecastAlerts: row.notif_forecast_alerts,
     experienceLevel: row.experience_level,
     maxDriveMinutes: row.max_drive_minutes,
+    preferredSessionTime: parseSessionTime(row.preferred_session_time),
     location: locations.get(row.id) ?? null,
     homeBeach: row.home_beach_id ? beaches.get(row.home_beach_id) ?? null : null,
   }));
 }
 
+export { loadProfiles as loadDailyCallProfiles };
+
 function defaultDeps(
   supabase: SupabaseClient<Database>,
-): DailyCallDeps {
+): DailyCallDeps & DailyCallRankingDeps {
   const tideCache = new TideCache();
   return {
     isEnabled: isDailyCallEnabled,
     isUserAllowed: isDailyCallUserAllowed,
     loadProfiles,
+    // A trusted fix sets the clock too: a surfer in Philadelphia gets a 6 AM call
+    // at 6 AM Eastern, not 6 AM at their Pacific home.
     resolveTimezone: (profile) => resolveBeachTimezone(
-      profile.timezone ?? profile.homeBeach?.timezone ?? profile.location?.timezone,
+      profile.location?.timezone ?? profile.timezone ?? profile.homeBeach?.timezone,
     ),
     getSunrise: (profile, now) => {
-      const lat = profile.homeBeach?.lat ?? profile.location?.lat;
-      const lon = profile.homeBeach?.lon ?? profile.location?.lon;
+      const lat = profile.location?.lat ?? profile.homeBeach?.lat;
+      const lon = profile.location?.lon ?? profile.homeBeach?.lon;
       return lat == null || lon == null ? null : getDaylightWindow(lat, lon, now).sunrise;
     },
     loadPool: loadUserPool,
+    rankDay: rankDayWithWeekScout,
+    usesSharedRanking: (userId) => isSharedCallRankingEnabled() && isSharedCallRankingUserAllowed(userId),
+    loadBeachDay: async ({ beach, timezone, localDate }) => {
+      const { start, end, forecastStart } = beachDayRange(beach, localDate, timezone);
+      const { data, error } = await supabase
+        .from("enhanced_forecasts")
+        .select("*")
+        .eq("beach_id", beach.id)
+        .gte("forecast_at", forecastStart)
+        .lt("forecast_at", end)
+        .order("forecast_at", { ascending: true });
+      if (error) throw new Error(`Failed to load daily-call forecasts: ${error.message}`);
+      return {
+        forecasts: ((data ?? []) as EnhancedForecastEntity[])
+          .filter((row) => rowServesDay(row, Date.parse(start), Date.parse(end))),
+        tideSamples: await loadTideSamples(supabase, tideCache, beach.id, start, end),
+      };
+    },
     buildCandidates: (args) => buildCandidates(supabase, tideCache, args),
+    resolveHeldBeaches: resolveHeldPushBeaches,
     alreadySentToday: async (userId, alertDate) => {
       const { data, error } = await supabase
         .from("notification_events")
@@ -554,7 +916,7 @@ function defaultDeps(
 export async function runDailyCallCron(args: {
   now: Date;
   supabase?: SupabaseClient<Database>;
-  deps?: Partial<DailyCallDeps>;
+  deps?: Partial<DailyCallDeps & DailyCallRankingDeps>;
 }): Promise<DailyCallRunSummary> {
   const startedAt = Date.now();
   const supabase = args.supabase ?? createSupabaseServiceRoleClient();
@@ -575,7 +937,14 @@ export async function runDailyCallCron(args: {
   }
 
   const profiles = await deps.loadProfiles(supabase);
-  for (const profile of profiles) {
+  for (const loadedProfile of profiles) {
+    const { anchor, source } = resolveLocationAnchor(
+      loadedProfile.location,
+      args.now,
+      loadedProfile.homeBeach,
+      DAILY_CALL_LOCATION_FIX_MAX_AGE_HOURS,
+    );
+    const profile = { ...loadedProfile, location: source === "location" ? loadedProfile.location : null, anchorSource: source, anchor };
     summary.evaluated += 1;
     if (profile.notifPushEnabled !== true || profile.notifForecastAlerts !== true) {
       increment(summary, "disabled");
@@ -598,60 +967,116 @@ export async function runDailyCallCron(args: {
         continue;
       }
       const alertDate = getLocalDateString(args.now, timezone);
+      // Home-beach picks are for a place the surfer is not; say nothing rather than send them.
+      if (source === "home" && isAwayFromHome(loadedProfile.location, args.now, profile.homeBeach)) {
+        increment(summary, "away_from_home");
+        summary.silent += 1;
+        continue;
+      }
       if (await deps.alreadySentToday(profile.id, alertDate)) {
         increment(summary, "already_sent_today");
         continue;
       }
-      const pool = await deps.loadPool({
+      // The same skill-first cap as Home's Week Scout, so the two choose from one list.
+      const { pool } = capNearbyPool(await deps.loadPool({
         supabase,
         userId: profile.id,
         homeBeachId: profile.homeBeachId,
-        location: profile.location
-          ? { lat: profile.location.lat, lon: profile.location.lon }
-          : null,
+        location: anchor,
         maxDriveMinutes: profile.maxDriveMinutes,
-      });
+      }), { experienceLevel: profile.experienceLevel });
       if (pool.length === 0) {
         increment(summary, "no_pool");
         summary.silent += 1;
         continue;
       }
-      const built = await deps.buildCandidates({
-        profile,
-        pool,
-        timezone,
-        alertDate,
-        now: args.now,
-      });
-      if (!built.hadForecasts) {
-        increment(summary, "no_forecast");
-        summary.silent += 1;
-        continue;
+      let winner: DailyCallCandidate;
+      let options: DailyCallCandidate[];
+      let home: DailyCallCandidate | null;
+      if (deps.usesSharedRanking(profile.id)) {
+        const shared = await buildSharedCall({ profile, pool, timezone, alertDate, now: args.now }, deps);
+        for (const reason of shared.heldReasons ?? []) increment(summary, `held_${reason}`);
+        if ("skip" in shared) {
+          increment(summary, shared.skip);
+          summary.silent += 1;
+          continue;
+        }
+        ({ winner, options, home } = shared);
+      } else {
+        const built = await deps.buildCandidates({
+          profile,
+          pool,
+          timezone,
+          alertDate,
+          now: args.now,
+        });
+        if (!built.hadForecasts) {
+          increment(summary, "no_forecast");
+          summary.silent += 1;
+          continue;
+        }
+        // The push never names a beach the app withholds; that includes home in the comparison line.
+        const held = await deps.resolveHeldBeaches({
+          candidates: built.candidates.map((candidate, index) => ({
+            candidateId: `daily-call:${index}`,
+            beachId: candidate.pool.beach.id,
+            startsAt: candidate.window.start,
+            endsAt: candidate.window.end,
+          })),
+          profileExperience: profile.experienceLevel,
+          asOf: args.now,
+        });
+        const heldReason = (candidate: DailyCallCandidate): string | undefined =>
+          held.get(`daily-call:${built.candidates.indexOf(candidate)}`);
+        const ranked = rankCandidates(built.candidates, profile.homeBeachId);
+        const eligible = ranked.filter((candidate) => {
+          const closing = Date.parse(candidate.window.end) - args.now.getTime() < WINDOW_CLOSE_BUFFER_MS;
+          if (closing) {
+            increment(summary, "window_closing_within_30m");
+            return false;
+          }
+          const reason = heldReason(candidate);
+          if (reason) increment(summary, `held_${reason}`);
+          return !reason;
+        });
+        winner = eligible[0];
+        if (!winner) {
+          // Distinguishes surf the app withholds from a day with nothing surfable.
+          if (built.candidates.some((candidate) => heldReason(candidate))) {
+            increment(summary, "no_clear_window");
+          } else {
+            increment(summary, built.candidates.length === 0 && built.noInWindowRowCount > 0
+              ? "no_in_window_row" : "no_go_window");
+          }
+          summary.silent += 1;
+          continue;
+        }
+        const seenBeachIds = new Set([winner.pool.beach.id]);
+        options = [...eligible].sort((left, right) =>
+          relationRank(right, profile.homeBeachId) - relationRank(left, profile.homeBeachId)
+          || right.physicalScore - left.physicalScore
+          || right.personalFit - left.personalFit
+          || Date.parse(left.window.start) - Date.parse(right.window.start)
+          || left.pool.beach.id.localeCompare(right.pool.beach.id))
+          .filter((candidate) => {
+            if (seenBeachIds.has(candidate.pool.beach.id)) return false;
+            seenBeachIds.add(candidate.pool.beach.id);
+            return true;
+          }).slice(0, 2);
+        home = built.candidates.find((candidate) =>
+          candidate.pool.beach.id === profile.homeBeachId && !heldReason(candidate)) ?? null;
       }
-      const ranked = rankCandidates(built.candidates, profile.homeBeachId);
-      const eligible = ranked.filter((candidate) => {
-        const closing = Date.parse(candidate.window.end) - args.now.getTime() < WINDOW_CLOSE_BUFFER_MS;
-        if (closing) increment(summary, "window_closing_within_30m");
-        return !closing;
-      });
-      const winner = eligible[0];
-      if (!winner) {
-        increment(summary, "no_go_window");
-        summary.silent += 1;
-        continue;
-      }
-      const home = built.candidates.find((candidate) =>
-        candidate.pool.beach.id === profile.homeBeachId) ?? null;
       const swellEventKey = await deps.loadSwellEventKey(profile.id, alertDate);
       const recentTitleIds = await deps.loadRecentTitleIds(
         profile.id,
         new Date(args.now.getTime() - 30 * 24 * HOUR_MS),
       );
       const comparison = buildComparisonLine(winner, home);
-      const vars = titleVars(winner, profile, timezone, comparison);
+      const windowTimezone = resolveBeachTimezone(winner.pool.beach.timezone || timezone);
+      const vars = titleVars(winner, profile, windowTimezone, comparison);
       const title = deps.selectTitle({
         pool: "daily",
-        tags: titleTags(winner, profile.homeBeachId, timezone, args.now, swellEventKey),
+        tags: titleTags(winner, profile.homeBeachId, windowTimezone, args.now, swellEventKey),
         userId: profile.id,
         eventKey: alertDate,
         recentTitleIds,
@@ -664,6 +1089,7 @@ export async function runDailyCallCron(args: {
         dedupeKey: `daily_call:${profile.id}:${alertDate}`,
         payload: buildPayload({
           candidate: winner,
+          options,
           profile,
           timezone,
           alertDate,
@@ -680,6 +1106,11 @@ export async function runDailyCallCron(args: {
       } else {
         increment(summary, "enqueue_failed");
         summary.errors += 1;
+        console.error("[daily-call] enqueue failed", {
+          userId: profile.id,
+          reason: enqueueResult.reason,
+          message: enqueueResult.message,
+        });
       }
     } catch (error) {
       console.error(`[daily-call] Error processing ${profile.id}:`, error);

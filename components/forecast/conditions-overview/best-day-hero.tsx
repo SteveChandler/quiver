@@ -24,17 +24,18 @@ interface BestDayHeroProps {
   isPersonalized?: boolean;
 }
 
+/** Unknown wind has no entry on purpose: nothing is shown for it. */
 const WIND_DISPLAY: Record<
   string,
-  { label: string; color: string; icon: boolean }
+  { label: string; color: string; icon: boolean } | undefined
 > = {
   offshore: { label: "Offshore", color: "text-[#0B6B3A]", icon: true },
-  light: { label: "Light Wind", color: "text-[#0B3A75]", icon: false },
+  light: { label: "Light Wind", color: "text-[#8A5E00]", icon: false },
   onshore: { label: "Onshore", color: "text-[#C46A24]", icon: false },
 };
 
 export function BestDayHero({ bestDay, otherGoodDays, isUserSelected, isPersonalized }: BestDayHeroProps) {
-  const wind = WIND_DISPLAY[bestDay.windConditions] ?? WIND_DISPLAY.onshore;
+  const wind = WIND_DISPLAY[bestDay.windConditions];
 
   return (
     <div className="space-y-4">
@@ -43,7 +44,7 @@ export function BestDayHero({ bestDay, otherGoodDays, isUserSelected, isPersonal
           className="relative overflow-hidden rounded-[8px] border-2 border-[#11100D] bg-[#F4EBD8] p-5 shadow-[4px_4px_0_#11100D] sm:p-6"
         >
           <div className="relative flex flex-col items-center gap-6 sm:flex-row sm:items-start">
-            <div className="flex h-24 w-24 shrink-0 rotate-[-2deg] items-center justify-center rounded-full border-[3px] border-[#11100D] bg-[#0B3A75] shadow-[3px_3px_0_#11100D]">
+            <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-full border-[3px] border-[#11100D] bg-[#11100D] shadow-[3px_3px_0_#11100D]">
               <div className="text-center">
                 <div className="font-heading text-4xl font-black leading-none text-[#F4EBD8]">
                   {bestDay.score}
@@ -79,10 +80,12 @@ export function BestDayHero({ bestDay, otherGoodDays, isUserSelected, isPersonal
                   )}
                 </span>
 
-                <span className={cn("inline-flex items-center gap-1", wind.color)}>
-                  {wind.icon && <Wind className="h-4 w-4" />}
-                  {wind.label}
-                </span>
+                {wind && (
+                  <span className={cn("inline-flex items-center gap-1", wind.color)}>
+                    {wind.icon && <Wind className="h-4 w-4" />}
+                    {wind.label}
+                  </span>
+                )}
 
                 {bestDay.bestTimeSlot && (
                   <span className="inline-flex items-center gap-1">
@@ -92,13 +95,13 @@ export function BestDayHero({ bestDay, otherGoodDays, isUserSelected, isPersonal
                 )}
 
                 {bestDay.period != null && (
-                  <span className="text-[#0B3A75]">
+                  <span className="text-[#8A5E00]">
                     {bestDay.period}s period
                   </span>
                 )}
 
                 {isPersonalized && (
-                  <span className="inline-flex items-center gap-1 text-xs text-[#0B3A75]">
+                  <span className="inline-flex items-center gap-1 text-xs text-[#8A5E00]">
                     <Sparkles className="h-3 w-3" />
                     Scored for you
                   </span>
@@ -118,14 +121,14 @@ export function BestDayHero({ bestDay, otherGoodDays, isUserSelected, isPersonal
           className="grid grid-cols-2 gap-3 lg:grid-cols-4"
         >
           {otherGoodDays.slice(0, 4).map((day) => {
-            const dayWind = WIND_DISPLAY[day.windConditions] ?? WIND_DISPLAY.onshore;
+            const dayWind = WIND_DISPLAY[day.windConditions];
             return (
               <div
                 key={day.fullDate}
                 className="flex flex-col gap-2 rounded-[8px] border-2 border-[#11100D] bg-[#EFE5CF] p-4 shadow-[3px_3px_0_#11100D]"
               >
                 <div className="flex items-center gap-2">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[#11100D] bg-[#0B3A75] font-heading text-sm font-black text-[#F4EBD8]">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[#11100D] bg-[#11100D] font-heading text-sm font-black text-[#F4EBD8]">
                     {day.score}
                   </span>
                   <div className="text-sm font-black leading-tight text-[#11100D]">
@@ -135,14 +138,18 @@ export function BestDayHero({ bestDay, otherGoodDays, isUserSelected, isPersonal
 
                 <p className="text-xs font-semibold text-[#5F5646]">
                   {formatWaveRange([day.minHeight, day.maxHeight], "integer")}
-                  {" - "}
-                  <span
-                    className={cn(
-                      dayWind.color,
-                    )}
-                  >
-                    {dayWind.label}
-                  </span>
+                  {dayWind && (
+                    <>
+                      {" - "}
+                      <span
+                        className={cn(
+                          dayWind.color,
+                        )}
+                      >
+                        {dayWind.label}
+                      </span>
+                    </>
+                  )}
                 </p>
               </div>
             );

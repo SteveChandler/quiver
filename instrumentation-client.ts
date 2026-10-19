@@ -55,11 +55,6 @@ export async function register(): Promise<void> {
 
     enabled: isSentryRuntimeEnabled(),
 
-    // Replay is lazy-loaded after hydration to save ~200KB from initial bundle.
-    // Rates stay at 0 until Phase 12 project split and usage caps are verified.
-    replaysSessionSampleRate: 0,
-    replaysOnErrorSampleRate: 0,
-
     // Override environment based on actual hostname, not just NODE_ENV
     // This prevents localhost errors from polluting production error tracking
     beforeSend(event, hint) {
@@ -94,31 +89,6 @@ export async function register(): Promise<void> {
       return redactSecrets(event);
     },
 
-    // Replay is lazy-loaded below — keep integrations empty at init time
-    integrations: [],
   });
 
-  // Lazy-load Session Replay after hydration to save ~200KB from initial bundle
-  if (typeof window !== "undefined" && isSentryRuntimeEnabled()) {
-    const loadReplay = async () => {
-      try {
-        const { replayIntegration, getClient } = await import("@sentry/nextjs");
-        const client = getClient();
-        if (client) {
-          client.addIntegration(replayIntegration({
-            maskAllText: true,
-            blockAllMedia: true,
-          }));
-        }
-      } catch {
-        // Swallow replay loading errors — non-critical
-      }
-    };
-
-    if ("requestIdleCallback" in window) {
-      requestIdleCallback(() => loadReplay());
-    } else {
-      setTimeout(loadReplay, 3000);
-    }
-  }
 }

@@ -3,23 +3,7 @@
  * Tests redirect handling, OAuth flows, validation, and loop prevention
  */
 
-import {
-  setAuthRedirect,
-  getAuthRedirect,
-  clearAuthRedirect,
-  buildAuthUrl,
-  initiateOAuthFlow,
-  sendMagicLink,
-  validatePassword,
-  validateEmail,
-  validateEmailDomain,
-  TYPO_DOMAINS,
-  checkUserExists,
-  incrementRedirectAttempt,
-  clearRedirectAttempts,
-  isRedirectLoopDetected,
-  AUTH_CONSTANTS,
-} from "@/lib/auth/auth-utils";
+import { setAuthRedirect, getAuthRedirect, clearAuthRedirect, initiateOAuthFlow, sendMagicLink, validatePassword, validateEmail, validateEmailDomain, TYPO_DOMAINS, AUTH_CONSTANTS } from "@/lib/auth/auth-utils";
 
 // Mock the Supabase browser client
 jest.mock("@/lib/supabase/client", () => ({
@@ -64,7 +48,7 @@ describe("auth-utils", () => {
       value: storageMock,
       writable: true,
     });
-    
+
     // Ensure window.localStorage is also set
     if (typeof window !== 'undefined') {
       Object.defineProperty(window, 'localStorage', {
@@ -182,29 +166,6 @@ describe("auth-utils", () => {
       });
     });
 
-    describe("buildAuthUrl", () => {
-      it("should return base path when no redirect", () => {
-        const result = buildAuthUrl("/auth/sign-in");
-        expect(result).toBe("/auth/sign-in");
-      });
-
-      it("should add redirect parameter from localStorage", () => {
-        localStorageMock[AUTH_CONSTANTS.REDIRECT_STORAGE_KEY] = "/beach/123";
-        const result = buildAuthUrl("/auth/sign-in");
-        expect(result).toBe("/auth/sign-in?redirectTo=%2Fbeach%2F123");
-      });
-
-      it("should use explicit returnTo parameter", () => {
-        const result = buildAuthUrl("/auth/sign-in", "/custom/path");
-        expect(result).toBe("/auth/sign-in?redirectTo=%2Fcustom%2Fpath");
-      });
-
-      it("should prioritize explicit returnTo over localStorage", () => {
-        localStorageMock[AUTH_CONSTANTS.REDIRECT_STORAGE_KEY] = "/beach/123";
-        const result = buildAuthUrl("/auth/sign-in", "/custom/path");
-        expect(result).toBe("/auth/sign-in?redirectTo=%2Fcustom%2Fpath");
-      });
-    });
   });
 
   describe("OAuth flow", () => {
@@ -369,73 +330,8 @@ describe("auth-utils", () => {
       });
     });
 
-    describe("checkUserExists", () => {
-      it("should return false (not yet implemented)", async () => {
-        const result = await checkUserExists("test@example.com");
-        expect(result).toBe(false);
-      });
-    });
   });
 
-  describe("Loop prevention", () => {
-    describe("incrementRedirectAttempt", () => {
-      it("should start at 1 for first attempt", () => {
-        const result = incrementRedirectAttempt();
-        expect(result).toBe(1);
-        expect(setItemSpy).toHaveBeenCalledWith(
-          AUTH_CONSTANTS.REDIRECT_ATTEMPTS_KEY,
-          "1"
-        );
-      });
-
-      it("should increment existing counter", () => {
-        localStorageMock[AUTH_CONSTANTS.REDIRECT_ATTEMPTS_KEY] = "2";
-        const result = incrementRedirectAttempt();
-        expect(result).toBe(3);
-      });
-
-      it("should handle non-numeric values", () => {
-        localStorageMock[AUTH_CONSTANTS.REDIRECT_ATTEMPTS_KEY] = "invalid";
-        const result = incrementRedirectAttempt();
-        expect(result).toBe(1); // NaN converts to 0, +1 = 1
-      });
-    });
-
-    describe("clearRedirectAttempts", () => {
-      it("should remove attempts counter", () => {
-        localStorageMock[AUTH_CONSTANTS.REDIRECT_ATTEMPTS_KEY] = "3";
-        clearRedirectAttempts();
-        expect(removeItemSpy).toHaveBeenCalledWith(
-          AUTH_CONSTANTS.REDIRECT_ATTEMPTS_KEY
-        );
-      });
-    });
-
-    describe("isRedirectLoopDetected", () => {
-      it("should return false when no attempts", () => {
-        const result = isRedirectLoopDetected();
-        expect(result).toBe(false);
-      });
-
-      it("should return false below threshold", () => {
-        localStorageMock[AUTH_CONSTANTS.REDIRECT_ATTEMPTS_KEY] = "2";
-        const result = isRedirectLoopDetected();
-        expect(result).toBe(false);
-      });
-
-      it("should return true at threshold", () => {
-        localStorageMock[AUTH_CONSTANTS.REDIRECT_ATTEMPTS_KEY] = "3";
-        const result = isRedirectLoopDetected();
-        expect(result).toBe(true);
-      });
-
-      it("should return true above threshold", () => {
-        localStorageMock[AUTH_CONSTANTS.REDIRECT_ATTEMPTS_KEY] = "5";
-        const result = isRedirectLoopDetected();
-        expect(result).toBe(true);
-      });
-    });
-  });
 
   describe("AUTH_CONSTANTS", () => {
     it("should export all constants", () => {

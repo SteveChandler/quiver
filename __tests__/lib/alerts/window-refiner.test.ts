@@ -1,4 +1,5 @@
 import {
+  capToBestWindow,
   refineWindow,
   roundToFiveMinutes,
 } from "@/lib/alerts/window-refiner";
@@ -166,5 +167,57 @@ describe("roundToFiveMinutes", () => {
   it("rounds to the nearest five minutes", () => {
     expect(roundToFiveMinutes("2026-09-16T17:33:00Z"))
       .toBe("2026-09-16T17:35:00.000Z");
+  });
+});
+
+describe("capToBestWindow", () => {
+  // Sunrise 6:35 to dark 6:50 PM PDT: a run that is go all day.
+  const allDay = {
+    start: "2026-09-19T13:35:00.000Z",
+    end: "2026-09-20T01:50:00.000Z",
+    minutes: 735,
+    drivers: [
+      { kind: "daylight" as const, edge: "start" as const, at: "2026-09-19T13:35:00.000Z", approximate: false, label: "sunrise" },
+      { kind: "daylight" as const, edge: "end" as const, at: "2026-09-20T01:50:00.000Z", approximate: false, label: "sunset" },
+    ],
+  };
+
+  it("narrows a go-all-day run to the selector's best stretch and drops the skipped edge's driver", () => {
+    const capped = capToBestWindow(allDay, {
+      start: new Date("2026-09-19T15:00:00.000Z"),
+      end: new Date("2026-09-19T18:00:00.000Z"),
+    });
+
+    expect(capped).toEqual({
+      start: "2026-09-19T15:00:00.000Z",
+      end: "2026-09-19T18:00:00.000Z",
+      minutes: 180,
+      drivers: [],
+    });
+  });
+
+  it("keeps a refined edge, and its driver, that falls inside the best stretch", () => {
+    const windy = {
+      ...allDay,
+      end: "2026-09-19T17:10:00.000Z",
+      drivers: [{ kind: "wind" as const, edge: "end" as const, at: "2026-09-19T17:10:00.000Z", approximate: true, label: "onshore" }],
+    };
+
+    const capped = capToBestWindow(windy, {
+      start: new Date("2026-09-19T15:00:00.000Z"),
+      end: new Date("2026-09-19T19:00:00.000Z"),
+    });
+
+    expect(capped.start).toBe("2026-09-19T15:00:00.000Z");
+    expect(capped.end).toBe("2026-09-19T17:10:00.000Z");
+    expect(capped.drivers).toEqual(windy.drivers);
+  });
+
+  it("caps at four hours from the refined start when the selector found nothing", () => {
+    const capped = capToBestWindow(allDay, undefined);
+
+    expect(capped.start).toBe(allDay.start);
+    expect(capped.end).toBe("2026-09-19T17:35:00.000Z");
+    expect(capped.drivers).toEqual([allDay.drivers[0]]);
   });
 });

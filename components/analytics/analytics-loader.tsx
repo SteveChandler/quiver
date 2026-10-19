@@ -1,7 +1,8 @@
 "use client"
 
 import Script from 'next/script'
-import { usePathname, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
+import { useRoutePathname } from '@/hooks/use-route-pathname'
 import { useEffect, useState, useCallback } from 'react'
 import { Analytics } from '@vercel/analytics/react'
 import { SpeedInsights } from '@vercel/speed-insights/next'
@@ -28,7 +29,7 @@ const GA_ID = process.env.NEXT_PUBLIC_GA_ID
  * for understanding user acquisition and campaign effectiveness.
  */
 export function AnalyticsLoader() {
-  const pathname = usePathname()
+  const pathname = useRoutePathname()
   const searchParams = useSearchParams()
   const [gaLoaded, setGaLoaded] = useState(false)
   

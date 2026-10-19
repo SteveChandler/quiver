@@ -2,7 +2,19 @@
  * @jest-environment node
  */
 
-jest.mock("@/lib/alerts/user-pool", () => ({ loadUserPool: jest.fn() }));
+jest.mock("@/lib/alerts/user-pool", () => ({
+  ...jest.requireActual("@/lib/alerts/user-pool"),
+  loadUserPool: jest.fn(),
+}));
+// Board reads are not under test here; keep them off the recorded query fake.
+jest.mock("@/lib/alerts/entitlements", () => ({ getUserEntitlement: jest.fn(async () => "free") }));
+jest.mock("@/lib/services/discovery/surf-discovery-orchestrator", () => ({
+  fetchUserBoardContext: jest.fn(async () => ({ boardsForPicks: [] })),
+}));
+jest.mock("@/lib/cron/daily-call-runner", () => ({
+  ...jest.requireActual("@/lib/cron/daily-call-runner"),
+  loadTideSamples: jest.fn(async () => null),
+}));
 jest.mock("@/lib/recommendations/major-swell-awareness/official-advisory-adapter", () => ({
   loadOfficialSwellAdvisories: jest.fn(async () => []),
   loadNwsSwellAdvisories: jest.fn(async () => []),
@@ -76,7 +88,7 @@ const profile: SwellAlertProfile = {
   maxDriveMinutes: null,
   experienceLevel: "intermediate",
   notifPushEnabled: true,
-  notifSwellAlerts: true,
+  notifSwellAlerts: true, notifForecastAlerts: false,
 };
 
 type QueryOp = [string, unknown[]];
@@ -91,7 +103,7 @@ function cappedForecastClient(rows: EnhancedForecastEntity[], cap = 1000) {
     const ops: QueryOp[] = [];
     queries.push(ops);
     const chain: Record<string, unknown> = {};
-    for (const method of ["select", "in", "gte", "lt", "order"]) {
+    for (const method of ["select", "in", "or", "gte", "lt", "order"]) {
       chain[method] = (...args: unknown[]) => {
         ops.push([method, args]);
         return chain;
@@ -131,6 +143,7 @@ function dependencies(): Partial<SwellAlertDeps> {
     enqueue: jest.fn(async () => ({ enqueued: true as const, eventId: "event-1" })),
     markAlertEnqueued: jest.fn(async () => undefined),
     recordForecast: jest.fn(async () => ({ inserted: true })),
+    resolveHeldBeaches: jest.fn(async () => new Map()),
   };
 }
 
@@ -211,6 +224,8 @@ describe("swell alert pool evaluation with the canonical verdict", () => {
       "flat-15",
       "flat-16",
       "peak",
+      // The peak day again, for the daily call's window.
+      "peak",
     ]);
     for (const args of calls) {
       expect(args).toEqual({
@@ -270,7 +285,7 @@ describe("swell alert pool evaluation with the canonical verdict", () => {
     expect(result.sent).toBe(1);
     const payload = jest.mocked(deps.enqueue!).mock.calls[0][0].payload as { rarity: string };
     // A 70+ score alone no longer makes Sep 15 a go day; the 05:00 row is outside daylight.
-    expect(payload.rarity).toBe("Best since Sep 13");
+    expect(payload.rarity).toBe("Best in 6 days");
     expect(
       jest.mocked(evaluateForecastVerdict).mock.calls.map(([args]) => args.forecast.id),
     ).not.toContain("sep-16-predawn");
@@ -341,6 +356,7 @@ describe("swell alert forecast read under the PostgREST row cap", () => {
       expect(ops).toEqual([
         ["select", ["*"]],
         ["in", ["beach_id", [beach.id, southBeach.id]]],
+        ["or", ["data_source.is.null,data_source.neq.FALLBACK"]],
         ["gte", ["forecast_at", "2026-08-19T00:00:00.000Z"]],
         ["lt", ["forecast_at", "2026-09-28T00:00:00.000Z"]],
         ["order", ["forecast_at", { ascending: true }]],

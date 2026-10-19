@@ -146,7 +146,7 @@ describe("ConditionsOverview", () => {
       />
     );
 
-    expect(screen.getByText("No forecast data available")).toBeInTheDocument();
+    expect(screen.getByText("no data")).toBeInTheDocument();
     expect(screen.queryByTestId("best-day-hero")).not.toBeInTheDocument();
   });
 
@@ -174,7 +174,8 @@ describe("ConditionsOverview", () => {
     expect(mockEnrichDaySummaries).toHaveBeenCalledWith(
       [],
       mockForecasts,
-      undefined,
+      // The beach itself, so aspect-only beaches resolve their orientation.
+      beach,
       "America/Los_Angeles",
     );
   });

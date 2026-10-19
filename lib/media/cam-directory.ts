@@ -198,14 +198,7 @@ function selectBestCameraBeach<T extends CamDirectoryBeach>(
 export function dedupeCameraBeachesForDirectory<T extends CamDirectoryBeach>(
   beaches: T[],
 ): T[] {
-  const groups = new Map<string, T[]>();
-
-  for (const beach of beaches) {
-    const key = getCameraDirectoryKey(beach.camera_url);
-    const existing = groups.get(key) ?? [];
-    existing.push(beach);
-    groups.set(key, existing);
-  }
+  const groups = Map.groupBy(beaches, (beach) => getCameraDirectoryKey(beach.camera_url));
 
   return Array.from(groups.values(), (group) =>
     group.length === 1 ? group[0] : selectBestCameraBeach(group),

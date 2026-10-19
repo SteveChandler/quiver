@@ -1,28 +1,30 @@
 # API Middleware Developer Guide
 
-**Status:** Documentation
+**Status:** Historical reference; examples below the quick start use the removed `withProtection` wrapper.
 **Created:** 2026-01-04
-**Purpose:** Complete guide for protecting Next.js API routes with composable middleware
+**Purpose:** Historical guide for protecting Next.js API routes with composable middleware
 
 ---
 
 ## TL;DR
 
-**One location, one import, complete protection:**
+Compose the live wrappers directly. For current options and handler signatures, see `lib/middleware/api-wrappers/rate-limit-wrapper.ts` and `auth-wrapper.ts`.
 
 ```typescript
-import { withProtection } from "@/lib/middleware/api-wrappers";
+import { withAuth, withRateLimit } from "@/lib/middleware/api-wrappers";
 
-export const GET = withProtection(handler, {
-  auth: { required: true },
-  rateLimit: { key: "authenticated-default" },
-  botBlocking: { enabled: true }
+export const GET = withRateLimit(withAuth(handler), {
+  key: "authenticated-default",
 });
 ```
 
 ---
 
-## Quick Start by Goal
+## Historical examples
+
+The examples below document the former `withProtection` API and are retained for context. Do not copy them into new routes.
+
+## Quick Start by Goal (legacy)
 
 | Goal | Code |
 |------|------|

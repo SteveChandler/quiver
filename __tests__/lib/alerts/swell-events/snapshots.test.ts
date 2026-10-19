@@ -2,7 +2,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database.generated";
 import {
   SWELL_EVENT_DETECTOR_VERSION,
+  SWELL_OUTLOOK_PULSE_DETECTOR_VERSION,
   loadRecentSwellSnapshots,
+  loadRecentSwellRunDates,
   loadSwellCrossingHistory,
   resolveEventKeys,
   toSwellEventSnapshotRow,
@@ -10,6 +12,8 @@ import {
   type BeachSwellEvent,
   type SwellEventSnapshot,
 } from "@/lib/alerts/swell-events";
+
+import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 
 const BEACH = "11111111-1111-4111-8111-111111111111";
 const OTHER_BEACH = "22222222-2222-4222-8222-222222222222";
@@ -168,12 +172,56 @@ describe("snapshot store", () => {
     await expect(loadRecentSwellSnapshots(client, [BEACH], new Date())).rejects.toThrow("relation does not exist");
   });
 
+  it("loads distinct global run dates ordered by each run's latest detectedAt", async () => {
+    const { client, calls } = queryClient({ data: [
+      { run_date: "2026-10-06", detected_at: "2026-10-06T14:30:00Z" },
+      { run_date: "2026-10-07", detected_at: "2026-10-07T14:30:00Z" },
+      { run_date: "2026-10-06", detected_at: "2026-10-08T14:30:00Z" },
+      { run_date: null, detected_at: "2026-10-09T14:30:00Z" },
+      { run_date: "2026-10-09", detected_at: "invalid" },
+    ], error: null });
+    const since = new Date("2026-10-04T15:24:00Z");
+    await expect(loadRecentSwellRunDates(client, since)).resolves.toEqual(["2026-10-06", "2026-10-07"]);
+    expect(calls).toEqual(expect.arrayContaining([
+      ["select", "run_date,detected_at"],
+      ["eq", "detector_version", SWELL_EVENT_DETECTOR_VERSION],
+      ["gte", "detected_at", since.toISOString()],
+    ]));
+    expect(calls.some(([method]) => method === "in")).toBe(false);
+  });
+
+  it("reads global run dates across server-capped pages", async () => {
+    const rows = [
+      { run_date: "2026-10-08", detected_at: "2026-10-08T16:00:00Z" },
+      { run_date: "2026-10-08", detected_at: "2026-10-08T14:30:00Z" },
+      { run_date: "2026-10-07", detected_at: "2026-10-07T14:30:00Z" },
+      { run_date: "2026-10-06", detected_at: "2026-10-06T14:30:00Z" },
+    ];
+    const builder: Record<string, unknown> = {};
+    for (const method of ["select", "eq", "gte", "order"]) builder[method] = () => builder;
+    const range = jest.fn(async (offset: number) => ({ data: rows.slice(offset, offset + 2), error: null }));
+    builder.range = range;
+    const client = { from: () => builder } as unknown as SupabaseClient<Database>;
+    await expect(loadRecentSwellRunDates(client, new Date("2026-10-04T15:24:00Z")))
+      .resolves.toEqual(["2026-10-08", "2026-10-07", "2026-10-06"]);
+    expect(range.mock.calls.map(([offset]) => offset)).toEqual([0, 2, 4]);
+  });
+
+  it("returns no global runs for an empty result and throws on a failed read", async () => {
+    const empty = queryClient({ data: [], error: null });
+    await expect(loadRecentSwellRunDates(empty.client, new Date())).resolves.toEqual([]);
+    const failed = queryClient({ data: null, error: { message: "run dates unavailable" } });
+    await expect(loadRecentSwellRunDates(failed.client, new Date())).rejects.toThrow("run dates unavailable");
+  });
+
   it("upserts today's rows on (beach_id, event_key, run_date)", async () => {
     const upsert = jest.fn(async () => ({ error: null }));
     const client = { from: jest.fn(() => ({ upsert })) } as unknown as SupabaseClient<Database>;
     const row = toSwellEventSnapshotRow(event(), new Date("2026-09-25T14:30:00.000Z"));
 
     await expect(upsertSwellEventSnapshots(client, [row])).resolves.toBe(1);
+    expect(upsert).toHaveBeenCalledTimes(1);
+    expect(row.lead_days).toBe(3.19);
     expect(upsert).toHaveBeenCalledWith([row], { onConflict: "beach_id,event_key,run_date" });
     expect(row).toMatchObject({
       run_date: "2026-09-25",
@@ -219,5 +267,99 @@ describe("snapshot store", () => {
     const failing = { rpc: jest.fn(async () => ({ data: null, error: { message: "function does not exist" } })) };
     await expect(loadSwellCrossingHistory(failing as unknown as SupabaseClient<Database>, [BEACH], new Date()))
       .rejects.toThrow("function does not exist");
+  });
+});
+
+
+describe("pulse snapshot versioning", () => {
+  it("writes the pulse detector version and keeps the notable default", () => {
+    const at = new Date("2026-09-25T14:30:00.000Z");
+    expect(toSwellEventSnapshotRow(event(), at).detector_version).toBe(SWELL_EVENT_DETECTOR_VERSION);
+    expect(toSwellEventSnapshotRow(event(), at, null, SWELL_OUTLOOK_PULSE_DETECTOR_VERSION).detector_version)
+      .toBe(SWELL_OUTLOOK_PULSE_DETECTOR_VERSION);
+  });
+
+  it("reads only the requested detector version", async () => {
+    const eq = jest.fn();
+    const builder: Record<string, unknown> = {};
+    for (const method of ["select", "in", "gte", "order"]) builder[method] = () => builder;
+    builder.eq = (...args: unknown[]) => { eq(...args); return builder; };
+    builder.range = () => Promise.resolve({ data: [], error: null });
+    const client = { from: () => builder } as unknown as SupabaseClient<Database>;
+    await loadRecentSwellSnapshots(client, [BEACH], new Date(), SWELL_OUTLOOK_PULSE_DETECTOR_VERSION);
+    expect(eq).toHaveBeenCalledWith("detector_version", SWELL_OUTLOOK_PULSE_DETECTOR_VERSION);
+    eq.mockClear();
+    await loadRecentSwellSnapshots(client, [BEACH], new Date());
+    expect(eq).toHaveBeenCalledWith("detector_version", SWELL_EVENT_DETECTOR_VERSION);
+  });
+});
+
+it("records the lead in days from the run to the peak", () => {
+  const row = toSwellEventSnapshotRow(event(), new Date("2026-09-25T19:00:00.000Z"));
+  expect(row.lead_days).toBe(3);
+});
+
+it("rounds fractional lead days to two decimals, including past peaks", () => {
+  expect(toSwellEventSnapshotRow(event(), new Date("2026-09-25T14:30:00.000Z")).lead_days).toBe(3.19);
+  expect(toSwellEventSnapshotRow(event(), new Date("2026-09-29T00:00:00.000Z")).lead_days).toBe(-0.21);
+});
+
+describe("snapshot writes before the lead migration", () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it.each([
+    { code: "PGRST204", message: "Could not find the 'lead_days' column of 'swell_event_forecast_snapshots' in the schema cache" },
+    { code: "42703", message: 'column "lead_days" of relation "swell_event_forecast_snapshots" does not exist' },
+  ])("retries a $code lead_days error once for the entire batch", async (error) => {
+    const upsert = jest.fn().mockResolvedValueOnce({ error }).mockResolvedValueOnce({ error: null });
+    const client = { from: jest.fn(() => ({ upsert })) } as unknown as SupabaseClient<Database>;
+    const rows = [
+      toSwellEventSnapshotRow(event(), new Date("2026-09-25T14:30:00.000Z")),
+      toSwellEventSnapshotRow(event({ eventKey: `${BEACH}:W:2026-09-28:p` }),
+        new Date("2026-09-25T14:30:00.000Z"), null, SWELL_OUTLOOK_PULSE_DETECTOR_VERSION),
+    ];
+    const expectedRows = rows.map((row) => {
+      const withoutLead = { ...row };
+      delete withoutLead.lead_days;
+      return withoutLead;
+    });
+    const warn = jest.spyOn(console, "warn");
+
+    await expect(upsertSwellEventSnapshots(client, rows)).resolves.toBe(2);
+    expect(upsert).toHaveBeenCalledTimes(2);
+    expect(upsert).toHaveBeenNthCalledWith(1, rows, { onConflict: "beach_id,event_key,run_date" });
+    expect(upsert).toHaveBeenNthCalledWith(2, expectedRows, { onConflict: "beach_id,event_key,run_date" });
+    expect(rows.map((row) => row.lead_days)).toEqual([3.19, 3.19]);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expectConsoleWarnings([/lead_days unavailable/]);
+  });
+
+  it.each([
+    { code: "23505", message: "duplicate key violates unique constraint" },
+    { code: "PGRST204", message: "Could not find the 'exposure' column in the schema cache" },
+    { code: "42703", message: 'column "period_s" does not exist' },
+    { code: "23514", message: "lead_days violates check constraint" },
+  ])("does not retry another failure: $code / $message", async (error) => {
+    const upsert = jest.fn(async () => ({ error }));
+    const client = { from: () => ({ upsert }) } as unknown as SupabaseClient<Database>;
+    const rows = [toSwellEventSnapshotRow(event(), new Date("2026-09-25T14:30:00.000Z"))];
+    const warn = jest.spyOn(console, "warn");
+
+    await expect(upsertSwellEventSnapshots(client, rows)).rejects.toThrow(`Failed to write swell event snapshots: ${error.message}`);
+    expect(upsert).toHaveBeenCalledTimes(1);
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("surfaces the retry error without a third attempt", async () => {
+    const error = { code: "PGRST204", message: "Could not find lead_days in the schema cache" };
+    const upsert = jest.fn().mockResolvedValueOnce({ error }).mockResolvedValueOnce({ error: { message: "retry failed" } });
+    const client = { from: () => ({ upsert }) } as unknown as SupabaseClient<Database>;
+    const rows = [toSwellEventSnapshotRow(event(), new Date("2026-09-25T14:30:00.000Z"))];
+    const warn = jest.spyOn(console, "warn");
+
+    await expect(upsertSwellEventSnapshots(client, rows)).rejects.toThrow("Failed to write swell event snapshots: retry failed");
+    expect(upsert).toHaveBeenCalledTimes(2);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expectConsoleWarnings([/lead_days unavailable/]);
   });
 });

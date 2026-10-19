@@ -2,6 +2,9 @@ import { angleDifference } from "@/lib/domains/shared/angle-utils";
 
 export const SWELL_EVENT_DETECTOR_VERSION = "swell-events.v1";
 
+/** Seasonal-curve placeholder rows (fallback generator); never a forecast of the sea. */
+export const SYNTHETIC_FORECAST_DATA_SOURCE = "FALLBACK";
+
 export const SWELL_EVENT_THRESHOLDS = {
   minPeakFaceHeightFt: 3,
   minPeriodS: 11,
@@ -10,6 +13,7 @@ export const SWELL_EVENT_THRESHOLDS = {
   exposureTaperDeg: 20,
   trackDirectionDeg: 45,
   trackPeriodS: 3,
+  trackSizeRatio: 1.5,
   daylightStartHour: 6,
   daylightEndHour: 19,
   maxHorizonDays: 9,

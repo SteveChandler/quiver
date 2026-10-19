@@ -152,43 +152,6 @@ export function matchesInferredBreakType(
 }
 
 /**
- * Checks if a beach is within the user's travel radius using Haversine formula
- *
- * User location comes from preferences.location_centroid_lat/lon
- * Travel radius comes from preferences.typical_travel_radius_miles
- *
- * @param beachLat - Beach latitude
- * @param beachLon - Beach longitude
- * @param prefs - The user's implicit preferences (containing location centroid)
- * @returns True if beach is within travel radius
- */
-export function isWithinTravelRadius(
-  beachLat: number,
-  beachLon: number,
-  prefs: UserImplicitPreferences
-): boolean {
-  // Validate preferences have location data
-  if (
-    prefs.location_centroid_lat === null ||
-    prefs.location_centroid_lon === null ||
-    prefs.typical_travel_radius_miles === null
-  ) {
-    return false;
-  }
-
-  // Calculate distance using Haversine formula
-  const distance = haversineDistance(
-    beachLat,
-    beachLon,
-    prefs.location_centroid_lat,
-    prefs.location_centroid_lon
-  );
-
-  // Check if within radius
-  return distance <= prefs.typical_travel_radius_miles;
-}
-
-/**
  * Checks if a beach is in the user's top engaged beaches list
  *
  * @param beachId - The beach ID to check
@@ -260,37 +223,4 @@ export function calculateImplicitBonus(
       topEngaged: topEngagedBonus,
     },
   };
-}
-
-/**
- * Calculates the great-circle distance between two points using Haversine formula
- *
- * @param lat1 - Latitude of first point (degrees)
- * @param lon1 - Longitude of first point (degrees)
- * @param lat2 - Latitude of second point (degrees)
- * @param lon2 - Longitude of second point (degrees)
- * @returns Distance in miles
- */
-function haversineDistance(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number
-): number {
-  const R = 3958.8; // Earth's radius in miles
-
-  // Convert to radians
-  const φ1 = (lat1 * Math.PI) / 180;
-  const φ2 = (lat2 * Math.PI) / 180;
-  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
-
-  // Haversine formula
-  const a =
-    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  return R * c;
 }

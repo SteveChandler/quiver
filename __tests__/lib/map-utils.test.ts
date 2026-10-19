@@ -1,10 +1,4 @@
-import {
-  getStaticMapImageUrl,
-  getStaticMapImageUrlWithPins,
-  getStaticMapImageUrlWithWaveHeight,
-  getBeachCoordinates,
-  resolveBeachCoordinates,
-} from "@/lib/map-utils";
+import { getStaticMapImageUrl, getStaticMapImageUrlWithPins, getBeachCoordinates, resolveBeachCoordinates } from "@/lib/map-utils";
 
 // Mock environment variables
 const mockEnv = {
@@ -132,29 +126,6 @@ describe("Map Utils", () => {
     });
   });
 
-  describe("getStaticMapImageUrlWithWaveHeight", () => {
-    it("should include wave height in marker text", () => {
-      const result = getStaticMapImageUrlWithWaveHeight(32.7, -117.2, 4.5);
-      // Should return either a Google Maps URL or placeholder
-      expect(result).toMatch(
-        /maps\.googleapis\.com|data:image\/svg\+xml;base64,/
-      );
-    });
-
-    it("should handle undefined wave height", () => {
-      const result = getStaticMapImageUrlWithWaveHeight(
-        32.7,
-        -117.2,
-        undefined
-      );
-      expect(result).toEqual(expect.any(String));
-    });
-
-    it("should handle zero wave height", () => {
-      const result = getStaticMapImageUrlWithWaveHeight(32.7, -117.2, 0);
-      expect(result).toEqual(expect.any(String));
-    });
-  });
 
   describe("getBeachCoordinates", () => {
     it("should extract direct latitude/longitude properties", () => {

@@ -1,11 +1,6 @@
-export { buildCanonicalSessionDecision, candidateHasSafetyVeto } from "./engine";
-export {
-
-  parseCanonicalSessionDecision,
-} from "./contract";
+export { beachSkillVetoReason, buildCanonicalSessionDecision, candidateHasSafetyVeto } from "./engine";
 export { buildCanonicalDecisionFromSurfDiscovery } from "./discovery-adapter";
 export {
-  resolveCanonicalSessionDecision,
   resolveCanonicalSessionDecisionContext,
 } from "./service";
 export {

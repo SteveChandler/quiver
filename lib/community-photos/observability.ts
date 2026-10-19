@@ -108,6 +108,8 @@ function emitOutcome({
         ),
         rollout_eligibility: rolloutEligibility(config.surface, status),
         deployment_sha: deploymentSha(),
+        // The constant distinct id is a route metric, not a person.
+        $process_person_profile: false,
       },
     });
     void capture.catch(() => undefined);

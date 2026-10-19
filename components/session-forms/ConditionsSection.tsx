@@ -235,9 +235,8 @@ export function ConditionsSection({
                 value={numberToString(formState.waveHeight)}
                 onChange={(e) => {
                   updateField("waveHeight", stringToNumber(e.target.value));
-                  if (isRecommendationLog) {
-                    updateField("waveHeightEdited", true);
-                  }
+                  // Also marks the height as the surfer's own for forecast-truth provenance.
+                  updateField("waveHeightEdited", true);
                 }}
               />
             </div>

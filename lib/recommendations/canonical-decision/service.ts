@@ -8,6 +8,8 @@ import type {
 } from "@/types/personalization";
 import { buildCanonicalDecisionFromSurfDiscovery } from "./discovery-adapter";
 import { rankBeaches } from "@/lib/recommendations/selection";
+import { waterQualityCandidateRejection } from "@/lib/recommendations/major-event-hold/candidate-rejection";
+import type { WaterQualityHoldResolution } from "@/lib/recommendations/major-event-hold/water-quality";
 import type {
   CanonicalDecisionScope,
   CanonicalSessionDecision,
@@ -60,6 +62,7 @@ export async function resolveCanonicalSessionDecisionContext(
         candidateBeachIds.has(recommendation.beach.id),
       )
     : recommendations;
+  let waterQualityResolution: WaterQualityHoldResolution | null = null;
   const rankedDecisionRecommendations = await rankBeaches(
     decisionRecommendations.map((recommendation, index) => ({
       id: recommendation.beach.id,
@@ -68,6 +71,7 @@ export async function resolveCanonicalSessionDecisionContext(
     })),
     {
       compare: (left, right) => left.index - right.index,
+      onWaterQualityResolution: (resolution) => { waterQualityResolution = resolution; },
     },
   );
 
@@ -85,18 +89,13 @@ export async function resolveCanonicalSessionDecisionContext(
     recommendations: rankedDecisionRecommendations.map(
       ({ recommendation }) => recommendation,
     ),
+    candidateRejection: input.candidateBeachIds?.length === 1
+      ? rankedDecisionRecommendations.length === 0 && decisionRecommendations.length > 0
+        ? waterQualityCandidateRejection(waterQualityResolution, input.candidateBeachIds[0])
+          ?? { gate: 'window_selection' }
+        : discovery.candidateRejections?.[input.candidateBeachIds[0]] ?? null
+      : null,
   });
 
   return { decision, discovery };
-}
-
-export async function resolveCanonicalSessionDecision(
-  input: ResolveCanonicalSessionDecisionInput,
-  dependencies: CanonicalSessionDecisionServiceDependencies = {},
-): Promise<CanonicalSessionDecision> {
-  const { decision } = await resolveCanonicalSessionDecisionContext(
-    input,
-    dependencies,
-  );
-  return decision;
 }

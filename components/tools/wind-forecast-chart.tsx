@@ -50,7 +50,9 @@ export function WindForecastChart({
     const twentyOneHoursAhead = now + 21 * 60 * 60 * 1000;
 
     // Window: ~3h past to ~21h future, centered on now
+    // An hour without a speed is skipped, not plotted (or labelled) as calm.
     const windowed = wind.filter((pt) => {
+      if (pt.wind_speed_mph == null) return false;
       const t = new Date(pt.ts).getTime();
       return t >= threeHoursAgo && t <= twentyOneHoursAhead;
     });

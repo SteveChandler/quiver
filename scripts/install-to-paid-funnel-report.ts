@@ -2,11 +2,13 @@
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { config } from "dotenv";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { config } from "./load-env.mjs";
+import { createReadOnlySupabaseFromEnv, resolveCompleteDayWindow, type ReadOnlySupabase } from "../lib/analytics/report-guards";
 
 import {
   buildInstallToPaidRows,
+  buildInstallDimensions,
+  buildInstallToPaidAggregates,
   INSTALL_TO_PAID_SCHEMA_VERSION,
   MEANINGFUL_ACTIVITY_EVENTS,
   type FailedWebhook,
@@ -14,6 +16,7 @@ import {
   type InstallLink,
   type InstallProfile,
   type InstallToPaidRow,
+  type InstallToPaidAggregates,
   type RevenueCatLedgerEvent,
 } from "../lib/analytics/install-to-paid-funnel-v1";
 
@@ -31,9 +34,12 @@ interface CliOptions {
   start: string;
   end: string;
   asOf: string;
+  trialWindowDays: number;
   outputJson: string | null;
   outputCsv: string | null;
+  outputMd: string | null;
   ascJson: string | null;
+  window: InstallToPaidAggregates["window"];
 }
 
 interface PostHogPayload {
@@ -56,14 +62,16 @@ interface ReportEnvelope {
   schemaVersion: typeof INSTALL_TO_PAID_SCHEMA_VERSION;
   generatedAt: string;
   cohort: { start: string; end: string; asOf: string };
+  window: InstallToPaidAggregates["window"];
+  asOf: string;
+  sourceFreshness: InstallToPaidAggregates["sourceFreshness"];
   rows: InstallToPaidRow[];
+  aggregates: InstallToPaidAggregates;
   ascAggregateDownloads: {
     joinPolicy: "aggregate_only_never_person_joined";
     rows: AscAggregate[];
   };
 }
-
-type AdminClient = SupabaseClient<any, "public", any>;
 
 function requiredEnv(name: string): string {
   const value = process.env[name]?.trim();
@@ -87,29 +95,52 @@ function flagValue(argv: string[], name: string): string | null {
 }
 
 export function parseCliArgs(argv: string[], now: Date = new Date()): CliOptions {
-  const end = parseDate(flagValue(argv, "--end") ?? now.toISOString(), "--end");
-  const start = parseDate(
-    flagValue(argv, "--start") ?? new Date(Date.parse(end) - 30 * 86_400_000).toISOString(),
-    "--start",
-  );
+  const startArg = flagValue(argv, "--start");
+  const endArg = flagValue(argv, "--end");
+  const tzArg = flagValue(argv, "--tz");
+  const daysArg = flagValue(argv, "--days");
+  const days = daysArg === null ? 30 : Number(daysArg);
+  const trialWindowArg = flagValue(argv, "--trial-window-days");
+  const trialWindowDays = trialWindowArg === null ? 7 : Number(trialWindowArg);
+  if ((argv.includes("--trial-window-days") && trialWindowArg === null)
+    || !Number.isSafeInteger(trialWindowDays) || trialWindowDays < 1) {
+    throw new Error("--trial-window-days must be a positive integer");
+  }
+  const localDates = (!startArg && !endArg) || (Boolean(tzArg)
+    && (!startArg || /^\d{4}-\d{2}-\d{2}$/.test(startArg))
+    && (!endArg || /^\d{4}-\d{2}-\d{2}$/.test(endArg)));
+  const resolved = localDates ? resolveCompleteDayWindow({
+    startDate: startArg ?? undefined,
+    endDate: endArg ?? undefined,
+    days,
+    timeZone: tzArg ?? undefined,
+    now,
+  }) : null;
+  const end = resolved?.end.toISOString() ?? parseDate(endArg ?? now.toISOString(), "--end");
+  const start = resolved?.start.toISOString() ?? parseDate(
+    startArg ?? new Date(Date.parse(end) - days * 86_400_000).toISOString(), "--start");
   const asOf = parseDate(flagValue(argv, "--as-of") ?? now.toISOString(), "--as-of");
   if (Date.parse(start) >= Date.parse(end)) throw new Error("--start must be before --end");
+  const window = resolved ? {
+    startDate: resolved.startDate, endDate: resolved.endDate, start, end,
+    timeZone: resolved.timeZone,
+  } : { startDate: start.slice(0, 10), endDate: end.slice(0, 10), start, end,
+    timeZone: tzArg ?? "America/Los_Angeles" };
   return {
     start,
     end,
     asOf,
+    trialWindowDays,
     outputJson: flagValue(argv, "--output-json"),
     outputCsv: flagValue(argv, "--output-csv"),
+    outputMd: flagValue(argv, "--output-md"),
     ascJson: flagValue(argv, "--asc-json"),
+    window,
   };
 }
 
-function createAdminClient(): AdminClient {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || requiredEnv("SUPABASE_URL"),
-    requiredEnv("SUPABASE_SERVICE_ROLE_KEY"),
-    { auth: { autoRefreshToken: false, persistSession: false } },
-  );
+export function createReportClient(): ReadOnlySupabase {
+  return createReadOnlySupabaseFromEnv();
 }
 
 async function readAll<T>(fetchPage: (from: number, to: number) => PromiseLike<{
@@ -129,12 +160,26 @@ async function readAll<T>(fetchPage: (from: number, to: number) => PromiseLike<{
 function postHogEvents(): string[] {
   return [
     "native_app_first_open",
+    "native_install_attribution_joined",
     "home_viewed",
     "home_hero_forecast_viewed",
     "paywall_opened",
     "onboarding_paywall_viewed",
     ...MEANINGFUL_ACTIVITY_EVENTS,
   ].filter((value, index, all) => all.indexOf(value) === index);
+}
+
+function parsePostHogProperties(value: unknown): Record<string, unknown> | undefined {
+  let parsed = value;
+  if (typeof value === "string") {
+    try {
+      parsed = JSON.parse(value) as unknown;
+    } catch {
+      return undefined;
+    }
+  }
+  return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+    ? parsed as Record<string, unknown> : undefined;
 }
 
 export function parsePostHogRows(payload: PostHogPayload): InstallBehaviorEvent[] {
@@ -147,9 +192,7 @@ export function parsePostHogRows(payload: PostHogPayload): InstallBehaviorEvent[
       distinctId: distinctId as string,
       personId: personId as string,
       nativeInstallId: typeof nativeInstallId === "string" ? nativeInstallId : null,
-      properties: properties && typeof properties === "object" && !Array.isArray(properties)
-        ? properties as Record<string, unknown>
-        : {},
+      properties: parsePostHogProperties(properties),
     }];
   });
 }
@@ -182,7 +225,7 @@ async function queryPostHog(url: string, init: RequestInit): Promise<Response> {
   }
 }
 
-export async function fetchPostHogEvents(options: CliOptions): Promise<InstallBehaviorEvent[]> {
+export async function fetchPostHogEvents(options: Pick<CliOptions, "start" | "end" | "asOf">): Promise<InstallBehaviorEvent[]> {
   const host = (process.env.POSTHOG_HOST ?? "https://us.posthog.com").replace(/\/$/, "");
   const projectId = requiredEnv("POSTHOG_PROJECT_ID");
   const apiKey = process.env.POSTHOG_PERSONAL_API_KEY ?? requiredEnv("POSTHOG_API_KEY");
@@ -208,7 +251,8 @@ export async function fetchPostHogEvents(options: CliOptions): Promise<InstallBe
         FROM events
         WHERE timestamp >= toDateTime('${windowStart}')
           AND timestamp < toDateTime('${windowEnd}')
-          AND event IN (${eventList})
+          AND (event IN (${eventList}) OR properties.experiment = 'onboarding_monetization_v1'
+            OR notEmpty(properties.onboarding_variant))
           AND (event != 'native_app_first_open' OR timestamp < toDateTime('${options.end}'))
           ${cursorClause}
         ORDER BY timestamp ASC, uuid ASC
@@ -232,13 +276,14 @@ export async function fetchPostHogEvents(options: CliOptions): Promise<InstallBe
 }
 
 async function fetchSupabaseRows(
-  supabase: AdminClient,
+  supabase: ReadOnlySupabase,
   options: CliOptions,
 ): Promise<{
   links: InstallLink[];
   profiles: InstallProfile[];
   ledger: RevenueCatLedgerEvent[];
   dlq: FailedWebhook[];
+  userEventsLatestAt: string | null;
 }> {
   const [eventRows, profileRows, ledgerRows, dlqRows] = await Promise.all([
     readAll<any>((from, to) => supabase.from("user_events")
@@ -280,6 +325,7 @@ async function fetchSupabaseRows(
   }).filter((link, index, all) => all.findIndex((candidate) => candidate.nativeInstallId === link.nativeInstallId) === index);
   return {
     links,
+    userEventsLatestAt: eventRows.map((row) => row.created_at as string).sort().at(-1) ?? null,
     profiles: profileRows.map((row): InstallProfile => ({
       id: row.id,
       createdAt: row.created_at,
@@ -356,17 +402,56 @@ function writeOutput(path: string, content: string): void {
   writeFileSync(output, content);
 }
 
-async function main(): Promise<void> {
+const STAGE_LABELS: Array<[keyof InstallToPaidAggregates["overall"]["stages"], string]> = [
+  ["nativeInstall", "Native install"], ["signup", "Signup"], ["homeActivated", "Home activated"],
+  ["firstDecisionLoop", "First decision loop"], ["d1Return", "D1 return"],
+  ["d7Return", "D7 return"], ["paywallViewed", "Paywall viewed"],
+  ["verifiedTrial", "Verified trial"], ["d30Paid", "D30 paid"],
+];
+
+export function aggregatesToMarkdown(aggregates: InstallToPaidAggregates): string {
+  const lines = [
+    "# Install-to-paid funnel", "",
+    `Window: ${aggregates.window.startDate} to ${aggregates.window.endDate} (end exclusive, ${aggregates.window.timeZone}); as of ${aggregates.asOf}.`,
+    `Unit: native install. Known-join rate uses true / (true + false); lower bound counts unknown as no. Excluded, immature, and not applicable installs are outside both denominators. Verified trial requires a RevenueCat trial purchase within ${aggregates.maturityHours.verifiedTrial / 24} days and matures at that deadline. ASC downloads are aggregate only.`,
+    "",
+  ];
+  const addGroup = (title: string, group: InstallToPaidAggregates["overall"]): void => {
+    lines.push(`## ${title}`, "",
+      `Installs n=${group.installs}; eligible signup installs n=${group.eligibleInstalls}; joins exact n=${group.joinStatus.exact}, unknown n=${group.joinStatus.unknown}, excluded n=${group.joinStatus.excluded}.`,
+      `Excluded: ${Object.entries(group.excluded).map(([reason, n]) => `${reason} n=${n}`).join(", ") || "none n=0"}.`,
+      `Unknown joins: ${Object.entries(group.unknownJoinReason).map(([reason, n]) => `${reason} n=${n}`).join(", ") || "none n=0"}.`,
+      "", "| Stage | True n | False n | Unknown n | Immature n | Not applicable n | known-join rate | lower bound (unknown counted as no) | Unknown share |",
+      "| --- | ---: | ---: | ---: | ---: | ---: | --- | --- | --- |");
+    for (const [key, label] of STAGE_LABELS) {
+      const stage = group.stages[key];
+      const fraction = (value: { numerator: number; denominator: number; rate: number | null }): string =>
+        `n=${value.numerator}/${value.denominator} (${value.rate === null ? "n/a" : `${(value.rate * 100).toFixed(1)}%`})`;
+      lines.push(`| ${label} | ${stage.true} | ${stage.false} | ${stage.unknown} | ${stage.immature} | ${stage.notApplicable} | ${fraction(stage.rate)} | ${fraction(stage.lowerBoundRate)} | ${fraction(stage.unknownShare)} |`);
+    }
+    lines.push("");
+  };
+  addGroup("Overall", aggregates.overall);
+  for (const group of aggregates.cohortWeeks) addGroup(`Install week ${group.value}`, group);
+  for (const [name, groups] of Object.entries(aggregates.breakdowns)) {
+    for (const group of groups) addGroup(`${name}: ${group.value}`, group);
+  }
+  lines.push(`ASC downloads ${aggregates.ascDownloads.downloads === null
+    ? "not supplied" : `n=${aggregates.ascDownloads.downloads}`} (not joined to installs).`, "");
+  return lines.join("\n");
+}
+
+export async function main(): Promise<void> {
   const options = parseCliArgs(process.argv.slice(2));
   const startedAt = new Date().toISOString();
-  const supabase = createAdminClient();
+  const supabase = createReportClient();
   const [behaviorEvents, sourceRows] = await Promise.all([
     fetchPostHogEvents(options),
     fetchSupabaseRows(supabase, options),
   ]);
   const fetchedAt = new Date().toISOString();
   const ledgerLatestAt = sourceRows.ledger.map((event) => event.eventTimestamp).sort().at(-1) ?? null;
-  const rows = buildInstallToPaidRows({
+  const input = {
     asOf: options.asOf,
     behaviorEvents,
     installLinks: sourceRows.links,
@@ -378,20 +463,45 @@ async function main(): Promise<void> {
       supabaseFetchedAt: fetchedAt,
       revenuecatLedgerLatestAt: ledgerLatestAt,
     },
+  };
+  const rows = buildInstallToPaidRows(input);
+  const dimensions = buildInstallDimensions(input, rows, { trialWindowDays: options.trialWindowDays });
+  const ascAggregateDownloads = {
+    joinPolicy: "aggregate_only_never_person_joined" as const,
+    rows: readAscAggregate(options.ascJson),
+  };
+  const aggregates = buildInstallToPaidAggregates(rows, dimensions, {
+    asOf: options.asOf,
+    trialWindowDays: options.trialWindowDays,
+    revenueCatEvents: input.revenueCatEvents,
+    window: options.window,
+    sourceFreshness: {
+      ...input.sourceFreshness,
+      posthogLatestEventAt: behaviorEvents.map((event) => event.timestamp).sort().at(-1) ?? null,
+      userEventsLatestAt: sourceRows.userEventsLatestAt,
+      profilesLatestAt: sourceRows.profiles.map((profile) => profile.createdAt).sort().at(-1) ?? null,
+      failedWebhooksLatestAt: sourceRows.dlq.map((event) => event.receivedAt).sort().at(-1) ?? null,
+    },
+    ascDownloads: options.ascJson
+      ? ascAggregateDownloads.rows
+        .filter((row) => row.date >= options.window.startDate && row.date < options.window.endDate)
+        .reduce((total, row) => total + row.downloads, 0) : null,
   });
   const report: ReportEnvelope = {
     schemaVersion: INSTALL_TO_PAID_SCHEMA_VERSION,
     generatedAt: startedAt,
     cohort: { start: options.start, end: options.end, asOf: options.asOf },
+    window: options.window,
+    asOf: options.asOf,
+    sourceFreshness: aggregates.sourceFreshness,
     rows,
-    ascAggregateDownloads: {
-      joinPolicy: "aggregate_only_never_person_joined",
-      rows: readAscAggregate(options.ascJson),
-    },
+    aggregates,
+    ascAggregateDownloads,
   };
   const json = JSON.stringify(report, null, 2) + "\n";
   if (options.outputJson) writeOutput(options.outputJson, json);
   if (options.outputCsv) writeOutput(options.outputCsv, rowsToCsv(rows));
+  if (options.outputMd) writeOutput(options.outputMd, aggregatesToMarkdown(aggregates));
   if (!options.outputJson) process.stdout.write(json);
 }
 

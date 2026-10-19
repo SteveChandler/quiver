@@ -1,3 +1,4 @@
+import { getLocalDateFormatter } from "@/lib/services/discovery/window-selector/time-slot-utils";
 /**
  * Pure local-day trusted-forecast decision engine (Phase 21, MFA-04 / MFA-05).
  *
@@ -189,24 +190,12 @@ function roundFt(value: number): number {
   return Math.round(value * 10_000) / 10_000;
 }
 
-const LOCAL_DATE_FORMATTERS = new Map<string, Intl.DateTimeFormat>();
-
 /**
  * The beach's IANA local calendar date for an instant. Never derived from a
  * fixed UTC window: a spring-forward day is 23 hours and a fall-back day is 25.
  */
 export function localDateInTimeZone(instant: Date, timeZone: string): string {
-  let formatter = LOCAL_DATE_FORMATTERS.get(timeZone);
-  if (formatter === undefined) {
-    formatter = new Intl.DateTimeFormat("en-CA", {
-      timeZone,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    });
-    LOCAL_DATE_FORMATTERS.set(timeZone, formatter);
-  }
-  return formatter.format(instant);
+  return getLocalDateFormatter(timeZone).format(instant);
 }
 
 const LOCAL_HOUR_FORMATTERS = new Map<string, Intl.DateTimeFormat>();

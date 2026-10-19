@@ -1,5 +1,8 @@
 /** @jest-environment node */
 import React from 'react';
+import { readFileSync } from 'node:fs';
+import { ImageResponse } from 'next/og';
+import { SEO_CONFIG } from '@/lib/constants/seo';
 import { execFileSync } from 'node:child_process';
 import { NextRequest } from 'next/server';
 import { GET } from '@/app/api/og/beach/route';
@@ -13,7 +16,7 @@ jest.mock('next/og', () => ({
   ImageResponse: jest.fn().mockImplementation((element, options) => {
     mockElement = element;
     mockOptions = options;
-    return { headers: new Headers() };
+    return new Response(new Uint8Array(require('node:fs').readFileSync('public/og-image.png')), { headers: { 'content-type': 'image/png' } });
   }),
 }));
 const mockQuery = {
@@ -198,4 +201,26 @@ test('renders the actual PNG stream, preserving undefined style properties', asy
     maxBuffer: 4 * 1024 * 1024,
   });
   expect(await sharp(bytes).metadata()).toMatchObject({ format: 'png', width: 1200, height: 630 });
+  jest.mocked(ImageResponse).mockImplementationOnce(() => new Response(new Uint8Array(bytes)) as ImageResponse);
+  const delivered = await GET(request());
+  expect(delivered.headers.get('content-type')).toBe('image/jpeg');
+  const output = Buffer.from(await delivered.arrayBuffer());
+  expect(output.length).toBeLessThan(300000);
+  expect(await sharp(output).metadata()).toMatchObject({ format: 'jpeg', width: 1200, height: 630 });
+});
+
+
+test('serves the default OG image as a JPEG under 300 KB', async () => {
+  expect(SEO_CONFIG.openGraph.images[0].url).toBe('/og-image.jpg');
+  const bytes = readFileSync(`public${SEO_CONFIG.openGraph.images[0].url}`);
+  expect(bytes.length).toBeLessThan(300000);
+  expect(await sharp(bytes).metadata()).toMatchObject({ format: 'jpeg', width: 1200, height: 630 });
+});
+
+test.each(['coast-guard-beach', ''])('serves the beach card and fallback as JPEG under 300 KB: %s', async slug => {
+  const response = await GET(request(slug));
+  expect(response.headers.get('content-type')).toBe('image/jpeg');
+  const bytes = Buffer.from(await response.arrayBuffer());
+  expect(bytes.length).toBeLessThan(300000);
+  expect(await sharp(bytes).metadata()).toMatchObject({ format: 'jpeg', width: 1200, height: 630 });
 });

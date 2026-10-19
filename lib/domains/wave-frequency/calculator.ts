@@ -1,6 +1,6 @@
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
-import { parseWavePeriod, parseWindSpeed, getDirectionDegrees } from "@/lib/utils/number-parsing";
+import { parseWavePeriod, parseWindSpeedOrNull, getDirectionDegrees } from "@/lib/utils/number-parsing";
 import { parseWaveHeight, FLAT_HEIGHT_METERS } from "@/lib/utils/forecast-parsing";
 import {
   BREAK_TYPE_CONFIGS,
@@ -246,14 +246,14 @@ export function calculateRideableWaves(
   }
 
   // Step 6: Wind penalty
-  // wind_speed is always stored as "X mph" by forecast-builder.ts (extractWindSpeed)
+  // wind_speed is null when the source has none; this penalty-only term has no midpoint, so leave it at 1.0.
   let windPenalty = 1.0;
   const windDirDeg = getDirectionDegrees(forecast.wind_direction_deg ?? null, forecast.wind_direction);
-  const windSpeedMph = parseWindSpeed(forecast.wind_speed);
-  const windSpeedKts = windSpeedMph / 1.151;
+  const windSpeedMph = parseWindSpeedOrNull(forecast.wind_speed);
+  const windSpeedKts = windSpeedMph === null ? null : windSpeedMph / 1.151;
 
   // Task 5: Strengthen guard from !== null to != null to catch undefined as well.
-  if (windDirDeg !== null && beach.aspect_deg != null && windSpeedKts > 0) {
+  if (windDirDeg !== null && beach.aspect_deg != null && windSpeedKts !== null && windSpeedKts > 0) {
     const rad = ((windDirDeg - beach.aspect_deg) * Math.PI) / 180;
     const onshoreComponent = Math.cos(rad);
     if (onshoreComponent > 0) {

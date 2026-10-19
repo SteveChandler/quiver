@@ -1,3 +1,4 @@
+import { chunk } from "@/lib/utils/chunk";
 import { EnhancedForecastService } from "@/lib/services/enhanced-forecast-service";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { getStalenessThreshold } from "@/lib/config/forecast-staleness";
@@ -12,48 +13,13 @@ import type { EnhancedForecastEntity } from "@/types/forecast";
 /**
  * Split an array into chunks of a given size
  */
-function chunkArray<T>(array: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let i = 0; i < array.length; i += size) {
-    chunks.push(array.slice(i, i + size));
-  }
-  return chunks;
-}
+
 
 /**
  * Get singleton instance of EnhancedForecastService
  */
 function getEnhancedForecastService(): EnhancedForecastService {
   return new EnhancedForecastService();
-}
-
-/**
- * Check if forecast data is stale based on source-specific thresholds
- *
- * Different data sources update at different frequencies:
- * - CDIP (buoy data): Updates hourly → marked stale after 4 hours
- * - NOAA WaveWatch: Updates every 6 hours → marked stale after 6 hours
- * - FALLBACK data: Less critical → marked stale after 12 hours
- *
- * @param updatedAt - Timestamp when the forecast was last updated
- * @param dataSource - The forecast data source (e.g., "CDIP", "NOAA_NWS")
- * @returns true if the data is stale based on source-specific threshold
- *
- * @example
- * ```typescript
- * const isStale = isDataStale("2024-01-15T10:00:00Z", "CDIP");
- * // Returns true if more than 4 hours have passed
- * ```
- */
-function isDataStale(
-  updatedAt: string | Date,
-  dataSource?: string | null
-): boolean {
-  const threshold = getStalenessThreshold(dataSource);
-  const updatedTime = new Date(updatedAt).getTime();
-  const hoursSinceUpdate = (Date.now() - updatedTime) / (1000 * 60 * 60);
-
-  return hoursSinceUpdate > threshold;
 }
 
 /**
@@ -207,6 +173,11 @@ interface ForecastCacheMetadata {
   displayStale?: boolean;
   /** At least one contributing row has no usable source write timestamp. */
   freshnessUnknown?: boolean;
+  /**
+   * The read itself failed (database error or timeout), so nothing is known about
+   * freshness. Distinct from `missing`, which means the read succeeded and found no rows.
+   */
+  readFailed?: boolean;
 }
 
 interface ForecastCacheOptions {
@@ -379,6 +350,7 @@ export async function getFreshForecastFromCache(
         cached: false,
         stale: false,
         missing: true,
+        readFailed: true,
         reason: `Database error: ${error instanceof Error ? error.message : 'Unknown error'}`,
       },
     };
@@ -408,6 +380,8 @@ interface BatchForecastCacheResult {
  * @param beachIds - Array of beach IDs to fetch forecasts for
  * @param windowHours - Forecast window in hours (default 48)
  * @param allowStale - When true, return forecast rows for stale beaches (default false)
+ * @param signal - Cancels in-flight and not-yet-issued reads when the caller has abandoned the
+ *   request, so a timed-out request stops loading the database. Omitted: no behavior change.
  * @returns Map of beach ID to forecast result with metadata
  */
 export async function getBatchFreshForecastsFromCache(
@@ -415,6 +389,7 @@ export async function getBatchFreshForecastsFromCache(
   windowHours: number = 48,
   allowStale: boolean = false,
   requirePerRowFreshness: boolean = false,
+  signal?: AbortSignal,
 ): Promise<Map<string, BatchForecastCacheResult>> {
   const startTime = Date.now();
   const results = new Map<string, BatchForecastCacheResult>();
@@ -426,14 +401,21 @@ export async function getBatchFreshForecastsFromCache(
   try {
     const supabase = await createSupabaseServiceRoleClient();
 
+    const abortedError = { message: "Forecast read aborted by caller" };
+
     // Query 1: Get staleness metadata for all beaches in one query
     const latestRows: Array<{ beach_id: string; updated_at: string; data_source: string | null }> = [];
     let latestError: { message: string } | null = null;
-    for (const ids of chunkArray(beachIds, 500)) {
-      const { data, error } = await supabase
+    for (const ids of chunk(beachIds, 500)) {
+      if (signal?.aborted) {
+        latestError = abortedError;
+        break;
+      }
+      const latestQuery = supabase
         .from("v_enhanced_forecast_latest")
         .select("beach_id, updated_at, data_source")
         .in("beach_id", ids);
+      const { data, error } = await (signal ? latestQuery.abortSignal(signal) : latestQuery);
       if (error) {
         latestError = error;
         break;
@@ -452,6 +434,7 @@ export async function getBatchFreshForecastsFromCache(
             cached: false,
             stale: false,
             missing: true,
+            readFailed: true,
             reason: `Database error: ${latestError.message}`,
           },
         });
@@ -537,7 +520,7 @@ export async function getBatchFreshForecastsFromCache(
     // Chunk beaches to avoid Supabase PostgREST 1000-row default limit.
     // 10 beaches/chunk × ~64 rows/beach = ~640 rows, safely under 1000.
     const CHUNK_SIZE = 10;
-    const chunks = chunkArray(freshBeachIds, CHUNK_SIZE);
+    const chunks = chunk(freshBeachIds, CHUNK_SIZE);
 
     // PostgREST defaults to 1,000 rows. Seven days of hourly forecasts can
     // exceed that for even a small chunk, so every chunk is range-paged rather
@@ -548,7 +531,8 @@ export async function getBatchFreshForecastsFromCache(
     }> => {
       const chunkForecasts: EnhancedForecastEntity[] = [];
       for (let offset = 0; ; offset += FORECAST_QUERY_PAGE_SIZE) {
-        const result = await supabase
+        if (signal?.aborted) return { forecasts: chunkForecasts, error: abortedError };
+        const pageQuery = supabase
           .from("enhanced_forecasts")
           .select("*")
           .in("beach_id", chunk)
@@ -557,6 +541,7 @@ export async function getBatchFreshForecastsFromCache(
           .order("beach_id")
           .order("forecast_at", { ascending: true })
           .range(offset, offset + FORECAST_QUERY_PAGE_SIZE - 1);
+        const result = await (signal ? pageQuery.abortSignal(signal) : pageQuery);
         if (result.error) return { forecasts: chunkForecasts, error: result.error };
         const page = (result.data ?? []) as EnhancedForecastEntity[];
         chunkForecasts.push(...page);
@@ -594,6 +579,7 @@ export async function getBatchFreshForecastsFromCache(
             cached: false,
             stale: false,
             missing: true,
+            readFailed: true,
             reason: `Database error: ${forecastError.message}`,
           },
         });
@@ -713,6 +699,7 @@ export async function getBatchFreshForecastsFromCache(
           cached: false,
           stale: false,
           missing: true,
+          readFailed: true,
           reason: `Unexpected error: ${error instanceof Error ? error.message : "Unknown error"}`,
         },
       });

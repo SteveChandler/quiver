@@ -31,7 +31,8 @@ import {
   getFirstTouchPlatform,
   type FirstTouchPlatform,
 } from "@/lib/analytics/web-context";
-import { useLandingLocation } from "@/hooks/use-landing-location";
+import { useLocationSafe } from "@/context/location-context";
+import { DEFAULT_LOCATION } from "@/lib/location/ip-location";
 import { cn } from "@/lib/utils";
 
 const STATIC_MENU_ITEMS = [
@@ -73,10 +74,12 @@ const GROUPED_STATIC_ITEMS = STATIC_MENU_ITEMS.reduce(
 type NavbarPosition = "overlay" | "static";
 type NavbarNativeCtaPlacement = "navbar_primary" | "navbar_mobile_primary";
 
+// Quiet outline on the twilight bar: the page's own hero keeps the single
+// orange primary.
 const NAVBAR_CTA_CLASS =
-  "inline-flex min-h-11 items-center justify-center rounded-md border border-[#11100D]/45 bg-transparent px-4 py-2 font-mono text-xs font-bold uppercase tracking-[0.12em] text-[#11100D] transition hover:bg-[#11100D]/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0B3A75] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4EBD8]";
+  "inline-flex min-h-11 items-center justify-center rounded-full border border-[#F5EEDC]/45 bg-transparent px-4 py-2 font-mono text-xs font-bold uppercase tracking-[0.12em] text-[#F5EEDC] transition hover:bg-[#F5EEDC]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]";
 const NAVBAR_MOBILE_CTA_CLASS =
-  "inline-flex min-h-12 w-full items-center justify-center rounded-md bg-[#F78E42] px-4 text-base font-bold text-[#11100D] transition hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0B3A75]";
+  "inline-flex min-h-12 w-full items-center justify-center rounded-full bg-[#F78E42] px-4 text-base font-bold text-[#11100D] transition hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D]";
 const NAVBAR_APP_CTA_LABEL = "Get the app";
 
 function NavbarNativeCta({
@@ -127,7 +130,8 @@ export function Navbar({
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
   const [nativeCtaPlatform, setNativeCtaPlatform] =
     useState<FirstTouchPlatform>("desktop");
-  const { regionName } = useLandingLocation();
+  const locationContext = useLocationSafe();
+  const regionName = locationContext ? locationContext.location.displayName : DEFAULT_LOCATION.displayName;
 
   // Prevent hydration mismatch from Radix UI components generating different IDs
   useEffect(() => {
@@ -159,15 +163,17 @@ export function Navbar({
   }, [regionName]);
 
   const isStatic = position === "static";
+  // Native's one header: cream type on the Deep Twilight bar every app
+  // screen sits on.
   const navTextClass = isStatic
-    ? "text-[#11100D] hover:text-[#0B3A75] [text-shadow:none]"
+    ? "text-[#F5EEDC] hover:text-[#F78E42] [text-shadow:none]"
     : "text-white hover:text-white/80 [text-shadow:_0_1px_3px_rgb(0_0_0_/_40%)]";
 
   return (
     <nav
       className={
         isStatic
-          ? "relative z-50 w-full border-b border-[#11100D]/10 bg-[#F4EBD8]"
+          ? "relative z-50 w-full border-b border-[#404C92] bg-[#252D6B]"
           : "absolute top-0 left-0 right-0 z-50 w-full"
       }
     >
@@ -186,10 +192,10 @@ export function Navbar({
               />
               <span
                 className={cn(
-                  "hidden text-lg font-semibold tracking-tight sm:inline",
+                  "font-heading text-lg font-bold uppercase tracking-[0.1em]",
                   isStatic
-                    ? "text-[#11100D]"
-                    : "text-white [text-shadow:_0_1px_3px_rgb(0_0_0_/_40%)]",
+                    ? "text-[#F5EEDC]"
+                    : "text-[#F5EEDC] [text-shadow:_0_1px_3px_rgb(0_0_0_/_40%)]",
                 )}
               >
                 Quiver
@@ -325,11 +331,7 @@ export function Navbar({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className={cn(
-                      isStatic
-                        ? "text-[#11100D] hover:bg-[#11100D]/10"
-                        : "text-white hover:bg-white/10",
-                    )}
+                    className="text-[#F5EEDC] hover:bg-[#F5EEDC]/10"
                     aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
                     data-testid="mobile-menu-button"
                   >
@@ -456,11 +458,7 @@ export function Navbar({
               <Button
                 variant="ghost"
                 size="icon"
-                className={cn(
-                  isStatic
-                    ? "text-[#11100D] hover:bg-[#11100D]/10"
-                    : "text-white hover:bg-white/10",
-                )}
+                className="text-[#F5EEDC] hover:bg-[#F5EEDC]/10"
                 aria-label="Open menu"
                 data-testid="mobile-menu-button"
               >

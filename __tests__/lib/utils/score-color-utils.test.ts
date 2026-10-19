@@ -7,6 +7,7 @@ import {
   scoreLabel,
   SCORE_THRESHOLDS,
   QUALITY_CONFIG,
+  SCORE_COLOR_CLASS_SAFELIST,
 } from "@/lib/utils/score-color-utils";
 
 describe("score-color-utils", () => {
@@ -72,15 +73,45 @@ describe("score-color-utils", () => {
       expect(getScoreColorClasses(score).label).toBe(label);
     });
 
-    it("returns brand-aligned classes instead of generic green success classes", () => {
+    it.each([
+      [85, "#06765F"],
+      [75, "#06765F"],
+      [60, "#8A5E00"],
+      [45, "#8A5E00"],
+    ])("colours a %s call in native's paper ink %s", (score, ink) => {
+      const { bg, text, border } = getScoreColorClasses(score);
+
+      expect(bg).toBe(`bg-[${ink}]`);
+      expect(text).toContain(`text-[${ink}]`);
+      expect(border).toContain(ink);
+    });
+
+    it("never colours a positive call orange or success green", () => {
       const classes = Object.entries(getScoreColorClasses(85))
         .filter(([key]) => key !== "paperBadge")
         .map(([, value]) => value)
         .join(" ");
 
-      expect(classes).toContain("ocean-blue");
-      expect(classes).not.toContain("green");
-      expect(classes).not.toContain("#");
+      expect(classes).not.toContain("ocean-blue");
+      expect(classes).not.toMatch(/green|7BFF5C/i);
+    });
+
+    it("lists every class it can return in the Tailwind safelist", () => {
+      const returned = [85, 60, 45, 20].flatMap((score) => {
+        const { bg, text, border } = getScoreColorClasses(score);
+        return [bg, border, ...text.split(" ")];
+      });
+
+      for (const cls of returned) {
+        expect(SCORE_COLOR_CLASS_SAFELIST).toContain(cls);
+      }
+    });
+
+    it("sets a MEH label in full ink on a muted-ink fill", () => {
+      const { bg, text } = getScoreColorClasses(20);
+
+      expect(bg).toBe("bg-[#4A463C]");
+      expect(text).toContain("text-[#11100D]");
     });
 
     it("styles an 85 exactly like a GOOD 75 while EPIC is off", () => {

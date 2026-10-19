@@ -1,3 +1,4 @@
+import { setTimeout as sleep } from "node:timers/promises";
 /**
  * Hourly wind update cron.
  *
@@ -133,7 +134,7 @@ async function _GET(request: Request): Promise<Response> {
 
     // Brief pause between batches to be a good API citizen
     if (i + BATCH_SIZE < beaches.length) {
-      await new Promise((r) => setTimeout(r, DELAY_BETWEEN_BATCHES_MS));
+      await sleep(DELAY_BETWEEN_BATCHES_MS);
     }
   }
 

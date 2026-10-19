@@ -10,6 +10,7 @@ export type AttemptStatus =
   | "skipped_channel_disabled"
   | "skipped_dedup_collision"
   | "skipped_stale_forecast"
+  | "skipped_unengaged"
   | "failed_provider"
   | "failed_internal";
 

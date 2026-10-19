@@ -101,6 +101,10 @@ import {
   type ResolveNotificationMajorEventHoldInput,
 } from "@/lib/recommendations/major-event-hold/adapters/notification";
 import { resolveNotificationPresentationCompatibility } from "./build-compatibility";
+import {
+  resolveSwellDispatchEligibility,
+  type SwellDispatchEligibilityResolver,
+} from "@/lib/alerts/swell-outlook/dispatch-eligibility";
 
 type ServiceClient = SupabaseClient<Database>;
 type FcmMessaging = fbMessaging.Messaging | null;
@@ -113,10 +117,6 @@ const MAX_FAILED_ATTEMPTS_PER_CHANNEL = 3;
  * crashed) and may be reclaimed by another tick.
  */
 const CLAIM_STALE_AFTER_MS = 5 * 60 * 1000;
-const INVALID_TOKEN_ERROR_CODES = new Set([
-  "messaging/registration-token-not-registered",
-  "messaging/invalid-registration-token",
-]);
 
 // Statuses that mean "channel is done, do not retry".
 const TERMINAL_SKIP_STATUSES = new Set<NotificationDeliveryStatus>([
@@ -194,6 +194,7 @@ interface ProcessOptions {
   fcm?: FcmMessaging;
   /** Override the last-mile safety resolver for deterministic tests. */
   resolveMajorEventHold?: NotificationMajorEventHoldResolver;
+  resolveSwellDispatchEligibility?: SwellDispatchEligibilityResolver;
 }
 
 type NotificationMajorEventHoldResolver = (
@@ -350,6 +351,7 @@ export async function processPendingEvents(
   const fcm = opts.fcm !== undefined ? opts.fcm : getFirebaseAdminMessaging();
   const resolveMajorEventHold =
     opts.resolveMajorEventHold ?? resolveNotificationMajorEventHold;
+  const resolveSwellEligibility = opts.resolveSwellDispatchEligibility ?? resolveSwellDispatchEligibility;
   const majorEventHoldAsOf = opts.now;
 
   const summary: ProcessSummary = {
@@ -419,6 +421,7 @@ export async function processPendingEvents(
         summary,
         claimToken,
         resolveMajorEventHold,
+        resolveSwellEligibility,
         majorEventHoldAsOf,
       );
       tallyOutcome(summary, result.outcome);
@@ -495,6 +498,7 @@ async function processOne(
   summary: ProcessSummary,
   claimToken: string,
   resolveMajorEventHold: NotificationMajorEventHoldResolver,
+  resolveSwellEligibility: SwellDispatchEligibilityResolver,
   majorEventHoldAsOf: Date | undefined,
 ): Promise<ProcessOneResult> {
   if (!isKnownNotificationType(event.type)) {
@@ -589,6 +593,15 @@ async function processOne(
   );
   let surfAlertRejected = false;
   let terminalCancellationReason: string | null = null;
+  let swellEligibility: ReturnType<SwellDispatchEligibilityResolver> | undefined;
+  const getSwellEligibility = (): ReturnType<SwellDispatchEligibilityResolver> => {
+    swellEligibility ??= Promise.resolve().then(() => resolveSwellEligibility({
+      supabase, userId: event.recipient_user_id, payload: event.payload, now,
+    })).catch((): Awaited<ReturnType<SwellDispatchEligibilityResolver>> => ({
+      allowed: false, reasonCode: "revalidation_unavailable",
+    }));
+    return swellEligibility;
+  };
 
   for (const channel of def.channels) {
     const prior = attemptsByChannel.get(channel) ?? [];
@@ -621,6 +634,7 @@ async function processOne(
       summary.presentation_compatibility,
       surfAlertSlot,
       resolveMajorEventHold,
+      getSwellEligibility,
       majorEventHoldAsOf,
     );
     const { status } = decision;
@@ -774,13 +788,7 @@ function priorTerminalOutcome(
 function groupAttemptsByChannel(
   attempts: NotificationDeliveryAttemptRow[],
 ): Map<NotificationChannel, NotificationDeliveryAttemptRow[]> {
-  const m = new Map<NotificationChannel, NotificationDeliveryAttemptRow[]>();
-  for (const a of attempts) {
-    const list = m.get(a.channel) ?? [];
-    list.push(a);
-    m.set(a.channel, list);
-  }
-  return m;
+  return Map.groupBy(attempts, (attempt) => attempt.channel);
 }
 
 async function finalizeEventStatus(
@@ -855,6 +863,7 @@ async function processChannel(
   presentationCompatibility: Record<string, number>,
   surfAlertSlot: SurfAlertSlot | null,
   resolveMajorEventHold: NotificationMajorEventHoldResolver,
+  getSwellEligibility: () => ReturnType<SwellDispatchEligibilityResolver>,
   majorEventHoldAsOf: Date | undefined,
 ): Promise<ChannelDecision> {
   if (
@@ -996,6 +1005,16 @@ async function processChannel(
           return channelDecision("skipped_cooldown");
         }
       }
+    }
+  }
+
+  if (event.type === "swell_watch") {
+    const decision = await getSwellEligibility();
+    if (!decision.allowed) {
+      return channelDecision("skipped_disabled", {
+        providerResponse: { audit_code: "swell_dispatch_revalidation", reason_code: decision.reasonCode },
+        cancelEventReason: "swell_dispatch_revalidation",
+      });
     }
   }
 
@@ -1688,12 +1707,7 @@ async function loadAttemptsForEvents(
     );
   }
 
-  for (const row of data ?? []) {
-    const list = result.get(row.notification_event_id) ?? [];
-    list.push(row);
-    result.set(row.notification_event_id, list);
-  }
-  return result;
+  return Map.groupBy(data ?? [], (row) => row.notification_event_id);
 }
 
 /**

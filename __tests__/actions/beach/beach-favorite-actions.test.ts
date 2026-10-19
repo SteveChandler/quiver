@@ -1,9 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import {
-  addFavoriteBeach,
   removeFavoriteBeach,
-  getFavoriteBeaches,
-  enableFavoriteAlerts,
+  reorderFavoriteBeaches,
 } from '@/actions/beach/beach-favorite-actions';
 
 jest.mock('@/lib/supabase/server');
@@ -19,6 +17,7 @@ function makeSupabaseFake(options: {
   updateShouldFail?: boolean;
   authUserId?: string;
   favoritesRows?: any[];
+  orderedRows?: Array<{ beach_id: string | null; custom_spot_id: string | null; rank: number | null }>;
 }) {
   const insertCalls: any[] = [];
   const upsertCalls: Array<{ payload: any; options: any }> = [];
@@ -36,7 +35,7 @@ function makeSupabaseFake(options: {
   };
   const selectRankChain = {
     eq: jest.fn((_col: string, _val: any) =>
-      Promise.resolve({ data: (options.ranks || []).map((rank) => ({ rank })), error: null })
+      Promise.resolve({ data: options.orderedRows ?? (options.ranks || []).map((rank) => ({ rank })), error: null })
     ),
   };
   const selectFavoritesChain = {
@@ -111,26 +110,6 @@ describe('beach-favorite-actions', () => {
     jest.clearAllMocks();
   });
 
-  it('addFavoriteBeach inserts with next rank when not existing', async () => {
-    const { supabase, insertCalls, from } = makeSupabaseFake({ existingFavoriteId: null, ranks: [1, 3], authUserId: 'u1' });
-    mockCreate.mockResolvedValue(supabase);
-
-    const res = await addFavoriteBeach('u1', 'b1');
-    expect(res.success).toBe(true);
-    // nextRank should be max(1,3)+1 = 4
-    expect(insertCalls[0]).toEqual({ user_id: 'u1', beach_id: 'b1', rank: 4 });
-    expect(from).toHaveBeenCalledWith('favorite_beaches');
-  });
-
-  it('addFavoriteBeach no-op if already exists', async () => {
-    const { supabase, insertCalls } = makeSupabaseFake({ existingFavoriteId: 'fav-1', ranks: [1], authUserId: 'u1' });
-    mockCreate.mockResolvedValue(supabase);
-
-    const res = await addFavoriteBeach('u1', 'b1');
-    expect(res.success).toBe(true);
-    expect(insertCalls.length).toBe(0);
-  });
-
   it('removeFavoriteBeach deletes by user and beach id', async () => {
     const { supabase, deleteEqCalls } = makeSupabaseFake({ authUserId: 'u1' });
     mockCreate.mockResolvedValue(supabase);
@@ -144,143 +123,119 @@ describe('beach-favorite-actions', () => {
     ]);
   });
 
-  it('getFavoriteBeaches enforces requester matches target user', async () => {
-    const { supabase } = makeSupabaseFake({ authUserId: 'auth-id' });
-    mockCreate.mockResolvedValue(supabase);
-
-    const res = await getFavoriteBeaches('other-id');
-    expect(res.success).toBe(false);
-    expect(res.error).toMatch(/Unauthorized/i);
-  });
-
-  it('getFavoriteBeaches returns beaches array ordered', async () => {
-    const beach1 = { id: 'b1', name: 'A' };
-    const beach2 = { id: 'b2', name: 'B' };
-    const { supabase } = makeSupabaseFake({
+  it('reorders curated beaches using only their existing rank slots', async () => {
+    const { supabase, updateCalls } = makeSupabaseFake({
       authUserId: 'u1',
-      favoritesRows: [
-        { id: 'fav2', rank: 2, beach_id: 'b2', beaches: beach2 },
-        { id: 'fav1', rank: 1, beach_id: 'b1', beaches: beach1 },
+      orderedRows: [
+        { beach_id: 'b1', custom_spot_id: null, rank: 1 },
+        { beach_id: null, custom_spot_id: 's1', rank: 2 },
+        { beach_id: 'b2', custom_spot_id: null, rank: 3 },
+        { beach_id: null, custom_spot_id: 's2', rank: 4 },
+        { beach_id: 'b3', custom_spot_id: null, rank: 5 },
       ],
     });
     mockCreate.mockResolvedValue(supabase);
 
-    const res = await getFavoriteBeaches('u1');
+    const res = await reorderFavoriteBeaches(['b3', 'b1', 'b2']);
+
     expect(res.success).toBe(true);
-    expect(res.data).toEqual([beach2, beach1]);
+    expect(updateCalls).toEqual([
+      { payload: { rank: 1 }, eqCalls: [{ col: 'user_id', val: 'u1' }, { col: 'beach_id', val: 'b3' }] },
+      { payload: { rank: 3 }, eqCalls: [{ col: 'user_id', val: 'u1' }, { col: 'beach_id', val: 'b1' }] },
+      { payload: { rank: 5 }, eqCalls: [{ col: 'user_id', val: 'u1' }, { col: 'beach_id', val: 'b2' }] },
+    ]);
   });
 
-  describe('enableFavoriteAlerts', () => {
-    it('upserts favorite with alerts_enabled when beach is not yet favorited', async () => {
-      const { supabase, upsertCalls, updateCalls } = makeSupabaseFake({
-        authUserId: 'u1',
-        existingFavoriteId: null,
-        ranks: [2],
-      });
-      mockCreate.mockResolvedValue(supabase);
-
-      const res = await enableFavoriteAlerts('a0a0a0a0-b1b1-c2c2-d3d3-e4e4e4e4e4e4');
-
-      expect(res.success).toBe(true);
-      expect(res.data).toMatchObject({ alerts_enabled: true, was_already_favorited: false });
-
-      // Should have used upsert (atomic, handles race conditions)
-      expect(upsertCalls).toHaveLength(1);
-      expect(upsertCalls[0].payload).toMatchObject({
-        user_id: 'u1',
-        beach_id: 'a0a0a0a0-b1b1-c2c2-d3d3-e4e4e4e4e4e4',
-        rank: 3,
-        alerts_enabled: true,
-      });
-      expect(upsertCalls[0].options).toEqual({ onConflict: 'user_id,beach_id' });
-
-      // Should NOT have called update separately (upsert handles it)
-      expect(updateCalls).toHaveLength(0);
+  it.each([
+    { name: 'null', ranks: [null, null] },
+    { name: 'duplicate', ranks: [4, 4] },
+    { name: 'distinct non-contiguous', ranks: [4, 9] },
+  ])('rewrites $name ranks to 1..N when there are no custom spots', async ({ ranks }) => {
+    const { supabase, updateCalls } = makeSupabaseFake({
+      authUserId: 'u1',
+      orderedRows: [
+        { beach_id: 'b1', custom_spot_id: null, rank: ranks[0] },
+        { beach_id: 'b2', custom_spot_id: null, rank: ranks[1] },
+      ],
     });
+    mockCreate.mockResolvedValue(supabase);
 
-    it('skips upsert and only updates alerts when beach is already favorited', async () => {
-      const { supabase, upsertCalls, updateCalls } = makeSupabaseFake({
-        authUserId: 'u1',
-        existingFavoriteId: 'fav-42',
-        ranks: [1],
-      });
-      mockCreate.mockResolvedValue(supabase);
+    const res = await reorderFavoriteBeaches(['b2', 'b1']);
 
-      const res = await enableFavoriteAlerts('a0a0a0a0-b1b1-c2c2-d3d3-e4e4e4e4e4e4');
-
-      expect(res.success).toBe(true);
-      expect(res.data).toMatchObject({ alerts_enabled: true, was_already_favorited: true });
-
-      // No upsert should have happened
-      expect(upsertCalls).toHaveLength(0);
-
-      // Should update alerts_enabled = true
-      expect(updateCalls).toHaveLength(1);
-      expect(updateCalls[0].payload).toEqual({ alerts_enabled: true });
-    });
-
-    it('is idempotent when alerts are already enabled (returns success)', async () => {
-      const { supabase, updateCalls } = makeSupabaseFake({
-        authUserId: 'u1',
-        existingFavoriteId: 'fav-99',
-      });
-      mockCreate.mockResolvedValue(supabase);
-
-      const res = await enableFavoriteAlerts('a0a0a0a0-b1b1-c2c2-d3d3-e4e4e4e4e4e4');
-
-      expect(res.success).toBe(true);
-      expect(res.data).toMatchObject({ alerts_enabled: true });
-      expect(updateCalls).toHaveLength(1);
-    });
-
-    it('returns success: false with error message when update fails', async () => {
-      const { supabase } = makeSupabaseFake({
-        authUserId: 'u1',
-        existingFavoriteId: 'fav-1',
-        updateShouldFail: true,
-      });
-      mockCreate.mockResolvedValue(supabase);
-
-      const res = await enableFavoriteAlerts('a0a0a0a0-b1b1-c2c2-d3d3-e4e4e4e4e4e4');
-
-      expect(res.success).toBe(false);
-      expect(res.error).toBeDefined();
-      expect(typeof res.error).toBe('string');
-    });
-
-    it('returns success: false with error message when upsert fails', async () => {
-      const { supabase } = makeSupabaseFake({
-        authUserId: 'u1',
-        existingFavoriteId: null,
-        ranks: [],
-        insertShouldFail: true,
-      });
-      mockCreate.mockResolvedValue(supabase);
-
-      const res = await enableFavoriteAlerts('a0a0a0a0-b1b1-c2c2-d3d3-e4e4e4e4e4e4');
-
-      expect(res.success).toBe(false);
-      expect(res.error).toBeDefined();
-    });
-
-    it('returns success: false when user is not authenticated', async () => {
-      const { supabase } = makeSupabaseFake({ authUserId: undefined });
-      mockCreate.mockResolvedValue(supabase);
-
-      const res = await enableFavoriteAlerts('a0a0a0a0-b1b1-c2c2-d3d3-e4e4e4e4e4e4');
-
-      expect(res.success).toBe(false);
-      expect(res.error).toMatch(/not authenticated/i);
-    });
-
-    it('rejects invalid (non-UUID) beachId', async () => {
-      const { supabase } = makeSupabaseFake({ authUserId: 'u1' });
-      mockCreate.mockResolvedValue(supabase);
-
-      const res = await enableFavoriteAlerts('not-a-uuid');
-
-      expect(res.success).toBe(false);
-      expect(res.error).toMatch(/invalid beach id/i);
-    });
+    expect(res.success).toBe(true);
+    expect(updateCalls).toEqual([
+      { payload: { rank: 1 }, eqCalls: [{ col: 'user_id', val: 'u1' }, { col: 'beach_id', val: 'b2' }] },
+      { payload: { rank: 2 }, eqCalls: [{ col: 'user_id', val: 'u1' }, { col: 'beach_id', val: 'b1' }] },
+    ]);
   });
+
+  it.each([
+    { name: 'null', ranks: [null, 8, null] },
+    { name: 'duplicate', ranks: [8, 8, 9] },
+  ])('uses the lowest unused positive ranks for $name curated ranks with custom spots', async ({ ranks }) => {
+    const { supabase, updateCalls } = makeSupabaseFake({
+      authUserId: 'u1',
+      orderedRows: [
+        { beach_id: 'b1', custom_spot_id: null, rank: ranks[0] },
+        { beach_id: null, custom_spot_id: 's1', rank: 1 },
+        { beach_id: 'b2', custom_spot_id: null, rank: ranks[1] },
+        { beach_id: null, custom_spot_id: 's2', rank: 3 },
+        { beach_id: 'b3', custom_spot_id: null, rank: ranks[2] },
+        { beach_id: null, custom_spot_id: 's3', rank: null },
+      ],
+    });
+    mockCreate.mockResolvedValue(supabase);
+
+    const res = await reorderFavoriteBeaches(['b3', 'b1', 'b2']);
+
+    expect(res.success).toBe(true);
+    expect(updateCalls).toEqual([
+      { payload: { rank: 2 }, eqCalls: [{ col: 'user_id', val: 'u1' }, { col: 'beach_id', val: 'b3' }] },
+      { payload: { rank: 4 }, eqCalls: [{ col: 'user_id', val: 'u1' }, { col: 'beach_id', val: 'b1' }] },
+      { payload: { rank: 5 }, eqCalls: [{ col: 'user_id', val: 'u1' }, { col: 'beach_id', val: 'b2' }] },
+    ]);
+  });
+
+  it.each([
+    { name: 'omitted', ids: ['b1'] },
+    { name: 'duplicate', ids: ['b1', 'b1'] },
+    { name: 'foreign', ids: ['b1', 'other-user-beach'] },
+    { name: 'custom spot', ids: ['b1', 's1'] },
+  ])('rejects $name ids without writing ranks', async ({ ids }) => {
+    const { supabase, updateCalls } = makeSupabaseFake({
+      authUserId: 'u1',
+      orderedRows: [
+        { beach_id: 'b1', custom_spot_id: null, rank: 1 },
+        { beach_id: null, custom_spot_id: 's1', rank: 2 },
+        { beach_id: 'b2', custom_spot_id: null, rank: 3 },
+      ],
+    });
+    mockCreate.mockResolvedValue(supabase);
+
+    const res = await reorderFavoriteBeaches(ids);
+
+    expect(res.success).toBe(false);
+    expect(updateCalls).toHaveLength(0);
+  });
+
+  it('uses unused ranks when an existing curated rank collides with a custom spot', async () => {
+    const { supabase, updateCalls } = makeSupabaseFake({
+      authUserId: 'u1',
+      orderedRows: [
+        { beach_id: 'b1', custom_spot_id: null, rank: 1 },
+        { beach_id: null, custom_spot_id: 's1', rank: 2 },
+        { beach_id: 'b2', custom_spot_id: null, rank: 2 },
+      ],
+    });
+    mockCreate.mockResolvedValue(supabase);
+
+    const res = await reorderFavoriteBeaches(['b2', 'b1']);
+
+    expect(res.success).toBe(true);
+    expect(updateCalls).toEqual([
+      { payload: { rank: 1 }, eqCalls: [{ col: 'user_id', val: 'u1' }, { col: 'beach_id', val: 'b2' }] },
+      { payload: { rank: 3 }, eqCalls: [{ col: 'user_id', val: 'u1' }, { col: 'beach_id', val: 'b1' }] },
+    ]);
+  });
+
 });

@@ -56,13 +56,15 @@ Everything renders inside `HomeZineShell`: cream paper on the Deep Twilight stag
 
 ## The call vocabulary
 
-`getCanonicalVerdictCall(verdict, score, tense)` in `components/forecast/score-band-call.ts` is the web twin of native `decisionLabelForCandidate` + `getSurfActionPhrase`. The canonical verdict picks the band and the recommendation score picks the tier inside it, so a label can never contradict the call:
+`getCanonicalVerdictCall(verdict, score, tense, identity)` in `components/forecast/score-band-call.ts` is the web twin of native `decisionLabelForCandidate` + `getSurfActionPhrase`. The canonical verdict picks the band and the recommendation score picks the tier inside it, so a label can never contradict the call:
 
 | Verdict | Score band | Tier → phrase (now) | Upcoming |
 |---|---|---|---|
 | go | 70–100 | EPIC → "Go now!", GOOD → "Go surf!" | "Don't miss it", "Worth planning" |
-| maybe | 40–69 | FAIR → "Worth a look", RIDEABLE → "Slim pickings" | unchanged |
+| maybe | 40–69 | FAIR → "Could be fun" / "Fair shot" / "Decent shot", RIDEABLE → "Slim pickings" | unchanged |
 | no | 0–39 | MEH → "Skip it" | unchanged |
+
+FAIR rotates deterministically by beach id and surf day (11:00 UTC rollover) using `fairActionPhrase`; without identity it uses "Could be fun".
 
 `go` / `maybe` / `no` are internal verdicts; users never see them as copy. "Upcoming" means the selected window starts later than now (including tomorrow). The tier word stays sentence case in the DOM and is uppercased by CSS, so its accessible name reads "Fair".
 

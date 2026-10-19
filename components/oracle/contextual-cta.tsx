@@ -171,10 +171,10 @@ export function ContextualCTA(props: ContextualCTAProps) {
         <p
           className="mb-4"
           style={{
-            fontFamily: "var(--font-handwritten), cursive",
-            fontSize: 21,
-            lineHeight: 1.2,
-            fontWeight: 700,
+            fontFamily: "var(--font-sans), sans-serif",
+            fontSize: 17,
+            lineHeight: 1.4,
+            fontWeight: 600,
             color: INK,
             margin: "0 0 16px",
           }}
@@ -191,7 +191,7 @@ export function ContextualCTA(props: ContextualCTAProps) {
           style={{
             background: "#F78E42",
             color: "#11100D",
-            fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+            fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif",
             letterSpacing: "0.02em",
             textTransform: "uppercase",
             boxShadow: "3px 4px 0 rgba(17,16,13,0.35)",

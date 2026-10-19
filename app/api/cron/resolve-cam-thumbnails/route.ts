@@ -1,3 +1,4 @@
+import { setTimeout as sleep } from "node:timers/promises";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import {
   validateCronRequest,
@@ -101,7 +102,7 @@ async function _GET(request: Request): Promise<Response> {
         {
           job: "/api/cron/resolve-cam-thumbnails",
           unit: "thumbnails_updated",
-          expectedMin: 1,
+          expectedMin: 0,
           getProduced: (value) => value.updated ?? 0,
           legitimatelyZero: () => ({ reason: "No camera sources were missing thumbnails" }),
         },
@@ -116,6 +117,8 @@ async function _GET(request: Request): Promise<Response> {
     let updated = 0;
     let skipped = 0;
     let failed = 0;
+    let eligible = 0;
+    let scrapeMisses = 0;
 
     for (const row of rows) {
       const cameraUrl = row.camera_url!;
@@ -123,6 +126,7 @@ async function _GET(request: Request): Promise<Response> {
 
       // YouTube — derive from video ID
       thumbnailUrl = getYouTubeHqThumbnail(cameraUrl);
+      if (thumbnailUrl || isHdontapPage(cameraUrl)) eligible++;
 
       // HDOnTap portal — construct from stream param
       if (!thumbnailUrl && cameraUrl.includes("portal.hdontap.com")) {
@@ -133,12 +137,13 @@ async function _GET(request: Request): Promise<Response> {
       if (!thumbnailUrl && isHdontapPage(cameraUrl)) {
         thumbnailUrl = await resolveHdontapThumbnail(cameraUrl);
         if (!thumbnailUrl) {
+          scrapeMisses++;
           console.warn(
             `[resolve-cam-thumbnails] HDOnTap scrape failed: ${cameraUrl}`
           );
         }
         // Polite delay between scrapes
-        await new Promise((r) => setTimeout(r, 500));
+        await sleep(500);
       }
 
       if (!thumbnailUrl) {
@@ -167,6 +172,17 @@ async function _GET(request: Request): Promise<Response> {
         unit: "thumbnails_updated",
         expectedMin: 1,
         getProduced: (value) => value.updated,
+        legitimatelyZero: () => {
+          if (eligible === 0) {
+            return { reason: "No camera sources had supported thumbnail providers" };
+          }
+          // Partner pages can swap players and stop exposing a snapshot; that is a
+          // per-cam data gap, not a cron failure. Store errors still fail the run.
+          if (failed === 0 && scrapeMisses === eligible) {
+            return { reason: `${scrapeMisses} partner camera page(s) exposed no HDOnTap snapshot` };
+          }
+          return undefined;
+        },
       },
       async () => ({
         total: rows.length,

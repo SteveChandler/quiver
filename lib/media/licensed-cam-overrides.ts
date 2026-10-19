@@ -1,4 +1,4 @@
-export type LicensedCamRightsStatus = "licensed_resolve";
+type LicensedCamRightsStatus = "licensed_resolve";
 
 interface LicensedCamOverride {
   sourcePageUrl: string;

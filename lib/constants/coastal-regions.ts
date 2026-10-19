@@ -2,7 +2,7 @@
  * Coastal region configuration for location-aware surf messaging
  */
 
-export interface CoastalRegion {
+interface CoastalRegion {
   id: string;
   name: string;
   latMin: number;
@@ -115,51 +115,3 @@ export const COASTAL_REGIONS: Record<string, CoastalRegion> = {
     waterTempAvgByMonth: [62, 63, 68, 74, 80, 84, 86, 86, 84, 78, 70, 64],
   },
 };
-
-/**
- * Detect coastal region from coordinates
- * @returns Region config or null if not in a known coastal area
- */
-export function detectCoastalRegion(
-  lat: number,
-  lon: number
-): CoastalRegion | null {
-  for (const region of Object.values(COASTAL_REGIONS)) {
-    if (
-      lat >= region.latMin &&
-      lat <= region.latMax &&
-      lon >= region.lonMin &&
-      lon <= region.lonMax
-    ) {
-      return region;
-    }
-  }
-  return null;
-}
-
-/**
- * Get seasonal water temp context
- * @returns "warm for [month]", "cool for [month]", or null if typical
- */
-export function getSeasonalTempContext(
-  tempF: number,
-  region: CoastalRegion,
-  month: number // 0-11
-): string | null {
-  const avg = region.waterTempAvgByMonth[month];
-  if (avg == null) return null;
-
-  const monthNames = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December",
-  ];
-
-  const diff = tempF - avg;
-  if (diff >= 5) {
-    return `warm for ${monthNames[month]}`;
-  }
-  if (diff <= -5) {
-    return `cool for ${monthNames[month]}`;
-  }
-  return null;
-}

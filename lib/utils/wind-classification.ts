@@ -12,16 +12,6 @@ import {
   angleDifference,
 } from "@/lib/domains/shared/angle-utils";
 
-/** Exact compass directions considered offshore (east-facing, blowing seaward on west-coast beaches) */
-export const OFFSHORE_DIRECTIONS = new Set([
-  "offshore",
-  "e",
-  "ne",
-  "se",
-  "ene",
-  "ese",
-]);
-
 /** Keywords indicating light/favorable wind conditions */
 export const LIGHT_WIND_KEYWORDS = ["light", "calm", "variable", "glassy"];
 
@@ -32,7 +22,8 @@ export const WIND_SCORE = {
   ONSHORE: 0,
 } as const;
 
-export type WindClassification = "offshore" | "light" | "onshore";
+/** "unknown" means the beach has no orientation or the direction is unreadable; callers must not render a relation. */
+export type WindClassification = "offshore" | "light" | "onshore" | "unknown";
 
 /**
  * Extract the leading cardinal direction token from a raw wind string.
@@ -55,9 +46,10 @@ function parseCardinalPrefix(normalized: string): string {
  * like "E (offshore)" or "Light and Variable".
  *
  * @param rawDirection - Wind direction string (e.g., "NE", "Light and Variable")
- * @param windOffshoreDeg - Optional beach offshore direction in degrees.
- *                           When provided: uses angular difference (beach-aware).
- *                           When omitted: uses CA-centric cardinal matching (legacy).
+ * @param windOffshoreDeg - Beach offshore direction in degrees (resolve it with
+ *                           `resolveOffshoreDeg`). Without it only the direction-independent
+ *                           light keywords classify; everything else is "unknown", because east
+ *                           is offshore on the West Coast and onshore on the East Coast.
  */
 export function classifyWindDirection(
   rawDirection: string,
@@ -70,35 +62,18 @@ export function classifyWindDirection(
     return "light";
   }
 
-  // Beach-aware classification using angular difference
-  if (windOffshoreDeg != null) {
-    const cardinal = parseCardinalPrefix(normalized);
-    const windDeg = cardinal ? CARDINAL_TO_DEGREES[cardinal] : undefined;
-    if (windDeg != null) {
-      const diff = angleDifference(windDeg, windOffshoreDeg);
-      // Within 45° of offshore direction → offshore; everything else → onshore
-      // (cross-shore is conservatively treated as onshore for display purposes)
-      return diff <= 45 ? "offshore" : "onshore";
-    }
-    // Unparseable cardinal — check for explicit "offshore" keyword
-    if (normalized.includes("offshore")) return "offshore";
-    return "onshore";
+  if (windOffshoreDeg == null || !Number.isFinite(windOffshoreDeg)) return "unknown";
+
+  const cardinal = parseCardinalPrefix(normalized);
+  const windDeg = cardinal ? CARDINAL_TO_DEGREES[cardinal] : undefined;
+  if (windDeg != null) {
+    const diff = angleDifference(windDeg, windOffshoreDeg);
+    // Within 45° of offshore direction → offshore; everything else → onshore
+    // (cross-shore is conservatively treated as onshore for display purposes)
+    return diff <= 45 ? "offshore" : "onshore";
   }
-
-  // Fallback: California-centric cardinal direction matching
-  if (
-    OFFSHORE_DIRECTIONS.has(normalized) ||
-    normalized.includes("offshore")
-  ) {
-    return "offshore";
-  }
-
-  return "onshore";
-}
-
-/**
- * Get the scoring points for a wind classification.
- */
-export function getWindScore(classification: WindClassification): number {
-  return WIND_SCORE[classification.toUpperCase() as keyof typeof WIND_SCORE];
+  // Unparseable cardinal — only an explicit relation keyword is usable
+  if (normalized.includes("offshore")) return "offshore";
+  if (normalized.includes("onshore")) return "onshore";
+  return "unknown";
 }

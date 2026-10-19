@@ -1,7 +1,7 @@
 /**
  * Unit tests for Window Selector Service
  *
- * Tests the selectBestWindow, capEndTimeToTimeSlot, and scoreForecastWindow functions
+ * Tests the selectBestWindow and capEndTimeToTimeSlot functions
  * that select optimal surf windows from forecast data.
  */
 
@@ -10,7 +10,8 @@ import type { EnhancedForecastEntity } from '@/types/forecast';
 import { toForecastForScoring } from '@/lib/scoring';
 import { getConditionBoardPick } from '@/lib/scoring/board-pick';
 import { scoreWindowForSelection } from '@/lib/services/discovery/window-selector/window-scorer';
-import { getScoringEngine } from '@/lib/services/discovery/window-selector/scoring-engine-singleton';
+import { moreInformativeRejection } from '@/lib/services/discovery/window-selector/rejection-evidence';
+import { getDiscoveryScoringEngine } from '@/lib/domains/scoring';
 
 // Mock beaches
 const mockBeach: Partial<Beach> = {
@@ -75,14 +76,6 @@ function createForecast(overrides: Partial<EnhancedForecastEntity>): EnhancedFor
   } as EnhancedForecastEntity;
 }
 
-// Mock user preferences
-const mockUserPrefs = {
-  wave_min_ft: 3,
-  wave_max_ft: 6,
-  wave_period_min_s: 10,
-  wave_period_max_s: 16,
-};
-
 // Mock the timezone utility
 jest.mock('@/lib/utils/timezone-utils.server', () => ({
   getTimezoneFromCoords: jest.fn(() => 'America/Los_Angeles'),
@@ -93,121 +86,30 @@ import {
   selectBestWindow,
   selectBestWindows,
   capEndTimeToTimeSlot,
-  scoreForecastWindow,
   scoreWindowWithComposite,
   scoreWindowConditionDetails,
   scoreWindowConditionScore,
 } from '@/lib/services/discovery/window-selector';
 
-describe('scoreForecastWindow', () => {
-  it('should return base score for calm conditions without user prefs', () => {
-    const forecast = createForecast({
-      wave_height: '4',
-      wave_period: '12s',
-      wind_speed: '5',
-      tide_height: '3.5',
-    });
+describe('window rejection evidence', () => {
+  it('keeps the highest rejected score with its own threshold', () => {
+    const first = { gate: 'score_floor' as const, observed: { score: 31 }, allowed: { minimumScore: 50 } };
+    const best = { gate: 'score_floor' as const, observed: { score: 39 }, allowed: { minimumScore: 40 } };
+    const last = { gate: 'score_floor' as const, observed: { score: 35 }, allowed: { minimumScore: 50 } };
 
-    const score = scoreForecastWindow(
-      forecast,
-      mockBeach as Beach,
-      null
-    );
-
-    // Without user prefs:
-    // - Wave 4ft in 2-6 range: 20 points
-    // - Period 12s >= 12: 20 points
-    // - Wind 5mph with offshore direction <= 15mph: 20 points (with beach prefs)
-    // - Tide 3.5ft in 2-5 range: 15 points
-    expect(score).toBeGreaterThanOrEqual(60);
+    expect(moreInformativeRejection(moreInformativeRejection(moreInformativeRejection(null, first), best), last)).toEqual(best);
   });
 
-  it('should boost score for matching user wave preferences', () => {
-    const forecast = createForecast({
-      wave_height: '4',
-      wave_period: '12s',
-    });
+  it('prefers the gate furthest reached regardless of row order', () => {
+    const daylight = { gate: 'daylight' as const, observed: { count: 2 } };
+    const horizon = { gate: 'horizon' as const, observed: { hoursAhead: 32 }, allowed: { maximumHoursAhead: 24 } };
 
-    const scoreWithPrefs = scoreForecastWindow(
-      forecast,
-      mockBeach as Beach,
-      mockUserPrefs as any
-    );
-
-    const scoreWithoutPrefs = scoreForecastWindow(
-      forecast,
-      mockBeach as Beach,
-      null
-    );
-
-    // With user prefs matching: 25 points for wave height (vs 20)
-    // With user prefs matching: 20 points for period (vs 20)
-    expect(scoreWithPrefs).toBeGreaterThanOrEqual(scoreWithoutPrefs);
+    expect(moreInformativeRejection(daylight, horizon)).toEqual(daylight);
+    expect(moreInformativeRejection(horizon, daylight)).toEqual(daylight);
   });
+});
 
-  it('should penalize onshore wind (opposite of offshore)', () => {
-    // Create forecast with onshore wind (opposite of offshore)
-    const onshoreWind = createForecast({
-      wind_direction: 'SW',
-      wind_direction_deg: 225, // Opposite of NE (45)
-      wind_speed: '15',
-    });
-
-    const offshoreWind = createForecast({
-      wind_direction: 'NE',
-      wind_direction_deg: 45, // Matches offshore
-      wind_speed: '10',
-    });
-
-    const onshoreScore = scoreForecastWindow(
-      onshoreWind,
-      mockBeach as Beach,
-      null
-    );
-
-    const offshoreScore = scoreForecastWindow(
-      offshoreWind,
-      mockBeach as Beach,
-      null
-    );
-
-    expect(offshoreScore).toBeGreaterThan(onshoreScore);
-  });
-
-  it('should give default tide score when beach has no tide preferences', () => {
-    const forecast = createForecast({
-      tide_height: '3.5',
-    });
-
-    const score = scoreForecastWindow(
-      forecast,
-      mockBeachNoPrefs as Beach,
-      null
-    );
-
-    // Should still get a reasonable score with default tide points (8)
-    expect(score).toBeGreaterThan(0);
-  });
-
-  it('should handle missing forecast values gracefully', () => {
-    const forecast = createForecast({
-      wave_height: null as any,
-      wave_period: null as any,
-      wind_speed: null as any,
-      wind_direction: null,
-      tide_height: null as any,
-    });
-
-    // Should not throw
-    const score = scoreForecastWindow(
-      forecast,
-      mockBeach as Beach,
-      null
-    );
-
-    expect(typeof score).toBe('number');
-  });
-
+describe('window selection scoring', () => {
   it('should expose composite reasons separately from the native condition score', () => {
     const forecast = createForecast({
       wave_height: '2',
@@ -253,7 +155,7 @@ describe('scoreForecastWindow', () => {
 
   it('runs the composite engine once per selection score', () => {
     const forecast = createForecast({});
-    const scoreSpy = jest.spyOn(getScoringEngine(), 'score');
+    const scoreSpy = jest.spyOn(getDiscoveryScoringEngine(), 'score');
     const fullBeach = {
       ...mockBeach,
       break_type: null,
@@ -268,7 +170,7 @@ describe('scoreForecastWindow', () => {
 
   it('does not force a minimal threshold-only beach through the composite adapter', () => {
     const forecast = createForecast({});
-    const scoreSpy = jest.spyOn(getScoringEngine(), 'score');
+    const scoreSpy = jest.spyOn(getDiscoveryScoringEngine(), 'score');
 
     const details = scoreWindowConditionDetails(forecast, {
       id: 'minimal-beach',
@@ -893,14 +795,32 @@ describe('selectBestWindows', () => {
   });
 
   it('should return an empty array for no candidates', () => {
+    const onRejection = jest.fn();
     const windows = selectBestWindows({
       forecasts: [],
       beach: mockBeach as Beach,
       userPrefs: null,
       now: fixedNow,
+      onRejection,
     });
 
     expect(windows).toEqual([]);
+    expect(onRejection).toHaveBeenCalledWith({ gate: 'forecast_rows', observed: { count: 0 } });
+  });
+
+  it('uses window selection when no gate was evaluated', () => {
+    const onRejection = jest.fn();
+    const windows = selectBestWindows({
+      forecasts: [createForecast({})],
+      beach: mockBeach as Beach,
+      userPrefs: null,
+      now: fixedNow,
+      maxWindows: 0,
+      onRejection,
+    });
+
+    expect(windows).toEqual([]);
+    expect(onRejection).toHaveBeenCalledWith({ gate: 'window_selection' });
   });
 
   it('should use injected now instead of wall-clock time', () => {
@@ -3168,6 +3088,7 @@ describe('selectBestWindows fallback horizon constraint', () => {
   });
 
   it('returns no window when every daylight slot is beyond the horizon', () => {
+    const onRejection = jest.fn();
     const forecasts = [
       betterDaylightForecast('2024-01-17T18:00:00Z'), // ~61h ahead
       betterDaylightForecast('2024-01-18T18:00:00Z'), // ~85h ahead
@@ -3179,8 +3100,81 @@ describe('selectBestWindows fallback horizon constraint', () => {
       userPrefs: null,
       now: nightNow,
       horizonHours: 24,
+      onRejection,
     });
 
     expect(windows).toHaveLength(0);
+    expect(onRejection).toHaveBeenCalledWith(expect.objectContaining({ gate: 'horizon', allowed: { maximumHoursAhead: 24 } }));
+  });
+
+  it('records the daylight gate when every remaining row is overnight', () => {
+    const onRejection = jest.fn();
+    const windows = selectBestWindows({
+      forecasts: [createForecast({ forecast_at: '2024-01-15T10:00:00Z', forecast_date: '2024-01-15', forecast_time: '02:00' })],
+      beach: mockBeach as Beach,
+      userPrefs: null,
+      now: nightNow,
+      onRejection,
+    });
+
+    expect(windows).toHaveLength(0);
+    expect(onRejection).toHaveBeenCalledWith({ gate: 'daylight', observed: { count: 1 } });
+  });
+
+  it('keeps a later gate reached by an earlier row when another row ends at the horizon gate', () => {
+    const onRejection = jest.fn();
+    const forecasts = [
+      betterDaylightForecast('2024-01-15T10:00:00Z'), // 02:00 PT, within horizon but dark
+      betterDaylightForecast('2024-01-17T18:00:00Z'), // daylight beyond horizon
+    ];
+
+    const windows = selectBestWindows({
+      forecasts,
+      beach: mockBeach as Beach,
+      userPrefs: null,
+      now: nightNow,
+      horizonHours: 24,
+      onRejection,
+    });
+
+    expect(windows).toHaveLength(0);
+    expect(onRejection).toHaveBeenCalledWith({ gate: 'daylight', observed: { count: 2 } });
+  });
+});
+
+describe('selectBestWindow wind string', () => {
+  const fixedNow = new Date('2024-01-15T16:00:00Z');
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(fixedNow);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  const windOf = (overrides: Partial<EnhancedForecastEntity>): string | undefined =>
+    selectBestWindow(
+      [createForecast({ wave_height: '3', wave_period: '12s', ...overrides })],
+      mockBeach as Beach,
+      null,
+    )?.wind;
+
+  it('builds speed and direction when both exist', () => {
+    expect(windOf({ wind_speed: '12 mph', wind_direction: 'NE' })).toBe('12 mph NE');
+  });
+
+  it('keeps a plain speed when the direction is missing', () => {
+    expect(windOf({ wind_speed: '12 mph', wind_direction: null, wind_direction_deg: null })).toBe('12 mph');
+  });
+
+  it('never prints null for a missing speed and direction', () => {
+    const wind = windOf({ wind_speed: null, wind_direction: null, wind_direction_deg: null });
+    expect(wind).toBe('');
+  });
+
+  it('shows no wind at all when the speed is unknown, even with a direction', () => {
+    expect(windOf({ wind_speed: null, wind_direction: 'NE' })).toBe('');
   });
 });

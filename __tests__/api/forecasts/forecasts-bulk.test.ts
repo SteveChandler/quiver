@@ -50,6 +50,8 @@ interface ForecastsBulkResponse {
     source: "partition" | "offshore";
   }>;
   recommendationLabels: Record<string, "Worth it" | "Maybe" | "Skip" | null>;
+  safetyReasons?: Record<string, string | null>;
+  verdicts?: Record<string, "go" | "maybe" | "no" | null>;
   swellPartitions: Record<string, unknown>;
   swellPartitionTimeline: Record<string, unknown[]>;
   recommendationAvailability: {
@@ -129,7 +131,7 @@ type BeachRow = {
 let mockContextBeaches: unknown[] = [];
 let mockContextError: { message: string } | null = null;
 let mockProfileSkill: string | null = null;
-const mockContextRpc = jest.fn(async () => ({
+const mockContextRpc = jest.fn(() => queryChain({
   data: { beaches: mockContextBeaches, profile: { experience_level: mockProfileSkill }, boards: [], sun_times: [], personalization: null, water_quality: {} },
   error: mockContextError,
 }));
@@ -348,6 +350,7 @@ function queryChain<T>(result: QueryResult<T>) {
     lt: jest.fn(),
     not: jest.fn(),
     order: jest.fn(),
+    abortSignal: jest.fn().mockReturnThis(),
     then: jest.fn((onResolve: (value: QueryResult<T>) => unknown) =>
       Promise.resolve(onResolve(result)),
     ),
@@ -486,6 +489,51 @@ describe("GET /api/forecasts/bulk", () => {
     });
   });
 
+  it("names the skill gate when it vetoes a break above the surfer, keeping the condition score", async () => {
+    mockProfileSkill = "intermediate";
+    mockBulkQueries({
+      forecastRows: [forecastRow(BEACH_ONE_ID, "3.2", -1), forecastRow(BEACH_TWO_ID, "3.2", -1)],
+      beachRows: [beachRow(BEACH_ONE_ID, { skill_level: "advanced" }), beachRow(BEACH_TWO_ID)],
+    });
+
+    const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
+      searchParams: { beachIds: `${BEACH_ONE_ID},${BEACH_TWO_ID}` },
+    });
+    const result = await expectSuccessResponse<ForecastsBulkResponse>(await GET(request), 200);
+
+    expect(result.data.conditionScores).toEqual({ [BEACH_ONE_ID]: 72, [BEACH_TWO_ID]: 72 });
+    expect(result.data.recommendationLabels[BEACH_ONE_ID]).toBe("Skip");
+    expect(result.data.verdicts?.[BEACH_ONE_ID]).toBe("no");
+    expect(result.data.safetyReasons).toEqual({
+      [BEACH_ONE_ID]: "beach_skill_exceeds_user",
+      [BEACH_TWO_ID]: null,
+    });
+  });
+
+  it("withholds the safety reason with the rest of the call when holds are unresolved", async () => {
+    mockProfileSkill = "intermediate";
+    mockEvaluateMajorEventHoldCandidates.mockImplementationOnce(
+      async ({ candidates }: { candidates: HoldCandidate[] }) =>
+        candidates.map((candidate) => ({
+          candidateId: candidate.candidateId,
+          evaluation: { outcome: "explicit_none", reasonCode: "hold_state_unavailable", holdIds: [], holdEpoch: "unresolved" },
+          recommendationAvailability: { state: "none", reasonCode: "hold_state_unavailable", holdEpoch: "unresolved", resolutionAsOf: STABLE_TEST_NOW.toISOString() },
+        })),
+    );
+    mockBulkQueries({
+      forecastRows: [forecastRow(BEACH_ONE_ID, "3.2", -1)],
+      beachRows: [beachRow(BEACH_ONE_ID, { skill_level: "advanced" })],
+    });
+
+    const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
+      searchParams: { beachIds: BEACH_ONE_ID },
+    });
+    const result = await expectSuccessResponse<ForecastsBulkResponse>(await GET(request), 200);
+
+    expect(result.data.recommendationLabels).toEqual({ [BEACH_ONE_ID]: null });
+    expect(result.data.safetyReasons).toEqual({ [BEACH_ONE_ID]: null });
+  });
+
   it("uses the latest past row for map fields and keeps the future best window separately", async () => {
     const currentRow = forecastRow(BEACH_ONE_ID, "1.9", -1);
     const headlineRow = forecastRow(BEACH_ONE_ID, "3.7", 2);
@@ -587,6 +635,7 @@ describe("GET /api/forecasts/bulk", () => {
           reasonCode: "hold_state_unavailable",
           holdEpoch: "hold-state-unavailable",
         },
+        recommendationHolds: {},
       });
     }
     expect(mockSupabaseClient.from).not.toHaveBeenCalled();

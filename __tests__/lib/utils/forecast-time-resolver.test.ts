@@ -24,22 +24,135 @@ function makeForecast(
 }
 
 describe("localDateTimeToUTC", () => {
-  it("converts a Pacific Standard Time local datetime to UTC", () => {
-    // 15:00 PST (UTC-8) = 23:00 UTC — use a January date to guarantee PST, not PDT
-    const result = localDateTimeToUTC("2026-01-13", "15:00:00", "America/Los_Angeles");
-    expect(result.toISOString()).toBe("2026-01-13T23:00:00.000Z");
+  it.each([
+    // [label, date, time, tz, expected UTC]
+    ["PST winter", "2026-01-13", "15:00:00", "America/Los_Angeles", "2026-01-13T23:00:00.000Z"],
+    ["PDT summer", "2026-03-13", "08:00:00", "America/Los_Angeles", "2026-03-13T15:00:00.000Z"],
+    ["Honolulu has no DST", "2026-03-13", "10:00:00", "Pacific/Honolulu", "2026-03-13T20:00:00.000Z"],
+    ["LA fall-back day dawn bound is PST", "2026-11-01", "05:00:00", "America/Los_Angeles", "2026-11-01T13:00:00.000Z"],
+    ["LA fall-back day dusk bound is PST", "2026-11-01", "20:00:00", "America/Los_Angeles", "2026-11-02T04:00:00.000Z"],
+    ["LA fall-back day midnight is still PDT", "2026-11-01", "00:00:00", "America/Los_Angeles", "2026-11-01T07:00:00.000Z"],
+    ["LA fall-back ambiguous 01:30 takes the first (PDT) occurrence", "2026-11-01", "01:30:00", "America/Los_Angeles", "2026-11-01T08:30:00.000Z"],
+    ["LA spring-forward day 01:30 is still PST", "2026-03-08", "01:30:00", "America/Los_Angeles", "2026-03-08T09:30:00.000Z"],
+    ["LA spring-forward day 05:00 is PDT", "2026-03-08", "05:00:00", "America/Los_Angeles", "2026-03-08T12:00:00.000Z"],
+    ["LA 2027 spring-forward day 05:00 is PDT, not 13:00Z", "2027-03-14", "05:00:00", "America/Los_Angeles", "2027-03-14T12:00:00.000Z"],
+    ["LA missing 02:30 lands after the gap", "2026-03-08", "02:30:00", "America/Los_Angeles", "2026-03-08T10:30:00.000Z"],
+    ["Honolulu unchanged on the LA fall-back day", "2026-11-01", "05:00:00", "Pacific/Honolulu", "2026-11-01T15:00:00.000Z"],
+    ["Honolulu unchanged on the LA 2027 spring-forward day", "2027-03-14", "05:00:00", "Pacific/Honolulu", "2027-03-14T15:00:00.000Z"],
+    ["Sydney spring-forward day dawn is AEDT", "2026-10-04", "05:00:00", "Australia/Sydney", "2026-10-03T18:00:00.000Z"],
+    ["Sydney spring-forward day 01:00 is still AEST", "2026-10-04", "01:00:00", "Australia/Sydney", "2026-10-03T15:00:00.000Z"],
+    ["Sydney missing 02:30 lands after the gap", "2026-10-04", "02:30:00", "Australia/Sydney", "2026-10-03T16:30:00.000Z"],
+    ["Sydney fall-back day dawn is AEST", "2027-04-04", "05:00:00", "Australia/Sydney", "2027-04-03T19:00:00.000Z"],
+    ["Sydney ambiguous 02:30 takes the first (AEDT) occurrence", "2027-04-04", "02:30:00", "Australia/Sydney", "2027-04-03T15:30:00.000Z"],
+  ])("%s", (_label, date, time, tz, expected) => {
+    expect(localDateTimeToUTC(date, time, tz).toISOString()).toBe(expected);
   });
 
-  it("converts a Pacific Daylight Time local datetime to UTC", () => {
-    // 08:00 PDT (UTC-7) = 15:00 UTC  (DST active in March 2026)
-    const result = localDateTimeToUTC("2026-03-13", "08:00:00", "America/Los_Angeles");
-    expect(result.toISOString()).toBe("2026-03-13T15:00:00.000Z");
+  it("returns an invalid Date for an unparseable local time", () => {
+    expect(Number.isNaN(localDateTimeToUTC("2026-13-45", "05:00:00", "America/Los_Angeles").getTime())).toBe(true);
+  });
+});
+
+/**
+ * Independent oracle: scan the surrounding day for the first instant whose
+ * wall clock in `tz` reads the requested local time, so it shares no offset
+ * arithmetic with the implementation. Returns null for a wall time that does
+ * not exist (spring-forward gap).
+ */
+const oracleFormatters = new Map<string, Intl.DateTimeFormat>();
+function oracleLocalDateTimeToUTC(dateStr: string, timeStr: string, tz: string): number | null {
+  let formatter = oracleFormatters.get(tz);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone: tz, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", second: "2-digit",
+    });
+    oracleFormatters.set(tz, formatter);
+  }
+  const target = `${dateStr} ${timeStr}`;
+  const center = Date.parse(`${dateStr}T${timeStr}Z`);
+  for (let offset = -16 * 3_600_000; offset <= 16 * 3_600_000; offset += 900_000) {
+    const instant = center + offset;
+    const wall = formatter.format(new Date(instant)).replace(",", "");
+    if (wall === target) return instant;
+  }
+  return null;
+}
+
+const PARITY_ZONES = [
+  "America/Los_Angeles",
+  "Pacific/Honolulu",
+  "America/Puerto_Rico",
+  "America/New_York",
+  "Australia/Sydney",
+  "UTC",
+] as const;
+
+describe("localDateTimeToUTC against an independent oracle", () => {
+  it("matches the first matching instant for every light bound across 2026-2027 in each zone", () => {
+    for (const tz of PARITY_ZONES) {
+      for (let day = 0; day < 730; day += 1) {
+        const date = new Date(Date.UTC(2026, 0, 1 + day)).toISOString().slice(0, 10);
+        for (const time of ["05:00:00", "06:00:00", "18:00:00", "20:00:00"]) {
+          const expected = oracleLocalDateTimeToUTC(date, time, tz);
+          if (expected === null) continue;
+          expect(`${tz} ${date} ${time} ${localDateTimeToUTC(date, time, tz).toISOString()}`).toBe(
+            `${tz} ${date} ${time} ${new Date(expected).toISOString()}`,
+          );
+        }
+      }
+    }
   });
 
-  it("converts a Hawaii time local datetime to UTC", () => {
-    // 10:00 HST (UTC-10) = 20:00 UTC
-    const result = localDateTimeToUTC("2026-03-13", "10:00:00", "Pacific/Honolulu");
-    expect(result.toISOString()).toBe("2026-03-13T20:00:00.000Z");
+  it.each([
+    ["2026-03-08", "01:00:00"],
+    ["2026-03-08", "01:59:00"],
+    ["2026-03-08", "03:00:00"],
+    ["2026-11-01", "00:00:00"],
+    ["2026-11-01", "01:00:00"],
+    ["2026-11-01", "01:30:00"],
+    ["2026-11-01", "02:00:00"],
+  ])("matches the oracle at the LA DST edge %s %s, on first and repeat calls", (date, time) => {
+    const expected = oracleLocalDateTimeToUTC(date, time, "America/Los_Angeles");
+    expect(expected).not.toBeNull();
+    expect(localDateTimeToUTC(date, time, "America/Los_Angeles").getTime()).toBe(expected);
+    expect(localDateTimeToUTC(date, time, "America/Los_Angeles").getTime()).toBe(expected);
+  });
+
+  it("does not recompute an instant it already resolved", () => {
+    localDateTimeToUTC("2031-05-05", "06:00:00", "America/Los_Angeles");
+    const spy = jest.spyOn(Intl.DateTimeFormat.prototype, "formatToParts");
+    try {
+      localDateTimeToUTC("2031-05-05", "06:00:00", "America/Los_Angeles");
+      expect(spy).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("hands out a fresh Date each call so a caller's mutation cannot leak into the next", () => {
+    const first = localDateTimeToUTC("2031-06-06", "18:00:00", "America/Los_Angeles");
+    const original = first.getTime();
+    first.setUTCFullYear(1999);
+    expect(localDateTimeToUTC("2031-06-06", "18:00:00", "America/Los_Angeles").getTime()).toBe(original);
+  });
+
+  it("keeps throwing for an invalid timezone instead of caching a result", () => {
+    expect(() => localDateTimeToUTC("2026-01-13", "15:00:00", "Not/AZone")).toThrow(RangeError);
+    expect(() => localDateTimeToUTC("2026-01-13", "15:00:00", "Not/AZone")).toThrow(RangeError);
+  });
+
+  it("stays correct after the cache fills and is cleared", () => {
+    const dates: string[] = [];
+    for (let day = 0; day < 5100; day += 1) {
+      dates.push(new Date(Date.UTC(2000, 0, 1 + day)).toISOString().slice(0, 10));
+    }
+    for (const date of dates) localDateTimeToUTC(date, "06:00:00", "America/Los_Angeles");
+    for (const date of [dates[0], dates[2500], dates[5099]]) {
+      expect(localDateTimeToUTC(date, "06:00:00", "America/Los_Angeles").getTime()).toBe(
+        oracleLocalDateTimeToUTC(date, "06:00:00", "America/Los_Angeles"),
+      );
+    }
   });
 });
 
@@ -217,5 +330,48 @@ describe("resolveForecastTime", () => {
       const result = resolveForecastTime(forecast, "America/Los_Angeles");
       expect(result.toISOString()).toBe("2026-03-13T15:00:00.000Z");
     });
+  });
+});
+
+describe("resolveForecastTime parity with uncached formatting", () => {
+  function referenceResolve(forecast: EnhancedForecastEntity, tz: string): Date | null {
+    const at = new Date(forecast.forecast_at);
+    const forecastHour = parseInt(String(forecast.forecast_time).split(":")[0], 10);
+    const localHour = parseInt(
+      new Intl.DateTimeFormat("en-US", { hour: "numeric", hour12: false, timeZone: tz }).format(at),
+      10,
+    );
+    if (localHour === forecastHour || at.getUTCHours() === forecastHour) return at;
+    const instant = oracleLocalDateTimeToUTC(String(forecast.forecast_date), String(forecast.forecast_time), tz);
+    return instant === null ? null : new Date(instant);
+  }
+
+  it("resolves proper-UTC, UTC-hour and local-as-UTC rows across the March DST change", () => {
+    for (const tz of PARITY_ZONES) {
+      for (let hour = 0; hour < 72; hour += 1) {
+        const at = new Date(Date.UTC(2026, 2, 7, hour));
+        const iso = at.toISOString();
+        const localParts = new Intl.DateTimeFormat("en-CA", {
+          timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit",
+          hour: "2-digit", hour12: false,
+        }).formatToParts(at);
+        const part = (type: string): string => localParts.find((p) => p.type === type)?.value ?? "00";
+        const conventions = [
+          // proper UTC: forecast_time is the local wall clock
+          { forecast_date: `${part("year")}-${part("month")}-${part("day")}`, forecast_time: `${part("hour") === "24" ? "00" : part("hour")}:00:00` },
+          // forecast_time holds the UTC hour
+          { forecast_date: iso.slice(0, 10), forecast_time: `${String(at.getUTCHours()).padStart(2, "0")}:00:00` },
+          // legacy: forecast_at encodes local time with a Z suffix
+          { forecast_date: iso.slice(0, 10), forecast_time: `${String((hour + 5) % 24).padStart(2, "0")}:00:00` },
+        ];
+        for (const convention of conventions) {
+          const forecast = makeForecast({ forecast_at: iso, ...convention });
+          const expected = referenceResolve(forecast, tz);
+          // A local time inside the spring-forward gap has no instant to compare against.
+          if (expected === null) continue;
+          expect(resolveForecastTime(forecast, tz).getTime()).toBe(expected.getTime());
+        }
+      }
+    }
   });
 });

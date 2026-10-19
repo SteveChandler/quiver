@@ -6,18 +6,27 @@ const mockChain = {
   from: jest.fn(),
   select: jest.fn(),
   ilike: jest.fn(),
+  in: jest.fn(),
   gte: jest.fn(),
   lt: jest.fn(),
   order: jest.fn(),
   limit: jest.fn(),
   then: undefined as unknown,
 };
+const mockCacheKeys: unknown[][] = [];
 const mockRankBeaches = jest.fn(async (beaches: Array<{ id: string }>) =>
   beaches.filter((beach) => beach.id !== "held-beach"),
 );
 
 jest.mock("next/cache", () => ({
   unstable_cache: jest.fn((fn: () => unknown) => fn),
+}));
+jest.mock("react", () => ({
+  ...jest.requireActual("react"),
+  cache: (fn: (...args: unknown[]) => unknown) => (...args: unknown[]) => {
+    mockCacheKeys.push(args);
+    return fn(...args);
+  },
 }));
 jest.mock("@/lib/supabase/server", () => ({
   createPublicReadClient: jest.fn(() => mockChain),
@@ -34,6 +43,7 @@ describe("city best-right-now water-quality policy", () => {
     mockChain.from.mockReturnValue(mockChain);
     mockChain.select.mockReturnValue(mockChain);
     mockChain.ilike.mockReturnValue(mockChain);
+    mockChain.in.mockReturnValue(mockChain);
     mockChain.gte.mockReturnValue(mockChain);
     mockChain.lt.mockReturnValue(mockChain);
     mockChain.order.mockReturnValue(mockChain);
@@ -78,6 +88,107 @@ describe("city best-right-now water-quality policy", () => {
       });
   });
 
+  it("filters the city in SQL while retaining the JavaScript city guard", async () => {
+    const result = await getCitySurfReport("Elsewhere", "CA");
+
+    expect(mockChain.ilike).toHaveBeenCalledWith("beaches.state", "CA");
+    expect(mockChain.ilike).toHaveBeenCalledWith("beaches.city", "Elsewhere");
+    expect(result).toBeNull();
+  });
+
+  it("escapes literal city wildcards and backslashes for ILIKE", async () => {
+    await getCitySurfReport("Coast_100%\\Village", "CA");
+
+    expect(mockChain.ilike).toHaveBeenCalledWith("beaches.city", "Coast\\_100\\%\\\\Village");
+  });
+
+  it("queries only the current nine-hour window when forecasts exist", async () => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-10-16T12:00:00Z"));
+    try {
+      const result = await getCitySurfReport("San Diego", "CA");
+
+      expect(result?.bestBeach?.beachId).toBe("safe-beach");
+      expect(mockChain.gte).toHaveBeenCalledWith("forecast_at", "2026-10-16T06:00:00.000Z");
+      expect(mockChain.lt).toHaveBeenCalledWith("forecast_at", "2026-10-16T15:00:00.000Z");
+      expect(mockChain.from).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("widens an empty narrow query to the old three-day window with the same city and beach IDs", async () => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-10-16T12:00:00Z"));
+    mockChain.limit.mockResolvedValueOnce({ data: [], error: null });
+    try {
+      const result = await getCitySurfReport("San Diego", "CA", ["safe-beach"]);
+
+      expect(result?.bestBeach?.beachId).toBe("safe-beach");
+      expect(mockChain.from).toHaveBeenCalledTimes(2);
+      expect(mockChain.gte.mock.calls).toEqual([
+        ["forecast_at", "2026-10-16T06:00:00.000Z"],
+        ["forecast_at", "2026-10-13T12:00:00.000Z"],
+      ]);
+      expect(mockChain.lt.mock.calls).toEqual([
+        ["forecast_at", "2026-10-16T15:00:00.000Z"],
+        ["forecast_at", "2026-10-17T00:00:00.000Z"],
+      ]);
+      expect(mockChain.ilike.mock.calls).toEqual([
+        ["beaches.state", "CA"], ["beaches.city", "San Diego"],
+        ["beaches.state", "CA"], ["beaches.city", "San Diego"],
+      ]);
+      expect(mockChain.in.mock.calls).toEqual([
+        ["beach_id", ["safe-beach"]], ["beach_id", ["safe-beach"]],
+      ]);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("returns null when both windows are empty", async () => {
+    mockChain.limit.mockResolvedValue({ data: [], error: null });
+
+    expect(await getCitySurfReport("San Diego", "CA")).toBeNull();
+    expect(mockChain.from).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    ["SQLSTATE", { code: "57014", message: "canceling statement" }],
+    ["message", { message: "canceling statement due to statement timeout" }],
+  ])("returns null on a returned %s timeout without widening the query", async (_kind, error) => {
+    mockChain.limit.mockResolvedValueOnce({ data: null, error });
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const log = jest.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      expect(await getCitySurfReport("San Diego", "CA")).toBeNull();
+      expect(mockChain.from).toHaveBeenCalledTimes(1);
+      expect(warn).toHaveBeenCalledWith(
+        "[getCitySurfReport] Forecast query timed out:",
+        expect.objectContaining({ message: expect.stringContaining(error.message) }),
+      );
+      expect(log).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+      log.mockRestore();
+    }
+  });
+
+  it("returns null for a thrown SQLSTATE timeout", async () => {
+    mockChain.limit.mockRejectedValueOnce({ code: "57014", message: "canceling statement" });
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const log = jest.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      expect(await getCitySurfReport("San Diego", "CA")).toBeNull();
+      expect(warn).toHaveBeenCalledWith(
+        "[getCitySurfReport] Forecast query timed out:",
+        { message: "canceling statement (57014)" },
+      );
+      expect(log).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+      log.mockRestore();
+    }
+  });
+
   it("removes a held beach before selecting the city best-right-now beach", async () => {
     const result = await getCitySurfReport("San Diego", "CA");
 
@@ -93,9 +204,56 @@ describe("city best-right-now water-quality policy", () => {
 
     expect(mockChain.limit).toHaveBeenCalledWith(205);
   });
+
+  it("keeps the existing unscoped query for a non-island city", async () => {
+    const report = await getCitySurfReport("San Diego", "CA");
+
+    expect(report?.beaches.map((beach) => beach.beachId)).toEqual(["safe-beach"]);
+    expect(mockChain.in).not.toHaveBeenCalled();
+  });
+
+  it("queries only accepted Kauai beach IDs and keys request caching by island", async () => {
+    const rows = [
+      { id: "kauai-beach", name: "Kekaha / Pakala (Infinities)" },
+      { id: "big-island-beach", name: "Hapuna Beach (Kohala)" },
+    ];
+    mockChain.then = (resolve: (value: unknown) => unknown) =>
+      resolve({
+        data: rows.map(({ id, name }) => ({
+          beach_id: id,
+          forecast_at: "2026-10-14T10:00:00Z",
+          updated_at: "2026-10-14T08:00:00Z",
+          wave_height: "3 ft",
+          wave_period: "10 s",
+          wind_speed: "5 mph",
+          wind_direction: "W",
+          beaches: { id, name, slug: id, city: "Waimea", state: "HI" },
+        })).filter((row) => {
+          const acceptedIds = mockChain.in.mock.lastCall?.[1] as string[] | undefined;
+          return acceptedIds?.includes(row.beach_id);
+        }),
+        error: null,
+      });
+
+    const kauai = await getCitySurfReport("Waimea", "HI", ["kauai-beach"], "kauai");
+    expect(kauai?.beaches.map((beach) => beach.beachName)).toEqual([
+      "Kekaha / Pakala (Infinities)",
+    ]);
+    expect(mockChain.in).toHaveBeenLastCalledWith("beach_id", ["kauai-beach"]);
+
+    const bigIsland = await getCitySurfReport("Waimea", "HI", ["big-island-beach"], "big-island");
+    expect(bigIsland?.beaches.map((beach) => beach.beachName)).toEqual([
+      "Hapuna Beach (Kohala)",
+    ]);
+    expect(mockCacheKeys.slice(-2).map((key) => key[2])).toEqual(["kauai", "big-island"]);
+    expect(mockCacheKeys.slice(-2).map((key) => key[3])).toEqual([
+      "kauai-beach",
+      "big-island-beach",
+    ]);
+  });
 });
 
-it("keeps the source timestamp stable across regeneration and preserves forecast TTL", async () => {
+it("keeps the source timestamp stable across regeneration and leaves the window to the page", async () => {
   jest.useFakeTimers();
   try {
     const chain = mockChain;
@@ -111,7 +269,8 @@ it("keeps the source timestamp stable across regeneration and preserves forecast
     expect(await getCitySurfReport("San Diego", "CA")).toEqual(first);
     expect(first?.updatedAt).toBe("2026-09-15T12:00:00.000Z");
     const { unstable_cache } = await import("next/cache");
-    expect(unstable_cache).toHaveBeenLastCalledWith(expect.any(Function), expect.any(Array), expect.objectContaining({revalidate: 900}));
+    // A cache window here would lower the /beaches city hub's ISR window to it.
+    expect(unstable_cache).not.toHaveBeenCalled();
   } finally { jest.useRealTimers(); }
 });
 

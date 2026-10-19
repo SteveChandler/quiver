@@ -347,7 +347,7 @@ function SwellEventCard({
   const isZine = variant === "zine";
   const primaryTextClass = isZine ? "text-[#11100D]" : styles.text;
   const mutedTextClass = isZine ? "text-[#11100D]/62" : "text-muted-foreground";
-  const iconClass = isZine ? "text-[#0B3A75]" : styles.icon;
+  const iconClass = isZine ? "text-[#8A5E00]" : styles.icon;
   const badgeClass = isZine
     ? "border-2 border-[#11100D] bg-[#F78E42] text-[#11100D]"
     : styles.badge;
@@ -355,7 +355,7 @@ function SwellEventCard({
     ? {
         ...styles,
         badge: "bg-[#F78E42] text-[#11100D]",
-        peakBg: "bg-[#0B3A75]",
+        peakBg: "bg-[#11100D]",
       }
     : styles;
 

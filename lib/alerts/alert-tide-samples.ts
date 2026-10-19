@@ -1,7 +1,7 @@
+import { METERS_TO_FEET as FEET_PER_METER } from "@/lib/utils/unit-conversions";
 import { selectTideSeries } from "@/lib/services/tide-forecast-selection";
 import type { AlertTideSample } from "./hourly-forecast-hours";
 
-const FEET_PER_METER = 3.28084;
 
 interface AlertTideRow {
   ts: string;

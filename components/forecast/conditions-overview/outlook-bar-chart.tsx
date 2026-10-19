@@ -40,9 +40,11 @@ function CustomTooltip({
       <p className="text-[#5F5646]">
         Waves: {formatWaveRange([day.minHeight, day.maxHeight], "integer")}
       </p>
-      <p className="text-[#5F5646]">
-        Wind: {capitalize(day.windConditions)}
-      </p>
+      {day.windConditions !== "unknown" && (
+        <p className="text-[#5F5646]">
+          Wind: {capitalize(day.windConditions)}
+        </p>
+      )}
       {day.bestTimeSlot && (
         <p className="text-[#5F5646]">
           Best time: {capitalize(day.bestTimeSlot)}
@@ -102,9 +104,9 @@ export function OutlookBarChart({ days }: OutlookBarChartProps) {
             content={<CustomTooltip />}
             cursor={{ fill: "rgba(0,0,0,0.04)" }}
           />
-          <ReferenceLine y={40} stroke="#0B3A75" strokeDasharray="3 3" />
-          <ReferenceLine y={60} stroke="#0B3A75" strokeDasharray="3 3" />
-          <ReferenceLine y={80} stroke="#0B3A75" strokeDasharray="3 3" />
+          <ReferenceLine y={40} stroke="#8A5E00" strokeDasharray="3 3" />
+          <ReferenceLine y={60} stroke="#8A5E00" strokeDasharray="3 3" />
+          <ReferenceLine y={80} stroke="#8A5E00" strokeDasharray="3 3" />
           <Bar
             dataKey="score"
             radius={[4, 4, 0, 0]}

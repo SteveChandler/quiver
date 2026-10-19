@@ -1,6 +1,5 @@
+import { isUuid } from "@/lib/utils/validation";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
-
-import type { RecommendationsResponse } from "@/types/api/recommendations";
 
 import type {
   MajorEventHoldCandidate,
@@ -12,16 +11,10 @@ import {
   type MajorEventHoldBoundaryDecision,
 } from "./shared";
 
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CIVIL_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const POSTGRES_TIME_PATTERN = /^(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?$/;
-const ABSOLUTE_INSTANT_PATTERN =
-  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(Z|[+-](\d{2}):(\d{2}))$/;
 const AMBIGUITY_SCAN_RADIUS_MS = 3 * 60 * 60 * 1000;
 const AMBIGUITY_SCAN_STEP_MS = 15 * 60 * 1000;
-const CLIENT_SAFE_UNAVAILABLE_EPOCH = "hold-state-unavailable";
-const COACH_PICK_CANDIDATE_DURATION_MS = 1;
 
 interface CivilTime {
   canonical: string;
@@ -73,32 +66,12 @@ type SanitizedDailyIntelResponse<TIntel extends DailyIntelResponseLike> =
     recommendationAvailability: RecommendationAvailability;
   };
 
-export type SanitizedLegacyV1RecommendationsResponse =
-  RecommendationsResponse & {
-    recommendationAvailability: RecommendationAvailability;
-  };
-
-interface CoachPicksResponseLike<TPick = unknown> {
-  picks: readonly TPick[];
-}
-
-type SanitizedCoachPicksResponse<
-  TResponse extends CoachPicksResponseLike,
-> = Omit<TResponse, "picks"> & {
-  picks: Array<TResponse["picks"][number]>;
-  recommendationAvailability: RecommendationAvailability;
-};
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.length > 0;
-}
-
-function uniqueStrings(values: readonly string[]): boolean {
-  return new Set(values).size === values.length;
 }
 
 function unavailableBoundary(
@@ -127,31 +100,6 @@ function parseCivilDate(value: unknown): string | null {
     return null;
   }
   return value;
-}
-
-function parseStrictAbsoluteInstant(value: unknown): number | null {
-  if (typeof value !== "string") return null;
-  const match = ABSOLUTE_INSTANT_PATTERN.exec(value);
-  if (!match) return null;
-  if (parseCivilDate(`${match[1]}-${match[2]}-${match[3]}`) === null) {
-    return null;
-  }
-  const hour = Number(match[4]);
-  const minute = Number(match[5]);
-  const second = Number(match[6]);
-  const offsetHour = match[8] === "Z" ? 0 : Number(match[9]);
-  const offsetMinute = match[8] === "Z" ? 0 : Number(match[10]);
-  if (
-    hour > 23 ||
-    minute > 59 ||
-    second > 59 ||
-    offsetHour > 23 ||
-    offsetMinute > 59
-  ) {
-    return null;
-  }
-  const milliseconds = Date.parse(value);
-  return Number.isFinite(milliseconds) ? milliseconds : null;
 }
 
 function nextCivilDate(value: string): string | null {
@@ -243,7 +191,7 @@ export function buildDailyIntelMajorEventHoldCandidate(
     typeof intel !== "object" ||
     !isNonEmptyString(intel.id) ||
     !isNonEmptyString(intel.beach_id) ||
-    !UUID_PATTERN.test(intel.beach_id) ||
+    !isUuid(intel.beach_id) ||
     !isValidTimeZone(beachTimeZone)
   ) {
     return null;
@@ -589,258 +537,4 @@ export function sanitizeDailyIntelForMajorEventHold<
     raw_intel_data: stripDailyIntelPositiveRawFields(intel.raw_intel_data),
     recommendationAvailability: boundary.recommendationAvailability,
   } as SanitizedDailyIntelResponse<TIntel>;
-}
-
-function expectedLegacyCandidates(
-  response: RecommendationsResponse,
-): MajorEventHoldCandidate[] | null {
-  if (
-    !Array.isArray(response.recommendations) ||
-    !Array.isArray(response.top_picks) ||
-    !response.metadata ||
-    !isNonEmptyString(response.metadata.query_time)
-  ) {
-    return null;
-  }
-  const queryTimeMs = parseStrictAbsoluteInstant(response.metadata.query_time);
-  if (queryTimeMs === null) return null;
-  const endsAt = new Date(queryTimeMs + 1);
-  if (!Number.isFinite(endsAt.getTime())) return null;
-
-  const spotIds = response.recommendations.map(({ spotId }) => spotId);
-  if (
-    spotIds.some((spotId) => !isNonEmptyString(spotId)) ||
-    !uniqueStrings(spotIds)
-  ) {
-    return null;
-  }
-  const recommendationIds = new Set(spotIds);
-  const topPickIds = response.top_picks.map(({ spotId }) => spotId);
-  if (
-    topPickIds.some((spotId) => !isNonEmptyString(spotId)) ||
-    !uniqueStrings(topPickIds) ||
-    response.top_picks.some(
-      (topPick) =>
-        !recommendationIds.has(topPick.spotId) ||
-        !topPick.snapshot ||
-        topPick.snapshot.timestamp !== response.metadata.query_time,
-    )
-  ) {
-    return null;
-  }
-
-  return spotIds.map((spotId) => ({
-    candidateId: `legacy-v1:${spotId}:${response.metadata.query_time}`,
-    beachId: spotId,
-    startsAt: response.metadata.query_time,
-    endsAt: endsAt.toISOString(),
-  }));
-}
-
-export function sanitizeLegacyV1RecommendationsForMajorEventHold(
-  response: RecommendationsResponse,
-  candidates: readonly unknown[],
-  decisions: readonly MajorEventHoldCandidateDecision[],
-): SanitizedLegacyV1RecommendationsResponse {
-  const expectedCandidates = expectedLegacyCandidates(response);
-  const validBinding =
-    expectedCandidates !== null &&
-    exactCandidateList(candidates, expectedCandidates);
-  const boundary = validBinding
-    ? resolveMajorEventHoldBoundary(candidates, expectedCandidates, decisions)
-    : unavailableBoundary(candidates, decisions);
-  const clearWholeBoundary =
-    !validBinding ||
-    (boundary.recommendationAvailability.state === "none" &&
-      boundary.recommendationAvailability.reasonCode ===
-        "hold_state_unavailable");
-
-  if (clearWholeBoundary) {
-    return {
-      ...response,
-      recommendations: [],
-      top_picks: [],
-      recommendationAvailability: boundary.recommendationAvailability,
-    };
-  }
-
-  const candidateIdForSpot = (spotId: string): string =>
-    `legacy-v1:${spotId}:${response.metadata.query_time}`;
-  return {
-    ...response,
-    recommendations: response.recommendations.filter(
-      ({ spotId }) =>
-        !boundary.blockedCandidateIds.has(candidateIdForSpot(spotId)),
-    ),
-    top_picks: response.top_picks
-      .filter(
-        ({ spotId }) =>
-          !boundary.blockedCandidateIds.has(candidateIdForSpot(spotId)),
-      )
-      .slice(0, 3)
-      .map((topPick, index) => ({ ...topPick, rank: index + 1 })),
-    recommendationAvailability: boundary.recommendationAvailability,
-  };
-}
-
-interface ValidCoachDecision {
-  allow: boolean;
-  recommendationAvailability: RecommendationAvailability;
-}
-
-export function buildCoachPicksMajorEventHoldCandidates(
-  picks: readonly unknown[],
-  asOf: Date,
-): Array<MajorEventHoldCandidate | null> {
-  const startsAtMs = asOf instanceof Date ? asOf.getTime() : NaN;
-  const endsAtMs = startsAtMs + COACH_PICK_CANDIDATE_DURATION_MS;
-  if (!Number.isFinite(startsAtMs) || !Number.isFinite(endsAtMs)) {
-    return picks.map(() => null);
-  }
-
-  const startsAt = new Date(startsAtMs).toISOString();
-  const endsAt = new Date(endsAtMs).toISOString();
-  return picks.map((pick) => {
-    if (!isRecord(pick) || !isNonEmptyString(pick.beach_id)) return null;
-    const beachId = pick.beach_id.toLowerCase();
-    if (!UUID_PATTERN.test(beachId)) return null;
-    return {
-      candidateId: `coach-pick:${beachId}:${startsAt}`,
-      beachId,
-      startsAt,
-      endsAt,
-    };
-  });
-}
-
-function expectedCoachCandidates(
-  response: CoachPicksResponseLike,
-  candidates: readonly unknown[],
-): MajorEventHoldCandidate[] | null {
-  if (response.picks.length === 0) {
-    return candidates.length === 0 ? [] : null;
-  }
-  const firstCandidate = candidates[0];
-  if (!isRecord(firstCandidate)) return null;
-  const startsAtMs = parseStrictAbsoluteInstant(firstCandidate.startsAt);
-  if (startsAtMs === null) return null;
-  const expected = buildCoachPicksMajorEventHoldCandidates(
-    response.picks,
-    new Date(startsAtMs),
-  );
-  if (expected.some((candidate) => candidate === null)) return null;
-  return expected as MajorEventHoldCandidate[];
-}
-
-function validCoachDecision(
-  decisions: readonly MajorEventHoldCandidateDecision[],
-): ValidCoachDecision | null {
-  if (!Array.isArray(decisions) || decisions.length !== 1) return null;
-  const decision = decisions[0];
-  if (!isRecord(decision) || decision.candidateId !== null) return null;
-  const evaluation = decision.evaluation;
-  const availability = decision.recommendationAvailability;
-  if (!isRecord(evaluation) || !isRecord(availability)) return null;
-  if (
-    !isNonEmptyString(evaluation.holdEpoch) ||
-    availability.holdEpoch !== evaluation.holdEpoch ||
-    !Array.isArray(evaluation.holdIds) ||
-    evaluation.holdIds.length !== 0 ||
-    evaluation.expiresAt !== undefined ||
-    availability.expiresAt !== undefined
-  ) {
-    return null;
-  }
-
-  if (
-    evaluation.outcome === "allow" &&
-    evaluation.reasonCode === undefined &&
-    availability.state === "available" &&
-    availability.reasonCode === undefined
-  ) {
-    return {
-      allow: true,
-      recommendationAvailability: {
-        state: "available",
-        holdEpoch: evaluation.holdEpoch,
-      },
-    };
-  }
-
-  if (
-    evaluation.outcome === "explicit_none" &&
-    evaluation.reasonCode === "hold_state_unavailable" &&
-    availability.state === "none" &&
-    availability.reasonCode === "hold_state_unavailable"
-  ) {
-    return {
-      allow: false,
-      recommendationAvailability: {
-        state: "none",
-        reasonCode: "hold_state_unavailable",
-        holdEpoch: evaluation.holdEpoch,
-      },
-    };
-  }
-
-  return null;
-}
-
-export function sanitizeCoachPicksForMajorEventHold<
-  TResponse extends CoachPicksResponseLike,
->(
-  response: TResponse,
-  candidatesOrDecisions: readonly unknown[],
-  boundDecisions?: readonly MajorEventHoldCandidateDecision[],
-): SanitizedCoachPicksResponse<TResponse> {
-  if (boundDecisions === undefined) {
-    const validated = validCoachDecision(
-      candidatesOrDecisions as readonly MajorEventHoldCandidateDecision[],
-    );
-    if (validated === null) {
-      return {
-        ...response,
-        picks: [],
-        recommendationAvailability: {
-          state: "none",
-          reasonCode: "hold_state_unavailable",
-          holdEpoch: CLIENT_SAFE_UNAVAILABLE_EPOCH,
-        },
-      };
-    }
-
-    return {
-      ...response,
-      picks: validated.allow ? [...response.picks] : [],
-      recommendationAvailability: validated.recommendationAvailability,
-    };
-  }
-
-  const expectedCandidates = expectedCoachCandidates(
-    response,
-    candidatesOrDecisions,
-  );
-  const validBinding =
-    expectedCandidates !== null &&
-    exactCandidateList(candidatesOrDecisions, expectedCandidates);
-  const boundary = validBinding
-    ? resolveMajorEventHoldBoundary(
-        candidatesOrDecisions,
-        expectedCandidates,
-        boundDecisions,
-      )
-    : unavailableBoundary(candidatesOrDecisions, boundDecisions);
-
-  return {
-    ...response,
-    picks:
-      validBinding && expectedCandidates
-        ? response.picks.filter((_, index) =>
-            boundary.allowedCandidateIds.has(
-              expectedCandidates[index].candidateId,
-            ),
-          )
-        : [],
-    recommendationAvailability: boundary.recommendationAvailability,
-  };
 }

@@ -1,3 +1,4 @@
+import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
 import {
   resolveDisplaySwell,
   type DisplaySwellRow,
@@ -6,10 +7,9 @@ import {
 import { cardinalToDegrees } from "@/lib/services/forecast/forecast-transformer";
 import { degreeToCardinal } from "@/lib/utils/geo-utils";
 
-const METERS_TO_FEET = 3.28084;
 const MAX_ROW_AGE_MS = 3 * 60 * 60 * 1000;
 
-export type SessionConditionsSource = "forecast_row" | "snapshot_backfill";
+export type SessionConditionsSource = "forecast_row" | "snapshot_backfill" | "hindcast_open_meteo";
 
 export interface SessionConditions {
   swell_period_s: number | null;

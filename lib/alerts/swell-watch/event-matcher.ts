@@ -71,16 +71,16 @@ function difference(
   const r = right.impact.partition;
   const rawDirection = Math.abs(l.directionDeg - r.directionDeg) % 360;
   const direction = Math.min(rawDirection, 360 - rawDirection);
-  const arrival =
-    Math.abs(
-      Date.parse(left.impact.arrivalAt) - Date.parse(right.impact.arrivalAt),
-    ) / 3_600_000;
-  const peak =
-    Math.abs(Date.parse(left.peakAt) - Date.parse(right.peakAt)) / 3_600_000;
-  if (!Number.isFinite(arrival) || !Number.isFinite(peak)
+  const leftArrival = Date.parse(left.impact.arrivalAt);
+  const rightArrival = Date.parse(right.impact.arrivalAt);
+  const leftPeak = Date.parse(left.peakAt);
+  const rightPeak = Date.parse(right.peakAt);
+  if (![leftArrival, rightArrival, leftPeak, rightPeak].every(Number.isFinite)
     || left.regionKey !== right.regionKey || l.provider !== r.provider) return Infinity;
-  return Math.max(Math.abs(l.periodS - r.periodS) / maxPeriod, direction / maxDirection,
-    arrival / maxHours, peak / maxHours);
+  // One swell is one arrival-to-peak span. Successive issuances move either endpoint by more than
+  // the tolerance (a flat peak, a slow ramp), so identity compares the spans, not the endpoints.
+  const gap = Math.max(0, leftArrival - rightPeak, rightArrival - leftPeak) / 3_600_000;
+  return Math.max(Math.abs(l.periodS - r.periodS) / maxPeriod, direction / maxDirection, gap / maxHours);
 }
 
 function coherent(left: RegionalSwellEvaluation, right: RegionalSwellEvaluation, policy: SwellWatchPolicy): boolean {

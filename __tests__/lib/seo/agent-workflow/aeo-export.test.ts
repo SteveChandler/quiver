@@ -241,6 +241,12 @@ describe("SEO workflow AEO export", () => {
       expect(detectAeoCitationRunAnomalies(report(), report(), querySet)).toEqual([]);
     });
 
+    it("does not flag a different surfaced set once a Method change is declared", () => {
+      const previous = report({ surfaced: ["best tide for surfing"], notSurfaced: ["what is swell period", "surfline alternative"] });
+      const declared = report().replace("## Movement", "## Method change\n\nSeries break: new search provider.\n\n## Movement");
+      expect(detectAeoCitationRunAnomalies(declared, previous, querySet)).toEqual([]);
+    });
+
     it("flags a swing over 20 points with no declared method change", () => {
       const previous = report({ cited: 3, surfaced: ["surfline alternative", "best tide for surfing", "what is swell period"], notSurfaced: [] });
       expect(detectAeoCitationRunAnomalies(report(), previous, querySet).join(" "))
@@ -248,6 +254,83 @@ describe("SEO workflow AEO export", () => {
     });
   });
 
+
+  describe("AI Overview citations", () => {
+    const querySet: AeoQuerySet = {
+      brandDomains: ["quiversurf.app"],
+      segments: {
+        informational: ["best tide for surfing", "what is swell period"],
+        "product-brand": ["surfline alternative"],
+      },
+    };
+
+    function report(options: { rowCited?: number; listed?: string[]; omitRow?: boolean; omitSection?: boolean } = {}): string {
+      const listed = options.listed ?? ["best tide for surfing"];
+      const rowCited = options.rowCited ?? listed.length;
+      return [
+        "# AEO Citation Tracking — 2026-10-14",
+        "",
+        "| Segment | Cited | Total | Rate |",
+        "|---|---:|---:|---:|",
+        "| All queries | 1 | 3 | 33.3% |",
+        ...(options.omitRow ? [] : [`| AI Overview citations | ${rowCited} | 3 | ${((rowCited / 3) * 100).toFixed(1)}% |`]),
+        "",
+        "## Movement",
+        "",
+        "Series break.",
+        "",
+        "## Queries that surfaced",
+        "",
+        "- surfline alternative",
+        "",
+        "## Queries that did not surface",
+        "",
+        "best tide for surfing; what is swell period",
+        "",
+        ...(options.omitSection
+          ? []
+          : [
+            "## AI Overview citations",
+            "",
+            "| Query | Quiver URL |",
+            "| --- | --- |",
+            ...listed.map((query) => `| ${query} | \`/learn/${query.replace(/ /g, "-")}\` |`),
+            "",
+          ]),
+        "## Action list",
+        "",
+        "- [NO ACTION] Nothing to do.",
+      ].join("\n");
+    }
+
+    it("accepts a count that matches the AI Overview list, including a query that is not an organic hit", () => {
+      expect(validateAeoCitationReport(report(), querySet, { requireAiOverview: true })).toEqual({ ok: true, problems: [] });
+    });
+
+    it("rejects a count with no queries behind it", () => {
+      const result = validateAeoCitationReport(report({ rowCited: 2 }), querySet);
+      expect(result.ok).toBe(false);
+      expect(result.problems.join(" ")).toContain("claims 2 cited but `## AI Overview citations` names 1");
+    });
+
+    it("rejects an AI Overview row with no section behind it", () => {
+      expect(validateAeoCitationReport(report({ omitSection: true }), querySet).problems)
+        .toEqual([expect.stringContaining("## AI Overview citations")]);
+    });
+
+    it("requires the row and the section when asked, and not otherwise", () => {
+      const bare = report({ omitRow: true, omitSection: true });
+      expect(validateAeoCitationReport(bare, querySet).ok).toBe(true);
+      expect(validateAeoCitationReport(bare, querySet, { requireAiOverview: true }).problems).toEqual([
+        expect.stringContaining("`AI Overview citations` row"),
+        expect.stringContaining("## AI Overview citations"),
+      ]);
+    });
+
+    it("accepts zero AI Overview citations with an empty section", () => {
+      expect(validateAeoCitationReport(report({ listed: [] }), querySet, { requireAiOverview: true }).ok).toBe(true);
+    });
+  });
 
   it("holds every report written under the runbook to its format", () => {
     const reportDir = path.join(process.cwd(), "docs/seo/reports/aeo-citation-tracking");
@@ -271,6 +354,8 @@ describe("SEO workflow AEO export", () => {
       // Capture points became required 2026-09-02; earlier runs predate the rule.
       const result = validateAeoCitationReport(markdown, querySet, {
         requireCapturePoints: name >= "2026-09-02",
+        // The DataForSEO method (and its AI Overview headline) starts 2026-10-14.
+        requireAiOverview: name >= "2026-10-14",
       });
       if (!result.ok) failures.push(`${name}: ${result.problems.join(" | ")}`);
     }

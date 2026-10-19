@@ -6,8 +6,27 @@
  */
 
 import { NOTIFICATION_REGISTRY } from "@/lib/notifications/registry";
+import { buildFirstSightingPayload } from "@/lib/alerts/swell-outlook/first-sighting";
+import { outlookSwell } from "@/__tests__/helpers/outlook-swell";
 
 describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () => {
+  it("serializes first-sighting beach options with the peak timestamp for native chips", () => {
+    const swell = outlookSwell({ peakAt: "2026-09-22T18:00:00.000Z", options: [
+      { beachId: "22222222-2222-4222-8222-222222222222", beachName: "Scripps", relation: "favorite", faceHeightFt: { min: 3, max: 4 } },
+      { beachId: "33333333-3333-4333-8333-333333333333", beachName: "Del Mar", relation: "nearby", faceHeightFt: { min: 2, max: 3 } },
+    ] });
+    const def = NOTIFICATION_REGISTRY.swell_watch;
+    const payload = def.validatePayload!(buildFirstSightingPayload({ swell, timezone: "America/Los_Angeles" }));
+    const push = def.buildPushPayload!(payload);
+    expect(push.data.type).toBe("swell_watch");
+    expect(push.data.forecast_at).toBe(swell.peakAt);
+    expect(push.data.beaches).toBe(JSON.stringify([
+      { beach_id: swell.beach.id, beach_name: swell.beach.name, rank: 1 },
+      { beach_id: "22222222-2222-4222-8222-222222222222", beach_name: "Scripps", rank: 2, forecast_at: swell.peakAt },
+      { beach_id: "33333333-3333-4333-8333-333333333333", beach_name: "Del Mar", rank: 3, forecast_at: swell.peakAt },
+    ]));
+  });
+
   it("keeps watched-call payloads bounded and category-specific", () => {
     const def = NOTIFICATION_REGISTRY.watched_call_update;
     const payload = def.validatePayload!({
@@ -300,6 +319,36 @@ describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () =>
       type: "daily_call",
       data: payload,
     });
+    expect(def.buildPushPayload!(payload).data).not.toHaveProperty("options");
+    expect(def.buildPushPayload!(payload).data).not.toHaveProperty("beaches");
+    expect(def.buildPushPayload!(def.validatePayload!({ ...payload, options: [] })).data)
+      .not.toHaveProperty("beaches");
+    const options = [{
+      beach_id: "22222222-2222-4222-8222-222222222222", beach_slug: "scripps", beach_name: "Scripps",
+      window_start: "2026-09-18T16:00:00.000Z", window_end: "2026-09-18T18:00:00.000Z",
+      window_local: "9–11 AM", wave_height_ft: null, relation: "home" as const,
+    }];
+    const withOptions = def.validatePayload!({ ...payload, options });
+    const push = def.buildPushPayload!(withOptions);
+    expect(push.body).toBe(`${payload.reason} Also: Scripps 9–11 AM.`);
+    expect(JSON.parse(push.data.options as string)).toEqual(options);
+    expect(JSON.parse(push.data.beaches as string)).toEqual([
+      { beach_id: payload.beach_id, beach_name: payload.beach_name, rank: 1, forecast_at: payload.window_start },
+      { beach_id: options[0].beach_id, beach_name: "Scripps", rank: 2, forecast_at: options[0].window_start },
+    ]);
+    const secondOption = {
+      ...options[0], beach_id: "33333333-3333-4333-8333-333333333333", beach_name: "OB Pier",
+      window_start: "2026-09-18T15:00:00.000Z",
+    };
+    const withTwoOptions = def.validatePayload!({ ...payload, options: [...options, secondOption] });
+    const twoOptionsPush = def.buildPushPayload!(withTwoOptions);
+    expect(JSON.parse(twoOptionsPush.data.beaches as string)).toEqual([
+      { beach_id: payload.beach_id, beach_name: payload.beach_name, rank: 1, forecast_at: payload.window_start },
+      { beach_id: options[0].beach_id, beach_name: "Scripps", rank: 2, forecast_at: options[0].window_start },
+      { beach_id: secondOption.beach_id, beach_name: "OB Pier", rank: 3, forecast_at: secondOption.window_start },
+    ]);
+    expect(JSON.parse(twoOptionsPush.data.options as string)).toEqual([...options, secondOption]);
+    expect(def.buildInAppPayload!(withOptions).data).toEqual(withOptions);
   });
 
   it("forecast_alert in-app payload carries selected-window beach context", () => {
@@ -450,6 +499,118 @@ describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () =>
       would_suppress_cohorts: ["beginner", "intermediate", "unknown"],
       enforcement: null,
     });
+  });
+
+  it.each([
+    ["recommended window", "recommended", "2026-08-02T14:00:00.000Z", "2026-08-02T16:00:00.000Z", true],
+    ["no suitable window", "no_suitable_window", null, null, false],
+    ["insufficient tide evidence", "insufficient_tide_evidence", null, null, false],
+    ["recommended without start", "recommended", null, "2026-08-02T16:00:00.000Z", false],
+    ["recommended without end", "recommended", "2026-08-02T14:00:00.000Z", null, false],
+    ["payload without surf_window", null, null, null, false],
+  ] as const)("adds a beach destination only for a complete %s", (_case, state, start, end, hasDestination) => {
+    const def = NOTIFICATION_REGISTRY.swell_watch;
+    const surfWindow = state === null ? undefined : {
+      state,
+      start,
+      end,
+      local_date: "2026-08-02",
+      timezone: "America/Los_Angeles",
+      reasons: [],
+    };
+    const payload = def.validatePayload!({
+      schema_version: "major-swell-notification.v1",
+      beach_id: "11111111-1111-4111-8111-111111111111",
+      beach_slug: "blacks",
+      beach_name: "Black's Beach",
+      event_start_date: "2026-08-01",
+      peak_date: "2026-08-02",
+      peak_height_ft: 8,
+      peak_period_s: 16,
+      forecast_at: "2026-08-02T15:00:00.000Z",
+      awareness_mode: "shadow",
+      automation_enabled: false,
+      awareness_signal: "forecast_trend",
+      awareness_severity: "major",
+      official_evidence_refs: [],
+      would_suppress_cohorts: ["beginner", "intermediate", "unknown"],
+      enforcement: null,
+      title: "Major swell incoming",
+      body: "Advanced conditions are approaching.",
+      event_key: "swell-1",
+      kind: "coming",
+      ...(surfWindow ? { surf_window: surfWindow } : {}),
+    });
+
+    expect(def.buildPushPayload!(payload)).toEqual({
+      iosSound: "quiver-alert.wav",
+      androidChannelId: "quiver-alerts-v1",
+      title: payload.title,
+      body: payload.body,
+      data: {
+        type: "swell_watch",
+        beach_id: payload.beach_id,
+        beach_slug: payload.beach_slug,
+        forecast_at: payload.forecast_at,
+        ...(surfWindow ? { surf_window: JSON.stringify(surfWindow) } : {}),
+        ...(hasDestination ? { destination: "beach" } : {}),
+        peak_date: payload.peak_date,
+        event_key: payload.event_key,
+        peak_height_ft: payload.peak_height_ft,
+        peak_period_s: payload.peak_period_s,
+        kind: payload.kind,
+        awareness_signal: payload.awareness_signal,
+        awareness_severity: payload.awareness_severity,
+      },
+    });
+    expect(def.buildInAppPayload!(payload)).toEqual({
+      type: "swell_watch",
+      data: {
+        beach_id: payload.beach_id,
+        beach_slug: payload.beach_slug,
+        beach_name: payload.beach_name,
+        event_start_date: payload.event_start_date,
+        peak_date: payload.peak_date,
+        peak_height_ft: payload.peak_height_ft,
+        peak_period_s: payload.peak_period_s,
+        forecast_at: payload.forecast_at,
+        ...(surfWindow ? { surf_window: surfWindow } : {}),
+        ...(hasDestination ? { destination: "beach" } : {}),
+        awareness_signal: payload.awareness_signal,
+        awareness_severity: payload.awareness_severity,
+        title: payload.title,
+        body: payload.body,
+        event_key: payload.event_key,
+        kind: payload.kind,
+      },
+    });
+  });
+
+  it("keeps legacy swell payloads on the existing destination", () => {
+    const def = NOTIFICATION_REGISTRY.swell_watch;
+    const payload = def.validatePayload!({
+      beach_id: "11111111-1111-4111-8111-111111111111",
+      beach_name: "Black's Beach",
+      event_start_date: "2026-08-01",
+      peak_date: "2026-08-02",
+      peak_height_ft: 8,
+      peak_period_s: 16,
+      forecast_at: "2026-08-02T15:00:00.000Z",
+      awareness_mode: "shadow",
+      awareness_signal: "forecast_trend",
+      awareness_severity: "major",
+      title: "Major swell incoming",
+      body: "Advanced conditions are approaching.",
+    });
+
+    for (const data of [
+      def.buildPushPayload!(payload).data,
+      def.buildInAppPayload!(payload).data,
+    ]) {
+      expect(data).not.toHaveProperty("destination");
+      expect(data).not.toHaveProperty("surf_window");
+      expect(data.forecast_at).toBe(payload.forecast_at);
+    }
   });
 
   it("does not expose major-swell evidence or hold proof to clients", () => {
@@ -634,6 +795,45 @@ describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () =>
     expect(recovery.body).toMatch(/safe levels/i);
   });
 
+  it.each([
+    ["start", "county_general", null, "Rain advisory: Ocean Beach", "County of San Diego rain advisory. Runoff can raise bacteria for 72 h after rain."],
+    ["start", "metar_runoff", null, "Rain advisory: Ocean Beach", "Rain fell nearby. Runoff can raise bacteria near drains and creeks for 72 h."],
+    ["end", "county_general", "dry_72h", "All clear: Ocean Beach", "72 h since the last rain at Ocean Beach. The rain advisory has ended."],
+    ["end", "county_general", "county_lifted", "All clear: Ocean Beach", "The County lifted its rain advisory for Ocean Beach."],
+  ] as const)("water_quality rain copy %s %s %s", (phase, source, end_reason, title, body) => {
+    const definition = NOTIFICATION_REGISTRY.water_quality;
+    const parsed = definition.validatePayload!({
+      beach_id: "beach-1", beach_slug: "ocean-beach", beach_name: "Ocean Beach",
+      status: phase === "start" ? "advisory" : "good",
+      previous_status: phase === "start" ? null : "advisory",
+      status_changed_at: "2026-10-18T12:00:00Z",
+      rain_advisory: {
+        event_id: "11111111-1111-4111-8111-111111111111", phase, source, region: "san_diego",
+        started_at: "2026-10-15T12:00:00Z", last_rain_at: null,
+        expires_at: "2026-10-18T12:00:00Z", end_reason,
+      },
+    });
+    const push = definition.buildPushPayload!(parsed);
+    expect(push).toMatchObject({ title, body, data: {
+      type: "water_quality", beach_id: "beach-1", beach_slug: "ocean-beach",
+      status: phase === "start" ? "advisory" : "good", rain_advisory_phase: phase,
+    } });
+    expect(definition.buildInAppPayload!(parsed).data).toMatchObject({ rain_advisory: { phase, end_reason } });
+    expect(`${push.title} ${push.body}`).not.toMatch(/the call|\bAI\b/i);
+  });
+
+  it("keeps legacy water-quality payloads and copy", () => {
+    const definition = NOTIFICATION_REGISTRY.water_quality;
+    const parsed = definition.validatePayload!({ beach_id: "beach-1", beach_slug: "ocean-beach",
+      beach_name: "Ocean Beach", status: "advisory", previous_status: null,
+      status_changed_at: "2026-10-18T12:00:00Z" });
+    const push = definition.buildPushPayload!(parsed);
+    expect(push.title).toBe("Water advisory: Ocean Beach");
+    expect(push.body).toBe("Elevated bacteria. Check before paddling out.");
+    expect(push.data).not.toHaveProperty("rain_advisory_phase");
+    expect(definition.buildInAppPayload!(parsed).data).not.toHaveProperty("rain_advisory");
+  });
+
   it("daily_digest is fully disabled", () => {
     expect(NOTIFICATION_REGISTRY.daily_digest.channels).toEqual([]);
   });
@@ -692,5 +892,36 @@ describe("NOTIFICATION_REGISTRY — Phase 5i admin types", () => {
     expect(def.prefs.master.push).toBe("notif_push_enabled");
     expect(def.prefs.perType).toEqual({});
     expect(def.quietHours.mode).toBe("bypass");
+  });
+});
+
+
+describe("registry beach title separators", () => {
+  it("cleans a forecast feedback beach name without changing notification data", () => {
+    const def = NOTIFICATION_REGISTRY.forecast_feedback_nudge;
+    const payload = def.validatePayload!({
+      beach_id: "beach-1", beach_name: "Cardiff-by-the-Sea - - North", relevance_confidence: "high",
+    });
+    const push = def.buildPushPayload!(payload);
+    expect(push.title).toBe("Surfed Cardiff-by-the-Sea North today?");
+    expect(push.body).toBe("Log it in one tap.");
+    expect(push.data.beach_id).toBe("beach-1");
+  });
+
+  it.each([
+    ["closure", "advisory", "Beach closed"],
+    ["advisory", "good", "Water advisory"],
+    ["good", "closure", "All clear"],
+    ["unknown", "unknown", "Water update"],
+  ] as const)("cleans the beach name in %s water-quality titles", (status, previous_status, prefix) => {
+    const def = NOTIFICATION_REGISTRY.water_quality;
+    const payload = def.validatePayload!({
+      beach_id: "beach-1", beach_slug: "cardiff", beach_name: "Cardiff-by-the-Sea — North",
+      status, previous_status, status_changed_at: "2026-10-18T15:00:00Z",
+    });
+    const push = def.buildPushPayload!(payload);
+    expect(push.title).toBe(`${prefix}: Cardiff-by-the-Sea North`);
+    expect(push.data).toMatchObject({ beach_id: "beach-1", beach_slug: "cardiff", status });
+    expect(def.buildInAppPayload!(payload).data?.beach_name).toBe("Cardiff-by-the-Sea — North");
   });
 });

@@ -19,9 +19,8 @@ import type { BoardClass } from '@/lib/domains/rideability';
 import { createSwellComponent } from '@/lib/domains/conditions';
 import {
   beachToSpotProfile,
-  createDiscoveryScoringEngine,
+  getDiscoveryScoringEngine,
   getConditionCharacter,
-  type ScoringEngine,
 } from '@/lib/domains/scoring';
 import {
   resolveNativeSkillLevel,
@@ -34,15 +33,6 @@ import {
 } from '@/lib/services/magic-hour/constants';
 import { getLocalHour } from '@/lib/utils/timezone-utils';
 import { generateWindowMessage } from './message-generator';
-
-// Singleton engine for performance — created lazily on first call.
-let _engine: ScoringEngine | null = null;
-function getEngine(): ScoringEngine {
-  if (!_engine) {
-    _engine = createDiscoveryScoringEngine();
-  }
-  return _engine;
-}
 
 /**
  * Convert ForecastForScoring (legacy scoring shape) to a ConditionsSnapshot
@@ -496,7 +486,10 @@ function determineStartReason(
   }
 
   // Check what improved
-  const windImproved = current.windSpeed < previous.windSpeed;
+  const windImproved =
+    current.windSpeed !== null &&
+    previous.windSpeed !== null &&
+    current.windSpeed < previous.windSpeed;
   const tideImproved = didTideEnterRange(previous.tideHeight, current.tideHeight);
 
   if (tideImproved) {
@@ -539,7 +532,11 @@ function determineEndReason(
   }
 
   // Check what degraded
-  const windWorsened = next.windSpeed > current.windSpeed && next.windSpeed > 15;
+  const windWorsened =
+    next.windSpeed !== null &&
+    current.windSpeed !== null &&
+    next.windSpeed > current.windSpeed &&
+    next.windSpeed > 15;
   const tideTooHigh = next.tideHeight > 5;
   const tideTooLow = next.tideHeight < 2;
 
@@ -800,7 +797,7 @@ function buildWindowFromBlock(
   // is a singleton, so this is microseconds).
   const peakProfile = beachToSpotProfile(beach as unknown as Beach);
   const peakSnapshot = forecastForScoringToSnapshot(peakForecast);
-  const peakComposite = getEngine().score({
+  const peakComposite = getDiscoveryScoringEngine().score({
     profile: peakProfile,
     snapshot: peakSnapshot,
     window: null,

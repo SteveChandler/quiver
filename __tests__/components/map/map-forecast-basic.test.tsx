@@ -130,7 +130,7 @@ describe("Map Forecast Basic Tests", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     // Mock successful API responses
     mockFetch.mockImplementation((input: string | URL | Request) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
@@ -153,7 +153,7 @@ describe("Map Forecast Basic Tests", () => {
             }),
           } as Response);
         }
-        
+
         if (url.includes("/api/forecasts/bulk")) {
           return Promise.resolve({
             ok: true,
@@ -167,7 +167,7 @@ describe("Map Forecast Basic Tests", () => {
             }),
           } as Response);
         }
-        
+
         if (url.includes("/api/forecasts/update-enhanced")) {
           return Promise.resolve({
             ok: true,
@@ -189,14 +189,14 @@ describe("Map Forecast Basic Tests", () => {
           } as Response);
         }
       }
-      
+
       return Promise.reject(new Error("Unhandled fetch"));
     });
   });
 
   it("should import and render InteractiveMap without errors", async () => {
     const { InteractiveMap } = await import("@/components/map/interactive-map");
-    
+
     expect(() => {
       render(<InteractiveMap />);
     }).not.toThrow();
@@ -382,9 +382,9 @@ describe("Map Forecast Basic Tests", () => {
 
   it("should call Mapbox Map constructor with correct parameters", async () => {
     const { InteractiveMap } = await import("@/components/map/interactive-map");
-    
+
     render(<InteractiveMap initialCenter={[32.7493, -117.2511]} initialZoom={14} />);
-    
+
     const MapboxMap = require("mapbox-gl").Map;
     expect(MapboxMap).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -437,9 +437,9 @@ describe("Map Forecast Basic Tests", () => {
 
   it("should attempt to fetch beaches data", async () => {
     const { InteractiveMap } = await import("@/components/map/interactive-map");
-    
+
     render(<InteractiveMap />);
-    
+
     // Wait for component to mount and trigger fetch
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith(
@@ -453,9 +453,9 @@ describe("Map Forecast Basic Tests", () => {
 
   it("should attempt to fetch forecast data after loading beaches", async () => {
     const { InteractiveMap } = await import("@/components/map/interactive-map");
-    
+
     render(<InteractiveMap />);
-    
+
     // Wait for beaches and then forecast calls
     // InteractiveMap uses /api/forecasts/bulk endpoint
     await waitFor(() => {
@@ -532,9 +532,9 @@ describe("Map Forecast Basic Tests", () => {
 
   it("should handle component unmounting", async () => {
     const { InteractiveMap } = await import("@/components/map/interactive-map");
-    
+
     const { unmount } = render(<InteractiveMap />);
-    
+
     expect(() => {
       unmount();
     }).not.toThrow();
@@ -566,22 +566,14 @@ describe("Map Forecast Basic Tests", () => {
     expect(formatWaveHeightBucket(undefined)).toBe("No data");
   });
 
-  it("should calculate offshore positions", () => {
-    const { getOffshorePosition } = require("@/lib/utils/map-utilities");
-    
-    const [lng, lat] = getOffshorePosition(32.7493, -117.2511);
-    expect(lng).toBeCloseTo(-117.2501, 6); // lng + 0.001
-    expect(lat).toBeCloseTo(32.7503, 6);   // lat + 0.001
-  });
-
   it("should get current forecast from array", () => {
     const { getCurrentForecast } = require("@/lib/utils/current-forecast-utils");
-    
+
     const forecasts = [
       { forecast_date: "2025-08-16", forecast_time: "12:00:00", wave_height: "2.6 ft" },
       { forecast_date: "2025-08-16", forecast_time: "15:00:00", wave_height: "2.4 ft" },
     ];
-    
+
     const current = getCurrentForecast(forecasts);
     expect(current).toEqual(forecasts[0]);
   });

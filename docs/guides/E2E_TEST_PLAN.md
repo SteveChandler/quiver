@@ -242,9 +242,6 @@ Purpose: Cover flows described in docs without over‑mocking.
 **Running Tests**:
 
 ```bash
-# E2E accessibility tests
-npm run test:e2e:a11y
-
 # Component accessibility tests (included in unit tests)
 npm test
 

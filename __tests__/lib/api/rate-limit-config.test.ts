@@ -48,4 +48,49 @@ describe('recommendation rate-limit configuration', () => {
     });
     expect(RATE_LIMITS['surf-call']).not.toBe(RATE_LIMITS['surf-discovery']);
   });
+
+  it.each([
+    ['watch-link-code', 6, 30, 3],
+    ['watch-link-confirm', 10, 20, 3],
+    ['watch-link-poll', 30, 400, 30],
+  ])('configures the dedicated production %s bucket', (key, requestsPerMinute, requestsPerHour, burstLimit) => {
+    jest.resetModules();
+    setNodeEnv('production');
+    const { RATE_LIMITS } = require('@/lib/api/rate-limit-config');
+    expect(RATE_LIMITS[key]).toEqual({ requestsPerMinute, requestsPerHour, burstLimit });
+  });
+
+  it('lets forecast-bulk reach its per-minute budget in 10-second bursts', () => {
+    jest.resetModules();
+    setNodeEnv('production');
+    jest.useFakeTimers({ now: new Date('2026-10-11T12:00:00Z') });
+
+    const { RATE_LIMITS } = require('@/lib/api/rate-limit-config');
+    const { EnhancedRateLimiter } = require('@/lib/utils/enhanced-rate-limiter');
+    const bulk = RATE_LIMITS['forecast-bulk'];
+    const limiter = new EnhancedRateLimiter('forecast-bulk-test', bulk);
+    const request = (): boolean => {
+      if (!limiter.canMakeRequest('map-client')) return false;
+      limiter.recordRequest('map-client', '/api/forecasts/bulk');
+      return true;
+    };
+
+    try {
+      for (let call = 0; call < 20; call += 1) expect(request()).toBe(true);
+      expect(request()).toBe(false);
+
+      // Two more full bursts fit in the same minute.
+      jest.advanceTimersByTime(10_001);
+      for (let call = 0; call < 20; call += 1) expect(request()).toBe(true);
+      jest.advanceTimersByTime(10_001);
+      for (let call = 0; call < 20; call += 1) expect(request()).toBe(true);
+
+      // The 61st inside the minute is still refused.
+      jest.advanceTimersByTime(10_001);
+      expect(request()).toBe(false);
+    } finally {
+      limiter.destroy();
+      jest.useRealTimers();
+    }
+  });
 });

@@ -25,7 +25,7 @@ import {
 } from "@/lib/location/ip-location";
 import { ForecastSectionContainer } from "./forecast-section-container";
 
-// Sticker shapes + rotations cycle per row so the list reads hand-cut,
+// Sticker shapes cycle per row so the list reads hand-cut,
 // not templated. Indexing by position keeps SSR/CSR output stable.
 const THUMB_SHAPES = [
   "rounded-[18px_6px_20px_8px]",
@@ -34,7 +34,6 @@ const THUMB_SHAPES = [
   "rounded-[10px_18px_20px_8px]",
   "rounded-[16px_8px_18px_22px]",
 ];
-const THUMB_ROTATIONS = ["-rotate-1", "rotate-1", "-rotate-[0.5deg]", "rotate-[1.5deg]", "-rotate-[1.25deg]"];
 
 function BestRightNowSkeleton() {
   return (
@@ -79,8 +78,7 @@ interface BeachThumbProps {
 
 function BeachThumb({ imageUrl, beachName, index }: BeachThumbProps) {
   const shape = THUMB_SHAPES[index % THUMB_SHAPES.length];
-  const rotation = THUMB_ROTATIONS[index % THUMB_ROTATIONS.length];
-  const common = `relative h-12 w-12 shrink-0 overflow-hidden ${shape} ${rotation} shadow-[0_2px_0_rgba(0,0,0,0.3)] motion-reduce:rotate-0`;
+  const common = `relative h-12 w-12 shrink-0 overflow-hidden ${shape} shadow-[0_2px_0_rgba(0,0,0,0.3)]`;
 
   if (imageUrl) {
     return (

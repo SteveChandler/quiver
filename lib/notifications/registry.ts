@@ -31,6 +31,7 @@ import type {
   NotificationTypeDef,
 } from "./types";
 import { isHighConfidenceNotification } from "./relevance";
+import { pushTitle } from "./copy/push-title";
 import {
   parseMajorSwellNotificationPayload,
   type MajorSwellNotificationPayload,
@@ -47,6 +48,18 @@ const likeSchema = z.object({
   session_id: z.string().min(1),
   beach_name: z.string().nullable().optional(),
 });
+
+const watchSessionReadySchema = z.object({
+  session_id: z.string().min(1),
+  beach_name: z.string().trim().min(1),
+  wave_count: z.number().int().nonnegative(),
+}).strict();
+
+const watchSessionNeedsBeachSchema = z.object({
+  import_id: z.string().min(1),
+  started_at: z.string().datetime({ offset: true }),
+  timezone: z.string().min(1).optional(),
+}).strict();
 
 // follow has no required fields; actor identity comes from BuildCtx.
 const followSchema = z.record(z.string(), z.unknown());
@@ -240,6 +253,16 @@ const waterQualitySchema = z.object({
     .enum(["good", "advisory", "closure", "unknown"])
     .nullable(),
   status_changed_at: z.string().min(1),
+  rain_advisory: z.object({
+    event_id: z.string().uuid(),
+    phase: z.enum(["start", "end"]),
+    source: z.enum(["county_general", "metar_runoff"]),
+    region: z.string().min(1),
+    started_at: z.string().min(1),
+    last_rain_at: z.string().nullable(),
+    expires_at: z.string().min(1),
+    end_reason: z.enum(["dry_72h", "county_lifted"]).nullable().optional(),
+  }).optional(),
 });
 
 const dailyDigestSchema = z.object({
@@ -331,15 +354,13 @@ const SURF_ALERT_PUSH_PRESENTATION = {
 
 // ─── Payload shapes (what producers pass + what builders consume) ────────────
 
-interface LikePayload {
-  session_id: string;
-  beach_name?: string | null;
-}
+type LikePayload = z.infer<typeof likeSchema>;
 
-interface FollowPayload {
-  /** No specific fields — actor identity comes from BuildCtx. */
-  [k: string]: unknown;
-}
+type WatchSessionReadyPayload = z.infer<typeof watchSessionReadySchema>;
+
+type WatchSessionNeedsBeachPayload = z.infer<typeof watchSessionNeedsBeachSchema>;
+
+type FollowPayload = z.infer<typeof followSchema>;
 
 interface ForecastAlertPayload {
   alert_date: string;
@@ -363,104 +384,23 @@ interface ForecastAlertPayload {
   queue_items?: Array<{ queue_id: string; rule_id: string }>;
 }
 
-interface TrialEndingPayload {
-  title: string;
-  body: string;
-  trial_ends_at: string;
-}
+type TrialEndingPayload = z.infer<typeof trialEndingSchema>;
 
-interface LogSessionNudgePayload {
-  cohort: string;
-  title: string;
-  body: string;
-  beach_id?: string | null;
-  beach_name?: string | null;
-  policy_context?: PositiveRecommendationPolicyContextPayload;
-  notification_category?: string;
-  trigger_source?: string;
-  relevance_confidence?: "high" | "medium" | "low" | "unknown";
-  beach_confidence?: "high" | "medium" | "low" | "unknown";
-  assumed_attendance?: false;
-  attendance_confidence_score?: number;
-  beach_confidence_score?: number;
-  relevance_score?: number;
-}
+type LogSessionNudgePayload = z.infer<typeof logSessionNudgeSchema>;
 
-interface ForecastFeedbackNudgePayload {
-  beach_id: string;
-  beach_slug?: string;
-  beach_name?: string;
-  forecast_at?: string;
-  deeplink?: string;
-  notification_category?: string;
-  trigger_source?: string;
-  relevance_confidence?: "high" | "medium" | "low" | "unknown";
-  beach_confidence?: "high" | "medium" | "low" | "unknown";
-  assumed_attendance?: false;
-  attendance_confidence_score?: number;
-  beach_confidence_score?: number;
-  relevance_score?: number;
-}
+type ForecastFeedbackNudgePayload = z.infer<typeof forecastFeedbackNudgeSchema>;
 
-interface WeekendWindowPayload {
-  snapshot_id: string;
-  weekend_start: string;
-  weekend_end: string;
-  qualifying_count: 1 | 2 | 3;
-  beach_id: string;
-  lead_beach_id: string;
-  lead_beach_name: string;
-  lead_window_local: string;
-  forecast_at: string;
-  policy_context: PositiveRecommendationPolicyContextPayload;
-}
+type WeekendWindowPayload = z.infer<typeof weekendWindowSchema>;
 
-interface WeeklyStreakReminderPayload {
-  streak: number;
-  period_key?: string;
-  notification_category?: string;
-  trigger_source?: string;
-  relevance_confidence?: "high" | "medium" | "low" | "unknown";
-  beach_confidence?: "high" | "medium" | "low" | "unknown";
-  assumed_attendance?: false;
-}
+type WeeklyStreakReminderPayload = z.infer<typeof weeklyStreakReminderSchema>;
 
-interface WaterQualityPayload {
-  beach_id: string;
-  beach_slug: string;
-  beach_name: string;
-  status: "good" | "advisory" | "closure" | "unknown";
-  previous_status: "good" | "advisory" | "closure" | "unknown" | null;
-  status_changed_at: string;
-}
+type WaterQualityPayload = z.infer<typeof waterQualitySchema>;
 
-interface DailyDigestPayload {
-  alert_date: string;
-  title: string;
-  body: string;
-  match_count?: number;
-  // Phase 5h: optional consolidated summaries
-  forecast_summary?: {
-    top_match: string;
-    match_count: number;
-  };
-  water_quality_summary?: {
-    advisory_count: number;
-    closure_count: number;
-  };
-}
+type DailyDigestPayload = z.infer<typeof dailyDigestSchema>;
 
-interface AdminTestPayload {
-  title?: string;
-  body?: string;
-}
+type AdminTestPayload = z.infer<typeof adminTestSchema>;
 
-interface AdminBroadcastPayload {
-  title: string;
-  body: string;
-  url?: string | null;
-  data?: Record<string, string>;
-}
+type AdminBroadcastPayload = z.infer<typeof adminBroadcastSchema>;
 
 // ─── Registry ─────────────────────────────────────────────────────────────────
 
@@ -704,24 +644,48 @@ export const NOTIFICATION_REGISTRY = {
     surfAlertPriority: 2,
     quietHours: DEFAULT_QUIET,
     validatePayload: parseDailyCallPayload,
-    buildPushPayload: (p) => ({
-      ...SURF_ALERT_PUSH_PRESENTATION,
-      title: p.title,
-      body: p.reason,
-      data: {
-        type: "daily_call",
-        beach_id: p.beach_id,
-        beach_slug: p.beach_slug,
-        alert_date: p.alert_date,
-        forecast_at: p.window_start,
-        window_start: p.window_start,
-        window_end: p.window_end,
-        window_local: p.window_local,
-        drivers: JSON.stringify(p.drivers),
-        reason: p.reason,
-        decision_id: p.decision_id,
-      },
-    }),
+    buildPushPayload: (p) => {
+      let body = p.reason;
+      const options = p.options ?? [];
+      for (let count = options.length; count > 0; count -= 1) {
+        const also = options.slice(0, count)
+          .map((option) => `${option.beach_name} ${option.window_local}`).join(", ");
+        const candidateBody = `${p.reason} Also: ${also}.`;
+        if (candidateBody.length > 240) continue;
+        body = candidateBody;
+        break;
+      }
+      return {
+        ...SURF_ALERT_PUSH_PRESENTATION,
+        title: p.title,
+        body,
+        data: {
+          type: "daily_call",
+          beach_id: p.beach_id,
+          beach_slug: p.beach_slug,
+          alert_date: p.alert_date,
+          forecast_at: p.window_start,
+          window_start: p.window_start,
+          window_end: p.window_end,
+          window_local: p.window_local,
+          drivers: JSON.stringify(p.drivers),
+          ...(options.length ? {
+            options: JSON.stringify(options),
+            beaches: JSON.stringify([
+              { beach_id: p.beach_id, beach_name: p.beach_name, rank: 1, forecast_at: p.window_start },
+              ...options.map((option, index) => ({
+                beach_id: option.beach_id,
+                beach_name: option.beach_name,
+                rank: index + 2,
+                forecast_at: option.window_start,
+              })),
+            ]),
+          } : {}),
+          reason: p.reason,
+          decision_id: p.decision_id,
+        },
+      };
+    },
     buildInAppPayload: (p) => ({
       type: "daily_call",
       data: p,
@@ -788,6 +752,12 @@ export const NOTIFICATION_REGISTRY = {
         beach_id: p.beach_id,
         ...(p.beach_slug ? { beach_slug: p.beach_slug } : {}),
         ...(p.forecast_at ? { forecast_at: p.forecast_at } : {}),
+        ...(p.surf_window ? { surf_window: JSON.stringify(p.surf_window) } : {}),
+        ...(p.surf_window?.state === "recommended" &&
+        p.surf_window.start &&
+        p.surf_window.end
+          ? { destination: "beach" }
+          : {}),
         ...(p.peak_date ? { peak_date: p.peak_date } : {}),
         ...(p.beaches ? { beaches: JSON.stringify(p.beaches) } : {}),
         ...(p.event_key ? { event_key: p.event_key } : {}),
@@ -814,6 +784,12 @@ export const NOTIFICATION_REGISTRY = {
         peak_height_ft: p.peak_height_ft,
         peak_period_s: p.peak_period_s,
         forecast_at: p.forecast_at,
+        ...(p.surf_window ? { surf_window: p.surf_window } : {}),
+        ...(p.surf_window?.state === "recommended" &&
+        p.surf_window.start &&
+        p.surf_window.end
+          ? { destination: "beach" }
+          : {}),
         awareness_signal: p.awareness_signal,
         awareness_severity: p.awareness_severity,
         title: p.title,
@@ -888,6 +864,50 @@ export const NOTIFICATION_REGISTRY = {
     }),
   } satisfies NotificationTypeDef<LogSessionNudgePayload>,
 
+  watch_session_ready: {
+    type: "watch_session_ready",
+    channels: ["push"],
+    prefs: {
+      master: { push: "notif_push_enabled" },
+      perType: {},
+    },
+    suppressSelfNotify: false,
+    quietHours: DEFAULT_QUIET,
+    validatePayload: (input) => watchSessionReadySchema.parse(input),
+    buildPushPayload: (p) => ({
+      title: "Your surf is in Quiver",
+      body: `${p.beach_name}: ${p.wave_count} ${p.wave_count === 1 ? "wave" : "waves"}`,
+      data: { type: "watch_session_ready", session_id: p.session_id, url: `/sessions/${p.session_id}`, deeplink: `quiver://sessions/${p.session_id}` },
+    }),
+  } satisfies NotificationTypeDef<WatchSessionReadyPayload>,
+
+  watch_session_needs_beach: {
+    type: "watch_session_needs_beach",
+    channels: ["push"],
+    prefs: {
+      master: { push: "notif_push_enabled" },
+      perType: {},
+    },
+    suppressSelfNotify: false,
+    quietHours: DEFAULT_QUIET,
+    validatePayload: (input) => watchSessionNeedsBeachSchema.parse(input),
+    buildPushPayload: (p) => {
+      let dateFormatter: Intl.DateTimeFormat;
+      try {
+        dateFormatter = new Intl.DateTimeFormat("en-US", {
+          month: "short", day: "numeric", timeZone: p.timezone ?? "UTC",
+        });
+      } catch {
+        dateFormatter = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+      }
+      return {
+        title: "Pick the beach for your surf",
+        body: `Your ${dateFormatter.format(new Date(p.started_at))} surf needs a beach before it can be saved`,
+        data: { type: "watch_session_needs_beach", import_id: p.import_id, url: `/sessions/imports/${p.import_id}`, deeplink: `quiver://sessions/imports/${p.import_id}` },
+      };
+    },
+  } satisfies NotificationTypeDef<WatchSessionNeedsBeachPayload>,
+
   forecast_feedback_nudge: {
     type: "forecast_feedback_nudge",
     channels: ["push"],
@@ -906,7 +926,7 @@ export const NOTIFICATION_REGISTRY = {
       return {
         title:
           highConfidence && p.beach_name
-            ? `Surfed ${p.beach_name} today?`
+            ? pushTitle(`Surfed ${p.beach_name} today?`)
             : "Catch a session today?",
         body: highConfidence
           ? "Log it in one tap."
@@ -1001,7 +1021,17 @@ export const NOTIFICATION_REGISTRY = {
 
       let title: string;
       let body: string;
-      if (p.status === "closure") {
+      if (p.rain_advisory?.phase === "start") {
+        title = `Rain advisory: ${p.beach_name}`;
+        body = p.rain_advisory.source === "county_general"
+          ? "County of San Diego rain advisory. Runoff can raise bacteria for 72 h after rain."
+          : "Rain fell nearby. Runoff can raise bacteria near drains and creeks for 72 h.";
+      } else if (p.rain_advisory?.phase === "end") {
+        title = `All clear: ${p.beach_name}`;
+        body = p.rain_advisory.end_reason === "county_lifted"
+          ? `The County lifted its rain advisory for ${p.beach_name}.`
+          : `72 h since the last rain at ${p.beach_name}. The rain advisory has ended.`;
+      } else if (p.status === "closure") {
         title = `Beach closed: ${p.beach_name}`;
         body = "High bacteria levels. Don't enter the water.";
       } else if (p.status === "advisory") {
@@ -1017,13 +1047,14 @@ export const NOTIFICATION_REGISTRY = {
         body = "Water quality status updated.";
       }
       return {
-        title,
+        title: pushTitle(title),
         body,
         data: {
           type: "water_quality",
           beach_id: p.beach_id,
           beach_slug: p.beach_slug,
           status: p.status,
+          ...(p.rain_advisory ? { rain_advisory_phase: p.rain_advisory.phase } : {}),
         },
       };
     },
@@ -1038,6 +1069,7 @@ export const NOTIFICATION_REGISTRY = {
         status: p.status,
         previous_status: p.previous_status,
         status_changed_at: p.status_changed_at,
+        ...(p.rain_advisory ? { rain_advisory: p.rain_advisory } : {}),
       },
     }),
   } satisfies NotificationTypeDef<WaterQualityPayload>,

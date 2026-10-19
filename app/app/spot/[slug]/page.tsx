@@ -105,8 +105,10 @@ function safeDecodeSlug(slug: string): string {
   }
 }
 
-function buildBeachFallbackPath(slug: string): string {
-  return `/beach/${encodeURIComponent(safeDecodeSlug(slug))}`;
+function buildBeachFallbackPath(slug: string, windowValue?: string): string {
+  const path = `/beach/${encodeURIComponent(safeDecodeSlug(slug))}`;
+  if (!windowValue) return path;
+  return `${path}?${new URLSearchParams({ window: windowValue }).toString()}`;
 }
 
 function buildExactRetryPath(
@@ -158,7 +160,7 @@ export default async function AppSpotHandoffPage({
     slug,
     window: windowId,
   });
-  const webFallbackHref = buildBeachFallbackPath(slug);
+  const webFallbackHref = buildBeachFallbackPath(slug, windowId);
   const exactRetryHref = buildExactRetryPath(slug, resolvedSearchParams);
   const requestHeaders = await headers();
   const shareId = parseShareId(firstSearchValue(resolvedSearchParams.sid));
@@ -173,6 +175,7 @@ export default async function AppSpotHandoffPage({
     slug: safeDecodeSlug(slug),
     windowValue: windowId,
     shareId,
+    inviteToken: firstSearchValue(resolvedSearchParams.invite),
   });
   const hasPositiveWindow = !shareMetadata.isFallback;
   const displayWindowLabel = hasPositiveWindow
@@ -211,7 +214,7 @@ export default async function AppSpotHandoffPage({
           {exactRetryHref ? (
             <a
               href={exactRetryHref}
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-[#F78E42] px-5 py-3 text-base font-black text-[#11100D] transition hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#101436]"
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#F78E42] px-5 py-3 text-base font-black text-[#11100D] transition hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#101436]"
             >
               <Smartphone className="h-5 w-5" aria-hidden="true" />
               Open this window in Quiver
@@ -220,7 +223,7 @@ export default async function AppSpotHandoffPage({
             <ShareLandingOpenAppLink
               href={openInQuiverHref}
               shareId={shareId}
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-[#F78E42] px-5 py-3 text-base font-black text-[#11100D] transition hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#101436]"
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#F78E42] px-5 py-3 text-base font-black text-[#11100D] transition hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#101436]"
             >
               <Smartphone className="h-5 w-5" aria-hidden="true" />
               Open in Quiver

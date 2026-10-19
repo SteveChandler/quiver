@@ -294,7 +294,7 @@ export async function getBeachForecastPreview(beachId: string) {
     //      row in the current 24h window — zero coverage gaps.
     // Removing the fallback also closes a wave-height divergence path:
     // the basic table's `wave_height` was never routed through the canonical
-    // face-height transformer (`toFaceHeightFeetDecomposed`), so any
+    // face-height transformer (`toFaceHeightFeetDecomposedWithDebug`), so any
     // consumer that fell through here would render a raw-Hs number that
     // disagreed with the beach detail hero (face-height) and the Oracle
     // home (face-height via `waveHeightBadge`). Returning null surfaces
@@ -360,117 +360,5 @@ export async function updateAllBeachForecasts() {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
     };
-  }
-}
-
-// Get today's forecast for a beach (used by home page)
-// NOTE: This function is being deprecated in favor of direct API calls to /api/forecasts/update-enhanced
-// for better consistency across pages. New code should use the API endpoint directly.
-// Keeping this for backwards compatibility with any remaining consumers.
-export async function getForecastForToday(beachId: string) {
-  try {
-    console.log("🏠 getForecastForToday called with beachId:", beachId);
-
-    const supabase = await createSupabaseServiceRoleClient();
-    const { getCurrentForecast } = await import(
-      "@/lib/utils/current-forecast-utils"
-    );
-
-    const today = new Date().toISOString().split("T")[0];
-    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000)
-      .toISOString()
-      .split("T")[0];
-    const dayAfterTomorrow = new Date(new Date(tomorrow + 'T00:00:00Z').getTime() + 86400000).toISOString().split('T')[0];
-
-    console.log("📅 Searching for forecasts between:", today, "and", tomorrow);
-
-    // Use same data fetching logic as beach detail page to ensure consistency
-    const enhancedForecastResult = await getEnhancedBeachForecasts(beachId, 10);
-    let enhancedForecasts: any[] | null = null;
-    let enhancedError: any = null;
-    
-    if (enhancedForecastResult.success && enhancedForecastResult.data) {
-      enhancedForecasts = enhancedForecastResult.data;
-    } else {
-      enhancedError = new Error(enhancedForecastResult.error || "Failed to fetch enhanced forecasts");
-    }
-
-    console.log("🔍 Enhanced forecasts query result:", {
-      error: enhancedError,
-      count: enhancedForecasts?.length || 0,
-      sampleForecast: enhancedForecasts?.[0]
-        ? {
-            date: enhancedForecasts[0].forecast_date,
-            time: enhancedForecasts[0].forecast_time,
-            tide: enhancedForecasts[0].tide_status,
-            wind: enhancedForecasts[0].wind_speed,
-          }
-        : null,
-    });
-
-    if (enhancedError) {
-      console.error(
-        "❌ Error fetching enhanced forecast for today:",
-        enhancedError
-      );
-    }
-
-    if (enhancedForecasts && enhancedForecasts.length > 0) {
-      // Use time-aware selection to match beach detail page behavior
-      const { getCurrentForecast, formatCurrentTime } = await import(
-        "@/lib/utils/current-forecast-utils"
-      );
-      const currentForecast = getCurrentForecast(enhancedForecasts);
-
-      if (currentForecast) {
-        console.log(
-          `✅ Home page forecast found (time-aware): ${currentForecast.forecast_date} ${currentForecast.forecast_time}, wave: ${currentForecast.wave_height}, tide: ${currentForecast.tide_status}, wind: ${currentForecast.wind_speed}`
-        );
-        console.log(`🕐 Current time: ${formatCurrentTime()}, total forecasts: ${enhancedForecasts.length}`);
-        console.log(`📊 First forecast: ${enhancedForecasts[0]?.forecast_time} (${enhancedForecasts[0]?.wave_height})`);
-        return currentForecast;
-      }
-    }
-
-    console.log("❌ No forecast data found for beach:", beachId);
-
-    // Attempt an on-demand refresh/generation as a last resort
-    try {
-      console.log("🛠️ Attempting on-demand enhanced forecast generation for", beachId);
-      const { updateBeachForecast } = await import(
-        "@/lib/utils/forecast-service-utils"
-      );
-      await updateBeachForecast(beachId);
-
-      // Re-query enhanced forecasts after generation
-      const { data: regenForecasts, error: regenError } = await supabase
-        .from("enhanced_forecasts")
-        .select("*")
-        .eq("beach_id", beachId)
-        .gte("forecast_at", `${today}T00:00:00Z`)
-        .lt("forecast_at", `${dayAfterTomorrow}T00:00:00Z`)
-        .order("forecast_at", { ascending: true });
-
-      if (regenError) {
-        console.warn("Post-generation query error:", regenError);
-      }
-
-      if (regenForecasts && regenForecasts.length > 0) {
-        const currentForecast = getCurrentForecast(regenForecasts as any[]);
-        if (currentForecast) {
-          console.log(
-            `✅ Home page forecast after generation: ${currentForecast.forecast_date} ${currentForecast.forecast_time}`
-          );
-          return currentForecast as any;
-        }
-      }
-    } catch (genErr) {
-      console.warn("On-demand forecast generation failed:", genErr);
-    }
-
-    return null;
-  } catch (error) {
-    console.error("Error in getForecastForToday:", error);
-    throw error;
   }
 }

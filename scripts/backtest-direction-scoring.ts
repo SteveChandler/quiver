@@ -21,7 +21,7 @@ export interface BacktestRow {
   outOfWindow: boolean;
 }
 
-export type GateStatus = 'PASS' | 'FAIL' | 'INSUFFICIENT DATA';
+type GateStatus = 'PASS' | 'FAIL' | 'INSUFFICIENT DATA';
 
 function averageRanks(values: number[]): number[] {
   return values.map((value) => {

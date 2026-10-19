@@ -1,3 +1,4 @@
+import { JsonLd } from "@/components/seo/funnel/JsonLd";
 /**
  * Wave Height Converter Tool
  *
@@ -82,10 +83,7 @@ export default function WaveConverterPage() {
           },
         ]}
       />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+      <JsonLd data={{
             "@context": "https://schema.org",
             "@type": "WebApplication",
             name: "Quiver Wave Height Converter",
@@ -100,9 +98,7 @@ export default function WaveConverterPage() {
               name: "Quiver",
               url: SITE_URL,
             },
-          }),
-        }}
-      />
+          }} />
 
       <div className="min-h-screen" style={{ background: "#0F1535" }}>
         <ToolHero

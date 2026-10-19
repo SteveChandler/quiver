@@ -2,7 +2,7 @@
  * Beach OG Image API Contract Tests
  *
  * Tests the API contract for the beach Open Graph image generation endpoint:
- * - Returns valid PNG images for known beach slugs
+ * - Returns valid JPEG images for known beach slugs
  * - Returns fallback images for invalid/missing slugs
  * - Proper cache headers for CDN optimization
  * - Input validation (slug format, length)
@@ -12,13 +12,14 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { readJpegDimensions } from '../utils/jpeg-dimensions';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 const OG_BEACH_ENDPOINT = `${BASE_URL}/api/og/beach`;
 
 test.describe('Beach OG Image API Contract', () => {
   test.describe('Valid Beach Slug', () => {
-    test('should return 200 with image/png content type for a known beach slug', async ({
+    test('should return 200 with image/jpeg content type for a known beach slug', async ({
       playwright,
     }) => {
       const context = await playwright.request.newContext({
@@ -28,7 +29,8 @@ test.describe('Beach OG Image API Contract', () => {
       const response = await context.get(`${OG_BEACH_ENDPOINT}?slug=blacks`);
 
       expect(response.status()).toBe(200);
-      expect(response.headers()['content-type']).toContain('image/png');
+      expect(response.headers()['content-type']).toContain('image/jpeg');
+      expect((await response.body()).length).toBeLessThan(300000);
     });
 
     test('should return non-empty image body', async ({ playwright }) => {
@@ -39,6 +41,7 @@ test.describe('Beach OG Image API Contract', () => {
       const response = await context.get(`${OG_BEACH_ENDPOINT}?slug=blacks`);
       const body = await response.body();
 
+      expect(body.length).toBeLessThan(300000);
       expect(body.length).toBeGreaterThan(1000); // Real images are much larger than 1KB
     });
 
@@ -75,7 +78,8 @@ test.describe('Beach OG Image API Contract', () => {
       const response = await context.get(OG_BEACH_ENDPOINT);
 
       expect(response.status()).toBe(200);
-      expect(response.headers()['content-type']).toContain('image/png');
+      expect(response.headers()['content-type']).toContain('image/jpeg');
+      expect((await response.body()).length).toBeLessThan(300000);
     });
 
     test('should return fallback image for non-existent beach slug', async ({
@@ -90,7 +94,8 @@ test.describe('Beach OG Image API Contract', () => {
       );
 
       expect(response.status()).toBe(200);
-      expect(response.headers()['content-type']).toContain('image/png');
+      expect(response.headers()['content-type']).toContain('image/jpeg');
+      expect((await response.body()).length).toBeLessThan(300000);
     });
 
     test('should return fallback image for empty slug', async ({ playwright }) => {
@@ -101,7 +106,8 @@ test.describe('Beach OG Image API Contract', () => {
       const response = await context.get(`${OG_BEACH_ENDPOINT}?slug=`);
 
       expect(response.status()).toBe(200);
-      expect(response.headers()['content-type']).toContain('image/png');
+      expect(response.headers()['content-type']).toContain('image/jpeg');
+      expect((await response.body()).length).toBeLessThan(300000);
     });
   });
 
@@ -115,7 +121,8 @@ test.describe('Beach OG Image API Contract', () => {
 
       // Should still return 200 with fallback (never 4xx for crawlers)
       expect(response.status()).toBe(200);
-      expect(response.headers()['content-type']).toContain('image/png');
+      expect(response.headers()['content-type']).toContain('image/jpeg');
+      expect((await response.body()).length).toBeLessThan(300000);
     });
 
     test('should reject slugs with special characters', async ({ playwright }) => {
@@ -128,7 +135,8 @@ test.describe('Beach OG Image API Contract', () => {
       );
 
       expect(response.status()).toBe(200);
-      expect(response.headers()['content-type']).toContain('image/png');
+      expect(response.headers()['content-type']).toContain('image/jpeg');
+      expect((await response.body()).length).toBeLessThan(300000);
     });
 
     test('should reject extremely long slugs', async ({ playwright }) => {
@@ -140,7 +148,8 @@ test.describe('Beach OG Image API Contract', () => {
       const response = await context.get(`${OG_BEACH_ENDPOINT}?slug=${longSlug}`);
 
       expect(response.status()).toBe(200);
-      expect(response.headers()['content-type']).toContain('image/png');
+      expect(response.headers()['content-type']).toContain('image/jpeg');
+      expect((await response.body()).length).toBeLessThan(300000);
     });
   });
 
@@ -168,10 +177,8 @@ test.describe('Beach OG Image API Contract', () => {
       const response = await context.get(`${OG_BEACH_ENDPOINT}?slug=blacks`);
       const body = await response.body();
 
-      // PNG header check: bytes 16-23 contain width (4 bytes) and height (4 bytes) in big-endian
-      // PNG signature: 8 bytes, then IHDR chunk: 4 bytes length + 4 bytes type + 4 bytes width + 4 bytes height
-      const width = body.readUInt32BE(16);
-      const height = body.readUInt32BE(20);
+      expect(body.length).toBeLessThan(300000);
+      const { width, height } = readJpegDimensions(body);
 
       expect(width).toBe(1200);
       expect(height).toBe(630);
@@ -185,8 +192,8 @@ test.describe('Beach OG Image API Contract', () => {
       const response = await context.get(OG_BEACH_ENDPOINT);
       const body = await response.body();
 
-      const width = body.readUInt32BE(16);
-      const height = body.readUInt32BE(20);
+      expect(body.length).toBeLessThan(300000);
+      const { width, height } = readJpegDimensions(body);
 
       expect(width).toBe(1200);
       expect(height).toBe(630);

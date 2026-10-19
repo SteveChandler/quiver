@@ -1,7 +1,4 @@
-import {
-  buildRecommendationImpressionInput,
-  buildRecommendationLogUrl,
-} from "@/lib/recommendations/attribution";
+import { buildRecommendationLogUrl } from "@/lib/recommendations/attribution";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
 
 const makeRecommendation = (): SurfDiscoveryRecommendation =>
@@ -23,38 +20,6 @@ const makeRecommendation = (): SurfDiscoveryRecommendation =>
   }) as SurfDiscoveryRecommendation;
 
 describe("recommendation attribution", () => {
-  it("keeps known time slots on impression inputs", () => {
-    const input = buildRecommendationImpressionInput({
-      recommendation: makeRecommendation(),
-      rank: 1,
-      surface: "home_hero",
-      timeSlot: "morning",
-    });
-
-    expect(input.timeSlot).toBe("morning");
-  });
-
-  it("omits unknown time slots from impression inputs", () => {
-    const input = buildRecommendationImpressionInput({
-      recommendation: makeRecommendation(),
-      rank: 1,
-      surface: "home_hero",
-      timeSlot: "after-dark",
-    });
-
-    expect(input.timeSlot).toBeUndefined();
-  });
-
-  it("normalizes null time slots on impression inputs", () => {
-    const input = buildRecommendationImpressionInput({
-      recommendation: makeRecommendation(),
-      rank: 1,
-      surface: "home_hero",
-      timeSlot: null,
-    });
-
-    expect(input.timeSlot).toBeUndefined();
-  });
 
   it("preserves provided time slots on log URLs", () => {
     const url = buildRecommendationLogUrl({

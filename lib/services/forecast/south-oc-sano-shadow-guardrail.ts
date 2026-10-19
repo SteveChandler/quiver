@@ -19,13 +19,13 @@ const MAX_NEARSHORE_TO_OFFSHORE_RATIO = 1.8;
 const WINDOW_PAST_MS = 30 * 60 * 1000;
 const WINDOW_FUTURE_MS = 6 * 60 * 60 * 1000;
 
-export const SOUTH_OC_SANO_SHADOW_STATION_IDS = [
+const SOUTH_OC_SANO_SHADOW_STATION_IDS = [
   GREEN_BEACH_OFFSHORE,
   RED_BEACH_NEARSHORE,
   CAPISTRANO_BEACH_NEARSHORE,
 ] as const;
 
-export const SOUTH_OC_SANO_SHADOW_ZONE_SLUGS = [
+const SOUTH_OC_SANO_SHADOW_ZONE_SLUGS = [
   "salt-creek",
   "strands",
   "doheny",
@@ -61,7 +61,7 @@ const NEARSHORE_STATIONS = new Set<string>([
 const ZONE_SLUGS = new Set<string>(SOUTH_OC_SANO_SHADOW_ZONE_SLUGS);
 const TRESTLES_SLUGS = new Set<string>(TRESTLES_CLUSTER_SLUGS);
 
-export interface SouthOcSanoObservationRow {
+interface SouthOcSanoObservationRow {
   station_id: string;
   observed_at: string;
   wave_height_m: number | string | null;

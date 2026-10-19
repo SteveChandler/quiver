@@ -2,6 +2,8 @@ import type { ScoringDecisionEffect } from '@/lib/domains/scoring/types';
 
 type CanonicalDecisionModule = {
   buildCanonicalSessionDecision: (input: unknown) => unknown;
+  beachSkillVetoReason: (beachSkillLevel: unknown, profileExperience: unknown) =>
+    "missing_beach_skill" | "beach_skill_exceeds_user" | null;
 };
 
 interface TestCandidate {
@@ -74,6 +76,91 @@ function input(
 }
 
 describe("canonical session decision engine", () => {
+  it.each([
+    ["beginner-intermediate", "beginner", null],
+    ["lower-intermediate", "beginner", "beach_skill_exceeds_user"],
+    ["intermediate", "beginner", "beach_skill_exceeds_user"],
+    ["upper-intermediate", "beginner", "beach_skill_exceeds_user"],
+    ["beginner", "beginner", null],
+    [null, null, "missing_beach_skill"],
+    ["advanced", null, null],
+  ] as const)("returns the beach skill veto for %s and %s", (beachSkill, experience, expected) => {
+    expect(loadEngine().beachSkillVetoReason(beachSkill, experience)).toBe(expected);
+  });
+
+  it.each([
+    [{ gate: 'candidate_pool', observed: { count: 0 } }],
+    [{ gate: 'forecast_rows', observed: { count: 0 } }],
+    [{ gate: 'forecast_alignment', observed: { forecastAt: '2026-07-22T18:00:00.000Z' }, allowed: { maximumDeltaMinutes: 90 } }],
+    [{ gate: 'past_forecast', observed: { count: 3 } }],
+    [{ gate: 'time_slot', observed: { count: 2 }, detail: 'morning' }],
+    [{ gate: 'score_floor', observed: { score: 34 }, allowed: { minimumScore: 40 } }],
+    [{ gate: 'horizon', observed: { hoursAhead: 26 }, allowed: { maximumHoursAhead: 24 } }],
+    [{ gate: 'daylight', observed: { count: 4 } }],
+    [{ gate: 'session_duration', observed: { durationHours: 0.5 }, allowed: { minimumDurationHours: 1 } }],
+    [{ gate: 'window_selection', observed: { count: 2 } }],
+    [{ gate: 'saved_spot_eligibility', observed: { status: 'Maybe' }, allowed: { status: 'Worth it' } }],
+    [{ gate: 'water_quality_hold', observed: { status: 'advisory' }, allowed: { status: 'open' } }],
+    [{ gate: 'skill_gate', observed: { skill: 'advanced' }, allowed: { skill: 'intermediate' } }],
+    [{ gate: 'ranking', observed: { count: 3 } }],
+  ])('preserves a %j discovery rejection without changing no_candidates', (candidateRejection) => {
+    const { buildCanonicalSessionDecision } = loadEngine();
+    const decision = buildCanonicalSessionDecision(input([], { candidateRejection })) as {
+      reasonCode: string; candidateRejection: unknown;
+    };
+    expect(decision.reasonCode).toBe('no_candidates');
+    expect(decision.candidateRejection).toEqual(candidateRejection);
+  });
+
+  it.each([
+    ['wave_height_exceeds_skill', { waveHeight: '7.2 ft' }, { gate: 'skill_gate', observed: { waveHeightFt: 7.2 }, allowed: { minimumWaveHeightFt: 1, maximumWaveHeightFt: 6, skill: 'intermediate' } }],
+    ['beach_skill_exceeds_user', { beachSkillLevel: 'advanced' }, { gate: 'skill_gate', observed: { skill: 'advanced' }, allowed: { skill: 'intermediate' } }],
+    ['water_quality_closure', { safetyOverrideReasons: ['water_quality_closure'] }, { gate: 'water_quality_hold', observed: { status: 'closure' }, allowed: { status: 'open' } }],
+  ])('records observed and allowed values for %s', (reasonCode, candidateOverrides, rejection) => {
+    const { buildCanonicalSessionDecision } = loadEngine();
+    const decision = buildCanonicalSessionDecision(input([candidate(candidateOverrides as Partial<TestCandidate>)])) as {
+      reasonCode: string; candidateRejection: unknown;
+    };
+    expect(decision.reasonCode).toBe(reasonCode);
+    expect(decision.candidateRejection).toEqual(rejection);
+  });
+  it('keeps the decision id stable when display-only rejection evidence changes', () => {
+    const { buildCanonicalSessionDecision } = loadEngine();
+    const withoutRejection = buildCanonicalSessionDecision(input([])) as { decisionId: string };
+    const withRejection = buildCanonicalSessionDecision(input([], {
+      candidateRejection: { gate: 'daylight', observed: { count: 2 } },
+    })) as { decisionId: string };
+    expect(withRejection.decisionId).toBe(withoutRejection.decisionId);
+  });
+
+  it('labels the beginner safety limit applied for an unknown skill', () => {
+    const { buildCanonicalSessionDecision } = loadEngine();
+    const decision = buildCanonicalSessionDecision(input([candidate({ waveHeight: '5-6 ft' })], {
+      profileExperience: undefined,
+    })) as { reasonCode: string; candidateRejection: unknown };
+    expect(decision.reasonCode).toBe('wave_height_exceeds_skill');
+    expect(decision.candidateRejection).toEqual({
+      gate: 'skill_gate',
+      observed: { waveHeightFt: 6 },
+      allowed: { minimumWaveHeightFt: 0.5, maximumWaveHeightFt: 4, skill: 'beginner' },
+    });
+  });
+
+  it('vetoes a beginner at a beginner-intermediate beach when waves exceed the beginner range', () => {
+    const { buildCanonicalSessionDecision } = loadEngine();
+    const decision = buildCanonicalSessionDecision(input([
+      candidate({ beachSkillLevel: 'beginner-intermediate', waveHeight: '4-5 ft' }),
+    ], { profileExperience: 'beginner' })) as {
+      verdict: string;
+      reasonCode: string;
+      skillEligibility: { reasonCodes: string[] };
+    };
+
+    expect(decision.verdict).toBe('no');
+    expect(decision.reasonCode).toBe('wave_height_exceeds_skill');
+    expect(decision.skillEligibility.reasonCodes).toEqual(['wave_height_exceeds_skill']);
+  });
+
   it("keeps the objective call while withholding personal fit for unknown skill", () => {
     const { buildCanonicalSessionDecision } = loadEngine();
     const decision = buildCanonicalSessionDecision(
@@ -829,7 +916,7 @@ describe("canonical session decision engine", () => {
 
   it.each([
     ["all", "beginner"],
-    ["beginner-intermediate", "intermediate"],
+    ["beginner-intermediate", "beginner"],
     ["lower-intermediate", "intermediate"],
     ["intermediate-advanced", "advanced"],
     ["upper-intermediate", "intermediate"],

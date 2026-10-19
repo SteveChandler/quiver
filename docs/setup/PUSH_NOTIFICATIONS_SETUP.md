@@ -163,7 +163,7 @@ This creates:
 To apply locally:
 
 ```bash
-npm run supabase:migration:apply
+supabase migration up
 ```
 
 To apply to production:
@@ -180,10 +180,7 @@ supabase db push
 
 1. Start dev server: `npm run dev`
 2. Build and run mobile app:
-   ```bash
-   npm run mobile:sync
-   # Open in Android Studio or Xcode
-   ```
+   Follow the build and run instructions in the `quiver-native` repository.
 3. Login to the app
 4. Check logs for "Push notifications: Token registered"
 5. Create a session and invite a friend
@@ -244,7 +241,7 @@ limit 10;
 **Key Files:**
 
 - `lib/services/firebase-admin.ts` - Admin SDK init
-- `lib/services/push-notifications.ts` - Push utilities
+- `lib/notifications/worker.ts` - Push delivery worker
 - `app/api/devices/upsert/route.ts` - Token registration
 - `lib/mobile/push-notifications.ts` - Mobile client
 

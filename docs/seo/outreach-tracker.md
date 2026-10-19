@@ -1,6 +1,6 @@
 # SEO Outreach Tracker
 
-Last updated: 2026-09-25 (12:10 PT off-schedule run: Gmail reconciliation + 3 follow-up drafts; see the 2026-09-25 run log)
+Last updated: 2026-10-18 (Surfrider Rincón and Space Coast sent 10-18; PR Sea Grant follow-up still unsent)
 
 ## How This File Works
 
@@ -16,7 +16,7 @@ Steven reviews Gmail drafts and sends. Status updates happen here.
 emits every queued row in the current rotation, marking rows without an `@` address in `Contact` as
 requiring contact research. The live drafter must find and verify a direct email before creating a
 Gmail draft; it must never draft to a phone number, contact form, or blank address. This currently includes:
-North Shore Surf Girls, Hawaiian Surfing Adventures, and Island Water Sports (phone/form only),
+Hawaiian Surfing Adventures and Island Water Sports (phone/form only; North Shore Surf Girls was cleared 2026-10-09 with an address verified on its own contact page),
 Cocoa Beach Surf School (no email on its HTTP-only site), and the Santa Cruz "needs manual check" row.
 Those rows stay `queued` until a Gmail draft exists; a verified email from research (or a different
 outreach channel, e.g. a DM) is required before drafting.
@@ -229,7 +229,7 @@ belong in the Date or Notes column. Found 2026-09-14, when six contacted rows we
 | Target | Website | Beach slug (verified 200) | Contact channel (verified) | Status | Date | Notes |
 |--------|---------|---------------------------|----------------------------|--------|------|-------|
 | Hans Hedemann Surf School | hhsurf.com | `waikiki-beach` | info@hhsurf.com | sent | 2026-09-07 | **Sent 2026-09-07 06:35 PT** (row was left at `drafted 2026-08-31`; corrected in the 09:00 run). Follow-up eligible 2026-09-21. **2026-09-25: follow-up drafted** into the 09-07 thread. Their `/oahu-surf-spots/` page describes Queens and Canoes; the draft offers `/hi/honolulu/waikiki-queens` and `/hi/honolulu/waikiki-canoes` (200, in sitemap, embeds render). The homepage no longer carries a YouTube cam embed, so the draft does not mention the cam. Unsent; follow-up exhausted once sent. **Runs own YouTube cam `c5vgnhcxgYU`** — lead with the cam partnership, not the widget. Draft **rewritten in place 2026-08-31 10:2x PT** — the original carried the false "ML-tuned forecasts" claim, the doubled-`your` subject, and ignored the cam angle. It leads with the cam offer and links the verified Waikiki Beach page. Sent as rewritten; no ML claim went out. |
-| North Shore Surf Girls | northshoresurfgirls.com | `haleiwa` | 808-637-2977 (contact form; no email published) | queued | | |
+| North Shore Surf Girls | northshoresurfgirls.com | `haleiwa` | lessons@northshoresurfgirls.com (verified 2026-10-09 on `/contact-us`, Cloudflare-obfuscated `data-cfemail` decoded; the Codex 10-05 brief found it first) | queued | | **Now draftable.** No Gmail history to the address or domain (searched 10-09, trash included). Not drafted 10-09: week 2, and the three-draft cap went to a Sea Grant follow-up and two Surfrider chapters. First in line for a week-1 run. Phone 808-637-2977 and a contact form also on the site. |
 | Hawaiian Surfing Adventures | hawaiiansurfingadventures.com | `hanalei-bay-kauai` | 808-482-0749 (no email published) | queued | | |
 
 ### East Coast
@@ -367,6 +367,197 @@ follow-ups do not repeat it, but they also do not retract it — unlike the Surf
 the same morning, which explicitly retracted "ML-powered". **Settled 2026-09-07: Steven's call is not to retract.** The three follow-ups stand as drafted.
 Do not re-open this, redraft them, or append a correction. Forward looking rules are unchanged: no
 new copy claims ML, AI, a spot count, or competitor superiority, and nothing links `/forecast-accuracy`.
+
+---
+
+## Run log — 2026-10-17 (reconciliation only, 0 drafts)
+
+Off-schedule Saturday firing, one day after the completed 10-16 run (which already covered 10-09 → 10-16). Gmail
+reconciled: 11 drafts on one page, `in:sent` and inbox since 10-15 read.
+
+- **Visit Carlsbad, Lost Coast Outpost:** both 10-16 drafts were sent 10-16 17:08 PT. Rows set `sent` 10-16.
+  Follow-ups eligible from 10-30.
+- **Still unsent (10-09):** PR Sea Grant follow-up, Surfrider Rincón, Surfrider Space Coast. Not stacked on.
+- **Inbound since 10-15 from outreach domains:** none. Three replies arrived to welcome/feedback mail (inbox owner's lane;
+  two already have reply drafts from it). Not touched here.
+- **Maui Now follow-up:** eligible 10-18, so not yet due today. Next scheduled run (10-23) picks it up.
+- **No new cold drafts:** this week's run already researched and drafted; a second batch a day later would double the
+  weekly pace. No research repeated.
+
+## Run log — 2026-10-16 (2 cold drafts: Visit Carlsbad, Lost Coast Outpost)
+
+Rotation: **week 3 → coastal businesses.** Digest `Brand-Vault/seo-audit/2026-10-16/OUTREACH-DIGEST.json` (Node 22):
+89 rows, **0 candidates**. Research went to the content routine's 10-13 **Pitch** (Carlsbad visitor guides, shops and
+schools for the new `/learn/beginner-breaks-carlsbad`, live on prod) and to local coastal news.
+
+**This file's 10-02 and 10-09 edits had been lost from the working tree.** They survived only in `stash@{0}`
+("pre-one-surf-call-ranking 2026-10-11", another session's stash on `feat/regional-surf-seasons`). The committed copy
+ends at 09-25. Restored this run with `git show stash@{0}:docs/seo/outreach-tracker.md`; the stash's base copy of this
+file equals HEAD's, so nothing committed was overwritten. **Do not drop that stash until this file is committed.** No
+10-09 receipt directory exists either.
+
+### Gmail reconciliation (Step 0)
+
+Drafts: 38, one page, no continuation. SEO drafts: the three from 10-09 (PR Sea Grant follow-up, Surfrider Rincón,
+Surfrider Space Coast), **all still unsent**. Inbox-owned Monterey reply (10-08) still unsent. The other 32 are welcome,
+win-back and SDSI/Springboard drafts belonging to other routines. Sent since 10-02: no SEO sends after 10-04. Inbound
+from every contacted outreach domain since 10-08: none. Bounces: none SEO.
+
+| Finding | Correction |
+|---|---|
+| Nothing changed since 10-09 | No row corrections needed |
+| Ken Merrill links rechecked 10-16 (home, surf-report, hanging-ten-with-ken, surf-shops, uncached): **still zero `quiversurf`** | Still with the inbox owner; no Ken draft exists in Gmail |
+| October | Still **2 sent**, 1 response; unsent SEO drafts now **5** |
+
+### Drafted (2), both never contacted (Gmail `in:anywhere` + Drafts by exact address and domain: zero hits)
+
+| Target | Email (on their own site) | Page(s) offered (200, in sitemap, embeds render) | Hook |
+|---|---|---|---|
+| Visit Carlsbad (tourism board) | maria@visitcarlsbad.com: Maria Riley, PR and Communications Manager (`/press-media/`) | `/ca/carlsbad` hub (Tamarack, Carlsbad State Beach, Ponto, Terramar), `/learn/beginner-breaks-carlsbad` | Their `/beaches/carlsbad-surf-report/` page walks through all four beaches but its only conditions widget is a third-party one for South Carlsbad State Beach |
+| Lost Coast Outpost (Humboldt local news) | news@lostcoastoutpost.com ("news tips and editorial correspondence", `/about/`) | `/ca/mckinleyville/clam-beach-ca`, `/ca/samoa/samoa-dunes-surf-area-ca` | They repost NWS Eureka beach hazards statements on big swells (2025-01-09, 2025-10-01) and covered El Niño prep 2026-10-03. Offer: swell numbers before the next sneaker-wave warning |
+
+Created with `htmlBody` anchors; Visit Carlsbad read back RAW: the HTML part shows the clean URL as visible text (href
+wrapped by Gmail, as documented). **The `text/plain` alternative part carries the `google.com/url?q=` wrapper as text**,
+so a plain-text-only mail client would see it. Signed "Steve". No dashes in prose, no competitor named, no ML/AI/accuracy
+claim, no `/forecast-accuracy`, no campaign parameters. Openings, asks and closings differ. No test drafts. Third slot
+left open: nothing else passed the gates.
+
+### Checked, not drafted
+
+| Target | Reason |
+|---|---|
+| SoCal Surf Lessons (socalsurflessons.com, North Carlsbad) | Wix site, no email anywhere in the HTML; no-email guard |
+| Offshore Surf Shop (offshoresurfshop.com) | Only a `user@domain.com` template placeholder; no real email |
+| Carlsbad Pipelines / California Surf Shop | Shopify sites, no email on home or contact page |
+| Surf Ride Adventure Lounge (surfride.com, Cape Rey) | Placeholder email only |
+| Cape Rey Carlsbad (Hilton) | Only generic hotel `info@`; not a content contact. Hold |
+| Carlsbad Village Association | Only `farmersmarket@` published; wrong role |
+| The Coast News (thecoastnews.com) | 403 to a browser UA on every page; unverifiable |
+| Carlsbad Magazine | No response (connection failed) |
+| Surfrider Maine `/learn`, `/beachaccess`; Humboldt `/marine-protected-areas` | Rechecked as last week's "best next candidates": no conditions or beach list to attach a page to. Hold |
+
+### Eligible for a follow-up, held
+
+Maui Now eligible 2026-10-18 (next run). WA Sea Grant and Surfrider national unchanged (no hook). Coastal-business
+rows from 08-18/08-25, Odyssey, Barefoot Surf: unchanged, no hook.
+
+### Coverage gaps
+
+None new. Rye, NH and Long Beach Island, NJ remain open.
+
+---
+
+## Run log — 2026-10-09 (3 drafts: one Sea Grant follow-up, two Surfrider chapters)
+
+Friday run; no 10-05 run happened (previous receipt is 10-02). Rotation: **week 2 → surf-bloggers**. Digest
+`Brand-Vault/seo-audit/2026-10-09/OUTREACH-DIGEST.json`: 85 rows, **0 candidates**. The bloggers lane is still
+exhausted (Ben Gravy's address unverified, Barefoot Surf 403, Kale Brock spent, Surf Simply inbox-owned), so research
+went to Surfrider chapters, the kind that replied last week. Codex's 10-05 brief (`CLAUDE-OUTREACH-RESEARCH-BRIEF.md`)
+offered one thing: a verified address for North Shore Surf Girls, re-verified here and recorded on its row.
+
+### Gmail reconciliation (Step 0)
+
+Drafts: 6, one page, none SEO (two inbox replies 10-09, the inbox owner's Monterey reply 10-08, SDSI, Springboard, one
+welcome). Sent since 08-10 paged to exhaustion (two pages). Inbound from every contacted outreach domain over 30 days:
+**one** (Monterey). Bounces: none SEO (one Google Groups bounce 10-05, unrelated).
+
+| Finding | Correction |
+|---|---|
+| Both 10-02 drafts **went out 2026-10-04 16:45 PT** (Maui Now, Surfrider Monterey) | Rows → `sent`, now in a status table under New Sources |
+| **Surfrider Monterey replied 2026-10-07.** Chair Peter Adame: "This is very cool… checking out the various forecasts for a potential surf this weekend." | Row → `responded`. The inbox owner holds the thread and drafted a reply 10-08 (unsent, already past its own one-day clock). Not touched here |
+| **Ken Merrill's Quiver links are gone.** Every page of capecodsurfrider.org fetched uncached 10-09: zero `quiversurf` references. The Surf Report page is "Posted Sept 7th 2026" and links MagicSeaweed/Surfline for Cape Cod. Live 09-14 and 09-25, absent 10-09 | Row and metrics corrected. Ken replied on his thread, so a note to him belongs to the inbox owner; handed off, not drafted. The inbox state's "Placement and thank-you complete" is now wrong |
+| October | **2 sent** (10-04), **1 response** (10-07), recounted from `in:sent` |
+
+### Drafted (3)
+
+| Target | Page(s) offered (200, in live sitemap, embed renders) | Kind | Why this one |
+|---|---|---|---|
+| Puerto Rico Sea Grant | `/pr/rincon` hub (Marías, Domes, Indicators, Sandy Beach, The Point at Sandy, Tres Palmas) | the one permitted follow-up, threaded into the 08-31 original | Their "Surfeando PR" map lists surf beaches with CARICOOS forecast links; a page per break fits beside it |
+| Surfrider Rincón chapter | `/pr/rincon/tres-palmas`, `/pr/rincon/domes` | cold | Chapter was founded to create the Tres Palmas reserve and is campaigning for the stretch past Domes |
+| Surfrider Space Coast chapter | `/fl/cocoa-beach/cocoa-beach-pier-cocoa-beach-fl` | cold | Beach Guardians volunteers each adopt a Brevard beach and document storms |
+
+Each exact address was searched in Drafts and `in:anywhere` (trash included) immediately before creation: no draft to
+any of them; the chapters have never been contacted; PR Sea Grant has exactly one prior send and no reply. Created with
+`htmlBody` anchors; the PR Sea Grant create returned the original threadId and all three were read back. Signed "Steve"
+per the routines contract. No dashes in prose, no ML/AI/spot-count/competitor claim, no `/forecast-accuracy`, no
+campaign parameters, no reuse of the 08-31 email's "no strings" lines. Openings and closings all differ. No test drafts.
+Draft IDs are in the private run state only.
+
+### Eligible for a follow-up, held
+
+- **Washington Sea Grant** (08-25) and **Surfrider national** (08-25): one send each, no reply. Both sites rechecked
+  10-09; neither has a beach conditions or resource list to attach a page to (details on their rows). Held.
+- **Maui Now** (10-04): eligible 2026-10-18.
+- Coastal-business rows from 08-18/08-25, Odyssey, Barefoot Surf: unchanged, no hook.
+
+### Checked, not drafted (Surfrider chapters, all 10-09; none has any Gmail history)
+
+Every chapter below sits next to existing Quiver pages, so none is a coverage gap. The chapter sites share one template
+(campaigns, Blue Water Task Force, Ocean Friendly Restaurants, volunteer); a draft needs a page-specific hook like the
+three above, not just a `chair@` address.
+
+| Chapter | Email on site | Nearby Quiver pages | Disposition |
+|---|---|---|---|
+| Humboldt | chair@humboldt.surfrider.org | Samoa, Clam Beach, four Trinidad breaks | hold; has a `/marine-protected-areas` page, best next candidate |
+| Maine | chair@maine.surfrider.org | seven ME beaches (York, Ogunquit, Scarborough, Old Orchard) | hold; `/beachaccess` and `/learn` pages, good next candidate |
+| Santa Barbara | chair@santabarbara.surfrider.org | Leadbetter, Mesa Lane, El Capitan | hold; no surf-facing page |
+| North OC (newportbeach.surfrider.org redirects here) | chair@northoc.surfrider.org | Huntington and Newport pages | hold |
+| Cape Fear | chair@capefear.surfrider.org | Wrightsville, Carolina Beach, Kure | hold |
+| Jersey Shore | chair@jerseyshore.surfrider.org | Asbury Park, Belmar, Manasquan, Spring Lake… | hold; has `/beach-replenishment` and a BWTF page |
+| Eastern Long Island | chair@easternli.surfrider.org | Ditch Plains, Turtle Cove, Main Beach | hold |
+| South Jersey | chair@southjersey.surfrider.org | Ocean City, Sea Isle City, Cape May | hold |
+| Long Beach (CA) | chair@longbeach.surfrider.org | 72nd Place, Seal Beach Pier | hold |
+| Galveston | chair@galveston.surfrider.org | two Galveston piers, Crystal Beach, Surfside | hold |
+| First Coast | vicechair@firstcoast.surfrider.org | Jacksonville Beach, Atlantic Beach, St Augustine | hold |
+| Coos Bay | chair@coosbay.surfrider.org | Bastendorff, Sunset Bay, Bandon | hold |
+| South Bay | info@southbay.surfrider.org (generic) | Manhattan, Hermosa, Redondo | hold |
+| Massachusetts | chair@ma.surfrider.org | Lynn, Nantasket; Cape Cod is Ken's chapter | hold, overlaps Ken |
+| Siuslaw | treasurer@ only | Florence South Jetty | not an editorial contact; no-email guard |
+| Outer Banks, Ventura, Oahu, Kauai, Maui, Newport OR, Portland, San Diego, Ocean City MD, Delaware, NYC, Volusia/Flagler, Charleston, Grand Strand, Seattle, Olympia | **none published** (homepage 200, form or HubSpot contact only) | covered | no-email guard |
+| Sebastian Inlet | site 502 | covered | unverifiable today |
+| San Luis Obispo, Rhode Island, Virginia Beach, New Hampshire, Palm Beach, Texas Coastal Bend, Monterey Bay (guessed subdomains) | no DNS | | not real subdomains; find their actual sites before retrying |
+
+### Coverage gaps
+
+None new. Rye, NH and Long Beach Island, NJ remain open.
+
+---
+
+## Run log — 2026-10-02 (2 cold drafts, new targets only)
+
+Week of 2026-09-28 directive (Steven, 09-25): new-target research and first emails only, **no follow-ups**.
+Overdue Washington Sea Grant, Puerto Rico Sea Grant and Surfrider national follow-ups were not drafted.
+
+### Gmail reconciliation (Step 0)
+
+Drafts: 3, none SEO (SD Sport Innovators, Springboard, one welcome). Sent since 09-20 paged and read.
+Inbound from contacted outreach domains since 09-24: none. Bounces: none SEO.
+
+| Finding | Correction |
+|---|---|
+| The 09-25 follow-ups to Hans Hedemann, Ron Jon and Skudin **went out 09-26 ~08:43 PT** | Follow-ups exhausted for all three |
+| September sends | 14 + 3 = **17 sent**, 16 delivered (recounted from `in:sent`) |
+
+### Drafted (2), both never contacted (Gmail searched by domain, all folders, plus Drafts: zero hits)
+
+| Target | Email (on their own site) | Slug (200, in sitemap, embed renders) | Hook |
+|---|---|---|---|
+| Maui Now (local news, PMG Hawaii) | newsdesk@mauinow.com (listed for News Tip and General Inquiry on `/contact`) | `hi/paia/hookipa` | Runs a Maui Surf Forecast section at `/surf/`; no per-break live page linked |
+| Surfrider Monterey chapter | chair@monterey.surfrider.org (`/contact-us`: "Any inquiries can be emailed to") | `ca/monterey/del-monte-beach-monterey-ca` | Chapter volunteer Jeff White gives a weekday surf report on KRML 94.7 |
+
+**Both drafts went out 2026-10-04 16:45 PT, and Surfrider Monterey replied 2026-10-07** (found in the 10-09 reconciliation; see that run log).
+
+### Checked, not drafted
+
+- **Surfrider Santa Cruz**: communications@santacruz.surfrider.org verified, Quiver has Pleasure Point, Cowell, 38th Ave. Their site is water quality (BWTF) and cleanups, lists no surf resources. No honest hook; revisit if a surf-facing page appears.
+- **Surfrider San Diego**: only info@surfridersd.org (generic). Hold.
+- **Sea Grant**: SC (info@scseagrant.org), Florida (fsg@ifas.ufl.edu), Maine (umseagrant@maine.edu), Delaware (rosemary@udel.edu, role unconfirmed): generic or unconfirmed roles, no resource page to attach to. California Sea Grant: only sioweb@ucsd.edu. Texas, NH, URI contact pages 404 or gmail address. Hold.
+- **Santa Cruz Waves**: ceased publication. **Half Moon Bay Review**: only customerservice@coastsidenews.com, not editorial. **Outer Banks Voice**: site 403s a browser UA. Rejected.
+- Sibling PMG outlets (Big Island Now, Kauai Now) deliberately not pitched alongside Maui Now.
+
+### Coverage gaps
+
+None new.
 
 ---
 
@@ -848,10 +1039,21 @@ candidate. Logged as a follow-up, not fixed here — this run was a process test
 |--------|------|-----------------------------------|---------------------------|--------|--------------|
 | Island Free Press | Local news, Hatteras & Ocracoke NC | donna@islandfreepress.org, cc joy@islandfreepress.org | `cape-hatteras-lighthouse-buxton-nc`, `s-turns-rodanthe-nc` | declined | Their entire coverage area is Hatteras Island, where Quiver has Buxton, Rodanthe, Nags Head, Kill Devil Hills, Corolla. Closest geographic fit in the file. **Sent 2026-08-31; Donna Barnett replied 2026-09-02 declining politely** ("we'll pass for now"). Closed — do not contact again. |
 | Oregon Coast Today | Local news, Central OR coast | gammerman@oregoncoasttoday.com — **Gretchen Ammerman, editor** (confirmed on their About page) | `nelscott-reef-lincoln-city-or` | responded | Based in Lincoln City; Quiver has Nelscott Reef there plus 15 other OR towns. Publisher Patrick Alexander is at palexander@oregoncoasttoday.com if the editor doesn't bite. **Sent 2026-08-31. Gretchen replied 2026-09-04: her publisher is evaluating it for the regular format, "similar to the tide table — we are both intrigued."** This is the warmest lead in the file. **Reply drafted 2026-09-07** pointing at `/tide/lincoln-city` as the closest existing analogue to that format and offering a short weekly swell/wind/tide summary they can drop into their own layout, free and uncredited. Do not let this one go quiet like the last three. **Two reply drafts exist.** Keep `1a0368fec83cd33d` (the real conversation thread); the 06:54 PT copy landed on a *new* thread `1a07c25e7b590dc0` — the `update_draft` threading-detach failure — and **must be deleted by hand.** Bodies are identical. `https://www.quiversurf.app/tide/lincoln-city` re-verified 200 in the 09:00 run. Still unsent as of 2026-09-07 09:00 PT. **2026-09-14: both reply drafts are gone, deleted unsent.** No send on the thread after Gretchen's 09-04 note ("I'll keep you posted"). The inbox owner holds it as `waiting_for_contact` and will not regenerate the reply; this routine does not draft to it. |
-| Surfrider Foundation (national) | NGO / media | media@surfrider.org | n/a | sent | High-authority `.org`. See the Cape Cod chapter row below — chapter-level is where the links actually live. |
-| Puerto Rico Sea Grant (UPRM) | `.edu` research/extension | seagrant@uprm.edu | `tres-palmas` (Rincón) | sent | Sent 2026-08-31. Quiver has 19 PR beaches across 8 towns. Tres Palmas is a designated marine reserve — squarely Sea Grant's subject matter, not a commercial pitch. |
+| Surfrider Foundation (national) | NGO / media | media@surfrider.org | n/a | sent | High-authority `.org`. See the Cape Cod chapter row below — chapter-level is where the links actually live. Sent 2026-08-25; follow-up eligible since 09-08; **held 2026-10-09**: `media@` is a press address and surfrider.org has no resource list to attach to. Chapter-level outreach replaced it: Monterey (sent 10-04, **replied 10-07**), Rincón and Space Coast (drafted 10-09). |
+| Puerto Rico Sea Grant (UPRM) | `.edu` research/extension | seagrant@uprm.edu | `tres-palmas` (Rincón) | sent | Sent 2026-08-31. Quiver has 19 PR beaches across 8 towns. Tres Palmas is a designated marine reserve — squarely Sea Grant's subject matter, not a commercial pitch. **2026-10-09: follow-up drafted** into the 08-31 thread (the one permitted; Gmail shows exactly one prior send, no reply, no draft). Hook: their "Surfeando PR" surf-beach map (seagrantpr.org, Dec 2023, Spanish and English pages, both 200) lists surf beaches with CARICOOS forecast links; the draft offers the `/pr/rincon` hub (six breaks, 200, embeds render) to sit alongside. Unsent; follow-up exhausted once sent. |
 | NJ Sea Grant Consortium | `.org` research/extension | skreisler@njseagrant.org — **Samantha Kreisler, Director of Communications** (confirmed on their staff page) | `asbury-park-asbury-park-nj` | follow-up | Sent 2026-08-31; **follow-up SENT 2026-09-14 09:28 PT**, with its visible link as Gmail's `google.com/url?q=` wrapper (lands correctly). Exactly one 09-14 send on the thread; the clean replacement draft was removed unsent. 26 NJ beaches across 13 towns at send time; **28 across 15** in the 09-14 sitemap. The 09-14 follow-up points at their `/ripcurrents/` page, which links the NWS surf zone forecast but no per-beach resource. Follow-up exhausted after it. They publish rip-current and coastal-safety material. |
-| Washington Sea Grant (UW) | `.edu` research/extension | seagrant@uw.edu | `westport-beach` | sent | Sent 2026-08-25. 13 WA beaches. Westport is the state's main surf town. |
+| Washington Sea Grant (UW) | `.edu` research/extension | seagrant@uw.edu | `westport-beach` | sent | Sent 2026-08-25. 13 WA beaches. Westport is the state's main surf town. Follow-up eligible since 09-08; **held 2026-10-09**: waseagrant.uw.edu (now the canonical host) rechecked, programs are coastal hazards, king tides, tsunami preparedness and sea-level rise; no beach conditions or resource list to attach a page to. Same reason Barefoot Surf was held 09-25. |
+
+### Added 2026-10-02, 2026-10-09 and 2026-10-16 (local news, tourism and Surfrider chapters)
+
+| Target | Type | Contact (verified on their own site) | Beach slug (200 + renders) | Status | Date | Notes |
+|--------|------|--------------------------------------|----------------------------|--------|------|-------|
+| Maui Now (PMG Hawaii) | Local news, Maui | newsdesk@mauinow.com | `hookipa` (Paia) | sent | 2026-10-04 | Drafted 10-02, **sent 2026-10-04 16:45 PT**. Runs a Maui Surf Forecast section at `/surf/`. No reply through 10-09. Follow-up eligible 2026-10-18. |
+| Surfrider Foundation Monterey chapter | `.org` chapter | chair@monterey.surfrider.org | `del-monte-beach-monterey-ca` | responded | 2026-10-07 | Drafted 10-02, **sent 2026-10-04 16:45 PT**. Chair Peter Adame **replied 2026-10-07**: "This is very cool… checking out the various forecasts for a potential surf this weekend." No link ask was made; the email asked him to pass the page to Jeff White for the KRML report. **Inbox-owned** from here: a reply draft exists (10-08, unsent). This routine does not draft to it. |
+| Surfrider Foundation Rincón chapter | `.org` chapter, Puerto Rico | chair@rincon.surfrider.org (`/about`) | `tres-palmas`, `domes` (`/pr/rincon` hub, six breaks) | sent | 2026-10-18 | Never contacted (Gmail by address and domain, trash included: zero). Their About page: chapter formed 2001 to create the Reserva Marina Tres Palmas; current goal a natural reserve "beginning at Little Malibu and going past Domes". Draft shares the Tres Palmas and Domes pages and asks for a pass-along to whoever runs the site. |
+| Surfrider Foundation Space Coast chapter | `.org` chapter, Brevard County FL | chair@spacecoast.surfrider.org (`/about`, `/beach-guardians`; a named program lead's address is also on `/beach-guardians`) | `cocoa-beach-pier-cocoa-beach-fl` (nine Brevard pages: Cocoa Beach ×2, Cherie Down Park, Indialantic, Satellite Beach ×3, Sebastian Inlet, Spanish House) | sent | 2026-10-18 | Never contacted. Their Beach Guardians program: volunteers each adopt a Brevard beach for monthly/quarterly cleanups, habitat monitoring and "extreme weather event documentation". Draft offers the Cocoa Beach Pier page as a resource for that page. Ron Jon, the Inn at Cocoa Beach and Cocoa Beach Surf School are separate organisations already in this file. |
+| Visit Carlsbad | Tourism board, Carlsbad CA | maria@visitcarlsbad.com (Maria Riley, PR and Communications Manager, `/press-media/`) | `/ca/carlsbad` hub; `/learn/beginner-breaks-carlsbad` | sent | 2026-10-16 | Never contacted. Their Weather & Surf Report page lists Tamarack, State Beach, Ponto and Terramar but embeds only a third-party South Carlsbad widget. Fits the 10-13 content Pitch. |
+| Lost Coast Outpost | Local news, Humboldt County CA | news@lostcoastoutpost.com (editorial inbox, `/about/`; editor Hank Sims at hank@ if needed) | `clam-beach-ca` (McKinleyville), `samoa-dunes-surf-area-ca` | sent | 2026-10-16 | Never contacted. Reposts NWS beach hazards statements on big swells; El Niño prep story 2026-10-03. Draft offers swell numbers ahead of the next sneaker-wave warning. |
 
 `.edu` and `.org` links from Sea Grant and Surfrider are worth materially more than a surf-shop
 footer link, and these organisations publish "coastal resources" pages that already link out to
@@ -861,7 +1063,7 @@ third-party tools. The pitch is a safety/conditions resource, not a product.
 
 | Target | Contact | What happened |
 |--------|---------|---------------|
-| Ken Merrill — Cape Cod Surfrider | ken.merrillcc@gmail.com | **Drafted 2026-08-24** into the original thread, with Coast Guard Beach (Eastham) and Nauset Beach (Orleans) links — both verified 200 and rendering. On **2026-05-13** Ken replied *"I'll reset with your new links. Sounds great."* — agreeing to swap Magicseaweed/Surfline links for Quiver on the chapter's surf report page. **Verified 2026-08-24: it never happened.** capecodsurfrider.org still links Surfline, and the site contains zero Quiver references (the one "quiver" hit is a surfer describing his board quiver). An agreed-to `.org` backlink has been sitting uncollected for 3½ months. Cheapest win in this entire file. **Re-verified 2026-08-31: still uncollected.** capecodsurfrider.org returns 200, contains zero `quiversurf` references, and still links `surfline.com/surf-report/long-sands-beach` for the report/cam. **Re-checked 2026-09-07: the 08-24 reply draft was deleted, not sent** — the Gmail thread still ends at Steven's 2026-05-13 "No worries at all." So the agreed link is uncollected after ~4 months and no draft existed. **Re-drafted 2026-09-07** into the original thread; both beach URLs re-verified 200 this run. This is the highest-expected-value email in the file: the target already said yes. **SENT 2026-09-07 06:52 PT** — collected after ~4 months. Both URLs re-verified 200 again in the 09:00 run. **A second, rewritten Ken draft (created 06:55 PT, after the send) is still sitting in Drafts and is now a duplicate — it must be deleted by hand, not sent.** Sending it would put the same two links in front of Ken twice in one morning. capecodsurfrider.org re-checked 2026-09-07 09:00 PT: still zero `quiversurf` references, still one `surfline` link — expected, the email is hours old. Re-check 2026-09-21. **LINKS LIVE, verified 2026-09-14.** Ken replied 09-07 ("I'll take care of it"), the inbox owner saw both links up on 09-09, and Steve thanked him on 09-10. capecodsurfrider.org now links `coast-guard-beach-eastham-ma` and `nauset-beach-orleans-ma`. It is a Google Sites page, so each href goes through Google's `google.com/url?q=...&sa=D` outbound wrapper rather than pointing straight at quiversurf.app. The Surfline Long Sands cam link is still there too. Not yet in the Codex backlink proxy; whether Ahrefs credits a Sites-wrapped link is the question for the 2026-09-21 backlink check. First agreed link ever collected from outreach. |
+| Ken Merrill — Cape Cod Surfrider | ken.merrillcc@gmail.com | **Drafted 2026-08-24** into the original thread, with Coast Guard Beach (Eastham) and Nauset Beach (Orleans) links — both verified 200 and rendering. On **2026-05-13** Ken replied *"I'll reset with your new links. Sounds great."* — agreeing to swap Magicseaweed/Surfline links for Quiver on the chapter's surf report page. **Verified 2026-08-24: it never happened.** capecodsurfrider.org still links Surfline, and the site contains zero Quiver references (the one "quiver" hit is a surfer describing his board quiver). An agreed-to `.org` backlink has been sitting uncollected for 3½ months. Cheapest win in this entire file. **Re-verified 2026-08-31: still uncollected.** capecodsurfrider.org returns 200, contains zero `quiversurf` references, and still links `surfline.com/surf-report/long-sands-beach` for the report/cam. **Re-checked 2026-09-07: the 08-24 reply draft was deleted, not sent** — the Gmail thread still ends at Steven's 2026-05-13 "No worries at all." So the agreed link is uncollected after ~4 months and no draft existed. **Re-drafted 2026-09-07** into the original thread; both beach URLs re-verified 200 this run. This is the highest-expected-value email in the file: the target already said yes. **SENT 2026-09-07 06:52 PT** — collected after ~4 months. Both URLs re-verified 200 again in the 09:00 run. **A second, rewritten Ken draft (created 06:55 PT, after the send) is still sitting in Drafts and is now a duplicate — it must be deleted by hand, not sent.** Sending it would put the same two links in front of Ken twice in one morning. capecodsurfrider.org re-checked 2026-09-07 09:00 PT: still zero `quiversurf` references, still one `surfline` link — expected, the email is hours old. Re-check 2026-09-21. **LINKS LIVE, verified 2026-09-14.** Ken replied 09-07 ("I'll take care of it"), the inbox owner saw both links up on 09-09, and Steve thanked him on 09-10. capecodsurfrider.org now links `coast-guard-beach-eastham-ma` and `nauset-beach-orleans-ma`. It is a Google Sites page, so each href goes through Google's `google.com/url?q=...&sa=D` outbound wrapper rather than pointing straight at quiversurf.app. The Surfline Long Sands cam link is still there too. Not yet in the Codex backlink proxy; whether Ahrefs credits a Sites-wrapped link is the question for the 2026-09-21 backlink check. First agreed link ever collected from outreach. **2026-10-09: THE LINKS ARE GONE.** Fetched uncached with a browser UA: home, surf-report, hanging-ten-with-ken, surf-shops, longboard-club, surfrider-museum and history-of-surfing-cape-cod all return 200 with **zero `quiversurf` references** (a Google-Sites `google.com/url?q=` wrapper would still match). The Surf Report page now reads "Posted Sept 7th 2026 KTM" and its Local Surf links are magicseaweed.com/Cape-Cod-Surf-Report/373/ (forwards to Surfline) and surfline.com/surf-forecasts/cape-cod, plus the Ships Knees Inn Nauset cam. Live 09-14 and 09-25; absent 10-09. Whether Ken reverted a page version or re-posted from an older draft is unknown. **Handed to the daily inbox owner** (Ken replied on this thread, so a note to him is theirs to draft; the inbox state still says "Placement and thank-you complete" and needs correcting). Not re-drafted here. Re-check 2026-10-16. |
 
 ### MagicSeaweed replacement drafts — 2026-08-25
 
@@ -993,10 +1195,6 @@ Start with the kinds that have actually replied: local coastal news, per-state S
 Surfrider chapters, and coastal `.edu`/`.org` resource pages. National surf and outdoor magazines
 have produced no replies.
 
-**Week of 2026-09-28 only:** new-target research and first emails to never-contacted outlets,
-nothing else. No follow-ups that week, including the overdue Washington Sea Grant, Puerto Rico Sea
-Grant and Surfrider national ones. Remove this paragraph after that run.
-
 The SEO Outreach Drafter agent follows this rotation:
 - **Week 1** (of each month): Surf schools
 - **Week 2**: Surf bloggers and micro-influencers
@@ -1016,7 +1214,8 @@ The SEO Outreach Drafter agent follows this rotation:
 | June 2026 | 3 (Coastal Review, Hawaii Public Radio, HSS — HSS bounced) | 1 (Hawaii Public Radio) | 0 | 0 |
 | July 2026 | **at least 9** (recounted from Gmail 2026-09-14 — 07-08: Surf Diva, Ben Gravy, Kale Brock, Surf Simply; 07-28: The Inertia, Outside Online, Stab, BeachGrit, Eos) | 2 (Stab, Surf Simply) | 0 | 0 |
 | August 2026 | **43 sent** (34 through 08-25 + a 9-send 08-31 batch the 08-31 recount pre-dated) | 2 (Oregon Coast Today, Island Free Press — both landed in September) | 0 | 0 |
-| September 2026 | **14 sent, 13 delivered** (recounted from `in:sent` 2026-09-25 · 09-07: Barefoot Surf, Hans Hedemann, Ken Merrill, Ron Jon · 09-08 19:03 PT follow-ups: OBX Surf School, Rincon Surf School, and Oregon Surf Adventures, which **bounced** · 09-14 09:28 PT follow-ups: NJ Sea Grant, Whatever Sportfishing · 09-14 09:32 PT follow-up: UMass Lowell · 09-21 10:19 PT follow-ups: Nor Cal Surf Shop, Shoreline OBX, Inn at Cocoa Beach, Coastal Review) · unsent SEO drafts as of 12:10 PT 09-25: this run's 3 follow-ups (Hans Hedemann, Ron Jon, Skudin) | 3 (Island Free Press passed 09-02, Oregon Coast Today intrigued 09-04, Ken Merrill agreed 09-07); none since | **1 link placement** (capecodsurfrider.org, 2 links, live by 09-09 and re-verified 09-25; links, not an embed) | 0 confirmed. Not in GSC Links (09-24); the Ahrefs credit check is **blocked**: newest per-domain export is still 2026-08-25 |
+| September 2026 | **17 sent, 16 delivered** (09-26 08:43 PT follow-ups: Hans Hedemann, Ron Jon, Skudin added; 10-02 drafts Maui Now and Surfrider Monterey unsent) · earlier: **14 sent, 13 delivered** (recounted from `in:sent` 2026-09-25 · 09-07: Barefoot Surf, Hans Hedemann, Ken Merrill, Ron Jon · 09-08 19:03 PT follow-ups: OBX Surf School, Rincon Surf School, and Oregon Surf Adventures, which **bounced** · 09-14 09:28 PT follow-ups: NJ Sea Grant, Whatever Sportfishing · 09-14 09:32 PT follow-up: UMass Lowell · 09-21 10:19 PT follow-ups: Nor Cal Surf Shop, Shoreline OBX, Inn at Cocoa Beach, Coastal Review) · unsent SEO drafts as of 12:10 PT 09-25: this run's 3 follow-ups (Hans Hedemann, Ron Jon, Skudin) | 3 (Island Free Press passed 09-02, Oregon Coast Today intrigued 09-04, Ken Merrill agreed 09-07); none since | **1 link placement, since lost** (capecodsurfrider.org, 2 links, live 09-09 through 09-25, **gone by 10-09**; links, not an embed) | 0 confirmed. Not in GSC Links (09-24 or 10-08); the Ahrefs credit check is **blocked**: newest per-domain export is still 2026-08-25 |
+| October 2026 | **6 sent** so far (10-04 16:45 PT: Maui Now, Surfrider Monterey; 10-16 17:08 PT: Visit Carlsbad, Lost Coast Outpost; 10-18: Surfrider Rincón, Surfrider Space Coast) · unsent SEO drafts as of 10-18: PR Sea Grant follow-up (10-09) | 1 (Surfrider Monterey chair, 10-07: "This is very cool", exploring the forecasts; inbox-owned reply draft 10-08, unsent) | 0 | 0 |
 
 **Recounted 2026-08-31 from Gmail**, not from this file. The 08-24 recount said 15; the real August
 figure is **34**. Two independent omissions, in opposite directions in time:

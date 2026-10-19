@@ -1,8 +1,4 @@
-import {
-  evaluateBeginnerWindow,
-  getSandyBeginnerWindowProfile,
-  isSandyBeginnerBeachMetadata,
-} from "@/lib/beginner/beginner-window-evaluator";
+import { evaluateBeginnerWindow } from "@/lib/beginner/beginner-window-evaluator";
 
 const sandyBeginnerBeach = {
   skill_level: "beginner",
@@ -96,78 +92,50 @@ describe("beginner sandy-window evaluator", () => {
     expect(result.rating).toBe("poor");
     expect(result.statuses.wave).toBe("poor");
   });
+});
 
-  it("does not apply the sandy beginner model to advanced reef breaks", () => {
-    const advancedReef = {
-      skill_level: "advanced",
-      break_type: "reef",
-      features: ["shallow reef", "powerful waves"],
-      preference_model: {
-        tide: "mid",
-      },
-    };
+describe("beginner window with missing wind", () => {
+  const idealExceptWind = {
+    beach: sandyBeginnerBeach,
+    waveHeightFtMax: 2,
+    tideStatus: "Rising",
+    tideHeightFt: 1.8,
+    forecastAt: "2026-05-22T14:00:00Z",
+    timezone: "America/Los_Angeles",
+  };
 
-    expect(isSandyBeginnerBeachMetadata(advancedReef)).toBe(false);
-    expect(getSandyBeginnerWindowProfile(advancedReef)).toBeNull();
-    expect(
-      evaluateBeginnerWindow({
-        beach: advancedReef,
-        waveHeightFtMax: 2,
-        windSpeedMph: 4,
-        tideStatus: "Rising",
-        forecastAt: "2026-05-22T14:00:00Z",
-        timezone: "America/Los_Angeles",
-      }).rating,
-    ).toBe("not_applicable");
+  it("does not let an unknown wind block an ideal window", () => {
+    const result = evaluateBeginnerWindow({ ...idealExceptWind, windSpeedMph: null });
+
+    expect(result.statuses.wind).toBe("unknown");
+    expect(result.rating).toBe("ideal");
+    expect(result.reasons).not.toContain("light wind");
   });
 
-  it("does not infer the sandy beginner model from legacy tags alone", () => {
-    const legacyBeginnerBeach = {
-      skill_level: "beginner",
-      break_type: "beach",
-      features: ["sand bottom", "beginner sandy beachbreak"],
-      preference_model: {},
-    };
+  it("still lets a known textured wind hold the window at acceptable", () => {
+    const result = evaluateBeginnerWindow({ ...idealExceptWind, windSpeedMph: 13 });
 
-    expect(isSandyBeginnerBeachMetadata(legacyBeginnerBeach)).toBe(false);
-    expect(getSandyBeginnerWindowProfile(legacyBeginnerBeach)).toBeNull();
-    expect(
-      evaluateBeginnerWindow({
-        beach: legacyBeginnerBeach,
-        waveHeightFtMax: 2,
-        windSpeedMph: 4,
-        tideStatus: "Rising",
-        forecastAt: "2026-05-22T14:00:00Z",
-        timezone: "America/Los_Angeles",
-      }).rating,
-    ).toBe("not_applicable");
+    expect(result.rating).toBe("acceptable");
   });
 
-  it("requires explicit primary or conditional beginner fit metadata", () => {
-    const missingFitBeach = {
-      ...sandyBeginnerBeach,
-      preference_model: {
-        beginner_window: {
-          model: "socal_sandy_beginner",
-          acceptable_wave_height_ft: { min: 0.5, max: 3 },
-        },
-      },
-    };
+  it("still needs the other inputs: unknown wind does not make a missing wave ideal", () => {
+    const result = evaluateBeginnerWindow({
+      ...idealExceptWind,
+      waveHeightFtMax: null,
+      windSpeedMph: null,
+    });
 
-    const noFitBeach = {
-      ...sandyBeginnerBeach,
-      preference_model: {
-        beginner_window: {
-          model: "socal_sandy_beginner",
-          beginner_fit: "no",
-          acceptable_wave_height_ft: { min: 0.5, max: 3 },
-        },
-      },
-    };
+    expect(result.rating).toBe("acceptable");
+  });
 
-    expect(isSandyBeginnerBeachMetadata(missingFitBeach)).toBe(false);
-    expect(getSandyBeginnerWindowProfile(missingFitBeach)).toBeNull();
-    expect(isSandyBeginnerBeachMetadata(noFitBeach)).toBe(false);
-    expect(getSandyBeginnerWindowProfile(noFitBeach)).toBeNull();
+  it("does not turn an unknown wind into a poor rating", () => {
+    const result = evaluateBeginnerWindow({
+      ...idealExceptWind,
+      windSpeedMph: null,
+      tideStatus: "Falling",
+      tideHeightFt: 6,
+    });
+
+    expect(result.rating).toBe("acceptable");
   });
 });

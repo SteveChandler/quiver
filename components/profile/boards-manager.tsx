@@ -27,7 +27,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 import { ZeroState } from "@/components/ui/zero-state";
 import { createBoard, updateBoard, deleteBoard } from "@/actions/board-actions";
 import type { Board } from "@/types/database";
@@ -95,11 +95,7 @@ export function BoardsManager({ userId, boards }: BoardsManagerProps) {
 
   const handleAddBoard = async (data: BoardFormValues) => {
     if (!isAuthenticated || !user?.id) {
-      toast({
-        title: "Authentication required",
-        description: "Please sign in to add boards.",
-        variant: "destructive",
-      });
+      toast.error("Authentication required", { description: "Please sign in to add boards." });
       return;
     }
 
@@ -117,21 +113,14 @@ export function BoardsManager({ userId, boards }: BoardsManagerProps) {
         throw new Error(result.error || "Failed to create board");
       }
 
-      toast({
-        title: "Board added",
-        description: "Your new board has been added to your quiver.",
-      });
+      toast("Board added", { description: "Your new board has been added to your quiver." });
 
       setIsAddDialogOpen(false);
       resetForm();
       router.refresh();
     } catch (error) {
       console.error("Error adding board:", error);
-      toast({
-        title: "Error",
-        description: "Failed to add board. Please try again.",
-        variant: "destructive",
-      });
+      toast.error("Error", { description: "Failed to add board. Please try again." });
     } finally {
       setIsSubmitting(false);
     }
@@ -139,11 +128,7 @@ export function BoardsManager({ userId, boards }: BoardsManagerProps) {
 
   const handleEditBoard = async (data: BoardFormValues) => {
     if (!isAuthenticated || !user?.id || !selectedBoard) {
-      toast({
-        title: "Authentication required",
-        description: "Please sign in to edit boards.",
-        variant: "destructive",
-      });
+      toast.error("Authentication required", { description: "Please sign in to edit boards." });
       return;
     }
 
@@ -160,21 +145,14 @@ export function BoardsManager({ userId, boards }: BoardsManagerProps) {
         throw new Error(result.error || "Failed to update board");
       }
 
-      toast({
-        title: "Board updated",
-        description: "Your board has been updated successfully.",
-      });
+      toast("Board updated", { description: "Your board has been updated successfully." });
 
       setIsEditDialogOpen(false);
       setSelectedBoard(null);
       router.refresh();
     } catch (error) {
       console.error("Error updating board:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update board. Please try again.",
-        variant: "destructive",
-      });
+      toast.error("Error", { description: "Failed to update board. Please try again." });
     } finally {
       setIsSubmitting(false);
     }
@@ -182,11 +160,7 @@ export function BoardsManager({ userId, boards }: BoardsManagerProps) {
 
   const handleDeleteBoard = async () => {
     if (!isAuthenticated || !user?.id || !selectedBoard) {
-      toast({
-        title: "Authentication required",
-        description: "Please sign in to delete boards.",
-        variant: "destructive",
-      });
+      toast.error("Authentication required", { description: "Please sign in to delete boards." });
       return;
     }
 
@@ -198,21 +172,14 @@ export function BoardsManager({ userId, boards }: BoardsManagerProps) {
         throw new Error(result.error || "Failed to delete board");
       }
 
-      toast({
-        title: "Board deleted",
-        description: "Your board has been removed from your quiver.",
-      });
+      toast("Board deleted", { description: "Your board has been removed from your quiver." });
 
       setIsDeleteDialogOpen(false);
       setSelectedBoard(null);
       router.refresh();
     } catch (error) {
       console.error("Error deleting board:", error);
-      toast({
-        title: "Error",
-        description: "Failed to delete board. Please try again.",
-        variant: "destructive",
-      });
+      toast.error("Error", { description: "Failed to delete board. Please try again." });
     } finally {
       setIsSubmitting(false);
     }

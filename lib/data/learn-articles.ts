@@ -33,6 +33,11 @@ export interface LearnArticle {
     };
     /** Optional interactive figure rendered above this section's prose */
     figureKey?: FigureKey;
+    /** Optional Quiver TikTok video rendered below this section's prose */
+    video?: {
+      tiktokId: string;
+      title: string;
+    };
   }[];
   faqs: {
     question: string;
@@ -589,6 +594,12 @@ export const learnArticles: LearnArticle[] = [
         href: "/learn/beginner-breaks-santa-cruz",
         description:
           "Where these conditions actually show up around Santa Cruz.",
+      },
+      {
+        label: "Beginner Surf Spots in Carlsbad",
+        href: "/learn/beginner-breaks-carlsbad",
+        description:
+          "Where these conditions show up on the Carlsbad coast.",
       },
     ],
   },
@@ -1522,9 +1533,9 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "answer",
         heading: "The Short Answer",
-        content: `<p>The standard recommendation from the <strong>Surfrider Foundation</strong> and public health agencies is wait <strong>72 hours</strong> after rain before surfing near urban areas. Storm drains flush bacteria (fecal coliform, Enterococcus), chemicals, oil, pesticides, and debris into the ocean. A Surfrider study found <strong>12 extra illness cases per 1,000 surfers</strong> exposed to wet-weather runoff. Risk varies by location, rainfall intensity, and proximity to storm drain outfalls and river mouths.</p>`,
+        content: `<p>The standard recommendation from the <strong>Surfrider Foundation</strong> and public health agencies is wait <strong>72 hours</strong> after the last rain before surfing near urban areas. Storm drains flush bacteria (fecal coliform, Enterococcus), chemicals, oil, pesticides, and debris into the ocean. A Surfrider study found <strong>12 extra illness cases per 1,000 surfers</strong> exposed to wet-weather runoff. Risk varies by location, rainfall intensity, and proximity to storm drain outfalls and river mouths.</p>`,
         keyTakeaway:
-          "Wait 72 hours after rain near urban areas. Storm drains flush bacteria and chemicals. Risk increases near river mouths and storm drain outfalls.",
+          "Wait 72 hours after the last rain near urban areas. Storm drains flush bacteria and chemicals. Risk increases near river mouths and storm drain outfalls.",
       },
       {
         id: "surfing-while-raining",
@@ -1543,7 +1554,7 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "practical",
         heading: "What This Means for Your Session",
-        content: `<p>After rain, <strong>avoid breaks near storm drains, river mouths, and harbors for 72 hours</strong>. Check local water quality reports — Heal the Bay (California) and Surfrider publish near-real-time beach grades. If you must surf sooner, choose an <strong>open-coast break far from runoff sources</strong> with good water circulation. Avoid getting water in your mouth, eyes, and open cuts. Shower immediately after. Ear plugs reduce ear infection risk. If you develop <strong>fever, gastrointestinal symptoms, or ear/sinus infection</strong> within 72 hours of surfing post-rain, see a doctor and mention ocean exposure.</p>`,
+        content: `<p>After rain, <strong>avoid breaks near storm drains, river mouths, and harbors until 72 hours after rain stops</strong>. Check local water quality reports — Heal the Bay (California) and Surfrider publish near-real-time beach grades. If you must surf sooner, choose an <strong>open-coast break far from runoff sources</strong> with good water circulation. Avoid getting water in your mouth, eyes, and open cuts. Shower immediately after. Ear plugs reduce ear infection risk. If you develop <strong>fever, gastrointestinal symptoms, or ear/sinus infection</strong> within 72 hours of surfing post-rain, see a doctor and mention ocean exposure.</p>`,
         keyTakeaway:
           "Check Heal the Bay or Surfrider water quality reports. Choose open-coast breaks far from drains. Shower immediately after surfing post-rain.",
       },
@@ -1552,7 +1563,7 @@ export const learnArticles: LearnArticle[] = [
       {
         question: "Is the 72-hour rule always necessary?",
         answer:
-          "It depends on location. Open coastline far from rivers clears in 24-48 hours. Near river mouths or harbors, 72 hours is the minimum. After major storms, some areas like the Tijuana River zone can stay contaminated for a week or more.",
+          "It depends on location. Open coastline far from rivers clears in 24-48 hours. Near river mouths or harbors, 72 hours after rain stops is the minimum. After major storms, some areas like the Tijuana River zone can stay contaminated for a week or more.",
       },
       {
         question: "Can rain actually improve surf conditions?",
@@ -2362,7 +2373,7 @@ export const learnArticles: LearnArticle[] = [
       "Wind speed, duration, and fetch decide wave size. How a storm's energy becomes a swell that crosses an ocean, and why every forecast starts with the wind.",
     readingTimeMin: 2,
     datePublished: "2026-03-30",
-    dateModified: "2026-09-02",
+    dateModified: "2026-10-13",
     heroImage: "/images/seo-dioramas/surf-cams/hawaii/hawaii-misty-lineup-photo.webp",
     thumbnailImage: "/images/seo-dioramas/surf-cams/hawaii/hawaii-misty-lineup-photo.webp",
     keywords: [
@@ -2372,14 +2383,17 @@ export const learnArticles: LearnArticle[] = [
       "wave generation",
       "fetch wind waves",
       "how swells form",
+      "what causes ocean waves",
+      "are ocean waves caused by wind",
+      "what creates waves in the ocean",
     ],
     sections: [
       {
         id: "answer",
         heading: "The Short Answer",
-        content: `<p>Wind transfers energy to the ocean surface through friction. Three factors determine wave size: <strong>wind speed</strong>, <strong>wind duration</strong> (how long it blows), and <strong>fetch</strong> (the uninterrupted distance wind blows over open water). Stronger wind + longer duration + greater fetch = bigger waves. Once formed, waves organize into <strong>swells</strong> that travel thousands of miles across ocean basins — a North Pacific storm can send swell to Hawaii in 2-3 days and California in 4-5 days. NOAA's WaveWatch III models this entire process globally every 6 hours.</p>`,
+        content: `<p><strong>Most ocean waves are caused by wind</strong>, including every wave you surf. NOAA lists two other causes: the gravitational pull of the Moon and Sun makes tides, which are extremely long waves, and earthquakes, landslides, or volcanic eruptions can set off tsunamis. Neither is surf.</p><p>Wind transfers energy to the ocean surface through friction. Three factors determine wave size: <strong>wind speed</strong>, <strong>wind duration</strong> (how long it blows), and <strong>fetch</strong> (the uninterrupted distance wind blows over open water). Stronger wind + longer duration + greater fetch = bigger waves. Once formed, waves organize into <strong>swells</strong> that travel thousands of miles across ocean basins — a North Pacific storm can send swell to Hawaii in 2-3 days and California in 4-5 days. NOAA's WaveWatch III models this entire process globally every 6 hours.</p>`,
         keyTakeaway:
-          "Waves form from wind friction on the ocean. Speed, duration, and fetch determine size. Swells then travel thousands of miles to coastlines.",
+          "Wind causes the waves you surf; tides and tsunamis are waves too, from gravity and earthquakes. Wind speed, duration, and fetch set the size.",
         image: {
           src: "/images/hero/hero-5-aerial-ocean.webp",
           alt: "Aerial view of open ocean swell lines traveling toward shore",
@@ -2390,6 +2404,10 @@ export const learnArticles: LearnArticle[] = [
         id: "detail",
         heading: "From Storm to Swell: The Formation Process",
         content: `<p>Inside a storm at sea, wind creates <strong>chaotic, short-period waves</strong> in all directions — called a "wind sea." As this energy radiates outward from the storm center, it undergoes <strong>dispersion</strong>: longer-period waves travel faster than shorter ones. Over hundreds or thousands of miles, the chaos sorts itself into organized bands of energy grouped by period — this is a <strong>swell</strong>.</p><p>Short-period energy (5-8 seconds) dissipates fastest through friction with the ocean surface. Long-period energy (12-20 seconds) loses very little and can cross entire ocean basins. A major Southern Ocean storm near Antarctica generates waves that arrive at California, Hawaii, and Japan as clean 16-18 second ground swell 7-10 days later. The <strong>fetch</strong> in the Southern Ocean is enormous — wind can blow uninterrupted for thousands of miles — which is why it produces the world's most powerful swells.</p>`,
+        video: {
+          tiktokId: "7678790284171398430",
+          title: "Understanding tides at your local break",
+        },
         keyTakeaway:
           "Storm wind creates chaotic waves that sort by period over distance. Long-period energy crosses ocean basins; short-period energy dissipates through friction.",
       },
@@ -2402,6 +2420,11 @@ export const learnArticles: LearnArticle[] = [
       },
     ],
     faqs: [
+      {
+        question: "Are ocean waves caused by wind?",
+        answer:
+          "Most are. Wind blowing across the water builds the waves and swells that reach beaches. Tides are long waves driven by the Moon's and Sun's gravity, and tsunamis come from earthquakes, landslides, or eruptions.",
+      },
       {
         question: "What is fetch and why does it matter?",
         answer:
@@ -2645,6 +2668,12 @@ export const learnArticles: LearnArticle[] = [
         href: "/learn/how-to-read-surf-conditions",
         description:
           "Master wave height, swell period, direction, wind, and tide readings.",
+      },
+      {
+        label: "Beginner Surf Spots in Carlsbad",
+        href: "/learn/beginner-breaks-carlsbad",
+        description:
+          "Tamarack, Carlsbad State Beach, and Ponto in North County.",
       },
     ],
   },
@@ -3245,6 +3274,172 @@ export const learnArticles: LearnArticle[] = [
         description:
           "Check the current learner call and conditions for Huntington Beach.",
       },
+      {
+        label: "Beginner Surf Spots in Carlsbad",
+        href: "/learn/beginner-breaks-carlsbad",
+        description:
+          "Compare North County San Diego learner breaks south of Camp Pendleton.",
+      },
     ],
+  },
+  {
+    slug: "beginner-breaks-carlsbad",
+    title: "Beginner Surf Spots in Carlsbad: Tamarack to Ponto",
+    description:
+      "Where beginners surf in Carlsbad: Tamarack, Carlsbad State Beach, and Ponto, the tide and wind each one needs, and when to wait for a smaller day.",
+    readingTimeMin: 7,
+    datePublished: "2026-10-13",
+    dateModified: "2026-10-13",
+    heroImage: "/images/learn/learn-carlsbad-state-beach-learner.webp",
+    thumbnailImage: "/images/learn/learn-carlsbad-state-beach-learner.webp",
+    keywords: [
+      "beginner surf spots carlsbad",
+      "surfing in carlsbad",
+      "learn to surf carlsbad",
+      "carlsbad state beach surfing",
+      "tamarack surf beach",
+      "ponto beach surfing",
+      "south carlsbad state beach surf",
+      "carlsbad surf report",
+      "carlsbad water temp",
+      "beginner surf spots north county san diego",
+    ],
+    sections: [
+      {
+        id: "answer",
+        heading: "The Short Answer",
+        content: `<p>Most beginners in Carlsbad learn at <strong>Tamarack</strong>, the stretch of <strong>Carlsbad State Beach</strong> along the seawall, or <strong>Ponto</strong> at the south end of South Carlsbad State Beach. All three are sandy beach breaks with room to spread out, and all three can be too big, too fast, or too crowded on the wrong day. Pick the day first, using the live call on <a href="/beginner/carlsbad">Quiver's Carlsbad beginner page</a>, then watch several sets from shore before you paddle out.</p>`,
+        keyTakeaway:
+          "Tamarack, the seawall stretch, and Ponto are the usual learner choices, but the day's size and current decide whether any of them fits.",
+      },
+      {
+        id: "tamarack",
+        heading: "Tamarack: The Usual First Session",
+        content: `<p><a href="/ca/carlsbad/tamarack">Tamarack</a>, at the foot of Tamarack Avenue near the Agua Hedionda Lagoon outlet, is where many Carlsbad surf schools set up. It has a parking lot right above the sand, a wide beach for practicing pop-ups, and inside whitewater that suits a soft-top on small days.</p><p>The jetties are the catch. They anchor sandbars that can produce faster peaks, and they pull experienced surfers and current toward them. Stay well away from the rocks, practice in the whitewater on the open beach, and leave the jetty peaks alone until you can turn and stop reliably. On days when sets break across the whole beach with no gaps, Tamarack is not a learning spot.</p>`,
+        keyTakeaway:
+          "Tamarack's open-beach whitewater suits first sessions on small days; keep clear of the jetties and the peaks they shape.",
+        image: {
+          src: "/images/learn/learn-small-beach-break-peaks.webp",
+          alt: "Two surfers riding small, peeling beach-break waves on a clear morning",
+          position: "right",
+        },
+      },
+      {
+        id: "seawall",
+        heading: "Carlsbad State Beach Along the Seawall",
+        content: `<p>North of Tamarack, <a href="/ca/carlsbad/carlsbad-state-beach">Carlsbad State Beach</a> runs along the downtown seawall and walkway. The long, straight shoreline usually has several peaks, so you can move away from a crowded one instead of competing for it. Lower-tide days give you more sand to work with; higher tides can push waves up against the seawall and leave less room to stand and reset.</p><p>Like any exposed beach break, it can close out when short-period wind swell stacks up, and the sandbars shift through the year. A sandbar that worked last month may not be there now. Watch where other learners are catching waves and where the current carries them before choosing your patch.</p>`,
+        keyTakeaway:
+          "The seawall stretch spreads people across many peaks, but high tide shrinks the beach and short-period swell brings closeouts.",
+      },
+      {
+        id: "ponto",
+        heading: "Ponto and South Carlsbad State Beach",
+        content: `<p><a href="/ca/carlsbad/ponto">Ponto</a> sits at the south end of South Carlsbad State Beach, near the Batiquitos Lagoon mouth. Between Ponto and the campground stairways to the north there is a long run of sand that often has smaller, gentler corners than the main peaks, plus a state beach day-use lot.</p><p>Ponto is also a popular spot with experienced surfers, and the main peaks can be crowded and fast on a good swell. Low tide changes it a lot: on a deep minus tide the beach turns into a wide sand flat and waves can break hard over shallow bars. Check the <a href="/learn/best-tide-for-surfing">tide</a> as well as the wave height, and skip the lagoon mouth itself.</p>`,
+        keyTakeaway:
+          "Ponto and South Carlsbad offer lots of sand to spread out on, but busy main peaks and big tide swings mean you should pick your corner carefully.",
+        image: {
+          src: "/images/learn/learn-south-ponto-minus-tide.webp",
+          alt: "South Ponto Beach in Carlsbad at a minus tide, with a wide wet sand flat and one surfer walking to the water",
+          position: "left",
+        },
+      },
+      {
+        id: "conditions",
+        heading: "What a Beginner Day Looks Like in Carlsbad",
+        content: `<p>Carlsbad faces west and picks up northwest swell in winter and south swell in summer. For learning, look for small surf, roughly waist high or less on the face, with clear gaps between sets. A longer period can make a small number hit harder than it looks, so check period as well as height. Light wind or a light offshore morning keeps the surface smooth; the afternoon sea breeze usually makes it bumpier.</p><p>Use the live forecast for the beach you plan to surf and the hourly view on <a href="/best-time-to-surf/carlsbad">best time to surf in Carlsbad</a> to find the smallest, cleanest window. Then check from shore. If the forecast says small and the beach says otherwise, believe the beach.</p>`,
+        keyTakeaway:
+          "Look for small surf with gaps between sets and light wind, usually in the morning, and let what you see from shore overrule the forecast.",
+      },
+      {
+        id: "water-safety",
+        heading: "Water Temperature, Rip Currents, and Rain",
+        content: `<p>Carlsbad water is cold enough for a wetsuit most of the year, with the coldest water in winter and spring and the warmest in late summer. Check today's reading on <a href="/water-temp/carlsbad">Carlsbad water temperature</a> and pick thickness from that, using the <a href="/learn/what-wetsuit-thickness-do-i-need">wetsuit thickness guide</a>.</p><p>Every Carlsbad beach break can form <a href="/learn/what-is-a-rip-current">rip currents</a>, especially near the jetties and where sandbars have gaps. Look for darker, calmer channels between breaking waves, ask the lifeguards where to practice, and stay near a staffed tower when one is open. After rain, the County of San Diego issues a general advisory to avoid ocean contact until at least 72 hours after the last rain, and the lagoon mouths carry runoff to the beach. Read <a href="/learn/is-it-safe-to-surf-after-rain">surfing after rain</a> before you go.</p>`,
+        keyTakeaway:
+          "Wear a wetsuit sized for today's water, practice near a staffed tower away from rips and jetties, and stay out until at least 72 hours after the last rain.",
+      },
+      {
+        id: "lineup",
+        heading: "Crowds, Lessons, and Where Else to Look",
+        content: `<p>Carlsbad lineups get busy on weekend mornings, especially at Tamarack and Ponto. A lesson is the fastest way to learn where beginners are expected to practice and how to get out of the way. On your own, stay in the whitewater, keep the board beside you rather than between you and the waves, and follow basic <a href="/learn/surf-etiquette-rules">surf etiquette</a>: no dropping in and no paddling straight into an established peak.</p><p>If Carlsbad is too big or crowded, compare the beginner calls for <a href="/beginner/oceanside">Oceanside</a> and <a href="/beginner/encinitas">Encinitas</a>, or the wider <a href="/learn/beginner-breaks-san-diego">San Diego beginner guide</a>. A smaller beach nearby usually beats a bigger one you are not ready for.</p>`,
+        keyTakeaway:
+          "Stay in the whitewater, give the main peaks room, and switch to a nearby beach when Carlsbad is too big or crowded.",
+        image: {
+          src: "/images/learn/learn-south-carlsbad-lineup.webp",
+          alt: "A crowd of surfers sitting in the lineup at South Carlsbad State Beach in soft late-day light",
+          position: "right",
+        },
+      },
+    ],
+    faqs: [
+      {
+        question: "What is the best beginner surf spot in Carlsbad?",
+        answer:
+          "Tamarack is the most common first spot because of its parking, wide beach, and inside whitewater on small days. Carlsbad State Beach along the seawall and Ponto also work for beginners when the surf is small. Check the day's conditions and watch from shore before choosing.",
+      },
+      {
+        question: "Is Tamarack good for beginners?",
+        answer:
+          "On small, clean days, yes. Practice in the open-beach whitewater and stay away from the jetties, where the peaks are faster and current and experienced surfers concentrate. When sets break across the whole beach with no gaps, pick another day.",
+      },
+      {
+        question: "Is Ponto Beach good for beginner surfers?",
+        answer:
+          "It can be on small days, especially away from the main peaks. Ponto is also busy with experienced surfers, and low tide can make waves break harder over shallow sand, so check the tide and crowd before paddling out.",
+      },
+      {
+        question: "Do I need a wetsuit to surf in Carlsbad?",
+        answer:
+          "Most of the year, yes. Winter and spring water is cold, and even late summer often calls for at least a spring suit. Check the current Carlsbad water temperature and choose thickness from that reading.",
+      },
+      {
+        question: "When is the best time to surf in Carlsbad as a beginner?",
+        answer:
+          "Mornings often have the lightest wind and the smoothest surface before the sea breeze arrives, but swell size and tide matter more than the clock. Look for the smallest, cleanest window in the hourly forecast, then confirm it from shore.",
+      },
+      {
+        question: "Can you surf in Carlsbad after it rains?",
+        answer:
+          "Wait. The County of San Diego advises avoiding ocean contact until at least 72 hours after the last rain, and Carlsbad's lagoon mouths carry runoff onto the beaches. Check the current advisory before going in.",
+      },
+    ],
+    relatedLinks: [
+      {
+        label: "Carlsbad Beginner Surf Call",
+        href: "/beginner/carlsbad",
+        description:
+          "Today's YES, MAYBE, or NO beginner call for Carlsbad.",
+      },
+      {
+        label: "Best Time to Surf in Carlsbad",
+        href: "/best-time-to-surf/carlsbad",
+        description:
+          "Hourly wind, tide, and swell windows for Carlsbad.",
+      },
+      {
+        label: "Carlsbad Water Temperature",
+        href: "/water-temp/carlsbad",
+        description:
+          "Today's water temperature and what wetsuit it calls for.",
+      },
+      {
+        label: "Beginner Surf Spots in San Diego",
+        href: "/learn/beginner-breaks-san-diego",
+        description:
+          "Compare learner breaks from Oceanside Harbor to Mission Beach.",
+      },
+      {
+        label: "Best Surf Conditions for Beginners",
+        href: "/learn/best-surf-conditions-for-beginners",
+        description:
+          "Learn how height, period, wind, tide, and crowds shape a beginner window.",
+      },
+    ],
+    appHandoff: {
+      eyebrow: "Carlsbad today",
+      title: "See which Carlsbad beach is small enough today.",
+      description:
+        "Quiver checks wave size, wind, and tide at Carlsbad's beaches every hour, so you can see whether today is small enough before you drive.",
+      ctaLabel: "Check Carlsbad now",
+    },
   },
 ];

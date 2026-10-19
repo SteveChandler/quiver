@@ -15,19 +15,6 @@ export const TEST_USER = {
 export const isDevEnvironment =
   process.env.BASE_URL?.includes('dev.quiversurf.app') || process.env.TEST_ENV === 'dev';
 
-export const TEST_BEACH_IDS = isDevEnvironment ? {
-  // Dev environment: Using actual beach IDs from dev.quiversurf.app database
-  // Verified 2025-11-12 via API query
-  blacks: '01330afc-00d3-461b-88f3-b173774766f4', // Blacks Beach, La Jolla
-  birdrock: 'ca2b1d6f-2428-4273-ab02-7555eeec4323', // Birdrock, La Jolla
-  beacons: '22536002-c7d2-48ab-a676-9b489fd79874', // Beacons, Encinitas
-} : {
-  // Local environment: using slugs from local database
-  blacks: 'blacks',
-  birdrock: 'bird-rock',
-  beacons: 'beacons',
-};
-
 // Full beach objects for hierarchical URL generation
 // These can be used with the navigateToBeach helper for new URL format
 export const TEST_BEACHES = isDevEnvironment ? {

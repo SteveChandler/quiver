@@ -10,6 +10,7 @@ import { normalizeBoardClass, type BoardClass } from '@/lib/domains/rideability'
 import type { SkillLevel } from '@/lib/domains/user-preferences/skill-level';
 import { parseWaveHeightMidpointFt } from '@/lib/alerts/forecast-parsers';
 import { getDirectionDegrees } from '@/lib/utils/number-parsing';
+import { resolveOffshoreDeg } from '@/lib/domains/shared/wind-orientation';
 
 interface ClassFitRow {
   /** Effective face height (ft) the class fits best. */
@@ -24,7 +25,7 @@ interface ClassFitRow {
   openSide?: 'small' | 'big';
 }
 
-export const CLASS_FIT_TABLE: Partial<Record<BoardClass, ClassFitRow>> = {
+const CLASS_FIT_TABLE: Partial<Record<BoardClass, ClassFitRow>> = {
   foamie: { centerFt: 1.6, width: 0.35, lengthIn: 84, cleanSwing: 12, openSide: 'small' },
   longboard: { centerFt: 2.0, width: 0.33, lengthIn: 108, cleanSwing: 16, openSide: 'small' },
   funboard: { centerFt: 2.6, width: 0.38, lengthIn: 80, cleanSwing: 10 },
@@ -42,11 +43,11 @@ export const CLASS_FIT_TABLE: Partial<Record<BoardClass, ClassFitRow>> = {
 const SKILL_SIZE_FACTOR: Record<SkillLevel, number> = { beginner: 0.6, intermediate: 0.8, advanced: 1, expert: 1.1 };
 // Float-and-glide classes pay for crossing swells, as the previous rule's prefersClean boards did.
 const CLEAN_PREFERRING: ReadonlySet<BoardClass> = new Set<BoardClass>(['foamie', 'longboard', 'mid-length', 'funboard', 'sup']);
-const WIND_BASE = { offshore: 0.98, 'cross-offshore': 0.92, 'cross-shore': 0.8, onshore: 0.7, unknown: 0.85 } as const;
-const WIND_SLOPE = { offshore: 0.012, 'cross-offshore': 0.02, 'cross-shore': 0.04, onshore: 0.05, unknown: 0.03 } as const;
+const WIND_BASE = { offshore: 0.98, 'cross-offshore': 0.92, 'cross-shore': 0.8, onshore: 0.7 } as const;
+const WIND_SLOPE = { offshore: 0.012, 'cross-offshore': 0.02, 'cross-shore': 0.04, onshore: 0.05 } as const;
 const OFFSHORE_TOLERANCE_DEG = 30;
 
-export interface FitForecast {
+interface FitForecast {
   forecast_at?: string | null;
   wave_height?: string | null;
   wave_period?: unknown;
@@ -64,14 +65,15 @@ export interface FitForecast {
   tide_status?: string | null;
 }
 
-export interface FitBeach {
+interface FitBeach {
   wind_offshore_deg?: number | null;
+  aspect_deg?: number | null;
   preferred_tide_ft_min?: number | null;
   preferred_tide_ft_max?: number | null;
   break_type?: string | null;
 }
 
-export interface FitConditions {
+interface FitConditions {
   heightFt: number;
   periodSec: number | null;
   windMph: number | null;
@@ -93,7 +95,7 @@ function numeric(value: unknown): number | null {
 }
 
 /** Whole-sea period: Open-Meteo mean, else energy-weighted partitions, else the stored period. */
-export function seaPeriodSec(row: FitForecast): number | null {
+function seaPeriodSec(row: FitForecast): number | null {
   const mean = numeric(row.wave_period_om);
   if (mean !== null && mean > 0) return mean;
   const parts: Array<[number, number]> = [];
@@ -120,7 +122,7 @@ export function fitConditions(row: FitForecast, beach: FitBeach, interference: n
     periodSec: seaPeriodSec(row),
     windMph: numeric(row.wind_speed),
     windDirDeg: getDirectionDegrees(row.wind_direction_deg ?? null, row.wind_direction ?? null),
-    offshoreDeg: beach.wind_offshore_deg ?? null,
+    offshoreDeg: resolveOffshoreDeg(beach),
     tideFt,
     // Where the tide is heading over the next hour or so; the session rides the coming water.
     tideSoonFt: tideFt === null ? null : tideFt + drift,
@@ -132,17 +134,20 @@ export function fitConditions(row: FitForecast, beach: FitBeach, interference: n
   };
 }
 
-type WindLabel = 'glassy' | keyof typeof WIND_BASE;
+type WindLabel = 'glassy' | 'unknown' | keyof typeof WIND_BASE;
 
-function windCleanliness(c: FitConditions): { clean: number; label: WindLabel } {
-  const mph = c.windMph ?? 0;
+/**
+ * Clean is null when the wind is unknown (no speed, or a breeze with no direction or beach
+ * orientation): it then adds no size shift, no class points and no wind words.
+ */
+function windCleanliness(c: FitConditions): { clean: number | null; label: WindLabel } {
+  if (c.windMph === null) return { clean: null, label: 'unknown' };
+  const mph = c.windMph;
   if (mph <= 3) return { clean: 0.95, label: 'glassy' };
-  let label: keyof typeof WIND_BASE = 'unknown';
-  if (c.windDirDeg !== null && c.offshoreDeg !== null) {
-    const raw = Math.abs(c.windDirDeg - c.offshoreDeg) % 360;
-    const off = Math.min(raw, 360 - raw);
-    label = off <= OFFSHORE_TOLERANCE_DEG ? 'offshore' : off <= OFFSHORE_TOLERANCE_DEG * 1.5 ? 'cross-offshore' : off <= 90 ? 'cross-shore' : 'onshore';
-  }
+  if (c.windDirDeg === null || c.offshoreDeg === null) return { clean: null, label: 'unknown' };
+  const raw = Math.abs(c.windDirDeg - c.offshoreDeg) % 360;
+  const off = Math.min(raw, 360 - raw);
+  const label: keyof typeof WIND_BASE = off <= OFFSHORE_TOLERANCE_DEG ? 'offshore' : off <= OFFSHORE_TOLERANCE_DEG * 1.5 ? 'cross-offshore' : off <= 90 ? 'cross-shore' : 'onshore';
   return { clean: Math.max(0.05, Math.min(1, WIND_BASE[label] - WIND_SLOPE[label] * (mph - 3))), label };
 }
 
@@ -162,12 +167,12 @@ function tideBreakWeight(breakType: string | null): number {
   return 0.7;
 }
 
-interface FitFrame { effectiveFt: number; clean: number; windLabel: WindLabel; tide: number }
+interface FitFrame { effectiveFt: number; clean: number | null; windLabel: WindLabel; tide: number }
 
 function fitFrame(c: FitConditions, skill: SkillLevel): FitFrame {
   const power = c.periodSec === null ? 0 : Math.max(-1, Math.min(1, (c.periodSec - 10) / 4));
   const wind = windCleanliness(c);
-  const windShift = Math.max(-0.25, Math.min(0.04, 0.4 * (wind.clean - 0.85)));
+  const windShift = wind.clean === null ? 0 : Math.max(-0.25, Math.min(0.04, 0.4 * (wind.clean - 0.85)));
   const tide = tideShift(c) * tideBreakWeight(c.breakType);
   // Conditions make a wave act at most ~26% smaller or ~28% bigger.
   const shift = Math.max(-0.3, Math.min(0.25, 0.22 * power + windShift - 0.25 * tide));
@@ -202,7 +207,7 @@ export function classFitScore(c: FitConditions, skill: SkillLevel, boardClass: B
   if ((row.openSide === 'small' && z < 0) || (row.openSide === 'big' && z > 0)) z = 0;
   const fit = 100 * Math.exp(-0.5 * z * z);
   const crossing = CLEAN_PREFERRING.has(boardClass) && c.interference !== null ? 0.1 * (100 - c.interference) : 0;
-  return fit + row.cleanSwing * (f.clean - 0.5) - crossing;
+  return fit + row.cleanSwing * ((f.clean ?? 0.5) - 0.5) - crossing;
 }
 
 const ARCHETYPES: Record<string, readonly BoardClass[]> = {
@@ -225,7 +230,7 @@ function sizeBand(heightFt: number): string {
 }
 
 /** Board-free advice for these conditions, e.g. "Ride an all-rounder in 3-4 ft waves". */
-export function conditionsAdvice(c: FitConditions, skill: SkillLevel): { headline: string; bestScore: number } {
+function conditionsAdvice(c: FitConditions, skill: SkillLevel): { headline: string; bestScore: number } {
   const groups = Object.entries(ARCHETYPES).map(([group, members]) => ({
     group, score: Math.max(...members.map((m) => classFitScore(c, skill, m) ?? -Infinity)),
   })).sort((a, b) => b.score - a.score);
@@ -240,9 +245,9 @@ function conditionClauses(c: FitConditions, skill: SkillLevel): string[] {
   const out: string[] = [];
   if (c.tideSoonFt !== null && f.tide >= 0.5) out.push(/rising/i.test(c.tideStatus ?? '') ? 'the tide is filling in, so waves fatten up' : 'high water softens the waves');
   else if (c.tideSoonFt !== null && f.tide <= -0.5) out.push('low water makes steeper, faster faces');
-  if (f.clean <= 0.5) out.push('choppy wind');
+  if (f.clean !== null && f.clean <= 0.5) out.push('choppy wind');
   else if (f.windLabel === 'glassy') out.push('glassy faces');
-  else if (f.clean >= 0.9) out.push('clean offshore faces');
+  else if (f.clean !== null && f.clean >= 0.9) out.push('clean offshore faces');
   if (c.periodSec !== null && c.periodSec <= 7) out.push('short-period, weak power');
   else if (c.periodSec !== null && c.periodSec >= 14) out.push('long-period power');
   return out.slice(0, 2);

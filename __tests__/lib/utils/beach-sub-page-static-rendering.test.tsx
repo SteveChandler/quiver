@@ -10,10 +10,12 @@ import { headers } from "next/headers";
 import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
 import { getTideMetaData } from "@/lib/seo/tide-meta-data";
 import { getWaterTempMetaData } from "@/lib/seo/water-temp-meta-data";
+import { isGscPerformanceProtected } from "@/lib/seo/gsc-performance-protection";
 import { getBeachBySlugOrId } from "@/lib/utils/beach-lookup-utils";
 import { renderBeachSubPage } from "@/lib/utils/beach-sub-page-utils";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
 import { WaterTempSummaryHero } from "@/components/beach-detail/water-temp-summary-hero";
+import { TideDatasetSchema } from "@/components/seo/tide-dataset-schema";
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
 import type { Beach } from "@/types/database";
 
@@ -49,6 +51,13 @@ jest.mock("@/lib/seo/water-temp-meta-data", () => ({
   getWaterTempMetaData: jest.fn(),
 }));
 
+jest.mock("@/lib/seo/gsc-performance-protection", () => ({
+  ...jest.requireActual("@/lib/seo/gsc-performance-protection"),
+  isGscPerformanceProtected: jest.fn(
+    jest.requireActual("@/lib/seo/gsc-performance-protection").isGscPerformanceProtected,
+  ),
+}));
+
 jest.mock("@/lib/utils/nearby-beach-enrichment", () => ({
   enrichBeachesWithConditions: jest.fn(),
 }));
@@ -71,6 +80,9 @@ const beach = {
 describe("renderBeachSubPage static rendering", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.mocked(isGscPerformanceProtected).mockImplementation(
+      jest.requireActual("@/lib/seo/gsc-performance-protection").isGscPerformanceProtected,
+    );
     (getBeachBySlugOrId as jest.MockedFunction<typeof getBeachBySlugOrId>)
       .mockResolvedValue(beach);
     (getNearbyBeaches as jest.MockedFunction<typeof getNearbyBeaches>)
@@ -93,6 +105,24 @@ describe("renderBeachSubPage static rendering", () => {
     ).mockResolvedValue([]);
   });
 
+  it.each([
+    [true, null, true],
+    [false, null, false],
+    [true, 67, false],
+  ])("shows the no-reading line only when protected (%s) and no reading (%s)", async (protectedPage, tempF, showLine) => {
+    jest.mocked(getBeachBySlugOrId).mockResolvedValue({ ...beach, slug: "huntington-state-beach", name: "Huntington State Beach", city: "Huntington Beach" });
+    const beachPath = "/ca/huntington-beach/huntington-state-beach";
+    expect(isGscPerformanceProtected(`${beachPath}/water-temp`)).toBe(true);
+    if (!protectedPage) jest.mocked(isGscPerformanceProtected).mockReturnValue(false);
+    jest.mocked(getWaterTempMetaData).mockResolvedValue({ tempF, wetsuitRec: tempF === null ? null : "3/2mm fullsuit" });
+
+    const page = await renderBeachSubPage({ beachSlug: "huntington-state-beach", pageType: "water-temp", beachPath }) as PageTreeElement;
+
+    expect(getPageChildren(page).some((child) =>
+      child.type === "p" && (child.props as { children?: ReactNode }).children === "No live water temperature reading right now. Check back for the next update.",
+    )).toBe(showLine);
+  });
+
   it("never reads request headers", async () => {
     // Reading the request's user-agent here makes static routes silently lose
     // their platform decision. Platform must stay inside the client switch.
@@ -106,6 +136,28 @@ describe("renderBeachSubPage static rendering", () => {
 
     expect(headers).not.toHaveBeenCalled();
     expect(mockHeadersGet).not.toHaveBeenCalled();
+  });
+
+  it.each(["fes2022", "noaa", null])("forwards the tide source %s to its dataset schema", async (source) => {
+    (getTideMetaData as jest.MockedFunction<typeof getTideMetaData>)
+      .mockResolvedValue({
+        nextHighTime: null,
+        nextHighHeight: null,
+        nextLowTime: null,
+        nextLowHeight: null,
+        nextHighAt: null,
+        nextLowAt: null,
+        source,
+      });
+
+    const page = await renderBeachSubPage({
+      beachSlug: "blacks",
+      pageType: "tides",
+      beachPath: "/ca/san-diego/blacks",
+    }) as PageTreeElement;
+    const dataset = getPageChildren(page).find((child) => child.type === TideDatasetSchema);
+
+    expect(dataset).toMatchObject({ props: { source } });
   });
 
   it("wires available water-temperature data into the zine hero", async () => {

@@ -59,8 +59,6 @@ As of `@supabase/ssr` v0.8.0, all Supabase server clients use the `getAll`/`setA
 - `lib/supabase.ts` -- `createServerClient` (guard check changed from `typeof cookieStore.get` to `typeof cookieStore.getAll`)
 - `app/api/auth/[...supabase]/route.ts`
 - `app/api/auth/check-session/route.ts`
-- `app/api/auth/refresh-session/route.ts`
-- `app/api/auth/supabase/resend-confirmation/route.ts`
 - `app/api/plan-session/route.ts`
 - `middleware.ts` (already used `getAll`/`setAll` before the migration)
 

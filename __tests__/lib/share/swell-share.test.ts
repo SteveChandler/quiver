@@ -1,4 +1,5 @@
 /** @jest-environment node */
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   buildSwellCard,
   buildSwellAppUrl,
@@ -350,5 +351,52 @@ describe("describeSwellHistory size wording", () => {
     [7.4, 5.2, "Down from 7 ft to 5 ft since Friday, peak still Thursday."],
   ])("%s ft to %s ft", async (first, last, sentence) => {
     expect(describeSwellHistory((await run(first, last))!)).toBe(sentence);
+  });
+});
+
+describe("pulse event keys", () => {
+  const BEACH_ID = "402ec6ad-4e80-47d2-882f-5053eb9aa433";
+  it("accepts the :p pulse marker and its collision suffix", () => {
+    expect(parseSwellEventKey(`${BEACH_ID}:S:2026-10-08:p`)).toEqual({ eventKey: `${BEACH_ID}:S:2026-10-08:p`, beachId: BEACH_ID });
+    expect(parseSwellEventKey(`${BEACH_ID}:S:2026-10-08:p:2`)?.eventKey).toBe(`${BEACH_ID}:S:2026-10-08:p:2`);
+    expect(parseSwellEventKey(`${BEACH_ID}:S:2026-10-08:q`)).toBeNull();
+  });
+
+  it("accepts encoded pulse keys and unbounded numeric collision suffixes", () => {
+    for (const suffix of ["", ":2", ":99", ":100", ":1000"]) {
+      for (const marker of ["", ":p"]) {
+        const eventKey = `${BEACH_ID}:W:2026-10-08${marker}${suffix}`;
+        expect(parseSwellEventKey(encodeURIComponent(eventKey))).toEqual({ eventKey, beachId: BEACH_ID });
+      }
+    }
+    expect(parseSwellEventKey(`${BEACH_ID}:W:2026-10-08:2:p`)).toBeNull();
+    expect(parseSwellEventKey(`${BEACH_ID}:W:2026-10-08:p:2:3`)).toBeNull();
+  });
+
+  it("loads each colliding pulse independently from notable snapshots", async () => {
+    const keys = [SWELL_EVENT_KEY, `${SWELL_EVENT_KEY}:p`, `${SWELL_EVENT_KEY}:p:2`];
+    const snapshots = keys.map((event_key, index) => ({ ...swellSnapshot({ period_s: 10 + index * 5 }), event_key }));
+    const supabase = {
+      from: (table: string) => {
+        if (table === "beaches") return fakeSwellSupabase({}).from(table);
+        let selectedKey: string | null = null;
+        const builder = {
+          select: () => builder,
+          eq: (column: string, value: string) => {
+            if (column === "event_key") selectedKey = value;
+            return builder;
+          },
+          order: () => builder,
+          limit: async () => ({ data: snapshots.filter((row) => row.event_key === selectedKey), error: null }),
+        };
+        return builder;
+      },
+    } as unknown as SupabaseClient;
+    for (const [index, eventKey] of keys.entries()) {
+      const result = await loadSwellShareEvent(supabase, eventKey, SWELL_NOW);
+      expect(result?.payload.eventKey).toBe(eventKey);
+      expect(result?.payload.periodS).toBe(10 + index * 5);
+      expect(result?.payload.history).toHaveLength(1);
+    }
   });
 });

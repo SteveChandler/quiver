@@ -16,13 +16,6 @@ export function parseFloatSafe(value: unknown, fallback: number): number {
   return Number.isNaN(parsed) ? fallback : parsed;
 }
 
-export function parseIntSafe(value: unknown, fallback: number, radix: number = 10): number {
-  if (value === null || value === undefined) return fallback;
-  if (typeof value === 'number') return Number.isNaN(value) ? fallback : Math.trunc(value);
-  const parsed = parseInt(String(value), radix);
-  return Number.isNaN(parsed) ? fallback : parsed;
-}
-
 export function parseCoordinate(value: unknown, type?: 'lat' | 'lon'): number | null {
   if (value === null || value === undefined || value === '') return null;
   const parsed = parseFloat(String(value));
@@ -61,6 +54,16 @@ export function parseWindSpeed(value: unknown, fallback: number = 0): number {
   const cleaned = str.replace(/\s*(mph|kph|knots?|kts?|m\/s)\s*/gi, '').trim();
   const parsed = parseFloat(cleaned);
   return Number.isNaN(parsed) ? fallback : parsed;
+}
+
+/**
+ * Wind speed as stored (mph), or null when the source gave none. A missing
+ * wind is unknown, not calm; only a real "0 mph" is 0.
+ */
+export function parseWindSpeedOrNull(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  const parsed = parseWindSpeed(value, Number.NaN);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 export function parseWavePeriod(value: unknown, fallback: number = 0): number {

@@ -61,6 +61,22 @@ describe("computeWindowDurationScore", () => {
 });
 
 describe("computeHeroWindowScore", () => {
+  it("leaves unknown wind out: same as a wind term equal to the rest", () => {
+    const input: HeroWindowScoreInput = {
+      representativeSlotScore: 72,
+      setupSuitability: 64,
+      windowSlotScores: [70, 72, 71],
+      windowDurationHours: 3,
+      tideFitAcrossWindow: 55,
+      windQualityScore: null,
+    };
+    const unknown = computeHeroWindowScore(input);
+    // Neutral means the wind term neither lifts nor drags: plugging the result back in is a fixed point.
+    expect(computeHeroWindowScore({ ...input, windQualityScore: unknown })).toBeCloseTo(unknown, 10);
+    expect(computeHeroWindowScore({ ...input, windQualityScore: 0 })).toBeLessThan(unknown);
+    expect(computeHeroWindowScore({ ...input, windQualityScore: 100 })).toBeGreaterThan(unknown);
+  });
+
   it("penalizes one-slot peaks vs steadier setup-correct windows", () => {
     const fragile = computeHeroWindowScore({
       representativeSlotScore: 82,

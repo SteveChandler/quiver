@@ -79,11 +79,11 @@ describe("EnhancedForecastService Tide Prefetch", () => {
       }
 
       // Should have fewer unique stations than beaches
-      // Blacks, Windansea, La Jolla Shores use 9410230
-      // Ocean Beach uses 9410170
+      // Blacks, Windansea, La Jolla Shores and Ocean Beach use 9410230
+      // (open-coast San Diego resolves to Scripps, not the bay station)
       // Pipeline uses 1612340
       expect(stationIds.size).toBeLessThan(beaches.length);
-      expect(stationIds.size).toBe(3); // 9410230, 9410170, 1612340
+      expect(stationIds.size).toBe(2); // 9410230, 1612340
     });
 
     it("should cache tide data across multiple beaches using same station", async () => {

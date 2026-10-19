@@ -2,10 +2,11 @@ import Image from "next/image";
 import Link from "next/link";
 import type { BeginnerConditionsBadge, BeginnerCityEditorial } from "@/types/beginner";
 
+// Paper-safe status tints; hex text colours so the retro-dark utility overrides don't wash them out.
 const STATUS_COLORS = {
-  great: { bg: "bg-green-100", text: "text-green-700", dot: "bg-green-500" },
-  fair: { bg: "bg-amber-100", text: "text-amber-700", dot: "bg-amber-500" },
-  challenging: { bg: "bg-red-100", text: "text-red-700", dot: "bg-red-500" },
+  great: { border: "border-[#0F766E]/35", text: "text-[#115E59]", dot: "bg-[#0F766E]" },
+  fair: { border: "border-[#B65F1A]/35", text: "text-[#8A4B12]", dot: "bg-[#B65F1A]" },
+  challenging: { border: "border-[#B91C1C]/35", text: "text-[#8A1F1F]", dot: "bg-[#B91C1C]" },
 } as const;
 
 interface BeginnerHeroProps {
@@ -30,20 +31,20 @@ export function BeginnerHero({
   return (
     <section
       data-testid="beginner-hero"
-      className="overflow-hidden rounded-[28px] border border-[#252D6B]/12 bg-[#0F1B3D] text-white shadow-[0_28px_90px_rgba(15,27,61,0.18)]"
+      className="overflow-hidden rounded-[28px] border-2 border-[#11100D] bg-[#FBF6E8] text-[#11100D] shadow-[6px_6px_0_rgba(17,16,13,0.85)]"
     >
       <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="relative overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(247,142,66,0.26),transparent_34%),linear-gradient(135deg,rgba(37,45,107,0.98),rgba(12,24,54,0.9))]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(247,142,66,0.16),transparent_40%)]" />
           <div className="relative px-6 py-8 md:px-8 md:py-10">
             <header className="mb-6">
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-orange-200/80">
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#AA4918]">
                 Beginner Surf Guide
               </p>
-              <h1 className="mt-3 text-3xl font-bold md:text-4xl">
+              <h1 className="mt-3 font-display text-3xl font-black uppercase leading-tight text-[#11100D] md:text-4xl">
                 Beginner Surf Spots in {cityName}
               </h1>
-              <p className="mt-3 text-base text-blue-100/78 md:text-lg">
+              <p className="mt-3 text-base text-[#655C4C] md:text-lg">
                 {regionLabel} &middot; {totalBeaches} beginner-friendly{" "}
                 {totalBeaches === 1 ? "break" : "breaks"}
               </p>
@@ -51,7 +52,7 @@ export function BeginnerHero({
 
             {conditionsBadge && (
               <div
-                className={`inline-flex max-w-full items-start gap-3 rounded-2xl border border-white/15 ${STATUS_COLORS[conditionsBadge.status].bg} px-5 py-3 shadow-sm`}
+                className={`inline-flex max-w-full items-start gap-3 rounded-2xl border-2 ${STATUS_COLORS[conditionsBadge.status].border} bg-[#F4EBD8] px-5 py-3`}
               >
                 <span
                   className={`mt-1 h-3 w-3 flex-shrink-0 rounded-full ${STATUS_COLORS[conditionsBadge.status].dot}`}
@@ -62,11 +63,12 @@ export function BeginnerHero({
                   >
                     {conditionsBadge.statusLabel}
                   </p>
-                  <p className="text-xs text-slate-700">
-                    {conditionsBadge.waveHeight} &middot; {conditionsBadge.wind}{" "}
-                    &middot; {conditionsBadge.waterTemp}
+                  <p className="text-xs text-[#11100D]">
+                    {[conditionsBadge.waveHeight, conditionsBadge.wind, conditionsBadge.waterTemp]
+                      .filter(Boolean)
+                      .join(" \u00B7 ")}
                   </p>
-                  <p className="text-xs text-slate-700">
+                  <p className="text-xs text-[#655C4C]">
                     Based on conditions at {conditionsBadge.spotName}
                   </p>
                 </div>
@@ -74,7 +76,7 @@ export function BeginnerHero({
             )}
 
             {cityEditorial && cityEditorial.description.length > 0 && (
-              <p className="mt-6 max-w-3xl text-base leading-relaxed text-blue-50/88">
+              <p className="mt-6 max-w-3xl text-base leading-relaxed text-[#11100D]/80">
                 {cityEditorial.description[0]}
               </p>
             )}
@@ -85,7 +87,7 @@ export function BeginnerHero({
                   <Link
                     key={link.href}
                     href={link.href}
-                    className="rounded-full border border-white/15 bg-white/8 px-3 py-1.5 text-sm font-medium text-white/90 transition hover:border-orange-200/50 hover:bg-white/14"
+                    className="rounded-full border border-[#11100D]/25 bg-[#F4EBD8] px-3 py-1.5 text-sm font-medium text-[#AA4918] transition hover:border-[#AA4918]/60"
                   >
                     {link.label}
                   </Link>
@@ -95,7 +97,7 @@ export function BeginnerHero({
           </div>
         </div>
 
-        <div className="relative min-h-[240px] border-t border-white/10 lg:min-h-full lg:border-l lg:border-t-0">
+        <div className="relative min-h-[240px] border-t-2 border-[#11100D] lg:min-h-full lg:border-l-2 lg:border-t-0">
           {heroImageUrl ? (
             <>
               <Image
@@ -105,10 +107,10 @@ export function BeginnerHero({
                 sizes="(max-width: 1024px) 100vw, 360px"
                 className="object-cover"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#0F1B3D] via-[#0F1B3D]/10 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#11100D]/70 via-transparent to-transparent" />
             </>
           ) : (
-            <div className="absolute inset-0 bg-[linear-gradient(135deg,#203A7C,#0F1B3D_52%,#F78E42)]" />
+            <div className="absolute inset-0 bg-[linear-gradient(135deg,#EEE3C9,#F7E8C7_55%,#F78E42)]" />
           )}
           <div className="absolute inset-x-0 bottom-0 p-5">
             <p className="text-sm font-medium text-white/92">

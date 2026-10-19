@@ -1,4 +1,5 @@
 import { cache, Suspense } from "react";
+import { describeThrownError } from "@/lib/services/forecast/error-message";
 import { BeachPageStructuredData } from "@/components/seo/structured-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
@@ -12,11 +13,11 @@ import { StickyInstallAsk } from "@/components/app-store/sticky-install-ask";
 import { HideWhenInstallBarOwns } from "@/components/app-store/install-bar-owned-slot";
 import { BeachDetailInstallCta } from "@/components/app-store/beach-detail-install-cta";
 import { ContentPageAppHandoffCta } from "@/components/app-store/content-page-app-handoff-cta";
-import { isFreeGrowthPhaseEnabled } from "@/lib/flags/free-growth-phase";
 
 import type { Metadata } from "next";
 import { buildPageMetadata, buildDynamicBeachMetadata } from "@/lib/seo/meta";
-import { currentWaterQuality } from "@/lib/services/water-quality/current-status";
+import { currentWaterQuality, unsampledWaterQualityRow } from "@/lib/services/water-quality/current-status";
+import { withRainfallNotice } from "@/lib/services/water-quality/rainfall-runoff-read";
 import {
   buildBeachUrl,
   buildHiCityUrlForBeach,
@@ -48,6 +49,7 @@ import { sanitizeBeachEditorialContent } from "@/lib/seo/editorial-integrity";
 import {
   selectPublicForecastContextFacts,
   selectPublicForecastReportFacts,
+  selectPublicGeneralCall,
 } from "@/lib/utils/public-forecast-facts";
 import {
   evaluateBeachPageIndexability,
@@ -79,13 +81,19 @@ interface PageProps {
   }>;
 }
 
-function isNextRouterSignal(error: unknown) {
-  if (!error || typeof error !== "object" || !("digest" in error)) return false;
-  const digest = (error as { digest?: unknown }).digest;
-  return (
-    digest === "NEXT_NOT_FOUND" ||
-    (typeof digest === "string" && digest.startsWith("NEXT_REDIRECT"))
-  );
+async function optionalSection<T>(
+  section: string,
+  load: () => T | PromiseLike<T>,
+): Promise<T | null> {
+  try {
+    return await load();
+  } catch (error) {
+    console.error("[GenericBeachDetailPage] Optional section unavailable:", {
+      section,
+      message: describeThrownError(error),
+    });
+    return null;
+  }
 }
 
 /**
@@ -112,344 +120,342 @@ export default async function GenericBeachDetailPage(props: PageProps) {
     notFound();
   }
 
-  try {
-    // Fetch candidate beach rows by slug; disambiguate by state+city from URL
-    const candidatesResult = await getCachedBeachCandidates(beachSlug);
+  // Fetch candidate beach rows by slug; disambiguate by state+city from URL
+  const candidatesResult = await getCachedBeachCandidates(beachSlug);
 
-    const beach = pickBestUsaBeachMatch({
-      stateParam,
-      cityParam: city,
-      beaches: candidatesResult.success ? (candidatesResult.data ?? []) : [],
-    });
+  const beach = pickBestUsaBeachMatch({
+    stateParam,
+    cityParam: city,
+    beaches: candidatesResult.success ? (candidatesResult.data ?? []) : [],
+  });
 
-    if (!beach) notFound();
+  if (!beach) notFound();
 
-    // Validate the canonical location before starting beach-specific data work.
-    const expectedStateSlug = stateToSlug(beach.state);
-    if (stateParam.toLowerCase() !== expectedStateSlug) {
-      console.warn("[GenericBeachDetailPage] State slug mismatch:", {
-        beachSlug,
-        expectedState: expectedStateSlug,
-        providedState: stateParam,
-      });
-      notFound();
-    }
-
-    if (!beach.city) {
-      console.warn("[GenericBeachDetailPage] Beach has no city data:", {
-        beachSlug,
-        beachName: beach.name,
-      });
-      notFound();
-    }
-
-    const expectedCitySlug = cityToSlug(beach.city);
-    if (city !== expectedCitySlug) {
-      console.warn("[GenericBeachDetailPage] City slug mismatch:", {
-        beachSlug,
-        expectedCity: expectedCitySlug,
-        providedCity: city,
-      });
-      redirect(buildBeachUrl(beach));
-    }
-
-    const beachTimezone =
-      beach.timezone ??
-      (beach.lat != null && beach.lon != null
-        ? getTimezoneFromCoords(beach.lat, beach.lon)
-        : null);
-
-    // Fetch above-fold and structured-data essentials in parallel. Nearby spot
-    // enrichment streams below the tabs so it does not block the page shell.
-    const [
-      surfReportResult,
-      amenitiesResult,
-      waterQualityResult,
-      cameraUrl,
-      beachPhoto,
-      nearbyResult,
-    ] = await Promise.all([
-      getSpotSurfReportPublic(beach),
-      (async () => {
-        try {
-          const supabase = createSupabaseServiceRoleClient();
-          const { data } = await supabase
-            .from("mv_beach_amenities")
-            .select("*")
-            .eq("beach_id", beach.id)
-            .maybeSingle();
-          return data as BeachAmenities | null;
-        } catch {
-          // Gracefully degrade if the materialized view doesn't exist yet
-          return null;
-        }
-      })(),
-      (async () => {
-        try {
-          const supabase = createPublicReadClient();
-          const { data } = await supabase
-            .from("beach_water_quality")
-            .select("*")
-            .eq("beach_id", beach.id)
-            .maybeSingle();
-          return data ? (await currentWaterQuality([data]))[0] as WaterQuality : null;
-        } catch {
-          // Gracefully degrade if the table doesn't exist yet
-          return null;
-        }
-      })(),
-      getBeachCameraUrl(beach.id),
-      getSpotFeaturedPhoto(beach.id).then((photo) =>
-        photo
-          ? {
-              image_url: photo.thumbUrl ?? photo.imageUrl,
-              thumb_url: photo.thumbUrl,
-              source: photo.source,
-              creator_name: photo.creatorName,
-              license_code: null,
-              attribution_html: photo.attributionHtml,
-              attribution: photo.attribution,
-            }
-          : null,
-      ),
-      beach.lat != null && beach.lon != null
-        ? getNearbyBeaches(beach.lat, beach.lon, 25)
-        : null,
-    ]);
-
-    const surfCallReport = surfReportResult?.report || null;
-    const surfCallIsTomorrow = surfReportResult?.isTomorrow ?? false;
-    const forecastContext = surfReportResult?.forecastContext ?? null;
-    const hourlyForecasts = surfReportResult?.hourlyForecasts ?? [];
-    const hourlyForecastDay = surfReportResult?.hourlyForecastDay ?? "today";
-    const publicBeach = sanitizeBeachEditorialContent(beach);
-    const publicForecastReport =
-      selectPublicForecastReportFacts(surfCallReport);
-    const publicForecastContext =
-      selectPublicForecastContextFacts(forecastContext);
-    const returnTo = buildBeachUrl(publicBeach);
-
-    const nearbyBeachesRaw = nearbyResult?.success && nearbyResult.data
-      ? nearbyResult.data
-          .filter((nearbyBeach) =>
-            nearbyBeach.id !== beach.id && nearbyBeach.slug !== beach.slug,
-          )
-          .slice(0, 4)
-      : [];
-
-    return (
-      <div className="min-h-screen">
-        {/* Structured Data: Place/Beach */}
-        <BeachPageStructuredData
-          beachName={beach.name}
-          description={`Surf conditions, tides, wind, swell and community intel for ${beach.name}.`}
-          latitude={beach.lat || 0}
-          longitude={beach.lon || 0}
-          city={beach.city || undefined}
-          state={beach.state || undefined}
-          country={beach.country || undefined}
-          amenities={amenitiesResult}
-        />
-
-        {/* Breadcrumb Structured Data for SEO */}
-        <BreadcrumbStructuredData
-          items={[
-            { name: "Home", url: baseUrl },
-            ...(() => {
-              const statePath = getUsStateRootPathOrNull(beach.state);
-              // Only emit US state-root URLs (e.g. "/ca"). Skip international states.
-              if (!statePath) return [];
-
-              return [
-                {
-                  name: beach.state || "State",
-                  url: `${baseUrl}${statePath}`,
-                },
-              ];
-            })(),
-            {
-              name: beach.city || "City",
-              url: `${baseUrl}${buildHiCityUrlForBeach(beach)}`,
-            },
-            {
-              name: beach.name,
-              url: `${baseUrl}${buildBeachUrl(beach)}`,
-            },
-          ]}
-        />
-
-        {/* FAQ structured data for rich snippets */}
-        <FAQSchema items={generateBeachFAQ(publicBeach)} />
-
-        {/* WebPage structured data with dateModified for freshness signal */}
-        <WebPageSchema
-          name={`${beach.name} Surf Report & Forecast`}
-          url={`${baseUrl}${buildBeachUrl(beach)}`}
-          dateModified={forecastContext?.sourceDataUpdatedAt ?? undefined}
-        />
-
-        {/* VideoObject + BroadcastEvent for live cam — earns LIVE badge in SERPs */}
-        {cameraUrl && (
-          <LiveCamSchema
-            beachName={beach.name}
-            cameraUrl={cameraUrl}
-            pageUrl={buildBeachUrl(beach)}
-          />
-        )}
-
-        {/* Client detail component with auth tracking */}
-        <AuthenticatedForecastDecisionProvider beachId={publicBeach.id}>
-          <BeachDetailClient
-            beach={publicBeach}
-            slug={beachSlug}
-            beachTimezone={beachTimezone}
-            amenities={amenitiesResult}
-            waterQuality={waterQualityResult}
-            beachPhoto={beachPhoto}
-            heroHeadingLevel="h2"
-            heroForecastSlot={
-              <PublicForecastAnswer
-                beach={publicBeach}
-                waterQuality={waterQualityResult}
-                report={publicForecastReport}
-                context={publicForecastContext}
-                isTomorrow={surfCallIsTomorrow}
-                publicDecisionWindow={{
-                  start: forecastContext?.displayWindowStart ?? surfCallReport?.bestWindowStart ?? null,
-                  end: forecastContext?.displayWindowEnd ?? surfCallReport?.bestWindowEnd ?? null,
-                }}
-                nearbyBeaches={nearbyBeachesRaw}
-                headingLevel="h1"
-                returnTo={returnTo}
-              />
-            }
-            freeGrowthPhaseEnabled={isFreeGrowthPhaseEnabled()}
-            afterTabsContent={
-              <div className="pt-2">
-                <PublicForecastHourly
-                  beachName={publicBeach.name}
-                  forecastHours={hourlyForecasts}
-                  context={publicForecastContext}
-                  forecastDay={hourlyForecastDay}
-                  returnTo={returnTo}
-                />
-                {forecastContext?.selectedRowTime && forecastContext.waveHeight ? (
-                <HideWhenInstallBarOwns>
-                <ContentPageAppHandoffCta
-                  source={`content-beach-detail-${beachSlug}`}
-                  surface="beach_detail"
-                  placement="after_public_hourly_forecast"
-                  target={`beach:${beachSlug}`}
-                  eyebrow={`Next window · ${beach.name}`}
-                  title={`Watch the next good window at ${beach.name}.`}
-                  description="The forecast is here. Quiver keeps this break on your phone so the next surfable window is easier to catch."
-                  ctaLabel="Watch the next window in the app"
-                />
-                </HideWhenInstallBarOwns>
-              ) : null}
-                {/* One ask here, not two. The home-break signup this used to stack
-                    underneath is the same ask the sticky bar already carries, so
-                    it read as the page repeating itself. The install section takes
-                    a real already-fetched figure instead — proof beats adjectives. */}
-                <BeachDetailInstallCta
-                  pathname={`/${stateParam}/${city}/${beachSlug}`}
-                  source={`beach-detail-${beachSlug}`}
-                  beachName={beach.name}
-                  proof={
-                    forecastContext?.waveHeightRangeLabel ??
-                    forecastContext?.waveHeight
-                      ? {
-                          value: (forecastContext.waveHeightRangeLabel ??
-                            forecastContext.waveHeight) as string,
-                          label: "Surf right now",
-                        }
-                      : undefined
-                  }
-                />
-                <Suspense fallback={null}>
-                  <DeferredZineNearbySpots
-                    beach={beach}
-                    nearbyBeachesRaw={nearbyBeachesRaw}
-                  />
-                </Suspense>
-                <Suspense fallback={null}>
-                  <DeferredRelatedGuidesSection beach={publicBeach} />
-                </Suspense>
-              </div>
-            }
-          />
-        </AuthenticatedForecastDecisionProvider>
-
-        {/* Same props for every visitor, so the CDN-shared HTML stays shareable;
-            the install bar decides in the browser after mount. */}
-        <StickyInstallAsk
-          stickySignup={{
-            source: `beach-detail-${beachSlug}`,
-            ctaText: `Save ${beach.name} as your home break`,
-            supportingText: `Alerts when ${beach.name} is firing — free`,
-            contextMessage: {
-              title: `Save ${beach.name} as your home break`,
-              description:
-                "Condition alerts, 12-day outlook, and your personal match score",
-            },
-            ctaCopyVariant: "beach_home_break_v1",
-          }}
-          bar={{
-            placeName: beach.name,
-            valueLabel:
-              forecastContext?.waveHeightRangeLabel ??
-              forecastContext?.waveHeight ??
-              null,
-            isTomorrow: surfCallIsTomorrow,
-            source: `beach-detail-${beachSlug}`,
-          }}
-        />
-      </div>
-    );
-  } catch (error) {
-    // Ensure Next.js router signals are not swallowed by this page-level try/catch.
-    if (isNextRouterSignal(error)) throw error;
-
-    console.error("[GenericBeachDetailPage] Error rendering beach page:", {
-      params,
-      // Avoid logging full error objects in case of sensitive details
-      message: error instanceof Error ? error.message : "Unknown error",
+  // Validate the canonical location before starting beach-specific data work.
+  const expectedStateSlug = stateToSlug(beach.state);
+  if (stateParam.toLowerCase() !== expectedStateSlug) {
+    console.warn("[GenericBeachDetailPage] State slug mismatch:", {
+      beachSlug,
+      expectedState: expectedStateSlug,
+      providedState: stateParam,
     });
     notFound();
   }
+
+  if (!beach.city) {
+    console.warn("[GenericBeachDetailPage] Beach has no city data:", {
+      beachSlug,
+      beachName: beach.name,
+    });
+    notFound();
+  }
+
+  const expectedCitySlug = cityToSlug(beach.city);
+  if (city !== expectedCitySlug) {
+    console.warn("[GenericBeachDetailPage] City slug mismatch:", {
+      beachSlug,
+      expectedCity: expectedCitySlug,
+      providedCity: city,
+    });
+    redirect(buildBeachUrl(beach));
+  }
+
+  const beachTimezone = await optionalSection("timezone", () =>
+    beach.timezone ??
+    (beach.lat != null && beach.lon != null
+      ? getTimezoneFromCoords(beach.lat, beach.lon)
+      : null),
+  );
+
+  // Fetch above-fold and structured-data essentials in parallel. Nearby spot
+  // enrichment streams below the tabs so it does not block the page shell.
+  const [
+    surfReportResult,
+    amenitiesResult,
+    waterQualityResult,
+    cameraUrl,
+    beachPhoto,
+    nearbyResult,
+  ] = await Promise.all([
+    optionalSection("forecast", () => getSpotSurfReportPublic(beach)),
+    optionalSection("amenities", async () => {
+      const supabase = createSupabaseServiceRoleClient();
+      const { data, error } = await supabase
+        .from("mv_beach_amenities")
+        .select("*")
+        .eq("beach_id", beach.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data as BeachAmenities | null;
+    }),
+    optionalSection("waterQuality", async () => {
+      const supabase = createPublicReadClient();
+      const { data, error } = await supabase
+        .from("beach_water_quality")
+        .select("*")
+        .eq("beach_id", beach.id)
+        .maybeSingle();
+      if (error) {
+        console.error("[GenericBeachDetailPage] Optional section unavailable:", {
+          section: "waterQuality.sample",
+          message: describeThrownError(error),
+        });
+      }
+      // An unsampled beach can still carry a County or rainfall notice; the badge hides a bare unknown.
+      return (await withRainfallNotice(await currentWaterQuality([data ?? unsampledWaterQualityRow(beach.id)]), [beach]))[0] as WaterQuality;
+    }),
+    optionalSection("camera", () => getBeachCameraUrl(beach.id)),
+    optionalSection("photo", () => getSpotFeaturedPhoto(beach.id).then((photo) =>
+      photo
+        ? {
+            image_url: photo.thumbUrl ?? photo.imageUrl,
+            thumb_url: photo.thumbUrl,
+            source: photo.source,
+            creator_name: photo.creatorName,
+            license_code: null,
+            attribution_html: photo.attributionHtml,
+            attribution: photo.attribution,
+          }
+        : null,
+    )),
+    optionalSection("nearby", () => beach.lat != null && beach.lon != null
+      ? getNearbyBeaches(beach.lat, beach.lon, 25)
+      : null),
+  ]);
+
+  const surfCallReport = surfReportResult?.report || null;
+  const surfCallIsTomorrow = surfReportResult?.isTomorrow ?? false;
+  const forecastContext = surfReportResult?.forecastContext ?? null;
+  const hourlyForecasts = surfReportResult?.hourlyForecasts ?? [];
+  const hourlyForecastDay = surfReportResult?.hourlyForecastDay ?? "today";
+  const publicBeach = sanitizeBeachEditorialContent(beach);
+  const faqItems = await optionalSection("faq", () => generateBeachFAQ(publicBeach));
+  const publicForecastReport =
+    selectPublicForecastReportFacts(surfCallReport);
+  const publicForecastContext =
+    selectPublicForecastContextFacts(forecastContext);
+  // getSpotSurfReportPublic computes without a user: the general call.
+  const publicGeneralCall = selectPublicGeneralCall(surfCallReport);
+  const publicDecisionWindow = {
+    start: forecastContext?.displayWindowStart ?? surfCallReport?.bestWindowStart ?? null,
+    end: forecastContext?.displayWindowEnd ?? surfCallReport?.bestWindowEnd ?? null,
+  };
+  const returnTo = buildBeachUrl(publicBeach);
+
+  const nearbyBeachesRaw = nearbyResult?.success && nearbyResult.data
+    ? nearbyResult.data
+        .filter((nearbyBeach) =>
+          nearbyBeach.id !== beach.id && nearbyBeach.slug !== beach.slug,
+        )
+        .slice(0, 4)
+    : [];
+
+  return (
+    <div className="min-h-screen">
+      {/* Structured Data: Place/Beach */}
+      <BeachPageStructuredData
+        beachName={beach.name}
+        description={`Surf conditions, tides, wind, swell and community intel for ${beach.name}.`}
+        latitude={beach.lat || 0}
+        longitude={beach.lon || 0}
+        city={beach.city || undefined}
+        state={beach.state || undefined}
+        country={beach.country || undefined}
+        amenities={amenitiesResult}
+      />
+
+      {/* Breadcrumb Structured Data for SEO */}
+      <BreadcrumbStructuredData
+        items={[
+          { name: "Home", url: baseUrl },
+          ...(() => {
+            const statePath = getUsStateRootPathOrNull(beach.state);
+            // Only emit US state-root URLs (e.g. "/ca"). Skip international states.
+            if (!statePath) return [];
+
+            return [
+              {
+                name: beach.state || "State",
+                url: `${baseUrl}${statePath}`,
+              },
+            ];
+          })(),
+          {
+            name: beach.city || "City",
+            url: `${baseUrl}${buildHiCityUrlForBeach(beach)}`,
+          },
+          {
+            name: beach.name,
+            url: `${baseUrl}${buildBeachUrl(beach)}`,
+          },
+        ]}
+      />
+
+      {/* FAQ structured data for rich snippets */}
+      {faqItems && <FAQSchema items={faqItems} />}
+
+      {/* WebPage structured data with dateModified for freshness signal */}
+      <WebPageSchema
+        name={`${beach.name} Surf Report & Forecast`}
+        url={`${baseUrl}${buildBeachUrl(beach)}`}
+        dateModified={forecastContext?.sourceDataUpdatedAt ?? undefined}
+      />
+
+      {/* VideoObject + BroadcastEvent for live cam — earns LIVE badge in SERPs */}
+      {cameraUrl && (
+        <LiveCamSchema
+          beachName={beach.name}
+          cameraUrl={cameraUrl}
+          pageUrl={buildBeachUrl(beach)}
+        />
+      )}
+
+      {/* Client detail component with auth tracking */}
+      <AuthenticatedForecastDecisionProvider beachId={publicBeach.id}>
+        <BeachDetailClient
+          beach={publicBeach}
+          slug={beachSlug}
+          beachTimezone={beachTimezone}
+          amenities={amenitiesResult}
+          waterQuality={waterQualityResult}
+          beachPhoto={beachPhoto}
+          heroHeadingLevel="h2"
+          heroForecastSlot={
+            <PublicForecastAnswer
+              beach={publicBeach}
+              waterQuality={waterQualityResult}
+              report={publicForecastReport}
+              context={publicForecastContext}
+              generalCall={publicGeneralCall}
+              isTomorrow={surfCallIsTomorrow}
+              publicDecisionWindow={publicDecisionWindow}
+              nearbyBeaches={nearbyBeachesRaw}
+              headingLevel="h1"
+              returnTo={returnTo}
+            />
+          }
+          afterTabsContent={
+            <div className="pt-2">
+              <PublicForecastHourly
+                beachName={publicBeach.name}
+                forecastHours={hourlyForecasts}
+                context={publicForecastContext}
+                forecastDay={hourlyForecastDay}
+                returnTo={returnTo}
+                publicWindow={
+                  hourlyForecastDay === (surfCallIsTomorrow ? "tomorrow" : "today")
+                    ? publicDecisionWindow
+                    : null
+                }
+              />
+              {forecastContext?.selectedRowTime && forecastContext.waveHeight ? (
+              <HideWhenInstallBarOwns>
+              <ContentPageAppHandoffCta
+                source={`content-beach-detail-${beachSlug}`}
+                surface="beach_detail"
+                placement="after_public_hourly_forecast"
+                target={`beach:${beachSlug}`}
+                eyebrow={`Next window · ${beach.name}`}
+                title={`Watch the next good window at ${beach.name}.`}
+                description="The forecast is here. Quiver keeps this break on your phone so the next surfable window is easier to catch."
+                ctaLabel="Watch the next window in the app"
+              />
+              </HideWhenInstallBarOwns>
+            ) : null}
+              {/* One ask here, not two. The home-break signup this used to stack
+                  underneath is the same ask the sticky bar already carries, so
+                  it read as the page repeating itself. The install section takes
+                  a real already-fetched figure instead — proof beats adjectives. */}
+              <BeachDetailInstallCta
+                pathname={`/${stateParam}/${city}/${beachSlug}`}
+                source={`beach-detail-${beachSlug}`}
+                beachName={beach.name}
+                proof={
+                  forecastContext?.waveHeightRangeLabel ??
+                  forecastContext?.waveHeight
+                    ? {
+                        value: (forecastContext.waveHeightRangeLabel ??
+                          forecastContext.waveHeight) as string,
+                        label: "Surf right now",
+                      }
+                    : undefined
+                }
+              />
+              <Suspense fallback={null}>
+                <DeferredZineNearbySpots
+                  beach={beach}
+                  nearbyBeachesRaw={nearbyBeachesRaw}
+                />
+              </Suspense>
+              <Suspense fallback={null}>
+                <DeferredRelatedGuidesSection beach={publicBeach} />
+              </Suspense>
+            </div>
+          }
+        />
+      </AuthenticatedForecastDecisionProvider>
+
+      {/* Same props for every visitor, so the CDN-shared HTML stays shareable;
+          the install bar decides in the browser after mount. */}
+      <StickyInstallAsk
+        stickySignup={{
+          source: `beach-detail-${beachSlug}`,
+          ctaText: `Save ${beach.name} as your home break`,
+          supportingText: `Alerts when ${beach.name} is firing — free`,
+          contextMessage: {
+            title: `Save ${beach.name} as your home break`,
+            description:
+              "Condition alerts, 12-day outlook, and your personal match score",
+          },
+          ctaCopyVariant: "beach_home_break_v1",
+        }}
+        bar={{
+          placeName: beach.name,
+          valueLabel:
+            forecastContext?.waveHeightRangeLabel ??
+            forecastContext?.waveHeight ??
+            null,
+          isTomorrow: surfCallIsTomorrow,
+          source: `beach-detail-${beachSlug}`,
+        }}
+      />
+    </div>
+  );
 }
 
 async function DeferredRelatedGuidesSection({ beach }: { beach: Beach }) {
-  const beachPath = buildBeachUrl(beach);
-  const [forecastSnapshots, waterTempData, tideData] = await Promise.all([
-    getCachedForecastIndexabilitySnapshots([
-      { id: beach.id, timezone: beach.timezone ?? null },
-    ]),
-    getWaterTempMetaData(beach.id),
-    getTideMetaData(beach.id),
-  ]);
-  const forecastSnapshot = forecastSnapshots.get(beach.id);
-  const hasWaterTemp = isBeachSubPageIndexable(
-    forecastSnapshot,
-    `${beachPath}/water-temp`,
-    { hasSubPageData: waterTempData.tempF != null },
-  );
-  // Same availability test the tides sub-page applies in its own metadata
-  // (lib/utils/beach-sub-page-utils.tsx), so the link only appears when the
-  // target answers indexable.
-  const hasTides = isBeachSubPageIndexable(forecastSnapshot, `${beachPath}/tides`, {
-    hasSubPageData: Boolean(tideData.nextHighTime || tideData.nextLowTime),
-  });
+  return optionalSection("guides", async () => {
+    const beachPath = buildBeachUrl(beach);
+    const [forecastSnapshots, waterTempData, tideData] = await Promise.all([
+      getCachedForecastIndexabilitySnapshots([
+        { id: beach.id, timezone: beach.timezone ?? null },
+      ]),
+      getWaterTempMetaData(beach.id),
+      getTideMetaData(beach.id),
+    ]);
+    const forecastSnapshot = forecastSnapshots.get(beach.id);
+    const hasWaterTemp = isBeachSubPageIndexable(
+      forecastSnapshot,
+      `${beachPath}/water-temp`,
+      { hasSubPageData: waterTempData.tempF != null },
+    );
+    // Same availability test the tides sub-page applies in its own metadata
+    // (lib/utils/beach-sub-page-utils.tsx), so the link only appears when the
+    // target answers indexable.
+    const hasTides = isBeachSubPageIndexable(forecastSnapshot, `${beachPath}/tides`, {
+      hasSubPageData: Boolean(tideData.nextHighTime || tideData.nextLowTime),
+    });
 
-  return (
-    <RelatedGuidesSection
-      beach={beach}
-      className="mt-10"
-      hasLeastCrowded={false}
-      hasWaterTemp={hasWaterTemp}
-      hasTides={hasTides}
-    />
-  );
+    return (
+      <RelatedGuidesSection
+        beach={beach}
+        className="mt-10"
+        hasLeastCrowded={false}
+        hasWaterTemp={hasWaterTemp}
+        hasTides={hasTides}
+      />
+    );
+  });
 }
 
 async function DeferredZineNearbySpots({
@@ -459,16 +465,18 @@ async function DeferredZineNearbySpots({
   beach: Beach;
   nearbyBeachesRaw: Beach[];
 }) {
-  const nearbyBeaches = await enrichBeachesWithConditions(nearbyBeachesRaw);
+  return optionalSection("nearbyConditions", async () => {
+    const nearbyBeaches = await enrichBeachesWithConditions(nearbyBeachesRaw);
 
-  return (
-    <ZineNearbySpots
-      beaches={nearbyBeaches}
-      sourceBeachName={beach.name}
-      sourceBeachLat={beach.lat}
-      sourceBeachLon={beach.lon}
-    />
-  );
+    return (
+      <ZineNearbySpots
+        beaches={nearbyBeaches}
+        sourceBeachName={beach.name}
+        sourceBeachLat={beach.lat}
+        sourceBeachLon={beach.lon}
+      />
+    );
+  });
 }
 
 export async function generateMetadata(props: PageProps): Promise<Metadata> {

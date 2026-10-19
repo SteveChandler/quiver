@@ -400,37 +400,6 @@ const handleMoveEnd = useCallback(
   - Region quick-jumps that recenter through the remount path
   - Filter chips inside a compact dropdown
 
-### **Viewport Filter Utility** (`lib/utils/viewport-filter.ts`)
-
-- **Purpose**: Pure function for filtering beaches by geographic bounds
-- **Usage**: Designed for `useMemo` hooks to prevent unnecessary re-renders
-- **Features**:
-  - Filters beaches to viewport bounds
-  - Handles null/missing coordinates
-  - Returns original array if bounds is null
-  - No side effects, deterministic output
-
-**API:**
-
-```typescript
-export interface ViewportBounds {
-  west: number;
-  south: number;
-  east: number;
-  north: number;
-}
-
-export function filterBeachesByViewport(
-  beaches: Beach[],
-  bounds: ViewportBounds | null
-): Beach[];
-
-// Example usage:
-const visibleBeaches = useMemo(() => {
-  return filterBeachesByViewport(allBeaches, mapBounds);
-}, [allBeaches, mapBounds]);
-```
-
 ## **MAPBOX INTEGRATION**
 
 ### **Setup and Configuration**

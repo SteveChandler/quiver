@@ -5,36 +5,7 @@ import type { Session } from "@/types/database";
 
 export const SESSION_CREATED_EVENT = "session_created" as const;
 
-export const SESSION_CREATED_NON_NORTH_STAR_EVENTS = [
-  "first_session_logged",
-  "home_first_session_cta_tap",
-  "plan_session_from_intel",
-  "session_board_fit_feedback_selected",
-  "session_action",
-  "session_custom_spot_cta_tapped",
-  "session_custom_spot_returned",
-  "session_decomposition_selected",
-  "session_log_abandon",
-  "session_log_beach_selected",
-  "session_log_conditions_set",
-  "session_log_draft_opened",
-  "session_log_draft_progress",
-  "session_log_from_intel",
-  "session_log_photo_added",
-  "session_log_rating_set",
-  "session_log_start",
-  "session_log_submit",
-  "session_log_time_selected",
-  "session_log_validation_failed",
-  "session_photo_upload_failed",
-  "session_photo_upload_started",
-  "session_photo_upload_succeeded",
-  "session_share_closed_post_save",
-  "session_share_opened_post_save",
-  "session_spot_search_no_results",
-] as const;
-
-type SessionCreatedSource = "web-session-form" | "web-conditions-report";
+type SessionCreatedSource = "web-session-form" | "web-conditions-report" | "web-file-import" | "garmin-watch";
 type SessionCreatedSurface =
   | "sessions/new"
   | "conditions-report"
@@ -59,15 +30,10 @@ interface EmitSessionCreatedEventInput {
   session: Pick<Session, "id" | "beach_id"> & {
     recommendation_id?: string | null;
   };
+  metadata?: Record<string, unknown>;
   source: SessionCreatedSource;
   surface: SessionCreatedSurface;
   userId: string;
-}
-
-export function isNorthStarSessionEvent(
-  eventType: string
-): eventType is typeof SESSION_CREATED_EVENT {
-  return eventType === SESSION_CREATED_EVENT;
 }
 
 function isExcludedProfile(profile: ProfileAnalyticsFlags | null): boolean {
@@ -131,7 +97,7 @@ async function getIsFirstSession(
 
 export async function emitSessionCreatedEvent(
   supabase: SessionCreatedClient,
-  { session, source, surface, userId }: EmitSessionCreatedEventInput
+  { session, source, surface, userId, metadata }: EmitSessionCreatedEventInput
 ): Promise<void> {
   try {
     const profile = await fetchProfileAnalyticsFlags(supabase, userId);
@@ -144,6 +110,7 @@ export async function emitSessionCreatedEvent(
       event_type: SESSION_CREATED_EVENT,
       beach_id: beachId,
       metadata: {
+        ...metadata,
         source,
         surface,
         is_first_session: isFirstSession,

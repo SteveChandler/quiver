@@ -38,7 +38,7 @@ describe("shared raw button focus ring", () => {
     const styles = readSource("app/globals.css");
 
     expect(styles).toContain(".focus-ring:focus-visible");
-    expect(styles).toContain("var(--stamp-blue, #0B3A75)");
+    expect(styles).toContain("outline: 2px solid #11100D;");
     expect(styles).toContain("var(--paper, #F4EBD8)");
   });
 

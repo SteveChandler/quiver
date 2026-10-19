@@ -1,3 +1,4 @@
+import { JsonLd } from "@/components/seo/funnel/JsonLd";
 /**
  * Tide Clock Tool — /tools/tide-clock
  *
@@ -72,10 +73,7 @@ export default function TideClockPage() {
         ]}
       />
 
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+      <JsonLd data={{
             "@context": "https://schema.org",
             "@type": "WebApplication",
             name: "Quiver Tide Clock",
@@ -94,14 +92,9 @@ export default function TideClockPage() {
               name: "Quiver",
               url: SITE_ORIGIN,
             },
-          }),
-        }}
-      />
+          }} />
 
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+      <JsonLd data={{
             "@context": "https://schema.org",
             "@type": "FAQPage",
             mainEntity: TIDE_FAQ_ITEMS.map((item) => ({
@@ -112,9 +105,7 @@ export default function TideClockPage() {
                 text: item.answer,
               },
             })),
-          }),
-        }}
-      />
+          }} />
 
       <div className="min-h-screen" style={{ background: "#0F1535" }}>
         <h1 className="sr-only">Tide Clock</h1>

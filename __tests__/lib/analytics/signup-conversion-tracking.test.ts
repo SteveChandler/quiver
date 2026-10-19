@@ -1,10 +1,4 @@
-import {
-  trackSignupCtaView,
-  trackSignupCtaClick,
-  trackSigninCtaClick,
-  deriveSurfaceFromPath,
-  _resetViewedSourcesForTesting,
-} from "@/lib/analytics/signup-conversion-tracking";
+import { trackSignupCtaView, trackSignupCtaClick, trackSigninCtaClick, deriveSurfaceFromPath, _resetViewedSourcesForTesting } from "@/lib/analytics/signup-conversion-tracking";
 import { track } from "@/lib/analytics";
 import { getVisitorId } from "@/lib/utils/visitor-id";
 

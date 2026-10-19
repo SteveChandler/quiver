@@ -1,99 +1,7 @@
 "use server";
 
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import type { Beach } from "@/types/database";
-import { withAuthenticatedAction, makeAuthenticatedAction } from "@/lib/server-action-utils";
-
-export const getFavoriteBeaches = makeAuthenticatedAction(
-  async (user, supabase, userId: string) => {
-    // Ensure the requester is fetching their own favorites
-    if (user.id !== userId) {
-      throw new Error("Unauthorized access to favorite beaches");
-    }
-
-    const { data, error } = await supabase
-      .from("favorite_beaches")
-      .select(
-        `
-        id,
-        rank,
-        beach_id,
-        beaches (*)
-      `
-      )
-      .eq("user_id", userId)
-      .order("rank", { ascending: true, nullsFirst: false })
-      .order("created_at", { ascending: true });
-
-    if (error) throw error;
-
-    // Extract the beaches from the nested structure (preserve order)
-    const beaches = (data || [])
-      .map((item: any) => item.beaches)
-      .filter((beach: any) => beach !== null) as Beach[];
-
-    return beaches;
-  }
-);
-
-export const addFavoriteBeach = makeAuthenticatedAction(
-  async (user, supabase, userId: string, beachId: string) => {
-    try {
-      // Ensure caller matches authenticated user
-      if (user.id !== userId) {
-        throw new Error("Unauthorized access to favorite beaches");
-      }
-      // Check if already favorited
-      const { data: existing, error: checkError } = await supabase
-        .from("favorite_beaches")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("beach_id", beachId)
-        .maybeSingle();
-
-      if (checkError) {
-        throw checkError;
-      }
-
-      // If already favorited, return success
-      if (existing) {
-        return { success: true, message: "Beach already in favorites" };
-      }
-
-      // Determine next rank (max + 1)
-      const { data: maxRankRows } = await supabase
-        .from("favorite_beaches")
-        .select("rank")
-        .eq("user_id", user.id);
-
-      const nextRank = (maxRankRows || [])
-        .map((r: any) => r.rank || 0)
-        .reduce((max: number, cur: number) => (cur > max ? cur : max), 0) + 1;
-
-      // Add to favorites with rank
-      const { error } = await supabase.from("favorite_beaches").insert({
-        user_id: user.id,
-        beach_id: beachId,
-        rank: nextRank,
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      revalidatePath("/profile");
-      revalidatePath("/");
-      return { success: true };
-    } catch (error) {
-      console.error("Error adding favorite beach:", error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      };
-    }
-  }
-);
+import { makeAuthenticatedAction } from "@/lib/server-action-utils";
 
 export const removeFavoriteBeach = makeAuthenticatedAction(
   async (user, supabase, userId: string, beachId: string) => {
@@ -124,80 +32,6 @@ export const removeFavoriteBeach = makeAuthenticatedAction(
   }
 );
 
-// Favorite a beach (if not already) and enable alerts on it.
-// Idempotent: calling twice leaves the row in the same alerts_enabled = true state.
-// Errors are thrown and caught by the makeAuthenticatedAction wrapper.
-export const enableFavoriteAlerts = makeAuthenticatedAction(
-  async (user, supabase, beachId: string) => {
-    // Validate UUID format
-    if (
-      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-        beachId
-      )
-    ) {
-      throw new Error("Invalid beach ID");
-    }
-
-    // Step 1: check whether the beach is already in favorites
-    const { data: existing, error: checkError } = await supabase
-      .from("favorite_beaches")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("beach_id", beachId)
-      .maybeSingle();
-
-    if (checkError) throw checkError;
-
-    const wasAlreadyFavorited = Boolean(existing);
-
-    // Step 2: if not yet favorited, upsert with next rank (atomic, handles race)
-    if (!existing) {
-      const { data: maxRankRows } = await supabase
-        .from("favorite_beaches")
-        .select("rank")
-        .eq("user_id", user.id);
-
-      const nextRank =
-        (maxRankRows || [])
-          .map((r: any) => r.rank || 0)
-          .reduce((max: number, cur: number) => (cur > max ? cur : max), 0) +
-        1;
-
-      const { error: upsertError } = await supabase
-        .from("favorite_beaches")
-        .upsert(
-          {
-            user_id: user.id,
-            beach_id: beachId,
-            rank: nextRank,
-            alerts_enabled: true,
-          },
-          { onConflict: "user_id,beach_id" }
-        );
-
-      if (upsertError) throw upsertError;
-    } else {
-      // Step 3: already favorited — just enable alerts
-      const { error: updateError } = await supabase
-        .from("favorite_beaches")
-        .update({ alerts_enabled: true })
-        .eq("user_id", user.id)
-        .eq("beach_id", beachId);
-
-      if (updateError) throw updateError;
-    }
-
-    revalidatePath("/profile");
-    revalidatePath("/");
-
-    return {
-      alerts_enabled: true,
-      was_already_favorited: wasAlreadyFavorited,
-    };
-  }
-);
-
-// Reorder favorites (assign ranks 1..N in provided order)
 export const reorderFavoriteBeaches = makeAuthenticatedAction(
   async (user, supabase, beachIdsInOrder: string[]) => {
     if (!Array.isArray(beachIdsInOrder)) {
@@ -206,19 +40,47 @@ export const reorderFavoriteBeaches = makeAuthenticatedAction(
 
     const { data: existing, error: fetchErr } = await supabase
       .from("favorite_beaches")
-      .select("beach_id")
+      .select("beach_id, custom_spot_id, rank")
       .eq("user_id", user.id);
     if (fetchErr) throw fetchErr;
 
-    const validSet = new Set((existing || []).map((r: any) => r.beach_id));
-    const invalid = beachIdsInOrder.find((b) => !validSet.has(b));
-    if (invalid) throw new Error("Invalid beach id in ordering");
+    const rows = existing ?? [];
+    const curated = rows.filter((row) => row.beach_id !== null);
+    const validSet = new Set(curated.map((row) => row.beach_id));
+    if (
+      beachIdsInOrder.length !== curated.length ||
+      new Set(beachIdsInOrder).size !== curated.length ||
+      beachIdsInOrder.some((id) => !validSet.has(id))
+    ) {
+      throw new Error("Invalid beach ids in ordering");
+    }
+
+    const customRows = rows.filter((row) => row.custom_spot_id !== null);
+    const customRanks = new Set(
+      customRows.flatMap((row) => row.rank === null ? [] : [row.rank]),
+    );
+    let ranks: number[] = curated.flatMap((row) => row.rank === null ? [] : [row.rank]);
+    const canPreserveSlots = customRows.length > 0 &&
+      ranks.length === curated.length &&
+      new Set(ranks).size === ranks.length &&
+      ranks.every((rank) => !customRanks.has(rank));
+
+    if (canPreserveSlots) {
+      ranks.sort((a, b) => a - b);
+    } else {
+      ranks = [];
+      let nextRank = 1;
+      for (let i = 0; i < beachIdsInOrder.length; i++) {
+        while (customRanks.has(nextRank)) nextRank++;
+        ranks.push(nextRank++);
+      }
+    }
 
     for (let i = 0; i < beachIdsInOrder.length; i++) {
       const beachId = beachIdsInOrder[i];
       const { error } = await supabase
         .from("favorite_beaches")
-        .update({ rank: i + 1 })
+        .update({ rank: ranks[i] })
         .eq("user_id", user.id)
         .eq("beach_id", beachId);
       if (error) throw error;

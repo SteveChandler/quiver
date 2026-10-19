@@ -19,7 +19,6 @@ import {
 import { notFound } from "next/navigation";
 import type { Beach } from "@/types/database";
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
-import { isFreeGrowthPhaseEnabled } from "@/lib/flags/free-growth-phase";
 import { getSpotSurfReportPublic } from "@/lib/services/spot-surf-report-service";
 import { evaluateBeachForecastIndexability, applyIndexabilityToMetadata } from "@/lib/seo/indexability";
 import { isDataStale } from "@/lib/utils/forecast-client-utils";
@@ -27,6 +26,7 @@ import { sanitizeBeachEditorialContent } from "@/lib/seo/editorial-integrity";
 import {
   selectPublicForecastContextFacts,
   selectPublicForecastReportFacts,
+  selectPublicGeneralCall,
 } from "@/lib/utils/public-forecast-facts";
 
 // Forecast revisions and selected windows must reflect this request.
@@ -194,6 +194,8 @@ export default async function InternationalBeachDetailPage(props: PageProps) {
       selectPublicForecastReportFacts(surfCallReport);
     const publicForecastContext =
       selectPublicForecastContextFacts(forecastContext);
+    // getSpotSurfReportPublic computes without a user: the general call.
+    const publicGeneralCall = selectPublicGeneralCall(surfCallReport);
 
     return (
       <>
@@ -238,12 +240,12 @@ export default async function InternationalBeachDetailPage(props: PageProps) {
                 beach={publicBeach}
                 report={publicForecastReport}
                 context={publicForecastContext}
+                generalCall={publicGeneralCall}
                 isTomorrow={surfCallIsTomorrow}
                 headingLevel="h1"
                 returnTo={beachUrl}
               />
             }
-            freeGrowthPhaseEnabled={isFreeGrowthPhaseEnabled()}
             /* Server-rendered inside the zine paper above the tabs — see the
                canonical US route for why this is not inside the forecast tab. */
             afterTabsContent={

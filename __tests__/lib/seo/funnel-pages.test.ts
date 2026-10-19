@@ -1,17 +1,7 @@
 import { existsSync } from "fs";
 import { join } from "path";
 
-import {
-  INDEXABLE_SEO_FUNNEL_PAGES,
-  SEO_FUNNEL_PAGES,
-  filterSeoCamBeaches,
-  getIndexableSeoFunnelRoutes,
-  getIndexableSurfCamPages,
-  getSeoFunnelInternalLinks,
-  getSeoFunnelImagePrompts,
-  getSeoFunnelPageByIntentRoute,
-  getSeoFunnelPageByTypeAndSlug,
-} from "@/lib/seo/funnel-pages";
+import { INDEXABLE_SEO_FUNNEL_PAGES, SEO_FUNNEL_PAGES, filterSeoCamBeaches, getIndexableSeoFunnelRoutes, getIndexableSurfCamPages, getSeoFunnelInternalLinks, getSeoFunnelPageByIntentRoute, getSeoFunnelPageByTypeAndSlug } from "@/lib/seo/funnel-pages";
 
 const REQUIRED_ROUTES = [
   "/longboard/encinitas",
@@ -195,17 +185,6 @@ describe("SEO funnel pages", () => {
     }
   });
 
-  it("resolves every configured SEO image file", () => {
-    const prompts = getSeoFunnelImagePrompts();
-
-    expect(prompts).toHaveLength(81);
-    for (const { image } of prompts) {
-      expect(
-        existsSync(join(process.cwd(), "public", image.src.slice(1))),
-      ).toBe(true);
-    }
-  });
-
   it("resolves every nearby-spot background image file", () => {
     const spots = SEO_FUNNEL_PAGES.flatMap((page) =>
       page.nearbySpots.map((spot) => ({ page, spot })),
@@ -340,43 +319,6 @@ describe("SEO funnel pages", () => {
     expect(losAngelesSpotImages.get("Torrance/RAT Beach")).toBe(
       "/images/seo-dioramas/beginner/socal/torrance-beach-rat-beach-torrance-ca-photo.webp",
     );
-  });
-
-  it("stores image source instructions without mislabeling surf-cam photos", () => {
-    const prompts = getSeoFunnelImagePrompts();
-    const surfCamPrompts = prompts.filter(({ path }) =>
-      path.startsWith("/surf-cams/"),
-    );
-    const photoPrompts = prompts.filter(
-      ({ image }) => image.assetType === "photo",
-    );
-    const dioramaPrompts = prompts.filter(
-      ({ image }) => image.assetType === "diorama",
-    );
-
-    expect(prompts).toHaveLength(81);
-    for (const { image } of prompts) {
-      expect(image.prompt).toContain("Use case: ads-marketing");
-      expect(image.prompt).toContain("no text");
-      expect(image.prompt).toContain("no logos");
-    }
-
-    expect(surfCamPrompts).toHaveLength(9);
-    for (const { image } of surfCamPrompts) {
-      expect(image.assetType).toBe("photo");
-      expect(image.prompt).toContain("real photo image");
-      expect(image.prompt).not.toMatch(/diorama/i);
-      expect(image.alt).not.toMatch(/diorama/i);
-      expect(image.caption).not.toMatch(/diorama/i);
-    }
-
-    for (const { image } of photoPrompts) {
-      expect(image.prompt).toContain("real photo image");
-    }
-
-    for (const { image } of dioramaPrompts) {
-      expect(image.prompt).toContain("Original composition");
-    }
   });
 
   it("resolves exact beginner and longboard route overrides", () => {

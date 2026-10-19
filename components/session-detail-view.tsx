@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -48,6 +48,7 @@ import { buildSessionShareSheetData } from "@/lib/share/session-share";
 import { getWaveTypeLabel } from "@/components/ui/wave-type-selector";
 import { formatSessionTideSnapshot } from "@/lib/services/session-tide-snapshot";
 import { NativeAppFunnelCta } from "@/components/app-store/native-app-funnel-cta";
+import { SessionWavesSection } from "@/components/sessions/waves/session-waves-section";
 import {
   getFirstTouchPlatform,
   type FirstTouchPlatform,
@@ -93,7 +94,7 @@ interface SessionDetailViewProps {
 export function SessionDetailView({ id, sharedPreview = null }: SessionDetailViewProps) {
   const router = useRouter();
   const { user, isLoading } = useAuth();
-  const [session, setSession] = useState<SessionWithDetails | null>(null);
+  const [session, setSession] = useState<(SessionWithDetails & { has_track?: boolean }) | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -102,6 +103,11 @@ export function SessionDetailView({ id, sharedPreview = null }: SessionDetailVie
     useState<FirstTouchPlatform>("desktop");
   const [sessionPhotos, setSessionPhotos] = useState<SessionPhoto[]>([]);
   const [photosLoading, setPhotosLoading] = useState(false);
+  const [waveRecording, setWaveRecording] = useState<{ sessionId: string; recordedWith: string | null } | null>(null);
+  const handleRecordedWith = useCallback((recordedWith: string | null): void => {
+    setWaveRecording((previous) => previous?.sessionId === id && previous.recordedWith === recordedWith
+      ? previous : { sessionId: id, recordedWith });
+  }, [id]);
 
   useEffect(() => {
     setNativeCtaPlatform(getFirstTouchPlatform());
@@ -230,7 +236,7 @@ export function SessionDetailView({ id, sharedPreview = null }: SessionDetailVie
                   source="session_share"
                   surface="session_detail_fallback"
                   placement="primary_app_store"
-                  className="inline-flex h-10 w-full items-center justify-center rounded-md bg-[#F78E42] px-4 py-2 text-sm font-medium text-[#252D6B] transition-colors hover:bg-[#D06C2E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+                  className="inline-flex h-10 w-full items-center justify-center rounded-full bg-[#F78E42] px-4 py-2 text-sm font-medium text-[#252D6B] transition-colors hover:bg-[#D06C2E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
                   desktopClassName="w-full"
                   desktopShowEmailForm
                   iosLabel="Get Quiver"
@@ -344,6 +350,8 @@ export function SessionDetailView({ id, sharedPreview = null }: SessionDetailVie
   const ripRiskLabel = ripCurrentRisk
     ? RIP_RISK_LABELS[ripCurrentRisk] ?? ripCurrentRisk
     : null;
+
+  const waterTempIsSessionMedian = waveRecording?.sessionId === id && waveRecording.recordedWith?.startsWith("Quiver for Garmin");
 
   return (
     <div className="flex-1 flex flex-col">
@@ -536,7 +544,7 @@ export function SessionDetailView({ id, sharedPreview = null }: SessionDetailVie
                 <CardContent className="p-4 flex items-center gap-3">
                   <Thermometer className="h-6 w-6 text-primary" />
                   <div>
-                    <p className="text-sm text-muted-foreground">Water Temp</p>
+                    <p className="text-sm text-muted-foreground">Water Temp{waterTempIsSessionMedian ? " (session median)" : ""}</p>
                     <p className="font-medium">{session.water_temp}</p>
                   </div>
                 </CardContent>
@@ -635,6 +643,8 @@ export function SessionDetailView({ id, sharedPreview = null }: SessionDetailVie
             )}
           </div>
         </div>
+
+        {user?.id === session.user_id && session.has_track && <SessionWavesSection sessionId={id} onRecordedWith={handleRecordedWith} />}
 
         {/* Forecast Comparison */}
         {session.forecast_snapshot && (() => {

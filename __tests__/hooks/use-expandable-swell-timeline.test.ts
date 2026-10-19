@@ -1,4 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
+import { getPlaybackVisualFrameMs } from "@/components/map/hourly-swell-timeline";
 import type { HourlySwellTimeline, SwellPartition } from "@/lib/domains/conditions/map-forecast";
 import { useExpandableSwellTimeline } from "@/hooks/use-expandable-swell-timeline";
 
@@ -439,14 +440,15 @@ describe("useExpandableSwellTimeline", () => {
       nextChunk.resolve(gapped);
       await nextChunk.promise;
     });
+    const tickMs = getPlaybackVisualFrameMs(result.current.timestamps.length);
 
     act(() => {
-      jest.advanceTimersByTime(4 * 500);
+      jest.advanceTimersByTime(4 * tickMs);
     });
     expect(result.current.index).toBe(7);
 
     act(() => {
-      jest.advanceTimersByTime(500);
+      jest.advanceTimersByTime(tickMs);
     });
     expect(result.current.timestamps[result.current.index]).toBe(
       "2026-07-10T12:00:00.000Z",
@@ -466,22 +468,23 @@ describe("useExpandableSwellTimeline", () => {
       reducedMotion: false,
       isFramePlayable,
     }));
+    const tickMs = getPlaybackVisualFrameMs(initial.timestamps.length);
 
     act(() => {
       result.current.setPlaying(true);
-      jest.advanceTimersByTime(500);
+      jest.advanceTimersByTime(tickMs);
     });
 
     expect(result.current.index).toBe(0);
 
     act(() => {
-      jest.advanceTimersByTime(500);
+      jest.advanceTimersByTime(tickMs);
     });
 
     expect(result.current.index).toBe(0);
 
     act(() => {
-      jest.advanceTimersByTime(500);
+      jest.advanceTimersByTime(tickMs);
     });
 
     expect(result.current.index).toBe(2);
@@ -601,19 +604,20 @@ describe("useExpandableSwellTimeline", () => {
       loadChunk: jest.fn(),
       reducedMotion: false,
     }));
+    const tickMs = getPlaybackVisualFrameMs(initial.timestamps.length);
 
     act(() => {
       result.current.setPlaying(true);
     });
     act(() => {
-      jest.advanceTimersByTime(500);
+      jest.advanceTimersByTime(tickMs);
     });
 
     expect(result.current.index).toBe(0);
     expect(result.current.partitionsByBeach.a[result.current.index]).toEqual(partition(1));
 
     act(() => {
-      jest.advanceTimersByTime(500);
+      jest.advanceTimersByTime(tickMs);
     });
 
     expect(result.current.index).toBe(2);
@@ -665,7 +669,7 @@ describe("useExpandableSwellTimeline", () => {
   rerender({ scopeKey: "baja" });
   expect(result.current.index).toBe(100);
   expect(result.current.isPlaying).toBe(true);
-  act(() => { jest.advanceTimersByTime(500); });
+  act(() => { jest.advanceTimersByTime(getPlaybackVisualFrameMs(initial.timestamps.length)); });
   expect(result.current.index).toBe(101);
   unmount();
   jest.useRealTimers();

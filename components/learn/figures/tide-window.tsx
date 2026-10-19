@@ -93,7 +93,7 @@ export default function TideWindow() {
             y="64"
             width="600"
             height="50"
-            fill="#0B3A75"
+            fill="#8A5E00"
             opacity="0.07"
           />
           <rect
@@ -126,7 +126,7 @@ export default function TideWindow() {
           <path
             d={buildTidePath(rangeKind)}
             fill="none"
-            stroke="#0B3A75"
+            stroke="#8A5E00"
             strokeWidth="5"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -176,7 +176,7 @@ export default function TideWindow() {
           >
             LOW
           </text>
-          <text x="51" y="94" fill="#0B3A75" fontSize="12" fontWeight="800">
+          <text x="51" y="94" fill="#8A5E00" fontSize="12" fontWeight="800">
             MORE WATER
           </text>
           <text x="51" y="202" fill="#7a5a2e" fontSize="12" fontWeight="800">
@@ -259,7 +259,7 @@ export default function TideWindow() {
 
       <Link
         href="/tools/tide-clock?source=learn_tide_figure"
-        className="mt-4 block rotate-[-0.35deg] bg-[#11100D] px-3 py-2.5 text-[13px] leading-snug text-[#F4EBD8]"
+        className="mt-4 block bg-[#11100D] px-3 py-2.5 text-[13px] leading-snug text-[#F4EBD8]"
       >
         Tide is timing, not a universal quality score.{" "}
         <span className="whitespace-nowrap font-bold text-[#F78E42]">

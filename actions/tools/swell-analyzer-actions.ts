@@ -1,5 +1,7 @@
 "use server";
 
+import { getLocalDateFormatter } from "@/lib/services/discovery/window-selector/time-slot-utils";
+
 import { createPublicReadClient } from "@/lib/supabase/server";
 import { analyzeSwellMatch } from "@/lib/analyzers/swell-analyzer";
 import { degreesToCardinal } from "@/lib/utils/geo-utils";
@@ -77,9 +79,7 @@ export async function getSwellAnalyzerData(slug: string): Promise<{
   // Fetch latest daily intel — use Pacific time for "today" since forecasts
   // are date-keyed and our users are on the US coasts
   const supabase = createPublicReadClient();
-  const today = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Los_Angeles",
-  }).format(new Date());
+  const today = getLocalDateFormatter("America/Los_Angeles").format(new Date());
 
   const { data: intel } = await supabase
     .from("beach_daily_intel")

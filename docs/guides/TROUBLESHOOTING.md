@@ -338,7 +338,7 @@ Use these tools:
 - React DevTools Profiler
 - Chrome DevTools Performance tab
 - Lighthouse audits
-- Bundle analyzer: `yarn analyze`
+- Bundle analyzer: `yarn build --experimental-analyze`
 
 ---
 
@@ -374,7 +374,7 @@ npx jest --clearCache
 npx playwright install
 
 # 3. Run tests with clean state
-yarn test:clean
+yarn test:unit
 ```
 
 This guide should help diagnose and resolve common development issues in the Quiver codebase.

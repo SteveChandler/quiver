@@ -11,7 +11,8 @@ import {
   type ReactNode,
 } from "react";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useRoutePathname } from "@/hooks/use-route-pathname";
 import { AlertTriangle, Waves, Thermometer, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -137,11 +138,11 @@ function AlertNudge({
     <aside className="mx-auto mb-6 hidden max-w-5xl border-y-2 border-[#11100D] bg-[#E8DCC0] px-0 py-3 text-[#11100D] shadow-[0_3px_0_rgba(17,16,13,0.16)] md:block">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-3 px-1 sm:px-0">
-          <span className="inline-flex h-9 w-9 shrink-0 rotate-[-2deg] items-center justify-center border-2 border-[#11100D] bg-[#F78E42] text-[#11100D] shadow-[2px_2px_0_#11100D]">
+          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center border-2 border-[#11100D] bg-[#F78E42] text-[#11100D] shadow-[2px_2px_0_#11100D]">
             <Waves className="h-4 w-4" />
           </span>
           <span className="min-w-0">
-            <span className="block font-[var(--font-mono)] text-[10px] font-black uppercase tracking-[0.18em] text-[#5F5646]">
+            <span className="block font-[family-name:var(--font-mono)] text-[10px] font-black uppercase tracking-[0.18em] text-[#5F5646]">
               Condition watch
             </span>
             <span className="block text-sm font-semibold leading-5 text-[#11100D]">
@@ -152,7 +153,7 @@ function AlertNudge({
         <div className="flex items-center gap-2 px-1 sm:ml-3 sm:px-0">
           <button
             onClick={onSetupAlerts}
-            className="inline-flex min-h-9 items-center border-2 border-[#11100D] bg-[#F78E42] px-3 font-[var(--font-mono)] text-[11px] font-black uppercase tracking-[0.12em] text-[#11100D] shadow-[2px_2px_0_#11100D] transition hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D] focus-visible:ring-offset-2 focus-visible:ring-offset-[#E8DCC0]"
+            className="rounded-full inline-flex min-h-9 items-center border-2 border-[#11100D] bg-[#F78E42] px-3 font-[family-name:var(--font-mono)] text-[11px] font-black uppercase tracking-[0.12em] text-[#11100D] shadow-[2px_2px_0_#11100D] transition hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D] focus-visible:ring-offset-2 focus-visible:ring-offset-[#E8DCC0]"
           >
             Set up alert
           </button>
@@ -240,7 +241,6 @@ interface BeachDetailProps {
   heroForecastSlot?: ReactNode;
   beforeTabsContent?: ReactNode;
   afterTabsContent?: ReactNode;
-  freeGrowthPhaseEnabled?: boolean;
   personalizationData?: {
     score:
       | import("@/lib/services/personalized-scoring-service").PersonalizedScore
@@ -273,13 +273,12 @@ function BeachDetailContent({
   heroForecastSlot,
   beforeTabsContent,
   afterTabsContent,
-  freeGrowthPhaseEnabled = false,
   personalizationData,
   onPersonalizationRequest,
 }: BeachDetailProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const pathname = usePathname();
+  const pathname = useRoutePathname();
   const { user } = useAuth();
 
   // US beach pages have 3-segment paths starting with a 2-letter state code (e.g., /ca/san-diego/ocean-beach-pier).
@@ -416,6 +415,7 @@ function BeachDetailContent({
     forecastCached,
     sources,
     loading,
+    forecastsLoading,
     errors,
     refetch,
   } = useBeachDetailData({
@@ -934,7 +934,6 @@ function BeachDetailContent({
         refreshKey={alertRulesRefreshKey}
         onOpenAlerts={handleOpenAlerts}
         className="shrink-0"
-        freeGrowthPhaseEnabled={freeGrowthPhaseEnabled}
       />
       <Button
         variant="ghost"
@@ -946,7 +945,7 @@ function BeachDetailContent({
       >
         <span
           aria-hidden="true"
-          className="absolute inset-x-0 top-1/2 h-[44px] -translate-y-1/2 bg-[url('/images/alerts/directions-button.webp')] bg-contain bg-center bg-no-repeat drop-shadow-[2px_2px_0_rgba(17,16,13,0.28)] transition-transform group-hover:rotate-1 group-hover:scale-[1.02]"
+          className="absolute inset-x-0 top-1/2 h-[44px] -translate-y-1/2 bg-[url('/images/alerts/directions-button.webp')] bg-contain bg-center bg-no-repeat drop-shadow-[2px_2px_0_rgba(17,16,13,0.28)] transition-transform group-hover:scale-[1.02]"
         />
         <span className="relative z-10 flex w-full items-center justify-center pl-[62px] pr-5 font-mono text-[9px] font-black uppercase leading-none tracking-[0.09em] text-[#F4EBD8] min-[1100px]:pl-[78px] min-[1100px]:pr-6 min-[1100px]:text-[10px] min-[1100px]:tracking-[0.1em]">
           <span className="hidden min-[1100px]:inline">Get directions</span>
@@ -1035,6 +1034,7 @@ function BeachDetailContent({
                   beach={beach}
                   beachTimezone={beachTimezone}
                   forecasts={forecasts || []}
+                  forecastsLoading={forecastsLoading}
                   currentForecast={currentForecast}
                   forecastMetadata={forecastMetadata}
                   surfCall={surfCallReport}
@@ -1161,7 +1161,6 @@ function BeachDetailContent({
           open={alertCreationOpen}
           onOpenChange={setAlertCreationOpen}
           onRuleCreated={() => setAlertRulesRefreshKey((key) => key + 1)}
-          freeGrowthPhaseEnabled={freeGrowthPhaseEnabled}
         />
       )}
 

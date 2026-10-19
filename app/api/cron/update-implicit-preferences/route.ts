@@ -6,7 +6,7 @@ import {
   validateCronRequest,
 } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import { isValidUUID } from "@/lib/utils/validation";
+import { isUuid } from "@/lib/utils/validation";
 import { withCronOutcome } from "@/lib/cron/outcome";
 import { withObservedCron } from "@/lib/cron/observability";
 
@@ -63,7 +63,7 @@ async function _GET(request: Request): Promise<Response> {
     const targetUserId =
       searchParams.get("userId") || searchParams.get("targetUserId");
 
-    if (targetUserId && !isValidUUID(targetUserId)) {
+    if (targetUserId && !isUuid(targetUserId)) {
       return createErrorResponse(
         "Invalid userId",
         "userId must be a valid UUID",

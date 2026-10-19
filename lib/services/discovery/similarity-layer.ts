@@ -28,7 +28,7 @@ interface ApplySimilarityLayerArgs {
   userId: string | null;
   isPro: boolean;
   // Typed loosely — supabase-js client variants in this codebase use the
-  // un-parametrized SupabaseClient (see lib/alerts/best-days.ts). Keeping
+  // un-parametrized SupabaseClient. Keeping
   // it loose avoids forcing a Database generic on every caller.
   supabase: Pick<SupabaseClient, "rpc">;
 }
@@ -42,7 +42,7 @@ interface ApplySimilarityLayerResult {
  * Build the jsonb p_slots payload for the bulk RPC from a single recommendation.
  * The RPC parses every field as text via parse_numeric_from_text, so stringify
  * numerics here. Mirrors the existing single-slot caller pattern in
- * lib/alerts/best-days.ts and app/api/cron/similarity-alerts/route.ts.
+ * app/api/cron/similarity-alerts/route.ts.
  */
 /** The key a match RPC row is stored under: the same instant matches however it is spelled. */
 export function matchSlotKey(beachId: string, forecastAt: string): string {

@@ -15,7 +15,7 @@ import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import type { DetailedScore } from '@/types/personalization';
 import type { ScorerInput, CompositeScore } from './types';
-import { getDirectionDegrees } from '@/lib/utils/number-parsing';
+import { getDirectionDegrees, parseWindSpeedOrNull } from '@/lib/utils/number-parsing';
 import { trackFallback } from '@/lib/monitoring/fallback-tracker';
 import { resolveConfidence } from '@/lib/monitoring/fallback-helpers';
 import type { SpotProfile } from '../spot-profile/types';
@@ -28,18 +28,16 @@ import { getRideabilityBand, type BoardClass } from '../rideability';
 import { createSpotProfile } from '../spot-profile';
 import { createSwellComponent, pickDominantSwell } from '../conditions';
 import type { SwellPartition, SwellPartitions } from '../conditions';
-import {
-  ScoringEngine,
-  baseConditionsScorer,
-  swellAlignmentScorer,
-  swellInterferenceScorer,
-  windQualityScorer,
-  tideFitScorer,
-  tideDirectionScorer,
-  setupRiskScorer,
-  windowStabilityScorer,
-  trendPreferenceScorer,
-} from './index';
+import { ScoringEngine } from './scoring-engine';
+import { baseConditionsScorer } from './scorers/base-conditions-scorer';
+import { swellAlignmentScorer } from './scorers/swell-alignment-scorer';
+import { swellInterferenceScorer } from './scorers/swell-interference-scorer';
+import { windQualityScorer } from './scorers/wind-quality-scorer';
+import { tideFitScorer } from './scorers/tide-fit-scorer';
+import { tideDirectionScorer } from './scorers/tide-direction-scorer';
+import { setupRiskScorer } from './scorers/setup-risk-scorer';
+import { windowStabilityScorer } from './scorers/window-stability-scorer';
+import { trendPreferenceScorer } from './scorers/trend-preference-scorer';
 
 /**
  * Create a pre-configured scoring engine with all standard scorers.
@@ -59,12 +57,27 @@ export function createDiscoveryScoringEngine(): ScoringEngine {
   ]);
 }
 
+let discoveryScoringEngine: ScoringEngine | undefined;
+
+export function getDiscoveryScoringEngine(): ScoringEngine {
+  return discoveryScoringEngine ??= createDiscoveryScoringEngine();
+}
+
 /**
  * Convert Beach database row to SpotProfile.
  */
 export function beachToSpotProfile(beach: Beach): SpotProfile {
   return createSpotProfile(beach);
 }
+
+/**
+ * A forecast the caller assembled from request conditions has no stored
+ * confidence_score by construction, so the neutral 50 is expected, not data loss.
+ */
+const REQUEST_DERIVED_CONFIDENCE_TRACKING = {
+  severity: 'low',
+  reason: 'request_derived_forecast',
+} as const;
 
 /**
  * Convert EnhancedForecastEntity to ConditionsSnapshot.
@@ -81,11 +94,14 @@ export function beachToSpotProfile(beach: Beach): SpotProfile {
  * `primarySwell.periodS`/`directionDeg`; those fields must reflect the
  * dominant component or the period-relevance gates fire on the wrong train.
  */
-export function forecastToSnapshot(forecast: EnhancedForecastEntity): ConditionsSnapshot {
+export function forecastToSnapshot(
+  forecast: EnhancedForecastEntity,
+  options: { requestDerived?: boolean } = {},
+): ConditionsSnapshot {
   const waveHeight = parseFloat(forecast.wave_height || '0');
   const storedWavePeriod = parseFloat(forecast.wave_period?.replace('s', '') || '0');
 
-  const windSpeed = parseFloat(forecast.wind_speed || '0');
+  const windSpeed = parseWindSpeedOrNull(forecast.wind_speed);
   const windDirection = getDirectionDegrees(
     forecast.wind_direction_deg,
     forecast.wind_direction
@@ -146,7 +162,12 @@ export function forecastToSnapshot(forecast: EnhancedForecastEntity): Conditions
       direction: tideDirection,
       heightKnown: Number.isFinite(parsedTideHeight),
     },
-    confidence: resolveConfidence(forecast.confidence_score, 'discovery'),
+    confidence: resolveConfidence(
+      forecast.confidence_score,
+      'discovery',
+      undefined,
+      options.requestDerived ? REQUEST_DERIVED_CONFIDENCE_TRACKING : undefined,
+    ),
     dataSource: forecast.data_source || 'unknown',
   };
 }
@@ -198,7 +219,8 @@ export function compositeToDetailedScore(
   // Skip results are disqualified beaches where subscores are intentionally
   // absent for scorers that did not run (early exit by design).
   if (!composite.skipReason) {
-    for (const key of ['baseConditions', 'windQuality', 'tideFit'] as const) {
+    // windQuality is absent by design when the wind can't be judged (weight 0).
+    for (const key of ['baseConditions', 'tideFit'] as const) {
       if (!composite.subscores.has(key)) trackFallback({ domain: 'discovery', field: `subscore_${key}`, fallbackValue: 50 });
     }
   }
@@ -212,6 +234,7 @@ export function compositeToDetailedScore(
     affinityBonus,
     personalizationBonus: 0,
     distancePenalty,
+    ...(!composite.skipReason && !composite.subscores.has('windQuality') ? { windUnknown: true } : {}),
   };
 
   // Adjust total with affinity and distance

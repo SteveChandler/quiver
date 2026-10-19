@@ -14,7 +14,7 @@ import {
   deleteBeachReview,
 } from "@/actions/beach-review-actions";
 import { useAuth } from "@/context/auth-context";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { format } from "date-fns";
 import type { BeachReviewWithUser } from "@/types/database";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
@@ -84,24 +84,13 @@ export function BeachReviewsList({
       const result = await deleteBeachReview(reviewId);
       if (result.success) {
         setReviews((prev) => prev.filter((r) => r.id !== reviewId));
-        toast({
-          title: "Review Deleted",
-          description: "Your review has been deleted successfully.",
-        });
+        toast("Review Deleted", { description: "Your review has been deleted successfully." });
       } else {
-        toast({
-          title: "Error",
-          description: result.error || "Failed to delete review",
-          variant: "destructive",
-        });
+        toast.error("Error", { description: result.error || "Failed to delete review" });
       }
     } catch (error) {
       console.error("Error deleting review:", error);
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred.",
-        variant: "destructive",
-      });
+      toast.error("Error", { description: "An unexpected error occurred." });
     } finally {
       setDeletingId(null);
     }

@@ -71,7 +71,7 @@ export function OtherRegionsStrip({
           className={
             isZine
               ? "font-display text-3xl font-black uppercase leading-tight text-[#11100D]"
-              : "font-[var(--font-heading)] text-2xl font-bold text-white"
+              : "font-[family-name:var(--font-heading)] text-2xl font-bold text-white"
           }
         >
           Going elsewhere?

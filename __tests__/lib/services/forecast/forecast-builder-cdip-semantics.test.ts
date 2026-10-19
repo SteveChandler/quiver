@@ -29,6 +29,7 @@ import type { Beach } from "@/types/database";
 
 // These baseline/observation tests do not provision private adjustment stores.
 const originalTrustedAdjustments = process.env.TRUSTED_FORECAST_ADJUSTMENTS_ENABLED;
+const originalLogLevel = process.env.LOG_LEVEL;
 beforeEach(() => { process.env.TRUSTED_FORECAST_ADJUSTMENTS_ENABLED = "false"; });
 afterAll(() => {
   if (originalTrustedAdjustments === undefined) delete process.env.TRUSTED_FORECAST_ADJUSTMENTS_ENABLED;
@@ -237,11 +238,15 @@ function findHandoffMetricLog(calls: unknown[][]): unknown[] | undefined {
 beforeEach(() => {
   jest.useFakeTimers();
   jest.setSystemTime(new Date(FROZEN_NOW_ISO));
+  // The handoff assertions inspect debug/info logs regardless of other suites' logger settings.
+  process.env.LOG_LEVEL = "debug";
   delete process.env[FORECAST_HANDOFF_BLEND_ENABLED_FLAG];
 });
 
 afterEach(() => {
   jest.useRealTimers();
+  if (originalLogLevel === undefined) delete process.env.LOG_LEVEL;
+  else process.env.LOG_LEVEL = originalLogLevel;
   delete process.env[FORECAST_HANDOFF_BLEND_ENABLED_FLAG];
 });
 

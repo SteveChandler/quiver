@@ -104,7 +104,10 @@ export function TopRankedBeachHero({
     ? Boolean(auth?.user && !auth.isLoading)
     : showScores;
   const selectedScore = bestSurfWindow?.score ?? beach.currentScore;
-  const scoreCall = getScoreCall(selectedScore);
+  const scoreCall = getScoreCall(selectedScore, {
+    beachId: beach.beachId,
+    instantIso: bestSurfWindow?.startIso ?? beach.currentWindowStart,
+  });
   const isLive = bestSurfWindow ? includesInstant(bestSurfWindow, now) : false;
   // Only reframe as "upcoming" when there is a real window to point at; with no
   // window the card falls back to the score ranking and stays "ranked first".

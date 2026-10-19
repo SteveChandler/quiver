@@ -13,6 +13,8 @@ import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
 import {
   selectPublicForecastContextFacts,
   selectPublicForecastReportFacts,
+  selectPublicGeneralCall,
+  type PublicGeneralCall,
 } from "@/lib/utils/public-forecast-facts";
 
 let mockSearch = new URLSearchParams();
@@ -34,6 +36,7 @@ const beach = {
   city: "Oceanside",
   state: "CA",
   timezone: "America/Los_Angeles",
+  wind_offshore_deg: 90,
 } as Beach;
 
 const nearbyBeaches = [
@@ -122,6 +125,7 @@ function renderAnswer({
   tomorrow = true,
   backups = nearbyBeaches,
   publicWindow,
+  general = null,
 }: {
   answerBeach?: Beach;
   answerReport?: SurfCallResult | null;
@@ -129,6 +133,7 @@ function renderAnswer({
   tomorrow?: boolean;
   backups?: Beach[];
   publicWindow?: { start: string | null; end: string | null };
+  general?: PublicGeneralCall | null;
 } = {}) {
   return render(
     <AuthenticatedForecastDecisionProvider beachId={beach.id}>
@@ -136,6 +141,7 @@ function renderAnswer({
         beach={answerBeach}
         report={answerReport}
         context={answerContext}
+        generalCall={general}
         isTomorrow={tomorrow}
         publicDecisionWindow={publicWindow ?? {
           start: answerReport?.bestWindowStart ?? null,
@@ -203,7 +209,7 @@ describe("PublicForecastAnswer", () => {
     expect(screen.getByText("2-3 ft")).toBeInTheDocument();
     expect(screen.getByText("11:00 AM–1:00 PM")).toBeInTheDocument();
     expect(screen.getByText("5 mph E offshore")).toBeInTheDocument();
-    expect(screen.getByText("3.2 ft rising next high")).toBeInTheDocument();
+    expect(screen.getByText("Rising · 3.2 ft · next high")).toBeInTheDocument();
     expect(screen.getByText(/NOAA NWS, NOAA CO-OPS/)).toBeInTheDocument();
     expect(screen.queryByText("YES")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /sign in to reveal/i })).not.toBeInTheDocument();
@@ -244,6 +250,80 @@ describe("PublicForecastAnswer", () => {
 
     expect(screen.queryByText(label)).not.toBeInTheDocument();
     expect(screen.queryByText(/no clean window|check current|refresh|check the app/i)).not.toBeInTheDocument();
+  });
+
+  describe("Wind cell", () => {
+    // Blacks on 2026-10-13: the 11 AM row read 0 mph SW while the call's
+    // window read "0–10 mph SW onshore". The cell showed "0 mph SW onshore".
+    const windowReport = {
+      ...report,
+      windSpeed: "0–10 mph",
+      windCompass: "SW",
+      windType: "onshore",
+    } as SurfCallResult;
+
+    function windCell(): HTMLElement | null {
+      return screen.getByText("Wind").parentElement?.querySelector("dd") ?? null;
+    }
+
+    it("says Calm for a 0 mph row and drops the direction and relation, like native", () => {
+      renderAnswer({
+        answerReport: windowReport,
+        answerContext: { ...context, windSpeed: "0 mph", windDirection: "SW" },
+      });
+
+      expect(windCell()).toHaveTextContent(/^Calm$/);
+    });
+
+    it("names no offshore or onshore relation below the 5 mph glassy line", () => {
+      renderAnswer({
+        answerReport: windowReport,
+        answerContext: { ...context, windSpeed: "3 mph", windDirection: "SW" },
+      });
+
+      expect(windCell()).toHaveTextContent(/^3 mph SW$/);
+    });
+
+    it("derives the relation from the row's own direction, not the window's", () => {
+      renderAnswer({
+        answerReport: { ...windowReport, windType: "offshore" } as SurfCallResult,
+        answerContext: { ...context, windSpeed: "12 mph", windDirection: "SW" },
+      });
+
+      expect(windCell()).toHaveTextContent(/^12 mph SW onshore$/);
+    });
+
+    it("shows speed and direction without a relation when the beach has no offshore bearing", () => {
+      renderAnswer({
+        answerBeach: { ...beach, wind_offshore_deg: null },
+        answerContext: { ...context, windSpeed: "12 mph", windDirection: "E" },
+      });
+
+      expect(windCell()).toHaveTextContent(/^12 mph E$/);
+    });
+
+    it("keeps the call's window wind together when there is no row wind", () => {
+      renderAnswer({
+        answerReport: windowReport,
+        answerContext: { ...context, windSpeed: null, windDirection: null },
+      });
+
+      expect(windCell()).toHaveTextContent(/^0–10 mph SW onshore$/);
+    });
+
+    it("says Calm when the call's whole window is 0 mph", () => {
+      renderAnswer({
+        answerReport: {
+          ...report,
+          windSpeed: "0 mph",
+          windCompass: null,
+          windType: "glassy",
+        } as SurfCallResult,
+        answerContext: { ...context, windSpeed: null, windDirection: null },
+      });
+
+      expect(windCell()).toHaveTextContent(/^Calm$/);
+    });
   });
 
   it("uses the stored beach timezone and distinguishes today from tomorrow", () => {
@@ -328,11 +408,62 @@ describe("PublicForecastAnswer", () => {
       },
     });
 
-    await waitFor(() => expect(screen.getByText("NO")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("MEH")).toBeInTheDocument());
+    expect(screen.getByText("Skip it")).toBeInTheDocument();
+    expect(screen.queryByText("NO")).not.toBeInTheDocument();
     expect(screen.getByText(/No personalized surf candidate was available/)).toBeInTheDocument();
     expect(screen.queryByText("8:00 AM–8:30 AM")).not.toBeInTheDocument();
     expect(screen.queryByText("Score")).not.toBeInTheDocument();
     expect(screen.queryByText("0/100")).not.toBeInTheDocument();
+  });
+
+  it("shows guests the general call as native does, the same for every surfer", () => {
+    renderAnswer({ general: selectPublicGeneralCall(report) });
+
+    const call = screen.getByTestId("public-general-call");
+    expect(call).toHaveTextContent("General forecast");
+    expect(call).toHaveTextContent("GOOD");
+    expect(call).toHaveTextContent("Worth planning");
+    expect(call).toHaveTextContent(
+      "Same for every surfer. Not adjusted for your level or boards.",
+    );
+    expect(screen.getByRole("link", { name: "Get your call" })).toHaveAttribute(
+      "href",
+      "/auth/sign-in?redirectTo=%2Fca%2Fsan-diego%2Focean-beach",
+    );
+    expect(screen.queryByText("YES")).not.toBeInTheDocument();
+    expect(screen.queryByText("Score")).not.toBeInTheDocument();
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("keeps the latest general call off a selected day", () => {
+    mockSearch = new URLSearchParams("date=2026-08-10");
+
+    renderAnswer({ general: selectPublicGeneralCall(report) });
+
+    expect(screen.queryByTestId("public-general-call")).not.toBeInTheDocument();
+  });
+
+  it("swaps the general call for the personal call once it resolves", async () => {
+    mockUseAuth.mockReturnValue({
+      user: { id: "user-1" },
+      isLoading: false,
+    } as ReturnType<typeof useAuth>);
+    (global.fetch as jest.Mock).mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: true,
+          data: { report: { ...report, verdict: "MAYBE", score: 60 }, forecastContext: context, isTomorrow: true },
+        }),
+        { status: 200 },
+      ),
+    );
+
+    renderAnswer({ general: selectPublicGeneralCall(report) });
+
+    expect(screen.queryByRole("link", { name: "Get your call" })).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("FAIR")).toBeInTheDocument());
+    expect(screen.queryByTestId("public-general-call")).not.toBeInTheDocument();
   });
 
   it("fetches and renders the verdict and best window for an authenticated user", async () => {
@@ -352,7 +483,9 @@ describe("PublicForecastAnswer", () => {
 
     renderAnswer();
 
-    await waitFor(() => expect(screen.getByText("YES")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("GOOD")).toBeInTheDocument());
+    expect(screen.getByText("Worth planning")).toBeInTheDocument();
+    expect(screen.queryByText("YES")).not.toBeInTheDocument();
     expect(screen.getByText("11:00 AM–1:00 PM")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /sign in to reveal/i })).not.toBeInTheDocument();
     expect(global.fetch).toHaveBeenCalledWith(
@@ -414,7 +547,8 @@ describe("public forecast context consistency", () => {
       isTomorrow: false,
     } }), { status: 200 }));
     renderAnswer();
-    await waitFor(() => expect(screen.getByText("YES")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("GOOD")).toBeInTheDocument());
+    expect(screen.getByText("Worth a surf")).toBeInTheDocument();
     expect(screen.getByText("8:00 AM–10:30 AM")).toBeInTheDocument();
     expect(screen.queryByText("8:00 AM–12:00 PM")).not.toBeInTheDocument();
     expect(screen.getByText("3-4 ft")).toBeInTheDocument();

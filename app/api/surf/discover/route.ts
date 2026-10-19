@@ -25,6 +25,7 @@ import type {
   SurfDiscoveryResponse,
   TimeSlot,
 } from '@/types/personalization';
+import { retryAfterSeconds } from '@/lib/utils/retry-after';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30; // Allow 30s for GPS discovery + batch forecast fetching
@@ -94,7 +95,10 @@ function retryableDiscoveryResponse(error: unknown): NextResponse {
       code,
       retryable: true,
     },
-    { status: code === 'timeout' ? 504 : 503 },
+    {
+      status: code === 'timeout' ? 504 : 503,
+      headers: { 'Retry-After': String(retryAfterSeconds()) },
+    },
   );
 }
 
@@ -234,6 +238,9 @@ async function surfDiscoveryHandler(
         : resolveProfileRadiusMiles(supabase, user.id),
     ]),
   );
+  // The saved drive range also waives distance friction inside it. An explicit
+  // radius is a search extent, not the surfer's range, so it keeps the friction.
+  const driveRadiusMiles = radius === undefined ? radiusMiles : undefined;
   const isPro = entitlementFromRow(entitlementRow ?? null) === 'premium';
   const entitlement: SurfDiscoveryEntitlement = {
     tier: isPro ? 'premium' : 'free',
@@ -247,6 +254,7 @@ async function surfDiscoveryHandler(
     discovery = await time('discover', discoverSurfSpots(user.id, {
       userLocation,
       radiusMiles,
+      ...(driveRadiusMiles !== undefined ? { driveRadiusMiles } : {}),
       horizonHours: mode === 'my-spots' ? 72 : horizonHours,
       maxResults,
       // Consider the full pool. `maxResults` alone controls how many spots the

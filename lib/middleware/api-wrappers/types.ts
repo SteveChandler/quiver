@@ -142,33 +142,6 @@ interface WithBotBlockingOptions {
   errorMessage?: string;
 }
 
-/**
- * Options for withProtection unified wrapper
- */
-export interface ProtectionOptions {
-  /** Authentication configuration */
-  auth?: {
-    /** Require authentication (default: false if omitted) */
-    required: boolean;
-    /** Custom error message for failed authentication */
-    errorMessage?: string;
-  };
-
-  /** Rate limiting configuration */
-  rateLimit?: WithRateLimitOptions;
-
-  /** Bot blocking configuration */
-  botBlocking?: {
-    /** Enable bot blocking (default: false) */
-    enabled: boolean;
-    /** Custom error message */
-    errorMessage?: string;
-  };
-
-  /** Error handling configuration */
-  errorHandling?: WithErrorHandlerOptions;
-}
-
 // =============================================================================
 // ADMIN AUTH TYPES
 // =============================================================================

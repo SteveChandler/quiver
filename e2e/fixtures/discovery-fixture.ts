@@ -3,7 +3,7 @@
  * Use these fixtures to mock the /api/surf/discover endpoint.
  */
 
-export interface DiscoveryFixtureOptions {
+interface DiscoveryFixtureOptions {
   /** Override beach properties */
   beach?: Partial<{
     id: string;

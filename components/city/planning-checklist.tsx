@@ -101,7 +101,7 @@ export function PlanningChecklist({ items, storageKey }: PlanningChecklistProps)
                 />
                 <span
                   aria-hidden="true"
-                  className="mt-1 flex h-[18px] w-[18px] flex-none items-center justify-center rounded-[3px_5px_3px_6px] border-2 border-[#11100D] bg-[#FBF6E8] transition-colors duration-150 peer-checked:bg-[#B65F1A] peer-checked:[&>svg]:opacity-100 peer-checked:[&>svg]:[stroke-dashoffset:0] peer-focus-visible:ring-2 peer-focus-visible:ring-[#0B3A75] peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-[#FBF6E8] group-hover:border-[#B65F1A] motion-safe:peer-checked:animate-check-pop motion-reduce:transition-none"
+                  className="mt-1 flex h-[18px] w-[18px] flex-none items-center justify-center rounded-[3px_5px_3px_6px] border-2 border-[#11100D] bg-[#FBF6E8] transition-colors duration-150 peer-checked:bg-[#B65F1A] peer-checked:[&>svg]:opacity-100 peer-checked:[&>svg]:[stroke-dashoffset:0] peer-focus-visible:ring-2 peer-focus-visible:ring-[#11100D] peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-[#FBF6E8] group-hover:border-[#B65F1A] motion-safe:peer-checked:animate-check-pop motion-reduce:transition-none"
                 >
                   <svg
                     viewBox="0 0 16 16"
@@ -133,7 +133,7 @@ export function PlanningChecklist({ items, storageKey }: PlanningChecklistProps)
 
       {allDone && (
         <p className="mt-5 flex flex-wrap items-baseline justify-between gap-3 border-t border-dashed border-[#11100D]/25 pt-4">
-          <span className="-rotate-1 font-handwritten text-2xl leading-none text-[#0B3A75] motion-safe:animate-fade-in-fast">
+          <span className="text-base font-semibold leading-snug text-[#8A5E00] motion-safe:animate-fade-in-fast">
             All ticked. Now go look at it from the sand.
           </span>
           <button

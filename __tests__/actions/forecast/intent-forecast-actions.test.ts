@@ -475,11 +475,17 @@ describe("getCityWaterTempHistory", () => {
       };
     });
 
-    // Directly test the deduplication logic since mocking is complex
-    // The actual function behavior is tested in integration tests
+    const result = await getCityWaterTempHistory("San Diego", "CA");
+    expect(result?.points).toEqual([
+      { date: "2025-01-23", tempF: 62 },
+      { date: "2025-01-24", tempF: 64 },
+      { date: "2025-01-25", tempF: 65 },
+    ]);
+    expect(result?.source).toBeNull();
   });
 
-  it("parses water temperature strings correctly", async () => {
+  it.each(["latitude", "ioos", "coops", "ndbc", "unverified", null] as const)("parses water temperature and %s provenance", async (source) => {
+    const selectForecastFields = jest.fn().mockReturnThis();
     mockSupabase.from = jest.fn().mockImplementation((table: string) => {
       if (table === "beaches") {
         return {
@@ -494,7 +500,7 @@ describe("getCityWaterTempHistory", () => {
         };
       }
       return {
-        select: jest.fn().mockReturnThis(),
+        select: selectForecastFields,
         eq: jest.fn().mockReturnThis(),
         gte: jest.fn().mockReturnThis(),
         lt: jest.fn().mockReturnThis(),
@@ -502,7 +508,7 @@ describe("getCityWaterTempHistory", () => {
         not: jest.fn().mockReturnThis(),
         order: jest.fn().mockResolvedValue({
             data: [
-              { forecast_date: "2025-01-25", forecast_at: "2025-01-25T06:00:00Z", water_temp: "65°F", forecast_time: "06:00" },
+              { forecast_date: "2025-01-25", forecast_at: "2025-01-25T06:00:00Z", water_temp: "65°F", forecast_time: "06:00", water_temp_source: source },
             ],
             error: null,
           }),
@@ -511,10 +517,10 @@ describe("getCityWaterTempHistory", () => {
 
     const result = await getCityWaterTempHistory("Huntington Beach", "CA");
 
-    if (result) {
-      expect(result.currentTemp).toBe(65);
-      expect(result.beachName).toBe("Huntington Beach");
-    }
+    expect(selectForecastFields).toHaveBeenCalledWith("forecast_date, forecast_at, water_temp, water_temp_source:raw_forecast->>water_temp_source");
+    expect(result?.currentTemp).toBe(65);
+    expect(result?.beachName).toBe("Huntington Beach");
+    expect(result?.source).toBe(source === "unverified" ? null : source);
   });
 
   it("handles invalid water_temp values gracefully", async () => {
@@ -552,5 +558,47 @@ describe("getCityWaterTempHistory", () => {
 
     // Should return null since no valid temps could be parsed
     expect(result).toBeNull();
+  });
+
+  it("represents the city with the next unheld beach when the first one is held", async () => {
+    const heldBeach = { id: "held-beach", name: "Big Jetty", timezone: null };
+    const openBeach = { id: "open-beach", name: "Blacks Beach", timezone: null };
+    mockSelectBeach.mockImplementation(async (beach) => (beach?.id === "held-beach" ? null : beach));
+    const { rankBeaches } = jest.requireMock("@/lib/recommendations/selection") as { rankBeaches: jest.Mock };
+    rankBeaches.mockImplementationOnce(async (beaches: Array<{ id: string }>) =>
+      beaches.filter((beach) => beach.id !== "held-beach"),
+    );
+    const forecastBeachIds: string[] = [];
+    mockSupabase.from = jest.fn().mockImplementation((table: string) => {
+      if (table === "beaches") {
+        const listResult = Promise.resolve({ data: [heldBeach, openBeach], error: null });
+        const query: Record<string, unknown> = {};
+        query.select = jest.fn(() => query);
+        query.ilike = jest.fn(() => query);
+        query.order = jest.fn(() => query);
+        query.limit = jest.fn(() => ({
+          single: jest.fn().mockResolvedValue({ data: heldBeach, error: null }),
+          then: listResult.then.bind(listResult),
+        }));
+        return query;
+      }
+      const forecasts: Record<string, unknown> = {};
+      for (const method of ["select", "gte", "lt", "not"]) forecasts[method] = jest.fn(() => forecasts);
+      forecasts.eq = jest.fn((_column: string, beachId: string) => {
+        forecastBeachIds.push(beachId);
+        return forecasts;
+      });
+      forecasts.order = jest.fn().mockResolvedValue({
+        data: [{ forecast_date: "2025-01-23", forecast_at: "2025-01-23T06:00:00Z", water_temp: "71°F" }],
+        error: null,
+      });
+      return forecasts;
+    });
+
+    const result = await getCityWaterTempHistory("San Diego", "CA");
+
+    expect(forecastBeachIds).toEqual(["open-beach"]);
+    expect(result).toMatchObject({ currentTemp: 71, beachName: "Blacks Beach" });
+    mockSelectBeach.mockImplementation(async (beach) => beach);
   });
 });

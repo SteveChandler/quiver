@@ -263,11 +263,36 @@ export default async function LearnArticlePage({ params }: Props) {
                         dangerouslySetInnerHTML={{ __html: section.content }}
                       />
                     )}
+                    {section.video ? (
+                      <figure className="mx-auto mt-6 w-full max-w-[325px]">
+                        <div className="overflow-hidden rounded-xl border-2 border-[#11100D] bg-[#11100D] shadow-[4px_4px_0_rgba(17,16,13,0.75)]">
+                          <iframe
+                            src={`https://www.tiktok.com/player/v1/${section.video.tiktokId}?description=1&music_info=1&rel=0`}
+                            title={section.video.title}
+                            className="aspect-[9/16] w-full"
+                            loading="lazy"
+                            allow="encrypted-media; fullscreen; picture-in-picture"
+                            allowFullScreen
+                          />
+                        </div>
+                        <figcaption className="mt-2 text-center text-sm text-[#11100D]/70">
+                          {section.video.title}{" "}
+                          <a
+                            href={`https://www.tiktok.com/@surfwithquiver/video/${section.video.tiktokId}`}
+                            className="font-semibold text-[#AA4918] underline"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            Watch on TikTok
+                          </a>
+                        </figcaption>
+                      </figure>
+                    ) : null}
                   </section>
 
                   {index % 2 === 1 && section.keyTakeaway && (
                     <blockquote className="notebook rot-1 my-10">
-                      <p className="font-handwritten text-2xl leading-tight text-[#11100D]">
+                      <p className="text-lg font-semibold leading-snug text-[#11100D]">
                         {section.keyTakeaway}
                       </p>
                     </blockquote>

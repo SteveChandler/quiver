@@ -28,7 +28,7 @@
  */
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { config as loadEnv } from "dotenv";
+import { config as loadEnv } from "./load-env.mjs";
 import { find } from "geo-tz";
 import path from "node:path";
 

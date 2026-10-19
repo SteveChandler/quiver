@@ -35,10 +35,8 @@ describe("toNativeCamEmbed", () => {
   });
 
   it.each([
-    ["https://relay.ozolio.com/pub.cgi?cmd=iframe&oid=CID_XCLW000002D1", "ozolio"],
     ["https://g1.ipcamlive.com/player/player.php?alias=abc", "ipcamlive"],
     ["https://v.angelcam.com/iframe?v=abc&autoplay=1", "angelcam"],
-    ["https://relay.ozolio.com/pub.api?cmd=embed&oid=EMB_CTOK0000018D", "ozolio"],
     ["https://www.brownrice.com/embed/some-cam", "brownrice"],
     ["https://player.brownrice.com/embed/coastalsurfcam", "brownrice"],
   ])("maps known player endpoint %s with provider %s", (url, provider) => {
@@ -49,6 +47,9 @@ describe("toNativeCamEmbed", () => {
     ["https://cams.example.com/blacks", "cams.example.com"],
     ["https://www.hanaleibayresort.com/live-web-camera/", "hanaleibayresort.com"],
     ["https://g1.ipcamlive.com/some-landing-page", "ipcamlive"],
+    // Ozolio player endpoints are site-locked and never play in the app.
+    ["https://relay.ozolio.com/pub.cgi?cmd=iframe&oid=CID_XCLW000002D1", "ozolio"],
+    ["https://relay.ozolio.com/pub.api?cmd=embed&oid=EMB_CTOK0000018D", "ozolio"],
   ])("turns a page the web would iframe (%s) into a View cam link for the app", (url, provider) => {
     expect(embed(url)).toEqual({ kind: "external", pageUrl: url, provider });
   });

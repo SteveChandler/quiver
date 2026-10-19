@@ -6,10 +6,12 @@
  */
 
 import type { CityMetadata } from "@/types/location";
+import type { WaterTempSource } from "@/types/forecast";
 import type { SurfIntentSlug } from "@/lib/data/surf-spots";
 import { getClimateZone } from "@/lib/seo/regional-surf-data";
 import { truncateTitleForSEO } from "@/lib/seo/meta";
 import { truncateMetaDescription } from "@/lib/utils/seo-utils";
+import { describeWaterFeel } from "@/lib/utils/wetsuit-utils";
 
 export interface IntentPageContent {
   title: string;
@@ -29,7 +31,9 @@ interface ContentTemplateArgs {
   topSpotNames: string;
   allSpotNames: string[];
   tideData?: { nextTideType?: string | null; nextTideTime?: string | null; nextTideHeight?: string | null } | null;
-  waterTempData?: { currentTemp?: number | null } | null;
+  waterTempData?: { currentTemp?: number | null; source?: WaterTempSource | null } | null;
+  /** Names of the beginner beaches the page body lists; title and description count these when present. */
+  beginnerSpotNames?: string[] | null;
 }
 
 /**
@@ -45,7 +49,8 @@ export function buildIntentPageContent(
   metadata: CityMetadata,
   dynamicData?: {
     tideData?: { nextTideType?: string | null; nextTideTime?: string | null; nextTideHeight?: string | null } | null;
-    waterTempData?: { currentTemp?: number | null } | null;
+    waterTempData?: ContentTemplateArgs["waterTempData"];
+    beginnerSpotNames?: string[] | null;
   }
 ): IntentPageContent {
   const args: ContentTemplateArgs = {
@@ -63,6 +68,7 @@ export function buildIntentPageContent(
     allSpotNames: metadata.beaches.map((b) => b.name),
     tideData: dynamicData?.tideData ?? null,
     waterTempData: dynamicData?.waterTempData ?? null,
+    beginnerSpotNames: dynamicData?.beginnerSpotNames ?? null,
   };
 
   const templates = getIntentTemplates(args);
@@ -75,7 +81,7 @@ export function buildIntentPageContent(
 function getIntentTemplates(
   args: ContentTemplateArgs
 ): Record<SurfIntentSlug, IntentPageContent> {
-  const { cityName, stateName, stateSlug, totalBeaches, beginnerCount, topSpotNames, tideData, waterTempData } = args;
+  const { cityName, stateName, stateSlug, totalBeaches, beginnerCount, topSpotNames, tideData, waterTempData, beginnerSpotNames } = args;
   // Note: advancedCount, intermediateCount, and allSpotNames are available for future template enhancements
 
   // Conditional intro text for cities with no beginner spots
@@ -114,8 +120,17 @@ function getIntentTemplates(
   const sunsetIntro = `After-work glass-offs in ${cityName} can rival dawn patrol on good days. Afternoon thermals die, the crowd thins, and these ${totalBeaches} west-facing breaks catch the last clean sets of the day.`;
 
   const currentYear = new Date().getFullYear();
-  const spotCount = beginnerCount > 0 ? beginnerCount : totalBeaches;
+  const listedBeginnerSpots = beginnerSpotNames && beginnerSpotNames.length > 0 ? beginnerSpotNames : null;
+  const spotCount = listedBeginnerSpots
+    ? listedBeginnerSpots.length
+    : beginnerCount > 0 ? beginnerCount : totalBeaches;
+  const beginnerSpotNamesText = listedBeginnerSpots ? listedBeginnerSpots.slice(0, 3).join(", ") : topSpotNames;
   const DATA_FRESHNESS_SUFFIX = "Updated hourly with live buoy data.";
+  const waterTempFreshnessSuffix = waterTempData?.source === "ndbc"
+    ? DATA_FRESHNESS_SUFFIX
+    : waterTempData?.source === "ioos" || waterTempData?.source === "coops"
+      ? "Updated hourly with observed station data."
+      : "Updated hourly.";
   const spotNoun = (n: number) => n === 1 ? "spot" : "spots";
   const breakNoun = (n: number) => n === 1 ? "break" : "breaks";
   const roundedWaterTemp =
@@ -126,12 +141,14 @@ function getIntentTemplates(
   return {
     beginner: {
       title: truncateTitleForSEO(
-        `${spotCount} Best Beginner Surf Spots in ${cityName} (${currentYear})`
+        listedBeginnerSpots?.length === 1
+          ? `Beginner Surf in ${cityName}: ${listedBeginnerSpots[0]} (${currentYear})`
+          : `${spotCount} Best Beginner Surf Spots in ${cityName} (${currentYear})`
       ),
       heading: `Beginner-friendly waves in ${cityName}`,
       intro: beginnerIntro,
       metaDescription: truncateMetaDescription(
-        `${spotCount} beginner-friendly surf ${spotNoun(spotCount)} in ${cityName}, ${stateName}. Skill ratings, wave size & crowd levels at ${topSpotNames}. ${DATA_FRESHNESS_SUFFIX}`
+        `${spotCount} beginner-friendly surf ${spotNoun(spotCount)} in ${cityName}, ${stateName}. Skill ratings, wave size & crowd levels at ${beginnerSpotNamesText}. ${DATA_FRESHNESS_SUFFIX}`
       ),
     },
     "least-crowded": {
@@ -168,8 +185,8 @@ function getIntentTemplates(
       intro: waterTempIntro,
       metaDescription: truncateMetaDescription(
         roundedWaterTemp != null
-          ? `${cityName} water temperature today is ${roundedWaterTemp}°F. Wetsuit guide, seasonal ocean temps, and surf report links for ${topSpotNames}. ${DATA_FRESHNESS_SUFFIX}`
-          : `Current ${cityName} water temperature, wetsuit guide, seasonal ocean temps, and surf report links for ${totalBeaches} surf ${spotNoun(totalBeaches)} including ${topSpotNames}. ${DATA_FRESHNESS_SUFFIX}`
+          ? `${cityName} water temperature today is ${roundedWaterTemp}°F, so it's ${describeWaterFeel(roundedWaterTemp)}. Wetsuit guide, per-beach temps & surf report links. ${waterTempFreshnessSuffix}`
+          : `Current ${cityName} water temperature, wetsuit guide, seasonal ocean temps, and surf report links for ${totalBeaches} surf ${spotNoun(totalBeaches)} including ${topSpotNames}. ${waterTempFreshnessSuffix}`
       ),
     },
     longboard: {

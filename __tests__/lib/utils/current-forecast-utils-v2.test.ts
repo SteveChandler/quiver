@@ -1,7 +1,4 @@
-import {
-  getCurrentForecast,
-  isForecastInFuture,
-} from "@/lib/utils/current-forecast-utils";
+import { getCurrentForecast } from "@/lib/utils/current-forecast-utils";
 
 describe("getCurrentForecast with forecast_at", () => {
   beforeEach(() => {
@@ -63,54 +60,5 @@ describe("getCurrentForecast with forecast_at", () => {
     const result = getCurrentForecast(forecasts);
     // Should still return a valid result
     expect(result).not.toBeNull();
-  });
-});
-
-describe("isForecastInFuture with forecast_at", () => {
-  beforeEach(() => {
-    jest.useFakeTimers();
-    jest.setSystemTime(new Date("2025-06-15T12:00:00.000Z"));
-  });
-
-  afterEach(() => {
-    jest.useRealTimers();
-  });
-
-  it("returns true for future forecast_at", () => {
-    const future = new Date(Date.now() + 3600000).toISOString();
-    expect(
-      isForecastInFuture({
-        forecast_at: future,
-        forecast_date: "",
-        forecast_time: "",
-      })
-    ).toBe(true);
-  });
-
-  it("returns false for past forecast_at", () => {
-    const past = new Date(Date.now() - 3600000).toISOString();
-    expect(
-      isForecastInFuture({
-        forecast_at: past,
-        forecast_date: "",
-        forecast_time: "",
-      })
-    ).toBe(false);
-  });
-
-  it("still works with legacy fields when forecast_at is absent", () => {
-    expect(
-      isForecastInFuture({
-        forecast_date: "2025-06-16",
-        forecast_time: "12:00",
-      })
-    ).toBe(true);
-    expect(
-      isForecastInFuture({
-        forecast_at: "2025-06-14T12:00Z",
-        forecast_date: "2025-06-14",
-        forecast_time: "12:00",
-      })
-    ).toBe(false);
   });
 });

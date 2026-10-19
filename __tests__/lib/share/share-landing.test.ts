@@ -29,6 +29,7 @@ describe("share landing helpers", () => {
         slug: "la-jolla-shores",
         windowValue: "2026-06-03T14:30:00.000Z",
         shareId: SHARE_ID,
+        inviteToken: "crew+token/=",
       }),
     );
 
@@ -36,10 +37,11 @@ describe("share landing helpers", () => {
     expect(url.pathname).toBe("/app/spot/la-jolla-shores");
     expect(url.searchParams.get("window")).toBe("2026-06-03T14:30:00.000Z");
     expect(url.searchParams.get("sid")).toBe(SHARE_ID);
+    expect(url.searchParams.get("invite")).toBe("crew+token/=");
     expect(url.searchParams.get("o")).toBe("1");
   });
 
-  it("omits window and sid when absent", () => {
+  it("omits window, sid, and invite when absent", () => {
     const url = new URL(buildOpenInQuiverUrl({ slug: "blacks" }));
 
     expect([...url.searchParams.keys()]).toEqual(["o"]);

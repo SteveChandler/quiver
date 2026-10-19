@@ -17,8 +17,10 @@ export interface ForecastSlot {
   forecast_time: string;
   local_time: Date;
   tide_height_ft: number;
-  wind_speed_mph: number;
-  wind_direction_deg: number;
+  /** Null when the forecast has no wind (unknown, not calm). */
+  wind_speed_mph: number | null;
+  /** Null when the source gave no direction; never a default. */
+  wind_direction_deg: number | null;
   wave_height_ft: number;
   wave_period_s: number;
   wave_direction_deg: number;
@@ -37,6 +39,8 @@ export interface BeachMetadata {
   swell_window_halfwidth_deg: number | null;
   wind_offshore_deg: number | null;
   wind_offshore_tol_deg: number | null;
+  /** Direction the beach faces; offshore falls back to the opposite of it. */
+  aspect_deg?: number | null;
   preferred_tide_ft_min: number | null;
   preferred_tide_ft_max: number | null;
   /** IANA timezone identifier for the beach location */
@@ -108,7 +112,7 @@ export interface OptimalWindow {
   windowEnd: string;
   confidence: number;
   swellMatch: boolean;
-  windQuality: "perfect" | "acceptable" | "cross" | "onshore";
+  windQuality: "perfect" | "acceptable" | "cross" | "onshore" | null;
   tideInRange: boolean;
 }
 

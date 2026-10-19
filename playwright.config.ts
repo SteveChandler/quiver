@@ -1,4 +1,5 @@
-import { config as dotenvConfig, parse as dotenvParse } from "dotenv";
+import { config as dotenvConfig } from "./scripts/load-env.mjs";
+import { parseEnv } from "node:util";
 import { defineConfig, devices } from "@playwright/test";
 import { existsSync, readFileSync } from "fs";
 
@@ -47,7 +48,7 @@ const shouldStartLocalWebServer =
 function readEnvFileValue(filePath: string, key: string): string | undefined {
   if (!existsSync(filePath)) return undefined;
 
-  const parsed = dotenvParse(readFileSync(filePath));
+  const parsed = parseEnv(readFileSync(filePath, "utf8"));
   const value = parsed[key];
   return value && value.length > 0 ? value : undefined;
 }

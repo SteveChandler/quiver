@@ -1,3 +1,4 @@
+import { setTimeout as sleep } from "node:timers/promises";
 /**
  * API retry and backoff utilities for NOAA and CDIP calls
  * Implements exponential backoff with jitter and circuit breaker patterns
@@ -9,10 +10,7 @@ interface RetryOptions {
   maxRetries?: number;
   baseDelay?: number;
   maxDelay?: number;
-  exponentialBase?: number;
-  jitter?: boolean;
   timeout?: number;
-  retryCondition?: (error: any) => boolean;
   circuitBreakerKey?: string;
   shouldTripCircuit?: (error: unknown) => boolean;
 }
@@ -20,7 +18,6 @@ interface RetryOptions {
 interface CircuitBreakerOptions {
   failureThreshold?: number;
   recoveryTimeoutMs?: number;
-  monitoringPeriodMs?: number;
 }
 
 export class CircuitBreakerOpenError extends Error {
@@ -46,7 +43,6 @@ class CircuitBreaker {
     this.options = {
       failureThreshold: 5,
       recoveryTimeoutMs: 60000, // 1 minute
-      monitoringPeriodMs: 300000, // 5 minutes
       ...options,
     };
   }
@@ -90,13 +86,6 @@ class CircuitBreaker {
     }
   }
 
-  getState() {
-    return this.state;
-  }
-
-  getFailureCount() {
-    return this.failureCount;
-  }
 }
 
 export class RetryableAPIClient {
@@ -107,10 +96,7 @@ export class RetryableAPIClient {
       maxRetries: 3,
       baseDelay: 1000,
       maxDelay: 30000,
-      exponentialBase: 2,
-      jitter: true,
       timeout: 30000,
-      retryCondition: (error) => this.isRetryableError(error),
       ...defaultOptions,
     };
   }
@@ -138,7 +124,7 @@ export class RetryableAPIClient {
     }
 
     // Timeout errors
-    if (error.name === 'AbortError' || error.message?.includes('timeout')) {
+    if (error.name === 'AbortError' || error.name === 'TimeoutError' || error.message?.includes('timeout')) {
       return true;
     }
 
@@ -169,7 +155,7 @@ export class RetryableAPIClient {
       return true;
     }
 
-    if (candidate.name === "AbortError" || message.toLowerCase().includes("timeout")) {
+    if (candidate.name === "AbortError" || candidate.name === "TimeoutError" || message.toLowerCase().includes("timeout")) {
       return true;
     }
 
@@ -190,31 +176,16 @@ export class RetryableAPIClient {
   }
 
   private calculateDelay(attempt: number, options: RetryOptions): number {
-    const base = options.exponentialBase || 2;
     const baseDelay = options.baseDelay || 1000;
     const maxDelay = options.maxDelay || 30000;
 
-    let delay = baseDelay * Math.pow(base, attempt);
+    let delay = baseDelay * Math.pow(2, attempt);
     
-    if (options.jitter) {
-      // Add ±25% jitter to prevent thundering herd
-      const jitterRange = delay * 0.25;
-      delay += (Math.random() - 0.5) * 2 * jitterRange;
-    }
+    // Add ±25% jitter to prevent thundering herd
+    const jitterRange = delay * 0.25;
+    delay += (Math.random() - 0.5) * 2 * jitterRange;
 
     return Math.min(delay, maxDelay);
-  }
-
-  private createTimeoutSignal(timeoutMs: number): {
-    clear: () => void;
-    signal: AbortSignal;
-  } {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-    return {
-      clear: () => clearTimeout(timeoutId),
-      signal: controller.signal,
-    };
   }
 
   async fetchWithRetry(
@@ -234,21 +205,14 @@ export class RetryableAPIClient {
       for (let attempt = 0; attempt <= finalOptions.maxRetries!; attempt++) {
         try {
           // Add timeout to fetch options
-          const timeoutSignal = this.createTimeoutSignal(finalOptions.timeout!);
           const fetchOptions: RequestInit = {
             ...options,
-            signal: timeoutSignal.signal,
+            signal: AbortSignal.timeout(finalOptions.timeout!),
           };
 
           console.log(`[${serviceName}] Attempt ${attempt + 1}/${finalOptions.maxRetries! + 1} for ${url}`);
-          
-          let response: Response;
-          try {
-            response = await fetch(url, fetchOptions);
-          } finally {
-            timeoutSignal.clear();
-          }
-          
+          const response = await fetch(url, fetchOptions);
+
           // Check if response indicates a retryable error
           if (!response.ok) {
             // For NOAA, read response text to enable proper error classification (e.g. InvalidPoint detection)
@@ -271,10 +235,10 @@ export class RetryableAPIClient {
                 });
             (error as any).status = response.status;
             
-            if (finalOptions.retryCondition!(error) && attempt < finalOptions.maxRetries!) {
+            if (this.isRetryableError(error) && attempt < finalOptions.maxRetries!) {
               lastError = error;
               console.warn(`[${serviceName}] Retryable error on attempt ${attempt + 1}: ${error.message}`);
-              await this.delay(this.calculateDelay(attempt, finalOptions));
+              await sleep(this.calculateDelay(attempt, finalOptions));
               continue;
             }
             
@@ -287,10 +251,10 @@ export class RetryableAPIClient {
         } catch (error) {
           lastError = error;
           
-          if (finalOptions.retryCondition!(error) && attempt < finalOptions.maxRetries!) {
+          if (this.isRetryableError(error) && attempt < finalOptions.maxRetries!) {
             const delayMs = this.calculateDelay(attempt, finalOptions);
             console.warn(`[${serviceName}] Error on attempt ${attempt + 1}, retrying in ${delayMs}ms:`, error);
-            await this.delay(delayMs);
+            await sleep(delayMs);
             continue;
           }
 
@@ -315,10 +279,6 @@ export class RetryableAPIClient {
 
       throw lastError;
     }, shouldTripCircuit);
-  }
-
-  private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   // Convenience methods for specific services
@@ -367,19 +327,7 @@ export class RetryableAPIClient {
     return this.fetchWithRetry('CDIP', url, cdipOptions, cdipRetryOptions);
   }
 
-  // Get circuit breaker status for monitoring
-  getServiceStatus() {
-    const status: Record<string, any> = {};
-    
-    for (const [service, breaker] of this.circuitBreakers) {
-      status[service] = {
-        state: breaker.getState(),
-        failureCount: breaker.getFailureCount(),
-      };
-    }
-    
-    return status;
-  }
+
 }
 
 // Global instance for reuse across the application
@@ -387,6 +335,5 @@ export const apiClient = new RetryableAPIClient({
   maxRetries: 3,
   baseDelay: 1000,
   maxDelay: 30000,
-  jitter: true,
   timeout: 30000,
 });

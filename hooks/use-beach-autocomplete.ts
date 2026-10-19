@@ -2,21 +2,7 @@ import { useState, useCallback, useMemo, useEffect } from "react";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { trackFallback } from "@/lib/monitoring/fallback-tracker";
 import type { Beach } from "@/types/database";
-
-/**
- * Debounce utility function
- * Delays execution of a function until after a specified delay
- */
-function debounce<T extends (...args: any[]) => any>(
-  func: T,
-  delay: number
-): (...args: Parameters<T>) => void {
-  let timeoutId: NodeJS.Timeout;
-  return (...args: Parameters<T>) => {
-    clearTimeout(timeoutId);
-    timeoutId = setTimeout(() => func(...args), delay);
-  };
-}
+import { debounce } from "@/lib/utils/debounce";
 
 interface UseBeachAutocompleteOptions {
   debounceMs?: number;

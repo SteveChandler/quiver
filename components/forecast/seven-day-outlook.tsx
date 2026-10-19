@@ -23,7 +23,7 @@ interface SevenDayOutlookProps {
 }
 
 function daySubtitle(
-  windConditions: "offshore" | "light" | "onshore",
+  windConditions: "offshore" | "light" | "onshore" | "unknown",
   score: number,
 ): string {
   if (scoreLabel(score) === "EPIC")
@@ -39,6 +39,15 @@ function daySubtitle(
   return windConditions === "onshore"
     ? "Call it a no."
     : "Marginal — longboard day.";
+}
+
+function windLabel(
+  windConditions: "offshore" | "light" | "onshore" | "unknown",
+): string | null {
+  if (windConditions === "offshore") return "offshore";
+  if (windConditions === "light") return "light wind";
+  if (windConditions === "onshore") return "onshore";
+  return null;
 }
 
 function trendIcon(
@@ -93,7 +102,7 @@ export function SevenDayOutlook({
           className={
             isZine
               ? "mb-4 font-display text-3xl font-black uppercase leading-tight text-[#11100D]"
-              : "mb-4 font-[var(--font-heading)] text-2xl font-bold text-white"
+              : "mb-4 font-[family-name:var(--font-heading)] text-2xl font-bold text-white"
           }
         >
           7-Day Region Outlook
@@ -142,7 +151,7 @@ export function SevenDayOutlook({
         className={
           isZine
             ? "label-black mb-5 font-display text-2xl font-black uppercase leading-tight"
-            : "mb-4 font-[var(--font-heading)] text-2xl font-bold text-white"
+            : "mb-4 font-[family-name:var(--font-heading)] text-2xl font-bold text-white"
         }
       >
         7-Day Region Outlook
@@ -205,7 +214,7 @@ export function SevenDayOutlook({
               {/* Day + date */}
               <div className="w-20 shrink-0 sm:w-24">
                 <div
-                  className={`font-[var(--font-heading)] text-sm font-semibold uppercase tracking-wide ${isZine ? "text-[#11100D]" : "text-white"}`}
+                  className={`font-[family-name:var(--font-heading)] text-sm font-semibold uppercase tracking-wide ${isZine ? "text-[#11100D]" : "text-white"}`}
                 >
                   {day.dayOfWeek.slice(0, 3)}
                 </div>
@@ -237,19 +246,17 @@ export function SevenDayOutlook({
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
                   <span
-                    className={`font-[var(--font-heading)] text-base font-semibold ${isZine ? "text-[#11100D]" : "text-white"}`}
+                    className={`font-[family-name:var(--font-heading)] text-base font-semibold ${isZine ? "text-[#11100D]" : "text-white"}`}
                   >
                     {waves}
                   </span>
-                  <span
-                    className={`font-mono text-xs uppercase tracking-wide ${isZine ? "text-[#11100D]/65" : "text-white/55"}`}
-                  >
-                    {day.windConditions === "offshore"
-                      ? "offshore"
-                      : day.windConditions === "light"
-                        ? "light wind"
-                        : "onshore"}
-                  </span>
+                  {windLabel(day.windConditions) ? (
+                    <span
+                      className={`font-mono text-xs uppercase tracking-wide ${isZine ? "text-[#11100D]/65" : "text-white/55"}`}
+                    >
+                      {windLabel(day.windConditions)}
+                    </span>
+                  ) : null}
                 </div>
                 {recommendationsAvailable ? (
                   <div

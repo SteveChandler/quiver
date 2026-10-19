@@ -37,6 +37,7 @@ import {
 import { cityToSlug, regionToSlug } from "@/lib/utils/beach-url-utils";
 import { slugifyAscii } from "@/lib/utils/text-utils";
 import { applyIndexabilityToMetadata } from "@/lib/seo/indexability";
+import { isGscPerformanceProtected } from "@/lib/seo/gsc-performance-protection";
 import {
   isBeachSubPageIndexable,
 } from "@/lib/seo/forecast-indexability";
@@ -228,6 +229,7 @@ export async function renderBeachSubPage({
           nextHighHeight={tideMeta?.nextHighHeight ?? null}
           nextLowTime={tideMeta?.nextLowTime ?? null}
           nextLowHeight={tideMeta?.nextLowHeight ?? null}
+          source={tideMeta?.source ?? null}
         />
       )}
 
@@ -253,6 +255,11 @@ export async function renderBeachSubPage({
       )}
       {!hasTideHero && !hasWaterTempSummary && (
         <BeachSubPageCrawlIntro copy={crawlCopy} />
+      )}
+      {pageType === "water-temp" && !hasWaterTempSummary && isGscPerformanceProtected(subPagePath) && (
+        <p className="container mx-auto px-4 py-2 text-sm text-medium">
+          No live water temperature reading right now. Check back for the next update.
+        </p>
       )}
 
       <BeachDetailClient
@@ -417,7 +424,7 @@ export async function generateBeachSubPageMetadata({
             tideMetaForIndexing?.nextHighTime ||
               tideMetaForIndexing?.nextLowTime,
           )
-        : tempMetaForIndexing?.tempF != null;
+        : tempMetaForIndexing?.tempF != null || isGscPerformanceProtected(subPagePath);
     const indexable = isBeachSubPageIndexable(
       snapshots.get(beach.id),
       subPagePath,

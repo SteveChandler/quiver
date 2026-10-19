@@ -177,29 +177,6 @@ async function _fetchProfile(userId: string) {
   }
 }
 
-/**
- * Standardized tagged profile fetching function for server components
- * Uses Next.js cache tags for better cache invalidation when available
- */
-export async function fetchProfile(userId: string) {
-  // Check if we're in a server environment with Next.js caching
-  try {
-    const cachedFetch = unstable_cache(
-      _fetchProfile,
-      ["profile"],
-      {
-        tags: ["profile"],
-        revalidate: 300, // 5 minutes
-      }
-    );
-    return await cachedFetch(userId);
-  } catch (error) {
-    // Fallback to direct function for test environments
-    console.warn("unstable_cache not available, using direct profile fetch");
-    return await _fetchProfile(userId);
-  }
-}
-
 async function createProfile(userId: string): Promise<ProfileResult> {
   if (!userId) {
     return { success: false, error: "No user ID provided" };

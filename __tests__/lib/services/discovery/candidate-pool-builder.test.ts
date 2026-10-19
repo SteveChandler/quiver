@@ -87,7 +87,10 @@ jest.mock('@/lib/supabase/server', () => ({
                 if (table === 'favorite_beaches') {
                   // The favourites query is awaited directly (no terminal
                   // method), so the builder must be thenable here.
-                  return Promise.resolve(mockState.favoritesResponse);
+                  return {
+                    not: jest.fn((_field: string, _operator: string, _value: unknown) =>
+                      Promise.resolve(mockState.favoritesResponse)),
+                  };
                 }
 
                 // For beaches table
@@ -189,6 +192,43 @@ describe('buildCandidatePool', () => {
     mockState.waterQualityHeldError = null;
     mockState.mockCalls = [];
     mockState.heldBeachIds.clear();
+  });
+
+  describe('skipNearby', () => {
+    it('returns the skill level without querying nearby beaches or the beaches table', async () => {
+      mockState.profileResponse = {
+        data: { experience_level: 'intermediate', surf_styles: [] },
+        error: null,
+      };
+      mockState.nearbyRpcResponse = {
+        data: [{ id: mockNearbyBeach1.id, is_private: false, distance_meters: 1000 }],
+        error: null,
+      };
+      mockState.beachesInResponse = { data: [mockNearbyBeach1], error: null };
+
+      const result = await buildCandidatePool(testUserId, {
+        userLocation: defaultUserLocation,
+        skipNearby: true,
+      });
+
+      expect(result.candidates).toEqual([]);
+      expect(result.userSkillLevel).toBe('intermediate');
+      expect(mockState.mockCalls.some((call) => call.table === 'rpc')).toBe(false);
+      expect(mockState.mockCalls.some((call) => call.table === 'beaches')).toBe(false);
+    });
+
+    it('still runs the nearby search by default', async () => {
+      mockState.nearbyRpcResponse = {
+        data: [{ id: mockNearbyBeach1.id, is_private: false, distance_meters: 1000 }],
+        error: null,
+      };
+      mockState.beachesInResponse = { data: [mockNearbyBeach1], error: null };
+
+      const result = await buildCandidatePool(testUserId, { userLocation: defaultUserLocation });
+
+      expect(result.candidates).toHaveLength(1);
+      expect(mockState.mockCalls.some((call) => call.table === 'rpc')).toBe(true);
+    });
   });
 
   describe('GPS-based beach discovery', () => {

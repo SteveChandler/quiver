@@ -13,7 +13,7 @@
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { config } from "dotenv";
+import { config } from "./load-env.mjs";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 config({ path: ".env.local" });
@@ -40,8 +40,8 @@ export const DEFAULT_MATCH_WEIGHTS = {
 } as const;
 
 export type MatchComponent = keyof typeof DEFAULT_MATCH_WEIGHTS;
-export type MatchHistoryMode = "prior-only" | "leave-one-out";
-export type MatchProfileScope = "user" | "cohort";
+type MatchHistoryMode = "prior-only" | "leave-one-out";
+type MatchProfileScope = "user" | "cohort";
 
 export type MatchWeights = Record<MatchComponent, number>;
 
@@ -143,14 +143,14 @@ export interface RatedSessionSample {
   tide: number | null;
 }
 
-export interface PreferenceProfile {
+interface PreferenceProfile {
   sessionCount: number;
   positiveCount: number;
   aversionCount: number;
   peak: Record<MatchComponent, number | null>;
 }
 
-export interface ScoredSession {
+interface ScoredSession {
   userId: string;
   rating: number;
   score: number;
@@ -197,7 +197,7 @@ export interface RatingInventory {
   loadedUserCount: number;
 }
 
-export interface ReweightingReadiness {
+interface ReweightingReadiness {
   verdict: "candidate" | "not-ready";
   readyForExperiment: boolean;
   readyForProduction: false;
@@ -219,7 +219,7 @@ export interface ReweightingReadiness {
   findingCodes: ReweightingReadinessFindingCode[];
 }
 
-export interface CurrentHeuristicValidation {
+interface CurrentHeuristicValidation {
   verdict: "validated" | "not-validated";
   criteria: {
     historyMode: MatchHistoryMode;
@@ -237,7 +237,7 @@ export interface CurrentHeuristicValidation {
   findingCodes: CurrentHeuristicValidationFindingCode[];
 }
 
-export interface CohortSanityCheck {
+interface CohortSanityCheck {
   verdict: "aligned" | "not-aligned" | "insufficient-signal";
   productionEvidence: false;
   criteria: {
@@ -259,13 +259,13 @@ export interface CohortSanityCheck {
   findingCodes: CohortSanityFindingCode[];
 }
 
-export interface MatchHeuristicMeasurementWindow {
+interface MatchHeuristicMeasurementWindow {
   start: string;
   end: string;
   months: number;
 }
 
-export interface MatchHeuristicValidationReport {
+interface MatchHeuristicValidationReport {
   reportSchemaVersion: 4;
   generatedAt: string;
   measurementWindow: MatchHeuristicMeasurementWindow;
@@ -287,12 +287,12 @@ export interface MatchHeuristicValidationReport {
   reweightingReadiness: ReweightingReadiness;
 }
 
-export interface MatchHeuristicValidationReportValidationResult {
+interface MatchHeuristicValidationReportValidationResult {
   ok: boolean;
   blockers: string[];
 }
 
-export interface MatchHeuristicCohortDiagnostic {
+interface MatchHeuristicCohortDiagnostic {
   profileScope: "cohort";
   historyMode: "leave-one-out";
   minHistory: number;
@@ -300,7 +300,7 @@ export interface MatchHeuristicCohortDiagnostic {
   warning: string;
 }
 
-export interface MatchHeuristicRpcFloorDiagnostic {
+interface MatchHeuristicRpcFloorDiagnostic {
   profileScope: "user";
   historyMode: "prior-only";
   minHistory: 1;

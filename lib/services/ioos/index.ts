@@ -16,53 +16,7 @@
  * ```
  */
 
-// Main service class
 export { IOOSService } from "./ioos-service";
-
-// Export types for consumers
-export type { ParsedObservation,   } from "./types";
-
-// Export data parsing utilities
-export {
-
-  buildVariableMap,
-  parseObservationRow,
-
-
-
-} from "./data-parser";
-
-// Export URL builders
-export { buildDynamicObservationUrl,    } from "./url-builder";
-
-// Export API client utilities (for advanced usage)
-
-// Export cache class (for advanced usage)
-
-// Re-export constants for convenience
-
-// Import for singleton
-import { IOOSService as IOOSServiceClass } from "./ioos-service";
-
-// Singleton instance
-let defaultService: IOOSServiceClass | null = null;
-
-/**
- * Get the default IOOS service instance (singleton)
- *
- * @returns Shared IOOSService instance
- *
- * @example
- * ```ts
- * import { getIOOSService } from '@/lib/services/ioos';
- *
- * const service = getIOOSService();
- * const obs = await service.fetchObservation(stationId);
- * ```
- */
-function getIOOSService(): IOOSServiceClass {
-  if (!defaultService) {
-    defaultService = new IOOSServiceClass();
-  }
-  return defaultService;
-}
+export type { ParsedObservation } from "./types";
+export { buildVariableMap, parseObservationRow } from "./data-parser";
+export { buildDynamicObservationUrl } from "./url-builder";

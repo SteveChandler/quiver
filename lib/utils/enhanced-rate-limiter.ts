@@ -371,32 +371,6 @@ export class EnhancedRateLimiter {
   }
 
   /**
-   * Get diagnostic information about the rate limiter
-   *
-   * Useful for debugging and monitoring
-   */
-  getDiagnostics(): {
-    name: string;
-    config: RateLimiterConfig;
-    activeIdentifiers: number;
-    totalRequests: number;
-    lastCleanup: string;
-  } {
-    let totalRequests = 0;
-    for (const records of this.requestHistory.values()) {
-      totalRequests += records.length;
-    }
-
-    return {
-      name: this.name,
-      config: this.config,
-      activeIdentifiers: this.requestHistory.size,
-      totalRequests,
-      lastCleanup: new Date(this.lastCleanup).toISOString(),
-    };
-  }
-
-  /**
    * Clean up resources
    *
    * Call this when the rate limiter is no longer needed
@@ -408,20 +382,6 @@ export class EnhancedRateLimiter {
     }
     this.requestHistory.clear();
   }
-}
-
-/**
- * Factory function for creating enhanced rate limiters
- *
- * @param name - Limiter name for logging
- * @param config - Rate limiter configuration
- * @returns EnhancedRateLimiter instance
- */
-function createEnhancedRateLimiter(
-  name: string,
-  config: RateLimiterConfig
-): EnhancedRateLimiter {
-  return new EnhancedRateLimiter(name, config);
 }
 
 /**
@@ -447,16 +407,4 @@ export function getCachedRateLimiter(
     rateLimiterCache.set(name, new EnhancedRateLimiter(name, config));
   }
   return rateLimiterCache.get(name)!;
-}
-
-/**
- * Clear all cached rate limiters
- *
- * Useful for testing and cleanup
- */
-function clearRateLimiterCache(): void {
-  for (const limiter of rateLimiterCache.values()) {
-    limiter.destroy();
-  }
-  rateLimiterCache.clear();
 }

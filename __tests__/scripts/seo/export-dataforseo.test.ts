@@ -60,6 +60,52 @@ describe("export-dataforseo script", () => {
     }
   });
 
+  it("reuses an export pulled in the last 6 days without calling DataForSEO", async () => {
+    const requests: Array<{ path: string; body: unknown }> = [];
+    const server = createDataForSeoServer(requests);
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const cwd = makeTempWorkspace(SINGLE_KEYWORD_WATCHLIST);
+    const pulledAt = new Date(Date.now() - 3 * 24 * 3_600_000).toISOString();
+    const cachedPath = writeAuditExport(cwd, "2026-10-11", pulledAt);
+    writeAuditExport(cwd, "2026-10-12", new Date().toISOString(), { googleRankings: [] });
+    const outputPath = path.join(cwd, "seo-audit", "2026-10-14", "DATAFORSEO-EXPORT.json");
+
+    try {
+      await runExporter(cwd, outputPath, stubEnv(server));
+
+      expect(requests).toHaveLength(0);
+      expect(JSON.parse(fs.readFileSync(outputPath, "utf8"))).toMatchObject({
+        generatedAt: pulledAt,
+        googleRankings: [{ keyword: "surf forecast app" }],
+        reusedFrom: { path: cachedPath, generatedAt: pulledAt },
+      });
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  it("pulls again once the newest export is 6 days old, or when DATAFORSEO_REFRESH is set", async () => {
+    const requests: Array<{ path: string; body: unknown }> = [];
+    const server = createDataForSeoServer(requests);
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const cwd = makeTempWorkspace(SINGLE_KEYWORD_WATCHLIST);
+    writeAuditExport(cwd, "2026-10-07", new Date(Date.now() - 6 * 24 * 3_600_000 - 60_000).toISOString());
+    const outputPath = path.join(cwd, "DATAFORSEO-EXPORT.json");
+
+    try {
+      await runExporter(cwd, outputPath, stubEnv(server));
+      expect(requests.length).toBeGreaterThan(0);
+      expect(JSON.parse(fs.readFileSync(outputPath, "utf8")).reusedFrom).toBeUndefined();
+
+      writeAuditExport(cwd, "2026-10-13", new Date().toISOString());
+      requests.length = 0;
+      await runExporter(cwd, outputPath, { ...stubEnv(server), DATAFORSEO_REFRESH: "true" });
+      expect(requests.length).toBeGreaterThan(0);
+    } finally {
+      await closeServer(server);
+    }
+  });
+
   it("batches Google SERP live tasks and preserves keyword overview output", async () => {
     const requests: Array<{ path: string; body: unknown }> = [];
     const server = createDataForSeoServer(requests);
@@ -596,6 +642,57 @@ function createDataForSeoServer(
   });
 }
 
+const SINGLE_KEYWORD_WATCHLIST = {
+  google: {
+    domain: "quiversurf.app",
+    device: "mobile",
+    depth: 100,
+    keywords: ["surf forecast app"],
+    locations: [{ name: "United States", code: 2840 }],
+  },
+  aso: {
+    depth: 100,
+    keywords: [],
+    quiver: { iosAppId: "6759300320", androidAppId: "app.quiversurf.surf" },
+  },
+  competitors: [],
+};
+
+function stubEnv(server: http.Server): Partial<NodeJS.ProcessEnv> {
+  const address = server.address();
+  if (!address || typeof address === "string") {
+    throw new Error("Expected local test server address");
+  }
+  return {
+    DATAFORSEO_API_BASE: `http://127.0.0.1:${address.port}`,
+    DATAFORSEO_ENABLED: "true",
+    DATAFORSEO_LOGIN: "login",
+    DATAFORSEO_PASSWORD: "password",
+    NODE_ENV: "test",
+  };
+}
+
+function writeAuditExport(
+  cwd: string,
+  date: string,
+  generatedAt: string,
+  overrides: Record<string, unknown> = {},
+): string {
+  const file = path.join(cwd, "seo-audit", date, "DATAFORSEO-EXPORT.json");
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify({
+    generatedAt,
+    status: "complete",
+    googleRankings: [{ keyword: "surf forecast app" }],
+    keywordMetrics: [],
+    asoRankings: [],
+    competitorKeywords: [],
+    missing: [],
+    ...overrides,
+  }));
+  return file;
+}
+
 function makeTempWorkspace(watchlist: unknown, appleSearchAdsKeywords?: unknown): string {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "quiver-dataforseo-"));
   const seoDocsPath = path.join(cwd, "docs", "seo");
@@ -625,6 +722,7 @@ async function runExporter(
       cwd,
       env: {
         ...process.env,
+        QUIVER_SEO_AUDIT_ROOT: path.join(cwd, "seo-audit"),
         DATAFORSEO_APP_POLL_MS: "100",
         DATAFORSEO_APP_POLL_INTERVAL_MS: "10",
         DATAFORSEO_COMPETITOR_KEYWORD_LIMIT: "10",

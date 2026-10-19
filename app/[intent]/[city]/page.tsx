@@ -1,3 +1,4 @@
+import { JsonLd } from "@/components/seo/funnel/JsonLd";
 import Link from "next/link";
 import { ChevronLeft, MapPin } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
@@ -78,11 +79,15 @@ import {
   getBeginnerCityEditorial,
 } from "@/actions/beginner/beginner-actions";
 import { BeginnerPageContent } from "@/components/beginner/BeginnerPageContent";
+
+// Metadata and the page body must count the same beginner list; cache dedupes the lookup per request.
+const getBeginnerBeachesForPage = cache(getBeginnerBeachesWithEditorial);
 import { getBestTimeToSurfUrl } from "@/lib/utils/best-time-to-surf-utils";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { WaterTempDatasetSchema } from "@/components/seo/water-temp-dataset-schema";
 import { getSeoFunnelPageByIntentRoute } from "@/lib/seo/funnel-pages";
 import { getCityEditorialContent } from "@/actions/city/city-editorial-actions";
+import { isGscPerformanceProtected } from "@/lib/seo/gsc-performance-protection";
 import {
   applyIndexabilityToMetadata,
   evaluateCityDataIntentIndexability,
@@ -100,9 +105,11 @@ export const revalidate = 3600;
 // Next.js lowers this page's revalidate to the shortest unstable_cache window a
 // render reads, so the beach-list window is the page window. Tide, water-temp,
 // and sun-time renders show no live recommendation and keep the declared hour.
-// Live recommendations apply water-quality holds at render and keep 15 minutes.
+// Live recommendations apply water-quality holds at render. They were 15
+// minutes until Oct 2026; nearly all traffic here is crawlers, so Steven moved
+// them to hourly, accepting up to an hour before a new closure drops off.
 const BEACH_METADATA_WINDOW_SECONDS = 3600;
-const LIVE_RECOMMENDATION_WINDOW_SECONDS = 900;
+const LIVE_RECOMMENDATION_WINDOW_SECONDS = 3600;
 
 /**
  * Try to resolve a city slug with automatic state suffix detection.
@@ -318,8 +325,12 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
   // For tide/water-temp intents, fetch live data to inject into meta description
   let tideDataForMeta: CityTideData | null = null;
   let waterTempDataForMeta: CityWaterTempData | null = null;
+  let beginnerSpotNamesForMeta: string[] | null = null;
   let intentDataAvailability: CityIntentDataAvailability = "available";
-  if (params.intent === "tide") {
+  if (params.intent === "beginner") {
+    const beginnerBeaches = await getBeginnerBeachesForPage(params.city, cityMetadata.state.toLowerCase());
+    beginnerSpotNamesForMeta = beginnerBeaches.map((beach) => beach.name);
+  } else if (params.intent === "tide") {
     tideDataForMeta = await getCityTideData(cityMetadata.cityName, cityMetadata.state);
     intentDataAvailability = tideDataForMeta
       ? "available"
@@ -336,7 +347,8 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
     cityMetadata,
     {
       tideData: tideDataForMeta ? { nextTideType: tideDataForMeta.nextTideType, nextTideTime: tideDataForMeta.nextTideTime, nextTideHeight: tideDataForMeta.nextTideHeight } : null,
-      waterTempData: waterTempDataForMeta ? { currentTemp: waterTempDataForMeta.currentTemp } : null,
+      waterTempData: waterTempDataForMeta ? { currentTemp: waterTempDataForMeta.currentTemp, source: waterTempDataForMeta.source } : null,
+      beginnerSpotNames: beginnerSpotNamesForMeta,
     }
   );
 
@@ -381,11 +393,12 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
     "usa",
     params.intent as SurfIntentSlug,
   );
+  const canonicalPath = `/${params.intent}/${canonicalCitySlug}`;
+  const protectedWaterTemp = params.intent === "water-temp" && isGscPerformanceProtected(canonicalPath);
   const dataRich =
     hasMatchingBeaches &&
-    intentDataAvailability !== "missing" &&
+    (intentDataAvailability !== "missing" || protectedWaterTemp) &&
     !excludedCityIntents.includes(params.intent as IntentKey);
-  const canonicalPath = `/${params.intent}/${canonicalCitySlug}`;
   const decision = isDataBackedCityIntent(params.intent)
     ? evaluateCityDataIntentIndexability(
         toCityEditorialInput(cityEditorial),
@@ -592,7 +605,7 @@ export default async function IntentPage(props: IntentPageParams) {
   // Database-driven city resolution with automatic state suffix detection (parallel lookup)
   // This handles cases where sitemap has "/beginner/nags-head-nc" but user accesses "/beginner/nags-head"
   // NOTE: We serve content directly instead of redirecting to avoid redirect chains that Google flags
-  const { cityMetadata } = await resolveCityWithStateSuffix(params.city);
+  const { cityMetadata, resolvedSlug: canonicalCitySlug } = await resolveCityWithStateSuffix(params.city);
 
   if (!cityMetadata) {
     return notFound();
@@ -606,7 +619,7 @@ export default async function IntentPage(props: IntentPageParams) {
     const [conditionsData, beaches, cityEditorial, reviewedEditorial, bestTimeToSurfUrl, excludeIntents] =
       await Promise.all([
         getBeginnerConditionsData(params.city, stateSlugLower),
-        getBeginnerBeachesWithEditorial(params.city, stateSlugLower),
+        getBeginnerBeachesForPage(params.city, stateSlugLower),
         getBeginnerCityEditorial(params.city, stateSlugLower),
         getCityEditorialContent(cityToSlug(cityMetadata.cityName), stateSlugLower, "usa", "beginner"),
         getBestTimeToSurfUrl(params.city, cityMetadata.cityName, cityMetadata.state),
@@ -634,10 +647,7 @@ export default async function IntentPage(props: IntentPageParams) {
       <>
         <ReviewedCityEditorialSection editorial={reviewedEditorial} />
         {/* Place JSON-LD — exposes geo data to crawlers (Mapbox canvas is not crawlable) */}
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(beginnerPlaceSchema) }}
-        />
+        <JsonLd data={beginnerPlaceSchema} />
         {/* ItemList JSON-LD for Google carousel SERP features */}
         <ItemListSchema
           items={beaches.map((b, i) => ({
@@ -725,10 +735,7 @@ export default async function IntentPage(props: IntentPageParams) {
         <>
           <ReviewedCityEditorialSection editorial={reviewedEditorial} />
           {/* Place JSON-LD — exposes geo data to crawlers */}
-          <script
-            type="application/ld+json"
-            dangerouslySetInnerHTML={{ __html: JSON.stringify(tidePlaceSchema) }}
-          />
+          <JsonLd data={tidePlaceSchema} />
           {/* ItemList JSON-LD for Google carousel SERP features */}
           <ItemListSchema
             items={tideBeaches.map((b, i) => ({
@@ -781,7 +788,7 @@ export default async function IntentPage(props: IntentPageParams) {
     // If expanded data available, render dedicated water-temp page
     if (expandedWaterTempData) {
       const waterTempPageContent = buildIntentPageContent("water-temp", cityMetadata, {
-        waterTempData: { currentTemp: expandedWaterTempData.currentTemp },
+        waterTempData: { currentTemp: expandedWaterTempData.currentTemp, source: expandedWaterTempData.source },
       });
       const waterTempBeaches = waterTempBeachesResult.success && waterTempBeachesResult.data
         ? waterTempBeachesResult.data
@@ -818,10 +825,7 @@ export default async function IntentPage(props: IntentPageParams) {
       return (
         <>
           <ReviewedCityEditorialSection editorial={reviewedEditorial} />
-          <script
-            type="application/ld+json"
-            dangerouslySetInnerHTML={{ __html: JSON.stringify(waterTempPlaceSchema) }}
-          />
+          <JsonLd data={waterTempPlaceSchema} />
           <ItemListSchema
             items={waterTempBeaches.map((b, i) => ({
               name: b.name,
@@ -915,10 +919,7 @@ export default async function IntentPage(props: IntentPageParams) {
       return (
         <>
           <ReviewedCityEditorialSection editorial={reviewedEditorial} />
-          <script
-            type="application/ld+json"
-            dangerouslySetInnerHTML={{ __html: JSON.stringify(dpPlaceSchema) }}
-          />
+          <JsonLd data={dpPlaceSchema} />
           <ItemListSchema
             items={dpBeaches.map((b, i) => ({
               name: b.name,
@@ -1003,10 +1004,7 @@ export default async function IntentPage(props: IntentPageParams) {
       return (
         <>
           <ReviewedCityEditorialSection editorial={reviewedEditorial} />
-          <script
-            type="application/ld+json"
-            dangerouslySetInnerHTML={{ __html: JSON.stringify(sunsetPlaceSchema) }}
-          />
+          <JsonLd data={sunsetPlaceSchema} />
           <ItemListSchema
             items={sunsetBeaches.map((b, i) => ({
               name: b.name,
@@ -1062,6 +1060,7 @@ export default async function IntentPage(props: IntentPageParams) {
   // Extract intent-specific data from Promise.all result
   const tideData: CityTideData | null = params.intent === "tide" ? intentData as CityTideData | null : null;
   const waterTempData: CityWaterTempData | null = params.intent === "water-temp" ? intentData as CityWaterTempData | null : null;
+  const protectedWaterTemp = params.intent === "water-temp" && isGscPerformanceProtected(`/water-temp/${canonicalCitySlug}`);
 
   if (!beachesResult.success || !beachesResult.data || beachesResult.data.length === 0) {
     // least-crowded with no light/moderate beaches should 404, not show empty state
@@ -1076,6 +1075,9 @@ export default async function IntentPage(props: IntentPageParams) {
               {definition.heading({ cityName: cityMetadata.cityName })}
             </h1>
           </header>
+          {protectedWaterTemp && !waterTempData && (
+            <WaterTempOverviewSection data={null} isGscProtected />
+          )}
           <IntentEmptyState
             intentLabel={definition.label}
             locationName={cityMetadata.cityName}
@@ -1189,10 +1191,7 @@ export default async function IntentPage(props: IntentPageParams) {
         name={`${definition.label} Spots in ${cityMetadata.cityName}`}
       />
       {/* Place JSON-LD with GeoCoordinates — exposes Mapbox pin data to crawlers */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(placeSchema) }}
-      />
+      <JsonLd data={placeSchema} />
       {/* WebPage JSON-LD with dateModified signals content freshness to Google */}
       <WebPageSchema
         name={pageContent.title}
@@ -1226,7 +1225,7 @@ export default async function IntentPage(props: IntentPageParams) {
 
             <div className="space-y-2 mt-6">
               <p className="text-base text-gray-700">
-                Recommendations refresh every 30 minutes based on tide, wind,
+                Recommendations refresh hourly based on tide, wind,
                 and crowd telemetry from Quiver.
               </p>
               <p className="text-base text-gray-700">
@@ -1246,7 +1245,7 @@ export default async function IntentPage(props: IntentPageParams) {
         {/* Intent-specific live data sections */}
         {params.intent === "tide" && <TideOverviewSection data={tideData} />}
         {params.intent === "water-temp" && (
-          <WaterTempOverviewSection data={waterTempData} />
+          <WaterTempOverviewSection data={waterTempData} isGscProtected={protectedWaterTemp} />
         )}
 
         <div className="space-y-12">

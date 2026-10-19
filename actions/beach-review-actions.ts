@@ -9,7 +9,6 @@ import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import {
   calculateReviewStats,
   calculateBeachAverageRatings,
-  calculateMultipleBeachStats,
   type ReviewStats,
 } from "@/lib/review-stats-utils";
 // Optional XP tracking - imported dynamically to avoid circular dependency
@@ -60,31 +59,6 @@ export async function getBeachReviews(beachId: string) {
 
     return data as unknown as BeachReviewWithUser[];
   }, "fetch reviews");
-}
-
-export async function getUserReviewForBeach(beachId: string, userId: string) {
-  return withErrorHandling(async () => {
-    const supabase = await createClient();
-
-    const { data, error } = await supabase
-      .from("beach_reviews")
-      .select(
-        `
-        *,
-        profiles!user_id(full_name, avatar_url)
-      `
-      )
-      .eq("beach_id", beachId)
-      .eq("user_id", userId)
-      .single();
-
-    if (error && error.code !== "PGRST116") {
-      // PGRST116 = no rows returned
-      handleSupabaseError(error, "getUserReviewForBeach");
-    }
-
-    return data as unknown as BeachReviewWithUser | null;
-  }, "fetch user review");
 }
 
 export async function createBeachReview(reviewData: {
@@ -232,29 +206,6 @@ export async function getBeachReviewStats(beachId: string) {
 
     return calculateReviewStats(data || []);
   }, "fetch review stats");
-}
-
-export async function getMultipleBeachReviewStats(beachIds: string[]) {
-  return withErrorHandling(async () => {
-    if (beachIds.length === 0) {
-      return {};
-    }
-
-    const supabase = await createClient();
-
-    const { data, error } = await supabase
-      .from("beach_reviews")
-      .select(
-        "beach_id, overall_rating, wave_quality_rating, crowd_density_rating, parking_rating, accessibility_rating"
-      )
-      .in("beach_id", beachIds);
-
-    if (error) {
-      handleSupabaseError(error, "getMultipleBeachReviewStats");
-    }
-
-    return calculateMultipleBeachStats(data || [], beachIds);
-  }, "fetch multiple beach review stats");
 }
 
 // Helper function to update beach average ratings

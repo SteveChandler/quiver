@@ -5,6 +5,9 @@ export const IOS_APP_STORE_URL =
 
 export const IOS_APP_STORE_CAMPAIGNS = {
   WEB: "web",
+  WEB_BANNER: "web_banner",
+  WEB_APP_LINKS: "web_app_links",
+  WEB_PAGE: "web_page",
   EMAIL: "email",
   PARTNER_QR: "partner_qr",
   SHARE: "share",
@@ -26,7 +29,30 @@ interface IosAppStoreCampaignSignals {
   surface?: string;
 }
 
-/** Keep Apple's campaign grain intentionally small so low-volume campaigns can report. */
+const EXPLICIT_CAMPAIGNS = new Set<string>([
+  IOS_APP_STORE_CAMPAIGNS.EMAIL,
+  IOS_APP_STORE_CAMPAIGNS.PARTNER_QR,
+  IOS_APP_STORE_CAMPAIGNS.SHARE,
+  IOS_APP_STORE_CAMPAIGNS.WEB_BANNER,
+  IOS_APP_STORE_CAMPAIGNS.WEB_APP_LINKS,
+  IOS_APP_STORE_CAMPAIGNS.WEB_PAGE,
+]);
+
+// Surfaces that name a route rather than the page the visitor tapped from.
+const NON_PAGE_SURFACES = new Set(["app_store", "app_handoff", "web"]);
+
+function isExplicitCampaign(value: string): value is IosAppStoreCampaign {
+  return EXPLICIT_CAMPAIGNS.has(value);
+}
+
+/**
+ * Apple only reports a campaign once it reaches five first-time downloads in
+ * the selected date range, so web installs are split by how the visitor
+ * reached the App Store (Safari banner, App Links from another app, or a
+ * button on one of our pages), not by page type: per-page buckets would stay
+ * under that threshold. Source and surface are matched by prefix because some
+ * apps JSON-escape or truncate the App Links and banner URLs they open.
+ */
 export function resolveIosAppStoreCampaign({
   campaign,
   medium,
@@ -34,18 +60,7 @@ export function resolveIosAppStoreCampaign({
   source,
   surface,
 }: IosAppStoreCampaignSignals): IosAppStoreCampaign {
-  if (campaign === IOS_APP_STORE_CAMPAIGNS.EMAIL) {
-    return IOS_APP_STORE_CAMPAIGNS.EMAIL;
-  }
-  if (campaign === IOS_APP_STORE_CAMPAIGNS.PARTNER_QR) {
-    return IOS_APP_STORE_CAMPAIGNS.PARTNER_QR;
-  }
-  if (campaign === IOS_APP_STORE_CAMPAIGNS.SHARE) {
-    return IOS_APP_STORE_CAMPAIGNS.SHARE;
-  }
-  if (campaign === IOS_APP_STORE_CAMPAIGNS.WEB) {
-    return IOS_APP_STORE_CAMPAIGNS.WEB;
-  }
+  if (campaign && isExplicitCampaign(campaign)) return campaign;
 
   if (source === "email" || medium === "email" || medium === "app_link") {
     return IOS_APP_STORE_CAMPAIGNS.EMAIL;
@@ -56,6 +71,24 @@ export function resolveIosAppStoreCampaign({
     placement === "desktop_partner_qr"
   ) {
     return IOS_APP_STORE_CAMPAIGNS.PARTNER_QR;
+  }
+  if (
+    source?.startsWith("ios_smart_app_banner") ||
+    source === "iphone-app-banner" ||
+    placement === "apple_smart_banner" ||
+    surface === "smart_banner"
+  ) {
+    return IOS_APP_STORE_CAMPAIGNS.WEB_BANNER;
+  }
+  if (
+    source?.startsWith("app_links") ||
+    placement === "ios_app_link" ||
+    surface === "metadata"
+  ) {
+    return IOS_APP_STORE_CAMPAIGNS.WEB_APP_LINKS;
+  }
+  if (surface && !NON_PAGE_SURFACES.has(surface)) {
+    return IOS_APP_STORE_CAMPAIGNS.WEB_PAGE;
   }
 
   return IOS_APP_STORE_CAMPAIGNS.WEB;
@@ -101,7 +134,7 @@ export function buildIosSmartAppBannerContent(providerToken?: string): string {
     normalizeIosAppStoreProviderToken(providerToken);
   if (normalizedProviderToken) {
     parts.push(
-      `affiliate-data=pt=${normalizedProviderToken}&ct=${IOS_APP_STORE_CAMPAIGNS.WEB}`,
+      `affiliate-data=pt=${normalizedProviderToken}&ct=${IOS_APP_STORE_CAMPAIGNS.WEB_BANNER}`,
     );
   }
   parts.push(`app-argument=${IOS_APP_STORE_SMART_BANNER_ARGUMENT}`);

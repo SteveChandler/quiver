@@ -63,7 +63,9 @@ export function parseSkillLevel(value: string | null | undefined): SkillLevel | 
  * Parse the minimum skill requirement stored on a beach.
  *
  * Beach taxonomy includes bounded labels that are not valid profile skill
- * values. Keep this normalization separate so profile parsing remains strict.
+ * values. Per Steven's 2026-10-15 decision, only beginner-intermediate maps
+ * to its lowest skill; other compound tags retain their existing requirements.
+ * Keep this normalization separate so profile parsing remains strict.
  */
 export function parseBeachSkillRequirement(
   value: string | null | undefined,
@@ -75,6 +77,7 @@ export function parseBeachSkillRequirement(
     case 'all':
       return 'beginner';
     case 'beginner-intermediate':
+      return 'beginner';
     case 'lower-intermediate':
     case 'upper-intermediate':
       return 'intermediate';

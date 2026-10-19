@@ -155,18 +155,22 @@ export function boardHistoryNudge(board: PersonalBoard, forecast: EnhancedForeca
   return HISTORY_NUDGE_POINTS * Math.max(-1, Math.min(1, net / 0.6));
 }
 
-/** One deterministic, conditions-first board rule. All evidence is supplied by the caller. */
+/**
+ * One deterministic, conditions-first board rule. All evidence is supplied by the caller.
+ * `requestDerived` marks a forecast built from request conditions rather than a stored row.
+ */
 export function recommendBoard(
   boards: readonly PersonalBoard[],
   forecast: EnhancedForecastEntity,
   beach: Beach,
   experience: unknown,
+  options: { requestDerived?: boolean } = {},
 ): RecommendedBoard | null {
   // Same unknown-skill default as the slot scorer, so a pick and its score agree.
   const skill = resolveNativeSkillLevel(typeof experience === 'string' ? experience : null, 'intermediate');
   if (boards.length === 0 || parseWaveHeightMidpointFt(forecast.wave_height) === null) return null;
   const interference = swellInterferenceScorer.score({
-    snapshot: forecastToSnapshot(forecast), profile: beachToSpotProfile(beach), window: null, preferences: null,
+    snapshot: forecastToSnapshot(forecast, options), profile: beachToSpotProfile(beach), window: null, preferences: null,
   }).score;
   const conditions = fitConditions(forecast, beach, interference);
   if (!conditions) return null;

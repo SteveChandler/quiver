@@ -6,7 +6,41 @@ Date: 2026-06-18
 
 Determine whether `sessions.wave_height_ft` is user-entered perceived face height or a forecast echo, and wire usable session truth into the Phase 0 harness.
 
-## Code Evidence
+## Correction (2026-10-18): prefilled heights reach the truth set
+
+The fail-closed gate described below no longer exists. Two days after this note,
+quiver-native `b5a52533` (2026-06-20) removed both the `touchedFields.has('waveHeight')`
+validation check and the write-boundary check. Current behavior:
+
+- Native: `PREFILL_FORECAST` (`src/lib/session-form-state.ts`) writes the forecast
+  estimate into an untouched wave height, validation only requires a non-empty value,
+  and `buildSessionInsertPayload()` saves it as `wave_height_ft`. The only trace was the
+  `session_log_submit` event (`forecast_prefilled`, `forecast_height_changed`).
+- Web: `useSessionConditionsPrefill` fills an empty wave height from the forecast the
+  same way and saves it.
+
+Read-only measurement on 2026-10-18: 56 of 95 instrumented native submits
+(2026-07-22 to 2026-10-17) saved an untouched prefill. They are 25% of the 222 usable
+`session_wave_observation_candidates` rows and 39% of those since 2026-07-01. They are
+forecast-derived, not exact echoes (MAE 0.30 m against the matched display snapshot),
+so the `<=25%` exact-echo guard in the readiness report does not catch them. They still
+cluster near the forecast: 19 of 48 sit within 0.5 ft of the display snapshot, against
+4 of 25 user-changed heights. The 124 rows logged before the event existed cannot be
+labeled.
+
+Fix (`20261019100000_session_wave_height_source.sql`, applied separately):
+`sessions.wave_height_source` (`user` | `forecast_prefill` | NULL = unknown) is derived
+in the database from the `session_log_submit` event, whichever of the event or the
+session row arrives first. `sync_session_wave_observation_candidate` rejects
+`forecast_prefill` rows as `forecast_prefilled_wave_height`, so every consumer that
+reads candidates (`forecast-accuracy-harness.ts --truth-source session`, this report,
+the readiness report, the relinkability SQL, `get_session_wave_observation_analytics`)
+drops them. Seaside's direct `sessions` readers filter the column themselves. The web
+submit event now carries the same two flags. The forecast prefill itself is unchanged.
+
+The sections below describe the code as of 2026-06-18 and are kept for history.
+
+## Code Evidence (2026-06-18, superseded)
 
 Native session logging treats wave height as user-confirmed feedback:
 

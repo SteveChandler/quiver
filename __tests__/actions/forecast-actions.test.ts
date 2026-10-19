@@ -11,7 +11,6 @@ const getBeachForecasts = ForecastActionsModule.getBeachForecasts;
 const getLatestBeachForecast = ForecastActionsModule.getLatestBeachForecast;
 const getEnhancedBeachForecasts = ForecastActionsModule.getEnhancedBeachForecasts;
 const getBeachForecastPreview = ForecastActionsModule.getBeachForecastPreview;
-const getForecastForToday = ForecastActionsModule.getForecastForToday;
 const updateBeachForecasts = ForecastActionsModule.updateBeachForecasts;
 const updateAllBeachForecasts = ForecastActionsModule.updateAllBeachForecasts;
 

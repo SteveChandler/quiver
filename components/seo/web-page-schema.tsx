@@ -1,3 +1,4 @@
+import { JsonLd } from "@/components/seo/funnel/JsonLd";
 interface WebPageSchemaProps {
   name: string;
   url: string;
@@ -23,9 +24,6 @@ export function WebPageSchema({
     ...additionalData,
   };
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
-    />
+    <JsonLd data={data} />
   );
 }

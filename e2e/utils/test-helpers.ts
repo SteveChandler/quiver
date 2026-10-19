@@ -7,44 +7,6 @@ import {
 import { buildBeachUrl } from '@/lib/utils/beach-url-utils';
 
 /**
- * Utility functions for E2E tests
- */
-
-/**
- * Wait for an API response matching a URL pattern, triggered by an action.
- * Sets up the response listener BEFORE the action executes to avoid races.
- */
-export async function waitForApiResponse(
-  page: Page,
-  urlPattern: string | RegExp,
-  action: () => Promise<void>,
-  options?: { timeout?: number }
-): Promise<void> {
-  const responsePromise = page.waitForResponse(
-    (resp) => typeof urlPattern === 'string'
-      ? resp.url().includes(urlPattern)
-      : urlPattern.test(resp.url()),
-    { timeout: options?.timeout ?? 15000 }
-  );
-  await action();
-  await responsePromise;
-}
-
-/**
- * Legacy helper name: wait for deterministic page readiness.
- */
-export async function waitForNetwork(page: Page, timeout = 5000): Promise<void> {
-  await waitForPageLoad(page, timeout);
-}
-
-/**
- * Wait for element to be visible with custom timeout
- */
-export async function waitForElement(page: Page, selector: string, timeout = 10000) {
-  await page.waitForSelector(selector, { state: 'visible', timeout });
-}
-
-/**
  * Check if user is authenticated
  * Uses improved authentication verification from auth-helpers
  */
@@ -70,7 +32,7 @@ export async function ensureAuthenticated(page: Page): Promise<void> {
 /**
  * Open auth modal (if not already authenticated)
  */
-export async function openAuthModal(page: Page) {
+async function openAuthModal(page: Page) {
   const loginButton = page.getByRole('button', { name: /log in|sign in/i }).first();
   const isVisible = await loginButton.isVisible().catch(() => false);
 
@@ -163,14 +125,6 @@ export async function isVisible(page: Page, selector: string): Promise<boolean> 
 }
 
 /**
- * Take a screenshot with a descriptive name
- */
-export async function takeScreenshot(page: Page, name: string) {
-  const timestamp = new Date().toISOString().replace(/:/g, '-');
-  await page.screenshot({ path: `test-results/${name}-${timestamp}.png`, fullPage: true });
-}
-
-/**
  * Wait for page to be fully loaded
  */
 export async function waitForPageLoad(page: Page, timeout = 10000): Promise<void> {
@@ -201,21 +155,6 @@ export async function dismissOnboardingWizard(page: Page): Promise<void> {
 }
 
 /**
- * Check for console errors
- */
-export async function hasConsoleErrors(page: Page): Promise<string[]> {
-  const errors: string[] = [];
-
-  page.on('console', (msg) => {
-    if (msg.type() === 'error') {
-      errors.push(msg.text());
-    }
-  });
-
-  return errors;
-}
-
-/**
  * Wait for element with detailed debugging output
  *
  * This enhanced version provides comprehensive debugging when elements aren't found,
@@ -232,7 +171,7 @@ export async function hasConsoleErrors(page: Page): Promise<string[]> {
  *   timeout: 15000
  * });
  */
-export async function waitForElementWithDebug(
+async function waitForElementWithDebug(
   page: Page,
   selector: string,
   options: {
@@ -309,96 +248,6 @@ export async function waitForElementWithDebug(
     console.error(fullErrorMessage);
 
     throw new Error(fullErrorMessage);
-  }
-}
-
-/**
- * Wait for modal/dialog to open with automatic retry logic
- *
- * Modals often require specific user interactions and may not appear immediately.
- * This helper includes retry logic and comprehensive debugging.
- *
- * @param page - Playwright page object
- * @param options - Configuration options
- * @returns Promise<void>
- *
- * @example
- * await clickElement(page, 'button', 'Edit Profile');
- * await waitForModal(page, { description: 'Edit Profile Modal' });
- */
-export async function waitForModal(
-  page: Page,
-  options: {
-    timeout?: number;
-    description?: string;
-    retries?: number;
-  } = {}
-): Promise<void> {
-  const { timeout = 30000, description = 'Modal', retries = 2 } = options;
-
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      await waitForElementWithDebug(page, '[role="dialog"]', {
-        timeout: timeout / (retries + 1),
-        description: `${description} (attempt ${attempt + 1}/${retries + 1})`,
-        state: 'visible'
-      });
-      return; // Success!
-    } catch (error) {
-      if (attempt === retries) {
-        // Final attempt failed
-        throw error;
-      }
-
-      // Wait a bit before retrying
-      console.log(`[Retry] Modal not found on attempt ${attempt + 1}, retrying...`);
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- retry backoff between modal detection attempts
-      await page.waitForTimeout(1000);
-    }
-  }
-}
-
-/**
- * Click an element with built-in waiting and error handling
- *
- * Automatically waits for element to be visible and actionable before clicking.
- * Provides detailed error messages if click fails.
- *
- * @param page - Playwright page object
- * @param selector - CSS selector or role-based selector
- * @param description - Human-readable description for debugging
- * @param options - Additional options
- * @returns Promise<void>
- *
- * @example
- * await clickElement(page, 'button[type="submit"]', 'Submit Button');
- * await clickElement(page, '[data-testid="edit-profile"]', 'Edit Profile Button', { timeout: 15000 });
- */
-export async function clickElement(
-  page: Page,
-  selector: string,
-  description: string,
-  options: { timeout?: number } = {}
-): Promise<void> {
-  const { timeout = 10000 } = options;
-
-  await waitForElementWithDebug(page, selector, {
-    description: `${description} (before click)`,
-    timeout,
-    state: 'visible'
-  });
-
-  try {
-    await page.locator(selector).click({ timeout });
-  } catch (error) {
-    throw new Error(
-      `Failed to click ${description} (${selector}).\n` +
-      `Element was visible but click failed. This might indicate:\n` +
-      `  1. Element is obscured by another element\n` +
-      `  2. Element is disabled\n` +
-      `  3. Element moved after visibility check\n` +
-      `Original error: ${error}`
-    );
   }
 }
 

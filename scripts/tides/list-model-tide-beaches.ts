@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { config } from "dotenv";
+import { config } from "../load-env.mjs";
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { getNearestTideStation } from "../../lib/services/noaa-tide-service";

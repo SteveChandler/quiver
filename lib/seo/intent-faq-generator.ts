@@ -5,6 +5,7 @@
 
 import type { SurfIntentSlug } from "@/lib/data/surf-spots";
 import { getRegionalData } from "@/lib/seo/regional-surf-data";
+import { describeWaterFeel, formatWetsuitPhrase, getWetsuitRecommendation } from "@/lib/utils/wetsuit-utils";
 
 interface FAQItem {
   question: string;
@@ -17,13 +18,15 @@ interface FAQItem {
  * @param locationName - Name of the city or state
  * @param topSpots - Array of top spot names (up to 3 will be used)
  * @param stateSlug - Optional state slug for regional data (e.g., "ca", "hi")
+ * @param currentWaterTempF - Live water temperature; water-temp FAQs answer with it when present
  * @returns Array of FAQ items suitable for FAQSchema component
  */
 export function generateIntentFAQ(
   intent: SurfIntentSlug,
   locationName: string,
   topSpots: string[],
-  stateSlug?: string
+  stateSlug?: string,
+  currentWaterTempF?: number | null
 ): FAQItem[] {
   const spotList = topSpots.slice(0, 3).join(", ");
   const hasSpots = topSpots.length > 0;
@@ -136,5 +139,27 @@ export function generateIntentFAQ(
     ],
   };
 
+  if (intent === "water-temp" && currentWaterTempF != null) {
+    return liveWaterTempFAQs(locationName, Math.round(currentWaterTempF), faqs["water-temp"]);
+  }
+
   return faqs[intent] || [];
+}
+
+// Answer "is it cold" and "right now" from the reading the page shows, not a seasonal range.
+function liveWaterTempFAQs(locationName: string, tempF: number, seasonal: FAQItem[]): FAQItem[] {
+  const suit = formatWetsuitPhrase(getWetsuitRecommendation(tempF));
+  const feel = describeWaterFeel(tempF);
+  const rightNowQuestion = `What is the water temperature in ${locationName} right now?`;
+  return [
+    {
+      question: `Is the water cold in ${locationName} right now?`,
+      answer: `${locationName} water is ${tempF}°F today, which is ${feel} for most people, so most surfers wear ${suit}. Wind, air temperature, and session length change how cold it feels.`,
+    },
+    {
+      question: rightNowQuestion,
+      answer: `${locationName} water is ${tempF}°F today. Readings differ from beach to beach and through the day, so check the per-beach temperatures on this page before you go.`,
+    },
+    ...seasonal.filter((item) => item.question !== rightNowQuestion),
+  ];
 }

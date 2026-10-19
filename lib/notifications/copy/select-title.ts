@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 import titlePool from "./surf-titles.v1.json";
+import { pushTitle } from "./push-title";
 
 export type Pool = "daily" | "swell";
 
@@ -74,15 +75,36 @@ function titleLength(title: string): number {
   return [...title].length;
 }
 
+function truncateTitle(title: string): string {
+  return `${[...title].slice(0, TITLE_MAX_CHARS - 1).join("")}…`;
+}
+
 function hashIndex(value: string, length: number): number {
   return createHash("sha256").update(value).digest().readUInt32BE(0) % length;
 }
 
 function fallbackTitle(pool: Pool, vars: TitleVars): string {
-  return renderTemplate(
+  const rendered = pushTitle(renderTemplate(
     pool === "daily" ? "{beach} {window}" : "Swell peaks {peak_day}",
     vars,
-  );
+  ));
+  if (titleLength(rendered) <= TITLE_MAX_CHARS) return rendered;
+  if (pool === "swell") return truncateTitle(rendered);
+
+  const beach = pushTitle(vars.beach).replace(/\s+\([^()]*\)\s*$/, "");
+  const window = pushTitle(vars.window);
+  const withoutParenthetical = `${beach} ${window}`;
+  if (titleLength(withoutParenthetical) <= TITLE_MAX_CHARS) {
+    return withoutParenthetical;
+  }
+
+  const beachChars = Math.max(0, TITLE_MAX_CHARS - titleLength(window) - 2);
+  const words = beach.split(/\s+/);
+  while (titleLength(words.join(" ")) > beachChars) words.pop();
+  const withWindow = `${words.join(" ")}… ${window}`;
+  if (titleLength(withWindow) <= TITLE_MAX_CHARS) return withWindow;
+
+  return titleLength(window) <= TITLE_MAX_CHARS ? window : truncateTitle(window);
 }
 
 export function selectTitle(args: SelectTitleArgs): SelectedTitle {
@@ -122,7 +144,7 @@ export function selectTitle(args: SelectTitleArgs): SelectedTitle {
     };
   }
 
-  const renderedTitle = renderTemplate(selected.title, args.vars);
+  const renderedTitle = pushTitle(renderTemplate(selected.title, args.vars));
   if (titleLength(renderedTitle) <= TITLE_MAX_CHARS) {
     return {
       id: selected.id,
@@ -135,7 +157,7 @@ export function selectTitle(args: SelectTitleArgs): SelectedTitle {
   const shortest = candidates
     .map((entry) => ({
       entry,
-      title: renderTemplate(entry.title, args.vars),
+      title: pushTitle(renderTemplate(entry.title, args.vars)),
     }))
     .filter(({ title }) => titleLength(title) <= TITLE_MAX_CHARS)
     .sort((left, right) => titleLength(left.title) - titleLength(right.title))[0];

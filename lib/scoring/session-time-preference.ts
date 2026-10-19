@@ -8,7 +8,7 @@ export type SessionTime = (typeof SESSION_TIMES)[number];
  * quiver-native src/lib/session-time-preference.ts. Morning includes dawn
  * patrol; dawn patrol stays first light only.
  */
-export const SESSION_TIME_HOURS: Readonly<Record<Exclude<SessionTime, 'any'>, readonly [number, number]>> = {
+const SESSION_TIME_HOURS: Readonly<Record<Exclude<SessionTime, 'any'>, readonly [number, number]>> = {
   dawn_patrol: [4, 7],
   morning: [4, 10],
   lunch: [10, 13],

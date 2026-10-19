@@ -7,12 +7,7 @@
  * Verifies cache hits/misses, LRU eviction, and TTL expiration.
  */
 
-import {
-  getTrackingCache,
-  setTrackingCache,
-  trackingAllowedCache,
-  __clearTrackingCache,
-} from '@/lib/services/tracking-cache';
+import { __clearTrackingCache, getTrackingCache, setTrackingCache, trackingAllowedCache } from '@/lib/services/tracking-cache';
 
 describe('tracking-cache', () => {
   beforeEach(() => {
@@ -213,36 +208,6 @@ describe('tracking-cache', () => {
     });
   });
 
-  describe('__clearTrackingCache', () => {
-    it('clears all cache entries', () => {
-      const expires = Date.now() + 5 * 60 * 1000;
-
-      setTrackingCache('user-1', { allowed: true, expires });
-      setTrackingCache('user-2', { allowed: false, expires });
-      setTrackingCache('user-3', { allowed: true, expires });
-
-      expect(trackingAllowedCache.size).toBe(3);
-
-      __clearTrackingCache();
-
-      expect(trackingAllowedCache.size).toBe(0);
-      expect(getTrackingCache('user-1')).toBeUndefined();
-      expect(getTrackingCache('user-2')).toBeUndefined();
-      expect(getTrackingCache('user-3')).toBeUndefined();
-    });
-
-    it('allows adding entries after clearing', () => {
-      const expires = Date.now() + 5 * 60 * 1000;
-
-      setTrackingCache('user-1', { allowed: true, expires });
-      __clearTrackingCache();
-
-      setTrackingCache('user-2', { allowed: false, expires });
-
-      expect(trackingAllowedCache.size).toBe(1);
-      expect(getTrackingCache('user-2')).toEqual({ allowed: false, expires });
-    });
-  });
 
   describe('edge cases', () => {
     it('handles rapid updates to same user', () => {

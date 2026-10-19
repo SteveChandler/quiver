@@ -84,7 +84,6 @@ describe("api-retry", () => {
     }
 
     expect(global.fetch).toHaveBeenCalledTimes(6);
-    expect(client.getServiceStatus().NOAA).toMatchObject({ state: "CLOSED", failureCount: 0 });
     expectConsoleWarnings([/No coverage for point/, /No coverage for point/, /No coverage for point/,
       /No coverage for point/, /No coverage for point/, /No coverage for point/]);
   });
@@ -114,10 +113,6 @@ describe("api-retry", () => {
       }
 
       expect(global.fetch).toHaveBeenCalledTimes(5);
-      expect(client.getServiceStatus()["CDIP:045"]).toMatchObject({
-        state: "CLOSED",
-        failureCount: 0,
-      });
       expect(errorLog).not.toHaveBeenCalled();
       errorLog.mockRestore();
       const warnings = (globalThis as { __quiverConsoleWarns?: string[] })
@@ -150,10 +145,6 @@ describe("api-retry", () => {
       });
 
       expect(global.fetch).toHaveBeenCalledTimes(3);
-      expect(client.getServiceStatus()["CDIP:045"]).toMatchObject({
-        state: "OPEN",
-        failureCount: 3,
-      });
     });
 
     it("opens the station breaker for CDIP abort/timeout failures", async () => {
@@ -205,8 +196,6 @@ describe("api-retry", () => {
         })
       ).resolves.toMatchObject({ ok: true, status: 200 });
 
-      expect(client.getServiceStatus()["CDIP:045"]).toMatchObject({ state: "OPEN" });
-      expect(client.getServiceStatus()["CDIP:067"]).toMatchObject({ state: "CLOSED" });
     });
   });
 });

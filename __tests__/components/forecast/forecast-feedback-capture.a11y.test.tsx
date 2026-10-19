@@ -37,7 +37,7 @@ describe("ForecastFeedbackCapture accessibility", () => {
 
     expect(wrapper).toHaveClass(
       "focus-within:ring-2",
-      "focus-within:ring-[#0B3A75]",
+      "focus-within:ring-[#11100D]",
     );
   });
 });

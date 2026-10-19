@@ -14,11 +14,12 @@ FLICKR_API_KEY=
 OPENVERSE_API_URL=https://api.openverse.org/v1/images/
 */
 
-import "dotenv/config";
-import fetch from "node-fetch";
+import "./load-default-env.mjs";
+import { setTimeout as delay } from "node:timers/promises";
 import { createClient } from "@supabase/supabase-js";
 import pLimit from "p-limit";
 import { requirePhotoReview } from "./lib/beach-photo-review";
+import { findPhotoPlaceConflict, type PlaceCatalogEntry } from "./lib/beach-photo-place-guard";
 
 type Beach = {
   id: string;
@@ -28,6 +29,7 @@ type Beach = {
   city?: string | null;
   state?: string | null;
   country?: string | null;
+  region?: string | null;
 };
 
 type PhotoRecord = {
@@ -174,14 +176,14 @@ async function getBeaches(): Promise<Beach[]> {
   if (BEACH_ID) {
     const { data, error } = await supabase
       .from("beaches")
-      .select("id,name,lat,lon,city,state,country")
+      .select("id,name,lat,lon,city,state,country,region")
       .eq("id", BEACH_ID);
     if (error) throw error;
     return (data as Beach[]) ?? [];
   }
   let query = supabase
     .from("beaches")
-    .select("id,name,lat,lon,city,state,country")
+    .select("id,name,lat,lon,city,state,country,region")
     .not("lat", "is", null)
     .not("lon", "is", null);
   if (ONLY) {
@@ -231,6 +233,16 @@ async function getBeaches(): Promise<Beach[]> {
   }
 
   return beaches;
+}
+
+async function getPlaceCatalog(): Promise<PlaceCatalogEntry[]> {
+  const { data, error } = await supabase
+    .from("beaches")
+    .select("name,city,state,region,lat,lon")
+    .is("deleted_at", null)
+    .limit(3000);
+  if (error) throw error;
+  return (data as PlaceCatalogEntry[]) ?? [];
 }
 
 function normalizeQuery(beach: Beach): string {
@@ -288,7 +300,7 @@ async function fetchOpenverse(beach: Beach, limit = LIMIT): Promise<PhotoRecord[
 
     if (res.status === 429) {
       console.warn(`Rate limited by Openverse for ${beach.name}, retrying in ${backoffMs}ms...`);
-      await new Promise((resolve) => setTimeout(resolve, backoffMs));
+      await delay(backoffMs);
       backoffMs *= 2;
       retries--;
       continue;
@@ -396,6 +408,8 @@ async function main() {
     return;
   }
 
+  const catalog = await getPlaceCatalog();
+
   // Limit concurrency to 2 requests at a time to respect rate limits
   const limit = pLimit(2);
 
@@ -411,7 +425,15 @@ async function main() {
           return [];
         });
 
-        const items: PhotoRecord[] = openverseResult;
+        // Keyword search returns photos of other places; drop any whose title
+        // names somewhere that is not this beach.
+        const items: PhotoRecord[] = openverseResult.filter((record) => {
+          const conflict = findPhotoPlaceConflict(record.title, beach, catalog);
+          if (conflict && VERBOSE) {
+            console.log(`[Openverse] Skipped "${record.title}" for ${beach.name}: names ${conflict}`);
+          }
+          return !conflict;
+        });
         const seen = new Set<string>();
 
         for (const record of items) {
@@ -423,7 +445,7 @@ async function main() {
         console.log(`Saved ${seen.size} photos for ${beach.name}.`);
 
         // Add delay between beaches to respect rate limits
-        await new Promise((resolve) => setTimeout(resolve, 800));
+        await delay(800);
       } catch (err) {
         console.error(`Error on ${beach.name}:`, err);
       }

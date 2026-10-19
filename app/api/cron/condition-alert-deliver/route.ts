@@ -1,6 +1,6 @@
 // app/api/cron/condition-alert-deliver/route.ts
 //
-// Delivery cron — runs hourly (`0 * * * *`).
+// Delivery cron — runs hourly at :02 (`2 * * * *`), off the minute-0 pile-up.
 // Reads due items from alert_queue, consolidates per user, sends email + push.
 // Cadence relaxed from `*/15 * * * *` on 2026-05-02 — initial-rollout latency budget is
 // 60 min from evaluator → delivery, acceptable for surf condition alerts.
@@ -32,7 +32,7 @@ import {
   buildConditionsLine,
   ConsolidatedAlertEmail,
 } from "@/lib/mailer/templates/ConsolidatedAlertEmail";
-import { createEmailLogger } from "@/lib/services/email-logging-service";
+import { logEmailDelivery } from "@/lib/services/email-logging-service";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
 import {
   consolidateQueueItems,
@@ -89,7 +89,9 @@ const QUEUE_MARK_REASONS = [
   "stale",
   "below_score_floor",
   "major_event_hold",
+  "contact_policy_hold",
   "canonical_safety_rejected",
+  "canonical_decision:verdict_no",
   "shadow_withheld",
   "delivery_disabled",
   "allowlist_excluded",
@@ -473,8 +475,8 @@ export async function GET(request: Request): Promise<NextResponse> {
 
   async function refreshQueueItemFromLatestForecasts(
     item: QueueItemWithMeta,
-  ): Promise<QueueItemWithMeta | null> {
-    if (!item.conditions || !item.beach_meta) return item;
+  ): Promise<{ item: QueueItemWithMeta | null; diagnostic?: string }> {
+    if (!item.conditions || !item.beach_meta) return { item };
 
     const { start, end } = getUtcDayBounds(
       item.alert_date,
@@ -493,36 +495,39 @@ export async function GET(request: Request): Promise<NextResponse> {
         `${CONTEXT_TAG} forecast revalidation failed for queue ${item.id}; using queued snapshot:`,
         error.message,
       );
-      return item;
+      return { item };
     }
 
-    if (!forecastRows || forecastRows.length === 0) return item;
+    if (!forecastRows || forecastRows.length === 0) return { item };
 
     const hourly = isAlertHourlyWindowsEnabledFor(item.user_id);
     const tideSamples = hourly
       ? await loadAlertTideSamples(supabase as unknown as AlertTideClient, item.beach_id, start, end)
       : null;
-    const freshWindow = selectFreshAlertWindow({
+    const { window: freshWindow, diagnostic } = selectFreshAlertWindow({
       conditions: item.conditions,
       forecastRows: forecastRows as EnhancedForecastAlertRow[],
       beach: item.beach_meta,
+      diagnosticAt: item.best_hour,
       hourly,
       tideSamples,
     });
-    if (!freshWindow) return null;
+    if (!freshWindow) return { item: null, diagnostic };
 
     return {
-      ...item,
-      window_start: freshWindow.window_start,
-      window_end: freshWindow.window_end,
-      best_hour: freshWindow.best_hour,
-      forecast_id: freshWindow.forecast_id,
-      best_score: freshWindow.best_score,
-      conditions_snapshot: {
-        ...freshWindow.conditions_snapshot,
-        ...(freshWindow.forecast_id
-          ? { forecast_id: freshWindow.forecast_id }
-          : {}),
+      item: {
+        ...item,
+        window_start: freshWindow.window_start,
+        window_end: freshWindow.window_end,
+        best_hour: freshWindow.best_hour,
+        forecast_id: freshWindow.forecast_id,
+        best_score: freshWindow.best_score,
+        conditions_snapshot: {
+          ...freshWindow.conditions_snapshot,
+          ...(freshWindow.forecast_id
+            ? { forecast_id: freshWindow.forecast_id }
+            : {}),
+        },
       },
     };
   }
@@ -781,6 +786,11 @@ export async function GET(request: Request): Promise<NextResponse> {
               deliberateReasons.add("major_event_hold");
             } else if (
               attempt.status === "skipped_disabled" &&
+              attempt.skipReason?.startsWith("Contact held: ")
+            ) {
+              deliberateReasons.add("contact_policy_hold");
+            } else if (
+              attempt.status === "skipped_disabled" &&
               attempt.skipReason?.startsWith("canonical_decision:")
             ) {
               deliberateReasons.add("canonical_safety_rejected");
@@ -915,9 +925,9 @@ export async function GET(request: Request): Promise<NextResponse> {
         );
 
         const items: QueueItemWithMeta[] = [];
-        const staleItems: QueueItemWithMeta[] = [];
+        const staleItems: Array<{ item: QueueItemWithMeta; skipReason: string }> = [];
         for (const item of forecastItems) {
-          const refreshed = await refreshQueueItemFromLatestForecasts(item);
+          const { item: refreshed, diagnostic } = await refreshQueueItemFromLatestForecasts(item);
           if (refreshed && Date.parse(refreshed.window_end) > Date.now()) {
             const persisted = await persistRefreshedQueueItem(refreshed);
             if (!persisted) {
@@ -936,12 +946,17 @@ export async function GET(request: Request): Promise<NextResponse> {
             }
             items.push(refreshed);
           } else {
-            staleItems.push(item);
+            staleItems.push({
+              item,
+              skipReason: refreshed
+                ? `window_ended_unrevalidated:window_end=${refreshed.window_end}`
+                : `no_matching_window${diagnostic ? `:${diagnostic}` : ""}`,
+            });
           }
         }
 
         if (staleItems.length > 0) {
-          for (const item of staleItems) {
+          for (const { item, skipReason } of staleItems) {
             for (const channel of enabledChannels(item)) {
               await recordAttempt({
                 queueId: item.id,
@@ -949,12 +964,11 @@ export async function GET(request: Request): Promise<NextResponse> {
                 userId: item.user_id,
                 channel,
                 status: "skipped_stale_forecast",
-                skipReason:
-                  "alert window expired or fresh forecast no longer matches the queued alert rule",
+                skipReason,
               });
             }
           }
-          const marked = await markQueueItemsConsumed(staleItems, "stale");
+          const marked = await markQueueItemsConsumed(staleItems.map(({ item }) => item), "stale");
           if (marked) result.skippedStale += staleItems.length;
         }
 
@@ -963,6 +977,19 @@ export async function GET(request: Request): Promise<NextResponse> {
             parseQueuedBestScore(item.best_score) < ALERT_MIN_DELIVERABLE_SCORE,
         );
         if (lowScoreItems.length > 0) {
+          for (const item of lowScoreItems) {
+            for (const channel of enabledChannels(item)) {
+              await recordAttempt({
+                queueId: item.id,
+                ruleId: item.rule_id,
+                userId: item.user_id,
+                channel,
+                // The status CHECK excludes a dedicated below-floor status.
+                status: "skipped_disabled",
+                skipReason: `below_score_floor:score=${parseQueuedBestScore(item.best_score)}<floor ${ALERT_MIN_DELIVERABLE_SCORE}`,
+              });
+            }
+          }
           await markQueueItemsConsumed(lowScoreItems, "below_score_floor");
         }
         const scoreEligibleItems = items.filter(
@@ -1026,15 +1053,9 @@ export async function GET(request: Request): Promise<NextResponse> {
         );
 
         // 4. Resolve active operator holds and record the canonical decision
-        // for shadow observability. The user's matched rules remain the
-        // delivery candidates regardless of verdict or skill eligibility.
+        // for shadow observability before applying delivery gates.
         const deliverableItems: QueueItemWithMeta[] = [];
-        const itemsByUser = new Map<string, QueueItemWithMeta[]>();
-        for (const item of scoreEligibleItems) {
-          const userItems = itemsByUser.get(item.user_id) ?? [];
-          userItems.push(item);
-          itemsByUser.set(item.user_id, userItems);
-        }
+        const itemsByUser = Map.groupBy(scoreEligibleItems, (item) => item.user_id);
 
         for (const [userId, userItems] of itemsByUser) {
           const profile = profilesByUser.get(userId);
@@ -1091,7 +1112,6 @@ export async function GET(request: Request): Promise<NextResponse> {
           const unheldItems = userItems.filter(
             (item) => !heldCandidateIds.has(canonicalAlertCandidateId(item)),
           );
-          deliverableItems.push(...unheldItems);
 
           for (const item of heldItems) {
             for (const channel of enabledChannels(item)) {
@@ -1111,12 +1131,32 @@ export async function GET(request: Request): Promise<NextResponse> {
             }
           }
           await markQueueItemsConsumed(heldItems, "major_event_hold");
+
+          const verdictNoItems = forecastDeliveryEnabled && decision.verdict === "no"
+            ? unheldItems.filter((item) => {
+                const reason = item.conditions_snapshot.beginner_window_reason;
+                return typeof reason !== "string" || reason.trim().length === 0;
+              })
+            : [];
+          for (const item of verdictNoItems) {
+            for (const channel of enabledChannels(item)) {
+              await recordAttempt({
+                queueId: item.id,
+                ruleId: item.rule_id,
+                userId,
+                channel,
+                status: "skipped_disabled",
+                skipReason: "canonical_decision:verdict_no",
+              });
+            }
+          }
+          await markQueueItemsConsumed(verdictNoItems, "canonical_decision:verdict_no");
+          deliverableItems.push(...unheldItems.filter((item) => !verdictNoItems.includes(item)));
         }
 
         const payloads = consolidateQueueItems(deliverableItems);
         const baseUrl = getBaseUrl();
         const rateLimiter = createResendRateLimiter();
-        const emailLogger = createEmailLogger(supabase, CONTEXT_TAG);
 
         for (const payload of payloads) {
           const payloadBeachId = payload.matches[0]?.beach_id ?? null;
@@ -1449,21 +1489,25 @@ export async function GET(request: Request): Promise<NextResponse> {
                       }
                       result.emailQuietHoursSkipped += emailSurvivors.length;
                     } else if (sendError) {
-                      console.error(
-                        `${CONTEXT_TAG} Email send failed for user ${payload.user_id}:`,
-                        sendError,
-                      );
-                      result.errors++;
                       const errorMessage =
                         (sendError as { message?: string })?.message ??
                         String(sendError);
+                      const contactHeld = errorMessage.startsWith("Contact held: ");
+                      if (!contactHeld) {
+                        console.error(
+                          `${CONTEXT_TAG} Email send failed for user ${payload.user_id}:`,
+                          sendError,
+                        );
+                        result.errors++;
+                      }
                       for (const item of emailSurvivors) {
                         await recordAttempt({
                           queueId: item.id,
                           ruleId: item.rule_id,
                           userId: payload.user_id,
                           channel: "email",
-                          status: "failed_provider",
+                          // The CHECK has no contact-policy status; keep the reason in skip_reason.
+                          status: contactHeld ? "skipped_disabled" : "failed_provider",
                           skipReason: errorMessage,
                           messageInstanceId,
                         });
@@ -1504,7 +1548,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                           });
                         }
                       } else {
-                        await emailLogger.logDelivery({
+                        await logEmailDelivery(supabase, {
                           userId: payload.user_id,
                           emailType: "conditions_alert",
                           messageInstanceId,

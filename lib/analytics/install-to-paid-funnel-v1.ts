@@ -2,6 +2,7 @@ import {
   isPaidLifetimeProductId,
   isPromotionalProductId,
 } from "@/lib/subscription/revenuecat-products";
+import { INTERNAL_ANALYTICS_PROFILE_IDS, localDate } from "@/lib/analytics/report-guards";
 
 export const INSTALL_TO_PAID_SCHEMA_VERSION = "install_to_paid.v1" as const;
 const HOUR_MS = 3_600_000;
@@ -59,12 +60,7 @@ export const MEANINGFUL_ACTIVITY_EVENTS = new Set<string>([
   "session_log_start",
 ]);
 
-const EXCLUDED_PROFILE_IDS = new Set<string>([
-  "73040cff-afe9-4fa0-a874-2016203fc015",
-  "c15c2ab3-275c-49d1-ac4f-dcc493db0653",
-]);
-
-export const UNKNOWN_JOIN_REASONS = [
+const UNKNOWN_JOIN_REASONS = [
   "first_open_never_linked",
   "posthog_person_not_merged",
   "missing_or_ineligible_profile",
@@ -215,9 +211,9 @@ function isExcludedEvent(event: InstallBehaviorEvent): string | null {
   return null;
 }
 
-function profileExclusion(profile: InstallProfile | undefined): string | null {
+function profileExclusion(profile: InstallProfile | undefined, userId: string): string | null {
+  if (INTERNAL_ANALYTICS_PROFILE_IDS.has(userId)) return "founder_or_maestro";
   if (!profile) return "missing_profile";
-  if (EXCLUDED_PROFILE_IDS.has(profile.id)) return "founder_or_maestro";
   if (profile.deletedAt) return "deleted_profile";
   if (profile.isMock === true) return "mock_profile";
   if (profile.isSystemAccount === true) return "system_account";
@@ -329,7 +325,7 @@ export function buildInstallToPaidRows(input: InstallToPaidInput): InstallToPaid
     const userId = links.get(nativeInstallId) ?? null;
     const profile = userId ? profiles.get(userId) : undefined;
     const eventExclusion = isExcludedEvent(install);
-    const profileExcluded = userId ? profileExclusion(profile) : null;
+    const profileExcluded = userId ? profileExclusion(profile, userId) : null;
     const exclusionReason = eventExclusion ?? (profileExcluded === "missing_profile" ? null : profileExcluded);
     const personEvents = input.behaviorEvents.filter(
       (event) => event.personId === install.personId
@@ -437,9 +433,300 @@ export function buildInstallToPaidRows(input: InstallToPaidInput): InstallToPaid
   });
 }
 
-export function countMatureDenominator(
+export const INSTALL_TO_PAID_AGGREGATES_SCHEMA_VERSION = "install_to_paid_aggregates.v1" as const;
+
+export interface InstallDimensions {
+  platform: string;
+  acquisitionSource: string;
+  acquisitionSurface: string;
+  experimentVariant: string;
+  paywallSource: string;
+  trialPlan: string;
+  trialProductId: string | null;
+}
+
+export type InstallDimensionsByInstall = Record<string, InstallDimensions>;
+export type AggregateStage = "nativeInstall" | keyof InstallMilestones;
+export interface AggregateRate {
+  numerator: number;
+  denominator: number;
+  rate: number | null;
+}
+export interface AggregateStageCounts {
+  true: number;
+  false: number;
+  unknown: number;
+  immature: number;
+  notApplicable: number;
+  rate: AggregateRate;
+  lowerBoundRate: AggregateRate;
+  unknownShare: AggregateRate;
+}
+export interface InstallAggregateGroup {
+  value: string;
+  installs: number;
+  eligibleInstalls: number;
+  excluded: Record<string, number>;
+  joinStatus: Record<JoinStatus, number>;
+  unknownJoinReason: Record<string, number>;
+  stages: Record<AggregateStage, AggregateStageCounts>;
+}
+export interface InstallToPaidAggregates {
+  schemaVersion: typeof INSTALL_TO_PAID_AGGREGATES_SCHEMA_VERSION;
+  window: { startDate: string; endDate: string; start: string; end: string; timeZone: string };
+  asOf: string;
+  sourceFreshness: SourceFreshness & {
+    posthogLatestEventAt?: string | null;
+    userEventsLatestAt?: string | null;
+    profilesLatestAt?: string | null;
+    failedWebhooksLatestAt?: string | null;
+  };
+  maturityHours: { d1Return: 48; d7Return: 192; verifiedTrial: number; d30Paid: 720 };
+  overall: InstallAggregateGroup;
+  cohortWeeks: InstallAggregateGroup[];
+  breakdowns: Record<"platform" | "acquisitionSource" | "experimentVariant" | "paywallSource" | "trialPlan" | "platformByExperimentVariant", InstallAggregateGroup[]>;
+  ascDownloads: { joinPolicy: "aggregate_only_never_person_joined"; downloads: number | null };
+}
+
+const AGGREGATE_STAGES: AggregateStage[] = [
+  "nativeInstall", "signup", "homeActivated", "firstDecisionLoop", "d1Return",
+  "d7Return", "paywallViewed", "verifiedTrial", "d30Paid",
+];
+
+function dimensionValue(value: unknown): string {
+  return typeof value === "string" && value.trim() ? value.trim() : "unknown";
+}
+
+function trialPlan(productId: string): string {
+  const id = productId.toLowerCase();
+  if (id.includes("annual") || id.includes("year")) return "annual";
+  if (id.includes("month")) return "monthly";
+  if (id.includes("lifetime")) return "lifetime";
+  return "other";
+}
+
+type AggregateMilestoneStatus = MilestoneStatus | "notApplicable";
+
+function trialWindowHours(days = 7): number {
+  if (!Number.isSafeInteger(days) || days < 1) throw new Error("trialWindowDays must be a positive integer");
+  return days * 24;
+}
+
+function firstAggregateTrial(
+  row: InstallToPaidRow,
+  ledger: RevenueCatLedgerEvent[],
+  asOfMs: number,
+  windowHours: number,
+): RevenueCatLedgerEvent | undefined {
+  if (!row.userId) return undefined;
+  const installedMs = Date.parse(row.installedAt);
+  return ledger.filter((event) => event.appUserId === row.userId
+    && event.environment === "PRODUCTION" && event.eventType === "INITIAL_PURCHASE"
+    && event.periodType === "TRIAL"
+    && Date.parse(event.eventTimestamp) >= installedMs
+    && Date.parse(event.eventTimestamp) < installedMs + windowHours * HOUR_MS
+    && Date.parse(event.eventTimestamp) <= asOfMs)
+    .sort((a, b) => a.eventTimestamp.localeCompare(b.eventTimestamp)
+      || a.providerEventId.localeCompare(b.providerEventId))[0];
+}
+
+function buildAggregateStatuses(
   rows: InstallToPaidRow[],
-  milestone: keyof InstallMilestones,
-): number {
-  return rows.filter((row) => ["true", "false"].includes(row.milestones[milestone])).length;
+  ledger: RevenueCatLedgerEvent[],
+  asOf: string,
+  windowHours: number,
+): {
+  statuses: Map<string, Record<AggregateStage, AggregateMilestoneStatus>>;
+  trials: Map<string, RevenueCatLedgerEvent>;
+} {
+  const asOfMs = Date.parse(asOf);
+  const seen = new Set<string>();
+  const statuses = new Map<string, Record<AggregateStage, AggregateMilestoneStatus>>();
+  const trials = new Map<string, RevenueCatLedgerEvent>();
+  for (const row of [...rows].sort((a, b) => a.installedAt.localeCompare(b.installedAt)
+    || a.nativeInstallId.localeCompare(b.nativeInstallId))) {
+    if (row.joinStatus === "excluded") continue;
+    const trial = firstAggregateTrial(row, ledger, asOfMs, windowHours);
+    if (trial) trials.set(row.nativeInstallId, trial);
+    const values: Record<AggregateStage, AggregateMilestoneStatus> = { nativeInstall: "true", ...row.milestones };
+    if (row.excludedFromInstallToSignup && !row.exclusionReason) values.signup = "notApplicable";
+    values.verifiedTrial = row.joinStatus === "exact" && row.milestones.verifiedTrial !== "unknown"
+      ? boolStatus(Boolean(trial)) : "unknown";
+    for (const stage of AGGREGATE_STAGES) {
+      if (stage === "nativeInstall") continue;
+      const maturityHours = stage === "d1Return" ? 48 : stage === "d7Return" ? 192
+        : stage === "verifiedTrial" ? windowHours : stage === "d30Paid" ? 720 : 0;
+      if (maturityHours && asOfMs < Date.parse(row.installedAt) + maturityHours * HOUR_MS) {
+        values[stage] = "immature";
+        continue;
+      }
+      const firstAtKey = {
+        signup: "signup", homeActivated: "home_activated", firstDecisionLoop: "first_decision_loop",
+        d1Return: "d1_return", d7Return: "d7_return", paywallViewed: "paywall_viewed",
+        verifiedTrial: "verified_trial", d30Paid: "d30_paid",
+      }[stage];
+      const eventAt = stage === "verifiedTrial" ? trial?.eventTimestamp : row.firstQualifiedAt[firstAtKey];
+      if (values[stage] !== "true" || !row.userId || !eventAt) continue;
+      const conversionKey = `${row.userId}\u0000${stage}\u0000${eventAt}`;
+      if (seen.has(conversionKey)) values[stage] = "unknown";
+      else seen.add(conversionKey);
+    }
+    statuses.set(row.nativeInstallId, values);
+  }
+  return { statuses, trials };
+}
+
+/** Derive attribution from the same events and ledger used by the row builder. */
+export function buildInstallDimensions(
+  input: InstallToPaidInput,
+  rows: InstallToPaidRow[] = buildInstallToPaidRows(input),
+  opts: { trialWindowDays?: number } = {},
+): InstallDimensionsByInstall {
+  const asOfMs = Date.parse(input.asOf);
+  const trialStatus = buildAggregateStatuses(rows, input.revenueCatEvents, input.asOf,
+    trialWindowHours(opts.trialWindowDays));
+  const firstOpens = input.behaviorEvents
+    .filter((event) => event.event === "native_app_first_open")
+    .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+  return Object.fromEntries(rows.map((row): [string, InstallDimensions] => {
+    const anchor = firstOpens.find((event) =>
+      event.nativeInstallId === row.nativeInstallId && event.timestamp === row.installedAt
+      && !isExcludedEvent(event))
+      ?? input.behaviorEvents.find((event) =>
+        event.nativeInstallId === row.nativeInstallId && event.timestamp === row.installedAt);
+    const personId = anchor?.personId;
+    const nextOpenMs = firstOpens
+      .filter((event) => event.personId === personId && event.nativeInstallId !== row.nativeInstallId
+        && Date.parse(event.timestamp) > Date.parse(row.installedAt))
+      .map((event) => Date.parse(event.timestamp))[0] ?? Infinity;
+    const installEvents = input.behaviorEvents
+      .filter((event) => event.personId === personId)
+      .filter((event) => Date.parse(event.timestamp) >= Date.parse(row.installedAt)
+        && Date.parse(event.timestamp) < nextOpenMs
+        && Date.parse(event.timestamp) <= asOfMs && !isExcludedEvent(event))
+      .filter((event) => !event.nativeInstallId || event.nativeInstallId === row.nativeInstallId)
+      .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+    const exposure = installEvents.find((event) =>
+      event.properties?.experiment === "onboarding_monetization_v1"
+      || dimensionValue(event.properties?.onboarding_variant) !== "unknown");
+    const paywall = installEvents.find((event) =>
+      event.event === "paywall_opened" || event.event === "onboarding_paywall_viewed");
+    const attributionEvents = input.behaviorEvents.filter((event) =>
+      event.event === "native_install_attribution_joined"
+      && Date.parse(event.timestamp) >= Date.parse(row.installedAt)
+      && Date.parse(event.timestamp) <= asOfMs && !isExcludedEvent(event))
+      .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+    const attribution = attributionEvents.find((event) => event.nativeInstallId === row.nativeInstallId)
+      ?? attributionEvents.find((event) => !event.nativeInstallId && event.personId === personId
+        && Date.parse(event.timestamp) < nextOpenMs);
+    const source = dimensionValue(attribution?.properties?.acquisition_source);
+    const outcome = dimensionValue(attribution?.properties?.install_attribution_outcome);
+    const anchorOutcome = dimensionValue(anchor?.properties?.install_attribution_outcome);
+    const verifiedTrial = trialStatus.statuses.get(row.nativeInstallId)?.verifiedTrial === "true";
+    const product = verifiedTrial ? trialStatus.trials.get(row.nativeInstallId)?.productId ?? null : null;
+    const rawPlatform = dimensionValue(anchor?.properties?.platform).toLowerCase();
+    const platform = rawPlatform === "ios" || rawPlatform === "native-ios" ? "ios"
+      : rawPlatform === "android" || rawPlatform === "native-android" ? "android" : "unknown";
+    return [row.nativeInstallId, {
+      platform,
+      acquisitionSource: source !== "unknown" ? source
+        : outcome !== "unknown" ? `outcome:${outcome}`
+          : anchorOutcome !== "unknown" ? `outcome:${anchorOutcome}` : "unknown",
+      acquisitionSurface: dimensionValue(anchor?.properties?.acquisition_surface),
+      experimentVariant: dimensionValue(exposure?.properties?.onboarding_variant),
+      paywallSource: paywall ? dimensionValue(paywall.properties?.source) : "none",
+      trialPlan: verifiedTrial ? product ? trialPlan(product) : "unknown" : "none",
+      trialProductId: product,
+    }];
+  }));
+}
+
+function rate(numerator: number, denominator: number): AggregateRate {
+  return { numerator, denominator, rate: denominator ? numerator / denominator : null };
+}
+
+function cohortWeek(installedAt: string, timeZone: string): string {
+  const day = localDate(new Date(installedAt), timeZone);
+  const instant = new Date(`${day}T00:00:00.000Z`);
+  const daysSinceMonday = (instant.getUTCDay() + 6) % 7;
+  instant.setUTCDate(instant.getUTCDate() - daysSinceMonday);
+  return instant.toISOString().slice(0, 10);
+}
+
+export function buildInstallToPaidAggregates(
+  rows: InstallToPaidRow[],
+  dimensionsByInstall: InstallDimensionsByInstall,
+  opts: {
+    asOf: string;
+    trialWindowDays?: number;
+    revenueCatEvents: RevenueCatLedgerEvent[];
+    window: InstallToPaidAggregates["window"];
+    sourceFreshness: InstallToPaidAggregates["sourceFreshness"];
+    ascDownloads?: number | null;
+  },
+): InstallToPaidAggregates {
+  const windowHours = trialWindowHours(opts.trialWindowDays);
+  const status = buildAggregateStatuses(rows, opts.revenueCatEvents, opts.asOf, windowHours);
+  const group = (value: string, groupRows: InstallToPaidRow[]): InstallAggregateGroup => {
+    const stages = Object.fromEntries(AGGREGATE_STAGES.map((stage) => {
+      const counts = { true: 0, false: 0, unknown: 0, immature: 0, notApplicable: 0 };
+      for (const row of groupRows) {
+        if (row.joinStatus === "excluded") continue;
+        counts[status.statuses.get(row.nativeInstallId)?.[stage] ?? "unknown"] += 1;
+      }
+      return [stage, { ...counts, rate: rate(counts.true, counts.true + counts.false),
+        lowerBoundRate: rate(counts.true, counts.true + counts.false + counts.unknown),
+        unknownShare: rate(counts.unknown, counts.true + counts.false + counts.unknown) }];
+    })) as Record<AggregateStage, AggregateStageCounts>;
+    const excluded: Record<string, number> = {};
+    const unknownJoinReason: Record<string, number> = {};
+    const joinStatus = { exact: 0, unknown: 0, excluded: 0 };
+    for (const row of groupRows) {
+      joinStatus[row.joinStatus] += 1;
+      if (row.exclusionReason) excluded[row.exclusionReason] = (excluded[row.exclusionReason] ?? 0) + 1;
+      if (row.unknownJoinReason) {
+        unknownJoinReason[row.unknownJoinReason] = (unknownJoinReason[row.unknownJoinReason] ?? 0) + 1;
+      }
+    }
+    return { value, installs: groupRows.length,
+      eligibleInstalls: groupRows.filter((row) => row.joinStatus !== "excluded" && !row.excludedFromInstallToSignup).length,
+      excluded, joinStatus, unknownJoinReason, stages };
+  };
+  const grouped = (getValue: (row: InstallToPaidRow) => string): InstallAggregateGroup[] => {
+    const buckets = new Map<string, InstallToPaidRow[]>();
+    for (const row of rows) {
+      const value = getValue(row);
+      buckets.set(value, [...(buckets.get(value) ?? []), row]);
+    }
+    return [...buckets.entries()].sort(([a], [b]) => a.localeCompare(b))
+      .map(([value, bucket]) => group(value, bucket));
+  };
+  const dimension = (row: InstallToPaidRow): InstallDimensions => {
+    const values = dimensionsByInstall[row.nativeInstallId]
+      ?? { platform: "unknown", acquisitionSource: "unknown", acquisitionSurface: "unknown",
+        experimentVariant: "unknown", paywallSource: "unknown", trialPlan: "none", trialProductId: null };
+    const verifiedTrial = status.statuses.get(row.nativeInstallId)?.verifiedTrial === "true";
+    const product = verifiedTrial ? status.trials.get(row.nativeInstallId)?.productId ?? null : null;
+    return { ...values, trialPlan: verifiedTrial ? product ? trialPlan(product) : "unknown" : "none",
+      trialProductId: product };
+  };
+  return {
+    schemaVersion: INSTALL_TO_PAID_AGGREGATES_SCHEMA_VERSION,
+    window: opts.window,
+    asOf: opts.asOf,
+    sourceFreshness: opts.sourceFreshness,
+    maturityHours: { d1Return: 48, d7Return: 192, verifiedTrial: windowHours, d30Paid: 720 },
+    overall: group("overall", rows),
+    cohortWeeks: grouped((row) => cohortWeek(row.installedAt, opts.window.timeZone)),
+    breakdowns: {
+      platform: grouped((row) => dimension(row).platform),
+      acquisitionSource: grouped((row) => dimension(row).acquisitionSource),
+      experimentVariant: grouped((row) => dimension(row).experimentVariant),
+      paywallSource: grouped((row) => dimension(row).paywallSource),
+      trialPlan: grouped((row) => dimension(row).trialPlan),
+      platformByExperimentVariant: grouped((row) =>
+        `${dimension(row).platform} × ${dimension(row).experimentVariant}`),
+    },
+    ascDownloads: { joinPolicy: "aggregate_only_never_person_joined", downloads: opts.ascDownloads ?? null },
+  };
 }

@@ -27,6 +27,8 @@ import { isFutureDayInTimezone } from '@/lib/utils/condition-tier-utils';
 import { checkBoardFit } from '@/lib/domains/scoring/discovery-adapter';
 import type { BoardClass, SkillLevel } from '@/lib/domains/user-preferences';
 import type { RecommendationAvailability } from '@/lib/recommendations/major-event-hold/types';
+import { runWithWaterQualityReadScope } from '@/lib/recommendations/major-event-hold/read-scope';
+import { resolveWaterQualityHolds, type WaterQualityHoldResolution } from '@/lib/recommendations/major-event-hold/water-quality';
 import { resolveScopedRecommendationAvailability } from '@/lib/services/discovery/discovery-availability';
 import { loadNowRecommendation } from '@/lib/services/discovery/now-recommendation';
 import {
@@ -34,6 +36,7 @@ import {
   resolveForecastAlignment,
   type SurfCallForecastAlignment,
 } from '@/lib/services/discovery/forecast-alignment';
+import { retryAfterSeconds } from '@/lib/utils/retry-after';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 15;
@@ -45,11 +48,15 @@ const QuerySchema = z.object({
 });
 
 type CanonicalSurfCallResponse = SpotSurfReportResult & {
+  waterQuality: SurfCallWaterQuality;
   sessionDecision: CanonicalSessionDecision;
+  candidateRejection: CanonicalSessionDecision['candidateRejection'];
   forecastAlignment?: SurfCallForecastAlignment;
   recommendedBoard?: SurfDiscoveryRecommendation["recommendedBoard"];
   boardPick?: SurfDiscoveryRecommendation["boardPick"];
   conditionLabel?: CanonicalSessionDecision["conditionLabel"];
+  /** Public forecast window retained separately when no personalized window was selected. */
+  objectiveWindow?: { start: string; end: string } | null;
   firstLight?: string;
   lastLight?: string;
   isDark?: boolean;
@@ -67,6 +74,32 @@ type CanonicalSurfCallResponse = SpotSurfReportResult & {
    */
   nowRecommendation?: SurfDiscoveryRecommendation | null;
 };
+
+type SurfCallWaterQuality = {
+  status: 'advisory' | 'closure' | 'hold';
+  source: 'county' | 'sample' | 'hold';
+  countyKind?: 'general' | 'site';
+  checkedAt?: string;
+  sampleDate?: string;
+  rainAdvisory?: { startedAt: string; lastRainAt: string | null; expiresAt: string };
+} | null;
+
+function surfCallWaterQuality(
+  resolution: WaterQualityHoldResolution,
+  beachId: string,
+): SurfCallWaterQuality {
+  beachId = beachId.toLowerCase();
+  if (resolution.state !== 'resolved' || !resolution.heldBeachIds.includes(beachId)) return null;
+  const evidence = resolution.waterQualityEvidenceByBeachId?.[beachId];
+  const status = resolution.waterQualityStatusByBeachId[beachId] ?? 'hold';
+  if (evidence?.source === 'county') return { status, source: 'county',
+    ...(evidence.countyKind ? { countyKind: evidence.countyKind } : {}),
+    ...(evidence.countyKind === 'general' && evidence.rainAdvisory ? { rainAdvisory: evidence.rainAdvisory } : {}),
+    ...(evidence.checkedAt ? { checkedAt: evidence.checkedAt } : {}) };
+  if (evidence?.source === 'sample') return { status, source: 'sample',
+    ...(evidence.sampleDate ? { sampleDate: evidence.sampleDate } : {}) };
+  return { status, source: 'hold' };
+}
 
 type RecommendationGateBeach = Beach & {
   recommendation_eligible?: boolean;
@@ -97,6 +130,7 @@ function applyRecommendationEligibilityGate(
 
   return {
     ...result,
+    candidateRejection: null,
     isTomorrow: false,
     forecastContext: null,
     ...(result.nowRecommendation !== undefined ? { nowRecommendation: null } : {}),
@@ -119,6 +153,7 @@ function applyRecommendationEligibilityGate(
       decisionBasis: 'safety_override',
       decisionBasisV2: 'safety_override',
       reasonCode: 'invalid_candidate',
+      candidateRejection: null,
       selection: null,
       skillEligibility: {
         ...result.sessionDecision.skillEligibility,
@@ -149,7 +184,10 @@ function retryableDiscoveryResponse(error: unknown): NextResponse {
       code,
       retryable: true,
     },
-    { status: code === 'timeout' ? 504 : 503 },
+    {
+      status: code === 'timeout' ? 504 : 503,
+      headers: { 'Retry-After': String(retryAfterSeconds()) },
+    },
   );
 }
 
@@ -184,26 +222,74 @@ function appendBoardNote(whySentence: string, boardNote: string | null): string 
   return whySentence ? `${whySentence} ${sentence}` : sentence;
 }
 
-function safetyReason(decision: CanonicalSessionDecision): string {
+function safetyReason(decision: CanonicalSessionDecision, beachName: string): string {
+  const rejection = decision.candidateRejection;
+  const waterQualityReason = rejection?.observed?.status === 'advisory'
+    ? `Water quality is under an advisory at ${beachName}; an open status is required.`
+    : rejection?.observed?.status === 'closure' || decision.reasonCode === 'water_quality_closure'
+      ? `Water quality is closed at ${beachName}; an open status is required.`
+      : `Water quality is on hold at ${beachName}; an open status is required.`;
+  if (decision.reasonCode === 'no_candidates' && rejection) {
+    switch (rejection.gate) {
+      case 'forecast_rows':
+        return `Forecast data for ${beachName} is not available yet.`;
+      case 'past_forecast':
+        return `No future forecast hours are available for ${beachName}.`;
+      case 'forecast_alignment':
+        return `No forecast row for ${beachName} matches the requested hour.`;
+      case 'daylight':
+        return `No forecast hours for ${beachName} fall in daylight within the requested horizon.`;
+      case 'horizon':
+        return `The next forecast hour for ${beachName} is ${Math.round(rejection.observed?.hoursAhead ?? 0)} hours ahead, beyond the ${rejection.allowed?.maximumHoursAhead ?? 24}-hour horizon.`;
+      case 'score_floor':
+        return `Forecast score ${rejection.observed?.score ?? 'unknown'} for ${beachName} is below the window threshold of ${rejection.allowed?.minimumScore ?? 'unknown'}.`;
+      case 'session_duration':
+        return `The ${rejection.observed?.durationHours?.toFixed(1) ?? 'available'}-hour window for ${beachName} is shorter than the ${rejection.allowed?.minimumDurationHours ?? 1}-hour minimum.`;
+      case 'window_selection':
+        return `No forecast window for ${beachName} passed window selection.`;
+      case 'water_quality_hold':
+        return waterQualityReason;
+      case 'candidate_pool':
+        return rejection.detail === 'Beach location unavailable'
+          ? `Location data for ${beachName} is unavailable.`
+          : `${beachName} was not available in the forecast candidate pool.`;
+      case 'time_slot':
+        return `No forecast hours for ${beachName} match the requested time slot.`;
+      case 'skill_gate':
+        return `No window for ${beachName} passed the recommendation skill gate.`;
+      case 'saved_spot_eligibility':
+        return `No saved-spot window for ${beachName} met the recommendation threshold.`;
+      case 'ranking':
+        return `${beachName} did not remain in the ranked candidates.`;
+    }
+  }
   switch (decision.reasonCode) {
     case 'water_quality_closure':
-      return 'Water quality is closed at this spot.';
+      return waterQualityReason;
     case 'major_event_hold':
-      return 'This call is paused while major-event conditions are unresolved.';
+      return 'Major-event conditions are unresolved.';
     case 'beach_skill_exceeds_user':
-      return 'This break is above your current skill level.';
+      return `This break requires ${rejection?.observed?.skill ?? 'a higher skill level'}; your profile is ${rejection?.allowed?.skill ?? decision.skillEligibility.skill}.`;
     case 'wave_height_exceeds_skill':
-      return 'The forecast wave height is above your current skill range.';
+      if (rejection?.observed?.waveHeightFt !== undefined && rejection.allowed?.minimumWaveHeightFt !== undefined && rejection.allowed.maximumWaveHeightFt !== undefined) {
+        const observed = `${rejection.observed.waveHeightFt} ft`;
+        const range = `${rejection.allowed.minimumWaveHeightFt}-${rejection.allowed.maximumWaveHeightFt} ft`;
+        const appliedSkill = rejection.allowed.skill ?? 'profile';
+        return decision.skillEligibility?.skill === 'unknown'
+          ? `Forecast ${observed} exceeds the ${appliedSkill} safety range of ${range} applied when skill is unknown.`
+          : `Forecast ${observed} exceeds the ${appliedSkill} safety range of ${range}.`;
+      }
+      return 'Forecast wave height exceeds your profile range.';
     case 'missing_beach_skill':
     case 'missing_wave_height':
     case 'unknown_skill':
     case 'invalid_candidate':
     case 'hold_state_unavailable':
-      return 'Safety information is incomplete, so Quiver is holding this call.';
+      return 'Forecast or profile data is incomplete.';
     case 'no_candidates':
-      return 'No personalized surf candidate was available for this call.';
+      return `No personalized forecast window was available for ${beachName}.`;
     default:
-      return 'Quiver is holding this call for safety.';
+      return 'No personalized forecast window is available.';
   }
 }
 
@@ -216,7 +302,7 @@ function buildCanonicalSurfCall(
   profileExperience: SkillLevel | null,
   boardClass: BoardClass | null,
   recommendationAvailability: RecommendationAvailability,
-): CanonicalSurfCallResponse {
+): Omit<CanonicalSurfCallResponse, 'waterQuality'> {
   const selection = decision.selection;
   const selectedRecommendation = selection
     ? recommendations.find(
@@ -270,7 +356,7 @@ function buildCanonicalSurfCall(
     selection?.evidence.personalMatch?.reasons.join(' ') ?? '';
   const whySentence = appendBoardNote(
     decision.decisionBasis === 'safety_override'
-      ? safetyReason(decision)
+      ? safetyReason(decision, beach.name)
       : personalReasons || baseline.whySentence,
     boardNote,
   );
@@ -300,6 +386,10 @@ function buildCanonicalSurfCall(
 
   return {
     report,
+    candidateRejection: decision.candidateRejection ?? null,
+    objectiveWindow: !exactSelection && window
+      ? { start: window.start.toISOString(), end: window.end.toISOString() }
+      : null,
     recommendedBoard: objectiveRecommendation?.recommendedBoard ?? null,
     boardPick: objectiveRecommendation?.boardPick ?? null,
     conditionLabel: decision.conditionLabel,
@@ -318,6 +408,9 @@ function buildCanonicalSurfCall(
  * recommendation (`data.nowRecommendation`), the same object Home's
  * `/api/surf/discover?mode=now` returns, so Beach Detail grades "now" from the
  * producer Home labels with.
+ * `data.waterQuality` is the requested beach's resolved water-quality hold,
+ * including County kind/check time, optional County general rain advisory
+ * start/last-rain/end times, or sample date; null means no resolved hold.
  *
  * Authentication: optional; anonymous requests receive the general surf call
  * Rate limit: surf-call for authenticated requests, public-default by IP for anonymous requests
@@ -353,7 +446,7 @@ async function surfCallHandler(
       'id, name, slug, lat, lon, city, state, country, region, ' +
       'timezone, break_type, skill_level, cdip_station, cdip_eligible, ' +
       'recommendation_eligible, ' +
-      'wind_offshore_deg, wind_offshore_tol_deg, ' +
+      'wind_offshore_deg, wind_offshore_tol_deg, aspect_deg, ' +
       'wind_cross_shore_ok_kt, wind_onshore_bad_kt, ' +
       'max_wind_onshore_mph, max_wind_any_mph, ' +
       'swell_window_min_deg, swell_window_max_deg, ' +
@@ -425,6 +518,16 @@ async function surfCallHandler(
         now: anchor,
       })
     : null;
+  const waterQualityPromise = resolveWaterQualityHolds([{
+    candidateId: `surf-call:${beachId}`,
+    beachId,
+    startsAt: scopeStart.toISOString(),
+    endsAt: scopeEnd.toISOString(),
+  }]).then((resolution) => surfCallWaterQuality(resolution, beachId))
+    .catch((error: unknown) => {
+      console.error('[surf-call:water-quality-error]', error);
+      return null;
+    });
   let canonicalContext;
   try {
     canonicalContext = await resolveCanonicalSessionDecisionContext({
@@ -456,6 +559,7 @@ async function surfCallHandler(
     return retryableDiscoveryResponse(error);
   }
   const sessionDecision = canonicalContext.decision;
+  const waterQuality = await waterQualityPromise;
   const recommendations = [
     ...canonicalContext.discovery.recommendations,
     ...(canonicalContext.discovery.includedRecommendations ?? []),
@@ -482,6 +586,7 @@ async function surfCallHandler(
       boardClass,
       recommendationAvailability,
     ),
+    waterQuality,
     ...(nowRecommendationResult
       ? { nowRecommendation: nowRecommendationResult.recommendation }
       : {}),
@@ -547,7 +652,11 @@ export const GET = async (
   request: NextRequest,
   context?: RouteContext,
 ): Promise<NextResponse> => {
-  const response = await optionalGET(request, context);
+  // Discovery and the canonical decision each resolve water-quality holds;
+  // the scope lets them share one read of each hold table per request.
+  const response = await runWithWaterQualityReadScope(() =>
+    optionalGET(request, context),
+  );
   response.headers.delete('ETag');
   response.headers.set(
     'Cache-Control',

@@ -61,6 +61,11 @@ function setRequestHeaders(headers: Record<string, string>): void {
   );
 }
 
+function redirectedCampaign(): string | null {
+  const target = mockRedirect.mock.calls.at(-1)?.[0];
+  return target ? new URL(target).searchParams.get("ct") : null;
+}
+
 describe("/app handoff page", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -122,17 +127,15 @@ describe("/app handoff page", () => {
         botFlagged: false,
       }),
     );
-    expect(mockRedirect).toHaveBeenCalledWith(
-      expect.stringContaining("ct=web"),
-    );
+    expect(redirectedCampaign()).toBe("web_page");
   });
 
   it.each([
-    ["email", { utm_source: "email", utm_medium: "app_link" }, "ct=email"],
+    ["email", { utm_source: "email", utm_medium: "app_link" }, "email"],
     [
       "partner QR",
       { surface: "partner_landing", utm_campaign: "partner_SURF12" },
-      "ct=partner_qr",
+      "partner_qr",
     ],
     [
       "share landing",
@@ -143,8 +146,35 @@ describe("/app handoff page", () => {
         utm_campaign: "share",
         utm_content: "7c1d7f4e-2b6a-4a57-9a5e-3d8f0b2f6a11",
       },
-      "ct=share",
+      "share",
     ],
+    [
+      "Smart App Banner",
+      {
+        source: "ios_smart_app_banner",
+        surface: "smart_banner",
+        placement: "apple_smart_banner",
+        utm_source: "ios_safari",
+        utm_medium: "smart_banner",
+        utm_campaign: "app_first_v1",
+      },
+      "web_banner",
+    ],
+    [
+      "App Links metadata",
+      { source: "app_links", surface: "metadata", placement: "ios_app_link" },
+      "web_app_links",
+    ],
+    [
+      "beach page CTA",
+      {
+        source: "content-beach-detail-tourmaline",
+        surface: "beach_detail",
+        placement: "after_public_hourly_forecast",
+      },
+      "web_page",
+    ],
+    ["link with no page signals", {}, "web"],
   ])(
     "normalizes %s App Store attribution",
     async (_label, params, expected) => {
@@ -159,9 +189,7 @@ describe("/app handoff page", () => {
         }),
       ).rejects.toThrow("NEXT_REDIRECT");
 
-      expect(mockRedirect).toHaveBeenCalledWith(
-        expect.stringContaining(expected),
-      );
+      expect(redirectedCampaign()).toBe(expected);
     },
   );
 

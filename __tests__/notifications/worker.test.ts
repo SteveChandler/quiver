@@ -42,6 +42,9 @@ jest.mock("@/lib/supabase/server", () => ({
 }));
 
 import { processPendingEvents as processPendingEventsReal } from "@/lib/notifications/worker";
+import { buildFirstSightingPayload } from "@/lib/alerts/swell-outlook/first-sighting";
+import type { SwellDispatchReason } from "@/lib/alerts/swell-outlook/dispatch-eligibility";
+import { outlookSwell } from "@/__tests__/helpers/outlook-swell";
 import { capturePostHogEvent } from "@/lib/posthog-server";
 import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
 import {
@@ -780,6 +783,136 @@ async function processPendingEvents(
   });
 }
 
+describe("swell_watch dispatch revalidation", () => {
+  function swellState(): MockState {
+    const state = emptyState();
+    state.events.push(buildEvent({
+      type: "swell_watch", actor_user_id: null, entity_type: "beach", entity_id: outlookSwell().beach.id,
+      payload: buildFirstSightingPayload({ swell: outlookSwell(), timezone: "America/Los_Angeles" }),
+    }));
+    state.profiles.set("user-recipient", buildProfile());
+    state.devices.set("user-recipient", ["device-token-A"]);
+    return state;
+  }
+
+  it.each([
+    "out_of_range", "no_location_anchor", "window_expired", "forecast_passed", "beach_unavailable",
+  ] as const)("cancels a %s swell", async (reasonCode) => {
+    const state = swellState();
+    const resolver = jest.fn(async () => ({ allowed: false as const, reasonCode }));
+    const fcm = { sendEach: jest.fn() };
+    const summary = await processPendingEvents(buildMockSupabase(state) as never, {
+      now: NOON_PT, fcm: fcm as never, resolveSwellDispatchEligibility: resolver,
+    });
+    expect(resolver).toHaveBeenCalledWith(expect.objectContaining({ userId: "user-recipient", now: NOON_PT }));
+    expect(summary.by_status.skipped_disabled).toBe(1);
+    expect(state.attempts).toContainEqual(expect.objectContaining({ channel: "push", status: "skipped_disabled",
+      provider_response: { audit_code: "swell_dispatch_revalidation", reason_code: reasonCode } }));
+    expect(state.events[0]).toMatchObject({ status: "cancelled", cancel_reason: "swell_dispatch_revalidation" });
+    expect(fcm.sendEach).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when the resolver throws", async () => {
+    const state = swellState();
+    const summary = await processPendingEvents(buildMockSupabase(state) as never, {
+      now: NOON_PT, fcm: { sendEach: jest.fn() } as never,
+      resolveSwellDispatchEligibility: jest.fn(async () => { throw new Error("read failed"); }),
+    });
+    expect(summary.by_status.skipped_disabled).toBe(1);
+    expect(state.attempts[0].provider_response).toEqual({ audit_code: "swell_dispatch_revalidation", reason_code: "revalidation_unavailable" });
+  });
+
+  it("resolves once and shares the decision between push and in-app", async () => {
+    const state = swellState();
+    const resolver = jest.fn()
+      .mockResolvedValueOnce({ allowed: true })
+      .mockResolvedValue({ allowed: false, reasonCode: "out_of_range" });
+    const fcm = { sendEach: jest.fn(async () => ({ successCount: 1, failureCount: 0, responses: [{ success: true }] })) };
+    const summary = await processPendingEvents(buildMockSupabase(state) as never, {
+      now: NOON_PT, fcm: fcm as never, resolveSwellDispatchEligibility: resolver,
+    });
+    expect(resolver).toHaveBeenCalledTimes(1);
+    expect(summary.by_status.sent).toBe(2);
+    expect(state.attempts.map(({ channel, status }) => ({ channel, status }))).toEqual([
+      { channel: "push", status: "sent" }, { channel: "in_app", status: "sent" },
+    ]);
+    expect(state.events[0].status).toBe("processed");
+  });
+
+  it("delivers an eligible swell and calls the resolver again after quiet hours", async () => {
+    const state = swellState();
+    const resolver = jest.fn(async () => ({ allowed: true as const }));
+    const fcm = { sendEach: jest.fn(async () => ({ successCount: 1, failureCount: 0, responses: [{ success: true }] })) };
+    const quiet = new Date("2026-04-29T08:00:00Z");
+    await processPendingEvents(buildMockSupabase(state) as never, {
+      now: quiet, fcm: fcm as never, resolveSwellDispatchEligibility: resolver,
+    });
+    expect(resolver).toHaveBeenCalledTimes(1);
+    expect(state.attempts).toContainEqual(expect.objectContaining({ status: "deferred_quiet_hours" }));
+    const summary = await processPendingEvents(buildMockSupabase(state) as never, {
+      now: NOON_PT, fcm: fcm as never, resolveSwellDispatchEligibility: resolver,
+    });
+    expect(resolver).toHaveBeenCalledTimes(2);
+    expect(summary.by_status.sent).toBe(1);
+    expect(fcm.sendEach).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps delivery accounting when the deferred push becomes ineligible after in-app delivery", async () => {
+    const state = swellState();
+    const resolver = jest.fn()
+      .mockResolvedValueOnce({ allowed: true })
+      .mockResolvedValue({ allowed: false, reasonCode: "out_of_range" });
+    const fcm = { sendEach: jest.fn() };
+    await processPendingEvents(buildMockSupabase(state) as never, {
+      now: new Date("2026-04-29T08:00:00Z"), fcm: fcm as never, resolveSwellDispatchEligibility: resolver,
+    });
+    const summary = await processPendingEvents(buildMockSupabase(state) as never, {
+      now: NOON_PT, fcm: fcm as never, resolveSwellDispatchEligibility: resolver,
+    });
+    expect(resolver).toHaveBeenCalledTimes(2);
+    expect(summary.by_status.skipped_disabled).toBe(1);
+    expect(state.attempts).toContainEqual(expect.objectContaining({ channel: "in_app", status: "sent" }));
+    expect(state.attempts).toContainEqual(expect.objectContaining({ channel: "push", status: "skipped_disabled",
+      provider_response: { audit_code: "swell_dispatch_revalidation", reason_code: "out_of_range" } }));
+    expect(state.events[0]).toMatchObject({ status: "processed", cancel_reason: null });
+    expect(fcm.sendEach).not.toHaveBeenCalled();
+  });
+
+  it("cancels an ineligible deferred swell when neither channel was delivered", async () => {
+    const state = swellState();
+    state.profiles.set("user-recipient", buildProfile({ notif_inapp_enabled: false }));
+    const resolver = jest.fn(async () => ({ allowed: false as const, reasonCode: "out_of_range" as const }));
+    const fcm = { sendEach: jest.fn() };
+    await processPendingEvents(buildMockSupabase(state) as never, {
+      now: new Date("2026-04-29T08:00:00Z"), fcm: fcm as never, resolveSwellDispatchEligibility: resolver,
+    });
+    expect(resolver).not.toHaveBeenCalled();
+    expect(state.attempts.some(({ status }) => status === "sent")).toBe(false);
+    await processPendingEvents(buildMockSupabase(state) as never, {
+      now: NOON_PT, fcm: fcm as never, resolveSwellDispatchEligibility: resolver,
+    });
+    expect(resolver).toHaveBeenCalledTimes(1);
+    expect(state.attempts).toContainEqual(expect.objectContaining({ channel: "push", status: "skipped_disabled",
+      provider_response: { audit_code: "swell_dispatch_revalidation", reason_code: "out_of_range" } }));
+    expect(state.events[0]).toMatchObject({ status: "cancelled", cancel_reason: "swell_dispatch_revalidation" });
+    expect(fcm.sendEach).not.toHaveBeenCalled();
+  });
+
+  it("does not call the resolver for another notification type", async () => {
+    const state = emptyState();
+    state.events.push(buildEvent());
+    state.profiles.set("user-recipient", buildProfile());
+    state.profiles.set("user-actor", buildProfile({ id: "user-actor" }));
+    state.devices.set("user-recipient", ["device-token-A"]);
+    const resolver = jest.fn(async (): Promise<{ allowed: false; reasonCode: SwellDispatchReason }> => ({ allowed: false, reasonCode: "out_of_range" }));
+    await processPendingEvents(buildMockSupabase(state) as never, {
+      now: NOON_PT, fcm: { sendEach: jest.fn(async () => ({ successCount: 1, failureCount: 0, responses: [{ success: true }] })) } as never,
+      resolveSwellDispatchEligibility: resolver,
+    });
+    expect(resolver).not.toHaveBeenCalled();
+  });
+});
+
 describe("worker recommendation-hold integration", () => {
   it("suppresses a Quiver feedback nudge through the worker's real resolver", async () => {
     const beachId = "11111111-1111-4111-8111-111111111111";
@@ -832,6 +965,56 @@ describe("worker recommendation-hold integration", () => {
     ]);
     expect(mockWaterQualityFrom).toHaveBeenCalledWith(
       "water_quality_held_beaches",
+    );
+  });
+
+  it("skips a Daily Call naming a water-quality-held alternative with major-event holds off", async () => {
+    const leadId = "11111111-1111-4111-8111-111111111111";
+    const heldId = "22222222-2222-4222-8222-222222222222";
+    mockWaterQualityHeldBeachIds.add(heldId);
+
+    const state = emptyState();
+    state.events.push(
+      buildEvent({
+        id: "evt-daily-call-held-option",
+        actor_user_id: null,
+        type: "daily_call",
+        entity_type: null,
+        entity_id: null,
+        payload: {
+          beach_id: leadId,
+          window_start: "2026-04-29T15:00:00.000Z",
+          window_end: "2026-04-29T17:00:00.000Z",
+          options: [{
+            beach_id: heldId,
+            window_start: "2026-04-29T16:00:00.000Z",
+            window_end: "2026-04-29T18:00:00.000Z",
+          }],
+        },
+      }),
+    );
+    state.profiles.set("user-recipient", buildProfile());
+
+    const summary = await processPendingEventsReal(
+      buildMockSupabase(state) as never,
+      {
+        now: NOON_PT,
+        fcm: null,
+        resolveMajorEventHold: (input) =>
+          resolveNotificationMajorEventHold({ ...input, mode: "off" }),
+      },
+    );
+
+    expect(summary.by_status.skipped_disabled).toBeGreaterThanOrEqual(1);
+    expect(state.attempts).toContainEqual(
+      expect.objectContaining({
+        notification_event_id: "evt-daily-call-held-option",
+        status: "skipped_disabled",
+        provider_response: {
+          audit_code: "major_event_hold",
+          reason_code: "water_quality_hold",
+        },
+      }),
     );
   });
 });
@@ -1911,6 +2094,33 @@ describe("processPendingEvents — happy path", () => {
 });
 
 describe("processPendingEvents — quiet hours", () => {
+  it("defers a rain advisory water-quality push at 23:00 local", async () => {
+    const state = emptyState();
+    state.events.push(buildEvent({
+      type: "water_quality", actor_user_id: null, entity_type: "beach",
+      entity_id: "11111111-1111-4111-8111-111111111111",
+      payload: {
+        beach_id: "11111111-1111-4111-8111-111111111111", beach_slug: "ocean-beach",
+        beach_name: "Ocean Beach", status: "advisory", previous_status: null,
+        status_changed_at: "2026-04-29T05:00:00Z",
+        rain_advisory: { event_id: "22222222-2222-4222-8222-222222222222", phase: "start",
+          source: "county_general", region: "san_diego", started_at: "2026-04-29T05:00:00Z",
+          last_rain_at: null, expires_at: "2026-05-02T05:00:00Z" },
+      },
+    }));
+    state.profiles.set("user-recipient", buildProfile({ timezone: "America/Los_Angeles" }));
+    state.devices.set("user-recipient", ["device-token-A"]);
+    const fakeFcm = { sendEach: jest.fn() };
+
+    const summary = await processPendingEvents(buildMockSupabase(state) as never,
+      { now: new Date("2026-04-29T06:00:00Z"), fcm: fakeFcm as never });
+
+    expect(summary.by_status.deferred_quiet_hours).toBe(1);
+    expect(summary.pending_after_run).toBe(1);
+    expect(state.events[0].status).toBe("pending");
+    expect(fakeFcm.sendEach).not.toHaveBeenCalled();
+  });
+
   it("quiet hours → push deferred_quiet_hours, event STAYS PENDING (retry next tick)", async () => {
     const state = emptyState();
     state.events.push(buildEvent());
@@ -2289,6 +2499,36 @@ describe("processPendingEvents — push provider details", () => {
     expect(state.deviceRetirements).toEqual([
       { tokens: ["bad-token"], reason: "provider_invalid_token" },
     ]);
+  });
+
+  it.each([
+    { message: "The registration token is not a valid FCM registration token", retires: true },
+    { message: "Invalid value at message.data", retires: false },
+  ])("retires only a token-specific invalid-argument error: $message", async ({ message, retires }) => {
+    const state = emptyState();
+    state.events.push(buildEvent());
+    state.profiles.set("user-recipient", buildProfile());
+    state.profiles.set("user-actor", buildProfile({ id: "user-actor" }));
+    state.devices.set("user-recipient", ["stale-token"]);
+    const fakeFcm = {
+      sendEach: jest.fn(async () => ({
+        successCount: 0, failureCount: 1,
+        responses: [{ success: false, error: { code: "messaging/invalid-argument", message } }],
+      })),
+    };
+
+    await processPendingEvents(buildMockSupabase(state) as never, {
+      now: NOON_PT, fcm: fakeFcm as never,
+    });
+
+    expect(fakeFcm.sendEach).toHaveBeenCalledTimes(1);
+    expect(state.deviceRetirements).toEqual(retires
+      ? [{ tokens: ["stale-token"], reason: "provider_invalid_token" }]
+      : []);
+    expect(state.attempts).toContainEqual(expect.objectContaining({
+      channel: "push", status: "failed_provider",
+      provider_response: expect.objectContaining({ invalidTokenCount: retires ? 1 : 0 }),
+    }));
   });
 
   it("failed provider responses persist provider_response and error_message", async () => {

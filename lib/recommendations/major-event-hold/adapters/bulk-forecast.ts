@@ -2,6 +2,7 @@ import type {
   MajorEventHoldCandidate,
   MajorEventHoldCandidateDecision,
   RecommendationAvailability,
+  RecommendationHoldReasonCode,
 } from "../types";
 import {
   resolveMajorEventHoldBoundary,
@@ -20,6 +21,7 @@ export interface BulkForecastResponseLike {
   verdicts?: Readonly<Record<string, "go" | "maybe" | "no" | null>>;
   conditionLabels?: Readonly<Record<string, string | null>>;
   personalAdjustmentReasons?: Readonly<Record<string, string | null>>;
+  safetyReasons?: Readonly<Record<string, string | null>>;
   recommendedBoards?: Readonly<Record<string, unknown>>;
   conditionScores: Readonly<Record<string, number | undefined>>;
   conditionSummaries: Readonly<Record<string, string | undefined>>;
@@ -41,6 +43,9 @@ export type SanitizedBulkForecastResponse<
     RecommendationLabel | null | undefined
   >;
   recommendationAvailability: RecommendationAvailability;
+  // Why each withheld beach has no rating, so clients can tell a held beach
+  // from one with no data. Beaches never bound to a candidate are absent.
+  recommendationHolds: Record<string, RecommendationHoldReasonCode>;
 };
 
 export interface ScoredForecastSlotBinding {
@@ -154,6 +159,31 @@ function validateBulkBindings(
   };
 }
 
+// Why each withheld bound beach has no rating. A decision that does not state
+// its own explicit reason reads as unverified rather than being dropped.
+function holdReasonsByBeach(
+  bindings: readonly BulkForecastCandidateBinding[],
+  decisions: readonly MajorEventHoldCandidateDecision[],
+  isWithheld: (candidateId: string) => boolean,
+): Record<string, RecommendationHoldReasonCode> {
+  const decisionByCandidateId = new Map(
+    decisions.map((decision) => [decision?.candidateId, decision]),
+  );
+  const holds: Record<string, RecommendationHoldReasonCode> = {};
+  for (const { beachId, candidate } of bindings) {
+    if (!isWithheld(candidate.candidateId)) continue;
+    const decision = decisionByCandidateId.get(candidate.candidateId);
+    const reasonCode = decision?.evaluation?.reasonCode;
+    holds[beachId] =
+      decision?.evaluation?.outcome === "explicit_none" &&
+      reasonCode !== undefined &&
+      reasonCode === decision.recommendationAvailability?.reasonCode
+        ? reasonCode
+        : "hold_state_unavailable";
+  }
+  return holds;
+}
+
 export function sanitizeBulkForecastForMajorEventHold<
   TResponse extends BulkForecastResponseLike,
 >(
@@ -198,10 +228,21 @@ export function sanitizeBulkForecastForMajorEventHold<
       ...(response.conditionLabels ? { conditionLabels: Object.fromEntries(Object.entries(response.conditionLabels).map(([id, value]) => [id, recommendationLabels[id] == null ? null : value])) } : {}),
       ...(response.recommendedBoards ? { recommendedBoards: Object.fromEntries(Object.entries(response.recommendedBoards).map(([id, value]) => [id, recommendationLabels[id] == null ? null : value])) } : {}),
       ...(response.personalAdjustmentReasons ? { personalAdjustmentReasons: Object.fromEntries(Object.entries(response.personalAdjustmentReasons).map(([id, value]) => [id, recommendationLabels[id] == null ? null : value])) } : {}),
+      ...(response.safetyReasons ? { safetyReasons: Object.fromEntries(Object.entries(response.safetyReasons).map(([id, value]) => [id, recommendationLabels[id] == null ? null : value])) } : {}),
       recommendationAvailability: boundary.recommendationAvailability,
+      // Every bound beach is withheld here; unmatched bindings name nothing.
+      recommendationHolds:
+        validated === null
+          ? {}
+          : holdReasonsByBeach(bindings, decisions, () => true),
     };
   }
 
+  const recommendationHolds = holdReasonsByBeach(
+    bindings,
+    decisions,
+    (candidateId) => boundary.blockedCandidateIds.has(candidateId),
+  );
   for (const binding of bindings) {
     const shouldClear = boundary.blockedCandidateIds.has(
       binding.candidate.candidateId,
@@ -235,7 +276,9 @@ export function sanitizeBulkForecastForMajorEventHold<
     ...(response.conditionLabels ? { conditionLabels: Object.fromEntries(Object.entries(response.conditionLabels).map(([id, value]) => [id, recommendationLabels[id] == null ? null : value])) } : {}),
     ...(response.recommendedBoards ? { recommendedBoards: Object.fromEntries(Object.entries(response.recommendedBoards).map(([id, value]) => [id, recommendationLabels[id] == null ? null : value])) } : {}),
     ...(response.personalAdjustmentReasons ? { personalAdjustmentReasons: Object.fromEntries(Object.entries(response.personalAdjustmentReasons).map(([id, value]) => [id, recommendationLabels[id] == null ? null : value])) } : {}),
+    ...(response.safetyReasons ? { safetyReasons: Object.fromEntries(Object.entries(response.safetyReasons).map(([id, value]) => [id, recommendationLabels[id] == null ? null : value])) } : {}),
     recommendationAvailability: boundary.recommendationAvailability,
+    recommendationHolds,
   };
 }
 

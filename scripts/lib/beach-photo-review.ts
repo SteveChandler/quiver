@@ -1,4 +1,4 @@
-export type ReviewRequiredPhotoRecord = {
+type ReviewRequiredPhotoRecord = {
   approved: false;
 };
 

@@ -1,17 +1,4 @@
 import { createServiceRoleClient } from "@/lib/supabase";
-import type { ExperimentArm, ExperimentKey } from "./assignment-hash";
-
-interface ExperimentAssignmentRow {
-  experiment_key: ExperimentKey;
-  user_id: string;
-  arm: ExperimentArm;
-  index_at: string;
-  assignment_version: string;
-  build: string | null;
-  source: "native_app" | "web_oauth" | null;
-  linked_at: string | null;
-  created_at: string;
-}
 
 interface ExperimentEligibilityLinkResult {
   rowsLinked: number;
@@ -47,22 +34,4 @@ export async function linkExperimentEligibility(
     existingBuild: row.existing_build,
     existingSource: row.existing_source,
   };
-}
-
-async function allocateExperimentBatch(
-  experimentKey: ExperimentKey,
-  userIds: string[],
-  indexAt?: string
-): Promise<ExperimentAssignmentRow[]> {
-  const { data, error } = await createServiceRoleClient().rpc(
-    "allocate_experiment_batch",
-    {
-      p_experiment_key: experimentKey,
-      p_user_ids: userIds,
-      ...(indexAt ? { p_index_at: indexAt } : {}),
-    }
-  );
-
-  if (error) throw error;
-  return (data ?? []) as ExperimentAssignmentRow[];
 }

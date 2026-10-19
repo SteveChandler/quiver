@@ -18,7 +18,7 @@ import { calculateRideableWaves } from '@/lib/domains/wave-frequency/calculator'
 import {
   beachToSpotProfile,
   forecastToSnapshot,
-  createDiscoveryScoringEngine,
+  getDiscoveryScoringEngine,
   getConditionCharacter,
   LOW_TIDE_HEAVY_SWELL_WARNING,
   type ConditionCharacter,
@@ -27,7 +27,9 @@ import {
   getRecommendationLabel,
   getRecommendationLabelGated,
 } from '@/lib/services/discovery/response-formatter';
-import type { ScoringEngine, CompositeScore } from '@/lib/domains/scoring';
+import type { CompositeScore } from '@/lib/domains/scoring';
+import { classifyWindRelation, WIND_SPEED_GLASSY_MPH } from '@/lib/utils/wind-relation';
+import { resolveOffshoreDeg } from '@/lib/domains/shared/wind-orientation';
 
 // ============================================================================
 // Types
@@ -173,13 +175,8 @@ const SKILL_LEVEL_MINIMUMS: Record<string, number> = {
 };
 
 // Wind speed thresholds (in mph)
-const WIND_SPEED_GLASSY = 5;
 const WIND_SPEED_LIGHT_MAX = 10;
 const WIND_SPEED_MODERATE_MAX = 18;
-
-// Wind direction classification (in degrees)
-const WIND_DIRECTION_OFFSHORE_MAX = 45;
-const WIND_DIRECTION_CROSSSHORE_MIN = 135;
 
 // Window duration thresholds (in minutes)
 export const MINIMUM_VIABLE_WINDOW_MINUTES = 30;
@@ -206,10 +203,6 @@ const CONFIDENCE_THRESHOLD_MARGIN = 5;
 
 interface BeachWithBreakType {
   break_type?: string | null;
-}
-
-interface BeachWithWindData {
-  wind_offshore_deg?: number | null;
 }
 
 
@@ -284,7 +277,7 @@ function getWindowWind(
   const avgSpeed = speeds.reduce((a, b) => a + b, 0) / speeds.length;
 
   // Glassy check
-  if (maxSpeed < WIND_SPEED_GLASSY) {
+  if (maxSpeed < WIND_SPEED_GLASSY_MPH) {
     return { description: 'glassy', speed: `${maxSpeed} mph`, compass: null, type: 'glassy' };
   }
 
@@ -299,20 +292,12 @@ function getWindowWind(
     : null;
 
   // Wind type: use average direction degrees vs beach offshore
-  const beachWithWind = beach as Beach & BeachWithWindData;
-  const offshoreDeg = beachWithWind.wind_offshore_deg;
+  const offshoreDeg = resolveOffshoreDeg(beach);
   let windType: string | null = null;
 
   if (offshoreDeg != null && dirDegs.length > 0) {
     const avgDirDeg = dirDegs.reduce((a, b) => a + b, 0) / dirDegs.length;
-    let angleDiff = Math.abs(avgDirDeg - offshoreDeg) % 360;
-    if (angleDiff > 180) angleDiff = 360 - angleDiff;
-
-    windType = angleDiff <= WIND_DIRECTION_OFFSHORE_MAX
-      ? 'offshore'
-      : angleDiff >= WIND_DIRECTION_CROSSSHORE_MIN
-        ? 'onshore'
-        : 'cross-shore';
+    windType = classifyWindRelation(avgDirDeg, offshoreDeg);
   }
 
   // Build description string
@@ -591,21 +576,6 @@ function determineVerdict(
 // ============================================================================
 
 /**
- * Lazy-initialised scoring engine used by `computeSurfCall` to derive the
- * `composite` (and from it the `character`) for the chosen window.
- *
- * Cached at module scope because the plugin set + weights are stable;
- * `score()` is pure so concurrent callers cannot interfere.
- */
-let _engine: ScoringEngine | null = null;
-function getEngine(): ScoringEngine {
-  if (!_engine) {
-    _engine = createDiscoveryScoringEngine();
-  }
-  return _engine;
-}
-
-/**
  * Pick the representative forecast row inside the chosen window for
  * composite scoring + character classification. Prefers the row closest
  * to `peakTime`, falls back to the first window forecast, then to the
@@ -653,7 +623,7 @@ function computeCompositeAndCharacter(
   try {
     const profile = beachToSpotProfile(beach);
     const snapshot = forecastToSnapshot(representativeForecast);
-    const composite = getEngine().score({
+    const composite = getDiscoveryScoringEngine().score({
       profile,
       snapshot,
       window: null,

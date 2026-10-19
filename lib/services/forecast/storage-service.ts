@@ -16,13 +16,14 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
-import { StorageError } from "@/lib/errors/forecast-errors";
 // NOTE: the legacy ML-correction merge path was removed alongside the
 // OM-primary scalar override (migration
 // 20260424182324_remove_om_primary_override_from_bulk.sql). Display height
 // comes from the per-component face-Hs transformer at write time. Seaside
 // still writes to corrected_forecasts; that table is read by the ML
 // pipeline only, not by this service.
+
+const FALLBACK_SOURCE = "FALLBACK";
 
 /**
  * Configuration for storage operations
@@ -116,8 +117,14 @@ export class ForecastStorageService {
         );
       }
 
+      const keptForecasts = await this.dropFallbackOverRealRows(
+        supabase,
+        beach.id,
+        Array.from(uniqueForecasts.values())
+      );
+
       // Prepare rows for database (remove id, add updated_at)
-      const toRows = Array.from(uniqueForecasts.values()).map((forecast) => {
+      const toRows = keptForecasts.map((forecast) => {
         const { id, ...forecastWithoutId } = forecast;
         return { ...forecastWithoutId, updated_at: new Date().toISOString() };
       });
@@ -177,6 +184,58 @@ export class ForecastStorageService {
     });
 
     return uniqueForecasts;
+  }
+
+  /**
+   * Drop synthetic FALLBACK rows whose slot already holds a real forecast.
+   *
+   * When every wave source fails for a moment, the sync produces synthetic
+   * slots for the whole horizon. An earlier real forecast for the same time
+   * is more truthful than invented data, so those slots keep the stored row
+   * (all of its fields together) instead of being overwritten. If the lookup
+   * fails, the FALLBACK rows are skipped rather than risk the overwrite.
+   */
+  private async dropFallbackOverRealRows(
+    supabase: SupabaseClient,
+    beachId: string,
+    forecasts: EnhancedForecastEntity[]
+  ): Promise<EnhancedForecastEntity[]> {
+    const fallbackTimes = forecasts
+      .filter((f) => f.data_source === FALLBACK_SOURCE && f.forecast_at)
+      .map((f) => Date.parse(String(f.forecast_at)))
+      .filter((ms) => Number.isFinite(ms));
+    if (fallbackTimes.length === 0) return forecasts;
+
+    const { data, error } = await supabase
+      .from("enhanced_forecasts")
+      .select("forecast_at")
+      .eq("beach_id", beachId)
+      .neq("data_source", FALLBACK_SOURCE)
+      .gte("forecast_at", new Date(Math.min(...fallbackTimes)).toISOString())
+      .lte("forecast_at", new Date(Math.max(...fallbackTimes)).toISOString());
+
+    if (error) {
+      console.warn(
+        `⚠️ Could not check existing forecasts for beach ${beachId}; skipping FALLBACK rows:`,
+        error.message
+      );
+      return forecasts.filter((f) => f.data_source !== FALLBACK_SOURCE);
+    }
+
+    const realTimes = new Set(
+      (data ?? []).map((row: { forecast_at: string }) => Date.parse(row.forecast_at))
+    );
+
+    const kept = forecasts.filter(
+      (f) =>
+        f.data_source !== FALLBACK_SOURCE ||
+        !realTimes.has(Date.parse(String(f.forecast_at)))
+    );
+    if (kept.length === forecasts.length) return forecasts;
+    console.warn(
+      `⚠️ Kept ${forecasts.length - kept.length} real forecast slots for beach ${beachId} instead of overwriting them with FALLBACK data`
+    );
+    return kept;
   }
 
   /**
@@ -334,80 +393,6 @@ export class ForecastStorageService {
     }
   }
 
-  /**
-   * Fetch beaches that need forecast updates
-   *
-   * Returns beaches with stale or missing forecast data based on
-   * the provided freshness window.
-   *
-   * @param freshnessWindowHours - Hours threshold for staleness
-   * @param maxBeaches - Maximum beaches to return
-   * @returns Array of beaches needing updates
-   */
-  async fetchStaleBeaches(
-    freshnessWindowHours: number = 12,
-    maxBeaches: number = 45
-  ): Promise<Beach[]> {
-    const supabase = await createSupabaseServiceRoleClient();
-    
-    try {
-      const staleThresholdMs = Date.now() - freshnessWindowHours * 60 * 60 * 1000;
-
-      // Get all beaches
-      const { data: allBeaches, error: beachError } = await supabase
-        .from("beaches")
-        .select("*");
-
-      if (beachError) {
-        throw beachError;
-      }
-
-      if (!allBeaches || allBeaches.length === 0) {
-        console.log("📭 No beaches found to update");
-        return [];
-      }
-
-      // Get latest forecast timestamp per beach
-      const todayUtc = new Date().toISOString().split("T")[0];
-      const { data: latestRows, error: latestError } = await supabase
-        .from("enhanced_forecasts")
-        .select("beach_id, updated_at")
-        .gte("forecast_at", `${todayUtc}T00:00:00Z`)
-        .order("updated_at", { ascending: false });
-
-      if (latestError) {
-        throw latestError;
-      }
-
-      // Build map of beach_id → latest updated_at
-      const latestMap = new Map<string, Date>();
-      if (latestRows && latestRows.length > 0) {
-        latestRows.forEach((row) => {
-          const beachId = row.beach_id as string;
-          const updatedAt = new Date(row.updated_at);
-          if (!latestMap.has(beachId) || updatedAt > latestMap.get(beachId)!) {
-            latestMap.set(beachId, updatedAt);
-          }
-        });
-      }
-
-      // Filter beaches to those with stale or missing data
-      const staleBeaches = allBeaches.filter((beach) => {
-        const latest = latestMap.get(beach.id);
-        if (!latest) return true; // No data, needs update
-        return latest.getTime() < staleThresholdMs; // Stale data
-      });
-
-      // Limit to max beaches
-      return staleBeaches.slice(0, maxBeaches);
-    } catch (error) {
-      console.error("Error fetching stale beaches:", error);
-      throw new StorageError(
-        "FETCH_STALE_BEACHES",
-        error instanceof Error ? error : new Error(String(error))
-      );
-    }
-  }
 
 }
 

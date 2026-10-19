@@ -33,13 +33,15 @@
 
 import SunCalc from "suncalc";
 import path from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { parseEnv } from "node:util";
 
 // next/jest skips .env.local when NODE_ENV=test (Next.js convention). Load it
 // explicitly so we hit the REAL prod Supabase, not the localhost stub in .env.
-require("dotenv").config({
-  path: path.join(process.cwd(), ".env.local"),
-  override: true,
-});
+const envPath = path.join(process.cwd(), ".env.local");
+if (existsSync(envPath)) {
+  Object.assign(process.env, parseEnv(readFileSync(envPath, "utf8")));
+}
 
 // Restore real fetch BEFORE importing supabase-js (jest.setup.js installs a mock).
 const undici = require("undici");

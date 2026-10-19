@@ -1,7 +1,9 @@
 import {
+  buildDriveRangeCandidatePool,
   buildWeekendScoutCandidatePool,
   type WeekendScoutCandidatePoolDependencies,
 } from "@/lib/services/discovery/weekend-scout-candidate-pool";
+import type { PoolBeach } from "@/lib/alerts/user-pool";
 import type { Beach } from "@/types/database";
 
 function beach(id: string, overrides: Partial<Beach> = {}): Beach {
@@ -258,5 +260,171 @@ describe("buildWeekendScoutCandidatePool", () => {
         deps
       )
     ).rejects.toThrow("rpc failed");
+  });
+});
+
+describe("buildDriveRangeCandidatePool", () => {
+  const anchor = { lat: 32.767, lon: -117.188 };
+
+  it("uses the alert pool for the anchor and drive range, then the Week Scout filters", async () => {
+    const pool: PoolBeach[] = [
+      { beach: beach("home", { lat: 32.747, lon: -117.254, break_type: "beach" } as Partial<Beach>), relation: "home", distanceMiles: 3.9 },
+      { beach: beach("saved-reef", { lat: 32.887, lon: -117.252, break_type: "reef" } as Partial<Beach>), relation: "favorite", distanceMiles: 9.1 },
+      { beach: beach("harbor", { lat: 33.204, lon: -117.394, break_type: "beach" } as Partial<Beach>), relation: "nearby", distanceMiles: 32.5 },
+    ];
+    const loadPool = jest.fn().mockResolvedValue(pool);
+
+    const result = await buildDriveRangeCandidatePool("user-1", {
+      anchor,
+      homeBeachId: "home",
+      maxDriveMinutes: 90,
+      filters: ["beach"],
+    }, { loadPool, supabase: {} as never });
+
+    expect(loadPool).toHaveBeenCalledWith({
+      supabase: {},
+      userId: "user-1",
+      homeBeachId: "home",
+      location: anchor,
+      maxDriveMinutes: 90,
+    });
+    expect(result.candidates.map(({ beach: { id }, distanceMiles }) => [id, distanceMiles])).toEqual([
+      ["home", 3.9],
+      ["harbor", 32.5],
+    ]);
+    expect(result).toEqual(expect.objectContaining({ enumeratedCount: 3, filteredOutCount: 1 }));
+  });
+
+  it("scores the 50 nearest beaches plus every saved and home spot in range", async () => {
+    const nearby: PoolBeach[] = Array.from({ length: 60 }, (_, index) => ({
+      beach: beach(`nearby-${index}`, { lat: 33, lon: -118 } as Partial<Beach>),
+      relation: "nearby",
+      distanceMiles: 60 - index,
+    }));
+    const saved: PoolBeach[] = [
+      { beach: beach("home", { lat: 33, lon: -118 } as Partial<Beach>), relation: "home", distanceMiles: 2 },
+      { beach: beach("far-saved", { lat: 33, lon: -118 } as Partial<Beach>), relation: "favorite", distanceMiles: 95 },
+    ];
+    const loadPool = jest.fn().mockResolvedValue([...saved, ...nearby]);
+
+    const result = await buildDriveRangeCandidatePool("user-1", {
+      anchor,
+      homeBeachId: "home",
+      maxDriveMinutes: null,
+    }, { loadPool, supabase: {} as never });
+
+    const ids = result.candidates.map(({ beach: { id } }) => id);
+    expect(ids).toHaveLength(52);
+    expect(ids).toEqual(expect.arrayContaining(["home", "far-saved", "nearby-59", "nearby-10"]));
+    expect(ids).not.toContain("nearby-9");
+    expect(result).toEqual(expect.objectContaining({ cappedCount: 10, farthestNearbyMiles: 50 }));
+  });
+
+  it("keeps an eligible beach past the nearest 50 when experience is supplied", async () => {
+    const pool: PoolBeach[] = Array.from({ length: 51 }, (_, index) => ({
+      beach: beach(`nearby-${index}`, { skill_level: index === 50 ? "beginner" : "intermediate" }),
+      relation: "nearby",
+      distanceMiles: index + 1,
+    }));
+    const result = await buildDriveRangeCandidatePool("user-1", {
+      anchor,
+      homeBeachId: null,
+      maxDriveMinutes: null,
+      experienceLevel: "beginner",
+    }, { loadPool: jest.fn().mockResolvedValue(pool), supabase: {} as never });
+
+    expect(result.candidates).toHaveLength(50);
+    expect(result.candidates.map(({ beach }) => beach.id)).toContain("nearby-50");
+    expect(result.candidates.map(({ beach }) => beach.id)).not.toContain("nearby-49");
+    expect(result).toMatchObject({ cappedCount: 1, farthestNearbyMiles: 51 });
+  });
+
+  it("widens an empty drive range to the 100-mile maximum and names the nearest beach", async () => {
+    const jetty: PoolBeach = { beach: beach("jetty", { slug: "jetty", lat: 39.28, lon: -74.57 } as Partial<Beach>), relation: "nearby", distanceMiles: 54.7 };
+    const ac: PoolBeach = { beach: beach("ac", { slug: "ac", lat: 39.36, lon: -74.43 } as Partial<Beach>), relation: "nearby", distanceMiles: 56.7 };
+    const loadPool = jest.fn().mockResolvedValueOnce([]).mockResolvedValueOnce([ac, jetty]);
+    const findNearest = jest.fn();
+
+    const result = await buildDriveRangeCandidatePool("user-1", {
+      anchor, homeBeachId: "home", maxDriveMinutes: 90,
+    }, { loadPool, findNearest, supabase: {} as never });
+
+    expect(loadPool).toHaveBeenNthCalledWith(2, expect.objectContaining({ maxDriveMinutes: null }));
+    expect(result.candidates.map(({ beach: { id } }) => id)).toEqual(["ac", "jetty"]);
+    expect(result.widenedFromMiles).toBe(45);
+    expect(result.nearestBeach).toEqual({ id: "jetty", name: "jetty", slug: "jetty", lat: 39.28, lon: -74.57, distanceMiles: 54.7 });
+    expect(findNearest).not.toHaveBeenCalled();
+  });
+
+  it("names the nearest beach at any distance when even 100 miles is empty", async () => {
+    const loadPool = jest.fn().mockResolvedValue([]);
+    const nearest = { id: "bolsa", name: "Bolsa Chica", slug: "bolsa-chica", lat: 33.71, lon: -118.06, distanceMiles: 830 };
+    const findNearest = jest.fn().mockResolvedValue(nearest);
+
+    const result = await buildDriveRangeCandidatePool("user-1", {
+      anchor, homeBeachId: null, maxDriveMinutes: 90,
+    }, { loadPool, findNearest, supabase: {} as never });
+
+    expect(result.candidates).toEqual([]);
+    expect(result.widenedFromMiles).toBeUndefined();
+    expect(result.nearestBeach).toEqual(nearest);
+  });
+
+  it("goes straight to the nearest beach when a No-limit range is empty", async () => {
+    const loadPool = jest.fn().mockResolvedValue([]);
+    const findNearest = jest.fn().mockResolvedValue(null);
+
+    const result = await buildDriveRangeCandidatePool("user-1", {
+      anchor, homeBeachId: null, maxDriveMinutes: null,
+    }, { loadPool, findNearest, supabase: {} as never });
+
+    expect(loadPool).toHaveBeenCalledTimes(1);
+    expect(findNearest).toHaveBeenCalledTimes(1);
+    expect(result.widenedFromMiles).toBeUndefined();
+    expect(result.nearestBeach).toBeUndefined();
+  });
+
+  it("leaves an empty range alone when the caller opts out of widening", async () => {
+    const loadPool = jest.fn().mockResolvedValue([]);
+    const findNearest = jest.fn();
+
+    const result = await buildDriveRangeCandidatePool("user-1", {
+      anchor, homeBeachId: null, maxDriveMinutes: 90, widenEmptyRange: false,
+    }, { loadPool, findNearest, supabase: {} as never });
+
+    expect(loadPool).toHaveBeenCalledTimes(1);
+    expect(findNearest).not.toHaveBeenCalled();
+    expect(result.candidates).toEqual([]);
+  });
+
+  it("does not widen a range that has beaches, even when filters empty it", async () => {
+    const loadPool = jest.fn().mockResolvedValue([
+      { beach: beach("reef", { lat: 32.8, lon: -117.25, break_type: "reef" } as Partial<Beach>), relation: "nearby", distanceMiles: 5 },
+    ] satisfies PoolBeach[]);
+
+    const result = await buildDriveRangeCandidatePool("user-1", {
+      anchor, homeBeachId: null, maxDriveMinutes: 90, filters: ["beach"],
+    }, { loadPool, supabase: {} as never });
+
+    expect(loadPool).toHaveBeenCalledTimes(1);
+    expect(result.candidates).toEqual([]);
+    expect(result.widenedFromMiles).toBeUndefined();
+    expect(result.nearestBeach).toBeUndefined();
+  });
+
+  it("measures the nearby filter from the anchor", async () => {
+    const loadPool = jest.fn().mockResolvedValue([
+      { beach: beach("close", { lat: 32.797, lon: -117.258 } as Partial<Beach>), relation: "favorite", distanceMiles: 4.6 },
+      { beach: beach("far", { lat: 33.204, lon: -117.394 } as Partial<Beach>), relation: "nearby", distanceMiles: 32.5 },
+    ] satisfies PoolBeach[]);
+
+    const result = await buildDriveRangeCandidatePool("user-1", {
+      anchor,
+      homeBeachId: null,
+      maxDriveMinutes: 90,
+      filters: ["nearby"],
+    }, { loadPool, supabase: {} as never });
+
+    expect(result.candidates.map(({ beach: { id } }) => id)).toEqual(["close"]);
   });
 });

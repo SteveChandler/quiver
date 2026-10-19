@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { useSearchParams, usePathname } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { useRoutePathname } from "@/hooks/use-route-pathname";
 import { normalizeForecastDateParam, normalizeForecastWindowParam } from "@/lib/utils/forecast-window-param";
 import { useAuthenticatedForecastDecision } from "@/components/beach-detail/authenticated-forecast-decision";
 import { RipCurrentWarning } from "@/components/beach-detail/rip-current-warning";
@@ -46,6 +47,7 @@ import { TideChartSection } from "@/components/beach-detail/tide-chart-section";
 import { useAuth } from "@/context/auth-context";
 import { useOptionalProfileContext } from "@/context/profile-context";
 import { ForecastFeedbackCapture } from "@/components/forecast/forecast-feedback-capture";
+import { resolveOffshoreDeg } from "@/lib/domains/shared/wind-orientation";
 
 const ConditionsOverview = dynamic(
   () =>
@@ -58,6 +60,8 @@ const ConditionsOverview = dynamic(
 interface ForecastTabProps {
   beach: Beach;
   forecasts: EnhancedForecastEntity[];
+  /** True until the forecast fetch settles, so an empty array is not read as "no forecast". */
+  forecastsLoading?: boolean;
   currentForecast: EnhancedForecastEntity | null;
   forecastMetadata?: BeachForecastMetadata | null;
   beachTimezone?: string | null;
@@ -70,6 +74,7 @@ interface ForecastTabProps {
 export function ForecastTab({
   beach,
   forecasts,
+  forecastsLoading = false,
   currentForecast,
   forecastMetadata,
   beachTimezone,
@@ -84,9 +89,17 @@ export function ForecastTab({
   const { user } = useAuth();
   const profileContext = useOptionalProfileContext();
   const profileExperienceLevel = profileContext?.profile?.experience_level ?? null;
-  const { isProvided: hasHeroDecision } = useAuthenticatedForecastDecision();
+  const {
+    isProvided: hasHeroDecision,
+    isLoading: decisionLoading,
+    report: decisionReport,
+  } = useAuthenticatedForecastDecision();
+  // The provider resolves a render before BeachDetailClient copies its report
+  // down into surfCall; until they match, the final card is still on its way.
+  const surfCallLoading =
+    decisionLoading || (hasHeroDecision && decisionReport !== (surfCall ?? null));
   const searchParams = useSearchParams();
-  const pathname = usePathname();
+  const pathname = useRoutePathname();
   const selectedDate = normalizeForecastDateParam(searchParams?.get("date"));
   const selectedWindow = selectedDate ? null : normalizeForecastWindowParam(searchParams?.get("window"));
 
@@ -357,7 +370,7 @@ export function ForecastTab({
             </p>
           </div>
           {forecastMetadata?.dataSource && (
-            <span className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-[#0B3A75]">
+            <span className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-[#8A5E00]">
               {forecastMetadata.dataSource}
             </span>
           )}
@@ -400,21 +413,21 @@ export function ForecastTab({
         <TabsList className="grid w-full grid-cols-3 gap-1 rounded-full border-2 border-[#11100D] bg-[#F4EBD8] p-1 shadow-[2px_2px_0_#11100D]">
           <TabsTrigger
             value="today"
-            className="flex items-center justify-center gap-2 rounded-full px-3 py-2 font-heading text-sm font-black uppercase text-[#5F5646] transition-[color,background-color,box-shadow] data-[state=active]:bg-[#11100D] data-[state=active]:text-[#F4EBD8] data-[state=active]:shadow-[0_2px_0_#F78E42] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B3A75]"
+            className="flex items-center justify-center gap-2 rounded-full px-3 py-2 font-heading text-sm font-black uppercase text-[#5F5646] transition-[color,background-color,box-shadow] data-[state=active]:bg-[#11100D] data-[state=active]:text-[#F4EBD8] data-[state=active]:shadow-[0_2px_0_#F78E42] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#11100D]"
           >
             <Sun className="h-4 w-4" />
             <span>Now</span>
           </TabsTrigger>
           <TabsTrigger
             value="tides"
-            className="flex items-center justify-center gap-2 rounded-full px-3 py-2 font-heading text-sm font-black uppercase text-[#5F5646] transition-[color,background-color,box-shadow] data-[state=active]:bg-[#11100D] data-[state=active]:text-[#F4EBD8] data-[state=active]:shadow-[0_2px_0_#F78E42] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B3A75]"
+            className="flex items-center justify-center gap-2 rounded-full px-3 py-2 font-heading text-sm font-black uppercase text-[#5F5646] transition-[color,background-color,box-shadow] data-[state=active]:bg-[#11100D] data-[state=active]:text-[#F4EBD8] data-[state=active]:shadow-[0_2px_0_#F78E42] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#11100D]"
           >
             <Waves className="h-4 w-4" />
             <span>Tides</span>
           </TabsTrigger>
           <TabsTrigger
             value="conditions"
-            className="flex items-center justify-center gap-2 rounded-full px-3 py-2 font-heading text-sm font-black uppercase text-[#5F5646] transition-[color,background-color,box-shadow] data-[state=active]:bg-[#11100D] data-[state=active]:text-[#F4EBD8] data-[state=active]:shadow-[0_2px_0_#F78E42] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B3A75]"
+            className="flex items-center justify-center gap-2 rounded-full px-3 py-2 font-heading text-sm font-black uppercase text-[#5F5646] transition-[color,background-color,box-shadow] data-[state=active]:bg-[#11100D] data-[state=active]:text-[#F4EBD8] data-[state=active]:shadow-[0_2px_0_#F78E42] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#11100D]"
           >
             <Globe2 className="h-4 w-4" />
             <span>Conditions</span>
@@ -433,7 +446,7 @@ export function ForecastTab({
                       ? "Forecasted Conditions"
                       : "Current Conditions"}
                   </h2>
-                  <span className="relative max-w-full rounded-full border-2 border-[#11100D] bg-[#EFE5CF] px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#0B3A75]">
+                  <span className="relative max-w-full rounded-full border-2 border-[#11100D] bg-[#EFE5CF] px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#8A5E00]">
                     {isDisplayStaleForecast
                       ? `Forecast for ${currentForecastTimeLabel ?? "selected slot"}${
                           freshnessLabel
@@ -467,11 +480,11 @@ export function ForecastTab({
                     </div>
                   </div>
                   <div className="relative flex flex-col items-center gap-1 rounded-[8px] border-2 border-[#11100D] bg-[#EFE5CF] p-3 shadow-[2px_2px_0_#11100D] sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-5">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-[#11100D] bg-[#0B3A75] sm:order-last sm:h-14 sm:w-14">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-[#11100D] bg-[#11100D] sm:order-last sm:h-14 sm:w-14">
                       <Wind className="h-5 w-5 text-[#F4EBD8] sm:h-7 sm:w-7" />
                     </div>
                     <div className="text-center sm:text-left sm:flex-1">
-                      <div className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#0B3A75]">
+                      <div className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#8A5E00]">
                         Wind
                       </div>
                       <div className="mt-0.5 font-heading text-base font-black text-[#11100D] sm:mt-2 sm:text-2xl">
@@ -574,8 +587,11 @@ export function ForecastTab({
             beachId={beach.id}
             beachName={beach.name}
             beachTimezone={beachTimezone}
+            offshoreDeg={resolveOffshoreDeg(beach)}
             forecasts={todaysForecasts}
             surfCall={surfCall}
+            surfCallLoading={surfCallLoading}
+            forecastsLoading={forecastsLoading}
             surfCallIsTomorrow={surfCallIsTomorrow}
             windows={conditionIntel.windows.map((w) => ({
               start: w.start.toISOString(),

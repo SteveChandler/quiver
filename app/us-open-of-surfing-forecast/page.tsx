@@ -58,9 +58,9 @@ export default async function UsOpenOfSurfingForecastPage() {
     },
     {
       label: "Wind",
-      value: rightNow?.metrics.wind.value ?? "Check live forecast",
+      value: rightNow?.metrics.wind?.value ?? "Check live forecast",
       detail:
-        rightNow?.metrics.wind.label ??
+        rightNow?.metrics.wind?.label ??
         "Morning wind can change quickly along the Huntington Beach shoreline.",
       icon: Wind,
     },

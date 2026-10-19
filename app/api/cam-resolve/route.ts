@@ -377,7 +377,7 @@ async function camResolveHandler(request: NextRequest): Promise<NextResponse> {
   } catch (error) {
     clearTimeout(timeoutId);
 
-    if (error instanceof Error && error.name === "AbortError") {
+    if (error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError")) {
       return NextResponse.json({ error: "Timeout" }, { status: 504, headers: DEFAULT_SECURITY_HEADERS });
     }
 

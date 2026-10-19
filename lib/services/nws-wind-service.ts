@@ -14,6 +14,8 @@ type NwsHourlyForecastPeriod = {
   windDirection?: string; // e.g. "NW"
 };
 
+export type NwsForecastCache = Map<string, Promise<NwsHourlyForecastPeriod[]>>;
+
 function clampDegrees(deg: number): number {
   const normalized = ((deg % 360) + 360) % 360;
   return normalized;
@@ -111,7 +113,7 @@ export class NwsWindService {
     lon: number;
     start: Date;
     end: Date;
-  }): Promise<NwsHourlyWindPoint[]> {
+  }, forecasts?: NwsForecastCache): Promise<NwsHourlyWindPoint[]> {
     const { lat, lon, start, end } = params;
 
     const startMs = start.getTime();
@@ -139,18 +141,25 @@ export class NwsWindService {
       // Some points (e.g. offshore) do not have hourly or any forecast URL.
       if (!hourlyUrl && !fallbackUrl) return [];
 
-      const fetchForecast = async (url: string): Promise<NwsHourlyForecastPeriod[]> => {
-        const resp = await apiClient.fetchNOAAData(url, {
-          headers: {
-            Accept: "application/geo+json",
-            "User-Agent": this.userAgent,
-          },
-        });
-        if (!resp.ok) {
-          throw new ApiError(url, resp.status, await resp.text());
-        }
-        const json = await resp.json();
-        return (json?.properties?.periods ?? []) as NwsHourlyForecastPeriod[];
+      const fetchForecast = (url: string): Promise<NwsHourlyForecastPeriod[]> => {
+        const cached = forecasts?.get(url);
+        if (cached) return cached;
+        // Cache raw periods so every beach still applies its own time window.
+        const pending = (async (): Promise<NwsHourlyForecastPeriod[]> => {
+          const resp = await apiClient.fetchNOAAData(url, {
+            headers: {
+              Accept: "application/geo+json",
+              "User-Agent": this.userAgent,
+            },
+          });
+          if (!resp.ok) {
+            throw new ApiError(url, resp.status, await resp.text());
+          }
+          const json = await resp.json();
+          return (json?.properties?.periods ?? []) as NwsHourlyForecastPeriod[];
+        })();
+        forecasts?.set(url, pending);
+        return pending;
       };
 
       let periods: NwsHourlyForecastPeriod[] = [];
@@ -212,7 +221,6 @@ export class NwsWindService {
     }
   }
 }
-
 
 
 

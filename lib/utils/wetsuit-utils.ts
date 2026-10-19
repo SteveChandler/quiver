@@ -82,6 +82,23 @@ export function getWetsuitRecommendation(tempF: number): WetsuitRecommendation {
 }
 
 /**
+ * Plain answer to "is the water cold?", on the same bands as getWetsuitRecommendation:
+ * boardshorts water is warm, spring-suit water is mild, 3/2 water is cool, thicker is cold.
+ */
+export function describeWaterFeel(tempF: number): "warm" | "mild" | "cool" | "cold" {
+  if (tempF >= 72) return "warm";
+  if (tempF >= 66) return "mild";
+  if (tempF >= 58) return "cool";
+  return "cold";
+}
+
+/** "boardshorts" or "a 3/2mm fullsuit", for use mid-sentence. */
+export function formatWetsuitPhrase(recommendation: WetsuitRecommendation): string {
+  if (recommendation.thickness === "Boardshorts") return "boardshorts";
+  return `a ${recommendation.thickness.charAt(0).toLowerCase()}${recommendation.thickness.slice(1)}`;
+}
+
+/**
  * Upper bound for a believable sea-surface reading. Warmest open ocean on record
  * is in the mid-90s F; anything above this is a unit error or a sentinel value.
  */

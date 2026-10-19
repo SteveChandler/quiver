@@ -7,6 +7,7 @@ import { GEOGRAPHIC_STATIONS } from "@/lib/services/noaa-coops/constants/geograp
 import { COOPS_STATION_COORDINATES } from "@/lib/services/noaa-coops/constants/station-coordinates";
 
 const LA_JOLLA = "9410230";
+const SAN_DIEGO_BAY = "9410170";
 const SANDY_HOOK = "8531680";
 const LONG_BEACH_NY = { lat: 40.5834, lon: -73.6664 };
 
@@ -25,6 +26,30 @@ describe("getStationForLocation", () => {
   });
 
   describe("name matches", () => {
+    it("uses Scripps for San Diego city and exposed county beaches", () => {
+      expect(getStationForLocation("San Diego")).toBe(LA_JOLLA);
+      expect(getStationForLocation("San Diego", 32.7156, -117.25)).toBe(LA_JOLLA);
+
+      for (const [name, lat, lon] of [
+        ["Scripps", 32.8669, -117.2571],
+        ["Torrey Pines", 32.9216, -117.2603],
+        ["Blacks Beach", 32.9016, -117.2524],
+        ["Ocean Beach", 32.749, -117.251],
+        ["Sunset Cliffs", 32.72, -117.256],
+        ["Imperial Beach Pier", 32.578, -117.1303],
+        ["Coronado Beach", 32.6859, -117.1899],
+        ["Silver Strand", 32.6223, -117.1442],
+        ["Unnamed coastal break", 32.58, -117.13],
+      ] as const) {
+        expect(getStationForLocation(name, lat, lon)).toBe(LA_JOLLA);
+      }
+    });
+
+    it("keeps San Diego Bay on the Broadway station", () => {
+      expect(getStationForLocation("San Diego Bay")).toBe(SAN_DIEGO_BAY);
+      expect(getStationForLocation("Broadway Pier", 32.7156, -117.1767)).toBe(SAN_DIEGO_BAY);
+    });
+
     it("skips a same-name station on another coast and keeps looking", () => {
       // "long-beach" is Long Beach, WA (Toke Point); "long-beach-ny" is the Sandy Hook entry.
       expect(getStationForLocation("Long Beach", LONG_BEACH_NY.lat, LONG_BEACH_NY.lon)).toBe(SANDY_HOOK);
@@ -36,7 +61,7 @@ describe("getStationForLocation", () => {
       // "newport" is Newport, OR (Southbeach), 1,330 km from Newport Beach, CA.
       expect(getStationForLocation("Newport 56th St", 33.6128, -117.9298)).toBe("9410580");
       // "seaside" is Seaside, OR (Astoria); Seaside Reef is in Solana Beach.
-      expect(getStationForLocation("Seaside Reef", 32.9988, -117.278)).toBe("9410170");
+      expect(getStationForLocation("Seaside Reef", 32.9988, -117.278)).toBe(LA_JOLLA);
     });
 
     it("keeps a nearby name match", () => {

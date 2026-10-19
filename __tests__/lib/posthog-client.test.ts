@@ -9,18 +9,7 @@ jest.mock("posthog-js", () => ({
 }));
 
 import posthog from "posthog-js";
-import {
-  _resetPostHogClientForTesting,
-  applyClientPostHogTrackingStorageEvent,
-  captureClientPostHogEvent,
-  captureClientPostHogEventAfterConsent,
-  captureQueuedClientPostHogSignup,
-  flushQueuedClientPostHogEvents,
-  identifyPostHogUser,
-  initPostHog,
-  queueClientPostHogSignup,
-  setClientPostHogTrackingAllowed,
-} from "@/lib/posthog-client";
+import { applyClientPostHogTrackingStorageEvent, captureClientPostHogEvent, captureClientPostHogEventAfterConsent, captureQueuedClientPostHogSignup, flushQueuedClientPostHogEvents, identifyPostHogUser, initPostHog, queueClientPostHogSignup, setClientPostHogTrackingAllowed, _resetPostHogClientForTesting } from "@/lib/posthog-client";
 
 describe("posthog-client", () => {
   const originalToken = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
@@ -77,7 +66,60 @@ describe("posthog-client", () => {
     expect(posthog.capture).toHaveBeenCalledWith(
       "home_discovery_request",
       expect.objectContaining({ request_number: 1 }),
+      { timestamp: expect.any(Date) },
     );
+  });
+
+  it("queues events fired before consent resolves with their original page and time", () => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-10-06T12:00:00.000Z"));
+    window.history.pushState({}, "", "/beach/blacks?ref=hero");
+
+    try {
+      expect(captureClientPostHogEvent("beach_view", { beach_id: "beach-1" })).toBe(true);
+      expect(posthog.capture).not.toHaveBeenCalled();
+
+      window.history.pushState({}, "", "/plans");
+      jest.setSystemTime(new Date("2026-10-06T12:00:02.000Z"));
+      setClientPostHogTrackingAllowed(true);
+      expect(flushQueuedClientPostHogEvents()).toBe(1);
+
+      expect(posthog.capture).toHaveBeenCalledWith(
+        "beach_view",
+        expect.objectContaining({
+          beach_id: "beach-1",
+          pathname: "/beach/blacks",
+          $pathname: "/beach/blacks",
+          $current_url: expect.stringContaining("/beach/blacks?ref=hero"),
+        }),
+        { timestamp: new Date("2026-10-06T12:00:00.000Z") },
+      );
+    } finally {
+      jest.useRealTimers();
+      window.history.pushState({}, "", "/");
+    }
+  });
+
+  it("drops events queued before consent when consent resolves false", () => {
+    captureClientPostHogEvent("beach_view", { beach_id: "beach-1" });
+
+    setClientPostHogTrackingAllowed(false);
+    setClientPostHogTrackingAllowed(true);
+
+    expect(flushQueuedClientPostHogEvents()).toBe(0);
+    expect(posthog.capture).not.toHaveBeenCalled();
+  });
+
+  it("identifies with stable person properties only", () => {
+    setClientPostHogTrackingAllowed(true);
+    identifyPostHogUser("user-123", {
+      provider: "email",
+      email_domain: "example.com",
+    });
+
+    expect(posthog.identify).toHaveBeenCalledWith("user-123", {
+      provider: "email",
+      email_domain: "example.com",
+    });
   });
 
   it("discards queued operational events when consent is denied", () => {
@@ -92,6 +134,19 @@ describe("posthog-client", () => {
     expect(posthog.capture).not.toHaveBeenCalled();
   });
 
+  it("captures SDK pageviews and pageleaves for PostHog web analytics", () => {
+    setClientPostHogTrackingAllowed(true);
+
+    expect(posthog.init).toHaveBeenCalledTimes(1);
+    expect(posthog.init).toHaveBeenCalledWith(
+      "phc_test",
+      expect.objectContaining({
+        capture_pageview: "history_change",
+        capture_pageleave: true,
+      }),
+    );
+  });
+
   it("enables capture only after explicit consent and disables autocapture", () => {
     setClientPostHogTrackingAllowed(true);
     expect(initPostHog()).toBe(true);
@@ -101,7 +156,6 @@ describe("posthog-client", () => {
     expect(posthog.init).toHaveBeenCalledWith(
       "phc_test",
       expect.objectContaining({
-        capture_pageview: false,
         autocapture: false,
       }),
     );

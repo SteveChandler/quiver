@@ -44,9 +44,7 @@ jest.mock("@/components/forecast/score-badge", () => ({
   ),
 }));
 
-jest.mock("@/components/ui/ocean-background", () => ({
-  WaveBackground: () => <div data-testid="wave-background" />,
-}));
+
 
 // ScrollReveal must render children so click targets are accessible
 jest.mock("@/components/ui/scroll-reveal", () => ({
@@ -59,30 +57,9 @@ jest.mock("@/components/ui/animated-counter", () => ({
   AnimatedCounter: ({ value }: { value: number }) => <span>{value}</span>,
 }));
 
-jest.mock("@/components/ui/card", () => ({
-  Card: ({
-    children,
-    onClick,
-    className,
-  }: {
-    children: React.ReactNode;
-    onClick?: () => void;
-    className?: string;
-  }) => (
-    <div data-testid="card" className={className} onClick={onClick}>
-      {children}
-    </div>
-  ),
-  CardContent: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="card-content">{children}</div>
-  ),
-}));
 
-jest.mock("@/components/ui/badge", () => ({
-  Badge: ({ children }: { children: React.ReactNode }) => (
-    <span data-testid="badge">{children}</span>
-  ),
-}));
+
+
 
 jest.mock("@/lib/utils/wave-formatters", () => ({
   formatWaveRange: (range: [number, number]) => `${range[0]}-${range[1]} ft`,
@@ -197,6 +174,22 @@ describe("BestDaysSection — analytics wiring", () => {
     trackBestConditionsClick = tracking.trackBestConditionsClick;
   });
 
+  it("shows no wind stat, label or 'Variable' when the day's wind is unknown", () => {
+    const unknownWindDay = makeDaySummary({ windConditions: "unknown", dominantWindDirection: "" });
+
+    render(
+      <BestDaysSection
+        days={[unknownWindDay, ...SECONDARY_DAYS.map((d) => ({ ...d, windConditions: "unknown" as const }))]}
+        bestDay={unknownWindDay}
+        regionName={REGION_NAME}
+      />
+    );
+
+    const text = document.body.textContent ?? "";
+    expect(text).not.toMatch(/onshore|offshore|variable|Direction/i);
+    expect(screen.queryByText("Wind")).not.toBeInTheDocument();
+  });
+
   it("does not render immediate-action copy for a future weekly best day", () => {
     const futureBestDay = makeDaySummary({ score: 97 });
 
@@ -205,7 +198,6 @@ describe("BestDaysSection — analytics wiring", () => {
         days={[futureBestDay]}
         bestDay={futureBestDay}
         regionName={REGION_NAME}
-        variant="zine"
       />
     );
 
@@ -325,8 +317,8 @@ describe("BestDaysSection — analytics wiring", () => {
       );
 
       // The hero card is rendered without ScrollReveal wrapping (directly inside a ScrollReveal).
-      // All clickable Cards have data-testid="card". The first one is the hero.
-      const cards = screen.getAllByTestId("card");
+      // The first button is the hero.
+      const cards = screen.getAllByRole("button");
       fireEvent.click(cards[0]);
 
       expect(trackBestConditionsClick).toHaveBeenCalledTimes(1);
@@ -339,7 +331,7 @@ describe("BestDaysSection — analytics wiring", () => {
         <BestDaysSection days={ALL_DAYS} bestDay={BEST_DAY} regionName={customRegion} />
       );
 
-      const cards = screen.getAllByTestId("card");
+      const cards = screen.getAllByRole("button");
       fireEvent.click(cards[0]);
 
       expect(trackBestConditionsClick).toHaveBeenCalledWith(customRegion, 1, BEST_DAY.score);
@@ -353,7 +345,7 @@ describe("BestDaysSection — analytics wiring", () => {
         <BestDaysSection days={days} bestDay={highScoreDay} regionName={REGION_NAME} />
       );
 
-      const cards = screen.getAllByTestId("card");
+      const cards = screen.getAllByRole("button");
       fireEvent.click(cards[0]);
 
       expect(trackBestConditionsClick).toHaveBeenCalledWith(REGION_NAME, 1, 97);
@@ -364,7 +356,7 @@ describe("BestDaysSection — analytics wiring", () => {
         <BestDaysSection days={ALL_DAYS} bestDay={BEST_DAY} regionName={REGION_NAME} />
       );
 
-      const cards = screen.getAllByTestId("card");
+      const cards = screen.getAllByRole("button");
       fireEvent.click(cards[0]);
 
       expect(trackBestConditionsViewed).not.toHaveBeenCalled();
@@ -382,7 +374,7 @@ describe("BestDaysSection — analytics wiring", () => {
       );
 
       // Cards: index 0 = hero, index 1 = first secondary day (rank 2)
-      const cards = screen.getAllByTestId("card");
+      const cards = screen.getAllByRole("button");
       fireEvent.click(cards[1]);
 
       // Secondary days are sorted by score descending — highest score is SECONDARY_DAYS[0] (72)
@@ -395,7 +387,7 @@ describe("BestDaysSection — analytics wiring", () => {
         <BestDaysSection days={ALL_DAYS} bestDay={BEST_DAY} regionName={REGION_NAME} />
       );
 
-      const cards = screen.getAllByTestId("card");
+      const cards = screen.getAllByRole("button");
       fireEvent.click(cards[2]);
 
       const sortedSecondary = [...SECONDARY_DAYS].sort((a, b) => b.score - a.score);
@@ -411,7 +403,7 @@ describe("BestDaysSection — analytics wiring", () => {
         <BestDaysSection days={ALL_DAYS} bestDay={BEST_DAY} regionName={REGION_NAME} />
       );
 
-      const cards = screen.getAllByTestId("card");
+      const cards = screen.getAllByRole("button");
       fireEvent.click(cards[3]);
 
       const sortedSecondary = [...SECONDARY_DAYS].sort((a, b) => b.score - a.score);
@@ -433,7 +425,7 @@ describe("BestDaysSection — analytics wiring", () => {
         <BestDaysSection days={days} bestDay={BEST_DAY} regionName={REGION_NAME} />
       );
 
-      const cards = screen.getAllByTestId("card");
+      const cards = screen.getAllByRole("button");
 
       fireEvent.click(cards[1]);
       expect(trackBestConditionsClick).toHaveBeenLastCalledWith(REGION_NAME, 2, 80);
@@ -448,7 +440,7 @@ describe("BestDaysSection — analytics wiring", () => {
         <BestDaysSection days={ALL_DAYS} bestDay={BEST_DAY} regionName={customRegion} />
       );
 
-      const cards = screen.getAllByTestId("card");
+      const cards = screen.getAllByRole("button");
       fireEvent.click(cards[1]);
 
       expect(trackBestConditionsClick).toHaveBeenCalledWith(
@@ -474,7 +466,7 @@ describe("BestDaysSection — analytics wiring", () => {
       );
 
       // 1 hero + 4 secondary = 5 cards maximum
-      const cards = screen.getAllByTestId("card");
+      const cards = screen.getAllByRole("button");
       expect(cards).toHaveLength(5);
     });
 
@@ -484,7 +476,7 @@ describe("BestDaysSection — analytics wiring", () => {
       );
 
       // Only the hero card should exist
-      const cards = screen.getAllByTestId("card");
+      const cards = screen.getAllByRole("button");
       expect(cards).toHaveLength(1);
     });
 
@@ -495,7 +487,7 @@ describe("BestDaysSection — analytics wiring", () => {
       );
 
       // Click each secondary card and confirm none fires rank=1
-      const cards = screen.getAllByTestId("card");
+      const cards = screen.getAllByRole("button");
       for (let i = 1; i < cards.length; i++) {
         fireEvent.click(cards[i]);
       }
@@ -516,7 +508,7 @@ describe("BestDaysSection — analytics wiring", () => {
         <BestDaysSection days={ALL_DAYS} bestDay={BEST_DAY} regionName={REGION_NAME} />
       );
 
-      const cards = screen.getAllByTestId("card");
+      const cards = screen.getAllByRole("button");
 
       fireEvent.click(cards[0]);
       expect(trackBestConditionsClick).toHaveBeenCalledTimes(1);
@@ -535,7 +527,7 @@ describe("BestDaysSection — analytics wiring", () => {
       triggerIntersection(true);
       expect(trackBestConditionsViewed).toHaveBeenCalledTimes(1);
 
-      const cards = screen.getAllByTestId("card");
+      const cards = screen.getAllByRole("button");
       fireEvent.click(cards[1]);
 
       // Still only one view event
@@ -565,7 +557,6 @@ describe("BestDaysSection — paper score treatment", () => {
         regionName={REGION_NAME}
         regionSlug="san-diego"
         authAwareScores
-        variant="zine"
       />
     );
 
@@ -584,7 +575,6 @@ describe("BestDaysSection — paper score treatment", () => {
         regionName={REGION_NAME}
         regionSlug="san-diego"
         showScores
-        variant="zine"
       />
     );
 
@@ -608,7 +598,6 @@ describe("BestDaysSection — paper score treatment", () => {
         regionName={REGION_NAME}
         regionSlug="san-diego"
         showScores={false}
-        variant="zine"
       />
     );
 

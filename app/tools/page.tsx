@@ -1,3 +1,4 @@
+import { JsonLd } from "@/components/seo/funnel/JsonLd";
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
@@ -148,10 +149,7 @@ export default function ToolsIndexPage(): ReactElement {
         url={`${SITE_URL}/tools`}
         description="Essential tools every surfer needs: tide clock, wave height converter, offshore wind checker, dawn patrol calculator, surfboard size guide & more."
       />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+      <JsonLd data={{
             "@context": "https://schema.org",
             "@type": "ItemList",
             name: "The Surfer's Toolkit",
@@ -163,9 +161,7 @@ export default function ToolsIndexPage(): ReactElement {
               name: tool.name,
               url: `${SITE_URL}${"external" in tool && tool.external ? tool.slug : `/tools/${tool.slug}`}`,
             })),
-          }),
-        }}
-      />
+          }} />
 
       <ZineSurface
         sectionLabel="Tools"

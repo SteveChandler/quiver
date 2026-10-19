@@ -5,6 +5,7 @@ import {
   parseCompetitorRankedKeywords,
   parseGoogleSerpRanking,
   parseKeywordMetrics,
+  selectReusableDataForSeoExport,
 } from "@/lib/seo/agent-workflow/dataforseo-export";
 
 describe("SEO workflow DataForSEO export", () => {
@@ -250,6 +251,30 @@ describe("SEO workflow DataForSEO export", () => {
       competitorKeywords: [],
       keywordMetrics: [],
       missing: ["DATAFORSEO_LOGIN"],
+    });
+  });
+
+  describe("selectReusableDataForSeoExport", () => {
+    const now = new Date("2026-10-14T12:00:00Z");
+    const exportAt = (generatedAt: string, rows: boolean) => ({
+      ...buildMissingDataForSeoExport(generatedAt, []),
+      googleRankings: rows ? [{ keyword: "surf forecast app" }] : [],
+    });
+
+    it("reuses the newest export with rows inside the window", () => {
+      expect(selectReusableDataForSeoExport([
+        { path: "a", data: exportAt("2026-10-10T12:00:00Z", true) },
+        { path: "b", data: exportAt("2026-10-11T15:00:00Z", true) },
+        { path: "c", data: exportAt("2026-10-13T12:00:00Z", false) },
+        { path: "d", data: null },
+      ], now, 144)?.path).toBe("b");
+    });
+
+    it("ignores exports at or past the window and exports without rows", () => {
+      expect(selectReusableDataForSeoExport([
+        { path: "stale", data: exportAt("2026-10-08T12:00:00Z", true) },
+        { path: "empty", data: exportAt("2026-10-14T11:00:00Z", false) },
+      ], now, 144)).toBeNull();
     });
   });
 });

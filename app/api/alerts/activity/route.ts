@@ -5,6 +5,7 @@ import {
   withAuth,
   type AuthenticatedContext,
 } from "@/lib/middleware/api-wrappers";
+import { majorSwellSurfWindowSchema } from "@/lib/notifications/types/major-swell";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -213,6 +214,12 @@ function normalizeActivityItem(row: NotificationRow): AlertActivityItem {
             ? stringFromData({}, match, ["window_end", "windowEnd"])
             : null;
 
+  const surfWindow = row.type === "swell_watch" ? majorSwellSurfWindowSchema.safeParse(data.surf_window) : null;
+  const recommendedWindow = surfWindow?.success && surfWindow.data.state === "recommended"
+    && surfWindow.data.start !== null && surfWindow.data.end !== null
+    && Date.parse(surfWindow.data.start) < Date.parse(surfWindow.data.end)
+    ? surfWindow.data : null;
+
   const watched = row.type === "watched_call_update";
   return {
     id: row.id,
@@ -224,8 +231,8 @@ function normalizeActivityItem(row: NotificationRow): AlertActivityItem {
     beach_name: beachName,
     forecast_at: forecastAt,
     alert_date: stringFromData(data, null, ["alert_date", "alertDate"]),
-    window_start: watched ? nonEmptyString(data.window_start) : windowStart,
-    window_end: watched ? nonEmptyString(data.window_end) : windowEnd,
+    window_start: watched ? nonEmptyString(data.window_start) : recommendedWindow?.start ?? windowStart,
+    window_end: watched ? nonEmptyString(data.window_end) : recommendedWindow?.end ?? windowEnd,
     reason,
     window_label: canonical.state === "no" ? null : stringFromData(data, match, [
       "window_label",

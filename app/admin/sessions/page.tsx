@@ -31,7 +31,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -56,7 +56,6 @@ import type { SessionStats } from "@/lib/validation/admin/session-schema";
 
 export default function SessionsAdminPage() {
   const router = useRouter();
-  const { toast } = useToast();
 
   // State
   const [showDeleted, setShowDeleted] = useState(false);
@@ -117,20 +116,12 @@ export default function SessionsAdminPage() {
 
     try {
       await softDeleteSession(sessionToDelete.id);
-      toast({
-        title: "Session deleted",
-        description: `Session at ${sessionToDelete.beach_name} has been soft deleted.`,
-      });
+      toast("Session deleted", { description: `Session at ${sessionToDelete.beach_name} has been soft deleted.` });
       refetchSessions();
       refetchStats();
       setSessionToDelete(null);
     } catch (error) {
-      toast({
-        title: "Error",
-        description:
-          error instanceof Error ? error.message : "Failed to delete session",
-        variant: "destructive",
-      });
+      toast.error("Error", { description: error instanceof Error ? error.message : "Failed to delete session" });
     }
   };
 
@@ -139,20 +130,12 @@ export default function SessionsAdminPage() {
 
     try {
       await restoreSession(sessionToRestore.id);
-      toast({
-        title: "Session restored",
-        description: `Session at ${sessionToRestore.beach_name} has been restored.`,
-      });
+      toast("Session restored", { description: `Session at ${sessionToRestore.beach_name} has been restored.` });
       refetchSessions();
       refetchStats();
       setSessionToRestore(null);
     } catch (error) {
-      toast({
-        title: "Error",
-        description:
-          error instanceof Error ? error.message : "Failed to restore session",
-        variant: "destructive",
-      });
+      toast.error("Error", { description: error instanceof Error ? error.message : "Failed to restore session" });
     }
   };
 

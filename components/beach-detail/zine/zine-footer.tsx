@@ -10,7 +10,7 @@ export function ZineFooter({ city, state }: ZineFooterProps) {
     <footer className="zine-footer">
       <span>Quiver · Field Guide{location ? ` · ${location}` : ""}</span>
       <span>Updated {today}</span>
-      <span style={{ fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif", fontWeight: 900, fontSize: 13, letterSpacing: "0.06em" }}>QUIVER //</span>
+      <span style={{ fontFamily: "var(--font-zine-display), 'Space Grotesk', sans-serif", fontWeight: 900, fontSize: 13, letterSpacing: "0.06em" }}>QUIVER //</span>
     </footer>
   );
 }

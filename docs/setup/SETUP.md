@@ -91,20 +91,7 @@ yarn test:e2e:ui     # Run E2E tests with UI
 
 ### Data Management
 
-```bash
-yarn buoy:sync               # Sync NOAA buoy data
-yarn buoy:update-conditions  # Update buoy conditions
-yarn forecast:update         # Update surf forecasts
-yarn update:all              # Update all data sources
-yarn cleanup:old             # Clean up old data
-```
-
-### Database
-
-```bash
-yarn db:health       # Check database health
-yarn fix:srid        # Apply SRID fixes if needed
-```
+Data sync runs via the Vercel crons in `vercel.json`.
 
 ## 🔧 Environment Variables Required
 
@@ -185,7 +172,6 @@ yarn build     # Check for type errors
 
 - Verify `.env.local` credentials
 - Check Supabase project status
-- Run `yarn db:health`
 
 **Build failures:**
 

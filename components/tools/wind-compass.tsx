@@ -4,8 +4,9 @@ import { useMemo } from "react";
 import { circularAngleDiff } from "@/lib/services/magic-hour/direction-utils";
 
 interface WindCompassProps {
-  windDirectionDeg: number;
-  windSpeedMph: number;
+  /** Null when the hour has no direction: no arrow is drawn. */
+  windDirectionDeg: number | null;
+  windSpeedMph: number | null;
   offshoreDeg: number | null;
   toleranceDeg: number | null;
   /** Cardinal label for the wind direction e.g. "NW" */
@@ -34,7 +35,7 @@ export function WindCompass({
     // Convert meteorological direction (where wind comes FROM) to display angle
     // SVG 0deg = top (north), increases clockwise
     // Wind direction 0 = from north, display 0 = pointing north
-    const windAngleRad = ((windDirectionDeg - 90) * Math.PI) / 180;
+    const windAngleRad = (((windDirectionDeg ?? 0) - 90) * Math.PI) / 180;
 
     const arrowLength = r * 0.7;
     const arrowTipX = cx + Math.cos(windAngleRad) * arrowLength;
@@ -49,7 +50,10 @@ export function WindCompass({
     const headBackY = arrowTipY - Math.sin(windAngleRad) * 20;
     const headL = `${headBackX + Math.cos(perpAngle) * headWidth},${headBackY + Math.sin(perpAngle) * headWidth}`;
     const headR = `${headBackX - Math.cos(perpAngle) * headWidth},${headBackY - Math.sin(perpAngle) * headWidth}`;
-    const arrowPath = `M ${arrowTailX},${arrowTailY} L ${arrowTipX},${arrowTipY} M ${headL} L ${arrowTipX},${arrowTipY} L ${headR}`;
+    const arrowPath =
+      windDirectionDeg == null
+        ? ""
+        : `M ${arrowTailX},${arrowTailY} L ${arrowTipX},${arrowTipY} M ${headL} L ${arrowTipX},${arrowTipY} L ${headR}`;
 
     if (offshoreDeg == null || toleranceDeg == null) {
       return {
@@ -59,10 +63,13 @@ export function WindCompass({
       };
     }
 
-    const diff = circularAngleDiff(windDirectionDeg, offshoreDeg);
+    const diff =
+      windDirectionDeg == null ? null : circularAngleDiff(windDirectionDeg, offshoreDeg);
 
     let qualityColor: string;
-    if (diff <= toleranceDeg) {
+    if (diff == null) {
+      qualityColor = "#94a3b8";
+    } else if (diff <= toleranceDeg) {
       qualityColor = "#22c55e"; // green-500
     } else if (diff <= toleranceDeg * 1.5 || diff <= 90) {
       qualityColor = "#eab308"; // yellow-500
@@ -126,7 +133,11 @@ export function WindCompass({
       height={size}
       viewBox={`0 0 ${size} ${size}`}
       role="img"
-      aria-label={`Wind compass: ${windSpeedMph} mph from ${windCardinal}`}
+      aria-label={
+        windSpeedMph == null
+          ? "Wind compass: no current wind reading"
+          : `Wind compass: ${Math.round(windSpeedMph)} mph${windDirectionDeg == null ? "" : ` from ${windCardinal}`}`
+      }
       className="select-none"
       style={{ maxWidth: "100%", height: "auto" }}
     >
@@ -218,7 +229,7 @@ export function WindCompass({
         fill="#ffffff"
         fontFamily="var(--font-mono, monospace)"
       >
-        {Math.round(windSpeedMph)}
+        {windSpeedMph != null ? Math.round(windSpeedMph) : "—"}
       </text>
       <text
         x={cx}

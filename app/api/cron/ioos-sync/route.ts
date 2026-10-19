@@ -1,3 +1,4 @@
+import { setTimeout as sleep } from "node:timers/promises";
 import {
   createErrorResponse,
   createSuccessResponse,
@@ -351,7 +352,7 @@ async function refreshStationCapabilities(
       if (!error) refreshed++;
     }
     // Small delay to avoid rate limiting
-    await delay(100);
+    await sleep(100);
   }
 
   return refreshed;
@@ -578,7 +579,7 @@ async function syncObservations(
 
       // Small delay between batches
       if (i + batchSize < stations.length) {
-        await delay(200);
+        await sleep(200);
       }
     }
 
@@ -695,8 +696,4 @@ function calculateDistance(
 
 function toRad(deg: number): number {
   return deg * (Math.PI / 180);
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }

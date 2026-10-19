@@ -87,9 +87,11 @@ describe("vercel.json", () => {
       git("commit", "-m", "test update");
       expect(runIgnoreCommand()).toBe(0);
 
-      // .vercelignore keeps root scripts/ and supabase/ out of the upload, so
-      // a commit touching only them cannot change the build.
-      expect(vercelIgnore).toMatch(/^scripts\/$/m);
+      // .vercelignore keeps root scripts/ (except load-env.mjs, which the
+      // type-checked playwright.config.ts imports) and supabase/ out of the
+      // upload, so a commit touching only them cannot change the build.
+      expect(vercelIgnore).toMatch(/^scripts\/\*$/m);
+      expect(vercelIgnore).toMatch(/^!scripts\/load-env\.mjs$/m);
       expect(vercelIgnore).toMatch(/^\/supabase\/$/m);
       fs.mkdirSync(path.join(repoPath, "scripts"));
       fs.writeFileSync(path.join(repoPath, "scripts", "collector.py"), "print(1)\n");
@@ -161,7 +163,7 @@ describe("vercel.json", () => {
         expect.objectContaining({ path: "/api/monitoring/forecast-health" }),
         expect.objectContaining({
           path: "/api/cron/daily-call",
-          schedule: "0 * * * *",
+          schedule: "8 * * * *",
         }),
       ]),
     );
@@ -171,19 +173,6 @@ describe("vercel.json", () => {
         expect.objectContaining({ path: "/api/cron/home-morning-call" }),
       ]),
     );
-  });
-
-  it("colocates the discovery routes with the Northern California database", () => {
-    // Each makes a chain of sequential database reads; from the default
-    // East Coast region every one of them pays a cross-country round trip.
-    const configPath = path.join(process.cwd(), "vercel.json");
-    const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
-    for (const route of [
-      "app/api/surf/discover/route.ts",
-      "app/api/surf/week-scout/route.ts",
-    ]) {
-      expect(config.functions[route]?.regions).toEqual(["sfo1"]);
-    }
   });
 
   // 2026-10-02: /api/surf/call and every other route ran in iad1 (x-vercel-id sfo1::iad1) against
@@ -217,6 +206,41 @@ describe("vercel.json", () => {
       "/api/cron/ioos-sync?phase=observations",
     ];
     expect(config.crons.filter((cron) => heavy.includes(cron.path) && firesAtMinuteZero(cron.schedule))).toEqual([]);
+  });
+
+  // 2026-10-04 15:02-15:06 UTC: ~40 statements cancelled while the minute-0 sends, the :05 marine
+  // refresh and ad-hoc analytics overlapped. These jobs select by local hour or by queue state, never
+  // by the minute they fire in, so they move off minute 0 without changing who they select.
+  it("keeps the hourly per-user sends off minute 0", () => {
+    const configPath = path.join(process.cwd(), "vercel.json");
+    const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+    const moved = {
+      "/api/cron/email-lifecycle": { schedule: "25 * * * *", source: "app/api/cron/email-lifecycle/route.ts" },
+      "/api/cron/daily-call": { schedule: "8 * * * *", source: "app/api/cron/daily-call/route.ts" },
+      "/api/cron/swell-alert": { schedule: "24 * * * *", source: "app/api/cron/swell-alert/route.ts" },
+      "/api/cron/condition-alert-deliver": { schedule: "2 * * * *", source: "app/api/cron/condition-alert-deliver/route.ts" },
+    };
+    for (const [route, { schedule, source }] of Object.entries(moved)) {
+      expect(config.crons.find((cron) => cron.path === route)?.schedule).toBe(schedule);
+      // The Sentry monitor schedule lives in the route and must match, or it alerts on every run.
+      if (route !== "/api/cron/condition-alert-deliver") {
+        expect(fs.readFileSync(path.join(process.cwd(), source), "utf8")).toContain(`schedule: "${schedule}"`);
+      }
+    }
+
+    // Distinct minutes so the moved jobs do not just form a second pile-up.
+    const minutes = Object.values(moved).map(({ schedule }) => schedule.split(" ")[0]);
+    expect(new Set(minutes).size).toBe(minutes.length);
+    expect(minutes.map(Number).every((minute) => minute > 0)).toBe(true);
+  });
+
+  it("removes the retired swell-watch shadow route and schedule", () => {
+    const config = JSON.parse(fs.readFileSync(path.join(process.cwd(), "vercel.json"), "utf8"));
+
+    expect(config.crons).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ path: "/api/cron/swell-watch" })]),
+    );
+    expect(fs.existsSync(path.join(process.cwd(), "app/api/cron/swell-watch/route.ts"))).toBe(false);
   });
 
   it("refreshes tide predictions twice weekly to stay inside warning freshness", () => {

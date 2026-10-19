@@ -73,7 +73,9 @@ describe("PublicForecastHourly", () => {
     global.fetch = jest.fn();
   });
 
-  function renderHourly() {
+  function renderHourly(
+    publicWindow: { start: string | null; end: string | null } | null = null,
+  ) {
     return render(
       <AuthenticatedForecastDecisionProvider beachId="beach-1">
         <PublicForecastHourly
@@ -82,6 +84,7 @@ describe("PublicForecastHourly", () => {
           context={context}
           forecastDay="today"
           returnTo="/ca/san-diego/del-mar"
+          publicWindow={publicWindow}
         />
       </AuthenticatedForecastDecisionProvider>,
     );
@@ -97,6 +100,20 @@ describe("PublicForecastHourly", () => {
     for (const row of screen.getAllByTestId("public-forecast-hour")) {
       expect(row).not.toHaveClass("bg-[#F7E7BE]");
     }
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("marks the general best window for guests, as native's grid does", () => {
+    renderHourly({
+      start: "2026-08-15T14:00:00.000Z",
+      end: "2026-08-15T16:00:00.000Z",
+    });
+
+    const [early, inWindow] = screen.getAllByTestId("public-forecast-hour");
+    expect(within(inWindow).getByText("Best window")).toBeInTheDocument();
+    expect(inWindow).toHaveClass("bg-[#F7E7BE]");
+    expect(early).not.toHaveClass("bg-[#F7E7BE]");
+    expect(screen.queryByRole("link", { name: /sign in/i })).not.toBeInTheDocument();
     expect(global.fetch).not.toHaveBeenCalled();
   });
 

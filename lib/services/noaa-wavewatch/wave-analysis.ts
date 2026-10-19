@@ -10,7 +10,6 @@
 import { createContextLogger } from "@/lib/logger";
 import { WAVE_REGIONS, SEASONAL_FACTORS, COMPASS_DIRECTIONS, UNIT_CONVERSIONS } from "./constants";
 import {
-  FEET_TO_METERS,
   metersToFeet as convertMetersToFeet,
 } from "@/lib/utils/unit-conversions";
 import type { NOAAValueSeries } from "./types";
@@ -158,16 +157,6 @@ export function metersToFeet(meters: number): number {
 }
 
 /**
- * Convert wave height from feet to meters
- *
- * @param feet - Wave height in feet
- * @returns Wave height in meters
- */
-function feetToMeters(feet: number): number {
-  return feet * FEET_TO_METERS;
-}
-
-/**
  * Convert wave direction from degrees to compass text
  *
  * @param degrees - Direction in degrees (0-360)
@@ -176,20 +165,6 @@ function feetToMeters(feet: number): number {
 export function getWaveDirectionText(degrees: number): string {
   const index = Math.round(degrees / 22.5) % 16;
   return COMPASS_DIRECTIONS[index];
-}
-
-/**
- * Get timestamp for forecast at specific index
- *
- * Forecasts are generated every 3 hours from current time.
- *
- * @param index - Forecast index (0-based)
- * @returns ISO 8601 timestamp string
- */
-function getTimestampForIndex(index: number): string {
-  const now = new Date();
-  const forecastTime = new Date(now.getTime() + index * 3 * 60 * 60 * 1000);
-  return forecastTime.toISOString();
 }
 
 /**
@@ -271,21 +246,6 @@ export function getValueAtTime(
   }
 
   return null;
-}
-
-/**
- * Extract value at specific index from NOAA API time series
- *
- * @param values - Array of time-value pairs from NOAA API
- * @param index - Index to extract
- * @returns Value at index or null if unavailable
- */
-export function getValueAtIndex(
-  values: Array<{ validTime: string; value: number | null }> | undefined,
-  index: number
-): number | null {
-  if (!values || index >= values.length) return null;
-  return values[index]?.value ?? null;
 }
 
 /**

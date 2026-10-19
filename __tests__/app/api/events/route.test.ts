@@ -13,8 +13,8 @@ import { POST as _POST } from '@/app/api/events/route';
 // Tests call POST with a plain Request for brevity; the real signature is
 // NextRequest. Cast to loosen for the test harness only.
 const POST = _POST as unknown as (req: Request, ctx?: any) => Promise<Response>;
-import { __clearTrackingCache } from '@/lib/services/tracking-cache';
 import { createServiceRoleClient } from '@/lib/supabase';
+import { __clearTrackingCache } from '@/lib/services/tracking-cache';
 
 jest.mock('@/lib/supabase', () => ({
   createServiceRoleClient: jest.fn(),

@@ -1,5 +1,6 @@
 import * as Sentry from "@sentry/nextjs";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { observedCronRun } from "@/lib/cron/observability";
 
 export interface CronOutcome {
   /** Stable id, matching the scheduled route (and phase, when applicable). */
@@ -31,6 +32,9 @@ type CronOutcomeStatus = "ok" | "failed" | "error";
 
 type CronRunsClient = {
   from: (table: "cron_runs") => {
+    update: (row: Record<string, unknown>) => {
+      eq: (column: string, value: string) => PromiseLike<{ error?: { message?: string } | null }>;
+    };
     insert: (
       row: Record<string, unknown>,
     ) => PromiseLike<{ error?: { message?: string } | null }>;
@@ -78,27 +82,34 @@ function outcomeSummary(
 
 async function persistOutcome(outcome: PersistedOutcome): Promise<boolean> {
   try {
-    const supabase = (await createSupabaseServiceRoleClient()) as unknown as CronRunsClient;
-    const { error } = await supabase.from("cron_runs").insert({
-      route: outcome.job,
+    const fields = {
       job: outcome.job,
       unit: outcome.unit,
       produced: outcome.produced,
       expected_min: outcome.expectedMin,
       expected_max: outcome.expectedMax ?? null,
       status: outcome.status,
-      ran_at: outcome.ranAt,
-      finished_at: outcome.ranAt,
-      duration_ms: outcome.durationMs,
       legitimately_zero_reason: outcome.legitimatelyZero?.reason ?? null,
       summary: outcome.summary === undefined
         ? null
         : outcomeSummary(outcome.summary, outcome),
       error_message: outcome.errorMessage ?? null,
-    });
+    };
+    const observedRun = observedCronRun.getStore();
+    if (observedRun?.runId) observedRun.outcome = fields;
+    const supabase = (await createSupabaseServiceRoleClient()) as unknown as CronRunsClient;
+    const { error } = observedRun?.runId
+      ? await supabase.from("cron_runs").update(fields).eq("id", observedRun.runId)
+      : await supabase.from("cron_runs").insert({
+        ...fields,
+        route: outcome.job,
+        ran_at: outcome.ranAt,
+        finished_at: outcome.ranAt,
+        duration_ms: outcome.durationMs,
+      });
 
     if (error) {
-      throw new Error(error.message ?? "unknown cron outcome insert error");
+      throw new Error(error.message ?? "unknown cron outcome write error");
     }
     return true;
   } catch (error) {
@@ -188,7 +199,7 @@ export async function withCronOutcome<T>(
       ranAt: new Date().toISOString(),
       durationMs: Date.now() - startedAt,
       summary: result,
-      ...(reason ? { errorMessage: reason } : {}),
+      ...(failed && reason ? { errorMessage: reason } : {}),
     };
 
     if (!await persistOutcome(outcome)) options.onPersistenceFailure?.(result);

@@ -1,3 +1,4 @@
+import { LOCATION_FIX_MAX_AGE_HOURS } from '@/lib/alerts/location-freshness';
 import type { EnqueueArgs, EnqueueResult } from '@/lib/notifications/types';
 import {
   createErrorResponse,
@@ -14,7 +15,7 @@ import {
 import { selectBeach } from '@/lib/recommendations/selection';
 import { withCronOutcome, type CronOutcomeOptions } from '@/lib/cron/outcome';
 
-const MAX_LOCATION_AGE_MS = 24 * 60 * 60 * 1000;
+const MAX_LOCATION_AGE_MS = LOCATION_FIX_MAX_AGE_HOURS * 60 * 60 * 1000;
 const MAX_LOCATION_FUTURE_SKEW_MS = 5 * 60 * 1000;
 
 export interface WeekendScoutCronProfile {

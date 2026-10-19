@@ -9,7 +9,7 @@
 
 import { fetchWithAuthRetry } from "@/lib/fetch-with-auth-retry";
 import type { RecommendationAvailability } from "@/lib/recommendations/major-event-hold/types";
-import type { Board } from "@/types/database";
+import type { Board, SessionWithDetails } from "@/types/database";
 
 export type ClientBeach = {
   id: string;
@@ -23,11 +23,17 @@ export type ClientBeach = {
 
 export type ClientBoard = Board;
 
+type ClientUserSessions = {
+  sessions: SessionWithDetails[];
+  sessionImportsEnabled: boolean;
+  garminWatchEnabled: boolean;
+};
+
 type __CacheEntry<T> = { value: T; expiresAt: number };
 const __CACHE_TTL_MS = 30_000;
 const __cache = {
   usersProfile: new Map<string, __CacheEntry<any>>(),
-  usersSessions: new Map<string, __CacheEntry<any[]>>(), // key: `${userId}:${limit}`
+  usersSessions: new Map<string, __CacheEntry<ClientUserSessions>>(), // key: `${userId}:${limit}`
   boards: new Map<string, __CacheEntry<ClientBoard[]>>(), // key: "me"
   sessionLikesStatus: new Map<string, __CacheEntry<{ liked: boolean; likesCount: number }>>(),
   inflight: new Map<string, Promise<any>>(),
@@ -55,6 +61,46 @@ function __setCached<T>(map: Map<string, __CacheEntry<T>>, key: string, value: T
 export function invalidateProfileCache(userId: string) {
   __cache.usersProfile.delete(userId);
   __cache.inflight.delete(`usersProfile:${userId}`);
+}
+
+function listUserSessions(userId: string, limit?: number): Promise<SessionWithDetails[]>;
+function listUserSessions(userId: string, limit: number, options: { includeMetadata: true }): Promise<ClientUserSessions>;
+async function listUserSessions(
+  userId: string, limit = 5, options?: { includeMetadata: true },
+): Promise<SessionWithDetails[] | ClientUserSessions> {
+  const cacheKey = `${userId}:${limit}`;
+  const cached = __getCached(__cache.usersSessions, cacheKey);
+  if (cached) return options?.includeMetadata ? cached : cached.sessions;
+
+  const inflightKey = `usersSessions:${cacheKey}`;
+  let pending: Promise<ClientUserSessions> | undefined = __cache.inflight.get(inflightKey);
+  if (!pending) {
+    const params = new URLSearchParams();
+    if (limit) params.set("limit", String(limit));
+    pending = (async (): Promise<ClientUserSessions> => {
+      const res = await fetchWithAuthRetry(`/api/users/${userId}/sessions?${params.toString()}`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+      });
+      if (!res.ok) throw new Error(`Failed to load user sessions: ${res.status}`);
+      const json = await res.json();
+      const result: ClientUserSessions = {
+        sessions: json.data?.sessions ?? [],
+        sessionImportsEnabled: json.data?.sessionImportsEnabled === true,
+        garminWatchEnabled: json.data?.garminWatchEnabled === true,
+      };
+      __setCached(__cache.usersSessions, cacheKey, result);
+      return result;
+    })();
+    __cache.inflight.set(inflightKey, pending);
+  }
+  try {
+    const result = await pending;
+    return options?.includeMetadata ? result : result.sessions;
+  } finally {
+    if (__cache.inflight.get(inflightKey) === pending) __cache.inflight.delete(inflightKey);
+  }
 }
 
 async function getAllBeaches(): Promise<ClientBeach[]> {
@@ -319,37 +365,7 @@ export const data = {
       },
     },
     sessions: {
-      async list(userId: string, limit = 5) {
-        const cacheKey = `${userId}:${limit}`;
-        const cached = __getCached(__cache.usersSessions, cacheKey);
-        if (cached) return cached;
-
-        const inflightKey = `usersSessions:${cacheKey}`;
-        const inflight = __cache.inflight.get(inflightKey);
-        if (inflight) return inflight;
-
-        const params = new URLSearchParams();
-        if (limit) params.set("limit", String(limit));
-        const p = (async () => {
-          const res = await fetchWithAuthRetry(`/api/users/${userId}/sessions?${params.toString()}`, {
-            method: "GET",
-            headers: { "Content-Type": "application/json" },
-            cache: "no-store",
-          });
-          if (!res.ok) throw new Error(`Failed to load user sessions: ${res.status}`);
-          const json = await res.json();
-          const sessions = json.data?.sessions || [];
-          __setCached(__cache.usersSessions, cacheKey, sessions);
-          return sessions;
-        })();
-
-        __cache.inflight.set(inflightKey, p);
-        try {
-          return await p;
-        } finally {
-          __cache.inflight.delete(inflightKey);
-        }
-      },
+      list: listUserSessions,
     },
   },
   comments: {
@@ -359,17 +375,6 @@ export const data = {
         headers: { "Content-Type": "application/json" },
       });
       if (!res.ok) throw new Error(`Failed to delete comment: ${res.status}`);
-      return res.json();
-    },
-  },
-  auth: {
-    async updateEmail(newEmail: string) {
-      const res = await fetchWithAuthRetry(`/api/auth/email/update`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ newEmail }),
-      });
-      if (!res.ok) throw new Error(`Failed to update email: ${res.status}`);
       return res.json();
     },
   },

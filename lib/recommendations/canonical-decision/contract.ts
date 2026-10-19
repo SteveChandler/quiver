@@ -55,6 +55,35 @@ const decisionEffectSchema = z.object({
   verdictCeiling: z.number().finite().min(0).max(100).optional(),
   message: z.string().min(1),
 }).strict();
+const candidateRejectionSchema = z.object({
+  gate: z.enum([
+    'candidate_pool', 'forecast_rows', 'forecast_alignment', 'past_forecast',
+    'time_slot', 'score_floor', 'horizon', 'daylight', 'session_duration',
+    'window_selection', 'water_quality_hold', 'saved_spot_eligibility',
+    'skill_gate', 'ranking',
+  ]),
+  observed: z.object({
+    count: z.number().optional(),
+    score: z.number().optional(),
+    hoursAhead: z.number().optional(),
+    durationHours: z.number().optional(),
+    waveHeightFt: z.number().optional(),
+    status: z.string().optional(),
+    skill: z.string().optional(),
+    forecastAt: z.string().optional(),
+  }).strict().optional(),
+  allowed: z.object({
+    minimumScore: z.number().optional(),
+    maximumHoursAhead: z.number().optional(),
+    maximumDeltaMinutes: z.number().optional(),
+    minimumDurationHours: z.number().optional(),
+    minimumWaveHeightFt: z.number().optional(),
+    maximumWaveHeightFt: z.number().optional(),
+    status: z.string().optional(),
+    skill: z.string().optional(),
+  }).strict().optional(),
+  detail: z.string().optional(),
+}).strict();
 const selectionSchema = z.object({
   candidateId: z.string().min(1),
   beachId: z.string().min(1),
@@ -101,6 +130,7 @@ export const canonicalSessionDecisionSchema = z.object({
     "data_unavailable",
   ]).optional(),
   reasonCode: reasonCodeSchema,
+  candidateRejection: candidateRejectionSchema.nullable().optional(),
   personalAdjustmentReason: z.enum(["personal_adjusted_up", "personal_adjusted_down"]).optional(),
   conditionLabel: z.enum(["EPIC", "GOOD", "FAIR", "MEH"]).optional(),
   selection: selectionSchema.nullable(),
@@ -187,6 +217,7 @@ export function persistableSessionDecision<T>(decision: T): T {
   const {
     conditionLabel: _conditionLabel,
     personalAdjustmentReason: _personalAdjustmentReason,
+    candidateRejection: _candidateRejection,
     ...rest
   } = decision as Record<string, unknown>;
   const selection = rest.selection as { evidence?: { personalMatch?: Record<string, unknown> | null } } | null | undefined;

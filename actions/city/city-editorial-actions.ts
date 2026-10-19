@@ -39,6 +39,7 @@ export async function getCityEditorialContent(
   stateSlug: string = "ca",
   countrySlug: string = "usa",
   intent: CityEditorialIntent = null,
+  allowBaseCityFallback: boolean = true,
 ): Promise<CityEditorialContent | null> {
   const supabase = createPublicReadClient();
 
@@ -73,7 +74,7 @@ export async function getCityEditorialContent(
   }
 
   // HI island-suffixed city slugs (Waimea-only to start): fallback to base city slug
-  if (!data && stateSlug?.toLowerCase() === "hi") {
+  if (!data && allowBaseCityFallback && stateSlug?.toLowerCase() === "hi") {
     const parsed = parseHiIslandCitySlug(citySlug);
     if (parsed.islandSlug && parsed.baseCitySlug && parsed.baseCitySlug !== citySlug) {
       const retry = await fetchEditorial(parsed.baseCitySlug);
@@ -128,31 +129,4 @@ export async function getReviewedCityEditorialContent(): Promise<
       editorial_sources: parseArrayField<EditorialSource>(result.editorial_sources),
     };
   });
-}
-
-/**
- * Check if a city has editorial content without fetching the full content.
- * Useful for determining layout strategy before the full data fetch.
- */
-export async function hasCityEditorialContent(
-  citySlug: string,
-  stateSlug: string = "ca",
-  countrySlug: string = "usa"
-): Promise<boolean> {
-  const supabase = createPublicReadClient();
-
-  const { data, error } = await supabase
-    .from("city_editorial_content")
-    .select("id")
-    .eq("city_slug", citySlug)
-    .eq("state_slug", stateSlug)
-    .eq("country_slug", countrySlug)
-    .maybeSingle();
-
-  if (error) {
-    console.error("[hasCityEditorialContent] Error checking editorial content:", error);
-    return false;
-  }
-
-  return !!data;
 }

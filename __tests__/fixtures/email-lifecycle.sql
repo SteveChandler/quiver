@@ -16,7 +16,7 @@ GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;
 INSERT INTO auth.users VALUES ('11111111-1111-4111-8111-111111111111');
 INSERT INTO profiles VALUES ('11111111-1111-4111-8111-111111111111', 'surfer@example.com', true, true);
 ALTER TABLE auth.users ADD COLUMN created_at timestamptz DEFAULT now()-interval '12 hours', ADD COLUMN email text DEFAULT 'surfer@example.com', ADD COLUMN email_confirmed_at timestamptz DEFAULT now();
-ALTER TABLE profiles ADD COLUMN display_name text, ADD COLUMN timezone text;
+ALTER TABLE profiles ADD COLUMN display_name text, ADD COLUMN timezone text, ADD COLUMN allow_implicit_tracking boolean NOT NULL DEFAULT true;
 UPDATE profiles SET timezone=(SELECT name FROM pg_timezone_names WHERE extract(hour FROM now() AT TIME ZONE name) BETWEEN 10 AND 15 LIMIT 1);
 ALTER TABLE user_entitlements ADD COLUMN product_id text, ADD COLUMN expires_at timestamptz;
 CREATE TABLE sessions(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),user_id uuid,status text,deleted_at timestamptz);

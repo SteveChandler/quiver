@@ -232,7 +232,7 @@ export function SwellArc({
         <div className="mb-1.5 flex items-end justify-between gap-3 px-1">
           <div className="flex items-baseline gap-2">
             <span
-              className={`font-[var(--font-heading)] text-xs font-semibold uppercase tracking-[0.18em] ${isZine ? "text-[#11100D]" : "text-white/75"}`}
+              className={`font-[family-name:var(--font-heading)] text-xs font-semibold uppercase tracking-[0.18em] ${isZine ? "text-[#11100D]" : "text-white/75"}`}
             >
               Swell arc
             </span>
@@ -266,7 +266,7 @@ export function SwellArc({
               <stop offset="100%" stopColor="#F78E42" stopOpacity="0" />
             </linearGradient>
             <linearGradient id={strokeGradientId} x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor={isZine ? "#0B3A75" : "#7fb0ff"} />
+              <stop offset="0%" stopColor={isZine ? "#8A5E00" : "#7fb0ff"} />
               <stop offset="55%" stopColor={isZine ? "#11100D" : "#c7a3ff"} />
               <stop offset="100%" stopColor="#F78E42" />
             </linearGradient>

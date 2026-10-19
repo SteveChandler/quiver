@@ -7,6 +7,8 @@ import {
   getDirectionDegrees,
 } from "@/lib/services/discovery/window-selector";
 import { scoreNativeForecastSlot } from "@/lib/scoring/native-condition-score";
+import { angleDifference } from "@/lib/domains/shared/angle-utils";
+import { resolveWindOrientation } from "@/lib/domains/shared/wind-orientation";
 import { buildSurfWindowLinks } from "@/lib/recommendations/surf-window-links";
 import {
   buildSurfWindowDataNotes,
@@ -30,7 +32,7 @@ export interface SurfWindowForecastGroup {
   sourceHints?: SurfWindowSourceSupportHints;
 }
 
-export interface BuildSurfWindowRecommendationsOptions {
+interface BuildSurfWindowRecommendationsOptions {
   now?: Date;
   baseUrl?: string;
   maxRecommendations?: number;
@@ -159,15 +161,13 @@ function tideTrend(row: EnhancedForecastEntity): SurfWindowTideTrend {
 function windQuality(row: EnhancedForecastEntity, beach: Beach): SurfWindowWindQuality {
   const speed = parseNumber(row.wind_speed);
   const direction = getDirectionDegrees(row.wind_direction_deg, row.wind_direction);
-  if (direction == null) return speed != null && speed <= 8 ? "variable" : "unknown";
-  if (beach.wind_offshore_deg == null) return speed != null && speed <= 8 ? "variable" : "unknown";
+  // No direction or no beach orientation: no relation is claimed or shown.
+  if (direction == null) return "unknown";
+  const { offshoreDeg, toleranceDeg } = resolveWindOrientation(beach);
+  if (offshoreDeg == null) return "unknown";
 
-  const tolerance = beach.wind_offshore_tol_deg ?? 35;
-  const diff = Math.min(
-    Math.abs(direction - beach.wind_offshore_deg),
-    360 - Math.abs(direction - beach.wind_offshore_deg)
-  );
-  if (diff <= tolerance) return "offshore";
+  const diff = angleDifference(direction, offshoreDeg);
+  if (diff <= toleranceDeg) return "offshore";
   if (diff <= 90) return "cross-shore";
   return "onshore";
 }
@@ -196,10 +196,12 @@ function windSummary(
 ): SurfWindowRecommendation["wind"] {
   const speed = row.wind_speed ?? null;
   const direction = row.wind_direction ?? null;
-  const summary =
-    speed || direction
-      ? `${[speed, direction].filter(Boolean).join(" ")} (${quality})`
-      : "Wind data is sparse";
+  const reading = [speed, direction].filter(Boolean).join(" ");
+  const summary = !reading
+    ? "Wind data is sparse"
+    : quality === "unknown"
+      ? reading
+      : `${reading} (${quality})`;
 
   return {
     speed,
@@ -467,12 +469,4 @@ export function buildSurfWindowRecommendations(
     horizonDays,
     recommendations,
   };
-}
-
-export function buildBeachSurfWindowRecommendations(
-  beach: Beach,
-  forecasts: EnhancedForecastEntity[],
-  options: BuildSurfWindowRecommendationsOptions = {}
-): SurfWindowRecommendationResult {
-  return buildSurfWindowRecommendations({ beach, forecasts }, options);
 }

@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 
 import {
   buildDataForSeoExport,
@@ -9,8 +10,13 @@ import {
   parseCompetitorRankedKeywords,
   parseGoogleSerpRanking,
   parseKeywordMetrics,
+  selectReusableDataForSeoExport,
 } from "../../lib/seo/agent-workflow/dataforseo-export";
-import { currentAuditDate, resolveSeoAuditFile } from "../../lib/seo/agent-workflow/audit-paths";
+import {
+  currentAuditDate,
+  resolveSeoAuditFile,
+  resolveSeoAuditRoot,
+} from "../../lib/seo/agent-workflow/audit-paths";
 import type {
   DataForSeoAsoRanking,
   DataForSeoCompetitorKeyword,
@@ -65,6 +71,9 @@ const requestRetries = numberFromEnv("DATAFORSEO_REQUEST_RETRIES", 3);
 const requestRetryDelayMs = numberFromEnv("DATAFORSEO_REQUEST_RETRY_DELAY_MS", 500);
 const exporterDeadlineMs = numberFromEnv("DATAFORSEO_DEADLINE_MS", 240000);
 const asoPhaseBudgetMs = numberFromEnv("DATAFORSEO_ASO_PHASE_MS", 150000);
+// 6 days, not 7, so the weekly scheduled run still refreshes when it fires early or the last run was late.
+const minPullIntervalHours = numberFromEnv("DATAFORSEO_MIN_PULL_INTERVAL_HOURS", 144);
+const refreshRequested = ["1", "true", "yes"].includes(process.env.DATAFORSEO_REFRESH?.toLowerCase() ?? "");
 
 interface ExportState {
   generatedAt: string;
@@ -87,6 +96,16 @@ function hasRuntimeDataForSeoErrors(state: ExportState): boolean {
 async function main(): Promise<void> {
   if (!dataForSeoEnabled) {
     writeJson(buildMissingDataForSeoExport(new Date().toISOString(), ["DATAFORSEO_DISABLED_BY_CONFIG"]));
+    return;
+  }
+
+  const reusable = refreshRequested ? null : findReusableExport();
+  if (reusable) {
+    const reusedFrom = (reusable.data as { reusedFrom?: unknown }).reusedFrom ??
+      { path: reusable.path, generatedAt: reusable.data.generatedAt };
+    writeJson({ ...reusable.data, reusedFrom });
+    console.log(`Reused the DataForSEO export pulled ${reusable.data.generatedAt} (${reusable.path}); no API calls. ` +
+      "DATAFORSEO_REFRESH=true forces a new pull.");
     return;
   }
 
@@ -345,7 +364,7 @@ async function fetchAppSearchRankings(
         }
       }));
 
-      return batchRankings.filter(isDefined);
+      return batchRankings.filter((value) => value !== null && value !== undefined);
     } catch (error) {
       if (error instanceof DeadlineExceededError) throw error;
       for (const context of contextBatch) {
@@ -668,6 +687,20 @@ async function checkpoint(state: ExportState): Promise<void> {
   }));
 }
 
+function findReusableExport(): ReturnType<typeof selectReusableDataForSeoExport> {
+  const root = resolveSeoAuditRoot();
+  if (!fs.existsSync(root)) return null;
+  const candidates = fs.readdirSync(root).flatMap((dir) => {
+    const file = path.join(root, dir, "DATAFORSEO-EXPORT.json");
+    try {
+      return [{ path: file, data: JSON.parse(fs.readFileSync(file, "utf8")) as unknown }];
+    } catch {
+      return [];
+    }
+  });
+  return selectReusableDataForSeoExport(candidates, new Date(), minPullIntervalHours);
+}
+
 function writeJson(value: unknown): void {
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, `${JSON.stringify(value, null, 2)}\n`);
@@ -731,10 +764,6 @@ async function requestDataForSeo(
   throw lastError instanceof Error ? lastError : new Error("DataForSEO request failed");
 }
 
-function isDefined<T>(value: T | null | undefined): value is T {
-  return value !== null && value !== undefined;
-}
-
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -746,10 +775,6 @@ function shouldRetryDataForSeoError(error: unknown): boolean {
     message.includes("aborted") ||
     message.includes("fetch failed") ||
     message.includes("network");
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function dataForSeoMessage(raw: unknown): string {

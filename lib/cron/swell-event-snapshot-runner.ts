@@ -5,8 +5,11 @@ import {
   SWELL_EVENT_BASELINE_LOOKBACK_HOURS,
   SWELL_EVENT_KEY_REUSE_DAYS,
   SWELL_EVENT_THRESHOLDS,
+  SWELL_OUTLOOK_PULSE_DETECTOR_VERSION,
   detectBeachSwellEvents,
+  detectBeachSwellPulses,
   detectSwellCrossing,
+  filterPulsesByRegionAgreement,
   isSwellEventCurrent,
   loadRecentSwellSnapshots,
   loadSwellForecastRows,
@@ -14,6 +17,8 @@ import {
   toSwellEventBeach,
   toSwellEventSnapshotRow,
   upsertSwellEventSnapshots,
+  type BeachSwellEvent,
+  type PulseRegionCandidate,
   type SwellEventForecastRow,
   type SwellEventSnapshot,
   type SwellEventSnapshotRow,
@@ -27,6 +32,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const BEACH_CHUNK = 10;
 const CHUNK_CONCURRENCY = 4;
 const FRESHNESS_CHUNK = 500;
+const PULSE_WRITE_CHUNK = 500;
 // The detector's baseline starts 48 h back; one extra day covers the whole
 // local day that point falls in, whatever the beach timezone.
 const FORECAST_LOOKBACK_MS = (SWELL_EVENT_BASELINE_LOOKBACK_HOURS + 24) * 60 * 60 * 1000;
@@ -36,6 +42,8 @@ const BEACH_COLUMNS = [
   "name",
   "slug",
   "timezone",
+  "lat",
+  "lon",
   "swell_window_center_deg",
   "swell_window_halfwidth_deg",
   "swell_access_factors",
@@ -57,7 +65,10 @@ export type SnapshotBeach = Pick<
   | "terrain_enabled"
   | "shoaling_factors"
   | "deepwater_decay_factor"
->;
+> & {
+  lat?: number | null;
+  lon?: number | null;
+};
 
 export interface SwellEventSnapshotRunDependencies {
   loadBeaches: () => Promise<SnapshotBeach[]>;
@@ -70,7 +81,9 @@ export interface SwellEventSnapshotRunDependencies {
     to: Date,
   ) => Promise<Map<string, SwellEventForecastRow[]>>;
   loadSnapshots: (beachIds: string[], since: Date) => Promise<SwellEventSnapshot[]>;
+  loadPulseSnapshots?: (beachIds: string[], since: Date) => Promise<SwellEventSnapshot[]>;
   writeSnapshots: (rows: SwellEventSnapshotRow[]) => Promise<number>;
+  resolveOutcomes?: (now: Date) => Promise<number>;
   isStale?: (updatedAt: string, dataSource: string | null) => boolean;
 }
 
@@ -85,6 +98,9 @@ interface SwellEventSnapshotRunSummary {
   forecastRowsRead: number;
   eventsDetected: number;
   snapshotsWritten: number;
+  pulsesDetected: number;
+  pulseSnapshotsWritten: number;
+  outcomesResolved: number;
   durationMs: number;
 }
 
@@ -120,7 +136,18 @@ function defaultDependencies(client: SupabaseClient<Database>): SwellEventSnapsh
     },
     loadForecasts: (beachIds, from, to) => loadSwellForecastRows(client, beachIds, from, to),
     loadSnapshots: (beachIds, since) => loadRecentSwellSnapshots(client, beachIds, since),
+    loadPulseSnapshots: (beachIds, since) => (
+      loadRecentSwellSnapshots(client, beachIds, since, SWELL_OUTLOOK_PULSE_DETECTOR_VERSION)
+    ),
     writeSnapshots: (rows) => upsertSwellEventSnapshots(client, rows),
+    resolveOutcomes: async (now: Date): Promise<number> => {
+      const { data, error } = await (client as unknown as SupabaseClient).rpc("resolve_swell_event_outcomes", {
+        p_now: now.toISOString(),
+        p_pulse_detector_version: SWELL_OUTLOOK_PULSE_DETECTOR_VERSION,
+      });
+      if (error) throw new Error(`Failed to resolve swell event outcomes: ${error.message}`);
+      return typeof data === "number" ? data : 0;
+    },
   };
 }
 
@@ -151,6 +178,9 @@ export async function runSwellEventSnapshotCron(args: {
     forecastRowsRead: 0,
     eventsDetected: 0,
     snapshotsWritten: 0,
+    pulsesDetected: 0,
+    pulseSnapshotsWritten: 0,
+    outcomesResolved: 0,
     durationMs: 0,
   };
 
@@ -173,15 +203,25 @@ export async function runSwellEventSnapshotCron(args: {
   const from = new Date(args.now.getTime() - FORECAST_LOOKBACK_MS);
   const to = new Date(args.now.getTime() + (SWELL_EVENT_THRESHOLDS.maxHorizonDays + 1) * DAY_MS);
   const since = new Date(args.now.getTime() - SWELL_EVENT_KEY_REUSE_DAYS * DAY_MS);
+  const pulseCandidates: PulseRegionCandidate[] = [];
 
   const processChunk = async (chunk: SnapshotBeach[]): Promise<void> => {
     const ids = chunk.map((beach) => beach.id);
     try {
       // Key reuse needs the earlier snapshots; without them, writing fresh
       // natural keys would fork an event's identity, so the chunk is skipped.
-      const [forecasts, snapshots] = await Promise.all([
+      const [forecasts, snapshots, pulseSnapshots] = await Promise.all([
         deps.loadForecasts(ids, from, to),
         deps.loadSnapshots(ids, since),
+        deps.loadPulseSnapshots ? deps.loadPulseSnapshots(ids, since).catch((error: unknown) => {
+          // Missing pulse history must not fork pulse keys or stop notable snapshots.
+          summary.chunksFailed += 1;
+          console.warn("[swell-event-snapshots] pulse history failed", {
+            beachIds: ids,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          return null;
+        }) : Promise.resolve(null),
       ]);
       const rows: SwellEventSnapshotRow[] = [];
       for (const beach of chunk) {
@@ -211,6 +251,14 @@ export async function runSwellEventSnapshotCron(args: {
             args.now,
             detectSwellCrossing({ beach: swellBeach, forecasts: beachForecasts, main: event, timezone }),
           )));
+          if (pulseSnapshots !== null) {
+            const pulses = resolveEventKeys(
+              detectBeachSwellPulses({ beach: swellBeach, forecasts: beachForecasts, now: args.now, timezone }),
+              pulseSnapshots.filter((snapshot) => snapshot.beachId === beach.id),
+            );
+            summary.pulsesDetected += pulses.length;
+            pulseCandidates.push({ beachId: beach.id, lat: beach.lat ?? null, lon: beach.lon ?? null, pulses });
+          }
         } catch (error) {
           summary.beachesFailed += 1;
           console.warn("[swell-event-snapshots] beach failed", {
@@ -219,7 +267,8 @@ export async function runSwellEventSnapshotCron(args: {
           });
         }
       }
-      summary.snapshotsWritten += await deps.writeSnapshots(rows);
+      const written = await deps.writeSnapshots(rows);
+      summary.snapshotsWritten += written;
     } catch (error) {
       summary.chunksFailed += 1;
       console.warn("[swell-event-snapshots] chunk failed", {
@@ -242,6 +291,32 @@ export async function runSwellEventSnapshotCron(args: {
       await processChunk(chunk);
     }
   }));
+
+  if (deps.loadPulseSnapshots) {
+    try {
+      const pulseRows = [...filterPulsesByRegionAgreement(pulseCandidates).values()]
+        .flat()
+        .map((pulse: BeachSwellEvent) => toSwellEventSnapshotRow(pulse, args.now, null, SWELL_OUTLOOK_PULSE_DETECTOR_VERSION));
+      for (let offset = 0; offset < pulseRows.length; offset += PULSE_WRITE_CHUNK) {
+        summary.pulseSnapshotsWritten += await deps.writeSnapshots(pulseRows.slice(offset, offset + PULSE_WRITE_CHUNK));
+      }
+    } catch (error) {
+      summary.chunksFailed += 1;
+      console.warn("[swell-event-snapshots] pulse write failed", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  if (deps.resolveOutcomes) {
+    try {
+      summary.outcomesResolved = await deps.resolveOutcomes(args.now);
+    } catch (error) {
+      console.warn("[swell-event-snapshots] outcome resolution failed", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
 
   summary.durationMs = Date.now() - started;
   return summary;

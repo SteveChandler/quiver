@@ -71,7 +71,7 @@ npm test && npm run test:e2e
 npm run test:integration
 
 # E2E tests run against deployed environment
-npm run test:e2e:ci
+npm run test:e2e:dev
 ```
 
 ## Coverage Metrics

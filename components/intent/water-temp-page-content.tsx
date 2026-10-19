@@ -3,6 +3,7 @@ import { ChevronLeft } from "lucide-react";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { FAQSection } from "@/components/seo/faq-schema";
 import { generateIntentFAQ } from "@/lib/seo/intent-faq-generator";
+import { describeWaterFeel, formatWetsuitPhrase } from "@/lib/utils/wetsuit-utils";
 import { CityMapView } from "@/components/city/city-map-view";
 import { CTASection } from "@/components/landing-page/cta-section";
 import { AlertCaptureCta } from "@/components/seo/alert-capture-cta";
@@ -10,6 +11,7 @@ import { StickyInstallAsk } from "@/components/app-store/sticky-install-ask";
 import { HideWhenInstallBarOwns } from "@/components/app-store/install-bar-owned-slot";
 import type { SurfSpot } from "@/lib/data/surf-spots";
 import type { CityWaterTempExpanded } from "@/actions/forecast/intent-forecast-actions";
+import type { WaterTempSource } from "@/types/forecast";
 import type { IntentPageContent } from "@/lib/seo/intent-content-templates";
 import type { BeachEditorialItem } from "@/types/location";
 import type { IntentKey } from "@/lib/constants/intent-definitions";
@@ -39,6 +41,13 @@ interface WaterTempPageContentProps {
   excludeIntents?: IntentKey[];
 }
 
+export function getWaterTempSourceDescription(source: WaterTempSource | null | undefined): string {
+  if (source === "ndbc") return "Water temperature refreshed hourly from a NOAA buoy reading.";
+  if (source === "ioos" || source === "coops") return "Water temperature refreshed hourly from an observed station reading.";
+  if (source === "latitude") return "Water temperature refreshed hourly from a latitude-based estimate.";
+  return "Water temperature refreshed hourly.";
+}
+
 export function WaterTempPageContent({
   cityName,
   citySlug,
@@ -58,7 +67,8 @@ export function WaterTempPageContent({
     "water-temp",
     cityName,
     spots.slice(0, 3).map((s) => s.name),
-    stateSlug
+    stateSlug,
+    waterTempData.currentTemp
   );
   const roundedCurrentTemp = Math.round(waterTempData.currentTemp);
 
@@ -103,12 +113,12 @@ export function WaterTempPageContent({
           <div className="space-y-2 mt-6">
             <p className="text-base font-medium text-gray-900">
               {cityName} water temperature today is {roundedCurrentTemp}°F.
-              Most surfers should plan around{" "}
-              {waterTempData.wetsuitRecommendation.thickness}.
+              Is it cold? It&apos;s {describeWaterFeel(roundedCurrentTemp)} for
+              most people, so plan on{" "}
+              {formatWetsuitPhrase(waterTempData.wetsuitRecommendation)}.
             </p>
             <p className="text-base text-gray-700">
-              Water temperatures refreshed hourly from NOAA buoys and forecast
-              models.
+              {getWaterTempSourceDescription(waterTempData.source)}
             </p>
             <p className="text-base text-gray-700">{pageContent.intro}</p>
           </div>

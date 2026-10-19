@@ -200,7 +200,7 @@ export function SessionVideoUpload({ sessionId, className }: SessionVideoUploadP
     >
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="font-mono text-[10px] font-black uppercase tracking-[0.18em] text-[#0B3A75]">
+          <p className="font-mono text-[10px] font-black uppercase tracking-[0.18em] text-[#8A5E00]">
             One clean wave
           </p>
           <h2 id={headingId} className="mt-1 font-heading text-xl font-black uppercase tracking-tight">
@@ -210,13 +210,13 @@ export function SessionVideoUpload({ sessionId, className }: SessionVideoUploadP
             MP4 or MOV, up to 60 seconds and 60 MB. Clips stay private until a moderator approves them.
           </p>
         </div>
-        <Film className="h-7 w-7 text-[#0B3A75]" aria-hidden="true" />
+        <Film className="h-7 w-7 text-[#8A5E00]" aria-hidden="true" />
       </div>
 
       <div className="mt-5 flex flex-wrap items-center gap-4">
         <label
           htmlFor={inputId}
-          className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 border-2 border-[var(--ink)] bg-[#F4EBD8] px-4 py-2 font-mono text-xs font-black uppercase tracking-[0.1em] transition hover:bg-[#E5D4B3] focus-within:outline-none focus-within:ring-2 focus-within:ring-[#0B3A75] focus-within:ring-offset-2"
+          className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 border-2 border-[var(--ink)] bg-[#F4EBD8] px-4 py-2 font-mono text-xs font-black uppercase tracking-[0.1em] transition hover:bg-[#E5D4B3] focus-within:outline-none focus-within:ring-2 focus-within:ring-[#11100D] focus-within:ring-offset-2"
         >
           <Upload className="h-4 w-4" aria-hidden="true" />
           {selectedFile ? "Choose a different clip" : "Choose a clip"}
@@ -250,7 +250,7 @@ export function SessionVideoUpload({ sessionId, className }: SessionVideoUploadP
       <p
         className={cn(
           "mt-4 text-sm leading-5",
-          error ? "text-[#991B1B]" : "text-[#0B3A75]",
+          error ? "text-[#991B1B]" : "text-[#8A5E00]",
         )}
         aria-live="polite"
       >

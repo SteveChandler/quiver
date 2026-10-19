@@ -16,7 +16,7 @@ interface QrBlockProps {
   compact?: boolean;
 }
 
-export interface InstallShareCardProps {
+interface InstallShareCardProps {
   baseUrl: string;
   qrValue: string;
   qrImageSrc: string;
@@ -307,128 +307,6 @@ function StoreButtons({ compact = false }: StoreButtonsProps): ReactElement {
           <span style={{ display: "flex" }}>{button.label}</span>
         </div>
       ))}
-    </div>
-  );
-}
-
-export function PortraitInstallShareCard({
-  baseUrl,
-  qrImageSrc,
-  title,
-  subtitle,
-  footer = "Free surf forecasts and session tracking by Quiver",
-}: InstallShareCardProps): ReactElement {
-  const logoUrl = `${baseUrl}/quiver-app-icon-128.png`;
-
-  return (
-    <div
-      style={{
-        width: "100%",
-        height: "100%",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        background: SHARE_CARD_COLORS.paper,
-        color: SHARE_CARD_COLORS.ink,
-        fontFamily: "SpaceGrotesk, system-ui, sans-serif",
-        padding: "86px 86px 60px",
-      }}
-    >
-      <AppIcon logoUrl={logoUrl} />
-      <div
-        style={{
-          display: "flex",
-          marginTop: 34,
-          fontSize: 64,
-          fontWeight: 900,
-          color: SHARE_CARD_COLORS.ink,
-          textAlign: "center",
-          lineHeight: 1.04,
-        }}
-      >
-        {title}
-      </div>
-      <div
-        style={{
-          display: "flex",
-          maxWidth: 850,
-          marginTop: 20,
-          fontSize: 33,
-          fontWeight: 700,
-          color: SHARE_CARD_COLORS.muted,
-          textAlign: "center",
-          lineHeight: 1.35,
-        }}
-      >
-        {subtitle}
-      </div>
-
-      <ShareCardMockups baseUrl={baseUrl} />
-      <QrBlock qrImageSrc={qrImageSrc} logoUrl={logoUrl} />
-
-      <div
-        style={{
-          display: "flex",
-          marginTop: 44,
-          fontSize: 28,
-          fontWeight: 900,
-          color: SHARE_CARD_COLORS.ink,
-          textAlign: "center",
-        }}
-      >
-        Point your phone camera at the code
-      </div>
-      <div
-        style={{
-          display: "flex",
-          marginTop: 8,
-          fontSize: 23,
-          fontWeight: 700,
-          color: SHARE_CARD_COLORS.muted,
-          textAlign: "center",
-        }}
-      >
-        It opens Quiver automatically on iOS or Android.
-      </div>
-
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "row",
-          alignItems: "center",
-          width: "100%",
-          gap: 20,
-          marginTop: 42,
-        }}
-      >
-        <div style={{ height: 2, flex: 1, background: SHARE_CARD_COLORS.rule, display: "flex" }} />
-        <div
-          style={{
-            display: "flex",
-            fontSize: 18,
-            fontWeight: 900,
-            letterSpacing: 0,
-            color: "#A0A7B5",
-          }}
-        >
-          ON YOUR PHONE? TAP BELOW
-        </div>
-        <div style={{ height: 2, flex: 1, background: SHARE_CARD_COLORS.rule, display: "flex" }} />
-      </div>
-
-      <StoreButtons />
-      <div
-        style={{
-          display: "flex",
-          marginTop: 36,
-          fontSize: 20,
-          fontWeight: 700,
-          color: "#A0A7B5",
-          textAlign: "center",
-        }}
-      >
-        {footer} · quiversurf.app
-      </div>
     </div>
   );
 }

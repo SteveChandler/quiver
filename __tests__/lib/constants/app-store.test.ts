@@ -125,13 +125,13 @@ describe("app-store constants", () => {
     const content = buildIosSmartAppBannerContent("123456");
 
     expect(content).toContain("app-id=6759300320");
-    expect(content).toContain("affiliate-data=pt=123456&ct=web");
+    expect(content).toContain("affiliate-data=pt=123456&ct=web_banner,");
     expect(content).toContain(
       `app-argument=${IOS_APP_STORE_SMART_BANNER_ARGUMENT}`,
     );
   });
 
-  it("normalizes Apple attribution to four low-volume campaigns", () => {
+  it("normalizes Apple attribution to a small set of reportable campaigns", () => {
     expect(resolveIosAppStoreCampaign({ campaign: "email" })).toBe("email");
     expect(resolveIosAppStoreCampaign({ campaign: "share" })).toBe("share");
     expect(
@@ -144,4 +144,87 @@ describe("app-store constants", () => {
       "web",
     );
   });
+
+  it.each([
+    [
+      "Smart App Banner argument",
+      {
+        source: "ios_smart_app_banner",
+        surface: "smart_banner",
+        placement: "apple_smart_banner",
+        medium: "smart_banner",
+        campaign: "app_first_v1",
+      },
+      "web_banner",
+    ],
+    [
+      "banner argument whose query string arrived JSON-escaped",
+      {
+        source:
+          "ios_smart_app_banner\\u0026surface=web\\u0026placement=apple_smart_banner",
+      },
+      "web_banner",
+    ],
+    [
+      "legacy iPhone app banner",
+      { source: "iphone-app-banner", surface: "web", placement: "iphone_app_banner" },
+      "web_banner",
+    ],
+    [
+      "App Links metadata",
+      { source: "app_links", surface: "metadata", placement: "ios_app_link" },
+      "web_app_links",
+    ],
+    [
+      "App Links URL truncated by the opening app",
+      { source: "app_links\\u0026surfa" },
+      "web_app_links",
+    ],
+    [
+      "beach page CTA",
+      {
+        source: "content-beach-detail-tourmaline",
+        surface: "beach_detail",
+        placement: "after_public_hourly_forecast",
+      },
+      "web_page",
+    ],
+    [
+      "comparison page CTA that already says web",
+      { campaign: "web", surface: "comparison", placement: "source_link" },
+      "web_page",
+    ],
+    [
+      "legacy /app-store alias with no page",
+      {
+        campaign: "web",
+        surface: "app_store",
+        placement: "legacy_app_store_redirect",
+      },
+      "web",
+    ],
+    ["source too truncated to classify", { source: "app" }, "web"],
+    ["no signals", {}, "web"],
+  ])("routes %s to its Apple campaign", (_label, signals, expected) => {
+    expect(resolveIosAppStoreCampaign(signals)).toBe(expected);
+  });
+
+  it("keeps explicit email, share and partner campaigns ahead of page signals", () => {
+    expect(
+      resolveIosAppStoreCampaign({ campaign: "email", surface: "beach_detail" }),
+    ).toBe("email");
+    expect(
+      resolveIosAppStoreCampaign({
+        campaign: "share",
+        source: "ios_smart_app_banner",
+      }),
+    ).toBe("share");
+  });
+
+  it.each(["web_banner", "web_app_links", "web_page"])(
+    "passes the explicit %s campaign through",
+    (campaign) => {
+      expect(resolveIosAppStoreCampaign({ campaign })).toBe(campaign);
+    },
+  );
 });

@@ -1,4 +1,4 @@
-export interface SessionShareDetail {
+interface SessionShareDetail {
   label: string;
   value: string;
 }

@@ -13,6 +13,7 @@ import type {
   TidePreferences,
 } from './types';
 import { SPOT_PROFILE_DEFAULTS } from './types';
+import { resolveWindOrientation } from '../shared/wind-orientation';
 import {
   normalizeAngle,
   angleDifference as sharedAngleDifference,
@@ -132,13 +133,11 @@ function createWindThresholds(beach: Beach): WindThresholds {
     (beach as Beach & { max_wind_any_mph?: number | null }).max_wind_any_mph ??
     SPOT_PROFILE_DEFAULTS.windThresholds.maxAnyMph;
 
+  const { offshoreDeg, toleranceDeg } = resolveWindOrientation(beach);
+
   return {
-    offshoreDeg:
-      beach.wind_offshore_deg ??
-      SPOT_PROFILE_DEFAULTS.windThresholds.offshoreDeg,
-    offshoreToleranceDeg:
-      beach.wind_offshore_tol_deg ??
-      SPOT_PROFILE_DEFAULTS.windThresholds.offshoreToleranceDeg,
+    offshoreDeg,
+    offshoreToleranceDeg: toleranceDeg,
     maxOnshoreMph,
     maxAnyMph,
     crossShoreOkKts:

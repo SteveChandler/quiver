@@ -10,6 +10,7 @@ const mockDb = jest.fn();
 const mockLifecycle = jest.fn();
 const mockOffers = jest.fn();
 const mockRpc = jest.fn();
+const mockFeedback = jest.fn();
 jest.mock("@/lib/middleware/api-wrappers", () => ({ validateCronRequest: () => mockAuth() }));
 jest.mock("@/lib/monitoring/sentry-cron", () => ({
   startCronCheckIn: (...args: unknown[]) => mockStart(...args),
@@ -18,13 +19,14 @@ jest.mock("@/lib/monitoring/sentry-cron", () => ({
 jest.mock("@/lib/supabase/server", () => ({ createSupabaseServiceRoleClient: () => mockDb() }));
 jest.mock("@/lib/email/lifecycle-dispatcher", () => ({ runEmailLifecycle: (...args: unknown[]) => mockLifecycle(...args) }));
 jest.mock("@/lib/subscription/offer-automation", () => ({ runProOfferAutomation: () => mockOffers() }));
+jest.mock("@/lib/trial-feedback/reconciliation", () => ({ runTrialFeedbackReconciliation: () => mockFeedback() }));
 jest.mock("@/lib/email/lifecycle", () => ({
   lifecycleEnabled: () => process.env.EMAIL_LIFECYCLE_ENABLED === "true",
   lifecycleRpc: (...args: unknown[]) => mockRpc(...args),
 }));
 
 const routes = [
-  { get: lifecycle, slug: "email-lifecycle", flag: "EMAIL_LIFECYCLE_ENABLED", schedule: "0 * * * *", margin: 15, runtime: 3 },
+  { get: lifecycle, slug: "email-lifecycle", flag: "EMAIL_LIFECYCLE_ENABLED", schedule: "25 * * * *", margin: 15, runtime: 3 },
   { get: offers, slug: "pro-offer-reconcile", flag: "PRO_OFFERS_ENABLED", schedule: "*/15 * * * *", margin: 15, runtime: 3 },
 ];
 const originalEnv = { ...process.env };
@@ -66,8 +68,32 @@ it.each(routes.filter(route => route.get !== lifecycle))("$slug reports unavaila
 it("lifecycle reports dispatcher failure to the monitor", async () => {
   process.env.EMAIL_LIFECYCLE_ENABLED = "true";
   mockLifecycle.mockRejectedValue(new Error("ledger unavailable"));
-  expect((await lifecycle(new Request("http://localhost/cron"))).status).toBe(503);
+  const response = await lifecycle(new Request("http://localhost/cron"));
+  expect(response.status).toBe(503);
+  expect(await response.json()).toMatchObject({ error_message: "ledger unavailable" });
   expect(mockComplete.mock.calls).toEqual([["check-in", "email-lifecycle", "error"]]);
+});
+
+it.each([
+  { status: "ok", accepted: 0, reasons: { timezone_unknown: 10, no_relevant_job: 35 } },
+  { status: "attention", accepted: 0, reasons: { unknown: 1 }, error_message: "Email provider acceptance unknown; handoff requires reconciliation" },
+])("lifecycle reports $status with the dispatcher's skip reasons and failure detail", async result => {
+  process.env.EMAIL_LIFECYCLE_ENABLED = "true";
+  mockLifecycle.mockResolvedValue(result);
+  const response = await lifecycle(new Request("http://localhost/cron"));
+  expect(response.status).toBe(result.status === "ok" ? 200 : 503);
+  expect(await response.json()).toEqual(result);
+  expect(mockComplete).toHaveBeenCalledWith("check-in", "email-lifecycle", result.status === "ok" ? "ok" : "error");
+});
+
+it("lifecycle explains feedback attention without losing a dispatcher failure", async () => {
+  process.env.EMAIL_LIFECYCLE_ENABLED = "true";
+  mockLifecycle.mockResolvedValue({ status: "attention", accepted: 0, error_message: "Lifecycle storage failed" });
+  mockFeedback.mockResolvedValue({ checked: 1, attention: 2 });
+  const response = await lifecycle(new Request("http://localhost/cron"));
+  expect(response.status).toBe(503);
+  expect(await response.json()).toMatchObject({ error_message: "Lifecycle storage failed; Trial feedback reconciliation requires attention: 2", trial_feedback: { checked: 1, attention: 2 } });
+  expect(mockComplete).toHaveBeenCalledWith("check-in", "email-lifecycle", "error");
 });
 
 it("dry runs do not count as scheduled check-ins or grant offers", async () => {

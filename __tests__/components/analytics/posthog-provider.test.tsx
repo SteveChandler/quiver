@@ -57,7 +57,7 @@ describe("PostHogProvider", () => {
   it("enables anonymous tracking only after auth resolves unauthenticated", () => {
     render(<PostHogProvider />);
 
-    expect(setClientPostHogTrackingAllowed).toHaveBeenCalledWith(null);
+    expect(resetPostHog).not.toHaveBeenCalled();
     expect(setAnonymousClientPostHogTracking).toHaveBeenCalledTimes(1);
     expect(flushQueuedClientPostHogEvents).toHaveBeenCalledTimes(1);
     expect(identifyPostHogUser).not.toHaveBeenCalled();
@@ -102,6 +102,20 @@ describe("PostHogProvider", () => {
 
     expect(setClientPostHogTrackingAllowed).not.toHaveBeenCalled();
     expect(resetPostHog).not.toHaveBeenCalled();
+  });
+
+  it("keeps the anonymous identity when auth settles unauthenticated again", () => {
+    const { rerender } = render(<PostHogProvider />);
+
+    (useAuth as jest.Mock).mockReturnValue({ user: null, isLoading: true });
+    rerender(<PostHogProvider />);
+    (useAuth as jest.Mock).mockReturnValue({ user: null, isLoading: false });
+    rerender(<PostHogProvider />);
+
+    expect(resetPostHog).not.toHaveBeenCalled();
+    expect(setClientPostHogTrackingAllowed).not.toHaveBeenCalledWith(null);
+    expect(setAnonymousClientPostHogTracking).toHaveBeenCalledTimes(2);
+    expect(flushQueuedClientPostHogEvents).toHaveBeenCalledTimes(2);
   });
 
   it("identifies authenticated users only after owner consent resolves true", async () => {

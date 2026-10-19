@@ -10,7 +10,7 @@
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { config } from "dotenv";
+import { config } from "./load-env.mjs";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "../types/database.generated";
@@ -158,21 +158,19 @@ export const SESSION_ACQUISITION_EVENT_TYPES = [
 export const SESSION_FORM_VALIDATION_ERROR_CODES = [
   "beach_required",
   "rating_required",
+  "wave_height_required",
+  "wave_characteristics_confirmation_required",
   "rating_out_of_range",
   "crowd_level_out_of_range",
   "duration_out_of_range",
   "future_date",
 ] as const;
 
-// Older installed builds and retained reports can still contain retired codes.
-const LEGACY_SESSION_FORM_VALIDATION_ERROR_CODES = ["wave_height_required"] as const;
-
 type SessionAcquisitionEventType =
   (typeof SESSION_ACQUISITION_EVENT_TYPES)[number];
 
 type SessionFormValidationErrorCode =
-  | (typeof SESSION_FORM_VALIDATION_ERROR_CODES)[number]
-  | (typeof LEGACY_SESSION_FORM_VALIDATION_ERROR_CODES)[number];
+  (typeof SESSION_FORM_VALIDATION_ERROR_CODES)[number];
 type SessionAcquisitionReadinessFindingCode =
   | "rated_sessions_floor"
   | "rated_session_users_floor"
@@ -187,12 +185,11 @@ type SessionAcquisitionReadinessFindingCode =
   | "recent_build_metadata_coverage_floor"
   | "expected_recent_client_build_missing";
 
-const SESSION_FORM_VALIDATION_ERROR_CODE_SET = new Set<string>([
-  ...SESSION_FORM_VALIDATION_ERROR_CODES,
-  ...LEGACY_SESSION_FORM_VALIDATION_ERROR_CODES,
-]);
+const SESSION_FORM_VALIDATION_ERROR_CODE_SET = new Set<string>(
+  SESSION_FORM_VALIDATION_ERROR_CODES,
+);
 
-export interface CliOptions {
+interface CliOptions {
   start: string;
   end: string;
   minRatedSessions: number;
@@ -211,7 +208,7 @@ export interface CliOptions {
   maxReportAgeHours: number | null;
 }
 
-export interface SessionAcquisitionReadinessCriteria {
+interface SessionAcquisitionReadinessCriteria {
   minRatedSessions: number;
   minRatedSessionUsers: number;
   minFiveRatedSessionUsers: number;
@@ -261,7 +258,7 @@ export interface SessionAcquisitionProfileRow {
   analytics_exclusion_reason: string | null;
 }
 
-export interface FunnelStepMetric {
+interface FunnelStepMetric {
   key: string;
   label: string;
   actors: number;
@@ -270,13 +267,13 @@ export interface FunnelStepMetric {
   pctOfPrevious: number | null;
 }
 
-export type CanonicalSessionFunnelStepKey =
+type CanonicalSessionFunnelStepKey =
   | "start"
   | "form_view"
   | "submit"
   | "persisted_session";
 
-export interface CanonicalSessionFunnelStep {
+interface CanonicalSessionFunnelStep {
   key: CanonicalSessionFunnelStepKey;
   label: string;
   users: number;
@@ -285,7 +282,7 @@ export interface CanonicalSessionFunnelStep {
   pctOfPrevious: number | null;
 }
 
-export interface CanonicalSessionJoinCoverage {
+interface CanonicalSessionJoinCoverage {
   funnelEventRowsMissingUserId: number;
   funnelEventsMissingFlowId: number;
   submitEventsMissingSessionId: number;
@@ -298,14 +295,14 @@ export interface CanonicalSessionJoinCoverage {
   submitFlowsWithIneligibleSession: number;
 }
 
-export interface CanonicalSessionFunnel {
+interface CanonicalSessionFunnel {
   grain: "unique_user";
   ordering: "metadata.client_stage_at";
   steps: CanonicalSessionFunnelStep[];
   joinCoverage: CanonicalSessionJoinCoverage;
 }
 
-export interface SessionValidationBranch {
+interface SessionValidationBranch {
   affectedUsers: number;
   affectedFlows: number;
   pctOfFormViewUsers: number | null;
@@ -314,13 +311,13 @@ export interface SessionValidationBranch {
   recoveryRate: number | null;
 }
 
-export interface FirstSessionTelemetryCoverage {
+interface FirstSessionTelemetryCoverage {
   persistedFirstSessionUsers: number;
   markerUsers: number;
   coverage: number | null;
 }
 
-export interface ActivationSummary {
+interface ActivationSummary {
   windowUsersWithRatedSession: number;
   windowUsersWithThreeRatedSessions: number;
   windowUsersWithFiveRatedSessions: number;
@@ -329,7 +326,7 @@ export interface ActivationSummary {
   p75DaysToFifthRating: number | null;
 }
 
-export interface OnboardingSummary {
+interface OnboardingSummary {
   newProfiles: number;
   completedOnboarding: number;
   withHomeBeach: number;
@@ -340,7 +337,7 @@ export interface OnboardingSummary {
   withTimezone: number;
 }
 
-export interface SessionAcquisitionReport {
+interface SessionAcquisitionReport {
   reportSchemaVersion: 3;
   generatedAt: string;
   start: string;
@@ -383,12 +380,12 @@ export interface SessionAcquisitionReport {
   gaps: string[];
 }
 
-export interface SessionAcquisitionReportValidationResult {
+interface SessionAcquisitionReportValidationResult {
   ok: boolean;
   blockers: string[];
 }
 
-export interface SessionAcquisitionReadiness {
+interface SessionAcquisitionReadiness {
   verdict: "ready" | "not-ready";
   readyForPersonalizationEvaluation: boolean;
   criteria: SessionAcquisitionReadinessCriteria;
@@ -416,7 +413,7 @@ interface SessionAcquisitionReadinessFinding {
   message: string;
 }
 
-export interface SessionTelemetryPlatformCoverage {
+interface SessionTelemetryPlatformCoverage {
   platform: string;
   startActors: number;
   formViewActors: number;
@@ -433,7 +430,7 @@ export interface SessionTelemetryPlatformCoverage {
   submitEventOfStart: number | null;
 }
 
-export interface SessionTelemetryClientBuildCoverage {
+interface SessionTelemetryClientBuildCoverage {
   clientBuild: string;
   hasVersionMetadata: boolean;
   hasBuildMetadata: boolean;
@@ -452,14 +449,14 @@ export interface SessionTelemetryClientBuildCoverage {
   submitEventOfStart: number | null;
 }
 
-export interface SessionValidationFailureMetric {
+interface SessionValidationFailureMetric {
   code: string;
   events: number;
   actors: number;
   platforms: Record<string, number>;
 }
 
-export interface SessionRecentTelemetryWindow {
+interface SessionRecentTelemetryWindow {
   start: string;
   end: string;
   days: number;
@@ -514,7 +511,7 @@ type AdminClient = SupabaseClient<Database>;
 type PlatformActorMap = Map<string, Map<string, Set<string>>>;
 type ClientBuildActorMap = Map<string, Map<string, Set<string>>>;
 
-export interface SessionAcquisitionSourceRows {
+interface SessionAcquisitionSourceRows {
   events: SessionAcquisitionEventRow[];
   windowSessions: SessionAcquisitionSessionRow[];
   lifetimeSessions: SessionAcquisitionSessionRow[];
@@ -4143,7 +4140,7 @@ function computeOnboardingSummary(
   };
 }
 
-export function buildSessionAcquisitionReadiness(
+function buildSessionAcquisitionReadiness(
   report: Omit<SessionAcquisitionReport, "readiness">,
   criteria: SessionAcquisitionReadinessCriteria =
     defaultSessionAcquisitionReadinessCriteria()

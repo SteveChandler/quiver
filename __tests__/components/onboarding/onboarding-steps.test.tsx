@@ -7,10 +7,7 @@ import { PayoffStep } from "@/components/onboarding/steps/payoff-step";
 import { useOnboardingStore } from "@/store/onboarding-store";
 import { useProfileContext } from "@/context/profile-context";
 import { useForecastPreview } from "@/hooks/use-forecast-preview";
-import {
-  saveOnboardingData,
-  skipOnboarding,
-} from "@/actions/onboarding-actions";
+import { saveOnboardingData } from "@/actions/onboarding-actions";
 import { data as dataClient } from "@/lib/data/client";
 import { getLocalDateString } from "@/lib/utils/timezone-utils";
 import { toast } from "sonner";
@@ -45,7 +42,6 @@ const mockUseForecastPreview = useForecastPreview as jest.Mock;
 
 jest.mock("@/actions/onboarding-actions");
 const mockSaveOnboardingData = saveOnboardingData as jest.Mock;
-const mockSkipOnboarding = skipOnboarding as jest.Mock;
 
 jest.mock("@/lib/data/client", () => ({
   data: {
@@ -328,7 +324,6 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
       });
       await user.click(maybeLaterBtn);
 
-      expect(mockSkipOnboarding).not.toHaveBeenCalled();
       expect(mockCloseDialog).toHaveBeenCalled();
       expect(mockNextStep).not.toHaveBeenCalled();
       expect(mockUpdateData).not.toHaveBeenCalled();

@@ -368,3 +368,64 @@ the last 24 hours, so they stay on the estimate for now.
 - Monitor only: position and CTR on the four pages above in the first full
   28-day window after deploy. Don't read a change on Long Beach NY or
   Kailua-Kona as a title effect.
+
+## 2026-10-04 Baja Model Tides (FES2022)
+
+Not a CTR test. This adds coverage, not copy: 50 Baja California and Baja
+California Sur beaches have no NOAA tide station within 120 km, so their
+`/mexico/{region}/{city}/{beach}/tides` pages have had no tide data and answered
+`noindex`. The tide cron now writes FES2022 model tides for them (source
+`fes2022`, station `FES2022`, 30 days per run). Validated against five NOAA
+stations: median timing error 1.6–15.4 min, range ratio 0.913–1.123.
+
+**What changes on those 50 pages.**
+
+- They gain next high/low times, so they pass `isBeachSubPageIndexable` and
+  enter the sitemap through the existing tide coverage rule. Their beach and
+  water-temp pages were already listed on 2026-10-04, so the forecast gate is
+  already met. No coverage rule changed.
+- The visible note under the tide summary says the tide is modelled for the
+  spot, not measured at a station, and not for navigation, and carries the
+  FES2022 citation.
+- The `Dataset` JSON-LD on model-tide pages adds `creditText` (the FES2022
+  citation), `measurementTechnique` and `isBasedOn` (the AVISO FES2022 product),
+  and the description says the predictions are modelled. NOAA pages emit the
+  same JSON as before.
+
+**Exception to the 2026-09-27 hold.** That fix shipped to prod on 2026-09-29,
+and its four-week hold on tide sub-page metadata, schema and coverage rules
+runs to 2026-10-27. Steven chose on 2026-10-04 to ship the Baja pages now. The
+exception covers only pages that had no tide data and were `noindex`. The US
+and other NOAA tide pages have no metadata, schema or rule change, so their
+measurement window is undisturbed.
+
+**Deploy and hold.**
+
+- Deployed 2026-10-05 02:53 UTC (2026-10-04 19:53 PDT): prod `a2778c8b7`
+  via #953, which also carried #945 (cron :00 spread).
+- The 2026-10-07 04:00 UTC run wrote no FES2022 rows: prod's
+  `tide_forecasts_source_check` did not allow `fes2022`. The fix was #982, merged
+  at 12:30 UTC on 2026-10-07 and applied to prod before the 13:03 UTC manual run
+  (`docs/operations/tide-source-fes2022-20261007.md`).
+- Live 2026-10-07: a manual tide cron at 13:03 UTC wrote 36,000 `fes2022` rows for
+  all 50 beaches. At 14:17 UTC all 50 tide pages served `index, follow` with the
+  modelled note and `creditText`, and all 50 were in the sitemap. The four-week
+  hold on these pages runs to 2026-11-04.
+- Hold these 50 pages for four weeks after the first run that writes their
+  rows: no metadata, schema or copy changes.
+- Monitor only: indexed `/mexico/.../tides` count in GSC, Dataset
+  structured-data warnings, and impressions on the 50 pages. There is no CTR
+  baseline because the pages were `noindex`.
+
+## 2026-10-14 La Jolla surf-report consolidation
+
+Two pages carried the same "La Jolla Surf Report Today" title: `/best-time-to-surf/la-jolla` (since 2026-08-23) and `/surf-report/la-jolla-today` (since 2026-08-25). Both sat around position 10 for the human queries.
+
+GSC baseline, 2026-09-14 to 2026-10-11:
+
+| Page | Impressions | Clicks | Avg position | Notes |
+| --- | ---: | ---: | ---: | --- |
+| `/best-time-to-surf/la-jolla` | 6,151 | 4 | 7.9 | 81% anonymized; 722 impressions from date-stamped machine queries ("+la jolla surf report today september 24 2026 swell wind tide"); 427 human-looking impressions at positions 10-12. Daily impressions fell from ~1,500 to ~50 on 2026-09-25. |
+| `/surf-report/la-jolla-today` | 2,349 | 3 | 9.1 | 938 human-looking impressions; "la jolla shores surf report today" at 7.3-7.7. |
+
+Change: removed the La Jolla title/description override, so the best-time page uses the standard "Best La Jolla surf window today: tide & wind" copy. The existing "Open today's La Jolla surf report" handoff links stay. Both pages are on `ctr-watchlist.json` until 2026-11-12. Measure position for "la jolla surf report" and "la jolla shores surf report" on `/surf-report/la-jolla-today`, not CTR on the best-time page.

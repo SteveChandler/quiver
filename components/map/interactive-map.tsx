@@ -20,7 +20,8 @@ import { debounce } from "@/lib/utils/debounce";
 import type { MapBeach } from "@/lib/services/nearby-beach-service";
 import type { Beach } from "@/types/database";
 import * as AuthContext from "@/context/auth-context";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { useRoutePathname } from "@/hooks/use-route-pathname";
 import { createCachedMapFetch } from "@/lib/utils/request-cache";
 import { hasViewportChanged as checkViewportChanged } from "@/lib/utils/map-utilities";
 import { CACHE_TTL } from "@/lib/constants/ui";
@@ -94,6 +95,8 @@ import {
   type FlowComponentId,
   type FlowField,
   type FlowFieldGrid,
+  type ScreenPoint,
+  type WaterMaskMap,
 } from "@/components/map/swell-field/field-sampler";
 import { embedTimelineArrayPositionForHourOffset } from "@/components/map/embed-map-timeline";
 import {
@@ -781,7 +784,7 @@ export function InteractiveMap({
   const userId = showMapChrome ? user?.id : undefined;
   const { track } = useTrackEvent();
   const router = useRouter();
-  const pathname = usePathname();
+  const pathname = useRoutePathname();
   const markerBeaches = useMemo(() => {
     const enriched = new Map(swellFieldBeaches.map((beach) => [beach.id, beach]));
     return (beaches ?? swellFieldBeaches).map((beach) => ({ ...beach, ...enriched.get(beach.id) }));
@@ -1923,9 +1926,11 @@ export function InteractiveMap({
     const maskable = waterMaskableFlowComponents(components);
     if (maskable.length === 0) return;
     let waterLayerIds: string[] = [];
+    let styleLayers: ReturnType<mapboxgl.Map["getStyle"]>["layers"] = [];
     try {
       const style = map.getStyle();
-      waterLayerIds = detectWaterLayerIds(style?.layers ?? []);
+      styleLayers = style?.layers ?? [];
+      waterLayerIds = detectWaterLayerIds(styleLayers);
     } catch {
       waterMaskOwedRef.current = true;
       return; // can't read the style yet → leave the field intact and retry
@@ -1935,6 +1940,39 @@ export function InteractiveMap({
       waterMaskOwedRef.current = false;
       return;
     }
+    const waterSources = new Set<string>();
+    for (const layer of styleLayers) {
+      if (waterLayerIds.includes(layer.id) && "source" in layer && typeof layer.source === "string") {
+        waterSources.add(layer.source);
+      }
+    }
+    const basemapLayerIds = styleLayers
+      .filter((layer) => "source" in layer && typeof layer.source === "string" && waterSources.has(layer.source))
+      .map((layer) => layer.id);
+    const canvas = map.getCanvas();
+    const maskMap: WaterMaskMap = {
+      areTilesLoaded: () => map.areTilesLoaded(),
+      project: (lngLat) => map.project(lngLat),
+      queryRenderedFeatures: (point, options) => map.queryRenderedFeatures(point, options),
+      ...(basemapLayerIds.length > 0 && {
+        probeRenderedBasemapFeatures: (candidatePoints: ScreenPoint[]): boolean => {
+          const { clientWidth: width, clientHeight: height } = canvas;
+          const gridPoints = [
+            { x: width / 2, y: height / 2 },
+            { x: width / 4, y: height / 4 },
+            { x: width * 3 / 4, y: height / 4 },
+            { x: width / 4, y: height * 3 / 4 },
+            { x: width * 3 / 4, y: height * 3 / 4 },
+          ];
+          for (const point of [...candidatePoints.slice(0, 5), ...gridPoints]) {
+            if (map.queryRenderedFeatures([point.x, point.y], { layers: basemapLayerIds }).length > 0) {
+              return true;
+            }
+          }
+          return false;
+        },
+      }),
+    };
     const zoomBucket = Math.floor(map.getZoom());
     if (
       waterMaskCacheRef.current?.zoomBucket !== zoomBucket ||
@@ -1942,14 +1980,13 @@ export function InteractiveMap({
     ) {
       waterMaskCacheRef.current = { zoomBucket, verdicts: new Map() };
     }
-    const canvas = map.getCanvas();
     let needsRetry = false;
     for (const component of maskable) {
       const field = flowFieldsRef.current[component];
       if (field.cells.length === 0) continue;
       const applied = maskFieldToWater(
         field,
-        map as unknown as Parameters<typeof maskFieldToWater>[1],
+        maskMap,
         {
           width: canvas.clientWidth,
           height: canvas.clientHeight,
@@ -3422,7 +3459,7 @@ export function InteractiveMap({
             <button
               ref={mapRetryButtonRef}
               type="button"
-              className="mt-3 min-h-11 rounded-md bg-[#F78E42] px-4 py-2 text-sm font-semibold text-[#151C36] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              className="mt-3 min-h-11 rounded-full bg-[#F78E42] px-4 py-2 text-sm font-semibold text-[#151C36] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
               onClick={() => {
                 shouldRestoreMapFocusRef.current = true;
                 setMapLoadFailure(null);
