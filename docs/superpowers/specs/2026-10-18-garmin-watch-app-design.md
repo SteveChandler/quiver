@@ -3,7 +3,7 @@
 - **Status:** written from Steven's answers (Oct 17–18); ready for his review
 - **Scope:** Part 2 of 4. Part 1, the session waves shared core, is on `main` (#1128): upload, server wave detection, waves API, web waves section. Part 3 is the Apple Watch app; part 4 is Strava, progress and boards.
 - **Repos:**
-  - **`quiver-garmin` (new, private):** the Connect IQ watch app in Monkey C.
+  - **`pelican` (new, private; created as `quiver-garmin`):** the Connect IQ watch app in Monkey C.
   - **`quiver`:** linking, watch upload API, session fields, web screens.
   - **`quiver-native`:** link confirm screen, Garmin settings, session view fields.
 
@@ -337,12 +337,12 @@ Unit tests cover the set grouping, paddle distance and gap bridging.
 8. **Waves read API:** opens to a user when either the imports flag or the watch flag allows them. Release order: part 1's two migrations → part 2's migration → enable either flag for Steven's accounts → store beta → public. All three migrations must precede EITHER flag because part 2's pipeline writes the new `session_tracks` columns on every import.
 9. **Paddle distance on the watch** counts GPS distance below 2.5 m/s; the server's figure excludes detected rides and is the one stored.
 10. **Store name** "Quiver: Surf Tracker"; free; every GPS watch at API 3.2+ that passes the simulator run and fits at least 3 two-hour surfs.
-11. **A separate private `quiver-garmin` repo** for the Monkey C app.
+11. **A separate private `pelican` repo** (created as `quiver-garmin`) for the Monkey C app.
 
 ## Needs Steven
 
 1. **Approve this design.**
-2. **Create the private `quiver-garmin` repo,** or OK Claude creating it under `SteveChandler`. Keeping the watch app out of `quiver-native` avoids changing Expo's fingerprint.
+2. **Create the private `pelican` repo** (created as `quiver-garmin`), or OK Claude creating it under `SteveChandler`. Keeping the watch app out of `quiver-native` avoids changing Expo's fingerprint.
 3. **Sign in to the Connect IQ SDK Manager** (installed Oct 18) so the SDK and device files download.
 4. **Before store submission:** the Quiver Garmin developer account and the privacy-page wording.
 5. **At release:** approve the new migration on the shared database, the server flag, and the native OTA.
