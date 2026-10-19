@@ -343,8 +343,13 @@ export async function processImport(
       checkError(error);
     }
     if (isWatch && target && track.extras?.waveHeightFt != null) {
-      const { error } = await userClient.from("sessions").update({ wave_height_ft: track.extras.waveHeightFt })
-        .eq("id", sessionId).eq("user_id", userId).is("deleted_at", null).is("wave_height_ft", null);
+      // A forecast-prefilled height is the forecast, not an observation, so the watch answer replaces it.
+      // The source is set here because the provenance trigger relabels only when the value changes,
+      // and chip midpoints often equal the prefill.
+      const { error } = await userClient.from("sessions")
+        .update({ wave_height_ft: track.extras.waveHeightFt, wave_height_source: "user" })
+        .eq("id", sessionId).eq("user_id", userId).is("deleted_at", null)
+        .or("wave_height_ft.is.null,wave_height_source.eq.forecast_prefill");
       checkError(error);
     }
     if (isWatch && sessionBeachId) {
