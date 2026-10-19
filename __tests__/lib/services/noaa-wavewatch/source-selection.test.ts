@@ -103,35 +103,44 @@ describe('raw wave sources → selection → face-height contracts', () => {
     expect(mergeWaveSources([], [flat])[0].significant_wave_height).toBe(0);
   });
 
-  describe('NWS zero height beside a real Open-Meteo height', () => {
-    const omReal = () => ({ ...om(), significant_wave_height: 1.38 });
-    const nwsAt = (height: number) => ({ ...nws(), significant_wave_height: height });
+  describe('NWS empty-cell (all-zero) series', () => {
+    const hour = (n: number) => new Date(Date.parse(at) + n * 3600000).toISOString();
+    const nwsHs = (heights: number[]) => heights.map((h, i) => ({ ...nws(), timestamp: hour(i), significant_wave_height: h }));
+    const omHs = (heights: number[]) => heights.map((h, i) => ({ ...om(), timestamp: hour(i), significant_wave_height: h }));
 
-    it('treats NWS 0 m as missing: no disagreement, Open-Meteo is the only source', () => {
-      const [point] = mergeWaveSources([nwsAt(0)], [omReal()]);
-      expect(point.data_source).toBe('OPEN_METEO');
-      expect(point.source_selection).toMatchObject({
-        reason: 'only_source', disagreement: false, noaa_height_m: null, open_meteo_height_m: 1.38,
-      });
+    it('all-zero NWS with OM present: OM selected, no disagreement, empty-cell reason', () => {
+      const merged = mergeWaveSources(nwsHs([0, 0, 0]), omHs([1.38, 1.4, 1.5]));
+      expect(merged.map((p) => p.data_source)).toEqual(['OPEN_METEO', 'OPEN_METEO', 'OPEN_METEO']);
+      merged.forEach((p) => expect(p.source_selection).toMatchObject({
+        reason: 'nws_empty_cell', disagreement: false, noaa_height_m: null,
+      }));
     });
 
-    it('still flags a small positive NWS height far from Open-Meteo', () => {
-      const [point] = mergeWaveSources([nwsAt(0.2)], [omReal()]);
-      expect(point.source_selection).toMatchObject({ disagreement: true, noaa_height_m: 0.2 });
+    it('all-zero NWS with OM missing hours: those hours are absent, not 0 m', () => {
+      const merged = mergeWaveSources(nwsHs([0, 0, 0]), omHs([1.38]));
+      expect(merged).toHaveLength(1);
+      expect(merged[0].significant_wave_height).toBe(1.38);
     });
 
-    it.each([null, NaN])('treats NWS height %s the same as 0', (height) => {
+    it('NOAA-only all-zero series yields no rows', () => {
+      expect(mergeWaveSources(nwsHs([0, 0, 0]), [])).toEqual([]);
+    });
+
+    it('mixed NWS series keeps a real 0 m hour beside OM 0.05', () => {
+      const merged = mergeWaveSources(nwsHs([0, 1.2]), omHs([0.05, 1.2]));
+      expect(merged[0]).toMatchObject({ data_source: 'NOAA_NWS', significant_wave_height: 0 });
+      expect(merged[0].source_selection).toMatchObject({ disagreement: false, noaa_height_m: 0 });
+    });
+
+    it('small positive NWS height far from OM still disagrees', () => {
+      const [point] = mergeWaveSources(nwsHs([0.2]), omHs([1.38]));
+      expect(point.source_selection).toMatchObject({ reason: 'reported_inputs', disagreement: true, noaa_height_m: 0.2 });
+    });
+
+    it.each([null, NaN])('NWS height %s is filtered like missing', (height) => {
       const bad = { ...nws(), significant_wave_height: height as unknown as number };
-      expect(mergeWaveSources([bad], [omReal()])[0].source_selection)
+      expect(mergeWaveSources([bad], omHs([1.38]))[0].source_selection)
         .toMatchObject({ reason: 'only_source', disagreement: false, noaa_height_m: null });
-    });
-
-    it('keeps NWS 0 m when Open-Meteo is also flat or absent', () => {
-      const flat = { ...om(), significant_wave_height: 0, peak_wave_period: 0,
-        swell_1_height: 0, swell_1_period: 0, swell_2_height: 0, swell_2_period: 0 };
-      const zero = { ...nwsAt(0), peak_wave_period: 0, swell_1_height: 0, swell_1_period: 0, swell_2_height: 0, swell_2_period: 0 };
-      expect(mergeWaveSources([zero], [flat])[0].source_selection?.disagreement).toBe(false);
-      expect(mergeWaveSources([zero], [])[0].significant_wave_height).toBe(0);
     });
   });
 
