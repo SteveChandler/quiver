@@ -86,20 +86,20 @@ describe('computeSurfCall', () => {
     it('returns NO with message when no forecasts', () => {
       const result = computeSurfCall(null, [], makeBeach());
       expect(result.verdict).toBe('NO');
-      expect(result.whySentence).toBe('no forecast data right now');
+      expect(result.whySentence).toBe('No forecast for this spot right now.');
     });
 
     it('returns NO with message when forecasts array is empty', () => {
       const result = computeSurfCall(makeWindow(), [], makeBeach());
       expect(result.verdict).toBe('NO');
-      expect(result.whySentence).toBe('no forecast data right now');
+      expect(result.whySentence).toBe('No forecast for this spot right now.');
     });
 
     it('returns NO when max wave height is below minimum rideable and no window', () => {
       const forecasts = [makeForecast({ wave_height: '0.5 ft' })];
       const result = computeSurfCall(null, forecasts, makeBeach());
       expect(result.verdict).toBe('NO');
-      expect(result.whySentence).toBe('Waves too small for this spot.');
+      expect(result.whySentence).toBe('Too small to break here today.');
     });
 
     it('uses higher minimum for reef breaks (no window → hard NO)', () => {
@@ -107,7 +107,7 @@ describe('computeSurfCall', () => {
       const forecasts = [makeForecast({ wave_height: '1.8 ft' })];
       const result = computeSurfCall(null, forecasts, beach);
       expect(result.verdict).toBe('NO');
-      expect(result.whySentence).toBe('Waves too small for this spot.');
+      expect(result.whySentence).toBe('Too small to break here today.');
     });
 
     it('allows reef break when waves are above minimum', () => {
@@ -122,7 +122,7 @@ describe('computeSurfCall', () => {
       const forecasts = [makeForecast({ wave_height: '3-4 ft' })];
       const result = computeSurfCall(null, forecasts, makeBeach());
       expect(result.verdict).toBe('NO');
-      expect(result.whySentence).toBe('No viable surf window today.');
+      expect(result.whySentence).toBe('Nothing worth paddling out for today.');
     });
 
     it('returns NO with a caution for heavy beach-break surf on a dropping low tide', () => {
@@ -207,7 +207,7 @@ describe('computeSurfCall', () => {
       const window = makeWindow({ start, end, score: 90 });
       const result = computeSurfCall(window, forecasts, makeBeach());
       expect(result.verdict).toBe('NO');
-      expect(result.whySentence).toBe('No viable window long enough to surf.');
+      expect(result.whySentence).toBe('It only lines up for a few minutes. Not worth the drive.');
       // Short-window NO must suppress the "Best window" row — a verdict NO
       // with a concrete window range contradicts itself in the UI.
       expect(result.bestWindowStart).toBeNull();
@@ -220,7 +220,7 @@ describe('computeSurfCall', () => {
       const window = makeWindow({ start, end, score: 90 });
       const result = computeSurfCall(window, forecasts, makeBeach());
       expect(result.verdict).toBe('NO');
-      expect(result.whySentence).toBe('No viable window long enough to surf.');
+      expect(result.whySentence).toBe('It only lines up for a few minutes. Not worth the drive.');
       expect(result.bestWindowStart).toBeNull();
       expect(result.bestWindowEnd).toBeNull();
     });
@@ -975,7 +975,7 @@ describe('computeSurfCall', () => {
 
     it('uses brand-voice copy for empty forecasts', () => {
       const result = computeSurfCall(null, [], makeBeach());
-      expect(result.whySentence).toBe('no forecast data right now');
+      expect(result.whySentence).toBe('No forecast for this spot right now.');
     });
   });
 
@@ -985,7 +985,7 @@ describe('computeSurfCall', () => {
       const forecasts = [makeForecast({ wave_height: '1.4 ft' })];
       const result = computeSurfCall(null, forecasts, beach);
       expect(result.verdict).toBe('NO');
-      expect(result.whySentence).toBe('Waves too small for this spot.');
+      expect(result.whySentence).toBe('Too small to break here today.');
     });
 
     it('uses 2.0 ft for point break (no window → hard NO)', () => {
@@ -1008,7 +1008,7 @@ describe('computeSurfCall', () => {
       const window = makeWindow({ score: 75 });
       const result = computeSurfCall(window, forecasts, beach);
       // 1.6 > 1.5 default, so waves pass
-      expect(result.whySentence).not.toBe('Waves too small for this spot.');
+      expect(result.whySentence).not.toBe('Too small to break here today.');
     });
   });
 
@@ -1159,10 +1159,10 @@ describe('computeSurfCall', () => {
       // Falls through to normal verdict logic using window.score
       const result = computeSurfCall(makeWindow(), forecasts, makeBeach());
       expect(result.verdict).toBe('YES'); // default window score=75 → YES
-      // Without window → "No viable surf window"
+      // Without window → "Nothing worth paddling out for today"
       const resultNoWindow = computeSurfCall(null, forecasts, makeBeach());
       expect(resultNoWindow.verdict).toBe('NO');
-      expect(resultNoWindow.whySentence).toBe('No viable surf window today.');
+      expect(resultNoWindow.whySentence).toBe('Nothing worth paddling out for today.');
     });
 
     it('handles null wave height — soft-gate skipped, character defaults to flat', () => {
@@ -1176,7 +1176,7 @@ describe('computeSurfCall', () => {
       expect(result.verdict).toBe('MAYBE');
       const resultNoWindow = computeSurfCall(null, forecasts, makeBeach());
       expect(resultNoWindow.verdict).toBe('NO');
-      expect(resultNoWindow.whySentence).toBe('No viable surf window today.');
+      expect(resultNoWindow.whySentence).toBe('Nothing worth paddling out for today.');
     });
 
     it('uses max wave from multiple forecasts', () => {
@@ -1187,7 +1187,7 @@ describe('computeSurfCall', () => {
       const window = makeWindow({ score: 75 });
       const result = computeSurfCall(window, forecasts, makeBeach());
       // Max wave is 4.0, above 1.5 minimum
-      expect(result.whySentence).not.toBe('Waves too small for this spot.');
+      expect(result.whySentence).not.toBe('Too small to break here today.');
     });
   });
 
@@ -1432,7 +1432,7 @@ describe('computeSurfCall', () => {
       const beach = makeBeach({ break_type: 'reef break' } as any);
       const result = computeSurfCall(null, forecasts, beach);
       expect(result.verdict).toBe('NO');
-      expect(result.whySentence).toBe('Waves too small for this spot.');
+      expect(result.whySentence).toBe('Too small to break here today.');
     });
 
     it('caps at MAYBE even with YES-level score when waves below min', () => {
