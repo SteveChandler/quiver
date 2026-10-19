@@ -488,10 +488,10 @@ function buildWhySentence(
   }
 
   // NO — state the primary fail gate
-  if (isOnshore) return 'Onshore wind all day making conditions choppy.';
-  if (wind.description.includes('strong')) return 'Strong wind making conditions unsurfable.';
-  if (shortWindow) return 'No viable window long enough to surf.';
-  return 'Conditions not favorable for surfing.';
+  if (isOnshore) return 'Onshore wind all day, so it stays choppy.';
+  if (wind.description.includes('strong')) return 'Too windy to be fun right now.';
+  if (shortWindow) return 'It only lines up for a few minutes. Not worth the drive.';
+  return 'Not worth paddling out right now.';
 }
 
 function capitalize(s: string): string {
@@ -748,7 +748,7 @@ export function computeSurfCall(
   if (!forecasts || forecasts.length === 0) {
     return {
       ...baseResult,
-      whySentence: 'no forecast data right now',
+      whySentence: 'No forecast for this spot right now.',
     };
   }
 
@@ -770,7 +770,7 @@ export function computeSurfCall(
     return {
       ...baseResult,
       waveHeight: maxWave != null && maxWave > 0 ? formatWaveHeight(maxWave) : null,
-      whySentence: 'Waves too small for this spot.',
+      whySentence: 'Too small to break here today.',
     };
   }
 
@@ -778,7 +778,7 @@ export function computeSurfCall(
   if (!window) {
     return {
       ...baseResult,
-      whySentence: 'No viable surf window today.',
+      whySentence: 'Nothing worth paddling out for today.',
     };
   }
 
@@ -869,7 +869,7 @@ export function computeSurfCall(
       forecastConfidence,
       lowForecastConfidence,
       score,
-      whySentence: 'No viable window long enough to surf.',
+      whySentence: 'It only lines up for a few minutes. Not worth the drive.',
       rideableWavesPerHour: freqResult?.rideableWavesPerHour ?? null,
       dominantBeatIntervalS: freqResult?.dominantBeatIntervalS ?? null,
       character,

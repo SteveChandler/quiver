@@ -133,11 +133,11 @@ describe('computeSurfCall — stamped verdict keeps caution and duration truth',
     });
     const forecasts = [makeForecast()];
 
-    expect(computeSurfCall(window, forecasts, makeBeach()).whySentence).toMatch(/no viable window/i);
+    expect(computeSurfCall(window, forecasts, makeBeach()).whySentence).toMatch(/only lines up for a few minutes/i);
 
     const stamped = computeSurfCall(window, forecasts, makeBeach(), { verdict: 'MAYBE' });
     expect(stamped.verdict).toBe('MAYBE');
-    expect(stamped.whySentence).not.toMatch(/no viable window/i);
+    expect(stamped.whySentence).not.toMatch(/only lines up for a few minutes/i);
   });
 
   it('still reports a stamped NO on a too-short window as such', () => {
@@ -145,7 +145,7 @@ describe('computeSurfCall — stamped verdict keeps caution and duration truth',
       end: new Date('2026-10-19T23:50:00Z'),
     });
     const stamped = computeSurfCall(window, [makeForecast()], makeBeach(), { verdict: 'NO' });
-    expect(stamped.whySentence).toMatch(/no viable window/i);
+    expect(stamped.whySentence).toMatch(/only lines up for a few minutes/i);
   });
 });
 
