@@ -206,6 +206,9 @@ export function bulkSessionDecision(
   // current hour (NOW) is never gated by the clock.
   const outsideLight = options.daylightOnly === true
     && !isDaylightInterval(at, new Date(end), timezone, context.sunTimes.get(beach.id));
+  // One resolution per row: the label and the character come from the same
+  // forecast row and score, so the condition label cannot disagree with them.
+  const resolved = resolveRecommendationLabel({ beach, forecast, score });
   const decision = buildCanonicalSessionDecision({
     anchorTime: at.toISOString(),
     scope: {
@@ -230,11 +233,8 @@ export function bulkSessionDecision(
             waveHeight: forecast.wave_height,
             utilityScore: score,
             effects: [...(scoreWindowWithComposite(forecast, beach).effects ?? [])],
-            recommendationLabel: resolveRecommendationLabel({
-              beach,
-              forecast,
-              score,
-            }).label,
+            recommendationLabel: resolved.label,
+            characterCategory: resolved.character?.category ?? null,
             personalMatch: toPersonalMatchEvidence({
               similarity:
                 context.matches.get(matchSlotKey(beach.id, forecast.forecast_at)) ?? null,
