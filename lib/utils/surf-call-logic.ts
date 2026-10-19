@@ -30,6 +30,7 @@ import {
 import type { CompositeScore } from '@/lib/domains/scoring';
 import { classifyWindRelation, WIND_SPEED_GLASSY_MPH } from '@/lib/utils/wind-relation';
 import { resolveOffshoreDeg } from '@/lib/domains/shared/wind-orientation';
+import { resolveBeachTimezone } from '@/lib/utils/timezone-utils';
 
 // ============================================================================
 // Types
@@ -429,7 +430,8 @@ function buildWhySentence(
   waveHeight: string | null,
   tide: TideData,
   shortWindow: boolean,
-  noReason?: string
+  noReason?: string,
+  character?: ConditionCharacter | null,
 ): string {
   if (noReason) return noReason;
 
@@ -461,6 +463,9 @@ function buildWhySentence(
 
   if (verdict === 'MAYBE') {
     // Highlight the biggest limiter
+    if (character?.category === 'skip') {
+      return 'Wind is blowing it out — expect rough, hard-to-read surf.';
+    }
     if (shortWindow) {
       if (isOnshore || isCross) {
         return `Short clean window before wind turns ${wind.type}.`;
@@ -483,10 +488,10 @@ function buildWhySentence(
   }
 
   // NO — state the primary fail gate
-  if (isOnshore) return 'Onshore wind all day making conditions choppy.';
-  if (wind.description.includes('strong')) return 'Strong wind making conditions unsurfable.';
-  if (shortWindow) return 'No viable window long enough to surf.';
-  return 'Conditions not favorable for surfing.';
+  if (isOnshore) return 'Onshore wind all day, so it stays choppy.';
+  if (wind.description.includes('strong')) return 'Too windy to be fun right now.';
+  if (shortWindow) return 'It only lines up for a few minutes. Not worth the drive.';
+  return 'Not worth paddling out right now.';
 }
 
 function capitalize(s: string): string {
@@ -640,6 +645,51 @@ function computeCompositeAndCharacter(
 // Main Logic
 // ============================================================================
 
+export interface SurfCallOptions {
+  /** When true, tide phase uses window-start logic. Defaults to false. */
+  isTomorrow?: boolean;
+  /**
+   * A verdict decided elsewhere (the canonical session decision). The
+   * explanation, window narrowing and per-skill tiers are derived from it so
+   * they cannot describe a different verdict than the one the caller stamps.
+   */
+  verdict?: SurfCallVerdict;
+  /** IANA zone for tier trail times; defaults to the window's, then the beach's. */
+  timezone?: string;
+}
+
+/** Categories whose label promises clean wind. */
+const CLEAN_WIND_CATEGORIES: ReadonlySet<string> = new Set([
+  'small-clean',
+  'medium-clean',
+  'large-clean',
+]);
+
+const KNOTS_TO_MPH = 1.15078;
+
+/**
+ * The character label is classified from a composite score on a single row; the
+ * window wind type is classified separately. A "clean wind" label beside an
+ * onshore wind, or a cross-shore wind past the beach's cross-shore tolerance,
+ * contradicts itself, so the label gives way to the wind.
+ */
+function reconcileCharacterWithWind(
+  character: ConditionCharacter | null,
+  wind: WindData,
+  beach: Beach,
+): ConditionCharacter | null {
+  if (!character || !CLEAN_WIND_CATEGORIES.has(character.category)) return character;
+  const strongCrossShore =
+    wind.type === 'cross-shore' &&
+    (parseMaxWaveHeight(wind.speed) ?? 0) >
+      beachToSpotProfile(beach).windThresholds.crossShoreOkKts * KNOTS_TO_MPH;
+  if (wind.type !== 'onshore' && !strongCrossShore) return character;
+  const cause = wind.type === 'onshore' ? 'onshore' : 'cross-shore';
+  return character.category === 'large-clean'
+    ? { category: 'large-rough', label: `Big but wind-affected — ${cause}` }
+    : { category: 'medium-mixed', label: `Decent — ${cause} wind takes the shine off` };
+}
+
 /**
  * Compute a surf call verdict from window and forecast data.
  *
@@ -654,7 +704,7 @@ export function computeSurfCall(
   window: PersonalizedForecastWindow | null,
   forecasts: EnhancedForecastEntity[],
   beach: Beach,
-  options: { isTomorrow?: boolean } = {}
+  options: SurfCallOptions = {}
 ): SurfCallResult {
   const { isTomorrow = false } = options;
   const now = new Date();
@@ -698,7 +748,7 @@ export function computeSurfCall(
   if (!forecasts || forecasts.length === 0) {
     return {
       ...baseResult,
-      whySentence: 'no forecast data right now',
+      whySentence: 'No forecast for this spot right now.',
     };
   }
 
@@ -720,7 +770,7 @@ export function computeSurfCall(
     return {
       ...baseResult,
       waveHeight: maxWave != null && maxWave > 0 ? formatWaveHeight(maxWave) : null,
-      whySentence: 'Waves too small for this spot.',
+      whySentence: 'Too small to break here today.',
     };
   }
 
@@ -728,7 +778,7 @@ export function computeSurfCall(
   if (!window) {
     return {
       ...baseResult,
-      whySentence: 'No viable surf window today.',
+      whySentence: 'Nothing worth paddling out for today.',
     };
   }
 
@@ -796,7 +846,10 @@ export function computeSurfCall(
 
   // Short window gate - reject if too short. Verdict is NO → suppress the
   // "Best window" so the UI doesn't contradict itself.
-  if (windowMinutes < MINIMUM_VIABLE_WINDOW_MINUTES) {
+  // A stamped verdict other than NO already passed the decision engine's
+  // duration gate, so this sentence would contradict it.
+  const stampedPastDurationGate = options.verdict != null && options.verdict !== 'NO';
+  if (windowMinutes < MINIMUM_VIABLE_WINDOW_MINUTES && !stampedPastDurationGate) {
     return {
       ...baseResult,
       bestWindowStart: null,
@@ -816,7 +869,7 @@ export function computeSurfCall(
       forecastConfidence,
       lowForecastConfidence,
       score,
-      whySentence: 'No viable window long enough to surf.',
+      whySentence: 'It only lines up for a few minutes. Not worth the drive.',
       rideableWavesPerHour: freqResult?.rideableWavesPerHour ?? null,
       dominantBeatIntervalS: freqResult?.dominantBeatIntervalS ?? null,
       character,
@@ -847,11 +900,15 @@ export function computeSurfCall(
     verdict = 'NO';
   }
 
+  if (options.verdict) {
+    verdict = options.verdict;
+  }
+
   // Build explanation — override for small-wave MAYBE to explain the nuance
   const smallWaveOverride = (wavesBelowMin || windowWavesBelowMin) && verdict === 'MAYBE'
     ? `Small for this break but conditions look fun — ${waveHeight ?? 'modest swell'} with ${wind.type === 'glassy' || wind.type === 'offshore' ? 'clean winds' : 'manageable wind'}.`
     : undefined;
-  const setupRiskOverride = verdict === 'NO' && cautions.length > 0
+  const setupRiskOverride = cautions.length > 0
     ? `${cautions[0]}.`
     : undefined;
   const whySentence = buildWhySentence(
@@ -860,7 +917,8 @@ export function computeSurfCall(
     waveHeight,
     tide,
     shortWindow,
-    setupRiskOverride ?? smallWaveOverride
+    setupRiskOverride ?? smallWaveOverride,
+    character,
   );
   const peakTime = window.peakTime instanceof Date && !isNaN(window.peakTime.getTime())
     ? window.peakTime.toISOString()
@@ -916,7 +974,7 @@ export function computeSurfCall(
     isCalibrated,
     rideableWavesPerHour: freqResult?.rideableWavesPerHour ?? null,
     dominantBeatIntervalS: freqResult?.dominantBeatIntervalS ?? null,
-    character,
+    character: reconcileCharacterWithWind(character, wind, beach),
     cautions,
   };
 }
@@ -944,16 +1002,21 @@ export interface SurfCallTiers {
   advanced: TierVerdict;
 }
 
-function formatWindowShort(iso: string | null): string | null {
+function formatWindowShort(iso: string | null, timeZone: string): string | null {
   if (!iso) return null;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone });
 }
 
-function buildTrail(verdict: SurfCallVerdict, windowStart: string | null, override?: string): string {
+function buildTrail(
+  verdict: SurfCallVerdict,
+  windowStart: string | null,
+  timeZone: string,
+  override?: string,
+): string {
   if (override) return override;
-  const t = formatWindowShort(windowStart);
+  const t = formatWindowShort(windowStart, timeZone);
   if (verdict === 'YES') return t ? `BEST AT ${t}` : 'WORTH A SURF';
   if (verdict === 'MAYBE') return t ? `TRY AT ${t}` : 'KEEP WATCHING';
   return 'WAIT FOR SWELL';
@@ -981,12 +1044,13 @@ export function computeSurfCallTiers(
   window: PersonalizedForecastWindow | null,
   forecasts: EnhancedForecastEntity[],
   beach: Beach,
-  options: { isTomorrow?: boolean } = {},
+  options: SurfCallOptions = {},
 ): SurfCallTiers {
   const baseline = computeSurfCall(window, forecasts, beach, options);
+  const timeZone = resolveBeachTimezone(options.timezone ?? window?.timezone ?? beach.timezone);
   const intermediate: TierVerdict = {
     verdict: baseline.verdict,
-    trail: buildTrail(baseline.verdict, baseline.bestWindowStart),
+    trail: buildTrail(baseline.verdict, baseline.bestWindowStart, timeZone),
     bestWindowStart: baseline.bestWindowStart,
     bestWindowEnd: baseline.bestWindowEnd,
   };
@@ -1025,7 +1089,7 @@ export function computeSurfCallTiers(
 
   const beginner: TierVerdict = {
     verdict: beginnerVerdict,
-    trail: buildTrail(beginnerVerdict, beginnerStart, beginnerTrailOverride),
+    trail: buildTrail(beginnerVerdict, beginnerStart, timeZone, beginnerTrailOverride),
     bestWindowStart: beginnerStart,
     bestWindowEnd: beginnerEnd,
   };
@@ -1048,7 +1112,7 @@ export function computeSurfCallTiers(
 
   const advanced: TierVerdict = {
     verdict: advancedVerdict,
-    trail: buildTrail(advancedVerdict, advancedStart, advancedTrailOverride),
+    trail: buildTrail(advancedVerdict, advancedStart, timeZone, advancedTrailOverride),
     bestWindowStart: advancedStart,
     bestWindowEnd: advancedEnd,
   };

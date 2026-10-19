@@ -199,9 +199,16 @@ export function canonicalCandidateVerdict(
   return applyVerdictCeiling(adjusted, verdictCeiling(candidate.effects));
 }
 
-export function conditionLabelForVerdict(verdict: "go" | "maybe" | "no", score: number): "EPIC" | "GOOD" | "FAIR" | "MEH" {
+export function conditionLabelForVerdict(
+  verdict: "go" | "maybe" | "no",
+  score: number,
+  characterCategory?: string | null,
+): "EPIC" | "GOOD" | "FAIR" | "MEH" {
   if (verdict === "no") return "MEH";
-  if (verdict === "maybe") return "FAIR";
+  if (verdict === "maybe") {
+    // Wind that blows the row out cannot read as a middling FAIR.
+    return characterCategory === "skip" ? "MEH" : "FAIR";
+  }
   // EPIC only when the single score rule allows it (off until rare days exist).
   return scoreLabel(score) === "EPIC" ? "EPIC" : "GOOD";
 }
@@ -477,6 +484,7 @@ export function buildCanonicalSessionDecision(
     conditionLabel: conditionLabelForVerdict(
       verdict,
       selected ? canonicalCandidateScore(selected) : 0,
+      selected?.characterCategory,
     ),
     selection: hasSelection
       ? selectionFor(selected, skill, verdict)
