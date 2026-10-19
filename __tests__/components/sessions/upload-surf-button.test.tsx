@@ -107,7 +107,7 @@ describe("UploadSurfButton", () => {
 
     render(<UploadSurfButton enabled />);
     await selectFile("surf.zip");
-    expect(await screen.findByText("This file has no GPS track.")).toBeInTheDocument();
+    expect(await screen.findByText("This surf has no GPS track.")).toBeInTheDocument();
     expect(upload).toHaveBeenCalledWith("import-3/user-1/surf.zip", "upload-token", expect.any(File), {
       contentType: "application/zip",
     });
@@ -122,7 +122,7 @@ describe("UploadSurfButton", () => {
     render(<UploadSurfButton enabled />);
     await selectFile("surf.fit");
 
-    expect(await screen.findByText("You've already uploaded this surf")).toBeInTheDocument();
+    expect(await screen.findByText("You've already uploaded this surf.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open the existing session" })).toHaveAttribute("href", "/sessions/existing-session");
     expect(push).not.toHaveBeenCalled();
   });

@@ -23,11 +23,8 @@ it.each(["clear", "advisory", "closure", "unavailable"] as const)(
     expect(toggle).toHaveClass(county === "advisory" || county === "closure" ? "border-destructive/40" : "border-ink/20");
     fireEvent.click(toggle);
     expect(screen.queryByRole("link", { name: /County of San Diego/ })).not.toBeInTheDocument();
-    if (county === "advisory" || county === "closure") {
-      expect(screen.getByText(new RegExp(`San Diego County ${county} · checked`))).toBeInTheDocument();
-    } else {
-      expect(screen.queryByText(/San Diego County .* checked/)).not.toBeInTheDocument();
-    }
+    expect(screen.queryByText(/San Diego County .* checked/) !== null)
+      .toBe(county === "advisory" || county === "closure");
     expect(screen.queryByText(/220|Enterococcus|Fecal Coliform|Latest sample|30-day exceedances|CEDEN/)).not.toBeInTheDocument();
     expect(screen.queryByText("No current county advisory") !== null).toBe(county === "clear");
     expect(screen.queryByText("County status unavailable") !== null).toBe(county === "unavailable");
@@ -92,4 +89,14 @@ it("lets a County general advisory outrank a rainfall notice", () => {
     rain_runoff: { total_in: 0.38, window_end: "2026-10-12T14:00:00Z", stations: ["KSAN"] } }} />);
   expect(screen.getByRole("button", { name: /Rain Advisory/ })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /Rain runoff advisory/ })).not.toBeInTheDocument();
+});
+
+it("shows stored rain event start and end times in the expanded card", () => {
+  render(<WaterQualityBadge waterQuality={{ ...sample, status: "advisory",
+    status_reason: "Runoff after rain nearby.", rain_runoff: { stations: ["KLGB"],
+      started_at: "2026-10-16T13:00:00Z", last_rain_at: "2026-10-16T13:00:00Z",
+      expires_at: "2026-10-19T13:00:00Z" } }} />);
+  fireEvent.click(screen.getByRole("button", { name: /Rain runoff advisory/ }));
+  expect(screen.getByText(/Rain advisory since Fri 6 AM/)).toBeInTheDocument();
+  expect(screen.queryByText(/for the 72 hours to/)).not.toBeInTheDocument();
 });

@@ -23,6 +23,8 @@ import type { EnhancedForecastEntity } from "@/types/forecast";
 // still writes to corrected_forecasts; that table is read by the ML
 // pipeline only, not by this service.
 
+const FALLBACK_SOURCE = "FALLBACK";
+
 /**
  * Configuration for storage operations
  */
@@ -115,8 +117,14 @@ export class ForecastStorageService {
         );
       }
 
+      const keptForecasts = await this.dropFallbackOverRealRows(
+        supabase,
+        beach.id,
+        Array.from(uniqueForecasts.values())
+      );
+
       // Prepare rows for database (remove id, add updated_at)
-      const toRows = Array.from(uniqueForecasts.values()).map((forecast) => {
+      const toRows = keptForecasts.map((forecast) => {
         const { id, ...forecastWithoutId } = forecast;
         return { ...forecastWithoutId, updated_at: new Date().toISOString() };
       });
@@ -176,6 +184,58 @@ export class ForecastStorageService {
     });
 
     return uniqueForecasts;
+  }
+
+  /**
+   * Drop synthetic FALLBACK rows whose slot already holds a real forecast.
+   *
+   * When every wave source fails for a moment, the sync produces synthetic
+   * slots for the whole horizon. An earlier real forecast for the same time
+   * is more truthful than invented data, so those slots keep the stored row
+   * (all of its fields together) instead of being overwritten. If the lookup
+   * fails, the FALLBACK rows are skipped rather than risk the overwrite.
+   */
+  private async dropFallbackOverRealRows(
+    supabase: SupabaseClient,
+    beachId: string,
+    forecasts: EnhancedForecastEntity[]
+  ): Promise<EnhancedForecastEntity[]> {
+    const fallbackTimes = forecasts
+      .filter((f) => f.data_source === FALLBACK_SOURCE && f.forecast_at)
+      .map((f) => Date.parse(String(f.forecast_at)))
+      .filter((ms) => Number.isFinite(ms));
+    if (fallbackTimes.length === 0) return forecasts;
+
+    const { data, error } = await supabase
+      .from("enhanced_forecasts")
+      .select("forecast_at")
+      .eq("beach_id", beachId)
+      .neq("data_source", FALLBACK_SOURCE)
+      .gte("forecast_at", new Date(Math.min(...fallbackTimes)).toISOString())
+      .lte("forecast_at", new Date(Math.max(...fallbackTimes)).toISOString());
+
+    if (error) {
+      console.warn(
+        `⚠️ Could not check existing forecasts for beach ${beachId}; skipping FALLBACK rows:`,
+        error.message
+      );
+      return forecasts.filter((f) => f.data_source !== FALLBACK_SOURCE);
+    }
+
+    const realTimes = new Set(
+      (data ?? []).map((row: { forecast_at: string }) => Date.parse(row.forecast_at))
+    );
+
+    const kept = forecasts.filter(
+      (f) =>
+        f.data_source !== FALLBACK_SOURCE ||
+        !realTimes.has(Date.parse(String(f.forecast_at)))
+    );
+    if (kept.length === forecasts.length) return forecasts;
+    console.warn(
+      `⚠️ Kept ${forecasts.length - kept.length} real forecast slots for beach ${beachId} instead of overwriting them with FALLBACK data`
+    );
+    return kept;
   }
 
   /**

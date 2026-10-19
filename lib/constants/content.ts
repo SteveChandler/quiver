@@ -57,7 +57,7 @@ export const PRIVACY_CONTENT = {
   hero: {
     title: "Privacy Policy",
     subtitle: "How we protect and handle your data",
-    lastUpdated: "October 16, 2026",
+    lastUpdated: "October 18, 2026",
     effectiveDate:
       "This policy is effective as of October 16, 2026. We will notify you of any material changes by email or through our app.",
   },
@@ -532,6 +532,11 @@ export const PRIVACY_CONTENT = {
           title: "Connected Devices",
           content:
             "With your consent, we may collect data from connected devices like fitness trackers or smartwatches to enhance your session tracking experience. Information collected by these third parties is subject to their terms and policies.",
+        },
+        {
+          title: "Garmin Watch Data",
+          content:
+            "Garmin watch surfs may include a GPS track, heart rate, water temperature, device model, and an app-specific device ID. We store this watch data privately; GPS tracks are visible only to the account owner.",
         },
       ],
     },

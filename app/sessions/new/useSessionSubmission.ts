@@ -173,9 +173,15 @@ export function useSessionSubmission({
           const m = String(sessionData.waterTemp).match(/(\d+)/);
           water = m ? parseInt(m[1]) : undefined;
         }
+        const hasWaveHeight =
+          sessionData.waveHeight !== undefined && sessionData.waveHeight !== null;
+        // Same flags as native: the database derives sessions.wave_height_source
+        // from them, so forecast truth can drop untouched forecast prefills.
         const submitMetadata = buildSessionLogEventMetadata(flowId, {
           event_id: `session:${result.data.id}:submit:web:v1`,
           session_id: result.data.id,
+          forecast_prefilled: hasWaveHeight && sessionData.waveHeightEdited !== true,
+          forecast_height_changed: sessionData.waveHeightEdited === true,
         });
         const analyticsSubmitMetadata = {
           ...submitMetadata,

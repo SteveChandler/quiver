@@ -46,6 +46,7 @@ export interface CountyStatusMetadata {
   county_checked_at?: string;
   /** Internal County coverage marker that suppresses rainfall fallback after general expiry. */
   county_general_expired?: boolean;
+  county_rain_advisory?: { started_at: string; last_rain_at: string | null; expires_at: string };
 }
 
 export interface CountyProjectionInput {
@@ -146,6 +147,9 @@ export function projectCurrentWaterQuality<T extends SampleQualityRow>(
       : status === "advisory" && general && !siteAdvisory ? "general" as const : "site" as const;
     return { ...row, county_advisory_status: status,
       ...(kind ? { county_advisory_kind: kind } : {}),
+      ...(kind === "general" && generalAdvisory?.event?.status === "active"
+        ? { county_rain_advisory: { started_at: generalAdvisory.event.startedAt,
+          last_rain_at: generalAdvisory.event.lastRainAt, expires_at: generalAdvisory.event.expiresAt } } : {}),
       county_checked_at: parsedRun.data.fetched_at,
       // Existing consumers understand unknown; do not send a "good/all clear" signal.
       status: status === "clear" ? "unknown" : status };

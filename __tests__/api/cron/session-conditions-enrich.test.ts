@@ -39,6 +39,7 @@ describe("session conditions enrich cron", () => {
     jest.clearAllMocks();
     process.env.SESSION_CONDITIONS_ENRICH_ENABLED = "true";
     process.env.SESSION_IMPORTS_ENABLED = "true";
+    delete process.env.GARMIN_WATCH_ENABLED;
     require("@/lib/middleware/api-wrappers").validateCronRequest.mockReturnValue(true);
     (enrichSessionConditions as jest.Mock).mockResolvedValue(SUMMARY);
   });
@@ -51,6 +52,15 @@ describe("session conditions enrich cron", () => {
     expect(options.hindcast).toBeUndefined();
     expect(options.retryNone).toBeUndefined();
     expect(options.mode).toBe(query ? "backfill" : "live");
+  });
+
+  it("enables hindcast and backfill retries for watch-only rollout", async () => {
+    process.env.SESSION_IMPORTS_ENABLED = "false";
+    process.env.GARMIN_WATCH_ENABLED = "true";
+    expect((await GET(request("?mode=backfill&retryNone=1"))).status).toBe(200);
+    expect(enrichSessionConditions).toHaveBeenCalledWith(
+      { store: true }, expect.objectContaining({ retryNone: true, hindcast: { fetchDay: fetchOpenMeteoHindcastDay } }),
+    );
   });
 
   it("rejects a request without the cron secret", async () => {

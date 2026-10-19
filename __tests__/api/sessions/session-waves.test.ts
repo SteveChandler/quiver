@@ -52,6 +52,7 @@ const track = {
   gps_coverage: 0.8, speed_reliable: false, user_wave_count: 4,
   track_geojson: { type: "LineString", coordinates: [[-119, 34], [-119.001, 34.001]] },
   speed_series: [{ t: start, mps: 3 }], recorded_by: "Garmin",
+  paddle_distance_m: 1200, hr_avg: 118, hr_max: 156, source_device: "Forerunner 965",
 };
 
 type Table = "sessions" | "session_tracks" | "session_waves" | "session_wave_corrections" | "profiles" | "session_imports" | "user_events";
@@ -87,12 +88,19 @@ function request(method: string, body?: unknown): NextRequest {
   });
 }
 
-const savedEnv = { enabled: process.env.SESSION_IMPORTS_ENABLED, allowed: process.env.SESSION_IMPORTS_USER_ALLOWLIST };
+const savedEnv = {
+  enabled: process.env.SESSION_IMPORTS_ENABLED,
+  allowed: process.env.SESSION_IMPORTS_USER_ALLOWLIST,
+  garminEnabled: process.env.GARMIN_WATCH_ENABLED,
+  garminAllowed: process.env.GARMIN_WATCH_USER_ALLOWLIST,
+};
 beforeEach(() => {
   jest.clearAllMocks();
   for (const key of Object.keys(queries)) delete queries[key];
   process.env.SESSION_IMPORTS_ENABLED = "true";
   process.env.SESSION_IMPORTS_USER_ALLOWLIST = userId;
+  delete process.env.GARMIN_WATCH_ENABLED;
+  delete process.env.GARMIN_WATCH_USER_ALLOWLIST;
   rows.sessions = { id: sessionId, user_id: userId, deleted_at: null, beach_id: beachId };
   rows.session_tracks = { ...track };
   rows.session_waves = [wave];
@@ -114,6 +122,52 @@ afterAll(() => {
   else process.env.SESSION_IMPORTS_ENABLED = savedEnv.enabled;
   if (savedEnv.allowed === undefined) delete process.env.SESSION_IMPORTS_USER_ALLOWLIST;
   else process.env.SESSION_IMPORTS_USER_ALLOWLIST = savedEnv.allowed;
+  if (savedEnv.garminEnabled === undefined) delete process.env.GARMIN_WATCH_ENABLED;
+  else process.env.GARMIN_WATCH_ENABLED = savedEnv.garminEnabled;
+  if (savedEnv.garminAllowed === undefined) delete process.env.GARMIN_WATCH_USER_ALLOWLIST;
+  else process.env.GARMIN_WATCH_USER_ALLOWLIST = savedEnv.garminAllowed;
+});
+
+it("returns waves for an owner allowed only by the garmin watch flag", async () => {
+  process.env.SESSION_IMPORTS_ENABLED = "false";
+  process.env.GARMIN_WATCH_ENABLED = "true";
+  process.env.GARMIN_WATCH_USER_ALLOWLIST = userId;
+
+  const response = await GET(request("GET"), context);
+
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ success: true, data: { waves: [{ id: waveId }] } });
+  expect(queries.session_tracks[0].eq).toHaveBeenCalledWith("user_id", userId);
+});
+
+it("lets a garmin-only owner update the wave count and a correction", async () => {
+  process.env.SESSION_IMPORTS_ENABLED = "false";
+  process.env.GARMIN_WATCH_ENABLED = "true";
+  process.env.GARMIN_WATCH_USER_ALLOWLIST = userId;
+  rows.session_wave_corrections = [];
+
+  const countResponse = await patchCount(request("PATCH", { userWaveCount: 2 }), context);
+  const correctionResponse = await patchWave(request("PATCH", { excluded: true }), context);
+
+  expect(countResponse.status).toBe(200);
+  expect(correctionResponse.status).toBe(200);
+  expect(queries.session_tracks.find(q => q.update.mock.calls.length)?.update).toHaveBeenCalledWith({ user_wave_count: 2 });
+  expect(queries.session_wave_corrections.find(q => q.insert.mock.calls.length)?.insert).toHaveBeenCalledWith(
+    expect.objectContaining({ session_id: sessionId, user_id: userId, action: "exclude" }),
+  );
+});
+
+it("lets a garmin-only admin redetect an owned session", async () => {
+  process.env.SESSION_IMPORTS_ENABLED = "false";
+  process.env.GARMIN_WATCH_ENABLED = "true";
+  process.env.GARMIN_WATCH_USER_ALLOWLIST = userId;
+  mockAuth.mockResolvedValue({ data: { user: { id: userId, app_metadata: { is_admin: true } } }, error: null });
+
+  const response = await redetect(request("POST"), context);
+
+  expect(response.status).toBe(200);
+  expect(mockDownload).toHaveBeenCalledWith("track.fit");
+  expect(mockPersistDetection).toHaveBeenCalled();
 });
 
 it("returns the native waves contract with corrections, override count, track and unreliable speeds", async () => {
@@ -131,6 +185,43 @@ it("returns the native waves contract with corrections, override count, track an
   expect(queries.session_waves[0].eq).toHaveBeenCalledWith("is_current", true);
   expect(queries.session_waves[0].order).toHaveBeenCalledWith("wave_index");
   expect(response.headers.get("Cache-Control")).toContain("no-store");
+});
+
+it("returns Garmin track metrics and the recorded-with label", async () => {
+  rows.sessions = { ...rows.sessions as object, source: "garmin_watch" };
+  rows.session_wave_corrections = [];
+  rows.session_waves = [0, 480, 960].map((offset, index) => ({
+    ...wave, id: `${waveId.slice(0, -1)}${index + 1}`, wave_index: index + 1,
+    started_at: new Date(Date.parse(start) + offset * 1000).toISOString(),
+    ended_at: new Date(Date.parse(end) + offset * 1000).toISOString(),
+  }));
+  const response = await GET(request("GET"), context);
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ data: { summary: {
+    paddleDistanceM: 1200, heartRateAvg: 118, heartRateMax: 156,
+    setIntervalMin: 8, recordedWith: "Quiver for Garmin · Forerunner 965",
+  } } });
+  expect(queries.sessions[0].select).toHaveBeenCalledWith(expect.stringContaining("source"));
+});
+
+it.each(["count", "exclude", "restore"])("preserves Garmin summary fields after a %s PATCH", async action => {
+  rows.sessions = { ...rows.sessions as object, source: "garmin_watch" };
+  rows.session_wave_corrections = action === "restore" ? [{ started_at: start, ended_at: end }] : [];
+  rows.session_waves = [0, 20, 600, 620, 1200, 1220, 1800, 1820].map((offset, index) => ({
+    ...wave, id: `${waveId.slice(0, -1)}${index + 1}`, wave_index: index + 1,
+    started_at: new Date(Date.parse(start) + offset * 1000).toISOString(),
+    ended_at: new Date(Date.parse(end) + offset * 1000).toISOString(),
+  }));
+  const response = action === "count"
+    ? await patchCount(request("PATCH", { userWaveCount: 3 }), context)
+    : await patchWave(request("PATCH", { excluded: action === "exclude" }), context);
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ data: { summary: {
+    paddleDistanceM: 1200, heartRateAvg: 118, heartRateMax: 156,
+    setIntervalMin: 10, recordedWith: "Quiver for Garmin · Forerunner 965",
+  } } });
+  expect(queries.sessions[0].select).toHaveBeenCalledWith(expect.stringContaining("source"));
+  expect(queries.session_tracks[0].select).toHaveBeenCalledWith(expect.stringContaining("source_device"));
 });
 
 it.each(["other owner", "soft deleted"])("returns 404 for %s", async reason => {

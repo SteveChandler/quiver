@@ -1,6 +1,6 @@
 /** @jest-environment node */
 
-import { buildWavesSummary, isExcluded, type StoredWave } from "@/lib/sessions/waves/waves-summary";
+import { buildWavesSummary, isExcluded, setIntervalMin, type StoredWave } from "@/lib/sessions/waves/waves-summary";
 
 const time = (second: number): string => new Date(Date.parse("2026-10-17T12:00:00Z") + second * 1000).toISOString();
 
@@ -50,6 +50,8 @@ describe("buildWavesSummary", () => {
       longestRideS: 30, longestRideM: 80, topSpeedMps: 8,
       gpsCoverage: 0.49, lowCoverage: true, speedReliable: true,
       detectionVersion: "wd-1.0.0",
+      paddleDistanceM: null, heartRateAvg: null, heartRateMax: null,
+      setIntervalMin: null, recordedWith: null,
     });
   });
 
@@ -61,6 +63,8 @@ describe("buildWavesSummary", () => {
       longestRideS: 30, longestRideM: 80, topSpeedMps: null,
       gpsCoverage: 0.5, lowCoverage: false, speedReliable: false,
       detectionVersion: "wd-1.0.0",
+      paddleDistanceM: null, heartRateAvg: null, heartRateMax: null,
+      setIntervalMin: null, recordedWith: null,
     });
   });
 
@@ -77,5 +81,40 @@ describe("buildWavesSummary", () => {
     expect(buildWavesSummary([wave("5", 0, 10, { confidence: 0.5 })], [], {
       gpsCoverage: 1, speedReliable: true, userWaveCount: null,
     }, "wd-1.0.0").detectedWaveCount).toBe(1);
+  });
+});
+
+describe("setIntervalMin", () => {
+  it("groups in-set rides before computing the median gap", () => {
+    const rides = [0, 20, 40, 600, 620, 640, 1200, 1220, 1240, 1800, 1820, 1840].map((start, index) =>
+      ({ ...wave(String(index + 1), start, 20), counted: true }));
+    expect(setIntervalMin(rides, [])).toBe(10);
+  });
+
+  it("requires at least three sets", () => {
+    expect(setIntervalMin([wave("1", 0, 20), wave("2", 480, 20)], [])).toBeNull();
+  });
+
+  it("ignores an uncounted ride that would split a ten-minute gap", () => {
+    const rides = [0, 600, 900, 1200, 1800].map((start, index) =>
+      ({ ...wave(String(index + 1), start, 20), counted: start !== 900 }));
+    expect(setIntervalMin(rides, [])).toBe(10);
+  });
+
+  it("ignores an excluded ride that would split a ten-minute gap", () => {
+    const rides = [0, 600, 900, 1200, 1800].map((start, index) =>
+      ({ ...wave(String(index + 1), start, 20), excluded: start === 900 }));
+    expect(setIntervalMin(rides, [])).toBe(10);
+  });
+
+  it("ignores a corrected ride that would split a ten-minute gap", () => {
+    const rides = [0, 600, 900, 1200, 1800].map((start, index) => wave(String(index + 1), start, 20));
+    expect(setIntervalMin(rides, [{ startedAt: time(900), endedAt: time(920) }])).toBe(10);
+  });
+
+  it("chains each ride to the previous ride rather than the first ride in its set", () => {
+    const rides = [0, 80, 160, 240, 2000, 4000].map((start, index) => wave(String(index + 1), start, 20));
+    expect(setIntervalMin(rides, [])).toBe(33);
+    expect(setIntervalMin(rides.slice(0, 4), [])).toBeNull();
   });
 });

@@ -36,12 +36,17 @@ let insert: jest.Mock;
 let imported: { id: string; user_id: string; status: string } | null;
 let beach: { id: string; deleted_at: string | null } | null;
 let dbError: unknown;
-const savedEnv = { enabled: process.env.SESSION_IMPORTS_ENABLED, allowed: process.env.SESSION_IMPORTS_USER_ALLOWLIST };
+const savedEnv = {
+  enabled: process.env.SESSION_IMPORTS_ENABLED, allowed: process.env.SESSION_IMPORTS_USER_ALLOWLIST,
+  garminEnabled: process.env.GARMIN_WATCH_ENABLED, garminAllowed: process.env.GARMIN_WATCH_USER_ALLOWLIST,
+};
 
 beforeEach(() => {
   jest.clearAllMocks();
   process.env.SESSION_IMPORTS_ENABLED = "true";
   process.env.SESSION_IMPORTS_USER_ALLOWLIST = userId;
+  process.env.GARMIN_WATCH_ENABLED = "false";
+  process.env.GARMIN_WATCH_USER_ALLOWLIST = "";
   mockAuth.mockResolvedValue({ data: { user: { id: userId } }, error: null });
   imported = { id, user_id: userId, status: "uploaded" };
   beach = { id: beachId, deleted_at: null };
@@ -65,6 +70,10 @@ afterAll(() => {
   else process.env.SESSION_IMPORTS_ENABLED = savedEnv.enabled;
   if (savedEnv.allowed === undefined) delete process.env.SESSION_IMPORTS_USER_ALLOWLIST;
   else process.env.SESSION_IMPORTS_USER_ALLOWLIST = savedEnv.allowed;
+  if (savedEnv.garminEnabled === undefined) delete process.env.GARMIN_WATCH_ENABLED;
+  else process.env.GARMIN_WATCH_ENABLED = savedEnv.garminEnabled;
+  if (savedEnv.garminAllowed === undefined) delete process.env.GARMIN_WATCH_USER_ALLOWLIST;
+  else process.env.GARMIN_WATCH_USER_ALLOWLIST = savedEnv.garminAllowed;
 });
 
 it.each([create, processFile, chooseBeach])("hides each route when the flag is off", async handler => {
@@ -165,6 +174,32 @@ it("passes a live beach override and returns the completed contract", async () =
   const response = await chooseBeach(request({ beachId }), context);
   expect(response.status).toBe(200);
   expect(mockProcess).toHaveBeenCalledWith(expect.objectContaining({ now: expect.any(Date) }), id, userId, beachId);
+});
+
+it("allows an allowlisted Garmin-only user to choose a beach", async () => {
+  process.env.SESSION_IMPORTS_ENABLED = "false";
+  process.env.SESSION_IMPORTS_USER_ALLOWLIST = "";
+  process.env.GARMIN_WATCH_ENABLED = "true";
+  process.env.GARMIN_WATCH_USER_ALLOWLIST = userId;
+  imported!.status = "needs_beach";
+
+  const response = await chooseBeach(request({ beachId }), context);
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ success: true, data: { status: "completed", sessionId: "session-1" } });
+  expect(mockProcess).toHaveBeenCalledWith(expect.anything(), id, userId, beachId);
+});
+
+it("rejects beach selection when neither feature allows the user", async () => {
+  process.env.SESSION_IMPORTS_ENABLED = "false";
+  process.env.GARMIN_WATCH_ENABLED = "true";
+  process.env.GARMIN_WATCH_USER_ALLOWLIST = "";
+  imported!.status = "needs_beach";
+
+  const response = await chooseBeach(request({ beachId }), context);
+  expect(response.status).toBe(404);
+  expect(await response.json()).toMatchObject({ success: false, error: "not_found" });
+  expect(mockFrom).not.toHaveBeenCalled();
+  expect(mockProcess).not.toHaveBeenCalled();
 });
 
 it("maps a raw Postgrest failure to a real 500", async () => {

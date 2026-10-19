@@ -81,6 +81,7 @@ type SurfCallWaterQuality = {
   countyKind?: 'general' | 'site';
   checkedAt?: string;
   sampleDate?: string;
+  rainAdvisory?: { startedAt: string; lastRainAt: string | null; expiresAt: string };
 } | null;
 
 function surfCallWaterQuality(
@@ -93,6 +94,7 @@ function surfCallWaterQuality(
   const status = resolution.waterQualityStatusByBeachId[beachId] ?? 'hold';
   if (evidence?.source === 'county') return { status, source: 'county',
     ...(evidence.countyKind ? { countyKind: evidence.countyKind } : {}),
+    ...(evidence.countyKind === 'general' && evidence.rainAdvisory ? { rainAdvisory: evidence.rainAdvisory } : {}),
     ...(evidence.checkedAt ? { checkedAt: evidence.checkedAt } : {}) };
   if (evidence?.source === 'sample') return { status, source: 'sample',
     ...(evidence.sampleDate ? { sampleDate: evidence.sampleDate } : {}) };
@@ -407,7 +409,8 @@ function buildCanonicalSurfCall(
  * `/api/surf/discover?mode=now` returns, so Beach Detail grades "now" from the
  * producer Home labels with.
  * `data.waterQuality` is the requested beach's resolved water-quality hold,
- * including County kind/check time or sample date; null means no resolved hold.
+ * including County kind/check time, optional County general rain advisory
+ * start/last-rain/end times, or sample date; null means no resolved hold.
  *
  * Authentication: optional; anonymous requests receive the general surf call
  * Rate limit: surf-call for authenticated requests, public-default by IP for anonymous requests

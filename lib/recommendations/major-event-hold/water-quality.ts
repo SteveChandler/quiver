@@ -166,6 +166,7 @@ export interface WaterQualityHoldClient {
       | "county_beach_advisory_runs"
       | "county_beach_advisories"
       | "rainfall_runoff_readings"
+      | "rain_advisory_events"
       | "beaches",
   ): {
     select(columns: string): WaterQualityQuery;
@@ -177,6 +178,7 @@ export interface WaterQualityEvidence {
   sampleDate?: string;
   countyKind?: "general" | "site";
   checkedAt?: string;
+  rainAdvisory?: { startedAt: string; lastRainAt: string | null; expiresAt: string };
 }
 
 export interface WaterQualityHoldResolution {
@@ -377,7 +379,11 @@ async function resolveCountyLiveHolds(
         const countyKind = value.advisory_type === "closure" || siteAdvisory || !generalAdvisory.general
           ? "site" as const : "general" as const;
         if (value.advisory_type === "closure" || evidence[normalizedBeachId]?.countyKind !== "site") {
-          evidence[normalizedBeachId] = { source: "county", countyKind, checkedAt: (run as { fetched_at: string }).fetched_at };
+          const event = countyKind === "general" && generalAdvisory.event?.status === "active"
+            ? generalAdvisory.event : null;
+          evidence[normalizedBeachId] = { source: "county", countyKind, checkedAt: (run as { fetched_at: string }).fetched_at,
+            ...(event ? { rainAdvisory: { startedAt: event.startedAt, lastRainAt: event.lastRainAt,
+              expiresAt: event.expiresAt } } : {}) };
         }
         waterQualityStatusByBeachId[normalizedBeachId] =
           moreSevereWaterQualityStatus(
@@ -390,7 +396,7 @@ async function resolveCountyLiveHolds(
 
   const generalSnapshot = !generalAdvisory.general ? "county-general:dormant"
     : generalAdvisory.streakStartedAt === null ? "county-general:unknown"
-      : `county-general:${generalAdvisory.expired ? "expired" : "active"}:${generalAdvisory.streakStartedAt}:rain-${generalAdvisory.rainState ?? "null"}`;
+      : `county-general:${generalAdvisory.expired ? "expired" : "active"}:${generalAdvisory.streakStartedAt}:rain-${generalAdvisory.rainState ?? "null"}:event-${generalAdvisory.event?.id ?? "null"}-${generalAdvisory.event?.status ?? "null"}`;
   return {
     state: "resolved",
     heldBeachIds: [...new Set(heldBeachIds)],
@@ -608,9 +614,14 @@ export async function resolveWaterQualityHolds(
       }
 
       if (row.status === "advisory" || row.status === "closure") {
+        const countyRain = row.county_rain_advisory as { started_at: string; last_rain_at: string | null; expires_at: string } | undefined;
         evidence[beachId] = countyHeld.has(beachId) ? { source: "county",
           ...(row.county_advisory_kind === "site" || row.county_advisory_kind === "general"
             ? { countyKind: row.county_advisory_kind } : {}),
+          ...(row.county_advisory_kind === "general" && countyRain
+            ? { rainAdvisory: { startedAt: countyRain.started_at,
+              lastRainAt: countyRain.last_rain_at,
+              expiresAt: countyRain.expires_at } } : {}),
           ...(typeof row.county_checked_at === "string" ? { checkedAt: row.county_checked_at } : {}) }
           : { source: "sample", ...(typeof row.latest_sample_date === "string" ? { sampleDate: row.latest_sample_date } : {}) };
         heldBeachIds.push(beachId);
