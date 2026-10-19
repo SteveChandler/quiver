@@ -105,7 +105,13 @@ describe('raw wave sources → selection → face-height contracts', () => {
 
   describe('NWS empty-cell (all-zero) series', () => {
     const hour = (n: number) => new Date(Date.parse(at) + n * 3600000).toISOString();
-    const nwsHs = (heights: number[]) => heights.map((h, i) => ({ ...nws(), timestamp: hour(i), significant_wave_height: h }));
+    // Share OM's swell partitions so a direction mismatch between the two raw
+    // fixtures can't raise a disagreement; these cases test height handling only.
+    const swellOf = ({ swell_1_height, swell_1_period, swell_1_direction, swell_2_height, swell_2_period,
+      swell_2_direction, wind_wave_height, wind_wave_period, wind_wave_direction }: ReturnType<typeof om>) => ({
+      swell_1_height, swell_1_period, swell_1_direction, swell_2_height, swell_2_period,
+      swell_2_direction, wind_wave_height, wind_wave_period, wind_wave_direction });
+    const nwsHs = (heights: number[]) => heights.map((h, i) => ({ ...nws(), ...swellOf(om()), timestamp: hour(i), significant_wave_height: h }));
     const omHs = (heights: number[]) => heights.map((h, i) => ({ ...om(), timestamp: hour(i), significant_wave_height: h }));
 
     it('all-zero NWS with OM present: OM selected, no disagreement, empty-cell reason', () => {
