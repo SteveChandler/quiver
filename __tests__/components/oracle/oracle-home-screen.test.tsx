@@ -1220,7 +1220,7 @@ describe("OracleHomeScreen", () => {
             tideHeight: "1.2ft",
             nextTideType: "low",
             nextTideAt: "2026-03-11T19:00:00.000Z",
-            whySentence: "Onshore wind all day making conditions choppy.",
+            whySentence: "Onshore wind all day, so it stays choppy.",
             forecastConfidence: 85,
             lowForecastConfidence: false,
             score: 8,

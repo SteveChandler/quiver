@@ -477,7 +477,7 @@ describe("spot surf report service", () => {
       windDescription: "N 5 mph (offshore)",
       forecastConfidence: 88,
       score: 37,
-      whySentence: "Conditions not favorable for surfing.",
+      whySentence: "Not worth paddling out right now.",
       recommendationAvailability: { state: "available", holdEpoch: "no-positive-surf-call" },
     });
     expect(result?.report.recommendationAvailability.reasonCode).toBeUndefined();
