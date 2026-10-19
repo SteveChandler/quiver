@@ -9,13 +9,23 @@ const subscriberSchema = z.object({ subscriber: z.object({
 }) });
 export type OfferSubscriber = z.infer<typeof subscriberSchema>["subscriber"];
 
+// RevenueCat occasionally stalls past 5 s; these are GET reads, so one retry is safe.
+async function fetchWithTimeoutRetry(fetchImpl: typeof fetch, url: string, init: RequestInit): Promise<Response> {
+  try {
+    return await fetchImpl(url, { ...init, signal: AbortSignal.timeout(5_000) });
+  } catch (error) {
+    if ((error as { name?: unknown } | null)?.name !== "TimeoutError") throw error;
+    return fetchImpl(url, { ...init, signal: AbortSignal.timeout(5_000) });
+  }
+}
+
 export async function readOfferSubscriber(userId: string, secret: string, fetchImpl: typeof fetch): Promise<OfferSubscriber> {
   const project = z.string().regex(/^proj[a-zA-Z0-9]+$/).parse(process.env.REVENUECAT_PROJECT_ID);
   const v2Secret = z.string().min(1).parse(process.env.REVENUECAT_V2_SECRET_API_KEY);
   const path = `/v2/projects/${project}/customers/${encodeURIComponent(userId)}`;
   async function read(pathname: string): Promise<unknown> {
-    const response = await fetchImpl(`https://api.revenuecat.com${pathname}`, {
-      headers: { Authorization: `Bearer ${v2Secret}` }, signal: AbortSignal.timeout(5_000), cache: "no-store",
+    const response = await fetchWithTimeoutRetry(fetchImpl, `https://api.revenuecat.com${pathname}`, {
+      headers: { Authorization: `Bearer ${v2Secret}` }, cache: "no-store",
     });
     if (response.status === 404 && pathname === path) throw new OfferCustomerMissingError("offer_customer_unavailable");
     if (response.status !== 200) throw new Error("offer_customer_unavailable");
@@ -35,8 +45,8 @@ export async function readOfferSubscriber(userId: string, secret: string, fetchI
   if (next || !aliases.has(userId) || [...aliases].some(id => id !== userId && !/^\$RCAnonymousID:[a-zA-Z0-9]+$/.test(id))) {
     throw new Error("offer_identity_requires_review");
   }
-  const response = await fetchImpl(`https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(userId)}`, {
-    headers: { Authorization: `Bearer ${secret}` }, signal: AbortSignal.timeout(5_000), cache: "no-store",
+  const response = await fetchWithTimeoutRetry(fetchImpl, `https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(userId)}`, {
+    headers: { Authorization: `Bearer ${secret}` }, cache: "no-store",
   });
   if (response.status !== 200) throw new Error("offer_subscriber_unavailable_or_created");
   const subscriber = subscriberSchema.parse(await response.json()).subscriber;
