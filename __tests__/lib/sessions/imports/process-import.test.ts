@@ -87,7 +87,8 @@ function client(name: string): SupabaseClient {
         in: (key: string, values: unknown[]) => { filters.push(row => values.includes(row[key])); return query; },
         or: (expression: string) => {
           const clauses = expression.split(",").map(clause => {
-            const [key, operator, value] = clause.split(".");
+            const [key, operator, ...rest] = clause.split(".");
+            const value = rest.join(".");
             if (operator === "is" && value === "null") return (row: Row) => (row[key] ?? null) === null;
             if (operator === "eq") return (row: Row) => row[key] === value;
             throw new Error(`Unsupported or clause: ${clause}`);
