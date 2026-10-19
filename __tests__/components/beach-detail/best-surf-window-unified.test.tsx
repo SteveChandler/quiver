@@ -149,7 +149,7 @@ describe('BestSurfWindow - Unified Card Integration', () => {
       tideHeight: null,
       nextTideType: null,
       nextTideAt: null,
-      whySentence: 'Conditions not favorable for surfing.',
+      whySentence: 'Not worth paddling out right now.',
       forecastConfidence: 40,
       lowForecastConfidence: false,
       score: 30,
@@ -172,7 +172,7 @@ describe('BestSurfWindow - Unified Card Integration', () => {
       );
 
       expect(
-        screen.getByText(/Conditions not favorable for surfing/i)
+        screen.getByText(/Not worth paddling out right now/i)
       ).toBeInTheDocument();
     });
   });
