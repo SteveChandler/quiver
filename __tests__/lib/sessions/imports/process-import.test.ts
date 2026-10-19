@@ -85,6 +85,16 @@ function client(name: string): SupabaseClient {
         gte: (key: string, value: string) => { filters.push(row => row[key] >= value); return query; },
         lte: (key: string, value: string) => { filters.push(row => row[key] <= value); return query; },
         in: (key: string, values: unknown[]) => { filters.push(row => values.includes(row[key])); return query; },
+        or: (expression: string) => {
+          const clauses = expression.split(",").map(clause => {
+            const [key, operator, value] = clause.split(".");
+            if (operator === "is" && value === "null") return (row: Row) => (row[key] ?? null) === null;
+            if (operator === "eq") return (row: Row) => row[key] === value;
+            throw new Error(`Unsupported or clause: ${clause}`);
+          });
+          filters.push(row => clauses.some(clause => clause(row)));
+          return query;
+        },
         single: () => { single = true; return query; },
         maybeSingle: () => { single = true; return query; },
         then: (resolve: (value: unknown) => unknown) => {
@@ -598,15 +608,30 @@ it("completes a watch import when recent-call lookup fails", async () => {
   } finally { warn.mockRestore(); }
 });
 
-it.each([null, 7])("fills only an empty attached wave height (existing %s)", async existing => {
+it.each([
+  { existing: null, source: null, expected: { wave_height_ft: 3.5, wave_height_source: "user" } },
+  { existing: 4, source: "forecast_prefill", expected: { wave_height_ft: 3.5, wave_height_source: "user" } },
+  // A chip midpoint equal to the prefill still becomes the surfer's own height.
+  { existing: 3.5, source: "forecast_prefill", expected: { wave_height_ft: 3.5, wave_height_source: "user" } },
+  { existing: 7, source: "user", expected: { wave_height_ft: 7, wave_height_source: "user" } },
+  { existing: 7, source: null, expected: { wave_height_ft: 7, wave_height_source: null } },
+])("writes the attached wave height only over an empty or forecast-prefilled one ($existing, $source)", async ({ existing, source, expected }) => {
   const track = useWatch(undefined, 3, 3.5);
   rows.sessions.push({ id: "attached", user_id: userId, beach_id: beach.id,
     arrival_time: summarizeTrack(track).inWaterStart, duration_minutes: 90,
-    status: "completed", wave_height_ft: existing });
+    status: "completed", wave_height_ft: existing, wave_height_source: source });
   expect(await processImport(deps, importId, userId)).toMatchObject({ status: "completed", attached: true });
-  expect(rows.sessions[0].wave_height_ft).toBe(existing ?? 3.5);
-  expect(mutations.filter(mutation => mutation.table === "sessions" && mutation.operation === "update"
-    && mutation.payload.wave_height_ft !== undefined)).toHaveLength(1);
+  expect(rows.sessions[0]).toMatchObject(expected);
+  const sizeUpdates = mutations.filter(mutation => mutation.table === "sessions" && mutation.operation === "update"
+    && mutation.payload.wave_height_ft !== undefined);
+  expect(sizeUpdates).toHaveLength(1);
+  expect(sizeUpdates[0].payload).toEqual({ wave_height_ft: 3.5, wave_height_source: "user" });
+});
+
+it("leaves wave_height_source unset on a new watch session", async () => {
+  useWatch(undefined, 3, 3.5);
+  expect(await processImport(deps, importId, userId)).toMatchObject({ status: "completed", attached: false });
+  expect(inserts("sessions")[0].payload).not.toHaveProperty("wave_height_source");
 });
 
 function watchSlice(seconds: number): NormalizedTrack {

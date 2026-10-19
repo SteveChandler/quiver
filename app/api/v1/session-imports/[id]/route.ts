@@ -24,7 +24,7 @@ export const GET = withNoStore(withRateLimit(withAuth(async (_request, { user, s
     return createErrorResponse("not_found", undefined, 404);
   }
   const { data: imported, error } = await supabase.from("session_imports")
-    .select("id, user_id, status, origin, summary, session_id")
+    .select("id, user_id, status, origin, error, summary, session_id")
     .eq("id", params.id).eq("user_id", user.id).maybeSingle();
   if (error) throw error;
   if (!imported || imported.user_id !== user.id) return createErrorResponse("not_found", undefined, 404);
@@ -45,6 +45,6 @@ export const GET = withNoStore(withRateLimit(withAuth(async (_request, { user, s
   }
   return createSuccessResponse({
     id: imported.id, status: imported.status, origin: imported.origin,
-    startedAt, candidates, sessionId: imported.session_id,
+    startedAt, candidates, sessionId: imported.session_id, reason: imported.error,
   });
 }, { errorMessage: "Failed to load session import" }), "authenticated-default"));

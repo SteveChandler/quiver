@@ -30,7 +30,7 @@ beforeEach(() => {
   process.env.GARMIN_WATCH_ENABLED = "true";
   process.env.GARMIN_WATCH_USER_ALLOWLIST = userId;
   mockAuth.mockResolvedValue({ data: { user: { id: userId } }, error: null });
-  imported = { id, user_id: userId, status: "needs_beach", origin: "garmin_watch",
+  imported = { id, user_id: userId, status: "needs_beach", origin: "garmin_watch", error: null,
     summary: { centroid: { lat: 34, lon: -119 }, inWaterStart: "2026-10-17T12:00:00Z" }, session_id: null };
   upload = null;
   mockResolve.mockResolvedValue({ status: "needs_beach", candidates: [{ id: "beach-1", name: "Beach", lat: 34, lon: -119 }] });
@@ -63,10 +63,18 @@ it("re-resolves candidates from the stored centroid for needs_beach", async () =
   expect(response.status).toBe(200);
   expect(await response.json()).toMatchObject({ data: {
     id, status: "needs_beach", origin: "garmin_watch", startedAt: "2026-10-17T12:00:00Z",
-    candidates: [{ id: "beach-1" }], sessionId: null,
+    candidates: [{ id: "beach-1" }], sessionId: null, reason: null,
   } });
   expect(mockResolve).toHaveBeenCalledWith(expect.anything(), { lat: 34, lon: -119 });
   expect(queries[0].eq).toHaveBeenCalledWith("user_id", userId);
+});
+
+it("returns the error code of a failed import as its reason", async () => {
+  imported = { ...imported, status: "failed", error: "duplicate" };
+  const response = await GET(request(), context);
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ data: { status: "failed", reason: "duplicate", candidates: [] } });
+  expect(queries[0].select).toHaveBeenCalledWith(expect.stringMatching(/\berror\b/));
 });
 
 it("returns no candidates for completed imports", async () => {
