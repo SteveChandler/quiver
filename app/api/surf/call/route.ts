@@ -325,16 +325,26 @@ function buildCanonicalSurfCall(
   const isTomorrow = window
     ? isFutureDayInTimezone(window.start, timezone)
     : false;
+  const reportVerdict =
+    decision.verdict === 'go'
+      ? 'YES' as const
+      : decision.verdict === 'maybe'
+        ? 'MAYBE' as const
+        : 'NO' as const;
+  // The decision owns the verdict; the explanation and tiers are derived from
+  // it, so no field describes a verdict the response does not carry.
   const baseline = computeSurfCall(
     window,
     forecasts,
     beach,
-    { isTomorrow },
+    { isTomorrow, verdict: reportVerdict },
   );
   const exactSelection =
     selection !== null &&
     selectedRecommendation !== null &&
     selection.beachId === requestedBeachId;
+  // One snapshot of the window row. Its score is the window's own, distinct
+  // from report.score, which is the decision's score.
   const forecastContext = exactSelection && window
     ? buildForecastRecommendationContext({
         beach,
@@ -362,12 +372,7 @@ function buildCanonicalSurfCall(
   );
   const report = {
     ...baseline,
-    verdict:
-      decision.verdict === 'go'
-        ? 'YES' as const
-        : decision.verdict === 'maybe'
-          ? 'MAYBE' as const
-          : 'NO' as const,
+    verdict: reportVerdict,
     bestWindowStart: exactSelection ? selection.windowStart : null,
     bestWindowEnd: exactSelection ? selection.windowEnd : null,
     windowMinutes: exactSelection ? baseline.windowMinutes : null,
@@ -377,7 +382,11 @@ function buildCanonicalSurfCall(
     peakTime: exactSelection ? baseline.peakTime : null,
     tiers:
       decision.decisionBasis === 'physical_fallback' && window
-        ? computeSurfCallTiers(window, forecasts, beach, { isTomorrow })
+        ? computeSurfCallTiers(window, forecasts, beach, {
+            isTomorrow,
+            verdict: reportVerdict,
+            timezone,
+          })
         : null,
     userTier: profileExperience,
     skillSource: profileExperience ? 'profile' as const : null,
