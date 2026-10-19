@@ -18,7 +18,7 @@
 - `quiver/docs/superpowers/plans/2026-10-18-garmin-watch-server.md` provides the watch API this app calls (its Task 4 and Task 6).
 - `quiver-native/docs/superpowers/plans/2026-10-18-garmin-watch-native.md` covers the phone screens.
 
-**Repo:** new private repo `quiver-garmin`. Steven creates it, or OKs Claude creating it under `SteveChandler`. This plan lives in `quiver` until then and moves to `quiver-garmin/docs/superpowers/plans/` in Task 1.
+**Repo:** private repo `SteveChandler/pelican`, created as `quiver-garmin` and renamed on Oct 19, 2026. This plan started in `quiver` and moved to `pelican/docs/superpowers/plans/` in Task 1.
 
 ## Global Constraints
 
@@ -85,7 +85,7 @@ POST /api/v1/watch/uploads/{surfId}/complete         (Bearer)
 
 ---
 
-## File structure (`quiver-garmin`)
+## File structure (`pelican`)
 
 | Path | Responsibility |
 |---|---|
