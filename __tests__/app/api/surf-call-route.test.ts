@@ -628,6 +628,7 @@ describe("GET /api/surf/call", () => {
 
   it("keeps direct forecast visibility but never promotes a recommendation-ineligible beach", async () => {
     const beachId = "11111111-1111-4111-8111-111111111111";
+    (canonicalContext.decision as Record<string, unknown>).conditionLabel = "GOOD";
     mockBeachQuery({
       id: beachId,
       name: "College Cove",
@@ -670,6 +671,8 @@ describe("GET /api/surf/call", () => {
       reasonCode: "invalid_candidate",
       selection: null,
     });
+    expect(body.data.conditionLabel).toBe("MEH");
+    expect(body.data.sessionDecision.conditionLabel).toBe("MEH");
   });
 
   it("returns a retryable error when canonical discovery fails operationally", async () => {

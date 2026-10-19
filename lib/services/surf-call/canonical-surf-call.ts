@@ -6,6 +6,7 @@ import { applyForceVerdict } from '@/lib/utils/dev-force-verdict';
 import { entitlementFromRow } from '@/lib/alerts/entitlements';
 import { getProfileExperienceLevel } from '@/lib/profile/skill-level';
 import { resolveCanonicalSessionDecisionContext } from '@/lib/recommendations/canonical-decision';
+import { conditionLabelForVerdict } from '@/lib/recommendations/canonical-decision/engine';
 import type { CanonicalSessionDecision } from '@/lib/recommendations/canonical-decision/types';
 import type { SurfDiscoveryRecommendation, SurfDiscoveryResponse } from '@/types/personalization';
 import { buildForecastRecommendationContext } from '@/lib/services/forecast-recommendation-context';
@@ -108,9 +109,12 @@ function applyRecommendationEligibilityGate(
     state: 'available',
     holdEpoch,
   };
+  // The label follows the forced verdict, so no field reads GOOD beside a NO.
+  const conditionLabel = conditionLabelForVerdict('no', 0);
 
   return {
     ...result,
+    conditionLabel,
     candidateRejection: null,
     isTomorrow: false,
     forecastContext: null,
@@ -131,6 +135,7 @@ function applyRecommendationEligibilityGate(
     sessionDecision: {
       ...result.sessionDecision,
       verdict: 'no',
+      conditionLabel,
       decisionBasis: 'safety_override',
       decisionBasisV2: 'safety_override',
       reasonCode: 'invalid_candidate',
