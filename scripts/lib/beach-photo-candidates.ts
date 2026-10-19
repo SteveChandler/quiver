@@ -1,4 +1,4 @@
-import { findPhotoPlaceConflict } from "./beach-photo-place-guard";
+import { findPhotoPlaceConflict } from "@/lib/photos/place-guard";
 
 export interface BeachPhotoTarget {
   slug: string;
