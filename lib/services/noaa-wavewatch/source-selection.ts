@@ -32,8 +32,13 @@ export function mergeWaveSources(noaa: WaveWatchData[], om: WaveWatchData[]): Wa
   const noaaByTime = new Map(noaa.filter(valid).map((point) => [Date.parse(point.timestamp), point]));
   const omByTime = new Map(om.filter(valid).map((point) => [Date.parse(point.timestamp), point]));
   return [...new Set([...noaaByTime.keys(), ...omByTime.keys()])].sort((a, b) => a - b).map((time) => {
-    const nws = noaaByTime.get(time);
     const meteo = omByTime.get(time);
+    const rawNws = noaaByTime.get(time);
+    // An NWS Hs of exactly 0 beside a non-zero Open-Meteo Hs is a land/empty
+    // grid cell (no data), not a flat ocean. Treat it as missing so it can't
+    // trigger the disagreement flag and its confidence floor.
+    const nws = rawNws && meteo && rawNws.significant_wave_height === 0
+      && meteo.significant_wave_height > 0 ? undefined : rawNws;
     const nwsMissing = nws?.inferred_input_count ?? Infinity;
     const omMissing = meteo?.inferred_input_count ?? Infinity;
     // Equal completeness retains NWS; horizon alone cannot override better inputs.

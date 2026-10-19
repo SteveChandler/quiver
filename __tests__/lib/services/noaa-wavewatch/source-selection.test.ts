@@ -103,6 +103,38 @@ describe('raw wave sources → selection → face-height contracts', () => {
     expect(mergeWaveSources([], [flat])[0].significant_wave_height).toBe(0);
   });
 
+  describe('NWS zero height beside a real Open-Meteo height', () => {
+    const omReal = () => ({ ...om(), significant_wave_height: 1.38 });
+    const nwsAt = (height: number) => ({ ...nws(), significant_wave_height: height });
+
+    it('treats NWS 0 m as missing: no disagreement, Open-Meteo is the only source', () => {
+      const [point] = mergeWaveSources([nwsAt(0)], [omReal()]);
+      expect(point.data_source).toBe('OPEN_METEO');
+      expect(point.source_selection).toMatchObject({
+        reason: 'only_source', disagreement: false, noaa_height_m: null, open_meteo_height_m: 1.38,
+      });
+    });
+
+    it('still flags a small positive NWS height far from Open-Meteo', () => {
+      const [point] = mergeWaveSources([nwsAt(0.2)], [omReal()]);
+      expect(point.source_selection).toMatchObject({ disagreement: true, noaa_height_m: 0.2 });
+    });
+
+    it.each([null, NaN])('treats NWS height %s the same as 0', (height) => {
+      const bad = { ...nws(), significant_wave_height: height as unknown as number };
+      expect(mergeWaveSources([bad], [omReal()])[0].source_selection)
+        .toMatchObject({ reason: 'only_source', disagreement: false, noaa_height_m: null });
+    });
+
+    it('keeps NWS 0 m when Open-Meteo is also flat or absent', () => {
+      const flat = { ...om(), significant_wave_height: 0, peak_wave_period: 0,
+        swell_1_height: 0, swell_1_period: 0, swell_2_height: 0, swell_2_period: 0 };
+      const zero = { ...nwsAt(0), peak_wave_period: 0, swell_1_height: 0, swell_1_period: 0, swell_2_height: 0, swell_2_period: 0 };
+      expect(mergeWaveSources([zero], [flat])[0].source_selection?.disagreement).toBe(false);
+      expect(mergeWaveSources([zero], [])[0].significant_wave_height).toBe(0);
+    });
+  });
+
   it('does not select a corrupt component even when its total height is valid', () => {
     expect(mergeWaveSources([nws()], [{ ...om(), swell_1_direction: NaN }])[0].data_source).toBe('NOAA_NWS');
   });
