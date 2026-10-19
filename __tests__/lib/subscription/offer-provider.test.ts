@@ -26,3 +26,16 @@ it.each([
   await expect(readOfferSubscriber(user, 'fixture', fetcher)).rejects.toThrow(/identity|pagination/);
   expect(fetcher.mock.calls.some(([url]) => url.includes('/v1/'))).toBe(false);
 });
+it('retries a timed-out RevenueCat read once instead of failing the user', async () => {
+  const timeout = (): Promise<Response> => Promise.reject(new DOMException('The operation was aborted due to timeout', 'TimeoutError'));
+  const fetcher = jest.fn().mockImplementationOnce(timeout).mockResolvedValueOnce(json({ id: user, project_id: 'projfixture' }))
+    .mockResolvedValueOnce(json({ items: [{ id: user }], next_page: null }))
+    .mockImplementationOnce(timeout).mockResolvedValueOnce(json({ subscriber: { original_app_user_id: user, entitlements: {}, subscriptions: {} } }));
+  expect((await readOfferSubscriber(user, 'v1-secret', fetcher)).original_app_user_id).toBe(user);
+  expect(fetcher).toHaveBeenCalledTimes(5);
+});
+it('gives up after a second timeout', async () => {
+  const fetcher = jest.fn().mockRejectedValue(new DOMException('The operation was aborted due to timeout', 'TimeoutError'));
+  await expect(readOfferSubscriber(user, 'fixture', fetcher)).rejects.toThrow('timeout');
+  expect(fetcher).toHaveBeenCalledTimes(2);
+});
