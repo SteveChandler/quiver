@@ -325,17 +325,25 @@ function buildCanonicalSurfCall(
   const isTomorrow = window
     ? isFutureDayInTimezone(window.start, timezone)
     : false;
+  const reportVerdict =
+    decision.verdict === 'go'
+      ? 'YES' as const
+      : decision.verdict === 'maybe'
+        ? 'MAYBE' as const
+        : 'NO' as const;
+  // The decision owns the verdict; the explanation and tiers are derived from
+  // it, so no field describes a verdict the response does not carry.
   const baseline = computeSurfCall(
     window,
     forecasts,
     beach,
-    { isTomorrow },
+    { isTomorrow, verdict: reportVerdict },
   );
   const exactSelection =
     selection !== null &&
     selectedRecommendation !== null &&
     selection.beachId === requestedBeachId;
-  const forecastContext = exactSelection && window
+  const builtForecastContext = exactSelection && window
     ? buildForecastRecommendationContext({
         beach,
         forecasts,
@@ -344,6 +352,11 @@ function buildCanonicalSurfCall(
         timezone,
       })
     : null;
+  // The window carries its own raw score; the decision's score is the one
+  // report.score and the verdict were derived from.
+  const forecastContext = builtForecastContext && exactSelection
+    ? { ...builtForecastContext, score: selection.evidence.conditionScore }
+    : builtForecastContext;
   const boardNote =
     exactSelection && window && profileExperience && boardClass
       ? checkBoardFit(
@@ -362,12 +375,7 @@ function buildCanonicalSurfCall(
   );
   const report = {
     ...baseline,
-    verdict:
-      decision.verdict === 'go'
-        ? 'YES' as const
-        : decision.verdict === 'maybe'
-          ? 'MAYBE' as const
-          : 'NO' as const,
+    verdict: reportVerdict,
     bestWindowStart: exactSelection ? selection.windowStart : null,
     bestWindowEnd: exactSelection ? selection.windowEnd : null,
     windowMinutes: exactSelection ? baseline.windowMinutes : null,
@@ -377,12 +385,21 @@ function buildCanonicalSurfCall(
     peakTime: exactSelection ? baseline.peakTime : null,
     tiers:
       decision.decisionBasis === 'physical_fallback' && window
-        ? computeSurfCallTiers(window, forecasts, beach, { isTomorrow })
+        ? computeSurfCallTiers(window, forecasts, beach, {
+            isTomorrow,
+            verdict: reportVerdict,
+            timezone,
+          })
         : null,
     userTier: profileExperience,
     skillSource: profileExperience ? 'profile' as const : null,
     recommendationAvailability,
   };
+
+  // Wind that blows the row out cannot sit under a middling FAIR label.
+  const windBlownOut = baseline.character?.category === 'skip';
+  const conditionLabel: CanonicalSessionDecision['conditionLabel'] =
+    windBlownOut && decision.verdict !== 'no' ? 'MEH' : decision.conditionLabel;
 
   return {
     report,
@@ -392,10 +409,12 @@ function buildCanonicalSurfCall(
       : null,
     recommendedBoard: objectiveRecommendation?.recommendedBoard ?? null,
     boardPick: objectiveRecommendation?.boardPick ?? null,
-    conditionLabel: decision.conditionLabel,
+    conditionLabel,
     isTomorrow,
     forecastContext,
-    sessionDecision: decision,
+    sessionDecision: conditionLabel === decision.conditionLabel
+      ? decision
+      : { ...decision, conditionLabel },
   };
 }
 
