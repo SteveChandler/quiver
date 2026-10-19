@@ -121,7 +121,7 @@ export interface WaveWatchData {
   has_reported_wave_height?: boolean;
   period_basis?: "peak" | "mean" | "inferred";
   source_selection?: {
-    reason: "reported_inputs" | "tie" | "only_source";
+    reason: "reported_inputs" | "tie" | "only_source" | "nws_empty_cell";
     disagreement: boolean;
     noaa_height_m: number | null;
     open_meteo_height_m: number | null;
