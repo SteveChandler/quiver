@@ -29,11 +29,16 @@ function valid(point: WaveWatchData): boolean {
 
 /** Select a whole source bundle, never the largest height or a blend of partitions. */
 export function mergeWaveSources(noaa: WaveWatchData[], om: WaveWatchData[]): WaveWatchData[] {
-  const noaaByTime = new Map(noaa.filter(valid).map((point) => [Date.parse(point.timestamp), point]));
+  const validNoaa = noaa.filter(valid);
+  // An all-zero NWS series is an empty/land grid cell (no data), not a flat
+  // ocean: a real zero hour only appears among non-zero hours. Drop the whole
+  // series so it can't win selection, flag disagreement, or show 0 ft.
+  const nwsEmptyCell = validNoaa.length > 0 && validNoaa.every((point) => point.significant_wave_height === 0);
+  const noaaByTime = new Map((nwsEmptyCell ? [] : validNoaa).map((point) => [Date.parse(point.timestamp), point]));
   const omByTime = new Map(om.filter(valid).map((point) => [Date.parse(point.timestamp), point]));
   return [...new Set([...noaaByTime.keys(), ...omByTime.keys()])].sort((a, b) => a - b).map((time) => {
-    const nws = noaaByTime.get(time);
     const meteo = omByTime.get(time);
+    const nws = noaaByTime.get(time);
     const nwsMissing = nws?.inferred_input_count ?? Infinity;
     const omMissing = meteo?.inferred_input_count ?? Infinity;
     // Equal completeness retains NWS; horizon alone cannot override better inputs.
@@ -54,7 +59,7 @@ export function mergeWaveSources(noaa: WaveWatchData[], om: WaveWatchData[]): Wa
       ...selected,
       ...(meteo?.om_values ? { om_values: meteo.om_values } : {}),
       source_selection: {
-        reason: !nws || !meteo ? "only_source" : nwsMissing === omMissing ? "tie" : "reported_inputs",
+        reason: nwsEmptyCell ? "nws_empty_cell" : !nws || !meteo ? "only_source" : nwsMissing === omMissing ? "tie" : "reported_inputs",
         disagreement,
         noaa_height_m: nws?.significant_wave_height ?? null,
         open_meteo_height_m: meteo?.significant_wave_height ?? null,
