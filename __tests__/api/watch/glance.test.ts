@@ -108,7 +108,7 @@ it("returns 503 with Retry-After when the surf call is unavailable", async () =>
   expect(response.headers.get("Retry-After")).toMatch(/^\d+$/);
 });
 
-it.each(["?lat=34", "?lat=91&lon=0", "?lat=abc&lon=1"])("rejects bad coordinates %s", async query => {
+it.each(["?lat=34", "?lat=91&lon=0", "?lat=abc&lon=1", "?lat=&lon=-118"])("rejects bad coordinates %s", async query => {
   const response = await glance(request(query));
   expect(response.status).toBe(400);
   expect(mockComputeSurfCall).not.toHaveBeenCalled();

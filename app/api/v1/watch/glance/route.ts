@@ -39,8 +39,8 @@ function pickBeach(spots: WatchSpot[], lat?: number, lon?: number): WatchSpot | 
 export const GET = withNoStore(withRateLimit(withWatchAuth(async (request, { userId, service }) => {
   const { searchParams } = new URL(request.url);
   const validation = validateOrError(QuerySchema, {
-    lat: searchParams.get("lat") ?? undefined,
-    lon: searchParams.get("lon") ?? undefined,
+    lat: searchParams.get("lat") || undefined,
+    lon: searchParams.get("lon") || undefined,
   });
   if ("error" in validation) return validation.error;
 
