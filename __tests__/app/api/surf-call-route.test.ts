@@ -527,6 +527,105 @@ describe("GET /api/surf/call", () => {
     expect(mockRateLimitInvocations).toEqual(["surf-call"]);
   });
 
+  describe("rating fields describe one session", () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+
+    function seedBlownOutMaybe(timezone: string) {
+      const rec = canonicalContext.discovery.recommendations[0] as {
+        window: Record<string, unknown>;
+        forecast: Record<string, unknown>;
+      };
+      rec.window = { ...rec.window, timezone, waveHeight: "2-3 ft", score: 31 };
+      rec.forecast = {
+        ...rec.forecast,
+        wave_height: "2-3 ft",
+        wind_speed: "24",
+        wind_direction: "W",
+        wind_direction_deg: 270,
+      };
+      const decision = canonicalContext.decision as Record<string, any>;
+      decision.conditionLabel = "FAIR";
+      decision.selection = {
+        ...decision.selection,
+        timezone,
+        evidence: { ...decision.selection.evidence, conditionScore: 49 },
+      };
+      mockBeachQuery({
+        id: beachId,
+        name: "Ocean Beach Pier",
+        slug: "ocean-beach-pier",
+        lat: 32.75,
+        lon: -117.25,
+        timezone,
+        wind_offshore_deg: 90,
+        deleted_at: null,
+      });
+    }
+
+    async function getData() {
+      const response = await GET(
+        new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}`),
+      );
+      return (await response.json()).data;
+    }
+
+    it("explains a wind-blown-out MAYBE with the wind and passes the decision's label through", async () => {
+      seedBlownOutMaybe("America/Los_Angeles");
+      (canonicalContext.decision as Record<string, any>).conditionLabel = "MEH";
+      const data = await getData();
+
+      expect(data.report.verdict).toBe("MAYBE");
+      expect(data.report.character.category).toBe("skip");
+      expect(data.conditionLabel).toBe("MEH");
+      expect(data.sessionDecision.conditionLabel).toBe("MEH");
+      expect(data.report.whySentence).not.toMatch(/not favorable/i);
+      expect(data.report.whySentence).toMatch(/wind/i);
+    });
+
+    it("keeps report.score (decision) and forecastContext.score (window row) as separate fields", async () => {
+      seedBlownOutMaybe("America/Los_Angeles");
+      const data = await getData();
+
+      expect(data.report.score).toBe(49);
+      expect(data.forecastContext.score).toBe(31);
+    });
+
+    it("derives the tiers from the decision verdict, with trail times in the beach timezone", async () => {
+      seedBlownOutMaybe("America/Los_Angeles");
+      const data = await getData();
+
+      expect(data.report.tiers.intermediate.verdict).toBe("MAYBE");
+      // Window starts 22:30Z, which is 3:30 PM in Los Angeles.
+      expect(data.report.tiers.intermediate.trail).toBe("TRY AT 3:30 PM");
+    });
+
+    it("formats the trail in Hawaii time for a Hawaii beach", async () => {
+      seedBlownOutMaybe("Pacific/Honolulu");
+      const data = await getData();
+
+      expect(data.report.tiers.intermediate.trail).toBe("TRY AT 12:30 PM");
+    });
+
+    it("keeps the decision's label when the wind is not blowing the row out", async () => {
+      const decision = canonicalContext.decision as Record<string, any>;
+      decision.conditionLabel = "FAIR";
+      mockBeachQuery({
+        id: beachId,
+        name: "Ocean Beach Pier",
+        slug: "ocean-beach-pier",
+        lat: 32.75,
+        lon: -117.25,
+        timezone: "America/Los_Angeles",
+        wind_offshore_deg: 90,
+        deleted_at: null,
+      });
+      const data = await getData();
+
+      expect(data.report.character.category).not.toBe("skip");
+      expect(data.conditionLabel).toBe("FAIR");
+    });
+  });
+
   it("keeps direct forecast visibility but never promotes a recommendation-ineligible beach", async () => {
     const beachId = "11111111-1111-4111-8111-111111111111";
     mockBeachQuery({
