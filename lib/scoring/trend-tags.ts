@@ -1,5 +1,5 @@
 import type { EnhancedForecastEntity } from '@/types/forecast';
-import { angleDifference } from '@/lib/domains/shared';
+import { angleDifference, resolveOffshoreDeg, type WindOrientationSource } from '@/lib/domains/shared';
 
 /** Valid trend tag labels */
 export type TrendTag =
@@ -56,7 +56,7 @@ function variance(values: number[]): number {
  */
 export function computeTrendTags(
   forecasts: EnhancedForecastEntity[],
-  beach?: { wind_offshore_deg?: number | null }
+  beach?: WindOrientationSource
 ): TrendTag[] {
   if (forecasts.length < 2) {
     return [];
@@ -130,13 +130,13 @@ function computeWindSpeedTag(
  */
 function computeWindDirectionTag(
   forecasts: EnhancedForecastEntity[],
-  beach?: { wind_offshore_deg?: number | null }
+  beach?: WindOrientationSource
 ): TrendTag | null {
-  if (!beach?.wind_offshore_deg && beach?.wind_offshore_deg !== 0) {
+  const offshoreDeg = resolveOffshoreDeg(beach);
+  if (offshoreDeg == null) {
     return null;
   }
 
-  const offshoreDeg = beach.wind_offshore_deg;
   const first = forecasts[0];
   const last = forecasts[forecasts.length - 1];
 

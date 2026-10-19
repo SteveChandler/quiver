@@ -1,3 +1,4 @@
+import { jpegResponse } from '@/lib/seo/og-image';
 import { ImageResponse } from 'next/og';
 import { NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
@@ -82,7 +83,7 @@ function resolvePhotoUrl(
   }
 }
 
-function renderFallback() {
+async function renderFallback(): Promise<Response> {
   const response = new ImageResponse(
     (
       <div
@@ -132,10 +133,10 @@ function renderFallback() {
     { width: 1200, height: 630 }
   );
   response.headers.set('Cache-Control', 'public, max-age=86400, s-maxage=86400');
-  return response;
+  return jpegResponse(response);
 }
 
-export async function GET(request: NextRequest): Promise<ImageResponse> {
+export async function GET(request: NextRequest): Promise<Response> {
   const slug = new URL(request.url).searchParams.get('slug');
   if (!slug || slug.length > 200 || !/^[a-z0-9-]+$/.test(slug)) return renderFallback();
 
@@ -240,7 +241,7 @@ export async function GET(request: NextRequest): Promise<ImageResponse> {
       { width: 1200, height: 630, ...(font ? { fonts: [{ name: 'SpaceGrotesk', data: font, weight: 700 as const, style: 'normal' as const }] } : {}) }
     );
     response.headers.set('Cache-Control', 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800');
-    return response;
+    return await jpegResponse(response);
   } catch {
     return renderFallback();
   }

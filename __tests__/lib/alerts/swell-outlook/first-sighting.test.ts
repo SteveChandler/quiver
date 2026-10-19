@@ -6,6 +6,7 @@ import {
   firstSightingFaceHeightFt,
   renderFirstSightingBody,
   selectFirstSightingCandidates,
+  tideReasonSentence,
 } from "@/lib/alerts/swell-outlook/first-sighting";
 import { OUTLOOK_HOME_BEACH_ID as HOME, outlookSwell } from "@/__tests__/helpers/outlook-swell";
 
@@ -87,7 +88,7 @@ describe("selectFirstSightingCandidates", () => {
       outlookSwell({ id: "unknown", fit: { status: "unknown", boards: [] } }),
       outlookSwell({ id: "noperiod", periodS: null }),
     ];
-    expect(selectFirstSightingCandidates({ swells, homeBeachId: HOME, tier: "premium" }).map((swell) => swell.id)).toEqual(["early", "late"]);
+    expect(selectFirstSightingCandidates({ swells }).map((swell) => swell.id)).toEqual(["early", "late"]);
   });
 
   it("picks the biggest swell first, and the closest beach when sizes tie", () => {
@@ -99,15 +100,33 @@ describe("selectFirstSightingCandidates", () => {
       outlookSwell({ id: "big-near", faceHeightFt: { min: 4, max: 5.5 }, beach: near, peakAt: "2026-09-26T15:00:00.000Z" }),
     ];
     const distanceKmByBeach = new Map([[near.id, 12], [far.id, 140]]);
-    expect(selectFirstSightingCandidates({ swells, homeBeachId: HOME, tier: "premium", distanceKmByBeach }).map((swell) => swell.id))
+    expect(selectFirstSightingCandidates({ swells, distanceKmByBeach }).map((swell) => swell.id))
       .toEqual(["big-near", "big-far", "small-early"]);
   });
 
-  it("limits free users to swells sized at the home beach", () => {
+  it("keeps an eligible non-home swell", () => {
     const swells = [outlookSwell({ id: "home" }), outlookSwell({ id: "other", beach: { id: OTHER, name: "Elsewhere" } })];
-    expect(selectFirstSightingCandidates({ swells, homeBeachId: HOME, tier: "free" }).map((swell) => swell.id)).toEqual(["home"]);
-    expect(selectFirstSightingCandidates({ swells, homeBeachId: null, tier: "free" })).toEqual([]);
+    expect(selectFirstSightingCandidates({ swells }).map((swell) => swell.id)).toEqual(["home", "other"]);
   });
+});
+
+it.each([
+  ["home", ", near home"],
+  ["location", ""],
+] as const)("labels the %s anchor inside the first-sighting payload", (anchorSource, suffix) => {
+  const payload = buildFirstSightingPayload({ swell: outlookSwell(), timezone: "America/Los_Angeles", anchorSource });
+  expect(payload.anchor_source).toBe(anchorSource);
+  expect(payload.body).toContain(`Sets up to 4.5 ft at Blacks Beach${suffix}.`);
+});
+
+it("keeps the home label when optional sentences are trimmed", () => {
+  const body = renderFirstSightingBody({
+    swell: outlookSwell({ beach: { id: HOME, name: `Blacks ${"Beach ".repeat(25)}` }, options: OPTIONS }),
+    timezone: "America/Los_Angeles", hazard: "high_surf", anchorSource: "home",
+  });
+  expect(body).toContain(", near home.");
+  expect(body).not.toContain("Also:");
+  expect(body.length).toBeLessThanOrEqual(FIRST_SIGHTING_BODY_MAX_CHARS);
 });
 
 describe("buildFirstSightingPayload", () => {
@@ -204,6 +223,27 @@ describe('tide-aware first-sighting copy and payload', () => {
       timezone: 'America/Los_Angeles', faceHeightFt: { min: 3, max: 4 } },
     reasons: ['high_tide_outside_preference', 'better_tide_after_peak'],
   };
+
+  it.each([
+    [['high_tide_outside_preference', 'better_tide_before_peak'], 'Swell peaks at high tide; go before it fills in.'],
+    [['high_tide_outside_preference', 'better_tide_after_peak'], 'Swell peaks at high tide; go as it drops.'],
+    [['low_tide_outside_preference', 'better_tide_before_peak'], 'Swell peaks at low tide; go before it drops.'],
+    [['low_tide_outside_preference', 'better_tide_after_peak'], 'Swell peaks at low tide; go as it fills in.'],
+  ] as const)('preserves the tide sentence for %j', (reasons, sentence) => {
+    expect(tideReasonSentence(reasons)).toBe(sentence);
+    expect(renderFirstSightingBody({ swell: outlookSwell(), timezone: 'America/Los_Angeles', hazard: null,
+      surfWindow: { ...surfWindow, reasons: [...reasons] } })).toContain(sentence);
+  });
+
+  it('omits tide copy without a validated before/after reason', () => {
+    expect(tideReasonSentence(['high_tide_outside_preference', 'future_reason'])).toBeNull();
+  });
+
+  it('drops unknown future reasons before parsing the notification payload', () => {
+    const payload = buildFirstSightingPayload({ swell: outlookSwell(), timezone: 'America/Los_Angeles',
+      surfWindow: { ...surfWindow, reasons: [...surfWindow.reasons, 'future_reason'] } });
+    expect(payload.surf_window?.reasons).toEqual(surfWindow.reasons);
+  });
 
   it('adds a beach-local window and fixed tide sentence while preserving existing fields', () => {
     const args = { swell: outlookSwell(), timezone: 'Pacific/Honolulu' };

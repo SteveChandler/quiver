@@ -26,6 +26,7 @@ export interface BeachWithThresholds {
   // Wind configuration
   wind_offshore_deg?: number | null;
   wind_offshore_tol_deg?: number | null;
+  aspect_deg?: number | null;
   // Tide preferences
   preferred_tide_ft_min?: number | null;
   preferred_tide_ft_max?: number | null;

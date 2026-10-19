@@ -228,7 +228,7 @@ A rating never appears without its call, in the same words as native. Build it w
 | Tier | Call | Over media (dark band) | On paper |
 |---|---|---|---|
 | GOOD (EPIC while rare days are off) | "Worth a surf" ("Worth planning" when the window is later) | teal `#00D4AA` | tealInk `#06765F` on paperTeal `#E6EAD4` |
-| FAIR / RIDEABLE | "Worth a look" / "Slim pickings" | gold `#FDB84B` | goldInk `#8A5E00` on paperGold `#F6E9CE` |
+| FAIR / RIDEABLE | "Could be fun" / "Fair shot" / "Decent shot" (rotates by beach and surf day) / "Slim pickings" | gold `#FDB84B` | goldInk `#8A5E00` on paperGold `#F6E9CE` |
 | MEH | "Skip it" | cream `#F4EBD8` | ink `#11100D` on paper `#F4EBD8` |
 
 - Score badges and fills come from `getScoreColorClasses()` (`lib/utils/score-color-utils.ts`) in native's paper inks: teal ink `#06765F` for GOOD, gold ink `#8A5E00` for FAIR and RIDEABLE, ink for MEH. A positive call is never orange or success green.

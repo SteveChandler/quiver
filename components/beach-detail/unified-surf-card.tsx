@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Clock, AlertCircle, Share2, TrendingUp, TrendingDown, Waves, Zap } from "lucide-react";
+import { Clock, AlertCircle, ArrowUp, ArrowDown, Share2, TrendingUp, TrendingDown, Waves, Zap } from "lucide-react";
 import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
 import type { TrendTag } from "@/lib/scoring";
 import type { ConditionCharacterCategory } from "@/lib/scoring/types";
@@ -12,6 +12,12 @@ import { buildSurfCallShareUrl } from "@/lib/share/build-share-card-url";
 import { WaveHeightDisplay } from "@/components/ui/wave-height-display";
 import { buildCompactSurfSummary } from "@/lib/surf-summary-display";
 import { cn } from "@/lib/utils";
+import { getSurfCallVerdictCall, SCORE_LABEL_PAPER_WASH } from "@/components/forecast/score-band-call";
+
+const EYEBROW =
+  "font-mono text-xs font-bold uppercase tracking-[0.16em] text-[#8A5E00]";
+const CELL_LABEL =
+  "font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-[#11100D]";
 
 const TREND_TAG_STYLES: Record<TrendTag, { bg: string; text: string }> = {
   "Winds Dropping": { bg: "bg-green-100", text: "text-green-700" },
@@ -91,6 +97,7 @@ interface UnifiedSurfCardProps {
   surfCall: SurfCallResult;
   beachTimezone?: string | null;
   beachName: string;
+  beachId?: string;
   beachSlug?: string;
   isTomorrow?: boolean;
   /**
@@ -119,6 +126,7 @@ export function UnifiedSurfCard({
   surfCall,
   beachTimezone,
   beachName,
+  beachId,
   beachSlug,
   isTomorrow,
   character,
@@ -135,22 +143,22 @@ export function UnifiedSurfCard({
     () => formatTimeInTimezone(surfCall.updatedAt, beachTimezone),
     [surfCall.updatedAt, beachTimezone]
   );
+  const tideStatus = surfCall.tidePhase
+    ? surfCall.tidePhase.charAt(0).toUpperCase() + surfCall.tidePhase.slice(1)
+    : surfCall.tideDescription;
   const compactSummary = useMemo(
     () =>
       buildCompactSurfSummary({
         waveHeight: surfCall.waveHeight,
         windSummary: surfCall.windDescription,
-        tideStatus: surfCall.tidePhase
-          ? surfCall.tidePhase.charAt(0).toUpperCase() + surfCall.tidePhase.slice(1)
-          : surfCall.tideDescription,
+        tideStatus,
         tideHeight: surfCall.tideHeight,
         why: surfCall.whySentence,
       }),
     [
       surfCall.waveHeight,
       surfCall.windDescription,
-      surfCall.tidePhase,
-      surfCall.tideDescription,
+      tideStatus,
       surfCall.tideHeight,
       surfCall.whySentence,
     ]
@@ -268,26 +276,47 @@ export function UnifiedSurfCard({
   );
   const windowEnd = formatTimeInTimezone(surfCall.bestWindowEnd, beachTimezone);
   const peakTimeCasual = formatTimeCasual(surfCall.peakTime, beachTimezone);
+  const verdictCall = getSurfCallVerdictCall(surfCall.verdict, surfCall.score, "now", {
+    beachId,
+    instantIso: surfCall.bestWindowStart ?? surfCall.peakTime,
+  });
+  const hasWaves = Boolean(compactSummary.waveHeightHeadline);
+  const hasWind = Boolean(compactSummary.windSummary);
+  const hasTide = Boolean(compactSummary.tideSummary);
+  const conditionCount = Number(hasWaves) + Number(hasWind) + Number(hasTide);
+  const windText = compactSummary.windSummary?.replace(/^Wind\s+/i, "") ?? null;
+  const windQualityMatch = windText?.match(
+    /^(.*\S)\s*\((offshore|onshore|cross-shore)\)$/i
+  );
+  const windQuality =
+    windQualityMatch?.[2].toLowerCase() === surfCall.windType?.toLowerCase()
+      ? windQualityMatch?.[2] ?? null
+      : null;
+  const windValue = windQuality ? windQualityMatch?.[1] : windText;
+  const tideHeight = surfCall.tideHeight?.trim() || null;
+  const tideState = tideStatus?.trim() || null;
+  const tideValue = tideHeight || tideState;
 
   // Show "Best at X" only for windows > 3 hours (180 minutes)
-  const showBestAtTag = surfCall.windowMinutes != null && surfCall.windowMinutes > 180 && peakTimeCasual;
+  const showBestAtTag =
+    surfCall.windowMinutes != null && surfCall.windowMinutes > 180 && peakTimeCasual;
 
   return (
-    <Card data-tier="hero" className="noise-texture overflow-hidden rounded-3xl border-blue-100/60 bg-gradient-to-br from-blue-50/50 to-white shadow-lg animate-container-fade-slide-up motion-reduce:animate-none">
+    <Card className="overflow-hidden rounded-[8px] border-2 border-[#11100D] shadow-[4px_4px_0_#11100D] animate-container-fade-slide-up motion-reduce:animate-none">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1">
-            <CardTitle className="text-xl font-bold text-blue-900">
+            <CardTitle className="font-heading text-xl font-black uppercase leading-tight text-[#11100D]">
               {isTomorrow ? "Best Surf Window Tomorrow" : "Best Surf Window Today"}
             </CardTitle>
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="mt-1 text-xs text-[#4B4030]">
               Based on tide, swell, wind, and spot fit · Updated {updatedTime}
             </p>
             <div className="h-0.5 w-16 rounded-full bg-gradient-to-r from-transparent via-[#F78E42] to-transparent motion-safe:animate-shimmer mt-1" style={{ backgroundSize: "200% 100%" }} />
           </div>
           <button
             onClick={() => setShareOpen(true)}
-            className="p-2 -m-1 rounded-full text-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors focus-ring"
+            className="p-2 -m-1 rounded-full text-[#11100D] hover:bg-[#F6E9CE] transition-colors focus-ring"
             aria-label="Share surf call"
           >
             <Share2 className="h-5 w-5" />
@@ -295,30 +324,34 @@ export function UnifiedSurfCard({
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-4">
+      <CardContent className="grid gap-5 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-x-8 lg:gap-y-5">
         {/* Window Time Range */}
-        <div className="rounded-2xl p-4 border border-blue-200/60" style={{ background: 'linear-gradient(135deg, rgba(247,142,66,0.06), rgba(74,112,217,0.08))' }}>
-          <div className="flex items-center gap-2 mb-2">
-            <Clock className="h-5 w-5 text-blue-600" />
-            <h4 className="font-semibold text-blue-900">Window</h4>
+        <div
+          className="rounded-[12px_4px_14px_6px] border-[2.5px] border-[#11100D] p-4 shadow-[3px_3px_0_#11100D] sm:p-5"
+          style={{ backgroundColor: SCORE_LABEL_PAPER_WASH[verdictCall.label] }}
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <Clock className="h-4 w-4 text-[#8A5E00]" aria-hidden="true" />
+            <h4 className={EYEBROW}>Window</h4>
             {surfCall.shortWindow && (
-              <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-900">
+              <span className="rounded-[6px_10px_8px_10px] border border-[#11100D] bg-[#F4EBD8] px-2 py-0.5 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-[#11100D]">
                 Short window
               </span>
             )}
           </div>
-          <p className="text-2xl font-bold text-blue-600 mb-1">
-            {windowStart} - {windowEnd}
+          <p className="mt-2 font-[family-name:var(--font-zine-display)] text-[2.5rem] leading-[0.95] tracking-[-0.02em] text-[#11100D] tabular-nums sm:text-5xl lg:text-[3.25rem]">
+            <span className="whitespace-nowrap">{windowStart}{" –"}</span>{" "}
+            <span className="whitespace-nowrap">{windowEnd}</span>
           </p>
           {showBestAtTag && (
-            <p className="text-sm text-blue-700">Best at {peakTimeCasual}</p>
+            <p className="mt-3 font-mono text-sm font-bold text-[#11100D]">Best at {peakTimeCasual}</p>
           )}
 
           {/* Condition character label — sticker aesthetic, Space Mono, category-colored */}
           {character && (
             <p
               className={cn(
-                "font-mono text-sm leading-snug tracking-tight mt-2",
+                "mt-2 font-mono text-sm leading-snug tracking-tight",
                 getCharacterLabelColor(character.category as ConditionCharacterCategory)
               )}
             >
@@ -327,27 +360,85 @@ export function UnifiedSurfCard({
           )}
         </div>
 
-        {/* Board pick — subtle callout, only when available */}
-        {boardPick && (
-          <div className="flex items-center gap-2 rounded-lg border border-[#8A5E00]/40 bg-[#F6E9CE] px-3 py-2">
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-[#11100D] truncate">
-                Grab your {boardPick.boardName}
-              </p>
-              {boardPick.reason && (
-                <p className="text-xs text-[#4B4030] truncate">
-                  {boardPick.reason}
-                </p>
+        {/* Key Conditions */}
+        <div>
+          <p className={EYEBROW}>Conditions</p>
+          {conditionCount > 0 && (
+            <div className={cn(
+              "mt-2 grid border-y-2 border-[#11100D]",
+              conditionCount === 3
+                ? "grid-cols-2 sm:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)]"
+                : conditionCount === 2 ? "grid-cols-2" : "grid-cols-1"
+            )}>
+              {compactSummary.waveHeightHeadline && (
+                <div className={cn(
+                  "py-3",
+                  conditionCount === 3
+                    ? "col-span-2 border-b border-[#11100D]/25 sm:col-span-1 sm:border-b-0 sm:border-r sm:pl-0 sm:pr-4"
+                    : conditionCount === 2 ? "border-r border-[#11100D]/25 pr-3" : ""
+                )}>
+                  <WaveHeightDisplay
+                    height={compactSummary.waveHeightHeadline}
+                    isCalibrated={surfCall.isCalibrated}
+                    showTooltip={true}
+                    className="font-[family-name:var(--font-zine-display)] text-4xl leading-none text-[#11100D] tabular-nums sm:text-[2.75rem]"
+                  />
+                  {surfCall.rideableWavesPerHour != null && surfCall.rideableWavesPerHour > 0 && (
+                    <p className="mt-2 font-mono text-xs font-bold text-[#4B4030]">~{surfCall.rideableWavesPerHour} waves/hr</p>
+                  )}
+                </div>
+              )}
+              {compactSummary.windSummary && (
+                <div className={cn(
+                  "py-3",
+                  conditionCount === 3
+                    ? "border-r border-[#11100D]/25 pr-3 sm:px-4"
+                    : conditionCount === 2 && hasWaves
+                      ? "pl-3"
+                      : conditionCount === 2
+                        ? "border-r border-[#11100D]/25 pr-3"
+                        : ""
+                )}>
+                  <p className={CELL_LABEL}>Wind</p>
+                  <p className="mt-1 font-[family-name:var(--font-zine-display)] text-xl leading-tight text-[#11100D] sm:text-2xl">{windValue}</p>
+                  {windQuality && (
+                    <span className={cn(
+                      "mt-2 inline-flex items-center rounded-[6px_10px_8px_10px] border px-2 py-0.5 font-mono text-[11px] font-bold uppercase tracking-[0.08em]",
+                      windQuality.toLowerCase() === "offshore"
+                        ? "border-[#06765F]/50 bg-[#E6EAD4] text-[#06765F]"
+                        : windQuality.toLowerCase() === "cross-shore"
+                          ? "border-[#8A5E00]/40 bg-[#F6E9CE] text-[#8A5E00]"
+                          : "border-[#8A5E00]/60 bg-[#F6E9CE] text-[#8A5E00]"
+                    )}>{windQuality}</span>
+                  )}
+                </div>
+              )}
+              {compactSummary.tideSummary && (
+                <div className={cn(
+                  "py-3",
+                  conditionCount > 1 ? "pl-3" : "",
+                  conditionCount === 3 ? "sm:px-4" : ""
+                )}>
+                  <p className={CELL_LABEL}>Tide</p>
+                  <p className="mt-1 font-[family-name:var(--font-zine-display)] text-xl leading-tight text-[#11100D] sm:text-2xl">{tideValue}</p>
+                  {tideHeight && tideState && (
+                    <p className="mt-2 inline-flex items-center gap-1 font-mono text-xs font-bold uppercase tracking-[0.08em] text-[#4B4030]">
+                      {/^rising/i.test(tideState) && <ArrowUp className="h-3.5 w-3.5" aria-hidden="true" />}
+                      {/^falling/i.test(tideState) && <ArrowDown className="h-3.5 w-3.5" aria-hidden="true" />}
+                      {tideState}
+                    </p>
+                  )}
+                </div>
               )}
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Trend Tags */}
         {surfCall.trendTags.length > 0 && (
           <ul
             aria-label="Condition trends"
-            className="flex flex-wrap gap-2 list-none p-0 m-0"
+            className="flex flex-wrap gap-2 list-none p-0 m-0 lg:col-span-2"
           >
             {surfCall.trendTags.map((tag) => {
               const style = TREND_TAG_STYLES[tag];
@@ -364,48 +455,27 @@ export function UnifiedSurfCard({
           </ul>
         )}
 
-        {/* Key Conditions */}
-        <div className="bg-white/80 dark:bg-[#354090]/50 rounded-xl p-3 border border-gray-200/60 dark:border-[#404C92]/60">
-          <p className="text-sm text-gray-700 font-medium mb-1">Conditions</p>
-          <div className="flex flex-wrap items-baseline gap-x-1 text-sm text-gray-600">
-            {compactSummary.waveHeightHeadline && (
-              <>
-                <WaveHeightDisplay
-                  height={compactSummary.waveHeightHeadline}
-                  isCalibrated={surfCall.isCalibrated}
-                  showTooltip={true}
-                  className="text-sm text-gray-600"
-                />
-                {(compactSummary.supportingSegments.length > 0 ||
-                  (surfCall.rideableWavesPerHour != null &&
-                    surfCall.rideableWavesPerHour > 0)) && <span>·</span>}
-              </>
-            )}
-            {compactSummary.supportingSegments.map((segment, index) => (
-              <React.Fragment key={segment}>
-                <span>{segment}</span>
-                {(index < compactSummary.supportingSegments.length - 1 ||
-                  (surfCall.rideableWavesPerHour != null &&
-                    surfCall.rideableWavesPerHour > 0)) && <span>·</span>}
-              </React.Fragment>
-            ))}
-            {surfCall.rideableWavesPerHour != null && surfCall.rideableWavesPerHour > 0 && (
-              <>
-                <span>~{surfCall.rideableWavesPerHour} waves/hr</span>
-              </>
-            )}
+        {/* Board pick — subtle callout, only when available */}
+        {boardPick && (
+          <div className="flex items-center gap-2 rounded-lg border border-[#8A5E00]/40 bg-[#F6E9CE] px-3 py-2 lg:col-span-2">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-[#11100D] truncate">
+                Grab your {boardPick.boardName}
+              </p>
+              {boardPick.reason && (
+                <p className="text-xs text-[#4B4030] truncate">
+                  {boardPick.reason}
+                </p>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Why Sentence */}
-        <div className="bg-blue-50/50 dark:bg-[#354090]/30 rounded-xl p-3 border border-gray-200/40 dark:border-[#404C92]/40">
-          <p className="text-sm text-gray-700 leading-relaxed">
-            {surfCall.whySentence}
-          </p>
-        </div>
+        <p className="lg:col-span-2 border-t-2 border-dashed border-[#11100D]/30 pt-4 text-sm leading-relaxed text-[#4B4030]">{surfCall.whySentence}</p>
 
         {cautions.length > 0 && (
-          <div className="rounded-xl border border-[#8A5E00]/40 bg-[#F6E9CE] p-3">
+          <div className="rounded-xl border border-[#8A5E00]/40 bg-[#F6E9CE] p-3 lg:col-span-2">
             <div className="flex items-start gap-2">
               <AlertCircle className="h-4 w-4 text-[#8A5E00] mt-0.5 flex-shrink-0" />
               <p className="text-sm font-medium text-[#11100D]">
@@ -418,7 +488,7 @@ export function UnifiedSurfCard({
         {/* Relative context chips — max 2, sticker-style */}
         {contextBadges.length > 0 && (
           <div
-            className="flex flex-wrap gap-2"
+            className="flex flex-wrap gap-2 lg:col-span-2"
             role="list"
             aria-label="Condition context"
           >
@@ -434,7 +504,7 @@ export function UnifiedSurfCard({
 
         {/* Low Confidence Badge */}
         {surfCall.lowForecastConfidence && (
-          <div className="bg-yellow-50/50 rounded-xl p-3 border border-yellow-100/50">
+          <div className="bg-yellow-50/50 rounded-xl p-3 border border-yellow-100/50 lg:col-span-2">
             <div className="flex items-center gap-2">
               <AlertCircle className="h-4 w-4 text-amber-900" />
               <p className="text-xs text-amber-900 font-semibold">

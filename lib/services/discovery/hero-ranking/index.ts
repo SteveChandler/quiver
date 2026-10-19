@@ -93,10 +93,9 @@ function computeOne(
   // tideFit subscore is 0-15; windAlignment is 0-20. Scale to 0-100 so the
   // weighted composer's terms are commensurable.
   const tideFitAcrossWindow = subscoreTo100(rec.subscores.tideFit, TIDE_FIT_MAX);
-  const windQualityScore = subscoreTo100(
-    rec.subscores.windAlignment,
-    WIND_ALIGNMENT_MAX,
-  );
+  const windQualityScore = rec.subscores.windUnknown
+    ? null
+    : subscoreTo100(rec.subscores.windAlignment, WIND_ALIGNMENT_MAX);
 
   const heroScore = computeHeroWindowScore({
     representativeSlotScore: rec.score,

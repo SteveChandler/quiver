@@ -1,3 +1,8 @@
+import {
+  FAIR_ACTION_PHRASES,
+  fairActionPhrase,
+  type FairActionIdentity,
+} from "@/lib/utils/fair-action-phrase";
 import { scoreLabel, type ScoreLabel } from "@/lib/utils/score-color-utils";
 import type { CanonicalDecisionVerdict } from "@/lib/recommendations/canonical-decision/types";
 import type { SurfCallVerdict } from "@/lib/utils/surf-call-logic";
@@ -6,7 +11,7 @@ import type { SurfCallVerdict } from "@/lib/utils/surf-call-logic";
 const SCORE_ACTION_PHRASES: Record<ScoreLabel, string> = {
   EPIC: "Rare one, go",
   GOOD: "Worth a surf",
-  FAIR: "Worth a look",
+  FAIR: FAIR_ACTION_PHRASES[0],
   RIDEABLE: "Slim pickings",
   MEH: "Skip it",
 };
@@ -29,10 +34,18 @@ interface ScoreCall {
   action: string;
 }
 
+function actionFor(
+  label: ScoreLabel,
+  phrases: Record<ScoreLabel, string>,
+  identity?: FairActionIdentity,
+): string {
+  return label === "FAIR" ? fairActionPhrase(identity) : phrases[label];
+}
+
 /** Build the user-facing score call from the canonical score-band utility. */
-export function getScoreCall(score: number): ScoreCall {
+export function getScoreCall(score: number, identity?: FairActionIdentity): ScoreCall {
   const label = scoreLabel(score);
-  return { label, action: SCORE_ACTION_PHRASES[label] };
+  return { label, action: actionFor(label, SCORE_ACTION_PHRASES, identity) };
 }
 
 /** Score range each canonical verdict may occupy, so a label never contradicts its call. */
@@ -57,6 +70,7 @@ export function getCanonicalVerdictCall(
   verdict: CanonicalDecisionVerdict,
   score: number | null | undefined,
   tense: SurfCallTense = "now",
+  identity?: FairActionIdentity,
 ): ScoreCall {
   const label =
     typeof score === "number" && Number.isFinite(score)
@@ -69,7 +83,7 @@ export function getCanonicalVerdictCall(
       : VERDICT_FALLBACK_BAND[verdict];
   const phrases = tense === "upcoming" ? UPCOMING_ACTION_PHRASES : SCORE_ACTION_PHRASES;
 
-  return { label, action: phrases[label] };
+  return { label, action: actionFor(label, phrases, identity) };
 }
 
 const SURF_CALL_TO_CANONICAL: Record<SurfCallVerdict, CanonicalDecisionVerdict> = {
@@ -86,8 +100,9 @@ export function getSurfCallVerdictCall(
   verdict: SurfCallVerdict,
   score: number | null | undefined,
   tense: SurfCallTense = "now",
+  identity?: FairActionIdentity,
 ): ScoreCall {
-  return getCanonicalVerdictCall(SURF_CALL_TO_CANONICAL[verdict], score, tense);
+  return getCanonicalVerdictCall(SURF_CALL_TO_CANONICAL[verdict], score, tense, identity);
 }
 
 /**

@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { WaterQualityBadge, type WaterQuality } from "@/components/beach-detail/water-quality-badge";
+import { applyRainfallNotice } from "@/lib/services/water-quality/rainfall-runoff";
 
 const sample: WaterQuality = {
   beach_id: "d291411d-d331-4bf1-ad1a-302da3c69de0", status: "advisory",
@@ -21,7 +22,9 @@ it.each(["clear", "advisory", "closure", "unavailable"] as const)(
     expect(toggle).toHaveClass("text-ink");
     expect(toggle).toHaveClass(county === "advisory" || county === "closure" ? "border-destructive/40" : "border-ink/20");
     fireEvent.click(toggle);
-    expect(screen.getByRole("link", { name: /County of San Diego/ })).toHaveAttribute("href", "https://www.sdbeachinfo.com/");
+    expect(screen.queryByRole("link", { name: /County of San Diego/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(/San Diego County .* checked/) !== null)
+      .toBe(county === "advisory" || county === "closure");
     expect(screen.queryByText(/220|Enterococcus|Fecal Coliform|Latest sample|30-day exceedances|CEDEN/)).not.toBeInTheDocument();
     expect(screen.queryByText("No current county advisory") !== null).toBe(county === "clear");
     expect(screen.queryByText("County status unavailable") !== null).toBe(county === "unavailable");
@@ -49,10 +52,23 @@ it("names a County general advisory as rain runoff, not elevated bacteria", () =
     county_checked_at: "2026-10-12T18:00:00Z" }} />);
   const toggle = screen.getByRole("button", { name: /Rain Advisory/ });
   fireEvent.click(toggle);
-  expect(screen.getByText(/runoff after rain/i)).toHaveTextContent(/storm drains and river mouths/);
-  expect(screen.getByText(/runoff after rain/i)).toHaveTextContent(/check again in 72 hours/);
+  expect(screen.getByText("County rain advisory · runoff after rain")).toBeInTheDocument();
   expect(screen.queryByText(/elevated bacteria/i)).not.toBeInTheDocument();
-  expect(screen.getByRole("link", { name: /County of San Diego/ })).toHaveAttribute("href", "https://www.sdbeachinfo.com/");
+  expect(screen.queryByRole("link", { name: /County of San Diego/ })).not.toBeInTheDocument();
+});
+
+it("keeps an expired general-only County advisory hidden despite fresh wet rainfall", () => {
+  const now = new Date("2026-10-14T20:30:43Z");
+  const expired: WaterQuality = { ...sample, status: "unknown", county_general_expired: true };
+  const overlaid = applyRainfallNotice(expired, {
+    cluster_id: "laguna_san_clemente", window_end: now.toISOString(), total_in: 1.2,
+    station_totals: { KNFG: 1.2 },
+  }, now);
+  expect(overlaid).toBe(expired);
+  expect(overlaid.status).toBe("unknown");
+  expect(overlaid).not.toHaveProperty("rain_runoff");
+  const { container } = render(<WaterQualityBadge waterQuality={overlaid} />);
+  expect(container).toBeEmptyDOMElement();
 });
 
 it("labels a rainfall notice as a precaution with its gauges, not a sample result", () => {
@@ -73,4 +89,14 @@ it("lets a County general advisory outrank a rainfall notice", () => {
     rain_runoff: { total_in: 0.38, window_end: "2026-10-12T14:00:00Z", stations: ["KSAN"] } }} />);
   expect(screen.getByRole("button", { name: /Rain Advisory/ })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /Rain runoff advisory/ })).not.toBeInTheDocument();
+});
+
+it("shows stored rain event start and end times in the expanded card", () => {
+  render(<WaterQualityBadge waterQuality={{ ...sample, status: "advisory",
+    status_reason: "Runoff after rain nearby.", rain_runoff: { stations: ["KLGB"],
+      started_at: "2026-10-16T13:00:00Z", last_rain_at: "2026-10-16T13:00:00Z",
+      expires_at: "2026-10-19T13:00:00Z" } }} />);
+  fireEvent.click(screen.getByRole("button", { name: /Rain runoff advisory/ }));
+  expect(screen.getByText(/Rain advisory since Fri 6 AM/)).toBeInTheDocument();
+  expect(screen.queryByText(/for the 72 hours to/)).not.toBeInTheDocument();
 });

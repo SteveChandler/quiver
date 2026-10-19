@@ -11,13 +11,10 @@
  * StandardLayout (data-driven cities).
  */
 
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import {
   getLocationPageData,
 } from "@/actions/beach/beach-location-list-actions";
-import {
-  parseLocationFromSlug,
-} from "@/lib/utils/location-slug";
 import {
   getBeachHrefSafe,
   isValidCountrySlug,
@@ -58,14 +55,14 @@ export default async function LocationPage(props: LocationPageProps) {
   );
 
   if (!response.success || !response.data) {
-    if (response.error === "CITY_EXISTS_NO_DATA") {
-      const cityName = parseLocationFromSlug(params.city);
-      redirect(`/map?search=${encodeURIComponent(cityName)}`);
-    }
     notFound();
   }
 
   const { location, stats, beaches } = response.data;
+  const islandSlug = response.data.islandSlug;
+  const acceptedBeachIds = islandSlug
+    ? beaches.map((beach) => beach.id)
+    : undefined;
   const editorialPhoto = await getCityEditorialPhoto(beaches.map((beach) => beach.id));
 
   const displayCityName = resolveDisplayCityName(
@@ -78,11 +75,17 @@ export default async function LocationPage(props: LocationPageProps) {
 
   // Fetch editorial content, best time to surf URL, sibling cities, and surf report
   const [editorial, bestTimeToSurfUrl, siblingCities, surfReport] = await Promise.all([
-    getCityEditorialContent(params.city, params.state, params.country),
-    getBestTimeToSurfUrl(params.city, location.city, location.state),
-    params.country === "usa" ? getTopCitiesInState(params.state, 10) : Promise.resolve([]),
+    getCityEditorialContent(params.city, params.state, params.country, null, !islandSlug),
+    getBestTimeToSurfUrl(params.city, location.city, location.state, acceptedBeachIds),
     params.country === "usa"
-      ? getCitySurfReport(location.city, params.state)
+      ? getTopCitiesInState(params.state, 10).then((cities) =>
+          islandSlug
+            ? cities.filter((city) => city.name !== location.city)
+            : cities,
+        )
+      : Promise.resolve([]),
+    params.country === "usa"
+      ? getCitySurfReport(location.city, params.state, acceptedBeachIds, islandSlug)
       : Promise.resolve(null),
   ]);
 

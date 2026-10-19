@@ -1,5 +1,7 @@
 "use server";
 
+import { cache } from "react";
+import { describeThrownError } from "@/lib/services/forecast/error-message";
 import { createPublicReadClient } from "@/lib/supabase/server";
 import { rankBeaches } from "@/lib/recommendations/selection";
 import { WATER_QUALITY_HOLD_PREFETCH_BUFFER } from "@/lib/recommendations/major-event-hold/water-quality";
@@ -123,30 +125,38 @@ function describeWind(windSpeed: string | null): string | null {
 // Main query
 // ---------------------------------------------------------------------------
 
+function logCitySurfReportError(error: unknown): void {
+  const message = describeThrownError(error);
+  const code = error && typeof error === "object" && "code" in error ? error.code : null;
+  if (code === "57014" || /statement timeout/i.test(message)) {
+    console.warn("[getCitySurfReport] Forecast query timed out:", { message });
+    return;
+  }
+  console.error("[getCitySurfReport] Query error:", { message });
+}
+
 async function fetchCitySurfReport(
   cityName: string,
   stateSlug: string,
+  acceptedBeachIds?: string[],
 ): Promise<CitySurfReportSummary | null> {
+  if (acceptedBeachIds?.length === 0) return null;
+
   try {
     const supabase = createPublicReadClient();
 
-    // Prefer today's rows, but allow recent cached rows so city pages still
-    // expose real conditions when a local/dev fixture is slightly stale.
     const now = new Date();
-    const recentStart = new Date(now);
-    recentStart.setUTCDate(recentStart.getUTCDate() - 3);
+    const narrowStart = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+    const narrowEnd = new Date(now.getTime() + 3 * 60 * 60 * 1000);
+    // Preserve case-insensitive city matching without treating city characters
+    // as ILIKE wildcards. The stored city display names are not normalised.
+    const cityPattern = cityName.replace(/[\\%_]/g, "\\$&");
 
-    const todayStart = new Date(now);
-    todayStart.setUTCHours(0, 0, 0, 0);
-    const tomorrowStart = new Date(todayStart);
-    tomorrowStart.setUTCDate(tomorrowStart.getUTCDate() + 1);
-
-    // Query enhanced_forecasts joined with beaches for the given city/state.
-    // We select the most recent forecast per beach for today.
-    const { data: forecasts, error } = await supabase
-      .from("enhanced_forecasts")
-      .select(
-        `
+    const queryForecasts = (start: Date, end: Date) => {
+      let query = supabase
+        .from("enhanced_forecasts")
+        .select(
+          `
         beach_id,
         forecast_at,
         updated_at,
@@ -162,15 +172,34 @@ async function fetchCitySurfReport(
           state
         )
       `,
-      )
-      .ilike("beaches.state", stateSlug)
-      .gte("forecast_at", recentStart.toISOString())
-      .lt("forecast_at", tomorrowStart.toISOString())
-      .order("forecast_at", { ascending: false })
-      .limit(200 + WATER_QUALITY_HOLD_PREFETCH_BUFFER);
+        )
+        .ilike("beaches.state", stateSlug)
+        .ilike("beaches.city", cityPattern);
+
+      if (acceptedBeachIds) {
+        query = query.in("beach_id", acceptedBeachIds);
+      }
+
+      return query
+        .gte("forecast_at", start.toISOString())
+        .lt("forecast_at", end.toISOString())
+        .order("forecast_at", { ascending: false })
+        .limit(200 + WATER_QUALITY_HOLD_PREFETCH_BUFFER);
+    };
+
+    let { data: forecasts, error } = await queryForecasts(narrowStart, narrowEnd);
+    if (!error && !forecasts?.length) {
+      // Older cached forecasts remain useful when the current window is empty.
+      const recentStart = new Date(now);
+      recentStart.setUTCDate(recentStart.getUTCDate() - 3);
+      const tomorrowStart = new Date(now);
+      tomorrowStart.setUTCHours(0, 0, 0, 0);
+      tomorrowStart.setUTCDate(tomorrowStart.getUTCDate() + 1);
+      ({ data: forecasts, error } = await queryForecasts(recentStart, tomorrowStart));
+    }
 
     if (error) {
-      console.error("[getCitySurfReport] Query error:", error.message);
+      logCitySurfReportError(error);
       return null;
     }
 
@@ -283,7 +312,7 @@ async function fetchCitySurfReport(
       updatedAt,
     };
   } catch (err) {
-    console.error("[getCitySurfReport] Unexpected error:", err);
+    logCitySurfReportError(err);
     return null;
   }
 }
@@ -303,6 +332,23 @@ async function fetchCitySurfReport(
 export async function getCitySurfReport(
   cityName: string,
   stateSlug: string,
+  acceptedBeachIds?: string[],
+  islandSlug?: string,
 ): Promise<CitySurfReportSummary | null> {
-  return fetchCitySurfReport(cityName, stateSlug);
+  const beachIdsKey = acceptedBeachIds ? [...acceptedBeachIds].sort().join(",") : null;
+  return getCachedCitySurfReport(cityName, stateSlug, islandSlug ?? null, beachIdsKey);
 }
+
+const getCachedCitySurfReport = cache(async (
+  cityName: string,
+  stateSlug: string,
+  islandSlug: string | null,
+  beachIdsKey: string | null,
+): Promise<CitySurfReportSummary | null> => {
+  if (islandSlug && beachIdsKey === null) return null;
+  return fetchCitySurfReport(
+    cityName,
+    stateSlug,
+    beachIdsKey === null ? undefined : beachIdsKey ? beachIdsKey.split(",") : [],
+  );
+});

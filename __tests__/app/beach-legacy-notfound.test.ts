@@ -83,8 +83,8 @@ describe("legacy /beach/[slug] route", () => {
     jest.clearAllMocks();
 
     (getBeachesBySlugFromDb as jest.Mock).mockResolvedValue({
-      success: false,
-      data: null,
+      success: true,
+      data: [],
     });
     (getBeachByIdFromDb as jest.Mock).mockResolvedValue({
       success: false,

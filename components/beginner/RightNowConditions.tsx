@@ -34,19 +34,21 @@ export function RightNowConditions({ conditions }: RightNowConditionsProps) {
               </p>
             </div>
           </div>
-          <div className="flex items-start gap-3">
-            <Wind className="h-5 w-5 text-sky-600 mt-0.5" aria-hidden="true" />
-            <div>
-              <p className="text-sm font-medium text-gray-800">
-                {metrics.wind.value}
-              </p>
-              <p
-                className={`text-xs ${METRIC_STATUS_COLORS[metrics.wind.status]}`}
-              >
-                {metrics.wind.label}
-              </p>
+          {metrics.wind && (
+            <div className="flex items-start gap-3">
+              <Wind className="h-5 w-5 text-sky-600 mt-0.5" aria-hidden="true" />
+              <div>
+                <p className="text-sm font-medium text-gray-800">
+                  {metrics.wind.value}
+                </p>
+                <p
+                  className={`text-xs ${METRIC_STATUS_COLORS[metrics.wind.status]}`}
+                >
+                  {metrics.wind.label}
+                </p>
+              </div>
             </div>
-          </div>
+          )}
           <div className="flex items-start gap-3">
             <Thermometer className="h-5 w-5 text-sky-600 mt-0.5" aria-hidden="true" />
             <div>

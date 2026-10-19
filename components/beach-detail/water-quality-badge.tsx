@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { CountyStatusMetadata } from "@/lib/services/water-quality/current-status";
 import type { RainRunoffMetadata } from "@/lib/services/water-quality/rainfall-runoff";
+import { formatRainAdvisoryTime, rainAdvisoryEndsLabel } from "@/lib/services/water-quality/rain-advisory-events";
 import {
   Card,
   CardContent,
@@ -94,6 +95,10 @@ export function WaterQualityBadge({ waterQuality, beachState }: WaterQualityBadg
   const formattedSampleDate = waterQuality.latest_sample_date
     ? new Date(waterQuality.latest_sample_date).toLocaleDateString()
     : null;
+  const countyEndsLabel = waterQuality.county_rain_advisory
+    ? rainAdvisoryEndsLabel(waterQuality.county_rain_advisory.expires_at, new Date()) : null;
+  const rainEndsLabel = rainRunoff?.expires_at
+    ? rainAdvisoryEndsLabel(rainRunoff.expires_at, new Date()) : null;
 
   return (
     <Card
@@ -128,23 +133,25 @@ export function WaterQualityBadge({ waterQuality, beachState }: WaterQualityBadg
 
       {expanded && (
         <CardContent className="space-y-3 pt-4 text-sm text-ink">
-          {waterQuality.county_advisory_status && (
-            <div>
-              <a href="https://www.sdbeachinfo.com/" target="_blank" rel="noopener noreferrer" className="underline">
-                County of San Diego: current advisory status
-              </a>
-              {waterQuality.county_advisory_kind === "general" && waterQuality.status === "advisory" && (
-                <p>The County has a general advisory in effect for runoff after rain. Avoid storm drains and river mouths, and check again in 72 hours.</p>
-              )}
-              <p>{waterQuality.county_checked_at ? `Checked ${new Date(waterQuality.county_checked_at).toLocaleString()}. No advisory does not guarantee safe water.` : "Current county status could not be verified. Check the county before entering the water."}</p>
-            </div>
+          {waterQuality.county_advisory_status === "advisory" && (
+            <p>{waterQuality.county_advisory_kind === "general"
+              ? `County rain advisory · ${countyEndsLabel ?? "runoff after rain"}`
+              : `San Diego County advisory${waterQuality.county_checked_at ? ` · checked ${new Date(waterQuality.county_checked_at).toLocaleString()}` : ""}`}</p>
+          )}
+          {waterQuality.county_advisory_status === "closure" && (
+            <p>{`San Diego County closure${waterQuality.county_checked_at ? ` · checked ${new Date(waterQuality.county_checked_at).toLocaleString()}` : ""}`}</p>
           )}
           {rainRunoff && (
             <div>
+              {rainRunoff.expires_at && rainRunoff.started_at && (
+                <p>{`Rain advisory since ${formatRainAdvisoryTime(rainRunoff.started_at)}${
+                  rainEndsLabel ? ` · ${rainEndsLabel}` : ""}`}</p>
+              )}
               <p>{waterQuality.status_reason}</p>
               <p className="mt-1 text-xs">
-                Measured at airport rain gauges ({rainRunoff.stations.join(", ")}) for the 72 hours to{" "}
-                {new Date(rainRunoff.window_end).toLocaleString()}. This is a precaution, not a water sample.
+                {rainRunoff.expires_at
+                  ? `Measured at airport rain gauges (${rainRunoff.stations.join(", ")}). This is a precaution, not a water sample.`
+                  : `Measured at airport rain gauges (${rainRunoff.stations.join(", ")}) for the 72 hours to ${new Date(rainRunoff.window_end as string).toLocaleString()}. This is a precaution, not a water sample.`}
               </p>
             </div>
           )}

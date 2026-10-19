@@ -7,7 +7,7 @@ jest.mock("next/og", () => ({
   ImageResponse: jest.fn((element: unknown, options: unknown) => {
     mockCapturedImageElement = element;
     mockCapturedOptions = options;
-    return new Response("mock-png", {
+    return new Response(new Uint8Array(require("node:fs").readFileSync("public/og-image.png")), {
       headers: { "content-type": "image/png" },
     });
   }),
@@ -31,11 +31,11 @@ describe("install-style OG share cards", () => {
 
     const response = await GET(
       new Request(
-        "http://localhost:3000/api/og/session?beach=Ocean+Beach&rating=Epic&stars=5&size=Chest-Head&board=Fish&windLabel=Offshore&windSpeed=7+mph&tagline=Clean+morning+waves&bg=https%3A%2F%2Fcdn.quiversurf.app%2Fsession.jpg&shareUrl=https%3A%2F%2Fwww.quiversurf.app%2Fsessions%2Fsession-abc",
+        "http://localhost:3000/api/og/session?format=jpeg&beach=Ocean+Beach&rating=Epic&stars=5&size=Chest-Head&board=Fish&windLabel=Offshore&windSpeed=7+mph&tagline=Clean+morning+waves&bg=https%3A%2F%2Fcdn.quiversurf.app%2Fsession.jpg&shareUrl=https%3A%2F%2Fwww.quiversurf.app%2Fsessions%2Fsession-abc",
       ) as never,
     );
 
-    expect(response.headers.get("content-type")).toBe("image/png");
+    expect(response.headers.get("content-type")).toBe("image/jpeg");
     expect(mockCapturedOptions).toEqual(expect.objectContaining({ width: 1080, height: 1920 }));
     expect(capturedProps()).toEqual(
       expect.objectContaining({

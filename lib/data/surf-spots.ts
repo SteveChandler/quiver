@@ -453,7 +453,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
       {
         question: "Is the water quality safe after rain?",
         answer:
-          "Avoid the lineup for at least 72 hours after heavy rain. The San Diego River outflow impacts water quality around the pier.",
+          "Avoid the lineup until at least 72 hours after the last heavy rain. The San Diego River outflow impacts water quality around the pier.",
       },
     ],
     speakableSummary:
@@ -893,7 +893,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
       {
         question: "Is Imperial Beach safe to surf after rain?",
         answer:
-          "Wait at least 72 hours after heavy rain or south swells. Check the San Diego County water quality hotline for updates.",
+          "Wait at least 72 hours after the last heavy rain or south swell. Check the San Diego County water quality hotline for updates.",
       },
       {
         question: "Where should beginners surf in IB?",

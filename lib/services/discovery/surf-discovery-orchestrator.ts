@@ -40,6 +40,7 @@ import type {
   SurfDiscoveryRecommendation,
   SurfDiscoveryResponse,
   SurfDiscoveryOptions,
+  CandidateRejection,
   DetailedScore,
   EveningTransition,
   PersonalizedForecastWindow,
@@ -54,13 +55,14 @@ import {
   getDiscoveryScoringEngine,
 } from '@/lib/domains/scoring';
 import type { SkillLevel } from '@/lib/domains/user-preferences';
-import { parseSkillLevel, getSkillLevelOrDefault, SKILL_WAVE_RANGES } from '@/lib/domains/user-preferences';
+import { parseBeachSkillRequirement, getSkillLevelOrDefault, SKILL_WAVE_RANGES } from '@/lib/domains/user-preferences/skill-level';
 import { normalizeBoardClass, type BoardClass } from '@/lib/domains/rideability';
 import { formatWaveHeightRangeString } from '@/lib/utils/wave-formatters';
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
 import { isFutureDayInTimezone } from '@/lib/utils/condition-tier-utils';
 import { resolveForecastTime } from '@/lib/utils/forecast-time-resolver';
 import { parseWindSpeedOrNull } from '@/lib/utils/number-parsing';
+import { angleDifference, resolveOffshoreDeg } from '@/lib/domains/shared';
 import {
   type BoardForPick,
 } from '@/lib/scoring';
@@ -70,6 +72,8 @@ import {
 } from '@/lib/scoring/native-condition-score';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { rankBeaches } from '@/lib/recommendations/selection';
+import { waterQualityCandidateRejection } from '@/lib/recommendations/major-event-hold/candidate-rejection';
+import type { WaterQualityHoldResolution } from '@/lib/recommendations/major-event-hold/water-quality';
 import { isBoardPicksFreeEnabled } from '@/lib/flags/board-picks-free';
 
 // Import from other discovery modules
@@ -128,7 +132,7 @@ import { buildRecommendationEvidence } from '@/lib/services/discovery/recommenda
 import type { ScoringEngine } from '@/lib/domains/scoring';
 import { resolveWavePunchiness } from '@/lib/domains/spot-profile/wave-punchiness';
 import { boardStyleFit } from './board-style-fit';
-import { resolveForecastAlignment } from './forecast-alignment';
+import { FORECAST_ALIGNMENT_TOLERANCE_MINUTES, resolveForecastAlignment } from './forecast-alignment';
 import { withDisplayWindow } from './window-authority';
 import { SCORE_THRESHOLDS } from '@/lib/utils/score-color-utils';
 import { rowToSwellPartition } from '@/lib/domains/conditions/map-forecast';
@@ -319,17 +323,15 @@ export function generateConditionBadges(
   const windSpeed = parseWindSpeedOrNull(forecast.wind_speed);
   const windDirection = forecast.wind_direction_deg ?? null;
   const wavePeriod = parseFloat(forecast.wave_period?.replace('s', '') || '0');
-  const offshoreDir = beach.wind_offshore_deg ?? 90;
+  const offshoreDir = resolveOffshoreDeg(beach);
 
   // Glass: wind < 5 mph. Unknown wind earns no wind badge.
   if (windSpeed !== null && windSpeed < 5) {
     badges.push({ label: 'Glass', contribution: subscores.windAlignment });
   }
   // Light Offshore: offshore direction AND < 10 mph
-  else if (windSpeed !== null && windDirection !== null && windSpeed < 10) {
-    const angleDiff = Math.abs(windDirection - offshoreDir) % 360;
-    const isOffshore = angleDiff <= 45 || angleDiff >= 315;
-    if (isOffshore) {
+  else if (windSpeed !== null && windDirection !== null && offshoreDir !== null && windSpeed < 10) {
+    if (angleDifference(windDirection, offshoreDir) <= 45) {
       badges.push({ label: 'Light Offshore', contribution: subscores.windAlignment });
     }
   }
@@ -497,7 +499,7 @@ export function generatePrimaryReason(
   if (!userSkillLevel) return null;
 
   const waveHeight = parseFloat(String(forecast.wave_height ?? '0'));
-  const beachSkill = parseSkillLevel(beach.skill_level);
+  const beachSkill = parseBeachSkillRequirement(beach.skill_level);
   const userSkill = getSkillLevelOrDefault(userSkillLevel);
   const userRanges = SKILL_WAVE_RANGES[userSkill];
 
@@ -1513,15 +1515,18 @@ function selectImmediateWindow(
   const end = bucket.end;
   if (end.getTime() <= now.getTime()) return { window: null, afterDark: false };
 
-  const wind = [bucket.forecast.wind_speed, bucket.forecast.wind_direction]
-    .filter((part) => part != null && String(part).trim().length > 0)
-    .join(' ');
+  // Plain reading only, and none without a speed: unknown wind is not shown.
+  const wind = bucket.forecast.wind_speed?.trim()
+    ? [bucket.forecast.wind_speed, bucket.forecast.wind_direction]
+        .filter((part) => part != null && String(part).trim().length > 0)
+        .join(' ')
+    : '';
 
   return { window: {
     start: bucket.start,
     end,
     tide: bucket.forecast.tide_status || 'Unknown',
-    wind: wind || 'Unknown',
+    wind,
     waveHeight: bucket.forecast.wave_height || 'Unknown',
     wavePeriod: bucket.forecast.wave_period || 'Unknown',
     dataSource: bucket.forecast.data_source || 'FALLBACK',
@@ -1623,6 +1628,7 @@ async function discoverSurfSpotsInner(
   const requestedIncludeBeachIds = Array.from(new Set(includeBeachIds ?? []))
     .slice(0, MAX_INCLUDED_BEACH_IDS);
   const requestedIncludeBeachIdSet = new Set(requestedIncludeBeachIds);
+  const candidateRejections: Record<string, CandidateRejection> = {};
 
   log.debug(`Discovering surf spots (maxResults: ${maxResults})`);
 
@@ -1672,6 +1678,11 @@ async function discoverSurfSpotsInner(
     includedCandidates,
     customNearestCandidates,
   ).slice(0, savedSpotsOnly ? MY_SPOTS_CANDIDATE_CAP : effectiveCandidatePoolLimit);
+  for (const beachId of requestedIncludeBeachIds) {
+    if (!finalCandidates.some((beach) => beach.id === beachId)) {
+      candidateRejections[beachId] = { gate: 'candidate_pool', observed: { count: finalCandidates.length } };
+    }
+  }
   // A custom spot is only "primary" (eligible for the Now/Best feeds) when it's
   // as close as the nearby beaches — the same nearest-within-radius cut curated
   // beaches pass. Without this an own custom spot surfaces in Now/Best from
@@ -1701,7 +1712,7 @@ async function discoverSurfSpotsInner(
 
   if (finalCandidates.length === 0) {
     log.warn('No candidate beaches found');
-    return { ...emptyResponse(maxResults, 'no_candidates'), ...(savedSpotsOnly ? { emptyReason: 'no_recommendable_saved_window_72h' as const } : {}) };
+    return { ...emptyResponse(maxResults, 'no_candidates'), candidateRejections, ...(savedSpotsOnly ? { emptyReason: 'no_recommendable_saved_window_72h' as const } : {}) };
   }
 
   log.debug(
@@ -1792,6 +1803,11 @@ async function discoverSurfSpotsInner(
   const forecastsByBeachId = new Map<string, EnhancedForecastEntity[]>();
   for (const { beach, forecasts } of beachForecasts) {
     forecastsByBeachId.set(beach.id, forecasts);
+  }
+  for (const beachId of requestedIncludeBeachIds) {
+    if (finalCandidates.some((beach) => beach.id === beachId) && !forecastsByBeachId.has(beachId)) {
+      candidateRejections[beachId] = { gate: 'forecast_rows', observed: { count: 0 } };
+    }
   }
 
   // Collect all dates from forecasts and fetch sun times
@@ -1892,6 +1908,10 @@ async function discoverSurfSpotsInner(
   };
 
   for (const { beach, forecasts } of beachForecasts) {
+    let windowRejection: CandidateRejection | null = null;
+    const onRejection = (rejection: CandidateRejection): void => {
+      windowRejection = rejection;
+    };
     // Today-first: try today's forecasts first, fall back to all (matches beach detail page)
     const beachTz = beach.timezone || getTimezoneFromCoords(beach.lat || 0, beach.lon || 0);
     const beachSunTimes = sunTimesCache.get(beach.id);
@@ -1899,6 +1919,9 @@ async function discoverSurfSpotsInner(
       ? resolveForecastAlignment(forecasts, forecastAt)
       : null;
     const scopedForecast = requestedAlignment?.forecast;
+    if (forecastAt && !scopedForecast) {
+      windowRejection = { gate: 'forecast_alignment', observed: { forecastAt }, allowed: { maximumDeltaMinutes: FORECAST_ALIGNMENT_TOLERANCE_MINUTES } };
+    }
     const scopedStart = scopedForecast
       ? resolveForecastTime(scopedForecast, beachTz)
       : null;
@@ -1965,6 +1988,9 @@ async function discoverSurfSpotsInner(
               forecasts, beach, sunTimesCache, scopedStart ?? selectionNow,
               userSkillLevel, boardClasses,
             );
+            if (!immediate.window && immediate.afterDark && scopedForecast) {
+              windowRejection = { gate: 'daylight', observed: { count: 1 } };
+            }
             return scopedForecast && immediate.window ? [immediate.window] : [];
           })()
         : discoveryMode === 'now'
@@ -1978,6 +2004,7 @@ async function discoverSurfSpotsInner(
                 boardClasses,
               );
               if (immediate.afterDark) {
+                if (!immediate.window) windowRejection = { gate: 'daylight', observed: { count: forecasts.length } };
                 considerAfterDark(afterDarkAvailabilityFor(
                   beach,
                   beachTz,
@@ -2011,6 +2038,7 @@ async function discoverSurfSpotsInner(
                 maxWindows: 3,
                 userSkillLevel,
                 boardClasses,
+                onRejection,
               })
             : [];
 
@@ -2031,6 +2059,7 @@ async function discoverSurfSpotsInner(
         maxWindows: 3,
         userSkillLevel,
         boardClasses,
+        onRejection,
       });
       if (selectedWindows.length === 0 && todayForecasts.length === 0) {
         log.warn(`[discoverSurfSpots] ${beach.name}: no today forecasts (total=${forecasts.length}), tomorrow fallback returned null`);
@@ -2051,6 +2080,11 @@ async function discoverSurfSpotsInner(
     }
 
     if (selectedWindows.length === 0) {
+      if (requestedIncludeBeachIdSet.has(beach.id)) {
+        candidateRejections[beach.id] = windowRejection ?? (forecasts.length === 0
+          ? { gate: 'forecast_rows', observed: { count: 0 } }
+          : { gate: 'window_selection', observed: { count: forecasts.length } });
+      }
       beachesWithNoWindow.push(beach.name);
       log.debug(`[discoverSurfSpots] ${beach.name}: selectBestWindows returned no windows (forecasts=${forecasts.length})`);
       continue;
@@ -2378,6 +2412,7 @@ async function discoverSurfSpotsInner(
   const allRecsScored = collapseWindowCandidates(
     similarityResult.recommendations,
   );
+  let waterQualityResolution: WaterQualityHoldResolution | null = null;
   const rankedRecommendations = await rankBeaches(
     allRecsScored.map((recommendation, index) => ({
       id: recommendation.beach.id,
@@ -2390,6 +2425,7 @@ async function discoverSurfSpotsInner(
           left.recommendation,
           right.recommendation,
         ) || left.index - right.index,
+      onWaterQualityResolution: (resolution) => { waterQualityResolution = resolution; },
     },
   );
   endStage('ranking');
@@ -2398,6 +2434,15 @@ async function discoverSurfSpotsInner(
   const safeRecsScored = rankedRecommendations.map(
     ({ recommendation }) => recommendation,
   ).filter((rec) => !savedSpotsOnly || getCanonicalRecommendationLabel(rec, userSkillLevel) === "Worth it");
+  for (const beachId of requestedIncludeBeachIds) {
+    if (candidateRejections[beachId] || !allRecsScored.some((rec) => rec.beach.id === beachId)) continue;
+    if (!rankedRecommendations.some(({ recommendation }) => recommendation.beach.id === beachId)) {
+      candidateRejections[beachId] = waterQualityCandidateRejection(waterQualityResolution, beachId)
+        ?? { gate: 'window_selection' };
+    } else if (!safeRecsScored.some((rec) => rec.beach.id === beachId)) {
+      candidateRejections[beachId] = { gate: 'saved_spot_eligibility', observed: { status: allRecsScored.find((rec) => rec.beach.id === beachId)?.recommendationLabel ?? 'unknown' }, allowed: { status: 'Worth it' } };
+    }
+  }
 
   // Water-quality filtering happens across the full sorted pool before this
   // top-N is consumed, so an allowed rank below a blocked result can fill the
@@ -2440,6 +2485,12 @@ async function discoverSurfSpotsInner(
     }
     return false;
   });
+  for (const beachId of requestedIncludeBeachIds) {
+    if (candidateRejections[beachId]) continue;
+    if (!finalSlice.some((rec) => rec.beach.id === beachId) && !includedSlice.some((rec) => rec.beach.id === beachId)) {
+      candidateRejections[beachId] = { gate: 'ranking', observed: { count: safeRecsScored.length } };
+    }
+  }
 
   const favoriteCount = finalSlice.filter(r => r.isFavorite).length;
   log.debug(
@@ -2641,7 +2692,7 @@ async function discoverSurfSpotsInner(
     rec.physicalRecommendationLabel ??= rec.recommendationLabel;
     rec.recommendationLabel = getCanonicalRecommendationLabel(rec, userSkillLevel);
     rec.verdict = rec.recommendationLabel === "Worth it" ? "go" : rec.recommendationLabel === "Maybe" ? "maybe" : "no";
-    rec.conditionLabel = conditionLabelForVerdict(rec.verdict, rec.score);
+    rec.conditionLabel = conditionLabelForVerdict(rec.verdict, rec.score, rec.character?.category);
     rec.message = buildDiscoveryMessage(rec.score, rec.reasons, rec.warnings, rec.recommendationLabel);
   }
 
@@ -2663,6 +2714,7 @@ async function discoverSurfSpotsInner(
   );
 
   return {
+    candidateRejections,
     recommendations: savedSpotsOnly ? enrichedRanked.slice(0, 1) : enrichedRanked,
     ...(savedSpotsOnly && enrichedRanked.length === 0 ? { emptyReason: "no_recommendable_saved_window_72h" as const } : {}),
     recommendationsV2,
@@ -2744,7 +2796,16 @@ export async function discoverSurfSpots(
     // GPS location is required for discovery
     if (!userLocation) {
       log.warn('Discovery called without userLocation');
-      return emptyResponse(maxResults, 'no_candidates');
+      return {
+        ...emptyResponse(maxResults, 'no_candidates'),
+        candidateRejections: Object.fromEntries(
+          (options.includeBeachIds ?? []).slice(0, MAX_INCLUDED_BEACH_IDS).map((beachId) => [beachId, {
+            gate: 'candidate_pool' as const,
+            observed: { count: 0 },
+            detail: 'Beach location unavailable',
+          }]),
+        ),
+      };
     }
 
     // Enforce overall timeout with Promise.race. The race only abandons the response, so the

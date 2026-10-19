@@ -32,7 +32,6 @@ export const removeFavoriteBeach = makeAuthenticatedAction(
   }
 );
 
-// Reorder favorites (assign ranks 1..N in provided order)
 export const reorderFavoriteBeaches = makeAuthenticatedAction(
   async (user, supabase, beachIdsInOrder: string[]) => {
     if (!Array.isArray(beachIdsInOrder)) {
@@ -41,19 +40,47 @@ export const reorderFavoriteBeaches = makeAuthenticatedAction(
 
     const { data: existing, error: fetchErr } = await supabase
       .from("favorite_beaches")
-      .select("beach_id")
+      .select("beach_id, custom_spot_id, rank")
       .eq("user_id", user.id);
     if (fetchErr) throw fetchErr;
 
-    const validSet = new Set((existing || []).map((r: any) => r.beach_id));
-    const invalid = beachIdsInOrder.find((b) => !validSet.has(b));
-    if (invalid) throw new Error("Invalid beach id in ordering");
+    const rows = existing ?? [];
+    const curated = rows.filter((row) => row.beach_id !== null);
+    const validSet = new Set(curated.map((row) => row.beach_id));
+    if (
+      beachIdsInOrder.length !== curated.length ||
+      new Set(beachIdsInOrder).size !== curated.length ||
+      beachIdsInOrder.some((id) => !validSet.has(id))
+    ) {
+      throw new Error("Invalid beach ids in ordering");
+    }
+
+    const customRows = rows.filter((row) => row.custom_spot_id !== null);
+    const customRanks = new Set(
+      customRows.flatMap((row) => row.rank === null ? [] : [row.rank]),
+    );
+    let ranks: number[] = curated.flatMap((row) => row.rank === null ? [] : [row.rank]);
+    const canPreserveSlots = customRows.length > 0 &&
+      ranks.length === curated.length &&
+      new Set(ranks).size === ranks.length &&
+      ranks.every((rank) => !customRanks.has(rank));
+
+    if (canPreserveSlots) {
+      ranks.sort((a, b) => a - b);
+    } else {
+      ranks = [];
+      let nextRank = 1;
+      for (let i = 0; i < beachIdsInOrder.length; i++) {
+        while (customRanks.has(nextRank)) nextRank++;
+        ranks.push(nextRank++);
+      }
+    }
 
     for (let i = 0; i < beachIdsInOrder.length; i++) {
       const beachId = beachIdsInOrder[i];
       const { error } = await supabase
         .from("favorite_beaches")
-        .update({ rank: i + 1 })
+        .update({ rank: ranks[i] })
         .eq("user_id", user.id)
         .eq("beach_id", beachId);
       if (error) throw error;

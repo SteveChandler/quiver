@@ -103,6 +103,13 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   session_log_draft_progress: 0,
   session_log_submit: 0,
   session_created: 0,
+  session_import_failed: 0,
+  garmin_link_confirmed: 0,
+  garmin_watch_unlinked: 0,
+  garmin_import_beach_chosen: 0,
+  session_waves_viewed: 0,
+  session_wave_excluded: 0,
+  session_wave_count_reported: 0,
   session_share_opened_post_save: 0,
   session_share_closed_post_save: 0,
   // Onboarding/tour events
@@ -778,6 +785,10 @@ export interface SessionLogMetadata {
   event_id?: string;
   /** Draft or saved session ID for native session-log telemetry */
   session_id?: string;
+  /** For session_log_submit: saved wave height is the form's untouched forecast estimate */
+  forecast_prefilled?: boolean;
+  /** For session_log_submit: the surfer set or changed the wave height */
+  forecast_height_changed?: boolean;
   /** Beach ID selected for the session (if already chosen) */
   beach_id?: string;
   /** For session_log_abandon: how the form exited */

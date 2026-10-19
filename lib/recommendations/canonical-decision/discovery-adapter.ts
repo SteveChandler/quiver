@@ -104,6 +104,7 @@ function toCanonicalCandidate(
     waveHeight: recommendation.forecast?.wave_height,
     utilityScore: recommendation.score,
     recommendationLabel: recommendation.physicalRecommendationLabel ?? recommendation.recommendationLabel,
+    characterCategory: recommendation.character?.category ?? null,
     personalMatch: toPersonalMatchEvidence(recommendation),
     safetyOverrideReasons: Array.from(
       new Set([...markedReasons, ...safetyOverrideReasons]),
@@ -121,6 +122,7 @@ export function buildCanonicalDecisionFromSurfDiscovery(
     profileExperience: input.profileExperience,
     recommendationAvailability: input.recommendationAvailability,
     candidates: input.recommendations.map(toCanonicalCandidate),
+    candidateRejection: input.candidateRejection,
   });
 }
 

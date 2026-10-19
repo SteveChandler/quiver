@@ -6,6 +6,7 @@
  */
 
 import type { SkillLevel } from '../user-preferences/skill-level';
+import { DEFAULT_WIND_OFFSHORE_TOL_DEG } from '../shared/wind-orientation';
 
 // Re-export SkillLevel for backwards compatibility with existing imports
 export type { SkillLevel };
@@ -32,8 +33,8 @@ export interface SwellWindow {
  * Defines when wind becomes problematic for this spot.
  */
 export interface WindThresholds {
-  /** Ideal offshore wind direction (degrees) */
-  readonly offshoreDeg: number;
+  /** Ideal offshore wind direction (degrees); null when the beach has no orientation data */
+  readonly offshoreDeg: number | null;
   /** Tolerance around offshore direction (degrees) */
   readonly offshoreToleranceDeg: number;
   /** Max acceptable onshore wind (mph) before degradation */
@@ -102,8 +103,9 @@ export const SPOT_PROFILE_DEFAULTS = {
   },
   /** Default wind thresholds */
   windThresholds: {
-    offshoreDeg: 90, // East (typical for west-facing beaches)
-    offshoreToleranceDeg: 45,
+    // Unknown, never a compass guess: east is onshore on the East Coast.
+    offshoreDeg: null,
+    offshoreToleranceDeg: DEFAULT_WIND_OFFSHORE_TOL_DEG,
     maxOnshoreMph: 10,
     maxAnyMph: 18,
     crossShoreOkKts: 15,

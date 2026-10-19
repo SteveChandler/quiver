@@ -174,6 +174,7 @@ export function PublicForecastAnswer({
         decisionReport.verdict,
         decisionReport.score,
         isTomorrow ? "upcoming" : "now",
+        { beachId: beach.id, instantIso: windowStart ?? decisionReport.peakTime },
       )
     : null;
   // Native's guest view: the general call, the same for every surfer, until a
@@ -185,6 +186,7 @@ export function PublicForecastAnswer({
           generalCall.verdict,
           generalCall.score,
           isTomorrow ? "upcoming" : "now",
+          { beachId: beach.id, instantIso: windowStart ?? context?.selectedRowTime },
         )
       : null;
   const bestWindow = formatTimeRangeInTimezone(

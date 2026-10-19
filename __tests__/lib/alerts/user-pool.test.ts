@@ -1,6 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { capNearbyPool, loadUserPool, type PoolBeach } from "@/lib/alerts/user-pool";
+import { capNearbyPool, findNearestBeach, loadUserPool, type PoolBeach } from "@/lib/alerts/user-pool";
+import { resolveLocationAnchor } from "@/lib/alerts/location-freshness";
+import { selectFirstSightingCandidates } from "@/lib/alerts/swell-outlook/first-sighting";
+import { outlookSwell } from "@/__tests__/helpers/outlook-swell";
 import type { Beach, Database } from "@/types/database";
+import beginnerPoolReplay from "@/__tests__/fixtures/daily-call-beginner-pool-20261013.json";
+import { beachSkillVetoReason } from "@/lib/recommendations/canonical-decision";
 
 interface Store {
   favorites: Array<{ beach_id: string | null; custom_spot_id: string | null }>;
@@ -365,6 +370,25 @@ describe("user pool", () => {
     const farHome = located("far-home", 21.27, -157.82);
     const farCustomAnchor = located("far-custom-anchor", 33.47, -117.72);
 
+    it("does not let a SoCal favorite widen reach from a fresh Hawaii fix", async () => {
+      const hawaii = located("hawaii", 21.281, -157.844);
+      const socalFavorite = located("socal-favorite", 32.797, -117.258);
+      const socalHome = located("socal-home", 32.767, -117.188);
+      const now = new Date("2026-10-14T18:00:00.000Z");
+      const { anchor, source } = resolveLocationAnchor(
+        { lat: 21.28, lon: -157.83, captured_at: now.toISOString() }, now, sanDiego,
+      );
+      const pool = await loadUserPool({
+        supabase: makeSupabase({ favorites: [{ beach_id: socalFavorite.id, custom_spot_id: null }],
+          beaches: [hawaii, socalFavorite, socalHome], nearby: [{ id: hawaii.id, distance_meters: 1200, total_count: 1 }] }),
+        userId: "user-1", homeBeachId: socalHome.id, location: anchor, maxDriveMinutes: 60,
+      });
+      expect(source).toBe("location");
+      expect(pool.map(({ beach }) => beach.id)).toEqual([hawaii.id]);
+      expect(selectFirstSightingCandidates({ swells: pool.map(({ beach }) =>
+        outlookSwell({ beach: { id: beach.id, name: beach.name } })) }).map((swell) => swell.beach.id)).toEqual([hawaii.id]);
+    });
+
     function store(): Store {
       return {
         favorites: [
@@ -437,6 +461,107 @@ describe("user pool", () => {
   describe("capNearbyPool", () => {
     const entry = (id: string, relation: PoolBeach["relation"], distanceMiles: number | null): PoolBeach =>
       ({ beach: makeBeach(id), relation, distanceMiles });
+    const replayPool: PoolBeach[] = beginnerPoolReplay.beaches.map((row) => ({
+      beach: {
+        ...makeBeach(row.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")),
+        name: row.name,
+        skill_level: row.skillLevel,
+      },
+      relation: row.relation as PoolBeach["relation"],
+      distanceMiles: row.distanceMiles,
+    }));
+
+    it("keeps the distant beginner beaches from the production replay without dropping saved spots", () => {
+      const capped = capNearbyPool(replayPool, { cap: 50, experienceLevel: "beginner" });
+      const keptNames = capped.pool.map(({ beach }) => beach.name);
+
+      expect(capped.pool.filter(({ relation }) => relation === "nearby")).toHaveLength(50);
+      expect(keptNames).toEqual(expect.arrayContaining([
+        "72nd Place", "Torrance Beach (RAT Beach)", "Doheny State Beach", "Doheny Beach",
+      ]));
+      expect(capped.pool.filter(({ relation }) => relation !== "nearby").map(({ beach }) => beach.name))
+        .toEqual(replayPool.filter(({ relation }) => relation !== "nearby").map(({ beach }) => beach.name));
+      expect(capped.cappedCount).toBe(40);
+      expect(capped.farthestNearbyMiles).toBe(95.4);
+
+      const nearestOnlyNames = capNearbyPool(replayPool).pool.map(({ beach }) => beach.name);
+      expect(nearestOnlyNames).not.toContain("72nd Place");
+      expect(nearestOnlyNames).not.toContain("Torrance Beach (RAT Beach)");
+    });
+
+    it("keeps beginner-intermediate replay beaches eligible and preserves saved spots after the cap", () => {
+      const experienceLevel = "beginner";
+      const capped = capNearbyPool(replayPool, { cap: 50, experienceLevel });
+      const keptNames = capped.pool.map(({ beach }) => beach.name);
+
+      for (const name of ["Tourmaline Beach", "Pacific Beach", "San Elijo State Beach"]) {
+        const entry = replayPool.find(({ beach }) => beach.name === name);
+        expect(entry?.beach.name).toBe(name);
+        expect(beachSkillVetoReason(entry?.beach.skill_level, experienceLevel)).toBeNull();
+      }
+
+      expect(keptNames).toEqual(expect.arrayContaining([
+        "72nd Place", "Torrance Beach (RAT Beach)",
+      ]));
+      expect(capped.pool.filter(({ relation }) => relation !== "nearby").map(({ beach }) => beach.name))
+        .toEqual(replayPool.filter(({ relation }) => relation !== "nearby").map(({ beach }) => beach.name));
+
+      const isBeginnerEligible = ({ beach }: PoolBeach): boolean =>
+        beach.skill_level === "beginner" || beach.skill_level === "beginner-intermediate";
+      const savedEligibleCount = replayPool.filter((entry) => entry.relation !== "nearby" && isBeginnerEligible(entry)).length;
+      const nearbyEligibleCount = replayPool.filter((entry) => entry.relation === "nearby" && isBeginnerEligible(entry)).length;
+      const expectedEligibleCount = savedEligibleCount + Math.min(50, nearbyEligibleCount);
+      expect(capped.pool.filter(({ beach }) => beachSkillVetoReason(beach.skill_level, experienceLevel) === null))
+        .toHaveLength(expectedEligibleCount);
+    });
+
+    it("keeps distance order and ties within each skill group while capping nearby beaches at 50", () => {
+      const nearby = Array.from({ length: 51 }, (_, index) => ({
+        ...entry(`ineligible-${index}`, "nearby", index + 1),
+        beach: { ...makeBeach(`ineligible-${index}`), skill_level: "intermediate" },
+      }));
+      const eligible = [
+        { ...entry("eligible-far", "nearby", 90), beach: { ...makeBeach("eligible-far"), skill_level: "beginner" } },
+        { ...entry("eligible-tie-first", "nearby", 70), beach: { ...makeBeach("eligible-tie-first"), skill_level: "beginner" } },
+        { ...entry("eligible-tie-second", "nearby", 70), beach: { ...makeBeach("eligible-tie-second"), skill_level: "beginner" } },
+      ];
+      const capped = capNearbyPool([...nearby, ...eligible], { cap: 50, experienceLevel: "beginner" });
+
+      expect(capped.pool.filter(({ relation }) => relation === "nearby")).toHaveLength(50);
+      expect(capped.pool.map(({ beach }) => beach.id)).toEqual([
+        ...nearby.slice(0, 47).map(({ beach }) => beach.id),
+        ...eligible.map(({ beach }) => beach.id),
+      ]);
+      expect(capNearbyPool([...nearby, ...eligible], { cap: 2, experienceLevel: "beginner" }).pool.map(({ beach }) => beach.id))
+        .toEqual(["eligible-tie-first", "eligible-tie-second"]);
+      expect(capped.farthestNearbyMiles).toBe(90);
+    });
+
+    it("keeps the 50 nearest skill-eligible beaches for an advanced surfer", () => {
+      const nearby = [
+        { ...entry("expert", "nearby", 1), beach: { ...makeBeach("expert"), skill_level: "expert" } },
+        ...Array.from({ length: 51 }, (_, index) => ({
+          ...entry(`advanced-${index}`, "nearby", index + 2),
+          beach: { ...makeBeach(`advanced-${index}`), skill_level: "advanced" },
+        })),
+      ];
+
+      const capped = capNearbyPool(nearby, { cap: 50, experienceLevel: "advanced" });
+
+      expect(capped.pool.map(({ beach }) => beach.id))
+        .toEqual(Array.from({ length: 50 }, (_, index) => `advanced-${index}`));
+      expect(capped.farthestNearbyMiles).toBe(51);
+    });
+
+    it.each([null, undefined, "unknown"])("ranks a missing beach skill last for unknown experience %p", (experienceLevel) => {
+      const pool = [
+        { ...entry("missing", "nearby", 1), beach: { ...makeBeach("missing"), skill_level: null } },
+        { ...entry("advanced", "nearby", 2), beach: { ...makeBeach("advanced"), skill_level: "advanced" } },
+      ];
+
+      expect(capNearbyPool(pool, { cap: 1, experienceLevel }).pool.map(({ beach }) => beach.id)).toEqual(["advanced"]);
+      expect(capNearbyPool(pool, { cap: 1 }).pool.map(({ beach }) => beach.id)).toEqual(["missing"]);
+    });
 
     it("keeps the nearest nearby beaches and every home, saved and custom spot", () => {
       const pool = [
@@ -444,7 +569,7 @@ describe("user pool", () => {
         entry("saved", "favorite", 44), entry("mid", "nearby", 12), entry("custom", "custom", 41),
       ];
 
-      const capped = capNearbyPool(pool, 2);
+      const capped = capNearbyPool(pool, { cap: 2 });
 
       expect(capped.pool.map(({ beach }) => beach.id)).toEqual(["home", "near", "saved", "mid", "custom"]);
       expect(capped).toEqual(expect.objectContaining({ cappedCount: 1, farthestNearbyMiles: 12 }));
@@ -453,7 +578,7 @@ describe("user pool", () => {
     it("leaves a pool under the cap untouched", () => {
       const pool = [entry("a", "nearby", 1), entry("b", "favorite", 2)];
 
-      expect(capNearbyPool(pool, 2)).toEqual({ pool, cappedCount: 0, farthestNearbyMiles: null });
+      expect(capNearbyPool(pool, { cap: 2 })).toEqual({ pool, cappedCount: 0, farthestNearbyMiles: null });
     });
   });
 
@@ -485,5 +610,32 @@ describe("user pool", () => {
     expect(result.map(({ beach, relation }) => [beach.id, relation])).toEqual([
       [freshAnchor.id, "custom"],
     ]);
+  });
+});
+
+describe("findNearestBeach", () => {
+  const denver = { lat: 39.74, lon: -104.99 };
+  const at = (id: string, lat: number, lon: number, extra: Partial<Beach> = {}): Beach =>
+    ({ ...makeBeach(id), lat, lon, deleted_at: null, is_private: false, ...extra } as Beach);
+
+  it("returns the closest recommendable beach at any distance", async () => {
+    const supabase = makeSupabase({ favorites: [], nearby: [], beaches: [
+      at("bolsa", 33.71, -118.06),
+      at("pb", 32.8, -117.25),
+      at("private", 39.7, -105.0, { is_private: true }),
+      at("hidden", 39.7, -105.0, { recommendation_eligible: false } as Partial<Beach>),
+      at("excluded", 39.75, -105.0),
+      at("noslug", 39.76, -105.0, { slug: null } as unknown as Partial<Beach>),
+    ], exclusions: [{ beach_id: "excluded" }] });
+
+    const nearest = await findNearestBeach({ supabase, userId: "user-1", location: denver });
+
+    expect(nearest).toEqual(expect.objectContaining({ id: "pb", slug: "pb", lat: 32.8, lon: -117.25 }));
+    expect(nearest!.distanceMiles).toBeGreaterThan(800);
+  });
+
+  it("returns null when no beach qualifies", async () => {
+    const supabase = makeSupabase({ favorites: [], nearby: [], beaches: [] });
+    await expect(findNearestBeach({ supabase, userId: "user-1", location: denver })).resolves.toBeNull();
   });
 });

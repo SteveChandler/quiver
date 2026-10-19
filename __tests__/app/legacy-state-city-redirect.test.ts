@@ -37,6 +37,12 @@ import {
 } from "@/actions/forecast/intent-forecast-actions";
 import { getCityEditorialContent } from "@/actions/city/city-editorial-actions";
 
+jest.mock("@/actions/beginner/beginner-actions", () => ({
+  getBeginnerConditionsData: jest.fn(),
+  getBeginnerBeachesWithEditorial: jest.fn().mockResolvedValue([]),
+  getBeginnerCityEditorial: jest.fn(),
+}));
+
 jest.mock("next/navigation", () => ({
   redirect: jest.fn(),
   notFound: jest.fn(),

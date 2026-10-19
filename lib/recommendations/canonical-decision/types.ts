@@ -1,5 +1,6 @@
 import type { RecommendationAvailability } from "@/lib/recommendations/major-event-hold/types";
 import type { ScoringDecisionEffect } from "@/lib/domains/scoring/types";
+import type { CandidateRejection } from "@/types/personalization";
 
 export const CANONICAL_SESSION_DECISION_SCHEMA_VERSION =
   "canonical-session-decision.v1" as const;
@@ -72,6 +73,8 @@ export interface CanonicalDecisionCandidate {
   waveHeight: unknown;
   utilityScore: number;
   recommendationLabel?: "Worth it" | "Maybe" | "Skip";
+  /** Condition-character category of the candidate's forecast row; "skip" is blown out. */
+  characterCategory?: string | null;
   personalMatch?: CanonicalPersonalMatchEvidence | null;
   safetyOverrideReasons?: CanonicalDecisionReasonCode[];
   effects?: ScoringDecisionEffect[];
@@ -114,6 +117,7 @@ export interface CanonicalSessionDecision {
   /** Additive basis for clients that distinguish missing data from safety overrides. */
   decisionBasisV2?: CanonicalDecisionBasisV2;
   reasonCode: CanonicalDecisionReasonCode;
+  candidateRejection?: CandidateRejection | null;
   personalAdjustmentReason?: "personal_adjusted_up" | "personal_adjusted_down";
   /** EPIC stays for installed clients; it is not emitted while EPIC_LABEL_ENABLED is false. */
   conditionLabel?: "EPIC" | "GOOD" | "FAIR" | "MEH";
@@ -133,4 +137,5 @@ export interface BuildCanonicalSessionDecisionInput {
   profileExperience: unknown;
   recommendationAvailability: RecommendationAvailability;
   candidates: readonly CanonicalDecisionCandidate[];
+  candidateRejection?: CandidateRejection | null;
 }

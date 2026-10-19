@@ -475,8 +475,8 @@ export async function GET(request: Request): Promise<NextResponse> {
 
   async function refreshQueueItemFromLatestForecasts(
     item: QueueItemWithMeta,
-  ): Promise<QueueItemWithMeta | null> {
-    if (!item.conditions || !item.beach_meta) return item;
+  ): Promise<{ item: QueueItemWithMeta | null; diagnostic?: string }> {
+    if (!item.conditions || !item.beach_meta) return { item };
 
     const { start, end } = getUtcDayBounds(
       item.alert_date,
@@ -495,36 +495,39 @@ export async function GET(request: Request): Promise<NextResponse> {
         `${CONTEXT_TAG} forecast revalidation failed for queue ${item.id}; using queued snapshot:`,
         error.message,
       );
-      return item;
+      return { item };
     }
 
-    if (!forecastRows || forecastRows.length === 0) return item;
+    if (!forecastRows || forecastRows.length === 0) return { item };
 
     const hourly = isAlertHourlyWindowsEnabledFor(item.user_id);
     const tideSamples = hourly
       ? await loadAlertTideSamples(supabase as unknown as AlertTideClient, item.beach_id, start, end)
       : null;
-    const freshWindow = selectFreshAlertWindow({
+    const { window: freshWindow, diagnostic } = selectFreshAlertWindow({
       conditions: item.conditions,
       forecastRows: forecastRows as EnhancedForecastAlertRow[],
       beach: item.beach_meta,
+      diagnosticAt: item.best_hour,
       hourly,
       tideSamples,
     });
-    if (!freshWindow) return null;
+    if (!freshWindow) return { item: null, diagnostic };
 
     return {
-      ...item,
-      window_start: freshWindow.window_start,
-      window_end: freshWindow.window_end,
-      best_hour: freshWindow.best_hour,
-      forecast_id: freshWindow.forecast_id,
-      best_score: freshWindow.best_score,
-      conditions_snapshot: {
-        ...freshWindow.conditions_snapshot,
-        ...(freshWindow.forecast_id
-          ? { forecast_id: freshWindow.forecast_id }
-          : {}),
+      item: {
+        ...item,
+        window_start: freshWindow.window_start,
+        window_end: freshWindow.window_end,
+        best_hour: freshWindow.best_hour,
+        forecast_id: freshWindow.forecast_id,
+        best_score: freshWindow.best_score,
+        conditions_snapshot: {
+          ...freshWindow.conditions_snapshot,
+          ...(freshWindow.forecast_id
+            ? { forecast_id: freshWindow.forecast_id }
+            : {}),
+        },
       },
     };
   }
@@ -922,9 +925,9 @@ export async function GET(request: Request): Promise<NextResponse> {
         );
 
         const items: QueueItemWithMeta[] = [];
-        const staleItems: QueueItemWithMeta[] = [];
+        const staleItems: Array<{ item: QueueItemWithMeta; skipReason: string }> = [];
         for (const item of forecastItems) {
-          const refreshed = await refreshQueueItemFromLatestForecasts(item);
+          const { item: refreshed, diagnostic } = await refreshQueueItemFromLatestForecasts(item);
           if (refreshed && Date.parse(refreshed.window_end) > Date.now()) {
             const persisted = await persistRefreshedQueueItem(refreshed);
             if (!persisted) {
@@ -943,12 +946,17 @@ export async function GET(request: Request): Promise<NextResponse> {
             }
             items.push(refreshed);
           } else {
-            staleItems.push(item);
+            staleItems.push({
+              item,
+              skipReason: refreshed
+                ? `window_ended_unrevalidated:window_end=${refreshed.window_end}`
+                : `no_matching_window${diagnostic ? `:${diagnostic}` : ""}`,
+            });
           }
         }
 
         if (staleItems.length > 0) {
-          for (const item of staleItems) {
+          for (const { item, skipReason } of staleItems) {
             for (const channel of enabledChannels(item)) {
               await recordAttempt({
                 queueId: item.id,
@@ -956,12 +964,11 @@ export async function GET(request: Request): Promise<NextResponse> {
                 userId: item.user_id,
                 channel,
                 status: "skipped_stale_forecast",
-                skipReason:
-                  "alert window expired or fresh forecast no longer matches the queued alert rule",
+                skipReason,
               });
             }
           }
-          const marked = await markQueueItemsConsumed(staleItems, "stale");
+          const marked = await markQueueItemsConsumed(staleItems.map(({ item }) => item), "stale");
           if (marked) result.skippedStale += staleItems.length;
         }
 
@@ -970,6 +977,19 @@ export async function GET(request: Request): Promise<NextResponse> {
             parseQueuedBestScore(item.best_score) < ALERT_MIN_DELIVERABLE_SCORE,
         );
         if (lowScoreItems.length > 0) {
+          for (const item of lowScoreItems) {
+            for (const channel of enabledChannels(item)) {
+              await recordAttempt({
+                queueId: item.id,
+                ruleId: item.rule_id,
+                userId: item.user_id,
+                channel,
+                // The status CHECK excludes a dedicated below-floor status.
+                status: "skipped_disabled",
+                skipReason: `below_score_floor:score=${parseQueuedBestScore(item.best_score)}<floor ${ALERT_MIN_DELIVERABLE_SCORE}`,
+              });
+            }
+          }
           await markQueueItemsConsumed(lowScoreItems, "below_score_floor");
         }
         const scoreEligibleItems = items.filter(

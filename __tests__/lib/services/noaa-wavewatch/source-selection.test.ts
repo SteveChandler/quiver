@@ -103,6 +103,54 @@ describe('raw wave sources → selection → face-height contracts', () => {
     expect(mergeWaveSources([], [flat])[0].significant_wave_height).toBe(0);
   });
 
+  describe('NWS empty-cell (all-zero) series', () => {
+    const hour = (n: number) => new Date(Date.parse(at) + n * 3600000).toISOString();
+    // Share OM's swell partitions so a direction mismatch between the two raw
+    // fixtures can't raise a disagreement; these cases test height handling only.
+    const swellOf = ({ swell_1_height, swell_1_period, swell_1_direction, swell_2_height, swell_2_period,
+      swell_2_direction, wind_wave_height, wind_wave_period, wind_wave_direction }: ReturnType<typeof om>) => ({
+      swell_1_height, swell_1_period, swell_1_direction, swell_2_height, swell_2_period,
+      swell_2_direction, wind_wave_height, wind_wave_period, wind_wave_direction });
+    const nwsHs = (heights: number[]) => heights.map((h, i) => ({ ...nws(), ...swellOf(om()), timestamp: hour(i), significant_wave_height: h }));
+    const omHs = (heights: number[]) => heights.map((h, i) => ({ ...om(), timestamp: hour(i), significant_wave_height: h }));
+
+    it('all-zero NWS with OM present: OM selected, no disagreement, empty-cell reason', () => {
+      const merged = mergeWaveSources(nwsHs([0, 0, 0]), omHs([1.38, 1.4, 1.5]));
+      expect(merged.map((p) => p.data_source)).toEqual(['OPEN_METEO', 'OPEN_METEO', 'OPEN_METEO']);
+      merged.forEach((p) => expect(p.source_selection).toMatchObject({
+        reason: 'nws_empty_cell', disagreement: false, noaa_height_m: null,
+      }));
+    });
+
+    it('all-zero NWS with OM missing hours: those hours are absent, not 0 m', () => {
+      const merged = mergeWaveSources(nwsHs([0, 0, 0]), omHs([1.38]));
+      expect(merged).toHaveLength(1);
+      expect(merged[0].significant_wave_height).toBe(1.38);
+    });
+
+    it('NOAA-only all-zero series yields no rows', () => {
+      expect(mergeWaveSources(nwsHs([0, 0, 0]), [])).toEqual([]);
+    });
+
+    it('mixed NWS series is retained, not dropped as an empty cell, with a real 0 m hour beside OM 0.05', () => {
+      const merged = mergeWaveSources(nwsHs([0, 1.2]), omHs([0.05, 1.2]));
+      // Which source wins depends on input completeness; assert only that the NWS series was retained.
+      expect(merged[0].source_selection).toMatchObject({ disagreement: false, noaa_height_m: 0 });
+      expect(merged[0].source_selection?.reason).not.toBe('nws_empty_cell');
+    });
+
+    it('small positive NWS height far from OM still disagrees', () => {
+      const [point] = mergeWaveSources(nwsHs([0.2]), omHs([1.38]));
+      expect(point.source_selection).toMatchObject({ reason: 'reported_inputs', disagreement: true, noaa_height_m: 0.2 });
+    });
+
+    it.each([null, NaN])('NWS height %s is filtered like missing', (height) => {
+      const bad = { ...nws(), significant_wave_height: height as unknown as number };
+      expect(mergeWaveSources([bad], omHs([1.38]))[0].source_selection)
+        .toMatchObject({ reason: 'only_source', disagreement: false, noaa_height_m: null });
+    });
+  });
+
   it('does not select a corrupt component even when its total height is valid', () => {
     expect(mergeWaveSources([nws()], [{ ...om(), swell_1_direction: NaN }])[0].data_source).toBe('NOAA_NWS');
   });

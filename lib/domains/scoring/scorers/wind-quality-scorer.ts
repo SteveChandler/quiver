@@ -34,6 +34,8 @@
 import type { ScorerPlugin, ScorerInput, ScorerResult } from '../types';
 import { SCORER_WEIGHTS, createSkipResult } from '../types';
 import { angleDifference } from '../../shared';
+import type { ConditionsSnapshot } from '../../conditions/types';
+import type { SpotProfile } from '../../spot-profile/types';
 
 // ============================================================================
 // Constants
@@ -85,6 +87,21 @@ const WAVE_HEIGHT_PENALTY_MAX = 1.5;
 // ============================================================================
 // Direction classification
 // ============================================================================
+
+/**
+ * True when the wind can't be judged against the beach: no speed, or a
+ * non-glassy wind with no direction or no beach orientation. Such wind is left
+ * out of the score (neither helps nor hurts) and out of user-facing text.
+ */
+export function isWindQualityUnknown(
+  snapshot: ConditionsSnapshot,
+  profile: SpotProfile
+): boolean {
+  const speed = snapshot.wind.speedMph;
+  if (speed == null || !Number.isFinite(speed)) return true;
+  if (speed <= GLASSY_MPH) return false;
+  return snapshot.wind.directionDeg == null || profile.windThresholds.offshoreDeg == null;
+}
 
 export type WindDirectionClass = 'offshore' | 'sideshore' | 'onshore';
 
@@ -227,6 +244,22 @@ function periodPenaltyAdjustment(periodS: number | null | undefined): number {
   return 0;
 }
 
+/**
+ * Weight 0: the engine drops it and renormalises the other scorers, so the
+ * wind neither helps nor hurts. No reasons or warnings reach the user.
+ */
+function excludedWindResult(): ScorerResult {
+  return {
+    name: 'windQuality',
+    score: 50,
+    weight: 0,
+    reasons: [],
+    warnings: [],
+    skip: false,
+    skipReason: null,
+  };
+}
+
 // ============================================================================
 // Scorer Plugin
 // ============================================================================
@@ -246,19 +279,9 @@ export const windQualityScorer: ScorerPlugin = {
     const wavePeriod = snapshot.wavePeriod;
     const { windThresholds } = profile;
 
-    // Unknown speed => neutral midpoint of the 0-100 range. Checked before
-    // the glassy short-circuit: a missing wind is not a calm one.
-    if (windSpeed === null) {
-      return {
-        name: 'windQuality',
-        score: 50,
-        weight: SCORER_WEIGHTS.windQuality,
-        reasons: [],
-        warnings: ['Wind speed unknown'],
-        skip: false,
-        skipReason: null,
-      };
-    }
+    // Wind we can't judge (see isWindQualityUnknown) sits out of the score.
+    // A missing wind is not a calm one, so speed is checked before glassy.
+    if (windSpeed === null || !Number.isFinite(windSpeed)) return excludedWindResult();
 
     // Glassy short-circuit (any direction, including null).
     if (windSpeed <= GLASSY_MPH) {
@@ -273,17 +296,9 @@ export const windQualityScorer: ScorerPlugin = {
       };
     }
 
-    // No wind direction => moderate score, no skip.
-    if (windDirection === null) {
-      return {
-        name: 'windQuality',
-        score: 50,
-        weight: SCORER_WEIGHTS.windQuality,
-        reasons: [],
-        warnings: ['Wind direction unknown'],
-        skip: false,
-        skipReason: null,
-      };
+    // No direction, or no offshore bearing/facing direction: never assume one.
+    if (windDirection === null || windThresholds.offshoreDeg === null) {
+      return excludedWindResult();
     }
 
     const direction = classifyDirection(

@@ -1,3 +1,4 @@
+import { pushTitle } from "./push-title";
 import followupPool from "./swell-followup-titles.v1.json";
 import titlePool from "./surf-titles.v1.json";
 
@@ -126,7 +127,7 @@ function pickHeadline(args: {
   const entries = entriesFor(args.kind);
   // Card-only: a first alert on a card already shows the beach in its own tag.
   const cardComing = args.cardSuitable === true && args.kind === "coming" && args.serious !== true;
-  const vars = headlineVars(args);
+  const vars = headlineVars({ ...args, beachName: pushTitle(args.beachName) });
   const serious = args.serious === true;
 
   if (args.titleId) {

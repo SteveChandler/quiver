@@ -15,7 +15,8 @@ export interface BeginnerConditionsBadge {
   status: BeginnerConditionStatus;
   statusLabel: string;
   waveHeight: string;
-  wind: string;
+  /** Null when the forecast has no wind speed: the badge shows no wind. */
+  wind: string | null;
   waterTemp: string;
   spotName: string;
   spotSlug: string;
@@ -39,7 +40,8 @@ export interface ConditionMetricWithIcon extends ConditionMetric {
 
 export interface RightNowMetrics {
   waveHeight: ConditionMetric;
-  wind: ConditionMetric;
+  /** Absent when the forecast has no wind speed: missing wind is neither shown nor scored. */
+  wind?: ConditionMetric;
   waterTemp: ConditionMetricWithIcon;
   tide: ConditionMetric;
   crowd: ConditionMetric;

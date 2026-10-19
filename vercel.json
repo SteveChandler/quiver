@@ -171,6 +171,10 @@
       "schedule": "20 * * * *"
     },
     {
+      "path": "/api/cron/session-tracks-purge",
+      "schedule": "40 9 * * *"
+    },
+    {
       "path": "/api/cron/condition-alert-deliver",
       "schedule": "2 * * * *"
     },

@@ -27,7 +27,7 @@ jest.mock("@/lib/supabase/server", () => ({
 }));
 
 // Import route handlers after mocks are set up
-import { PATCH } from "@/app/api/sessions/[id]/route";
+import { GET, PATCH } from "@/app/api/sessions/[id]/route";
 
 describe("PATCH /api/sessions/[id]", () => {
   const validSessionId = "123e4567-e89b-12d3-a456-426614174000";
@@ -36,6 +36,35 @@ describe("PATCH /api/sessions/[id]", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it.each(["accurate", "somewhat", "inaccurate", null])("stores forecast accuracy %s", async forecastAccuracy => {
+    mockAuthGetUser.mockResolvedValue({ data: { user: { id: validUserId } }, error: null });
+    const update = jest.fn();
+    const updateResult = { data: { id: validSessionId, forecast_accuracy: forecastAccuracy }, error: null };
+    const updateQuery: any = { eq: () => updateQuery, select: () => updateQuery, single: async () => updateResult };
+    update.mockReturnValue(updateQuery);
+    const ownershipQuery: any = { eq: () => ownershipQuery,
+      single: async () => ({ data: { id: validSessionId, user_id: validUserId }, error: null }) };
+    mockFrom.mockReturnValue({ select: () => ownershipQuery, update });
+    const request = new NextRequest(`http://localhost/api/sessions/${validSessionId}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ forecast_accuracy: forecastAccuracy }),
+    });
+    const response = await PATCH(request, { params: { id: validSessionId } });
+    expect(response.status).toBe(200);
+    expect(update).toHaveBeenCalledWith({ forecast_accuracy: forecastAccuracy });
+  });
+
+  it.each(["wrong", "accuratee", 3])("rejects forecast accuracy %s", async forecastAccuracy => {
+    mockAuthGetUser.mockResolvedValue({ data: { user: { id: validUserId } }, error: null });
+    const request = new NextRequest(`http://localhost/api/sessions/${validSessionId}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ forecast_accuracy: forecastAccuracy }),
+    });
+    const response = await PATCH(request, { params: { id: validSessionId } });
+    expect(response.status).toBe(400);
+    expect(mockFrom).not.toHaveBeenCalled();
   });
 
   describe("Authentication", () => {
@@ -1121,5 +1150,79 @@ describe("PATCH /api/sessions/[id]", () => {
       expect(data.success).toBe(false);
       expect(data.error).toContain("Failed to update session");
     });
+  });
+});
+
+
+describe("GET /api/sessions/[id] track availability", () => {
+  const ownerId = "987fcdeb-51a2-43c1-a123-456789abcdef";
+  const sessionId = "123e4567-e89b-12d3-a456-426614174000";
+  const originalEnv = { ...process.env };
+  beforeEach(() => {
+    delete process.env.GARMIN_WATCH_ENABLED;
+    delete process.env.GARMIN_WATCH_USER_ALLOWLIST;
+  });
+  afterEach(() => { process.env = { ...originalEnv }; });
+
+  it("returns has_track for a garmin-only owner", async () => {
+    jest.clearAllMocks();
+    process.env.SESSION_IMPORTS_ENABLED = "false";
+    process.env.GARMIN_WATCH_ENABLED = "true";
+    process.env.GARMIN_WATCH_USER_ALLOWLIST = ownerId;
+    mockAuthGetUser.mockResolvedValue({ data: { user: { id: ownerId } }, error: null });
+    const session = { id: sessionId, user_id: ownerId, forecast_snapshot: [], image_url: "photo.jpg" };
+    const sessionQuery = { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), single: jest.fn().mockResolvedValue({ data: session, error: null }) };
+    const trackQuery = { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), maybeSingle: jest.fn().mockResolvedValue({ data: { session_id: sessionId }, error: null }) };
+    mockFrom.mockImplementation((table: string) => table === "session_tracks" ? trackQuery : sessionQuery);
+
+    const response = await GET(new NextRequest(`http://localhost/api/sessions/${sessionId}`), { params: { id: sessionId } });
+
+    expect(response.status).toBe(200);
+    expect((await response.json()).data.session.has_track).toBe(true);
+    expect(trackQuery.eq).toHaveBeenCalledWith("user_id", ownerId);
+  });
+
+  it.each(["returned", "thrown"])("returns the session with has_track false when track lookup errors are %s", async (mode) => {
+    jest.clearAllMocks();
+    process.env.SESSION_IMPORTS_ENABLED = "true";
+    process.env.SESSION_IMPORTS_USER_ALLOWLIST = ownerId;
+    mockAuthGetUser.mockResolvedValue({ data: { user: { id: ownerId } }, error: null });
+    const session = { id: sessionId, user_id: ownerId, forecast_snapshot: [], image_url: "photo.jpg" };
+    const sessionQuery = { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), single: jest.fn().mockResolvedValue({ data: session, error: null }) };
+    const error = new Error("track lookup unavailable");
+    const trackQuery = { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), maybeSingle: jest.fn() };
+    if (mode === "returned") trackQuery.maybeSingle.mockResolvedValue({ data: null, error });
+    else trackQuery.maybeSingle.mockRejectedValue(error);
+    mockFrom.mockImplementation((table: string) => table === "session_tracks" ? trackQuery : sessionQuery);
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      const response = await GET(new NextRequest(`http://localhost/api/sessions/${sessionId}`), { params: { id: sessionId } });
+      expect(response.status).toBe(200);
+      expect((await response.json()).data.session).toMatchObject({ id: sessionId, has_track: false });
+      expect(warn).toHaveBeenCalledWith(expect.any(String), error);
+    } finally { warn.mockRestore(); }
+  });
+
+  it.each([
+    [false, false, true, false],
+    [true, false, true, false],
+    [true, true, false, false],
+    [true, true, true, true],
+  ])("returns has_track with enabled=%s allowed=%s track=%s", async (enabled, allowed, tracked, expected) => {
+    jest.clearAllMocks();
+    process.env.SESSION_IMPORTS_ENABLED = String(enabled);
+    process.env.SESSION_IMPORTS_USER_ALLOWLIST = allowed ? ownerId : "";
+    mockAuthGetUser.mockResolvedValue({ data: { user: { id: ownerId } }, error: null });
+    const session = { id: sessionId, user_id: ownerId, forecast_snapshot: [], image_url: "photo.jpg" };
+    const sessionQuery = { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), single: jest.fn().mockResolvedValue({ data: session, error: null }) };
+    const trackQuery = { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), maybeSingle: jest.fn().mockResolvedValue({ data: tracked ? { session_id: sessionId } : null, error: null }) };
+    mockFrom.mockImplementation((table: string) => table === "session_tracks" ? trackQuery : sessionQuery);
+    const response = await GET(new NextRequest(`http://localhost/api/sessions/${sessionId}`), { params: { id: sessionId } });
+    expect(response.status).toBe(200);
+    expect((await response.json()).data.session.has_track).toBe(expected);
+    const expectedTrackFilters = enabled && allowed
+      ? [["session_id", sessionId], ["user_id", ownerId]]
+      : [];
+    expect(trackQuery.eq.mock.calls).toEqual(expectedTrackFilters);
   });
 });

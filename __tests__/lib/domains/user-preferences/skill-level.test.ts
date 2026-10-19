@@ -74,7 +74,7 @@ describe('Skill Level Utilities', () => {
   describe('parseBeachSkillRequirement', () => {
     it.each([
       ['all', 'beginner'],
-      ['beginner-intermediate', 'intermediate'],
+      ['beginner-intermediate', 'beginner'],
       ['lower-intermediate', 'intermediate'],
       ['intermediate-advanced', 'advanced'],
       ['upper-intermediate', 'intermediate'],

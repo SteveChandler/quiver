@@ -175,6 +175,37 @@ async function run(
 }
 
 describe("pinned swell follow-ups on the real detector", () => {
+  it("uses Hawaii dates in moved copy while retaining New York dates in the payload", async () => {
+    const peakAt = "2026-09-20T02:00:00.000Z";
+    const forecasts = rows((date) => date === "2026-09-19" ? 4 : date === "2026-09-20" ? 5 : 1.5)
+      .map((forecast) => {
+        const forecastAt = new Date(Date.parse(forecast.forecast_at) + 3_600_000).toISOString();
+        return { ...forecast, forecast_at: forecastAt,
+          swell_1_height: forecastAt === peakAt ? "5.1 ft" : forecast.swell_1_height,
+        };
+      });
+    const previousPeakAt = "2026-09-19T04:00:00.000Z";
+    const fake = client({
+      beach: { ...beach, state: "HI", timezone: "Pacific/Honolulu" },
+      forecasts,
+      states: [{ ...STATE_ROW, last_peak_at: previousPeakAt }],
+    });
+
+    const { result, payload, enqueue } = await run(fake, NOW, {
+      loadProfiles: async () => [{ ...profile, timezone: "America/New_York" }],
+    });
+
+    expect(result.sentByKind).toEqual({ moved: 1 });
+    expect(payload?.body).toContain("peak Saturday afternoon. Was Friday.");
+    expect(payload?.title).toContain("Saturday");
+    expect(payload).toMatchObject({
+      forecast_at: peakAt,
+      peak_date: "2026-09-19",
+      previous_peak_date: "2026-09-19",
+    });
+    expect(enqueue).toHaveBeenCalledWith(expect.objectContaining({ dedupeKey: `swell_watch:${USER_ID}:${EVENT_KEY}:moved` }));
+  });
+
   const oct6 = new Date("2026-10-06T15:24:00.000Z");
   const saturdayKey = `${BEACH_ID}:W:2026-10-11`;
 
@@ -257,7 +288,7 @@ describe("pinned swell follow-ups on the real detector", () => {
     const first = await run(client({ forecasts, states: [] }), oct6, {
       isOutlookEnabled: () => true, isOutlookUserAllowed: () => true,
       loadOutlook: async () => swells, loadEngagement: async () => null, saveEngagement: async () => undefined,
-      getTier: async () => "premium", hasFirstSightingAlert: async () => false,
+      hasFirstSightingAlert: async () => false,
       insertAlert: async () => ({ id: "first-alert" }), markAlertEnqueued: async () => undefined,
       loadFirstSightingHazard: async () => null, loadBeachDistancesKm: async () => new Map(), saveFirstTold,
     });

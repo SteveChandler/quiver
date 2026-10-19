@@ -3,8 +3,9 @@
  *
  * Missing wind is unknown, not calm. Forecast rows now store null wind when
  * the source has none (e.g. no NWS point for Mexican beaches), so every
- * consumer must score a null speed at its neutral midpoint, never as glassy,
- * and must never fabricate a direction. A real calm (0 mph, no direction,
+ * consumer must leave a null speed neutral (out of the score, or at its
+ * midpoint where a number is required), never glassy, and must never
+ * fabricate a direction. A real calm (0 mph, no direction,
  * which is how NWS reports calm) still scores as calm on speed alone.
  */
 
@@ -78,15 +79,16 @@ describe('wind analyzer', () => {
     for (const speed of [null, Number.NaN, Number.POSITIVE_INFINITY]) {
       const wind = windAt('12:00', row(speed, null), 'UTC');
       expect(wind).toMatchObject({ cardinal: 'N/A', offshore: false, description: 'N/A' });
-      expect(analyzeWindConditions(wind, { name: 'Test Beach', windOffshoreDeg: 270 }).message)
-        .toBe('Wind unknown');
+      // Unknown wind sits out of the verdict and shows nothing.
+      expect(analyzeWindConditions(wind, { name: 'Test Beach', windOffshoreDeg: 270 }))
+        .toMatchObject({ message: '', excluded: true });
     }
     const directionless = windAt('12:00', row(8, null), 'UTC');
     expect(directionless).toMatchObject({
       cardinal: 'N/A', offshore: false, description: '8 mph wind',
     });
-    expect(analyzeWindConditions(directionless, { name: 'Test Beach', windOffshoreDeg: 270 }).message)
-      .toBe('Moderate winds (8 mph)');
+    expect(analyzeWindConditions(directionless, { name: 'Test Beach', windOffshoreDeg: 270 }))
+      .toMatchObject({ message: '', excluded: true });
   });
 
   it('keeps a real calm with no direction calm', () => {
@@ -223,10 +225,10 @@ describe('condition character', () => {
       composite,
     );
 
-  it('does not call a small day glassy when the wind is unknown', () => {
+  it('neither calls a small day glassy nor downgrades it when the wind is unknown', () => {
     const character = smallDay(null);
-    expect(character.category).not.toBe('small-clean');
-    expect(character.label).not.toMatch(/glassy/i);
+    expect(character).toEqual({ category: 'small-clean', label: 'Small but surfable' });
+    expect(character.label).not.toMatch(/glassy|wind|clean/i);
   });
 
   it('still calls a calm small day clean', () => {
@@ -298,8 +300,8 @@ describe('magic hour', () => {
     timezone: 'UTC',
   };
 
-  it('scores a missing direction at the 0.55 midpoint with no wind quality label', () => {
-    expect(calculateWindScore(null, 0, 30)).toBe(0.55);
+  it('leaves a missing direction out of the score with no wind quality label', () => {
+    expect(calculateWindScore(null, 0, 30)).toBeNull();
 
     const result = findMagicHour(
       [{
@@ -313,8 +315,8 @@ describe('magic hour', () => {
     );
     expect(result.found).toBe(true);
     expect(result.windQuality).toBeNull();
-    // tide 1 * 0.4 + wind 0.55 * 0.35 + swell 1 * 0.25
-    expect(result.confidence).toBeCloseTo(0.8425, 6);
+    // Wind is excluded and the weights renormalised: tide 1 and swell 1 give a full match.
+    expect(result.confidence).toBeCloseTo(1, 6);
   });
 });
 
@@ -331,11 +333,21 @@ describe('morning intel session window', () => {
     tide_height: null,
   });
 
-  it('scores a missing speed at the midpoint without claiming light or offshore wind', () => {
-    // Wind is the only scored factor here: neutral 20 meets the 20-point floor.
+  const withSwell = (
+    base: ReturnType<typeof slot>,
+    wave_period: number,
+    tide_height: number,
+  ) => ({ ...base, wave_period, tide_height });
+
+  it('leaves a missing speed out of the score: nothing else good means no window', () => {
     const window = findNextBestWindow([slot('12:00', null, null)], now, 270);
+    expect(window?.startTime).toBeNull();
+  });
+
+  it('makes no wind claim for a missing speed', () => {
+    const window = findNextBestWindow([withSwell(slot('12:00', null, null), 12, 3)], now, 270);
     expect(window?.startTime).toBe('12:00');
-    expect(window?.conditions).toBe('Wind unknown');
+    expect(window?.conditions).toBe('Quality swell');
   });
 
   it('does not rank an unknown wind above light offshore', () => {
@@ -347,6 +359,27 @@ describe('morning intel session window', () => {
     const window = findNextBestWindow([slot('12:00', 0, null)], now, 270);
     expect(window?.startTime).toBe('12:00');
     expect(window?.conditions).toMatch(/^Light winds/);
+  });
+
+  it('does not penalise a breeze with no direction against a known calm offshore hour', () => {
+    // 12:00 has the better swell and tide; its wind can't be judged, so swell and tide decide.
+    const window = findNextBestWindow(
+      [withSwell(slot('12:00', 12, null), 12, 3), withSwell(slot('13:00', 3, 270), 10, 0)],
+      now,
+      270,
+    );
+    expect(window?.startTime).toBe('12:00');
+    expect(window?.conditions).toBe('Quality swell');
+  });
+
+  it('treats a breeze at a beach with no orientation as unknown, never as offshore', () => {
+    const window = findNextBestWindow([withSwell(slot('12:00', 6, 270), 12, 3)], now, null);
+    expect(window?.conditions).toBe('Quality swell');
+  });
+
+  it('judges wind against the offshore bearing it is given', () => {
+    const window = findNextBestWindow([withSwell(slot('12:00', 6, 90), 12, 3)], now, 90);
+    expect(window?.conditions).toBe('Clean offshore winds, quality swell');
   });
 });
 

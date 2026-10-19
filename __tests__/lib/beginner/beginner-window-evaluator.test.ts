@@ -93,3 +93,49 @@ describe("beginner sandy-window evaluator", () => {
     expect(result.statuses.wave).toBe("poor");
   });
 });
+
+describe("beginner window with missing wind", () => {
+  const idealExceptWind = {
+    beach: sandyBeginnerBeach,
+    waveHeightFtMax: 2,
+    tideStatus: "Rising",
+    tideHeightFt: 1.8,
+    forecastAt: "2026-05-22T14:00:00Z",
+    timezone: "America/Los_Angeles",
+  };
+
+  it("does not let an unknown wind block an ideal window", () => {
+    const result = evaluateBeginnerWindow({ ...idealExceptWind, windSpeedMph: null });
+
+    expect(result.statuses.wind).toBe("unknown");
+    expect(result.rating).toBe("ideal");
+    expect(result.reasons).not.toContain("light wind");
+  });
+
+  it("still lets a known textured wind hold the window at acceptable", () => {
+    const result = evaluateBeginnerWindow({ ...idealExceptWind, windSpeedMph: 13 });
+
+    expect(result.rating).toBe("acceptable");
+  });
+
+  it("still needs the other inputs: unknown wind does not make a missing wave ideal", () => {
+    const result = evaluateBeginnerWindow({
+      ...idealExceptWind,
+      waveHeightFtMax: null,
+      windSpeedMph: null,
+    });
+
+    expect(result.rating).toBe("acceptable");
+  });
+
+  it("does not turn an unknown wind into a poor rating", () => {
+    const result = evaluateBeginnerWindow({
+      ...idealExceptWind,
+      windSpeedMph: null,
+      tideStatus: "Falling",
+      tideHeightFt: 6,
+    });
+
+    expect(result.rating).toBe("acceptable");
+  });
+});

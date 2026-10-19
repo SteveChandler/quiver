@@ -17,14 +17,17 @@ import type {
   ConditionEvaluation,
 } from "@/types/morning-intel";
 import { formatWindSpeed } from "@/lib/formatters/surf-data";
-import { normalizeAngle } from "@/lib/domains/shared/angle-utils";
+import { angleDifference, normalizeAngle } from "@/lib/domains/shared/angle-utils";
+import type { WindOrientation } from "@/lib/domains/shared/wind-orientation";
 import { parseWindSpeedOrNull } from "@/lib/utils/number-parsing";
 import { degreeToCardinal } from "@/lib/utils/geo-utils";
 
 export { normalizeAngle };
 
-// Ocean Beach, San Diego faces approximately WSW (260-270°)
-const OB_SHORE_NORMAL = 270; // degrees
+/** At or below this speed the wind reads as calm whatever its direction. */
+export const CALM_MPH = 3;
+/** Within this many degrees of straight onshore counts as onshore. */
+const ONSHORE_CONE_DEG = 45;
 
 const UNKNOWN_WIND: WindMetrics = {
   // WindMetrics requires numbers; N/A marks these as sentinels, not measured zero or north.
@@ -33,6 +36,7 @@ const UNKNOWN_WIND: WindMetrics = {
   cardinal: "N/A",
   offshore: false,
   description: "N/A",
+  relation: null,
 };
 
 /**
@@ -46,7 +50,19 @@ export function calculateOnOffshore(windDir: number, beachNormal: number): boole
 }
 
 /**
- * Get wind metrics at a specific time
+ * True when the wind can't be judged against this beach: no speed, or a
+ * non-calm wind with no relation. Such wind stays out of verdicts and copy.
+ */
+export function isWindUnknown(wind: WindMetrics): boolean {
+  if (wind.description === "N/A") return true;
+  // Stored intel from before `relation` existed carries its relation in the description.
+  if (wind.relation === undefined) return false;
+  return wind.speed > CALM_MPH && wind.relation === null;
+}
+
+/**
+ * Get wind metrics at a specific time, judged against the beach's resolved
+ * orientation. Without one the wind gets a plain speed reading and no relation.
  */
 export function windAt(
   targetTime: string,
@@ -57,7 +73,8 @@ export function windAt(
     wind_speed?: number | null;
     wind_direction?: number | null;
   }>,
-  timezone: string
+  timezone: string,
+  orientation: WindOrientation | null = null
 ): WindMetrics {
   if (forecasts.length === 0) {
     return UNKNOWN_WIND;
@@ -92,24 +109,27 @@ export function windAt(
   if (windSpeed === null) return UNKNOWN_WIND;
   const windDir = closestForecast.wind_direction;
   const hasDirection = windDir != null && Number.isFinite(windDir);
-  const offshore = hasDirection && calculateOnOffshore(windDir, OB_SHORE_NORMAL);
+  const offshoreDeg = orientation?.offshoreDeg ?? null;
+  let relation: WindMetrics["relation"] = null;
+  if (hasDirection && orientation && offshoreDeg != null) {
+    const fromOffshore = angleDifference(windDir, offshoreDeg);
+    relation = fromOffshore <= orientation.toleranceDeg
+      ? "offshore"
+      : fromOffshore >= 180 - ONSHORE_CONE_DEG ? "onshore" : "cross-shore";
+  }
+  const offshore = relation === "offshore";
 
-  let description = "N/A";
+  let description: string;
   if (windSpeed === 0) {
     description = "calm";
-  } else if (!hasDirection) {
+  } else if (relation === null) {
     description = `${formatWindSpeed(windSpeed)} wind`;
-  } else if (offshore) {
+  } else if (relation === "offshore") {
     description = windSpeed < 5 ? "light offshore" : "offshore";
+  } else if (relation === "onshore") {
+    description = windSpeed < 8 ? "light onshore" : "onshore";
   } else {
-    const angleDiff = Math.abs(normalizeAngle(windDir - OB_SHORE_NORMAL));
-    if (angleDiff > 135) {
-      // Onshore
-      description = windSpeed < 8 ? "light onshore" : "onshore";
-    } else {
-      // Cross-shore
-      description = "cross-shore";
-    }
+    description = "cross-shore";
   }
 
   return {
@@ -118,6 +138,7 @@ export function windAt(
     cardinal: hasDirection ? degreeToCardinal(windDir) : "N/A",
     offshore,
     description,
+    relation,
   };
 }
 
@@ -126,39 +147,22 @@ export function windAt(
  */
 export function analyzeWindConditions(
   wind: WindMetrics,
-  beach: BeachPreferences
+  _beach: BeachPreferences
 ): ConditionEvaluation {
-  if (wind.description === "N/A") {
-    return { status: "acceptable", emoji: "⚠️", message: "Wind unknown" };
+  if (isWindUnknown(wind)) {
+    return { status: "acceptable", emoji: "⚠️", message: "", excluded: true };
   }
-  // If no wind offshore preference defined, evaluate based on general conditions
-  if (!beach.windOffshoreDeg || wind.cardinal === "N/A") {
+  // Known but without a relation means calm (see isWindUnknown).
+  if (wind.relation == null) {
     const direction = wind.cardinal === "N/A" ? "" : ` ${wind.cardinal}`;
-    if (wind.speed < 5) {
-      return {
-        status: "optimal",
-        emoji: "✅",
-        message: `Light winds (${formatWindSpeed(wind.speed)}${direction})`,
-      };
-    } else if (wind.speed < 10) {
-      return {
-        status: "acceptable",
-        emoji: "⚠️",
-        message: `Moderate winds (${formatWindSpeed(wind.speed)}${direction})`,
-      };
-    } else {
-      return {
-        status: "poor",
-        emoji: "❌",
-        message: `Strong winds (${formatWindSpeed(wind.speed)}${direction})`,
-      };
-    }
+    return {
+      status: "optimal",
+      emoji: "✅",
+      message: `Light winds (${formatWindSpeed(wind.speed)}${direction})`,
+    };
   }
 
-  // Calculate if wind is offshore
-  const tolerance = beach.windOffshoreTol || 45;
-  const angleDiff = Math.abs(normalizeAngle(wind.direction - beach.windOffshoreDeg));
-  const isOffshore = angleDiff <= tolerance || angleDiff >= (360 - tolerance);
+  const isOffshore = wind.relation === "offshore";
 
   if (isOffshore && wind.speed < 8) {
     return {

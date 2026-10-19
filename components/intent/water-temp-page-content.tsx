@@ -3,6 +3,7 @@ import { ChevronLeft } from "lucide-react";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { FAQSection } from "@/components/seo/faq-schema";
 import { generateIntentFAQ } from "@/lib/seo/intent-faq-generator";
+import { describeWaterFeel, formatWetsuitPhrase } from "@/lib/utils/wetsuit-utils";
 import { CityMapView } from "@/components/city/city-map-view";
 import { CTASection } from "@/components/landing-page/cta-section";
 import { AlertCaptureCta } from "@/components/seo/alert-capture-cta";
@@ -66,7 +67,8 @@ export function WaterTempPageContent({
     "water-temp",
     cityName,
     spots.slice(0, 3).map((s) => s.name),
-    stateSlug
+    stateSlug,
+    waterTempData.currentTemp
   );
   const roundedCurrentTemp = Math.round(waterTempData.currentTemp);
 
@@ -111,8 +113,9 @@ export function WaterTempPageContent({
           <div className="space-y-2 mt-6">
             <p className="text-base font-medium text-gray-900">
               {cityName} water temperature today is {roundedCurrentTemp}°F.
-              Most surfers should plan around{" "}
-              {waterTempData.wetsuitRecommendation.thickness}.
+              Is it cold? It&apos;s {describeWaterFeel(roundedCurrentTemp)} for
+              most people, so plan on{" "}
+              {formatWetsuitPhrase(waterTempData.wetsuitRecommendation)}.
             </p>
             <p className="text-base text-gray-700">
               {getWaterTempSourceDescription(waterTempData.source)}

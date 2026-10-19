@@ -163,7 +163,7 @@ async function main(): Promise<void> {
     const { createSupabaseServiceRoleClient } = await import("@/lib/supabase/server");
     const { capNearbyPool, loadUserPool } = await import("@/lib/alerts/user-pool");
     const { buildDriveRangeCandidatePool } = await import("@/lib/services/discovery/weekend-scout-candidate-pool");
-    const { DAILY_CALL_LOCATION_FIX_MAX_AGE_HOURS, resolveLocationAnchor } = await import("@/lib/alerts/location-freshness");
+    const { DAILY_CALL_LOCATION_FIX_MAX_AGE_HOURS, isAwayFromHome, resolveLocationAnchor } = await import("@/lib/alerts/location-freshness");
     const { getWeekScoutLocation, resolveWeekScoutScopeAnchor } = await import("@/lib/services/discovery/week-scout-scope");
     const { isWeekScoutSwellsEnabled, isWeekScoutSwellsUserAllowed } = await import("@/lib/flags/week-scout-swells");
     const { getLocalDateString, resolveBeachTimezone } = await import("@/lib/utils/timezone-utils");
@@ -207,8 +207,8 @@ async function main(): Promise<void> {
     const profile = (await read("loadDailyCallProfiles", () => loadDailyCallProfiles(client, [args.userId])))[0];
     if (!profile) throw new Error(`No active profile found for ${args.userId}`);
     const anchorAtNow = resolveLocationAnchor(profile.location, realNow, profile.homeBeach, DAILY_CALL_LOCATION_FIX_MAX_AGE_HOURS);
-    const timezone = resolveBeachTimezone(profile.timezone ?? profile.homeBeach?.timezone
-      ?? (anchorAtNow.source === "location" ? profile.location?.timezone : null));
+    const timezone = resolveBeachTimezone((anchorAtNow.source === "location" ? profile.location?.timezone : null)
+      ?? profile.timezone ?? profile.homeBeach?.timezone);
     const today = getLocalDateString(realNow, timezone);
     const date = args.date ?? today;
     const tomorrow = new Date(`${date}T12:00:00Z`);
@@ -216,8 +216,8 @@ async function main(): Promise<void> {
     const tomorrowDate = tomorrow.toISOString().slice(0, 10);
     const local = (instant: Date | string): string => formatInTimeZone(instant, timezone, "yyyy-MM-dd HH:mm:ss zzz");
     const sessionTime = profile.preferredSessionTime ?? null;
-    const lat = profile.homeBeach?.lat ?? (anchorAtNow.source === "location" ? profile.location?.lat : null);
-    const lon = profile.homeBeach?.lon ?? (anchorAtNow.source === "location" ? profile.location?.lon : null);
+    const lat = (anchorAtNow.source === "location" ? profile.location?.lat : null) ?? profile.homeBeach?.lat;
+    const lon = (anchorAtNow.source === "location" ? profile.location?.lon : null) ?? profile.homeBeach?.lon;
     const sunrise = lat == null || lon == null ? null
       : getDaylightWindow(lat, lon, localDateTimeToUTC(date, "12:00:00", timezone)).sunrise;
     const at = resolveSendInstant({ pref: parseDailyCallTime(profile.dailyCallTime), localDate: date, timezone, sunrise });
@@ -238,6 +238,9 @@ async function main(): Promise<void> {
     console.log(`Location snapshot: ${profile.location?.captured_at ?? "none"}; age: ${ageHours === null ? "none" : `${ageHours.toFixed(2)} hours`}`);
     console.log(`Daily Call anchor at realNow (${local(realNow)}): ${anchorLabel(anchorAtNow)}`);
     console.log(`Anchor at Daily Call at (${local(at)}): ${anchorLabel(anchorAtCall)}`);
+    if (anchorAtCall.source === "home" && isAwayFromHome(profile.location, at, profile.homeBeach)) {
+      console.log("Daily Call: silent (away_from_home)");
+    }
     console.log(`Anchor at eveningAt (${local(eveningAt)}): ${anchorLabel(anchorAtEvening)}`);
     console.log(`preferred_session_time: ${sessionTime ?? "none"}`);
     console.log(`Daily Call at: ${local(at)} (${at.toISOString()}); preference: ${profile.dailyCallTime ?? "default"}`);
@@ -347,16 +350,22 @@ async function main(): Promise<void> {
     const swellProfile = (await read("loadSwellAlertProfiles", () => loadSwellAlertProfiles(client, eveningAt, [args.userId])))[0];
     const swellLeads: Array<CallPick | null> = [];
     if (!swellProfile) throw new Error(`No active swell profile found for ${args.userId}`);
-    const evaluation = await read("evaluateSwellAlertPool", () => evaluateSwellAlertPool(client, swellProfile, eveningAt));
-    for (const shared of [false, true]) {
-      const ordered = await read(`orderSwellCandidatesForTomorrow (flag ${shared ? "on" : "off"})`, () => orderSwellCandidatesForTomorrow({
-        profile: swellProfile, evaluation, now: eveningAt, rankDay: rankDayWithWeekScout, usesSharedRanking: () => shared,
-      }));
-      console.log(`Swell flag ${shared ? "on" : "off"} (pool at ${local(eveningAt)}): ${ordered.length ? "top three" : "no swell event for D+1"}`);
-      for (const candidate of ordered.slice(0, 3)) {
-        console.log(`  ${candidate.beach.name} (${candidate.beach.id}); peakScore=${candidate.peakScore}; peakDate=${candidate.peakDate}`);
+    const swellSilentReason = swellProfile.awayFromHome ? "away_from_home" : "no swell event for D+1";
+    if (swellProfile.awayFromHome) {
+      console.log("Swell evening: silent (away_from_home)");
+      swellLeads.push(null, null);
+    } else {
+      const evaluation = await read("evaluateSwellAlertPool", () => evaluateSwellAlertPool(client, swellProfile, eveningAt));
+      for (const shared of [false, true]) {
+        const ordered = await read(`orderSwellCandidatesForTomorrow (flag ${shared ? "on" : "off"})`, () => orderSwellCandidatesForTomorrow({
+          profile: swellProfile, evaluation, now: eveningAt, rankDay: rankDayWithWeekScout, usesSharedRanking: () => shared,
+        }));
+        console.log(`Swell flag ${shared ? "on" : "off"} (pool at ${local(eveningAt)}): ${ordered.length ? "top three" : "no swell event for D+1"}`);
+        for (const candidate of ordered.slice(0, 3)) {
+          console.log(`  ${candidate.beach.name} (${candidate.beach.id}); peakScore=${candidate.peakScore}; peakDate=${candidate.peakDate}`);
+        }
+        swellLeads.push(ordered[0] ? { beachId: ordered[0].beach.id, start: "", end: "" } : null);
       }
-      swellLeads.push(ordered[0] ? { beachId: ordered[0].beach.id, start: "", end: "" } : null);
     }
     const homeTomorrow = showScout(`Home tomorrow card for ${tomorrowDate} (pool at ${local(eveningAt)})`, eveningHome, tomorrowDate, eveningAt);
     const homeReason = (response: CanonicalWeekScoutResponse | null, dayDate: string): string => !response ? "no location/home anchor"
@@ -368,7 +377,7 @@ async function main(): Promise<void> {
     compareCalls("Crons' 1-day pick vs Home D", cronPick, homePick, !cronPick ? "no open 1-day pick" : homeReason(home, date), true);
     for (const [index, flag] of ["off", "on"].entries()) {
       compareCalls(`Swell lead (flag ${flag}) vs Home D+1`, swellLeads[index], homeTomorrow,
-        !swellLeads[index] ? "silent: no swell event for D+1" : homeReason(eveningHome, tomorrowDate), false);
+        !swellLeads[index] ? `silent: ${swellSilentReason}` : homeReason(eveningHome, tomorrowDate), false);
     }
   } catch (error) {
     const failure = violation ?? error;

@@ -18,10 +18,19 @@ function buildSupabase() {
         select: jest.fn(() => ({
           eq: jest.fn(() => ({
             eq: jest.fn(() => ({
-              is: jest.fn(() => Promise.resolve({
-                data: sessionOwner === mockUser.id ? session : null,
-                error: sessionError,
-              })),
+              is: jest.fn(() => {
+                const rows = session && sessionOwner === mockUser.id ? [session] : [];
+                return Object.assign(Promise.resolve({ data: rows, error: sessionError }), {
+                  maybeSingle: jest.fn(() => Promise.resolve({
+                    data: rows[0] ?? null,
+                    error: sessionError,
+                  })),
+                  single: jest.fn(() => Promise.resolve({
+                    data: rows[0] ?? null,
+                    error: rows.length === 0 ? { message: "No rows found" } : sessionError,
+                  })),
+                });
+              }),
             })),
           })),
         })),
@@ -89,6 +98,7 @@ describe("POST /api/recommendations/session-call-link", () => {
     sessionOwner = owner;
     const response = await POST(request(payload()));
     expect(response.status).toBe(404);
+    expect(updateSpy).not.toHaveBeenCalled();
   });
 
   it("links a session on the first request", async () => {
@@ -114,6 +124,7 @@ describe("POST /api/recommendations/session-call-link", () => {
     const response = await POST(request(payload("call-2")));
     expect(response.status).toBe(409);
     expect(await response.json()).toEqual({ success: false, error: "Session already linked to another call" });
+    expect(updateSpy).not.toHaveBeenCalled();
   });
 
   it("returns 500 for database errors", async () => {

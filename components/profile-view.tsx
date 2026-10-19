@@ -50,6 +50,7 @@ import { cn } from "@/lib/utils";
 
 import { FeedHighlight } from "@/components/profile/FeedHighlight";
 import { SetHomeBreakCta } from "@/components/profile/set-home-break-cta";
+import { GarminWatchSection } from "@/components/garmin/garmin-watch-section";
 
 const PROFILE_TAB_BASE_CLASS =
   "profile-zine-tab-trigger min-h-12 rounded-sm border font-heading text-xs font-bold uppercase transition-colors sm:text-sm";
@@ -150,11 +151,11 @@ function ProfileViewContent() {
     const profileData = await gateway.users.profile.get(user.id);
 
     setProfile(profileData as Profile);
-    const userSessions = await gateway.users.sessions.list(
-      user.id,
-      highlightSessionId ? 20 : 5
+    const result = await gateway.users.sessions.list(
+      user.id, highlightSessionId ? 20 : 5, { includeMetadata: true },
     );
-    setSessions(userSessions as SessionWithDetails[]);
+    const userSessions = result.sessions;
+    setSessions(userSessions);
 
     // Fetch user boards
     const userBoards = await gateway.boards.list();
@@ -164,10 +165,13 @@ function ProfileViewContent() {
       profile: profileData,
       sessions: userSessions,
       boards: userBoards,
+      forUserId: user.id,
+      garminWatchEnabled: result.garminWatchEnabled,
     };
   }, [user, highlightSessionId]);
 
   const {
+    data: loadedData,
     loading: dataLoading,
     error: fetchError,
     refetch,
@@ -614,7 +618,7 @@ function ProfileViewContent() {
                   >
                     <div className="flex justify-between items-center mb-6">
                       <h3 className="font-heading text-xl font-semibold text-[#11100D]">
-                        Favorite Beaches
+                        Saved Spots
                       </h3>
                       <Button
                         data-testid="add-beach-button"
@@ -655,6 +659,7 @@ function ProfileViewContent() {
                     >
                       <SurfProfileSection />
                     </Suspense>
+                    {user?.id === profile?.id && loadedData?.forUserId === user?.id && loadedData?.garminWatchEnabled && <GarminWatchSection isOwner />}
                     <Suspense
                       fallback={<ProfileTabLoadingSkeleton type="Removed photos" />}
                     >

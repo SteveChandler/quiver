@@ -39,6 +39,8 @@ export interface BeachMetadata {
   swell_window_halfwidth_deg: number | null;
   wind_offshore_deg: number | null;
   wind_offshore_tol_deg: number | null;
+  /** Direction the beach faces; offshore falls back to the opposite of it. */
+  aspect_deg?: number | null;
   preferred_tide_ft_min: number | null;
   preferred_tide_ft_max: number | null;
   /** IANA timezone identifier for the beach location */

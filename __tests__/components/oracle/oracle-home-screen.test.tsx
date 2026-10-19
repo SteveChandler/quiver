@@ -504,7 +504,7 @@ describe("OracleHomeScreen", () => {
     // forecast, so the verdict is the h1.
     // A maybe call scored 85 sits at the top of its band: FAIR, not a raw verdict.
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Fair");
-    expect(screen.getByTestId("hero-decision-badge")).toHaveTextContent("Worth a look");
+    expect(screen.getByTestId("hero-decision-badge")).toHaveTextContent("Could be fun");
   });
 
   it("uses the embedded canonical decision without calling the legacy surf-call endpoint", () => {
@@ -1220,7 +1220,7 @@ describe("OracleHomeScreen", () => {
             tideHeight: "1.2ft",
             nextTideType: "low",
             nextTideAt: "2026-03-11T19:00:00.000Z",
-            whySentence: "Onshore wind all day making conditions choppy.",
+            whySentence: "Onshore wind all day, so it stays choppy.",
             forecastConfidence: 85,
             lowForecastConfidence: false,
             score: 8,

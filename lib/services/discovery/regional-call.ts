@@ -10,6 +10,9 @@
  */
 
 import type { SurfDiscoveryRecommendation } from '@/types/personalization';
+import { resolveOffshoreDeg } from '@/lib/domains/shared/wind-orientation';
+import { getDirectionDegrees } from '@/lib/utils/number-parsing';
+import { classifyWindRelation } from '@/lib/utils/wind-relation';
 
 // ============================================================================
 // Options
@@ -166,7 +169,19 @@ function buildAspectClause(recs: SurfDiscoveryRecommendation[]): string | null {
 // Wind trend clause
 // ============================================================================
 
-function buildWindTrendClause(options: RegionalCallOptions): string | null {
+/** True only when the wind direction and the beach orientation are both known and the wind blows onshore. */
+function isOnshore(wind: WindSnapshot, offshoreDeg: number | null): boolean {
+  if (offshoreDeg == null) return false;
+  const cardinal = wind.direction.trim().split(/\s+/)[0];
+  const windFromDeg = cardinal ? getDirectionDegrees(null, cardinal) : null;
+  if (windFromDeg == null) return false;
+  return classifyWindRelation(windFromDeg, offshoreDeg) === 'onshore';
+}
+
+function buildWindTrendClause(
+  options: RegionalCallOptions,
+  offshoreDeg: number | null,
+): string | null {
   const { dawnWind, middayWind } = options;
 
   if (!dawnWind && !middayWind) return null;
@@ -174,9 +189,10 @@ function buildWindTrendClause(options: RegionalCallOptions): string | null {
   const dawnCalm = dawnWind ? isCalm(dawnWind.speed) : false;
   const middayCalm = middayWind ? isCalm(middayWind.speed) : false;
 
-  // Glassy at dawn, onshore by midday
+  // Glassy at dawn, onshore by midday — a relation claim, so it needs the
+  // midday direction and the hero beach's orientation, not just the speed.
   if (dawnWind && middayWind && dawnCalm && !middayCalm) {
-    return `Glassy at dawn, onshore by midday`;
+    return isOnshore(middayWind, offshoreDeg) ? 'Glassy at dawn, onshore by midday' : null;
   }
 
   // Both calm
@@ -213,7 +229,7 @@ export function generateRegionalCall(
 ): string {
   const swellClause = buildSwellClause(recs);
   const aspectClause = buildAspectClause(recs);
-  const windTrendClause = buildWindTrendClause(options);
+  const windTrendClause = buildWindTrendClause(options, resolveOffshoreDeg(recs[0]?.beach));
 
   // Prepend "hits " to the aspect clause only when there's no wind trend
   // clause to append. With a wind trend the "·"-joined result becomes three

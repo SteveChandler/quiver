@@ -28,6 +28,12 @@ jest.mock("@/actions/beach/beach-query-actions", () => ({
   getBeachesByIntentAndCity: jest.fn(),
 }));
 
+jest.mock("@/actions/beginner/beginner-actions", () => ({
+  getBeginnerConditionsData: jest.fn(),
+  getBeginnerBeachesWithEditorial: jest.fn().mockResolvedValue([]),
+  getBeginnerCityEditorial: jest.fn(),
+}));
+
 jest.mock("@/lib/utils/best-time-to-surf-utils", () => ({
   getBestTimeToSurfUrl: jest.fn().mockResolvedValue(undefined),
 }));
@@ -53,6 +59,7 @@ import {
   getCityWaterTempHistory,
 } from "@/actions/forecast/intent-forecast-actions";
 import { getCityEditorialContent } from "@/actions/city/city-editorial-actions";
+import { getBeginnerBeachesWithEditorial } from "@/actions/beginner/beginner-actions";
 import { isGscPerformanceProtected } from "@/lib/seo/gsc-performance-protection";
 import { WaterTempOverviewSection } from "@/components/intent/water-temp-overview-section";
 
@@ -170,6 +177,17 @@ describe("city intent indexability", () => {
     expect(metadata.alternates?.canonical).toContain(
       "/longboard/ocean-city-nj",
     );
+  });
+
+  it("titles /beginner/{city} from the beaches the page lists", async () => {
+    (getBeginnerBeachesWithEditorial as jest.Mock).mockResolvedValueOnce([{ name: "Corolla Beach Access 4" }]);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ intent: "beginner", city: "corolla" }),
+    });
+
+    expect(String(metadata.title)).toContain("Beginner Surf in Corolla: Corolla Beach Access 4");
+    expect(String(metadata.description)).toMatch(/^1 beginner-friendly surf spot in Corolla/);
   });
 
   it("keeps /beginner/{city} noindexed without an approved editorial row", async () => {
