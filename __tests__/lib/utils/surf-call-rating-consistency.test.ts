@@ -7,6 +7,7 @@
  */
 
 import { computeSurfCall, computeSurfCallTiers } from '@/lib/utils/surf-call-logic';
+import { LOW_TIDE_HEAVY_SWELL_WARNING } from '@/lib/domains/scoring';
 import type { PersonalizedForecastWindow } from '@/types/personalization';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import type { Beach } from '@/types/database';
@@ -98,7 +99,88 @@ describe('computeSurfCall — explanation follows the stamped verdict', () => {
   });
 });
 
+describe('computeSurfCall — stamped verdict keeps caution and duration truth', () => {
+  it('keeps the setup caution in the explanation under a stamped MAYBE', () => {
+    const beach = makeBeach({
+      break_type: 'beach',
+      preferred_tide_ft_min: 2,
+      preferred_tide_ft_max: 6,
+      preferred_tide_direction: 'either',
+    } as Partial<Beach>);
+    const forecasts = [
+      makeForecast({
+        wave_height: '7 ft',
+        wave_period: '10s',
+        swell_1_height: '7',
+        swell_1_period: '10s',
+        tide_height: '-0.4',
+        tide_status: 'Falling',
+      }),
+    ];
+    const window = makeWindow({ score: 90, waveHeight: '7 ft', wavePeriod: '10s' });
+
+    const result = computeSurfCall(window, forecasts, beach, { verdict: 'MAYBE' });
+
+    expect(result.verdict).toBe('MAYBE');
+    expect(result.cautions).toContain(LOW_TIDE_HEAVY_SWELL_WARNING);
+    expect(result.whySentence).toBe(`${LOW_TIDE_HEAVY_SWELL_WARNING}.`);
+  });
+
+  it('does not call a stamped MAYBE window too short to surf', () => {
+    const window = makeWindow({
+      start: new Date('2026-10-19T23:30:00Z'),
+      end: new Date('2026-10-19T23:50:00Z'),
+    });
+    const forecasts = [makeForecast()];
+
+    expect(computeSurfCall(window, forecasts, makeBeach()).whySentence).toMatch(/no viable window/i);
+
+    const stamped = computeSurfCall(window, forecasts, makeBeach(), { verdict: 'MAYBE' });
+    expect(stamped.verdict).toBe('MAYBE');
+    expect(stamped.whySentence).not.toMatch(/no viable window/i);
+  });
+
+  it('still reports a stamped NO on a too-short window as such', () => {
+    const window = makeWindow({
+      end: new Date('2026-10-19T23:50:00Z'),
+    });
+    const stamped = computeSurfCall(window, [makeForecast()], makeBeach(), { verdict: 'NO' });
+    expect(stamped.whySentence).toMatch(/no viable window/i);
+  });
+});
+
 describe('computeSurfCall — character agrees with the wind type', () => {
+  it('does not promise clean wind under strong cross-shore wind', () => {
+    const base = {
+      wave_height: '3-4 ft',
+      wave_period: '14s',
+      wind_direction_deg: 180,
+      tide_height: '2.0',
+      swell_1_height: '3.5',
+      swell_1_period: '14s',
+      swell_1_direction: '270',
+    };
+    const beach = makeBeach({ wind_cross_shore_ok_kt: 4 } as Partial<Beach>);
+    // 5 mph is over a 4 kt (4.6 mph) tolerance.
+    const strong = computeSurfCall(
+      makeWindow({ wavePeriod: '14s' }),
+      [makeForecast({ ...base, wind_speed: '5' })],
+      beach,
+      { verdict: 'MAYBE' },
+    );
+    expect(strong.windType).toBe('cross-shore');
+    expect(strong.character?.category).not.toMatch(/clean/);
+    expect(strong.character?.label).not.toMatch(/clean wind/i);
+
+    const within = computeSurfCall(
+      makeWindow({ wavePeriod: '14s' }),
+      [makeForecast({ ...base, wind_speed: '5' })],
+      makeBeach(),
+      { verdict: 'MAYBE' },
+    );
+    expect(within.character?.category).toBe('medium-clean');
+  });
+
   it('does not promise clean wind under an onshore wind type', () => {
     const forecasts = [
       makeForecast({

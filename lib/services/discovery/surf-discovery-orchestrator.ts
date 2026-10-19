@@ -2692,7 +2692,7 @@ async function discoverSurfSpotsInner(
     rec.physicalRecommendationLabel ??= rec.recommendationLabel;
     rec.recommendationLabel = getCanonicalRecommendationLabel(rec, userSkillLevel);
     rec.verdict = rec.recommendationLabel === "Worth it" ? "go" : rec.recommendationLabel === "Maybe" ? "maybe" : "no";
-    rec.conditionLabel = conditionLabelForVerdict(rec.verdict, rec.score);
+    rec.conditionLabel = conditionLabelForVerdict(rec.verdict, rec.score, rec.character?.category);
     rec.message = buildDiscoveryMessage(rec.score, rec.reasons, rec.warnings, rec.recommendationLabel);
   }
 

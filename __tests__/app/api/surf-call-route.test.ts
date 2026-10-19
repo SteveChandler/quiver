@@ -569,8 +569,9 @@ describe("GET /api/surf/call", () => {
       return (await response.json()).data;
     }
 
-    it("labels a wind-blown-out MAYBE as such, never FAIR or clean wind", async () => {
+    it("explains a wind-blown-out MAYBE with the wind and passes the decision's label through", async () => {
       seedBlownOutMaybe("America/Los_Angeles");
+      (canonicalContext.decision as Record<string, any>).conditionLabel = "MEH";
       const data = await getData();
 
       expect(data.report.verdict).toBe("MAYBE");
@@ -581,12 +582,12 @@ describe("GET /api/surf/call", () => {
       expect(data.report.whySentence).toMatch(/wind/i);
     });
 
-    it("reports one score on the report and the forecast context", async () => {
+    it("keeps report.score (decision) and forecastContext.score (window row) as separate fields", async () => {
       seedBlownOutMaybe("America/Los_Angeles");
       const data = await getData();
 
       expect(data.report.score).toBe(49);
-      expect(data.forecastContext.score).toBe(49);
+      expect(data.forecastContext.score).toBe(31);
     });
 
     it("derives the tiers from the decision verdict, with trail times in the beach timezone", async () => {

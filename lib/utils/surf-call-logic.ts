@@ -665,20 +665,29 @@ const CLEAN_WIND_CATEGORIES: ReadonlySet<string> = new Set([
   'large-clean',
 ]);
 
+const KNOTS_TO_MPH = 1.15078;
+
 /**
  * The character label is classified from a composite score on a single row; the
  * window wind type is classified separately. A "clean wind" label beside an
- * onshore wind type contradicts itself, so the label gives way to the wind.
+ * onshore wind, or a cross-shore wind past the beach's cross-shore tolerance,
+ * contradicts itself, so the label gives way to the wind.
  */
 function reconcileCharacterWithWind(
   character: ConditionCharacter | null,
-  windType: string | null,
+  wind: WindData,
+  beach: Beach,
 ): ConditionCharacter | null {
-  if (!character || windType !== 'onshore') return character;
-  if (!CLEAN_WIND_CATEGORIES.has(character.category)) return character;
+  if (!character || !CLEAN_WIND_CATEGORIES.has(character.category)) return character;
+  const strongCrossShore =
+    wind.type === 'cross-shore' &&
+    (parseMaxWaveHeight(wind.speed) ?? 0) >
+      beachToSpotProfile(beach).windThresholds.crossShoreOkKts * KNOTS_TO_MPH;
+  if (wind.type !== 'onshore' && !strongCrossShore) return character;
+  const cause = wind.type === 'onshore' ? 'onshore' : 'cross-shore';
   return character.category === 'large-clean'
-    ? { category: 'large-rough', label: 'Big but wind-affected — onshore' }
-    : { category: 'medium-mixed', label: 'Decent — onshore wind takes the shine off' };
+    ? { category: 'large-rough', label: `Big but wind-affected — ${cause}` }
+    : { category: 'medium-mixed', label: `Decent — ${cause} wind takes the shine off` };
 }
 
 /**
@@ -837,7 +846,10 @@ export function computeSurfCall(
 
   // Short window gate - reject if too short. Verdict is NO → suppress the
   // "Best window" so the UI doesn't contradict itself.
-  if (windowMinutes < MINIMUM_VIABLE_WINDOW_MINUTES) {
+  // A stamped verdict other than NO already passed the decision engine's
+  // duration gate, so this sentence would contradict it.
+  const stampedPastDurationGate = options.verdict != null && options.verdict !== 'NO';
+  if (windowMinutes < MINIMUM_VIABLE_WINDOW_MINUTES && !stampedPastDurationGate) {
     return {
       ...baseResult,
       bestWindowStart: null,
@@ -896,7 +908,7 @@ export function computeSurfCall(
   const smallWaveOverride = (wavesBelowMin || windowWavesBelowMin) && verdict === 'MAYBE'
     ? `Small for this break but conditions look fun — ${waveHeight ?? 'modest swell'} with ${wind.type === 'glassy' || wind.type === 'offshore' ? 'clean winds' : 'manageable wind'}.`
     : undefined;
-  const setupRiskOverride = verdict === 'NO' && cautions.length > 0
+  const setupRiskOverride = cautions.length > 0
     ? `${cautions[0]}.`
     : undefined;
   const whySentence = buildWhySentence(
@@ -962,7 +974,7 @@ export function computeSurfCall(
     isCalibrated,
     rideableWavesPerHour: freqResult?.rideableWavesPerHour ?? null,
     dominantBeatIntervalS: freqResult?.dominantBeatIntervalS ?? null,
-    character: reconcileCharacterWithWind(character, wind.type),
+    character: reconcileCharacterWithWind(character, wind, beach),
     cautions,
   };
 }

@@ -343,7 +343,9 @@ function buildCanonicalSurfCall(
     selection !== null &&
     selectedRecommendation !== null &&
     selection.beachId === requestedBeachId;
-  const builtForecastContext = exactSelection && window
+  // One snapshot of the window row. Its score is the window's own, distinct
+  // from report.score, which is the decision's score.
+  const forecastContext = exactSelection && window
     ? buildForecastRecommendationContext({
         beach,
         forecasts,
@@ -352,11 +354,6 @@ function buildCanonicalSurfCall(
         timezone,
       })
     : null;
-  // The window carries its own raw score; the decision's score is the one
-  // report.score and the verdict were derived from.
-  const forecastContext = builtForecastContext && exactSelection
-    ? { ...builtForecastContext, score: selection.evidence.conditionScore }
-    : builtForecastContext;
   const boardNote =
     exactSelection && window && profileExperience && boardClass
       ? checkBoardFit(
@@ -396,11 +393,6 @@ function buildCanonicalSurfCall(
     recommendationAvailability,
   };
 
-  // Wind that blows the row out cannot sit under a middling FAIR label.
-  const windBlownOut = baseline.character?.category === 'skip';
-  const conditionLabel: CanonicalSessionDecision['conditionLabel'] =
-    windBlownOut && decision.verdict !== 'no' ? 'MEH' : decision.conditionLabel;
-
   return {
     report,
     candidateRejection: decision.candidateRejection ?? null,
@@ -409,12 +401,10 @@ function buildCanonicalSurfCall(
       : null,
     recommendedBoard: objectiveRecommendation?.recommendedBoard ?? null,
     boardPick: objectiveRecommendation?.boardPick ?? null,
-    conditionLabel,
+    conditionLabel: decision.conditionLabel,
     isTomorrow,
     forecastContext,
-    sessionDecision: conditionLabel === decision.conditionLabel
-      ? decision
-      : { ...decision, conditionLabel },
+    sessionDecision: decision,
   };
 }
 
