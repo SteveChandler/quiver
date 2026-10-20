@@ -105,7 +105,7 @@ it.each([
   expect(mockRpc.mock.calls.filter(([name]) => name === "record_email_lifecycle_decision")).toHaveLength(5);
 });
 
-it.each(["email_lifecycle_cohort", "evaluate_email_lifecycle", "email_automation_health"])("records a %s query failure with its cause", async failedQuery => {
+it.each(["email_lifecycle_cohort", "reconcile_email_lifecycle", "email_automation_health"])("records a %s query failure with its cause", async failedQuery => {
   process.env.EMAIL_LIFECYCLE_ENABLED = "true";
   const userId = "11111111-1111-4111-8111-111111111111";
   mockRpc.mockImplementation(async (name: string): Promise<unknown> => {
@@ -120,6 +120,85 @@ it.each(["email_lifecycle_cohort", "evaluate_email_lifecycle", "email_automation
   await expect(runEmailLifecycle(false)).rejects.toThrow(`Lifecycle storage failed: ${failedQuery}`);
   expect(update).toHaveBeenCalledWith(expect.objectContaining({ status: "error", error_message: `Lifecycle storage failed: ${failedQuery}` }));
   expect(update.mock.calls[0][0].summary.reasons).toEqual(failedQuery === "email_automation_health" ? { timezone_unknown: 1 } : {});
+  expect(mockSend).not.toHaveBeenCalled();
+});
+
+const cohortUsers = (count: number): string[] => Array.from({ length: count }, (_, i) => `11111111-1111-4111-8111-${String(i).padStart(12, "0")}`);
+const dueDecision = (userId: string) => ({ user_id: userId, campaign_id: null, status: "due", reason: "eligible", job: "welcome", source: { email: "surfer@example.com", name: null, home_beach_id: null, sessions: 0, last_completion: null, trial_end: null } });
+const rpcUserIds = (name: string): string[] => mockRpc.mock.calls.filter(([called]) => called === name).map(([, args]) => args.p_user_id);
+
+it("skips users whose evaluation fails and still serves the rest of the cohort", async () => {
+  process.env.EMAIL_LIFECYCLE_ENABLED = "true";
+  process.env.EMAIL_REPLY_MAILBOX = "support@example.com";
+  const users = cohortUsers(4);
+  const timeout = "Lifecycle storage failed: evaluate_email_lifecycle: 57014 canceling statement due to statement timeout";
+  mockRpc.mockImplementation(async (name: string, args?: { p_user_id: string }): Promise<unknown> => {
+    if (name === "email_lifecycle_cohort") return users;
+    if (name === "reconcile_email_lifecycle") return { unknown_handoffs: 0, expired_reservations: 0 };
+    if (name === "evaluate_email_lifecycle") {
+      if (args!.p_user_id === users[1]) throw new Error(timeout);
+      // A malformed decision is a failure too, but only the first failure's message is reported.
+      if (args!.p_user_id === users[3]) return { user_id: args!.p_user_id, status: "due" };
+      return args!.p_user_id === users[2] ? dueDecision(users[2]) : { user_id: args!.p_user_id, campaign_id: null, status: "held", reason: "quiet" };
+    }
+    if (name === "claim_email_lifecycle") return { allowed: true, attempt_id: args!.p_user_id, decision: dueDecision(args!.p_user_id) };
+    if (name === "email_automation_health") return { due_unsent: 0, enrollment_pending: 0, approval_unavailable: 0 };
+    return null;
+  });
+  mockSend.mockResolvedValue("accepted");
+  const update = jest.fn().mockReturnValue({ eq: async () => ({ error: null }) });
+  mockDb.mockResolvedValue({ from: () => ({ insert: () => ({ select: () => ({ single: async () => ({ data: { id: "run" }, error: null }) }) }), update }) });
+  const errorMessage = `Lifecycle evaluation failed for 2 user(s): ${timeout}`;
+  const result = await runEmailLifecycle(false);
+  expect(result).toMatchObject({ status: "attention", error_message: errorMessage, candidates: 4, accepted: 1 });
+  expect(result.reasons).toEqual({ quiet: 1, accepted: 1 });
+  // Decisions stay aligned with their users: the due user after the failed one is the one claimed.
+  expect(rpcUserIds("record_email_lifecycle_decision")).toEqual([users[0], users[2]]);
+  expect(rpcUserIds("claim_email_lifecycle")).toEqual([users[2]]);
+  expect(mockSend).toHaveBeenCalledTimes(1);
+  expect(update).toHaveBeenCalledWith(expect.objectContaining({ status: "error", error_message: errorMessage, produced: 1 }));
+});
+
+it("never claims a due user whose decision cannot be recorded", async () => {
+  process.env.EMAIL_LIFECYCLE_ENABLED = "true";
+  process.env.EMAIL_REPLY_MAILBOX = "support@example.com";
+  const users = cohortUsers(2);
+  const timeout = "Lifecycle storage failed: record_email_lifecycle_decision: 57014 canceling statement due to statement timeout";
+  mockRpc.mockImplementation(async (name: string, args?: { p_user_id: string }): Promise<unknown> => {
+    if (name === "email_lifecycle_cohort") return users;
+    if (name === "reconcile_email_lifecycle") return { unknown_handoffs: 0, expired_reservations: 0 };
+    if (name === "evaluate_email_lifecycle") return dueDecision(args!.p_user_id);
+    if (name === "record_email_lifecycle_decision" && args!.p_user_id === users[0]) throw new Error(timeout);
+    if (name === "claim_email_lifecycle") return { allowed: true, attempt_id: args!.p_user_id, decision: dueDecision(args!.p_user_id) };
+    if (name === "email_automation_health") return { due_unsent: 0, enrollment_pending: 0, approval_unavailable: 0 };
+    return null;
+  });
+  mockSend.mockResolvedValue("accepted");
+  const update = jest.fn().mockReturnValue({ eq: async () => ({ error: null }) });
+  mockDb.mockResolvedValue({ from: () => ({ insert: () => ({ select: () => ({ single: async () => ({ data: { id: "run" }, error: null }) }) }), update }) });
+  const errorMessage = `Lifecycle decision record failed for 1 user(s): ${timeout}`;
+  expect(await runEmailLifecycle(false)).toMatchObject({ status: "attention", error_message: errorMessage, candidates: 2, accepted: 1 });
+  expect(rpcUserIds("claim_email_lifecycle")).toEqual([users[1]]);
+  expect(mockSend).toHaveBeenCalledTimes(1);
+  expect(update).toHaveBeenCalledWith(expect.objectContaining({ status: "error", error_message: errorMessage, produced: 1 }));
+});
+
+it("a claim failure still aborts the run with its cause", async () => {
+  process.env.EMAIL_LIFECYCLE_ENABLED = "true";
+  process.env.EMAIL_REPLY_MAILBOX = "support@example.com";
+  const [userId] = cohortUsers(1);
+  const failure = "Lifecycle storage failed: claim_email_lifecycle: 57014 canceling statement due to statement timeout";
+  mockRpc.mockImplementation(async (name: string): Promise<unknown> => {
+    if (name === "email_lifecycle_cohort") return [userId];
+    if (name === "reconcile_email_lifecycle") return { unknown_handoffs: 0, expired_reservations: 0 };
+    if (name === "evaluate_email_lifecycle") return dueDecision(userId);
+    if (name === "claim_email_lifecycle") throw new Error(failure);
+    return null;
+  });
+  const update = jest.fn().mockReturnValue({ eq: async () => ({ error: null }) });
+  mockDb.mockResolvedValue({ from: () => ({ insert: () => ({ select: () => ({ single: async () => ({ data: { id: "run" }, error: null }) }) }), update }) });
+  await expect(runEmailLifecycle(false)).rejects.toThrow(failure);
+  expect(update).toHaveBeenCalledWith(expect.objectContaining({ status: "error", error_message: failure, produced: 0 }));
   expect(mockSend).not.toHaveBeenCalled();
 });
 
