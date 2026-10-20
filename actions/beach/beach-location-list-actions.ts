@@ -10,6 +10,7 @@
 "use server";
 
 import { withDatabaseOperation, withServerAction, withPublicDatabaseOperation } from "@/lib/server-action-utils";
+import type { ServerActionResponse } from "@/lib/server-action-utils";
 import type {
   LocationPageData,
   LocationStats,
@@ -81,6 +82,28 @@ async function resolveCitySlugToDbCity(
 }
 
 /**
+ * An expected "nothing to show" outcome (unknown city, or a city with no ranked
+ * data). It is returned rather than thrown so the server-action and database
+ * wrappers do not log it with console.error as a runtime failure.
+ */
+interface LocationMiss {
+  locationMiss: true;
+  reason: "CITY_EXISTS_NO_DATA" | "No beaches found for this location";
+}
+
+function locationMiss(reason: LocationMiss["reason"]): LocationMiss {
+  return { locationMiss: true, reason };
+}
+
+function isLocationMiss(value: unknown): value is LocationMiss {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    (value as { locationMiss?: unknown }).locationMiss === true
+  );
+}
+
+/**
  * Get complete data for a location listing page
  * Now supports both individual cities and metro areas
  *
@@ -93,9 +116,9 @@ export async function getLocationPageData(
   citySlug: string,
   stateSlug: string,
   countrySlug: string = "usa"
-) {
-  return withServerAction(() =>
-    withPublicDatabaseOperation(async (supabase) => {
+): Promise<ServerActionResponse<LocationPageData>> {
+  const response = await withServerAction(() =>
+    withPublicDatabaseOperation(async (supabase): Promise<LocationPageData | LocationMiss> => {
       // Check if this is a metro area request
       const metroConfig = isMetroArea(citySlug) ? getMetroConfig(citySlug) : null;
 
@@ -133,7 +156,7 @@ export async function getLocationPageData(
             state,
             country,
           });
-          throw new Error("CITY_EXISTS_NO_DATA");
+          return locationMiss("CITY_EXISTS_NO_DATA");
         }
 
         // Fetch metro stats
@@ -297,7 +320,7 @@ export async function getLocationPageData(
           if (count && count > 0) {
             // City exists, but no data returned from the scoring function (or scoring function failed)
             // This signals the UI to redirect to the map view
-            throw new Error("CITY_EXISTS_NO_DATA");
+            return locationMiss("CITY_EXISTS_NO_DATA");
           }
 
           if (beachesError) {
@@ -306,13 +329,14 @@ export async function getLocationPageData(
             throw new Error(`Failed to fetch beaches: ${beachesError.message}`);
           }
 
-          console.error(`[getLocationPageData] No beaches found for location:`, {
+          // Crawlers and stale links probe unknown cities constantly; the page
+          // turns this into a 404, so it is not a runtime error.
+          console.info(`[getLocationPageData] No beaches found for location:`, {
             city,
             state,
             country,
-            queryParams: { p_city: city, p_state: state, p_country: country },
           });
-          throw new Error("No beaches found for this location");
+          return locationMiss("No beaches found for this location");
         }
 
         const visibleBeaches = (await rankBeaches(
@@ -325,7 +349,7 @@ export async function getLocationPageData(
         )).map(({ beach }) => beach);
 
         if (visibleBeaches.length === 0) {
-          throw new Error("CITY_EXISTS_NO_DATA");
+          return locationMiss("CITY_EXISTS_NO_DATA");
         }
 
         // Add rank to each beach
@@ -410,6 +434,11 @@ export async function getLocationPageData(
       }
     })
   );
+
+  if (response.success && isLocationMiss(response.data)) {
+    return { success: false, error: response.data.reason };
+  }
+  return response as ServerActionResponse<LocationPageData>;
 }
 
 /**

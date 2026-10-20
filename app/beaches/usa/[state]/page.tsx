@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { getAllBeachLocations } from "@/actions/beach/beach-location-list-actions";
 import { getStateMapBeaches } from "@/actions/beach/beach-state-actions";
 import {
+  cityToSlug,
   getUsStateDisplayNameFromSlug,
   isValidStateSlug,
   stateToSlug,
@@ -81,7 +82,10 @@ export async function generateMetadata(
 }
 
 type CityEntry = {
+  /** Intent-URL slug; carries a state suffix for colliding names (ocean-city-nj). */
   citySlug: string;
+  /** City hub slug under /{state}/; the state segment already disambiguates. */
+  hubSlug: string;
   cityName: string;
 };
 
@@ -186,7 +190,11 @@ export default async function UsaStatePage(
   }
 
   const cities: CityEntry[] = [...cityBySlug.entries()]
-    .map(([citySlug, cityName]) => ({ citySlug, cityName }))
+    .map(([citySlug, cityName]) => ({
+      citySlug,
+      hubSlug: cityToSlug(cityName) || citySlug,
+      cityName,
+    }))
     .sort((a, b) => a.cityName.localeCompare(b.cityName));
 
   if (cities.length === 0) notFound();
@@ -231,7 +239,7 @@ export default async function UsaStatePage(
   const statePageUrl = `${SITE_URL}/beaches/usa/${stateSlug}`;
   const cityItemListItems = cities.map((c, i) => ({
     name: c.cityName,
-    url: `${SITE_URL}/${stateSlug}/${c.citySlug}`,
+    url: `${SITE_URL}/${stateSlug}/${c.hubSlug}`,
     position: i + 1,
   }));
 
@@ -291,7 +299,7 @@ export default async function UsaStatePage(
                   return (
                     <li key={c.citySlug} className="space-y-1">
                       <Link
-                        href={`/${stateSlug}/${c.citySlug}`}
+                        href={`/${stateSlug}/${c.hubSlug}`}
                         className="flex items-center justify-between rounded-lg px-3 py-2 text-slate-800 hover:bg-slate-50 hover:text-ocean-blue transition-colors"
                       >
                         <span>{c.cityName}</span>

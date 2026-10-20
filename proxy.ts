@@ -1,3 +1,5 @@
+import { COLLISION_CITY_MAP } from "@/lib/seo/city-collision-list";
+import { stripCollisionStateSuffix } from "@/lib/seo/city-slug-utils";
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -377,7 +379,9 @@ export async function proxy(request: NextRequest) {
     const redirectUrl = request.nextUrl.clone();
     if (country === "usa" || country === "us") {
       // USA: /beaches/usa/or/otter-rock -> /or/otter-rock
-      redirectUrl.pathname = `/${state}/${city}`;
+      redirectUrl.pathname = `/${state}/${
+        stripCollisionStateSuffix(city, state, COLLISION_CITY_MAP) ?? city
+      }`;
     } else {
       // International: /beaches/mexico/baja-california/rosarito -> /mexico/baja-california/rosarito
       redirectUrl.pathname = `/${country}/${state}/${city}`;
@@ -429,6 +433,14 @@ export async function proxy(request: NextRequest) {
     const city = canonicalCityMatch[2]?.toLowerCase() || "";
 
     if (isValidStateSlug(state)) {
+      // /nj/ocean-city-nj -> /nj/ocean-city (the state segment already
+      // disambiguates; the suffixed slug only exists on intent URLs).
+      const baseCity = stripCollisionStateSuffix(city, state, COLLISION_CITY_MAP);
+      if (baseCity) {
+        const redirectUrl = request.nextUrl.clone();
+        redirectUrl.pathname = `/${state}/${baseCity}`;
+        return NextResponse.redirect(redirectUrl, { status: 301 });
+      }
       rewriteTarget = request.nextUrl.clone();
       rewriteTarget.pathname = `/beaches/usa/${state}/${city}`;
     }
