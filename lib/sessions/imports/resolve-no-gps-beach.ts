@@ -3,57 +3,70 @@ import { haversineM } from "../tracks/track-geometry";
 import { findNoGpsAttachTarget } from "./find-attach-target";
 import { loadImportBeach, type ImportBeach } from "./resolve-import-beach";
 
-type NoGpsResolution =
+export type NoGpsBeachResolution =
   | { status: "resolved"; beach: ImportBeach; source: "logged_session" | "phone_location";
-      attachTarget: { sessionId: string; hasTrack: boolean; trackImportId: string | null } | null }
+      attachTarget: { sessionId: string; hasTrack: boolean; trackImportId: string | null; source: string | null } | null }
   | { status: "needs_beach"; candidates: ImportBeach[] };
 
 type NearbyRow = { id: string; name: string; lat: number; lon: number };
+type PhoneCandidates = {
+  capturedAt: number | null;
+  beaches: Array<{ beach: ImportBeach; distanceM: number }>;
+};
+
+const CANDIDATE_SNAPSHOT_WINDOW = { beforeMs: 2 * 3600_000, afterMs: 3600_000 };
+const AUTO_PICK_SNAPSHOT_WINDOW = { beforeMs: 30 * 60_000, afterMs: 30 * 60_000 };
 
 async function phoneCandidates(
   service: SupabaseClient, userId: string, startedAt: string, endedAt: string,
-): Promise<Array<{ beach: ImportBeach; distanceM: number }>> {
+): Promise<PhoneCandidates> {
   const { data: snapshot, error } = await service.from("user_location_snapshots")
     .select("lat, lon, captured_at").eq("user_id", userId).maybeSingle();
   if (error) throw error;
-  if (!snapshot) return [];
+  if (!snapshot) return { capturedAt: null, beaches: [] };
   const captured = Date.parse(snapshot.captured_at);
-  if (!Number.isFinite(captured) || captured < Date.parse(startedAt) - 2 * 3600_000
-    || captured > Date.parse(endedAt) + 3600_000) return [];
+  if (!Number.isFinite(captured) || captured < Date.parse(startedAt) - CANDIDATE_SNAPSHOT_WINDOW.beforeMs
+    || captured > Date.parse(endedAt) + CANDIDATE_SNAPSHOT_WINDOW.afterMs) {
+    return { capturedAt: Number.isFinite(captured) ? captured : null, beaches: [] };
+  }
 
   const { data: nearby, error: nearbyError } = await service.rpc("get_nearby_beaches", {
     input_lat: snapshot.lat, input_lng: snapshot.lon, max_distance_meters: 1500, limit_count: 3,
   });
   if (nearbyError) throw nearbyError;
   const rows = (nearby ?? []) as NearbyRow[];
-  if (!rows.length) return [];
+  if (!rows.length) return { capturedAt: captured, beaches: [] };
   const { data: windows, error: windowsError } = await service.from("beaches")
     .select("id, swell_window_center_deg").in("id", rows.map(row => row.id));
   if (windowsError) throw windowsError;
   const centers = new Map((windows ?? []).map(row => [row.id, row.swell_window_center_deg]));
-  return rows.map(row => ({
+  const candidates = rows.map(row => ({
     beach: { id: row.id, name: row.name, lat: row.lat, lon: row.lon,
       swellWindowCenterDeg: centers.get(row.id) ?? null },
     distanceM: haversineM(snapshot, row),
   })).filter(candidate => candidate.distanceM <= 1500)
     .sort((a, b) => a.distanceM - b.distanceM);
+  return { capturedAt: captured, beaches: candidates };
 }
 
 export async function resolveNoGpsBeach(
   service: SupabaseClient, userId: string, inWaterStart: string, startedAt: string, endedAt: string,
-): Promise<NoGpsResolution> {
+): Promise<NoGpsBeachResolution> {
   const target = await findNoGpsAttachTarget(service, userId, inWaterStart);
   if (target) {
     const beach = await loadImportBeach(service, target.beachId);
     if (beach) return { status: "resolved", beach, source: "logged_session", attachTarget: target };
   }
 
-  const candidates = await phoneCandidates(service, userId, startedAt, endedAt);
-  if (candidates.length === 1 || (candidates.length > 1
-    && candidates[1].distanceM > 0 && candidates[0].distanceM * 2 <= candidates[1].distanceM)) {
-    return { status: "resolved", beach: candidates[0].beach, source: "phone_location", attachTarget: null };
+  const phone = await phoneCandidates(service, userId, startedAt, endedAt);
+  const capturedAt = phone.capturedAt;
+  const isRecentEnough = capturedAt !== null
+    && capturedAt >= Date.parse(startedAt) - AUTO_PICK_SNAPSHOT_WINDOW.beforeMs
+    && capturedAt <= Date.parse(endedAt) + AUTO_PICK_SNAPSHOT_WINDOW.afterMs;
+  if (isRecentEnough && phone.beaches.length === 1) {
+    return { status: "resolved", beach: phone.beaches[0].beach, source: "phone_location", attachTarget: null };
   }
-  return { status: "needs_beach", candidates: candidates.map(candidate => candidate.beach) };
+  return { status: "needs_beach", candidates: phone.beaches.map(candidate => candidate.beach) };
 }
 
 export async function rankNoGpsCandidates(
@@ -61,7 +74,7 @@ export async function rankNoGpsCandidates(
   now: Date = new Date(),
 ): Promise<ImportBeach[]> {
   const nearby = await phoneCandidates(service, userId, startedAt, endedAt);
-  const candidates = nearby.map(candidate => candidate.beach);
+  const candidates = nearby.beaches.map(candidate => candidate.beach);
   const seen = new Set(candidates.map(beach => beach.id));
 
   const { data: sessions, error: sessionsError } = await service.from("sessions")

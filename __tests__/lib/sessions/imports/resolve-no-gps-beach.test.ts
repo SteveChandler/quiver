@@ -61,7 +61,19 @@ it("prefers the closest logged session at any beach over the phone", async () =>
   expect(rpc).not.toHaveBeenCalled();
 });
 
-it("resolves one beach from an in-window snapshot", async () => {
+it.each(["garmin_watch", "file_import"])("does not treat a %s session as an app-logged surf", async source => {
+  sessions = [{ id: "imported", user_id: "user", beach_id: "c", arrival_time: start, source }];
+  snapshot = null;
+  const client = service();
+  await expect(resolveNoGpsBeach(client, "user", start, start, end)).resolves.toEqual({
+    status: "needs_beach", candidates: [],
+  });
+  expect(from).not.toHaveBeenCalledWith("session_tracks");
+});
+
+it("resolves one beach from a snapshot ten minutes before the surf", async () => {
+  snapshot = { user_id: "user", lat: 34, lon: -119,
+    captured_at: new Date(Date.parse(start) - 10 * 60_000).toISOString() };
   const client = service();
   await expect(resolveNoGpsBeach(client, "user", start, start, end)).resolves.toMatchObject({
     status: "resolved", source: "phone_location", beach: { id: "a" }, attachTarget: null,
@@ -71,11 +83,20 @@ it("resolves one beach from an in-window snapshot", async () => {
   });
 });
 
-it("resolves a clearly nearer beach when another is within 1500 m", async () => {
+it("asks the user when two beaches are within 1500 m, even when one is closer", async () => {
   nearby = [{ ...beaches[0], lat: 34.0001 }, { ...beaches[1], lat: 34.001 }];
   const client = service();
   await expect(resolveNoGpsBeach(client, "user", start, start, end)).resolves.toMatchObject({
-    status: "resolved", source: "phone_location", beach: { id: "a" },
+    status: "needs_beach", candidates: [{ id: "a" }, { id: "b" }],
+  });
+});
+
+it("keeps a snapshot from 90 minutes before the surf as the first candidate without auto-picking", async () => {
+  snapshot = { user_id: "user", lat: 34, lon: -119,
+    captured_at: new Date(Date.parse(start) - 90 * 60_000).toISOString() };
+  const client = service();
+  await expect(resolveNoGpsBeach(client, "user", start, start, end)).resolves.toMatchObject({
+    status: "needs_beach", candidates: [{ id: "a" }],
   });
 });
 
@@ -107,6 +128,8 @@ it.each(["old", "missing"])("ignores an %s phone snapshot", async kind => {
 });
 
 it("ranks phone beaches, the most-surfed recent beach, and home beach without duplicates", async () => {
+  snapshot = { user_id: "user", lat: 34, lon: -119,
+    captured_at: new Date(Date.parse(start) - 90 * 60_000).toISOString() };
   nearby = beaches.slice(0, 2);
   sessions = [{ user_id: "user", beach_id: "c", arrival_time: start, status: "completed" },
     { user_id: "user", beach_id: "c", arrival_time: end, status: "completed" },

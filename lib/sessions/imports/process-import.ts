@@ -13,7 +13,7 @@ import { buildWavesSummary, type WavesSummary } from "../waves/waves-summary";
 import { findAttachTarget } from "./find-attach-target";
 import { linkRecentCall } from "./link-recent-call";
 import { loadImportBeach, resolveImportBeach, type ImportBeach } from "./resolve-import-beach";
-import { resolveNoGpsBeach } from "./resolve-no-gps-beach";
+import { resolveNoGpsBeach, type NoGpsBeachResolution } from "./resolve-no-gps-beach";
 
 export type ProcessImportResult =
   | { status: "completed"; sessionId: string; attached: boolean; summary: WavesSummary }
@@ -44,6 +44,10 @@ type TrackInsert = {
   hrMax: number | null;
   sourceDevice: string | null;
 };
+
+type BeachResolution =
+  | { status: "resolved"; beach: ImportBeach | null }
+  | { status: "needs_beach"; candidates: ImportBeach[] };
 
 function asError(error: unknown): Error {
   if (error instanceof Error) return error;
@@ -202,7 +206,7 @@ export async function processImport(
     }
 
     const noGps = summary.centroid === null;
-    const resolution = beachOverride
+    const resolution: BeachResolution | NoGpsBeachResolution = beachOverride
       ? { status: "resolved" as const, beach: await loadImportBeach(userClient, beachOverride) }
       : noGps
         ? await resolveNoGpsBeach(serviceClient, userId, summary.inWaterStart, track.meta.startedAt, track.meta.endedAt)
@@ -219,7 +223,7 @@ export async function processImport(
       .select("id, status, session_id").eq("user_id", userId).eq("sha256", sha256).maybeSingle();
     checkError(shaError);
     const { data: ownLinkedSession, error: linkedError } = imported.session_id
-      ? await userClient.from("sessions").select("id").eq("id", imported.session_id)
+      ? await userClient.from("sessions").select("id, source").eq("id", imported.session_id)
         .eq("user_id", userId).is("deleted_at", null).maybeSingle()
       : { data: null, error: null };
     checkError(linkedError);
@@ -253,8 +257,9 @@ export async function processImport(
     let target: Awaited<ReturnType<typeof findAttachTarget>>;
     if (linkedSession) {
       target = { sessionId: linkedSession.id, hasTrack: linkedTrack !== null,
-        trackImportId: linkedTrack?.import_id ?? null };
-    } else if (!beachOverride && noGps && "attachTarget" in resolution && resolution.attachTarget) {
+        trackImportId: linkedTrack?.import_id ?? null, source: linkedSession.source ?? null };
+    } else if (!beachOverride && noGps && resolution.status === "resolved"
+      && "attachTarget" in resolution && resolution.attachTarget) {
       target = resolution.attachTarget as NonNullable<typeof target>;
     } else {
       target = await findAttachTarget(userClient, userId, beach, summary.inWaterStart);
@@ -264,6 +269,7 @@ export async function processImport(
       // SHA matches were handled above; a nearby watch surf can be a separate session.
       target = null;
     }
+    if (isWatch && !linkedSession && target?.source === "garmin_watch") target = null;
     const { data: existingTrack, error: existingTrackError } = target?.hasTrack && !linkedTrack
       ? await userClient.from("session_tracks")
         .select("session_id, import_id, user_arrival_time, user_duration_minutes, user_wave_count")

@@ -801,10 +801,58 @@ it("deduplicates a completed zero-fix watch surf without a session_tracks row", 
     captured_at: track.meta.startedAt }];
   const first = await processImport(deps, importId, userId);
   if (first.status !== "completed") throw new Error("Expected completion");
+  await expect(processImport(deps, importId, userId)).resolves.toMatchObject({
+    status: "completed", sessionId: first.sessionId,
+  });
   rows.session_imports.push({ id: "repeat", user_id: userId, origin: "garmin_watch",
     storage_path: "repeat/user-1/watch.json", original_filename: "watch.json", status: "uploaded" });
   expect(await processImport(deps, "repeat", userId)).toEqual({ status: "duplicate", sessionId: first.sessionId });
   expect(inserts("sessions")).toHaveLength(1);
+});
+
+it("creates separate sessions for zero-fix watch surfs 60 minutes apart", async () => {
+  const firstTrack = noGpsWatch();
+  rows.user_location_snapshots = [{ user_id: userId, lat: beach.lat, lon: beach.lon,
+    captured_at: firstTrack.meta.startedAt }];
+  const first = await processImport(deps, importId, userId);
+  if (first.status !== "completed") throw new Error("Expected the first watch surf to complete");
+
+  const later = (value: string): string => new Date(Date.parse(value) + 60 * 60 * 1000).toISOString();
+  const secondTrack = { ...firstTrack,
+    meta: { ...firstTrack.meta, startedAt: later(firstTrack.meta.startedAt), endedAt: later(firstTrack.meta.endedAt) },
+    samples: firstTrack.samples.map(sample => ({ ...sample, t: later(sample.t) })) };
+  useWatch(secondTrack);
+  rows.user_location_snapshots[0].captured_at = secondTrack.meta.startedAt;
+  rows.session_imports.push({ id: "second-no-gps", user_id: userId, origin: "garmin_watch",
+    storage_path: "second-no-gps/user-1/watch.json", original_filename: "watch.json", status: "uploaded" });
+  const second = await processImport(deps, "second-no-gps", userId);
+  expect(second).toMatchObject({ status: "completed", attached: false });
+  if (second.status !== "completed") throw new Error("Expected the second watch surf to complete");
+  expect(second.sessionId).not.toBe(first.sessionId);
+  expect(rows.sessions).toHaveLength(2);
+  expect(inserts("session_tracks")).toHaveLength(0);
+});
+
+it("creates a separate GPS watch session beside a zero-fix watch session", async () => {
+  const firstTrack = noGpsWatch();
+  rows.user_location_snapshots = [{ user_id: userId, lat: beach.lat, lon: beach.lon,
+    captured_at: firstTrack.meta.startedAt }];
+  const first = await processImport(deps, importId, userId);
+  if (first.status !== "completed") throw new Error("Expected the zero-fix watch surf to complete");
+
+  const later = (value: string): string => new Date(Date.parse(value) + 60_000).toISOString();
+  const gpsTrack = boundaryTrack(600);
+  useWatch({ ...gpsTrack,
+    meta: { ...gpsTrack.meta, startedAt: later(gpsTrack.meta.startedAt), endedAt: later(gpsTrack.meta.endedAt) },
+    samples: gpsTrack.samples.map(sample => ({ ...sample, t: later(sample.t) })) });
+  rows.session_imports.push({ id: "gps-near-watch", user_id: userId, origin: "garmin_watch",
+    storage_path: "gps-near-watch/user-1/watch.json", original_filename: "watch.json", status: "uploaded" });
+  const second = await processImport(deps, "gps-near-watch", userId);
+  expect(second).toMatchObject({ status: "completed", attached: false });
+  if (second.status !== "completed") throw new Error("Expected the GPS watch surf to complete");
+  expect(second.sessionId).not.toBe(first.sessionId);
+  expect(rows.sessions).toHaveLength(2);
+  expect(rows.session_tracks).toHaveLength(1);
 });
 
 it("rejects a zero-fix watch surf shorter than 300 seconds", async () => {
