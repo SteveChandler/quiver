@@ -100,6 +100,7 @@ export const COOPS_STATIONS: Record<string, string> = {
   "long-beach": "9440910", // Toke Point station
   "ocean-shores": "9441102",
   "la-push": "9442396", // Neah Bay station
+  "fort-ebey": "9444900", // Port Townsend, across Admiralty Inlet from Point Partridge
 
   // ==================== HAWAII ====================
 

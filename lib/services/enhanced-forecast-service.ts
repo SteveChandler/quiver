@@ -3,6 +3,7 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { fetchWaterTemperature } from "@/lib/services/noaa-coops/api-client";
 import { getStationDistanceKm } from "@/lib/services/noaa-coops/station-resolver";
 import { getNearestTideStation } from "@/lib/services/noaa-tide-service";
+import { hasNoaaTideCoverage } from "@/lib/services/tides/tide-provider";
 import { getReviewedNwsPoint } from "@/lib/services/noaa-wavewatch/grid-utils";
 import { ForecastDataSourceManager, NOAAWeatherDataSource } from "./forecast/data-source-manager";
 import { ForecastStorageService } from "./forecast/storage-service";
@@ -281,6 +282,7 @@ export class EnhancedForecastService {
         // range, so these rows never carry a far or name-matched station's tides:
         // "Scorpion Bay (San Juanico)" name-matched San Juan, Puerto Rico. No station
         // in range means no tides, as in tide_forecasts.
+        if (!hasNoaaTideCoverage(beach)) return null;
         log.warn(`No cached tides for beach ${beach.name}, falling back to live CO-OPS API`);
         if (beach.lat == null || beach.lon == null) return null;
         const station = await getNearestTideStation(beach.lat, beach.lon);
@@ -486,6 +488,7 @@ export class EnhancedForecastService {
   private async fetchCOOPSWaterTemp(beach: Beach): Promise<number | null> {
     const { lat, lon } = beach;
     if (lat == null || lon == null) return null;
+    if (!hasNoaaTideCoverage(beach)) return null;
 
     const stationId = this.dataSourceManager
       .getCOOPSService()
@@ -963,6 +966,7 @@ export class EnhancedForecastService {
     // Get unique station IDs for all beaches
     const stationIds = new Set<string>();
     for (const beach of beaches) {
+      if (!hasNoaaTideCoverage(beach)) continue;
       const stationId = this.dataSourceManager.getCOOPSService().getStationForLocation(
         beach.name,
         beach.lat ?? undefined,

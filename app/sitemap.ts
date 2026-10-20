@@ -13,6 +13,7 @@ import { getAllCitiesWithBeachSkills } from "@/actions/beach/beach-location-acti
 import {
   buildBeachUrl,
   cityToSlug,
+  hasCountryHubPages,
   isUsaCountry,
   isValidCountrySlug,
   isValidStateSlug,
@@ -766,7 +767,7 @@ async function getLocationRoutes(
       const countrySlug = slugifyAscii(location.country);
       const regionSlug = slugifyAscii(location.state);
       const citySlug = slugifyAscii(location.city);
-      if (countrySlug && regionSlug && isValidCountrySlug(countrySlug)) {
+      if (countrySlug && regionSlug && hasCountryHubPages(countrySlug)) {
         internationalHubs.add(`${baseUrl}/beaches/${countrySlug}`);
         internationalHubs.add(
           `${baseUrl}/beaches/${countrySlug}/${regionSlug}`,

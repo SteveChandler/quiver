@@ -72,6 +72,8 @@ Quiver currently provides comprehensive surf forecasting coverage for the **enti
 | Gulf Coast | Mississippi, USA | Active | Full coastline |
 | Puerto Rico | Puerto Rico | Active | All coasts |
 | Northern Baja California | Mexico | Active | Tijuana to Ensenada |
+| Whidbey Island (Fort Ebey) | Washington, USA | Catalog only | Inside the Strait of Juan de Fuca; tides from Port Townsend (9444900); no scoring inputs, not indexable, not recommendation eligible |
+| Vancouver Island pilot | British Columbia, Canada | Catalog only | Cox Bay, North and South Chesterman, Long Beach (Pacific Rim) from issue #717. No tide source: Canadian beaches are kept off the NOAA fallback by `lib/services/tides/tide-provider.ts` until a CHS station binding exists. Not indexable, not recommendation eligible |
 
 ## Feature Availability by Region
 
