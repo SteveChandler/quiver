@@ -2,7 +2,7 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 
-import { alertCountyFeedOperator, warnCountyFeedOperator } from "./alerts";
+import { alertCountyFeedOperator, noteCountyFeedOperator, warnCountyFeedOperator } from "./alerts";
 import { CountyFeedError } from "./county-client";
 import { normalizeCountyNotifications } from "./normalizer";
 import {
@@ -227,7 +227,8 @@ export async function runCountyAdvisoryIngest(options: {
       );
     }
     if (summary.unmatchedSites > 0) {
-      warnCountyFeedOperator(
+      // Fires on every scheduled run with the same unmatched set, so it must not open a Sentry issue.
+      noteCountyFeedOperator(
         `County feed matched ${summary.matchedSites}/${summary.totalSites} unique sites; ${summary.unmatchedSites} remain unmatched`,
       );
     }
