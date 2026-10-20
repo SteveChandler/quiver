@@ -9,6 +9,7 @@
 import { createContextLogger } from "@/lib/logger";
 import { API_ENDPOINTS, FORECAST_CONFIG, HTTP_CONFIG } from "./constants";
 import { getOceanGridPoint } from "./grid-utils";
+import { isWithinNwsCoverage } from "@/lib/utils/nws-coverage";
 import type { NOAAWavePoint, NOAAGridData, OpenMeteoMarineResponse } from "./types";
 
 const log = createContextLogger("NOAAWaveWatch:APIClient");
@@ -72,6 +73,10 @@ export async function fetchNOAAPointData(
     ? { lat: reviewedPoint[0], lon: reviewedPoint[1] }
     : getOceanGridPoint(latitude, longitude);
   if (!Number.isFinite(oceanPoint.lat) || !Number.isFinite(oceanPoint.lon) || Math.abs(oceanPoint.lat) > 90 || Math.abs(oceanPoint.lon) > 180) return null;
+  if (!isWithinNwsCoverage(oceanPoint.lat, oceanPoint.lon)) {
+    log.debug(`Skipping NWS point lookup outside US coverage: ${oceanPoint.lat},${oceanPoint.lon}`);
+    return null;
+  }
   const key = cacheKey(oceanPoint.lat, oceanPoint.lon);
   const cached = pointCache.get(key);
   if (cached && cached.expiresAt > Date.now()) {
@@ -116,7 +121,7 @@ export async function fetchNOAAPointData(
     pointCache.set(key, { value: data, expiresAt: Date.now() + POINT_CACHE_TTL_MS });
     return data;
   } catch (error) {
-    log.error("Error fetching NOAA point data:", error);
+    log.warn("Error fetching NOAA point data:", error);
     return null;
   }
 }
@@ -152,7 +157,7 @@ export async function fetchNOAAGridData(
 
     return data;
   } catch (error) {
-    log.error("Error fetching NOAA grid data:", error);
+    log.warn("Error fetching NOAA grid data:", error);
     return null;
   }
 }
@@ -326,7 +331,8 @@ export async function fetchOpenMeteoData(
       log.debug("Open-Meteo fetch aborted");
       return null;
     }
-    log.error("Error fetching Open-Meteo data:", error);
+    // A failed request returns null and the caller falls back; one flaky fetch is not an incident.
+    log.warn("Error fetching Open-Meteo data:", error);
     return null;
   }
 }
