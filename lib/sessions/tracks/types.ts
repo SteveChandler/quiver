@@ -1,3 +1,5 @@
+import { WATCH_CONTRACT } from "@/lib/watch/contract";
+
 export type TrackSample = {
   t: string;
   lat: number | null;
@@ -17,7 +19,7 @@ export type TrackMeta = {
   endedAt: string;
 };
 
-export const WATCH_WAVE_HEIGHTS_FT = [1.5, 2.5, 3.5, 5, 7, 8.5] as const;
+export const WATCH_WAVE_HEIGHTS_FT = WATCH_CONTRACT.waveHeightsFt;
 export type WatchWaveHeightFt = (typeof WATCH_WAVE_HEIGHTS_FT)[number];
 
 export type NormalizedTrack = {

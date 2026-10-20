@@ -6,6 +6,7 @@ import { isGarminWatchUserAllowed } from "@/lib/flags/garmin-watch";
 import { createServiceRoleClient } from "@/lib/supabase";
 import type { RouteHandler } from "@/lib/middleware/api-wrappers/types";
 import { hashSecret } from "./device-token";
+import { WATCH_CONTRACT } from "./contract";
 
 /** service is a service-role client; scope every query by ctx.userId/ctx.deviceId. */
 export type WatchContext = {
@@ -27,7 +28,7 @@ export function withWatchAuth(
 
       const service = createServiceRoleClient();
       const { data: device, error } = await service.from("watch_devices")
-        .select("id, user_id, last_seen_at")
+        .select("id, user_id, last_seen_at, app_version")
         .eq("token_hash", hashSecret(token))
         .is("revoked_at", null)
         .maybeSingle();
@@ -39,10 +40,17 @@ export function withWatchAuth(
 
       const now = Date.now();
       const lastSeen = device.last_seen_at ? Date.parse(device.last_seen_at) : NaN;
-      if (!Number.isFinite(lastSeen) || lastSeen < now - 10 * 60 * 1000) {
+      const reportedVersion = request.headers.get(WATCH_CONTRACT.appVersionHeader);
+      const appVersion = reportedVersion && /^[0-9A-Za-z.+-]{1,32}$/.test(reportedVersion)
+        ? reportedVersion : null;
+      const versionChanged = appVersion !== null && appVersion !== device.app_version;
+      if (versionChanged || !Number.isFinite(lastSeen) || lastSeen < now - 10 * 60 * 1000) {
         try {
           const { error: updateError } = await service.from("watch_devices")
-            .update({ last_seen_at: new Date(now).toISOString() })
+            .update({
+              last_seen_at: new Date(now).toISOString(),
+              ...(versionChanged ? { app_version: appVersion } : {}),
+            })
             .eq("id", device.id);
           if (updateError) throw updateError;
         } catch (error) {
