@@ -1,3 +1,4 @@
+import { isNextRouterSignal } from "@/lib/utils/next-router-signal";
 import { BeachPageStructuredData } from "@/components/seo/structured-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
@@ -38,19 +39,6 @@ export const dynamic = "force-dynamic";
 
 interface PageProps {
   params: Promise<{ region: string; city: string; beachSlug: string }>;
-}
-
-/**
- * Check if an error is a Next.js router signal (notFound, redirect)
- * These should be re-thrown, not caught by error handlers.
- */
-function isNextRouterSignal(error: unknown) {
-  if (!error || typeof error !== "object" || !("digest" in error)) return false;
-  const digest = (error as { digest?: unknown }).digest;
-  return (
-    digest === "NEXT_NOT_FOUND" ||
-    (typeof digest === "string" && digest.startsWith("NEXT_REDIRECT"))
-  );
 }
 
 /**

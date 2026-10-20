@@ -1,3 +1,4 @@
+import { isNextRouterSignal } from "@/lib/utils/next-router-signal";
 import { Suspense } from "react";
 import { BeachPageStructuredData } from "@/components/seo/structured-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
@@ -134,17 +135,7 @@ export default async function BeachDetailBySlugPage(
       </>
     );
   } catch (error) {
-    // Ensure Next.js router signals are not swallowed by this page-level try/catch.
-    // `notFound()` and `redirect()` throw special errors with a `digest` marker.
-    if (error && typeof error === "object" && "digest" in error) {
-      const digest = (error as { digest?: unknown }).digest;
-      if (
-        digest === "NEXT_NOT_FOUND" ||
-        (typeof digest === "string" && digest.startsWith("NEXT_REDIRECT"))
-      ) {
-        throw error;
-      }
-    }
+    if (isNextRouterSignal(error)) throw error;
 
     console.error("Error fetching beach:", error);
     notFound();
