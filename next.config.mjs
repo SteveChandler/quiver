@@ -680,6 +680,11 @@ const nextConfig = {
     // Supports 5 photos × 10MB (pre-compression) + FormData overhead
     serverActions: {
       bodySizeLimit: '60mb',
+      // Next compares the Origin header to x-forwarded-host and rejects a
+      // mismatch ("Invalid Server Actions request"). Behind Vercel's apex ->
+      // www redirect and proxies, www.quiversurf.app requests arrive with an
+      // origin on the other host, so both are allowed.
+      allowedOrigins: ['quiversurf.app', 'www.quiversurf.app'],
     },
   },
 
