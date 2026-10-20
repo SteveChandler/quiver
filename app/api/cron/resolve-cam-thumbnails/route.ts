@@ -170,8 +170,13 @@ async function _GET(request: Request): Promise<Response> {
       {
         job: "/api/cron/resolve-cam-thumbnails",
         unit: "thumbnails_updated",
-        expectedMin: 1,
+        // Zero updates is normal once every cam has a thumbnail; store errors still fail below.
+        expectedMin: 0,
         getProduced: (value) => value.updated,
+        failureReason: (value) =>
+          value.updated === 0 && value.failed > 0
+            ? `${value.failed} thumbnail store(s) failed and none updated`
+            : null,
         legitimatelyZero: () => {
           if (eligible === 0) {
             return { reason: "No camera sources had supported thumbnail providers" };
