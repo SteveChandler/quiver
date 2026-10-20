@@ -4,7 +4,7 @@ import { setTimeout as sleep } from "node:timers/promises";
  * Implements exponential backoff with jitter and circuit breaker patterns
  */
 
-import { ApiError } from "@/lib/errors/forecast-errors";
+import { ApiError, isNoaaMarineForecastNotSupportedError } from "@/lib/errors/forecast-errors";
 
 interface RetryOptions {
   maxRetries?: number;
@@ -268,6 +268,13 @@ export class RetryableAPIClient {
           
           if (isExpectedNoaa404) {
             console.warn(`[${serviceName}] No coverage for point (404 on /points/): ${url}`);
+          } else if (serviceName === "NOAA" && isNoaaMarineForecastNotSupportedError(error)) {
+            // Marine gridpoints have no forecast product; callers treat this as "no data".
+            console.warn(`[${serviceName}] Marine forecast not supported: ${url}`);
+          } else if (serviceName === "NOAA" && this.isRetryableError(error)) {
+            // Retries are exhausted on a transient upstream fault (5xx, timeout, network);
+            // the caller decides whether the missing data is fatal.
+            console.warn(`[${serviceName}] Upstream unavailable after ${attempt + 1} attempts: ${url}`, error);
           } else if (this.isDeterministicCDIPStatus(serviceName, error)) {
             console.warn(`[${serviceName}] Station data unavailable (${status}): ${url}`);
           } else {

@@ -49,6 +49,16 @@ import {
  * const obs = await service.fetchObservation(stationId);
  * ```
  */
+function isTransientErddapError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  return (
+    /^ERDDAP API error: (5\d\d|408|429)/.test(error.message) ||
+    error.name === "AbortError" ||
+    error.name === "TimeoutError" ||
+    /fetch failed|ECONNRESET|ETIMEDOUT|ENOTFOUND/i.test(error.message)
+  );
+}
+
 export class IOOSService {
   private readonly config: IOOSServiceConfig;
   private readonly observationCache: ObservationCache;
@@ -397,6 +407,9 @@ export class IOOSService {
       if (error instanceof Error && error.message.startsWith("ERDDAP API error: 404")) {
         console.warn(`[IOOS] Station ${stationId} returned 404 from ERDDAP`);
         this.stationsReturning404.add(stationId);
+      } else if (isTransientErddapError(error)) {
+        // Dead or flapping ERDDAP datasets answer 5xx for weeks; the station is simply skipped.
+        console.warn(`[IOOS] Observation unavailable for ${stationId}:`, error instanceof Error ? error.message : error);
       } else {
         console.error(`[IOOS] Error fetching observation for ${stationId}:`, error);
       }

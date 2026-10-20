@@ -41,8 +41,16 @@ async function _GET(request: Request): Promise<NextResponse> {
       {
         job: "/api/cron/notifications-deliver",
         unit: "notifications_sent",
-        expectedMin: 1,
+        // Quiet runs (empty queue, quiet hours, all channel skips) send nothing legitimately.
+        expectedMin: 0,
         getProduced: (value) => value.by_status?.sent ?? 0,
+        failureReason: (value) => {
+          const providerFailures =
+            (value.by_status?.failed_provider ?? 0) + (value.by_status?.failed_internal ?? 0);
+          return (value.by_status?.sent ?? 0) === 0 && providerFailures > 0
+            ? `no notifications sent; ${providerFailures} delivery attempt(s) failed`
+            : null;
+        },
         legitimatelyZero: (value) =>
           (value.fetched ?? value.processed ?? 0) === 0
             ? { reason: "Notification queue had no pending events" }

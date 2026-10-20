@@ -130,12 +130,17 @@ async function fetchTidePredictions(
     });
 
     if (!response.ok) {
-      options?.logger?.error(
-        `CO-OPS tide API error: ${response.status} - ${response.statusText}`
+      // A forbidden/unavailable station returns [] and the caller reports missing coverage;
+      // log once, with the station, at warn so a stuck station does not page every run.
+      const errorText = (await response.text().catch(() => "")).slice(0, 200);
+      // 400/401 mean our request or key is wrong, which is a bug, not an upstream fault.
+      const log = response.status === 403 || response.status === 404 || response.status >= 500
+        ? options?.logger?.warn
+        : options?.logger?.error;
+      log?.call(options?.logger,
+        `CO-OPS tide API error for station ${stationId}: ${response.status} - ${response.statusText}${errorText ? ` ${errorText}` : ""}`
       );
-      const errorText = await response.text();
-      options?.logger?.error(`Error response: ${errorText}`);
-      throw new Error(`CO-OPS tide API error: ${response.status}`);
+      return [];
     }
 
     const data = await response.json();
@@ -169,7 +174,15 @@ async function fetchTidePredictions(
 
     return tideData;
   } catch (error) {
-    options?.logger?.error("Error fetching tide predictions:", error);
+    const message = error instanceof Error ? error.message : String(error);
+    const transient =
+      error instanceof Error &&
+      (error.name === "AbortError" || error.name === "TimeoutError" || /fetch failed|network|ECONNRESET|ETIMEDOUT|ENOTFOUND/i.test(message));
+    if (transient) {
+      options?.logger?.warn(`Network error fetching tide predictions for station ${stationId}: ${message}`);
+    } else {
+      options?.logger?.error(`Error fetching tide predictions for station ${stationId}:`, error);
+    }
     return [];
   }
 }

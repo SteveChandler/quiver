@@ -203,7 +203,7 @@ describe("resolve cam thumbnails cron route", () => {
         thumbnail_url: "https://storage.hdontap.com/wowza_stream_thumbnails/snapshot_beach.stream.jpg",
       });
       expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({
-        status: writeFails ? "failed" : "ok", produced: writeFails ? 0 : 1, expected_min: 1,
+        status: writeFails ? "failed" : "ok", produced: writeFails ? 0 : 1, expected_min: 0,
       }));
       expect(Sentry.captureMessage).toHaveBeenCalledTimes(writeFails ? 1 : 0);
     } finally {

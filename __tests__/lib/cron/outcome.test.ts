@@ -151,4 +151,28 @@ describe("withCronOutcome", () => {
       }),
     );
   });
+
+  it("names the handler failure instead of a false range when produced is within range", async () => {
+    await withCronOutcome(
+      {
+        ...optionsFor(JOBS[0]),
+        expectedMax: 10000,
+        failureReason: () => "tide coverage under 7 days for 2 beaches",
+      },
+      async () => ({ produced: 5087 }),
+    );
+
+    const [title, context] = (Sentry.captureMessage as jest.Mock).mock.calls[0];
+    expect(title).toContain("reported failure");
+    expect(title).not.toContain("expected 1-10000;");
+    expect(context.extra.reason).toBe("tide coverage under 7 days for 2 beaches");
+    expect(context.fingerprint).toEqual(["cron-outcome", "/api/cron/condition-alert-deliver", "handler-failure"]);
+  });
+
+  it("keeps the range wording when produced is actually out of range", async () => {
+    await withCronOutcome(optionsFor(JOBS[0]), async () => ({ produced: 0 }));
+    const [title, context] = (Sentry.captureMessage as jest.Mock).mock.calls[0];
+    expect(title).toContain("produced 0");
+    expect(context.fingerprint[2]).toBe("out-of-range");
+  });
 });
