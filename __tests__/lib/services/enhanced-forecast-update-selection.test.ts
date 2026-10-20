@@ -55,11 +55,13 @@ describe("EnhancedForecastService.updateAllEnhancedForecasts selection", () => {
 
         if (table === "v_enhanced_forecast_latest") {
           return {
-            select: () =>
-              Promise.resolve({
-                data: latestRows,
-                error: null,
-              }),
+            select: () => ({
+              in: (_column: string, ids: string[]) =>
+                Promise.resolve({
+                  data: latestRows.filter((row) => ids.includes(row.beach_id)),
+                  error: null,
+                }),
+            }),
           };
         }
 
@@ -157,11 +159,13 @@ describe("EnhancedForecastService.updateAllEnhancedForecasts selection", () => {
 
         if (table === "v_enhanced_forecast_latest") {
           return {
-            select: () =>
-              Promise.resolve({
-                data: latestRows,
-                error: null,
-              }),
+            select: () => ({
+              in: (_column: string, ids: string[]) =>
+                Promise.resolve({
+                  data: latestRows.filter((row) => ids.includes(row.beach_id)),
+                  error: null,
+                }),
+            }),
           };
         }
 
@@ -245,7 +249,15 @@ describe("EnhancedForecastService.updateAllEnhancedForecasts selection", () => {
           };
         }
         if (table === "v_enhanced_forecast_latest") {
-          return { select: () => Promise.resolve({ data: latestRows, error: null }) };
+          return {
+            select: () => ({
+              in: (_column: string, ids: string[]) =>
+                Promise.resolve({
+                  data: latestRows.filter((row) => ids.includes(row.beach_id)),
+                  error: null,
+                }),
+            }),
+          };
         }
         throw new Error(`Unexpected table: ${table}`);
       },
@@ -327,7 +339,15 @@ describe("EnhancedForecastService.updateAllEnhancedForecasts selection", () => {
           };
         }
         if (table === "v_enhanced_forecast_latest") {
-          return { select: () => Promise.resolve({ data: latestRows, error: null }) };
+          return {
+            select: () => ({
+              in: (_column: string, ids: string[]) =>
+                Promise.resolve({
+                  data: latestRows.filter((row) => ids.includes(row.beach_id)),
+                  error: null,
+                }),
+            }),
+          };
         }
         throw new Error(`Unexpected table: ${table}`);
       },
@@ -365,5 +385,83 @@ describe("EnhancedForecastService.updateAllEnhancedForecasts selection", () => {
 
     expect(fetchValidationSnapshot).toHaveBeenCalledTimes(1);
     expect(snapshotByBeach["b-shadow"]).toBe(validationSnapshot);
+  });
+});
+
+describe("EnhancedForecastService latest-view reads are bounded", () => {
+  beforeEach(() => {
+    jest.resetModules();
+    jest.clearAllMocks();
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date("2025-12-11T12:00:00Z"));
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it("reads v_enhanced_forecast_latest only for the shard's beaches, at most 50 ids per statement", async () => {
+    const beaches = Array.from({ length: 400 }, (_, index) => makeBeach(`beach-${index}`));
+    const { hashString } = await import("@/lib/services/forecast/batch-update-coordinator");
+    const shardIds = new Set(
+      beaches.filter((beach) => hashString(beach.id) % 4 === 1).map((beach) => beach.id),
+    );
+    const seenIdBatches: string[][] = [];
+
+    const mockSupabase = {
+      from: (table: string) => {
+        if (table === "beaches") {
+          return { select: () => Promise.resolve({ data: beaches, error: null }) };
+        }
+        if (table === "enhanced_forecasts") {
+          return { select: () => Promise.resolve({ data: [], error: null }) };
+        }
+        if (table === "v_enhanced_forecast_latest") {
+          return {
+            select: () => ({
+              in: (_column: string, ids: string[]) => {
+                seenIdBatches.push(ids);
+                return Promise.resolve({
+                  data: ids.map((id) => ({ beach_id: id, updated_at: "2025-12-11T11:00:00Z" })),
+                  error: null,
+                });
+              },
+            }),
+          };
+        }
+        throw new Error(`Unexpected table: ${table}`);
+      },
+      rpc: () => Promise.resolve({ data: [], error: null }),
+    };
+
+    jest.doMock("@/lib/supabase/server", () => ({
+      createSupabaseServiceRoleClient: async () => mockSupabase,
+    }));
+
+    const { EnhancedForecastService: Service } = await import(
+      "@/lib/services/enhanced-forecast-service"
+    );
+    const service = new Service() as any;
+    process.env.FORECAST_FRESHNESS_WINDOW_HOURS = "12";
+    process.env.FORECAST_REFRESH_LEAD_HOURS = "4";
+
+    jest
+      .spyOn(service, "generateComprehensiveForecastWithDiagnostics")
+      .mockResolvedValue({ forecasts: [], cdip: { stationId: null, skipReason: "no_station" } });
+    jest.spyOn(service, "storeEnhancedForecasts").mockResolvedValue({ success: true });
+    jest.spyOn(service, "prefetchTideStations").mockResolvedValue(undefined);
+
+    const run = service.updateAllEnhancedForecasts({ shard: 1, shardCount: 4 });
+    await jest.runAllTimersAsync();
+    await run;
+
+    // Sharding leaves a strict subset, and that subset is read in more than one chunk.
+    expect(shardIds.size).toBeGreaterThan(50);
+    expect(shardIds.size).toBeLessThan(beaches.length);
+    expect(seenIdBatches.length).toBeGreaterThan(1);
+    for (const ids of seenIdBatches) {
+      expect(ids.length).toBeLessThanOrEqual(50);
+    }
+    expect(new Set(seenIdBatches.flat())).toEqual(shardIds);
   });
 });
