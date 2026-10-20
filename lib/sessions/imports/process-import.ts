@@ -351,11 +351,6 @@ export async function processImport(
         .eq("id", sessionId).eq("user_id", userId).is("deleted_at", null);
       checkError(error);
     }
-    if (noGps && target) {
-      const { error } = await userClient.from("sessions").update({ is_public: false })
-        .eq("id", sessionId).eq("user_id", userId).is("deleted_at", null);
-      checkError(error);
-    }
     if (isWatch && attached && track.extras?.rating != null) {
       const { error } = await userClient.from("sessions").update({ rating: track.extras.rating })
         .eq("id", sessionId).eq("user_id", userId).is("deleted_at", null).is("rating", null);

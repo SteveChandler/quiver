@@ -789,7 +789,8 @@ it("attaches a zero-fix surf to a logged session at another beach", async () => 
     arrival_time: track.meta.startedAt, duration_minutes: 90, status: "completed", rating: null, is_public: true });
   expect(await processImport(deps, importId, userId)).toMatchObject({
     status: "completed", sessionId: "logged", attached: true });
-  expect(rows.sessions[0]).toMatchObject({ rating: 4, wave_height_ft: 3.5, water_temp: 68, is_public: false });
+  // The user chose this session's visibility when logging it; a zero-fix watch surf must not change it.
+  expect(rows.sessions[0]).toMatchObject({ rating: 4, wave_height_ft: 3.5, water_temp: 68, is_public: true });
   expect(inserts("sessions")).toHaveLength(0);
   expect(inserts("session_tracks")).toHaveLength(0);
 });
