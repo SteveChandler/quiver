@@ -110,10 +110,17 @@ describe("quiver_watch track format", () => {
       .toThrow(expect.objectContaining({ code: "corrupt" }));
   });
 
-  it("rejects a track with only null positions as no_gps", () => {
-    const file = encodeWatchTrack({ ...original, samples: original.samples.slice(0, 2) });
+  it("keeps a zero-fix watch surf with heart rate and temperature", () => {
+    const samples = Array.from({ length: 601 }, (_, index) => ({
+      ...original.samples[0], t: new Date(Date.parse(original.meta.startedAt) + index * 1000).toISOString(),
+      lat: null, lon: null, hr: 120, tempC: 19,
+    }));
+    const file = encodeWatchTrack({ ...original, samples });
     expect(file.chunks[0].lat0).toBeNull();
-    expect(() => parseQuiverWatch(file)).toThrow(expect.objectContaining({ code: "no_gps" }));
+    expect(parseQuiverWatch(file).samples).toEqual(samples.map(sample => ({
+      ...sample, speedMps: sample.speedMps === null ? null : Math.round(sample.speedMps * 100) / 100,
+      cadence: null,
+    })));
   });
 
   it.each([256, 32768])("rejects heart rate %i as corrupt before persistence", hr => {

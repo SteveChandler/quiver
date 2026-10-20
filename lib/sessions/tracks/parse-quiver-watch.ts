@@ -44,7 +44,6 @@ export function parseQuiverWatch(json: unknown): NormalizedTrack {
   }
 
   const samples: TrackSample[] = [];
-  let hasFix = false;
   for (const chunk of chunks) {
     if (!isRecord(chunk) || !isInteger(chunk.t0) || !isNullableInteger(chunk.lat0)
       || !isNullableInteger(chunk.lon0) || (chunk.lat0 === null) !== (chunk.lon0 === null)
@@ -88,7 +87,6 @@ export function parseQuiverWatch(json: unknown): NormalizedTrack {
         lat = lastLat / 1e7;
         lon = lastLon / 1e7;
         chunkHasFix = true;
-        hasFix = true;
       }
       samples.push({
         t: timestamp.toISOString(), lat, lon,
@@ -98,8 +96,6 @@ export function parseQuiverWatch(json: unknown): NormalizedTrack {
     }
     if (chunkHasFix !== (chunk.lat0 !== null)) corrupt("Invalid Quiver watch fix origin");
   }
-  if (!hasFix) throw new TrackFileError("no_gps", "This file has no GPS track");
-
   return {
     meta: {
       format: "quiver_watch", sport: "surfing", subSport: null,

@@ -4,10 +4,12 @@ jest.mock("server-only", () => ({}));
 const mockFrom = jest.fn();
 const mockAuth = jest.fn();
 const mockResolve = jest.fn();
+const mockRankNoGps = jest.fn();
 jest.mock("@/lib/supabase/server", () => ({ createSupabaseServerClient: () => ({ from: mockFrom, auth: { getUser: mockAuth } }) }));
-jest.mock("@/lib/supabase", () => ({ ...jest.requireActual("@/lib/supabase") }));
+jest.mock("@/lib/supabase", () => ({ createServiceRoleClient: () => ({ from: mockFrom }) }));
 jest.mock("@/lib/middleware/api-wrappers/rate-limit-wrapper", () => ({ withRateLimit: (handler: unknown) => handler }));
 jest.mock("@/lib/sessions/imports/resolve-import-beach", () => ({ resolveImportBeach: (...args: unknown[]) => mockResolve(...args) }));
+jest.mock("@/lib/sessions/imports/resolve-no-gps-beach", () => ({ rankNoGpsCandidates: (...args: unknown[]) => mockRankNoGps(...args) }));
 
 import { NextRequest } from "next/server";
 import { GET } from "@/app/api/v1/session-imports/[id]/route";
@@ -34,6 +36,10 @@ beforeEach(() => {
     summary: { centroid: { lat: 34, lon: -119 }, inWaterStart: "2026-10-17T12:00:00Z" }, session_id: null };
   upload = null;
   mockResolve.mockResolvedValue({ status: "needs_beach", candidates: [{ id: "beach-1", name: "Beach", lat: 34, lon: -119 }] });
+  mockRankNoGps.mockResolvedValue([
+    { id: "phone", name: "Phone", lat: 34, lon: -119, swellWindowCenterDeg: null },
+    { id: "history", name: "History", lat: 35, lon: -120, swellWindowCenterDeg: null },
+  ]);
   mockFrom.mockImplementation((table: string) => {
     const q: Record<string, jest.Mock> = { select: jest.fn(), eq: jest.fn(), order: jest.fn(), limit: jest.fn(), maybeSingle: jest.fn() };
     q.select.mockReturnValue(q);
@@ -67,6 +73,19 @@ it("re-resolves candidates from the stored centroid for needs_beach", async () =
   } });
   expect(mockResolve).toHaveBeenCalledWith(expect.anything(), { lat: 34, lon: -119 });
   expect(queries[0].eq).toHaveBeenCalledWith("user_id", userId);
+});
+
+it("returns ranked candidates for a zero-fix watch import", async () => {
+  imported = { ...imported, summary: { centroid: null, inWaterStart: "2026-10-17T12:01:00Z",
+    inWaterEnd: "2026-10-17T13:40:00Z", startedAt: "2026-10-17T12:00:00Z",
+    endedAt: "2026-10-17T13:45:00Z" } };
+  const response = await GET(request(), context);
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ data: { status: "needs_beach",
+    candidates: [{ id: "phone" }, { id: "history" }] } });
+  expect(mockRankNoGps).toHaveBeenCalledWith(expect.anything(), userId,
+    "2026-10-17T12:00:00Z", "2026-10-17T13:45:00Z");
+  expect(mockResolve).not.toHaveBeenCalled();
 });
 
 it("returns the error code of a failed import as its reason", async () => {

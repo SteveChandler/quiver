@@ -72,9 +72,13 @@ export async function runEmailLifecycle(dryRun: boolean): Promise<Record<string,
     const eligibility = await refreshLifecycleEligibility();
     if (eligibility.failed > 0) errors.push(`Lifecycle eligibility refresh failed for ${eligibility.failed} user(s)`);
     if (process.env.PRO_OFFERS_ENABLED === "true") await lifecycleRpc("enroll_automatic_pro_offers");
-    const dueCandidates = await Promise.all(users.map(async userId => lifecycleDecisionSchema.parse(
-      await lifecycleRpc("evaluate_email_lifecycle", { p_user_id: userId }),
-    )));
+    // 50 concurrent evaluations starve each other past the 8 s statement timeout; sequentially they total ~4 s.
+    const dueCandidates: LifecycleDecision[] = [];
+    for (let offset = 0; offset < users.length; offset += 5) {
+      dueCandidates.push(...await Promise.all(users.slice(offset, offset + 5).map(async userId => lifecycleDecisionSchema.parse(
+        await lifecycleRpc("evaluate_email_lifecycle", { p_user_id: userId }),
+      ))));
+    }
     if (dueCandidates.some(candidate => candidate.status === "due")) {
       try {
         replyCheck = { status: "ok", ...(await checkGmailRepliesBeforeSend()) };

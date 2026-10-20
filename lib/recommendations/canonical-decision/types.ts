@@ -73,6 +73,8 @@ export interface CanonicalDecisionCandidate {
   waveHeight: unknown;
   utilityScore: number;
   recommendationLabel?: "Worth it" | "Maybe" | "Skip";
+  /** Condition-character category of the candidate's forecast row; "skip" is blown out. */
+  characterCategory?: string | null;
   personalMatch?: CanonicalPersonalMatchEvidence | null;
   safetyOverrideReasons?: CanonicalDecisionReasonCode[];
   effects?: ScoringDecisionEffect[];

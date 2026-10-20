@@ -19,6 +19,7 @@ interface TestCandidate {
   waveHeight: unknown;
   utilityScore: number;
   recommendationLabel: "Worth it" | "Maybe" | "Skip";
+  characterCategory?: string | null;
   safetyOverrideReasons?: Array<"water_quality_closure">;
   personalMatch?: {
     score: number;
@@ -354,6 +355,18 @@ describe("canonical session decision engine", () => {
     expect(decision.verdict).toBe("go");
     expect(decision.conditionLabel).toBe("GOOD");
     expect(decision.selection?.evidence.conditionScore).toBe(79);
+  });
+
+  it("labels a maybe on a blown-out row MEH, not FAIR, and leaves other rows alone", () => {
+    const { buildCanonicalSessionDecision } = loadEngine();
+    const labelFor = (characterCategory: string | null) =>
+      (buildCanonicalSessionDecision(
+        input([candidate({ utilityScore: 55, recommendationLabel: "Maybe", characterCategory })]),
+      ) as { verdict: string; conditionLabel: string });
+
+    expect(labelFor("skip")).toMatchObject({ verdict: "maybe", conditionLabel: "MEH" });
+    expect(labelFor("medium-rough")).toMatchObject({ verdict: "maybe", conditionLabel: "FAIR" });
+    expect(labelFor(null)).toMatchObject({ verdict: "maybe", conditionLabel: "FAIR" });
   });
 
   it("never emits conditionLabel EPIC while EPIC is off", () => {
