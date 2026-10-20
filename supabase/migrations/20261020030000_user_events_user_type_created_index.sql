@@ -1,4 +1,9 @@
 BEGIN;
+-- The build holds a SHARE lock on user_events, and app inserts give up after the
+-- authenticator's 8 s lock_timeout. Fail fast instead of queueing behind a long
+-- reader, and abort rather than hold inserts for long.
+SET LOCAL lock_timeout = '5s';
+SET LOCAL statement_timeout = '60s';
 
 -- evaluate_email_lifecycle reads one user's recent events of a few types. For a
 -- user who owns ~11% of user_events the planner prefers the event_type index,

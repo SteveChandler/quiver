@@ -26,6 +26,13 @@ it("keeps a transport failure message that has no Postgres code", async () => {
   await expect(lifecycleRpc("email_lifecycle_cohort")).rejects.toThrow("Lifecycle storage failed: email_lifecycle_cohort: TypeError: fetch failed");
 });
 
+it("keeps PostgREST details and hint, and a bare string error", async () => {
+  mockRpc.mockResolvedValueOnce({ data: null, error: { code: "23505", message: "duplicate key value violates unique constraint \"x\"", details: "Key (user_id)=(u) already exists.", hint: "" } });
+  await expect(lifecycleRpc("claim_email_lifecycle")).rejects.toThrow("Lifecycle storage failed: claim_email_lifecycle: 23505 duplicate key value violates unique constraint \"x\" Key (user_id)=(u) already exists.");
+  mockRpc.mockResolvedValueOnce({ data: null, error: "socket hang up" });
+  await expect(lifecycleRpc("email_lifecycle_cohort")).rejects.toThrow("Lifecycle storage failed: email_lifecycle_cohort: socket hang up");
+});
+
 it("falls back to the RPC name when the error has no detail", async () => {
   mockRpc.mockResolvedValue({ data: null, error: {} });
   await expect(lifecycleRpc("email_lifecycle_cohort")).rejects.toThrow(/^Lifecycle storage failed: email_lifecycle_cohort$/);

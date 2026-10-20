@@ -32,8 +32,8 @@ export async function lifecycleRpc(name: string, args: Record<string, unknown> =
 
 // cron_runs keeps only the message, so it must carry the Postgres code and text (e.g. 57014 statement timeout).
 function lifecycleStorageError(name: string, error: unknown): Error {
-  const { code, message } = (typeof error === "object" && error !== null ? error : {}) as { code?: unknown; message?: unknown };
-  const cause = [code, message].filter((part): part is string => typeof part === "string" && part.trim() !== "").join(" ");
+  const { code, message, details, hint } = (typeof error === "object" && error !== null ? error : { message: error }) as Record<string, unknown>;
+  const cause = [code, message, details, hint].filter((part): part is string => typeof part === "string" && part.trim() !== "").join(" ");
   return new Error(cause ? `Lifecycle storage failed: ${name}: ${cause}` : `Lifecycle storage failed: ${name}`, { cause: error });
 }
 
