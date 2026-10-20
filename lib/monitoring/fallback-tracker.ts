@@ -35,7 +35,7 @@ const SEVERITY_CONFIG: Record<string, Record<string, FallbackSeverity>> = {
     tide_data: 'dangerous',       // Entire tide dataset is synthetic
   },
   'noaa-wavewatch': {
-    wave_forecast: 'high',        // Synthetic forecast is a working fallback: warn, don't page
+    wave_forecast: 'dangerous',   // Entire wave forecast is synthetic
   },
   'beach-query': {
     cache_and_db: 'high',

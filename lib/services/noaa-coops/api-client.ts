@@ -133,7 +133,11 @@ async function fetchTidePredictions(
       // A forbidden/unavailable station returns [] and the caller reports missing coverage;
       // log once, with the station, at warn so a stuck station does not page every run.
       const errorText = (await response.text().catch(() => "")).slice(0, 200);
-      options?.logger?.warn(
+      // 400/401 mean our request or key is wrong, which is a bug, not an upstream fault.
+      const log = response.status === 403 || response.status === 404 || response.status >= 500
+        ? options?.logger?.warn
+        : options?.logger?.error;
+      log?.call(options?.logger,
         `CO-OPS tide API error for station ${stationId}: ${response.status} - ${response.statusText}${errorText ? ` ${errorText}` : ""}`
       );
       return [];

@@ -1,5 +1,5 @@
 import { redactSecrets } from "@/lib/monitoring/redact-secrets";
-import { downgradeTransientEvents } from "@/lib/monitoring/downgrade-transient-events";
+import { dropTransientEvents } from "@/lib/monitoring/drop-transient-events";
 // This file configures the initialization of Sentry on the server.
 // The config you add here will be used whenever the server handles a request.
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
@@ -47,7 +47,8 @@ Sentry.init({
     // Override the environment tag
     event.environment = detectedEnv;
 
-    return redactSecrets(downgradeTransientEvents(event));
+    const kept = dropTransientEvents(event);
+    return kept ? redactSecrets(kept) : null;
   },
 
   beforeSendTransaction(event) {

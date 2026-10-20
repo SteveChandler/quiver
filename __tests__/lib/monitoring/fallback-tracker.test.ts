@@ -347,15 +347,6 @@ describe('trackFallback', () => {
   });
 
   describe('default severity for working fallbacks', () => {
-    it('reports the synthetic wave forecast as a warning, not an error', () => {
-      trackFallback({ domain: 'noaa-wavewatch', field: 'wave_forecast', fallbackValue: 'synthetic' });
-
-      expect(Sentry.captureMessage).toHaveBeenCalledWith(
-        'Fallback triggered: noaa-wavewatch.wave_forecast \u2192 synthetic',
-        'warning'
-      );
-    });
-
     it('records the discovery confidence default as a breadcrumb only', () => {
       trackFallback({ domain: 'discovery', field: 'confidence_score', fallbackValue: 50 });
 

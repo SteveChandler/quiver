@@ -3,9 +3,9 @@ import type { ErrorEvent } from "@sentry/nextjs";
 /**
  * posthog-node logs failed flushes with console.error, which Sentry's console
  * capture turns into an error issue. A dropped analytics request is transient and
- * never user-facing, so keep it visible as a warning.
+ * never user-facing, so it is dropped (the Vercel log line remains).
  */
-export function downgradeTransientEvents<T extends ErrorEvent>(event: T): T {
+export function dropTransientEvents<T extends ErrorEvent>(event: T): T | null {
   const text = [
     event.message,
     event.logentry?.message,
@@ -13,7 +13,7 @@ export function downgradeTransientEvents<T extends ErrorEvent>(event: T): T {
   ].filter(Boolean).join(" ");
 
   if (text.includes("Error while flushing PostHog") && /PostHogFetchNetworkError|fetch failed|network/i.test(text)) {
-    event.level = "warning";
+    return null;
   }
   return event;
 }
