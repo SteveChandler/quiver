@@ -137,6 +137,7 @@ describe("EnhancedForecastService.updateAllEnhancedForecasts selection", () => {
       { beach_id: "b3", updated_at: "2025-12-10T10:00:00Z", data_source: "NOAA_NWS" }, // irrelevant for CDIP-only
       { beach_id: "b4", updated_at: "2025-12-11T11:30:00Z", data_source: "CDIP" }, // 0.5h old (fresh)
     ];
+    const latestViewIdsAskedFor: string[][] = [];
 
     const mockSupabase = {
       from: (table: string) => {
@@ -160,11 +161,13 @@ describe("EnhancedForecastService.updateAllEnhancedForecasts selection", () => {
         if (table === "v_enhanced_forecast_latest") {
           return {
             select: () => ({
-              in: (_column: string, ids: string[]) =>
-                Promise.resolve({
+              in: (_column: string, ids: string[]) => {
+                latestViewIdsAskedFor.push(ids);
+                return Promise.resolve({
                   data: latestRows.filter((row) => ids.includes(row.beach_id)),
                   error: null,
-                }),
+                });
+              },
             }),
           };
         }
@@ -210,6 +213,8 @@ describe("EnhancedForecastService.updateAllEnhancedForecasts selection", () => {
 
     // Only b1 and b2 should be selected (CDIP + older than 2h), oldest first
     expect(processedBeachIds).toEqual(["b1", "b2"]);
+    // The latest-forecast view is read only for the CDIP-eligible beaches, never b3.
+    expect(latestViewIdsAskedFor).toEqual([["b1", "b2", "b4"]]);
   });
 
   it("updateCdipEnhancedForecasts() fetches and passes nowcast anchors per beach", async () => {

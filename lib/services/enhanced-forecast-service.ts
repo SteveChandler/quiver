@@ -106,7 +106,6 @@ interface ComprehensiveForecastDiagnosticResult {
   cdip: CDIPForecastDiagnostic;
 }
 
-
 /** Beaches per `v_enhanced_forecast_latest` read; ~8 ms per beach cold, so 50 stays far under the 8 s cap. */
 const LATEST_VIEW_READ_CHUNK = 50;
 
@@ -728,7 +727,6 @@ export class EnhancedForecastService {
   ): Promise<T[]> {
     const rows: T[] = [];
     for (const ids of chunk(beachIds, LATEST_VIEW_READ_CHUNK)) {
-      if (ids.length === 0) continue;
       const { data, error } = await supabase
         .from("v_enhanced_forecast_latest")
         .select(columns)
