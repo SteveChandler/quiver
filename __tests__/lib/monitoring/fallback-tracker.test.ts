@@ -345,4 +345,13 @@ describe('trackFallback', () => {
       );
     });
   });
+
+  describe('default severity for working fallbacks', () => {
+    it('records the discovery confidence default as a breadcrumb only', () => {
+      trackFallback({ domain: 'discovery', field: 'confidence_score', fallbackValue: 50 });
+
+      expect(Sentry.captureMessage).not.toHaveBeenCalled();
+      expect(Sentry.addBreadcrumb).toHaveBeenCalledTimes(1);
+    });
+  });
 });

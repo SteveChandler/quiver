@@ -6,6 +6,7 @@ type OutcomeWiringCase = {
   unit: string;
   extra?: string;
   legitimatelyZero?: boolean;
+  expectedMin?: number;
 };
 
 const CASES: OutcomeWiringCase[] = [
@@ -22,9 +23,9 @@ const CASES: OutcomeWiringCase[] = [
   { name: "major-event hold evaluation", route: "major-event-hold-evaluate", unit: "holds_evaluated" },
   { name: "NDBC stations", route: "ndbc-direct-sync", unit: "stations_synced" },
   { name: "NDBC observations", route: "ndbc-direct-sync", unit: "observations_upserted" },
-  { name: "notification delivery", route: "notifications-deliver", unit: "notifications_sent" },
+  { name: "notification delivery", route: "notifications-deliver", unit: "notifications_sent", expectedMin: 0 },
   { name: "NPC activity", route: "npc-activity", unit: "posts_published" },
-  { name: "camera thumbnails", route: "resolve-cam-thumbnails", unit: "thumbnails_updated" },
+  { name: "camera thumbnails", route: "resolve-cam-thumbnails", unit: "thumbnails_updated", expectedMin: 0 },
   { name: "trial-ending push", route: "trial-ending-push-deliver", unit: "notifications_sent" },
   { name: "buoy conditions", route: "update-buoy-conditions", unit: "buoy_conditions_updated" },
   { name: "user preferences", route: "update-user-preferences", unit: "preferences_updated" },
@@ -77,11 +78,11 @@ const ENHANCED_FORECAST_ENTRYPOINTS = [
 describe("Cron outcome wiring", () => {
   it.each(CASES)(
     "asserts the outcome for $name",
-    ({ route, unit, extra, legitimatelyZero }) => {
+    ({ route, unit, extra, legitimatelyZero, expectedMin = 1 }) => {
       const source = readFileSync(`app/api/cron/${route}/route.ts`, "utf8");
 
       expect(source).toContain(unit);
-      expect(source).toContain("expectedMin: 1");
+      expect(source).toContain(`expectedMin: ${expectedMin}`);
       expect(source).toContain(extra ?? "withCronOutcome(");
       if (legitimatelyZero) expect(source).toContain("legitimatelyZero");
     },

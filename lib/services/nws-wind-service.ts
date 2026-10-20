@@ -1,4 +1,5 @@
 import { apiClient } from "@/lib/utils/api-retry";
+import { isWithinNwsCoverage } from "@/lib/utils/nws-coverage";
 import { ApiError, isNoaaInvalidPointError, isNoaaMarineForecastNotSupportedError } from "@/lib/errors/forecast-errors";
 
 type NwsHourlyWindPoint = {
@@ -122,6 +123,8 @@ export class NwsWindService {
     if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) {
       return [];
     }
+
+    if (!isWithinNwsCoverage(lat, lon)) return [];
 
     const pointsUrl = `https://api.weather.gov/points/${lat},${lon}`;
 

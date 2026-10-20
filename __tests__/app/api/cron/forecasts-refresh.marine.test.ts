@@ -64,7 +64,7 @@ beforeEach(() => {
   mockWind.mockReset().mockResolvedValue([]);
   beachCountry = 'USA';
   mockFrom.mockImplementation((table: string) => {
-    if (table === 'beaches') return query(['a', 'b', 'c'].map((id, i) => ({ id, name: id, lat: 32 + i, lon: -117, country: beachCountry })));
+    if (table === 'beaches') return query(['a', 'b', 'c'].map((id, i) => ({ id, name: id, lat: 33 + i, lon: -117, country: beachCountry })));
     if (table === 'v_marine_forecast_latest') return query(latest);
     if (table === 'cron_runs') return {
       ...query(ledger.length ? [ledger[ledger.length - 1]] : [{ summary: { result: { marineCoverage: { lastAttemptedBeachId: previous } } } }]),
@@ -160,7 +160,7 @@ it('shares the real NDBC candidate probe and writes its observation for both bea
   const fetch = jest.spyOn(global, 'fetch').mockImplementation(async input => {
     const url = String(input);
     if (url.endsWith('ndbcmapstations.json')) return Response.json({ station: [
-      { id: 'shared-probe', name: 'fixture', lat: 32.5, lon: -117, data: 'y' },
+      { id: 'shared-probe', name: 'fixture', lat: 33.5, lon: -117, data: 'y' },
     ] });
     if (url.endsWith('/shared-probe.txt')) return new Response('#YY MM DD hh mm WVHT DPD\n2026 09 09 11 00 1.5 10\n');
     throw new Error(`Unexpected mocked URL: ${url}`);
@@ -217,7 +217,7 @@ it('advances past a beach with no data on the next bounded run', async () => {
   expect(ledger[0]).toMatchObject({ status: 'ok', legitimately_zero_reason: expect.stringContaining('coverage gaps') });
   expect(ledger[0].summary.result.marineCoverage.lastAttemptedBeachId).toBe('a');
   await GET(request());
-  expect(mockNearest.mock.calls.map(args => args[0])).toEqual([32, 33]);
+  expect(mockNearest.mock.calls.map(args => args[0])).toEqual([33, 34]);
 });
 
 it('does not refresh an old observation or project it into fresh-looking data', async () => {

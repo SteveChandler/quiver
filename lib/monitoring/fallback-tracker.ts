@@ -25,7 +25,7 @@ const SEVERITY_CONFIG: Record<string, Record<string, FallbackSeverity>> = {
     confidence_score: 'high',     // User-visible reliability indicator fabricated
   },
   discovery: {
-    confidence_score: 'high',     // Discovery ranking uses fabricated confidence
+    confidence_score: 'medium',   // Neutral 50 is a working default: breadcrumb + log + DB row only
     subscore_baseConditions: 'dangerous',
     subscore_windQuality: 'dangerous',
     subscore_tideFit: 'dangerous',

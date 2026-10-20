@@ -8,17 +8,24 @@ import { describe, it, expect, jest, beforeEach, afterEach } from "@jest/globals
 import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 
 // Mock the ApiError import
-jest.mock("@/lib/errors/forecast-errors", () => ({
-  ApiError: class MockApiError extends Error {
+jest.mock("@/lib/errors/forecast-errors", () => {
+  class MockApiError extends Error {
     context: { apiUrl: string; statusCode: number };
-    
+
     constructor(apiUrl: string, statusCode: number, responseText: string) {
       super(`HTTP ${statusCode}: ${responseText}`);
       this.name = "ApiError";
       this.context = { apiUrl, statusCode };
     }
-  },
-}));
+  }
+  // Mirrors the real classifier, which checks `instanceof ApiError`.
+  const isNoaaMarineForecastNotSupportedError = (error: unknown): boolean =>
+    error instanceof MockApiError &&
+    error.context.statusCode === 404 &&
+    error.context.apiUrl.includes("api.weather.gov/gridpoints/") &&
+    error.message.toLowerCase().includes("marineforecastnotsupported");
+  return { ApiError: MockApiError, isNoaaMarineForecastNotSupportedError };
+});
 
 describe("api-retry", () => {
   let originalFetch: typeof global.fetch;
@@ -86,6 +93,45 @@ describe("api-retry", () => {
     expect(global.fetch).toHaveBeenCalledTimes(6);
     expectConsoleWarnings([/No coverage for point/, /No coverage for point/, /No coverage for point/,
       /No coverage for point/, /No coverage for point/, /No coverage for point/]);
+  });
+
+  it("logs NOAA marine-forecast-not-supported 404s as a warning, not an error", async () => {
+    const errorLog = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    const url = "https://api.weather.gov/gridpoints/MHX/87,125/forecast/hourly";
+    const notSupported = {
+      ok: false,
+      status: 404,
+      statusText: "Not Found",
+      clone: () => ({ text: () => Promise.resolve('{"type": "https://api.weather.gov/problems/MarineForecastNotSupported"}') }),
+    } as unknown as Response;
+    global.fetch = jest.fn(() => Promise.resolve(notSupported)) as unknown as typeof fetch;
+    const { RetryableAPIClient } = await import("@/lib/utils/api-retry");
+
+    await expect(new RetryableAPIClient().fetchNOAAData(url, {}, { maxRetries: 0 })).rejects.toMatchObject({ name: "ApiError" });
+
+    expect(errorLog).not.toHaveBeenCalled();
+    errorLog.mockRestore();
+    expectConsoleWarnings([/Marine forecast not supported/]);
+  });
+
+  it("logs exhausted NOAA 5xx retries as a warning", async () => {
+    const errorLog = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    const serverError = {
+      ok: false,
+      status: 500,
+      statusText: "Internal Server Error",
+      clone: () => ({ text: () => Promise.resolve("{}") }),
+    } as unknown as Response;
+    global.fetch = jest.fn(() => Promise.resolve(serverError)) as unknown as typeof fetch;
+    const { RetryableAPIClient } = await import("@/lib/utils/api-retry");
+
+    await expect(
+      new RetryableAPIClient().fetchNOAAData("https://api.weather.gov/points/40,-74", {}, { maxRetries: 0 }),
+    ).rejects.toMatchObject({ name: "ApiError" });
+
+    expect(errorLog).not.toHaveBeenCalled();
+    errorLog.mockRestore();
+    expectConsoleWarnings([/Upstream unavailable after 1 attempts/]);
   });
 
   describe("CDIP circuit breaker behavior", () => {
