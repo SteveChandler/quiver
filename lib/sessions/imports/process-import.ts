@@ -13,6 +13,7 @@ import { buildWavesSummary, type WavesSummary } from "../waves/waves-summary";
 import { findAttachTarget } from "./find-attach-target";
 import { linkRecentCall } from "./link-recent-call";
 import { loadImportBeach, resolveImportBeach, type ImportBeach } from "./resolve-import-beach";
+import { resolveNoGpsBeach, type NoGpsBeachResolution } from "./resolve-no-gps-beach";
 
 export type ProcessImportResult =
   | { status: "completed"; sessionId: string; attached: boolean; summary: WavesSummary }
@@ -43,6 +44,10 @@ type TrackInsert = {
   hrMax: number | null;
   sourceDevice: string | null;
 };
+
+type BeachResolution =
+  | { status: "resolved"; beach: ImportBeach | null }
+  | { status: "needs_beach"; candidates: ImportBeach[] };
 
 function asError(error: unknown): Error {
   if (error instanceof Error) return error;
@@ -200,20 +205,25 @@ export async function processImport(
       throw new TrackFileError("too_short", "This track is too short to be a surf.");
     }
 
-    const resolution = beachOverride
+    const noGps = summary.centroid === null;
+    const resolution: BeachResolution | NoGpsBeachResolution = beachOverride
       ? { status: "resolved" as const, beach: await loadImportBeach(userClient, beachOverride) }
-      : await resolveImportBeach(userClient, summary.centroid);
+      : noGps
+        ? await resolveNoGpsBeach(serviceClient, userId, summary.inWaterStart, track.meta.startedAt, track.meta.endedAt)
+        : await resolveImportBeach(userClient, summary.centroid!);
     if (resolution.status === "needs_beach") {
-      await updateImport({ status: "needs_beach", summary, error: null });
+      await updateImport({ status: "needs_beach", summary: noGps
+        ? { ...summary, startedAt: track.meta.startedAt, endedAt: track.meta.endedAt } : summary, error: null });
       return { status: "needs_beach", importId, candidates: resolution.candidates };
     }
     const beach = resolution.beach;
     if (!beach) throw new Error("Import beach not found");
+    const beachSource = beachOverride ? "user" : noGps && "source" in resolution ? resolution.source : "gps";
     const { data: previous, error: shaError } = await serviceClient.from("session_imports")
       .select("id, status, session_id").eq("user_id", userId).eq("sha256", sha256).maybeSingle();
     checkError(shaError);
     const { data: ownLinkedSession, error: linkedError } = imported.session_id
-      ? await userClient.from("sessions").select("id").eq("id", imported.session_id)
+      ? await userClient.from("sessions").select("id, source").eq("id", imported.session_id)
         .eq("user_id", userId).is("deleted_at", null).maybeSingle()
       : { data: null, error: null };
     checkError(linkedError);
@@ -234,7 +244,8 @@ export async function processImport(
           .select("session_id, import_id, user_arrival_time, user_duration_minutes, user_wave_count")
           .eq("session_id", previousSession.id).maybeSingle();
         checkError(trackError);
-        if (!previousTrack && (previousSession.source === "file_import" || previousSession.source === "garmin_watch")) {
+        if (!previousTrack && (!noGps || previous.status !== "completed")
+          && (previousSession.source === "file_import" || previousSession.source === "garmin_watch")) {
           linkedSession = previousSession;
           wasCompleted = previous.status === "completed";
           await updateImport({ session_id: previousSession.id });
@@ -243,14 +254,22 @@ export async function processImport(
         }
       }
     }
-    let target = linkedSession
-      ? { sessionId: linkedSession.id, hasTrack: linkedTrack !== null, trackImportId: linkedTrack?.import_id ?? null }
-      : await findAttachTarget(userClient, userId, beach, summary.inWaterStart);
+    let target: Awaited<ReturnType<typeof findAttachTarget>>;
+    if (linkedSession) {
+      target = { sessionId: linkedSession.id, hasTrack: linkedTrack !== null,
+        trackImportId: linkedTrack?.import_id ?? null, source: linkedSession.source ?? null };
+    } else if (!beachOverride && noGps && resolution.status === "resolved"
+      && "attachTarget" in resolution && resolution.attachTarget) {
+      target = resolution.attachTarget as NonNullable<typeof target>;
+    } else {
+      target = await findAttachTarget(userClient, userId, beach, summary.inWaterStart);
+    }
     if (target?.hasTrack && target.trackImportId !== importId) {
       if (!isWatch) return duplicate(target.sessionId);
       // SHA matches were handled above; a nearby watch surf can be a separate session.
       target = null;
     }
+    if (isWatch && !linkedSession && target?.source === "garmin_watch") target = null;
     const { data: existingTrack, error: existingTrackError } = target?.hasTrack && !linkedTrack
       ? await userClient.from("session_tracks")
         .select("session_id, import_id, user_arrival_time, user_duration_minutes, user_wave_count")
@@ -283,7 +302,7 @@ export async function processImport(
     }
     checkError(claimError);
 
-    const watchWaves = isWatch ? detectWaves(track, summary, beach) : null;
+    const watchWaves = isWatch && !noGps ? detectWaves(track, summary, beach) : null;
     const timing = { arrival_time: summary.inWaterStart, duration_minutes: Math.round((endMs - startMs) / 60000) };
     let sessionTimingUpdate: (typeof timing & { status?: "completed" }) | null = null;
     let sessionId: string;
@@ -306,7 +325,8 @@ export async function processImport(
     } else {
       const { data: session, error } = await userClient.from("sessions").insert({
         user_id: userId, status: "completed",
-        is_public: isWatch && spanS >= 600 && watchWaves!.some(wave => wave.confidence >= COUNT_MIN_CONFIDENCE),
+        is_public: isWatch && !noGps && spanS >= 600
+          && (watchWaves?.some(wave => wave.confidence >= COUNT_MIN_CONFIDENCE) ?? false),
         source: isWatch ? "garmin_watch" : "file_import",
         ...(isWatch ? { rating: track.extras?.rating ?? null, wave_height_ft: track.extras?.waveHeightFt ?? null } : {}),
         ...timing, beach_id: beach.id, beach_name: beach.name,
@@ -317,10 +337,10 @@ export async function processImport(
       await updateImport({ session_id: sessionId });
     }
 
-    const waves = existingTrack
+    const waves = noGps ? [] : existingTrack
       ? watchWaves ?? detectWaves(track, summary, beach)
       : await persistDetection(serviceClient, sessionId, userId, track, summary, beach, watchWaves ?? undefined);
-    if (!existingTrack) {
+    if (!existingTrack && !noGps) {
       const persistedSummary = summarizeTrack(track, waves.map(wave => ({ start: wave.startedAt, end: wave.endedAt })));
       const rideWindows = waves.filter(wave => wave.confidence >= COUNT_MIN_CONFIDENCE)
         .map(wave => ({ start: wave.startedAt, end: wave.endedAt }));
@@ -376,6 +396,7 @@ export async function processImport(
           is_historical: !isWatch && startMs + timing.duration_minutes * 60000 < now.getTime() - 48 * 3600000,
           wave_count: wavesSummary.waveCount, gps_coverage: summary.gpsCoverage, format: track.meta.format,
           recorded_by_family: track.meta.recordedBy?.split(/\s+/)[0] ?? "unknown",
+          ...(isWatch ? { beach_source: beachSource } : {}),
         },
       });
     }

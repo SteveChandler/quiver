@@ -132,6 +132,7 @@ function candidate(
 }
 
 export function detectWaves(track: NormalizedTrack, summary: TrackSummary, beach: DetectionBeach): DetectedWave[] {
+  if (!summary.centroid) return [];
   const shoreward = beach.swellWindowCenterDeg === null
     ? bearingDeg(summary.centroid, beach)
     : (beach.swellWindowCenterDeg + 180) % 360;

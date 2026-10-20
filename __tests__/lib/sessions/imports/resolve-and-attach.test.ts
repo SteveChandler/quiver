@@ -47,6 +47,7 @@ const start = "2026-10-17T12:00:00.000Z";
 function session(id: string, arrivalTime: string, beachId: string, lat: number, lon: number, deletedAt: string | null = null) {
   return {
     id,
+    source: "manual",
     arrival_time: arrivalTime,
     beach_id: beachId,
     deleted_at: deletedAt,
@@ -126,6 +127,7 @@ describe("findAttachTarget", () => {
       sessionId: "near",
       hasTrack: true,
       trackImportId: "import-1",
+      source: "manual",
     });
     expect(mock.sessionEq).toHaveBeenCalledWith("user_id", "user-1");
     expect(mock.is).toHaveBeenCalledWith("deleted_at", null);
@@ -147,6 +149,7 @@ describe("findAttachTarget", () => {
       sessionId: "live",
       hasTrack: false,
       trackImportId: null,
+      source: "manual",
     });
     expect(mock.trackEq).toHaveBeenCalledWith("session_id", "live");
   });
