@@ -1,5 +1,6 @@
 import type { NormalizedTrack, TrackSample, WatchWaveHeightFt } from "./types";
 import { TrackFileError, WATCH_WAVE_HEIGHTS_FT } from "./types";
+import { WATCH_CONTRACT } from "@/lib/watch/contract";
 
 type RecordValue = Record<string, unknown>;
 
@@ -37,7 +38,8 @@ export function parseQuiverWatch(json: unknown): NormalizedTrack {
     || !isValidTime(header.endedAt) || header.sport !== "surfing"
     || typeof header.partNumber !== "string" || typeof header.deviceName !== "string"
     || typeof header.appVersion !== "string"
-    || !(header.rating === null || (isInteger(header.rating) && header.rating >= 1 && header.rating <= 5))
+    || !(header.rating === null || (isInteger(header.rating)
+      && header.rating >= WATCH_CONTRACT.ratingMin && header.rating <= WATCH_CONTRACT.ratingMax))
     || !(header.waveHeightFt == null || isWatchWaveHeightFt(header.waveHeightFt))
     || !isInteger(header.chunkCount) || header.chunkCount < 1 || header.chunkCount !== chunks.length) {
     corrupt("Invalid Quiver watch header");
@@ -47,7 +49,7 @@ export function parseQuiverWatch(json: unknown): NormalizedTrack {
   for (const chunk of chunks) {
     if (!isRecord(chunk) || !isInteger(chunk.t0) || !isNullableInteger(chunk.lat0)
       || !isNullableInteger(chunk.lon0) || (chunk.lat0 === null) !== (chunk.lon0 === null)
-      || !Array.isArray(chunk.rows) || chunk.rows.length < 1 || chunk.rows.length > 300) {
+      || !Array.isArray(chunk.rows) || chunk.rows.length < 1 || chunk.rows.length > WATCH_CONTRACT.maxRowsPerChunk) {
       corrupt("Invalid Quiver watch chunk");
     }
 
@@ -56,7 +58,7 @@ export function parseQuiverWatch(json: unknown): NormalizedTrack {
     let lastLon = chunk.lon0;
     let chunkHasFix = false;
     for (const [index, row] of chunk.rows.entries()) {
-      if (!Array.isArray(row) || row.length !== 6) corrupt("Invalid Quiver watch row");
+      if (!Array.isArray(row) || row.length !== WATCH_CONTRACT.rowColumns) corrupt("Invalid Quiver watch row");
       const [dt, dlat, dlon, speedCms, hr, tempDeci] = row;
       if (!isInteger(dt) || dt < 0 || (index === 0 && dt !== 0)
         || !isNullableInteger(dlat) || !isNullableInteger(dlon)

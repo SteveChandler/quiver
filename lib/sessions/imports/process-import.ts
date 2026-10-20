@@ -3,6 +3,7 @@ import "server-only";
 import { createHash, randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { emitSessionCreatedEvent } from "@/lib/analytics/session-created";
+import { WATCH_CONTRACT } from "@/lib/watch/contract";
 import { readTrackFile } from "../tracks/read-track-file";
 import { summarizeTrack, type TrackSummary } from "../tracks/summarize-track";
 import { heartRateStats, paddleDistanceM } from "../tracks/track-stats";
@@ -201,7 +202,7 @@ export async function processImport(
     }
 
     const spanS = (endMs - startMs) / 1000;
-    if (isWatch && spanS < 300) {
+    if (isWatch && spanS < WATCH_CONTRACT.minInWaterSeconds) {
       throw new TrackFileError("too_short", "This track is too short to be a surf.");
     }
 
