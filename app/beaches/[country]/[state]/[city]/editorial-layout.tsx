@@ -22,7 +22,12 @@ import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { SeoFunnelNextSteps } from "@/components/seo/seo-funnel-next-steps";
 import { SiblingCitiesSection } from "@/components/shared/sibling-cities-section";
 import { generateCityRichContent } from "@/lib/seo/city-content-generator";
-import { getUsStateDisplayNameFromSlug } from "@/lib/utils/beach-url-utils";
+import {
+  getCountryDisplayNameFromSlug,
+  getInternationalRegionDisplayName,
+  getUsStateDisplayNameFromSlug,
+  hasCountryHubPages,
+} from "@/lib/utils/beach-url-utils";
 import type { LocationStats, BeachWithMetrics } from "@/types/location";
 import type { TopCityInState } from "@/actions/beach/beach-location-actions";
 import type { CitySurfReportSummary } from "@/actions/city/city-conditions-actions";
@@ -65,11 +70,11 @@ export function EditorialLayout({
   const surfSpots = transformBeachesToSurfSpots(beaches);
   const topSpot = beaches[0];
   const isUsa = params.country === "usa";
-  const countryName = isUsa ? "United States" : "Mexico";
-  const countryUrl = `/beaches/${params.country}`;
+  const countryName = getCountryDisplayNameFromSlug(params.country);
+  const countryUrl = hasCountryHubPages(params.country) ? `/beaches/${params.country}` : "/beaches";
   const stateName = isUsa
     ? getUsStateDisplayNameFromSlug(params.state)
-    : params.state.split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+    : getInternationalRegionDisplayName(params.state);
   const stateUrl = `/beaches/${params.country}/${params.state}`;
 
   const { faqs: cityFaqs } = generateCityRichContent({

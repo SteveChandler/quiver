@@ -10,7 +10,7 @@ import { evaluateBeachForecastIndexability } from "@/lib/seo/indexability";
 import { getForecastIndexabilityForBeaches } from "@/lib/seo/forecast-indexability";
 import {
   buildBeachUrl,
-  isValidCountrySlug,
+  hasCountryHubPages,
   isValidStateSlug,
   stateToSlug,
 } from "@/lib/utils/beach-url-utils";
@@ -246,7 +246,7 @@ async function collectLocationUrls(): Promise<string[]> {
         const regionSlug = slugifyAscii(loc.state);
         const citySlug = slugifyAscii(loc.city);
         if (countrySlug && regionSlug && citySlug) {
-          if (isValidCountrySlug(countrySlug)) {
+          if (hasCountryHubPages(countrySlug)) {
             internationalHubs.add(`${SITE_URL}/beaches/${countrySlug}`);
             internationalHubs.add(`${SITE_URL}/beaches/${countrySlug}/${regionSlug}`);
           }

@@ -564,7 +564,21 @@ type CoastalStateSuffix = typeof COASTAL_STATE_SUFFIXES[number];
  *
  * @see app/beaches/[country]/[state]/[city]/page.tsx
  */
-const VALID_COUNTRY_SLUGS = new Set(["usa", "mexico"]);
+const VALID_COUNTRY_SLUGS = new Set(["usa", "mexico", "canada"]);
+
+/**
+ * Countries with their own /beaches/{country} and /beaches/{country}/{region}
+ * hub pages (app/beaches/usa, app/beaches/mexico). A routed country without
+ * hub pages (Canada) still serves /{country}/{region}/{city} and beach pages,
+ * but the sitemap, IndexNow and breadcrumbs must not point at hubs that 404.
+ */
+const COUNTRY_SLUGS_WITH_HUB_PAGES = new Set(["usa", "mexico"]);
+
+const COUNTRY_DISPLAY_NAMES: Record<string, string> = {
+  usa: "United States",
+  mexico: "Mexico",
+  canada: "Canada",
+};
 
 /**
  * Validate if a slug represents a valid country in the routing system.
@@ -575,11 +589,40 @@ const VALID_COUNTRY_SLUGS = new Set(["usa", "mexico"]);
  * @example
  * isValidCountrySlug("usa")      // true
  * isValidCountrySlug("mexico")   // true
+ * isValidCountrySlug("canada")   // true
  * isValidCountrySlug("beginner") // false (intent, not country)
  */
 export function isValidCountrySlug(slug: string): boolean {
   if (!slug) return false;
   return VALID_COUNTRY_SLUGS.has(slug.toLowerCase());
+}
+
+/**
+ * Human-readable country name for a routing country slug, for breadcrumbs
+ * and headings on /beaches/[country]/... pages.
+ */
+export function getCountryDisplayNameFromSlug(slug: string): string {
+  return COUNTRY_DISPLAY_NAMES[slug.toLowerCase()] ?? "";
+}
+
+/** True when /beaches/{country} and /beaches/{country}/{region} pages exist. */
+export function hasCountryHubPages(slug: string): boolean {
+  if (!slug) return false;
+  return COUNTRY_SLUGS_WITH_HUB_PAGES.has(slug.toLowerCase());
+}
+
+/**
+ * Display name for an international region slug: a two-letter province or
+ * state code stays upper case ("bc" -> "BC"); longer slugs are title-cased
+ * word by word ("baja-california" -> "Baja California").
+ */
+export function getInternationalRegionDisplayName(regionSlug: string): string {
+  if (!regionSlug) return "";
+  if (/^[a-z]{2}$/i.test(regionSlug)) return regionSlug.toUpperCase();
+  return regionSlug
+    .split("-")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 }
 
 /**

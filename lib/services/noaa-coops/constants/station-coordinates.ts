@@ -68,6 +68,7 @@ export const COOPS_STATION_COORDINATES: Record<string, { lat: number; lon: numbe
   "9440910": { lat: 46.7075, lon: -123.9669 }, // Toke Point, WA
   "9441102": { lat: 46.9043, lon: -124.1051 }, // Westport, Point Chehalis, WA
   "9442396": { lat: 47.9128, lon: -124.6357 }, // La Push, Quillayute River, WA
+  "9444900": { lat: 48.1112, lon: -122.7597 }, // Port Townsend, WA
   "9755371": { lat: 18.4589, lon: -66.1164 }, // SAN JUAN, PR
   "9759394": { lat: 18.2188, lon: -67.1624 }, // Mayaguez, PR
 };
