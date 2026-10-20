@@ -88,7 +88,7 @@ export async function uploadWatchChunk(request: NextRequest, ctx: WatchContext):
     if (error instanceof TrackFileError && error.code === "corrupt") {
       return createErrorResponse("invalid_chunk", undefined, 400);
     }
-    if (!(error instanceof TrackFileError && error.code === "no_gps")) throw error;
+    throw error;
   }
   if (!upload) {
     // Ignore conflicts so an existing UUID can never be reassigned to a different owner.

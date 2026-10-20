@@ -45,6 +45,13 @@ it.each([3, 4])("rejects unsupported watch wave size %s as invalid_header", asyn
   expect(tables.watch_uploads).toHaveLength(0);
 });
 const payload = { t0: 1792324800, lat0: 327000000, lon0: -1172000000, rows: [[0, 0, 0, 100, 80, 180], [1, 10, 20, 200, null, null]] };
+
+it("accepts a watch chunk whose every sample lacks a GPS fix", async () => {
+  const response = await chunk(request({ ...payload, header, lat0: null, lon0: null,
+    rows: [[0, null, null, null, 120, 190], [1, null, null, null, 121, 190]] }), context());
+  expect(response.status).toBe(200);
+  expect(tables.watch_uploads[0].received_chunks).toEqual([0]);
+});
 type Row = Record<string, any>;
 type Operation = { table: string; kind: string; values?: Row; filters: [string, unknown][] };
 let tables: Record<string, Row[]>;

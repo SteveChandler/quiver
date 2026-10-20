@@ -53,12 +53,23 @@ describe("summarizeTrack", () => {
     expect(summarizeTrack(input).maxGapS).toBe(60);
   });
 
-  it("throws a no_gps TrackFileError when every sample lacks a position", () => {
+  it.each(["fit", "gpx"] as const)("throws no_gps for zero-fix %s tracks", format => {
     const input = track([sample(0, null, null), sample(1, null, null)]);
+    input.meta.format = format;
     expect(() => summarizeTrack(input)).toThrow(TrackFileError);
     expect(() => summarizeTrack(input)).toThrow(expect.objectContaining({
       code: "no_gps", message: "This file has no GPS track",
     }));
+  });
+
+  it("summarizes a zero-fix watch surf from sample times and second-half temperatures", () => {
+    const input = track([sample(0, null, null, null, 18), sample(300, null, null, 4, 20),
+      sample(600, null, null, 5, 22)]);
+    input.meta.format = "quiver_watch";
+    const summary = summarizeTrack(input);
+    expect(summary).toMatchObject({ inWaterStart: input.samples[0].t, inWaterEnd: input.samples[2].t,
+      centroid: null, gpsCoverage: 0, speedReliable: false, waterTempC: 21,
+      trackGeojson: { type: "LineString", coordinates: [] }, speedSeries: [] });
   });
 
   it("trims the first and last 180 seconds of a long span before taking the centroid", () => {
@@ -70,8 +81,8 @@ describe("summarizeTrack", () => {
     const summary = summarizeTrack(input);
     expect(summary.inWaterStart).toBe(input.samples[1].t);
     expect(summary.inWaterEnd).toBe(input.samples[7].t);
-    expect(summary.centroid.lat).toBeCloseTo(37.004, 6);
-    expect(summary.centroid.lon).toBeCloseTo(-122.004, 6);
+    expect(summary.centroid?.lat).toBeCloseTo(37.004, 6);
+    expect(summary.centroid?.lon).toBeCloseTo(-122.004, 6);
   });
 
   it("starts after the sand point when both ends are on the same sand point", () => {

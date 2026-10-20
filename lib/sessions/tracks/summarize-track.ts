@@ -8,7 +8,7 @@ type Window = { start: string; end: string };
 export type TrackSummary = {
   inWaterStart: string;
   inWaterEnd: string;
-  centroid: { lat: number; lon: number };
+  centroid: { lat: number; lon: number } | null;
   gpsCoverage: number;
   maxGapS: number;
   sampleCount: number;
@@ -58,7 +58,20 @@ function speedSeries(fixes: Fix[]): { t: string; mps: number }[] {
 
 export function summarizeTrack(track: NormalizedTrack, keepWindows: Window[] = []): TrackSummary {
   const fixes = track.samples.filter(isFix).sort((a, b) => Date.parse(a.t) - Date.parse(b.t));
-  if (fixes.length === 0) throw new TrackFileError("no_gps", "This file has no GPS track");
+  if (fixes.length === 0) {
+    if (track.meta.format !== "quiver_watch") throw new TrackFileError("no_gps", "This file has no GPS track");
+    const samples = [...track.samples].sort((a, b) => Date.parse(a.t) - Date.parse(b.t));
+    const inWaterStart = samples[0]?.t ?? track.meta.startedAt;
+    const inWaterEnd = samples.at(-1)?.t ?? track.meta.endedAt;
+    const midpoint = (Date.parse(inWaterStart) + Date.parse(inWaterEnd)) / 2;
+    const temperatures = samples.filter(sample => Date.parse(sample.t) >= midpoint && sample.tempC !== null)
+      .map(sample => sample.tempC as number);
+    return {
+      inWaterStart, inWaterEnd, centroid: null, gpsCoverage: 0, maxGapS: 0,
+      sampleCount: track.samples.length, waterTempC: temperatures.length ? median(temperatures) : null,
+      speedReliable: false, trackGeojson: { type: "LineString", coordinates: [] }, speedSeries: [],
+    };
+  }
 
   const first = fixes[0];
   const last = fixes[fixes.length - 1];
