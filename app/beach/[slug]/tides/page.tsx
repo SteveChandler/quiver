@@ -1,3 +1,4 @@
+import { isNextRouterSignal } from "@/lib/utils/next-router-signal";
 import type { Metadata } from "next";
 import { buildPageMetadata, buildDynamicTideMetadata } from "@/lib/seo/meta";
 import { getTideMetaData } from "@/lib/seo/tide-meta-data";
@@ -36,15 +37,7 @@ export default async function BeachTidesPage(
       beachPath: `/beach/${params.slug}`,
     });
   } catch (error) {
-    if (error && typeof error === "object" && "digest" in error) {
-      const digest = (error as { digest?: unknown }).digest;
-      if (
-        digest === "NEXT_NOT_FOUND" ||
-        (typeof digest === "string" && digest.startsWith("NEXT_REDIRECT"))
-      ) {
-        throw error;
-      }
-    }
+    if (isNextRouterSignal(error)) throw error;
 
     console.error("Error fetching beach for tides:", error);
     return (

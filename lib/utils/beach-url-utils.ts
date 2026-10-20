@@ -212,7 +212,18 @@ export function regionToSlug(region: string | null | undefined): string {
  */
 export function cityToSlug(city: string | null | undefined): string {
   if (!city) return "";
-  return slugifyAscii(city);
+  const slug = slugifyAscii(city);
+  return isPlaceholderSlug(slug) ? "" : slug;
+}
+
+/**
+ * True for the literal strings a null/undefined value becomes when it is
+ * interpolated into a URL. Such a segment is never a real place or beach.
+ */
+export function isPlaceholderSlug(slug: string | null | undefined): boolean {
+  if (!slug) return false;
+  const normalized = slug.trim().toLowerCase();
+  return normalized === "null" || normalized === "undefined";
 }
 
 /**
@@ -237,7 +248,7 @@ export function buildBeachUrl(beach: {
   const beachSlug = beach.slug;
   const citySlug = cityToSlug(beach.city);
 
-  if (!citySlug || !beachSlug || !beach.state) {
+  if (!citySlug || !beachSlug || isPlaceholderSlug(beachSlug) || !beach.state) {
     console.warn("Beach missing required URL components:", {
       state: beach.state,
       city: beach.city,
@@ -245,7 +256,7 @@ export function buildBeachUrl(beach: {
       country: beach.country,
     });
     // Fallback to old format if data is incomplete
-    return `/beach/${beachSlug || "unknown"}`;
+    return `/beach/${beachSlug && !isPlaceholderSlug(beachSlug) ? beachSlug : "unknown"}`;
   }
 
   const hasCountryField = Object.prototype.hasOwnProperty.call(beach, "country");

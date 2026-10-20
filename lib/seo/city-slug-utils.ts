@@ -164,3 +164,21 @@ export function resolveCityFromSlug(slug: string): ParsedCitySlug {
     stateFilter: null,
   };
 }
+
+/**
+ * For a collision city whose slug carries its own state ("ocean-city-nj" under
+ * /nj/), return the base slug ("ocean-city"). The state segment of a city hub
+ * URL already disambiguates, so the suffix form is only valid on intent URLs
+ * (/sunset/ocean-city-nj). Returns null when no redirect is needed.
+ */
+export function stripCollisionStateSuffix(
+  citySlug: string,
+  stateSlug: string,
+  collisions: Map<string, number>
+): string | null {
+  const suffix = `-${stateSlug.toLowerCase()}`;
+  const slug = citySlug.toLowerCase();
+  if (!slug.endsWith(suffix)) return null;
+  const base = slug.slice(0, -suffix.length);
+  return collisions.has(base) ? base : null;
+}

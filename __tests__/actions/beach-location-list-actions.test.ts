@@ -148,7 +148,34 @@ describe("beach-location-list-actions", () => {
 
     expect(res.success).toBe(false);
     expect(res.error).toBe("CITY_EXISTS_NO_DATA");
-    expectConsoleErrors([/CITY_EXISTS_NO_DATA/]);
+    // An expected no-data outcome must not log through console.error; the
+    // global test hook fails the test if it does.
+  });
+
+  test("getLocationPageData: unknown city returns a failure without logging errors", async () => {
+    const { createSupabaseServerClient, createPublicReadClient } = await import("@/lib/supabase/server");
+
+    const mockSupabase = {
+      rpc: jest.fn(async (fn: string) => {
+        if (fn === "get_beaches_by_location_with_scores") return { data: [], error: null };
+        if (fn === "get_all_beach_locations") return { data: [], error: null };
+        throw new Error(`Unexpected rpc: ${fn}`);
+      }),
+      from: jest.fn(() => createThenableQuery({ data: null, error: null, count: 0 })),
+    };
+    (createSupabaseServerClient as unknown as jest.Mock).mockResolvedValue(mockSupabase);
+    (createPublicReadClient as unknown as jest.Mock).mockReturnValue(mockSupabase);
+    const info = jest.spyOn(console, "info").mockImplementation(() => undefined);
+
+    const { getLocationPageData } = await import(
+      "@/actions/beach/beach-location-list-actions"
+    );
+    const res = await getLocationPageData("ocean-city-nj", "nj", "usa");
+
+    expect(res.success).toBe(false);
+    expect(res.error).toBe("No beaches found for this location");
+    expect(info).toHaveBeenCalledTimes(1);
+    info.mockRestore();
   });
 
   test("getLocationPageData: city path ranks beaches", async () => {
