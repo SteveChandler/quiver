@@ -122,6 +122,7 @@ const CATEGORIES: {
       "beginner-breaks-carlsbad",
       "beginner-breaks-orange-county",
       "beginner-breaks-santa-cruz",
+      "can-you-surf-in-new-jersey",
     ],
   },
 ];

@@ -43,5 +43,19 @@ Same method as above: licence checked on each Flickr source page, native size
 | `seo-dioramas/surf-report/scripps-pier-today/scripps-clean-set-photo.webp` | `/learn/swell-period-explained` | Already live on `/surf-report/scripps-pier-today`. No ledger entry. |
 | `seo-dioramas/surf-cams/hawaii/hawaii-misty-lineup-photo.webp` | `/learn/how-are-ocean-waves-formed` | Added with the surf-cams funnel pages (commit ffde4f016); was unused. No ledger entry. |
 
+## Sourced 2026-10-20 (Wikimedia Commons, Creative Commons / public domain)
+
+Openverse's search endpoint returned 504s all run, so these were found through the
+Wikimedia Commons API and the licence was checked on each source page (the Flickr
+original where Commons mirrors one, otherwise the Commons file page). WebP q82, no
+crop, no upscale; the three 5000+ px originals are stored downscaled to 1600 px wide.
+
+| File | Guide | Title | Creator | Licence | Source |
+| --- | --- | --- | --- | --- | --- |
+| `learn-sandy-hook-surfer.webp` | `/learn/can-you-surf-in-new-jersey` | Surfing at Sandy Hook | NPS Photo | Public domain (PD-USGov-NPS) | https://commons.wikimedia.org/wiki/File:Surfing_at_Sandy_Hook_(2042bac6-9611-4aef-a119-c7db4576893e).JPG |
+| `learn-bay-head-winter-beach-break.webp` | `/learn/can-you-surf-in-new-jersey` | Surfing, Bay Head New Jersey | James Loesch | CC BY 2.0 | https://www.flickr.com/photos/jal33/50995415231/ |
+| `learn-manasquan-inlet-jetty.webp` | `/learn/can-you-surf-in-new-jersey` | Manasquan Beach Inlet (7.13.08) | Luigi Novi (Nightscream) | CC BY-SA 3.0 | https://commons.wikimedia.org/wiki/File:ManasquanBeachInlet7.13.08ByLuigiNovi8.jpg |
+| `learn-cape-may-wetsuit-surfer.webp` | `/learn/can-you-surf-in-new-jersey` | AtlanticSurfing (Cape May, New Jersey) | Shiva Shenoy | CC BY 4.0 | https://www.flickr.com/photos/shivashenoy/55312082547/ |
+
 The older `learn-*.jpg` files in this directory predate the ledger and have no
 recorded provenance.
