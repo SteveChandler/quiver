@@ -18,6 +18,7 @@ import {
   fetchHourlyTidePredictions,
 } from "@/lib/services/noaa-tide-service";
 import { NOAACOOPSService } from "@/lib/services/noaa-coops";
+import { hasNoaaTideCoverage } from "@/lib/services/tides/tide-provider";
 import {
   getBeachModelTides,
   MODEL_TIDE_SOURCE,
@@ -200,6 +201,7 @@ async function _GET(request: Request): Promise<Response> {
             name: b.name,
             lat: b.lat,
             lon: b.lon,
+            country: b.country ?? null,
           }))
       : allBeaches;
 
@@ -712,6 +714,13 @@ async function _GET(request: Request): Promise<Response> {
             remainingMs: msRemaining(),
           });
           break;
+        }
+        // No NOAA station may stand in for a beach outside NOAA waters: Long
+        // Beach (Pacific Rim) is ~110 km from Neah Bay, inside the nearest-
+        // station radius, and would otherwise be written with its tides.
+        if (!hasNoaaTideCoverage(b)) {
+          beachIdsWithoutStation.add(b.id);
+          continue;
         }
         const key = `${b.lat},${b.lon}`;
         let st = nearestStationCache.get(key) ?? null;

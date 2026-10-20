@@ -12,6 +12,8 @@ import {
   getUsStateRootPathOrNull,
   getValidStateSlugs,
   isValidStateSlug,
+  isValidCountrySlug,
+  getCountryDisplayNameFromSlug,
 } from "@/lib/utils/beach-url-utils";
 
 describe("Beach URL Utils", () => {
@@ -687,6 +689,35 @@ describe("Beach URL Utils", () => {
 
       const cityUrl = buildCityUrl("OR", "Newport");
       expect(cityUrl).toBe("/or/newport");
+    });
+  });
+
+  describe("country slugs", () => {
+    it("accepts the three routed countries and rejects intents", () => {
+      expect(isValidCountrySlug("usa")).toBe(true);
+      expect(isValidCountrySlug("mexico")).toBe(true);
+      expect(isValidCountrySlug("canada")).toBe(true);
+      expect(isValidCountrySlug("Canada")).toBe(true);
+      expect(isValidCountrySlug("beginner")).toBe(false);
+      expect(isValidCountrySlug("")).toBe(false);
+    });
+
+    it("builds a Canadian beach URL under /canada/bc", () => {
+      expect(
+        buildBeachUrl({
+          slug: "cox-bay-tofino-bc",
+          city: "Tofino",
+          state: "BC",
+          country: "Canada",
+        }),
+      ).toBe("/canada/bc/tofino/cox-bay-tofino-bc");
+    });
+
+    it("names each routed country for breadcrumbs", () => {
+      expect(getCountryDisplayNameFromSlug("usa")).toBe("United States");
+      expect(getCountryDisplayNameFromSlug("mexico")).toBe("Mexico");
+      expect(getCountryDisplayNameFromSlug("canada")).toBe("Canada");
+      expect(getCountryDisplayNameFromSlug("beginner")).toBe("");
     });
   });
 });

@@ -553,7 +553,13 @@ type CoastalStateSuffix = typeof COASTAL_STATE_SUFFIXES[number];
  *
  * @see app/beaches/[country]/[state]/[city]/page.tsx
  */
-const VALID_COUNTRY_SLUGS = new Set(["usa", "mexico"]);
+const VALID_COUNTRY_SLUGS = new Set(["usa", "mexico", "canada"]);
+
+const COUNTRY_DISPLAY_NAMES: Record<string, string> = {
+  usa: "United States",
+  mexico: "Mexico",
+  canada: "Canada",
+};
 
 /**
  * Validate if a slug represents a valid country in the routing system.
@@ -564,11 +570,20 @@ const VALID_COUNTRY_SLUGS = new Set(["usa", "mexico"]);
  * @example
  * isValidCountrySlug("usa")      // true
  * isValidCountrySlug("mexico")   // true
+ * isValidCountrySlug("canada")   // true
  * isValidCountrySlug("beginner") // false (intent, not country)
  */
 export function isValidCountrySlug(slug: string): boolean {
   if (!slug) return false;
   return VALID_COUNTRY_SLUGS.has(slug.toLowerCase());
+}
+
+/**
+ * Human-readable country name for a routing country slug, for breadcrumbs
+ * and headings on /beaches/[country]/... pages.
+ */
+export function getCountryDisplayNameFromSlug(slug: string): string {
+  return COUNTRY_DISPLAY_NAMES[slug.toLowerCase()] ?? "";
 }
 
 /**

@@ -621,6 +621,27 @@ describe("/api/cron/forecasts/refresh (tides)", () => {
       expect(json.data.tideIngest).toEqual(expect.objectContaining({ beachesWithoutStation: 1, beachesWithoutTideSource: 1, modelBeachesWritten: 0, beachesBelowMinCoverage: 0 }));
       expect(failureReason).toBeNull();
     });
+
+    it("never looks up a NOAA station for a Canadian beach, even one within the 120 km radius", async () => {
+      // Long Beach (Pacific Rim) sits about 110 km from Neah Bay. Without the
+      // country gate the nearest-station lookup would bind it to a NOAA gauge
+      // across the border; #717 requires an explicit Canadian binding first.
+      mockGetNearestTideStation.mockResolvedValue({ id: "9443090", name: "Neah Bay", lat: 48.3683, lon: -124.6117 });
+      const upsertTides = jest.fn(async () => ({ error: null }));
+      mockSupabaseFrom.mockImplementation((table: string) => {
+        if (table === "beaches") return thenable({ data: [{ id: "long-beach-bc", name: "Long Beach (Pacific Rim)", lat: 49.0658, lon: -125.7535, country: "Canada", tide_forecasts: [] }], error: null });
+        if (table === "tide_forecasts") return tideForecastsMock(upsertTides);
+        return { upsert: jest.fn(async () => ({ error: null })) };
+      });
+
+      const { json, failureReason } = await runTideRefresh("tidesBackfillMissing=1");
+
+      expect(mockGetNearestTideStation).not.toHaveBeenCalled();
+      expect(mockFetchHourlyTidePredictions).not.toHaveBeenCalled();
+      expect(upsertTides).not.toHaveBeenCalled();
+      expect(json.data.tideIngest).toEqual(expect.objectContaining({ beachesWithoutStation: 1, beachesWithoutTideSource: 1, modelBeachesWritten: 0, beachesBelowMinCoverage: 0 }));
+      expect(failureReason).toBeNull();
+    });
   });
 
   describe("cross-refresh reconciliation", () => {

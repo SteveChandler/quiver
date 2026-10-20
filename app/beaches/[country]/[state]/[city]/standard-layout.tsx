@@ -12,7 +12,7 @@ import { SiblingCitiesSection } from "@/components/shared/sibling-cities-section
 import type { TopCityInState } from "@/actions/beach/beach-location-actions";
 import { getRankingTier, getRankingBadgeLabel } from "@/types/location";
 import { RankingBadge } from "@/components/location/ranking-badge";
-import { getBeachHrefSafe, getUsStateDisplayNameFromSlug } from "@/lib/utils/beach-url-utils";
+import { getBeachHrefSafe, getCountryDisplayNameFromSlug, getUsStateDisplayNameFromSlug } from "@/lib/utils/beach-url-utils";
 import { sanitizeBeachDescription } from "@/lib/utils/text-utils";
 import { IntentGuidesGrid } from "@/components/shared/intent-guides-grid";
 import type { IntentKey } from "@/lib/constants/intent-definitions";
@@ -83,7 +83,7 @@ export function StandardLayout({
   const excludeIntents: IntentKey[] = hasLightModerateCrowdBeaches ? [] : ["least-crowded"];
 
   const isUsa = params.country === "usa";
-  const countryName = isUsa ? "United States" : "Mexico";
+  const countryName = getCountryDisplayNameFromSlug(params.country);
   const countryUrl = `/beaches/${params.country}`;
   const stateName = isUsa
     ? getUsStateDisplayNameFromSlug(params.state)
