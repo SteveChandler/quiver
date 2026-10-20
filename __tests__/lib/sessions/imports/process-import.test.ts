@@ -229,10 +229,13 @@ it("rejects objects above 10485760 bytes before reading their contents", async (
 
 it("stores a summary and requests a beach when the RPC has no nearby beaches", async () => {
   nearby = [];
+  rows.user_location_snapshots = [{ user_id: userId, lat: beach.lat, lon: beach.lon,
+    captured_at: fixture.track.meta.startedAt }];
   expect(await processImport(deps, importId, userId)).toEqual({ status: "needs_beach", importId, candidates: [] });
   expect(rows.session_imports[0]).toMatchObject({ status: "needs_beach", summary: expect.objectContaining({ gpsCoverage: expect.any(Number) }) });
   expect(inserts("sessions")).toHaveLength(0);
   expect(inserts("session_tracks")).toHaveLength(0);
+  expect(accesses.some(access => access.table === "user_location_snapshots")).toBe(false);
 });
 
 it("uses the explicit beach to finish a needs_beach import", async () => {
@@ -654,7 +657,7 @@ it("creates a public Garmin watch session with rating, stats, device and watch a
     hr_avg: Math.round(hr.reduce((sum, value) => sum + value, 0) / hr.length), hr_max: Math.max(...hr),
   });
   expect(rows.session_tracks[0].paddle_distance_m).toBeGreaterThan(0);
-  expect(rows.user_events).toContainEqual(expect.objectContaining({ event_type: "session_created", metadata: expect.objectContaining({ source: "garmin-watch", surface: "garmin-watch" }) }));
+  expect(rows.user_events).toContainEqual(expect.objectContaining({ event_type: "session_created", metadata: expect.objectContaining({ source: "garmin-watch", surface: "garmin-watch", beach_source: "gps" }) }));
   const sessionIndex = mutations.findIndex(mutation => mutation.table === "sessions" && mutation.operation === "insert");
   const waveIndex = mutations.findIndex(mutation => mutation.table === "session_waves" && mutation.operation === "insert");
   expect(sessionIndex).toBeLessThan(waveIndex);
@@ -731,6 +734,85 @@ function boundaryTrack(seconds: number, direction: number = 1): NormalizedTrack 
   }));
   return { meta: { format: "quiver_watch", sport: "surfing", subSport: null, recordedBy: null, startedAt: samples[0].t, endedAt: samples.at(-1)!.t }, samples };
 }
+
+function noGpsWatch(): NormalizedTrack {
+  const start = Date.parse("2026-10-17T16:20:00Z");
+  const samples = Array.from({ length: 601 }, (_, index) => ({
+    t: new Date(start + index * 1000).toISOString(), lat: null, lon: null,
+    speedMps: null, hr: 120, tempC: index < 300 ? 18 : 20, cadence: null,
+  }));
+  const track: NormalizedTrack = {
+    meta: { format: "quiver_watch", sport: "surfing", subSport: null, recordedBy: null,
+      startedAt: samples[0].t, endedAt: samples.at(-1)!.t }, samples,
+  };
+  useWatch(track, 4, 3.5);
+  return track;
+}
+
+it("keeps a zero-fix watch surf private with water temperature and no track or waves", async () => {
+  const track = noGpsWatch();
+  rows.user_location_snapshots = [{ user_id: userId, lat: beach.lat, lon: beach.lon,
+    captured_at: track.meta.startedAt }];
+  const detectionCalls = jest.mocked(detectWaves).mock.calls.length;
+  expect(await processImport(deps, importId, userId)).toMatchObject({
+    status: "completed", attached: false, summary: { waveCount: 0, gpsCoverage: 0 },
+  });
+  expect(rows.sessions[0]).toMatchObject({ source: "garmin_watch", is_public: false,
+    beach_id: beach.id, rating: 4, wave_height_ft: 3.5, water_temp: 68, water_temp_source: "watch" });
+  expect(inserts("session_tracks")).toHaveLength(0);
+  expect(inserts("session_waves")).toHaveLength(0);
+  expect(jest.mocked(detectWaves).mock.calls).toHaveLength(detectionCalls);
+  expect(rows.user_events).toContainEqual(expect.objectContaining({ event_type: "session_created",
+    metadata: expect.objectContaining({ beach_source: "phone_location", gps_coverage: 0, wave_count: 0 }) }));
+});
+
+it("holds an ambiguous zero-fix watch surf for a user beach choice, then completes it", async () => {
+  const track = noGpsWatch();
+  rows.user_location_snapshots = [{ user_id: userId, lat: beach.lat + 0.00005, lon: beach.lon,
+    captured_at: track.meta.startedAt }];
+  nearby = [beach, { ...beach, id: "beach-2", name: "Neighbor", lat: beach.lat + 0.0001 }];
+  expect(await processImport(deps, importId, userId)).toMatchObject({ status: "needs_beach",
+    candidates: [{ id: beach.id }, { id: "beach-2" }] });
+  expect(rows.session_imports[0]).toMatchObject({ status: "needs_beach", summary: { centroid: null,
+    startedAt: track.meta.startedAt, endedAt: track.meta.endedAt } });
+  expect(inserts("sessions")).toHaveLength(0);
+  expect(await processImport(deps, importId, userId, beach.id)).toMatchObject({ status: "completed" });
+  expect(rows.sessions[0]).toMatchObject({ beach_id: beach.id, is_public: false });
+  expect(inserts("session_tracks")).toHaveLength(0);
+  expect(rows.user_events).toContainEqual(expect.objectContaining({ metadata: expect.objectContaining({ beach_source: "user" }) }));
+});
+
+it("attaches a zero-fix surf to a logged session at another beach", async () => {
+  const track = noGpsWatch();
+  rows.beaches.push({ ...beach, id: "logged-beach", name: "Logged Beach" });
+  rows.sessions.push({ id: "logged", user_id: userId, beach_id: "logged-beach",
+    arrival_time: track.meta.startedAt, duration_minutes: 90, status: "completed", rating: null, is_public: true });
+  expect(await processImport(deps, importId, userId)).toMatchObject({
+    status: "completed", sessionId: "logged", attached: true });
+  expect(rows.sessions[0]).toMatchObject({ rating: 4, wave_height_ft: 3.5, water_temp: 68, is_public: false });
+  expect(inserts("sessions")).toHaveLength(0);
+  expect(inserts("session_tracks")).toHaveLength(0);
+});
+
+it("deduplicates a completed zero-fix watch surf without a session_tracks row", async () => {
+  const track = noGpsWatch();
+  rows.user_location_snapshots = [{ user_id: userId, lat: beach.lat, lon: beach.lon,
+    captured_at: track.meta.startedAt }];
+  const first = await processImport(deps, importId, userId);
+  if (first.status !== "completed") throw new Error("Expected completion");
+  rows.session_imports.push({ id: "repeat", user_id: userId, origin: "garmin_watch",
+    storage_path: "repeat/user-1/watch.json", original_filename: "watch.json", status: "uploaded" });
+  expect(await processImport(deps, "repeat", userId)).toEqual({ status: "duplicate", sessionId: first.sessionId });
+  expect(inserts("sessions")).toHaveLength(1);
+});
+
+it("rejects a zero-fix watch surf shorter than 300 seconds", async () => {
+  const longTrack = noGpsWatch();
+  const samples = longTrack.samples.slice(0, 241);
+  useWatch({ ...longTrack, samples, meta: { ...longTrack.meta, endedAt: samples.at(-1)!.t } });
+  await expect(processImport(deps, importId, userId)).rejects.toMatchObject({ code: "too_short" });
+  expect(inserts("sessions")).toHaveLength(0);
+});
 
 it.each([300, 599, 600])("accepts a %s s in-water span and publishes only at 600 s with a counted wave", async seconds => {
   const track = useWatch(boundaryTrack(seconds), null);
