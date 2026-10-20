@@ -17,15 +17,19 @@
  * (`model-tides.ts`), so they stay on the NOAA-then-model path.
  */
 
+import { normalizeBeachCountry } from "@/lib/utils/beach-url-utils";
+
 type TideProvider = "noaa_coops" | "unavailable";
 
-const COUNTRIES_WITHOUT_TIDE_PROVIDER = new Set(["canada", "ca", "can"]);
+// Beach rows store the full country name ("USA", "Mexico", "Canada"); a bare
+// "CA" is never Canada here because #717 reserves it for the California
+// routing collision.
+const COUNTRIES_WITHOUT_TIDE_PROVIDER = new Set(["canada"]);
 
 export function getTideProviderForCountry(
   country: string | null | undefined,
 ): TideProvider {
-  if (typeof country !== "string") return "noaa_coops";
-  const normalized = country.trim().toLowerCase();
+  const normalized = normalizeBeachCountry(country)?.toLowerCase();
   if (!normalized) return "noaa_coops";
   return COUNTRIES_WITHOUT_TIDE_PROVIDER.has(normalized) ? "unavailable" : "noaa_coops";
 }

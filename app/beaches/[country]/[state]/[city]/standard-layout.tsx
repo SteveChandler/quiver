@@ -12,7 +12,13 @@ import { SiblingCitiesSection } from "@/components/shared/sibling-cities-section
 import type { TopCityInState } from "@/actions/beach/beach-location-actions";
 import { getRankingTier, getRankingBadgeLabel } from "@/types/location";
 import { RankingBadge } from "@/components/location/ranking-badge";
-import { getBeachHrefSafe, getCountryDisplayNameFromSlug, getUsStateDisplayNameFromSlug } from "@/lib/utils/beach-url-utils";
+import {
+  getBeachHrefSafe,
+  getCountryDisplayNameFromSlug,
+  getInternationalRegionDisplayName,
+  getUsStateDisplayNameFromSlug,
+  hasCountryHubPages,
+} from "@/lib/utils/beach-url-utils";
 import { sanitizeBeachDescription } from "@/lib/utils/text-utils";
 import { IntentGuidesGrid } from "@/components/shared/intent-guides-grid";
 import type { IntentKey } from "@/lib/constants/intent-definitions";
@@ -84,10 +90,10 @@ export function StandardLayout({
 
   const isUsa = params.country === "usa";
   const countryName = getCountryDisplayNameFromSlug(params.country);
-  const countryUrl = `/beaches/${params.country}`;
+  const countryUrl = hasCountryHubPages(params.country) ? `/beaches/${params.country}` : "/beaches";
   const stateName = isUsa
     ? getUsStateDisplayNameFromSlug(params.state)
-    : params.state.split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+    : getInternationalRegionDisplayName(params.state);
   const stateUrl = `/beaches/${params.country}/${params.state}`;
 
   return (

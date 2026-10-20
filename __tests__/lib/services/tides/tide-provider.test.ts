@@ -16,7 +16,8 @@ describe("tide provider by country", () => {
   it("has no provider for Canada until an explicit CHS binding exists (#717)", () => {
     expect(getTideProviderForCountry("Canada")).toBe("unavailable");
     expect(getTideProviderForCountry(" canada ")).toBe("unavailable");
-    expect(getTideProviderForCountry("CA")).toBe("unavailable");
+    // "CA" is the California collision #717 warns about, not Canada.
+    expect(getTideProviderForCountry("CA")).toBe("noaa_coops");
     expect(hasNoaaTideCoverage({ country: "Canada" })).toBe(false);
   });
 

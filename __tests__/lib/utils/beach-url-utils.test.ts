@@ -14,6 +14,8 @@ import {
   isValidStateSlug,
   isValidCountrySlug,
   getCountryDisplayNameFromSlug,
+  getInternationalRegionDisplayName,
+  hasCountryHubPages,
 } from "@/lib/utils/beach-url-utils";
 
 describe("Beach URL Utils", () => {
@@ -718,6 +720,19 @@ describe("Beach URL Utils", () => {
       expect(getCountryDisplayNameFromSlug("mexico")).toBe("Mexico");
       expect(getCountryDisplayNameFromSlug("canada")).toBe("Canada");
       expect(getCountryDisplayNameFromSlug("beginner")).toBe("");
+    });
+
+    it("knows which countries have /beaches hub pages", () => {
+      expect(hasCountryHubPages("usa")).toBe(true);
+      expect(hasCountryHubPages("mexico")).toBe(true);
+      expect(hasCountryHubPages("canada")).toBe(false);
+      expect(hasCountryHubPages("")).toBe(false);
+    });
+
+    it("keeps two-letter region codes upper case in display names", () => {
+      expect(getInternationalRegionDisplayName("bc")).toBe("BC");
+      expect(getInternationalRegionDisplayName("baja-california")).toBe("Baja California");
+      expect(getInternationalRegionDisplayName("")).toBe("");
     });
   });
 });

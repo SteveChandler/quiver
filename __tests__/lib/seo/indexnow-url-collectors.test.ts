@@ -152,6 +152,12 @@ describe("IndexNow URL collectors", () => {
               country: "Mexico",
               beachCount: 2,
             },
+            {
+              city: "Tofino",
+              state: "BC",
+              country: "Canada",
+              beachCount: 4,
+            },
           ],
           error: null,
         });
@@ -207,8 +213,12 @@ describe("IndexNow URL collectors", () => {
         `${SITE_URL}/mexico/baja-california/rosarito`,
         `${SITE_URL}/beaches/mexico`,
         `${SITE_URL}/beaches/mexico/baja-california`,
+        `${SITE_URL}/canada/bc/tofino`,
       ]),
     );
+    // Canada is routed but has no /beaches/canada hub pages, so none are submitted.
+    expect(groups.locationUrls).not.toContain(`${SITE_URL}/beaches/canada`);
+    expect(groups.locationUrls).not.toContain(`${SITE_URL}/beaches/canada/bc`);
     expect(groups.beachDetailUrls).toEqual(
       expect.arrayContaining([
         `${SITE_URL}/ca/san-diego/blacks`,

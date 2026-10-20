@@ -1675,6 +1675,23 @@ describe("Sitemap Generation", () => {
       expect(result.some((route) => route.url === `${baseUrl}/mexico/baja-california/rosarito`)).toBe(false);
     });
 
+    it("emits no country or region hub for a routed country without hub pages (Canada)", async () => {
+      (getAllBeachLocations as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [
+          { city: "Tofino", state: "BC", country: "Canada", beachCount: 4 },
+        ],
+      });
+      (getReviewedCityEditorialContent as jest.Mock).mockResolvedValue([]);
+
+      const result = await sitemap();
+
+      // Only app/beaches/usa and app/beaches/mexico exist; /beaches/canada would 404.
+      expect(result.some((route) => route.url === `${baseUrl}/beaches/canada`)).toBe(false);
+      expect(result.some((route) => route.url === `${baseUrl}/beaches/canada/bc`)).toBe(false);
+      expect(result.some((route) => route.url === `${baseUrl}/beaches/mexico`)).toBe(true);
+    });
+
     it("should include location routes from getAllBeachLocations", async () => {
       // Populate validCitySlugs so US cities pass the scored-beach cross-validation.
       // International cities (Mexico) bypass this check so no beach entry needed for Rosarito.
