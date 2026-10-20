@@ -2,6 +2,7 @@ import { createErrorResponse, createSuccessResponse } from "@/lib/api-utils";
 import { importStartedAt } from "@/lib/sessions/imports/import-start-time";
 import { isGarminWatchUserAllowed } from "@/lib/flags/garmin-watch";
 import { withAuth, withNoStore, withRateLimit } from "@/lib/middleware/api-wrappers";
+import { WATCH_CONTRACT } from "@/lib/watch/contract";
 
 export const runtime = "nodejs";
 
@@ -17,7 +18,7 @@ export const GET = withNoStore(withRateLimit(withAuth(async (_request, { user, s
     .select("id, user_id, device_id, status, origin, error, summary, session_id, created_at")
     .eq("user_id", user.id).eq("origin", "garmin_watch")
     .or("error.is.null,error.neq.duplicate")
-    .in("status", ["failed", "needs_beach"]).gte("created_at", since)
+    .in("status", [WATCH_CONTRACT.failedUploadStatus, "needs_beach"]).gte("created_at", since)
     .order("created_at", { ascending: false }).limit(50);
   if (importsError) throw importsError;
 
