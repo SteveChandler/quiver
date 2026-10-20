@@ -10,6 +10,7 @@ import {
   ForecastBuilder,
 } from "./forecast/forecast-builder";
 import { hashString } from "./forecast/batch-update-coordinator";
+import { chunk } from "@/lib/utils/chunk";
 import { describeThrownError } from "./forecast/error-message";
 import {
   DeadlineTracker,
@@ -104,6 +105,9 @@ interface ComprehensiveForecastDiagnosticResult {
   forecasts: EnhancedForecastWithRawData[];
   cdip: CDIPForecastDiagnostic;
 }
+
+/** Beaches per `v_enhanced_forecast_latest` read; ~8 ms per beach cold, so 50 stays far under the 8 s cap. */
+const LATEST_VIEW_READ_CHUNK = 50;
 
 export class EnhancedForecastService {
   private readonly warnedSchemaColumns = new Set<string>();
@@ -709,6 +713,31 @@ export class EnhancedForecastService {
   }
 
   /**
+   * Read `v_enhanced_forecast_latest` for a bounded set of beaches.
+   *
+   * The view runs a correlated lookup per beach (next-72h rows, timezone-ordered),
+   * so an unfiltered read of all ~570 beaches costs ~0.7-8 s and hits the 8 s
+   * PostgREST statement timeout on slow nights. Reading only the beaches this
+   * run can touch, in fixed-size chunks, keeps every statement well under it.
+   */
+  private async fetchLatestForecastRows<T>(
+    supabase: Awaited<ReturnType<typeof createSupabaseServiceRoleClient>>,
+    beachIds: readonly string[],
+    columns: string,
+  ): Promise<T[]> {
+    const rows: T[] = [];
+    for (const ids of chunk(beachIds, LATEST_VIEW_READ_CHUNK)) {
+      const { data, error } = await supabase
+        .from("v_enhanced_forecast_latest")
+        .select(columns)
+        .in("beach_id", ids);
+      if (error) throw error;
+      rows.push(...((data ?? []) as T[]));
+    }
+    return rows;
+  }
+
+  /**
    * Select beaches for update before staleness, with optional sharding.
    */
   private async selectBeachesForUpdate(
@@ -740,15 +769,15 @@ export class EnhancedForecastService {
       log.info(`Shard ${shard}/${shardCount}: ${eligibleBeaches.length}/${allBeaches.length} beaches in this shard`);
     }
 
-    // Build latest updated_at map
+    // Build latest updated_at map for the beaches this run can touch
     const latestUpdatedAtByBeachMs = new Map<string, number>();
-    const { data: latestRows, error: latestError } = await supabase
-      .from("v_enhanced_forecast_latest")
-      .select("beach_id, updated_at");
+    const latestRows = await this.fetchLatestForecastRows<{ beach_id: string; updated_at: string | null }>(
+      supabase,
+      eligibleBeaches.map((b) => b.id),
+      "beach_id, updated_at",
+    );
 
-    if (latestError) throw latestError;
-
-    for (const row of (latestRows ?? []) as Array<{ beach_id: string; updated_at: string | null }>) {
+    for (const row of latestRows) {
       if (!row?.beach_id || !row.updated_at) continue;
       const ts = new Date(row.updated_at).getTime();
       if (Number.isFinite(ts)) latestUpdatedAtByBeachMs.set(row.beach_id, ts);
@@ -886,15 +915,15 @@ export class EnhancedForecastService {
       return null;
     }
 
-    // Get latest forecast data
-    const { data: latestRows, error: latestError } = await supabase
-      .from("v_enhanced_forecast_latest")
-      .select("beach_id, updated_at, data_source");
-
-    if (latestError) throw latestError;
+    // Get latest forecast data for the CDIP-eligible beaches only
+    const latestRows = await this.fetchLatestForecastRows<{
+      beach_id: string;
+      updated_at: string | null;
+      data_source: string | null;
+    }>(supabase, cdipBeaches.map((b) => b.id), "beach_id, updated_at, data_source");
 
     const latestByBeach = new Map<string, { updated_at: string; data_source: string | null }>();
-    for (const row of (latestRows ?? []) as Array<{ beach_id: string; updated_at: string | null; data_source: string | null }>) {
+    for (const row of latestRows) {
       if (!row?.beach_id || !row.updated_at) continue;
       latestByBeach.set(row.beach_id, { updated_at: row.updated_at, data_source: row.data_source ?? null });
     }
