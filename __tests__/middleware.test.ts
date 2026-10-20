@@ -343,6 +343,20 @@ describe("Middleware", () => {
     expect(clonedUrl.pathname).toBe("/pr/rincon");
   });
 
+  test("redirects /nj/ocean-city-nj to the canonical city hub /nj/ocean-city", async () => {
+    const clonedUrl = { pathname: "/nj/ocean-city-nj" };
+    const request: any = {
+      nextUrl: { pathname: "/nj/ocean-city-nj", clone: () => clonedUrl },
+      url: "http://localhost/nj/ocean-city-nj",
+      method: "GET",
+      headers: new Headers(),
+      cookies: { get: () => undefined, getAll: () => [] },
+    };
+    await middleware(request);
+    expect(mockRedirect).toHaveBeenCalledWith(clonedUrl, { status: 301 });
+    expect(clonedUrl.pathname).toBe("/nj/ocean-city");
+  });
+
   test("redirects /ca/orange-county/{beach} directly to canonical beach URL", async () => {
     mockBeachRowsBySlug["seal-beach"] = {
       slug: "seal-beach",

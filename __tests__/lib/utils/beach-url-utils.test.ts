@@ -1,6 +1,7 @@
 import {
   stateToSlug,
   cityToSlug,
+  isPlaceholderSlug,
   buildBeachUrl,
   buildBeachUrlWithTab,
   parseBeachUrl,
@@ -688,5 +689,18 @@ describe("Beach URL Utils", () => {
       const cityUrl = buildCityUrl("OR", "Newport");
       expect(cityUrl).toBe("/or/newport");
     });
+  });
+});
+
+describe("placeholder slugs", () => {
+  it("never emits null/undefined segments", () => {
+    expect(cityToSlug("null")).toBe("");
+    expect(cityToSlug("Undefined")).toBe("");
+    expect(isPlaceholderSlug("null")).toBe(true);
+    expect(isPlaceholderSlug("san-diego")).toBe(false);
+    expect(
+      buildBeachUrl({ slug: "null", city: "San Francisco", state: "CA" }),
+    ).toBe("/beach/unknown");
+    expect(buildCityUrl("CA", "null")).toBe("/");
   });
 });

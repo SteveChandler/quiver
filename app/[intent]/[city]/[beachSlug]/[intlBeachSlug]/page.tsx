@@ -1,3 +1,4 @@
+import { isNextRouterSignal } from "@/lib/utils/next-router-signal";
 import { BeachPageStructuredData } from "@/components/seo/structured-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
@@ -44,14 +45,7 @@ interface PageProps {
   }>;
 }
 
-function isNextRouterSignal(error: unknown) {
-  if (!error || typeof error !== "object" || !("digest" in error)) return false;
-  const digest = (error as { digest?: unknown }).digest;
-  return (
-    digest === "NEXT_NOT_FOUND" ||
-    (typeof digest === "string" && digest.startsWith("NEXT_REDIRECT"))
-  );
-}
+const RESERVED_NON_COUNTRY_SEGMENTS = new Set(["api", "_next", "ingest"]);
 
 function pickBestInternationalBeachMatch(params: {
   countryParam: string;
@@ -123,6 +117,9 @@ export default async function InternationalBeachDetailPage(props: PageProps) {
 
   // Prevent accidental matches like /ca/san-diego/ocean-beach/extra
   if (isValidStateSlug(countryParam)) notFound();
+
+  // An unmatched /api/** request lands on this catch-all; it is never a beach.
+  if (RESERVED_NON_COUNTRY_SEGMENTS.has(countryParam.toLowerCase())) notFound();
 
   try {
     const { getBeachesBySlug } = await import(
