@@ -12,6 +12,16 @@ describe("learn next-paddle link", () => {
     })).toEqual({ href: "/beginner/santa-cruz", label: "Santa Cruz beginner surf" });
   });
 
+  it("skips comparison and methodology pages that aren't live conditions", () => {
+    expect(resolveLearnNextPaddleLink({
+      relatedLinks: [
+        { label: "Quiver vs Surfline", href: "/vs/surfline", description: "" },
+        { label: "Forecast accuracy", href: "/forecast-accuracy", description: "" },
+        { label: "La Jolla today", href: "/surf-report/la-jolla-today", description: "" },
+      ],
+    })).toEqual({ href: "/surf-report/la-jolla-today", label: "La Jolla today" });
+  });
+
   it("falls back to regional forecasts when every link is another guide", () => {
     expect(resolveLearnNextPaddleLink({
       relatedLinks: [{ label: "Tides", href: "/learn/how-do-tides-work", description: "" }],
