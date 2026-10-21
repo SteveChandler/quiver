@@ -30,7 +30,8 @@ interface StoredProviderRunReceipt {
   revisionSetId: string;
 }
 
-type ProviderRunAcquisitionSkipReason = "latest_issuance_stale" | "latest_issuance_already_evaluated";
+type ProviderRunAcquisitionSkipReason = "latest_issuance_stale" | "latest_issuance_already_evaluated"
+  | "latest_issuance_replicating";
 type ProviderRunAcquisitionResult = StoredProviderRunReceipt | { skipped: true; reason: ProviderRunAcquisitionSkipReason; enqueued: 0 };
 type StoredProviderRunState = { evaluated: boolean };
 
@@ -140,11 +141,14 @@ export async function acquireProviderRunReceipts(
     const issued = metadata.last_run_initialisation_time;
     const available = metadata.last_run_availability_time;
     if (issued % 21_600 !== 0 || metadata.last_run_modification_time < issued
-      || available < metadata.last_run_modification_time || available * 1000 + 600_000 > now) {
+      || available < metadata.last_run_modification_time || available * 1000 > now) {
+      // A future availability time is bad metadata or clock skew, never a wait that ends on its own.
       throw new Error("Provider run is not ready after replication delay");
     }
     runUtc = new Date(issued * 1000).toISOString().slice(0, 16) + "Z";
     if (now > issued * 1000 + 12 * 3_600_000) return { skipped: true, reason: "latest_issuance_stale", enqueued: 0 };
+    // The :15 cron often lands within 10 minutes of a new run going live; the next hourly run acquires it.
+    if (available * 1000 + 600_000 > now) return { skipped: true, reason: "latest_issuance_replicating", enqueued: 0 };
     const candidatesToRead = [runUtc, ...[1, 2].map((hours) =>
       new Date(issued * 1000 - hours * 6 * 3_600_000).toISOString().slice(0, 16) + "Z")];
     const states = await readStoredProviderRunStates(candidatesToRead, client);
