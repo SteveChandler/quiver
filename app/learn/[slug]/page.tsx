@@ -8,6 +8,7 @@ import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { FAQSchema } from "@/components/seo/faq-schema";
 import { LearnFigure } from "@/components/learn/figures/learn-figure";
 import { EmbedFigureSnippet } from "@/components/learn/figures/embed-figure-snippet";
+import { LearnLiveLink } from "@/components/learn/learn-live-link";
 import { ContentPageAppHandoffCta } from "@/components/app-store/content-page-app-handoff-cta";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
@@ -290,6 +291,29 @@ export default async function LearnArticlePage({ params }: Props) {
                     ) : null}
                   </section>
 
+                  {index === 0 && (
+                    <div
+                      data-testid="learn-live-link"
+                      className="-mt-6 mb-12 border-2 border-[#11100D] bg-[#FBF6E8] p-4"
+                    >
+                      <p className="font-mono text-[10px] font-black uppercase tracking-[0.18em] text-[#11100D]/60">
+                        Check it live
+                      </p>
+                      <p className="mt-1 text-sm leading-relaxed text-[#11100D]/72">
+                        This guide is the why. The live page has today&apos;s swell, wind and tide.
+                      </p>
+                      <LearnLiveLink
+                        slug={article.slug}
+                        href={nextPaddle.href}
+                        label={nextPaddle.label}
+                        placement="learn_short_answer_live_link"
+                        className="mt-3 inline-flex min-h-11 items-center font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#B56A2B] hover:text-[#11100D]"
+                      >
+                        {nextPaddle.label} →
+                      </LearnLiveLink>
+                    </div>
+                  )}
+
                   {index % 2 === 1 && section.keyTakeaway && (
                     <blockquote className="notebook rot-1 my-10">
                       <p className="text-lg font-semibold leading-snug text-[#11100D]">
@@ -298,7 +322,7 @@ export default async function LearnArticlePage({ params }: Props) {
                     </blockquote>
                   )}
 
-                  {index === 2 && (
+                  {index === 1 && (
                     <ContentPageAppHandoffCta
                       source={appHandoff.source}
                       surface="learn"
@@ -350,12 +374,15 @@ export default async function LearnArticlePage({ params }: Props) {
                     Use this note, then check a live regional forecast before
                     committing to the drive.
                   </p>
-                  <Link
+                  <LearnLiveLink
+                    slug={article.slug}
                     href={nextPaddle.href}
+                    label={nextPaddle.label}
+                    placement="learn_sidebar_next_paddle"
                     className="mt-4 inline-flex font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#B56A2B] hover:text-[#11100D]"
                   >
                     {nextPaddle.label} →
-                  </Link>
+                  </LearnLiveLink>
                 </div>
               </ScrollReveal>
             </aside>

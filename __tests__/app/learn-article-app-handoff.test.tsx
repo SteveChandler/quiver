@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 
 import LearnArticlePage from "@/app/learn/[slug]/page";
@@ -42,6 +42,11 @@ jest.mock("@/components/app-store/content-page-app-handoff-cta", () => ({
   ),
 }));
 
+const mockTrack = jest.fn();
+jest.mock("@/hooks/use-track-event", () => ({
+  useTrackEvent: () => ({ track: mockTrack }),
+}));
+
 async function renderArticle(slug: string) {
   const ui = await LearnArticlePage({ params: Promise.resolve({ slug }) });
   return render(ui);
@@ -74,5 +79,42 @@ describe("learn article app handoff", () => {
     const rain = await renderArticle("is-it-safe-to-surf-after-rain");
     expect(rain.container.querySelector('a[href="/forecast/santa-cruz"]')).toBeNull();
     expect(rain.container.querySelector('a[href="/forecast"]')).not.toBeNull();
+  });
+
+  it("puts a tracked live-page link right after The Short Answer, before the app ask", async () => {
+    mockTrack.mockClear();
+    const { container } = await renderArticle("beginner-breaks-santa-cruz");
+
+    const early = container.querySelector('a[data-placement="learn_short_answer_live_link"]');
+    expect(early).toHaveAttribute("href", "/beginner/santa-cruz");
+
+    const answer = container.querySelector("article section[id]");
+    const cta = screen.getByTestId("content-page-app-handoff-cta-learn");
+    expect(answer!.compareDocumentPosition(early!) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(early!.compareDocumentPosition(cta) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+
+    fireEvent.click(early!);
+    expect(mockTrack).toHaveBeenCalledWith(
+      "cta_click",
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          cta_family: "learn_live_link",
+          placement: "learn_short_answer_live_link",
+          source: "content-learn-beginner-breaks-santa-cruz",
+          destination_url: "/beginner/santa-cruz",
+        }),
+      }),
+    );
+  });
+
+  it("gives every guide an early live link that never lands on a comparison page", async () => {
+    const { learnArticles } = await import("@/lib/data/learn-articles");
+    for (const { slug } of learnArticles) {
+      const view = await renderArticle(slug);
+      const early = view.container.querySelector('a[data-placement="learn_short_answer_live_link"]');
+      expect(early).not.toBeNull();
+      expect(early!.getAttribute("href")).not.toMatch(/^\/(learn|vs\/|forecast-accuracy|blog)/);
+      view.unmount();
+    }
   });
 });
