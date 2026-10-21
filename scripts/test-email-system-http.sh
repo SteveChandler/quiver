@@ -20,7 +20,7 @@ for migration in __tests__/fixtures/email-lifecycle.sql supabase/migrations/2026
  docker exec -i "$task_name-db" psql -U postgres -v ON_ERROR_STOP=1 < "$repo_dir/$migration" >/dev/null
 done
 fixture_secret='local-email-contract-only-jwt-secret-32-characters'
-docker run -d --name "$task_name-rest" --network "$task_name" -p 127.0.0.1::3000 -e PGRST_DB_URI=postgres://postgres@db:5432/postgres -e PGRST_DB_ANON_ROLE=anon -e PGRST_JWT_SECRET="$fixture_secret" public.ecr.aws/supabase/postgrest:v12.2.3 >/dev/null
+docker run -d --name "$task_name-rest" --network "$task_name" -p 127.0.0.1::3000 -e PGRST_DB_URI=postgres://postgres@db:5432/postgres -e PGRST_DB_ANON_ROLE=anon -e PGRST_JWT_SECRET="$fixture_secret" postgrest/postgrest:v12.2.3@sha256:729bf65c733b73f5b52777f0e4b853f22ed73aa67a22d38269d289779b0a8401 >/dev/null
 rest_port="$(docker port "$task_name-rest" 3000/tcp | sed 's/.*://')"
 export EMAIL_CONTRACT_URL="http://127.0.0.1:$rest_port"
 export EMAIL_CONTRACT_JWT_SECRET="$fixture_secret"
